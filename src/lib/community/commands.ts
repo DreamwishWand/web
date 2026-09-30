@@ -112,3 +112,44 @@ export interface CommunityCommandBus {
     command: CommandEnvelope<ApplyModerationAction>
   ): Promise<CommunityCommandResult>;
 }
+
+
+export interface OpenAccountRecoveryCase {
+  accountId: string;
+  newProvider: string;
+  newProviderSubject: string;
+  reason: string;
+  verificationRef?: string;
+}
+
+export interface CompleteAccountRecovery {
+  recoveryCaseId: string;
+  completionReason: string;
+}
+
+export interface AccountRecoveryCommandResult {
+  recoveryCaseId: string;
+  accountId: string;
+  state: 'open' | 'completed' | 'rejected' | 'cancelled';
+  newAuthIdentityId?: string;
+  retiredIdentityCount?: number;
+}
+
+/**
+ * High-risk support/admin operations are intentionally separated from the
+ * normal CommunityCommandBus. Actor identity and admin authorization are
+ * resolved server-side; product clients must never supply an admin actor ID.
+ *
+ * Provider credential recovery (for example, a normal password-reset flow)
+ * remains the Auth provider's responsibility. This boundary is only for
+ * exceptional support-assisted identity rebinds that preserve the existing
+ * WandAccount, CreatorProfile and content ownership graph.
+ */
+export interface CommunityAdminCommandBus {
+  openAccountRecoveryCase(
+    command: OpenAccountRecoveryCase
+  ): Promise<AccountRecoveryCommandResult>;
+  completeAccountRecovery(
+    command: CompleteAccountRecovery
+  ): Promise<AccountRecoveryCommandResult>;
+}
