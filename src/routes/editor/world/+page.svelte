@@ -96,6 +96,10 @@
         'authoritative GridData dimensions are not yet bound',
       FULL_DESIGN_ALL_ROOT_OBJECT_COMPOSITION_INCOMPLETE:
         'all-root object composition is not yet complete',
+      FULL_DESIGN_ROOT_OBJECT_COMPOSITION_UNRESOLVED:
+        'some direct-root objects are not portable under the current 01B contract',
+      FULL_DESIGN_ROOT_OBJECT_ROUTE_DOCUMENTS_MISSING:
+        'one or more direct-root EditorDocuments could not be bound',
       NATIVE_ROADFENCE_LOGICAL_READER_NOT_BOUND:
         'Core native → logical Road/Fence reader is not yet bound',
       FULL_DESIGN_BUILDING_COMPOSITION_INCOMPLETE:
@@ -115,7 +119,18 @@
   ) {
     if (categoryKey === 'rootObjects') {
       const count = Number(category?.directRootObjectCount ?? 0);
-      return `${count} direct-root object${count === 1 ? '' : 's'} inventoried`;
+      const portable = Number(
+        category?.portableComposition?.entries?.length ?? 0
+      );
+      const unresolved = Number(
+        category?.portableComposition?.unresolved?.length ?? 0
+      );
+      const missing = Number(
+        category?.portableComposition?.missingRoutes?.length ?? 0
+      );
+      return category?.portableComposition
+        ? `${count} inventoried · ${portable} portable · ${unresolved} unresolved · ${missing} route missing`
+        : `${count} direct-root object${count === 1 ? '' : 's'} inventoried`;
     }
     if (categoryKey === 'buildings') {
       const count = Number(category?.restorationCapture?.entries?.length ?? 0);
@@ -399,6 +414,25 @@
       );
       const normalized = normalizeEditorDocument(projectedDocument);
 
+      const fullDesignRootDocuments: any[] = [normalized];
+      for (const root of area.roots ?? []) {
+        if (Number(root.gridId) === Number(rootGridId)) continue;
+        try {
+          fullDesignRootDocuments.push(
+            normalizeEditorDocument(
+              projectSwitchAreaGrid(
+                worldSource,
+                area,
+                Number(root.gridId),
+                switchWorldBinding
+              )
+            )
+          );
+        } catch {
+          // Full-design planning records the missing route fail-closed.
+        }
+      }
+
       session = createEditorSession(normalized);
       editorDocument = session.getDocument();
       layerState = createLayerState({
@@ -416,7 +450,8 @@
         fullDesignPlan = buildCurrentV125FullDesignCapturePlan({
           profile: worldSource.profile,
           rootGridId: Number(rootGridId),
-          sourcePlatform: worldSource.saveIdentity.sourcePlatform
+          sourcePlatform: worldSource.saveIdentity.sourcePlatform,
+          rootEditorDocuments: fullDesignRootDocuments
         });
         resetFullDesignDestination();
       } catch (planningError) {
