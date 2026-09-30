@@ -23,7 +23,7 @@ export default {
   fetch: withSupabase({ auth: 'user' }, async (req, ctx) => {
     if (req.method !== 'POST') return response({ ok: false, error: 'POST required' }, 405);
 
-    const subject = ctx.userClaims?.sub;
+    const subject = ctx.userClaims?.id;
     if (!subject) return response({ ok: false, error: 'Authenticated subject missing' }, 401);
 
     let body: { query?: string; payload?: JsonObject };
