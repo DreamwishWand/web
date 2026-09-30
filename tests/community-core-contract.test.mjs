@@ -478,12 +478,14 @@ test('Community Lab includes actor-switch reply path for reply notification acce
 });
 
 
-test('Community browser client exposes only the derived SearchDocument projection for public discovery', () => {
+test('Community browser client exposes only the RLS-bound public SearchDocument RPC for discovery', () => {
   const client = read('src/lib/community/staging-http-client.ts');
   const page = read('src/routes/community-lab/+page.svelte');
-  assert.match(client, /\/rest\/v1\/search_documents/);
+  assert.match(client, /\/rest\/v1\/rpc\/community_search_public/);
+  assert.match(client, /searchPublicWorks/);
   assert.match(client, /discoverPublicWorks/);
   assert.match(client, /apikey: this\.config\.publishableKey/);
+  assert.doesNotMatch(client, /\/rest\/v1\/search_documents/);
   assert.doesNotMatch(client, /\/rest\/v1\/(community_works|creator_profiles|media_assets)/);
   assert.match(page, /Public SearchDocument discovery/);
   assert.match(page, /Public discovery \(no user JWT\)/);
