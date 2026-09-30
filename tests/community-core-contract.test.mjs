@@ -264,3 +264,43 @@ test('query adapter exposes authorized Preset detail without direct canonical ta
   assert.match(bridge, /community_get_preset/i);
   assert.match(bridge, /private\.can_access_entity/i);
 });
+
+
+test('author lifecycle commands preserve privacy and tombstone semantics', () => {
+  const lifecycle = read('supabase/migrations/20260930041000_community_core_v0_author_lifecycle.sql');
+  const command = read('supabase/functions/community-command/index.ts');
+  assert.match(lifecycle, /community_change_work_visibility/i);
+  assert.match(lifecycle, /community_unpublish_work/i);
+  assert.match(lifecycle, /community_delete_work/i);
+  assert.match(lifecycle, /set deleted_at=coalesce\(deleted_at,now\(\)\)/i);
+  assert.match(command, /changeVisibility: 'community_change_work_visibility'/);
+  assert.match(command, /unpublishWork: 'community_unpublish_work'/);
+  assert.match(command, /deleteWork: 'community_delete_work'/);
+});
+
+test('outbox processing isolates poison events and has bounded retry/dead-letter state', () => {
+  const resilience = read('supabase/migrations/20260930041800_community_core_v0_outbox_resilience.sql');
+  assert.match(resilience, /last_error text null/i);
+  assert.match(resilience, /next_attempt_at timestamptz not null default now\(\)/i);
+  assert.match(resilience, /failed_at timestamptz null/i);
+  assert.match(resilience, /exception when others/i);
+  assert.match(resilience, /v_next_attempt_count >= 5/i);
+  assert.match(resilience, /deadLettered/i);
+  assert.match(resilience, /for update skip locked/i);
+});
+
+test('temporary pg_net staging dependency is explicitly removed after Auth E2E', () => {
+  const removal = read('supabase/migrations/20260930040500_community_staging_remove_pg_net.sql');
+  assert.match(removal, /drop extension if exists pg_net/i);
+});
+
+test('generated database types include sealed revisions and current server RPCs', () => {
+  const generated = read('src/lib/generated/database.types.ts');
+  assert.match(generated, /sealed_at: string \| null/);
+  assert.match(generated, /community_publish_gallery_v3/);
+  assert.match(generated, /community_change_work_visibility/);
+  assert.match(generated, /community_unpublish_work/);
+  assert.match(generated, /community_delete_work/);
+  assert.match(generated, /next_attempt_at: string/);
+  assert.match(generated, /failed_at: string \| null/);
+});
