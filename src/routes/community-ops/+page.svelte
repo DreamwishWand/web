@@ -48,6 +48,11 @@
   let retentionJobId = '';
   let retentionRetryReason = 'Reviewed retention purge failure';
 
+  let escalationState = 'dead_letter';
+  let operationsEscalations: unknown = [];
+  let escalationDeliveryId = '';
+  let escalationRetryReason = 'Reviewed external alert delivery failure';
+
   let retentionAccountId = '';
   let retentionHolds: unknown = [];
   let retentionHoldType = 'security';
@@ -119,6 +124,7 @@
     operationsAlerts = [];
     retentionJobs = [];
     retentionHolds = [];
+    operationsEscalations = [];
   }
 
   async function refreshRecoveryCases() {
@@ -235,6 +241,31 @@
       })
     );
     if (result) await refreshOperationsAlerts();
+  }
+
+  async function refreshOperationsEscalations() {
+    if (!client) return;
+    const result = await run('Load external alert deliveries', () =>
+      client!.admin('listOperationsEscalations', {
+        state: escalationState || null,
+        limit: 50
+      })
+    );
+    if (result) operationsEscalations = result.data ?? [];
+  }
+
+  async function retryOperationsEscalation() {
+    if (!client) return;
+    const result = await run('Retry external alert delivery', () =>
+      client!.admin('retryOperationsEscalation', {
+        deliveryId: escalationDeliveryId,
+        reason: escalationRetryReason
+      })
+    );
+    if (result) {
+      await refreshOperationsEscalations();
+      await refreshOperationsAlerts();
+    }
   }
 
   async function refreshRetentionJobs() {
@@ -382,9 +413,10 @@
         </div>
 
         <p class="ops-note">
-          Persistent alerts cover provider-cleanup, outbox and retention dead letters plus provider-cleanup
-          and retention scheduler/worker heartbeat failures. Alerts resolve automatically when
-          the underlying condition clears.
+          Persistent alerts cover provider-cleanup, outbox, retention and external-alert-delivery
+          dead letters plus provider-cleanup, retention and external-alert worker heartbeat failures.
+          External delivery self-monitor alerts are intentionally not fed back into the same external
+          transport. Alerts resolve automatically when the underlying condition clears.
         </p>
 
         <label>
@@ -403,6 +435,46 @@
         </button>
 
         <pre>{JSON.stringify(operationsAlerts, null, 2)}</pre>
+      </article>
+
+      <article class="ops-card">
+        <h2>External alert deliveries</h2>
+        <p class="ops-note">
+          Provider-neutral critical-alert delivery queue. Self-monitor alerts for this transport are
+          visible in Operations alerts but are never recursively delivered through the same worker.
+          Retry is recent-auth protected and only allowed while the underlying critical occurrence is
+          still open.
+        </p>
+        <div class="ops-actions">
+          <select bind:value={escalationState}>
+            <option value="">all</option>
+            <option value="pending">pending</option>
+            <option value="processing">processing</option>
+            <option value="delivered">delivered</option>
+            <option value="cancelled">cancelled</option>
+            <option value="dead_letter">dead_letter</option>
+          </select>
+          <button on:click={refreshOperationsEscalations} disabled={busy || !session}>
+            Refresh
+          </button>
+        </div>
+
+        <label>
+          Dead-letter delivery ID
+          <input bind:value={escalationDeliveryId} autocomplete="off" />
+        </label>
+        <label>
+          Retry reason
+          <input bind:value={escalationRetryReason} autocomplete="off" />
+        </label>
+        <button
+          on:click={retryOperationsEscalation}
+          disabled={busy || !session || !escalationDeliveryId || escalationRetryReason.length < 8}
+        >
+          Requeue external alert delivery
+        </button>
+
+        <pre>{JSON.stringify(operationsEscalations, null, 2)}</pre>
       </article>
 
       <article class="ops-card">
