@@ -27,8 +27,12 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
   if (!subject) return reply({ ok: false, error: 'Authenticated subject missing' }, 401);
 
   const issuedAt = Number(ctx.jwtClaims?.iat ?? 0);
+  const sessionId = String(ctx.jwtClaims?.session_id ?? '');
   if (!Number.isInteger(issuedAt) || issuedAt <= 0) {
     return reply({ ok: false, error: 'JWT issued-at claim missing' }, 401);
+  }
+  if (!sessionId) {
+    return reply({ ok: false, error: 'JWT session-id claim missing' }, 401);
   }
 
   const { error: sessionError } = await ctx.supabaseAdmin.rpc(
@@ -77,6 +81,7 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       params.p_limit = payload.limit ?? 50;
       break;
     case 'openRecoveryCase':
+      params.p_session_id = sessionId;
       params.p_issued_at_epoch = issuedAt;
       params.p_account_id = payload.accountId;
       params.p_new_provider = payload.newProvider;
@@ -85,11 +90,13 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       params.p_verification_ref = payload.verificationRef ?? null;
       break;
     case 'completeRecoveryCase':
+      params.p_session_id = sessionId;
       params.p_issued_at_epoch = issuedAt;
       params.p_recovery_case_id = payload.recoveryCaseId;
       params.p_completion_reason = payload.completionReason;
       break;
     case 'retryProviderCleanup':
+      params.p_session_id = sessionId;
       params.p_issued_at_epoch = issuedAt;
       params.p_cleanup_job_id = payload.cleanupJobId;
       params.p_reason = payload.reason;
