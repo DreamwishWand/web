@@ -17,7 +17,9 @@ import {
   partitionFenceConnectedComponents,
   planFenceNativeRepresentation,
   planFenceStraightRun,
+  planFreshRoadFenceGridObjectIds,
   planRoadNativeRepresentation,
+  preflightRoadFenceDirectWrite,
   predictConnectedFenceRemoval,
   predictFenceStyleReplacement,
   previewFenceStyleReplacement,
@@ -848,4 +850,83 @@ test('Fence over-max native plan preserves logical quantity and deterministic se
   );
   assert.equal(plan.nativeOracleInventoryCost, 10);
   assert.equal(plan.wandListInventoryDelta, 0);
+});
+
+
+test('fresh Road/Fence ID planner reproduces current DW-R01 identity allocation', () => {
+  const cells = rasterizeRoadPath([
+    { x: 0, y: 0 },
+    { x: 1, y: 0 },
+    { x: 2, y: 0 }
+  ]).cells;
+  const network = createRoadNetwork({ familyBaseItemID: 40100068, cells }).network;
+  const nativePlan = planRoadNativeRepresentation({
+    network,
+    originSave: { x: 328, y: 52 },
+    pitchX: 4
+  });
+  const identityPlan = planFreshRoadFenceGridObjectIds(nativePlan, { nextGridObjectID: 15845 });
+  assert.equal(identityPlan.ok, true);
+  assert.deepEqual(identityPlan.allocatedGridObjectIDs, [15845, 15846, 15847]);
+  assert.equal(identityPlan.resultingNextGridObjectID, 15848);
+  assert.deepEqual(identityPlan.objects.map((object) => [object.id, object.x, object.y]), [
+    [15845, 328, 52],
+    [15846, 332, 52],
+    [15847, 336, 52]
+  ]);
+  assert.equal(identityPlan.persistentWriteAuthorized, false);
+});
+
+test('direct-write preflight blocks a native plan until world surface is externally validated', () => {
+  const cells = rasterizeRoadPath([{ x: 0, y: 0 }, { x: 1, y: 0 }]).cells;
+  const network = createRoadNetwork({ familyBaseItemID: 40100068, cells }).network;
+  const nativePlan = planRoadNativeRepresentation({
+    network,
+    originSave: { x: 328, y: 52 },
+    pitchX: 4
+  });
+  const blocked = preflightRoadFenceDirectWrite({
+    nativePlan,
+    targetSurfaceValidated: false,
+    nextGridObjectID: 15845
+  });
+  assert.equal(blocked.ok, false);
+  assert.ok(blocked.issues.some((issue) => issue.code === RoadFenceValidationCode.TARGET_SURFACE_UNVERIFIED));
+  assert.equal(blocked.preserveOwnershipState, true);
+  assert.equal(blocked.preserveCollectionState, true);
+  assert.equal(blocked.preserveEntitlementState, true);
+  assert.equal(blocked.persistentWriteAuthorized, false);
+});
+
+test('direct-write preflight returns identity plan only after explicit external surface validation', () => {
+  const cells = rasterizeRoadPath([{ x: 0, y: 0 }, { x: 1, y: 1 }]).cells;
+  const network = createRoadNetwork({ familyBaseItemID: 40100068, cells }).network;
+  const nativePlan = planRoadNativeRepresentation({
+    network,
+    originSave: { x: 328, y: 52 },
+    pitchX: 4
+  });
+  const accepted = preflightRoadFenceDirectWrite({
+    nativePlan,
+    targetSurfaceValidated: true,
+    nextGridObjectID: 15845
+  });
+  assert.equal(accepted.ok, true);
+  assert.deepEqual(accepted.identityPlan.allocatedGridObjectIDs, [15845, 15846, 15847, 15848]);
+  assert.equal(accepted.identityPlan.resultingNextGridObjectID, 15849);
+  assert.equal(accepted.preserveOwnershipState, true);
+  assert.equal(accepted.persistentWriteAuthorized, false);
+});
+
+test('fresh ID planner rejects invalid or unsafe NextGridObjectID input', () => {
+  const cells = rasterizeRoadPath([{ x: 0, y: 0 }]).cells;
+  const network = createRoadNetwork({ familyBaseItemID: 40100068, cells }).network;
+  const nativePlan = planRoadNativeRepresentation({
+    network,
+    originSave: { x: 328, y: 52 },
+    pitchX: 4
+  });
+  const invalid = planFreshRoadFenceGridObjectIds(nativePlan, { nextGridObjectID: 0 });
+  assert.equal(invalid.ok, false);
+  assert.equal(invalid.errors[0].code, RoadFenceValidationCode.GRIDOBJECT_ID_ALLOCATION_INVALID);
 });
