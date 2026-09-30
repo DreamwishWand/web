@@ -391,6 +391,7 @@ export type Database = {
           moderation_state: Database["public"]["Enums"]["moderation_state"]
           owner_account_id: string
           profile_visibility: Database["public"]["Enums"]["visibility_state"]
+          row_version: number
           updated_at: string
         }
         Insert: {
@@ -404,6 +405,7 @@ export type Database = {
           moderation_state?: Database["public"]["Enums"]["moderation_state"]
           owner_account_id: string
           profile_visibility?: Database["public"]["Enums"]["visibility_state"]
+          row_version?: number
           updated_at?: string
         }
         Update: {
@@ -417,6 +419,7 @@ export type Database = {
           moderation_state?: Database["public"]["Enums"]["moderation_state"]
           owner_account_id?: string
           profile_visibility?: Database["public"]["Enums"]["visibility_state"]
+          row_version?: number
           updated_at?: string
         }
         Relationships: [
@@ -1507,6 +1510,18 @@ export type Database = {
           p_expected_version: number
           p_idempotency_key: string
           p_work_id: string
+        }
+        Returns: Json
+      }
+      community_update_creator_profile: {
+        Args: {
+          p_auth_subject: string
+          p_bio: string
+          p_display_name: string
+          p_expected_version: number
+          p_handle: string
+          p_idempotency_key: string
+          p_profile_visibility: string
         }
         Returns: Json
       }
