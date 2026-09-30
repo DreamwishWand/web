@@ -1,6 +1,6 @@
 # Dreamwish Wand transactional email activation — dreamwishwand.com — 2026-09-30
 
-Status: **READY FOR USER CONFIGURATION**
+Status: **DOMAIN VERIFIED / CREDENTIAL CONFIGURATION NEXT**
 
 ## Canonical launch configuration
 
@@ -31,9 +31,9 @@ Operator recipient:
 Normal Community activity remains in-app only. Comment / Reply / Reaction / Follow / Save do not
 produce transactional email.
 
-## Phase A — Resend domain verification
+## Phase A — Resend domain verification — COMPLETE
 
-User action is required.
+**CONFIRMED (user-observed Resend UI, 2026-10-01):** `dreamwishwand.com` is `Verified` in Resend.
 
 1. Create or sign in to the Resend account that will own Dreamwish Wand transactional mail.
 2. Add `dreamwishwand.com` as a sending domain.
@@ -46,7 +46,7 @@ User action is required.
 7. Do not change DMARC policy blindly. If a DMARC record already exists, inspect it before editing.
 
 The exact SPF/DKIM record values are provider-issued runtime configuration and are intentionally not
-stored in the repo.
+stored in the repo. Independent public-DNS re-resolution was not available from the current execution environment, so the evidence source is the Resend provider UI rather than a second resolver.
 
 ## Phase B — separate Resend credentials
 
