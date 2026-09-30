@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
-const placement=require('../src/lib/ddv/core/world/placement-v125.js');
-const world=require('../src/lib/ddv/core/world/adapter-v125.js');
+const placement=require('../static/ddv/core/world/v1.25/placement-v125.cjs');
+const world=require('../static/ddv/core/world/v1.25/adapter-v125.cjs');
 const fx=JSON.parse(fs.readFileSync(new URL('./fixtures/ddv-world/core-world-v125-observed-fixture.json',import.meta.url),'utf8'));
 let passed=0;const t=(name,fn)=>{fn();passed++;console.log('PASS',name);};
 function tinyGrid(){return {sizeX:8,sizeY:8,encoding:'DIRECT_FIXED32',floorTypes:Array(64).fill(8),compactedFloorTypeIndex:[],compactedFloorTypes:[]};}

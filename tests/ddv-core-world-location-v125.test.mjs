@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
-const loc=require('../src/lib/ddv/core/world/location-v125.js');
+const loc=require('../static/ddv/core/world/v1.25/location-v125.cjs');
 const audit=JSON.parse(fs.readFileSync(new URL('./fixtures/ddv-world/outdoor-location-routing-audit-v125.json',import.meta.url),'utf8'));
 let passed=0;const t=(name,fn)=>{try{fn();passed++;console.log('PASS',name);}catch(e){console.error('FAIL',name,e);process.exitCode=1;}};
 function profileFromAudit({gridOffset=0,reverseIds=false}={}){

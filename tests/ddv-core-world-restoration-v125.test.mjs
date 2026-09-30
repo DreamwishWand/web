@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
-const require=createRequire(import.meta.url);const r=require('../src/lib/ddv/core/world/restoration-v125.js');
+const require=createRequire(import.meta.url);const r=require('../static/ddv/core/world/v1.25/restoration-v125.cjs');
 let passed=0;const t=(n,f)=>{f();passed++;console.log('PASS',n);};
 const world={PlayerHouses:[{HouseItemID:20500005},{HouseItemID:20500109}]};
 t('environment captures item+orientation only',()=>{const x=r.captureEnvironmentState({EnvironmentEffectItemID:60100004,EnvironmentEffectOrientation:'GridOrientation_Right'},{targetKind:'FLOATING_ISLAND'});assert.equal(x.status,'CAPTURED');assert.deepEqual(x.portableState,{codec:'ddv.environment-effect@1',targetKind:'FLOATING_ISLAND',effectItemId:60100004,orientation:4});});
