@@ -26,6 +26,18 @@ function messageOf(error: unknown): string {
   return String(error ?? 'external escalation failed');
 }
 
+function operatorSubject(alertType: string): string {
+  const labels: Record<string, string> = {
+    provider_cleanup_dead_letter: 'Provider cleanup needs attention',
+    provider_cleanup_worker_stale: 'Provider cleanup worker needs attention',
+    retention_dead_letter: 'Retention cleanup needs attention',
+    retention_worker_stale: 'Retention worker needs attention',
+    outbox_dead_letter: 'Community delivery needs attention'
+  };
+
+  return `Dreamwish Wand operations alert — ${labels[alertType] ?? 'Action may be required'}`;
+}
+
 export default {
   fetch: withSupabase({ auth: 'none' }, async (req, ctx) => {
     if (req.method !== 'POST') return reply({ ok: false, error: 'POST required' }, 405);
@@ -95,11 +107,13 @@ export default {
             schema: 'dreamwishwand.transactional-email.operator-critical.v1',
             purpose: 'operator_critical_operations_alert',
             idempotencyKey: `operations-alert/${job.alertId}/${job.occurrence}`,
-            subject: `[Dreamwish Wand][CRITICAL] ${job.alertType}`,
+            subject: operatorSubject(job.alertType),
             text: [
-              'Dreamwish Wand Community Operations Alert',
+              'Dreamwish Wand operations alert',
               '',
-              `Type: ${job.alertType}`,
+              'A critical background operation may need attention.',
+              '',
+              `Internal type: ${job.alertType}`,
               `Severity: ${job.severity}`,
               `Occurrence: ${job.occurrence}`,
               `First seen: ${job.firstSeenAt}`,
