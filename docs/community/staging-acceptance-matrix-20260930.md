@@ -10,7 +10,7 @@ Staging project: `dreamwish-wand-staging` / `ap-northeast-1`.
 
 | Case | Status | Confirmed evidence | Remaining closure |
 |---|---|---|---|
-| VS-01 Identity / Creator stability | PARTIAL | Real Auth identity round-trip, stable CreatorProfile edit, support-assisted ownership recovery, recent-auth age checks and Wand session-cutoff behavior are CONFIRMED at their staging backend boundaries. The internal Lab now also implements PKCE password recovery, reauthentication/password change and all-session revocation; implementation and CI PASS. | Execute the normal provider/browser recovery and identity path with a real staging user, and complete the support-verification console. |
+| VS-01 Identity / Creator stability | PARTIAL | Real Auth identity round-trip, stable CreatorProfile edit, support-assisted ownership recovery and Wand session-cutoff behavior are CONFIRMED at their staging backend boundaries. Recent-auth is now session-bound: high-risk operations use verified JWT session_id + auth.sessions.created_at, so refreshing an old session cannot satisfy the window; fresh/stale/missing-session runtime tests PASS. The internal Lab implements PKCE password recovery, reauthentication/password change and all-session revocation, and the hidden Community Ops console implements admin recovery/dead-letter operations; implementation and CI PASS. | Execute the normal provider/browser recovery + identity path with a real staging user and execute Community Ops with a real staging admin. Final support-verification procedure and production recent-auth thresholds remain policy work. |
 | VS-02 Gallery draft -> validated media -> immutable publish | CONFIRMED PASS | Real HTTP staging E2E used a real Supabase Auth JWT, `community-media.prepare`, actual PNG signed Storage PUT, server-side finalize/re-download, MIME+dimension+SHA-256 validation, READY MediaAsset registration, Gallery draft and `community_publish_gallery_v3`. Identity/prepare/upload/finalize/publish/query all returned 200; published work read back as `published` and normal revision sealing/media immutability applied. Detailed evidence: `docs/community/vs02-vs12-media-network-runtime-20260930.md`. | Product-shaped browser execution through Community Lab remains separate from the backend/network acceptance. |
 | VS-03 Public discovery identity consistency | CONFIRMED PASS | PUBLIC+CLEAR+PUBLISHED enters SearchDocument; UNLISTED does not; anon/auth cannot scan canonical Community tables; search resolves to stable work/entity IDs. Internal Lab can query the published/target work through the authorized query boundary. | Full Product Tree discovery presentation remains outside this Community vertical-slice gate. |
 | VS-04 Save / Follow / Reaction / Comment / Reply + retry | CONFIRMED PASS | Real staging RPC state changes passed; duplicate Save/Follow/Reaction remain one logical row; comment/reply targets validated; idempotent publication retry returns the same revision. Internal Lab implements B target read, Save, Follow, Like, Comment and stored-parent Reply after actor switch. | Execute the implemented A -> B -> reply browser path. |
@@ -23,7 +23,7 @@ Staging project: `dreamwish-wand-staging` / `ap-northeast-1`.
 | VS-11 Stale SavedItem | CONFIRMED PASS | SavedItem survives later privacy/unpublish/delete state but returns `accessible=false`; save is not an access grant. | UI handling for unavailable saved items remains pending. |
 | VS-12 Media guards/delivery | CONFIRMED PASS | DB guards already passed. Real HTTP staging E2E additionally completed signed upload -> finalize -> server byte validation -> signed read URL -> actual signed read fetch with an image file. Server detected `image/png`, 1×1 dimensions and a 64-hex SHA-256; returned bytes matched upload length. Fixture, Storage object and temporary E2E mechanism were fully removed; Security Advisor returned WARN 0 afterward. | Product browser UX and final production storage/provider policy remain separate launch work. |
 | VS-13 Concurrent/retry uniqueness | CONFIRMED PASS | True overlapping multi-backend staging stress passed using independent pg_cron workers with ~1 second measured overlap. Save: 6 workers/6 PIDs -> 1 SavedItem. Follow: 6/6 -> 1 Follow + 1 Outbox event. Reaction: 6/6 -> 1 Reaction + 1 Outbox event. Same Gallery-draft idempotency key: 6/6 returned one identical workId with 1 idempotency row/work/outbox event. DDV Profile cap race from starting count 2: two overlapping workers -> exactly one third link and one max-three rejection; final count 3. Full fixture cleanup verified residue 0 and immutable guards re-enabled. | Browser/app acceptance remains separate; no further database parallel-session blocker. |
-| VS-14 Failure atomicity / downstream retry | CONFIRMED PASS | Failed publish leaves no revision/publish outbox/idempotency completion; successful publication and outbox commit together. Poison outbox event no longer blocks later events; retry uses backoff and dead-letters after five failed attempts. | Operational dead-letter review UI/alerting remains pending. |
+| VS-14 Failure atomicity / downstream retry | CONFIRMED PASS | Failed publish leaves no revision/publish outbox/idempotency completion; successful publication and outbox commit together. Poison outbox event no longer blocks later events; retry uses backoff and dead-letters after five failed attempts. Hidden Community Ops now exposes staff dead-letter listing/requeue for outbox and admin dead-letter listing/requeue for provider cleanup. | Browser/operator runtime and production alerting remain pending. |
 | VS-15 Tombstone/history preservation | CONFIRMED PASS | Owner soft delete tombstones CommunityEntity, removes discovery and access, preserves published revision/comment/report history, and keeps SavedItem as inaccessible reference. Account deletion now has a separate recent-auth tombstone path that anonymizes the Creator/profile and authored comments, hides owned works, removes private interactions/DDV links, retires AuthIdentity mappings and queues provider-account cleanup without retaining the original provider subject in public Community tables. Provider cleanup queue claim/retry/dead-letter behavior is CONFIRMED in staging DB; secret-only worker is deployed. | Final retention/purge periods remain policy work. Real provider-user deletion through the worker plus production scheduler/alerting are still pending. |
 
 ## Gate conclusion
@@ -35,7 +35,7 @@ The overall Community Phase 2 release gate is **not yet complete** because the a
 1. execute the already-implemented internal Community Lab with real staging A/B/Moderator users and capture secret-free runtime evidence;
 2. complete actual signed media upload/finalize/read E2E through that browser path;
 3. connect WEP's validated Preset payload/preflight/apply path to the already-proven Community Preset envelope/Library bridge, then rerun VS-01..VS-15 without direct SQL orchestration;
-4. complete operations closure: run a real provider-account deletion through the secret-only cleanup worker, configure/verify its scheduler and dead-letter alerting, add outbox dead-letter review/alerting, and finalize account recovery/deletion retention periods.
+4. complete operations closure: execute Community Ops with a real staging admin, run a real provider-account deletion through the secret-only cleanup worker, configure/verify its scheduler and dead-letter alerting, add production alerting for outbox/provider dead letters, and finalize support verification plus account recovery/deletion retention periods.
 
 The current public GitHub Pages deployment remains unchanged.
 
@@ -52,3 +52,24 @@ Wand-side account tombstone and provider-account deletion are intentionally deco
 - Detailed evidence: `docs/community/provider-cleanup-runtime-20260930.md`.
 
 Operational completion remains pending until a disposable real staging Auth user is deleted through that worker and the recurring scheduler/alert path is verified.
+
+
+## Session-bound recent-auth / support operations checkpoint
+
+High-risk operations no longer use JWT age as recent-auth proof.
+
+- verified JWT `session_id` is matched to `auth.sessions.user_id`;
+- recent-auth age is calculated from `auth.sessions.created_at`;
+- refreshed JWTs do not reset the recent-auth clock;
+- missing/mismatched sessions fail closed;
+- legacy iat-only recent-auth calls fail closed;
+- account tombstone and admin recovery/provider-cleanup writes use the session-bound helper.
+
+Real staging DB tests confirm fresh-session acceptance and stale-session rejection even with a
+current JWT `iat`.
+
+The hidden `/community-ops/` route and JWT-required `community-admin` Edge boundary are
+implemented for recovery case operations plus provider/outbox dead-letter review and requeue.
+Detailed operator runbook: `docs/community/community-ops-v0.md`.
+
+Browser/operator runtime acceptance remains pending.
