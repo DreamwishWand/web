@@ -590,3 +590,19 @@ test('Community Lab recovery flow uses PKCE and stays outside public navigation'
   assert.match(callback, /noindex,nofollow/);
   assert.doesNotMatch(header, /community-lab\/recovery/i);
 });
+
+
+test('recovery state is short-lived while Auth session tokens remain tab-scoped', () => {
+  const client = read('src/lib/community/staging-http-client.ts');
+  assert.match(client, /RECOVERY_MAX_AGE_MS = 60 \* 60 \* 1000/);
+  assert.match(client, /localStorage\.setItem\(\s*RECOVERY_KEY/);
+  assert.match(client, /sessionStorage\.setItem\(SESSION_KEY/);
+  assert.doesNotMatch(client, /localStorage\.setItem\(SESSION_KEY/);
+});
+
+test('reauthenticated credential change revokes provider sessions and advances Wand cutoff', () => {
+  const client = read('src/lib/community/staging-http-client.ts');
+  assert.match(client, /\/auth\/v1\/reauthenticate/);
+  assert.match(client, /nonce: nonce\.trim\(\)/);
+  assert.match(client, /return this\.revokeAllSessions\(\)/);
+});
