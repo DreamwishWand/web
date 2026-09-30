@@ -976,3 +976,105 @@ export function previewFenceStyleReplacement({
     persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
   };
 }
+
+
+const ROAD_NEIGHBOR_OFFSETS = Object.freeze([
+  [-1, -1], [0, -1], [1, -1],
+  [-1, 0],            [1, 0],
+  [-1, 1],  [0, 1],   [1, 1]
+]);
+
+export function selectRoadConnected(cells = [], seedCoordinate) {
+  assertIntegerCoordinate(seedCoordinate, 'seedCoordinate');
+  const validation = validateRoadCells(cells);
+  if (!validation.ok) {
+    return {
+      ok: false,
+      errors: validation.errors,
+      persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+    };
+  }
+
+  const cellByKey = new Map((cells ?? []).map((cell) => [coordinateKey(cell), cell]));
+  const seedKey = coordinateKey(seedCoordinate);
+  if (!cellByKey.has(seedKey)) {
+    return {
+      ok: false,
+      errors: [{
+        code: RoadFenceValidationCode.READ_ONLY_UNSUPPORTED,
+        reason: 'Road connected selection seed does not exist',
+        seedCoordinate
+      }],
+      persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+    };
+  }
+
+  const selected = new Set([seedKey]);
+  const queue = [seedKey];
+  while (queue.length) {
+    const key = queue.shift();
+    const cell = cellByKey.get(key);
+    for (const [dx, dy] of ROAD_NEIGHBOR_OFFSETS) {
+      const nextKey = coordinateKey({ x: cell.x + dx, y: cell.y + dy });
+      if (cellByKey.has(nextKey) && !selected.has(nextKey)) {
+        selected.add(nextKey);
+        queue.push(nextKey);
+      }
+    }
+  }
+
+  const selectedCells = [...selected]
+    .map((key) => cellByKey.get(key))
+    .sort((a, b) => a.y - b.y || a.x - b.x);
+
+  return {
+    ok: true,
+    cells: selectedCells,
+    logicalQuantity: selectedCells.length,
+    persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+  };
+}
+
+export function previewRoadStyleReplacement({
+  cells = [],
+  seedCoordinate,
+  sourceFamilyBaseItemID,
+  targetFamilyBaseItemID,
+  targetAvailableLogicalQuantity = Number.POSITIVE_INFINITY
+}) {
+  if (sourceFamilyBaseItemID === undefined || targetFamilyBaseItemID === undefined) {
+    throw new TypeError('source and target Road family Base ItemIDs are required');
+  }
+  if (sourceFamilyBaseItemID === targetFamilyBaseItemID) {
+    return {
+      ok: false,
+      code: RoadFenceValidationCode.READ_ONLY_UNSUPPORTED,
+      reason: 'source and target Road families are identical',
+      persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+    };
+  }
+
+  const selected = selectRoadConnected(cells, seedCoordinate);
+  if (!selected.ok) return selected;
+  const quantity = selected.logicalQuantity;
+  if (targetAvailableLogicalQuantity < quantity) {
+    return {
+      ok: false,
+      code: RoadFenceValidationCode.INVENTORY_SHORTAGE,
+      requiredLogicalQuantity: quantity,
+      availableLogicalQuantity: targetAvailableLogicalQuantity,
+      persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+    };
+  }
+
+  return {
+    ok: true,
+    sourceFamilyBaseItemID,
+    targetFamilyBaseItemID,
+    cells: selected.cells,
+    logicalQuantity: quantity,
+    sourceInventoryDelta: quantity,
+    targetInventoryDelta: -quantity,
+    persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+  };
+}
