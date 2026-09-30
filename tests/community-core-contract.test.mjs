@@ -1646,7 +1646,7 @@ test('Resend operator relay is fixed-purpose, idempotent and fail-closed', () =>
   assert.match(provider, /Dreamwish Wand uses \*\*Resend\*\*/);
   assert.match(provider, /Auth SMTP credential/);
   assert.match(provider, /Operator\/API credential/);
-  assert.match(provider, /current project SSoT does not identify a canonical custom Wand domain/i);
+  assert.match(provider, /verified Resend domain: `dreamwishwand\.com`/);
   assert.match(provider, /No second independent alert channel is required for first launch/);
 });
 
