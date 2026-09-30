@@ -4,6 +4,7 @@ import {
   WEP_WORLD_READ_DATA_SWITCH_DRIVE_ID,
   WEP_WORLD_READ_PROFILE_SCHEMA,
   listWorldAreaRoutes,
+  listWorldFloatingIslandRoutes,
   openWorldSaveBytes
 } from '../src/lib/wep/world-save-source.ts';
 import { makeSyntheticP1gProfile } from './helpers/p1g-fixture.mjs';
@@ -86,6 +87,85 @@ test('lists Village/Area/direct Grid routes without inventing role semantics', (
   });
 });
 
+test('lists only Core-resolved Floating Island routes by SceneItemId', () => {
+  const withIslands = structuredClone(profile);
+  withIslands.World.GridCollection.Grids['20'] = {
+    ID: 20,
+    GridDataPath: 'GridData/FloatingIsland/Test.json',
+    GridDefaultLayoutPath: '',
+    TessellationFactor: 1,
+    Objects: {
+      '200': {
+        ID: 200,
+        ItemID: 40000173,
+        X: 4,
+        Y: 5,
+        Orientation: 'GridOrientation_Up',
+        State: {}
+      }
+    }
+  };
+  withIslands.World.FloatingIslands = {
+    '1540000100': {
+      SceneItemId: 1540000100,
+      GridIDs: [20],
+      Unlocked: true,
+      EnvironmentEffectItemID: 0,
+      EnvironmentEffectOrientation: 'GridOrientation_Right'
+    },
+    FloatingIsland_Library: {
+      GridIDs: [20]
+    }
+  };
+
+  const result = listWorldFloatingIslandRoutes(withIslands);
+  assert.deepEqual(result.routes, [
+    {
+      sceneItemId: 1540000100,
+      unlocked: true,
+      roots: [
+        {
+          gridId: 20,
+          gridDataPath: 'GridData/FloatingIsland/Test.json',
+          gridDefaultLayoutPath: '',
+          tessellationFactor: 1,
+          objectCount: 1
+        }
+      ]
+    }
+  ]);
+  assert.deepEqual(result.diagnostics, [
+    {
+      code: 'FLOATING_ISLAND_IDENTITY_KEY_UNSUPPORTED',
+      mapKey: 'FloatingIsland_Library',
+      sceneItemId: null
+    }
+  ]);
+});
+
+test('Floating Island key/value mismatch stays diagnostic instead of becoming a route', () => {
+  const withIslands = structuredClone(profile);
+  withIslands.World.FloatingIslands = {
+    '1540000100': {
+      SceneItemId: 1540000101,
+      GridIDs: [10],
+      Unlocked: true
+    }
+  };
+
+  const result = listWorldFloatingIslandRoutes(withIslands);
+  assert.equal(result.routes.length, 0);
+  assert.equal(result.diagnostics.length, 1);
+  assert.equal(
+    result.diagnostics[0].code,
+    'FLOATING_ISLAND_ROUTE_UNRESOLVED'
+  );
+  assert.equal(
+    result.diagnostics[0].status,
+    'AMBIGUOUS_FAIL_CLOSED'
+  );
+});
+
 test('opens plaintext current-v1.25 schema read-only', async () => {
   const bytes = new TextEncoder().encode(JSON.stringify(profile));
   const opened = await openWorldSaveBytes(bytes);
@@ -97,6 +177,8 @@ test('opens plaintext current-v1.25 schema read-only', async () => {
   assert.equal(opened.compatibility.exactBuildKnown, false);
   assert.equal(opened.compatibility.persistentWriteAuthorized, false);
   assert.equal(opened.areas.length, 1);
+  assert.deepEqual(opened.floatingIslands, []);
+  assert.deepEqual(opened.floatingIslandDiagnostics, []);
 });
 
 test('opens packaged P1G current-v1.25 save read-only', async () => {
