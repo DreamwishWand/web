@@ -46,7 +46,7 @@ Exceptional ownership recovery:
 
 Before launch:
 
-1. verify the Wand sender domain in Resend and configure production Auth SMTP/provider quotas;
+1. verify `dreamwishwand.com` in Resend; configure Supabase Auth custom SMTP with `smtp.resend.com`, sender `Dreamwish Wand <no-reply@dreamwishwand.com>`, a dedicated Auth SMTP credential, and accepted provider/rate-limit quotas;
 2. enable/verify email confirmation policy;
 3. execute signup -> verification -> sign-in in a real browser;
 4. execute PKCE recovery end-to-end;
