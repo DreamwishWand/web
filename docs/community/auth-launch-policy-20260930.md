@@ -54,7 +54,9 @@ Before launch:
 4. execute PKCE recovery end-to-end;
 5. execute all-session revocation;
 6. verify provider/Wand session cutoff convergence;
-7. set production abuse/rate limits for signup, login, recovery and verification.
+7. record and accept the production Auth rate-limit configuration without weakening Supabase endpoint/IP protections;
+8. size aggregate Auth-email quota only after the transactional email provider and expected launch traffic are known;
+9. decide CAPTCHA enablement from staging/closed-beta abuse evidence.
 
 Staging email-provider rate limiting during repeated E2E work is not promoted into a product
 semantic conclusion.
@@ -70,3 +72,13 @@ First-launch recent-auth windows are finalized at:
 Both remain configuration-driven for future security review, but are no longer an unresolved launch
 parameter. Recent-auth proof remains bound to `auth.sessions.created_at`; refreshing a JWT does not
 refresh the recent-auth clock.
+
+
+## Abuse / rate-limit contract
+
+Detailed launch boundary:
+
+`docs/community/auth-abuse-launch-policy-20260930.md`
+
+Endpoint/IP protection is a fixed security invariant. Aggregate email throughput is a deployment
+capacity value and remains pending until the production transactional-email provider is configured.
