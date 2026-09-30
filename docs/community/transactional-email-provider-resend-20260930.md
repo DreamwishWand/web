@@ -1,6 +1,6 @@
 # Community Core transactional email provider — Resend — 2026-09-30
 
-Status: **HIGH CONFIDENCE PROVIDER DEFAULT / ACTIVATION PENDING**
+Status: **HIGH CONFIDENCE PROVIDER + DOMAIN CONTRACT / ACTIVATION PENDING**
 
 ## Decision
 
@@ -82,24 +82,32 @@ credential and vice versa.
 
 Production and real-mail staging acceptance require a verified sender domain.
 
-Recommended shape after a Wand domain is selected:
+Canonical first-launch sender domain:
 
-- transactional sender: `no-reply@<wand-domain>` or equivalent;
-- optional dedicated sending subdomain may be used later if deliverability isolation is needed;
+- verified Resend domain: `dreamwishwand.com`;
+- Auth verification/recovery From: `Dreamwish Wand <no-reply@dreamwishwand.com>`;
+- operator critical From: `Dreamwish Wand Ops <ops@dreamwishwand.com>`;
 - operator recipient stays the operator's normal mailbox and is never committed to the repo.
 
-The current project SSoT does not identify a canonical custom Wand domain, so sender-domain selection
-is a user-owned prerequisite before real delivery acceptance.
+No marketing/broadcast mail is sent through this launch contract. If marketing is introduced later,
+use a separately isolated sending domain/subdomain and policy.
+
+An optional dedicated transactional subdomain may be introduced later only if deliverability,
+reputation-isolation or organizational evidence justifies it; it is not required for first launch.
 
 ## Supabase Auth
 
-After the domain is verified in Resend:
+After `dreamwishwand.com` is verified in Resend:
 
-1. create a dedicated Resend SMTP/API credential for Auth;
-2. configure Supabase Auth custom SMTP using Resend SMTP;
-3. set the verified From address;
-4. preserve mandatory email verification;
-5. execute signup -> verification -> sign-in and PKCE recovery through the real browser.
+1. create a dedicated Resend credential for Auth SMTP;
+2. configure Supabase Auth custom SMTP:
+   - host `smtp.resend.com`;
+   - username `resend`;
+   - password = dedicated Resend credential kept outside repo/chat;
+   - sender = `no-reply@dreamwishwand.com`;
+   - sender name = `Dreamwish Wand`;
+3. preserve mandatory email verification;
+4. execute signup -> verification -> sign-in and PKCE recovery through the real browser.
 
 Supabase's built-in default SMTP remains test-only and is not a production dependency.
 
@@ -107,9 +115,9 @@ Supabase's built-in default SMTP remains test-only and is not a production depen
 
 After domain/provider setup:
 
-1. create a dedicated Resend API key for the Edge adapter;
+1. create a dedicated Resend API key for the Edge adapter, separate from the Auth SMTP credential;
 2. generate a separate random `COMMUNITY_EMAIL_RELAY_TOKEN`;
-3. configure the four Edge secrets outside source control;
+3. configure the four Edge secrets outside source control; set `DREAMWISH_EMAIL_FROM` to `Dreamwish Wand Ops <ops@dreamwishwand.com>`;
 4. configure the durable Operations escalation destination:
    - channel = `operator_email`;
    - URL = deployed `community-email-resend` function URL;
@@ -158,9 +166,8 @@ CONFIRMED:
 
 PENDING:
 
-- Resend account ownership;
-- canonical Wand sender domain;
-- DNS verification;
+- Resend account ownership/connection;
+- DNS verification of `dreamwishwand.com`;
 - secrets/configuration;
 - Supabase Auth SMTP acceptance;
 - real operator mailbox delivery;
