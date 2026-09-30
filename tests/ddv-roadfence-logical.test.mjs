@@ -45,7 +45,7 @@ test('one Road diagonal quantum rasterizes to a 2x2 cell rectangle', () => {
   ]);
   const result = rasterizeRoadPath([{ x: 0, y: 0 }, { x: 1, y: 1 }]);
   assert.equal(result.cells.length, 4);
-  assert.equal(result.inventoryQuantity, 4);
+  assert.equal(result.logicalQuantity, 4);
   assert.equal(result.requiresRuntimeTransitionNormalization, false);
   assert.ok(result.cells.every((cell) => cell.mode === FenceMode.DIAGONAL));
 });
@@ -53,7 +53,7 @@ test('one Road diagonal quantum rasterizes to a 2x2 cell rectangle', () => {
 test('two same-slope Road diagonal quanta deduplicate to seven persistent cells', () => {
   const result = rasterizeRoadPath([{ x: 0, y: 0 }, { x: 1, y: 1 }, { x: 2, y: 2 }]);
   assert.equal(result.cells.length, 7);
-  assert.equal(result.inventoryQuantity, 7);
+  assert.equal(result.logicalQuantity, 7);
   assert.equal(result.requiresRuntimeTransitionNormalization, false);
 });
 
@@ -122,7 +122,7 @@ test('connected remove refunds logical Fence quantity, not serialized object cou
   const plan = planFenceStraightRun(8, FenceMode.ORTHOGONAL);
   assert.equal(plan.components.length, 3);
   const prediction = predictConnectedFenceRemoval({ components: plan.components, gridObjectIds: [10, 11, 12] });
-  assert.equal(prediction.refundLogicalQuantity, 8);
+  assert.equal(prediction.nativeOracleRefundLogicalQuantity, 8);
   assert.deepEqual(prediction.removedGridObjectIds, [10, 11, 12]);
   assert.equal(prediction.persistentWriteAuthorized, false);
 });
@@ -137,8 +137,11 @@ test('style replacement preserves logical quantity while refunding source and co
   assert.deepEqual(prediction, {
     ok: true,
     logicalQuantity: 8,
-    sourceInventoryDelta: 8,
-    targetInventoryDelta: -8,
+    nativeOracleSourceInventoryDelta: 8,
+    nativeOracleTargetInventoryDelta: -8,
+    wandSourceInventoryDelta: 0,
+    wandTargetInventoryDelta: 0,
+    ownershipMutationRequired: false,
     replacedGridObjectIds: [10, 11, 12],
     requiresFreshTargetGridObjectIds: 3,
     persistentWriteAuthorized: false
@@ -159,6 +162,30 @@ test('Capture Region topology clipping fails closed', () => {
   });
   assert.deepEqual(validateContainedTopology(['a', 'b', 'c'], ['a', 'b', 'c']), { ok: true, code: null });
   assert.deepEqual(validateContainedTopology(['a', 'b', 'c'], []), { ok: true, code: null });
+});
+
+test('native accounting is separated from Wand ownership mutation', () => {
+  const road = rasterizeRoadPath([{ x: 0, y: 0 }, { x: 1, y: 1 }]);
+  assert.equal(road.logicalQuantity, 4);
+  assert.equal(road.nativeOracleInventoryCost, 4);
+
+  const fence = planFenceStraightRun(8, FenceMode.ORTHOGONAL);
+  const remove = predictConnectedFenceRemoval({ components: fence.components, gridObjectIds: [1, 2, 3] });
+  assert.equal(remove.removedLogicalQuantity, 8);
+  assert.equal(remove.nativeOracleRefundLogicalQuantity, 8);
+  assert.equal(remove.wandListInventoryDelta, 0);
+  assert.equal(remove.ownershipMutationRequired, false);
+
+  const replace = predictFenceStyleReplacement({
+    sourceComponents: fence.components,
+    sourceGridObjectIds: [1, 2, 3],
+    targetAvailableLogicalQuantity: 8
+  });
+  assert.equal(replace.nativeOracleSourceInventoryDelta, 8);
+  assert.equal(replace.nativeOracleTargetInventoryDelta, -8);
+  assert.equal(replace.wandSourceInventoryDelta, 0);
+  assert.equal(replace.wandTargetInventoryDelta, 0);
+  assert.equal(replace.ownershipMutationRequired, false);
 });
 
 test('persistent Road/Fence writer remains hard-disabled', () => {
@@ -224,7 +251,7 @@ test('interior Fence logical erase splits and recompiles surviving components', 
   const edges = Array.from({ length: 9 }, (_, x) => ({ a: `n${x}`, b: `n${x + 1}` }));
   const erased = eraseFenceLogicalUnits({ nodes, edges }, ['n4']);
   assert.equal(erased.ok, true);
-  assert.equal(erased.refundLogicalQuantity, 1);
+  assert.equal(erased.nativeOracleRefundLogicalQuantity, 1);
   assert.equal(erased.remainingLogicalQuantity, 9);
   assert.equal(erased.compiled.components.length, 2);
   assert.deepEqual(erased.compiled.components.map((component) => component.logicalQuantity).sort((a, b) => a - b), [4, 5]);
@@ -295,7 +322,7 @@ test('Fence rectangle outline closes as one orthogonal component without duplica
 test('Road region fill creates one persistent logical cell per rectangle coordinate', () => {
   const result = buildRoadRegionFill({ minX: 2, minY: 4, maxX: 4, maxY: 5 });
   assert.equal(result.cells.length, 6);
-  assert.equal(result.inventoryQuantity, 6);
+  assert.equal(result.logicalQuantity, 6);
   assert.ok(result.cells.every((cell) => cell.mode === FenceMode.ORTHOGONAL));
   assert.equal(result.persistentWriteAuthorized, false);
 });
@@ -304,7 +331,7 @@ test('Road logical erase refunds exactly the erased cell count', () => {
   const filled = buildRoadRegionFill({ minX: 0, minY: 0, maxX: 2, maxY: 1 });
   const erased = eraseRoadCells(filled.cells, [{ x: 1, y: 0 }, { x: 2, y: 1 }]);
   assert.equal(erased.ok, true);
-  assert.equal(erased.refundLogicalQuantity, 2);
+  assert.equal(erased.nativeOracleRefundLogicalQuantity, 2);
   assert.equal(erased.remainingLogicalQuantity, 4);
   assert.equal(erased.cells.length, 4);
 });
@@ -344,7 +371,7 @@ test('Road topology transform rotates and translates cells without changing logi
   });
   assert.equal(transformed.ok, true);
   assert.equal(transformed.cells.length, 4);
-  assert.equal(transformed.inventoryQuantity, 4);
+  assert.equal(transformed.logicalQuantity, 4);
   assert.ok(transformed.cells.some((cell) => cell.x === 10 && cell.y === 20));
   assert.ok(transformed.cells.some((cell) => cell.x === 9 && cell.y === 21));
 });
@@ -394,8 +421,8 @@ test('Fence style replacement preview selects only the rooted native-connected c
   assert.equal(preview.ok, true);
   assert.deepEqual(preview.nodeIds, ['o1', 'o2', 'o3']);
   assert.equal(preview.logicalQuantity, 3);
-  assert.equal(preview.sourceInventoryDelta, 3);
-  assert.equal(preview.targetInventoryDelta, -3);
+  assert.equal(preview.nativeOracleSourceInventoryDelta, 3);
+  assert.equal(preview.nativeOracleTargetInventoryDelta, -3);
   assert.equal(preview.persistentWriteAuthorized, false);
 });
 
@@ -429,8 +456,8 @@ test('Road style replacement preview accounts for one eight-neighbor connected c
   });
   assert.equal(preview.ok, true);
   assert.equal(preview.logicalQuantity, 3);
-  assert.equal(preview.sourceInventoryDelta, 3);
-  assert.equal(preview.targetInventoryDelta, -3);
+  assert.equal(preview.nativeOracleSourceInventoryDelta, 3);
+  assert.equal(preview.nativeOracleTargetInventoryDelta, -3);
   assert.equal(preview.cells.length, 3);
   assert.equal(preview.persistentWriteAuthorized, false);
 });
