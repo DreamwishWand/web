@@ -441,3 +441,21 @@ test('generated schema includes CreatorProfile rowVersion and update RPC', () =>
   assert.match(generated, /community_update_creator_profile/);
   assert.match(generated, /creator_profiles:[\s\S]*row_version: number/i);
 });
+
+
+test('Community Lab includes owner visibility, unpublish and soft-delete acceptance path', () => {
+  const page = read('src/routes/community-lab/+page.svelte');
+  for (const marker of [
+    'Owner privacy / unpublish / tombstone',
+    'ownerChangeVisibility',
+    "'changeVisibility'",
+    'ownerUnpublish',
+    "'unpublishWork'",
+    'ownerDelete',
+    "'deleteWork'",
+    'SavedItem may remain'
+  ]) {
+    assert.ok(page.includes(marker), marker);
+  }
+  assert.match(page, /targetRowVersion = Number\(result\?\.data\?\.rowVersion/);
+});
