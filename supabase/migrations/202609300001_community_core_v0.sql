@@ -842,3 +842,240 @@ using (public.is_discoverable_work(work_id));
 -- the service role, which performs authorization, optimistic concurrency,
 -- idempotency and state-change + outbox atomicity in one transaction.
 -- RLS therefore acts as defense-in-depth and as the public/read boundary.
+
+
+-- Additional relational integrity guards for the shared ownership boundary.
+
+create or replace function validate_work_creator_owner()
+returns trigger language plpgsql as $$
+begin
+  if not exists (
+    select 1 from creator_profiles c
+    where c.creator_profile_id = new.creator_profile_id
+      and c.owner_account_id = new.owner_account_id
+  ) then
+    raise exception 'CommunityWork creator must belong to owner account';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists community_works_creator_owner_guard on community_works;
+create trigger community_works_creator_owner_guard
+before insert or update of owner_account_id, creator_profile_id on community_works
+for each row execute function validate_work_creator_owner();
+
+create or replace function validate_preset_creator_owner()
+returns trigger language plpgsql as $$
+begin
+  if not exists (
+    select 1 from creator_profiles c
+    where c.creator_profile_id = new.creator_profile_id
+      and c.owner_account_id = new.owner_account_id
+  ) then
+    raise exception 'PresetArtifact creator must belong to owner account';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists preset_artifacts_creator_owner_guard on preset_artifacts;
+create trigger preset_artifacts_creator_owner_guard
+before insert or update of owner_account_id, creator_profile_id on preset_artifacts
+for each row execute function validate_preset_creator_owner();
+
+create or replace function prevent_self_follow()
+returns trigger language plpgsql as $$
+begin
+  if exists (
+    select 1 from creator_profiles c
+    where c.creator_profile_id = new.creator_profile_id
+      and c.owner_account_id = new.follower_account_id
+  ) then
+    raise exception 'Self-follow is not allowed';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists follows_no_self_follow on follows;
+create trigger follows_no_self_follow
+before insert or update on follows
+for each row execute function prevent_self_follow();
+
+create or replace function validate_comment_target_type()
+returns trigger language plpgsql as $$
+declare
+  kind community_entity_type;
+begin
+  select entity_type into kind
+  from community_entities
+  where entity_id = new.target_entity_id
+    and deleted_at is null;
+
+  if kind not in ('community_work','preset_artifact') then
+    raise exception 'Comments may target CommunityWork or PresetArtifact only';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists comments_target_type_guard on comments;
+create trigger comments_target_type_guard
+before insert or update of target_entity_id on comments
+for each row execute function validate_comment_target_type();
+
+create or replace function validate_work_revision_media_owner()
+returns trigger language plpgsql as $$
+declare
+  work_owner uuid;
+  media_owner uuid;
+begin
+  select w.owner_account_id into work_owner
+  from community_work_revisions r
+  join community_works w on w.work_id = r.work_id
+  where r.revision_id = new.work_revision_id;
+
+  select m.owner_account_id into media_owner
+  from media_assets m
+  where m.media_id = new.media_id;
+
+  if work_owner is null or media_owner is null or work_owner <> media_owner then
+    raise exception 'Published work revision may reference only owner-controlled media';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists work_revision_media_owner_guard on work_revision_media;
+create trigger work_revision_media_owner_guard
+before insert or update on work_revision_media
+for each row execute function validate_work_revision_media_owner();
+
+create or replace function validate_preset_revision_blob_owner()
+returns trigger language plpgsql as $$
+declare
+  preset_owner uuid;
+  blob_owner uuid;
+begin
+  select p.owner_account_id into preset_owner
+  from preset_artifacts p
+  where p.preset_artifact_id = new.preset_artifact_id;
+
+  select b.owner_account_id into blob_owner
+  from artifact_blobs b
+  where b.blob_id = new.artifact_blob_id;
+
+  if preset_owner is null or blob_owner is null or preset_owner <> blob_owner then
+    raise exception 'Preset revision may reference only owner-controlled artifact blobs';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists preset_revisions_blob_owner_guard on preset_revisions;
+create trigger preset_revisions_blob_owner_guard
+before insert or update on preset_revisions
+for each row execute function validate_preset_revision_blob_owner();
+
+create or replace function validate_gallery_revision_type()
+returns trigger language plpgsql as $$
+begin
+  if not exists (
+    select 1
+    from community_work_revisions r
+    join community_works w on w.work_id = r.work_id
+    join gallery_works g on g.work_id = w.work_id
+    where r.revision_id = new.revision_id
+      and w.work_type = 'gallery'
+  ) then
+    raise exception 'GalleryWorkRevision must belong to a Gallery CommunityWork';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists gallery_work_revisions_type_guard on gallery_work_revisions;
+create trigger gallery_work_revisions_type_guard
+before insert or update on gallery_work_revisions
+for each row execute function validate_gallery_revision_type();
+
+create or replace function validate_preset_publication_mapping()
+returns trigger language plpgsql as $$
+declare
+  published_work uuid;
+  preset_work uuid;
+begin
+  select work_id into published_work
+  from community_work_revisions
+  where revision_id = new.work_revision_id;
+
+  select p.community_work_id into preset_work
+  from preset_revisions pr
+  join preset_artifacts p on p.preset_artifact_id = pr.preset_artifact_id
+  where pr.preset_revision_id = new.preset_revision_id;
+
+  if published_work is null or preset_work is null or published_work <> preset_work then
+    raise exception 'Preset publication must map the Preset revision to its own CommunityWork revision';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists preset_revision_publications_mapping_guard on preset_revision_publications;
+create trigger preset_revision_publications_mapping_guard
+before insert or update on preset_revision_publications
+for each row execute function validate_preset_publication_mapping();
+
+create or replace function increment_work_row_version()
+returns trigger language plpgsql as $$
+begin
+  new.row_version := old.row_version + 1;
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+drop trigger if exists community_works_row_version on community_works;
+create trigger community_works_row_version
+before update on community_works
+for each row execute function increment_work_row_version();
+
+create or replace function increment_comment_row_version()
+returns trigger language plpgsql as $$
+begin
+  new.row_version := old.row_version + 1;
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+drop trigger if exists comments_row_version on comments;
+create trigger comments_row_version
+before update on comments
+for each row execute function increment_comment_row_version();
+
+drop trigger if exists moderation_actions_immutable on moderation_actions;
+create trigger moderation_actions_immutable
+before update or delete on moderation_actions
+for each row execute function prevent_immutable_revision_mutation();
+
+drop trigger if exists audit_events_immutable on audit_events;
+create trigger audit_events_immutable
+before update or delete on audit_events
+for each row execute function prevent_immutable_revision_mutation();
+
+drop policy if exists ddv_profiles_owner_read on ddv_profiles;
+create policy ddv_profiles_owner_read on ddv_profiles for select
+using (
+  public.is_staff()
+  or exists (
+    select 1 from wand_account_ddv_profiles l
+    where l.ddv_profile_id = ddv_profiles.ddv_profile_id
+      and l.account_id = public.current_wand_account_id()
+  )
+);
+
+drop policy if exists wand_account_ddv_profiles_owner_read on wand_account_ddv_profiles;
+create policy wand_account_ddv_profiles_owner_read on wand_account_ddv_profiles for select
+using (account_id = public.current_wand_account_id() or public.is_staff());
