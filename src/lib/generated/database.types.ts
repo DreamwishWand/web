@@ -1677,12 +1677,24 @@ export type Database = {
         Args: { p_limit: number; p_lock_token: string }
         Returns: Json
       }
+      community_claim_operations_escalations: {
+        Args: { p_limit: number; p_lock_token: string }
+        Returns: Json
+      }
       community_claim_provider_cleanup_jobs: {
         Args: { p_limit: number; p_lock_token: string }
         Returns: Json
       }
       community_complete_account_retention_job: {
         Args: { p_lock_token: string; p_retention_job_id: string }
+        Returns: Json
+      }
+      community_complete_operations_escalation: {
+        Args: {
+          p_delivery_id: string
+          p_http_status: number
+          p_lock_token: string
+        }
         Returns: Json
       }
       community_complete_provider_cleanup: {
@@ -1740,6 +1752,15 @@ export type Database = {
         }
         Returns: Json
       }
+      community_fail_operations_escalation: {
+        Args: {
+          p_delivery_id: string
+          p_error: string
+          p_http_status?: number
+          p_lock_token: string
+        }
+        Returns: Json
+      }
       community_fail_provider_cleanup: {
         Args: {
           p_cleanup_job_id: string
@@ -1779,6 +1800,10 @@ export type Database = {
           p_limit?: number
           p_state?: string
         }
+        Returns: Json
+      }
+      community_get_operations_escalation_destination: {
+        Args: never
         Returns: Json
       }
       community_get_preset: {
