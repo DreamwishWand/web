@@ -1792,6 +1792,10 @@ export type Database = {
         }
         Returns: Json
       }
+      community_verify_worker_token: {
+        Args: { p_token: string; p_worker_name: string }
+        Returns: boolean
+      }
     }
     Enums: {
       account_status: "active" | "restricted" | "suspended" | "deleted"
