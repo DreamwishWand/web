@@ -1,6 +1,6 @@
 # Community Core transactional email provider — Resend — 2026-09-30
 
-Status: **CONFIRMED OPS PROVIDER DELIVERY / AUTH ACCEPTANCE PENDING**
+Status: **CONFIRMED OPS EMAIL ACCEPTANCE / AUTH ACCEPTANCE PENDING**
 
 ## Decision
 
@@ -175,10 +175,17 @@ CONFIRMED:
 - minimized operational payload;
 - canonical test alert resolved after delivery.
 
+CONFIRMED additional Ops acceptance:
+
+- human mailbox visibility;
+- repeated alert occurrence produced a distinct second delivery;
+- controlled delivery failure entered pending retry state;
+- restored relay allowed the same delivery to recover on attempt 2;
+- provider status returned to delivered;
+- canonical endpoint was restored and fixture alerts were resolved.
+
 PENDING:
 
-- human confirmation of mailbox visibility;
-- recurrence/failure-retry acceptance through the active operator email path;
 - Supabase Auth SMTP browser acceptance;
 - real browser Auth verification/recovery flows.
 
