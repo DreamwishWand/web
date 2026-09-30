@@ -1,11 +1,11 @@
-import '../ddv/core/world/core-world-v125-adapter-v1_3.js';
+import '../ddv/core/world/runtime-v125/adapter-v125.js';
 
 import type { OpenWorldSaveResult, WorldAreaRoute } from './world-save-source.ts';
 
-export const WORLD_ADAPTER_V13_SOURCE_SHA256 =
-  '2ee1f8695d2f1c5e5e5820c33ce0ba56393120768652c1b5ab36feb840126d12';
+export const WORLD_ADAPTER_V16_SOURCE_SHA256 =
+  '60b56d95b263d8ad8401bcacee5e990201d2b854af440bbd257af3348c65b85c';
 export const WORLD_ROLE_AUTHORITY_V125_SHA256 =
-  '94c958c5a689504c008a53f1f9e8466d4d51697eb4f4adf521a1599472c363f6';
+  'f16fe61adb356b1e46c59ca053588cc1ed5f9ad187866db04905ede31c9184cc';
 export const WORLD_READ_SWITCH_V125_SHA256 =
   '53db127eb796c0d4b103695258700d18de69f5403d1067cd956396cd1b03ffa6';
 export const WORLD_READ_SWITCH_V125_BUILD_ID = '52BD625D9B4E0053';
@@ -89,7 +89,7 @@ function normalizeReadData(raw: CompactReadData) {
   if (
     !raw ||
     raw.schema !== 'dreamwish-wand-v125-world-read-data' ||
-    raw.version !== 1 ||
+    raw.version !== 2 ||
     raw.platform !== 'Nintendo Switch' ||
     raw.gameVersion !== '1.25.0' ||
     raw.buildID !== WORLD_READ_SWITCH_V125_BUILD_ID ||
@@ -177,7 +177,7 @@ export async function createSwitchWorldReadAdapter({
       fetchImpl
     ),
     fetchPinnedJson<RoleAuthority>(
-      `${prefix}/ddv/v1.25/grid-role-authority-v125.json`,
+      `${prefix}/ddv/core/world/v1.25/grid-role-authority-v125.json`,
       WORLD_ROLE_AUTHORITY_V125_SHA256,
       fetchImpl
     )
@@ -202,7 +202,8 @@ export async function createSwitchWorldReadAdapter({
       profileSchemaVersion: 624
     }),
     provenance: Object.freeze({
-      adapterSourceSha256: WORLD_ADAPTER_V13_SOURCE_SHA256,
+      adapterSourceSha256: WORLD_ADAPTER_V16_SOURCE_SHA256,
+      adapterContractVersion: '01B-v1.6',
       roleAuthoritySha256: WORLD_ROLE_AUTHORITY_V125_SHA256,
       readDataSha256: WORLD_READ_SWITCH_V125_SHA256,
       readDataBuildID: WORLD_READ_SWITCH_V125_BUILD_ID,
@@ -253,7 +254,7 @@ export function projectSwitchAreaGrid(
     metadata: {
       ...document.metadata,
       browserBinding: {
-        adapter: '01B-v1.3-integrator-approved',
+        adapter: '01B-v1.6-integrator-approved',
         sourcePlatform: 'switch',
         exactBuildKnown: false,
         persistentWriteAuthorized: false,
