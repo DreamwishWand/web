@@ -21,6 +21,12 @@ jobs:
           node-version: '22'
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.1.4
+      - name: Edge Function type checks
+        run: deno check supabase/functions/*/index.ts
       - name: Type and component checks
         run: npm run check
       - name: Contract tests
