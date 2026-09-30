@@ -18,7 +18,8 @@ const operationToRpc = {
   addRetentionHold: 'community_admin_add_retention_hold',
   releaseRetentionHold: 'community_admin_release_retention_hold',
   listOperationsEscalations: 'community_get_operations_escalation_deliveries',
-  retryOperationsEscalation: 'community_admin_retry_operations_escalation'
+  retryOperationsEscalation: 'community_admin_retry_operations_escalation',
+  getSecurityPolicy: 'community_get_security_policy_summary'
 } as const;
 
 type OperationName = keyof typeof operationToRpc;
@@ -165,6 +166,8 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       params.p_issued_at_epoch = issuedAt;
       params.p_delivery_id = payload.deliveryId;
       params.p_reason = payload.reason;
+      break;
+    case 'getSecurityPolicy':
       break;
   }
 
