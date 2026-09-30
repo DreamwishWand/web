@@ -64,7 +64,7 @@ function validatePortableState(value: unknown) {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('Scene SubGrid object is invalid');
     const object = raw as Record<string, unknown>;
     const id = String(object.artifactObjectId ?? '');
-    if (!/^c\\d+$/.test(id) || ids.has(id)) throw new Error('Scene SubGrid artifact identity is invalid');
+    if (!/^c\d+$/.test(id) || ids.has(id)) throw new Error('Scene SubGrid artifact identity is invalid');
     ids.add(id);
     if (!Number.isInteger(Number(object.itemId)) || Number(object.itemId) <= 0 ||
         !Number.isInteger(Number(object.localX)) || !Number.isInteger(Number(object.localY)) ||
@@ -108,7 +108,7 @@ function validateNetworkCapture(value: unknown, kind: 'roads' | 'fences', width:
         if (!rawNode || typeof rawNode !== 'object' || Array.isArray(rawNode)) throw new Error('Scene Fence node is invalid');
         const node = rawNode as Record<string, unknown>;
         const id = String(node.id ?? ''), x = Number(node.x), y = Number(node.y);
-        if (!/^n\\d+$/.test(id) || nodeIds.has(id) || !Number.isInteger(x) || !Number.isInteger(y) ||
+        if (!/^n\d+$/.test(id) || nodeIds.has(id) || !Number.isInteger(x) || !Number.isInteger(y) ||
             x < 0 || y < 0 || x >= width || y >= height || !String(node.mode ?? '')) {
           throw new Error('Scene Fence node is invalid');
         }
@@ -153,7 +153,7 @@ function validateArtifact(value: unknown) {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('Invalid Scene object');
     const object = raw as Record<string, unknown>;
     const id = String(object.artifactObjectId ?? '');
-    if (!/^o\\d+$/.test(id) || ids.has(id)) throw new Error('Scene artifact object identity is invalid');
+    if (!/^o\d+$/.test(id) || ids.has(id)) throw new Error('Scene artifact object identity is invalid');
     ids.add(id);
     if (!Number.isInteger(Number(object.itemId)) || Number(object.itemId) <= 0) throw new Error('Scene itemId is invalid');
     if (!Number.isInteger(Number(object.localX)) || !Number.isInteger(Number(object.localY))) throw new Error('Scene local position is invalid');
