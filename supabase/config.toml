@@ -1,0 +1,22 @@
+# Supabase Edge Function platform-auth configuration.
+# Browser/user endpoints keep the default verify_jwt = true.
+# These service-to-service endpoints authenticate inside the handler with dedicated
+# worker/relay credentials and therefore must reach the handler without a user JWT.
+
+[functions.community-auth]
+verify_jwt = false
+
+[functions.community-retention]
+verify_jwt = false
+
+[functions.community-ops-escalation]
+verify_jwt = false
+
+[functions.community-ops-email]
+verify_jwt = false
+
+[functions.community-email-resend]
+verify_jwt = false
+
+[functions.wep-preset-retention]
+verify_jwt = false
