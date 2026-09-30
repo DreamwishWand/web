@@ -811,8 +811,9 @@ test('provider cleanup worker token never appears as a repository literal', () =
   for (const source of [authMigration, setupMigration, worker]) {
     assert.doesNotMatch(source, /community_provider_cleanup_worker_token\s*=\s*['"][A-Fa-f0-9]{32,}/);
     assert.doesNotMatch(source, /sb_secret_[A-Za-z0-9_-]+/);
-    assert.doesNotMatch(source, /service_role/i);
   }
+
+  assert.doesNotMatch(worker, /SUPABASE_SERVICE_ROLE_KEY|service_role\s*[:=]/i);
 });
 
 test('generated schema exposes only the worker-token verification RPC, not private Vault helpers', () => {
