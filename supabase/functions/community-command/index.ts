@@ -9,14 +9,18 @@ const commandToRpc = {
   createGalleryDraft: 'community_create_gallery_draft',
   publishGallery: 'community_publish_gallery_v3',
   saveEntity: 'community_save_entity',
+  unsaveEntity: 'community_unsave_entity',
   followCreator: 'community_follow_creator',
+  unfollowCreator: 'community_unfollow_creator',
   addReaction: 'community_add_reaction',
+  removeReaction: 'community_remove_reaction',
   addComment: 'community_add_comment',
   reportEntity: 'community_report_entity',
   changeVisibility: 'community_change_work_visibility',
   unpublishWork: 'community_unpublish_work',
   deleteWork: 'community_delete_work',
-  moderateWork: 'community_moderate_work'
+  moderateWork: 'community_moderate_work',
+  retryDeadLetter: 'community_retry_dead_letter_outbox'
 } as const;
 
 type CommandName = keyof typeof commandToRpc;
@@ -82,12 +86,15 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         params.p_idempotency_key = payload.idempotencyKey;
         break;
       case 'saveEntity':
+      case 'unsaveEntity':
         params.p_target_entity_id = payload.targetEntityId;
         break;
       case 'followCreator':
+      case 'unfollowCreator':
         params.p_creator_profile_id = payload.creatorProfileId;
         break;
       case 'addReaction':
+      case 'removeReaction':
         params.p_target_entity_id = payload.targetEntityId;
         params.p_reaction_kind = payload.reactionKind;
         break;
@@ -121,6 +128,10 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         params.p_action = payload.action;
         params.p_reason = payload.reason;
         break;
+      case 'retryDeadLetter':
+        params.p_outbox_id = payload.outboxId;
+        params.p_reason = payload.reason;
+        break;
     }
 
     const { data, error } = await ctx.supabaseAdmin.rpc(rpc, params);
@@ -131,7 +142,8 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       const forbidden =
         error.message.includes('does not own') ||
         error.message.includes('not accessible') ||
-        error.message.includes('not active');
+        error.message.includes('not active') ||
+        error.message.includes('role required');
 
       return reply(
         {
