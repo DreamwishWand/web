@@ -10,6 +10,7 @@ import {
 import {
   ROADFENCE_NATIVE_CATALOG_V125_SCHEMA,
   ROADFENCE_NATIVE_READER_V125_SCHEMA,
+  captureRoadFenceReaderRegionV125,
   readRoadFenceNativeGridV125
 } from '../src/lib/ddv/core/roadfence/native-reader-v125.js';
 
@@ -235,4 +236,126 @@ test('reader ignores non-Road/Fence native objects and never upgrades read suppo
   assert.equal(result.roads.length, 1);
   assert.equal(result.fences.length, 0);
   assert.equal(result.persistentWriteAuthorized, false);
+});
+
+
+test('contained-only Road capture localizes a full component to Capture Region coordinates', () => {
+  const reader = readRoadFenceNativeGridV125({
+    grid: grid([
+      nativeObject(1, 40100068, 328, 60, 'GridOrientation_Down', diagonalState()),
+      nativeObject(2, 40100068, 332, 60, 'GridOrientation_Down', diagonalState()),
+      nativeObject(3, 40100068, 328, 64, 'GridOrientation_Down', diagonalState()),
+      nativeObject(4, 40100068, 332, 64, 'GridOrientation_Down', diagonalState())
+    ]),
+    catalog: catalog()
+  });
+  const capture = captureRoadFenceReaderRegionV125(
+    reader,
+    'roads',
+    { x: 328, y: 60, w: 8, h: 8 }
+  );
+
+  assert.equal(capture.status, 'supported');
+  assert.equal(capture.data.schema, 'dreamwish-wand-wep-network-capture');
+  assert.equal(capture.data.kind, 'roads');
+  assert.equal(capture.data.originPolicy, 'capture-region-top-left');
+  assert.deepEqual(capture.data.networks, [{
+    networkId: 'r0',
+    familyBaseItemID: 40100068,
+    familyName: 'Path_MainStreet',
+    cells: [
+      { x: 0, y: 0, mode: FenceMode.DIAGONAL },
+      { x: 4, y: 0, mode: FenceMode.DIAGONAL },
+      { x: 0, y: 4, mode: FenceMode.DIAGONAL },
+      { x: 4, y: 4, mode: FenceMode.DIAGONAL }
+    ]
+  }]);
+  assert.equal(JSON.stringify(capture.data).includes('gridObjectId'), false);
+  assert.equal(capture.data.persistentWriteAuthorized, false);
+});
+
+test('contained-only topology capture blocks a clipped Road component', () => {
+  const reader = readRoadFenceNativeGridV125({
+    grid: grid([
+      nativeObject(1, 40100068, 328, 60, 'GridOrientation_Down', diagonalState()),
+      nativeObject(2, 40100068, 332, 60, 'GridOrientation_Down', diagonalState()),
+      nativeObject(3, 40100068, 328, 64, 'GridOrientation_Down', diagonalState()),
+      nativeObject(4, 40100068, 332, 64, 'GridOrientation_Down', diagonalState())
+    ]),
+    catalog: catalog()
+  });
+  const capture = captureRoadFenceReaderRegionV125(
+    reader,
+    'roads',
+    { x: 328, y: 60, w: 4, h: 8 }
+  );
+
+  assert.equal(capture.status, 'blocked');
+  assert.equal(capture.code, 'TOPOLOGY_CLIPPED_UNSUPPORTED');
+  assert.equal(
+    capture.issues.every((issue) => issue.code === 'TOPOLOGY_CLIPPED_UNSUPPORTED'),
+    true
+  );
+});
+
+test('contained-only Fence capture emits portable nN identity and preserves FM01 touch as non-connectivity', () => {
+  const reader = readRoadFenceNativeGridV125({
+    grid: grid([
+      nativeObject(15901, 40700246, 400, 60),
+      nativeObject(15902, 40700247, 400, 62, 'GridOrientation_Left'),
+      nativeObject(15903, 40700246, 400, 64),
+      nativeObject(15904, 40700246, 402, 66, 'GridOrientation_Down', diagonalState())
+    ]),
+    catalog: catalog()
+  });
+
+  const capture = captureRoadFenceReaderRegionV125(
+    reader,
+    'fences',
+    { x: 400, y: 60, w: 4, h: 8 }
+  );
+  assert.equal(capture.status, 'supported');
+  assert.equal(capture.data.networks.length, 2);
+  assert.deepEqual(
+    capture.data.networks.map((network) => [
+      network.networkId,
+      network.mode,
+      network.graph.nodes.length
+    ]),
+    [
+      ['f0', FenceMode.ORTHOGONAL, 3],
+      ['f1', FenceMode.DIAGONAL, 1]
+    ]
+  );
+  assert.deepEqual(
+    capture.data.networks[0].graph.nodes.map((node) => [node.id, node.x, node.y]),
+    [['n0',0,0],['n1',0,2],['n2',0,4]]
+  );
+  assert.equal(capture.data.modeBoundaryTouches.length, 1);
+  assert.equal(capture.data.modeBoundaryTouches[0].authoritativeConnectedEdge, false);
+  assert.deepEqual(
+    [capture.data.modeBoundaryTouches[0].a.networkId, capture.data.modeBoundaryTouches[0].b.networkId],
+    ['f0','f1']
+  );
+  assert.equal(JSON.stringify(capture.data).includes('1590'), false);
+});
+
+test('contained-only Fence capture blocks when an intersecting native component crosses the region boundary', () => {
+  const reader = readRoadFenceNativeGridV125({
+    grid: grid([
+      nativeObject(15862, 40700246, 360, 60),
+      nativeObject(15863, 40700252, 360, 62, 'GridOrientation_Left'),
+      nativeObject(15864, 40700246, 360, 74),
+      nativeObject(15865, 40700246, 360, 76)
+    ]),
+    catalog: catalog()
+  });
+
+  const capture = captureRoadFenceReaderRegionV125(
+    reader,
+    'fences',
+    { x: 360, y: 60, w: 2, h: 10 }
+  );
+  assert.equal(capture.status, 'blocked');
+  assert.equal(capture.code, 'TOPOLOGY_CLIPPED_UNSUPPORTED');
 });
