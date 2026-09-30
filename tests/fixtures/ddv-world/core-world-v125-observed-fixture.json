@@ -1,0 +1,772 @@
+{
+  "format": "dreamwish.core-world-v125-adapter-fixture",
+  "schemaVersion": 1,
+  "sourceEvidence": {
+    "gameVersion": "1.25.0",
+    "platform": "switch",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624,
+    "sourceDecryptedProfileSha256": "1cfc40196f7ee36048e1fa98c0835561901c6fed3f19ca8dd6fa36c47740dc10",
+    "note": "Minimal non-sensitive structural fragment extracted from the observed v1.25 Switch fixture."
+  },
+  "notes": [
+    "Grid/Object/SubGrid records are minimal non-sensitive v1.25 observed fragments from P1D fixtures.",
+    "Area 7->Grid 0 and Area 3->Grid 5 match observed current save routing; Area 99 [0,5] is synthetic only to regression-test multi-root routing without inventing cross-grid coordinates.",
+    "HouseData object 1453/Item 20000036/PlayerHouseIndex 0 is an observed current-v1.25 record. PlayerHouse binding must not be inferred from index alone; geometry is intentionally omitted so the adapter must fail closed for geometry."
+  ],
+  "profile": {
+    "World": {
+      "GridCollection": {
+        "Grids": {
+          "0": {
+            "ID": 0,
+            "GridDataPath": "GridData/Villages/Village04-SnowLevel-GridData.json",
+            "GridDefaultLayoutPath": "",
+            "TessellationFactor": 2,
+            "NextGridObjectID": 2605,
+            "Objects": {
+              "1686": {
+                "ID": 1686,
+                "ItemID": 40004907,
+                "X": 48,
+                "Y": 220,
+                "Orientation": "GridOrientation_Left",
+                "State": null
+              },
+              "1613": {
+                "ID": 1613,
+                "ItemID": 40001074,
+                "X": 284,
+                "Y": 243,
+                "Orientation": "GridOrientation_Down",
+                "State": {
+                  "Keyhole": {
+                    "KeyholeConfigDataGUID": "0be848e1-bba5-42c0-891c-8ae7d49c1261"
+                  }
+                }
+              },
+              "2173": {
+                "ID": 2173,
+                "ItemID": 40100014,
+                "X": 76,
+                "Y": 172,
+                "Orientation": "GridOrientation_Down",
+                "State": null
+              },
+              "300": {
+                "ID": 300,
+                "ItemID": 20300008,
+                "X": 236,
+                "Y": 228,
+                "Orientation": "GridOrientation_DownRight",
+                "State": {
+                  "BuildingWithSkinData": {
+                    "UpgradeState": {
+                      "Level": 1
+                    },
+                    "CurrentSkinItemID": 170200005
+                  }
+                }
+              },
+              "1453": {
+                "ID": 1453,
+                "ItemID": 20000036,
+                "X": 90,
+                "Y": 197,
+                "Orientation": "GridOrientation_Up",
+                "State": {
+                  "HouseData": {
+                    "Built": true,
+                    "UpgradeState": null,
+                    "PlayerHouseIndex": 0
+                  }
+                }
+              }
+            }
+          },
+          "5": {
+            "ID": 5,
+            "GridDataPath": "GridData/Villages/Village04-UrbanLevel-GridData.json",
+            "GridDefaultLayoutPath": "",
+            "TessellationFactor": 2,
+            "NextGridObjectID": 14331,
+            "Objects": {
+              "13306": {
+                "ID": 13306,
+                "ItemID": 40000178,
+                "X": 222,
+                "Y": 112,
+                "Orientation": "GridOrientation_Up",
+                "State": {
+                  "SubGrid": {
+                    "GridID": 1389,
+                    "DesignID": null
+                  }
+                }
+              },
+              "13802": {
+                "ID": 13802,
+                "ItemID": 40003102,
+                "X": 196,
+                "Y": 30,
+                "Orientation": "GridOrientation_Left",
+                "State": {
+                  "SubGrid": {
+                    "GridID": 1395,
+                    "DesignID": null
+                  }
+                }
+              }
+            }
+          },
+          "9": {
+            "ID": 9,
+            "GridDataPath": "GridData/Villages/Village04-BeachLevel-GridData.json",
+            "GridDefaultLayoutPath": "",
+            "TessellationFactor": 2,
+            "NextGridObjectID": 2982,
+            "Objects": {
+              "1860": {
+                "ID": 1860,
+                "ItemID": 40001259,
+                "X": 56,
+                "Y": 311,
+                "Orientation": "GridOrientation_DownLeft",
+                "State": null
+              }
+            }
+          },
+          "1389": {
+            "ID": 1389,
+            "GridDataPath": "GridData/Furniture/Ratatouille_Set03/Table02-GridData.json",
+            "GridDefaultLayoutPath": "",
+            "TessellationFactor": 2,
+            "NextGridObjectID": 0,
+            "Objects": {}
+          },
+          "1395": {
+            "ID": 1395,
+            "GridDataPath": "GridData/Furniture/PrincessFrog_Update12/BistroTables01-GridData.json",
+            "GridDefaultLayoutPath": "",
+            "TessellationFactor": 2,
+            "NextGridObjectID": 5,
+            "Objects": {
+              "0": {
+                "ID": 0,
+                "ItemID": 40003307,
+                "X": 2,
+                "Y": 2,
+                "Orientation": "GridOrientation_Right",
+                "State": null
+              },
+              "1": {
+                "ID": 1,
+                "ItemID": 40000173,
+                "X": 0,
+                "Y": 3,
+                "Orientation": "GridOrientation_DownRightRight",
+                "State": null
+              },
+              "2": {
+                "ID": 2,
+                "ItemID": 40000173,
+                "X": 0,
+                "Y": 1,
+                "Orientation": "GridOrientation_Right",
+                "State": null
+              },
+              "3": {
+                "ID": 3,
+                "ItemID": 40000173,
+                "X": 4,
+                "Y": 1,
+                "Orientation": "GridOrientation_Left",
+                "State": null
+              },
+              "4": {
+                "ID": 4,
+                "ItemID": 40000173,
+                "X": 4,
+                "Y": 3,
+                "Orientation": "GridOrientation_UpLeftLeft",
+                "State": null
+              }
+            }
+          }
+        }
+      },
+      "Villages": [
+        {
+          "Areas": {
+            "7": {
+              "GridIDs": [
+                0
+              ],
+              "Unlocked": true,
+              "BodiesOfWater": [],
+              "MiningRocks": [],
+              "EnvironmentEffectItemID": 0,
+              "EnvironmentEffectOrientation": "GridOrientation_Up"
+            },
+            "3": {
+              "GridIDs": [
+                5
+              ],
+              "Unlocked": true,
+              "BodiesOfWater": [],
+              "MiningRocks": [],
+              "EnvironmentEffectItemID": 0,
+              "EnvironmentEffectOrientation": "GridOrientation_Up"
+            },
+            "99": {
+              "GridIDs": [
+                0,
+                5
+              ],
+              "Unlocked": true,
+              "BodiesOfWater": [],
+              "MiningRocks": [],
+              "EnvironmentEffectItemID": 0,
+              "EnvironmentEffectOrientation": "GridOrientation_Right"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "scopeIndex": {
+    "40000173": {
+      "itemID": 40000173,
+      "internalName": "06_Ratatouille!Set03!Misc01",
+      "concreteType": "FurnitureItemData",
+      "scopeTier": "CORE_STATELESS_FURNITURE",
+      "interaction": "None",
+      "forPuzzleOnly": false,
+      "explicitGridEditRestriction": null,
+      "isSyncOnlineItem": false,
+      "isUnavailableForGenerator": false,
+      "isMissionItem": false,
+      "acceptedFloorTypesFlag": 130807039,
+      "nativePresetKnownRejectReasons": [],
+      "rawPayloadSha256": "e99f946b5348c73bab4997998e75d9537dfec2a6e8e2ad9ed8f42f2d25dea50d"
+    },
+    "40000178": {
+      "itemID": 40000178,
+      "internalName": "06_Ratatouille!Set03!Table02",
+      "concreteType": "FurnitureItemData",
+      "scopeTier": "STATEFUL_INTERACTION",
+      "interaction": "SubGrid",
+      "forPuzzleOnly": false,
+      "explicitGridEditRestriction": null,
+      "isSyncOnlineItem": false,
+      "isUnavailableForGenerator": false,
+      "isMissionItem": false,
+      "acceptedFloorTypesFlag": 130802943,
+      "nativePresetKnownRejectReasons": [],
+      "rawPayloadSha256": "50df418b57940d44d0c2caea05121b5c113ddba67b917f52c4414c464c84d3ea"
+    },
+    "40001074": {
+      "itemID": 40001074,
+      "internalName": "Mission!Story!Menhirs!Love",
+      "concreteType": "FurnitureItemData",
+      "scopeTier": "EXPLICIT_GRID_EDIT_RESTRICTION",
+      "interaction": "Keyhole",
+      "forPuzzleOnly": false,
+      "explicitGridEditRestriction": {
+        "present": true,
+        "fields": {
+          "CanMove": {
+            "wire": "message",
+            "bytes": 13,
+            "restrictionCase": "Conditions",
+            "conditionPayloadSha256": "60a1b62830c5e0f8683d128babb7a53566fe135b401d091bda4b79de902264d3"
+          },
+          "CanRotate": {
+            "wire": "message",
+            "bytes": 13,
+            "restrictionCase": "Conditions",
+            "conditionPayloadSha256": "60a1b62830c5e0f8683d128babb7a53566fe135b401d091bda4b79de902264d3"
+          },
+          "CanBeRemoved": {
+            "wire": "message",
+            "bytes": 2,
+            "restrictionCase": "Value",
+            "value": false
+          },
+          "CanBeSelected": {
+            "wire": "message",
+            "bytes": 13,
+            "restrictionCase": "Conditions",
+            "conditionPayloadSha256": "60a1b62830c5e0f8683d128babb7a53566fe135b401d091bda4b79de902264d3"
+          }
+        }
+      },
+      "isSyncOnlineItem": false,
+      "isUnavailableForGenerator": false,
+      "isMissionItem": true,
+      "acceptedFloorTypesFlag": 130802943,
+      "nativePresetKnownRejectReasons": [
+        "MISSION_ITEM"
+      ],
+      "rawPayloadSha256": "3b1383a565d86375552790bd8554c964833ad71d11c0f3f4b2485a59b11be2e7"
+    },
+    "40001259": {
+      "itemID": 40001259,
+      "internalName": "Mission!Village!Ariel!VLG_Arie_020_EricStatue",
+      "concreteType": "FurnitureItemData",
+      "scopeTier": "CORE_STATELESS_FURNITURE",
+      "interaction": "None",
+      "forPuzzleOnly": false,
+      "explicitGridEditRestriction": null,
+      "isSyncOnlineItem": false,
+      "isUnavailableForGenerator": true,
+      "isMissionItem": true,
+      "acceptedFloorTypesFlag": 130802943,
+      "nativePresetKnownRejectReasons": [
+        "MISSION_ITEM"
+      ],
+      "rawPayloadSha256": "ab64c7e0f377e587e0afc946244a8b846f76ad7ef951d8cc6ca4454d0d7c6b48"
+    },
+    "40003102": {
+      "itemID": 40003102,
+      "internalName": "32_PrincessFrog!Update12!BistroTables01",
+      "concreteType": "FurnitureItemData",
+      "scopeTier": "STATEFUL_INTERACTION",
+      "interaction": "SubGrid",
+      "forPuzzleOnly": false,
+      "explicitGridEditRestriction": null,
+      "isSyncOnlineItem": false,
+      "isUnavailableForGenerator": true,
+      "isMissionItem": false,
+      "acceptedFloorTypesFlag": 130802943,
+      "nativePresetKnownRejectReasons": [],
+      "rawPayloadSha256": "06b4c33b890fda19690a2c797d70db65762251382718c908992be8558e90a1dd"
+    },
+    "40003307": {
+      "itemID": 40003307,
+      "internalName": "32_PrincessFrog!Update12!TianaFSitem02",
+      "concreteType": "FurnitureItemData",
+      "scopeTier": "CORE_STATELESS_FURNITURE",
+      "interaction": "None",
+      "forPuzzleOnly": false,
+      "explicitGridEditRestriction": null,
+      "isSyncOnlineItem": false,
+      "isUnavailableForGenerator": true,
+      "isMissionItem": false,
+      "acceptedFloorTypesFlag": 130807039,
+      "nativePresetKnownRejectReasons": [],
+      "rawPayloadSha256": "40d456778128311d6b33218d6c3d1ef18155da8992f863cee6d0e545fc95a1d7"
+    },
+    "40004907": {
+      "itemID": 40004907,
+      "internalName": "09_Frozen!Update20!ArendelleCastleWallKitCorner",
+      "concreteType": "FurnitureItemData",
+      "scopeTier": "CORE_STATELESS_FURNITURE",
+      "interaction": "None",
+      "forPuzzleOnly": false,
+      "explicitGridEditRestriction": null,
+      "isSyncOnlineItem": true,
+      "isUnavailableForGenerator": true,
+      "isMissionItem": false,
+      "acceptedFloorTypesFlag": 130801919,
+      "nativePresetKnownRejectReasons": [],
+      "rawPayloadSha256": "1db57b10302461be3389f92936e6d3c95fa0395fd955a712be5605cbe18923f5"
+    },
+    "40100014": {
+      "itemID": 40100014,
+      "internalName": "Road_Snow",
+      "concreteType": "FenceAndRoadItemData",
+      "scopeTier": "SPECIAL_CONCRETE_TYPE",
+      "interaction": "None",
+      "forPuzzleOnly": false,
+      "explicitGridEditRestriction": null,
+      "isSyncOnlineItem": false,
+      "isUnavailableForGenerator": false,
+      "isMissionItem": false,
+      "acceptedFloorTypesFlag": 97247487,
+      "nativePresetKnownRejectReasons": [],
+      "rawPayloadSha256": "235f018e04fd6ee318ca09f077a0ea8606dcbacb8ebb50dc1da0108931fcc2e1"
+    }
+  },
+  "geometryIndex": {
+    "20300008": {
+      "itemID": 20300008,
+      "concreteType": "BuildingItemData",
+      "internalName": "FastTravelWell!07Cliffs",
+      "sizeX": 8,
+      "sizeY": 8,
+      "layers": [
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        68,
+        92,
+        92,
+        68,
+        4,
+        4,
+        4,
+        68,
+        68,
+        92,
+        92,
+        68,
+        68,
+        4,
+        4,
+        68,
+        68,
+        92,
+        92,
+        68,
+        68,
+        4,
+        4,
+        68,
+        68,
+        92,
+        92,
+        68,
+        68,
+        4,
+        4,
+        68,
+        68,
+        92,
+        92,
+        68,
+        68,
+        4,
+        4,
+        4,
+        68,
+        92,
+        92,
+        68,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "acceptedFloorTypesFlag": 33554560,
+      "strideOverride": null,
+      "areaTessellationFactor": 1,
+      "subGridDataPath": null
+    },
+    "40000173": {
+      "itemID": 40000173,
+      "concreteType": "FurnitureItemData",
+      "internalName": "06_Ratatouille!Set03!Misc01",
+      "sizeX": 1,
+      "sizeY": 1,
+      "layers": [
+        324
+      ],
+      "acceptedFloorTypesFlag": 130807039,
+      "strideOverride": null,
+      "areaTessellationFactor": 1,
+      "subGridDataPath": null
+    },
+    "40000178": {
+      "itemID": 40000178,
+      "concreteType": "FurnitureItemData",
+      "internalName": "06_Ratatouille!Set03!Table02",
+      "sizeX": 2,
+      "sizeY": 2,
+      "layers": [
+        324,
+        324,
+        324,
+        324
+      ],
+      "acceptedFloorTypesFlag": 130802943,
+      "strideOverride": null,
+      "areaTessellationFactor": 1,
+      "subGridDataPath": "GridData/Furniture/Ratatouille_Set03/Table02-GridData.json"
+    },
+    "40001074": {
+      "itemID": 40001074,
+      "concreteType": "FurnitureItemData",
+      "internalName": "Mission!Story!Menhirs!Love",
+      "sizeX": 4,
+      "sizeY": 3,
+      "layers": [
+        95,
+        95,
+        95,
+        95,
+        95,
+        95,
+        95,
+        95,
+        95,
+        95,
+        95,
+        95
+      ],
+      "acceptedFloorTypesFlag": 130802943,
+      "strideOverride": null,
+      "areaTessellationFactor": 1,
+      "subGridDataPath": null
+    },
+    "40001259": {
+      "itemID": 40001259,
+      "concreteType": "FurnitureItemData",
+      "internalName": "Mission!Village!Ariel!VLG_Arie_020_EricStatue",
+      "sizeX": 2,
+      "sizeY": 2,
+      "layers": [
+        76,
+        76,
+        76,
+        76
+      ],
+      "acceptedFloorTypesFlag": 130802943,
+      "strideOverride": null,
+      "areaTessellationFactor": 1,
+      "subGridDataPath": null
+    },
+    "40003102": {
+      "itemID": 40003102,
+      "concreteType": "FurnitureItemData",
+      "internalName": "32_PrincessFrog!Update12!BistroTables01",
+      "sizeX": 4,
+      "sizeY": 4,
+      "layers": [
+        68,
+        68,
+        68,
+        68,
+        68,
+        68,
+        68,
+        68,
+        68,
+        68,
+        68,
+        68,
+        68,
+        68,
+        68,
+        68
+      ],
+      "acceptedFloorTypesFlag": 130802943,
+      "strideOverride": null,
+      "areaTessellationFactor": 1,
+      "subGridDataPath": "GridData/Furniture/PrincessFrog_Update12/BistroTables01-GridData.json"
+    },
+    "40003307": {
+      "itemID": 40003307,
+      "concreteType": "FurnitureItemData",
+      "internalName": "32_PrincessFrog!Update12!TianaFSitem02",
+      "sizeX": 1,
+      "sizeY": 1,
+      "layers": [
+        68
+      ],
+      "acceptedFloorTypesFlag": 130807039,
+      "strideOverride": null,
+      "areaTessellationFactor": 1,
+      "subGridDataPath": null
+    },
+    "40004907": {
+      "itemID": 40004907,
+      "concreteType": "FurnitureItemData",
+      "internalName": "09_Frozen!Update20!ArendelleCastleWallKitCorner",
+      "sizeX": 12,
+      "sizeY": 12,
+      "layers": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        0,
+        0,
+        0,
+        0,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        0,
+        0,
+        0,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        0,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        0,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        0,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        0,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        0,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        0,
+        0,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        0,
+        0,
+        0,
+        0,
+        0,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        92,
+        92,
+        92,
+        92,
+        92,
+        92,
+        0,
+        0,
+        0
+      ],
+      "acceptedFloorTypesFlag": 130801919,
+      "strideOverride": null,
+      "areaTessellationFactor": 1,
+      "subGridDataPath": null
+    },
+    "40100014": {
+      "itemID": 40100014,
+      "concreteType": "FenceAndRoadItemData",
+      "internalName": "Road_Snow",
+      "sizeX": 2,
+      "sizeY": 2,
+      "layers": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "acceptedFloorTypesFlag": 97247487,
+      "strideOverride": 2,
+      "areaTessellationFactor": 1,
+      "subGridDataPath": null
+    }
+  },
+  "gridDataDimensions": {
+    "GridData/Furniture/Ratatouille_Set03/Table02-GridData.json": {
+      "sizeX": 1,
+      "sizeY": 1,
+      "sourceSha256": "3ded6db7870c5b0cadfd490e4597c2c6c0a23b0880906584c9bc01b7bf404846"
+    },
+    "GridData/Furniture/PrincessFrog_Update12/BistroTables01-GridData.json": {
+      "sizeX": 3,
+      "sizeY": 3,
+      "sourceSha256": "a01cfe8b3b136c5d192b34ef1bc5b777f6364f1cfb911a26bf7c141f53c18a97"
+    }
+  }
+}

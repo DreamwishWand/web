@@ -1,0 +1,304 @@
+{
+  "schema": "dreamwish.core-world-v125-outdoor-location-routing-audit",
+  "version": 1,
+  "date": "2026-10-01",
+  "target": {
+    "gameVersion": "1.25.0",
+    "profileSchemaVersion": 624,
+    "switch": {
+      "buildId": "52BD625D9B4E0053",
+      "decryptedProfileSha256": "1cfc40196f7ee36048e1fa98c0835561901c6fed3f19ca8dd6fa36c47740dc10"
+    },
+    "steam": {
+      "fullVersion": "releases_1.25-v1.25.0-8687-gdd3d3a5ae738-incremental-14",
+      "buildId": null,
+      "decryptedProfileSha256": "2fb3774fc7ec6c1c04fdc00c2aafe21146d7c187e2a61d33777b4241b5dc95de"
+    }
+  },
+  "canonicalEvidence": {
+    "outdoorLocationResolverStaticContractDriveId": "1pY2fHYFszOoP-DqQVtJpISkQefNkA9j1",
+    "saveBackedStructureAuditDriveId": "1ku6ZXIN4vhW5-wp55sFQsL-ORNRNK0eRMy3lXqwqO00"
+  },
+  "summary": {
+    "floatingIslandCount": 13,
+    "directRootCount": 26,
+    "mapKeyEqualsSceneItemIdCount": 13,
+    "uniqueDirectGridDataPathCount": 26,
+    "crossSnapshotSemanticRouteParity": true,
+    "crossSnapshotFullExtractParityIncludingObjectCounts": true,
+    "portableLocationIdentity": "SceneItemId",
+    "versionScopedDirectRootRouteToken": "exact GridDataPath",
+    "saveLocalFieldsExcludedFromPortableIdentity": [
+      "GridID",
+      "GridObjectID"
+    ]
+  },
+  "floatingIslands": [
+    {
+      "mapKey": 1540000147,
+      "sceneItemId": 1540000147,
+      "customLocationPositionsPath": "SceneLayouts/FloatingIslands/FloatingIsland_Urban/CustomLocations.json",
+      "unlocked": true,
+      "directRoots": [
+        {
+          "sourceGridId": 760,
+          "gridDataPath": "GridData/FloatingIslands/FloatingIsland_Urban/FloatingIsland_UrbanGrid-GridData.json",
+          "tessellationFactor": 2,
+          "objectCount": 4230
+        }
+      ]
+    },
+    {
+      "mapKey": 1540000148,
+      "sceneItemId": 1540000148,
+      "customLocationPositionsPath": "SceneLayouts/FloatingIslands/FloatingIsland_Beach/CustomLocations.json",
+      "unlocked": true,
+      "directRoots": [
+        {
+          "sourceGridId": 765,
+          "gridDataPath": "GridData/FloatingIslands/FloatingIsland_Beach/FloatingIsland_BeachGrid-GridData.json",
+          "tessellationFactor": 2,
+          "objectCount": 3
+        }
+      ]
+    },
+    {
+      "mapKey": 1540000149,
+      "sceneItemId": 1540000149,
+      "customLocationPositionsPath": "SceneLayouts/FloatingIslands/FloatingIsland_Meadow/CustomLocations.json",
+      "unlocked": true,
+      "directRoots": [
+        {
+          "sourceGridId": 761,
+          "gridDataPath": "GridData/FloatingIslands/FloatingIsland_Meadow/FloatingIsland_MeadowGrid-GridData.json",
+          "tessellationFactor": 2,
+          "objectCount": 11
+        },
+        {
+          "sourceGridId": 762,
+          "gridDataPath": "GridData/FloatingIslands/FloatingIsland_Meadow/FloatingIsland_MeadowNorthWaterGrid-GridData.json",
+          "tessellationFactor": 2,
+          "objectCount": 1
+        },
+        {
+          "sourceGridId": 763,
+          "gridDataPath": "GridData/FloatingIslands/FloatingIsland_Meadow/FloatingIsland_MeadowWestWaterGrid-GridData.json",
+          "tessellationFactor": 2,
+          "objectCount": 0
+        },
+        {
+          "sourceGridId": 764,
+          "gridDataPath": "GridData/FloatingIslands/FloatingIsland_Meadow/FloatingIsland_MeadowSouthWaterGrid-GridData.json",
+          "tessellationFactor": 2,
+          "objectCount": 1
+        }
+      ]
+    },
+    {
+      "mapKey": 1540000150,
+      "sceneItemId": 1540000150,
+      "customLocationPositionsPath": "SceneLayouts/FloatingIslands/FloatingIsland_Snow/CustomLocations.json",
+      "unlocked": true,
+      "directRoots": [
+        {
+          "sourceGridId": 770,
+          "gridDataPath": "GridData/FloatingIslands/FloatingIsland_Snow/FloatingIsland_SnowGrid-GridData.json",
+          "tessellationFactor": 2,
+          "objectCount": 1
+        }
+      ]
+    },
+    {
+      "mapKey": 1540000151,
+      "sceneItemId": 1540000151,
+      "customLocationPositionsPath": "SceneLayouts/FloatingIslands/FloatingIsland_Dark/CustomLocations.json",
+      "unlocked": true,
+      "directRoots": [
+        {
+          "sourceGridId": 771,
+          "gridDataPath": "GridData/FloatingIslands/FloatingIsland_Dark/FloatingIsland_DarkGrid-GridData.json",
+          "tessellationFactor": 2,
+          "objectCount": 3
+        }
+      ]
+    },
+    {
+      "mapKey": 1540000152,
+      "sceneItemId": 1540000152,
+      "customLocationPositionsPath": "SceneLayouts/FloatingIslands/FloatingIsland_Forest/CustomLocations.json",
+      "unlocked": true,
+      "directRoots": [
+        {
+          "sourceGridId": 766,
+          "gridDataPath": "GridData/FloatingIslands/FloatingIsland_Forest/FloatingIsland_ForestGrid-GridData.json",
+          "tessellationFactor": 2,
+          "objectCount": 2
+        }
+      ]
+    },
+    {
+      "mapKey": 1540000153,
+      "sceneItemId": 1540000153,
+      "customLocationPositionsPath": "SceneLayouts/FloatingIslands/FloatingIsland_Savannah/CustomLocations.json",
+      "unlocked": true,
+      "directRoots": [
+        {
+          "sourceGridId": 769,
+          "gridDataPath": "GridData/FloatingIslands/FloatingIsland_Savannah/FloatingIsland_SavannahGrid-GridData.json",
+          "tessellationFactor": 2,
+          "objectCount": 1
+        }
+      ]
+    },
+    {
+      "mapKey": 1540000154,
+      "sceneItemId": 1540000154,
+      "customLocationPositionsPath": "SceneLayouts/FloatingIslands/FloatingIsland_Wetlands/CustomLocations.json",
+      "unlocked": true,
+      "directRoots": [
+        {
+          "sourceGridId": 767,
+          "gridDataPath": "GridData/FloatingIslands/FloatingIsland_Wetlands/FloatingIsland_WetlandsGrid-GridData.json",
+          "tessellationFactor": 2,
+          "objectCount": 2
+        },
+        {
+          "sourceGridId": 768,
+          "gridDataPath": "GridData/FloatingIslands/FloatingIsland_Wetlands/FloatingIsland_WetlandsWaterGrid-GridData.json",
+          "tessellationFactor": 2,
+          "objectCount": 0
+        }
+      ]
+    },
+    {
+      "mapKey": 1540000192,
+      "sceneItemId": 1540000192,
+      "customLocationPositionsPath": "SceneLayouts/FloatingIslands/FloatingIsland_Desert/CustomLocations.json",
+      "unlocked": true,
+      "directRoots": [
+        {
+          "sourceGridId": 772,
+          "gridDataPath": "GridData/FloatingIslands/FloatingIlsnad_Desert/FloatingIsland_DesertGrid-GridData.json",
+          "tessellationFactor": 2,
+          "objectCount": 1
+        },
+        {
+          "sourceGridId": 773,
+          "gridDataPath": "GridData/FloatingIslands/FloatingIlsnad_Desert/FloatingIsland_DesertNothWaterGrid-GridData.json",
+          "tessellationFactor": 2,
+          "objectCount": 0
+        },
+        {
+          "sourceGridId": 774,
+          "gridDataPath": "GridData/FloatingIslands/FloatingIlsnad_Desert/FloatingIsland_DesertWestWaterGrid-GridData.json",
+          "tessellationFactor": 2,
+          "objectCount": 0
+        },
+        {
+          "sourceGridId": 775,
+          "gridDataPath": "GridData/FloatingIslands/FloatingIlsnad_Desert/FloatingIsland_DesertSouthWaterGrid-GridData.json",
+          "tessellationFactor": 2,
+          "objectCount": 0
+        }
+      ]
+    },
+    {
+      "mapKey": 1540000193,
+      "sceneItemId": 1540000193,
+      "customLocationPositionsPath": "SceneLayouts/FloatingIslands/FloatingIsland_Jungle/CustomLocations.json",
+      "unlocked": true,
+      "directRoots": [
+        {
+          "sourceGridId": 776,
+          "gridDataPath": "GridData/FloatingIslands/FloatingIsland_Jungle/FloatingIsland_JungleGrid-GridData.json",
+          "tessellationFactor": 2,
+          "objectCount": 2
+        },
+        {
+          "sourceGridId": 777,
+          "gridDataPath": "GridData/FloatingIslands/FloatingIsland_Jungle/FloatingIsland_JungleWestWater-GridData.json",
+          "tessellationFactor": 2,
+          "objectCount": 0
+        },
+        {
+          "sourceGridId": 778,
+          "gridDataPath": "GridData/FloatingIslands/FloatingIsland_Jungle/FloatingIsland_JungleSouthWater-GridData.json",
+          "tessellationFactor": 2,
+          "objectCount": 0
+        },
+        {
+          "sourceGridId": 779,
+          "gridDataPath": "GridData/FloatingIslands/FloatingIsland_Jungle/FloatingIsland_JungleNorthWater-GridData.json",
+          "tessellationFactor": 2,
+          "objectCount": 0
+        }
+      ]
+    },
+    {
+      "mapKey": 1540000194,
+      "sceneItemId": 1540000194,
+      "customLocationPositionsPath": "SceneLayouts/FloatingIslands/FloatingIsland_Atlantean/CustomLocations.json",
+      "unlocked": true,
+      "directRoots": [
+        {
+          "sourceGridId": 833,
+          "gridDataPath": "GridData/FloatingIslands/FloatingIsland_Atlantean/FloatingIsland_AtlanteanGrid-GridData.json",
+          "tessellationFactor": 2,
+          "objectCount": 1
+        },
+        {
+          "sourceGridId": 834,
+          "gridDataPath": "GridData/FloatingIslands/FloatingIsland_Atlantean/FloatingIsland_AtlanteanWaterGrid-GridData.json",
+          "tessellationFactor": 2,
+          "objectCount": 0
+        }
+      ]
+    },
+    {
+      "mapKey": 1540000238,
+      "sceneItemId": 1540000238,
+      "customLocationPositionsPath": "SceneLayouts/FloatingIslands/FloatingIsland_Mythology/CustomLocations.json",
+      "unlocked": true,
+      "directRoots": [
+        {
+          "sourceGridId": 2432,
+          "gridDataPath": "GridData/FloatingIslands/FloatingIsland_Mythology/FloatingIsland_MythologyGrid-GridData.json",
+          "tessellationFactor": 2,
+          "objectCount": 1
+        },
+        {
+          "sourceGridId": 2433,
+          "gridDataPath": "GridData/FloatingIslands/FloatingIsland_Mythology/FloatingIsland_MythologyWaterGrid-GridData.json",
+          "tessellationFactor": 2,
+          "objectCount": 0
+        }
+      ]
+    },
+    {
+      "mapKey": 1540000246,
+      "sceneItemId": 1540000246,
+      "customLocationPositionsPath": "SceneLayouts/FloatingIslands/FloatingIsland_FairyTales/CustomLocations.json",
+      "unlocked": true,
+      "directRoots": [
+        {
+          "sourceGridId": 2434,
+          "gridDataPath": "GridData/FloatingIslands/FloatingIsland_FairyTales/FloatingIsland_FairyTales-GridData.json",
+          "tessellationFactor": 2,
+          "objectCount": 1
+        },
+        {
+          "sourceGridId": 2435,
+          "gridDataPath": "GridData/FloatingIslands/FloatingIsland_FairyTales/FloatingIsland_FairyTalesWaterGrid-GridData.json",
+          "tessellationFactor": 2,
+          "objectCount": 0
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "GridDataPath is a current-version game-asset routing token, not the public location identity.",
+    "Destination apply must resolve SceneItemId first, then exact GridDataPath to the destination save's current GridID.",
+    "No ordinal GridIDs[] position or filename-derived semantic label is promoted to portable identity.",
+    "FloatingIsland_Library is not present in either supplied current profile and remains unresolved as a SceneItemId target."
+  ]
+}
