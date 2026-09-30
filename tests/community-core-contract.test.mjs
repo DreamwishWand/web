@@ -574,3 +574,19 @@ test('generated schema exposes session cutoff state and service-only auth RPCs',
   assert.match(generated, /community_authorize_session/);
   assert.match(generated, /community_revoke_wand_sessions/);
 });
+
+
+test('Community Lab recovery flow uses PKCE and stays outside public navigation', () => {
+  const client = read('src/lib/community/staging-http-client.ts');
+  const callback = read('src/routes/community-lab/recovery/+page.svelte');
+  const header = read('src/lib/SiteHeader.svelte');
+
+  assert.match(client, /dreamwishwand-community-recovery-pkce-v1/);
+  assert.match(client, /code_challenge_method: 's256'/);
+  assert.match(client, /grant_type=pkce/);
+  assert.match(client, /auth_code: authCode/);
+  assert.match(client, /code_verifier: state\.verifier/);
+  assert.match(callback, /exchangePasswordRecoveryCode/);
+  assert.match(callback, /noindex,nofollow/);
+  assert.doesNotMatch(header, /community-lab\/recovery/i);
+});
