@@ -63,7 +63,7 @@ test('World Editor product surface is WEP-backed and writer-safe', () => {
   assert.match(page, /exactBuildKnown=false/);
   assert.match(page, /persistentWriteAuthorized=false/);
   assert.match(page, /Open in Canvas/);
-  assert.match(page, /01B v1\.3 source/);
+  assert.match(page, /01B v1\.6 source/);
   assert.match(page, /Publish Scene Preset/);
   assert.match(page, /Persistent write: disabled/);
   assert.doesNotMatch(page, />Apply</);
