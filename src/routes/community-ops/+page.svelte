@@ -573,6 +573,52 @@
       </article>
 
       <article class="ops-card">
+        <h2>Moderation cases</h2>
+        <p class="ops-note">
+          Moderator/admin review queue for user reports. Listings intentionally omit reporter
+          account identity. Restrict/remove/restore require a session created within the configured
+          moderation recent-auth window. Resolving a case also closes linked open/triaged reports.
+        </p>
+        <div class="ops-actions">
+          <select bind:value={moderationState}>
+            <option value="">all</option>
+            <option value="open">open</option>
+            <option value="reviewing">reviewing</option>
+            <option value="resolved">resolved</option>
+            <option value="closed">closed</option>
+          </select>
+          <button on:click={refreshModerationCases} disabled={busy || !session}>
+            Refresh
+          </button>
+        </div>
+
+        <label>
+          Moderation case ID
+          <input bind:value={moderationCaseId} autocomplete="off" />
+        </label>
+        <label>
+          Action
+          <select bind:value={moderationAction}>
+            <option value="restrict">restrict</option>
+            <option value="remove">remove</option>
+            <option value="restore">restore</option>
+          </select>
+        </label>
+        <label>
+          Review reason
+          <input bind:value={moderationReason} autocomplete="off" />
+        </label>
+        <button
+          on:click={moderateCase}
+          disabled={busy || !session || !moderationCaseId || moderationReason.length < 8}
+        >
+          Apply moderation action
+        </button>
+
+        <pre>{JSON.stringify(moderationCases, null, 2)}</pre>
+      </article>
+
+      <article class="ops-card">
         <h2>Recovery cases</h2>
         <div class="ops-actions">
           <select bind:value={recoveryState}>
