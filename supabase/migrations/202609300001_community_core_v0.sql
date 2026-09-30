@@ -776,15 +776,18 @@ revoke insert, update, delete on all tables in schema public from anon, authenti
 
 drop policy if exists wand_accounts_self_read on wand_accounts;
 create policy wand_accounts_self_read on wand_accounts for select
-to authenticated\nusing (account_id = private.current_wand_account_id() or private.is_staff());
+to authenticated
+using (account_id = private.current_wand_account_id() or private.is_staff());
 
 drop policy if exists auth_identities_self_read on auth_identities;
 create policy auth_identities_self_read on auth_identities for select
-to authenticated\nusing (account_id = private.current_wand_account_id() or private.is_staff());
+to authenticated
+using (account_id = private.current_wand_account_id() or private.is_staff());
 
 drop policy if exists creator_profiles_accessible_read on creator_profiles;
 create policy creator_profiles_accessible_read on creator_profiles for select
-to anon, authenticated\nusing (
+to anon, authenticated
+using (
   owner_account_id = private.current_wand_account_id()
   or private.is_staff()
   or (profile_visibility in ('public','unlisted') and moderation_state = 'clear')
@@ -792,23 +795,28 @@ to anon, authenticated\nusing (
 
 drop policy if exists community_entities_accessible_read on community_entities;
 create policy community_entities_accessible_read on community_entities for select
-to anon, authenticated\nusing (private.can_access_entity(entity_id));
+to anon, authenticated
+using (private.can_access_entity(entity_id));
 
 drop policy if exists community_works_accessible_read on community_works;
 create policy community_works_accessible_read on community_works for select
-to anon, authenticated\nusing (private.can_access_work(work_id));
+to anon, authenticated
+using (private.can_access_work(work_id));
 
 drop policy if exists community_work_revisions_accessible_read on community_work_revisions;
 create policy community_work_revisions_accessible_read on community_work_revisions for select
-to anon, authenticated\nusing (private.can_access_work(work_id));
+to anon, authenticated
+using (private.can_access_work(work_id));
 
 drop policy if exists gallery_works_accessible_read on gallery_works;
 create policy gallery_works_accessible_read on gallery_works for select
-to anon, authenticated\nusing (private.can_access_work(work_id));
+to anon, authenticated
+using (private.can_access_work(work_id));
 
 drop policy if exists gallery_work_revisions_accessible_read on gallery_work_revisions;
 create policy gallery_work_revisions_accessible_read on gallery_work_revisions for select
-to anon, authenticated\nusing (
+to anon, authenticated
+using (
   exists (
     select 1 from community_work_revisions r
     where r.revision_id = gallery_work_revisions.revision_id
@@ -818,11 +826,13 @@ to anon, authenticated\nusing (
 
 drop policy if exists preset_artifacts_accessible_read on preset_artifacts;
 create policy preset_artifacts_accessible_read on preset_artifacts for select
-to anon, authenticated\nusing (private.can_access_entity(preset_artifact_id));
+to anon, authenticated
+using (private.can_access_entity(preset_artifact_id));
 
 drop policy if exists preset_revisions_accessible_read on preset_revisions;
 create policy preset_revisions_accessible_read on preset_revisions for select
-to anon, authenticated\nusing (
+to anon, authenticated
+using (
   exists (
     select 1 from preset_artifacts p
     where p.preset_artifact_id = preset_revisions.preset_artifact_id
@@ -832,23 +842,28 @@ to anon, authenticated\nusing (
 
 drop policy if exists media_assets_accessible_read on media_assets;
 create policy media_assets_accessible_read on media_assets for select
-to anon, authenticated\nusing (private.can_access_entity(media_id));
+to anon, authenticated
+using (private.can_access_entity(media_id));
 
 drop policy if exists saved_items_self_read on saved_items;
 create policy saved_items_self_read on saved_items for select
-to authenticated\nusing (account_id = private.current_wand_account_id() or private.is_staff());
+to authenticated
+using (account_id = private.current_wand_account_id() or private.is_staff());
 
 drop policy if exists follows_self_read on follows;
 create policy follows_self_read on follows for select
-to authenticated\nusing (follower_account_id = private.current_wand_account_id() or private.is_staff());
+to authenticated
+using (follower_account_id = private.current_wand_account_id() or private.is_staff());
 
 drop policy if exists reactions_self_read on reactions;
 create policy reactions_self_read on reactions for select
-to authenticated\nusing (account_id = private.current_wand_account_id() or private.is_staff());
+to authenticated
+using (account_id = private.current_wand_account_id() or private.is_staff());
 
 drop policy if exists comments_accessible_read on comments;
 create policy comments_accessible_read on comments for select
-to anon, authenticated\nusing (
+to anon, authenticated
+using (
   author_account_id = private.current_wand_account_id()
   or private.is_staff()
   or (
@@ -860,11 +875,13 @@ to anon, authenticated\nusing (
 
 drop policy if exists notification_deliveries_self_read on notification_deliveries;
 create policy notification_deliveries_self_read on notification_deliveries for select
-to authenticated\nusing (recipient_account_id = private.current_wand_account_id() or private.is_staff());
+to authenticated
+using (recipient_account_id = private.current_wand_account_id() or private.is_staff());
 
 drop policy if exists notification_events_recipient_read on notification_events;
 create policy notification_events_recipient_read on notification_events for select
-to authenticated\nusing (
+to authenticated
+using (
   private.is_staff()
   or exists (
     select 1 from notification_deliveries d
@@ -875,27 +892,33 @@ to authenticated\nusing (
 
 drop policy if exists reports_self_read on reports;
 create policy reports_self_read on reports for select
-to authenticated\nusing (reporter_account_id = private.current_wand_account_id() or private.is_staff());
+to authenticated
+using (reporter_account_id = private.current_wand_account_id() or private.is_staff());
 
 drop policy if exists moderation_cases_staff_read on moderation_cases;
 create policy moderation_cases_staff_read on moderation_cases for select
-to authenticated\nusing (private.is_staff());
+to authenticated
+using (private.is_staff());
 
 drop policy if exists moderation_case_reports_staff_read on moderation_case_reports;
 create policy moderation_case_reports_staff_read on moderation_case_reports for select
-to authenticated\nusing (private.is_staff());
+to authenticated
+using (private.is_staff());
 
 drop policy if exists moderation_actions_staff_read on moderation_actions;
 create policy moderation_actions_staff_read on moderation_actions for select
-to authenticated\nusing (private.is_staff());
+to authenticated
+using (private.is_staff());
 
 drop policy if exists audit_events_staff_read on audit_events;
 create policy audit_events_staff_read on audit_events for select
-to authenticated\nusing (private.is_staff());
+to authenticated
+using (private.is_staff());
 
 drop policy if exists search_documents_public_read on search_documents;
 create policy search_documents_public_read on search_documents for select
-to anon, authenticated\nusing (private.is_discoverable_work(work_id));
+to anon, authenticated
+using (private.is_discoverable_work(work_id));
 
 -- No direct client INSERT/UPDATE/DELETE policies are created for canonical
 -- community state. Mutations go through authenticated server commands using
@@ -1127,7 +1150,8 @@ for each row execute function prevent_immutable_revision_mutation();
 
 drop policy if exists ddv_profiles_owner_read on ddv_profiles;
 create policy ddv_profiles_owner_read on ddv_profiles for select
-to authenticated\nusing (
+to authenticated
+using (
   private.is_staff()
   or exists (
     select 1 from wand_account_ddv_profiles l
@@ -1138,7 +1162,8 @@ to authenticated\nusing (
 
 drop policy if exists wand_account_ddv_profiles_owner_read on wand_account_ddv_profiles;
 create policy wand_account_ddv_profiles_owner_read on wand_account_ddv_profiles for select
-to authenticated\nusing (account_id = private.current_wand_account_id() or private.is_staff());
+to authenticated
+using (account_id = private.current_wand_account_id() or private.is_staff());
 
 
 create or replace function validate_work_lifecycle_transition()
