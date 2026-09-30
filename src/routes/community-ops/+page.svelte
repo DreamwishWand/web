@@ -22,9 +22,11 @@
   let newProvider = 'supabase';
   let newProviderSubject = '';
   let recoveryReason = 'Verified support-assisted recovery';
+  let verificationMethod = 'provider_recovery';
   let verificationRef = '';
 
-  let completionCaseId = '';
+  let recoveryCaseId = '';
+  let verificationNote = 'Provider recovery control confirmed';
   let completionReason = 'Verified recovery handoff complete';
 
   let cleanupState = 'dead_letter';
@@ -123,22 +125,34 @@
         newProvider,
         newProviderSubject,
         reason: recoveryReason,
-        verificationRef: verificationRef || null
+        verificationMethod,
+        verificationRef
       })
     );
     if (result) {
       const data = result.data as Record<string, unknown> | undefined;
-      completionCaseId = String(data?.recoveryCaseId ?? completionCaseId);
+      recoveryCaseId = String(data?.recoveryCaseId ?? recoveryCaseId);
       newProviderSubject = '';
       await refreshRecoveryCases();
     }
+  }
+
+  async function verifyRecoveryCase() {
+    if (!client) return;
+    const result = await run('Verify recovery case', () =>
+      client!.admin('verifyRecoveryCase', {
+        recoveryCaseId,
+        verificationNote
+      })
+    );
+    if (result) await refreshRecoveryCases();
   }
 
   async function completeRecoveryCase() {
     if (!client) return;
     const result = await run('Complete recovery case', () =>
       client!.admin('completeRecoveryCase', {
-        recoveryCaseId: completionCaseId,
+        recoveryCaseId,
         completionReason
       })
     );
@@ -341,7 +355,13 @@
             </label>
           </div>
           <label>
-            Verification reference
+            Verification method
+            <select bind:value={verificationMethod}>
+              <option value="provider_recovery">provider_recovery</option>
+            </select>
+          </label>
+          <label>
+            Opaque verification reference
             <input bind:value={verificationRef} autocomplete="off" />
           </label>
           <label>
@@ -350,33 +370,50 @@
           </label>
           <button
             on:click={openRecoveryCase}
-            disabled={busy || !session || !accountId || !newProvider || !newProviderSubject || recoveryReason.length < 8}
+            disabled={busy || !session || !accountId || !newProvider || !newProviderSubject || verificationRef.length < 8 || recoveryReason.length < 8}
           >
             Open recovery case
           </button>
         </div>
 
         <div class="ops-section">
-          <h3>Complete case</h3>
+          <h3>Verify case</h3>
           <label>
             Recovery case ID
-            <input bind:value={completionCaseId} autocomplete="off" />
+            <input bind:value={recoveryCaseId} autocomplete="off" />
           </label>
+          <label>
+            Verification note
+            <input bind:value={verificationNote} autocomplete="off" />
+          </label>
+          <button
+            on:click={verifyRecoveryCase}
+            disabled={busy || !session || !recoveryCaseId || verificationNote.length < 8}
+          >
+            Verify recovery evidence
+          </button>
+        </div>
+
+        <div class="ops-section">
+          <h3>Complete verified case</h3>
           <label>
             Completion reason
             <input bind:value={completionReason} autocomplete="off" />
           </label>
           <button
             on:click={completeRecoveryCase}
-            disabled={busy || !session || !completionCaseId || completionReason.length < 8}
+            disabled={busy || !session || !recoveryCaseId || completionReason.length < 8}
           >
-            Complete recovery
+            Complete verified recovery
           </button>
         </div>
 
         <p class="ops-note">
-          Case lists intentionally omit the requested provider subject and verification-reference
-          value. Only presence of verification evidence is exposed.
+          Recovery is fail-closed: Open → Verify → Complete. Launch support verification currently
+          accepts only provider_recovery with an opaque external evidence reference. Public profile
+          details or screenshots are not sufficient proof. Linked DDV Profile recovery remains
+          disabled until CORE confirms a stable claim/binding contract. Case lists omit the requested
+          provider subject and verification-reference value.
         </p>
         <pre>{JSON.stringify(recoveryCases, null, 2)}</pre>
       </article>
