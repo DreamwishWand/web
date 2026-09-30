@@ -178,6 +178,9 @@ test('destination preflight re-resolves portable direct roots to destination-loc
   assert.equal(preflight.routeResolutionReady, true);
   assert.equal(preflight.environmentPreflightReady, true);
   assert.equal(preflight.destinationResolved, true);
+  assert.equal(preflight.destinationPreflightReady, true);
+  assert.equal(preflight.categoryClosureReady, false);
+  assert.equal(preflight.ok, false);
   assert.deepEqual(
     preflight.destination.directRootResolutions.map((x) => ({
       gridDataPath: x.gridDataPath,
