@@ -19,7 +19,9 @@ const operationToRpc = {
   releaseRetentionHold: 'community_admin_release_retention_hold',
   listOperationsEscalations: 'community_get_operations_escalation_deliveries',
   retryOperationsEscalation: 'community_admin_retry_operations_escalation',
-  getSecurityPolicy: 'community_get_security_policy_summary'
+  getSecurityPolicy: 'community_get_security_policy_summary',
+  listModerationCases: 'community_get_moderation_cases',
+  moderateCase: 'community_moderate_work_v2'
 } as const;
 
 type OperationName = keyof typeof operationToRpc;
@@ -80,7 +82,10 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
   const operation = body.operation as OperationName;
   const payload = body.payload ?? {};
   const rpc = operationToRpc[operation];
-  const params: JsonObject = { p_admin_auth_subject: subject };
+  const params: JsonObject =
+    operation === 'moderateCase'
+      ? { p_auth_subject: subject }
+      : { p_admin_auth_subject: subject };
 
   switch (operation) {
     case 'listRecoveryCases':
@@ -169,6 +174,17 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       break;
     case 'getSecurityPolicy':
       break;
+    case 'listModerationCases':
+      params.p_state = payload.state ?? null;
+      params.p_limit = payload.limit ?? 50;
+      break;
+    case 'moderateCase':
+      params.p_session_id = sessionId;
+      params.p_issued_at_epoch = issuedAt;
+      params.p_case_id = payload.caseId;
+      params.p_action = payload.action;
+      params.p_reason = payload.reason;
+      break;
   }
 
   const { data, error } = await ctx.supabaseAdmin.rpc(rpc, params);
@@ -178,6 +194,7 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
     const forbidden =
       recentAuth ||
       error.message.includes('Admin role required') ||
+      error.message.includes('Moderator or admin role required') ||
       error.message.includes('not active') ||
       error.message.includes('Wand session has been revoked');
 
