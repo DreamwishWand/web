@@ -19,7 +19,7 @@ async function repoFile(path) {
 
 async function localFetch(url) {
   const pathname = new URL(String(url), 'https://wand.invalid').pathname;
-  const bytes = await repoFile(`.${pathname}`);
+  const bytes = await repoFile(`./static${pathname}`);
   return new Response(bytes, { status: 200 });
 }
 
