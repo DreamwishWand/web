@@ -15,7 +15,9 @@ import {
   RoadFenceValidationCode,
   fenceRepresentationQuantity,
   partitionFenceConnectedComponents,
+  planFenceNativeRepresentation,
   planFenceStraightRun,
+  planRoadNativeRepresentation,
   predictConnectedFenceRemoval,
   predictFenceStyleReplacement,
   previewFenceStyleReplacement,
@@ -567,4 +569,192 @@ test('Fence branch selection refuses a mode-boundary edge', () => {
   const result = selectFenceBranch(graph, 'o', 'd');
   assert.equal(result.ok, false);
   assert.equal(result.errors[0].code, RoadFenceValidationCode.FENCE_COMPONENT_BOUNDARY_MISMATCH);
+});
+
+
+const BIOME2_FENCE_VARIATIONS = Object.freeze({
+  orthogonal: {
+    1: { itemID: 40700247, gridSizeX: 1, gridSizeY: 1 },
+    2: { itemID: 40700248, gridSizeX: 2, gridSizeY: 1 },
+    3: { itemID: 40700249, gridSizeX: 3, gridSizeY: 1 },
+    4: { itemID: 40700250, gridSizeX: 4, gridSizeY: 1 },
+    5: { itemID: 40700251, gridSizeX: 5, gridSizeY: 1 },
+    6: { itemID: 40700252, gridSizeX: 6, gridSizeY: 1 }
+  },
+  diagonal: {
+    1: { itemID: 40700253, gridSizeX: 1, gridSizeY: 1 },
+    2: { itemID: 40700254, gridSizeX: 2, gridSizeY: 2 },
+    3: { itemID: 40700255, gridSizeX: 3, gridSizeY: 3 },
+    4: { itemID: 40700256, gridSizeX: 4, gridSizeY: 4 }
+  }
+});
+
+test('Road native planner reproduces the DW-R01 cardinal-3 offline fixture shape', () => {
+  const cells = rasterizeRoadPath([
+    { x: 0, y: 0 },
+    { x: 1, y: 0 },
+    { x: 2, y: 0 }
+  ]).cells;
+  const network = createRoadNetwork({ familyBaseItemID: 40100068, cells }).network;
+  const plan = planRoadNativeRepresentation({
+    network,
+    originLogical: { x: 0, y: 0 },
+    originSave: { x: 24, y: 24 },
+    pitchX: 4,
+    pitchY: 4
+  });
+  assert.equal(plan.ok, true);
+  assert.equal(plan.logicalQuantity, 3);
+  assert.equal(plan.wandListInventoryDelta, 0);
+  assert.equal(plan.ownershipMutationRequired, false);
+  assert.deepEqual(plan.objects, [
+    {
+      role: 'roadCell',
+      itemID: 40100068,
+      logical: { x: 0, y: 0 },
+      x: 24,
+      y: 24,
+      orientation: 'GridOrientation_Down',
+      state: null
+    },
+    {
+      role: 'roadCell',
+      itemID: 40100068,
+      logical: { x: 1, y: 0 },
+      x: 28,
+      y: 24,
+      orientation: 'GridOrientation_Down',
+      state: null
+    },
+    {
+      role: 'roadCell',
+      itemID: 40100068,
+      logical: { x: 2, y: 0 },
+      x: 32,
+      y: 24,
+      orientation: 'GridOrientation_Down',
+      state: null
+    }
+  ]);
+});
+
+test('Road native planner emits the DW-R02 isolated diagonal 2x2 representation', () => {
+  const cells = rasterizeRoadPath([{ x: 0, y: 0 }, { x: 1, y: 1 }]).cells;
+  const network = createRoadNetwork({ familyBaseItemID: 40100068, cells }).network;
+  const plan = planRoadNativeRepresentation({
+    network,
+    originSave: { x: 24, y: 24 },
+    pitchX: 4
+  });
+  assert.equal(plan.ok, true);
+  assert.equal(plan.logicalQuantity, 4);
+  assert.deepEqual(
+    plan.objects.map((object) => [object.x, object.y, object.state]),
+    [
+      [24, 24, { FenceMode: { Diagonal: true } }],
+      [28, 24, { FenceMode: { Diagonal: true } }],
+      [24, 28, { FenceMode: { Diagonal: true } }],
+      [28, 28, { FenceMode: { Diagonal: true } }]
+    ]
+  );
+});
+
+test('Road native planner fails closed on unresolved mixed transition state', () => {
+  const cells = rasterizeRoadPath([
+    { x: 0, y: 0 },
+    { x: 1, y: 0 },
+    { x: 2, y: 1 }
+  ]).cells;
+  const network = createRoadNetwork({ familyBaseItemID: 40100068, cells }).network;
+  const plan = planRoadNativeRepresentation({
+    network,
+    originSave: { x: 24, y: 24 },
+    pitchX: 4
+  });
+  assert.equal(plan.ok, false);
+  assert.equal(plan.errors[0].code, RoadFenceValidationCode.ROAD_MODE_STATE_UNSUPPORTED);
+});
+
+test('Fence native planner reproduces the known Biome2Fence vertical 10-unit representation', () => {
+  const built = buildFencePolyline([
+    { x: 0, y: 0 },
+    { x: 0, y: 9 }
+  ], FenceMode.ORTHOGONAL);
+  const network = createFenceNetwork({ familyBaseItemID: 40700246, graph: built.graph }).network;
+  const plan = planFenceNativeRepresentation({
+    network,
+    originLogical: { x: 0, y: 0 },
+    originSave: { x: 324, y: 48 },
+    pitchX: 2,
+    pitchY: -2,
+    tessellationFactor: 2,
+    baseSpanX: 2,
+    baseSpanY: 2,
+    orthogonalExtensions: BIOME2_FENCE_VARIATIONS.orthogonal,
+    diagonalExtensions: BIOME2_FENCE_VARIATIONS.diagonal
+  });
+  assert.equal(plan.ok, true);
+  assert.equal(plan.logicalQuantity, 10);
+
+  const simplified = plan.objects
+    .map((object) => [object.itemID, object.x, object.y, object.orientation, object.state])
+    .sort((a, b) => a[2] - b[2] || a[0] - b[0]);
+
+  assert.deepEqual(simplified, [
+    [40700246, 324, 30, 'GridOrientation_Down', null],
+    [40700247, 324, 32, 'GridOrientation_Left', null],
+    [40700246, 324, 34, 'GridOrientation_Down', null],
+    [40700252, 324, 36, 'GridOrientation_Left', null],
+    [40700246, 324, 48, 'GridOrientation_Down', null]
+  ]);
+});
+
+test('Fence native planner resolves positive-slope diagonal extension anchor and state', () => {
+  const built = buildFencePolyline([
+    { x: 0, y: 0 },
+    { x: 2, y: 2 }
+  ], FenceMode.DIAGONAL);
+  const network = createFenceNetwork({ familyBaseItemID: 40700246, graph: built.graph }).network;
+  const plan = planFenceNativeRepresentation({
+    network,
+    originSave: { x: 0, y: 0 },
+    pitchX: 2,
+    pitchY: 2,
+    tessellationFactor: 2,
+    baseSpanX: 2,
+    baseSpanY: 2,
+    orthogonalExtensions: BIOME2_FENCE_VARIATIONS.orthogonal,
+    diagonalExtensions: BIOME2_FENCE_VARIATIONS.diagonal
+  });
+  assert.equal(plan.ok, true);
+  const ext = plan.objects.find((object) => object.role === 'diagExt');
+  assert.deepEqual(
+    [ext.itemID, ext.x, ext.y, ext.orientation, ext.state],
+    [40700253, 2, 2, 'GridOrientation_Down', { FenceMode: { Diagonal: true } }]
+  );
+});
+
+test('Fence native planner resolves negative-slope diagonal extension anchor and state', () => {
+  const built = buildFencePolyline([
+    { x: 0, y: 0 },
+    { x: 2, y: -2 }
+  ], FenceMode.DIAGONAL);
+  const network = createFenceNetwork({ familyBaseItemID: 40700246, graph: built.graph }).network;
+  const plan = planFenceNativeRepresentation({
+    network,
+    originSave: { x: 0, y: 4 },
+    pitchX: 2,
+    pitchY: 2,
+    tessellationFactor: 2,
+    baseSpanX: 2,
+    baseSpanY: 2,
+    orthogonalExtensions: BIOME2_FENCE_VARIATIONS.orthogonal,
+    diagonalExtensions: BIOME2_FENCE_VARIATIONS.diagonal
+  });
+  assert.equal(plan.ok, true);
+  const ext = plan.objects.find((object) => object.role === 'diagExt');
+  assert.deepEqual(
+    [ext.itemID, ext.x, ext.y, ext.orientation, ext.state],
+    [40700253, 2, 2, 'GridOrientation_Left', { FenceMode: { Diagonal: true } }]
+  );
 });
