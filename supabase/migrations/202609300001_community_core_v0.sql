@@ -4,6 +4,19 @@
 
 create extension if not exists pgcrypto;
 
+create schema if not exists private;
+revoke all on schema private from public;
+
+-- Supabase is moving new projects toward revoke-by-default Data API grants.
+-- Make the Wand boundary explicit instead of depending on project defaults.
+alter default privileges for role postgres in schema public
+  revoke select, insert, update, delete on tables from anon, authenticated;
+alter default privileges for role postgres in schema public
+  revoke execute on functions from public, anon, authenticated;
+alter default privileges for role postgres in schema public
+  revoke usage, select on sequences from anon, authenticated;
+
+
 do $$ begin
   create type account_status as enum ('active','restricted','suspended','deleted');
 exception when duplicate_object then null; end $$;
@@ -491,12 +504,12 @@ create trigger comments_parent_target_guard
 before insert or update of parent_comment_id, target_entity_id on comments
 for each row execute function validate_comment_parent_target();
 
-create or replace function public.current_wand_account_id()
+create or replace function private.current_wand_account_id()
 returns uuid
 language sql
 stable
 security definer
-set search_path = public
+set search_path = pg_catalog, auth, public, private
 as $$
   select ai.account_id
   from auth_identities ai
@@ -505,12 +518,12 @@ as $$
   limit 1
 $$;
 
-create or replace function public.is_staff(p_account_id uuid default public.current_wand_account_id())
+create or replace function private.is_staff(p_account_id uuid default private.current_wand_account_id())
 returns boolean
 language sql
 stable
 security definer
-set search_path = public
+set search_path = pg_catalog, auth, public, private
 as $$
   select exists (
     select 1 from account_roles ar
@@ -519,12 +532,12 @@ as $$
   )
 $$;
 
-create or replace function public.entity_owner_account_id(p_entity_id uuid)
+create or replace function private.entity_owner_account_id(p_entity_id uuid)
 returns uuid
 language plpgsql
 stable
 security definer
-set search_path = public
+set search_path = pg_catalog, auth, public, private
 as $$
 declare
   kind community_entity_type;
@@ -558,12 +571,12 @@ begin
 end;
 $$;
 
-create or replace function public.is_discoverable_work(p_work_id uuid)
+create or replace function private.is_discoverable_work(p_work_id uuid)
 returns boolean
 language sql
 stable
 security definer
-set search_path = public
+set search_path = pg_catalog, auth, public, private
 as $$
   select exists (
     select 1
@@ -578,15 +591,15 @@ as $$
   )
 $$;
 
-create or replace function public.can_access_work(
+create or replace function private.can_access_work(
   p_work_id uuid,
-  p_account_id uuid default public.current_wand_account_id()
+  p_account_id uuid default private.current_wand_account_id()
 )
 returns boolean
 language sql
 stable
 security definer
-set search_path = public
+set search_path = pg_catalog, auth, public, private
 as $$
   select exists (
     select 1
@@ -596,7 +609,7 @@ as $$
       and e.deleted_at is null
       and (
         w.owner_account_id = p_account_id
-        or public.is_staff(p_account_id)
+        or private.is_staff(p_account_id)
         or (
           w.lifecycle_state = 'published'
           and w.current_published_revision_id is not null
@@ -607,15 +620,15 @@ as $$
   )
 $$;
 
-create or replace function public.can_access_entity(
+create or replace function private.can_access_entity(
   p_entity_id uuid,
-  p_account_id uuid default public.current_wand_account_id()
+  p_account_id uuid default private.current_wand_account_id()
 )
 returns boolean
 language plpgsql
 stable
 security definer
-set search_path = public
+set search_path = pg_catalog, auth, public, private
 as $$
 declare
   kind community_entity_type;
@@ -627,11 +640,11 @@ begin
   where entity_id = p_entity_id and deleted_at is null;
 
   if kind is null then return false; end if;
-  if public.entity_owner_account_id(p_entity_id) = p_account_id then return true; end if;
-  if public.is_staff(p_account_id) then return true; end if;
+  if private.entity_owner_account_id(p_entity_id) = p_account_id then return true; end if;
+  if private.is_staff(p_account_id) then return true; end if;
 
   if kind = 'community_work' then
-    return public.can_access_work(p_entity_id, p_account_id);
+    return private.can_access_work(p_entity_id, p_account_id);
   elsif kind = 'creator_profile' then
     return exists (
       select 1 from creator_profiles c
@@ -642,14 +655,14 @@ begin
   elsif kind = 'preset_artifact' then
     select community_work_id into linked_work
     from preset_artifacts where preset_artifact_id = p_entity_id;
-    return linked_work is not null and public.can_access_work(linked_work, p_account_id);
+    return linked_work is not null and private.can_access_work(linked_work, p_account_id);
   elsif kind = 'comment' then
     select target_entity_id into comment_target
     from comments
     where comment_id = p_entity_id
       and lifecycle_state <> 'deleted'
       and moderation_state = 'clear';
-    return comment_target is not null and public.can_access_entity(comment_target, p_account_id);
+    return comment_target is not null and private.can_access_entity(comment_target, p_account_id);
   elsif kind = 'media_asset' then
     return exists (
       select 1
@@ -657,7 +670,7 @@ begin
       join community_works w
         on w.current_published_revision_id = wrm.work_revision_id
       where wrm.media_id = p_entity_id
-        and public.can_access_work(w.work_id, p_account_id)
+        and private.can_access_work(w.work_id, p_account_id)
         and exists (
           select 1 from media_assets m
           where m.media_id = p_entity_id
@@ -671,19 +684,22 @@ begin
 end;
 $$;
 
-revoke all on function public.current_wand_account_id() from public;
-revoke all on function public.is_staff(uuid) from public;
-revoke all on function public.entity_owner_account_id(uuid) from public;
-revoke all on function public.is_discoverable_work(uuid) from public;
-revoke all on function public.can_access_work(uuid, uuid) from public;
-revoke all on function public.can_access_entity(uuid, uuid) from public;
+revoke all on schema private from public;
+grant usage on schema private to anon, authenticated;
 
-grant execute on function public.current_wand_account_id() to anon, authenticated;
-grant execute on function public.is_staff(uuid) to anon, authenticated;
-grant execute on function public.entity_owner_account_id(uuid) to anon, authenticated;
-grant execute on function public.is_discoverable_work(uuid) to anon, authenticated;
-grant execute on function public.can_access_work(uuid, uuid) to anon, authenticated;
-grant execute on function public.can_access_entity(uuid, uuid) to anon, authenticated;
+revoke all on function private.current_wand_account_id() from public;
+revoke all on function private.is_staff(uuid) from public;
+revoke all on function private.entity_owner_account_id(uuid) from public;
+revoke all on function private.is_discoverable_work(uuid) from public;
+revoke all on function private.can_access_work(uuid, uuid) from public;
+revoke all on function private.can_access_entity(uuid, uuid) from public;
+
+grant execute on function private.current_wand_account_id() to anon, authenticated;
+grant execute on function private.is_staff(uuid) to anon, authenticated;
+grant execute on function private.entity_owner_account_id(uuid) to anon, authenticated;
+grant execute on function private.is_discoverable_work(uuid) to anon, authenticated;
+grant execute on function private.can_access_work(uuid, uuid) to anon, authenticated;
+grant execute on function private.can_access_entity(uuid, uuid) to anon, authenticated;
 
 alter table wand_accounts enable row level security;
 alter table auth_identities enable row level security;
@@ -718,128 +734,168 @@ alter table moderation_actions enable row level security;
 alter table audit_events enable row level security;
 alter table search_documents enable row level security;
 
+-- Explicit Data API read grants. RLS remains authoritative for row access.
+-- There are intentionally no anon/authenticated INSERT/UPDATE/DELETE grants
+-- on canonical Community state; all mutations go through the server command bus.
+grant select on
+  creator_profiles,
+  community_entities,
+  community_works,
+  community_work_revisions,
+  gallery_works,
+  gallery_work_revisions,
+  media_assets,
+  preset_artifacts,
+  preset_revisions,
+  preset_revision_publications,
+  gallery_revision_presets,
+  work_revision_media,
+  comments,
+  search_documents
+to anon, authenticated;
+
+grant select on
+  wand_accounts,
+  auth_identities,
+  ddv_profiles,
+  wand_account_ddv_profiles,
+  saved_items,
+  follows,
+  reactions,
+  notification_events,
+  notification_deliveries,
+  reports,
+  moderation_cases,
+  moderation_case_reports,
+  moderation_actions,
+  audit_events
+to authenticated;
+
+revoke insert, update, delete on all tables in schema public from anon, authenticated;
+
+
 drop policy if exists wand_accounts_self_read on wand_accounts;
 create policy wand_accounts_self_read on wand_accounts for select
-using (account_id = public.current_wand_account_id() or public.is_staff());
+to authenticated\nusing (account_id = private.current_wand_account_id() or private.is_staff());
 
 drop policy if exists auth_identities_self_read on auth_identities;
 create policy auth_identities_self_read on auth_identities for select
-using (account_id = public.current_wand_account_id() or public.is_staff());
+to authenticated\nusing (account_id = private.current_wand_account_id() or private.is_staff());
 
 drop policy if exists creator_profiles_accessible_read on creator_profiles;
 create policy creator_profiles_accessible_read on creator_profiles for select
-using (
-  owner_account_id = public.current_wand_account_id()
-  or public.is_staff()
+to anon, authenticated\nusing (
+  owner_account_id = private.current_wand_account_id()
+  or private.is_staff()
   or (profile_visibility in ('public','unlisted') and moderation_state = 'clear')
 );
 
 drop policy if exists community_entities_accessible_read on community_entities;
 create policy community_entities_accessible_read on community_entities for select
-using (public.can_access_entity(entity_id));
+to anon, authenticated\nusing (private.can_access_entity(entity_id));
 
 drop policy if exists community_works_accessible_read on community_works;
 create policy community_works_accessible_read on community_works for select
-using (public.can_access_work(work_id));
+to anon, authenticated\nusing (private.can_access_work(work_id));
 
 drop policy if exists community_work_revisions_accessible_read on community_work_revisions;
 create policy community_work_revisions_accessible_read on community_work_revisions for select
-using (public.can_access_work(work_id));
+to anon, authenticated\nusing (private.can_access_work(work_id));
 
 drop policy if exists gallery_works_accessible_read on gallery_works;
 create policy gallery_works_accessible_read on gallery_works for select
-using (public.can_access_work(work_id));
+to anon, authenticated\nusing (private.can_access_work(work_id));
 
 drop policy if exists gallery_work_revisions_accessible_read on gallery_work_revisions;
 create policy gallery_work_revisions_accessible_read on gallery_work_revisions for select
-using (
+to anon, authenticated\nusing (
   exists (
     select 1 from community_work_revisions r
     where r.revision_id = gallery_work_revisions.revision_id
-      and public.can_access_work(r.work_id)
+      and private.can_access_work(r.work_id)
   )
 );
 
 drop policy if exists preset_artifacts_accessible_read on preset_artifacts;
 create policy preset_artifacts_accessible_read on preset_artifacts for select
-using (public.can_access_entity(preset_artifact_id));
+to anon, authenticated\nusing (private.can_access_entity(preset_artifact_id));
 
 drop policy if exists preset_revisions_accessible_read on preset_revisions;
 create policy preset_revisions_accessible_read on preset_revisions for select
-using (
+to anon, authenticated\nusing (
   exists (
     select 1 from preset_artifacts p
     where p.preset_artifact_id = preset_revisions.preset_artifact_id
-      and public.can_access_entity(p.preset_artifact_id)
+      and private.can_access_entity(p.preset_artifact_id)
   )
 );
 
 drop policy if exists media_assets_accessible_read on media_assets;
 create policy media_assets_accessible_read on media_assets for select
-using (public.can_access_entity(media_id));
+to anon, authenticated\nusing (private.can_access_entity(media_id));
 
 drop policy if exists saved_items_self_read on saved_items;
 create policy saved_items_self_read on saved_items for select
-using (account_id = public.current_wand_account_id() or public.is_staff());
+to authenticated\nusing (account_id = private.current_wand_account_id() or private.is_staff());
 
 drop policy if exists follows_self_read on follows;
 create policy follows_self_read on follows for select
-using (follower_account_id = public.current_wand_account_id() or public.is_staff());
+to authenticated\nusing (follower_account_id = private.current_wand_account_id() or private.is_staff());
 
 drop policy if exists reactions_self_read on reactions;
 create policy reactions_self_read on reactions for select
-using (account_id = public.current_wand_account_id() or public.is_staff());
+to authenticated\nusing (account_id = private.current_wand_account_id() or private.is_staff());
 
 drop policy if exists comments_accessible_read on comments;
 create policy comments_accessible_read on comments for select
-using (
-  author_account_id = public.current_wand_account_id()
-  or public.is_staff()
+to anon, authenticated\nusing (
+  author_account_id = private.current_wand_account_id()
+  or private.is_staff()
   or (
     lifecycle_state <> 'deleted'
     and moderation_state = 'clear'
-    and public.can_access_entity(target_entity_id)
+    and private.can_access_entity(target_entity_id)
   )
 );
 
 drop policy if exists notification_deliveries_self_read on notification_deliveries;
 create policy notification_deliveries_self_read on notification_deliveries for select
-using (recipient_account_id = public.current_wand_account_id() or public.is_staff());
+to authenticated\nusing (recipient_account_id = private.current_wand_account_id() or private.is_staff());
 
 drop policy if exists notification_events_recipient_read on notification_events;
 create policy notification_events_recipient_read on notification_events for select
-using (
-  public.is_staff()
+to authenticated\nusing (
+  private.is_staff()
   or exists (
     select 1 from notification_deliveries d
     where d.notification_event_id = notification_events.notification_event_id
-      and d.recipient_account_id = public.current_wand_account_id()
+      and d.recipient_account_id = private.current_wand_account_id()
   )
 );
 
 drop policy if exists reports_self_read on reports;
 create policy reports_self_read on reports for select
-using (reporter_account_id = public.current_wand_account_id() or public.is_staff());
+to authenticated\nusing (reporter_account_id = private.current_wand_account_id() or private.is_staff());
 
 drop policy if exists moderation_cases_staff_read on moderation_cases;
 create policy moderation_cases_staff_read on moderation_cases for select
-using (public.is_staff());
+to authenticated\nusing (private.is_staff());
 
 drop policy if exists moderation_case_reports_staff_read on moderation_case_reports;
 create policy moderation_case_reports_staff_read on moderation_case_reports for select
-using (public.is_staff());
+to authenticated\nusing (private.is_staff());
 
 drop policy if exists moderation_actions_staff_read on moderation_actions;
 create policy moderation_actions_staff_read on moderation_actions for select
-using (public.is_staff());
+to authenticated\nusing (private.is_staff());
 
 drop policy if exists audit_events_staff_read on audit_events;
 create policy audit_events_staff_read on audit_events for select
-using (public.is_staff());
+to authenticated\nusing (private.is_staff());
 
 drop policy if exists search_documents_public_read on search_documents;
 create policy search_documents_public_read on search_documents for select
-using (public.is_discoverable_work(work_id));
+to anon, authenticated\nusing (private.is_discoverable_work(work_id));
 
 -- No direct client INSERT/UPDATE/DELETE policies are created for canonical
 -- community state. Mutations go through authenticated server commands using
@@ -1071,18 +1127,18 @@ for each row execute function prevent_immutable_revision_mutation();
 
 drop policy if exists ddv_profiles_owner_read on ddv_profiles;
 create policy ddv_profiles_owner_read on ddv_profiles for select
-using (
-  public.is_staff()
+to authenticated\nusing (
+  private.is_staff()
   or exists (
     select 1 from wand_account_ddv_profiles l
     where l.ddv_profile_id = ddv_profiles.ddv_profile_id
-      and l.account_id = public.current_wand_account_id()
+      and l.account_id = private.current_wand_account_id()
   )
 );
 
 drop policy if exists wand_account_ddv_profiles_owner_read on wand_account_ddv_profiles;
 create policy wand_account_ddv_profiles_owner_read on wand_account_ddv_profiles for select
-using (account_id = public.current_wand_account_id() or public.is_staff());
+to authenticated\nusing (account_id = private.current_wand_account_id() or private.is_staff());
 
 
 create or replace function validate_work_lifecycle_transition()
@@ -1136,3 +1192,7 @@ drop trigger if exists gallery_works_type_guard on gallery_works;
 create trigger gallery_works_type_guard
 before insert or update of work_id on gallery_works
 for each row execute function validate_gallery_work_type();
+
+
+-- The private schema is intentionally not part of the Data API exposed schemas.
+-- Its helper functions exist only for RLS evaluation and internal server use.
