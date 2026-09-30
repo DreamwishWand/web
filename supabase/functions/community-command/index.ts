@@ -19,7 +19,7 @@ const commandToRpc = {
   changeVisibility: 'community_change_work_visibility',
   unpublishWork: 'community_unpublish_work',
   deleteWork: 'community_delete_work',
-  moderateWork: 'community_moderate_work',
+  moderateWork: 'community_moderate_work_v2',
   retryDeadLetter: 'community_retry_dead_letter_outbox',
   revokeSessions: 'community_revoke_wand_sessions'
 } as const;
@@ -40,6 +40,7 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
     if (!subject) return reply({ ok: false, error: 'Authenticated subject missing' }, 401);
 
     const issuedAt = Number(ctx.jwtClaims?.iat ?? 0);
+    const sessionId = String(ctx.jwtClaims?.session_id ?? '');
     if (!Number.isInteger(issuedAt) || issuedAt <= 0) {
       return reply({ ok: false, error: 'JWT issued-at claim missing' }, 401);
     }
@@ -160,6 +161,11 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         params.p_idempotency_key = payload.idempotencyKey;
         break;
       case 'moderateWork':
+        if (!sessionId) {
+          return reply({ ok: false, error: 'JWT session-id claim missing' }, 401);
+        }
+        params.p_session_id = sessionId;
+        params.p_issued_at_epoch = issuedAt;
         params.p_case_id = payload.caseId;
         params.p_action = payload.action;
         params.p_reason = payload.reason;
@@ -177,7 +183,9 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       const conflict =
         error.message.includes('Row version conflict') ||
         error.message.includes('Idempotency key reused');
+      const recentAuth = error.message.includes('Recent authentication required');
       const forbidden =
+        recentAuth ||
         error.message.includes('does not own') ||
         error.message.includes('not accessible') ||
         error.message.includes('not active') ||
@@ -186,7 +194,13 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       return reply(
         {
           ok: false,
-          error: conflict ? 'CONFLICT' : forbidden ? 'FORBIDDEN' : 'COMMAND_FAILED',
+          error: recentAuth
+            ? 'RECENT_AUTH_REQUIRED'
+            : conflict
+              ? 'CONFLICT'
+              : forbidden
+                ? 'FORBIDDEN'
+                : 'COMMAND_FAILED',
           message: error.message
         },
         conflict ? 409 : forbidden ? 403 : 400
