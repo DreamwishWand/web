@@ -89,7 +89,7 @@ function normalizeReadData(raw: CompactReadData) {
   if (
     !raw ||
     raw.schema !== 'dreamwish-wand-v125-world-read-data' ||
-    raw.version !== 2 ||
+    raw.version !== 1 ||
     raw.platform !== 'Nintendo Switch' ||
     raw.gameVersion !== '1.25.0' ||
     raw.buildID !== WORLD_READ_SWITCH_V125_BUILD_ID ||
@@ -152,7 +152,7 @@ function validateRoleAuthority(raw: RoleAuthority): RoleAuthority {
   if (
     !raw ||
     raw.schema !== 'dreamwish-wand-ddv-grid-role-authority' ||
-    raw.version !== 1 ||
+    raw.version !== 2 ||
     raw.gameVersion !== '1.25.0' ||
     !raw.byGridDataPath ||
     typeof raw.byGridDataPath !== 'object'
