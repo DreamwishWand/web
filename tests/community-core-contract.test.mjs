@@ -1340,3 +1340,21 @@ test('Community Ops exposes configured recent-auth launch policy', () => {
   assert.match(page, /15 minutes for\s+support\/admin high-risk writes/);
   assert.match(generated, /community_get_security_policy_summary/);
 });
+
+
+test('browser/operator runbook preserves the production-shaped acceptance boundary', () => {
+  const runbook = read(
+    'docs/community/browser-operator-acceptance-runbook-20260930.md'
+  );
+
+  assert.match(runbook, /Phase A — normal signup \/ verification \/ PKCE recovery/);
+  assert.match(runbook, /Phase B — A -> B -> Moderator vertical slice/);
+  assert.match(runbook, /Phase C — operator \/ support acceptance/);
+  assert.match(runbook, /Phase D — self-service deletion/);
+  assert.match(runbook, /Phase E — operator critical email acceptance/);
+  assert.match(runbook, /900 seconds \/ 15 minutes/);
+  assert.match(runbook, /auth\.sessions\.created_at/);
+  assert.match(runbook, /Comment\/Reply\/Reaction\/Follow\/Save activity must remain \*\*in-app only\*\*/);
+  assert.match(runbook, /second independent notification channel is not launch-required/);
+  assert.match(runbook, /Never record:/);
+});
