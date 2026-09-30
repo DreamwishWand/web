@@ -227,6 +227,260 @@ function validateStringArray(
   return [...value] as string[];
 }
 
+function validateDirectRootRouteObject(
+  value: unknown,
+  path: string,
+  issues: FullDesignManifestIssue[]
+) {
+  if (!plain(value)) {
+    issues.push(block('FULL_DESIGN_DIRECT_ROOT_ROUTE_INVALID', path));
+    return null;
+  }
+  if (value.codec !== 'ddv.direct-grid-route@1') {
+    issues.push(
+      block('FULL_DESIGN_DIRECT_ROOT_ROUTE_CODEC_UNSUPPORTED', `${path}.codec`)
+    );
+  }
+  if (!nonEmptyString(value.gridDataPath)) {
+    issues.push(
+      block('FULL_DESIGN_DIRECT_ROOT_PATH_INVALID', `${path}.gridDataPath`)
+    );
+    return null;
+  }
+  return String(value.gridDataPath);
+}
+
+function validateRootObjectInventory(
+  category: AnyRecord,
+  directRootPaths: Set<string>,
+  issues: FullDesignManifestIssue[]
+) {
+  if (category.requested !== true) return;
+  const count = safeInteger(category.directRootObjectCount);
+  if (count === null || count < 0) {
+    issues.push(
+      block(
+        'FULL_DESIGN_ROOT_OBJECT_COUNT_INVALID',
+        '$.categories.rootObjects.directRootObjectCount'
+      )
+    );
+  }
+
+  const routeCounts = category.routeObjectCounts;
+  if (!Array.isArray(routeCounts)) {
+    issues.push(
+      block(
+        'FULL_DESIGN_ROOT_OBJECT_ROUTE_COUNTS_INVALID',
+        '$.categories.rootObjects.routeObjectCounts'
+      )
+    );
+    return;
+  }
+
+  const seen = new Set<string>();
+  let sum = 0;
+  routeCounts.forEach((entry, index) => {
+    const path = `$.categories.rootObjects.routeObjectCounts[${index}]`;
+    if (!plain(entry)) {
+      issues.push(block('FULL_DESIGN_ROOT_OBJECT_ROUTE_COUNT_INVALID', path));
+      return;
+    }
+    const gridDataPath = validateDirectRootRouteObject(
+      entry.directRootRoute,
+      `${path}.directRootRoute`,
+      issues
+    );
+    const objectCount = safeInteger(entry.objectCount);
+    if (objectCount === null || objectCount < 0) {
+      issues.push(
+        block(
+          'FULL_DESIGN_ROOT_OBJECT_ROUTE_COUNT_INVALID',
+          `${path}.objectCount`
+        )
+      );
+      return;
+    }
+    sum += objectCount;
+    if (gridDataPath) {
+      if (!directRootPaths.has(gridDataPath)) {
+        issues.push(
+          block(
+            'FULL_DESIGN_ROOT_OBJECT_ROUTE_OUTSIDE_LOCATION',
+            `${path}.directRootRoute.gridDataPath`,
+            { gridDataPath }
+          )
+        );
+      }
+      if (seen.has(gridDataPath)) {
+        issues.push(
+          block(
+            'FULL_DESIGN_ROOT_OBJECT_ROUTE_DUPLICATE',
+            `${path}.directRootRoute.gridDataPath`,
+            { gridDataPath }
+          )
+        );
+      }
+      seen.add(gridDataPath);
+    }
+  });
+
+  if (seen.size !== directRootPaths.size) {
+    issues.push(
+      block(
+        'FULL_DESIGN_ROOT_OBJECT_ROUTE_COVERAGE_MISMATCH',
+        '$.categories.rootObjects.routeObjectCounts',
+        { expected: directRootPaths.size, actual: seen.size }
+      )
+    );
+  }
+  if (count !== null && count !== sum) {
+    issues.push(
+      block(
+        'FULL_DESIGN_ROOT_OBJECT_COUNT_MISMATCH',
+        '$.categories.rootObjects.directRootObjectCount',
+        { expected: sum, actual: count }
+      )
+    );
+  }
+}
+
+function validateBuildingRestorationCapture(
+  category: AnyRecord,
+  directRootPaths: Set<string>,
+  issues: FullDesignManifestIssue[]
+) {
+  if (category.requested !== true) return;
+  const capture = category.restorationCapture;
+  const path = '$.categories.buildings.restorationCapture';
+  if (!plain(capture)) {
+    issues.push(block('FULL_DESIGN_BUILDING_RESTORATION_CAPTURE_REQUIRED', path));
+    return;
+  }
+  if (!Array.isArray(capture.entries) || !Array.isArray(capture.unresolved)) {
+    issues.push(block('FULL_DESIGN_BUILDING_RESTORATION_CAPTURE_INVALID', path));
+    return;
+  }
+
+  const ids = new Set<string>();
+  capture.entries.forEach((entry: unknown, index: number) => {
+    const current = `${path}.entries[${index}]`;
+    if (!plain(entry)) {
+      issues.push(block('FULL_DESIGN_BUILDING_RESTORATION_ENTRY_INVALID', current));
+      return;
+    }
+    const id = String(entry.artifactRestorationId ?? '');
+    if (!/^r\d+$/.test(id) || ids.has(id)) {
+      issues.push(
+        block(
+          'FULL_DESIGN_BUILDING_RESTORATION_ID_INVALID',
+          `${current}.artifactRestorationId`
+        )
+      );
+    } else {
+      ids.add(id);
+    }
+    const gridDataPath = validateDirectRootRouteObject(
+      entry.directRootRoute,
+      `${current}.directRootRoute`,
+      issues
+    );
+    if (gridDataPath && !directRootPaths.has(gridDataPath)) {
+      issues.push(
+        block(
+          'FULL_DESIGN_BUILDING_RESTORATION_ROUTE_OUTSIDE_LOCATION',
+          `${current}.directRootRoute.gridDataPath`
+        )
+      );
+    }
+    const itemId = safeInteger(entry.itemId);
+    const localX = safeInteger(entry.localX);
+    const localY = safeInteger(entry.localY);
+    if (
+      itemId === null ||
+      itemId <= 0 ||
+      localX === null ||
+      localY === null ||
+      !['BUILDING_SKIN', 'PLAYER_HOUSE'].includes(String(entry.kind))
+    ) {
+      issues.push(block('FULL_DESIGN_BUILDING_RESTORATION_ENTRY_INVALID', current));
+    }
+
+    if (!plain(entry.portableState)) {
+      issues.push(
+        block(
+          'FULL_DESIGN_BUILDING_RESTORATION_STATE_INVALID',
+          `${current}.portableState`
+        )
+      );
+      return;
+    }
+    const codec = String(entry.portableState.codec ?? '');
+    const expected =
+      entry.kind === 'BUILDING_SKIN'
+        ? 'ddv.building-skin@1'
+        : entry.kind === 'PLAYER_HOUSE'
+          ? 'ddv.player-house-binding@1'
+          : null;
+    if (expected && codec !== expected) {
+      issues.push(
+        block(
+          'FULL_DESIGN_BUILDING_RESTORATION_CODEC_MISMATCH',
+          `${current}.portableState.codec`,
+          { expected, actual: codec }
+        )
+      );
+    }
+  });
+
+  capture.unresolved.forEach((entry: unknown, index: number) => {
+    const current = `${path}.unresolved[${index}]`;
+    if (!plain(entry)) {
+      issues.push(
+        block('FULL_DESIGN_BUILDING_RESTORATION_UNRESOLVED_INVALID', current)
+      );
+      return;
+    }
+    const gridDataPath = validateDirectRootRouteObject(
+      entry.directRootRoute,
+      `${current}.directRootRoute`,
+      issues
+    );
+    if (gridDataPath && !directRootPaths.has(gridDataPath)) {
+      issues.push(
+        block(
+          'FULL_DESIGN_BUILDING_RESTORATION_ROUTE_OUTSIDE_LOCATION',
+          `${current}.directRootRoute.gridDataPath`
+        )
+      );
+    }
+    const itemId = safeInteger(entry.itemId);
+    if (
+      itemId === null ||
+      itemId <= 0 ||
+      safeInteger(entry.localX) === null ||
+      safeInteger(entry.localY) === null ||
+      !nonEmptyString(entry.status) ||
+      !Array.isArray(entry.blockers)
+    ) {
+      issues.push(
+        block('FULL_DESIGN_BUILDING_RESTORATION_UNRESOLVED_INVALID', current)
+      );
+    }
+  });
+
+  for (const field of ['supportedNoExtraStateCount', 'notApplicableCount']) {
+    const value = safeInteger(capture[field]);
+    if (value === null || value < 0) {
+      issues.push(
+        block(
+          'FULL_DESIGN_BUILDING_RESTORATION_COUNT_INVALID',
+          `${path}.${field}`
+        )
+      );
+    }
+  }
+}
+
 function validateEnvironmentPortableState(
   presetType: unknown,
   category: AnyRecord,
@@ -268,9 +522,10 @@ function validateEnvironmentPortableState(
 function validateCategories(
   presetType: unknown,
   categories: unknown,
-  directRootCount: number,
+  directRootPaths: Set<string>,
   issues: FullDesignManifestIssue[]
 ) {
+  const directRootCount = directRootPaths.size;
   const path = '$.categories';
   if (!plain(categories)) {
     issues.push(block('FULL_DESIGN_CATEGORIES_REQUIRED', path));
@@ -380,6 +635,10 @@ function validateCategories(
       }
     }
 
+    if (key === 'rootObjects') {
+      validateRootObjectInventory(category, directRootPaths, issues);
+    }
+
     if (key === 'buildings' && category.requested === true) {
       const codecs = validateStringArray(
         category.portableStateCodecs,
@@ -401,6 +660,7 @@ function validateCategories(
           );
         }
       }
+      validateBuildingRestorationCapture(category, directRootPaths, issues);
     }
 
     if (key === 'environment') {
@@ -462,7 +722,7 @@ export function validateCurrentV125FullDesignManifest(input: unknown) {
 
   validateSemanticIdentity(input.presetType, input.semanticIdentity, issues);
   const routes = validateDirectRootRoutes(input.directRootRoutes, issues);
-  validateCategories(input.presetType, input.categories, routes.size, issues);
+  validateCategories(input.presetType, input.categories, routes, issues);
 
   if (!plain(input.exclusions) || input.exclusions.sourceSaveLocalIdentity !== true) {
     issues.push(
