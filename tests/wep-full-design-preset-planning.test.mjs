@@ -88,11 +88,19 @@ test('Biome planning captures portable multi-root routes and strips save-local i
     }
   ]);
 
-  const serialized = JSON.stringify(plan.manifest);
-  assert.equal(serialized.includes('sourceGridId'), false);
-  assert.equal(serialized.includes('rootGridId'), false);
-  assert.equal(serialized.includes('GridObjectID'), false);
-  assert.equal(serialized.includes('PlayerHouseIndex'), false);
+  const collectKeys = (value) => {
+    if (Array.isArray(value)) return value.flatMap(collectKeys);
+    if (!value || typeof value !== 'object') return [];
+    return Object.entries(value).flatMap(([key, child]) => [
+      key,
+      ...collectKeys(child)
+    ]);
+  };
+  const manifestKeys = collectKeys(plan.manifest);
+  assert.equal(manifestKeys.includes('sourceGridId'), false);
+  assert.equal(manifestKeys.includes('rootGridId'), false);
+  assert.equal(manifestKeys.includes('GridObjectID'), false);
+  assert.equal(manifestKeys.includes('PlayerHouseIndex'), false);
   assert.equal(plan.manifest.normalization.sourceGridIdsRemoved, true);
   assert.equal(plan.manifest.normalization.sourceGridObjectIdsRemoved, true);
 });
