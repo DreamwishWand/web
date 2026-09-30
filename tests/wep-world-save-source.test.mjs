@@ -6,6 +6,7 @@ import {
   listWorldAreaRoutes,
   openWorldSaveBytes
 } from '../src/lib/wep/world-save-source.ts';
+import { makeSyntheticP1gProfile } from './helpers/p1g-fixture.mjs';
 
 const profile = {
   GameInfo: {
@@ -96,6 +97,17 @@ test('opens plaintext current-v1.25 schema read-only', async () => {
   assert.equal(opened.compatibility.exactBuildKnown, false);
   assert.equal(opened.compatibility.persistentWriteAuthorized, false);
   assert.equal(opened.areas.length, 1);
+});
+
+test('opens packaged P1G current-v1.25 save read-only', async () => {
+  const bytes = makeSyntheticP1gProfile(profile);
+  const opened = await openWorldSaveBytes(bytes);
+
+  assert.equal(opened.inputFormat, 'packaged');
+  assert.equal(opened.profileSchemaVersion, 624);
+  assert.equal(opened.saveIdentity.lastSavePlatform, 'switch');
+  assert.equal(opened.areas[0].roots[0].gridId, 10);
+  assert.equal(opened.compatibility.persistentWriteAuthorized, false);
 });
 
 test('rejects unsupported profile schema before World projection', async () => {
