@@ -71,11 +71,11 @@ Browser runtime evidence:
 
 ## Remaining Community release-critical work
 
-1. WEP integration: validated Preset payload -> Community publication -> Library -> read -> preflight -> apply.
-2. Final launch privacy/legal approval of 30-day content / 365-day operational retention defaults.
+1. **COMM side of the Scene Preset reuse vertical is CLOSED.** WEP runtime evidence now confirms validated Scene payload -> Community publish -> public discovery -> Library Save/query -> Preset detail -> signed ArtifactBlob read -> byte/SHA verification -> WEP revalidation -> destination preflight. Persistent Apply remains blocked by the WEP/Core DDV writer boundary and is no longer a Community implementation blocker.
+2. Final launch privacy/legal/product approval of 30-day content / 365-day operational retention defaults.
 3. Preserve backend-confirmed support Open -> Verify -> Complete procedure; re-exercise in operator UI only if release QA requires it.
 4. Continue low-volume transactional-email inbox-placement monitoring while the new sender domain builds reputation.
-5. Finalize production security-hardening choices for unavailable Leaked password protection and currently disabled Supabase security-notification toggles.
-6. Final cross-product/no-direct-SQL release-gate rerun after WEP/product integration is complete.
+5. Security hardening policy is now defined in `docs/community/security-hardening-launch-policy-20261001.md`: 15-character passphrase-friendly password baseline, no composition rule, existing recent-auth/session controls retained. Supabase provider minimum-length alignment and security-change notification toggles remain manual provider configuration acceptance.
+6. Final cross-product/no-direct-SQL release-gate rerun after Product/WEP integration is complete. Do not rerun completed Community browser suites unless relevant code/config changed or regression evidence exists.
 
 Do not redo the completed browser suites unless a regression or relevant code/config change requires it.
