@@ -1321,6 +1321,8 @@ export function planRoadNativeRepresentation({
     nativeOracleInventoryCost: objects.length,
     wandListInventoryDelta: 0,
     ownershipMutationRequired: false,
+    placementValidity: 'requires-external-world-surface-validation',
+    requiresExternalPlacementValidation: true,
     objects,
     persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
   };
@@ -1482,6 +1484,8 @@ export function planFenceNativeRepresentation({
     nativeOracleInventoryCost: compiled.logicalQuantity,
     wandListInventoryDelta: 0,
     ownershipMutationRequired: false,
+    placementValidity: 'requires-external-world-surface-validation',
+    requiresExternalPlacementValidation: true,
     objects,
     modeBoundaries: compiled.modeBoundaries,
     persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
