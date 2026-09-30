@@ -589,7 +589,7 @@ const BIOME2_FENCE_VARIATIONS = Object.freeze({
   }
 });
 
-test('Road native planner reproduces the DW-R01 cardinal-3 offline fixture shape', () => {
+test('Road native planner reproduces the current corrected DW-R01 cardinal-3 fixture shape', () => {
   const cells = rasterizeRoadPath([
     { x: 0, y: 0 },
     { x: 1, y: 0 },
@@ -599,7 +599,7 @@ test('Road native planner reproduces the DW-R01 cardinal-3 offline fixture shape
   const plan = planRoadNativeRepresentation({
     network,
     originLogical: { x: 0, y: 0 },
-    originSave: { x: 24, y: 24 },
+    originSave: { x: 328, y: 52 },
     pitchX: 4,
     pitchY: 4
   });
@@ -612,8 +612,8 @@ test('Road native planner reproduces the DW-R01 cardinal-3 offline fixture shape
       role: 'roadCell',
       itemID: 40100068,
       logical: { x: 0, y: 0 },
-      x: 24,
-      y: 24,
+      x: 328,
+      y: 52,
       orientation: 'GridOrientation_Down',
       state: null
     },
@@ -621,8 +621,8 @@ test('Road native planner reproduces the DW-R01 cardinal-3 offline fixture shape
       role: 'roadCell',
       itemID: 40100068,
       logical: { x: 1, y: 0 },
-      x: 28,
-      y: 24,
+      x: 332,
+      y: 52,
       orientation: 'GridOrientation_Down',
       state: null
     },
@@ -630,8 +630,8 @@ test('Road native planner reproduces the DW-R01 cardinal-3 offline fixture shape
       role: 'roadCell',
       itemID: 40100068,
       logical: { x: 2, y: 0 },
-      x: 32,
-      y: 24,
+      x: 336,
+      y: 52,
       orientation: 'GridOrientation_Down',
       state: null
     }
