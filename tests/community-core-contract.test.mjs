@@ -882,3 +882,52 @@ test('generated schema exposes operations-alert RPCs but not private alert stora
   assert.match(generated, /community_admin_ack_operations_alert/);
   assert.doesNotMatch(generated, /community_operations_alerts/);
 });
+
+
+test('first-time identity bootstrap is explicit and fail-closed for retired or reserved provider subjects', () => {
+  const migration = read(
+    'supabase/migrations/20260930081500_community_core_v0_safe_identity_bootstrap.sql'
+  );
+
+  assert.match(migration, /community_authorize_identity_bootstrap/);
+  assert.match(migration, /identity_state='active'/);
+  assert.match(migration, /Retired AuthIdentity cannot bootstrap/);
+  assert.match(migration, /Provider identity is pending deletion/);
+  assert.match(migration, /reserved by an open recovery case/);
+  assert.match(migration, /community_authorize_session/);
+  assert.match(migration, /WandAccount is not active/);
+});
+
+test('Community command uses bootstrap authorization only for ensureAccountCreator', () => {
+  const command = read('supabase/functions/community-command/index.ts');
+
+  assert.match(command, /command === 'ensureAccountCreator'/);
+  assert.match(command, /community_authorize_identity_bootstrap/);
+  assert.match(command, /community_authorize_session/);
+  assert.match(command, /if \(command !== 'ensureAccountCreator'\)/);
+  assert.match(command, /authorizationParams\.p_max_age_seconds = null/);
+});
+
+test('safe bootstrap keeps privileged RPCs service-only', () => {
+  const migration = read(
+    'supabase/migrations/20260930081500_community_core_v0_safe_identity_bootstrap.sql'
+  );
+
+  assert.match(
+    migration,
+    /revoke execute on function public\.community_authorize_identity_bootstrap\(uuid,bigint\)[\s\S]*from public,anon,authenticated/i
+  );
+  assert.match(
+    migration,
+    /grant execute on function public\.community_authorize_identity_bootstrap\(uuid,bigint\)[\s\S]*to service_role/i
+  );
+  assert.match(
+    migration,
+    /revoke execute on function public\.community_ensure_account_creator\(uuid,text,text\)[\s\S]*from public,anon,authenticated/i
+  );
+});
+
+test('generated schema exposes the safe bootstrap RPC', () => {
+  const generated = read('src/lib/generated/database.types.ts');
+  assert.match(generated, /community_authorize_identity_bootstrap/);
+});
