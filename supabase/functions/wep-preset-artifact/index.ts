@@ -179,8 +179,8 @@ function validateArtifact(value: unknown) {
   return { schemaVersion, presetType };
 }
 
-async function validatedStoredArtifact(ctx: any, accountId: string, storageKey: string, phase: 'staging' | 'published') {
-  const prefix = `${phase}/${accountId}/`;
+async function validatedStoredArtifact(ctx: any, subject: string, storageKey: string, phase: 'staging' | 'published') {
+  const prefix = `${phase}/${subject}/`;
   if (!storageKey.startsWith(prefix) || storageKey.includes('..') || !storageKey.endsWith('.json')) {
     throw new Error('INVALID_STORAGE_KEY');
   }
@@ -207,14 +207,12 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
 
   const issuedAt = Number(ctx.jwtClaims?.iat ?? 0);
   if (!Number.isInteger(issuedAt) || issuedAt <= 0) return reply({ ok: false, error: 'JWT issued-at claim missing' }, 401);
-  const { data: sessionAuthorization, error: sessionError } = await ctx.supabaseAdmin.rpc('community_authorize_session', {
+  const { error: sessionError } = await ctx.supabaseAdmin.rpc('community_authorize_session', {
     p_auth_subject: subject,
     p_issued_at_epoch: issuedAt,
     p_max_age_seconds: null
   });
   if (sessionError) return reply({ ok: false, error: 'SESSION_REVOKED_OR_INVALID', message: sessionError.message }, 401);
-  const accountId = String(sessionAuthorization?.accountId ?? '');
-  if (!accountId) return reply({ ok: false, error: 'WAND_ACCOUNT_ID_MISSING' }, 401);
 
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return reply({ ok: false, error: 'Invalid JSON body' }, 400); }
@@ -233,7 +231,7 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
     if (rate?.allowed === false) {
       return reply({ ok: false, error: 'RATE_LIMITED', retryAfterSeconds: rate.retryAfterSeconds, resetAt: rate.resetAt }, 429);
     }
-    const storageKey = `staging/${accountId}/${crypto.randomUUID()}.json`;
+    const storageKey = `staging/${subject}/${crypto.randomUUID()}.json`;
     const { data, error } = await ctx.supabaseAdmin.storage.from(BUCKET).createSignedUploadUrl(storageKey);
     if (error || !data) return reply({ ok: false, error: 'UPLOAD_PREPARE_FAILED', message: error?.message }, 400);
     return reply({ ok: true, action, storageKey, contentType: CONTENT_TYPE, maxBytes: MAX_BYTES, signedUpload: data });
@@ -251,33 +249,36 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       return reply({ ok: false, error: 'PUBLISH_METADATA_REQUIRED' }, 400);
     }
 
-    const finalDigest = hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${accountId}:${idempotencyKey}`)));
-    const publishedStorageKey = `published/${accountId}/${finalDigest}.json`;
+    const finalDigest = hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${subject}:${idempotencyKey}`)));
+    const publishedStorageKey = `published/${subject}/${finalDigest}.json`;
 
     let validated;
     let source: 'staging' | 'published' = 'staging';
     try {
-      validated = await validatedStoredArtifact(ctx, accountId, storageKey, 'staging');
+      validated = await validatedStoredArtifact(ctx, subject, storageKey, 'staging');
     } catch {
       try {
-        validated = await validatedStoredArtifact(ctx, accountId, publishedStorageKey, 'published');
+        validated = await validatedStoredArtifact(ctx, subject, publishedStorageKey, 'published');
         source = 'published';
       } catch (error) {
         return reply({ ok: false, error: error instanceof Error ? error.message : 'ARTIFACT_VALIDATE_FAILED' }, 400);
       }
     }
 
+    let promotedNewObject = false;
     if (source === 'staging') {
       const { error: copyError } = await ctx.supabaseAdmin.storage.from(BUCKET).copy(storageKey, publishedStorageKey);
       if (copyError) {
         try {
-          const existing = await validatedStoredArtifact(ctx, accountId, publishedStorageKey, 'published');
+          const existing = await validatedStoredArtifact(ctx, subject, publishedStorageKey, 'published');
           if (existing.checksumSha256 !== validated.checksumSha256) {
             return reply({ ok: false, error: 'PUBLISHED_KEY_CONFLICT' }, 409);
           }
         } catch {
           return reply({ ok: false, error: 'ARTIFACT_PROMOTE_FAILED', message: copyError.message }, 400);
         }
+      } else {
+        promotedNewObject = true;
       }
     }
 
@@ -296,7 +297,12 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       p_metadata: metadata,
       p_idempotency_key: idempotencyKey
     });
-    if (error) return reply({ ok: false, error: 'PRESET_PUBLISH_FAILED', message: error.message }, 400);
+    if (error) {
+      if (promotedNewObject) {
+        await ctx.supabaseAdmin.storage.from(BUCKET).remove([publishedStorageKey]);
+      }
+      return reply({ ok: false, error: 'PRESET_PUBLISH_FAILED', message: error.message }, 400);
+    }
 
     if (source === 'staging') {
       await ctx.supabaseAdmin.storage.from(BUCKET).remove([storageKey]);
@@ -367,12 +373,27 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
     if (metaError || !meta) return reply({ ok: false, error: 'PRESET_FORBIDDEN_OR_UNAVAILABLE', message: metaError?.message }, 403);
     const { data: signed, error: signError } = await ctx.supabaseAdmin.storage.from(BUCKET).createSignedUrl(meta.storageKey, 300);
     if (signError || !signed) return reply({ ok: false, error: 'PRESET_SIGN_FAILED', message: signError?.message }, 400);
-    return reply({ ok: true, action, preset: { ...meta, signedUrl: signed.signedUrl, expiresIn: 300 } });
+    return reply({
+      ok: true,
+      action,
+      preset: {
+        presetArtifactId: meta.presetArtifactId,
+        presetRevisionId: meta.presetRevisionId,
+        presetType: meta.presetType,
+        blobId: meta.blobId,
+        schemaVersion: meta.schemaVersion,
+        contentType: meta.contentType,
+        byteSize: meta.byteSize,
+        checksumSha256: meta.checksumSha256,
+        signedUrl: signed.signedUrl,
+        expiresIn: 300
+      }
+    });
   }
 
   if (action === 'discard') {
     const storageKey = String(body.storageKey ?? '');
-    const ownedPrefix = storageKey.startsWith(`staging/${accountId}/`) || storageKey.startsWith(`published/${accountId}/`);
+    const ownedPrefix = storageKey.startsWith(`staging/${subject}/`) || storageKey.startsWith(`published/${subject}/`);
     if (!ownedPrefix || storageKey.includes('..') || !storageKey.endsWith('.json')) {
       return reply({ ok: false, error: 'INVALID_STORAGE_KEY' }, 403);
     }
