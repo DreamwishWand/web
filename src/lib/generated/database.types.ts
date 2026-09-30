@@ -1545,6 +1545,10 @@ export type Database = {
         }
         Returns: Json
       }
+      community_authorize_identity_bootstrap: {
+        Args: { p_auth_subject: string; p_issued_at_epoch: number }
+        Returns: Json
+      }
       community_authorize_session: {
         Args: {
           p_auth_subject: string
@@ -1582,6 +1586,10 @@ export type Database = {
           p_recovery_case_id: string
         }
         Returns: Json
+      }
+      community_consume_account_delete_e2e_nonce: {
+        Args: { p_nonce: string }
+        Returns: boolean
       }
       community_create_gallery_draft: {
         Args: {
@@ -1729,6 +1737,17 @@ export type Database = {
           p_visibility: string
         }
         Returns: Json
+      }
+      community_record_account_delete_e2e_result: {
+        Args: {
+          p_account_id: string
+          p_auth_user_id: string
+          p_cleanup_job_id: string
+          p_error_text: string
+          p_run_id: string
+          p_wand_delete_ok: boolean
+        }
+        Returns: undefined
       }
       community_register_validated_media: {
         Args: {
