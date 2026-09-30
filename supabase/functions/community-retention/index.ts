@@ -98,8 +98,7 @@ export default {
       try {
         if (job.stage === 'content_payload') {
           if (job.artifactBlobCount > 0) {
-            const adapterUrl = `${new URL(req.url).origin}/functions/v1/wep-preset-retention`;
-            const adapterResponse = await fetch(adapterUrl, {
+            const adapterResponse = await fetch(WEP_PRESET_RETENTION_URL, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
