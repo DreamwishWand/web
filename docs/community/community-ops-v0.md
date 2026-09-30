@@ -82,6 +82,29 @@ Write:
 - reviewed event can be requeued with mandatory reason;
 - existing audit path remains authoritative.
 
+### Operations alerts
+
+Persistent alert sources:
+
+- provider-cleanup job reaches `dead_letter`;
+- Community outbox event reaches dead-letter state;
+- provider-cleanup scheduler/worker heartbeat becomes stale or inactive.
+
+Alert states:
+
+- `open`;
+- `acknowledged`;
+- `resolved`.
+
+Behavior:
+
+- conditions are refreshed every minute by `community-operations-alerts-every-minute`;
+- underlying recovery auto-resolves the alert;
+- recurrence reopens a clean incident under the same dedupe key;
+- operator acknowledgment requires admin role + session-bound recent-auth;
+- acknowledgment is audited;
+- provider subjects and worker/Vault secrets never appear in alert metadata or operator responses.
+
 ## Recent-auth procedure
 
 Current staging admin policy is 900 seconds.
@@ -107,14 +130,19 @@ With one disposable staging admin and one disposable target account:
 6. create or use a provider-cleanup dead-letter fixture;
 7. list and requeue it through the UI;
 8. list/requeue an outbox dead-letter fixture;
-9. wait beyond the recent-auth window or use an old session and confirm high-risk write rejection;
-10. sign out/sign in and confirm the same operation is accepted;
-11. capture only opaque actor labels and Community IDs.
+9. load Operations Alerts and confirm the expected dead-letter alert appears;
+10. acknowledge an open alert and confirm it moves to `acknowledged`;
+11. clear/requeue the underlying condition and confirm the alert auto-resolves;
+12. wait beyond the recent-auth window or use an old session and confirm high-risk write rejection;
+13. sign out/sign in and confirm the same operation is accepted;
+14. capture only opaque actor labels and Community IDs.
 
 Never record passwords, JWTs, refresh tokens, provider subjects, recovery codes, verification
 artifacts, API secrets or signed URLs in evidence docs.
 
 ## Current boundary
 
-Backend/RPC behavior is CONFIRMED in staging and the internal UI + Edge boundary are implemented and
-CI-green. Browser/operator runtime acceptance is still pending.
+Backend/RPC behavior is CONFIRMED in staging, including persistent operations-alert detection,
+acknowledgment, audit, auto-resolution and recurrence reopening. The internal UI + Edge boundary are
+implemented and CI-green. Browser/operator runtime acceptance is still pending. Detailed alert
+evidence: `docs/community/operations-alerts-runtime-20260930.md`.
