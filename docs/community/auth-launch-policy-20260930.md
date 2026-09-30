@@ -19,9 +19,7 @@ Social login, platform SSO and passkeys are not required for the first public re
 provider-neutral `AuthIdentity` model remains the extension point for later providers without
 changing WandAccount/Creator ownership.
 
-Production Auth mail should use the same transactional email provider as operator critical mail and
-approved Wand transactional email where practical. Supabase custom SMTP or Send Email Hook remain the
-supported Auth boundary; Auth verification/recovery tokens do not enter Community domain tables.
+Production Auth mail should use the selected Resend transactional email provider shared with operator critical mail and approved Wand transactional email. Supabase custom SMTP is the initial Auth delivery boundary; Auth verification/recovery tokens do not enter Community domain tables.
 
 ## Privacy boundary
 
@@ -48,7 +46,7 @@ Exceptional ownership recovery:
 
 Before launch:
 
-1. configure production email sender/domain and provider quotas;
+1. verify the Wand sender domain in Resend and configure production Auth SMTP/provider quotas;
 2. enable/verify email confirmation policy;
 3. execute signup -> verification -> sign-in in a real browser;
 4. execute PKCE recovery end-to-end;
