@@ -3,6 +3,7 @@
   import { CommunityLabClient, type CommunitySession } from '$lib/community/staging-http-client';
 
   const CONFIG_KEY = 'dreamwishwand-community-lab-config-v1';
+  const TARGET_KEY = 'dreamwishwand-community-lab-target-v1';
 
   let supabaseUrl = 'https://ptpdoxhrqopvczpclcij.supabase.co';
   let publishableKey = '';
@@ -17,6 +18,18 @@
   let draft: any = null;
   let published: any = null;
   let queriedWork: any = null;
+  let targetQuery: any = null;
+  let savedQuery: any = null;
+  let notificationsQuery: any = null;
+  let interactions: Record<string, unknown> = {};
+
+  let targetWorkId = '';
+  let targetCreatorProfileId = '';
+  let targetRowVersion = 0;
+  let commentBody = 'Community Lab comment';
+  let reportCaseId = '';
+  let moderationAction = 'restrict';
+  let moderationReason = 'Community Lab moderator runtime probe';
 
   let handle = '';
   let displayName = 'Community Lab Creator';
@@ -36,6 +49,15 @@
         const saved = JSON.parse(raw);
         supabaseUrl = saved.supabaseUrl || supabaseUrl;
         publishableKey = saved.publishableKey || '';
+      }
+
+      const rawTarget = sessionStorage.getItem(TARGET_KEY);
+      if (rawTarget) {
+        const savedTarget = JSON.parse(rawTarget);
+        targetWorkId = savedTarget.targetWorkId || '';
+        targetCreatorProfileId = savedTarget.targetCreatorProfileId || '';
+        targetRowVersion = Number(savedTarget.targetRowVersion || 0);
+        reportCaseId = savedTarget.reportCaseId || '';
       }
 
       if (!handle) {
@@ -61,6 +83,19 @@
     client = new CommunityLabClient({ supabaseUrl, publishableKey });
     session = client.session;
     return client;
+  }
+
+  function persistTargetContext() {
+    sessionStorage.setItem(
+      TARGET_KEY,
+      JSON.stringify({ targetWorkId, targetCreatorProfileId, targetRowVersion, reportCaseId })
+    );
+  }
+
+  function currentCreatorProfileId(): string {
+    return String(
+      identity?.me?.data?.creatorProfileId ?? identity?.created?.data?.creatorProfileId ?? ''
+    );
   }
 
   async function run<T>(label: string, action: () => Promise<T>): Promise<T | null> {
@@ -180,6 +215,10 @@
 
     if (result) {
       published = result;
+      targetWorkId = String(result?.data?.workId ?? workId);
+      targetCreatorProfileId = currentCreatorProfileId();
+      targetRowVersion = Number(result?.data?.rowVersion ?? expectedVersion);
+      persistTargetContext();
       await queryPublishedWork();
     }
   }
@@ -190,7 +229,174 @@
     if (!workId) return;
 
     const result = await run('Authorized work query', () => client!.query('work', { workId }));
-    if (result) queriedWork = result;
+    if (result) {
+      queriedWork = result;
+      targetWorkId = String(result?.data?.workId ?? workId);
+      targetCreatorProfileId = String(result?.data?.creatorProfileId ?? targetCreatorProfileId);
+      targetRowVersion = Number(result?.data?.rowVersion ?? targetRowVersion);
+      persistTargetContext();
+    }
+  }
+
+  async function queryTargetWork() {
+    if (!client || !targetWorkId) return;
+    const result = await run('Target work query', () =>
+      client!.query('work', { workId: targetWorkId })
+    );
+    if (result) {
+      targetQuery = result;
+      targetCreatorProfileId = String(result?.data?.creatorProfileId ?? targetCreatorProfileId);
+      targetRowVersion = Number(result?.data?.rowVersion ?? targetRowVersion);
+      persistTargetContext();
+    }
+  }
+
+  async function saveTarget() {
+    if (!client || !targetWorkId) return;
+    const result = await run('B save work', () =>
+      client!.command('saveEntity', { targetEntityId: targetWorkId })
+    );
+    if (result) interactions = { ...interactions, save: result };
+  }
+
+  async function followTargetCreator() {
+    if (!client || !targetCreatorProfileId) return;
+    const result = await run('B follow creator', () =>
+      client!.command('followCreator', { creatorProfileId: targetCreatorProfileId })
+    );
+    if (result) interactions = { ...interactions, follow: result };
+  }
+
+  async function reactTarget() {
+    if (!client || !targetWorkId) return;
+    const result = await run('B react', () =>
+      client!.command('addReaction', {
+        targetEntityId: targetWorkId,
+        reactionKind: 'like'
+      })
+    );
+    if (result) interactions = { ...interactions, reaction: result };
+  }
+
+  async function commentTarget() {
+    if (!client || !targetWorkId) return;
+    const creatorProfileId = currentCreatorProfileId();
+    if (!creatorProfileId) {
+      error = 'Run Stable identity for the currently signed-in B account first.';
+      return;
+    }
+
+    const result = await run('B comment', () =>
+      client!.command('addComment', {
+        creatorProfileId,
+        targetEntityId: targetWorkId,
+        parentCommentId: null,
+        body: commentBody,
+        idempotencyKey: crypto.randomUUID()
+      })
+    );
+    if (result) interactions = { ...interactions, comment: result };
+  }
+
+  async function reportTarget() {
+    if (!client || !targetWorkId) return;
+    const result = await run('B report', () =>
+      client!.command('reportEntity', {
+        targetEntityId: targetWorkId,
+        reasonCode: 'community_lab',
+        detail: 'Internal staging acceptance report',
+        idempotencyKey: crypto.randomUUID()
+      })
+    );
+    if (result) {
+      interactions = { ...interactions, report: result };
+      reportCaseId = String(result?.data?.caseId ?? reportCaseId);
+      persistTargetContext();
+    }
+  }
+
+  async function querySaved() {
+    if (!client) return;
+    const result = await run('SavedItem query', () => client!.query('saved', { limit: 50 }));
+    if (result) savedQuery = result;
+  }
+
+  async function queryNotifications() {
+    if (!client) return;
+    const result = await run('Notification query', () =>
+      client!.query('notifications', { limit: 50 })
+    );
+    if (result) notificationsQuery = result;
+  }
+
+  async function negativeAuthorizationProbe() {
+    if (!client || !targetWorkId || !targetRowVersion) return;
+    busy = true;
+    error = '';
+    status = 'Negative authorization probe…';
+
+    const probes = [
+      {
+        name: 'changeVisibility',
+        payload: {
+          workId: targetWorkId,
+          expectedVersion: targetRowVersion,
+          visibility: 'private',
+          idempotencyKey: crypto.randomUUID()
+        }
+      },
+      {
+        name: 'unpublishWork',
+        payload: {
+          workId: targetWorkId,
+          expectedVersion: targetRowVersion,
+          idempotencyKey: crypto.randomUUID()
+        }
+      },
+      {
+        name: 'deleteWork',
+        payload: {
+          workId: targetWorkId,
+          expectedVersion: targetRowVersion,
+          idempotencyKey: crypto.randomUUID()
+        }
+      }
+    ];
+
+    try {
+      const results: Record<string, string> = {};
+      for (const probe of probes) {
+        try {
+          await client.command(probe.name, probe.payload);
+          throw new Error(`${probe.name} unexpectedly succeeded`);
+        } catch (cause) {
+          const message = cause instanceof Error ? cause.message : String(cause);
+          if (message.includes('unexpectedly succeeded')) throw cause;
+          results[probe.name] = message;
+        }
+      }
+      interactions = { ...interactions, negativeAuthorization: results };
+      record('B negative authorization', results);
+      status = 'B negative authorization: PASS (all rejected)';
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : String(cause);
+      status = 'B negative authorization: FAILED';
+      record('B negative authorization', { error });
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function moderateTarget() {
+    if (!client || !reportCaseId) return;
+    const result = await run(`Moderator ${moderationAction}`, () =>
+      client!.command('moderateWork', {
+        caseId: reportCaseId,
+        action: moderationAction,
+        reason: moderationReason
+      })
+    );
+    if (result) interactions = { ...interactions, moderation: result };
   }
 
   function fileChanged(event: Event) {
@@ -354,6 +560,117 @@
         </div>
       </article>
 
+
+      <article class="lab-card lab-wide">
+        <span class="lab-step">06</span>
+        <h2>User B interactions + authorization</h2>
+        <p class="lab-meta">
+          Keep these target IDs from User A, sign out A, sign in as B, then run Stable identity again
+          for B before commenting. Target context is stored only in this tab's sessionStorage.
+        </p>
+        <div class="lab-two">
+          <label>
+            Target work ID
+            <input bind:value={targetWorkId} on:change={persistTargetContext} />
+          </label>
+          <label>
+            A CreatorProfile ID
+            <input bind:value={targetCreatorProfileId} on:change={persistTargetContext} />
+          </label>
+        </div>
+        <label>
+          Target rowVersion
+          <input
+            type="number"
+            min="0"
+            bind:value={targetRowVersion}
+            on:change={persistTargetContext}
+          />
+        </label>
+        <label>
+          Comment
+          <input bind:value={commentBody} />
+        </label>
+        <div class="lab-actions lab-wrap">
+          <button on:click={queryTargetWork} disabled={busy || !session || !targetWorkId}>
+            Query target
+          </button>
+          <button on:click={saveTarget} disabled={busy || !session || !targetWorkId}>Save</button>
+          <button
+            on:click={followTargetCreator}
+            disabled={busy || !session || !targetCreatorProfileId}>Follow A</button
+          >
+          <button on:click={reactTarget} disabled={busy || !session || !targetWorkId}>Like</button>
+          <button
+            on:click={commentTarget}
+            disabled={busy || !session || !targetWorkId || !identity}>Comment</button
+          >
+          <button on:click={reportTarget} disabled={busy || !session || !targetWorkId}>Report</button>
+          <button
+            class="secondary"
+            on:click={negativeAuthorizationProbe}
+            disabled={busy || !session || !targetWorkId || !targetRowVersion}
+          >
+            Expect owner mutations to fail
+          </button>
+          <button class="secondary" on:click={querySaved} disabled={busy || !session}>
+            Query Saved
+          </button>
+          <button class="secondary" on:click={queryNotifications} disabled={busy || !session}>
+            Query Notifications
+          </button>
+        </div>
+        <div class="lab-result-grid">
+          <pre>{targetQuery ? JSON.stringify(targetQuery, null, 2) : 'No target readback.'}</pre>
+          <pre>{interactions ? JSON.stringify(interactions, null, 2) : 'No interactions.'}</pre>
+          <pre>{savedQuery ? JSON.stringify(savedQuery, null, 2) : 'No SavedItem query.'}</pre>
+          <pre>{notificationsQuery
+              ? JSON.stringify(notificationsQuery, null, 2)
+              : 'No notification query.'}</pre>
+        </div>
+      </article>
+
+      <article class="lab-card lab-wide">
+        <span class="lab-step">07</span>
+        <h2>Moderator restrict / restore</h2>
+        <p class="lab-meta">
+          After B reports the target, sign in as a staging moderator. The RPC performs the role check;
+          a normal user must be rejected.
+        </p>
+        <div class="lab-two">
+          <label>
+            Moderation case ID
+            <input bind:value={reportCaseId} on:change={persistTargetContext} />
+          </label>
+          <label>
+            Action
+            <select bind:value={moderationAction}>
+              <option value="restrict">restrict</option>
+              <option value="restore">restore</option>
+            </select>
+          </label>
+        </div>
+        <label>
+          Required reason
+          <input bind:value={moderationReason} />
+        </label>
+        <div class="lab-actions">
+          <button
+            on:click={moderateTarget}
+            disabled={busy || !session || !reportCaseId || !moderationReason}
+          >
+            Apply moderation
+          </button>
+          <button class="secondary" on:click={queryTargetWork} disabled={busy || !session || !targetWorkId}>
+            Query target after action
+          </button>
+          <button class="secondary" on:click={queryNotifications} disabled={busy || !session}>
+            Query moderator notifications
+          </button>
+        </div>
+      </article>
+
+
       <article class="lab-card lab-wide">
         <span class="lab-step">LOG</span>
         <h2>Latest calls</h2>
@@ -395,6 +712,7 @@
   .lab-card button:disabled { opacity:.42; cursor:not-allowed; }
   .lab-two { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
   .lab-actions { display:flex; flex-wrap:wrap; gap:9px; margin-top:4px; }
+  .lab-wrap button { flex:0 0 auto; }
   .lab-meta { color:var(--ink-muted); font-size:11px; line-height:1.7; }
   .lab-card pre { max-height:260px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; border:1px solid var(--border); border-radius:12px; background:var(--surface-raised); color:var(--ink-soft); padding:12px; font-size:10px; line-height:1.6; }
   .lab-preview { display:block; max-width:100%; max-height:250px; margin:13px 0; border-radius:12px; border:1px solid var(--border); }
