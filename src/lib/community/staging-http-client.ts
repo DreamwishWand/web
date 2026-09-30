@@ -380,6 +380,36 @@ export class CommunityLabClient {
     return this.revokeAllSessions();
   }
 
+  async signUpWithPassword(
+    email: string,
+    password: string
+  ): Promise<{ userId: string | null; requiresEmailConfirmation: boolean }> {
+    if (!email.trim()) throw new Error('Email is required.');
+    if (password.length < 8) throw new Error('Password must be at least 8 characters.');
+
+    const response = await fetch(`${this.config.supabaseUrl}/auth/v1/signup`, {
+      method: 'POST',
+      headers: {
+        apikey: this.config.publishableKey,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({ email: email.trim(), password })
+    });
+
+    const body = (await parseResponse(response)) as {
+      access_token?: unknown;
+      user?: { id?: unknown } | null;
+    };
+
+    return {
+      userId:
+        body.user && typeof body.user.id === 'string'
+          ? body.user.id
+          : null,
+      requiresEmailConfirmation: typeof body.access_token !== 'string'
+    };
+  }
+
   async signInWithPassword(email: string, password: string): Promise<CommunitySession> {
     const response = await fetch(
       `${this.config.supabaseUrl}/auth/v1/token?grant_type=password`,
