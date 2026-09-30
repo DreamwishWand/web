@@ -103,7 +103,7 @@ placed in chat, source control or public configuration.
 Before launch:
 
 1. configure the selected Resend transactional email provider;
-2. verify the sending domain;
+2. verify `dreamwishwand.com` in Resend and use `no-reply@dreamwishwand.com` for Auth plus `ops@dreamwishwand.com` for operator critical mail;
 3. configure Supabase Auth production email delivery;
 4. store operator recipient and provider/relay secrets outside the repository;
 5. enable `operator_email` delivery;
