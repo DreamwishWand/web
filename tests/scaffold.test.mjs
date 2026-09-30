@@ -46,3 +46,17 @@ test('Presets product surface preserves canonical WEP safety boundary', () => {
   assert.match(page, /DDVセーブへの書き込みは行いません/);
   assert.doesNotMatch(page, />Apply</);
 });
+
+
+test('World Editor product surface is WEP-backed and writer-safe', () => {
+  const page = read('src/routes/editor/world/+page.svelte');
+  assert.match(page, /createEditorSession/);
+  assert.match(page, /projectObjects/);
+  assert.match(page, /captureScenePreset/);
+  assert.match(page, /createScenePresetWorkflow/);
+  assert.match(page, /Publish Scene Preset/);
+  assert.match(page, /Persistent write: disabled/);
+  assert.match(page, /raw profile\.jsonの直接読込は/);
+  assert.doesNotMatch(page, />Apply</);
+  assert.doesNotMatch(page, />Commit</);
+});
