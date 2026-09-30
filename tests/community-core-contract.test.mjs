@@ -1501,3 +1501,49 @@ test('generated schema exposes production moderation operations', () => {
   assert.match(generated, /community_moderate_work_v2/);
   assert.match(generated, /moderationStaffRecentAuthSeconds|community_get_security_policy_summary/);
 });
+
+
+test('moderation operations require session-bound recent-auth and close linked reports', () => {
+  const migration = read(
+    'supabase/migrations/20260930120042_community_core_v0_moderation_operations.sql'
+  );
+  const command = read('supabase/functions/community-command/index.ts');
+  const admin = read('supabase/functions/community-admin/index.ts');
+  const page = read('src/routes/community-ops/+page.svelte');
+  const runtime = read('docs/community/moderation-operations-runtime-20260930.md');
+
+  assert.match(migration, /moderation_staff_recent_auth_seconds',900/);
+  assert.match(migration, /require_recent_moderation_staff/);
+  assert.match(migration, /community_moderate_work_v2/);
+  assert.match(migration, /role in \('moderator','admin'\)/);
+  assert.match(migration, /set status='closed'/);
+  assert.match(migration, /r\.status in \('open','triaged'\)/);
+  assert.match(migration, /community_get_moderation_cases/);
+  assert.doesNotMatch(migration, /reporterAccountId/);
+
+  assert.match(command, /moderateWork: 'community_moderate_work_v2'/);
+  assert.match(command, /p_session_id = sessionId/);
+  assert.match(command, /RECENT_AUTH_REQUIRED/);
+
+  assert.match(admin, /listModerationCases: 'community_get_moderation_cases'/);
+  assert.match(admin, /moderateCase: 'community_moderate_work_v2'/);
+  assert.match(admin, /Moderator or admin role required/);
+
+  assert.match(page, /Moderation cases/);
+  assert.match(page, /restrict/);
+  assert.match(page, /remove/);
+  assert.match(page, /restore/);
+
+  assert.match(runtime, /stale 20-minute session rejected/);
+  assert.match(runtime, /SearchDocument count after restrict: \*\*0\*\*/);
+  assert.match(runtime, /SearchDocument count after restore: \*\*1\*\*/);
+  assert.match(runtime, /reporter-account identity: \*\*false\*\*/);
+});
+
+test('generated schema exposes moderation operations without private helpers', () => {
+  const generated = read('src/lib/generated/database.types.ts');
+
+  assert.match(generated, /community_get_moderation_cases/);
+  assert.match(generated, /community_moderate_work_v2/);
+  assert.doesNotMatch(generated, /require_recent_moderation_staff/);
+});
