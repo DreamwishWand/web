@@ -111,7 +111,8 @@ export function rasterizeRoadPath(points) {
 
   return {
     cells,
-    inventoryQuantity: cells.length,
+    logicalQuantity: cells.length,
+    nativeOracleInventoryCost: cells.length,
     requiresRuntimeTransitionNormalization: cells.some((cell) => cell.modeClaims.length > 1)
   };
 }
@@ -287,7 +288,10 @@ export function validateContainedTopology(componentNodeIds, includedNodeIds) {
 export function predictConnectedFenceRemoval({ components, gridObjectIds = [] }) {
   const refund = fenceRepresentationQuantity(components);
   return {
-    refundLogicalQuantity: refund,
+    removedLogicalQuantity: refund,
+    nativeOracleRefundLogicalQuantity: refund,
+    wandListInventoryDelta: 0,
+    ownershipMutationRequired: false,
     removedGridObjectIds: [...gridObjectIds],
     persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
   };
@@ -311,8 +315,11 @@ export function predictFenceStyleReplacement({
   return {
     ok: true,
     logicalQuantity: quantity,
-    sourceInventoryDelta: quantity,
-    targetInventoryDelta: -quantity,
+    nativeOracleSourceInventoryDelta: quantity,
+    nativeOracleTargetInventoryDelta: -quantity,
+    wandSourceInventoryDelta: 0,
+    wandTargetInventoryDelta: 0,
+    ownershipMutationRequired: false,
     replacedGridObjectIds: [...sourceGridObjectIds],
     requiresFreshTargetGridObjectIds: sourceGridObjectIds.length,
     persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
@@ -643,7 +650,10 @@ export function eraseFenceLogicalUnits(graph = {}, nodeIdsToErase = []) {
   return {
     ok: true,
     graph: { nodes, edges },
-    refundLogicalQuantity: eraseSet.size,
+    removedLogicalQuantity: eraseSet.size,
+    nativeOracleRefundLogicalQuantity: eraseSet.size,
+    wandListInventoryDelta: 0,
+    ownershipMutationRequired: false,
     remainingLogicalQuantity: nodes.length,
     compiled,
     persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
@@ -763,7 +773,8 @@ export function buildRoadRegionFill({ minX, minY, maxX, maxY }) {
 
   return {
     cells,
-    inventoryQuantity: cells.length,
+    logicalQuantity: cells.length,
+    nativeOracleInventoryCost: cells.length,
     persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
   };
 }
@@ -791,7 +802,10 @@ export function eraseRoadCells(cells = [], coordinatesToErase = []) {
   return {
     ok: true,
     cells: remaining,
-    refundLogicalQuantity: eraseKeys.size,
+    removedLogicalQuantity: eraseKeys.size,
+    nativeOracleRefundLogicalQuantity: eraseKeys.size,
+    wandListInventoryDelta: 0,
+    ownershipMutationRequired: false,
     remainingLogicalQuantity: remaining.length,
     persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
   };
@@ -899,7 +913,8 @@ export function transformRoadCells(cells = [], options = {}) {
     ok: validation.ok,
     errors: validation.errors,
     cells: transformed,
-    inventoryQuantity: transformed.length,
+    logicalQuantity: transformed.length,
+    nativeOracleInventoryCost: transformed.length,
     persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
   };
 }
@@ -970,8 +985,11 @@ export function previewFenceStyleReplacement({
     mode: selected.mode,
     nodeIds: selected.nodeIds,
     logicalQuantity: quantity,
-    sourceInventoryDelta: quantity,
-    targetInventoryDelta: -quantity,
+    nativeOracleSourceInventoryDelta: quantity,
+    nativeOracleTargetInventoryDelta: -quantity,
+    wandSourceInventoryDelta: 0,
+    wandTargetInventoryDelta: 0,
+    ownershipMutationRequired: false,
     graph,
     persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
   };
@@ -1073,8 +1091,11 @@ export function previewRoadStyleReplacement({
     targetFamilyBaseItemID,
     cells: selected.cells,
     logicalQuantity: quantity,
-    sourceInventoryDelta: quantity,
-    targetInventoryDelta: -quantity,
+    nativeOracleSourceInventoryDelta: quantity,
+    nativeOracleTargetInventoryDelta: -quantity,
+    wandSourceInventoryDelta: 0,
+    wandTargetInventoryDelta: 0,
+    ownershipMutationRequired: false,
     persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
   };
 }
