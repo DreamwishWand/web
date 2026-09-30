@@ -49,7 +49,13 @@ const FORBIDDEN_SAVE_LOCAL_KEYS = new Set([
   'sourcegridid',
   'gridobjectid',
   'sourcegridobjectid',
-  'playerhouseindex'
+  'playerhouseindex',
+  'editorid',
+  'objectkey',
+  'sourcediagnostics',
+  'subgridid',
+  'nextgridid',
+  'nextgridobjectid'
 ]);
 
 const REQUIRED_UNRELATED_EXCLUSIONS = [
@@ -339,6 +345,308 @@ function validateRootObjectInventory(
         'FULL_DESIGN_ROOT_OBJECT_COUNT_MISMATCH',
         '$.categories.rootObjects.directRootObjectCount',
         { expected: sum, actual: count }
+      )
+    );
+  }
+}
+
+function validateRootObjectPortableComposition(
+  category: AnyRecord,
+  directRootPaths: Set<string>,
+  issues: FullDesignManifestIssue[]
+) {
+  if (category.requested !== true || category.portableComposition == null) return;
+
+  const composition = category.portableComposition;
+  const path = '$.categories.rootObjects.portableComposition';
+  if (
+    !plain(composition) ||
+    composition.schema !== 'dreamwish-wand-full-design-root-object-composition' ||
+    composition.version !== 1 ||
+    !Array.isArray(composition.routeSummaries) ||
+    !Array.isArray(composition.entries) ||
+    !Array.isArray(composition.unresolved) ||
+    !Array.isArray(composition.missingRoutes)
+  ) {
+    issues.push(block('FULL_DESIGN_ROOT_COMPOSITION_INVALID', path));
+    return;
+  }
+
+  if (
+    !['CAPTURED_PARTIAL', 'CAPTURED_COMPLETE_FOR_BOUND_DOCUMENTS'].includes(
+      String(composition.status)
+    )
+  ) {
+    issues.push(
+      block(
+        'FULL_DESIGN_ROOT_COMPOSITION_STATUS_INVALID',
+        `${path}.status`
+      )
+    );
+  }
+  if (
+    composition.evidenceStatus !==
+    'CONFIRMED_01B_V1_6_EDITOR_DOCUMENT'
+  ) {
+    issues.push(
+      block(
+        'FULL_DESIGN_ROOT_COMPOSITION_EVIDENCE_INVALID',
+        `${path}.evidenceStatus`
+      )
+    );
+  }
+  if (composition.persistentWriteAuthorized !== false) {
+    issues.push(
+      block(
+        'FULL_DESIGN_ROOT_COMPOSITION_WRITE_AUTHORIZATION_FORBIDDEN',
+        `${path}.persistentWriteAuthorized`
+      )
+    );
+  }
+  if (
+    !plain(composition.normalization) ||
+    composition.normalization.sourceGridIdsRemoved !== true ||
+    composition.normalization.sourceGridObjectIdsRemoved !== true ||
+    composition.normalization.artifactLocalObjectIds !== true
+  ) {
+    issues.push(
+      block(
+        'FULL_DESIGN_ROOT_COMPOSITION_NORMALIZATION_INVALID',
+        `${path}.normalization`
+      )
+    );
+  }
+
+  const summaryPaths = new Set<string>();
+  composition.routeSummaries.forEach((summary: unknown, index: number) => {
+    const current = `${path}.routeSummaries[${index}]`;
+    if (!plain(summary)) {
+      issues.push(block('FULL_DESIGN_ROOT_COMPOSITION_ROUTE_SUMMARY_INVALID', current));
+      return;
+    }
+    const gridDataPath = validateDirectRootRouteObject(
+      summary.directRootRoute,
+      `${current}.directRootRoute`,
+      issues
+    );
+    if (gridDataPath) {
+      if (!directRootPaths.has(gridDataPath)) {
+        issues.push(
+          block(
+            'FULL_DESIGN_ROOT_COMPOSITION_ROUTE_OUTSIDE_LOCATION',
+            `${current}.directRootRoute.gridDataPath`
+          )
+        );
+      }
+      if (summaryPaths.has(gridDataPath)) {
+        issues.push(
+          block(
+            'FULL_DESIGN_ROOT_COMPOSITION_ROUTE_DUPLICATE',
+            `${current}.directRootRoute.gridDataPath`
+          )
+        );
+      }
+      summaryPaths.add(gridDataPath);
+    }
+    if (typeof summary.documentBound !== 'boolean') {
+      issues.push(
+        block(
+          'FULL_DESIGN_ROOT_COMPOSITION_ROUTE_SUMMARY_INVALID',
+          `${current}.documentBound`
+        )
+      );
+    }
+    for (const field of ['portableCount', 'unresolvedCount']) {
+      const value = safeInteger(summary[field]);
+      if (value === null || value < 0) {
+        issues.push(
+          block(
+            'FULL_DESIGN_ROOT_COMPOSITION_ROUTE_SUMMARY_INVALID',
+            `${current}.${field}`
+          )
+        );
+      }
+    }
+    if (summary.objectCount !== null) {
+      const objectCount = safeInteger(summary.objectCount);
+      if (objectCount === null || objectCount < 0) {
+        issues.push(
+          block(
+            'FULL_DESIGN_ROOT_COMPOSITION_ROUTE_SUMMARY_INVALID',
+            `${current}.objectCount`
+          )
+        );
+      }
+    }
+  });
+  if (summaryPaths.size !== directRootPaths.size) {
+    issues.push(
+      block(
+        'FULL_DESIGN_ROOT_COMPOSITION_ROUTE_COVERAGE_MISMATCH',
+        `${path}.routeSummaries`,
+        { expected: directRootPaths.size, actual: summaryPaths.size }
+      )
+    );
+  }
+
+  const objectIds = new Set<string>();
+  composition.entries.forEach((entry: unknown, index: number) => {
+    const current = `${path}.entries[${index}]`;
+    if (!plain(entry)) {
+      issues.push(block('FULL_DESIGN_ROOT_COMPOSITION_ENTRY_INVALID', current));
+      return;
+    }
+    const id = String(entry.artifactObjectId ?? '');
+    if (!/^o\d+$/.test(id) || objectIds.has(id)) {
+      issues.push(
+        block(
+          'FULL_DESIGN_ROOT_COMPOSITION_OBJECT_ID_INVALID',
+          `${current}.artifactObjectId`
+        )
+      );
+    } else {
+      objectIds.add(id);
+    }
+
+    const gridDataPath = validateDirectRootRouteObject(
+      entry.directRootRoute,
+      `${current}.directRootRoute`,
+      issues
+    );
+    if (gridDataPath && !directRootPaths.has(gridDataPath)) {
+      issues.push(
+        block(
+          'FULL_DESIGN_ROOT_COMPOSITION_ROUTE_OUTSIDE_LOCATION',
+          `${current}.directRootRoute.gridDataPath`
+        )
+      );
+    }
+
+    const itemId = safeInteger(entry.itemId);
+    const localX = safeInteger(entry.localX);
+    const localY = safeInteger(entry.localY);
+    const orientation = safeInteger(entry.orientation);
+    if (
+      itemId === null ||
+      itemId <= 0 ||
+      localX === null ||
+      localY === null ||
+      orientation === null ||
+      orientation < 0 ||
+      orientation > 15 ||
+      !['furniture', 'landscaping'].includes(String(entry.layer))
+    ) {
+      issues.push(block('FULL_DESIGN_ROOT_COMPOSITION_ENTRY_INVALID', current));
+    }
+
+    if (!Array.isArray(entry.footprint) || entry.footprint.length === 0) {
+      issues.push(
+        block(
+          'FULL_DESIGN_ROOT_COMPOSITION_FOOTPRINT_INVALID',
+          `${current}.footprint`
+        )
+      );
+    } else {
+      entry.footprint.forEach((cell: unknown, cellIndex: number) => {
+        if (
+          !plain(cell) ||
+          safeInteger(cell.x) === null ||
+          safeInteger(cell.y) === null
+        ) {
+          issues.push(
+            block(
+              'FULL_DESIGN_ROOT_COMPOSITION_FOOTPRINT_INVALID',
+              `${current}.footprint[${cellIndex}]`
+            )
+          );
+        }
+      });
+    }
+
+    if (entry.portableState != null) {
+      if (!plain(entry.portableState)) {
+        issues.push(
+          block(
+            'FULL_DESIGN_ROOT_COMPOSITION_PORTABLE_STATE_INVALID',
+            `${current}.portableState`
+          )
+        );
+      } else if (
+        ![
+          'subgrid.itemdata-default-empty-child@1',
+          'subgrid.serialized-local-child@1'
+        ].includes(String(entry.portableState.codec))
+      ) {
+        issues.push(
+          block(
+            'FULL_DESIGN_ROOT_COMPOSITION_PORTABLE_STATE_CODEC_UNSUPPORTED',
+            `${current}.portableState.codec`
+          )
+        );
+      }
+    }
+  });
+
+  composition.unresolved.forEach((entry: unknown, index: number) => {
+    const current = `${path}.unresolved[${index}]`;
+    if (!plain(entry)) {
+      issues.push(
+        block('FULL_DESIGN_ROOT_COMPOSITION_UNRESOLVED_INVALID', current)
+      );
+      return;
+    }
+    const gridDataPath = validateDirectRootRouteObject(
+      entry.directRootRoute,
+      `${current}.directRootRoute`,
+      issues
+    );
+    if (gridDataPath && !directRootPaths.has(gridDataPath)) {
+      issues.push(
+        block(
+          'FULL_DESIGN_ROOT_COMPOSITION_ROUTE_OUTSIDE_LOCATION',
+          `${current}.directRootRoute.gridDataPath`
+        )
+      );
+    }
+    const itemId = safeInteger(entry.itemId);
+    if (
+      itemId === null ||
+      itemId <= 0 ||
+      safeInteger(entry.localX) === null ||
+      safeInteger(entry.localY) === null ||
+      !nonEmptyString(entry.layer) ||
+      !Array.isArray(entry.reasons) ||
+      entry.reasons.length === 0 ||
+      entry.reasons.some((reason: unknown) => !nonEmptyString(reason))
+    ) {
+      issues.push(
+        block('FULL_DESIGN_ROOT_COMPOSITION_UNRESOLVED_INVALID', current)
+      );
+    }
+  });
+
+  const missing = new Set<string>();
+  composition.missingRoutes.forEach((value: unknown, index: number) => {
+    if (!nonEmptyString(value) || !directRootPaths.has(value)) {
+      issues.push(
+        block(
+          'FULL_DESIGN_ROOT_COMPOSITION_MISSING_ROUTE_INVALID',
+          `${path}.missingRoutes[${index}]`
+        )
+      );
+      return;
+    }
+    missing.add(value);
+  });
+
+  if (
+    composition.status === 'CAPTURED_COMPLETE_FOR_BOUND_DOCUMENTS' &&
+    (composition.unresolved.length > 0 || missing.size > 0)
+  ) {
+    issues.push(
+      block(
+        'FULL_DESIGN_ROOT_COMPOSITION_COMPLETE_STATUS_INCONSISTENT',
+        `${path}.status`
       )
     );
   }
@@ -637,6 +945,11 @@ function validateCategories(
 
     if (key === 'rootObjects') {
       validateRootObjectInventory(category, directRootPaths, issues);
+      validateRootObjectPortableComposition(
+        category,
+        directRootPaths,
+        issues
+      );
     }
 
     if (key === 'buildings' && category.requested === true) {
