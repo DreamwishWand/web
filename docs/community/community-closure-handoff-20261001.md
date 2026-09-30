@@ -75,7 +75,7 @@ Browser runtime evidence:
 2. Final launch privacy/legal/product approval of 30-day content / 365-day operational retention defaults.
 3. Preserve backend-confirmed support Open -> Verify -> Complete procedure; re-exercise in operator UI only if release QA requires it.
 4. Continue low-volume transactional-email inbox-placement monitoring while the new sender domain builds reputation.
-5. Security hardening policy is now defined in `docs/community/security-hardening-launch-policy-20261001.md`: 15-character passphrase-friendly password baseline, no composition rule, existing recent-auth/session controls retained. Supabase provider minimum-length alignment and security-change notification toggles remain manual provider configuration acceptance.
+5. Security hardening provider configuration is now operator-confirmed: Supabase minimum password length = 15, no mandatory composition rule, and all seven exposed security-change notification toggles enabled. Post-change Security Advisor still has exactly one external WARN: unavailable Leaked Password Protection. Only the real Auth 14/15 boundary regression and final reauth/revocation check remain.
 6. Final cross-product/no-direct-SQL release-gate rerun after Product/WEP integration is complete. Do not rerun completed Community browser suites unless relevant code/config changed or regression evidence exists.
 
 Do not redo the completed browser suites unless a regression or relevant code/config change requires it.
