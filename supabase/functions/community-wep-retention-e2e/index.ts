@@ -46,6 +46,59 @@ export default {
       return reply({ ok: false, error: 'WORKER_AUTH_INVALID' }, 401);
     }
 
+    const requestBody = await req.json().catch(() => ({})) as Record<string, unknown>;
+    const action = String(requestBody.action ?? 'setup');
+
+    if (action === 'cleanupBlob') {
+      const blobId = String(requestBody.blobId ?? '');
+      if (!blobId) return reply({ ok: false, error: 'BLOB_ID_REQUIRED' }, 400);
+
+      const { data: blob, error: blobError } = await ctx.supabaseAdmin
+        .from('artifact_blobs')
+        .select('blob_id,storage_key,purged_at')
+        .eq('blob_id', blobId)
+        .single();
+
+      if (blobError || !blob) {
+        return reply({ ok: false, error: 'ARTIFACT_BLOB_NOT_FOUND' }, 404);
+      }
+
+      const storageKey = String(blob.storage_key ?? '');
+      if (
+        !storageKey.startsWith('published/') ||
+        storageKey.includes('..') ||
+        !storageKey.endsWith('.json')
+      ) {
+        return reply({ ok: false, error: 'INVALID_WEP_STORAGE_KEY' }, 400);
+      }
+
+      if (!blob.purged_at) {
+        const { error: removeError } = await ctx.supabaseAdmin.storage
+          .from('wand-preset-artifacts-staging')
+          .remove([storageKey]);
+        if (removeError) {
+          return reply({ ok: false, error: 'STORAGE_REMOVE_FAILED' }, 500);
+        }
+
+        const { error: finalizeError } = await ctx.supabaseAdmin.rpc(
+          'community_finalize_artifact_blob_purge',
+          {
+            p_blob_id: blobId,
+            p_expected_storage_key: storageKey
+          }
+        );
+        if (finalizeError) {
+          return reply({ ok: false, error: 'BLOB_FINALIZE_FAILED' }, 500);
+        }
+      }
+
+      return reply({ ok: true, action, blobId, cleaned: true });
+    }
+
+    if (action !== 'setup') {
+      return reply({ ok: false, error: 'UNSUPPORTED_E2E_ACTION' }, 400);
+    }
+
     const runId = crypto.randomUUID();
     const suffix = runId.replaceAll('-', '').slice(0, 12);
     const email = `retention-e2e-${suffix}@example.invalid`;
