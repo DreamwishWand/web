@@ -13,7 +13,7 @@ test('static GitHub Pages build has project base path and fallback', () => {
 });
 
 test('every homepage destination is an existing static route', () => {
-  for (const route of ['editor/items', 'editor/world', 'help', 'explore', 'projects', 'editor']) {
+  for (const route of ['editor/items', 'editor/world', 'help', 'explore', 'projects', 'editor', 'presets']) {
     assert.ok(exists(`src/routes/${route}/+page.svelte`), route);
   }
 });
@@ -33,4 +33,16 @@ test('starter contains no save-reading UI or misleading edit action', () => {
   assert.match(preview, /UIサンプル/);
   assert.match(preview, /ファイルの読み込み、変更、保存はできません/);
   assert.doesNotMatch(preview, /type="file"/);
+});
+
+
+test('Presets product surface preserves canonical WEP safety boundary', () => {
+  const page = read('src/routes/presets/+page.svelte');
+  assert.match(page, />Discover</);
+  assert.match(page, />Library</);
+  assert.match(page, />In-Game Presets</);
+  assert.match(page, /createPresetCommunityBridge/);
+  assert.match(page, /preflightPreset/);
+  assert.match(page, /DDVセーブへの書き込みは行いません/);
+  assert.doesNotMatch(page, />Apply</);
 });
