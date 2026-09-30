@@ -326,3 +326,326 @@ export function requirePersistentRoadFenceWriter() {
     persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
   };
 }
+
+
+function logicalEdgeKey(a, b) {
+  return a < b ? `${a}::${b}` : `${b}::${a}`;
+}
+
+function sortLogicalNodes(nodeById, ids) {
+  return [...ids].sort((a, b) => {
+    const na = nodeById.get(a);
+    const nb = nodeById.get(b);
+    return na.y - nb.y || na.x - nb.x || String(a).localeCompare(String(b));
+  });
+}
+
+function isValidFenceStep(a, b, mode) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  if (mode === FenceMode.ORTHOGONAL) return Math.abs(dx) + Math.abs(dy) === 1;
+  return Math.abs(dx) === 1 && Math.abs(dy) === 1;
+}
+
+function isStraightThrough(node, neighborA, neighborB) {
+  const ax = neighborA.x - node.x;
+  const ay = neighborA.y - node.y;
+  const bx = neighborB.x - node.x;
+  const by = neighborB.y - node.y;
+  return ax === -bx && ay === -by;
+}
+
+export function validateFenceLogicalGraph({ nodes = [], edges = [] } = {}) {
+  const errors = [];
+  const nodeById = new Map();
+  const coordinateByMode = new Set();
+
+  for (const node of nodes) {
+    if (!node?.id || nodeById.has(node.id)) {
+      errors.push({ code: RoadFenceValidationCode.READ_ONLY_UNSUPPORTED, reason: 'duplicate or missing Fence logical node id', node });
+      continue;
+    }
+    try {
+      assertIntegerCoordinate(node, `node ${node.id}`);
+      normalizeMode(node.mode);
+    } catch (error) {
+      errors.push({ code: RoadFenceValidationCode.INVALID_GRID_QUANTUM, reason: error.message, node });
+      continue;
+    }
+    const coordinateModeKey = `${node.mode}:${coordinateKey(node)}`;
+    if (coordinateByMode.has(coordinateModeKey)) {
+      errors.push({ code: RoadFenceValidationCode.READ_ONLY_UNSUPPORTED, reason: 'duplicate Fence logical coordinate inside one mode', node });
+    }
+    coordinateByMode.add(coordinateModeKey);
+    nodeById.set(node.id, node);
+  }
+
+  const seenEdges = new Set();
+  for (const edge of edges) {
+    const a = nodeById.get(edge?.a);
+    const b = nodeById.get(edge?.b);
+    if (!a || !b || edge.a === edge.b) {
+      errors.push({ code: RoadFenceValidationCode.READ_ONLY_UNSUPPORTED, reason: 'Fence edge references an unknown/self node', edge });
+      continue;
+    }
+    const key = logicalEdgeKey(edge.a, edge.b);
+    if (seenEdges.has(key)) {
+      errors.push({ code: RoadFenceValidationCode.READ_ONLY_UNSUPPORTED, reason: 'duplicate Fence logical edge', edge });
+      continue;
+    }
+    seenEdges.add(key);
+
+    if (a.mode === b.mode && !isValidFenceStep(a, b, a.mode)) {
+      errors.push({ code: RoadFenceValidationCode.INVALID_GRID_QUANTUM, reason: 'same-mode Fence edge is not one logical quantum', edge });
+    }
+  }
+
+  return { ok: errors.length === 0, errors };
+}
+
+function compileFenceModeComponent({ mode, nodeIds, nodeById, adjacency }) {
+  const componentSet = new Set(nodeIds);
+  const baseVertexIds = new Set();
+
+  for (const id of nodeIds) {
+    const neighbors = [...(adjacency.get(id) ?? [])].filter((next) => componentSet.has(next));
+    if (neighbors.length !== 2) {
+      baseVertexIds.add(id);
+      continue;
+    }
+    const node = nodeById.get(id);
+    if (!isStraightThrough(node, nodeById.get(neighbors[0]), nodeById.get(neighbors[1]))) {
+      baseVertexIds.add(id);
+    }
+  }
+
+  const sameModeEdgeKeys = new Set();
+  for (const id of nodeIds) {
+    for (const next of adjacency.get(id) ?? []) {
+      if (componentSet.has(next)) sameModeEdgeKeys.add(logicalEdgeKey(id, next));
+    }
+  }
+
+  if (nodeIds.length > 1 && baseVertexIds.size === 0) {
+    return {
+      ok: false,
+      errors: [{ code: RoadFenceValidationCode.READ_ONLY_UNSUPPORTED, reason: 'Fence component has no serializable Base vertex' }]
+    };
+  }
+
+  const bases = new Map();
+  const extensions = [];
+  const spans = [];
+  const visitedEdges = new Set();
+
+  const addBase = (id, separator = false) => {
+    const node = nodeById.get(id);
+    const existing = bases.get(id);
+    bases.set(id, {
+      role: 'base',
+      nodeId: id,
+      x: node.x,
+      y: node.y,
+      mode,
+      semanticVertex: baseVertexIds.has(id),
+      separator: Boolean(separator || existing?.separator)
+    });
+  };
+
+  if (nodeIds.length === 1) addBase(nodeIds[0]);
+
+  for (const startId of sortLogicalNodes(nodeById, baseVertexIds)) {
+    addBase(startId);
+    const startNeighbors = sortLogicalNodes(nodeById, adjacency.get(startId) ?? []);
+    for (const firstId of startNeighbors) {
+      if (!componentSet.has(firstId)) continue;
+      const firstEdgeKey = logicalEdgeKey(startId, firstId);
+      if (visitedEdges.has(firstEdgeKey)) continue;
+
+      const path = [startId];
+      let previousId = startId;
+      let currentId = firstId;
+      visitedEdges.add(firstEdgeKey);
+
+      while (true) {
+        path.push(currentId);
+        if (baseVertexIds.has(currentId)) break;
+        const candidates = sortLogicalNodes(
+          nodeById,
+          [...(adjacency.get(currentId) ?? [])].filter((id) => componentSet.has(id) && id !== previousId)
+        );
+        if (candidates.length !== 1) {
+          return {
+            ok: false,
+            errors: [{ code: RoadFenceValidationCode.READ_ONLY_UNSUPPORTED, reason: 'Fence span traversal became ambiguous', nodeId: currentId }]
+          };
+        }
+        const nextId = candidates[0];
+        visitedEdges.add(logicalEdgeKey(currentId, nextId));
+        previousId = currentId;
+        currentId = nextId;
+      }
+
+      const straightPlan = planFenceStraightRun(path.length, mode);
+      const spanIndex = spans.length;
+      spans.push({ spanIndex, mode, nodeIds: [...path] });
+
+      for (const part of straightPlan.components) {
+        if (part.role === 'base') {
+          const nodeId = path[part.logicalOffset];
+          addBase(nodeId, part.separator);
+          continue;
+        }
+        extensions.push({
+          role: part.role,
+          mode,
+          key: part.key,
+          spanIndex,
+          fromNodeId: path[part.fromOffset],
+          toNodeId: path[part.toOffset],
+          anchorOrientationResolutionRequired: true
+        });
+      }
+    }
+  }
+
+  if (visitedEdges.size !== sameModeEdgeKeys.size) {
+    return {
+      ok: false,
+      errors: [{
+        code: RoadFenceValidationCode.READ_ONLY_UNSUPPORTED,
+        reason: 'Fence component contains uncompiled edges',
+        visitedEdges: visitedEdges.size,
+        expectedEdges: sameModeEdgeKeys.size
+      }]
+    };
+  }
+
+  const representation = [
+    ...sortLogicalNodes(nodeById, bases.keys()).map((id) => bases.get(id)),
+    ...extensions
+  ];
+  const serializedLogicalQuantity = fenceRepresentationQuantity(representation);
+  if (serializedLogicalQuantity !== nodeIds.length) {
+    return {
+      ok: false,
+      errors: [{
+        code: RoadFenceValidationCode.READ_ONLY_UNSUPPORTED,
+        reason: 'Fence graph compiler quantity invariant failed',
+        serializedLogicalQuantity,
+        logicalQuantity: nodeIds.length
+      }]
+    };
+  }
+
+  return {
+    ok: true,
+    mode,
+    nodeIds: sortLogicalNodes(nodeById, nodeIds),
+    logicalQuantity: nodeIds.length,
+    serializedLogicalQuantity,
+    bases: sortLogicalNodes(nodeById, bases.keys()).map((id) => bases.get(id)),
+    extensions,
+    spans,
+    representation
+  };
+}
+
+export function compileFenceLogicalGraph(graph = {}) {
+  const validation = validateFenceLogicalGraph(graph);
+  if (!validation.ok) return { ok: false, errors: validation.errors, persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED };
+
+  const nodes = graph.nodes ?? [];
+  const edges = graph.edges ?? [];
+  if (nodes.length === 0) {
+    return {
+      ok: true,
+      logicalQuantity: 0,
+      components: [],
+      modeBoundaries: [],
+      persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+    };
+  }
+
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const sameModeAdjacency = new Map(nodes.map((node) => [node.id, new Set()]));
+  const modeBoundaries = [];
+
+  for (const edge of edges) {
+    const a = nodeById.get(edge.a);
+    const b = nodeById.get(edge.b);
+    if (a.mode !== b.mode) {
+      modeBoundaries.push({ a: edge.a, b: edge.b });
+      continue;
+    }
+    sameModeAdjacency.get(edge.a).add(edge.b);
+    sameModeAdjacency.get(edge.b).add(edge.a);
+  }
+
+  const visited = new Set();
+  const components = [];
+
+  for (const seed of sortLogicalNodes(nodeById, nodeById.keys())) {
+    if (visited.has(seed)) continue;
+    const mode = nodeById.get(seed).mode;
+    const queue = [seed];
+    const ids = [];
+    visited.add(seed);
+    while (queue.length) {
+      const id = queue.shift();
+      ids.push(id);
+      for (const next of sameModeAdjacency.get(id) ?? []) {
+        if (!visited.has(next)) {
+          visited.add(next);
+          queue.push(next);
+        }
+      }
+    }
+
+    const compiled = compileFenceModeComponent({
+      mode,
+      nodeIds: ids,
+      nodeById,
+      adjacency: sameModeAdjacency
+    });
+    if (!compiled.ok) return { ...compiled, persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED };
+    components.push(compiled);
+  }
+
+  const logicalQuantity = components.reduce((sum, component) => sum + component.logicalQuantity, 0);
+  return {
+    ok: true,
+    logicalQuantity,
+    components,
+    modeBoundaries,
+    persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+  };
+}
+
+export function eraseFenceLogicalUnits(graph = {}, nodeIdsToErase = []) {
+  const eraseSet = new Set(nodeIdsToErase);
+  const sourceNodes = graph.nodes ?? [];
+  const existingIds = new Set(sourceNodes.map((node) => node.id));
+  const unknownIds = [...eraseSet].filter((id) => !existingIds.has(id));
+  if (unknownIds.length) {
+    return {
+      ok: false,
+      errors: [{ code: RoadFenceValidationCode.READ_ONLY_UNSUPPORTED, reason: 'erase references unknown Fence logical units', nodeIds: unknownIds }],
+      persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+    };
+  }
+
+  const nodes = sourceNodes.filter((node) => !eraseSet.has(node.id));
+  const edges = (graph.edges ?? []).filter((edge) => !eraseSet.has(edge.a) && !eraseSet.has(edge.b));
+  const compiled = compileFenceLogicalGraph({ nodes, edges });
+  if (!compiled.ok) return compiled;
+
+  return {
+    ok: true,
+    graph: { nodes, edges },
+    refundLogicalQuantity: eraseSet.size,
+    remainingLogicalQuantity: nodes.length,
+    compiled,
+    persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+  };
+}
