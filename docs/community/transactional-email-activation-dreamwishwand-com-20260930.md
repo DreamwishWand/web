@@ -1,6 +1,6 @@
 # Dreamwish Wand transactional email activation — dreamwishwand.com — 2026-09-30
 
-Status: **DOMAIN VERIFIED / CREDENTIAL CONFIGURATION NEXT**
+Status: **OPS PROVIDER DELIVERY CONFIRMED / USER INBOX + AUTH FLOW NEXT**
 
 ## Canonical launch configuration
 
@@ -48,9 +48,7 @@ produce transactional email.
 The exact SPF/DKIM record values are provider-issued runtime configuration and are intentionally not
 stored in the repo. Independent public-DNS re-resolution was not available from the current execution environment, so the evidence source is the Resend provider UI rather than a second resolver.
 
-## Phase B — separate Resend credentials
-
-User action is required.
+## Phase B — separate Resend credentials — COMPLETE
 
 Create two separate credentials where the provider allows it:
 
@@ -85,7 +83,7 @@ Keep:
 After enabling custom SMTP, review the Supabase Auth email rate-limit configuration. Do not weaken
 endpoint/IP abuse protections merely to increase throughput.
 
-## Phase D — operator critical Edge secrets
+## Phase D — operator critical Edge secrets — COMPLETE
 
 Configure only these server-side secrets for `community-email-resend`:
 
@@ -98,7 +96,7 @@ No new relay secret is required. The internal
 `community-ops-email -> community-email-resend` hop reuses the existing Vault-backed
 `operations_escalation` worker token.
 
-## Phase E — operator destination
+## Phase E — operator destination — COMPLETE
 
 Configure the durable Operations escalation destination:
 
@@ -109,7 +107,7 @@ Configure the durable Operations escalation destination:
 
 The persistent Operations Alert remains canonical. Email is only an external projection.
 
-## Phase F — staging acceptance
+## Phase F — staging acceptance — IN PROGRESS
 
 Auth path:
 
