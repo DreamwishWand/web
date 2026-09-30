@@ -36,10 +36,12 @@ Staging deployment:
 
 Required Edge Function secrets/config:
 
-- `COMMUNITY_EMAIL_RELAY_TOKEN`
 - `RESEND_API_KEY`
-- `DREAMWISH_EMAIL_FROM`
 - `DREAMWISH_OPERATOR_EMAIL`
+
+The canonical sender is code-fixed to `Dreamwish Wand Ops <ops@dreamwishwand.com>`.
+The internal relay reuses the existing Vault-backed `operations_escalation` worker token, so no
+second relay secret is required.
 
 None of these values belong in source control, canonical docs, CI logs, or chat.
 
@@ -57,8 +59,8 @@ The existing `community-ops-email` worker remains the queue/claim/retry owner.
 
 The Resend adapter:
 
-1. fails closed when any required secret/config is missing;
-2. requires a dedicated relay bearer token;
+1. fails closed when any required Resend/recipient configuration is missing;
+2. requires the existing dedicated `operations_escalation` worker token;
 3. validates the fixed operator-critical schema/purpose;
 4. validates subject/text/idempotency lengths;
 5. sends plaintext operational mail only;
@@ -116,13 +118,12 @@ Supabase's built-in default SMTP remains test-only and is not a production depen
 After domain/provider setup:
 
 1. create a dedicated Resend API key for the Edge adapter, separate from the Auth SMTP credential;
-2. generate a separate random `COMMUNITY_EMAIL_RELAY_TOKEN`;
-3. configure the four Edge secrets outside source control; set `DREAMWISH_EMAIL_FROM` to `Dreamwish Wand Ops <ops@dreamwishwand.com>`;
-4. configure the durable Operations escalation destination:
+2. configure only two Edge secrets outside source control: `RESEND_API_KEY` and `DREAMWISH_OPERATOR_EMAIL`;
+3. configure the durable Operations escalation destination:
    - channel = `operator_email`;
    - URL = deployed `community-email-resend` function URL;
-   - Authorization bearer token = the same relay token;
-5. enable the destination;
+   - no separate destination bearer secret is needed; the existing Operations worker token is forwarded internally;
+4. enable the destination;
 6. induce one safe critical staging alert;
 7. require exactly one delivered operator email;
 8. clear/resolve and recur the condition;
