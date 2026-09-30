@@ -194,3 +194,73 @@ test('first real Supabase advisor hardening is tracked as a migration', () => {
   assert.match(hardening, /revoke execute on function public\.enforce_ddv_profile_limit/i);
   assert.match(hardening, /create index if not exists auth_identities_account_idx/i);
 });
+
+
+test('published Community revisions seal composition as well as row data', () => {
+  const sealing = read('supabase/migrations/20260930034330_community_core_v0_revision_sealing.sql');
+  assert.match(sealing, /add column if not exists sealed_at/i);
+  assert.match(sealing, /community_works_seal_revision/i);
+  assert.match(sealing, /Published revision composition is sealed/i);
+  assert.match(sealing, /work_revision_media_immutable/i);
+  assert.match(sealing, /gallery_revision_presets_immutable/i);
+  assert.match(sealing, /preset_revision_publications_immutable/i);
+});
+
+test('Gallery publication requires validated media and supports immutable Preset revision links', () => {
+  const media = read('supabase/migrations/20260930033110_community_core_v0_media_publish_v2.sql');
+  const preset = read('supabase/migrations/20260930035240_community_core_v0_preset_bridge.sql');
+  assert.match(media, /community_register_validated_media/i);
+  assert.match(media, /requires at least one media asset/i);
+  assert.match(preset, /community_publish_gallery_v3/i);
+  assert.match(preset, /gallery_revision_presets/i);
+  assert.match(preset, /PresetArtifact identity is immutable after first revision/i);
+  assert.match(preset, /community_publish_preset_envelope/i);
+});
+
+test('Community Edge adapters trust the verified Supabase user ID, never a client actor ID', () => {
+  for (const path of [
+    'supabase/functions/community-command/index.ts',
+    'supabase/functions/community-query/index.ts',
+    'supabase/functions/community-media/index.ts'
+  ]) {
+    const source = read(path);
+    assert.match(source, /withSupabase\(\{ auth: 'user' \}/);
+    assert.match(source, /ctx\.userClaims\?\.id/);
+    assert.doesNotMatch(source, /payload\.actorAccountId|payload\.accountId/);
+  }
+});
+
+test('active Gallery command path is media-backed v3 and the old media-less RPC is revoked', () => {
+  const source = read('supabase/functions/community-command/index.ts');
+  const preset = read('supabase/migrations/20260930035240_community_core_v0_preset_bridge.sql');
+  assert.match(source, /publishGallery: 'community_publish_gallery_v3'/);
+  assert.match(source, /mediaIds required/);
+  assert.match(source, /p_preset_revision_ids/);
+  assert.match(preset, /revoke execute on function public\.community_publish_gallery_v2/i);
+});
+
+test('staging media adapter validates bytes server-side before READY registration', () => {
+  const source = read('supabase/functions/community-media/index.ts');
+  assert.match(source, /createSignedUploadUrl/);
+  assert.match(source, /\.download\(storageKey\)/);
+  assert.match(source, /detectImage\(bytes\)/);
+  assert.match(source, /crypto\.subtle\.digest\('SHA-256'/);
+  assert.match(source, /community_register_validated_media/);
+  assert.match(source, /createSignedUrl\(media\.storageKey, 300\)/);
+});
+
+test('notification delivery is scheduled in-database and does not require a server secret', () => {
+  const cron = read('supabase/migrations/20260930032010_community_core_v0_outbox_cron.sql');
+  assert.match(cron, /community-outbox-every-minute/);
+  assert.match(cron, /\* \* \* \* \*/);
+  assert.match(cron, /community_process_outbox_batch\(100\)/);
+  assert.doesNotMatch(cron, /service_role|secret|apikey/i);
+});
+
+test('query adapter exposes authorized Preset detail without direct canonical table scans', () => {
+  const source = read('supabase/functions/community-query/index.ts');
+  const bridge = read('supabase/migrations/20260930035240_community_core_v0_preset_bridge.sql');
+  assert.match(source, /preset: 'community_get_preset'/);
+  assert.match(bridge, /community_get_preset/i);
+  assert.match(bridge, /private\.can_access_entity/i);
+});
