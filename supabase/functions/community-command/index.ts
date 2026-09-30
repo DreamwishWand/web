@@ -44,25 +44,6 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       return reply({ ok: false, error: 'JWT issued-at claim missing' }, 401);
     }
 
-    const { error: sessionError } = await ctx.supabaseAdmin.rpc(
-      'community_authorize_session',
-      {
-        p_auth_subject: subject,
-        p_issued_at_epoch: issuedAt,
-        p_max_age_seconds: null
-      }
-    );
-
-    if (sessionError) {
-      return reply(
-        {
-          ok: false,
-          error: 'SESSION_REVOKED_OR_INVALID',
-          message: sessionError.message
-        },
-        401
-      );
-    }
     let body: { command?: string; payload?: JsonObject };
     try {
       body = await req.json();
@@ -77,6 +58,36 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
     const command = body.command as CommandName;
     const payload = body.payload ?? {};
     const rpc = commandToRpc[command];
+
+    const authorizationRpc =
+      command === 'ensureAccountCreator'
+        ? 'community_authorize_identity_bootstrap'
+        : 'community_authorize_session';
+
+    const authorizationParams: JsonObject = {
+      p_auth_subject: subject,
+      p_issued_at_epoch: issuedAt
+    };
+
+    if (command !== 'ensureAccountCreator') {
+      authorizationParams.p_max_age_seconds = null;
+    }
+
+    const { error: sessionError } = await ctx.supabaseAdmin.rpc(
+      authorizationRpc,
+      authorizationParams
+    );
+
+    if (sessionError) {
+      return reply(
+        {
+          ok: false,
+          error: 'SESSION_REVOKED_OR_INVALID',
+          message: sessionError.message
+        },
+        401
+      );
+    }
     const params: JsonObject = { p_auth_subject: subject };
 
     switch (command) {
