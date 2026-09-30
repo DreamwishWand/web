@@ -1699,7 +1699,7 @@ test('WEP preset artifact storage stays private and Scene-only until other valid
   const artifact = read('supabase/functions/wep-preset-artifact/index.ts');
 
   assert.match(storage, /wand-preset-artifacts-staging/);
-  assert.match(storage, /public,false/);
+  assert.match(storage, /public,file_size_limit[\s\S]*false,/);
   assert.match(storage, /application\/json/);
   assert.match(storage, /preset_artifact_prepare',3600,30/);
 
