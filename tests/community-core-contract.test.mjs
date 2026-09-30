@@ -369,3 +369,43 @@ test('Community Lab remains an internal route and is not linked from the public 
   assert.match(page, /INTERNAL · STAGING ONLY/);
   assert.doesNotMatch(header, /community-lab/i);
 });
+
+
+test('authenticated command adapter exposes moderation without accepting a client actor', () => {
+  const source = read('supabase/functions/community-command/index.ts');
+  assert.match(source, /moderateWork: 'community_moderate_work'/);
+  assert.match(source, /params\.p_case_id = payload\.caseId/);
+  assert.match(source, /params\.p_action = payload\.action/);
+  assert.match(source, /params\.p_reason = payload\.reason/);
+  assert.match(source, /p_auth_subject: subject/);
+  assert.doesNotMatch(source, /payload\.actorAccountId|payload\.actor_account_id/);
+});
+
+test('Community Lab includes User B interactions, negative authorization and moderator flow', () => {
+  const page = read('src/routes/community-lab/+page.svelte');
+  for (const marker of [
+    'User B interactions + authorization',
+    "client!.command('saveEntity'",
+    "client!.command('followCreator'",
+    "client!.command('addReaction'",
+    "client!.command('addComment'",
+    "client!.command('reportEntity'",
+    'negativeAuthorizationProbe',
+    "name: 'changeVisibility'",
+    "name: 'unpublishWork'",
+    "name: 'deleteWork'",
+    'Moderator restrict / restore',
+    "client!.command('moderateWork'"
+  ]) {
+    assert.ok(page.includes(marker), marker);
+  }
+});
+
+test('Community Lab preserves target IDs across actor switches without persisting passwords', () => {
+  const page = read('src/routes/community-lab/+page.svelte');
+  assert.match(page, /dreamwishwand-community-lab-target-v1/);
+  assert.match(page, /targetWorkId/);
+  assert.match(page, /targetCreatorProfileId/);
+  assert.match(page, /reportCaseId/);
+  assert.doesNotMatch(page, /sessionStorage\.setItem\([^\n]*password/i);
+});
