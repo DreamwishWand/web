@@ -1,0 +1,95 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+const schema = read('supabase/migrations/202609300001_community_core_v0.sql');
+const domain = read('src/lib/community/domain.ts');
+const commands = read('src/lib/community/commands.ts');
+const vertical = read('docs/community/vertical-slice-v0.md');
+
+test('community contract has one shared entity root and publication aggregate', () => {
+  assert.match(schema, /create table if not exists community_entities/i);
+  assert.match(schema, /create table if not exists community_works/i);
+  assert.match(schema, /create table if not exists community_work_revisions/i);
+  assert.match(schema, /creator_profiles/i);
+  assert.match(schema, /preset_artifacts/i);
+  assert.match(schema, /gallery_works/i);
+});
+
+test('publication revisions and artifact payloads are immutable', () => {
+  for (const table of [
+    'community_work_revisions',
+    'gallery_work_revisions',
+    'preset_revisions',
+    'artifact_blobs'
+  ]) {
+    assert.match(schema, new RegExp(`trigger ${table}_immutable`, 'i'));
+  }
+  assert.match(schema, /create a new revision instead/i);
+});
+
+test('discoverability requires published public clear content', () => {
+  assert.match(domain, /lifecycleState === 'published'/);
+  assert.match(domain, /visibility === 'public'/);
+  assert.match(domain, /moderationState === 'clear'/);
+  assert.match(domain, /currentPublishedRevisionId !== null/);
+  assert.match(schema, /is_discoverable_work/i);
+});
+
+test('saved items are references and RLS does not turn them into access grants', () => {
+  assert.match(schema, /create table if not exists saved_items/i);
+  assert.match(schema, /can_access_entity/i);
+  assert.match(vertical, /SavedItem never becomes an access grant/i);
+});
+
+test('shared interactions do not create product-local creator or save models', () => {
+  for (const table of ['saved_items', 'follows', 'reactions', 'comments']) {
+    assert.match(schema, new RegExp(`create table if not exists ${table}`, 'i'));
+  }
+  assert.doesNotMatch(schema, /gallery_creators|preset_creators|gallery_saves|preset_saves/i);
+});
+
+test('DDV profile link limit is enforced transactionally', () => {
+  assert.match(schema, /enforce_ddv_profile_limit/i);
+  assert.match(schema, />= 3/);
+  assert.match(schema, /at most three DDV Profiles/i);
+});
+
+test('notifications, moderation, audit and transactional outbox are first-class', () => {
+  for (const table of [
+    'outbox_events',
+    'notification_events',
+    'notification_deliveries',
+    'reports',
+    'moderation_cases',
+    'moderation_actions',
+    'audit_events'
+  ]) {
+    assert.match(schema, new RegExp(`create table if not exists ${table}`, 'i'));
+  }
+});
+
+test('client writes are intentionally routed through the server command boundary', () => {
+  assert.match(schema, /No direct client INSERT\/UPDATE\/DELETE policies/i);
+  assert.match(commands, /interface CommunityCommandBus/);
+  assert.match(commands, /idempotencyKey: string/);
+  assert.match(commands, /expectedVersion\?: number/);
+});
+
+test('vertical slice covers publish through moderation and negative authorization', () => {
+  for (const phrase of [
+    'creates a Gallery draft',
+    'discovers the same stable work/entity IDs',
+    'saves the work',
+    'follows A',
+    'reacts',
+    'comments and replies',
+    'Preset revision',
+    'reports the work/comment',
+    'moderator reviews the case',
+    "B cannot mutate A's work"
+  ]) {
+    assert.ok(vertical.includes(phrase), phrase);
+  }
+});
