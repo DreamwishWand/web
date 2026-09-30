@@ -875,3 +875,255 @@ export function readRoadFenceNativeGridV125({
     persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
   };
 }
+
+
+function normalizeCaptureRegion(region) {
+  if (!plain(region)) throw new TypeError('capture region is required');
+  const x = safeInteger(region.x, 'capture region x');
+  const y = safeInteger(region.y, 'capture region y');
+  const w = positiveInteger(region.w, 'capture region w');
+  const h = positiveInteger(region.h, 'capture region h');
+  return { x, y, w, h };
+}
+
+function logicalPointToReaderSave(point, coordinateSpace) {
+  return {
+    x: coordinateSpace.saveResidueX + point.x * coordinateSpace.savePitch,
+    y: coordinateSpace.saveResidueY + point.y * coordinateSpace.savePitch
+  };
+}
+
+function unitIntersectsRegion(point, coordinateSpace, region) {
+  const save = logicalPointToReaderSave(point, coordinateSpace);
+  const size = coordinateSpace.savePitch;
+  return (
+    save.x < region.x + region.w &&
+    save.x + size > region.x &&
+    save.y < region.y + region.h &&
+    save.y + size > region.y
+  );
+}
+
+function unitContainedByRegion(point, coordinateSpace, region) {
+  const save = logicalPointToReaderSave(point, coordinateSpace);
+  const size = coordinateSpace.savePitch;
+  return (
+    save.x >= region.x &&
+    save.y >= region.y &&
+    save.x + size <= region.x + region.w &&
+    save.y + size <= region.y + region.h
+  );
+}
+
+function networkLogicalPoints(network) {
+  if (network.kind === 'road') return network.cells ?? [];
+  if (network.kind === 'fence') return network.graph?.nodes ?? [];
+  return [];
+}
+
+function networkSaveSortKey(network) {
+  const points = networkLogicalPoints(network);
+  if (!points.length) return [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, network.familyBaseItemID];
+  const saves = points.map((point) =>
+    logicalPointToReaderSave(point, network.coordinateSpace)
+  );
+  saves.sort(comparePoint);
+  return [saves[0].y, saves[0].x, network.familyBaseItemID];
+}
+
+function compareNetworkSavePosition(a, b) {
+  const ka = networkSaveSortKey(a);
+  const kb = networkSaveSortKey(b);
+  return ka[0] - kb[0] || ka[1] - kb[1] || ka[2] - kb[2] ||
+    String(a.networkId).localeCompare(String(b.networkId));
+}
+
+function localizeRoadNetwork(network, region, artifactNetworkId) {
+  const cells = [...(network.cells ?? [])]
+    .map((cell) => {
+      const save = logicalPointToReaderSave(cell, network.coordinateSpace);
+      return {
+        x: save.x - region.x,
+        y: save.y - region.y,
+        mode: cell.mode
+      };
+    })
+    .sort(comparePoint);
+
+  return {
+    networkId: artifactNetworkId,
+    familyBaseItemID: network.familyBaseItemID,
+    ...(network.familyName ? { familyName: network.familyName } : {}),
+    cells
+  };
+}
+
+function localizeFenceNetwork(network, region, artifactNetworkId) {
+  const orderedNodes = [...(network.graph?.nodes ?? [])]
+    .map((node) => {
+      const save = logicalPointToReaderSave(node, network.coordinateSpace);
+      return {
+        sourceId: node.id,
+        x: save.x - region.x,
+        y: save.y - region.y,
+        mode: node.mode
+      };
+    })
+    .sort(compareNode);
+
+  const idMap = new Map(
+    orderedNodes.map((node, index) => [node.sourceId, `n${index}`])
+  );
+  const nodes = orderedNodes.map((node, index) => ({
+    id: `n${index}`,
+    x: node.x,
+    y: node.y,
+    mode: node.mode
+  }));
+  const edges = [...(network.graph?.edges ?? [])]
+    .map((edge) => ({
+      a: idMap.get(edge.a),
+      b: idMap.get(edge.b)
+    }))
+    .sort((a, b) => edgeKey(a.a, a.b).localeCompare(edgeKey(b.a, b.b)));
+
+  if (edges.some((edge) => !edge.a || !edge.b)) {
+    throw new Error('FENCE_CAPTURE_EDGE_NODE_UNRESOLVED');
+  }
+
+  return {
+    networkId: artifactNetworkId,
+    familyBaseItemID: network.familyBaseItemID,
+    ...(network.familyName ? { familyName: network.familyName } : {}),
+    mode: network.mode,
+    graph: { nodes, edges }
+  };
+}
+
+export function captureRoadFenceReaderRegionV125(
+  readerResult,
+  kind,
+  regionInput
+) {
+  if (
+    !plain(readerResult) ||
+    readerResult.schema !== ROADFENCE_NATIVE_READER_V125_SCHEMA ||
+    Number(readerResult.version) !== ROADFENCE_NATIVE_READER_V125_VERSION ||
+    readerResult.gameVersion !== GAME_VERSION ||
+    readerResult.status !== 'supported' ||
+    readerResult.ok !== true
+  ) {
+    return {
+      status: 'blocked',
+      code: 'ROADFENCE_NATIVE_READER_NOT_SUPPORTED',
+      issues: [block('ROADFENCE_NATIVE_READER_NOT_SUPPORTED')],
+      persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+    };
+  }
+  if (!['roads', 'fences'].includes(kind)) {
+    throw new RangeError('kind must be roads or fences');
+  }
+
+  const region = normalizeCaptureRegion(regionInput);
+  const source = kind === 'roads' ? readerResult.roads : readerResult.fences;
+  if (!Array.isArray(source)) {
+    return {
+      status: 'blocked',
+      code: 'ROADFENCE_NATIVE_READER_RESULT_INVALID',
+      issues: [block('ROADFENCE_NATIVE_READER_RESULT_INVALID')],
+      persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+    };
+  }
+
+  const intersecting = [];
+  const clipped = [];
+  for (const network of source) {
+    const points = networkLogicalPoints(network);
+    if (!points.length) continue;
+    const touches = points.some((point) =>
+      unitIntersectsRegion(point, network.coordinateSpace, region)
+    );
+    if (!touches) continue;
+    const contained = points.every((point) =>
+      unitContainedByRegion(point, network.coordinateSpace, region)
+    );
+    if (!contained) clipped.push(network);
+    else intersecting.push(network);
+  }
+
+  if (clipped.length) {
+    return {
+      status: 'blocked',
+      code: 'TOPOLOGY_CLIPPED_UNSUPPORTED',
+      issues: clipped.map((network) =>
+        block('TOPOLOGY_CLIPPED_UNSUPPORTED', {
+          kind,
+          networkId: network.networkId,
+          familyBaseItemID: network.familyBaseItemID
+        })
+      ),
+      persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+    };
+  }
+
+  intersecting.sort(compareNetworkSavePosition);
+  const sourceToArtifact = new Map();
+  const networks = intersecting.map((network, index) => {
+    const artifactNetworkId = kind === 'roads' ? `r${index}` : `f${index}`;
+    sourceToArtifact.set(network.networkId, artifactNetworkId);
+    return kind === 'roads'
+      ? localizeRoadNetwork(network, region, artifactNetworkId)
+      : localizeFenceNetwork(network, region, artifactNetworkId);
+  });
+
+  const modeBoundaryTouches = kind === 'fences'
+    ? (readerResult.modeBoundaryTouches ?? [])
+      .filter((touch) =>
+        sourceToArtifact.has(touch.a?.networkId) &&
+        sourceToArtifact.has(touch.b?.networkId)
+      )
+      .map((touch) => {
+        const aNetwork = source.find((network) => network.networkId === touch.a.networkId);
+        const bNetwork = source.find((network) => network.networkId === touch.b.networkId);
+        const aSave = logicalPointToReaderSave(touch.a, aNetwork.coordinateSpace);
+        const bSave = logicalPointToReaderSave(touch.b, bNetwork.coordinateSpace);
+        return {
+          classification: touch.classification,
+          authoritativeConnectedEdge: false,
+          a: {
+            networkId: sourceToArtifact.get(touch.a.networkId),
+            x: aSave.x - region.x,
+            y: aSave.y - region.y,
+            mode: touch.a.mode
+          },
+          b: {
+            networkId: sourceToArtifact.get(touch.b.networkId),
+            x: bSave.x - region.x,
+            y: bSave.y - region.y,
+            mode: touch.b.mode
+          }
+        };
+      })
+    : [];
+
+  return {
+    status: 'supported',
+    data: {
+      schema: 'dreamwish-wand-wep-network-capture',
+      version: 1,
+      kind,
+      originPolicy: 'capture-region-top-left',
+      networks,
+      ...(kind === 'fences' && modeBoundaryTouches.length
+        ? { modeBoundaryTouches }
+        : {}),
+      normalization: {
+        sourceGridObjectIdsRemoved: true,
+        artifactNetworkIdsLocal: true,
+        partialTopologyFailsClosed: true
+      },
+      persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+    },
+    persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+  };
+}
