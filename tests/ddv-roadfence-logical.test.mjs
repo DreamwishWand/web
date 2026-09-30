@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import {
   FenceMode,
   PERSISTENT_WRITE_AUTHORIZED,
+  compileFenceLogicalGraph,
+  eraseFenceLogicalUnits,
   RoadFenceValidationCode,
   fenceRepresentationQuantity,
   partitionFenceConnectedComponents,
@@ -14,6 +16,7 @@ import {
   requirePersistentRoadFenceWriter,
   roadDiagonalStepCells,
   validateContainedTopology,
+  validateFenceLogicalGraph,
   validateFenceRepresentationPlan,
   validateRoadCells
 } from '../src/lib/ddv/core/roadfence/logical.js';
@@ -150,4 +153,88 @@ test('persistent Road/Fence writer remains hard-disabled', () => {
     code: RoadFenceValidationCode.ROADFENCE_WRITER_DISABLED,
     persistentWriteAuthorized: false
   });
+});
+
+
+test('general Fence graph compiler emits Base vertices at an orthogonal turn', () => {
+  const graph = {
+    nodes: [
+      { id: 'a', x: 0, y: 0, mode: FenceMode.ORTHOGONAL },
+      { id: 'b', x: 1, y: 0, mode: FenceMode.ORTHOGONAL },
+      { id: 'c', x: 1, y: 1, mode: FenceMode.ORTHOGONAL }
+    ],
+    edges: [{ a: 'a', b: 'b' }, { a: 'b', b: 'c' }]
+  };
+  assert.equal(validateFenceLogicalGraph(graph).ok, true);
+  const compiled = compileFenceLogicalGraph(graph);
+  assert.equal(compiled.ok, true);
+  assert.equal(compiled.logicalQuantity, 3);
+  assert.equal(compiled.components.length, 1);
+  assert.equal(compiled.components[0].bases.length, 3);
+  assert.equal(compiled.components[0].extensions.length, 0);
+  assert.equal(compiled.components[0].spans.length, 2);
+});
+
+test('general Fence graph compiler emits one shared Base for a three-way junction', () => {
+  const graph = {
+    nodes: [
+      { id: 'p', x: 0, y: 0, mode: FenceMode.ORTHOGONAL },
+      { id: 'l', x: -1, y: 0, mode: FenceMode.ORTHOGONAL },
+      { id: 'r', x: 1, y: 0, mode: FenceMode.ORTHOGONAL },
+      { id: 'u', x: 0, y: 1, mode: FenceMode.ORTHOGONAL }
+    ],
+    edges: [{ a: 'p', b: 'l' }, { a: 'p', b: 'r' }, { a: 'p', b: 'u' }]
+  };
+  const compiled = compileFenceLogicalGraph(graph);
+  assert.equal(compiled.ok, true);
+  assert.equal(compiled.logicalQuantity, 4);
+  assert.equal(compiled.components[0].bases.length, 4);
+  assert.equal(compiled.components[0].spans.length, 3);
+  assert.equal(compiled.components[0].serializedLogicalQuantity, 4);
+});
+
+test('general Fence graph compiler applies over-max segmentation to a long straight component', () => {
+  const nodes = Array.from({ length: 10 }, (_, x) => ({ id: `n${x}`, x, y: 0, mode: FenceMode.ORTHOGONAL }));
+  const edges = Array.from({ length: 9 }, (_, x) => ({ a: `n${x}`, b: `n${x + 1}` }));
+  const compiled = compileFenceLogicalGraph({ nodes, edges });
+  assert.equal(compiled.ok, true);
+  assert.equal(compiled.logicalQuantity, 10);
+  assert.equal(compiled.components[0].serializedLogicalQuantity, 10);
+  assert.deepEqual(compiled.components[0].extensions.map((part) => part.key), [6, 1]);
+  assert.deepEqual(compiled.components[0].bases.map((part) => part.nodeId), ['n0', 'n7', 'n9']);
+});
+
+test('interior Fence logical erase splits and recompiles surviving components', () => {
+  const nodes = Array.from({ length: 10 }, (_, x) => ({ id: `n${x}`, x, y: 0, mode: FenceMode.ORTHOGONAL }));
+  const edges = Array.from({ length: 9 }, (_, x) => ({ a: `n${x}`, b: `n${x + 1}` }));
+  const erased = eraseFenceLogicalUnits({ nodes, edges }, ['n4']);
+  assert.equal(erased.ok, true);
+  assert.equal(erased.refundLogicalQuantity, 1);
+  assert.equal(erased.remainingLogicalQuantity, 9);
+  assert.equal(erased.compiled.components.length, 2);
+  assert.deepEqual(erased.compiled.components.map((component) => component.logicalQuantity).sort((a, b) => a - b), [4, 5]);
+  assert.equal(erased.compiled.logicalQuantity, 9);
+  assert.equal(erased.persistentWriteAuthorized, false);
+});
+
+test('general Fence graph compiler partitions an explicit orthogonal/diagonal boundary', () => {
+  const graph = {
+    nodes: [
+      { id: 'o1', x: 0, y: 0, mode: FenceMode.ORTHOGONAL },
+      { id: 'o2', x: 1, y: 0, mode: FenceMode.ORTHOGONAL },
+      { id: 'd1', x: 2, y: 1, mode: FenceMode.DIAGONAL },
+      { id: 'd2', x: 3, y: 2, mode: FenceMode.DIAGONAL }
+    ],
+    edges: [
+      { a: 'o1', b: 'o2' },
+      { a: 'o2', b: 'd1' },
+      { a: 'd1', b: 'd2' }
+    ]
+  };
+  const compiled = compileFenceLogicalGraph(graph);
+  assert.equal(compiled.ok, true);
+  assert.equal(compiled.components.length, 2);
+  assert.deepEqual(compiled.components.map((component) => component.mode), [FenceMode.ORTHOGONAL, FenceMode.DIAGONAL]);
+  assert.deepEqual(compiled.modeBoundaries, [{ a: 'o2', b: 'd1' }]);
+  assert.equal(compiled.logicalQuantity, 4);
 });
