@@ -763,3 +763,61 @@ test('account deletion acceptance route is internal and describes restricted ret
   assert.match(page, /noindex,nofollow/);
   assert.doesNotMatch(header, /community-lab\/account/i);
 });
+
+
+test('provider cleanup scheduler uses Vault-backed dedicated worker authentication', () => {
+  const authMigration = read(
+    'supabase/migrations/20260930080000_community_core_v0_provider_cleanup_scheduler_auth.sql'
+  );
+  const setupMigration = read(
+    'supabase/migrations/20260930080500_community_core_v0_provider_cleanup_scheduler_setup.sql'
+  );
+  const worker = read('supabase/functions/community-auth/index.ts');
+
+  assert.match(authMigration, /create extension if not exists pg_net/i);
+  assert.match(authMigration, /private\.community_worker_auth/i);
+  assert.match(authMigration, /community_verify_worker_token/i);
+  assert.match(authMigration, /digest\(p_token,'sha256'\)/i);
+  assert.match(authMigration, /community_invoke_provider_cleanup_worker/i);
+  assert.match(authMigration, /vault\.decrypted_secrets/i);
+  assert.match(authMigration, /x-community-worker-token/i);
+
+  assert.match(setupMigration, /gen_random_bytes\(32\)/i);
+  assert.match(setupMigration, /vault\.create_secret/i);
+  assert.match(setupMigration, /vault\.update_secret/i);
+  assert.match(setupMigration, /community-provider-cleanup-every-minute/i);
+  assert.match(setupMigration, /cron\.schedule/i);
+
+  assert.match(worker, /withSupabase\(\{ auth: 'none' \}/);
+  assert.match(worker, /x-community-worker-token/);
+  assert.match(worker, /community_verify_worker_token/);
+  assert.match(worker, /WORKER_AUTH_REQUIRED/);
+  assert.match(worker, /WORKER_AUTH_INVALID/);
+  assert.ok(
+    worker.indexOf('community_verify_worker_token') <
+      worker.indexOf('community_claim_provider_cleanup_jobs')
+  );
+});
+
+test('provider cleanup worker token never appears as a repository literal', () => {
+  const authMigration = read(
+    'supabase/migrations/20260930080000_community_core_v0_provider_cleanup_scheduler_auth.sql'
+  );
+  const setupMigration = read(
+    'supabase/migrations/20260930080500_community_core_v0_provider_cleanup_scheduler_setup.sql'
+  );
+  const worker = read('supabase/functions/community-auth/index.ts');
+
+  for (const source of [authMigration, setupMigration, worker]) {
+    assert.doesNotMatch(source, /community_provider_cleanup_worker_token\s*=\s*['"][A-Fa-f0-9]{32,}/);
+    assert.doesNotMatch(source, /sb_secret_[A-Za-z0-9_-]+/);
+    assert.doesNotMatch(source, /service_role/i);
+  }
+});
+
+test('generated schema exposes only the worker-token verification RPC, not private Vault helpers', () => {
+  const generated = read('src/lib/generated/database.types.ts');
+  assert.match(generated, /community_verify_worker_token/);
+  assert.doesNotMatch(generated, /community_invoke_provider_cleanup_worker/);
+  assert.doesNotMatch(generated, /community_configure_provider_cleanup_scheduler/);
+});
