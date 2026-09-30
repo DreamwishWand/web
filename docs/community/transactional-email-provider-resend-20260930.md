@@ -1,6 +1,6 @@
 # Community Core transactional email provider — Resend — 2026-09-30
 
-Status: **HIGH CONFIDENCE PROVIDER + DOMAIN CONTRACT / ACTIVATION PENDING**
+Status: **HIGH CONFIDENCE PROVIDER + DOMAIN VERIFIED / ACTIVATION PENDING**
 
 ## Decision
 
@@ -80,7 +80,7 @@ credential and vice versa.
 
 ## Domain / sender boundary
 
-Production and real-mail staging acceptance require a verified sender domain.
+Production and real-mail staging acceptance require a verified sender domain. Resend UI now reports `dreamwishwand.com` as **Verified** (user-observed provider state on 2026-10-01).
 
 Canonical first-launch sender domain:
 
@@ -166,8 +166,7 @@ CONFIRMED:
 
 PENDING:
 
-- Resend account ownership/connection;
-- DNS verification of `dreamwishwand.com`;
+- dedicated Auth SMTP and Ops API credentials;
 - secrets/configuration;
 - Supabase Auth SMTP acceptance;
 - real operator mailbox delivery;
