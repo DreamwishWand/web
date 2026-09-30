@@ -18,6 +18,13 @@ export interface CommandEnvelope<T> {
   payload: T;
 }
 
+export interface UpdateCreatorProfile {
+  handle: string;
+  displayName: string;
+  bio?: string;
+  profileVisibility: Visibility;
+}
+
 export interface CreateDraftWork {
   workType: WorkType;
   creatorProfileId: CreatorProfileId;
@@ -86,6 +93,9 @@ export interface CommunityCommandResult {
  * but product code depends on this contract rather than a provider SDK.
  */
 export interface CommunityCommandBus {
+  updateCreatorProfile(
+    command: CommandEnvelope<UpdateCreatorProfile>
+  ): Promise<CommunityCommandResult>;
   createDraftWork(command: CommandEnvelope<CreateDraftWork>): Promise<CommunityCommandResult>;
   updateDraftWork(command: CommandEnvelope<UpdateDraftWork>): Promise<CommunityCommandResult>;
   publishWork(command: CommandEnvelope<PublishWork>): Promise<CommunityCommandResult>;
