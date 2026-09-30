@@ -1173,3 +1173,66 @@ export function sampleFenceStyle(network, nodeId) {
     coordinate: { x: node.x, y: node.y }
   };
 }
+
+
+export function selectFenceBranch(graph = {}, seedNodeId, adjacentNodeId) {
+  const compiled = compileFenceLogicalGraph(graph);
+  if (!compiled.ok) {
+    return {
+      ok: false,
+      errors: compiled.errors ?? [],
+      persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+    };
+  }
+
+  const nodeById = new Map((graph.nodes ?? []).map((node) => [node.id, node]));
+  const seed = nodeById.get(seedNodeId);
+  const adjacent = nodeById.get(adjacentNodeId);
+  if (!seed || !adjacent) {
+    return {
+      ok: false,
+      errors: [{
+        code: RoadFenceValidationCode.READ_ONLY_UNSUPPORTED,
+        reason: 'Fence branch selection requires an existing seed node and adjacent node'
+      }],
+      persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+    };
+  }
+  if (seed.mode !== adjacent.mode) {
+    return {
+      ok: false,
+      errors: [{
+        code: RoadFenceValidationCode.FENCE_COMPONENT_BOUNDARY_MISMATCH,
+        reason: 'Fence branch selection cannot cross an orthogonal/diagonal mode boundary'
+      }],
+      persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+    };
+  }
+
+  const edgeKey = logicalEdgeKey(seedNodeId, adjacentNodeId);
+  for (const component of compiled.components) {
+    if (component.mode !== seed.mode) continue;
+    for (const span of component.spans) {
+      for (let i = 1; i < span.nodeIds.length; i += 1) {
+        if (logicalEdgeKey(span.nodeIds[i - 1], span.nodeIds[i]) === edgeKey) {
+          return {
+            ok: true,
+            mode: component.mode,
+            nodeIds: [...span.nodeIds],
+            logicalQuantity: span.nodeIds.length,
+            persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+          };
+        }
+      }
+    }
+  }
+
+  return {
+    ok: false,
+    errors: [{
+      code: RoadFenceValidationCode.READ_ONLY_UNSUPPORTED,
+      reason: 'Fence branch edge is not part of a compiled maximal straight span'
+    }],
+    persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+  };
+}
