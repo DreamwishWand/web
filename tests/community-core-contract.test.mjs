@@ -326,3 +326,46 @@ test('only Gallery publish v3 remains in generated callable schema', () => {
   assert.doesNotMatch(generated, /community_publish_gallery_v2/);
   assert.doesNotMatch(generated, /community_publish_gallery: \{/);
 });
+
+
+test('provider-neutral command envelopes never carry a client-supplied actor identity', () => {
+  const commands = read('src/lib/community/commands.ts');
+  assert.doesNotMatch(commands, /actorAccountId:/);
+  assert.match(commands, /Actor identity is intentionally absent from the command envelope/);
+});
+
+test('internal Community Lab uses browser-safe Auth and Edge credentials only', () => {
+  const client = read('src/lib/community/staging-http-client.ts');
+  const page = read('src/routes/community-lab/+page.svelte');
+
+  assert.match(client, /sessionStorage/);
+  assert.match(client, /grant_type=password/);
+  assert.match(client, /grant_type=refresh_token/);
+  assert.match(client, /authorization: `Bearer \${session\.accessToken}`/);
+  assert.match(client, /apikey: this\.config\.publishableKey/);
+  assert.match(client, /community-command/);
+  assert.match(client, /community-query/);
+  assert.match(client, /community-media/);
+
+  assert.doesNotMatch(client, /service_role|SUPABASE_SECRET|sb_secret_/i);
+  assert.doesNotMatch(page, /service_role|SUPABASE_SECRET|sb_secret_/i);
+  assert.doesNotMatch(page, /actorAccountId|actor_account_id/);
+});
+
+test('Community Lab reproduces Supabase signed-upload HTTP semantics without a new npm dependency', () => {
+  const client = read('src/lib/community/staging-http-client.ts');
+  assert.match(client, /signedUpload\?\.signedUrl/);
+  assert.match(client, /method: 'PUT'/);
+  assert.match(client, /form\.append\('cacheControl', '3600'\)/);
+  assert.match(client, /form\.append\('', file\)/);
+  assert.match(client, /'x-upsert': 'false'/);
+  assert.match(client, /this\.media\('finalize'/);
+  assert.match(client, /this\.media\('read'/);
+});
+
+test('Community Lab remains an internal route and is not linked from the public shell', () => {
+  const header = read('src/lib/SiteHeader.svelte');
+  const page = read('src/routes/community-lab/+page.svelte');
+  assert.match(page, /INTERNAL · STAGING ONLY/);
+  assert.doesNotMatch(header, /community-lab/i);
+});
