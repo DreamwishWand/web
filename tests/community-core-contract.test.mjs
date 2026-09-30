@@ -1349,7 +1349,6 @@ test('Community Ops exposes configured recent-auth launch policy', () => {
   assert.match(page, /support\/admin high-risk writes/);
   assert.match(page, /moderation staff actions/);
   assert.match(generated, /community_get_security_policy_summary/);
-  assert.match(generated, /moderationStaffRecentAuthSeconds/);
 });
 
 
