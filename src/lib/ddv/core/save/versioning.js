@@ -116,6 +116,7 @@ export function detectSaveIdentity(root, options = {}) {
   const lastSavePlatform = platformFromDeviceType(deviceType);
   const sourcePlatform = normalizePlatform(options.sourcePlatform);
 
+  /** @type {'SAME'|'DIFFERENT_CROSS_SAVE_POSSIBLE'|'UNKNOWN'} */
   let relationship = 'UNKNOWN';
   if (sourcePlatform !== PlatformFamily.Unknown && lastSavePlatform !== PlatformFamily.Unknown) {
     relationship = sourcePlatform === lastSavePlatform
