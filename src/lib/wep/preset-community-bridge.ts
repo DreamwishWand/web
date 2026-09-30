@@ -1,18 +1,24 @@
 type JsonObject = Record<string, any>;
 
+export interface PresetCommunityEdgeResult<T = unknown> {
+  ok: boolean;
+  data?: T;
+  [key: string]: unknown;
+}
+
 export interface PresetCommunityTransport {
   preset<T = unknown>(
     action: string,
     payload?: Record<string, unknown>
-  ): Promise<T>;
+  ): Promise<PresetCommunityEdgeResult<T>>;
   command<T = unknown>(
     command: string,
     payload: Record<string, unknown>
-  ): Promise<T>;
+  ): Promise<PresetCommunityEdgeResult<T>>;
   query<T = unknown>(
     query: string,
     payload?: Record<string, unknown>
-  ): Promise<T>;
+  ): Promise<PresetCommunityEdgeResult<T>>;
   searchPublicWorks(options?: Record<string, unknown>): Promise<JsonObject[]>;
 }
 
