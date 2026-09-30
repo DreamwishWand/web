@@ -54,6 +54,7 @@
   let escalationRetryReason = 'Reviewed external alert delivery failure';
 
   let securityPolicy: unknown = null;
+  let actionRatePolicies: unknown = [];
 
   let moderationState = 'open';
   let moderationCases: unknown = [];
@@ -134,6 +135,7 @@
     retentionHolds = [];
     operationsEscalations = [];
     securityPolicy = null;
+    actionRatePolicies = [];
     moderationCases = [];
   }
 
@@ -143,6 +145,14 @@
       client!.admin('getSecurityPolicy', {})
     );
     if (result) securityPolicy = result.data ?? null;
+  }
+
+  async function refreshActionRatePolicies() {
+    if (!client) return;
+    const result = await run('Load action rate policies', () =>
+      client!.admin('listActionRatePolicies', {})
+    );
+    if (result) actionRatePolicies = result.data ?? [];
   }
 
   async function refreshModerationCases() {
