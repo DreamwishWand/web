@@ -20,6 +20,7 @@ const operationToRpc = {
   listOperationsEscalations: 'community_get_operations_escalation_deliveries',
   retryOperationsEscalation: 'community_admin_retry_operations_escalation',
   getSecurityPolicy: 'community_get_security_policy_summary',
+  listActionRatePolicies: 'community_get_action_rate_policies',
   listModerationCases: 'community_get_moderation_cases',
   moderateCase: 'community_moderate_work_v2'
 } as const;
@@ -173,6 +174,8 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       params.p_reason = payload.reason;
       break;
     case 'getSecurityPolicy':
+      break;
+    case 'listActionRatePolicies':
       break;
     case 'listModerationCases':
       params.p_state = payload.state ?? null;
