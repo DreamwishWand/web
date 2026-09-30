@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import {
   FenceMode,
   PERSISTENT_WRITE_AUTHORIZED,
+  buildFencePolyline,
+  buildFenceRectangleOutline,
   compileFenceLogicalGraph,
   eraseFenceLogicalUnits,
   RoadFenceValidationCode,
@@ -13,6 +15,7 @@ import {
   predictConnectedFenceRemoval,
   predictFenceStyleReplacement,
   rasterizeRoadPath,
+  rasterizeRoadPolyline,
   requirePersistentRoadFenceWriter,
   roadDiagonalStepCells,
   validateContainedTopology,
@@ -237,4 +240,41 @@ test('general Fence graph compiler partitions an explicit orthogonal/diagonal bo
   assert.deepEqual(compiled.components.map((component) => component.mode), [FenceMode.ORTHOGONAL, FenceMode.DIAGONAL]);
   assert.deepEqual(compiled.modeBoundaries, [{ a: 'o2', b: 'd1' }]);
   assert.equal(compiled.logicalQuantity, 4);
+});
+
+
+test('Road polyline expands long cardinal and diagonal controls before rasterization', () => {
+  const result = rasterizeRoadPolyline([
+    { x: 0, y: 0 },
+    { x: 2, y: 0 },
+    { x: 4, y: 2 }
+  ]);
+  assert.equal(result.requiresRuntimeTransitionNormalization, true);
+  assert.ok(result.cells.some((cell) => cell.x === 1 && cell.y === 0));
+  assert.ok(result.cells.some((cell) => cell.x === 3 && cell.y === 1));
+  assert.ok(result.cells.some((cell) => cell.x === 4 && cell.y === 2));
+});
+
+test('Fence polyline builds and compiles a multi-segment orthogonal logical graph', () => {
+  const result = buildFencePolyline([
+    { x: 0, y: 0 },
+    { x: 3, y: 0 },
+    { x: 3, y: 2 }
+  ], FenceMode.ORTHOGONAL);
+  assert.equal(result.compiled.ok, true);
+  assert.equal(result.graph.nodes.length, 6);
+  assert.equal(result.graph.edges.length, 5);
+  assert.equal(result.compiled.logicalQuantity, 6);
+  assert.equal(result.compiled.components.length, 1);
+  assert.equal(result.persistentWriteAuthorized, false);
+});
+
+test('Fence rectangle outline closes as one orthogonal component without duplicate logical nodes', () => {
+  const result = buildFenceRectangleOutline({ minX: 0, minY: 0, maxX: 3, maxY: 2 });
+  assert.equal(result.compiled.ok, true);
+  assert.equal(result.graph.nodes.length, 10);
+  assert.equal(result.graph.edges.length, 10);
+  assert.equal(result.compiled.logicalQuantity, 10);
+  assert.equal(result.compiled.components.length, 1);
+  assert.equal(result.compiled.components[0].bases.length, 4);
 });
