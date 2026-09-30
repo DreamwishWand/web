@@ -459,3 +459,13 @@ test('Community Lab includes owner visibility, unpublish and soft-delete accepta
   }
   assert.match(page, /targetRowVersion = Number\(result\?\.data\?\.rowVersion/);
 });
+
+
+test('Community Lab includes actor-switch reply path for reply notification acceptance', () => {
+  const page = read('src/routes/community-lab/+page.svelte');
+  assert.match(page, /parentCommentId/);
+  assert.match(page, /replyToStoredComment/);
+  assert.match(page, /Reply to stored comment/);
+  assert.match(page, /Reply as current actor/);
+  assert.match(page, /parentCommentId = String\(result\?\.data\?\.commentId/);
+});
