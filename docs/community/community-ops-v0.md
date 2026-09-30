@@ -187,8 +187,10 @@ artifacts, API secrets or signed URLs in evidence docs.
 Backend/RPC behavior is CONFIRMED in staging, including the recovery Open → Verify → Complete
 state machine (8/8), sensitive recovery-field redaction/scrub, persistent operations-alert detection,
 acknowledgment, audit, auto-resolution and recurrence reopening. The internal UI + Edge boundary are
-implemented and CI-green. Browser/operator runtime acceptance is still pending. Detailed alert
-evidence: `docs/community/operations-alerts-runtime-20260930.md`.
+implemented and CI-green. Browser/operator runtime acceptance is still pending. Detailed alert evidence: `docs/community/operations-alerts-runtime-20260930.md`.
+
+Moderation backend/operator runtime is also CONFIRMED with rollback-scoped staging evidence:
+`docs/community/moderation-operations-runtime-20260930.md`.
 
 
 ## Unified browser/operator acceptance
