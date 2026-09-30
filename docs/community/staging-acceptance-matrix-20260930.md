@@ -24,7 +24,7 @@ Staging project: `dreamwish-wand-staging` / `ap-northeast-1`.
 | VS-12 Media guards/delivery | CONFIRMED PASS | DB guards already passed. Real HTTP staging E2E additionally completed signed upload -> finalize -> server byte validation -> signed read URL -> actual signed read fetch with an image file. Server detected `image/png`, 1×1 dimensions and a 64-hex SHA-256; returned bytes matched upload length. Fixture, Storage object and temporary E2E mechanism were fully removed; Security Advisor returned WARN 0 afterward. | Product browser UX and final production storage/provider policy remain separate launch work. |
 | VS-13 Concurrent/retry uniqueness | CONFIRMED PASS | True overlapping multi-backend staging stress passed using independent pg_cron workers with ~1 second measured overlap. Save: 6 workers/6 PIDs -> 1 SavedItem. Follow: 6/6 -> 1 Follow + 1 Outbox event. Reaction: 6/6 -> 1 Reaction + 1 Outbox event. Same Gallery-draft idempotency key: 6/6 returned one identical workId with 1 idempotency row/work/outbox event. DDV Profile cap race from starting count 2: two overlapping workers -> exactly one third link and one max-three rejection; final count 3. Full fixture cleanup verified residue 0 and immutable guards re-enabled. | Browser/app acceptance remains separate; no further database parallel-session blocker. |
 | VS-14 Failure atomicity / downstream retry | CONFIRMED PASS | Failed publish leaves no revision/publish outbox/idempotency completion; successful publication and outbox commit together. Poison outbox event no longer blocks later events; retry uses backoff and dead-letters after five failed attempts. | Operational dead-letter review UI/alerting remains pending. |
-| VS-15 Tombstone/history preservation | CONFIRMED PASS | Owner soft delete tombstones CommunityEntity, removes discovery and access, preserves published revision/comment/report history, and keeps SavedItem as inaccessible reference. | Retention/anonymization policy for account deletion remains pending. |
+| VS-15 Tombstone/history preservation | CONFIRMED PASS | Owner soft delete tombstones CommunityEntity, removes discovery and access, preserves published revision/comment/report history, and keeps SavedItem as inaccessible reference. Account deletion now has a separate recent-auth tombstone path that anonymizes the Creator/profile and authored comments, hides owned works, removes private interactions/DDV links, retires AuthIdentity mappings and queues provider-account cleanup without retaining the original provider subject in public Community tables. Provider cleanup queue claim/retry/dead-letter behavior is CONFIRMED in staging DB; secret-only worker is deployed. | Final retention/purge periods remain policy work. Real provider-user deletion through the worker plus production scheduler/alerting are still pending. |
 
 ## Gate conclusion
 
@@ -35,6 +35,20 @@ The overall Community Phase 2 release gate is **not yet complete** because the a
 1. execute the already-implemented internal Community Lab with real staging A/B/Moderator users and capture secret-free runtime evidence;
 2. complete actual signed media upload/finalize/read E2E through that browser path;
 3. connect WEP's validated Preset payload/preflight/apply path to the already-proven Community Preset envelope/Library bridge, then rerun VS-01..VS-15 without direct SQL orchestration;
-4. add operational handling for dead-letter outbox events and finalize account recovery/deletion retention policy.
+4. complete operations closure: run a real provider-account deletion through the secret-only cleanup worker, configure/verify its scheduler and dead-letter alerting, add outbox dead-letter review/alerting, and finalize account recovery/deletion retention periods.
 
 The current public GitHub Pages deployment remains unchanged.
+
+
+## Account deletion / provider cleanup operations checkpoint
+
+Wand-side account tombstone and provider-account deletion are intentionally decoupled.
+
+- Wand tombstone requires recent authentication and immediately removes Community access.
+- Original provider subject is copied only into a private retry queue before public AuthIdentity mappings are anonymized.
+- Queue claims use lock tokens plus `FOR UPDATE SKIP LOCKED`.
+- Failed cleanup retries with backoff and dead-letters on the fifth failed attempt.
+- `community-auth` is deployed as a secret-auth-only Edge worker; it is not a browser/user-JWT endpoint.
+- Detailed evidence: `docs/community/provider-cleanup-runtime-20260930.md`.
+
+Operational completion remains pending until a disposable real staging Auth user is deleted through that worker and the recurring scheduler/alert path is verified.
