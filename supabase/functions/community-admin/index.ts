@@ -8,7 +8,9 @@ const operationToRpc = {
   listProviderCleanupJobs: 'community_get_provider_cleanup_jobs',
   openRecoveryCase: 'community_admin_open_recovery_case',
   completeRecoveryCase: 'community_admin_complete_recovery',
-  retryProviderCleanup: 'community_admin_retry_provider_cleanup'
+  retryProviderCleanup: 'community_admin_retry_provider_cleanup',
+  listOperationsAlerts: 'community_get_operations_alerts',
+  acknowledgeOperationsAlert: 'community_admin_ack_operations_alert'
 } as const;
 
 type OperationName = keyof typeof operationToRpc;
@@ -100,6 +102,16 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       params.p_issued_at_epoch = issuedAt;
       params.p_cleanup_job_id = payload.cleanupJobId;
       params.p_reason = payload.reason;
+      break;
+    case 'listOperationsAlerts':
+      params.p_state = payload.state ?? null;
+      params.p_limit = payload.limit ?? 50;
+      break;
+    case 'acknowledgeOperationsAlert':
+      params.p_session_id = sessionId;
+      params.p_issued_at_epoch = issuedAt;
+      params.p_alert_id = payload.alertId;
+      params.p_note = payload.note;
       break;
   }
 
