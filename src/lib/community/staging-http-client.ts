@@ -147,7 +147,7 @@ export class CommunityLabClient {
 
     try {
       if (current) {
-        await fetch(`${this.config.supabaseUrl}/auth/v1/logout`, {
+        await fetch(`${this.config.supabaseUrl}/auth/v1/logout?scope=local`, {
           method: 'POST',
           headers: {
             apikey: this.config.publishableKey,
@@ -155,6 +155,31 @@ export class CommunityLabClient {
           }
         });
       }
+    } finally {
+      this.#session = null;
+      saveSession(null);
+    }
+  }
+
+  async revokeAllSessions(): Promise<EdgeResult> {
+    const current = await this.#validSession();
+
+    const providerResponse = await fetch(
+      `${this.config.supabaseUrl}/auth/v1/logout?scope=global`,
+      {
+        method: 'POST',
+        headers: {
+          apikey: this.config.publishableKey,
+          authorization: `Bearer ${current.accessToken}`
+        }
+      }
+    );
+
+    await parseResponse(providerResponse);
+
+    try {
+      const result = await this.command('revokeSessions', {});
+      return result;
     } finally {
       this.#session = null;
       saveSession(null);
