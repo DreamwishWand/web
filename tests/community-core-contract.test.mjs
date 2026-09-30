@@ -1603,7 +1603,7 @@ test('Community Ops can inspect rate policies without exposing private counters'
 
   assert.match(admin, /listActionRatePolicies: 'community_get_action_rate_policies'/);
   assert.match(page, /Load action rate policies/);
-  assert.match(page, /private\s+counters are not exposed/i);
+  assert.match(page, /per-account counters are not exposed/i);
   assert.match(generated, /community_get_action_rate_policies/);
   assert.match(generated, /community_consume_action_rate_limit/);
   assert.doesNotMatch(generated, /community_action_rate_windows/);
