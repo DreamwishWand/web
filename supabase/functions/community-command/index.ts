@@ -26,26 +26,6 @@ const commandToRpc = {
 
 type CommandName = keyof typeof commandToRpc;
 
-function jwtIssuedAt(req: Request): number | null {
-  const authorization = req.headers.get('authorization') ?? '';
-  const match = authorization.match(/^Bearer\\s+(.+)$/i);
-  const token = match?.[1];
-  if (!token) return null;
-
-  const payload = token.split('.')[1];
-  if (!payload) return null;
-
-  try {
-    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
-    const claims = JSON.parse(atob(padded));
-    const iat = Number(claims?.iat);
-    return Number.isInteger(iat) && iat > 0 ? iat : null;
-  } catch {
-    return null;
-  }
-}
-
 function reply(body: unknown, status = 200) {
   return Response.json(body, {
     status,
@@ -83,29 +63,6 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         401
       );
     }
-
-    const issuedAt = jwtIssuedAt(req);
-    if (!issuedAt) return reply({ ok: false, error: 'JWT issued-at claim missing' }, 401);
-
-    const { error: sessionError } = await ctx.supabaseAdmin.rpc(
-      'community_authorize_session',
-      {
-        p_auth_subject: subject,
-        p_issued_at_epoch: issuedAt,
-        p_max_age_seconds: null
-      }
-    );
-    if (sessionError) {
-      return reply(
-        {
-          ok: false,
-          error: 'SESSION_REVOKED_OR_INVALID',
-          message: sessionError.message
-        },
-        401
-      );
-    }
-
     let body: { command?: string; payload?: JsonObject };
     try {
       body = await req.json();
