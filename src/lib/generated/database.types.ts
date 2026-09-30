@@ -884,6 +884,9 @@ export type Database = {
           dedupe_key: string | null
           dispatched_at: string | null
           event_type: string
+          failed_at: string | null
+          last_error: string | null
+          next_attempt_at: string
           outbox_id: string
           payload: Json
         }
@@ -895,6 +898,9 @@ export type Database = {
           dedupe_key?: string | null
           dispatched_at?: string | null
           event_type: string
+          failed_at?: string | null
+          last_error?: string | null
+          next_attempt_at?: string
           outbox_id?: string
           payload?: Json
         }
@@ -906,6 +912,9 @@ export type Database = {
           dedupe_key?: string | null
           dispatched_at?: string | null
           event_type?: string
+          failed_at?: string | null
+          last_error?: string | null
+          next_attempt_at?: string
           outbox_id?: string
           payload?: Json
         }
@@ -1360,6 +1369,16 @@ export type Database = {
         }
         Returns: Json
       }
+      community_change_work_visibility: {
+        Args: {
+          p_auth_subject: string
+          p_expected_version: number
+          p_idempotency_key: string
+          p_visibility: string
+          p_work_id: string
+        }
+        Returns: Json
+      }
       community_create_gallery_draft: {
         Args: {
           p_auth_subject: string
@@ -1367,6 +1386,15 @@ export type Database = {
           p_gallery_kind: string
           p_idempotency_key: string
           p_visibility: string
+        }
+        Returns: Json
+      }
+      community_delete_work: {
+        Args: {
+          p_auth_subject: string
+          p_expected_version: number
+          p_idempotency_key: string
+          p_work_id: string
         }
         Returns: Json
       }
@@ -1494,6 +1522,15 @@ export type Database = {
       }
       community_save_entity: {
         Args: { p_auth_subject: string; p_target_entity_id: string }
+        Returns: Json
+      }
+      community_unpublish_work: {
+        Args: {
+          p_auth_subject: string
+          p_expected_version: number
+          p_idempotency_key: string
+          p_work_id: string
+        }
         Returns: Json
       }
     }
