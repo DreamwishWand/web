@@ -1,6 +1,6 @@
 # Community Core transactional email provider — Resend — 2026-09-30
 
-Status: **HIGH CONFIDENCE PROVIDER + DOMAIN VERIFIED / ACTIVATION PENDING**
+Status: **CONFIRMED OPS PROVIDER DELIVERY / AUTH ACCEPTANCE PENDING**
 
 ## Decision
 
@@ -165,10 +165,21 @@ CONFIRMED:
 - provider adapter code + fail-closed deployment;
 - Resend SMTP/API/idempotency capability from provider documentation.
 
+CONFIRMED:
+
+- Resend domain verified;
+- separate Auth SMTP and Ops API credentials created;
+- Ops Edge secrets configured;
+- real staging operator critical mail accepted by Resend with provider status `delivered`;
+- correct sender `Dreamwish Wand Ops <ops@dreamwishwand.com>`;
+- minimized operational payload;
+- canonical test alert resolved after delivery.
+
 PENDING:
 
-- dedicated Auth SMTP and Ops API credentials;
-- secrets/configuration;
-- Supabase Auth SMTP acceptance;
-- real operator mailbox delivery;
-- real browser Auth email flows.
+- human confirmation of mailbox visibility;
+- recurrence/failure-retry acceptance through the active operator email path;
+- Supabase Auth SMTP browser acceptance;
+- real browser Auth verification/recovery flows.
+
+Detailed evidence: `docs/community/operator-email-runtime-20261001.md`.
