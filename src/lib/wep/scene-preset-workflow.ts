@@ -1,8 +1,30 @@
-import {
-  captureScenePreset,
-  type CaptureSceneOptions,
-  type EditorDocument
-} from './scene-capture-runtime.ts';
+export interface WorkflowEditorDocument {
+  objects: unknown[];
+  [key: string]: unknown;
+}
+
+export interface WorkflowCaptureOptions {
+  selectionIds: string[];
+  title?: string;
+  [key: string]: unknown;
+}
+
+export interface SceneCaptureResult {
+  artifact: unknown;
+  publicationReady: boolean;
+  issues: unknown[];
+  [key: string]: unknown;
+}
+
+export type SceneCaptureFunction = (
+  document: WorkflowEditorDocument,
+  options: WorkflowCaptureOptions,
+  publicationValidator: ((artifact: unknown) => {
+    ok: boolean;
+    issues: Array<Record<string, unknown>>;
+    [key: string]: unknown;
+  }) | null
+) => SceneCaptureResult;
 
 export interface ScenePresetPublisher {
   publishScene(options: {
@@ -17,8 +39,8 @@ export interface ScenePresetPublisher {
 }
 
 export interface PublishCapturedSceneOptions {
-  document: EditorDocument;
-  capture: CaptureSceneOptions;
+  document: WorkflowEditorDocument;
+  capture: WorkflowCaptureOptions;
   creatorProfileId: string;
   visibility?: string;
   title: string;
@@ -43,19 +65,47 @@ export class WepSceneWorkflowError extends Error {
   }
 }
 
-export function createScenePresetWorkflow(publisher: ScenePresetPublisher) {
+export function createScenePresetWorkflow({
+  publisher,
+  captureScene,
+  publicationValidator
+}: {
+  publisher: ScenePresetPublisher;
+  captureScene: SceneCaptureFunction;
+  publicationValidator: (artifact: unknown) => {
+    ok: boolean;
+    issues: Array<Record<string, unknown>>;
+    [key: string]: unknown;
+  };
+}) {
   if (!publisher || typeof publisher.publishScene !== 'function') {
     throw new WepSceneWorkflowError(
       'WEP_SCENE_PUBLISHER_REQUIRED',
       'publication'
     );
   }
+  if (typeof captureScene !== 'function') {
+    throw new WepSceneWorkflowError(
+      'WEP_SCENE_CAPTURE_REQUIRED',
+      'capture'
+    );
+  }
+  if (typeof publicationValidator !== 'function') {
+    throw new WepSceneWorkflowError(
+      'WEP_SCENE_PUBLICATION_VALIDATOR_REQUIRED',
+      'capture'
+    );
+  }
 
   function capture(
-    document: EditorDocument,
-    options: CaptureSceneOptions
+    document: WorkflowEditorDocument,
+    options: WorkflowCaptureOptions
   ) {
-    const result = captureScenePreset(document, options);
+    const result = captureScene(
+      document,
+      options,
+      publicationValidator
+    );
     if (!result.publicationReady) {
       throw new WepSceneWorkflowError(
         'WEP_SCENE_CAPTURE_NOT_PUBLISHABLE',
