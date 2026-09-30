@@ -57,9 +57,10 @@ This closes the refresh-bypass class: refreshing an old session cannot make it r
 Current staging policy keys remain configuration-driven:
 
 - `account_delete_recent_auth_seconds = 900`;
-- `support_admin_recent_auth_seconds = 900`.
+- `support_admin_recent_auth_seconds = 900`;
+- `moderation_staff_recent_auth_seconds = 900`.
 
-These are staging defaults, not final production policy commitments.
+These are now finalized first-launch defaults. They remain configuration-driven for later security review.
 
 ### Safe first-time identity bootstrap
 
@@ -145,8 +146,8 @@ Still pending:
    the deployed Community APIs;
 3. execute the internal Community Ops route with a real staging admin and capture secret-free
    recovery/dead-letter evidence;
-4. finalize support verification procedure and production Auth provider/sign-in policy;
-5. finalize production recent-auth thresholds per high-risk action.
+4. execute the backend-confirmed support verification procedure through a real browser/operator session;
+5. configure the production transactional email provider/domain and accept the real Auth email path.
 
 No access token, refresh token, password, recovery code, signed URL, provider subject, verification
 artifact or API secret is recorded in this evidence file.
@@ -157,8 +158,9 @@ artifact or API secret is recorded in this evidence file.
 First-launch recent-auth windows are now canonicalized at:
 
 - self-service account deletion: **900 seconds / 15 minutes**;
-- support/admin high-risk writes: **900 seconds / 15 minutes**.
+- support/admin high-risk writes: **900 seconds / 15 minutes**;
+- moderator/admin moderation writes: **900 seconds / 15 minutes**.
 
-These values remain configuration-driven so a future security review can tighten them without
+These three values remain configuration-driven so a future security review can tighten them without
 changing RPC contracts. The proof source remains provider session creation time
 (`auth.sessions.created_at`), not refreshed JWT age.
