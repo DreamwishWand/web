@@ -1,4 +1,4 @@
-# Community Ops v0 — internal support and dead-letter console
+# Community Ops v0 — internal moderation, support and operations console
 
 Internal route: `/community-ops/`
 
@@ -14,7 +14,9 @@ operations only.
 - High-risk admin writes also require verified `jwtClaims.session_id`.
 - Server-side RPCs bind recent-auth to `auth.sessions.created_at`; JWT refresh does not reset the
   recent-auth window.
-- Read-only admin operations require admin role.
+- Moderation case review requires moderator or admin role.
+- Moderation restrict/remove/restore requires moderator or admin role + session-bound recent-auth.
+- Other read-only admin operations require admin role.
 - Recovery open/verify/complete and provider-cleanup dead-letter requeue require admin role + recent
   provider session.
 - No service-role/secret credential is present in browser source.
@@ -22,6 +24,28 @@ operations only.
 - Recovery listing exposes only whether a verification reference exists, not its value.
 
 ## Supported operations
+
+### Moderation queue
+
+Read:
+
+- list open/reviewing/resolved/closed ModerationCase rows;
+- show target work state and report reason/detail needed for review;
+- show prior moderation actions;
+- deliberately omit reporter WandAccount identity.
+
+Write:
+
+- restrict;
+- remove;
+- restore.
+
+Writes require moderator/admin role plus the 900-second moderation recent-auth window. The resulting
+action remains audited. When an Ops moderation action resolves a case, linked open/triaged Reports
+are closed in the same staff operation so stale reports do not indefinitely block retention.
+
+A third-party automated moderation provider is not required for first launch. Manual report -> case
+review -> reversible action is the launch baseline.
 
 ### Recovery cases
 
@@ -116,9 +140,9 @@ Behavior:
 
 ## Recent-auth procedure
 
-Launch policy is **900 seconds / 15 minutes** for support/admin high-risk writes. Account deletion
-uses the same 900-second launch default. Both remain configuration-driven but are now canonical
-launch defaults rather than unresolved staging values.
+Launch policy is **900 seconds / 15 minutes** for support/admin high-risk writes, moderator/admin
+moderation actions, and self-service account deletion. These remain configuration-driven but are now
+canonical launch defaults rather than unresolved staging values.
 
 A refreshed JWT from an old provider session does **not** satisfy recent-auth. When an operation
 returns `RECENT_AUTH_REQUIRED`:
@@ -149,9 +173,11 @@ With one disposable staging admin and one disposable target account:
 13. clear/requeue the underlying condition and confirm the alert auto-resolves;
 14. wait beyond the recent-auth window or use an old session and confirm high-risk write rejection;
 15. sign out/sign in and confirm the same operation is accepted;
-16. load Security Policy and confirm both launch recent-auth windows are 900 seconds and are
+16. load a moderation case, confirm reporter identity is omitted, and apply a reversible moderation action;
+17. confirm linked Reports close and the action is audited;
+18. load Security Policy and confirm all three launch recent-auth windows are 900 seconds and are
     session-bound to `auth.sessions.created_at`;
-17. capture only opaque actor labels and Community IDs.
+19. capture only opaque actor labels and Community IDs.
 
 Never record passwords, JWTs, refresh tokens, provider subjects, recovery codes, verification
 artifacts, API secrets or signed URLs in evidence docs.
