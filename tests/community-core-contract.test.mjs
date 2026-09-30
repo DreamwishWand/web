@@ -1323,9 +1323,13 @@ test('recent-auth launch defaults stay session-bound at 15 minutes', () => {
   const recentAuth = read(
     'supabase/migrations/20260930075500_community_core_v0_session_bound_recent_auth.sql'
   );
+  const moderation = read(
+    'supabase/migrations/20260930120042_community_core_v0_moderation_operations.sql'
+  );
 
   assert.match(migration, /account_delete_recent_auth_seconds',900/);
   assert.match(migration, /support_admin_recent_auth_seconds',900/);
+  assert.match(moderation, /moderation_staff_recent_auth_seconds',900/);
   assert.match(migration, /community_get_security_policy_summary/);
   assert.match(migration, /auth\.sessions\.created_at/);
 
@@ -1342,8 +1346,10 @@ test('Community Ops exposes configured recent-auth launch policy', () => {
   assert.match(admin, /getSecurityPolicy: 'community_get_security_policy_summary'/);
   assert.match(page, /Load security policy/);
   assert.match(page, /15 minutes for account deletion/);
-  assert.match(page, /15 minutes for\s+support\/admin high-risk writes/);
+  assert.match(page, /support\/admin high-risk writes/);
+  assert.match(page, /moderation staff actions/);
   assert.match(generated, /community_get_security_policy_summary/);
+  assert.match(generated, /moderationStaffRecentAuthSeconds/);
 });
 
 
