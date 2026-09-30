@@ -61,6 +61,25 @@ Current staging policy keys remain configuration-driven:
 
 These are staging defaults, not final production policy commitments.
 
+### Safe first-time identity bootstrap
+
+A real-provider deletion E2E exposed that a genuinely new Supabase Auth user could not reach
+`ensureAccountCreator` because normal Wand session authorization correctly required an existing
+mapping.
+
+The deployed safe bootstrap contract now distinguishes:
+
+- genuinely new subject -> bootstrap allowed;
+- existing active subject -> normal Wand session cutoff required;
+- retired subject -> rejected;
+- provider-deletion-pending subject -> rejected;
+- open-recovery-reserved subject -> rejected.
+
+Real staging DB runtime: **10/10 PASS**.
+
+Detailed evidence:
+`docs/community/identity-bootstrap-runtime-20260930.md`.
+
 ### Edge authorization
 
 JWT-required `community-command`, `community-query`, `community-media`, and
@@ -116,7 +135,7 @@ Database runtime for admin operations PASS:
 
 ## Evidence boundary
 
-This does **not** close VS-01 completely.
+This does **not** close VS-01 completely. The first-time identity bootstrap deadlock is closed at the DB/Edge boundary, but public browser/signup/recovery acceptance remains.
 
 Still pending:
 
