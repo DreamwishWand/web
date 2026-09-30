@@ -87,15 +87,16 @@ endpoint/IP abuse protections merely to increase throughput.
 
 ## Phase D — operator critical Edge secrets
 
-Configure server-side secrets for `community-email-resend`:
+Configure only these server-side secrets for `community-email-resend`:
 
 - `RESEND_API_KEY` = dedicated `Dreamwish Wand Ops Edge` credential;
-- `DREAMWISH_EMAIL_FROM` = `Dreamwish Wand Ops <ops@dreamwishwand.com>`;
-- `DREAMWISH_OPERATOR_EMAIL` = operator normal mailbox;
-- `COMMUNITY_EMAIL_RELAY_TOKEN` = independent random relay secret.
+- `DREAMWISH_OPERATOR_EMAIL` = operator normal mailbox.
 
-The relay token is not a Resend credential. It authenticates the internal
-`community-ops-email -> community-email-resend` hop.
+The From address is fixed in code to `Dreamwish Wand Ops <ops@dreamwishwand.com>`.
+
+No new relay secret is required. The internal
+`community-ops-email -> community-email-resend` hop reuses the existing Vault-backed
+`operations_escalation` worker token.
 
 ## Phase E — operator destination
 
@@ -103,7 +104,7 @@ Configure the durable Operations escalation destination:
 
 - channel: `operator_email`;
 - endpoint: deployed `community-email-resend` Edge URL;
-- authorization: Bearer `COMMUNITY_EMAIL_RELAY_TOKEN`;
+- authentication: existing Operations worker token forwarded internally;
 - enabled only after Phase D is complete.
 
 The persistent Operations Alert remains canonical. Email is only an external projection.
