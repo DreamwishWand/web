@@ -13,7 +13,8 @@ test('valid portable Scene builds an exact JSON envelope',()=>{
  const v=buildPublishEnvelope(scene);
  assert.equal(v.ok,true);
  assert.equal(v.envelope?.contentType,'application/json');
- assert.ok(v.envelope);\n assert.equal(JSON.parse(v.envelope.json).objects[0].artifactObjectId,'o0');
+ assert.ok(v.envelope);
+ assert.equal(JSON.parse(v.envelope.json).objects[0].artifactObjectId,'o0');
 });
 
 test('save-local identity fails closed',()=>{
