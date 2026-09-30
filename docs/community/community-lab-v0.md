@@ -9,6 +9,8 @@ This route is intentionally not linked from the public Dreamwish Wand shell. It 
 - Browser configuration uses only the Supabase project URL and a **publishable** key.
 - User identity comes from a Supabase Auth password session JWT.
 - Access/refresh tokens and the publishable key are stored in `sessionStorage`, not persistent `localStorage`.
+- Password-recovery PKCE state is short-lived and separate from session tokens.
+- Authenticated Community requests enforce the Wand-side session cutoff in addition to provider JWT validation.
 - No service-role/secret key is present in browser source.
 - The browser never supplies `actorAccountId`; the Edge adapter resolves the actor from verified `userClaims.id`.
 - Canonical Community tables remain non-enumerable/non-writable from the browser Data API.
@@ -17,6 +19,10 @@ This route is intentionally not linked from the public Dreamwish Wand shell. It 
 
 1. Configure the isolated staging URL and publishable key.
 2. Sign in with a staging Supabase Auth user.
+   - Local sign-out affects the current session.
+   - All-session revocation combines provider-global logout with the Wand session cutoff.
+   - Password recovery returns through the internal PKCE recovery route.
+   - Signed-in password change can use provider reauthentication.
 3. **Stable identity + CreatorProfile edit**:
    - call `community-command.ensureAccountCreator`;
    - immediately call `community-query.me`;
@@ -142,6 +148,6 @@ The Lab should surface normal API failures rather than bypassing them:
 
 ## Current boundary
 
-The Lab is an implementation checkpoint, not acceptance proof by itself. The A -> B -> moderator route is implemented and CI-validated, but no new VS status is promoted until the real browser flow is executed. VS-02/VS-12 remain PARTIAL until a real image completes the browser path above. VS-01 stable-ID/profile-edit backend semantics are CONFIRMED and the Lab path is implemented, but VS-01 remains PARTIAL until that path is executed in the product-shaped browser flow; broader account recovery remains a separate launch requirement. VS-13 still requires a true parallel-session test.
+The Lab is an implementation checkpoint, not acceptance proof by itself. The A -> B -> moderator path plus PKCE recovery/re-auth/all-session-revocation UX is implemented and CI-validated. VS-02/VS-12 are CONFIRMED PASS at the backend/network boundary, VS-13 is CONFIRMED PASS through true multi-backend concurrency, and VS-01 backend identity/recovery/session-control primitives are materially proven. VS-01 remains PARTIAL until the normal provider/browser identity and recovery path is executed.
 
 The WEP workstream continues to own Preset payload semantics, compatibility preflight and apply behavior. Community owns the publication envelope, exact revision link, permissions and SavedItem/Library reuse.
