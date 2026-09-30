@@ -983,3 +983,50 @@ test('DW-F01 fixture matches Fence descriptor set independent of fresh ID order'
   );
   assert.equal(identityPlan.persistentWriteAuthorized, false);
 });
+
+
+test('Fence native planner locks orthogonal N=8 max-extension blueprint', () => {
+  const plan = planBiome2FencePolyline(
+    [{ x: 0, y: 0 }, { x: 0, y: 7 }],
+    FenceMode.ORTHOGONAL,
+    { x: 100, y: 100 }
+  );
+  assert.equal(plan.ok, true);
+  assert.equal(plan.logicalQuantity, 8);
+  assert.deepEqual(canonicalNativeObjectSet(plan), [
+    [40700246, 100, 100, 'GridOrientation_Down', null],
+    [40700252, 100, 102, 'GridOrientation_Left', null],
+    [40700246, 100, 114, 'GridOrientation_Down', null]
+  ]);
+});
+
+test('Fence native planner locks orthogonal N=9 first over-max blueprint', () => {
+  const plan = planBiome2FencePolyline(
+    [{ x: 0, y: 0 }, { x: 0, y: 8 }],
+    FenceMode.ORTHOGONAL,
+    { x: 100, y: 100 }
+  );
+  assert.equal(plan.ok, true);
+  assert.equal(plan.logicalQuantity, 9);
+  assert.deepEqual(canonicalNativeObjectSet(plan), [
+    [40700246, 100, 100, 'GridOrientation_Down', null],
+    [40700252, 100, 102, 'GridOrientation_Left', null],
+    [40700246, 100, 114, 'GridOrientation_Down', null],
+    [40700246, 100, 116, 'GridOrientation_Down', null]
+  ]);
+});
+
+test('Fence native planner locks positive-slope diagonal N=3 blueprint', () => {
+  const plan = planBiome2FencePolyline(
+    [{ x: 0, y: 0 }, { x: 2, y: 2 }],
+    FenceMode.DIAGONAL,
+    { x: 100, y: 100 }
+  );
+  assert.equal(plan.ok, true);
+  assert.equal(plan.logicalQuantity, 3);
+  assert.deepEqual(canonicalNativeObjectSet(plan), [
+    [40700246, 100, 100, 'GridOrientation_Down', { FenceMode: { Diagonal: true } }],
+    [40700253, 102, 102, 'GridOrientation_Down', { FenceMode: { Diagonal: true } }],
+    [40700246, 104, 104, 'GridOrientation_Down', { FenceMode: { Diagonal: true } }]
+  ]);
+});
