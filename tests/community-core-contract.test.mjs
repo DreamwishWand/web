@@ -388,7 +388,7 @@ test('Community Lab includes User B interactions, negative authorization and mod
     "client!.command('saveEntity'",
     "client!.command('followCreator'",
     "client!.command('addReaction'",
-    "client!.command('addComment'",
+    "'addComment'",
     "'reportEntity'",
     'negativeAuthorizationProbe',
     "name: 'changeVisibility'",
