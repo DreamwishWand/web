@@ -164,23 +164,23 @@ Use `/community-lab/account/` as disposable D.
 
 ## Phase E — operator critical email acceptance
 
-Execute only after a transactional email provider, verified sender domain and operator recipient are
-configured outside source control.
+Execute only after Resend, a verified Wand sender domain and the operator recipient are configured outside source control. Provider/API/SMTP credentials and the operator address must never be copied into acceptance evidence.
 
 1. Keep the persistent Operations Alert as the canonical incident record.
-2. Enable `operator_email`.
-3. Induce one safe critical staging alert.
-4. Require exactly one operator email for the occurrence.
-5. Confirm the email contains only minimized operational fields.
-6. Confirm no provider subject, Wizard email, raw report detail, signed media URL, password, token or
+2. Confirm `community-email-resend` has its four server-held configuration values and rejects an invalid relay token.
+3. Configure the Operations escalation destination to the internal Resend adapter and enable `operator_email`.
+4. Induce one safe critical staging alert.
+5. Require exactly one operator email for the occurrence.
+6. Confirm the email contains only minimized operational fields.
+7. Confirm no provider subject, Wizard email, raw report detail, signed media URL, password, token or
    DDV private data appears.
-7. Acknowledge the alert in Community Ops.
-8. Clear the condition and confirm canonical auto-resolution.
-9. Recreate the condition and require a new occurrence/new email.
-10. Induce a controlled mail-delivery failure.
-11. Confirm the canonical Operations Alert remains.
-12. Confirm the external delivery retries/dead-letters visibly in Community Ops.
-13. Confirm the transport's own self-monitor alert does not recursively enter the same email queue.
+8. Acknowledge the alert in Community Ops.
+9. Clear the condition and confirm canonical auto-resolution.
+10. Recreate the condition and require a new occurrence/new email.
+11. Induce a controlled mail-delivery failure.
+12. Confirm the canonical Operations Alert remains.
+13. Confirm the external delivery retries/dead-letters visibly in Community Ops.
+14. Confirm the transport's own self-monitor alert does not recursively enter the same email queue.
 
 The transactional email provider's own outage cannot notify through that same provider. This is an
 accepted first-launch blind spot; a second independent notification channel is not launch-required
