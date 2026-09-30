@@ -74,6 +74,10 @@
     } as Record<string, string>)[key] ?? key;
   }
 
+  function fullDesignCategoryEntries(plan: any): Array<[string, any]> {
+    return Object.entries(plan?.categories ?? {}) as Array<[string, any]>;
+  }
+
   function fullDesignDispositionLabel(value: any) {
     if (value?.disposition === 'captured_partial') return 'Included · partial';
     if (value?.disposition === 'blocked') return 'Blocked';
@@ -838,7 +842,7 @@
           </div>
 
           <div class="full-design-categories">
-            {#each Object.entries(fullDesignPlan.categories) as [categoryKey, category]}
+            {#each fullDesignCategoryEntries(fullDesignPlan) as [categoryKey, category]}
               <article class:blocked={category.disposition === 'blocked' || category.disposition === 'excluded'}>
                 <div>
                   <span>{fullDesignCategoryLabel(categoryKey)}</span>
