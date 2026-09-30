@@ -1630,9 +1630,12 @@ test('Resend operator relay is fixed-purpose, idempotent and fail-closed', () =>
     'docs/community/transactional-email-provider-resend-20260930.md'
   );
 
-  assert.match(relay, /COMMUNITY_EMAIL_RELAY_TOKEN/);
+  assert.doesNotMatch(relay, /COMMUNITY_EMAIL_RELAY_TOKEN/);
+  assert.match(relay, /operations_escalation/);
+  assert.match(relay, /x-community-worker-token/);
   assert.match(relay, /RESEND_API_KEY/);
-  assert.match(relay, /DREAMWISH_EMAIL_FROM/);
+  assert.doesNotMatch(relay, /DREAMWISH_EMAIL_FROM/);
+  assert.match(relay, /Dreamwish Wand Ops <ops@dreamwishwand\.com>/);
   assert.match(relay, /DREAMWISH_OPERATOR_EMAIL/);
   assert.match(relay, /EMAIL_RELAY_NOT_CONFIGURED/);
   assert.match(relay, /RELAY_AUTH_REQUIRED/);
@@ -1704,4 +1707,23 @@ test('dreamwishwand.com activation runbook preserves email boundaries', () => {
   assert.match(runbook, /Follow -> no email/);
   assert.match(runbook, /Save -> no email/);
   assert.match(runbook, /No second independent alert channel is required for first launch/);
+});
+
+
+test('operator email relay reuses existing Operations worker auth', () => {
+  const worker = read('supabase/functions/community-ops-email/index.ts');
+  const relay = read('supabase/functions/community-email-resend/index.ts');
+  const activation = read(
+    'docs/community/transactional-email-activation-dreamwishwand-com-20260930.md'
+  );
+
+  assert.match(worker, /'x-community-worker-token': workerToken/);
+  assert.doesNotMatch(worker, /headers\.Authorization/);
+  assert.match(relay, /community_verify_worker_token/);
+  assert.match(relay, /p_worker_name: 'operations_escalation'/);
+  assert.match(relay, /x-community-worker-token/);
+  assert.doesNotMatch(relay, /COMMUNITY_EMAIL_RELAY_TOKEN/);
+  assert.match(activation, /No new relay secret is required/);
+  assert.match(activation, /RESEND_API_KEY/);
+  assert.match(activation, /DREAMWISH_OPERATOR_EMAIL/);
 });
