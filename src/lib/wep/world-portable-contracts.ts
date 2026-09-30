@@ -108,6 +108,19 @@ export function captureV125OutdoorLocation(profile: AnyRecord, gridId: unknown) 
   return cloneResult(locationApi().resolveLocationFromGrid(profile, gridId));
 }
 
+export function resolveV125OutdoorLocation(
+  profile: AnyRecord,
+  locationRef: AnyRecord
+) {
+  requireCurrentProfile(profile);
+  return cloneResult(
+    locationApi().resolveLocationRef(
+      profile,
+      structuredClone(locationRef)
+    )
+  );
+}
+
 export function resolveV125DestinationDirectRoot(
   profile: AnyRecord,
   locationRef: AnyRecord,
