@@ -182,6 +182,36 @@ export class CommunityLabClient {
     return this.#edge<EdgeResult<T>>('community-media', { action, ...payload });
   }
 
+  async discoverPublicWorks(limit = 20): Promise<Array<Record<string, unknown>>> {
+    const safeLimit = Math.max(1, Math.min(50, Math.trunc(limit)));
+    const fields = [
+      'entity_id',
+      'work_id',
+      'work_type',
+      'creator_profile_id',
+      'title',
+      'text_content',
+      'published_at'
+    ].join(',');
+    const url = new URL(`${this.config.supabaseUrl}/rest/v1/search_documents`);
+    url.searchParams.set('select', fields);
+    url.searchParams.set('order', 'published_at.desc');
+    url.searchParams.set('limit', String(safeLimit));
+
+    const response = await fetch(url, {
+      headers: {
+        apikey: this.config.publishableKey,
+        accept: 'application/json'
+      }
+    });
+
+    const body = await parseResponse(response);
+    if (!Array.isArray(body)) {
+      throw new Error('Public discovery did not return an array.');
+    }
+    return body as Array<Record<string, unknown>>;
+  }
+
   async uploadAndFinalizeImage(file: File): Promise<{
     mediaId: string;
     finalize: EdgeResult<any>;
