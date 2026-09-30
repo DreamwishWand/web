@@ -225,9 +225,7 @@ export function evaluateWriterAuthorization(args) {
   const contracts = args.contracts ?? CURRENT_V125_BUILD_CONTRACTS;
   const build = matchSupportedBuild(args.saveIdentity, args.targetBuild, contracts);
   const exactBuild = build.status === BuildMatchStatus.Exact;
-  const codecContractMatches = exactBuild && (
-    args.codec.contract === undefined || args.codec.contract === build.contract.codecContract
-  );
+  const codecContractMatches = exactBuild && args.codec.contract === build.contract.codecContract;
 
   const readProfile = Boolean(args.codec.readSupported);
   const planOperation = readProfile && exactBuild && codecContractMatches &&
@@ -296,10 +294,12 @@ function asSafeInteger(value) {
 /** @param {unknown} value */
 function isTargetBuildIdentity(value) {
   const obj = asObject(value);
-  return Boolean(
-    obj &&
-    (obj.platform === PlatformFamily.Switch || obj.platform === PlatformFamily.SteamWindows) &&
-    (obj.kind === BuildIdentityKind.SwitchBid || obj.kind === BuildIdentityKind.SteamFullVersion) &&
-    typeof obj.value === 'string' && obj.value.length > 0
-  );
+  if (!obj || typeof obj.value !== 'string' || obj.value.length === 0) return false;
+  if (obj.platform === PlatformFamily.Switch) {
+    return obj.kind === BuildIdentityKind.SwitchBid;
+  }
+  if (obj.platform === PlatformFamily.SteamWindows) {
+    return obj.kind === BuildIdentityKind.SteamFullVersion;
+  }
+  return false;
 }
