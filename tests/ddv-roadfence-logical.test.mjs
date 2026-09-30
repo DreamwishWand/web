@@ -762,3 +762,90 @@ test('Fence native planner resolves negative-slope diagonal extension anchor and
     [40700253, 2, 2, 'GridOrientation_Left', { FenceMode: { Diagonal: true } }]
   );
 });
+
+
+function canonicalNativeObjectSet(plan) {
+  return plan.objects
+    .map((object) => [object.itemID, object.x, object.y, object.orientation, object.state])
+    .sort((a, b) =>
+      a[1] - b[1] ||
+      a[2] - b[2] ||
+      a[0] - b[0] ||
+      String(a[3]).localeCompare(String(b[3]))
+    );
+}
+
+function planBiome2FencePolyline(controlPoints, mode, originSave = { x: 100, y: 100 }) {
+  const built = buildFencePolyline(controlPoints, mode);
+  const network = createFenceNetwork({ familyBaseItemID: 40700246, graph: built.graph }).network;
+  return planFenceNativeRepresentation({
+    network,
+    originSave,
+    pitchX: 2,
+    pitchY: 2,
+    tessellationFactor: 2,
+    baseSpanX: 2,
+    baseSpanY: 2,
+    orthogonalExtensions: BIOME2_FENCE_VARIATIONS.orthogonal,
+    diagonalExtensions: BIOME2_FENCE_VARIATIONS.diagonal
+  });
+}
+
+test('Fence native planner normalizes horizontal span regardless of authoring direction', () => {
+  const forward = planBiome2FencePolyline([{ x: 0, y: 0 }, { x: 2, y: 0 }], FenceMode.ORTHOGONAL);
+  const reverse = planBiome2FencePolyline([{ x: 2, y: 0 }, { x: 0, y: 0 }], FenceMode.ORTHOGONAL);
+  assert.equal(forward.ok, true);
+  assert.equal(reverse.ok, true);
+  assert.deepEqual(canonicalNativeObjectSet(forward), canonicalNativeObjectSet(reverse));
+  const ext = forward.objects.find((object) => object.role === 'ext');
+  assert.deepEqual(
+    [ext.itemID, ext.x, ext.y, ext.orientation, ext.state],
+    [40700247, 102, 100, 'GridOrientation_Down', null]
+  );
+});
+
+test('Fence native planner normalizes vertical span regardless of authoring direction', () => {
+  const forward = planBiome2FencePolyline([{ x: 0, y: 0 }, { x: 0, y: 2 }], FenceMode.ORTHOGONAL);
+  const reverse = planBiome2FencePolyline([{ x: 0, y: 2 }, { x: 0, y: 0 }], FenceMode.ORTHOGONAL);
+  assert.equal(forward.ok, true);
+  assert.equal(reverse.ok, true);
+  assert.deepEqual(canonicalNativeObjectSet(forward), canonicalNativeObjectSet(reverse));
+  const ext = forward.objects.find((object) => object.role === 'ext');
+  assert.deepEqual(
+    [ext.itemID, ext.x, ext.y, ext.orientation, ext.state],
+    [40700247, 100, 102, 'GridOrientation_Left', null]
+  );
+});
+
+test('Fence native planner normalizes positive-slope diagonal span regardless of authoring direction', () => {
+  const forward = planBiome2FencePolyline([{ x: 0, y: 0 }, { x: 2, y: 2 }], FenceMode.DIAGONAL);
+  const reverse = planBiome2FencePolyline([{ x: 2, y: 2 }, { x: 0, y: 0 }], FenceMode.DIAGONAL);
+  assert.equal(forward.ok, true);
+  assert.equal(reverse.ok, true);
+  assert.deepEqual(canonicalNativeObjectSet(forward), canonicalNativeObjectSet(reverse));
+});
+
+test('Fence native planner normalizes negative-slope diagonal span regardless of authoring direction', () => {
+  const forward = planBiome2FencePolyline([{ x: 0, y: 2 }, { x: 2, y: 0 }], FenceMode.DIAGONAL);
+  const reverse = planBiome2FencePolyline([{ x: 2, y: 0 }, { x: 0, y: 2 }], FenceMode.DIAGONAL);
+  assert.equal(forward.ok, true);
+  assert.equal(reverse.ok, true);
+  assert.deepEqual(canonicalNativeObjectSet(forward), canonicalNativeObjectSet(reverse));
+  const ext = forward.objects.find((object) => object.role === 'diagExt');
+  assert.equal(ext.orientation, 'GridOrientation_Left');
+  assert.deepEqual(ext.state, { FenceMode: { Diagonal: true } });
+});
+
+test('Fence over-max native plan preserves logical quantity and deterministic separator representation', () => {
+  const plan = planBiome2FencePolyline([{ x: 0, y: 0 }, { x: 9, y: 0 }], FenceMode.ORTHOGONAL);
+  assert.equal(plan.ok, true);
+  assert.equal(plan.logicalQuantity, 10);
+  assert.deepEqual(
+    plan.objects
+      .map((object) => object.role === 'ext' ? `ext:${object.key}` : object.role)
+      .sort(),
+    ['base', 'base', 'base', 'ext:1', 'ext:6'].sort()
+  );
+  assert.equal(plan.nativeOracleInventoryCost, 10);
+  assert.equal(plan.wandListInventoryDelta, 0);
+});
