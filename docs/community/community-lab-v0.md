@@ -39,26 +39,40 @@ This route is intentionally not linked from the public Dreamwish Wand shell. It 
    - use Gallery publish v3 only;
    - use the draft `rowVersion` as `expectedVersion`;
    - no Preset link is required for this first media-path proof.
-7. **A readback / actor switch context**:
+7. **A readback + public discovery**:
    - query the published work through `community-query.work`;
    - confirm the same stable `workId`, published lifecycle, visibility and revision;
-   - retain only the target `workId`, A's `creatorProfileId`, current `rowVersion` and later moderation `caseId` in tab-scoped `sessionStorage`;
+   - when the work is PUBLIC, run the no-user-JWT SearchDocument discovery probe and require the same `workId` to appear;
+   - when the work is UNLISTED, the same discovery probe must not enumerate it;
+   - retain only the target `workId`, A's `creatorProfileId`, current `rowVersion`, stored parent `commentId` and later moderation `caseId` in tab-scoped `sessionStorage`;
    - sign out A.
 8. **User B interaction path**:
    - sign in as B and run Stable identity for B;
    - query A's target work;
    - Save, Follow A, Like, Comment and Report through the same JWT-authenticated Community Edge command boundary;
+   - retain B's new top-level Comment ID as the parent-comment target;
    - query B's SavedItems and Notifications;
    - run the negative-authorization probe and require B's `changeVisibility`, `unpublishWork` and `deleteWork` commands against A's work to all fail.
-9. **Moderator path**:
-   - sign out B and sign in as a staging moderator;
+9. **Reply notification path**:
+   - sign back in as A (or another non-parent-author actor) and run Stable identity;
+   - reply to B's stored parent Comment ID through the same `addComment` command using `parentCommentId`;
+   - after outbox/cron processing, sign in as B and require the reply delivery to appear in Notifications.
+10. **Moderator path**:
+   - sign in as a staging moderator;
    - apply `restrict` to the Report-created moderation case with a mandatory reason;
    - query the target after restriction;
    - apply `restore` and query again;
    - normal-user invocation of `moderateWork` remains expected to fail because role authorization is enforced inside the server RPC.
-10. **Notification convergence**:
-   - after the cron/outbox interval, sign in to the relevant recipient account and query Notifications;
-   - confirm the expected interaction/moderation deliveries without treating Notification presence as an authorization grant.
+11. **Owner privacy / unpublish / tombstone**:
+   - sign back in as A and refresh the target to get the latest `rowVersion`;
+   - exercise PUBLIC / UNLISTED / PRIVATE changes as needed and re-run public discovery;
+   - unpublish and confirm non-owner direct access is revoked;
+   - soft delete and confirm public discovery remains absent while immutable history is preserved by backend contract.
+12. **Stale SavedItem + notification convergence**:
+   - sign back in as B;
+   - query SavedItems after A's privacy/unpublish/delete change and require the reference to remain without becoming an access grant (`accessible=false` where applicable);
+   - query Notifications for relevant actors after the cron interval;
+   - confirm expected deliveries without treating Notification presence as authorization proof.
 
 ## Runtime evidence needed
 
@@ -95,15 +109,20 @@ Record only opaque actor labels (A/B/M) plus stable Community IDs:
 
 - A identity round-trip PASS;
 - A Gallery publish/readback PASS;
+- PUBLIC target appears in SearchDocument discovery and UNLISTED target does not;
 - B target read PASS;
 - B Save/Follow/Reaction/Comment/Report PASS;
+- B top-level Comment ID captured;
+- A/non-parent actor reply PASS;
 - B SavedItem query contains the target;
 - B owner-mutation negative probe: all three commands rejected;
 - Report `caseId` captured;
 - normal-user moderation attempt rejected when exercised;
 - moderator restrict PASS and target/discovery behavior converges;
 - moderator restore PASS;
-- relevant Notification queries after cron processing;
+- A owner visibility/unpublish/soft-delete path PASS;
+- B stale SavedItem remains a reference but not an access grant;
+- relevant Notification queries after cron processing, including reply delivery to the parent author;
 - post-test cleanup/tombstone state as required.
 
 Never copy access tokens, refresh tokens, publishable-key input values, signed upload tokens or signed read URLs into canonical project docs.
