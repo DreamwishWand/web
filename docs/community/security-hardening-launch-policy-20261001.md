@@ -1,6 +1,6 @@
 # Community Core launch security hardening — 2026-10-01
 
-Status: **HIGH CONFIDENCE POLICY / PROVIDER CONFIG ACCEPTANCE PENDING**
+Status: **HIGH CONFIDENCE POLICY / PROVIDER CONFIGURED / RUNTIME BOUNDARY CHECK PENDING**
 
 ## Scope
 
@@ -82,21 +82,30 @@ No new CAPTCHA vendor is required solely to close this item. Existing policy rem
 - enable CAPTCHA before broad public exposure if staging/closed-beta abuse evidence justifies it;
 - CAPTCHA is deployment protection, not identity state.
 
-## Provider configuration acceptance still required
+## Provider configuration acceptance
 
-Before public launch:
+Operator-confirmed configuration on 2026-10-01:
 
-1. set the Supabase Auth minimum password length to **15** or stronger;
-2. do not add composition requirements solely for complexity theater;
-3. enable all seven Supabase security-change notification toggles listed above;
-4. confirm email verification remains mandatory;
-5. confirm signup/recovery resend throttles remain active;
-6. verify a 14-code-point password is rejected by the provider boundary;
-7. verify a 15-code-point passphrase is accepted by the provider boundary;
-8. verify normal password change still requires reauthentication;
-9. verify password recovery/change revokes the expected sessions;
-10. re-run Security Advisor and record that Leaked Password Protection remains the only known WARN if
-    the plan still does not expose it.
+- Supabase Auth minimum password length changed to **15**;
+- no mandatory character-composition rule added;
+- all seven currently exposed Supabase security-change notification toggles enabled.
+
+Post-change Security Advisor result:
+
+- external security WARN count remains **1**;
+- the sole WARN is `auth_leaked_password_protection`;
+- nine `rls_enabled_no_policy` findings remain INFO and are the intentional server-only deny-all tables already tracked by Community;
+- no new security WARN was introduced by the configuration change.
+
+Still required before public launch:
+
+1. verify a 14-code-point password is rejected by the real Auth provider boundary;
+2. verify a 15-code-point passphrase is accepted by the real Auth provider boundary;
+3. confirm email verification remains mandatory during the final Auth regression;
+4. confirm signup/recovery resend throttles remain active;
+5. verify normal password change still requires reauthentication;
+6. verify password recovery/change revokes the expected sessions;
+7. optionally exercise one representative security-change notification during final Auth QA; do not create synthetic repeated mail traffic solely to test all seven toggles.
 
 ## Evidence classification
 
@@ -113,9 +122,14 @@ Before public launch:
 - 15-character, no-composition launch baseline is the correct compensating product policy for the
   current non-MFA password baseline.
 
+**CONFIRMED (operator-configured / advisor-observed)**
+
+- Supabase Dashboard minimum password length is configured to 15;
+- all seven security-change notification toggles are enabled;
+- post-change Security Advisor still reports only the unavailable leaked-password-protection WARN.
+
 **PENDING**
 
-- Supabase Dashboard/provider minimum-length alignment;
-- security-change notification toggle activation;
-- provider-boundary 14/15 acceptance check;
-- final post-change Advisor capture.
+- real Auth provider-boundary 14/15 acceptance check;
+- final Auth regression for reauthentication/revocation behavior;
+- optional representative security-notification delivery check during final QA.
