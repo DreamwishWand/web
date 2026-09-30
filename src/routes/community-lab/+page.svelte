@@ -47,6 +47,7 @@
   let reportCaseId = '';
   let moderationAction = 'restrict';
   let moderationReason = 'Community Lab moderator runtime probe';
+  let ownerVisibility = 'private';
 
   let handle = '';
   let displayName = 'Community Lab Creator';
@@ -461,6 +462,58 @@
     if (result) interactions = { ...interactions, moderation: result };
   }
 
+  async function ownerChangeVisibility() {
+    if (!client || !targetWorkId || !targetRowVersion) return;
+    const result = await run(`Owner visibility -> ${ownerVisibility}`, () =>
+      client!.command<WorkResultData>('changeVisibility', {
+        workId: targetWorkId,
+        expectedVersion: targetRowVersion,
+        visibility: ownerVisibility,
+        idempotencyKey: crypto.randomUUID()
+      })
+    );
+
+    if (result) {
+      interactions = { ...interactions, ownerVisibility: result };
+      targetRowVersion = Number(result?.data?.rowVersion ?? targetRowVersion);
+      persistTargetContext();
+    }
+  }
+
+  async function ownerUnpublish() {
+    if (!client || !targetWorkId || !targetRowVersion) return;
+    const result = await run('Owner unpublish', () =>
+      client!.command<WorkResultData>('unpublishWork', {
+        workId: targetWorkId,
+        expectedVersion: targetRowVersion,
+        idempotencyKey: crypto.randomUUID()
+      })
+    );
+
+    if (result) {
+      interactions = { ...interactions, ownerUnpublish: result };
+      targetRowVersion = Number(result?.data?.rowVersion ?? targetRowVersion);
+      persistTargetContext();
+    }
+  }
+
+  async function ownerDelete() {
+    if (!client || !targetWorkId || !targetRowVersion) return;
+    const result = await run('Owner soft delete', () =>
+      client!.command<WorkResultData>('deleteWork', {
+        workId: targetWorkId,
+        expectedVersion: targetRowVersion,
+        idempotencyKey: crypto.randomUUID()
+      })
+    );
+
+    if (result) {
+      interactions = { ...interactions, ownerDelete: result };
+      targetRowVersion = Number(result?.data?.rowVersion ?? targetRowVersion);
+      persistTargetContext();
+    }
+  }
+
   function fileChanged(event: Event) {
     const input = event.currentTarget as HTMLInputElement;
     selectedFile = input.files?.[0] ?? null;
@@ -751,6 +804,62 @@
           </button>
           <button class="secondary" on:click={queryNotifications} disabled={busy || !session}>
             Query moderator notifications
+          </button>
+        </div>
+      </article>
+
+
+
+      <article class="lab-card lab-wide">
+        <span class="lab-step">08</span>
+        <h2>Owner privacy / unpublish / tombstone</h2>
+        <p class="lab-meta">
+          Sign back in as A and query the target first to refresh rowVersion. These controls drive the
+          product-shaped VS-10/11/15 path. After privacy/unpublish/delete, switch to B and query Saved
+          again: the SavedItem may remain, but access must not be granted by that reference.
+        </p>
+        <div class="lab-two">
+          <label>
+            Owner visibility target
+            <select bind:value={ownerVisibility}>
+              <option value="public">public</option>
+              <option value="unlisted">unlisted</option>
+              <option value="private">private</option>
+            </select>
+          </label>
+          <label>
+            Current expected rowVersion
+            <input
+              type="number"
+              min="0"
+              bind:value={targetRowVersion}
+              on:change={persistTargetContext}
+            />
+          </label>
+        </div>
+        <div class="lab-actions">
+          <button
+            on:click={ownerChangeVisibility}
+            disabled={busy || !session || !targetWorkId || !targetRowVersion}
+          >
+            Change visibility
+          </button>
+          <button
+            class="secondary"
+            on:click={ownerUnpublish}
+            disabled={busy || !session || !targetWorkId || !targetRowVersion}
+          >
+            Unpublish
+          </button>
+          <button
+            class="secondary"
+            on:click={ownerDelete}
+            disabled={busy || !session || !targetWorkId || !targetRowVersion}
+          >
+            Soft delete
+          </button>
+          <button class="secondary" on:click={queryTargetWork} disabled={busy || !session || !targetWorkId}>
+            Refresh target
           </button>
         </div>
       </article>
