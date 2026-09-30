@@ -25,6 +25,21 @@ operations only.
 
 ## Supported operations
 
+### Action rate-limit policy
+
+Read-only operator view:
+
+- list configured Community action buckets;
+- show fixed-window duration, max actions and enabled state;
+- never expose per-account private counters.
+
+Current values are engineering launch defaults and remain configuration-driven for closed-beta/load
+tuning. The backing limiter is WandAccount-scoped and enforced server-side by browser-facing
+Community command/media adapters.
+
+Detailed runtime evidence:
+`docs/community/action-rate-limit-runtime-20260930.md`.
+
 ### Moderation queue
 
 Read:
@@ -177,7 +192,8 @@ With one disposable staging admin and one disposable target account:
 17. confirm linked Reports close and the action is audited;
 18. load Security Policy and confirm all three launch recent-auth windows are 900 seconds and are
     session-bound to `auth.sessions.created_at`;
-19. capture only opaque actor labels and Community IDs.
+19. load Action rate-limit policy and confirm private per-account counters are not exposed;
+20. capture only opaque actor labels and Community IDs.
 
 Never record passwords, JWTs, refresh tokens, provider subjects, recovery codes, verification
 artifacts, API secrets or signed URLs in evidence docs.
