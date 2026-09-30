@@ -27,6 +27,8 @@
   let publishableKey = '';
   let email = '';
   let password = '';
+  let newPassword = '';
+  let reauthNonce = '';
 
   let client: CommunityLabClient | null = null;
   let session: CommunitySession | null = null;
@@ -182,6 +184,41 @@
       client!.revokeAllSessions()
     );
     if (result) clearActorState();
+  }
+
+  async function requestPasswordRecovery() {
+    const active = client ?? configureClient();
+    if (!email) {
+      error = 'Email is required for password recovery.';
+      return;
+    }
+
+    const redirectTo =
+      typeof window === 'undefined'
+        ? ''
+        : new URL('recovery/', window.location.href).toString();
+
+    await run('Password recovery email', () =>
+      active.requestPasswordRecovery(email, redirectTo)
+    );
+  }
+
+  async function requestReauthentication() {
+    if (!client) return;
+    await run('Request reauthentication nonce', () => client!.requestReauthentication());
+  }
+
+  async function changePasswordAfterReauth() {
+    if (!client) return;
+    const result = await run('Password change + revoke all sessions', () =>
+      client!.changePasswordAfterReauthentication(newPassword, reauthNonce)
+    );
+
+    if (result) {
+      newPassword = '';
+      reauthNonce = '';
+      clearActorState();
+    }
   }
 
   async function ensureIdentity() {
@@ -696,11 +733,45 @@
           <button class="secondary" on:click={revokeAllSessions} disabled={busy || !session}>
             Revoke all sessions
           </button>
+          <button
+            class="secondary"
+            on:click={requestPasswordRecovery}
+            disabled={busy || !email || !publishableKey}
+          >
+            Send recovery email
+          </button>
         </div>
         <p class="lab-meta">
           "Revoke all sessions" first invalidates provider refresh sessions, then advances the Wand
           session cutoff so already-issued access JWTs are rejected immediately by Community APIs.
+          Recovery uses PKCE and returns to the internal recovery route.
         </p>
+        <div class="lab-two">
+          <label>
+            New password
+            <input bind:value={newPassword} type="password" autocomplete="new-password" />
+          </label>
+          <label>
+            Reauthentication nonce
+            <input bind:value={reauthNonce} autocomplete="one-time-code" />
+          </label>
+        </div>
+        <div class="lab-actions">
+          <button
+            class="secondary"
+            on:click={requestReauthentication}
+            disabled={busy || !session}
+          >
+            Send reauthentication nonce
+          </button>
+          <button
+            class="secondary"
+            on:click={changePasswordAfterReauth}
+            disabled={busy || !session || !newPassword || !reauthNonce}
+          >
+            Change password + revoke all
+          </button>
+        </div>
         <p class="lab-meta">
           {#if session}
             JWT session: <strong>{session.email ?? session.userId}</strong>
