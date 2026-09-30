@@ -420,6 +420,31 @@ export class CommunityLabClient {
     return this.#edge<EdgeResult<T>>('community-admin', { operation, payload });
   }
 
+  async deleteWandAccount(confirmation: string): Promise<EdgeResult> {
+    const current = await this.#validSession();
+
+    const result = await this.#edge<EdgeResult>(
+      'community-account',
+      { action: 'deleteAccount', confirmation },
+      false
+    );
+
+    try {
+      await fetch(`${this.config.supabaseUrl}/auth/v1/logout?scope=global`, {
+        method: 'POST',
+        headers: {
+          apikey: this.config.publishableKey,
+          authorization: `Bearer ${current.accessToken}`
+        }
+      });
+    } finally {
+      this.#session = null;
+      saveSession(null);
+    }
+
+    return result;
+  }
+
   async discoverPublicWorks(limit = 20): Promise<Array<Record<string, unknown>>> {
     const safeLimit = Math.max(1, Math.min(50, Math.trunc(limit)));
     const fields = [
