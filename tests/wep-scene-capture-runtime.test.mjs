@@ -4,6 +4,7 @@ import {
   captureScenePreset,
   sanitizePortableState
 } from '../src/lib/wep/scene-capture-runtime.ts';
+import { validatePublishablePreset } from '../src/lib/wep/scene-preset-runtime.ts';
 
 function document() {
   return {
@@ -47,7 +48,7 @@ test('Scene capture closes dependencies and replaces save-local root identity', 
   const result = captureScenePreset(document(), {
     selectionIds: ['g7:o100'],
     title: 'Portable Scene'
-  });
+  }, validatePublishablePreset);
   assert.equal(result.publicationReady, true);
   assert.deepEqual(
     result.artifact.objects.map((object) => object.artifactObjectId),
@@ -61,7 +62,7 @@ test('Scene capture closes dependencies and replaces save-local root identity', 
 test('Scene capture normalizes positions to occupied-cell bounds', () => {
   const result = captureScenePreset(document(), {
     selectionIds: ['g7:o100']
-  });
+  }, validatePublishablePreset);
   assert.deepEqual(result.region, { x: 5, y: 8, w: 2, h: 1 });
   assert.deepEqual(
     result.artifact.objects.map((object) => [object.localX, object.localY]),
@@ -73,7 +74,7 @@ test('explicit Capture Region becomes artifact coordinate origin', () => {
   const result = captureScenePreset(document(), {
     selectionIds: ['g7:o100'],
     captureRegion: { x: 4, y: 7, w: 5, h: 4 }
-  });
+  }, validatePublishablePreset);
   assert.equal(result.artifact.objects[0].localX, 1);
   assert.equal(result.artifact.objects[0].localY, 1);
   assert.deepEqual(result.artifact.bounds, { w: 5, h: 4 });
@@ -114,7 +115,7 @@ test('unknown portable-state codec fails closed', () => {
   const bad = document();
   bad.objects[0].portableState = { codec: 'unknown@1' };
   assert.throws(
-    () => captureScenePreset(bad, { selectionIds: ['g7:o100'] }),
+    () => captureScenePreset(bad, { selectionIds: ['g7:o100'] }, validatePublishablePreset),
     /PORTABLE_STATE_CODEC_UNSUPPORTED/
   );
 });
@@ -123,14 +124,14 @@ test('readonly and network objects cannot masquerade as ordinary roots', () => {
   const readOnly = document();
   readOnly.objects[0].editability = 'readonly';
   assert.throws(
-    () => captureScenePreset(readOnly, { selectionIds: ['g7:o100'] }),
+    () => captureScenePreset(readOnly, { selectionIds: ['g7:o100'] }, validatePublishablePreset),
     /SELECTION_BLOCKED/
   );
 
   const road = document();
   road.objects[0].layer = 'road';
   assert.throws(
-    () => captureScenePreset(road, { selectionIds: ['g7:o100'] }),
+    () => captureScenePreset(road, { selectionIds: ['g7:o100'] }, validatePublishablePreset),
     /SELECTION_BLOCKED/
   );
 });
@@ -139,7 +140,7 @@ test('requested topology without Core network adapter blocks publication', () =>
   const result = captureScenePreset(document(), {
     selectionIds: ['g7:o100'],
     includeRoads: true
-  });
+  }, validatePublishablePreset);
   assert.equal(result.captureReady, false);
   assert.equal(result.publicationReady, false);
   assert.equal(
@@ -172,7 +173,7 @@ test('supported network capture is forwarded into publication validation', () =>
         return { status: 'supported', data: network };
       }
     }
-  });
+  }, validatePublishablePreset);
 
   assert.equal(result.publicationReady, true);
   assert.deepEqual(result.artifact.networks.roads, network);
