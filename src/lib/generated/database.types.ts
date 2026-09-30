@@ -1444,29 +1444,6 @@ export type Database = {
         Args: { p_limit?: number }
         Returns: Json
       }
-      community_publish_gallery: {
-        Args: {
-          p_auth_subject: string
-          p_description: string
-          p_expected_version: number
-          p_idempotency_key: string
-          p_title: string
-          p_work_id: string
-        }
-        Returns: Json
-      }
-      community_publish_gallery_v2: {
-        Args: {
-          p_auth_subject: string
-          p_description: string
-          p_expected_version: number
-          p_idempotency_key: string
-          p_media_ids: string[]
-          p_title: string
-          p_work_id: string
-        }
-        Returns: Json
-      }
       community_publish_gallery_v3: {
         Args: {
           p_auth_subject: string
