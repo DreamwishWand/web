@@ -1663,7 +1663,7 @@ test('transactional email policies select Resend without merging email semantics
 
   assert.match(policy, /first-launch provider default is now \*\*Resend\*\*/);
   assert.match(policy, /provider-neutral/);
-  assert.match(escalation, /first-launch email-delivery provider default is \*\*Resend\*\*/);
+  assert.match(escalation, /first-launch email-delivery provider is \*\*Resend\*\*/);
   assert.match(escalation, /community-email-resend/);
   assert.match(auth, /selected Resend transactional email provider/);
   assert.match(auth, /Supabase custom SMTP is the initial Auth delivery boundary/);
