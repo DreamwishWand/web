@@ -59,7 +59,6 @@ export default {
 
     const channel = String(destination.channel ?? '');
     const url = String(destination.url ?? '');
-    const authToken = typeof destination.authToken === 'string' ? destination.authToken : '';
     if (channel !== 'operator_email' || !url.startsWith('https://')) {
       return reply({ ok: false, error: 'DESTINATION_CONFIGURATION_INVALID' }, 500);
     }
@@ -85,9 +84,9 @@ export default {
       try {
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
-          'User-Agent': 'DreamwishWand-CommunityOps/1'
+          'User-Agent': 'DreamwishWand-CommunityOps/1',
+          'x-community-worker-token': workerToken
         };
-        if (authToken) headers.Authorization = `Bearer ${authToken}`;
 
         const response = await fetch(url, {
           method: 'POST',
