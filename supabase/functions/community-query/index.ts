@@ -6,7 +6,8 @@ const queryToRpc = {
   me: 'community_get_me',
   work: 'community_get_work',
   saved: 'community_get_saved',
-  notifications: 'community_get_notifications'
+  notifications: 'community_get_notifications',
+  preset: 'community_get_preset'
 } as const;
 
 type QueryName = keyof typeof queryToRpc;
@@ -50,6 +51,9 @@ export default {
       case 'saved':
       case 'notifications':
         params.p_limit = payload.limit ?? 50;
+        break;
+      case 'preset':
+        params.p_preset_artifact_id = payload.presetArtifactId;
         break;
     }
 
