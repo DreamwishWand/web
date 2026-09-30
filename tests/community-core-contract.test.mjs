@@ -1710,6 +1710,11 @@ test('WEP preset artifact storage stays private and Scene-only until other valid
   assert.match(artifact, /Scene artifact contains save-local identity/);
   assert.match(artifact, /community_publish_preset_envelope/);
   assert.match(artifact, /REGISTERED_ARTIFACT_CANNOT_BE_DISCARDED/);
+  assert.match(artifact, /sessionAuthorization\?\.accountId/);
+  assert.match(artifact, /staging\/\$\{accountId\}\//);
+  assert.match(artifact, /published\/\$\{accountId\}\//);
+  assert.doesNotMatch(artifact, /staging\/\$\{subject\}\//);
+  assert.doesNotMatch(artifact, /published\/\$\{subject\}\//);
 });
 
 
