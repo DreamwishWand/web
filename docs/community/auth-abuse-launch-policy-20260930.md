@@ -84,3 +84,42 @@ Before public launch:
 
 No provider API key, SMTP password, CAPTCHA secret, user password, recovery token or real email
 address belongs in canonical evidence.
+
+
+## Community action rate limits
+
+Authenticated Community mutations now use a shared database-backed WandAccount limiter in addition
+to Supabase Auth protections.
+
+CONFIRMED staging substrate:
+
+- private policy/window tables;
+- stable WandAccount + bucket + fixed-window counters;
+- PostgreSQL advisory locking for same-account/same-bucket concurrency;
+- fail-closed unknown buckets;
+- service-only consume RPC;
+- Edge returns HTTP 429 `RATE_LIMITED` with retry/reset metadata;
+- private counters are not exposed to browser schema or Community Ops.
+
+Current one-hour engineering defaults are:
+
+- profile writes 20;
+- Gallery writes 60;
+- Save 240;
+- Follow 120;
+- Reaction 300;
+- Comment/Reply 90;
+- Report 12;
+- moderation writes 120;
+- media upload prepare 30.
+
+These are configuration-driven **engineering launch defaults**, not permanent product semantics.
+Closed-beta/load/abuse evidence may tune them without changing WandAccount/Community ownership
+contracts.
+
+Anonymous public Search is intentionally outside the WandAccount limiter. Deployment/API/CDN
+request-volume control for anonymous search remains a separate launch hardening boundary.
+
+Detailed evidence:
+
+`docs/community/action-rate-limit-runtime-20260930.md`
