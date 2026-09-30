@@ -58,3 +58,15 @@ Before launch:
 
 Staging email-provider rate limiting during repeated E2E work is not promoted into a product
 semantic conclusion.
+
+
+## Recent-auth launch defaults
+
+First-launch recent-auth windows are finalized at:
+
+- self-service account deletion: **900 seconds / 15 minutes**;
+- support/admin high-risk writes: **900 seconds / 15 minutes**.
+
+Both remain configuration-driven for future security review, but are no longer an unresolved launch
+parameter. Recent-auth proof remains bound to `auth.sessions.created_at`; refreshing a JWT does not
+refresh the recent-auth clock.
