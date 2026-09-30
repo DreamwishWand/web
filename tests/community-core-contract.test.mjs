@@ -1199,3 +1199,60 @@ test('generated schema exposes only service escalation RPCs and keeps private qu
   assert.doesNotMatch(tableSection, /community_operations_escalation_deliveries:/);
   assert.doesNotMatch(tableSection, /community_operations_escalation_config:/);
 });
+
+
+test('external escalation failures stay visible in Operations without recursive self-delivery', () => {
+  const migration = read(
+    'supabase/migrations/20260930105934_community_core_v0_external_operations_escalation_ops.sql'
+  );
+
+  assert.match(migration, /operations_escalation_dead_letter/);
+  assert.match(migration, /operations_escalation_scheduler_stale/);
+  assert.match(migration, /community_refresh_operations_escalation_alerts/);
+  assert.match(migration, /community-operations-escalation-alerts-every-minute/);
+  assert.match(migration, /alert_type not in \([\s\S]*operations_escalation_dead_letter[\s\S]*operations_escalation_scheduler_stale/);
+});
+
+test('external escalation review and retry are admin-only and recent-auth protected', () => {
+  const migration = read(
+    'supabase/migrations/20260930105934_community_core_v0_external_operations_escalation_ops.sql'
+  );
+  const admin = read('supabase/functions/community-admin/index.ts');
+
+  assert.match(migration, /community_get_operations_escalation_deliveries/);
+  assert.match(migration, /community_admin_retry_operations_escalation/);
+  assert.match(migration, /private\.require_recent_admin/);
+  assert.match(migration, /Underlying operations alert is no longer open\/current/);
+  assert.match(migration, /operations_escalation\.requeued/);
+  assert.match(migration, /grant execute on function public\.community_get_operations_escalation_deliveries/);
+  assert.match(migration, /grant execute on function public\.community_admin_retry_operations_escalation/);
+
+  assert.match(admin, /listOperationsEscalations: 'community_get_operations_escalation_deliveries'/);
+  assert.match(admin, /retryOperationsEscalation: 'community_admin_retry_operations_escalation'/);
+  assert.match(admin, /params\.p_delivery_id = payload\.deliveryId/);
+  assert.match(admin, /params\.p_session_id = sessionId/);
+});
+
+test('Community Ops exposes external delivery review without exposing provider credentials', () => {
+  const page = read('src/routes/community-ops/+page.svelte');
+
+  assert.match(page, /External alert deliveries/);
+  assert.match(page, /listOperationsEscalations/);
+  assert.match(page, /retryOperationsEscalation/);
+  assert.match(page, /Requeue external alert delivery/);
+  assert.match(page, /never recursively delivered through the same worker/);
+  assert.doesNotMatch(page, /community_operations_escalation_auth_token|Bearer token|Vault secret value/);
+});
+
+test('generated schema exposes escalation admin RPCs but keeps escalation queue private', () => {
+  const generated = read('src/lib/generated/database.types.ts');
+
+  assert.match(generated, /community_get_operations_escalation_deliveries/);
+  assert.match(generated, /community_admin_retry_operations_escalation/);
+
+  const tablesStart = generated.indexOf('Tables: {');
+  const viewsStart = generated.indexOf('Views: {', tablesStart);
+  const tableSection = generated.slice(tablesStart, viewsStart);
+  assert.doesNotMatch(tableSection, /community_operations_escalation_deliveries:/);
+  assert.doesNotMatch(tableSection, /community_operations_escalation_config:/);
+});
