@@ -215,3 +215,6 @@ The execution order and secret-free evidence contract for normal signup/recovery
 Moderator, operator support, self-service deletion and operator critical email are canonicalized in:
 
 `docs/community/browser-operator-acceptance-runbook-20260930.md`
+
+Transactional provider/configuration boundary:
+`docs/community/transactional-email-provider-resend-20260930.md`
