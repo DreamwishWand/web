@@ -607,6 +607,8 @@ test('Road native planner reproduces the current corrected DW-R01 cardinal-3 fix
   assert.equal(plan.logicalQuantity, 3);
   assert.equal(plan.wandListInventoryDelta, 0);
   assert.equal(plan.ownershipMutationRequired, false);
+  assert.equal(plan.placementValidity, 'requires-external-world-surface-validation');
+  assert.equal(plan.requiresExternalPlacementValidation, true);
   assert.deepEqual(plan.objects, [
     {
       role: 'roadCell',
@@ -695,6 +697,8 @@ test('Fence native planner reproduces the known Biome2Fence vertical 10-unit rep
   });
   assert.equal(plan.ok, true);
   assert.equal(plan.logicalQuantity, 10);
+  assert.equal(plan.placementValidity, 'requires-external-world-surface-validation');
+  assert.equal(plan.requiresExternalPlacementValidation, true);
 
   const simplified = plan.objects
     .map((object) => [object.itemID, object.x, object.y, object.orientation, object.state])
