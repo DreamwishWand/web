@@ -1711,3 +1711,36 @@ test('WEP preset artifact storage stays private and Scene-only until other valid
   assert.match(artifact, /community_publish_preset_envelope/);
   assert.match(artifact, /REGISTERED_ARTIFACT_CANNOT_BE_DISCARDED/);
 });
+
+
+test('service Edge JWT verification is reproducible from Supabase config', () => {
+  const config = read('supabase/config.toml');
+
+  for (const name of [
+    'community-auth',
+    'community-retention',
+    'community-ops-escalation',
+    'community-ops-email',
+    'community-email-resend',
+    'wep-preset-retention'
+  ]) {
+    assert.match(
+      config,
+      new RegExp('\\[functions\\.' + name + '\\][\\s\\S]*?verify_jwt = false')
+    );
+  }
+
+  for (const userFunction of [
+    'community-command',
+    'community-query',
+    'community-media',
+    'community-admin',
+    'community-account',
+    'wep-preset-artifact'
+  ]) {
+    assert.doesNotMatch(
+      config,
+      new RegExp('\\[functions\\.' + userFunction + '\\][\\s\\S]*?verify_jwt = false')
+    );
+  }
+});
