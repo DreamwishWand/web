@@ -126,3 +126,21 @@ test('privileged moderation and audit records are append-only', () => {
   assert.match(schema, /moderation_actions_immutable/i);
   assert.match(schema, /audit_events_immutable/i);
 });
+
+
+test('DDV profile link cap is safe under concurrent transactions', () => {
+  assert.match(schema, /pg_advisory_xact_lock/i);
+  assert.match(schema, /hashtextextended\(new\.account_id::text/i);
+});
+
+test('work lifecycle transitions are fail-closed in PostgreSQL', () => {
+  assert.match(schema, /validate_work_lifecycle_transition/i);
+  assert.match(schema, /draft'[\s\S]*published'[\s\S]*deleted/i);
+  assert.match(schema, /published'[\s\S]*unpublished'[\s\S]*deleted/i);
+  assert.match(schema, /Invalid CommunityWork lifecycle transition/i);
+});
+
+test('Gallery subtype rows cannot attach to a non-Gallery CommunityWork', () => {
+  assert.match(schema, /gallery_works_type_guard/i);
+  assert.match(schema, /GalleryWork must reference a Gallery CommunityWork/i);
+});
