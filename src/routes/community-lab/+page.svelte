@@ -40,6 +40,7 @@
   let savedQuery: any = null;
   let notificationsQuery: any = null;
   let discoveryQuery: any = null;
+  let deadLetterQuery: any = null;
   let interactions: Record<string, unknown> = {};
 
   let targetWorkId = '';
@@ -52,6 +53,8 @@
   let moderationAction = 'restrict';
   let moderationReason = 'Community Lab moderator runtime probe';
   let ownerVisibility = 'private';
+  let deadLetterOutboxId = '';
+  let deadLetterReason = 'Reviewed in Community Lab and safe to retry';
 
   let handle = '';
   let displayName = 'Community Lab Creator';
@@ -347,12 +350,28 @@
     if (result) interactions = { ...interactions, save: result };
   }
 
+  async function unsaveTarget() {
+    if (!client || !targetWorkId) return;
+    const result = await run('B unsave work', () =>
+      client!.command('unsaveEntity', { targetEntityId: targetWorkId })
+    );
+    if (result) interactions = { ...interactions, unsave: result };
+  }
+
   async function followTargetCreator() {
     if (!client || !targetCreatorProfileId) return;
     const result = await run('B follow creator', () =>
       client!.command('followCreator', { creatorProfileId: targetCreatorProfileId })
     );
     if (result) interactions = { ...interactions, follow: result };
+  }
+
+  async function unfollowTargetCreator() {
+    if (!client || !targetCreatorProfileId) return;
+    const result = await run('B unfollow creator', () =>
+      client!.command('unfollowCreator', { creatorProfileId: targetCreatorProfileId })
+    );
+    if (result) interactions = { ...interactions, unfollow: result };
   }
 
   async function reactTarget() {
@@ -364,6 +383,17 @@
       })
     );
     if (result) interactions = { ...interactions, reaction: result };
+  }
+
+  async function removeReactionTarget() {
+    if (!client || !targetWorkId) return;
+    const result = await run('B remove reaction', () =>
+      client!.command('removeReaction', {
+        targetEntityId: targetWorkId,
+        reactionKind: 'like'
+      })
+    );
+    if (result) interactions = { ...interactions, removeReaction: result };
   }
 
   async function commentTarget() {
@@ -560,6 +590,28 @@
       interactions = { ...interactions, ownerDelete: result };
       targetRowVersion = Number(result?.data?.rowVersion ?? targetRowVersion);
       persistTargetContext();
+    }
+  }
+
+  async function queryDeadLetters() {
+    if (!client) return;
+    const result = await run('Dead-letter queue query', () =>
+      client!.query('deadLetters', { limit: 50 })
+    );
+    if (result) deadLetterQuery = result;
+  }
+
+  async function retryDeadLetter() {
+    if (!client || !deadLetterOutboxId || !deadLetterReason.trim()) return;
+    const result = await run('Dead-letter audited retry', () =>
+      client!.command('retryDeadLetter', {
+        outboxId: deadLetterOutboxId,
+        reason: deadLetterReason
+      })
+    );
+    if (result) {
+      interactions = { ...interactions, deadLetterRetry: result };
+      await queryDeadLetters();
     }
   }
 
@@ -799,11 +851,22 @@
             Query target
           </button>
           <button on:click={saveTarget} disabled={busy || !session || !targetWorkId}>Save</button>
+          <button class="secondary" on:click={unsaveTarget} disabled={busy || !session || !targetWorkId}>
+            Unsave
+          </button>
           <button
             on:click={followTargetCreator}
             disabled={busy || !session || !targetCreatorProfileId}>Follow A</button
           >
+          <button
+            class="secondary"
+            on:click={unfollowTargetCreator}
+            disabled={busy || !session || !targetCreatorProfileId}>Unfollow A</button
+          >
           <button on:click={reactTarget} disabled={busy || !session || !targetWorkId}>Like</button>
+          <button class="secondary" on:click={removeReactionTarget} disabled={busy || !session || !targetWorkId}>
+            Remove Like
+          </button>
           <button
             on:click={commentTarget}
             disabled={busy || !session || !targetWorkId || !identity}>Comment</button
@@ -936,6 +999,42 @@
         </div>
       </article>
 
+
+
+      <article class="lab-card lab-wide">
+        <span class="lab-step">09</span>
+        <h2>Operator dead-letter Outbox</h2>
+        <p class="lab-meta">
+          Staff-only operational path. Sign in as a staging moderator/admin. Listing and retry are
+          server-authorized; retry requires a reason, resets the retry budget and writes an immutable
+          AuditEvent. This UI never offers destructive discard.
+        </p>
+        <div class="lab-two">
+          <label>
+            Dead-letter outbox ID
+            <input bind:value={deadLetterOutboxId} autocomplete="off" />
+          </label>
+          <label>
+            Retry reason
+            <input bind:value={deadLetterReason} autocomplete="off" />
+          </label>
+        </div>
+        <div class="lab-actions">
+          <button on:click={queryDeadLetters} disabled={busy || !session}>
+            Query dead letters
+          </button>
+          <button
+            class="secondary"
+            on:click={retryDeadLetter}
+            disabled={busy || !session || !deadLetterOutboxId || !deadLetterReason.trim()}
+          >
+            Audited retry
+          </button>
+        </div>
+        <pre>{deadLetterQuery
+            ? JSON.stringify(deadLetterQuery, null, 2)
+            : 'No dead-letter queue query yet.'}</pre>
+      </article>
 
       <article class="lab-card lab-wide">
         <span class="lab-step">LOG</span>
