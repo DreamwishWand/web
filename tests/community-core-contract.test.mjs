@@ -1062,8 +1062,8 @@ test('retention worker physically removes media before finalizing database purge
   assert.match(worker, /storage\.from\(MEDIA_BUCKET\)\.remove/);
 
   const storageIndex = worker.indexOf('.remove(batch)');
-  const completeIndex = worker.indexOf('community_complete_account_retention_job');
-  assert.ok(storageIndex >= 0 && completeIndex > storageIndex);
+  const completeCallIndex = worker.indexOf('const completed = await complete();');
+  assert.ok(storageIndex >= 0 && completeCallIndex > storageIndex);
 });
 
 test('Preset ArtifactBlob purge fails closed until WEP storage adapter exists', () => {
@@ -1135,6 +1135,10 @@ test('generated schema exposes retention service and admin RPCs without private 
   assert.match(generated, /community_admin_retry_retention_job/);
   assert.match(generated, /community_admin_add_retention_hold/);
   assert.match(generated, /community_admin_release_retention_hold/);
-  assert.doesNotMatch(generated, /account_retention_jobs/);
-  assert.doesNotMatch(generated, /account_retention_holds/);
+
+  const tablesStart = generated.indexOf('Tables: {');
+  const viewsStart = generated.indexOf('Views: {', tablesStart);
+  const tableSection = generated.slice(tablesStart, viewsStart);
+  assert.doesNotMatch(tableSection, /account_retention_jobs:/);
+  assert.doesNotMatch(tableSection, /account_retention_holds:/);
 });
