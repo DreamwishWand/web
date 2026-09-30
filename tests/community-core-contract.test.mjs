@@ -1167,22 +1167,26 @@ test('external critical operations escalation uses an occurrence queue and fail-
   assert.match(worker, /community_fail_operations_escalation/);
 });
 
-test('external operations alert payload is deliberately data-minimal', () => {
+test('operator email payload is deliberately data-minimal', () => {
   const worker = read('supabase/functions/community-ops-email/index.ts');
 
-  assert.match(worker, /dreamwishwand\.community\.operations-alert\.v1/);
+  assert.match(worker, /dreamwishwand\.transactional-email\.operator-critical\.v1/);
+  assert.match(worker, /purpose: 'operator_critical_operations_alert'/);
   assert.match(worker, /operationsPath: '\/community-ops\/'/);
   assert.match(worker, /alertId: job\.alertId/);
   assert.match(worker, /alertType: job\.alertType/);
   assert.match(worker, /occurrence: job\.occurrence/);
 
-  const payloadStart = worker.indexOf("schema: 'dreamwishwand.community.operations-alert.v1'");
+  const payloadStart = worker.indexOf(
+    "schema: 'dreamwishwand.transactional-email.operator-critical.v1'"
+  );
   const payloadEnd = worker.indexOf('})', payloadStart);
   const payload = worker.slice(payloadStart, payloadEnd);
   assert.doesNotMatch(
     payload,
-    /providerSubject|provider_subject|email|report|signed|media|token|password|ddv/i
+    /providerSubject|provider_subject|report|signed|media|password|ddv/i
   );
+  assert.doesNotMatch(payload, /to:|recipientEmail|emailAddress/i);
 });
 
 test('generated schema exposes only service escalation RPCs and keeps private queues private', () => {
