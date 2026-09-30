@@ -1980,6 +1980,28 @@ export type Database = {
         Args: { p_auth_subject: string; p_target_entity_id: string }
         Returns: Json
       }
+      community_search_public: {
+        Args: {
+          p_before_published_at?: string
+          p_before_work_id?: string
+          p_creator_profile_id?: string
+          p_limit?: number
+          p_query?: string
+          p_tags?: string[]
+          p_work_type?: Database["public"]["Enums"]["work_type"]
+        }
+        Returns: {
+          creator_profile_id: string
+          entity_id: string
+          facets: Json
+          published_at: string
+          tags: string[]
+          text_content: string
+          title: string
+          work_id: string
+          work_type: Database["public"]["Enums"]["work_type"]
+        }[]
+      }
       community_tombstone_account: {
         Args: {
           p_auth_subject: string
