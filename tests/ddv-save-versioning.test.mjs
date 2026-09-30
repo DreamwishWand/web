@@ -93,6 +93,28 @@ test('profile GameInfo.Version mismatch fails build/schema gate', () => {
   assert.equal(match.status, BuildMatchStatus.SchemaMismatch);
 });
 
+
+
+test('target build kind must match its platform and codec contract is mandatory', () => {
+  const identity = detectSaveIdentity(root());
+  const wrongKind = matchSupportedBuild(identity, {
+    platform: PlatformFamily.Switch,
+    kind: BuildIdentityKind.SteamFullVersion,
+    value: steamTarget.value
+  });
+  assert.equal(wrongKind.status, BuildMatchStatus.InvalidTarget);
+
+  const report = evaluateWriterAuthorization({
+    saveIdentity: identity,
+    targetBuild: switchTarget,
+    codec: { readSupported: true, encodeSupported: true, roundTripVerified: true },
+    operation: readyOperation()
+  });
+  assert.equal(report.capabilities.planOperation, false);
+  assert.equal(report.capabilities.encodeCopy, false);
+  assert.ok(report.findings.some((x) => x.code === 'CODEC_CONTRACT_MISMATCH'));
+});
+
 test('current registry never authorizes persistent replacement even if caller claims all lower gates passed', () => {
   for (const contract of CURRENT_V125_BUILD_CONTRACTS) {
     assert.equal(contract.persistentWriteAuthorized, false);
