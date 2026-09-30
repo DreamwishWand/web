@@ -1622,3 +1622,45 @@ test('browser rate-limit errors carry actionable retry metadata', () => {
   assert.match(client, /Too many actions in/);
   assert.match(client, /Retry in about/);
 });
+
+
+test('Resend operator relay is fixed-purpose, idempotent and fail-closed', () => {
+  const relay = read('supabase/functions/community-email-resend/index.ts');
+  const provider = read(
+    'docs/community/transactional-email-provider-resend-20260930.md'
+  );
+
+  assert.match(relay, /COMMUNITY_EMAIL_RELAY_TOKEN/);
+  assert.match(relay, /RESEND_API_KEY/);
+  assert.match(relay, /DREAMWISH_EMAIL_FROM/);
+  assert.match(relay, /DREAMWISH_OPERATOR_EMAIL/);
+  assert.match(relay, /EMAIL_RELAY_NOT_CONFIGURED/);
+  assert.match(relay, /RELAY_AUTH_REQUIRED/);
+  assert.match(relay, /dreamwishwand\.transactional-email\.operator-critical\.v1/);
+  assert.match(relay, /operator_critical_operations_alert/);
+  assert.match(relay, /https:\/\/api\.resend\.com\/emails/);
+  assert.match(relay, /'Idempotency-Key': idempotencyKey/);
+  assert.doesNotMatch(relay, /@gmail\.com|@outlook\.com|@icloud\.com/);
+  assert.doesNotMatch(relay, /re_[A-Za-z0-9]{12,}/);
+
+  assert.match(provider, /Dreamwish Wand uses \*\*Resend\*\*/);
+  assert.match(provider, /Auth SMTP credential/);
+  assert.match(provider, /Operator\/API credential/);
+  assert.match(provider, /current project SSoT does not identify a canonical custom Wand domain/i);
+  assert.match(provider, /No second independent alert channel is required for first launch/);
+});
+
+test('transactional email policies select Resend without merging email semantics', () => {
+  const policy = read('docs/community/transactional-email-policy-20260930.md');
+  const escalation = read(
+    'docs/community/operations-escalation-policy-20260930.md'
+  );
+  const auth = read('docs/community/auth-launch-policy-20260930.md');
+
+  assert.match(policy, /first-launch provider default is now \*\*Resend\*\*/);
+  assert.match(policy, /provider-neutral/);
+  assert.match(escalation, /first-launch email-delivery provider default is \*\*Resend\*\*/);
+  assert.match(escalation, /community-email-resend/);
+  assert.match(auth, /selected Resend transactional email provider/);
+  assert.match(auth, /Supabase custom SMTP is the initial Auth delivery boundary/);
+});
