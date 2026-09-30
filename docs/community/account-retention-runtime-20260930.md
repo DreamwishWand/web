@@ -8,7 +8,7 @@ Status:
 - **CONFIRMED PASS** — Vault-authenticated retention worker invocation.
 - **CONFIRMED PASS** — physical deletion of a real Storage object followed by database redaction.
 - **CONFIRMED PASS** — retention dead-letter and worker-health operations alerts.
-- **PARTIAL / FAIL-CLOSED** — Preset ArtifactBlob physical storage purge remains blocked until WEP provides the production artifact-storage adapter/bucket contract.
+- **CONFIRMED PASS** — real WEP Preset ArtifactBlob physical Storage deletion -> COMM finalizer -> content-retention completion.
 
 ## Engineering defaults
 
@@ -57,32 +57,37 @@ At the 30-day stage, when no hold applies:
 - account idempotency rows are removed;
 - AccountDeletionEvent records `content_purged_at` and moves to `purge_scheduled`.
 
-### Preset payload boundary
+### Preset payload boundary — CONFIRMED
 
-If an account still owns an unpurged `ArtifactBlob`, the content-payload finalizer fails closed
-with:
-
-`Preset artifact storage purge adapter is not available`
-
-This is deliberate. Community Core will not pretend that a Preset blob is physically deleted until
-WEP defines the actual artifact Storage adapter/bucket and proves deletion.
-
-COMM now exposes a **service-only database finalizer**:
+WEP now owns the private `wand-preset-artifacts-staging` physical Storage path and
+`wep-preset-retention` adapter. COMM retains the service-only finalizer:
 
 `community_finalize_artifact_blob_purge(blobId, expectedStorageKey)`
 
-Its contract is:
+Accepted order:
 
-1. the WEP/storage adapter deletes the physical object;
-2. it calls the finalizer using the exact pre-delete storage key;
-3. the finalizer atomically moves the immutable ArtifactBlob to a purged tombstone
-   (`purged:<blobId>`, zero byte size, neutral checksum/content type, `purged_at` set);
-4. only after all owned ArtifactBlobs are finalized may the account content-retention job complete.
+1. COMM claims the exact content-retention job and lock;
+2. COMM delegates live ArtifactBlobs to WEP;
+3. WEP verifies `published/<wandAccountId>/...` ownership;
+4. WEP deletes the physical Storage object;
+5. WEP calls the COMM finalizer with the exact pre-delete key;
+6. the finalizer writes the `purged:<blobId>` tombstone and neutralizes payload metadata;
+7. COMM completes content retention only after no live ArtifactBlob remains.
 
-A synthetic staging ArtifactBlob confirmed the DB side of this contract: the retention worker first
-failed closed; after the service-only finalizer marked the blob purged, the same content-retention
-job completed successfully. This does **not** claim that a real Preset storage object has been
-deleted yet; that physical delete remains WEP-owned.
+The real-object staging E2E found and corrected an important identity bug: the initial WEP publisher
+used the Supabase provider subject in Storage keys, while deletion/retention correctly depends on the
+durable WandAccount ID. Preset Storage now uses WandAccount ID, and contract tests prohibit
+provider-subject namespaces.
+
+The corrected E2E uploaded and published a real private Scene Preset, confirmed one physical object
+and one live ArtifactBlob, tombstoned the owner, then invoked the normal Vault-authenticated
+retention worker. The worker returned claimed=1 / completed=1 / failed=0. Afterward the Storage
+object was absent, the ArtifactBlob was a purged tombstone, PresetArtifact/PresetRevision/
+CommunityWorkRevision structural rows remained, Preset revision metadata was redacted, and the
+content job completed with last_error=null.
+
+Detailed evidence:
+`docs/community/wep-preset-retention-integration-20260930.md`.
 
 ## Operational-detail stage
 
@@ -194,13 +199,13 @@ Fixture cleanup:
 
 ## Current boundary
 
-Account-deletion retention is production-shaped for Gallery/media payload and operational metadata.
+Account-deletion retention is production-shaped at staging for Gallery media, WEP Scene Preset
+ArtifactBlob payloads, and operational metadata. The COMM↔WEP physical-delete dependency is closed
+for the tested Scene path.
 
-Remaining retention dependency:
+The 30-day content / 365-day operational durations remain configurable engineering defaults and still
+require launch privacy/legal review. Other Preset types remain WEP-domain fail-closed until their
+portable validators exist; that is a publication/product capability boundary rather than a retention
+orchestration gap.
 
-- WEP must provide/prove the Preset ArtifactBlob physical storage deletion adapter. Until then,
-  accounts with unpurged Preset blobs cannot pass content-payload completion and will retry/dead-letter
-  visibly rather than falsely report `purged`.
-
-External escalation beyond the internal Operations Alert console remains a separate launch-operations
-decision.
+External operator-email delivery acceptance remains a separate launch-operations gate.
