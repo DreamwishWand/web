@@ -204,6 +204,7 @@ export type Database = {
           provider_subject: string
           replaced_by_auth_identity_id: string | null
           retired_at: string | null
+          sessions_valid_after: string
         }
         Insert: {
           account_id: string
@@ -215,6 +216,7 @@ export type Database = {
           provider_subject: string
           replaced_by_auth_identity_id?: string | null
           retired_at?: string | null
+          sessions_valid_after?: string
         }
         Update: {
           account_id?: string
@@ -226,6 +228,7 @@ export type Database = {
           provider_subject?: string
           replaced_by_auth_identity_id?: string | null
           retired_at?: string | null
+          sessions_valid_after?: string
         }
         Relationships: [
           {
@@ -1455,6 +1458,14 @@ export type Database = {
         }
         Returns: Json
       }
+      community_authorize_session: {
+        Args: {
+          p_auth_subject: string
+          p_issued_at_epoch: number
+          p_max_age_seconds?: number
+        }
+        Returns: Json
+      }
       community_change_work_visibility: {
         Args: {
           p_auth_subject: string
@@ -1616,6 +1627,10 @@ export type Database = {
       }
       community_retry_dead_letter_outbox: {
         Args: { p_auth_subject: string; p_outbox_id: string; p_reason: string }
+        Returns: Json
+      }
+      community_revoke_wand_sessions: {
+        Args: { p_auth_subject: string }
         Returns: Json
       }
       community_save_entity: {
