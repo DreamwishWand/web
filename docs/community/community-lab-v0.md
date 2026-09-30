@@ -11,6 +11,8 @@ This route is intentionally not linked from the public Dreamwish Wand shell. It 
 - Access/refresh tokens and the publishable key are stored in `sessionStorage`, not persistent `localStorage`.
 - Password-recovery PKCE state is short-lived and separate from session tokens.
 - Authenticated Community requests enforce the Wand-side session cutoff in addition to provider JWT validation.
+- High-risk recent-auth is session-bound: verified JWT `session_id` is matched to `auth.sessions.created_at`; refreshing an old JWT/session does not reset the recent-auth window.
+- Admin support/dead-letter operations live in the separate hidden `/community-ops/` route and are not part of the normal Community command bus.
 - No service-role/secret key is present in browser source.
 - The browser never supplies `actorAccountId`; the Edge adapter resolves the actor from verified `userClaims.id`.
 - Canonical Community tables remain non-enumerable/non-writable from the browser Data API.
@@ -148,6 +150,6 @@ The Lab should surface normal API failures rather than bypassing them:
 
 ## Current boundary
 
-The Lab is an implementation checkpoint, not acceptance proof by itself. The A -> B -> moderator path plus PKCE recovery/re-auth/all-session-revocation UX is implemented and CI-validated. VS-02/VS-12 are CONFIRMED PASS at the backend/network boundary, VS-13 is CONFIRMED PASS through true multi-backend concurrency, and VS-01 backend identity/recovery/session-control primitives are materially proven. VS-01 remains PARTIAL until the normal provider/browser identity and recovery path is executed.
+The Lab is an implementation checkpoint, not acceptance proof by itself. The A -> B -> moderator path plus PKCE recovery/re-auth/all-session-revocation UX is implemented and CI-validated. VS-02/VS-12 are CONFIRMED PASS at the backend/network boundary, VS-13 is CONFIRMED PASS through true multi-backend concurrency, and VS-01 backend identity/recovery/session-control primitives are materially proven. Recent-auth is now bound to provider session creation time rather than JWT refresh time. The separate hidden Community Ops console is implemented for admin recovery and provider/outbox dead-letter operations. VS-01 remains PARTIAL until the normal provider/browser identity/recovery path and real admin Ops path are executed.
 
 The WEP workstream continues to own Preset payload semantics, compatibility preflight and apply behavior. Community owns the publication envelope, exact revision link, permissions and SavedItem/Library reuse.
