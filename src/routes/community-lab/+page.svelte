@@ -39,6 +39,7 @@
   let targetQuery: any = null;
   let savedQuery: any = null;
   let notificationsQuery: any = null;
+  let discoveryQuery: any = null;
   let interactions: Record<string, unknown> = {};
 
   let targetWorkId = '';
@@ -293,6 +294,20 @@
       targetRowVersion = Number(result?.data?.rowVersion ?? expectedVersion);
       persistTargetContext();
       await queryPublishedWork();
+    }
+  }
+
+  async function discoverPublic() {
+    const active = client ?? configureClient();
+    const result = await run('Public SearchDocument discovery', () =>
+      active.discoverPublicWorks(20)
+    );
+
+    if (result) {
+      const targetFound = targetWorkId
+        ? result.some((row) => String(row.work_id ?? '') === targetWorkId)
+        : null;
+      discoveryQuery = { rows: result, targetWorkId: targetWorkId || null, targetFound };
     }
   }
 
@@ -725,10 +740,16 @@
           <button class="secondary" on:click={queryPublishedWork} disabled={busy || !draft}>
             Query work
           </button>
+          <button class="secondary" on:click={discoverPublic} disabled={busy || !publishableKey}>
+            Public discovery (no user JWT)
+          </button>
         </div>
         <div class="lab-result-grid">
           <pre>{published ? JSON.stringify(published, null, 2) : 'Not published.'}</pre>
           <pre>{queriedWork ? JSON.stringify(queriedWork, null, 2) : 'No work readback.'}</pre>
+          <pre>{discoveryQuery
+              ? JSON.stringify(discoveryQuery, null, 2)
+              : 'No public discovery query.'}</pre>
         </div>
       </article>
 
