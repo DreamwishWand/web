@@ -1000,3 +1000,141 @@ test('generated schema exposes verified recovery RPCs and state columns', () => 
   assert.match(generated, /community_admin_verify_recovery_case/);
   assert.match(generated, /community_admin_complete_recovery_v2/);
 });
+
+
+test('account retention uses configurable staged purge with explicit holds', () => {
+  const migration = read(
+    'supabase/migrations/20260930082000_community_core_v0_retention_policy.sql'
+  );
+
+  assert.match(migration, /deleted_account_content_days',30/);
+  assert.match(migration, /deleted_account_operational_days',365/);
+  assert.match(migration, /account_retention_holds/);
+  assert.match(migration, /account_retention_jobs/);
+  assert.match(migration, /content_payload/);
+  assert.match(migration, /operational_detail/);
+  assert.match(migration, /community_account_has_retention_hold/);
+  assert.match(migration, /open','triaged/);
+  assert.match(migration, /open','reviewing/);
+  assert.match(migration, /provider_cleanup_jobs/);
+});
+
+test('retention redaction preserves revision identity without weakening normal immutability', () => {
+  const contentBypass = read(
+    'supabase/migrations/20260930082100_community_core_v0_retention_redaction_bypass.sql'
+  );
+  const operationalBypass = read(
+    'supabase/migrations/20260930082200_community_core_v0_retention_operational_redaction.sql'
+  );
+
+  assert.match(contentBypass, /app\.community_retention_redaction/);
+  assert.match(contentBypass, /tg_op='DELETE'/);
+  assert.match(contentBypass, /Published\/revision records are immutable/);
+  assert.match(contentBypass, /shared_metadata='\{\}'::jsonb/);
+  assert.match(contentBypass, /title='\[deleted\]'/);
+  assert.match(contentBypass, /Preset artifact storage purge adapter is not available/);
+  assert.match(operationalBypass, /app\.community_retention_redaction/);
+  assert.match(operationalBypass, /request_correlation_id=null/);
+  assert.match(operationalBypass, /metadata='\{\}'::jsonb/);
+});
+
+test('purged media is unreadable and cannot be linked into new revisions', () => {
+  const migration = read(
+    'supabase/migrations/20260930082000_community_core_v0_retention_policy.sql'
+  );
+
+  assert.match(migration, /add column if not exists purged_at/);
+  assert.match(migration, /guard_unpurged_media_link/);
+  assert.match(migration, /purged_at is null/);
+  assert.match(migration, /Purged media cannot be linked to a revision/);
+});
+
+test('retention worker physically removes media before finalizing database purge', () => {
+  const worker = read('supabase/functions/community-retention/index.ts');
+
+  assert.match(worker, /withSupabase\(\{ auth: 'none' \}/);
+  assert.match(worker, /x-community-worker-token/);
+  assert.match(worker, /retention_cleanup/);
+  assert.match(worker, /community_claim_account_retention_jobs/);
+  assert.match(worker, /community_complete_account_retention_job/);
+  assert.match(worker, /community_fail_account_retention_job/);
+  assert.match(worker, /community-media-staging/);
+  assert.match(worker, /storage\.from\(MEDIA_BUCKET\)\.remove/);
+
+  const storageIndex = worker.indexOf('.remove(batch)');
+  const completeIndex = worker.indexOf('community_complete_account_retention_job');
+  assert.ok(storageIndex >= 0 && completeIndex > storageIndex);
+});
+
+test('Preset ArtifactBlob purge fails closed until WEP storage adapter exists', () => {
+  const worker = read('supabase/functions/community-retention/index.ts');
+  const policy = read(
+    'supabase/migrations/20260930082000_community_core_v0_retention_policy.sql'
+  );
+
+  assert.match(worker, /job\.artifactBlobCount > 0/);
+  assert.match(worker, /Preset artifact storage purge adapter is not available/);
+  assert.match(policy, /Preset artifact storage purge adapter is not available/);
+});
+
+test('retention scheduler uses Vault-backed worker auth and hourly Cron', () => {
+  const scheduler = read(
+    'supabase/migrations/20260930082300_community_core_v0_retention_scheduler.sql'
+  );
+
+  assert.match(scheduler, /community_retention_worker_token/);
+  assert.match(scheduler, /community_retention_worker_url/);
+  assert.match(scheduler, /gen_random_bytes\(32\)/);
+  assert.match(scheduler, /digest\(v_token,'sha256'\)/);
+  assert.match(scheduler, /community-retention-hourly/);
+  assert.match(scheduler, /17 \* \* \* \*/);
+  assert.match(scheduler, /x-community-worker-token/);
+  assert.doesNotMatch(scheduler, /sb_secret_[A-Za-z0-9_-]+/);
+});
+
+test('retention dead letters and worker heartbeat share the Operations Alert substrate', () => {
+  const migration = read(
+    'supabase/migrations/20260930082400_community_core_v0_retention_operations.sql'
+  );
+
+  assert.match(migration, /retention_dead_letter/);
+  assert.match(migration, /retention_scheduler_stale/);
+  assert.match(migration, /community-retention-hourly/);
+  assert.match(migration, /last_verified_at >= now\(\)-interval '2 hours'/i);
+  assert.match(migration, /community-retention-alerts-every-minute/);
+  assert.match(migration, /community_admin_retry_retention_job/);
+  assert.match(migration, /community_get_retention_holds/);
+});
+
+test('Community admin and Ops expose retention review controls with recent-auth writes', () => {
+  const admin = read('supabase/functions/community-admin/index.ts');
+  const page = read('src/routes/community-ops/+page.svelte');
+
+  assert.match(admin, /listRetentionJobs: 'community_get_retention_jobs'/);
+  assert.match(admin, /retryRetentionJob: 'community_admin_retry_retention_job'/);
+  assert.match(admin, /listRetentionHolds: 'community_get_retention_holds'/);
+  assert.match(admin, /addRetentionHold: 'community_admin_add_retention_hold'/);
+  assert.match(admin, /releaseRetentionHold: 'community_admin_release_retention_hold'/);
+  assert.match(admin, /params\.p_session_id = sessionId/);
+
+  assert.match(page, /Account retention/);
+  assert.match(page, /Requeue retention job/);
+  assert.match(page, /Add retention hold/);
+  assert.match(page, /Release retention hold/);
+  assert.match(page, /content-payload purge after 30 days/);
+  assert.match(page, /operational-detail scrub after 365 days/);
+});
+
+test('generated schema exposes retention service and admin RPCs without private queues', () => {
+  const generated = read('src/lib/generated/database.types.ts');
+
+  assert.match(generated, /community_claim_account_retention_jobs/);
+  assert.match(generated, /community_complete_account_retention_job/);
+  assert.match(generated, /community_fail_account_retention_job/);
+  assert.match(generated, /community_get_retention_jobs/);
+  assert.match(generated, /community_admin_retry_retention_job/);
+  assert.match(generated, /community_admin_add_retention_hold/);
+  assert.match(generated, /community_admin_release_retention_hold/);
+  assert.doesNotMatch(generated, /account_retention_jobs/);
+  assert.doesNotMatch(generated, /account_retention_holds/);
+});
