@@ -119,7 +119,7 @@ export default {
         bounds: { w: 1, h: 1 },
         objects: [
           {
-            artifactObjectId: 'retention-fixture-object',
+            artifactObjectId: 'o0',
             itemId: 1,
             localX: 0,
             localY: 0,
