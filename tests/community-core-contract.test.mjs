@@ -1609,3 +1609,16 @@ test('Community Ops can inspect rate policies without exposing private counters'
   assert.doesNotMatch(generated, /community_action_rate_windows/);
   assert.doesNotMatch(generated, /community_action_rate_policies/);
 });
+
+
+test('browser rate-limit errors carry actionable retry metadata', () => {
+  const client = read('src/lib/community/staging-http-client.ts');
+
+  assert.match(client, /class CommunityHttpError extends Error/);
+  assert.match(client, /retryAfterSeconds/);
+  assert.match(client, /resetAt/);
+  assert.match(client, /response\.status === 429/);
+  assert.match(client, /code === 'RATE_LIMITED'/);
+  assert.match(client, /Too many actions in/);
+  assert.match(client, /Retry in about/);
+});
