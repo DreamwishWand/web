@@ -17,11 +17,118 @@ function hex(bytes: ArrayBuffer) {
   return Array.from(new Uint8Array(bytes), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+const FORBIDDEN_ARTIFACT_KEYS = new Set([
+  'editorid','gridid','gridobjectid','sourcegridid','sourcegridobjectid',
+  'subgridid','nextgridid','nextgridobjectid','objectkey','sourcediagnostics'
+]);
+
+function rejectSaveLocalIdentity(value: unknown) {
+  if (Array.isArray(value)) {
+    for (const item of value) rejectSaveLocalIdentity(item);
+    return;
+  }
+  if (!value || typeof value !== 'object') return;
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    if (FORBIDDEN_ARTIFACT_KEYS.has(key.toLowerCase())) {
+      throw new Error('Scene artifact contains save-local identity');
+    }
+    rejectSaveLocalIdentity(child);
+  }
+}
+
+function validateFootprint(value: unknown) {
+  if (!Array.isArray(value) || value.length === 0) throw new Error('Scene footprint is invalid');
+  for (const cell of value) {
+    if (!cell || typeof cell !== 'object' || Array.isArray(cell)) throw new Error('Scene footprint cell is invalid');
+    const c = cell as Record<string, unknown>;
+    if (!Number.isInteger(Number(c.x)) || !Number.isInteger(Number(c.y))) throw new Error('Scene footprint cell is invalid');
+  }
+}
+
+function validatePortableState(value: unknown) {
+  if (value == null) return;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Scene portable state is invalid');
+  const state = value as Record<string, unknown>;
+  const codec = String(state.codec ?? '');
+  if (codec === 'subgrid.itemdata-default-empty-child@1') return;
+  if (codec !== 'subgrid.serialized-local-child@1') throw new Error('Scene portable state codec is unsupported');
+  const child = state.child as Record<string, unknown> | undefined;
+  if (!child || !Number.isInteger(Number(child.width)) || Number(child.width) <= 0 ||
+      !Number.isInteger(Number(child.height)) || Number(child.height) <= 0 ||
+      !Number.isInteger(Number(child.tessellationFactor)) || Number(child.tessellationFactor) <= 0 ||
+      !Array.isArray(child.objects)) {
+    throw new Error('Scene SubGrid child is invalid');
+  }
+  const ids = new Set<string>();
+  for (const raw of child.objects as unknown[]) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('Scene SubGrid object is invalid');
+    const object = raw as Record<string, unknown>;
+    const id = String(object.artifactObjectId ?? '');
+    if (!/^c\\d+$/.test(id) || ids.has(id)) throw new Error('Scene SubGrid artifact identity is invalid');
+    ids.add(id);
+    if (!Number.isInteger(Number(object.itemId)) || Number(object.itemId) <= 0 ||
+        !Number.isInteger(Number(object.localX)) || !Number.isInteger(Number(object.localY)) ||
+        !Number.isInteger(Number(object.orientation)) || Number(object.orientation) < 0 || Number(object.orientation) > 15) {
+      throw new Error('Scene SubGrid object is invalid');
+    }
+    validateFootprint(object.footprint);
+    validatePortableState(object.portableState);
+  }
+}
+
+function validateNetworkCapture(value: unknown, kind: 'roads' | 'fences', width: number, height: number) {
+  if (value == null) return;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Scene network capture is invalid');
+  const capture = value as Record<string, unknown>;
+  if (capture.schema !== 'dreamwish-wand-wep-network-capture' || Number(capture.version) !== 1 ||
+      capture.kind !== kind || capture.originPolicy !== 'capture-region-top-left' || !Array.isArray(capture.networks)) {
+    throw new Error('Scene network capture is invalid');
+  }
+  for (const raw of capture.networks as unknown[]) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('Scene network is invalid');
+    const network = raw as Record<string, unknown>;
+    if (!String(network.networkId ?? '') || !Number.isInteger(Number(network.familyBaseItemID)) || Number(network.familyBaseItemID) <= 0) {
+      throw new Error('Scene network identity is invalid');
+    }
+    if (kind === 'roads') {
+      if (!Array.isArray(network.cells)) throw new Error('Scene Road cells are invalid');
+      for (const rawCell of network.cells as unknown[]) {
+        if (!rawCell || typeof rawCell !== 'object' || Array.isArray(rawCell)) throw new Error('Scene Road cell is invalid');
+        const cell = rawCell as Record<string, unknown>;
+        const x = Number(cell.x), y = Number(cell.y);
+        if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= width || y >= height || !String(cell.mode ?? '')) {
+          throw new Error('Scene Road cell is invalid');
+        }
+      }
+    } else {
+      const graph = network.graph as Record<string, unknown> | undefined;
+      if (!graph || !Array.isArray(graph.nodes) || !Array.isArray(graph.edges)) throw new Error('Scene Fence graph is invalid');
+      const nodeIds = new Set<string>();
+      for (const rawNode of graph.nodes as unknown[]) {
+        if (!rawNode || typeof rawNode !== 'object' || Array.isArray(rawNode)) throw new Error('Scene Fence node is invalid');
+        const node = rawNode as Record<string, unknown>;
+        const id = String(node.id ?? ''), x = Number(node.x), y = Number(node.y);
+        if (!/^n\\d+$/.test(id) || nodeIds.has(id) || !Number.isInteger(x) || !Number.isInteger(y) ||
+            x < 0 || y < 0 || x >= width || y >= height || !String(node.mode ?? '')) {
+          throw new Error('Scene Fence node is invalid');
+        }
+        nodeIds.add(id);
+      }
+      for (const rawEdge of graph.edges as unknown[]) {
+        if (!rawEdge || typeof rawEdge !== 'object' || Array.isArray(rawEdge)) throw new Error('Scene Fence edge is invalid');
+        const edge = rawEdge as Record<string, unknown>;
+        if (!nodeIds.has(String(edge.a ?? '')) || !nodeIds.has(String(edge.b ?? ''))) throw new Error('Scene Fence edge is invalid');
+      }
+    }
+  }
+}
+
 function validateArtifact(value: unknown) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('Preset artifact must be a JSON object');
   }
   const artifact = value as Record<string, unknown>;
+  rejectSaveLocalIdentity(artifact);
   if (artifact.schema !== 'dreamwish-wand-preset') throw new Error('Unsupported Preset schema');
   const schemaVersion = Number(artifact.artifactVersion ?? artifact.schemaVersion ?? 0);
   if (!Number.isInteger(schemaVersion) || schemaVersion <= 0) throw new Error('Invalid Preset schema version');
@@ -51,18 +158,11 @@ function validateArtifact(value: unknown) {
     if (!Number.isInteger(Number(object.itemId)) || Number(object.itemId) <= 0) throw new Error('Scene itemId is invalid');
     if (!Number.isInteger(Number(object.localX)) || !Number.isInteger(Number(object.localY))) throw new Error('Scene local position is invalid');
     if (!Number.isInteger(Number(object.orientation)) || Number(object.orientation) < 0 || Number(object.orientation) > 15) throw new Error('Scene orientation is invalid');
-    if (!Array.isArray(object.footprint) || object.footprint.length === 0) throw new Error('Scene footprint is invalid');
-    for (const cell of object.footprint as unknown[]) {
-      if (!cell || typeof cell !== 'object' || Array.isArray(cell)) throw new Error('Scene footprint cell is invalid');
-      const c = cell as Record<string, unknown>;
-      if (!Number.isInteger(Number(c.x)) || !Number.isInteger(Number(c.y))) throw new Error('Scene footprint cell is invalid');
-    }
+    validateFootprint(object.footprint);
+    validatePortableState(object.portableState);
     if (!Array.isArray(object.dependencyIds)) throw new Error('Scene dependency list is invalid');
     for (const dependencyId of object.dependencyIds as unknown[]) {
       if (typeof dependencyId !== 'string' || !dependencyId) throw new Error('Scene dependency identity is invalid');
-    }
-    for (const forbidden of ['gridId','gridObjectId','sourceGridId','sourceGridObjectId','subGridId','nextGridId','nextGridObjectId']) {
-      if (forbidden in object) throw new Error('Scene artifact contains save-local identity');
     }
   }
   for (const raw of artifact.objects as Array<Record<string, unknown>>) {
@@ -72,9 +172,10 @@ function validateArtifact(value: unknown) {
   }
 
   const networks = artifact.networks;
-  if (networks != null && (typeof networks !== 'object' || Array.isArray(networks))) {
-    throw new Error('Scene network envelope is invalid');
-  }
+  if (networks != null && (typeof networks !== 'object' || Array.isArray(networks))) throw new Error('Scene network envelope is invalid');
+  const networkEnvelope = (networks ?? {}) as Record<string, unknown>;
+  validateNetworkCapture(networkEnvelope.roads, 'roads', Number(bounds.w), Number(bounds.h));
+  validateNetworkCapture(networkEnvelope.fences, 'fences', Number(bounds.w), Number(bounds.h));
   return { schemaVersion, presetType };
 }
 
