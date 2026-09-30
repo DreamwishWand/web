@@ -1800,6 +1800,14 @@ export type Database = {
         Args: { p_auth_subject: string; p_media_id: string }
         Returns: Json
       }
+      community_get_moderation_cases: {
+        Args: {
+          p_admin_auth_subject: string
+          p_limit?: number
+          p_state?: string
+        }
+        Returns: Json
+      }
       community_get_notifications: {
         Args: { p_auth_subject: string; p_limit?: number }
         Returns: Json
@@ -1878,6 +1886,17 @@ export type Database = {
           p_auth_subject: string
           p_case_id: string
           p_reason: string
+        }
+        Returns: Json
+      }
+      community_moderate_work_v2: {
+        Args: {
+          p_action: string
+          p_auth_subject: string
+          p_case_id: string
+          p_issued_at_epoch: number
+          p_reason: string
+          p_session_id: string
         }
         Returns: Json
       }
