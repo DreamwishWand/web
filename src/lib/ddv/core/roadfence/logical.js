@@ -649,3 +649,93 @@ export function eraseFenceLogicalUnits(graph = {}, nodeIdsToErase = []) {
     persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
   };
 }
+
+
+function expandPolylineControlPoints(controlPoints, mode = null) {
+  if (!Array.isArray(controlPoints) || controlPoints.length === 0) {
+    throw new TypeError('controlPoints must contain at least one logical coordinate');
+  }
+  controlPoints.forEach((point, index) => assertIntegerCoordinate(point, `controlPoints[${index}]`));
+  if (mode !== null) normalizeMode(mode);
+
+  const expanded = [{ x: controlPoints[0].x, y: controlPoints[0].y }];
+  for (let i = 1; i < controlPoints.length; i += 1) {
+    const from = controlPoints[i - 1];
+    const to = controlPoints[i];
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    if (dx === 0 && dy === 0) continue;
+
+    const cardinal = dx === 0 || dy === 0;
+    const diagonal = Math.abs(dx) === Math.abs(dy);
+    if (!cardinal && !diagonal) {
+      throw new RangeError('polyline segment must be cardinal or 45-degree diagonal');
+    }
+    if (mode === FenceMode.ORTHOGONAL && !cardinal) {
+      throw new RangeError('orthogonal Fence polyline cannot contain diagonal segments');
+    }
+    if (mode === FenceMode.DIAGONAL && !diagonal) {
+      throw new RangeError('diagonal Fence polyline cannot contain cardinal segments');
+    }
+
+    const steps = Math.max(Math.abs(dx), Math.abs(dy));
+    const sx = Math.sign(dx);
+    const sy = Math.sign(dy);
+    for (let step = 1; step <= steps; step += 1) {
+      expanded.push({ x: from.x + sx * step, y: from.y + sy * step });
+    }
+  }
+  return expanded;
+}
+
+export function rasterizeRoadPolyline(controlPoints) {
+  return rasterizeRoadPath(expandPolylineControlPoints(controlPoints));
+}
+
+export function buildFencePolyline(controlPoints, mode) {
+  normalizeMode(mode);
+  const points = expandPolylineControlPoints(controlPoints, mode);
+  const nodesByCoordinate = new Map();
+  const edgesByKey = new Map();
+  let previousId = null;
+
+  for (const point of points) {
+    const id = coordinateKey(point);
+    if (!nodesByCoordinate.has(id)) {
+      nodesByCoordinate.set(id, { id, x: point.x, y: point.y, mode });
+    }
+    if (previousId !== null && previousId !== id) {
+      const key = logicalEdgeKey(previousId, id);
+      if (!edgesByKey.has(key)) edgesByKey.set(key, { a: previousId, b: id });
+    }
+    previousId = id;
+  }
+
+  const graph = {
+    nodes: [...nodesByCoordinate.values()],
+    edges: [...edgesByKey.values()]
+  };
+  const compiled = compileFenceLogicalGraph(graph);
+  return {
+    graph,
+    compiled,
+    persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+  };
+}
+
+export function buildFenceRectangleOutline({ minX, minY, maxX, maxY }) {
+  for (const [name, value] of Object.entries({ minX, minY, maxX, maxY })) {
+    if (!Number.isInteger(value)) throw new TypeError(`${name} must be an integer logical coordinate`);
+  }
+  if (maxX <= minX || maxY <= minY) {
+    throw new RangeError('Fence rectangle outline requires positive width and height');
+  }
+
+  return buildFencePolyline([
+    { x: minX, y: minY },
+    { x: maxX, y: minY },
+    { x: maxX, y: maxY },
+    { x: minX, y: maxY },
+    { x: minX, y: minY }
+  ], FenceMode.ORTHOGONAL);
+}
