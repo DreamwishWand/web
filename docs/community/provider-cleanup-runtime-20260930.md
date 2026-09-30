@@ -8,7 +8,8 @@ Status:
 - **CONFIRMED PASS** — Vault-authenticated Cron -> Edge worker invocation and idempotent provider cleanup completion.
 - **IMPLEMENTED / CI-GREEN** — provider cleanup worker and operator setup.
 - **CONFIRMED PASS** — persistent provider-cleanup dead-letter + scheduler-heartbeat alerting at the staging backend boundary.
-- **PENDING** — deletion of an actually existing disposable Supabase Auth user and browser/operator execution of the alert path.
+- **CONFIRMED PASS** — scheduled deletion of an actually existing disposable Supabase Auth user.
+- **PENDING** — browser/operator execution of the internal acceptance/alert surfaces and any launch-required external escalation channel.
 
 ## Purpose
 
@@ -135,20 +136,44 @@ Observed runtime:
 This confirms the production-shaped scheduler/auth/worker path without manufacturing a fake claim
 that an existing Auth user was deleted.
 
+## Actual existing-provider-user deletion runtime
+
+A disposable confirmed Supabase Auth user was created as an admin fixture after normal email signup
+hit the staging provider rate limit. The fixture then used normal password sign-in, safe Community
+identity bootstrap, and the deployed self-service Wand tombstone path.
+
+Before worker restart, staging confirmed:
+
+- provider Auth user existed;
+- cleanup job was `pending`;
+- attempts were `0`;
+- WandAccount was already `deleted`;
+- public AuthIdentity was retired/tombstoned.
+
+Provider cleanup Cron was then restored. Its next scheduled run succeeded and the worker:
+
+- deleted the actually existing Supabase Auth user;
+- completed the cleanup job with attempts `1`;
+- anonymized the private stored provider subject;
+- restored healthy worker heartbeat.
+
+The scheduler stale Operations Alert resolved after heartbeat recovery.
+
+Detailed account-deletion evidence:
+`docs/community/account-deletion-runtime-20260930.md`.
+
 ## Remaining runtime closure
 
-The following remain **PENDING**:
+Provider-account deletion is now **CONFIRMED** at the staging backend/provider boundary.
 
-1. create a disposable real staging Supabase Auth user through the normal provider path;
-2. tombstone its WandAccount through the deployed self-service deletion path;
-3. allow the scheduled worker to process the resulting cleanup job;
-4. confirm the actual Supabase Auth user is deleted;
-5. confirm the cleanup job reaches `completed` and the stored provider subject is anonymized;
-6. execute the implemented alert review/acknowledgment path through `/community-ops/` with a real staging admin;
-7. decide whether launch requires an external escalation channel beyond the internal persistent console.
+Still pending:
+
+1. execute the self-service account deletion path through the real browser surface;
+2. execute the implemented alert review/acknowledgment path through `/community-ops/` with a real staging admin;
+3. decide whether launch requires an external escalation channel beyond the internal persistent console;
+4. finalize deletion retention/purge policy.
 
 Persistent backend alerting for provider-cleanup dead letters and stale scheduler/worker heartbeat
 is CONFIRMED in `docs/community/operations-alerts-runtime-20260930.md`.
 
-Do not mark provider-account deletion fully operational until the real existing-user deletion path
-passes.
+Normal public signup/browser onboarding remains a separate VS-01 acceptance item.
