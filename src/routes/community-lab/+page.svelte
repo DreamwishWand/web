@@ -5,6 +5,13 @@
   const CONFIG_KEY = 'dreamwishwand-community-lab-config-v1';
   const TARGET_KEY = 'dreamwishwand-community-lab-target-v1';
 
+  type WorkResultData = {
+    workId?: string;
+    creatorProfileId?: string;
+    rowVersion?: number;
+    caseId?: string;
+  };
+
   let supabaseUrl = 'https://ptpdoxhrqopvczpclcij.supabase.co';
   let publishableKey = '';
   let email = '';
@@ -202,7 +209,7 @@
     }
 
     const result = await run('Media-backed Gallery publish', () =>
-      client!.command('publishGallery', {
+      client!.command<WorkResultData>('publishGallery', {
         workId,
         expectedVersion,
         title,
@@ -228,7 +235,7 @@
     const workId = published?.data?.workId ?? draft?.data?.workId;
     if (!workId) return;
 
-    const result = await run('Authorized work query', () => client!.query('work', { workId }));
+    const result = await run('Authorized work query', () => client!.query<WorkResultData>('work', { workId }));
     if (result) {
       queriedWork = result;
       targetWorkId = String(result?.data?.workId ?? workId);
@@ -241,7 +248,7 @@
   async function queryTargetWork() {
     if (!client || !targetWorkId) return;
     const result = await run('Target work query', () =>
-      client!.query('work', { workId: targetWorkId })
+      client!.query<WorkResultData>('work', { workId: targetWorkId })
     );
     if (result) {
       targetQuery = result;
@@ -301,7 +308,7 @@
   async function reportTarget() {
     if (!client || !targetWorkId) return;
     const result = await run('B report', () =>
-      client!.command('reportEntity', {
+      client!.command<WorkResultData>('reportEntity', {
         targetEntityId: targetWorkId,
         reasonCode: 'community_lab',
         detail: 'Internal staging acceptance report',
