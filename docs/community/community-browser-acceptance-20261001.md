@@ -1,6 +1,6 @@
 # Community Core browser acceptance — 2026-10-01
 
-Status: **CONFIRMED PASS — PRIMARY COMMUNITY BROWSER SLICE**
+Status: **CONFIRMED PASS — PRIMARY + CLOSURE COMMUNITY BROWSER SUITES**
 
 ## Scope
 
@@ -68,16 +68,32 @@ The structural publication/revision/history records are intentionally preserved 
 - self-delete and post-delete session rejection;
 - scheduled provider cleanup of the disposable D Auth user.
 
-## Remaining browser closure
+## Closure suite
 
-A second one-shot closure suite is reserved for the remaining browser-specific gaps:
+The second one-shot browser closure suite also completed with all steps PASS:
 
-- PRIVATE / UNLISTED / PUBLIC semantics;
-- stale SavedItem accessibility;
-- B owner-mutation denial;
-- intentional 429 presentation;
-- failed publish atomicity;
-- Community Ops read surfaces;
-- owner unpublish / soft-delete convergence.
+- PRIVATE direct-read denial for B;
+- stale SavedItem preserved with accessible=false;
+- UNLISTED absent from discovery while direct authenticated read remained available;
+- PUBLIC restored to discovery;
+- B owner-mutation denial for visibility, unpublish and delete;
+- report action limiter reached HTTP 429 RATE_LIMITED after 12 accepted reports and returned retry metadata;
+- linked report-case moderation cleanup succeeded;
+- intentionally invalid Gallery publish returned 400 COMMAND_FAILED;
+- the failed-publish draft remained draft with no current published revision;
+- Community Ops read surfaces for recovery, provider cleanup, Operations Alerts, external-delivery queue, retention jobs and retention holds all returned through a real admin session;
+- owner unpublish removed discovery/access while preserving the stale SavedItem as inaccessible;
+- owner soft delete removed access/discovery while preserving history reference semantics.
 
-WEP-owned Preset payload validation/preflight/apply remains a separate WEP acceptance boundary.
+Independent backend follow-up confirmed the acceptance target work is now deleted, while the newest failed-publish fixture remains draft with current_published_revision_id = null.
+
+## Remaining release boundary
+
+The browser-specific Community closure gaps are now closed.
+
+Still outside this Community browser evidence:
+
+- WEP-owned Preset payload validation/preflight/apply and the full Preset reuse vertical slice;
+- final launch privacy/legal approval of the 30-day content / 365-day operational retention defaults;
+- support Open -> Verify -> Complete remains backend-confirmed and may be re-exercised in the real operator UI if release QA requires it;
+- transactional-email inbox placement should continue to be monitored while the new sending domain gains reputation.
