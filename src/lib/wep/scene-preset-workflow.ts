@@ -101,11 +101,23 @@ export function createScenePresetWorkflow({
     document: WorkflowEditorDocument,
     options: WorkflowCaptureOptions
   ) {
-    const result = captureScene(
-      document,
-      options,
-      publicationValidator
-    );
+    let result: SceneCaptureResult;
+    try {
+      result = captureScene(
+        document,
+        options,
+        publicationValidator
+      );
+    } catch (error) {
+      if (error instanceof WepSceneWorkflowError) throw error;
+      const wrapped = new WepSceneWorkflowError(
+        'WEP_SCENE_CAPTURE_FAILED',
+        'capture'
+      );
+      (wrapped as Error & { cause?: unknown }).cause = error;
+      throw wrapped;
+    }
+
     if (!result.publicationReady) {
       throw new WepSceneWorkflowError(
         'WEP_SCENE_CAPTURE_NOT_PUBLISHABLE',
