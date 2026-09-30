@@ -131,6 +131,38 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         return reply({ ok: false, error: 'Invalid staging image size' }, 400);
       }
 
+      const { data: rate, error: rateError } = await ctx.supabaseAdmin.rpc(
+        'community_consume_action_rate_limit',
+        {
+          p_auth_subject: subject,
+          p_bucket: 'media_prepare'
+        }
+      );
+
+      if (rateError) {
+        return reply(
+          {
+            ok: false,
+            error: 'RATE_LIMIT_CHECK_FAILED',
+            message: rateError.message
+          },
+          400
+        );
+      }
+
+      if (rate?.allowed === false) {
+        return reply(
+          {
+            ok: false,
+            error: 'RATE_LIMITED',
+            bucket: rate.bucket,
+            retryAfterSeconds: rate.retryAfterSeconds,
+            resetAt: rate.resetAt
+          },
+          429
+        );
+      }
+
       const storageKey = `${subject}/${crypto.randomUUID()}.${ext}`;
       const { data, error } = await ctx.supabaseAdmin.storage
         .from(BUCKET)
