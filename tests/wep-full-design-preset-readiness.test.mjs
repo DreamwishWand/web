@@ -24,9 +24,31 @@ test('Floating Island identity remains Core-owned', () => {
   assert.equal(r.issues.some((x)=>x.code==='FLOATING_ISLAND_IDENTITY_CONTRACT_UNAVAILABLE'),true);
 });
 
-test('Current v1.25 full-design baseline stays blocked', () => {
+test('Current v1.25 full-design baseline stays blocked on incomplete categories, not unknown 01B semantics', () => {
   const r=currentV125FullDesignBaseline('biome',{villageSceneItemId:1,villageAreaType:2});
   assert.equal(r.ok,false);
+  assert.equal(r.categories.buildings.status,'partial');
+  assert.equal(r.categories.buildings.evidenceStatus,'CONFIRMED_PORTABLE_CAPTURE_PREFLIGHT');
+  assert.equal(r.categories.environment.status,'partial');
+  assert.equal(r.categories.environment.evidenceStatus,'CONFIRMED_PORTABLE_CAPTURE_PREFLIGHT');
   assert.equal(r.issues.some((x)=>x.category==='buildings'),true);
   assert.equal(r.issues.some((x)=>x.category==='environment'),true);
+});
+
+test('Current v1.25 Floating Island baseline uses the approved SceneItemId identity contract', () => {
+  const r=currentV125FullDesignBaseline('floating_island',{sceneItemId:1540000100});
+  assert.equal(r.ok,false);
+  assert.deepEqual(r.semanticIdentity,{
+    codec:'ddv.outdoor-location-ref@1',
+    kind:'FLOATING_ISLAND',
+    sceneItemId:1540000100
+  });
+  assert.equal(
+    r.issues.some((x)=>x.code==='FLOATING_ISLAND_IDENTITY_CONTRACT_UNAVAILABLE'),
+    false
+  );
+  assert.equal(
+    r.issues.some((x)=>x.code==='FLOATING_ISLAND_IDENTITY_NOT_PROVEN'),
+    false
+  );
 });
