@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
-import { createPresetCommunityBridge } from '../src/lib/wep/preset-community-bridge.js';
+import { createPresetCommunityBridge } from '../src/lib/wep/preset-community-bridge.ts';
 
 if (!globalThis.crypto) globalThis.crypto = webcrypto;
 
