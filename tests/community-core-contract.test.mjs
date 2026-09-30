@@ -1664,3 +1664,24 @@ test('transactional email policies select Resend without merging email semantics
   assert.match(auth, /selected Resend transactional email provider/);
   assert.match(auth, /Supabase custom SMTP is the initial Auth delivery boundary/);
 });
+
+
+test('dreamwishwand.com is the canonical transactional sender domain', () => {
+  const provider = read(
+    'docs/community/transactional-email-provider-resend-20260930.md'
+  );
+  const policy = read('docs/community/transactional-email-policy-20260930.md');
+  const auth = read('docs/community/auth-launch-policy-20260930.md');
+  const escalation = read(
+    'docs/community/operations-escalation-policy-20260930.md'
+  );
+
+  assert.match(provider, /verified Resend domain: `dreamwishwand\.com`/);
+  assert.match(provider, /no-reply@dreamwishwand\.com/);
+  assert.match(provider, /ops@dreamwishwand\.com/);
+  assert.match(provider, /smtp\.resend\.com/);
+  assert.match(provider, /separate from the Auth SMTP credential/);
+  assert.match(policy, /verify `dreamwishwand\.com` in Resend/);
+  assert.match(auth, /no-reply@dreamwishwand\.com/);
+  assert.match(escalation, /ops@dreamwishwand\.com/);
+});
