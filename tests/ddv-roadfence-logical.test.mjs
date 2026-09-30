@@ -122,7 +122,10 @@ test('connected remove refunds logical Fence quantity, not serialized object cou
   const plan = planFenceStraightRun(8, FenceMode.ORTHOGONAL);
   assert.equal(plan.components.length, 3);
   const prediction = predictConnectedFenceRemoval({ components: plan.components, gridObjectIds: [10, 11, 12] });
+  assert.equal(prediction.removedLogicalQuantity, 8);
   assert.equal(prediction.nativeOracleRefundLogicalQuantity, 8);
+  assert.equal(prediction.wandListInventoryDelta, 0);
+  assert.equal(prediction.ownershipMutationRequired, false);
   assert.deepEqual(prediction.removedGridObjectIds, [10, 11, 12]);
   assert.equal(prediction.persistentWriteAuthorized, false);
 });
@@ -137,6 +140,10 @@ test('style replacement preserves logical quantity while refunding source and co
   assert.deepEqual(prediction, {
     ok: true,
     logicalQuantity: 8,
+    nativeOracleRequiredTargetQuantity: 8,
+    nativeOracleAvailableTargetQuantity: 9,
+    nativeOracleInventorySufficient: true,
+    nativeOracleWouldRejectForShortage: false,
     nativeOracleSourceInventoryDelta: 8,
     nativeOracleTargetInventoryDelta: -8,
     wandSourceInventoryDelta: 0,
@@ -148,11 +155,17 @@ test('style replacement preserves logical quantity while refunding source and co
   });
 });
 
-test('style replacement fails closed on target inventory shortage', () => {
+test('Fence target shortage is native-oracle diagnostics, not a Wand preview blocker', () => {
   const plan = planFenceStraightRun(8, FenceMode.ORTHOGONAL);
   const prediction = predictFenceStyleReplacement({ sourceComponents: plan.components, targetAvailableLogicalQuantity: 7 });
-  assert.equal(prediction.ok, false);
-  assert.equal(prediction.code, RoadFenceValidationCode.INVENTORY_SHORTAGE);
+  assert.equal(prediction.ok, true);
+  assert.equal(prediction.nativeOracleRequiredTargetQuantity, 8);
+  assert.equal(prediction.nativeOracleAvailableTargetQuantity, 7);
+  assert.equal(prediction.nativeOracleInventorySufficient, false);
+  assert.equal(prediction.nativeOracleWouldRejectForShortage, true);
+  assert.equal(prediction.wandSourceInventoryDelta, 0);
+  assert.equal(prediction.wandTargetInventoryDelta, 0);
+  assert.equal(prediction.ownershipMutationRequired, false);
 });
 
 test('Capture Region topology clipping fails closed', () => {
@@ -456,12 +469,41 @@ test('Road style replacement preview accounts for one eight-neighbor connected c
   });
   assert.equal(preview.ok, true);
   assert.equal(preview.logicalQuantity, 3);
+  assert.equal(preview.nativeOracleRequiredTargetQuantity, 3);
+  assert.equal(preview.nativeOracleAvailableTargetQuantity, 5);
+  assert.equal(preview.nativeOracleInventorySufficient, true);
+  assert.equal(preview.nativeOracleWouldRejectForShortage, false);
   assert.equal(preview.nativeOracleSourceInventoryDelta, 3);
   assert.equal(preview.nativeOracleTargetInventoryDelta, -3);
+  assert.equal(preview.wandSourceInventoryDelta, 0);
+  assert.equal(preview.wandTargetInventoryDelta, 0);
+  assert.equal(preview.ownershipMutationRequired, false);
   assert.equal(preview.cells.length, 3);
   assert.equal(preview.persistentWriteAuthorized, false);
 });
 
+
+
+test('Road target shortage is native-oracle diagnostics, not a Wand preview blocker', () => {
+  const cells = [
+    { x: 0, y: 0, mode: FenceMode.ORTHOGONAL },
+    { x: 1, y: 0, mode: FenceMode.ORTHOGONAL }
+  ];
+  const preview = previewRoadStyleReplacement({
+    cells,
+    seedCoordinate: { x: 0, y: 0 },
+    sourceFamilyBaseItemID: 40100068,
+    targetFamilyBaseItemID: 40100069,
+    targetAvailableLogicalQuantity: 0
+  });
+  assert.equal(preview.ok, true);
+  assert.equal(preview.logicalQuantity, 2);
+  assert.equal(preview.nativeOracleInventorySufficient, false);
+  assert.equal(preview.nativeOracleWouldRejectForShortage, true);
+  assert.equal(preview.wandSourceInventoryDelta, 0);
+  assert.equal(preview.wandTargetInventoryDelta, 0);
+  assert.equal(preview.ownershipMutationRequired, false);
+});
 
 test('Road eyedropper samples portable family identity and logical mode', () => {
   const cells = rasterizeRoadPath([{ x: 0, y: 0 }, { x: 1, y: 1 }]).cells;
