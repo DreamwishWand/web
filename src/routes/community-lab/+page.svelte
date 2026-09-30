@@ -10,6 +10,7 @@
     creatorProfileId?: string;
     rowVersion?: number;
     caseId?: string;
+    commentId?: string;
   };
 
   type CreatorResultData = {
@@ -44,6 +45,8 @@
   let targetCreatorProfileId = '';
   let targetRowVersion = 0;
   let commentBody = 'Community Lab comment';
+  let parentCommentId = '';
+  let replyBody = 'Community Lab reply from current actor';
   let reportCaseId = '';
   let moderationAction = 'restrict';
   let moderationReason = 'Community Lab moderator runtime probe';
@@ -78,6 +81,7 @@
         targetCreatorProfileId = savedTarget.targetCreatorProfileId || '';
         targetRowVersion = Number(savedTarget.targetRowVersion || 0);
         reportCaseId = savedTarget.reportCaseId || '';
+        parentCommentId = savedTarget.parentCommentId || '';
       }
 
       if (!handle) {
@@ -108,7 +112,13 @@
   function persistTargetContext() {
     sessionStorage.setItem(
       TARGET_KEY,
-      JSON.stringify({ targetWorkId, targetCreatorProfileId, targetRowVersion, reportCaseId })
+      JSON.stringify({
+        targetWorkId,
+        targetCreatorProfileId,
+        targetRowVersion,
+        reportCaseId,
+        parentCommentId
+      })
     );
   }
 
@@ -350,7 +360,7 @@
     }
 
     const result = await run('B comment', () =>
-      client!.command('addComment', {
+      client!.command<WorkResultData>('addComment', {
         creatorProfileId,
         targetEntityId: targetWorkId,
         parentCommentId: null,
@@ -358,7 +368,31 @@
         idempotencyKey: crypto.randomUUID()
       })
     );
-    if (result) interactions = { ...interactions, comment: result };
+    if (result) {
+      interactions = { ...interactions, comment: result };
+      parentCommentId = String(result?.data?.commentId ?? parentCommentId);
+      persistTargetContext();
+    }
+  }
+
+  async function replyToStoredComment() {
+    if (!client || !targetWorkId || !parentCommentId) return;
+    const creatorProfileId = currentCreatorProfileId();
+    if (!creatorProfileId) {
+      error = 'Run Stable identity for the currently signed-in replying account first.';
+      return;
+    }
+
+    const result = await run('Reply to stored comment', () =>
+      client!.command<WorkResultData>('addComment', {
+        creatorProfileId,
+        targetEntityId: targetWorkId,
+        parentCommentId,
+        body: replyBody,
+        idempotencyKey: crypto.randomUUID()
+      })
+    );
+    if (result) interactions = { ...interactions, reply: result };
   }
 
   async function reportTarget() {
@@ -725,9 +759,19 @@
             on:change={persistTargetContext}
           />
         </label>
+        <div class="lab-two">
+          <label>
+            Comment
+            <input bind:value={commentBody} />
+          </label>
+          <label>
+            Stored parent comment ID
+            <input bind:value={parentCommentId} on:change={persistTargetContext} />
+          </label>
+        </div>
         <label>
-          Comment
-          <input bind:value={commentBody} />
+          Reply body
+          <input bind:value={replyBody} />
         </label>
         <div class="lab-actions lab-wrap">
           <button on:click={queryTargetWork} disabled={busy || !session || !targetWorkId}>
@@ -743,6 +787,13 @@
             on:click={commentTarget}
             disabled={busy || !session || !targetWorkId || !identity}>Comment</button
           >
+          <button
+            class="secondary"
+            on:click={replyToStoredComment}
+            disabled={busy || !session || !targetWorkId || !parentCommentId || !identity}
+          >
+            Reply as current actor
+          </button>
           <button on:click={reportTarget} disabled={busy || !session || !targetWorkId}>Report</button>
           <button
             class="secondary"
