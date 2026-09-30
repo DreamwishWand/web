@@ -9,20 +9,20 @@ import {
   currentV125FullDesignBaseline,
   type FullDesignPresetType
 } from './full-design-preset-readiness.ts';
+import {
+  FULL_DESIGN_CAPTURE_MANIFEST_SCHEMA,
+  FULL_DESIGN_CAPTURE_MANIFEST_VERSION,
+  validateCurrentV125FullDesignManifest,
+  type FullDesignCategory
+} from './full-design-preset-manifest.ts';
+
+export {
+  FULL_DESIGN_CAPTURE_MANIFEST_SCHEMA,
+  FULL_DESIGN_CAPTURE_MANIFEST_VERSION
+} from './full-design-preset-manifest.ts';
+export type { FullDesignCategory } from './full-design-preset-manifest.ts';
 
 type AnyRecord = Record<string, any>;
-
-export const FULL_DESIGN_CAPTURE_MANIFEST_SCHEMA =
-  'dreamwish-wand-full-design-capture-manifest';
-export const FULL_DESIGN_CAPTURE_MANIFEST_VERSION = 1;
-
-export type FullDesignCategory =
-  | 'directGrids'
-  | 'rootObjects'
-  | 'roads'
-  | 'fences'
-  | 'buildings'
-  | 'environment';
 
 export interface FullDesignCapturePlanInput {
   profile: AnyRecord;
@@ -317,10 +317,15 @@ export function buildCurrentV125FullDesignCapturePlan({
     persistentWriteAuthorized: false
   } as const;
 
+  const manifestValidation = validateCurrentV125FullDesignManifest(manifest);
+
   return {
-    manifestReady: true,
+    manifestReady: manifestValidation.ok,
+    manifestValidation,
     publicationReady:
-      readiness.publicationReady === true && issues.length === 0,
+      manifestValidation.ok &&
+      readiness.publicationReady === true &&
+      issues.length === 0,
     applyReady: false,
     applyReason: 'CORE_ATOMIC_PERSISTENT_COMMIT_NOT_AUTHORIZED',
     presetType: type,
