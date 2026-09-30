@@ -81,6 +81,14 @@ This route is intentionally not linked from the public Dreamwish Wand shell. It 
    - query SavedItems after A's privacy/unpublish/delete change and require the reference to remain without becoming an access grant (`accessible=false` where applicable);
    - query Notifications for relevant actors after the cron interval;
    - confirm expected deliveries without treating Notification presence as authorization proof.
+13. **Self-service Wand Account deletion acceptance**:
+   - use a disposable staging Auth user on the hidden `/community-lab/account/` route;
+   - verify a stale provider session returns `RECENT_AUTH_REQUIRED`;
+   - sign out and sign in again to create a fresh provider session;
+   - type exact `DELETE` confirmation and invoke `community-account`;
+   - confirm immediate Wand tombstone/de-identification and local/global sign-out;
+   - confirm a private provider-cleanup job is queued;
+   - later verify the secret-only provider worker deletes the actual Auth user and completes/anonymizes the cleanup job.
 
 ## Runtime evidence needed
 
@@ -150,6 +158,6 @@ The Lab should surface normal API failures rather than bypassing them:
 
 ## Current boundary
 
-The Lab is an implementation checkpoint, not acceptance proof by itself. The A -> B -> moderator path plus PKCE recovery/re-auth/all-session-revocation UX is implemented and CI-validated. VS-02/VS-12 are CONFIRMED PASS at the backend/network boundary, VS-13 is CONFIRMED PASS through true multi-backend concurrency, and VS-01 backend identity/recovery/session-control primitives are materially proven. Recent-auth is now bound to provider session creation time rather than JWT refresh time. The separate hidden Community Ops console is implemented for admin recovery and provider/outbox dead-letter operations. VS-01 remains PARTIAL until the normal provider/browser identity/recovery path and real admin Ops path are executed.
+The Lab is an implementation checkpoint, not acceptance proof by itself. The A -> B -> moderator path plus PKCE recovery/re-auth/all-session-revocation UX is implemented and CI-validated. VS-02/VS-12 are CONFIRMED PASS at the backend/network boundary, VS-13 is CONFIRMED PASS through true multi-backend concurrency, and VS-01 backend identity/recovery/session-control primitives are materially proven. Recent-auth is bound to provider session creation time rather than JWT refresh time. The separate hidden Community Ops console is implemented for admin recovery and provider/outbox dead-letter operations. A hidden self-service account-deletion acceptance route is also implemented; its session-bound Wand tombstone DB path is CONFIRMED 8/8, while real browser/provider deletion remains pending. VS-01 remains PARTIAL until the normal provider/browser identity/recovery path and real admin Ops path are executed.
 
 The WEP workstream continues to own Preset payload semantics, compatibility preflight and apply behavior. Community owns the publication envelope, exact revision link, permissions and SavedItem/Library reuse.
