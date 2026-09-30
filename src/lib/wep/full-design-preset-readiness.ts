@@ -1,3 +1,4 @@
+import { currentV125FloatingIslandIdentityAdapter } from './world-portable-contracts.ts';
 export type FullDesignPresetType = 'biome' | 'floating_island';
 export type CoverageStatus = 'complete' | 'not_applicable' | 'partial' | 'unknown' | 'blocked';
 
@@ -136,16 +137,45 @@ export function currentV125FullDesignBaseline(
   type: FullDesignPresetType,
   semanticIdentity?: unknown
 ) {
-  return assessFullDesignPresetReadiness({
-    type,
-    semanticIdentity,
-    coverage: {
-      directGrids: { status: 'partial', evidenceStatus: 'CONFIRMED_READ_ONLY', contract: '01B-v1.3-role-classifier' },
-      rootObjects: { status: 'partial', evidenceStatus: 'CONFIRMED_READ_ONLY', contract: '01B-v1.3-world-loader' },
-      roads: { status: 'partial', evidenceStatus: 'CONFIRMED_STATIC_RUNTIME_PARTIAL', contract: '01C-logical-road-network' },
-      fences: { status: 'partial', evidenceStatus: 'CONFIRMED_STATIC_RUNTIME_PARTIAL', contract: '01C-logical-fence-network' },
-      buildings: { status: 'unknown', evidenceStatus: 'UNKNOWN' },
-      environment: { status: 'unknown', evidenceStatus: 'UNKNOWN' }
+  return assessFullDesignPresetReadiness(
+    {
+      type,
+      semanticIdentity,
+      coverage: {
+        directGrids: {
+          status: 'partial',
+          evidenceStatus: 'CONFIRMED_SEMANTIC_ROUTE_READ_ONLY',
+          contract: '01B-v1.6-outdoor-location-direct-root-route'
+        },
+        rootObjects: {
+          status: 'partial',
+          evidenceStatus: 'CONFIRMED_READ_ONLY',
+          contract: '01B-v1.6-world-loader'
+        },
+        roads: {
+          status: 'partial',
+          evidenceStatus: 'CONFIRMED_STATIC_RUNTIME_PARTIAL',
+          contract: '01C-logical-road-network'
+        },
+        fences: {
+          status: 'partial',
+          evidenceStatus: 'CONFIRMED_STATIC_RUNTIME_PARTIAL',
+          contract: '01C-logical-fence-network'
+        },
+        buildings: {
+          status: 'partial',
+          evidenceStatus: 'CONFIRMED_PORTABLE_CAPTURE_PREFLIGHT',
+          contract: '01B-v1.5-building-playerhouse-restoration'
+        },
+        environment: {
+          status: 'partial',
+          evidenceStatus: 'CONFIRMED_PORTABLE_CAPTURE_PREFLIGHT',
+          contract: '01B-v1.5-environment-restoration'
+        }
+      }
+    },
+    {
+      identityAdapter: currentV125FloatingIslandIdentityAdapter
     }
-  });
+  );
 }
