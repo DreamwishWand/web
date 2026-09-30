@@ -30,9 +30,24 @@ function messageOf(error: unknown): string {
 }
 
 export default {
-  fetch: withSupabase({ auth: 'secret' }, async (req, ctx) => {
+  fetch: withSupabase({ auth: 'none' }, async (req, ctx) => {
     if (req.method !== 'POST') {
       return reply({ ok: false, error: 'POST required' }, 405);
+    }
+
+    const workerToken = req.headers.get('x-community-worker-token') ?? '';
+    if (!workerToken) {
+      return reply({ ok: false, error: 'WORKER_AUTH_REQUIRED' }, 401);
+    }
+
+    const { data: workerAuthorized, error: workerAuthError } =
+      await ctx.supabaseAdmin.rpc('community_verify_worker_token', {
+        p_worker_name: 'provider_cleanup',
+        p_token: workerToken
+      });
+
+    if (workerAuthError || workerAuthorized !== true) {
+      return reply({ ok: false, error: 'WORKER_AUTH_INVALID' }, 401);
     }
 
     let requestedLimit = 10;
