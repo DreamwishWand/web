@@ -37,6 +37,12 @@ queue. This implementation is intentionally separate from provider selection.
   configured and accepted.
 - Staging worker scheduling is active and its dedicated worker heartbeat has been verified while the
   external destination remains disabled.
+- The delivery subsystem has its own persistent Operations Alerts for delivery dead-letter and
+  scheduler/worker heartbeat failure.
+- Those self-monitor alerts are intentionally excluded from the same external delivery queue to
+  prevent recursive escalation loops.
+- Community Ops can list external delivery state and recent-auth requeue a dead-letter delivery only
+  while its originating critical alert occurrence is still open/current.
 
 This closes the provider-neutral transport contract, but **does not satisfy launch acceptance by
 itself**. A real external channel still has to be configured and observed end-to-end.
@@ -86,5 +92,7 @@ Before public release:
 8. confirm no prohibited user/private data appears in the provider payload or provider logs used for
    acceptance evidence.
 
-Until these steps pass, external escalation remains **PARTIAL / launch-blocking** even though the
-backend transport substrate is implemented.
+Backend transport, worker-health monitoring, dead-letter visibility, and reviewed retry are
+**CONFIRMED** at the staging backend boundary. External escalation as a launch capability remains
+**PARTIAL / launch-blocking** until a real provider/channel passes the end-to-end acceptance steps
+above.
