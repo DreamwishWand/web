@@ -1,5 +1,3 @@
-import { validatePublishablePreset } from './scene-preset-runtime.ts';
-
 export type WepLayer =
   | 'furniture'
   | 'building'
@@ -68,6 +66,16 @@ export interface CaptureSceneOptions {
   networkAdapter?: NetworkCaptureAdapter | null;
   title?: string;
 }
+
+export interface ScenePublicationValidation {
+  ok: boolean;
+  issues: Array<Record<string, unknown>>;
+  [key: string]: unknown;
+}
+
+export type ScenePublicationValidator = (
+  artifact: unknown
+) => ScenePublicationValidation;
 
 export interface CaptureIssue {
   severity: 'BLOCK' | 'WARNING';
@@ -356,7 +364,8 @@ export function captureScenePreset(
     includeFences = false,
     networkAdapter = null,
     title = ''
-  }: CaptureSceneOptions
+  }: CaptureSceneOptions,
+  publicationValidator: ScenePublicationValidator | null = null
 ) {
   const document = normalizeDocument(documentInput);
   const closureIds = dependencyClosure(document, selectionIds ?? []);
@@ -463,20 +472,22 @@ export function captureScenePreset(
     }
   } as const;
 
-  const publication = validatePublishablePreset(artifact);
+  const publication = publicationValidator
+    ? publicationValidator(artifact)
+    : null;
   const allIssues = [
     ...issues,
-    ...publication.issues.map((entry) => ({ ...entry }))
+    ...(publication?.issues ?? []).map((entry) => ({ ...entry }))
   ];
+  const captureReady = issues.every((entry) => entry.severity !== 'BLOCK');
 
   return {
     artifact,
     region,
     classifications,
     issues: allIssues,
-    captureReady: issues.every((entry) => entry.severity !== 'BLOCK'),
-    publicationReady:
-      issues.every((entry) => entry.severity !== 'BLOCK') && publication.ok,
+    captureReady,
+    publicationReady: captureReady && publication?.ok === true,
     publication
   };
 }
