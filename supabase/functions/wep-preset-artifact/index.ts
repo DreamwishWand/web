@@ -153,7 +153,7 @@ function validateArtifact(value: unknown) {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('Invalid Scene object');
     const object = raw as Record<string, unknown>;
     const id = String(object.artifactObjectId ?? '');
-    if (!id || ids.has(id)) throw new Error('Scene artifact object identity is invalid');
+    if (!/^o\\d+$/.test(id) || ids.has(id)) throw new Error('Scene artifact object identity is invalid');
     ids.add(id);
     if (!Number.isInteger(Number(object.itemId)) || Number(object.itemId) <= 0) throw new Error('Scene itemId is invalid');
     if (!Number.isInteger(Number(object.localX)) || !Number.isInteger(Number(object.localY))) throw new Error('Scene local position is invalid');
