@@ -11,6 +11,9 @@ import {
   type FullDesignPresetType
 } from './full-design-preset-readiness.ts';
 import {
+  captureCurrentV125RootObjectComposition
+} from './full-design-root-object-composition.ts';
+import {
   FULL_DESIGN_CAPTURE_MANIFEST_SCHEMA,
   FULL_DESIGN_CAPTURE_MANIFEST_VERSION,
   validateCurrentV125FullDesignManifest,
@@ -30,6 +33,7 @@ export interface FullDesignCapturePlanInput {
   rootGridId: number;
   sourcePlatform?: string | null;
   requestedCategories?: Partial<Record<FullDesignCategory, boolean>>;
+  rootEditorDocuments?: AnyRecord[] | null;
 }
 
 export interface FullDesignPlanningIssue {
@@ -273,7 +277,8 @@ export function buildCurrentV125FullDesignCapturePlan({
   profile,
   rootGridId,
   sourcePlatform = 'unknown',
-  requestedCategories = {}
+  requestedCategories = {},
+  rootEditorDocuments = null
 }: FullDesignCapturePlanInput) {
   const sourceLocation = captureV125OutdoorLocation(profile, rootGridId);
   if (sourceLocation?.status !== 'RESOLVED' || !sourceLocation.locationRef) {
@@ -289,6 +294,15 @@ export function buildCurrentV125FullDesignCapturePlan({
 
   const directRootRoutes = portableRoutes(resolved);
   const rootObjectPlanning = captureDirectRootObjectPlanning(profile, resolved);
+  const rootObjectComposition =
+    Array.isArray(rootEditorDocuments) && rootEditorDocuments.length
+      ? captureCurrentV125RootObjectComposition({
+          documents: rootEditorDocuments as any,
+          expectedGridDataPaths: directRootRoutes.map(
+            (route: AnyRecord) => route.gridDataPath
+          )
+        })
+      : null;
   const environment = captureEnvironment(
     profile,
     type,
@@ -368,9 +382,23 @@ export function buildCurrentV125FullDesignCapturePlan({
       routeObjectCounts: requested('rootObjects', requestedCategories)
         ? clone(rootObjectPlanning.routeObjectCounts)
         : [],
-      blockers: issues
-        .filter((issue) => issue.category === 'rootObjects')
-        .map((issue) => issue.code)
+      portableComposition:
+        requested('rootObjects', requestedCategories) && rootObjectComposition
+          ? clone(rootObjectComposition)
+          : null,
+      blockers: [
+        ...issues
+          .filter((issue) => issue.category === 'rootObjects')
+          .map((issue) => issue.code),
+        ...(requested('rootObjects', requestedCategories) &&
+        rootObjectComposition?.unresolved?.length
+          ? ['FULL_DESIGN_ROOT_OBJECT_COMPOSITION_UNRESOLVED']
+          : []),
+        ...(requested('rootObjects', requestedCategories) &&
+        rootObjectComposition?.missingRoutes?.length
+          ? ['FULL_DESIGN_ROOT_OBJECT_ROUTE_DOCUMENTS_MISSING']
+          : [])
+      ]
     },
     roads: {
       requested: requested('roads', requestedCategories),
