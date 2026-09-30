@@ -266,6 +266,7 @@ export type Database = {
           created_by_account_id: string
           revision_id: string
           revision_number: number
+          sealed_at: string | null
           shared_metadata: Json
           work_id: string
         }
@@ -274,6 +275,7 @@ export type Database = {
           created_by_account_id: string
           revision_id?: string
           revision_number: number
+          sealed_at?: string | null
           shared_metadata?: Json
           work_id: string
         }
@@ -282,6 +284,7 @@ export type Database = {
           created_by_account_id?: string
           revision_id?: string
           revision_number?: number
+          sealed_at?: string | null
           shared_metadata?: Json
           work_id?: string
         }
@@ -1379,6 +1382,27 @@ export type Database = {
         Args: { p_auth_subject: string; p_creator_profile_id: string }
         Returns: Json
       }
+      community_get_me: { Args: { p_auth_subject: string }; Returns: Json }
+      community_get_media_storage_key: {
+        Args: { p_auth_subject: string; p_media_id: string }
+        Returns: Json
+      }
+      community_get_notifications: {
+        Args: { p_auth_subject: string; p_limit?: number }
+        Returns: Json
+      }
+      community_get_preset: {
+        Args: { p_auth_subject: string; p_preset_artifact_id: string }
+        Returns: Json
+      }
+      community_get_saved: {
+        Args: { p_auth_subject: string; p_limit?: number }
+        Returns: Json
+      }
+      community_get_work: {
+        Args: { p_auth_subject: string; p_work_id: string }
+        Returns: Json
+      }
       community_moderate_work: {
         Args: {
           p_action: string
@@ -1400,6 +1424,61 @@ export type Database = {
           p_idempotency_key: string
           p_title: string
           p_work_id: string
+        }
+        Returns: Json
+      }
+      community_publish_gallery_v2: {
+        Args: {
+          p_auth_subject: string
+          p_description: string
+          p_expected_version: number
+          p_idempotency_key: string
+          p_media_ids: string[]
+          p_title: string
+          p_work_id: string
+        }
+        Returns: Json
+      }
+      community_publish_gallery_v3: {
+        Args: {
+          p_auth_subject: string
+          p_description: string
+          p_expected_version: number
+          p_idempotency_key: string
+          p_media_ids: string[]
+          p_preset_revision_ids: string[]
+          p_title: string
+          p_work_id: string
+        }
+        Returns: Json
+      }
+      community_publish_preset_envelope: {
+        Args: {
+          p_artifact_storage_key: string
+          p_auth_subject: string
+          p_byte_size: number
+          p_checksum_sha256: string
+          p_content_type: string
+          p_creator_profile_id: string
+          p_description: string
+          p_idempotency_key: string
+          p_metadata: Json
+          p_preset_type: string
+          p_schema_version: number
+          p_title: string
+          p_visibility: string
+        }
+        Returns: Json
+      }
+      community_register_validated_media: {
+        Args: {
+          p_auth_subject: string
+          p_byte_size: number
+          p_checksum_sha256: string
+          p_height: number
+          p_mime_type: string
+          p_storage_key: string
+          p_width: number
         }
         Returns: Json
       }
