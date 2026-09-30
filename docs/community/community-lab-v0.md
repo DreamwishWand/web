@@ -17,10 +17,13 @@ This route is intentionally not linked from the public Dreamwish Wand shell. It 
 
 1. Configure the isolated staging URL and publishable key.
 2. Sign in with a staging Supabase Auth user.
-3. **Stable identity**:
+3. **Stable identity + CreatorProfile edit**:
    - call `community-command.ensureAccountCreator`;
    - immediately call `community-query.me`;
-   - confirm the same WandAccount/CreatorProfile IDs.
+   - capture WandAccount ID, CreatorProfile ID and CreatorProfile `rowVersion`;
+   - edit handle/display name/bio/profile visibility through `community-command.updateCreatorProfile` using `expectedVersion` + a new idempotency key;
+   - call `community-query.me` again;
+   - require the same WandAccount and CreatorProfile IDs, with an incremented `rowVersion` and the edited profile fields.
 4. **Validated media**:
    - choose JPEG/PNG/WebP;
    - call `community-media.prepare`;
@@ -77,6 +80,15 @@ Record, without storing passwords/tokens:
 - authorized work readback PASS;
 - post-test cleanup status.
 
+### VS-01 stable identity/profile-edit portion
+
+- A WandAccount ID before/after profile edit;
+- A CreatorProfile ID before/after profile edit;
+- CreatorProfile rowVersion before/after;
+- edited handle/display name/bio/visibility readback;
+- explicit stable-ID PASS;
+- stale expectedVersion rejection when exercised.
+
 ### A -> B -> moderator product-shaped path
 
 Record only opaque actor labels (A/B/M) plus stable Community IDs:
@@ -111,6 +123,6 @@ The Lab should surface normal API failures rather than bypassing them:
 
 ## Current boundary
 
-The Lab is an implementation checkpoint, not acceptance proof by itself. The A -> B -> moderator route is implemented and CI-validated, but no new VS status is promoted until the real browser flow is executed. VS-02/VS-12 remain PARTIAL until a real image completes the browser path above. VS-01 remains PARTIAL until the product-facing Creator edit/recovery lifecycle is exercised. VS-13 still requires a true parallel-session test.
+The Lab is an implementation checkpoint, not acceptance proof by itself. The A -> B -> moderator route is implemented and CI-validated, but no new VS status is promoted until the real browser flow is executed. VS-02/VS-12 remain PARTIAL until a real image completes the browser path above. VS-01 stable-ID/profile-edit backend semantics are CONFIRMED and the Lab path is implemented, but VS-01 remains PARTIAL until that path is executed in the product-shaped browser flow; broader account recovery remains a separate launch requirement. VS-13 still requires a true parallel-session test.
 
 The WEP workstream continues to own Preset payload semantics, compatibility preflight and apply behavior. Community owns the publication envelope, exact revision link, permissions and SavedItem/Library reuse.
