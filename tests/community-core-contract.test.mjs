@@ -378,13 +378,16 @@ test('Community Lab remains an internal route and is not linked from the public 
 });
 
 
-test('authenticated command adapter exposes moderation without accepting a client actor', () => {
+test('authenticated command adapter exposes session-bound moderation without accepting a client actor', () => {
   const source = read('supabase/functions/community-command/index.ts');
-  assert.match(source, /moderateWork: 'community_moderate_work'/);
+  assert.match(source, /moderateWork: 'community_moderate_work_v2'/);
+  assert.match(source, /params\.p_session_id = sessionId/);
+  assert.match(source, /params\.p_issued_at_epoch = issuedAt/);
   assert.match(source, /params\.p_case_id = payload\.caseId/);
   assert.match(source, /params\.p_action = payload\.action/);
   assert.match(source, /params\.p_reason = payload\.reason/);
   assert.match(source, /p_auth_subject: subject/);
+  assert.match(source, /RECENT_AUTH_REQUIRED/);
   assert.doesNotMatch(source, /payload\.actorAccountId|payload\.actor_account_id/);
 });
 
@@ -1449,4 +1452,52 @@ test('operational foreign keys have covering indexes', () => {
   ]) {
     assert.match(migration, new RegExp(indexName));
   }
+});
+
+
+test('production-shaped moderation queue is role-gated, privacy-minimized and recent-auth protected', () => {
+  const migration = read(
+    'supabase/migrations/20260930120042_community_core_v0_moderation_operations.sql'
+  );
+  const admin = read('supabase/functions/community-admin/index.ts');
+  const page = read('src/routes/community-ops/+page.svelte');
+
+  assert.match(migration, /moderation_staff_recent_auth_seconds',900/);
+  assert.match(migration, /require_recent_moderation_staff/);
+  assert.match(migration, /role in \('moderator','admin'\)/);
+  assert.match(migration, /community_get_moderation_cases/);
+  assert.match(migration, /community_moderate_work_v2/);
+  assert.match(migration, /r\.status in \('open','triaged'\)/);
+  assert.doesNotMatch(migration, /'reporterAccountId'/);
+
+  assert.match(admin, /listModerationCases: 'community_get_moderation_cases'/);
+  assert.match(admin, /moderateCase: 'community_moderate_work_v2'/);
+  assert.match(admin, /operation === 'moderateCase'[\s\S]*p_auth_subject: subject/);
+
+  assert.match(page, /Moderation queue/);
+  assert.match(page, /reporter account identity is intentionally omitted/i);
+  assert.match(page, /15-minute moderation recent-auth/);
+  assert.match(page, /Apply moderation action/);
+});
+
+test('moderation launch policy keeps automated providers optional and canonical state local', () => {
+  const policy = read(
+    'docs/community/moderation-operations-launch-policy-20260930.md'
+  );
+
+  assert.match(policy, /third-party automated moderation provider is \*\*not a first-launch dependency\*\*/);
+  assert.match(policy, /Report/);
+  assert.match(policy, /ModerationCase/);
+  assert.match(policy, /ModerationAction/);
+  assert.match(policy, /AuditEvent/);
+  assert.match(policy, /reporter identity exposed by queue = false/);
+  assert.match(policy, /Recent authentication required/);
+});
+
+test('generated schema exposes production moderation operations', () => {
+  const generated = read('src/lib/generated/database.types.ts');
+
+  assert.match(generated, /community_get_moderation_cases/);
+  assert.match(generated, /community_moderate_work_v2/);
+  assert.match(generated, /moderationStaffRecentAuthSeconds|community_get_security_policy_summary/);
 });
