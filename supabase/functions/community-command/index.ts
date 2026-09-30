@@ -5,6 +5,7 @@ type JsonObject = Record<string, unknown>;
 
 const commandToRpc = {
   ensureAccountCreator: 'community_ensure_account_creator',
+  updateCreatorProfile: 'community_update_creator_profile',
   createGalleryDraft: 'community_create_gallery_draft',
   publishGallery: 'community_publish_gallery_v3',
   saveEntity: 'community_save_entity',
@@ -53,6 +54,14 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       case 'ensureAccountCreator':
         params.p_handle = payload.handle;
         params.p_display_name = payload.displayName;
+        break;
+      case 'updateCreatorProfile':
+        params.p_expected_version = payload.expectedVersion;
+        params.p_handle = payload.handle;
+        params.p_display_name = payload.displayName;
+        params.p_bio = payload.bio ?? null;
+        params.p_profile_visibility = payload.profileVisibility;
+        params.p_idempotency_key = payload.idempotencyKey;
         break;
       case 'createGalleryDraft':
         params.p_creator_profile_id = payload.creatorProfileId;
