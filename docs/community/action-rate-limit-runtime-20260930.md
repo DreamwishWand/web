@@ -1,6 +1,6 @@
 # Community Core action rate-limit runtime — 2026-09-30
 
-Status: **CONFIRMED STAGING BACKEND / BROWSER 429 UX PENDING**
+Status: **CONFIRMED STAGING BACKEND + ACTIONABLE CLIENT 429 HANDLING / BROWSER RUNTIME PENDING**
 
 ## Purpose
 
@@ -124,9 +124,17 @@ Observed:
 
 The transaction was rolled back. No fixture account/counter or temporary policy value remained.
 
+## Browser 429 handling
+
+The shared browser client now raises a typed `CommunityHttpError` and converts
+`429 RATE_LIMITED` into an actionable message containing the affected action bucket plus approximate
+retry seconds. The original retry/reset metadata remains available on the error object.
+
+This is implemented and contract-tested; a real browser exhaustion probe is still required.
+
 ## Remaining acceptance
 
-1. trigger a real browser/Edge 429 through the Community Lab and verify actionable UX;
+1. trigger a real browser/Edge 429 through the Community Lab and verify the implemented actionable UX;
 2. review/tune engineering defaults using closed-beta/load/abuse evidence;
 3. decide deployment-layer anonymous search throttling before broad public exposure;
 4. preserve Supabase Auth endpoint/IP protections and transactional-email provider quotas separately.
