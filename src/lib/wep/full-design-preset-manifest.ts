@@ -627,7 +627,7 @@ function validateRootObjectPortableComposition(
 
   const missing = new Set<string>();
   composition.missingRoutes.forEach((value: unknown, index: number) => {
-    if (!nonEmptyString(value) || !directRootPaths.has(value)) {
+    if (!nonEmptyString(value)) {
       issues.push(
         block(
           'FULL_DESIGN_ROOT_COMPOSITION_MISSING_ROUTE_INVALID',
@@ -636,7 +636,17 @@ function validateRootObjectPortableComposition(
       );
       return;
     }
-    missing.add(value);
+    const route = String(value);
+    if (!directRootPaths.has(route)) {
+      issues.push(
+        block(
+          'FULL_DESIGN_ROOT_COMPOSITION_MISSING_ROUTE_INVALID',
+          `${path}.missingRoutes[${index}]`
+        )
+      );
+      return;
+    }
+    missing.add(route);
   });
 
   if (
