@@ -87,7 +87,7 @@ async function fetchPinnedJson<T>(
 function normalizeReadData(raw: CompactReadData) {
   if (
     !raw ||
-    raw.schema !== 'dreamwish-wand-world-read-data-v125' ||
+    raw.schema !== 'dreamwish-wand-v125-world-read-data' ||
     raw.version !== 1 ||
     raw.platform !== 'Nintendo Switch' ||
     raw.gameVersion !== '1.25.0' ||
@@ -150,7 +150,7 @@ function normalizeReadData(raw: CompactReadData) {
 function validateRoleAuthority(raw: RoleAuthority): RoleAuthority {
   if (
     !raw ||
-    raw.schema !== 'dreamwish-wand-grid-role-authority-v125' ||
+    raw.schema !== 'dreamwish-wand-ddv-grid-role-authority' ||
     raw.version !== 1 ||
     raw.gameVersion !== '1.25.0' ||
     !raw.byGridDataPath ||
