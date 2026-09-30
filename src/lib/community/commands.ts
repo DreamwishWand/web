@@ -1,5 +1,4 @@
 import type {
-  AccountId,
   CreatorProfileId,
   EntityId,
   RevisionId,
@@ -8,8 +7,12 @@ import type {
   WorkType
 } from './domain';
 
+/**
+ * Actor identity is intentionally absent from the command envelope.
+ * The authenticated server/Edge adapter resolves the actor from verified
+ * credentials and binds a command bus to that request context.
+ */
 export interface CommandEnvelope<T> {
-  actorAccountId: AccountId;
   idempotencyKey: string;
   expectedVersion?: number;
   payload: T;
