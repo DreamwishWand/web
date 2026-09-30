@@ -1,4 +1,5 @@
 import { withSupabase } from 'npm:@supabase/server';
+import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
 type JsonObject = Record<string, unknown>;
 
@@ -15,12 +16,11 @@ type QueryName = keyof typeof queryToRpc;
 function response(body: unknown, status = 200) {
   return Response.json(body, {
     status,
-    headers: { 'Cache-Control': 'private, no-store' }
+    headers: { ...corsHeaders, 'Cache-Control': 'private, no-store' }
   });
 }
 
-export default {
-  fetch: withSupabase({ auth: 'user' }, async (req, ctx) => {
+const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
     if (req.method !== 'POST') return response({ ok: false, error: 'POST required' }, 405);
 
     const subject = ctx.userClaims?.id;
@@ -71,5 +71,13 @@ export default {
     }
 
     return response({ ok: true, query, data });
-  })
+});
+
+export default {
+  fetch(req: Request) {
+    if (req.method === 'OPTIONS') {
+      return new Response('ok', { headers: corsHeaders });
+    }
+    return authenticatedFetch(req);
+  }
 };
