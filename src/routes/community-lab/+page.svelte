@@ -12,6 +12,16 @@
     caseId?: string;
   };
 
+  type CreatorResultData = {
+    accountId?: string;
+    creatorProfileId?: string;
+    handle?: string;
+    displayName?: string;
+    bio?: string | null;
+    profileVisibility?: string;
+    rowVersion?: number;
+  };
+
   let supabaseUrl = 'https://ptpdoxhrqopvczpclcij.supabase.co';
   let publishableKey = '';
   let email = '';
@@ -40,6 +50,8 @@
 
   let handle = '';
   let displayName = 'Community Lab Creator';
+  let creatorBio = '';
+  let creatorProfileVisibility = 'public';
   let visibility = 'unlisted';
   let galleryKind = 'outdoor';
   let title = 'Community Lab Gallery';
@@ -149,16 +161,59 @@
     if (!client) return;
 
     const result = await run('Stable identity', async () => {
-      const created = await client!.command('ensureAccountCreator', {
+      const created = await client!.command<CreatorResultData>('ensureAccountCreator', {
         handle,
         displayName
       });
-      const me = await client!.query('me');
+      const me = await client!.query<CreatorResultData>('me');
       return { created, me };
     });
 
     if (result) {
       identity = result;
+      creatorBio = String(result.me?.data?.bio ?? '');
+      creatorProfileVisibility = String(result.me?.data?.profileVisibility ?? 'public');
+    }
+  }
+
+  async function updateCreatorProfile() {
+    if (!client) return;
+
+    const before = identity?.me?.data as CreatorResultData | undefined;
+    const expectedVersion = Number(before?.rowVersion ?? 0);
+    const beforeCreatorProfileId = String(before?.creatorProfileId ?? '');
+
+    if (!expectedVersion || !beforeCreatorProfileId) {
+      error = 'Run Stable identity before editing the CreatorProfile.';
+      return;
+    }
+
+    const result = await run('CreatorProfile stable-ID edit', async () => {
+      const updated = await client!.command<CreatorResultData>('updateCreatorProfile', {
+        expectedVersion,
+        handle,
+        displayName,
+        bio: creatorBio,
+        profileVisibility: creatorProfileVisibility,
+        idempotencyKey: crypto.randomUUID()
+      });
+      const me = await client!.query<CreatorResultData>('me');
+      const afterCreatorProfileId = String(me?.data?.creatorProfileId ?? '');
+
+      if (!afterCreatorProfileId || afterCreatorProfileId !== beforeCreatorProfileId) {
+        throw new Error('CreatorProfile stable ID changed across edit.');
+      }
+
+      return {
+        beforeCreatorProfileId,
+        updated,
+        me,
+        stableId: true
+      };
+    });
+
+    if (result) {
+      identity = { ...identity, profileEdit: result, me: result.me };
     }
   }
 
@@ -493,9 +548,32 @@
             <input bind:value={displayName} autocomplete="off" />
           </label>
         </div>
-        <button on:click={ensureIdentity} disabled={busy || !session || !handle || !displayName}>
-          Ensure WandAccount + Creator
-        </button>
+        <div class="lab-two">
+          <label>
+            Bio
+            <input bind:value={creatorBio} autocomplete="off" />
+          </label>
+          <label>
+            Profile visibility
+            <select bind:value={creatorProfileVisibility}>
+              <option value="public">public</option>
+              <option value="unlisted">unlisted</option>
+              <option value="private">private</option>
+            </select>
+          </label>
+        </div>
+        <div class="lab-actions">
+          <button on:click={ensureIdentity} disabled={busy || !session || !handle || !displayName}>
+            Ensure WandAccount + Creator
+          </button>
+          <button
+            class="secondary"
+            on:click={updateCreatorProfile}
+            disabled={busy || !session || !identity || !handle || !displayName}
+          >
+            Edit profile + prove stable ID
+          </button>
+        </div>
         <pre>{identity ? JSON.stringify(identity, null, 2) : 'Awaiting identity round-trip.'}</pre>
       </article>
 
