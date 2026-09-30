@@ -1063,3 +1063,125 @@ test('Fence native planner locks positive-slope diagonal N=6 maximum blueprint',
   assert.equal(plan.nativeOracleInventoryCost, 6);
   assert.equal(plan.wandListInventoryDelta, 0);
 });
+
+
+test('Fence native planner locks extension-backed orthogonal-to-diagonal boundary blueprint', () => {
+  const graph = {
+    nodes: [
+      { id: 'a', x: 0, y: 0, mode: FenceMode.ORTHOGONAL },
+      { id: 'm', x: 0, y: 1, mode: FenceMode.ORTHOGONAL },
+      { id: 'p', x: 0, y: 2, mode: FenceMode.ORTHOGONAL },
+      { id: 'c', x: 1, y: 3, mode: FenceMode.DIAGONAL }
+    ],
+    edges: [
+      { a: 'a', b: 'm' },
+      { a: 'm', b: 'p' },
+      { a: 'p', b: 'c' }
+    ]
+  };
+  const network = createFenceNetwork({ familyBaseItemID: 40700246, graph }).network;
+  const plan = planFenceNativeRepresentation({
+    network,
+    originSave: { x: 400, y: 60 },
+    pitchX: 2,
+    pitchY: 2,
+    tessellationFactor: 2,
+    baseSpanX: 2,
+    baseSpanY: 2,
+    orthogonalExtensions: BIOME2_FENCE_VARIATIONS.orthogonal,
+    diagonalExtensions: BIOME2_FENCE_VARIATIONS.diagonal
+  });
+  assert.equal(plan.ok, true);
+  assert.equal(plan.logicalQuantity, 4);
+  assert.deepEqual(plan.modeBoundaries, [{ a: 'p', b: 'c' }]);
+  assert.deepEqual(canonicalNativeObjectSet(plan), [
+    [40700246, 400, 60, 'GridOrientation_Down', null],
+    [40700247, 400, 62, 'GridOrientation_Left', null],
+    [40700246, 400, 64, 'GridOrientation_Down', null],
+    [40700246, 402, 66, 'GridOrientation_Down', { FenceMode: { Diagonal: true } }]
+  ]);
+  assert.equal(plan.wandListInventoryDelta, 0);
+  assert.equal(plan.ownershipMutationRequired, false);
+  assert.equal(plan.persistentWriteAuthorized, false);
+});
+
+
+test('mixed Road transition locks five-cell geometry while state stays runtime-gated', () => {
+  const result = rasterizeRoadPath([
+    { x: 0, y: 0 },
+    { x: 1, y: 0 },
+    { x: 2, y: 1 }
+  ]);
+  assert.equal(result.logicalQuantity, 5);
+  assert.equal(result.requiresRuntimeTransitionNormalization, true);
+  assert.deepEqual(
+    result.cells.map((cell) => [cell.x, cell.y, cell.mode, cell.modeClaims]),
+    [
+      [0, 0, FenceMode.ORTHOGONAL, [FenceMode.ORTHOGONAL]],
+      [1, 0, 'runtime-gated-transition', [FenceMode.DIAGONAL, FenceMode.ORTHOGONAL]],
+      [2, 0, FenceMode.DIAGONAL, [FenceMode.DIAGONAL]],
+      [1, 1, FenceMode.DIAGONAL, [FenceMode.DIAGONAL]],
+      [2, 1, FenceMode.DIAGONAL, [FenceMode.DIAGONAL]]
+    ]
+  );
+});
+
+
+test('Fence style replacement locks Biome2Fence to FairyLightFence N=3 contract', () => {
+  const built = buildFencePolyline(
+    [{ x: 0, y: 0 }, { x: 0, y: 2 }],
+    FenceMode.ORTHOGONAL
+  );
+  const preview = previewFenceStyleReplacement({
+    graph: built.graph,
+    seedNodeId: built.graph.nodes[0].id,
+    sourceFamilyBaseItemID: 40700246,
+    targetFamilyBaseItemID: 40700268,
+    targetAvailableLogicalQuantity: 3200
+  });
+  assert.equal(preview.ok, true);
+  assert.equal(preview.mode, FenceMode.ORTHOGONAL);
+  assert.equal(preview.logicalQuantity, 3);
+  assert.equal(preview.nativeOracleSourceInventoryDelta, 3);
+  assert.equal(preview.nativeOracleTargetInventoryDelta, -3);
+  assert.equal(preview.wandSourceInventoryDelta, 0);
+  assert.equal(preview.wandTargetInventoryDelta, 0);
+  assert.equal(preview.ownershipMutationRequired, false);
+  assert.equal(preview.persistentWriteAuthorized, false);
+
+  const targetNetwork = createFenceNetwork({
+    familyBaseItemID: 40700268,
+    graph: built.graph
+  }).network;
+  const targetPlan = planFenceNativeRepresentation({
+    network: targetNetwork,
+    originSave: { x: 344, y: 60 },
+    pitchX: 2,
+    pitchY: 2,
+    tessellationFactor: 2,
+    baseSpanX: 2,
+    baseSpanY: 2,
+    orthogonalExtensions: {
+      1: { itemID: 40700269, gridSizeX: 1, gridSizeY: 1 },
+      2: { itemID: 40700270, gridSizeX: 2, gridSizeY: 1 },
+      3: { itemID: 40700271, gridSizeX: 3, gridSizeY: 1 },
+      4: { itemID: 40700272, gridSizeX: 4, gridSizeY: 1 },
+      5: { itemID: 40700273, gridSizeX: 5, gridSizeY: 1 },
+      6: { itemID: 40700274, gridSizeX: 6, gridSizeY: 1 }
+    },
+    diagonalExtensions: {
+      1: { itemID: 40700275, gridSizeX: 1, gridSizeY: 1 },
+      2: { itemID: 40700276, gridSizeX: 2, gridSizeY: 2 },
+      3: { itemID: 40700277, gridSizeX: 3, gridSizeY: 3 },
+      4: { itemID: 40700278, gridSizeX: 4, gridSizeY: 4 }
+    }
+  });
+  assert.equal(targetPlan.ok, true);
+  assert.deepEqual(canonicalNativeObjectSet(targetPlan), [
+    [40700268, 344, 60, 'GridOrientation_Down', null],
+    [40700269, 344, 62, 'GridOrientation_Left', null],
+    [40700268, 344, 64, 'GridOrientation_Down', null]
+  ]);
+  assert.equal(targetPlan.wandListInventoryDelta, 0);
+  assert.equal(targetPlan.ownershipMutationRequired, false);
+});
