@@ -1142,3 +1142,60 @@ test('generated schema exposes retention service and admin RPCs without private 
   assert.doesNotMatch(tableSection, /account_retention_jobs:/);
   assert.doesNotMatch(tableSection, /account_retention_holds:/);
 });
+
+
+test('external critical operations escalation uses an occurrence queue and fail-closed worker auth', () => {
+  const migration = read(
+    'supabase/migrations/20260930104856_community_core_v0_external_operations_escalation.sql'
+  );
+  const worker = read('supabase/functions/community-ops-escalation/index.ts');
+
+  assert.match(migration, /community_operations_escalation_deliveries/);
+  assert.match(migration, /unique\(alert_id,alert_occurrence,channel\)/);
+  assert.match(migration, /old\.state='resolved' and new\.state='open'/);
+  assert.match(migration, /for update of d skip locked/i);
+  assert.match(migration, /attempts\+1>=5/);
+  assert.match(migration, /community_operations_escalation_worker_token/);
+  assert.match(migration, /vault\.decrypted_secrets/);
+  assert.doesNotMatch(migration, /sb_secret_[A-Za-z0-9_-]+/);
+
+  assert.match(worker, /withSupabase\(\{ auth: 'none' \}/);
+  assert.match(worker, /x-community-worker-token/);
+  assert.match(worker, /operations_escalation/);
+  assert.match(worker, /community_claim_operations_escalations/);
+  assert.match(worker, /community_complete_operations_escalation/);
+  assert.match(worker, /community_fail_operations_escalation/);
+});
+
+test('external operations alert payload is deliberately data-minimal', () => {
+  const worker = read('supabase/functions/community-ops-escalation/index.ts');
+
+  assert.match(worker, /dreamwishwand\.community\.operations-alert\.v1/);
+  assert.match(worker, /operationsPath: '\/community-ops\/'/);
+  assert.match(worker, /alertId: job\.alertId/);
+  assert.match(worker, /alertType: job\.alertType/);
+  assert.match(worker, /occurrence: job\.occurrence/);
+
+  const payloadStart = worker.indexOf("schema: 'dreamwishwand.community.operations-alert.v1'");
+  const payloadEnd = worker.indexOf('})', payloadStart);
+  const payload = worker.slice(payloadStart, payloadEnd);
+  assert.doesNotMatch(
+    payload,
+    /providerSubject|provider_subject|email|report|signed|media|token|password|ddv/i
+  );
+});
+
+test('generated schema exposes only service escalation RPCs and keeps private queues private', () => {
+  const generated = read('src/lib/generated/database.types.ts');
+
+  assert.match(generated, /community_claim_operations_escalations/);
+  assert.match(generated, /community_complete_operations_escalation/);
+  assert.match(generated, /community_fail_operations_escalation/);
+  assert.match(generated, /community_get_operations_escalation_destination/);
+
+  const tablesStart = generated.indexOf('Tables: {');
+  const viewsStart = generated.indexOf('Views: {', tablesStart);
+  const tableSection = generated.slice(tablesStart, viewsStart);
+  assert.doesNotMatch(tableSection, /community_operations_escalation_deliveries:/);
+  assert.doesNotMatch(tableSection, /community_operations_escalation_config:/);
+});
