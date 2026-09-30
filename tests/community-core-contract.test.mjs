@@ -1410,3 +1410,24 @@ test('Auth abuse policy keeps provider capacity separate from security invariant
   assert.match(authPolicy, /size aggregate Auth-email quota only after/);
   assert.match(authPolicy, /auth-abuse-launch-policy-20260930\.md/);
 });
+
+
+test('launch notification channel mix keeps normal Community activity in-app only', () => {
+  const policy = read('docs/community/notification-channel-policy-20260930.md');
+  const emailPolicy = read('src/lib/community/email-policy.ts');
+
+  assert.match(policy, /Primary channel for normal Community activity/);
+  assert.match(policy, /Normal Community activity does \*\*not\*\* fan out to email/);
+  assert.match(policy, /Save itself does not generate a notification at launch/);
+  assert.match(policy, /Auth-provider transactional email/);
+  assert.match(policy, /Wizard transactional email/);
+  assert.match(policy, /Operator-only Operations email/);
+  assert.match(policy, /Discord/);
+  assert.match(policy, /SMS/);
+  assert.match(policy, /mobile push/);
+  assert.match(policy, /browser push/);
+
+  for (const kind of ['comment','reply','reaction','follow','save','work_published']) {
+    assert.match(emailPolicy, new RegExp(`'${kind}'`));
+  }
+});
