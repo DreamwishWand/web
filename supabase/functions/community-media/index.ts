@@ -88,6 +88,31 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
     const subject = ctx.userClaims?.id;
     if (!subject) return reply({ ok: false, error: 'Authenticated subject missing' }, 401);
 
+    const issuedAt = Number(ctx.jwtClaims?.iat ?? 0);
+    if (!Number.isInteger(issuedAt) || issuedAt <= 0) {
+      return reply({ ok: false, error: 'JWT issued-at claim missing' }, 401);
+    }
+
+    const { error: sessionError } = await ctx.supabaseAdmin.rpc(
+      'community_authorize_session',
+      {
+        p_auth_subject: subject,
+        p_issued_at_epoch: issuedAt,
+        p_max_age_seconds: null
+      }
+    );
+
+    if (sessionError) {
+      return reply(
+        {
+          ok: false,
+          error: 'SESSION_REVOKED_OR_INVALID',
+          message: sessionError.message
+        },
+        401
+      );
+    }
+
     let body: Record<string, unknown>;
     try {
       body = await req.json();
