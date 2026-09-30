@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "dreamwish.ddv.save-preflight@1",
+  "title": "Dreamwish Wand DDV Save Preflight v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract","saveIdentity","inputFormat","codecContract","targetBuild","operation","capabilities","build","findings","persistentWriteAuthorized"],
+  "properties": {
+    "contract": {"const": "dreamwish.ddv.save-preflight@1"},
+    "saveIdentity": {"$ref": "#/$defs/saveIdentity"},
+    "inputFormat": {"enum": ["plain","packaged"]},
+    "codecContract": {"type": "string", "minLength": 1},
+    "targetBuild": {"$ref": "#/$defs/targetBuild"},
+    "operation": {"$ref": "#/$defs/operation"},
+    "capabilities": {"$ref": "#/$defs/capabilities"},
+    "build": {"$ref": "#/$defs/buildResult"},
+    "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
+    "persistentWriteAuthorized": {"const": false}
+  },
+  "$defs": {
+    "nullableString": {"type": ["string","null"]},
+    "nullableInteger": {"type": ["integer","null"]},
+    "platform": {"enum": ["switch","steam-windows","unknown"]},
+    "saveIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profileGameInfoVersion","initialProfileGameInfoVersion","lastSaveDeviceType","lastSavePlatform","sourcePlatform","sourceLastSaveRelationship","sourceRawSha256"],
+      "properties": {
+        "profileGameInfoVersion": {"$ref": "#/$defs/nullableInteger"},
+        "initialProfileGameInfoVersion": {"$ref": "#/$defs/nullableInteger"},
+        "lastSaveDeviceType": {"$ref": "#/$defs/nullableString"},
+        "lastSavePlatform": {"$ref": "#/$defs/platform"},
+        "sourcePlatform": {"$ref": "#/$defs/platform"},
+        "sourceLastSaveRelationship": {"enum": ["SAME","DIFFERENT_CROSS_SAVE_POSSIBLE","UNKNOWN"]},
+        "sourceRawSha256": {"anyOf": [{"type":"string","pattern":"^[0-9a-f]{64}$"},{"type":"null"}]}
+      }
+    },
+    "targetBuild": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["platform","kind","value"],
+      "properties": {
+        "platform": {"enum": ["switch","steam-windows"]},
+        "kind": {"enum": ["switch-bid","steam-full-version"]},
+        "value": {"type": "string", "minLength": 1}
+      }
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id","owner","runtimeGate"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "owner": {"type": "string", "minLength": 1},
+        "runtimeGate": {"enum": ["NOT_REQUIRED","PASSED","PENDING","FAILED"]}
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["readProfile","planOperation","encodeCopy","persistentReplace"],
+      "properties": {
+        "readProfile": {"type": "boolean"},
+        "planOperation": {"type": "boolean"},
+        "encodeCopy": {"type": "boolean"},
+        "persistentReplace": {"const": false}
+      }
+    },
+    "buildContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id","platform","gameVersion","profileGameInfoVersion","buildIdentity","codecContract","persistentWriteAuthorized"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "platform": {"enum": ["switch","steam-windows"]},
+        "gameVersion": {"type": "string", "minLength": 1},
+        "profileGameInfoVersion": {"type": "integer"},
+        "buildIdentity": {"$ref": "#/$defs/targetBuildIdentityOnly"},
+        "codecContract": {"type": "string", "minLength": 1},
+        "persistentWriteAuthorized": {"const": false}
+      }
+    },
+    "targetBuildIdentityOnly": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind","value"],
+      "properties": {
+        "kind": {"enum": ["switch-bid","steam-full-version"]},
+        "value": {"type": "string", "minLength": 1}
+      }
+    },
+    "buildResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status","contract","reason"],
+      "properties": {
+        "status": {"enum": ["EXACT","UNSUPPORTED_BUILD","SCHEMA_MISMATCH","INVALID_TARGET"]},
+        "contract": {"anyOf": [{"$ref":"#/$defs/buildContract"},{"type":"null"}]},
+        "reason": {"type": "string"}
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code","severity","message"],
+      "properties": {
+        "code": {"type": "string", "minLength": 1},
+        "severity": {"enum": ["INFO","WARNING","ERROR"]},
+        "message": {"type": "string"}
+      }
+    }
+  }
+}
