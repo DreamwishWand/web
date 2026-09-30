@@ -1063,3 +1063,24 @@ test('Fence native planner locks positive-slope diagonal N=6 maximum blueprint',
   assert.equal(plan.nativeOracleInventoryCost, 6);
   assert.equal(plan.wandListInventoryDelta, 0);
 });
+
+
+test('mixed Road transition locks five-cell geometry while state stays runtime-gated', () => {
+  const result = rasterizeRoadPath([
+    { x: 0, y: 0 },
+    { x: 1, y: 0 },
+    { x: 2, y: 1 }
+  ]);
+  assert.equal(result.logicalQuantity, 5);
+  assert.equal(result.requiresRuntimeTransitionNormalization, true);
+  assert.deepEqual(
+    result.cells.map((cell) => [cell.x, cell.y, cell.mode, cell.modeClaims]),
+    [
+      [0, 0, FenceMode.ORTHOGONAL, [FenceMode.ORTHOGONAL]],
+      [1, 0, 'runtime-gated-transition', [FenceMode.DIAGONAL, FenceMode.ORTHOGONAL]],
+      [2, 0, FenceMode.DIAGONAL, [FenceMode.DIAGONAL]],
+      [1, 1, FenceMode.DIAGONAL, [FenceMode.DIAGONAL]],
+      [2, 1, FenceMode.DIAGONAL, [FenceMode.DIAGONAL]]
+    ]
+  );
+});
