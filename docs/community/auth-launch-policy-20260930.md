@@ -19,6 +19,10 @@ Social login, platform SSO and passkeys are not required for the first public re
 provider-neutral `AuthIdentity` model remains the extension point for later providers without
 changing WandAccount/Creator ownership.
 
+Production Auth mail should use the same transactional email provider as operator critical mail and
+approved Wand transactional email where practical. Supabase custom SMTP or Send Email Hook remain the
+supported Auth boundary; Auth verification/recovery tokens do not enter Community domain tables.
+
 ## Privacy boundary
 
 - email is Auth-provider data, not CreatorProfile data;
