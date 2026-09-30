@@ -150,3 +150,15 @@ Still pending:
 
 No access token, refresh token, password, recovery code, signed URL, provider subject, verification
 artifact or API secret is recorded in this evidence file.
+
+
+## Launch recent-auth defaults
+
+First-launch recent-auth windows are now canonicalized at:
+
+- self-service account deletion: **900 seconds / 15 minutes**;
+- support/admin high-risk writes: **900 seconds / 15 minutes**.
+
+These values remain configuration-driven so a future security review can tighten them without
+changing RPC contracts. The proof source remains provider session creation time
+(`auth.sessions.created_at`), not refreshed JWT age.
