@@ -84,7 +84,7 @@ coverage expands, incident volume increases, or an SLA/business-critical require
 
 ## Provider selection boundary
 
-Provider is not yet canonicalized. Current evaluation favors a transactional provider that supports:
+The first-launch provider default is now **Resend**, with activation still pending sender-domain and secret configuration. The selection favors a transactional provider that supports:
 
 - production SMTP for Supabase Auth or a supported Send Email Hook/API;
 - HTTPS transactional API for Wand/operator mail;
@@ -93,6 +93,8 @@ Provider is not yet canonicalized. Current evaluation favors a transactional pro
 - delivery/bounce/failure observability;
 - secret rotation without repository changes.
 
+Resend is isolated behind the provider adapter documented in `docs/community/transactional-email-provider-resend-20260930.md`; the canonical Operations Alert/delivery queue remains provider-neutral.
+
 No provider API key, SMTP password, operator recipient address or verified-domain credential may be
 placed in chat, source control or public configuration.
 
@@ -100,7 +102,7 @@ placed in chat, source control or public configuration.
 
 Before launch:
 
-1. select/configure one transactional email provider;
+1. configure the selected Resend transactional email provider;
 2. verify the sending domain;
 3. configure Supabase Auth production email delivery;
 4. store operator recipient and provider/relay secrets outside the repository;
