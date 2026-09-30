@@ -1236,3 +1236,254 @@ export function selectFenceBranch(graph = {}, seedNodeId, adjacentNodeId) {
     persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
   };
 }
+
+
+function normalizeNativePlacementTransform({
+  originLogical = { x: 0, y: 0 },
+  originSave,
+  pitchX,
+  pitchY = pitchX
+}) {
+  assertIntegerCoordinate(originLogical, 'originLogical');
+  assertIntegerCoordinate(originSave, 'originSave');
+  if (!Number.isInteger(pitchX) || pitchX === 0 || !Number.isInteger(pitchY) || pitchY === 0) {
+    throw new TypeError('pitchX/pitchY must be non-zero integer save-coordinate quanta');
+  }
+  return { originLogical, originSave, pitchX, pitchY };
+}
+
+function logicalPointToSave(point, transform) {
+  const t = normalizeNativePlacementTransform(transform);
+  assertIntegerCoordinate(point, 'logical point');
+  return {
+    x: t.originSave.x + (point.x - t.originLogical.x) * t.pitchX,
+    y: t.originSave.y + (point.y - t.originLogical.y) * t.pitchY
+  };
+}
+
+function persistentModeState(mode) {
+  if (mode === FenceMode.ORTHOGONAL) return null;
+  if (mode === FenceMode.DIAGONAL) return { FenceMode: { Diagonal: true } };
+  throw new RangeError(`cannot serialize unresolved mode: ${mode}`);
+}
+
+export function planRoadNativeRepresentation({
+  network,
+  originLogical = { x: 0, y: 0 },
+  originSave,
+  pitchX,
+  pitchY = pitchX,
+  orientation = 'GridOrientation_Down'
+}) {
+  if (!network || network.kind !== 'road' || !Number.isInteger(network.familyBaseItemID)) {
+    throw new TypeError('valid Road network metadata is required');
+  }
+  const validation = validateRoadCells(network.cells ?? []);
+  if (!validation.ok) {
+    return {
+      ok: false,
+      errors: validation.errors,
+      persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+    };
+  }
+  if ((network.cells ?? []).some((cell) => cell.mode === 'runtime-gated-transition')) {
+    return {
+      ok: false,
+      errors: [{
+        code: RoadFenceValidationCode.ROAD_MODE_STATE_UNSUPPORTED,
+        reason: 'mixed Road transition state is not runtime-promoted yet'
+      }],
+      persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+    };
+  }
+
+  const transform = normalizeNativePlacementTransform({ originLogical, originSave, pitchX, pitchY });
+  const objects = [...(network.cells ?? [])]
+    .sort((a, b) => a.y - b.y || a.x - b.x)
+    .map((cell) => {
+      const save = logicalPointToSave(cell, transform);
+      return {
+        role: 'roadCell',
+        itemID: network.familyBaseItemID,
+        logical: { x: cell.x, y: cell.y },
+        x: save.x,
+        y: save.y,
+        orientation,
+        state: persistentModeState(cell.mode)
+      };
+    });
+
+  return {
+    ok: true,
+    kind: 'road',
+    familyBaseItemID: network.familyBaseItemID,
+    logicalQuantity: objects.length,
+    nativeOracleInventoryCost: objects.length,
+    wandListInventoryDelta: 0,
+    ownershipMutationRequired: false,
+    objects,
+    persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+  };
+}
+
+function normalizeFenceVariationDescriptor(entry, key, label) {
+  if (!entry || !Number.isInteger(entry.itemID) || !Number.isInteger(entry.gridSizeX) || entry.gridSizeX < 1) {
+    throw new TypeError(`${label} key ${key} requires integer itemID and positive gridSizeX`);
+  }
+  if (entry.gridSizeX !== key) {
+    throw new RangeError(`${label} key ${key} must equal variation gridSizeX ${entry.gridSizeX}`);
+  }
+  return {
+    itemID: entry.itemID,
+    gridSizeX: entry.gridSizeX,
+    gridSizeY: Number.isInteger(entry.gridSizeY) && entry.gridSizeY > 0 ? entry.gridSizeY : entry.gridSizeX
+  };
+}
+
+function resolveFenceExtensionNativePlacement({
+  fromSave,
+  toSave,
+  key,
+  variation,
+  tessellationFactor,
+  baseSpanX,
+  baseSpanY
+}) {
+  assertIntegerCoordinate(fromSave, 'fromSave');
+  assertIntegerCoordinate(toSave, 'toSave');
+  for (const [name, value] of Object.entries({ tessellationFactor, baseSpanX, baseSpanY })) {
+    if (!Number.isInteger(value) || value <= 0) throw new TypeError(`${name} must be a positive integer`);
+  }
+
+  const dx = toSave.x - fromSave.x;
+  const dy = toSave.y - fromSave.y;
+  const cardinal = dx === 0 || dy === 0;
+  const diagonal = dx !== 0 && dy !== 0 && Math.abs(dx) === Math.abs(dy);
+  if (!cardinal && !diagonal) {
+    throw new RangeError('Fence extension endpoints must form a cardinal or 45-degree diagonal straight span');
+  }
+  if (diagonal && baseSpanX !== baseSpanY) {
+    throw new RangeError('diagonal Fence native planning requires equal base X/Y span until non-square base semantics are proven');
+  }
+
+  const deltaSize = Math.max(Math.abs(dx), Math.abs(dy));
+  const baseAxisSpan = dx === 0 ? baseSpanY : (dy === 0 ? baseSpanX : baseSpanX);
+  const expectedDelta = baseAxisSpan + key * tessellationFactor;
+  if (deltaSize !== expectedDelta) {
+    throw new RangeError(`Fence extension span mismatch: delta=${deltaSize}, expected=${expectedDelta} for key ${key}`);
+  }
+
+  const useOrigin = dx > 0 || (dx === 0 && dy > 0);
+  const reference = useOrigin ? fromSave : toSave;
+  const sameSignDiagonal = diagonal && Math.sign(dx) === Math.sign(dy);
+
+  let x = reference.x;
+  let y = reference.y;
+  if (dx !== 0) x += baseSpanX;
+  if (dy !== 0) {
+    if (dx === 0 || sameSignDiagonal) {
+      y += baseSpanY;
+    } else {
+      y -= variation.gridSizeX * tessellationFactor;
+    }
+  }
+
+  const orientation =
+    dx === 0 || (diagonal && !sameSignDiagonal)
+      ? 'GridOrientation_Left'
+      : 'GridOrientation_Down';
+
+  return { x, y, orientation };
+}
+
+export function planFenceNativeRepresentation({
+  network,
+  originLogical = { x: 0, y: 0 },
+  originSave,
+  pitchX,
+  pitchY = pitchX,
+  tessellationFactor,
+  baseSpanX,
+  baseSpanY,
+  baseOrientation = 'GridOrientation_Down',
+  orthogonalExtensions = {},
+  diagonalExtensions = {}
+}) {
+  if (!network || network.kind !== 'fence' || !Number.isInteger(network.familyBaseItemID)) {
+    throw new TypeError('valid Fence network metadata is required');
+  }
+  const transform = normalizeNativePlacementTransform({ originLogical, originSave, pitchX, pitchY });
+  const compiled = compileFenceLogicalGraph(network.graph ?? {});
+  if (!compiled.ok) return compiled;
+
+  const nodeById = new Map((network.graph?.nodes ?? []).map((node) => [node.id, node]));
+  const objects = [];
+
+  for (const component of compiled.components) {
+    for (const base of component.bases) {
+      const node = nodeById.get(base.nodeId);
+      if (!node) throw new RangeError(`compiled Fence Base node missing: ${base.nodeId}`);
+      const save = logicalPointToSave(node, transform);
+      objects.push({
+        role: 'base',
+        logicalNodeId: base.nodeId,
+        itemID: network.familyBaseItemID,
+        mode: component.mode,
+        x: save.x,
+        y: save.y,
+        orientation: baseOrientation,
+        state: persistentModeState(component.mode),
+        semanticVertex: base.semanticVertex,
+        separator: base.separator
+      });
+    }
+
+    for (const extension of component.extensions) {
+      const descriptorMap = component.mode === FenceMode.DIAGONAL ? diagonalExtensions : orthogonalExtensions;
+      const variation = normalizeFenceVariationDescriptor(
+        descriptorMap[extension.key],
+        extension.key,
+        component.mode === FenceMode.DIAGONAL ? 'DiagExt' : 'Ext'
+      );
+      const fromNode = nodeById.get(extension.fromNodeId);
+      const toNode = nodeById.get(extension.toNodeId);
+      if (!fromNode || !toNode) throw new RangeError('compiled Fence extension endpoint node missing');
+      const fromSave = logicalPointToSave(fromNode, transform);
+      const toSave = logicalPointToSave(toNode, transform);
+      const placement = resolveFenceExtensionNativePlacement({
+        fromSave,
+        toSave,
+        key: extension.key,
+        variation,
+        tessellationFactor,
+        baseSpanX,
+        baseSpanY
+      });
+      objects.push({
+        role: extension.role,
+        key: extension.key,
+        fromNodeId: extension.fromNodeId,
+        toNodeId: extension.toNodeId,
+        itemID: variation.itemID,
+        mode: component.mode,
+        x: placement.x,
+        y: placement.y,
+        orientation: placement.orientation,
+        state: persistentModeState(component.mode)
+      });
+    }
+  }
+
+  return {
+    ok: true,
+    kind: 'fence',
+    familyBaseItemID: network.familyBaseItemID,
+    logicalQuantity: compiled.logicalQuantity,
+    nativeOracleInventoryCost: compiled.logicalQuantity,
+    wandListInventoryDelta: 0,
+    ownershipMutationRequired: false,
+    objects,
+    modeBoundaries: compiled.modeBoundaries,
+    persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+  };
+}
