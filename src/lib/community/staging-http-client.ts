@@ -91,6 +91,28 @@ function assertConfig(config: CommunityLabConfig): CommunityLabConfig {
   return { supabaseUrl, publishableKey };
 }
 
+export class CommunityHttpError extends Error {
+  readonly status: number;
+  readonly code: string | null;
+  readonly retryAfterSeconds: number | null;
+  readonly resetAt: string | null;
+
+  constructor(args: {
+    status: number;
+    code?: string | null;
+    message: string;
+    retryAfterSeconds?: number | null;
+    resetAt?: string | null;
+  }) {
+    super(args.message);
+    this.name = 'CommunityHttpError';
+    this.status = args.status;
+    this.code = args.code ?? null;
+    this.retryAfterSeconds = args.retryAfterSeconds ?? null;
+    this.resetAt = args.resetAt ?? null;
+  }
+}
+
 async function parseResponse(response: Response): Promise<any> {
   const text = await response.text();
   let body: any = null;
@@ -104,11 +126,39 @@ async function parseResponse(response: Response): Promise<any> {
   }
 
   if (!response.ok) {
-    const message =
+    const code =
+      typeof body === 'object' && body && typeof body.error === 'string'
+        ? body.error
+        : null;
+    const retryAfterSeconds =
+      typeof body === 'object' && body && Number.isFinite(Number(body.retryAfterSeconds))
+        ? Math.max(0, Math.trunc(Number(body.retryAfterSeconds)))
+        : null;
+    const resetAt =
+      typeof body === 'object' && body && typeof body.resetAt === 'string'
+        ? body.resetAt
+        : null;
+
+    const rawMessage =
       typeof body === 'object' && body
         ? body.message ?? body.error_description ?? body.error ?? JSON.stringify(body)
         : String(body ?? response.statusText);
-    throw new Error(`${response.status} ${message}`);
+
+    const message =
+      response.status === 429 && code === 'RATE_LIMITED'
+        ? `429 RATE_LIMITED: Too many actions in ${String(body?.bucket ?? 'this action')}. ` +
+          (retryAfterSeconds && retryAfterSeconds > 0
+            ? `Retry in about ${retryAfterSeconds} seconds.`
+            : 'Retry after the current rate-limit window resets.')
+        : `${response.status} ${rawMessage}`;
+
+    throw new CommunityHttpError({
+      status: response.status,
+      code,
+      message,
+      retryAfterSeconds,
+      resetAt
+    });
   }
 
   return body;
