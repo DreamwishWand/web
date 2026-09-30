@@ -1727,6 +1727,10 @@ export type Database = {
         Args: { p_nonce: string }
         Returns: boolean
       }
+      community_consume_action_rate_limit: {
+        Args: { p_auth_subject: string; p_bucket: string }
+        Returns: Json
+      }
       community_create_gallery_draft: {
         Args: {
           p_auth_subject: string
@@ -1789,6 +1793,10 @@ export type Database = {
       }
       community_follow_creator: {
         Args: { p_auth_subject: string; p_creator_profile_id: string }
+        Returns: Json
+      }
+      community_get_action_rate_policies: {
+        Args: { p_admin_auth_subject: string }
         Returns: Json
       }
       community_get_dead_letter_outbox: {
