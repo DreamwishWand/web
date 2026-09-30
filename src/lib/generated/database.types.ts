@@ -19,7 +19,11 @@ export type Database = {
           account_id: string
           auth_identities_retired: boolean
           completed_at: string | null
+          content_purge_after: string | null
+          content_purged_at: string | null
           deletion_event_id: string
+          operational_scrub_after: string | null
+          operational_scrubbed_at: string | null
           private_interactions_removed: boolean
           public_content_hidden: boolean
           public_profile_anonymized: boolean
@@ -30,7 +34,11 @@ export type Database = {
           account_id: string
           auth_identities_retired?: boolean
           completed_at?: string | null
+          content_purge_after?: string | null
+          content_purged_at?: string | null
           deletion_event_id?: string
+          operational_scrub_after?: string | null
+          operational_scrubbed_at?: string | null
           private_interactions_removed?: boolean
           public_content_hidden?: boolean
           public_profile_anonymized?: boolean
@@ -41,7 +49,11 @@ export type Database = {
           account_id?: string
           auth_identities_retired?: boolean
           completed_at?: string | null
+          content_purge_after?: string | null
+          content_purged_at?: string | null
           deletion_event_id?: string
+          operational_scrub_after?: string | null
+          operational_scrubbed_at?: string | null
           private_interactions_removed?: boolean
           public_content_hidden?: boolean
           public_profile_anonymized?: boolean
@@ -181,6 +193,7 @@ export type Database = {
           content_type: string
           created_at: string
           owner_account_id: string
+          purged_at: string | null
           schema_version: number
           storage_key: string
         }
@@ -191,6 +204,7 @@ export type Database = {
           content_type: string
           created_at?: string
           owner_account_id: string
+          purged_at?: string | null
           schema_version: number
           storage_key: string
         }
@@ -201,6 +215,7 @@ export type Database = {
           content_type?: string
           created_at?: string
           owner_account_id?: string
+          purged_at?: string | null
           schema_version?: number
           storage_key?: string
         }
@@ -786,6 +801,7 @@ export type Database = {
           moderation_state: Database["public"]["Enums"]["moderation_state"]
           owner_account_id: string
           processing_state: Database["public"]["Enums"]["media_processing_state"]
+          purged_at: string | null
           storage_key: string
           width: number | null
         }
@@ -799,6 +815,7 @@ export type Database = {
           moderation_state?: Database["public"]["Enums"]["moderation_state"]
           owner_account_id: string
           processing_state?: Database["public"]["Enums"]["media_processing_state"]
+          purged_at?: string | null
           storage_key: string
           width?: number | null
         }
@@ -812,6 +829,7 @@ export type Database = {
           moderation_state?: Database["public"]["Enums"]["moderation_state"]
           owner_account_id?: string
           processing_state?: Database["public"]["Enums"]["media_processing_state"]
+          purged_at?: string | null
           storage_key?: string
           width?: number | null
         }
@@ -836,7 +854,7 @@ export type Database = {
         Row: {
           action_id: string
           action_type: string
-          actor_account_id: string
+          actor_account_id: string | null
           case_id: string
           created_at: string
           prior_state: Json
@@ -846,7 +864,7 @@ export type Database = {
         Insert: {
           action_id?: string
           action_type: string
-          actor_account_id: string
+          actor_account_id?: string | null
           case_id: string
           created_at?: string
           prior_state: Json
@@ -856,7 +874,7 @@ export type Database = {
         Update: {
           action_id?: string
           action_type?: string
-          actor_account_id?: string
+          actor_account_id?: string | null
           case_id?: string
           created_at?: string
           prior_state?: Json
@@ -1258,7 +1276,7 @@ export type Database = {
           detail: string | null
           reason_code: string
           report_id: string
-          reporter_account_id: string
+          reporter_account_id: string | null
           status: string
           target_entity_id: string
           target_revision_id: string | null
@@ -1269,7 +1287,7 @@ export type Database = {
           detail?: string | null
           reason_code: string
           report_id?: string
-          reporter_account_id: string
+          reporter_account_id?: string | null
           status?: string
           target_entity_id: string
           target_revision_id?: string | null
@@ -1280,7 +1298,7 @@ export type Database = {
           detail?: string | null
           reason_code?: string
           report_id?: string
-          reporter_account_id?: string
+          reporter_account_id?: string | null
           status?: string
           target_entity_id?: string
           target_revision_id?: string | null
@@ -1534,6 +1552,18 @@ export type Database = {
         }
         Returns: Json
       }
+      community_admin_add_retention_hold: {
+        Args: {
+          p_account_id: string
+          p_admin_auth_subject: string
+          p_expires_at?: string
+          p_hold_type: string
+          p_issued_at_epoch: number
+          p_reason: string
+          p_session_id: string
+        }
+        Returns: Json
+      }
       community_admin_complete_recovery: {
         Args: {
           p_admin_auth_subject: string
@@ -1581,12 +1611,32 @@ export type Database = {
         }
         Returns: Json
       }
+      community_admin_release_retention_hold: {
+        Args: {
+          p_admin_auth_subject: string
+          p_hold_id: string
+          p_issued_at_epoch: number
+          p_reason: string
+          p_session_id: string
+        }
+        Returns: Json
+      }
       community_admin_retry_provider_cleanup: {
         Args: {
           p_admin_auth_subject: string
           p_cleanup_job_id: string
           p_issued_at_epoch: number
           p_reason: string
+          p_session_id: string
+        }
+        Returns: Json
+      }
+      community_admin_retry_retention_job: {
+        Args: {
+          p_admin_auth_subject: string
+          p_issued_at_epoch: number
+          p_reason: string
+          p_retention_job_id: string
           p_session_id: string
         }
         Returns: Json
@@ -1623,8 +1673,16 @@ export type Database = {
         }
         Returns: Json
       }
+      community_claim_account_retention_jobs: {
+        Args: { p_limit: number; p_lock_token: string }
+        Returns: Json
+      }
       community_claim_provider_cleanup_jobs: {
         Args: { p_limit: number; p_lock_token: string }
+        Returns: Json
+      }
+      community_complete_account_retention_job: {
+        Args: { p_lock_token: string; p_retention_job_id: string }
         Returns: Json
       }
       community_complete_provider_cleanup: {
@@ -1674,6 +1732,14 @@ export type Database = {
         }
         Returns: Json
       }
+      community_fail_account_retention_job: {
+        Args: {
+          p_error: string
+          p_lock_token: string
+          p_retention_job_id: string
+        }
+        Returns: Json
+      }
       community_fail_provider_cleanup: {
         Args: {
           p_cleanup_job_id: string
@@ -1684,6 +1750,10 @@ export type Database = {
       }
       community_fail_provider_identity_cleanup: {
         Args: { p_cleanup_job_id: string; p_error: string }
+        Returns: Json
+      }
+      community_finalize_artifact_blob_purge: {
+        Args: { p_blob_id: string; p_expected_storage_key: string }
         Returns: Json
       }
       community_follow_creator: {
@@ -1724,6 +1794,22 @@ export type Database = {
         Returns: Json
       }
       community_get_recovery_cases: {
+        Args: {
+          p_admin_auth_subject: string
+          p_limit?: number
+          p_state?: string
+        }
+        Returns: Json
+      }
+      community_get_retention_holds: {
+        Args: {
+          p_account_id?: string
+          p_admin_auth_subject: string
+          p_limit?: number
+        }
+        Returns: Json
+      }
+      community_get_retention_jobs: {
         Args: {
           p_admin_auth_subject: string
           p_limit?: number
