@@ -73,16 +73,13 @@ Do not include:
 ## Provider boundary
 
 The external channel is now fixed as normal transactional **email** to the operator's usual mailbox.
-The email-delivery provider itself is not yet canonicalized.
+The first-launch email-delivery provider default is **Resend**; account/domain/secret configuration and real delivery acceptance remain pending.
 
 Where practical, use the same transactional email provider selected for Supabase Auth and approved
 Wizard transactional mail. Provider reuse must not merge data models: Wand persistent Operations
 Alert state remains canonical and email remains a delivery projection.
 
-Current provider evaluation favors services that offer both production SMTP and HTTPS APIs. Resend is
-a leading candidate because it supports Supabase Auth integration, SMTP/API delivery, idempotency and
-delivery observability, but provider selection is deliberately deferred until account/domain setup is
-required.
+Resend is selected because it supports Supabase Auth SMTP integration, HTTPS API delivery, idempotency keys and delivery observability while preserving the provider-neutral alert queue. The provider-specific adapter is `community-email-resend`; it remains fail-closed until its server-held configuration exists.
 
 A failure of the selected email provider cannot notify the operator through that same provider. That
 blind spot is explicitly accepted for first launch: a second independent notification channel is not
@@ -94,7 +91,7 @@ hardening requirement if operational coverage, SLA or business criticality incre
 
 Before public release:
 
-1. configure one real transactional email provider and operator mailbox destination;
+1. configure Resend, a verified Wand sender domain and the operator mailbox destination;
 2. enable the operator-email delivery configuration using Vault/secret-held destination data;
 3. induce a safe critical staging alert;
 4. confirm one external delivery;
