@@ -17,11 +17,13 @@ import {
   predictConnectedFenceRemoval,
   predictFenceStyleReplacement,
   previewFenceStyleReplacement,
+  previewRoadStyleReplacement,
   rasterizeRoadPath,
   rasterizeRoadPolyline,
   requirePersistentRoadFenceWriter,
   roadDiagonalStepCells,
   selectFenceConnected,
+  selectRoadConnected,
   transformFenceLogicalGraph,
   transformRoadCells,
   validateContainedTopology,
@@ -390,5 +392,41 @@ test('Fence style replacement preview selects only the rooted native-connected c
   assert.equal(preview.logicalQuantity, 3);
   assert.equal(preview.sourceInventoryDelta, 3);
   assert.equal(preview.targetInventoryDelta, -3);
+  assert.equal(preview.persistentWriteAuthorized, false);
+});
+
+
+test('Road select-connected uses current eight-neighbor logical adjacency', () => {
+  const cells = [
+    { x: 0, y: 0, mode: FenceMode.ORTHOGONAL },
+    { x: 1, y: 1, mode: FenceMode.DIAGONAL },
+    { x: 2, y: 2, mode: FenceMode.DIAGONAL },
+    { x: 10, y: 10, mode: FenceMode.ORTHOGONAL }
+  ];
+  const selected = selectRoadConnected(cells, { x: 0, y: 0 });
+  assert.equal(selected.ok, true);
+  assert.equal(selected.logicalQuantity, 3);
+  assert.deepEqual(selected.cells.map((cell) => [cell.x, cell.y]), [[0, 0], [1, 1], [2, 2]]);
+});
+
+test('Road style replacement preview accounts for one eight-neighbor connected component', () => {
+  const cells = [
+    { x: 0, y: 0, mode: FenceMode.ORTHOGONAL },
+    { x: 1, y: 0, mode: FenceMode.ORTHOGONAL },
+    { x: 2, y: 1, mode: FenceMode.DIAGONAL },
+    { x: 8, y: 8, mode: FenceMode.ORTHOGONAL }
+  ];
+  const preview = previewRoadStyleReplacement({
+    cells,
+    seedCoordinate: { x: 1, y: 0 },
+    sourceFamilyBaseItemID: 40100068,
+    targetFamilyBaseItemID: 40100069,
+    targetAvailableLogicalQuantity: 5
+  });
+  assert.equal(preview.ok, true);
+  assert.equal(preview.logicalQuantity, 3);
+  assert.equal(preview.sourceInventoryDelta, 3);
+  assert.equal(preview.targetInventoryDelta, -3);
+  assert.equal(preview.cells.length, 3);
   assert.equal(preview.persistentWriteAuthorized, false);
 });
