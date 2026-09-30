@@ -113,6 +113,15 @@ export class SafeProfileEditSession {
     return this.saveIdentity;
   }
 
+  /** Stable non-byte context for downstream preflight adapters. */
+  getPreflightContext() {
+    return Object.freeze({
+      saveIdentity: this.saveIdentity,
+      codecContract: this.codec.contract,
+      inputFormat: this.originalFormat
+    });
+  }
+
   /**
    * @param {{
    *   edit:(draft:JsonRecord)=>void,
@@ -222,7 +231,21 @@ export class SafeProfileEditSession {
       changedPaths: Object.freeze(changes.slice()),
       noOp: false,
       saveIdentity: this.saveIdentity,
-      authorization
+      authorization,
+      exportContext: Object.freeze({
+        targetBuild: Object.freeze({
+          platform: args.targetBuild.platform,
+          kind: args.targetBuild.kind,
+          value: args.targetBuild.value
+        }),
+        codecContract: this.codec.contract,
+        exactBuildContractId: build.contract.id,
+        operation: Object.freeze({
+          id: args.operation.id,
+          owner: args.operation.owner,
+          runtimeGate: args.operation.runtimeGate
+        })
+      })
     });
   }
 }
