@@ -1,6 +1,6 @@
 import '../ddv/core/world/core-world-v125-adapter-v1_3.js';
 
-import type { OpenWorldSaveResult, WorldAreaRoute } from './world-save-source';
+import type { OpenWorldSaveResult, WorldAreaRoute } from './world-save-source.ts';
 
 export const WORLD_ADAPTER_V13_SOURCE_SHA256 =
   '2ee1f8695d2f1c5e5e5820c33ce0ba56393120768652c1b5ab36feb840126d12';
