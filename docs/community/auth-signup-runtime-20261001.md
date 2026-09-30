@@ -1,6 +1,6 @@
 # Community Core Auth signup runtime — 2026-10-01
 
-Status: **CONFIRMED FUNCTIONAL / REDIRECT + INBOX PLACEMENT PARTIAL**
+Status: **CONFIRMED SIGNUP + PKCE RECOVERY / INBOX PLACEMENT MIXED**
 
 ## Scope
 
@@ -25,12 +25,30 @@ PARTIAL:
 - iCloud placed the confirmation email in Junk;
 - the current Supabase Auth Site URL redirected the successful confirmation to `http://localhost:3000`, which is not a production-shaped callback.
 
+Additional CONFIRMED runtime acceptance:
+
+- Supabase Site URL was corrected from the localhost default to `https://dreamwishwand.com`;
+- an exact staging-only recovery redirect `http://localhost:8765/recovery/` was allow-listed;
+- a real password-recovery email was sent from `Dreamwish Wand <no-reply@dreamwishwand.com>`;
+- Resend provider status was `delivered`;
+- the password-recovery email reached the user's normal Inbox rather than Junk;
+- the recovery link returned to the local staging callback;
+- PKCE authorization-code exchange succeeded in the same browser;
+- password update succeeded;
+- sign-in with the new password succeeded;
+- the temporary hosted Auth acceptance Edge surface was returned to HTTP 410 after use.
+
+INBOX-PLACEMENT STATUS:
+
+- signup confirmation: delivered by provider but filtered to iCloud Junk;
+- password recovery: delivered by provider and placed in iCloud Inbox;
+- deliverability is therefore improving but should remain monitored while the new sending domain establishes reputation and DMARC reports accumulate.
+
 PENDING:
 
-- set a real staging/public Site URL and allowed redirect URLs;
-- repeat one confirmation flow against the corrected redirect;
-- execute PKCE password recovery end-to-end;
-- recheck iCloud inbox placement after DMARC propagation/reputation improves.
+- repeat a signup confirmation flow against the corrected production Site URL when the public callback surface is deployed;
+- remove the temporary localhost recovery allow-list entry after browser acceptance is complete;
+- continue DMARC/inbox-placement observation before launch.
 
 ## Evidence boundary
 
