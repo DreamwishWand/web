@@ -1063,3 +1063,44 @@ test('Fence native planner locks positive-slope diagonal N=6 maximum blueprint',
   assert.equal(plan.nativeOracleInventoryCost, 6);
   assert.equal(plan.wandListInventoryDelta, 0);
 });
+
+
+test('Fence native planner locks extension-backed orthogonal-to-diagonal boundary blueprint', () => {
+  const graph = {
+    nodes: [
+      { id: 'a', x: 0, y: 0, mode: FenceMode.ORTHOGONAL },
+      { id: 'm', x: 0, y: 1, mode: FenceMode.ORTHOGONAL },
+      { id: 'p', x: 0, y: 2, mode: FenceMode.ORTHOGONAL },
+      { id: 'c', x: 1, y: 3, mode: FenceMode.DIAGONAL }
+    ],
+    edges: [
+      { a: 'a', b: 'm' },
+      { a: 'm', b: 'p' },
+      { a: 'p', b: 'c' }
+    ]
+  };
+  const network = createFenceNetwork({ familyBaseItemID: 40700246, graph }).network;
+  const plan = planFenceNativeRepresentation({
+    network,
+    originSave: { x: 400, y: 60 },
+    pitchX: 2,
+    pitchY: 2,
+    tessellationFactor: 2,
+    baseSpanX: 2,
+    baseSpanY: 2,
+    orthogonalExtensions: BIOME2_FENCE_VARIATIONS.orthogonal,
+    diagonalExtensions: BIOME2_FENCE_VARIATIONS.diagonal
+  });
+  assert.equal(plan.ok, true);
+  assert.equal(plan.logicalQuantity, 4);
+  assert.deepEqual(plan.modeBoundaries, [{ a: 'p', b: 'c' }]);
+  assert.deepEqual(canonicalNativeObjectSet(plan), [
+    [40700246, 400, 60, 'GridOrientation_Down', null],
+    [40700247, 400, 62, 'GridOrientation_Left', null],
+    [40700246, 400, 64, 'GridOrientation_Down', null],
+    [40700246, 402, 66, 'GridOrientation_Down', { FenceMode: { Diagonal: true } }]
+  ]);
+  assert.equal(plan.wandListInventoryDelta, 0);
+  assert.equal(plan.ownershipMutationRequired, false);
+  assert.equal(plan.persistentWriteAuthorized, false);
+});
