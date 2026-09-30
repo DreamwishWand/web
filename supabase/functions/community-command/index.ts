@@ -20,7 +20,8 @@ const commandToRpc = {
   unpublishWork: 'community_unpublish_work',
   deleteWork: 'community_delete_work',
   moderateWork: 'community_moderate_work',
-  retryDeadLetter: 'community_retry_dead_letter_outbox'
+  retryDeadLetter: 'community_retry_dead_letter_outbox',
+  revokeSessions: 'community_revoke_wand_sessions'
 } as const;
 
 type CommandName = keyof typeof commandToRpc;
@@ -198,6 +199,8 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       case 'retryDeadLetter':
         params.p_outbox_id = payload.outboxId;
         params.p_reason = payload.reason;
+        break;
+      case 'revokeSessions':
         break;
     }
 
