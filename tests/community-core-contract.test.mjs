@@ -93,3 +93,36 @@ test('vertical slice covers publish through moderation and negative authorizatio
     assert.ok(vertical.includes(phrase), phrase);
   }
 });
+
+
+test('ownership integrity is enforced below product adapters', () => {
+  for (const guard of [
+    'community_works_creator_owner_guard',
+    'preset_artifacts_creator_owner_guard',
+    'work_revision_media_owner_guard',
+    'preset_revisions_blob_owner_guard',
+    'gallery_work_revisions_type_guard',
+    'preset_revision_publications_mapping_guard',
+    'follows_no_self_follow',
+    'comments_target_type_guard'
+  ]) {
+    assert.match(schema, new RegExp(guard, 'i'));
+  }
+});
+
+test('linked DDV profiles are private owner/staff data', () => {
+  assert.match(schema, /ddv_profiles_owner_read/i);
+  assert.match(schema, /wand_account_ddv_profiles_owner_read/i);
+  assert.doesNotMatch(schema, /ddv_profiles_public_read/i);
+});
+
+test('mutable aggregates have monotonic row versions', () => {
+  assert.match(schema, /community_works_row_version/i);
+  assert.match(schema, /comments_row_version/i);
+  assert.match(schema, /old\.row_version \+ 1/i);
+});
+
+test('privileged moderation and audit records are append-only', () => {
+  assert.match(schema, /moderation_actions_immutable/i);
+  assert.match(schema, /audit_events_immutable/i);
+});
