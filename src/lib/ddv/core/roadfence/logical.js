@@ -1078,3 +1078,89 @@ export function previewRoadStyleReplacement({
     persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
   };
 }
+
+
+export function createRoadNetwork({ familyBaseItemID, cells = [] }) {
+  if (!Number.isInteger(familyBaseItemID)) {
+    throw new TypeError('Road familyBaseItemID must be an integer');
+  }
+  const validation = validateRoadCells(cells);
+  return {
+    ok: validation.ok,
+    errors: validation.errors,
+    network: {
+      kind: 'road',
+      familyBaseItemID,
+      cells: (cells ?? []).map((cell) => ({
+        ...cell,
+        modeClaims: Array.isArray(cell.modeClaims) ? [...cell.modeClaims] : cell.modeClaims
+      }))
+    },
+    persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+  };
+}
+
+export function createFenceNetwork({ familyBaseItemID, graph = {} }) {
+  if (!Number.isInteger(familyBaseItemID)) {
+    throw new TypeError('Fence familyBaseItemID must be an integer');
+  }
+  const validation = validateFenceLogicalGraph(graph);
+  return {
+    ok: validation.ok,
+    errors: validation.errors,
+    network: {
+      kind: 'fence',
+      familyBaseItemID,
+      graph: {
+        nodes: (graph.nodes ?? []).map((node) => ({ ...node })),
+        edges: (graph.edges ?? []).map((edge) => ({ ...edge }))
+      }
+    },
+    persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+  };
+}
+
+export function sampleRoadStyle(network, coordinate) {
+  if (!network || network.kind !== 'road' || !Number.isInteger(network.familyBaseItemID)) {
+    throw new TypeError('valid Road network metadata is required');
+  }
+  assertIntegerCoordinate(coordinate, 'coordinate');
+  const key = coordinateKey(coordinate);
+  const cell = (network.cells ?? []).find((candidate) => coordinateKey(candidate) === key);
+  if (!cell) {
+    return {
+      ok: false,
+      code: RoadFenceValidationCode.READ_ONLY_UNSUPPORTED,
+      reason: 'no Road cell exists at the sampled coordinate'
+    };
+  }
+  return {
+    ok: true,
+    kind: 'road',
+    familyBaseItemID: network.familyBaseItemID,
+    mode: cell.mode,
+    coordinate: { x: cell.x, y: cell.y }
+  };
+}
+
+export function sampleFenceStyle(network, nodeId) {
+  if (!network || network.kind !== 'fence' || !Number.isInteger(network.familyBaseItemID)) {
+    throw new TypeError('valid Fence network metadata is required');
+  }
+  const node = (network.graph?.nodes ?? []).find((candidate) => candidate.id === nodeId);
+  if (!node) {
+    return {
+      ok: false,
+      code: RoadFenceValidationCode.READ_ONLY_UNSUPPORTED,
+      reason: 'no Fence logical node exists at the sampled node id'
+    };
+  }
+  return {
+    ok: true,
+    kind: 'fence',
+    familyBaseItemID: network.familyBaseItemID,
+    mode: node.mode,
+    nodeId: node.id,
+    coordinate: { x: node.x, y: node.y }
+  };
+}
