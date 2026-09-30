@@ -3,13 +3,13 @@ import type {
   EditorObject,
   Rect,
   WepLayer
-} from './editor-runtime';
+} from './editor-runtime.ts';
 import {
   WEP_LAYERS,
   boundsFor,
   normalizeEditorDocument,
   occupiedCells
-} from './editor-runtime';
+} from './editor-runtime.ts';
 
 export const DEFAULT_LAYER_ORDER = Object.freeze([
   'road',
