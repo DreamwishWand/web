@@ -227,7 +227,13 @@ test('Community Edge adapters trust the verified Supabase user ID, never a clien
     const source = read(path);
     assert.match(source, /withSupabase\(\{ auth: 'user' \}/);
     assert.match(source, /ctx\.userClaims\?\.id/);
-    assert.doesNotMatch(source, /payload\.actorAccountId|payload\.accountId/);
+    assert.doesNotMatch(source, /payload\.actorAccountId|payload\.actor_account_id/);
+
+    if (path !== 'supabase/functions/community-admin/index.ts') {
+      assert.doesNotMatch(source, /payload\.accountId/);
+    } else {
+      assert.match(source, /params\.p_account_id = payload\.accountId/);
+    }
   }
 });
 
