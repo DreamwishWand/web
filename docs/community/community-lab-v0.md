@@ -36,11 +36,30 @@ This route is intentionally not linked from the public Dreamwish Wand shell. It 
    - use Gallery publish v3 only;
    - use the draft `rowVersion` as `expectedVersion`;
    - no Preset link is required for this first media-path proof.
-7. **Readback**:
+7. **A readback / actor switch context**:
    - query the published work through `community-query.work`;
-   - confirm the same stable `workId`, published lifecycle, visibility and revision.
+   - confirm the same stable `workId`, published lifecycle, visibility and revision;
+   - retain only the target `workId`, A's `creatorProfileId`, current `rowVersion` and later moderation `caseId` in tab-scoped `sessionStorage`;
+   - sign out A.
+8. **User B interaction path**:
+   - sign in as B and run Stable identity for B;
+   - query A's target work;
+   - Save, Follow A, Like, Comment and Report through the same JWT-authenticated Community Edge command boundary;
+   - query B's SavedItems and Notifications;
+   - run the negative-authorization probe and require B's `changeVisibility`, `unpublishWork` and `deleteWork` commands against A's work to all fail.
+9. **Moderator path**:
+   - sign out B and sign in as a staging moderator;
+   - apply `restrict` to the Report-created moderation case with a mandatory reason;
+   - query the target after restriction;
+   - apply `restore` and query again;
+   - normal-user invocation of `moderateWork` remains expected to fail because role authorization is enforced inside the server RPC.
+10. **Notification convergence**:
+   - after the cron/outbox interval, sign in to the relevant recipient account and query Notifications;
+   - confirm the expected interaction/moderation deliveries without treating Notification presence as an authorization grant.
 
-## Runtime evidence needed to close VS-02 / VS-12 media portion
+## Runtime evidence needed
+
+### VS-02 / VS-12 media portion
 
 Record, without storing passwords/tokens:
 
@@ -57,6 +76,23 @@ Record, without storing passwords/tokens:
 - publish revisionId/new rowVersion;
 - authorized work readback PASS;
 - post-test cleanup status.
+
+### A -> B -> moderator product-shaped path
+
+Record only opaque actor labels (A/B/M) plus stable Community IDs:
+
+- A identity round-trip PASS;
+- A Gallery publish/readback PASS;
+- B target read PASS;
+- B Save/Follow/Reaction/Comment/Report PASS;
+- B SavedItem query contains the target;
+- B owner-mutation negative probe: all three commands rejected;
+- Report `caseId` captured;
+- normal-user moderation attempt rejected when exercised;
+- moderator restrict PASS and target/discovery behavior converges;
+- moderator restore PASS;
+- relevant Notification queries after cron processing;
+- post-test cleanup/tombstone state as required.
 
 Never copy access tokens, refresh tokens, publishable-key input values, signed upload tokens or signed read URLs into canonical project docs.
 
@@ -75,6 +111,6 @@ The Lab should surface normal API failures rather than bypassing them:
 
 ## Current boundary
 
-The Lab is an implementation checkpoint, not acceptance proof by itself. VS-02/VS-12 remain PARTIAL until a real image completes the browser path above. VS-01 remains PARTIAL until the product-facing Creator edit/recovery lifecycle is exercised. VS-13 still requires a true parallel-session test.
+The Lab is an implementation checkpoint, not acceptance proof by itself. The A -> B -> moderator route is implemented and CI-validated, but no new VS status is promoted until the real browser flow is executed. VS-02/VS-12 remain PARTIAL until a real image completes the browser path above. VS-01 remains PARTIAL until the product-facing Creator edit/recovery lifecycle is exercised. VS-13 still requires a true parallel-session test.
 
 The WEP workstream continues to own Preset payload semantics, compatibility preflight and apply behavior. Community owns the publication envelope, exact revision link, permissions and SavedItem/Library reuse.
