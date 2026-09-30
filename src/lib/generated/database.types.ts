@@ -1502,6 +1502,16 @@ export type Database = {
         }
         Returns: Json
       }
+      community_admin_ack_operations_alert: {
+        Args: {
+          p_admin_auth_subject: string
+          p_alert_id: string
+          p_issued_at_epoch: number
+          p_note: string
+          p_session_id: string
+        }
+        Returns: Json
+      }
       community_admin_complete_recovery: {
         Args: {
           p_admin_auth_subject: string
@@ -1627,6 +1637,14 @@ export type Database = {
       }
       community_get_notifications: {
         Args: { p_auth_subject: string; p_limit?: number }
+        Returns: Json
+      }
+      community_get_operations_alerts: {
+        Args: {
+          p_admin_auth_subject: string
+          p_limit?: number
+          p_state?: string
+        }
         Returns: Json
       }
       community_get_preset: {
