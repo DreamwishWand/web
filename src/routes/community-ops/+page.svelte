@@ -455,6 +455,23 @@
       {#if securityPolicy}
         <pre>{JSON.stringify(securityPolicy, null, 2)}</pre>
       {/if}
+
+      <div class="ops-section">
+        <h3>Action rate-limit policy</h3>
+        <p class="ops-note">
+          Shared server-side WandAccount action limits. Current numeric values are engineering
+          launch defaults and remain configuration-driven for later load/abuse tuning. Private
+          per-account counters are not exposed to the browser.
+        </p>
+        <button
+          class="secondary"
+          on:click={refreshActionRatePolicies}
+          disabled={busy || !session}
+        >
+          Load action rate policies
+        </button>
+        <pre>{JSON.stringify(actionRatePolicies, null, 2)}</pre>
+      </div>
     </article>
 
     <div class="ops-grid">
