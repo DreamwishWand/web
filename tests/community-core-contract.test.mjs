@@ -178,3 +178,19 @@ test('RLS policies specify intended Postgres roles and SQL contains no escaped n
   assert.match(schema, /create policy saved_items_self_read[\s\S]*to authenticated\s+using \(/i);
   assert.doesNotMatch(schema, /\\nusing \(/);
 });
+
+
+test('canonical Community tables are not directly enumerable through the client Data API', () => {
+  const boundary = read('supabase/migrations/20260930025040_community_core_v0_query_boundary.sql');
+  assert.match(boundary, /revoke select on all tables in schema public from anon, authenticated/i);
+  assert.match(boundary, /grant select on public\.search_documents to anon, authenticated/i);
+});
+
+test('first real Supabase advisor hardening is tracked as a migration', () => {
+  const hardening = read(
+    'supabase/migrations/20260930024950_community_core_v0_advisor_hardening.sql'
+  );
+  assert.match(hardening, /set search_path = pg_catalog, public, private/i);
+  assert.match(hardening, /revoke execute on function public\.enforce_ddv_profile_limit/i);
+  assert.match(hardening, /create index if not exists auth_identities_account_idx/i);
+});
