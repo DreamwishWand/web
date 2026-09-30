@@ -964,7 +964,7 @@ test('support recovery currently permits provider recovery only and disables DDV
 
   assert.match(migration, /p_verification_method='linked_ddv_profile'/);
   assert.match(migration, /not enabled until a stable claim contract is confirmed/);
-  assert.match(migration, /p_verification_method<>'provider_recovery'/);
+  assert.match(migration, /v_case\.verification_method<>'provider_recovery'/);
   assert.match(migration, /Strong recovery verification evidence is required/);
 });
 
