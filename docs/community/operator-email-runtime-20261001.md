@@ -1,6 +1,6 @@
 # Community Core operator critical email runtime — 2026-10-01
 
-Status: **CONFIRMED PROVIDER DELIVERY / USER-INBOX VISIBILITY PENDING**
+Status: **CONFIRMED END-TO-END OPERATOR EMAIL ACCEPTANCE**
 
 ## Scope
 
@@ -102,12 +102,22 @@ After provider delivery was confirmed:
 - minimized payload;
 - test alert cleanup/resolution.
 
-**PENDING**
+**CONFIRMED additional acceptance**
 
-- human confirmation that the message is visible in the configured mailbox inbox;
-- recurrence -> new occurrence -> second external delivery acceptance;
-- controlled external-delivery failure/retry acceptance against the active provider path;
+- human operator confirmed the first critical-alert message was visible in the configured mailbox;
+- reopening the same canonical alert produced occurrence 2 and a distinct second external delivery;
+- occurrence 2 reached Resend with provider status `delivered`;
+- a controlled internal relay failure produced HTTP 404, delivery state `pending`, attempts = 1,
+  and preserved the canonical open alert;
+- the relay endpoint was restored to `community-email-resend`;
+- the exact same delivery retried and completed with HTTP 200, state `delivered`, attempts = 2;
+- Resend recorded the recovered delivery as `delivered`;
+- both acceptance fixture alerts were resolved afterward;
+- open critical alert count returned to 0;
+- canonical relay endpoint is restored.
+
+Operator critical email acceptance is therefore CLOSED for first launch.
+
+Still outside this document:
+
 - real browser Auth verification/recovery email acceptance.
-
-The provider-level `delivered` status is sufficient to close the backend/provider transport
-boundary, but the full operator acceptance remains open until mailbox visibility is confirmed.
