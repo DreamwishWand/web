@@ -1413,6 +1413,10 @@ export type Database = {
         Args: { p_auth_subject: string; p_creator_profile_id: string }
         Returns: Json
       }
+      community_get_dead_letter_outbox: {
+        Args: { p_auth_subject: string; p_limit?: number }
+        Returns: Json
+      }
       community_get_me: { Args: { p_auth_subject: string }; Returns: Json }
       community_get_media_storage_key: {
         Args: { p_auth_subject: string; p_media_id: string }
@@ -1490,6 +1494,14 @@ export type Database = {
         }
         Returns: Json
       }
+      community_remove_reaction: {
+        Args: {
+          p_auth_subject: string
+          p_reaction_kind: string
+          p_target_entity_id: string
+        }
+        Returns: Json
+      }
       community_report_entity: {
         Args: {
           p_auth_subject: string
@@ -1500,8 +1512,16 @@ export type Database = {
         }
         Returns: Json
       }
+      community_retry_dead_letter_outbox: {
+        Args: { p_auth_subject: string; p_outbox_id: string; p_reason: string }
+        Returns: Json
+      }
       community_save_entity: {
         Args: { p_auth_subject: string; p_target_entity_id: string }
+        Returns: Json
+      }
+      community_unfollow_creator: {
+        Args: { p_auth_subject: string; p_creator_profile_id: string }
         Returns: Json
       }
       community_unpublish_work: {
@@ -1511,6 +1531,10 @@ export type Database = {
           p_idempotency_key: string
           p_work_id: string
         }
+        Returns: Json
+      }
+      community_unsave_entity: {
+        Args: { p_auth_subject: string; p_target_entity_id: string }
         Returns: Json
       }
       community_update_creator_profile: {
