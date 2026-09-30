@@ -1,4 +1,5 @@
 import { withSupabase } from 'npm:@supabase/server';
+import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
 const BUCKET = 'community-media-staging';
 const MAX_BYTES = 25 * 1024 * 1024;
@@ -11,7 +12,7 @@ const EXTENSIONS: Record<string, string> = {
 function reply(body: unknown, status = 200) {
   return Response.json(body, {
     status,
-    headers: { 'Cache-Control': 'private, no-store' }
+    headers: { ...corsHeaders, 'Cache-Control': 'private, no-store' }
   });
 }
 
@@ -81,8 +82,7 @@ function detectImage(bytes: Uint8Array): { mimeType: string; width: number; heig
   throw new Error('Unsupported or malformed image');
 }
 
-export default {
-  fetch: withSupabase({ auth: 'user' }, async (req, ctx) => {
+const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
     if (req.method !== 'POST') return reply({ ok: false, error: 'POST required' }, 405);
 
     const subject = ctx.userClaims?.id;
@@ -224,5 +224,13 @@ export default {
     }
 
     return reply({ ok: false, error: 'Unsupported action' }, 400);
-  })
+});
+
+export default {
+  fetch(req: Request) {
+    if (req.method === 'OPTIONS') {
+      return new Response('ok', { headers: corsHeaders });
+    }
+    return authenticatedFetch(req);
+  }
 };
