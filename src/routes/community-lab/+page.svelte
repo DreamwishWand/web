@@ -154,6 +154,16 @@
     }
   }
 
+  async function signUp() {
+    const active = configureClient();
+    const result = await run('Auth sign-up', () => active.signUpWithPassword(email, password));
+
+    if (result && result.requiresEmailConfirmation !== true) {
+      error = 'Signup returned an immediate session path; email confirmation must remain required.';
+      status = 'Auth sign-up: CONFIGURATION FAILED';
+    }
+  }
+
   async function signIn() {
     const active = configureClient();
     const result = await run('Auth sign-in', () => active.signInWithPassword(email, password));
@@ -724,6 +734,9 @@
           </label>
         </div>
         <div class="lab-actions">
+          <button on:click={signUp} disabled={busy || !email || !password || !publishableKey}>
+            Sign up + send confirmation
+          </button>
           <button on:click={signIn} disabled={busy || !email || !password || !publishableKey}>
             Sign in
           </button>
@@ -742,6 +755,7 @@
           </button>
         </div>
         <p class="lab-meta">
+          Signup uses the normal Supabase email/password path and requires email confirmation.
           "Revoke all sessions" first invalidates provider refresh sessions, then advances the Wand
           session cutoff so already-issued access JWTs are rejected immediately by Community APIs.
           Recovery uses PKCE and returns to the internal recovery route.
