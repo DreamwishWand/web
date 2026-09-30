@@ -258,12 +258,25 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
     let source: 'staging' | 'published' = 'staging';
     try {
       validated = await validatedStoredArtifact(ctx, accountId, storageKey, 'staging');
-    } catch {
+    } catch (stagingError) {
       try {
         validated = await validatedStoredArtifact(ctx, accountId, publishedStorageKey, 'published');
         source = 'published';
-      } catch (error) {
-        return reply({ ok: false, error: error instanceof Error ? error.message : 'ARTIFACT_VALIDATE_FAILED' }, 400);
+      } catch (publishedError) {
+        const stagingMessage =
+          stagingError instanceof Error ? stagingError.message : 'ARTIFACT_VALIDATE_FAILED';
+        const publishedMessage =
+          publishedError instanceof Error ? publishedError.message : 'ARTIFACT_VALIDATE_FAILED';
+        return reply(
+          {
+            ok: false,
+            error:
+              publishedMessage === 'UPLOAD_NOT_FOUND'
+                ? stagingMessage
+                : publishedMessage
+          },
+          400
+        );
       }
     }
 
