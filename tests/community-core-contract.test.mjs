@@ -1431,3 +1431,22 @@ test('launch notification channel mix keeps normal Community activity in-app onl
     assert.match(emailPolicy, new RegExp(`'${kind}'`));
   }
 });
+
+
+test('operational foreign keys have covering indexes', () => {
+  const migration = read(
+    'supabase/migrations/20260930115623_community_core_v0_fk_index_hardening.sql'
+  );
+
+  for (const indexName of [
+    'account_retention_holds_created_by_idx',
+    'account_retention_holds_released_by_idx',
+    'account_retention_jobs_deletion_event_idx',
+    'community_operations_alerts_ack_by_idx',
+    'provider_cleanup_jobs_account_idx',
+    'provider_identity_cleanup_jobs_account_idx',
+    'account_recovery_cases_verified_by_idx'
+  ]) {
+    assert.match(migration, new RegExp(indexName));
+  }
+});
