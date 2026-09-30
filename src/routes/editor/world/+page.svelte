@@ -161,6 +161,16 @@
     floatingIslandPlanError = '';
   }
 
+  function floatingIslandObjectCount(island: any) {
+    return Array.isArray(island?.roots)
+      ? island.roots.reduce(
+          (sum: number, root: any) =>
+            sum + Number(root?.objectCount ?? 0),
+          0
+        )
+      : 0;
+  }
+
   function previewFloatingIslandPlan(island: any) {
     resetFloatingIslandPlan();
     if (!worldSource) return;
@@ -1326,7 +1336,7 @@
                 <div class="floating-route-actions">
                   <span>
                     {island.roots.length} direct root{island.roots.length === 1 ? '' : 's'} ·
-                    {island.roots.reduce((sum, root) => sum + root.objectCount, 0)} objects
+                    {floatingIslandObjectCount(island)} objects
                   </span>
                   <button
                     disabled={
