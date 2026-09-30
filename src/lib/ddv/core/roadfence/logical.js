@@ -739,3 +739,240 @@ export function buildFenceRectangleOutline({ minX, minY, maxX, maxY }) {
     { x: minX, y: minY }
   ], FenceMode.ORTHOGONAL);
 }
+
+
+export function buildRoadRegionFill({ minX, minY, maxX, maxY }) {
+  for (const [name, value] of Object.entries({ minX, minY, maxX, maxY })) {
+    if (!Number.isInteger(value)) throw new TypeError(`${name} must be an integer logical coordinate`);
+  }
+  if (maxX < minX || maxY < minY) {
+    throw new RangeError('Road region fill requires non-negative width and height');
+  }
+
+  const cells = [];
+  for (let y = minY; y <= maxY; y += 1) {
+    for (let x = minX; x <= maxX; x += 1) {
+      cells.push({
+        x,
+        y,
+        mode: FenceMode.ORTHOGONAL,
+        modeClaims: [FenceMode.ORTHOGONAL]
+      });
+    }
+  }
+
+  return {
+    cells,
+    inventoryQuantity: cells.length,
+    persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+  };
+}
+
+export function eraseRoadCells(cells = [], coordinatesToErase = []) {
+  const eraseKeys = new Set((coordinatesToErase ?? []).map((point, index) => {
+    assertIntegerCoordinate(point, `coordinatesToErase[${index}]`);
+    return coordinateKey(point);
+  }));
+  const existingKeys = new Set((cells ?? []).map((cell) => coordinateKey(cell)));
+  const missing = [...eraseKeys].filter((key) => !existingKeys.has(key));
+  if (missing.length) {
+    return {
+      ok: false,
+      errors: [{
+        code: RoadFenceValidationCode.READ_ONLY_UNSUPPORTED,
+        reason: 'Road erase references cells that are not present',
+        coordinates: missing
+      }],
+      persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+    };
+  }
+
+  const remaining = (cells ?? []).filter((cell) => !eraseKeys.has(coordinateKey(cell)));
+  return {
+    ok: true,
+    cells: remaining,
+    refundLogicalQuantity: eraseKeys.size,
+    remainingLogicalQuantity: remaining.length,
+    persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+  };
+}
+
+export function selectFenceConnected(graph = {}, seedNodeId) {
+  const validation = validateFenceLogicalGraph(graph);
+  if (!validation.ok) {
+    return {
+      ok: false,
+      errors: validation.errors,
+      persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+    };
+  }
+
+  const nodes = graph.nodes ?? [];
+  const edges = graph.edges ?? [];
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const seed = nodeById.get(seedNodeId);
+  if (!seed) {
+    return {
+      ok: false,
+      errors: [{
+        code: RoadFenceValidationCode.READ_ONLY_UNSUPPORTED,
+        reason: 'Fence connected selection seed does not exist',
+        seedNodeId
+      }],
+      persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+    };
+  }
+
+  const adjacency = new Map(nodes.map((node) => [node.id, new Set()]));
+  for (const edge of edges) {
+    const a = nodeById.get(edge.a);
+    const b = nodeById.get(edge.b);
+    if (a.mode !== b.mode) continue;
+    adjacency.get(a.id).add(b.id);
+    adjacency.get(b.id).add(a.id);
+  }
+
+  const selected = new Set([seedNodeId]);
+  const queue = [seedNodeId];
+  while (queue.length) {
+    const id = queue.shift();
+    for (const next of adjacency.get(id) ?? []) {
+      if (!selected.has(next)) {
+        selected.add(next);
+        queue.push(next);
+      }
+    }
+  }
+
+  const nodeIds = sortLogicalNodes(nodeById, selected);
+  const selectedSet = new Set(nodeIds);
+  const selectedEdges = edges.filter((edge) => selectedSet.has(edge.a) && selectedSet.has(edge.b) && nodeById.get(edge.a).mode === nodeById.get(edge.b).mode);
+
+  return {
+    ok: true,
+    mode: seed.mode,
+    nodeIds,
+    edges: selectedEdges,
+    logicalQuantity: nodeIds.length,
+    persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+  };
+}
+
+function normalizeQuarterTurns(value = 0) {
+  if (!Number.isInteger(value)) throw new TypeError('rotateQuarterTurns must be an integer');
+  return ((value % 4) + 4) % 4;
+}
+
+function transformLogicalPoint(point, {
+  pivot = { x: 0, y: 0 },
+  rotateQuarterTurns = 0,
+  translateX = 0,
+  translateY = 0
+} = {}) {
+  assertIntegerCoordinate(point, 'point');
+  assertIntegerCoordinate(pivot, 'pivot');
+  if (!Number.isInteger(translateX) || !Number.isInteger(translateY)) {
+    throw new TypeError('logical translation must use integer units');
+  }
+
+  const turns = normalizeQuarterTurns(rotateQuarterTurns);
+  let x = point.x - pivot.x;
+  let y = point.y - pivot.y;
+  for (let i = 0; i < turns; i += 1) {
+    [x, y] = [-y, x];
+  }
+
+  return {
+    x: x + pivot.x + translateX,
+    y: y + pivot.y + translateY
+  };
+}
+
+export function transformRoadCells(cells = [], options = {}) {
+  const transformed = (cells ?? []).map((cell) => ({
+    ...cell,
+    ...transformLogicalPoint(cell, options),
+    modeClaims: Array.isArray(cell.modeClaims) ? [...cell.modeClaims] : cell.modeClaims
+  }));
+  const validation = validateRoadCells(transformed);
+  return {
+    ok: validation.ok,
+    errors: validation.errors,
+    cells: transformed,
+    inventoryQuantity: transformed.length,
+    persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+  };
+}
+
+export function transformFenceLogicalGraph(graph = {}, options = {}) {
+  const validation = validateFenceLogicalGraph(graph);
+  if (!validation.ok) {
+    return {
+      ok: false,
+      errors: validation.errors,
+      persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+    };
+  }
+
+  const nodes = (graph.nodes ?? []).map((node) => ({
+    ...node,
+    ...transformLogicalPoint(node, options)
+  }));
+  const edges = (graph.edges ?? []).map((edge) => ({ ...edge }));
+  const transformed = { nodes, edges };
+  const compiled = compileFenceLogicalGraph(transformed);
+
+  return {
+    ok: compiled.ok,
+    errors: compiled.errors ?? [],
+    graph: transformed,
+    compiled,
+    persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+  };
+}
+
+export function previewFenceStyleReplacement({
+  graph = {},
+  seedNodeId,
+  sourceFamilyBaseItemID,
+  targetFamilyBaseItemID,
+  targetAvailableLogicalQuantity = Number.POSITIVE_INFINITY
+}) {
+  if (sourceFamilyBaseItemID === undefined || targetFamilyBaseItemID === undefined) {
+    throw new TypeError('source and target Fence family Base ItemIDs are required');
+  }
+  if (sourceFamilyBaseItemID === targetFamilyBaseItemID) {
+    return {
+      ok: false,
+      code: RoadFenceValidationCode.READ_ONLY_UNSUPPORTED,
+      reason: 'source and target Fence families are identical',
+      persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+    };
+  }
+
+  const selected = selectFenceConnected(graph, seedNodeId);
+  if (!selected.ok) return selected;
+  const quantity = selected.logicalQuantity;
+  if (targetAvailableLogicalQuantity < quantity) {
+    return {
+      ok: false,
+      code: RoadFenceValidationCode.INVENTORY_SHORTAGE,
+      requiredLogicalQuantity: quantity,
+      availableLogicalQuantity: targetAvailableLogicalQuantity,
+      persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+    };
+  }
+
+  return {
+    ok: true,
+    sourceFamilyBaseItemID,
+    targetFamilyBaseItemID,
+    mode: selected.mode,
+    nodeIds: selected.nodeIds,
+    logicalQuantity: quantity,
+    sourceInventoryDelta: quantity,
+    targetInventoryDelta: -quantity,
+    graph,
+    persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+  };
+}
