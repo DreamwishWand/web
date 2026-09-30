@@ -8,7 +8,8 @@ const queryToRpc = {
   work: 'community_get_work',
   saved: 'community_get_saved',
   notifications: 'community_get_notifications',
-  preset: 'community_get_preset'
+  preset: 'community_get_preset',
+  deadLetters: 'community_get_dead_letter_outbox'
 } as const;
 
 type QueryName = keyof typeof queryToRpc;
@@ -50,6 +51,7 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         break;
       case 'saved':
       case 'notifications':
+      case 'deadLetters':
         params.p_limit = payload.limit ?? 50;
         break;
       case 'preset':
@@ -59,7 +61,10 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
 
     const { data, error } = await ctx.supabaseAdmin.rpc(rpc, params);
     if (error) {
-      const forbidden = error.message.includes('not accessible') || error.message.includes('not active');
+      const forbidden =
+        error.message.includes('not accessible') ||
+        error.message.includes('not active') ||
+        error.message.includes('role required');
       return response(
         {
           ok: false,
