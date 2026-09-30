@@ -7,8 +7,8 @@ production operations.
 
 ## External escalation requirement
 
-At public launch, at least one external operator notification channel must be configured and tested
-for **critical** persistent Operations Alerts.
+At public launch, **operator email** is the single required external notification channel for
+**critical** persistent Operations Alerts. Discord/Slack are not launch channels.
 
 Critical sources currently include:
 
@@ -72,18 +72,30 @@ Do not include:
 
 ## Provider boundary
 
-The external channel provider is not yet selected. Email, an incident-management service or another
-operator channel may satisfy the contract.
+The external channel is now fixed as normal transactional **email** to the operator's usual mailbox.
+The email-delivery provider itself is not yet canonicalized.
 
-Selection must not change the canonical Operations Alert table/state machine. The provider adapter
-consumes the alert state; it does not become the source of truth.
+Where practical, use the same transactional email provider selected for Supabase Auth and approved
+Wizard transactional mail. Provider reuse must not merge data models: Wand persistent Operations
+Alert state remains canonical and email remains a delivery projection.
+
+Current provider evaluation favors services that offer both production SMTP and HTTPS APIs. Resend is
+a leading candidate because it supports Supabase Auth integration, SMTP/API delivery, idempotency and
+delivery observability, but provider selection is deliberately deferred until account/domain setup is
+required.
+
+A failure of the selected email provider cannot notify the operator through that same provider. That
+blind spot is explicitly accepted for first launch: a second independent notification channel is not
+launch-required for the current single-operator, non-life-safety/non-financial workload. Provider
+failure remains durable/visible in Community Ops. A second channel or backup provider becomes a
+hardening requirement if operational coverage, SLA or business criticality increases.
 
 ## Launch acceptance
 
 Before public release:
 
-1. configure one real external channel;
-2. enable the provider-neutral delivery configuration using Vault-held destination data;
+1. configure one real transactional email provider and operator mailbox destination;
+2. enable the operator-email delivery configuration using Vault/secret-held destination data;
 3. induce a safe critical staging alert;
 4. confirm one external delivery;
 5. acknowledge the alert in Community Ops;
