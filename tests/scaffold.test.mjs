@@ -55,12 +55,17 @@ test('World Editor product surface is WEP-backed and writer-safe', () => {
   assert.match(page, /captureScenePreset/);
   assert.match(page, /createScenePresetWorkflow/);
   assert.match(page, /openWorldSaveBytes/);
+  assert.match(page, /createSwitchWorldReadAdapter/);
+  assert.match(page, /projectSwitchAreaGrid/);
   assert.match(page, /Open DDV Save \/ EditorDocument/);
+  assert.match(page, /Nintendo Switch/);
+  assert.match(page, /Steam \/ Windows/);
   assert.match(page, /exactBuildKnown=false/);
   assert.match(page, /persistentWriteAuthorized=false/);
+  assert.match(page, /Open in Canvas/);
+  assert.match(page, /01B v1\.3 source/);
   assert.match(page, /Publish Scene Preset/);
   assert.match(page, /Persistent write: disabled/);
-  assert.match(page, /Canvasを仮の1×1 footprintで描画することはしません/);
   assert.doesNotMatch(page, />Apply</);
   assert.doesNotMatch(page, />Commit</);
 });
