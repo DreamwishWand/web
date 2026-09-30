@@ -715,7 +715,7 @@ test('Community Ops console is internal, admin-only in intent, and omits secrets
   assert.match(page, /completeRecoveryCase/);
   assert.match(page, /retryProviderCleanup/);
   assert.match(page, /Refresh/);
-  assert.match(page, /provider session created within the configured/);
+  assert.match(page, /provider session created within[\s\S]*configured[\s\S]*recent-auth window/);
   assert.doesNotMatch(page, /service_role|SUPABASE_SECRET|sb_secret_/i);
   assert.doesNotMatch(header, /community-ops/i);
 });
