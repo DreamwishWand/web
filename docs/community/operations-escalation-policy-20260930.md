@@ -101,4 +101,4 @@ Before public release:
    acceptance evidence.
 
 Backend transport, worker-health monitoring, dead-letter visibility, and reviewed retry are
-**CONFIRMED** at the staging backend boundary. External escalation as a first-launch capability is **CONFIRMED** for the operator email channel.
+**CONFIRMED** at the staging backend boundary. External escalation transport/retry is **CONFIRMED** for the operator email channel. Inbox placement is **PARTIAL** because two rapid iCloud acceptance-test messages were filtered to Junk; deliverability hardening remains before launch.
