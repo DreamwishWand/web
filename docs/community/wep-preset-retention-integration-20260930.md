@@ -1,32 +1,32 @@
 # COMM ↔ WEP Preset Artifact retention integration — 2026-09-30
 
-Status: **HIGH CONFIDENCE IMPLEMENTED / REAL STORAGE E2E PENDING**
+Status: **CONFIRMED RUNTIME PASS**
 
 ## Boundary
 
-This integration closes the code-level gap between Community account-retention orchestration and
-WEP-owned Preset ArtifactBlob physical storage.
+This integration closes the Community account-retention path for WEP-owned Preset ArtifactBlob
+physical storage without moving Preset payload semantics into Community Core.
 
 Ownership remains unchanged:
 
 - COMM owns account-retention scheduling, holds, claim/complete/fail state, alerts, and the
   service-only ArtifactBlob DB finalizer.
 - WEP owns Preset payload validation, physical artifact storage namespace, physical deletion, and
-  Preset preflight/apply semantics.
+  Preset read/preflight/apply semantics.
 
-Community does not become the owner of Preset payload bytes.
+Community does not own or interpret Preset payload bytes.
 
 ## WEP storage implementation
 
 Branch: `dev/wep-v125`
 
-Implemented migrations:
+Migrations:
 
 - `20260930124055_wep_preset_artifact_storage_v0.sql`
 - `20260930124357_wep_preset_artifact_access_v0.sql`
 - `20260930125310_wep_preset_retention_claim_v0.sql`
 
-Implemented Edge functions:
+Edge functions:
 
 - `wep-preset-artifact`
 - `wep-preset-retention`
@@ -38,74 +38,159 @@ Staging storage bucket:
 - JSON only
 - 25 MiB maximum
 
-Current publication validator accepts only Scene Preset payloads. Other declared Preset types fail
-closed with `PRESET_TYPE_VALIDATOR_NOT_AVAILABLE` until their WEP validators exist.
+Current publication validation supports Scene Presets. Other declared Preset types fail closed with
+`PRESET_TYPE_VALIDATOR_NOT_AVAILABLE` until WEP supplies their validators.
 
-The Scene validator rejects save-local Grid/GridObject identity fields and requires the current
-portable Wand Scene envelope.
+The Scene validator rejects save-local Grid/GridObject identity recursively and validates the
+current portable Scene/SubGrid/Road/Fence artifact envelope.
+
+## Durable storage identity rule
+
+Preset physical Storage keys use the durable WandAccount identity:
+
+- `staging/<wandAccountId>/...`
+- `published/<wandAccountId>/...`
+
+They must **not** use the Supabase Auth provider subject as the storage namespace.
+
+This rule was established by runtime evidence. The first disposable retention E2E exposed a mismatch:
+the publication service originally wrote `published/<providerSubject>/...`, while retention correctly
+validated `published/<accountId>/...`. Account deletion intentionally retires/tombstones provider
+subjects, so provider identity is not a durable artifact-storage key.
+
+The first content-retention attempt therefore failed closed and returned the job to `pending`
+rather than deleting or falsely completing it. WEP publication was corrected to derive accountId
+from the verified `community_authorize_session` result. Contract tests now prohibit
+provider-subject namespaces.
 
 ## Retention ordering
 
-The retention path is now:
+The accepted path is:
 
 1. `community-retention` claims a content-payload retention job and owns its lock token.
-2. If the job reports live ArtifactBlobs, COMM calls the internal
-   `wep-preset-retention` Edge adapter using the same dedicated retention worker token.
-3. WEP resolves only blobs belonging to the exact claimed processing job + lock token.
-4. WEP validates each storage key is inside `published/<accountId>/...json`.
-5. WEP physically removes the object from `wand-preset-artifacts-staging`.
-6. Only after physical removal succeeds, WEP calls
+2. If the job reports live ArtifactBlobs, COMM calls `wep-preset-retention` using the same dedicated
+   retention worker token and the exact retentionJobId + lockToken.
+3. WEP resolves only blobs belonging to that claimed processing content-payload job.
+4. WEP validates each Storage key is in `published/<accountId>/...json`.
+5. WEP physically deletes the object from `wand-preset-artifacts-staging`.
+6. Only after deletion succeeds, WEP calls
    `community_finalize_artifact_blob_purge(blobId, expectedStorageKey)`.
-7. COMM then removes any Gallery media objects for the same retention stage.
+7. COMM removes any Gallery media for the same retention stage.
 8. COMM completes the retention job.
-9. Any adapter/storage/finalizer failure is routed through the existing retention failure/retry/
-   dead-letter/Operations Alert path.
+9. Any adapter/storage/finalizer failure uses the existing retry/dead-letter/Operations Alert path.
 
-The code-level order therefore preserves the original fail-closed contract: account content purge
-cannot report completion while a claimed Preset ArtifactBlob remains unfinalized.
+The database finalizer still independently refuses content completion while any owned ArtifactBlob
+remains live.
 
-## Static / staging verification
+## Real Storage-object E2E — CONFIRMED
 
-CONFIRMED implementation evidence:
+A temporary internal harness was protected by the existing retention worker token and returned no
+email, password, JWT, provider subject, worker token, or API secret.
 
-- WEP storage/access/retention migrations are applied to staging.
-- `wep-preset-artifact` is ACTIVE with JWT verification enabled.
-- `wep-preset-retention` is ACTIVE with worker-token authentication and JWT verification disabled.
-- `community-retention` version 2 is ACTIVE and delegates ArtifactBlob purge to WEP before media
-  removal and job completion.
-- contract tests assert:
-  - WEP private bucket / Scene-only fail-closed validation;
-  - claimed retention job + lock-token binding;
-  - physical Storage removal precedes COMM finalizer;
-  - WEP adapter call precedes COMM job completion.
-- `dev/wep-v125` CI run #601 is SUCCESS.
-- Security Advisor WARN count = 0.
-- Performance Advisor unindexed-foreign-key count = 0.
+The accepted disposable fixture executed the real staging path:
 
-Post-deployment staging state at verification time:
+1. created a disposable confirmed Supabase Auth user;
+2. performed normal password sign-in;
+3. bootstrapped a real WandAccount + CreatorProfile through `community-command`;
+4. prepared a private Scene Preset through `wep-preset-artifact`;
+5. uploaded a real JSON object through the signed Storage upload;
+6. published the Preset through the WEP publication service;
+7. confirmed one live ArtifactBlob and one real Storage object;
+8. tombstoned the WandAccount through `community-account`;
+9. deleted the disposable provider user;
+10. advanced only that fixture's 30-day content job to due and invoked the normal Vault-authenticated
+    `community-retention` worker.
+
+Pre-retention evidence:
+
+- other due content jobs = 0;
+- fixture Storage object = 1;
+- live fixture ArtifactBlob = 1;
+- PresetArtifact row = 1;
+- PresetRevision row = 1;
+- content job = pending, attempts 0.
+
+Worker result:
+
+- claimed = 1;
+- completed = 1;
+- failed = 0;
+- retention job = completed;
+- attempts = 1;
+- last_error = null.
+
+Function logs independently recorded HTTP 200 for `wep-preset-retention` followed by HTTP 200 for
+`community-retention`.
+
+Post-retention evidence:
+
+- physical Preset Storage object count = 0;
+- ArtifactBlob `purged_at` set;
+- ArtifactBlob storage key = `purged:<blobId>`;
+- byte size = 0;
+- content type = `application/x-purged`;
+- checksum = all-zero neutral value;
+- AccountDeletionEvent `content_purged_at` set;
+- PresetArtifact stable row remains;
+- PresetRevision stable row remains and still references the tombstoned ArtifactBlob;
+- PresetRevision metadata = `{}`;
+- CommunityWorkRevision stable row remains.
+
+Because the physical object no longer exists and `wep_get_accessible_preset_blob` rejects purged
+ArtifactBlobs before signed-URL creation, the normal WEP read path cannot issue a new signed read for
+the purged payload.
+
+## Operational stage and cleanup
+
+For the two disposable fixtures used while closing this contract, only their own 365-day
+operational-detail jobs were advanced. The normal retention worker returned:
+
+- claimed = 2;
+- completed = 2;
+- failed = 0.
+
+Final staging cleanup state:
 
 - active pending/processing/dead-letter retention jobs = 0;
+- fixture provider-cleanup jobs = 0;
+- WEP Preset Storage objects = 0;
 - live ArtifactBlobs = 0;
-- objects in `wand-preset-artifacts-staging` = 0.
+- both fixture AccountDeletionEvents reached `retention_state=purged`;
+- temporary pg_net response bodies = 0.
 
-No existing user payload was modified during this integration deployment.
+The temporary E2E Edge function was returned to JWT-required HTTP 410
+`STAGING_E2E_DISABLED` behavior. Immutable structural/audit history was not bypassed or erased.
 
-## Evidence boundary
+## Verification
 
-This is **not** the 10-step real-object acceptance from the COMM→WEP retention handoff.
+Current evidence after closure:
 
-Still PENDING:
+- `dev/wep-v125` HEAD `306cafd0a952a63f1012b68820ce78c952570c24`;
+- CI run #621: SUCCESS;
+- `community-retention` v2 ACTIVE;
+- `wep-preset-retention` v3 ACTIVE;
+- `wep-preset-artifact` v7 ACTIVE with user JWT verification;
+- temporary `community-wep-retention-e2e` v3 ACTIVE only as JWT-required 410-disabled code;
+- Security Advisor WARN = 0;
+- Performance Advisor unindexed-foreign-key findings = 0.
 
-1. create a disposable published Scene Preset through the actual WEP artifact path;
-2. verify a real object exists in `wand-preset-artifacts-staging`;
-3. create/tombstone a disposable account so content retention is due;
-4. run the normal claimed retention worker path;
-5. prove the real Storage object is absent afterward;
-6. prove ArtifactBlob is a purged tombstone;
-7. prove structural PresetArtifact/PresetRevision history remains;
-8. prove signed/read access is unavailable;
-9. prove the content-payload retention job completes;
-10. clean the fixture and preserve secret-free evidence.
+## Evidence classification
 
-Until that real Storage E2E passes, classify the adapter as **HIGH CONFIDENCE IMPLEMENTED**, not
-CONFIRMED runtime closure.
+**CONFIRMED**
+
+- private WEP Preset Storage boundary;
+- WandAccount-based durable Storage namespace;
+- claimed retention job + lock-token binding;
+- COMM → WEP retention delegation;
+- physical delete before COMM ArtifactBlob finalizer;
+- real physical Storage object removal;
+- ArtifactBlob tombstoning;
+- content-retention completion;
+- structural Preset/revision preservation;
+- operational-stage completion and fixture cleanup.
+
+The Preset retention dependency from COMM to WEP is closed for the tested staging Scene Preset path.
+
+Remaining WEP/Community work is product flow, not retention plumbing: publication/discovery/Library →
+read/preflight/apply and the no-direct-SQL product-shaped vertical slice. Other Preset types remain
+fail-closed until their WEP validators exist.
