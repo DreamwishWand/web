@@ -525,3 +525,52 @@ test('generated schema includes recovery state and server RPCs', () => {
   assert.match(generated, /community_open_recovery_case/);
   assert.match(generated, /community_complete_recovery/);
 });
+
+
+test('Community session cutoff invalidates old access JWTs independently of provider expiry', () => {
+  const migration = read('supabase/migrations/20260930070000_community_core_v0_session_cutoff.sql');
+  assert.match(migration, /sessions_valid_after timestamptz/i);
+  assert.match(migration, /community_authorize_session/i);
+  assert.match(migration, /community_revoke_wand_sessions/i);
+  assert.match(migration, /Wand session has been revoked/i);
+  assert.match(migration, /Recent authentication required/i);
+  assert.match(migration, /auth\.sessions_revoked/i);
+});
+
+test('all authenticated Community Edge adapters enforce the Wand session cutoff', () => {
+  for (const path of [
+    'supabase/functions/community-command/index.ts',
+    'supabase/functions/community-query/index.ts',
+    'supabase/functions/community-media/index.ts'
+  ]) {
+    const source = read(path);
+    assert.match(source, /ctx\.jwtClaims\?\.iat/);
+    assert.match(source, /community_authorize_session/);
+    assert.match(source, /SESSION_REVOKED_OR_INVALID/);
+    assert.match(source, /p_max_age_seconds: null/);
+  }
+});
+
+test('browser session UX separates local sign-out from global revoke plus Wand cutoff', () => {
+  const client = read('src/lib/community/staging-http-client.ts');
+  const page = read('src/routes/community-lab/+page.svelte');
+
+  assert.match(client, /logout\?scope=local/);
+  assert.match(client, /logout\?scope=global/);
+  assert.match(client, /this\.command\('revokeSessions', \{\}\)/);
+
+  const globalIndex = client.indexOf('/auth/v1/logout?scope=global');
+  const cutoffIndex = client.indexOf("this.command('revokeSessions', {})");
+  assert.ok(globalIndex >= 0 && cutoffIndex > globalIndex);
+
+  assert.match(page, /Revoke all sessions/);
+  assert.match(page, /Auth global revoke \+ Wand cutoff/);
+  assert.match(page, /already-issued access JWTs are rejected immediately/);
+});
+
+test('generated schema exposes session cutoff state and service-only auth RPCs', () => {
+  const generated = read('src/lib/generated/database.types.ts');
+  assert.match(generated, /sessions_valid_after: string/);
+  assert.match(generated, /community_authorize_session/);
+  assert.match(generated, /community_revoke_wand_sessions/);
+});
