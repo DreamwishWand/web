@@ -830,3 +830,55 @@ test('generated schema exposes only the worker-token verification RPC, not priva
   assert.doesNotMatch(generated, /community_invoke_provider_cleanup_worker/);
   assert.doesNotMatch(generated, /community_configure_provider_cleanup_scheduler/);
 });
+
+
+test('operations alerts persist dead letters and scheduler health without sensitive provider data', () => {
+  const migration = read(
+    'supabase/migrations/20260930081000_community_core_v0_operations_alerts.sql'
+  );
+
+  assert.match(migration, /provider_cleanup_dead_letter/);
+  assert.match(migration, /outbox_dead_letter/);
+  assert.match(migration, /provider_cleanup_scheduler_stale/);
+  assert.match(migration, /community-provider-cleanup-every-minute/);
+  assert.match(migration, /last_verified_at >= now\(\) - interval '3 minutes'/i);
+  assert.match(migration, /state='resolved'/);
+  assert.match(migration, /operations_alert\.acknowledged/);
+  assert.doesNotMatch(migration, /provider_subject.*metadata/i);
+});
+
+test('operations alert admin API separates listing from recent-auth acknowledgment', () => {
+  const migration = read(
+    'supabase/migrations/20260930081000_community_core_v0_operations_alerts.sql'
+  );
+  const admin = read('supabase/functions/community-admin/index.ts');
+
+  assert.match(migration, /community_get_operations_alerts/);
+  assert.match(migration, /community_admin_ack_operations_alert/);
+  assert.match(migration, /private\.require_recent_admin/);
+
+  assert.match(admin, /listOperationsAlerts: 'community_get_operations_alerts'/);
+  assert.match(admin, /acknowledgeOperationsAlert: 'community_admin_ack_operations_alert'/);
+  assert.match(admin, /params\.p_alert_id = payload\.alertId/);
+  assert.match(admin, /params\.p_note = payload\.note/);
+  assert.match(admin, /params\.p_session_id = sessionId/);
+});
+
+test('Community Ops exposes persistent operations alerts but remains hidden from public navigation', () => {
+  const page = read('src/routes/community-ops/+page.svelte');
+  const header = read('src/lib/SiteHeader.svelte');
+
+  assert.match(page, /Operations alerts/);
+  assert.match(page, /listOperationsAlerts/);
+  assert.match(page, /acknowledgeOperationsAlert/);
+  assert.match(page, /Acknowledge alert/);
+  assert.match(page, /resolve automatically when/);
+  assert.doesNotMatch(header, /community-ops/i);
+});
+
+test('generated schema exposes operations-alert RPCs but not private alert storage', () => {
+  const generated = read('src/lib/generated/database.types.ts');
+  assert.match(generated, /community_get_operations_alerts/);
+  assert.match(generated, /community_admin_ack_operations_alert/);
+  assert.doesNotMatch(generated, /community_operations_alerts/);
+});
