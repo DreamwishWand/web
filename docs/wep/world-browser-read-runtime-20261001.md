@@ -25,16 +25,16 @@ The browser path consumes existing approved contracts rather than redoing native
    - P1G packaged-profile codec
    - safe JSON parser
    - save/platform identity detection
-2. Integrator-approved 01B World adapter v1.3:
+2. Integrator-approved 01B World adapter v1.6:
    - exact package-source SHA-256:
-     `2ee1f8695d2f200935e0608cf0cf3d49d3af8b7656dba623a3c78c16000090d0`
+     `60b56d95b263d8ad8401bcacee5e990201d2b854af440bbd257af3348c65b85c`
    - repository path:
-     `src/lib/ddv/core/world/core-world-v125-adapter-v1_3.js`
+     `src/lib/ddv/core/world/runtime-v125/adapter-v125.js`
 3. Exact v1.3 Grid role authority:
    - SHA-256:
-     `94c958c5a689504c008a53f1f9e8466d4d51697eb4f4adf521a1599472c363f6`
+     `f16fe61adb356b1e46c59ca053588cc1ed5f9ad187866db04905ede31c9184cc`
    - repository path:
-     `static/ddv/v1.25/grid-role-authority-v125.json`
+     `static/ddv/core/world/v1.25/grid-role-authority-v125.json`
 4. Switch-only browser read data derived mechanically from the Integrator-approved 01D canonical package:
    - Drive ID:
      `1gkaPeA3uWcOtdQMK0jVcwVffN6W89Hui`
@@ -59,7 +59,7 @@ For raw saves:
 
 1. user identifies the **source/storage platform** independently from the save's last-save device;
 2. shared 01A intake validates schema 624 and enumerates Village → Area → direct Grid routes;
-3. Nintendo Switch source may open a root Grid through the pinned 01B v1.3 adapter;
+3. Nintendo Switch source may open a root Grid through the pinned 01B v1.6 adapter;
 4. the 01D-derived geometry/scope pack resolves supported object footprint/classification;
 5. the existing WEP EditorDocument / Canvas / selection / Scene capture surface is reused.
 
