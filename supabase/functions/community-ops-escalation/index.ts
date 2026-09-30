@@ -57,9 +57,10 @@ export default {
       return reply({ ok: true, enabled: false, claimed: 0, delivered: 0, failed: 0 });
     }
 
+    const channel = String(destination.channel ?? '');
     const url = String(destination.url ?? '');
     const authToken = typeof destination.authToken === 'string' ? destination.authToken : '';
-    if (!url.startsWith('https://')) {
+    if (channel !== 'operator_email' || !url.startsWith('https://')) {
       return reply({ ok: false, error: 'DESTINATION_CONFIGURATION_INVALID' }, 500);
     }
 
@@ -92,15 +93,31 @@ export default {
           method: 'POST',
           headers,
           body: JSON.stringify({
-            schema: 'dreamwishwand.community.operations-alert.v1',
-            environment: 'staging',
-            alertId: job.alertId,
-            alertType: job.alertType,
-            severity: job.severity,
-            occurrence: job.occurrence,
-            firstSeenAt: job.firstSeenAt,
-            lastSeenAt: job.lastSeenAt,
-            operationsPath: '/community-ops/'
+            schema: 'dreamwishwand.transactional-email.operator-critical.v1',
+            purpose: 'operator_critical_operations_alert',
+            idempotencyKey: `operations-alert/${job.alertId}/${job.occurrence}`,
+            subject: `[Dreamwish Wand][CRITICAL] ${job.alertType}`,
+            text: [
+              'Dreamwish Wand Community Operations Alert',
+              '',
+              `Type: ${job.alertType}`,
+              `Severity: ${job.severity}`,
+              `Occurrence: ${job.occurrence}`,
+              `First seen: ${job.firstSeenAt}`,
+              `Last seen: ${job.lastSeenAt}`,
+              '',
+              'Open the internal Community Ops console: /community-ops/'
+            ].join('\n'),
+            operations: {
+              environment: 'staging',
+              alertId: job.alertId,
+              alertType: job.alertType,
+              severity: job.severity,
+              occurrence: job.occurrence,
+              firstSeenAt: job.firstSeenAt,
+              lastSeenAt: job.lastSeenAt,
+              operationsPath: '/community-ops/'
+            }
           })
         });
 
