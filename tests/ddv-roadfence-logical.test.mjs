@@ -8,6 +8,8 @@ import {
   buildFenceRectangleOutline,
   buildRoadRegionFill,
   compileFenceLogicalGraph,
+  createFenceNetwork,
+  createRoadNetwork,
   eraseFenceLogicalUnits,
   eraseRoadCells,
   RoadFenceValidationCode,
@@ -22,6 +24,8 @@ import {
   rasterizeRoadPolyline,
   requirePersistentRoadFenceWriter,
   roadDiagonalStepCells,
+  sampleFenceStyle,
+  sampleRoadStyle,
   selectFenceConnected,
   selectRoadConnected,
   transformFenceLogicalGraph,
@@ -429,4 +433,37 @@ test('Road style replacement preview accounts for one eight-neighbor connected c
   assert.equal(preview.targetInventoryDelta, -3);
   assert.equal(preview.cells.length, 3);
   assert.equal(preview.persistentWriteAuthorized, false);
+});
+
+
+test('Road eyedropper samples portable family identity and logical mode', () => {
+  const cells = rasterizeRoadPath([{ x: 0, y: 0 }, { x: 1, y: 1 }]).cells;
+  const created = createRoadNetwork({ familyBaseItemID: 40100068, cells });
+  assert.equal(created.ok, true);
+  const sample = sampleRoadStyle(created.network, { x: 1, y: 0 });
+  assert.deepEqual(sample, {
+    ok: true,
+    kind: 'road',
+    familyBaseItemID: 40100068,
+    mode: FenceMode.DIAGONAL,
+    coordinate: { x: 1, y: 0 }
+  });
+});
+
+test('Fence eyedropper samples family identity and mode without exposing native variation IDs', () => {
+  const built = buildFencePolyline([
+    { x: 0, y: 0 },
+    { x: 3, y: 0 }
+  ], FenceMode.ORTHOGONAL);
+  const created = createFenceNetwork({ familyBaseItemID: 40700246, graph: built.graph });
+  assert.equal(created.ok, true);
+  const sample = sampleFenceStyle(created.network, '1,0');
+  assert.deepEqual(sample, {
+    ok: true,
+    kind: 'fence',
+    familyBaseItemID: 40700246,
+    mode: FenceMode.ORTHOGONAL,
+    nodeId: '1,0',
+    coordinate: { x: 1, y: 0 }
+  });
 });
