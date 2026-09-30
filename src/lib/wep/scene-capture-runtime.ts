@@ -1,4 +1,4 @@
-import { validatePublishablePreset } from './scene-preset-runtime';
+import { validatePublishablePreset } from './scene-preset-runtime.ts';
 
 export type WepLayer =
   | 'furniture'
