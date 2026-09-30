@@ -1,0 +1,548 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { CommunityLabClient, type CommunitySession } from '$lib/community/staging-http-client';
+
+  const CONFIG_KEY = 'dreamwishwand-community-lab-config-v1';
+
+  let supabaseUrl = 'https://ptpdoxhrqopvczpclcij.supabase.co';
+  let publishableKey = '';
+  let email = '';
+  let password = '';
+
+  let client: CommunityLabClient | null = null;
+  let session: CommunitySession | null = null;
+
+  let busy = false;
+  let status = 'Ready. Sign in with a staging admin account.';
+  let error = '';
+
+  let recoveryState = 'open';
+  let recoveryCases: unknown = [];
+  let accountId = '';
+  let newProvider = 'supabase';
+  let newProviderSubject = '';
+  let recoveryReason = 'Verified support-assisted recovery';
+  let verificationRef = '';
+
+  let completionCaseId = '';
+  let completionReason = 'Verified recovery handoff complete';
+
+  let cleanupState = 'dead_letter';
+  let providerCleanupJobs: unknown = [];
+  let cleanupJobId = '';
+  let cleanupRetryReason = 'Reviewed provider cleanup failure';
+
+  let deadLetters: unknown = [];
+  let outboxId = '';
+  let outboxRetryReason = 'Reviewed dead-letter event';
+
+  onMount(() => {
+    try {
+      const raw = sessionStorage.getItem(CONFIG_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        supabaseUrl = saved.supabaseUrl || supabaseUrl;
+        publishableKey = saved.publishableKey || '';
+      }
+
+      if (publishableKey) {
+        client = new CommunityLabClient({ supabaseUrl, publishableKey });
+        session = client.session;
+        if (session) status = `Restored session for ${session.email ?? session.userId}.`;
+      }
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : String(cause);
+    }
+  });
+
+  function configureClient() {
+    sessionStorage.setItem(CONFIG_KEY, JSON.stringify({ supabaseUrl, publishableKey }));
+    client = new CommunityLabClient({ supabaseUrl, publishableKey });
+    session = client.session;
+    return client;
+  }
+
+  async function run<T>(label: string, action: () => Promise<T>): Promise<T | null> {
+    busy = true;
+    error = '';
+    status = `${label}…`;
+
+    try {
+      const result = await action();
+      status = `${label}: PASS`;
+      return result;
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : String(cause);
+      status = `${label}: FAILED`;
+      return null;
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function signIn() {
+    const active = configureClient();
+    const result = await run('Admin sign-in', () => active.signInWithPassword(email, password));
+    if (result) {
+      session = active.session;
+      password = '';
+    }
+  }
+
+  async function signOut() {
+    if (!client) return;
+    await run('Admin sign-out', () => client!.signOut());
+    session = null;
+    recoveryCases = [];
+    providerCleanupJobs = [];
+    deadLetters = [];
+  }
+
+  async function refreshRecoveryCases() {
+    if (!client) return;
+    const result = await run('Load recovery cases', () =>
+      client!.admin('listRecoveryCases', {
+        state: recoveryState || null,
+        limit: 50
+      })
+    );
+    if (result) recoveryCases = result.data ?? [];
+  }
+
+  async function openRecoveryCase() {
+    if (!client) return;
+    const result = await run('Open recovery case', () =>
+      client!.admin('openRecoveryCase', {
+        accountId,
+        newProvider,
+        newProviderSubject,
+        reason: recoveryReason,
+        verificationRef: verificationRef || null
+      })
+    );
+    if (result) {
+      const data = result.data as Record<string, unknown> | undefined;
+      completionCaseId = String(data?.recoveryCaseId ?? completionCaseId);
+      newProviderSubject = '';
+      await refreshRecoveryCases();
+    }
+  }
+
+  async function completeRecoveryCase() {
+    if (!client) return;
+    const result = await run('Complete recovery case', () =>
+      client!.admin('completeRecoveryCase', {
+        recoveryCaseId: completionCaseId,
+        completionReason
+      })
+    );
+    if (result) await refreshRecoveryCases();
+  }
+
+  async function refreshProviderCleanup() {
+    if (!client) return;
+    const result = await run('Load provider cleanup jobs', () =>
+      client!.admin('listProviderCleanupJobs', {
+        state: cleanupState || null,
+        limit: 50
+      })
+    );
+    if (result) providerCleanupJobs = result.data ?? [];
+  }
+
+  async function retryProviderCleanup() {
+    if (!client) return;
+    const result = await run('Retry provider cleanup', () =>
+      client!.admin('retryProviderCleanup', {
+        cleanupJobId,
+        reason: cleanupRetryReason
+      })
+    );
+    if (result) await refreshProviderCleanup();
+  }
+
+  async function refreshOutboxDeadLetters() {
+    if (!client) return;
+    const result = await run('Load outbox dead letters', () =>
+      client!.query('deadLetters', { limit: 50 })
+    );
+    if (result) deadLetters = result.data ?? [];
+  }
+
+  async function retryOutboxDeadLetter() {
+    if (!client) return;
+    const result = await run('Retry outbox dead letter', () =>
+      client!.command('retryDeadLetter', {
+        outboxId,
+        reason: outboxRetryReason
+      })
+    );
+    if (result) await refreshOutboxDeadLetters();
+  }
+</script>
+
+<svelte:head>
+  <title>Community Ops — Dreamwish Wand</title>
+  <meta name="robots" content="noindex,nofollow" />
+</svelte:head>
+
+<section class="inside-page">
+  <div class="container ops-shell">
+    <div class="ops-heading">
+      <div>
+        <p class="ops-kicker">INTERNAL · STAGING ONLY</p>
+        <h1>Community Ops</h1>
+        <p class="page-intro">
+          Admin-only recovery and dead-letter operations. This route is intentionally absent from
+          public navigation.
+        </p>
+      </div>
+      <div class:ops-pass={!error} class:ops-fail={!!error} class="ops-status">{status}</div>
+    </div>
+
+    {#if error}
+      <div class="ops-error">
+        <strong>Failure</strong>
+        <span>{error}</span>
+      </div>
+    {/if}
+
+    <article class="ops-card">
+      <h2>Admin session</h2>
+      <div class="ops-two">
+        <label>
+          Supabase URL
+          <input bind:value={supabaseUrl} autocomplete="off" spellcheck="false" />
+        </label>
+        <label>
+          Publishable key
+          <input bind:value={publishableKey} type="password" autocomplete="off" />
+        </label>
+      </div>
+      <div class="ops-two">
+        <label>
+          Email
+          <input bind:value={email} type="email" autocomplete="username" />
+        </label>
+        <label>
+          Password
+          <input bind:value={password} type="password" autocomplete="current-password" />
+        </label>
+      </div>
+      <div class="ops-actions">
+        <button on:click={signIn} disabled={busy || !email || !password || !publishableKey}>
+          Sign in
+        </button>
+        <button class="secondary" on:click={signOut} disabled={busy || !session}>
+          Sign out
+        </button>
+      </div>
+      <p class="ops-note">
+        High-risk writes require an admin role and a provider session created within the configured
+        recent-auth window. Refreshing the JWT does not reset that window; sign out and sign in
+        again when step-up is required.
+      </p>
+    </article>
+
+    <div class="ops-grid">
+      <article class="ops-card">
+        <h2>Recovery cases</h2>
+        <div class="ops-actions">
+          <select bind:value={recoveryState}>
+            <option value="">all</option>
+            <option value="open">open</option>
+            <option value="completed">completed</option>
+            <option value="rejected">rejected</option>
+            <option value="cancelled">cancelled</option>
+          </select>
+          <button on:click={refreshRecoveryCases} disabled={busy || !session}>Refresh</button>
+        </div>
+
+        <div class="ops-section">
+          <h3>Open case</h3>
+          <label>
+            Target WandAccount ID
+            <input bind:value={accountId} autocomplete="off" />
+          </label>
+          <div class="ops-two">
+            <label>
+              New provider
+              <input bind:value={newProvider} autocomplete="off" />
+            </label>
+            <label>
+              New provider subject
+              <input bind:value={newProviderSubject} autocomplete="off" />
+            </label>
+          </div>
+          <label>
+            Verification reference
+            <input bind:value={verificationRef} autocomplete="off" />
+          </label>
+          <label>
+            Reason
+            <input bind:value={recoveryReason} autocomplete="off" />
+          </label>
+          <button
+            on:click={openRecoveryCase}
+            disabled={busy || !session || !accountId || !newProvider || !newProviderSubject || recoveryReason.length < 8}
+          >
+            Open recovery case
+          </button>
+        </div>
+
+        <div class="ops-section">
+          <h3>Complete case</h3>
+          <label>
+            Recovery case ID
+            <input bind:value={completionCaseId} autocomplete="off" />
+          </label>
+          <label>
+            Completion reason
+            <input bind:value={completionReason} autocomplete="off" />
+          </label>
+          <button
+            on:click={completeRecoveryCase}
+            disabled={busy || !session || !completionCaseId || completionReason.length < 8}
+          >
+            Complete recovery
+          </button>
+        </div>
+
+        <p class="ops-note">
+          Case lists intentionally omit the requested provider subject and verification-reference
+          value. Only presence of verification evidence is exposed.
+        </p>
+        <pre>{JSON.stringify(recoveryCases, null, 2)}</pre>
+      </article>
+
+      <article class="ops-card">
+        <h2>Provider cleanup</h2>
+        <div class="ops-actions">
+          <select bind:value={cleanupState}>
+            <option value="">all</option>
+            <option value="pending">pending</option>
+            <option value="processing">processing</option>
+            <option value="completed">completed</option>
+            <option value="dead_letter">dead_letter</option>
+          </select>
+          <button on:click={refreshProviderCleanup} disabled={busy || !session}>Refresh</button>
+        </div>
+
+        <label>
+          Dead-letter cleanup job ID
+          <input bind:value={cleanupJobId} autocomplete="off" />
+        </label>
+        <label>
+          Retry reason
+          <input bind:value={cleanupRetryReason} autocomplete="off" />
+        </label>
+        <button
+          on:click={retryProviderCleanup}
+          disabled={busy || !session || !cleanupJobId || cleanupRetryReason.length < 8}
+        >
+          Requeue provider cleanup
+        </button>
+
+        <p class="ops-note">
+          Provider subjects are stored only in the private worker queue and are never returned by
+          this admin listing.
+        </p>
+        <pre>{JSON.stringify(providerCleanupJobs, null, 2)}</pre>
+      </article>
+
+      <article class="ops-card">
+        <h2>Outbox dead letters</h2>
+        <div class="ops-actions">
+          <button on:click={refreshOutboxDeadLetters} disabled={busy || !session}>
+            Refresh
+          </button>
+        </div>
+        <label>
+          Outbox ID
+          <input bind:value={outboxId} autocomplete="off" />
+        </label>
+        <label>
+          Retry reason
+          <input bind:value={outboxRetryReason} autocomplete="off" />
+        </label>
+        <button
+          on:click={retryOutboxDeadLetter}
+          disabled={busy || !session || !outboxId || outboxRetryReason.length < 3}
+        >
+          Requeue outbox event
+        </button>
+        <pre>{JSON.stringify(deadLetters, null, 2)}</pre>
+      </article>
+    </div>
+  </div>
+</section>
+
+<style>
+  .ops-shell {
+    max-width: 1180px;
+  }
+
+  .ops-heading {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  .ops-kicker {
+    color: var(--gold);
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: .22em;
+  }
+
+  .ops-status {
+    min-width: 180px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    color: var(--ink-soft);
+    font-size: 11px;
+  }
+
+  .ops-pass {
+    color: var(--ink);
+  }
+
+  .ops-fail {
+    color: #c66464;
+  }
+
+  .ops-error {
+    display: flex;
+    gap: 10px;
+    margin: 18px 0;
+    padding: 12px 14px;
+    border: 1px solid rgba(220, 105, 105, .45);
+    border-radius: 12px;
+    background: rgba(180, 65, 65, .09);
+  }
+
+  .ops-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 18px;
+    margin-top: 18px;
+  }
+
+  .ops-card {
+    margin-top: 18px;
+    padding: 22px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+
+  .ops-card h2,
+  .ops-card h3 {
+    margin-top: 0;
+  }
+
+  .ops-section {
+    margin: 18px 0;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .ops-two {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  label {
+    display: block;
+    margin: 12px 0;
+    color: var(--ink-soft);
+    font-size: 12px;
+  }
+
+  input,
+  select {
+    box-sizing: border-box;
+    width: 100%;
+    margin-top: 6px;
+    padding: 10px 11px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface-raised);
+    color: var(--ink);
+    font: inherit;
+  }
+
+  .ops-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    align-items: center;
+    margin: 12px 0;
+  }
+
+  .ops-actions select {
+    width: auto;
+    min-width: 150px;
+    margin-top: 0;
+  }
+
+  button {
+    border: 1px solid var(--gold-strong);
+    border-radius: 999px;
+    background: var(--gold-strong);
+    color: #26304e;
+    padding: 9px 14px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  button.secondary {
+    background: transparent;
+    color: var(--ink);
+    border-color: var(--border);
+  }
+
+  button:disabled {
+    opacity: .42;
+    cursor: not-allowed;
+  }
+
+  .ops-note {
+    color: var(--ink-muted);
+    font-size: 11px;
+    line-height: 1.7;
+  }
+
+  pre {
+    overflow: auto;
+    max-height: 360px;
+    margin-top: 14px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-raised);
+    font-size: 10px;
+    line-height: 1.55;
+  }
+
+  @media (max-width: 720px) {
+    .ops-heading {
+      display: block;
+    }
+
+    .ops-status {
+      margin-top: 14px;
+    }
+
+    .ops-two {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
