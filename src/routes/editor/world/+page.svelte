@@ -270,7 +270,7 @@
       );
 
       message =
-        'Switch v1.25.0のcanonical 01B v1.3 + 01D geometry/scopeでread-only Canvasを生成しました。' +
+        'Switch v1.25.0のcanonical 01B v1.6 + 01D geometry/scopeでread-only Canvasを生成しました。' +
         (unresolvedBounds
           ? ' Root Grid bounds / SubGrid dimensionsは未bindingのため該当機能はfail-closedです。'
           : '') +
@@ -825,7 +825,7 @@
           <h2>Area &amp; Direct Grid</h2>
           <p>
             save intakeは完了しています。Nintendo Switch sourceでは、
-            Integrator-approved 01B v1.3 adapterとSwitch v1.25 canonical geometry/scopeを使って
+            Integrator-approved 01B v1.6 adapterとSwitch v1.25 canonical geometry/scopeを使って
             選択したroot Gridをread-only EditorDocument / Canvasへ変換できます。
           </p>
         </div>
@@ -876,7 +876,7 @@
                     }
                     title={
                       worldSource.saveIdentity.sourcePlatform === 'switch'
-                        ? 'Open with canonical 01B v1.3 read projection'
+                        ? 'Open with canonical 01B v1.6 read projection'
                         : 'Switch v1.25 browser read data is required for Canvas projection'
                     }
                     on:click={() => openSaveGridInCanvas(area, root.gridId)}
@@ -891,7 +891,7 @@
       </div>
 
       <p class="projection-boundary">
-        Switch Canvasは01B v1.3 source + checksum検証済み01D-derived geometry/scopeだけを使用します。
+        Switch Canvasは01B v1.6 source + checksum検証済み01D-derived geometry/scopeだけを使用します。
         Steam / unknown sourceは対応dataが承認されるまでArea/Grid列挙でfail-closedです。
         Root Grid bounds / SubGrid dimensions、Road/Fence logical projection、real-target mutationはまだ未bindingです。
       </p>
