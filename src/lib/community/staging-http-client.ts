@@ -18,6 +18,60 @@ export interface EdgeResult<T = unknown> {
 }
 
 const SESSION_KEY = 'dreamwishwand-community-lab-session-v1';
+const RECOVERY_KEY = 'dreamwishwand-community-recovery-pkce-v1';
+const RECOVERY_MAX_AGE_MS = 60 * 60 * 1000;
+
+interface RecoveryState {
+  supabaseUrl: string;
+  publishableKey: string;
+  verifier: string;
+  createdAt: number;
+}
+
+function base64Url(bytes: Uint8Array): string {
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function createPkceVerifier(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return base64Url(bytes);
+}
+
+async function createPkceChallenge(verifier: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(verifier)
+  );
+  return base64Url(new Uint8Array(digest));
+}
+
+function loadRecoveryState(): RecoveryState | null {
+  if (typeof localStorage === 'undefined') return null;
+
+  const raw = localStorage.getItem(RECOVERY_KEY);
+  if (!raw) return null;
+
+  try {
+    const state = JSON.parse(raw) as RecoveryState;
+    if (
+      !state.supabaseUrl ||
+      !state.publishableKey ||
+      !state.verifier ||
+      !Number.isFinite(state.createdAt) ||
+      Date.now() - state.createdAt > RECOVERY_MAX_AGE_MS
+    ) {
+      localStorage.removeItem(RECOVERY_KEY);
+      return null;
+    }
+    return state;
+  } catch {
+    localStorage.removeItem(RECOVERY_KEY);
+    return null;
+  }
+}
 
 function normalizeUrl(value: string): string {
   return value.trim().replace(/\/+$/, '');
@@ -113,6 +167,15 @@ function loadSession(): CommunitySession | null {
 
 export class CommunityLabClient {
   readonly config: CommunityLabConfig;
+
+  static pendingRecoveryConfig(): CommunityLabConfig | null {
+    const state = loadRecoveryState();
+    if (!state) return null;
+    return {
+      supabaseUrl: state.supabaseUrl,
+      publishableKey: state.publishableKey
+    };
+  }
   #session: CommunitySession | null;
 
   constructor(config: CommunityLabConfig) {
@@ -122,6 +185,149 @@ export class CommunityLabClient {
 
   get session(): CommunitySession | null {
     return this.#session ? { ...this.#session } : null;
+  }
+
+  async requestPasswordRecovery(email: string, redirectTo: string): Promise<void> {
+    const verifier = createPkceVerifier();
+    const challenge = await createPkceChallenge(verifier);
+    const redirect = new URL(redirectTo);
+
+    if (!['https:', 'http:'].includes(redirect.protocol)) {
+      throw new Error('Password recovery redirect must use HTTP(S).');
+    }
+
+    if (typeof localStorage === 'undefined') {
+      throw new Error('Password recovery requires browser storage.');
+    }
+
+    localStorage.setItem(
+      RECOVERY_KEY,
+      JSON.stringify({
+        supabaseUrl: this.config.supabaseUrl,
+        publishableKey: this.config.publishableKey,
+        verifier,
+        createdAt: Date.now()
+      } satisfies RecoveryState)
+    );
+
+    const url = new URL(`${this.config.supabaseUrl}/auth/v1/recover`);
+    url.searchParams.set('redirect_to', redirect.toString());
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        apikey: this.config.publishableKey,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        email,
+        code_challenge: challenge,
+        code_challenge_method: 's256'
+      })
+    });
+
+    try {
+      await parseResponse(response);
+    } catch (error) {
+      localStorage.removeItem(RECOVERY_KEY);
+      throw error;
+    }
+  }
+
+  async exchangePasswordRecoveryCode(authCode: string): Promise<CommunitySession> {
+    const state = loadRecoveryState();
+    if (!state) throw new Error('No valid password-recovery PKCE flow is pending.');
+
+    if (
+      normalizeUrl(state.supabaseUrl) !== this.config.supabaseUrl ||
+      state.publishableKey !== this.config.publishableKey
+    ) {
+      throw new Error('Password-recovery flow belongs to a different Auth configuration.');
+    }
+
+    const response = await fetch(
+      `${this.config.supabaseUrl}/auth/v1/token?grant_type=pkce`,
+      {
+        method: 'POST',
+        headers: {
+          apikey: this.config.publishableKey,
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+          auth_code: authCode,
+          code_verifier: state.verifier
+        })
+      }
+    );
+
+    try {
+      this.#session = toSession(await parseResponse(response));
+      saveSession(this.#session);
+      return this.session!;
+    } finally {
+      localStorage.removeItem(RECOVERY_KEY);
+    }
+  }
+
+  async completePasswordRecovery(newPassword: string): Promise<EdgeResult> {
+    if (newPassword.length < 8) {
+      throw new Error('New password must be at least 8 characters.');
+    }
+
+    const current = await this.#validSession();
+    const response = await fetch(`${this.config.supabaseUrl}/auth/v1/user`, {
+      method: 'PUT',
+      headers: {
+        apikey: this.config.publishableKey,
+        authorization: `Bearer ${current.accessToken}`,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({ password: newPassword })
+    });
+
+    await parseResponse(response);
+    return this.revokeAllSessions();
+  }
+
+  async requestReauthentication(): Promise<void> {
+    const current = await this.#validSession();
+    const response = await fetch(`${this.config.supabaseUrl}/auth/v1/reauthenticate`, {
+      method: 'GET',
+      headers: {
+        apikey: this.config.publishableKey,
+        authorization: `Bearer ${current.accessToken}`
+      }
+    });
+    await parseResponse(response);
+  }
+
+  async changePasswordAfterReauthentication(
+    newPassword: string,
+    nonce: string
+  ): Promise<EdgeResult> {
+    if (newPassword.length < 8) {
+      throw new Error('New password must be at least 8 characters.');
+    }
+    if (!nonce.trim()) {
+      throw new Error('Reauthentication nonce is required.');
+    }
+
+    const current = await this.#validSession();
+    const response = await fetch(`${this.config.supabaseUrl}/auth/v1/user`, {
+      method: 'PUT',
+      headers: {
+        apikey: this.config.publishableKey,
+        authorization: `Bearer ${current.accessToken}`,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        password: newPassword,
+        nonce: nonce.trim()
+      })
+    });
+
+    await parseResponse(response);
+    return this.revokeAllSessions();
   }
 
   async signInWithPassword(email: string, password: string): Promise<CommunitySession> {
