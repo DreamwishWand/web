@@ -1,6 +1,6 @@
 # Community Core operator critical email runtime — 2026-10-01
 
-Status: **CONFIRMED END-TO-END OPERATOR EMAIL ACCEPTANCE**
+Status: **CONFIRMED DELIVERY / PARTIAL INBOX PLACEMENT**
 
 ## Scope
 
@@ -116,8 +116,17 @@ After provider delivery was confirmed:
 - open critical alert count returned to 0;
 - canonical relay endpoint is restored.
 
-Operator critical email acceptance is therefore CLOSED for first launch.
+Provider delivery, retry and recurrence are CONFIRMED. Human mailbox delivery is also CONFIRMED, but iCloud placed the two rapid recurrence/retry test messages in Junk. Inbox placement is therefore PARTIAL and remains a launch-hardening item.
 
-Still outside this document:
+Observed deliverability caveat:
 
+- the initial operator message was visible to the human operator;
+- the two additional rapid test messages were found in the iCloud Junk folder;
+- this test pattern was unusually bursty for a brand-new sending domain and is not representative of normal incident volume;
+- do not use synthetic warmup traffic; build reputation with real low-volume transactional mail and positive recipient feedback.
+
+Still open:
+
+- iCloud inbox-placement recheck after the operator marks the messages as Not Junk;
+- DMARC publication check/hardening;
 - real browser Auth verification/recovery email acceptance.
