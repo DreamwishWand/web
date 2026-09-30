@@ -1,5 +1,6 @@
 
-create extension if not exists pg_net;
+create schema if not exists extensions;
+create extension if not exists pg_net with schema extensions;
 
 create table if not exists private.community_worker_auth (
   worker_name text primary key,
