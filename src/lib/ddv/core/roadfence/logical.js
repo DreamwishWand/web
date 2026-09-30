@@ -15,6 +15,8 @@ export const RoadFenceValidationCode = Object.freeze({
   FENCE_COMPONENT_BOUNDARY_MISMATCH: 'FENCE_COMPONENT_BOUNDARY_MISMATCH',
   TOPOLOGY_CLIPPED_UNSUPPORTED: 'TOPOLOGY_CLIPPED_UNSUPPORTED',
   NATIVE_ORACLE_INVENTORY_SHORTAGE: 'NATIVE_ORACLE_INVENTORY_SHORTAGE',
+  TARGET_SURFACE_UNVERIFIED: 'TARGET_SURFACE_UNVERIFIED',
+  GRIDOBJECT_ID_ALLOCATION_INVALID: 'GRIDOBJECT_ID_ALLOCATION_INVALID',
   ID_REMAP_UNRESOLVED: 'ID_REMAP_UNRESOLVED',
   READ_ONLY_UNSUPPORTED: 'READ_ONLY_UNSUPPORTED'
 });
@@ -1488,6 +1490,93 @@ export function planFenceNativeRepresentation({
     requiresExternalPlacementValidation: true,
     objects,
     modeBoundaries: compiled.modeBoundaries,
+    persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+  };
+}
+
+
+export function planFreshRoadFenceGridObjectIds(nativePlan, { nextGridObjectID } = {}) {
+  if (!nativePlan?.ok || !Array.isArray(nativePlan.objects)) {
+    return {
+      ok: false,
+      errors: [{
+        code: RoadFenceValidationCode.READ_ONLY_UNSUPPORTED,
+        reason: 'a successful Road/Fence native representation plan is required'
+      }],
+      persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+    };
+  }
+  if (!Number.isSafeInteger(nextGridObjectID) || nextGridObjectID < 1) {
+    return {
+      ok: false,
+      errors: [{
+        code: RoadFenceValidationCode.GRIDOBJECT_ID_ALLOCATION_INVALID,
+        reason: 'nextGridObjectID must be a positive safe integer'
+      }],
+      persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+    };
+  }
+
+  const count = nativePlan.objects.length;
+  const lastGridObjectID = count === 0 ? nextGridObjectID - 1 : nextGridObjectID + count - 1;
+  const resultingNextGridObjectID = nextGridObjectID + count;
+  if (!Number.isSafeInteger(lastGridObjectID) || !Number.isSafeInteger(resultingNextGridObjectID)) {
+    return {
+      ok: false,
+      errors: [{
+        code: RoadFenceValidationCode.GRIDOBJECT_ID_ALLOCATION_INVALID,
+        reason: 'GridObjectID allocation exceeds safe integer range'
+      }],
+      persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+    };
+  }
+
+  return {
+    ok: true,
+    startNextGridObjectID: nextGridObjectID,
+    allocatedGridObjectIDs: nativePlan.objects.map((_, index) => nextGridObjectID + index),
+    resultingNextGridObjectID,
+    objects: nativePlan.objects.map((object, index) => ({
+      id: nextGridObjectID + index,
+      ...object
+    })),
+    persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
+  };
+}
+
+export function preflightRoadFenceDirectWrite({
+  nativePlan,
+  targetSurfaceValidated = false,
+  nextGridObjectID
+} = {}) {
+  const issues = [];
+  if (!nativePlan?.ok || !Array.isArray(nativePlan.objects)) {
+    issues.push({
+      code: RoadFenceValidationCode.READ_ONLY_UNSUPPORTED,
+      reason: 'successful native representation plan required'
+    });
+  }
+  if (!targetSurfaceValidated) {
+    issues.push({
+      code: RoadFenceValidationCode.TARGET_SURFACE_UNVERIFIED,
+      reason: 'Road/Fence native plan requires external active/visible/editable world-surface validation'
+    });
+  }
+
+  let identityPlan = null;
+  if (nativePlan?.ok && Array.isArray(nativePlan.objects)) {
+    identityPlan = planFreshRoadFenceGridObjectIds(nativePlan, { nextGridObjectID });
+    if (!identityPlan.ok) issues.push(...identityPlan.errors);
+  }
+
+  return {
+    ok: issues.length === 0,
+    issues,
+    nativePlan,
+    identityPlan,
+    preserveOwnershipState: true,
+    preserveCollectionState: true,
+    preserveEntitlementState: true,
     persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
   };
 }
