@@ -1864,6 +1864,10 @@ export type Database = {
         Args: { p_auth_subject: string; p_limit?: number }
         Returns: Json
       }
+      community_get_security_policy_summary: {
+        Args: { p_admin_auth_subject: string }
+        Returns: Json
+      }
       community_get_work: {
         Args: { p_auth_subject: string; p_work_id: string }
         Returns: Json
