@@ -20,6 +20,13 @@ export interface EdgeResult<T = unknown> {
 const SESSION_KEY = 'dreamwishwand-community-lab-session-v1';
 const RECOVERY_KEY = 'dreamwishwand-community-recovery-pkce-v1';
 const RECOVERY_MAX_AGE_MS = 60 * 60 * 1000;
+export const COMMUNITY_PASSWORD_MIN_LENGTH = 15;
+
+function assertPasswordPolicy(password: string, label = 'Password'): void {
+  if (Array.from(password).length < COMMUNITY_PASSWORD_MIN_LENGTH) {
+    throw new Error(`${label} must be at least ${COMMUNITY_PASSWORD_MIN_LENGTH} characters.`);
+  }
+}
 
 interface RecoveryState {
   supabaseUrl: string;
@@ -320,9 +327,7 @@ export class CommunityLabClient {
   }
 
   async completePasswordRecovery(newPassword: string): Promise<EdgeResult> {
-    if (newPassword.length < 8) {
-      throw new Error('New password must be at least 8 characters.');
-    }
+    assertPasswordPolicy(newPassword, 'New password');
 
     const current = await this.#validSession();
     const response = await fetch(`${this.config.supabaseUrl}/auth/v1/user`, {
@@ -355,9 +360,7 @@ export class CommunityLabClient {
     newPassword: string,
     nonce: string
   ): Promise<EdgeResult> {
-    if (newPassword.length < 8) {
-      throw new Error('New password must be at least 8 characters.');
-    }
+    assertPasswordPolicy(newPassword, 'New password');
     if (!nonce.trim()) {
       throw new Error('Reauthentication nonce is required.');
     }
@@ -385,7 +388,7 @@ export class CommunityLabClient {
     password: string
   ): Promise<{ userId: string | null; requiresEmailConfirmation: boolean }> {
     if (!email.trim()) throw new Error('Email is required.');
-    if (password.length < 8) throw new Error('Password must be at least 8 characters.');
+    assertPasswordPolicy(password);
 
     const response = await fetch(`${this.config.supabaseUrl}/auth/v1/signup`, {
       method: 'POST',
