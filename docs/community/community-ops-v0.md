@@ -15,7 +15,7 @@ operations only.
 - Server-side RPCs bind recent-auth to `auth.sessions.created_at`; JWT refresh does not reset the
   recent-auth window.
 - Read-only admin operations require admin role.
-- Recovery open/complete and provider-cleanup dead-letter requeue require admin role + recent
+- Recovery open/verify/complete and provider-cleanup dead-letter requeue require admin role + recent
   provider session.
 - No service-role/secret credential is present in browser source.
 - Recovery/provider cleanup listings intentionally omit provider subjects.
@@ -38,9 +38,16 @@ Write:
   - target WandAccount ID;
   - new provider type;
   - newly verified provider subject;
+  - verification method;
+  - **opaque external verification reference**;
   - support reason;
-  - optional verification reference;
-- complete an open recovery case by case ID + completion reason.
+- verify the pending case explicitly after reviewing the evidence reference;
+- complete only a verified/ready case.
+
+Launch support recovery currently permits only `provider_recovery`.
+`linked_ddv_profile` remains disabled until CORE confirms a stable DDV Profile claim/binding
+contract. Public Creator information, screenshots and other publicly observable data are not
+accepted as strong proof by this contract.
 
 The underlying recovery invariant remains:
 
@@ -48,8 +55,10 @@ The underlying recovery invariant remains:
 - same CreatorProfile/content ownership graph;
 - old AuthIdentity retired;
 - new verified AuthIdentity becomes active;
+- unverified completion rejected;
 - replay/non-open completion rejected;
-- privileged actions audited.
+- provider subject + verification reference scrubbed after successful completion;
+- open / verify / complete are all audited.
 
 ### Provider cleanup queue
 
@@ -124,25 +133,28 @@ With one disposable staging admin and one disposable target account:
 
 1. sign in to `/community-ops/`;
 2. load recovery cases;
-3. open a recovery case after external verification;
+3. open a `provider_recovery` case after external verification and supply only an opaque evidence reference;
 4. confirm the listing omits provider subject and verification-reference value;
-5. complete the case and verify target ownership remains stable;
-6. create or use a provider-cleanup dead-letter fixture;
-7. list and requeue it through the UI;
-8. list/requeue an outbox dead-letter fixture;
-9. load Operations Alerts and confirm the expected dead-letter alert appears;
-10. acknowledge an open alert and confirm it moves to `acknowledged`;
-11. clear/requeue the underlying condition and confirm the alert auto-resolves;
-12. wait beyond the recent-auth window or use an old session and confirm high-risk write rejection;
-13. sign out/sign in and confirm the same operation is accepted;
-14. capture only opaque actor labels and Community IDs.
+5. attempt completion before verification and require rejection;
+6. verify the case through the explicit Verify action;
+7. complete the verified case and verify target ownership remains stable;
+8. create or use a provider-cleanup dead-letter fixture;
+9. list and requeue it through the UI;
+10. list/requeue an outbox dead-letter fixture;
+11. load Operations Alerts and confirm the expected dead-letter alert appears;
+12. acknowledge an open alert and confirm it moves to `acknowledged`;
+13. clear/requeue the underlying condition and confirm the alert auto-resolves;
+14. wait beyond the recent-auth window or use an old session and confirm high-risk write rejection;
+15. sign out/sign in and confirm the same operation is accepted;
+16. capture only opaque actor labels and Community IDs.
 
 Never record passwords, JWTs, refresh tokens, provider subjects, recovery codes, verification
 artifacts, API secrets or signed URLs in evidence docs.
 
 ## Current boundary
 
-Backend/RPC behavior is CONFIRMED in staging, including persistent operations-alert detection,
+Backend/RPC behavior is CONFIRMED in staging, including the recovery Open → Verify → Complete
+state machine (8/8), sensitive recovery-field redaction/scrub, persistent operations-alert detection,
 acknowledgment, audit, auto-resolution and recurrence reopening. The internal UI + Edge boundary are
 implemented and CI-green. Browser/operator runtime acceptance is still pending. Detailed alert
 evidence: `docs/community/operations-alerts-runtime-20260930.md`.
