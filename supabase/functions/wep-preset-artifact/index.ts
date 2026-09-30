@@ -302,6 +302,58 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
     return reply({ ok: true, action, data: { ...data, storageKey: publishedStorageKey, schemaVersion: validated.schemaVersion, presetType: validated.presetType, contentType: CONTENT_TYPE, byteSize: validated.blob.size, checksumSha256: validated.checksumSha256 } });
   }
 
+  if (action === 'resolveWork') {
+    const workId = String(body.workId ?? '');
+    if (!workId) return reply({ ok: false, error: 'WORK_ID_REQUIRED' }, 400);
+
+    const { data: preset, error: presetError } = await ctx.supabaseAdmin
+      .from('preset_artifacts')
+      .select('preset_artifact_id')
+      .eq('community_work_id', workId)
+      .maybeSingle();
+
+    if (presetError) {
+      return reply({ ok: false, error: 'PRESET_RESOLVE_FAILED', message: presetError.message }, 400);
+    }
+    if (!preset?.preset_artifact_id) {
+      return reply({ ok: false, error: 'PRESET_NOT_FOUND_FOR_WORK' }, 404);
+    }
+
+    const { data: meta, error: metaError } = await ctx.supabaseAdmin.rpc(
+      'wep_get_accessible_preset_blob',
+      {
+        p_auth_subject: subject,
+        p_preset_artifact_id: preset.preset_artifact_id,
+        p_preset_revision_id: null
+      }
+    );
+
+    if (metaError || !meta) {
+      return reply(
+        {
+          ok: false,
+          error: 'PRESET_FORBIDDEN_OR_UNAVAILABLE',
+          message: metaError?.message
+        },
+        403
+      );
+    }
+
+    return reply({
+      ok: true,
+      action,
+      preset: {
+        presetArtifactId: meta.presetArtifactId,
+        presetRevisionId: meta.presetRevisionId,
+        presetType: meta.presetType,
+        schemaVersion: meta.schemaVersion,
+        contentType: meta.contentType,
+        byteSize: meta.byteSize,
+        checksumSha256: meta.checksumSha256
+      }
+    });
+  }
+
   if (action === 'read') {
     const presetArtifactId = body.presetArtifactId ? String(body.presetArtifactId) : null;
     const presetRevisionId = body.presetRevisionId ? String(body.presetRevisionId) : null;
