@@ -12,7 +12,7 @@ Launch sign-in baseline:
 - password authentication;
 - email verification before the Community account is treated as launch-ready;
 - PKCE password-recovery email flow;
-- session-bound recent-auth for destructive/support-admin operations;
+- session-bound recent-auth for destructive/support-admin/moderation operations;
 - Wand-side session cutoff in addition to provider session controls.
 
 Social login, platform SSO and passkeys are not required for the first public release. The
@@ -67,9 +67,10 @@ semantic conclusion.
 First-launch recent-auth windows are finalized at:
 
 - self-service account deletion: **900 seconds / 15 minutes**;
-- support/admin high-risk writes: **900 seconds / 15 minutes**.
+- support/admin high-risk writes: **900 seconds / 15 minutes**;
+- moderator/admin moderation writes: **900 seconds / 15 minutes**.
 
-Both remain configuration-driven for future security review, but are no longer an unresolved launch
+All three remain configuration-driven for future security review, but are no longer an unresolved launch
 parameter. Recent-auth proof remains bound to `auth.sessions.created_at`; refreshing a JWT does not
 refresh the recent-auth clock.
 
