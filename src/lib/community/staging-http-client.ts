@@ -413,6 +413,13 @@ export class CommunityLabClient {
     return this.#edge<EdgeResult<T>>('community-media', { action, ...payload });
   }
 
+  async admin<T = unknown>(
+    operation: string,
+    payload: Record<string, unknown> = {}
+  ): Promise<EdgeResult<T>> {
+    return this.#edge<EdgeResult<T>>('community-admin', { operation, payload });
+  }
+
   async discoverPublicWorks(limit = 20): Promise<Array<Record<string, unknown>>> {
     const safeLimit = Math.max(1, Math.min(50, Math.trunc(limit)));
     const fields = [
