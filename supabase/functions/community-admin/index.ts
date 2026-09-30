@@ -6,8 +6,9 @@ type JsonObject = Record<string, unknown>;
 const operationToRpc = {
   listRecoveryCases: 'community_get_recovery_cases',
   listProviderCleanupJobs: 'community_get_provider_cleanup_jobs',
-  openRecoveryCase: 'community_admin_open_recovery_case',
-  completeRecoveryCase: 'community_admin_complete_recovery',
+  openRecoveryCase: 'community_admin_open_recovery_case_v2',
+  verifyRecoveryCase: 'community_admin_verify_recovery_case',
+  completeRecoveryCase: 'community_admin_complete_recovery_v2',
   retryProviderCleanup: 'community_admin_retry_provider_cleanup',
   listOperationsAlerts: 'community_get_operations_alerts',
   acknowledgeOperationsAlert: 'community_admin_ack_operations_alert'
@@ -88,8 +89,15 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       params.p_account_id = payload.accountId;
       params.p_new_provider = payload.newProvider;
       params.p_new_provider_subject = payload.newProviderSubject;
+      params.p_verification_method = payload.verificationMethod;
+      params.p_verification_ref = payload.verificationRef;
       params.p_reason = payload.reason;
-      params.p_verification_ref = payload.verificationRef ?? null;
+      break;
+    case 'verifyRecoveryCase':
+      params.p_session_id = sessionId;
+      params.p_issued_at_epoch = issuedAt;
+      params.p_recovery_case_id = payload.recoveryCaseId;
+      params.p_verification_note = payload.verificationNote;
       break;
     case 'completeRecoveryCase':
       params.p_session_id = sessionId;
