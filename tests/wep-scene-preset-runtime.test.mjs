@@ -13,11 +13,11 @@ test('valid portable Scene builds an exact JSON envelope',()=>{
  const v=buildPublishEnvelope(scene);
  assert.equal(v.ok,true);
  assert.equal(v.envelope?.contentType,'application/json');
- assert.equal(JSON.parse(v.envelope!.json).objects[0].artifactObjectId,'o0');
+ assert.ok(v.envelope);\n assert.equal(JSON.parse(v.envelope.json).objects[0].artifactObjectId,'o0');
 });
 
 test('save-local identity fails closed',()=>{
- const bad=structuredClone(scene) as any;
+ const bad=structuredClone(scene);
  bad.objects[0].sourceGridId=5;
  assert.equal(validatePublishablePreset(bad).ok,false);
 });
