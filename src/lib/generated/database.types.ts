@@ -1621,6 +1621,16 @@ export type Database = {
         }
         Returns: Json
       }
+      community_admin_retry_operations_escalation: {
+        Args: {
+          p_admin_auth_subject: string
+          p_delivery_id: string
+          p_issued_at_epoch: number
+          p_reason: string
+          p_session_id: string
+        }
+        Returns: Json
+      }
       community_admin_retry_provider_cleanup: {
         Args: {
           p_admin_auth_subject: string
@@ -1795,6 +1805,14 @@ export type Database = {
         Returns: Json
       }
       community_get_operations_alerts: {
+        Args: {
+          p_admin_auth_subject: string
+          p_limit?: number
+          p_state?: string
+        }
+        Returns: Json
+      }
+      community_get_operations_escalation_deliveries: {
         Args: {
           p_admin_auth_subject: string
           p_limit?: number
