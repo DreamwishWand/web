@@ -1,6 +1,7 @@
 import {
   captureV125AreaEnvironment,
   captureV125FloatingIslandEnvironment,
+  captureV125ObjectRestoration,
   captureV125OutdoorLocation,
   resolveV125OutdoorLocation,
   V125_PORTABLE_CONTRACTS
@@ -108,6 +109,142 @@ function portableRoutes(resolved: AnyRecord) {
   });
 }
 
+function sourceGrid(profile: AnyRecord, gridId: unknown) {
+  const gid = Number(gridId);
+  if (!Number.isSafeInteger(gid)) {
+    throw new Error('WEP_FULL_DESIGN_SOURCE_GRID_ID_INVALID');
+  }
+  const grids = profile?.World?.GridCollection?.Grids;
+  const grid = grids?.[String(gid)] ?? grids?.[gid];
+  if (!grid || Number(grid.ID) !== gid) {
+    throw new Error('WEP_FULL_DESIGN_SOURCE_GRID_UNRESOLVED');
+  }
+  return grid;
+}
+
+function portableObjectAnchor(
+  gridDataPath: string,
+  object: AnyRecord
+) {
+  const itemId = Number(object?.ItemID);
+  const x = Number(object?.X);
+  const y = Number(object?.Y);
+  if (
+    !Number.isSafeInteger(itemId) ||
+    itemId <= 0 ||
+    !Number.isSafeInteger(x) ||
+    !Number.isSafeInteger(y)
+  ) {
+    throw new Error('WEP_FULL_DESIGN_ROOT_OBJECT_ANCHOR_INVALID');
+  }
+  return {
+    directRootRoute: {
+      codec: V125_PORTABLE_CONTRACTS.location.directGridRouteCodec,
+      gridDataPath
+    },
+    itemId,
+    localX: x,
+    localY: y
+  };
+}
+
+function captureDirectRootObjectPlanning(
+  profile: AnyRecord,
+  resolved: AnyRecord
+) {
+  if (resolved?.status !== 'RESOLVED' || !Array.isArray(resolved.directRoots)) {
+    throw new Error('WEP_FULL_DESIGN_DIRECT_ROOTS_UNRESOLVED');
+  }
+
+  const routeObjectCounts: Array<{
+    directRootRoute: AnyRecord;
+    objectCount: number;
+  }> = [];
+  const restorationEntries: AnyRecord[] = [];
+  const restorationBlockers: AnyRecord[] = [];
+  let noExtraStateCount = 0;
+  let notApplicableCount = 0;
+
+  for (const root of resolved.directRoots) {
+    const gridDataPath = String(root?.gridDataPath ?? '');
+    if (!gridDataPath) {
+      throw new Error('WEP_FULL_DESIGN_DIRECT_ROOT_PATH_INVALID');
+    }
+    const grid = sourceGrid(profile, root.sourceGridId);
+    const objects = Object.values(grid.Objects ?? {}).filter(
+      (value): value is AnyRecord =>
+        value !== null && typeof value === 'object' && !Array.isArray(value)
+    );
+    routeObjectCounts.push({
+      directRootRoute: {
+        codec: V125_PORTABLE_CONTRACTS.location.directGridRouteCodec,
+        gridDataPath
+      },
+      objectCount: objects.length
+    });
+
+    for (const object of objects) {
+      const anchor = portableObjectAnchor(gridDataPath, object);
+      const capture = captureV125ObjectRestoration(
+        profile,
+        root.sourceGridId,
+        object.ID
+      );
+
+      if (capture.status === 'CAPTURED') {
+        restorationEntries.push({
+          ...anchor,
+          kind: String(capture.kind),
+          portableState: clone(capture.portableState)
+        });
+        continue;
+      }
+      if (capture.status === 'SUPPORTED_NO_EXTRA_STATE') {
+        noExtraStateCount += 1;
+        continue;
+      }
+      if (capture.status === 'NOT_APPLICABLE') {
+        notApplicableCount += 1;
+        continue;
+      }
+      restorationBlockers.push({
+        ...anchor,
+        kind: String(capture.kind ?? 'UNKNOWN'),
+        status: String(capture.status ?? 'UNKNOWN'),
+        blockers: clone(capture.blockers ?? [])
+      });
+    }
+  }
+
+  const sortKey = (entry: AnyRecord) =>
+    [
+      entry.directRootRoute.gridDataPath,
+      String(entry.localY).padStart(10, '0'),
+      String(entry.localX).padStart(10, '0'),
+      String(entry.itemId).padStart(12, '0'),
+      entry.kind,
+      JSON.stringify(entry.portableState ?? null)
+    ].join('|');
+
+  restorationEntries.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+  restorationBlockers.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+
+  return {
+    routeObjectCounts,
+    directRootObjectCount: routeObjectCounts.reduce(
+      (sum, entry) => sum + entry.objectCount,
+      0
+    ),
+    restorationEntries: restorationEntries.map((entry, index) => ({
+      artifactRestorationId: `r${index}`,
+      ...entry
+    })),
+    restorationBlockers,
+    noExtraStateCount,
+    notApplicableCount
+  };
+}
+
 function captureEnvironment(
   profile: AnyRecord,
   type: FullDesignPresetType,
@@ -151,6 +288,7 @@ export function buildCurrentV125FullDesignCapturePlan({
   }
 
   const directRootRoutes = portableRoutes(resolved);
+  const rootObjectPlanning = captureDirectRootObjectPlanning(profile, resolved);
   const environment = captureEnvironment(
     profile,
     type,
@@ -221,11 +359,15 @@ export function buildCurrentV125FullDesignCapturePlan({
     rootObjects: {
       requested: requested('rootObjects', requestedCategories),
       disposition: requested('rootObjects', requestedCategories)
-        ? 'blocked'
+        ? 'captured_partial'
         : 'excluded',
       coverageStatus: readiness.categories.rootObjects.status,
       evidenceStatus: readiness.categories.rootObjects.evidenceStatus,
       contract: readiness.categories.rootObjects.contract,
+      directRootObjectCount: rootObjectPlanning.directRootObjectCount,
+      routeObjectCounts: requested('rootObjects', requestedCategories)
+        ? clone(rootObjectPlanning.routeObjectCounts)
+        : [],
       blockers: issues
         .filter((issue) => issue.category === 'rootObjects')
         .map((issue) => issue.code)
@@ -257,7 +399,7 @@ export function buildCurrentV125FullDesignCapturePlan({
     buildings: {
       requested: requested('buildings', requestedCategories),
       disposition: requested('buildings', requestedCategories)
-        ? 'blocked'
+        ? 'captured_partial'
         : 'excluded',
       coverageStatus: readiness.categories.buildings.status,
       evidenceStatus: readiness.categories.buildings.evidenceStatus,
@@ -266,9 +408,24 @@ export function buildCurrentV125FullDesignCapturePlan({
         V125_PORTABLE_CONTRACTS.restoration.buildingSkinCodec,
         V125_PORTABLE_CONTRACTS.restoration.playerHouseBindingCodec
       ],
-      blockers: issues
-        .filter((issue) => issue.category === 'buildings')
-        .map((issue) => issue.code)
+      restorationCapture: requested('buildings', requestedCategories)
+        ? {
+            entries: clone(rootObjectPlanning.restorationEntries),
+            unresolved: clone(rootObjectPlanning.restorationBlockers),
+            supportedNoExtraStateCount:
+              rootObjectPlanning.noExtraStateCount,
+            notApplicableCount:
+              rootObjectPlanning.notApplicableCount
+          }
+        : null,
+      blockers: [
+        ...issues
+          .filter((issue) => issue.category === 'buildings')
+          .map((issue) => issue.code),
+        ...(rootObjectPlanning.restorationBlockers.length
+          ? ['FULL_DESIGN_BUILDING_RESTORATION_CAPTURE_UNRESOLVED']
+          : [])
+      ]
     },
     environment: {
       requested: requested('environment', requestedCategories),
