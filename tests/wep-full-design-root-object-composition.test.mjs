@@ -5,6 +5,7 @@ import {
 } from '../src/lib/wep/full-design-root-object-composition.ts';
 import { buildCurrentV125FullDesignCapturePlan } from '../src/lib/wep/full-design-preset-planning.ts';
 import { validateCurrentV125FullDesignManifest } from '../src/lib/wep/full-design-preset-manifest.ts';
+import { preflightCurrentV125FullDesignManifest } from '../src/lib/wep/full-design-preset-preflight.ts';
 
 function object({
   editorId,
@@ -276,6 +277,66 @@ test('full-design manifest accepts validated partial portable composition and re
   );
   assert.equal(plan.publicationReady, false);
   assert.equal(plan.applyReady, false);
+});
+
+test('destination preflight binds portable root objects to destination-local grids without validating placement', () => {
+  const source = profile();
+  const plan = buildCurrentV125FullDesignCapturePlan({
+    profile: source,
+    rootGridId: 10,
+    sourcePlatform: 'switch',
+    rootEditorDocuments: [
+      document('GridData/Test/A.json', [
+        object({
+          editorId: 'g10:o100',
+          itemId: 40000047,
+          x: 2,
+          y: 3
+        })
+      ]),
+      document('GridData/Test/B.json', [])
+    ]
+  });
+
+  const destination = structuredClone(source);
+  destination.World.GridCollection.Grids = {
+    '90': {
+      ...destination.World.GridCollection.Grids['10'],
+      ID: 90
+    },
+    '91': {
+      ...destination.World.GridCollection.Grids['11'],
+      ID: 91
+    }
+  };
+  destination.World.Villages[0].Areas['7'].GridIDs = [90, 91];
+
+  const preflight = preflightCurrentV125FullDesignManifest({
+    destinationProfile: destination,
+    destinationPlatform: 'switch',
+    manifest: plan.manifest
+  });
+
+  assert.equal(preflight.rootObjectRouteBindingReady, true);
+  assert.equal(preflight.destination.rootObjectRouteBindings.length, 1);
+  assert.deepEqual(preflight.destination.rootObjectRouteBindings[0], {
+    artifactObjectId: 'o0',
+    gridDataPath: 'GridData/Test/A.json',
+    destinationGridId: 90,
+    itemId: 40000047,
+    localX: 2,
+    localY: 3,
+    orientation: 0,
+    footprint: [{ x: 0, y: 0 }],
+    portableState: null,
+    routeResolved: true,
+    placementValidated: false,
+    placementBlocker: 'COMPREHENSIVE_GRIDDATA_DIMENSIONS_NOT_BOUND'
+  });
+  assert.equal(preflight.destinationPreflightReady, true);
+  assert.equal(preflight.categoryClosureReady, false);
+  assert.equal(preflight.ok, false);
+  assert.equal(preflight.applyReady, false);
 });
 
 test('strict manifest validation rejects tampered composition routes and write promotion', () => {
