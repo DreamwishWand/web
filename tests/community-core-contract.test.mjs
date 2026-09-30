@@ -723,3 +723,43 @@ test('generated schema exposes session-bound high-risk RPC signatures', () => {
   assert.match(generated, /community_admin_complete_recovery/);
   assert.match(generated, /community_admin_retry_provider_cleanup/);
 });
+
+
+test('self-service account deletion Edge is JWT-bound, session-bound and explicitly confirmed', () => {
+  const account = read('supabase/functions/community-account/index.ts');
+
+  assert.match(account, /withSupabase\(\{ auth: 'user' \}/);
+  assert.match(account, /ctx\.userClaims\?\.id/);
+  assert.match(account, /ctx\.jwtClaims\?\.session_id/);
+  assert.match(account, /body\.confirmation !== 'DELETE'/);
+  assert.match(account, /community_tombstone_account/);
+  assert.match(account, /p_session_id: sessionId/);
+  assert.match(account, /RECENT_AUTH_REQUIRED/);
+  assert.doesNotMatch(account, /payload\.actorAccountId|payload\.actor_account_id/);
+});
+
+test('self-service deletion client globally signs out only after Wand tombstone succeeds', () => {
+  const client = read('src/lib/community/staging-http-client.ts');
+  const start = client.indexOf('async deleteWandAccount');
+  assert.ok(start >= 0);
+
+  const block = client.slice(start, start + 1800);
+  const tombstoneIndex = block.indexOf("'community-account'");
+  const globalLogoutIndex = block.indexOf('/auth/v1/logout?scope=global');
+
+  assert.ok(tombstoneIndex >= 0 && globalLogoutIndex > tombstoneIndex);
+  assert.match(block, /saveSession\(null\)/);
+});
+
+test('account deletion acceptance route is internal and describes restricted retention', () => {
+  const page = read('src/routes/community-lab/account/+page.svelte');
+  const header = read('src/lib/SiteHeader.svelte');
+
+  assert.match(page, /INTERNAL · STAGING ONLY/);
+  assert.match(page, /Type <strong>DELETE<\/strong> to confirm/);
+  assert.match(page, /Refreshing an old JWT does not reset that window/);
+  assert.match(page, /restricted retention/i);
+  assert.match(page, /queue[s]? provider-account cleanup/i);
+  assert.match(page, /noindex,nofollow/);
+  assert.doesNotMatch(header, /community-lab\/account/i);
+});
