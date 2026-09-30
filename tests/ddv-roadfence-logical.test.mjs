@@ -1030,3 +1030,36 @@ test('Fence native planner locks positive-slope diagonal N=3 blueprint', () => {
     [40700246, 104, 104, 'GridOrientation_Down', { FenceMode: { Diagonal: true } }]
   ]);
 });
+
+
+test('Fence native planner locks negative-slope diagonal N=3 blueprint', () => {
+  const plan = planBiome2FencePolyline(
+    [{ x: 0, y: 2 }, { x: 2, y: 0 }],
+    FenceMode.DIAGONAL,
+    { x: 100, y: 100 }
+  );
+  assert.equal(plan.ok, true);
+  assert.equal(plan.logicalQuantity, 3);
+  assert.deepEqual(canonicalNativeObjectSet(plan), [
+    [40700246, 100, 104, 'GridOrientation_Down', { FenceMode: { Diagonal: true } }],
+    [40700253, 102, 102, 'GridOrientation_Left', { FenceMode: { Diagonal: true } }],
+    [40700246, 104, 100, 'GridOrientation_Down', { FenceMode: { Diagonal: true } }]
+  ]);
+});
+
+test('Fence native planner locks positive-slope diagonal N=6 maximum blueprint', () => {
+  const plan = planBiome2FencePolyline(
+    [{ x: 0, y: 0 }, { x: 5, y: 5 }],
+    FenceMode.DIAGONAL,
+    { x: 100, y: 100 }
+  );
+  assert.equal(plan.ok, true);
+  assert.equal(plan.logicalQuantity, 6);
+  assert.deepEqual(canonicalNativeObjectSet(plan), [
+    [40700246, 100, 100, 'GridOrientation_Down', { FenceMode: { Diagonal: true } }],
+    [40700256, 102, 102, 'GridOrientation_Down', { FenceMode: { Diagonal: true } }],
+    [40700246, 110, 110, 'GridOrientation_Down', { FenceMode: { Diagonal: true } }]
+  ]);
+  assert.equal(plan.nativeOracleInventoryCost, 6);
+  assert.equal(plan.wandListInventoryDelta, 0);
+});
