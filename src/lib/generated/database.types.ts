@@ -1508,6 +1508,7 @@ export type Database = {
           p_completion_reason: string
           p_issued_at_epoch: number
           p_recovery_case_id: string
+          p_session_id: string
         }
         Returns: Json
       }
@@ -1519,6 +1520,7 @@ export type Database = {
           p_new_provider: string
           p_new_provider_subject: string
           p_reason: string
+          p_session_id: string
           p_verification_ref?: string
         }
         Returns: Json
@@ -1529,6 +1531,7 @@ export type Database = {
           p_cleanup_job_id: string
           p_issued_at_epoch: number
           p_reason: string
+          p_session_id: string
         }
         Returns: Json
       }
@@ -1756,6 +1759,7 @@ export type Database = {
           p_auth_subject: string
           p_confirmation: string
           p_issued_at_epoch: number
+          p_session_id: string
         }
         Returns: Json
       }
