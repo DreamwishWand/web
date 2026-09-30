@@ -1391,3 +1391,22 @@ test('generated schema exposes public search RPC', () => {
   const generated = read('src/lib/generated/database.types.ts');
   assert.match(generated, /community_search_public/);
 });
+
+
+test('Auth abuse policy keeps provider capacity separate from security invariants', () => {
+  const policy = read('docs/community/auth-abuse-launch-policy-20260930.md');
+  const authPolicy = read('docs/community/auth-launch-policy-20260930.md');
+
+  assert.match(policy, /Anonymous sign-in is not part of the Community v1 launch surface/);
+  assert.match(policy, /Email confirmation is required/);
+  assert.match(policy, /900-second recent-auth/);
+  assert.match(policy, /must remain enabled at least at the effective Supabase baseline/);
+  assert.match(policy, /aggregate Auth email sends per hour/);
+  assert.match(policy, /deliberately not canonical numbers yet/);
+  assert.match(policy, /CAPTCHA integration available as a deployment control/);
+  assert.match(policy, /No provider API key, SMTP password, CAPTCHA secret/);
+
+  assert.match(authPolicy, /without weakening Supabase endpoint\/IP protections/);
+  assert.match(authPolicy, /size aggregate Auth-email quota only after/);
+  assert.match(authPolicy, /auth-abuse-launch-policy-20260930\.md/);
+});
