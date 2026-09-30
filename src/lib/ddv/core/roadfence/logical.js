@@ -303,18 +303,14 @@ export function predictFenceStyleReplacement({
   targetAvailableLogicalQuantity = Number.POSITIVE_INFINITY
 }) {
   const quantity = fenceRepresentationQuantity(sourceComponents);
-  if (targetAvailableLogicalQuantity < quantity) {
-    return {
-      ok: false,
-      code: RoadFenceValidationCode.INVENTORY_SHORTAGE,
-      requiredLogicalQuantity: quantity,
-      availableLogicalQuantity: targetAvailableLogicalQuantity,
-      persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
-    };
-  }
+  const nativeOracleInventorySufficient = targetAvailableLogicalQuantity >= quantity;
   return {
     ok: true,
     logicalQuantity: quantity,
+    nativeOracleRequiredTargetQuantity: quantity,
+    nativeOracleAvailableTargetQuantity: targetAvailableLogicalQuantity,
+    nativeOracleInventorySufficient,
+    nativeOracleWouldRejectForShortage: !nativeOracleInventorySufficient,
     nativeOracleSourceInventoryDelta: quantity,
     nativeOracleTargetInventoryDelta: -quantity,
     wandSourceInventoryDelta: 0,
@@ -968,15 +964,7 @@ export function previewFenceStyleReplacement({
   const selected = selectFenceConnected(graph, seedNodeId);
   if (!selected.ok) return selected;
   const quantity = selected.logicalQuantity;
-  if (targetAvailableLogicalQuantity < quantity) {
-    return {
-      ok: false,
-      code: RoadFenceValidationCode.INVENTORY_SHORTAGE,
-      requiredLogicalQuantity: quantity,
-      availableLogicalQuantity: targetAvailableLogicalQuantity,
-      persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
-    };
-  }
+  const nativeOracleInventorySufficient = targetAvailableLogicalQuantity >= quantity;
 
   return {
     ok: true,
@@ -985,6 +973,10 @@ export function previewFenceStyleReplacement({
     mode: selected.mode,
     nodeIds: selected.nodeIds,
     logicalQuantity: quantity,
+    nativeOracleRequiredTargetQuantity: quantity,
+    nativeOracleAvailableTargetQuantity: targetAvailableLogicalQuantity,
+    nativeOracleInventorySufficient,
+    nativeOracleWouldRejectForShortage: !nativeOracleInventorySufficient,
     nativeOracleSourceInventoryDelta: quantity,
     nativeOracleTargetInventoryDelta: -quantity,
     wandSourceInventoryDelta: 0,
@@ -1075,15 +1067,7 @@ export function previewRoadStyleReplacement({
   const selected = selectRoadConnected(cells, seedCoordinate);
   if (!selected.ok) return selected;
   const quantity = selected.logicalQuantity;
-  if (targetAvailableLogicalQuantity < quantity) {
-    return {
-      ok: false,
-      code: RoadFenceValidationCode.INVENTORY_SHORTAGE,
-      requiredLogicalQuantity: quantity,
-      availableLogicalQuantity: targetAvailableLogicalQuantity,
-      persistentWriteAuthorized: PERSISTENT_WRITE_AUTHORIZED
-    };
-  }
+  const nativeOracleInventorySufficient = targetAvailableLogicalQuantity >= quantity;
 
   return {
     ok: true,
