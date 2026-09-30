@@ -65,13 +65,18 @@ export type Database = {
           completed_by_account_id: string | null
           created_at: string
           opened_by_account_id: string
+          ready_at: string | null
           reason: string
           recovery_case_id: string
           requested_provider: string
           requested_provider_subject: string
           state: string
           updated_at: string
+          verification_method: string | null
           verification_ref: string | null
+          verification_state: string
+          verified_at: string | null
+          verified_by_account_id: string | null
         }
         Insert: {
           account_id: string
@@ -79,13 +84,18 @@ export type Database = {
           completed_by_account_id?: string | null
           created_at?: string
           opened_by_account_id: string
+          ready_at?: string | null
           reason: string
           recovery_case_id?: string
           requested_provider: string
           requested_provider_subject: string
           state?: string
           updated_at?: string
+          verification_method?: string | null
           verification_ref?: string | null
+          verification_state?: string
+          verified_at?: string | null
+          verified_by_account_id?: string | null
         }
         Update: {
           account_id?: string
@@ -93,13 +103,18 @@ export type Database = {
           completed_by_account_id?: string | null
           created_at?: string
           opened_by_account_id?: string
+          ready_at?: string | null
           reason?: string
           recovery_case_id?: string
           requested_provider?: string
           requested_provider_subject?: string
           state?: string
           updated_at?: string
+          verification_method?: string | null
           verification_ref?: string | null
+          verification_state?: string
+          verified_at?: string | null
+          verified_by_account_id?: string | null
         }
         Relationships: [
           {
@@ -119,6 +134,13 @@ export type Database = {
           {
             foreignKeyName: "account_recovery_cases_opened_by_account_id_fkey"
             columns: ["opened_by_account_id"]
+            isOneToOne: false
+            referencedRelation: "wand_accounts"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "account_recovery_cases_verified_by_account_id_fkey"
+            columns: ["verified_by_account_id"]
             isOneToOne: false
             referencedRelation: "wand_accounts"
             referencedColumns: ["account_id"]
@@ -1522,6 +1544,16 @@ export type Database = {
         }
         Returns: Json
       }
+      community_admin_complete_recovery_v2: {
+        Args: {
+          p_admin_auth_subject: string
+          p_completion_reason: string
+          p_issued_at_epoch: number
+          p_recovery_case_id: string
+          p_session_id: string
+        }
+        Returns: Json
+      }
       community_admin_open_recovery_case: {
         Args: {
           p_account_id: string
@@ -1535,6 +1567,20 @@ export type Database = {
         }
         Returns: Json
       }
+      community_admin_open_recovery_case_v2: {
+        Args: {
+          p_account_id: string
+          p_admin_auth_subject: string
+          p_issued_at_epoch: number
+          p_new_provider: string
+          p_new_provider_subject: string
+          p_reason: string
+          p_session_id: string
+          p_verification_method: string
+          p_verification_ref: string
+        }
+        Returns: Json
+      }
       community_admin_retry_provider_cleanup: {
         Args: {
           p_admin_auth_subject: string
@@ -1542,6 +1588,16 @@ export type Database = {
           p_issued_at_epoch: number
           p_reason: string
           p_session_id: string
+        }
+        Returns: Json
+      }
+      community_admin_verify_recovery_case: {
+        Args: {
+          p_admin_auth_subject: string
+          p_issued_at_epoch: number
+          p_recovery_case_id: string
+          p_session_id: string
+          p_verification_note: string
         }
         Returns: Json
       }
