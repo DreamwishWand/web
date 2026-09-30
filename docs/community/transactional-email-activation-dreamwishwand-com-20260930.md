@@ -1,6 +1,6 @@
 # Dreamwish Wand transactional email activation — dreamwishwand.com — 2026-09-30
 
-Status: **OPS PROVIDER DELIVERY CONFIRMED / USER INBOX + AUTH FLOW NEXT**
+Status: **OPS EMAIL ACCEPTANCE COMPLETE / AUTH FLOW NEXT**
 
 ## Canonical launch configuration
 
@@ -107,7 +107,7 @@ Configure the durable Operations escalation destination:
 
 The persistent Operations Alert remains canonical. Email is only an external projection.
 
-## Phase F — staging acceptance — IN PROGRESS
+## Phase F — staging acceptance — OPS COMPLETE / AUTH PENDING
 
 Auth path:
 
