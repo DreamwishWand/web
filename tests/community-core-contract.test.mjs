@@ -628,16 +628,24 @@ test('provider cleanup queue is concurrency-safe and retryable', () => {
   assert.match(migration, /dead_lettered_at/);
 });
 
-test('provider cleanup worker is secret-only and never exposes provider subjects in its response', () => {
+test('provider cleanup worker requires dedicated worker auth and never exposes provider subjects', () => {
   const worker = read('supabase/functions/community-auth/index.ts');
 
-  assert.match(worker, /withSupabase\(\{ auth: 'secret' \}/);
+  assert.match(worker, /withSupabase\(\{ auth: 'none' \}/);
+  assert.match(worker, /x-community-worker-token/);
+  assert.match(worker, /community_verify_worker_token/);
+  assert.match(worker, /WORKER_AUTH_REQUIRED/);
+  assert.match(worker, /WORKER_AUTH_INVALID/);
   assert.match(worker, /community_claim_provider_cleanup_jobs/);
   assert.match(worker, /auth\.admin\.getUserById/);
   assert.match(worker, /auth\.admin\.deleteUser/);
   assert.match(worker, /community_complete_provider_cleanup/);
   assert.match(worker, /community_fail_provider_cleanup/);
 
+  assert.ok(
+    worker.indexOf('community_verify_worker_token') <
+      worker.indexOf('community_claim_provider_cleanup_jobs')
+  );
   assert.doesNotMatch(worker, /providerSubject:\s*job\.providerSubject/);
 });
 
