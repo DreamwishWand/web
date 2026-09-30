@@ -7,7 +7,8 @@ Status:
 - **CONFIRMED PASS** — database queue/claim/retry/dead-letter behavior.
 - **CONFIRMED PASS** — Vault-authenticated Cron -> Edge worker invocation and idempotent provider cleanup completion.
 - **IMPLEMENTED / CI-GREEN** — provider cleanup worker and operator setup.
-- **PENDING** — deletion of an actually existing disposable Supabase Auth user and production dead-letter alerting/response policy.
+- **CONFIRMED PASS** — persistent provider-cleanup dead-letter + scheduler-heartbeat alerting at the staging backend boundary.
+- **PENDING** — deletion of an actually existing disposable Supabase Auth user and browser/operator execution of the alert path.
 
 ## Purpose
 
@@ -143,8 +144,11 @@ The following remain **PENDING**:
 3. allow the scheduled worker to process the resulting cleanup job;
 4. confirm the actual Supabase Auth user is deleted;
 5. confirm the cleanup job reaches `completed` and the stored provider subject is anonymized;
-6. implement/verify production alerting and operator response for provider-cleanup `dead_letter`
-   and scheduler health failures.
+6. execute the implemented alert review/acknowledgment path through `/community-ops/` with a real staging admin;
+7. decide whether launch requires an external escalation channel beyond the internal persistent console.
 
-Do not mark provider-account deletion fully operational until the real existing-user deletion and
-alerting path pass.
+Persistent backend alerting for provider-cleanup dead letters and stale scheduler/worker heartbeat
+is CONFIRMED in `docs/community/operations-alerts-runtime-20260930.md`.
+
+Do not mark provider-account deletion fully operational until the real existing-user deletion path
+passes.
