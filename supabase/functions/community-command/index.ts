@@ -14,7 +14,8 @@ const commandToRpc = {
   reportEntity: 'community_report_entity',
   changeVisibility: 'community_change_work_visibility',
   unpublishWork: 'community_unpublish_work',
-  deleteWork: 'community_delete_work'
+  deleteWork: 'community_delete_work',
+  moderateWork: 'community_moderate_work'
 } as const;
 
 type CommandName = keyof typeof commandToRpc;
@@ -105,6 +106,11 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         params.p_work_id = payload.workId;
         params.p_expected_version = payload.expectedVersion;
         params.p_idempotency_key = payload.idempotencyKey;
+        break;
+      case 'moderateWork':
+        params.p_case_id = payload.caseId;
+        params.p_action = payload.action;
+        params.p_reason = payload.reason;
         break;
     }
 
