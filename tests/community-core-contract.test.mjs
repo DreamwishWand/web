@@ -1685,3 +1685,23 @@ test('dreamwishwand.com is the canonical transactional sender domain', () => {
   assert.match(auth, /no-reply@dreamwishwand\.com/);
   assert.match(escalation, /ops@dreamwishwand\.com/);
 });
+
+
+test('dreamwishwand.com activation runbook preserves email boundaries', () => {
+  const runbook = read(
+    'docs/community/transactional-email-activation-dreamwishwand-com-20260930.md'
+  );
+
+  assert.match(runbook, /dreamwishwand\.com/);
+  assert.match(runbook, /no-reply@dreamwishwand\.com/);
+  assert.match(runbook, /ops@dreamwishwand\.com/);
+  assert.match(runbook, /smtp\.resend\.com/);
+  assert.match(runbook, /Dreamwish Wand Auth SMTP/);
+  assert.match(runbook, /Dreamwish Wand Ops Edge/);
+  assert.match(runbook, /COMMUNITY_EMAIL_RELAY_TOKEN/);
+  assert.match(runbook, /Comment \/ Reply -> no email/);
+  assert.match(runbook, /Reaction -> no email/);
+  assert.match(runbook, /Follow -> no email/);
+  assert.match(runbook, /Save -> no email/);
+  assert.match(runbook, /No second independent alert channel is required for first launch/);
+});
