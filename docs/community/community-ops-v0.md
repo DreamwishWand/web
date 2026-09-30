@@ -116,7 +116,9 @@ Behavior:
 
 ## Recent-auth procedure
 
-Current staging admin policy is 900 seconds.
+Launch policy is **900 seconds / 15 minutes** for support/admin high-risk writes. Account deletion
+uses the same 900-second launch default. Both remain configuration-driven but are now canonical
+launch defaults rather than unresolved staging values.
 
 A refreshed JWT from an old provider session does **not** satisfy recent-auth. When an operation
 returns `RECENT_AUTH_REQUIRED`:
@@ -125,7 +127,8 @@ returns `RECENT_AUTH_REQUIRED`:
 2. sign in again with the operator's credentials;
 3. retry the high-risk operation.
 
-The production threshold remains configuration-driven and is not finalized by this runbook.
+The threshold remains configuration-driven for future change, but the first-launch default is now
+finalized at 900 seconds.
 
 ## Runtime evidence still needed
 
@@ -146,7 +149,9 @@ With one disposable staging admin and one disposable target account:
 13. clear/requeue the underlying condition and confirm the alert auto-resolves;
 14. wait beyond the recent-auth window or use an old session and confirm high-risk write rejection;
 15. sign out/sign in and confirm the same operation is accepted;
-16. capture only opaque actor labels and Community IDs.
+16. load Security Policy and confirm both launch recent-auth windows are 900 seconds and are
+    session-bound to `auth.sessions.created_at`;
+17. capture only opaque actor labels and Community IDs.
 
 Never record passwords, JWTs, refresh tokens, provider subjects, recovery codes, verification
 artifacts, API secrets or signed URLs in evidence docs.
@@ -158,3 +163,11 @@ state machine (8/8), sensitive recovery-field redaction/scrub, persistent operat
 acknowledgment, audit, auto-resolution and recurrence reopening. The internal UI + Edge boundary are
 implemented and CI-green. Browser/operator runtime acceptance is still pending. Detailed alert
 evidence: `docs/community/operations-alerts-runtime-20260930.md`.
+
+
+## Unified browser/operator acceptance
+
+The execution order and secret-free evidence contract for normal signup/recovery, A -> B ->
+Moderator, operator support, self-service deletion and operator critical email are canonicalized in:
+
+`docs/community/browser-operator-acceptance-runbook-20260930.md`
