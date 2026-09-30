@@ -1730,3 +1730,13 @@ test('operator email relay reuses existing Operations worker auth', () => {
   assert.match(activation, /RESEND_API_KEY/);
   assert.match(activation, /DREAMWISH_OPERATOR_EMAIL/);
 });
+
+
+test('Community password baseline is passphrase-friendly single-factor 15+', () => {
+  const client = read('src/lib/community/staging-http-client.ts');
+  assert.match(client, /COMMUNITY_PASSWORD_MIN_LENGTH = 15/);
+  assert.match(client, /Array\.from\(password\)\.length < COMMUNITY_PASSWORD_MIN_LENGTH/);
+  assert.match(client, /assertPasswordPolicy\(newPassword, 'New password'\)/);
+  assert.match(client, /assertPasswordPolicy\(password\)/);
+  assert.doesNotMatch(client, /special character|uppercase|lowercase|must contain|digit/i);
+});
