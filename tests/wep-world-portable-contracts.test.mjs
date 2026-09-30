@@ -7,6 +7,7 @@ import {
   WORLD_RESTORATION_V15_SOURCE_SHA256,
   V125_PORTABLE_CONTRACTS,
   captureV125OutdoorLocation,
+  resolveV125OutdoorLocation,
   resolveV125DestinationDirectRoot,
   captureV125AreaEnvironment,
   captureV125FloatingIslandEnvironment,
@@ -121,6 +122,27 @@ test('Biome location capture uses semantic identity plus exact direct-root route
     gridDataPath: 'GridData/Test/Biome.json'
   });
   assert.equal(result.persistentWriteAuthorized, false);
+});
+
+test('semantic location resolver exposes all direct roots without authorizing writes', () => {
+  const profile = makeProfile();
+  profile.World.GridCollection.Grids['11'] = {
+    ID: 11,
+    GridDataPath: 'GridData/Test/BiomeSecondary.json',
+    TessellationFactor: 1,
+    Objects: {}
+  };
+  profile.World.Villages[0].Areas['7'].GridIDs = [10, 11];
+
+  const captured = captureV125OutdoorLocation(profile, 10);
+  const resolved = resolveV125OutdoorLocation(profile, captured.locationRef);
+
+  assert.equal(resolved.status, 'RESOLVED');
+  assert.deepEqual(
+    resolved.directRoots.map((root) => root.gridDataPath),
+    ['GridData/Test/Biome.json', 'GridData/Test/BiomeSecondary.json']
+  );
+  assert.equal(resolved.persistentWriteAuthorized, false);
 });
 
 test('destination route resolves destination-local GridID instead of reusing source ID', () => {
