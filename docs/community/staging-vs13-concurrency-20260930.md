@@ -54,6 +54,23 @@ This closes the prior VS-13 **PARTIAL / HIGH CONFIDENCE** gap at the Community d
 
 This does not replace browser/app acceptance. The product-shaped Community Lab still needs execution with real staging Auth users and an actual signed media upload. VS-13 itself, however, is no longer blocked on a parallel-session database test.
 
-## Cleanup requirement
+## Cleanup verification
 
-All `vs13-*` cron jobs, temporary Community fixtures, DDV Profile fixtures, interaction rows, Outbox/Notification/Audit rows associated with those fixtures, idempotency rows and the private result table must be removed after capture. A zero-residue verification is required before this result is considered complete.
+**CONFIRMED PASS**
+
+After evidence capture:
+
+- active `vs13-*` cron jobs: **0**
+- temporary AuthIdentity rows: **0**
+- temporary WandAccount rows: **0**
+- temporary CreatorProfile rows: **0**
+- temporary CommunityWork rows: **0**
+- temporary DDV Profile rows: **0**
+- temporary SavedItem / Follow / Reaction rows: **0**
+- temporary idempotency rows: **0**
+- private concurrency result table: **absent**
+- normal `community-outbox-every-minute` cron: **1 active**
+- `audit_events_immutable`, `gallery_work_revisions_immutable`, and `community_work_revisions_immutable`: **enabled**
+- Supabase Security Advisor: **WARN 0**; the seven remaining RLS-no-policy findings remain INFO for intentional server-only deny-all tables.
+
+The immutable-history triggers were never globally bypassed. For fixture teardown only, the three specific immutable guards that otherwise forbid deletion of test audit/revision rows were transactionally disabled, fixture rows were removed with the revision FK deferred, all constraints were forced immediate, and the same guards were re-enabled before commit. System `cron.job_run_details` history was intentionally not altered.
