@@ -304,3 +304,25 @@ test('generated database types include sealed revisions and current server RPCs'
   assert.match(generated, /next_attempt_at: string/);
   assert.match(generated, /failed_at: string \| null/);
 });
+
+
+test('browser-facing Community Edge adapters handle CORS before authenticated work', () => {
+  for (const path of [
+    'supabase/functions/community-command/index.ts',
+    'supabase/functions/community-query/index.ts',
+    'supabase/functions/community-media/index.ts'
+  ]) {
+    const source = read(path);
+    assert.match(source, /supabase-js@2\/cors/);
+    assert.match(source, /req\.method === 'OPTIONS'/);
+    assert.match(source, /headers: \{ \.\.\.corsHeaders,/);
+    assert.match(source, /const authenticatedFetch = withSupabase\(\{ auth: 'user' \}/);
+  }
+});
+
+test('only Gallery publish v3 remains in generated callable schema', () => {
+  const generated = read('src/lib/generated/database.types.ts');
+  assert.match(generated, /community_publish_gallery_v3/);
+  assert.doesNotMatch(generated, /community_publish_gallery_v2/);
+  assert.doesNotMatch(generated, /community_publish_gallery: \{/);
+});
