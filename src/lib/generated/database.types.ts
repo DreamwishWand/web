@@ -14,6 +14,73 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_recovery_cases: {
+        Row: {
+          account_id: string
+          completed_at: string | null
+          completed_by_account_id: string | null
+          created_at: string
+          opened_by_account_id: string
+          reason: string
+          recovery_case_id: string
+          requested_provider: string
+          requested_provider_subject: string
+          state: string
+          updated_at: string
+          verification_ref: string | null
+        }
+        Insert: {
+          account_id: string
+          completed_at?: string | null
+          completed_by_account_id?: string | null
+          created_at?: string
+          opened_by_account_id: string
+          reason: string
+          recovery_case_id?: string
+          requested_provider: string
+          requested_provider_subject: string
+          state?: string
+          updated_at?: string
+          verification_ref?: string | null
+        }
+        Update: {
+          account_id?: string
+          completed_at?: string | null
+          completed_by_account_id?: string | null
+          created_at?: string
+          opened_by_account_id?: string
+          reason?: string
+          recovery_case_id?: string
+          requested_provider?: string
+          requested_provider_subject?: string
+          state?: string
+          updated_at?: string
+          verification_ref?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_recovery_cases_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "wand_accounts"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "account_recovery_cases_completed_by_account_id_fkey"
+            columns: ["completed_by_account_id"]
+            isOneToOne: false
+            referencedRelation: "wand_accounts"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "account_recovery_cases_opened_by_account_id_fkey"
+            columns: ["opened_by_account_id"]
+            isOneToOne: false
+            referencedRelation: "wand_accounts"
+            referencedColumns: ["account_id"]
+          },
+        ]
+      }
       account_roles: {
         Row: {
           account_id: string
@@ -131,25 +198,34 @@ export type Database = {
           account_id: string
           auth_identity_id: string
           created_at: string
+          identity_state: string
           last_verified_at: string | null
           provider: string
           provider_subject: string
+          replaced_by_auth_identity_id: string | null
+          retired_at: string | null
         }
         Insert: {
           account_id: string
           auth_identity_id?: string
           created_at?: string
+          identity_state?: string
           last_verified_at?: string | null
           provider: string
           provider_subject: string
+          replaced_by_auth_identity_id?: string | null
+          retired_at?: string | null
         }
         Update: {
           account_id?: string
           auth_identity_id?: string
           created_at?: string
+          identity_state?: string
           last_verified_at?: string | null
           provider?: string
           provider_subject?: string
+          replaced_by_auth_identity_id?: string | null
+          retired_at?: string | null
         }
         Relationships: [
           {
@@ -158,6 +234,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "wand_accounts"
             referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "auth_identities_replaced_by_auth_identity_id_fkey"
+            columns: ["replaced_by_auth_identity_id"]
+            isOneToOne: false
+            referencedRelation: "auth_identities"
+            referencedColumns: ["auth_identity_id"]
           },
         ]
       }
@@ -1382,6 +1465,14 @@ export type Database = {
         }
         Returns: Json
       }
+      community_complete_recovery: {
+        Args: {
+          p_admin_auth_subject: string
+          p_completion_reason: string
+          p_recovery_case_id: string
+        }
+        Returns: Json
+      }
       community_create_gallery_draft: {
         Args: {
           p_auth_subject: string
@@ -1444,6 +1535,17 @@ export type Database = {
           p_auth_subject: string
           p_case_id: string
           p_reason: string
+        }
+        Returns: Json
+      }
+      community_open_recovery_case: {
+        Args: {
+          p_account_id: string
+          p_admin_auth_subject: string
+          p_new_provider: string
+          p_new_provider_subject: string
+          p_reason: string
+          p_verification_ref?: string
         }
         Returns: Json
       }
