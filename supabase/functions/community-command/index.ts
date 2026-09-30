@@ -10,7 +10,10 @@ const commandToRpc = {
   followCreator: 'community_follow_creator',
   addReaction: 'community_add_reaction',
   addComment: 'community_add_comment',
-  reportEntity: 'community_report_entity'
+  reportEntity: 'community_report_entity',
+  changeVisibility: 'community_change_work_visibility',
+  unpublishWork: 'community_unpublish_work',
+  deleteWork: 'community_delete_work'
 } as const;
 
 type CommandName = keyof typeof commandToRpc;
@@ -89,6 +92,18 @@ export default {
         params.p_target_entity_id = payload.targetEntityId;
         params.p_reason_code = payload.reasonCode;
         params.p_detail = payload.detail ?? null;
+        params.p_idempotency_key = payload.idempotencyKey;
+        break;
+      case 'changeVisibility':
+        params.p_work_id = payload.workId;
+        params.p_expected_version = payload.expectedVersion;
+        params.p_visibility = payload.visibility;
+        params.p_idempotency_key = payload.idempotencyKey;
+        break;
+      case 'unpublishWork':
+      case 'deleteWork':
+        params.p_work_id = payload.workId;
+        params.p_expected_version = payload.expectedVersion;
         params.p_idempotency_key = payload.idempotencyKey;
         break;
     }
