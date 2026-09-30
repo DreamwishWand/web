@@ -1638,7 +1638,8 @@ test('Resend operator relay is fixed-purpose, idempotent and fail-closed', () =>
   assert.match(relay, /Dreamwish Wand Ops <ops@dreamwishwand\.com>/);
   assert.match(relay, /DREAMWISH_OPERATOR_EMAIL/);
   assert.match(relay, /EMAIL_RELAY_NOT_CONFIGURED/);
-  assert.match(relay, /RELAY_AUTH_REQUIRED/);
+  assert.match(relay, /WORKER_AUTH_REQUIRED/);
+  assert.match(relay, /WORKER_AUTH_INVALID/);
   assert.match(relay, /dreamwishwand\.transactional-email\.operator-critical\.v1/);
   assert.match(relay, /operator_critical_operations_alert/);
   assert.match(relay, /https:\/\/api\.resend\.com\/emails/);
@@ -1701,7 +1702,8 @@ test('dreamwishwand.com activation runbook preserves email boundaries', () => {
   assert.match(runbook, /smtp\.resend\.com/);
   assert.match(runbook, /Dreamwish Wand Auth SMTP/);
   assert.match(runbook, /Dreamwish Wand Ops Edge/);
-  assert.match(runbook, /COMMUNITY_EMAIL_RELAY_TOKEN/);
+  assert.doesNotMatch(runbook, /COMMUNITY_EMAIL_RELAY_TOKEN/);
+  assert.match(runbook, /No new relay secret is required/);
   assert.match(runbook, /Comment \/ Reply -> no email/);
   assert.match(runbook, /Reaction -> no email/);
   assert.match(runbook, /Follow -> no email/);
