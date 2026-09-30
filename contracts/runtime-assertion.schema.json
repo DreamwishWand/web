@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "dreamwish.ddv.runtime-assertion@1",
+  "title": "Dreamwish Wand DDV Runtime Assertion v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract","operation","source","targetBuild","codecContract","exactBuildContractId","output","capabilitiesAtExport","persistentWriteAuthorized"],
+  "properties": {
+    "contract": {"const": "dreamwish.ddv.runtime-assertion@1"},
+    "operation": {"$ref": "#/$defs/operation"},
+    "source": {"$ref": "#/$defs/source"},
+    "targetBuild": {"$ref": "#/$defs/targetBuild"},
+    "codecContract": {"type": "string", "minLength": 1},
+    "exactBuildContractId": {"anyOf": [{"type":"string","minLength":1},{"type":"null"}]},
+    "output": {"$ref": "#/$defs/output"},
+    "capabilitiesAtExport": {"$ref": "#/$defs/capabilities"},
+    "persistentWriteAuthorized": {"const": false}
+  },
+  "$defs": {
+    "operation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id","owner","runtimeGate"],
+      "properties": {
+        "id": {"type":"string","minLength":1},
+        "owner": {"type":"string","minLength":1},
+        "runtimeGate": {"enum":["NOT_REQUIRED","PASSED","PENDING","FAILED"]}
+      }
+    },
+    "targetBuild": {
+      "type": "object", "additionalProperties": false,
+      "required": ["platform","kind","value"],
+      "properties": {
+        "platform": {"enum":["switch","steam-windows"]},
+        "kind": {"enum":["switch-bid","steam-full-version"]},
+        "value": {"type":"string","minLength":1}
+      }
+    },
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["rawSha256","profileGameInfoVersion","initialProfileGameInfoVersion","lastSaveDeviceType","sourcePlatform","inputFormat"],
+      "properties": {
+        "rawSha256": {"type":"string","pattern":"^[0-9a-f]{64}$"},
+        "profileGameInfoVersion": {"type":["integer","null"]},
+        "initialProfileGameInfoVersion": {"type":["integer","null"]},
+        "lastSaveDeviceType": {"type":["string","null"]},
+        "sourcePlatform": {"enum":["switch","steam-windows","unknown"]},
+        "inputFormat": {"enum":["plain","packaged"]}
+      }
+    },
+    "output": {
+      "type": "object", "additionalProperties": false,
+      "required": ["rawSha256","changedPaths","noOp"],
+      "properties": {
+        "rawSha256": {"type":"string","pattern":"^[0-9a-f]{64}$"},
+        "changedPaths": {"type":"array","items":{"type":"string"}},
+        "noOp": {"type":"boolean"}
+      }
+    },
+    "capabilities": {
+      "type": "object", "additionalProperties": false,
+      "required": ["readProfile","planOperation","encodeCopy","persistentReplace"],
+      "properties": {
+        "readProfile": {"type":"boolean"},
+        "planOperation": {"type":"boolean"},
+        "encodeCopy": {"type":"boolean"},
+        "persistentReplace": {"const": false}
+      }
+    }
+  }
+}
