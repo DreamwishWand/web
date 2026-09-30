@@ -53,6 +53,8 @@
   let escalationDeliveryId = '';
   let escalationRetryReason = 'Reviewed external alert delivery failure';
 
+  let securityPolicy: unknown = null;
+
   let retentionAccountId = '';
   let retentionHolds: unknown = [];
   let retentionHoldType = 'security';
@@ -125,6 +127,15 @@
     retentionJobs = [];
     retentionHolds = [];
     operationsEscalations = [];
+    securityPolicy = null;
+  }
+
+  async function refreshSecurityPolicy() {
+    if (!client) return;
+    const result = await run('Load security policy', () =>
+      client!.admin('getSecurityPolicy', {})
+    );
+    if (result) securityPolicy = result.data ?? null;
   }
 
   async function refreshRecoveryCases() {
@@ -392,9 +403,18 @@
       </div>
       <p class="ops-note">
         High-risk writes require an admin role and a provider session created within the configured
-        recent-auth window. Refreshing the JWT does not reset that window; sign out and sign in
-        again when step-up is required.
+        recent-auth window. Launch defaults are 15 minutes for account deletion and 15 minutes for
+        support/admin high-risk writes. Refreshing the JWT does not reset that window; sign out and
+        sign in again when step-up is required.
       </p>
+      <div class="ops-actions">
+        <button class="secondary" on:click={refreshSecurityPolicy} disabled={busy || !session}>
+          Load security policy
+        </button>
+      </div>
+      {#if securityPolicy}
+        <pre>{JSON.stringify(securityPolicy, null, 2)}</pre>
+      {/if}
     </article>
 
     <div class="ops-grid">
