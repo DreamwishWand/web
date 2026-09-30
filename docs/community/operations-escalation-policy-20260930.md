@@ -44,8 +44,7 @@ queue. This implementation is intentionally separate from provider selection.
 - Community Ops can list external delivery state and recent-auth requeue a dead-letter delivery only
   while its originating critical alert occurrence is still open/current.
 
-This closes the provider-neutral transport contract, but **does not satisfy launch acceptance by
-itself**. A real external channel still has to be configured and observed end-to-end.
+The provider-neutral transport contract and real-provider delivery are both confirmed. Full operator acceptance still requires human mailbox visibility plus recurrence/failure-retry execution.
 
 ## Data minimization
 
@@ -73,7 +72,7 @@ Do not include:
 ## Provider boundary
 
 The external channel is now fixed as normal transactional **email** to the operator's usual mailbox.
-The first-launch email-delivery provider default is **Resend**; account/domain/secret configuration and real delivery acceptance remain pending.
+The first-launch email-delivery provider is **Resend**. `dreamwishwand.com` is verified, separate credentials/secrets are configured, and a real staging critical alert reached Resend with provider status `delivered`. Human mailbox-visibility confirmation plus recurrence/failure-retry acceptance remain pending.
 
 Where practical, use the same transactional email provider selected for Supabase Auth and approved
 Wizard transactional mail. Provider reuse must not merge data models: Wand persistent Operations
