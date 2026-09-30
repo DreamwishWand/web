@@ -606,3 +606,37 @@ test('reauthenticated credential change revokes provider sessions and advances W
   assert.match(client, /nonce: nonce\.trim\(\)/);
   assert.match(client, /return this\.revokeAllSessions\(\)/);
 });
+
+
+test('provider cleanup queue is concurrency-safe and retryable', () => {
+  const migration = read('supabase/migrations/20260930074500_community_core_v0_provider_cleanup_worker_queue.sql');
+
+  assert.match(migration, /state in \('pending','processing','completed','dead_letter'\)/);
+  assert.match(migration, /for update skip locked/i);
+  assert.match(migration, /locked_at < now\(\) - interval '5 minutes'/i);
+  assert.match(migration, /community_claim_provider_cleanup_jobs/i);
+  assert.match(migration, /community_complete_provider_cleanup/i);
+  assert.match(migration, /community_fail_provider_cleanup/i);
+  assert.match(migration, /attempts\+1 >= 5/);
+  assert.match(migration, /dead_lettered_at/);
+});
+
+test('provider cleanup worker is secret-only and never exposes provider subjects in its response', () => {
+  const worker = read('supabase/functions/community-auth/index.ts');
+
+  assert.match(worker, /withSupabase\(\{ auth: 'secret' \}/);
+  assert.match(worker, /community_claim_provider_cleanup_jobs/);
+  assert.match(worker, /auth\.admin\.getUserById/);
+  assert.match(worker, /auth\.admin\.deleteUser/);
+  assert.match(worker, /community_complete_provider_cleanup/);
+  assert.match(worker, /community_fail_provider_cleanup/);
+
+  assert.doesNotMatch(worker, /providerSubject:\s*job\.providerSubject/);
+});
+
+test('generated schema exposes provider cleanup worker RPCs', () => {
+  const generated = read('src/lib/generated/database.types.ts');
+  assert.match(generated, /community_claim_provider_cleanup_jobs/);
+  assert.match(generated, /community_complete_provider_cleanup/);
+  assert.match(generated, /community_fail_provider_cleanup/);
+});
