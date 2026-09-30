@@ -6,18 +6,24 @@ import {
   PERSISTENT_WRITE_AUTHORIZED,
   buildFencePolyline,
   buildFenceRectangleOutline,
+  buildRoadRegionFill,
   compileFenceLogicalGraph,
   eraseFenceLogicalUnits,
+  eraseRoadCells,
   RoadFenceValidationCode,
   fenceRepresentationQuantity,
   partitionFenceConnectedComponents,
   planFenceStraightRun,
   predictConnectedFenceRemoval,
   predictFenceStyleReplacement,
+  previewFenceStyleReplacement,
   rasterizeRoadPath,
   rasterizeRoadPolyline,
   requirePersistentRoadFenceWriter,
   roadDiagonalStepCells,
+  selectFenceConnected,
+  transformFenceLogicalGraph,
+  transformRoadCells,
   validateContainedTopology,
   validateFenceLogicalGraph,
   validateFenceRepresentationPlan,
@@ -277,4 +283,112 @@ test('Fence rectangle outline closes as one orthogonal component without duplica
   assert.equal(result.compiled.logicalQuantity, 10);
   assert.equal(result.compiled.components.length, 1);
   assert.equal(result.compiled.components[0].bases.length, 4);
+});
+
+
+test('Road region fill creates one persistent logical cell per rectangle coordinate', () => {
+  const result = buildRoadRegionFill({ minX: 2, minY: 4, maxX: 4, maxY: 5 });
+  assert.equal(result.cells.length, 6);
+  assert.equal(result.inventoryQuantity, 6);
+  assert.ok(result.cells.every((cell) => cell.mode === FenceMode.ORTHOGONAL));
+  assert.equal(result.persistentWriteAuthorized, false);
+});
+
+test('Road logical erase refunds exactly the erased cell count', () => {
+  const filled = buildRoadRegionFill({ minX: 0, minY: 0, maxX: 2, maxY: 1 });
+  const erased = eraseRoadCells(filled.cells, [{ x: 1, y: 0 }, { x: 2, y: 1 }]);
+  assert.equal(erased.ok, true);
+  assert.equal(erased.refundLogicalQuantity, 2);
+  assert.equal(erased.remainingLogicalQuantity, 4);
+  assert.equal(erased.cells.length, 4);
+});
+
+test('Fence select-connected stops at an orthogonal/diagonal boundary', () => {
+  const graph = {
+    nodes: [
+      { id: 'o1', x: 0, y: 0, mode: FenceMode.ORTHOGONAL },
+      { id: 'o2', x: 1, y: 0, mode: FenceMode.ORTHOGONAL },
+      { id: 'd1', x: 2, y: 1, mode: FenceMode.DIAGONAL },
+      { id: 'd2', x: 3, y: 2, mode: FenceMode.DIAGONAL }
+    ],
+    edges: [
+      { a: 'o1', b: 'o2' },
+      { a: 'o2', b: 'd1' },
+      { a: 'd1', b: 'd2' }
+    ]
+  };
+  const selectedOrthogonal = selectFenceConnected(graph, 'o2');
+  assert.equal(selectedOrthogonal.ok, true);
+  assert.deepEqual(selectedOrthogonal.nodeIds, ['o1', 'o2']);
+  assert.equal(selectedOrthogonal.logicalQuantity, 2);
+
+  const selectedDiagonal = selectFenceConnected(graph, 'd1');
+  assert.equal(selectedDiagonal.ok, true);
+  assert.deepEqual(selectedDiagonal.nodeIds, ['d1', 'd2']);
+  assert.equal(selectedDiagonal.logicalQuantity, 2);
+});
+
+test('Road topology transform rotates and translates cells without changing logical quantity', () => {
+  const source = rasterizeRoadPath([{ x: 0, y: 0 }, { x: 1, y: 1 }]);
+  const transformed = transformRoadCells(source.cells, {
+    pivot: { x: 0, y: 0 },
+    rotateQuarterTurns: 1,
+    translateX: 10,
+    translateY: 20
+  });
+  assert.equal(transformed.ok, true);
+  assert.equal(transformed.cells.length, 4);
+  assert.equal(transformed.inventoryQuantity, 4);
+  assert.ok(transformed.cells.some((cell) => cell.x === 10 && cell.y === 20));
+  assert.ok(transformed.cells.some((cell) => cell.x === 9 && cell.y === 21));
+});
+
+test('Fence topology transform preserves graph connectivity and recompiles after rotation', () => {
+  const source = buildFencePolyline([
+    { x: 0, y: 0 },
+    { x: 3, y: 0 },
+    { x: 3, y: 2 }
+  ], FenceMode.ORTHOGONAL);
+  const transformed = transformFenceLogicalGraph(source.graph, {
+    pivot: { x: 0, y: 0 },
+    rotateQuarterTurns: 1,
+    translateX: 5,
+    translateY: 7
+  });
+  assert.equal(transformed.ok, true);
+  assert.equal(transformed.graph.nodes.length, source.graph.nodes.length);
+  assert.equal(transformed.graph.edges.length, source.graph.edges.length);
+  assert.equal(transformed.compiled.logicalQuantity, source.compiled.logicalQuantity);
+  assert.equal(transformed.compiled.components.length, 1);
+});
+
+test('Fence style replacement preview selects only the rooted native-connected component', () => {
+  const graph = {
+    nodes: [
+      { id: 'o1', x: 0, y: 0, mode: FenceMode.ORTHOGONAL },
+      { id: 'o2', x: 1, y: 0, mode: FenceMode.ORTHOGONAL },
+      { id: 'o3', x: 2, y: 0, mode: FenceMode.ORTHOGONAL },
+      { id: 'd1', x: 3, y: 1, mode: FenceMode.DIAGONAL },
+      { id: 'd2', x: 4, y: 2, mode: FenceMode.DIAGONAL }
+    ],
+    edges: [
+      { a: 'o1', b: 'o2' },
+      { a: 'o2', b: 'o3' },
+      { a: 'o3', b: 'd1' },
+      { a: 'd1', b: 'd2' }
+    ]
+  };
+  const preview = previewFenceStyleReplacement({
+    graph,
+    seedNodeId: 'o2',
+    sourceFamilyBaseItemID: 40700246,
+    targetFamilyBaseItemID: 40700001,
+    targetAvailableLogicalQuantity: 10
+  });
+  assert.equal(preview.ok, true);
+  assert.deepEqual(preview.nodeIds, ['o1', 'o2', 'o3']);
+  assert.equal(preview.logicalQuantity, 3);
+  assert.equal(preview.sourceInventoryDelta, 3);
+  assert.equal(preview.targetInventoryDelta, -3);
+  assert.equal(preview.persistentWriteAuthorized, false);
 });
