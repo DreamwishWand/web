@@ -13,7 +13,7 @@
   let session: CommunitySession | null = null;
 
   let busy = false;
-  let status = 'Ready. Sign in with a staging admin account.';
+  let status = 'Ready. Sign in with a staging moderator/admin account.';
   let error = '';
 
   let recoveryState = 'open';
@@ -54,6 +54,12 @@
   let escalationRetryReason = 'Reviewed external alert delivery failure';
 
   let securityPolicy: unknown = null;
+
+  let moderationState = 'open';
+  let moderationCases: unknown = [];
+  let moderationCaseId = '';
+  let moderationAction = 'restrict';
+  let moderationReason = 'Reviewed reported Community content';
 
   let retentionAccountId = '';
   let retentionHolds: unknown = [];
@@ -128,6 +134,7 @@
     retentionHolds = [];
     operationsEscalations = [];
     securityPolicy = null;
+    moderationCases = [];
   }
 
   async function refreshSecurityPolicy() {
@@ -136,6 +143,29 @@
       client!.admin('getSecurityPolicy', {})
     );
     if (result) securityPolicy = result.data ?? null;
+  }
+
+  async function refreshModerationCases() {
+    if (!client) return;
+    const result = await run('Load moderation cases', () =>
+      client!.admin('listModerationCases', {
+        state: moderationState || null,
+        limit: 50
+      })
+    );
+    if (result) moderationCases = result.data ?? [];
+  }
+
+  async function moderateCase() {
+    if (!client) return;
+    const result = await run('Apply moderation action', () =>
+      client!.admin('moderateCase', {
+        caseId: moderationCaseId,
+        action: moderationAction,
+        reason: moderationReason
+      })
+    );
+    if (result) await refreshModerationCases();
   }
 
   async function refreshRecoveryCases() {
@@ -357,8 +387,8 @@
         <p class="ops-kicker">INTERNAL · STAGING ONLY</p>
         <h1>Community Ops</h1>
         <p class="page-intro">
-          Admin-only recovery and dead-letter operations. This route is intentionally absent from
-          public navigation.
+          Staff-only moderation plus admin recovery and operations controls. This route is intentionally
+          absent from public navigation.
         </p>
       </div>
       <div class:ops-pass={!error} class:ops-fail={!!error} class="ops-status">{status}</div>
@@ -372,7 +402,7 @@
     {/if}
 
     <article class="ops-card">
-      <h2>Admin session</h2>
+      <h2>Staff session</h2>
       <div class="ops-two">
         <label>
           Supabase URL
@@ -402,10 +432,10 @@
         </button>
       </div>
       <p class="ops-note">
-        High-risk writes require an admin role and a provider session created within the configured
-        recent-auth window. Launch defaults are 15 minutes for account deletion and 15 minutes for
-        support/admin high-risk writes. Refreshing the JWT does not reset that window; sign out and
-        sign in again when step-up is required.
+        High-risk writes require the appropriate staff role and a provider session created within the
+        configured recent-auth window. Launch defaults are 15 minutes for account deletion,
+        support/admin high-risk writes, and moderation staff actions. Refreshing the JWT does not reset
+        that window; sign out and sign in again when step-up is required.
       </p>
       <div class="ops-actions">
         <button class="secondary" on:click={refreshSecurityPolicy} disabled={busy || !session}>
@@ -455,6 +485,51 @@
         </button>
 
         <pre>{JSON.stringify(operationsAlerts, null, 2)}</pre>
+      </article>
+
+      <article class="ops-card">
+        <h2>Moderation queue</h2>
+        <p class="ops-note">
+          Moderator/admin-only case review. Reporter account identity is intentionally omitted from
+          this queue; staff receive the report reason/detail and target state needed to act. Restrict,
+          remove and restore require a session created within the 15-minute moderation recent-auth
+          window. Completing an action also closes open/triaged reports attached to that case.
+        </p>
+        <div class="ops-actions">
+          <select bind:value={moderationState}>
+            <option value="">all</option>
+            <option value="open">open</option>
+            <option value="reviewing">reviewing</option>
+            <option value="resolved">resolved</option>
+            <option value="closed">closed</option>
+          </select>
+          <button on:click={refreshModerationCases} disabled={busy || !session}>
+            Refresh cases
+          </button>
+        </div>
+        <label>
+          Moderation case ID
+          <input bind:value={moderationCaseId} autocomplete="off" />
+        </label>
+        <label>
+          Action
+          <select bind:value={moderationAction}>
+            <option value="restrict">restrict</option>
+            <option value="remove">remove</option>
+            <option value="restore">restore</option>
+          </select>
+        </label>
+        <label>
+          Moderation reason
+          <input bind:value={moderationReason} autocomplete="off" />
+        </label>
+        <button
+          on:click={moderateCase}
+          disabled={busy || !session || !moderationCaseId || moderationReason.length < 8}
+        >
+          Apply moderation action
+        </button>
+        <pre>{JSON.stringify(moderationCases, null, 2)}</pre>
       </article>
 
       <article class="ops-card">
