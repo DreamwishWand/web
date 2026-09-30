@@ -1148,7 +1148,7 @@ test('external critical operations escalation uses an occurrence queue and fail-
   const migration = read(
     'supabase/migrations/20260930104856_community_core_v0_external_operations_escalation.sql'
   );
-  const worker = read('supabase/functions/community-ops-escalation/index.ts');
+  const worker = read('supabase/functions/community-ops-email/index.ts');
 
   assert.match(migration, /community_operations_escalation_deliveries/);
   assert.match(migration, /unique\(alert_id,alert_occurrence,channel\)/);
@@ -1168,7 +1168,7 @@ test('external critical operations escalation uses an occurrence queue and fail-
 });
 
 test('external operations alert payload is deliberately data-minimal', () => {
-  const worker = read('supabase/functions/community-ops-escalation/index.ts');
+  const worker = read('supabase/functions/community-ops-email/index.ts');
 
   assert.match(worker, /dreamwishwand\.community\.operations-alert\.v1/);
   assert.match(worker, /operationsPath: '\/community-ops\/'/);
@@ -1255,4 +1255,53 @@ test('generated schema exposes escalation admin RPCs but keeps escalation queue 
   const tableSection = generated.slice(tablesStart, viewsStart);
   assert.doesNotMatch(tableSection, /community_operations_escalation_deliveries:/);
   assert.doesNotMatch(tableSection, /community_operations_escalation_config:/);
+});
+
+
+test('operator critical escalation is email-only and remains separate from Community activity', () => {
+  const channelMigration = read(
+    'supabase/migrations/20260930112155_community_core_v0_operator_email_channel.sql'
+  );
+  const workerMigration = read(
+    'supabase/migrations/20260930112416_community_core_v0_operator_email_worker.sql'
+  );
+  const worker = read('supabase/functions/community-ops-email/index.ts');
+
+  assert.match(channelMigration, /channel='operator_email'/);
+  assert.match(channelMigration, /check\(channel in\('operator_email'\)\)/);
+  assert.match(channelMigration, /community_operations_email_relay_url/);
+  assert.match(channelMigration, /community_operations_email_relay_token/);
+  assert.match(workerMigration, /community-ops-email/);
+  assert.match(workerMigration, /'transport','operator_email'/);
+
+  assert.match(worker, /channel !== 'operator_email'/);
+  assert.match(worker, /operator_critical_operations_alert/);
+  assert.match(worker, /transactional-email\.operator-critical\.v1/);
+  assert.match(worker, /idempotencyKey/);
+  assert.match(worker, /\[Dreamwish Wand\]\[CRITICAL\]/);
+});
+
+test('operator email is separate from Wizard activity email policy', () => {
+  const policy = read('src/lib/community/email-policy.ts');
+
+  assert.match(policy, /email_verification/);
+  assert.match(policy, /password_recovery/);
+  assert.match(policy, /security_critical/);
+  assert.match(policy, /moderation_critical/);
+  assert.match(policy, /wand_cloud_purchase/);
+  assert.match(policy, /gift/);
+  assert.match(policy, /operator_critical_operations_alert/);
+
+  for (const kind of ['comment','reply','reaction','follow','save','work_published']) {
+    assert.match(policy, new RegExp(`'${kind}'`));
+  }
+});
+
+test('normal Community notification fanout does not create email delivery', () => {
+  const notifications = read(
+    'supabase/migrations/20260930030220_community_core_v0_notification_counter_fix.sql'
+  );
+
+  assert.match(notifications, /notification_deliveries/);
+  assert.doesNotMatch(notifications, /operator_email|transactional_email|smtp|email_provider/i);
 });
