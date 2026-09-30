@@ -11,7 +11,12 @@ const operationToRpc = {
   completeRecoveryCase: 'community_admin_complete_recovery_v2',
   retryProviderCleanup: 'community_admin_retry_provider_cleanup',
   listOperationsAlerts: 'community_get_operations_alerts',
-  acknowledgeOperationsAlert: 'community_admin_ack_operations_alert'
+  acknowledgeOperationsAlert: 'community_admin_ack_operations_alert',
+  listRetentionJobs: 'community_get_retention_jobs',
+  retryRetentionJob: 'community_admin_retry_retention_job',
+  listRetentionHolds: 'community_get_retention_holds',
+  addRetentionHold: 'community_admin_add_retention_hold',
+  releaseRetentionHold: 'community_admin_release_retention_hold'
 } as const;
 
 type OperationName = keyof typeof operationToRpc;
@@ -120,6 +125,34 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       params.p_issued_at_epoch = issuedAt;
       params.p_alert_id = payload.alertId;
       params.p_note = payload.note;
+      break;
+    case 'listRetentionJobs':
+      params.p_state = payload.state ?? null;
+      params.p_limit = payload.limit ?? 50;
+      break;
+    case 'retryRetentionJob':
+      params.p_session_id = sessionId;
+      params.p_issued_at_epoch = issuedAt;
+      params.p_retention_job_id = payload.retentionJobId;
+      params.p_reason = payload.reason;
+      break;
+    case 'listRetentionHolds':
+      params.p_account_id = payload.accountId ?? null;
+      params.p_limit = payload.limit ?? 50;
+      break;
+    case 'addRetentionHold':
+      params.p_session_id = sessionId;
+      params.p_issued_at_epoch = issuedAt;
+      params.p_account_id = payload.accountId;
+      params.p_hold_type = payload.holdType;
+      params.p_reason = payload.reason;
+      params.p_expires_at = payload.expiresAt ?? null;
+      break;
+    case 'releaseRetentionHold':
+      params.p_session_id = sessionId;
+      params.p_issued_at_epoch = issuedAt;
+      params.p_hold_id = payload.holdId;
+      params.p_reason = payload.reason;
       break;
   }
 
