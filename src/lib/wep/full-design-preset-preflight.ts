@@ -89,6 +89,7 @@ export function preflightCurrentV125FullDesignManifest({
       destinationPreflightReady: false,
       categoryClosureReady: false,
       routeResolutionReady: false,
+      rootObjectRouteBindingReady: false,
       buildingRestorationPreflightReady: false,
       environmentPreflightReady: false,
       issues: manifestIssuesAsDestinationIssues(validation.issues),
@@ -199,6 +200,55 @@ export function preflightCurrentV125FullDesignManifest({
         '$.directRootRoutes'
       )
     );
+  }
+
+  const destinationGridByPath = new Map(
+    routeResolutions.map((entry) => [
+      String(entry.gridDataPath),
+      Number(entry.destinationGridId)
+    ])
+  );
+  const rootComposition =
+    normalized.categories.rootObjects?.portableComposition;
+  const rootObjectRouteBindings: AnyRecord[] = [];
+  let rootObjectRouteBindingReady = true;
+
+  if (rootComposition && Array.isArray(rootComposition.entries)) {
+    rootComposition.entries.forEach((entry: AnyRecord, index: number) => {
+      const gridDataPath = String(
+        entry?.directRootRoute?.gridDataPath ?? ''
+      );
+      const destinationGridId = destinationGridByPath.get(gridDataPath);
+      if (!Number.isSafeInteger(destinationGridId)) {
+        rootObjectRouteBindingReady = false;
+        issues.push(
+          block(
+            'FULL_DESIGN_DESTINATION_ROOT_OBJECT_ROUTE_UNRESOLVED',
+            `$.categories.rootObjects.portableComposition.entries[${index}].directRootRoute`,
+            {
+              artifactObjectId: entry?.artifactObjectId,
+              gridDataPath
+            }
+          )
+        );
+        return;
+      }
+      rootObjectRouteBindings.push({
+        artifactObjectId: entry.artifactObjectId,
+        gridDataPath,
+        destinationGridId,
+        itemId: entry.itemId,
+        localX: entry.localX,
+        localY: entry.localY,
+        orientation: entry.orientation,
+        footprint: clone(entry.footprint),
+        portableState: clone(entry.portableState),
+        routeResolved: true,
+        placementValidated: false,
+        placementBlocker:
+          'COMPREHENSIVE_GRIDDATA_DIMENSIONS_NOT_BOUND'
+      });
+    });
   }
 
   const buildingRestorationPreflights: AnyRecord[] = [];
@@ -327,6 +377,7 @@ export function preflightCurrentV125FullDesignManifest({
 
   const destinationResolved =
     routeResolutionReady &&
+    rootObjectRouteBindingReady &&
     buildingRestorationPreflightReady &&
     environmentPreflightReady &&
     issues.length === 0;
@@ -340,6 +391,7 @@ export function preflightCurrentV125FullDesignManifest({
     destinationPreflightReady: destinationResolved,
     categoryClosureReady,
     routeResolutionReady,
+    rootObjectRouteBindingReady,
     buildingRestorationPreflightReady,
     environmentPreflightReady,
     issues,
@@ -351,6 +403,7 @@ export function preflightCurrentV125FullDesignManifest({
       exactBuildKnown: false,
       semanticIdentity: clone(normalized.semanticIdentity),
       directRootResolutions: routeResolutions,
+      rootObjectRouteBindings: clone(rootObjectRouteBindings),
       buildingRestorationPreflights: clone(buildingRestorationPreflights),
       environmentPreflight: environmentPreflight
         ? clone(environmentPreflight)
