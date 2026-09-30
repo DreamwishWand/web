@@ -36,6 +36,11 @@
   let outboxId = '';
   let outboxRetryReason = 'Reviewed dead-letter event';
 
+  let alertState = 'open';
+  let operationsAlerts: unknown = [];
+  let operationsAlertId = '';
+  let operationsAlertNote = 'Investigating operations alert';
+
   onMount(() => {
     try {
       const raw = sessionStorage.getItem(CONFIG_KEY);
@@ -96,6 +101,7 @@
     recoveryCases = [];
     providerCleanupJobs = [];
     deadLetters = [];
+    operationsAlerts = [];
   }
 
   async function refreshRecoveryCases() {
@@ -179,6 +185,28 @@
     );
     if (result) await refreshOutboxDeadLetters();
   }
+
+  async function refreshOperationsAlerts() {
+    if (!client) return;
+    const result = await run('Load operations alerts', () =>
+      client!.admin('listOperationsAlerts', {
+        state: alertState || null,
+        limit: 50
+      })
+    );
+    if (result) operationsAlerts = result.data ?? [];
+  }
+
+  async function acknowledgeOperationsAlert() {
+    if (!client) return;
+    const result = await run('Acknowledge operations alert', () =>
+      client!.admin('acknowledgeOperationsAlert', {
+        alertId: operationsAlertId,
+        note: operationsAlertNote
+      })
+    );
+    if (result) await refreshOperationsAlerts();
+  }
 </script>
 
 <svelte:head>
@@ -245,6 +273,44 @@
     </article>
 
     <div class="ops-grid">
+      <article class="ops-card">
+        <h2>Operations alerts</h2>
+        <div class="ops-actions">
+          <select bind:value={alertState}>
+            <option value="">all</option>
+            <option value="open">open</option>
+            <option value="acknowledged">acknowledged</option>
+            <option value="resolved">resolved</option>
+          </select>
+          <button on:click={refreshOperationsAlerts} disabled={busy || !session}>
+            Refresh
+          </button>
+        </div>
+
+        <p class="ops-note">
+          Persistent alerts cover provider-cleanup dead letters, Community outbox dead letters and
+          provider-cleanup scheduler/worker heartbeat failures. Alerts resolve automatically when
+          the underlying condition clears.
+        </p>
+
+        <label>
+          Open alert ID
+          <input bind:value={operationsAlertId} autocomplete="off" />
+        </label>
+        <label>
+          Acknowledgment note
+          <input bind:value={operationsAlertNote} autocomplete="off" />
+        </label>
+        <button
+          on:click={acknowledgeOperationsAlert}
+          disabled={busy || !session || !operationsAlertId || operationsAlertNote.length < 3}
+        >
+          Acknowledge alert
+        </button>
+
+        <pre>{JSON.stringify(operationsAlerts, null, 2)}</pre>
+      </article>
+
       <article class="ops-card">
         <h2>Recovery cases</h2>
         <div class="ops-actions">
