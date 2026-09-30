@@ -67,6 +67,23 @@ with:
 This is deliberate. Community Core will not pretend that a Preset blob is physically deleted until
 WEP defines the actual artifact Storage adapter/bucket and proves deletion.
 
+COMM now exposes a **service-only database finalizer**:
+
+`community_finalize_artifact_blob_purge(blobId, expectedStorageKey)`
+
+Its contract is:
+
+1. the WEP/storage adapter deletes the physical object;
+2. it calls the finalizer using the exact pre-delete storage key;
+3. the finalizer atomically moves the immutable ArtifactBlob to a purged tombstone
+   (`purged:<blobId>`, zero byte size, neutral checksum/content type, `purged_at` set);
+4. only after all owned ArtifactBlobs are finalized may the account content-retention job complete.
+
+A synthetic staging ArtifactBlob confirmed the DB side of this contract: the retention worker first
+failed closed; after the service-only finalizer marked the blob purged, the same content-retention
+job completed successfully. This does **not** claim that a real Preset storage object has been
+deleted yet; that physical delete remains WEP-owned.
+
 ## Operational-detail stage
 
 At the 365-day stage, after content purge and when no hold applies:
