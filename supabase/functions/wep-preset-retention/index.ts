@@ -22,31 +22,52 @@ export default {
     if (authError || authorized !== true) return reply({ ok: false, error: 'WORKER_AUTH_INVALID' }, 401);
 
     const body = await req.json().catch(() => ({}));
-    const blobId = String((body as any).blobId ?? '');
-    const storageKey = String((body as any).storageKey ?? '');
-    if (!blobId || !storageKey || !storageKey.startsWith('published/') || storageKey.includes('..') || !storageKey.endsWith('.json')) {
+    const retentionJobId = String((body as any).retentionJobId ?? '');
+    const lockToken = String((body as any).lockToken ?? '');
+    if (!retentionJobId || !lockToken) {
       return reply({ ok: false, error: 'INVALID_PURGE_REQUEST' }, 400);
     }
 
     try {
-      const { data: blob, error: lookupError } = await ctx.supabaseAdmin
-        .from('artifact_blobs')
-        .select('blob_id,storage_key,purged_at')
-        .eq('blob_id', blobId)
-        .maybeSingle();
-      if (lookupError) throw lookupError;
-      if (!blob) return reply({ ok: false, error: 'ARTIFACT_BLOB_NOT_FOUND' }, 404);
-      if (blob.purged_at) return reply({ ok: true, data: { blobId, state: 'purged', purgedAt: blob.purged_at, idempotent: true } });
-      if (blob.storage_key !== storageKey) return reply({ ok: false, error: 'ARTIFACT_STORAGE_KEY_MISMATCH' }, 409);
+      const { data: claimed, error: claimError } = await ctx.supabaseAdmin.rpc(
+        'wep_get_claimed_retention_artifact_blobs',
+        {
+          p_retention_job_id: retentionJobId,
+          p_lock_token: lockToken
+        }
+      );
+      if (claimError || !claimed) throw claimError ?? new Error('Claimed retention payload missing');
 
-      const { error: removeError } = await ctx.supabaseAdmin.storage.from(BUCKET).remove([storageKey]);
-      if (removeError) throw removeError;
-      const { data, error } = await ctx.supabaseAdmin.rpc('community_finalize_artifact_blob_purge', {
-        p_blob_id: blobId,
-        p_expected_storage_key: storageKey
+      const accountId = String(claimed.accountId ?? '');
+      const blobs = Array.isArray(claimed.blobs) ? claimed.blobs : [];
+      let purged = 0;
+
+      for (const item of blobs) {
+        const blobId = String(item.blobId ?? '');
+        const storageKey = String(item.storageKey ?? '');
+        const expectedPrefix = `published/${accountId}/`;
+        if (!blobId || !storageKey.startsWith(expectedPrefix) || storageKey.includes('..') || !storageKey.endsWith('.json')) {
+          throw new Error('ARTIFACT_STORAGE_KEY_OUTSIDE_WEP_NAMESPACE');
+        }
+
+        const { error: removeError } = await ctx.supabaseAdmin.storage.from(BUCKET).remove([storageKey]);
+        if (removeError) throw removeError;
+
+        const { error: finalizeError } = await ctx.supabaseAdmin.rpc('community_finalize_artifact_blob_purge', {
+          p_blob_id: blobId,
+          p_expected_storage_key: storageKey
+        });
+        if (finalizeError) throw finalizeError;
+        purged += 1;
+      }
+
+      return reply({
+        ok: true,
+        retentionJobId,
+        accountId,
+        purged,
+        remaining: 0
       });
-      if (error) throw error;
-      return reply({ ok: true, data });
     } catch (error) {
       return reply({ ok: false, error: 'PRESET_ARTIFACT_PURGE_FAILED', message: messageOf(error) }, 400);
     }
