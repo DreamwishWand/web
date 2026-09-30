@@ -43,6 +43,19 @@
   let operationsAlertId = '';
   let operationsAlertNote = 'Investigating operations alert';
 
+  let retentionState = 'dead_letter';
+  let retentionJobs: unknown = [];
+  let retentionJobId = '';
+  let retentionRetryReason = 'Reviewed retention purge failure';
+
+  let retentionAccountId = '';
+  let retentionHolds: unknown = [];
+  let retentionHoldType = 'security';
+  let retentionHoldReason = 'Approved temporary retention hold';
+  let retentionHoldExpiresAt = '';
+  let retentionHoldId = '';
+  let retentionHoldReleaseReason = 'Retention hold no longer required';
+
   onMount(() => {
     try {
       const raw = sessionStorage.getItem(CONFIG_KEY);
@@ -104,6 +117,8 @@
     providerCleanupJobs = [];
     deadLetters = [];
     operationsAlerts = [];
+    retentionJobs = [];
+    retentionHolds = [];
   }
 
   async function refreshRecoveryCases() {
@@ -221,6 +236,71 @@
     );
     if (result) await refreshOperationsAlerts();
   }
+
+  async function refreshRetentionJobs() {
+    if (!client) return;
+    const result = await run('Load retention jobs', () =>
+      client!.admin('listRetentionJobs', {
+        state: retentionState || null,
+        limit: 50
+      })
+    );
+    if (result) retentionJobs = result.data ?? [];
+  }
+
+  async function retryRetentionJob() {
+    if (!client) return;
+    const result = await run('Retry retention job', () =>
+      client!.admin('retryRetentionJob', {
+        retentionJobId,
+        reason: retentionRetryReason
+      })
+    );
+    if (result) {
+      await refreshRetentionJobs();
+      await refreshOperationsAlerts();
+    }
+  }
+
+  async function refreshRetentionHolds() {
+    if (!client) return;
+    const result = await run('Load retention holds', () =>
+      client!.admin('listRetentionHolds', {
+        accountId: retentionAccountId || null,
+        limit: 50
+      })
+    );
+    if (result) retentionHolds = result.data ?? [];
+  }
+
+  async function addRetentionHold() {
+    if (!client) return;
+    const result = await run('Add retention hold', () =>
+      client!.admin('addRetentionHold', {
+        accountId: retentionAccountId,
+        holdType: retentionHoldType,
+        reason: retentionHoldReason,
+        expiresAt: retentionHoldExpiresAt || null
+      })
+    );
+
+    if (result) {
+      const data = result.data as Record<string, unknown> | undefined;
+      retentionHoldId = String(data?.holdId ?? retentionHoldId);
+      await refreshRetentionHolds();
+    }
+  }
+
+  async function releaseRetentionHold() {
+    if (!client) return;
+    const result = await run('Release retention hold', () =>
+      client!.admin('releaseRetentionHold', {
+        holdId: retentionHoldId,
+        reason: retentionHoldReleaseReason
+      })
+    );
+    if (result) await refreshRetentionHolds();
+  }
 </script>
 
 <svelte:head>
@@ -302,8 +382,8 @@
         </div>
 
         <p class="ops-note">
-          Persistent alerts cover provider-cleanup dead letters, Community outbox dead letters and
-          provider-cleanup scheduler/worker heartbeat failures. Alerts resolve automatically when
+          Persistent alerts cover provider-cleanup, outbox and retention dead letters plus provider-cleanup
+          and retention scheduler/worker heartbeat failures. Alerts resolve automatically when
           the underlying condition clears.
         </p>
 
@@ -416,6 +496,96 @@
           provider subject and verification-reference value.
         </p>
         <pre>{JSON.stringify(recoveryCases, null, 2)}</pre>
+      </article>
+
+      <article class="ops-card">
+        <h2>Account retention</h2>
+        <p class="ops-note">
+          Current engineering defaults are immediate tombstone, content-payload purge after 30 days
+          and restricted operational-detail scrub after 365 days. These durations are
+          configuration-driven and remain subject to launch privacy/legal review. Open moderation,
+          active reports, unresolved provider cleanup and explicit holds delay purge.
+        </p>
+
+        <div class="ops-actions">
+          <select bind:value={retentionState}>
+            <option value="">all jobs</option>
+            <option value="pending">pending</option>
+            <option value="processing">processing</option>
+            <option value="completed">completed</option>
+            <option value="dead_letter">dead_letter</option>
+          </select>
+          <button on:click={refreshRetentionJobs} disabled={busy || !session}>
+            Refresh jobs
+          </button>
+        </div>
+
+        <label>
+          Dead-letter retention job ID
+          <input bind:value={retentionJobId} autocomplete="off" />
+        </label>
+        <label>
+          Retry reason
+          <input bind:value={retentionRetryReason} autocomplete="off" />
+        </label>
+        <button
+          on:click={retryRetentionJob}
+          disabled={busy || !session || !retentionJobId || retentionRetryReason.length < 8}
+        >
+          Requeue retention job
+        </button>
+
+        <pre>{JSON.stringify(retentionJobs, null, 2)}</pre>
+
+        <div class="ops-section">
+          <h3>Retention holds</h3>
+          <label>
+            WandAccount ID
+            <input bind:value={retentionAccountId} autocomplete="off" />
+          </label>
+          <div class="ops-actions">
+            <button on:click={refreshRetentionHolds} disabled={busy || !session}>
+              Refresh holds
+            </button>
+          </div>
+          <label>
+            Hold type
+            <select bind:value={retentionHoldType}>
+              <option value="moderation">moderation</option>
+              <option value="security">security</option>
+              <option value="legal">legal</option>
+            </select>
+          </label>
+          <label>
+            Hold reason
+            <input bind:value={retentionHoldReason} autocomplete="off" />
+          </label>
+          <label>
+            Optional expiry (ISO 8601)
+            <input bind:value={retentionHoldExpiresAt} autocomplete="off" />
+          </label>
+          <button
+            on:click={addRetentionHold}
+            disabled={busy || !session || !retentionAccountId || retentionHoldReason.length < 8}
+          >
+            Add retention hold
+          </button>
+          <label>
+            Active hold ID
+            <input bind:value={retentionHoldId} autocomplete="off" />
+          </label>
+          <label>
+            Release reason
+            <input bind:value={retentionHoldReleaseReason} autocomplete="off" />
+          </label>
+          <button
+            on:click={releaseRetentionHold}
+            disabled={busy || !session || !retentionHoldId || retentionHoldReleaseReason.length < 8}
+          >
+            Release retention hold
+          </button>
+          <pre>{JSON.stringify(retentionHolds, null, 2)}</pre>
+        </div>
       </article>
 
       <article class="ops-card">
