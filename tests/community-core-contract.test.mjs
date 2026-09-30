@@ -939,3 +939,64 @@ test('generated schema exposes the safe bootstrap RPC', () => {
   const generated = read('src/lib/generated/database.types.ts');
   assert.match(generated, /community_authorize_identity_bootstrap/);
 });
+
+
+test('support-assisted recovery is fail-closed Open -> Verify -> Complete', () => {
+  const migration = read(
+    'supabase/migrations/20260930081500_community_core_v0_support_recovery_verification.sql'
+  );
+
+  assert.match(migration, /verification_method text/);
+  assert.match(migration, /verification_state text not null default 'pending'/);
+  assert.match(migration, /community_admin_open_recovery_case_v2/);
+  assert.match(migration, /community_admin_verify_recovery_case/);
+  assert.match(migration, /community_admin_complete_recovery_v2/);
+  assert.match(migration, /Recovery case is not verified and ready/);
+  assert.match(migration, /account\.recovery_verified/);
+  assert.match(migration, /requested_provider_subject='completed:' \|\| recovery_case_id::text/);
+  assert.match(migration, /verification_ref=null/);
+});
+
+test('support recovery currently permits provider recovery only and disables DDV-profile proof', () => {
+  const migration = read(
+    'supabase/migrations/20260930081500_community_core_v0_support_recovery_verification.sql'
+  );
+
+  assert.match(migration, /p_verification_method='linked_ddv_profile'/);
+  assert.match(migration, /not enabled until a stable claim contract is confirmed/);
+  assert.match(migration, /p_verification_method<>'provider_recovery'/);
+  assert.match(migration, /Strong recovery verification evidence is required/);
+});
+
+test('Community admin Edge exposes explicit recovery verify step and v2 RPCs', () => {
+  const admin = read('supabase/functions/community-admin/index.ts');
+
+  assert.match(admin, /openRecoveryCase: 'community_admin_open_recovery_case_v2'/);
+  assert.match(admin, /verifyRecoveryCase: 'community_admin_verify_recovery_case'/);
+  assert.match(admin, /completeRecoveryCase: 'community_admin_complete_recovery_v2'/);
+  assert.match(admin, /params\.p_verification_method = payload\.verificationMethod/);
+  assert.match(admin, /params\.p_verification_note = payload\.verificationNote/);
+});
+
+test('Community Ops enforces Open -> Verify -> Complete and hides unsupported DDV recovery', () => {
+  const page = read('src/routes/community-ops/+page.svelte');
+
+  assert.match(page, /Open → Verify → Complete/);
+  assert.match(page, /provider_recovery/);
+  assert.match(page, /Verify recovery evidence/);
+  assert.match(page, /Complete verified recovery/);
+  assert.match(page, /Linked DDV Profile recovery remains\s+disabled/);
+  assert.doesNotMatch(page, /<option value="linked_ddv_profile">/);
+});
+
+test('generated schema exposes verified recovery RPCs and state columns', () => {
+  const generated = read('src/lib/generated/database.types.ts');
+
+  assert.match(generated, /verification_method: string \| null/);
+  assert.match(generated, /verification_state: string/);
+  assert.match(generated, /verified_at: string \| null/);
+  assert.match(generated, /ready_at: string \| null/);
+  assert.match(generated, /community_admin_open_recovery_case_v2/);
+  assert.match(generated, /community_admin_verify_recovery_case/);
+  assert.match(generated, /community_admin_complete_recovery_v2/);
+});
