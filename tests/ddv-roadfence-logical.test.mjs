@@ -930,3 +930,56 @@ test('fresh ID planner rejects invalid or unsafe NextGridObjectID input', () => 
   assert.equal(invalid.ok, false);
   assert.equal(invalid.errors[0].code, RoadFenceValidationCode.GRIDOBJECT_ID_ALLOCATION_INVALID);
 });
+
+
+test('DW-F01 fixture matches Fence descriptor set independent of fresh ID order', () => {
+  const plan = planBiome2FencePolyline(
+    [{ x: 0, y: 0 }, { x: 0, y: 2 }],
+    FenceMode.ORTHOGONAL,
+    { x: 344, y: 60 }
+  );
+  assert.equal(plan.ok, true);
+
+  const fixtureObjects = [
+    {
+      id: 15856,
+      itemID: 40700246,
+      x: 344,
+      y: 60,
+      orientation: 'GridOrientation_Down',
+      state: null
+    },
+    {
+      id: 15857,
+      itemID: 40700247,
+      x: 344,
+      y: 62,
+      orientation: 'GridOrientation_Left',
+      state: null
+    },
+    {
+      id: 15858,
+      itemID: 40700246,
+      x: 344,
+      y: 64,
+      orientation: 'GridOrientation_Down',
+      state: null
+    }
+  ];
+
+  const canonical = (objects) => objects
+    .map((object) => [object.itemID, object.x, object.y, object.orientation, object.state])
+    .sort((a, b) => a[1] - b[1] || a[2] - b[2] || a[0] - b[0]);
+
+  assert.deepEqual(canonical(plan.objects), canonical(fixtureObjects));
+
+  const identityPlan = planFreshRoadFenceGridObjectIds(plan, { nextGridObjectID: 15856 });
+  assert.equal(identityPlan.ok, true);
+  assert.equal(identityPlan.resultingNextGridObjectID, 15859);
+  assert.deepEqual(identityPlan.allocatedGridObjectIDs, [15856, 15857, 15858]);
+  assert.ok(
+    JSON.stringify(identityPlan.objects.map((object) => [object.id, object.itemID])) !==
+    JSON.stringify(fixtureObjects.map((object) => [object.id, object.itemID]))
+  );
+  assert.equal(identityPlan.persistentWriteAuthorized, false);
+});
