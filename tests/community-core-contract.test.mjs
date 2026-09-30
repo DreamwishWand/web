@@ -1552,3 +1552,54 @@ test('generated schema exposes moderation operations without private helpers', (
   assert.match(generated, /community_moderate_work_v2/);
   assert.doesNotMatch(generated, /require_recent_moderation_staff/);
 });
+
+
+test('Community action limits are account-scoped and fail closed', () => {
+  const migration = read(
+    'supabase/migrations/20260930122716_community_core_v0_action_rate_limits.sql'
+  );
+  const runtime = read('docs/community/action-rate-limit-runtime-20260930.md');
+
+  assert.match(migration, /private\.community_action_rate_policies/);
+  assert.match(migration, /private\.community_action_rate_windows/);
+  assert.match(migration, /community_consume_action_rate_limit/);
+  assert.match(migration, /pg_advisory_xact_lock/);
+  assert.match(migration, /Unknown Community rate-limit bucket/);
+  assert.match(migration, /'report',3600,12,true/);
+  assert.match(migration, /'media_prepare',3600,30,true/);
+  assert.match(migration, /grant execute on function public\.community_consume_action_rate_limit[\s\S]*to service_role/);
+  assert.match(runtime, /Account A third consume: allowed = false/);
+  assert.match(runtime, /unknown bucket rejected fail-closed = true/);
+});
+
+test('browser Community mutations enforce shared action rate limits', () => {
+  const command = read('supabase/functions/community-command/index.ts');
+  const media = read('supabase/functions/community-media/index.ts');
+
+  assert.match(command, /commandToRateBucket/);
+  assert.match(command, /reportEntity: 'report'/);
+  assert.match(command, /addComment: 'comment'/);
+  assert.match(command, /moderateWork: 'moderation_write'/);
+  assert.match(command, /community_consume_action_rate_limit/);
+  assert.match(command, /RATE_LIMITED/);
+  assert.match(command, /429/);
+
+  assert.match(media, /p_bucket: 'media_prepare'/);
+  assert.match(media, /community_consume_action_rate_limit/);
+  assert.match(media, /RATE_LIMITED/);
+  assert.match(media, /429/);
+});
+
+test('Community Ops can inspect rate policies without exposing private counters', () => {
+  const admin = read('supabase/functions/community-admin/index.ts');
+  const page = read('src/routes/community-ops/+page.svelte');
+  const generated = read('src/lib/generated/database.types.ts');
+
+  assert.match(admin, /listActionRatePolicies: 'community_get_action_rate_policies'/);
+  assert.match(page, /Load action rate policies/);
+  assert.match(page, /Private\s+counters are not exposed/);
+  assert.match(generated, /community_get_action_rate_policies/);
+  assert.match(generated, /community_consume_action_rate_limit/);
+  assert.doesNotMatch(generated, /community_action_rate_windows/);
+  assert.doesNotMatch(generated, /community_action_rate_policies/);
+});
