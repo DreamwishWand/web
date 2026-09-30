@@ -97,7 +97,31 @@ export default {
       try {
         if (job.stage === 'content_payload') {
           if (job.artifactBlobCount > 0) {
-            throw new Error('Preset artifact storage purge adapter is not available');
+            const adapterUrl = `${new URL(req.url).origin}/functions/v1/wep-preset-retention`;
+            const adapterResponse = await fetch(adapterUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-community-worker-token': workerToken
+              },
+              body: JSON.stringify({
+                retentionJobId: job.retentionJobId,
+                lockToken
+              })
+            });
+
+            const adapterBody = await adapterResponse.json().catch(() => ({}));
+            if (!adapterResponse.ok || adapterBody?.ok !== true) {
+              const adapterError =
+                adapterBody && typeof adapterBody === 'object' && 'error' in adapterBody
+                  ? String((adapterBody as { error?: unknown }).error ?? 'WEP retention adapter failed')
+                  : 'WEP retention adapter failed';
+              throw new Error(`Preset artifact purge adapter failed: ${adapterError}`);
+            }
+
+            if (Number(adapterBody?.remaining ?? 0) !== 0) {
+              throw new Error('Preset artifact purge adapter left unpurged blobs');
+            }
           }
 
           const keys = Array.isArray(job.mediaStorageKeys)
