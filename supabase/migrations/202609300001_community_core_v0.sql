@@ -391,6 +391,10 @@ create index if not exists search_documents_tags_gin
 create or replace function enforce_ddv_profile_limit()
 returns trigger language plpgsql as $$
 begin
+  -- Serialize link-count checks per Wand Account so concurrent inserts cannot
+  -- both observe fewer than three links and exceed the account boundary.
+  perform pg_advisory_xact_lock(hashtextextended(new.account_id::text, 0));
+
   if (
     select count(*)
     from wand_account_ddv_profiles
@@ -1079,3 +1083,56 @@ using (
 drop policy if exists wand_account_ddv_profiles_owner_read on wand_account_ddv_profiles;
 create policy wand_account_ddv_profiles_owner_read on wand_account_ddv_profiles for select
 using (account_id = public.current_wand_account_id() or public.is_staff());
+
+
+create or replace function validate_work_lifecycle_transition()
+returns trigger language plpgsql as $$
+begin
+  if old.lifecycle_state = new.lifecycle_state then
+    return new;
+  end if;
+
+  if old.lifecycle_state = 'draft'
+     and new.lifecycle_state in ('published','deleted') then
+    return new;
+  end if;
+
+  if old.lifecycle_state = 'published'
+     and new.lifecycle_state in ('unpublished','deleted') then
+    return new;
+  end if;
+
+  if old.lifecycle_state = 'unpublished'
+     and new.lifecycle_state in ('published','deleted') then
+    return new;
+  end if;
+
+  raise exception 'Invalid CommunityWork lifecycle transition: % -> %',
+    old.lifecycle_state, new.lifecycle_state;
+end;
+$$;
+
+drop trigger if exists community_works_lifecycle_guard on community_works;
+create trigger community_works_lifecycle_guard
+before update of lifecycle_state on community_works
+for each row execute function validate_work_lifecycle_transition();
+
+create or replace function validate_gallery_work_type()
+returns trigger language plpgsql as $$
+begin
+  if not exists (
+    select 1
+    from community_works w
+    where w.work_id = new.work_id
+      and w.work_type = 'gallery'
+  ) then
+    raise exception 'GalleryWork must reference a Gallery CommunityWork';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists gallery_works_type_guard on gallery_works;
+create trigger gallery_works_type_guard
+before insert or update of work_id on gallery_works
+for each row execute function validate_gallery_work_type();
