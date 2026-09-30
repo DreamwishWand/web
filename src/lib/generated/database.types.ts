@@ -1502,6 +1502,36 @@ export type Database = {
         }
         Returns: Json
       }
+      community_admin_complete_recovery: {
+        Args: {
+          p_admin_auth_subject: string
+          p_completion_reason: string
+          p_issued_at_epoch: number
+          p_recovery_case_id: string
+        }
+        Returns: Json
+      }
+      community_admin_open_recovery_case: {
+        Args: {
+          p_account_id: string
+          p_admin_auth_subject: string
+          p_issued_at_epoch: number
+          p_new_provider: string
+          p_new_provider_subject: string
+          p_reason: string
+          p_verification_ref?: string
+        }
+        Returns: Json
+      }
+      community_admin_retry_provider_cleanup: {
+        Args: {
+          p_admin_auth_subject: string
+          p_cleanup_job_id: string
+          p_issued_at_epoch: number
+          p_reason: string
+        }
+        Returns: Json
+      }
       community_authorize_session: {
         Args: {
           p_auth_subject: string
@@ -1598,6 +1628,22 @@ export type Database = {
       }
       community_get_preset: {
         Args: { p_auth_subject: string; p_preset_artifact_id: string }
+        Returns: Json
+      }
+      community_get_provider_cleanup_jobs: {
+        Args: {
+          p_admin_auth_subject: string
+          p_limit?: number
+          p_state?: string
+        }
+        Returns: Json
+      }
+      community_get_recovery_cases: {
+        Args: {
+          p_admin_auth_subject: string
+          p_limit?: number
+          p_state?: string
+        }
         Returns: Json
       }
       community_get_saved: {
