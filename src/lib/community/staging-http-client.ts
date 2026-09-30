@@ -463,6 +463,13 @@ export class CommunityLabClient {
     return this.#edge<EdgeResult<T>>('community-media', { action, ...payload });
   }
 
+  async preset<T = unknown>(
+    action: string,
+    payload: Record<string, unknown> = {}
+  ): Promise<EdgeResult<T>> {
+    return this.#edge<EdgeResult<T>>('wep-preset-artifact', { action, ...payload });
+  }
+
   async admin<T = unknown>(
     operation: string,
     payload: Record<string, unknown> = {}
