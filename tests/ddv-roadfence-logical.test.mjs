@@ -26,6 +26,7 @@ import {
   roadDiagonalStepCells,
   sampleFenceStyle,
   sampleRoadStyle,
+  selectFenceBranch,
   selectFenceConnected,
   selectRoadConnected,
   transformFenceLogicalGraph,
@@ -535,4 +536,35 @@ test('Fence eyedropper samples family identity and mode without exposing native 
     nodeId: '1,0',
     coordinate: { x: 1, y: 0 }
   });
+});
+
+
+test('Fence branch selection returns one maximal straight span and stops at a turn', () => {
+  const built = buildFencePolyline([
+    { x: 0, y: 0 },
+    { x: 3, y: 0 },
+    { x: 3, y: 2 }
+  ], FenceMode.ORTHOGONAL);
+  const horizontal = selectFenceBranch(built.graph, '1,0', '2,0');
+  assert.equal(horizontal.ok, true);
+  assert.deepEqual(horizontal.nodeIds, ['0,0', '1,0', '2,0', '3,0']);
+  assert.equal(horizontal.logicalQuantity, 4);
+
+  const vertical = selectFenceBranch(built.graph, '3,0', '3,1');
+  assert.equal(vertical.ok, true);
+  assert.deepEqual(vertical.nodeIds, ['3,0', '3,1', '3,2']);
+  assert.equal(vertical.logicalQuantity, 3);
+});
+
+test('Fence branch selection refuses a mode-boundary edge', () => {
+  const graph = {
+    nodes: [
+      { id: 'o', x: 0, y: 0, mode: FenceMode.ORTHOGONAL },
+      { id: 'd', x: 1, y: 1, mode: FenceMode.DIAGONAL }
+    ],
+    edges: [{ a: 'o', b: 'd' }]
+  };
+  const result = selectFenceBranch(graph, 'o', 'd');
+  assert.equal(result.ok, false);
+  assert.equal(result.errors[0].code, RoadFenceValidationCode.FENCE_COMPONENT_BOUNDARY_MISMATCH);
 });
