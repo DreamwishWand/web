@@ -1071,14 +1071,40 @@ test('retention worker physically removes media before finalizing database purge
   assert.ok(storageIndex >= 0 && completeCallIndex > storageIndex);
 });
 
-test('Preset ArtifactBlob purge fails closed until WEP storage adapter exists', () => {
+test('Preset ArtifactBlob purge delegates to the WEP adapter before retention completion', () => {
   const worker = read('supabase/functions/community-retention/index.ts');
+  const adapter = read('supabase/functions/wep-preset-retention/index.ts');
+  const claim = read(
+    'supabase/migrations/20260930125310_wep_preset_retention_claim_v0.sql'
+  );
   const policy = read(
     'supabase/migrations/20260930082000_community_core_v0_retention_policy.sql'
   );
 
   assert.match(worker, /job\.artifactBlobCount > 0/);
-  assert.match(worker, /Preset artifact storage purge adapter is not available/);
+  assert.match(worker, /\/functions\/v1\/wep-preset-retention/);
+  assert.match(worker, /x-community-worker-token': workerToken/);
+  assert.match(worker, /retentionJobId: job\.retentionJobId/);
+  assert.match(worker, /lockToken/);
+  assert.match(worker, /adapterBody\?\.remaining/);
+
+  const adapterCallIndex = worker.indexOf('/functions/v1/wep-preset-retention');
+  const mediaDeleteIndex = worker.indexOf('.remove(batch)');
+  const completeCallIndex = worker.indexOf('const completed = await complete();');
+  assert.ok(adapterCallIndex >= 0 && mediaDeleteIndex > adapterCallIndex);
+  assert.ok(completeCallIndex > mediaDeleteIndex);
+
+  assert.match(adapter, /wep_get_claimed_retention_artifact_blobs/);
+  assert.match(adapter, /storage\.from\(BUCKET\)\.remove/);
+  assert.match(adapter, /community_finalize_artifact_blob_purge/);
+
+  const physicalDeleteIndex = adapter.indexOf('.remove([storageKey])');
+  const finalizerIndex = adapter.indexOf('community_finalize_artifact_blob_purge');
+  assert.ok(physicalDeleteIndex >= 0 && finalizerIndex > physicalDeleteIndex);
+
+  assert.match(claim, /state='processing'/);
+  assert.match(claim, /lock_token=p_lock_token/);
+  assert.match(claim, /stage='content_payload'/);
   assert.match(policy, /Preset artifact storage purge adapter is not available/);
 });
 
@@ -1663,4 +1689,25 @@ test('transactional email policies select Resend without merging email semantics
   assert.match(escalation, /community-email-resend/);
   assert.match(auth, /selected Resend transactional email provider/);
   assert.match(auth, /Supabase custom SMTP is the initial Auth delivery boundary/);
+});
+
+
+test('WEP preset artifact storage stays private and Scene-only until other validators exist', () => {
+  const storage = read(
+    'supabase/migrations/20260930124055_wep_preset_artifact_storage_v0.sql'
+  );
+  const artifact = read('supabase/functions/wep-preset-artifact/index.ts');
+
+  assert.match(storage, /wand-preset-artifacts-staging/);
+  assert.match(storage, /public,false/);
+  assert.match(storage, /application\/json/);
+  assert.match(storage, /preset_artifact_prepare',3600,30/);
+
+  assert.match(artifact, /dreamwish-wand-preset/);
+  assert.match(artifact, /PRESET_TYPE_VALIDATOR_NOT_AVAILABLE/);
+  assert.match(artifact, /presetType !== 'scene'/);
+  assert.match(artifact, /capture-region-top-left/);
+  assert.match(artifact, /Scene artifact contains save-local identity/);
+  assert.match(artifact, /community_publish_preset_envelope/);
+  assert.match(artifact, /REGISTERED_ARTIFACT_CANNOT_BE_DISCARDED/);
 });
