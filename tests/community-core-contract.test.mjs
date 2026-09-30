@@ -1358,3 +1358,34 @@ test('browser/operator runbook preserves the production-shaped acceptance bounda
   assert.match(runbook, /second independent notification channel is not launch-required/);
   assert.match(runbook, /Never record:/);
 });
+
+
+test('public Community search stays RLS-bound and provider-free at launch', () => {
+  const migration = read(
+    'supabase/migrations/20260930114310_community_core_v0_public_search.sql'
+  );
+  const client = read('src/lib/community/staging-http-client.ts');
+  const policy = read('docs/community/search-launch-policy-20260930.md');
+
+  assert.match(migration, /create extension if not exists pg_trgm/);
+  assert.match(migration, /gin_trgm_ops/);
+  assert.match(migration, /community_search_public/);
+  assert.match(migration, /security invoker/i);
+  assert.match(migration, /char_length\(v_query\)>100/);
+  assert.match(migration, /cardinality\(p_tags\)>20/);
+  assert.match(migration, /\(d\.published_at,d\.work_id\) < \(p_before_published_at,p_before_work_id\)/);
+  assert.match(migration, /grant execute on function public\.community_search_public[\s\S]*to anon,authenticated/);
+
+  assert.match(client, /searchPublicWorks/);
+  assert.match(client, /\/rest\/v1\/rpc\/community_search_public/);
+  assert.match(client, /discoverPublicWorks[\s\S]*return this\.searchPublicWorks/);
+
+  assert.match(policy, /No external search provider/);
+  assert.match(policy, /UNLISTED and PRIVATE content are not searchable/);
+  assert.match(policy, /keyword `夜空` result count = 1/);
+});
+
+test('generated schema exposes public search RPC', () => {
+  const generated = read('src/lib/generated/database.types.ts');
+  assert.match(generated, /community_search_public/);
+});
