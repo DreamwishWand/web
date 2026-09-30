@@ -89,6 +89,7 @@ export function preflightCurrentV125FullDesignManifest({
       destinationPreflightReady: false,
       categoryClosureReady: false,
       routeResolutionReady: false,
+      buildingRestorationPreflightReady: false,
       environmentPreflightReady: false,
       issues: manifestIssuesAsDestinationIssues(validation.issues),
       categoryBlockers: [],
@@ -200,6 +201,83 @@ export function preflightCurrentV125FullDesignManifest({
     );
   }
 
+  const buildingRestorationPreflights: AnyRecord[] = [];
+  const buildingCategory = normalized.categories.buildings;
+  const buildingEntries =
+    buildingCategory?.requested === true &&
+    Array.isArray(buildingCategory?.restorationCapture?.entries)
+      ? buildingCategory.restorationCapture.entries
+      : [];
+  const buildingUnresolved =
+    buildingCategory?.requested === true &&
+    Array.isArray(buildingCategory?.restorationCapture?.unresolved)
+      ? buildingCategory.restorationCapture.unresolved
+      : [];
+
+  if (buildingCategory?.requested === true && buildingUnresolved.length > 0) {
+    issues.push(
+      block(
+        'FULL_DESIGN_SOURCE_BUILDING_RESTORATION_UNRESOLVED',
+        '$.categories.buildings.restorationCapture.unresolved',
+        { count: buildingUnresolved.length }
+      )
+    );
+  }
+
+  for (let index = 0; index < buildingEntries.length; index += 1) {
+    const entry = buildingEntries[index];
+    try {
+      const result = preflightV125PortableRestoration(
+        destinationProfile,
+        entry.portableState,
+        restorationContext
+      );
+      buildingRestorationPreflights.push({
+        artifactRestorationId: entry.artifactRestorationId,
+        kind: entry.kind,
+        directRootRoute: clone(entry.directRootRoute),
+        itemId: entry.itemId,
+        status: result.status,
+        result: clone(result)
+      });
+      if (!['VALID', 'VALID_NOOP'].includes(String(result.status))) {
+        issues.push(
+          block(
+            'FULL_DESIGN_DESTINATION_BUILDING_RESTORATION_BLOCKED',
+            `$.categories.buildings.restorationCapture.entries[${index}].portableState`,
+            {
+              artifactRestorationId: entry.artifactRestorationId,
+              kind: entry.kind,
+              status: String(result.status),
+              blockers: clone(result.blockers ?? []),
+              issues: clone(result.issues ?? [])
+            }
+          )
+        );
+      }
+    } catch (error) {
+      issues.push(
+        block(
+          'FULL_DESIGN_DESTINATION_BUILDING_RESTORATION_PREFLIGHT_ERROR',
+          `$.categories.buildings.restorationCapture.entries[${index}].portableState`,
+          {
+            artifactRestorationId: entry.artifactRestorationId,
+            kind: entry.kind,
+            message: error instanceof Error ? error.message : String(error)
+          }
+        )
+      );
+    }
+  }
+
+  const buildingRestorationPreflightReady =
+    buildingCategory?.requested !== true ||
+    (buildingUnresolved.length === 0 &&
+      buildingRestorationPreflights.length === buildingEntries.length &&
+      buildingRestorationPreflights.every((entry) =>
+        ['VALID', 'VALID_NOOP'].includes(String(entry.status))
+      ));
+
   let environmentPreflight: AnyRecord | null = null;
   const environmentCategory = normalized.categories.environment;
   if (environmentCategory?.requested === true) {
@@ -248,7 +326,10 @@ export function preflightCurrentV125FullDesignManifest({
     ['VALID', 'VALID_NOOP'].includes(String(environmentPreflight?.status));
 
   const destinationResolved =
-    routeResolutionReady && environmentPreflightReady && issues.length === 0;
+    routeResolutionReady &&
+    buildingRestorationPreflightReady &&
+    environmentPreflightReady &&
+    issues.length === 0;
   const categoryClosureReady = blockers.length === 0;
   const overallOk = destinationResolved && categoryClosureReady;
 
@@ -259,6 +340,7 @@ export function preflightCurrentV125FullDesignManifest({
     destinationPreflightReady: destinationResolved,
     categoryClosureReady,
     routeResolutionReady,
+    buildingRestorationPreflightReady,
     environmentPreflightReady,
     issues,
     categoryBlockers: blockers,
@@ -269,6 +351,7 @@ export function preflightCurrentV125FullDesignManifest({
       exactBuildKnown: false,
       semanticIdentity: clone(normalized.semanticIdentity),
       directRootResolutions: routeResolutions,
+      buildingRestorationPreflights: clone(buildingRestorationPreflights),
       environmentPreflight: environmentPreflight
         ? clone(environmentPreflight)
         : null
