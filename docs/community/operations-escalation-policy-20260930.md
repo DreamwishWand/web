@@ -44,7 +44,7 @@ queue. This implementation is intentionally separate from provider selection.
 - Community Ops can list external delivery state and recent-auth requeue a dead-letter delivery only
   while its originating critical alert occurrence is still open/current.
 
-The provider-neutral transport contract and real-provider delivery are both confirmed. Full operator acceptance still requires human mailbox visibility plus recurrence/failure-retry execution.
+The provider-neutral transport contract and full operator email acceptance are confirmed.
 
 ## Data minimization
 
@@ -72,7 +72,7 @@ Do not include:
 ## Provider boundary
 
 The external channel is now fixed as normal transactional **email** to the operator's usual mailbox.
-The first-launch email-delivery provider is **Resend**. `dreamwishwand.com` is verified, separate credentials/secrets are configured, and a real staging critical alert reached Resend with provider status `delivered`. Human mailbox-visibility confirmation plus recurrence/failure-retry acceptance remain pending.
+The first-launch email-delivery provider is **Resend**. `dreamwishwand.com` is verified and first-launch operator email acceptance is CONFIRMED end-to-end: real critical alert delivery, human mailbox visibility, recurrence as a distinct occurrence/delivery, controlled failure to pending retry, successful recovery on attempt 2, and canonical endpoint restoration.
 
 Where practical, use the same transactional email provider selected for Supabase Auth and approved
 Wizard transactional mail. Provider reuse must not merge data models: Wand persistent Operations
@@ -101,6 +101,4 @@ Before public release:
    acceptance evidence.
 
 Backend transport, worker-health monitoring, dead-letter visibility, and reviewed retry are
-**CONFIRMED** at the staging backend boundary. External escalation as a launch capability remains
-**PARTIAL / launch-blocking** until a real provider/channel passes the end-to-end acceptance steps
-above.
+**CONFIRMED** at the staging backend boundary. External escalation as a first-launch capability is **CONFIRMED** for the operator email channel.
