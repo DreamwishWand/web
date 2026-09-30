@@ -1570,7 +1570,13 @@ test('Community action limits are account-scoped and fail closed', () => {
   assert.match(migration, /grant execute on function public\.community_consume_action_rate_limit[\s\S]*to service_role/);
   assert.match(runtime, /Account A third consume: allowed = false/);
   assert.match(runtime, /unknown bucket rejected fail-closed = true/);
+
+  const fkIndex = read(
+    'supabase/migrations/20260930123148_community_core_v0_action_rate_limit_fk_index.sql'
+  );
+  assert.match(fkIndex, /community_action_rate_windows_bucket_idx/);
 });
+
 
 test('browser Community mutations enforce shared action rate limits', () => {
   const command = read('supabase/functions/community-command/index.ts');
@@ -1597,7 +1603,7 @@ test('Community Ops can inspect rate policies without exposing private counters'
 
   assert.match(admin, /listActionRatePolicies: 'community_get_action_rate_policies'/);
   assert.match(page, /Load action rate policies/);
-  assert.match(page, /Private\s+counters are not exposed/);
+  assert.match(page, /private\s+counters are not exposed/i);
   assert.match(generated, /community_get_action_rate_policies/);
   assert.match(generated, /community_consume_action_rate_limit/);
   assert.doesNotMatch(generated, /community_action_rate_windows/);
