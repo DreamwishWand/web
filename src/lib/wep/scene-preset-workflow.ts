@@ -2,7 +2,7 @@ import {
   captureScenePreset,
   type CaptureSceneOptions,
   type EditorDocument
-} from './scene-capture-runtime';
+} from './scene-capture-runtime.ts';
 
 export interface ScenePresetPublisher {
   publishScene(options: {
