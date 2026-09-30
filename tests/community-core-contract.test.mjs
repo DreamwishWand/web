@@ -409,3 +409,35 @@ test('Community Lab preserves target IDs across actor switches without persistin
   assert.match(page, /reportCaseId/);
   assert.doesNotMatch(page, /sessionStorage\.setItem\([^\n]*password/i);
 });
+
+
+test('CreatorProfile updates preserve stable identity and use optimistic/idempotent server commands', () => {
+  const migration = read('supabase/migrations/20260930044500_community_core_v0_creator_profile_update.sql');
+  const command = read('supabase/functions/community-command/index.ts');
+  const shared = read('src/lib/community/commands.ts');
+
+  assert.match(migration, /add column if not exists row_version bigint not null default 1/i);
+  assert.match(migration, /community_update_creator_profile/i);
+  assert.match(migration, /Row version conflict/i);
+  assert.match(migration, /creator\.profile_updated/i);
+  assert.match(migration, /creatorProfileId/i);
+  assert.match(command, /updateCreatorProfile: 'community_update_creator_profile'/);
+  assert.match(command, /params\.p_expected_version = payload\.expectedVersion/);
+  assert.match(command, /params\.p_profile_visibility = payload\.profileVisibility/);
+  assert.match(shared, /interface UpdateCreatorProfile/);
+  assert.match(shared, /updateCreatorProfile\(/);
+});
+
+test('Community Lab can edit CreatorProfile and explicitly prove stable CreatorProfile ID', () => {
+  const page = read('src/routes/community-lab/+page.svelte');
+  assert.match(page, /CreatorProfile stable-ID edit/);
+  assert.match(page, /Edit profile \+ prove stable ID/);
+  assert.match(page, /afterCreatorProfileId !== beforeCreatorProfileId/);
+  assert.match(page, /stableId: true/);
+});
+
+test('generated schema includes CreatorProfile rowVersion and update RPC', () => {
+  const generated = read('src/lib/generated/database.types.ts');
+  assert.match(generated, /community_update_creator_profile/);
+  assert.match(generated, /creator_profiles:[\s\S]*row_version: number/i);
+});
