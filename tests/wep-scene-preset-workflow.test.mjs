@@ -4,6 +4,8 @@ import {
   createScenePresetWorkflow,
   WepSceneWorkflowError
 } from '../src/lib/wep/scene-preset-workflow.ts';
+import { captureScenePreset } from '../src/lib/wep/scene-capture-runtime.ts';
+import { validatePublishablePreset } from '../src/lib/wep/scene-preset-runtime.ts';
 
 const doc={
   target:{gameVersion:'1.25.0',platform:'synthetic',areaKey:'demo'},
@@ -26,10 +28,14 @@ const doc={
 test('capture→publish passes only portable Scene artifact to publisher',async()=>{
   let received=null;
   const workflow=createScenePresetWorkflow({
-    async publishScene(options){
+    publisher: {
+      async publishScene(options){
       received=options;
       return {presetArtifactId:'pa1',workId:'w1'};
     }
+    },
+    captureScene: captureScenePreset,
+    publicationValidator: validatePublishablePreset
   });
 
   const result=await workflow.publishCapturedScene({
@@ -50,7 +56,8 @@ test('capture→publish passes only portable Scene artifact to publisher',async(
 test('capture failure prevents any network publication',async()=>{
   let calls=0;
   const workflow=createScenePresetWorkflow({
-    async publishScene(){calls++;return {};}
+    publisher: {
+      async publishScene(){calls++;return {};}
   });
   const bad=structuredClone(doc);
   bad.objects[0].editability='readonly';
@@ -89,7 +96,8 @@ test('requested Road topology remains fail-closed without Core adapter',()=>{
 
 test('publisher failure is surfaced as publication-stage failure',async()=>{
   const workflow=createScenePresetWorkflow({
-    async publishScene(){throw new Error('transport down');}
+    publisher: {
+      async publishScene(){throw new Error('transport down');}
   });
   await assert.rejects(
     ()=>workflow.publishCapturedScene({
