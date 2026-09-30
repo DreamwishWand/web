@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { base } from '$app/paths';
   import { CommunityLabClient } from '$lib/community/staging-http-client';
+  import { readCommunityBrowserConfig } from '$lib/community/runtime-config';
   import { createPresetCommunityBridge } from '$lib/wep/preset-community-bridge';
   import {
     buildPublishEnvelope,
@@ -25,7 +26,6 @@
     accessible: boolean;
   };
 
-  const CONFIG_KEY = 'dreamwishwand-community-lab-config-v1';
 
   let tab: Tab = 'discover';
   let connected = false;
@@ -39,14 +39,15 @@
 
   onMount(async () => {
     try {
-      const raw = sessionStorage.getItem(CONFIG_KEY);
-      if (!raw) return;
-      const config = JSON.parse(raw);
-      if (!config?.supabaseUrl || !config?.publishableKey) return;
+      const config = readCommunityBrowserConfig();
+      if (!config) {
+        message = 'Community runtime is not configured on this build.';
+        return;
+      }
 
       const community = new CommunityLabClient({
-        supabaseUrl: String(config.supabaseUrl),
-        publishableKey: String(config.publishableKey)
+        supabaseUrl: config.supabaseUrl,
+        publishableKey: config.publishableKey
       });
 
       bridge = createPresetCommunityBridge({
@@ -269,7 +270,7 @@
 
   {#if !connected}
     <p class="preview-note">
-      Community session未接続時もDiscover shellは表示できます。Save・Library・signed artifact readは認証済みWand Accountでのみ有効になります。
+      Community runtime未設定時はshellのみ表示します。Runtime設定済みで未認証の場合もDiscoverは利用でき、Save・Library・signed artifact readは認証済みWand Accountでのみ有効になります。
     </p>
   {/if}
 </section>
