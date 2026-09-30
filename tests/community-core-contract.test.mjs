@@ -481,3 +481,47 @@ test('Community browser client exposes only the derived SearchDocument projectio
   assert.match(page, /Public SearchDocument discovery/);
   assert.match(page, /Public discovery \(no user JWT\)/);
 });
+
+
+test('support-assisted account recovery preserves Wand ownership and retires old identities', () => {
+  const recovery = read('supabase/migrations/20260930063000_community_core_v0_account_recovery.sql');
+  assert.match(recovery, /identity_state text not null default 'active'/i);
+  assert.match(recovery, /replaced_by_auth_identity_id/i);
+  assert.match(recovery, /account_recovery_cases/i);
+  assert.match(recovery, /community_open_recovery_case/i);
+  assert.match(recovery, /community_complete_recovery/i);
+  assert.match(recovery, /identity_state='retired'/i);
+  assert.match(recovery, /replaced_by_auth_identity_id=v_new_identity_id/i);
+  assert.match(recovery, /i\.identity_state='active'/i);
+  assert.match(recovery, /Admin role required/i);
+  assert.match(recovery, /account\.recovery_opened/i);
+  assert.match(recovery, /account\.recovery_completed/i);
+});
+
+test('account recovery RPCs remain service-only and outside the normal Community command bus', () => {
+  const recovery = read('supabase/migrations/20260930063000_community_core_v0_account_recovery.sql');
+  const commands = read('src/lib/community/commands.ts');
+
+  assert.match(recovery, /revoke execute on function public\.community_open_recovery_case/i);
+  assert.match(recovery, /revoke execute on function public\.community_complete_recovery/i);
+  assert.match(recovery, /grant execute on function public\.community_open_recovery_case[\s\S]*to service_role/i);
+  assert.match(recovery, /grant execute on function public\.community_complete_recovery[\s\S]*to service_role/i);
+
+  assert.match(commands, /interface CommunityAdminCommandBus/);
+  assert.match(commands, /openAccountRecoveryCase/);
+  assert.match(commands, /completeAccountRecovery/);
+  assert.match(commands, /High-risk support\/admin operations are intentionally separated/);
+
+  const normalBus = commands.split('export interface CommunityAdminCommandBus')[0];
+  assert.doesNotMatch(normalBus, /openAccountRecoveryCase|completeAccountRecovery/);
+});
+
+test('generated schema includes recovery state and server RPCs', () => {
+  const generated = read('src/lib/generated/database.types.ts');
+  assert.match(generated, /account_recovery_cases/);
+  assert.match(generated, /identity_state: string/);
+  assert.match(generated, /retired_at: string \| null/);
+  assert.match(generated, /replaced_by_auth_identity_id: string \| null/);
+  assert.match(generated, /community_open_recovery_case/);
+  assert.match(generated, /community_complete_recovery/);
+});
