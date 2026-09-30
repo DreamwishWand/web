@@ -91,7 +91,7 @@ hardening requirement if operational coverage, SLA or business criticality incre
 
 Before public release:
 
-1. configure Resend, a verified Wand sender domain and the operator mailbox destination;
+1. configure Resend, verify `dreamwishwand.com`, set operator From to `Dreamwish Wand Ops <ops@dreamwishwand.com>`, and configure the operator mailbox destination;
 2. enable the operator-email delivery configuration using Vault/secret-held destination data;
 3. induce a safe critical staging alert;
 4. confirm one external delivery;
