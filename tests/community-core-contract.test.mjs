@@ -544,9 +544,8 @@ test('Community session cutoff invalidates old access JWTs independently of prov
   assert.match(migration, /auth\.sessions_revoked/i);
 });
 
-test('all authenticated Community Edge adapters enforce the Wand session cutoff', () => {
+test('authenticated Community Edge adapters enforce Wand session cutoff with one safe bootstrap exception', () => {
   for (const path of [
-    'supabase/functions/community-command/index.ts',
     'supabase/functions/community-query/index.ts',
     'supabase/functions/community-media/index.ts'
   ]) {
@@ -556,6 +555,15 @@ test('all authenticated Community Edge adapters enforce the Wand session cutoff'
     assert.match(source, /SESSION_REVOKED_OR_INVALID/);
     assert.match(source, /p_max_age_seconds: null/);
   }
+
+  const command = read('supabase/functions/community-command/index.ts');
+  assert.match(command, /ctx\.jwtClaims\?\.iat/);
+  assert.match(command, /community_authorize_identity_bootstrap/);
+  assert.match(command, /community_authorize_session/);
+  assert.match(command, /command === 'ensureAccountCreator'/);
+  assert.match(command, /if \(command !== 'ensureAccountCreator'\)/);
+  assert.match(command, /authorizationParams\.p_max_age_seconds = null/);
+  assert.match(command, /SESSION_REVOKED_OR_INVALID/);
 });
 
 test('browser session UX separates local sign-out from global revoke plus Wand cutoff', () => {
