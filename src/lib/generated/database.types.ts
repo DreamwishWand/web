@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_deletion_events: {
+        Row: {
+          account_id: string
+          auth_identities_retired: boolean
+          completed_at: string | null
+          deletion_event_id: string
+          private_interactions_removed: boolean
+          public_content_hidden: boolean
+          public_profile_anonymized: boolean
+          requested_at: string
+          retention_state: string
+        }
+        Insert: {
+          account_id: string
+          auth_identities_retired?: boolean
+          completed_at?: string | null
+          deletion_event_id?: string
+          private_interactions_removed?: boolean
+          public_content_hidden?: boolean
+          public_profile_anonymized?: boolean
+          requested_at?: string
+          retention_state?: string
+        }
+        Update: {
+          account_id?: string
+          auth_identities_retired?: boolean
+          completed_at?: string | null
+          deletion_event_id?: string
+          private_interactions_removed?: boolean
+          public_content_hidden?: boolean
+          public_profile_anonymized?: boolean
+          requested_at?: string
+          retention_state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_deletion_events_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "wand_accounts"
+            referencedColumns: ["account_id"]
+          },
+        ]
+      }
       account_recovery_cases: {
         Row: {
           account_id: string
@@ -1476,6 +1520,18 @@ export type Database = {
         }
         Returns: Json
       }
+      community_claim_provider_cleanup_jobs: {
+        Args: { p_limit: number; p_lock_token: string }
+        Returns: Json
+      }
+      community_complete_provider_cleanup: {
+        Args: { p_cleanup_job_id: string; p_lock_token: string }
+        Returns: Json
+      }
+      community_complete_provider_identity_cleanup: {
+        Args: { p_cleanup_job_id: string }
+        Returns: Json
+      }
       community_complete_recovery: {
         Args: {
           p_admin_auth_subject: string
@@ -1509,6 +1565,18 @@ export type Database = {
           p_display_name: string
           p_handle: string
         }
+        Returns: Json
+      }
+      community_fail_provider_cleanup: {
+        Args: {
+          p_cleanup_job_id: string
+          p_error: string
+          p_lock_token: string
+        }
+        Returns: Json
+      }
+      community_fail_provider_identity_cleanup: {
+        Args: { p_cleanup_job_id: string; p_error: string }
         Returns: Json
       }
       community_follow_creator: {
@@ -1635,6 +1703,14 @@ export type Database = {
       }
       community_save_entity: {
         Args: { p_auth_subject: string; p_target_entity_id: string }
+        Returns: Json
+      }
+      community_tombstone_account: {
+        Args: {
+          p_auth_subject: string
+          p_confirmation: string
+          p_issued_at_epoch: number
+        }
         Returns: Json
       }
       community_unfollow_creator: {
