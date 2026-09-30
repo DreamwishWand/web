@@ -86,6 +86,8 @@ export function preflightCurrentV125FullDesignManifest({
       ok: false,
       manifestValid: false,
       destinationResolved: false,
+      destinationPreflightReady: false,
+      categoryClosureReady: false,
       routeResolutionReady: false,
       environmentPreflightReady: false,
       issues: manifestIssuesAsDestinationIssues(validation.issues),
@@ -247,11 +249,15 @@ export function preflightCurrentV125FullDesignManifest({
 
   const destinationResolved =
     routeResolutionReady && environmentPreflightReady && issues.length === 0;
+  const categoryClosureReady = blockers.length === 0;
+  const overallOk = destinationResolved && categoryClosureReady;
 
   return {
-    ok: destinationResolved,
+    ok: overallOk,
     manifestValid: true,
     destinationResolved,
+    destinationPreflightReady: destinationResolved,
+    categoryClosureReady,
     routeResolutionReady,
     environmentPreflightReady,
     issues,
