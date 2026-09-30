@@ -5,7 +5,7 @@ type JsonObject = Record<string, unknown>;
 const commandToRpc = {
   ensureAccountCreator: 'community_ensure_account_creator',
   createGalleryDraft: 'community_create_gallery_draft',
-  publishGallery: 'community_publish_gallery_v2',
+  publishGallery: 'community_publish_gallery_v3',
   saveEntity: 'community_save_entity',
   followCreator: 'community_follow_creator',
   addReaction: 'community_add_reaction',
@@ -65,6 +65,7 @@ export default {
         params.p_title = payload.title;
         params.p_description = payload.description ?? null;
         params.p_media_ids = payload.mediaIds;
+        params.p_preset_revision_ids = Array.isArray(payload.presetRevisionIds) ? payload.presetRevisionIds : [];
         params.p_idempotency_key = payload.idempotencyKey;
         break;
       case 'saveEntity':
