@@ -26,6 +26,24 @@ const commandToRpc = {
 
 type CommandName = keyof typeof commandToRpc;
 
+const commandToRateBucket: Partial<Record<CommandName, string>> = {
+  updateCreatorProfile: 'profile_write',
+  createGalleryDraft: 'gallery_write',
+  publishGallery: 'gallery_write',
+  saveEntity: 'save',
+  unsaveEntity: 'save',
+  followCreator: 'follow',
+  unfollowCreator: 'follow',
+  addReaction: 'reaction',
+  removeReaction: 'reaction',
+  addComment: 'comment',
+  reportEntity: 'report',
+  changeVisibility: 'gallery_write',
+  unpublishWork: 'gallery_write',
+  deleteWork: 'gallery_write',
+  moderateWork: 'moderation_write'
+};
+
 function reply(body: unknown, status = 200) {
   return Response.json(body, {
     status,
@@ -89,6 +107,42 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         401
       );
     }
+
+    const rateBucket = commandToRateBucket[command];
+    if (rateBucket) {
+      const { data: rate, error: rateError } = await ctx.supabaseAdmin.rpc(
+        'community_consume_action_rate_limit',
+        {
+          p_auth_subject: subject,
+          p_bucket: rateBucket
+        }
+      );
+
+      if (rateError) {
+        return reply(
+          {
+            ok: false,
+            error: 'RATE_LIMIT_CHECK_FAILED',
+            message: rateError.message
+          },
+          400
+        );
+      }
+
+      if (rate?.allowed === false) {
+        return reply(
+          {
+            ok: false,
+            error: 'RATE_LIMITED',
+            bucket: rate.bucket,
+            retryAfterSeconds: rate.retryAfterSeconds,
+            resetAt: rate.resetAt
+          },
+          429
+        );
+      }
+    }
+
     const params: JsonObject = { p_auth_subject: subject };
 
     switch (command) {
