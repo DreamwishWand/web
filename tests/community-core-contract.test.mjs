@@ -1287,7 +1287,8 @@ test('operator critical escalation is email-only and remains separate from Commu
   assert.match(worker, /operator_critical_operations_alert/);
   assert.match(worker, /transactional-email\.operator-critical\.v1/);
   assert.match(worker, /idempotencyKey/);
-  assert.match(worker, /\[Dreamwish Wand\]\[CRITICAL\]/);
+  assert.match(worker, /Dreamwish Wand operations alert/);
+  assert.match(worker, /operatorSubject/);
 });
 
 test('operator email is separate from Wizard activity email policy', () => {
