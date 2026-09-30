@@ -8,43 +8,77 @@ Staging: `dreamwish-wand-staging` / `ap-northeast-1`.
 
 ### Stable account ownership
 
-Support-assisted recovery is already runtime-confirmed separately in
+Support-assisted recovery is runtime-confirmed separately in
 `docs/community/account-recovery-runtime-20260930.md`.
 
 That path preserves the WandAccount and its Creator/content ownership while retiring the old
 AuthIdentity and binding a newly verified identity.
 
-### Wand session cutoff / recent-auth primitive
+### Wand session cutoff
 
-Migration:
+Base migration:
 `supabase/migrations/20260930070000_community_core_v0_session_cutoff.sql`.
+
+The cutoff exists because provider session revocation does not immediately invalidate every
+already-issued access JWT. Wand therefore checks both the verified provider identity and the
+Wand-side `sessions_valid_after` cutoff.
+
+Confirmed staging behavior:
+
+- a normal JWT issued after the cutoff is accepted;
+- a JWT issued before the cutoff is rejected;
+- a later JWT issued after the cutoff is accepted;
+- session revocation creates an AuditEvent;
+- JWT-required Community Edge adapters reject cutoff-invalid sessions before domain work.
+
+### Session-bound recent authentication
+
+Hardening migration:
+`supabase/migrations/20260930075500_community_core_v0_session_bound_recent_auth.sql`.
+
+Recent-auth is **not** derived from JWT `iat`. A refresh token can mint a new JWT without the user
+re-entering credentials, so JWT age alone is not a valid step-up proof.
+
+High-risk operations now bind to the verified JWT `session_id` and read
+`auth.sessions.created_at` for that exact provider session.
 
 Real PostgreSQL staging tests PASS:
 
-- a current session issued-at value is accepted;
-- a 30-second-old session satisfies a 60-second recent-auth window;
-- a 120-second-old session is rejected under that window;
-- after advancing the Wand cutoff, a pre-cutoff session is rejected;
-- a post-cutoff session is accepted;
-- revocation creates an audit event.
+- a two-minute-old provider session satisfies the staging 15-minute recent-auth policy;
+- a 30-minute-old provider session is rejected even when the supplied JWT `iat` is current;
+- an unknown/mismatched session ID is rejected;
+- the legacy `community_authorize_session(..., maxAge)` recent-auth path fails closed with
+  `Session-bound recent authentication required`;
+- a fresh provider session plus admin role satisfies admin recent-auth;
+- the same admin account with a stale provider session is rejected.
 
-The cutoff exists because provider session revocation does not by itself make an already-issued
-access token disappear immediately. Wand therefore authorizes both the verified provider identity
-and the Wand-side session cutoff.
+This closes the refresh-bypass class: refreshing an old session cannot make it recent again.
+
+Current staging policy keys remain configuration-driven:
+
+- `account_delete_recent_auth_seconds = 900`;
+- `support_admin_recent_auth_seconds = 900`.
+
+These are staging defaults, not final production policy commitments.
 
 ### Edge authorization
 
-The JWT-required `community-command`, `community-query` and `community-media` adapters:
+JWT-required `community-command`, `community-query`, `community-media`, and
+`community-admin` use `@supabase/server` verified claims.
 
-- use `@supabase/server` user authentication;
-- derive actor identity only from verified claims;
-- read the verified JWT issued-at claim;
-- call the server-only Wand session authorization RPC before Community work;
-- reject invalid/revoked sessions at the Community boundary.
+- actor identity comes only from verified `userClaims.id`;
+- normal Community access uses verified JWT `iat` only for Wand cutoff enforcement;
+- `community-admin` also forwards verified `jwtClaims.session_id` for high-risk operations;
+- admin recovery/provider-cleanup writes are rechecked server-side for admin role + recent provider
+  session;
+- no client-supplied actor/account field can replace the authenticated actor identity.
+
+Deno Edge Function type checks are now part of CI in addition to the Svelte checks, contract tests,
+and static build.
 
 ## Implemented product-shaped Auth UX
 
-The internal `/community-lab/` path now includes:
+The internal `/community-lab/` path includes:
 
 - password sign-in;
 - current-session sign-out;
@@ -61,8 +95,24 @@ Recovery callback:
 Auth access/refresh session data remains tab-scoped; recovery PKCE state is kept separately and
 expires.
 
-Implementation commits are covered by successful type/component checks, contract tests and static
-builds. Latest recovery contract push CI: `36680554003` PASS.
+The internal `/community-ops/` path is also implemented and intentionally absent from public
+navigation. It provides:
+
+- admin-only recovery-case listing/open/complete;
+- provider-cleanup queue listing and dead-letter requeue;
+- outbox dead-letter listing and requeue;
+- explicit messaging that high-risk admin writes require a newly created provider session rather
+  than a refreshed JWT.
+
+Database runtime for admin operations PASS:
+
+- fresh admin session accepted;
+- stale admin session rejected;
+- recovery open/list/complete preserves the target WandAccount;
+- non-admin operations read rejected;
+- recovery listings do not expose requested provider subject;
+- provider-cleanup listings do not expose provider subject;
+- provider-cleanup dead-letter requeue succeeds and is audited.
 
 ## Evidence boundary
 
@@ -72,10 +122,12 @@ Still pending:
 
 1. execute the normal provider recovery email -> browser callback -> password-update path with a real
    staging user;
-2. execute the all-session revocation path with real browser sessions and confirm old-session denial
-   through the deployed Community APIs;
-3. complete the support-verification/operator console and its access/audit UX;
-4. finalize production Auth provider mix and exact recent-auth thresholds for each high-risk action.
+2. execute all-session revocation with real browser sessions and confirm old-session denial through
+   the deployed Community APIs;
+3. execute the internal Community Ops route with a real staging admin and capture secret-free
+   recovery/dead-letter evidence;
+4. finalize support verification procedure and production Auth provider/sign-in policy;
+5. finalize production recent-auth thresholds per high-risk action.
 
-No access token, refresh token, password, recovery code, signed URL or API secret is recorded in this
-evidence file.
+No access token, refresh token, password, recovery code, signed URL, provider subject, verification
+artifact or API secret is recorded in this evidence file.
