@@ -161,15 +161,27 @@
     }
   }
 
-  async function signOut() {
-    if (!client) return;
-    await run('Auth sign-out', () => client!.signOut());
+  function clearActorState() {
     session = null;
     identity = null;
     media = null;
     draft = null;
     published = null;
     queriedWork = null;
+  }
+
+  async function signOut() {
+    if (!client) return;
+    const result = await run('Auth local sign-out', () => client!.signOut());
+    if (result !== null) clearActorState();
+  }
+
+  async function revokeAllSessions() {
+    if (!client) return;
+    const result = await run('Auth global revoke + Wand cutoff', () =>
+      client!.revokeAllSessions()
+    );
+    if (result) clearActorState();
   }
 
   async function ensureIdentity() {
@@ -678,8 +690,17 @@
           <button on:click={signIn} disabled={busy || !email || !password || !publishableKey}>
             Sign in
           </button>
-          <button class="secondary" on:click={signOut} disabled={busy || !session}>Sign out</button>
+          <button class="secondary" on:click={signOut} disabled={busy || !session}>
+            Sign out this session
+          </button>
+          <button class="secondary" on:click={revokeAllSessions} disabled={busy || !session}>
+            Revoke all sessions
+          </button>
         </div>
+        <p class="lab-meta">
+          "Revoke all sessions" first invalidates provider refresh sessions, then advances the Wand
+          session cutoff so already-issued access JWTs are rejected immediately by Community APIs.
+        </p>
         <p class="lab-meta">
           {#if session}
             JWT session: <strong>{session.email ?? session.userId}</strong>
