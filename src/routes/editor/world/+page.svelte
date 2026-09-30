@@ -95,11 +95,36 @@
         'Core native → logical Road/Fence reader is not yet bound',
       FULL_DESIGN_BUILDING_COMPOSITION_INCOMPLETE:
         'portable Building/PlayerHouse semantics exist, but full-design composition is incomplete',
+      FULL_DESIGN_BUILDING_RESTORATION_CAPTURE_UNRESOLVED:
+        'one or more Building/PlayerHouse restoration states could not be captured safely',
       FULL_DESIGN_ENVIRONMENT_PREFLIGHT_PARTIAL:
         'portable Environment state is captured, but full destination preflight remains partial',
       FULL_DESIGN_REQUIRED_CATEGORY_EXCLUDED:
         'a required full-design category was excluded'
     } as Record<string, string>)[code] ?? code;
+  }
+
+  function fullDesignCategoryDetail(
+    categoryKey: string,
+    category: any
+  ) {
+    if (categoryKey === 'rootObjects') {
+      const count = Number(category?.directRootObjectCount ?? 0);
+      return `${count} direct-root object${count === 1 ? '' : 's'} inventoried`;
+    }
+    if (categoryKey === 'buildings') {
+      const count = Number(category?.restorationCapture?.entries?.length ?? 0);
+      const unresolved = Number(
+        category?.restorationCapture?.unresolved?.length ?? 0
+      );
+      return unresolved
+        ? `${count} portable restoration state${count === 1 ? '' : 's'} captured · ${unresolved} unresolved`
+        : `${count} portable restoration state${count === 1 ? '' : 's'} captured`;
+    }
+    if (categoryKey === 'environment' && category?.portableState) {
+      return `codec ${category.portableState.codec}`;
+    }
+    return '';
   }
 
   function fullDesignIdentityLabel(plan: any) {
@@ -852,6 +877,9 @@
                   <span>{fullDesignCategoryLabel(categoryKey)}</span>
                   <strong>{fullDesignDispositionLabel(category)}</strong>
                 </div>
+                {#if fullDesignCategoryDetail(categoryKey, category)}
+                  <small>{fullDesignCategoryDetail(categoryKey, category)}</small>
+                {/if}
                 <small>
                   {category.blockers?.length
                     ? fullDesignBlockerText(category.blockers[0])
