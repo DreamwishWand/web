@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import {
-  WORLD_ADAPTER_V13_SOURCE_SHA256,
+  WORLD_ADAPTER_V16_SOURCE_SHA256,
   WORLD_READ_SWITCH_V125_SHA256,
   WORLD_ROLE_AUTHORITY_V125_SHA256,
   createSwitchWorldReadAdapter,
@@ -73,11 +73,11 @@ const profile = {
 
 test('canonical adapter source and static inputs retain pinned bytes', async () => {
   assert.equal(
-    hash(await repoFile('./src/lib/ddv/core/world/core-world-v125-adapter-v1_3.js')),
-    WORLD_ADAPTER_V13_SOURCE_SHA256
+    hash(await repoFile('./src/lib/ddv/core/world/runtime-v125/adapter-v125.js')),
+    WORLD_ADAPTER_V16_SOURCE_SHA256
   );
   assert.equal(
-    hash(await repoFile('./static/ddv/v1.25/grid-role-authority-v125.json')),
+    hash(await repoFile('./static/ddv/core/world/v1.25/grid-role-authority-v125.json')),
     WORLD_ROLE_AUTHORITY_V125_SHA256
   );
   assert.equal(
@@ -94,6 +94,7 @@ test('Switch read binding verifies and expands compact canonical data', async ()
   assert.equal(binding.source.platform, 'Nintendo Switch');
   assert.equal(binding.source.profileSchemaVersion, 624);
   assert.equal(binding.provenance.readDataBuildID, '52BD625D9B4E0053');
+  assert.equal(binding.provenance.adapterContractVersion, '01B-v1.6');
 });
 
 test('raw Switch save projects to read-only browser EditorDocument', async () => {
@@ -124,6 +125,45 @@ test('raw Switch save projects to read-only browser EditorDocument', async () =>
   );
   assert.equal(document.capabilities.worldPersistentWrite, 'unsupported');
   assert.equal(document.metadata.browserBinding.gridDataDimensionsBound, false);
+});
+
+
+test('v1.6 explicit Village04 single-grid alias is resolved from authority v2', async () => {
+  const aliasProfile = structuredClone(profile);
+  aliasProfile.World.GridCollection.Grids = {
+    '0': {
+      ...aliasProfile.World.GridCollection.Grids['10'],
+      ID: 0,
+      GridDataPath: 'GridData/Villages/Village04-SnowLevel-GridData.json'
+    }
+  };
+  aliasProfile.World.Villages[0].Areas['7'].GridIDs = [0];
+
+  const opened = await openWorldSaveBytes(
+    new TextEncoder().encode(JSON.stringify(aliasProfile)),
+    { sourcePlatform: 'switch' }
+  );
+  const binding = await createSwitchWorldReadAdapter({
+    basePath: '',
+    fetchImpl: localFetch
+  });
+  const document = projectSwitchAreaGrid(
+    opened,
+    opened.areas[0],
+    0,
+    binding
+  );
+
+  assert.equal(
+    document.target.rootGridRole.status,
+    'SINGLE_GRID_EXPLICIT_DERIVED_ALIAS'
+  );
+  assert.equal(
+    document.target.rootGridRole.evidenceStatus,
+    'CONFIRMED_STATIC_DERIVED_ALIAS'
+  );
+  assert.equal(document.metadata.browserBinding.adapter, '01B-v1.6-integrator-approved');
+  assert.equal(document.target.persistentWriteAuthorized, false);
 });
 
 test('Switch projection rejects unknown/cross-save source platform', async () => {
