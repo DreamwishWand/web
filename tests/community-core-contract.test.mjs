@@ -144,3 +144,37 @@ test('Gallery subtype rows cannot attach to a non-Gallery CommunityWork', () => 
   assert.match(schema, /gallery_works_type_guard/i);
   assert.match(schema, /GalleryWork must reference a Gallery CommunityWork/i);
 });
+
+
+test('Supabase helper functions live outside the exposed public schema', () => {
+  assert.match(schema, /create schema if not exists private/i);
+  assert.doesNotMatch(
+    schema,
+    /create or replace function public\.(current_wand_account_id|is_staff|entity_owner_account_id|is_discoverable_work|can_access_work|can_access_entity)/i
+  );
+  for (const helper of [
+    'current_wand_account_id',
+    'is_staff',
+    'entity_owner_account_id',
+    'is_discoverable_work',
+    'can_access_work',
+    'can_access_entity'
+  ]) {
+    assert.match(schema, new RegExp(`create or replace function private\\.${helper}`, 'i'));
+  }
+});
+
+test('Data API grants are explicit and direct community writes are revoked', () => {
+  assert.match(schema, /grant select on[\s\S]*search_documents[\s\S]*to anon, authenticated;/i);
+  assert.match(schema, /grant select on[\s\S]*wand_accounts[\s\S]*to authenticated;/i);
+  assert.match(
+    schema,
+    /revoke insert, update, delete on all tables in schema public from anon, authenticated;/i
+  );
+});
+
+test('RLS policies specify intended Postgres roles and SQL contains no escaped newlines', () => {
+  assert.match(schema, /create policy community_works_accessible_read[\s\S]*to anon, authenticated\s+using \(/i);
+  assert.match(schema, /create policy saved_items_self_read[\s\S]*to authenticated\s+using \(/i);
+  assert.doesNotMatch(schema, /\\nusing \(/);
+});
