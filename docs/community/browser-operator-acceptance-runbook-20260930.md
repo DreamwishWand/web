@@ -45,7 +45,8 @@ Before execution:
 Launch recent-auth defaults are:
 
 - account deletion: **900 seconds / 15 minutes**;
-- support/admin high-risk writes: **900 seconds / 15 minutes**.
+- support/admin high-risk writes: **900 seconds / 15 minutes**;
+- moderator/admin moderation actions: **900 seconds / 15 minutes**.
 
 Recent-auth is measured from `auth.sessions.created_at`; JWT refresh does not reset the window.
 
@@ -116,6 +117,7 @@ Use `/community-ops/` as O.
 2. Load Security Policy and require:
    - accountDeleteRecentAuthSeconds = 900;
    - supportAdminRecentAuthSeconds = 900;
+   - moderationStaffRecentAuthSeconds = 900;
    - sessionBound = true;
    - source = auth.sessions.created_at.
 3. Load Recovery cases.
@@ -125,13 +127,18 @@ Use `/community-ops/` as O.
 7. Verify.
 8. Complete.
 9. Confirm ownership graph remains stable.
-10. Review provider-cleanup dead letters if present and exercise reviewed requeue with a fixture.
-11. Review retention dead letters if present and exercise reviewed requeue with a fixture.
-12. Review external operator-email delivery queue.
-13. Review persistent Operations Alerts.
-14. Acknowledge a safe open alert.
-15. Clear the underlying condition and confirm auto-resolution.
-16. Recreate the condition and confirm a new occurrence.
+10. Load the moderation queue with a reported fixture.
+11. Confirm reporter WandAccount identity is omitted while reason/detail and target state remain visible.
+12. Apply restrict/remove/restore as appropriate with a fresh moderator/admin session.
+13. Confirm ModerationAction + AuditEvent persistence, case resolution and linked report closure.
+14. Repeat a moderation write with a >15-minute session and require `RECENT_AUTH_REQUIRED`.
+15. Review provider-cleanup dead letters if present and exercise reviewed requeue with a fixture.
+16. Review retention dead letters if present and exercise reviewed requeue with a fixture.
+17. Review external operator-email delivery queue.
+18. Review persistent Operations Alerts.
+19. Acknowledge a safe open alert.
+20. Clear the underlying condition and confirm auto-resolution.
+21. Recreate the condition and confirm a new occurrence.
 
 Recent-auth negative proof:
 
