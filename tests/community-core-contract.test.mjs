@@ -221,7 +221,8 @@ test('Community Edge adapters trust the verified Supabase user ID, never a clien
   for (const path of [
     'supabase/functions/community-command/index.ts',
     'supabase/functions/community-query/index.ts',
-    'supabase/functions/community-media/index.ts'
+    'supabase/functions/community-media/index.ts',
+    'supabase/functions/community-admin/index.ts'
   ]) {
     const source = read(path);
     assert.match(source, /withSupabase\(\{ auth: 'user' \}/);
@@ -639,4 +640,80 @@ test('generated schema exposes provider cleanup worker RPCs', () => {
   assert.match(generated, /community_claim_provider_cleanup_jobs/);
   assert.match(generated, /community_complete_provider_cleanup/);
   assert.match(generated, /community_fail_provider_cleanup/);
+});
+
+
+test('recent-auth is bound to provider session creation time rather than refreshed JWT iat', () => {
+  const migration = read('supabase/migrations/20260930075500_community_core_v0_session_bound_recent_auth.sql');
+
+  assert.match(migration, /from auth\.sessions s/i);
+  assert.match(migration, /s\.id=p_session_id/i);
+  assert.match(migration, /s\.user_id=p_auth_subject/i);
+  assert.match(migration, /clock_timestamp\(\) - v_created_at/i);
+  assert.match(migration, /Session-bound recent authentication required/i);
+  assert.match(migration, /Authenticated session not found/i);
+  assert.match(migration, /Recent authentication required/i);
+});
+
+test('high-risk account and support operations require session-bound recent auth', () => {
+  const migration = read('supabase/migrations/20260930075500_community_core_v0_session_bound_recent_auth.sql');
+
+  assert.match(migration, /community_tombstone_account\([\s\S]*p_session_id uuid/i);
+  assert.match(migration, /community_admin_open_recovery_case\([\s\S]*p_session_id uuid/i);
+  assert.match(migration, /community_admin_complete_recovery\([\s\S]*p_session_id uuid/i);
+  assert.match(migration, /community_admin_retry_provider_cleanup\([\s\S]*p_session_id uuid/i);
+  assert.match(migration, /private\.require_recent_session/i);
+  assert.match(migration, /private\.require_recent_admin/i);
+});
+
+test('Community admin Edge forwards verified session_id only to recent-auth writes', () => {
+  const admin = read('supabase/functions/community-admin/index.ts');
+
+  assert.match(admin, /ctx\.jwtClaims\?\.session_id/);
+  assert.match(admin, /JWT session-id claim missing/);
+  assert.match(admin, /params\.p_session_id = sessionId/);
+  assert.match(admin, /community_admin_open_recovery_case/);
+  assert.match(admin, /community_admin_complete_recovery/);
+  assert.match(admin, /community_admin_retry_provider_cleanup/);
+});
+
+test('Community Ops console is internal, admin-only in intent, and omits secrets from source', () => {
+  const page = read('src/routes/community-ops/+page.svelte');
+  const header = read('src/lib/SiteHeader.svelte');
+
+  assert.match(page, /INTERNAL · STAGING ONLY/);
+  assert.match(page, /listRecoveryCases/);
+  assert.match(page, /listProviderCleanupJobs/);
+  assert.match(page, /openRecoveryCase/);
+  assert.match(page, /completeRecoveryCase/);
+  assert.match(page, /retryProviderCleanup/);
+  assert.match(page, /Refresh/);
+  assert.match(page, /provider session created within the configured/);
+  assert.doesNotMatch(page, /service_role|SUPABASE_SECRET|sb_secret_/i);
+  assert.doesNotMatch(header, /community-ops/i);
+});
+
+test('Community command session authorization is single-source and uses verified jwtClaims', () => {
+  const command = read('supabase/functions/community-command/index.ts');
+  assert.equal((command.match(/community_authorize_session/g) ?? []).length, 1);
+  assert.equal((command.match(/const issuedAt/g) ?? []).length, 1);
+  assert.doesNotMatch(command, /function jwtIssuedAt/);
+  assert.match(command, /ctx\.jwtClaims\?\.iat/);
+});
+
+test('CI type-checks all Supabase Edge Functions with Deno', () => {
+  const workflow = read('.github/workflows/ci.yml');
+  assert.match(workflow, /denoland\/setup-deno@v2/);
+  assert.match(workflow, /deno-version: v2\.1\.4/);
+  assert.match(workflow, /deno check --node-modules-dir=auto supabase\/functions\/\*\/index\.ts/);
+});
+
+test('generated schema exposes session-bound high-risk RPC signatures', () => {
+  const generated = read('src/lib/generated/database.types.ts');
+
+  assert.match(generated, /community_tombstone_account/);
+  assert.match(generated, /p_session_id: string/);
+  assert.match(generated, /community_admin_open_recovery_case/);
+  assert.match(generated, /community_admin_complete_recovery/);
+  assert.match(generated, /community_admin_retry_provider_cleanup/);
 });
