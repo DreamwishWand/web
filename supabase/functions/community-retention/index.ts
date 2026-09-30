@@ -26,6 +26,7 @@ function messageOf(error: unknown): string {
 }
 
 const MEDIA_BUCKET = 'community-media-staging';
+const WEP_PRESET_RETENTION_URL = `${Deno.env.get('SUPABASE_URL')}/functions/v1/wep-preset-retention`;
 
 export default {
   fetch: withSupabase({ auth: 'none' }, async (req, ctx) => {
