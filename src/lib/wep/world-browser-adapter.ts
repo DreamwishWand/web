@@ -54,7 +54,8 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
   if (!globalThis.crypto?.subtle) {
     throw new Error('WEP_WORLD_SHA256_UNAVAILABLE');
   }
-  const digestInput = Uint8Array.from(bytes).buffer;\n  const digest = await globalThis.crypto.subtle.digest('SHA-256', digestInput);
+  const digestInput = Uint8Array.from(bytes).buffer;
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', digestInput);
   return [...new Uint8Array(digest)]
     .map((value) => value.toString(16).padStart(2, '0'))
     .join('');
