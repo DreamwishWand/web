@@ -1309,3 +1309,34 @@ test('normal Community notification fanout does not create email delivery', () =
   assert.match(notifications, /notification_deliveries/);
   assert.doesNotMatch(notifications, /operator_email|transactional_email|smtp|email_provider/i);
 });
+
+
+test('recent-auth launch defaults stay session-bound at 15 minutes', () => {
+  const migration = read(
+    'supabase/migrations/20260930113435_community_core_v0_recent_auth_launch_defaults.sql'
+  );
+  const recentAuth = read(
+    'supabase/migrations/20260930075500_community_core_v0_session_bound_recent_auth.sql'
+  );
+
+  assert.match(migration, /account_delete_recent_auth_seconds',900/);
+  assert.match(migration, /support_admin_recent_auth_seconds',900/);
+  assert.match(migration, /community_get_security_policy_summary/);
+  assert.match(migration, /auth\.sessions\.created_at/);
+
+  assert.match(recentAuth, /from auth\.sessions s/);
+  assert.match(recentAuth, /v_session_age_seconds > p_max_age_seconds/);
+  assert.match(recentAuth, /Session-bound recent authentication required/);
+});
+
+test('Community Ops exposes configured recent-auth launch policy', () => {
+  const admin = read('supabase/functions/community-admin/index.ts');
+  const page = read('src/routes/community-ops/+page.svelte');
+  const generated = read('src/lib/generated/database.types.ts');
+
+  assert.match(admin, /getSecurityPolicy: 'community_get_security_policy_summary'/);
+  assert.match(page, /Load security policy/);
+  assert.match(page, /15 minutes for account deletion/);
+  assert.match(page, /15 minutes for\s+support\/admin high-risk writes/);
+  assert.match(generated, /community_get_security_policy_summary/);
+});
