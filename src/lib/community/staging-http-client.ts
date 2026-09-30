@@ -445,34 +445,46 @@ export class CommunityLabClient {
     return result;
   }
 
-  async discoverPublicWorks(limit = 20): Promise<Array<Record<string, unknown>>> {
-    const safeLimit = Math.max(1, Math.min(50, Math.trunc(limit)));
-    const fields = [
-      'entity_id',
-      'work_id',
-      'work_type',
-      'creator_profile_id',
-      'title',
-      'text_content',
-      'published_at'
-    ].join(',');
-    const url = new URL(`${this.config.supabaseUrl}/rest/v1/search_documents`);
-    url.searchParams.set('select', fields);
-    url.searchParams.set('order', 'published_at.desc');
-    url.searchParams.set('limit', String(safeLimit));
-
-    const response = await fetch(url, {
-      headers: {
-        apikey: this.config.publishableKey,
-        accept: 'application/json'
+  async searchPublicWorks(options: {
+    query?: string | null;
+    workType?: string | null;
+    creatorProfileId?: string | null;
+    tags?: string[] | null;
+    limit?: number;
+    beforePublishedAt?: string | null;
+    beforeWorkId?: string | null;
+  } = {}): Promise<Array<Record<string, unknown>>> {
+    const safeLimit = Math.max(1, Math.min(50, Math.trunc(options.limit ?? 20)));
+    const response = await fetch(
+      `${this.config.supabaseUrl}/rest/v1/rpc/community_search_public`,
+      {
+        method: 'POST',
+        headers: {
+          apikey: this.config.publishableKey,
+          accept: 'application/json',
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+          p_query: options.query ?? null,
+          p_work_type: options.workType ?? null,
+          p_creator_profile_id: options.creatorProfileId ?? null,
+          p_tags: options.tags ?? null,
+          p_limit: safeLimit,
+          p_before_published_at: options.beforePublishedAt ?? null,
+          p_before_work_id: options.beforeWorkId ?? null
+        })
       }
-    });
+    );
 
     const body = await parseResponse(response);
     if (!Array.isArray(body)) {
-      throw new Error('Public discovery did not return an array.');
+      throw new Error('Public search did not return an array.');
     }
     return body as Array<Record<string, unknown>>;
+  }
+
+  async discoverPublicWorks(limit = 20): Promise<Array<Record<string, unknown>>> {
+    return this.searchPublicWorks({ limit });
   }
 
   async uploadAndFinalizeImage(file: File): Promise<{
