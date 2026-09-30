@@ -1,9 +1,9 @@
-import { p1gPackagedProfileCodec } from '$lib/ddv/core/save/p1g-packaged-profile-codec.js';
-import { parseSafeJson } from '$lib/ddv/core/save/safe-edit-session.js';
+import { p1gPackagedProfileCodec } from '../ddv/core/save/p1g-packaged-profile-codec.js';
+import { parseSafeJson } from '../ddv/core/save/safe-edit-session.js';
 import {
   PlatformFamily,
   detectSaveIdentity
-} from '$lib/ddv/core/save/versioning.js';
+} from '../ddv/core/save/versioning.js';
 
 export const WEP_WORLD_READ_GAME_VERSION = '1.25.0';
 export const WEP_WORLD_READ_PROFILE_SCHEMA = 624;
