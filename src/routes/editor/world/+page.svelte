@@ -226,7 +226,7 @@
     fencePostMessage = '';
     try {
       const result =
-        roadFenceReaderBinding?.fenceRepresentationLayout?.createDraft(networkId);
+        roadFenceReaderBinding?.fenceRepresentationLayout?.captureModel(networkId);
       if (!result?.draft) {
         throw new Error(
           result?.code ?? 'WEP_FENCE_POST_DRAFT_UNAVAILABLE'
