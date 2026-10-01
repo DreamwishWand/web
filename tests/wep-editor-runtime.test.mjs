@@ -480,3 +480,65 @@ test('Fence representation layout edit shares editor Undo/Redo history', () => {
     'REPRESENTATION_LAYOUT_PREVIEW'
   );
 });
+
+
+test('copy graph preserves dependency closure and paste reuses the normal validation/history transaction', () => {
+  const session = createEditorSession(base, {
+    validator: () => ({
+      ok: true,
+      issues: [],
+      status: 'VALID'
+    })
+  });
+  session.setSelection(['a']);
+  const copied = session.copySelectionGraph(null);
+
+  assert.equal(
+    copied.schema,
+    'dreamwish-wand-wep-draft-clipboard@1'
+  );
+  assert.equal(copied.graph.length, 2);
+  assert.equal(copied.persistentWriteAuthorized, false);
+  assert.deepEqual(copied.sourceBounds, {
+    x: 10,
+    y: 10,
+    w: 2,
+    h: 2
+  });
+  assert.equal(
+    copied.graph.some(
+      (entry) =>
+        entry.dependencyLocalIds?.length === 1
+    ),
+    true
+  );
+
+  const pasted = session.insertDraftGraph(
+    copied.graph,
+    {
+      anchorX: 11,
+      anchorY: 11,
+      kind: 'PASTE'
+    }
+  );
+  assert.equal(pasted.applied, true);
+  assert.equal(pasted.kind, 'PASTE');
+  assert.equal(pasted.result.createdIds.length, 2);
+  assert.deepEqual(
+    new Set(session.getSelection()),
+    new Set(pasted.result.createdIds)
+  );
+  assert.equal(session.canUndo(), true);
+  assert.equal(session.getLastValidation().status, 'VALID');
+
+  session.undo();
+  assert.deepEqual(session.getSelection(), ['a']);
+  assert.equal(session.getDocument().objects.length, 4);
+
+  session.redo();
+  assert.deepEqual(
+    new Set(session.getSelection()),
+    new Set(pasted.result.createdIds)
+  );
+  assert.equal(session.getDocument().objects.length, 6);
+});
