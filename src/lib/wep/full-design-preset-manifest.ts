@@ -721,6 +721,211 @@ function validateRootObjectPortableComposition(
   }
 }
 
+function validateDirectRootBoundsCapture(
+  category: AnyRecord,
+  directRootPaths: Set<string>,
+  issues: FullDesignManifestIssue[]
+) {
+  const result = new Map<string, AnyRecord>();
+  if (category.requested !== true || category.boundsCapture == null) {
+    return result;
+  }
+
+  const capture = category.boundsCapture;
+  const path = '$.categories.directGrids.boundsCapture';
+  if (
+    !plain(capture) ||
+    !['AUTHORITATIVE_COMPLETE', 'AUTHORITATIVE_PARTIAL'].includes(
+      String(capture.status)
+    ) ||
+    !Array.isArray(capture.entries) ||
+    !Array.isArray(capture.missingRoutes) ||
+    capture.persistentWriteAuthorized !== false
+  ) {
+    issues.push(block('FULL_DESIGN_DIRECT_ROOT_BOUNDS_CAPTURE_INVALID', path));
+    return result;
+  }
+
+  for (const [index, entry] of capture.entries.entries()) {
+    const current = `${path}.entries[${index}]`;
+    if (!plain(entry)) {
+      issues.push(block('FULL_DESIGN_DIRECT_ROOT_BOUNDS_ENTRY_INVALID', current));
+      continue;
+    }
+    const gridDataPath = validateDirectRootRouteObject(
+      entry.directRootRoute,
+      `${current}.directRootRoute`,
+      issues
+    );
+    if (!gridDataPath || !directRootPaths.has(gridDataPath)) {
+      issues.push(
+        block(
+          'FULL_DESIGN_DIRECT_ROOT_BOUNDS_ROUTE_OUTSIDE_LOCATION',
+          `${current}.directRootRoute`
+        )
+      );
+      continue;
+    }
+    if (result.has(gridDataPath)) {
+      issues.push(
+        block(
+          'FULL_DESIGN_DIRECT_ROOT_BOUNDS_ROUTE_DUPLICATE',
+          `${current}.directRootRoute`
+        )
+      );
+      continue;
+    }
+    const bounds = entry.bounds;
+    if (
+      !plain(bounds) ||
+      bounds.status !== 'AUTHORITATIVE_GRIDDATAPATH' ||
+      safeInteger(bounds.x) === null ||
+      safeInteger(bounds.y) === null ||
+      safeInteger(bounds.w) === null ||
+      safeInteger(bounds.h) === null ||
+      Number(bounds.w) <= 0 ||
+      Number(bounds.h) <= 0 ||
+      safeInteger(entry.tessellationFactor) === null ||
+      Number(entry.tessellationFactor) <= 0 ||
+      entry.evidenceStatus !==
+        'CONFIRMED_01B_V1_7_GRIDDATAPATH_DIMENSIONS' ||
+      entry.gridDataDimensionsSha256 !==
+        '75f33dc20d521d579070aa7919a96c23ce5dd329dbc6f58392f267c9dd0b1aaa'
+    ) {
+      issues.push(block('FULL_DESIGN_DIRECT_ROOT_BOUNDS_ENTRY_INVALID', current));
+      continue;
+    }
+    result.set(gridDataPath, entry);
+  }
+
+  const missing = new Set<string>();
+  for (const [index, value] of capture.missingRoutes.entries()) {
+    if (!nonEmptyString(value) || !directRootPaths.has(String(value))) {
+      issues.push(
+        block(
+          'FULL_DESIGN_DIRECT_ROOT_BOUNDS_MISSING_ROUTE_INVALID',
+          `${path}.missingRoutes[${index}]`
+        )
+      );
+      continue;
+    }
+    missing.add(String(value));
+  }
+
+  if (
+    capture.status === 'AUTHORITATIVE_COMPLETE' &&
+    (result.size !== directRootPaths.size || missing.size !== 0)
+  ) {
+    issues.push(
+      block(
+        'FULL_DESIGN_DIRECT_ROOT_BOUNDS_COMPLETE_STATUS_INCONSISTENT',
+        `${path}.status`
+      )
+    );
+  }
+
+  return result;
+}
+
+function validateRoadFenceNetworkCaptures(
+  category: AnyRecord,
+  categoryKey: 'roads' | 'fences',
+  directRootPaths: Set<string>,
+  boundsByPath: Map<string, AnyRecord>,
+  issues: FullDesignManifestIssue[]
+) {
+  if (category.requested !== true || category.networkCaptures == null) return;
+  const path = `$.categories.${categoryKey}.networkCaptures`;
+  if (!Array.isArray(category.networkCaptures)) {
+    issues.push(block('FULL_DESIGN_ROADFENCE_NETWORK_CAPTURES_INVALID', path));
+    return;
+  }
+
+  const seen = new Set<string>();
+  for (const [index, entry] of category.networkCaptures.entries()) {
+    const current = `${path}[${index}]`;
+    if (!plain(entry) || entry.persistentWriteAuthorized !== false) {
+      issues.push(block('FULL_DESIGN_ROADFENCE_NETWORK_CAPTURE_INVALID', current));
+      continue;
+    }
+    const gridDataPath = validateDirectRootRouteObject(
+      entry.directRootRoute,
+      `${current}.directRootRoute`,
+      issues
+    );
+    if (!gridDataPath || !directRootPaths.has(gridDataPath)) {
+      issues.push(
+        block(
+          'FULL_DESIGN_ROADFENCE_NETWORK_ROUTE_OUTSIDE_LOCATION',
+          `${current}.directRootRoute`
+        )
+      );
+      continue;
+    }
+    if (seen.has(gridDataPath)) {
+      issues.push(
+        block(
+          'FULL_DESIGN_ROADFENCE_NETWORK_ROUTE_DUPLICATE',
+          `${current}.directRootRoute`
+        )
+      );
+    }
+    seen.add(gridDataPath);
+
+    const region = entry.captureRegion;
+    const bound = boundsByPath.get(gridDataPath)?.bounds;
+    if (
+      !plain(region) ||
+      safeInteger(region.x) === null ||
+      safeInteger(region.y) === null ||
+      safeInteger(region.w) === null ||
+      safeInteger(region.h) === null ||
+      Number(region.w) <= 0 ||
+      Number(region.h) <= 0 ||
+      !plain(bound) ||
+      Number(region.x) !== Number(bound.x) ||
+      Number(region.y) !== Number(bound.y) ||
+      Number(region.w) !== Number(bound.w) ||
+      Number(region.h) !== Number(bound.h)
+    ) {
+      issues.push(
+        block(
+          'FULL_DESIGN_ROADFENCE_CAPTURE_REGION_NOT_AUTHORITATIVE_ROOT_BOUNDS',
+          `${current}.captureRegion`
+        )
+      );
+    }
+
+    const network = entry.network;
+    if (
+      !plain(network) ||
+      network.schema !== 'dreamwish-wand-wep-network-capture' ||
+      network.version !== 1 ||
+      network.kind !== categoryKey ||
+      network.originPolicy !== 'capture-region-top-left' ||
+      !Array.isArray(network.networks) ||
+      network.persistentWriteAuthorized !== false
+    ) {
+      issues.push(
+        block('FULL_DESIGN_ROADFENCE_NETWORK_ENVELOPE_INVALID', `${current}.network`)
+      );
+    }
+  }
+
+  if (
+    category.disposition === 'captured' &&
+    seen.size !== directRootPaths.size
+  ) {
+    issues.push(
+      block(
+        'FULL_DESIGN_ROADFENCE_NETWORK_ROUTE_COVERAGE_MISMATCH',
+        path,
+        { expected: directRootPaths.size, actual: seen.size }
+      )
+    );
+  }
+}
+
 function validateRoadFenceReaderCoverage(
   category: AnyRecord,
   directRootPaths: Set<string>,
@@ -1020,6 +1225,8 @@ function validateCategories(
     }
   }
 
+  let authoritativeBoundsByPath = new Map<string, AnyRecord>();
+
   for (const key of CATEGORY_KEYS) {
     const categoryPath = `${path}.${key}`;
     const category = categories[key];
@@ -1101,6 +1308,7 @@ function validateCategories(
       );
     }
 
+    let boundsByPath = new Map<string, AnyRecord>();
     if (key === 'directGrids') {
       const count = safeInteger(category.directRootCount);
       if (count === null || count !== directRootCount) {
@@ -1112,6 +1320,12 @@ function validateCategories(
           )
         );
       }
+      boundsByPath = validateDirectRootBoundsCapture(
+        category,
+        directRootPaths,
+        issues
+      );
+      authoritativeBoundsByPath = boundsByPath;
     }
 
     if (key === 'rootObjects') {
@@ -1128,6 +1342,13 @@ function validateCategories(
         category,
         directRootPaths,
         key,
+        issues
+      );
+      validateRoadFenceNetworkCaptures(
+        category,
+        key,
+        directRootPaths,
+        authoritativeBoundsByPath,
         issues
       );
     }
