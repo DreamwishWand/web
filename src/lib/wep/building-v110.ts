@@ -185,7 +185,7 @@ function validateProjection(projection:AnyRecord) {
       throw new Error('WEP_BUILDING_V111_PROJECTION_SIGNAL_INVALID');
     }
 
-    let expected = BUILDING_V110_CLASS.UNKNOWN;
+    let expected:string = BUILDING_V110_CLASS.UNKNOWN;
     const type = BUILDING_V111_TYPE_CODE[String(typeCode)];
     if (type === 'OffGridBuilding') {
       expected = BUILDING_V110_CLASS.OFF_GRID;
