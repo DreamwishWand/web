@@ -130,3 +130,30 @@ The Community integrated-tree verifier now fails a fully integrated tree while t
 literal remains in the WEP production migration.
 
 This does not reopen the already-confirmed Scene reuse or ArtifactBlob retention runtime semantics.
+
+
+## WEP production bucket provisioning closure
+
+**CONFIRMED STATIC — CLOSED**
+
+Current WEP source no longer creates the staging Preset bucket from the production migration chain.
+
+Evidence:
+
+- production migration:
+  `supabase/migrations/20260930124055_wep_preset_artifact_storage_v0.sql`
+  SHA `099d7d4f6a653b1268596ab9a12d470e8b6760a2`;
+- known-staging bootstrap:
+  `supabase/staging/20260930124055_wep_preset_artifact_storage_bucket.sql`
+  SHA `e3af6f5d019365f4dfc507d27e37a0b6810e2b16`;
+- synced integrated-tree verifier:
+  SHA `006b02f70d2d99761a07f2eca62443e8609d720c`.
+
+The production migration preserves only the generic `preset_artifact_prepare` action-rate policy.
+Known staging bucket creation is isolated under `supabase/staging`.
+
+Runtime Edge bucket selection is unchanged and remains fail-closed outside known staging.
+
+This closes the WEP production migration provisioning blocker. It does **not** close the separate
+Release Operations gates for final integrated source composition, fresh-target migration replay,
+distinct production environment provisioning, backup/restore, secret rotation or production smoke.
