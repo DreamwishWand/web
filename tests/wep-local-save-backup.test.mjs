@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import {
   ORIGINAL_SAVE_BACKUP_CONTRACT,
@@ -61,4 +62,33 @@ test('original save backup refuses empty input', () => {
       }),
     /WEP_ORIGINAL_SAVE_BACKUP_BYTES_REQUIRED/
   );
+});
+
+const worldEditorPageSource = readFileSync(
+  new URL('../src/routes/editor/world/+page.svelte', import.meta.url),
+  'utf8'
+);
+
+test('raw save route keeps the generated original backup available after load state reset', () => {
+  const createIndex = worldEditorPageSource.indexOf(
+    'originalSaveBackup = createOriginalSaveBackup({'
+  );
+  const messageIndex = worldEditorPageSource.indexOf(
+    'DDV saveをローカルで読み込みました。schema',
+    createIndex
+  );
+
+  assert.notEqual(createIndex, -1);
+  assert.notEqual(messageIndex, -1);
+
+  const rawSaveStateBlock = worldEditorPageSource.slice(
+    createIndex,
+    messageIndex
+  );
+  assert.doesNotMatch(
+    rawSaveStateBlock,
+    /originalSaveBackup\s*=\s*null/
+  );
+  assert.match(rawSaveStateBlock, /copiedDraftClipboard\s*=\s*null/);
+  assert.match(rawSaveStateBlock, /clipboardPasteCount\s*=\s*0/);
 });
