@@ -1,6 +1,6 @@
 {
   "schema": "dreamwish-community-staging-operations-observation@1",
-  "observedAt": "2026-10-01T00:46:39Z",
+  "observedAt": "2026-10-01T00:52:56Z",
   "purpose": "secret-free staging evidence; not a production replay source",
   "project": {
     "ref": "ptpdoxhrqopvczpclcij",
@@ -144,11 +144,12 @@
     "stagingOnly": [
       {
         "slug": "community-auth-acceptance",
-        "version": 3,
+        "version": 5,
         "verifyJwt": false,
         "disabledStub": true,
         "httpStatus": 410,
-        "error": "STAGING_AUTH_ACCEPTANCE_DISABLED"
+        "error": "STAGING_AUTH_ACCEPTANCE_DISABLED",
+        "sha256": "4b3a3b0148f15dc3e0a0a973100f97e7341e6943d38012098c9ef1313f2e8612"
       },
       {
         "slug": "community-auth-e2e",
@@ -236,6 +237,9 @@
     "stagingMigrationHistoryIsProductionReplaySource": false,
     "secretsValuesCaptured": false,
     "latestRoadCommunityAcceptance": "PASS",
-    "latestRoadCommunityAcceptanceTemporaryHarnessRestored": true
+    "latestRoadCommunityAcceptanceTemporaryHarnessRestored": true,
+    "authProviderBoundary14_15": "PENDING",
+    "authBoundaryTemporaryHarnessExecuted": false,
+    "authBoundaryFixtureUsersRemaining": 0
   }
 }
