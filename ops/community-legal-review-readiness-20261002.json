@@ -16,7 +16,7 @@
   ],
   "externalDecisionsRequired": [
     "operator/legal entity and launch jurisdictions",
-    "minimum age/minors eligibility and any age assurance/parental consent",
+    "implementation of the approved 13+ independent-account boundary; under-13 parent/guardian-managed Community scope; age assurance/parental consent requirements by launch jurisdiction",
     "privacy notice/legal basis/data rights workflows",
     "processor DPA/subprocessor/cross-border transfer treatment",
     "Linked DDV Profile: review the Product-approved 7-day/no-normal-unlink lifecycle against launch-jurisdiction rights once DDV Core confirms the stable local identifier and verification transport",
@@ -46,7 +46,7 @@
   ],
   "legalApproved": false,
   "launchApproved": false,
-  "nextAction": "External Legal review remains required. Linked DDV Product semantics are fixed at 7 days, but stable identifier/verification transport, minors policy, launch jurisdictions and provider binding remain unresolved.",
+  "nextAction": "External Legal review remains required. Product age eligibility is fixed at 13+ for independent Wand Accounts, with under-13 accountless local use and parent/guardian-managed DDV Profile association allowed. Legal/Privacy must now resolve age-gate implementation, under-13 parent-managed Community participation, stable Linked DDV identifier/transport, launch jurisdictions and provider binding.",
   "providerDecision": {
     "status": "OWNER_APPROVED_FOR_RELEASE_STAGE",
     "supabasePlan": "PRO",
@@ -64,6 +64,18 @@
     "evidence": [
       "ops/community-linked-ddv-profile-product-decision-20261002.json",
       "docs/community/linked-ddv-profile-product-decision-20261002.md"
+    ]
+  },
+  "ageMinorsProductDecision": {
+    "status": "PRODUCT_APPROVED_PRIVACY_LEGAL_REVIEW_PENDING",
+    "minimumIndependentWandAccountAge": 13,
+    "under13IndependentRegistrationAllowed": false,
+    "accountlessLocalUseAllowed": true,
+    "parentGuardianManagedDdvProfileAssociationAllowed": true,
+    "separateUnder13WandCredentials": false,
+    "evidence": [
+      "ops/community-age-minors-product-decision-20261002.json",
+      "docs/community/age-minors-product-decision-20261002.md"
     ]
   }
 }
