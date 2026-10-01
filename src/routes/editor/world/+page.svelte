@@ -24,6 +24,9 @@
   } from '$lib/wep/canvas-runtime';
   import { openWorldSaveBytes } from '$lib/wep/world-save-source';
   import {
+    createOriginalSaveBackup
+  } from '$lib/wep/local-save-backup';
+  import {
     createSwitchWorldReadAdapter,
     projectSwitchAreaGrid
   } from '$lib/wep/world-browser-adapter';
@@ -112,6 +115,7 @@
   let draftValidation: any = null;
   let draftSavePreparation: any = null;
   let lastDraftCommand = '';
+  let originalSaveBackup: any = null;
   let copiedDraftClipboard: any = null;
   let clipboardPasteCount = 0;
   let roadFenceRootDraft: any = null;
@@ -1447,6 +1451,7 @@
     draftValidation = null;
     draftSavePreparation = null;
     lastDraftCommand = '';
+    originalSaveBackup = null;
     copiedDraftClipboard = null;
     clipboardPasteCount = 0;
 
@@ -1470,6 +1475,7 @@
         }
 
         worldSource = null;
+        originalSaveBackup = null;
         session = createEditorSession(normalized);
         editorDocument = session.getDocument();
         layerState = createLayerState({
@@ -1494,6 +1500,10 @@
         const opened = await openWorldSaveBytes(bytes, {
           sourcePlatform
         });
+        originalSaveBackup = createOriginalSaveBackup({
+          bytes,
+          sourceName: file.name
+        });
         if (opened.saveIdentity.sourcePlatform === 'switch') {
           buildingV110Binding ??=
             await createSwitchV125BuildingBinding({
@@ -1517,6 +1527,7 @@
         draftValidation = null;
         draftSavePreparation = null;
         lastDraftCommand = '';
+    originalSaveBackup = null;
     copiedDraftClipboard = null;
     clipboardPasteCount = 0;
 
@@ -1535,6 +1546,7 @@
       draftValidation = null;
       draftSavePreparation = null;
       lastDraftCommand = '';
+    originalSaveBackup = null;
     copiedDraftClipboard = null;
     clipboardPasteCount = 0;
       message = error instanceof Error ? error.message : String(error);
@@ -1882,6 +1894,23 @@
     rebuildFullDesignPlan();
     message =
       'Redo restored the draft model, selection, validation and Fence representation state together.';
+  }
+
+  function downloadOriginalSaveBackup() {
+    if (!originalSaveBackup) return;
+    const blob = new Blob(
+      [originalSaveBackup.bytes],
+      { type: originalSaveBackup.mimeType }
+    );
+    const href = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = href;
+    anchor.download = originalSaveBackup.fileName;
+    anchor.rel = 'noopener';
+    anchor.click();
+    URL.revokeObjectURL(href);
+    message =
+      'Original save backup downloaded byte-for-byte without serialization or DDV mutation.';
   }
 
   function reviewSavePreparation() {
@@ -2258,6 +2287,11 @@
               disabled={!session}
               on:click={reviewSavePreparation}
             >Review Save Prep</button>
+            <button
+              class="save-prep"
+              disabled={!originalSaveBackup}
+              on:click={downloadOriginalSaveBackup}
+            >Download Original Backup</button>
           </div>
         </div>
 
@@ -2286,6 +2320,14 @@
               {copiedDraftClipboard?.graph?.length
                 ? `${copiedDraftClipboard.graph.length} object graph`
                 : 'Empty'}
+            </strong>
+          </span>
+          <span>
+            Original backup
+            <strong>
+              {originalSaveBackup
+                ? `${originalSaveBackup.byteLength} bytes ready`
+                : 'Unavailable'}
             </strong>
           </span>
           <span>
@@ -2377,6 +2419,10 @@
           <span>{projected.length} visible</span>
           <span>
             Road / Fenceはcapability未接続時にlocked表示されます。
+          </span>
+          <span>
+            Original backup:
+            {originalSaveBackup ? 'byte-exact local download ready' : 'not loaded'}
           </span>
           <span>Persistent write: disabled</span>
         </div>
