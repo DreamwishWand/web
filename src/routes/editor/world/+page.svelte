@@ -1097,7 +1097,7 @@
     syncFencePostDraftFromDocument();
     rebuildFullDesignPlan();
     fencePostMessage =
-      `${label}: Core preflight PASS · Undo/Redo enabled · Scene Preset blocked until representation-layout portability is bound`;
+      `${label}: Core preflight PASS · Undo/Redo enabled · portable representation will be revalidated during Scene/full-design capture`;
   }
 
   function insertFencePostDraft() {
@@ -1638,6 +1638,8 @@
       layerState = null;
       fullDesignPlan = null;
       fullDesignPlanError = '';
+      fullDesignRootDocuments = [];
+      fullDesignSourceRootGridId = null;
       resetRoadFenceCapture();
       draftAuthoringBound = false;
       draftValidation = null;
