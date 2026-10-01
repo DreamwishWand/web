@@ -258,17 +258,45 @@ export function createDraftAwareNetworkCaptureAdapter(
       ) {
         assertWriteBoundary(container);
 
-        if (
-          kind === 'fences' &&
-          plain(container.representationLayoutModified)
-        ) {
-          const modifiedNetworkIds = Object.entries(
-            container.representationLayoutModified
-          )
-            .filter(([, modified]) => modified === true)
-            .map(([networkId]) => String(networkId))
-            .sort();
-          if (modifiedNetworkIds.length) {
+        if (kind === 'fences') {
+          const unresolvedRepresentationIds =
+            Array.from(
+              new Set([
+                ...(
+                  plain(
+                    container.representationLayoutModified
+                  )
+                    ? Object.entries(
+                        container.representationLayoutModified
+                      )
+                        .filter(
+                          ([, modified]) =>
+                            modified === true
+                        )
+                        .map(([networkId]) =>
+                          String(networkId)
+                        )
+                    : []
+                ),
+                ...(
+                  plain(
+                    container.representationLayoutInvalidated
+                  )
+                    ? Object.entries(
+                        container.representationLayoutInvalidated
+                      )
+                        .filter(
+                          ([, invalidated]) =>
+                            invalidated === true
+                        )
+                        .map(([networkId]) =>
+                          String(networkId)
+                        )
+                    : []
+                )
+              ])
+            ).sort();
+          if (unresolvedRepresentationIds.length) {
             return {
               status: 'blocked',
               code:
@@ -278,7 +306,8 @@ export function createDraftAwareNetworkCaptureAdapter(
                   severity: 'BLOCK' as const,
                   code:
                     'WEP_FENCE_REPRESENTATION_LAYOUT_PRESET_NOT_BOUND',
-                  networkIds: modifiedNetworkIds
+                  networkIds:
+                    unresolvedRepresentationIds
                 }
               ]
             };
@@ -682,24 +711,41 @@ export function createSwitchV125RoadFenceReaderBinding({
       if (kind === 'fences') {
         const representationLayouts: AnyRecord = {};
         const representationLayoutModified: AnyRecord = {};
+        const representationLayoutUnavailable: AnyRecord = {};
         for (const network of networks) {
           const networkId = String(network?.networkId ?? '');
           if (!networkId) continue;
-          const captured: AnyRecord =
-            captureFenceRepresentationModel(
-              networkId
-            ) as AnyRecord;
-          if (captured?.draft) {
-            assertWriteBoundary(captured.draft);
-            representationLayouts[networkId] =
-              clone(captured.draft);
-            representationLayoutModified[networkId] = false;
+          try {
+            const captured: AnyRecord =
+              captureFenceRepresentationModel(
+                networkId
+              ) as AnyRecord;
+            if (captured?.draft) {
+              assertWriteBoundary(captured.draft);
+              representationLayouts[networkId] =
+                clone(captured.draft);
+              representationLayoutModified[networkId] =
+                false;
+            } else {
+              representationLayoutUnavailable[networkId] =
+                String(
+                  captured?.code ??
+                    'WEP_FENCE_POST_DRAFT_UNAVAILABLE'
+                );
+            }
+          } catch (error) {
+            representationLayoutUnavailable[networkId] =
+              error instanceof Error
+                ? error.message
+                : String(error);
           }
         }
         container.representationLayouts =
           representationLayouts;
         container.representationLayoutModified =
           representationLayoutModified;
+        container.representationLayoutUnavailable =
+          representationLayoutUnavailable;
       }
 
       return container;
