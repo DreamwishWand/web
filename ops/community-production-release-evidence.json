@@ -521,19 +521,28 @@
     },
     "qaReleaseEvidence": "ops/community-qa-release-evidence-20261002.json",
     "linkedDdvProfileLifecycle": {
-      "productStatus": "APPROVED",
-      "maxLinkedProfiles": 3,
-      "normalSelfServiceUnlink": false,
-      "exceptionalCorrection": "RECENT_AUTH_SUPPORT_ADMIN_REVIEW_REASON_AUDIT",
-      "tombstoneDays": 7,
-      "rawVerificationEvidencePersistent": false,
-      "stableLocalProfileIdentifier": "UNRESOLVED_FAIL_CLOSED",
-      "implementationStatus": "BLOCKED_ON_DDV_CORE_STABLE_IDENTIFIER",
+      "productStatus": "APPROVED_PROFILE_WORKSPACE_MODEL",
+      "maxRetainedWorkspaces": 5,
+      "capacityCounts": "ACTIVE_AND_ARCHIVED_COMBINED",
+      "archiveFreesSlot": false,
+      "deletionFreesSlot": true,
+      "optionalPlayerIdAssociation": true,
+      "normalSelfServiceUnlink": true,
+      "unlinkDeletesWorkspace": false,
+      "sameAccountDuplicateIdentityAssociation": false,
+      "crossAccountSameIdentityAssociation": true,
+      "rawPlayerIdPersistent": false,
+      "digestStorage": "private.ddv_identity_associations.binding_key_hash",
+      "stagingDbLifecycle": "CLOSED_RUNTIME_PASS",
+      "edgeDeployment": "community-command v20 / community-query v9",
+      "liveRawPlayerIdEdgeE2E": "PENDING_STAGING_HMAC_SECRET_CONFIGURATION",
       "privacyApproval": "PENDING",
       "legalApproval": "PENDING",
       "evidence": [
         "ops/community-linked-ddv-profile-product-decision-20261002.json",
-        "docs/community/linked-ddv-profile-product-decision-20261002.md"
+        "ops/community-linked-ddv-profile-identity-transport-20261002.json",
+        "ops/community-linked-ddv-profile-lifecycle-runtime-20261002.json",
+        "docs/community/linked-ddv-profile-lifecycle-runtime-20261002.md"
       ]
     }
   }
