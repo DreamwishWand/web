@@ -685,8 +685,10 @@ export function createSwitchV125RoadFenceReaderBinding({
         for (const network of networks) {
           const networkId = String(network?.networkId ?? '');
           if (!networkId) continue;
-          const captured =
-            captureFenceRepresentationModel(networkId);
+          const captured: AnyRecord =
+            captureFenceRepresentationModel(
+              networkId
+            ) as AnyRecord;
           if (captured?.draft) {
             assertWriteBoundary(captured.draft);
             representationLayouts[networkId] =
