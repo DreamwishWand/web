@@ -18,6 +18,13 @@ export const BUILDING_V111_PROJECTION_SHA256 =
 export const BUILDING_V111_PROJECTION_SCHEMA =
   'ddv.building-classification-projection@1';
 
+export const BUILDING_V110_CLASS = Object.freeze({
+  ORDINARY: 'ORDINARY_GRID_BUILDING',
+  SPECIAL: 'SPECIAL_GRID_BUILDING',
+  OFF_GRID: 'OFF_GRID_BUILDING',
+  UNKNOWN: 'UNKNOWN_BUILDING_SEMANTICS'
+});
+
 const BUILDING_V111_TYPE_CODE:Record<string,string> = Object.freeze({
   H: 'House',
   S: 'Stall',
@@ -32,13 +39,6 @@ const BUILDING_V111_CLASS_CODE:Record<string,string> = Object.freeze({
   S: BUILDING_V110_CLASS.SPECIAL,
   X: BUILDING_V110_CLASS.OFF_GRID,
   U: BUILDING_V110_CLASS.UNKNOWN
-});
-
-export const BUILDING_V110_CLASS = Object.freeze({
-  ORDINARY: 'ORDINARY_GRID_BUILDING',
-  SPECIAL: 'SPECIAL_GRID_BUILDING',
-  OFF_GRID: 'OFF_GRID_BUILDING',
-  UNKNOWN: 'UNKNOWN_BUILDING_SEMANTICS'
 });
 
 export type BuildingV110Binding = ReturnType<
