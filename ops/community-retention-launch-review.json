@@ -64,5 +64,18 @@
       "status": "PENDING"
     }
   ],
-  "launchApproved": false
+  "launchApproved": false,
+  "engineeringClosure": {
+    "implementation": "CONFIRMED",
+    "runtimeEvidence": "CONFIRMED",
+    "decisionBoundary": "CLOSED",
+    "plumbingReimplementationRequired": false,
+    "plumbingRerunRequiredBeforeApproval": false
+  },
+  "approvalStateContract": "ops/community-retention-approval-state.json",
+  "approvals": {
+    "product": "PENDING",
+    "privacy": "PENDING",
+    "legal": "PENDING"
+  }
 }
