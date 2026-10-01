@@ -22,7 +22,9 @@ const commandToRpc = {
   moderateWork: 'community_moderate_work_v2',
   retryDeadLetter: 'community_retry_dead_letter_outbox',
   revokeSessions: 'community_revoke_wand_sessions',
-  linkDdvProfile: 'community_link_ddv_profile_v1'
+  createDdvProfileWorkspace: 'community_create_ddv_profile_workspace_v1',
+  associateDdvIdentity: 'community_associate_ddv_identity_v1',
+  unlinkDdvIdentity: 'community_unlink_ddv_identity_v1'
 } as const;
 
 type CommandName = keyof typeof commandToRpc;
@@ -43,7 +45,9 @@ const commandToRateBucket: Partial<Record<CommandName, string>> = {
   unpublishWork: 'gallery_write',
   deleteWork: 'gallery_write',
   moderateWork: 'moderation_write',
-  linkDdvProfile: 'ddv_profile_link'
+  createDdvProfileWorkspace: 'ddv_profile_link',
+  associateDdvIdentity: 'ddv_profile_link',
+  unlinkDdvIdentity: 'ddv_profile_link'
 };
 
 const textEncoder = new TextEncoder();
@@ -52,12 +56,7 @@ function bytesToHex(bytes: ArrayBuffer): string {
   return Array.from(new Uint8Array(bytes), (value) => value.toString(16).padStart(2, '0')).join('');
 }
 
-async function deriveDdvProfileBindingDigest(playerId: string): Promise<string> {
-  const linkMode = Deno.env.get('COMMUNITY_DDV_PROFILE_LINK_MODE')?.trim() ?? 'disabled';
-  if (linkMode !== 'local-player-id') {
-    throw new Error('DDV_PROFILE_LINK_DISABLED');
-  }
-
+async function deriveDdvIdentityDigest(playerId: string): Promise<string> {
   const secret = Deno.env.get('COMMUNITY_DDV_PROFILE_BINDING_KEY_V1') ?? '';
   if (secret.length < 32) {
     throw new Error('DDV_PROFILE_BINDING_KEY_UNAVAILABLE');
@@ -268,32 +267,34 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         params.p_outbox_id = payload.outboxId;
         params.p_reason = payload.reason;
         break;
-      case 'linkDdvProfile': {
-        if (!sessionId) {
-          return reply({ ok: false, error: 'JWT session-id claim missing' }, 401);
+      case 'createDdvProfileWorkspace':
+        params.p_relationship_kind = payload.relationshipKind ?? 'self';
+        break;
+      case 'associateDdvIdentity': {
+        if (typeof payload.workspaceId !== 'string' || payload.workspaceId.length === 0) {
+          return reply({ ok: false, error: 'workspaceId required' }, 400);
         }
-
         const playerId = typeof payload.playerId === 'string' ? payload.playerId : '';
         let bindingDigest: string;
         try {
-          bindingDigest = await deriveDdvProfileBindingDigest(playerId);
+          bindingDigest = await deriveDdvIdentityDigest(playerId);
         } catch (error) {
-          const message = error instanceof Error ? error.message : 'DDV_PROFILE_LINK_FAILED';
-          if (message === 'DDV_PROFILE_LINK_DISABLED') {
-            return reply({ ok: false, error: message }, 503);
-          }
+          const message = error instanceof Error ? error.message : 'DDV_IDENTITY_ASSOCIATION_FAILED';
           if (message === 'DDV_PROFILE_BINDING_KEY_UNAVAILABLE') {
             return reply({ ok: false, error: message }, 500);
           }
           return reply({ ok: false, error: 'INVALID_DDV_PLAYER_ID' }, 400);
         }
-
-        params.p_session_id = sessionId;
-        params.p_issued_at_epoch = issuedAt;
+        params.p_workspace_id = payload.workspaceId;
         params.p_binding_key_hash = bindingDigest;
-        params.p_relationship_kind = payload.relationshipKind ?? 'self';
         break;
       }
+      case 'unlinkDdvIdentity':
+        if (typeof payload.workspaceId !== 'string' || payload.workspaceId.length === 0) {
+          return reply({ ok: false, error: 'workspaceId required' }, 400);
+        }
+        params.p_workspace_id = payload.workspaceId;
+        break;
       case 'revokeSessions':
         break;
     }
@@ -303,12 +304,13 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       const conflict =
         error.message.includes('Row version conflict') ||
         error.message.includes('Idempotency key reused') ||
-        error.message.includes('DDV_PROFILE_ALREADY_LINKED') ||
-        error.message.includes('DDV_PROFILE_COOLDOWN_ACTIVE') ||
-        error.message.includes('A Wand Account may link at most three DDV Profiles');
+        error.message.includes('DDV_PROFILE_WORKSPACE_LIMIT_REACHED') ||
+        error.message.includes('DDV_IDENTITY_ASSOCIATION_EXISTS') ||
+        error.message.includes('DDV_IDENTITY_ALREADY_ASSOCIATED_IN_ACCOUNT');
       const recentAuth = error.message.includes('Recent authentication required');
       const forbidden =
         recentAuth ||
+        error.message.includes('DDV Profile Workspace not found') ||
         error.message.includes('does not own') ||
         error.message.includes('not accessible') ||
         error.message.includes('not active') ||
