@@ -210,21 +210,40 @@
   function networkContainer(kind: 'road' | 'fence') {
     const key = kind === 'road' ? 'roads' : 'fences';
     const current = editorDocument?.networks?.[key];
-    return current
-      ? cloneLocal(current)
-      : {
-          schema: 'dreamwish-wand-wep-network-capture',
-          version: 1,
-          kind: key,
-          originPolicy: 'root-grid-top-left',
-          networks: [],
-          normalization: {
-            sourceGridObjectIdsRemoved: true,
-            artifactNetworkIdsLocal: true,
-            partialTopologyFailsClosed: true
-          },
-          persistentWriteAuthorized: false
-        };
+    if (current) return cloneLocal(current);
+
+    if (editorDocument?.target?.platform === 'Nintendo Switch') {
+      return {
+        schema: 'dreamwish-wand-wep-roadfence-logical-root-draft',
+        version: 1,
+        kind: key,
+        originPolicy: 'native-logical-root',
+        coordinatePolicy: 'per-network-reader-coordinate-space',
+        networks: [],
+        normalization: {
+          sourceGridObjectIdsRemoved: true,
+          sourceReaderProvenanceRemoved: true,
+          logicalCoordinatesPreserved: true,
+          coordinateSpacePreserved: true,
+          partialTopologyFailsClosed: true
+        },
+        persistentWriteAuthorized: false
+      };
+    }
+
+    return {
+      schema: 'dreamwish-wand-wep-network-capture',
+      version: 1,
+      kind: key,
+      originPolicy: 'root-grid-top-left',
+      networks: [],
+      normalization: {
+        sourceGridObjectIdsRemoved: true,
+        artifactNetworkIdsLocal: true,
+        partialTopologyFailsClosed: true
+      },
+      persistentWriteAuthorized: false
+    };
   }
 
   function roadFenceNetworks(kind: 'road' | 'fence' = rfKind) {
@@ -306,6 +325,31 @@
       rfSeedX = Number(cell?.x ?? 0);
       rfSeedY = Number(cell?.y ?? 0);
     }
+  }
+
+  function roadFenceCoordinateSpaceForDraw(
+    kind: 'road' | 'fence',
+    familyBaseItemID: number
+  ) {
+    const matching = roadFenceNetworks(kind).find(
+      (network: any) =>
+        Number(network.familyBaseItemID) === familyBaseItemID &&
+        network.coordinateSpace
+    );
+    if (matching?.coordinateSpace) {
+      return cloneLocal(matching.coordinateSpace);
+    }
+
+    if (editorDocument?.target?.platform === 'synthetic') {
+      return {
+        unit: kind === 'road' ? 'road-cell' : 'fence-logical-unit',
+        savePitch: 1,
+        saveResidueX: 0,
+        saveResidueY: 0
+      };
+    }
+
+    throw new Error('WEP_ROADFENCE_DRAFT_LATTICE_UNRESOLVED');
   }
 
   function parseRfPoints() {
@@ -412,18 +456,35 @@
             : previewFencePolyline(points, rfMode);
       }
 
+      const coordinateSpace =
+        roadFenceCoordinateSpaceForDraw(
+          rfKind,
+          familyBaseItemID
+        );
       const network =
         rfKind === 'road'
           ? {
               networkId,
+              kind: 'road',
               familyBaseItemID,
-              cells: cloneLocal(preview.cells ?? [])
+              coordinateSpace,
+              cells: cloneLocal(preview.cells ?? []),
+              logicalQuantity: Number(
+                preview.cells?.length ?? 0
+              ),
+              persistentWriteAuthorized: false
             }
           : {
               networkId,
+              kind: 'fence',
               familyBaseItemID,
               mode: rfMode,
-              graph: cloneLocal(preview.graph ?? {})
+              coordinateSpace,
+              graph: cloneLocal(preview.graph ?? {}),
+              logicalQuantity: Number(
+                preview.graph?.nodes?.length ?? 0
+              ),
+              persistentWriteAuthorized: false
             };
       const validation = {
         ok:
