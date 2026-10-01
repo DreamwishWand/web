@@ -1527,9 +1527,8 @@
         draftValidation = null;
         draftSavePreparation = null;
         lastDraftCommand = '';
-    originalSaveBackup = null;
-    copiedDraftClipboard = null;
-    clipboardPasteCount = 0;
+        copiedDraftClipboard = null;
+        clipboardPasteCount = 0;
 
         message =
           `DDV saveをローカルで読み込みました。schema ${opened.profileSchemaVersion} / ${opened.areas.length} Areas。Canvasでroot Gridを開くとCore-bound local draft authoringを利用できます。exact buildはsave単体から証明せず、persistent writeは無効です。`;
