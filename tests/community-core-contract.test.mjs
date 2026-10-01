@@ -2019,3 +2019,51 @@ test('WEP Preset bucket externalization is production-safe and staging-compatibl
   assert.match(blocker?.evidence ?? '', /wep-preset-artifact v14/);
   assert.match(blocker?.evidence ?? '', /wep-preset-retention v6/);
 });
+
+
+test('final integrated production-tree guard preserves Community replay fixes', () => {
+  const evidence = JSON.parse(
+    read('ops/community-integration-merge-risk-20261001.json')
+  );
+  const script = read(
+    'scripts/verify-community-integrated-production-tree.mjs'
+  );
+  const pkg = JSON.parse(read('package.json'));
+
+  assert.equal(evidence.schema, 'dreamwish-community-integration-merge-risk@1');
+  assert.equal(evidence.branchRelationship.status, 'diverged');
+  assert.equal(
+    evidence.branchRelationship.mergeBase,
+    'cfda06eb904544bbfa5286c4eb61b5856dd3ea51'
+  );
+
+  const obsolete = evidence.confirmedIntegrationHazards.find(
+    (item) => item.id === 'OBSOLETE_SUPPORT_RECOVERY_PREFIX'
+  );
+  assert.match(obsolete.wepPath, /20260930081500_/);
+  assert.match(obsolete.canonicalPath, /20260930081600_/);
+
+  const stagingSql = evidence.confirmedIntegrationHazards.find(
+    (item) => item.id === 'STAGING_PG_NET_IN_PRODUCTION_CHAIN'
+  );
+  assert.equal(stagingSql.obsoletePaths.length, 2);
+  assert.equal(stagingSql.canonicalDirectory, 'supabase/staging');
+
+  const wepDelta = evidence.confirmedIntegrationHazards.find(
+    (item) => item.id === 'WEP_PRESET_PRODUCTION_DELTA'
+  );
+  assert.equal(wepDelta.requiredPaths.length, 6);
+
+  assert.match(script, /Partial WEP production integration is unsafe/);
+  assert.match(script, /20260930081600_community_core_v0_support_recovery_verification/);
+  assert.match(script, /20260930081500_community_core_v0_support_recovery_verification/);
+  assert.match(script, /WEP_PRESET_ARTIFACT_BUCKET_REQUIRED_OUTSIDE_KNOWN_STAGING/);
+  assert.match(script, /WEP_PRESET_ARTIFACT_BUCKET_STAGING_FORBIDDEN_OUTSIDE_KNOWN_STAGING/);
+  assert.match(script, /final-integrated-main/);
+  assert.match(script, /--require-ready/);
+
+  assert.equal(
+    pkg.scripts['verify:community-integrated-tree'],
+    'node scripts/verify-community-integrated-production-tree.mjs'
+  );
+});
