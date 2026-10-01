@@ -2755,3 +2755,54 @@ test('Privacy provider selection is closed but launch binding remains pending', 
   assert.equal(privacy.approval.privacy, 'PENDING');
   assert.equal(privacy.approval.legal, 'PENDING');
 });
+
+
+test('Linked DDV Product lifecycle uses seven-day tombstone and remains fail-closed on identifier', () => {
+  const decision = JSON.parse(read('ops/community-linked-ddv-profile-product-decision-20261002.json'));
+  const privacy = JSON.parse(read('ops/community-privacy-review-readiness-20261002.json'));
+  const release = JSON.parse(read('ops/community-production-release-evidence.json'));
+  const qr = JSON.parse(read('ops/community-qa-release-evidence-20261002.json'));
+
+  assert.equal(decision.productApproved, true);
+  assert.equal(decision.maxLinkedProfilesPerWandAccount, 3);
+  assert.equal(decision.normalSelfServiceUnlink, false);
+  assert.equal(decision.exceptionalCorrection.allowed, true);
+  assert.equal(decision.exceptionalCorrection.oldProfileCooldownDays, 7);
+  assert.equal(decision.accountDeletion.bindingDigestTombstoneDays, 7);
+  assert.equal(decision.accountDeletion.relinkAfterTombstoneExpiryAllowed, true);
+  assert.equal(decision.verification.rawSavePersistentStorage, false);
+  assert.equal(decision.verification.rawEvidencePersistentStorage, false);
+  assert.equal(
+    decision.verification.stableLocalProfileIdentifier.status,
+    'UNRESOLVED_FAIL_CLOSED'
+  );
+  assert.equal(decision.bindingDigest.rawIdentifierStored, false);
+  assert.equal(
+    decision.engineeringBoundary.linkedProfileLifecycleImplementationAuthorizedOnlyAfterStableIdentifierConfirmation,
+    true
+  );
+
+  const p1 = privacy.openDecisions.find(
+    (item) => item.id === 'P1_LINKED_DDV_PROFILE_ORPHAN_MINIMIZATION'
+  );
+  assert.equal(p1.productDecision, 'APPROVED_7_DAY_TOMBSTONE');
+  assert.equal(
+    p1.engineeringAction,
+    'BLOCKED_ON_DDV_CORE_STABLE_IDENTIFIER_CONFIRMATION'
+  );
+
+  assert.equal(
+    release.currentObservations.linkedDdvProfileLifecycle.tombstoneDays,
+    7
+  );
+  assert.equal(
+    release.currentObservations.linkedDdvProfileLifecycle.stableLocalProfileIdentifier,
+    'UNRESOLVED_FAIL_CLOSED'
+  );
+
+  const closed = new Map(qr.closed.map((item) => [item.id, item]));
+  assert.equal(
+    closed.get('LINKED_DDV_PROFILE_PRODUCT_LIFECYCLE')?.state,
+    'CLOSED_PRODUCT_APPROVED_IMPLEMENTATION_DEPENDENCY_OPEN'
+  );
+});
