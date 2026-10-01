@@ -4,6 +4,7 @@ import path from 'node:path';
 const root = process.cwd();
 const manifestPath = path.join(root, 'ops/community-production-operations.json');
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+const migrationDir = path.join(root, 'supabase/migrations');
 
 const errors = [];
 const assert = (condition, message) => {
@@ -86,6 +87,24 @@ for (const name of [
   'community-operations-escalation-every-minute'
 ]) {
   assert(requiredJobs.has(name), `Missing required scheduled job: ${name}`);
+}
+
+const migrationFiles = fs
+  .readdirSync(migrationDir)
+  .filter((name) => name.endsWith('.sql'))
+  .sort();
+const migrationVersions = new Map();
+for (const name of migrationFiles) {
+  const match = name.match(/^(\d+)_/);
+  assert(Boolean(match), `Migration filename must begin with a numeric version: ${name}`);
+  if (!match) continue;
+  const peers = migrationVersions.get(match[1]) ?? [];
+  peers.push(name);
+  migrationVersions.set(match[1], peers);
+  assert(!/_staging_|community_staging/i.test(name), `Staging-only migration found in production chain: ${name}`);
+}
+for (const [version, names] of migrationVersions) {
+  assert(names.length === 1, `Duplicate migration version ${version}: ${names.join(', ')}`);
 }
 
 if (process.argv.includes('--require-ready')) {
