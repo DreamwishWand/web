@@ -137,9 +137,9 @@ test('readonly and network objects cannot masquerade as ordinary roots', () => {
 });
 
 test('authoritative root bounds fail closed when Capture Region exceeds GridData extent', () => {
-  const document = baseDocument();
-  document.metadata = {
-    ...(document.metadata ?? {}),
+  const input = document();
+  input.metadata = {
+    ...(input.metadata ?? {}),
     rootGridBounds: {
       x: 0,
       y: 0,
@@ -150,9 +150,9 @@ test('authoritative root bounds fail closed when Capture Region exceeds GridData
   };
 
   const result = captureScenePreset(
-    document,
+    input,
     {
-      selectionIds: ['root-a'],
+      selectionIds: ['g7:o100'],
       captureRegion: { x: 7, y: 7, w: 2, h: 2 }
     },
     validatePublishablePreset
