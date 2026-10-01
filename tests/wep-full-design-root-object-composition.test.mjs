@@ -363,6 +363,7 @@ test('destination preflight binds routes but fails closed when authoritative bou
     placementValidated: false,
     placementPolicyReady: false,
     placementBlocker: 'AUTHORITATIVE_GRIDDATAPATH_BOUNDS_NOT_BOUND',
+    ddvWriteAuthorized: false,
     persistentWriteAuthorized: false
   });
   assert.equal(
