@@ -1,1 +1,0 @@
--- Used by staging Auth E2E and available for future asynchronous integrations.\ncreate extension if not exists pg_net;\n
