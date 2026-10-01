@@ -88,16 +88,16 @@
         "One Wand Account may retain at most five Workspaces across active + archived states; archive does not free capacity and deletion does.",
         "Self-service identity unlink preserves the Workspace; Workspace deletion requires explicit destructive confirmation.",
         "Rollback runtime verified five-slot capacity, archive behavior, same-account duplicate rejection, cross-account reuse, unlink, delete, slot reuse and account-deletion cleanup with zero fixture residue.",
-        "community-command v20 and community-query v9 are deployed on staging.",
+        "community-command v20 and community-query v10 are deployed on staging and match the current branch source.",
         "ops/community-linked-ddv-profile-lifecycle-runtime-20261002.json",
         "docs/community/linked-ddv-profile-lifecycle-runtime-20261002.md"
       ],
       "requiredDecision": [
         "Privacy/Legal: review transient Player ID transport and pseudonymous cross-context linkability.",
         "Privacy/Legal: confirm final correction/deletion disclosure for optional DDV identity association and Profile Workspace data.",
-        "Live staging raw-Player-ID Edge E2E remains an engineering acceptance item once the staging HMAC secret is configured; it is not an owner Product decision."
+        "Live staging raw-Player-ID Edge E2E remains an engineering acceptance item once the staging HMAC secret can be verified through an authenticated runtime request; it is not an owner Product decision."
       ],
-      "engineeringAction": "STAGING_WORKSPACE_LIFECYCLE_CLOSED__LIVE_IDENTITY_EDGE_E2E_PENDING_SECRET__PRIVACY_LEGAL_REVIEW_PENDING",
+      "engineeringAction": "STAGING_WORKSPACE_LIFECYCLE_AND_EDGE_SOURCE_ALIGNMENT_CLOSED__LIVE_IDENTITY_EDGE_E2E_PENDING_SECRET_RUNTIME_VERIFICATION__PRIVACY_LEGAL_REVIEW_PENDING",
       "productDecision": "APPROVED_OPTIONAL_NONEXCLUSIVE_PROFILE_WORKSPACE_ASSOCIATION",
       "decisionRecord": "ops/community-linked-ddv-profile-identity-transport-20261002.json"
     },
@@ -245,5 +245,5 @@
   ],
   "engineeringConclusion": "NO_RETENTION_ENGINEERING_CHANGE_REQUIRED_AT_THIS_STAGE",
   "privacyApprovalReady": false,
-  "nextAction": "Profile Workspace Product and staging lifecycle decisions are closed. Complete live identity-association Edge E2E when the staging HMAC secret is configured, while Privacy/Legal review the optional identifier transport/correction boundary and age/minors Community scope."
+  "nextAction": "Profile Workspace Product, staging DB lifecycle, and Edge source alignment are closed. Complete live identity-association Edge E2E when the staging HMAC secret can be verified through an authenticated runtime request, while Privacy/Legal review the optional identifier transport/correction boundary and age/minors Community scope."
 }
