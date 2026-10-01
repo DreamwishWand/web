@@ -6,7 +6,6 @@
   "productionProjectRef": null,
   "sourceControl": {
     "requiredReplaySource": "final-integrated-main",
-    "currentCommunityHead": "8a25e6cf99e00ca56f3bd359d5560a2e6859c1c3",
     "currentWepObservedHead": "424116bba04be06454db32a422afaeba6e2b0044",
     "mergeBase": "cfda06eb904544bbfa5286c4eb61b5856dd3ea51",
     "currentState": "BRANCHES_DIVERGED_FINAL_INTEGRATED_TREE_NOT_BUILT",
@@ -22,7 +21,9 @@
         "WEP blocker messages",
         "WEP Road/Fence authoring"
       ]
-    }
+    },
+    "reviewBaseCommunityHead": "8a25e6cf99e00ca56f3bd359d5560a2e6859c1c3",
+    "note": "Community head above is the review base before this readiness documentation series; final production replay must pin a later accepted final-integrated-main commit and must not infer a live branch head from this field."
   },
   "phase0FinalIntegratedTree": {
     "status": "PREPARED_CROSS_STREAM_PENDING",
