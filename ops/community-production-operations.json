@@ -129,7 +129,8 @@
     "productionReplaySource": "final-integrated-main",
     "communityBranchAloneIsNotProductionComplete": true,
     "wepBranchHead": "c396413dc349829bc91f89b397321de38b55a3ba",
-    "wepPresetArtifactBucketContract": "CLOSED"
+    "wepPresetArtifactBucketContract": "CLOSED",
+    "wepMigrationBaselineConsistency": "CONFIRMED_STATIC"
   },
   "crossStreamBlockers": [
     {
@@ -138,6 +139,13 @@
       "state": "CLOSED",
       "evidence": "dev/wep-v125@c396413dc349829bc91f89b397321de38b55a3ba; staging wep-preset-artifact v14 / wep-preset-retention v6",
       "detail": "Both WEP Preset Edge functions use the shared environment-aware resolver. Non-staging requires WEP_PRESET_ARTIFACT_BUCKET and rejects wand-preset-artifacts-staging; known staging may retain the existing private staging bucket without configuration."
+    },
+    {
+      "id": "WEP_PRESET_ARTIFACT_BUCKET_PRODUCTION_MIGRATION",
+      "owner": "02 WEP",
+      "state": "CLOSED",
+      "evidence": "supabase/migrations/20260930124055_wep_preset_artifact_storage_v0.sql no longer creates staging bucket; staging bootstrap moved to supabase/staging/20260930124055_wep_preset_artifact_storage_bucket.sql",
+      "detail": "Production migration preserves preset_artifact_prepare rate policy only. Known staging bucket bootstrap is staging-only; production must provision WEP_PRESET_ARTIFACT_BUCKET separately."
     }
   ],
   "privacyRetentionReview": {
