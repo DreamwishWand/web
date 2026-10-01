@@ -952,12 +952,12 @@ export function applyFenceRepresentationLayoutOperation(
   }
 
   const semanticIds = new Set(
-    sourceValidation.semanticAnchors.map((entry: AnyRecord) =>
+    (sourceValidation.semanticAnchors ?? []).map((entry: AnyRecord) =>
       String(entry.nodeId)
     )
   );
   const nodeRuns = new Map<string, AnyRecord>();
-  for (const run of sourceValidation.runs) {
+  for (const run of sourceValidation.runs ?? []) {
     for (let i = 1; i < run.nodeIds.length - 1; i += 1) {
       nodeRuns.set(String(run.nodeIds[i]), run);
     }
