@@ -7,6 +7,7 @@ import {
   previewFencePolyline,
   previewFenceRectangleOutline,
   previewFenceSegmentDelete,
+  previewRoadCellDelete,
   previewRoadPolyline,
   previewRoadRectangleOutline
 } from '../src/lib/wep/roadfence-authoring-contract.ts';
@@ -90,5 +91,21 @@ test('Fence segment delete is a topology-changing preview and invalidates repres
   assert.equal(deleted.operationLayer, 'logicalTopology');
   assert.equal(deleted.topologyChanged, true);
   assert.equal(deleted.representationLayoutInvalidated, true);
+  assert.equal(deleted.persistentWriteAuthorized, false);
+});
+
+
+test('Road cell delete stays a topology-only preview with writer disabled', () => {
+  const road = previewRoadPolyline([
+    { x: 0, y: 0 },
+    { x: 4, y: 0 }
+  ]);
+  const deleted = previewRoadCellDelete({
+    cells: road.cells,
+    coordinates: [{ x: 2, y: 0 }]
+  });
+  assert.equal(deleted.topologyChanged, true);
+  assert.equal(deleted.logicalQuantity, road.cells.length - 1);
+  assert.equal(deleted.operationLayer, 'logicalTopology');
   assert.equal(deleted.persistentWriteAuthorized, false);
 });
