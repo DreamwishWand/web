@@ -96,6 +96,17 @@
         "parentGuardianManagedDdvProfileAssociationAllowed": true,
         "separateUnder13WandCredentials": false
       }
+    },
+    {
+      "id": "DDV_PROFILE_IDENTIFIER_SOURCE",
+      "state": "CLOSED_CONFIRMED",
+      "evidence": [
+        "ops/community-linked-ddv-profile-core-identifier-gate-20261002.json"
+      ],
+      "decision": {
+        "sourceField": "GameInfo.LastCustomIdOwner",
+        "semanticName": "DDV Player ID / User ID"
+      }
     }
   ],
   "reviewPending": [
@@ -145,7 +156,7 @@
     },
     {
       "id": "LINKED_DDV_PROFILE_LIFECYCLE",
-      "state": "PRODUCT_CONTRACT_CLOSED__CORE_IDENTIFIER_AND_PRIVACY_LEGAL_REVIEW_PENDING",
+      "state": "IDENTITY_SOURCE_CLOSED__IMPLEMENTATION_AND_PRIVACY_LEGAL_REVIEW_PENDING",
       "evidence": [
         "ops/community-privacy-review-readiness-20261002.json",
         "docs/community/privacy-review-readiness-20261002.md",
@@ -162,7 +173,7 @@
         "No confirmed stable local DDV Profile identifier exists in DDV Core yet.",
         "DDV_CORE_INTEGRATION_CURRENT was rechecked after the Age/minors Product decision; no Integrator-promoted stable local DDV Profile identifier contract was found."
       ],
-      "qrInstruction": "Product semantics are closed. Community Core has issued an explicit DDV Core identifier acceptance request; keep link/verify fail-closed until an Integrator-promoted stable local identifier exists, then require Privacy/Legal review of identifier/linkability and final verification transport before targeted Community implementation/acceptance."
+      "qrInstruction": "Treat stable DDV Profile identity source as closed. Keep targeted implementation/acceptance and Privacy/Legal review open."
     }
   ],
   "crossStreamPending": [
@@ -226,5 +237,5 @@
     "rate-limit runtime"
   ],
   "launchReady": false,
-  "instructionToQR": "Consume age/minors Product eligibility as CLOSED_PRODUCT_APPROVED: independent Wand Account minimum age 13; under-13 independent registration prohibited; accountless local use and parent/guardian-managed DDV Profile association allowed. Keep Privacy/Legal implementation/scope review, stable profile identifier, final integration, provisioning and all production runtime gates OPEN; do not infer launch PASS."
+  "instructionToQR": "Treat DDV Profile identity source as CLOSED_CONFIRMED using GameInfo.LastCustomIdOwner. Keep targeted implementation/acceptance, Privacy/Legal review, final integration and production runtime gates OPEN."
 }
