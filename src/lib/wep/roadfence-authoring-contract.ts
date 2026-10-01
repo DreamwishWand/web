@@ -85,10 +85,13 @@ function clone<T>(value:T):T {
 }
 
 function assertReadModel(result:AnyRecord) {
-  if (!result || result.persistentWriteAuthorized !== false) {
+  if (!result || result.persistentWriteAuthorized === true) {
     throw new Error('WEP_ROADFENCE_AUTHORING_WRITE_BOUNDARY_VIOLATION');
   }
-  return clone(result);
+  return {
+    ...clone(result),
+    persistentWriteAuthorized: false
+  };
 }
 
 export function previewRoadPolyline(controlPoints:AnyRecord[]) {
