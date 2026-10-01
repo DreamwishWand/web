@@ -122,10 +122,26 @@
     }
   },
   "approvalState": {
-    "product": "PENDING_EXPLICIT_APPROVAL",
+    "product": "APPROVED",
     "privacy": "PENDING_EXPLICIT_APPROVAL",
     "legal": "PENDING_EXPLICIT_APPROVAL",
     "launchApproved": false
   },
-  "nextAction": "Obtain explicit Product/Privacy/Legal approvals or requested changes. D6-D8 design/disclosure contracts are prepared; production provider binding and final reviewed user-facing wording remain pending."
+  "nextAction": "Product approval is complete. Obtain explicit Privacy and Legal approvals or requested changes; then run one final policy/configuration regression before launch readiness.",
+  "productApproval": {
+    "status": "APPROVED",
+    "approvedAt": "2026-10-02",
+    "formalDecisionIds": [
+      "D1_CONTENT_PAYLOAD_DURATION",
+      "D2_OPERATIONAL_DETAIL_DURATION",
+      "D3_USER_FACING_DELETION_PROMISE",
+      "D4_RETENTION_HOLD_POLICY",
+      "D5_STRUCTURAL_TOMBSTONE_POLICY",
+      "D6_BACKUP_COPY_RETENTION",
+      "D8_POLICY_DISCLOSURE_AND_ACCEPTANCE"
+    ],
+    "productDirectionAlsoSupports": "D7_PROCESSOR_PROVIDER_RETENTION",
+    "evidence": "docs/community/retention-product-approval-record-20261002.md",
+    "note": "D7 formal approval remains Privacy/Legal because Product is not a required approver for that decision."
+  }
 }
