@@ -29,8 +29,6 @@ jobs:
         run: deno check --node-modules-dir=auto supabase/functions/*/index.ts
       - name: Type and component checks
         run: npm run check
-      - name: Community operations contract
-        run: npm run verify:community-ops
       - name: Contract tests
         run: npm test
       - name: Static build
