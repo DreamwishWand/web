@@ -1817,7 +1817,7 @@
     refreshProjection();
   }
 
-  const PRIMARY_COMMAND_LABELS: Record<PrimaryJobCommand, string> = {
+  const PRIMARY_COMMAND_LABELS: Record<string, string> = {
     move: 'Move',
     rotate: 'Rotate',
     copy: 'Copy',
