@@ -107,6 +107,24 @@
         "sourceField": "GameInfo.LastCustomIdOwner",
         "semanticName": "DDV Player ID / User ID"
       }
+    },
+    {
+      "id": "LINKED_DDV_PROFILE_DB_LIFECYCLE",
+      "state": "CLOSED_STAGING_RUNTIME_PASS",
+      "evidence": [
+        "supabase/migrations/20261001221620_community_linked_ddv_profile_lifecycle_v1.sql",
+        "ops/community-linked-ddv-profile-lifecycle-runtime-20261002.json",
+        "docs/community/linked-ddv-profile-lifecycle-runtime-20261002.md"
+      ],
+      "facts": [
+        "self and parent_guardian_managed relationships supported",
+        "15-minute recent-auth and existing max-three cap",
+        "no raw Player ID database field",
+        "7-day binding digest tombstone with D4 hold-aware purge",
+        "admin-only exceptional correction",
+        "account deletion flows through the same tombstone path",
+        "no additional production Cron required"
+      ]
     }
   ],
   "reviewPending": [
@@ -156,12 +174,13 @@
     },
     {
       "id": "LINKED_DDV_PROFILE_LIFECYCLE",
-      "state": "IDENTITY_SOURCE_CLOSED__IMPLEMENTATION_AND_PRIVACY_LEGAL_REVIEW_PENDING",
+      "state": "DB_LIFECYCLE_CLOSED__USER_LINK_EDGE_ASSURANCE_PENDING",
       "evidence": [
         "ops/community-privacy-review-readiness-20261002.json",
         "docs/community/privacy-review-readiness-20261002.md",
         "ops/community-linked-ddv-profile-core-identifier-gate-20261002.json",
-        "docs/community/linked-ddv-profile-core-identifier-request-20261002.md"
+        "docs/community/linked-ddv-profile-core-identifier-request-20261002.md",
+        "ops/community-linked-ddv-profile-lifecycle-runtime-20261002.json"
       ],
       "facts": [
         "schema and three-link enforcement exist",
@@ -173,7 +192,7 @@
         "No confirmed stable local DDV Profile identifier exists in DDV Core yet.",
         "DDV_CORE_INTEGRATION_CURRENT was rechecked after the Age/minors Product decision; no Integrator-promoted stable local DDV Profile identifier contract was found."
       ],
-      "qrInstruction": "Treat stable DDV Profile identity source as closed. Keep targeted implementation/acceptance and Privacy/Legal review open."
+      "qrInstruction": "Treat identity source and DB lifecycle as CLOSED. Keep user-link Edge assurance/transport, end-to-end link acceptance and Privacy/Legal review OPEN."
     }
   ],
   "crossStreamPending": [
@@ -237,5 +256,5 @@
     "rate-limit runtime"
   ],
   "launchReady": false,
-  "instructionToQR": "Treat DDV Profile identity source as CLOSED_CONFIRMED using GameInfo.LastCustomIdOwner. Keep targeted implementation/acceptance, Privacy/Legal review, final integration and production runtime gates OPEN."
+  "instructionToQR": "Treat DDV Player ID identity source and Linked DDV DB lifecycle as CLOSED. Keep user-link Edge assurance/transport, end-to-end acceptance, Privacy/Legal, final integration and production runtime gates OPEN."
 }
