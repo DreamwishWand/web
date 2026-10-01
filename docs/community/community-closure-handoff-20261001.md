@@ -335,3 +335,26 @@ Current `launchReady=false` is correct.
 Production `npm run verify:community-ops -- --require-ready` must remain failing until every required
 gate is satisfied, all Product/Privacy/Legal retention approvals are explicit, the mailbox-backed
 Auth flow passes, and the WEP production bucket migration blocker is closed.
+
+
+## WEP production migration provisioning closure — 2026-10-01
+
+**CONFIRMED STATIC / CLOSED:** WEP production migration provisioning no longer creates
+`wand-preset-artifacts-staging`.
+
+- production migration SHA:
+  `099d7d4f6a653b1268596ab9a12d470e8b6760a2`;
+- staging-only bootstrap SHA:
+  `e3af6f5d019365f4dfc507d27e37a0b6810e2b16`;
+- current integrated-tree verifier SHA:
+  `006b02f70d2d99761a07f2eca62443e8609d720c`.
+
+The production migration retains the generic `preset_artifact_prepare` rate policy only.
+Known staging bucket bootstrap now lives under `supabase/staging`.
+
+No Community transport, Scene reuse, signed-read, retention, or Apply semantics changed. Those
+runtime suites were not rerun.
+
+Remaining launch blockers are now Auth mailbox QA, Product/Privacy/Legal retention approvals,
+human mailbox placement, and production-only environment/replay/backup/restore/rotation/inventory/
+smoke/Security-Advisor gates.
