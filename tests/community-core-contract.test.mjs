@@ -1861,7 +1861,7 @@ test('Community production manifest separates WEP function externalization from 
   assert.equal(provisioning.owner, '02 WEP');
   assert.equal(provisioning.state, 'CLOSED');
   assert.match(provisioning.detail, /no longer creates\/names the staging bucket/i);
-  assert.match(provisioning.detail, /production replay/i);
+  assert.match(provisioning.detail, /Final fresh-target replay remains Release Operations work/i);
 });
 
 
