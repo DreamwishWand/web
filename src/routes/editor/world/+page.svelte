@@ -42,8 +42,25 @@
     insertFencePost,
     moveFencePost,
     removeFencePost,
-    setFencePostPinned
+    setFencePostPinned,
+    validateFencePostLayoutDraft
   } from '$lib/wep/fence-post-edit-contract';
+  import {
+    previewConnectedSelection,
+    previewFenceBranchSelection,
+    previewFencePolyline,
+    previewFenceRectangleOutline,
+    previewFenceSegmentDelete,
+    previewFenceStyleReplace,
+    previewFenceTransform,
+    previewRoadCellDelete,
+    previewRoadPolyline,
+    previewRoadRectangleOutline,
+    previewRoadStyleReplace,
+    previewRoadTransform,
+    sampleFenceEyedropper,
+    sampleRoadEyedropper
+  } from '$lib/wep/roadfence-authoring-contract';
 
   let session: any = null;
   let editorDocument: any = null;
@@ -85,6 +102,23 @@
   let draftValidation: any = null;
   let draftSavePreparation: any = null;
   let lastDraftCommand = '';
+  let roadFenceRootDraft: any = null;
+  let rfKind: 'road' | 'fence' = 'road';
+  let rfTool: 'polyline' | 'rectangle' = 'polyline';
+  let rfNetworkId = '';
+  let rfFamilyBaseItemID = 0;
+  let rfMode = 'orthogonal';
+  let rfPoints = '0,0; 4,0';
+  let rfSeedX = 0;
+  let rfSeedY = 0;
+  let rfSeedNodeId = '';
+  let rfAdjacentNodeId = '';
+  let rfTargetFamilyBaseItemID = 0;
+  let rfTranslateX = 0;
+  let rfTranslateY = 0;
+  let rfRotateQuarterTurns = 0;
+  let rfPreview: any = null;
+  let rfMessage = '';
 
   let community: CommunityLabClient | null = null;
   let bridge: ReturnType<typeof createPresetCommunityBridge> | null = null;
@@ -163,6 +197,499 @@
         placementLegalityBinding.createEditorDraftValidator(),
       allowInvalidDraft: true
     });
+  }
+
+  function cloneLocal<T>(value: T): T {
+    return structuredClone(value);
+  }
+
+  function networkContainer(kind: 'road' | 'fence') {
+    const key = kind === 'road' ? 'roads' : 'fences';
+    const current = editorDocument?.networks?.[key];
+    return current
+      ? cloneLocal(current)
+      : {
+          schema: 'dreamwish-wand-wep-network-capture',
+          version: 1,
+          kind: key,
+          originPolicy: 'root-grid-top-left',
+          networks: [],
+          normalization: {
+            sourceGridObjectIdsRemoved: true,
+            artifactNetworkIdsLocal: true,
+            partialTopologyFailsClosed: true
+          },
+          persistentWriteAuthorized: false
+        };
+  }
+
+  function roadFenceNetworks(kind: 'road' | 'fence' = rfKind) {
+    const container = networkContainer(kind);
+    return Array.isArray(container?.networks)
+      ? container.networks
+      : [];
+  }
+
+  function currentRoadFenceNetwork() {
+    return roadFenceNetworks().find(
+      (network: any) =>
+        String(network.networkId) === String(rfNetworkId)
+    ) ?? null;
+  }
+
+  function syncRoadFenceSelection({
+    preferKind = rfKind
+  }: {
+    preferKind?: 'road' | 'fence';
+  } = {}) {
+    const preferred = roadFenceNetworks(preferKind);
+    const otherKind = preferKind === 'road' ? 'fence' : 'road';
+    const available = preferred.length
+      ? { kind: preferKind, networks: preferred }
+      : {
+          kind: otherKind as 'road' | 'fence',
+          networks: roadFenceNetworks(otherKind)
+        };
+    if (!available.networks.length) {
+      rfNetworkId = '';
+      rfFamilyBaseItemID = 0;
+      rfTargetFamilyBaseItemID = 0;
+      rfSeedNodeId = '';
+      rfAdjacentNodeId = '';
+      return;
+    }
+    rfKind = available.kind;
+    const exists = available.networks.some(
+      (network: any) =>
+        String(network.networkId) === String(rfNetworkId)
+    );
+    const network = exists
+      ? available.networks.find(
+          (entry: any) =>
+            String(entry.networkId) === String(rfNetworkId)
+        )
+      : available.networks[0];
+    rfNetworkId = String(network.networkId);
+    rfFamilyBaseItemID = Number(network.familyBaseItemID ?? 0);
+    rfTargetFamilyBaseItemID = Number(
+      network.familyBaseItemID ?? 0
+    );
+    if (rfKind === 'fence') {
+      rfMode = String(network.mode ?? 'orthogonal');
+      const nodes = network.graph?.nodes ?? [];
+      rfSeedNodeId = String(nodes[0]?.id ?? '');
+      rfAdjacentNodeId = String(
+        network.graph?.edges?.find(
+          (edge: any) =>
+            edge.a === rfSeedNodeId ||
+            edge.b === rfSeedNodeId
+        )
+          ? (() => {
+              const edge = network.graph.edges.find(
+                (entry: any) =>
+                  entry.a === rfSeedNodeId ||
+                  entry.b === rfSeedNodeId
+              );
+              return edge?.a === rfSeedNodeId
+                ? edge?.b
+                : edge?.a;
+            })()
+          : ''
+      );
+    } else {
+      const cell = network.cells?.[0];
+      rfMode = String(cell?.mode ?? 'orthogonal');
+      rfSeedX = Number(cell?.x ?? 0);
+      rfSeedY = Number(cell?.y ?? 0);
+    }
+  }
+
+  function parseRfPoints() {
+    const points = rfPoints
+      .split(';')
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .map((entry) => {
+        const parts = entry.split(',').map((part) => Number(part.trim()));
+        if (
+          parts.length !== 2 ||
+          !parts.every(Number.isSafeInteger)
+        ) {
+          throw new Error('WEP_ROADFENCE_POINT_LIST_INVALID');
+        }
+        return { x: parts[0], y: parts[1] };
+      });
+    if (points.length < 2) {
+      throw new Error('WEP_ROADFENCE_POINT_LIST_TOO_SHORT');
+    }
+    return points;
+  }
+
+  function replaceRoadFenceNetwork(
+    kind: 'road' | 'fence',
+    network: any,
+    command: string,
+    validation: any
+  ) {
+    if (!session) return null;
+    const key = kind === 'road' ? 'roads' : 'fences';
+    const container = networkContainer(kind);
+    const networks = [...(container.networks ?? [])];
+    const index = networks.findIndex(
+      (entry: any) =>
+        String(entry.networkId) === String(network.networkId)
+    );
+    if (index >= 0) networks[index] = cloneLocal(network);
+    else networks.push(cloneLocal(network));
+    container.networks = networks;
+    container.persistentWriteAuthorized = false;
+
+    const result = session.replaceNetworkDraft(
+      key,
+      container,
+      {
+        command,
+        validation: {
+          ...cloneLocal(validation),
+          persistentWriteAuthorized: false
+        }
+      }
+    );
+    lastDraftCommand = command;
+    refreshProjection();
+    refreshDraftState();
+    syncRoadFenceSelection({ preferKind: kind });
+    return result;
+  }
+
+  function nextRoadFenceDraftId(kind: 'road' | 'fence') {
+    const prefix = kind === 'road' ? 'draft-r' : 'draft-f';
+    const ids = new Set(
+      roadFenceNetworks(kind).map((network: any) =>
+        String(network.networkId)
+      )
+    );
+    let index = 0;
+    while (ids.has(`${prefix}${index}`)) index += 1;
+    return `${prefix}${index}`;
+  }
+
+  function drawRoadFenceDraft() {
+    if (!session || !mutationBound) return;
+    try {
+      const familyBaseItemID = Number(rfFamilyBaseItemID);
+      if (!Number.isSafeInteger(familyBaseItemID) || familyBaseItemID <= 0) {
+        throw new Error('WEP_ROADFENCE_FAMILY_REQUIRED');
+      }
+      const points = parseRfPoints();
+      const networkId = nextRoadFenceDraftId(rfKind);
+      let preview: any;
+      if (rfTool === 'rectangle') {
+        const xs = points.map((point) => point.x);
+        const ys = points.map((point) => point.y);
+        const bounds = {
+          minX: Math.min(...xs),
+          minY: Math.min(...ys),
+          maxX: Math.max(...xs),
+          maxY: Math.max(...ys)
+        };
+        preview =
+          rfKind === 'road'
+            ? previewRoadRectangleOutline(bounds)
+            : previewFenceRectangleOutline(bounds);
+      } else {
+        preview =
+          rfKind === 'road'
+            ? previewRoadPolyline(points)
+            : previewFencePolyline(points, rfMode);
+      }
+
+      const network =
+        rfKind === 'road'
+          ? {
+              networkId,
+              familyBaseItemID,
+              cells: cloneLocal(preview.cells ?? [])
+            }
+          : {
+              networkId,
+              familyBaseItemID,
+              mode: rfMode,
+              graph: cloneLocal(preview.graph ?? {})
+            };
+      const validation = {
+        ok:
+          rfKind === 'road'
+            ? Array.isArray(network.cells) &&
+              network.cells.length > 0
+            : preview.compiled?.ok === true,
+        issues: cloneLocal(preview.errors ?? []),
+        status: 'MODEL_PREVIEW',
+        persistentWriteAuthorized: false
+      };
+      const result = replaceRoadFenceNetwork(
+        rfKind,
+        network,
+        rfKind === 'road'
+          ? 'ROAD_TOPOLOGY_DRAW'
+          : 'FENCE_TOPOLOGY_DRAW',
+        validation
+      );
+      rfNetworkId = networkId;
+      rfPreview = preview;
+      rfMessage = result?.applied
+        ? 'Logical network draft created. Persistent writer remains disabled.'
+        : 'Logical network draft was blocked.';
+    } catch (error) {
+      rfMessage =
+        error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  function previewRoadFenceConnected() {
+    const network = currentRoadFenceNetwork();
+    if (!network) return;
+    try {
+      rfPreview =
+        rfKind === 'road'
+          ? previewConnectedSelection({
+              kind: 'road',
+              source: { cells: network.cells ?? [] },
+              seed: { x: Number(rfSeedX), y: Number(rfSeedY) }
+            })
+          : previewConnectedSelection({
+              kind: 'fence',
+              source: { graph: network.graph ?? {} },
+              seed: rfSeedNodeId
+            });
+      rfMessage = rfPreview.ok
+        ? `Connected selection · ${rfPreview.logicalQuantity ?? rfPreview.cells?.length ?? 0} logical units`
+        : 'Connected selection blocked.';
+    } catch (error) {
+      rfMessage =
+        error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  function previewFenceSegment() {
+    if (rfKind !== 'fence') return;
+    const network = currentRoadFenceNetwork();
+    if (!network) return;
+    try {
+      rfPreview = previewFenceBranchSelection({
+        graph: network.graph ?? {},
+        seedNodeId: rfSeedNodeId,
+        adjacentNodeId: rfAdjacentNodeId
+      });
+      rfMessage = rfPreview.ok
+        ? `Fence segment · ${rfPreview.logicalQuantity} logical units`
+        : 'Fence segment selection blocked.';
+    } catch (error) {
+      rfMessage =
+        error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  function eyedropRoadFence() {
+    const network = currentRoadFenceNetwork();
+    if (!network) return;
+    try {
+      const sample =
+        rfKind === 'road'
+          ? sampleRoadEyedropper(
+              { ...network, kind: 'road' },
+              { x: Number(rfSeedX), y: Number(rfSeedY) }
+            )
+          : sampleFenceEyedropper(
+              { ...network, kind: 'fence' },
+              rfSeedNodeId
+            );
+      rfPreview = sample;
+      if (sample.ok) {
+        rfFamilyBaseItemID = Number(sample.familyBaseItemID);
+        rfTargetFamilyBaseItemID = Number(sample.familyBaseItemID);
+        rfMode = String(sample.mode ?? rfMode);
+      }
+      rfMessage = sample.ok
+        ? 'Eyedropper loaded family and mode into the authoring controls.'
+        : 'Eyedropper could not sample the selected logical unit.';
+    } catch (error) {
+      rfMessage =
+        error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  function replaceRoadFenceStyle() {
+    const network = currentRoadFenceNetwork();
+    if (!network || !session) return;
+    try {
+      const targetFamilyBaseItemID = Number(
+        rfTargetFamilyBaseItemID
+      );
+      if (
+        !Number.isSafeInteger(targetFamilyBaseItemID) ||
+        targetFamilyBaseItemID <= 0
+      ) {
+        throw new Error('WEP_ROADFENCE_TARGET_FAMILY_REQUIRED');
+      }
+      const preview =
+        rfKind === 'road'
+          ? previewRoadStyleReplace({
+              cells: network.cells ?? [],
+              seedCoordinate: {
+                x: Number(rfSeedX),
+                y: Number(rfSeedY)
+              },
+              sourceFamilyBaseItemID:
+                Number(network.familyBaseItemID),
+              targetFamilyBaseItemID
+            })
+          : previewFenceStyleReplace({
+              graph: network.graph ?? {},
+              seedNodeId: rfSeedNodeId,
+              sourceFamilyBaseItemID:
+                Number(network.familyBaseItemID),
+              targetFamilyBaseItemID
+            });
+      rfPreview = preview;
+      if (!preview.ok) {
+        rfMessage = 'Style replacement preview blocked.';
+        return;
+      }
+      const next = {
+        ...cloneLocal(network),
+        familyBaseItemID: targetFamilyBaseItemID
+      };
+      const result = replaceRoadFenceNetwork(
+        rfKind,
+        next,
+        rfKind === 'road'
+          ? 'ROAD_STYLE_REPLACE'
+          : 'FENCE_STYLE_REPLACE',
+        {
+          ok: true,
+          issues: [],
+          status: 'MODEL_PREVIEW',
+          persistentWriteAuthorized: false
+        }
+      );
+      rfFamilyBaseItemID = targetFamilyBaseItemID;
+      rfMessage = result?.applied
+        ? 'Style replacement stored in the local logical draft.'
+        : 'Style replacement blocked.';
+    } catch (error) {
+      rfMessage =
+        error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  function deleteRoadFenceUnit() {
+    const network = currentRoadFenceNetwork();
+    if (!network) return;
+    try {
+      const preview =
+        rfKind === 'road'
+          ? previewRoadCellDelete({
+              cells: network.cells ?? [],
+              coordinates: [
+                { x: Number(rfSeedX), y: Number(rfSeedY) }
+              ]
+            })
+          : previewFenceSegmentDelete({
+              graph: network.graph ?? {},
+              nodeIds: [rfSeedNodeId]
+            });
+      rfPreview = preview;
+      if (!preview.ok) {
+        rfMessage = 'Topology delete/split preview blocked.';
+        return;
+      }
+      const next =
+        rfKind === 'road'
+          ? {
+              ...cloneLocal(network),
+              cells: cloneLocal(preview.cells ?? [])
+            }
+          : {
+              ...cloneLocal(network),
+              graph: cloneLocal(preview.graph ?? {})
+            };
+      const result = replaceRoadFenceNetwork(
+        rfKind,
+        next,
+        rfKind === 'road'
+          ? 'ROAD_TOPOLOGY_DELETE'
+          : 'FENCE_TOPOLOGY_DELETE_SPLIT',
+        {
+          ok: true,
+          issues: cloneLocal(preview.errors ?? []),
+          status: 'MODEL_PREVIEW',
+          persistentWriteAuthorized: false
+        }
+      );
+      rfMessage = result?.applied
+        ? 'Topology delete/split stored in the local draft.'
+        : 'Topology delete/split blocked.';
+    } catch (error) {
+      rfMessage =
+        error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  function transformRoadFenceDraft() {
+    const network = currentRoadFenceNetwork();
+    if (!network) return;
+    try {
+      const options = {
+        translateX: Number(rfTranslateX),
+        translateY: Number(rfTranslateY),
+        rotateQuarterTurns: Number(rfRotateQuarterTurns)
+      };
+      const preview =
+        rfKind === 'road'
+          ? previewRoadTransform(
+              network.cells ?? [],
+              options
+            )
+          : previewFenceTransform(
+              network.graph ?? {},
+              options
+            );
+      rfPreview = preview;
+      if (!preview.ok) {
+        rfMessage = 'Topology transform preview blocked.';
+        return;
+      }
+      const next =
+        rfKind === 'road'
+          ? {
+              ...cloneLocal(network),
+              cells: cloneLocal(preview.cells ?? [])
+            }
+          : {
+              ...cloneLocal(network),
+              graph: cloneLocal(preview.graph ?? {})
+            };
+      const result = replaceRoadFenceNetwork(
+        rfKind,
+        next,
+        rfKind === 'road'
+          ? 'ROAD_TOPOLOGY_TRANSFORM'
+          : 'FENCE_TOPOLOGY_TRANSFORM',
+        {
+          ok: true,
+          issues: cloneLocal(preview.errors ?? []),
+          status: 'MODEL_PREVIEW',
+          persistentWriteAuthorized: false
+        }
+      );
+      rfMessage = result?.applied
+        ? 'Topology transform stored in the local draft.'
+        : 'Topology transform blocked.';
+    } catch (error) {
+      rfMessage =
+        error instanceof Error ? error.message : String(error);
+    }
   }
 
   function fullDesignCategoryLabel(key: string) {
