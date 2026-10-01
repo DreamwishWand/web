@@ -1981,12 +1981,14 @@ test('Road-inclusive Scene acceptance preserves Community reuse and Apply bounda
 });
 
 
-test('Auth launch review closes 14/15 and revocation while keeping mailbox reauth open', () => {
+test('Auth launch review closes provider boundary, revocation, and real-mailbox reauthentication', () => {
   const review = JSON.parse(read('ops/community-auth-launch-review.json'));
   const operations = JSON.parse(read('ops/community-production-operations.json'));
-  const verifier = read('scripts/verify-community-ops-readiness.mjs');
   const evidence = read(
     'docs/community/auth-provider-boundary-revocation-runtime-20261001.md'
+  );
+  const mailboxEvidence = read(
+    'docs/community/auth-final-mailbox-reauth-runtime-20261001.md'
   );
 
   assert.equal(review.schema, 'dreamwish-community-auth-launch-review@1');
@@ -2005,14 +2007,18 @@ test('Auth launch review closes 14/15 and revocation while keeping mailbox reaut
   );
   assert.equal(review.revocation.wandSessionCutoffRejectedOldJwt, true);
   assert.equal(review.revocation.status, 'CONFIRMED_RUNTIME');
-  assert.equal(review.reauthentication.signedInNonceFlowRerun, false);
+  assert.equal(review.reauthentication.signedInNonceFlowRerun, true);
   assert.equal(
     review.reauthentication.finalStatus,
-    'PENDING_ONE_REPRESENTATIVE_MAILBOX_QA'
+    'CLOSED_CONFIRMED_RUNTIME'
   );
-  assert.equal(review.launchApproved, false);
+  assert.equal(review.reauthentication.runtime.oldSessionWandError, 'SESSION_REVOKED_OR_INVALID');
+  assert.equal(review.reauthentication.runtime.oldRefreshErrorCode, 'refresh_token_not_found');
+  assert.equal(review.reauthentication.runtime.freshPasswordSigninSucceeded, true);
+  assert.equal(review.reauthentication.runtime.freshCommunityQuerySucceeded, true);
+  assert.equal(review.launchApproved, true);
   assert.equal(review.remaining.length, 1);
-  assert.equal(review.remaining[0].status, 'PENDING');
+  assert.equal(review.remaining[0].status, 'CLOSED');
 
   assert.equal(operations.releaseGate.requireAuthLaunchAcceptance, true);
   assert.equal(
@@ -2025,13 +2031,16 @@ test('Auth launch review closes 14/15 and revocation while keeping mailbox reaut
   );
   assert.equal(
     operations.authLaunchReview.signedInReauthentication,
-    'PENDING'
+    'CONFIRMED'
   );
-  assert.match(verifier, /Auth launch review is not approved/);
+  assert.equal(operations.authLaunchReview.launchApproved, true);
   assert.match(evidence, /14-character ASCII password: \*\*rejected\*\*/);
   assert.match(evidence, /15-character ASCII password: \*\*accepted\*\*/);
   assert.match(evidence, /No signup confirmation email was generated/i);
   assert.match(evidence, /signed-in reauthentication/i);
+  assert.match(mailboxEvidence, /CONFIRMED PASS/i);
+  assert.match(mailboxEvidence, /SESSION_REVOKED_OR_INVALID/);
+  assert.match(mailboxEvidence, /refresh_token_not_found/);
 });
 
 
@@ -2145,15 +2154,16 @@ test('production release evidence index keeps closed and pending gates explicit'
     'WEP_PRESET_ARTIFACT_BUCKET_PRODUCTION_MIGRATION',
     'AUTH_PROVIDER_14_15_BOUNDARY',
     'AUTH_PROVIDER_WAND_REVOCATION',
+    'AUTH_SIGNED_IN_REAUTH_MAILBOX',
     'RETENTION_ENGINEERING_IMPLEMENTATION',
-    'TRANSACTIONAL_EMAIL_PROVIDER_DELIVERY'
+    'TRANSACTIONAL_EMAIL_PROVIDER_DELIVERY',
+    'TRANSACTIONAL_EMAIL_HUMAN_MAILBOX_PLACEMENT'
   ]) {
     assert.equal(byId.get(id)?.satisfied, true, id);
     assert.ok((byId.get(id)?.evidence ?? []).length > 0, id);
   }
 
   for (const id of [
-    'AUTH_SIGNED_IN_REAUTH_MAILBOX',
     'RETENTION_PRODUCT_PRIVACY_LEGAL_APPROVAL',
     'DISTINCT_PRODUCTION_SUPABASE_PROJECT',
     'FINAL_INTEGRATED_SOURCE_TREE',
@@ -2164,26 +2174,29 @@ test('production release evidence index keeps closed and pending gates explicit'
     'PRODUCTION_FUNCTION_INVENTORY',
     'PRODUCTION_CRON_VAULT_INVENTORY',
     'PRODUCTION_SMOKE',
-    'PRODUCTION_SECURITY_ADVISOR',
-    'TRANSACTIONAL_EMAIL_HUMAN_MAILBOX_PLACEMENT'
+    'PRODUCTION_SECURITY_ADVISOR'
   ]) {
     assert.equal(byId.get(id)?.satisfied, false, id);
   }
 
   assert.equal(byId.get('STAGING_OPERATIONS_INVENTORY')?.classification, 'staging_only');
-  assert.equal(byId.get('AUTH_SIGNED_IN_REAUTH_MAILBOX')?.classification, 'operator_manual_pending');
+  assert.equal(byId.get('AUTH_SIGNED_IN_REAUTH_MAILBOX')?.classification, 'already_closed');
   assert.equal(byId.get('RETENTION_PRODUCT_PRIVACY_LEGAL_APPROVAL')?.classification, 'approval_pending');
   assert.equal(byId.get('DISTINCT_PRODUCTION_SUPABASE_PROJECT')?.classification, 'production_only_pending');
   assert.equal(byId.get('WEP_PRESET_ARTIFACT_BUCKET_PRODUCTION_MIGRATION')?.classification, 'already_closed');
   assert.equal(byId.get('COMMUNITY_PRIMARY_BROWSER_CLOSURE')?.classification, 'already_closed');
   assert.equal(byId.get('RETENTION_ENGINEERING_IMPLEMENTATION')?.classification, 'already_closed');
   assert.equal(byId.get('TRANSACTIONAL_EMAIL_PROVIDER_DELIVERY')?.classification, 'already_closed');
-  assert.equal(byId.get('TRANSACTIONAL_EMAIL_PROVIDER_DELIVERY')?.providerMetrics.sent, 5);
-  assert.equal(byId.get('TRANSACTIONAL_EMAIL_PROVIDER_DELIVERY')?.providerMetrics.delivered, 5);
+  assert.equal(byId.get('TRANSACTIONAL_EMAIL_PROVIDER_DELIVERY')?.providerMetrics.sent, 8);
+  assert.equal(byId.get('TRANSACTIONAL_EMAIL_PROVIDER_DELIVERY')?.providerMetrics.delivered, 8);
   assert.equal(byId.get('TRANSACTIONAL_EMAIL_PROVIDER_DELIVERY')?.providerMetrics.bounced, 0);
   assert.equal(byId.get('TRANSACTIONAL_EMAIL_PROVIDER_DELIVERY')?.providerMetrics.failed, 0);
   assert.equal(byId.get('TRANSACTIONAL_EMAIL_PROVIDER_DELIVERY')?.providerMetrics.complained, 0);
-  assert.equal(byId.get('TRANSACTIONAL_EMAIL_HUMAN_MAILBOX_PLACEMENT')?.humanMailboxPlacement, 'PARTIAL');
+  assert.equal(byId.get('TRANSACTIONAL_EMAIL_HUMAN_MAILBOX_PLACEMENT')?.classification, 'already_closed');
+  assert.equal(
+    byId.get('TRANSACTIONAL_EMAIL_HUMAN_MAILBOX_PLACEMENT')?.humanMailboxPlacement,
+    'CONFIRMED_REPRESENTATIVE_QA_MAILBOX'
+  );
 
   assert.equal(
     operations.releaseEvidence.contract,
@@ -2227,13 +2240,13 @@ test('retention D1-D8 approval matrix is explicit', () => {
   );
 });
 
-test('final Auth gate is real-mailbox manual QA only', () => {
+test('final Auth gate preserves the real-mailbox-only evidence boundary after closure', () => {
   const review = JSON.parse(read('ops/community-auth-launch-review.json'));
 
   assert.equal(review.reauthentication.executionMode, 'REAL_MAILBOX_OPERATOR_QA');
   assert.equal(review.reauthentication.operatorManualRequired, true);
   assert.equal(review.reauthentication.syntheticSubstituteAllowed, false);
-  assert.deepEqual(review.reauthentication.remainingFlow, [
+  assert.deepEqual(review.reauthentication.completedFlow, [
     'real signed-in session',
     'reauthentication nonce',
     'password change',
@@ -2242,7 +2255,9 @@ test('final Auth gate is real-mailbox manual QA only', () => {
     'old session rejected',
     'fresh sign-in succeeds'
   ]);
-  assert.equal(review.launchApproved, false);
+  assert.deepEqual(review.reauthentication.remainingFlow, []);
+  assert.equal(review.reauthentication.finalStatus, 'CLOSED_CONFIRMED_RUNTIME');
+  assert.equal(review.launchApproved, true);
 });
 
 test('current release evidence treats leaked-password warning as nonblocking plan limitation', () => {
@@ -2282,7 +2297,7 @@ test('latest WEP delta does not reopen Community Preset vertical', () => {
 
   assert.equal(
     release.currentObservations.wep.latestObservedHead,
-    '02ca57a8d48d2b5623e034b91e9cd52f7fe7a8d8'
+    'ba55070f3c48df3bef9d1b12aaf056ed4978791a'
   );
   assert.equal(
     release.currentObservations.wep.communityTransportContractChangedSinceConfirmedVertical,

@@ -1,6 +1,6 @@
 # Community Core operator critical email runtime — 2026-10-01
 
-Status: **CONFIRMED DELIVERY / PARTIAL INBOX PLACEMENT**
+Status: **CONFIRMED DELIVERY / REPRESENTATIVE MAILBOX PLACEMENT CLOSED**
 
 ## Scope
 
@@ -208,3 +208,28 @@ This closes provider-delivery evidence for the current sample.
 
 Human mailbox placement remains **PARTIAL** because provider `delivered` does not distinguish Inbox
 from Junk and prior iCloud placement was mixed. No synthetic warming was generated.
+
+
+## Representative real-Auth mailbox closure — 2026-10-01
+
+No synthetic warming traffic was generated.
+
+One normal staging browser transaction used a representative QA Gmail mailbox and generated only
+the messages required by the actual Auth flow. Human mailbox observation confirmed:
+
+- signup confirmation: Inbox;
+- signed-in reauthentication message: Inbox;
+- password-changed security notification: Inbox.
+
+Resend readback after the transaction showed the current observed sample at 8 sent / 8 delivered.
+The three new messages correspond to the real Auth transaction above.
+
+Launch classification:
+
+- **CONFIRMED representative mailbox placement:** the required low-volume human mailbox observation is complete;
+- prior iCloud mixed Inbox/Junk placement remains valid historical evidence and is not erased;
+- this does **not** claim that every mailbox provider will always place Wand mail in Inbox;
+- no extra message was sent to improve reputation or inflate the sample.
+
+The separate Auth runtime details are recorded in
+`docs/community/auth-final-mailbox-reauth-runtime-20261001.md`.

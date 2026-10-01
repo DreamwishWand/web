@@ -391,3 +391,39 @@ migration replay, DB/Storage restore drills, secret rotation, Function/Cron/Vaul
 production smoke and production Security Advisor remain pending. Staging evidence is not promoted.
 
 Current release state remains `launchReady=false` and production `--require-ready` blocked.
+
+
+## LATEST — Auth final mailbox closure / mailbox placement — 2026-10-01
+
+**CONFIRMED PASS / CLOSED:** `AUTH_SIGNED_IN_REAUTH_MAILBOX`.
+
+A representative real staging browser transaction completed the full path:
+
+`signed-in A/B sessions -> normal Community query precheck -> reauthentication nonce -> password
+change -> provider global revoke -> Wand cutoff -> B old JWT rejected -> B refresh rejected ->
+fresh new-password sign-in -> normal Community query PASS`.
+
+Server evidence confirmed the old B Community request returned 401 through the Wand session
+authorization boundary and the client retry then failed provider refresh with
+`refresh_token_not_found`. The Community query implementation maps the authorization failure to
+`SESSION_REVOKED_OR_INVALID`. Fresh password grant and fresh Community query both returned 200.
+
+No mailbox address, password, token, nonce, provider subject, or message subject is canonicalized.
+
+**CONFIRMED representative human mailbox placement / CLOSED:** the same normal low-volume
+transaction placed signup-confirmation, reauthentication, and password-changed security messages
+in the representative Gmail Inbox. Current Resend readback is 8 sent / 8 delivered. Historical
+iCloud mixed Inbox/Junk evidence remains documented; no universal provider Inbox guarantee is
+claimed and no synthetic warming was generated.
+
+Canonical runtime evidence:
+- `docs/community/auth-final-mailbox-reauth-runtime-20261001.md`
+- `ops/community-auth-launch-review.json`
+- `ops/community-production-release-evidence.json`
+
+Auth launch review is now `launchApproved=true`; no Community Auth launch item remains open.
+
+Community overall release state remains `launchReady=false`. Remaining Community release blockers
+are Product/Privacy/Legal retention approval plus production-only environment/integration/replay/
+backup/restore/secret-rotation/inventory/smoke/Security-Advisor gates. Persistent DDV writing remains
+outside COMM and stays disabled.

@@ -1,6 +1,6 @@
 {
   "schema": "dreamwish-community-auth-launch-review@1",
-  "observedAt": "2026-10-01T01:17:59Z",
+  "observedAt": "2026-10-01T10:35:38Z",
   "stagingProjectRef": "ptpdoxhrqopvczpclcij",
   "emailTrafficGeneratedByThisAcceptance": false,
   "passwordPolicy": {
@@ -45,14 +45,14 @@
     "productionDenylisted": true
   },
   "reauthentication": {
-    "signedInNonceFlowRerun": false,
-    "reason": "A provider reauthentication challenge sends an Auth email. Synthetic mail is not generated merely to complete this regression. Existing PKCE recovery/password-update runtime evidence remains valid.",
+    "signedInNonceFlowRerun": true,
+    "reason": "One representative real-mailbox signed-in reauthentication transaction completed through the normal staging browser path. No synthetic warming traffic was generated.",
     "productPathImplemented": true,
-    "finalStatus": "PENDING_ONE_REPRESENTATIVE_MAILBOX_QA",
+    "finalStatus": "CLOSED_CONFIRMED_RUNTIME",
     "executionMode": "REAL_MAILBOX_OPERATOR_QA",
     "operatorManualRequired": true,
     "syntheticSubstituteAllowed": false,
-    "remainingFlow": [
+    "completedFlow": [
       "real signed-in session",
       "reauthentication nonce",
       "password change",
@@ -60,14 +60,40 @@
       "Wand session cutoff",
       "old session rejected",
       "fresh sign-in succeeds"
+    ],
+    "remainingFlow": [],
+    "mailboxPlacement": {
+      "representativeQaMailboxProvider": "gmail",
+      "signupConfirmation": "INBOX",
+      "reauthenticationMessage": "INBOX",
+      "passwordChangedSecurityNotification": "INBOX",
+      "historicalIcloudPlacementRemainsMixed": true,
+      "universalProviderInboxGuaranteeClaimed": false
+    },
+    "runtime": {
+      "twoIndependentSessionsHealthyBeforeChange": true,
+      "nonceBackedPasswordUpdateSucceeded": true,
+      "providerGlobalLogoutSucceeded": true,
+      "oldSessionCommunityQueryRejected": true,
+      "oldSessionWandError": "SESSION_REVOKED_OR_INVALID",
+      "oldRefreshRejected": true,
+      "oldRefreshErrorCode": "refresh_token_not_found",
+      "freshPasswordSigninSucceeded": true,
+      "freshCommunityQuerySucceeded": true,
+      "status": "CONFIRMED_RUNTIME"
+    },
+    "evidence": [
+      "docs/community/auth-final-mailbox-reauth-runtime-20261001.md"
     ]
   },
-  "launchApproved": false,
+  "launchApproved": true,
   "remaining": [
     {
       "id": "SIGNED_IN_REAUTHENTICATION_MAILBOX_QA",
-      "status": "PENDING",
-      "detail": "Exercise one representative signed-in reauthentication nonce -> password update -> all-session revocation flow using a real QA mailbox when final Auth QA is scheduled."
+      "status": "CLOSED",
+      "detail": "Representative real-mailbox signed-in reauthentication -> password update -> provider global revoke -> Wand cutoff -> old-session rejection -> fresh sign-in/query completed."
     }
-  ]
+  ],
+  "mailboxQaEmailTrafficGenerated": true,
+  "mailboxQaSyntheticTrafficGenerated": false
 }
