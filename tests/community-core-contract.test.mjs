@@ -1859,7 +1859,7 @@ test('Community production manifest separates WEP function externalization from 
   );
   assert.ok(provisioning);
   assert.equal(provisioning.owner, '02 WEP');
-  assert.equal(provisioning.state, 'OPEN');
+  assert.equal(provisioning.state, 'CLOSED');
   assert.match(provisioning.detail, /wand-preset-artifacts-staging/);
   assert.match(provisioning.detail, /production replay/i);
 });
@@ -1977,7 +1977,7 @@ test('Road-inclusive Scene acceptance preserves Community reuse and Apply bounda
     (item) => item.id === 'WEP_PRESET_ARTIFACT_BUCKET_PRODUCTION_MIGRATION'
   );
   assert.equal(provisioningBlocker?.owner, '02 WEP');
-  assert.equal(provisioningBlocker?.state, 'OPEN');
+  assert.equal(provisioningBlocker?.state, 'CLOSED');
 });
 
 
@@ -2054,7 +2054,7 @@ test('WEP Preset bucket externalization is production-safe and staging-compatibl
   const provisioning = manifest.crossStreamBlockers.find(
     (item) => item.id === 'WEP_PRESET_ARTIFACT_BUCKET_PRODUCTION_MIGRATION'
   );
-  assert.equal(provisioning?.state, 'OPEN');
+  assert.equal(provisioning?.state, 'CLOSED');
   assert.match(provisioning?.detail ?? '', /production replay/i);
 });
 
@@ -2095,9 +2095,9 @@ test('final integrated production-tree guard preserves Community replay fixes', 
   const stagingBucketMigration = evidence.confirmedIntegrationHazards.find(
     (item) => item.id === 'WEP_PRESET_STAGING_BUCKET_IN_PRODUCTION_MIGRATION'
   );
-  assert.equal(stagingBucketMigration.state, 'OPEN');
+  assert.equal(stagingBucketMigration.state, 'RESOLVED_IN_CURRENT_WEP_BRANCH');
   assert.match(stagingBucketMigration.path, /20260930124055_/);
-  assert.match(stagingBucketMigration.issue, /wand-preset-artifacts-staging/);
+  assert.match(stagingBucketMigration.resolution, /no longer contains the staging bucket literal/i);
 
   assert.match(script, /Partial WEP production integration is unsafe/);
   assert.match(script, /20260930081600_community_core_v0_support_recovery_verification/);
@@ -2142,6 +2142,7 @@ test('production release evidence index keeps closed and pending gates explicit'
     'PRESET_ARTIFACT_RETENTION_E2E',
     'WEP_PRESET_ARTIFACT_BUCKET_EXTERNALIZATION',
     'WEP_COMM_MIGRATION_BASELINE_CONSISTENCY',
+    'WEP_PRESET_ARTIFACT_BUCKET_PRODUCTION_MIGRATION',
     'AUTH_PROVIDER_14_15_BOUNDARY',
     'AUTH_PROVIDER_WAND_REVOCATION',
     'RETENTION_ENGINEERING_IMPLEMENTATION',
@@ -2154,7 +2155,6 @@ test('production release evidence index keeps closed and pending gates explicit'
   for (const id of [
     'AUTH_SIGNED_IN_REAUTH_MAILBOX',
     'RETENTION_PRODUCT_PRIVACY_LEGAL_APPROVAL',
-    'WEP_PRESET_ARTIFACT_BUCKET_PRODUCTION_MIGRATION',
     'DISTINCT_PRODUCTION_SUPABASE_PROJECT',
     'FINAL_INTEGRATED_SOURCE_TREE',
     'FINAL_INTEGRATED_MIGRATION_REPLAY',
@@ -2174,7 +2174,7 @@ test('production release evidence index keeps closed and pending gates explicit'
   assert.equal(byId.get('AUTH_SIGNED_IN_REAUTH_MAILBOX')?.classification, 'operator_manual_pending');
   assert.equal(byId.get('RETENTION_PRODUCT_PRIVACY_LEGAL_APPROVAL')?.classification, 'approval_pending');
   assert.equal(byId.get('DISTINCT_PRODUCTION_SUPABASE_PROJECT')?.classification, 'production_only_pending');
-  assert.equal(byId.get('WEP_PRESET_ARTIFACT_BUCKET_PRODUCTION_MIGRATION')?.classification, 'cross_stream_pending');
+  assert.equal(byId.get('WEP_PRESET_ARTIFACT_BUCKET_PRODUCTION_MIGRATION')?.classification, 'already_closed');
   assert.equal(byId.get('COMMUNITY_PRIMARY_BROWSER_CLOSURE')?.classification, 'already_closed');
   assert.equal(byId.get('RETENTION_ENGINEERING_IMPLEMENTATION')?.classification, 'already_closed');
   assert.equal(byId.get('TRANSACTIONAL_EMAIL_PROVIDER_DELIVERY')?.classification, 'already_closed');
