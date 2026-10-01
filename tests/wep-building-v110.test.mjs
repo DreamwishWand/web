@@ -5,6 +5,8 @@ import { readFile } from 'node:fs/promises';
 import {
   BUILDING_V110_CLASS,
   BUILDING_V110_SHA256,
+  BUILDING_V111_PROJECTION_SCHEMA,
+  BUILDING_V111_PROJECTION_SHA256,
   createSwitchV125BuildingBinding
 } from '../src/lib/wep/building-v110.ts';
 
@@ -37,6 +39,126 @@ test('WEP binds the promoted Building v1.10 contract by canonical SHA', async ()
   assert.equal(b.buildId, '52BD625D9B4E0053');
   assert.equal(b.profileSchemaVersion, 624);
   assert.equal(b.persistentWriteAuthorized, false);
+});
+
+test('WEP binds the promoted ItemID-keyed Building v1.11 projection', async () => {
+  const b = await binding();
+  assert.equal(
+    b.classificationProjection,
+    BUILDING_V111_PROJECTION_SCHEMA
+  );
+  assert.equal(
+    b.classificationProjectionArtifact,
+    'DDV-BUILDING-CLASSIFICATION-V125-V1_11'
+  );
+  assert.equal(
+    b.classificationProjectionSha256,
+    BUILDING_V111_PROJECTION_SHA256
+  );
+
+  const well = b.classificationEvidenceForItemId(20300008);
+  assert.equal(well.buildingItemType, 'Other');
+  assert.equal(well.signals.isFastTravel, true);
+  assert.equal(
+    b.classifyItemId(20300008).classification,
+    BUILDING_V110_CLASS.SPECIAL
+  );
+
+  const unknown = b.classifyItemId(20300112);
+  assert.equal(
+    unknown.classification,
+    BUILDING_V110_CLASS.UNKNOWN
+  );
+  assert.equal(
+    unknown.blockers[0].code,
+    BUILDING_V110_CLASS.UNKNOWN
+  );
+
+  assert.equal(
+    b.classificationEvidenceForItemId(999999999),
+    null
+  );
+  assert.equal(
+    b.classifyItemId(999999999).classification,
+    BUILDING_V110_CLASS.UNKNOWN
+  );
+});
+
+test('current v1.11 projection contains no ordinary Building member', async () => {
+  const b = await binding();
+  for (const itemId of [
+    20000006,
+    20100000,
+    20200002,
+    20300008,
+    20400001,
+    20500005,
+    20300112
+  ]) {
+    assert.notEqual(
+      b.classifyItemId(itemId).classification,
+      BUILDING_V110_CLASS.ORDINARY
+    );
+  }
+});
+
+test('Canvas annotation replaces blanket Building reasons with promoted classification blockers', async () => {
+  const b = await binding();
+  const annotated = b.annotateEditorDocument({
+    objects: [
+      {
+        editorId: 'well',
+        itemId: 20300008,
+        layer: 'building',
+        editability: 'readonly',
+        metadata: {
+          reasons: ['BUILDING_READ_ONLY'],
+          stateKind: 'BuildingWithSkinData'
+        }
+      },
+      {
+        editorId: 'unknown',
+        itemId: 20300112,
+        layer: 'building',
+        editability: 'readonly',
+        metadata: {
+          reasons: ['BUILDING_READ_ONLY']
+        }
+      }
+    ]
+  });
+
+  const well = annotated.objects[0];
+  assert.equal(
+    well.metadata.buildingClassification.classification,
+    BUILDING_V110_CLASS.SPECIAL
+  );
+  assert.equal(
+    well.metadata.buildingSemantics.signals.isFastTravel,
+    true
+  );
+  assert.equal(
+    well.metadata.reasons.includes('BUILDING_READ_ONLY'),
+    false
+  );
+  assert.equal(
+    well.metadata.reasons.includes(
+      'WELL_FASTTRAVEL_GLOBAL_STATE_AND_IDENTITY_REQUIRE_DEDICATED_LIFECYCLE'
+    ),
+    true
+  );
+
+  const unknown = annotated.objects[1];
+  assert.equal(
+    unknown.metadata.buildingClassification.classification,
+    BUILDING_V110_CLASS.UNKNOWN
+  );
+  assert.equal(
+    unknown.metadata.reasons.includes(
+      'UNKNOWN_BUILDING_SEMANTICS'
+    ),
+    true
+  );
 });
 
 test('direct promoted BuildingItemType classes stay typed and writer-disabled', async () => {
