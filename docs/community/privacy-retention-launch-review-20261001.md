@@ -284,3 +284,30 @@ Until then, the runtime is **technically proven but policy approval remains open
 - D1 through D8 final Product/Privacy/Legal approval;
 - production backup-copy retention implementation;
 - final policy-aligned regression acceptance.
+
+
+## Final approval-state split — 2026-10-01
+
+Engineering closure is now tracked separately from launch approvals.
+
+Machine-readable state:
+- `ops/community-retention-approval-state.json`.
+
+Current status:
+
+- Engineering implementation: **CONFIRMED**.
+- Engineering runtime evidence: **CONFIRMED**.
+- Engineering decision boundary: **CLOSED**.
+- Product approval: **PENDING**.
+- Privacy approval: **PENDING**.
+- Legal approval: **PENDING**.
+- Launch approval: **PENDING**.
+
+No Product/Privacy/Legal approval is inferred from the fact that 30/365 are implemented and
+runtime-proven.
+
+Until approvals are explicit, production `--require-ready` must remain blocked.
+
+If approvals keep the current 30/365 values, Engineering should run one final policy/configuration
+regression after approval. Do not rerun the already-passed retention plumbing E2E unless semantics
+changed.
