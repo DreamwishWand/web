@@ -51,7 +51,8 @@
     buildPrimaryJobAvailability,
     describeDraftValidation,
     explainCoreObjectReason,
-    resolvePrimaryJobShortcut
+    resolvePrimaryJobShortcut,
+    type PrimaryJobCommand
   } from '$lib/wep/world-editor-primary-job';
   import {
     FENCE_POST_AUTO_LAYOUT,
@@ -191,6 +192,10 @@
     editorDocument,
     selection
   );
+  $: selectedInspectorObject =
+    objectInspector.selection.kind === 'SINGLE'
+      ? objectInspector.selection.object ?? null
+      : null;
 
   function editorBlockerText(code: string) {
     return explainWepBlocker(code).message;
@@ -1812,7 +1817,7 @@
     refreshProjection();
   }
 
-  const PRIMARY_COMMAND_LABELS: Record<string, string> = {
+  const PRIMARY_COMMAND_LABELS: Record<PrimaryJobCommand, string> = {
     move: 'Move',
     rotate: 'Rotate',
     copy: 'Copy',
@@ -1825,15 +1830,15 @@
     downloadOriginalBackup: 'Download Original Backup'
   };
 
-  function primaryCommandReason(command: string) {
+  function primaryCommandReason(command: PrimaryJobCommand) {
     return primaryJobAvailability?.commands?.[command]?.reason ?? '';
   }
 
-  function primaryCommandAllowed(command: string) {
+  function primaryCommandAllowed(command: PrimaryJobCommand) {
     return primaryJobAvailability?.commands?.[command]?.enabled === true;
   }
 
-  function rejectPrimaryCommand(command: string) {
+  function rejectPrimaryCommand(command: PrimaryJobCommand) {
     const reason = primaryCommandReason(command);
     message = reason || `${PRIMARY_COMMAND_LABELS[command] ?? command} is unavailable.`;
   }
@@ -1895,12 +1900,6 @@
       return;
     }
     downloadOriginalSaveBackup();
-  }
-
-  function handleCanvasBackgroundClick(event: MouseEvent) {
-    if (!session) return;
-    if (event.ctrlKey || event.metaKey || event.shiftKey) return;
-    clearSelection();
   }
 
   function handlePrimaryJobKeydown(event: KeyboardEvent) {
@@ -2411,18 +2410,18 @@
             <p class="inspector-note">
               {objectInspector.selection.count} objects selected. Common Actions apply only when every selected object is editable under the current Core projection.
             </p>
-          {:else}
+          {:else if selectedInspectorObject}
             <dl class="inspector-details">
-              <div><dt>Item ID</dt><dd>{objectInspector.selection.object.itemId}</dd></div>
-              <div><dt>Layer</dt><dd>{objectInspector.selection.object.layer}</dd></div>
-              <div><dt>Editability</dt><dd>{objectInspector.selection.object.editability}</dd></div>
-              <div><dt>Position</dt><dd>{objectInspector.selection.object.x}, {objectInspector.selection.object.y}</dd></div>
-              <div><dt>Orientation</dt><dd>{objectInspector.selection.object.orientation}</dd></div>
-              <div><dt>State</dt><dd>{objectInspector.selection.object.stateKind ?? 'none'}</dd></div>
+              <div><dt>Item ID</dt><dd>{selectedInspectorObject.itemId}</dd></div>
+              <div><dt>Layer</dt><dd>{selectedInspectorObject.layer}</dd></div>
+              <div><dt>Editability</dt><dd>{selectedInspectorObject.editability}</dd></div>
+              <div><dt>Position</dt><dd>{selectedInspectorObject.x}, {selectedInspectorObject.y}</dd></div>
+              <div><dt>Orientation</dt><dd>{selectedInspectorObject.orientation}</dd></div>
+              <div><dt>State</dt><dd>{selectedInspectorObject.stateKind ?? 'none'}</dd></div>
             </dl>
-            {#if objectInspector.selection.object.reasonCodes.length}
+            {#if selectedInspectorObject.reasonCodes.length}
               <div class="inspector-reasons">
-                {#each objectInspector.selection.object.reasonCodes as code}
+                {#each selectedInspectorObject.reasonCodes as code}
                   <span><code>{code}</code>{explainCoreObjectReason(code)}</span>
                 {/each}
               </div>
@@ -2602,7 +2601,6 @@
             viewBox={`${areaBounds.x} ${areaBounds.y} ${areaBounds.w} ${areaBounds.h}`}
             preserveAspectRatio="xMidYMid meet"
             aria-label="World Editor top-down canvas"
-            on:click={handleCanvasBackgroundClick}
           >
             <defs>
               <pattern
