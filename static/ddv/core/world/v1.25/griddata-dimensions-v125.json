@@ -410,4 +410,133 @@
     "sourceSha256": "055f4db59357290dccc04909264907ee10d2372ee03a316b99f23fae9e85c562"
   },
   "GridData/Villages/VillageExpansion01/VillageExpansion01-OutpostArea04SecretGrid02-GridData.json": {
- 
+    "sizeX": 50,
+    "sizeY": 20,
+    "sourceSha256": "768c6d41d7ee3616dea713fcabc0201b319412c1dae2dce54521375c7fe9ba0a"
+  },
+  "GridData/Villages/VillageExpansion02/VillageExpansion02-FairyTalesArea01LevelGrid_GridMerge-GridData.json": {
+    "sizeX": 176,
+    "sizeY": 169,
+    "sourceSha256": "7333c9b9dc6687abbf3470508c03abeb2d1796564ca9a631ecd720e199d1ef1b"
+  },
+  "GridData/Villages/VillageExpansion02/VillageExpansion02-FairyTalesArea01LevelGrid_trial-GridData.json": {
+    "sizeX": 70,
+    "sizeY": 49,
+    "sourceSha256": "e85f98215a56283a69bf7e195716c0950da771f7ba8f5ed0de2a3aeebda6e230"
+  },
+  "GridData/Villages/VillageExpansion02/VillageExpansion02-FairyTalesArea02LevelGrid_GridMerge-GridData.json": {
+    "sizeX": 120,
+    "sizeY": 202,
+    "sourceSha256": "bb80fe114d1749117187dfb94240f7e800b9c5aa6289a81cc8f66850ce8d928e"
+  },
+  "GridData/Villages/VillageExpansion02/VillageExpansion02-FairyTalesArea02LevelGrid_trial-GridData.json": {
+    "sizeX": 60,
+    "sizeY": 60,
+    "sourceSha256": "0aa6107d4d77d7c9266f18f8059d89b5b1d9afe5c073a5542aae807c51e9ebb2"
+  },
+  "GridData/Villages/VillageExpansion02/VillageExpansion02-FairyTalesArea03LevelGrid01-GridData.json": {
+    "sizeX": 128,
+    "sizeY": 192,
+    "sourceSha256": "043c1a1e91ae8fc055f93276f8b8f4ea95daba84baddb516ac89edaa02c62419"
+  },
+  "GridData/Villages/VillageExpansion02/VillageExpansion02-FairyTalesArea03LevelGrid_trial-GridData.json": {
+    "sizeX": 77,
+    "sizeY": 65,
+    "sourceSha256": "a09cbce5364d935d4be8202476b2a6d28a1d5ad018ea614506871d9bc327ee00"
+  },
+  "GridData/Villages/VillageExpansion02/VillageExpansion02-FairyTalesArea04LevelGrid01-GridData.json": {
+    "sizeX": 230,
+    "sizeY": 115,
+    "sourceSha256": "15382732f6ed874763bbb47fa34b9c006bdc69eb1c66512d390228e8600c084d"
+  },
+  "GridData/Villages/VillageExpansion02/VillageExpansion02-FairyTalesArea04LevelGrid02-GridData.json": {
+    "sizeX": 17,
+    "sizeY": 52,
+    "sourceSha256": "fffa0838584c250198d2365093029ce9f09fe83917cef0473224d2223c2e47f9"
+  },
+  "GridData/Villages/VillageExpansion02/VillageExpansion02-FairyTalesArea04LevelGrid03-GridData.json": {
+    "sizeX": 31,
+    "sizeY": 21,
+    "sourceSha256": "0c370282af09312eb79225f23d548a31d2f094f25e78f7b1ae08591b0729ced8"
+  },
+  "GridData/Villages/VillageExpansion02/VillageExpansion02-FairyTalesArea04LevelGrid_dungeon-GridData.json": {
+    "sizeX": 46,
+    "sizeY": 100,
+    "sourceSha256": "8cd5dfb12bb0448d8eca21be27eb34c26312c8bda24c5abec2740509d7a3d8d4"
+  },
+  "GridData/Villages/VillageExpansion02/VillageExpansion02-LibraryArea01LevelGrid01-GridData.json": {
+    "sizeX": 62,
+    "sizeY": 274,
+    "sourceSha256": "2faa9ec8a72192412504047a561893d0766e7082575708fe38fdb697bf73b350"
+  },
+  "GridData/Villages/VillageExpansion02/VillageExpansion02-LibraryArea01LevelGrid02-GridData.json": {
+    "sizeX": 314,
+    "sizeY": 87,
+    "sourceSha256": "e47f9f41532b5dc396e0d49f1d229e48fd9052390132cd16fa4ad140dd0d4b9d"
+  },
+  "GridData/Villages/VillageExpansion02/VillageExpansion02-LibraryArea01LevelGrid03-GridData.json": {
+    "sizeX": 74,
+    "sizeY": 54,
+    "sourceSha256": "19c8f9a442d8daf57ea58956b6ea219c5ff335920a6b1dfe845f66c117b446a8"
+  },
+  "GridData/Villages/VillageExpansion02/VillageExpansion02-LibraryArea01LevelGrid04-GridData.json": {
+    "sizeX": 76,
+    "sizeY": 55,
+    "sourceSha256": "7902c26c8b2d8473262d9bcae9331f92aed531c95064d02cf14293af430e61e3"
+  },
+  "GridData/Villages/VillageExpansion02/VillageExpansion02-LibraryArea01LevelGrid05-GridData.json": {
+    "sizeX": 12,
+    "sizeY": 27,
+    "sourceSha256": "fb07cd43caff6e690dbeb70ac454d3742ac22aca17a90b64888198154caf4c33"
+  },
+  "GridData/Villages/VillageExpansion02/VillageExpansion02-LibraryArea02LevelGrid01-GridData.json": {
+    "sizeX": 176,
+    "sizeY": 200,
+    "sourceSha256": "648815588c096a354cd9635134d217ccec8816fb1785d953f2d4a0eac7cf7a76"
+  },
+  "GridData/Villages/VillageExpansion02/VillageExpansion02-LibraryArea02LevelGrid02-GridData.json": {
+    "sizeX": 176,
+    "sizeY": 200,
+    "sourceSha256": "1a1a20fcb4cd975f8c648241a66bbd88befb6ff61e98f67f0ab984e7b393b1c9"
+  },
+  "GridData/Villages/VillageExpansion02/VillageExpansion02-LibraryArea02LevelGrid03-GridData.json": {
+    "sizeX": 37,
+    "sizeY": 122,
+    "sourceSha256": "53c15cd03c3fcdc6c0d67ed6a7c322d8af36d83674c89ce147c2a5b478046930"
+  },
+  "GridData/Villages/VillageExpansion02/VillageExpansion02-LibraryArea02LevelGrid04_secret-GridData.json": {
+    "sizeX": 6,
+    "sizeY": 8,
+    "sourceSha256": "af6bc6526d89637593cc139990ea78f98dc046f2a6326fc1c319e6de3310e89d"
+  },
+  "GridData/Villages/VillageExpansion02/VillageExpansion02-MythologyArea01LevelGrid01-GridData.json": {
+    "sizeX": 217,
+    "sizeY": 145,
+    "sourceSha256": "2a5bccea8d812265ed07636463a80c4096d9ac47c6c37fece96772929371f0a6"
+  },
+  "GridData/Villages/VillageExpansion02/VillageExpansion02-MythologyArea01LevelGrid02-GridData.json": {
+    "sizeX": 20,
+    "sizeY": 20,
+    "sourceSha256": "406c44835ab2c1b26f9f6fbc7e585bcac0e5646e3f95d61cccf030cab78608f1"
+  },
+  "GridData/Villages/VillageExpansion02/VillageExpansion02-MythologyArea01LevelGrid_trial-GridData.json": {
+    "sizeX": 48,
+    "sizeY": 48,
+    "sourceSha256": "985fa94a4d86df34e6b5062ecbebb878ac7677f1073a59f465f6ffcf63ca0a58"
+  },
+  "GridData/Villages/VillageExpansion02/VillageExpansion02-MythologyArea02LevelGrid_Grid01-GridData.json": {
+    "sizeX": 158,
+    "sizeY": 176,
+    "sourceSha256": "41d5d08c693efaa836286144eae146f4d27414c69f82c669f74ed0a25312db9a"
+  },
+  "GridData/Villages/VillageExpansion02/VillageExpansion02-MythologyArea02LevelGrid_trial-GridData.json": {
+    "sizeX": 48,
+    "sizeY": 48,
+    "sourceSha256": "92e0e8d2ea2b93602647acc643622fcb552b9433740a57a99deb449052216649"
+  },
+  "GridData/Villages/VillageExpansion02/VillageExpansion02-MythologyArea03LevelGrid01-GridData.json": {
+    "sizeX": 132,
+    "sizeY": 198,
+    "sourceSha256": "370711405fbc76155993b7ec4b09a5ab723c35d065c81dcd84e1978a105115cc"
+  },
+  "GridData/Villages/VillageExpansion02/
