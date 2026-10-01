@@ -9,7 +9,8 @@ const queryToRpc = {
   saved: 'community_get_saved',
   notifications: 'community_get_notifications',
   preset: 'community_get_preset',
-  deadLetters: 'community_get_dead_letter_outbox'
+  deadLetters: 'community_get_dead_letter_outbox',
+  linkedDdvProfiles: 'community_get_linked_ddv_profiles'
 } as const;
 
 type QueryName = keyof typeof queryToRpc;
@@ -70,6 +71,7 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
 
     switch (query) {
       case 'me':
+      case 'linkedDdvProfiles':
         break;
       case 'work':
         params.p_work_id = payload.workId;
