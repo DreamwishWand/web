@@ -1,0 +1,75 @@
+{
+  "schema": "dreamwish-community-linked-ddv-profile-identity-transport@1",
+  "decidedAt": "2026-10-02",
+  "state": "TECHNICAL_CONTRACT_READY_PRIVACY_LEGAL_REVIEW_PENDING",
+  "identity": {
+    "sourceField": "GameInfo.LastCustomIdOwner",
+    "semanticName": "DDV Player ID / User ID",
+    "mdcPrefixCanonical": false,
+    "crossSaveBehavior": "SAME_ID_OBSERVED_SWITCH_STEAM_SAME_PROFILE",
+    "rawValuePersistence": "PROHIBITED",
+    "publicExposure": "PROHIBITED",
+    "authenticationSecret": false,
+    "entitlementProof": false
+  },
+  "client": {
+    "parseSaveLocally": true,
+    "uploadRawSave": false,
+    "extractOnly": [
+      "GameInfo.LastCustomIdOwner"
+    ],
+    "failClosedOnMissingOrMalformed": true
+  },
+  "transport": {
+    "method": "AUTHENTICATED_POST_BODY_OVER_TLS",
+    "rawPlayerIdTransit": "TRANSIENT_ONLY",
+    "queryStringUse": false,
+    "urlPathUse": false,
+    "requestBodyLogging": false,
+    "analyticsCapture": false,
+    "recentAuthenticationRequired": true
+  },
+  "serverDigest": {
+    "algorithm": "HMAC-SHA-256",
+    "domainSeparation": "dreamwishwand/ddv-player-id/v1\\0",
+    "input": "exact UTF-8 GameInfo.LastCustomIdOwner string",
+    "normalization": "NONE_BEYOND_JSON_STRING_DECODING",
+    "secret": "production-only dedicated pseudonymization key",
+    "storedFormat": "hmac-sha256:v1:<hex>",
+    "databaseField": "ddv_profiles.binding_key_hash",
+    "rawIdentifierStored": false,
+    "verificationEvidenceRef": "NULL_BY_DEFAULT"
+  },
+  "transactionalBehavior": {
+    "sameDigestSameAccount": "IDEMPOTENT_SUCCESS",
+    "sameDigestDifferentAccount": "FAIL_PROFILE_ALREADY_LINKED_WITHOUT_OWNER_DISCLOSURE",
+    "accountAtThreeProfiles": "FAIL_PROFILE_LIMIT",
+    "unexpectedCollision": "FAIL_CLOSED_NO_AUTO_MERGE",
+    "crossPlatformSameMdc": "ONE_LINKED_DDV_PROFILE_SLOT"
+  },
+  "lifecycle": {
+    "normalSelfServiceUnlink": false,
+    "exceptionalCorrection": "recent-auth + support/admin review + reason + AuditEvent",
+    "ordinaryRevokedDigestTombstoneDays": 7,
+    "holdExtension": "D4 moderation/security/legal only while justified",
+    "accountDeletion": "remove account link immediately; ordinary digest tombstone <=7d then purge unless justified D4 hold"
+  },
+  "securityBoundary": {
+    "playerIdMayNotAuthenticateWand": true,
+    "playerIdMayNotRecoverWandAccount": true,
+    "playerIdMayNotGrantEntitlements": true,
+    "playerIdMayNotUnlockMoonstonesPremiumOrDlc": true,
+    "platformCredentialsNotUsed": true
+  },
+  "keyCompromise": {
+    "routineRotation": "DO_NOT_SILENTLY_ROTATE_BINDING_KEY_WITHOUT_MIGRATION_PLAN",
+    "reason": "raw Player ID is intentionally not retained, so existing digests cannot be recomputed offline",
+    "recovery": "retain explicit key version; on compromise revoke/mark bindings for re-verification or run a dual-key re-verification migration when users next present their Player ID"
+  },
+  "minors": {
+    "parentGuardianAccountMayLinkUnder13Profile": true,
+    "separateUnder13WandCredentials": false,
+    "communityParticipationScope": "PENDING_PRIVACY_LEGAL"
+  },
+  "launchApproved": false
+}
