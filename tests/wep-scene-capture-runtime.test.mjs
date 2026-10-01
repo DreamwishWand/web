@@ -138,6 +138,11 @@ test('readonly and network objects cannot masquerade as ordinary roots', () => {
 
 test('authoritative root bounds fail closed when Capture Region exceeds GridData extent', () => {
   const input = document();
+  input.target = {
+    ...(input.target ?? {}),
+    gridDataPath: 'GridData/Villages/Village04-SnowLevel-GridData.json',
+    tessellationFactor: 1
+  };
   input.metadata = {
     ...(input.metadata ?? {}),
     rootGridBounds: {
@@ -146,6 +151,11 @@ test('authoritative root bounds fail closed when Capture Region exceeds GridData
       w: 8,
       h: 8,
       status: 'AUTHORITATIVE_GRIDDATAPATH'
+    },
+    browserBinding: {
+      gridDataDimensionsBound: true,
+      gridDataDimensionsSha256:
+        '75f33dc20d521d579070aa7919a96c23ce5dd329dbc6f58392f267c9dd0b1aaa'
     }
   };
 
@@ -167,6 +177,46 @@ test('authoritative root bounds fail closed when Capture Region exceeds GridData
         'CAPTURE_REGION_OUTSIDE_AUTHORITATIVE_ROOT_BOUNDS'
     ),
     true
+  );
+});
+
+test('untrusted root bounds are not treated as v1.7 authority', () => {
+  const input = document();
+  input.target = {
+    ...(input.target ?? {}),
+    gridDataPath: 'GridData/Untrusted.json',
+    tessellationFactor: 1
+  };
+  input.metadata = {
+    rootGridBounds: {
+      x: 0,
+      y: 0,
+      w: 1,
+      h: 1,
+      status: 'AUTHORITATIVE_GRIDDATAPATH'
+    },
+    browserBinding: {
+      gridDataDimensionsBound: true,
+      gridDataDimensionsSha256: 'not-the-pinned-contract'
+    }
+  };
+
+  const result = captureScenePreset(
+    input,
+    {
+      selectionIds: ['g7:o100'],
+      captureRegion: { x: 4, y: 7, w: 5, h: 4 }
+    },
+    validatePublishablePreset
+  );
+
+  assert.equal(
+    result.issues.some(
+      (issue) =>
+        issue.code ===
+        'CAPTURE_REGION_OUTSIDE_AUTHORITATIVE_ROOT_BOUNDS'
+    ),
+    false
   );
 });
 
