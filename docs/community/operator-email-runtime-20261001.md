@@ -181,3 +181,30 @@ previous mixed iCloud Inbox/Junk observation remains the relevant human-mailbox 
 The final signed-in reauthentication QA may legitimately generate one reauthentication message (and
 possibly the enabled password-changed security notification) as part of a real transaction. Do not
 repeat that flow merely to increase sending volume.
+
+
+## Production-readiness evidence refresh — 2026-10-01
+
+Existing traffic was re-read without sending any new message.
+
+Current provider evidence remains:
+
+- sent: 5;
+- delivered: 5;
+- bounced: 0;
+- failed: 0;
+- complained: 0;
+- delivery-delayed: 0;
+- delivery rate: 100%.
+
+Sender domain readback:
+
+- `dreamwishwand.com`;
+- status: verified;
+- sending: enabled;
+- region: ap-northeast-1.
+
+This closes provider-delivery evidence for the current sample.
+
+Human mailbox placement remains **PARTIAL** because provider `delivered` does not distinguish Inbox
+from Junk and prior iCloud placement was mixed. No synthetic warming was generated.
