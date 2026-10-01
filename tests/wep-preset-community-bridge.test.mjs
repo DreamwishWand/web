@@ -2,6 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
 import { createPresetCommunityBridge } from '../src/lib/wep/preset-community-bridge.ts';
+import {
+  buildPublishEnvelope,
+  preflightScene,
+  validatePublishablePreset
+} from '../src/lib/wep/scene-preset-runtime.ts';
 
 if (!globalThis.crypto) globalThis.crypto = webcrypto;
 
@@ -341,5 +346,213 @@ test('Local artifact validation blocks transport before prepare', async () => {
   assert.equal(
     calls.some((call) => call[0] === 'preset' && call[1] === 'prepare'),
     false
+  );
+});
+
+
+test('Road topology survives the product-shaped Community reuse vertical and Apply stays blocked', async () => {
+  const topologyArtifact = structuredClone(artifact);
+  topologyArtifact.networks.roads = {
+    schema: 'dreamwish-wand-wep-network-capture',
+    version: 1,
+    kind: 'roads',
+    originPolicy: 'capture-region-top-left',
+    networks: [
+      {
+        networkId: 'r0',
+        familyBaseItemID: 40100068,
+        cells: [{ x: 0, y: 0, mode: 'orthogonal' }]
+      }
+    ],
+    normalization: {
+      sourceGridObjectIdsRemoved: true,
+      artifactNetworkIdsLocal: true,
+      partialTopologyFailsClosed: true
+    },
+    persistentWriteAuthorized: false
+  };
+  topologyArtifact.requirements.roadTopology = true;
+
+  const envelope = buildPublishEnvelope(topologyArtifact);
+  assert.equal(envelope.ok, true);
+  const topologyBytes = new TextEncoder().encode(envelope.envelope.json);
+  const topologyChecksum = Array.from(
+    new Uint8Array(await webcrypto.subtle.digest('SHA-256', topologyBytes)),
+    (byte) => byte.toString(16).padStart(2, '0')
+  ).join('');
+
+  const calls = [];
+  const community = {
+    async preset(action, payload) {
+      calls.push(['preset', action, payload]);
+      if (action === 'prepare') {
+        return {
+          ok: true,
+          storageKey: 'staging/u/topology.json',
+          signedUpload: { signedUrl: 'https://upload-topology.invalid' }
+        };
+      }
+      if (action === 'publish') {
+        return {
+          ok: true,
+          data: {
+            presetArtifactId: 'pa-topology',
+            presetRevisionId: 'pr-topology',
+            workId: 'w-topology',
+            workRevisionId: 'wr-topology',
+            storageKey: 'published/u/topology.json',
+            checksumSha256: topologyChecksum,
+            byteSize: topologyBytes.length
+          }
+        };
+      }
+      if (action === 'resolveWork') {
+        return {
+          ok: true,
+          preset: {
+            presetArtifactId: 'pa-topology',
+            presetRevisionId: 'pr-topology',
+            presetType: 'scene',
+            schemaVersion: 1,
+            byteSize: topologyBytes.length,
+            checksumSha256: topologyChecksum
+          }
+        };
+      }
+      if (action === 'read') {
+        return {
+          ok: true,
+          preset: {
+            presetArtifactId: 'pa-topology',
+            presetRevisionId: 'pr-topology',
+            presetType: 'scene',
+            schemaVersion: 1,
+            byteSize: topologyBytes.length,
+            checksumSha256: topologyChecksum,
+            signedUrl: 'https://read-topology.invalid',
+            expiresIn: 300
+          }
+        };
+      }
+      throw new Error('unexpected preset action ' + action);
+    },
+    async command(command, payload) {
+      calls.push(['command', command, payload]);
+      return {
+        ok: true,
+        data: {
+          targetEntityId: payload.targetEntityId,
+          saved: command === 'saveEntity'
+        }
+      };
+    },
+    async query(query) {
+      if (query === 'saved') {
+        return {
+          ok: true,
+          data: [
+            {
+              targetEntityId: 'pa-topology',
+              accessible: true,
+              savedAt: 'now'
+            }
+          ]
+        };
+      }
+      if (query === 'preset') {
+        return {
+          ok: true,
+          data: {
+            presetArtifactId: 'pa-topology',
+            presetRevisionId: 'pr-topology',
+            presetType: 'scene',
+            schemaVersion: 1,
+            contentType: 'application/json',
+            byteSize: topologyBytes.length,
+            checksumSha256: topologyChecksum,
+            title: 'Bridge Scene'
+          }
+        };
+      }
+      throw new Error('unexpected query ' + query);
+    },
+    async searchPublicWorks() {
+      return [
+        {
+          work_id: 'w-topology',
+          creator_profile_id: 'cp1',
+          title: 'Bridge Scene',
+          text_content: 'road topology',
+          tags: [],
+          facets: {},
+          published_at: '2026-10-01T00:00:00Z'
+        }
+      ];
+    }
+  };
+
+  const bridge = createPresetCommunityBridge({
+    community,
+    hooks: {
+      buildPublishEnvelope,
+      validatePublishablePreset,
+      preflightScene
+    },
+    fetchImpl: async (url) => {
+      if (url === 'https://upload-topology.invalid') {
+        return { ok: true, status: 200, text: async () => '' };
+      }
+      if (url === 'https://read-topology.invalid') {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => '',
+          arrayBuffer: async () =>
+            topologyBytes.buffer.slice(
+              topologyBytes.byteOffset,
+              topologyBytes.byteOffset + topologyBytes.byteLength
+            )
+        };
+      }
+      return { ok: false, status: 404, text: async () => 'not found' };
+    }
+  });
+
+  const published = await bridge.publishScene({
+    artifact: topologyArtifact,
+    creatorProfileId: 'cp1',
+    visibility: 'public',
+    title: 'Bridge Scene',
+    idempotencyKey: 'topology-1'
+  });
+  assert.equal(published.presetArtifactId, 'pa-topology');
+
+  const discovered = await bridge.discover({ query: 'road' });
+  assert.equal(discovered[0].workId, 'w-topology');
+
+  await bridge.saveDiscoveredWork('w-topology');
+  assert.equal(
+    calls.some(
+      (call) =>
+        call[0] === 'command' &&
+        call[1] === 'saveEntity' &&
+        call[2].targetEntityId === 'pa-topology'
+    ),
+    true
+  );
+
+  const result = await bridge.preflightPreset('pa-topology');
+  assert.equal(result.validation.ok, true);
+  assert.equal(
+    result.artifact.networks.roads.networks[0].networkId,
+    'r0'
+  );
+  assert.equal(result.preflight.ok, false);
+  assert.equal(result.preflight.writeReady, false);
+  assert.equal(
+    result.preflight.issues.some(
+      (issue) => issue.code === 'ROAD_TOPOLOGY_APPLY_UNAVAILABLE'
+    ),
+    true
   );
 });
