@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import fs, { readFileSync } from 'node:fs';
+import path from 'node:path';
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const schema = read('supabase/migrations/202609300001_community_core_v0.sql');
