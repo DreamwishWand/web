@@ -2814,3 +2814,34 @@ test('Linked DDV Product lifecycle uses seven-day tombstone and remains fail-clo
     'CLOSED_PRODUCT_APPROVED_IMPLEMENTATION_DEPENDENCY_OPEN'
   );
 });
+
+
+test('Linked DDV Profile lifecycle keeps raw Player ID out of PostgreSQL and enforces the approved lifecycle', () => {
+  const migration = read(
+    'supabase/migrations/20261001221620_community_linked_ddv_profile_lifecycle_v1.sql'
+  );
+  const query = read('supabase/functions/community-query/index.ts');
+  const admin = read('supabase/functions/community-admin/index.ts');
+  const retention = read('supabase/functions/community-retention/index.ts');
+  const generated = read('src/lib/generated/database.types.ts');
+
+  assert.match(migration, /relationship_kind in \('self','parent_guardian_managed'\)/i);
+  assert.match(migration, /linked_ddv_profile_recent_auth_seconds',900/i);
+  assert.match(migration, /ddv_profile_link',3600,12,true/i);
+  assert.match(migration, /\^hmac-sha256:v1:\[0-9a-f\]\{64\}\$/i);
+  assert.match(migration, /clock_timestamp\(\)\+interval '7 days'/i);
+  assert.match(migration, /community_account_has_retention_hold/i);
+  assert.match(migration, /community_admin_correct_ddv_profile_link_v1/i);
+  assert.match(migration, /verification_evidence_ref[\s\S]*null/i);
+  assert.doesNotMatch(migration, /LastCustomIdOwner|ProfileUID|raw.*player.*id/i);
+
+  assert.match(query, /linkedDdvProfiles: 'community_get_linked_ddv_profiles'/);
+  assert.match(admin, /correctDdvProfileLink: 'community_admin_correct_ddv_profile_link_v1'/);
+  assert.match(retention, /community_purge_expired_ddv_binding_tombstones/);
+
+  assert.match(generated, /relationship_kind: string/i);
+  assert.match(generated, /community_link_ddv_profile_v1/);
+  assert.match(generated, /community_get_linked_ddv_profiles/);
+  assert.match(generated, /community_admin_correct_ddv_profile_link_v1/);
+  assert.match(generated, /community_purge_expired_ddv_binding_tombstones/);
+});
