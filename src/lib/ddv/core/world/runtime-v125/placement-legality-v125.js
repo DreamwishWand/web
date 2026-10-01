@@ -33,7 +33,8 @@ const NATIVE_CLASS=Object.freeze({
 });
 const CLEARABILITY=Object.freeze({CLEARABLE:'CLEARABLE',NOT_CLEARABLE:'NOT_CLEARABLE',UNKNOWN:'UNKNOWN'});
 const WALL=0x800;
-const FLOOR_SEMANTIC_MASK=0x07fbffff;
+const FLOOR_SEMANTIC_MASK=0x07fbffff; // every current GridFloorType semantic bit except BlockAutomaticSpawning 0x40000
+// Preserve numeric orientation handling even if a caller uses the canonical enum labels.
 function orientationIndex(v){
   const n=Number(v);if(Number.isSafeInteger(n))return n;
   const s=String(v);
@@ -140,6 +141,7 @@ function classifyOrdinaryCardinalNativePlacement({
     cells.push(Object.freeze({x:wx,y:wy,coarseX:cx,coarseY:cy,floorType:floor===null?null:Number(floor)>>>0,requiredFloorType:floorFlag,conflictFlags:flags,hits:Object.freeze(cellHits)}));
     aggregate|=flags;
   }
+  // Native VerifyConflicts clears aggregate Clearable when any object-conflict cell is not clearable.
   if(anyNonClearable)aggregate&=~CONFLICT.Clearable;
   if(anyObjectCollision){
     if(clearabilityUnknown)reasons.push('GRID_OBJECT_CLEARABILITY_UNVERIFIED');
