@@ -401,24 +401,38 @@ function buildingSourceEntries({
         typeof object.metadata.buildingSemantics === 'object'
           ? object.metadata.buildingSemantics
           : {};
-      const evidence = {
-        buildingItemType:
-          typeof metadataEvidence.buildingItemType === 'string'
-            ? metadataEvidence.buildingItemType
-            : null,
-        signals:
-          metadataEvidence.signals &&
-          typeof metadataEvidence.signals === 'object'
-            ? clone(metadataEvidence.signals)
-            : {},
-        restorationKind:
-          restoration?.kind
-            ? String(restoration.kind)
-            : null,
-        sourceStateFamily:
-          restoration?.sourceStateFamily ??
-          sourceBuildingStateFamily(sourceObject)
-      };
+      const promotedEvidence =
+        buildingBinding?.classificationEvidenceForItemId?.(itemId) ??
+        null;
+      const evidence = promotedEvidence
+        ? {
+            ...clone(promotedEvidence),
+            restorationKind:
+              restoration?.kind
+                ? String(restoration.kind)
+                : null,
+            sourceStateFamily:
+              restoration?.sourceStateFamily ??
+              sourceBuildingStateFamily(sourceObject)
+          }
+        : {
+            buildingItemType:
+              typeof metadataEvidence.buildingItemType === 'string'
+                ? metadataEvidence.buildingItemType
+                : null,
+            signals:
+              metadataEvidence.signals &&
+              typeof metadataEvidence.signals === 'object'
+                ? clone(metadataEvidence.signals)
+                : {},
+            restorationKind:
+              restoration?.kind
+                ? String(restoration.kind)
+                : null,
+            sourceStateFamily:
+              restoration?.sourceStateFamily ??
+              sourceBuildingStateFamily(sourceObject)
+          };
       const classification = buildingBinding
         ? buildingBinding.classifyEvidence(evidence)
         : {
