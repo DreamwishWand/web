@@ -1,3 +1,8 @@
+import {
+  authoritativeRootBoundsFromEditorDocument,
+  regionWithinAuthoritativeBounds
+} from './griddata-v17-contract.ts';
+
 export type WepLayer =
   | 'furniture'
   | 'building'
@@ -311,27 +316,14 @@ function normalizeRegion(region: CaptureRegion): CaptureRegion {
 }
 
 function authoritativeRootBounds(document: EditorDocument) {
-  const bounds = (document.metadata as AnyRecord | undefined)?.rootGridBounds;
-  if (
-    !plain(bounds) ||
-    bounds.status !== 'AUTHORITATIVE_GRIDDATAPATH'
-  ) {
-    return null;
-  }
-  const x = requireSafeInteger(bounds.x, 'WEP_ROOT_BOUNDS_INVALID');
-  const y = requireSafeInteger(bounds.y, 'WEP_ROOT_BOUNDS_INVALID');
-  const w = requirePositiveInteger(bounds.w, 'WEP_ROOT_BOUNDS_INVALID');
-  const h = requirePositiveInteger(bounds.h, 'WEP_ROOT_BOUNDS_INVALID');
-  return { x, y, w, h };
+  const resolved = authoritativeRootBoundsFromEditorDocument(
+    document as AnyRecord
+  );
+  return resolved ? { ...resolved.bounds } : null;
 }
 
 function regionInsideBounds(region: CaptureRegion, bounds: CaptureRegion) {
-  return (
-    region.x >= bounds.x &&
-    region.y >= bounds.y &&
-    region.x + region.w <= bounds.x + bounds.w &&
-    region.y + region.h <= bounds.y + bounds.h
-  );
+  return regionWithinAuthoritativeBounds(region, bounds);
 }
 
 function dependencyClosure(
