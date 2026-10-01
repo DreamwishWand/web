@@ -31,6 +31,10 @@
   import { preflightCurrentV125FullDesignManifest } from '$lib/wep/full-design-preset-preflight';
   import { createSwitchV125RoadFenceReaderBinding } from '$lib/wep/roadfence-reader-adapter';
   import { assessCurrentV125BrowserPlacementReadiness } from '$lib/wep/placement-readiness';
+  import {
+    NATIVE_PLACEMENT_CLASSES,
+    createSwitchV125PlacementLegalityBinding
+  } from '$lib/wep/placement-legality-v19';
 
   let session: any = null;
   let editorDocument: any = null;
@@ -56,6 +60,7 @@
   let floatingIslandPlan: any = null;
   let floatingIslandPlanError = '';
   let roadFenceReaderBinding: any = null;
+  let placementLegalityBinding: any = null;
   let includeRoads = false;
   let includeFences = false;
 
@@ -241,6 +246,37 @@
     return 'Ready for future apply gate';
   }
 
+  function fullDesignNativePlacementSummary(preflight: any) {
+    const bindings =
+      preflight?.destination?.rootObjectRouteBindings ?? [];
+    const counts = {
+      clear: 0,
+      replaces: 0,
+      invalid: 0,
+      unknown: 0
+    };
+    for (const entry of bindings) {
+      if (
+        entry?.nativePlacementClass ===
+        NATIVE_PLACEMENT_CLASSES.VALID_CLEAR
+      ) counts.clear += 1;
+      else if (
+        entry?.nativePlacementClass ===
+        NATIVE_PLACEMENT_CLASSES
+          .VALID_REPLACES_OR_REMOVES_EXISTING
+      ) counts.replaces += 1;
+      else if (
+        entry?.nativePlacementClass ===
+        NATIVE_PLACEMENT_CLASSES.INVALID
+      ) counts.invalid += 1;
+      else if (
+        entry?.nativePlacementClass ===
+        NATIVE_PLACEMENT_CLASSES.UNKNOWN
+      ) counts.unknown += 1;
+    }
+    return `clear ${counts.clear} · replace/remove ${counts.replaces} · invalid ${counts.invalid} · unknown ${counts.unknown}`;
+  }
+
   function fullDesignDestinationIssueText(issue: any) {
     return String(
       issue?.detail?.message ??
@@ -269,11 +305,17 @@
         throw new Error('FULL_DESIGN_DESTINATION_SWITCH_SOURCE_REQUIRED');
       }
 
+      placementLegalityBinding ??=
+        await createSwitchV125PlacementLegalityBinding({
+          basePath: base
+        });
+
       fullDesignDestinationPreflight =
         preflightCurrentV125FullDesignManifest({
           destinationProfile: opened.profile,
           destinationPlatform: opened.saveIdentity.sourcePlatform,
-          manifest: fullDesignPlan.manifest
+          manifest: fullDesignPlan.manifest,
+          placementBinding: placementLegalityBinding
         });
     } catch (error) {
       fullDesignDestinationPreflight = null;
@@ -1134,7 +1176,8 @@
               </div>
               <p>
                 別のNintendo Switch v1.25.0 saveをローカルで読み込み、semantic target、
-                portable direct-root route、Building / PlayerHouse / Environmentをread-onlyで検証します。
+                portable direct-root route、v1.8 FloorType map、v1.9 native placement legality、
+                Building / PlayerHouse / Environmentをread-onlyで検証します。
                 ファイルはこの操作ではアップロードされません。
               </p>
             </div>
@@ -1171,6 +1214,12 @@
                       : 'BLOCKED'}
                   </strong>
                   <strong>
+                    Native placement
+                    {fullDesignDestinationPreflight.nativePlacementContractBound
+                      ? fullDesignNativePlacementSummary(fullDesignDestinationPreflight)
+                      : 'Contract not bound'}
+                  </strong>
+                  <strong>
                     Category closure
                     {fullDesignDestinationPreflight.categoryClosureReady
                       ? 'PASS'
@@ -1199,8 +1248,9 @@
             {/if}
 
             <small>
-              このpreflightが成功してもApplyは有効になりません。現在のfull-design category closureと
-              persistent commit authorizationは別Gateです。
+              native placementは CLEAR / REPLACES_OR_REMOVES_EXISTING / INVALID /
+              UNKNOWN_UNVERIFIED を別Gateで保持します。UNKNOWNはVALIDへ昇格しません。
+              このpreflightが成功してもApplyは有効にならず、persistent commit authorizationは別Gateです。
             </small>
           </div>
         {:else}
