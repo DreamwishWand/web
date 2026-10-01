@@ -11,6 +11,29 @@ export const BUILDING_V110_SHA256 =
 export const BUILDING_V110_SCHEMA =
   'ddv.building-read-model-preflight@1';
 
+export const BUILDING_V111_PROJECTION_STATIC_PATH =
+  '/ddv/core/world/v1.25/building-classification-projection-v125.json';
+export const BUILDING_V111_PROJECTION_SHA256 =
+  'f389f1af6add09fe50d28c6d0a501a212256abd7f4f1e5f6a868c13fdc6f9411';
+export const BUILDING_V111_PROJECTION_SCHEMA =
+  'ddv.building-classification-projection@1';
+
+const BUILDING_V111_TYPE_CODE:Record<string,string> = Object.freeze({
+  H: 'House',
+  S: 'Stall',
+  G: 'Garden',
+  O: 'Other',
+  X: 'OffGridBuilding',
+  P: 'PlayerHouse'
+});
+
+const BUILDING_V111_CLASS_CODE:Record<string,string> = Object.freeze({
+  O: BUILDING_V110_CLASS.ORDINARY,
+  S: BUILDING_V110_CLASS.SPECIAL,
+  X: BUILDING_V110_CLASS.OFF_GRID,
+  U: BUILDING_V110_CLASS.UNKNOWN
+});
+
 export const BUILDING_V110_CLASS = Object.freeze({
   ORDINARY: 'ORDINARY_GRID_BUILDING',
   SPECIAL: 'SPECIAL_GRID_BUILDING',
@@ -94,6 +117,147 @@ function validateContract(contract:AnyRecord) {
     throw new Error('WEP_BUILDING_V110_ACTIVATION_MISMATCH');
   }
   return true;
+}
+
+function validateProjection(projection:AnyRecord) {
+  if (
+    projection?.schema !== BUILDING_V111_PROJECTION_SCHEMA ||
+    projection?.artifact !== 'DDV-BUILDING-CLASSIFICATION-V125-V1_11' ||
+    projection?.status !== 'PROMOTED' ||
+    projection?.target?.platform !== 'Nintendo Switch' ||
+    projection?.target?.gameVersion !== '1.25.0' ||
+    projection?.target?.buildId !== '52BD625D9B4E0053' ||
+    Number(projection?.target?.profileSchema) !== 624 ||
+    projection?.parentBaseline?.artifact !==
+      'DDV-BUILDING-V125-V1_10' ||
+    projection?.parentBaseline?.sha256 !== BUILDING_V110_SHA256 ||
+    projection?.writerBoundary?.persistentWriteAuthorized !== false ||
+    projection?.writerBoundary?.WORLD_PERSISTENT_WRITE_V125 !== false ||
+    !Array.isArray(projection?.records) ||
+    projection.records.length !== 440
+  ) {
+    throw new Error('WEP_BUILDING_V111_PROJECTION_MISMATCH');
+  }
+
+  const ids = new Set<number>();
+  let ordinary = 0;
+  let special = 0;
+  let offGrid = 0;
+  let unknown = 0;
+
+  for (const record of projection.records) {
+    if (!Array.isArray(record) || record.length !== 8) {
+      throw new Error('WEP_BUILDING_V111_PROJECTION_RECORD_INVALID');
+    }
+    const [
+      itemId,
+      typeCode,
+      isPlayerHouse,
+      isCharacterHouse,
+      isFastTravel,
+      hasBuildingStateSynchronizer,
+      hasOtherGlobalOrSharedBinding,
+      classCode
+    ] = record;
+    if (
+      !Number.isSafeInteger(Number(itemId)) ||
+      Number(itemId) <= 0 ||
+      !BUILDING_V111_TYPE_CODE[String(typeCode)] ||
+      !BUILDING_V111_CLASS_CODE[String(classCode)] ||
+      ids.has(Number(itemId))
+    ) {
+      throw new Error('WEP_BUILDING_V111_PROJECTION_RECORD_INVALID');
+    }
+    ids.add(Number(itemId));
+
+    const signals = [
+      isPlayerHouse,
+      isCharacterHouse,
+      isFastTravel,
+      hasBuildingStateSynchronizer,
+      hasOtherGlobalOrSharedBinding
+    ];
+    if (
+      signals.some(
+        (value) => value !== true && value !== false && value !== null
+      )
+    ) {
+      throw new Error('WEP_BUILDING_V111_PROJECTION_SIGNAL_INVALID');
+    }
+
+    let expected = BUILDING_V110_CLASS.UNKNOWN;
+    const type = BUILDING_V111_TYPE_CODE[String(typeCode)];
+    if (type === 'OffGridBuilding') {
+      expected = BUILDING_V110_CLASS.OFF_GRID;
+    } else if (
+      type === 'PlayerHouse' ||
+      type === 'Stall' ||
+      type === 'Garden'
+    ) {
+      expected = BUILDING_V110_CLASS.SPECIAL;
+    } else if (type === 'House' || type === 'Other') {
+      expected = signals.every((value) => value === false)
+        ? BUILDING_V110_CLASS.ORDINARY
+        : signals.some((value) => value === null)
+          ? BUILDING_V110_CLASS.UNKNOWN
+          : BUILDING_V110_CLASS.SPECIAL;
+    }
+    if (BUILDING_V111_CLASS_CODE[String(classCode)] !== expected) {
+      throw new Error(
+        'WEP_BUILDING_V111_PROJECTION_CLASSIFICATION_MISMATCH'
+      );
+    }
+
+    if (expected === BUILDING_V110_CLASS.ORDINARY) ordinary += 1;
+    else if (expected === BUILDING_V110_CLASS.SPECIAL) special += 1;
+    else if (expected === BUILDING_V110_CLASS.OFF_GRID) offGrid += 1;
+    else unknown += 1;
+  }
+
+  if (
+    ordinary !== 0 ||
+    special !== 357 ||
+    offGrid !== 82 ||
+    unknown !== 1
+  ) {
+    throw new Error('WEP_BUILDING_V111_PROJECTION_SUMMARY_MISMATCH');
+  }
+  return true;
+}
+
+function createProjectionIndex(projection:AnyRecord) {
+  validateProjection(projection);
+  return new Map<number,AnyRecord>(
+    projection.records.map((record:any[]) => {
+      const [
+        itemId,
+        typeCode,
+        isPlayerHouse,
+        isCharacterHouse,
+        isFastTravel,
+        hasBuildingStateSynchronizer,
+        hasOtherGlobalOrSharedBinding,
+        classCode
+      ] = record;
+      return [
+        Number(itemId),
+        Object.freeze({
+          itemId: Number(itemId),
+          buildingItemType:
+            BUILDING_V111_TYPE_CODE[String(typeCode)],
+          signals: Object.freeze({
+            isPlayerHouse,
+            isCharacterHouse,
+            isFastTravel,
+            hasBuildingStateSynchronizer,
+            hasOtherGlobalOrSharedBinding
+          }),
+          promotedClassification:
+            BUILDING_V111_CLASS_CODE[String(classCode)]
+        })
+      ];
+    })
+  );
 }
 
 function booleanSignal(value:unknown) {
@@ -233,8 +397,14 @@ function specialBlocker(
   );
 }
 
-function createBindingFromContract(contract:AnyRecord) {
+function createBindingFromContract(
+  contract:AnyRecord,
+  projection:AnyRecord|null = null
+) {
   validateContract(contract);
+  const projectionIndex = projection
+    ? createProjectionIndex(projection)
+    : null;
 
   function classifyEvidence(evidence:AnyRecord = {}) {
     const direct = directSubtype(evidence, contract);
@@ -298,6 +468,126 @@ function createBindingFromContract(contract:AnyRecord) {
       ],
       persistentWriteAuthorized: false
     });
+  }
+
+  function classificationEvidenceForItemId(
+    itemIdInput:unknown
+  ) {
+    const itemId = Number(itemIdInput);
+    if (!Number.isSafeInteger(itemId) || itemId <= 0) {
+      return null;
+    }
+    const record = projectionIndex?.get(itemId) ?? null;
+    return record ? clone(record) : null;
+  }
+
+  function classifyItemId(itemIdInput:unknown) {
+    const evidence =
+      classificationEvidenceForItemId(itemIdInput);
+    if (!evidence) {
+      return Object.freeze({
+        schema: 'ddv.building-classification-result@1',
+        classification: BUILDING_V110_CLASS.UNKNOWN,
+        subtype: null,
+        evidence: projectionIndex
+          ? 'ITEM_ID_NOT_IN_PROMOTED_V111_PROJECTION'
+          : 'BUILDING_V111_PROJECTION_NOT_BOUND',
+        signals: {},
+        blockers: [
+          {
+            code: BUILDING_V110_CLASS.UNKNOWN
+          }
+        ],
+        persistentWriteAuthorized: false
+      });
+    }
+    const result = classifyEvidence(evidence);
+    if (
+      result.classification !==
+      evidence.promotedClassification
+    ) {
+      return Object.freeze({
+        schema: 'ddv.building-classification-result@1',
+        classification: BUILDING_V110_CLASS.UNKNOWN,
+        subtype: null,
+        evidence: 'PROMOTED_V111_CLASSIFICATION_RECHECK_FAILED',
+        signals: clone(evidence.signals),
+        blockers: [
+          {
+            code: BUILDING_V110_CLASS.UNKNOWN
+          }
+        ],
+        persistentWriteAuthorized: false
+      });
+    }
+    return Object.freeze({
+      ...clone(result),
+      itemId: evidence.itemId,
+      promotedProjection:
+        'DDV-BUILDING-CLASSIFICATION-V125-V1_11'
+    });
+  }
+
+  function annotateEditorDocument(documentInput:AnyRecord) {
+    const document = clone(documentInput);
+    if (!Array.isArray(document?.objects)) return document;
+
+    document.objects = document.objects.map((object:AnyRecord) => {
+      if (String(object?.layer ?? '') !== 'building') {
+        return object;
+      }
+      const evidence =
+        classificationEvidenceForItemId(object?.itemId);
+      const classification =
+        classifyItemId(object?.itemId);
+      const generic = new Set([
+        'BUILDING_READ_ONLY',
+        'HOUSE_DATA_READ_ONLY'
+      ]);
+      const existing = Array.isArray(object?.metadata?.reasons)
+        ? object.metadata.reasons
+            .map(String)
+            .filter((reason:string) => !generic.has(reason))
+        : [];
+      const blockerCodes = (
+        classification?.blockers ?? []
+      )
+        .map((entry:AnyRecord) => String(entry?.code ?? ''))
+        .filter(Boolean);
+      const reasons = [
+        ...new Set([
+          ...existing,
+          ...blockerCodes,
+          classification.classification ===
+            BUILDING_V110_CLASS.UNKNOWN
+            ? BUILDING_V110_CLASS.UNKNOWN
+            : ''
+        ].filter(Boolean))
+      ];
+
+      return {
+        ...object,
+        editability:
+          classification.classification ===
+            BUILDING_V110_CLASS.ORDINARY
+            ? object.editability
+            : 'readonly',
+        metadata: {
+          ...(object.metadata ?? {}),
+          reasons,
+          buildingSemantics: evidence
+            ? clone(evidence)
+            : {
+                itemId: Number(object?.itemId),
+                buildingItemType: null,
+                signals: {}
+              },
+          buildingClassification: clone(classification)
+        }
+      };
+    });
+
+    return document;
   }
 
   function sameGridTransformPreflight({
@@ -484,7 +774,22 @@ function createBindingFromContract(contract:AnyRecord) {
     buildId: '52BD625D9B4E0053',
     profileSchemaVersion: 624,
     contractSha256: BUILDING_V110_SHA256,
+    classificationProjection:
+      projectionIndex
+        ? BUILDING_V111_PROJECTION_SCHEMA
+        : null,
+    classificationProjectionArtifact:
+      projectionIndex
+        ? 'DDV-BUILDING-CLASSIFICATION-V125-V1_11'
+        : null,
+    classificationProjectionSha256:
+      projectionIndex
+        ? BUILDING_V111_PROJECTION_SHA256
+        : null,
     classes: BUILDING_V110_CLASS,
+    classificationEvidenceForItemId,
+    classifyItemId,
+    annotateEditorDocument,
     classifyEvidence,
     sameGridTransformPreflight,
     ordinaryPlacementPreflight,
@@ -504,15 +809,25 @@ export async function createSwitchV125BuildingBinding({
     throw new Error('WEP_BUILDING_V110_FETCH_UNAVAILABLE');
   }
   const prefix = String(basePath ?? '').replace(/\/$/, '');
-  const contract = await fetchPinnedContract(
-    `${prefix}${BUILDING_V110_STATIC_PATH}`,
-    fetchImpl
-  );
-  return createBindingFromContract(contract);
+  const [contract, projection] = await Promise.all([
+    fetchPinnedContract(
+      `${prefix}${BUILDING_V110_STATIC_PATH}`,
+      fetchImpl
+    ),
+    fetchPinnedContract(
+      `${prefix}${BUILDING_V111_PROJECTION_STATIC_PATH}`,
+      fetchImpl
+    )
+  ]);
+  return createBindingFromContract(contract, projection);
 }
 
 export function createSwitchV125BuildingBindingFromContract(
-  contract:AnyRecord
+  contract:AnyRecord,
+  projection:AnyRecord|null = null
 ) {
-  return createBindingFromContract(clone(contract));
+  return createBindingFromContract(
+    clone(contract),
+    projection ? clone(projection) : null
+  );
 }
