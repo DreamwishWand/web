@@ -1,0 +1,315 @@
+{
+  "schema": "dreamwish-community-production-execution-checklist@1",
+  "preparedAt": "2026-10-02",
+  "status": "PREPARED_TO_RESOURCE_DECISION_GATE",
+  "resourceCreationAuthorized": false,
+  "productionProjectRef": null,
+  "sourceControl": {
+    "requiredReplaySource": "final-integrated-main",
+    "currentCommunityHead": "8a25e6cf99e00ca56f3bd359d5560a2e6859c1c3",
+    "currentWepObservedHead": "424116bba04be06454db32a422afaeba6e2b0044",
+    "mergeBase": "cfda06eb904544bbfa5286c4eb61b5856dd3ea51",
+    "currentState": "BRANCHES_DIVERGED_FINAL_INTEGRATED_TREE_NOT_BUILT",
+    "wepDeltaSinceLastCommunityObservation": {
+      "base": "ba55070f3c48df3bef9d1b12aaf056ed4978791a",
+      "head": "424116bba04be06454db32a422afaeba6e2b0044",
+      "communitySensitiveContractChange": false,
+      "rerunRequired": false,
+      "changedAreas": [
+        "DDV Road/Fence representation",
+        "WEP editor",
+        "WEP full-design/preflight",
+        "WEP blocker messages",
+        "WEP Road/Fence authoring"
+      ]
+    }
+  },
+  "phase0FinalIntegratedTree": {
+    "status": "PREPARED_CROSS_STREAM_PENDING",
+    "mustPass": [
+      "npm ci",
+      "npm run check",
+      "npm test",
+      "npm run verify:community-integrated-tree -- --require-ready",
+      "npm run verify:community-ops",
+      "npm run build"
+    ],
+    "requiredContent": [
+      "canonical 20260930081600 support-recovery migration",
+      "no obsolete 20260930081500 support-recovery migration",
+      "staging pg_net SQL only under supabase/staging",
+      "all three WEP Preset production migrations",
+      "WEP Preset artifact + retention Edge Functions",
+      "shared WEP bucket resolver",
+      "no production migration that creates a staging-named Preset bucket",
+      "current Community 7d/90d retention migrations",
+      "current Product approval / Privacy-Legal pending machine state"
+    ],
+    "replayForbiddenFrom": [
+      "dev/community-core-v0-20260930 alone",
+      "dev/wep-v125 alone",
+      "live staging migration history"
+    ]
+  },
+  "phase1ResourceDecision": {
+    "status": "USER_DECISION_REQUIRED_BEFORE_EXECUTION",
+    "supabasePlanOptions": [
+      {
+        "id": "PRO",
+        "basePriceUsdPerMonth": 25,
+        "managedDailyDatabaseBackupDays": 7,
+        "inactivityPauseRisk": "not the Free inactivity-pause model",
+        "leakedPasswordProtectionAvailable": true,
+        "operationalBurden": "LOWER",
+        "fit": "RECOMMENDED_MINIMUM_FOR_PUBLIC_PRODUCTION"
+      },
+      {
+        "id": "FREE_SELF_MANAGED",
+        "basePriceUsdPerMonth": 0,
+        "managedDownloadableDatabaseBackupDays": 0,
+        "requiresOwnDailyOffsiteLogicalBackup": true,
+        "inactivityPauseRisk": "YES",
+        "leakedPasswordProtectionAvailable": false,
+        "operationalBurden": "HIGHER",
+        "fit": "TECHNICALLY_POSSIBLE_BUT_WEAKER_PRODUCTION_OPERATIONS"
+      }
+    ],
+    "pitr": {
+      "requiredAtLaunch": false,
+      "estimatedSevenDayAddOnUsdPerMonth": 100,
+      "additionalComputeRequirement": "at least Small compute",
+      "decision": "DO_NOT_ENABLE_UNLESS_USER_LATER_CHANGES_RPO_REQUIREMENT"
+    },
+    "storageRecoveryProvider": {
+      "status": "TBD",
+      "requirement": "private rollback-independent copy, <=24h RPO, target 7d copy retention, restore drill, access audit/encryption",
+      "s3CompatiblePreferred": true
+    }
+  },
+  "phase2ProductionProjectProvisioning": {
+    "status": "BLOCKED_ON_USER_RESOURCE_DECISION",
+    "requirements": [
+      "distinct Supabase project; never reuse staging ref",
+      "target region ap-northeast-1 unless user deliberately changes it",
+      "DREAMWISH_ENVIRONMENT configured as production",
+      "COMMUNITY_MEDIA_BUCKET explicitly configured and not staging-named",
+      "WEP_PRESET_ARTIFACT_BUCKET explicitly configured and not staging-named",
+      "new production publishable key; no staging key reuse",
+      "production secrets/tokens generated independently; no staging secret reuse"
+    ]
+  },
+  "phase3FreshMigrationReplay": {
+    "status": "PROTOCOL_READY_RESOURCE_PENDING",
+    "rules": [
+      "link only the exact approved production project",
+      "replay only reviewed supabase/migrations from the pinned final-integrated-main commit",
+      "do not import or copy staging migration history",
+      "do not apply supabase/staging SQL",
+      "fail on duplicate versions or staging-only migration names",
+      "record exact source commit and resulting migration list",
+      "after replay, verify schema/function/cron prerequisites before exposing traffic",
+      "direct production DDL is forbidden; use forward-fix migrations"
+    ]
+  },
+  "edgeFunctions": {
+    "status": "ALLOWLIST_FROZEN_PRODUCTION_INVENTORY_PENDING",
+    "productionAllowlist": [
+      "community-account",
+      "community-admin",
+      "community-auth",
+      "community-command",
+      "community-email-resend",
+      "community-media",
+      "community-ops-email",
+      "community-ops-escalation",
+      "community-query",
+      "community-retention",
+      "wep-preset-artifact",
+      "wep-preset-retention"
+    ],
+    "stagingOnlyDenylist": [
+      "community-auth-acceptance",
+      "community-auth-e2e",
+      "community-e2e-once",
+      "community-wep-retention-e2e",
+      "wep-preset-flow-e2e",
+      "wep-retention-e2e"
+    ],
+    "acceptance": "Production inventory must equal/contain only the reviewed production allowlist for this subsystem and contain none of the denylist."
+  },
+  "scheduledJobs": {
+    "status": "INVENTORY_FROZEN_PRODUCTION_PROVISIONING_PENDING",
+    "required": [
+      {
+        "name": "community-operations-alerts-every-minute",
+        "schedule": "* * * * *"
+      },
+      {
+        "name": "community-operations-escalation-alerts-every-minute",
+        "schedule": "* * * * *"
+      },
+      {
+        "name": "community-operations-escalation-every-minute",
+        "schedule": "* * * * *"
+      },
+      {
+        "name": "community-outbox-every-minute",
+        "schedule": "* * * * *"
+      },
+      {
+        "name": "community-provider-cleanup-every-minute",
+        "schedule": "* * * * *"
+      },
+      {
+        "name": "community-retention-alerts-every-minute",
+        "schedule": "* * * * *"
+      },
+      {
+        "name": "community-retention-hourly",
+        "schedule": "17 * * * *"
+      }
+    ]
+  },
+  "vaultAndSecrets": {
+    "status": "NAMES_FROZEN_ROTATION_PROTOCOL_READY_PRODUCTION_VALUES_PENDING",
+    "vaultNames": [
+      "community_operations_email_relay_url",
+      "community_operations_escalation_worker_token",
+      "community_operations_escalation_worker_url",
+      "community_provider_cleanup_worker_token",
+      "community_provider_cleanup_worker_url",
+      "community_retention_worker_token",
+      "community_retention_worker_url"
+    ],
+    "edgeSecretNames": [
+      "DREAMWISH_OPERATOR_EMAIL",
+      "RESEND_API_KEY"
+    ],
+    "rules": [
+      "never copy staging secret values into production",
+      "never record secret values in repository/evidence",
+      "generate independent production worker tokens",
+      "rotate one dependency at a time: create new -> configure consumer -> smoke -> revoke old",
+      "record only secret name, rotation timestamp, operator and result",
+      "re-run dependent worker smoke after each rotation"
+    ]
+  },
+  "databaseBackupRestore": {
+    "status": "PROTOCOL_READY_MECHANISM_AND_DRILL_PENDING",
+    "rpoHoursMax": 24,
+    "quarantineFirst": true,
+    "steps": [
+      "capture source commit/project/backup timestamp",
+      "restore to non-user-visible quarantine target",
+      "verify migration/schema invariants",
+      "reconcile Recovery Deletion Ledger before any public access",
+      "revoke/revalidate restored sessions",
+      "verify Community visibility/tombstones",
+      "run minimal Community smoke",
+      "run Security Advisor",
+      "record RPO/RTO and evidence",
+      "never promote if deletion reconciliation is incomplete"
+    ]
+  },
+  "storageBackupRestore": {
+    "status": "PROTOCOL_READY_PROVIDER_AND_DRILL_PENDING",
+    "rpoHoursMax": 24,
+    "targetCopyRetentionDays": 7,
+    "quarantineFirst": true,
+    "steps": [
+      "restore media and Preset object copies into non-public quarantine buckets",
+      "never overwrite primary production buckets during the drill",
+      "reconcile deletion ledger and remove objects belonging to deleted accounts where applicable",
+      "verify DB metadata/object checksum/byte-size mapping",
+      "verify buckets remain private",
+      "verify signed-read authorization only after reconciliation",
+      "record missing/orphan object counts and RTO",
+      "block promotion on mismatch or deletion-ledger failure"
+    ]
+  },
+  "deletionLedger": {
+    "status": "CONTRACT_FROZEN_EXTERNALIZATION_PENDING",
+    "fields": [
+      "deletionEventId",
+      "accountId",
+      "requestedAt"
+    ],
+    "retentionDays": 90,
+    "forbiddenFields": [
+      "email",
+      "providerSubject",
+      "password",
+      "accessToken",
+      "refreshToken",
+      "contentPayload",
+      "messageText"
+    ],
+    "runtimeRequirements": [
+      "outside primary Supabase rollback domain",
+      "encryption at rest/in transit",
+      "recovery-operator-only access",
+      "access audit",
+      "automatic 90-day expiry",
+      "replay idempotent",
+      "promotion fails closed without reconciliation"
+    ]
+  },
+  "productionSmoke": {
+    "status": "PROTOCOL_READY_PRODUCTION_PENDING",
+    "nonGoals": [
+      "do not rerun the full primary Community browser suite",
+      "do not rerun Scene Preset vertical",
+      "do not rerun ArtifactBlob retention E2E",
+      "do not exercise persistent DDV world/save Apply"
+    ],
+    "minimumChecks": [
+      "production URL/publishable key resolve to production project only",
+      "designated production QA user can sign in and query self",
+      "WandAccount/Creator bootstrap works",
+      "one private Community work remains non-public",
+      "one public QA work is discoverable after publication",
+      "authorized media/Preset signed read succeeds from private production buckets",
+      "staging-only Edge Function slugs are absent",
+      "outbox/provider-cleanup/retention/operations worker health is observable",
+      "Delete Account is not exercised as routine smoke unless a disposable production QA account is intentionally allocated"
+    ]
+  },
+  "securityAdvisor": {
+    "status": "PROTOCOL_READY_PRODUCTION_PENDING",
+    "acceptance": [
+      "no unexpected ERROR/WARN findings",
+      "review every RLS INFO/WARN against intentional server-only boundary",
+      "if production uses Supabase Pro or above, enable Leaked Password Protection; do not carry the Free staging exception into Pro production",
+      "if production uses Free, leaked-password-protection unavailability must remain an explicitly accepted compensated limitation and the 15-character/recent-auth/revocation controls remain required",
+      "record production advisor output without secrets"
+    ]
+  },
+  "qaReleaseEvidence": {
+    "consumer": "04 QR",
+    "requiredFinalEvidence": [
+      "pinned final-integrated-main commit and verifier PASS",
+      "distinct production project ref (recorded only after user-authorized creation)",
+      "fresh migration replay PASS",
+      "function allowlist and denylist absence PASS",
+      "Cron/Vault name inventory PASS",
+      "backup mechanism + DB restore drill PASS",
+      "Storage backup mechanism + restore drill PASS",
+      "deletion-ledger reconciliation PASS",
+      "controlled secret rotation PASS",
+      "minimal production smoke PASS",
+      "production Security Advisor acceptance PASS",
+      "Privacy/Legal approval state"
+    ]
+  },
+  "stopBoundary": {
+    "reached": true,
+    "reason": "The next operational step requires user decisions that can create paid/external production resources.",
+    "prohibitedWithoutUserApproval": [
+      "create Supabase production project",
+      "upgrade to or purchase Supabase paid plan",
+      "enable PITR/add-ons",
+      "contract/select paid Storage recovery provider",
+      "create production buckets/secrets/cron/functions"
+    ]
+  }
+}
