@@ -2845,3 +2845,20 @@ test('Linked DDV Profile lifecycle keeps raw Player ID out of PostgreSQL and enf
   assert.match(generated, /community_admin_correct_ddv_profile_link_v1/);
   assert.match(generated, /community_purge_expired_ddv_binding_tombstones/);
 });
+
+
+test('DDV Player ID Edge candidate is disabled by default and never forwards the raw identifier to PostgreSQL', () => {
+  const command = read('supabase/functions/community-command/index.ts');
+
+  assert.match(command, /linkDdvProfile: 'community_link_ddv_profile_v1'/);
+  assert.match(command, /COMMUNITY_DDV_PROFILE_LINK_MODE/);
+  assert.match(command, /linkMode !== 'local-player-id'/);
+  assert.match(command, /COMMUNITY_DDV_PROFILE_BINDING_KEY_V1/);
+  assert.match(command, /crypto\.subtle\.importKey/);
+  assert.match(command, /crypto\.subtle\.sign\('HMAC'/);
+  assert.match(command, /dreamwishwand\/ddv-player-id\/v1\\\\0/);
+  assert.match(command, /params\.p_binding_key_hash = bindingDigest/);
+  assert.doesNotMatch(command, /params\.[A-Za-z0-9_]*player[A-Za-z0-9_]*id\s*=\s*playerId/i);
+  assert.doesNotMatch(command, /console\.(log|info|warn|error)\([^\n]*playerId/i);
+  assert.match(command, /DDV_PROFILE_LINK_DISABLED/);
+});
