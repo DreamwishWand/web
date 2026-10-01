@@ -1,0 +1,116 @@
+{
+  "schema": "dreamwish-community-production-ops@1",
+  "generatedAt": "2026-10-01",
+  "staging": {
+    "projectRef": "ptpdoxhrqopvczpclcij",
+    "projectName": "dreamwish-wand-staging",
+    "region": "ap-northeast-1",
+    "planObserved": "free",
+    "storageBucketsObserved": [
+      "community-media-staging",
+      "wand-preset-artifacts-staging"
+    ]
+  },
+  "production": {
+    "projectRef": null,
+    "projectName": null,
+    "region": "ap-northeast-1",
+    "mustDifferFromStaging": true,
+    "launchReady": false
+  },
+  "backupPolicy": {
+    "database": {
+      "launchRequirement": "managed-daily-or-verified-offsite-logical-backup",
+      "maximumRpoHours": 24,
+      "restoreDrillRequired": true,
+      "freePlanStagingIsNotProductionBackupEvidence": true
+    },
+    "storageObjects": {
+      "separateBackupRequired": true,
+      "maximumRpoHours": 24,
+      "restoreDrillRequired": true,
+      "databaseBackupDoesNotRestoreObjectBytes": true
+    },
+    "restore": {
+      "targetRtoHours": 4,
+      "restoreToNonProductionTargetFirst": true,
+      "authAndObjectIntegrityChecksRequired": true
+    }
+  },
+  "migrationPolicy": {
+    "sourceOfTruth": "supabase/migrations",
+    "productionChangesRequireMigration": true,
+    "directProductionDdlForbidden": true,
+    "rollbackStrategy": "forward-fix-by-default-full-restore-for-data-loss-or-non-reversible-failure",
+    "preDeploymentBackupRequiredForDestructiveOrIrreversibleMigration": true
+  },
+  "edgeFunctions": {
+    "productionAllowlist": [
+      "community-account",
+      "community-admin",
+      "community-auth",
+      "community-command",
+      "community-email-resend",
+      "community-media",
+      "community-ops-email",
+      "community-ops-escalation",
+      "community-query",
+      "community-retention",
+      "wep-preset-artifact",
+      "wep-preset-retention"
+    ],
+    "stagingOnlyDenylist": [
+      "community-auth-acceptance",
+      "community-auth-e2e",
+      "community-e2e-once",
+      "community-wep-retention-e2e",
+      "wep-preset-flow-e2e",
+      "wep-retention-e2e"
+    ]
+  },
+  "scheduledJobs": {
+    "required": [
+      "community-operations-alerts-every-minute",
+      "community-operations-escalation-alerts-every-minute",
+      "community-operations-escalation-every-minute",
+      "community-outbox-every-minute",
+      "community-provider-cleanup-every-minute",
+      "community-retention-alerts-every-minute",
+      "community-retention-hourly"
+    ]
+  },
+  "vault": {
+    "requiredSecretNames": [
+      "community_operations_email_relay_url",
+      "community_operations_escalation_worker_token",
+      "community_operations_escalation_worker_url",
+      "community_provider_cleanup_worker_token",
+      "community_provider_cleanup_worker_url",
+      "community_retention_worker_token",
+      "community_retention_worker_url"
+    ],
+    "requiredEdgeSecretNames": [
+      "DREAMWISH_OPERATOR_EMAIL",
+      "RESEND_API_KEY"
+    ],
+    "secretValuesMustNeverAppearInRepository": true,
+    "rotationDrillRequired": true
+  },
+  "security": {
+    "minimumPasswordLength": 15,
+    "compositionRuleRequired": false,
+    "securityChangeNotificationsRequired": true,
+    "knownAcceptedAdvisorWarning": "auth_leaked_password_protection"
+  },
+  "releaseGate": {
+    "requireDistinctProductionProject": true,
+    "requireDatabaseRestoreDrill": true,
+    "requireStorageRestoreDrill": true,
+    "requireSecretRotationDrill": true,
+    "requireProductionFunctionAllowlistVerification": true,
+    "requireStagingOnlyFunctionAbsence": true,
+    "requireCronAndVaultInventoryVerification": true,
+    "requirePostDeploymentSecurityAdvisor": true,
+    "requirePostDeploymentSmoke": true
+  }
+}
