@@ -613,6 +613,47 @@ export type Database = {
           },
         ]
       }
+      ddv_profile_workspaces: {
+        Row: {
+          account_id: string
+          created_at: string
+          display_name: string | null
+          lifecycle_state: string
+          relationship_kind: string
+          slot_index: number
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          display_name?: string | null
+          lifecycle_state?: string
+          relationship_kind?: string
+          slot_index: number
+          updated_at?: string
+          workspace_id?: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          display_name?: string | null
+          lifecycle_state?: string
+          relationship_kind?: string
+          slot_index?: number
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ddv_profile_workspaces_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "wand_accounts"
+            referencedColumns: ["account_id"]
+          },
+        ]
+      }
       ddv_profiles: {
         Row: {
           binding_key_hash: string | null
@@ -1675,6 +1716,14 @@ export type Database = {
         }
         Returns: Json
       }
+      community_associate_ddv_identity_v1: {
+        Args: {
+          p_auth_subject: string
+          p_binding_key_hash: string
+          p_workspace_id: string
+        }
+        Returns: Json
+      }
       community_authorize_identity_bootstrap: {
         Args: { p_auth_subject: string; p_issued_at_epoch: number }
         Returns: Json
@@ -1745,6 +1794,10 @@ export type Database = {
         Args: { p_auth_subject: string; p_bucket: string }
         Returns: Json
       }
+      community_create_ddv_profile_workspace_v1: {
+        Args: { p_auth_subject: string; p_relationship_kind?: string }
+        Returns: Json
+      }
       community_create_gallery_draft: {
         Args: {
           p_auth_subject: string
@@ -1752,6 +1805,14 @@ export type Database = {
           p_gallery_kind: string
           p_idempotency_key: string
           p_visibility: string
+        }
+        Returns: Json
+      }
+      community_delete_ddv_profile_workspace_v1: {
+        Args: {
+          p_auth_subject: string
+          p_confirmation: string
+          p_workspace_id: string
         }
         Returns: Json
       }
@@ -1811,6 +1872,10 @@ export type Database = {
       }
       community_get_action_rate_policies: {
         Args: { p_admin_auth_subject: string }
+        Returns: Json
+      }
+      community_get_ddv_profile_workspaces_v1: {
+        Args: { p_auth_subject: string }
         Returns: Json
       }
       community_get_dead_letter_outbox: {
@@ -2074,6 +2139,10 @@ export type Database = {
         Args: { p_auth_subject: string; p_creator_profile_id: string }
         Returns: Json
       }
+      community_unlink_ddv_identity_v1: {
+        Args: { p_auth_subject: string; p_workspace_id: string }
+        Returns: Json
+      }
       community_unpublish_work: {
         Args: {
           p_auth_subject: string
@@ -2096,6 +2165,15 @@ export type Database = {
           p_handle: string
           p_idempotency_key: string
           p_profile_visibility: string
+        }
+        Returns: Json
+      }
+      community_update_ddv_profile_workspace_v1: {
+        Args: {
+          p_auth_subject: string
+          p_display_name: string
+          p_lifecycle_state: string
+          p_workspace_id: string
         }
         Returns: Json
       }
