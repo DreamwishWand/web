@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import {
   WORLD_ADAPTER_V16_SOURCE_SHA256,
+  WORLD_GRIDDATA_DIMENSIONS_V125_SHA256,
   WORLD_READ_SWITCH_V125_SHA256,
   WORLD_ROLE_AUTHORITY_V125_SHA256,
   createSwitchWorldReadAdapter,
@@ -84,6 +85,14 @@ test('canonical adapter source and static inputs retain pinned bytes', async () 
     hash(await repoFile('./static/ddv/v1.25/world-read-switch.json')),
     WORLD_READ_SWITCH_V125_SHA256
   );
+  assert.equal(
+    hash(
+      await repoFile(
+        './static/ddv/core/world/v1.25/griddata-dimensions-v125.json'
+      )
+    ),
+    WORLD_GRIDDATA_DIMENSIONS_V125_SHA256
+  );
 });
 
 test('Switch read binding verifies and expands compact canonical data', async () => {
@@ -94,7 +103,8 @@ test('Switch read binding verifies and expands compact canonical data', async ()
   assert.equal(binding.source.platform, 'Nintendo Switch');
   assert.equal(binding.source.profileSchemaVersion, 624);
   assert.equal(binding.provenance.readDataBuildID, '52BD625D9B4E0053');
-  assert.equal(binding.provenance.adapterContractVersion, '01B-v1.6');
+  assert.equal(binding.provenance.adapterContractVersion, '01B-v1.7');
+  assert.equal(binding.provenance.gridDataDimensionRecordCount, 152);
 });
 
 test('raw Switch save projects to read-only browser EditorDocument', async () => {
@@ -124,7 +134,18 @@ test('raw Switch save projects to read-only browser EditorDocument', async () =>
     'browser-disabled-exact-build-unproven'
   );
   assert.equal(document.capabilities.worldPersistentWrite, 'unsupported');
-  assert.equal(document.metadata.browserBinding.gridDataDimensionsBound, false);
+  assert.deepEqual(document.metadata.rootGridBounds, {
+    x: 0,
+    y: 0,
+    w: 400,
+    h: 350,
+    status: 'AUTHORITATIVE_GRIDDATAPATH'
+  });
+  assert.equal(document.metadata.browserBinding.gridDataDimensionsBound, true);
+  assert.equal(
+    document.metadata.browserBinding.gridDataDimensionsSha256,
+    WORLD_GRIDDATA_DIMENSIONS_V125_SHA256
+  );
   assert.equal(document.metadata.browserBinding.roadFenceLogicalBinding, true);
 });
 
@@ -163,8 +184,41 @@ test('v1.6 explicit Village04 single-grid alias is resolved from authority v2', 
     document.target.rootGridRole.evidenceStatus,
     'CONFIRMED_STATIC_DERIVED_ALIAS'
   );
-  assert.equal(document.metadata.browserBinding.adapter, '01B-v1.6-integrator-approved');
+  assert.equal(document.metadata.browserBinding.adapter, '01B-v1.7-integrator-approved');
+  assert.deepEqual(document.metadata.rootGridBounds, {
+    x: 0,
+    y: 0,
+    w: 230,
+    h: 175,
+    status: 'AUTHORITATIVE_GRIDDATAPATH'
+  });
   assert.equal(document.target.persistentWriteAuthorized, false);
+});
+
+test('unlisted GridDataPath remains bounds-unresolved rather than guessed', async () => {
+  const unknownProfile = structuredClone(profile);
+  unknownProfile.World.GridCollection.Grids['10'].GridDataPath =
+    'GridData/Unknown/NotInV17.json';
+
+  const opened = await openWorldSaveBytes(
+    new TextEncoder().encode(JSON.stringify(unknownProfile)),
+    { sourcePlatform: 'switch' }
+  );
+  const binding = await createSwitchWorldReadAdapter({
+    basePath: '',
+    fetchImpl: localFetch
+  });
+
+  assert.throws(
+    () =>
+      projectSwitchAreaGrid(
+        opened,
+        opened.areas[0],
+        10,
+        binding
+      ),
+    /GRID_ROLE_UNRESOLVED|GRID_ROLE_AUTHORITY|WORLD_DIRECT_GRID/
+  );
 });
 
 test('Switch projection rejects unknown/cross-save source platform', async () => {
