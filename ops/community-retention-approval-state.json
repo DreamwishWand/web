@@ -5,7 +5,7 @@
     "implementationStatus": "CONFIRMED",
     "runtimeEvidenceStatus": "CONFIRMED",
     "decisionBoundaryStatus": "CLOSED",
-    "contentPayloadDaysDefault": 30,
+    "contentPayloadDaysDefault": 7,
     "operationalDetailDaysDefault": 365,
     "defaultsAreLegalConclusion": false,
     "plumbingReimplementationRequired": false,
