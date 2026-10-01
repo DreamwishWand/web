@@ -1,7 +1,7 @@
 {
   "schema": "dreamwish-community-linked-ddv-profile-lifecycle-runtime@1",
   "checkedAt": "2026-10-02",
-  "state": "DB_LIFECYCLE_STAGING_PASS__LINK_TRANSPORT_PENDING_OWNER_DECISION",
+  "state": "DB_LIFECYCLE_STAGING_PASS__FEATURE_GATED_EDGE_CANDIDATE_DEPLOYED__OWNER_DECISION_PENDING",
   "stagingProject": "dreamwish-wand-staging",
   "stagingProjectRef": "ptpdoxhrqopvczpclcij",
   "migration": {
@@ -39,7 +39,8 @@
     "edgeDeployments": {
       "communityQuery": 9,
       "communityAdmin": 13,
-      "communityRetention": 5
+      "communityRetention": 5,
+      "communityCommand": 19
     },
     "securityAdvisor": {
       "newFindingsFromThisMigration": 0,
@@ -48,12 +49,21 @@
     }
   },
   "intentionallyNotExposedYet": {
-    "userLinkEdgeCommand": true,
-    "reason": "Owner decision remains on local-only Player ID claim versus stronger transient server-side save validation. DB RPC is service_role only."
+    "userLinkEdgeCommand": false,
+    "reason": "Command code exists behind a default-disabled feature gate; owner decision remains before setting the enable mode/secret and running user-link E2E."
   },
   "ownerDecisionsRemaining": [
     "Link assurance semantics: local-only mdc claim versus transient server-side save parsing/validation.",
     "Under-13 parent-managed Community participation semantics: whether all Community actions are legally/technically actions of the parent account, with no child public identity."
   ],
-  "launchApproved": false
+  "launchApproved": false,
+  "edgeCandidate": {
+    "state": "DEPLOYED_FEATURE_GATED_DEFAULT_DISABLED",
+    "rawPlayerIdDatabaseForwarding": false,
+    "digest": "HMAC-SHA-256 with domain dreamwishwand/ddv-player-id/v1",
+    "requiredSecret": "COMMUNITY_DDV_PROFILE_BINDING_KEY_V1",
+    "enableMode": "COMMUNITY_DDV_PROFILE_LINK_MODE=local-player-id",
+    "modeConfiguredByThisWork": false,
+    "note": "Deployment proves the candidate loads; no decision-dependent enablement was performed."
+  }
 }
