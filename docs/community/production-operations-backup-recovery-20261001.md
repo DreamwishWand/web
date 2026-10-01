@@ -304,3 +304,27 @@ Supabase reports 55 historical migration entries in staging. That history is del
 the production replay source because it includes one-time staging migrations and historical
 incremental fixes. The final integrated repository migration tree remains authoritative for fresh
 production replay.
+
+
+## WEP Preset bucket production externalization — CLOSED
+
+The prior cross-stream blocker `WEP_PRESET_ARTIFACT_BUCKET_EXTERNALIZATION` is now CLOSED.
+
+Verified source/deployment state:
+
+- WEP branch: `dev/wep-v125@c396413dc349829bc91f89b397321de38b55a3ba`;
+- both `wep-preset-artifact` and `wep-preset-retention` use the shared
+  `resolveRuntimeWepPresetArtifactBucket()` resolver;
+- non-staging projects require explicit `WEP_PRESET_ARTIFACT_BUCKET`;
+- non-staging projects reject explicit `wand-preset-artifacts-staging`;
+- only the known staging project may omit the variable and retain the existing staging bucket;
+- staging deployment readback: `wep-preset-artifact v14`, `wep-preset-retention v6`;
+- staging bucket remains private, JSON-only and capped at 25 MiB.
+
+Production required environment configuration now includes
+`WEP_PRESET_ARTIFACT_BUCKET`.
+
+This change is deployment configuration only. It does not alter Community ownership, publication,
+signed-read, retention-job orchestration, or WEP physical-delete-before-finalizer ordering.
+Therefore the already-confirmed Preset reuse vertical and Preset ArtifactBlob retention E2E were not
+repeated.
