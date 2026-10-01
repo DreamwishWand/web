@@ -113,13 +113,24 @@ test('retention preserves physical delete before Community finalizer ordering', 
   assert.match(source, /published\/\$\{accountId\}\//);
 });
 
-test('existing staging bucket migration remains private and is not renamed', () => {
+test('production migration does not provision the staging Preset bucket', () => {
   const migration = read(
     'supabase/migrations/20260930124055_wep_preset_artifact_storage_v0.sql'
   );
 
+  assert.doesNotMatch(migration, /wand-preset-artifacts-staging/);
+  assert.match(migration, /preset_artifact_prepare/);
+});
+
+test('known staging bucket bootstrap remains private and staging-only', () => {
+  const staging = read(
+    'supabase/staging/20260930124055_wep_preset_artifact_storage_bucket.sql'
+  );
+
   assert.match(
-    migration,
+    staging,
     /'wand-preset-artifacts-staging',[\s\S]*'wand-preset-artifacts-staging',[\s\S]*false/
   );
+  assert.match(staging, /26214400/);
+  assert.match(staging, /application\/json/);
 });
