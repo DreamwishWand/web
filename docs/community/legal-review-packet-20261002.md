@@ -89,10 +89,13 @@ The account link is deleted on Wand Account deletion, but the underlying `ddv_pr
 automatically removed by that transaction.
 
 The reviewed source does not yet define the binding-hash derivation or verification-evidence
-lifecycle.
+lifecycle. Live staging routine inspection found no reviewed DDV Profile creation/verification
+routine beyond the three-link limit trigger and account-deletion tombstone path, and the current
+Community command surface exposes no DDV Profile link/verify/unlink command.
 
 External Legal/Privacy should determine:
 
+- the complete creation/verification lifecycle that must exist before Linked DDV Profiles launch;
 - whether the binding identifier is personal/pseudonymous information in applicable jurisdictions;
 - correction/unlink/rebinding rights or Product processes that are required;
 - an acceptable orphan-retention purpose/horizon, if any;
