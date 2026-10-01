@@ -1,0 +1,269 @@
+{
+  "schema": "ddv.building-read-model-preflight@1",
+  "artifactId": "DDV-BUILDING-V125-V1_10",
+  "version": "v1.10",
+  "status": "PROMOTED",
+  "mutable": false,
+  "owner": "01 CORE Integrator",
+  "semanticOwner": "01B CORE — World / Grid / Buildings",
+  "scope": "read/model/capture/preflight only",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "titleId": "0100D39012C1A000",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624
+  },
+  "sourceEvidence": {
+    "candidateAnalysisDriveId": "1J2QGWAJBa1WTa_qbpdTRGXRsAozSpGt07iTd0-FitCI",
+    "candidateContractDriveId": "15WLmZaF9aN9WlHQ9eLl9uyi1d_iF5GGn",
+    "candidateContractSha256": "a6dd394debdd57f491415be25e9c69200794b2adffef4c53b7d9b88cc49b9b2c",
+    "candidateHandoffDriveId": "1VYvD33RsMdcUYqvSbkY6tZdW7oa_hQNpD-CLgOw6ISM",
+    "protectedPriorContracts": [
+      "01B v1.5 portable restoration semantics",
+      "01B v1.7 GridData dimensions / reachable SubGrid bounds",
+      "01B v1.8 authoritative GridData FloorType maps",
+      "01B v1.9 structured native placement-legality classifier"
+    ]
+  },
+  "writerBoundary": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "authorizedActions": ["read", "model", "capture", "preflight"],
+    "prohibitedActions": [
+      "persistent Building ADD",
+      "persistent Building DELETE",
+      "persistent Building MOVE",
+      "persistent Building ROTATE",
+      "persistent Building base replacement",
+      "PlayerHouse lifecycle mutation",
+      "CharacterHouse lifecycle mutation",
+      "Stall/Shop mutation",
+      "Well/FastTravel mutation",
+      "Garden mutation",
+      "OffGridBuilding mutation",
+      "ownership mutation",
+      "entitlement mutation",
+      "save replacement",
+      "atomic persistent commit",
+      "Apply"
+    ]
+  },
+  "identity": {
+    "portableDefinitionIdentity": "ItemID",
+    "saveLocalInstanceIdentity": "GridObject.ID",
+    "portableInstanceIdentityRule": "GridObject.ID is provenance only and must not be serialized as portable Building identity",
+    "destinationLocalIdentities": [
+      "GridObject.ID",
+      "GridID",
+      "HouseData.PlayerHouseIndex",
+      "PlayerHouse interior Grid IDs"
+    ]
+  },
+  "serializedStateFamilies": {
+    "HouseData": ["Built", "UpgradeState", "PlayerHouseIndex"],
+    "BuildingWithSkinData": ["UpgradeState", "CurrentSkinItemID"],
+    "StallData": ["UpgradeState", "ShopData", "CurrentSkinItemID"],
+    "ShopData": ["LastRefresh", "NumRefresh", "Slots", "Seed"],
+    "rule": "Typed Building state must not fall back to a generic Furniture state serializer"
+  },
+  "classification": {
+    "classes": [
+      "ORDINARY_GRID_BUILDING",
+      "SPECIAL_GRID_BUILDING",
+      "OFF_GRID_BUILDING",
+      "UNKNOWN_BUILDING_SEMANTICS"
+    ],
+    "directSpecialByBuildingItemType": {
+      "Stall": "SPECIAL_GRID_BUILDING",
+      "Garden": "SPECIAL_GRID_BUILDING",
+      "OffGridBuilding": "OFF_GRID_BUILDING",
+      "PlayerHouse": "SPECIAL_GRID_BUILDING"
+    },
+    "houseOrOtherOrdinaryGate": {
+      "eligibleBuildingItemTypes": ["House", "Other"],
+      "requiredAuthoritativeFalseSignals": [
+        "isPlayerHouse",
+        "isCharacterHouse",
+        "isFastTravel",
+        "hasBuildingStateSynchronizer",
+        "hasOtherGlobalOrSharedBinding"
+      ],
+      "unknownSignalResult": "UNKNOWN_BUILDING_SEMANTICS",
+      "rule": "House/Other is ordinary only when every relevant special/global/shared semantic signal is authoritatively resolved false"
+    },
+    "specialMembers": [
+      "PlayerHouse",
+      "CharacterHouse",
+      "Stall/Shop",
+      "Well/FastTravel",
+      "Garden",
+      "BuildingStateSynchronizer-backed Building",
+      "any Building with known or unresolved global/shared lifecycle"
+    ]
+  },
+  "buildingSkin": {
+    "portableCodec": "ddv.building-skin@1",
+    "portableState": ["targetBuildingItemId", "skinItemId"],
+    "baseGridObjectItemIdReplacedBySkin": false,
+    "serializedLinkage": [
+      "BuildingWithSkinData.CurrentSkinItemID",
+      "StallData.CurrentSkinItemID"
+    ],
+    "compatibilityModel": {
+      "HouseSkinItemData": "explicit HouseItemID",
+      "StallSkinItemData": "selector-based",
+      "BuildingOtherSkinItemData": "selector-based"
+    },
+    "preflight": {
+      "nonzeroSkinRequiresNativeEquivalentValidator": true,
+      "ownershipAvailabilityCompatibilityMustBeValidated": true,
+      "defaultResetSemanticsMayNotBeInferred": true
+    }
+  },
+  "playerHouse": {
+    "portableCodec": "ddv.player-house-binding@1",
+    "portableDefinitionAnchor": "House.HouseItemID",
+    "sourceAndDestinationLocalFields": [
+      "HouseData.PlayerHouseIndex",
+      "interior Grid IDs"
+    ],
+    "bindingValidation": {
+      "existingExactHouseItemIdMatch": "BIND_EXISTING_DESTINATION_LOCAL_INDEX",
+      "indexZeroValid": true,
+      "noMatchingInterior": "BLOCK_PLAYERHOUSE_CREATE_LIFECYCLE_REQUIRED",
+      "multipleMatchingInteriors": "BLOCK_PLAYERHOUSE_AMBIGUOUS_DESTINATION_BINDING",
+      "sourceIndexHouseItemMismatch": "BLOCK_PLAYERHOUSE_BINDING_MISMATCH"
+    },
+    "placementPolicy": {
+      "status": "FAIL_CLOSED",
+      "blockers": [
+        "PLAYERHOUSE_MULTIPLICITY_SCOPE_UNRESOLVED",
+        "PLAYERHOUSE_OWNERSHIP_ENTITLEMENT_UNRESOLVED",
+        "PLAYERHOUSE_CREATE_REUSE_LIFECYCLE_NOT_AUTHORIZED"
+      ]
+    },
+    "removalModel": "Exterior removal does not imply deletion of ProfileWorld.PlayerHouses interior identity"
+  },
+  "operationGates": {
+    "sameGridTransform": {
+      "ordinary": {
+        "modelEligibility": "ELIGIBLE_FOR_READ_PREVIEW_PREFLIGHT",
+        "requires": [
+          "exact supported current-v1.25 route",
+          "cardinal transform supported by Core",
+          "v1.7 bounds",
+          "v1.8 FloorType",
+          "v1.9 native placement legality",
+          "no unresolved Building special/global/shared semantics"
+        ],
+        "persistentCommitAuthorized": false
+      },
+      "specialOrUnknown": {
+        "modelEligibility": "BLOCKED",
+        "blocker": "SPECIAL_BUILDING_TRANSFORM_LIFECYCLE_UNRESOLVED"
+      }
+    },
+    "crossGridTransfer": {
+      "status": "BLOCKED",
+      "blocker": "BUILDING_CROSS_GRID_LIFECYCLE_REQUIRED"
+    },
+    "placement": {
+      "ordinary": {
+        "status": "PREFLIGHT_CONTRACT_AVAILABLE",
+        "requires": [
+          "ORDINARY_GRID_BUILDING classification",
+          "destination Building stock/ownership check",
+          "current-scene already-placed/multiplicity check",
+          "typed initial-state/provider compatibility",
+          "v1.7 bounds",
+          "v1.8 FloorType",
+          "v1.9 native placement legality"
+        ],
+        "unknownOrMissingValidatorResult": "BLOCKED"
+      },
+      "specialOrOffGrid": {
+        "status": "BLOCKED",
+        "blocker": "SPECIAL_BUILDING_PLACEMENT_LIFECYCLE_REQUIRED"
+      }
+    },
+    "removal": {
+      "status": "BLOCKED_FOR_PERSISTENT_ACTION",
+      "readModel": "Native RemoveHouse may return inventory and may update character state; category-specific effects must be preserved in any future writer",
+      "blocker": "BUILDING_REMOVAL_LIFECYCLE_WRITE_NOT_AUTHORIZED"
+    },
+    "baseReplacement": {
+      "status": "BLOCKED",
+      "blocker": "BUILDING_BASE_REPLACEMENT_SEMANTICS_UNKNOWN"
+    }
+  },
+  "specialCategoryBlockers": {
+    "CharacterHouse": "CHARACTER_HOUSE_PRESENCE_SIDE_EFFECTS_REQUIRE_DEDICATED_LIFECYCLE",
+    "StallShop": "STALL_SHOP_LOCAL_GLOBAL_STATE_LIFECYCLE_UNRESOLVED",
+    "WellFastTravel": "WELL_FASTTRAVEL_GLOBAL_STATE_AND_IDENTITY_REQUIRE_DEDICATED_LIFECYCLE",
+    "Garden": "GARDEN_TYPED_STATE_LIFECYCLE_REQUIRES_DEDICATED_CONTRACT",
+    "OffGridBuilding": "OFFGRID_BUILDING_PROFILEWORLD_LIFECYCLE_REQUIRED",
+    "SharedSynchronizer": "BUILDING_SHARED_SYNCHRONIZER_LIFECYCLE_REQUIRED",
+    "UnknownSpecial": "BUILDING_SPECIAL_SEMANTICS_UNRESOLVED"
+  },
+  "promotionReview": [
+    {"finding": "ItemID vs GridObject.ID identity separation", "decision": "PROMOTABLE_CONFIRMED"},
+    {"finding": "typed HouseData / BuildingWithSkinData / StallData / ShopData state families", "decision": "PROMOTABLE_CONFIRMED"},
+    {"finding": "Building skin CurrentSkinItemID linkage and family-specific compatibility axis", "decision": "PROMOTABLE_CONFIRMED"},
+    {"finding": "ApplyBuildingSkin ownership/availability/compatibility validation", "decision": "PROMOTABLE_WITH_FAIL_CLOSED_BOUNDARY"},
+    {"finding": "non-PlayerHouse PlaceBuilding stock/duplicate/category lifecycle split", "decision": "PROMOTABLE_WITH_FAIL_CLOSED_BOUNDARY"},
+    {"finding": "same-grid transform path is distinct from cross-grid transfer", "decision": "PROMOTABLE_CONFIRMED"},
+    {"finding": "PlayerHouse HouseItemID portable anchor vs destination-local PlayerHouseIndex/interior Grid IDs", "decision": "PROMOTABLE_CONFIRMED"},
+    {"finding": "PlayerHouse existing destination binding by HouseItemID", "decision": "PROMOTABLE_WITH_FAIL_CLOSED_BOUNDARY"},
+    {"finding": "PlayerHouse cross-scene/cross-world multiplicity and create/reuse product policy", "decision": "NOT_PROMOTABLE_YET"},
+    {"finding": "CharacterHouse placement/transfer/removal side effects", "decision": "PROMOTABLE_WITH_FAIL_CLOSED_BOUNDARY"},
+    {"finding": "Stall typed local ShopData plus global shop state existence", "decision": "PROMOTABLE_WITH_FAIL_CLOSED_BOUNDARY"},
+    {"finding": "full StallData.ShopData ↔ ProfileWorld.Shops precedence", "decision": "NEEDS_TARGETED_01B_EVIDENCE"},
+    {"finding": "Well global WishingWellLevel and SceneID+ItemID fast-travel identity", "decision": "PROMOTABLE_WITH_FAIL_CLOSED_BOUNDARY"},
+    {"finding": "Well removal/replacement edge cases", "decision": "NEEDS_RUNTIME_01E_EVIDENCE"},
+    {"finding": "Garden and OffGridBuilding special lifecycle classification", "decision": "PROMOTABLE_CONFIRMED"},
+    {"finding": "generic different-ItemID Building replacement", "decision": "NOT_PROMOTABLE_YET"},
+    {"finding": "complete Building entitlement boundary", "decision": "NEEDS_TARGETED_01B_EVIDENCE"},
+    {"finding": "special Building runtime-only same-grid side effects", "decision": "NEEDS_RUNTIME_01E_EVIDENCE"},
+    {"finding": "ApplyBuildingSkin non-consumption of ownership", "decision": "NOT_PROMOTABLE_YET"}
+  ],
+  "unresolved": {
+    "targeted01BEvidence": [
+      "complete Building DLC/premium/online entitlement gate for supported placement paths",
+      "full StallData.ShopData ↔ ProfileWorld.Shops precedence/synchronization when Stall copy/apply becomes product scope",
+      "PlayerHouse cross-scene/cross-world multiplicity and binding scope when PlayerHouse placement/apply becomes product scope",
+      "full current BuildingStateSynchronizer membership if ordinary classification cannot be resolved authoritatively from Game DB semantics"
+    ],
+    "runtime01EEvidence": [
+      "Well remove/replace fast-travel and favorite edge cases before Well writer support",
+      "special Building same-grid runtime side effects before persistent special transforms",
+      "CharacterHouse duplication before duplication support",
+      "PlayerHouse create/rebind/remove edge cases before persistent PlayerHouse lifecycle support"
+    ],
+    "notRequiredForCurrentReadModelPreflightPromotion": true
+  },
+  "wepActivation": {
+    "replaceBlanketBlocker": "BUILDING_DESTINATION_SEMANTICS_UNRESOLVED",
+    "withTypedCategoryGates": true,
+    "safeToConsumeNow": [
+      "identity axes",
+      "typed state families",
+      "ordinary/special/off-grid/unknown classification",
+      "Building skin linkage/preflight requirements",
+      "PlayerHouse binding diagnostics",
+      "same-grid ordinary transform model eligibility",
+      "cross-grid/removal/replacement blockers",
+      "category-specific special blockers"
+    ],
+    "mustNotTreatAsValid": [
+      "PlayerHouse placement/apply",
+      "CharacterHouse lifecycle mutation",
+      "Stall/Shop copy/apply",
+      "Well/FastTravel duplicate/replace/mutation",
+      "Garden mutation",
+      "OffGridBuilding mutation",
+      "unknown synchronized/global Building mutation",
+      "generic base Building replacement"
+    ]
+  }
+}
