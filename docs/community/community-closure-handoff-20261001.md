@@ -131,3 +131,26 @@ Retention launch approval is now a machine-enforced release gate:
 The packet explicitly distinguishes immediate account/public removal, 30-day content-payload purge,
 365-day operational-detail scrub, retention holds, structural tombstones and separate backup/provider
 copy retention. It does not describe the 30-day content timer as an account-recovery entitlement.
+
+
+## Road-inclusive Scene delta acceptance — 2026-10-01
+
+**CONFIRMED:** WEP HEAD `4af63c9fc9a6a2a6954e0a5bdd6d4df54a678c28` changed the Scene
+portable envelope by adding Core-backed Road topology. COMM therefore ran only the integration-sensitive
+delta acceptance, not the already-closed primary/closure browser suites.
+
+Live staging PASS covered real Auth disposable actors, signed upload, server validation, PUBLIC publish,
+public discovery, second-user Library Save, signed ArtifactBlob read, SHA-256/byte-size verification and
+Road network `r0` round-trip. The temporary harness completed HTTP 200 and was immediately restored to
+JWT-required HTTP 410 `STAGING_E2E_DISABLED`.
+
+WEP CI `36796732109` independently confirms Road-aware WEP revalidation/preflight, with
+`ROAD_TOPOLOGY_APPLY_UNAVAILABLE` and `writeReady=false`. Persistent Apply remains outside COMM and
+blocked by Core/WEP writer authorization.
+
+Evidence:
+- `docs/community/wep-road-integration-acceptance-20261001.md`
+- `ops/community-wep-road-integration-acceptance-20261001.json`
+
+The production Preset bucket externalization blocker remains OPEN in WEP; this acceptance does not close
+that deployment dependency.
