@@ -72,14 +72,17 @@
   },
   "reviewReadiness": {
     "product": "APPROVED",
-    "privacy": "READY_FOR_REVIEW",
-    "legal": "READY_FOR_REVIEW",
+    "privacy": "REVIEW_READY_WITH_OPEN_PRIVACY_DECISIONS",
+    "legal": "PACKET_READY_EXTERNAL_REVIEW_REQUIRED",
     "evidence": [
       "ops/community-retention-policy-proposal.json",
       "ops/community-backup-privacy-contract.json",
       "ops/community-deletion-disclosure-contract.json",
       "docs/community/delete-account-user-copy-review-20261001.md",
-      "docs/community/retention-d1-d2-single-stage-runtime-20261001.md"
+      "docs/community/retention-d1-d2-single-stage-runtime-20261001.md",
+      "ops/community-privacy-review-readiness-20261002.json",
+      "docs/community/privacy-review-readiness-20261002.md",
+      "docs/community/legal-review-packet-20261002.md"
     ]
   }
 }
