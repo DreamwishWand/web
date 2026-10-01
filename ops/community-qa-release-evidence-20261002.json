@@ -75,13 +75,15 @@
         "P9_DATA_RIGHTS_WORKFLOW",
         "P10_PROVIDER_CLEANUP_SUBJECT"
       ],
-      "approved": false
+      "approved": false,
+      "note": "Linked DDV Profile schema/fairness scaffolding exists, but reviewed link/verify/unlink runtime and binding hash/evidence lifecycle are not complete."
     },
     {
       "id": "LEGAL_APPROVAL",
       "state": "PACKET_READY_EXTERNAL_REVIEW_REQUIRED",
       "evidence": [
-        "docs/community/legal-review-packet-20261002.md"
+        "docs/community/legal-review-packet-20261002.md",
+        "ops/community-legal-review-readiness-20261002.json"
       ],
       "requiredExternalDecisions": [
         "launch operator/entity and jurisdictions",
@@ -96,6 +98,22 @@
         "actual production backup/provider boundaries"
       ],
       "approved": false
+    },
+    {
+      "id": "LINKED_DDV_PROFILE_LIFECYCLE",
+      "state": "OPEN_PRIVACY_PRODUCT_LEGAL_CONTRACT_REQUIRED_BEFORE_IMPLEMENTATION",
+      "evidence": [
+        "ops/community-privacy-review-readiness-20261002.json",
+        "docs/community/privacy-review-readiness-20261002.md"
+      ],
+      "facts": [
+        "schema and three-link enforcement exist",
+        "account deletion removes WandAccount-DDVProfile link",
+        "underlying ddv_profiles row can remain",
+        "no reviewed link/verify/unlink command or routine is present",
+        "binding_key_hash derivation and verification_evidence_ref lifecycle are undefined"
+      ],
+      "qrInstruction": "Do not mark Linked DDV Profiles launch-ready until lifecycle semantics are decided and the required implementation/acceptance evidence exists."
     }
   ],
   "crossStreamPending": [
