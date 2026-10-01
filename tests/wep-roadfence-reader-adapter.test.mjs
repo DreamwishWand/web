@@ -113,7 +113,7 @@ test('contained Scene Road capture uses Core portable network envelope and strip
     document(),
     {
       selectionIds: ['g7:o101'],
-      captureRegion: { x: 10, y: 10, w: 2, h: 2 },
+      captureRegion: { x: 10, y: 10, w: 8, h: 4 },
       includeRoads: true,
       networkAdapter: binding.networkAdapter
     },
@@ -146,7 +146,7 @@ test('Core TOPOLOGY_CLIPPED_UNSUPPORTED is propagated unchanged by Scene capture
     document(),
     {
       selectionIds: ['g7:o101'],
-      captureRegion: { x: 10, y: 10, w: 1, h: 1 },
+      captureRegion: { x: 10, y: 10, w: 2, h: 2 },
       includeRoads: true,
       networkAdapter: binding.networkAdapter
     },
@@ -273,7 +273,7 @@ test('edited full-root Road draft is the Scene capture source instead of stale n
   assert.equal(rootDraft.status, 'supported');
   source.networks = structuredClone(rootDraft.networks);
   source.networks.roads.networks[0].cells = [
-    { x: 11, y: 10, mode: 'orthogonal' }
+    { x: 3, y: 2, mode: 'orthogonal' }
   ];
 
   const adapter = createDraftAwareNetworkCaptureAdapter(
@@ -294,7 +294,7 @@ test('edited full-root Road draft is the Scene capture source instead of stale n
   assert.equal(result.publicationReady, true);
   assert.deepEqual(
     result.artifact.networks.roads.networks[0].cells,
-    [{ x: 1, y: 0, mode: 'orthogonal' }]
+    [{ x: 2, y: 0, mode: 'orthogonal' }]
   );
   assert.equal(
     result.artifact.networks.roads.persistentWriteAuthorized,
@@ -318,8 +318,8 @@ test('draft-aware Scene capture keeps contained-only topology fail-closed', () =
   const rootDraft = binding.captureRootDraft(source);
   source.networks = structuredClone(rootDraft.networks);
   source.networks.roads.networks[0].cells = [
-    { x: 10, y: 10, mode: 'orthogonal' },
-    { x: 11, y: 10, mode: 'orthogonal' }
+    { x: 5, y: 5, mode: 'orthogonal' },
+    { x: 6, y: 5, mode: 'orthogonal' }
   ];
 
   const result = captureScenePreset(
@@ -398,11 +398,11 @@ test('tessellation x2 root draft preserves logical adjacency and delegates save 
   const road = rootDraft.networks.roads.networks[0];
   assert.deepEqual(
     road.cells,
-    [{ x: 5, y: 5, mode: 'orthogonal' }]
+    [{ x: 2, y: 2, mode: 'orthogonal' }]
   );
-  assert.equal(road.coordinateSpace.savePitch, 2);
-  assert.equal(road.coordinateSpace.saveResidueX, 0);
-  assert.equal(road.coordinateSpace.saveResidueY, 0);
+  assert.equal(road.coordinateSpace.savePitch, 4);
+  assert.equal(road.coordinateSpace.saveResidueX, 2);
+  assert.equal(road.coordinateSpace.saveResidueY, 2);
 
   source.networks = structuredClone(rootDraft.networks);
   source.networks.roads.networks[0].cells = [
@@ -427,7 +427,7 @@ test('tessellation x2 root draft preserves logical adjacency and delegates save 
   assert.equal(result.publicationReady, true);
   assert.deepEqual(
     result.artifact.networks.roads.networks[0].cells,
-    [{ x: 2, y: 0, mode: 'orthogonal' }]
+    [{ x: 4, y: 0, mode: 'orthogonal' }]
   );
   assert.equal(
     JSON.stringify(result.artifact.networks.roads)
