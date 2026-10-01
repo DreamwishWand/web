@@ -144,3 +144,26 @@ Do not rerun absent semantic change:
 - **not launch-ready**;
 - **no new Community runtime regression requirement**;
 - **Privacy/Legal and production gates remain open**.
+
+
+## Linked DDV Profile Product decision delta — 2026-10-02
+
+Product lifecycle is now **CLOSED / APPROVED**:
+
+- max three profiles;
+- no normal self-service unlink;
+- exceptional reviewed correction only;
+- 7-day ordinary binding-digest tombstone;
+- no persistent raw verification evidence;
+- D4 hold only for justified moderation/security/legal extension.
+
+Launch readiness is still **OPEN** for this capability because DDV Core has not confirmed a stable
+local DDV Profile identifier. Community must remain fail-closed rather than use whole-save/profile
+hashes or unreviewed platform/entitlement identifiers.
+
+04 QR should distinguish:
+
+- Product lifecycle contract: CLOSED;
+- DDV Core stable identifier dependency: OPEN;
+- Community implementation/targeted acceptance: OPEN;
+- Privacy/Legal review of final identifier/transport: OPEN.
