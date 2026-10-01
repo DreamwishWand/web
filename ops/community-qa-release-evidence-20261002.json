@@ -131,7 +131,8 @@
         "self-service unlink preserves the Workspace",
         "Workspace delete requires confirmation and frees the slot",
         "account deletion removes Workspaces and private identity associations",
-        "community-command v20 exposes create/update/delete/associate/unlink server routes"
+        "community-command v20 exposes create/update/delete/associate/unlink server routes",
+        "community-query v10 exposes the owner-safe Workspace query and removes the legacy linkedDdvProfiles route"
       ]
     }
   ],
@@ -181,26 +182,26 @@
       "approved": false
     },
     {
-      "id": "LINKED_DDV_PROFILE_LIFECYCLE",
-      "state": "DB_LIFECYCLE_CLOSED__USER_LINK_EDGE_ASSURANCE_PENDING",
+      "id": "DDV_PROFILE_WORKSPACE_PRIVACY_LEGAL_REVIEW",
+      "state": "ENGINEERING_DB_AND_EDGE_SOURCE_ALIGNMENT_CLOSED__PRIVACY_LEGAL_REVIEW_PENDING",
       "evidence": [
         "ops/community-privacy-review-readiness-20261002.json",
         "docs/community/privacy-review-readiness-20261002.md",
-        "ops/community-linked-ddv-profile-core-identifier-gate-20261002.json",
-        "docs/community/linked-ddv-profile-core-identifier-request-20261002.md",
-        "ops/community-linked-ddv-profile-lifecycle-runtime-20261002.json"
+        "ops/community-linked-ddv-profile-product-decision-20261002.json",
+        "ops/community-linked-ddv-profile-lifecycle-runtime-20261002.json",
+        "docs/community/linked-ddv-profile-lifecycle-runtime-20261002.md"
       ],
       "facts": [
-        "schema and three-link enforcement exist",
-        "account deletion removes WandAccount-DDVProfile link",
-        "underlying ddv_profiles row can remain",
-        "no reviewed link/verify/unlink command or routine is present",
-        "binding_key_hash derivation and verification_evidence_ref lifecycle are undefined",
-        "Product approved 7-day ordinary tombstone and reviewed-correction-only lifecycle.",
-        "No confirmed stable local DDV Profile identifier exists in DDV Core yet.",
-        "DDV_CORE_INTEGRATION_CURRENT was rechecked after the Age/minors Product decision; no Integrator-promoted stable local DDV Profile identifier contract was found."
+        "max five retained Profile Workspaces across active + archived states",
+        "optional Player ID association using transient raw input and private versioned HMAC digest",
+        "cross-account same identity association allowed without private-data merge",
+        "same-account duplicate identity association blocked",
+        "self-service unlink preserves Workspace",
+        "self-service Workspace deletion requires confirmation and frees capacity",
+        "community-command v20 and community-query v10 match current branch source",
+        "live raw Player ID Edge E2E remains pending staging secret/runtime verification"
       ],
-      "qrInstruction": "Treat identity source and DB lifecycle as CLOSED. Keep user-link Edge assurance/transport, end-to-end link acceptance and Privacy/Legal review OPEN."
+      "qrInstruction": "Treat Product contract, DB lifecycle and Edge source alignment as CLOSED. Keep live authenticated identity-association E2E, Privacy/Legal, final integration and production runtime gates OPEN."
     }
   ],
   "crossStreamPending": [
@@ -228,11 +229,11 @@
     },
     {
       "id": "DDV_PROFILE_IDENTITY_EDGE_E2E",
-      "state": "PENDING_STAGING_SECRET_CONFIGURATION",
+      "state": "PENDING_STAGING_SECRET_RUNTIME_VERIFICATION",
       "evidence": [
         "ops/community-linked-ddv-profile-lifecycle-runtime-20261002.json"
       ],
-      "detail": "DB digest path is runtime-tested. Live raw Player ID -> Edge HMAC -> association E2E still requires staging COMMUNITY_DDV_PROFILE_BINDING_KEY_V1 configuration."
+      "detail": "community-command v20 and community-query v10 are deployed and source-aligned. Live raw Player ID -> Edge HMAC -> association still requires an authenticated staging request with the HMAC secret available."
     }
   ],
   "productionOnlyPending": [
@@ -272,5 +273,5 @@
     "rate-limit runtime"
   ],
   "launchReady": false,
-  "instructionToQR": "Treat DDV Player ID identity source and Linked DDV DB lifecycle as CLOSED. Keep user-link Edge assurance/transport, end-to-end acceptance, Privacy/Legal, final integration and production runtime gates OPEN."
+  "instructionToQR": "Treat DDV Profile Workspace Product contract, DB lifecycle and Edge source alignment as CLOSED. Keep live authenticated identity-association E2E, Privacy/Legal, final integration and production runtime gates OPEN."
 }
