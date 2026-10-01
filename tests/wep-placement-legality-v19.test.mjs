@@ -222,3 +222,123 @@ test('placement binding fails closed on any pinned static-data checksum mismatch
     /WEP_V125_PLACEMENT_STATIC_DATA_HASH_MISMATCH/
   );
 });
+
+
+function editorDocument({
+  exactBuildKnown = false,
+  x = 0,
+  y = 0,
+  orientation = 0,
+  objects = []
+} = {}) {
+  return {
+    target: {
+      gameVersion: '1.25.0',
+      platform: 'Nintendo Switch',
+      profileSchemaVersion: 624,
+      gridDataPath: GRID_DATA_PATH,
+      tessellationFactor: 1,
+      exactBuildKnown
+    },
+    objects: [
+      {
+        editorId: 'candidate',
+        itemId: ITEM_ID,
+        x,
+        y,
+        orientation,
+        layer: 'furniture',
+        footprint: [{ x: 0, y: 0 }],
+        dependencyIds: [],
+        editability: 'editable',
+        metadata: {}
+      },
+      ...objects
+    ]
+  };
+}
+
+test('editor candidate preflight preserves exact-build unknown instead of promoting native VALID', async () => {
+  const binding = await createSwitchV125PlacementLegalityBinding({
+    fetchImpl: localFetch
+  });
+  const result = binding.classifyEditorCandidates({
+    document: editorDocument(),
+    candidateIds: ['candidate']
+  });
+  assert.equal(
+    result.results[0].result.nativeClass,
+    NATIVE_PLACEMENT_CLASSES.VALID_CLEAR
+  );
+  assert.equal(result.ok, false);
+  assert.equal(
+    result.issues[0].code,
+    'NATIVE_EXACT_BUILD_UNVERIFIED'
+  );
+  assert.equal(result.persistentWriteAuthorized, false);
+});
+
+test('editor candidate preflight accepts current promoted clear placement only when exact build is explicitly known', async () => {
+  const binding = await createSwitchV125PlacementLegalityBinding({
+    fetchImpl: localFetch
+  });
+  const result = binding.classifyEditorCandidates({
+    document: editorDocument({ exactBuildKnown: true }),
+    candidateIds: ['candidate']
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.issues.length, 0);
+  assert.equal(
+    result.results[0].result.nativeClass,
+    NATIVE_PLACEMENT_CLASSES.VALID_CLEAR
+  );
+});
+
+test('editor draft validator keeps replacement or unknown placement policy blocked', async () => {
+  const binding = await createSwitchV125PlacementLegalityBinding({
+    fetchImpl: localFetch
+  });
+  const validator = binding.createEditorDraftValidator();
+  const blocked = validator(
+    editorDocument({
+      exactBuildKnown: true,
+      objects: [
+        {
+          editorId: 'existing',
+          itemId: ITEM_ID,
+          x: 0,
+          y: 0,
+          orientation: 0,
+          layer: 'furniture',
+          footprint: [{ x: 0, y: 0 }],
+          dependencyIds: [],
+          editability: 'editable',
+          metadata: {}
+        }
+      ]
+    }),
+    { kind: 'MOVE', ids: ['candidate'], result: {} }
+  );
+  assert.equal(blocked.ok, false);
+  assert.equal(
+    blocked.issues.some(
+      (issue) => issue.code === 'NATIVE_PLACEMENT_UNVERIFIED'
+    ),
+    true
+  );
+  assert.equal(blocked.persistentWriteAuthorized, false);
+});
+
+test('editor draft delete is model-only and never authorizes persistence', async () => {
+  const binding = await createSwitchV125PlacementLegalityBinding({
+    fetchImpl: localFetch
+  });
+  const validator = binding.createEditorDraftValidator();
+  const result = validator(
+    editorDocument(),
+    { kind: 'DELETE', ids: ['candidate'], result: { removedIds: ['candidate'] } }
+  );
+  assert.equal(result.ok, true);
+  assert.equal(result.status, 'DRAFT_MODEL_ONLY');
+  assert.equal(result.persistentWriteAuthorized, false);
+});
