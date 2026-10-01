@@ -1,6 +1,6 @@
 {
   "schema": "dreamwish-community-production-release-evidence@1",
-  "updatedAt": "2026-10-01T19:55:00+09:00",
+  "updatedAt": "2026-10-01T20:55:00+09:00",
   "scope": "Community Core production launch",
   "productionEvidenceMustComeFromDistinctProductionEnvironment": true,
   "stagingProjectRef": "ptpdoxhrqopvczpclcij",
@@ -372,11 +372,20 @@
       "privacy": "PENDING",
       "legal": "PENDING",
       "valuesProposed": {
-        "contentPayloadDays": 30,
+        "contentPayloadDays": 7,
         "operationalDetailDays": 365
       },
       "noApprovalInferred": true,
       "providerFactsReviewedAt": "2026-10-01"
+    },
+    "retentionContentPurge7d": {
+      "status": "CONFIRMED_STAGING",
+      "migration": "20261001115028_community_retention_content_purge_7d.sql",
+      "pendingContentJobs": 4,
+      "immediatelyDueAfterMigration": 0,
+      "earliestDue": "2026-10-07T22:48:06.919934Z",
+      "latestDue": "2026-10-08T01:17:59.375249Z",
+      "recoveryWindow": false
     }
   }
 }

@@ -26,9 +26,9 @@ Immediately after a valid self-service deletion:
 The provider account is then deleted asynchronously through the provider-cleanup worker. The
 production-shaped staging E2E has already deleted a real disposable Supabase Auth user.
 
-### Content payload stage — current engineering default: 30 days
+### Content payload stage — current engineering default: 7 days
 
-At 30 days after account deletion, when no retention hold applies:
+Within 7 days after account deletion, when no retention hold applies:
 
 - Gallery media object bytes are physically deleted;
 - MediaAsset storage metadata is tombstoned/neutralized;
@@ -43,9 +43,9 @@ At 30 days after account deletion, when no retention hold applies:
 Gallery media physical deletion and Wand Preset ArtifactBlob physical deletion are both runtime
 confirmed.
 
-**Important interpretation:** 30 days is currently a retention-delay parameter. The implementation
-does not currently establish a 30-day self-service recovery entitlement and does not make it a
-promised 30-day account-recovery or undo window. Product must not describe it as one unless a
+**Important interpretation:** 7 days is currently a retention-delay parameter. The implementation
+does not currently establish a 7-day self-service recovery entitlement and does not make it a
+promised account-recovery or undo window. Product must not describe it as one unless a
 separate recovery contract is deliberately approved and implemented.
 
 ### Operational-detail stage — current engineering default: 365 days
@@ -62,7 +62,7 @@ At 365 days after account deletion, after content payload purge and when no hold
 - AccountDeletionEvent records operational-detail scrub completion and reaches the purged state.
 
 **Important interpretation:** 365 days does not mean all account content remains available for one
-year. Public access is removed immediately and content payload is scheduled for purge at 30 days.
+year. Public access is removed immediately and content payload is scheduled for purge within 7 days.
 The later stage concerns restricted operational detail.
 
 ## 2. Retention holds — CONFIRMED technical capability
@@ -147,7 +147,7 @@ legal claim merely because they are implemented.
 ### D1 — content payload duration
 
 Decision:
-- approve 30 days after account deletion; or
+- approve 7 days after account deletion; or
 - choose another duration.
 
 Questions for approval:
@@ -155,7 +155,7 @@ Questions for approval:
 - should any shorter category-specific period apply?
 - should the policy distinguish public media, Preset bytes and text metadata?
 
-Current engineering default: **30 days**.
+Current engineering default: **7 days**.
 
 ### D2 — operational-detail duration
 
@@ -178,7 +178,7 @@ Product copy must decide whether deletion is described as:
 - a reversible recovery/grace period.
 
 Current implementation supports the first interpretation. It does **not** currently establish a
-30-day self-service recovery entitlement.
+7-day self-service recovery entitlement.
 
 ### D4 — retention-hold policy
 
@@ -266,7 +266,7 @@ Until then, the runtime is **technically proven but policy approval remains open
 
 - immediate Wand tombstone/public-access removal;
 - actual provider-user deletion;
-- 30-day/365-day values are configurable engineering defaults;
+- the 7-day content-retention value and operational-retention values are configurable engineering defaults;
 - two-stage retention behavior;
 - retention holds and operational controls;
 - Gallery media physical purge;
@@ -326,3 +326,19 @@ Storage recovery copies, and requires explicit disclosure of provider-controlled
 
 Provider facts were refreshed from current official Supabase and Resend documentation. This does
 not change Product/Privacy/Legal approval status: all remain PENDING.
+
+
+## D1 superseding decision — 2026-10-01
+
+D1 content-payload retention is now implemented in staging as a **7-day maximum purge window**.
+
+This does not change the user-facing deletion semantics:
+
+- account access, Creator presence, and owned works become unavailable immediately;
+- deletion remains irreversible to the user;
+- the 7 days exist only as an asynchronous backend cleanup/retry window;
+- it is not a recovery, undo, or cooling-off period;
+- active permitted retention holds may defer applicable cleanup.
+
+Staging migration: `20261001115028_community_retention_content_purge_7d.sql`.
+Existing pending content jobs were rescheduled safely; none became immediately due.

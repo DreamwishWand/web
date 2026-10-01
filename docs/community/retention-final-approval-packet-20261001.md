@@ -12,7 +12,7 @@ The Community retention implementation and runtime evidence are complete for the
 - immediate public/account removal;
 - real provider-account deletion;
 - two-stage retention scheduler;
-- current engineering defaults of 30-day content payload purge and 365-day operational-detail scrub;
+- current engineering default of 7-day content payload purge and 365-day operational-detail scrub;
 - retention holds;
 - Gallery media physical deletion;
 - WEP Preset ArtifactBlob physical deletion before Community finalization;
@@ -20,7 +20,7 @@ The Community retention implementation and runtime evidence are complete for the
 - operational-detail scrub;
 - retry/backoff/dead-letter and operator controls.
 
-The 30-day value is **not** a 30-day account-recovery promise.
+The 7-day value is **not** an account-recovery promise.
 
 Engineering does not need to redesign or rerun the retention plumbing merely because launch approval
 has not yet been granted.
@@ -33,7 +33,7 @@ The remaining launch question is policy approval, not implementation proof.
 
 Product must explicitly approve or replace:
 
-- the 30-day content-payload duration;
+- the 7-day content-payload duration;
 - the 365-day operational-detail duration;
 - deletion UX/copy;
 - allowed retention-hold policy;
@@ -115,7 +115,7 @@ APPROVED**. Engineering defaults or runtime evidence never imply approval.
 
 Current engineering defaults remain:
 
-- content payload: 30 days;
+- content payload: 7 days;
 - operational detail: 365 days.
 
 Those values are not legal conclusions and remain changeable by the approval process.
@@ -128,7 +128,7 @@ The abstract D1-D8 questions have been converted into an approval-ready policy p
 - `docs/community/retention-policy-proposal-20261001.md`;
 - `ops/community-retention-policy-proposal.json`.
 
-Proposed values remain 30-day payload / 365-day operational detail, immediate account/public
+Proposed content payload value is now 7 days / 365-day operational detail, immediate account/public
 removal with no recovery-window promise, existing moderation/security/legal hold semantics,
 minimized structural tombstones, separate DB/Storage recovery-copy treatment, provider-retention
 disclosure, and explicit staged deletion wording.
@@ -138,3 +138,15 @@ Supabase plan remains undecided, so D6 records a launch rule and must bind the e
 backup window when production is selected.
 
 This preparation is **not** Product, Privacy or Legal approval. Their statuses remain PENDING.
+
+
+## D1 updated to seven-day backend purge — 2026-10-01
+
+Product direction shortens D1 from 30 days to **7 days maximum**.
+
+User-facing deletion is still immediate and irreversible. The seven-day interval is only the
+backend cleanup/retry envelope for media, Preset payload and other owned user-authored payload;
+it is not a recovery window.
+
+Staging migration `20261001115028_community_retention_content_purge_7d.sql` is applied and existing
+pending content jobs were safely rescheduled. Product/Privacy/Legal approval status remains PENDING.

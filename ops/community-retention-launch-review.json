@@ -9,7 +9,7 @@
     "twoStageRetention": "CONFIRMED"
   },
   "engineeringDefaults": {
-    "contentPayloadDays": 30,
+    "contentPayloadDays": 7,
     "routineOperationalDetailDays": 90,
     "elevatedOperationalDetailDaysMaximum": 365,
     "contentPayloadDaysIsRecoveryWindow": false,

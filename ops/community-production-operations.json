@@ -171,7 +171,9 @@
       "product": "PENDING",
       "privacy": "PENDING",
       "legal": "PENDING"
-    }
+    },
+    "contentPayloadDays": 7,
+    "contentPayloadDaysIsRecoveryWindow": false
   },
   "authLaunchReview": {
     "contract": "ops/community-auth-launch-review.json",

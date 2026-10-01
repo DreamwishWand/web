@@ -1127,7 +1127,7 @@ test('Community admin and Ops expose retention review controls with recent-auth 
   assert.match(page, /Requeue retention job/);
   assert.match(page, /Add retention hold/);
   assert.match(page, /Release retention hold/);
-  assert.match(page, /content-payload purge after 30 days/);
+  assert.match(page, /content-payload purge after 7 days/);
   assert.match(page, /operational-detail scrub after 365 days/);
 });
 
@@ -1874,7 +1874,7 @@ test('Community retention launch review separates technical facts from policy ap
   const verifier = read('scripts/verify-community-ops-readiness.mjs');
 
   assert.equal(review.schema, 'dreamwish-community-retention-launch-review@1');
-  assert.equal(review.engineeringDefaults.contentPayloadDays, 30);
+  assert.equal(review.engineeringDefaults.contentPayloadDays, 7);
   assert.equal(review.engineeringDefaults.routineOperationalDetailDays, 90);
   assert.equal(review.engineeringDefaults.elevatedOperationalDetailDaysMaximum, 365);
   assert.equal(review.engineeringDefaults.contentPayloadDaysIsRecoveryWindow, false);
@@ -1893,8 +1893,8 @@ test('Community retention launch review separates technical facts from policy ap
   assert.equal(approval.launchApproved, false);
   assert.equal(operations.releaseGate.requireRetentionPolicyApproval, true);
   assert.equal(operations.privacyRetentionReview.launchApproved, false);
-  assert.match(packet, /30 days is currently a retention-delay parameter/i);
-  assert.match(packet, /does not currently establish a\s+30-day self-service recovery entitlement/i);
+  assert.match(packet, /7 days is currently a retention-delay parameter/i);
+  assert.match(packet, /does not currently establish a\s+7-day self-service recovery entitlement/i);
   assert.match(packet, /backup-copy retention/i);
   assert.match(finalPacket, /ENGINEERING CLOSED/i);
   assert.match(finalPacket, /Product approval — PENDING/i);
@@ -2323,12 +2323,12 @@ test('retention launch policy proposal is concrete but never self-approves', () 
   assert.equal(proposal.schema, 'dreamwish-community-retention-policy-proposal@1');
   assert.equal(proposal.status, 'POLICY_ALIGNMENT_IMPLEMENTED_TARGETED_REGRESSION_PENDING');
   assert.equal(proposal.notAnApproval, true);
-  assert.equal(proposal.engineeringBoundary.contentPayloadDaysDefault, 30);
+  assert.equal(proposal.engineeringBoundary.contentPayloadDaysDefault, 7);
   assert.equal(proposal.engineeringBoundary.routineOperationalDetailDaysDefault, 90);
   assert.equal(proposal.engineeringBoundary.elevatedOperationalDetailDaysMaximum, 365);
 
   const byId = new Map(proposal.decisions.map((item) => [item.id, item]));
-  assert.equal(byId.get('D1_CONTENT_PAYLOAD_DURATION').valueDays, 30);
+  assert.equal(byId.get('D1_CONTENT_PAYLOAD_DURATION').valueDays, 7);
   assert.equal(byId.get('D1_CONTENT_PAYLOAD_DURATION').isRecoveryWindow, false);
   assert.equal(byId.get('D2_OPERATIONAL_DETAIL_DURATION').routineDays, 90);
   assert.equal(byId.get('D2_OPERATIONAL_DETAIL_DURATION').elevatedDaysMaximum, 365);
@@ -2360,4 +2360,22 @@ test('retention launch policy proposal is concrete but never self-approves', () 
   );
   assert.equal(gate.satisfied, false);
   assert.equal(gate.classification, 'approval_pending');
+});
+
+
+test('current D1 content retention is seven days and not a recovery window', () => {
+  const migration = read(
+    'supabase/migrations/20261001115028_community_retention_content_purge_7d.sql'
+  );
+  const proposal = JSON.parse(read('ops/community-retention-policy-proposal.json'));
+
+  assert.match(migration, /deleted_account_content_days',7/);
+  assert.match(migration, /requested_at \+ interval '7 days'/);
+  assert.equal(proposal.engineeringBoundary.contentPayloadDaysDefault, 7);
+
+  const d1 = proposal.decisions.find(
+    (item) => item.id === 'D1_CONTENT_PAYLOAD_DURATION'
+  );
+  assert.equal(d1.valueDays, 7);
+  assert.equal(d1.isRecoveryWindow, false);
 });
