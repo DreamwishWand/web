@@ -1134,9 +1134,9 @@ function validateBuildingCategorySeparation(
     !plain(houses) ||
     houses.codec !== 'ddv.player-house-binding@1' ||
     houses.identityField !== 'houseItemId' ||
+    houses.portableIdentityShape !== 'houseItemId-only' ||
     !Array.isArray(houses.entries) ||
     typeof houses.destinationBinderRequired !== 'boolean' ||
-    !Array.isArray(houses.excludedPortableFields) ||
     houses.persistentWriteAuthorized !== false
   ) {
     issues.push(
@@ -1145,23 +1145,6 @@ function validateBuildingCategorySeparation(
         `${path}.playerHouses`
       )
     );
-  } else {
-    for (const forbidden of [
-      'PlayerHouseIndex',
-      'Built',
-      'UpgradeState',
-      'interiorGridIdentity'
-    ]) {
-      if (!houses.excludedPortableFields.includes(forbidden)) {
-        issues.push(
-          block(
-            'FULL_DESIGN_PLAYER_HOUSE_EXCLUSION_REQUIRED',
-            `${path}.playerHouses.excludedPortableFields`,
-            { field: forbidden }
-          )
-        );
-      }
-    }
   }
 }
 
