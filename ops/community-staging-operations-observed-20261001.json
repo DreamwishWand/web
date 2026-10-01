@@ -1,6 +1,6 @@
 {
   "schema": "dreamwish-community-staging-operations-observation@1",
-  "observedAt": "2026-10-01T01:18:29Z",
+  "observedAt": "2026-10-01T01:20:00Z",
   "purpose": "secret-free staging evidence; not a production replay source",
   "project": {
     "ref": "ptpdoxhrqopvczpclcij",
@@ -130,15 +130,15 @@
       },
       {
         "slug": "wep-preset-artifact",
-        "version": 13,
+        "version": 14,
         "verifyJwt": true,
-        "sha256": "e3647836a859ab18fa5195a6933586dc719be9cf522bbe9f1ba26bbb01906c64"
+        "sha256": "fe7b0fa1f7c1c0bfec79f45da53b6d37bf43b430859f1ab6c0be410fbe57dfaa"
       },
       {
         "slug": "wep-preset-retention",
-        "version": 5,
+        "version": 6,
         "verifyJwt": false,
-        "sha256": "320cbfd3efbba5682399be1dff0956990fa58c6a2b62398ea79ce81623dc6193"
+        "sha256": "675b3a2213ad3233e875f9120cb89151ff3b360fc33b4a282616725b5bed6f7e"
       }
     ],
     "stagingOnly": [
@@ -242,6 +242,9 @@
     "authBoundaryTemporaryHarnessExecuted": true,
     "authBoundaryFixtureUsersRemaining": 0,
     "authProviderAndWandRevocation": "PASS",
-    "authSignedInReauthentication": "PENDING_ONE_REPRESENTATIVE_MAILBOX_QA"
+    "authSignedInReauthentication": "PENDING_ONE_REPRESENTATIVE_MAILBOX_QA",
+    "wepPresetArtifactBucketExternalization": "CLOSED",
+    "wepPresetKnownStagingFallback": "CONFIRMED",
+    "wepPresetProductionBucketRequiresExplicitEnvironmentConfig": true
   }
 }
