@@ -259,7 +259,7 @@ export function projectSwitchAreaGrid(
         exactBuildKnown: false,
         persistentWriteAuthorized: false,
         gridDataDimensionsBound: false,
-        roadFenceLogicalBinding: false
+        roadFenceLogicalBinding: true
       }
     }
   };
