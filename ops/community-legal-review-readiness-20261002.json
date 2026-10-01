@@ -11,14 +11,15 @@
     "PUBLIC/UNLISTED/PRIVATE have technically distinct access semantics; UNLISTED is direct-link/direct-ID accessible and not private.",
     "Account deletion immediately removes/anonymizes active Community identity/interactions and queues provider cleanup.",
     "Linked DDV Profile schema exists, but reviewed creation/verification/link/unlink runtime is incomplete and binding hash/evidence semantics are not canonicalized.",
-    "Owner selected Supabase Pro for the production backend and Cloudflare R2 Standard for independent Storage recovery, with provisioning deferred until release stage; the production project/bucket do not yet exist."
+    "Owner selected Supabase Pro for the production backend and Cloudflare R2 Standard for independent Storage recovery, with provisioning deferred until release stage; the production project/bucket do not yet exist.",
+    "Product approved the Linked DDV Profile lifecycle: max three links; no normal self-service unlink; exceptional reviewed correction only; raw verification evidence not persistently stored; ordinary binding digest tombstone expires after 7 days; D4 hold is the only justified extension."
   ],
   "externalDecisionsRequired": [
     "operator/legal entity and launch jurisdictions",
     "minimum age/minors eligibility and any age assurance/parental consent",
     "privacy notice/legal basis/data rights workflows",
     "processor DPA/subprocessor/cross-border transfer treatment",
-    "Linked DDV Profile creation/verification/correction/unlink and retention semantics",
+    "Linked DDV Profile: review the Product-approved 7-day/no-normal-unlink lifecycle against launch-jurisdiction rights once DDV Core confirms the stable local identifier and verification transport",
     "Terms of Service and UGC license/IP treatment",
     "copyright notice/takedown/counter-notice/repeat-infringer strategy",
     "moderation/report/appeal obligations including DSA applicability/exemptions where relevant",
@@ -45,12 +46,24 @@
   ],
   "legalApproved": false,
   "launchApproved": false,
-  "nextAction": "External Legal review remains required. Provider selection is fixed, but launch-stage DPA/subprocessor/transfer/retention facts for Supabase Pro and Cloudflare R2 Standard must be reviewed before LEGAL APPROVED.",
+  "nextAction": "External Legal review remains required. Linked DDV Product semantics are fixed at 7 days, but stable identifier/verification transport, minors policy, launch jurisdictions and provider binding remain unresolved.",
   "providerDecision": {
     "status": "OWNER_APPROVED_FOR_RELEASE_STAGE",
     "supabasePlan": "PRO",
     "storageRecoveryProvider": "CLOUDFLARE_R2_STANDARD",
     "resourceCreated": false,
     "finalContractualPrivacyReviewPending": true
+  },
+  "linkedDdvProfileProductDecision": {
+    "status": "PRODUCT_APPROVED",
+    "tombstoneDays": 7,
+    "normalSelfServiceUnlink": false,
+    "exceptionalCorrection": "RECENT_AUTH_SUPPORT_ADMIN_REVIEW_REASON_AUDIT",
+    "rawVerificationEvidencePersistent": false,
+    "stableIdentifierStatus": "UNRESOLVED_FAIL_CLOSED",
+    "evidence": [
+      "ops/community-linked-ddv-profile-product-decision-20261002.json",
+      "docs/community/linked-ddv-profile-product-decision-20261002.md"
+    ]
   }
 }
