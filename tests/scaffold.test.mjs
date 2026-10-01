@@ -75,7 +75,10 @@ test('World Editor product surface is WEP-backed and writer-safe', () => {
   assert.match(page, /Custom region/);
   assert.match(page, /FENCE_REPRESENTATION_LAYOUT_EDIT/);
   assert.match(page, /syncFencePostDraftFromDocument/);
-  assert.match(page, /BLOCKED \/ UNVERIFIED/);
+  assert.match(page, /validationPresentation\.label/);
+  assert.match(page, /validationPresentation\.groups/);
+  assert.match(page, /Unavailable actions/);
+  assert.match(page, /OBJECT INSPECTOR/);
   assert.match(page, /Review Save Prep/);
   assert.match(page, /Publish Scene Preset/);
   assert.match(page, /Persistent write: disabled/);
