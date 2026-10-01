@@ -1882,7 +1882,15 @@ test('Community retention launch review separates technical facts from policy ap
   assert.equal(review.engineeringDefaults.contentPayloadDaysIsRecoveryWindow, false);
   assert.equal(review.launchApproved, false);
   assert.equal(review.decisions.length, 8);
-  assert.ok(review.decisions.every((decision) => decision.status === 'PENDING_APPROVAL'));
+  assert.equal(
+    review.decisions.find((decision) => decision.id === 'D3_USER_FACING_DELETION_PROMISE')?.status,
+    'APPROVED'
+  );
+  assert.ok(
+    review.decisions
+      .filter((decision) => decision.id !== 'D3_USER_FACING_DELETION_PROMISE')
+      .every((decision) => decision.status === 'PENDING_APPROVAL')
+  );
   assert.equal(review.engineeringClosure.decisionBoundary, 'CLOSED');
   assert.equal(review.approvals.product, 'APPROVED');
   assert.equal(review.approvals.privacy, 'PENDING');
