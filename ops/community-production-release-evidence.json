@@ -1,6 +1,6 @@
 {
   "schema": "dreamwish-community-production-release-evidence@1",
-  "updatedAt": "2026-10-01T21:55:00+09:00",
+  "updatedAt": "2026-10-02T04:54:00+09:00",
   "scope": "Community Core production launch",
   "productionEvidenceMustComeFromDistinctProductionEnvironment": true,
   "stagingProjectRef": "ptpdoxhrqopvczpclcij",
@@ -142,9 +142,10 @@
         "ops/community-retention-policy-proposal.json",
         "docs/community/retention-policy-proposal-20261001.md",
         "ops/community-deletion-disclosure-contract.json",
-        "docs/community/deletion-retention-disclosure-20261001.md"
+        "docs/community/deletion-retention-disclosure-20261001.md",
+        "docs/community/retention-product-approval-record-20261002.md"
       ],
-      "pendingReason": "Engineering is complete for the current 7-day content / 90-day operational / D4 hold policy, but Product/Privacy/Legal approvals remain explicitly PENDING. D6 must still bind the actual production backup/storage mechanism when production is selected.",
+      "pendingReason": "Product approval is APPROVED for all Product-required retention decisions. Privacy and Legal approvals remain explicitly PENDING; the combined retention approval gate therefore remains open. D6 production provider/runtime binding is a separate production-operations gate.",
       "classification": "approval_pending"
     },
     {
@@ -423,11 +424,12 @@
       "legalApprovalInferred": false
     },
     "retentionApprovalReadiness": {
-      "product": "READY_FOR_EXPLICIT_APPROVAL",
+      "product": "APPROVED",
       "privacy": "READY_FOR_REVIEW",
       "legal": "READY_FOR_REVIEW",
       "checklist": "docs/community/retention-product-approval-checklist-20261001.md",
-      "approvalsInferred": false
+      "approvalsInferred": false,
+      "productApprovalRecord": "docs/community/retention-product-approval-record-20261002.md"
     }
   }
 }
