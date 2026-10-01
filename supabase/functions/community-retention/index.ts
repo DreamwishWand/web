@@ -62,6 +62,17 @@ export default {
       return reply({ ok: false, error: 'WORKER_AUTH_INVALID' }, 401);
     }
 
+    const { data: ddvBindingPurge, error: ddvBindingPurgeError } =
+      await ctx.supabaseAdmin.rpc('community_purge_expired_ddv_binding_tombstones');
+
+    if (ddvBindingPurgeError) {
+      return reply({
+        ok: false,
+        error: 'DDV_BINDING_TOMBSTONE_PURGE_FAILED',
+        message: ddvBindingPurgeError.message
+      }, 500);
+    }
+
     const body = await req.json().catch(() => ({}));
     const requestedLimit = Number((body as { limit?: unknown }).limit ?? 10);
     const limit = Math.max(1, Math.min(50, Math.trunc(requestedLimit || 10)));
@@ -151,6 +162,7 @@ export default {
       claimed: jobs.length,
       completed: results.filter((result) => result.ok === true).length,
       failed: results.filter((result) => result.ok !== true).length,
+      ddvBindingTombstonesPurged: Number(ddvBindingPurge?.purged ?? 0),
       results
     });
   })
