@@ -1,7 +1,7 @@
 {
   "schema": "dreamwish-community-ddv-profile-workspace-runtime@2",
   "checkedAt": "2026-10-02",
-  "state": "PROFILE_WORKSPACE_DB_LIFECYCLE_STAGING_PASS__EDGE_V20_V10_DEPLOYED",
+  "state": "PROFILE_WORKSPACE_DB_LIFECYCLE_STAGING_PASS__EDGE_COMMAND_V20_ADMIN_V14__LEGACY_RUNTIME_DECOMMISSIONED",
   "stagingProject": "dreamwish-wand-staging",
   "stagingProjectRef": "ptpdoxhrqopvczpclcij",
   "migrations": [
@@ -19,6 +19,11 @@
       "version": "20261001233707",
       "name": "community_ddv_profile_workspace_fk_index_v3",
       "purpose": "cover composite identity-association FK"
+    },
+    {
+      "version": "20261001234524",
+      "name": "community_ddv_profile_workspace_decommission_legacy_link_v4",
+      "purpose": "revoke service-role execution on superseded exclusive link/get/admin-correction RPCs"
     }
   ],
   "implemented": {
@@ -65,7 +70,8 @@
     },
     "edgeDeployments": {
       "communityCommand": 20,
-      "communityQuery": 10
+      "communityQuery": 10,
+      "communityAdmin": 14
     },
     "securityAdvisor": {
       "newBlockingFindings": 0,
@@ -73,8 +79,9 @@
       "existingWarn": "Leaked Password Protection disabled on Free staging; production Pro requires enablement"
     },
     "performanceAdvisor": {
-      "newFkFindingFixedByMigration": "20261001233707",
-      "remainingFindings": "unused-index INFO only"
+      "newWorkspaceFkFinding": "FIXED_BY_20261001233707",
+      "recheck": "PASS_NO_UNINDEXED_FOREIGN_KEY_FINDING",
+      "remaining": "unused-index INFO only"
     },
     "migrationHistoryNote": {
       "canonicalRepoMigrations": [
@@ -89,7 +96,14 @@
       "cause": "concurrent staging application during verification",
       "semanticImpact": "NONE_OBSERVED__DDL_REAPPLICATION_IDEMPOTENT",
       "productionRule": "REPLAY_CANONICAL_REPO_MIGRATIONS_ONLY"
-    }
+    },
+    "legacyRuntime": {
+      "exclusiveLinkRpcServiceRoleExecute": false,
+      "legacyGetRpcServiceRoleExecute": false,
+      "legacyAdminCorrectionRpcServiceRoleExecute": false,
+      "communityAdminLegacyCorrectionRoute": false
+    },
+    "stagingMigrationHistoryNote": "Two idempotent duplicate v2/v3 applications appeared in staging migration history during concurrent work (20261001234029/20261001234035). They are not canonical repository migrations and are excluded from fresh production replay; canonical repo sequence is 232814 -> 233225 -> 233707 -> 234524."
   },
   "edgeIdentityAssociation": {
     "codeDeployed": true,
