@@ -164,7 +164,7 @@ test('portable composition strips Editor/save-local identity and keeps approved 
   assert.equal(composition.persistentWriteAuthorized, false);
 });
 
-test('Building, Road/Fence, readonly and unresolved geometry stay unresolved rather than being invented', () => {
+test('Road/Fence delegates to 01C while Building and unresolved geometry stay fail-closed', () => {
   const composition = captureCurrentV125RootObjectComposition({
     documents: [
       document('GridData/Test/A.json', [
@@ -193,7 +193,9 @@ test('Building, Road/Fence, readonly and unresolved geometry stay unresolved rat
 
   assert.equal(composition.status, 'CAPTURED_PARTIAL');
   assert.equal(composition.entries.length, 0);
-  assert.equal(composition.unresolved.length, 3);
+  assert.equal(composition.unresolved.length, 2);
+  assert.equal(composition.delegatedNetworkObjectCount, 1);
+  assert.equal(composition.routeSummaries[0].delegatedNetworkCount, 1);
   assert.equal(
     composition.unresolved[0].reasons.includes(
       'BUILDING_PLACEMENT_PORTABILITY_INCOMPLETE'
@@ -202,12 +204,6 @@ test('Building, Road/Fence, readonly and unresolved geometry stay unresolved rat
   );
   assert.equal(
     composition.unresolved[1].reasons.includes(
-      'NETWORK_LAYER_DELEGATED_01C'
-    ),
-    true
-  );
-  assert.equal(
-    composition.unresolved[2].reasons.includes(
       'ROOT_OBJECT_GEOMETRY_UNRESOLVED'
     ),
     true
@@ -268,10 +264,20 @@ test('full-design manifest accepts validated partial portable composition and re
 
   assert.equal(plan.manifestValidation.ok, true);
   assert.equal(plan.categories.rootObjects.portableComposition.entries.length, 1);
-  assert.equal(plan.categories.rootObjects.portableComposition.unresolved.length, 1);
+  assert.equal(plan.categories.rootObjects.portableComposition.unresolved.length, 0);
+  assert.equal(
+    plan.categories.rootObjects.portableComposition.delegatedNetworkObjectCount,
+    1
+  );
   assert.equal(
     plan.categories.rootObjects.blockers.includes(
       'FULL_DESIGN_ROOT_OBJECT_COMPOSITION_UNRESOLVED'
+    ),
+    false
+  );
+  assert.equal(
+    plan.categories.rootObjects.blockers.includes(
+      'FULL_DESIGN_ALL_ROOT_OBJECT_COMPOSITION_INCOMPLETE'
     ),
     true
   );
