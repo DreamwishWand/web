@@ -14,6 +14,7 @@ import {
   captureCurrentV125RootObjectComposition
 } from './full-design-root-object-composition.ts';
 import {
+  createDraftAwareNetworkCaptureAdapter,
   createSwitchV125RoadFenceReaderBinding
 } from './roadfence-reader-adapter.ts';
 import {
@@ -377,12 +378,16 @@ function captureFullRootRoadFenceNetworks(
       w: bound.bounds.w,
       h: bound.bounds.h
     };
-    const roads = binding.networkAdapter.capture(
+    const captureAdapter =
+      createDraftAwareNetworkCaptureAdapter(
+        binding.networkAdapter
+      );
+    const roads = captureAdapter.capture(
       'roads',
       document,
       region
     );
-    const fences = binding.networkAdapter.capture(
+    const fences = captureAdapter.capture(
       'fences',
       document,
       region
