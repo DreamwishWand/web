@@ -1344,7 +1344,7 @@ function normalizeFenceVariationDescriptor(entry, key, label) {
   };
 }
 
-function resolveFenceExtensionNativePlacement({
+export function resolveFenceExtensionNativePlacement({
   fromSave,
   toSave,
   key,
