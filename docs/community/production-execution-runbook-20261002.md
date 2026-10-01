@@ -12,11 +12,13 @@ resources. It does not authorize a production project, paid plan, PITR or backup
 
 Production replay source is **final-integrated-main only**.
 
-Current observed heads:
+Review-base / observed heads used for this readiness audit:
 
-- Community: `8a25e6cf99e00ca56f3bd359d5560a2e6859c1c3`;
+- Community review base: `8a25e6cf99e00ca56f3bd359d5560a2e6859c1c3`;
 - WEP: `424116bba04be06454db32a422afaeba6e2b0044`;
 - merge base: `cfda06eb904544bbfa5286c4eb61b5856dd3ea51`.
+
+These values are evidence baselines, not a production replay pin. Production must record the later accepted `final-integrated-main` SHA.
 
 WEP changes since Community's previous `ba55070f...` observation are Road/Fence, editor,
 full-design/preflight and blocker-message work. No Community publication/signed-read/retention/Edge
