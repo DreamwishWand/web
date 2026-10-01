@@ -57,7 +57,7 @@
       "owner": "03 COMM + 02 WEP",
       "classification": "already_closed",
       "evidence": [
-        "dev/wep-v125@0773ed12af63ef0502281054988e3b2c1b15eeb6",
+        "dev/wep-v125@3684939a5c147430e6c41bedc6620c9b6f030b6d",
         "scripts/verify-community-integrated-production-tree.mjs"
       ],
       "detail": "WEP now preserves the Community 81600 support-recovery migration and keeps one-time pg_net SQL under supabase/staging while retaining all three WEP Preset production migrations."
@@ -69,8 +69,8 @@
       "owner": "02 WEP",
       "classification": "cross_stream_pending",
       "evidence": [
-        "dev/wep-v125@0773ed12af63ef0502281054988e3b2c1b15eeb6",
-        "supabase/migrations/20260930124055_wep_preset_artifact_storage_v0.sql"
+        "dev/wep-v125@3684939a5c147430e6c41bedc6620c9b6f030b6d",
+        "supabase/migrations/20260930124055_wep_preset_artifact_storage_v0.sql@f1370166dec78793ee82a5206a87999c61900b15"
       ],
       "pendingReason": "The migration still creates wand-preset-artifacts-staging. Fresh production replay must not create or use the staging bucket."
     },
