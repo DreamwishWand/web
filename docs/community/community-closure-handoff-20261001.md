@@ -226,3 +226,112 @@ production integration. RC/production must run the integrated-tree verifier with
 
 No branch merge, production project, production migration replay, paid-plan change or runtime
 Community browser suite was performed by this hardening step.
+
+
+## 03 COMM 3 final release-gate delta — 2026-10-01
+
+### 1. Auth final QA
+
+**PENDING — operator/manual acceptance only.**
+
+Already closed and not rerun:
+
+- provider 14-character rejection / 15-character acceptance;
+- provider global refresh revocation;
+- independent Wand session cutoff;
+- old-JWT rejection;
+- fresh sign-in after cutoff.
+
+Remaining flow only:
+
+`real signed-in QA session -> reauthentication nonce -> password change -> provider global revoke -> Wand session cutoff -> old session rejected -> fresh sign-in succeeds`.
+
+This requires a real QA mailbox. Synthetic reauthentication mail is prohibited.
+
+### 2. Retention approval
+
+**ENGINEERING CLOSED / APPROVAL PENDING.**
+
+Engineering implementation/runtime evidence is complete and does not need reimplementation or a
+retention-E2E rerun before policy approval.
+
+Separate approval state:
+
+- Product: PENDING;
+- Privacy: PENDING;
+- Legal: PENDING.
+
+Current 30-day content / 365-day operational values remain engineering defaults and are not legal or
+policy conclusions.
+
+Evidence:
+- `ops/community-retention-approval-state.json`;
+- `docs/community/retention-final-approval-packet-20261001.md`.
+
+### 3. Resend / email evidence
+
+Provider evidence remains:
+
+- sent 5;
+- delivered 5;
+- bounced 0;
+- failed 0;
+- complained 0;
+- delivery-delayed 0;
+- delivery rate 100%.
+
+`dreamwishwand.com` remains verified with sending enabled in ap-northeast-1.
+
+Provider delivery is CLOSED for the current sample. Human Inbox-vs-Junk placement remains PARTIAL.
+No synthetic warming was generated.
+
+### 4. WEP integrated-tree dependency
+
+**CONFIRMED STATIC:** current WEP branch now preserves the canonical Community migration cleanup:
+support-recovery `81600`, pg_net SQL under `supabase/staging`, plus all three WEP Preset
+production migrations and environment-aware Edge bucket resolver.
+
+**OPEN:** WEP production migration
+`20260930124055_wep_preset_artifact_storage_v0.sql` still inserts
+`wand-preset-artifacts-staging`.
+
+Therefore:
+
+- Edge-function bucket externalization remains CLOSED;
+- production bucket **migration provisioning** is OPEN;
+- final integrated production replay must not create/use the staging bucket;
+- Scene reuse and ArtifactBlob retention runtime semantics remain CLOSED and were not rerun.
+
+### 5. Production-only pending gates
+
+Still require a distinct production environment or final release integration:
+
+- distinct production Supabase project;
+- final integrated source tree;
+- fresh integrated migration replay;
+- DB backup mechanism + restore drill;
+- Storage backup mechanism + restore drill;
+- controlled secret rotation;
+- production function allowlist / staging denylist verification;
+- production Cron/Vault inventory;
+- production smoke;
+- production Security Advisor.
+
+Staging evidence cannot satisfy these gates.
+
+### 6. Final `--require-ready` blocker
+
+`ops/community-production-release-evidence.json` now separates:
+
+- `already_closed`;
+- `staging_only`;
+- `production_only_pending`;
+- `approval_pending`;
+- `operator_manual_pending`;
+- `cross_stream_pending`.
+
+Current `launchReady=false` is correct.
+
+Production `npm run verify:community-ops -- --require-ready` must remain failing until every required
+gate is satisfied, all Product/Privacy/Legal retention approvals are explicit, the mailbox-backed
+Auth flow passes, and the WEP production bucket migration blocker is closed.
