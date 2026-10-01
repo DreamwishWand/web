@@ -1,6 +1,6 @@
 {
   "schema": "dreamwish-community-staging-operations-observation@1",
-  "observedAt": "2026-10-01",
+  "observedAt": "2026-10-01T00:46:39Z",
   "purpose": "secret-free staging evidence; not a production replay source",
   "project": {
     "ref": "ptpdoxhrqopvczpclcij",
@@ -176,11 +176,12 @@
       },
       {
         "slug": "wep-preset-flow-e2e",
-        "version": 4,
+        "version": 6,
         "verifyJwt": true,
         "disabledStub": true,
         "httpStatus": 410,
-        "error": "STAGING_E2E_DISABLED"
+        "error": "STAGING_E2E_DISABLED",
+        "sha256": "6f5b62c8b151a162e4a9deabde66b069e94fa6cf472ec8f3d51a633f96737342"
       },
       {
         "slug": "wep-retention-e2e",
@@ -233,6 +234,8 @@
     "stagingAcceptanceHarnessesExecutable": false,
     "productionMustExcludeStagingOnlyFunctions": true,
     "stagingMigrationHistoryIsProductionReplaySource": false,
-    "secretsValuesCaptured": false
+    "secretsValuesCaptured": false,
+    "latestRoadCommunityAcceptance": "PASS",
+    "latestRoadCommunityAcceptanceTemporaryHarnessRestored": true
   }
 }
