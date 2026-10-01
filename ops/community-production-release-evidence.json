@@ -519,6 +519,22 @@
       "communitySensitiveContractChange": false,
       "communityRerunRequired": false
     },
-    "qaReleaseEvidence": "ops/community-qa-release-evidence-20261002.json"
+    "qaReleaseEvidence": "ops/community-qa-release-evidence-20261002.json",
+    "linkedDdvProfileLifecycle": {
+      "productStatus": "APPROVED",
+      "maxLinkedProfiles": 3,
+      "normalSelfServiceUnlink": false,
+      "exceptionalCorrection": "RECENT_AUTH_SUPPORT_ADMIN_REVIEW_REASON_AUDIT",
+      "tombstoneDays": 7,
+      "rawVerificationEvidencePersistent": false,
+      "stableLocalProfileIdentifier": "UNRESOLVED_FAIL_CLOSED",
+      "implementationStatus": "BLOCKED_ON_DDV_CORE_STABLE_IDENTIFIER",
+      "privacyApproval": "PENDING",
+      "legalApproval": "PENDING",
+      "evidence": [
+        "ops/community-linked-ddv-profile-product-decision-20261002.json",
+        "docs/community/linked-ddv-profile-product-decision-20261002.md"
+      ]
+    }
   }
 }
