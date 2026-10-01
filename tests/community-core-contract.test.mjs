@@ -2609,12 +2609,14 @@ test('production execution checklist stops before resource creation', () => {
   const plan = JSON.parse(read('ops/community-production-execution-checklist-20261002.json'));
   const manifest = JSON.parse(read('ops/community-production-operations.json'));
 
-  assert.equal(plan.status, 'PREPARED_TO_RESOURCE_DECISION_GATE');
+  assert.equal(plan.status, 'RESOURCE_DECISION_CLOSED_PROVISION_AT_RELEASE_STAGE');
   assert.equal(plan.resourceCreationAuthorized, false);
   assert.equal(plan.productionProjectRef, null);
   assert.equal(plan.stopBoundary.reached, true);
-  assert.equal(plan.phase1ResourceDecision.status, 'USER_DECISION_REQUIRED_BEFORE_EXECUTION');
-  assert.equal(plan.phase2ProductionProjectProvisioning.status, 'BLOCKED_ON_USER_RESOURCE_DECISION');
+  assert.equal(plan.phase1ResourceDecision.status, 'OWNER_APPROVED_FOR_RELEASE_STAGE');
+  assert.equal(plan.phase1ResourceDecision.selectedSupabasePlan, 'PRO');
+  assert.equal(plan.phase1ResourceDecision.selectedStorageRecoveryProvider, 'CLOUDFLARE_R2_STANDARD');
+  assert.equal(plan.phase2ProductionProjectProvisioning.status, 'DEFERRED_TO_RELEASE_STAGE_BY_OWNER');
   assert.equal(plan.phase3FreshMigrationReplay.status, 'PROTOCOL_READY_RESOURCE_PENDING');
   assert.equal(plan.sourceControl.requiredReplaySource, 'final-integrated-main');
 
@@ -2650,7 +2652,11 @@ test('04 QR Community evidence preserves review and production pending boundarie
   assert.equal(qr.workstream, '03 COMM 4');
   assert.equal(qr.launchReady, false);
   assert.equal(qr.userDecisionGate.reached, true);
-  assert.equal(qr.userDecisionGate.noResourceCreationAuthorized, true);
+  assert.equal(qr.userDecisionGate.state, 'CLOSED_APPROVED_FOR_RELEASE_STAGE');
+  assert.deepEqual(qr.userDecisionGate.decisionsNeeded, []);
+  assert.equal(qr.userDecisionGate.decision.supabasePlan, 'PRO');
+  assert.equal(qr.userDecisionGate.decision.storageRecoveryProvider, 'CLOUDFLARE_R2_STANDARD');
+  assert.equal(qr.userDecisionGate.noResourceCreationAuthorizedInCurrentPhase, true);
 
   const closed = new Map(qr.closed.map((item) => [item.id, item]));
   assert.equal(closed.get('AUTH_MAILBOX')?.state, 'CLOSED_PASS');
@@ -2659,6 +2665,10 @@ test('04 QR Community evidence preserves review and production pending boundarie
   assert.equal(
     closed.get('PRODUCTION_PREPARATION_PROTOCOLS')?.state,
     'STATIC_PREPARATION_COMPLETE'
+  );
+  assert.equal(
+    closed.get('PRODUCTION_RESOURCE_SELECTION')?.state,
+    'CLOSED_APPROVED_FOR_RELEASE_STAGE'
   );
 
   const review = new Map(qr.reviewPending.map((item) => [item.id, item]));
@@ -2692,4 +2702,56 @@ test('Legal packet is explicitly non-approval and jurisdiction decisions remain 
   assert.match(packet, /DMCA/i);
   assert.match(packet, /Digital Services Act|DSA/i);
   assert.match(packet, /Privacy and Legal remain|LEGAL = PENDING/i);
+});
+
+
+test('production resource decision records Supabase Pro and Cloudflare R2 Standard without provisioning', () => {
+  const decision = JSON.parse(read('ops/community-production-resource-decision-20261002.json'));
+  const manifest = JSON.parse(read('ops/community-production-operations.json'));
+
+  assert.equal(decision.ownerDecision, 'APPROVED');
+  assert.equal(decision.timing, 'AT_RELEASE_STAGE');
+  assert.equal(decision.productionResourcesMayBeCreatedNow, false);
+  assert.equal(decision.supabase.plan, 'PRO');
+  assert.equal(decision.supabase.status, 'APPROVED_FOR_RELEASE_PROVISIONING');
+  assert.equal(decision.supabase.productionProject, 'NOT_YET_CREATED');
+  assert.equal(decision.supabase.leakedPasswordProtection, 'MUST_ENABLE_IN_PRODUCTION');
+  assert.equal(decision.storageRecovery.provider, 'Cloudflare');
+  assert.equal(decision.storageRecovery.service, 'R2 Standard');
+  assert.equal(decision.storageRecovery.status, 'APPROVED_FOR_RELEASE_PROVISIONING');
+  assert.equal(decision.storageRecovery.productionBucket, 'NOT_YET_CREATED');
+  assert.equal(decision.privacyLegalBoundary.providerSelectionClosed, true);
+  assert.equal(decision.privacyLegalBoundary.legalApprovalStillRequired, true);
+  assert.equal(decision.privacyLegalBoundary.privacyApprovalStillRequired, true);
+  assert.equal(decision.noPaidResourceCreatedByDecision, true);
+  assert.equal(decision.noProductionProjectCreatedByDecision, true);
+
+  assert.equal(
+    manifest.backupPolicy.database.productionPlanBinding,
+    'SUPABASE_PRO_APPROVED_FOR_RELEASE_PROVISIONING'
+  );
+  assert.equal(
+    manifest.backupPolicy.storageObjects.providerSelection,
+    'CLOUDFLARE_R2_STANDARD_APPROVED_FOR_RELEASE_PROVISIONING'
+  );
+  assert.equal(manifest.production.projectRef, null);
+  assert.equal(manifest.production.launchReady, false);
+  assert.equal(manifest.production.resourceDecision.provisionNow, false);
+  assert.equal(manifest.production.resourceDecision.provisionAt, 'RELEASE_STAGE');
+});
+
+test('Privacy provider selection is closed but launch binding remains pending', () => {
+  const privacy = JSON.parse(read('ops/community-privacy-review-readiness-20261002.json'));
+  const p5 = privacy.openDecisions.find((item) => item.id === 'P5_PRODUCTION_PROCESSOR_BINDING');
+  const provider = privacy.confirmedControls.find((item) => item.id === 'PROVIDER_BOUNDARY');
+
+  assert.equal(provider.status, 'PROVIDER_SELECTION_CONFIRMED_FINAL_BINDING_PENDING');
+  assert.match(provider.facts.join(' '), /Supabase Pro/i);
+  assert.match(provider.facts.join(' '), /Cloudflare R2 Standard/i);
+  assert.equal(p5.severity, 'BLOCKER_FOR_FINAL_PRIVACY_APPROVAL');
+  assert.equal(p5.engineeringAction, 'RELEASE_STAGE_PROVIDER_BINDING_REQUIRED');
+  assert.match(p5.evidence.join(' '), /Supabase Pro/i);
+  assert.match(p5.evidence.join(' '), /Cloudflare R2 Standard/i);
+  assert.equal(privacy.approval.privacy, 'PENDING');
+  assert.equal(privacy.approval.legal, 'PENDING');
 });
