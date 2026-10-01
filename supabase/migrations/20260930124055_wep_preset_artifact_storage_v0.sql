@@ -1,16 +1,8 @@
-insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
-values(
-  'wand-preset-artifacts-staging',
-  'wand-preset-artifacts-staging',
-  false,
-  26214400,
-  array['application/json']::text[]
-)
-on conflict(id) do update
-set name=excluded.name,
-    public=excluded.public,
-    file_size_limit=excluded.file_size_limit,
-    allowed_mime_types=excluded.allowed_mime_types;
+-- Preset Artifact Storage bucket provisioning is environment-specific.
+-- Do not create a staging-named bucket from the production migration chain.
+-- Known staging bootstrap lives under supabase/staging; production Release Operations
+-- must provision the private bucket selected by WEP_PRESET_ARTIFACT_BUCKET before
+-- deploying the WEP Preset Edge Functions.
 
 insert into private.community_action_rate_policies(
   bucket,window_seconds,max_actions,enabled,updated_at
