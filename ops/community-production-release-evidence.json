@@ -1,6 +1,6 @@
 {
   "schema": "dreamwish-community-production-release-evidence@1",
-  "updatedAt": "2026-10-02T04:54:00+09:00",
+  "updatedAt": "2026-10-02",
   "scope": "Community Core production launch",
   "productionEvidenceMustComeFromDistinctProductionEnvironment": true,
   "stagingProjectRef": "ptpdoxhrqopvczpclcij",
@@ -143,9 +143,12 @@
         "docs/community/retention-policy-proposal-20261001.md",
         "ops/community-deletion-disclosure-contract.json",
         "docs/community/deletion-retention-disclosure-20261001.md",
-        "docs/community/retention-product-approval-record-20261002.md"
+        "docs/community/retention-product-approval-record-20261002.md",
+        "ops/community-privacy-review-readiness-20261002.json",
+        "docs/community/privacy-review-readiness-20261002.md",
+        "docs/community/legal-review-packet-20261002.md"
       ],
-      "pendingReason": "Product approval is APPROVED for all Product-required retention decisions. Privacy and Legal approvals remain explicitly PENDING; the combined retention approval gate therefore remains open. D6 production provider/runtime binding is a separate production-operations gate.",
+      "pendingReason": "Product is APPROVED. Privacy is review-ready but has open Linked DDV Profile, minors/age and provider-binding decisions; Legal packet is complete but external Legal approval is still required. Combined approval remains open.",
       "classification": "approval_pending"
     },
     {
@@ -165,8 +168,11 @@
       "required": true,
       "satisfied": false,
       "owner": "Release Operations",
-      "evidence": [],
-      "pendingReason": "No production project has been created; staging must not be accepted as production evidence.",
+      "evidence": [
+        "ops/community-production-execution-checklist-20261002.json",
+        "docs/community/production-execution-runbook-20261002.md"
+      ],
+      "pendingReason": "No production project has been created. Creation is intentionally blocked at the user resource-decision gate.",
       "classification": "production_only_pending"
     },
     {
@@ -175,9 +181,11 @@
       "satisfied": false,
       "owner": "Release Integration",
       "evidence": [
-        "docs/community/final-integrated-production-tree-preflight-20261001.md"
+        "docs/community/final-integrated-production-tree-preflight-20261001.md",
+        "ops/community-production-execution-checklist-20261002.json",
+        "docs/community/production-execution-runbook-20261002.md"
       ],
-      "pendingReason": "Community and WEP workstreams are still separate; final-integrated-main does not yet exist as the accepted replay tree.",
+      "pendingReason": "Execution plan is prepared, but final-integrated-main has not been built/accepted. Current Community/WEP branches remain separate.",
       "classification": "cross_stream_pending"
     },
     {
@@ -186,9 +194,11 @@
       "satisfied": false,
       "owner": "Release Operations",
       "evidence": [
-        "docs/community/final-integrated-production-tree-preflight-20261001.md"
+        "docs/community/final-integrated-production-tree-preflight-20261001.md",
+        "ops/community-production-execution-checklist-20261002.json",
+        "docs/community/production-execution-runbook-20261002.md"
       ],
-      "pendingReason": "Must be executed against a fresh non-production target from final-integrated-main before production.",
+      "pendingReason": "Replay protocol is prepared, but execution requires the accepted final-integrated-main and a user-authorized fresh target.",
       "classification": "production_only_pending"
     },
     {
@@ -196,8 +206,11 @@
       "required": true,
       "satisfied": false,
       "owner": "Release Operations",
-      "evidence": [],
-      "pendingReason": "Production backup mechanism has not been selected/proven.",
+      "evidence": [
+        "ops/community-production-execution-checklist-20261002.json",
+        "docs/community/production-execution-runbook-20261002.md"
+      ],
+      "pendingReason": "Protocol and requirements are prepared; actual mechanism depends on the user-selected production plan.",
       "classification": "production_only_pending"
     },
     {
@@ -207,9 +220,11 @@
       "owner": "Release Operations",
       "evidence": [
         "ops/community-backup-privacy-contract.json",
-        "docs/community/production-operations-backup-recovery-20261001.md"
+        "docs/community/production-operations-backup-recovery-20261001.md",
+        "ops/community-production-execution-checklist-20261002.json",
+        "docs/community/production-execution-runbook-20261002.md"
       ],
-      "pendingReason": "Design is closed, but actual production backup mechanism/provider and restore drill are production-only and remain PENDING.",
+      "pendingReason": "Quarantine-first restore protocol is prepared; actual production backup mechanism and drill remain pending.",
       "classification": "production_only_pending"
     },
     {
@@ -217,8 +232,11 @@
       "required": true,
       "satisfied": false,
       "owner": "Release Operations",
-      "evidence": [],
-      "pendingReason": "Storage object bytes require independent backup coverage.",
+      "evidence": [
+        "ops/community-production-execution-checklist-20261002.json",
+        "docs/community/production-execution-runbook-20261002.md"
+      ],
+      "pendingReason": "Requirements are prepared; independent private Storage recovery provider/mechanism is not yet selected.",
       "classification": "production_only_pending"
     },
     {
@@ -228,9 +246,11 @@
       "owner": "Release Operations",
       "evidence": [
         "ops/community-backup-privacy-contract.json",
-        "docs/community/production-operations-backup-recovery-20261001.md"
+        "docs/community/production-operations-backup-recovery-20261001.md",
+        "ops/community-production-execution-checklist-20261002.json",
+        "docs/community/production-execution-runbook-20261002.md"
       ],
-      "pendingReason": "Design is closed, but actual production backup mechanism/provider and restore drill are production-only and remain PENDING.",
+      "pendingReason": "Storage restore/reconciliation protocol is prepared; provider and actual drill remain pending.",
       "classification": "production_only_pending"
     },
     {
@@ -238,8 +258,11 @@
       "required": true,
       "satisfied": false,
       "owner": "Release Operations",
-      "evidence": [],
-      "pendingReason": "Must rotate one representative production worker/delivery secret without service-state ambiguity.",
+      "evidence": [
+        "ops/community-production-execution-checklist-20261002.json",
+        "docs/community/production-execution-runbook-20261002.md"
+      ],
+      "pendingReason": "Name-only inventory and rotation procedure are prepared; production credentials do not exist yet.",
       "classification": "production_only_pending"
     },
     {
@@ -247,8 +270,11 @@
       "required": true,
       "satisfied": false,
       "owner": "Release Operations",
-      "evidence": [],
-      "pendingReason": "Production function allowlist and staging-only denylist must be verified after deployment.",
+      "evidence": [
+        "ops/community-production-execution-checklist-20261002.json",
+        "docs/community/production-execution-runbook-20261002.md"
+      ],
+      "pendingReason": "Exact production allowlist and staging denylist are frozen; production deployment/inventory does not exist yet.",
       "classification": "production_only_pending"
     },
     {
@@ -256,8 +282,11 @@
       "required": true,
       "satisfied": false,
       "owner": "Release Operations",
-      "evidence": [],
-      "pendingReason": "Required Cron jobs and Vault secret names must be verified in production without reading secret values.",
+      "evidence": [
+        "ops/community-production-execution-checklist-20261002.json",
+        "docs/community/production-execution-runbook-20261002.md"
+      ],
+      "pendingReason": "Expected Cron schedules and Vault names are frozen; production inventory does not exist yet.",
       "classification": "production_only_pending"
     },
     {
@@ -265,8 +294,11 @@
       "required": true,
       "satisfied": false,
       "owner": "Release QA",
-      "evidence": [],
-      "pendingReason": "Requires final production-shaped smoke after deployment.",
+      "evidence": [
+        "ops/community-production-execution-checklist-20261002.json",
+        "docs/community/production-execution-runbook-20261002.md"
+      ],
+      "pendingReason": "Minimal wiring-only production smoke protocol is prepared; no production deployment exists yet.",
       "classification": "production_only_pending"
     },
     {
@@ -274,8 +306,11 @@
       "required": true,
       "satisfied": false,
       "owner": "Release Security",
-      "evidence": [],
-      "pendingReason": "Must be read from the distinct production project after deployment; staging Advisor is not production evidence. The current-plan auth_leaked_password_protection warning is a known unavailable feature and is not, by itself, an engineering blocker.",
+      "evidence": [
+        "ops/community-production-execution-checklist-20261002.json",
+        "docs/community/production-execution-runbook-20261002.md"
+      ],
+      "pendingReason": "Production Advisor protocol is prepared. If Pro or above is selected, Leaked Password Protection must be enabled; the Free staging exception is not acceptable on paid production. Actual production Advisor evidence is pending.",
       "classification": "production_only_pending",
       "knownNonBlockingCurrentPlanFinding": "auth_leaked_password_protection"
     },
@@ -430,6 +465,37 @@
       "checklist": "docs/community/retention-product-approval-checklist-20261001.md",
       "approvalsInferred": false,
       "productApprovalRecord": "docs/community/retention-product-approval-record-20261002.md"
-    }
+    },
+    "privacyReview": {
+      "state": "REVIEW_READY_WITH_OPEN_PRIVACY_DECISIONS",
+      "approval": "PENDING",
+      "contract": "ops/community-privacy-review-readiness-20261002.json",
+      "blockers": [
+        "P1_LINKED_DDV_PROFILE_ORPHAN_MINIMIZATION",
+        "P4_AGE_AND_MINORS",
+        "P5_PRODUCTION_PROCESSOR_BINDING"
+      ]
+    },
+    "legalReview": {
+      "state": "PACKET_READY_EXTERNAL_REVIEW_REQUIRED",
+      "approval": "PENDING",
+      "packet": "docs/community/legal-review-packet-20261002.md"
+    },
+    "productionPreparation": {
+      "state": "PREPARED_TO_RESOURCE_DECISION_GATE",
+      "checklist": "ops/community-production-execution-checklist-20261002.json",
+      "runbook": "docs/community/production-execution-runbook-20261002.md",
+      "resourceCreationAuthorized": false,
+      "productionProjectCreated": false,
+      "paidResourceCreated": false
+    },
+    "latestWep": {
+      "head": "424116bba04be06454db32a422afaeba6e2b0044",
+      "deltaBase": "ba55070f3c48df3bef9d1b12aaf056ed4978791a",
+      "commitsSinceBase": 66,
+      "communitySensitiveContractChange": false,
+      "communityRerunRequired": false
+    },
+    "qaReleaseEvidence": "ops/community-qa-release-evidence-20261002.json"
   }
 }
