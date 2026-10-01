@@ -1,7 +1,7 @@
 {
   "schema": "dreamwish-community-qa-release-evidence@1",
   "generatedAt": "2026-10-02",
-  "workstream": "03 COMM 4",
+  "workstream": "03 COMM 5",
   "purpose": "Event-driven evidence delta for 04 QR; not a launch verdict.",
   "source": {
     "communityBranch": "dev/community-core-v0-20260930",
@@ -81,6 +81,21 @@
         "tombstoneDays": 7,
         "rawVerificationEvidencePersistent": false
       }
+    },
+    {
+      "id": "AGE_MINORS_PRODUCT_POLICY",
+      "state": "CLOSED_PRODUCT_APPROVED_PRIVACY_LEGAL_REVIEW_PENDING",
+      "evidence": [
+        "ops/community-age-minors-product-decision-20261002.json",
+        "docs/community/age-minors-product-decision-20261002.md"
+      ],
+      "decision": {
+        "minimumIndependentWandAccountAge": 13,
+        "under13IndependentRegistrationAllowed": false,
+        "accountlessLocalUseAllowed": true,
+        "parentGuardianManagedDdvProfileAssociationAllowed": true,
+        "separateUnder13WandCredentials": false
+      }
     }
   ],
   "reviewPending": [
@@ -92,7 +107,6 @@
         "docs/community/privacy-review-readiness-20261002.md"
       ],
       "blockers": [
-        "P4_AGE_AND_MINORS",
         "P5_PRODUCTION_PROCESSOR_BINDING"
       ],
       "decisions": [
@@ -102,10 +116,11 @@
         "P8_MEDIA_STORAGE_KEY_PSEUDONYM",
         "P9_DATA_RIGHTS_WORKFLOW",
         "P10_PROVIDER_CLEANUP_SUBJECT",
-        "P1_LINKED_DDV_PROFILE_IDENTIFIER_AND_TRANSPORT_REVIEW_AFTER_PRODUCT_DECISION"
+        "P1_LINKED_DDV_PROFILE_IDENTIFIER_AND_TRANSPORT_REVIEW_AFTER_PRODUCT_DECISION",
+        "P4_AGE_MINORS_IMPLEMENTATION_AND_PARENT_MANAGED_COMMUNITY_SCOPE"
       ],
       "approved": false,
-      "note": "Linked DDV Product lifecycle is approved with 7-day tombstone. Privacy still requires stable identifier/transport review, age/minors policy and release-stage provider binding."
+      "note": "Age/minors Product policy is closed at 13+ for independent Wand Accounts; under-13 independent registration is prohibited, accountless local use remains available, and parent/guardian-managed DDV Profile association is allowed. Privacy still requires implementation/scope review, stable identifier/transport review and release-stage provider binding."
     },
     {
       "id": "LEGAL_APPROVAL",
@@ -116,7 +131,7 @@
       ],
       "requiredExternalDecisions": [
         "launch operator/entity and jurisdictions",
-        "age/minors eligibility and assurance/consent",
+        "implementation of the approved 13+ independent-account boundary; under-13 parent/guardian-managed Community scope; age assurance/parental consent by jurisdiction",
         "privacy rights workflow",
         "processor/DPA/cross-border treatment",
         "Linked DDV Profile retention/correction semantics",
@@ -208,5 +223,5 @@
     "rate-limit runtime"
   ],
   "launchReady": false,
-  "instructionToQR": "Consume provider/plan selection as CLOSED_APPROVED_FOR_RELEASE_STAGE only. Preserve open Privacy/Legal provider-binding, final integration, provisioning and all production runtime gates; do not infer production PASS."
+  "instructionToQR": "Consume age/minors Product eligibility as CLOSED_PRODUCT_APPROVED: independent Wand Account minimum age 13; under-13 independent registration prohibited; accountless local use and parent/guardian-managed DDV Profile association allowed. Keep Privacy/Legal implementation/scope review, stable profile identifier, final integration, provisioning and all production runtime gates OPEN; do not infer launch PASS."
 }
