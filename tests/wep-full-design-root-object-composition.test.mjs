@@ -45,7 +45,10 @@ function object({
   };
 }
 
-function document(gridDataPath, objects) {
+function document(gridDataPath, objects, {
+  rootGridId = gridDataPath.endsWith('/A.json') ? 10 : 11,
+  bounds = null
+} = {}) {
   return {
     schema: 'dreamwish-wand-wep-editor-document',
     version: 1,
@@ -53,14 +56,28 @@ function document(gridDataPath, objects) {
       gameVersion: '1.25.0',
       platform: 'Nintendo Switch',
       profileSchemaVersion: 624,
+      rootGridId,
       gridDataPath,
+      tessellationFactor: 1,
       exactBuildKnown: false,
       persistentWriteAuthorized: false
     },
     objects,
     networks: { roads: null, fences: null },
     capabilities: { worldPersistentWrite: 'unsupported' },
-    metadata: {}
+    metadata: bounds
+      ? {
+          rootGridBounds: {
+            ...bounds,
+            status: 'AUTHORITATIVE_GRIDDATAPATH'
+          },
+          browserBinding: {
+            gridDataDimensionsBound: true,
+            gridDataDimensionsSha256:
+              '75f33dc20d521d579070aa7919a96c23ce5dd329dbc6f58392f267c9dd0b1aaa'
+          }
+        }
+      : {}
   };
 }
 
@@ -285,7 +302,7 @@ test('full-design manifest accepts validated partial portable composition and re
   assert.equal(plan.applyReady, false);
 });
 
-test('destination preflight binds portable root objects to destination-local grids without validating placement', () => {
+test('destination preflight binds routes but fails closed when authoritative bounds are absent', () => {
   const source = profile();
   const plan = buildCurrentV125FullDesignCapturePlan({
     profile: source,
@@ -324,6 +341,7 @@ test('destination preflight binds portable root objects to destination-local gri
   });
 
   assert.equal(preflight.rootObjectRouteBindingReady, true);
+  assert.equal(preflight.rootObjectPlacementPreflightReady, false);
   assert.equal(preflight.destination.rootObjectRouteBindings.length, 1);
   assert.deepEqual(preflight.destination.rootObjectRouteBindings[0], {
     artifactObjectId: 'o0',
@@ -336,14 +354,93 @@ test('destination preflight binds portable root objects to destination-local gri
     footprint: [{ x: 0, y: 0 }],
     portableState: null,
     routeResolved: true,
+    boundsValidated: false,
     placementValidated: false,
-    placementBlocker: 'COMPREHENSIVE_GRIDDATA_DIMENSIONS_NOT_BOUND'
+    placementBlocker: 'AUTHORITATIVE_GRIDDATAPATH_BOUNDS_NOT_BOUND',
+    persistentWriteAuthorized: false
   });
-  assert.equal(preflight.destinationPreflightReady, true);
+  assert.equal(
+    preflight.issues.some(
+      (issue) =>
+        issue.code ===
+        'FULL_DESIGN_DESTINATION_ROOT_OBJECT_BOUNDS_UNAVAILABLE'
+    ),
+    true
+  );
+  assert.equal(preflight.destinationPreflightReady, false);
   assert.equal(preflight.categoryClosureReady, false);
   assert.equal(preflight.ok, false);
   assert.equal(preflight.applyReady, false);
 });
+
+test('v1.7 bounds validate object extent but native terrain legality remains fail-closed', () => {
+  const source = profile();
+  const plan = buildCurrentV125FullDesignCapturePlan({
+    profile: source,
+    rootGridId: 10,
+    sourcePlatform: 'switch',
+    rootEditorDocuments: [
+      document(
+        'GridData/Test/A.json',
+        [
+          object({
+            editorId: 'g10:o100',
+            itemId: 40000047,
+            x: 2,
+            y: 3
+          })
+        ],
+        { rootGridId: 10, bounds: { x: 0, y: 0, w: 20, h: 20 } }
+      ),
+      document(
+        'GridData/Test/B.json',
+        [],
+        { rootGridId: 11, bounds: { x: 0, y: 0, w: 10, h: 10 } }
+      )
+    ]
+  });
+
+  const destination = structuredClone(source);
+  destination.World.GridCollection.Grids = {
+    '90': {
+      ...destination.World.GridCollection.Grids['10'],
+      ID: 90
+    },
+    '91': {
+      ...destination.World.GridCollection.Grids['11'],
+      ID: 91
+    }
+  };
+  destination.World.Villages[0].Areas['7'].GridIDs = [90, 91];
+
+  const preflight = preflightCurrentV125FullDesignManifest({
+    destinationProfile: destination,
+    destinationPlatform: 'switch',
+    manifest: plan.manifest
+  });
+
+  assert.equal(preflight.rootObjectRouteBindingReady, true);
+  assert.equal(preflight.rootObjectPlacementPreflightReady, false);
+  assert.equal(
+    preflight.destination.rootObjectRouteBindings[0].boundsValidated,
+    true
+  );
+  assert.equal(
+    preflight.destination.rootObjectRouteBindings[0].placementBlocker,
+    'NATIVE_TERRAIN_OCCUPANCY_VALIDATION_REQUIRED'
+  );
+  assert.equal(
+    preflight.issues.some(
+      (issue) =>
+        issue.code ===
+        'FULL_DESIGN_DESTINATION_NATIVE_PLACEMENT_VALIDATION_REQUIRED'
+    ),
+    true
+  );
+  assert.equal(preflight.destinationPreflightReady, false);
+  assert.equal(preflight.applyReady, false);
+});
+
 
 test('strict manifest validation rejects tampered composition routes and write promotion', () => {
   const source = profile();
