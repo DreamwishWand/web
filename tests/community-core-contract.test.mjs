@@ -1875,7 +1875,8 @@ test('Community retention launch review separates technical facts from policy ap
 
   assert.equal(review.schema, 'dreamwish-community-retention-launch-review@1');
   assert.equal(review.engineeringDefaults.contentPayloadDays, 30);
-  assert.equal(review.engineeringDefaults.operationalDetailDays, 365);
+  assert.equal(review.engineeringDefaults.routineOperationalDetailDays, 90);
+  assert.equal(review.engineeringDefaults.elevatedOperationalDetailDaysMaximum, 365);
   assert.equal(review.engineeringDefaults.contentPayloadDaysIsRecoveryWindow, false);
   assert.equal(review.launchApproved, false);
   assert.equal(review.decisions.length, 8);
@@ -2320,7 +2321,7 @@ test('retention launch policy proposal is concrete but never self-approves', () 
   const release = JSON.parse(read('ops/community-production-release-evidence.json'));
 
   assert.equal(proposal.schema, 'dreamwish-community-retention-policy-proposal@1');
-  assert.equal(proposal.status, 'READY_FOR_EXPLICIT_APPROVAL');
+  assert.equal(proposal.status, 'POLICY_ALIGNMENT_IMPLEMENTED_TARGETED_REGRESSION_PENDING');
   assert.equal(proposal.notAnApproval, true);
   assert.equal(proposal.engineeringBoundary.contentPayloadDaysDefault, 30);
   assert.equal(proposal.engineeringBoundary.routineOperationalDetailDaysDefault, 90);
@@ -2348,7 +2349,7 @@ test('retention launch policy proposal is concrete but never self-approves', () 
     30
   );
 
-  assert.equal(review.policyProposal.status, 'READY_FOR_EXPLICIT_APPROVAL');
+  assert.equal(review.policyProposal.status, 'POLICY_ALIGNMENT_IMPLEMENTED_TARGETED_REGRESSION_PENDING');
   assert.equal(review.policyProposal.notAnApproval, true);
   assert.equal(review.launchApproved, false);
   assert.equal(approval.policyProposal.approvalsInferred, false);
