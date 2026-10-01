@@ -22,8 +22,8 @@ const operationToRpc = {
   getSecurityPolicy: 'community_get_security_policy_summary',
   listActionRatePolicies: 'community_get_action_rate_policies',
   listModerationCases: 'community_get_moderation_cases',
-  moderateCase: 'community_moderate_work_v2',
-  correctDdvProfileLink: 'community_admin_correct_ddv_profile_link_v1'
+  moderateCase: 'community_moderate_work_v2'
+
 } as const;
 
 type OperationName = keyof typeof operationToRpc;
@@ -181,13 +181,6 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
     case 'listModerationCases':
       params.p_state = payload.state ?? null;
       params.p_limit = payload.limit ?? 50;
-      break;
-    case 'correctDdvProfileLink':
-      params.p_session_id = sessionId;
-      params.p_issued_at_epoch = issuedAt;
-      params.p_account_id = payload.accountId;
-      params.p_ddv_profile_id = payload.ddvProfileId;
-      params.p_reason = payload.reason;
       break;
     case 'moderateCase':
       params.p_session_id = sessionId;
