@@ -133,16 +133,24 @@
     },
     {
       "id": "P4_AGE_AND_MINORS",
-      "severity": "BLOCKER_FOR_FINAL_PRIVACY_LEGAL_APPROVAL",
+      "severity": "PRODUCT_DECISION_CLOSED_PRIVACY_LEGAL_REVIEW_PENDING",
       "evidence": [
-        "No canonical minimum-age, minor-consent, or age-assurance launch policy was found.",
-        "The service includes user accounts, profiles, media, comments, publishing and moderation."
+        "Owner approved minimum age 13 for an independent Wand Account.",
+        "Independent Wand Account registration by users under 13 is prohibited.",
+        "Accountless local functionality remains available, including local save-file editing and local Editor/read-only workflows.",
+        "A parent or guardian may associate/manage an under-13 user's DDV Profile through the parent's Wand Account; no separate under-13 Wand credentials are created.",
+        "The existing maximum-three Linked DDV Profiles per Wand Account continues to apply."
       ],
       "requiredDecision": [
-        "Define intended launch audience and jurisdictions.",
-        "External Legal must determine whether COPPA, DSA minor protections, or other child-privacy rules apply and what age/consent/assurance flow is required."
+        "Product age/minors eligibility decision is CLOSED.",
+        "Privacy/Legal must define the minimal age-gate/age-assurance data flow and whether full date-of-birth collection is necessary.",
+        "Privacy/Legal must determine jurisdiction-specific parental notice/consent/verification requirements.",
+        "Privacy/Legal must determine the permitted scope and safeguards for under-13 Community participation through a parent/guardian-managed account.",
+        "Privacy/Legal must define any minor-specific defaults, notices, safety and moderation requirements for ages 13-17."
       ],
-      "engineeringAction": "NONE_UNTIL_LEGAL_PRODUCT_DECISION"
+      "engineeringAction": "WAIT_FOR_PRIVACY_LEGAL_AGE_GATE_AND_PARENT_MANAGED_COMMUNITY_CONTRACT",
+      "productDecision": "APPROVED_13_PLUS_INDEPENDENT_ACCOUNT__UNDER13_ACCOUNTLESS_AND_PARENT_MANAGED_ASSOCIATION",
+      "decisionRecord": "ops/community-age-minors-product-decision-20261002.json"
     },
     {
       "id": "P5_PRODUCTION_PROCESSOR_BINDING",
@@ -227,7 +235,7 @@
   ],
   "legalReviewDependencies": [
     "launch_jurisdictions",
-    "age_minors_policy",
+    "age_minors_implementation_parent_managed_scope",
     "privacy_rights_workflow",
     "ugc_terms_license_and_moderation",
     "copyright_notice_takedown_strategy",
