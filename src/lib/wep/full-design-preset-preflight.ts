@@ -100,6 +100,9 @@ export function preflightCurrentV125FullDesignManifest({
       routeResolutionReady: false,
       rootObjectRouteBindingReady: false,
       rootObjectPlacementPreflightReady: false,
+      roadFenceModelPreflightReady: false,
+      roadPreflightReady: false,
+      fencePreflightReady: false,
       ordinaryBuildingPlacementReady: false,
       buildingSemanticClosureReady: false,
       buildingSkinPreflightReady: false,
@@ -508,6 +511,140 @@ export function preflightCurrentV125FullDesignManifest({
     });
   }
 
+  const roadFenceDestinationBindings: AnyRecord[] = [];
+
+  function preflightRoadFenceCategory(
+    categoryKey: 'roads' | 'fences'
+  ) {
+    const category = normalized.categories?.[categoryKey];
+    if (category?.requested !== true) {
+      return true;
+    }
+    if (!Array.isArray(category.networkCaptures)) {
+      issues.push(
+        block(
+          'FULL_DESIGN_DESTINATION_ROADFENCE_CAPTURE_MISSING',
+          `$.categories.${categoryKey}.networkCaptures`,
+          { category: categoryKey }
+        )
+      );
+      return false;
+    }
+
+    let ready = true;
+    for (const [index, capture] of
+      category.networkCaptures.entries()) {
+      const gridDataPath = String(
+        capture?.directRootRoute?.gridDataPath ?? ''
+      );
+      const destinationGridId = Number(
+        destinationGridByPath.get(gridDataPath)
+      );
+      const bound = boundsByPath.get(gridDataPath);
+      const destinationGrid =
+        destinationProfile?.World?.GridCollection?.Grids?.[
+          String(destinationGridId)
+        ] ??
+        destinationProfile?.World?.GridCollection?.Grids?.[
+          destinationGridId
+        ];
+      const destinationTessellation = Number(
+        destinationGrid?.TessellationFactor ?? 1
+      );
+      const expectedTessellation = Number(
+        bound?.tessellationFactor
+      );
+
+      if (
+        !gridDataPath ||
+        !Number.isSafeInteger(destinationGridId) ||
+        !destinationGrid
+      ) {
+        ready = false;
+        issues.push(
+          block(
+            'FULL_DESIGN_DESTINATION_ROADFENCE_ROUTE_UNRESOLVED',
+            `$.categories.${categoryKey}.networkCaptures[${index}]`,
+            { category: categoryKey, gridDataPath }
+          )
+        );
+        continue;
+      }
+
+      if (
+        !bound ||
+        !Number.isSafeInteger(expectedTessellation) ||
+        expectedTessellation <= 0
+      ) {
+        ready = false;
+        issues.push(
+          block(
+            'FULL_DESIGN_DESTINATION_ROADFENCE_BOUNDS_UNAVAILABLE',
+            `$.categories.${categoryKey}.networkCaptures[${index}]`,
+            {
+              category: categoryKey,
+              gridDataPath,
+              destinationGridId
+            }
+          )
+        );
+        continue;
+      }
+
+      if (
+        !Number.isSafeInteger(destinationTessellation) ||
+        destinationTessellation !== expectedTessellation
+      ) {
+        ready = false;
+        issues.push(
+          block(
+            'FULL_DESIGN_DESTINATION_ROADFENCE_TESSELLATION_MISMATCH',
+            `$.categories.${categoryKey}.networkCaptures[${index}]`,
+            {
+              category: categoryKey,
+              gridDataPath,
+              destinationGridId,
+              expectedTessellation,
+              destinationTessellation
+            }
+          )
+        );
+        continue;
+      }
+
+      const networks = Array.isArray(capture?.network?.networks)
+        ? capture.network.networks
+        : [];
+      roadFenceDestinationBindings.push({
+        category: categoryKey,
+        gridDataPath,
+        destinationGridId,
+        boundsValidated: true,
+        tessellationValidated: true,
+        logicalNetworkCount: networks.length,
+        representationLayoutCount:
+          categoryKey === 'fences'
+            ? networks.filter(
+                (network: AnyRecord) =>
+                  network?.representationLayout != null
+              ).length
+            : 0,
+        artifactValidation:
+          'STRICT_MANIFEST_VALIDATION_PASSED',
+        persistentWriteAuthorized: false
+      });
+    }
+
+    return ready;
+  }
+
+  const roadPreflightReady =
+    preflightRoadFenceCategory('roads');
+  const fencePreflightReady =
+    preflightRoadFenceCategory('fences');
+  const roadFenceModelPreflightReady =
+    roadPreflightReady && fencePreflightReady;
+
   const buildingCategory = normalized.categories.buildings;
   const ordinaryPlacement = buildingCategory?.ordinaryPlacement;
   const ordinaryBuildingPlacementReady =
@@ -708,6 +845,7 @@ export function preflightCurrentV125FullDesignManifest({
     routeResolutionReady &&
     rootObjectRouteBindingReady &&
     rootObjectPlacementPreflightReady &&
+    roadFenceModelPreflightReady &&
     buildingSemanticClosureReady &&
     buildingRestorationPreflightReady &&
     environmentPreflightReady &&
@@ -724,6 +862,9 @@ export function preflightCurrentV125FullDesignManifest({
     routeResolutionReady,
     rootObjectRouteBindingReady,
     rootObjectPlacementPreflightReady,
+    roadFenceModelPreflightReady,
+    roadPreflightReady,
+    fencePreflightReady,
     nativePlacementContractBound: Boolean(placementBinding),
     ordinaryBuildingPlacementReady,
     buildingSemanticClosureReady,
@@ -741,6 +882,14 @@ export function preflightCurrentV125FullDesignManifest({
       semanticIdentity: clone(normalized.semanticIdentity),
       directRootResolutions: routeResolutions,
       rootObjectRouteBindings: clone(rootObjectRouteBindings),
+      roadFencePreflight: {
+        ready: roadFenceModelPreflightReady,
+        roadReady: roadPreflightReady,
+        fenceReady: fencePreflightReady,
+        bindings: clone(roadFenceDestinationBindings),
+        persistentWriteAuthorized: false,
+        writerStatus: 'NOT_AUTHORIZED'
+      },
       buildingSemanticStatus: {
         closureReady: buildingSemanticClosureReady,
         evidenceOwner: buildingSemanticClosureReady ? null : '01B_CORE_3',
