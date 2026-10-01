@@ -144,10 +144,16 @@ apply. Privacy should not invent an age-verification implementation before that 
 
 ### P5 — production processor binding — **BLOCKER for final Privacy approval**
 
-The production Supabase project/plan and independent Storage recovery provider do not exist yet.
+Provider selection is now closed:
 
-D6/D7 design can be reviewed now, but final Privacy approval needs the actual launch provider facts:
-region, contractual role/DPA, subprocessors/transfers, backup/log retention and deletion behavior.
+- Supabase **Pro** is approved for the production backend;
+- Cloudflare **R2 Standard** is approved as the independent Storage recovery provider;
+- both are to be provisioned at the release stage.
+
+This materially narrows P5, but does not close it. No production Supabase project or R2 recovery
+bucket exists yet, so final Privacy approval still needs the actual launch facts: project/bucket
+configuration and region/location behavior, contractual role/DPA, subprocessors/transfers,
+backup/log/object retention, deletion behavior and final processor disclosure.
 
 ### P6 — moderation/audit free text — **governance required**
 
@@ -228,5 +234,4 @@ Recommended review result at this point:
 
 `REVIEW_READY_WITH_OPEN_PRIVACY_DECISIONS`.
 
-No further retention runtime test is required. The next substantive inputs are decisions on P1/P2,
-launch age/jurisdictions, and actual production processors/providers.
+No further retention runtime test is required. Provider selection is closed. The next substantive inputs are P1/P2 Linked DDV Profile semantics, launch age/jurisdictions, and release-stage contractual/runtime binding of Supabase Pro + Cloudflare R2 Standard.
