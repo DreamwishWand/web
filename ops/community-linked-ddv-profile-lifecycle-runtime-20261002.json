@@ -1,7 +1,7 @@
 {
   "schema": "dreamwish-community-ddv-profile-workspace-runtime@2",
   "checkedAt": "2026-10-02",
-  "state": "PROFILE_WORKSPACE_DB_LIFECYCLE_STAGING_PASS__EDGE_V20_DEPLOYED",
+  "state": "PROFILE_WORKSPACE_DB_LIFECYCLE_STAGING_PASS__EDGE_V20_V10_DEPLOYED",
   "stagingProject": "dreamwish-wand-staging",
   "stagingProjectRef": "ptpdoxhrqopvczpclcij",
   "migrations": [
@@ -65,7 +65,7 @@
     },
     "edgeDeployments": {
       "communityCommand": 20,
-      "communityQuery": 9
+      "communityQuery": 10
     },
     "securityAdvisor": {
       "newBlockingFindings": 0,
@@ -75,14 +75,28 @@
     "performanceAdvisor": {
       "newFkFindingFixedByMigration": "20261001233707",
       "remainingFindings": "unused-index INFO only"
+    },
+    "migrationHistoryNote": {
+      "canonicalRepoMigrations": [
+        "20261001232814_community_ddv_profile_workspace_v1",
+        "20261001233225_community_ddv_profile_workspace_lifecycle_v2",
+        "20261001233707_community_ddv_profile_workspace_fk_index_v3"
+      ],
+      "stagingAdditionalDuplicateHistory": [
+        "20261001234029_community_ddv_profile_workspace_lifecycle_v2",
+        "20261001234035_community_ddv_profile_workspace_fk_index_v3"
+      ],
+      "cause": "concurrent staging application during verification",
+      "semanticImpact": "NONE_OBSERVED__DDL_REAPPLICATION_IDEMPOTENT",
+      "productionRule": "REPLAY_CANONICAL_REPO_MIGRATIONS_ONLY"
     }
   },
   "edgeIdentityAssociation": {
     "codeDeployed": true,
     "rawPlayerIdDatabaseForwarding": false,
     "requiredSecret": "COMMUNITY_DDV_PROFILE_BINDING_KEY_V1",
-    "liveRawPlayerIdE2E": "PENDING_SECRET_CONFIGURATION",
-    "note": "Workspace lifecycle is runtime-accepted independently; live raw Player ID association requires staging secret configuration."
+    "liveRawPlayerIdE2E": "PENDING_STAGING_SECRET_RUNTIME_VERIFICATION",
+    "note": "Workspace lifecycle and Edge source alignment are closed. A live raw Player ID -> Edge HMAC -> identity association request still requires staging secret/runtime verification through an authenticated session."
   },
   "ownerDecisionsRemaining": [],
   "privacyApproval": "PENDING",
