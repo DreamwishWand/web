@@ -87,3 +87,20 @@ At WEP checkpoint `d577f2d170e9118a0e03df281af35996901e8220`:
   without an explicit bucket env value.
 
 Persistent DDV Apply remains outside this contract and disabled.
+
+
+## Production migration provisioning
+
+The production migration chain no longer creates `wand-preset-artifacts-staging`.
+
+Current split:
+
+- `supabase/migrations/20260930124055_wep_preset_artifact_storage_v0.sql`
+  retains only the generic `preset_artifact_prepare` action-rate policy;
+- `supabase/staging/20260930124055_wep_preset_artifact_storage_bucket.sql`
+  owns the known-staging private bucket bootstrap;
+- production Release Operations must provision the private bucket selected by
+  `WEP_PRESET_ARTIFACT_BUCKET` before deploying the WEP Preset functions.
+
+This closes the production migration provisioning blocker without changing publication, signed-read,
+retention, WandAccount namespace or DDV Apply semantics.
