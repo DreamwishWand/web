@@ -9,60 +9,36 @@ import {
   insertFencePost,
   moveFencePost,
   removeFencePost,
-  setFencePostPinned,
-  validateFencePostLayoutDraft
+  setFencePostPinned
 } from '../src/lib/wep/fence-post-edit-contract.ts';
 import {
-  ROADFENCE_NATIVE_CATALOG_SWITCH_V125
-} from '../src/lib/ddv/core/roadfence/catalog-v125-switch.js';
+  FENCE_REPRESENTATION_INTENT,
+  FENCE_REPRESENTATION_LAYOUT_ERROR,
+  FENCE_REPRESENTATION_POLICY
+} from '../src/lib/ddv/core/roadfence/representation-layout-v125.ts';
 
 function straightReader({
   networkId = 'fence:40700246:orthogonal:0',
-  familyBaseItemID = 40700246,
-  familyName = 'Biome2Fence',
-  mode = 'orthogonal',
   quantity = 9,
-  baseIndexes = [0, 7, 8],
-  modeBoundaryIndexes = []
+  baseIndexes = [0, 7, 8]
 } = {}) {
-  const pitch = 2;
   const nodes = Array.from({ length: quantity }, (_, index) => ({
     id: `v:${index}:0`,
     x: index,
     y: 0,
-    mode
+    mode: 'orthogonal'
   }));
-  const edges = Array.from({ length: quantity - 1 }, (_, index) => ({
+  const edges = nodes.slice(1).map((node, index) => ({
     a: nodes[index].id,
-    b: nodes[index + 1].id
+    b: node.id
   }));
   const nativeObjects = baseIndexes.map((index, serial) => ({
     gridObjectId: 1000 + serial,
-    itemID: familyBaseItemID,
-    x: index * pitch,
+    itemID: 40700246,
+    x: index * 2,
     y: 0,
-    orientation: 'GridOrientation_Down',
-    role: 'base',
-    key: null
+    role: 'base'
   }));
-  const boundaryTouches = modeBoundaryIndexes.map((index) => ({
-    familyBaseItemID,
-    classification: 'geometric-cross-mode-touch',
-    authoritativeConnectedEdge: false,
-    a: {
-      networkId,
-      x: index,
-      y: 0,
-      mode
-    },
-    b: {
-      networkId: 'other-mode',
-      x: index + 1,
-      y: 1,
-      mode: mode === 'orthogonal' ? 'diagonal' : 'orthogonal'
-    }
-  }));
-
   return {
     status: 'supported',
     ok: true,
@@ -70,12 +46,11 @@ function straightReader({
     fences: [{
       networkId,
       kind: 'fence',
-      familyBaseItemID,
-      familyName,
-      mode,
+      familyBaseItemID: 40700246,
+      familyName: 'Biome2Fence',
+      mode: 'orthogonal',
       coordinateSpace: {
-        unit: 'fence-logical-unit',
-        savePitch: pitch,
+        savePitch: 2,
         saveResidueX: 0,
         saveResidueY: 0
       },
@@ -83,197 +58,211 @@ function straightReader({
       logicalQuantity: quantity,
       persistentWriteAuthorized: false
     }],
-    modeBoundaryTouches: boundaryTouches,
+    modeBoundaryTouches: [],
     provenance: {
       fences: {
         [networkId]: {
-          gridObjectIds: nativeObjects.map((entry) => entry.gridObjectId),
-          nativeObjects
+          nativeObjects,
+          gridObjectIds: nativeObjects.map((x) => x.gridObjectId)
         }
       }
     }
   };
 }
 
-test('Fence max span is derived from the Core catalog variation set', () => {
-  for (const [mode, role] of [
-    ['orthogonal', 'ext'],
-    ['diagonal', 'diagExt']
-  ]) {
-    const contract = fenceFamilyPostConstraints(40700246, mode);
-    const keys = Object.values(
-      ROADFENCE_NATIVE_CATALOG_SWITCH_V125.fenceItems
-    )
-      .filter(
-        (entry) =>
-          entry.familyBaseItemID === 40700246 &&
-          entry.role === role
-      )
-      .map((entry) => Number(entry.key));
-    assert.equal(contract.maxExtensionKey, Math.max(...keys));
-    assert.equal(contract.maxInterval, Math.max(...keys) + 1);
-    assert.equal(contract.source, '01C_CORE_CATALOG_VARIATION_SET');
-    assert.equal(contract.persistentWriteAuthorized, false);
-  }
-});
-
-test('captured degree-2 native Base becomes a pinned representation post while endpoints stay semantic', () => {
-  const result = createFencePostLayoutDraft(straightReader(), 'fence:40700246:orthogonal:0');
-
-  assert.equal(result.validation.ok, true);
-  assert.deepEqual(
-    result.draft.semanticAnchors.map((entry) => ({
-      x: entry.x,
-      reason: entry.reason
-    })),
-    [
-      { x: 0, reason: 'ENDPOINT' },
-      { x: 8, reason: 'ENDPOINT' }
-    ]
+test('WEP constraint display is a consumer alias over the promoted Core catalog result', () => {
+  const result = fenceFamilyPostConstraints(
+    40700246,
+    'orthogonal'
   );
-  assert.deepEqual(
-    result.draft.posts.map((entry) => ({
-      x: entry.x,
-      pinned: entry.pinned,
-      source: entry.source
-    })),
-    [
-      { x: 7, pinned: true, source: 'CAPTURED_NATIVE_BASE' }
-    ]
-  );
-  const serialized = JSON.stringify(result.draft);
-  assert.equal(serialized.includes('gridObjectId'), false);
-  assert.equal(serialized.includes('1000'), false);
-  assert.equal(result.draft.persistentWriteAuthorized, false);
-});
-
-test('removing a representation post is blocked by catalog-derived max span when merged interval is too long', () => {
-  const created = createFencePostLayoutDraft(straightReader(), 'fence:40700246:orthogonal:0');
-  const postId = created.draft.posts[0].nodeId;
-  const removed = removeFencePost(created.draft, postId);
-
-  assert.equal(removed.validation.ok, false);
+  assert.equal(result.ok, true);
   assert.equal(
-    removed.validation.issues.some(
-      (issue) => issue.code === 'FENCE_POST_MAX_SPAN_EXCEEDED'
-    ),
-    true
+    result.maxInterval,
+    result.maximumPostInterval
   );
-  assert.equal(removed.draft.persistentWriteAuthorized, false);
+  assert.equal(
+    result.maxExtensionKey,
+    Math.max(...result.exactExtensionKeys)
+  );
+  assert.equal(
+    result.source,
+    '01C_CORE_PROMOTED_REPRESENTATION_LAYOUT'
+  );
+  assert.equal(result.persistentWriteAuthorized, false);
 });
 
-test('insert and move post change representation partition only and preserve topology/logical quantity', () => {
-  const created = createFencePostLayoutDraft(straightReader(), 'fence:40700246:orthogonal:0');
-  const postId = created.draft.posts[0].nodeId;
-
-  const moved = moveFencePost(created.draft, postId, 6, 0);
-  assert.equal(moved.validation.ok, true);
-  assert.deepEqual(moved.draft.posts.map((entry) => entry.x), [6]);
-  assert.deepEqual(moved.draft.graph, created.draft.graph);
-  assert.equal(moved.draft.logicalQuantity, created.draft.logicalQuantity);
-  assert.equal(moved.validation.topologyPreserved, true);
-  assert.equal(moved.validation.logicalQuantityPreserved, true);
-
-  const inserted = insertFencePost(moved.draft, 7, 0);
-  assert.equal(inserted.validation.ok, true);
-  assert.deepEqual(
-    inserted.draft.posts.map((entry) => entry.x).sort((a, b) => a - b),
-    [6, 7]
-  );
-  assert.deepEqual(inserted.draft.graph, created.draft.graph);
-  assert.equal(inserted.draft.persistentWriteAuthorized, false);
-});
-
-test('semantic endpoints and mode boundaries cannot be representation-post edit targets', () => {
-  const endpoint = createFencePostLayoutDraft(straightReader(), 'fence:40700246:orthogonal:0');
-  assert.throws(
-    () => insertFencePost(endpoint.draft, 0, 0),
-    /FENCE_POST_TARGET_IS_SEMANTIC_ANCHOR/
-  );
-
-  const boundary = createFencePostLayoutDraft(
-    straightReader({ modeBoundaryIndexes: [4], baseIndexes: [0, 4, 8] }),
+test('captured WEP session preserves the Core exact-preservation model', () => {
+  const result = createFencePostLayoutDraft(
+    straightReader(),
     'fence:40700246:orthogonal:0'
   );
+  assert.equal(result.validation.ok, true);
   assert.equal(
-    boundary.draft.semanticAnchors.some(
-      (entry) => entry.x === 4 && entry.reason === 'MODE_BOUNDARY'
-    ),
+    result.draft.representationLayout.intent,
+    FENCE_REPRESENTATION_INTENT.EXACT_PRESERVATION
+  );
+  assert.equal(
+    result.draft.representationLayout.policy,
+    FENCE_REPRESENTATION_POLICY.PRESERVE_EXISTING
+  );
+  assert.equal(
+    result.draft.representationLayout.posts[0].pinned,
     true
   );
   assert.equal(
-    boundary.draft.posts.some((entry) => entry.x === 4),
-    false
+    result.binding.coreContract,
+    'ddv.fence-representation-layout@1'
   );
 });
 
-test('explicit centered-balanced auto-layout preserves pinned posts and resolves over-max spans', () => {
-  const created = createFencePostLayoutDraft(
+test('WEP manual operations delegate to Core and keep rejected over-max removal fail-closed', () => {
+  const captured = createFencePostLayoutDraft(
+    straightReader(),
+    'fence:40700246:orthogonal:0'
+  );
+  const post =
+    captured.draft.representationLayout.posts[0];
+
+  const moved = moveFencePost(
+    captured.draft,
+    post.nodeId,
+    6,
+    0
+  );
+  assert.equal(moved.accepted, true);
+  assert.equal(moved.validation.ok, true);
+  assert.deepEqual(
+    moved.draft.representationLayout.posts.map((x) => x.x),
+    [6]
+  );
+
+  const inserted = insertFencePost(
+    moved.draft,
+    7,
+    0
+  );
+  assert.equal(inserted.accepted, true);
+  assert.deepEqual(
+    inserted.draft.representationLayout.posts
+      .map((x) => x.x)
+      .sort((a, b) => a - b),
+    [6, 7]
+  );
+
+  const rejected = removeFencePost(
+    captured.draft,
+    post.nodeId
+  );
+  assert.equal(rejected.accepted, false);
+  assert.equal(
+    rejected.issues.some(
+      (x) =>
+        x.code ===
+        FENCE_REPRESENTATION_LAYOUT_ERROR.INTERVAL_OVER_MAX
+    ),
+    true
+  );
+  assert.deepEqual(rejected.draft, captured.draft);
+});
+
+test('pinning is WEP authoring metadata and never changes logical topology', () => {
+  const captured = createFencePostLayoutDraft(
+    straightReader(),
+    'fence:40700246:orthogonal:0'
+  );
+  const post =
+    captured.draft.representationLayout.posts[0];
+  const topology = structuredClone(captured.draft.logicalTopology);
+
+  const unpinned = setFencePostPinned(
+    captured.draft,
+    post.nodeId,
+    false
+  );
+  assert.equal(unpinned.accepted, true);
+  assert.equal(
+    unpinned.draft.representationLayout.posts[0].pinned,
+    false
+  );
+  assert.deepEqual(unpinned.draft.logicalTopology, topology);
+  assert.equal(unpinned.draft.persistentWriteAuthorized, false);
+});
+
+test('PRESERVE_EXISTING auto-layout is an explicit no-op', () => {
+  const captured = createFencePostLayoutDraft(
+    straightReader(),
+    'fence:40700246:orthogonal:0'
+  );
+  const preserved = applyFencePostAutoLayout(
+    captured.draft,
+    FENCE_POST_AUTO_LAYOUT.PRESERVE_EXISTING
+  );
+  assert.equal(preserved.accepted, true);
+  assert.deepEqual(preserved.draft, captured.draft);
+  assert.equal(
+    preserved.draft.representationLayout.intent,
+    FENCE_REPRESENTATION_INTENT.EXACT_PRESERVATION
+  );
+});
+
+test('explicit CENTERED_BALANCED mode preserves pinned posts and creates only a generated-design layout', () => {
+  const captured = createFencePostLayoutDraft(
     straightReader({
       quantity: 16,
       baseIndexes: [0, 15]
     }),
     'fence:40700246:orthogonal:0'
   );
-  assert.equal(created.validation.ok, false);
+  assert.equal(captured.validation.ok, false);
 
-  const manual = insertFencePost(created.draft, 4, 0, { pinned: true });
-  assert.equal(manual.draft.posts[0].pinned, true);
+  const manual = insertFencePost(
+    captured.draft,
+    4,
+    0,
+    { pinned: true }
+  );
+  assert.equal(manual.accepted, false);
 
-  const balanced = applyFencePostAutoLayout(
-    manual.draft,
-    FENCE_POST_AUTO_LAYOUT.CENTERED_BALANCED
-  );
-  assert.equal(balanced.validation.ok, true);
-  assert.equal(
-    balanced.draft.posts.some(
-      (entry) => entry.x === 4 && entry.pinned === true
-    ),
-    true
-  );
-  assert.equal(
-    balanced.draft.posts.some(
-      (entry) => entry.source === 'AUTO_CENTERED_BALANCED'
-    ),
-    true
-  );
-  assert.equal(
-    balanced.draft.layoutPolicy,
-    FENCE_POST_AUTO_LAYOUT.CENTERED_BALANCED
-  );
-  assert.equal(balanced.draft.persistentWriteAuthorized, false);
-});
-
-test('auto-layout is explicit: preserve-existing is a no-op and pin state is user-controlled', () => {
-  const created = createFencePostLayoutDraft(straightReader(), 'fence:40700246:orthogonal:0');
-  const postId = created.draft.posts[0].nodeId;
-  const unpinned = setFencePostPinned(created.draft, postId, false);
-  assert.equal(unpinned.draft.posts[0].pinned, false);
-
-  const preserved = applyFencePostAutoLayout(
-    unpinned.draft,
-    FENCE_POST_AUTO_LAYOUT.PRESERVE_EXISTING
-  );
-  assert.deepEqual(preserved.draft, unpinned.draft);
-  assert.equal(preserved.validation.ok, true);
-});
-
-test('validation rejects representation posts that are not straight degree-2 nodes', () => {
-  const created = createFencePostLayoutDraft(straightReader(), 'fence:40700246:orthogonal:0');
-  const tampered = structuredClone(created.draft);
-  tampered.posts.push({
-    nodeId: tampered.semanticAnchors[0].nodeId,
-    x: 0,
+  const seed = structuredClone(captured.draft);
+  seed.representationLayout.posts.push({
+    kind: 'DEGREE2_INTERIOR_POST',
+    nodeId: 'v:4:0',
+    runId: seed.logicalTopology.runs[0].runId,
+    x: 4,
     y: 0,
     pinned: true,
     source: 'MANUAL'
   });
-  const validation = validateFencePostLayoutDraft(tampered);
-  assert.equal(validation.ok, false);
+
+  const balanced = applyFencePostAutoLayout(
+    seed,
+    FENCE_POST_AUTO_LAYOUT.CENTERED_BALANCED
+  );
+  assert.equal(balanced.accepted, true);
+  assert.equal(balanced.validation.ok, true);
   assert.equal(
-    validation.issues.some(
-      (issue) => issue.code === 'FENCE_POST_REPRESENTATION_POST_INVALID'
+    balanced.draft.representationLayout.intent,
+    FENCE_REPRESENTATION_INTENT.GENERATED_DESIGN
+  );
+  assert.equal(
+    balanced.draft.representationLayout.policy,
+    FENCE_REPRESENTATION_POLICY.CENTERED_BALANCED
+  );
+  assert.equal(
+    balanced.draft.representationLayout.posts.some(
+      (x) => x.x === 4 && x.pinned === true
     ),
     true
   );
+  assert.equal(
+    balanced.draft.representationLayout.posts.some(
+      (x) => x.source === 'AUTO_CENTERED_BALANCED'
+    ),
+    true
+  );
+  assert.deepEqual(
+    balanced.draft.logicalTopology,
+    captured.draft.logicalTopology
+  );
+  assert.equal(balanced.draft.persistentWriteAuthorized, false);
 });
