@@ -165,6 +165,13 @@ const MESSAGES: Record<
     action:
       'Start from an existing network of the same family or keep new topology creation blocked.'
   },
+  WEP_FENCE_REPRESENTATION_LAYOUT_PRESET_NOT_BOUND: {
+    title: 'Fence post layout cannot be published yet',
+    message:
+      'This Fence representation layout was edited locally, but the current Scene Preset artifact does not yet carry the post-layout contract.',
+    action:
+      'Keep the edit in the local World Editor draft or undo it before Scene capture.'
+  },
   FENCE_POST_SEMANTIC_ANCHOR_IMMUTABLE: {
     title: 'Semantic Fence anchor cannot move',
     message:
