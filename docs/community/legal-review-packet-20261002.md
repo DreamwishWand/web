@@ -17,7 +17,7 @@ Current Community capabilities/contracts include:
 - publishing of user-created works and associated media/Preset artifacts;
 - PUBLIC / UNLISTED / PRIVATE visibility;
 - Saves, Follows, Reactions, Comments/Replies and Notifications;
-- Linked DDV Profiles, currently limited to three links per Wand Account;
+- DDV Profile Workspaces, limited to five retained Workspaces per Wand Account, with optional DDV Player ID association;
 - reporting and moderation;
 - account deletion;
 - transactional/security email;
@@ -53,7 +53,7 @@ On account deletion, the current transaction immediately:
 - removes owned works from Community access/discovery;
 - replaces authored comment text with `[deleted]`;
 - deletes the user's Saves, Follows, Reactions and NotificationDelivery rows;
-- deletes WandAccount-to-DDV-Profile link rows;
+- deletes DDV Profile Workspaces and cascades their private optional identity associations;
 - retires Wand AuthIdentity and advances session cutoff;
 - queues asynchronous provider-account deletion.
 
@@ -75,33 +75,34 @@ Legal copy must preserve the technical meanings:
 
 The service should not promise confidentiality for UNLISTED content.
 
-## 5. Linked DDV Profile facts requiring review
+## 5. DDV Profile Workspace and optional identity-association facts requiring review
 
-Technical fields currently include:
+The current Product/technical model separates the Wand-owned **DDV Profile Workspace** from the
+optional DDV Player ID (`GameInfo.LastCustomIdOwner` / mdc) continuity association.
 
-- `ddv_profile_id`;
-- `binding_state`;
-- `binding_key_hash`;
-- `verification_evidence_ref`;
-- the Wand Account link and link timestamp.
+Current facts:
 
-The account link is deleted on Wand Account deletion, but the underlying `ddv_profiles` row is not
-automatically removed by that transaction.
-
-The reviewed source does not yet define the binding-hash derivation or verification-evidence
-lifecycle. Live staging routine inspection found no reviewed DDV Profile creation/verification
-routine beyond the three-link limit trigger and account-deletion tombstone path, and the current
-Community command surface exposes no DDV Profile link/verify/unlink command.
+- one Wand Account may retain at most five Profile Workspaces across Active + Archived states;
+- `self` and `parent_guardian_managed` Workspaces consume the same capacity;
+- a Workspace can exist and be used without any Player ID association;
+- raw Player ID is parsed locally for normal association and is not stored in PostgreSQL;
+- the backend stores only a versioned server-keyed HMAC digest in the private identity-association table;
+- the same Player ID may be associated by different Wand Accounts without sharing private Workspace data;
+- within one Wand Account, the same Player ID may be associated with at most one Workspace;
+- normal self-service unlink removes only the optional identity association and preserves the Workspace;
+- self-service Workspace deletion is separately supported, requires explicit destructive confirmation, frees one of the five slots, and removes Workspace-scoped private data;
+- independent WandAccount/CreatorProfile Community data does not become Workspace-owned merely because a Workspace was selected when it was created;
+- account deletion removes the account's Workspaces and their private identity associations.
 
 External Legal/Privacy should determine:
 
-- the complete creation/verification lifecycle that must exist before Linked DDV Profiles launch;
-- whether the binding identifier is personal/pseudonymous information in applicable jurisdictions;
-- correction/unlink/rebinding rights or Product processes that are required;
-- an acceptable orphan-retention purpose/horizon, if any;
-- what notice is required for the verification process.
+- whether the Player ID digest and Workspace metadata are personal/pseudonymous information in each launch jurisdiction;
+- required notice and rights for optional association, unlink, correction and Workspace deletion;
+- the legally sufficient age/minor implementation for parent/guardian-managed Workspaces;
+- how Workspace-scoped deletion and independent Account/Creator-scoped content should be described;
+- whether any additional retention or correction mechanism is legally required beyond the current minimized model.
 
-No schema change is authorized by this packet.
+No statement in this packet converts the Product contract into Legal approval.
 
 ## 6. Privacy Policy — facts that must be covered
 
@@ -113,7 +114,7 @@ At minimum:
 
 - account/authentication identifiers;
 - Creator Profile data;
-- Linked DDV Profile binding/verification data;
+- DDV Profile Workspace data and optional DDV Player ID digest-association data;
 - uploaded media and Preset/user-authored payload;
 - published/private works and revision/relationship metadata;
 - Comments;
@@ -131,7 +132,7 @@ Legal should map each category to actual purposes such as:
 
 - account/security/authentication;
 - publishing/discovery/reuse;
-- profile linking/fairness;
+- Profile Workspace organization and optional DDV identity continuity/routing;
 - private interactions/notifications;
 - moderation/abuse/security;
 - deletion/retention execution;
@@ -190,7 +191,7 @@ The final Terms should address, where applicable:
 - operator/legal entity and contact;
 - eligibility / minimum age / parental or guardian requirements;
 - account security and acceptable account use;
-- Linked DDV Profile rules and the three-profile fairness rule;
+- DDV Profile Workspace rules, the five-retained-Workspace capacity boundary, optional identity association, and separation from DreamSnaps competition rights;
 - PUBLIC / UNLISTED / PRIVATE meanings;
 - ownership of user-created submissions;
 - license needed for Wand to host, transform, display, distribute, moderate and remove submitted
@@ -312,7 +313,7 @@ Product has fixed the eligibility model:
 - a parent or guardian may use their own Wand Account to associate/manage an under-13 user's DDV
   Profile;
 - the under-13 user receives no separate Wand credentials;
-- the existing maximum-three Linked DDV Profiles per Wand Account remains applicable.
+- parent/guardian-managed Workspaces use the same maximum-five retained Workspace capacity as self-managed Workspaces.
 
 Decision evidence:
 
@@ -376,7 +377,7 @@ At minimum:
 3. implementation of the approved 13+ independent-account boundary, under-13 parent-managed Community scope, and any age-assurance/parental-consent requirement;
 4. Privacy Policy legal bases/notices/rights workflow;
 5. processor/DPA/subprocessor/cross-border treatment;
-6. Linked DDV Profile Player ID binding minimization, correction/unlink rights and 7-day tombstone policy;
+6. DDV Profile Workspace / optional Player ID-association minimization, unlink/correction/deletion rights and Workspace-scoped deletion semantics;
 7. Terms/UGC license/IP policy;
 8. notice/takedown/counter-notice/repeat-infringer strategy;
 9. moderation/report/appeal obligations, including DSA analysis where applicable;
@@ -395,40 +396,24 @@ If Legal requests a semantic Product/technical change, reopen only the affected 
 targeted regression. Do not rerun unrelated Community acceptance suites.
 
 
-## Linked DDV Profile Product decision — 2026-10-02
+## DDV Profile Workspace Product/identity delta — 2026-10-02
 
-Product has approved the following operational policy:
+The prior max-three exclusive Linked DDV Profile model is superseded.
 
-- no more than three linked DDV Profiles per Wand Account;
-- no routine self-service unlink/rebind;
-- reviewed correction only with recent authentication, support/admin review, reason and audit trail;
-- no persistent raw save or raw verification evidence after successful verification;
-- ordinary binding-digest tombstone for **7 days**, not 90 days;
-- D4 moderation/security/legal hold is the only justified extension;
-- no use of Moonstones, receipts, Premium/DLC entitlement, online-auth tokens or platform
-  credentials as binding inputs.
+The current Product contract is:
 
-Legal review should now assess this fixed Product policy rather than choose a duration.
+- maximum five retained DDV Profile Workspaces per Wand Account;
+- Active and Archived Workspaces both consume capacity;
+- parent/guardian-managed and self-managed Workspaces use the same capacity;
+- DDV Player ID association is optional and is not authentication, entitlement proof or exclusive ownership;
+- cross-account reuse of the same Player ID association is allowed without cross-account private data sharing;
+- same-account duplicate association of one Player ID to multiple Workspaces is blocked;
+- normal self-service unlink removes the association but preserves the Workspace;
+- Workspace deletion is a separate confirmed destructive action that frees a slot and deletes Workspace-scoped private data;
+- independent Account/Creator Community contributions survive Workspace deletion unless separately deleted under their own lifecycle;
+- raw Player ID is not persisted for normal association; only the private server-keyed digest is stored.
 
-The remaining technical/legal dependency is the actual DDV-profile-stable local identifier and
-verification transport. DDV Core has not yet confirmed such an identifier, so Community link
-implementation remains fail-closed. Whole-save/profile hashes are not acceptable identity
-substitutes because they are content-dependent.
-
-
-## Linked DDV Player ID identity delta — 2026-10-02
-
-The prior stable-identifier discovery question is resolved technically.
-
-Wand will use `GameInfo.LastCustomIdOwner`, the DDV Player ID / User ID represented by the existing
-`mdc...` backup convention, as the Linked DDV Profile identity source. Current v1.25 Switch and
-Steam/Windows evidence for the same cloud-linked profile matches exactly.
-
-The raw Player ID is not intended for public display/search or persistent Community storage. Normal
-linking parses the save locally and stores only a server-keyed digest. The raw save is not uploaded
-for normal linking.
-
-External Legal should review this Player ID as a persistent pseudonymous identifier and determine
-whether the proposed minimization, exceptional correction path and 7-day ordinary post-unlink
-binding tombstone satisfy launch-jurisdiction rights/notice requirements. This technical resolution
-is not Legal approval.
+The technical identity source remains `GameInfo.LastCustomIdOwner` (DDV Player ID / User ID).
+External Legal/Privacy should review the minimized digest, Workspace lifecycle, age/minor boundary,
+user-rights wording and jurisdiction-specific notice obligations. This technical/Product closure is
+not Legal approval.
