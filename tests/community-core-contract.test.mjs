@@ -2092,6 +2092,13 @@ test('final integrated production-tree guard preserves Community replay fixes', 
   );
   assert.equal(wepDelta.requiredPaths.length, 6);
 
+  const stagingBucketMigration = evidence.confirmedIntegrationHazards.find(
+    (item) => item.id === 'WEP_PRESET_STAGING_BUCKET_IN_PRODUCTION_MIGRATION'
+  );
+  assert.equal(stagingBucketMigration.state, 'OPEN');
+  assert.match(stagingBucketMigration.path, /20260930124055_/);
+  assert.match(stagingBucketMigration.issue, /wand-preset-artifacts-staging/);
+
   assert.match(script, /Partial WEP production integration is unsafe/);
   assert.match(script, /20260930081600_community_core_v0_support_recovery_verification/);
   assert.match(script, /20260930081500_community_core_v0_support_recovery_verification/);
