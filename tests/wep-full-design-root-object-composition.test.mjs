@@ -355,7 +355,13 @@ test('destination preflight binds routes but fails closed when authoritative bou
     portableState: null,
     routeResolved: true,
     boundsValidated: false,
+    floorMapBound: false,
+    nativePlacementClass: null,
+    nativePlacementReasonCodes: [],
+    nativeConflictFlagsResolved: false,
+    clearabilityResolved: false,
     placementValidated: false,
+    placementPolicyReady: false,
     placementBlocker: 'AUTHORITATIVE_GRIDDATAPATH_BOUNDS_NOT_BOUND',
     persistentWriteAuthorized: false
   });
@@ -427,13 +433,13 @@ test('v1.7 bounds validate object extent but native terrain legality remains fai
   );
   assert.equal(
     preflight.destination.rootObjectRouteBindings[0].placementBlocker,
-    'NATIVE_TERRAIN_OCCUPANCY_VALIDATION_REQUIRED'
+    'NATIVE_PLACEMENT_CONTRACT_NOT_BOUND'
   );
   assert.equal(
     preflight.issues.some(
       (issue) =>
         issue.code ===
-        'FULL_DESIGN_DESTINATION_NATIVE_PLACEMENT_VALIDATION_REQUIRED'
+        'FULL_DESIGN_DESTINATION_NATIVE_PLACEMENT_CONTRACT_NOT_BOUND'
     ),
     true
   );
