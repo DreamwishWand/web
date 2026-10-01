@@ -158,6 +158,13 @@ const MESSAGES: Record<
     action:
       'Keep Road/Fence authoring read-only for this root.'
   },
+  WEP_ROADFENCE_DRAFT_LATTICE_UNRESOLVED: {
+    title: 'Road/Fence lattice unresolved',
+    message:
+      'Wand cannot prove the native logical-to-save coordinate lattice for this Road/Fence family in the current root.',
+    action:
+      'Start from an existing network of the same family or keep new topology creation blocked.'
+  },
   FENCE_POST_SEMANTIC_ANCHOR_IMMUTABLE: {
     title: 'Semantic Fence anchor cannot move',
     message:
