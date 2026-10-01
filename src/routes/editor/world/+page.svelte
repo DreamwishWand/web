@@ -1494,6 +1494,12 @@
         const opened = await openWorldSaveBytes(bytes, {
           sourcePlatform
         });
+        if (opened.saveIdentity.sourcePlatform === 'switch') {
+          buildingV110Binding ??=
+            await createSwitchV125BuildingBinding({
+              basePath: base
+            });
+        }
 
         session = null;
         editorDocument = null;
