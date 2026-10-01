@@ -11,6 +11,10 @@ import {
 import {
   validatePublishablePreset
 } from '../src/lib/wep/scene-preset-runtime.ts';
+import {
+  createFencePostLayoutDraft,
+  moveFencePost
+} from '../src/lib/wep/fence-post-edit-contract.ts';
 
 function profile({
   tessellationFactor = 1,
@@ -50,6 +54,97 @@ function profile({
       }
     }
   };
+}
+
+function portableFenceReader() {
+  const networkId = 'fence:40700246:orthogonal:portable';
+  const nodes = Array.from({ length: 9 }, (_, index) => ({
+    id: `v:${index}:0`,
+    x: index,
+    y: 0,
+    mode: 'orthogonal'
+  }));
+  const edges = nodes.slice(1).map((node, index) => ({
+    a: nodes[index].id,
+    b: node.id
+  }));
+  const nativeObjects = [0, 7, 8].map((index, serial) => ({
+    gridObjectId: 9000 + serial,
+    itemID: 40700246,
+    x: 10 + index * 2,
+    y: 10,
+    role: 'base'
+  }));
+  return {
+    status: 'supported',
+    ok: true,
+    persistentWriteAuthorized: false,
+    fences: [{
+      networkId,
+      kind: 'fence',
+      familyBaseItemID: 40700246,
+      familyName: 'Biome2Fence',
+      mode: 'orthogonal',
+      coordinateSpace: {
+        unit: 'fence-logical-unit',
+        savePitch: 2,
+        saveResidueX: 10,
+        saveResidueY: 10
+      },
+      graph: { nodes, edges },
+      logicalQuantity: 9,
+      persistentWriteAuthorized: false
+    }],
+    modeBoundaryTouches: [],
+    provenance: {
+      fences: {
+        [networkId]: {
+          nativeObjects,
+          gridObjectIds: nativeObjects.map(
+            (entry) => entry.gridObjectId
+          )
+        }
+      }
+    }
+  };
+}
+
+function portableFenceDocument() {
+  const source = document(1);
+  source.objects[0].x = 10;
+  source.objects[0].y = 10;
+  const reader = portableFenceReader();
+  const network = structuredClone(reader.fences[0]);
+  const captured = createFencePostLayoutDraft(
+    reader,
+    network.networkId
+  );
+  const post = captured.draft.representationLayout.posts[0];
+  const moved = moveFencePost(
+    captured.draft,
+    post.nodeId,
+    6,
+    0
+  );
+  assert.equal(moved.accepted, true);
+  source.networks.fences = {
+    schema: 'dreamwish-wand-wep-roadfence-logical-root-draft',
+    version: 1,
+    kind: 'fences',
+    originPolicy: 'native-logical-root',
+    coordinatePolicy: 'per-network-reader-coordinate-space',
+    networks: [network],
+    representationLayouts: {
+      [network.networkId]: structuredClone(moved.draft)
+    },
+    representationLayoutModified: {
+      [network.networkId]: true
+    },
+    representationLayoutInvalidated: {},
+    modeBoundaryTouches: [],
+    persistentWriteAuthorized: false
+  };
+  return { source, networkId: network.networkId };
 }
 
 function document(tessellationFactor = 1) {
@@ -437,40 +532,69 @@ test('tessellation x2 root draft preserves logical adjacency and delegates save 
 });
 
 
-test('edited Fence representation layout blocks Scene capture instead of being silently discarded', () => {
-  const binding = createSwitchV125RoadFenceReaderBinding({
-    profile: profile(),
-    rootGridId: 7
-  });
-  const source = document();
-  source.networks.fences = {
-    schema: 'dreamwish-wand-wep-roadfence-logical-root-draft',
-    version: 1,
-    kind: 'fences',
-    originPolicy: 'native-logical-root',
-    coordinatePolicy: 'per-network-reader-coordinate-space',
-    networks: [],
-    representationLayouts: {
-      'fence:40700246:orthogonal:0': {
-        schema: 'ddv.fence-representation-layout@1',
-        persistentWriteAuthorized: false
-      }
-    },
-    representationLayoutModified: {
-      'fence:40700246:orthogonal:0': true
-    },
-    persistentWriteAuthorized: false
-  };
+test('edited Fence representation layout is rebased into portable Scene artifact and Core-revalidated', () => {
+  const { source } = portableFenceDocument();
 
   const result = captureScenePreset(
     source,
     {
       selectionIds: ['g7:o101'],
-      captureRegion: { x: 10, y: 10, w: 2, h: 2 },
+      captureRegion: { x: 10, y: 10, w: 18, h: 2 },
       includeFences: true,
-      networkAdapter: createDraftAwareNetworkCaptureAdapter(
-        binding.networkAdapter
-      )
+      networkAdapter: createDraftAwareNetworkCaptureAdapter()
+    },
+    validatePublishablePreset
+  );
+
+  assert.equal(result.captureReady, true);
+  assert.equal(result.publicationReady, true);
+  const fence =
+    result.artifact.networks.fences.networks[0];
+  assert.equal(
+    fence.representationLayout.schema,
+    'ddv.fence-representation-layout@1'
+  );
+  assert.equal(
+    fence.representationLayout.networkId,
+    fence.networkId
+  );
+  assert.equal(
+    fence.representationLayout.representationLayout.intent,
+    'GENERATED_DESIGN'
+  );
+  assert.equal(
+    fence.representationLayout.representationLayout.posts[0].x,
+    12
+  );
+  assert.equal(
+    fence.representationLayout.representationLayout.posts[0].nodeId,
+    'n6'
+  );
+  assert.equal(
+    fence.representationLayout.persistentWriteAuthorized,
+    false
+  );
+  const serialized = JSON.stringify(fence);
+  assert.equal(serialized.includes('gridObjectId'), false);
+  assert.equal(serialized.includes('v:6:0'), false);
+  assert.equal(
+    result.artifact.networks.fences.normalization
+      .fenceRepresentationLayoutPortable,
+    true
+  );
+});
+
+test('captured Fence without a portable representation model fails closed instead of inventing post layout', () => {
+  const { source, networkId } = portableFenceDocument();
+  delete source.networks.fences.representationLayouts[networkId];
+
+  const result = captureScenePreset(
+    source,
+    {
+      selectionIds: ['g7:o101'],
+      captureRegion: { x: 10, y: 10, w: 18, h: 2 },
+      includeFences: true,
+      networkAdapter: createDraftAwareNetworkCaptureAdapter()
     },
     validatePublishablePreset
   );
@@ -481,13 +605,11 @@ test('edited Fence representation layout blocks Scene capture instead of being s
     result.issues.some(
       (entry) =>
         entry.code ===
-        'WEP_FENCE_REPRESENTATION_LAYOUT_PRESET_NOT_BOUND'
+        'FENCE_POST_LAYOUT_TOPOLOGY_CHANGED'
     ),
     true
   );
-  assert.equal(result.artifact.networks.fences, null);
 });
-
 
 test('Fence topology invalidation also blocks Scene capture until representation portability is rebound', () => {
   const binding = createSwitchV125RoadFenceReaderBinding({
