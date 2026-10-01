@@ -1852,3 +1852,25 @@ test('Community production manifest requires final integrated replay and tracks 
   assert.equal(blocker.state, 'OPEN');
   assert.match(blocker.detail, /wand-preset-artifacts-staging/);
 });
+
+
+test('Community retention launch review separates technical facts from policy approval', () => {
+  const review = JSON.parse(read('ops/community-retention-launch-review.json'));
+  const packet = read('docs/community/privacy-retention-launch-review-20261001.md');
+  const operations = JSON.parse(read('ops/community-production-operations.json'));
+  const verifier = read('scripts/verify-community-ops-readiness.mjs');
+
+  assert.equal(review.schema, 'dreamwish-community-retention-launch-review@1');
+  assert.equal(review.engineeringDefaults.contentPayloadDays, 30);
+  assert.equal(review.engineeringDefaults.operationalDetailDays, 365);
+  assert.equal(review.engineeringDefaults.contentPayloadDaysIsRecoveryWindow, false);
+  assert.equal(review.launchApproved, false);
+  assert.equal(review.decisions.length, 8);
+  assert.ok(review.decisions.every((decision) => decision.status === 'PENDING'));
+  assert.equal(operations.releaseGate.requireRetentionPolicyApproval, true);
+  assert.equal(operations.privacyRetentionReview.launchApproved, false);
+  assert.match(packet, /30 days is currently a retention-delay parameter/i);
+  assert.match(packet, /does not currently establish a 30-day self-service recovery entitlement/i);
+  assert.match(packet, /backup-copy retention/i);
+  assert.match(verifier, /Retention launch review is not approved/);
+});
