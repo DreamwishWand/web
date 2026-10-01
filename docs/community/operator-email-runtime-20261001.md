@@ -130,3 +130,30 @@ Still open:
 - iCloud inbox-placement recheck after the operator marks the messages as Not Junk;
 - DMARC publication check/hardening;
 - real browser Auth verification/recovery email acceptance.
+
+
+## Low-volume observation update — 2026-10-01
+
+No synthetic warmup traffic was sent for this observation.
+
+Existing provider traffic for the preceding seven-day window was reviewed through Resend:
+
+- sent: 5;
+- delivered: 5;
+- delivery rate: 100%;
+- bounced: 0;
+- failed: 0;
+- complained: 0;
+- delivery-delayed: 0.
+
+The five existing messages covered real staging Auth verification/recovery and previously executed
+operator acceptance alerts. The sender domain remains verified with sending enabled in the
+ap-northeast-1 region.
+
+Classification:
+
+- **CONFIRMED provider delivery health:** 5/5 existing messages delivered with no bounce/complaint/failure signal;
+- **PARTIAL inbox placement:** provider `delivered` does not distinguish Inbox from Junk, and the
+  prior iCloud Junk observations remain relevant;
+- **POLICY:** continue observation from normal low-volume transactional use only. Do not generate
+  synthetic warming traffic.
