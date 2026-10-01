@@ -52,6 +52,7 @@
   let layerState: any = null;
   let areaBounds = { x: 0, y: 0, w: 24, h: 16 };
   let query = '';
+  let selectedOnly = false;
   let fileName = '';
   let message = '';
   let capturePreview: any = null;
@@ -654,10 +655,15 @@
 
     editorDocument = session.getDocument();
     selection = session.getSelection();
-    projected = projectObjects(editorDocument, {
+    const nextProjection = projectObjects(editorDocument, {
       layerState,
       query
     });
+    projected = selectedOnly
+      ? nextProjection.filter((object) =>
+          selection.includes(object.editorId)
+        )
+      : nextProjection;
   }
 
   async function openEditorDocument(event: Event) {
@@ -707,6 +713,7 @@
         areaBounds = deriveAreaBounds(editorDocument);
         fileName = file.name;
         query = '';
+        selectedOnly = false;
         selection = [];
         presetTitle = '';
         presetDescription = '';
@@ -839,6 +846,7 @@
       });
       areaBounds = deriveAreaBounds(editorDocument);
       query = '';
+        selectedOnly = false;
       selection = [];
       presetTitle = '';
       presetDescription = '';
@@ -910,6 +918,7 @@
     draftSavePreparation = null;
     lastDraftCommand = '';
     query = '';
+    selectedOnly = false;
     message =
       'DDV saveのArea / direct Grid一覧へ戻りました。persistent writeは無効です。';
   }
@@ -919,6 +928,7 @@
     selection = toggle
       ? session.toggleSelection(id)
       : session.setSelection([id]);
+    if (selectedOnly) refreshProjection();
     capturePreview = null;
     published = null;
   }
@@ -928,6 +938,7 @@
     selection = session.setSelection(
       projected.map((object) => object.editorId)
     );
+    if (selectedOnly) refreshProjection();
     capturePreview = null;
     published = null;
   }
@@ -936,6 +947,7 @@
     if (!session) return;
     session.clearSelection();
     selection = [];
+    if (selectedOnly) refreshProjection();
     capturePreview = null;
     published = null;
   }
@@ -954,6 +966,11 @@
 
   function setQuery(value: string) {
     query = value;
+    refreshProjection();
+  }
+
+  function toggleSelectedOnly() {
+    selectedOnly = !selectedOnly;
     refreshProjection();
   }
 
@@ -1272,6 +1289,11 @@
           />
           <div class="selection-actions">
             <button on:click={selectAllVisible}>Visibleを選択</button>
+            <button
+              class:active={selectedOnly}
+              disabled={!selection.length && !selectedOnly}
+              on:click={toggleSelectedOnly}
+            >選択のみ</button>
             <button on:click={clearSelection}>選択解除</button>
           </div>
         </section>
