@@ -1,0 +1,62 @@
+{
+  "schema": "dreamwish-community-integration-merge-risk@1",
+  "observedAt": "2026-10-01",
+  "repository": "DreamwishWand/web",
+  "community": {
+    "branch": "dev/community-core-v0-20260930",
+    "head": "aaa20a29d7230862757ca32f2cabc3b209335909",
+    "productionMigrationFiles": 51,
+    "migrationState": "unique versions; staging-only pg_net SQL moved to supabase/staging"
+  },
+  "wep": {
+    "branch": "dev/wep-v125",
+    "head": "c396413dc349829bc91f89b397321de38b55a3ba",
+    "migrationFilesObservedAgainstMain": 56,
+    "productionPresetMigrations": [
+      "20260930124055_wep_preset_artifact_storage_v0.sql",
+      "20260930124357_wep_preset_artifact_access_v0.sql",
+      "20260930125310_wep_preset_retention_claim_v0.sql"
+    ]
+  },
+  "branchRelationship": {
+    "status": "diverged",
+    "mergeBase": "cfda06eb904544bbfa5286c4eb61b5856dd3ea51",
+    "communityAheadOfWep": 116,
+    "communityBehindWep": 169
+  },
+  "confirmedIntegrationHazards": [
+    {
+      "id": "OBSOLETE_SUPPORT_RECOVERY_PREFIX",
+      "state": "MUST_NOT_SURVIVE_FINAL_INTEGRATION",
+      "wepPath": "supabase/migrations/20260930081500_community_core_v0_support_recovery_verification.sql",
+      "canonicalPath": "supabase/migrations/20260930081600_community_core_v0_support_recovery_verification.sql"
+    },
+    {
+      "id": "STAGING_PG_NET_IN_PRODUCTION_CHAIN",
+      "state": "MUST_NOT_SURVIVE_FINAL_INTEGRATION",
+      "obsoletePaths": [
+        "supabase/migrations/20260930035820_community_staging_pg_net.sql",
+        "supabase/migrations/20260930040500_community_staging_remove_pg_net.sql"
+      ],
+      "canonicalDirectory": "supabase/staging"
+    },
+    {
+      "id": "WEP_PRESET_PRODUCTION_DELTA",
+      "state": "MUST_BE_PRESENT_AFTER_FINAL_INTEGRATION",
+      "requiredPaths": [
+        "supabase/migrations/20260930124055_wep_preset_artifact_storage_v0.sql",
+        "supabase/migrations/20260930124357_wep_preset_artifact_access_v0.sql",
+        "supabase/migrations/20260930125310_wep_preset_retention_claim_v0.sql",
+        "supabase/functions/_shared/wep-preset-artifact-bucket.ts",
+        "supabase/functions/wep-preset-artifact/index.ts",
+        "supabase/functions/wep-preset-retention/index.ts"
+      ]
+    }
+  ],
+  "acceptance": {
+    "normalCommunityBranchMayBeUnintegrated": true,
+    "partialWepIntegrationMustFail": true,
+    "finalIntegratedRequireReadyMustPass": true,
+    "productionReplayFromEitherWorkstreamBranchAlone": false
+  }
+}
