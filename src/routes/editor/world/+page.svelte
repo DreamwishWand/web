@@ -2243,6 +2243,7 @@
           <div class="full-design-gates">
             <span>Topology <strong>Separate operation</strong></span>
             <span>DDV write <strong>Disabled</strong></span>
+            <span>Scene Preset <strong>Blocked after post-layout edit</strong></span>
           </div>
         </div>
 
