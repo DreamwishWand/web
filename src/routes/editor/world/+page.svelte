@@ -40,6 +40,9 @@
     createSwitchV125PlacementLegalityBinding
   } from '$lib/wep/placement-legality-v19';
   import {
+    createSwitchV125BuildingBinding
+  } from '$lib/wep/building-v110';
+  import {
     FENCE_POST_AUTO_LAYOUT,
     applyFencePostAutoLayout,
     insertFencePost,
@@ -94,6 +97,7 @@
   let roadFenceReaderBinding: any = null;
   let roadFenceSceneCaptureAdapter: any = null;
   let placementLegalityBinding: any = null;
+  let buildingV110Binding: any = null;
   let includeRoads = false;
   let includeFences = false;
   let fencePostNetworks: any[] = [];
@@ -244,7 +248,8 @@
         profile: worldSource.profile,
         rootGridId: fullDesignSourceRootGridId,
         sourcePlatform: worldSource.saveIdentity.sourcePlatform,
-        rootEditorDocuments: currentFullDesignDocuments()
+        rootEditorDocuments: currentFullDesignDocuments(),
+        buildingBinding: buildingV110Binding
       });
       fullDesignPlanError = '';
     } catch (error) {
@@ -1219,7 +1224,8 @@
       floatingIslandPlan = buildCurrentV125FullDesignCapturePlan({
         profile: worldSource.profile,
         rootGridId: Number(firstRoot.gridId),
-        sourcePlatform: worldSource.saveIdentity.sourcePlatform
+        sourcePlatform: worldSource.saveIdentity.sourcePlatform,
+        buildingBinding: buildingV110Binding
       });
     } catch (error) {
       floatingIslandPlanError =
@@ -1301,13 +1307,18 @@
         await createSwitchV125PlacementLegalityBinding({
           basePath: base
         });
+      buildingV110Binding ??=
+        await createSwitchV125BuildingBinding({
+          basePath: base
+        });
 
       fullDesignDestinationPreflight =
         preflightCurrentV125FullDesignManifest({
           destinationProfile: opened.profile,
           destinationPlatform: opened.saveIdentity.sourcePlatform,
           manifest: fullDesignPlan.manifest,
-          placementBinding: placementLegalityBinding
+          placementBinding: placementLegalityBinding,
+          buildingBinding: buildingV110Binding
         });
     } catch (error) {
       fullDesignDestinationPreflight = null;
@@ -1550,6 +1561,10 @@
       });
       placementLegalityBinding ??=
         await createSwitchV125PlacementLegalityBinding({
+          basePath: base
+        });
+      buildingV110Binding ??=
+        await createSwitchV125BuildingBinding({
           basePath: base
         });
 
@@ -2596,31 +2611,36 @@
                 {#if categoryKey === 'buildings' && category?.ordinaryPlacement}
                   <div class="building-readiness-lines">
                     <span>
+                      v1.10 classes
+                      <strong>
+                        ordinary {category.classificationSummary?.ordinary ?? 0} ·
+                        special {category.classificationSummary?.special ?? 0} ·
+                        off-grid {category.classificationSummary?.offGrid ?? 0} ·
+                        unknown {category.classificationSummary?.unknown ?? 0}
+                      </strong>
+                    </span>
+                    <span>
                       Ordinary placement
                       <strong>
                         {category.ordinaryPlacement.destinationPlacementStatus === 'NOT_APPLICABLE'
                           ? 'No Building'
-                          : category.ordinaryPlacement.destinationPlacementReady
-                            ? 'Ready'
-                            : 'Captured/readable · destination unclosed'}
+                          : category.ordinaryPlacement.destinationPlacementStatus === 'PREFLIGHT_CONTRACT_AVAILABLE'
+                            ? 'Typed preflight available'
+                            : 'Blocked by typed class/evidence'}
                       </strong>
                     </span>
                     <span>
                       Building skin
                       <strong>
-                        {category.buildingSkins?.entries?.length ?? 0} typed capture ·
-                        {category.buildingSkins?.semanticStatus === 'NOT_APPLICABLE'
-                          ? ' N/A'
-                          : ' provisional / 01B pending'}
+                        {category.buildingSkins?.entries?.length ?? 0} ·
+                        {category.buildingSkins?.semanticStatus ?? 'UNKNOWN'}
                       </strong>
                     </span>
                     <span>
                       PlayerHouse
                       <strong>
-                        {category.playerHouses?.entries?.length ?? 0} typed capture ·
-                        {category.playerHouses?.semanticStatus === 'NOT_APPLICABLE'
-                          ? ' N/A'
-                          : ' provisional / 01B pending'}
+                        {category.playerHouses?.entries?.length ?? 0} ·
+                        {category.playerHouses?.semanticStatus ?? 'UNKNOWN'}
                       </strong>
                     </span>
                   </div>
@@ -2638,7 +2658,9 @@
             source GridID / GridObjectIDはmanifestから除去されます。Quest / NPC / progression /
             online entitlementはfull-design decoration stateに含めません。Road/Fenceは01C Core readerと
             promoted representation-layout contractを消費し、clipped/unsupported topologyはfail-closedです。
-            Building関連typed stateは01B CORE 3のsemantic promotionまでprovisionalです。
+            Buildingはpromoted v1.10 typed contractをconsumeし、ordinary / special / off-grid / unknownを分離します。
+            House/Otherをordinaryへ昇格するのは5つのauthoritative special signalがすべてfalseの場合だけです。
+            Destination stock/ownership・multiplicity・typed initial-state validatorが無ければordinary placementもfail-closedです。
             Destination preflightとpersistent Applyは別Gateで、DDV write authorizationは無効です。
           </p>
 
@@ -2682,22 +2704,34 @@
                       : 'BLOCKED'}
                   </strong>
                   <strong>
-                    Building semantic closure
-                    {fullDesignDestinationPreflight.buildingSemanticClosureReady
+                    Building v1.10 contract
+                    {fullDesignDestinationPreflight.buildingV110ContractBound
+                      ? 'BOUND'
+                      : 'NOT BOUND'}
+                  </strong>
+                  <strong>
+                    Building typed preflight
+                    {fullDesignDestinationPreflight.buildingV110TypedPreflightReady
                       ? 'PASS / N/A'
-                      : 'BLOCKED · 01B CORE 3 pending'}
+                      : 'BLOCKED'}
                   </strong>
                   <strong>
-                    Provisional skin diagnostic
+                    Ordinary Building placement
+                    {fullDesignDestinationPreflight.ordinaryBuildingPlacementReady
+                      ? 'PASS / N/A'
+                      : 'BLOCKED'}
+                  </strong>
+                  <strong>
+                    Building skin diagnostic
                     {fullDesignDestinationPreflight.buildingSkinPreflightReady
-                      ? 'PASS'
+                      ? 'PASS / N/A'
                       : 'BLOCKED'}
                   </strong>
                   <strong>
-                    Provisional house diagnostic
+                    PlayerHouse binding diagnostic
                     {fullDesignDestinationPreflight.playerHouseBindingPreflightReady
-                      ? 'PASS'
-                      : 'BLOCKED'}
+                      ? 'PASS / N/A'
+                      : 'BLOCKED · lifecycle still separate'}
                   </strong>
                   <strong>
                     Environment
