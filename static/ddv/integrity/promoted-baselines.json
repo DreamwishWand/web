@@ -43,6 +43,19 @@
       "buildId": "version-scoped",
       "artifactSha256": "bf1b38ff1d725bb0facb913bc9efc06d283feda030990748a1ad1a73483936c2",
       "scope": "read/preflight only"
+    },
+    {
+      "artifactId": "DDV-BUILDING-LIFECYCLE-V125-V1_0",
+      "artifactType": "Core/Building lifecycle semantics",
+      "version": "v1.0",
+      "status": "PROMOTED",
+      "mutable": false,
+      "platform": "Nintendo Switch",
+      "gameVersion": "v1.25.0",
+      "buildId": "52BD625D9B4E0053",
+      "payloadSha256": "01c29c9d1fcaba4ca6a3d418cc7d2539d186ef9b95a2031849e45e307b9f0946",
+      "sourceEvidenceDriveId": "1J2QGWAJBa1WTa_qbpdTRGXRsAozSpGt07iTd0-FitCI",
+      "scope": "read/model/preflight"
     }
   ]
 }
