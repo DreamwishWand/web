@@ -105,11 +105,14 @@ CONFIRMED repository hardening:
 - `community-media` and `community-retention` require an explicit `COMMUNITY_MEDIA_BUCKET` outside the known staging project;
 - `community-ops-email` and `community-ops-escalation` require `DREAMWISH_ENVIRONMENT` outside known staging.
 
-Cross-stream production blocker:
+Cross-stream production state:
 
-- 02 WEP `wep-preset-artifact` and `wep-preset-retention` on current `dev/wep-v125` still hardcode `wand-preset-artifacts-staging`;
-- WEP must externalize that bucket with equivalent fail-closed behavior before production promotion;
-- Community branch alone is not a complete production migration source because latest WEP Storage/retention migrations are still owned by the WEP branch.
+- **CLOSED:** 02 WEP externalized Preset Storage bucket selection through a shared resolver;
+- production/non-staging requires `WEP_PRESET_ARTIFACT_BUCKET`;
+- non-staging cannot use `wand-preset-artifacts-staging`;
+- known staging keeps its current private bucket without a rename/migration;
+- deployed staging readback confirms `wep-preset-artifact v14` and `wep-preset-retention v6`;
+- Community branch alone is still not a complete production migration source: final production replay must use the final integrated source tree.
 
 Production release verifier:
 
@@ -152,8 +155,7 @@ Evidence:
 - `docs/community/wep-road-integration-acceptance-20261001.md`
 - `ops/community-wep-road-integration-acceptance-20261001.json`
 
-The production Preset bucket externalization blocker remains OPEN in WEP; this acceptance does not close
-that deployment dependency.
+The production Preset bucket externalization dependency is now CLOSED separately. No Scene or retention rerun was required because only environment selection changed and known-staging behavior remained identical.
 
 
 ## Auth provider-boundary / revocation checkpoint — 2026-10-01
@@ -177,3 +179,19 @@ mail solely to warm or pad deliverability statistics.
 Evidence:
 - `docs/community/auth-provider-boundary-revocation-runtime-20261001.md`
 - `ops/community-auth-launch-review.json`
+
+
+## WEP Preset artifact bucket closure — 2026-10-01
+
+**CONFIRMED:** the previous WEP production bucket hardcode blocker is CLOSED.
+
+Current WEP source `c396413dc349829bc91f89b397321de38b55a3ba` routes both Preset Edge
+Functions through one shared environment resolver. Production requires
+`WEP_PRESET_ARTIFACT_BUCKET` and fails closed if it is absent or points at the staging bucket.
+Known staging retains `wand-preset-artifacts-staging` only by explicit project-ref recognition.
+
+Live staging readback confirms the new resolver is deployed in `wep-preset-artifact v14` and
+`wep-preset-retention v6`, while the bucket remains private / JSON-only / 25 MiB.
+
+No Community retention implementation was changed, and neither retention E2E nor the Scene reuse
+vertical was repeated.
