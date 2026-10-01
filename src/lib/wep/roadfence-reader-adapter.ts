@@ -257,6 +257,34 @@ export function createDraftAwareNetworkCaptureAdapter(
         container.originPolicy === 'native-logical-root'
       ) {
         assertWriteBoundary(container);
+
+        if (
+          kind === 'fences' &&
+          plain(container.representationLayoutModified)
+        ) {
+          const modifiedNetworkIds = Object.entries(
+            container.representationLayoutModified
+          )
+            .filter(([, modified]) => modified === true)
+            .map(([networkId]) => String(networkId))
+            .sort();
+          if (modifiedNetworkIds.length) {
+            return {
+              status: 'blocked',
+              code:
+                'WEP_FENCE_REPRESENTATION_LAYOUT_PRESET_NOT_BOUND',
+              issues: [
+                {
+                  severity: 'BLOCK' as const,
+                  code:
+                    'WEP_FENCE_REPRESENTATION_LAYOUT_PRESET_NOT_BOUND',
+                  networkIds: modifiedNetworkIds
+                }
+              ]
+            };
+          }
+        }
+
         const networks = Array.isArray(container.networks)
           ? clone(container.networks)
           : [];
@@ -622,31 +650,58 @@ export function createSwitchV125RoadFenceReaderBinding({
     const makeContainer = (
       kind: 'roads' | 'fences',
       networks: AnyRecord[]
-    ) => ({
-      schema: 'dreamwish-wand-wep-roadfence-logical-root-draft',
-      version: 1,
-      kind,
-      originPolicy: 'native-logical-root',
-      coordinatePolicy: 'per-network-reader-coordinate-space',
-      networks: clone(networks),
-      ...(kind === 'fences' &&
-      Array.isArray(readerResult.modeBoundaryTouches) &&
-      readerResult.modeBoundaryTouches.length
-        ? {
-            modeBoundaryTouches: clone(
-              readerResult.modeBoundaryTouches
-            )
+    ) => {
+      const container: AnyRecord = {
+        schema:
+          'dreamwish-wand-wep-roadfence-logical-root-draft',
+        version: 1,
+        kind,
+        originPolicy: 'native-logical-root',
+        coordinatePolicy:
+          'per-network-reader-coordinate-space',
+        networks: clone(networks),
+        ...(kind === 'fences' &&
+        Array.isArray(readerResult.modeBoundaryTouches) &&
+        readerResult.modeBoundaryTouches.length
+          ? {
+              modeBoundaryTouches: clone(
+                readerResult.modeBoundaryTouches
+              )
+            }
+          : {}),
+        normalization: {
+          sourceGridObjectIdsRemoved: true,
+          sourceReaderProvenanceRemoved: true,
+          logicalCoordinatesPreserved: true,
+          coordinateSpacePreserved: true,
+          partialTopologyFailsClosed: true
+        },
+        persistentWriteAuthorized: false
+      };
+
+      if (kind === 'fences') {
+        const representationLayouts: AnyRecord = {};
+        const representationLayoutModified: AnyRecord = {};
+        for (const network of networks) {
+          const networkId = String(network?.networkId ?? '');
+          if (!networkId) continue;
+          const captured =
+            captureFenceRepresentationModel(networkId);
+          if (captured?.draft) {
+            assertWriteBoundary(captured.draft);
+            representationLayouts[networkId] =
+              clone(captured.draft);
+            representationLayoutModified[networkId] = false;
           }
-        : {}),
-      normalization: {
-        sourceGridObjectIdsRemoved: true,
-        sourceReaderProvenanceRemoved: true,
-        logicalCoordinatesPreserved: true,
-        coordinateSpacePreserved: true,
-        partialTopologyFailsClosed: true
-      },
-      persistentWriteAuthorized: false
-    });
+        }
+        container.representationLayouts =
+          representationLayouts;
+        container.representationLayoutModified =
+          representationLayoutModified;
+      }
+
+      return container;
+    };
 
     return {
       status: 'supported',
