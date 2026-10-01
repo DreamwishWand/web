@@ -21,6 +21,13 @@ assert(manifest.migrationPolicy?.directProductionDdlForbidden === true, 'Direct 
 assert(manifest.vault?.secretValuesMustNeverAppearInRepository === true, 'Repository secret-value ban must remain enabled.');
 assert(manifest.vault?.rotationDrillRequired === true, 'Secret rotation drill must be required.');
 assert(manifest.releaseGate?.requireStagingOnlyFunctionAbsence === true, 'Production must verify staging-only functions are absent.');
+assert(manifest.migrationPolicy?.productionReplayRequiresIntegratedTree === true, 'Production replay must use the integrated source tree.');
+assert(manifest.integration?.productionReplaySource === 'final-integrated-main', 'Production replay source must be final-integrated-main.');
+
+const requiredEnvironmentConfig = new Set(manifest.production?.requiredEnvironmentConfig ?? []);
+for (const name of ['DREAMWISH_ENVIRONMENT', 'COMMUNITY_MEDIA_BUCKET']) {
+  assert(requiredEnvironmentConfig.has(name), `Missing required production environment config: ${name}`);
+}
 
 const allow = new Set(manifest.edgeFunctions?.productionAllowlist ?? []);
 const deny = new Set(manifest.edgeFunctions?.stagingOnlyDenylist ?? []);
@@ -109,6 +116,13 @@ for (const [version, names] of migrationVersions) {
 
 if (process.argv.includes('--require-ready')) {
   assert(manifest.production?.launchReady === true, 'Production operations manifest is not launch-ready.');
+  const openBlockers = (manifest.crossStreamBlockers ?? []).filter(
+    (blocker) => blocker?.state !== 'CLOSED'
+  );
+  assert(
+    openBlockers.length === 0,
+    `Cross-stream production blockers remain open: ${openBlockers.map((item) => item.id).join(', ')}`
+  );
 }
 
 if (errors.length) {
