@@ -1,0 +1,355 @@
+{
+  "schema": "ddv.building-lifecycle-semantics@1",
+  "artifactId": "DDV-BUILDING-LIFECYCLE-V125-V1_0",
+  "status": "PROMOTED",
+  "scope": [
+    "read",
+    "model",
+    "preflight"
+  ],
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "profileSchema": 624,
+    "titleId": "0100D39012C1A000",
+    "buildId": "52BD625D9B4E0053"
+  },
+  "sourceEvidence": {
+    "ownerArtifact": "DDV_CORE_BUILDING_LIFECYCLE_STATIC_ANALYSIS_V125_2026-10-01",
+    "driveDocumentId": "1J2QGWAJBa1WTa_qbpdTRGXRsAozSpGt07iTd0-FitCI",
+    "evidenceClass": "CONFIRMED_STATIC_WITH_BOUNDED_RUNTIME_SAVE_SUPPORT"
+  },
+  "writerBoundary": {
+    "persistentWriteAuthorized": false,
+    "worldPersistentWriteV125": false,
+    "authorizesApply": false,
+    "authorizesEntitlementMutation": false
+  },
+  "identity": {
+    "definitionIdentity": "ItemID",
+    "instanceIdentity": "GridObject.ID",
+    "instanceIdentityPortable": false,
+    "playerHouseInteriorDefinitionAnchor": "House.HouseItemID",
+    "destinationLocal": [
+      "HouseData.PlayerHouseIndex",
+      "PlayerHouse interior Grid IDs",
+      "GridObject.ID"
+    ]
+  },
+  "serializedStates": {
+    "HouseData": [
+      "Built",
+      "UpgradeState",
+      "PlayerHouseIndex"
+    ],
+    "BuildingWithSkinData": [
+      "UpgradeState",
+      "CurrentSkinItemID"
+    ],
+    "StallData": [
+      "UpgradeState",
+      "ShopData",
+      "CurrentSkinItemID"
+    ],
+    "ShopData": [
+      "LastRefresh",
+      "NumRefresh",
+      "Slots",
+      "Seed"
+    ]
+  },
+  "portableState": {
+    "buildingBase": {
+      "fields": [
+        "itemId"
+      ],
+      "note": "Definition identity only; lifecycle mutations remain separately gated."
+    },
+    "buildingSkin": {
+      "codec": "ddv.building-skin@1",
+      "fields": [
+        "targetBuildingItemId",
+        "skinItemId"
+      ],
+      "excludes": [
+        "UpgradeState",
+        "ShopData"
+      ],
+      "validation": "NATIVE_EQUIVALENT_TARGET_OWNERSHIP_AVAILABILITY_COMPATIBILITY_REQUIRED"
+    },
+    "playerHouseBinding": {
+      "codec": "ddv.player-house-binding@1",
+      "fields": [
+        "houseItemId"
+      ],
+      "excludes": [
+        "PlayerHouseIndex",
+        "Built",
+        "UpgradeState",
+        "interior Grid IDs"
+      ],
+      "destinationBinding": "MATCH_DESTINATION_HOUSE_ITEM_ID_ONLY"
+    }
+  },
+  "classification": {
+    "classes": [
+      "ORDINARY_GRID_BUILDING",
+      "SPECIAL_GRID_BUILDING",
+      "OFF_GRID_BUILDING",
+      "UNKNOWN_BUILDING"
+    ],
+    "rules": [
+      {
+        "when": {
+          "buildingItemType": "OffGridBuilding"
+        },
+        "class": "OFF_GRID_BUILDING",
+        "reason": "SEPARATE_PROFILEWORLD_OFFGRID_LIFECYCLE"
+      },
+      {
+        "when": {
+          "buildingItemType": "PlayerHouse"
+        },
+        "class": "SPECIAL_GRID_BUILDING",
+        "reason": "PLAYER_HOUSE_INTERIOR_BINDING"
+      },
+      {
+        "when": {
+          "buildingItemType": "Stall"
+        },
+        "class": "SPECIAL_GRID_BUILDING",
+        "reason": "STALL_SHOP_STATE"
+      },
+      {
+        "when": {
+          "buildingItemType": "Garden"
+        },
+        "class": "SPECIAL_GRID_BUILDING",
+        "reason": "GARDEN_SPECIAL_LIFECYCLE"
+      },
+      {
+        "when": {
+          "characterHouse": true
+        },
+        "class": "SPECIAL_GRID_BUILDING",
+        "reason": "CHARACTER_HOUSE_LIFECYCLE"
+      },
+      {
+        "when": {
+          "fastTravel": true
+        },
+        "class": "SPECIAL_GRID_BUILDING",
+        "reason": "FAST_TRAVEL_WORLD_STATE"
+      },
+      {
+        "when": {
+          "sharedSynchronizer": true
+        },
+        "class": "SPECIAL_GRID_BUILDING",
+        "reason": "SHARED_SYNCHRONIZED_STATE"
+      },
+      {
+        "when": {
+          "globalStateBinding": true
+        },
+        "class": "SPECIAL_GRID_BUILDING",
+        "reason": "GLOBAL_STATE_BINDING"
+      }
+    ],
+    "ordinaryRequirements": {
+      "buildingItemType": [
+        "House",
+        "Other"
+      ],
+      "explicitFalse": [
+        "characterHouse",
+        "fastTravel",
+        "sharedSynchronizer",
+        "globalStateBinding",
+        "unmodeledSpecialLifecycle"
+      ]
+    },
+    "failClosed": "If ordinary requirements are not explicitly satisfied, classify UNKNOWN_BUILDING rather than ORDINARY_GRID_BUILDING."
+  },
+  "operationPreflight": {
+    "readModel": {
+      "ordinary": "ALLOWED_READ_MODEL",
+      "special": "ALLOWED_READ_MODEL_WITH_SPECIAL_CLASS",
+      "offGrid": "ALLOWED_READ_MODEL_SEPARATE_LIFECYCLE",
+      "unknown": "FAIL_CLOSED"
+    },
+    "sameGridTransform": {
+      "ordinary": "MODEL_ELIGIBLE_WRITER_DISABLED",
+      "special": "BLOCK_SPECIAL_BUILDING_SIDE_EFFECTS_UNVERIFIED",
+      "offGrid": "NOT_APPLICABLE_GRID_TRANSFORM",
+      "unknown": "FAIL_CLOSED"
+    },
+    "crossGridTransfer": {
+      "all": "BLOCK_BUILDING_CROSS_GRID_LIFECYCLE_REQUIRED"
+    },
+    "addPlacement": {
+      "ordinary": "REQUIRES_NATIVE_PLACEMENT_STOCK_MULTIPLICITY_VALIDATION",
+      "playerHouseExistingInterior": "REQUIRES_DESTINATION_HOUSE_ITEM_ID_BINDING_AND_MULTIPLICITY_VALIDATION",
+      "playerHouseCreateInterior": "BLOCK_PLAYER_HOUSE_INTERIOR_CREATE_POLICY_UNRESOLVED",
+      "special": "BLOCK_SPECIAL_BUILDING_PLACEMENT_LIFECYCLE_UNSUPPORTED",
+      "unknown": "FAIL_CLOSED"
+    },
+    "remove": {
+      "all": "BLOCK_BUILDING_REMOVAL_NATIVE_LIFECYCLE_REQUIRED"
+    },
+    "baseReplace": {
+      "all": "BLOCK_BUILDING_BASE_REPLACEMENT_UNRESOLVED"
+    },
+    "duplicate": {
+      "all": "BLOCK_BUILDING_DUPLICATION_POLICY_UNRESOLVED"
+    },
+    "persistentApply": {
+      "all": "BLOCK_PERSISTENT_WRITE_UNAUTHORIZED"
+    }
+  },
+  "playerHouse": {
+    "concepts": [
+      "exterior Building definition/availability",
+      "exterior GridObject with HouseData",
+      "ProfileWorld.PlayerHouses interior identity and interior Grid graph"
+    ],
+    "existingDestinationBinding": {
+      "matchKey": "HouseItemID",
+      "playerHouseIndexZeroValid": true,
+      "statusWhenMatched": "BIND_EXISTING_DESTINATION_INTERIOR"
+    },
+    "missingDestinationBinding": {
+      "nativeObservedFlow": "CreatePlayerHouse",
+      "productPreflight": "BLOCK_PLAYER_HOUSE_INTERIOR_CREATE_POLICY_UNRESOLVED"
+    },
+    "removal": "EXTERIOR_REMOVAL_DOES_NOT_ESTABLISH_INTERIOR_DELETION",
+    "crossSceneCrossWorldMultiplicity": "UNKNOWN_FAIL_CLOSED"
+  },
+  "skin": {
+    "baseItemIdReplacedBySkin": false,
+    "storedField": "CurrentSkinItemID",
+    "houseCompatibility": "HouseSkinItemData.HouseItemID",
+    "stallCompatibility": "selector-based",
+    "otherCompatibility": "selector-based",
+    "defaultSkinReset": "UNKNOWN_FAIL_CLOSED",
+    "nonzeroChangeRequires": [
+      "exact target",
+      "ownership",
+      "SkinIsAvailable",
+      "state compatibility",
+      "desync check",
+      "target compatibility"
+    ]
+  },
+  "specialBuilding": {
+    "CharacterHouse": {
+      "class": "SPECIAL_GRID_BUILDING",
+      "known": [
+        "placement character-presence side effect",
+        "cross-grid presence rebinding",
+        "removal character update"
+      ],
+      "unknown": [
+        "duplication"
+      ]
+    },
+    "StallShop": {
+      "class": "SPECIAL_GRID_BUILDING",
+      "known": [
+        "UpgradeState",
+        "embedded ShopData",
+        "CurrentSkinItemID",
+        "ExpandShopSlots lifecycle",
+        "ProfileWorld shop-related state"
+      ],
+      "unknown": [
+        "complete StallData.ShopData vs ProfileWorld.Shops precedence",
+        "multiple same-ShopName scoping"
+      ]
+    },
+    "WishingWell": {
+      "class": "SPECIAL_GRID_BUILDING",
+      "known": [
+        "world-global ProfileWorld.WishingWellLevel",
+        "fast-travel identity SceneID+ItemID"
+      ],
+      "unknown": [
+        "duplicate/replacement behavior",
+        "removal/favorite fast-travel edge behavior"
+      ]
+    },
+    "OffGridBuilding": {
+      "class": "OFF_GRID_BUILDING",
+      "known": [
+        "separate ProfileWorld.OffGridBuildings lifecycle"
+      ]
+    }
+  },
+  "blockers": [
+    "BUILDING_CLASSIFICATION_EVIDENCE_INCOMPLETE",
+    "BUILDING_CROSS_GRID_LIFECYCLE_REQUIRED",
+    "BUILDING_NATIVE_STOCK_VALIDATION_REQUIRED",
+    "BUILDING_NATIVE_MULTIPLICITY_VALIDATION_REQUIRED",
+    "BUILDING_SPECIAL_LIFECYCLE_UNSUPPORTED",
+    "BUILDING_REMOVAL_NATIVE_LIFECYCLE_REQUIRED",
+    "BUILDING_BASE_REPLACEMENT_UNRESOLVED",
+    "BUILDING_DUPLICATION_POLICY_UNRESOLVED",
+    "PLAYER_HOUSE_DESTINATION_BINDER_NOT_BOUND",
+    "PLAYER_HOUSE_INTERIOR_CREATE_POLICY_UNRESOLVED",
+    "PLAYER_HOUSE_CROSS_WORLD_MULTIPLICITY_UNRESOLVED",
+    "BUILDING_SKIN_VALIDATOR_NOT_BOUND",
+    "BUILDING_DEFAULT_SKIN_RESET_NOT_PROVEN",
+    "BUILDING_ENTITLEMENT_SEMANTICS_UNRESOLVED",
+    "PERSISTENT_WRITE_UNAUTHORIZED"
+  ],
+  "unresolved": [
+    {
+      "id": "BUILDING_ENTITLEMENT_GATE",
+      "owner": "01B+01D",
+      "requiredFor": "ownership/entitlement-aware mutation",
+      "currentAction": "fail-closed; no entitlement mutation"
+    },
+    {
+      "id": "FAST_TRAVEL_MEMBERSHIP",
+      "owner": "01B",
+      "requiredFor": "complete Well/FastTravel classifier membership",
+      "currentAction": "explicit evidence flag required"
+    },
+    {
+      "id": "BUILDING_SYNCHRONIZER_MEMBERSHIP",
+      "owner": "01B",
+      "requiredFor": "complete ordinary/special classifier membership",
+      "currentAction": "explicit evidence flag required"
+    },
+    {
+      "id": "STALL_SHOP_PRECEDENCE",
+      "owner": "01B",
+      "requiredFor": "Stall/Shop copy or state mutation",
+      "currentAction": "special building; mutation blocked"
+    },
+    {
+      "id": "PLAYER_HOUSE_CROSS_WORLD",
+      "owner": "01B",
+      "requiredFor": "create/duplicate/cross-world placement",
+      "currentAction": "existing destination binding only; create blocked"
+    },
+    {
+      "id": "BASE_BUILDING_REPLACEMENT",
+      "owner": "01B",
+      "requiredFor": "different-ItemID replacement",
+      "currentAction": "blocked"
+    },
+    {
+      "id": "SPECIAL_BUILDING_RUNTIME_SIDE_EFFECTS",
+      "owner": "01E after owner protocol",
+      "requiredFor": "persistent same-grid/cross-grid special Building transforms",
+      "currentAction": "writer blocked"
+    },
+    {
+      "id": "WELL_REMOVAL_REPLACEMENT_RUNTIME",
+      "owner": "01E after 01B semantic freeze",
+      "requiredFor": "Well removal/replacement writer",
+      "currentAction": "blocked"
+    }
+  ]
+}
