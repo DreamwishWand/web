@@ -1836,7 +1836,7 @@ test('Community Edge production resources are environment-aware and fail closed 
   assert.doesNotMatch(media, /Invalid staging image size/);
 });
 
-test('Community production manifest requires final integrated replay and closed WEP bucket externalization', () => {
+test('Community production manifest separates WEP function externalization from production bucket migration provisioning', () => {
   const manifest = JSON.parse(read('ops/community-production-operations.json'));
   assert.equal(manifest.migrationPolicy.productionReplayRequiresIntegratedTree, true);
   assert.equal(manifest.integration.productionReplaySource, 'final-integrated-main');
@@ -1853,12 +1853,23 @@ test('Community production manifest requires final integrated replay and closed 
   assert.equal(blocker.state, 'CLOSED');
   assert.match(blocker.detail, /WEP_PRESET_ARTIFACT_BUCKET/);
   assert.match(blocker.detail, /known staging/i);
+
+  const provisioning = manifest.crossStreamBlockers.find(
+    (item) => item.id === 'WEP_PRESET_ARTIFACT_BUCKET_PRODUCTION_MIGRATION'
+  );
+  assert.ok(provisioning);
+  assert.equal(provisioning.owner, '02 WEP');
+  assert.equal(provisioning.state, 'OPEN');
+  assert.match(provisioning.detail, /wand-preset-artifacts-staging/);
+  assert.match(provisioning.detail, /production replay/i);
 });
 
 
 test('Community retention launch review separates technical facts from policy approval', () => {
   const review = JSON.parse(read('ops/community-retention-launch-review.json'));
+  const approval = JSON.parse(read('ops/community-retention-approval-state.json'));
   const packet = read('docs/community/privacy-retention-launch-review-20261001.md');
+  const finalPacket = read('docs/community/retention-final-approval-packet-20261001.md');
   const operations = JSON.parse(read('ops/community-production-operations.json'));
   const verifier = read('scripts/verify-community-ops-readiness.mjs');
 
@@ -1869,12 +1880,27 @@ test('Community retention launch review separates technical facts from policy ap
   assert.equal(review.launchApproved, false);
   assert.equal(review.decisions.length, 8);
   assert.ok(review.decisions.every((decision) => decision.status === 'PENDING'));
+  assert.equal(review.engineeringClosure.decisionBoundary, 'CLOSED');
+  assert.equal(review.approvals.product, 'PENDING');
+  assert.equal(review.approvals.privacy, 'PENDING');
+  assert.equal(review.approvals.legal, 'PENDING');
+  assert.equal(approval.engineering.decisionBoundaryStatus, 'CLOSED');
+  assert.equal(approval.engineering.defaultsAreLegalConclusion, false);
+  assert.equal(approval.approvals.product.status, 'PENDING');
+  assert.equal(approval.approvals.privacy.status, 'PENDING');
+  assert.equal(approval.approvals.legal.status, 'PENDING');
+  assert.equal(approval.launchApproved, false);
   assert.equal(operations.releaseGate.requireRetentionPolicyApproval, true);
   assert.equal(operations.privacyRetentionReview.launchApproved, false);
   assert.match(packet, /30 days is currently a retention-delay parameter/i);
   assert.match(packet, /does not currently establish a\s+30-day self-service recovery entitlement/i);
   assert.match(packet, /backup-copy retention/i);
+  assert.match(finalPacket, /ENGINEERING CLOSED/i);
+  assert.match(finalPacket, /Product approval — PENDING/i);
+  assert.match(finalPacket, /Privacy approval — PENDING/i);
+  assert.match(finalPacket, /Legal approval — PENDING/i);
   assert.match(verifier, /Retention launch review is not approved/);
+  assert.match(verifier, /Retention approval state is not launch-approved/);
 });
 
 
@@ -1946,6 +1972,12 @@ test('Road-inclusive Scene acceptance preserves Community reuse and Apply bounda
   );
   assert.equal(bucketBlocker?.owner, '02 WEP');
   assert.equal(bucketBlocker?.state, 'CLOSED');
+
+  const provisioningBlocker = production.crossStreamBlockers.find(
+    (item) => item.id === 'WEP_PRESET_ARTIFACT_BUCKET_PRODUCTION_MIGRATION'
+  );
+  assert.equal(provisioningBlocker?.owner, '02 WEP');
+  assert.equal(provisioningBlocker?.state, 'OPEN');
 });
 
 
@@ -2018,6 +2050,12 @@ test('WEP Preset bucket externalization is production-safe and staging-compatibl
   assert.match(blocker?.evidence ?? '', /c396413dc349829bc91f89b397321de38b55a3ba/);
   assert.match(blocker?.evidence ?? '', /wep-preset-artifact v14/);
   assert.match(blocker?.evidence ?? '', /wep-preset-retention v6/);
+
+  const provisioning = manifest.crossStreamBlockers.find(
+    (item) => item.id === 'WEP_PRESET_ARTIFACT_BUCKET_PRODUCTION_MIGRATION'
+  );
+  assert.equal(provisioning?.state, 'OPEN');
+  assert.match(provisioning?.detail ?? '', /production replay/i);
 });
 
 
@@ -2059,6 +2097,8 @@ test('final integrated production-tree guard preserves Community replay fixes', 
   assert.match(script, /20260930081500_community_core_v0_support_recovery_verification/);
   assert.match(script, /WEP_PRESET_ARTIFACT_BUCKET_REQUIRED_OUTSIDE_KNOWN_STAGING/);
   assert.match(script, /WEP_PRESET_ARTIFACT_BUCKET_STAGING_FORBIDDEN_OUTSIDE_KNOWN_STAGING/);
+  assert.match(script, /WEP Preset storage migration must not create the staging bucket/);
+  assert.match(script, /WEP_PRESET_ARTIFACT_BUCKET_PRODUCTION_MIGRATION/);
   assert.match(script, /final-integrated-main/);
   assert.match(script, /--require-ready/);
 
@@ -2094,6 +2134,7 @@ test('production release evidence index keeps closed and pending gates explicit'
     'PRESET_SCENE_REUSE_VERTICAL',
     'PRESET_ARTIFACT_RETENTION_E2E',
     'WEP_PRESET_ARTIFACT_BUCKET_EXTERNALIZATION',
+    'WEP_COMM_MIGRATION_BASELINE_CONSISTENCY',
     'AUTH_PROVIDER_14_15_BOUNDARY',
     'AUTH_PROVIDER_WAND_REVOCATION'
   ]) {
@@ -2104,6 +2145,7 @@ test('production release evidence index keeps closed and pending gates explicit'
   for (const id of [
     'AUTH_SIGNED_IN_REAUTH_MAILBOX',
     'RETENTION_PRODUCT_PRIVACY_LEGAL_APPROVAL',
+    'WEP_PRESET_ARTIFACT_BUCKET_PRODUCTION_MIGRATION',
     'DISTINCT_PRODUCTION_SUPABASE_PROJECT',
     'FINAL_INTEGRATED_SOURCE_TREE',
     'FINAL_INTEGRATED_MIGRATION_REPLAY',
@@ -2118,6 +2160,12 @@ test('production release evidence index keeps closed and pending gates explicit'
   ]) {
     assert.equal(byId.get(id)?.satisfied, false, id);
   }
+
+  assert.equal(byId.get('AUTH_SIGNED_IN_REAUTH_MAILBOX')?.classification, 'operator_manual_pending');
+  assert.equal(byId.get('RETENTION_PRODUCT_PRIVACY_LEGAL_APPROVAL')?.classification, 'approval_pending');
+  assert.equal(byId.get('DISTINCT_PRODUCTION_SUPABASE_PROJECT')?.classification, 'production_only_pending');
+  assert.equal(byId.get('WEP_PRESET_ARTIFACT_BUCKET_PRODUCTION_MIGRATION')?.classification, 'cross_stream_pending');
+  assert.equal(byId.get('COMMUNITY_PRIMARY_BROWSER_CLOSURE')?.classification, 'already_closed');
 
   assert.equal(
     operations.releaseEvidence.contract,
