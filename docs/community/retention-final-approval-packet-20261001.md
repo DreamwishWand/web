@@ -29,7 +29,7 @@ has not yet been granted.
 
 The remaining launch question is policy approval, not implementation proof.
 
-### Product approval — PENDING
+### Product approval — APPROVED
 
 Product must explicitly approve or replace:
 
@@ -82,12 +82,12 @@ Until all required approvals are explicitly recorded:
 
 - `launchApproved=false`;
 - Community production `--require-ready` must fail;
-- 30/365 remain engineering defaults only;
+- 7/90 are the current engineering defaults but are not fully approved launch policy until Privacy/Legal approval;
 - no user-facing legal/privacy claim should present them as approved policy.
 
 After approvals:
 
-- if approved values remain 30/365, run one final policy/configuration regression;
+- if approved values remain 7/90, run one final policy/configuration regression;
 - if values change, update configuration and run the regression against the approved values;
 - do **not** rerun the already-passed retention plumbing E2E unless implementation semantics changed.
 
@@ -101,14 +101,14 @@ Engineering status for every item below is **CLOSED**. The remaining status is p
 
 | ID | Decision | Product | Privacy | Legal |
 | --- | --- | --- | --- | --- |
-| D1 | Content-payload retention duration | PENDING | PENDING | PENDING |
-| D2 | Operational-detail retention duration | PENDING | PENDING | PENDING |
-| D3 | User-facing deletion promise / recovery wording | PENDING | — | — |
-| D4 | Retention-hold policy | PENDING | PENDING | PENDING |
-| D5 | Structural tombstone policy | PENDING | PENDING | PENDING |
-| D6 | Backup-copy retention | PENDING | PENDING | PENDING |
+| D1 | Content-payload retention duration | APPROVED | PENDING | PENDING |
+| D2 | Operational-detail retention duration | APPROVED | PENDING | PENDING |
+| D3 | User-facing deletion promise / recovery wording | APPROVED | — | — |
+| D4 | Retention-hold policy | APPROVED | PENDING | PENDING |
+| D5 | Structural tombstone policy | APPROVED | PENDING | PENDING |
+| D6 | Backup-copy retention | APPROVED | PENDING | PENDING |
 | D7 | Processor/provider retention | — | PENDING | PENDING |
-| D8 | Policy disclosure and launch acceptance | PENDING | PENDING | PENDING |
+| D8 | Policy disclosure and launch acceptance | APPROVED | PENDING | PENDING |
 
 Approval rule: an item is approved only when **every approval required for that row is explicitly
 APPROVED**. Engineering defaults or runtime evidence never imply approval.
@@ -128,7 +128,7 @@ The abstract D1-D8 questions have been converted into an approval-ready policy p
 - `docs/community/retention-policy-proposal-20261001.md`;
 - `ops/community-retention-policy-proposal.json`.
 
-Proposed content payload value is now 7 days / 365-day operational detail, immediate account/public
+Proposed values are now 7-day content payload / 90-day operational detail, immediate account/public
 removal with no recovery-window promise, existing moderation/security/legal hold semantics,
 minimized structural tombstones, separate DB/Storage recovery-copy treatment, provider-retention
 disclosure, and explicit staged deletion wording.
@@ -137,7 +137,7 @@ Supabase/Resend provider facts were refreshed from current official documentatio
 Supabase plan remains undecided, so D6 records a launch rule and must bind the exact provider
 backup window when production is selected.
 
-This preparation is **not** Product, Privacy or Legal approval. Their statuses remain PENDING.
+Product approval is now **APPROVED**. Privacy and Legal remain **PENDING**.
 
 
 ## D1 updated to seven-day backend purge — 2026-10-01
@@ -165,3 +165,17 @@ Current approval candidate:
 
 Staging migration `20261001122209_community_retention_operational_90d_single_stage.sql` is applied.
 Engineering is CLOSED on this implementation. Product/Privacy/Legal approval remains PENDING.
+
+
+## Product approval recorded — 2026-10-02
+
+The Product owner explicitly approved the current D1-D8 direction without requesting changes.
+
+Formal Product approval is recorded for D1, D2, D3, D4, D5, D6, and D8. D7's direction is also
+supported by Product, but D7's formal required approvers remain Privacy and Legal.
+
+This does **not** approve Privacy or Legal. The combined retention launch gate stays open until
+those independent approvals are explicitly recorded.
+
+Canonical record:
+`docs/community/retention-product-approval-record-20261002.md`.
