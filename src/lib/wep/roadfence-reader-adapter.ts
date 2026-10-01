@@ -351,9 +351,12 @@ export function createDraftAwareNetworkCaptureAdapter(
           )
             ? container.representationLayouts
             : {};
+          const resultData = result.data as AnyRecord;
           const localizedNetworks: AnyRecord[] = [];
 
-          for (const artifactNetwork of result.data.networks) {
+          for (const rawArtifactNetwork of resultData.networks as AnyRecord[]) {
+            const artifactNetwork: AnyRecord =
+              rawArtifactNetwork;
             const matches: AnyRecord[] = [];
             for (const sourceNetwork of networks) {
               if (
@@ -420,16 +423,20 @@ export function createDraftAwareNetworkCaptureAdapter(
             });
           }
 
-          result.data = {
-            ...clone(result.data),
-            networks: localizedNetworks,
-            normalization: {
-              ...clone(result.data.normalization ?? {}),
-              fenceRepresentationLayoutPortable: true,
-              representationLayoutRevalidatedByCore: true
+          return {
+            ...clone(result),
+            data: {
+              ...clone(resultData),
+              networks: localizedNetworks,
+              normalization: {
+                ...clone(resultData.normalization ?? {}),
+                fenceRepresentationLayoutPortable: true,
+                representationLayoutRevalidatedByCore: true
+              },
+              persistentWriteAuthorized: false
             },
             persistentWriteAuthorized: false
-          };
+          } as ReturnType<NetworkCaptureAdapter['capture']>;
         }
 
         return clone(result) as ReturnType<
