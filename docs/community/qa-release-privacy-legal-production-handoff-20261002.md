@@ -27,8 +27,7 @@ Primary blockers:
 1. Linked DDV Profile orphan/minimization:
    account deletion removes the WandAccount link but not the underlying DDV Profile row;
    `binding_key_hash` derivation and `verification_evidence_ref` lifecycle are not canonicalized.
-2. age/minors:
-   launch age floor/consent/assurance policy is not yet selected.
+2. age/minors:\n   Product policy is CLOSED at age 13 for an independent Wand Account. Under-13 independent registration is prohibited; accountless local use and parent/guardian-managed DDV Profile association are allowed. Privacy/Legal implementation and parent-managed Community scope remain OPEN.
 3. production processor binding:
    provider selection is CLOSED — Supabase Pro + Cloudflare R2 Standard — but actual
    release-stage configuration/DPA/subprocessor/retention evidence is not yet bound.
@@ -167,3 +166,29 @@ hashes or unreviewed platform/entitlement identifiers.
 - DDV Core stable identifier dependency: OPEN;
 - Community implementation/targeted acceptance: OPEN;
 - Privacy/Legal review of final identifier/transport: OPEN.
+
+
+## Age / minors Product decision delta — 2026-10-02
+
+Product eligibility is now **CLOSED / APPROVED**:
+
+- minimum age for an independent Wand Account: **13**;
+- users under 13 may not independently register;
+- accountless local functionality remains available, including local save-file editing and local Editor/read-only workflows;
+- a parent or guardian may associate/manage an under-13 user's DDV Profile through the parent's Wand Account;
+- no separate under-13 Wand credentials are created;
+- the existing maximum-three Linked DDV Profiles per Wand Account still applies.
+
+Evidence:
+
+- `ops/community-age-minors-product-decision-20261002.json`
+- `docs/community/age-minors-product-decision-20261002.md`
+
+04 QR should distinguish:
+
+- age/minors Product eligibility: CLOSED;
+- age-gate / age-assurance / parental-consent implementation: OPEN for Privacy/Legal;
+- under-13 parent-managed Community participation scope: OPEN for Privacy/Legal;
+- ages 13–17 minor-specific safeguards: OPEN for Privacy/Legal.
+
+This does not change `launchReady=false`.
