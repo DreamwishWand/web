@@ -15,6 +15,10 @@ import {
   NATIVE_PLACEMENT_CLASSES,
   type CurrentV125PlacementBinding
 } from './placement-legality-v19.ts';
+import {
+  BUILDING_V110_CLASS,
+  type BuildingV110Binding
+} from './building-v110.ts';
 
 type AnyRecord = Record<string, any>;
 
@@ -81,13 +85,17 @@ export function preflightCurrentV125FullDesignManifest({
   destinationPlatform,
   manifest,
   restorationContext = {},
-  placementBinding = null
+  placementBinding = null,
+  buildingBinding = null,
+  buildingContext = {}
 }: {
   destinationProfile: AnyRecord;
   destinationPlatform: string;
   manifest: unknown;
   restorationContext?: AnyRecord;
   placementBinding?: CurrentV125PlacementBinding | null;
+  buildingBinding?: BuildingV110Binding | null;
+  buildingContext?: AnyRecord;
 }) {
   const validation = validateCurrentV125FullDesignManifest(manifest);
   if (!validation.ok || !validation.manifest) {
@@ -104,6 +112,7 @@ export function preflightCurrentV125FullDesignManifest({
       roadPreflightReady: false,
       fencePreflightReady: false,
       ordinaryBuildingPlacementReady: false,
+      buildingV110TypedPreflightReady: false,
       buildingSemanticClosureReady: false,
       buildingSkinPreflightReady: false,
       playerHouseBindingPreflightReady: false,
@@ -647,46 +656,284 @@ export function preflightCurrentV125FullDesignManifest({
 
   const buildingCategory = normalized.categories.buildings;
   const ordinaryPlacement = buildingCategory?.ordinaryPlacement;
-  const ordinaryBuildingPlacementReady =
+  const typedBuildingEntries =
+    buildingCategory?.requested === true &&
+    Array.isArray(buildingCategory?.typedPlacements)
+      ? buildingCategory.typedPlacements
+      : [];
+  const buildingTypedPreflights: AnyRecord[] = [];
+
+  function callBuildingValidator(
+    name: string,
+    input: AnyRecord
+  ) {
+    const validator = buildingContext?.[name];
+    return typeof validator === 'function'
+      ? validator(clone(input))
+      : null;
+  }
+
+  let buildingV110TypedPreflightReady =
     buildingCategory?.requested !== true ||
-    ordinaryPlacement?.destinationPlacementStatus === 'NOT_APPLICABLE';
-  const buildingSemanticClosureReady =
-    buildingCategory?.requested !== true ||
-    (
-      buildingCategory?.coverageStatus === 'not_applicable' &&
-      ordinaryPlacement?.destinationPlacementStatus === 'NOT_APPLICABLE' &&
-      buildingCategory?.buildingSkins?.semanticStatus === 'NOT_APPLICABLE' &&
-      buildingCategory?.playerHouses?.semanticStatus === 'NOT_APPLICABLE'
-    );
+    typedBuildingEntries.length === 0;
 
   if (
     buildingCategory?.requested === true &&
-    !buildingSemanticClosureReady
+    typedBuildingEntries.length > 0 &&
+    !buildingBinding
   ) {
+    buildingV110TypedPreflightReady = false;
     issues.push(
       block(
-        'BUILDING_DESTINATION_SEMANTICS_UNRESOLVED',
-        '$.categories.buildings',
-        {
-          sourceRecognition: String(
-            ordinaryPlacement?.sourceRecognition ?? 'UNKNOWN'
-          ),
-          recognizedCount: Number(
-            ordinaryPlacement?.recognizedCount ?? 0
-          ),
-          ordinaryPlacementStatus: String(
-            ordinaryPlacement?.destinationPlacementStatus ?? 'UNKNOWN'
-          ),
-          buildingSkinSemanticStatus: String(
-            buildingCategory?.buildingSkins?.semanticStatus ?? 'UNKNOWN'
-          ),
-          playerHouseSemanticStatus: String(
-            buildingCategory?.playerHouses?.semanticStatus ?? 'UNKNOWN'
-          ),
-          evidenceOwner: '01B_CORE_3'
-        }
+        'WEP_BUILDING_V110_CONTRACT_NOT_BOUND',
+        '$.categories.buildings.typedPlacements'
       )
     );
+  }
+
+  for (
+    let index = 0;
+    index < typedBuildingEntries.length;
+    index += 1
+  ) {
+    const entry = typedBuildingEntries[index];
+    const path =
+      `$.categories.buildings.typedPlacements[${index}]`;
+    const gridDataPath = String(
+      entry?.directRootRoute?.gridDataPath ?? ''
+    );
+    const destinationGridId = Number(
+      destinationGridByPath.get(gridDataPath)
+    );
+    const bound = boundsByPath.get(gridDataPath);
+    let nativePlacementResult: AnyRecord | null = null;
+    let typedResult: AnyRecord | null = null;
+    let classification: AnyRecord | null = null;
+
+    if (!buildingBinding) {
+      buildingTypedPreflights.push({
+        artifactBuildingId: entry.artifactBuildingId,
+        classification: clone(entry.classification),
+        ready: false,
+        blockers: [
+          { code: 'WEP_BUILDING_V110_CONTRACT_NOT_BOUND' }
+        ],
+        persistentWriteAuthorized: false
+      });
+      continue;
+    }
+
+    classification = buildingBinding.classifyEvidence(
+      entry.evidence
+    );
+    if (
+      classification.classification !==
+      entry?.classification?.classification
+    ) {
+      buildingV110TypedPreflightReady = false;
+      issues.push(
+        block(
+          'FULL_DESIGN_DESTINATION_BUILDING_CLASSIFICATION_MISMATCH',
+          path,
+          {
+            artifactBuildingId: entry.artifactBuildingId,
+            sourceClassification:
+              entry?.classification?.classification,
+            destinationClassification:
+              classification.classification
+          }
+        )
+      );
+    }
+
+    const classificationName = String(
+      classification.classification
+    );
+    const ordinary =
+      classificationName === BUILDING_V110_CLASS.ORDINARY;
+
+    let routeReady =
+      Number.isSafeInteger(destinationGridId);
+    let boundsReady = false;
+    let floorMapReady = false;
+
+    if (ordinary && !routeReady) {
+      buildingV110TypedPreflightReady = false;
+      issues.push(
+        block(
+          'FULL_DESIGN_DESTINATION_BUILDING_ROUTE_UNRESOLVED',
+          path,
+          {
+            artifactBuildingId: entry.artifactBuildingId,
+            gridDataPath
+          }
+        )
+      );
+    }
+
+    if (ordinary && routeReady) {
+      const destinationGrid =
+        destinationProfile?.World?.GridCollection?.Grids?.[
+          String(destinationGridId)
+        ] ??
+        destinationProfile?.World?.GridCollection?.Grids?.[
+          destinationGridId
+        ];
+      const destinationTessellation = Number(
+        destinationGrid?.TessellationFactor ?? 1
+      );
+      const expectedTessellation = Number(
+        bound?.tessellationFactor
+      );
+
+      boundsReady =
+        Boolean(bound) &&
+        Number.isSafeInteger(destinationTessellation) &&
+        destinationTessellation > 0 &&
+        destinationTessellation === expectedTessellation &&
+        footprintWithinAuthoritativeBounds(
+          {
+            x: Number(entry.localX),
+            y: Number(entry.localY),
+            footprint: entry.footprint
+          },
+          bound?.bounds
+        );
+
+      if (!boundsReady) {
+        buildingV110TypedPreflightReady = false;
+        issues.push(
+          block(
+            'FULL_DESIGN_DESTINATION_BUILDING_BOUNDS_UNAVAILABLE',
+            path,
+            {
+              artifactBuildingId: entry.artifactBuildingId,
+              gridDataPath,
+              destinationGridId
+            }
+          )
+        );
+      }
+
+      floorMapReady =
+        Boolean(placementBinding) && boundsReady;
+      if (!placementBinding) {
+        buildingV110TypedPreflightReady = false;
+        issues.push(
+          block(
+            'FULL_DESIGN_DESTINATION_BUILDING_PLACEMENT_CONTRACT_NOT_BOUND',
+            path,
+            {
+              artifactBuildingId: entry.artifactBuildingId,
+              gridDataPath
+            }
+          )
+        );
+      } else if (boundsReady) {
+        try {
+          nativePlacementResult = placementBinding.classify({
+            profile: destinationProfile,
+            destinationGridId,
+            gridDataPath,
+            candidate: {
+              itemId: entry.itemId,
+              localX: entry.localX,
+              localY: entry.localY,
+              orientation: entry.orientation
+            }
+          });
+        } catch (error) {
+          buildingV110TypedPreflightReady = false;
+          issues.push(
+            block(
+              'FULL_DESIGN_DESTINATION_BUILDING_PLACEMENT_PREFLIGHT_ERROR',
+              path,
+              {
+                artifactBuildingId: entry.artifactBuildingId,
+                message:
+                  error instanceof Error
+                    ? error.message
+                    : String(error)
+              }
+            )
+          );
+        }
+      }
+    }
+
+    const validatorInput = {
+      artifactBuildingId: entry.artifactBuildingId,
+      itemId: entry.itemId,
+      classification: clone(classification),
+      evidence: clone(entry.evidence),
+      gridDataPath,
+      destinationGridId,
+      destinationProfile
+    };
+
+    typedResult = buildingBinding.ordinaryPlacementPreflight({
+      evidence: entry.evidence,
+      destinationStockOwnership: ordinary
+        ? callBuildingValidator(
+            'validateDestinationStockOwnership',
+            validatorInput
+          )
+        : null,
+      currentSceneMultiplicity: ordinary
+        ? callBuildingValidator(
+            'validateCurrentSceneMultiplicity',
+            validatorInput
+          )
+        : null,
+      typedInitialStateCompatibility: ordinary
+        ? callBuildingValidator(
+            'validateTypedInitialStateCompatibility',
+            validatorInput
+          )
+        : null,
+      boundsReady,
+      floorMapReady,
+      placementResult: nativePlacementResult
+    });
+
+    if (!typedResult.ready) {
+      buildingV110TypedPreflightReady = false;
+      for (const blockerEntry of typedResult.blockers ?? []) {
+        const code = String(
+          blockerEntry?.code ??
+          'FULL_DESIGN_DESTINATION_BUILDING_PREFLIGHT_BLOCKED'
+        );
+        issues.push(
+          block(code, path, {
+            artifactBuildingId: entry.artifactBuildingId,
+            itemId: entry.itemId,
+            classification:
+              classification.classification,
+            subtype: classification.subtype ?? null,
+            detail: clone(blockerEntry)
+          })
+        );
+      }
+    }
+
+    buildingTypedPreflights.push({
+      artifactBuildingId: entry.artifactBuildingId,
+      gridDataPath,
+      destinationGridId:
+        Number.isSafeInteger(destinationGridId)
+          ? destinationGridId
+          : null,
+      classification: clone(classification),
+      routeResolved: routeReady,
+      boundsValidated: boundsReady,
+      floorMapBound: floorMapReady,
+      nativePlacementClass:
+        nativePlacementResult?.nativeClass ?? null,
+      ready: typedResult.ready === true,
+      blockers: clone(typedResult.blockers ?? []),
+      ddvWriteAuthorized: false,
+      persistentWriteAuthorized: false
+    });
   }
 
   const buildingRestorationPreflights: AnyRecord[] = [];
@@ -794,6 +1041,23 @@ export function preflightCurrentV125FullDesignManifest({
       buildingSkinPreflightReady &&
       playerHouseBindingPreflightReady);
 
+  const ordinaryBuildingPlacementReady =
+    buildingCategory?.requested !== true ||
+    (
+      buildingV110TypedPreflightReady &&
+      typedBuildingEntries.every(
+        (entry: AnyRecord) =>
+          entry?.classification?.classification ===
+          BUILDING_V110_CLASS.ORDINARY
+      )
+    );
+  const buildingSemanticClosureReady =
+    buildingCategory?.requested !== true ||
+    (
+      ordinaryBuildingPlacementReady &&
+      buildingRestorationPreflightReady
+    );
+
   let environmentPreflight: AnyRecord | null = null;
   const environmentCategory = normalized.categories.environment;
   if (environmentCategory?.requested === true) {
@@ -866,7 +1130,9 @@ export function preflightCurrentV125FullDesignManifest({
     roadPreflightReady,
     fencePreflightReady,
     nativePlacementContractBound: Boolean(placementBinding),
+    buildingV110ContractBound: Boolean(buildingBinding),
     ordinaryBuildingPlacementReady,
+    buildingV110TypedPreflightReady,
     buildingSemanticClosureReady,
     buildingSkinPreflightReady,
     playerHouseBindingPreflightReady,
@@ -892,11 +1158,20 @@ export function preflightCurrentV125FullDesignManifest({
       },
       buildingSemanticStatus: {
         closureReady: buildingSemanticClosureReady,
-        evidenceOwner: buildingSemanticClosureReady ? null : '01B_CORE_3',
+        contract:
+          buildingBinding?.contract ??
+          'ddv.building-read-model-preflight@1',
+        contractBound: Boolean(buildingBinding),
+        typedPreflightReady:
+          buildingV110TypedPreflightReady,
         blocker: buildingSemanticClosureReady
           ? null
-          : 'BUILDING_DESTINATION_SEMANTICS_UNRESOLVED'
+          : buildingBinding
+            ? 'BUILDING_V1_10_TYPED_PREFLIGHT_BLOCKED'
+            : 'WEP_BUILDING_V110_CONTRACT_NOT_BOUND'
       },
+      buildingTypedPreflights:
+        clone(buildingTypedPreflights),
       ordinaryBuildingPlacement: clone(ordinaryPlacement ?? null),
       buildingSkinPreflights: clone(buildingSkinPreflights),
       playerHouseBindingPreflights: clone(playerHouseBindingPreflights),
