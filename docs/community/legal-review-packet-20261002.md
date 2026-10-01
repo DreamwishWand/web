@@ -378,3 +378,24 @@ Legal review or an explicitly authorized owner/legal decision based on the inten
 
 If Legal requests a semantic Product/technical change, reopen only the affected contract and
 targeted regression. Do not rerun unrelated Community acceptance suites.
+
+
+## Linked DDV Profile Product decision — 2026-10-02
+
+Product has approved the following operational policy:
+
+- no more than three linked DDV Profiles per Wand Account;
+- no routine self-service unlink/rebind;
+- reviewed correction only with recent authentication, support/admin review, reason and audit trail;
+- no persistent raw save or raw verification evidence after successful verification;
+- ordinary binding-digest tombstone for **7 days**, not 90 days;
+- D4 moderation/security/legal hold is the only justified extension;
+- no use of Moonstones, receipts, Premium/DLC entitlement, online-auth tokens or platform
+  credentials as binding inputs.
+
+Legal review should now assess this fixed Product policy rather than choose a duration.
+
+The remaining technical/legal dependency is the actual DDV-profile-stable local identifier and
+verification transport. DDV Core has not yet confirmed such an identifier, so Community link
+implementation remains fail-closed. Whole-save/profile hashes are not acceptable identity
+substitutes because they are content-dependent.
