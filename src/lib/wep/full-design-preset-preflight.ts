@@ -100,11 +100,15 @@ export function preflightCurrentV125FullDesignManifest({
       routeResolutionReady: false,
       rootObjectRouteBindingReady: false,
       rootObjectPlacementPreflightReady: false,
+      ordinaryBuildingPlacementReady: false,
+      buildingSkinPreflightReady: false,
+      playerHouseBindingPreflightReady: false,
       buildingRestorationPreflightReady: false,
       environmentPreflightReady: false,
       issues: manifestIssuesAsDestinationIssues(validation.issues),
       categoryBlockers: [],
       destination: null,
+      ddvWriteAuthorized: false,
       persistentWriteAuthorized: false,
       applyReady: false,
       applyReason: 'FULL_DESIGN_MANIFEST_INVALID'
@@ -497,13 +501,42 @@ export function preflightCurrentV125FullDesignManifest({
         placementValidated,
         placementPolicyReady,
         placementBlocker,
+        ddvWriteAuthorized: false,
         persistentWriteAuthorized: false
       });
     });
   }
 
-  const buildingRestorationPreflights: AnyRecord[] = [];
   const buildingCategory = normalized.categories.buildings;
+  const ordinaryPlacement = buildingCategory?.ordinaryPlacement;
+  const ordinaryBuildingPlacementReady =
+    buildingCategory?.requested !== true ||
+    ordinaryPlacement?.destinationPlacementStatus === 'NOT_APPLICABLE';
+
+  if (
+    buildingCategory?.requested === true &&
+    !ordinaryBuildingPlacementReady
+  ) {
+    issues.push(
+      block(
+        'FULL_DESIGN_DESTINATION_ORDINARY_BUILDING_PLACEMENT_UNCLOSED',
+        '$.categories.buildings.ordinaryPlacement',
+        {
+          sourceRecognition: String(
+            ordinaryPlacement?.sourceRecognition ?? 'UNKNOWN'
+          ),
+          recognizedCount: Number(
+            ordinaryPlacement?.recognizedCount ?? 0
+          ),
+          destinationPlacementStatus: String(
+            ordinaryPlacement?.destinationPlacementStatus ?? 'UNKNOWN'
+          )
+        }
+      )
+    );
+  }
+
+  const buildingRestorationPreflights: AnyRecord[] = [];
   const buildingEntries =
     buildingCategory?.requested === true &&
     Array.isArray(buildingCategory?.restorationCapture?.entries)
@@ -539,7 +572,9 @@ export function preflightCurrentV125FullDesignManifest({
         directRootRoute: clone(entry.directRootRoute),
         itemId: entry.itemId,
         status: result.status,
-        result: clone(result)
+        result: clone(result),
+        ddvWriteAuthorized: false,
+        persistentWriteAuthorized: false
       });
       if (!['VALID', 'VALID_NOOP'].includes(String(result.status))) {
         issues.push(
@@ -571,13 +606,40 @@ export function preflightCurrentV125FullDesignManifest({
     }
   }
 
+  const buildingSkinPreflights =
+    buildingRestorationPreflights.filter(
+      (entry) => entry.kind === 'BUILDING_SKIN'
+    );
+  const playerHouseBindingPreflights =
+    buildingRestorationPreflights.filter(
+      (entry) => entry.kind === 'PLAYER_HOUSE'
+    );
+  const buildingSkinSourceEntries = buildingEntries.filter(
+    (entry: AnyRecord) => entry.kind === 'BUILDING_SKIN'
+  );
+  const playerHouseSourceEntries = buildingEntries.filter(
+    (entry: AnyRecord) => entry.kind === 'PLAYER_HOUSE'
+  );
+
+  const buildingSkinPreflightReady =
+    buildingCategory?.requested !== true ||
+    (buildingSkinPreflights.length ===
+      buildingSkinSourceEntries.length &&
+      buildingSkinPreflights.every((entry) =>
+        ['VALID', 'VALID_NOOP'].includes(String(entry.status))
+      ));
+  const playerHouseBindingPreflightReady =
+    buildingCategory?.requested !== true ||
+    (playerHouseBindingPreflights.length ===
+      playerHouseSourceEntries.length &&
+      playerHouseBindingPreflights.every((entry) =>
+        ['VALID', 'VALID_NOOP'].includes(String(entry.status))
+      ));
   const buildingRestorationPreflightReady =
     buildingCategory?.requested !== true ||
     (buildingUnresolved.length === 0 &&
-      buildingRestorationPreflights.length === buildingEntries.length &&
-      buildingRestorationPreflights.every((entry) =>
-        ['VALID', 'VALID_NOOP'].includes(String(entry.status))
-      ));
+      buildingSkinPreflightReady &&
+      playerHouseBindingPreflightReady);
 
   let environmentPreflight: AnyRecord | null = null;
   const environmentCategory = normalized.categories.environment;
@@ -630,6 +692,7 @@ export function preflightCurrentV125FullDesignManifest({
     routeResolutionReady &&
     rootObjectRouteBindingReady &&
     rootObjectPlacementPreflightReady &&
+    ordinaryBuildingPlacementReady &&
     buildingRestorationPreflightReady &&
     environmentPreflightReady &&
     issues.length === 0;
@@ -646,6 +709,9 @@ export function preflightCurrentV125FullDesignManifest({
     rootObjectRouteBindingReady,
     rootObjectPlacementPreflightReady,
     nativePlacementContractBound: Boolean(placementBinding),
+    ordinaryBuildingPlacementReady,
+    buildingSkinPreflightReady,
+    playerHouseBindingPreflightReady,
     buildingRestorationPreflightReady,
     environmentPreflightReady,
     issues,
@@ -658,11 +724,15 @@ export function preflightCurrentV125FullDesignManifest({
       semanticIdentity: clone(normalized.semanticIdentity),
       directRootResolutions: routeResolutions,
       rootObjectRouteBindings: clone(rootObjectRouteBindings),
+      ordinaryBuildingPlacement: clone(ordinaryPlacement ?? null),
+      buildingSkinPreflights: clone(buildingSkinPreflights),
+      playerHouseBindingPreflights: clone(playerHouseBindingPreflights),
       buildingRestorationPreflights: clone(buildingRestorationPreflights),
       environmentPreflight: environmentPreflight
         ? clone(environmentPreflight)
         : null
     },
+    ddvWriteAuthorized: false,
     persistentWriteAuthorized: false,
     applyReady: false,
     applyReason:
