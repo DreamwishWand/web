@@ -29,7 +29,10 @@
   } from '$lib/wep/world-browser-adapter';
   import { buildCurrentV125FullDesignCapturePlan } from '$lib/wep/full-design-preset-planning';
   import { preflightCurrentV125FullDesignManifest } from '$lib/wep/full-design-preset-preflight';
-  import { createSwitchV125RoadFenceReaderBinding } from '$lib/wep/roadfence-reader-adapter';
+  import {
+    createDraftAwareNetworkCaptureAdapter,
+    createSwitchV125RoadFenceReaderBinding
+  } from '$lib/wep/roadfence-reader-adapter';
   import { assessCurrentV125BrowserPlacementReadiness } from '$lib/wep/placement-readiness';
   import { explainWepBlocker } from '$lib/wep/blocker-messages';
   import {
@@ -87,6 +90,7 @@
   let floatingIslandPlan: any = null;
   let floatingIslandPlanError = '';
   let roadFenceReaderBinding: any = null;
+  let roadFenceSceneCaptureAdapter: any = null;
   let placementLegalityBinding: any = null;
   let includeRoads = false;
   let includeFences = false;
@@ -342,6 +346,10 @@
     if (index >= 0) networks[index] = cloneLocal(network);
     else networks.push(cloneLocal(network));
     container.networks = networks;
+    if (kind === 'fence') {
+      delete container.modeBoundaryTouches;
+      container.modeBoundaryTouchesInvalidated = true;
+    }
     container.persistentWriteAuthorized = false;
 
     const result = session.replaceNetworkDraft(
@@ -774,6 +782,8 @@
 
   function resetRoadFenceCapture() {
     roadFenceReaderBinding = null;
+    roadFenceSceneCaptureAdapter = null;
+    roadFenceRootDraft = null;
     includeRoads = false;
     includeFences = false;
     fencePostNetworks = [];
@@ -1287,6 +1297,17 @@
           profile: worldSource.profile,
           rootGridId: Number(rootGridId)
         });
+      roadFenceSceneCaptureAdapter =
+        createDraftAwareNetworkCaptureAdapter(
+          roadFenceReaderBinding.networkAdapter
+        );
+      roadFenceRootDraft =
+        roadFenceReaderBinding.captureRootDraft(normalized);
+      if (roadFenceRootDraft?.status === 'supported') {
+        normalized.networks = cloneLocal(
+          roadFenceRootDraft.networks
+        );
+      }
       includeRoads = false;
       includeFences = false;
       fencePostNetworks =
@@ -1544,7 +1565,10 @@
           title: presetTitle.trim(),
           includeRoads,
           includeFences,
-          networkAdapter: roadFenceReaderBinding?.networkAdapter ?? null
+          networkAdapter:
+            roadFenceSceneCaptureAdapter ??
+            roadFenceReaderBinding?.networkAdapter ??
+            null
         },
         validatePublishablePreset
       );
@@ -1593,7 +1617,10 @@
           selectionIds: selection,
           includeRoads,
           includeFences,
-          networkAdapter: roadFenceReaderBinding?.networkAdapter ?? null
+          networkAdapter:
+            roadFenceSceneCaptureAdapter ??
+            roadFenceReaderBinding?.networkAdapter ??
+            null
         },
         creatorProfileId,
         visibility,
