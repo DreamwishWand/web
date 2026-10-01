@@ -304,7 +304,15 @@ test('full-design manifest accepts validated partial portable composition and re
     plan.categories.rootObjects.blockers.length,
     0
   );
-  assert.equal(plan.publicationCandidateReady, true);
+  assert.equal(plan.publicationCandidateReady, false);
+  assert.equal(
+    plan.categoryReadinessMatrix.directGrids.sourceCaptureReady,
+    false
+  );
+  assert.equal(
+    plan.categoryReadinessMatrix.rootObjects.sourceCaptureReady,
+    true
+  );
   assert.equal(plan.publicationReady, false);
   assert.equal(plan.applyReady, false);
 });
