@@ -150,7 +150,7 @@ test('raw Switch save projects to read-only browser EditorDocument', async () =>
 });
 
 
-test('v1.6 explicit Village04 single-grid alias is resolved from authority v2', async () => {
+test('v1.7 explicit Village04 single-grid alias is resolved from authority v2', async () => {
   const aliasProfile = structuredClone(profile);
   aliasProfile.World.GridCollection.Grids = {
     '0': {
@@ -193,6 +193,52 @@ test('v1.6 explicit Village04 single-grid alias is resolved from authority v2', 
     status: 'AUTHORITATIVE_GRIDDATAPATH'
   });
   assert.equal(document.target.persistentWriteAuthorized, false);
+});
+
+test('v1.7 dimensions flow into reachable SubGrid portable child bounds through Core adapter', async () => {
+  const fixture = JSON.parse(
+    new TextDecoder().decode(
+      await repoFile(
+        './tests/fixtures/ddv-world/core-world-v125-observed-fixture.json'
+      )
+    )
+  );
+  const binding = await createSwitchWorldReadAdapter({
+    basePath: '',
+    fetchImpl: localFetch
+  });
+  const document = binding.adapter.loadAreaGrid(fixture.profile, {
+    villageIndex: 0,
+    areaId: 3,
+    rootGridId: 5,
+    source: {
+      gameVersion: '1.25.0',
+      platform: 'Nintendo Switch',
+      buildIdentity: '52BD625D9B4E0053',
+      profileSchemaVersion: 624
+    }
+  });
+
+  const bistro = document.objects.find(
+    (object) => object.itemId === 40003102
+  );
+  const ratatouille = document.objects.find(
+    (object) => object.itemId === 40000178
+  );
+
+  assert.equal(
+    bistro.portableState.codec,
+    'subgrid.serialized-local-child@1'
+  );
+  assert.equal(bistro.portableState.child.width, 6);
+  assert.equal(bistro.portableState.child.height, 6);
+  assert.equal(
+    ratatouille.portableState.codec,
+    'subgrid.itemdata-default-empty-child@1'
+  );
+  assert.equal(ratatouille.portableState.child.width, 2);
+  assert.equal(ratatouille.portableState.child.height, 2);
+  assert.equal(document.metadata.rootGridBounds.status, 'AUTHORITATIVE_GRIDDATAPATH');
 });
 
 test('unlisted GridDataPath remains bounds-unresolved rather than guessed', async () => {
