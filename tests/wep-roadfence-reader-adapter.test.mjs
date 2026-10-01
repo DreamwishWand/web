@@ -605,7 +605,7 @@ test('captured Fence without a portable representation model fails closed instea
     result.issues.some(
       (entry) =>
         entry.code ===
-        'FENCE_POST_LAYOUT_TOPOLOGY_CHANGED'
+        'WEP_FENCE_REPRESENTATION_LAYOUT_PRESET_NOT_BOUND'
     ),
     true
   );
@@ -649,7 +649,7 @@ test('Fence topology invalidation also blocks Scene capture until representation
     result.issues.some(
       (entry) =>
         entry.code ===
-        'WEP_FENCE_REPRESENTATION_LAYOUT_PRESET_NOT_BOUND'
+        'FENCE_POST_LAYOUT_TOPOLOGY_CHANGED'
     ),
     true
   );
