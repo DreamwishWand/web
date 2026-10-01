@@ -132,15 +132,34 @@ Account.
 UNLISTED means "not discoverable, but direct-link/direct-ID readable." The final UI, Terms and
 Privacy materials must say this plainly.
 
-### P4 — age/minors — **BLOCKER for final Privacy/Legal approval**
+### P4 — age/minors — **Product CLOSED / Privacy + Legal review pending**
 
-No canonical launch minimum age, minor-consent policy or age-assurance policy was found.
+Product has now fixed the launch eligibility boundary:
 
-This matters because Wand is an account-based UGC community around a game audience and includes
-profiles, images, comments, publishing and moderation.
+- minimum age for an **independent Wand Account: 13**;
+- independent registration by users under 13 is prohibited;
+- accountless local functionality remains available, including local save-file editing and local
+  Editor/read-only workflows;
+- a parent or guardian may associate/manage an under-13 user's DDV Profile through the parent's
+  Wand Account;
+- no separate under-13 Wand credentials are created;
+- the existing maximum-three Linked DDV Profiles per Wand Account still applies.
 
-External Legal must determine launch jurisdictions/audience and whether child/minor-specific rules
-apply. Privacy should not invent an age-verification implementation before that decision.
+Decision evidence:
+
+- `ops/community-age-minors-product-decision-20261002.json`
+- `docs/community/age-minors-product-decision-20261002.md`
+
+This closes the **Product** age-floor decision only. Privacy/Legal still must determine:
+
+1. the minimal age-gate/age-assurance data flow and whether full DOB collection is necessary;
+2. jurisdiction-specific parental notice/consent/verification requirements;
+3. the permitted scope and safeguards for under-13 Community participation through a
+   parent/guardian-managed account;
+4. minor-specific defaults/notices/safety controls for ages 13–17.
+
+Do not implement an age-verification vendor or complex parental-consent system merely from this
+Product decision.
 
 ### P5 — production processor binding — **BLOCKER for final Privacy approval**
 
