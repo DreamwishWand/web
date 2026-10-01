@@ -17,3 +17,6 @@ A PROMOTED baseline is immutable. A semantic change requires:
 The verifier intentionally protects the currently promoted v1.7/v1.8/v1.9 GridData contracts. It does not authorize persistent save writing.
 
 Changes to the protected registry without an explicit promotion marker fail CI.
+
+
+Initial registry establishment is an explicit promotion event: [PROMOTE] establishes the repository mirror for already-promoted DDVRE baselines; it does not promote new game semantics.
