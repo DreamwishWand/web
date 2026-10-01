@@ -105,7 +105,10 @@ test('Road cell delete stays a topology-only preview with writer disabled', () =
     coordinates: [{ x: 2, y: 0 }]
   });
   assert.equal(deleted.topologyChanged, true);
-  assert.equal(deleted.logicalQuantity, road.cells.length - 1);
+  assert.equal(
+    deleted.remainingLogicalQuantity,
+    road.cells.length - 1
+  );
   assert.equal(deleted.operationLayer, 'logicalTopology');
   assert.equal(deleted.persistentWriteAuthorized, false);
 });
