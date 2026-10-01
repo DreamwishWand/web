@@ -77,27 +77,25 @@
   "openDecisions": [
     {
       "id": "P1_LINKED_DDV_PROFILE_ORPHAN_MINIMIZATION",
-      "severity": "IMPLEMENTATION_DEPENDENCY_AFTER_PRODUCT_DECISION",
+      "severity": "IDENTIFIER_RESOLVED_TECHNICAL_CONTRACT_READY_PRIVACY_LEGAL_REVIEW_PENDING",
       "evidence": [
-        "Account deletion removes public.wand_account_ddv_profiles rows.",
-        "Account deletion does not delete or revoke the corresponding public.ddv_profiles row.",
-        "ddv_profiles retains binding_key_hash unless another process changes it.",
-        "No canonical definition was found for binding_key_hash derivation or verification_evidence_ref lifecycle.",
-        "Live staging function inventory found only community_tombstone_account and enforce_ddv_profile_limit referencing ddv_profiles; no link/verify/rebind routine was found.",
-        "Product approved Linked DDV Profile lifecycle with a 7-day post-unlink/account-deletion binding-digest tombstone.",
-        "Normal self-service unlink remains disabled; exceptional correction requires recent-auth support/admin review, reason and AuditEvent.",
-        "Raw save/raw verification evidence must not be persistently stored."
+        "GameInfo.LastCustomIdOwner is now the confirmed DDV Player ID/User ID identity source.",
+        "The same LastCustomIdOwner value is present in accepted Nintendo Switch and later fresh Steam/Windows v1.25 saves of the same cloud-linked DDV Profile.",
+        "Existing Converter/Wand backup naming uses mdc{GameInfo.LastCustomIdOwner}; mdc is representation only.",
+        "Raw Player ID will not be persisted or exposed publicly.",
+        "Technical transport contract stores only a versioned server-keyed digest in ddv_profiles.binding_key_hash.",
+        "verification_evidence_ref remains null by default.",
+        "Product-approved 7-day ordinary post-unlink/account-deletion digest tombstone remains authoritative."
       ],
       "requiredDecision": [
-        "Product lifecycle decision is CLOSED.",
-        "DDV Core must confirm a DDV-profile-stable local identifier before implementation.",
-        "Privacy/Legal must review the confirmed identifier's linkability and final verification transport before launch.",
-        "After identifier confirmation, implement a server-side keyed digest; do not persist raw identifier/evidence.",
-        "Expire ordinary binding tombstone after 7 days; only D4 hold may extend it while justified."
+        "Privacy/Legal review the confirmed Player ID linkability classification and the technical transport contract.",
+        "Confirm transient transport/logging minimization and server-keyed digest handling.",
+        "Confirm exceptional correction/right-to-correction behavior for launch jurisdictions.",
+        "After review, implement targeted link/verify lifecycle; do not reopen broad retention engineering."
       ],
-      "engineeringAction": "BLOCKED_ON_DDV_CORE_STABLE_IDENTIFIER_CONFIRMATION",
+      "engineeringAction": "READY_FOR_TARGETED_IMPLEMENTATION_AFTER_PRIVACY_LEGAL_REVIEW",
       "productDecision": "APPROVED_7_DAY_TOMBSTONE",
-      "decisionRecord": "ops/community-linked-ddv-profile-product-decision-20261002.json"
+      "decisionRecord": "ops/community-linked-ddv-profile-identity-transport-20261002.json"
     },
     {
       "id": "P2_LINKED_DDV_PROFILE_CORRECTION_UNLINK",
