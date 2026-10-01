@@ -2816,49 +2816,58 @@ test('Linked DDV Product lifecycle uses seven-day tombstone and remains fail-clo
 });
 
 
-test('Linked DDV Profile lifecycle keeps raw Player ID out of PostgreSQL and enforces the approved lifecycle', () => {
-  const migration = read(
+test('DDV Profile Workspace v1 supersedes exclusive Linked DDV Profile lifecycle without persisting raw mdc', () => {
+  const legacy = read(
     'supabase/migrations/20261001221620_community_linked_ddv_profile_lifecycle_v1.sql'
   );
+  const workspace = read(
+    'supabase/migrations/20261001232814_community_ddv_profile_workspace_v1.sql'
+  );
   const query = read('supabase/functions/community-query/index.ts');
-  const admin = read('supabase/functions/community-admin/index.ts');
-  const retention = read('supabase/functions/community-retention/index.ts');
+  const command = read('supabase/functions/community-command/index.ts');
   const generated = read('src/lib/generated/database.types.ts');
 
-  assert.match(migration, /relationship_kind in \('self','parent_guardian_managed'\)/i);
-  assert.match(migration, /linked_ddv_profile_recent_auth_seconds',900/i);
-  assert.match(migration, /ddv_profile_link',3600,12,true/i);
-  assert.match(migration, /\^hmac-sha256:v1:\[0-9a-f\]\{64\}\$/i);
-  assert.match(migration, /clock_timestamp\(\)\+interval '7 days'/i);
-  assert.match(migration, /community_account_has_retention_hold/i);
-  assert.match(migration, /community_admin_correct_ddv_profile_link_v1/i);
-  assert.match(migration, /verification_evidence_ref[\s\S]*null/i);
-  assert.doesNotMatch(migration, /LastCustomIdOwner|ProfileUID|raw.*player.*id/i);
+  // Historical migration is retained for rollback/audit, but it is no longer
+  // the user-facing Product contract.
+  assert.match(legacy, /community_link_ddv_profile_v1/i);
 
-  assert.match(query, /linkedDdvProfiles: 'community_get_linked_ddv_profiles'/);
-  assert.match(admin, /correctDdvProfileLink: 'community_admin_correct_ddv_profile_link_v1'/);
-  assert.match(retention, /community_purge_expired_ddv_binding_tombstones/);
+  assert.match(workspace, /create table public\.ddv_profile_workspaces/i);
+  assert.match(workspace, /create table private\.ddv_identity_associations/i);
+  assert.match(workspace, /unique \(account_id,binding_key_hash\)/i);
+  assert.doesNotMatch(workspace, /unique \(binding_key_hash\)/i);
+  assert.match(workspace, />= 5/);
+  assert.match(workspace, /community_create_ddv_profile_workspace_v1/i);
+  assert.match(workspace, /community_associate_ddv_identity_v1/i);
+  assert.match(workspace, /community_unlink_ddv_identity_v1/i);
+  assert.doesNotMatch(workspace, /LastCustomIdOwner|ProfileUID|raw.*player.*id/i);
 
-  assert.match(generated, /relationship_kind: string/i);
-  assert.match(generated, /community_link_ddv_profile_v1/);
-  assert.match(generated, /community_get_linked_ddv_profiles/);
-  assert.match(generated, /community_admin_correct_ddv_profile_link_v1/);
-  assert.match(generated, /community_purge_expired_ddv_binding_tombstones/);
+  assert.match(query, /ddvProfileWorkspaces: 'community_get_ddv_profile_workspaces_v1'/);
+  assert.doesNotMatch(query, /linkedDdvProfiles/);
+
+  assert.match(command, /createDdvProfileWorkspace: 'community_create_ddv_profile_workspace_v1'/);
+  assert.match(command, /associateDdvIdentity: 'community_associate_ddv_identity_v1'/);
+  assert.match(command, /unlinkDdvIdentity: 'community_unlink_ddv_identity_v1'/);
+  assert.doesNotMatch(command, /linkDdvProfile/);
+
+  assert.match(generated, /ddv_profile_workspaces:/);
+  assert.match(generated, /community_create_ddv_profile_workspace_v1/);
+  assert.match(generated, /community_get_ddv_profile_workspaces_v1/);
+  assert.match(generated, /community_associate_ddv_identity_v1/);
+  assert.match(generated, /community_unlink_ddv_identity_v1/);
 });
 
 
-test('DDV Player ID Edge candidate is disabled by default and never forwards the raw identifier to PostgreSQL', () => {
+test('DDV mdc Edge association HMACs locally and never forwards the raw identifier to PostgreSQL', () => {
   const command = read('supabase/functions/community-command/index.ts');
 
-  assert.match(command, /linkDdvProfile: 'community_link_ddv_profile_v1'/);
-  assert.match(command, /COMMUNITY_DDV_PROFILE_LINK_MODE/);
-  assert.match(command, /linkMode !== 'local-player-id'/);
   assert.match(command, /COMMUNITY_DDV_PROFILE_BINDING_KEY_V1/);
   assert.match(command, /crypto\.subtle\.importKey/);
   assert.match(command, /crypto\.subtle\.sign\('HMAC'/);
   assert.match(command, /dreamwishwand\/ddv-player-id\/v1\\\\0/);
   assert.match(command, /params\.p_binding_key_hash = bindingDigest/);
+  assert.match(command, /params\.p_workspace_id = payload\.workspaceId/);
   assert.doesNotMatch(command, /params\.[A-Za-z0-9_]*player[A-Za-z0-9_]*id\s*=\s*playerId/i);
   assert.doesNotMatch(command, /console\.(log|info|warn|error)\([^\n]*playerId/i);
-  assert.match(command, /DDV_PROFILE_LINK_DISABLED/);
+  assert.doesNotMatch(command, /COMMUNITY_DDV_PROFILE_LINK_MODE/);
 });
+
