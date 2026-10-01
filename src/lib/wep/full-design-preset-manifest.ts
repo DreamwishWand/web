@@ -1028,6 +1028,143 @@ function validateRoadFenceReaderCoverage(
   }
 }
 
+function validateBuildingCategorySeparation(
+  category: AnyRecord,
+  issues: FullDesignManifestIssue[]
+) {
+  if (category.requested !== true) return;
+  const path = '$.categories.buildings';
+
+  const ordinary = category.ordinaryPlacement;
+  if (!plain(ordinary)) {
+    issues.push(
+      block(
+        'FULL_DESIGN_BUILDING_ORDINARY_PLACEMENT_REQUIRED',
+        `${path}.ordinaryPlacement`
+      )
+    );
+  } else {
+    if (
+      !['COMPLETE', 'INCOMPLETE'].includes(
+        String(ordinary.sourceRecognition)
+      )
+    ) {
+      issues.push(
+        block(
+          'FULL_DESIGN_BUILDING_SOURCE_RECOGNITION_INVALID',
+          `${path}.ordinaryPlacement.sourceRecognition`
+        )
+      );
+    }
+    const recognizedCount = safeInteger(ordinary.recognizedCount);
+    const portableCount = safeInteger(
+      ordinary.portableCompositionCount
+    );
+    if (
+      recognizedCount === null ||
+      recognizedCount < 0 ||
+      portableCount === null ||
+      portableCount < 0 ||
+      portableCount > recognizedCount
+    ) {
+      issues.push(
+        block(
+          'FULL_DESIGN_BUILDING_ORDINARY_COUNTS_INVALID',
+          `${path}.ordinaryPlacement`
+        )
+      );
+    }
+    if (
+      !['NOT_APPLICABLE', 'UNRESOLVED', 'UNKNOWN'].includes(
+        String(ordinary.destinationPlacementStatus)
+      )
+    ) {
+      issues.push(
+        block(
+          'FULL_DESIGN_BUILDING_DESTINATION_PLACEMENT_STATUS_INVALID',
+          `${path}.ordinaryPlacement.destinationPlacementStatus`
+        )
+      );
+    }
+    const expectedReady =
+      ordinary.destinationPlacementStatus === 'NOT_APPLICABLE';
+    if (
+      ordinary.destinationPlacementReady !== expectedReady ||
+      ordinary.persistentWriteAuthorized !== false
+    ) {
+      issues.push(
+        block(
+          'FULL_DESIGN_BUILDING_ORDINARY_WRITE_BOUNDARY_INVALID',
+          `${path}.ordinaryPlacement`
+        )
+      );
+    }
+    if (
+      !Array.isArray(ordinary.entries) ||
+      !Array.isArray(ordinary.ordinaryHouseStateEntries) ||
+      !Array.isArray(ordinary.blockers)
+    ) {
+      issues.push(
+        block(
+          'FULL_DESIGN_BUILDING_ORDINARY_PLACEMENT_INVALID',
+          `${path}.ordinaryPlacement`
+        )
+      );
+    }
+  }
+
+  const skins = category.buildingSkins;
+  if (
+    !plain(skins) ||
+    skins.codec !== 'ddv.building-skin@1' ||
+    !Array.isArray(skins.entries) ||
+    typeof skins.nonzeroValidatorRequired !== 'boolean' ||
+    skins.persistentWriteAuthorized !== false
+  ) {
+    issues.push(
+      block(
+        'FULL_DESIGN_BUILDING_SKINS_INVALID',
+        `${path}.buildingSkins`
+      )
+    );
+  }
+
+  const houses = category.playerHouses;
+  if (
+    !plain(houses) ||
+    houses.codec !== 'ddv.player-house-binding@1' ||
+    houses.identityField !== 'houseItemId' ||
+    !Array.isArray(houses.entries) ||
+    typeof houses.destinationBinderRequired !== 'boolean' ||
+    !Array.isArray(houses.excludedPortableFields) ||
+    houses.persistentWriteAuthorized !== false
+  ) {
+    issues.push(
+      block(
+        'FULL_DESIGN_PLAYER_HOUSES_INVALID',
+        `${path}.playerHouses`
+      )
+    );
+  } else {
+    for (const forbidden of [
+      'PlayerHouseIndex',
+      'Built',
+      'UpgradeState',
+      'interiorGridIdentity'
+    ]) {
+      if (!houses.excludedPortableFields.includes(forbidden)) {
+        issues.push(
+          block(
+            'FULL_DESIGN_PLAYER_HOUSE_EXCLUSION_REQUIRED',
+            `${path}.playerHouses.excludedPortableFields`,
+            { field: forbidden }
+          )
+        );
+      }
+    }
+  }
+}
+
 function validateBuildingRestorationCapture(
   category: AnyRecord,
   directRootPaths: Set<string>,
@@ -1374,6 +1511,7 @@ function validateCategories(
           );
         }
       }
+      validateBuildingCategorySeparation(category, issues);
       validateBuildingRestorationCapture(category, directRootPaths, issues);
     }
 
