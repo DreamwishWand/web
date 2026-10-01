@@ -166,11 +166,11 @@ const MESSAGES: Record<
       'Start from an existing network of the same family or keep new topology creation blocked.'
   },
   WEP_FENCE_REPRESENTATION_LAYOUT_PRESET_NOT_BOUND: {
-    title: 'Fence post layout cannot be published yet',
+    title: 'Portable Fence post layout unresolved',
     message:
-      'This Fence representation layout was edited locally, but the current Scene Preset artifact does not yet carry the post-layout contract.',
+      'Wand could not bind exactly one Core-valid representation layout to the captured artifact-local Fence topology.',
     action:
-      'Keep the edit in the local World Editor draft or undo it before Scene capture.'
+      'Keep the capture fail-closed; restore a valid representation model or undo the topology change.'
   },
   FENCE_POST_SEMANTIC_ANCHOR_IMMUTABLE: {
     title: 'Semantic Fence anchor cannot move',
@@ -234,6 +234,34 @@ const MESSAGES: Record<
       'The logical reader is available, but authoritative full-root bounds are missing.',
     action:
       'Keep full-root Road/Fence capture blocked.'
+  },
+  FULL_DESIGN_DESTINATION_ROADFENCE_CAPTURE_MISSING: {
+    title: 'Road/Fence destination capture missing',
+    message:
+      'The full-design artifact does not contain the required portable Road/Fence network capture for destination preflight.',
+    action:
+      'Rebuild the source artifact from all required direct roots.'
+  },
+  FULL_DESIGN_DESTINATION_ROADFENCE_ROUTE_UNRESOLVED: {
+    title: 'Road/Fence destination route unresolved',
+    message:
+      'A portable Road/Fence capture could not be rebound to its destination-local direct Grid.',
+    action:
+      'Keep destination reuse blocked for this root.'
+  },
+  FULL_DESIGN_DESTINATION_ROADFENCE_BOUNDS_UNAVAILABLE: {
+    title: 'Road/Fence destination bounds unavailable',
+    message:
+      'Authoritative GridData bounds evidence is unavailable for the destination Road/Fence root.',
+    action:
+      'Keep Road/Fence destination reuse blocked until authoritative bounds are available.'
+  },
+  FULL_DESIGN_DESTINATION_ROADFENCE_TESSELLATION_MISMATCH: {
+    title: 'Road/Fence destination Grid mismatch',
+    message:
+      'The resolved destination Grid tessellation does not match the authoritative portable root contract.',
+    action:
+      'Do not reinterpret or rescale the Road/Fence artifact; keep the destination blocked.'
   },
   FULL_DESIGN_BUILDING_SOURCE_RECOGNITION_INCOMPLETE: {
     title: 'Building recognition incomplete',
