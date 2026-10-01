@@ -26,7 +26,7 @@ assert.ok(!query.includes('linkedDdvProfiles'));
 assert.ok(!query.includes('community_get_linked_ddv_profiles'));
 assert.ok(!command.includes('COMMUNITY_DDV_PROFILE_LINK_MODE'));
 assert.ok(command.includes('COMMUNITY_DDV_PROFILE_BINDING_KEY_V1'));
-assert.match(command, /dreamwishwand\\/ddv-player-id\\/v1\\\\\\\\0/);
+assert.ok(command.includes('dreamwishwand/ddv-player-id/v1\\\\0'));
 assert.ok(command.includes('DDV_PROFILE_WORKSPACE_LIMIT_REACHED'));
 assert.ok(command.includes('DDV_IDENTITY_ALREADY_ASSOCIATED_IN_ACCOUNT'));
 
