@@ -82,7 +82,7 @@ async function deriveDdvIdentityDigest(playerId: string): Promise<string> {
     false,
     ['sign']
   );
-  const input = textEncoder.encode(`dreamwishwand/ddv-player-id/v1\\0${playerId}`);
+  const input = textEncoder.encode(`dreamwishwand/ddv-player-id/v1\0${playerId}`);
   const signature = await crypto.subtle.sign('HMAC', key, input);
   return `hmac-sha256:v1:${bytesToHex(signature)}`;
 }
