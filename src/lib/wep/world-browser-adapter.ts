@@ -1,5 +1,10 @@
 import '../ddv/core/world/runtime-v125/adapter-v125.js';
 
+import {
+  GRIDDATA_DIMENSIONS_V125_RECORD_COUNT,
+  GRIDDATA_DIMENSIONS_V125_SHA256,
+  GRIDDATA_DIMENSIONS_V125_STATIC_PATH
+} from './griddata-v17-contract.ts';
 import type { OpenWorldSaveResult, WorldAreaRoute } from './world-save-source.ts';
 
 export const WORLD_ADAPTER_V16_SOURCE_SHA256 =
@@ -7,7 +12,7 @@ export const WORLD_ADAPTER_V16_SOURCE_SHA256 =
 export const WORLD_ROLE_AUTHORITY_V125_SHA256 =
   'f16fe61adb356b1e46c59ca053588cc1ed5f9ad187866db04905ede31c9184cc';
 export const WORLD_GRIDDATA_DIMENSIONS_V125_SHA256 =
-  '75f33dc20d521d579070aa7919a96c23ce5dd329dbc6f58392f267c9dd0b1aaa';
+  GRIDDATA_DIMENSIONS_V125_SHA256;
 export const WORLD_READ_SWITCH_V125_SHA256 =
   '53db127eb796c0d4b103695258700d18de69f5403d1067cd956396cd1b03ffa6';
 export const WORLD_READ_SWITCH_V125_BUILD_ID = '52BD625D9B4E0053';
@@ -188,7 +193,7 @@ export async function createSwitchWorldReadAdapter({
       sizeY: number;
       sourceSha256: string;
     }>>(
-      `${prefix}/ddv/core/world/v1.25/griddata-dimensions-v125.json`,
+      `${prefix}${GRIDDATA_DIMENSIONS_V125_STATIC_PATH}`,
       WORLD_GRIDDATA_DIMENSIONS_V125_SHA256,
       fetchImpl
     )
@@ -196,7 +201,10 @@ export async function createSwitchWorldReadAdapter({
 
   const data = normalizeReadData(readRaw);
   const roleAuthority = validateRoleAuthority(roleRaw);
-  if (Object.keys(gridDataDimensions).length !== 152) {
+  if (
+    Object.keys(gridDataDimensions).length !==
+    GRIDDATA_DIMENSIONS_V125_RECORD_COUNT
+  ) {
     throw new Error('WEP_WORLD_GRIDDATA_DIMENSIONS_CONTRACT_MISMATCH');
   }
   const api = coreApi();
