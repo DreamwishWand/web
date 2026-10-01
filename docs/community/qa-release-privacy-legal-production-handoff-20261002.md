@@ -215,3 +215,17 @@ Keep OPEN:
 - targeted Community link/verify implementation and acceptance;
 - Privacy/Legal review of identifier transport/linkability/correction;
 - all unrelated launch/production gates.
+
+
+## Linked DDV Profile lifecycle staging delta — 2026-10-02
+
+DB lifecycle is **CLOSED / STAGING RUNTIME PASS**. The feature-gated Edge candidate is deployed but
+default-disabled. Keep only the user-link assurance decision and final link E2E OPEN for this slice.
+
+Evidence:
+
+- `ops/community-linked-ddv-profile-lifecycle-runtime-20261002.json`
+- `docs/community/linked-ddv-profile-lifecycle-runtime-20261002.md`
+- migration `20261001221620_community_linked_ddv_profile_lifecycle_v1`
+
+Do not reopen the max-three cap, seven-day tombstone, D4 hold, correction, Auth or retention work.
