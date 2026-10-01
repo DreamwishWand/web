@@ -938,7 +938,7 @@ function validateRoadFenceNetworkCaptures(
                     'FENCE_REPRESENTATION_LAYOUT_INVALID'
                 ),
                 `${current}.network.networks[${fenceIndex}].representationLayout`,
-                clone(representationIssue)
+                structuredClone(representationIssue)
               )
             );
           }
