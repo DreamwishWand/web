@@ -190,7 +190,7 @@
     "approvalStateContract": "ops/community-retention-approval-state.json",
     "engineeringDecisionBoundary": "CLOSED",
     "approvals": {
-      "product": "PENDING",
+      "product": "APPROVED",
       "privacy": "PENDING",
       "legal": "PENDING"
     },
