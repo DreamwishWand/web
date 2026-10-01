@@ -492,13 +492,17 @@ test('Building category distinguishes absence, ordinary placement, skin and Play
     }
   );
   assert.equal(buildings.playerHouses.identityField, 'houseItemId');
+  assert.equal(
+    buildings.playerHouses.portableIdentityShape,
+    'houseItemId-only'
+  );
   assert.equal(buildings.playerHouses.destinationBinderRequired, true);
 
   const serialized = JSON.stringify(plan.manifest);
   assert.equal(serialized.includes('PlayerHouseIndex'), false);
   assert.equal(serialized.includes('UpgradeState'), false);
   assert.equal(serialized.includes('ShopData'), false);
-  assert.equal(serialized.includes('interiorGridIdentity'), true);
+  assert.equal(serialized.includes('interiorGridIdentity'), false);
   assert.equal(plan.publicationReady, false);
   assert.equal(plan.applyReady, false);
 });
@@ -646,8 +650,9 @@ test('destination preflight re-resolves portable direct roots to destination-loc
   assert.equal(preflight.routeResolutionReady, true);
   assert.equal(preflight.buildingRestorationPreflightReady, true);
   assert.equal(preflight.environmentPreflightReady, true);
-  assert.equal(preflight.destinationResolved, true);
-  assert.equal(preflight.destinationPreflightReady, true);
+  assert.equal(preflight.ordinaryBuildingPlacementReady, false);
+  assert.equal(preflight.destinationResolved, false);
+  assert.equal(preflight.destinationPreflightReady, false);
   assert.equal(preflight.categoryClosureReady, false);
   assert.equal(preflight.ok, false);
   assert.deepEqual(
