@@ -6,6 +6,8 @@ const manifestPath = path.join(root, 'ops/community-production-operations.json')
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 const retentionReviewPath = path.join(root, 'ops/community-retention-launch-review.json');
 const retentionReview = JSON.parse(fs.readFileSync(retentionReviewPath, 'utf8'));
+const authReviewPath = path.join(root, 'ops/community-auth-launch-review.json');
+const authReview = JSON.parse(fs.readFileSync(authReviewPath, 'utf8'));
 const migrationDir = path.join(root, 'supabase/migrations');
 
 const errors = [];
@@ -31,6 +33,14 @@ assert(retentionReview.schema === 'dreamwish-community-retention-launch-review@1
 assert(retentionReview.engineeringDefaults?.contentPayloadDays === 30, 'Retention review must record the current 30-day content default.');
 assert(retentionReview.engineeringDefaults?.operationalDetailDays === 365, 'Retention review must record the current 365-day operational default.');
 assert(retentionReview.engineeringDefaults?.contentPayloadDaysIsRecoveryWindow === false, '30-day content retention must not be mislabeled as an account recovery window.');
+assert(manifest.releaseGate?.requireAuthLaunchAcceptance === true, 'Final Auth acceptance must remain a production release gate.');
+assert(manifest.authLaunchReview?.contract === 'ops/community-auth-launch-review.json', 'Production manifest must reference the Auth launch review contract.');
+assert(authReview.schema === 'dreamwish-community-auth-launch-review@1', 'Unexpected Auth launch review schema.');
+assert(authReview.passwordPolicy?.providerBoundary?.status === 'CONFIRMED_RUNTIME', 'Provider 14/15 password boundary must remain runtime-confirmed.');
+assert(authReview.passwordPolicy?.providerBoundary?.password14Accepted === false, 'Provider must reject 14-character password fixture.');
+assert(authReview.passwordPolicy?.providerBoundary?.password15Accepted === true, 'Provider must accept 15-character password fixture.');
+assert(authReview.revocation?.status === 'CONFIRMED_RUNTIME', 'Provider + Wand revocation must remain runtime-confirmed.');
+assert(authReview.emailTrafficGeneratedByThisAcceptance === false, 'Auth boundary acceptance must not be mislabeled as synthetic email traffic.');
 
 const requiredEnvironmentConfig = new Set(manifest.production?.requiredEnvironmentConfig ?? []);
 for (const name of ['DREAMWISH_ENVIRONMENT', 'COMMUNITY_MEDIA_BUCKET']) {
@@ -126,6 +136,10 @@ if (process.argv.includes('--require-ready')) {
   assert(manifest.production?.launchReady === true, 'Production operations manifest is not launch-ready.');
   assert(manifest.privacyRetentionReview?.launchApproved === true, 'Production manifest retention approval is not complete.');
   assert(retentionReview.launchApproved === true, 'Retention launch review is not approved.');
+  assert(manifest.authLaunchReview?.launchApproved === true, 'Production manifest Auth launch approval is not complete.');
+  assert(authReview.launchApproved === true, 'Auth launch review is not approved.');
+  const pendingAuthItems = (authReview.remaining ?? []).filter((item) => item?.status !== 'CLOSED');
+  assert(pendingAuthItems.length === 0, `Auth launch items remain open: ${pendingAuthItems.map((item) => item.id).join(', ')}`);
   const pendingRetentionDecisions = (retentionReview.decisions ?? []).filter((decision) => decision?.status !== 'APPROVED');
   assert(pendingRetentionDecisions.length === 0, `Retention policy decisions remain unapproved: ${pendingRetentionDecisions.map((item) => item.id).join(', ')}`);
   const openBlockers = (manifest.crossStreamBlockers ?? []).filter(
