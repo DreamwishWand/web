@@ -19,6 +19,7 @@ import {
 import {
   captureAuthoritativeDirectRootBounds
 } from './griddata-v17-contract.ts';
+import type { EditorDocument } from './scene-capture-runtime.ts';
 import {
   FULL_DESIGN_CAPTURE_MANIFEST_SCHEMA,
   FULL_DESIGN_CAPTURE_MANIFEST_VERSION,
@@ -317,7 +318,7 @@ function captureFullRootRoadFenceNetworks(
   profile: AnyRecord,
   resolved: AnyRecord,
   rootEditorDocuments: AnyRecord[] | null,
-  directRootBounds: AnyRecord
+  directRootBounds: AnyRecord | null
 ) {
   if (
     !Array.isArray(rootEditorDocuments) ||
@@ -327,13 +328,13 @@ function captureFullRootRoadFenceNetworks(
     return null;
   }
 
-  const documents = new Map(
+  const documents = new Map<string, EditorDocument>(
     rootEditorDocuments.map((document: AnyRecord) => [
       String(document?.target?.gridDataPath ?? ''),
-      document
+      document as EditorDocument
     ])
   );
-  const bounds = new Map(
+  const bounds = new Map<string, AnyRecord>(
     (directRootBounds.entries ?? []).map((entry: AnyRecord) => [
       String(entry?.directRootRoute?.gridDataPath ?? ''),
       entry
