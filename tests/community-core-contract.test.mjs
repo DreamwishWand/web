@@ -1906,3 +1906,41 @@ test('staging operations observation aligns with production allow and deny polic
   assert.equal(observed.securityAdvisor.warns[0].name, production.security.knownAcceptedAdvisorWarning);
   assert.equal(observed.appliedMigrationHistory.authoritativeForProductionReplay, false);
 });
+
+
+test('Road-inclusive Scene acceptance preserves Community reuse and Apply boundary', () => {
+  const acceptance = JSON.parse(read('ops/community-wep-road-integration-acceptance-20261001.json'));
+  const staging = JSON.parse(read('ops/community-staging-operations-observed-20261001.json'));
+  const production = JSON.parse(read('ops/community-production-operations.json'));
+
+  assert.equal(acceptance.schema, 'dreamwish-community-wep-road-integration-acceptance@1');
+  assert.equal(acceptance.liveStaging.temporaryFunction.requestHttpStatus, 200);
+  assert.equal(acceptance.liveStaging.assertions.publicPresetPublication, true);
+  assert.equal(acceptance.liveStaging.assertions.publicDiscovery, true);
+  assert.equal(acceptance.liveStaging.assertions.librarySave, true);
+  assert.equal(acceptance.liveStaging.assertions.signedRead, true);
+  assert.equal(acceptance.liveStaging.assertions.checksumVerified, true);
+  assert.equal(acceptance.liveStaging.assertions.byteSizeVerified, true);
+  assert.equal(acceptance.liveStaging.assertions.roadEnvelopeRoundTrip, true);
+  assert.equal(acceptance.liveStaging.assertions.roadNetworkId, 'r0');
+  assert.equal(acceptance.liveStaging.assertions.persistentWriteAuthorized, false);
+  assert.equal(acceptance.classification.persistentApply, 'BLOCKED');
+  assert.equal(
+    acceptance.wep.delta.expectedApplyBlock,
+    'ROAD_TOPOLOGY_APPLY_UNAVAILABLE'
+  );
+  assert.equal(acceptance.wep.delta.writeReady, false);
+
+  const restored = staging.edgeFunctions.stagingOnly.find(
+    (item) => item.slug === 'wep-preset-flow-e2e'
+  );
+  assert.equal(restored.disabledStub, true);
+  assert.equal(restored.httpStatus, 410);
+  assert.equal(restored.verifyJwt, true);
+  assert.equal(restored.version, 6);
+
+  assert.equal(
+    production.integration.blockers.WEP_PRESET_ARTIFACT_BUCKET_EXTERNALIZATION,
+    'OPEN'
+  );
+});
