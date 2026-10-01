@@ -183,7 +183,7 @@ export function createSwitchV125RoadFenceReaderBinding({
   });
 
   function captureRootDraft(document: EditorDocument) {
-    const bounds = document?.metadata?.rootGridBounds;
+    const bounds = document?.metadata?.rootGridBounds as AnyRecord | null | undefined;
     if (
       !bounds ||
       bounds.status !== 'AUTHORITATIVE_GRIDDATAPATH' ||
