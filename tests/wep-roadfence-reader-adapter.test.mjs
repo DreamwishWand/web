@@ -185,3 +185,30 @@ test('binding refuses a Scene document for a different root Grid', () => {
     true
   );
 });
+
+test('WEP exposes the Integrator-promoted Fence representation-layout binding separately from Scene network capture', () => {
+  const binding = createSwitchV125RoadFenceReaderBinding({
+    profile: profile(),
+    rootGridId: 7
+  });
+  assert.equal(
+    binding.fenceRepresentationLayout.contract,
+    'ddv.fence-representation-layout@1'
+  );
+  assert.equal(
+    binding.fenceRepresentationLayout.promotionDocumentId,
+    '15ddjUrtZFYFi5KZpmzsrVBArLy0BjBHnmF9_iCbi104'
+  );
+  assert.equal(
+    binding.fenceRepresentationLayout.scope,
+    'read-model-preflight'
+  );
+  assert.equal(
+    binding.fenceRepresentationLayout.persistentWriteAuthorized,
+    false
+  );
+  assert.equal(
+    binding.fencePostEditor,
+    binding.fenceRepresentationLayout
+  );
+});
