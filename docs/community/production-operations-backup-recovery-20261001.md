@@ -375,3 +375,24 @@ For final integration / RC, run:
 `npm run verify:community-integrated-tree -- --require-ready`.
 
 That mode must pass before any production migration replay is attempted.
+
+
+## Production Preset bucket migration provisioning — OPEN
+
+The WEP Edge runtime bucket-selection contract is environment-aware and remains CLOSED.
+
+A separate migration-level issue is OPEN:
+
+`supabase/migrations/20260930124055_wep_preset_artifact_storage_v0.sql`
+still creates `wand-preset-artifacts-staging`.
+
+This migration must not be replayed unchanged into production.
+
+Production readiness requires WEP to separate the staging bucket bootstrap from production
+provisioning, while retaining the generic action-rate policy contained in the same migration.
+
+The integrated-tree verifier now fails a fully integrated tree if the WEP production migration still
+contains the staging bucket literal.
+
+This is a provisioning/replay gate only and does not reopen signed reads, publication, retention
+or Scene reuse runtime evidence.
