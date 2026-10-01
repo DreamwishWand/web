@@ -29,8 +29,9 @@ Primary blockers:
    `binding_key_hash` derivation and `verification_evidence_ref` lifecycle are not canonicalized.
 2. age/minors:
    launch age floor/consent/assurance policy is not yet selected.
-3. production processors:
-   actual Supabase plan and independent Storage recovery provider are not selected.
+3. production processor binding:
+   provider selection is CLOSED — Supabase Pro + Cloudflare R2 Standard — but actual
+   release-stage configuration/DPA/subprocessor/retention evidence is not yet bound.
 
 Additional review decisions include correction/unlink, UNLISTED disclosure, moderation free-text
 governance, media-key pseudonym acceptance and jurisdiction-specific data-rights workflows.
@@ -104,18 +105,22 @@ Execution protocol:
 - `ops/community-production-execution-checklist-20261002.json`
 - `docs/community/production-execution-runbook-20261002.md`
 
-## User decision gate
+## Production resource decision — CLOSED
 
-The next production step requires explicit owner decision before any resource is created:
+Owner-approved release direction:
 
-1. Supabase production plan:
-   - Pro: operationally preferred minimum, managed 7-day daily DB backups and leaked-password
-     protection;
-   - Free: $0 base but requires self-managed daily offsite DB backup and carries substantially higher
-     operations burden.
-2. independent private Storage recovery provider/mechanism.
+- Supabase **Pro**;
+- Cloudflare **R2 Standard** as independent private Storage recovery;
+- provisioning at the **release stage**;
+- PITR not required at launch.
 
-PITR is not required by the current <=24h RPO contract.
+Evidence:
+
+- `ops/community-production-resource-decision-20261002.json`
+- `docs/community/production-resource-decision-20261002.md`
+
+This closes only the provider/plan selection gate. Production project/bucket creation, backup/restore,
+provider binding, inventories, smoke and Security Advisor remain OPEN.
 
 ## Rerun prohibition
 
@@ -134,8 +139,8 @@ Do not rerun absent semantic change:
 
 04 QR should classify this event as:
 
-- **new evidence available** for Product approval, Privacy/Legal readiness and production
-  preparation;
+- **new evidence available** for Product approval, Privacy/Legal readiness, production
+  preparation and CLOSED production resource selection;
 - **not launch-ready**;
 - **no new Community runtime regression requirement**;
 - **Privacy/Legal and production gates remain open**.
