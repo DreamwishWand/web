@@ -212,3 +212,39 @@ test('WEP exposes the Integrator-promoted Fence representation-layout binding se
     binding.fenceRepresentationLayout
   );
 });
+
+
+test('full-root Road/Fence draft capture uses authoritative root bounds and remains writer-disabled', () => {
+  const binding = createSwitchV125RoadFenceReaderBinding({
+    profile: profile(),
+    rootGridId: 7
+  });
+  const source = document();
+  source.metadata.rootGridBounds = {
+    x: 0,
+    y: 0,
+    w: 100,
+    h: 100,
+    status: 'AUTHORITATIVE_GRIDDATAPATH'
+  };
+  const result = binding.captureRootDraft(source);
+  assert.equal(result.status, 'supported');
+  assert.equal(result.networks.roads.kind, 'roads');
+  assert.equal(result.networks.fences.kind, 'fences');
+  assert.equal(result.persistentWriteAuthorized, false);
+  assert.equal(
+    JSON.stringify(result.networks).includes('gridObjectId'),
+    false
+  );
+});
+
+test('full-root Road/Fence draft capture fails closed without authoritative bounds', () => {
+  const binding = createSwitchV125RoadFenceReaderBinding({
+    profile: profile(),
+    rootGridId: 7
+  });
+  const result = binding.captureRootDraft(document());
+  assert.equal(result.status, 'blocked');
+  assert.equal(result.code, 'WEP_ROADFENCE_ROOT_BOUNDS_REQUIRED');
+  assert.equal(result.persistentWriteAuthorized, false);
+});
