@@ -662,6 +662,108 @@ function validateRootObjectPortableComposition(
   }
 }
 
+function validateRoadFenceReaderCoverage(
+  category: AnyRecord,
+  directRootPaths: Set<string>,
+  categoryKey: 'roads' | 'fences',
+  issues: FullDesignManifestIssue[]
+) {
+  if (category.requested !== true || category.readerCoverage == null) return;
+  const path = `$.categories.${categoryKey}.readerCoverage`;
+  if (!Array.isArray(category.readerCoverage)) {
+    issues.push(block('FULL_DESIGN_ROADFENCE_READER_COVERAGE_INVALID', path));
+    return;
+  }
+
+  const seen = new Set<string>();
+  category.readerCoverage.forEach((entry: unknown, index: number) => {
+    const current = `${path}[${index}]`;
+    if (!plain(entry)) {
+      issues.push(
+        block('FULL_DESIGN_ROADFENCE_READER_COVERAGE_INVALID', current)
+      );
+      return;
+    }
+    const gridDataPath = validateDirectRootRouteObject(
+      entry.directRootRoute,
+      `${current}.directRootRoute`,
+      issues
+    );
+    if (gridDataPath) {
+      if (!directRootPaths.has(gridDataPath)) {
+        issues.push(
+          block(
+            'FULL_DESIGN_ROADFENCE_READER_ROUTE_OUTSIDE_LOCATION',
+            `${current}.directRootRoute.gridDataPath`
+          )
+        );
+      }
+      if (seen.has(gridDataPath)) {
+        issues.push(
+          block(
+            'FULL_DESIGN_ROADFENCE_READER_ROUTE_DUPLICATE',
+            `${current}.directRootRoute.gridDataPath`
+          )
+        );
+      }
+      seen.add(gridDataPath);
+    }
+
+    if (!['supported', 'blocked'].includes(String(entry.status))) {
+      issues.push(
+        block(
+          'FULL_DESIGN_ROADFENCE_READER_STATUS_INVALID',
+          `${current}.status`
+        )
+      );
+    }
+    for (const field of [
+      'roadNetworkCount',
+      'fenceNetworkCount',
+      'modeBoundaryTouchCount'
+    ]) {
+      const value = safeInteger(entry[field]);
+      if (value === null || value < 0) {
+        issues.push(
+          block(
+            'FULL_DESIGN_ROADFENCE_READER_COUNT_INVALID',
+            `${current}.${field}`
+          )
+        );
+      }
+    }
+    if (
+      !Array.isArray(entry.blockCodes) ||
+      entry.blockCodes.some((value: unknown) => !nonEmptyString(value))
+    ) {
+      issues.push(
+        block(
+          'FULL_DESIGN_ROADFENCE_READER_BLOCK_CODES_INVALID',
+          `${current}.blockCodes`
+        )
+      );
+    }
+    if (entry.persistentWriteAuthorized !== false) {
+      issues.push(
+        block(
+          'FULL_DESIGN_ROADFENCE_READER_WRITE_AUTHORIZATION_FORBIDDEN',
+          `${current}.persistentWriteAuthorized`
+        )
+      );
+    }
+  });
+
+  if (seen.size !== directRootPaths.size) {
+    issues.push(
+      block(
+        'FULL_DESIGN_ROADFENCE_READER_ROUTE_COVERAGE_MISMATCH',
+        path,
+        { expected: directRootPaths.size, actual: seen.size }
+      )
+    );
+  }
+}
+
 function validateBuildingRestorationCapture(
   category: AnyRecord,
   directRootPaths: Set<string>,
@@ -958,6 +1060,15 @@ function validateCategories(
       validateRootObjectPortableComposition(
         category,
         directRootPaths,
+        issues
+      );
+    }
+
+    if (key === 'roads' || key === 'fences') {
+      validateRoadFenceReaderCoverage(
+        category,
+        directRootPaths,
+        key,
         issues
       );
     }
