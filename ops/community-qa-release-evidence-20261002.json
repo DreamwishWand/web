@@ -233,7 +233,17 @@
       "evidence": [
         "ops/community-linked-ddv-profile-lifecycle-runtime-20261002.json"
       ],
-      "detail": "community-command v20 and community-query v10 are deployed and source-aligned. Live raw Player ID -> Edge HMAC -> association still requires an authenticated staging request with the HMAC secret available."
+      "detail": "DB digest path is runtime-tested. community-command v21 fixes printable-ASCII validation and NUL domain separation. Live raw Player ID -> Edge HMAC -> association E2E still requires staging COMMUNITY_DDV_PROFILE_BINDING_KEY_V1 configuration."
+    },
+    {
+      "id": "DDV_PROFILE_WORKSPACE_STAGING_UI",
+      "state": "READY_FOR_BROWSER_ACCEPTANCE",
+      "evidence": [
+        "src/routes/community-lab/profiles/+page.svelte",
+        "tests/community-ddv-profile-workspace-ui-v1.test.mjs",
+        "ops/community-linked-ddv-profile-lifecycle-runtime-20261002.json"
+      ],
+      "detail": "Staging-only source supports create/list/rename/archive/restore/optional Player ID/unlink/confirmed delete. Authenticated browser acceptance and branch build evidence remain pending."
     }
   ],
   "productionOnlyPending": [
