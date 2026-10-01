@@ -478,9 +478,23 @@ function buildingSourceEntries({
 }
 
 function rootCompositionWithoutBuildings(
-  composition: AnyRecord | null
+  composition: AnyRecord | null,
+  documents: AnyRecord[] | null
 ): AnyRecord | null {
   if (!composition) return null;
+  const buildingCountByPath = new Map<string, number>();
+  for (const document of documents ?? []) {
+    const path = String(
+      document?.target?.gridDataPath ?? ''
+    );
+    const count = (document?.objects ?? []).filter(
+      (entry: AnyRecord) =>
+        String(entry?.layer ?? '') === 'building'
+    ).length;
+    if (path && count > 0) {
+      buildingCountByPath.set(path, count);
+    }
+  }
   const unresolved = (composition.unresolved ?? []).filter(
     (entry: AnyRecord) =>
       String(entry?.layer ?? '') !== 'building'
@@ -496,13 +510,24 @@ function rootCompositionWithoutBuildings(
     );
   }
   const routeSummaries = (composition.routeSummaries ?? [])
-    .map((entry: AnyRecord) => ({
-      ...clone(entry),
-      unresolvedCount:
-        unresolvedByPath.get(
-          String(entry?.directRootRoute?.gridDataPath ?? '')
-        ) ?? 0
-    }));
+    .map((entry: AnyRecord) => {
+      const path = String(
+        entry?.directRootRoute?.gridDataPath ?? ''
+      );
+      const delegatedBuildingCount =
+        buildingCountByPath.get(path) ?? 0;
+      return {
+        ...clone(entry),
+        objectCount: Math.max(
+          0,
+          Number(entry?.objectCount ?? 0) -
+            delegatedBuildingCount
+        ),
+        unresolvedCount:
+          unresolvedByPath.get(path) ?? 0,
+        delegatedBuildingCount
+      };
+    });
   return {
     ...clone(composition),
     status:
@@ -752,7 +777,10 @@ export function buildCurrentV125FullDesignCapturePlan({
         })
       : null;
   const rootObjectCompositionForManifest =
-    rootCompositionWithoutBuildings(rootObjectComposition);
+    rootCompositionWithoutBuildings(
+      rootObjectComposition,
+      rootEditorDocuments
+    );
   const rootObjectCompositionReady =
     rootObjectCompositionForManifest?.status ===
       'CAPTURED_COMPLETE_FOR_BOUND_DOCUMENTS' &&
