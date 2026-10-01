@@ -8,6 +8,7 @@ import {
   hitTest,
   inspectSelection,
   projectObjects,
+  reconcileSelectionToProjection,
   screenToWorld,
   worldRectFromScreenDrag,
   worldToScreen,
@@ -195,6 +196,26 @@ test('hidden layer disappears from projection', () => {
       layerState: layers
     }).some((object) => object.layer === 'furniture'),
     false
+  );
+});
+
+test('selection reconciliation removes objects hidden by current projection', () => {
+  const document = normalizeEditorDocument(seed);
+  const layers = createLayerState({
+    capabilities: seed.capabilities
+  });
+  layers.furniture.visible = false;
+  const projected = projectObjects(document, {
+    layerState: layers,
+    query: 'tree'
+  });
+
+  assert.deepEqual(
+    reconcileSelectionToProjection(
+      ['table', 'tree', 'rock', 'tree'],
+      projected
+    ),
+    ['tree']
   );
 });
 
