@@ -1,6 +1,7 @@
 import { withSupabase } from 'npm:@supabase/server';
+import { resolveRuntimeWepPresetArtifactBucket } from '../_shared/wep-preset-artifact-bucket.ts';
 
-const BUCKET = 'wand-preset-artifacts-staging';
+const BUCKET = resolveRuntimeWepPresetArtifactBucket();
 
 function reply(body: unknown, status = 200) {
   return Response.json(body, { status, headers: { 'Cache-Control': 'private, no-store' } });
