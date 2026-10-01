@@ -364,6 +364,18 @@ export function projectObjects(
     );
 }
 
+export function reconcileSelectionToProjection(
+  selectedIds: string[],
+  projectedObjects: Array<{ editorId: string }>
+): string[] {
+  const visibleIds = new Set(
+    (projectedObjects ?? []).map((object) => String(object.editorId))
+  );
+  return [...new Set((selectedIds ?? []).map(String))].filter((id) =>
+    visibleIds.has(id)
+  );
+}
+
 export function inspectSelection(
   documentInput: EditorDocument,
   selectedIds: string[]
