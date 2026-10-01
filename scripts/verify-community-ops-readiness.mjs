@@ -43,7 +43,7 @@ assert(authReview.revocation?.status === 'CONFIRMED_RUNTIME', 'Provider + Wand r
 assert(authReview.emailTrafficGeneratedByThisAcceptance === false, 'Auth boundary acceptance must not be mislabeled as synthetic email traffic.');
 
 const requiredEnvironmentConfig = new Set(manifest.production?.requiredEnvironmentConfig ?? []);
-for (const name of ['DREAMWISH_ENVIRONMENT', 'COMMUNITY_MEDIA_BUCKET']) {
+for (const name of ['DREAMWISH_ENVIRONMENT', 'COMMUNITY_MEDIA_BUCKET', 'WEP_PRESET_ARTIFACT_BUCKET']) {
   assert(requiredEnvironmentConfig.has(name), `Missing required production environment config: ${name}`);
 }
 
