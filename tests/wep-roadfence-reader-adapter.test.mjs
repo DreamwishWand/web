@@ -435,3 +435,55 @@ test('tessellation x2 root draft preserves logical adjacency and delegates save 
     false
   );
 });
+
+
+test('edited Fence representation layout blocks Scene capture instead of being silently discarded', () => {
+  const binding = createSwitchV125RoadFenceReaderBinding({
+    profile: profile(),
+    rootGridId: 7
+  });
+  const source = document();
+  source.networks.fences = {
+    schema: 'dreamwish-wand-wep-roadfence-logical-root-draft',
+    version: 1,
+    kind: 'fences',
+    originPolicy: 'native-logical-root',
+    coordinatePolicy: 'per-network-reader-coordinate-space',
+    networks: [],
+    representationLayouts: {
+      'fence:40700246:orthogonal:0': {
+        schema: 'ddv.fence-representation-layout@1',
+        persistentWriteAuthorized: false
+      }
+    },
+    representationLayoutModified: {
+      'fence:40700246:orthogonal:0': true
+    },
+    persistentWriteAuthorized: false
+  };
+
+  const result = captureScenePreset(
+    source,
+    {
+      selectionIds: ['g7:o101'],
+      captureRegion: { x: 10, y: 10, w: 2, h: 2 },
+      includeFences: true,
+      networkAdapter: createDraftAwareNetworkCaptureAdapter(
+        binding.networkAdapter
+      )
+    },
+    validatePublishablePreset
+  );
+
+  assert.equal(result.captureReady, false);
+  assert.equal(result.publicationReady, false);
+  assert.equal(
+    result.issues.some(
+      (entry) =>
+        entry.code ===
+        'WEP_FENCE_REPRESENTATION_LAYOUT_PRESET_NOT_BOUND'
+    ),
+    true
+  );
+  assert.equal(result.artifact.networks.fences, null);
+});
