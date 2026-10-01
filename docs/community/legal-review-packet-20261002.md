@@ -156,9 +156,14 @@ It must not claim all physical copies disappear immediately.
 
 ### Providers / transfers
 
-The final policy must identify the actual launch providers and material provider facts. At minimum,
-current intended providers include Supabase and Resend; the independent Storage recovery provider
-is not yet selected.
+The owner-approved launch provider direction is now:
+
+- **Supabase Pro** for the production backend/database/Auth/Storage services used by Wand;
+- **Cloudflare R2 Standard** for the independent private Storage recovery copy;
+- **Resend** for the currently approved transactional/operator email boundary.
+
+Supabase Pro and Cloudflare R2 Standard are to be provisioned at the release stage. No production
+Supabase project or R2 recovery bucket exists yet.
 
 Before final Legal/Privacy approval, bind:
 
@@ -343,8 +348,9 @@ The current D6 design says:
 - restored sessions are revalidated;
 - promotion fails closed if reconciliation is incomplete.
 
-Legal/Privacy must approve the actual provider-specific retention/transfer terms once providers are
-selected.
+Provider selection is closed: Supabase Pro + Cloudflare R2 Standard. Legal/Privacy must still approve
+the actual provider-specific configuration, DPA/subprocessor/transfer, retention and deletion terms
+before production exposure.
 
 ## 16. External Legal decisions required before LEGAL APPROVED
 
