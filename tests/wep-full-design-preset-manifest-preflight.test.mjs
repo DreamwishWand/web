@@ -71,6 +71,106 @@ function makeBiomeManifest(profile = makeProfile()) {
   }).manifest;
 }
 
+function v17PlacementDocument(
+  gridDataPath,
+  rootGridId,
+  { layer = 'furniture', includeObject = true } = {}
+) {
+  const object = {
+    editorId: `g${rootGridId}:o1`,
+    itemId: 40000178,
+    layer,
+    x: 0,
+    y: 0,
+    orientation: 0,
+    footprint: [
+      { x: 0, y: 0 },
+      { x: 0, y: 1 },
+      { x: 1, y: 0 },
+      { x: 1, y: 1 }
+    ],
+    portableState: null,
+    dependencyIds: [],
+    editability: 'editable',
+    metadata: {
+      geometryStatus: 'RESOLVED'
+    }
+  };
+
+  return {
+    schema: 'dreamwish-wand-wep-editor-document',
+    version: 1,
+    target: {
+      gameVersion: '1.25.0',
+      platform: 'Nintendo Switch',
+      profileSchemaVersion: 624,
+      rootGridId,
+      gridDataPath,
+      tessellationFactor: 1,
+      persistentWriteAuthorized: false
+    },
+    objects: includeObject ? [object] : [],
+    networks: { roads: null, fences: null },
+    capabilities: {
+      worldPersistentWrite: 'unsupported'
+    },
+    metadata: {
+      rootGridBounds: {
+        x: 0,
+        y: 0,
+        w: 40,
+        h: 30,
+        status: 'AUTHORITATIVE_GRIDDATAPATH'
+      },
+      browserBinding: {
+        gridDataDimensionsBound: true,
+        gridDataDimensionsSha256:
+          '75f33dc20d521d579070aa7919a96c23ce5dd329dbc6f58392f267c9dd0b1aaa'
+      }
+    }
+  };
+}
+
+function makePlacementManifest(layer = 'furniture') {
+  const profile = makeProfile();
+  return buildCurrentV125FullDesignCapturePlan({
+    profile,
+    rootGridId: 10,
+    sourcePlatform: 'switch',
+    rootEditorDocuments: [
+      v17PlacementDocument(
+        'GridData/Test/Biome-A.json',
+        10,
+        { layer }
+      ),
+      v17PlacementDocument(
+        'GridData/Test/Biome-B.json',
+        11,
+        { includeObject: false }
+      )
+    ]
+  }).manifest;
+}
+
+function placementBinding(nativeClass, reasonCodes = []) {
+  return {
+    contract: 'dreamwish-wand-wep-v125-placement-binding@1',
+    persistentWriteAuthorized: false,
+    classify() {
+      return {
+        schema: 'ddv.native-placement-legality@1',
+        nativeClass,
+        reasonCodes,
+        nativeConflictFlagsResolved:
+          nativeClass !== 'NATIVE_UNKNOWN_UNVERIFIED',
+        clearabilityResolved:
+          nativeClass !== 'NATIVE_UNKNOWN_UNVERIFIED',
+        persistentWriteAuthorized: false
+      };
+    }
+  };
+}
+
 function addRestorationObjects(profile) {
   const rootId = profile.World.Villages[0].Areas['7'].GridIDs[0];
   profile.World.PlayerHouses = [{ HouseItemID: 20500005 }];
@@ -468,4 +568,133 @@ test('invalid manifest is rejected before destination resolution is attempted', 
   assert.equal(preflight.destination, null);
   assert.equal(preflight.applyReason, 'FULL_DESIGN_MANIFEST_INVALID');
   assert.equal(preflight.persistentWriteAuthorized, false);
+});
+
+
+test('v1.9 VALID_CLEAR passes only the native placement gate and never enables Apply', () => {
+  const preflight = preflightCurrentV125FullDesignManifest({
+    destinationProfile: makeProfile(),
+    destinationPlatform: 'switch',
+    manifest: makePlacementManifest(),
+    placementBinding: placementBinding('NATIVE_VALID_CLEAR')
+  });
+
+  assert.equal(preflight.nativePlacementContractBound, true);
+  assert.equal(preflight.rootObjectPlacementPreflightReady, true);
+  const entry = preflight.destination.rootObjectRouteBindings[0];
+  assert.equal(entry.nativePlacementClass, 'NATIVE_VALID_CLEAR');
+  assert.equal(entry.placementValidated, true);
+  assert.equal(entry.placementPolicyReady, true);
+  assert.equal(entry.placementBlocker, null);
+  assert.equal(entry.persistentWriteAuthorized, false);
+  assert.equal(preflight.applyReady, false);
+  assert.equal(preflight.persistentWriteAuthorized, false);
+});
+
+test('v1.9 replacement/removal-valid result stays a separate blocked policy gate', () => {
+  const preflight = preflightCurrentV125FullDesignManifest({
+    destinationProfile: makeProfile(),
+    destinationPlatform: 'switch',
+    manifest: makePlacementManifest(),
+    placementBinding: placementBinding(
+      'NATIVE_VALID_REPLACES_OR_REMOVES_EXISTING',
+      ['GRID_OBJECT_COLLISION_CLEARABLE']
+    )
+  });
+
+  const entry = preflight.destination.rootObjectRouteBindings[0];
+  assert.equal(
+    entry.nativePlacementClass,
+    'NATIVE_VALID_REPLACES_OR_REMOVES_EXISTING'
+  );
+  assert.equal(entry.placementValidated, true);
+  assert.equal(entry.placementPolicyReady, false);
+  assert.equal(
+    entry.placementBlocker,
+    'NATIVE_REPLACEMENT_OR_REMOVAL_POLICY_REQUIRED'
+  );
+  assert.equal(preflight.rootObjectPlacementPreflightReady, false);
+  assert.equal(
+    preflight.issues.some(
+      (issue) =>
+        issue.code ===
+        'FULL_DESIGN_DESTINATION_NATIVE_REPLACEMENT_POLICY_REQUIRED'
+    ),
+    true
+  );
+  assert.equal(preflight.applyReady, false);
+});
+
+test('v1.9 INVALID and UNKNOWN_UNVERIFIED remain distinct fail-closed outcomes', () => {
+  for (const [nativeClass, expectedIssue] of [
+    [
+      'NATIVE_INVALID',
+      'FULL_DESIGN_DESTINATION_NATIVE_PLACEMENT_INVALID'
+    ],
+    [
+      'NATIVE_UNKNOWN_UNVERIFIED',
+      'FULL_DESIGN_DESTINATION_NATIVE_PLACEMENT_UNVERIFIED'
+    ]
+  ]) {
+    const preflight = preflightCurrentV125FullDesignManifest({
+      destinationProfile: makeProfile(),
+      destinationPlatform: 'switch',
+      manifest: makePlacementManifest(),
+      placementBinding: placementBinding(nativeClass)
+    });
+
+    const entry = preflight.destination.rootObjectRouteBindings[0];
+    assert.equal(entry.nativePlacementClass, nativeClass);
+    assert.equal(entry.placementValidated, false);
+    assert.equal(preflight.rootObjectPlacementPreflightReady, false);
+    assert.equal(
+      preflight.issues.some((issue) => issue.code === expectedIssue),
+      true
+    );
+    assert.equal(preflight.applyReady, false);
+    assert.equal(preflight.persistentWriteAuthorized, false);
+  }
+});
+
+test('unsupported root-object category fails closed before v1.9 classifier invocation', () => {
+  let classifyCalls = 0;
+  const binding = {
+    contract: 'dreamwish-wand-wep-v125-placement-binding@1',
+    persistentWriteAuthorized: false,
+    classify() {
+      classifyCalls += 1;
+      return {
+        schema: 'ddv.native-placement-legality@1',
+        nativeClass: 'NATIVE_VALID_CLEAR',
+        reasonCodes: [],
+        nativeConflictFlagsResolved: true,
+        clearabilityResolved: true,
+        persistentWriteAuthorized: false
+      };
+    }
+  };
+
+  const preflight = preflightCurrentV125FullDesignManifest({
+    destinationProfile: makeProfile(),
+    destinationPlatform: 'switch',
+    manifest: makePlacementManifest('landscaping'),
+    placementBinding: binding
+  });
+
+  assert.equal(classifyCalls, 0);
+  assert.equal(preflight.rootObjectPlacementPreflightReady, false);
+  const entry = preflight.destination.rootObjectRouteBindings[0];
+  assert.equal(
+    entry.placementBlocker,
+    'NATIVE_PLACEMENT_CATEGORY_UNSUPPORTED'
+  );
+  assert.equal(
+    preflight.issues.some(
+      (issue) =>
+        issue.code ===
+        'FULL_DESIGN_DESTINATION_NATIVE_PLACEMENT_CATEGORY_UNSUPPORTED'
+    ),
+    true
+  );
+  assert.equal(preflight.applyReady, false);
 });
