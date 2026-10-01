@@ -113,7 +113,7 @@ test('contained Scene Road capture uses Core portable network envelope and strip
     document(),
     {
       selectionIds: ['g7:o101'],
-      captureRegion: { x: 10, y: 10, w: 8, h: 4 },
+      captureRegion: { x: 10, y: 10, w: 2, h: 2 },
       includeRoads: true,
       networkAdapter: binding.networkAdapter
     },
@@ -146,7 +146,7 @@ test('Core TOPOLOGY_CLIPPED_UNSUPPORTED is propagated unchanged by Scene capture
     document(),
     {
       selectionIds: ['g7:o101'],
-      captureRegion: { x: 10, y: 10, w: 2, h: 2 },
+      captureRegion: { x: 10, y: 10, w: 1, h: 1 },
       includeRoads: true,
       networkAdapter: binding.networkAdapter
     },
