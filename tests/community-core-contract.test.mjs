@@ -2067,3 +2067,62 @@ test('final integrated production-tree guard preserves Community replay fixes', 
     'node scripts/verify-community-integrated-production-tree.mjs'
   );
 });
+
+
+test('production release evidence index keeps closed and pending gates explicit', () => {
+  const release = JSON.parse(
+    read('ops/community-production-release-evidence.json')
+  );
+  const operations = JSON.parse(read('ops/community-production-operations.json'));
+  const verifier = read('scripts/verify-community-ops-readiness.mjs');
+
+  assert.equal(
+    release.schema,
+    'dreamwish-community-production-release-evidence@1'
+  );
+  assert.equal(
+    release.productionEvidenceMustComeFromDistinctProductionEnvironment,
+    true
+  );
+  assert.equal(release.stagingProjectRef, operations.staging.projectRef);
+  assert.equal(release.productionProjectRef, null);
+  assert.equal(release.launchReady, false);
+
+  const byId = new Map(release.gates.map((gate) => [gate.id, gate]));
+  for (const id of [
+    'COMMUNITY_PRIMARY_BROWSER_CLOSURE',
+    'PRESET_SCENE_REUSE_VERTICAL',
+    'PRESET_ARTIFACT_RETENTION_E2E',
+    'WEP_PRESET_ARTIFACT_BUCKET_EXTERNALIZATION',
+    'AUTH_PROVIDER_14_15_BOUNDARY',
+    'AUTH_PROVIDER_WAND_REVOCATION'
+  ]) {
+    assert.equal(byId.get(id)?.satisfied, true, id);
+    assert.ok((byId.get(id)?.evidence ?? []).length > 0, id);
+  }
+
+  for (const id of [
+    'AUTH_SIGNED_IN_REAUTH_MAILBOX',
+    'RETENTION_PRODUCT_PRIVACY_LEGAL_APPROVAL',
+    'DISTINCT_PRODUCTION_SUPABASE_PROJECT',
+    'FINAL_INTEGRATED_SOURCE_TREE',
+    'FINAL_INTEGRATED_MIGRATION_REPLAY',
+    'DATABASE_RESTORE_DRILL',
+    'STORAGE_RESTORE_DRILL',
+    'CONTROLLED_SECRET_ROTATION',
+    'PRODUCTION_FUNCTION_INVENTORY',
+    'PRODUCTION_CRON_VAULT_INVENTORY',
+    'PRODUCTION_SMOKE',
+    'PRODUCTION_SECURITY_ADVISOR',
+    'TRANSACTIONAL_EMAIL_HUMAN_MAILBOX_PLACEMENT'
+  ]) {
+    assert.equal(byId.get(id)?.satisfied, false, id);
+  }
+
+  assert.equal(
+    operations.releaseEvidence.contract,
+    'ops/community-production-release-evidence.json'
+  );
+  assert.match(verifier, /Production release evidence index is not launch-ready/);
+  assert.match(verifier, /Production release evidence gates remain unsatisfied/);
+});
