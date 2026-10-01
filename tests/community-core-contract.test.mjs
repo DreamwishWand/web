@@ -2584,19 +2584,19 @@ test('Privacy review remains pending while review readiness is explicit', () => 
   const byId = new Map(privacy.openDecisions.map((item) => [item.id, item]));
   assert.equal(
     byId.get('P1_LINKED_DDV_PROFILE_ORPHAN_MINIMIZATION')?.severity,
-    'IMPLEMENTATION_DEPENDENCY_AFTER_PRODUCT_DECISION'
+    'DB_AND_EDGE_WORKSPACE_LIFECYCLE_STAGING_PASS__PRIVACY_LEGAL_REVIEW_PENDING'
   );
   assert.equal(
     byId.get('P1_LINKED_DDV_PROFILE_ORPHAN_MINIMIZATION')?.productDecision,
-    'APPROVED_7_DAY_TOMBSTONE'
+    'APPROVED_OPTIONAL_NONEXCLUSIVE_PROFILE_WORKSPACE_ASSOCIATION'
   );
   assert.equal(
     byId.get('P1_LINKED_DDV_PROFILE_ORPHAN_MINIMIZATION')?.engineeringAction,
-    'BLOCKED_ON_DDV_CORE_STABLE_IDENTIFIER_CONFIRMATION'
+    'STAGING_WORKSPACE_LIFECYCLE_CLOSED__LIVE_IDENTITY_EDGE_E2E_PENDING_SECRET__PRIVACY_LEGAL_REVIEW_PENDING'
   );
   assert.equal(
     byId.get('P4_AGE_AND_MINORS')?.severity,
-    'BLOCKER_FOR_FINAL_PRIVACY_LEGAL_APPROVAL'
+    'PRODUCT_DECISION_CLOSED_PRIVACY_LEGAL_REVIEW_PENDING'
   );
   assert.equal(
     byId.get('P5_PRODUCTION_PROCESSOR_BINDING')?.severity,
@@ -2765,53 +2765,61 @@ test('Privacy provider selection is closed but launch binding remains pending', 
 });
 
 
-test('Linked DDV Product lifecycle uses seven-day tombstone and remains fail-closed on identifier', () => {
+test('DDV Profile Workspace Product lifecycle is max-five, optional-identity and self-service', () => {
   const decision = JSON.parse(read('ops/community-linked-ddv-profile-product-decision-20261002.json'));
   const privacy = JSON.parse(read('ops/community-privacy-review-readiness-20261002.json'));
   const release = JSON.parse(read('ops/community-production-release-evidence.json'));
   const qr = JSON.parse(read('ops/community-qa-release-evidence-20261002.json'));
 
   assert.equal(decision.productApproved, true);
-  assert.equal(decision.maxLinkedProfilesPerWandAccount, 3);
-  assert.equal(decision.normalSelfServiceUnlink, false);
-  assert.equal(decision.exceptionalCorrection.allowed, true);
-  assert.equal(decision.exceptionalCorrection.oldProfileCooldownDays, 7);
-  assert.equal(decision.accountDeletion.bindingDigestTombstoneDays, 7);
-  assert.equal(decision.accountDeletion.relinkAfterTombstoneExpiryAllowed, true);
-  assert.equal(decision.verification.rawSavePersistentStorage, false);
-  assert.equal(decision.verification.rawEvidencePersistentStorage, false);
-  assert.equal(
-    decision.verification.stableLocalProfileIdentifier.status,
-    'UNRESOLVED_FAIL_CLOSED'
-  );
-  assert.equal(decision.bindingDigest.rawIdentifierStored, false);
-  assert.equal(
-    decision.engineeringBoundary.linkedProfileLifecycleImplementationAuthorizedOnlyAfterStableIdentifierConfirmation,
-    true
-  );
+  assert.equal(decision.profileWorkspace.maxPerWandAccount, 5);
+  assert.equal(decision.profileWorkspace.capacityScope, 'ACTIVE_AND_ARCHIVED_COMBINED');
+  assert.equal(decision.profileWorkspace.archiveFreesSlot, false);
+  assert.equal(decision.profileWorkspace.deletionFreesSlot, true);
+  assert.equal(decision.profileWorkspace.playerIdRequired, false);
+  assert.equal(decision.profileWorkspace.selfServiceDelete, true);
+  assert.equal(decision.identityAssociation.optional, true);
+  assert.equal(decision.identityAssociation.normalSelfServiceUnlink, true);
+  assert.equal(decision.identityAssociation.unlinkDeletesWorkspace, false);
+  assert.equal(decision.identityAssociation.sameAccountDuplicateAssociationAllowed, false);
+  assert.equal(decision.identityAssociation.crossAccountSameIdentityAssociationAllowed, true);
+  assert.equal(decision.identityAssociation.rawIdentifierStored, false);
+  assert.equal(decision.workspaceDeletion.independentAccountCreatorDataSurvives, true);
+  assert.equal(decision.legacyExclusiveBindingModel.status, 'SUPERSEDED');
 
   const p1 = privacy.openDecisions.find(
     (item) => item.id === 'P1_LINKED_DDV_PROFILE_ORPHAN_MINIMIZATION'
   );
-  assert.equal(p1.productDecision, 'APPROVED_7_DAY_TOMBSTONE');
+  assert.equal(
+    p1.productDecision,
+    'APPROVED_OPTIONAL_NONEXCLUSIVE_PROFILE_WORKSPACE_ASSOCIATION'
+  );
   assert.equal(
     p1.engineeringAction,
-    'BLOCKED_ON_DDV_CORE_STABLE_IDENTIFIER_CONFIRMATION'
+    'STAGING_WORKSPACE_LIFECYCLE_CLOSED__LIVE_IDENTITY_EDGE_E2E_PENDING_SECRET__PRIVACY_LEGAL_REVIEW_PENDING'
   );
 
   assert.equal(
-    release.currentObservations.linkedDdvProfileLifecycle.tombstoneDays,
-    7
+    release.currentObservations.linkedDdvProfileLifecycle.maxRetainedWorkspaces,
+    5
   );
   assert.equal(
-    release.currentObservations.linkedDdvProfileLifecycle.stableLocalProfileIdentifier,
-    'UNRESOLVED_FAIL_CLOSED'
+    release.currentObservations.linkedDdvProfileLifecycle.normalSelfServiceUnlink,
+    true
+  );
+  assert.equal(
+    release.currentObservations.linkedDdvProfileLifecycle.liveRawPlayerIdEdgeE2E,
+    'PENDING_STAGING_HMAC_SECRET_CONFIGURATION'
   );
 
   const closed = new Map(qr.closed.map((item) => [item.id, item]));
   assert.equal(
-    closed.get('LINKED_DDV_PROFILE_PRODUCT_LIFECYCLE')?.state,
-    'CLOSED_PRODUCT_APPROVED_IMPLEMENTATION_DEPENDENCY_OPEN'
+    closed.get('DDV_PROFILE_WORKSPACE_PRODUCT_LIFECYCLE')?.state,
+    'CLOSED_PRODUCT_APPROVED'
+  );
+  assert.equal(
+    closed.get('DDV_PROFILE_WORKSPACE_DB_LIFECYCLE')?.state,
+    'CLOSED_STAGING_RUNTIME_PASS'
   );
 });
 
