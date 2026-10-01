@@ -31,6 +31,8 @@ jobs:
           fi
       - name: Type and component checks
         run: npm run check
+      - name: Canonical baseline integrity
+        run: npm run verify:canonical
       - name: Starter tests
         run: npm test
       - name: Build static site
