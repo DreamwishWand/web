@@ -2595,6 +2595,12 @@
                     / {fullDesignPlan.directRootRoutes.length}
                   </strong>
                   <strong>
+                    Road / Fence model preflight
+                    {fullDesignDestinationPreflight.roadFenceModelPreflightReady
+                      ? `PASS · ${fullDesignDestinationPreflight.destination?.roadFencePreflight?.bindings?.length ?? 0} root-category bindings · writer OFF`
+                      : 'BLOCKED'}
+                  </strong>
+                  <strong>
                     Building semantic closure
                     {fullDesignDestinationPreflight.buildingSemanticClosureReady
                       ? 'PASS / N/A'
@@ -2673,7 +2679,9 @@
             <small>
               native placementは CLEAR / REPLACES_OR_REMOVES_EXISTING / INVALID /
               UNKNOWN_UNVERIFIED を別Gateで保持します。UNKNOWNはVALIDへ昇格しません。
-              このpreflightが成功してもApplyは有効にならず、persistent commit authorizationは別Gateです。
+              Road/Fenceはdestination root・bounds/tessellation・portable model整合までをpreflightし、
+              persistence serializer / inventory cost / commit authorizationとは分離します。
+              このpreflightが成功してもApplyは有効になりません。
             </small>
           </div>
         {:else}
