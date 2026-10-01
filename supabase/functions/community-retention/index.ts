@@ -4,7 +4,7 @@ type RetentionJob = {
   retentionJobId: string;
   deletionEventId: string;
   accountId: string;
-  stage: 'content_payload' | 'operational_detail' | 'elevated_operational_detail';
+  stage: 'content_payload' | 'operational_detail';
   attempts: number;
   mediaStorageKeys: string[];
   artifactBlobCount: number;

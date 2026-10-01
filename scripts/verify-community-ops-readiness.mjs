@@ -35,8 +35,7 @@ assert(manifest.releaseGate?.requireRetentionPolicyApproval === true, 'Retention
 assert(manifest.privacyRetentionReview?.contract === 'ops/community-retention-launch-review.json', 'Production manifest must reference the retention review contract.');
 assert(retentionReview.schema === 'dreamwish-community-retention-launch-review@1', 'Unexpected retention review schema.');
 assert(retentionReview.engineeringDefaults?.contentPayloadDays === 7, 'Retention review must record the current 7-day content default.');
-assert(retentionReview.engineeringDefaults?.routineOperationalDetailDays === 90, 'Retention review must record the current 90-day routine operational default.');
-assert(retentionReview.engineeringDefaults?.elevatedOperationalDetailDaysMaximum === 365, 'Retention review must record the current 365-day elevated operational maximum.');
+assert(retentionReview.engineeringDefaults?.operationalDetailDays === 90, 'Retention review must record the current 90-day operational default.');
 assert(retentionReview.engineeringDefaults?.contentPayloadDaysIsRecoveryWindow === false, '7-day content retention must not be mislabeled as an account recovery window.');
 assert(retentionApproval.schema === 'dreamwish-community-retention-approval-state@1', 'Unexpected retention approval state schema.');
 assert(retentionApproval.engineering?.decisionBoundaryStatus === 'CLOSED', 'Retention engineering decision boundary must remain closed.');

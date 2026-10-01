@@ -1,6 +1,6 @@
 {
   "schema": "dreamwish-community-production-release-evidence@1",
-  "updatedAt": "2026-10-01T20:55:00+09:00",
+  "updatedAt": "2026-10-01T21:25:00+09:00",
   "scope": "Community Core production launch",
   "productionEvidenceMustComeFromDistinctProductionEnvironment": true,
   "stagingProjectRef": "ptpdoxhrqopvczpclcij",
@@ -123,9 +123,11 @@
       "evidence": [
         "ops/community-retention-launch-review.json",
         "ops/community-retention-approval-state.json",
-        "docs/community/retention-final-approval-packet-20261001.md"
+        "docs/community/retention-final-approval-packet-20261001.md",
+        "supabase/migrations/20261001122209_community_retention_operational_90d_single_stage.sql",
+        "ops/community-retention-policy-proposal.json"
       ],
-      "detail": "Runtime plumbing and engineering decision boundary are closed. No retention plumbing rerun is required before policy approval unless semantics change."
+      "detail": "Retention engineering is closed on 7-day content purge + single 90-day operational scrub. The temporary 365-day elevated tier is removed; D4 moderation/security/legal holds are the only exception path."
     },
     {
       "id": "RETENTION_PRODUCT_PRIVACY_LEGAL_APPROVAL",
@@ -140,7 +142,7 @@
         "ops/community-retention-policy-proposal.json",
         "docs/community/retention-policy-proposal-20261001.md"
       ],
-      "pendingReason": "Engineering and a concrete D1-D8 launch policy proposal are complete, but Product/Privacy/Legal approvals remain explicitly PENDING. D6 must also bind the actual production backup/storage mechanism when the production environment is selected.",
+      "pendingReason": "Engineering is complete for the current 7-day content / 90-day operational / D4 hold policy, but Product/Privacy/Legal approvals remain explicitly PENDING. D6 must still bind the actual production backup/storage mechanism when production is selected.",
       "classification": "approval_pending"
     },
     {
@@ -373,8 +375,10 @@
       "legal": "PENDING",
       "valuesProposed": {
         "contentPayloadDays": 7,
-        "operationalDetailDays": 365
+        "operationalDetailDays": 90
       },
+      "d4ExceptionPath": "moderation_security_legal_hold_only",
+      "elevatedFixedDurationTierPresent": false,
       "noApprovalInferred": true,
       "providerFactsReviewedAt": "2026-10-01"
     },
@@ -386,6 +390,14 @@
       "earliestDue": "2026-10-07T22:48:06.919934Z",
       "latestDue": "2026-10-08T01:17:59.375249Z",
       "recoveryWindow": false
+    },
+    "retentionOperational90d": {
+      "status": "CONFIRMED_STAGING",
+      "migration": "20261001122209_community_retention_operational_90d_single_stage.sql",
+      "elevatedPolicyRows": 0,
+      "elevatedJobs": 0,
+      "elevatedColumns": 0,
+      "operationalDetailDays": 90
     }
   }
 }

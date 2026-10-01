@@ -742,8 +742,8 @@
         <h2>Account retention</h2>
         <p class="ops-note">
           Current engineering defaults are immediate tombstone, content-payload purge after 7 days,
-          routine operational-detail scrub after 90 days, and elevated moderation/security/legal
-          operational-detail scrub after up to 365 days. These durations are
+          and operational-detail scrub after 90 days. Moderation, security, or legal necessity is
+          handled through explicit retention holds rather than a second fixed-duration tier. These durations are
           configuration-driven and remain subject to launch privacy/legal review. Open moderation,
           active reports, unresolved provider cleanup and explicit holds delay purge.
         </p>

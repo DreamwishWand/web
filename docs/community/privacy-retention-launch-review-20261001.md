@@ -48,9 +48,9 @@ does not currently establish a 7-day self-service recovery entitlement and does 
 promised account-recovery or undo window. Product must not describe it as one unless a
 separate recovery contract is deliberately approved and implemented.
 
-### Operational-detail stage — current engineering default: 365 days
+### Operational-detail stage — current engineering default: 90 days
 
-At 365 days after account deletion, after content payload purge and when no hold applies:
+At 90 days after account deletion, after content payload purge and when no hold applies:
 
 - notification actor linkage is cleared;
 - closed/rejected Report free-text detail is removed and deleted-account reporter linkage may be
@@ -61,7 +61,7 @@ At 365 days after account deletion, after content payload purge and when no hold
 - completed provider-cleanup jobs are removed;
 - AccountDeletionEvent records operational-detail scrub completion and reaches the purged state.
 
-**Important interpretation:** 365 days does not mean all account content remains available for one
+**Important interpretation:** 90 days does not mean all account content remains available for one
 year. Public access is removed immediately and content payload is scheduled for purge within 7 days.
 The later stage concerns restricted operational detail.
 
@@ -160,7 +160,7 @@ Current engineering default: **7 days**.
 ### D2 — operational-detail duration
 
 Decision:
-- approve 365 days after account deletion; or
+- approve 90 days after account deletion; or
 - choose another duration/category matrix.
 
 Questions for approval:
@@ -168,7 +168,7 @@ Questions for approval:
 - does each category need the full duration?
 - should a shorter duration apply when no report/moderation/security event exists?
 
-Current engineering default: **365 days**.
+Current engineering default: **90 days**.
 
 ### D3 — user-facing deletion promise
 
@@ -342,3 +342,23 @@ This does not change the user-facing deletion semantics:
 
 Staging migration: `20261001115028_community_retention_content_purge_7d.sql`.
 Existing pending content jobs were rescheduled safely; none became immediately due.
+
+
+## D2 superseding single-stage policy — 2026-10-01
+
+The prior 90-day routine / 365-day elevated implementation has been removed.
+
+Current engineering state is **one 90-day operational-detail scrub stage**. Moderation, security,
+or legal necessity is handled through the existing D4 retention-hold mechanism instead of a second
+fixed-duration tier.
+
+This means:
+
+- ordinary operational detail is not kept for a year by default;
+- active permitted holds prevent the 90-day job from being claimed;
+- once the hold or active moderation condition no longer applies, an overdue job is eligible for
+  scrub;
+- released hold reasons are themselves minimized during the operational scrub.
+
+Staging confirms the 365-day policy row, elevated jobs and elevated deletion-event columns are all
+absent. Product/Privacy/Legal approval remains PENDING.

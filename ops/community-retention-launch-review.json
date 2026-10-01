@@ -10,8 +10,7 @@
   },
   "engineeringDefaults": {
     "contentPayloadDays": 7,
-    "routineOperationalDetailDays": 90,
-    "elevatedOperationalDetailDaysMaximum": 365,
+    "operationalDetailDays": 90,
     "contentPayloadDaysIsRecoveryWindow": false,
     "durationsConfigurationDriven": true
   },
@@ -49,7 +48,7 @@
     {
       "id": "D2_OPERATIONAL_DETAIL_DURATION",
       "status": "PENDING_APPROVAL",
-      "currentDefault": 365,
+      "currentDefault": 90,
       "engineeringStatus": "CLOSED",
       "requiredApprovals": [
         "product",
@@ -149,11 +148,12 @@
   ],
   "launchApproved": false,
   "engineeringClosure": {
-    "implementation": "CONFIRMED",
-    "runtimeEvidence": "CONFIRMED",
+    "implementation": "CONFIRMED_STAGING",
+    "runtimeEvidence": "CONFIRMED_EXISTING_RETENTION_E2E_PLUS_CURRENT_STAGING_SCHEMA_FUNCTIONS",
     "decisionBoundary": "CLOSED",
     "plumbingReimplementationRequired": false,
-    "plumbingRerunRequiredBeforeApproval": false
+    "plumbingRerunRequiredBeforeApproval": false,
+    "status": "CLOSED"
   },
   "approvalStateContract": "ops/community-retention-approval-state.json",
   "approvals": {
@@ -164,7 +164,7 @@
   "approvalMatrixRule": "A decision is approved only when every required approval in approvalStatus is APPROVED. Engineering closure does not imply policy approval.",
   "policyProposal": {
     "contract": "ops/community-retention-policy-proposal.json",
-    "status": "POLICY_ALIGNMENT_IMPLEMENTED_TARGETED_REGRESSION_PENDING",
+    "status": "READY_FOR_EXPLICIT_APPROVAL",
     "notAnApproval": true,
     "reviewedProviderFactsAt": "2026-10-01"
   }

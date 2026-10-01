@@ -1,17 +1,16 @@
 {
   "schema": "dreamwish-community-retention-policy-proposal@1",
   "generatedAt": "2026-10-01",
-  "status": "POLICY_ALIGNMENT_IMPLEMENTED_TARGETED_REGRESSION_PENDING",
+  "status": "READY_FOR_EXPLICIT_APPROVAL",
   "notAnApproval": true,
   "purpose": "Convert the already-closed retention engineering contract into concrete launch policy choices without inferring Product, Privacy, or Legal approval.",
   "engineeringBoundary": {
-    "implementation": "POLICY_ALIGNMENT_IMPLEMENTED_STAGING",
-    "runtimeEvidence": "TARGETED_D2_REGRESSION_PENDING",
-    "plumbingRerunRequiredBeforeApproval": true,
+    "implementation": "CLOSED_STAGING",
+    "runtimeEvidence": "CONFIRMED_EXISTING_RETENTION_E2E_PLUS_CURRENT_STAGING_SCHEMA_FUNCTIONS",
+    "plumbingRerunRequiredBeforeApproval": false,
     "contentPayloadDaysDefault": 7,
-    "routineOperationalDetailDaysDefault": 90,
-    "elevatedOperationalDetailDaysMaximum": 365,
-    "note": "D1/D3 retain the original account+content deletion semantics. Only D2 changed: routine operational detail is scrubbed at 90 days; moderation/security/legal-elevated detail may remain to 365 days."
+    "operationalDetailDaysDefault": 90,
+    "note": "Current launch policy is one operational-retention stage: 90 days. Moderation/security/legal exceptions use D4 retention holds instead of a separate 365-day tier."
   },
   "decisions": [
     {
@@ -24,11 +23,10 @@
     },
     {
       "id": "D2_OPERATIONAL_DETAIL_DURATION",
-      "proposal": "90_DAYS_ROUTINE_365_DAYS_ELEVATED",
-      "productMeaning": "Routine operational detail is minimized at 90 days. Moderation/security/legal-elevated records may retain necessary detail until the 365-day elevated scrub, subject to active retention holds. The 365-day window is not applied to ordinary operational data by default.",
-      "implementationChangeRequired": "IMPLEMENTED_STAGING_TARGETED_REGRESSION_PENDING",
-      "routineDays": 90,
-      "elevatedDaysMaximum": 365
+      "proposal": "90_DAYS_SINGLE_STAGE_WITH_D4_HOLDS",
+      "productMeaning": "Operational detail is scrubbed at 90 days. If moderation, security, or legal necessity still exists, the D4 hold prevents the job from being claimed; once the hold no longer applies, overdue scrub becomes eligible without a separate fixed 365-day tier.",
+      "implementationChangeRequired": false,
+      "valueDays": 90
     },
     {
       "id": "D3_USER_FACING_DELETION_PROMISE",
@@ -39,7 +37,7 @@
     {
       "id": "D4_RETENTION_HOLD_POLICY",
       "proposal": "ADMIN_ONLY_MODERATION_SECURITY_LEGAL_HOLDS",
-      "productMeaning": "Only moderation, security, or legal holds are permitted. Hold create/release requires recent-auth admin authority, a recorded reason, and audit history. Expiry should be set when a determinate end exists; otherwise explicit admin release is required.",
+      "productMeaning": "Only moderation, security, or legal holds are permitted. Hold create/release requires recent-auth admin authority, a recorded reason, and audit history. A hold may extend retention beyond 90 days only while the documented necessity remains; expiry should be set when a determinate end exists, otherwise explicit admin release is required.",
       "implementationChangeRequired": false,
       "currentRuntimeEnforcement": {
         "allowedTypes": [
@@ -85,7 +83,7 @@
     {
       "id": "D8_POLICY_DISCLOSURE_AND_ACCEPTANCE",
       "proposal": "DISCLOSE_EACH_DELETION_STAGE_AND_EXTERNAL_COPY_BOUNDARY",
-      "productMeaning": "Launch privacy/account-deletion copy must explain, in plain language by data category, immediate account/work removal, 7-day payload purge, 90-day routine operational scrub, possible 365-day moderation/security/legal elevated retention, permitted holds, minimized structural records, backup copies, and provider-controlled copies/logs.",
+      "productMeaning": "Launch privacy/account-deletion copy must explain, in plain language by data category, immediate account/work removal, 7-day payload purge, 90-day operational scrub, permitted moderation/security/legal holds, minimized structural records, backup copies, and provider-controlled copies/logs.",
       "implementationChangeRequired": "USER_FACING_COPY_REQUIRED_BEFORE_PUBLIC_LAUNCH"
     }
   ],
@@ -124,5 +122,5 @@
     "legal": "PENDING_EXPLICIT_APPROVAL",
     "launchApproved": false
   },
-  "nextAction": "Complete the remaining targeted D2 runtime evidence and obtain explicit Product/Privacy/Legal approvals. D1 is implemented in staging at 7 days; this is not a recovery window."
+  "nextAction": "Obtain explicit Product/Privacy/Legal approvals or requested changes. Current engineering defaults are 7-day content purge and 90-day operational scrub, with D4 holds for necessary exceptions."
 }

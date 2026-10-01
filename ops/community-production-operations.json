@@ -161,8 +161,8 @@
     "technicalState": "CONFIRMED",
     "launchApproved": false,
     "engineeringDefaults": {
-      "contentPayloadDays": 30,
-      "operationalDetailDays": 365
+      "contentPayloadDays": 7,
+      "operationalDetailDays": 90
     },
     "approvalRequired": true,
     "approvalStateContract": "ops/community-retention-approval-state.json",
@@ -173,7 +173,9 @@
       "legal": "PENDING"
     },
     "contentPayloadDays": 7,
-    "contentPayloadDaysIsRecoveryWindow": false
+    "contentPayloadDaysIsRecoveryWindow": false,
+    "operationalDetailDays": 90,
+    "exceptionPolicy": "D4_MODERATION_SECURITY_LEGAL_HOLD"
   },
   "authLaunchReview": {
     "contract": "ops/community-auth-launch-review.json",

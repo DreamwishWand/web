@@ -6,11 +6,11 @@
     "runtimeEvidenceStatus": "CONFIRMED",
     "decisionBoundaryStatus": "CLOSED",
     "contentPayloadDaysDefault": 7,
-    "operationalDetailDaysDefault": 365,
+    "operationalDetailDaysDefault": 90,
     "defaultsAreLegalConclusion": false,
     "plumbingReimplementationRequired": false,
     "plumbingRerunRequiredBeforeApproval": false,
-    "note": "Engineering has closed the implementation/evidence question. Launch remains blocked only on approvals and production-copy/provider policy."
+    "note": "Engineering is closed on a single 90-day operational scrub. Moderation/security/legal exceptions use D4 holds rather than a second fixed-duration tier."
   },
   "approvals": {
     "product": {

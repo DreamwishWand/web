@@ -1128,9 +1128,8 @@ test('Community admin and Ops expose retention review controls with recent-auth 
   assert.match(page, /Add retention hold/);
   assert.match(page, /Release retention hold/);
   assert.match(page, /content-payload purge after 7 days/);
-  assert.match(page, /routine operational-detail scrub after 90 days/);
-  assert.match(page, /elevated moderation\/security\/legal/);
-  assert.match(page, /up to 365 days/);
+  assert.match(page, /operational-detail scrub after 90 days/);
+  assert.match(page, /explicit retention holds rather than a second fixed-duration tier/);
 });
 
 test('generated schema exposes retention service and admin RPCs without private queues', () => {
@@ -1877,8 +1876,7 @@ test('Community retention launch review separates technical facts from policy ap
 
   assert.equal(review.schema, 'dreamwish-community-retention-launch-review@1');
   assert.equal(review.engineeringDefaults.contentPayloadDays, 7);
-  assert.equal(review.engineeringDefaults.routineOperationalDetailDays, 90);
-  assert.equal(review.engineeringDefaults.elevatedOperationalDetailDaysMaximum, 365);
+  assert.equal(review.engineeringDefaults.operationalDetailDays, 90);
   assert.equal(review.engineeringDefaults.contentPayloadDaysIsRecoveryWindow, false);
   assert.equal(review.launchApproved, false);
   assert.equal(review.decisions.length, 8);
@@ -2323,17 +2321,15 @@ test('retention launch policy proposal is concrete but never self-approves', () 
   const release = JSON.parse(read('ops/community-production-release-evidence.json'));
 
   assert.equal(proposal.schema, 'dreamwish-community-retention-policy-proposal@1');
-  assert.equal(proposal.status, 'POLICY_ALIGNMENT_IMPLEMENTED_TARGETED_REGRESSION_PENDING');
+  assert.equal(proposal.status, 'READY_FOR_EXPLICIT_APPROVAL');
   assert.equal(proposal.notAnApproval, true);
   assert.equal(proposal.engineeringBoundary.contentPayloadDaysDefault, 7);
-  assert.equal(proposal.engineeringBoundary.routineOperationalDetailDaysDefault, 90);
-  assert.equal(proposal.engineeringBoundary.elevatedOperationalDetailDaysMaximum, 365);
+  assert.equal(proposal.engineeringBoundary.operationalDetailDaysDefault, 90);
 
   const byId = new Map(proposal.decisions.map((item) => [item.id, item]));
   assert.equal(byId.get('D1_CONTENT_PAYLOAD_DURATION').valueDays, 7);
   assert.equal(byId.get('D1_CONTENT_PAYLOAD_DURATION').isRecoveryWindow, false);
-  assert.equal(byId.get('D2_OPERATIONAL_DETAIL_DURATION').routineDays, 90);
-  assert.equal(byId.get('D2_OPERATIONAL_DETAIL_DURATION').elevatedDaysMaximum, 365);
+  assert.equal(byId.get('D2_OPERATIONAL_DETAIL_DURATION').valueDays, 90);
   assert.equal(
     byId.get('D3_USER_FACING_DELETION_PROMISE').proposal,
     'IMMEDIATE_REMOVAL_THEN_SCHEDULED_BACKEND_PURGE'
@@ -2351,7 +2347,7 @@ test('retention launch policy proposal is concrete but never self-approves', () 
     30
   );
 
-  assert.equal(review.policyProposal.status, 'POLICY_ALIGNMENT_IMPLEMENTED_TARGETED_REGRESSION_PENDING');
+  assert.equal(review.policyProposal.status, 'READY_FOR_EXPLICIT_APPROVAL');
   assert.equal(review.policyProposal.notAnApproval, true);
   assert.equal(review.launchApproved, false);
   assert.equal(approval.policyProposal.approvalsInferred, false);
@@ -2380,4 +2376,27 @@ test('current D1 content retention is seven days and not a recovery window', () 
   );
   assert.equal(d1.valueDays, 7);
   assert.equal(d1.isRecoveryWindow, false);
+});
+
+
+test('current D2 operational retention is a single ninety-day stage with D4 holds', () => {
+  const migration = read(
+    'supabase/migrations/20261001122209_community_retention_operational_90d_single_stage.sql'
+  );
+  const worker = read('supabase/functions/community-retention/index.ts');
+  const proposal = JSON.parse(read('ops/community-retention-policy-proposal.json'));
+
+  assert.match(migration, /deleted_account_operational_days',90/);
+  assert.match(migration, /delete from private\.account_retention_jobs\s+where stage='elevated_operational_detail'/);
+  assert.match(migration, /delete from private\.community_retention_policy\s+where policy_key='deleted_account_elevated_operational_days'/);
+  assert.match(migration, /check \(stage in \('content_payload','operational_detail'\)\)/);
+  assert.match(migration, /drop column if exists elevated_operational_scrub_after/);
+  assert.match(migration, /community_account_has_retention_hold/);
+  assert.match(migration, /\[scrubbed retention hold\]/);
+  assert.doesNotMatch(worker, /elevated_operational_detail/);
+
+  assert.equal(proposal.engineeringBoundary.operationalDetailDaysDefault, 90);
+  const d2 = proposal.decisions.find((item) => item.id === 'D2_OPERATIONAL_DETAIL_DURATION');
+  assert.equal(d2.valueDays, 90);
+  assert.equal(d2.proposal, '90_DAYS_SINGLE_STAGE_WITH_D4_HOLDS');
 });

@@ -116,7 +116,7 @@ APPROVED**. Engineering defaults or runtime evidence never imply approval.
 Current engineering defaults remain:
 
 - content payload: 7 days;
-- operational detail: 365 days.
+- operational detail: 90 days.
 
 Those values are not legal conclusions and remain changeable by the approval process.
 
@@ -150,3 +150,18 @@ it is not a recovery window.
 
 Staging migration `20261001115028_community_retention_content_purge_7d.sql` is applied and existing
 pending content jobs were safely rescheduled. Product/Privacy/Legal approval status remains PENDING.
+
+
+## D2 simplified to one 90-day operational stage — 2026-10-01
+
+The temporary 365-day elevated tier has been removed.
+
+Current approval candidate:
+
+- content payload: 7 days maximum after immediate irreversible removal;
+- operational detail: 90 days;
+- exceptions beyond 90 days: D4 moderation/security/legal retention hold only while justified;
+- no separate fixed 365-day operational tier.
+
+Staging migration `20261001122209_community_retention_operational_90d_single_stage.sql` is applied.
+Engineering is CLOSED on this implementation. Product/Privacy/Legal approval remains PENDING.

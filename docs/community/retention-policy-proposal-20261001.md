@@ -17,13 +17,13 @@ Nothing in this document changes an approval status by itself.
 | ID | Proposed launch rule |
 | --- | --- |
 | D1 | Use a **7-day maximum content-payload purge** window after account deletion. Public/account/work access is removed immediately. 7 days is **not** a self-service recovery window. |
-| D2 | Current staging implementation uses **90-day routine operational scrub** plus an elevated moderation/security/legal stage up to **365 days**. This D2 split remains under policy review. |
+| D2 | Use a single **90-day operational-detail scrub**. If moderation, security, or legal necessity still exists, D4 retention hold defers the scrub only while that necessity remains; there is no separate fixed 365-day tier. |
 | D3 | Describe deletion as **immediate account/Creator/work removal followed by backend payload purge within 7 days**. Do not promise a reversible grace period or recovery window. |
 | D4 | Allow only **moderation / security / legal** retention holds. Current runtime already requires recent-auth admin authority, a reason, and audited create/release. Use expiry when a determinate end exists; otherwise require explicit admin release. |
 | D5 | After scrub, preserve only the minimized identity/relationship skeleton needed for historical integrity: stable IDs, revision relationships/numbers, deletion-event identity and non-sensitive moderation/report structure. No deleted user-authored payload or unnecessary re-identifying detail. |
 | D6 | Treat DB and Storage recovery copies separately. Keep launch targets at DB/Storage RPO <=24h and RTO target <=4h. Prefer the shortest production recovery window that meets this. Target Wand-managed Storage recovery copies at **7 days**. Restore into non-production first and reapply deletion/retention reconciliation before reopening writes. |
 | D7 | Treat Supabase/Resend copies and logs as **provider-controlled retention** outside Wand's 30/365 timers. Record actual production plan/configuration, minimize processor payload, and disclose material external-copy windows. |
-| D8 | User-facing privacy/deletion copy must disclose immediate removal, 7-day payload purge, the current operational-retention policy, permitted holds, minimized structural records, backup copies and provider-controlled copies/logs. |
+| D8 | User-facing privacy/deletion copy must disclose immediate removal, 7-day payload purge, 90-day operational scrub, permitted holds, minimized structural records, backup copies and provider-controlled copies/logs. |
 
 ## Why 30 / 365 remains the proposal
 
@@ -96,3 +96,26 @@ After explicit approval:
 3. if 30/365 remains approved, run one final policy/configuration regression;
 4. if values change, update configuration first, then run that regression;
 5. do not rerun the already-passed retention plumbing E2E unless implementation semantics changed.
+
+
+## D2 superseding simplification — 2026-10-01
+
+The temporary 90-day routine / 365-day elevated split is **not** the launch design.
+
+Current D2 proposal and staging implementation:
+
+- one `operational_detail` stage at **90 days**;
+- no `elevated_operational_detail` policy, queue stage, or deletion-event columns;
+- moderation/security/legal exceptions use the existing D4 hold path;
+- a held job cannot be claimed;
+- when the applicable hold/active-case condition no longer exists, an overdue 90-day job becomes
+  eligible for scrub;
+- released hold reasons are minimized by the same operational scrub.
+
+This is simpler to implement, easier to disclose, and avoids routinely retaining ordinary
+operational detail for a year.
+
+Superseding staging migration:
+`20261001122209_community_retention_operational_90d_single_stage.sql`.
+
+Engineering is CLOSED on this implementation. Product/Privacy/Legal approval remains PENDING.
