@@ -70,8 +70,12 @@ try {
     }
     const labels = (event.pull_request?.labels ?? []).map((x) => x.name);
     explicitPromotion = labels.includes('canonical-promotion');
-    const commitMessages = (event.commits ?? []).map((x) => x.message ?? '');
-    if (commitMessages.some((message) => /\[PROMOTE\]/i.test(message))) explicitPromotion = true;
+    if (!explicitPromotion) {
+      try {
+        const commitMessages = execFileSync('git', ['log', '--format=%B', `${baseSha}..HEAD`], { encoding: 'utf8' });
+        explicitPromotion = /\[PROMOTE\]/i.test(commitMessages);
+      } catch {}
+    }
   } else if (eventName === 'push') {
     const diff = execFileSync('git', ['diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD'], { encoding: 'utf8' });
     registryChanged = diff.split(/\r?\n/).includes(registryPath);
