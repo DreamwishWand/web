@@ -1,6 +1,15 @@
 # Community Auth final signed-in reauthentication mailbox runbook — 2026-10-01
 
-Status: **READY FOR ONE FINAL QA TRANSACTION**
+Status: **COMPLETED / CONFIRMED PASS**
+
+## Completion
+
+The single representative mailbox-backed QA transaction completed successfully on 2026-10-01.
+Canonical runtime evidence is recorded in
+`docs/community/auth-final-mailbox-reauth-runtime-20261001.md`.
+
+Do not repeat this transaction for checklist closure, sender warming, or duplicate mailbox evidence.
+Reopen only if the Auth/session/mail transport contract materially changes.
 
 ## Purpose
 
