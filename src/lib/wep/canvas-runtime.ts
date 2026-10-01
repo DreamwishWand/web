@@ -364,6 +364,47 @@ export function projectObjects(
     );
 }
 
+export function inspectSelection(
+  documentInput: EditorDocument,
+  selectedIds: string[]
+) {
+  const document = normalizeEditorDocument(documentInput);
+  const ids = new Set((selectedIds ?? []).map(String));
+  const objects = document.objects.filter((object) =>
+    ids.has(object.editorId)
+  );
+  const layerCounts = Object.fromEntries(
+    WEP_LAYERS.map((layer) => [
+      layer,
+      objects.filter((object) => object.layer === layer).length
+    ])
+  ) as Record<WepLayer, number>;
+
+  return {
+    count: objects.length,
+    bounds: objects.length ? boundsFor(objects) : null,
+    layerCounts,
+    objects: objects.map((object) => ({
+      editorId: object.editorId,
+      itemId: object.itemId,
+      displayName:
+        String(
+          object.metadata?.displayName ??
+            object.metadata?.internalName ??
+            ''
+        ) || null,
+      layer: object.layer,
+      x: object.x,
+      y: object.y,
+      orientation: object.orientation,
+      editability: object.editability,
+      dependencyCount: object.dependencyIds.length,
+      dependencyIds: clone(object.dependencyIds),
+      footprintCellCount: object.footprint.length
+    }))
+  };
+}
+
 export function worldRectFromScreenDrag(
   viewport: Viewport,
   from: { x: number; y: number },
