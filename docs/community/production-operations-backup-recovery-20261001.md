@@ -228,6 +228,21 @@ For a database or deployment incident:
 
 Do not take local DDV save editing offline solely because Community recovery is in progress.
 
+## Privacy / retention approval gate
+
+Production readiness also consumes:
+
+- `docs/community/privacy-retention-launch-review-20261001.md`;
+- `ops/community-retention-launch-review.json`.
+
+The current 30-day content-payload and 365-day operational-detail values remain technically proven
+engineering defaults, not launch-approved policy merely because the runtime exists. Production
+`--require-ready` acceptance must fail while any retention decision D1-D8 is unapproved.
+
+This gate is intentionally separate from backup/restore readiness: a correct backup system cannot
+substitute for an approved deletion/retention policy, and primary-database purge does not by itself
+define how long backup or provider copies persist.
+
 ## CI guard
 
 `npm run verify:community-ops` validates the machine-readable contract.
