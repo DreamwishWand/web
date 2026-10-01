@@ -1879,7 +1879,7 @@ test('Community retention launch review separates technical facts from policy ap
   assert.equal(review.engineeringDefaults.contentPayloadDaysIsRecoveryWindow, false);
   assert.equal(review.launchApproved, false);
   assert.equal(review.decisions.length, 8);
-  assert.ok(review.decisions.every((decision) => decision.status === 'PENDING'));
+  assert.ok(review.decisions.every((decision) => decision.status === 'PENDING_APPROVAL'));
   assert.equal(review.engineeringClosure.decisionBoundary, 'CLOSED');
   assert.equal(review.approvals.product, 'PENDING');
   assert.equal(review.approvals.privacy, 'PENDING');
@@ -2191,4 +2191,108 @@ test('production release evidence index keeps closed and pending gates explicit'
   );
   assert.match(verifier, /Production release evidence index is not launch-ready/);
   assert.match(verifier, /Production release evidence gates remain unsatisfied/);
+});
+
+
+test('retention D1-D8 approval matrix is explicit', () => {
+  const review = JSON.parse(read('ops/community-retention-launch-review.json'));
+  const byId = new Map(review.decisions.map((decision) => [decision.id, decision]));
+
+  const expected = {
+    D1_CONTENT_PAYLOAD_DURATION: ['product', 'privacy', 'legal'],
+    D2_OPERATIONAL_DETAIL_DURATION: ['product', 'privacy', 'legal'],
+    D3_USER_FACING_DELETION_PROMISE: ['product'],
+    D4_RETENTION_HOLD_POLICY: ['product', 'privacy', 'legal'],
+    D5_STRUCTURAL_TOMBSTONE_POLICY: ['product', 'privacy', 'legal'],
+    D6_BACKUP_COPY_RETENTION: ['product', 'privacy', 'legal'],
+    D7_PROCESSOR_PROVIDER_RETENTION: ['privacy', 'legal'],
+    D8_POLICY_DISCLOSURE_AND_ACCEPTANCE: ['product', 'privacy', 'legal']
+  };
+
+  for (const [id, approvals] of Object.entries(expected)) {
+    const decision = byId.get(id);
+    assert.ok(decision, id);
+    assert.equal(decision.engineeringStatus, 'CLOSED');
+    assert.equal(decision.status, 'PENDING_APPROVAL');
+    assert.deepEqual(decision.requiredApprovals, approvals);
+    for (const approval of approvals) {
+      assert.equal(decision.approvalStatus[approval], 'PENDING');
+    }
+  }
+
+  assert.equal(review.launchApproved, false);
+  assert.match(
+    review.approvalMatrixRule,
+    /every required approval.*APPROVED/i
+  );
+});
+
+test('final Auth gate is real-mailbox manual QA only', () => {
+  const review = JSON.parse(read('ops/community-auth-launch-review.json'));
+
+  assert.equal(review.reauthentication.executionMode, 'REAL_MAILBOX_OPERATOR_QA');
+  assert.equal(review.reauthentication.operatorManualRequired, true);
+  assert.equal(review.reauthentication.syntheticSubstituteAllowed, false);
+  assert.deepEqual(review.reauthentication.remainingFlow, [
+    'real signed-in session',
+    'reauthentication nonce',
+    'password change',
+    'provider global revoke',
+    'Wand session cutoff',
+    'old session rejected',
+    'fresh sign-in succeeds'
+  ]);
+  assert.equal(review.launchApproved, false);
+});
+
+test('current release evidence treats leaked-password warning as nonblocking plan limitation', () => {
+  const release = JSON.parse(read('ops/community-production-release-evidence.json'));
+  const operations = JSON.parse(read('ops/community-production-operations.json'));
+
+  assert.equal(
+    release.currentObservations.stagingSecurityAdvisor.knownPlanUnavailableWarning,
+    'auth_leaked_password_protection'
+  );
+  assert.equal(
+    release.currentObservations.stagingSecurityAdvisor.knownPlanUnavailableWarningIsEngineeringBlocker,
+    false
+  );
+  assert.equal(operations.security.planUnavailableFindingIsEngineeringBlocker, false);
+  assert.ok(
+    operations.security.knownPlanUnavailableNonBlockingFindings.includes(
+      'auth_leaked_password_protection'
+    )
+  );
+
+  const productionAdvisor = release.gates.find(
+    (gate) => gate.id === 'PRODUCTION_SECURITY_ADVISOR'
+  );
+  assert.equal(productionAdvisor.satisfied, false);
+  assert.equal(
+    productionAdvisor.knownNonBlockingCurrentPlanFinding,
+    'auth_leaked_password_protection'
+  );
+});
+
+test('latest WEP delta does not reopen Community Preset vertical', () => {
+  const release = JSON.parse(read('ops/community-production-release-evidence.json'));
+  const preset = release.gates.find(
+    (gate) => gate.id === 'PRESET_SCENE_REUSE_VERTICAL'
+  );
+
+  assert.equal(
+    release.currentObservations.wep.latestObservedHead,
+    '02ca57a8d48d2b5623e034b91e9cd52f7fe7a8d8'
+  );
+  assert.equal(
+    release.currentObservations.wep.communityTransportContractChangedSinceConfirmedVertical,
+    false
+  );
+  assert.equal(
+    release.currentObservations.wep.communityPresetEdgeFunctionChangedSinceConfirmedVertical,
+    false
+  );
+  assert.equal(release.currentObservations.wep.integrationSensitiveRerunRequired, false);
+  assert.equal(preset.satisfied, true);
+  assert.equal(preset.integrationSensitiveRerunRequired, false);
 });
