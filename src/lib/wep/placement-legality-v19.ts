@@ -19,6 +19,11 @@ export const PLACEMENT_GEOMETRY_V125_STATIC_PATH =
 export const PLACEMENT_GEOMETRY_V125_SHA256 =
   'b685536c29a78626f3bc6381f977b46e4c98218b4c9f4ac6653d504b8e271750';
 export const PLACEMENT_GEOMETRY_V125_RECORD_COUNT = 10438;
+export const PLACEMENT_GEOMETRY_BASE_V125_STATIC_PATH =
+  '/ddv/v1.25/world-read-switch.json';
+export const PLACEMENT_GEOMETRY_BASE_V125_SHA256 =
+  '53db127eb796c0d4b103695258700d18de69f5403d1067cd956396cd1b03ffa6';
+export const PLACEMENT_GEOMETRY_BASE_V125_RECORD_COUNT = 10440;
 export const PLACEMENT_GEOMETRY_V125_KNOWN_UNRESOLVED = Object.freeze([
   20000039,
   40006180
@@ -126,7 +131,10 @@ function uint32(value: unknown, code: string) {
   return number >>> 0;
 }
 
-function normalizeGeometryInput(raw: AnyRecord) {
+function normalizeGeometryInput(
+  raw: AnyRecord,
+  baseRaw: AnyRecord
+) {
   if (
     !raw ||
     raw.schema !== 'dreamwish-wand-v125-placement-geometry-input' ||
@@ -142,22 +150,57 @@ function normalizeGeometryInput(raw: AnyRecord) {
   ) {
     throw new Error('WEP_V125_PLACEMENT_GEOMETRY_CONTRACT_MISMATCH');
   }
+  if (
+    !baseRaw ||
+    baseRaw.schema !== 'dreamwish-wand-v125-world-read-data' ||
+    Number(baseRaw.version) !== 1 ||
+    baseRaw.platform !== 'Nintendo Switch' ||
+    baseRaw.gameVersion !== '1.25.0' ||
+    baseRaw.buildID !== '52BD625D9B4E0053' ||
+    !baseRaw.geometry ||
+    typeof baseRaw.geometry !== 'object'
+  ) {
+    throw new Error('WEP_V125_PLACEMENT_GEOMETRY_BASE_CONTRACT_MISMATCH');
+  }
 
   const entries = Object.entries(raw.geometry);
   if (entries.length !== PLACEMENT_GEOMETRY_V125_RECORD_COUNT) {
     throw new Error('WEP_V125_PLACEMENT_GEOMETRY_COUNT_MISMATCH');
   }
+  if (
+    Object.keys(baseRaw.geometry).length !==
+    PLACEMENT_GEOMETRY_BASE_V125_RECORD_COUNT
+  ) {
+    throw new Error('WEP_V125_PLACEMENT_GEOMETRY_BASE_COUNT_MISMATCH');
+  }
 
   const geometryIndex: Record<string, AnyRecord> = {};
   for (const [itemId, record] of entries) {
+    const baseRecord = baseRaw.geometry[itemId];
     if (
       !Array.isArray(record) ||
       record.length !== 3 ||
       !Array.isArray(record[2]) ||
-      record[2].length === 0
+      record[2].length === 0 ||
+      !Array.isArray(baseRecord) ||
+      baseRecord.length !== 4 ||
+      typeof baseRecord[0] !== 'string'
     ) {
       throw new Error('WEP_V125_PLACEMENT_GEOMETRY_RECORD_INVALID');
     }
+
+    const sizeX = Number(baseRecord[1]);
+    const sizeY = Number(baseRecord[2]);
+    if (
+      !Number.isSafeInteger(sizeX) ||
+      sizeX <= 0 ||
+      !Number.isSafeInteger(sizeY) ||
+      sizeY <= 0 ||
+      record[2].length !== sizeX * sizeY
+    ) {
+      throw new Error('WEP_V125_PLACEMENT_GEOMETRY_DIMENSIONS_INVALID');
+    }
+
     const stride =
       record[1] === null || record[1] === undefined
         ? null
@@ -165,7 +208,16 @@ function normalizeGeometryInput(raw: AnyRecord) {
             record[1],
             'WEP_V125_PLACEMENT_GEOMETRY_STRIDE_INVALID'
           );
+
     geometryIndex[itemId] = Object.freeze({
+      concreteType: baseRecord[0],
+      sizeX,
+      sizeY,
+      subGridDataPath:
+        baseRecord[3] === null || typeof baseRecord[3] === 'string'
+          ? baseRecord[3]
+          : null,
+      areaTessellationFactor: 1,
       acceptedFloorTypesFlag: uint32(
         record[0],
         'WEP_V125_PLACEMENT_GEOMETRY_FLOOR_FLAG_INVALID'
@@ -181,6 +233,16 @@ function normalizeGeometryInput(raw: AnyRecord) {
       )
     });
   }
+
+  for (const itemId of PLACEMENT_GEOMETRY_V125_KNOWN_UNRESOLVED) {
+    if (Object.hasOwn(geometryIndex, String(itemId))) {
+      throw new Error('WEP_V125_PLACEMENT_GEOMETRY_UNRESOLVED_PROMOTED');
+    }
+    if (!Object.hasOwn(baseRaw.geometry, String(itemId))) {
+      throw new Error('WEP_V125_PLACEMENT_GEOMETRY_BASE_UNRESOLVED_MISSING');
+    }
+  }
+
   return Object.freeze(geometryIndex);
 }
 
@@ -224,7 +286,7 @@ export async function createSwitchV125PlacementLegalityBinding({
   fetchImpl?: FetchLike;
 } = {}) {
   const prefix = String(basePath || '').replace(/\/$/, '');
-  const [floorContract, geometryRaw] = await Promise.all([
+  const [floorContract, geometryRaw, geometryBaseRaw] = await Promise.all([
     fetchPinnedJson(
       `${prefix}${GRIDDATA_FLOOR_MAP_V125_STATIC_PATH}`,
       GRIDDATA_FLOOR_MAP_V125_SHA256,
@@ -234,11 +296,19 @@ export async function createSwitchV125PlacementLegalityBinding({
       `${prefix}${PLACEMENT_GEOMETRY_V125_STATIC_PATH}`,
       PLACEMENT_GEOMETRY_V125_SHA256,
       fetchImpl
+    ),
+    fetchPinnedJson(
+      `${prefix}${PLACEMENT_GEOMETRY_BASE_V125_STATIC_PATH}`,
+      PLACEMENT_GEOMETRY_BASE_V125_SHA256,
+      fetchImpl
     )
   ]);
   const floor = floorCore();
   const legality = legalityCore();
-  const geometryIndex = normalizeGeometryInput(geometryRaw);
+  const geometryIndex = normalizeGeometryInput(
+    geometryRaw,
+    geometryBaseRaw
+  );
 
   // Core owns floor decoding/interpretation. WEP only asks the promoted v1.8
   // binder for a GridData view by exact GridDataPath.
@@ -319,6 +389,9 @@ export async function createSwitchV125PlacementLegalityBinding({
       legalityClassifierSha256: PLACEMENT_LEGALITY_V19_SHA256,
       geometryInputSha256: PLACEMENT_GEOMETRY_V125_SHA256,
       geometryRecordCount: PLACEMENT_GEOMETRY_V125_RECORD_COUNT,
+      geometryBaseSha256: PLACEMENT_GEOMETRY_BASE_V125_SHA256,
+      geometryBaseRecordCount:
+        PLACEMENT_GEOMETRY_BASE_V125_RECORD_COUNT,
       geometryKnownUnresolvedItemIds:
         PLACEMENT_GEOMETRY_V125_KNOWN_UNRESOLVED
     }),
