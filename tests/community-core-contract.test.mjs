@@ -1740,3 +1740,42 @@ test('Community password baseline is passphrase-friendly single-factor 15+', () 
   assert.match(client, /assertPasswordPolicy\(password\)/);
   assert.doesNotMatch(client, /special character|uppercase|lowercase|must contain|digit/i);
 });
+
+
+test('Community production operations contract fails closed until a distinct production environment exists', () => {
+  const manifest = JSON.parse(read('ops/community-production-operations.json'));
+  const runbook = read('docs/community/production-operations-backup-recovery-20261001.md');
+  const verifier = read('scripts/verify-community-ops-readiness.mjs');
+
+  assert.equal(manifest.schema, 'dreamwish-community-production-ops@1');
+  assert.equal(manifest.staging.projectRef, 'ptpdoxhrqopvczpclcij');
+  assert.equal(manifest.staging.planObserved, 'free');
+  assert.equal(manifest.production.projectRef, null);
+  assert.equal(manifest.production.launchReady, false);
+  assert.equal(manifest.production.mustDifferFromStaging, true);
+
+  assert.equal(manifest.backupPolicy.database.restoreDrillRequired, true);
+  assert.equal(manifest.backupPolicy.storageObjects.separateBackupRequired, true);
+  assert.equal(manifest.backupPolicy.storageObjects.restoreDrillRequired, true);
+  assert.ok(manifest.backupPolicy.database.maximumRpoHours <= 24);
+  assert.ok(manifest.backupPolicy.storageObjects.maximumRpoHours <= 24);
+  assert.ok(manifest.backupPolicy.restore.targetRtoHours <= 4);
+
+  for (const stagingOnly of [
+    'community-auth-acceptance',
+    'community-auth-e2e',
+    'community-e2e-once',
+    'community-wep-retention-e2e',
+    'wep-preset-flow-e2e',
+    'wep-retention-e2e'
+  ]) {
+    assert.ok(manifest.edgeFunctions.stagingOnlyDenylist.includes(stagingOnly));
+    assert.ok(!manifest.edgeFunctions.productionAllowlist.includes(stagingOnly));
+  }
+
+  assert.match(runbook, /database backup contains Storage metadata, not the Storage object bytes themselves/i);
+  assert.match(runbook, /production Supabase project that is distinct from staging/i);
+  assert.match(runbook, /No production environment, paid plan, Supabase branch, backup add-on or PITR add-on was created/i);
+  assert.match(verifier, /--require-ready/);
+  assert.match(verifier, /Production project ref must not equal staging/);
+});
