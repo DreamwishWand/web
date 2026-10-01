@@ -220,7 +220,7 @@ export function preflightCurrentV125FullDesignManifest({
 
   const boundsCapture =
     normalized.categories.directGrids?.boundsCapture;
-  const boundsByPath = new Map(
+  const boundsByPath = new Map<string, AnyRecord>(
     Array.isArray(boundsCapture?.entries)
       ? boundsCapture.entries.map((entry: AnyRecord) => [
           String(entry?.directRootRoute?.gridDataPath ?? ''),
@@ -234,7 +234,9 @@ export function preflightCurrentV125FullDesignManifest({
       const gridDataPath = String(
         entry?.directRootRoute?.gridDataPath ?? ''
       );
-      const destinationGridId = destinationGridByPath.get(gridDataPath);
+      const resolvedDestinationGridId =
+        destinationGridByPath.get(gridDataPath);
+      const destinationGridId = Number(resolvedDestinationGridId);
       if (!Number.isSafeInteger(destinationGridId)) {
         rootObjectRouteBindingReady = false;
         issues.push(
