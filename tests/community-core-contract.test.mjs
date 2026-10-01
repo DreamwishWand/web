@@ -1836,21 +1836,23 @@ test('Community Edge production resources are environment-aware and fail closed 
   assert.doesNotMatch(media, /Invalid staging image size/);
 });
 
-test('Community production manifest requires final integrated replay and tracks WEP bucket externalization', () => {
+test('Community production manifest requires final integrated replay and closed WEP bucket externalization', () => {
   const manifest = JSON.parse(read('ops/community-production-operations.json'));
   assert.equal(manifest.migrationPolicy.productionReplayRequiresIntegratedTree, true);
   assert.equal(manifest.integration.productionReplaySource, 'final-integrated-main');
   assert.equal(manifest.integration.communityBranchAloneIsNotProductionComplete, true);
   assert.ok(manifest.production.requiredEnvironmentConfig.includes('DREAMWISH_ENVIRONMENT'));
   assert.ok(manifest.production.requiredEnvironmentConfig.includes('COMMUNITY_MEDIA_BUCKET'));
+  assert.ok(manifest.production.requiredEnvironmentConfig.includes('WEP_PRESET_ARTIFACT_BUCKET'));
 
   const blocker = manifest.crossStreamBlockers.find(
     (item) => item.id === 'WEP_PRESET_ARTIFACT_BUCKET_EXTERNALIZATION'
   );
   assert.ok(blocker);
   assert.equal(blocker.owner, '02 WEP');
-  assert.equal(blocker.state, 'OPEN');
-  assert.match(blocker.detail, /wand-preset-artifacts-staging/);
+  assert.equal(blocker.state, 'CLOSED');
+  assert.match(blocker.detail, /WEP_PRESET_ARTIFACT_BUCKET/);
+  assert.match(blocker.detail, /known staging/i);
 });
 
 
@@ -1943,7 +1945,7 @@ test('Road-inclusive Scene acceptance preserves Community reuse and Apply bounda
     (item) => item.id === 'WEP_PRESET_ARTIFACT_BUCKET_EXTERNALIZATION'
   );
   assert.equal(bucketBlocker?.owner, '02 WEP');
-  assert.equal(bucketBlocker?.state, 'OPEN');
+  assert.equal(bucketBlocker?.state, 'CLOSED');
 });
 
 
@@ -1998,4 +2000,22 @@ test('Auth launch review closes 14/15 and revocation while keeping mailbox reaut
   assert.match(evidence, /15-character ASCII password: \*\*accepted\*\*/);
   assert.match(evidence, /no Auth email generated/i);
   assert.match(evidence, /signed-in reauthentication/i);
+});
+
+
+test('WEP Preset bucket externalization is production-safe and staging-compatible', () => {
+  const manifest = JSON.parse(read('ops/community-production-operations.json'));
+
+  assert.ok(
+    manifest.production.requiredEnvironmentConfig.includes(
+      'WEP_PRESET_ARTIFACT_BUCKET'
+    )
+  );
+  const blocker = manifest.crossStreamBlockers.find(
+    (item) => item.id === 'WEP_PRESET_ARTIFACT_BUCKET_EXTERNALIZATION'
+  );
+  assert.equal(blocker?.state, 'CLOSED');
+  assert.match(blocker?.evidence ?? '', /c396413dc349829bc91f89b397321de38b55a3ba/);
+  assert.match(blocker?.evidence ?? '', /wep-preset-artifact v14/);
+  assert.match(blocker?.evidence ?? '', /wep-preset-retention v6/);
 });
