@@ -1,6 +1,6 @@
 {
   "schema": "dreamwish-community-production-release-evidence@1",
-  "updatedAt": "2026-10-01T18:25:00+09:00",
+  "updatedAt": "2026-10-01T18:50:00+09:00",
   "scope": "Community Core production launch",
   "productionEvidenceMustComeFromDistinctProductionEnvironment": true,
   "stagingProjectRef": "ptpdoxhrqopvczpclcij",
@@ -27,9 +27,9 @@
         "docs/community/wep-road-integration-acceptance-20261001.md"
       ],
       "classification": "already_closed",
-      "latestWepObservedHead": "02ca57a8d48d2b5623e034b91e9cd52f7fe7a8d8",
+      "latestWepObservedHead": "ba55070f3c48df3bef9d1b12aaf056ed4978791a",
       "integrationSensitiveRerunRequired": false,
-      "latestDeltaAssessment": "No Community transport/Edge contract change; latest WEP delta is GridData/full-design/placement-preflight/capture-bounds only."
+      "latestDeltaAssessment": "Compared 02ca57a8..ba55070f (13 commits): changes are WEP-only Building/full-design/Fence draft UX/read-model/write-authorization gates; no Community transport, publication envelope, signed-read, retention, or Preset Edge contract files changed."
     },
     {
       "id": "PRESET_ARTIFACT_RETENTION_E2E",
@@ -342,11 +342,11 @@
       "knownPlanUnavailableWarningIsEngineeringBlocker": false
     },
     "wep": {
-      "latestObservedHead": "02ca57a8d48d2b5623e034b91e9cd52f7fe7a8d8",
+      "latestObservedHead": "ba55070f3c48df3bef9d1b12aaf056ed4978791a",
       "communityTransportContractChangedSinceConfirmedVertical": false,
       "communityPresetEdgeFunctionChangedSinceConfirmedVertical": false,
       "integrationSensitiveRerunRequired": false,
-      "note": "Observed changes are GridData/full-design/placement-preflight/authoritative capture-bounds work. Persistent Apply remains Core/WEP writer-gated."
+      "note": "Compared 02ca57a8..ba55070f: 13 commits touched WEP Building/full-design/Fence draft/read-model/write-authorization surfaces only. Community transport/publication/signed-read/retention contracts were unchanged; persistent Apply remains Core/WEP writer-gated."
     }
   }
 }
