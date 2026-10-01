@@ -52,37 +52,37 @@ for (const [id, expectedBaseline] of Object.entries(expected)) {
 }
 
 let registryChanged = false;
-try {
-  const diff = execFileSync('git', ['diff', '--name-only', 'origin/main...HEAD'], { encoding: 'utf8' });
-  registryChanged = diff.split(/\r?\n/).includes(registryPath);
-} catch {
-  // Local execution without origin/main: skip change-event enforcement.
-}
+let explicitPromotion = false;
 
-if (registryChanged) {
+try {
   const eventName = process.env.GITHUB_EVENT_NAME ?? '';
   const eventPath = process.env.GITHUB_EVENT_PATH;
-  let explicitPromotion = false;
-
+  let event = {};
   if (eventPath) {
-    try {
-      const event = JSON.parse(readFileSync(eventPath, 'utf8'));
-      const labels = (event.pull_request?.labels ?? []).map((x) => x.name);
-      explicitPromotion = labels.includes('canonical-promotion');
+    try { event = JSON.parse(readFileSync(eventPath, 'utf8')); } catch {}
+  }
 
-      const commitMessages = [
-        ...(event.commits ?? []).map((x) => x.message ?? ''),
-        event.head_commit?.message ?? ''
-      ];
-      if (commitMessages.some((message) => /\[PROMOTE\]/i.test(message))) explicitPromotion = true;
-    } catch {
-      // A missing/unreadable event is not itself a promotion.
+  if (eventName === 'pull_request') {
+    const baseSha = event.pull_request?.base?.sha;
+    if (baseSha) {
+      const diff = execFileSync('git', ['diff', '--name-only', `${baseSha}...HEAD`], { encoding: 'utf8' });
+      registryChanged = diff.split(/\r?\n/).includes(registryPath);
     }
+    const labels = (event.pull_request?.labels ?? []).map((x) => x.name);
+    explicitPromotion = labels.includes('canonical-promotion');
+    const commitMessages = (event.commits ?? []).map((x) => x.message ?? '');
+    if (commitMessages.some((message) => /\[PROMOTE\]/i.test(message))) explicitPromotion = true;
+  } else if (eventName === 'push') {
+    const diff = execFileSync('git', ['diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD'], { encoding: 'utf8' });
+    registryChanged = diff.split(/\r?\n/).includes(registryPath);
+    explicitPromotion = /\[PROMOTE\]/i.test(event.head_commit?.message ?? '');
   }
+} catch {
+  // If GitHub event metadata cannot establish the diff, fail closed below only when the registry itself is known to be changed.
+}
 
-  if (!explicitPromotion && eventName !== 'workflow_dispatch') {
-    errors.push(`${registryPath}: changed without canonical-promotion label or [PROMOTE] marker`);
-  }
+if (registryChanged && !explicitPromotion) {
+  errors.push(`${registryPath}: changed without canonical-promotion label or [PROMOTE] marker`);
 }
 
 if (errors.length) {
