@@ -106,7 +106,11 @@ export function createSwitchV125RoadFenceReaderBinding({
     persistentWriteAuthorized: false
   });
 
-  const fencePostEditor = Object.freeze({
+  const fenceRepresentationLayout = Object.freeze({
+    contract: 'ddv.fence-representation-layout@1',
+    promotionDocumentId: '15ddjUrtZFYFi5KZpmzsrVBArLy0BjBHnmF9_iCbi104',
+    scope: 'read-model-preflight',
+    persistentWriteAuthorized: false,
     listNetworks() {
       if (readerResult.status !== 'supported' || readerResult.ok !== true) {
         return [];
@@ -185,7 +189,8 @@ export function createSwitchV125RoadFenceReaderBinding({
     }),
     summary: safeSummary,
     networkAdapter,
-    fencePostEditor,
+    fenceRepresentationLayout,
+    fencePostEditor: fenceRepresentationLayout,
     persistentWriteAuthorized: false
   });
 }
