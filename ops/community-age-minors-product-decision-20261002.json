@@ -16,9 +16,10 @@
     "parentGuardianManagedAssociation": {
       "accountOwner": "PARENT_OR_GUARDIAN",
       "separateUnder13WandCredentials": false,
-      "childDdvProfileMayBeLinkedToParentGuardianAccount": true,
-      "linkedProfileCap": "Existing maximum of three Linked DDV Profiles per Wand Account still applies.",
-      "ordinaryLinkedDdvProfileLifecycleRulesStillApply": true
+      "childDdvProfileMayBeLinkedToParentGuardianAccount": false,
+      "childDdvProfileMayUseParentGuardianWorkspace": true,
+      "workspaceCapacity": "Same maximum of five retained Profile Workspaces per Wand Account; self and parent_guardian_managed count together; active and archived both count.",
+      "playerIdAssociationRequired": false
     },
     "independentAccountEligibility": "AGE_13_OR_OLDER",
     "ageAssuranceProviderApproved": false,
@@ -29,7 +30,8 @@
       "13 is the minimum age for an independent Wand Account.",
       "Independent registration by users under 13 is prohibited.",
       "Accountless local save/editor functionality remains available regardless of Wand Account eligibility.",
-      "A parent or guardian may use their own Wand Account to associate/manage an under-13 user's DDV Profile; no separate under-13 Wand credentials are created."
+      "A parent or guardian may use their own Wand Account to create/manage a parent_guardian_managed DDV Profile Workspace for an under-13 user's game profile; no separate under-13 Wand credentials are created.",
+      "Parent-managed Workspaces use the same maximum-five retained Workspace capacity as self-managed Workspaces."
     ],
     "privacyLegalStillOpen": [
       "Final age-gate/age-assurance implementation and data minimization.",
