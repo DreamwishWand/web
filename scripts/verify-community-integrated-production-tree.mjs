@@ -100,6 +100,7 @@ if (presentWepPaths.length === 0) {
   const artifact = read(wepRequired.functions[0]);
   const retention = read(wepRequired.functions[1]);
   const resolver = read(wepRequired.resolver);
+  const storageMigration = read(wepRequired.migrations[0]);
 
   for (const [label, source] of [
     ['wep-preset-artifact', artifact],
@@ -127,11 +128,22 @@ if (presentWepPaths.length === 0) {
     /WEP_PRESET_ARTIFACT_BUCKET_STAGING_FORBIDDEN_OUTSIDE_KNOWN_STAGING/.test(resolver),
     'WEP Preset bucket resolver must reject the staging bucket outside known staging.'
   );
+  fail(
+    !/wand-preset-artifacts-staging/.test(storageMigration),
+    'WEP Preset storage migration must not create the staging bucket in the production migration chain.'
+  );
 
   const blocker = (manifest.crossStreamBlockers ?? []).find(
     (item) => item?.id === 'WEP_PRESET_ARTIFACT_BUCKET_EXTERNALIZATION'
   );
-  fail(blocker?.state === 'CLOSED', 'WEP Preset bucket production blocker must be CLOSED.');
+  fail(blocker?.state === 'CLOSED', 'WEP Preset bucket function externalization blocker must be CLOSED.');
+  const provisioningBlocker = (manifest.crossStreamBlockers ?? []).find(
+    (item) => item?.id === 'WEP_PRESET_ARTIFACT_BUCKET_PRODUCTION_MIGRATION'
+  );
+  fail(
+    provisioningBlocker?.state === 'CLOSED',
+    'WEP Preset production migration provisioning blocker must be CLOSED.'
+  );
   fail(
     (manifest.production?.requiredEnvironmentConfig ?? []).includes(
       'WEP_PRESET_ARTIFACT_BUCKET'
