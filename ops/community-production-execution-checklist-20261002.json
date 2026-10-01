@@ -1,7 +1,7 @@
 {
   "schema": "dreamwish-community-production-execution-checklist@1",
   "preparedAt": "2026-10-02",
-  "status": "PREPARED_TO_RESOURCE_DECISION_GATE",
+  "status": "RESOURCE_DECISION_CLOSED_PROVISION_AT_RELEASE_STAGE",
   "resourceCreationAuthorized": false,
   "productionProjectRef": null,
   "sourceControl": {
@@ -53,7 +53,7 @@
     ]
   },
   "phase1ResourceDecision": {
-    "status": "USER_DECISION_REQUIRED_BEFORE_EXECUTION",
+    "status": "OWNER_APPROVED_FOR_RELEASE_STAGE",
     "supabasePlanOptions": [
       {
         "id": "PRO",
@@ -82,13 +82,18 @@
       "decision": "DO_NOT_ENABLE_UNLESS_USER_LATER_CHANGES_RPO_REQUIREMENT"
     },
     "storageRecoveryProvider": {
-      "status": "TBD",
+      "status": "APPROVED_FOR_RELEASE_PROVISIONING",
+      "provider": "Cloudflare",
+      "service": "R2 Standard",
       "requirement": "private rollback-independent copy, <=24h RPO, target 7d copy retention, restore drill, access audit/encryption",
       "s3CompatiblePreferred": true
-    }
+    },
+    "selectedSupabasePlan": "PRO",
+    "selectedStorageRecoveryProvider": "CLOUDFLARE_R2_STANDARD",
+    "decisionRecord": "ops/community-production-resource-decision-20261002.json"
   },
   "phase2ProductionProjectProvisioning": {
-    "status": "BLOCKED_ON_USER_RESOURCE_DECISION",
+    "status": "DEFERRED_TO_RELEASE_STAGE_BY_OWNER",
     "requirements": [
       "distinct Supabase project; never reuse staging ref",
       "target region ap-northeast-1 unless user deliberately changes it",
@@ -97,6 +102,11 @@
       "WEP_PRESET_ARTIFACT_BUCKET explicitly configured and not staging-named",
       "new production publishable key; no staging key reuse",
       "production secrets/tokens generated independently; no staging secret reuse"
+    ],
+    "executionPrerequisites": [
+      "accepted final-integrated-main",
+      "release-stage provisioning authorization",
+      "Privacy/Legal provider-binding review complete enough for production configuration"
     ]
   },
   "phase3FreshMigrationReplay": {
@@ -196,7 +206,7 @@
     ]
   },
   "databaseBackupRestore": {
-    "status": "PROTOCOL_READY_MECHANISM_AND_DRILL_PENDING",
+    "status": "PROTOCOL_READY_SELECTED_MECHANISM_PROVISIONING_AND_DRILL_PENDING",
     "rpoHoursMax": 24,
     "quarantineFirst": true,
     "steps": [
@@ -210,10 +220,11 @@
       "run Security Advisor",
       "record RPO/RTO and evidence",
       "never promote if deletion reconciliation is incomplete"
-    ]
+    ],
+    "selectedLaunchMechanism": "SUPABASE_PRO_MANAGED_DAILY_DATABASE_BACKUP"
   },
   "storageBackupRestore": {
-    "status": "PROTOCOL_READY_PROVIDER_AND_DRILL_PENDING",
+    "status": "PROTOCOL_READY_SELECTED_PROVIDER_PROVISIONING_AND_DRILL_PENDING",
     "rpoHoursMax": 24,
     "targetCopyRetentionDays": 7,
     "quarantineFirst": true,
@@ -226,7 +237,8 @@
       "verify signed-read authorization only after reconciliation",
       "record missing/orphan object counts and RTO",
       "block promotion on mismatch or deletion-ledger failure"
-    ]
+    ],
+    "selectedProvider": "CLOUDFLARE_R2_STANDARD"
   },
   "deletionLedger": {
     "status": "CONTRACT_FROZEN_EXTERNALIZATION_PENDING",
@@ -304,12 +316,14 @@
   },
   "stopBoundary": {
     "reached": true,
-    "reason": "The next operational step requires user decisions that can create paid/external production resources.",
-    "prohibitedWithoutUserApproval": [
+    "reason": "Owner approved Supabase Pro + Cloudflare R2 Standard for release-stage provisioning. Current phase intentionally stops before creating paid/external production resources.",
+    "ownerDecisionClosed": true,
+    "provisioningTiming": "AT_RELEASE_STAGE",
+    "prohibitedBeforeReleaseStage": [
       "create Supabase production project",
-      "upgrade to or purchase Supabase paid plan",
+      "upgrade/purchase Supabase Pro",
       "enable PITR/add-ons",
-      "contract/select paid Storage recovery provider",
+      "create Cloudflare R2 production recovery bucket",
       "create production buckets/secrets/cron/functions"
     ]
   }
