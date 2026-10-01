@@ -1939,8 +1939,9 @@ test('Road-inclusive Scene acceptance preserves Community reuse and Apply bounda
   assert.equal(restored.verifyJwt, true);
   assert.equal(restored.version, 6);
 
-  assert.equal(
-    production.integration.blockers.WEP_PRESET_ARTIFACT_BUCKET_EXTERNALIZATION,
-    'OPEN'
+  const bucketBlocker = production.crossStreamBlockers.find(
+    (item) => item.id === 'WEP_PRESET_ARTIFACT_BUCKET_EXTERNALIZATION'
   );
+  assert.equal(bucketBlocker?.owner, '02 WEP');
+  assert.equal(bucketBlocker?.state, 'OPEN');
 });
