@@ -119,7 +119,8 @@
     "requirePostDeploymentSmoke": true,
     "requireNoHardcodedStagingResourcesInProductionFunctions": true,
     "requireIntegratedMigrationReplay": true,
-    "requireRetentionPolicyApproval": true
+    "requireRetentionPolicyApproval": true,
+    "requireAuthLaunchAcceptance": true
   },
   "integration": {
     "communityBranch": "dev/community-core-v0-20260930",
@@ -145,5 +146,12 @@
       "operationalDetailDays": 365
     },
     "approvalRequired": true
+  },
+  "authLaunchReview": {
+    "contract": "ops/community-auth-launch-review.json",
+    "providerPasswordBoundary": "CONFIRMED",
+    "providerAndWandRevocation": "CONFIRMED",
+    "signedInReauthentication": "PENDING",
+    "launchApproved": false
   }
 }
