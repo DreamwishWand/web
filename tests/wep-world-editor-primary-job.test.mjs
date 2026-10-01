@@ -275,4 +275,11 @@ test('keyboard shortcuts cover primary draft commands and ignore text-entry surf
     }),
     null
   );
+  assert.equal(
+    resolvePrimaryJobShortcut({
+      key: 'Delete',
+      targetTagName: 'button'
+    }),
+    null
+  );
 });
