@@ -1874,3 +1874,35 @@ test('Community retention launch review separates technical facts from policy ap
   assert.match(packet, /backup-copy retention/i);
   assert.match(verifier, /Retention launch review is not approved/);
 });
+
+
+test('staging operations observation aligns with production allow and deny policy', () => {
+  const observed = JSON.parse(read('ops/community-staging-operations-observed-20261001.json'));
+  const production = JSON.parse(read('ops/community-production-operations.json'));
+
+  assert.equal(observed.schema, 'dreamwish-community-staging-operations-observation@1');
+  assert.equal(observed.project.ref, production.staging.projectRef);
+  assert.equal(observed.project.developmentBranches, 0);
+  assert.equal(observed.conclusions.secretsValuesCaptured, false);
+  assert.equal(observed.conclusions.stagingAcceptanceHarnessesExecutable, false);
+  assert.equal(observed.conclusions.stagingMigrationHistoryIsProductionReplaySource, false);
+
+  const observedProduction = new Set(observed.edgeFunctions.productionShaped.map((item) => item.slug));
+  const expectedProduction = new Set(production.edgeFunctions.productionAllowlist);
+  assert.deepEqual([...observedProduction].sort(), [...expectedProduction].sort());
+
+  const observedStagingOnly = new Set(observed.edgeFunctions.stagingOnly.map((item) => item.slug));
+  const expectedStagingOnly = new Set(production.edgeFunctions.stagingOnlyDenylist);
+  assert.deepEqual([...observedStagingOnly].sort(), [...expectedStagingOnly].sort());
+  assert.ok(observed.edgeFunctions.stagingOnly.every((item) => item.disabledStub === true && item.httpStatus === 410));
+
+  const observedCron = new Set(observed.cronJobs.filter((job) => job.active).map((job) => job.name));
+  assert.deepEqual([...observedCron].sort(), [...production.scheduledJobs.required].sort());
+
+  const observedVault = new Set(observed.vaultSecretNames);
+  assert.deepEqual([...observedVault].sort(), [...production.vault.requiredSecretNames].sort());
+
+  assert.equal(observed.securityAdvisor.warns.length, 1);
+  assert.equal(observed.securityAdvisor.warns[0].name, production.security.knownAcceptedAdvisorWarning);
+  assert.equal(observed.appliedMigrationHistory.authoritativeForProductionReplay, false);
+});
