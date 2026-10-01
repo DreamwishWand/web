@@ -20,3 +20,5 @@ Changes to the protected registry without an explicit promotion marker fail CI.
 
 
 Initial registry establishment is an explicit promotion event: [PROMOTE] establishes the repository mirror for already-promoted DDVRE baselines; it does not promote new game semantics.
+
+Promotion record: initial repository mirror is authorized by PR #19; no new DDV semantic finding is promoted by this record.
