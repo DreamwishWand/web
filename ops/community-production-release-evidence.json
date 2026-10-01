@@ -108,6 +108,19 @@
       "classification": "operator_manual_pending"
     },
     {
+      "id": "RETENTION_ENGINEERING_IMPLEMENTATION",
+      "required": true,
+      "satisfied": true,
+      "owner": "03 COMM",
+      "classification": "already_closed",
+      "evidence": [
+        "ops/community-retention-launch-review.json",
+        "ops/community-retention-approval-state.json",
+        "docs/community/retention-final-approval-packet-20261001.md"
+      ],
+      "detail": "Runtime plumbing and engineering decision boundary are closed. No retention plumbing rerun is required before policy approval unless semantics change."
+    },
+    {
       "id": "RETENTION_PRODUCT_PRIVACY_LEGAL_APPROVAL",
       "required": true,
       "satisfied": false,
@@ -120,6 +133,18 @@
       ],
       "pendingReason": "Engineering decision boundary is closed. Explicit Product, Privacy, and Legal approvals remain PENDING; 30/365 are engineering defaults, not approved policy.",
       "classification": "approval_pending"
+    },
+    {
+      "id": "STAGING_OPERATIONS_INVENTORY",
+      "required": false,
+      "satisfied": true,
+      "owner": "03 COMM",
+      "classification": "staging_only",
+      "evidence": [
+        "ops/community-staging-operations-observed-20261001.json",
+        "docs/community/staging-operations-inventory-20261001.md"
+      ],
+      "detail": "Useful staging evidence only; it cannot satisfy production-only launch gates."
     },
     {
       "id": "DISTINCT_PRODUCTION_SUPABASE_PROJECT",
@@ -234,6 +259,32 @@
       "classification": "production_only_pending"
     },
     {
+      "id": "TRANSACTIONAL_EMAIL_PROVIDER_DELIVERY",
+      "required": true,
+      "satisfied": true,
+      "owner": "03 COMM",
+      "classification": "already_closed",
+      "evidence": [
+        "docs/community/operator-email-runtime-20261001.md"
+      ],
+      "providerMetrics": {
+        "sent": 5,
+        "delivered": 5,
+        "bounced": 0,
+        "failed": 0,
+        "complained": 0,
+        "deliveryDelayed": 0,
+        "deliveryRatePercent": 100
+      },
+      "senderDomain": {
+        "domain": "dreamwishwand.com",
+        "status": "verified",
+        "sending": "enabled",
+        "region": "ap-northeast-1"
+      },
+      "detail": "Observed existing traffic only; no synthetic warming."
+    },
+    {
       "id": "TRANSACTIONAL_EMAIL_HUMAN_MAILBOX_PLACEMENT",
       "required": true,
       "satisfied": false,
@@ -241,8 +292,18 @@
       "evidence": [
         "docs/community/operator-email-runtime-20261001.md"
       ],
-      "pendingReason": "Provider delivery is 5/5 but low-volume Inbox-vs-Junk observation remains partial and final production configuration is not yet available.",
-      "classification": "operator_manual_pending"
+      "pendingReason": "Provider delivery remains 5/5 with zero bounce/failure/complaint, but Inbox-vs-Junk acceptance is still partial and requires normal low-volume human mailbox observation.",
+      "classification": "operator_manual_pending",
+      "providerMetrics": {
+        "sent": 5,
+        "delivered": 5,
+        "bounced": 0,
+        "failed": 0,
+        "complained": 0,
+        "deliveryDelayed": 0
+      },
+      "providerDeliveryStatus": "CONFIRMED",
+      "humanMailboxPlacement": "PARTIAL"
     }
   ],
   "classificationTaxonomy": {
