@@ -68,18 +68,22 @@
       "note": "Selection is closed; provisioning/runtime evidence remains production-only pending."
     },
     {
-      "id": "LINKED_DDV_PROFILE_PRODUCT_LIFECYCLE",
-      "state": "CLOSED_PRODUCT_APPROVED_IMPLEMENTATION_DEPENDENCY_OPEN",
+      "id": "DDV_PROFILE_WORKSPACE_PRODUCT_LIFECYCLE",
+      "state": "CLOSED_PRODUCT_APPROVED",
       "evidence": [
         "ops/community-linked-ddv-profile-product-decision-20261002.json",
-        "docs/community/linked-ddv-profile-product-decision-20261002.md"
+        "ops/community-linked-ddv-profile-identity-transport-20261002.json"
       ],
       "decision": {
-        "maxLinkedProfiles": 3,
-        "normalSelfServiceUnlink": false,
-        "exceptionalCorrection": "recent-auth + support/admin review + reason + audit",
-        "tombstoneDays": 7,
-        "rawVerificationEvidencePersistent": false
+        "maxRetainedWorkspaces": 5,
+        "activeAndArchivedCountTogether": true,
+        "archiveFreesSlot": false,
+        "deletionFreesSlot": true,
+        "playerIdAssociationOptional": true,
+        "normalSelfServiceUnlink": true,
+        "workspaceDeleteRequiresConfirmation": true,
+        "crossAccountSameIdentityAssociationAllowed": true,
+        "profileCountMultipliesCompetitionRights": false
       }
     },
     {
@@ -109,21 +113,25 @@
       }
     },
     {
-      "id": "LINKED_DDV_PROFILE_DB_LIFECYCLE",
+      "id": "DDV_PROFILE_WORKSPACE_DB_LIFECYCLE",
       "state": "CLOSED_STAGING_RUNTIME_PASS",
       "evidence": [
-        "supabase/migrations/20261001221620_community_linked_ddv_profile_lifecycle_v1.sql",
+        "supabase/migrations/20261001232814_community_ddv_profile_workspace_v1.sql",
+        "supabase/migrations/20261001233225_community_ddv_profile_workspace_lifecycle_v2.sql",
+        "supabase/migrations/20261001233707_community_ddv_profile_workspace_fk_index_v3.sql",
         "ops/community-linked-ddv-profile-lifecycle-runtime-20261002.json",
         "docs/community/linked-ddv-profile-lifecycle-runtime-20261002.md"
       ],
       "facts": [
-        "self and parent_guardian_managed relationships supported",
-        "15-minute recent-auth and existing max-three cap",
-        "no raw Player ID database field",
-        "7-day binding digest tombstone with D4 hold-aware purge",
-        "admin-only exceptional correction",
-        "account deletion flows through the same tombstone path",
-        "no additional production Cron required"
+        "five retained Profile Workspaces per Wand Account",
+        "active + archived both consume capacity",
+        "self and parent_guardian_managed use the same capacity",
+        "Player ID association is optional and raw Player ID is not stored in PostgreSQL",
+        "same-account duplicate identity association is blocked while cross-account reuse is allowed",
+        "self-service unlink preserves the Workspace",
+        "Workspace delete requires confirmation and frees the slot",
+        "account deletion removes Workspaces and private identity associations",
+        "community-command v20 exposes create/update/delete/associate/unlink server routes"
       ]
     }
   ],
@@ -217,6 +225,14 @@
         "changedCommunityTransportPublicationSignedReadRetentionEdgeContracts": false
       },
       "rerunClosedCommunitySuites": false
+    },
+    {
+      "id": "DDV_PROFILE_IDENTITY_EDGE_E2E",
+      "state": "PENDING_STAGING_SECRET_CONFIGURATION",
+      "evidence": [
+        "ops/community-linked-ddv-profile-lifecycle-runtime-20261002.json"
+      ],
+      "detail": "DB digest path is runtime-tested. Live raw Player ID -> Edge HMAC -> association E2E still requires staging COMMUNITY_DDV_PROFILE_BINDING_KEY_V1 configuration."
     }
   ],
   "productionOnlyPending": [
