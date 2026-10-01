@@ -1,6 +1,6 @@
 # Community Core launch security hardening — 2026-10-01
 
-Status: **HIGH CONFIDENCE POLICY / PROVIDER CONFIGURED / RUNTIME BOUNDARY CHECK PENDING**
+Status: **PROVIDER 14/15 + REVOCATION RUNTIME CONFIRMED / SIGNED-IN REAUTH MAILBOX QA PENDING**
 
 ## Scope
 
@@ -97,15 +97,21 @@ Post-change Security Advisor result:
 - nine `rls_enabled_no_policy` findings remain INFO and are the intentional server-only deny-all tables already tracked by Community;
 - no new security WARN was introduced by the configuration change.
 
+Final Auth regression update — 2026-10-01:
+
+- **CONFIRMED RUNTIME:** 14-character provider fixture rejected.
+- **CONFIRMED RUNTIME:** 15-character provider fixture accepted and normal password sign-in succeeded.
+- **CONFIRMED RUNTIME:** two real provider sessions were established; provider global logout invalidated refresh, Wand session cutoff rejected the other old JWT, and a fresh password sign-in after cutoff succeeded.
+- **CONFIRMED RUNTIME:** the fixture then completed normal self-service account deletion and provider-user cleanup.
+- **CONFIRMED:** this acceptance generated no Auth email.
+
 Still required before public launch:
 
-1. verify a 14-code-point password is rejected by the real Auth provider boundary;
-2. verify a 15-code-point passphrase is accepted by the real Auth provider boundary;
-3. confirm email verification remains mandatory during the final Auth regression;
-4. confirm signup/recovery resend throttles remain active;
-5. verify normal password change still requires reauthentication;
-6. verify password recovery/change revokes the expected sessions;
-7. optionally exercise one representative security-change notification during final Auth QA; do not create synthetic repeated mail traffic solely to test all seven toggles.
+1. exercise one representative **signed-in reauthentication** challenge with a real QA mailbox nonce;
+2. complete password update through that reauthentication proof;
+3. confirm the resulting provider global revoke + Wand cutoff again in that mailbox-backed password-change path;
+4. keep email verification mandatory and preserve existing signup/recovery resend throttles;
+5. optionally observe the corresponding password-change security notification as part of the same real QA transaction rather than creating synthetic repeated mail.
 
 ## Evidence classification
 
@@ -128,8 +134,16 @@ Still required before public launch:
 - all seven security-change notification toggles are enabled;
 - post-change Security Advisor still reports only the unavailable leaked-password-protection WARN.
 
+**CONFIRMED RUNTIME — 2026-10-01**
+
+- real Auth provider-boundary 14/15 acceptance;
+- real provider global refresh revocation;
+- independent Wand session cutoff and old-JWT rejection.
+
 **PENDING**
 
-- real Auth provider-boundary 14/15 acceptance check;
-- final Auth regression for reauthentication/revocation behavior;
-- optional representative security-notification delivery check during final QA.
+- one representative signed-in reauthentication nonce -> password change -> all-session revocation mailbox acceptance;
+- optional representative password-change security-notification observation during that same QA flow.
+
+
+Detailed runtime evidence: `docs/community/auth-provider-boundary-revocation-runtime-20261001.md` and `ops/community-auth-launch-review.json`.
