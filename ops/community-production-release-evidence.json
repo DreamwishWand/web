@@ -15,7 +15,8 @@
       "evidence": [
         "docs/community/community-browser-acceptance-20261001.md",
         "docs/community/community-closure-handoff-20261001.md"
-      ]
+      ],
+      "classification": "already_closed"
     },
     {
       "id": "PRESET_SCENE_REUSE_VERTICAL",
@@ -24,7 +25,8 @@
       "owner": "03 COMM + 02 WEP",
       "evidence": [
         "docs/community/wep-road-integration-acceptance-20261001.md"
-      ]
+      ],
+      "classification": "already_closed"
     },
     {
       "id": "PRESET_ARTIFACT_RETENTION_E2E",
@@ -33,7 +35,8 @@
       "owner": "03 COMM + 02 WEP",
       "evidence": [
         "docs/community/wep-preset-retention-integration-20260930.md"
-      ]
+      ],
+      "classification": "already_closed"
     },
     {
       "id": "WEP_PRESET_ARTIFACT_BUCKET_EXTERNALIZATION",
@@ -44,7 +47,32 @@
         "dev/wep-v125@c396413dc349829bc91f89b397321de38b55a3ba",
         "staging:wep-preset-artifact-v14",
         "staging:wep-preset-retention-v6"
-      ]
+      ],
+      "classification": "already_closed"
+    },
+    {
+      "id": "WEP_COMM_MIGRATION_BASELINE_CONSISTENCY",
+      "required": true,
+      "satisfied": true,
+      "owner": "03 COMM + 02 WEP",
+      "classification": "already_closed",
+      "evidence": [
+        "dev/wep-v125@0773ed12af63ef0502281054988e3b2c1b15eeb6",
+        "scripts/verify-community-integrated-production-tree.mjs"
+      ],
+      "detail": "WEP now preserves the Community 81600 support-recovery migration and keeps one-time pg_net SQL under supabase/staging while retaining all three WEP Preset production migrations."
+    },
+    {
+      "id": "WEP_PRESET_ARTIFACT_BUCKET_PRODUCTION_MIGRATION",
+      "required": true,
+      "satisfied": false,
+      "owner": "02 WEP",
+      "classification": "cross_stream_pending",
+      "evidence": [
+        "dev/wep-v125@0773ed12af63ef0502281054988e3b2c1b15eeb6",
+        "supabase/migrations/20260930124055_wep_preset_artifact_storage_v0.sql"
+      ],
+      "pendingReason": "The migration still creates wand-preset-artifacts-staging. Fresh production replay must not create or use the staging bucket."
     },
     {
       "id": "AUTH_PROVIDER_14_15_BOUNDARY",
@@ -54,7 +82,8 @@
       "evidence": [
         "docs/community/auth-provider-boundary-revocation-runtime-20261001.md",
         "ops/community-auth-launch-review.json"
-      ]
+      ],
+      "classification": "already_closed"
     },
     {
       "id": "AUTH_PROVIDER_WAND_REVOCATION",
@@ -64,7 +93,8 @@
       "evidence": [
         "docs/community/auth-provider-boundary-revocation-runtime-20261001.md",
         "ops/community-auth-launch-review.json"
-      ]
+      ],
+      "classification": "already_closed"
     },
     {
       "id": "AUTH_SIGNED_IN_REAUTH_MAILBOX",
@@ -74,7 +104,8 @@
       "evidence": [
         "docs/community/auth-final-mailbox-reauth-runbook-20261001.md"
       ],
-      "pendingReason": "Requires one real mailbox-backed signed-in reauthentication/password-change transaction; synthetic email is prohibited."
+      "pendingReason": "Requires one real mailbox-backed signed-in reauthentication/password-change transaction; synthetic email is prohibited.",
+      "classification": "operator_manual_pending"
     },
     {
       "id": "RETENTION_PRODUCT_PRIVACY_LEGAL_APPROVAL",
@@ -83,9 +114,12 @@
       "owner": "Product/Privacy/Legal",
       "evidence": [
         "ops/community-retention-launch-review.json",
-        "docs/community/privacy-retention-launch-review-20261001.md"
+        "ops/community-retention-approval-state.json",
+        "docs/community/privacy-retention-launch-review-20261001.md",
+        "docs/community/retention-final-approval-packet-20261001.md"
       ],
-      "pendingReason": "D1-D8 remain unapproved; 30/365 are engineering defaults, not legal conclusions."
+      "pendingReason": "Engineering decision boundary is closed. Explicit Product, Privacy, and Legal approvals remain PENDING; 30/365 are engineering defaults, not approved policy.",
+      "classification": "approval_pending"
     },
     {
       "id": "DISTINCT_PRODUCTION_SUPABASE_PROJECT",
@@ -93,7 +127,8 @@
       "satisfied": false,
       "owner": "Release Operations",
       "evidence": [],
-      "pendingReason": "No production project has been created; staging must not be accepted as production evidence."
+      "pendingReason": "No production project has been created; staging must not be accepted as production evidence.",
+      "classification": "production_only_pending"
     },
     {
       "id": "FINAL_INTEGRATED_SOURCE_TREE",
@@ -103,7 +138,8 @@
       "evidence": [
         "docs/community/final-integrated-production-tree-preflight-20261001.md"
       ],
-      "pendingReason": "Community and WEP workstreams are still separate; final-integrated-main does not yet exist as the accepted replay tree."
+      "pendingReason": "Community and WEP workstreams are still separate; final-integrated-main does not yet exist as the accepted replay tree.",
+      "classification": "cross_stream_pending"
     },
     {
       "id": "FINAL_INTEGRATED_MIGRATION_REPLAY",
@@ -113,7 +149,8 @@
       "evidence": [
         "docs/community/final-integrated-production-tree-preflight-20261001.md"
       ],
-      "pendingReason": "Must be executed against a fresh non-production target from final-integrated-main before production."
+      "pendingReason": "Must be executed against a fresh non-production target from final-integrated-main before production.",
+      "classification": "production_only_pending"
     },
     {
       "id": "DATABASE_BACKUP_MECHANISM",
@@ -121,7 +158,8 @@
       "satisfied": false,
       "owner": "Release Operations",
       "evidence": [],
-      "pendingReason": "Production backup mechanism has not been selected/proven."
+      "pendingReason": "Production backup mechanism has not been selected/proven.",
+      "classification": "production_only_pending"
     },
     {
       "id": "DATABASE_RESTORE_DRILL",
@@ -129,7 +167,8 @@
       "satisfied": false,
       "owner": "Release Operations",
       "evidence": [],
-      "pendingReason": "Requires actual restore into a non-production target."
+      "pendingReason": "Requires actual restore into a non-production target.",
+      "classification": "production_only_pending"
     },
     {
       "id": "STORAGE_BACKUP_MECHANISM",
@@ -137,7 +176,8 @@
       "satisfied": false,
       "owner": "Release Operations",
       "evidence": [],
-      "pendingReason": "Storage object bytes require independent backup coverage."
+      "pendingReason": "Storage object bytes require independent backup coverage.",
+      "classification": "production_only_pending"
     },
     {
       "id": "STORAGE_RESTORE_DRILL",
@@ -145,7 +185,8 @@
       "satisfied": false,
       "owner": "Release Operations",
       "evidence": [],
-      "pendingReason": "Requires actual object-byte restore/integrity verification in a non-production target."
+      "pendingReason": "Requires actual object-byte restore/integrity verification in a non-production target.",
+      "classification": "production_only_pending"
     },
     {
       "id": "CONTROLLED_SECRET_ROTATION",
@@ -153,7 +194,8 @@
       "satisfied": false,
       "owner": "Release Operations",
       "evidence": [],
-      "pendingReason": "Must rotate one representative production worker/delivery secret without service-state ambiguity."
+      "pendingReason": "Must rotate one representative production worker/delivery secret without service-state ambiguity.",
+      "classification": "production_only_pending"
     },
     {
       "id": "PRODUCTION_FUNCTION_INVENTORY",
@@ -161,7 +203,8 @@
       "satisfied": false,
       "owner": "Release Operations",
       "evidence": [],
-      "pendingReason": "Production function allowlist and staging-only denylist must be verified after deployment."
+      "pendingReason": "Production function allowlist and staging-only denylist must be verified after deployment.",
+      "classification": "production_only_pending"
     },
     {
       "id": "PRODUCTION_CRON_VAULT_INVENTORY",
@@ -169,7 +212,8 @@
       "satisfied": false,
       "owner": "Release Operations",
       "evidence": [],
-      "pendingReason": "Required Cron jobs and Vault secret names must be verified in production without reading secret values."
+      "pendingReason": "Required Cron jobs and Vault secret names must be verified in production without reading secret values.",
+      "classification": "production_only_pending"
     },
     {
       "id": "PRODUCTION_SMOKE",
@@ -177,7 +221,8 @@
       "satisfied": false,
       "owner": "Release QA",
       "evidence": [],
-      "pendingReason": "Requires final production-shaped smoke after deployment."
+      "pendingReason": "Requires final production-shaped smoke after deployment.",
+      "classification": "production_only_pending"
     },
     {
       "id": "PRODUCTION_SECURITY_ADVISOR",
@@ -185,7 +230,8 @@
       "satisfied": false,
       "owner": "Release Security",
       "evidence": [],
-      "pendingReason": "Must be read from the production project after deployment; staging Advisor is not production evidence."
+      "pendingReason": "Must be read from the production project after deployment; staging Advisor is not production evidence.",
+      "classification": "production_only_pending"
     },
     {
       "id": "TRANSACTIONAL_EMAIL_HUMAN_MAILBOX_PLACEMENT",
@@ -195,7 +241,16 @@
       "evidence": [
         "docs/community/operator-email-runtime-20261001.md"
       ],
-      "pendingReason": "Provider delivery is 5/5 but low-volume Inbox-vs-Junk observation remains partial and final production configuration is not yet available."
+      "pendingReason": "Provider delivery is 5/5 but low-volume Inbox-vs-Junk observation remains partial and final production configuration is not yet available.",
+      "classification": "operator_manual_pending"
     }
-  ]
+  ],
+  "classificationTaxonomy": {
+    "already_closed": "Closed with existing evidence; do not rerun without a relevant change.",
+    "staging_only": "Staging evidence only; cannot satisfy production-only launch gates.",
+    "production_only_pending": "Requires evidence from the distinct production environment.",
+    "approval_pending": "Requires explicit Product/Privacy/Legal approval; engineering evidence is not approval.",
+    "operator_manual_pending": "Requires a real operator/manual QA transaction; synthetic traffic is prohibited.",
+    "cross_stream_pending": "Owned by another workstream and must remain fail-closed here."
+  }
 }
