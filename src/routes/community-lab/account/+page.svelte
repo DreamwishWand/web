@@ -159,8 +159,8 @@
       <p>
         Deleting this Wand Account is irreversible. Account access, the Creator presence, and owned
         public/private Community works are removed from Community access immediately. Authored
-        comments are anonymized, private Saved/Follow/Reaction/notification/DDV-link state is
-        removed, Wand sessions are revoked, and provider-account cleanup is queued.
+        comments are anonymized, private Saved/Follow/Reaction/notification state and DDV Profile
+        Workspaces are removed, Wand sessions are revoked, and provider-account cleanup is queued.
       </p>
 
       <p>
