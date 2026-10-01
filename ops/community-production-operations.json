@@ -118,7 +118,8 @@
     "requirePostDeploymentSecurityAdvisor": true,
     "requirePostDeploymentSmoke": true,
     "requireNoHardcodedStagingResourcesInProductionFunctions": true,
-    "requireIntegratedMigrationReplay": true
+    "requireIntegratedMigrationReplay": true,
+    "requireRetentionPolicyApproval": true
   },
   "integration": {
     "communityBranch": "dev/community-core-v0-20260930",
@@ -134,5 +135,15 @@
       "evidence": "dev/wep-v125@19d22a37784712363d0ab4db18c4590912286969",
       "detail": "wep-preset-artifact and wep-preset-retention currently hardcode wand-preset-artifacts-staging; production must use an explicit environment-specific bucket and fail closed outside known staging."
     }
-  ]
+  ],
+  "privacyRetentionReview": {
+    "contract": "ops/community-retention-launch-review.json",
+    "technicalState": "CONFIRMED",
+    "launchApproved": false,
+    "engineeringDefaults": {
+      "contentPayloadDays": 30,
+      "operationalDetailDays": 365
+    },
+    "approvalRequired": true
+  }
 }
