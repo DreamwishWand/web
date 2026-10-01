@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ROADFENCE_READER_MAIN_MERGE_COMMIT,
+  createDraftAwareNetworkCaptureAdapter,
   createSwitchV125RoadFenceReaderBinding
 } from '../src/lib/wep/roadfence-reader-adapter.ts';
 import {
@@ -57,6 +58,7 @@ function document() {
       profileSchemaVersion: 624,
       rootGridId: 7,
       areaKey: 'v0:a7',
+      tessellationFactor: 1,
       persistentWriteAuthorized: false
     },
     objects: [
@@ -247,4 +249,115 @@ test('full-root Road/Fence draft capture fails closed without authoritative boun
   assert.equal(result.status, 'blocked');
   assert.equal(result.code, 'WEP_ROADFENCE_ROOT_BOUNDS_REQUIRED');
   assert.equal(result.persistentWriteAuthorized, false);
+});
+
+
+test('edited full-root Road draft is the Scene capture source instead of stale native reader data', () => {
+  const binding = createSwitchV125RoadFenceReaderBinding({
+    profile: profile(),
+    rootGridId: 7
+  });
+  const source = document();
+  source.metadata.rootGridBounds = {
+    x: 0,
+    y: 0,
+    w: 100,
+    h: 100,
+    status: 'AUTHORITATIVE_GRIDDATAPATH'
+  };
+  const rootDraft = binding.captureRootDraft(source);
+  assert.equal(rootDraft.status, 'supported');
+  source.networks = structuredClone(rootDraft.networks);
+  source.networks.roads.networks[0].cells = [
+    { x: 11, y: 10, mode: 'orthogonal' }
+  ];
+
+  const adapter = createDraftAwareNetworkCaptureAdapter(
+    binding.networkAdapter
+  );
+  const result = captureScenePreset(
+    source,
+    {
+      selectionIds: ['g7:o101'],
+      captureRegion: { x: 10, y: 10, w: 2, h: 2 },
+      includeRoads: true,
+      networkAdapter: adapter
+    },
+    validatePublishablePreset
+  );
+
+  assert.equal(result.captureReady, true);
+  assert.equal(result.publicationReady, true);
+  assert.deepEqual(
+    result.artifact.networks.roads.networks[0].cells,
+    [{ x: 1, y: 0, mode: 'orthogonal' }]
+  );
+  assert.equal(
+    result.artifact.networks.roads.persistentWriteAuthorized,
+    false
+  );
+});
+
+test('draft-aware Scene capture keeps contained-only topology fail-closed', () => {
+  const binding = createSwitchV125RoadFenceReaderBinding({
+    profile: profile(),
+    rootGridId: 7
+  });
+  const source = document();
+  source.metadata.rootGridBounds = {
+    x: 0,
+    y: 0,
+    w: 100,
+    h: 100,
+    status: 'AUTHORITATIVE_GRIDDATAPATH'
+  };
+  const rootDraft = binding.captureRootDraft(source);
+  source.networks = structuredClone(rootDraft.networks);
+  source.networks.roads.networks[0].cells = [
+    { x: 10, y: 10, mode: 'orthogonal' },
+    { x: 11, y: 10, mode: 'orthogonal' }
+  ];
+
+  const result = captureScenePreset(
+    source,
+    {
+      selectionIds: ['g7:o101'],
+      captureRegion: { x: 10, y: 10, w: 1, h: 1 },
+      includeRoads: true,
+      networkAdapter: createDraftAwareNetworkCaptureAdapter(
+        binding.networkAdapter
+      )
+    },
+    validatePublishablePreset
+  );
+
+  assert.equal(result.captureReady, false);
+  assert.equal(result.publicationReady, false);
+  assert.equal(
+    result.issues.some(
+      (entry) => entry.code === 'TOPOLOGY_CLIPPED_UNSUPPORTED'
+    ),
+    true
+  );
+});
+
+test('draft-aware adapter falls back to native reader only when no draft container exists', () => {
+  const binding = createSwitchV125RoadFenceReaderBinding({
+    profile: profile(),
+    rootGridId: 7
+  });
+  const source = document();
+  const adapter = createDraftAwareNetworkCaptureAdapter(
+    binding.networkAdapter
+  );
+  const result = adapter.capture(
+    'roads',
+    source,
+    { x: 10, y: 10, w: 2, h: 2 }
+  );
+  assert.equal(result.status, 'supported');
+  assert.deepEqual(
+    result.data.networks[0].cells,
+    [{ x: 0, y: 0, mode: 'orthogonal' }]
+  );
 });
