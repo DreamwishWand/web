@@ -1639,7 +1639,13 @@
         Number(rootGridId),
         switchWorldBinding
       );
-      const normalized = normalizeEditorDocument(projectedDocument);
+      const classifiedDocument =
+        buildingV110Binding.annotateEditorDocument(
+          projectedDocument
+        );
+      const normalized = normalizeEditorDocument(
+        classifiedDocument
+      );
 
       roadFenceReaderBinding =
         createSwitchV125RoadFenceReaderBinding({
@@ -1676,11 +1682,13 @@
         try {
           fullDesignRootDocuments.push(
             normalizeEditorDocument(
-              projectSwitchAreaGrid(
-                worldSource,
-                area,
-                Number(root.gridId),
-                switchWorldBinding
+              buildingV110Binding.annotateEditorDocument(
+                projectSwitchAreaGrid(
+                  worldSource,
+                  area,
+                  Number(root.gridId),
+                  switchWorldBinding
+                )
               )
             )
           );
