@@ -21,7 +21,8 @@ const commandToRpc = {
   deleteWork: 'community_delete_work',
   moderateWork: 'community_moderate_work_v2',
   retryDeadLetter: 'community_retry_dead_letter_outbox',
-  revokeSessions: 'community_revoke_wand_sessions'
+  revokeSessions: 'community_revoke_wand_sessions',
+  linkDdvProfile: 'community_link_ddv_profile_v1'
 } as const;
 
 type CommandName = keyof typeof commandToRpc;
@@ -41,8 +42,47 @@ const commandToRateBucket: Partial<Record<CommandName, string>> = {
   changeVisibility: 'gallery_write',
   unpublishWork: 'gallery_write',
   deleteWork: 'gallery_write',
-  moderateWork: 'moderation_write'
+  moderateWork: 'moderation_write',
+  linkDdvProfile: 'ddv_profile_link'
 };
+
+const textEncoder = new TextEncoder();
+
+function bytesToHex(bytes: ArrayBuffer): string {
+  return Array.from(new Uint8Array(bytes), (value) => value.toString(16).padStart(2, '0')).join('');
+}
+
+async function deriveDdvProfileBindingDigest(playerId: string): Promise<string> {
+  const linkMode = Deno.env.get('COMMUNITY_DDV_PROFILE_LINK_MODE')?.trim() ?? 'disabled';
+  if (linkMode !== 'local-player-id') {
+    throw new Error('DDV_PROFILE_LINK_DISABLED');
+  }
+
+  const secret = Deno.env.get('COMMUNITY_DDV_PROFILE_BINDING_KEY_V1') ?? '';
+  if (secret.length < 32) {
+    throw new Error('DDV_PROFILE_BINDING_KEY_UNAVAILABLE');
+  }
+
+  if (
+    playerId.length < 4 ||
+    playerId.length > 128 ||
+    playerId !== playerId.trim() ||
+    !/^[\\x21-\\x7E]+$/.test(playerId)
+  ) {
+    throw new Error('INVALID_DDV_PLAYER_ID');
+  }
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    textEncoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const input = textEncoder.encode(`dreamwishwand/ddv-player-id/v1\\0${playerId}`);
+  const signature = await crypto.subtle.sign('HMAC', key, input);
+  return `hmac-sha256:v1:${bytesToHex(signature)}`;
+}
 
 function reply(body: unknown, status = 200) {
   return Response.json(body, {
@@ -228,6 +268,32 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         params.p_outbox_id = payload.outboxId;
         params.p_reason = payload.reason;
         break;
+      case 'linkDdvProfile': {
+        if (!sessionId) {
+          return reply({ ok: false, error: 'JWT session-id claim missing' }, 401);
+        }
+
+        const playerId = typeof payload.playerId === 'string' ? payload.playerId : '';
+        let bindingDigest: string;
+        try {
+          bindingDigest = await deriveDdvProfileBindingDigest(playerId);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'DDV_PROFILE_LINK_FAILED';
+          if (message === 'DDV_PROFILE_LINK_DISABLED') {
+            return reply({ ok: false, error: message }, 503);
+          }
+          if (message === 'DDV_PROFILE_BINDING_KEY_UNAVAILABLE') {
+            return reply({ ok: false, error: message }, 500);
+          }
+          return reply({ ok: false, error: 'INVALID_DDV_PLAYER_ID' }, 400);
+        }
+
+        params.p_session_id = sessionId;
+        params.p_issued_at_epoch = issuedAt;
+        params.p_binding_key_hash = bindingDigest;
+        params.p_relationship_kind = payload.relationshipKind ?? 'self';
+        break;
+      }
       case 'revokeSessions':
         break;
     }
@@ -236,7 +302,10 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
     if (error) {
       const conflict =
         error.message.includes('Row version conflict') ||
-        error.message.includes('Idempotency key reused');
+        error.message.includes('Idempotency key reused') ||
+        error.message.includes('DDV_PROFILE_ALREADY_LINKED') ||
+        error.message.includes('DDV_PROFILE_COOLDOWN_ACTIVE') ||
+        error.message.includes('A Wand Account may link at most three DDV Profiles');
       const recentAuth = error.message.includes('Recent authentication required');
       const forbidden =
         recentAuth ||
