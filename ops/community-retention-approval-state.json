@@ -1,6 +1,6 @@
 {
   "schema": "dreamwish-community-retention-approval-state@1",
-  "updatedAt": "2026-10-01",
+  "updatedAt": "2026-10-02",
   "engineering": {
     "implementationStatus": "CONFIRMED",
     "runtimeEvidenceStatus": "CONFIRMED",
@@ -14,7 +14,7 @@
   },
   "approvals": {
     "product": {
-      "status": "PENDING",
+      "status": "APPROVED",
       "mayBeInferredFromEngineeringDefault": false,
       "requiredDecisionIds": [
         "D1_CONTENT_PAYLOAD_DURATION",
@@ -26,7 +26,9 @@
         "D8_POLICY_DISCLOSURE_AND_ACCEPTANCE"
       ],
       "reviewReady": true,
-      "explicitApprovalRequired": true
+      "explicitApprovalRequired": true,
+      "approvedAt": "2026-10-02",
+      "evidence": "docs/community/retention-product-approval-record-20261002.md"
     },
     "privacy": {
       "status": "PENDING",
@@ -59,9 +61,9 @@
       "explicitApprovalRequired": true
     }
   },
-  "launchApprovalStatus": "PENDING_EXPLICIT_APPROVALS",
+  "launchApprovalStatus": "PENDING_PRIVACY_LEGAL_APPROVALS",
   "launchApproved": false,
-  "nextEngineeringAction": "NONE_UNTIL_EXPLICIT_APPROVAL_OR_POLICY_CHANGE",
+  "nextEngineeringAction": "NONE_UNTIL_PRIVACY_LEGAL_REVIEW_OR_POLICY_CHANGE",
   "finalRegressionRule": "Run one policy-aligned retention configuration regression only after approvals are recorded; do not rerun already-passed retention plumbing E2E without a relevant change.",
   "policyProposal": {
     "contract": "ops/community-retention-policy-proposal.json",
@@ -69,7 +71,7 @@
     "approvalsInferred": false
   },
   "reviewReadiness": {
-    "product": "READY_FOR_EXPLICIT_APPROVAL",
+    "product": "APPROVED",
     "privacy": "READY_FOR_REVIEW",
     "legal": "READY_FOR_REVIEW",
     "evidence": [
