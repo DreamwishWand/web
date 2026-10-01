@@ -148,7 +148,9 @@
       "state": "PRODUCT_CONTRACT_CLOSED__CORE_IDENTIFIER_AND_PRIVACY_LEGAL_REVIEW_PENDING",
       "evidence": [
         "ops/community-privacy-review-readiness-20261002.json",
-        "docs/community/privacy-review-readiness-20261002.md"
+        "docs/community/privacy-review-readiness-20261002.md",
+        "ops/community-linked-ddv-profile-core-identifier-gate-20261002.json",
+        "docs/community/linked-ddv-profile-core-identifier-request-20261002.md"
       ],
       "facts": [
         "schema and three-link enforcement exist",
@@ -157,9 +159,10 @@
         "no reviewed link/verify/unlink command or routine is present",
         "binding_key_hash derivation and verification_evidence_ref lifecycle are undefined",
         "Product approved 7-day ordinary tombstone and reviewed-correction-only lifecycle.",
-        "No confirmed stable local DDV Profile identifier exists in DDV Core yet."
+        "No confirmed stable local DDV Profile identifier exists in DDV Core yet.",
+        "DDV_CORE_INTEGRATION_CURRENT was rechecked after the Age/minors Product decision; no Integrator-promoted stable local DDV Profile identifier contract was found."
       ],
-      "qrInstruction": "Product semantics are closed. Keep launch gate open until DDV Core confirms a stable local identifier, targeted Community implementation/acceptance exists, and Privacy/Legal review the confirmed identifier/transport."
+      "qrInstruction": "Product semantics are closed. Community Core has issued an explicit DDV Core identifier acceptance request; keep link/verify fail-closed until an Integrator-promoted stable local identifier exists, then require Privacy/Legal review of identifier/linkability and final verification transport before targeted Community implementation/acceptance."
     }
   ],
   "crossStreamPending": [
