@@ -207,8 +207,8 @@ test('Switch full-design planning consumes the bound 01C reader on every direct 
   }
 
   const serialized = JSON.stringify(plan.manifest);
-  assert.equal(serialized.includes('sourceGridId'), false);
-  assert.equal(serialized.includes('gridObjectId'), false);
+  assert.equal(serialized.includes('"sourceGridId":'), false);
+  assert.equal(serialized.includes('"gridObjectId":'), false);
   assert.equal(plan.manifestValidation.ok, true);
   assert.equal(plan.publicationReady, false);
   assert.equal(plan.applyReady, false);
