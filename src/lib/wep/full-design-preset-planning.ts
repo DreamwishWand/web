@@ -22,6 +22,10 @@ import {
 } from './griddata-v17-contract.ts';
 import type { EditorDocument } from './scene-capture-runtime.ts';
 import {
+  BUILDING_V110_CLASS,
+  type BuildingV110Binding
+} from './building-v110.ts';
+import {
   FULL_DESIGN_CAPTURE_MANIFEST_SCHEMA,
   FULL_DESIGN_CAPTURE_MANIFEST_VERSION,
   validateCurrentV125FullDesignManifest,
@@ -42,6 +46,7 @@ export interface FullDesignCapturePlanInput {
   sourcePlatform?: string | null;
   requestedCategories?: Partial<Record<FullDesignCategory, boolean>>;
   rootEditorDocuments?: AnyRecord[] | null;
+  buildingBinding?: BuildingV110Binding | null;
 }
 
 export interface FullDesignPlanningIssue {
@@ -160,6 +165,30 @@ function portableObjectAnchor(
   };
 }
 
+function sourceBuildingStateFamily(object: AnyRecord | null) {
+  const state = object?.State;
+  if (!state || typeof state !== 'object') return null;
+  for (const key of [
+    'HouseData',
+    'BuildingWithSkinData',
+    'StallData'
+  ]) {
+    if (state[key] && typeof state[key] === 'object') {
+      return key;
+    }
+  }
+  return null;
+}
+
+function buildingAnchorKey(entry: AnyRecord) {
+  return [
+    String(entry?.directRootRoute?.gridDataPath ?? ''),
+    Number(entry?.itemId),
+    Number(entry?.localX),
+    Number(entry?.localY)
+  ].join('|');
+}
+
 function captureDirectRootObjectPlanning(
   profile: AnyRecord,
   resolved: AnyRecord
@@ -198,6 +227,8 @@ function captureDirectRootObjectPlanning(
 
     for (const object of objects) {
       const anchor = portableObjectAnchor(gridDataPath, object);
+      const sourceStateFamily =
+        sourceBuildingStateFamily(object);
       const capture = captureV125ObjectRestoration(
         profile,
         root.sourceGridId,
@@ -208,6 +239,7 @@ function captureDirectRootObjectPlanning(
         restorationEntries.push({
           ...anchor,
           kind: String(capture.kind),
+          sourceStateFamily,
           portableState: clone(capture.portableState)
         });
         continue;
@@ -216,7 +248,8 @@ function captureDirectRootObjectPlanning(
         noExtraStateCount += 1;
         noExtraStateEntries.push({
           ...anchor,
-          kind: String(capture.kind ?? 'SUPPORTED_NO_EXTRA_STATE')
+          kind: String(capture.kind ?? 'SUPPORTED_NO_EXTRA_STATE'),
+          sourceStateFamily
         });
         continue;
       }
@@ -227,6 +260,7 @@ function captureDirectRootObjectPlanning(
       restorationBlockers.push({
         ...anchor,
         kind: String(capture.kind ?? 'UNKNOWN'),
+        sourceStateFamily,
         status: String(capture.status ?? 'UNKNOWN'),
         blockers: clone(capture.blockers ?? [])
       });
@@ -260,6 +294,224 @@ function captureDirectRootObjectPlanning(
     noExtraStateEntries,
     noExtraStateCount,
     notApplicableCount
+  };
+}
+
+function buildingSourceEntries({
+  profile,
+  resolved,
+  rootEditorDocuments,
+  rootObjectPlanning,
+  buildingBinding
+}: {
+  profile: AnyRecord;
+  resolved: AnyRecord;
+  rootEditorDocuments: AnyRecord[] | null;
+  rootObjectPlanning: AnyRecord;
+  buildingBinding: BuildingV110Binding | null;
+}) {
+  if (
+    !Array.isArray(rootEditorDocuments) ||
+    !rootEditorDocuments.length ||
+    !Array.isArray(resolved?.directRoots)
+  ) {
+    return [];
+  }
+
+  const routeSourceGrid = new Map(
+    resolved.directRoots.map((root: AnyRecord) => [
+      String(root?.gridDataPath ?? ''),
+      Number(root?.sourceGridId)
+    ])
+  );
+  const restorationByAnchor = new Map<string, AnyRecord>();
+  for (const entry of [
+    ...(rootObjectPlanning.restorationEntries ?? []),
+    ...(rootObjectPlanning.noExtraStateEntries ?? []),
+    ...(rootObjectPlanning.restorationBlockers ?? [])
+  ]) {
+    restorationByAnchor.set(buildingAnchorKey(entry), entry);
+  }
+
+  const entries: AnyRecord[] = [];
+  for (const document of rootEditorDocuments) {
+    const gridDataPath = String(
+      document?.target?.gridDataPath ?? ''
+    );
+    const sourceGridId = Number(
+      routeSourceGrid.get(gridDataPath)
+    );
+    const grid = Number.isSafeInteger(sourceGridId)
+      ? sourceGrid(profile, sourceGridId)
+      : null;
+
+    for (const object of document?.objects ?? []) {
+      if (String(object?.layer ?? '') !== 'building') continue;
+
+      const itemId = Number(object?.itemId);
+      const localX = Number(object?.x);
+      const localY = Number(object?.y);
+      const orientation = Number(object?.orientation);
+      const footprint = Array.isArray(object?.footprint)
+        ? object.footprint.map((cell: AnyRecord) => ({
+            x: Number(cell?.x),
+            y: Number(cell?.y)
+          }))
+        : [];
+
+      const anchor = {
+        directRootRoute: {
+          codec: V125_PORTABLE_CONTRACTS.location
+            .directGridRouteCodec,
+          gridDataPath
+        },
+        itemId,
+        localX,
+        localY
+      };
+      const restoration = restorationByAnchor.get(
+        buildingAnchorKey(anchor)
+      );
+
+      let sourceObject: AnyRecord | null = null;
+      const sourceObjectId = Number(
+        object?.source?.gridObjectId
+      );
+      if (
+        grid &&
+        Number.isSafeInteger(sourceObjectId)
+      ) {
+        sourceObject =
+          grid.Objects?.[String(sourceObjectId)] ??
+          grid.Objects?.[sourceObjectId] ??
+          null;
+      }
+      if (!sourceObject && grid) {
+        sourceObject =
+          Object.values(grid.Objects ?? {}).find(
+            (candidate: any) =>
+              Number(candidate?.ItemID) === itemId &&
+              Number(candidate?.X) === localX &&
+              Number(candidate?.Y) === localY
+          ) as AnyRecord | null;
+      }
+
+      const metadataEvidence =
+        object?.metadata?.buildingSemantics &&
+        typeof object.metadata.buildingSemantics === 'object'
+          ? object.metadata.buildingSemantics
+          : {};
+      const evidence = {
+        buildingItemType:
+          typeof metadataEvidence.buildingItemType === 'string'
+            ? metadataEvidence.buildingItemType
+            : null,
+        signals:
+          metadataEvidence.signals &&
+          typeof metadataEvidence.signals === 'object'
+            ? clone(metadataEvidence.signals)
+            : {},
+        restorationKind:
+          restoration?.kind
+            ? String(restoration.kind)
+            : null,
+        sourceStateFamily:
+          restoration?.sourceStateFamily ??
+          sourceBuildingStateFamily(sourceObject)
+      };
+      const classification = buildingBinding
+        ? buildingBinding.classifyEvidence(evidence)
+        : {
+            schema: 'ddv.building-classification-result@1',
+            classification: BUILDING_V110_CLASS.UNKNOWN,
+            subtype: null,
+            evidence: 'BUILDING_V110_CONTRACT_NOT_BOUND',
+            blockers: [
+              {
+                code:
+                  'WEP_BUILDING_V110_CONTRACT_NOT_BOUND'
+              }
+            ],
+            persistentWriteAuthorized: false
+          };
+      const geometryStatus = String(
+        object?.metadata?.geometryStatus ?? 'UNKNOWN'
+      );
+
+      entries.push({
+        artifactBuildingId: `b${entries.length}`,
+        directRootRoute: clone(anchor.directRootRoute),
+        itemId,
+        localX,
+        localY,
+        orientation,
+        footprint,
+        geometryStatus,
+        evidence,
+        classification: clone(classification),
+        restorationArtifactId:
+          restoration?.artifactRestorationId ?? null,
+        restorationKind:
+          restoration?.kind
+            ? String(restoration.kind)
+            : null,
+        restorationStatus:
+          restoration?.status ??
+          (restoration?.portableState
+            ? 'CAPTURED'
+            : restoration
+              ? 'SUPPORTED_NO_EXTRA_STATE'
+              : 'NOT_APPLICABLE'),
+        sourceBlockers: clone(
+          restoration?.blockers ?? []
+        ),
+        portablePlacementEligible:
+          classification.classification ===
+            BUILDING_V110_CLASS.ORDINARY &&
+          geometryStatus === 'RESOLVED' &&
+          footprint.length > 0,
+        persistentWriteAuthorized: false
+      });
+    }
+  }
+  return entries;
+}
+
+function rootCompositionWithoutBuildings(
+  composition: AnyRecord | null
+) {
+  if (!composition) return null;
+  const unresolved = (composition.unresolved ?? []).filter(
+    (entry: AnyRecord) =>
+      String(entry?.layer ?? '') !== 'building'
+  );
+  const unresolvedByPath = new Map<string, number>();
+  for (const entry of unresolved) {
+    const path = String(
+      entry?.directRootRoute?.gridDataPath ?? ''
+    );
+    unresolvedByPath.set(
+      path,
+      (unresolvedByPath.get(path) ?? 0) + 1
+    );
+  }
+  const routeSummaries = (composition.routeSummaries ?? [])
+    .map((entry: AnyRecord) => ({
+      ...clone(entry),
+      unresolvedCount:
+        unresolvedByPath.get(
+          String(entry?.directRootRoute?.gridDataPath ?? '')
+        ) ?? 0
+    }));
+  return {
+    ...clone(composition),
+    status:
+      (composition.missingRoutes ?? []).length === 0 &&
+      unresolved.length === 0
+        ? 'CAPTURED_COMPLETE_FOR_BOUND_DOCUMENTS'
+        : 'CAPTURED_PARTIAL',
+    routeSummaries,
+    unresolved
   };
 }
 
@@ -455,7 +707,8 @@ export function buildCurrentV125FullDesignCapturePlan({
   rootGridId,
   sourcePlatform = 'unknown',
   requestedCategories = {},
-  rootEditorDocuments = null
+  rootEditorDocuments = null,
+  buildingBinding = null
 }: FullDesignCapturePlanInput) {
   const sourceLocation = captureV125OutdoorLocation(profile, rootGridId);
   if (sourceLocation?.status !== 'RESOLVED' || !sourceLocation.locationRef) {
@@ -498,18 +751,25 @@ export function buildCurrentV125FullDesignCapturePlan({
           )
         })
       : null;
+  const rootObjectCompositionForManifest =
+    rootCompositionWithoutBuildings(rootObjectComposition);
   const rootObjectCompositionReady =
-    rootObjectComposition?.status ===
+    rootObjectCompositionForManifest?.status ===
       'CAPTURED_COMPLETE_FOR_BOUND_DOCUMENTS' &&
-    Array.isArray(rootObjectComposition?.unresolved) &&
-    rootObjectComposition.unresolved.length === 0 &&
-    Array.isArray(rootObjectComposition?.missingRoutes) &&
-    rootObjectComposition.missingRoutes.length === 0;
+    Array.isArray(
+      rootObjectCompositionForManifest?.missingRoutes
+    ) &&
+    rootObjectCompositionForManifest.missingRoutes.length === 0;
 
+  const typedBuildingEntries = buildingSourceEntries({
+    profile,
+    resolved,
+    rootEditorDocuments,
+    rootObjectPlanning,
+    buildingBinding
+  });
   const buildingPlacementEntries =
-    rootObjectComposition?.unresolved?.filter(
-      (entry: AnyRecord) => String(entry?.layer ?? '') === 'building'
-    ) ?? [];
+    typedBuildingEntries;
   const buildingRecognitionComplete =
     Boolean(rootObjectComposition) &&
     Array.isArray(rootObjectComposition?.missingRoutes) &&
@@ -525,12 +785,7 @@ export function buildCurrentV125FullDesignCapturePlan({
       (entry: AnyRecord) => entry.kind === 'BUILDING_HOUSE_DATA'
     );
   const recognizedBuildingCount = new Set(
-    [
-      ...buildingPlacementEntries,
-      ...buildingSkinEntries,
-      ...playerHouseEntries,
-      ...ordinaryHouseStateEntries
-    ].map((entry: AnyRecord) =>
+    typedBuildingEntries.map((entry: AnyRecord) =>
       [
         entry?.directRootRoute?.gridDataPath,
         entry?.itemId,
@@ -541,8 +796,35 @@ export function buildCurrentV125FullDesignCapturePlan({
   ).size;
   const noBuildingsPresent =
     buildingRecognitionComplete &&
-    recognizedBuildingCount === 0 &&
-    rootObjectPlanning.restorationBlockers.length === 0;
+    recognizedBuildingCount === 0;
+  const ordinaryBuildingEntries =
+    typedBuildingEntries.filter(
+      (entry: AnyRecord) =>
+        entry?.classification?.classification ===
+        BUILDING_V110_CLASS.ORDINARY
+    );
+  const specialBuildingEntries =
+    typedBuildingEntries.filter(
+      (entry: AnyRecord) =>
+        entry?.classification?.classification ===
+          BUILDING_V110_CLASS.SPECIAL ||
+        entry?.classification?.classification ===
+          BUILDING_V110_CLASS.OFF_GRID
+    );
+  const unknownBuildingEntries =
+    typedBuildingEntries.filter(
+      (entry: AnyRecord) =>
+        entry?.classification?.classification ===
+        BUILDING_V110_CLASS.UNKNOWN
+    );
+  const buildingSourceCaptureReady =
+    buildingRecognitionComplete &&
+    typedBuildingEntries.every(
+      (entry: AnyRecord) =>
+        entry?.classification?.classification ===
+          BUILDING_V110_CLASS.ORDINARY &&
+        entry?.portablePlacementEligible === true
+    );
 
   const directRootBounds =
     Array.isArray(rootEditorDocuments) && rootEditorDocuments.length
@@ -605,7 +887,7 @@ export function buildCurrentV125FullDesignCapturePlan({
         )
       );
     } else {
-      if (rootObjectComposition.unresolved?.length) {
+      if (rootObjectCompositionForManifest?.unresolved?.length) {
         issues.push(
           block(
             'FULL_DESIGN_ROOT_OBJECT_COMPOSITION_UNRESOLVED',
@@ -613,7 +895,7 @@ export function buildCurrentV125FullDesignCapturePlan({
           )
         );
       }
-      if (rootObjectComposition.missingRoutes?.length) {
+      if (rootObjectCompositionForManifest?.missingRoutes?.length) {
         issues.push(
           block(
             'FULL_DESIGN_ROOT_OBJECT_ROUTE_DOCUMENTS_MISSING',
@@ -674,15 +956,69 @@ export function buildCurrentV125FullDesignCapturePlan({
         )
       );
     } else if (!noBuildingsPresent) {
-      if (buildingPlacementEntries.length > 0) {
+      if (!buildingBinding) {
         issues.push(
           block(
-            'BUILDING_DESTINATION_SEMANTICS_UNRESOLVED',
+            'WEP_BUILDING_V110_CONTRACT_NOT_BOUND',
             'buildings'
           )
         );
       }
-      if (rootObjectPlanning.restorationBlockers.length > 0) {
+      for (const entry of unknownBuildingEntries) {
+        issues.push(
+          block(
+            BUILDING_V110_CLASS.UNKNOWN,
+            'buildings',
+            {
+              artifactBuildingId:
+                entry.artifactBuildingId,
+              itemId: entry.itemId
+            }
+          )
+        );
+      }
+      for (const entry of specialBuildingEntries) {
+        const specific =
+          entry?.classification?.blockers?.[0]?.code ??
+          'SPECIAL_BUILDING_PLACEMENT_LIFECYCLE_REQUIRED';
+        issues.push(
+          block(
+            String(specific),
+            'buildings',
+            {
+              artifactBuildingId:
+                entry.artifactBuildingId,
+              itemId: entry.itemId,
+              classification:
+                entry.classification.classification,
+              subtype: entry.classification.subtype
+            }
+          )
+        );
+      }
+      for (const entry of ordinaryBuildingEntries) {
+        if (entry.portablePlacementEligible !== true) {
+          issues.push(
+            block(
+              'WEP_BUILDING_SOURCE_GEOMETRY_UNRESOLVED',
+              'buildings',
+              {
+                artifactBuildingId:
+                  entry.artifactBuildingId,
+                itemId: entry.itemId,
+                geometryStatus: entry.geometryStatus
+              }
+            )
+          );
+        }
+      }
+      if (
+        typedBuildingEntries.some(
+          (entry: AnyRecord) =>
+            Array.isArray(entry.sourceBlockers) &&
+            entry.sourceBlockers.length > 0
+        )
+      ) {
         issues.push(
           block(
             'FULL_DESIGN_BUILDING_RESTORATION_CAPTURE_UNRESOLVED',
@@ -740,19 +1076,20 @@ export function buildCurrentV125FullDesignCapturePlan({
         ? clone(rootObjectPlanning.routeObjectCounts)
         : [],
       portableComposition:
-        requested('rootObjects', requestedCategories) && rootObjectComposition
-          ? clone(rootObjectComposition)
+        requested('rootObjects', requestedCategories) &&
+        rootObjectCompositionForManifest
+          ? clone(rootObjectCompositionForManifest)
           : null,
       blockers: [
         ...issues
           .filter((issue) => issue.category === 'rootObjects')
           .map((issue) => issue.code),
         ...(requested('rootObjects', requestedCategories) &&
-        rootObjectComposition?.unresolved?.length
+        rootObjectCompositionForManifest?.unresolved?.length
           ? ['FULL_DESIGN_ROOT_OBJECT_COMPOSITION_UNRESOLVED']
           : []),
         ...(requested('rootObjects', requestedCategories) &&
-        rootObjectComposition?.missingRoutes?.length
+        rootObjectCompositionForManifest?.missingRoutes?.length
           ? ['FULL_DESIGN_ROOT_OBJECT_ROUTE_DOCUMENTS_MISSING']
           : [])
       ]
@@ -836,21 +1173,46 @@ export function buildCurrentV125FullDesignCapturePlan({
     buildings: {
       requested: requested('buildings', requestedCategories),
       disposition: requested('buildings', requestedCategories)
-        ? noBuildingsPresent
+        ? noBuildingsPresent || buildingSourceCaptureReady
           ? 'captured'
           : 'captured_partial'
         : 'excluded',
       coverageStatus: noBuildingsPresent
         ? 'not_applicable'
-        : readiness.categories.buildings.status,
+        : buildingSourceCaptureReady
+          ? 'complete'
+          : readiness.categories.buildings.status,
       evidenceStatus: noBuildingsPresent
         ? 'CONFIRMED_01B_EDITOR_DOCUMENT_NO_BUILDING'
-        : readiness.categories.buildings.evidenceStatus,
-      contract: readiness.categories.buildings.contract,
+        : buildingBinding
+          ? 'CONFIRMED_CORE_BUILDING_V1_10_TYPED_GATE'
+          : 'BUILDING_V1_10_CONTRACT_NOT_BOUND',
+      contract: buildingBinding
+        ? buildingBinding.contract
+        : readiness.categories.buildings.contract,
       portableStateCodecs: [
         V125_PORTABLE_CONTRACTS.restoration.buildingSkinCodec,
         V125_PORTABLE_CONTRACTS.restoration.playerHouseBindingCodec
       ],
+      typedPlacements: requested('buildings', requestedCategories)
+        ? clone(typedBuildingEntries)
+        : [],
+      classificationSummary: requested('buildings', requestedCategories)
+        ? {
+            ordinary: ordinaryBuildingEntries.length,
+            special: specialBuildingEntries.filter(
+              (entry: AnyRecord) =>
+                entry?.classification?.classification ===
+                BUILDING_V110_CLASS.SPECIAL
+            ).length,
+            offGrid: specialBuildingEntries.filter(
+              (entry: AnyRecord) =>
+                entry?.classification?.classification ===
+                BUILDING_V110_CLASS.OFF_GRID
+            ).length,
+            unknown: unknownBuildingEntries.length
+          }
+        : null,
       ordinaryPlacement: requested('buildings', requestedCategories)
         ? {
             sourceRecognition:
@@ -858,59 +1220,68 @@ export function buildCurrentV125FullDesignCapturePlan({
                 ? 'COMPLETE'
                 : 'INCOMPLETE',
             recognizedCount: recognizedBuildingCount,
-            entries: clone(buildingPlacementEntries),
+            entries: clone(ordinaryBuildingEntries),
             ordinaryHouseStateEntries: clone(
               ordinaryHouseStateEntries
             ),
-            portableCompositionCount: 0,
+            portableCompositionCount:
+              ordinaryBuildingEntries.filter(
+                (entry: AnyRecord) =>
+                  entry.portablePlacementEligible === true
+              ).length,
             destinationPlacementStatus:
               noBuildingsPresent
                 ? 'NOT_APPLICABLE'
-                : recognizedBuildingCount > 0
-                  ? 'UNRESOLVED'
-                  : 'UNKNOWN',
+                : buildingSourceCaptureReady
+                  ? 'PREFLIGHT_CONTRACT_AVAILABLE'
+                  : 'BLOCKED_TYPED_CLASSES',
             destinationPlacementReady: noBuildingsPresent,
             blockers:
               noBuildingsPresent
                 ? []
-                : buildingRecognitionComplete
-                  ? [
-                      'BUILDING_DESTINATION_SEMANTICS_UNRESOLVED'
-                    ]
-                  : [
-                      'ORDINARY_BUILDING_SOURCE_RECOGNITION_INCOMPLETE'
-                    ],
+                : issues
+                    .filter(
+                      (issue) =>
+                        issue.category === 'buildings'
+                    )
+                    .map((issue) => issue.code),
             persistentWriteAuthorized: false
           }
         : null,
       buildingSkins: requested('buildings', requestedCategories)
         ? {
-            provisionalCodec:
+            codec:
               V125_PORTABLE_CONTRACTS.restoration.buildingSkinCodec,
             semanticStatus: noBuildingsPresent
               ? 'NOT_APPLICABLE'
-              : 'PROVISIONAL_PENDING_01B',
+              : buildingSkinEntries.length
+                ? 'V1_10_TYPED_PREFLIGHT'
+                : 'NOT_PRESENT',
             entries: clone(buildingSkinEntries),
             nonzeroValidatorRequired:
               buildingSkinEntries.some(
                 (entry: AnyRecord) =>
                   Number(entry?.portableState?.skinItemId ?? 0) !== 0
               ),
-            destinationSemanticsReady: noBuildingsPresent,
+            destinationSemanticsReady:
+              buildingSkinEntries.length === 0,
             persistentWriteAuthorized: false
           }
         : null,
       playerHouses: requested('buildings', requestedCategories)
         ? {
-            provisionalCodec:
+            codec:
               V125_PORTABLE_CONTRACTS.restoration.playerHouseBindingCodec,
             semanticStatus: noBuildingsPresent
               ? 'NOT_APPLICABLE'
-              : 'PROVISIONAL_PENDING_01B',
+              : playerHouseEntries.length
+                ? 'V1_10_SPECIAL_DIAGNOSTIC'
+                : 'NOT_PRESENT',
             entries: clone(playerHouseEntries),
-            destinationBinderCurrentlyRequired:
+            destinationBinderRequired:
               playerHouseEntries.length > 0,
-            destinationSemanticsReady: noBuildingsPresent,
+            destinationSemanticsReady:
+              playerHouseEntries.length === 0,
             persistentWriteAuthorized: false
           }
         : null,
