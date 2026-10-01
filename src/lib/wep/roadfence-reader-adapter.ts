@@ -309,7 +309,9 @@ export function createDraftAwareNetworkCaptureAdapter(
           throw new Error('WEP_ROADFENCE_DRAFT_CAPTURE_RESULT_INVALID');
         }
         assertWriteBoundary(result);
-        return clone(result);
+        return clone(result) as ReturnType<
+          NetworkCaptureAdapter['capture']
+        >;
       }
 
       if (
