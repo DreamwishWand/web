@@ -4,6 +4,9 @@ import {
   FULL_DESIGN_CAPTURE_MANIFEST_SCHEMA,
   buildCurrentV125FullDesignCapturePlan
 } from '../src/lib/wep/full-design-preset-planning.ts';
+import {
+  validateCurrentV125FullDesignManifest
+} from '../src/lib/wep/full-design-preset-manifest.ts';
 
 function makeProfile() {
   return {
@@ -159,6 +162,86 @@ test('Core-owned dimension and native Road/Fence reader gaps are explicit blocke
   assert.equal(
     plan.applyReason,
     'CORE_ATOMIC_PERSISTENT_COMMIT_NOT_AUTHORIZED'
+  );
+});
+
+test('Switch full-design planning consumes the bound 01C reader on every direct root', () => {
+  const plan = buildCurrentV125FullDesignCapturePlan({
+    profile: makeProfile(),
+    rootGridId: 10,
+    sourcePlatform: 'switch'
+  });
+
+  for (const categoryKey of ['roads', 'fences']) {
+    const category = plan.categories[categoryKey];
+    assert.equal(category.disposition, 'captured_partial');
+    assert.equal(
+      category.evidenceStatus,
+      'CONFIRMED_01C_NATIVE_LOGICAL_READER_BOUND'
+    );
+    assert.equal(
+      category.contract,
+      '01C-v1.25-native-reader-capture-region'
+    );
+    assert.equal(category.readerCoverage.length, 2);
+    assert.equal(
+      category.readerCoverage.every(
+        (entry) =>
+          entry.status === 'supported' &&
+          entry.persistentWriteAuthorized === false
+      ),
+      true
+    );
+    assert.equal(
+      category.blockers.includes(
+        'NATIVE_ROADFENCE_LOGICAL_READER_NOT_BOUND'
+      ),
+      false
+    );
+    assert.equal(
+      category.blockers.includes(
+        'FULL_DESIGN_ROADFENCE_CAPTURE_REGION_BOUNDS_UNAVAILABLE'
+      ),
+      true
+    );
+  }
+
+  const serialized = JSON.stringify(plan.manifest);
+  assert.equal(serialized.includes('sourceGridId'), false);
+  assert.equal(serialized.includes('gridObjectId'), false);
+  assert.equal(plan.manifestValidation.ok, true);
+  assert.equal(plan.publicationReady, false);
+  assert.equal(plan.applyReady, false);
+});
+
+test('strict validation rejects tampered Road/Fence reader coverage without promoting write', () => {
+  const plan = buildCurrentV125FullDesignCapturePlan({
+    profile: makeProfile(),
+    rootGridId: 10,
+    sourcePlatform: 'switch'
+  });
+  const manifest = structuredClone(plan.manifest);
+  manifest.categories.roads.readerCoverage[0].directRootRoute.gridDataPath =
+    'GridData/Test/Outside.json';
+  manifest.categories.fences.readerCoverage[0].persistentWriteAuthorized = true;
+
+  const validation = validateCurrentV125FullDesignManifest(manifest);
+  assert.equal(validation.ok, false);
+  assert.equal(
+    validation.issues.some(
+      (issue) =>
+        issue.code ===
+        'FULL_DESIGN_ROADFENCE_READER_ROUTE_OUTSIDE_LOCATION'
+    ),
+    true
+  );
+  assert.equal(
+    validation.issues.some(
+      (issue) =>
+        issue.code ===
+        'FULL_DESIGN_ROADFENCE_READER_WRITE_AUTHORIZATION_FORBIDDEN'
+    ),
+    true
   );
 });
 
