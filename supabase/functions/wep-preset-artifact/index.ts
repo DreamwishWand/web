@@ -1,7 +1,8 @@
 import { withSupabase } from 'npm:@supabase/server';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { resolveRuntimeWepPresetArtifactBucket } from '../_shared/wep-preset-artifact-bucket.ts';
 
-const BUCKET = 'wand-preset-artifacts-staging';
+const BUCKET = resolveRuntimeWepPresetArtifactBucket();
 const MAX_BYTES = 25 * 1024 * 1024;
 const CONTENT_TYPE = 'application/json';
 const ALLOWED_TYPES = new Set(['scene','biome','floating_island','tom_furniture','tom_clothing']);
