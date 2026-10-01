@@ -783,7 +783,7 @@ test('account deletion acceptance route is internal and describes current deleti
   assert.match(page, /physically purged within 7 days/i);
   assert.match(page, /normally deleted or minimized at 90 days/i);
   assert.match(page, /7-day period is not a recovery window/i);
-  assert.match(page, /queue[s]? provider-account cleanup/i);
+  assert.match(page, /provider-account cleanup is queued/i);
   assert.match(page, /noindex,nofollow/);
   assert.doesNotMatch(header, /community-lab\/account/i);
 });
