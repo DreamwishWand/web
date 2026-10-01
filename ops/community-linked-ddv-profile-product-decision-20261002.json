@@ -1,0 +1,79 @@
+{
+  "schema": "dreamwish-community-linked-ddv-profile-product-decision@1",
+  "decidedAt": "2026-10-02",
+  "status": "PRODUCT_APPROVED_IMPLEMENTATION_DEPENDENCY_OPEN",
+  "productApproved": true,
+  "maxLinkedProfilesPerWandAccount": 3,
+  "normalSelfServiceUnlink": false,
+  "exceptionalCorrection": {
+    "allowed": true,
+    "authorization": [
+      "recent_auth",
+      "support_or_admin_review"
+    ],
+    "reasonRequired": true,
+    "auditEventRequired": true,
+    "oldProfileCooldownDays": 7
+  },
+  "verification": {
+    "rawSavePersistentStorage": false,
+    "rawEvidencePersistentStorage": false,
+    "evidenceLifecycle": "EPHEMERAL_PROCESSING_ONLY_SUCCESS_PATH_PURGED",
+    "serverStoredFields": [
+      "ddv_profile_id",
+      "binding_digest",
+      "binding_state",
+      "verified_at",
+      "verification_method",
+      "verification_contract_version"
+    ],
+    "excludedInputs": [
+      "Moonstones",
+      "receipts",
+      "Premium entitlement",
+      "DLC entitlement",
+      "online authentication tokens",
+      "platform account credentials"
+    ],
+    "stableLocalProfileIdentifier": {
+      "status": "UNRESOLVED_FAIL_CLOSED",
+      "requirement": "Must be a DDV-profile-stable local identifier that survives ordinary save updates and is independently confirmed by DDV Core evidence.",
+      "forbiddenSubstitutes": [
+        "raw save file SHA-256",
+        "whole profile JSON hash",
+        "platform account ID without explicit privacy/legal/product approval",
+        "online entitlement identifier",
+        "provider authentication subject"
+      ]
+    }
+  },
+  "bindingDigest": {
+    "construction": "SERVER_SIDE_KEYED_DIGEST_AFTER_STABLE_IDENTIFIER_CONFIRMATION",
+    "rawIdentifierStored": false,
+    "keyMaterial": "PRODUCTION_SECRET_NOT_REPOSITORY",
+    "implementationStatus": "BLOCKED_ON_STABLE_IDENTIFIER"
+  },
+  "accountDeletion": {
+    "removeLinkImmediately": true,
+    "removeDisplayAndVerificationEvidenceImmediately": true,
+    "bindingDigestTombstoneDays": 7,
+    "relinkAfterTombstoneExpiryAllowed": true,
+    "exception": "D4_MODERATION_SECURITY_LEGAL_HOLD_ONLY_WHILE_JUSTIFIED"
+  },
+  "fairness": {
+    "intent": "Prevent rapid profile cycling and multi-account abuse without retaining a permanent profile fingerprint.",
+    "ordinaryPermanentFingerprintRetention": false,
+    "tombstoneDays": 7
+  },
+  "privacyBoundary": {
+    "productDecisionClosed": true,
+    "privacyApprovalStillPending": true,
+    "legalApprovalStillPending": true,
+    "note": "Privacy/Legal must still review the confirmed identifier semantics and final verification data flow once DDV Core closes the stable identifier dependency."
+  },
+  "engineeringBoundary": {
+    "retentionEngineeringReopened": false,
+    "linkedProfileLifecycleImplementationAuthorizedOnlyAfterStableIdentifierConfirmation": true,
+    "currentAction": "DEFINE_FAIL_CLOSED_CONTRACT_AND_AWAIT_CORE_IDENTIFIER_EVIDENCE"
+  }
+}
