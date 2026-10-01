@@ -210,14 +210,16 @@ export function previewRoadCellDelete({
   cells:AnyRecord[];
   coordinates:AnyRecord[];
 }) {
-  const result = eraseRoadCells(
+  const result:AnyRecord = eraseRoadCells(
     clone(cells),
     clone(coordinates)
   );
   return assertReadModel({
     ...result,
     operationLayer:'logicalTopology',
-    topologyChanged:result.logicalQuantity !== cells.length,
+    topologyChanged:
+      result.ok === true &&
+      Number(result.remainingLogicalQuantity) !== cells.length,
     representationLayoutInvalidated:false,
     persistentWriteAuthorized:false
   });
