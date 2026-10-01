@@ -128,8 +128,9 @@
     "wepBranch": "dev/wep-v125",
     "productionReplaySource": "final-integrated-main",
     "communityBranchAloneIsNotProductionComplete": true,
-    "wepBranchHead": "c396413dc349829bc91f89b397321de38b55a3ba",
-    "wepPresetArtifactBucketContract": "CLOSED"
+    "wepBranchHead": "0773ed12af63ef0502281054988e3b2c1b15eeb6",
+    "wepPresetArtifactBucketContract": "CLOSED",
+    "wepMigrationBaselineConsistency": "CONFIRMED_STATIC"
   },
   "crossStreamBlockers": [
     {
@@ -137,7 +138,14 @@
       "owner": "02 WEP",
       "state": "CLOSED",
       "evidence": "dev/wep-v125@c396413dc349829bc91f89b397321de38b55a3ba; staging wep-preset-artifact v14 / wep-preset-retention v6",
-      "detail": "Both WEP Preset Edge functions use the shared environment-aware resolver. Non-staging requires WEP_PRESET_ARTIFACT_BUCKET and rejects wand-preset-artifacts-staging; known staging may retain the existing private staging bucket without configuration."
+      "detail": "Edge-function bucket selection is environment-aware and fail-closed outside known staging. This does not close production migration provisioning."
+    },
+    {
+      "id": "WEP_PRESET_ARTIFACT_BUCKET_PRODUCTION_MIGRATION",
+      "owner": "02 WEP",
+      "state": "OPEN",
+      "evidence": "dev/wep-v125@0773ed12af63ef0502281054988e3b2c1b15eeb6; supabase/migrations/20260930124055_wep_preset_artifact_storage_v0.sql",
+      "detail": "The production migration still inserts storage bucket wand-preset-artifacts-staging. Final production replay must not create or use the staging bucket. Move staging bucket creation to staging-only provisioning or make production provisioning environment-specific while preserving the generic preset_artifact_prepare rate policy."
     }
   ],
   "privacyRetentionReview": {
@@ -148,7 +156,14 @@
       "contentPayloadDays": 30,
       "operationalDetailDays": 365
     },
-    "approvalRequired": true
+    "approvalRequired": true,
+    "approvalStateContract": "ops/community-retention-approval-state.json",
+    "engineeringDecisionBoundary": "CLOSED",
+    "approvals": {
+      "product": "PENDING",
+      "privacy": "PENDING",
+      "legal": "PENDING"
+    }
   },
   "authLaunchReview": {
     "contract": "ops/community-auth-launch-review.json",
