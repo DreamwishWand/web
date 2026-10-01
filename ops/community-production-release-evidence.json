@@ -1,6 +1,6 @@
 {
   "schema": "dreamwish-community-production-release-evidence@1",
-  "updatedAt": "2026-10-01T19:35:38+09:00",
+  "updatedAt": "2026-10-01T19:55:00+09:00",
   "scope": "Community Core production launch",
   "productionEvidenceMustComeFromDistinctProductionEnvironment": true,
   "stagingProjectRef": "ptpdoxhrqopvczpclcij",
@@ -136,9 +136,11 @@
         "ops/community-retention-launch-review.json",
         "ops/community-retention-approval-state.json",
         "docs/community/privacy-retention-launch-review-20261001.md",
-        "docs/community/retention-final-approval-packet-20261001.md"
+        "docs/community/retention-final-approval-packet-20261001.md",
+        "ops/community-retention-policy-proposal.json",
+        "docs/community/retention-policy-proposal-20261001.md"
       ],
-      "pendingReason": "Engineering decision boundary is closed. Explicit Product, Privacy, and Legal approvals remain PENDING; 30/365 are engineering defaults, not approved policy.",
+      "pendingReason": "Engineering and a concrete D1-D8 launch policy proposal are complete, but Product/Privacy/Legal approvals remain explicitly PENDING. D6 must also bind the actual production backup/storage mechanism when the production environment is selected.",
       "classification": "approval_pending"
     },
     {
@@ -363,6 +365,18 @@
       "historicalIcloudPlacement": "MIXED_INBOX_JUNK",
       "universalProviderInboxGuaranteeClaimed": false,
       "evidence": "docs/community/auth-final-mailbox-reauth-runtime-20261001.md"
+    },
+    "retentionPolicyProposal": {
+      "status": "READY_FOR_EXPLICIT_APPROVAL",
+      "product": "PENDING",
+      "privacy": "PENDING",
+      "legal": "PENDING",
+      "valuesProposed": {
+        "contentPayloadDays": 30,
+        "operationalDetailDays": 365
+      },
+      "noApprovalInferred": true,
+      "providerFactsReviewedAt": "2026-10-01"
     }
   }
 }

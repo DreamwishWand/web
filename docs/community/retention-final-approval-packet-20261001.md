@@ -119,3 +119,22 @@ Current engineering defaults remain:
 - operational detail: 365 days.
 
 Those values are not legal conclusions and remain changeable by the approval process.
+
+
+## Approval-ready concrete proposal — 2026-10-01
+
+The abstract D1-D8 questions have been converted into an approval-ready policy proposal:
+
+- `docs/community/retention-policy-proposal-20261001.md`;
+- `ops/community-retention-policy-proposal.json`.
+
+Proposed values remain 30-day payload / 365-day operational detail, immediate account/public
+removal with no recovery-window promise, existing moderation/security/legal hold semantics,
+minimized structural tombstones, separate DB/Storage recovery-copy treatment, provider-retention
+disclosure, and explicit staged deletion wording.
+
+Supabase/Resend provider facts were refreshed from current official documentation. Production
+Supabase plan remains undecided, so D6 records a launch rule and must bind the exact provider
+backup window when production is selected.
+
+This preparation is **not** Product, Privacy or Legal approval. Their statuses remain PENDING.

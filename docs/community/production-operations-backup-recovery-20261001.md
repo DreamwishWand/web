@@ -396,3 +396,34 @@ contains the staging bucket literal.
 
 This is a provisioning/replay gate only and does not reopen signed reads, publication, retention
 or Scene reuse runtime evidence.
+
+
+## Provider retention snapshot for D6/D7 — 2026-10-01
+
+Current official provider documentation was rechecked without creating or upgrading a production
+environment.
+
+Supabase:
+
+- Pro managed daily DB backups: 7 days;
+- Team: 14 days;
+- Enterprise: up to 30 days;
+- DB backup excludes Storage object bytes;
+- user-accessible logs: Free 1 day / Pro 7 days / Team 28 days / Enterprise 90 days.
+
+Sources:
+- https://supabase.com/docs/guides/platform/backups
+- https://supabase.com/docs/guides/troubleshooting/check-usage-for-monthly-active-users-mau-MwZaBs
+
+Resend:
+
+- email/log retention: 30 days on Free/Pro/Scale;
+- backup retention: 7 days;
+- remaining customer data deletion after account termination: within 90 days;
+- Enterprise retention is flexible.
+
+Source:
+- https://resend.com/security/gdpr
+
+Production plan selection remains PENDING. These provider facts inform D6/D7 but do not approve
+privacy/legal policy and do not authorize a paid-plan change.

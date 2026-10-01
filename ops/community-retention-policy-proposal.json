@@ -1,0 +1,125 @@
+{
+  "schema": "dreamwish-community-retention-policy-proposal@1",
+  "generatedAt": "2026-10-01",
+  "status": "READY_FOR_EXPLICIT_APPROVAL",
+  "notAnApproval": true,
+  "purpose": "Convert the already-closed retention engineering contract into concrete launch policy choices without inferring Product, Privacy, or Legal approval.",
+  "engineeringBoundary": {
+    "implementation": "CLOSED",
+    "runtimeEvidence": "CLOSED",
+    "plumbingRerunRequiredBeforeApproval": false,
+    "contentPayloadDaysDefault": 30,
+    "operationalDetailDaysDefault": 365
+  },
+  "decisions": [
+    {
+      "id": "D1_CONTENT_PAYLOAD_DURATION",
+      "proposal": "30_DAYS_AFTER_ACCOUNT_DELETION",
+      "valueDays": 30,
+      "productMeaning": "Account/public access is removed immediately; owned user-authored payload is physically purged on the scheduled content-retention stage after 30 days unless an active permitted hold blocks purge.",
+      "isRecoveryWindow": false,
+      "implementationChangeRequired": false
+    },
+    {
+      "id": "D2_OPERATIONAL_DETAIL_DURATION",
+      "proposal": "365_DAYS_RESTRICTED_OPERATIONAL_DETAIL_MAXIMUM",
+      "valueDays": 365,
+      "productMeaning": "Restricted operational detail needed for abuse, moderation, security, support, cleanup, or dispute history may remain until the operational scrub stage, then personal/correlation/free-text detail is removed while minimized structural records remain.",
+      "implementationChangeRequired": false
+    },
+    {
+      "id": "D3_USER_FACING_DELETION_PROMISE",
+      "proposal": "IMMEDIATE_REMOVAL_THEN_SCHEDULED_BACKEND_PURGE",
+      "productMeaning": "Deletion immediately removes account/public access. Wand does not promise a reversible grace period or 30-day self-service recovery.",
+      "implementationChangeRequired": false
+    },
+    {
+      "id": "D4_RETENTION_HOLD_POLICY",
+      "proposal": "ADMIN_ONLY_MODERATION_SECURITY_LEGAL_HOLDS",
+      "productMeaning": "Only moderation, security, or legal holds are permitted. Hold create/release requires recent-auth admin authority, a recorded reason, and audit history. Expiry should be set when a determinate end exists; otherwise explicit admin release is required.",
+      "implementationChangeRequired": false,
+      "currentRuntimeEnforcement": {
+        "allowedTypes": [
+          "moderation",
+          "security",
+          "legal"
+        ],
+        "recentAuthAdminRequired": true,
+        "reasonLengthCharacters": {
+          "min": 8,
+          "max": 500
+        },
+        "expirySupported": true,
+        "addAndReleaseAudited": true
+      }
+    },
+    {
+      "id": "D5_STRUCTURAL_TOMBSTONE_POLICY",
+      "proposal": "PRESERVE_MINIMIZED_RELATIONSHIP_SKELETON_AFTER_SCRUB",
+      "productMeaning": "After payload purge and operational scrub, retain only stable IDs, revision numbering/relationships, deletion-event identity, and non-sensitive structure needed to preserve integrity of historical publication/moderation/report relationships. Do not retain deleted user-authored payload or unnecessary re-identifying detail.",
+      "implementationChangeRequired": false,
+      "eventualDestructionHorizon": "NOT_PROPOSED_AT_LAUNCH_REVIEW"
+    },
+    {
+      "id": "D6_BACKUP_COPY_RETENTION",
+      "proposal": "SEPARATE_DB_AND_STORAGE_RECOVERY_COPIES_WITH_DELETE_RECONCILIATION",
+      "productMeaning": "Database and Storage recovery copies are separate assets. Prefer the shortest production recovery window that meets launch RPO/RTO; do not create longer-lived Wand copies by default. Restore into a non-production target first and reapply deletion/retention reconciliation before reopening writes.",
+      "implementationChangeRequired": "PRODUCTION_MECHANISM_PENDING",
+      "launchTargets": {
+        "databaseRpoHoursMax": 24,
+        "storageRpoHoursMax": 24,
+        "rtoHoursTarget": 4,
+        "wandManagedStorageCopyRetentionDaysTarget": 7
+      },
+      "providerPlanBinding": "Record the actual Supabase production plan/backup window when the production environment is selected; any materially longer copy-retention policy requires D6 review."
+    },
+    {
+      "id": "D7_PROCESSOR_PROVIDER_RETENTION",
+      "proposal": "DOCUMENT_PROVIDER_CONTROLLED_WINDOWS_AND_MINIMIZE_PAYLOAD",
+      "productMeaning": "Wand's database timers do not control processor copies/logs. Record the actual launch provider plan/configuration, minimize data sent to processors, and disclose provider-controlled retention where material.",
+      "implementationChangeRequired": false
+    },
+    {
+      "id": "D8_POLICY_DISCLOSURE_AND_ACCEPTANCE",
+      "proposal": "DISCLOSE_EACH_DELETION_STAGE_AND_EXTERNAL_COPY_BOUNDARY",
+      "productMeaning": "Launch privacy/account-deletion copy must distinguish immediate loss of access/public visibility, 30-day payload purge, 365-day operational scrub, permitted holds, minimized structural records, backup copies, and provider-controlled copies/logs.",
+      "implementationChangeRequired": "USER_FACING_COPY_REQUIRED_BEFORE_PUBLIC_LAUNCH"
+    }
+  ],
+  "providerFactsReviewedAt": "2026-10-01",
+  "providerFacts": {
+    "supabase": {
+      "source": "https://supabase.com/docs/guides/platform/backups",
+      "databaseDailyBackupRetentionByPlanDays": {
+        "Pro": 7,
+        "Team": 14,
+        "Enterprise": "up to 30"
+      },
+      "storageObjectsIncludedInDatabaseBackup": false,
+      "logsAccessibleRetentionByPlanDays": {
+        "Free": 1,
+        "Pro": 7,
+        "Team": 28,
+        "Enterprise": 90
+      },
+      "logsSource": "https://supabase.com/docs/guides/troubleshooting/check-usage-for-monthly-active-users-mau-MwZaBs",
+      "productionPlan": "UNDECIDED"
+    },
+    "resend": {
+      "source": "https://resend.com/security/gdpr",
+      "emailAndLogRetentionDaysForFreeProScale": 30,
+      "backupRetentionDays": 7,
+      "remainingCustomerDataDeletionAfterAccountTerminationDaysMax": 90,
+      "dataStorageRegion": "United States",
+      "enterpriseRetention": "flexible",
+      "note": "Provider facts describe Resend's stated service retention and are not a Wand legal sufficiency conclusion."
+    }
+  },
+  "approvalState": {
+    "product": "PENDING_EXPLICIT_APPROVAL",
+    "privacy": "PENDING_EXPLICIT_APPROVAL",
+    "legal": "PENDING_EXPLICIT_APPROVAL",
+    "launchApproved": false
+  },
+  "nextAction": "Obtain explicit Product/Privacy/Legal approvals or requested changes. Do not infer approval from this proposal."
+}

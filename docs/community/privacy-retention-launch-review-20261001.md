@@ -311,3 +311,18 @@ Until approvals are explicit, production `--require-ready` must remain blocked.
 If approvals keep the current 30/365 values, Engineering should run one final policy/configuration
 regression after approval. Do not rerun the already-passed retention plumbing E2E unless semantics
 changed.
+
+
+## Concrete launch proposal prepared — 2026-10-01
+
+A non-approving concrete proposal is now canonicalized in
+`docs/community/retention-policy-proposal-20261001.md` and
+`ops/community-retention-policy-proposal.json`.
+
+The proposal keeps 30-day content payload / 365-day restricted operational detail, uses immediate
+account/public removal rather than a recovery grace period, preserves only minimized structural
+tombstones, constrains holds to the existing moderation/security/legal admin path, separates DB and
+Storage recovery copies, and requires explicit disclosure of provider-controlled copies/logs.
+
+Provider facts were refreshed from current official Supabase and Resend documentation. This does
+not change Product/Privacy/Legal approval status: all remain PENDING.

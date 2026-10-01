@@ -2311,3 +2311,50 @@ test('latest WEP delta does not reopen Community Preset vertical', () => {
   assert.equal(preset.satisfied, true);
   assert.equal(preset.integrationSensitiveRerunRequired, false);
 });
+
+
+test('retention launch policy proposal is concrete but never self-approves', () => {
+  const proposal = JSON.parse(read('ops/community-retention-policy-proposal.json'));
+  const review = JSON.parse(read('ops/community-retention-launch-review.json'));
+  const approval = JSON.parse(read('ops/community-retention-approval-state.json'));
+  const release = JSON.parse(read('ops/community-production-release-evidence.json'));
+
+  assert.equal(proposal.schema, 'dreamwish-community-retention-policy-proposal@1');
+  assert.equal(proposal.status, 'READY_FOR_EXPLICIT_APPROVAL');
+  assert.equal(proposal.notAnApproval, true);
+  assert.equal(proposal.engineeringBoundary.contentPayloadDaysDefault, 30);
+  assert.equal(proposal.engineeringBoundary.operationalDetailDaysDefault, 365);
+
+  const byId = new Map(proposal.decisions.map((item) => [item.id, item]));
+  assert.equal(byId.get('D1_CONTENT_PAYLOAD_DURATION').valueDays, 30);
+  assert.equal(byId.get('D1_CONTENT_PAYLOAD_DURATION').isRecoveryWindow, false);
+  assert.equal(byId.get('D2_OPERATIONAL_DETAIL_DURATION').valueDays, 365);
+  assert.equal(
+    byId.get('D3_USER_FACING_DELETION_PROMISE').proposal,
+    'IMMEDIATE_REMOVAL_THEN_SCHEDULED_BACKEND_PURGE'
+  );
+  assert.deepEqual(
+    byId.get('D4_RETENTION_HOLD_POLICY').currentRuntimeEnforcement.allowedTypes,
+    ['moderation', 'security', 'legal']
+  );
+  assert.equal(
+    proposal.providerFacts.supabase.storageObjectsIncludedInDatabaseBackup,
+    false
+  );
+  assert.equal(
+    proposal.providerFacts.resend.emailAndLogRetentionDaysForFreeProScale,
+    30
+  );
+
+  assert.equal(review.policyProposal.status, 'READY_FOR_EXPLICIT_APPROVAL');
+  assert.equal(review.policyProposal.notAnApproval, true);
+  assert.equal(review.launchApproved, false);
+  assert.equal(approval.policyProposal.approvalsInferred, false);
+  assert.equal(approval.launchApproved, false);
+
+  const gate = release.gates.find(
+    (item) => item.id === 'RETENTION_PRODUCT_PRIVACY_LEGAL_APPROVAL'
+  );
+  assert.equal(gate.satisfied, false);
+  assert.equal(gate.classification, 'approval_pending');
+});
