@@ -195,3 +195,34 @@ Live staging readback confirms the new resolver is deployed in `wep-preset-artif
 
 No Community retention implementation was changed, and neither retention E2E nor the Scene reuse
 vertical was repeated.
+
+
+## Final integration / release-evidence hardening — 2026-10-01
+
+03 COMM can now fail closed before production even though the production project does not yet exist.
+
+Added:
+
+- `ops/community-production-release-evidence.json`: one machine-readable index of closed and
+  outstanding Community production launch gates;
+- `scripts/verify-community-integrated-production-tree.mjs`: protects final integrated migration
+  replay from stale WEP/COMM branch composition;
+- `ops/community-integration-merge-risk-20261001.json`: pins the current branch-divergence hazards;
+- `docs/community/final-integrated-production-tree-preflight-20261001.md`: operator/integration
+  contract.
+
+Static branch audit found one concrete integration hazard that must remain blocked:
+
+- WEP carries an older Community migration snapshot containing support-recovery at
+  `20260930081500` and two one-time staging pg_net migrations under `supabase/migrations`;
+- COMM has already corrected that state to support-recovery `20260930081600` and moved the pg_net
+  SQL under `supabase/staging`;
+- final integration must preserve the COMM canonical replay fixes while also adding the three WEP
+  Preset production migrations + new bucket resolver/functions.
+
+Normal COMM CI accepts an entirely unintegrated Community-only tree, but fails a partial WEP
+production integration. RC/production must run the integrated-tree verifier with
+`--require-ready`.
+
+No branch merge, production project, production migration replay, paid-plan change or runtime
+Community browser suite was performed by this hardening step.
