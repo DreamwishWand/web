@@ -29,6 +29,8 @@ jobs:
         run: deno check --node-modules-dir=auto supabase/functions/*/index.ts
       - name: Type and component checks
         run: npm run check
+      - name: Integrated production tree preflight
+        run: npm run verify:community-integrated-tree -- --require-ready
       - name: Contract tests
         run: npm test
       - name: Static build
