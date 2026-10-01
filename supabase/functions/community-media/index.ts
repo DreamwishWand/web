@@ -1,7 +1,21 @@
 import { withSupabase } from 'npm:@supabase/server';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
-const BUCKET = 'community-media-staging';
+const KNOWN_STAGING_PROJECT_REF = 'ptpdoxhrqopvczpclcij';
+
+function resolveMediaBucket(): string {
+  const explicit = Deno.env.get('COMMUNITY_MEDIA_BUCKET')?.trim();
+  if (explicit) return explicit;
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+  if (supabaseUrl.includes(KNOWN_STAGING_PROJECT_REF)) {
+    return 'community-media-staging';
+  }
+
+  throw new Error('COMMUNITY_MEDIA_BUCKET is required outside the known staging project.');
+}
+
+const BUCKET = resolveMediaBucket();
 const MAX_BYTES = 25 * 1024 * 1024;
 const EXTENSIONS: Record<string, string> = {
   'image/jpeg': 'jpg',
