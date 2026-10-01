@@ -125,6 +125,7 @@ test('raw Switch save projects to read-only browser EditorDocument', async () =>
   );
   assert.equal(document.capabilities.worldPersistentWrite, 'unsupported');
   assert.equal(document.metadata.browserBinding.gridDataDimensionsBound, false);
+  assert.equal(document.metadata.browserBinding.roadFenceLogicalBinding, true);
 });
 
 
