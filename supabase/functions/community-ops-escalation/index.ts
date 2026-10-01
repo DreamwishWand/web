@@ -1,5 +1,19 @@
 import { withSupabase } from 'npm:@supabase/server';
 
+
+const KNOWN_STAGING_PROJECT_REF = 'ptpdoxhrqopvczpclcij';
+
+function resolveEnvironmentLabel(): string {
+  const explicit = Deno.env.get('DREAMWISH_ENVIRONMENT')?.trim().toLowerCase();
+  if (explicit) return explicit;
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+  if (supabaseUrl.includes(KNOWN_STAGING_PROJECT_REF)) return 'staging';
+
+  throw new Error('DREAMWISH_ENVIRONMENT is required outside the known staging project.');
+}
+
+const ENVIRONMENT_LABEL = resolveEnvironmentLabel();
 type EscalationJob = {
   deliveryId: string;
   alertId: string;
@@ -109,7 +123,7 @@ export default {
               'Open the internal Community Ops console: /community-ops/'
             ].join('\n'),
             operations: {
-              environment: 'staging',
+              environment: ENVIRONMENT_LABEL,
               alertId: job.alertId,
               alertType: job.alertType,
               severity: job.severity,
