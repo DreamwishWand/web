@@ -77,48 +77,48 @@
   "openDecisions": [
     {
       "id": "P1_LINKED_DDV_PROFILE_ORPHAN_MINIMIZATION",
-      "severity": "DB_LIFECYCLE_CLOSED__EDGE_ASSURANCE_AND_PRIVACY_LEGAL_REVIEW_PENDING",
+      "severity": "DB_AND_EDGE_WORKSPACE_LIFECYCLE_STAGING_PASS__PRIVACY_LEGAL_REVIEW_PENDING",
       "evidence": [
-        "GameInfo.LastCustomIdOwner is now the confirmed DDV Player ID/User ID identity source.",
-        "The same LastCustomIdOwner value is present in accepted Nintendo Switch and later fresh Steam/Windows v1.25 saves of the same cloud-linked DDV Profile.",
-        "Existing Converter/Wand backup naming uses mdc{GameInfo.LastCustomIdOwner}; mdc is representation only.",
-        "Raw Player ID will not be persisted or exposed publicly.",
-        "Technical transport contract stores only a versioned server-keyed digest in ddv_profiles.binding_key_hash.",
-        "verification_evidence_ref remains null by default.",
-        "Product-approved 7-day ordinary post-unlink/account-deletion digest tombstone remains authoritative.",
-        "Staging migration 20261001221620 implements parent/self relation, 7-day digest tombstone, D4 hold-aware purge, admin-only correction and no raw Player ID database field.",
-        "Disposable rollback runtime proved tombstone creation, active-row minimization and expired purge with zero fixture residue.",
-        "community-query v9, community-admin v13 and community-retention v5 are deployed on staging.",
+        "GameInfo.LastCustomIdOwner is the confirmed DDV Player ID/User ID identity source.",
+        "DDV Profile Workspace use does not require a Player ID/mdc association.",
+        "Raw Player ID is transient only and is not persisted or publicly exposed.",
+        "The optional identity association stores only a domain-separated HMAC-SHA-256 digest in private.ddv_identity_associations.binding_key_hash.",
+        "The digest is unique only within one Wand Account; the same DDV identity may be associated by another Wand Account without sharing private Workspace data.",
+        "Staging migrations 20261001232814, 20261001233225 and 20261001233707 implement the Workspace model, lifecycle and FK index.",
+        "One Wand Account may retain at most five Workspaces across active + archived states; archive does not free capacity and deletion does.",
+        "Self-service identity unlink preserves the Workspace; Workspace deletion requires explicit destructive confirmation.",
+        "Rollback runtime verified five-slot capacity, archive behavior, same-account duplicate rejection, cross-account reuse, unlink, delete, slot reuse and account-deletion cleanup with zero fixture residue.",
+        "community-command v20 and community-query v9 are deployed on staging.",
         "ops/community-linked-ddv-profile-lifecycle-runtime-20261002.json",
         "docs/community/linked-ddv-profile-lifecycle-runtime-20261002.md"
       ],
       "requiredDecision": [
-        "Owner/Product: choose user-link assurance model before exposing the link command.",
-        "Privacy/Legal: review transient identifier transport/linkability and exceptional correction/right-to-correction.",
-        "Age/minors: confirm how parent-managed accounts may use Community surfaces on behalf of under-13 users."
+        "Privacy/Legal: review transient Player ID transport and pseudonymous cross-context linkability.",
+        "Privacy/Legal: confirm final correction/deletion disclosure for optional DDV identity association and Profile Workspace data.",
+        "Live staging raw-Player-ID Edge E2E remains an engineering acceptance item once the staging HMAC secret is configured; it is not an owner Product decision."
       ],
-      "engineeringAction": "DB_LIFECYCLE_COMPLETE__WAIT_FOR_OWNER_LINK_ASSURANCE_DECISION_BEFORE_EXPOSING_COMMUNITY_COMMAND",
-      "productDecision": "APPROVED_7_DAY_TOMBSTONE",
+      "engineeringAction": "STAGING_WORKSPACE_LIFECYCLE_CLOSED__LIVE_IDENTITY_EDGE_E2E_PENDING_SECRET__PRIVACY_LEGAL_REVIEW_PENDING",
+      "productDecision": "APPROVED_OPTIONAL_NONEXCLUSIVE_PROFILE_WORKSPACE_ASSOCIATION",
       "decisionRecord": "ops/community-linked-ddv-profile-identity-transport-20261002.json"
     },
     {
       "id": "P2_LINKED_DDV_PROFILE_CORRECTION_UNLINK",
-      "severity": "PRODUCT_DECISION_CLOSED_PRIVACY_LEGAL_REVIEW_PENDING",
+      "severity": "PRODUCT_AND_STAGING_ENGINEERING_CLOSED_PRIVACY_LEGAL_REVIEW_PENDING",
       "evidence": [
-        "The model enforces at most three linked DDV profiles.",
-        "No ordinary self-service link correction/unlink command was found in the reviewed Community source.",
-        "Account deletion removes the account-to-DDV-profile link.",
-        "community-command currently exposes no DDV Profile link/verify/unlink command.",
-        "Product approved no normal self-service unlink/rebind.",
-        "Exceptional correction is allowed only with recent-auth support/admin review, recorded reason and AuditEvent.",
-        "Removed old profile receives a 7-day cooldown."
+        "Normal self-service DDV identity unlink is Product-approved and implemented.",
+        "Unlink removes only the optional identity association and preserves the Profile Workspace.",
+        "The same mdc cannot be associated with multiple Workspaces inside one Wand Account.",
+        "The same mdc may be associated by different Wand Accounts; it does not confer access to another account's private Workspace data.",
+        "Profile Workspace deletion is a separate destructive action requiring explicit confirmation.",
+        "Workspace deletion removes Workspace-scoped private data; Account/Creator-scoped Gallery, Wand Preset and Q&A/Tips data remain independent.",
+        "Staging rollback runtime verified unlink-preserves-Workspace and delete-frees-slot behavior."
       ],
       "requiredDecision": [
         "Product decision is CLOSED.",
-        "Privacy/Legal must determine whether the approved exceptional correction path satisfies launch-jurisdiction rights requirements."
+        "Privacy/Legal must review user-facing correction/deletion disclosure and any jurisdiction-specific data-rights requirements."
       ],
-      "engineeringAction": "WAIT_FOR_IDENTIFIER_AND_PRIVACY_LEGAL_REVIEW",
-      "productDecision": "NO_NORMAL_SELF_SERVICE_UNLINK__EXCEPTIONAL_REVIEWED_CORRECTION_ONLY"
+      "engineeringAction": "NO_PRODUCT_ENGINEERING_DECISION_PENDING__PRIVACY_LEGAL_REVIEW_ONLY",
+      "productDecision": "SELF_SERVICE_UNLINK_ALLOWED__WORKSPACE_DELETE_SEPARATE"
     },
     {
       "id": "P3_UNLISTED_DISCLOSURE",
@@ -141,7 +141,7 @@
         "Independent Wand Account registration by users under 13 is prohibited.",
         "Accountless local functionality remains available, including local save-file editing and local Editor/read-only workflows.",
         "A parent or guardian may associate/manage an under-13 user's DDV Profile through the parent's Wand Account; no separate under-13 Wand credentials are created.",
-        "The existing maximum-three Linked DDV Profiles per Wand Account continues to apply."
+        "Parent/guardian-managed Profile Workspaces consume the same maximum-five retained Workspace capacity as self-managed Workspaces."
       ],
       "requiredDecision": [
         "Product age/minors eligibility decision is CLOSED.",
@@ -245,5 +245,5 @@
   ],
   "engineeringConclusion": "NO_RETENTION_ENGINEERING_CHANGE_REQUIRED_AT_THIS_STAGE",
   "privacyApprovalReady": false,
-  "nextAction": "Linked DDV Product lifecycle decision is closed. Next owner decision is age/minors launch policy. In parallel, DDV Core must identify a stable local DDV Profile identifier; Community implementation remains fail-closed until that evidence exists."
+  "nextAction": "Profile Workspace Product and staging lifecycle decisions are closed. Complete live identity-association Edge E2E when the staging HMAC secret is configured, while Privacy/Legal review the optional identifier transport/correction boundary and age/minors Community scope."
 }
