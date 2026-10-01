@@ -1,6 +1,6 @@
 # Community retention — Product approval checklist — 2026-10-01
 
-Status: **READY FOR EXPLICIT PRODUCT APPROVAL**
+Status: **PRODUCT APPROVED — 2026-10-02**
 
 This is the Product decision surface for the current Community deletion/retention design.
 It does not substitute for Privacy or Legal review.
@@ -95,3 +95,10 @@ If Product approves D1-D8 above without changes:
 - continue toward independent Privacy/Legal review and production-only Release Operations gates.
 
 Any requested policy change reopens only the affected contract/runtime regression.
+
+
+## Approval outcome — 2026-10-02
+
+Product approved the checklist above without changes.
+
+Privacy and Legal remain independent review/approval gates.
