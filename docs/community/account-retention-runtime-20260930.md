@@ -1,5 +1,8 @@
 # Community Core account retention/runtime evidence — 2026-09-30
 
+> **Superseding retention integration update — 2026-10-01:** the historical PARTIAL statements below about Wand Preset ArtifactBlob physical deletion are now closed. The real WEP Storage-object deletion -> Community finalizer -> ArtifactBlob tombstone -> retention completion path is CONFIRMED RUNTIME PASS. Preserve the older text below as chronological evidence; current launch policy review is tracked in `docs/community/privacy-retention-launch-review-20261001.md`.
+
+
 Project: `dreamwish-wand-staging` / `ap-northeast-1`
 
 Status:
