@@ -71,6 +71,8 @@ test('World Editor product surface is WEP-backed and writer-safe', () => {
   assert.match(page, /PLACEMENT READINESS/);
   assert.match(page, /createEditorDraftValidator/);
   assert.match(page, /explainWepBlocker/);
+  assert.match(page, /captureRegion: sceneCaptureRegion\(\)/);
+  assert.match(page, /Custom region/);
   assert.match(page, /BLOCKED \/ UNVERIFIED/);
   assert.match(page, /Review Save Prep/);
   assert.match(page, /Publish Scene Preset/);
