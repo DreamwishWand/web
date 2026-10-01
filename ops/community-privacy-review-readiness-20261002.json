@@ -77,7 +77,7 @@
   "openDecisions": [
     {
       "id": "P1_LINKED_DDV_PROFILE_ORPHAN_MINIMIZATION",
-      "severity": "IDENTIFIER_RESOLVED_TECHNICAL_CONTRACT_READY_PRIVACY_LEGAL_REVIEW_PENDING",
+      "severity": "DB_LIFECYCLE_CLOSED__EDGE_ASSURANCE_AND_PRIVACY_LEGAL_REVIEW_PENDING",
       "evidence": [
         "GameInfo.LastCustomIdOwner is now the confirmed DDV Player ID/User ID identity source.",
         "The same LastCustomIdOwner value is present in accepted Nintendo Switch and later fresh Steam/Windows v1.25 saves of the same cloud-linked DDV Profile.",
@@ -85,15 +85,19 @@
         "Raw Player ID will not be persisted or exposed publicly.",
         "Technical transport contract stores only a versioned server-keyed digest in ddv_profiles.binding_key_hash.",
         "verification_evidence_ref remains null by default.",
-        "Product-approved 7-day ordinary post-unlink/account-deletion digest tombstone remains authoritative."
+        "Product-approved 7-day ordinary post-unlink/account-deletion digest tombstone remains authoritative.",
+        "Staging migration 20261001221620 implements parent/self relation, 7-day digest tombstone, D4 hold-aware purge, admin-only correction and no raw Player ID database field.",
+        "Disposable rollback runtime proved tombstone creation, active-row minimization and expired purge with zero fixture residue.",
+        "community-query v9, community-admin v13 and community-retention v5 are deployed on staging.",
+        "ops/community-linked-ddv-profile-lifecycle-runtime-20261002.json",
+        "docs/community/linked-ddv-profile-lifecycle-runtime-20261002.md"
       ],
       "requiredDecision": [
-        "Privacy/Legal review the confirmed Player ID linkability classification and the technical transport contract.",
-        "Confirm transient transport/logging minimization and server-keyed digest handling.",
-        "Confirm exceptional correction/right-to-correction behavior for launch jurisdictions.",
-        "After review, implement targeted link/verify lifecycle; do not reopen broad retention engineering."
+        "Owner/Product: choose user-link assurance model before exposing the link command.",
+        "Privacy/Legal: review transient identifier transport/linkability and exceptional correction/right-to-correction.",
+        "Age/minors: confirm how parent-managed accounts may use Community surfaces on behalf of under-13 users."
       ],
-      "engineeringAction": "READY_FOR_TARGETED_IMPLEMENTATION_AFTER_PRIVACY_LEGAL_REVIEW",
+      "engineeringAction": "DB_LIFECYCLE_COMPLETE__WAIT_FOR_OWNER_LINK_ASSURANCE_DECISION_BEFORE_EXPOSING_COMMUNITY_COMMAND",
       "productDecision": "APPROVED_7_DAY_TOMBSTONE",
       "decisionRecord": "ops/community-linked-ddv-profile-identity-transport-20261002.json"
     },
