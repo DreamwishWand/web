@@ -328,3 +328,50 @@ This change is deployment configuration only. It does not alter Community owners
 signed-read, retention-job orchestration, or WEP physical-delete-before-finalizer ordering.
 Therefore the already-confirmed Preset reuse vertical and Preset ArtifactBlob retention E2E were not
 repeated.
+
+
+## Final release evidence index
+
+Community production readiness is indexed in:
+
+`ops/community-production-release-evidence.json`.
+
+This file is the machine-readable checklist for final launch evidence. It does not replace the
+individual runtime/review documents; it points to them and records whether each required gate is
+currently satisfied.
+
+The index deliberately distinguishes:
+
+- already-closed staging/runtime/product gates;
+- production-environment-only gates that cannot be satisfied by staging;
+- Product/Privacy/Legal approval;
+- the one remaining real-mailbox signed-in Auth reauthentication flow.
+
+A gate marked `satisfied=true` must carry evidence references. A production-only gate cannot be
+closed with the staging project ref.
+
+`npm run verify:community-ops -- --require-ready` now also requires every required release-evidence
+gate to be satisfied and the evidence index itself to be launch-ready.
+
+Current expected state is **launchReady=false**. This is correct until the distinct production
+environment, restore drills, secret rotation, final integrated replay, production inventory/smoke,
+production Security Advisor, final Auth mailbox QA, retention approval and mailbox-placement
+acceptance are complete.
+
+## Final integrated source-tree preflight
+
+The repository now also contains:
+
+- `scripts/verify-community-integrated-production-tree.mjs`;
+- `ops/community-integration-merge-risk-20261001.json`;
+- `docs/community/final-integrated-production-tree-preflight-20261001.md`.
+
+Normal Community CI executes the verifier without `--require-ready`. The Community-only branch is
+allowed to report `integratedReady=false`, because the production contract already says the
+Community branch alone is not production-complete.
+
+For final integration / RC, run:
+
+`npm run verify:community-integrated-tree -- --require-ready`.
+
+That mode must pass before any production migration replay is attempted.
