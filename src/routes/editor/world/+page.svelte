@@ -434,6 +434,9 @@
     refreshProjection();
     refreshDraftState();
     syncRoadFenceSelection({ preferKind: kind });
+    if (kind === 'fence') {
+      syncFencePostDraftFromDocument();
+    }
     return result;
   }
 
@@ -928,10 +931,35 @@
     try {
       const stored =
         fenceRepresentationModelFromDocument(networkId);
+      const fenceContainer =
+        editorDocument?.networks?.fences;
       if (stored) {
         fencePostDraft = stored;
         fencePostValidation =
           validateFencePostLayoutDraft(stored);
+      } else if (
+        fenceContainer?.schema ===
+        'dreamwish-wand-wep-roadfence-logical-root-draft'
+      ) {
+        if (
+          fenceContainer
+            ?.representationLayoutInvalidated
+            ?.[String(networkId)] === true
+        ) {
+          throw new Error(
+            'WEP_FENCE_REPRESENTATION_LAYOUT_INVALIDATED'
+          );
+        }
+        const unavailable =
+          fenceContainer
+            ?.representationLayoutUnavailable
+            ?.[String(networkId)];
+        throw new Error(
+          String(
+            unavailable ??
+              'WEP_FENCE_POST_DRAFT_UNAVAILABLE'
+          )
+        );
       } else {
         const result =
           roadFenceReaderBinding?.fenceRepresentationLayout
