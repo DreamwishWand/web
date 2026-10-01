@@ -73,6 +73,22 @@ const CORE_REASON_TEXT: Record<string, string> = Object.freeze({
     'This object has an explicit Core grid-edit restriction and is inspectable but not mutable.',
   BUILDING_READ_ONLY:
     'This Building is read-only until Core proves an ordinary editable Building classification for its ItemID.',
+  UNKNOWN_BUILDING_SEMANTICS:
+    'Core cannot prove a safe ordinary Building classification for this ItemID, so mutation remains disabled.',
+  BUILDING_SPECIAL_SEMANTICS_UNRESOLVED:
+    'This Building has special lifecycle semantics and is inspectable but not available to generic Canvas mutation.',
+  CHARACTER_HOUSE_PRESENCE_SIDE_EFFECTS_REQUIRE_DEDICATED_LIFECYCLE:
+    'This Character House is tied to character-presence lifecycle state, so generic mutation is disabled.',
+  STALL_SHOP_LOCAL_GLOBAL_STATE_LIFECYCLE_UNRESOLVED:
+    'This Stall carries linked shop state, so generic mutation is disabled until that lifecycle is closed.',
+  WELL_FASTTRAVEL_GLOBAL_STATE_AND_IDENTITY_REQUIRE_DEDICATED_LIFECYCLE:
+    'This Wishing Well is tied to fast-travel and shared world state, so generic mutation is disabled.',
+  GARDEN_TYPED_STATE_LIFECYCLE_REQUIRES_DEDICATED_CONTRACT:
+    'This Garden has dedicated persistent state and cannot use generic Building mutation.',
+  OFFGRID_BUILDING_PROFILEWORLD_LIFECYCLE_REQUIRED:
+    'This Off-Grid Building uses a separate ProfileWorld lifecycle and cannot use generic Grid commands.',
+  BUILDING_SHARED_SYNCHRONIZER_LIFECYCLE_REQUIRED:
+    'This Building participates in synchronized/shared state and cannot be mutated independently.',
   HOUSE_DATA_READ_ONLY:
     'This HouseData object is read-only until a dedicated Core lifecycle capability allows this operation.',
   ROAD_FENCE_DELEGATED_01C:
