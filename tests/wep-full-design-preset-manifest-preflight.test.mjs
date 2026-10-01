@@ -1,8 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { buildCurrentV125FullDesignCapturePlan } from '../src/lib/wep/full-design-preset-planning.ts';
 import { validateCurrentV125FullDesignManifest } from '../src/lib/wep/full-design-preset-manifest.ts';
 import { preflightCurrentV125FullDesignManifest } from '../src/lib/wep/full-design-preset-preflight.ts';
+import {
+  createSwitchV125BuildingBindingFromContract
+} from '../src/lib/wep/building-v110.ts';
+
+const buildingContract = JSON.parse(
+  fs.readFileSync(
+    new URL(
+      '../static/ddv/core/world/v1.25/building-read-model-preflight-v125.json',
+      import.meta.url
+    ),
+    'utf8'
+  )
+);
+const buildingBinding =
+  createSwitchV125BuildingBindingFromContract(buildingContract);
 
 function makeProfile({
   firstGridId = 10,
@@ -202,7 +218,61 @@ function makeBuildingManifest() {
     profile,
     rootGridId: 10,
     sourcePlatform: 'switch',
-    rootEditorDocuments: v17BuildingDocuments()
+    rootEditorDocuments: v17BuildingDocuments(),
+    buildingBinding
+  }).manifest;
+}
+
+function v17OrdinaryBuildingDocuments() {
+  const first = v17PlacementDocument(
+    'GridData/Test/Biome-A.json',
+    10,
+    { includeObject: false }
+  );
+  first.objects = [
+    {
+      editorId: 'g10:ordinary-building',
+      itemId: 20000036,
+      layer: 'building',
+      x: 5,
+      y: 7,
+      orientation: 0,
+      footprint: [{ x: 0, y: 0 }],
+      portableState: null,
+      dependencyIds: [],
+      editability: 'readonly',
+      metadata: {
+        geometryStatus: 'RESOLVED',
+        buildingSemantics: {
+          buildingItemType: 'House',
+          signals: {
+            isPlayerHouse: false,
+            isCharacterHouse: false,
+            isFastTravel: false,
+            hasBuildingStateSynchronizer: false,
+            hasOtherGlobalOrSharedBinding: false
+          }
+        }
+      }
+    }
+  ];
+  return [
+    first,
+    v17PlacementDocument(
+      'GridData/Test/Biome-B.json',
+      11,
+      { includeObject: false }
+    )
+  ];
+}
+
+function makeOrdinaryBuildingManifest() {
+  return buildCurrentV125FullDesignCapturePlan({
+    profile: makeProfile(),
+    rootGridId: 10,
+    sourcePlatform: 'switch',
+    rootEditorDocuments: v17OrdinaryBuildingDocuments(),
+    buildingBinding
   }).manifest;
 }
 
@@ -414,7 +484,7 @@ test('Building skin and PlayerHouse restoration capture is portable and save-ID 
   assert.equal(plan.applyReady, false);
 });
 
-test('Building category distinguishes absence, ordinary placement, skin and PlayerHouse identity', () => {
+test('Building category uses promoted v1.10 typed classes and preserves typed restoration state', () => {
   const noBuilding = buildCurrentV125FullDesignCapturePlan({
     profile: makeProfile(),
     rootGridId: 10,
@@ -430,25 +500,17 @@ test('Building category distinguishes absence, ordinary placement, skin and Play
         11,
         { includeObject: false }
       )
-    ]
+    ],
+    buildingBinding
   });
   assert.equal(
     noBuilding.categories.buildings.ordinaryPlacement
       .destinationPlacementStatus,
     'NOT_APPLICABLE'
   );
-  assert.equal(
-    noBuilding.categories.buildings.ordinaryPlacement
-      .destinationPlacementReady,
-    true
-  );
-  assert.equal(
-    noBuilding.categories.buildings.buildingSkins.entries.length,
-    0
-  );
-  assert.equal(
-    noBuilding.categories.buildings.playerHouses.entries.length,
-    0
+  assert.deepEqual(
+    noBuilding.categories.buildings.classificationSummary,
+    { ordinary: 0, special: 0, offGrid: 0, unknown: 0 }
   );
 
   const profile = addRestorationObjects(makeProfile());
@@ -456,7 +518,8 @@ test('Building category distinguishes absence, ordinary placement, skin and Play
     profile,
     rootGridId: 10,
     sourcePlatform: 'switch',
-    rootEditorDocuments: v17BuildingDocuments()
+    rootEditorDocuments: v17BuildingDocuments(),
+    buildingBinding
   });
   const buildings = plan.categories.buildings;
 
@@ -464,13 +527,24 @@ test('Building category distinguishes absence, ordinary placement, skin and Play
   assert.equal(buildings.ordinaryPlacement.recognizedCount, 2);
   assert.equal(
     buildings.ordinaryPlacement.destinationPlacementStatus,
-    'UNRESOLVED'
+    'BLOCKED_TYPED_CLASSES'
+  );
+  assert.deepEqual(
+    buildings.classificationSummary,
+    { ordinary: 0, special: 1, offGrid: 0, unknown: 1 }
   );
   assert.equal(
-    buildings.ordinaryPlacement.destinationPlacementReady,
-    false
+    buildings.typedPlacements[0].classification.classification,
+    'UNKNOWN_BUILDING_SEMANTICS'
   );
-  assert.equal(buildings.ordinaryPlacement.persistentWriteAuthorized, false);
+  assert.equal(
+    buildings.typedPlacements[1].classification.classification,
+    'SPECIAL_GRID_BUILDING'
+  );
+  assert.equal(
+    buildings.typedPlacements[1].classification.subtype,
+    'PlayerHouse'
+  );
 
   assert.equal(buildings.buildingSkins.entries.length, 1);
   assert.deepEqual(
@@ -481,14 +555,9 @@ test('Building category distinguishes absence, ordinary placement, skin and Play
       skinItemId: 20510001
     }
   );
-  assert.equal(buildings.buildingSkins.nonzeroValidatorRequired, true);
   assert.equal(
     buildings.buildingSkins.semanticStatus,
-    'PROVISIONAL_PENDING_01B'
-  );
-  assert.equal(
-    buildings.buildingSkins.destinationSemanticsReady,
-    false
+    'V1_10_TYPED_PREFLIGHT'
   );
 
   assert.equal(buildings.playerHouses.entries.length, 1);
@@ -501,22 +570,13 @@ test('Building category distinguishes absence, ordinary placement, skin and Play
   );
   assert.equal(
     buildings.playerHouses.semanticStatus,
-    'PROVISIONAL_PENDING_01B'
-  );
-  assert.equal(
-    buildings.playerHouses.destinationSemanticsReady,
-    false
-  );
-  assert.equal(
-    buildings.playerHouses.destinationBinderCurrentlyRequired,
-    true
+    'V1_10_SPECIAL_DIAGNOSTIC'
   );
 
   const serialized = JSON.stringify(plan.manifest);
   assert.equal(serialized.includes('PlayerHouseIndex'), false);
   assert.equal(serialized.includes('UpgradeState'), false);
   assert.equal(serialized.includes('ShopData'), false);
-  assert.equal(serialized.includes('interiorGridIdentity'), false);
   assert.equal(plan.publicationReady, false);
   assert.equal(plan.applyReady, false);
 });
@@ -527,7 +587,8 @@ test('required Building category cannot be silently excluded to make publication
     rootGridId: 10,
     sourcePlatform: 'switch',
     requestedCategories: { buildings: false },
-    rootEditorDocuments: v17BuildingDocuments()
+    rootEditorDocuments: v17BuildingDocuments(),
+    buildingBinding
   });
   assert.equal(plan.categories.buildings.disposition, 'excluded');
   assert.equal(
@@ -571,6 +632,7 @@ test('Building skin and PlayerHouse can preflight while ordinary Building placem
     destinationProfile: destination,
     destinationPlatform: 'switch',
     manifest,
+    buildingBinding,
     restorationContext: {
       validateBuildingSkin: ({ skinItemId, targetBuildingItemId }) => ({
         status:
@@ -609,11 +671,14 @@ test('Building skin and PlayerHouse can preflight while ordinary Building placem
       { id: 'r1', kind: 'PLAYER_HOUSE', status: 'VALID' }
     ]
   );
+  assert.equal(preflight.buildingV110ContractBound, true);
+  assert.equal(preflight.buildingV110TypedPreflightReady, false);
   assert.equal(
     preflight.issues.some(
       (issue) =>
+        issue.code === 'UNKNOWN_BUILDING_SEMANTICS' ||
         issue.code ===
-        'BUILDING_DESTINATION_SEMANTICS_UNRESOLVED'
+          'SPECIAL_BUILDING_PLACEMENT_LIFECYCLE_REQUIRED'
     ),
     true
   );
@@ -630,7 +695,8 @@ test('Building skin and PlayerHouse restoration fail closed when destination val
       islandGridId: 120
     }),
     destinationPlatform: 'switch',
-    manifest
+    manifest,
+    buildingBinding
   });
 
   assert.equal(preflight.routeResolutionReady, true);
@@ -665,8 +731,8 @@ test('destination preflight re-resolves portable direct roots to destination-loc
   assert.equal(preflight.routeResolutionReady, true);
   assert.equal(preflight.buildingRestorationPreflightReady, true);
   assert.equal(preflight.environmentPreflightReady, true);
-  assert.equal(preflight.ordinaryBuildingPlacementReady, false);
-  assert.equal(preflight.buildingSemanticClosureReady, false);
+  assert.equal(preflight.ordinaryBuildingPlacementReady, true);
+  assert.equal(preflight.buildingSemanticClosureReady, true);
   assert.equal(preflight.destinationResolved, false);
   assert.equal(preflight.destinationPreflightReady, false);
   assert.equal(preflight.categoryClosureReady, false);
@@ -1023,4 +1089,130 @@ test('destination Road/Fence model preflight fails closed on destination tessell
   assert.equal(preflight.ddvWriteAuthorized, false);
   assert.equal(preflight.persistentWriteAuthorized, false);
   assert.equal(preflight.applyReady, false);
+});
+
+
+test('ordinary Building source becomes portable only with all five authoritative false signals', () => {
+  const plan = buildCurrentV125FullDesignCapturePlan({
+    profile: makeProfile(),
+    rootGridId: 10,
+    sourcePlatform: 'switch',
+    rootEditorDocuments: v17OrdinaryBuildingDocuments(),
+    buildingBinding
+  });
+  const buildings = plan.categories.buildings;
+  assert.deepEqual(
+    buildings.classificationSummary,
+    { ordinary: 1, special: 0, offGrid: 0, unknown: 0 }
+  );
+  assert.equal(
+    buildings.ordinaryPlacement.destinationPlacementStatus,
+    'PREFLIGHT_CONTRACT_AVAILABLE'
+  );
+  assert.equal(
+    buildings.ordinaryPlacement.portableCompositionCount,
+    1
+  );
+  assert.equal(buildings.typedPlacements[0].portablePlacementEligible, true);
+  assert.equal(
+    buildings.blockers.includes('UNKNOWN_BUILDING_SEMANTICS'),
+    false
+  );
+});
+
+test('ordinary Building destination remains blocked until all v1.10 destination validators are bound', () => {
+  const manifest = makeOrdinaryBuildingManifest();
+  const preflight = preflightCurrentV125FullDesignManifest({
+    destinationProfile: makeProfile({
+      firstGridId: 99,
+      secondGridId: 100,
+      islandGridId: 120
+    }),
+    destinationPlatform: 'switch',
+    manifest,
+    buildingBinding,
+    placementBinding: placementBinding('NATIVE_VALID_CLEAR')
+  });
+
+  assert.equal(preflight.buildingV110ContractBound, true);
+  assert.equal(preflight.buildingV110TypedPreflightReady, false);
+  assert.equal(preflight.ordinaryBuildingPlacementReady, false);
+  assert.equal(
+    preflight.issues.some(
+      (issue) =>
+        issue.code ===
+        'WEP_BUILDING_STOCK_OWNERSHIP_VALIDATOR_NOT_BOUND'
+    ),
+    true
+  );
+  assert.equal(
+    preflight.issues.some(
+      (issue) =>
+        issue.code ===
+        'WEP_BUILDING_MULTIPLICITY_VALIDATOR_NOT_BOUND'
+    ),
+    true
+  );
+  assert.equal(
+    preflight.issues.some(
+      (issue) =>
+        issue.code ===
+        'WEP_BUILDING_TYPED_STATE_VALIDATOR_NOT_BOUND'
+    ),
+    true
+  );
+  assert.equal(preflight.persistentWriteAuthorized, false);
+  assert.equal(preflight.applyReady, false);
+});
+
+test('ordinary Building typed destination preflight can pass without authorizing Apply', () => {
+  const manifest = makeOrdinaryBuildingManifest();
+  const preflight = preflightCurrentV125FullDesignManifest({
+    destinationProfile: makeProfile({
+      firstGridId: 99,
+      secondGridId: 100,
+      islandGridId: 120
+    }),
+    destinationPlatform: 'switch',
+    manifest,
+    buildingBinding,
+    placementBinding: placementBinding('NATIVE_VALID_CLEAR'),
+    buildingContext: {
+      validateDestinationStockOwnership: () => ({ status: 'VALID' }),
+      validateCurrentSceneMultiplicity: () => ({ status: 'VALID' }),
+      validateTypedInitialStateCompatibility: () => ({ status: 'VALID' })
+    }
+  });
+
+  assert.equal(preflight.buildingV110TypedPreflightReady, true);
+  assert.equal(preflight.ordinaryBuildingPlacementReady, true);
+  assert.equal(preflight.buildingSemanticClosureReady, true);
+  assert.equal(preflight.destination.buildingTypedPreflights[0].ready, true);
+  assert.equal(preflight.ddvWriteAuthorized, false);
+  assert.equal(preflight.persistentWriteAuthorized, false);
+  assert.equal(preflight.applyReady, false);
+});
+
+test('missing ordinary Building signal stays UNKNOWN and blocks source closure', () => {
+  const documents = v17OrdinaryBuildingDocuments();
+  delete documents[0].objects[0].metadata.buildingSemantics.signals
+    .hasOtherGlobalOrSharedBinding;
+  const plan = buildCurrentV125FullDesignCapturePlan({
+    profile: makeProfile(),
+    rootGridId: 10,
+    sourcePlatform: 'switch',
+    rootEditorDocuments: documents,
+    buildingBinding
+  });
+  assert.equal(
+    plan.categories.buildings.classificationSummary.unknown,
+    1
+  );
+  assert.equal(
+    plan.categories.buildings.blockers.includes(
+      'UNKNOWN_BUILDING_SEMANTICS'
+    ),
+    true
+  );
+  assert.equal(plan.publicationCandidateReady, false);
 });
