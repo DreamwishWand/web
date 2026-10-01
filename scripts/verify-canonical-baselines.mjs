@@ -62,10 +62,15 @@ try {
     const commitMessages = execFileSync('git', ['log', '--format=%B', 'origin/main..HEAD'], { encoding: 'utf8' });
     explicitPromotion = /\[PROMOTE\]/i.test(commitMessages);
   } else if (eventName === 'push') {
-    const diff = execFileSync('git', ['diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD'], { encoding: 'utf8' });
+    const diff = execFileSync('git', ['diff-tree', '--no-commit-id', '--name-only', '-m', '-r', 'HEAD'], { encoding: 'utf8' });
     registryChanged = diff.split(/\r?\n/).includes(registryPath);
-    const commitMessage = execFileSync('git', ['log', '-1', '--format=%B', 'HEAD'], { encoding: 'utf8' });
-    explicitPromotion = /\[PROMOTE\]/i.test(commitMessage);
+    let commitMessages = execFileSync('git', ['log', '-1', '--format=%B', 'HEAD'], { encoding: 'utf8' });
+    if (/^Merge /m.test(commitMessages) || commitMessages.trim().length > 0) {
+      try {
+        commitMessages += '\\n' + execFileSync('git', ['log', '--format=%B', 'HEAD^2', '--not', 'HEAD^1'], { encoding: 'utf8' });
+      } catch {}
+    }
+    explicitPromotion = /\[PROMOTE\]/i.test(commitMessages);
   }
 } catch {
   // If Git history cannot establish the event diff, fail closed below only when a registry change is detected.
