@@ -2668,6 +2668,12 @@
         <div class="canvas-footer">
           <span>{projected.length} visible</span>
           <span>
+            Mouse: click selects · Ctrl/⌘/Shift-click multi-selects
+          </span>
+          <span>
+            Keyboard: arrows move · R rotate · Ctrl/⌘ C/V/D · Delete · Ctrl/⌘ Z · Shift+Z redo · Esc clear
+          </span>
+          <span>
             Road / Fenceはcapability未接続時にlocked表示されます。
           </span>
           <span>
