@@ -4,13 +4,13 @@
   "repository": "DreamwishWand/web",
   "community": {
     "branch": "dev/community-core-v0-20260930",
-    "head": "aaa20a29d7230862757ca32f2cabc3b209335909",
+    "head": "272c1236661f51971b7482473d2498380b68d921",
     "productionMigrationFiles": 51,
     "migrationState": "unique versions; staging-only pg_net SQL moved to supabase/staging"
   },
   "wep": {
     "branch": "dev/wep-v125",
-    "head": "c396413dc349829bc91f89b397321de38b55a3ba",
+    "head": "3684939a5c147430e6c41bedc6620c9b6f030b6d",
     "migrationFilesObservedAgainstMain": 56,
     "productionPresetMigrations": [
       "20260930124055_wep_preset_artifact_storage_v0.sql",
@@ -21,24 +21,26 @@
   "branchRelationship": {
     "status": "diverged",
     "mergeBase": "cfda06eb904544bbfa5286c4eb61b5856dd3ea51",
-    "communityAheadOfWep": 116,
-    "communityBehindWep": 169
+    "communityAheadOfWep": 139,
+    "communityBehindWep": 181
   },
   "confirmedIntegrationHazards": [
     {
       "id": "OBSOLETE_SUPPORT_RECOVERY_PREFIX",
-      "state": "MUST_NOT_SURVIVE_FINAL_INTEGRATION",
+      "state": "RESOLVED_IN_CURRENT_WEP_BRANCH",
       "wepPath": "supabase/migrations/20260930081500_community_core_v0_support_recovery_verification.sql",
-      "canonicalPath": "supabase/migrations/20260930081600_community_core_v0_support_recovery_verification.sql"
+      "canonicalPath": "supabase/migrations/20260930081600_community_core_v0_support_recovery_verification.sql",
+      "resolution": "Current WEP branch contains 20260930081600 and no longer contains the obsolete 20260930081500 path."
     },
     {
       "id": "STAGING_PG_NET_IN_PRODUCTION_CHAIN",
-      "state": "MUST_NOT_SURVIVE_FINAL_INTEGRATION",
+      "state": "RESOLVED_IN_CURRENT_WEP_BRANCH",
       "obsoletePaths": [
         "supabase/migrations/20260930035820_community_staging_pg_net.sql",
         "supabase/migrations/20260930040500_community_staging_remove_pg_net.sql"
       ],
-      "canonicalDirectory": "supabase/staging"
+      "canonicalDirectory": "supabase/staging",
+      "resolution": "Current WEP branch keeps both pg_net files under supabase/staging and not supabase/migrations."
     },
     {
       "id": "WEP_PRESET_PRODUCTION_DELTA",
@@ -51,12 +53,22 @@
         "supabase/functions/wep-preset-artifact/index.ts",
         "supabase/functions/wep-preset-retention/index.ts"
       ]
+    },
+    {
+      "id": "WEP_PRESET_STAGING_BUCKET_IN_PRODUCTION_MIGRATION",
+      "state": "OPEN",
+      "path": "supabase/migrations/20260930124055_wep_preset_artifact_storage_v0.sql",
+      "observedSha": "f1370166dec78793ee82a5206a87999c61900b15",
+      "issue": "The production migration inserts storage bucket wand-preset-artifacts-staging.",
+      "requiredResolution": "Final production migration replay must not create or use the staging bucket. Move staging bucket creation to staging-only provisioning or otherwise provision the configured production bucket without a staging-name fallback, while preserving the generic preset_artifact_prepare rate policy."
     }
   ],
   "acceptance": {
     "normalCommunityBranchMayBeUnintegrated": true,
     "partialWepIntegrationMustFail": true,
     "finalIntegratedRequireReadyMustPass": true,
-    "productionReplayFromEitherWorkstreamBranchAlone": false
+    "productionReplayFromEitherWorkstreamBranchAlone": false,
+    "wepMigrationBaselineConsistency": "CONFIRMED_STATIC",
+    "wepPresetProductionBucketMigration": "OPEN"
   }
 }
