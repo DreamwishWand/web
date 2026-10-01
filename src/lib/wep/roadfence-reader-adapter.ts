@@ -2,6 +2,8 @@ import {
   ROADFENCE_NATIVE_CATALOG_SWITCH_V125
 } from '../ddv/core/roadfence/catalog-v125-switch.js';
 import {
+  ROADFENCE_NATIVE_READER_V125_SCHEMA,
+  ROADFENCE_NATIVE_READER_V125_VERSION,
   captureRoadFenceReaderRegionV125,
   readRoadFenceNativeGridV125
 } from '../ddv/core/roadfence/native-reader-v125.js';
