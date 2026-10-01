@@ -56,33 +56,19 @@ let explicitPromotion = false;
 
 try {
   const eventName = process.env.GITHUB_EVENT_NAME ?? '';
-  const eventPath = process.env.GITHUB_EVENT_PATH;
-  let event = {};
-  if (eventPath) {
-    try { event = JSON.parse(readFileSync(eventPath, 'utf8')); } catch {}
-  }
-
   if (eventName === 'pull_request') {
-    const baseSha = event.pull_request?.base?.sha;
-    if (baseSha) {
-      const diff = execFileSync('git', ['diff', '--name-only', `${baseSha}...HEAD`], { encoding: 'utf8' });
-      registryChanged = diff.split(/\r?\n/).includes(registryPath);
-    }
-    const labels = (event.pull_request?.labels ?? []).map((x) => x.name);
-    explicitPromotion = labels.includes('canonical-promotion');
-    if (!explicitPromotion) {
-      try {
-        const commitMessages = execFileSync('git', ['log', '--format=%B', `${baseSha}..HEAD`], { encoding: 'utf8' });
-        explicitPromotion = /\[PROMOTE\]/i.test(commitMessages);
-      } catch {}
-    }
+    const diff = execFileSync('git', ['diff', '--name-only', 'origin/main...HEAD'], { encoding: 'utf8' });
+    registryChanged = diff.split(/\r?\n/).includes(registryPath);
+    const commitMessages = execFileSync('git', ['log', '--format=%B', 'origin/main..HEAD'], { encoding: 'utf8' });
+    explicitPromotion = /\[PROMOTE\]/i.test(commitMessages);
   } else if (eventName === 'push') {
     const diff = execFileSync('git', ['diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD'], { encoding: 'utf8' });
     registryChanged = diff.split(/\r?\n/).includes(registryPath);
-    explicitPromotion = /\[PROMOTE\]/i.test(event.head_commit?.message ?? '');
+    const commitMessage = execFileSync('git', ['log', '-1', '--format=%B', 'HEAD'], { encoding: 'utf8' });
+    explicitPromotion = /\[PROMOTE\]/i.test(commitMessage);
   }
 } catch {
-  // If GitHub event metadata cannot establish the diff, fail closed below only when the registry itself is known to be changed.
+  // If Git history cannot establish the event diff, fail closed below only when a registry change is detected.
 }
 
 if (registryChanged && !explicitPromotion) {
