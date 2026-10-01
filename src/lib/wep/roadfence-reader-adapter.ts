@@ -106,6 +106,20 @@ export function createSwitchV125RoadFenceReaderBinding({
     persistentWriteAuthorized: false
   });
 
+  const captureFenceRepresentationModel = (networkId: string) => {
+    if (readerResult.status !== 'supported' || readerResult.ok !== true) {
+      return readerBlockResult(readerResult);
+    }
+    const result = createFencePostLayoutDraft(
+      readerResult,
+      String(networkId)
+    );
+    if (result?.draft?.persistentWriteAuthorized !== false) {
+      throw new Error('WEP_FENCE_POST_WRITE_BOUNDARY_VIOLATION');
+    }
+    return clone(result);
+  };
+
   const fenceRepresentationLayout = Object.freeze({
     contract: 'ddv.fence-representation-layout@1',
     promotionDocumentId: '15ddjUrtZFYFi5KZpmzsrVBArLy0BjBHnmF9_iCbi104',
@@ -124,19 +138,8 @@ export function createSwitchV125RoadFenceReaderBinding({
         persistentWriteAuthorized: false
       }));
     },
-    createDraft(networkId: string) {
-      if (readerResult.status !== 'supported' || readerResult.ok !== true) {
-        return readerBlockResult(readerResult);
-      }
-      const result = createFencePostLayoutDraft(
-        readerResult,
-        String(networkId)
-      );
-      if (result?.draft?.persistentWriteAuthorized !== false) {
-        throw new Error('WEP_FENCE_POST_WRITE_BOUNDARY_VIOLATION');
-      }
-      return clone(result);
-    }
+    captureModel: captureFenceRepresentationModel,
+    createDraft: captureFenceRepresentationModel
   });
 
   const networkAdapter: NetworkCaptureAdapter = Object.freeze({
