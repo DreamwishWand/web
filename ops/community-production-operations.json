@@ -156,5 +156,10 @@
     "providerAndWandRevocation": "CONFIRMED",
     "signedInReauthentication": "PENDING",
     "launchApproved": false
+  },
+  "releaseEvidence": {
+    "contract": "ops/community-production-release-evidence.json",
+    "launchReady": false,
+    "productionEvidenceMustComeFromDistinctProductionEnvironment": true
   }
 }
