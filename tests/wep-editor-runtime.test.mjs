@@ -264,3 +264,92 @@ test('readonly object cannot be directly mutated', () => {
     /WEP_OBJECT_NOT_EDITABLE/
   );
 });
+
+
+test('duplicate selection and Undo/Redo round-trip model, selection and validation together', () => {
+  const session = createEditorSession(base, {
+    validator: () => ({
+      ok: true,
+      issues: [],
+      status: 'VALID'
+    })
+  });
+  session.setSelection(['a']);
+  const duplicated = session.duplicate(null);
+  assert.equal(duplicated.applied, true);
+  assert.equal(duplicated.result.createdIds.length, 2);
+  assert.deepEqual(
+    new Set(session.getSelection()),
+    new Set(duplicated.result.createdIds)
+  );
+  assert.equal(session.getLastValidation().status, 'VALID');
+
+  const afterDuplicate = session.getDocument();
+  session.undo();
+  assert.deepEqual(session.getSelection(), ['a']);
+  assert.equal(session.getDocument().objects.length, 4);
+
+  session.redo();
+  assert.deepEqual(
+    new Set(session.getSelection()),
+    new Set(duplicated.result.createdIds)
+  );
+  assert.deepEqual(session.getDocument(), afterDuplicate);
+  assert.equal(session.getLastValidation().status, 'VALID');
+});
+
+test('rejected delete does not mutate selection outside the transaction', () => {
+  const session = createEditorSession(base, {
+    validator: (_candidate, context) => ({
+      ok: context.kind !== 'DELETE',
+      issues:
+        context.kind === 'DELETE'
+          ? [{ severity: 'BLOCK', code: 'DELETE_TEST_BLOCK' }]
+          : []
+    })
+  });
+  session.setSelection(['a']);
+  const before = session.getDocument();
+  const result = session.remove(null);
+  assert.equal(result.applied, false);
+  assert.equal(result.draftBlocked, true);
+  assert.deepEqual(session.getSelection(), ['a']);
+  assert.deepEqual(session.getDocument(), before);
+  assert.equal(session.canUndo(), false);
+});
+
+test('preview-invalid authoring mode keeps blocked draft local and reversible', () => {
+  const session = createEditorSession(base, {
+    allowInvalidDraft: true,
+    validator: (candidate) => {
+      const object = candidate.objects.find((entry) => entry.editorId === 'b');
+      const ok = object.x <= 15;
+      return {
+        ok,
+        issues: ok
+          ? []
+          : [{ severity: 'BLOCK', code: 'NATIVE_INVALID_TEST' }],
+        status: ok ? 'VALID' : 'BLOCKED'
+      };
+    }
+  });
+  session.setSelection(['b']);
+  const result = session.move(null, 1, 0);
+  assert.equal(result.applied, true);
+  assert.equal(result.draftBlocked, true);
+  assert.equal(session.getLastValidation().ok, false);
+  assert.equal(
+    session.getDocument().objects.find((entry) => entry.editorId === 'b').x,
+    16
+  );
+  const preview = session.previewPersistentCommit();
+  assert.equal(preview.writeReady, false);
+  assert.equal(preview.draftValidation.ok, false);
+
+  session.undo();
+  assert.equal(
+    session.getDocument().objects.find((entry) => entry.editorId === 'b').x,
+    15
+  );
+  assert.deepEqual(session.getSelection(), ['b']);
+});
