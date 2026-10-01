@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import {
   CORE_ATTACHED_STATE_CAPABILITY_CONTRACT,
@@ -282,4 +283,25 @@ test('keyboard shortcuts cover primary draft commands and ignore text-entry surf
     }),
     null
   );
+});
+
+const worldEditorRouteSource = readFileSync(
+  new URL('../src/routes/editor/world/+page.svelte', import.meta.url),
+  'utf8'
+);
+
+test('World Editor route binds keyboard, mouse multi-select, blocker UI, inspector and backup controls to the primary-job contract', () => {
+  assert.match(
+    worldEditorRouteSource,
+    /<svelte:window on:keydown=\{handlePrimaryJobKeydown\}/
+  );
+  assert.match(worldEditorRouteSource, /event\.ctrlKey \|\| event\.metaKey \|\| event\.shiftKey/);
+  assert.match(worldEditorRouteSource, /on:click\|stopPropagation/);
+  assert.match(worldEditorRouteSource, /OBJECT INSPECTOR/);
+  assert.match(worldEditorRouteSource, /Common Actions/);
+  assert.match(worldEditorRouteSource, /Attached State Actions/);
+  assert.match(worldEditorRouteSource, /Unavailable actions/);
+  assert.match(worldEditorRouteSource, /validationPresentation\.groups/);
+  assert.match(worldEditorRouteSource, /runPrimaryOriginalBackup/);
+  assert.match(worldEditorRouteSource, /primaryCommandAllowed\('delete'\)/);
 });
