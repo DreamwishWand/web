@@ -1945,3 +1945,57 @@ test('Road-inclusive Scene acceptance preserves Community reuse and Apply bounda
   assert.equal(bucketBlocker?.owner, '02 WEP');
   assert.equal(bucketBlocker?.state, 'OPEN');
 });
+
+
+test('Auth launch review closes 14/15 and revocation while keeping mailbox reauth open', () => {
+  const review = JSON.parse(read('ops/community-auth-launch-review.json'));
+  const operations = JSON.parse(read('ops/community-production-operations.json'));
+  const verifier = read('scripts/verify-community-ops-readiness.mjs');
+  const evidence = read(
+    'docs/community/auth-provider-boundary-revocation-runtime-20261001.md'
+  );
+
+  assert.equal(review.schema, 'dreamwish-community-auth-launch-review@1');
+  assert.equal(review.emailTrafficGeneratedByThisAcceptance, false);
+  assert.equal(review.passwordPolicy.configuredMinimumCodePoints, 15);
+  assert.equal(review.passwordPolicy.providerBoundary.password14Accepted, false);
+  assert.equal(review.passwordPolicy.providerBoundary.password15Accepted, true);
+  assert.equal(
+    review.passwordPolicy.providerBoundary.status,
+    'CONFIRMED_RUNTIME'
+  );
+  assert.equal(review.revocation.providerGlobalLogout, true);
+  assert.equal(
+    review.revocation.secondSessionRefreshRejectedAfterGlobalLogout,
+    true
+  );
+  assert.equal(review.revocation.wandSessionCutoffRejectedOldJwt, true);
+  assert.equal(review.revocation.status, 'CONFIRMED_RUNTIME');
+  assert.equal(review.reauthentication.signedInNonceFlowRerun, false);
+  assert.equal(
+    review.reauthentication.finalStatus,
+    'PENDING_ONE_REPRESENTATIVE_MAILBOX_QA'
+  );
+  assert.equal(review.launchApproved, false);
+  assert.equal(review.remaining.length, 1);
+  assert.equal(review.remaining[0].status, 'PENDING');
+
+  assert.equal(operations.releaseGate.requireAuthLaunchAcceptance, true);
+  assert.equal(
+    operations.authLaunchReview.providerPasswordBoundary,
+    'CONFIRMED'
+  );
+  assert.equal(
+    operations.authLaunchReview.providerAndWandRevocation,
+    'CONFIRMED'
+  );
+  assert.equal(
+    operations.authLaunchReview.signedInReauthentication,
+    'PENDING'
+  );
+  assert.match(verifier, /Auth launch review is not approved/);
+  assert.match(evidence, /14-character ASCII password: \*\*rejected\*\*/);
+  assert.match(evidence, /15-character ASCII password: \*\*accepted\*\*/);
+  assert.match(evidence, /no Auth email generated/i);
+  assert.match(evidence, /signed-in reauthentication/i);
+});
