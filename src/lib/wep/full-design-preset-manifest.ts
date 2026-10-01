@@ -1,3 +1,7 @@
+import {
+  validateFenceRepresentationArtifactNetwork
+} from './fence-representation-artifact.ts';
+
 type AnyRecord = Record<string, any>;
 
 export const FULL_DESIGN_CAPTURE_MANIFEST_SCHEMA =
@@ -908,6 +912,37 @@ function validateRoadFenceNetworkCaptures(
     ) {
       issues.push(
         block('FULL_DESIGN_ROADFENCE_NETWORK_ENVELOPE_INVALID', `${current}.network`)
+      );
+    } else if (categoryKey === 'fences') {
+      network.networks.forEach(
+        (fenceNetwork: unknown, fenceIndex: number) => {
+          if (!plain(fenceNetwork)) {
+            issues.push(
+              block(
+                'FULL_DESIGN_FENCE_NETWORK_INVALID',
+                `${current}.network.networks[${fenceIndex}]`
+              )
+            );
+            return;
+          }
+          const representation =
+            validateFenceRepresentationArtifactNetwork(
+              fenceNetwork
+            );
+          for (const representationIssue of
+            representation.issues ?? []) {
+            issues.push(
+              block(
+                String(
+                  representationIssue?.code ??
+                    'FENCE_REPRESENTATION_LAYOUT_INVALID'
+                ),
+                `${current}.network.networks[${fenceIndex}].representationLayout`,
+                clone(representationIssue)
+              )
+            );
+          }
+        }
       );
     }
   }
