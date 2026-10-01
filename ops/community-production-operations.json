@@ -21,7 +21,15 @@
       "DREAMWISH_ENVIRONMENT",
       "COMMUNITY_MEDIA_BUCKET",
       "WEP_PRESET_ARTIFACT_BUCKET"
-    ]
+    ],
+    "resourceDecision": {
+      "status": "APPROVED_FOR_RELEASE_STAGE",
+      "contract": "ops/community-production-resource-decision-20261002.json",
+      "supabasePlan": "PRO",
+      "storageRecoveryProvider": "CLOUDFLARE_R2_STANDARD",
+      "provisionNow": false,
+      "provisionAt": "RELEASE_STAGE"
+    }
   },
   "backupPolicy": {
     "database": {
@@ -31,7 +39,8 @@
       "freePlanStagingIsNotProductionBackupEvidence": true,
       "preferredShortestAvailableRecoveryWindow": true,
       "pitrRequiredAtLaunch": false,
-      "productionPlanBinding": "PENDING"
+      "productionPlanBinding": "SUPABASE_PRO_APPROVED_FOR_RELEASE_PROVISIONING",
+      "selectedLaunchMechanism": "managed-daily-database-backup-on-supabase-pro"
     },
     "storageObjects": {
       "separateBackupRequired": true,
@@ -41,7 +50,11 @@
       "independentRollbackDomainRequired": true,
       "privateOnly": true,
       "targetCopyRetentionDays": 7,
-      "providerSelection": "PENDING"
+      "providerSelection": "CLOUDFLARE_R2_STANDARD_APPROVED_FOR_RELEASE_PROVISIONING",
+      "selectedProvider": {
+        "provider": "Cloudflare",
+        "service": "R2 Standard"
+      }
     },
     "restore": {
       "targetRtoHours": 4,
@@ -228,18 +241,22 @@
       "state": "PACKET_READY_EXTERNAL_REVIEW_REQUIRED",
       "packet": "docs/community/legal-review-packet-20261002.md",
       "approval": "PENDING"
+    },
+    "providerSelection": {
+      "state": "OWNER_APPROVED",
+      "supabasePlan": "PRO",
+      "storageRecoveryProvider": "CLOUDFLARE_R2_STANDARD",
+      "finalProviderBindingStillPending": true
     }
   },
   "productionPreparation": {
-    "state": "PREPARED_TO_RESOURCE_DECISION_GATE",
+    "state": "RESOURCE_DECISION_CLOSED_PROVISION_AT_RELEASE_STAGE",
     "checklist": "ops/community-production-execution-checklist-20261002.json",
     "runbook": "docs/community/production-execution-runbook-20261002.md",
     "qaEvidence": "ops/community-qa-release-evidence-20261002.json",
     "resourceCreationAuthorized": false,
-    "userDecisionRequired": [
-      "Supabase production plan",
-      "independent Storage recovery provider/mechanism"
-    ],
-    "noPaidResourceCreated": true
+    "userDecisionRequired": [],
+    "noPaidResourceCreated": true,
+    "resourceDecisionContract": "ops/community-production-resource-decision-20261002.json"
   }
 }
