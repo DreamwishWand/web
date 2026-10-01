@@ -1998,7 +1998,7 @@ test('Auth launch review closes 14/15 and revocation while keeping mailbox reaut
   assert.match(verifier, /Auth launch review is not approved/);
   assert.match(evidence, /14-character ASCII password: \*\*rejected\*\*/);
   assert.match(evidence, /15-character ASCII password: \*\*accepted\*\*/);
-  assert.match(evidence, /no Auth email generated/i);
+  assert.match(evidence, /No signup confirmation email was generated/i);
   assert.match(evidence, /signed-in reauthentication/i);
 });
 
