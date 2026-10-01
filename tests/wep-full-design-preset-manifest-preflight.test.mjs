@@ -394,7 +394,7 @@ test('destination preflight re-resolves portable direct roots to destination-loc
   );
   assert.equal(
     preflight.categoryBlockers.some(
-      (x) => x.code === 'COMPREHENSIVE_GRIDDATA_DIMENSIONS_NOT_BOUND'
+      (x) => x.code === 'AUTHORITATIVE_GRIDDATAPATH_BOUNDS_NOT_BOUND'
     ),
     true
   );
