@@ -310,6 +310,198 @@ export async function createSwitchV125PlacementLegalityBinding({
     geometryBaseRaw
   );
 
+  function gridDataForPath(gridDataPath: string) {
+    const gridData = gridDataForPath(String(gridDataPath));
+    return gridData;
+  }
+
+  function editorObjects(document: AnyRecord) {
+    return (document?.objects ?? []).map((object: AnyRecord) => ({
+      editorId: String(object.editorId ?? ''),
+      itemId: Number(object.itemId),
+      x: Number(object.x),
+      y: Number(object.y),
+      orientation: Number(object.orientation)
+    }));
+  }
+
+  function classifyEditorCandidates({
+    document,
+    candidateIds,
+    clearabilityResolver = null
+  }: {
+    document: AnyRecord;
+    candidateIds: string[];
+    clearabilityResolver?: ((input: AnyRecord) => unknown) | null;
+  }) {
+    if (
+      document?.target?.gameVersion !== '1.25.0' ||
+      document?.target?.platform !== 'Nintendo Switch' ||
+      Number(document?.target?.profileSchemaVersion) !== 624 ||
+      typeof document?.target?.gridDataPath !== 'string' ||
+      !document.target.gridDataPath
+    ) {
+      throw new Error('WEP_V125_EDITOR_PLACEMENT_TARGET_MISMATCH');
+    }
+
+    const ids = Array.from(new Set((candidateIds ?? []).map(String)));
+    const byId = new Map(
+      (document.objects ?? []).map((object: AnyRecord) => [
+        String(object.editorId),
+        object
+      ])
+    );
+    const gridData = gridDataForPath(document.target.gridDataPath);
+    const objects = editorObjects(document);
+    const results = ids.map((editorId) => {
+      const candidate = byId.get(editorId);
+      if (!candidate) {
+        return {
+          editorId,
+          result: {
+            schema: 'ddv.native-placement-legality@1',
+            nativeClass: NATIVE_PLACEMENT_CLASSES.UNKNOWN,
+            reasonCodes: ['CANDIDATE_OBJECT_MISSING'],
+            nativeConflictFlagsResolved: false,
+            clearabilityResolved: false,
+            persistentWriteAuthorized: false
+          }
+        };
+      }
+
+      return {
+        editorId,
+        result: legality.classifyOrdinaryCardinalNativePlacement({
+          gridData,
+          geometryIndex,
+          objects,
+          candidate: {
+            editorId,
+            itemId: Number(candidate.itemId),
+            x: Number(candidate.x),
+            y: Number(candidate.y),
+            orientation: Number(candidate.orientation)
+          },
+          gridTessellationFactor: Number(
+            document.target.tessellationFactor ?? 1
+          ),
+          excludeEditorId: editorId,
+          clearArea: false,
+          automaticSpawning: false,
+          clearabilityResolver
+        })
+      };
+    });
+
+    const issues: AnyRecord[] = [];
+    for (const entry of results) {
+      const nativeClass = String(entry.result.nativeClass);
+      if (nativeClass === NATIVE_PLACEMENT_CLASSES.VALID_CLEAR) {
+        continue;
+      }
+      const code =
+        nativeClass ===
+        NATIVE_PLACEMENT_CLASSES.VALID_REPLACES_OR_REMOVES_EXISTING
+          ? 'NATIVE_REPLACEMENT_OR_REMOVAL_POLICY_REQUIRED'
+          : nativeClass === NATIVE_PLACEMENT_CLASSES.INVALID
+            ? 'NATIVE_PLACEMENT_INVALID'
+            : 'NATIVE_PLACEMENT_UNVERIFIED';
+      issues.push({
+        severity: 'BLOCK',
+        code,
+        editorId: entry.editorId,
+        nativeClass,
+        reasonCodes: structuredClone(
+          entry.result.reasonCodes ?? []
+        ),
+        persistentWriteAuthorized: false
+      });
+    }
+
+    if (document.target.exactBuildKnown !== true) {
+      issues.unshift({
+        severity: 'BLOCK',
+        code: 'NATIVE_EXACT_BUILD_UNVERIFIED',
+        expectedBuildID: '52BD625D9B4E0053',
+        persistentWriteAuthorized: false
+      });
+    }
+
+    return {
+      contract: 'dreamwish-wand-wep-v125-editor-placement-preflight@1',
+      ok: issues.length === 0,
+      exactBuildKnown: document.target.exactBuildKnown === true,
+      results: structuredClone(results),
+      issues,
+      persistentWriteAuthorized: false
+    };
+  }
+
+  function createEditorDraftValidator({
+    clearabilityResolver = null
+  }: {
+    clearabilityResolver?: ((input: AnyRecord) => unknown) | null;
+  } = {}) {
+    return (
+      candidate: AnyRecord,
+      context: AnyRecord = {}
+    ) => {
+      const kind = String(context.kind ?? '');
+      if (kind === 'DELETE') {
+        return {
+          ok: true,
+          status: 'DRAFT_MODEL_ONLY',
+          issues: [],
+          nativePlacement: null,
+          persistentWriteAuthorized: false
+        };
+      }
+
+      const ids =
+        Array.isArray(context?.result?.createdIds)
+          ? context.result.createdIds.map(String)
+          : Array.isArray(context?.ids)
+            ? context.ids.map(String)
+            : [];
+      if (
+        ![
+          'MOVE',
+          'ROTATE_CARDINAL',
+          'DUPLICATE',
+          'PASTE'
+        ].includes(kind) ||
+        ids.length === 0
+      ) {
+        return {
+          ok: false,
+          status: 'BLOCKED',
+          issues: [
+            {
+              severity: 'BLOCK',
+              code: 'WEP_EDITOR_DRAFT_OPERATION_UNSUPPORTED',
+              kind
+            }
+          ],
+          nativePlacement: null,
+          persistentWriteAuthorized: false
+        };
+      }
+
+      const nativePlacement = classifyEditorCandidates({
+        document: candidate,
+        candidateIds: ids,
+        clearabilityResolver
+      });
+      return {
+        ok: nativePlacement.ok,
+        status: nativePlacement.ok ? 'VALID' : 'BLOCKED',
+        issues: structuredClone(nativePlacement.issues),
+        nativePlacement,
+        persistentWriteAuthorized: false
+      };
+    };
+  }
+
   // Core owns floor decoding/interpretation. WEP only asks the promoted v1.8
   // binder for a GridData view by exact GridDataPath.
   function classify({
@@ -383,6 +575,8 @@ export async function createSwitchV125PlacementLegalityBinding({
     buildID: '52BD625D9B4E0053',
     profileSchemaVersion: 624,
     classify,
+    classifyEditorCandidates,
+    createEditorDraftValidator,
     provenance: Object.freeze({
       floorMapSha256: GRIDDATA_FLOOR_MAP_V125_SHA256,
       floorBinderSha256: GRIDDATA_FLOOR_BINDER_V18_SHA256,
