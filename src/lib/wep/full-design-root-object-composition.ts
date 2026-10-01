@@ -53,9 +53,7 @@ function portableClassification(object: EditorObject) {
   const reasons: string[] = [];
   const geometryStatus = String(object.metadata?.geometryStatus ?? 'UNKNOWN');
 
-  if (object.layer === 'road' || object.layer === 'fence') {
-    reasons.push('NETWORK_LAYER_DELEGATED_01C');
-  } else if (object.layer === 'building') {
+  if (object.layer === 'building') {
     reasons.push('BUILDING_PLACEMENT_PORTABILITY_INCOMPLETE');
   } else if (!['furniture', 'landscaping'].includes(String(object.layer))) {
     reasons.push('ROOT_OBJECT_CLASS_NOT_PORTABLE');
@@ -185,15 +183,22 @@ export function captureCurrentV125RootObjectComposition({
         documentBound: false,
         objectCount: null,
         portableCount: 0,
-        unresolvedCount: 0
+        unresolvedCount: 0,
+        delegatedNetworkCount: 0
       });
       continue;
     }
 
     let portableCount = 0;
     let unresolvedCount = 0;
+    let delegatedNetworkCount = 0;
 
     for (const object of document.objects) {
+      if (object.layer === 'road' || object.layer === 'fence') {
+        delegatedNetworkCount += 1;
+        continue;
+      }
+
       const classification = portableClassification(object);
       if (!classification.portable) {
         unresolved.push(
@@ -220,7 +225,8 @@ export function captureCurrentV125RootObjectComposition({
       documentBound: true,
       objectCount: document.objects.length,
       portableCount,
-      unresolvedCount
+      unresolvedCount,
+      delegatedNetworkCount
     });
   }
 
@@ -236,6 +242,10 @@ export function captureCurrentV125RootObjectComposition({
     entries: clone(entries),
     unresolved: clone(unresolved),
     missingRoutes: [...missingRoutes],
+    delegatedNetworkObjectCount: routeSummaries.reduce(
+      (sum, entry) => sum + Number(entry.delegatedNetworkCount ?? 0),
+      0
+    ),
     normalization: {
       sourceGridIdsRemoved: true,
       sourceGridObjectIdsRemoved: true,
