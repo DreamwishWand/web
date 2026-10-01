@@ -479,7 +479,7 @@ function buildingSourceEntries({
 
 function rootCompositionWithoutBuildings(
   composition: AnyRecord | null
-) {
+): AnyRecord | null {
   if (!composition) return null;
   const unresolved = (composition.unresolved ?? []).filter(
     (entry: AnyRecord) =>
