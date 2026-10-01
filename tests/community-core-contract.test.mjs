@@ -2136,7 +2136,9 @@ test('production release evidence index keeps closed and pending gates explicit'
     'WEP_PRESET_ARTIFACT_BUCKET_EXTERNALIZATION',
     'WEP_COMM_MIGRATION_BASELINE_CONSISTENCY',
     'AUTH_PROVIDER_14_15_BOUNDARY',
-    'AUTH_PROVIDER_WAND_REVOCATION'
+    'AUTH_PROVIDER_WAND_REVOCATION',
+    'RETENTION_ENGINEERING_IMPLEMENTATION',
+    'TRANSACTIONAL_EMAIL_PROVIDER_DELIVERY'
   ]) {
     assert.equal(byId.get(id)?.satisfied, true, id);
     assert.ok((byId.get(id)?.evidence ?? []).length > 0, id);
@@ -2161,11 +2163,20 @@ test('production release evidence index keeps closed and pending gates explicit'
     assert.equal(byId.get(id)?.satisfied, false, id);
   }
 
+  assert.equal(byId.get('STAGING_OPERATIONS_INVENTORY')?.classification, 'staging_only');
   assert.equal(byId.get('AUTH_SIGNED_IN_REAUTH_MAILBOX')?.classification, 'operator_manual_pending');
   assert.equal(byId.get('RETENTION_PRODUCT_PRIVACY_LEGAL_APPROVAL')?.classification, 'approval_pending');
   assert.equal(byId.get('DISTINCT_PRODUCTION_SUPABASE_PROJECT')?.classification, 'production_only_pending');
   assert.equal(byId.get('WEP_PRESET_ARTIFACT_BUCKET_PRODUCTION_MIGRATION')?.classification, 'cross_stream_pending');
   assert.equal(byId.get('COMMUNITY_PRIMARY_BROWSER_CLOSURE')?.classification, 'already_closed');
+  assert.equal(byId.get('RETENTION_ENGINEERING_IMPLEMENTATION')?.classification, 'already_closed');
+  assert.equal(byId.get('TRANSACTIONAL_EMAIL_PROVIDER_DELIVERY')?.classification, 'already_closed');
+  assert.equal(byId.get('TRANSACTIONAL_EMAIL_PROVIDER_DELIVERY')?.providerMetrics.sent, 5);
+  assert.equal(byId.get('TRANSACTIONAL_EMAIL_PROVIDER_DELIVERY')?.providerMetrics.delivered, 5);
+  assert.equal(byId.get('TRANSACTIONAL_EMAIL_PROVIDER_DELIVERY')?.providerMetrics.bounced, 0);
+  assert.equal(byId.get('TRANSACTIONAL_EMAIL_PROVIDER_DELIVERY')?.providerMetrics.failed, 0);
+  assert.equal(byId.get('TRANSACTIONAL_EMAIL_PROVIDER_DELIVERY')?.providerMetrics.complained, 0);
+  assert.equal(byId.get('TRANSACTIONAL_EMAIL_HUMAN_MAILBOX_PLACEMENT')?.humanMailboxPlacement, 'PARTIAL');
 
   assert.equal(
     operations.releaseEvidence.contract,
