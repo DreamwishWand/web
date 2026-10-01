@@ -1,0 +1,160 @@
+{
+  "schema": "dreamwish-community-qa-release-evidence@1",
+  "generatedAt": "2026-10-02",
+  "workstream": "03 COMM 4",
+  "purpose": "Event-driven evidence delta for 04 QR; not a launch verdict.",
+  "source": {
+    "communityBranch": "dev/community-core-v0-20260930",
+    "baseConfirmedHead": "8a25e6cf99e00ca56f3bd359d5560a2e6859c1c3",
+    "currentWepObservedHead": "424116bba04be06454db32a422afaeba6e2b0044"
+  },
+  "closed": [
+    {
+      "id": "AUTH_MAILBOX",
+      "state": "CLOSED_PASS",
+      "evidence": [
+        "docs/community/auth-final-mailbox-reauth-runtime-20261001.md",
+        "ops/community-auth-launch-review.json"
+      ],
+      "rerunAllowed": false
+    },
+    {
+      "id": "RETENTION_ENGINEERING",
+      "state": "CLOSED_PASS",
+      "evidence": [
+        "docs/community/retention-d1-d2-single-stage-runtime-20261001.md",
+        "ops/community-retention-policy-proposal.json"
+      ],
+      "rerunAllowed": false
+    },
+    {
+      "id": "RETENTION_PRODUCT_APPROVAL",
+      "state": "CLOSED_APPROVED",
+      "evidence": [
+        "docs/community/retention-product-approval-record-20261002.md"
+      ],
+      "productDirection": {
+        "d1": "payload purge <=7d",
+        "d2": "operational detail 90d",
+        "d3": "immediate irreversible deletion",
+        "d4": "moderation/security/legal hold only while justified",
+        "d5": "minimized structural tombstones",
+        "d6": "quarantine-first recovery + minimal external deletion ledger",
+        "d7": "provider minimization/disclosure direction supported",
+        "d8": "category-specific disclosure"
+      }
+    },
+    {
+      "id": "PRODUCTION_PREPARATION_PROTOCOLS",
+      "state": "STATIC_PREPARATION_COMPLETE",
+      "evidence": [
+        "ops/community-production-execution-checklist-20261002.json",
+        "docs/community/production-execution-runbook-20261002.md"
+      ],
+      "note": "Execution evidence does not exist yet and must not be treated as production PASS."
+    }
+  ],
+  "reviewPending": [
+    {
+      "id": "PRIVACY_APPROVAL",
+      "state": "REVIEW_READY_WITH_OPEN_PRIVACY_DECISIONS",
+      "evidence": [
+        "ops/community-privacy-review-readiness-20261002.json",
+        "docs/community/privacy-review-readiness-20261002.md"
+      ],
+      "blockers": [
+        "P1_LINKED_DDV_PROFILE_ORPHAN_MINIMIZATION",
+        "P4_AGE_AND_MINORS",
+        "P5_PRODUCTION_PROCESSOR_BINDING"
+      ],
+      "decisions": [
+        "P2_LINKED_DDV_PROFILE_CORRECTION_UNLINK",
+        "P3_UNLISTED_DISCLOSURE",
+        "P6_MODERATION_AUDIT_FREE_TEXT",
+        "P8_MEDIA_STORAGE_KEY_PSEUDONYM",
+        "P9_DATA_RIGHTS_WORKFLOW",
+        "P10_PROVIDER_CLEANUP_SUBJECT"
+      ],
+      "approved": false
+    },
+    {
+      "id": "LEGAL_APPROVAL",
+      "state": "PACKET_READY_EXTERNAL_REVIEW_REQUIRED",
+      "evidence": [
+        "docs/community/legal-review-packet-20261002.md"
+      ],
+      "requiredExternalDecisions": [
+        "launch operator/entity and jurisdictions",
+        "age/minors eligibility and assurance/consent",
+        "privacy rights workflow",
+        "processor/DPA/cross-border treatment",
+        "Linked DDV Profile retention/correction semantics",
+        "Terms/UGC license/IP policy",
+        "copyright notice/takedown/counter-notice/repeat-infringer strategy",
+        "moderation/report/appeal obligations",
+        "legal-hold procedure",
+        "actual production backup/provider boundaries"
+      ],
+      "approved": false
+    }
+  ],
+  "crossStreamPending": [
+    {
+      "id": "FINAL_INTEGRATED_SOURCE_TREE",
+      "state": "PENDING",
+      "currentFacts": {
+        "communityHead": "8a25e6cf99e00ca56f3bd359d5560a2e6859c1c3",
+        "wepHead": "424116bba04be06454db32a422afaeba6e2b0044",
+        "mergeBase": "cfda06eb904544bbfa5286c4eb61b5856dd3ea51",
+        "replaySourceRequired": "final-integrated-main"
+      },
+      "preflightCommand": "npm run verify:community-integrated-tree -- --require-ready"
+    },
+    {
+      "id": "LATEST_WEP_DELTA",
+      "state": "NO_COMMUNITY_SENSITIVE_RERUN_REQUIRED",
+      "comparison": {
+        "base": "ba55070f3c48df3bef9d1b12aaf056ed4978791a",
+        "head": "424116bba04be06454db32a422afaeba6e2b0044",
+        "commits": 66,
+        "changedCommunityTransportPublicationSignedReadRetentionEdgeContracts": false
+      },
+      "rerunClosedCommunitySuites": false
+    }
+  ],
+  "productionOnlyPending": [
+    "DISTINCT_PRODUCTION_SUPABASE_PROJECT",
+    "FINAL_INTEGRATED_MIGRATION_REPLAY",
+    "DATABASE_BACKUP_MECHANISM",
+    "DATABASE_RESTORE_DRILL",
+    "STORAGE_BACKUP_MECHANISM",
+    "STORAGE_RESTORE_DRILL",
+    "RECOVERY_DELETION_LEDGER_EXTERNALIZATION_AND_RECONCILIATION",
+    "CONTROLLED_SECRET_ROTATION",
+    "PRODUCTION_FUNCTION_ALLOWLIST_DENYLIST_INVENTORY",
+    "PRODUCTION_CRON_VAULT_INVENTORY",
+    "PRODUCTION_SMOKE",
+    "PRODUCTION_SECURITY_ADVISOR"
+  ],
+  "userDecisionGate": {
+    "reached": true,
+    "decisionsNeeded": [
+      "Supabase production plan: Pro vs Free+self-managed backup",
+      "independent private Storage recovery provider/mechanism"
+    ],
+    "noResourceCreationAuthorized": true
+  },
+  "prohibitedRerunsUnlessSemanticChange": [
+    "Auth",
+    "mailbox",
+    "primary Community browser suite",
+    "visibility/ownership acceptance",
+    "Scene Preset vertical",
+    "ArtifactBlob retention E2E",
+    "retention plumbing E2E",
+    "moderation runtime",
+    "rate-limit runtime"
+  ],
+  "launchReady": false,
+  "instructionToQR": "Consume as evidence delta only. Preserve open Privacy/Legal, final integration and production-only gates; do not infer CLOSED_PASS from protocol readiness."
+}
