@@ -1,0 +1,68 @@
+{
+  "schema": "dreamwish-community-retention-launch-review@1",
+  "generatedAt": "2026-10-01",
+  "evidence": {
+    "immediatePublicRemoval": "CONFIRMED",
+    "providerAccountDeletion": "CONFIRMED",
+    "galleryMediaPhysicalPurge": "CONFIRMED",
+    "presetArtifactPhysicalPurge": "CONFIRMED",
+    "twoStageRetention": "CONFIRMED"
+  },
+  "engineeringDefaults": {
+    "contentPayloadDays": 30,
+    "operationalDetailDays": 365,
+    "contentPayloadDaysIsRecoveryWindow": false,
+    "durationsConfigurationDriven": true
+  },
+  "holds": {
+    "implemented": true,
+    "runtimeConfirmed": true,
+    "policyApproval": "PENDING"
+  },
+  "structuralTombstones": {
+    "preservedAfterPayloadPurge": true,
+    "policyApproval": "PENDING"
+  },
+  "externalCopies": {
+    "databaseBackups": "SEPARATE_POLICY_REQUIRED",
+    "storageBackups": "SEPARATE_POLICY_REQUIRED",
+    "providerLogs": "SEPARATE_POLICY_REQUIRED"
+  },
+  "decisions": [
+    {
+      "id": "D1_CONTENT_PAYLOAD_DURATION",
+      "status": "PENDING",
+      "currentDefault": 30
+    },
+    {
+      "id": "D2_OPERATIONAL_DETAIL_DURATION",
+      "status": "PENDING",
+      "currentDefault": 365
+    },
+    {
+      "id": "D3_USER_FACING_DELETION_PROMISE",
+      "status": "PENDING"
+    },
+    {
+      "id": "D4_RETENTION_HOLD_POLICY",
+      "status": "PENDING"
+    },
+    {
+      "id": "D5_STRUCTURAL_TOMBSTONE_POLICY",
+      "status": "PENDING"
+    },
+    {
+      "id": "D6_BACKUP_COPY_RETENTION",
+      "status": "PENDING"
+    },
+    {
+      "id": "D7_PROCESSOR_PROVIDER_RETENTION",
+      "status": "PENDING"
+    },
+    {
+      "id": "D8_POLICY_DISCLOSURE_AND_ACCEPTANCE",
+      "status": "PENDING"
+    }
+  ],
+  "launchApproved": false
+}
