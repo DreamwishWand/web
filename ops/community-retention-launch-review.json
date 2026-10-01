@@ -31,37 +31,119 @@
   "decisions": [
     {
       "id": "D1_CONTENT_PAYLOAD_DURATION",
-      "status": "PENDING",
-      "currentDefault": 30
+      "status": "PENDING_APPROVAL",
+      "currentDefault": 30,
+      "engineeringStatus": "CLOSED",
+      "requiredApprovals": [
+        "product",
+        "privacy",
+        "legal"
+      ],
+      "approvalStatus": {
+        "product": "PENDING",
+        "privacy": "PENDING",
+        "legal": "PENDING"
+      }
     },
     {
       "id": "D2_OPERATIONAL_DETAIL_DURATION",
-      "status": "PENDING",
-      "currentDefault": 365
+      "status": "PENDING_APPROVAL",
+      "currentDefault": 365,
+      "engineeringStatus": "CLOSED",
+      "requiredApprovals": [
+        "product",
+        "privacy",
+        "legal"
+      ],
+      "approvalStatus": {
+        "product": "PENDING",
+        "privacy": "PENDING",
+        "legal": "PENDING"
+      }
     },
     {
       "id": "D3_USER_FACING_DELETION_PROMISE",
-      "status": "PENDING"
+      "status": "PENDING_APPROVAL",
+      "engineeringStatus": "CLOSED",
+      "requiredApprovals": [
+        "product"
+      ],
+      "approvalStatus": {
+        "product": "PENDING"
+      }
     },
     {
       "id": "D4_RETENTION_HOLD_POLICY",
-      "status": "PENDING"
+      "status": "PENDING_APPROVAL",
+      "engineeringStatus": "CLOSED",
+      "requiredApprovals": [
+        "product",
+        "privacy",
+        "legal"
+      ],
+      "approvalStatus": {
+        "product": "PENDING",
+        "privacy": "PENDING",
+        "legal": "PENDING"
+      }
     },
     {
       "id": "D5_STRUCTURAL_TOMBSTONE_POLICY",
-      "status": "PENDING"
+      "status": "PENDING_APPROVAL",
+      "engineeringStatus": "CLOSED",
+      "requiredApprovals": [
+        "product",
+        "privacy",
+        "legal"
+      ],
+      "approvalStatus": {
+        "product": "PENDING",
+        "privacy": "PENDING",
+        "legal": "PENDING"
+      }
     },
     {
       "id": "D6_BACKUP_COPY_RETENTION",
-      "status": "PENDING"
+      "status": "PENDING_APPROVAL",
+      "engineeringStatus": "CLOSED",
+      "requiredApprovals": [
+        "product",
+        "privacy",
+        "legal"
+      ],
+      "approvalStatus": {
+        "product": "PENDING",
+        "privacy": "PENDING",
+        "legal": "PENDING"
+      }
     },
     {
       "id": "D7_PROCESSOR_PROVIDER_RETENTION",
-      "status": "PENDING"
+      "status": "PENDING_APPROVAL",
+      "engineeringStatus": "CLOSED",
+      "requiredApprovals": [
+        "privacy",
+        "legal"
+      ],
+      "approvalStatus": {
+        "privacy": "PENDING",
+        "legal": "PENDING"
+      }
     },
     {
       "id": "D8_POLICY_DISCLOSURE_AND_ACCEPTANCE",
-      "status": "PENDING"
+      "status": "PENDING_APPROVAL",
+      "engineeringStatus": "CLOSED",
+      "requiredApprovals": [
+        "product",
+        "privacy",
+        "legal"
+      ],
+      "approvalStatus": {
+        "product": "PENDING",
+        "privacy": "PENDING",
+        "legal": "PENDING"
+      }
     }
   ],
   "launchApproved": false,
@@ -77,5 +159,6 @@
     "product": "PENDING",
     "privacy": "PENDING",
     "legal": "PENDING"
-  }
+  },
+  "approvalMatrixRule": "A decision is approved only when every required approval in approvalStatus is APPROVED. Engineering closure does not imply policy approval."
 }
