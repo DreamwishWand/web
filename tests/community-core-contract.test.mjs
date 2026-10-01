@@ -297,7 +297,7 @@ test('outbox processing isolates poison events and has bounded retry/dead-letter
 });
 
 test('temporary pg_net staging dependency is explicitly removed after Auth E2E', () => {
-  const removal = read('supabase/migrations/20260930040500_community_staging_remove_pg_net.sql');
+  const removal = read('supabase/staging/20260930040500_community_staging_remove_pg_net.sql');
   assert.match(removal, /drop extension if exists pg_net/i);
 });
 
@@ -948,7 +948,7 @@ test('generated schema exposes the safe bootstrap RPC', () => {
 
 test('support-assisted recovery is fail-closed Open -> Verify -> Complete', () => {
   const migration = read(
-    'supabase/migrations/20260930081500_community_core_v0_support_recovery_verification.sql'
+    'supabase/migrations/20260930081600_community_core_v0_support_recovery_verification.sql'
   );
 
   assert.match(migration, /verification_method text/);
@@ -964,7 +964,7 @@ test('support-assisted recovery is fail-closed Open -> Verify -> Complete', () =
 
 test('support recovery currently permits provider recovery only and disables DDV-profile proof', () => {
   const migration = read(
-    'supabase/migrations/20260930081500_community_core_v0_support_recovery_verification.sql'
+    'supabase/migrations/20260930081600_community_core_v0_support_recovery_verification.sql'
   );
 
   assert.match(migration, /p_verification_method='linked_ddv_profile'/);
