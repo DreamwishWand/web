@@ -1128,7 +1128,9 @@ test('Community admin and Ops expose retention review controls with recent-auth 
   assert.match(page, /Add retention hold/);
   assert.match(page, /Release retention hold/);
   assert.match(page, /content-payload purge after 7 days/);
-  assert.match(page, /operational-detail scrub after 365 days/);
+  assert.match(page, /routine operational-detail scrub after 90 days/);
+  assert.match(page, /elevated moderation\/security\/legal/);
+  assert.match(page, /up to 365 days/);
 });
 
 test('generated schema exposes retention service and admin RPCs without private queues', () => {
