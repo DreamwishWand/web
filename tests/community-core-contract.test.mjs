@@ -1860,7 +1860,7 @@ test('Community production manifest separates WEP function externalization from 
   assert.ok(provisioning);
   assert.equal(provisioning.owner, '02 WEP');
   assert.equal(provisioning.state, 'CLOSED');
-  assert.match(provisioning.detail, /wand-preset-artifacts-staging/);
+  assert.match(provisioning.detail, /no longer creates\/names the staging bucket/i);
   assert.match(provisioning.detail, /production replay/i);
 });
 
@@ -2055,7 +2055,7 @@ test('WEP Preset bucket externalization is production-safe and staging-compatibl
     (item) => item.id === 'WEP_PRESET_ARTIFACT_BUCKET_PRODUCTION_MIGRATION'
   );
   assert.equal(provisioning?.state, 'CLOSED');
-  assert.match(provisioning?.detail ?? '', /production replay/i);
+  assert.match(provisioning?.detail ?? '', /Final fresh-target replay remains Release Operations work/i);
 });
 
 
