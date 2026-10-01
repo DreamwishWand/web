@@ -1427,18 +1427,21 @@ export type Database = {
           account_id: string
           ddv_profile_id: string
           linked_at: string
+          relationship_kind: string
           verification_evidence_ref: string | null
         }
         Insert: {
           account_id: string
           ddv_profile_id: string
           linked_at?: string
+          relationship_kind?: string
           verification_evidence_ref?: string | null
         }
         Update: {
           account_id?: string
           ddv_profile_id?: string
           linked_at?: string
+          relationship_kind?: string
           verification_evidence_ref?: string | null
         }
         Relationships: [
@@ -1580,6 +1583,17 @@ export type Database = {
           p_completion_reason: string
           p_issued_at_epoch: number
           p_recovery_case_id: string
+          p_session_id: string
+        }
+        Returns: Json
+      }
+      community_admin_correct_ddv_profile_link_v1: {
+        Args: {
+          p_account_id: string
+          p_admin_auth_subject: string
+          p_ddv_profile_id: string
+          p_issued_at_epoch: number
+          p_reason: string
           p_session_id: string
         }
         Returns: Json
@@ -1803,6 +1817,10 @@ export type Database = {
         Args: { p_auth_subject: string; p_limit?: number }
         Returns: Json
       }
+      community_get_linked_ddv_profiles: {
+        Args: { p_auth_subject: string }
+        Returns: Json
+      }
       community_get_me: { Args: { p_auth_subject: string }; Returns: Json }
       community_get_media_storage_key: {
         Args: { p_auth_subject: string; p_media_id: string }
@@ -1888,6 +1906,16 @@ export type Database = {
         Args: { p_auth_subject: string; p_work_id: string }
         Returns: Json
       }
+      community_link_ddv_profile_v1: {
+        Args: {
+          p_auth_subject: string
+          p_binding_key_hash: string
+          p_issued_at_epoch: number
+          p_relationship_kind?: string
+          p_session_id: string
+        }
+        Returns: Json
+      }
       community_moderate_work: {
         Args: {
           p_action: string
@@ -1952,6 +1980,10 @@ export type Database = {
           p_title: string
           p_visibility: string
         }
+        Returns: Json
+      }
+      community_purge_expired_ddv_binding_tombstones: {
+        Args: never
         Returns: Json
       }
       community_record_account_delete_e2e_result: {
@@ -2070,6 +2102,18 @@ export type Database = {
       community_verify_worker_token: {
         Args: { p_token: string; p_worker_name: string }
         Returns: boolean
+      }
+      wep_get_accessible_preset_blob: {
+        Args: {
+          p_auth_subject: string
+          p_preset_artifact_id?: string
+          p_preset_revision_id?: string
+        }
+        Returns: Json
+      }
+      wep_get_claimed_retention_artifact_blobs: {
+        Args: { p_lock_token: string; p_retention_job_id: string }
+        Returns: Json
       }
     }
     Enums: {
