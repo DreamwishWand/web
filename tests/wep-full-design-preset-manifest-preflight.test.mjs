@@ -152,6 +152,60 @@ function makePlacementManifest(layer = 'furniture') {
   }).manifest;
 }
 
+function v17BuildingDocuments() {
+  const first = v17PlacementDocument(
+    'GridData/Test/Biome-A.json',
+    10,
+    { includeObject: false }
+  );
+  first.objects = [
+    {
+      editorId: 'g10:o501',
+      itemId: 20500001,
+      layer: 'building',
+      x: 5,
+      y: 7,
+      orientation: 0,
+      footprint: [{ x: 0, y: 0 }],
+      portableState: null,
+      dependencyIds: [],
+      editability: 'readonly',
+      metadata: { geometryStatus: 'RESOLVED' }
+    },
+    {
+      editorId: 'g10:o502',
+      itemId: 20500005,
+      layer: 'building',
+      x: 10,
+      y: 12,
+      orientation: 4,
+      footprint: [{ x: 0, y: 0 }],
+      portableState: null,
+      dependencyIds: [],
+      editability: 'readonly',
+      metadata: { geometryStatus: 'RESOLVED' }
+    }
+  ];
+  return [
+    first,
+    v17PlacementDocument(
+      'GridData/Test/Biome-B.json',
+      11,
+      { includeObject: false }
+    )
+  ];
+}
+
+function makeBuildingManifest() {
+  const profile = addRestorationObjects(makeProfile());
+  return buildCurrentV125FullDesignCapturePlan({
+    profile,
+    rootGridId: 10,
+    sourcePlatform: 'switch',
+    rootEditorDocuments: v17BuildingDocuments()
+  }).manifest;
+}
+
 function placementBinding(nativeClass, reasonCodes = []) {
   return {
     contract: 'dreamwish-wand-wep-v125-placement-binding@1',
@@ -360,6 +414,114 @@ test('Building skin and PlayerHouse restoration capture is portable and save-ID 
   assert.equal(plan.applyReady, false);
 });
 
+test('Building category distinguishes absence, ordinary placement, skin and PlayerHouse identity', () => {
+  const noBuilding = buildCurrentV125FullDesignCapturePlan({
+    profile: makeProfile(),
+    rootGridId: 10,
+    sourcePlatform: 'switch',
+    rootEditorDocuments: [
+      v17PlacementDocument(
+        'GridData/Test/Biome-A.json',
+        10,
+        { includeObject: false }
+      ),
+      v17PlacementDocument(
+        'GridData/Test/Biome-B.json',
+        11,
+        { includeObject: false }
+      )
+    ]
+  });
+  assert.equal(
+    noBuilding.categories.buildings.ordinaryPlacement
+      .destinationPlacementStatus,
+    'NOT_APPLICABLE'
+  );
+  assert.equal(
+    noBuilding.categories.buildings.ordinaryPlacement
+      .destinationPlacementReady,
+    true
+  );
+  assert.equal(
+    noBuilding.categories.buildings.buildingSkins.entries.length,
+    0
+  );
+  assert.equal(
+    noBuilding.categories.buildings.playerHouses.entries.length,
+    0
+  );
+
+  const profile = addRestorationObjects(makeProfile());
+  const plan = buildCurrentV125FullDesignCapturePlan({
+    profile,
+    rootGridId: 10,
+    sourcePlatform: 'switch',
+    rootEditorDocuments: v17BuildingDocuments()
+  });
+  const buildings = plan.categories.buildings;
+
+  assert.equal(buildings.ordinaryPlacement.sourceRecognition, 'COMPLETE');
+  assert.equal(buildings.ordinaryPlacement.recognizedCount, 2);
+  assert.equal(
+    buildings.ordinaryPlacement.destinationPlacementStatus,
+    'UNRESOLVED'
+  );
+  assert.equal(
+    buildings.ordinaryPlacement.destinationPlacementReady,
+    false
+  );
+  assert.equal(buildings.ordinaryPlacement.persistentWriteAuthorized, false);
+
+  assert.equal(buildings.buildingSkins.entries.length, 1);
+  assert.deepEqual(
+    buildings.buildingSkins.entries[0].portableState,
+    {
+      codec: 'ddv.building-skin@1',
+      targetBuildingItemId: 20500001,
+      skinItemId: 20510001
+    }
+  );
+  assert.equal(buildings.buildingSkins.nonzeroValidatorRequired, true);
+
+  assert.equal(buildings.playerHouses.entries.length, 1);
+  assert.deepEqual(
+    buildings.playerHouses.entries[0].portableState,
+    {
+      codec: 'ddv.player-house-binding@1',
+      houseItemId: 20500005
+    }
+  );
+  assert.equal(buildings.playerHouses.identityField, 'houseItemId');
+  assert.equal(buildings.playerHouses.destinationBinderRequired, true);
+
+  const serialized = JSON.stringify(plan.manifest);
+  assert.equal(serialized.includes('PlayerHouseIndex'), false);
+  assert.equal(serialized.includes('UpgradeState'), false);
+  assert.equal(serialized.includes('ShopData'), false);
+  assert.equal(serialized.includes('interiorGridIdentity'), true);
+  assert.equal(plan.publicationReady, false);
+  assert.equal(plan.applyReady, false);
+});
+
+test('required Building category cannot be silently excluded to make publication ready', () => {
+  const plan = buildCurrentV125FullDesignCapturePlan({
+    profile: addRestorationObjects(makeProfile()),
+    rootGridId: 10,
+    sourcePlatform: 'switch',
+    requestedCategories: { buildings: false },
+    rootEditorDocuments: v17BuildingDocuments()
+  });
+  assert.equal(plan.categories.buildings.disposition, 'excluded');
+  assert.equal(
+    plan.categories.buildings.blockers.includes(
+      'FULL_DESIGN_REQUIRED_CATEGORY_EXCLUDED'
+    ),
+    true
+  );
+  assert.equal(plan.publicationReady, false);
+  assert.equal(plan.applyReady, false);
+});
+
 test('strict validator rejects Building restoration routes outside the semantic location', () => {
   const manifest = structuredClone(
     makeBiomeManifest(addRestorationObjects(makeProfile()))
@@ -379,8 +541,8 @@ test('strict validator rejects Building restoration routes outside the semantic 
   );
 });
 
-test('Building and PlayerHouse destination restoration can preflight without enabling Apply', () => {
-  const manifest = makeBiomeManifest(addRestorationObjects(makeProfile()));
+test('Building skin and PlayerHouse can preflight while ordinary Building placement remains separately blocked', () => {
+  const manifest = makeBuildingManifest();
   const destination = makeProfile({
     firstGridId: 99,
     secondGridId: 100,
@@ -410,8 +572,11 @@ test('Building and PlayerHouse destination restoration can preflight without ena
     }
   });
 
+  assert.equal(preflight.ordinaryBuildingPlacementReady, false);
+  assert.equal(preflight.buildingSkinPreflightReady, true);
+  assert.equal(preflight.playerHouseBindingPreflightReady, true);
   assert.equal(preflight.buildingRestorationPreflightReady, true);
-  assert.equal(preflight.destinationPreflightReady, true);
+  assert.equal(preflight.destinationPreflightReady, false);
   assert.equal(preflight.categoryClosureReady, false);
   assert.equal(preflight.ok, false);
   assert.deepEqual(
@@ -425,11 +590,20 @@ test('Building and PlayerHouse destination restoration can preflight without ena
       { id: 'r1', kind: 'PLAYER_HOUSE', status: 'VALID' }
     ]
   );
+  assert.equal(
+    preflight.issues.some(
+      (issue) =>
+        issue.code ===
+        'FULL_DESIGN_DESTINATION_ORDINARY_BUILDING_PLACEMENT_UNCLOSED'
+    ),
+    true
+  );
+  assert.equal(preflight.ddvWriteAuthorized, false);
   assert.equal(preflight.applyReady, false);
 });
 
-test('Building and PlayerHouse restoration fail closed when destination validators are not bound', () => {
-  const manifest = makeBiomeManifest(addRestorationObjects(makeProfile()));
+test('Building skin and PlayerHouse restoration fail closed when destination validators are not bound', () => {
+  const manifest = makeBuildingManifest();
   const preflight = preflightCurrentV125FullDesignManifest({
     destinationProfile: makeProfile({
       firstGridId: 99,
