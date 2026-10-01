@@ -93,3 +93,29 @@ After approvals:
 
 This packet closes Engineering's retention decision boundary while preserving the launch approval
 gate.
+
+
+## D1-D8 explicit approval matrix
+
+Engineering status for every item below is **CLOSED**. The remaining status is policy approval only.
+
+| ID | Decision | Product | Privacy | Legal |
+| --- | --- | --- | --- | --- |
+| D1 | Content-payload retention duration | PENDING | PENDING | PENDING |
+| D2 | Operational-detail retention duration | PENDING | PENDING | PENDING |
+| D3 | User-facing deletion promise / recovery wording | PENDING | — | — |
+| D4 | Retention-hold policy | PENDING | PENDING | PENDING |
+| D5 | Structural tombstone policy | PENDING | PENDING | PENDING |
+| D6 | Backup-copy retention | PENDING | PENDING | PENDING |
+| D7 | Processor/provider retention | — | PENDING | PENDING |
+| D8 | Policy disclosure and launch acceptance | PENDING | PENDING | PENDING |
+
+Approval rule: an item is approved only when **every approval required for that row is explicitly
+APPROVED**. Engineering defaults or runtime evidence never imply approval.
+
+Current engineering defaults remain:
+
+- content payload: 30 days;
+- operational detail: 365 days.
+
+Those values are not legal conclusions and remain changeable by the approval process.
