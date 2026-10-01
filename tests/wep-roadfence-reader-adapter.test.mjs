@@ -273,7 +273,7 @@ test('edited full-root Road draft is the Scene capture source instead of stale n
   assert.equal(rootDraft.status, 'supported');
   source.networks = structuredClone(rootDraft.networks);
   source.networks.roads.networks[0].cells = [
-    { x: 3, y: 2, mode: 'orthogonal' }
+    { x: 6, y: 5, mode: 'orthogonal' }
   ];
 
   const adapter = createDraftAwareNetworkCaptureAdapter(
@@ -283,7 +283,7 @@ test('edited full-root Road draft is the Scene capture source instead of stale n
     source,
     {
       selectionIds: ['g7:o101'],
-      captureRegion: { x: 10, y: 10, w: 2, h: 2 },
+      captureRegion: { x: 10, y: 10, w: 4, h: 2 },
       includeRoads: true,
       networkAdapter: adapter
     },
@@ -326,7 +326,7 @@ test('draft-aware Scene capture keeps contained-only topology fail-closed', () =
     source,
     {
       selectionIds: ['g7:o101'],
-      captureRegion: { x: 10, y: 10, w: 1, h: 1 },
+      captureRegion: { x: 10, y: 10, w: 2, h: 2 },
       includeRoads: true,
       networkAdapter: createDraftAwareNetworkCaptureAdapter(
         binding.networkAdapter
@@ -406,7 +406,7 @@ test('tessellation x2 root draft preserves logical adjacency and delegates save 
 
   source.networks = structuredClone(rootDraft.networks);
   source.networks.roads.networks[0].cells = [
-    { x: 6, y: 5, mode: 'orthogonal' }
+    { x: 3, y: 2, mode: 'orthogonal' }
   ];
 
   const adapter = createDraftAwareNetworkCaptureAdapter(
@@ -416,7 +416,7 @@ test('tessellation x2 root draft preserves logical adjacency and delegates save 
     source,
     {
       selectionIds: ['g7:o101'],
-      captureRegion: { x: 10, y: 10, w: 4, h: 2 },
+      captureRegion: { x: 10, y: 10, w: 8, h: 4 },
       includeRoads: true,
       networkAdapter: adapter
     },
