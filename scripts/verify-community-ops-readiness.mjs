@@ -4,6 +4,8 @@ import path from 'node:path';
 const root = process.cwd();
 const manifestPath = path.join(root, 'ops/community-production-operations.json');
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+const retentionReviewPath = path.join(root, 'ops/community-retention-launch-review.json');
+const retentionReview = JSON.parse(fs.readFileSync(retentionReviewPath, 'utf8'));
 const migrationDir = path.join(root, 'supabase/migrations');
 
 const errors = [];
@@ -23,6 +25,12 @@ assert(manifest.vault?.rotationDrillRequired === true, 'Secret rotation drill mu
 assert(manifest.releaseGate?.requireStagingOnlyFunctionAbsence === true, 'Production must verify staging-only functions are absent.');
 assert(manifest.migrationPolicy?.productionReplayRequiresIntegratedTree === true, 'Production replay must use the integrated source tree.');
 assert(manifest.integration?.productionReplaySource === 'final-integrated-main', 'Production replay source must be final-integrated-main.');
+assert(manifest.releaseGate?.requireRetentionPolicyApproval === true, 'Retention policy approval must remain a production release gate.');
+assert(manifest.privacyRetentionReview?.contract === 'ops/community-retention-launch-review.json', 'Production manifest must reference the retention review contract.');
+assert(retentionReview.schema === 'dreamwish-community-retention-launch-review@1', 'Unexpected retention review schema.');
+assert(retentionReview.engineeringDefaults?.contentPayloadDays === 30, 'Retention review must record the current 30-day content default.');
+assert(retentionReview.engineeringDefaults?.operationalDetailDays === 365, 'Retention review must record the current 365-day operational default.');
+assert(retentionReview.engineeringDefaults?.contentPayloadDaysIsRecoveryWindow === false, '30-day content retention must not be mislabeled as an account recovery window.');
 
 const requiredEnvironmentConfig = new Set(manifest.production?.requiredEnvironmentConfig ?? []);
 for (const name of ['DREAMWISH_ENVIRONMENT', 'COMMUNITY_MEDIA_BUCKET']) {
@@ -116,6 +124,10 @@ for (const [version, names] of migrationVersions) {
 
 if (process.argv.includes('--require-ready')) {
   assert(manifest.production?.launchReady === true, 'Production operations manifest is not launch-ready.');
+  assert(manifest.privacyRetentionReview?.launchApproved === true, 'Production manifest retention approval is not complete.');
+  assert(retentionReview.launchApproved === true, 'Retention launch review is not approved.');
+  const pendingRetentionDecisions = (retentionReview.decisions ?? []).filter((decision) => decision?.status !== 'APPROVED');
+  assert(pendingRetentionDecisions.length === 0, `Retention policy decisions remain unapproved: ${pendingRetentionDecisions.map((item) => item.id).join(', ')}`);
   const openBlockers = (manifest.crossStreamBlockers ?? []).filter(
     (blocker) => blocker?.state !== 'CLOSED'
   );
