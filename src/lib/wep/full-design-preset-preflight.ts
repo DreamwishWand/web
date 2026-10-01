@@ -8,6 +8,9 @@ import {
   resolveV125DestinationDirectRoot,
   resolveV125OutdoorLocation
 } from './world-portable-contracts.ts';
+import {
+  footprintWithinAuthoritativeBounds
+} from './griddata-v17-contract.ts';
 
 type AnyRecord = Record<string, any>;
 
@@ -90,6 +93,7 @@ export function preflightCurrentV125FullDesignManifest({
       categoryClosureReady: false,
       routeResolutionReady: false,
       rootObjectRouteBindingReady: false,
+      rootObjectPlacementPreflightReady: false,
       buildingRestorationPreflightReady: false,
       environmentPreflightReady: false,
       issues: manifestIssuesAsDestinationIssues(validation.issues),
@@ -212,6 +216,18 @@ export function preflightCurrentV125FullDesignManifest({
     normalized.categories.rootObjects?.portableComposition;
   const rootObjectRouteBindings: AnyRecord[] = [];
   let rootObjectRouteBindingReady = true;
+  let rootObjectPlacementPreflightReady = true;
+
+  const boundsCapture =
+    normalized.categories.directGrids?.boundsCapture;
+  const boundsByPath = new Map(
+    Array.isArray(boundsCapture?.entries)
+      ? boundsCapture.entries.map((entry: AnyRecord) => [
+          String(entry?.directRootRoute?.gridDataPath ?? ''),
+          entry
+        ])
+      : []
+  );
 
   if (rootComposition && Array.isArray(rootComposition.entries)) {
     rootComposition.entries.forEach((entry: AnyRecord, index: number) => {
@@ -233,6 +249,98 @@ export function preflightCurrentV125FullDesignManifest({
         );
         return;
       }
+      const bound = boundsByPath.get(gridDataPath);
+      const destinationGrid =
+        destinationProfile?.World?.GridCollection?.Grids?.[
+          String(destinationGridId)
+        ] ??
+        destinationProfile?.World?.GridCollection?.Grids?.[
+          destinationGridId
+        ];
+      const destinationTessellation = Number(
+        destinationGrid?.TessellationFactor ?? 1
+      );
+      const expectedTessellation = Number(
+        bound?.tessellationFactor
+      );
+      let boundsValidated = false;
+      let placementBlocker =
+        'NATIVE_TERRAIN_OCCUPANCY_VALIDATION_REQUIRED';
+
+      if (!bound) {
+        rootObjectPlacementPreflightReady = false;
+        placementBlocker =
+          'AUTHORITATIVE_GRIDDATAPATH_BOUNDS_NOT_BOUND';
+        issues.push(
+          block(
+            'FULL_DESIGN_DESTINATION_ROOT_OBJECT_BOUNDS_UNAVAILABLE',
+            `$.categories.rootObjects.portableComposition.entries[${index}]`,
+            {
+              artifactObjectId: entry?.artifactObjectId,
+              gridDataPath
+            }
+          )
+        );
+      } else if (
+        !Number.isSafeInteger(destinationTessellation) ||
+        destinationTessellation <= 0 ||
+        destinationTessellation !== expectedTessellation
+      ) {
+        rootObjectPlacementPreflightReady = false;
+        placementBlocker =
+          'DESTINATION_TESSELLATION_MISMATCH';
+        issues.push(
+          block(
+            'FULL_DESIGN_DESTINATION_TESSELLATION_MISMATCH',
+            `$.categories.rootObjects.portableComposition.entries[${index}]`,
+            {
+              artifactObjectId: entry?.artifactObjectId,
+              gridDataPath,
+              expectedTessellation,
+              destinationTessellation
+            }
+          )
+        );
+      } else if (
+        !footprintWithinAuthoritativeBounds(
+          {
+            x: Number(entry.localX),
+            y: Number(entry.localY),
+            footprint: entry.footprint
+          },
+          bound.bounds
+        )
+      ) {
+        rootObjectPlacementPreflightReady = false;
+        placementBlocker =
+          'GRID_BOUNDS_EXCEEDED';
+        issues.push(
+          block(
+            'FULL_DESIGN_DESTINATION_ROOT_OBJECT_BOUNDS_INVALID',
+            `$.categories.rootObjects.portableComposition.entries[${index}]`,
+            {
+              artifactObjectId: entry?.artifactObjectId,
+              gridDataPath
+            }
+          )
+        );
+      } else {
+        boundsValidated = true;
+        rootObjectPlacementPreflightReady = false;
+        issues.push(
+          block(
+            'FULL_DESIGN_DESTINATION_NATIVE_PLACEMENT_VALIDATION_REQUIRED',
+            `$.categories.rootObjects.portableComposition.entries[${index}]`,
+            {
+              artifactObjectId: entry?.artifactObjectId,
+              gridDataPath,
+              reason:
+                'NATIVE_TERRAIN_OCCUPANCY_VALIDATION_REQUIRED'
+            }
+          )
+        );
+      }
+
       rootObjectRouteBindings.push({
         artifactObjectId: entry.artifactObjectId,
         gridDataPath,
@@ -244,9 +352,10 @@ export function preflightCurrentV125FullDesignManifest({
         footprint: clone(entry.footprint),
         portableState: clone(entry.portableState),
         routeResolved: true,
+        boundsValidated,
         placementValidated: false,
-        placementBlocker:
-          'COMPREHENSIVE_GRIDDATA_DIMENSIONS_NOT_BOUND'
+        placementBlocker,
+        persistentWriteAuthorized: false
       });
     });
   }
@@ -378,6 +487,7 @@ export function preflightCurrentV125FullDesignManifest({
   const destinationResolved =
     routeResolutionReady &&
     rootObjectRouteBindingReady &&
+    rootObjectPlacementPreflightReady &&
     buildingRestorationPreflightReady &&
     environmentPreflightReady &&
     issues.length === 0;
@@ -392,6 +502,7 @@ export function preflightCurrentV125FullDesignManifest({
     categoryClosureReady,
     routeResolutionReady,
     rootObjectRouteBindingReady,
+    rootObjectPlacementPreflightReady,
     buildingRestorationPreflightReady,
     environmentPreflightReady,
     issues,
