@@ -19,7 +19,8 @@
     "launchReady": false,
     "requiredEnvironmentConfig": [
       "DREAMWISH_ENVIRONMENT",
-      "COMMUNITY_MEDIA_BUCKET"
+      "COMMUNITY_MEDIA_BUCKET",
+      "WEP_PRESET_ARTIFACT_BUCKET"
     ]
   },
   "backupPolicy": {
@@ -126,15 +127,17 @@
     "communityBranch": "dev/community-core-v0-20260930",
     "wepBranch": "dev/wep-v125",
     "productionReplaySource": "final-integrated-main",
-    "communityBranchAloneIsNotProductionComplete": true
+    "communityBranchAloneIsNotProductionComplete": true,
+    "wepBranchHead": "c396413dc349829bc91f89b397321de38b55a3ba",
+    "wepPresetArtifactBucketContract": "CLOSED"
   },
   "crossStreamBlockers": [
     {
       "id": "WEP_PRESET_ARTIFACT_BUCKET_EXTERNALIZATION",
       "owner": "02 WEP",
-      "state": "OPEN",
-      "evidence": "dev/wep-v125@19d22a37784712363d0ab4db18c4590912286969",
-      "detail": "wep-preset-artifact and wep-preset-retention currently hardcode wand-preset-artifacts-staging; production must use an explicit environment-specific bucket and fail closed outside known staging."
+      "state": "CLOSED",
+      "evidence": "dev/wep-v125@c396413dc349829bc91f89b397321de38b55a3ba; staging wep-preset-artifact v14 / wep-preset-retention v6",
+      "detail": "Both WEP Preset Edge functions use the shared environment-aware resolver. Non-staging requires WEP_PRESET_ARTIFACT_BUCKET and rejects wand-preset-artifacts-staging; known staging may retain the existing private staging bucket without configuration."
     }
   ],
   "privacyRetentionReview": {
