@@ -81,9 +81,11 @@
         "Account deletion removes public.wand_account_ddv_profiles rows.",
         "Account deletion does not delete or revoke the corresponding public.ddv_profiles row.",
         "ddv_profiles retains binding_key_hash unless another process changes it.",
-        "No canonical definition was found for binding_key_hash derivation or verification_evidence_ref lifecycle."
+        "No canonical definition was found for binding_key_hash derivation or verification_evidence_ref lifecycle.",
+        "Live staging function inventory found only community_tombstone_account and enforce_ddv_profile_limit referencing ddv_profiles; no link/verify/rebind routine was found."
       ],
       "requiredDecision": [
+        "Define the complete Linked DDV Profile creation/verification lifecycle before implementing it; the current database contains schema/fairness scaffolding but no reviewed link/verify runtime.",
         "Define the raw value represented by binding_key_hash and the exact one-way construction, including salt/pepper/key-management assumptions.",
         "Define whether the retained hash can be linked or brute-forced from DDV identifiers.",
         "Define verification_evidence_ref contents/location and deletion lifecycle.",
@@ -97,7 +99,8 @@
       "evidence": [
         "The model enforces at most three linked DDV profiles.",
         "No ordinary self-service link correction/unlink command was found in the reviewed Community source.",
-        "Account deletion removes the account-to-DDV-profile link."
+        "Account deletion removes the account-to-DDV-profile link.",
+        "community-command currently exposes no DDV Profile link/verify/unlink command."
       ],
       "requiredDecision": [
         "Decide how a Wizard corrects a mistaken or obsolete link without deleting the entire Wand Account.",
@@ -218,5 +221,5 @@
   ],
   "engineeringConclusion": "NO_RETENTION_ENGINEERING_CHANGE_REQUIRED_AT_THIS_STAGE",
   "privacyApprovalReady": false,
-  "nextAction": "Resolve P1, P2, P4, P5 and jurisdiction-dependent P9 through Privacy/Legal/Product review; only then decide whether targeted implementation changes are needed."
+  "nextAction": "Resolve the Linked DDV Profile lifecycle (creation/verification, hash/evidence semantics, correction/unlink and post-deletion retention), age/minors policy, and production provider binding through Privacy/Legal/Product review; only then implement targeted changes if required."
 }
