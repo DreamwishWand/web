@@ -622,6 +622,13 @@ test('strict validator rejects Building restoration routes outside the semantic 
 
 test('Building skin and PlayerHouse can preflight while ordinary Building placement remains separately blocked', () => {
   const manifest = makeBuildingManifest();
+  const sourceValidation =
+    validateCurrentV125FullDesignManifest(manifest);
+  assert.equal(
+    sourceValidation.ok,
+    true,
+    JSON.stringify(sourceValidation.issues)
+  );
   const destination = makeProfile({
     firstGridId: 99,
     secondGridId: 100,
@@ -688,6 +695,13 @@ test('Building skin and PlayerHouse can preflight while ordinary Building placem
 
 test('Building skin and PlayerHouse restoration fail closed when destination validators are not bound', () => {
   const manifest = makeBuildingManifest();
+  const sourceValidation =
+    validateCurrentV125FullDesignManifest(manifest);
+  assert.equal(
+    sourceValidation.ok,
+    true,
+    JSON.stringify(sourceValidation.issues)
+  );
   const preflight = preflightCurrentV125FullDesignManifest({
     destinationProfile: makeProfile({
       firstGridId: 99,
@@ -1122,6 +1136,13 @@ test('ordinary Building source becomes portable only with all five authoritative
 
 test('ordinary Building destination remains blocked until all v1.10 destination validators are bound', () => {
   const manifest = makeOrdinaryBuildingManifest();
+  const sourceValidation =
+    validateCurrentV125FullDesignManifest(manifest);
+  assert.equal(
+    sourceValidation.ok,
+    true,
+    JSON.stringify(sourceValidation.issues)
+  );
   const preflight = preflightCurrentV125FullDesignManifest({
     destinationProfile: makeProfile({
       firstGridId: 99,
@@ -1167,6 +1188,13 @@ test('ordinary Building destination remains blocked until all v1.10 destination 
 
 test('ordinary Building typed destination preflight can pass without authorizing Apply', () => {
   const manifest = makeOrdinaryBuildingManifest();
+  const sourceValidation =
+    validateCurrentV125FullDesignManifest(manifest);
+  assert.equal(
+    sourceValidation.ok,
+    true,
+    JSON.stringify(sourceValidation.issues)
+  );
   const preflight = preflightCurrentV125FullDesignManifest({
     destinationProfile: makeProfile({
       firstGridId: 99,
