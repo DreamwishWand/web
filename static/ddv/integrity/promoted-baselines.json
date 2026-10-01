@@ -55,6 +55,20 @@
       "buildId": "52BD625D9B4E0053",
       "artifactSha256": "ca4e718218fbcd7e33080ede6ad5849b360c2fa237fb4c5630197a2234e2ab20",
       "scope": "read/model/capture/preflight only"
+    },
+    {
+      "artifactId": "DDV-BUILDING-CLASSIFICATION-V125-V1_11",
+      "artifactType": "Core/Building classification projection",
+      "version": "v1.11",
+      "status": "PROMOTED",
+      "mutable": false,
+      "platform": "Nintendo Switch",
+      "gameVersion": "v1.25.0",
+      "buildId": "52BD625D9B4E0053",
+      "artifactSha256": "f389f1af6add09fe50d28c6d0a501a212256abd7f4f1e5f6a868c13fdc6f9411",
+      "payloadSha256": "7e878f908c153bcb3c84fa1824f2dbff9ac813650c25e7c00e5547cb8004c4dc",
+      "sourceEvidenceDriveId": "1mTFwN-qgyiGLrKoWUbgRq278NAZbcVmPSwKkmQX6OmU",
+      "scope": "read/model/preflight classification only"
     }
   ]
 }
