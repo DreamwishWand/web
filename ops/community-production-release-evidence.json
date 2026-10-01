@@ -1,6 +1,6 @@
 {
   "schema": "dreamwish-community-production-release-evidence@1",
-  "updatedAt": "2026-10-01",
+  "updatedAt": "2026-10-01T18:25:00+09:00",
   "scope": "Community Core production launch",
   "productionEvidenceMustComeFromDistinctProductionEnvironment": true,
   "stagingProjectRef": "ptpdoxhrqopvczpclcij",
@@ -26,7 +26,10 @@
       "evidence": [
         "docs/community/wep-road-integration-acceptance-20261001.md"
       ],
-      "classification": "already_closed"
+      "classification": "already_closed",
+      "latestWepObservedHead": "02ca57a8d48d2b5623e034b91e9cd52f7fe7a8d8",
+      "integrationSensitiveRerunRequired": false,
+      "latestDeltaAssessment": "No Community transport/Edge contract change; latest WEP delta is GridData/full-design/placement-preflight/capture-bounds only."
     },
     {
       "id": "PRESET_ARTIFACT_RETENTION_E2E",
@@ -257,8 +260,9 @@
       "satisfied": false,
       "owner": "Release Security",
       "evidence": [],
-      "pendingReason": "Must be read from the production project after deployment; staging Advisor is not production evidence.",
-      "classification": "production_only_pending"
+      "pendingReason": "Must be read from the distinct production project after deployment; staging Advisor is not production evidence. The current-plan auth_leaked_password_protection warning is a known unavailable feature and is not, by itself, an engineering blocker.",
+      "classification": "production_only_pending",
+      "knownNonBlockingCurrentPlanFinding": "auth_leaked_password_protection"
     },
     {
       "id": "TRANSACTIONAL_EMAIL_PROVIDER_DELIVERY",
@@ -284,7 +288,7 @@
         "sending": "enabled",
         "region": "ap-northeast-1"
       },
-      "detail": "Observed existing traffic only; no synthetic warming."
+      "detail": "Observed existing traffic only; no synthetic warming. Refreshed 2026-10-01."
     },
     {
       "id": "TRANSACTIONAL_EMAIL_HUMAN_MAILBOX_PLACEMENT",
@@ -315,5 +319,34 @@
     "approval_pending": "Requires explicit Product/Privacy/Legal approval; engineering evidence is not approval.",
     "operator_manual_pending": "Requires a real operator/manual QA transaction; synthetic traffic is prohibited.",
     "cross_stream_pending": "Owned by another workstream and must remain fail-closed here."
+  },
+  "currentObservations": {
+    "resend": {
+      "sent": 5,
+      "delivered": 5,
+      "bounced": 0,
+      "failed": 0,
+      "complained": 0,
+      "deliveryDelayed": 0,
+      "deliveryRatePercent": 100,
+      "senderDomain": "dreamwishwand.com",
+      "senderDomainStatus": "verified",
+      "sending": "enabled",
+      "region": "ap-northeast-1",
+      "syntheticTrafficGenerated": false
+    },
+    "stagingSecurityAdvisor": {
+      "productionEvidence": false,
+      "rlsEnabledNoPolicyInfoCount": 9,
+      "knownPlanUnavailableWarning": "auth_leaked_password_protection",
+      "knownPlanUnavailableWarningIsEngineeringBlocker": false
+    },
+    "wep": {
+      "latestObservedHead": "02ca57a8d48d2b5623e034b91e9cd52f7fe7a8d8",
+      "communityTransportContractChangedSinceConfirmedVertical": false,
+      "communityPresetEdgeFunctionChangedSinceConfirmedVertical": false,
+      "integrationSensitiveRerunRequired": false,
+      "note": "Observed changes are GridData/full-design/placement-preflight/authoritative capture-bounds work. Persistent Apply remains Core/WEP writer-gated."
+    }
   }
 }
