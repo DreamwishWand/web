@@ -248,6 +248,70 @@ export function createDraftAwareNetworkCaptureAdapter(
               ]
             };
       }
+
+      if (
+        container.schema ===
+          'dreamwish-wand-wep-roadfence-logical-root-draft' &&
+        Number(container.version) === 1 &&
+        container.kind === kind &&
+        container.originPolicy === 'native-logical-root'
+      ) {
+        assertWriteBoundary(container);
+        const networks = Array.isArray(container.networks)
+          ? clone(container.networks)
+          : [];
+
+        for (const network of networks) {
+          if (
+            !plain(network) ||
+            !plain(network.coordinateSpace) ||
+            positiveInteger(
+              network.coordinateSpace.savePitch,
+              'WEP_ROADFENCE_DRAFT_SAVE_PITCH_INVALID'
+            ) <= 0
+          ) {
+            throw new Error(
+              'WEP_ROADFENCE_DRAFT_COORDINATE_SPACE_INVALID'
+            );
+          }
+          safeInteger(
+            network.coordinateSpace.saveResidueX,
+            'WEP_ROADFENCE_DRAFT_SAVE_RESIDUE_INVALID'
+          );
+          safeInteger(
+            network.coordinateSpace.saveResidueY,
+            'WEP_ROADFENCE_DRAFT_SAVE_RESIDUE_INVALID'
+          );
+          assertWriteBoundary(network);
+        }
+
+        const draftReader: AnyRecord = {
+          schema: ROADFENCE_NATIVE_READER_V125_SCHEMA,
+          version: ROADFENCE_NATIVE_READER_V125_VERSION,
+          gameVersion: '1.25.0',
+          status: 'supported',
+          ok: true,
+          roads: kind === 'roads' ? networks : [],
+          fences: kind === 'fences' ? networks : [],
+          modeBoundaryTouches:
+            kind === 'fences' &&
+            Array.isArray(container.modeBoundaryTouches)
+              ? clone(container.modeBoundaryTouches)
+              : [],
+          persistentWriteAuthorized: false
+        };
+        const result = captureRoadFenceReaderRegionV125(
+          draftReader,
+          kind,
+          clone(regionInput)
+        );
+        if (!plain(result)) {
+          throw new Error('WEP_ROADFENCE_DRAFT_CAPTURE_RESULT_INVALID');
+        }
+        assertWriteBoundary(result);
+        return clone(result);
+      }
+
       if (
         container.schema !== 'dreamwish-wand-wep-network-capture' ||
         Number(container.version) !== 1 ||
@@ -312,8 +376,14 @@ export function createDraftAwareNetworkCaptureAdapter(
       contained.sort((left, right) => {
         const leftPoints = [...draftNetworkPoints(kind, left)].sort(comparePoint);
         const rightPoints = [...draftNetworkPoints(kind, right)].sort(comparePoint);
-        const a = leftPoints[0] ?? { x: Number.MAX_SAFE_INTEGER, y: Number.MAX_SAFE_INTEGER };
-        const b = rightPoints[0] ?? { x: Number.MAX_SAFE_INTEGER, y: Number.MAX_SAFE_INTEGER };
+        const a = leftPoints[0] ?? {
+          x: Number.MAX_SAFE_INTEGER,
+          y: Number.MAX_SAFE_INTEGER
+        };
+        const b = rightPoints[0] ?? {
+          x: Number.MAX_SAFE_INTEGER,
+          y: Number.MAX_SAFE_INTEGER
+        };
         return (
           comparePoint(a, b) ||
           Number(left.familyBaseItemID ?? 0) -
@@ -324,79 +394,19 @@ export function createDraftAwareNetworkCaptureAdapter(
         );
       });
 
-      const sourceToArtifact = new Map<string, string>();
-      const networks = contained.map((network, index) => {
-        const artifactNetworkId =
-          kind === 'roads' ? `r${index}` : `f${index}`;
-        sourceToArtifact.set(
-          String(network.networkId ?? ''),
-          artifactNetworkId
-        );
-        return kind === 'roads'
+      const networks = contained.map((network, index) =>
+        kind === 'roads'
           ? localizeDraftRoadNetwork(
               network,
               region,
-              artifactNetworkId
+              `r${index}`
             )
           : localizeDraftFenceNetwork(
               network,
               region,
-              artifactNetworkId
-            );
-      });
-
-      const modeBoundaryTouches =
-        kind === 'fences' &&
-        Array.isArray(container.modeBoundaryTouches)
-          ? container.modeBoundaryTouches
-              .filter(
-                (touch: AnyRecord) =>
-                  sourceToArtifact.has(
-                    String(touch?.a?.networkId ?? '')
-                  ) &&
-                  sourceToArtifact.has(
-                    String(touch?.b?.networkId ?? '')
-                  )
-              )
-              .map((touch: AnyRecord) => ({
-                classification: String(
-                  touch.classification ?? ''
-                ),
-                authoritativeConnectedEdge: false,
-                a: {
-                  networkId: sourceToArtifact.get(
-                    String(touch.a.networkId)
-                  ),
-                  x:
-                    safeInteger(
-                      touch.a.x,
-                      'WEP_ROADFENCE_DRAFT_POINT_INVALID'
-                    ) - region.x,
-                  y:
-                    safeInteger(
-                      touch.a.y,
-                      'WEP_ROADFENCE_DRAFT_POINT_INVALID'
-                    ) - region.y,
-                  mode: String(touch.a.mode ?? '')
-                },
-                b: {
-                  networkId: sourceToArtifact.get(
-                    String(touch.b.networkId)
-                  ),
-                  x:
-                    safeInteger(
-                      touch.b.x,
-                      'WEP_ROADFENCE_DRAFT_POINT_INVALID'
-                    ) - region.x,
-                  y:
-                    safeInteger(
-                      touch.b.y,
-                      'WEP_ROADFENCE_DRAFT_POINT_INVALID'
-                    ) - region.y,
-                  mode: String(touch.b.mode ?? '')
-                }
-              }))
-          : [];
+              `f${index}`
+            )
+      );
 
       return {
         status: 'supported',
@@ -406,9 +416,6 @@ export function createDraftAwareNetworkCaptureAdapter(
           kind,
           originPolicy: 'capture-region-top-left',
           networks,
-          ...(modeBoundaryTouches.length
-            ? { modeBoundaryTouches }
-            : {}),
           normalization: {
             sourceGridObjectIdsRemoved: true,
             artifactNetworkIdsLocal: true,
@@ -535,7 +542,10 @@ export function createSwitchV125RoadFenceReaderBinding({
   });
 
   function captureRootDraft(document: EditorDocument) {
-    const bounds = document?.metadata?.rootGridBounds as AnyRecord | null | undefined;
+    const bounds = document?.metadata?.rootGridBounds as
+      | AnyRecord
+      | null
+      | undefined;
     if (
       !bounds ||
       bounds.status !== 'AUTHORITATIVE_GRIDDATAPATH' ||
@@ -559,6 +569,16 @@ export function createSwitchV125RoadFenceReaderBinding({
         persistentWriteAuthorized: false
       };
     }
+    if (
+      readerResult.status !== 'supported' ||
+      readerResult.ok !== true
+    ) {
+      const blocked = readerBlockResult(readerResult);
+      return {
+        ...blocked,
+        networks: { roads: null, fences: null }
+      };
+    }
 
     const region = {
       x: Number(bounds.x),
@@ -566,35 +586,81 @@ export function createSwitchV125RoadFenceReaderBinding({
       w: Number(bounds.w),
       h: Number(bounds.h)
     };
-    const roads = networkAdapter.capture('roads', document, region);
-    const fences = networkAdapter.capture('fences', document, region);
+    const roadContainment = networkAdapter.capture(
+      'roads',
+      document,
+      region
+    );
+    const fenceContainment = networkAdapter.capture(
+      'fences',
+      document,
+      region
+    );
     const issues = [
-      ...(roads?.issues ?? []),
-      ...(fences?.issues ?? [])
+      ...(roadContainment?.issues ?? []),
+      ...(fenceContainment?.issues ?? [])
     ];
-    const supported =
-      roads?.status === 'supported' &&
-      fences?.status === 'supported';
+    if (
+      roadContainment?.status !== 'supported' ||
+      fenceContainment?.status !== 'supported'
+    ) {
+      return {
+        status: 'blocked',
+        code: String(
+          roadContainment?.code ??
+            fenceContainment?.code ??
+            'WEP_ROADFENCE_ROOT_CAPTURE_BLOCKED'
+        ),
+        issues: clone(issues),
+        networks: { roads: null, fences: null },
+        persistentWriteAuthorized: false
+      };
+    }
+
+    const makeContainer = (
+      kind: 'roads' | 'fences',
+      networks: AnyRecord[]
+    ) => ({
+      schema: 'dreamwish-wand-wep-roadfence-logical-root-draft',
+      version: 1,
+      kind,
+      originPolicy: 'native-logical-root',
+      coordinatePolicy: 'per-network-reader-coordinate-space',
+      networks: clone(networks),
+      ...(kind === 'fences' &&
+      Array.isArray(readerResult.modeBoundaryTouches) &&
+      readerResult.modeBoundaryTouches.length
+        ? {
+            modeBoundaryTouches: clone(
+              readerResult.modeBoundaryTouches
+            )
+          }
+        : {}),
+      normalization: {
+        sourceGridObjectIdsRemoved: true,
+        sourceReaderProvenanceRemoved: true,
+        logicalCoordinatesPreserved: true,
+        coordinateSpacePreserved: true,
+        partialTopologyFailsClosed: true
+      },
+      persistentWriteAuthorized: false
+    });
 
     return {
-      status: supported ? 'supported' : 'blocked',
-      code: supported
-        ? null
-        : String(
-            roads?.code ??
-              fences?.code ??
-              'WEP_ROADFENCE_ROOT_CAPTURE_BLOCKED'
-          ),
+      status: 'supported',
+      code: null,
       issues: clone(issues),
+      coordinateContract:
+        'native-logical-root + per-network coordinateSpace',
       networks: {
-        roads:
-          roads?.status === 'supported'
-            ? clone(roads.data)
-            : null,
-        fences:
-          fences?.status === 'supported'
-            ? clone(fences.data)
-            : null
+        roads: makeContainer(
+          'roads',
+          clone(readerResult.roads ?? [])
+        ),
+        fences: makeContainer(
+          'fences',
+          clone(readerResult.fences ?? [])
+        )
       },
       persistentWriteAuthorized: false
     };
