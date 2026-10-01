@@ -1,0 +1,158 @@
+import {
+  ROADFENCE_NATIVE_CATALOG_SWITCH_V125
+} from '../ddv/core/roadfence/catalog-v125-switch.js';
+import {
+  captureRoadFenceReaderRegionV125,
+  readRoadFenceNativeGridV125
+} from '../ddv/core/roadfence/native-reader-v125.js';
+import type {
+  CaptureRegion,
+  EditorDocument,
+  NetworkCaptureAdapter
+} from './scene-capture-runtime.ts';
+
+type AnyRecord = Record<string, any>;
+
+export const ROADFENCE_READER_MAIN_MERGE_COMMIT =
+  '5691cf8ed9992e8e5b9d83ce1de99632e132bd63';
+
+function clone<T>(value: T): T {
+  return structuredClone(value);
+}
+
+function plain(value: unknown): value is AnyRecord {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function safeInteger(value: unknown, code: string): number {
+  const number = Number(value);
+  if (!Number.isSafeInteger(number)) throw new Error(code);
+  return number;
+}
+
+function resolveRootGrid(profile: AnyRecord, rootGridId: unknown) {
+  if (!plain(profile) || Number(profile?.GameInfo?.Version) !== 624) {
+    throw new Error('WEP_ROADFENCE_PROFILE_CONTRACT_MISMATCH');
+  }
+  const gridId = safeInteger(rootGridId, 'WEP_ROADFENCE_ROOT_GRID_ID_INVALID');
+  const grids = profile?.World?.GridCollection?.Grids;
+  const grid = grids?.[String(gridId)] ?? grids?.[gridId];
+  if (!plain(grid) || Number(grid.ID) !== gridId) {
+    throw new Error('WEP_ROADFENCE_ROOT_GRID_NOT_FOUND');
+  }
+  return { gridId, grid };
+}
+
+function assertWriteBoundary(value: AnyRecord) {
+  if (value?.persistentWriteAuthorized !== false) {
+    throw new Error('WEP_ROADFENCE_WRITE_BOUNDARY_VIOLATION');
+  }
+}
+
+function readerBlockResult(readerResult: AnyRecord) {
+  const issues = Array.isArray(readerResult?.issues)
+    ? clone(readerResult.issues)
+    : [];
+  const firstCode =
+    issues.find(
+      (entry: unknown) =>
+        plain(entry) && typeof entry.code === 'string' && entry.code.length > 0
+    )?.code ?? 'ROADFENCE_NATIVE_READER_NOT_SUPPORTED';
+  return {
+    status: 'blocked',
+    code: String(firstCode),
+    issues,
+    persistentWriteAuthorized: false
+  };
+}
+
+export function createSwitchV125RoadFenceReaderBinding({
+  profile,
+  rootGridId
+}: {
+  profile: AnyRecord;
+  rootGridId: unknown;
+}) {
+  const { gridId, grid } = resolveRootGrid(profile, rootGridId);
+  const readerResult = readRoadFenceNativeGridV125({
+    grid,
+    gridId,
+    catalog: ROADFENCE_NATIVE_CATALOG_SWITCH_V125
+  });
+
+  if (!plain(readerResult)) {
+    throw new Error('WEP_ROADFENCE_READER_RESULT_INVALID');
+  }
+  assertWriteBoundary(readerResult);
+
+  const safeSummary = Object.freeze({
+    status: String(readerResult.status ?? 'blocked'),
+    ok: readerResult.ok === true,
+    gridId,
+    roadNetworkCount: Array.isArray(readerResult.roads)
+      ? readerResult.roads.length
+      : 0,
+    fenceNetworkCount: Array.isArray(readerResult.fences)
+      ? readerResult.fences.length
+      : 0,
+    modeBoundaryTouchCount: Array.isArray(readerResult.modeBoundaryTouches)
+      ? readerResult.modeBoundaryTouches.length
+      : 0,
+    coverage: clone(readerResult.coverage ?? {}),
+    issues: clone(readerResult.issues ?? []),
+    persistentWriteAuthorized: false
+  });
+
+  const networkAdapter: NetworkCaptureAdapter = Object.freeze({
+    capture(
+      kind: 'roads' | 'fences',
+      document: EditorDocument,
+      region: CaptureRegion
+    ) {
+      if (
+        Number(document?.target?.rootGridId) !== gridId ||
+        document?.target?.gameVersion !== '1.25.0' ||
+        document?.target?.platform !== 'Nintendo Switch'
+      ) {
+        return {
+          status: 'blocked',
+          code: 'WEP_ROADFENCE_DOCUMENT_TARGET_MISMATCH',
+          issues: [
+            {
+              severity: 'BLOCK' as const,
+              code: 'WEP_ROADFENCE_DOCUMENT_TARGET_MISMATCH'
+            }
+          ]
+        };
+      }
+
+      if (readerResult.status !== 'supported' || readerResult.ok !== true) {
+        return readerBlockResult(readerResult);
+      }
+
+      const captured = captureRoadFenceReaderRegionV125(
+        readerResult,
+        kind,
+        clone(region)
+      );
+      if (!plain(captured)) {
+        throw new Error('WEP_ROADFENCE_CAPTURE_RESULT_INVALID');
+      }
+      assertWriteBoundary(captured);
+      return clone(captured);
+    }
+  });
+
+  return Object.freeze({
+    source: Object.freeze({
+      mergeCommit: ROADFENCE_READER_MAIN_MERGE_COMMIT,
+      gameVersion: '1.25.0',
+      platform: 'Nintendo Switch',
+      buildID: '52BD625D9B4E0053',
+      rootGridId: gridId
+    }),
+    summary: safeSummary,
+    networkAdapter,
+    persistentWriteAuthorized: false
+  });
+}
