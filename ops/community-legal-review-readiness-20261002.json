@@ -10,8 +10,8 @@
     "D1 <=7d payload purge, D2 90d operational scrub, D3 immediate irreversible deletion, D4 justified holds, D5 minimized tombstones, D6 quarantine-first recovery, D8 category-specific disclosure are current Product facts.",
     "PUBLIC/UNLISTED/PRIVATE have technically distinct access semantics; UNLISTED is direct-link/direct-ID accessible and not private.",
     "Account deletion immediately removes/anonymizes active Community identity/interactions and queues provider cleanup.",
-    "Production providers and production project are not yet selected/created.",
-    "Linked DDV Profile schema exists, but reviewed creation/verification/link/unlink runtime is incomplete and binding hash/evidence semantics are not canonicalized."
+    "Linked DDV Profile schema exists, but reviewed creation/verification/link/unlink runtime is incomplete and binding hash/evidence semantics are not canonicalized.",
+    "Owner selected Supabase Pro for the production backend and Cloudflare R2 Standard for independent Storage recovery, with provisioning deferred until release stage; the production project/bucket do not yet exist."
   ],
   "externalDecisionsRequired": [
     "operator/legal entity and launch jurisdictions",
@@ -45,5 +45,12 @@
   ],
   "legalApproved": false,
   "launchApproved": false,
-  "nextAction": "External Legal review or explicitly authorized jurisdiction-specific legal/owner decision. Do not set LEGAL APPROVED based on this packet alone."
+  "nextAction": "External Legal review remains required. Provider selection is fixed, but launch-stage DPA/subprocessor/transfer/retention facts for Supabase Pro and Cloudflare R2 Standard must be reviewed before LEGAL APPROVED.",
+  "providerDecision": {
+    "status": "OWNER_APPROVED_FOR_RELEASE_STAGE",
+    "supabasePlan": "PRO",
+    "storageRecoveryProvider": "CLOUDFLARE_R2_STANDARD",
+    "resourceCreated": false,
+    "finalContractualPrivacyReviewPending": true
+  }
 }
