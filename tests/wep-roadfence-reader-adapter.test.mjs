@@ -12,7 +12,11 @@ import {
   validatePublishablePreset
 } from '../src/lib/wep/scene-preset-runtime.ts';
 
-function profile() {
+function profile({
+  tessellationFactor = 1,
+  roadX = 10,
+  roadY = 10
+} = {}) {
   return {
     GameInfo: { Version: 624 },
     Player: {},
@@ -22,13 +26,13 @@ function profile() {
           '7': {
             ID: 7,
             GridDataPath: 'GridData/Test/Reader.json',
-            TessellationFactor: 1,
+            TessellationFactor: tessellationFactor,
             Objects: {
               '100': {
                 ID: 100,
                 ItemID: 40100068,
-                X: 10,
-                Y: 10,
+                X: roadX,
+                Y: roadY,
                 Orientation: 'GridOrientation_Down',
                 State: null
               },
@@ -48,7 +52,7 @@ function profile() {
   };
 }
 
-function document() {
+function document(tessellationFactor = 1) {
   return {
     schema: 'dreamwish-wand-wep-editor-document',
     version: 1,
@@ -58,7 +62,7 @@ function document() {
       profileSchemaVersion: 624,
       rootGridId: 7,
       areaKey: 'v0:a7',
-      tessellationFactor: 1,
+      tessellationFactor,
       persistentWriteAuthorized: false
     },
     objects: [
@@ -359,5 +363,75 @@ test('draft-aware adapter falls back to native reader only when no draft contain
   assert.deepEqual(
     result.data.networks[0].cells,
     [{ x: 0, y: 0, mode: 'orthogonal' }]
+  );
+});
+
+
+test('tessellation x2 root draft preserves logical adjacency and delegates save projection back to Core capture', () => {
+  const binding = createSwitchV125RoadFenceReaderBinding({
+    profile: profile({
+      tessellationFactor: 2,
+      roadX: 10,
+      roadY: 10
+    }),
+    rootGridId: 7
+  });
+  const source = document(2);
+  source.metadata.rootGridBounds = {
+    x: 0,
+    y: 0,
+    w: 100,
+    h: 100,
+    status: 'AUTHORITATIVE_GRIDDATAPATH'
+  };
+
+  const rootDraft = binding.captureRootDraft(source);
+  assert.equal(rootDraft.status, 'supported');
+  assert.equal(
+    rootDraft.networks.roads.schema,
+    'dreamwish-wand-wep-roadfence-logical-root-draft'
+  );
+  assert.equal(
+    rootDraft.networks.roads.originPolicy,
+    'native-logical-root'
+  );
+  const road = rootDraft.networks.roads.networks[0];
+  assert.deepEqual(
+    road.cells,
+    [{ x: 5, y: 5, mode: 'orthogonal' }]
+  );
+  assert.equal(road.coordinateSpace.savePitch, 2);
+  assert.equal(road.coordinateSpace.saveResidueX, 0);
+  assert.equal(road.coordinateSpace.saveResidueY, 0);
+
+  source.networks = structuredClone(rootDraft.networks);
+  source.networks.roads.networks[0].cells = [
+    { x: 6, y: 5, mode: 'orthogonal' }
+  ];
+
+  const adapter = createDraftAwareNetworkCaptureAdapter(
+    binding.networkAdapter
+  );
+  const result = captureScenePreset(
+    source,
+    {
+      selectionIds: ['g7:o101'],
+      captureRegion: { x: 10, y: 10, w: 4, h: 2 },
+      includeRoads: true,
+      networkAdapter: adapter
+    },
+    validatePublishablePreset
+  );
+
+  assert.equal(result.captureReady, true);
+  assert.equal(result.publicationReady, true);
+  assert.deepEqual(
+    result.artifact.networks.roads.networks[0].cells,
+    [{ x: 2, y: 0, mode: 'orthogonal' }]
+  );
+  assert.equal(
+    JSON.stringify(result.artifact.networks.roads)
+      .includes('coordinateSpace'),
+    false
   );
 });
