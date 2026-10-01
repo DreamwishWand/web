@@ -353,3 +353,72 @@ test('preview-invalid authoring mode keeps blocked draft local and reversible', 
   );
   assert.deepEqual(session.getSelection(), ['b']);
 });
+
+
+test('Road/Fence network draft shares the editor Undo/Redo transaction history', () => {
+  const session = createEditorSession(base);
+  session.setSelection(['b']);
+  const roadDraft = {
+    schema: 'dreamwish-wand-wep-network-capture',
+    version: 1,
+    kind: 'roads',
+    networks: [
+      {
+        networkId: 'r0',
+        familyBaseItemID: 40100001,
+        cells: [{ x: 1, y: 1, mode: 'orthogonal' }]
+      }
+    ],
+    persistentWriteAuthorized: false
+  };
+  const result = session.replaceNetworkDraft(
+    'roads',
+    roadDraft,
+    {
+      command: 'ROAD_TOPOLOGY_DRAW',
+      validation: {
+        ok: true,
+        issues: [],
+        status: 'MODEL_PREVIEW',
+        persistentWriteAuthorized: false
+      }
+    }
+  );
+  assert.equal(result.applied, true);
+  assert.equal(result.result.topologyChanged, true);
+  assert.equal(
+    session.getDocument().networks.roads.networks[0].networkId,
+    'r0'
+  );
+  assert.deepEqual(session.getSelection(), ['b']);
+
+  session.undo();
+  assert.equal(session.getDocument().networks.roads, null);
+  assert.deepEqual(session.getSelection(), ['b']);
+
+  session.redo();
+  assert.equal(
+    session.getDocument().networks.roads.networks[0].networkId,
+    'r0'
+  );
+  assert.deepEqual(session.getSelection(), ['b']);
+});
+
+test('network draft validation override cannot authorize persistent writing', () => {
+  const session = createEditorSession(base);
+  assert.throws(
+    () =>
+      session.replaceNetworkDraft(
+        'fences',
+        { networks: [] },
+        {
+          validation: {
+            ok: true,
+            issues: [],
+            persistentWriteAuthorized: true
+          }
+        }
+      ),
+    /WEP_NETWORK_VALIDATION_INVALID/
+  );
+});
