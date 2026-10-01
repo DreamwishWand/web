@@ -1884,12 +1884,12 @@ test('Community retention launch review separates technical facts from policy ap
   assert.equal(review.decisions.length, 8);
   assert.ok(review.decisions.every((decision) => decision.status === 'PENDING_APPROVAL'));
   assert.equal(review.engineeringClosure.decisionBoundary, 'CLOSED');
-  assert.equal(review.approvals.product, 'PENDING');
+  assert.equal(review.approvals.product, 'APPROVED');
   assert.equal(review.approvals.privacy, 'PENDING');
   assert.equal(review.approvals.legal, 'PENDING');
   assert.equal(approval.engineering.decisionBoundaryStatus, 'CLOSED');
   assert.equal(approval.engineering.defaultsAreLegalConclusion, false);
-  assert.equal(approval.approvals.product.status, 'PENDING');
+  assert.equal(approval.approvals.product.status, 'APPROVED');
   assert.equal(approval.approvals.privacy.status, 'PENDING');
   assert.equal(approval.approvals.legal.status, 'PENDING');
   assert.equal(approval.launchApproved, false);
@@ -1899,7 +1899,7 @@ test('Community retention launch review separates technical facts from policy ap
   assert.match(packet, /does not currently establish a\s+7-day self-service recovery entitlement/i);
   assert.match(packet, /backup-copy retention/i);
   assert.match(finalPacket, /ENGINEERING CLOSED/i);
-  assert.match(finalPacket, /Product approval — PENDING/i);
+  assert.match(finalPacket, /Product approval — APPROVED/i);
   assert.match(finalPacket, /Privacy approval — PENDING/i);
   assert.match(finalPacket, /Legal approval — PENDING/i);
   assert.match(verifier, /Retention launch review is not approved/);
@@ -2500,4 +2500,54 @@ test('Community Lab account deletion copy matches current retention contract', (
   assert.match(copy, /moderation, security, or legal hold/);
   assert.match(copy, /deletion records are reapplied/);
   assert.match(copy, /production service providers/);
+});
+
+
+test('Product retention approval is explicit while Privacy and Legal remain pending', () => {
+  const review = JSON.parse(read('ops/community-retention-launch-review.json'));
+  const approval = JSON.parse(read('ops/community-retention-approval-state.json'));
+  const proposal = JSON.parse(read('ops/community-retention-policy-proposal.json'));
+  const release = JSON.parse(read('ops/community-production-release-evidence.json'));
+  const record = read('docs/community/retention-product-approval-record-20261002.md');
+
+  assert.equal(review.engineeringDefaults.contentPayloadDays, 7);
+  assert.equal(review.engineeringDefaults.operationalDetailDays, 90);
+  assert.equal(review.approvals.product, 'APPROVED');
+  assert.equal(review.approvals.privacy, 'PENDING');
+  assert.equal(review.approvals.legal, 'PENDING');
+  assert.equal(review.launchApproved, false);
+
+  const decisions = new Map(review.decisions.map((item) => [item.id, item]));
+  for (const id of [
+    'D1_CONTENT_PAYLOAD_DURATION',
+    'D2_OPERATIONAL_DETAIL_DURATION',
+    'D3_USER_FACING_DELETION_PROMISE',
+    'D4_RETENTION_HOLD_POLICY',
+    'D5_STRUCTURAL_TOMBSTONE_POLICY',
+    'D6_BACKUP_COPY_RETENTION',
+    'D8_POLICY_DISCLOSURE_AND_ACCEPTANCE'
+  ]) {
+    assert.equal(decisions.get(id)?.approvalStatus?.product, 'APPROVED', id);
+  }
+  assert.equal(decisions.get('D3_USER_FACING_DELETION_PROMISE')?.status, 'APPROVED');
+  assert.equal(decisions.get('D1_CONTENT_PAYLOAD_DURATION')?.status, 'PENDING_APPROVAL');
+
+  assert.equal(approval.approvals.product.status, 'APPROVED');
+  assert.equal(approval.approvals.privacy.status, 'PENDING');
+  assert.equal(approval.approvals.legal.status, 'PENDING');
+  assert.equal(approval.launchApproved, false);
+
+  assert.equal(proposal.approvalState.product, 'APPROVED');
+  assert.equal(proposal.approvalState.privacy, 'PENDING_EXPLICIT_APPROVAL');
+  assert.equal(proposal.approvalState.legal, 'PENDING_EXPLICIT_APPROVAL');
+  assert.equal(proposal.approvalState.launchApproved, false);
+
+  const gate = release.gates.find(
+    (item) => item.id === 'RETENTION_PRODUCT_PRIVACY_LEGAL_APPROVAL'
+  );
+  assert.equal(gate.satisfied, false);
+  assert.match(gate.pendingReason, /Privacy and Legal approvals remain explicitly PENDING/);
+
+  assert.match(record, /PRODUCT APPROVED \/ PRIVACY PENDING \/ LEGAL PENDING/);
+  assert.match(record, /closes \*\*Product approval only\*\*/);
 });
