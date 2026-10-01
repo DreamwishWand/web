@@ -173,6 +173,7 @@ function captureDirectRootObjectPlanning(
   }> = [];
   const restorationEntries: AnyRecord[] = [];
   const restorationBlockers: AnyRecord[] = [];
+  const noExtraStateEntries: AnyRecord[] = [];
   let noExtraStateCount = 0;
   let notApplicableCount = 0;
 
@@ -212,6 +213,10 @@ function captureDirectRootObjectPlanning(
       }
       if (capture.status === 'SUPPORTED_NO_EXTRA_STATE') {
         noExtraStateCount += 1;
+        noExtraStateEntries.push({
+          ...anchor,
+          kind: String(capture.kind ?? 'SUPPORTED_NO_EXTRA_STATE')
+        });
         continue;
       }
       if (capture.status === 'NOT_APPLICABLE') {
@@ -251,6 +256,7 @@ function captureDirectRootObjectPlanning(
       ...entry
     })),
     restorationBlockers,
+    noExtraStateEntries,
     noExtraStateCount,
     notApplicableCount
   };
@@ -487,6 +493,44 @@ export function buildCurrentV125FullDesignCapturePlan({
           )
         })
       : null;
+  const buildingPlacementEntries =
+    rootObjectComposition?.unresolved?.filter(
+      (entry: AnyRecord) => String(entry?.layer ?? '') === 'building'
+    ) ?? [];
+  const buildingRecognitionComplete =
+    Boolean(rootObjectComposition) &&
+    Array.isArray(rootObjectComposition?.missingRoutes) &&
+    rootObjectComposition.missingRoutes.length === 0;
+  const buildingSkinEntries = rootObjectPlanning.restorationEntries.filter(
+    (entry: AnyRecord) => entry.kind === 'BUILDING_SKIN'
+  );
+  const playerHouseEntries = rootObjectPlanning.restorationEntries.filter(
+    (entry: AnyRecord) => entry.kind === 'PLAYER_HOUSE'
+  );
+  const ordinaryHouseStateEntries =
+    rootObjectPlanning.noExtraStateEntries.filter(
+      (entry: AnyRecord) => entry.kind === 'BUILDING_HOUSE_DATA'
+    );
+  const recognizedBuildingCount = new Set(
+    [
+      ...buildingPlacementEntries,
+      ...buildingSkinEntries,
+      ...playerHouseEntries,
+      ...ordinaryHouseStateEntries
+    ].map((entry: AnyRecord) =>
+      [
+        entry?.directRootRoute?.gridDataPath,
+        entry?.itemId,
+        entry?.localX,
+        entry?.localY
+      ].join('|')
+    )
+  ).size;
+  const noBuildingsPresent =
+    buildingRecognitionComplete &&
+    recognizedBuildingCount === 0 &&
+    rootObjectPlanning.restorationBlockers.length === 0;
+
   const directRootBounds =
     Array.isArray(rootEditorDocuments) && rootEditorDocuments.length
       ? captureAuthoritativeDirectRootBounds({
@@ -587,9 +631,31 @@ export function buildCurrentV125FullDesignCapturePlan({
     }
   }
   if (requested('buildings', requestedCategories)) {
-    issues.push(
-      block('FULL_DESIGN_BUILDING_COMPOSITION_INCOMPLETE', 'buildings')
-    );
+    if (!buildingRecognitionComplete) {
+      issues.push(
+        block(
+          'FULL_DESIGN_BUILDING_SOURCE_RECOGNITION_INCOMPLETE',
+          'buildings'
+        )
+      );
+    } else if (!noBuildingsPresent) {
+      if (buildingPlacementEntries.length > 0) {
+        issues.push(
+          block(
+            'FULL_DESIGN_ORDINARY_BUILDING_DESTINATION_PLACEMENT_UNCLOSED',
+            'buildings'
+          )
+        );
+      }
+      if (rootObjectPlanning.restorationBlockers.length > 0) {
+        issues.push(
+          block(
+            'FULL_DESIGN_BUILDING_RESTORATION_CAPTURE_UNRESOLVED',
+            'buildings'
+          )
+        );
+      }
+    }
   }
 
   const categories = {
@@ -719,15 +785,83 @@ export function buildCurrentV125FullDesignCapturePlan({
     buildings: {
       requested: requested('buildings', requestedCategories),
       disposition: requested('buildings', requestedCategories)
-        ? 'captured_partial'
+        ? noBuildingsPresent
+          ? 'captured'
+          : 'captured_partial'
         : 'excluded',
-      coverageStatus: readiness.categories.buildings.status,
-      evidenceStatus: readiness.categories.buildings.evidenceStatus,
+      coverageStatus: noBuildingsPresent
+        ? 'not_applicable'
+        : readiness.categories.buildings.status,
+      evidenceStatus: noBuildingsPresent
+        ? 'CONFIRMED_01B_EDITOR_DOCUMENT_NO_BUILDING'
+        : readiness.categories.buildings.evidenceStatus,
       contract: readiness.categories.buildings.contract,
       portableStateCodecs: [
         V125_PORTABLE_CONTRACTS.restoration.buildingSkinCodec,
         V125_PORTABLE_CONTRACTS.restoration.playerHouseBindingCodec
       ],
+      ordinaryPlacement: requested('buildings', requestedCategories)
+        ? {
+            sourceRecognition:
+              buildingRecognitionComplete
+                ? 'COMPLETE'
+                : 'INCOMPLETE',
+            recognizedCount: recognizedBuildingCount,
+            entries: clone(buildingPlacementEntries),
+            ordinaryHouseStateEntries: clone(
+              ordinaryHouseStateEntries
+            ),
+            portableCompositionCount: 0,
+            destinationPlacementStatus:
+              noBuildingsPresent
+                ? 'NOT_APPLICABLE'
+                : recognizedBuildingCount > 0
+                  ? 'UNRESOLVED'
+                  : 'UNKNOWN',
+            destinationPlacementReady: noBuildingsPresent,
+            blockers:
+              noBuildingsPresent
+                ? []
+                : buildingRecognitionComplete
+                  ? [
+                      'ORDINARY_BUILDING_DESTINATION_PLACEMENT_UNCLOSED'
+                    ]
+                  : [
+                      'ORDINARY_BUILDING_SOURCE_RECOGNITION_INCOMPLETE'
+                    ],
+            persistentWriteAuthorized: false
+          }
+        : null,
+      buildingSkins: requested('buildings', requestedCategories)
+        ? {
+            codec:
+              V125_PORTABLE_CONTRACTS.restoration.buildingSkinCodec,
+            entries: clone(buildingSkinEntries),
+            nonzeroValidatorRequired:
+              buildingSkinEntries.some(
+                (entry: AnyRecord) =>
+                  Number(entry?.portableState?.skinItemId ?? 0) !== 0
+              ),
+            persistentWriteAuthorized: false
+          }
+        : null,
+      playerHouses: requested('buildings', requestedCategories)
+        ? {
+            codec:
+              V125_PORTABLE_CONTRACTS.restoration.playerHouseBindingCodec,
+            entries: clone(playerHouseEntries),
+            destinationBinderRequired:
+              playerHouseEntries.length > 0,
+            identityField: 'houseItemId',
+            excludedPortableFields: [
+              'PlayerHouseIndex',
+              'Built',
+              'UpgradeState',
+              'interiorGridIdentity'
+            ],
+            persistentWriteAuthorized: false
+          }
+        : null,
       restorationCapture: requested('buildings', requestedCategories)
         ? {
             entries: clone(rootObjectPlanning.restorationEntries),
@@ -738,14 +872,9 @@ export function buildCurrentV125FullDesignCapturePlan({
               rootObjectPlanning.notApplicableCount
           }
         : null,
-      blockers: [
-        ...issues
-          .filter((issue) => issue.category === 'buildings')
-          .map((issue) => issue.code),
-        ...(rootObjectPlanning.restorationBlockers.length
-          ? ['FULL_DESIGN_BUILDING_RESTORATION_CAPTURE_UNRESOLVED']
-          : [])
-      ]
+      blockers: issues
+        .filter((issue) => issue.category === 'buildings')
+        .map((issue) => issue.code)
     },
     environment: {
       requested: requested('environment', requestedCategories),
