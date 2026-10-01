@@ -128,9 +128,10 @@
     "wepBranch": "dev/wep-v125",
     "productionReplaySource": "final-integrated-main",
     "communityBranchAloneIsNotProductionComplete": true,
-    "wepBranchHead": "3684939a5c147430e6c41bedc6620c9b6f030b6d",
+    "wepBranchHead": "f7236064ef9a4b623efabe1d9d75211af081cbcf",
     "wepPresetArtifactBucketContract": "CLOSED",
-    "wepMigrationBaselineConsistency": "CONFIRMED_STATIC"
+    "wepMigrationBaselineConsistency": "CONFIRMED_STATIC",
+    "wepPresetProductionMigrationProvisioning": "CONFIRMED_STATIC"
   },
   "crossStreamBlockers": [
     {
@@ -143,9 +144,9 @@
     {
       "id": "WEP_PRESET_ARTIFACT_BUCKET_PRODUCTION_MIGRATION",
       "owner": "02 WEP",
-      "state": "OPEN",
-      "evidence": "dev/wep-v125@3684939a5c147430e6c41bedc6620c9b6f030b6d; supabase/migrations/20260930124055_wep_preset_artifact_storage_v0.sql@f1370166dec78793ee82a5206a87999c61900b15",
-      "detail": "The production migration still inserts storage bucket wand-preset-artifacts-staging. Final production replay must not create or use the staging bucket. Move staging bucket creation to staging-only provisioning or make production provisioning environment-specific while preserving the generic preset_artifact_prepare rate policy."
+      "state": "CLOSED",
+      "evidence": "dev/wep-v125@f7236064ef9a4b623efabe1d9d75211af081cbcf; production migration SHA 099d7d4f6a653b1268596ab9a12d470e8b6760a2; staging bootstrap SHA e3af6f5d019365f4dfc507d27e37a0b6810e2b16; verifier SHA 006b02f70d2d99761a07f2eca62443e8609d720c",
+      "detail": "Production migration no longer creates/names the staging bucket and preserves only preset_artifact_prepare rate policy. Known staging bucket bootstrap is isolated under supabase/staging. Final fresh-target replay remains Release Operations work."
     }
   ],
   "privacyRetentionReview": {
