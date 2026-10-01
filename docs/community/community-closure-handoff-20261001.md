@@ -52,7 +52,7 @@ Backend follow-up:
 - Resend domain dreamwishwand.com verified; SPF/DKIM verified.
 - operator critical email transport/retry/recurrence confirmed; inbox placement still monitored.
 - Supabase Leaked password protection is unavailable on the current project/plan.
-- Supabase Security notification toggles observed OFF: Password changed, Email address changed, Phone number changed, Sign-in method linked, Sign-in method removed, MFA method added, MFA method removed.
+- Supabase Security notification toggles are operator-confirmed ON for Password changed, Email address changed, Phone number changed, Sign-in method linked, Sign-in method removed, MFA method added, and MFA method removed.
 
 ## Repo / CI
 
@@ -72,9 +72,9 @@ Browser runtime evidence:
 ## Remaining Community release-critical work
 
 1. **COMM side of the Scene Preset reuse vertical is CLOSED.** WEP runtime evidence now confirms validated Scene payload -> Community publish -> public discovery -> Library Save/query -> Preset detail -> signed ArtifactBlob read -> byte/SHA verification -> WEP revalidation -> destination preflight. Persistent Apply remains blocked by the WEP/Core DDV writer boundary and is no longer a Community implementation blocker.
-2. Final launch privacy/legal/product approval of 30-day content / 365-day operational retention defaults.
+2. Final launch privacy/legal/product approval remains open. The technical/policy split is now explicit in `docs/community/privacy-retention-launch-review-20261001.md` and `ops/community-retention-launch-review.json`; D1-D8 remain PENDING. The 30-day content / 365-day operational values remain engineering defaults, not legal conclusions.
 3. Preserve backend-confirmed support Open -> Verify -> Complete procedure; re-exercise in operator UI only if release QA requires it.
-4. Continue low-volume transactional-email inbox-placement monitoring while the new sender domain builds reputation.
+4. Continue low-volume transactional-email inbox-placement monitoring while the new sender domain builds reputation. Latest existing-traffic observation: 5 sent / 5 provider-delivered / 0 bounced / 0 failed / 0 complained, with no synthetic warmup traffic. Inbox-vs-Junk placement remains PARTIAL.
 5. Security hardening provider configuration is now operator-confirmed: Supabase minimum password length = 15, no mandatory composition rule, and all seven exposed security-change notification toggles enabled. Post-change Security Advisor still has exactly one external WARN: unavailable Leaked Password Protection. Only the real Auth 14/15 boundary regression and final reauth/revocation check remain.
 6. Final cross-product/no-direct-SQL release-gate rerun after Product/WEP integration is complete. Do not rerun completed Community browser suites unless relevant code/config changed or regression evidence exists.
 
@@ -118,3 +118,16 @@ Production release verifier:
 must remain failing until a distinct production project exists, backup/restore + secret-rotation acceptance is complete, final integrated migration replay is proven, and all cross-stream blockers are CLOSED.
 
 No production project, Supabase branch, paid-plan change, backup add-on or PITR add-on was created by this work.
+
+
+## Privacy / retention review checkpoint
+
+Retention launch approval is now a machine-enforced release gate:
+
+- engineering packet: `docs/community/privacy-retention-launch-review-20261001.md`;
+- decision state: `ops/community-retention-launch-review.json`;
+- production verifier refuses `--require-ready` while the review is not approved.
+
+The packet explicitly distinguishes immediate account/public removal, 30-day content-payload purge,
+365-day operational-detail scrub, retention holds, structural tombstones and separate backup/provider
+copy retention. It does not describe the 30-day content timer as an account-recovery entitlement.
