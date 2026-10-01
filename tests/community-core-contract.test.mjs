@@ -1870,7 +1870,7 @@ test('Community retention launch review separates technical facts from policy ap
   assert.equal(operations.releaseGate.requireRetentionPolicyApproval, true);
   assert.equal(operations.privacyRetentionReview.launchApproved, false);
   assert.match(packet, /30 days is currently a retention-delay parameter/i);
-  assert.match(packet, /does not currently establish a 30-day self-service recovery entitlement/i);
+  assert.match(packet, /does not currently establish a\s+30-day self-service recovery entitlement/i);
   assert.match(packet, /backup-copy retention/i);
   assert.match(verifier, /Retention launch review is not approved/);
 });
