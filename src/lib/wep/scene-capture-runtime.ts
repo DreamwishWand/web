@@ -310,6 +310,30 @@ function normalizeRegion(region: CaptureRegion): CaptureRegion {
   return normalized;
 }
 
+function authoritativeRootBounds(document: EditorDocument) {
+  const bounds = (document.metadata as AnyRecord | undefined)?.rootGridBounds;
+  if (
+    !plain(bounds) ||
+    bounds.status !== 'AUTHORITATIVE_GRIDDATAPATH'
+  ) {
+    return null;
+  }
+  const x = requireSafeInteger(bounds.x, 'WEP_ROOT_BOUNDS_INVALID');
+  const y = requireSafeInteger(bounds.y, 'WEP_ROOT_BOUNDS_INVALID');
+  const w = requirePositiveInteger(bounds.w, 'WEP_ROOT_BOUNDS_INVALID');
+  const h = requirePositiveInteger(bounds.h, 'WEP_ROOT_BOUNDS_INVALID');
+  return { x, y, w, h };
+}
+
+function regionInsideBounds(region: CaptureRegion, bounds: CaptureRegion) {
+  return (
+    region.x >= bounds.x &&
+    region.y >= bounds.y &&
+    region.x + region.w <= bounds.x + bounds.w &&
+    region.y + region.h <= bounds.y + bounds.h
+  );
+}
+
 function dependencyClosure(
   document: EditorDocument,
   selectionIds: string[]
@@ -384,6 +408,7 @@ export function captureScenePreset(
   const region = captureRegion
     ? normalizeRegion(captureRegion)
     : boundsFor(selected);
+  const rootBounds = authoritativeRootBounds(document);
   const localIds = new Map(
     selected.map((object, index) => [object.editorId, `o${index}`])
   );
@@ -403,6 +428,14 @@ export function captureScenePreset(
   }));
 
   const issues: CaptureIssue[] = [];
+  if (rootBounds && !regionInsideBounds(region, rootBounds)) {
+    issues.push({
+      severity: 'BLOCK',
+      code: 'CAPTURE_REGION_OUTSIDE_AUTHORITATIVE_ROOT_BOUNDS',
+      rootBounds: clone(rootBounds),
+      captureRegion: clone(region)
+    });
+  }
   const networks: { roads: unknown; fences: unknown } = {
     roads: null,
     fences: null
@@ -413,6 +446,15 @@ export function captureScenePreset(
     requested: boolean
   ): unknown => {
     if (!requested) return null;
+    if (
+      issues.some(
+        (entry) =>
+          entry.code ===
+          'CAPTURE_REGION_OUTSIDE_AUTHORITATIVE_ROOT_BOUNDS'
+      )
+    ) {
+      return null;
+    }
     if (!networkAdapter) {
       issues.push({
         severity: 'BLOCK',
