@@ -136,6 +136,40 @@ test('readonly and network objects cannot masquerade as ordinary roots', () => {
   );
 });
 
+test('authoritative root bounds fail closed when Capture Region exceeds GridData extent', () => {
+  const document = baseDocument();
+  document.metadata = {
+    ...(document.metadata ?? {}),
+    rootGridBounds: {
+      x: 0,
+      y: 0,
+      w: 8,
+      h: 8,
+      status: 'AUTHORITATIVE_GRIDDATAPATH'
+    }
+  };
+
+  const result = captureScenePreset(
+    document,
+    {
+      selectionIds: ['root-a'],
+      captureRegion: { x: 7, y: 7, w: 2, h: 2 }
+    },
+    validatePublishablePreset
+  );
+
+  assert.equal(result.captureReady, false);
+  assert.equal(result.publicationReady, false);
+  assert.equal(
+    result.issues.some(
+      (issue) =>
+        issue.code ===
+        'CAPTURE_REGION_OUTSIDE_AUTHORITATIVE_ROOT_BOUNDS'
+    ),
+    true
+  );
+});
+
 test('requested topology without Core network adapter blocks publication', () => {
   const result = captureScenePreset(document(), {
     selectionIds: ['g7:o100'],
