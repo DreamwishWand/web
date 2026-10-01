@@ -138,11 +138,200 @@ const MESSAGES: Record<
       'Use one of the currently supported draft commands.'
   },
   BUILDING_DESTINATION_SEMANTICS_UNRESOLVED: {
-    title: 'Building semantics pending',
+    title: 'Legacy Building blocker',
     message:
-      'Building, Building Skin, or PlayerHouse destination behavior is still provisional while 01B Core resolves the native semantics.',
+      'The blanket Building blocker has been superseded by promoted v1.10 typed category gates.',
     action:
-      'Keep Building-containing designs fail-closed until the 01B contract is promoted.'
+      'Rebuild the artifact with the current Building v1.10 binding.'
+  },
+  WEP_BUILDING_V110_CONTRACT_NOT_BOUND: {
+    title: 'Building v1.10 contract unavailable',
+    message:
+      'The promoted Building read/model/preflight contract is not bound to this WEP flow.',
+    action:
+      'Keep Building capture and destination reuse blocked until the exact v1.10 contract is loaded.'
+  },
+  UNKNOWN_BUILDING_SEMANTICS: {
+    title: 'Building semantics unknown',
+    message:
+      'Wand cannot prove that this Building is ordinary. House/Other requires every promoted special/global/shared signal to resolve authoritatively false.',
+    action:
+      'Do not infer ordinary placement. Supply the missing authoritative Building classification evidence.'
+  },
+  SPECIAL_BUILDING_TRANSFORM_LIFECYCLE_UNRESOLVED: {
+    title: 'Special Building transform blocked',
+    message:
+      'This Building has special/global/shared lifecycle semantics and cannot use ordinary same-grid transform behavior.',
+    action:
+      'Keep the transform blocked until a dedicated lifecycle contract is promoted.'
+  },
+  SPECIAL_BUILDING_PLACEMENT_LIFECYCLE_REQUIRED: {
+    title: 'Special Building placement blocked',
+    message:
+      'This Building class requires dedicated placement/lifecycle behavior rather than ordinary Grid placement.',
+    action:
+      'Do not route it through the ordinary Building placement path.'
+  },
+  CHARACTER_HOUSE_PRESENCE_SIDE_EFFECTS_REQUIRE_DEDICATED_LIFECYCLE: {
+    title: 'Character House lifecycle required',
+    message:
+      'Character House presence and removal can affect character state, so generic Building placement is unsafe.',
+    action:
+      'Keep Character House placement/transfer/removal blocked.'
+  },
+  STALL_SHOP_LOCAL_GLOBAL_STATE_LIFECYCLE_UNRESOLVED: {
+    title: 'Stall / Shop lifecycle unresolved',
+    message:
+      'StallData and global shop state have linked lifecycle semantics that are not closed for copy/apply.',
+    action:
+      'Keep Stall / Shop placement and reuse blocked.'
+  },
+  WELL_FASTTRAVEL_GLOBAL_STATE_AND_IDENTITY_REQUIRE_DEDICATED_LIFECYCLE: {
+    title: 'Well / Fast Travel lifecycle required',
+    message:
+      'Well placement is linked to global fast-travel identity and state.',
+    action:
+      'Keep Well / Fast Travel mutation blocked.'
+  },
+  GARDEN_TYPED_STATE_LIFECYCLE_REQUIRES_DEDICATED_CONTRACT: {
+    title: 'Garden lifecycle required',
+    message:
+      'Garden typed state requires a dedicated lifecycle contract.',
+    action:
+      'Keep Garden mutation blocked.'
+  },
+  OFFGRID_BUILDING_PROFILEWORLD_LIFECYCLE_REQUIRED: {
+    title: 'Off-grid Building lifecycle required',
+    message:
+      'This Building is owned by an off-grid/ProfileWorld lifecycle rather than ordinary Grid placement.',
+    action:
+      'Keep off-grid Building mutation blocked.'
+  },
+  BUILDING_SHARED_SYNCHRONIZER_LIFECYCLE_REQUIRED: {
+    title: 'Shared Building synchronizer lifecycle required',
+    message:
+      'This Building participates in shared/global synchronization and cannot be treated as an ordinary Grid object.',
+    action:
+      'Keep mutation blocked until the synchronizer lifecycle is closed.'
+  },
+  BUILDING_SPECIAL_SEMANTICS_UNRESOLVED: {
+    title: 'Special Building semantics unresolved',
+    message:
+      'Wand has evidence that ordinary placement cannot be assumed, but the exact special lifecycle is unresolved.',
+    action:
+      'Keep the Building fail-closed.'
+  },
+  WEP_BUILDING_SOURCE_GEOMETRY_UNRESOLVED: {
+    title: 'Building geometry unresolved',
+    message:
+      'The Building class is ordinary-capable, but its source footprint is not authoritative enough for portable placement.',
+    action:
+      'Keep placement capture blocked until geometry is resolved.'
+  },
+  WEP_BUILDING_STOCK_OWNERSHIP_VALIDATOR_NOT_BOUND: {
+    title: 'Building stock / ownership check unavailable',
+    message:
+      'Ordinary Building destination placement requires a destination stock/ownership check.',
+    action:
+      'Keep destination placement blocked until this validator is bound.'
+  },
+  WEP_BUILDING_MULTIPLICITY_VALIDATOR_NOT_BOUND: {
+    title: 'Building multiplicity check unavailable',
+    message:
+      'Ordinary Building destination placement requires a current-scene already-placed/multiplicity check.',
+    action:
+      'Keep destination placement blocked until this validator is bound.'
+  },
+  WEP_BUILDING_TYPED_STATE_VALIDATOR_NOT_BOUND: {
+    title: 'Building initial-state check unavailable',
+    message:
+      'Ordinary Building destination placement requires typed initial-state/provider compatibility validation.',
+    action:
+      'Keep destination placement blocked until this validator is bound.'
+  },
+  WEP_BUILDING_STOCK_OWNERSHIP_BLOCKED: {
+    title: 'Building stock / ownership rejected',
+    message:
+      'The destination stock/ownership validator rejected this Building placement.',
+    action:
+      'Do not place the Building at this destination.'
+  },
+  WEP_BUILDING_MULTIPLICITY_BLOCKED: {
+    title: 'Building multiplicity rejected',
+    message:
+      'The destination already-placed/multiplicity validator rejected this Building placement.',
+    action:
+      'Resolve the destination multiplicity conflict.'
+  },
+  WEP_BUILDING_TYPED_STATE_BLOCKED: {
+    title: 'Building typed state incompatible',
+    message:
+      'The destination typed initial-state/provider validator rejected this Building placement.',
+    action:
+      'Do not place the Building with incompatible typed state.'
+  },
+  FULL_DESIGN_DESTINATION_BUILDING_ROUTE_UNRESOLVED: {
+    title: 'Building destination route unresolved',
+    message:
+      'An ordinary Building artifact could not be rebound to a destination-local direct Grid.',
+    action:
+      'Keep this Building destination preflight blocked.'
+  },
+  FULL_DESIGN_DESTINATION_BUILDING_BOUNDS_UNAVAILABLE: {
+    title: 'Building destination bounds unavailable',
+    message:
+      'Authoritative destination GridData bounds or tessellation do not validate this Building placement.',
+    action:
+      'Keep this Building destination preflight blocked.'
+  },
+  FULL_DESIGN_DESTINATION_BUILDING_PLACEMENT_CONTRACT_NOT_BOUND: {
+    title: 'Building placement classifier unavailable',
+    message:
+      'The promoted v1.8/v1.9 FloorType/native placement binding is unavailable for this ordinary Building.',
+    action:
+      'Keep Building placement blocked.'
+  },
+  FULL_DESIGN_DESTINATION_BUILDING_PLACEMENT_PREFLIGHT_ERROR: {
+    title: 'Building placement preflight error',
+    message:
+      'Native placement preflight could not be completed for this ordinary Building.',
+    action:
+      'Keep the Building blocked and review the detailed preflight error.'
+  },
+  FULL_DESIGN_DESTINATION_BUILDING_CLASSIFICATION_MISMATCH: {
+    title: 'Building classification mismatch',
+    message:
+      'The destination preflight classification does not match the source artifact classification evidence.',
+    action:
+      'Do not reinterpret the Building class; rebuild or review the artifact.'
+  },
+  BUILDING_V1_10_TYPED_PREFLIGHT_BLOCKED: {
+    title: 'Building v1.10 preflight blocked',
+    message:
+      'At least one Building did not satisfy its promoted typed category gate.',
+    action:
+      'Review the class-specific blocker before reuse.'
+  },
+  BUILDING_CROSS_GRID_LIFECYCLE_REQUIRED: {
+    title: 'Building cross-Grid transfer blocked',
+    message:
+      'Building cross-Grid transfer requires lifecycle semantics beyond same-Grid ordinary transforms.',
+    action:
+      'Keep cross-Grid Building transfer blocked.'
+  },
+  BUILDING_REMOVAL_LIFECYCLE_WRITE_NOT_AUTHORIZED: {
+    title: 'Building removal writer unavailable',
+    message:
+      'Building removal may update inventory or category-specific state and is not authorized for persistent mutation.',
+    action:
+      'Do not persistently remove this Building.'
+  },
+  BUILDING_BASE_REPLACEMENT_SEMANTICS_UNKNOWN: {
+    title: 'Building base replacement blocked',
+    message:
+      'Generic different-ItemID Building replacement semantics are not promoted.',
+    action:
+      'Do not replace the base Building definition.'
   },
   TOPOLOGY_CLIPPED_UNSUPPORTED: {
     title: 'Road/Fence topology crosses the capture boundary',
