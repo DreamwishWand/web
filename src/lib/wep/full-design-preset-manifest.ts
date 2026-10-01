@@ -456,7 +456,11 @@ function validateRootObjectPortableComposition(
         )
       );
     }
-    for (const field of ['portableCount', 'unresolvedCount']) {
+    for (const field of [
+      'portableCount',
+      'unresolvedCount',
+      'delegatedNetworkCount'
+    ]) {
       const value = safeInteger(summary[field]);
       if (value === null || value < 0) {
         issues.push(
@@ -469,11 +473,33 @@ function validateRootObjectPortableComposition(
     }
     if (summary.objectCount !== null) {
       const objectCount = safeInteger(summary.objectCount);
+      const portableCount = safeInteger(summary.portableCount);
+      const unresolvedCount = safeInteger(summary.unresolvedCount);
+      const delegatedNetworkCount = safeInteger(summary.delegatedNetworkCount);
       if (objectCount === null || objectCount < 0) {
         issues.push(
           block(
             'FULL_DESIGN_ROOT_COMPOSITION_ROUTE_SUMMARY_INVALID',
             `${current}.objectCount`
+          )
+        );
+      } else if (
+        portableCount !== null &&
+        unresolvedCount !== null &&
+        delegatedNetworkCount !== null &&
+        objectCount !==
+          portableCount + unresolvedCount + delegatedNetworkCount
+      ) {
+        issues.push(
+          block(
+            'FULL_DESIGN_ROOT_COMPOSITION_ROUTE_COUNT_MISMATCH',
+            current,
+            {
+              objectCount,
+              portableCount,
+              unresolvedCount,
+              delegatedNetworkCount
+            }
           )
         );
       }
@@ -487,6 +513,39 @@ function validateRootObjectPortableComposition(
         { expected: directRootPaths.size, actual: summaryPaths.size }
       )
     );
+  }
+
+  const delegatedNetworkObjectCount = safeInteger(
+    composition.delegatedNetworkObjectCount
+  );
+  if (delegatedNetworkObjectCount === null || delegatedNetworkObjectCount < 0) {
+    issues.push(
+      block(
+        'FULL_DESIGN_ROOT_COMPOSITION_DELEGATED_COUNT_INVALID',
+        `${path}.delegatedNetworkObjectCount`
+      )
+    );
+  } else {
+    const expectedDelegated = composition.routeSummaries.reduce(
+      (sum: number, summary: unknown) =>
+        sum +
+        (plain(summary) && safeInteger(summary.delegatedNetworkCount) !== null
+          ? Number(summary.delegatedNetworkCount)
+          : 0),
+      0
+    );
+    if (delegatedNetworkObjectCount !== expectedDelegated) {
+      issues.push(
+        block(
+          'FULL_DESIGN_ROOT_COMPOSITION_DELEGATED_COUNT_MISMATCH',
+          `${path}.delegatedNetworkObjectCount`,
+          {
+            expected: expectedDelegated,
+            actual: delegatedNetworkObjectCount
+          }
+        )
+      );
+    }
   }
 
   const objectIds = new Set<string>();
