@@ -6,6 +6,8 @@ const manifestPath = path.join(root, 'ops/community-production-operations.json')
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 const retentionReviewPath = path.join(root, 'ops/community-retention-launch-review.json');
 const retentionReview = JSON.parse(fs.readFileSync(retentionReviewPath, 'utf8'));
+const retentionApprovalPath = path.join(root, 'ops/community-retention-approval-state.json');
+const retentionApproval = JSON.parse(fs.readFileSync(retentionApprovalPath, 'utf8'));
 const authReviewPath = path.join(root, 'ops/community-auth-launch-review.json');
 const authReview = JSON.parse(fs.readFileSync(authReviewPath, 'utf8'));
 const releaseEvidencePath = path.join(root, 'ops/community-production-release-evidence.json');
@@ -35,6 +37,12 @@ assert(retentionReview.schema === 'dreamwish-community-retention-launch-review@1
 assert(retentionReview.engineeringDefaults?.contentPayloadDays === 30, 'Retention review must record the current 30-day content default.');
 assert(retentionReview.engineeringDefaults?.operationalDetailDays === 365, 'Retention review must record the current 365-day operational default.');
 assert(retentionReview.engineeringDefaults?.contentPayloadDaysIsRecoveryWindow === false, '30-day content retention must not be mislabeled as an account recovery window.');
+assert(retentionApproval.schema === 'dreamwish-community-retention-approval-state@1', 'Unexpected retention approval state schema.');
+assert(retentionApproval.engineering?.decisionBoundaryStatus === 'CLOSED', 'Retention engineering decision boundary must remain closed.');
+assert(retentionApproval.engineering?.defaultsAreLegalConclusion === false, 'Retention engineering defaults must not be represented as legal conclusions.');
+assert(retentionApproval.approvals?.product?.status === 'PENDING' || retentionApproval.approvals?.product?.status === 'APPROVED', 'Unexpected Product retention approval state.');
+assert(retentionApproval.approvals?.privacy?.status === 'PENDING' || retentionApproval.approvals?.privacy?.status === 'APPROVED', 'Unexpected Privacy retention approval state.');
+assert(retentionApproval.approvals?.legal?.status === 'PENDING' || retentionApproval.approvals?.legal?.status === 'APPROVED', 'Unexpected Legal retention approval state.');
 assert(manifest.releaseGate?.requireAuthLaunchAcceptance === true, 'Final Auth acceptance must remain a production release gate.');
 assert(manifest.authLaunchReview?.contract === 'ops/community-auth-launch-review.json', 'Production manifest must reference the Auth launch review contract.');
 assert(authReview.schema === 'dreamwish-community-auth-launch-review@1', 'Unexpected Auth launch review schema.');
@@ -54,6 +62,8 @@ for (const id of [
   'PRESET_SCENE_REUSE_VERTICAL',
   'PRESET_ARTIFACT_RETENTION_E2E',
   'WEP_PRESET_ARTIFACT_BUCKET_EXTERNALIZATION',
+  'WEP_COMM_MIGRATION_BASELINE_CONSISTENCY',
+  'WEP_PRESET_ARTIFACT_BUCKET_PRODUCTION_MIGRATION',
   'AUTH_PROVIDER_14_15_BOUNDARY',
   'AUTH_PROVIDER_WAND_REVOCATION',
   'AUTH_SIGNED_IN_REAUTH_MAILBOX',
@@ -72,8 +82,17 @@ for (const id of [
 ]) {
   assert(releaseGates.has(id), `Missing production release evidence gate: ${id}`);
 }
+const allowedReleaseClassifications = new Set([
+  'already_closed',
+  'staging_only',
+  'production_only_pending',
+  'approval_pending',
+  'operator_manual_pending',
+  'cross_stream_pending'
+]);
 for (const gate of releaseEvidence.gates ?? []) {
   assert(typeof gate.required === 'boolean', `Release evidence gate ${gate.id} must declare required.`);
+  assert(allowedReleaseClassifications.has(gate.classification), `Release evidence gate ${gate.id} has invalid classification: ${gate.classification}`);
   assert(typeof gate.satisfied === 'boolean', `Release evidence gate ${gate.id} must declare satisfied.`);
   assert(Array.isArray(gate.evidence), `Release evidence gate ${gate.id} must carry an evidence array.`);
   if (gate.satisfied === true) {
@@ -175,6 +194,10 @@ if (process.argv.includes('--require-ready')) {
   assert(manifest.production?.launchReady === true, 'Production operations manifest is not launch-ready.');
   assert(manifest.privacyRetentionReview?.launchApproved === true, 'Production manifest retention approval is not complete.');
   assert(retentionReview.launchApproved === true, 'Retention launch review is not approved.');
+  assert(retentionApproval.launchApproved === true, 'Retention approval state is not launch-approved.');
+  for (const [name, approval] of Object.entries(retentionApproval.approvals ?? {})) {
+    assert(approval?.status === 'APPROVED', `Retention ${name} approval is not approved.`);
+  }
   assert(manifest.authLaunchReview?.launchApproved === true, 'Production manifest Auth launch approval is not complete.');
   assert(authReview.launchApproved === true, 'Auth launch review is not approved.');
   const pendingAuthItems = (authReview.remaining ?? []).filter((item) => item?.status !== 'CLOSED');
