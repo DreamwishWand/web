@@ -1,62 +1,40 @@
-# Linked DDV Profile Identity / Transport Contract — 2026-10-02
+# DDV Profile Identity Transport — 2026-10-02
 
-Status: **TECHNICAL CONTRACT READY / PRIVACY + LEGAL REVIEW PENDING**
+Status: **OPTIONAL WORKSPACE ASSOCIATION IMPLEMENTED IN STAGING / PRIVACY + LEGAL PENDING**
 
 ## Identity source
 
-Use `GameInfo.LastCustomIdOwner` as the DDV Player ID / User ID identity source.
+- Source: `GameInfo.LastCustomIdOwner`
+- Meaning: DDV Player ID / User ID
+- `mdc` is only a Wand/Converter filename convention and is not part of the canonical identity value.
 
-Existing Converter/Wand backup naming represents it as `mdc{GameInfo.LastCustomIdOwner}`.
-The literal `mdc` prefix is a filename convention and is not part of the canonical value.
+The value is an identifier, not a password, ownership proof, Wand authentication factor, recovery factor or entitlement proof.
 
-Current DDV v1.25 evidence confirms the same value in accepted Nintendo Switch and later
-Steam/Windows saves of the same cloud-linked DDV Profile. One cross-save profile therefore consumes
-one Linked DDV Profile slot.
+## Workspace relationship
 
-## Data-minimization boundary
+A Wand Profile Workspace does not require a Player ID. A Wizard may associate the Player ID later by manual entry or when Wand observes it while parsing a local save. Both paths resolve to the same optional identity association.
 
-- Parse the save locally.
-- Extract only `GameInfo.LastCustomIdOwner` for linking.
-- Do not upload the raw save for normal linking.
-- Do not persist the raw Player ID.
-- Do not publish or index the raw Player ID.
-- Keep `verification_evidence_ref` empty by default.
+Within one Wand Account, one digest may map to at most one Workspace. Across different Wand Accounts the same digest may be associated independently. Private Workspace data is never merged or exposed because of a matching digest.
 
-The authenticated backend converts the transient Player ID into a versioned server-keyed digest and
-stores only that digest in `ddv_profiles.binding_key_hash`.
+## Transport and storage
 
-## Link behavior
-
-- linking requires recent Wand authentication;
-- same Player ID + same Wand Account is idempotent;
-- same Player ID already bound elsewhere fails without revealing the other owner;
-- the existing maximum of three Linked DDV Profiles still applies;
-- unexpected identity conflicts fail closed;
-- platform/device identifiers do not define DDV Profile identity.
-
-## Security boundary
-
-The DDV Player ID is a persistent pseudonymous identifier, not a Wand password, recovery secret or
-entitlement token.
-
-It must never be used to grant Wand authentication, account recovery, Moonstones, Premium/DLC
-entitlement or other online rights.
+- raw save upload is not required;
+- raw Player ID travels only in the authenticated request body over TLS;
+- it must not appear in URL paths, query strings, analytics or application logs;
+- Edge validates the opaque string and derives HMAC-SHA-256;
+- domain separation: `dreamwishwand/ddv-player-id/v1\0`;
+- PostgreSQL receives only `hmac-sha256:v1:<hex>`;
+- stored relation: `private.ddv_identity_associations.binding_key_hash`;
+- raw Player ID is not persisted.
 
 ## Lifecycle
 
-The existing Product-approved lifecycle remains unchanged:
+- self-service unlink is allowed and does not delete the Workspace;
+- no ordinary relink cooldown applies;
+- Workspace deletion is separate, destructive and requires explicit confirmation;
+- Workspace deletion removes its identity association;
+- account deletion removes the account's Workspaces and identity-association state.
 
-- no ordinary self-service unlink/rebind;
-- exceptional correction requires recent authentication, support/admin review, reason and audit;
-- ordinary revoked/unlinked/account-deletion binding digest is retained for at most 7 days;
-- only a justified moderation/security/legal hold may extend that period.
+## Remaining acceptance
 
-Because the raw Player ID is intentionally not retained, any future digest-key replacement must use
-an explicit re-verification/migration procedure rather than retaining raw IDs for convenience.
-
-## Minors
-
-A parent/guardian Wand Account may link/manage an under-13 DDV Profile within the existing
-three-profile limit. No separate under-13 Wand credentials are created.
-
-Under-13 Community participation scope remains a separate Privacy/Legal decision.
+The digest-only DB path and Workspace lifecycle have staging runtime PASS evidence. Live raw Player ID Edge E2E remains pending staging HMAC-secret configuration. Privacy and Legal review remain launch gates.
