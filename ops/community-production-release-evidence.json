@@ -65,14 +65,16 @@
     {
       "id": "WEP_PRESET_ARTIFACT_BUCKET_PRODUCTION_MIGRATION",
       "required": true,
-      "satisfied": false,
+      "satisfied": true,
       "owner": "02 WEP",
-      "classification": "cross_stream_pending",
+      "classification": "already_closed",
       "evidence": [
-        "dev/wep-v125@3684939a5c147430e6c41bedc6620c9b6f030b6d",
-        "supabase/migrations/20260930124055_wep_preset_artifact_storage_v0.sql@f1370166dec78793ee82a5206a87999c61900b15"
+        "dev/wep-v125@f7236064ef9a4b623efabe1d9d75211af081cbcf",
+        "supabase/migrations/20260930124055_wep_preset_artifact_storage_v0.sql@099d7d4f6a653b1268596ab9a12d470e8b6760a2",
+        "supabase/staging/20260930124055_wep_preset_artifact_storage_bucket.sql@e3af6f5d019365f4dfc507d27e37a0b6810e2b16",
+        "scripts/verify-community-integrated-production-tree.mjs@006b02f70d2d99761a07f2eca62443e8609d720c"
       ],
-      "pendingReason": "The migration still creates wand-preset-artifacts-staging. Fresh production replay must not create or use the staging bucket."
+      "detail": "Production migration provisioning is statically closed. Runtime Edge externalization remains unchanged; final fresh-target migration replay is a separate production-only gate."
     },
     {
       "id": "AUTH_PROVIDER_14_15_BOUNDARY",
