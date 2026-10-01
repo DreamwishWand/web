@@ -235,3 +235,30 @@ Recommended review result at this point:
 `REVIEW_READY_WITH_OPEN_PRIVACY_DECISIONS`.
 
 No further retention runtime test is required. Provider selection is closed. The next substantive inputs are P1/P2 Linked DDV Profile semantics, launch age/jurisdictions, and release-stage contractual/runtime binding of Supabase Pro + Cloudflare R2 Standard.
+
+
+## Linked DDV Profile Product decision — 2026-10-02
+
+Product has now closed the lifecycle decision:
+
+- maximum three linked DDV Profiles per Wand Account;
+- no ordinary self-service unlink/rebind;
+- exceptional correction only after recent authentication plus support/admin review;
+- correction requires a recorded reason and AuditEvent;
+- raw saves and raw verification evidence are not retained after successful verification;
+- ordinary binding tombstone duration is **7 days** after unlink/account deletion or support correction;
+- after seven days the ordinary tombstone is removed and re-link may be allowed;
+- D4 moderation/security/legal hold is the only justified extension;
+- entitlement/authentication identifiers are not valid binding inputs.
+
+This resolves the Product portion of P1/P2.
+
+Privacy approval is still pending because DDV Core has not yet confirmed a stable local DDV Profile
+identifier. Whole-save hashes/profile hashes are not acceptable substitutes because they change
+with save content. The final keyed-digest construction and verification transport must be reviewed
+once the stable identifier is confirmed.
+
+Canonical Product record:
+
+- `ops/community-linked-ddv-profile-product-decision-20261002.json`
+- `docs/community/linked-ddv-profile-product-decision-20261002.md`
