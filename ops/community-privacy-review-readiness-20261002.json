@@ -1,0 +1,222 @@
+{
+  "schema": "dreamwish-community-privacy-review-readiness@1",
+  "reviewedAt": "2026-10-02",
+  "scope": "Community Core privacy review readiness; engineering is not reopened",
+  "state": "REVIEW_READY_WITH_OPEN_PRIVACY_DECISIONS",
+  "approval": {
+    "product": "APPROVED",
+    "privacy": "PENDING",
+    "legal": "PENDING",
+    "launchApproved": false
+  },
+  "confirmedControls": [
+    {
+      "id": "MINIMIZATION_RETENTION",
+      "status": "CONFIRMED",
+      "facts": [
+        "User-authored payload purge is scheduled within 7 days after immediate irreversible account/community removal.",
+        "Operational detail is scrubbed at 90 days.",
+        "There is no fixed 365-day elevated tier.",
+        "D4 moderation/security/legal holds are the only Product-approved exception and must remain justified."
+      ]
+    },
+    {
+      "id": "DELETION_SEMANTICS",
+      "status": "CONFIRMED",
+      "facts": [
+        "Creator identity is anonymized/private immediately.",
+        "Owned works are hidden/deleted from Community access and search immediately.",
+        "Comments are replaced with [deleted] and marked deleted.",
+        "Saved items, follows, reactions, notification deliveries, and WandAccount-DDVProfile links are deleted immediately.",
+        "Auth identity is retired and provider-account cleanup is queued."
+      ]
+    },
+    {
+      "id": "VISIBILITY_ACCESS",
+      "status": "CONFIRMED",
+      "facts": [
+        "PUBLIC published clear works are discoverable and directly accessible.",
+        "UNLISTED published clear works are directly accessible when the identifier/link is known but are not public discovery results.",
+        "PRIVATE works are owner/staff only.",
+        "Linked DDV Profile rows are owner/staff only.",
+        "Reports are reporter/staff; moderation cases/actions and audit events are staff-only."
+      ]
+    },
+    {
+      "id": "MEDIA_OBJECT_STORAGE",
+      "status": "CONFIRMED",
+      "facts": [
+        "Observed staging media and Preset buckets are private.",
+        "Community media read access is authorization-gated and uses a signed URL with 300-second lifetime.",
+        "Community media responses use Cache-Control private, no-store.",
+        "Non-staging Community/WEP bucket configuration fails closed if required explicit bucket configuration is missing."
+      ]
+    },
+    {
+      "id": "BACKUP_RESURRECTION_PREVENTION",
+      "status": "DESIGN_CONFIRMED_RUNTIME_PENDING",
+      "facts": [
+        "Restore is quarantine-first.",
+        "Recovery Deletion Ledger is outside the primary rollback domain and limited by contract to deletionEventId, accountId, requestedAt.",
+        "Ledger retention target is 90 days.",
+        "Promotion is blocked if deletion reconciliation is unavailable or incomplete.",
+        "Actual production backup/storage providers and restore drills remain pending."
+      ]
+    },
+    {
+      "id": "PROVIDER_BOUNDARY",
+      "status": "CONFIRMED_DESIGN_PROVIDER_BINDING_PENDING",
+      "facts": [
+        "Wand does not claim provider-controlled backups/logs/email copies obey the primary 7-day/90-day timers.",
+        "Production Supabase plan and independent Storage recovery provider remain unselected.",
+        "Material provider retention and region/cross-border facts must be bound and disclosed before final Privacy approval."
+      ]
+    }
+  ],
+  "openDecisions": [
+    {
+      "id": "P1_LINKED_DDV_PROFILE_ORPHAN_MINIMIZATION",
+      "severity": "BLOCKER_FOR_PRIVACY_APPROVAL",
+      "evidence": [
+        "Account deletion removes public.wand_account_ddv_profiles rows.",
+        "Account deletion does not delete or revoke the corresponding public.ddv_profiles row.",
+        "ddv_profiles retains binding_key_hash unless another process changes it.",
+        "No canonical definition was found for binding_key_hash derivation or verification_evidence_ref lifecycle."
+      ],
+      "requiredDecision": [
+        "Define the raw value represented by binding_key_hash and the exact one-way construction, including salt/pepper/key-management assumptions.",
+        "Define whether the retained hash can be linked or brute-forced from DDV identifiers.",
+        "Define verification_evidence_ref contents/location and deletion lifecycle.",
+        "Choose the post-unlink/account-deletion behavior for orphan ddv_profiles: delete, revoke+null hash, or documented minimized retention with a purpose/horizon."
+      ],
+      "engineeringAction": "NONE_UNTIL_PRIVACY_PRODUCT_DECISION"
+    },
+    {
+      "id": "P2_LINKED_DDV_PROFILE_CORRECTION_UNLINK",
+      "severity": "PRIVACY_LEGAL_DECISION",
+      "evidence": [
+        "The model enforces at most three linked DDV profiles.",
+        "No ordinary self-service link correction/unlink command was found in the reviewed Community source.",
+        "Account deletion removes the account-to-DDV-profile link."
+      ],
+      "requiredDecision": [
+        "Decide how a Wizard corrects a mistaken or obsolete link without deleting the entire Wand Account.",
+        "Determine whether unlink/rebind is required by the launch jurisdictions or Product policy."
+      ],
+      "engineeringAction": "NONE_UNTIL_DECISION"
+    },
+    {
+      "id": "P3_UNLISTED_DISCLOSURE",
+      "severity": "DISCLOSURE_REQUIRED",
+      "evidence": [
+        "UNLISTED published clear works are direct-readable by anon/authenticated callers who know the work identifier/link.",
+        "UNLISTED works are not public discovery results."
+      ],
+      "requiredDecision": [
+        "User-facing visibility copy must say unlisted means link/identifier access, not private.",
+        "Terms/Privacy wording must not imply only the owner can read unlisted work."
+      ],
+      "engineeringAction": "NO_RUNTIME_CHANGE_REQUIRED"
+    },
+    {
+      "id": "P4_AGE_AND_MINORS",
+      "severity": "BLOCKER_FOR_FINAL_PRIVACY_LEGAL_APPROVAL",
+      "evidence": [
+        "No canonical minimum-age, minor-consent, or age-assurance launch policy was found.",
+        "The service includes user accounts, profiles, media, comments, publishing and moderation."
+      ],
+      "requiredDecision": [
+        "Define intended launch audience and jurisdictions.",
+        "External Legal must determine whether COPPA, DSA minor protections, or other child-privacy rules apply and what age/consent/assurance flow is required."
+      ],
+      "engineeringAction": "NONE_UNTIL_LEGAL_PRODUCT_DECISION"
+    },
+    {
+      "id": "P5_PRODUCTION_PROCESSOR_BINDING",
+      "severity": "BLOCKER_FOR_FINAL_PRIVACY_APPROVAL",
+      "evidence": [
+        "Production Supabase project/plan does not exist.",
+        "Independent Storage recovery provider is TBD.",
+        "Current D6/D7 are design contracts, not provider-specific runtime evidence."
+      ],
+      "requiredDecision": [
+        "Bind actual production provider, plan, region, backup/log retention, subprocessor/DPA/transfer terms and Storage recovery provider before final Privacy approval."
+      ],
+      "engineeringAction": "PRODUCTION_RESOURCE_DECISION_GATE"
+    },
+    {
+      "id": "P6_MODERATION_AUDIT_FREE_TEXT",
+      "severity": "GOVERNANCE_REQUIRED",
+      "evidence": [
+        "Report detail, moderation action reason/state, retention-hold reason and some audit metadata can contain free text/JSON.",
+        "These are restricted by RLS/staff boundaries and operational detail is minimized at the 90-day stage."
+      ],
+      "requiredDecision": [
+        "Adopt operator guidance to avoid copying unnecessary personal/sensitive information into free-text fields.",
+        "Legal/Privacy must define when an active case/hold justifies retention beyond the normal scrub."
+      ],
+      "engineeringAction": "NO_SCHEMA_CHANGE_REQUIRED_UNLESS_REVIEW_REQUESTS_ONE"
+    },
+    {
+      "id": "P7_DELETION_LEDGER_RUNTIME_GUARDS",
+      "severity": "PRODUCTION_RUNTIME_GATE",
+      "evidence": [
+        "Contract field set is minimized.",
+        "External storage/encryption/access logging and 90-day deletion are not yet production-implemented."
+      ],
+      "requiredDecision": [
+        "Select external rollback-independent storage and prove encryption, operator-only access, auditability, expiry and restore reconciliation."
+      ],
+      "engineeringAction": "PRODUCTION_ONLY"
+    },
+    {
+      "id": "P8_MEDIA_STORAGE_KEY_PSEUDONYM",
+      "severity": "ACCEPT_OR_CHANGE",
+      "evidence": [
+        "Community upload storage keys are prefixed by the Auth subject.",
+        "Buckets are private and read access is signed/authorized.",
+        "Content payload is purged within 7 days under the approved D1 design."
+      ],
+      "requiredDecision": [
+        "Privacy should explicitly accept the provider-subject prefix as a short-lived backend pseudonymous identifier or request an opaque identifier migration."
+      ],
+      "engineeringAction": "NO_CHANGE_UNLESS_PRIVACY_REQUESTS_ONE"
+    },
+    {
+      "id": "P9_DATA_RIGHTS_WORKFLOW",
+      "severity": "LEGAL_PRIVACY_DECISION",
+      "evidence": [
+        "Account deletion exists and is proven.",
+        "No single canonical launch workflow for access/export/correction/objection requests was found."
+      ],
+      "requiredDecision": [
+        "After launch jurisdictions are fixed, define required access/correction/export/objection/appeal workflows and response channels."
+      ],
+      "engineeringAction": "NONE_UNTIL_LEGAL_SCOPE"
+    },
+    {
+      "id": "P10_PROVIDER_CLEANUP_SUBJECT",
+      "severity": "ACCEPTABLE_NECESSITY_REQUIRES_PRIVACY_ACCEPTANCE",
+      "evidence": [
+        "private.provider_cleanup_jobs retains provider_subject while provider deletion is pending.",
+        "The field is needed to identify the provider account to delete.",
+        "Completed provider-cleanup jobs are removed by the operational scrub."
+      ],
+      "requiredDecision": [
+        "Privacy should record the provider-subject retention purpose as deletion execution/retry only and disallow secondary use."
+      ],
+      "engineeringAction": "NO_RUNTIME_CHANGE_REQUIRED"
+    }
+  ],
+  "legalReviewDependencies": [
+    "launch_jurisdictions",
+    "age_minors_policy",
+    "privacy_rights_workflow",
+    "ugc_terms_license_and_moderation",
+    "copyright_notice_takedown_strategy",
+    "processor_dpa_and_cross_border_transfer_review"
+  ],
+  "engineeringConclusion": "NO_RETENTION_ENGINEERING_CHANGE_REQUIRED_AT_THIS_STAGE",
+  "privacyApprovalReady": false,
+  "nextAction": "Resolve P1, P2, P4, P5 and jurisdiction-dependent P9 through Privacy/Legal/Product review; only then decide whether targeted implementation changes are needed."
+}
