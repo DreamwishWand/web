@@ -1851,7 +1851,7 @@ test('Community production manifest separates WEP function externalization from 
   assert.ok(blocker);
   assert.equal(blocker.owner, '02 WEP');
   assert.equal(blocker.state, 'CLOSED');
-  assert.match(blocker.detail, /WEP_PRESET_ARTIFACT_BUCKET/);
+  assert.match(blocker.detail, /environment-aware/i);
   assert.match(blocker.detail, /known staging/i);
 
   const provisioning = manifest.crossStreamBlockers.find(
