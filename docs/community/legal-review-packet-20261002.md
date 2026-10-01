@@ -301,22 +301,37 @@ https://cppa.ca.gov/faq
 
 The existence of Wand's account-deletion path does not establish complete CCPA compliance.
 
-## 13. Children / minors — launch blocker for Legal review
+## 13. Children / minors — Product boundary fixed, Legal review still required
 
-No canonical Wand launch age floor or minors/parental-consent model is currently fixed.
+Product has fixed the eligibility model:
 
-External Legal must decide this before final Legal approval.
+- minimum age for an **independent Wand Account is 13**;
+- users under 13 may not independently register;
+- accountless local functionality remains available, including local save-file editing and local
+  Editor/read-only workflows;
+- a parent or guardian may use their own Wand Account to associate/manage an under-13 user's DDV
+  Profile;
+- the under-13 user receives no separate Wand credentials;
+- the existing maximum-three Linked DDV Profiles per Wand Account remains applicable.
 
-For the U.S., FTC COPPA materials explain that COPPA can apply to services directed to children
-under 13 and to general-audience services with actual knowledge that they are collecting personal
-information from a child under 13:
-https://www.ftc.gov/legal-library/browse/rules/childrens-online-privacy-protection-rule-coppa
+Decision evidence:
 
-For the EU, the Commission has DSA guidance on protection of minors:
-https://digital-strategy.ec.europa.eu/en/policies/dsa-guidelines
+- `ops/community-age-minors-product-decision-20261002.json`
+- `docs/community/age-minors-product-decision-20261002.md`
 
-The correct response is not to add an age-verification vendor now. First define launch audience,
-jurisdictions and the legally required approach.
+This is a Product contract, **not a Legal conclusion**.
+
+External Legal/Privacy must still determine:
+
+1. the legally sufficient and privacy-minimized age-gate/age-assurance implementation;
+2. whether parental notice, consent or verification is required, and in which launch jurisdictions;
+3. what under-13 Community actions, if any, may be performed through a parent/guardian-managed
+   account and under what safeguards;
+4. requirements applicable to users aged 13–17;
+5. the required Terms, Privacy Policy and Community Rules wording.
+
+Do not select an age-verification vendor or implement a complex parental-consent system until those
+questions are resolved.
 
 ## 14. Moderation / legal holds
 
@@ -358,7 +373,7 @@ At minimum:
 
 1. launch operator/legal entity and contact;
 2. launch countries/regions and intended audience;
-3. age/minor eligibility and any age-assurance/parental-consent requirement;
+3. implementation of the approved 13+ independent-account boundary, under-13 parent-managed Community scope, and any age-assurance/parental-consent requirement;
 4. Privacy Policy legal bases/notices/rights workflow;
 5. processor/DPA/subprocessor/cross-border treatment;
 6. Linked DDV Profile identifier/verification retention and correction/unlink policy;
