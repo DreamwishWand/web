@@ -101,6 +101,7 @@ export function preflightCurrentV125FullDesignManifest({
       rootObjectRouteBindingReady: false,
       rootObjectPlacementPreflightReady: false,
       ordinaryBuildingPlacementReady: false,
+      buildingSemanticClosureReady: false,
       buildingSkinPreflightReady: false,
       playerHouseBindingPreflightReady: false,
       buildingRestorationPreflightReady: false,
@@ -512,15 +513,23 @@ export function preflightCurrentV125FullDesignManifest({
   const ordinaryBuildingPlacementReady =
     buildingCategory?.requested !== true ||
     ordinaryPlacement?.destinationPlacementStatus === 'NOT_APPLICABLE';
+  const buildingSemanticClosureReady =
+    buildingCategory?.requested !== true ||
+    (
+      buildingCategory?.coverageStatus === 'not_applicable' &&
+      ordinaryPlacement?.destinationPlacementStatus === 'NOT_APPLICABLE' &&
+      buildingCategory?.buildingSkins?.semanticStatus === 'NOT_APPLICABLE' &&
+      buildingCategory?.playerHouses?.semanticStatus === 'NOT_APPLICABLE'
+    );
 
   if (
     buildingCategory?.requested === true &&
-    !ordinaryBuildingPlacementReady
+    !buildingSemanticClosureReady
   ) {
     issues.push(
       block(
-        'FULL_DESIGN_DESTINATION_ORDINARY_BUILDING_PLACEMENT_UNCLOSED',
-        '$.categories.buildings.ordinaryPlacement',
+        'BUILDING_DESTINATION_SEMANTICS_UNRESOLVED',
+        '$.categories.buildings',
         {
           sourceRecognition: String(
             ordinaryPlacement?.sourceRecognition ?? 'UNKNOWN'
@@ -528,9 +537,16 @@ export function preflightCurrentV125FullDesignManifest({
           recognizedCount: Number(
             ordinaryPlacement?.recognizedCount ?? 0
           ),
-          destinationPlacementStatus: String(
+          ordinaryPlacementStatus: String(
             ordinaryPlacement?.destinationPlacementStatus ?? 'UNKNOWN'
-          )
+          ),
+          buildingSkinSemanticStatus: String(
+            buildingCategory?.buildingSkins?.semanticStatus ?? 'UNKNOWN'
+          ),
+          playerHouseSemanticStatus: String(
+            buildingCategory?.playerHouses?.semanticStatus ?? 'UNKNOWN'
+          ),
+          evidenceOwner: '01B_CORE_3'
         }
       )
     );
@@ -692,7 +708,7 @@ export function preflightCurrentV125FullDesignManifest({
     routeResolutionReady &&
     rootObjectRouteBindingReady &&
     rootObjectPlacementPreflightReady &&
-    ordinaryBuildingPlacementReady &&
+    buildingSemanticClosureReady &&
     buildingRestorationPreflightReady &&
     environmentPreflightReady &&
     issues.length === 0;
@@ -710,6 +726,7 @@ export function preflightCurrentV125FullDesignManifest({
     rootObjectPlacementPreflightReady,
     nativePlacementContractBound: Boolean(placementBinding),
     ordinaryBuildingPlacementReady,
+    buildingSemanticClosureReady,
     buildingSkinPreflightReady,
     playerHouseBindingPreflightReady,
     buildingRestorationPreflightReady,
@@ -724,6 +741,13 @@ export function preflightCurrentV125FullDesignManifest({
       semanticIdentity: clone(normalized.semanticIdentity),
       directRootResolutions: routeResolutions,
       rootObjectRouteBindings: clone(rootObjectRouteBindings),
+      buildingSemanticStatus: {
+        closureReady: buildingSemanticClosureReady,
+        evidenceOwner: buildingSemanticClosureReady ? null : '01B_CORE_3',
+        blocker: buildingSemanticClosureReady
+          ? null
+          : 'BUILDING_DESTINATION_SEMANTICS_UNRESOLVED'
+      },
       ordinaryBuildingPlacement: clone(ordinaryPlacement ?? null),
       buildingSkinPreflights: clone(buildingSkinPreflights),
       playerHouseBindingPreflights: clone(playerHouseBindingPreflights),
