@@ -1812,3 +1812,43 @@ test('Community production migration versions are unique and staging-only SQL is
     )
   );
 });
+
+
+test('Community Edge production resources are environment-aware and fail closed outside known staging', () => {
+  const media = read('supabase/functions/community-media/index.ts');
+  const retention = read('supabase/functions/community-retention/index.ts');
+  const opsEmail = read('supabase/functions/community-ops-email/index.ts');
+  const escalation = read('supabase/functions/community-ops-escalation/index.ts');
+
+  for (const source of [media, retention]) {
+    assert.match(source, /COMMUNITY_MEDIA_BUCKET/);
+    assert.match(source, /KNOWN_STAGING_PROJECT_REF/);
+    assert.match(source, /required outside the known staging project/);
+  }
+
+  for (const source of [opsEmail, escalation]) {
+    assert.match(source, /DREAMWISH_ENVIRONMENT/);
+    assert.match(source, /ENVIRONMENT_LABEL/);
+    assert.doesNotMatch(source, /environment:\s*'staging'/);
+    assert.match(source, /required outside the known staging project/);
+  }
+
+  assert.doesNotMatch(media, /Invalid staging image size/);
+});
+
+test('Community production manifest requires final integrated replay and tracks WEP bucket externalization', () => {
+  const manifest = JSON.parse(read('ops/community-production-operations.json'));
+  assert.equal(manifest.migrationPolicy.productionReplayRequiresIntegratedTree, true);
+  assert.equal(manifest.integration.productionReplaySource, 'final-integrated-main');
+  assert.equal(manifest.integration.communityBranchAloneIsNotProductionComplete, true);
+  assert.ok(manifest.production.requiredEnvironmentConfig.includes('DREAMWISH_ENVIRONMENT'));
+  assert.ok(manifest.production.requiredEnvironmentConfig.includes('COMMUNITY_MEDIA_BUCKET'));
+
+  const blocker = manifest.crossStreamBlockers.find(
+    (item) => item.id === 'WEP_PRESET_ARTIFACT_BUCKET_EXTERNALIZATION'
+  );
+  assert.ok(blocker);
+  assert.equal(blocker.owner, '02 WEP');
+  assert.equal(blocker.state, 'OPEN');
+  assert.match(blocker.detail, /wand-preset-artifacts-staging/);
+});
