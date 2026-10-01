@@ -417,3 +417,84 @@ test('Excluding a required full-design category remains publication-blocking', (
   assert.equal(plan.publicationReady, false);
   assert.equal(plan.applyReady, false);
 });
+
+
+test('full-design Road capture consumes current logical draft instead of stale source save state', () => {
+  const first = v17Document(
+    'GridData/Test/Biome-A.json',
+    10,
+    80,
+    60
+  );
+  first.networks.roads = {
+    schema: 'dreamwish-wand-wep-roadfence-logical-root-draft',
+    version: 1,
+    kind: 'roads',
+    originPolicy: 'native-logical-root',
+    coordinatePolicy: 'per-network-reader-coordinate-space',
+    networks: [
+      {
+        networkId: 'draft-r0',
+        kind: 'road',
+        familyBaseItemID: 40100068,
+        coordinateSpace: {
+          unit: 'road-cell',
+          savePitch: 2,
+          saveResidueX: 0,
+          saveResidueY: 0
+        },
+        cells: [
+          { x: 5, y: 5, mode: 'orthogonal' },
+          { x: 6, y: 5, mode: 'orthogonal' }
+        ],
+        logicalQuantity: 2,
+        persistentWriteAuthorized: false
+      }
+    ],
+    normalization: {
+      sourceGridObjectIdsRemoved: true,
+      sourceReaderProvenanceRemoved: true,
+      logicalCoordinatesPreserved: true,
+      coordinateSpacePreserved: true,
+      partialTopologyFailsClosed: true
+    },
+    persistentWriteAuthorized: false
+  };
+
+  const plan = buildCurrentV125FullDesignCapturePlan({
+    profile: makeProfile(),
+    rootGridId: 10,
+    sourcePlatform: 'switch',
+    rootEditorDocuments: [
+      first,
+      v17Document(
+        'GridData/Test/Biome-B.json',
+        11,
+        40,
+        30
+      )
+    ]
+  });
+
+  assert.equal(plan.categories.roads.disposition, 'captured');
+  const capture =
+    plan.categories.roads.networkCaptures[0].network;
+  assert.equal(capture.networks.length, 1);
+  assert.equal(
+    capture.networks[0].familyBaseItemID,
+    40100068
+  );
+  assert.deepEqual(
+    capture.networks[0].cells,
+    [
+      { x: 10, y: 10, mode: 'orthogonal' },
+      { x: 12, y: 10, mode: 'orthogonal' }
+    ]
+  );
+  assert.equal(
+    plan.manifestValidation.ok,
+    true
+  );
+  assert.equal(plan.publicationReady, false);
+  assert.equal(plan.applyReady, false);
+});
