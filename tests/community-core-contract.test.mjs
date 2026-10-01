@@ -2686,7 +2686,7 @@ test('Legal packet is explicitly non-approval and jurisdiction decisions remain 
   const packet = read('docs/community/legal-review-packet-20261002.md');
 
   assert.match(packet, /LEGAL NOT APPROVED/);
-  assert.match(packet, /not a legal opinion/i);
+  assert.match(packet, /not a legal\s+opinion/i);
   assert.match(packet, /age\/minor/i);
   assert.match(packet, /Linked DDV Profile/i);
   assert.match(packet, /DMCA/i);
