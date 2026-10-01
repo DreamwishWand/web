@@ -675,7 +675,8 @@ export function preflightCurrentV125FullDesignManifest({
 
   let buildingV110TypedPreflightReady =
     buildingCategory?.requested !== true ||
-    typedBuildingEntries.length === 0;
+    typedBuildingEntries.length === 0 ||
+    Boolean(buildingBinding);
 
   if (
     buildingCategory?.requested === true &&
