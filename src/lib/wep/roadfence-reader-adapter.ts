@@ -182,6 +182,72 @@ export function createSwitchV125RoadFenceReaderBinding({
     }
   });
 
+  function captureRootDraft(document: EditorDocument) {
+    const bounds = document?.metadata?.rootGridBounds;
+    if (
+      !bounds ||
+      bounds.status !== 'AUTHORITATIVE_GRIDDATAPATH' ||
+      !Number.isSafeInteger(Number(bounds.x)) ||
+      !Number.isSafeInteger(Number(bounds.y)) ||
+      !Number.isSafeInteger(Number(bounds.w)) ||
+      !Number.isSafeInteger(Number(bounds.h)) ||
+      Number(bounds.w) <= 0 ||
+      Number(bounds.h) <= 0
+    ) {
+      return {
+        status: 'blocked',
+        code: 'WEP_ROADFENCE_ROOT_BOUNDS_REQUIRED',
+        issues: [
+          {
+            severity: 'BLOCK' as const,
+            code: 'WEP_ROADFENCE_ROOT_BOUNDS_REQUIRED'
+          }
+        ],
+        networks: { roads: null, fences: null },
+        persistentWriteAuthorized: false
+      };
+    }
+
+    const region = {
+      x: Number(bounds.x),
+      y: Number(bounds.y),
+      w: Number(bounds.w),
+      h: Number(bounds.h)
+    };
+    const roads = networkAdapter.capture('roads', document, region);
+    const fences = networkAdapter.capture('fences', document, region);
+    const issues = [
+      ...(roads?.issues ?? []),
+      ...(fences?.issues ?? [])
+    ];
+    const supported =
+      roads?.status === 'supported' &&
+      fences?.status === 'supported';
+
+    return {
+      status: supported ? 'supported' : 'blocked',
+      code: supported
+        ? null
+        : String(
+            roads?.code ??
+              fences?.code ??
+              'WEP_ROADFENCE_ROOT_CAPTURE_BLOCKED'
+          ),
+      issues: clone(issues),
+      networks: {
+        roads:
+          roads?.status === 'supported'
+            ? clone(roads.data)
+            : null,
+        fences:
+          fences?.status === 'supported'
+            ? clone(fences.data)
+            : null
+      },
+      persistentWriteAuthorized: false
+    };
+  }
+
   return Object.freeze({
     source: Object.freeze({
       mergeCommit: ROADFENCE_READER_MAIN_MERGE_COMMIT,
@@ -192,6 +258,7 @@ export function createSwitchV125RoadFenceReaderBinding({
     }),
     summary: safeSummary,
     networkAdapter,
+    captureRootDraft,
     fenceRepresentationLayout,
     fencePostEditor: fenceRepresentationLayout,
     persistentWriteAuthorized: false
