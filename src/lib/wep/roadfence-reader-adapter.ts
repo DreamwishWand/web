@@ -10,6 +10,9 @@ import type {
   EditorDocument,
   NetworkCaptureAdapter
 } from './scene-capture-runtime.ts';
+import {
+  createFencePostLayoutDraft
+} from './fence-post-edit-contract.ts';
 
 type AnyRecord = Record<string, any>;
 
@@ -103,6 +106,35 @@ export function createSwitchV125RoadFenceReaderBinding({
     persistentWriteAuthorized: false
   });
 
+  const fencePostEditor = Object.freeze({
+    listNetworks() {
+      if (readerResult.status !== 'supported' || readerResult.ok !== true) {
+        return [];
+      }
+      return (readerResult.fences ?? []).map((network: AnyRecord) => ({
+        networkId: String(network.networkId),
+        familyBaseItemID: Number(network.familyBaseItemID),
+        familyName: String(network.familyName ?? ''),
+        mode: String(network.mode ?? ''),
+        logicalQuantity: Number(network.logicalQuantity ?? 0),
+        persistentWriteAuthorized: false
+      }));
+    },
+    createDraft(networkId: string) {
+      if (readerResult.status !== 'supported' || readerResult.ok !== true) {
+        return readerBlockResult(readerResult);
+      }
+      const result = createFencePostLayoutDraft(
+        readerResult,
+        String(networkId)
+      );
+      if (result?.draft?.persistentWriteAuthorized !== false) {
+        throw new Error('WEP_FENCE_POST_WRITE_BOUNDARY_VIOLATION');
+      }
+      return clone(result);
+    }
+  });
+
   const networkAdapter: NetworkCaptureAdapter = Object.freeze({
     capture(
       kind: 'roads' | 'fences',
@@ -153,6 +185,7 @@ export function createSwitchV125RoadFenceReaderBinding({
     }),
     summary: safeSummary,
     networkAdapter,
+    fencePostEditor,
     persistentWriteAuthorized: false
   });
 }
