@@ -366,9 +366,9 @@ export async function createSwitchV125PlacementLegalityBinding({
 
     if (
       result?.schema !== 'ddv.native-placement-legality@1' ||
-      !Object.values(NATIVE_PLACEMENT_CLASSES).includes(
-        String(result.nativeClass)
-      ) ||
+      !new Set<string>(
+        Object.values(NATIVE_PLACEMENT_CLASSES)
+      ).has(String(result.nativeClass)) ||
       result.persistentWriteAuthorized !== false
     ) {
       throw new Error('WEP_V125_PLACEMENT_CLASSIFIER_RESULT_INVALID');
