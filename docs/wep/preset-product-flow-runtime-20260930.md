@@ -133,3 +133,35 @@ This closes the current WEP P2 runtime gate **through destination preflight**.
 It does not close Core Gate D. Persistent Scene apply, Road/Fence mutation, Biome/Floating Island
 apply, inventory consumption/refund, native identity allocation, codec commit and atomic save
 replacement remain unavailable until their owning Core capabilities are explicitly promoted.
+
+
+## Current product-shaped acceptance boundary — 2026-10-01
+
+The release-facing Scene Preset job is tracked as:
+
+`create → publish → discover → Library → read → validation → destination preflight → Apply boundary`
+
+Current status:
+
+- **create — CONFIRMED:** local Scene capture and WEP artifact validation are implemented. Road/Fence may be included only through the bound 01C read-only reader/Capture Region contract; clipped unsupported topology fails closed.
+- **publish — CONFIRMED:** signed private upload, server WEP validation and Community publication are accepted.
+- **discover — CONFIRMED:** public discovery and exact work→Preset resolution are accepted.
+- **Library — CONFIRMED:** save/query and accessibility semantics are accepted.
+- **read — CONFIRMED:** private signed ArtifactBlob read is accepted.
+- **validation — CONFIRMED:** byte-size, SHA-256 and downloaded WEP artifact revalidation are accepted.
+- **destination preflight — CONFIRMED:** destination-local semantic resolution remains non-writing and fail-closed.
+- **Apply boundary — OPEN / INTENTIONALLY DISABLED:** no persistent DDV writer, atomic commit, save replacement or rollback writer is authorized.
+
+The already-confirmed create-through-preflight stages are not a standing rerun requirement.
+Rerun only the smallest affected delta when their code/configuration contract changes.
+
+The remaining Scene Preset E2E release gate is therefore **Apply only after the owning
+Core/WEP writer gate is explicitly promoted and runtime-accepted**. Until then:
+
+- `persistentWriteAuthorized=false`;
+- `WORLD_PERSISTENT_WRITE_V125=false`;
+- Road topology Apply remains blocked with `ROAD_TOPOLOGY_APPLY_UNAVAILABLE`;
+- no product control may imply that a destination save will be modified.
+
+GridData dimensions, bounds, placement masks and Floating Island legality remain 01B-owned
+authoritative dependencies and must not be synthesized in WEP.
