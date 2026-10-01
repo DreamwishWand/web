@@ -338,9 +338,7 @@ export function preflightCurrentV125FullDesignManifest({
             }
           )
         );
-      } else if (
-        !['furniture', 'landscaping'].includes(String(entry?.layer ?? ''))
-      ) {
+      } else if (String(entry?.layer ?? '') !== 'furniture') {
         boundsValidated = true;
         rootObjectPlacementPreflightReady = false;
         placementBlocker =
