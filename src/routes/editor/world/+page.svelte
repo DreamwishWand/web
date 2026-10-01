@@ -83,6 +83,8 @@
   let switchWorldBinding: any = null;
   let fullDesignPlan: any = null;
   let fullDesignPlanError = '';
+  let fullDesignRootDocuments: any[] = [];
+  let fullDesignSourceRootGridId: number | null = null;
   let fullDesignDestinationFileName = '';
   let fullDesignDestinationPreflight: any = null;
   let fullDesignDestinationError = '';
@@ -210,6 +212,45 @@
 
   function cloneLocal<T>(value: T): T {
     return structuredClone(value);
+  }
+
+  function currentFullDesignDocuments() {
+    if (!fullDesignRootDocuments.length) return [];
+    const currentPath = String(
+      session?.getDocument?.()?.target?.gridDataPath ?? ''
+    );
+    const currentDocument =
+      session && currentPath ? session.getDocument() : null;
+    return fullDesignRootDocuments.map((document: any) =>
+      currentDocument &&
+      String(document?.target?.gridDataPath ?? '') === currentPath
+        ? cloneLocal(currentDocument)
+        : cloneLocal(document)
+    );
+  }
+
+  function rebuildFullDesignPlan() {
+    if (
+      !worldSource ||
+      fullDesignSourceRootGridId === null ||
+      !fullDesignRootDocuments.length
+    ) {
+      return;
+    }
+    try {
+      fullDesignPlan = buildCurrentV125FullDesignCapturePlan({
+        profile: worldSource.profile,
+        rootGridId: fullDesignSourceRootGridId,
+        sourcePlatform: worldSource.saveIdentity.sourcePlatform,
+        rootEditorDocuments: currentFullDesignDocuments()
+      });
+      fullDesignPlanError = '';
+    } catch (error) {
+      fullDesignPlan = null;
+      fullDesignPlanError =
+        error instanceof Error ? error.message : String(error);
+    }
+    resetFullDesignDestination();
   }
 
   function networkContainer(kind: 'road' | 'fence') {
@@ -433,6 +474,7 @@
     lastDraftCommand = command;
     refreshProjection();
     refreshDraftState();
+    rebuildFullDesignPlan();
     syncRoadFenceSelection({ preferKind: kind });
     if (kind === 'fence') {
       syncFencePostDraftFromDocument();
@@ -1053,6 +1095,7 @@
     refreshProjection();
     refreshDraftState();
     syncFencePostDraftFromDocument();
+    rebuildFullDesignPlan();
     fencePostMessage =
       `${label}: Core preflight PASS · Undo/Redo enabled · Scene Preset blocked until representation-layout portability is bound`;
   }
@@ -1382,6 +1425,8 @@
     published = null;
     fullDesignPlan = null;
     fullDesignPlanError = '';
+    fullDesignRootDocuments = [];
+    fullDesignSourceRootGridId = null;
     resetFullDesignDestination();
     resetFloatingIslandPlan();
     resetRoadFenceCapture();
@@ -1536,7 +1581,8 @@
         fencePostValidation = null;
       }
 
-      const fullDesignRootDocuments: any[] = [normalized];
+      fullDesignRootDocuments = [cloneLocal(normalized)];
+      fullDesignSourceRootGridId = Number(rootGridId);
       for (const root of area.roots ?? []) {
         if (Number(root.gridId) === Number(rootGridId)) continue;
         try {
@@ -1571,21 +1617,7 @@
       refreshProjection();
       refreshDraftState();
 
-      try {
-        fullDesignPlan = buildCurrentV125FullDesignCapturePlan({
-          profile: worldSource.profile,
-          rootGridId: Number(rootGridId),
-          sourcePlatform: worldSource.saveIdentity.sourcePlatform,
-          rootEditorDocuments: fullDesignRootDocuments
-        });
-        resetFullDesignDestination();
-      } catch (planningError) {
-        fullDesignPlan = null;
-        fullDesignPlanError =
-          planningError instanceof Error
-            ? planningError.message
-            : String(planningError);
-      }
+      rebuildFullDesignPlan();
 
       const diagnostics = editorDocument.metadata?.diagnostics ?? [];
       const unresolvedBounds = diagnostics.some(
@@ -1628,6 +1660,8 @@
     published = null;
     fullDesignPlan = null;
     fullDesignPlanError = '';
+    fullDesignRootDocuments = [];
+    fullDesignSourceRootGridId = null;
     resetFullDesignDestination();
     resetRoadFenceCapture();
     draftAuthoringBound = false;
@@ -1726,6 +1760,7 @@
       published = null;
       refreshProjection();
       refreshDraftState();
+      rebuildFullDesignPlan();
     } catch (error) {
       message = error instanceof Error ? error.message : String(error);
     }
@@ -1741,6 +1776,7 @@
     refreshProjection();
     refreshDraftState();
     syncFencePostDraftFromDocument();
+    rebuildFullDesignPlan();
     message =
       'Undo restored the draft model, selection, validation and Fence representation state together.';
   }
@@ -1755,6 +1791,7 @@
     refreshProjection();
     refreshDraftState();
     syncFencePostDraftFromDocument();
+    rebuildFullDesignPlan();
     message =
       'Redo restored the draft model, selection, validation and Fence representation state together.';
   }
