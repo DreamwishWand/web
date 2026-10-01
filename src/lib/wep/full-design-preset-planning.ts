@@ -493,6 +493,15 @@ export function buildCurrentV125FullDesignCapturePlan({
           )
         })
       : null;
+  const rootObjectCompositionReady =
+    Boolean(rootObjectComposition) &&
+    rootObjectComposition.status ===
+      'CAPTURED_COMPLETE_FOR_BOUND_DOCUMENTS' &&
+    Array.isArray(rootObjectComposition.unresolved) &&
+    rootObjectComposition.unresolved.length === 0 &&
+    Array.isArray(rootObjectComposition.missingRoutes) &&
+    rootObjectComposition.missingRoutes.length === 0;
+
   const buildingPlacementEntries =
     rootObjectComposition?.unresolved?.filter(
       (entry: AnyRecord) => String(entry?.layer ?? '') === 'building'
@@ -584,9 +593,31 @@ export function buildCurrentV125FullDesignCapturePlan({
     );
   }
   if (requested('rootObjects', requestedCategories)) {
-    issues.push(
-      block('FULL_DESIGN_ALL_ROOT_OBJECT_COMPOSITION_INCOMPLETE', 'rootObjects')
-    );
+    if (!rootObjectComposition) {
+      issues.push(
+        block(
+          'FULL_DESIGN_ROOT_OBJECT_COMPOSITION_UNAVAILABLE',
+          'rootObjects'
+        )
+      );
+    } else {
+      if (rootObjectComposition.unresolved?.length) {
+        issues.push(
+          block(
+            'FULL_DESIGN_ROOT_OBJECT_COMPOSITION_UNRESOLVED',
+            'rootObjects'
+          )
+        );
+      }
+      if (rootObjectComposition.missingRoutes?.length) {
+        issues.push(
+          block(
+            'FULL_DESIGN_ROOT_OBJECT_ROUTE_DOCUMENTS_MISSING',
+            'rootObjects'
+          )
+        );
+      }
+    }
   }
   if (requested('roads', requestedCategories)) {
     if (!roadFenceReaderCoverage) {
@@ -642,7 +673,7 @@ export function buildCurrentV125FullDesignCapturePlan({
       if (buildingPlacementEntries.length > 0) {
         issues.push(
           block(
-            'FULL_DESIGN_ORDINARY_BUILDING_DESTINATION_PLACEMENT_UNCLOSED',
+            'BUILDING_DESTINATION_SEMANTICS_UNRESOLVED',
             'buildings'
           )
         );
@@ -687,11 +718,19 @@ export function buildCurrentV125FullDesignCapturePlan({
     rootObjects: {
       requested: requested('rootObjects', requestedCategories),
       disposition: requested('rootObjects', requestedCategories)
-        ? 'captured_partial'
+        ? rootObjectCompositionReady
+          ? 'captured'
+          : 'captured_partial'
         : 'excluded',
-      coverageStatus: readiness.categories.rootObjects.status,
-      evidenceStatus: readiness.categories.rootObjects.evidenceStatus,
-      contract: readiness.categories.rootObjects.contract,
+      coverageStatus: rootObjectCompositionReady
+        ? 'complete'
+        : readiness.categories.rootObjects.status,
+      evidenceStatus: rootObjectCompositionReady
+        ? 'CONFIRMED_WEP_ALL_DIRECT_ROOT_COMPOSITION'
+        : readiness.categories.rootObjects.evidenceStatus,
+      contract: rootObjectCompositionReady
+        ? 'dreamwish-wand-full-design-root-object-composition@1'
+        : readiness.categories.rootObjects.contract,
       directRootObjectCount: rootObjectPlanning.directRootObjectCount,
       routeObjectCounts: requested('rootObjects', requestedCategories)
         ? clone(rootObjectPlanning.routeObjectCounts)
@@ -723,10 +762,14 @@ export function buildCurrentV125FullDesignCapturePlan({
             ? 'captured_partial'
             : 'blocked'
         : 'excluded',
-      coverageStatus: readiness.categories.roads.status,
-      evidenceStatus: roadFenceReaderBound
-        ? 'CONFIRMED_01C_NATIVE_LOGICAL_READER_BOUND'
-        : readiness.categories.roads.evidenceStatus,
+      coverageStatus: fullRootNetworkCaptureReady
+        ? 'complete'
+        : readiness.categories.roads.status,
+      evidenceStatus: fullRootNetworkCaptureReady
+        ? 'CONFIRMED_01C_FULL_ROOT_LOGICAL_CAPTURE'
+        : roadFenceReaderBound
+          ? 'CONFIRMED_01C_NATIVE_LOGICAL_READER_BOUND'
+          : readiness.categories.roads.evidenceStatus,
       contract: roadFenceReaderBound
         ? '01C-v1.25-native-reader-capture-region'
         : readiness.categories.roads.contract,
@@ -757,10 +800,14 @@ export function buildCurrentV125FullDesignCapturePlan({
             ? 'captured_partial'
             : 'blocked'
         : 'excluded',
-      coverageStatus: readiness.categories.fences.status,
-      evidenceStatus: roadFenceReaderBound
-        ? 'CONFIRMED_01C_NATIVE_LOGICAL_READER_BOUND'
-        : readiness.categories.fences.evidenceStatus,
+      coverageStatus: fullRootNetworkCaptureReady
+        ? 'complete'
+        : readiness.categories.fences.status,
+      evidenceStatus: fullRootNetworkCaptureReady
+        ? 'CONFIRMED_01C_FULL_ROOT_LOGICAL_CAPTURE'
+        : roadFenceReaderBound
+          ? 'CONFIRMED_01C_NATIVE_LOGICAL_READER_BOUND'
+          : readiness.categories.fences.evidenceStatus,
       contract: roadFenceReaderBound
         ? '01C-v1.25-native-reader-capture-region'
         : readiness.categories.fences.contract,
@@ -824,7 +871,7 @@ export function buildCurrentV125FullDesignCapturePlan({
                 ? []
                 : buildingRecognitionComplete
                   ? [
-                      'ORDINARY_BUILDING_DESTINATION_PLACEMENT_UNCLOSED'
+                      'BUILDING_DESTINATION_SEMANTICS_UNRESOLVED'
                     ]
                   : [
                       'ORDINARY_BUILDING_SOURCE_RECOGNITION_INCOMPLETE'
@@ -834,26 +881,32 @@ export function buildCurrentV125FullDesignCapturePlan({
         : null,
       buildingSkins: requested('buildings', requestedCategories)
         ? {
-            codec:
+            provisionalCodec:
               V125_PORTABLE_CONTRACTS.restoration.buildingSkinCodec,
+            semanticStatus: noBuildingsPresent
+              ? 'NOT_APPLICABLE'
+              : 'PROVISIONAL_PENDING_01B',
             entries: clone(buildingSkinEntries),
             nonzeroValidatorRequired:
               buildingSkinEntries.some(
                 (entry: AnyRecord) =>
                   Number(entry?.portableState?.skinItemId ?? 0) !== 0
               ),
+            destinationSemanticsReady: noBuildingsPresent,
             persistentWriteAuthorized: false
           }
         : null,
       playerHouses: requested('buildings', requestedCategories)
         ? {
-            codec:
+            provisionalCodec:
               V125_PORTABLE_CONTRACTS.restoration.playerHouseBindingCodec,
+            semanticStatus: noBuildingsPresent
+              ? 'NOT_APPLICABLE'
+              : 'PROVISIONAL_PENDING_01B',
             entries: clone(playerHouseEntries),
-            destinationBinderRequired:
+            destinationBinderCurrentlyRequired:
               playerHouseEntries.length > 0,
-            identityField: 'houseItemId',
-            portableIdentityShape: 'houseItemId-only',
+            destinationSemanticsReady: noBuildingsPresent,
             persistentWriteAuthorized: false
           }
         : null,
@@ -876,9 +929,9 @@ export function buildCurrentV125FullDesignCapturePlan({
       disposition: requested('environment', requestedCategories)
         ? 'captured'
         : 'excluded',
-      coverageStatus: readiness.categories.environment.status,
-      evidenceStatus: readiness.categories.environment.evidenceStatus,
-      contract: readiness.categories.environment.contract,
+      coverageStatus: 'complete',
+      evidenceStatus: 'CONFIRMED_PORTABLE_CAPTURE_PREFLIGHT',
+      contract: V125_PORTABLE_CONTRACTS.restoration.environmentCodec,
       portableState: requested('environment', requestedCategories)
         ? clone(environment.portableState)
         : null,
@@ -919,14 +972,51 @@ export function buildCurrentV125FullDesignCapturePlan({
   } as const;
 
   const manifestValidation = validateCurrentV125FullDesignManifest(manifest);
+  const categoryReadinessMatrix = Object.fromEntries(
+    CATEGORIES.map((category) => {
+      const state = (categories as AnyRecord)[category];
+      const blockers = Array.isArray(state?.blockers)
+        ? state.blockers.map(String)
+        : [];
+      const sourceCaptureReady =
+        state?.requested === true &&
+        ['complete', 'not_applicable'].includes(
+          String(state?.coverageStatus ?? '')
+        ) &&
+        blockers.length === 0;
+      return [
+        category,
+        {
+          requested: state?.requested === true,
+          sourceStatus: String(state?.coverageStatus ?? 'unknown'),
+          sourceCaptureReady,
+          publicationCandidateReady: sourceCaptureReady,
+          blockers,
+          persistentWriteAuthorized: false
+        }
+      ];
+    })
+  );
+  const sourceCategoryClosureReady =
+    CATEGORIES.every(
+      (category) =>
+        categoryReadinessMatrix[category].sourceCaptureReady
+    );
+  const publicationCandidateReady =
+    manifestValidation.ok &&
+    sourceCategoryClosureReady &&
+    issues.length === 0;
 
   return {
     manifestReady: manifestValidation.ok,
     manifestValidation,
-    publicationReady:
-      manifestValidation.ok &&
-      readiness.publicationReady === true &&
-      issues.length === 0,
+    publicationCandidateReady,
+    publicationReady: false,
+    publicationReason: publicationCandidateReady
+      ? 'FULL_DESIGN_COMMUNITY_PUBLICATION_ADAPTER_NOT_BOUND'
+      : 'FULL_DESIGN_SOURCE_CATEGORY_CLOSURE_INCOMPLETE',
+    sourceCategoryClosureReady,
+    categoryReadinessMatrix: clone(categoryReadinessMatrix),
     applyReady: false,
     applyReason: 'CORE_ATOMIC_PERSISTENT_COMMIT_NOT_AUTHORIZED',
     presetType: type,
