@@ -427,3 +427,50 @@ Community overall release state remains `launchReady=false`. Remaining Community
 are Product/Privacy/Legal retention approval plus production-only environment/integration/replay/
 backup/restore/secret-rotation/inventory/smoke/Security-Advisor gates. Persistent DDV writing remains
 outside COMM and stays disabled.
+
+
+## LATEST — Retention D1/D2 simplification — 2026-10-01
+
+**CONFIRMED / ENGINEERING CLOSED**
+
+Current launch-policy implementation:
+
+- D1 content payload: 7-day maximum backend purge window after immediate irreversible account /
+  Creator / owned-work removal;
+- D2 operational detail: one 90-day scrub stage;
+- D4 exception path: moderation / security / legal retention hold only while justified;
+- no fixed 365-day elevated operational tier.
+
+Staging migrations:
+
+- `20261001115028_community_retention_content_purge_7d`;
+- `20261001122209_community_retention_operational_90d_single_stage`.
+
+Observed staging after the D2 superseding migration:
+
+- `deleted_account_content_days=7`;
+- `deleted_account_operational_days=90`;
+- no `deleted_account_elevated_operational_days` policy row;
+- zero `elevated_operational_detail` jobs;
+- zero elevated/routine-only deletion-event columns;
+- existing operational jobs are scheduled at 90 days;
+- claim still fails closed while `community_account_has_retention_hold(account_id)` is true;
+- operational completion scrubs closed reports, resolved/closed moderation detail, account-linked
+  audit correlation/detail, completed recovery/cleanup rows, and released hold reasons.
+
+The temporary 90/365 tiered migration remains in migration history because it was applied in
+staging, but it is superseded and is not the current runtime policy.
+
+Security/Performance Advisor after the schema change showed no new blocking finding. The only
+Security WARN remains the known plan-unavailable leaked-password-protection warning; RLS findings
+are INFO and existing public tables remain service/RPC bounded as already reviewed.
+
+Canonical evidence:
+- `docs/community/retention-d1-d2-single-stage-runtime-20261001.md`;
+- `ops/community-retention-policy-proposal.json`;
+- `ops/community-retention-launch-review.json`;
+- `ops/community-retention-approval-state.json`;
+- `ops/community-production-release-evidence.json`.
+
+Product / Privacy / Legal approval is still PENDING. No approval is inferred from Engineering
+closure.
