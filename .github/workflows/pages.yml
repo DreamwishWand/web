@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -31,6 +33,8 @@ jobs:
           fi
       - name: Type and component checks
         run: npm run check
+      - name: Canonical baseline integrity
+        run: npm run verify:canonical
       - name: Starter tests
         run: npm test
       - name: Build static site

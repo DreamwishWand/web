@@ -1,0 +1,48 @@
+{
+  "schema": "ddv.canonical-baseline-registry@1",
+  "policyVersion": "1.0",
+  "source": {
+    "driveDocument": "1Hf-RlE915rmuSD_HgKQCsRLPHfqUJbJV4htSOlomWN0",
+    "driveRegistry": "1bg391mzViHRJwtO9FCBSInWVKIbLxh6QSe3icuew3U4"
+  },
+  "baselines": [
+    {
+      "artifactId": "DDV-GRIDDATA-V125-V1_7",
+      "artifactType": "Core/GridData contract",
+      "version": "v1.7",
+      "status": "PROMOTED",
+      "mutable": false,
+      "platform": "Nintendo Switch",
+      "gameVersion": "v1.25.0",
+      "buildId": "52BD625D9B4E0053",
+      "artifactSha256": "333af50fd78a4b0f50372beca7cae1d7cd22d60f673b956c05427cf3576beeb8",
+      "payloadSha256": "75f33dc20d521d579070aa7919a96c23ce5dd329dbc6f58392f267c9dd0b1aaa",
+      "scope": "read/preflight"
+    },
+    {
+      "artifactId": "DDV-GRIDDATA-V125-V1_8",
+      "artifactType": "Core/GridData FloorType",
+      "version": "v1.8",
+      "status": "PROMOTED",
+      "mutable": false,
+      "platform": "Nintendo Switch",
+      "gameVersion": "v1.25.0",
+      "buildId": "52BD625D9B4E0053",
+      "artifactSha256": "e7ca77d212789e94968d93aa1dc661fe10abf7381f8b0e63f5ccd642d3d90a71",
+      "payloadSha256": "c282132aa56d4936490d36c5a398ed16436cc1ffd86bd17a49b770f8372d8cb3",
+      "scope": "read/preflight"
+    },
+    {
+      "artifactId": "DDV-GRIDDATA-V125-V1_9",
+      "artifactType": "Core/placement legality",
+      "version": "v1.9",
+      "status": "PROMOTED",
+      "mutable": false,
+      "platform": "Nintendo Switch / Steam",
+      "gameVersion": "v1.25.0",
+      "buildId": "version-scoped",
+      "artifactSha256": "bf1b38ff1d725bb0facb913bc9efc06d283feda030990748a1ad1a73483936c2",
+      "scope": "read/preflight only"
+    }
+  ]
+}
