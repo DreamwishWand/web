@@ -1,6 +1,6 @@
 # DDV Profile Workspace Lifecycle — Staging Runtime — 2026-10-02
 
-Status: **PROFILE WORKSPACE DB LIFECYCLE STAGING PASS / COMMUNITY-COMMAND v20 DEPLOYED**
+Status: **PROFILE WORKSPACE DB LIFECYCLE STAGING PASS / COMMUNITY-COMMAND v20 + COMMUNITY-QUERY v10 DEPLOYED**
 
 ## Current staging model
 
@@ -33,7 +33,7 @@ After rollback: Workspace rows 0, identity-association rows 0, synthetic Wand Ac
 ## Edge/API
 
 - `community-command` v20 — create/update/delete Workspace, associate/unlink DDV identity;
-- `community-query` v9 — owner-safe Workspace query.
+- `community-query` v10 — owner-safe Workspace query using `community_get_ddv_profile_workspaces_v1`; legacy `linkedDdvProfiles` routing is removed.
 
 Identity association derives HMAC-SHA-256 using domain `dreamwishwand/ddv-player-id/v1\0` and forwards only the digest to PostgreSQL.
 
@@ -45,6 +45,10 @@ Performance Advisor initially reported the composite identity-association FK wit
 
 ## Remaining acceptance boundary
 
-The DB lifecycle is staging-runtime closed. A live raw Player ID -> Edge HMAC -> identity association E2E remains pending because the staging `COMMUNITY_DDV_PROFILE_BINDING_KEY_V1` secret is not configured through the current tool path. The digest-only database path is runtime-tested.
+The DB lifecycle and deployed Edge source alignment are staging-runtime closed. A live raw Player ID -> Edge HMAC -> identity association E2E remains pending because the current tool path cannot verify/use the staging `COMMUNITY_DDV_PROFILE_BINDING_KEY_V1` secret through a real authenticated request. The digest-only database path is runtime-tested.
 
 This is an engineering acceptance item, not a remaining Product owner decision. Privacy=PENDING. Legal=PENDING. No production resource was created.
+
+## Staging migration-history note
+
+During concurrent verification, lifecycle v2 and FK-index v3 were each recorded a second time in staging migration history (`20261001234029`, `20261001234035`) after the canonical repo versions (`20261001233225`, `20261001233707`) had already landed. The migrations are reapplication-safe and no duplicate schema objects or fixture rows remain. Production must replay only the canonical repo migration sequence; the duplicate staging history entries are not production source of truth.
