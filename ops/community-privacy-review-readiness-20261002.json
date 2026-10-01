@@ -65,11 +65,12 @@
     },
     {
       "id": "PROVIDER_BOUNDARY",
-      "status": "CONFIRMED_DESIGN_PROVIDER_BINDING_PENDING",
+      "status": "PROVIDER_SELECTION_CONFIRMED_FINAL_BINDING_PENDING",
       "facts": [
         "Wand does not claim provider-controlled backups/logs/email copies obey the primary 7-day/90-day timers.",
-        "Production Supabase plan and independent Storage recovery provider remain unselected.",
-        "Material provider retention and region/cross-border facts must be bound and disclosed before final Privacy approval."
+        "Owner approved Supabase Pro for production and Cloudflare R2 Standard for independent Storage recovery, to be provisioned at release stage.",
+        "No production Supabase project or R2 recovery bucket exists yet.",
+        "Material provider retention, region/location behavior, DPA/subprocessor/transfer facts and final disclosure must be bound before Privacy approval."
       ]
     }
   ],
@@ -138,14 +139,18 @@
       "id": "P5_PRODUCTION_PROCESSOR_BINDING",
       "severity": "BLOCKER_FOR_FINAL_PRIVACY_APPROVAL",
       "evidence": [
-        "Production Supabase project/plan does not exist.",
-        "Independent Storage recovery provider is TBD.",
-        "Current D6/D7 are design contracts, not provider-specific runtime evidence."
+        "Owner approved Supabase Pro for the production backend.",
+        "Owner approved Cloudflare R2 Standard as the independent Storage recovery provider.",
+        "Provisioning is explicitly deferred to the release stage.",
+        "No production Supabase project or R2 recovery bucket exists yet.",
+        "Current D6/D7 remain design contracts until provider-specific configuration, contractual and runtime evidence is bound."
       ],
       "requiredDecision": [
-        "Bind actual production provider, plan, region, backup/log retention, subprocessor/DPA/transfer terms and Storage recovery provider before final Privacy approval."
+        "At release stage, bind actual Supabase project region/configuration, backup/log retention, DPA/subprocessors/transfer terms and deletion behavior.",
+        "At release stage, bind actual Cloudflare R2 account/bucket configuration, applicable location behavior, DPA/subprocessors/transfers, retention and deletion behavior.",
+        "Update final Privacy Policy/provider disclosure from those launch facts before Privacy approval."
       ],
-      "engineeringAction": "PRODUCTION_RESOURCE_DECISION_GATE"
+      "engineeringAction": "RELEASE_STAGE_PROVIDER_BINDING_REQUIRED"
     },
     {
       "id": "P6_MODERATION_AUDIT_FREE_TEXT",
@@ -221,5 +226,5 @@
   ],
   "engineeringConclusion": "NO_RETENTION_ENGINEERING_CHANGE_REQUIRED_AT_THIS_STAGE",
   "privacyApprovalReady": false,
-  "nextAction": "Resolve the Linked DDV Profile lifecycle (creation/verification, hash/evidence semantics, correction/unlink and post-deletion retention), age/minors policy, and production provider binding through Privacy/Legal/Product review; only then implement targeted changes if required."
+  "nextAction": "Resolve the Linked DDV Profile lifecycle and age/minors policy now; at release stage bind the approved Supabase Pro + Cloudflare R2 Standard provider facts and complete Privacy/Legal review before production exposure."
 }
