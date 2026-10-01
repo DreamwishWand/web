@@ -494,12 +494,11 @@ export function buildCurrentV125FullDesignCapturePlan({
         })
       : null;
   const rootObjectCompositionReady =
-    Boolean(rootObjectComposition) &&
-    rootObjectComposition.status ===
+    rootObjectComposition?.status ===
       'CAPTURED_COMPLETE_FOR_BOUND_DOCUMENTS' &&
-    Array.isArray(rootObjectComposition.unresolved) &&
+    Array.isArray(rootObjectComposition?.unresolved) &&
     rootObjectComposition.unresolved.length === 0 &&
-    Array.isArray(rootObjectComposition.missingRoutes) &&
+    Array.isArray(rootObjectComposition?.missingRoutes) &&
     rootObjectComposition.missingRoutes.length === 0;
 
   const buildingPlacementEntries =
