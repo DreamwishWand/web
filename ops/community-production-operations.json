@@ -106,7 +106,11 @@
     "minimumPasswordLength": 15,
     "compositionRuleRequired": false,
     "securityChangeNotificationsRequired": true,
-    "knownAcceptedAdvisorWarning": "auth_leaked_password_protection"
+    "knownAcceptedAdvisorWarning": "auth_leaked_password_protection",
+    "knownPlanUnavailableNonBlockingFindings": [
+      "auth_leaked_password_protection"
+    ],
+    "planUnavailableFindingIsEngineeringBlocker": false
   },
   "releaseGate": {
     "requireDistinctProductionProject": true,
@@ -131,7 +135,10 @@
     "wepBranchHead": "f7236064ef9a4b623efabe1d9d75211af081cbcf",
     "wepPresetArtifactBucketContract": "CLOSED",
     "wepMigrationBaselineConsistency": "CONFIRMED_STATIC",
-    "wepPresetProductionMigrationProvisioning": "CONFIRMED_STATIC"
+    "wepPresetProductionMigrationProvisioning": "CONFIRMED_STATIC",
+    "latestWepObservedHead": "02ca57a8d48d2b5623e034b91e9cd52f7fe7a8d8",
+    "latestWepCommunityContractDelta": "NONE",
+    "communityVerticalRerunRequired": false
   },
   "crossStreamBlockers": [
     {
