@@ -1127,6 +1127,50 @@ test('mixed Road transition locks five-cell geometry while state stays runtime-g
 });
 
 
+
+test('Switch v1.25 ROAD-RM01 confirmed representative plans one cardinal cell plus a dense 2x2 diagonal block', () => {
+  const network = createRoadNetwork({
+    familyBaseItemID: 40100068,
+    cells: [
+      { x: 0, y: 0, mode: FenceMode.ORTHOGONAL },
+      { x: 1, y: 0, mode: FenceMode.DIAGONAL },
+      { x: 2, y: 0, mode: FenceMode.DIAGONAL },
+      { x: 1, y: 1, mode: FenceMode.DIAGONAL },
+      { x: 2, y: 1, mode: FenceMode.DIAGONAL }
+    ]
+  }).network;
+
+  const plan = planRoadNativeRepresentation({
+    network,
+    originSave: { x: 280, y: 20 },
+    pitchX: 4,
+    pitchY: 4
+  });
+
+  assert.equal(plan.ok, true);
+  assert.equal(plan.logicalQuantity, 5);
+  assert.equal(plan.nativeOracleInventoryCost, 5);
+  assert.deepEqual(
+    plan.objects.map((object) => [
+      object.itemID,
+      object.x,
+      object.y,
+      object.orientation,
+      object.state
+    ]),
+    [
+      [40100068, 280, 20, 'GridOrientation_Down', null],
+      [40100068, 284, 20, 'GridOrientation_Down', { FenceMode: { Diagonal: true } }],
+      [40100068, 288, 20, 'GridOrientation_Down', { FenceMode: { Diagonal: true } }],
+      [40100068, 284, 24, 'GridOrientation_Down', { FenceMode: { Diagonal: true } }],
+      [40100068, 288, 24, 'GridOrientation_Down', { FenceMode: { Diagonal: true } }]
+    ]
+  );
+  assert.equal(plan.wandListInventoryDelta, 0);
+  assert.equal(plan.ownershipMutationRequired, false);
+  assert.equal(plan.persistentWriteAuthorized, false);
+});
+
 test('Fence style replacement locks Biome2Fence to FairyLightFence N=3 contract', () => {
   const built = buildFencePolyline(
     [{ x: 0, y: 0 }, { x: 0, y: 2 }],
