@@ -1,0 +1,49 @@
+{
+  "schema": "dreamwish-community-legal-review-readiness@1",
+  "preparedAt": "2026-10-02",
+  "state": "PACKET_READY_EXTERNAL_REVIEW_REQUIRED",
+  "approval": "PENDING",
+  "notLegalOpinion": true,
+  "packet": "docs/community/legal-review-packet-20261002.md",
+  "confirmedFacts": [
+    "Product retention approval is APPROVED; Privacy and Legal remain separate approval tracks.",
+    "D1 <=7d payload purge, D2 90d operational scrub, D3 immediate irreversible deletion, D4 justified holds, D5 minimized tombstones, D6 quarantine-first recovery, D8 category-specific disclosure are current Product facts.",
+    "PUBLIC/UNLISTED/PRIVATE have technically distinct access semantics; UNLISTED is direct-link/direct-ID accessible and not private.",
+    "Account deletion immediately removes/anonymizes active Community identity/interactions and queues provider cleanup.",
+    "Production providers and production project are not yet selected/created.",
+    "Linked DDV Profile schema exists, but reviewed creation/verification/link/unlink runtime is incomplete and binding hash/evidence semantics are not canonicalized."
+  ],
+  "externalDecisionsRequired": [
+    "operator/legal entity and launch jurisdictions",
+    "minimum age/minors eligibility and any age assurance/parental consent",
+    "privacy notice/legal basis/data rights workflows",
+    "processor DPA/subprocessor/cross-border transfer treatment",
+    "Linked DDV Profile creation/verification/correction/unlink and retention semantics",
+    "Terms of Service and UGC license/IP treatment",
+    "copyright notice/takedown/counter-notice/repeat-infringer strategy",
+    "moderation/report/appeal obligations including DSA applicability/exemptions where relevant",
+    "D4 legal hold/preservation procedure",
+    "actual production backup/provider retention and disclosure",
+    "governing law/disputes/liability language"
+  ],
+  "userFacingDocumentsToReview": [
+    "Privacy Policy",
+    "Terms of Service",
+    "Community Rules",
+    "Delete Account confirmation",
+    "visibility help/copy for PUBLIC UNLISTED PRIVATE",
+    "copyright/illegal-content notice mechanism",
+    "moderation decision/appeal copy where required"
+  ],
+  "officialReviewAnchors": [
+    "Japan PPC APPI guidelines and Q&A",
+    "EU GDPR Article 5",
+    "EU DSA Regulation 2022/2065 and Commission guidance",
+    "U.S. Copyright Office 17 USC 512 resources",
+    "FTC COPPA Rule/FAQ",
+    "California Privacy Protection Agency CCPA materials"
+  ],
+  "legalApproved": false,
+  "launchApproved": false,
+  "nextAction": "External Legal review or explicitly authorized jurisdiction-specific legal/owner decision. Do not set LEGAL APPROVED based on this packet alone."
+}
