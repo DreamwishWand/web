@@ -14,6 +14,9 @@ import {
   captureCurrentV125RootObjectComposition
 } from './full-design-root-object-composition.ts';
 import {
+  createSwitchV125RoadFenceReaderBinding
+} from './roadfence-reader-adapter.ts';
+import {
   FULL_DESIGN_CAPTURE_MANIFEST_SCHEMA,
   FULL_DESIGN_CAPTURE_MANIFEST_VERSION,
   validateCurrentV125FullDesignManifest,
@@ -249,6 +252,64 @@ function captureDirectRootObjectPlanning(
   };
 }
 
+function captureRoadFenceReaderCoverage(
+  profile: AnyRecord,
+  resolved: AnyRecord,
+  sourcePlatform: string | null | undefined
+) {
+  if (sourcePlatform !== 'switch') return null;
+  if (resolved?.status !== 'RESOLVED' || !Array.isArray(resolved.directRoots)) {
+    throw new Error('WEP_FULL_DESIGN_DIRECT_ROOTS_UNRESOLVED');
+  }
+
+  return resolved.directRoots.map((root: AnyRecord) => {
+    const gridDataPath = String(root?.gridDataPath ?? '');
+    if (!gridDataPath) {
+      throw new Error('WEP_FULL_DESIGN_DIRECT_ROOT_PATH_INVALID');
+    }
+    try {
+      const binding = createSwitchV125RoadFenceReaderBinding({
+        profile,
+        rootGridId: root.sourceGridId
+      });
+      const blockCodes = Array.from(
+        new Set(
+          (binding.summary.issues ?? [])
+            .map((entry: AnyRecord) => String(entry?.code ?? ''))
+            .filter(Boolean)
+        )
+      );
+      return {
+        directRootRoute: {
+          codec: V125_PORTABLE_CONTRACTS.location.directGridRouteCodec,
+          gridDataPath
+        },
+        status: binding.summary.status,
+        roadNetworkCount: binding.summary.roadNetworkCount,
+        fenceNetworkCount: binding.summary.fenceNetworkCount,
+        modeBoundaryTouchCount: binding.summary.modeBoundaryTouchCount,
+        blockCodes,
+        persistentWriteAuthorized: false
+      };
+    } catch (error) {
+      return {
+        directRootRoute: {
+          codec: V125_PORTABLE_CONTRACTS.location.directGridRouteCodec,
+          gridDataPath
+        },
+        status: 'blocked',
+        roadNetworkCount: 0,
+        fenceNetworkCount: 0,
+        modeBoundaryTouchCount: 0,
+        blockCodes: [
+          error instanceof Error ? error.message : 'WEP_ROADFENCE_READER_FAILED'
+        ],
+        persistentWriteAuthorized: false
+      };
+    }
+  });
+}
+
 function captureEnvironment(
   profile: AnyRecord,
   type: FullDesignPresetType,
@@ -294,6 +355,24 @@ export function buildCurrentV125FullDesignCapturePlan({
 
   const directRootRoutes = portableRoutes(resolved);
   const rootObjectPlanning = captureDirectRootObjectPlanning(profile, resolved);
+  const roadFenceReaderCoverage = captureRoadFenceReaderCoverage(
+    profile,
+    resolved,
+    sourcePlatform
+  );
+  const roadFenceReaderBound =
+    Array.isArray(roadFenceReaderCoverage) &&
+    roadFenceReaderCoverage.length === directRootRoutes.length &&
+    roadFenceReaderCoverage.every(
+      (entry: AnyRecord) => entry.status === 'supported'
+    );
+  const roadFenceBlockCodes = Array.from(
+    new Set(
+      (roadFenceReaderCoverage ?? []).flatMap(
+        (entry: AnyRecord) => entry.blockCodes ?? []
+      )
+    )
+  );
   const rootObjectComposition =
     Array.isArray(rootEditorDocuments) && rootEditorDocuments.length
       ? captureCurrentV125RootObjectComposition({
@@ -336,14 +415,44 @@ export function buildCurrentV125FullDesignCapturePlan({
     );
   }
   if (requested('roads', requestedCategories)) {
-    issues.push(
-      block('NATIVE_ROADFENCE_LOGICAL_READER_NOT_BOUND', 'roads')
-    );
+    if (!roadFenceReaderCoverage) {
+      issues.push(
+        block('NATIVE_ROADFENCE_LOGICAL_READER_NOT_BOUND', 'roads')
+      );
+    } else if (!roadFenceReaderBound) {
+      for (const code of roadFenceBlockCodes.length
+        ? roadFenceBlockCodes
+        : ['ROADFENCE_NATIVE_READER_NOT_SUPPORTED']) {
+        issues.push(block(String(code), 'roads'));
+      }
+    } else {
+      issues.push(
+        block(
+          'FULL_DESIGN_ROADFENCE_CAPTURE_REGION_BOUNDS_UNAVAILABLE',
+          'roads'
+        )
+      );
+    }
   }
   if (requested('fences', requestedCategories)) {
-    issues.push(
-      block('NATIVE_ROADFENCE_LOGICAL_READER_NOT_BOUND', 'fences')
-    );
+    if (!roadFenceReaderCoverage) {
+      issues.push(
+        block('NATIVE_ROADFENCE_LOGICAL_READER_NOT_BOUND', 'fences')
+      );
+    } else if (!roadFenceReaderBound) {
+      for (const code of roadFenceBlockCodes.length
+        ? roadFenceBlockCodes
+        : ['ROADFENCE_NATIVE_READER_NOT_SUPPORTED']) {
+        issues.push(block(String(code), 'fences'));
+      }
+    } else {
+      issues.push(
+        block(
+          'FULL_DESIGN_ROADFENCE_CAPTURE_REGION_BOUNDS_UNAVAILABLE',
+          'fences'
+        )
+      );
+    }
   }
   if (requested('buildings', requestedCategories)) {
     issues.push(
@@ -403,11 +512,21 @@ export function buildCurrentV125FullDesignCapturePlan({
     roads: {
       requested: requested('roads', requestedCategories),
       disposition: requested('roads', requestedCategories)
-        ? 'blocked'
+        ? roadFenceReaderBound
+          ? 'captured_partial'
+          : 'blocked'
         : 'excluded',
       coverageStatus: readiness.categories.roads.status,
-      evidenceStatus: readiness.categories.roads.evidenceStatus,
-      contract: readiness.categories.roads.contract,
+      evidenceStatus: roadFenceReaderBound
+        ? 'CONFIRMED_01C_NATIVE_LOGICAL_READER_BOUND'
+        : readiness.categories.roads.evidenceStatus,
+      contract: roadFenceReaderBound
+        ? '01C-v1.25-native-reader-capture-region'
+        : readiness.categories.roads.contract,
+      readerCoverage:
+        requested('roads', requestedCategories) && roadFenceReaderCoverage
+          ? clone(roadFenceReaderCoverage)
+          : null,
       blockers: issues
         .filter((issue) => issue.category === 'roads')
         .map((issue) => issue.code)
@@ -415,11 +534,21 @@ export function buildCurrentV125FullDesignCapturePlan({
     fences: {
       requested: requested('fences', requestedCategories),
       disposition: requested('fences', requestedCategories)
-        ? 'blocked'
+        ? roadFenceReaderBound
+          ? 'captured_partial'
+          : 'blocked'
         : 'excluded',
       coverageStatus: readiness.categories.fences.status,
-      evidenceStatus: readiness.categories.fences.evidenceStatus,
-      contract: readiness.categories.fences.contract,
+      evidenceStatus: roadFenceReaderBound
+        ? 'CONFIRMED_01C_NATIVE_LOGICAL_READER_BOUND'
+        : readiness.categories.fences.evidenceStatus,
+      contract: roadFenceReaderBound
+        ? '01C-v1.25-native-reader-capture-region'
+        : readiness.categories.fences.contract,
+      readerCoverage:
+        requested('fences', requestedCategories) && roadFenceReaderCoverage
+          ? clone(roadFenceReaderCoverage)
+          : null,
       blockers: issues
         .filter((issue) => issue.category === 'fences')
         .map((issue) => issue.code)
