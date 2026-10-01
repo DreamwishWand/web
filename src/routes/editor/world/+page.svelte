@@ -873,7 +873,7 @@
                 <dd>Not validated</dd>
               </div>
               <div>
-                <dt>Apply</dt>
+                <dt>DDV write</dt>
                 <dd>Disabled</dd>
               </div>
             </dl>
