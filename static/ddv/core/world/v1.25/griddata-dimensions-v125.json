@@ -132,4 +132,151 @@
   "GridData/Furniture/LiloStitch_Update11/IslandInspiredTable02-GridData.json": {
     "sizeX": 3,
     "sizeY": 3,
- 
+    "sourceSha256": "82ca24546f357060ec151a2e9694cc4810d786a03704f3bcd0f53604c5ea204d"
+  },
+  "GridData/Furniture/Moana_Set01/Table01-GridData.json": {
+    "sizeX": 1,
+    "sizeY": 1,
+    "sourceSha256": "3ded6db7870c5b0cadfd490e4597c2c6c0a23b0880906584c9bc01b7bf404846"
+  },
+  "GridData/Furniture/NonIP_Set05/Crate01-GridData.json": {
+    "sizeX": 2,
+    "sizeY": 2,
+    "sourceSha256": "ee606397a0cb58b5d1e9660a7c25d310eab170b8ffe9ce0a87fd5c5dc2a17df0"
+  },
+  "GridData/Furniture/NonIP_Update14/CastleKit_Tower_Corner_01-GridData.json": {
+    "sizeX": 3,
+    "sizeY": 3,
+    "sourceSha256": "a01cfe8b3b136c5d192b34ef1bc5b777f6364f1cfb911a26bf7c141f53c18a97"
+  },
+  "GridData/Furniture/NonIP_Update14/CastleKit_Tower_Straight_01-GridData.json": {
+    "sizeX": 3,
+    "sizeY": 3,
+    "sourceSha256": "a01cfe8b3b136c5d192b34ef1bc5b777f6364f1cfb911a26bf7c141f53c18a97"
+  },
+  "GridData/Furniture/NonIP_Update14/CastleKit_Wall_Small_Window01-GridData.json": {
+    "sizeX": 2,
+    "sizeY": 1,
+    "sourceSha256": "74873803c3583977f7c7e1f6fec9690ce9ef3566cf1409e8d13c7593b0645fff"
+  },
+  "GridData/Furniture/NonIP_Update17/CoffeeShopTable-GridData.json": {
+    "sizeX": 1,
+    "sizeY": 1,
+    "sourceSha256": "3ded6db7870c5b0cadfd490e4597c2c6c0a23b0880906584c9bc01b7bf404846"
+  },
+  "GridData/Furniture/NonIP_Update21/FlowerStoreFront-GridData.json": {
+    "sizeX": 3,
+    "sizeY": 2,
+    "sourceSha256": "70f42c418128d954419e63a258d5acf0c54f8fe701f2247152eb7b444b3b387b"
+  },
+  "GridData/Furniture/PrincessFrog_Update12/BistroTables01-GridData.json": {
+    "sizeX": 3,
+    "sizeY": 3,
+    "sourceSha256": "a01cfe8b3b136c5d192b34ef1bc5b777f6364f1cfb911a26bf7c141f53c18a97"
+  },
+  "GridData/Furniture/Ratatouille_Set03/Table02-GridData.json": {
+    "sizeX": 1,
+    "sizeY": 1,
+    "sourceSha256": "3ded6db7870c5b0cadfd490e4597c2c6c0a23b0880906584c9bc01b7bf404846"
+  },
+  "GridData/Furniture/Tangled_Set04/BarrelTable01-GridData.json": {
+    "sizeX": 1,
+    "sizeY": 1,
+    "sourceSha256": "3ded6db7870c5b0cadfd490e4597c2c6c0a23b0880906584c9bc01b7bf404846"
+  },
+  "GridData/Villages/Village04-BeachLevel-GridData.json": {
+    "sizeX": 400,
+    "sizeY": 350,
+    "sourceSha256": "43bc4802737005c4638c64770bcee5ab276940c989a15aa9b92a56137c694003"
+  },
+  "GridData/Villages/Village04-DarkLevel-GridData.json": {
+    "sizeX": 250,
+    "sizeY": 175,
+    "sourceSha256": "8fbda0bf2eca25bc1b6ea38461f325d24a658fb646ed5698e3cf6c306f8d1aa7"
+  },
+  "GridData/Villages/Village04-ForestLevel-GridData.json": {
+    "sizeX": 200,
+    "sizeY": 230,
+    "sourceSha256": "f34ee6ead7774c680b63637bd8b612c3f9809e0ff8b736663339e84f640b6d7f"
+  },
+  "GridData/Villages/Village04-ForestLevel-GridData_BlockSpawn.json": {
+    "sizeX": 200,
+    "sizeY": 230,
+    "sourceSha256": "95c95d7d25df172d65a9fc8a25edc35290f930fbd7d1083229feda13b34a6ee9"
+  },
+  "GridData/Villages/Village04-MeadowLevel-GridData.json": {
+    "sizeX": 196,
+    "sizeY": 100,
+    "sourceSha256": "bfd75928343dacc6f2768f80585a0c2b1d5afe1c12ee2f97777bc94c20a96424"
+  },
+  "GridData/Villages/Village04-SavannahLevel-GridData.json": {
+    "sizeX": 266,
+    "sizeY": 148,
+    "sourceSha256": "d928291e318bb71e07410036fc6e2e958d09cc23d3df8fac84772e8d320d2ee7"
+  },
+  "GridData/Villages/Village04-SavannahLevel-GridData_BlockSpawn.json": {
+    "sizeX": 266,
+    "sizeY": 148,
+    "sourceSha256": "1b311092dc4163fee0ffca89889b0d7341726d4c80aa894145ee824c8b4c5d3a"
+  },
+  "GridData/Villages/Village04-SnowLevel-GridData.json": {
+    "sizeX": 230,
+    "sizeY": 175,
+    "sourceSha256": "d7abc8d74eb10c6e0df07090546c4d821c327b6e7ba7a56548fbb07bdd81c282"
+  },
+  "GridData/Villages/Village04-SnowLevel-GridData_BlockSpawn.json": {
+    "sizeX": 230,
+    "sizeY": 175,
+    "sourceSha256": "d19f5bab56fab52b7eb1ebb8d0df5bec7db38442585325297db75bdddae606bc"
+  },
+  "GridData/Villages/Village04-UrbanLevel-GridData.json": {
+    "sizeX": 148,
+    "sizeY": 125,
+    "sourceSha256": "9059e5bd57a8096d9403b743b7be049ff4d51ede219fd4c77f22023d6ecc1e41"
+  },
+  "GridData/Villages/Village04-WetlandsLevel-GridData.json": {
+    "sizeX": 218,
+    "sizeY": 300,
+    "sourceSha256": "92f2f1c08242861ba9fe8b073a2255577ea7e98d62e251fd9372e653414378da"
+  },
+  "GridData/Villages/Village04-WetlandsLevel-GridData_BlockSpawning.json": {
+    "sizeX": 218,
+    "sizeY": 300,
+    "sourceSha256": "c2dd0e2a0a75545fd2a59b616a3ad6e075fb6c27d1a83943a0609f0a65b8f37f"
+  },
+  "GridData/Villages/VillageExpansion01/VillageExpansion01-DesertArea01LevelGrid01-GridData.json": {
+    "sizeX": 224,
+    "sizeY": 128,
+    "sourceSha256": "042a3fb1bae223e23458210ad5b7ceeaf0b0eb2d019dc788be5a22275bcdb274"
+  },
+  "GridData/Villages/VillageExpansion01/VillageExpansion01-DesertArea01SecretGrid01-GridData.json": {
+    "sizeX": 46,
+    "sizeY": 34,
+    "sourceSha256": "e4425b54de6a5be80efed31af34193dced6f59fd9b933b25b04324f64366aa98"
+  },
+  "GridData/Villages/VillageExpansion01/VillageExpansion01-DesertArea02LevelGrid01-GridData.json": {
+    "sizeX": 128,
+    "sizeY": 80,
+    "sourceSha256": "06ed4fe0166184cce771d3f365a5cb70058da10d1f9230ee9785de3f817e76f8"
+  },
+  "GridData/Villages/VillageExpansion01/VillageExpansion01-DesertArea02SecretGrid01-GridData.json": {
+    "sizeX": 128,
+    "sizeY": 28,
+    "sourceSha256": "8578c9c41891fcdcab73bb34eef3136f1e7ee154f84eff2eeadaa0dfbe2cec54"
+  },
+  "GridData/Villages/VillageExpansion01/VillageExpansion01-DesertArea03LevelGrid01-GridData.json": {
+    "sizeX": 80,
+    "sizeY": 96,
+    "sourceSha256": "3dda2f9b56e1b08d145490d9f0275b1481d985deaa55b90f7d6552e388d96c44"
+  },
+  "GridData/Villages/VillageExpansion01/VillageExpansion01-DesertArea03LevelGrid02-GridData.json": {
+    "sizeX": 75,
+    "sizeY": 75,
+    "sourceSha256": "7e6217c78d161fe9948de9adb53de97bb5feb9c641901ca44abf53b22c14c39b"
+  },
+  "GridData/Villages/VillageExpansion01/VillageExpansion01-DesertArea03SecretGrid01-GridData.json": {
+    "sizeX": 32,
+    "sizeY": 16,
+    "sourceSha256": "78523efb19e78a073762878caff6ad3e404926b0fe3ffd4bbe42ec9c468da158"
+  },
+  "GridData/Villages/VillageExpansi
