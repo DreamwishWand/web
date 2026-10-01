@@ -773,14 +773,16 @@ test('self-service deletion client globally signs out only after Wand tombstone 
   assert.match(block, /saveSession\(null\)/);
 });
 
-test('account deletion acceptance route is internal and describes restricted retention', () => {
+test('account deletion acceptance route is internal and describes current deletion retention', () => {
   const page = read('src/routes/community-lab/account/+page.svelte');
   const header = read('src/lib/SiteHeader.svelte');
 
   assert.match(page, /INTERNAL · STAGING ONLY/);
   assert.match(page, /Type <strong>DELETE<\/strong> to confirm/);
   assert.match(page, /Refreshing an old JWT does not reset that window/);
-  assert.match(page, /restricted retention/i);
+  assert.match(page, /physically purged within 7 days/i);
+  assert.match(page, /normally deleted or minimized at 90 days/i);
+  assert.match(page, /7-day period is not a recovery window/i);
   assert.match(page, /queue[s]? provider-account cleanup/i);
   assert.match(page, /noindex,nofollow/);
   assert.doesNotMatch(header, /community-lab\/account/i);
