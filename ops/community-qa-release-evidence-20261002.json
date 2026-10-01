@@ -66,6 +66,21 @@
         "provisioningTiming": "AT_RELEASE_STAGE"
       },
       "note": "Selection is closed; provisioning/runtime evidence remains production-only pending."
+    },
+    {
+      "id": "LINKED_DDV_PROFILE_PRODUCT_LIFECYCLE",
+      "state": "CLOSED_PRODUCT_APPROVED_IMPLEMENTATION_DEPENDENCY_OPEN",
+      "evidence": [
+        "ops/community-linked-ddv-profile-product-decision-20261002.json",
+        "docs/community/linked-ddv-profile-product-decision-20261002.md"
+      ],
+      "decision": {
+        "maxLinkedProfiles": 3,
+        "normalSelfServiceUnlink": false,
+        "exceptionalCorrection": "recent-auth + support/admin review + reason + audit",
+        "tombstoneDays": 7,
+        "rawVerificationEvidencePersistent": false
+      }
     }
   ],
   "reviewPending": [
@@ -77,7 +92,6 @@
         "docs/community/privacy-review-readiness-20261002.md"
       ],
       "blockers": [
-        "P1_LINKED_DDV_PROFILE_ORPHAN_MINIMIZATION",
         "P4_AGE_AND_MINORS",
         "P5_PRODUCTION_PROCESSOR_BINDING"
       ],
@@ -87,10 +101,11 @@
         "P6_MODERATION_AUDIT_FREE_TEXT",
         "P8_MEDIA_STORAGE_KEY_PSEUDONYM",
         "P9_DATA_RIGHTS_WORKFLOW",
-        "P10_PROVIDER_CLEANUP_SUBJECT"
+        "P10_PROVIDER_CLEANUP_SUBJECT",
+        "P1_LINKED_DDV_PROFILE_IDENTIFIER_AND_TRANSPORT_REVIEW_AFTER_PRODUCT_DECISION"
       ],
       "approved": false,
-      "note": "Linked DDV Profile lifecycle and age/minors remain open. Provider selection is closed (Supabase Pro + Cloudflare R2 Standard), but actual launch-stage DPA/region/subprocessor/retention binding is still required."
+      "note": "Linked DDV Product lifecycle is approved with 7-day tombstone. Privacy still requires stable identifier/transport review, age/minors policy and release-stage provider binding."
     },
     {
       "id": "LEGAL_APPROVAL",
@@ -115,7 +130,7 @@
     },
     {
       "id": "LINKED_DDV_PROFILE_LIFECYCLE",
-      "state": "OPEN_PRIVACY_PRODUCT_LEGAL_CONTRACT_REQUIRED_BEFORE_IMPLEMENTATION",
+      "state": "PRODUCT_CONTRACT_CLOSED__CORE_IDENTIFIER_AND_PRIVACY_LEGAL_REVIEW_PENDING",
       "evidence": [
         "ops/community-privacy-review-readiness-20261002.json",
         "docs/community/privacy-review-readiness-20261002.md"
@@ -125,9 +140,11 @@
         "account deletion removes WandAccount-DDVProfile link",
         "underlying ddv_profiles row can remain",
         "no reviewed link/verify/unlink command or routine is present",
-        "binding_key_hash derivation and verification_evidence_ref lifecycle are undefined"
+        "binding_key_hash derivation and verification_evidence_ref lifecycle are undefined",
+        "Product approved 7-day ordinary tombstone and reviewed-correction-only lifecycle.",
+        "No confirmed stable local DDV Profile identifier exists in DDV Core yet."
       ],
-      "qrInstruction": "Do not mark Linked DDV Profiles launch-ready until lifecycle semantics are decided and the required implementation/acceptance evidence exists."
+      "qrInstruction": "Product semantics are closed. Keep launch gate open until DDV Core confirms a stable local identifier, targeted Community implementation/acceptance exists, and Privacy/Legal review the confirmed identifier/transport."
     }
   ],
   "crossStreamPending": [
