@@ -700,6 +700,50 @@ export function createEditorSession(
       );
     },
 
+    copySelectionGraph(
+      ids: string[] | null | undefined
+    ) {
+      const chosen = ensureSelection(
+        ids?.length ? ids : [...selection]
+      );
+      const closure = dependencyClosure(document, chosen);
+      const byId = index();
+      const objects = closure.map((id) => byId.get(id)!);
+      const originX = Math.min(...objects.map((object) => object.x));
+      const originY = Math.min(...objects.map((object) => object.y));
+      const localIdByEditorId = new Map<string, string>();
+      closure.forEach((id, index) => {
+        localIdByEditorId.set(id, `copy-${index}`);
+      });
+
+      const graph: DraftGraphObject[] = objects.map((object) => ({
+        localId: localIdByEditorId.get(object.editorId)!,
+        itemId: object.itemId,
+        layer: object.layer,
+        localX: object.x - originX,
+        localY: object.y - originY,
+        orientation: object.orientation,
+        footprint: clone(object.footprint),
+        portableState: clone(object.portableState),
+        dependencyLocalIds: object.dependencyIds.map(
+          (dependencyId) =>
+            localIdByEditorId.get(dependencyId)!
+        ),
+        metadata: {
+          ...(clone(object.metadata) ?? {}),
+          copiedDraftGraph: true
+        }
+      }));
+
+      return {
+        schema: 'dreamwish-wand-wep-draft-clipboard@1',
+        graph,
+        sourceIds: [...closure],
+        sourceBounds: boundsFor(objects),
+        persistentWriteAuthorized: false
+      };
+    },
+
     duplicate(
       ids: string[] | null | undefined,
       {
