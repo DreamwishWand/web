@@ -398,6 +398,24 @@
     if (kind === 'fence') {
       delete container.modeBoundaryTouches;
       container.modeBoundaryTouchesInvalidated = true;
+      if (container.representationLayouts) {
+        const layouts = {
+          ...container.representationLayouts
+        };
+        delete layouts[String(network.networkId)];
+        container.representationLayouts = layouts;
+      }
+      if (container.representationLayoutModified) {
+        const modified = {
+          ...container.representationLayoutModified
+        };
+        delete modified[String(network.networkId)];
+        container.representationLayoutModified = modified;
+      }
+      container.representationLayoutInvalidated = {
+        ...(container.representationLayoutInvalidated ?? {}),
+        [String(network.networkId)]: true
+      };
     }
     container.persistentWriteAuthorized = false;
 
@@ -867,6 +885,40 @@
     fencePostMessage = '';
   }
 
+  function fenceRepresentationModelFromDocument(
+    networkId: string
+  ) {
+    const model =
+      editorDocument?.networks?.fences
+        ?.representationLayouts?.[String(networkId)];
+    return model ? cloneLocal(model) : null;
+  }
+
+  function syncFencePostDraftFromDocument() {
+    if (!fencePostSelectedNetworkId) return;
+    const model = fenceRepresentationModelFromDocument(
+      fencePostSelectedNetworkId
+    );
+    if (!model) {
+      fencePostDraft = null;
+      fencePostValidation = null;
+      fencePostMoveNodeId = '';
+      return;
+    }
+    fencePostDraft = model;
+    fencePostValidation =
+      validateFencePostLayoutDraft(model);
+    const first =
+      fencePostDraft.representationLayout?.posts?.[0];
+    if (first) {
+      fencePostMoveNodeId = String(first.nodeId);
+      fencePostEditX = Number(first.x);
+      fencePostEditY = Number(first.y);
+    } else {
+      fencePostMoveNodeId = '';
+    }
+  }
+
   function loadFencePostDraft(networkId: string) {
     fencePostSelectedNetworkId = networkId;
     fencePostDraft = null;
@@ -874,16 +926,27 @@
     fencePostMoveNodeId = '';
     fencePostMessage = '';
     try {
-      const result =
-        roadFenceReaderBinding?.fenceRepresentationLayout?.captureModel(networkId);
-      if (!result?.draft) {
-        throw new Error(
-          result?.code ?? 'WEP_FENCE_POST_DRAFT_UNAVAILABLE'
-        );
+      const stored =
+        fenceRepresentationModelFromDocument(networkId);
+      if (stored) {
+        fencePostDraft = stored;
+        fencePostValidation =
+          validateFencePostLayoutDraft(stored);
+      } else {
+        const result =
+          roadFenceReaderBinding?.fenceRepresentationLayout
+            ?.captureModel(networkId);
+        if (!result?.draft) {
+          throw new Error(
+            result?.code ??
+              'WEP_FENCE_POST_DRAFT_UNAVAILABLE'
+          );
+        }
+        fencePostDraft = result.draft;
+        fencePostValidation = result.validation;
       }
-      fencePostDraft = result.draft;
-      fencePostValidation = result.validation;
-      const first = fencePostDraft.representationLayout?.posts?.[0];
+      const first =
+        fencePostDraft.representationLayout?.posts?.[0];
       if (first) {
         fencePostMoveNodeId = String(first.nodeId);
         fencePostEditX = Number(first.x);
@@ -897,19 +960,73 @@
 
   function commitFencePostDraft(result: any, label: string) {
     if (!result?.draft || !result?.validation) {
-      fencePostMessage = 'WEP_FENCE_POST_EDIT_RESULT_INVALID';
+      fencePostMessage =
+        'WEP_FENCE_POST_EDIT_RESULT_INVALID';
       return;
     }
-    fencePostDraft = result.draft;
-    fencePostValidation = result.validation;
+
     const firstIssue =
       result?.issues?.[0]?.code ??
       result?.validation?.issues?.[0]?.code ??
       null;
+    if (
+      result.accepted === false ||
+      !result.validation.ok
+    ) {
+      fencePostValidation = result.validation;
+      fencePostMessage =
+        `${label}: BLOCKED · ${firstIssue ?? 'representation validation'}`;
+      return;
+    }
+    if (
+      !session ||
+      !fencePostSelectedNetworkId
+    ) {
+      fencePostMessage =
+        'WEP_FENCE_POST_EDITOR_SESSION_REQUIRED';
+      return;
+    }
+
+    const container = networkContainer('fence');
+    container.representationLayouts = {
+      ...(container.representationLayouts ?? {}),
+      [fencePostSelectedNetworkId]:
+        cloneLocal(result.draft)
+    };
+    container.representationLayoutModified = {
+      ...(container.representationLayoutModified ?? {}),
+      [fencePostSelectedNetworkId]: true
+    };
+    container.persistentWriteAuthorized = false;
+
+    const transaction = session.replaceNetworkDraft(
+      'fences',
+      container,
+      {
+        command: 'FENCE_REPRESENTATION_LAYOUT_EDIT',
+        validation: {
+          ok: true,
+          issues: [],
+          status: 'REPRESENTATION_LAYOUT_PREVIEW',
+          persistentWriteAuthorized: false
+        }
+      }
+    );
+    if (!transaction?.applied) {
+      fencePostMessage =
+        'WEP_FENCE_POST_EDIT_TRANSACTION_REJECTED';
+      return;
+    }
+
+    lastDraftCommand =
+      'FENCE_REPRESENTATION_LAYOUT_EDIT';
+    capturePreview = null;
+    published = null;
+    refreshProjection();
+    refreshDraftState();
+    syncFencePostDraftFromDocument();
     fencePostMessage =
-      result.accepted === false || !result.validation.ok
-        ? `${label}: BLOCKED · ${firstIssue ?? 'representation validation'}`
-        : `${label}: Core preflight PASS · DDV write disabled`;
+      `${label}: Core preflight PASS · Undo/Redo enabled · Scene Preset blocked until representation-layout portability is bound`;
   }
 
   function insertFencePostDraft() {
@@ -1595,8 +1712,9 @@
     published = null;
     refreshProjection();
     refreshDraftState();
+    syncFencePostDraftFromDocument();
     message =
-      'Undo restored the draft model, selection and validation state together.';
+      'Undo restored the draft model, selection, validation and Fence representation state together.';
   }
 
   function redo() {
@@ -1608,8 +1726,9 @@
     published = null;
     refreshProjection();
     refreshDraftState();
+    syncFencePostDraftFromDocument();
     message =
-      'Redo restored the draft model, selection and validation state together.';
+      'Redo restored the draft model, selection, validation and Fence representation state together.';
   }
 
   function reviewSavePreparation() {
