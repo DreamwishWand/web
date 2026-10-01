@@ -66,6 +66,15 @@ export interface AddComment {
   parentCommentId?: EntityId;
 }
 
+export interface LinkDdvProfile {
+  /**
+   * Raw DDV Player ID extracted locally from GameInfo.LastCustomIdOwner.
+   * It is transient request input only and must never be persisted or logged.
+   */
+  playerId: string;
+  relationshipKind: 'self' | 'parent_guardian_managed';
+}
+
 export interface ReportEntity {
   targetEntityId: EntityId;
   targetRevisionId?: RevisionId;
@@ -108,6 +117,7 @@ export interface CommunityCommandBus {
   removeReaction(command: CommandEnvelope<AddReaction>): Promise<CommunityCommandResult>;
   addComment(command: CommandEnvelope<AddComment>): Promise<CommunityCommandResult>;
   reportEntity(command: CommandEnvelope<ReportEntity>): Promise<CommunityCommandResult>;
+  linkDdvProfile(command: CommandEnvelope<LinkDdvProfile>): Promise<CommunityCommandResult>;
   applyModerationAction(
     command: CommandEnvelope<ApplyModerationAction>
   ): Promise<CommunityCommandResult>;
