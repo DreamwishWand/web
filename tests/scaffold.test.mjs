@@ -43,6 +43,10 @@ test('Presets product surface preserves canonical WEP safety boundary', () => {
   assert.match(page, />In-Game Presets</);
   assert.match(page, /createPresetCommunityBridge/);
   assert.match(page, /preflightPreset/);
+  assert.match(page, /preflightBoundaryReason/);
+  assert.match(page, /Signed bytes/);
+  assert.match(page, /Reuse preflight/);
+  assert.match(page, /CORE_COMMIT_ADAPTER_NOT_BOUND/);
   assert.match(page, /DDVセーブへの書き込みは行いません/);
   assert.doesNotMatch(page, />Apply</);
 });
