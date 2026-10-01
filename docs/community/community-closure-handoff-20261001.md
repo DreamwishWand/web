@@ -75,7 +75,7 @@ Browser runtime evidence:
 2. Final launch privacy/legal/product approval remains open. The technical/policy split is now explicit in `docs/community/privacy-retention-launch-review-20261001.md` and `ops/community-retention-launch-review.json`; D1-D8 remain PENDING. The 30-day content / 365-day operational values remain engineering defaults, not legal conclusions.
 3. Preserve backend-confirmed support Open -> Verify -> Complete procedure; re-exercise in operator UI only if release QA requires it.
 4. Continue low-volume transactional-email inbox-placement monitoring while the new sender domain builds reputation. Latest existing-traffic observation: 5 sent / 5 provider-delivered / 0 bounced / 0 failed / 0 complained, with no synthetic warmup traffic. Inbox-vs-Junk placement remains PARTIAL.
-5. Security hardening provider configuration is now operator-confirmed: Supabase minimum password length = 15, no mandatory composition rule, and all seven exposed security-change notification toggles enabled. Post-change Security Advisor still has exactly one external WARN: unavailable Leaked Password Protection. Only the real Auth 14/15 boundary regression and final reauth/revocation check remain.
+5. Security hardening provider configuration is operator-confirmed. The real Auth provider boundary now rejects 14 and accepts 15, and provider-global + Wand session revocation is runtime-confirmed. The remaining Auth launch item is one representative signed-in reauthentication nonce -> password change -> all-session revoke flow using a real QA mailbox; no synthetic mail is generated solely for checklist closure.
 6. Final cross-product/no-direct-SQL release-gate rerun after Product/WEP integration is complete. Do not rerun completed Community browser suites unless relevant code/config changed or regression evidence exists.
 
 Do not redo the completed browser suites unless a regression or relevant code/config change requires it.
@@ -154,3 +154,26 @@ Evidence:
 
 The production Preset bucket externalization blocker remains OPEN in WEP; this acceptance does not close
 that deployment dependency.
+
+
+## Auth provider-boundary / revocation checkpoint — 2026-10-01
+
+**CONFIRMED RUNTIME:** a disposable provider fixture proved 14-character rejection and 15-character
+acceptance without generating Auth email. The accepted account established two real provider sessions.
+Provider global logout invalidated the second refresh token; the independent Wand cutoff rejected the
+other old JWT with `SESSION_REVOKED_OR_INVALID`; a fresh password sign-in after cutoff succeeded.
+
+The fixture completed normal account deletion. Provider users and fixture handles are absent; one
+AccountDeletionEvent and its two future retention jobs remain by policy. One
+`auth.sessions_revoked` AuditEvent was observed.
+
+The temporary `community-auth-acceptance` function was restored to HTTP 410
+`STAGING_AUTH_ACCEPTANCE_DISABLED` after the run.
+
+Remaining Auth launch gate: one real mailbox-backed signed-in reauthentication nonce -> password
+change -> provider/Wand all-session revocation acceptance. Do not create synthetic reauthentication
+mail solely to warm or pad deliverability statistics.
+
+Evidence:
+- `docs/community/auth-provider-boundary-revocation-runtime-20261001.md`
+- `ops/community-auth-launch-review.json`
