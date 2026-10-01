@@ -52,3 +52,11 @@ This is an engineering acceptance item, not a remaining Product owner decision. 
 ## Staging migration-history note
 
 During concurrent verification, lifecycle v2 and FK-index v3 were each recorded a second time in staging migration history (`20261001234029`, `20261001234035`) after the canonical repo versions (`20261001233225`, `20261001233707`) had already landed. The migrations are reapplication-safe and no duplicate schema objects or fixture rows remain. Production must replay only the canonical repo migration sequence; the duplicate staging history entries are not production source of truth.
+
+## Legacy runtime decommission
+
+- `20261001234524_community_ddv_profile_workspace_decommission_legacy_link_v4` revokes service-role EXECUTE from the superseded exclusive link, legacy linked-profile query, and legacy admin correction RPCs.
+- Staging privilege readback confirms all three legacy RPCs are non-executable by `service_role`, while current Workspace create/update/delete/associate/unlink RPCs remain executable.
+- `community-admin` v14 removes the legacy `correctDdvProfileLink` operation.
+
+Two additional idempotent v2/v3 applications appeared in **staging migration history only** during concurrent work (`20261001234029` / `20261001234035`). They are not canonical repository migrations and are excluded from fresh production replay. The canonical repository sequence is `20261001232814 -> 20261001233225 -> 20261001233707 -> 20261001234524`.
