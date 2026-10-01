@@ -157,3 +157,27 @@ Classification:
   prior iCloud Junk observations remain relevant;
 - **POLICY:** continue observation from normal low-volume transactional use only. Do not generate
   synthetic warming traffic.
+
+
+## Post-Auth acceptance observation — 2026-10-01
+
+The provider password-boundary / session-revocation acceptance generated no Auth email.
+
+A fresh Resend metrics read after that acceptance remains unchanged:
+
+- sent: 5;
+- delivered: 5;
+- bounced: 0;
+- failed: 0;
+- complained: 0;
+- delivery-delayed: 0.
+
+Therefore the Auth 14/15 + revocation regression did not act as synthetic warming and did not alter
+the deliverability sample.
+
+Inbox placement remains PARTIAL: provider `delivered` still does not prove Inbox placement, and the
+previous mixed iCloud Inbox/Junk observation remains the relevant human-mailbox evidence.
+
+The final signed-in reauthentication QA may legitimately generate one reauthentication message (and
+possibly the enabled password-changed security notification) as part of a real transaction. Do not
+repeat that flow merely to increase sending volume.
