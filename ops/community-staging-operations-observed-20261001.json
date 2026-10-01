@@ -1,6 +1,6 @@
 {
   "schema": "dreamwish-community-staging-operations-observation@1",
-  "observedAt": "2026-10-01T00:52:56Z",
+  "observedAt": "2026-10-01T01:18:29Z",
   "purpose": "secret-free staging evidence; not a production replay source",
   "project": {
     "ref": "ptpdoxhrqopvczpclcij",
@@ -144,12 +144,12 @@
     "stagingOnly": [
       {
         "slug": "community-auth-acceptance",
-        "version": 5,
+        "version": 7,
         "verifyJwt": false,
         "disabledStub": true,
         "httpStatus": 410,
         "error": "STAGING_AUTH_ACCEPTANCE_DISABLED",
-        "sha256": "4b3a3b0148f15dc3e0a0a973100f97e7341e6943d38012098c9ef1313f2e8612"
+        "sha256": "f9c7189a345f3d213738dc54b10ec013742cd648c4a68297ae904796087b7d0d"
       },
       {
         "slug": "community-auth-e2e",
@@ -238,8 +238,10 @@
     "secretsValuesCaptured": false,
     "latestRoadCommunityAcceptance": "PASS",
     "latestRoadCommunityAcceptanceTemporaryHarnessRestored": true,
-    "authProviderBoundary14_15": "PENDING",
-    "authBoundaryTemporaryHarnessExecuted": false,
-    "authBoundaryFixtureUsersRemaining": 0
+    "authProviderBoundary14_15": "PASS",
+    "authBoundaryTemporaryHarnessExecuted": true,
+    "authBoundaryFixtureUsersRemaining": 0,
+    "authProviderAndWandRevocation": "PASS",
+    "authSignedInReauthentication": "PENDING_ONE_REPRESENTATIVE_MAILBOX_QA"
   }
 }
