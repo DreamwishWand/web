@@ -139,8 +139,8 @@
         'portable Building/PlayerHouse semantics exist, but full-design composition is incomplete',
       FULL_DESIGN_BUILDING_SOURCE_RECOGNITION_INCOMPLETE:
         'Building source recognition is incomplete for one or more direct roots',
-      FULL_DESIGN_ORDINARY_BUILDING_DESTINATION_PLACEMENT_UNCLOSED:
-        'ordinary Building placement is captured/readable but destination placement semantics are not closed',
+      BUILDING_DESTINATION_SEMANTICS_UNRESOLVED:
+        'Building destination semantics are pending 01B CORE 3; current typed capture is provisional only',
       FULL_DESIGN_BUILDING_RESTORATION_CAPTURE_UNRESOLVED:
         'one or more Building skin / PlayerHouse restoration states could not be captured safely',
       FULL_DESIGN_ENVIRONMENT_PREFLIGHT_PARTIAL:
@@ -226,7 +226,7 @@
     fencePostMessage = '';
     try {
       const result =
-        roadFenceReaderBinding?.fencePostEditor?.createDraft(networkId);
+        roadFenceReaderBinding?.fenceRepresentationLayout?.createDraft(networkId);
       if (!result?.draft) {
         throw new Error(
           result?.code ?? 'WEP_FENCE_POST_DRAFT_UNAVAILABLE'
@@ -695,7 +695,7 @@
       includeRoads = false;
       includeFences = false;
       fencePostNetworks =
-        roadFenceReaderBinding.fencePostEditor?.listNetworks?.() ?? [];
+        roadFenceReaderBinding.fenceRepresentationLayout?.listNetworks?.() ?? [];
       if (fencePostNetworks.length) {
         loadFencePostDraft(String(fencePostNetworks[0].networkId));
       } else {
@@ -1410,7 +1410,11 @@
             </p>
           </div>
           <div class="full-design-gates">
-            <span>Publication <strong>Blocked</strong></span>
+            <span>
+              Source artifact
+              <strong>{fullDesignPlan?.publicationCandidateReady ? 'Candidate ready' : 'Blocked'}</strong>
+            </span>
+            <span>Community publish <strong>Not bound</strong></span>
             <span>Apply <strong>Disabled</strong></span>
           </div>
         </div>
@@ -1428,6 +1432,10 @@
             <div>
               <span>Manifest v1</span>
               <strong>{fullDesignPlan.manifestValidation?.ok ? 'Strict validation PASS' : 'Blocked'}</strong>
+            </div>
+            <div>
+              <span>Source categories</span>
+              <strong>{fullDesignPlan.sourceCategoryClosureReady ? 'Closed' : 'Blocked'}</strong>
             </div>
             <div>
               <span>Exact build</span>
@@ -1471,19 +1479,19 @@
                     <span>
                       Building skin
                       <strong>
-                        {category.buildingSkins?.entries?.length ?? 0} portable
-                        {category.buildingSkins?.nonzeroValidatorRequired
-                          ? ' · validator required'
-                          : ''}
+                        {category.buildingSkins?.entries?.length ?? 0} typed capture ·
+                        {category.buildingSkins?.semanticStatus === 'NOT_APPLICABLE'
+                          ? ' N/A'
+                          : ' provisional / 01B pending'}
                       </strong>
                     </span>
                     <span>
                       PlayerHouse
                       <strong>
-                        {category.playerHouses?.entries?.length ?? 0} captured
-                        {category.playerHouses?.destinationBinderRequired
-                          ? ' · destination binder required'
-                          : ''}
+                        {category.playerHouses?.entries?.length ?? 0} typed capture ·
+                        {category.playerHouses?.semanticStatus === 'NOT_APPLICABLE'
+                          ? ' N/A'
+                          : ' provisional / 01B pending'}
                       </strong>
                     </span>
                   </div>
@@ -1500,9 +1508,9 @@
           <p class="full-design-boundary">
             source GridID / GridObjectIDはmanifestから除去されます。Quest / NPC / progression /
             online entitlementはfull-design decoration stateに含めません。Road/Fenceは01C Core readerと
-            v1.7 authoritative full-root boundsを使うcontained-only captureで、clipped/unsupported topologyは
-            fail-closedです。Destination preflightはportable routeをdestination-local GridIDへ再解決しますが、
-            native placement legalityと実際のApplyは依然別Gateで無効です。
+            promoted representation-layout contractを消費し、clipped/unsupported topologyはfail-closedです。
+            Building関連typed stateは01B CORE 3のsemantic promotionまでprovisionalです。
+            Destination preflightとpersistent Applyは別Gateで、DDV write authorizationは無効です。
           </p>
 
           <div class="full-design-destination">
@@ -1539,22 +1547,22 @@
                     / {fullDesignPlan.directRootRoutes.length}
                   </strong>
                   <strong>
-                    Ordinary Building placement
-                    {fullDesignDestinationPreflight.ordinaryBuildingPlacementReady
+                    Building semantic closure
+                    {fullDesignDestinationPreflight.buildingSemanticClosureReady
                       ? 'PASS / N/A'
-                      : 'BLOCKED · placement unclosed'}
+                      : 'BLOCKED · 01B CORE 3 pending'}
                   </strong>
                   <strong>
-                    Building skin
+                    Provisional skin diagnostic
                     {fullDesignDestinationPreflight.buildingSkinPreflightReady
                       ? 'PASS'
-                      : 'BLOCKED · validator required'}
+                      : 'BLOCKED'}
                   </strong>
                   <strong>
-                    PlayerHouse binding
+                    Provisional house diagnostic
                     {fullDesignDestinationPreflight.playerHouseBindingPreflightReady
                       ? 'PASS'
-                      : 'BLOCKED · destination binder required'}
+                      : 'BLOCKED'}
                   </strong>
                   <strong>
                     Environment
