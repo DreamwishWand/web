@@ -307,17 +307,26 @@ export function createEditorSession(
           result: Record<string, any>;
           after: EditorDocument;
         }) => string[])
-      | null = null
+      | null = null,
+    validationOverride: ValidationResult | null = null
   ) => {
     const before = clone(document);
     const beforeSelection = [...selection];
     const beforeValidation = clone(lastValidation);
     const candidate = clone(document);
     const result = mutator(candidate) ?? {};
-    const validation = validate(
-      candidate,
-      { kind, ...context, result: clone(result) },
-      before
+    const validation = validationOverride
+      ? clone(validationOverride)
+      : validate(
+          candidate,
+          { kind, ...context, result: clone(result) },
+          before
+        );
+    assert(
+      plain(validation) &&
+        typeof validation.ok === 'boolean' &&
+        validation.persistentWriteAuthorized !== true,
+      'WEP_VALIDATION_OVERRIDE_INVALID'
     );
 
     if (!validation.ok && !allowInvalidDraft) {
@@ -868,6 +877,59 @@ export function createEditorSession(
       );
 
       return result;
+    },
+
+    replaceNetworkDraft(
+      networkKind: 'roads' | 'fences',
+      value: any,
+      {
+        command = 'ROADFENCE_DRAFT_UPDATE',
+        validation = {
+          ok: true,
+          issues: [],
+          status: 'MODEL_PREVIEW',
+          persistentWriteAuthorized: false
+        }
+      }: {
+        command?: string;
+        validation?: ValidationResult;
+      } = {}
+    ) {
+      assert(
+        networkKind === 'roads' || networkKind === 'fences',
+        'WEP_NETWORK_KIND_INVALID'
+      );
+      assert(
+        plain(validation) &&
+          typeof validation.ok === 'boolean' &&
+          validation.persistentWriteAuthorized !== true,
+        'WEP_NETWORK_VALIDATION_INVALID'
+      );
+
+      return commit(
+        String(command),
+        (candidate) => {
+          candidate.networks = {
+            ...(candidate.networks ?? {}),
+            [networkKind]:
+              value === null ? null : clone(value)
+          };
+          return {
+            networkKind,
+            topologyChanged:
+              command.includes('TOPOLOGY') ||
+              command.includes('DRAW') ||
+              command.includes('DELETE') ||
+              command.includes('TRANSFORM'),
+            representationOnly:
+              command.includes('REPRESENTATION'),
+            persistentWriteAuthorized: false
+          };
+        },
+        { networkKind },
+        null,
+        validation
+      );
     },
 
     remove(ids: string[] | null | undefined) {
