@@ -52,6 +52,20 @@
         "docs/community/production-execution-runbook-20261002.md"
       ],
       "note": "Execution evidence does not exist yet and must not be treated as production PASS."
+    },
+    {
+      "id": "PRODUCTION_RESOURCE_SELECTION",
+      "state": "CLOSED_APPROVED_FOR_RELEASE_STAGE",
+      "evidence": [
+        "ops/community-production-resource-decision-20261002.json",
+        "docs/community/production-resource-decision-20261002.md"
+      ],
+      "decision": {
+        "supabasePlan": "PRO",
+        "storageRecoveryProvider": "CLOUDFLARE_R2_STANDARD",
+        "provisioningTiming": "AT_RELEASE_STAGE"
+      },
+      "note": "Selection is closed; provisioning/runtime evidence remains production-only pending."
     }
   ],
   "reviewPending": [
@@ -76,7 +90,7 @@
         "P10_PROVIDER_CLEANUP_SUBJECT"
       ],
       "approved": false,
-      "note": "Linked DDV Profile schema/fairness scaffolding exists, but reviewed link/verify/unlink runtime and binding hash/evidence lifecycle are not complete."
+      "note": "Linked DDV Profile lifecycle and age/minors remain open. Provider selection is closed (Supabase Pro + Cloudflare R2 Standard), but actual launch-stage DPA/region/subprocessor/retention binding is still required."
     },
     {
       "id": "LEGAL_APPROVAL",
@@ -156,11 +170,14 @@
   ],
   "userDecisionGate": {
     "reached": true,
-    "decisionsNeeded": [
-      "Supabase production plan: Pro vs Free+self-managed backup",
-      "independent private Storage recovery provider/mechanism"
-    ],
-    "noResourceCreationAuthorized": true
+    "state": "CLOSED_APPROVED_FOR_RELEASE_STAGE",
+    "decisionsNeeded": [],
+    "decision": {
+      "supabasePlan": "PRO",
+      "storageRecoveryProvider": "CLOUDFLARE_R2_STANDARD"
+    },
+    "provisioningDeferredUntil": "RELEASE_STAGE",
+    "noResourceCreationAuthorizedInCurrentPhase": true
   },
   "prohibitedRerunsUnlessSemanticChange": [
     "Auth",
@@ -174,5 +191,5 @@
     "rate-limit runtime"
   ],
   "launchReady": false,
-  "instructionToQR": "Consume as evidence delta only. Preserve open Privacy/Legal, final integration and production-only gates; do not infer CLOSED_PASS from protocol readiness."
+  "instructionToQR": "Consume provider/plan selection as CLOSED_APPROVED_FOR_RELEASE_STAGE only. Preserve open Privacy/Legal provider-binding, final integration, provisioning and all production runtime gates; do not infer production PASS."
 }
