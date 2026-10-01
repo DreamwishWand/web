@@ -108,6 +108,8 @@
   let draftValidation: any = null;
   let draftSavePreparation: any = null;
   let lastDraftCommand = '';
+  let copiedDraftClipboard: any = null;
+  let clipboardPasteCount = 0;
   let roadFenceRootDraft: any = null;
   let rfKind: 'road' | 'fence' = 'road';
   let rfTool: 'polyline' | 'rectangle' = 'polyline';
@@ -1434,6 +1436,8 @@
     draftValidation = null;
     draftSavePreparation = null;
     lastDraftCommand = '';
+    copiedDraftClipboard = null;
+    clipboardPasteCount = 0;
 
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
@@ -1496,6 +1500,8 @@
         draftValidation = null;
         draftSavePreparation = null;
         lastDraftCommand = '';
+    copiedDraftClipboard = null;
+    clipboardPasteCount = 0;
 
         message =
           `DDV saveをローカルで読み込みました。schema ${opened.profileSchemaVersion} / ${opened.areas.length} Areas。Canvasでroot Gridを開くとCore-bound local draft authoringを利用できます。exact buildはsave単体から証明せず、persistent writeは無効です。`;
@@ -1512,6 +1518,8 @@
       draftValidation = null;
       draftSavePreparation = null;
       lastDraftCommand = '';
+    copiedDraftClipboard = null;
+    clipboardPasteCount = 0;
       message = error instanceof Error ? error.message : String(error);
     } finally {
       loading = false;
@@ -1670,6 +1678,8 @@
     draftValidation = null;
     draftSavePreparation = null;
     lastDraftCommand = '';
+    copiedDraftClipboard = null;
+    clipboardPasteCount = 0;
     query = '';
     selectedOnly = false;
     message =
@@ -1727,6 +1737,81 @@
     refreshProjection();
   }
 
+  function finishDraftMutation(result: any, fallbackLabel: string) {
+    lastDraftCommand = String(
+      result?.kind ?? fallbackLabel
+    );
+    if (result?.applied === false) {
+      const blocker = firstDraftBlocker(result.validation);
+      message = blocker
+        ? editorBlockerText(String(blocker.code))
+        : 'The draft command was rejected by validation.';
+    } else if (result?.draftBlocked) {
+      const blocker = firstDraftBlocker(result.validation);
+      message =
+        'Draft updated locally, but validation is blocked. ' +
+        editorBlockerText(
+          String(
+            blocker?.code ??
+              'NATIVE_PLACEMENT_UNVERIFIED'
+          )
+        );
+    } else {
+      message =
+        'Draft updated and current command preflight passed. Persistent DDV write remains disabled.';
+    }
+
+    capturePreview = null;
+    published = null;
+    refreshProjection();
+    refreshDraftState();
+    rebuildFullDesignPlan();
+  }
+
+  function copySelectedDraft() {
+    if (!session || !selection.length) return;
+    try {
+      copiedDraftClipboard =
+        session.copySelectionGraph(null);
+      clipboardPasteCount = 0;
+      message =
+        `Copied ${copiedDraftClipboard.graph.length} draft object${copiedDraftClipboard.graph.length === 1 ? '' : 's'} with dependency closure. No DDV state changed.`;
+    } catch (error) {
+      copiedDraftClipboard = null;
+      clipboardPasteCount = 0;
+      message =
+        error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  function pasteCopiedDraft() {
+    if (
+      !session ||
+      !mutationBound ||
+      !copiedDraftClipboard?.graph?.length
+    ) return;
+    try {
+      const nextOffset = clipboardPasteCount + 1;
+      const bounds = copiedDraftClipboard.sourceBounds;
+      const result = session.insertDraftGraph(
+        copiedDraftClipboard.graph,
+        {
+          anchorX: Number(bounds.x) + nextOffset,
+          anchorY: Number(bounds.y) + nextOffset,
+          selectCreated: true,
+          kind: 'PASTE'
+        }
+      );
+      if (result?.applied) {
+        clipboardPasteCount = nextOffset;
+      }
+      finishDraftMutation(result, 'PASTE');
+    } catch (error) {
+      message =
+        error instanceof Error ? error.message : String(error);
+    }
+  }
+
   function runMutation(
     operation: 'up' | 'down' | 'left' | 'right' | 'rotate' | 'duplicate' | 'delete'
   ) {
@@ -1742,27 +1827,7 @@
       if (operation === 'duplicate') result = session.duplicate(null);
       if (operation === 'delete') result = session.remove(null);
 
-      lastDraftCommand = String(result?.kind ?? operation);
-      if (result?.applied === false) {
-        const blocker = firstDraftBlocker(result.validation);
-        message = blocker
-          ? editorBlockerText(String(blocker.code))
-          : 'The draft command was rejected by validation.';
-      } else if (result?.draftBlocked) {
-        const blocker = firstDraftBlocker(result.validation);
-        message =
-          'Draft updated locally, but validation is blocked. ' +
-          editorBlockerText(String(blocker?.code ?? 'NATIVE_PLACEMENT_UNVERIFIED'));
-      } else {
-        message =
-          'Draft updated and current command preflight passed. Persistent DDV write remains disabled.';
-      }
-
-      capturePreview = null;
-      published = null;
-      refreshProjection();
-      refreshDraftState();
-      rebuildFullDesignPlan();
+      finishDraftMutation(result, operation);
     } catch (error) {
       message = error instanceof Error ? error.message : String(error);
     }
@@ -2145,6 +2210,14 @@
             >Rotate</button>
             <button
               disabled={!mutationBound || !selectedCount}
+              on:click={copySelectedDraft}
+            >Copy</button>
+            <button
+              disabled={!mutationBound || !copiedDraftClipboard?.graph?.length}
+              on:click={pasteCopiedDraft}
+            >Paste</button>
+            <button
+              disabled={!mutationBound || !selectedCount}
               on:click={() => runMutation('duplicate')}
             >Duplicate</button>
             <button
@@ -2184,6 +2257,14 @@
                   ? 'PASS'
                   : 'BLOCKED / UNVERIFIED'
                 : 'Not run'}
+            </strong>
+          </span>
+          <span>
+            Clipboard
+            <strong>
+              {copiedDraftClipboard?.graph?.length
+                ? `${copiedDraftClipboard.graph.length} object graph`
+                : 'Empty'}
             </strong>
           </span>
           <span>
