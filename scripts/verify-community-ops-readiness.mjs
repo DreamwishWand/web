@@ -8,6 +8,8 @@ const retentionReviewPath = path.join(root, 'ops/community-retention-launch-revi
 const retentionReview = JSON.parse(fs.readFileSync(retentionReviewPath, 'utf8'));
 const authReviewPath = path.join(root, 'ops/community-auth-launch-review.json');
 const authReview = JSON.parse(fs.readFileSync(authReviewPath, 'utf8'));
+const releaseEvidencePath = path.join(root, 'ops/community-production-release-evidence.json');
+const releaseEvidence = JSON.parse(fs.readFileSync(releaseEvidencePath, 'utf8'));
 const migrationDir = path.join(root, 'supabase/migrations');
 
 const errors = [];
@@ -41,6 +43,43 @@ assert(authReview.passwordPolicy?.providerBoundary?.password14Accepted === false
 assert(authReview.passwordPolicy?.providerBoundary?.password15Accepted === true, 'Provider must accept 15-character password fixture.');
 assert(authReview.revocation?.status === 'CONFIRMED_RUNTIME', 'Provider + Wand revocation must remain runtime-confirmed.');
 assert(authReview.emailTrafficGeneratedByThisAcceptance === false, 'Auth boundary acceptance must not be mislabeled as synthetic email traffic.');
+assert(manifest.releaseEvidence?.contract === 'ops/community-production-release-evidence.json', 'Production manifest must reference the release evidence index.');
+assert(releaseEvidence.schema === 'dreamwish-community-production-release-evidence@1', 'Unexpected production release evidence schema.');
+assert(releaseEvidence.productionEvidenceMustComeFromDistinctProductionEnvironment === true, 'Production release evidence must come from a distinct production environment.');
+assert(releaseEvidence.stagingProjectRef === manifest.staging.projectRef, 'Release evidence staging ref must match the operations manifest.');
+assert(releaseEvidence.productionProjectRef !== manifest.staging.projectRef, 'Release evidence production ref cannot equal staging.');
+const releaseGates = new Map((releaseEvidence.gates ?? []).map((gate) => [gate.id, gate]));
+for (const id of [
+  'COMMUNITY_PRIMARY_BROWSER_CLOSURE',
+  'PRESET_SCENE_REUSE_VERTICAL',
+  'PRESET_ARTIFACT_RETENTION_E2E',
+  'WEP_PRESET_ARTIFACT_BUCKET_EXTERNALIZATION',
+  'AUTH_PROVIDER_14_15_BOUNDARY',
+  'AUTH_PROVIDER_WAND_REVOCATION',
+  'AUTH_SIGNED_IN_REAUTH_MAILBOX',
+  'RETENTION_PRODUCT_PRIVACY_LEGAL_APPROVAL',
+  'DISTINCT_PRODUCTION_SUPABASE_PROJECT',
+  'FINAL_INTEGRATED_SOURCE_TREE',
+  'FINAL_INTEGRATED_MIGRATION_REPLAY',
+  'DATABASE_RESTORE_DRILL',
+  'STORAGE_RESTORE_DRILL',
+  'CONTROLLED_SECRET_ROTATION',
+  'PRODUCTION_FUNCTION_INVENTORY',
+  'PRODUCTION_CRON_VAULT_INVENTORY',
+  'PRODUCTION_SMOKE',
+  'PRODUCTION_SECURITY_ADVISOR',
+  'TRANSACTIONAL_EMAIL_HUMAN_MAILBOX_PLACEMENT'
+]) {
+  assert(releaseGates.has(id), `Missing production release evidence gate: ${id}`);
+}
+for (const gate of releaseEvidence.gates ?? []) {
+  assert(typeof gate.required === 'boolean', `Release evidence gate ${gate.id} must declare required.`);
+  assert(typeof gate.satisfied === 'boolean', `Release evidence gate ${gate.id} must declare satisfied.`);
+  assert(Array.isArray(gate.evidence), `Release evidence gate ${gate.id} must carry an evidence array.`);
+  if (gate.satisfied === true) {
+    assert(gate.evidence.length > 0, `Satisfied release evidence gate ${gate.id} must have evidence.`);
+  }
+}
 
 const requiredEnvironmentConfig = new Set(manifest.production?.requiredEnvironmentConfig ?? []);
 for (const name of ['DREAMWISH_ENVIRONMENT', 'COMMUNITY_MEDIA_BUCKET', 'WEP_PRESET_ARTIFACT_BUCKET']) {
@@ -142,6 +181,15 @@ if (process.argv.includes('--require-ready')) {
   assert(pendingAuthItems.length === 0, `Auth launch items remain open: ${pendingAuthItems.map((item) => item.id).join(', ')}`);
   const pendingRetentionDecisions = (retentionReview.decisions ?? []).filter((decision) => decision?.status !== 'APPROVED');
   assert(pendingRetentionDecisions.length === 0, `Retention policy decisions remain unapproved: ${pendingRetentionDecisions.map((item) => item.id).join(', ')}`);
+  assert(releaseEvidence.launchReady === true, 'Production release evidence index is not launch-ready.');
+  assert(Boolean(releaseEvidence.productionProjectRef), 'Release evidence requires a production project ref.');
+  const unsatisfiedReleaseGates = (releaseEvidence.gates ?? []).filter(
+    (gate) => gate?.required === true && gate?.satisfied !== true
+  );
+  assert(
+    unsatisfiedReleaseGates.length === 0,
+    `Production release evidence gates remain unsatisfied: ${unsatisfiedReleaseGates.map((gate) => gate.id).join(', ')}`
+  );
   const openBlockers = (manifest.crossStreamBlockers ?? []).filter(
     (blocker) => blocker?.state !== 'CLOSED'
   );
