@@ -287,3 +287,20 @@ which intentionally fails until the production project and restore/rotation evid
 - final production smoke and Advisor capture.
 
 No production environment, paid plan, Supabase branch, backup add-on or PITR add-on was created by this checkpoint.
+
+
+## Staging live-inventory evidence
+
+Point-in-time secret-free staging evidence is recorded in:
+
+- `docs/community/staging-operations-inventory-20261001.md`;
+- `ops/community-staging-operations-observed-20261001.json`.
+
+The snapshot confirms the current production-shaped allowlist is present in staging, all six
+acceptance/E2E-only functions are inert HTTP 410 stubs, the seven expected Cron jobs are active, and
+the seven expected Vault secret names exist. No Vault secret value was queried or recorded.
+
+Supabase reports 55 historical migration entries in staging. That history is deliberately **not**
+the production replay source because it includes one-time staging migrations and historical
+incremental fixes. The final integrated repository migration tree remains authoritative for fresh
+production replay.
