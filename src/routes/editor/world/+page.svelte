@@ -31,6 +31,7 @@
   import { preflightCurrentV125FullDesignManifest } from '$lib/wep/full-design-preset-preflight';
   import { createSwitchV125RoadFenceReaderBinding } from '$lib/wep/roadfence-reader-adapter';
   import { assessCurrentV125BrowserPlacementReadiness } from '$lib/wep/placement-readiness';
+  import { explainWepBlocker } from '$lib/wep/blocker-messages';
   import {
     NATIVE_PLACEMENT_CLASSES,
     createSwitchV125PlacementLegalityBinding
@@ -109,34 +110,7 @@
     : null;
 
   function editorBlockerText(code: string) {
-    return ({
-      NATIVE_EXACT_BUILD_UNVERIFIED:
-        'This save does not prove the exact DDV executable build. The draft is local, but native placement cannot be marked verified.',
-      NATIVE_PLACEMENT_INVALID:
-        'DDV native placement rules reject this draft position.',
-      NATIVE_PLACEMENT_UNVERIFIED:
-        'Native placement could not be verified for this object or conflict.',
-      NATIVE_REPLACEMENT_OR_REMOVAL_POLICY_REQUIRED:
-        'DDV would require replacement/removal semantics that are not yet safe for Wand Apply.',
-      GEOMETRY_ADAPTER_REQUIRED:
-        'Core geometry support is unavailable for this rotation.',
-      SELECTION_GEOMETRY_ADAPTER_REQUIRED:
-        'Core multi-selection geometry support is unavailable for this rotation.',
-      CUSTOM_SELECTION_PIVOT_UNSUPPORTED:
-        'This Core contract does not support a custom rotation pivot.',
-      WEP_EDITOR_DRAFT_OPERATION_UNSUPPORTED:
-        'This draft operation is outside the current v1.25 authoring contract.',
-      GRID_BOUNDS_EXCEEDED:
-        'The draft extends beyond authoritative GridData bounds.',
-      GEOMETRY_UNRESOLVED:
-        'Object geometry is unresolved, so this edit cannot be validated safely.',
-      BUILDING_DESTINATION_SEMANTICS_UNRESOLVED:
-        'Building / PlayerHouse destination semantics are still pending 01B Core promotion.',
-      NO_PERSISTENT_WRITER_BOUND:
-        'Persistent DDV save writing is not authorized yet.',
-      CORE_ATOMIC_PERSISTENT_COMMIT_NOT_AUTHORIZED:
-        'Atomic persistent DDV commit is not authorized yet.'
-    } as Record<string, string>)[code] ?? code;
+    return explainWepBlocker(code).message;
   }
 
   function firstDraftBlocker(validation: any) {
@@ -214,32 +188,7 @@
   }
 
   function fullDesignBlockerText(code: string) {
-    return ({
-      COMPREHENSIVE_GRIDDATA_DIMENSIONS_NOT_BOUND:
-        'authoritative GridData dimensions are not yet bound',
-      FULL_DESIGN_ALL_ROOT_OBJECT_COMPOSITION_INCOMPLETE:
-        'all-root object composition is not yet complete',
-      FULL_DESIGN_ROOT_OBJECT_COMPOSITION_UNRESOLVED:
-        'some direct-root objects are not portable under the current 01B contract',
-      FULL_DESIGN_ROOT_OBJECT_ROUTE_DOCUMENTS_MISSING:
-        'one or more direct-root EditorDocuments could not be bound',
-      NATIVE_ROADFENCE_LOGICAL_READER_NOT_BOUND:
-        'Core native → logical Road/Fence reader is not yet bound',
-      FULL_DESIGN_ROADFENCE_CAPTURE_REGION_BOUNDS_UNAVAILABLE:
-        '01C logical reader is bound, but authoritative full-root Capture Region bounds are not yet available',
-      FULL_DESIGN_BUILDING_COMPOSITION_INCOMPLETE:
-        'portable Building/PlayerHouse semantics exist, but full-design composition is incomplete',
-      FULL_DESIGN_BUILDING_SOURCE_RECOGNITION_INCOMPLETE:
-        'Building source recognition is incomplete for one or more direct roots',
-      BUILDING_DESTINATION_SEMANTICS_UNRESOLVED:
-        'Building destination semantics are pending 01B CORE 3; current typed capture is provisional only',
-      FULL_DESIGN_BUILDING_RESTORATION_CAPTURE_UNRESOLVED:
-        'one or more Building skin / PlayerHouse restoration states could not be captured safely',
-      FULL_DESIGN_ENVIRONMENT_PREFLIGHT_PARTIAL:
-        'portable Environment state is captured, but full destination preflight remains partial',
-      FULL_DESIGN_REQUIRED_CATEGORY_EXCLUDED:
-        'a required full-design category was excluded'
-    } as Record<string, string>)[code] ?? code;
+    return explainWepBlocker(code).message;
   }
 
   function fullDesignCategoryDetail(
@@ -520,11 +469,14 @@
   }
 
   function fullDesignDestinationIssueText(issue: any) {
+    const explanation = explainWepBlocker(
+      issue?.code ?? 'WEP_UNKNOWN_BLOCKER',
+      issue?.detail ?? issue
+    );
     return String(
       issue?.detail?.message ??
         issue?.detail?.status ??
-        issue?.code ??
-        'Unknown preflight blocker'
+        explanation.message
     );
   }
 
