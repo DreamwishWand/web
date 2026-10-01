@@ -422,3 +422,61 @@ test('network draft validation override cannot authorize persistent writing', ()
     /WEP_NETWORK_VALIDATION_INVALID/
   );
 });
+
+
+test('Fence representation layout edit shares editor Undo/Redo history', () => {
+  const session = createEditorSession(base);
+  const container = {
+    schema: 'dreamwish-wand-wep-roadfence-logical-root-draft',
+    version: 1,
+    kind: 'fences',
+    originPolicy: 'native-logical-root',
+    networks: [],
+    representationLayouts: {
+      f0: {
+        schema: 'ddv.fence-representation-layout@1',
+        representationLayout: {
+          posts: [{ nodeId: 'n1', pinned: true }]
+        },
+        persistentWriteAuthorized: false
+      }
+    },
+    representationLayoutModified: { f0: true },
+    persistentWriteAuthorized: false
+  };
+
+  const result = session.replaceNetworkDraft(
+    'fences',
+    container,
+    {
+      command: 'FENCE_REPRESENTATION_LAYOUT_EDIT',
+      validation: {
+        ok: true,
+        issues: [],
+        status: 'REPRESENTATION_LAYOUT_PREVIEW',
+        persistentWriteAuthorized: false
+      }
+    }
+  );
+  assert.equal(result.applied, true);
+  assert.equal(
+    session.getDocument().networks.fences
+      .representationLayoutModified.f0,
+    true
+  );
+
+  session.undo();
+  assert.equal(session.getDocument().networks.fences, null);
+
+  session.redo();
+  assert.equal(
+    session.getDocument().networks.fences
+      .representationLayouts.f0
+      .representationLayout.posts[0].pinned,
+    true
+  );
+  assert.equal(
+    session.getLastValidation().status,
+    'REPRESENTATION_LAYOUT_PREVIEW'
+  );
+});
