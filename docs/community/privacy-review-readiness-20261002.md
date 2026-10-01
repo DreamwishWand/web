@@ -108,10 +108,11 @@ minimal anti-abuse/fairness record or unnecessary retained personal/pseudonymous
 
 Required decision before Privacy approval:
 
-1. define the binding input and one-way construction;
-2. classify re-identification/linkability risk;
-3. define verification-evidence storage and lifecycle;
-4. choose post-unlink/account-deletion semantics: delete, revoke + null binding hash, or documented
+1. define the complete creation/verification lifecycle before implementation;
+2. define the binding input and one-way construction;
+3. classify re-identification/linkability risk;
+4. define verification-evidence storage and lifecycle;
+5. choose post-unlink/account-deletion semantics: delete, revoke + null binding hash, or documented
    minimized retention with a purpose and horizon.
 
 Do not change the schema until that decision is made.
@@ -119,7 +120,8 @@ Do not change the schema until that decision is made.
 ### P2 — Linked DDV Profile correction/unlink — **Privacy/Legal decision**
 
 The model limits a Wand Account to three linked DDV Profiles. A normal self-service
-correction/unlink path was not found in the reviewed Community source.
+creation/verification/correction/unlink command was not found in the reviewed Community command
+surface.
 
 The intended fairness rule ("unlink basically unavailable") is a Product choice, but Privacy/Legal
 must determine whether a mistaken link requires a correction path without deleting the entire Wand
