@@ -376,7 +376,7 @@ At minimum:
 3. implementation of the approved 13+ independent-account boundary, under-13 parent-managed Community scope, and any age-assurance/parental-consent requirement;
 4. Privacy Policy legal bases/notices/rights workflow;
 5. processor/DPA/subprocessor/cross-border treatment;
-6. Linked DDV Profile identifier/verification retention and correction/unlink policy;
+6. Linked DDV Profile Player ID binding minimization, correction/unlink rights and 7-day tombstone policy;
 7. Terms/UGC license/IP policy;
 8. notice/takedown/counter-notice/repeat-infringer strategy;
 9. moderation/report/appeal obligations, including DSA analysis where applicable;
@@ -414,3 +414,21 @@ The remaining technical/legal dependency is the actual DDV-profile-stable local 
 verification transport. DDV Core has not yet confirmed such an identifier, so Community link
 implementation remains fail-closed. Whole-save/profile hashes are not acceptable identity
 substitutes because they are content-dependent.
+
+
+## Linked DDV Player ID identity delta — 2026-10-02
+
+The prior stable-identifier discovery question is resolved technically.
+
+Wand will use `GameInfo.LastCustomIdOwner`, the DDV Player ID / User ID represented by the existing
+`mdc...` backup convention, as the Linked DDV Profile identity source. Current v1.25 Switch and
+Steam/Windows evidence for the same cloud-linked profile matches exactly.
+
+The raw Player ID is not intended for public display/search or persistent Community storage. Normal
+linking parses the save locally and stores only a server-keyed digest. The raw save is not uploaded
+for normal linking.
+
+External Legal should review this Player ID as a persistent pseudonymous identifier and determine
+whether the proposed minimization, exceptional correction path and 7-day ordinary post-unlink
+binding tombstone satisfy launch-jurisdiction rights/notice requirements. This technical resolution
+is not Legal approval.
