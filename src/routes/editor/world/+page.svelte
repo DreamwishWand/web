@@ -852,6 +852,11 @@
     roadFenceRootDraft = null;
     includeRoads = false;
     includeFences = false;
+    captureRegionMode = 'selection';
+    captureRegionX = 0;
+    captureRegionY = 0;
+    captureRegionW = 1;
+    captureRegionH = 1;
     fencePostNetworks = [];
     fencePostSelectedNetworkId = '';
     fencePostDraft = null;
