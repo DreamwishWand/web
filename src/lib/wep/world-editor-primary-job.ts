@@ -531,7 +531,9 @@ function textEntryTarget(input: ShortcutInput) {
     input.targetContentEditable === true ||
     tag === 'INPUT' ||
     tag === 'TEXTAREA' ||
-    tag === 'SELECT'
+    tag === 'SELECT' ||
+    tag === 'BUTTON' ||
+    tag === 'A'
   );
 }
 
