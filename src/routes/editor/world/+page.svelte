@@ -674,6 +674,10 @@
     resetFullDesignDestination();
     resetFloatingIslandPlan();
     resetRoadFenceCapture();
+    draftAuthoringBound = false;
+    draftValidation = null;
+    draftSavePreparation = null;
+    lastDraftCommand = '';
 
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
@@ -708,11 +712,12 @@
         presetDescription = '';
         publishKey = '';
         refreshProjection();
+        refreshDraftState();
 
         message =
           editorDocument.target?.platform === 'synthetic'
             ? 'EditorDocument をローカルで読み込みました。synthetic target のdraft操作が利用できます。'
-            : 'EditorDocument をローカルで読み込みました。実DDV targetはCore mutation binding未接続のためread-onlyです。';
+            : 'EditorDocument をローカルで読み込みました。untrusted imported real-target documentにはCore authoring bindingを自動付与せずread-onlyにします。';
       } else {
         const opened = await openWorldSaveBytes(bytes, {
           sourcePlatform
@@ -729,9 +734,13 @@
         presetTitle = '';
         presetDescription = '';
         publishKey = '';
+        draftAuthoringBound = false;
+        draftValidation = null;
+        draftSavePreparation = null;
+        lastDraftCommand = '';
 
         message =
-          `DDV saveをローカルで読み込みました。schema ${opened.profileSchemaVersion} / ${opened.areas.length} Areas。exact buildはsave単体から証明せず、persistent writeは無効です。`;
+          `DDV saveをローカルで読み込みました。schema ${opened.profileSchemaVersion} / ${opened.areas.length} Areas。Canvasでroot Gridを開くとCore-bound local draft authoringを利用できます。exact buildはsave単体から証明せず、persistent writeは無効です。`;
       }
     } catch (error) {
       session = null;
@@ -741,6 +750,10 @@
       selection = [];
       layerState = null;
       fileName = '';
+      draftAuthoringBound = false;
+      draftValidation = null;
+      draftSavePreparation = null;
+      lastDraftCommand = '';
       message = error instanceof Error ? error.message : String(error);
     } finally {
       loading = false;
@@ -1180,8 +1193,10 @@
           </dl>
           <p class:blocked={!mutationBound} class="binding-state">
             {mutationBound
-              ? 'Synthetic draft mutation'
-              : 'Real target: read-only; exact-build mutation is not bound'}
+              ? editorDocument.target?.platform === 'synthetic'
+                ? 'Synthetic draft authoring'
+                : 'Core-bound local draft authoring · persistent write OFF'
+              : 'Read-only target · no trusted draft authoring binding'}
           </p>
           {#if worldSource}
             <button class="back-to-routes" on:click={returnToSaveRoutes}>
@@ -1204,7 +1219,15 @@
               </div>
               <div>
                 <dt>Legality</dt>
-                <dd>Not validated</dd>
+                <dd>
+                  {draftValidation
+                    ? draftValidation.ok
+                      ? 'Current command PASS'
+                      : 'Blocked / unverified'
+                    : draftAuthoringBound
+                      ? 'v1.9 bound · command-specific'
+                      : 'Not bound'}
+                </dd>
               </div>
               <div>
                 <dt>DDV write</dt>
@@ -1212,9 +1235,11 @@
               </div>
             </dl>
             <p class="placement-readiness-note">
-              {placementReadiness.bounds.status === 'AUTHORITATIVE'
-                ? 'Bounds-only: water / no-build / FloorType / occupancy rules are not inferred.'
-                : placementReadiness.bounds.blocker}
+              {placementReadiness.bounds.status !== 'AUTHORITATIVE'
+                ? placementReadiness.bounds.blocker
+                : draftAuthoringBound
+                  ? 'v1.8 FloorType and v1.9 native placement are evaluated after each draft command. exactBuildKnown=false remains an explicit blocker and is never promoted to VALID.'
+                  : 'Authoritative bounds are available; native placement remains unavailable until a trusted Core draft binding is attached.'}
             </p>
           </section>
         {/if}
