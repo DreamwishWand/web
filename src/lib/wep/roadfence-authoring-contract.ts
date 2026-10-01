@@ -3,6 +3,7 @@ import {
   buildFencePolyline,
   buildFenceRectangleOutline,
   eraseFenceLogicalUnits,
+  eraseRoadCells,
   previewFenceStyleReplacement,
   previewRoadStyleReplacement,
   rasterizeRoadPolyline,
@@ -200,6 +201,26 @@ export function previewFenceStyleReplace(input:AnyRecord) {
         Number.POSITIVE_INFINITY
     })
   );
+}
+
+export function previewRoadCellDelete({
+  cells,
+  coordinates
+}:{
+  cells:AnyRecord[];
+  coordinates:AnyRecord[];
+}) {
+  const result = eraseRoadCells(
+    clone(cells),
+    clone(coordinates)
+  );
+  return assertReadModel({
+    ...result,
+    operationLayer:'logicalTopology',
+    topologyChanged:result.logicalQuantity !== cells.length,
+    representationLayoutInvalidated:false,
+    persistentWriteAuthorized:false
+  });
 }
 
 export function previewFenceSegmentDelete({
