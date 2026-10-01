@@ -427,3 +427,85 @@ Source:
 
 Production plan selection remains PENDING. These provider facts inform D6/D7 but do not approve
 privacy/legal policy and do not authorize a paid-plan change.
+
+
+## D6 privacy-safe recovery design — 2026-10-01
+
+Design status: **CLOSED / PRODUCTION RUNTIME PENDING**
+
+Machine contract:
+`ops/community-backup-privacy-contract.json`.
+
+The launch design intentionally avoids making PITR a requirement.
+
+### Database recovery
+
+- use Supabase managed daily backup or a verified equivalent;
+- maximum engineering RPO remains 24 hours;
+- prefer the shortest provider recovery window compatible with the selected production plan;
+- bind the exact production plan/window before launch;
+- PITR may be added later, but it is not required for the first public release.
+
+Current Supabase documentation states that Pro daily backups expose seven days, Team fourteen days,
+and Enterprise up to thirty days. Database backup contains Storage metadata, not object bytes.
+
+### Storage recovery
+
+Primary Supabase Storage is not treated as its own backup. The recovery copy must:
+
+- be outside the primary production Supabase project's rollback domain;
+- remain private and recovery-operator-only;
+- have an engineering target retention of seven days;
+- achieve an RPO of at most 24 hours;
+- be restored and verified separately from the database.
+
+The exact external backup provider is intentionally not selected yet.
+
+### Recovery deletion ledger
+
+Restoring an older backup can otherwise resurrect an account deleted after that backup point.
+
+Launch therefore requires a minimal deletion ledger outside the primary rollback domain.
+
+It contains only:
+
+- deletion event ID;
+- Wand account ID;
+- deletion requested timestamp.
+
+It must not contain email addresses, provider subjects, passwords, access/refresh tokens, content
+payload, or message text.
+
+Engineering retention target: **90 days**, aligned with D2 operational retention and comfortably
+longer than the expected backup-recovery window.
+
+### Restore promotion rule
+
+All recovery occurs in a non-production/quarantine target.
+
+Before restored Community reads or writes may become user-visible:
+
+1. replay applicable deletion-ledger entries;
+2. reapply account/Creator/work tombstones;
+3. purge recovered owned media/Preset payload where applicable;
+4. verify no ledger account is discoverable or directly readable;
+5. invalidate/revalidate restored sessions;
+6. verify database and Storage independently;
+7. run signed-read and publish/discover/save/read smoke;
+8. run Security Advisor.
+
+If deletion-ledger reconciliation is unavailable or incomplete, **the recovered environment cannot
+be promoted**.
+
+### Cost / complexity boundary
+
+No production Supabase project, paid-plan upgrade, PITR add-on, or external backup provider is
+created by this design checkpoint.
+
+The smallest intended launch implementation is:
+
+- one provider-managed daily DB backup path;
+- one private independent Storage backup path;
+- one minimal recovery deletion ledger using the same recovery domain where practical.
+
+Production provider selection and both restore drills remain launch gates.

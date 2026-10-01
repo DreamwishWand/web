@@ -1,6 +1,6 @@
 {
   "schema": "dreamwish-community-production-release-evidence@1",
-  "updatedAt": "2026-10-01T21:25:00+09:00",
+  "updatedAt": "2026-10-01T21:35:00+09:00",
   "scope": "Community Core production launch",
   "productionEvidenceMustComeFromDistinctProductionEnvironment": true,
   "stagingProjectRef": "ptpdoxhrqopvczpclcij",
@@ -202,8 +202,11 @@
       "required": true,
       "satisfied": false,
       "owner": "Release Operations",
-      "evidence": [],
-      "pendingReason": "Requires actual restore into a non-production target.",
+      "evidence": [
+        "ops/community-backup-privacy-contract.json",
+        "docs/community/production-operations-backup-recovery-20261001.md"
+      ],
+      "pendingReason": "Design is closed, but actual production backup mechanism/provider and restore drill are production-only and remain PENDING.",
       "classification": "production_only_pending"
     },
     {
@@ -220,8 +223,11 @@
       "required": true,
       "satisfied": false,
       "owner": "Release Operations",
-      "evidence": [],
-      "pendingReason": "Requires actual object-byte restore/integrity verification in a non-production target.",
+      "evidence": [
+        "ops/community-backup-privacy-contract.json",
+        "docs/community/production-operations-backup-recovery-20261001.md"
+      ],
+      "pendingReason": "Design is closed, but actual production backup mechanism/provider and restore drill are production-only and remain PENDING.",
       "classification": "production_only_pending"
     },
     {
@@ -398,6 +404,14 @@
       "elevatedJobs": 0,
       "elevatedColumns": 0,
       "operationalDetailDays": 90
+    },
+    "backupPrivacyDesign": {
+      "status": "DESIGN_CLOSED_PRODUCTION_RUNTIME_PENDING",
+      "contract": "ops/community-backup-privacy-contract.json",
+      "pitrRequiredAtLaunch": false,
+      "storageRecoveryCopyRetentionDaysTarget": 7,
+      "recoveryDeletionLedgerRetentionDays": 90,
+      "productionProviderSelected": false
     }
   }
 }

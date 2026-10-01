@@ -28,18 +28,40 @@
       "launchRequirement": "managed-daily-or-verified-offsite-logical-backup",
       "maximumRpoHours": 24,
       "restoreDrillRequired": true,
-      "freePlanStagingIsNotProductionBackupEvidence": true
+      "freePlanStagingIsNotProductionBackupEvidence": true,
+      "preferredShortestAvailableRecoveryWindow": true,
+      "pitrRequiredAtLaunch": false,
+      "productionPlanBinding": "PENDING"
     },
     "storageObjects": {
       "separateBackupRequired": true,
       "maximumRpoHours": 24,
       "restoreDrillRequired": true,
-      "databaseBackupDoesNotRestoreObjectBytes": true
+      "databaseBackupDoesNotRestoreObjectBytes": true,
+      "independentRollbackDomainRequired": true,
+      "privateOnly": true,
+      "targetCopyRetentionDays": 7,
+      "providerSelection": "PENDING"
     },
     "restore": {
       "targetRtoHours": 4,
       "restoreToNonProductionTargetFirst": true,
-      "authAndObjectIntegrityChecksRequired": true
+      "authAndObjectIntegrityChecksRequired": true,
+      "deletionLedgerReconciliationRequired": true,
+      "restoredSessionsMustBeRevalidated": true,
+      "promotionBlockedIfReconciliationUnavailable": true
+    },
+    "recoveryDeletionLedger": {
+      "required": true,
+      "contract": "ops/community-backup-privacy-contract.json",
+      "outsidePrimaryRollbackDomain": true,
+      "retentionDays": 90,
+      "minimalFields": [
+        "deletionEventId",
+        "accountId",
+        "requestedAt"
+      ],
+      "productionImplementation": "PENDING"
     }
   },
   "migrationPolicy": {

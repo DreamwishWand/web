@@ -1,0 +1,79 @@
+{
+  "schema": "dreamwish-community-backup-privacy-contract@1",
+  "generatedAt": "2026-10-01",
+  "status": "DESIGN_CLOSED_PRODUCTION_RUNTIME_PENDING",
+  "notAnApproval": true,
+  "scope": "Privacy-safe recovery contract for Community database and Storage copies. No production resource, paid plan, PITR add-on, or external backup provider is created by this contract.",
+  "recoveryTargets": {
+    "databaseRpoHoursMax": 24,
+    "storageRpoHoursMax": 24,
+    "rtoHoursTarget": 4,
+    "restoreToNonProductionFirst": true
+  },
+  "database": {
+    "requirement": "PROVIDER_MANAGED_DAILY_OR_VERIFIED_EQUIVALENT",
+    "preferShortestAvailableRecoveryWindow": true,
+    "currentSupabaseFacts": {
+      "proDailyBackupRetentionDays": 7,
+      "teamDailyBackupRetentionDays": 14,
+      "enterpriseDailyBackupRetentionDays": "up_to_30",
+      "storageObjectBytesIncluded": false
+    },
+    "pitrRequiredAtLaunch": false,
+    "productionPlan": "UNDECIDED",
+    "note": "If the selected plan/provider retains database recovery copies materially longer than the launch privacy policy expects, D6 must be reviewed and disclosed rather than silently accepted."
+  },
+  "storage": {
+    "independentRecoveryCopyRequired": true,
+    "mustBeOutsidePrimarySupabaseProjectRollbackDomain": true,
+    "privateOnly": true,
+    "publicReadForbidden": true,
+    "targetRetentionDays": 7,
+    "backupRpoHoursMax": 24,
+    "provider": "TBD_PRODUCTION_SELECTION",
+    "s3CompatiblePreferredForSimpleBulkCopy": true,
+    "primarySupabaseStorageVersioningReliedUpon": false,
+    "note": "Supabase Storage S3 versioning is not a recovery mechanism; deleted primary objects must not be assumed recoverable."
+  },
+  "recoveryDeletionLedger": {
+    "required": true,
+    "purpose": "Prevent an older database or Storage recovery copy from re-exposing accounts/content deleted after the backup restore point.",
+    "mustBeOutsidePrimaryRollbackDomain": true,
+    "retentionDays": 90,
+    "fields": [
+      "deletionEventId",
+      "accountId",
+      "requestedAt"
+    ],
+    "forbiddenFields": [
+      "email",
+      "providerSubject",
+      "password",
+      "accessToken",
+      "refreshToken",
+      "contentPayload",
+      "messageText"
+    ],
+    "access": "RECOVERY_OPERATOR_ONLY",
+    "restoreRule": "Before any restored Community reads/writes become user-visible, replay all applicable ledger entries against the restored DB and Storage, reapply account/work tombstones, purge owned payload where due, revoke/revalidate restored sessions, and verify no ledger account is publicly discoverable or directly accessible.",
+    "failureRule": "A restore cannot be promoted to production-visible service if deletion-ledger reconciliation is unavailable or incomplete."
+  },
+  "restoreAcceptance": {
+    "quarantineTargetRequired": true,
+    "deletionLedgerReconciliationRequired": true,
+    "sessionRevalidationRequired": true,
+    "dbAndStorageMustBeVerifiedSeparately": true,
+    "signedReadSmokeRequired": true,
+    "publishDiscoverSaveReadSmokeRequired": true,
+    "securityAdvisorRequired": true
+  },
+  "productionPending": [
+    "select production Supabase plan",
+    "select independent Storage-backup provider/location",
+    "implement backup worker/schedule",
+    "implement minimal recovery deletion-ledger externalization",
+    "perform DB restore drill",
+    "perform Storage restore drill",
+    "prove deletion-ledger reconciliation before promotion"
+  ]
+}

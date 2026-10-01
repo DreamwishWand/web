@@ -63,16 +63,19 @@
     },
     {
       "id": "D6_BACKUP_COPY_RETENTION",
-      "proposal": "SEPARATE_DB_AND_STORAGE_RECOVERY_COPIES_WITH_DELETE_RECONCILIATION",
-      "productMeaning": "Database and Storage recovery copies are separate assets. Prefer the shortest production recovery window that meets launch RPO/RTO; do not create longer-lived Wand copies by default. Restore into a non-production target first and reapply deletion/retention reconciliation before reopening writes.",
+      "proposal": "QUARANTINED_DB_STORAGE_RECOVERY_WITH_EXTERNAL_DELETION_LEDGER",
+      "productMeaning": "Database and Storage recovery copies remain separate. Recovery is restored into a non-production target first. Before any restored Community data becomes user-visible, a minimal deletion ledger outside the primary rollback domain is replayed so accounts/content deleted after the backup point cannot reappear.",
       "implementationChangeRequired": "PRODUCTION_MECHANISM_PENDING",
       "launchTargets": {
         "databaseRpoHoursMax": 24,
         "storageRpoHoursMax": 24,
         "rtoHoursTarget": 4,
-        "wandManagedStorageCopyRetentionDaysTarget": 7
+        "storageRecoveryCopyRetentionDaysTarget": 7,
+        "recoveryDeletionLedgerRetentionDays": 90
       },
-      "providerPlanBinding": "Record the actual Supabase production plan/backup window when the production environment is selected; any materially longer copy-retention policy requires D6 review."
+      "providerPlanBinding": "Bind the actual Supabase production backup window and external Storage-backup provider before launch. Any longer recovery-copy retention must be reviewed and disclosed.",
+      "launchComplexityChoice": "No PITR requirement at launch. Prefer provider-managed daily DB backup plus one independent private Storage recovery copy path. Provider/plan selection remains production operations.",
+      "recoveryDeletionLedgerContract": "ops/community-backup-privacy-contract.json"
     },
     {
       "id": "D7_PROCESSOR_PROVIDER_RETENTION",
@@ -122,5 +125,5 @@
     "legal": "PENDING_EXPLICIT_APPROVAL",
     "launchApproved": false
   },
-  "nextAction": "Obtain explicit Product/Privacy/Legal approvals or requested changes. Current engineering defaults are 7-day content purge and 90-day operational scrub, with D4 holds for necessary exceptions."
+  "nextAction": "Obtain explicit Product/Privacy/Legal approvals or requested changes. D6 design is now concrete but production provider selection and restore drills remain pending."
 }

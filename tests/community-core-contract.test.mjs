@@ -2400,3 +2400,44 @@ test('current D2 operational retention is a single ninety-day stage with D4 hold
   assert.equal(d2.valueDays, 90);
   assert.equal(d2.proposal, '90_DAYS_SINGLE_STAGE_WITH_D4_HOLDS');
 });
+
+
+test('backup privacy contract prevents restore-time resurrection without requiring PITR', () => {
+  const backup = JSON.parse(read('ops/community-backup-privacy-contract.json'));
+  const operations = JSON.parse(read('ops/community-production-operations.json'));
+  const proposal = JSON.parse(read('ops/community-retention-policy-proposal.json'));
+
+  assert.equal(backup.schema, 'dreamwish-community-backup-privacy-contract@1');
+  assert.equal(backup.status, 'DESIGN_CLOSED_PRODUCTION_RUNTIME_PENDING');
+  assert.equal(backup.recoveryTargets.restoreToNonProductionFirst, true);
+  assert.equal(backup.database.pitrRequiredAtLaunch, false);
+  assert.equal(backup.storage.independentRecoveryCopyRequired, true);
+  assert.equal(backup.storage.mustBeOutsidePrimarySupabaseProjectRollbackDomain, true);
+  assert.equal(backup.storage.privateOnly, true);
+  assert.equal(backup.storage.targetRetentionDays, 7);
+  assert.equal(backup.recoveryDeletionLedger.required, true);
+  assert.equal(backup.recoveryDeletionLedger.mustBeOutsidePrimaryRollbackDomain, true);
+  assert.equal(backup.recoveryDeletionLedger.retentionDays, 90);
+  assert.deepEqual(
+    backup.recoveryDeletionLedger.fields,
+    ['deletionEventId', 'accountId', 'requestedAt']
+  );
+  assert.ok(backup.recoveryDeletionLedger.forbiddenFields.includes('email'));
+  assert.ok(backup.recoveryDeletionLedger.forbiddenFields.includes('contentPayload'));
+  assert.equal(
+    backup.restoreAcceptance.deletionLedgerReconciliationRequired,
+    true
+  );
+  assert.equal(backup.restoreAcceptance.sessionRevalidationRequired, true);
+
+  assert.equal(operations.backupPolicy.database.pitrRequiredAtLaunch, false);
+  assert.equal(operations.backupPolicy.storageObjects.targetCopyRetentionDays, 7);
+  assert.equal(operations.backupPolicy.recoveryDeletionLedger.retentionDays, 90);
+
+  const d6 = proposal.decisions.find((item) => item.id === 'D6_BACKUP_COPY_RETENTION');
+  assert.equal(
+    d6.proposal,
+    'QUARANTINED_DB_STORAGE_RECOVERY_WITH_EXTERNAL_DELETION_LEDGER'
+  );
+  assert.equal(d6.implementationChangeRequired, 'PRODUCTION_MECHANISM_PENDING');
+});
