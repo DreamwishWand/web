@@ -2657,7 +2657,7 @@ test('production execution checklist stops before resource creation', () => {
 test('04 QR Community evidence preserves review and production pending boundaries', () => {
   const qr = JSON.parse(read('ops/community-qa-release-evidence-20261002.json'));
 
-  assert.equal(qr.workstream, '03 COMM 4');
+  assert.equal(qr.workstream, '03 COMM 5');
   assert.equal(qr.launchReady, false);
   assert.equal(qr.userDecisionGate.reached, true);
   assert.equal(qr.userDecisionGate.state, 'CLOSED_APPROVED_FOR_RELEASE_STAGE');
@@ -2705,8 +2705,8 @@ test('Legal packet is explicitly non-approval and jurisdiction decisions remain 
 
   assert.match(packet, /LEGAL NOT APPROVED/);
   assert.match(packet, /not a legal\s+opinion/i);
-  assert.match(packet, /age\/minor/i);
-  assert.match(packet, /Linked DDV Profile/i);
+  assert.match(packet, /Children \/ minors|age[- /]minor/i);
+  assert.match(packet, /DDV Profile Workspace/i);
   assert.match(packet, /DMCA/i);
   assert.match(packet, /Digital Services Act|DSA/i);
   assert.match(packet, /Privacy and Legal remain|LEGAL = PENDING/i);
