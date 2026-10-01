@@ -25,7 +25,21 @@ function messageOf(error: unknown): string {
   return String(error ?? 'retention worker failed');
 }
 
-const MEDIA_BUCKET = 'community-media-staging';
+const KNOWN_STAGING_PROJECT_REF = 'ptpdoxhrqopvczpclcij';
+
+function resolveMediaBucket(): string {
+  const explicit = Deno.env.get('COMMUNITY_MEDIA_BUCKET')?.trim();
+  if (explicit) return explicit;
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+  if (supabaseUrl.includes(KNOWN_STAGING_PROJECT_REF)) {
+    return 'community-media-staging';
+  }
+
+  throw new Error('COMMUNITY_MEDIA_BUCKET is required outside the known staging project.');
+}
+
+const MEDIA_BUCKET = resolveMediaBucket();
 
 export default {
   fetch: withSupabase({ auth: 'none' }, async (req, ctx) => {
