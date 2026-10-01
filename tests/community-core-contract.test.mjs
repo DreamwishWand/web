@@ -2480,3 +2480,22 @@ test('deletion disclosure maps each user data category without overpromising del
   assert.match(d7.implementationChangeRequired, /PROVIDER_BINDING_PENDING/);
   assert.match(d8.implementationChangeRequired, /USER_FACING_COPY_AND_APPROVAL_PENDING/);
 });
+
+
+test('Community Lab account deletion copy matches current retention contract', () => {
+  const page = read('src/routes/community-lab/account/+page.svelte');
+  const copy = read('docs/community/delete-account-user-copy-review-20261001.md');
+
+  assert.match(page, /Deleting this Wand Account is irreversible/);
+  assert.match(page, /physically purged within 7 days/);
+  assert.match(page, /normally deleted or minimized at 90 days/);
+  assert.match(page, /7-day period is not a recovery window/);
+  assert.match(page, /Backup\/recovery copies and service-provider copies\/logs/);
+
+  assert.match(copy, /permanent and cannot be undone/);
+  assert.match(copy, /physically purged within 7 days/);
+  assert.match(copy, /normally deleted or minimized within 90 days/);
+  assert.match(copy, /moderation, security, or legal hold/);
+  assert.match(copy, /deletion records are reapplied/);
+  assert.match(copy, /production service providers/);
+});

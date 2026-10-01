@@ -157,15 +157,17 @@
       <h2>Delete Wand Account</h2>
 
       <p>
-        This action tombstones the WandAccount immediately. It anonymizes the public Creator
-        identity and authored comments, hides owned Community works, removes private
-        Saved/Follow/Reaction/notification/DDV-link state, retires Wand AuthIdentity mappings, and
-        queues provider-account cleanup.
+        Deleting this Wand Account is irreversible. Account access, the Creator presence, and owned
+        public/private Community works are removed from Community access immediately. Authored
+        comments are anonymized, private Saved/Follow/Reaction/notification/DDV-link state is
+        removed, Wand sessions are revoked, and provider-account cleanup is queued.
       </p>
 
       <p>
-        Published revision/audit/moderation history is retained under restricted retention so
-        Community history is not orphaned. Final production retention periods are not yet fixed.
+        User-authored media and Preset payload are physically purged within 7 days unless an
+        allowed moderation, security, or legal retention hold applies. Operational detail is
+        normally deleted or minimized at 90 days. The 7-day period is not a recovery window.
+        Backup/recovery copies and service-provider copies/logs follow separate retention rules.
       </p>
 
       <p>
