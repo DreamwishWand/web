@@ -11,6 +11,10 @@ import {
 import {
   footprintWithinAuthoritativeBounds
 } from './griddata-v17-contract.ts';
+import {
+  NATIVE_PLACEMENT_CLASSES,
+  type CurrentV125PlacementBinding
+} from './placement-legality-v19.ts';
 
 type AnyRecord = Record<string, any>;
 
@@ -76,12 +80,14 @@ export function preflightCurrentV125FullDesignManifest({
   destinationProfile,
   destinationPlatform,
   manifest,
-  restorationContext = {}
+  restorationContext = {},
+  placementBinding = null
 }: {
   destinationProfile: AnyRecord;
   destinationPlatform: string;
   manifest: unknown;
   restorationContext?: AnyRecord;
+  placementBinding?: CurrentV125PlacementBinding | null;
 }) {
   const validation = validateCurrentV125FullDesignManifest(manifest);
   if (!validation.ok || !validation.manifest) {
@@ -266,8 +272,14 @@ export function preflightCurrentV125FullDesignManifest({
         bound?.tessellationFactor
       );
       let boundsValidated = false;
-      let placementBlocker =
-        'NATIVE_TERRAIN_OCCUPANCY_VALIDATION_REQUIRED';
+      let placementValidated = false;
+      let placementPolicyReady = false;
+      let placementBlocker: string | null =
+        'NATIVE_PLACEMENT_CONTRACT_NOT_BOUND';
+      let nativePlacementClass: string | null = null;
+      let nativePlacementReasonCodes: string[] = [];
+      let nativeConflictFlagsResolved = false;
+      let clearabilityResolved = false;
 
       if (!bound) {
         rootObjectPlacementPreflightReady = false;
@@ -326,21 +338,143 @@ export function preflightCurrentV125FullDesignManifest({
             }
           )
         );
-      } else {
+      } else if (
+        !['furniture', 'landscaping'].includes(String(entry?.layer ?? ''))
+      ) {
         boundsValidated = true;
         rootObjectPlacementPreflightReady = false;
+        placementBlocker =
+          'NATIVE_PLACEMENT_CATEGORY_UNSUPPORTED';
         issues.push(
           block(
-            'FULL_DESIGN_DESTINATION_NATIVE_PLACEMENT_VALIDATION_REQUIRED',
+            'FULL_DESIGN_DESTINATION_NATIVE_PLACEMENT_CATEGORY_UNSUPPORTED',
             `$.categories.rootObjects.portableComposition.entries[${index}]`,
             {
               artifactObjectId: entry?.artifactObjectId,
               gridDataPath,
-              reason:
-                'NATIVE_TERRAIN_OCCUPANCY_VALIDATION_REQUIRED'
+              layer: String(entry?.layer ?? '')
             }
           )
         );
+      } else if (!placementBinding) {
+        boundsValidated = true;
+        rootObjectPlacementPreflightReady = false;
+        issues.push(
+          block(
+            'FULL_DESIGN_DESTINATION_NATIVE_PLACEMENT_CONTRACT_NOT_BOUND',
+            `$.categories.rootObjects.portableComposition.entries[${index}]`,
+            {
+              artifactObjectId: entry?.artifactObjectId,
+              gridDataPath
+            }
+          )
+        );
+      } else {
+        boundsValidated = true;
+        try {
+          const nativeResult = placementBinding.classify({
+            profile: destinationProfile,
+            destinationGridId,
+            gridDataPath,
+            candidate: entry
+          });
+          nativePlacementClass = String(nativeResult.nativeClass);
+          nativePlacementReasonCodes = Array.isArray(
+            nativeResult.reasonCodes
+          )
+            ? nativeResult.reasonCodes.map(String)
+            : [];
+          nativeConflictFlagsResolved =
+            nativeResult.nativeConflictFlagsResolved === true;
+          clearabilityResolved =
+            nativeResult.clearabilityResolved === true;
+
+          if (
+            nativePlacementClass ===
+            NATIVE_PLACEMENT_CLASSES.VALID_CLEAR
+          ) {
+            placementValidated = true;
+            placementPolicyReady = true;
+            placementBlocker = null;
+          } else if (
+            nativePlacementClass ===
+            NATIVE_PLACEMENT_CLASSES
+              .VALID_REPLACES_OR_REMOVES_EXISTING
+          ) {
+            placementValidated = true;
+            rootObjectPlacementPreflightReady = false;
+            placementBlocker =
+              'NATIVE_REPLACEMENT_OR_REMOVAL_POLICY_REQUIRED';
+            issues.push(
+              block(
+                'FULL_DESIGN_DESTINATION_NATIVE_REPLACEMENT_POLICY_REQUIRED',
+                `$.categories.rootObjects.portableComposition.entries[${index}]`,
+                {
+                  artifactObjectId: entry?.artifactObjectId,
+                  gridDataPath,
+                  nativePlacementClass,
+                  reasonCodes: clone(nativePlacementReasonCodes)
+                }
+              )
+            );
+          } else if (
+            nativePlacementClass ===
+            NATIVE_PLACEMENT_CLASSES.INVALID
+          ) {
+            rootObjectPlacementPreflightReady = false;
+            placementBlocker =
+              'NATIVE_PLACEMENT_INVALID';
+            issues.push(
+              block(
+                'FULL_DESIGN_DESTINATION_NATIVE_PLACEMENT_INVALID',
+                `$.categories.rootObjects.portableComposition.entries[${index}]`,
+                {
+                  artifactObjectId: entry?.artifactObjectId,
+                  gridDataPath,
+                  nativePlacementClass,
+                  reasonCodes: clone(nativePlacementReasonCodes)
+                }
+              )
+            );
+          } else {
+            rootObjectPlacementPreflightReady = false;
+            placementBlocker =
+              'NATIVE_PLACEMENT_UNKNOWN_UNVERIFIED';
+            issues.push(
+              block(
+                'FULL_DESIGN_DESTINATION_NATIVE_PLACEMENT_UNVERIFIED',
+                `$.categories.rootObjects.portableComposition.entries[${index}]`,
+                {
+                  artifactObjectId: entry?.artifactObjectId,
+                  gridDataPath,
+                  nativePlacementClass:
+                    nativePlacementClass ||
+                    NATIVE_PLACEMENT_CLASSES.UNKNOWN,
+                  reasonCodes: clone(nativePlacementReasonCodes),
+                  clearabilityResolved
+                }
+              )
+            );
+          }
+        } catch (error) {
+          rootObjectPlacementPreflightReady = false;
+          placementBlocker =
+            'NATIVE_PLACEMENT_PREFLIGHT_ERROR';
+          issues.push(
+            block(
+              'FULL_DESIGN_DESTINATION_NATIVE_PLACEMENT_PREFLIGHT_ERROR',
+              `$.categories.rootObjects.portableComposition.entries[${index}]`,
+              {
+                artifactObjectId: entry?.artifactObjectId,
+                gridDataPath,
+                message:
+                  error instanceof Error
+                    ? error.message
+                    : String(error)
+              }
+            )
+          );
+        }
       }
 
       rootObjectRouteBindings.push({
@@ -355,7 +489,15 @@ export function preflightCurrentV125FullDesignManifest({
         portableState: clone(entry.portableState),
         routeResolved: true,
         boundsValidated,
-        placementValidated: false,
+        floorMapBound:
+          Boolean(placementBinding) && boundsValidated,
+        nativePlacementClass,
+        nativePlacementReasonCodes:
+          clone(nativePlacementReasonCodes),
+        nativeConflictFlagsResolved,
+        clearabilityResolved,
+        placementValidated,
+        placementPolicyReady,
         placementBlocker,
         persistentWriteAuthorized: false
       });
@@ -505,6 +647,7 @@ export function preflightCurrentV125FullDesignManifest({
     routeResolutionReady,
     rootObjectRouteBindingReady,
     rootObjectPlacementPreflightReady,
+    nativePlacementContractBound: Boolean(placementBinding),
     buildingRestorationPreflightReady,
     environmentPreflightReady,
     issues,
