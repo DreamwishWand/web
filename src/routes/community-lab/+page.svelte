@@ -698,6 +698,11 @@
           Product-shaped acceptance path for Supabase Auth → Community Edge APIs → validated media →
           immutable Gallery publication. This route is intentionally absent from public navigation.
         </p>
+        <p class="lab-meta">
+          <a href="profiles/">Profile Workspace acceptance</a>
+          ·
+          <a href="account/">Account deletion acceptance</a>
+        </p>
       </div>
       <div class:lab-pass={!error} class:lab-fail={!!error} class="lab-status">{status}</div>
     </div>
