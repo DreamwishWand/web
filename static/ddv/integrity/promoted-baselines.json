@@ -55,7 +55,9 @@
       "buildId": "52BD625D9B4E0053",
       "payloadSha256": "01c29c9d1fcaba4ca6a3d418cc7d2539d186ef9b95a2031849e45e307b9f0946",
       "sourceEvidenceDriveId": "1J2QGWAJBa1WTa_qbpdTRGXRsAozSpGt07iTd0-FitCI",
-      "scope": "read/model/preflight"
+      "scope": "read/model/preflight",
+      "artifactSha256": "01c29c9d1fcaba4ca6a3d418cc7d2539d186ef9b95a2031849e45e307b9f0946",
+      "artifactPackaging": "single-file-machine-contract"
     }
   ]
 }
