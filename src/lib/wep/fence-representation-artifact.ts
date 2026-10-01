@@ -150,8 +150,10 @@ function bindNodeMap({
   return idMap;
 }
 
-function artifactNodeIndex(artifactNetwork: AnyRecord) {
-  return new Map(
+function artifactNodeIndex(
+  artifactNetwork: AnyRecord
+): Map<string, AnyRecord> {
+  return new Map<string, AnyRecord>(
     (artifactNetwork?.graph?.nodes ?? []).map((node: AnyRecord) => [
       String(node.id ?? ''),
       node
