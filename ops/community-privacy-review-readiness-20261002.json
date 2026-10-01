@@ -77,37 +77,46 @@
   "openDecisions": [
     {
       "id": "P1_LINKED_DDV_PROFILE_ORPHAN_MINIMIZATION",
-      "severity": "BLOCKER_FOR_PRIVACY_APPROVAL",
+      "severity": "IMPLEMENTATION_DEPENDENCY_AFTER_PRODUCT_DECISION",
       "evidence": [
         "Account deletion removes public.wand_account_ddv_profiles rows.",
         "Account deletion does not delete or revoke the corresponding public.ddv_profiles row.",
         "ddv_profiles retains binding_key_hash unless another process changes it.",
         "No canonical definition was found for binding_key_hash derivation or verification_evidence_ref lifecycle.",
-        "Live staging function inventory found only community_tombstone_account and enforce_ddv_profile_limit referencing ddv_profiles; no link/verify/rebind routine was found."
+        "Live staging function inventory found only community_tombstone_account and enforce_ddv_profile_limit referencing ddv_profiles; no link/verify/rebind routine was found.",
+        "Product approved Linked DDV Profile lifecycle with a 7-day post-unlink/account-deletion binding-digest tombstone.",
+        "Normal self-service unlink remains disabled; exceptional correction requires recent-auth support/admin review, reason and AuditEvent.",
+        "Raw save/raw verification evidence must not be persistently stored."
       ],
       "requiredDecision": [
-        "Define the complete Linked DDV Profile creation/verification lifecycle before implementing it; the current database contains schema/fairness scaffolding but no reviewed link/verify runtime.",
-        "Define the raw value represented by binding_key_hash and the exact one-way construction, including salt/pepper/key-management assumptions.",
-        "Define whether the retained hash can be linked or brute-forced from DDV identifiers.",
-        "Define verification_evidence_ref contents/location and deletion lifecycle.",
-        "Choose the post-unlink/account-deletion behavior for orphan ddv_profiles: delete, revoke+null hash, or documented minimized retention with a purpose/horizon."
+        "Product lifecycle decision is CLOSED.",
+        "DDV Core must confirm a DDV-profile-stable local identifier before implementation.",
+        "Privacy/Legal must review the confirmed identifier's linkability and final verification transport before launch.",
+        "After identifier confirmation, implement a server-side keyed digest; do not persist raw identifier/evidence.",
+        "Expire ordinary binding tombstone after 7 days; only D4 hold may extend it while justified."
       ],
-      "engineeringAction": "NONE_UNTIL_PRIVACY_PRODUCT_DECISION"
+      "engineeringAction": "BLOCKED_ON_DDV_CORE_STABLE_IDENTIFIER_CONFIRMATION",
+      "productDecision": "APPROVED_7_DAY_TOMBSTONE",
+      "decisionRecord": "ops/community-linked-ddv-profile-product-decision-20261002.json"
     },
     {
       "id": "P2_LINKED_DDV_PROFILE_CORRECTION_UNLINK",
-      "severity": "PRIVACY_LEGAL_DECISION",
+      "severity": "PRODUCT_DECISION_CLOSED_PRIVACY_LEGAL_REVIEW_PENDING",
       "evidence": [
         "The model enforces at most three linked DDV profiles.",
         "No ordinary self-service link correction/unlink command was found in the reviewed Community source.",
         "Account deletion removes the account-to-DDV-profile link.",
-        "community-command currently exposes no DDV Profile link/verify/unlink command."
+        "community-command currently exposes no DDV Profile link/verify/unlink command.",
+        "Product approved no normal self-service unlink/rebind.",
+        "Exceptional correction is allowed only with recent-auth support/admin review, recorded reason and AuditEvent.",
+        "Removed old profile receives a 7-day cooldown."
       ],
       "requiredDecision": [
-        "Decide how a Wizard corrects a mistaken or obsolete link without deleting the entire Wand Account.",
-        "Determine whether unlink/rebind is required by the launch jurisdictions or Product policy."
+        "Product decision is CLOSED.",
+        "Privacy/Legal must determine whether the approved exceptional correction path satisfies launch-jurisdiction rights requirements."
       ],
-      "engineeringAction": "NONE_UNTIL_DECISION"
+      "engineeringAction": "WAIT_FOR_IDENTIFIER_AND_PRIVACY_LEGAL_REVIEW",
+      "productDecision": "NO_NORMAL_SELF_SERVICE_UNLINK__EXCEPTIONAL_REVIEWED_CORRECTION_ONLY"
     },
     {
       "id": "P3_UNLISTED_DISCLOSURE",
@@ -226,5 +235,5 @@
   ],
   "engineeringConclusion": "NO_RETENTION_ENGINEERING_CHANGE_REQUIRED_AT_THIS_STAGE",
   "privacyApprovalReady": false,
-  "nextAction": "Resolve the Linked DDV Profile lifecycle and age/minors policy now; at release stage bind the approved Supabase Pro + Cloudflare R2 Standard provider facts and complete Privacy/Legal review before production exposure."
+  "nextAction": "Linked DDV Product lifecycle decision is closed. Next owner decision is age/minors launch policy. In parallel, DDV Core must identify a stable local DDV Profile identifier; Community implementation remains fail-closed until that evidence exists."
 }
