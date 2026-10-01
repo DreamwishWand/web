@@ -24,9 +24,8 @@ Privacy state:
 
 Primary blockers:
 
-1. Linked DDV Profile orphan/minimization:
-   account deletion removes the WandAccount link but not the underlying DDV Profile row;
-   `binding_key_hash` derivation and `verification_evidence_ref` lifecycle are not canonicalized.
+1. Linked DDV Profile identity/minimization:
+   identity source is now CLOSED / CONFIRMED as GameInfo.LastCustomIdOwner, the DDV Player/User ID represented by existing mdc backup naming. Raw Player ID is not persistently stored; normal linking keeps the save local and stores only a server-keyed digest. Privacy/Legal review of transport/linkability/correction remains OPEN.
 2. age/minors:\n   Product policy is CLOSED at age 13 for an independent Wand Account. Under-13 independent registration is prohibited; accountless local use and parent/guardian-managed DDV Profile association are allowed. Privacy/Legal implementation and parent-managed Community scope remain OPEN.
 3. production processor binding:
    provider selection is CLOSED — Supabase Pro + Cloudflare R2 Standard — but actual
@@ -192,3 +191,27 @@ Evidence:
 - ages 13–17 minor-specific safeguards: OPEN for Privacy/Legal.
 
 This does not change `launchReady=false`.
+
+
+## Linked DDV Player ID identity delta — 2026-10-02
+
+Stable DDV Profile identity source is now **CLOSED / CONFIRMED**:
+
+- source field: `GameInfo.LastCustomIdOwner`;
+- semantics: DDV Player ID / User ID;
+- existing backup representation: `mdc{GameInfo.LastCustomIdOwner}`;
+- the same value is observed in accepted Switch and later Steam/Windows v1.25 saves of the same cloud-linked profile;
+- cross-save therefore consumes one Linked DDV Profile slot;
+- raw Player ID is not persistently stored or publicly exposed.
+
+Evidence:
+
+- `ops/community-linked-ddv-profile-core-identifier-gate-20261002.json`
+- `ops/community-linked-ddv-profile-identity-transport-20261002.json`
+- `docs/community/linked-ddv-profile-identity-transport-20261002.md`
+
+Keep OPEN:
+
+- targeted Community link/verify implementation and acceptance;
+- Privacy/Legal review of identifier transport/linkability/correction;
+- all unrelated launch/production gates.
