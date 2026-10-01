@@ -39,7 +39,7 @@ export const NATIVE_PLACEMENT_CLASSES = Object.freeze({
 
 type FloorCore = {
   revision: string;
-  schema: string;
+  SCHEMA: string;
   getGridData(
     contract: AnyRecord,
     gridDataPath: string,
@@ -62,7 +62,7 @@ function floorCore(): FloorCore {
   if (
     !api ||
     api.revision !== 'V125_SWITCH_FLOOR_MAP_CONTRACT_1' ||
-    api.schema !== 'ddv.griddata-floor-map@1' ||
+    api.SCHEMA !== 'ddv.griddata-floor-map@1' ||
     typeof api.getGridData !== 'function'
   ) {
     throw new Error('WEP_V125_FLOOR_CORE_CONTRACT_MISMATCH');
