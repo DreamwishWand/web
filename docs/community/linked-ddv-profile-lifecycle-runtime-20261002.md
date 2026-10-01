@@ -56,3 +56,15 @@ question is how the trusted Edge layer obtains enough evidence before deriving t
 
 This keeps the completed lifecycle work usable without prematurely choosing a weaker or more
 privacy-invasive link-verification model.
+
+
+## Feature-gated user-link Edge candidate
+
+`community-command` v19 is deployed on staging with a new `linkDdvProfile` candidate path.
+The path derives a domain-separated HMAC-SHA-256 digest server-side and forwards only the digest to
+PostgreSQL. Raw Player ID is not assigned to any RPC parameter or log statement.
+
+The code defaults to disabled unless `COMMUNITY_DDV_PROFILE_LINK_MODE=local-player-id` is explicitly
+configured. This work did not configure that enable mode or its production binding secret. The
+deployment therefore validates Edge loading/compilation without making the unresolved Product
+assurance choice live.
