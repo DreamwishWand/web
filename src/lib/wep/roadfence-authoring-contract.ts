@@ -85,7 +85,7 @@ function clone<T>(value:T):T {
   return structuredClone(value);
 }
 
-function assertReadModel(result:AnyRecord) {
+function assertReadModel(result:AnyRecord):AnyRecord {
   if (!result || result.persistentWriteAuthorized === true) {
     throw new Error('WEP_ROADFENCE_AUTHORING_WRITE_BOUNDARY_VIOLATION');
   }
