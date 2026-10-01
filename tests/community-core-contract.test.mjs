@@ -2441,3 +2441,42 @@ test('backup privacy contract prevents restore-time resurrection without requiri
   );
   assert.equal(d6.implementationChangeRequired, 'PRODUCTION_MECHANISM_PENDING');
 });
+
+
+test('deletion disclosure maps each user data category without overpromising deletion', () => {
+  const disclosure = JSON.parse(read('ops/community-deletion-disclosure-contract.json'));
+  const proposal = JSON.parse(read('ops/community-retention-policy-proposal.json'));
+
+  assert.equal(disclosure.schema, 'dreamwish-community-deletion-disclosure-contract@1');
+  assert.equal(disclosure.status, 'READY_FOR_PRODUCT_PRIVACY_LEGAL_REVIEW');
+  assert.equal(disclosure.notLegalApproval, true);
+
+  const byId = new Map(disclosure.categories.map((item) => [item.id, item]));
+  assert.equal(byId.get('ACCOUNT_CREATOR').timing, 'IMMEDIATE');
+  assert.equal(
+    byId.get('PUBLISHED_PRIVATE_WORKS').timing,
+    'IMMEDIATE_ACCESS_REMOVAL_THEN_WITHIN_7_DAYS_PAYLOAD_PURGE'
+  );
+  assert.equal(byId.get('PUBLISHED_PRIVATE_WORKS').recoveryWindow, false);
+  assert.equal(byId.get('PRIVATE_INTERACTIONS').timing, 'IMMEDIATE');
+  assert.equal(byId.get('OPERATIONAL_RECORDS').timing, '90_DAYS');
+  assert.match(byId.get('OPERATIONAL_RECORDS').exception, /moderation, security or legal/i);
+  assert.equal(byId.get('BACKUP_RECOVERY_COPIES').timing, 'SEPARATE_RECOVERY_POLICY');
+  assert.equal(byId.get('PROVIDER_COPIES_LOGS').timing, 'PROVIDER_CONTROLLED');
+
+  assert.ok(
+    disclosure.surfaces.deleteAccountConfirmation.mustNotState.includes(
+      'all copies are physically deleted immediately'
+    )
+  );
+  assert.ok(
+    disclosure.surfaces.deleteAccountConfirmation.mustNotState.includes(
+      'the 7-day period is a recovery window'
+    )
+  );
+
+  const d7 = proposal.decisions.find((item) => item.id === 'D7_PROCESSOR_PROVIDER_RETENTION');
+  const d8 = proposal.decisions.find((item) => item.id === 'D8_POLICY_DISCLOSURE_AND_ACCEPTANCE');
+  assert.match(d7.implementationChangeRequired, /PROVIDER_BINDING_PENDING/);
+  assert.match(d8.implementationChangeRequired, /USER_FACING_COPY_AND_APPROVAL_PENDING/);
+});

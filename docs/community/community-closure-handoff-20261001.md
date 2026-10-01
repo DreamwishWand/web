@@ -474,3 +474,32 @@ Canonical evidence:
 
 Product / Privacy / Legal approval is still PENDING. No approval is inferred from Engineering
 closure.
+
+
+## LATEST — D7/D8 disclosure preparation — 2026-10-01
+
+**DESIGN / DISCLOSURE CONTRACT READY; APPROVAL PENDING**
+
+Canonical contracts:
+
+- `ops/community-deletion-disclosure-contract.json`;
+- `docs/community/deletion-retention-disclosure-20261001.md`.
+
+D8 now maps deletion behavior by actual data category rather than claiming one universal deletion
+time:
+
+- account/Creator: immediate irreversible removal/anonymization;
+- owned works: immediate access/discovery removal, payload purge within 7 days;
+- comments: immediate deletion/anonymization;
+- Saves/Follows/Reactions/NotificationDelivery/Linked DDV Profile state: immediate removal;
+- Auth provider account: immediate Wand revoke, asynchronous retryable provider deletion;
+- operational/moderation/security detail: normally 90 days;
+- D4 hold: justified moderation/security/legal exception only while needed;
+- structural tombstones: minimized relationship/revision skeleton only;
+- backup recovery copies: D6;
+- provider copies/logs: provider-controlled and explicitly disclosed.
+
+D7 requires provider data minimization and launch-time disclosure of material provider retention
+windows. It does not assert that provider copies obey Wand's 7-day/90-day timers.
+
+Product/Privacy/Legal approval remains PENDING.

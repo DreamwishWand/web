@@ -207,3 +207,24 @@ Remaining retention dependency:
 
 External escalation beyond the internal Operations Alert console remains a separate launch-operations
 decision.
+
+
+## Current superseding retention values — 2026-10-01
+
+The older 30-day / 365-day values in the historical sections above are superseded.
+
+Current live staging and launch-policy implementation:
+
+- content payload purge: **within 7 days**;
+- operational-detail scrub: **90 days**;
+- retention beyond 90 days: only while an applicable D4 moderation/security/legal hold or active
+  moderation/provider-cleanup blocker prevents the normal job from being claimed;
+- no fixed 365-day elevated operational stage.
+
+Evidence:
+- `20261001115028_community_retention_content_purge_7d`;
+- `20261001122209_community_retention_operational_90d_single_stage`;
+- `docs/community/retention-d1-d2-single-stage-runtime-20261001.md`.
+
+The original single-stage operational scrub runtime has been restored. Released hold reasons are
+also minimized during that scrub.

@@ -79,15 +79,17 @@
     },
     {
       "id": "D7_PROCESSOR_PROVIDER_RETENTION",
-      "proposal": "DOCUMENT_PROVIDER_CONTROLLED_WINDOWS_AND_MINIMIZE_PAYLOAD",
-      "productMeaning": "Wand's database timers do not control processor copies/logs. Record the actual launch provider plan/configuration, minimize data sent to processors, and disclose provider-controlled retention where material.",
-      "implementationChangeRequired": false
+      "proposal": "MINIMIZE_PROVIDER_DATA_AND_DISCLOSE_MATERIAL_PROVIDER_WINDOWS",
+      "productMeaning": "Wand minimizes personal/content data sent to processors. Provider-controlled backup/log/email copies are not represented as obeying Wand's 7-day or 90-day timers. Material launch-provider retention windows are documented and disclosed in the Privacy Policy.",
+      "implementationChangeRequired": "DISCLOSURE_CONTRACT_READY_PROVIDER_BINDING_PENDING",
+      "disclosureContract": "ops/community-deletion-disclosure-contract.json"
     },
     {
       "id": "D8_POLICY_DISCLOSURE_AND_ACCEPTANCE",
-      "proposal": "DISCLOSE_EACH_DELETION_STAGE_AND_EXTERNAL_COPY_BOUNDARY",
-      "productMeaning": "Launch privacy/account-deletion copy must explain, in plain language by data category, immediate account/work removal, 7-day payload purge, 90-day operational scrub, permitted moderation/security/legal holds, minimized structural records, backup copies, and provider-controlled copies/logs.",
-      "implementationChangeRequired": "USER_FACING_COPY_REQUIRED_BEFORE_PUBLIC_LAUNCH"
+      "proposal": "CATEGORY_BY_CATEGORY_PLAIN_LANGUAGE_DISCLOSURE",
+      "productMeaning": "Deletion UI and Privacy Policy explain each data category separately: immediate account/work removal, 7-day payload purge, immediate private-interaction removal, asynchronous auth-provider cleanup, 90-day operational scrub, justified holds, minimal structural tombstones, backup recovery copies, and provider-controlled copies/logs.",
+      "implementationChangeRequired": "DISCLOSURE_CONTRACT_READY_USER_FACING_COPY_AND_APPROVAL_PENDING",
+      "disclosureContract": "ops/community-deletion-disclosure-contract.json"
     }
   ],
   "providerFactsReviewedAt": "2026-10-01",
@@ -125,5 +127,5 @@
     "legal": "PENDING_EXPLICIT_APPROVAL",
     "launchApproved": false
   },
-  "nextAction": "Obtain explicit Product/Privacy/Legal approvals or requested changes. D6 design is now concrete but production provider selection and restore drills remain pending."
+  "nextAction": "Obtain explicit Product/Privacy/Legal approvals or requested changes. D6-D8 design/disclosure contracts are prepared; production provider binding and final reviewed user-facing wording remain pending."
 }
