@@ -1,7 +1,7 @@
 {
   "schema": "dreamwish-community-ddv-profile-workspace-runtime@2",
   "checkedAt": "2026-10-02",
-  "state": "PROFILE_WORKSPACE_DB_LIFECYCLE_STAGING_PASS__EDGE_COMMAND_V20_ADMIN_V14__LEGACY_RUNTIME_DECOMMISSIONED",
+  "state": "PROFILE_WORKSPACE_DB_LIFECYCLE_STAGING_PASS__EDGE_COMMAND_V21_ADMIN_V14__STAGING_UI_ADDED__LEGACY_RUNTIME_DECOMMISSIONED",
   "stagingProject": "dreamwish-wand-staging",
   "stagingProjectRef": "ptpdoxhrqopvczpclcij",
   "migrations": [
@@ -69,7 +69,7 @@
       "syntheticAccounts": 0
     },
     "edgeDeployments": {
-      "communityCommand": 20,
+      "communityCommand": 21,
       "communityQuery": 10,
       "communityAdmin": 14
     },
@@ -103,7 +103,31 @@
       "legacyAdminCorrectionRpcServiceRoleExecute": false,
       "communityAdminLegacyCorrectionRoute": false
     },
-    "stagingMigrationHistoryNote": "Two idempotent duplicate v2/v3 applications appeared in staging migration history during concurrent work (20261001234029/20261001234035). They are not canonical repository migrations and are excluded from fresh production replay; canonical repo sequence is 232814 -> 233225 -> 233707 -> 234524."
+    "stagingMigrationHistoryNote": "Two idempotent duplicate v2/v3 applications appeared in staging migration history during concurrent work (20261001234029/20261001234035). They are not canonical repository migrations and are excluded from fresh production replay; canonical repo sequence is 232814 -> 233225 -> 233707 -> 234524.",
+    "identityTransportCorrection": {
+      "issue": "Initial Edge source had double-escaped printable-ASCII regex and domain separator.",
+      "impact": "Live Player ID association was not enabled because the staging HMAC secret is still absent; no production or persisted raw-ID exposure occurred.",
+      "fixed": true,
+      "currentValidationRegex": "^[\\x21-\\x7E]+$",
+      "currentDomainSeparator": "dreamwishwand/ddv-player-id/v1\\0 (NUL before Player ID)",
+      "deployedVersion": 21,
+      "regressionTest": "tests/community-ddv-profile-workspace-edge-v1.test.mjs"
+    },
+    "acceptanceUi": {
+      "route": "/community-lab/profiles/",
+      "stagingOnly": true,
+      "supports": [
+        "create Workspace",
+        "five-slot capacity display",
+        "private label",
+        "active/archive",
+        "optional Player ID association",
+        "identity unlink",
+        "confirmed Workspace deletion"
+      ],
+      "playerIdBrowserPersistence": false,
+      "regressionTest": "tests/community-ddv-profile-workspace-ui-v1.test.mjs"
+    }
   },
   "edgeIdentityAssociation": {
     "codeDeployed": true,
