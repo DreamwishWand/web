@@ -130,7 +130,12 @@ export function previewRoadRectangleOutline({
 
 export function previewFenceRectangleOutline(bounds:AnyRecord) {
   return assertReadModel(
-    buildFenceRectangleOutline(clone(bounds))
+    buildFenceRectangleOutline({
+      minX: Number(bounds.minX),
+      minY: Number(bounds.minY),
+      maxX: Number(bounds.maxX),
+      maxY: Number(bounds.maxY)
+    })
   );
 }
 
@@ -167,11 +172,31 @@ export function previewFenceBranchSelection({
 }
 
 export function previewRoadStyleReplace(input:AnyRecord) {
-  return assertReadModel(previewRoadStyleReplacement(clone(input)));
+  return assertReadModel(
+    previewRoadStyleReplacement({
+      cells: clone(input.cells ?? []),
+      seedCoordinate: clone(input.seedCoordinate),
+      sourceFamilyBaseItemID: input.sourceFamilyBaseItemID,
+      targetFamilyBaseItemID: input.targetFamilyBaseItemID,
+      targetAvailableLogicalQuantity:
+        input.targetAvailableLogicalQuantity ??
+        Number.POSITIVE_INFINITY
+    })
+  );
 }
 
 export function previewFenceStyleReplace(input:AnyRecord) {
-  return assertReadModel(previewFenceStyleReplacement(clone(input)));
+  return assertReadModel(
+    previewFenceStyleReplacement({
+      graph: clone(input.graph ?? {}),
+      seedNodeId: input.seedNodeId,
+      sourceFamilyBaseItemID: input.sourceFamilyBaseItemID,
+      targetFamilyBaseItemID: input.targetFamilyBaseItemID,
+      targetAvailableLogicalQuantity:
+        input.targetAvailableLogicalQuantity ??
+        Number.POSITIVE_INFINITY
+    })
+  );
 }
 
 export function previewFenceSegmentDelete({
