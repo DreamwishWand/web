@@ -234,7 +234,7 @@
       }
       fencePostDraft = result.draft;
       fencePostValidation = result.validation;
-      const first = fencePostDraft.posts?.[0];
+      const first = fencePostDraft.representationLayout?.posts?.[0];
       if (first) {
         fencePostMoveNodeId = String(first.nodeId);
         fencePostEditX = Number(first.x);
@@ -253,10 +253,14 @@
     }
     fencePostDraft = result.draft;
     fencePostValidation = result.validation;
+    const firstIssue =
+      result?.issues?.[0]?.code ??
+      result?.validation?.issues?.[0]?.code ??
+      null;
     fencePostMessage =
-      result.validation.ok
-        ? `${label}: draft validation PASS · DDV write disabled`
-        : `${label}: blocked by representation validation`;
+      result.accepted === false || !result.validation.ok
+        ? `${label}: BLOCKED · ${firstIssue ?? 'representation validation'}`
+        : `${label}: Core preflight PASS · DDV write disabled`;
   }
 
   function insertFencePostDraft() {
@@ -1248,11 +1252,12 @@
       <section class="fence-post-panel" aria-labelledby="fence-post-title">
         <div class="fence-post-heading">
           <div>
-            <p class="eyebrow">FENCE REPRESENTATION / DRAFT ONLY</p>
+            <p class="eyebrow">FENCE REPRESENTATION / CORE-BOUND MODEL</p>
             <h2 id="fence-post-title">Post layout</h2>
             <p>
-              Topologyを変えず、degree-2 interior Base/postのrepresentationだけを編集します。
-              max spanは01C/Core family catalogから導出し、captured/pinned postは自動では上書きしません。
+              Promoted 01C/Core contractのlogicalTopologyとrepresentationLayoutを分離したまま、
+              degree-2 interior Base/postだけを編集します。interval可否はfamily+modeのexact extension vocabularyから判定し、
+              captured/pinned postは明示操作なしに変更しません。
             </p>
           </div>
           <div class="full-design-gates">
@@ -1283,19 +1288,28 @@
             <div class="fence-post-summary">
               <span>
                 Max interval
-                <strong>{fencePostValidation.constraints.maxInterval}</strong>
+                <strong>{fencePostValidation.constraints?.maximumPostInterval ?? '—'}</strong>
                 <small>catalog-derived</small>
               </span>
               <span>
                 Semantic anchors
-                <strong>{fencePostDraft.semanticAnchors.length}</strong>
+                <strong>{fencePostDraft.logicalTopology?.semanticAnchors?.length ?? 0}</strong>
               </span>
               <span>
                 Representation posts
-                <strong>{fencePostDraft.posts.length}</strong>
+                <strong>{fencePostDraft.representationLayout?.posts?.length ?? 0}</strong>
               </span>
               <span>
-                Draft validation
+                Representation mode
+                <strong>
+                  {fencePostDraft.representationLayout?.intent === 'EXACT_PRESERVATION'
+                    ? 'Exact preservation'
+                    : 'Generated design'}
+                </strong>
+                <small>{fencePostDraft.representationLayout?.policy}</small>
+              </span>
+              <span>
+                Core preflight
                 <strong>{fencePostValidation.ok ? 'PASS' : 'BLOCKED'}</strong>
               </span>
             </div>
@@ -1306,7 +1320,7 @@
                   <span>Post</span>
                   <select bind:value={fencePostMoveNodeId}>
                     <option value="">Choose post</option>
-                    {#each fencePostDraft.posts as post}
+                    {#each fencePostDraft.representationLayout?.posts ?? [] as post}
                       <option value={post.nodeId}>
                         ({post.x}, {post.y}) {post.pinned ? '· pinned' : ''}
                       </option>
@@ -1332,7 +1346,7 @@
               </div>
 
               <div class="fence-post-list">
-                {#each fencePostDraft.posts as post}
+                {#each fencePostDraft.representationLayout?.posts ?? [] as post}
                   <div>
                     <code>{post.x}, {post.y}</code>
                     <span>{post.source}</span>
@@ -1353,9 +1367,11 @@
                 {#each fencePostValidation.issues as issue}
                   <span>
                     <code>{issue.code}</code>
-                    {issue.maxInterval
-                      ? `max ${issue.maxInterval}`
-                      : ''}
+                    {issue.maximumPostInterval
+                      ? `max ${issue.maximumPostInterval}`
+                      : issue.distance
+                        ? `interval ${issue.distance}`
+                        : ''}
                   </span>
                 {/each}
               </div>
@@ -1368,8 +1384,8 @@
             <div class="fence-topology-boundary">
               <strong>Topology edit</strong>
               <span>
-                endpoint / corner / junction / mode-boundary move, segment delete, split/joinは
-                representation-post編集とは別操作です。このdraft panelでは実行しません。
+                endpoint / corner / junction / mode-boundary変更、segment delete、split/joinは
+                representationLayoutではなくlogicalTopologyの操作です。このpanelでは実行しません。
               </span>
               <button disabled>Topology mutation writer not authorized</button>
             </div>
