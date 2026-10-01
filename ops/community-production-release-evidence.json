@@ -534,7 +534,7 @@
       "rawPlayerIdPersistent": false,
       "digestStorage": "private.ddv_identity_associations.binding_key_hash",
       "stagingDbLifecycle": "CLOSED_RUNTIME_PASS",
-      "edgeDeployment": "community-command v20 / community-query v9",
+      "edgeDeployment": "community-command v21 / community-query v9 / community-admin v14",
       "liveRawPlayerIdEdgeE2E": "PENDING_STAGING_HMAC_SECRET_CONFIGURATION",
       "privacyApproval": "PENDING",
       "legalApproval": "PENDING",
@@ -543,7 +543,9 @@
         "ops/community-linked-ddv-profile-identity-transport-20261002.json",
         "ops/community-linked-ddv-profile-lifecycle-runtime-20261002.json",
         "docs/community/linked-ddv-profile-lifecycle-runtime-20261002.md"
-      ]
+      ],
+      "stagingAcceptanceUi": "/community-lab/profiles/ source implemented; browser acceptance pending",
+      "identityTransportCorrection": "Double-escape bug fixed before live identity activation; v21 contains printable-ASCII validation and NUL domain separator."
     }
   }
 }
