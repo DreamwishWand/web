@@ -1,0 +1,48 @@
+{
+  "schema": "dreamwish-community-age-minors-product-decision@1",
+  "decidedAt": "2026-10-02",
+  "state": "CLOSED_PRODUCT_APPROVED_PRIVACY_LEGAL_REVIEW_PENDING",
+  "ownerApproved": true,
+  "productPolicy": {
+    "minimumIndependentWandAccountAge": 13,
+    "under13IndependentRegistrationAllowed": false,
+    "accountlessLocalUseAllowed": true,
+    "accountlessLocalUseExamples": [
+      "local save-file editing",
+      "local Editor/read-only workflows",
+      "other account-independent local tools"
+    ],
+    "parentGuardianManagedAssociationAllowed": true,
+    "parentGuardianManagedAssociation": {
+      "accountOwner": "PARENT_OR_GUARDIAN",
+      "separateUnder13WandCredentials": false,
+      "childDdvProfileMayBeLinkedToParentGuardianAccount": true,
+      "linkedProfileCap": "Existing maximum of three Linked DDV Profiles per Wand Account still applies.",
+      "ordinaryLinkedDdvProfileLifecycleRulesStillApply": true
+    },
+    "independentAccountEligibility": "AGE_13_OR_OLDER",
+    "ageAssuranceProviderApproved": false,
+    "parentalConsentSystemApproved": false
+  },
+  "boundary": {
+    "productClosed": [
+      "13 is the minimum age for an independent Wand Account.",
+      "Independent registration by users under 13 is prohibited.",
+      "Accountless local save/editor functionality remains available regardless of Wand Account eligibility.",
+      "A parent or guardian may use their own Wand Account to associate/manage an under-13 user's DDV Profile; no separate under-13 Wand credentials are created."
+    ],
+    "privacyLegalStillOpen": [
+      "Final age-gate/age-assurance implementation and data minimization.",
+      "Whether and under what conditions an under-13 user may participate in publishing, comments, Q&A, DreamSnaps, follows, reactions, saves or other Community interactions through a parent/guardian-managed account.",
+      "Required parental notice/consent/verification semantics by launch jurisdiction.",
+      "Minor-specific default privacy, safety and moderation requirements for ages 13-17.",
+      "Required Terms/Privacy/Community Rules wording."
+    ]
+  },
+  "nonGoals": [
+    "No age-verification provider is selected by this Product decision.",
+    "No complex parental-consent system is authorized by this Product decision.",
+    "This Product decision is not Privacy approval or Legal approval."
+  ],
+  "launchApproved": false
+}
