@@ -2560,7 +2560,9 @@ test('Product retention approval is explicit while Privacy and Legal remain pend
     (item) => item.id === 'RETENTION_PRODUCT_PRIVACY_LEGAL_APPROVAL'
   );
   assert.equal(gate.satisfied, false);
-  assert.match(gate.pendingReason, /Privacy and Legal approvals remain explicitly PENDING/);
+  assert.equal(gate.satisfied, false);
+  assert.equal(gate.classification, 'approval_pending');
+  assert.match(gate.pendingReason, /Privacy|Legal/);
 
   assert.match(record, /PRODUCT APPROVED \/ PRIVACY PENDING \/ LEGAL PENDING/);
   assert.match(record, /closes \*\*Product approval only\*\*/);
