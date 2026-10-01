@@ -29,6 +29,57 @@ The production project ref must never equal `ptpdoxhrqopvczpclcij`. Staging-only
 
 A production project is not created by this checkpoint. Project/branch creation can have cost implications and is therefore a separate operator decision.
 
+## Static production-replay hardening
+
+**CONFIRMED / FIXED in the Community branch**
+
+The production-replay audit found and corrected two repository hazards:
+
+- duplicate migration version prefix `20260930081500` between safe identity bootstrap and support recovery verification;
+- temporary `community_staging_pg_net` enable/remove SQL inside the production migration directory.
+
+The support recovery migration now has the unique version
+`20260930081600_community_core_v0_support_recovery_verification.sql`.
+
+The one-time pg_net E2E files are preserved under `supabase/staging/` and are no longer part of the
+production migration chain.
+
+CI now rejects:
+
+- duplicate numeric migration versions;
+- staging-only migration names under `supabase/migrations`;
+- an internally inconsistent production operations manifest.
+
+**CONFIRMED / FIXED in COMM Edge source**
+
+Community production-sensitive functions no longer silently assume staging resources outside the
+known staging project:
+
+- `community-media` requires `COMMUNITY_MEDIA_BUCKET` outside the known staging project;
+- `community-retention` uses the same fail-closed media-bucket resolution;
+- `community-ops-email` requires `DREAMWISH_ENVIRONMENT` outside known staging;
+- `community-ops-escalation` requires `DREAMWISH_ENVIRONMENT` outside known staging.
+
+The current staging project keeps a compatibility fallback keyed only to its known Supabase project
+ref so a future staging redeploy does not require a simultaneous configuration migration.
+
+**CROSS-STREAM OPEN — 02 WEP**
+
+The current WEP functions `wep-preset-artifact` and `wep-preset-retention` still hardcode
+`wand-preset-artifacts-staging` on `dev/wep-v125` HEAD
+`19d22a37784712363d0ab4db18c4590912286969`.
+
+That is not a Community implementation gap, but it is a production environment-separation blocker.
+WEP must externalize the Preset artifact bucket with equivalent fail-closed production behavior
+before those functions can enter the production allowlist.
+
+**INTEGRATION BOUNDARY**
+
+The Community branch does not yet contain WEP's latest Storage/retention migrations even though the
+shared staging database does. Production migration replay must therefore use the final integrated
+source tree after Community + WEP/Core integration. The Community branch by itself is explicitly
+not a production-complete migration source.
+
 ## Database backup boundary
 
 Supabase currently documents managed daily backups for Pro, Team and Enterprise projects. Free projects are instructed to perform regular logical exports and retain off-site copies.
