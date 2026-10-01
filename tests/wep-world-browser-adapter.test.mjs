@@ -234,7 +234,7 @@ test('v1.7 dimensions flow into reachable SubGrid portable child bounds through 
   assert.equal(bistro.portableState.child.height, 6);
   assert.equal(
     ratatouille.portableState.codec,
-    'subgrid.itemdata-default-empty-child@1'
+    'subgrid.serialized-local-child@1'
   );
   assert.equal(ratatouille.portableState.child.width, 2);
   assert.equal(ratatouille.portableState.child.height, 2);
