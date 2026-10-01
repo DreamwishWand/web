@@ -19,7 +19,7 @@
     "implementation of the approved 13+ independent-account boundary; under-13 parent/guardian-managed Community scope; age assurance/parental consent requirements by launch jurisdiction",
     "privacy notice/legal basis/data rights workflows",
     "processor DPA/subprocessor/cross-border transfer treatment",
-    "Linked DDV Profile: review the Product-approved 7-day/no-normal-unlink lifecycle against launch-jurisdiction rights once DDV Core confirms the stable local identifier and verification transport",
+    "Linked DDV Profile: review use of GameInfo.LastCustomIdOwner (official DDV Player/User ID) as a pseudonymous binding source, the server-keyed digest transport/minimization contract, 7-day ordinary tombstone and exceptional correction path against launch-jurisdiction rights",
     "Terms of Service and UGC license/IP treatment",
     "copyright notice/takedown/counter-notice/repeat-infringer strategy",
     "moderation/report/appeal obligations including DSA applicability/exemptions where relevant",
@@ -46,7 +46,7 @@
   ],
   "legalApproved": false,
   "launchApproved": false,
-  "nextAction": "External Legal review remains required. Product age eligibility is fixed at 13+ for independent Wand Accounts, with under-13 accountless local use and parent/guardian-managed DDV Profile association allowed. Legal/Privacy must now resolve age-gate implementation, under-13 parent-managed Community participation, stable Linked DDV identifier/transport, launch jurisdictions and provider binding.",
+  "nextAction": "External Legal review remains required. DDV Player ID identity source is now confirmed and the minimized transport/digest contract is ready for review; remaining issues include correction rights, age/minors implementation, launch jurisdictions, provider binding and other packet topics.",
   "providerDecision": {
     "status": "OWNER_APPROVED_FOR_RELEASE_STAGE",
     "supabasePlan": "PRO",
@@ -76,6 +76,19 @@
     "evidence": [
       "ops/community-age-minors-product-decision-20261002.json",
       "docs/community/age-minors-product-decision-20261002.md"
+    ]
+  },
+  "linkedDdvProfileIdentityDecision": {
+    "status": "IDENTITY_SOURCE_CONFIRMED_TECHNICAL_CONTRACT_READY",
+    "sourceField": "GameInfo.LastCustomIdOwner",
+    "semanticName": "DDV Player ID / User ID",
+    "rawIdentifierPersistent": false,
+    "rawSaveUploadForNormalLink": false,
+    "storedBinding": "server-keyed digest only",
+    "evidence": [
+      "ops/community-linked-ddv-profile-core-identifier-gate-20261002.json",
+      "ops/community-linked-ddv-profile-identity-transport-20261002.json",
+      "docs/community/linked-ddv-profile-identity-transport-20261002.md"
     ]
   }
 }
