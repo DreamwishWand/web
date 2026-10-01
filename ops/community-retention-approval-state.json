@@ -24,7 +24,9 @@
         "D5_STRUCTURAL_TOMBSTONE_POLICY",
         "D6_BACKUP_COPY_RETENTION",
         "D8_POLICY_DISCLOSURE_AND_ACCEPTANCE"
-      ]
+      ],
+      "reviewReady": true,
+      "explicitApprovalRequired": true
     },
     "privacy": {
       "status": "PENDING",
@@ -37,7 +39,9 @@
         "D6_BACKUP_COPY_RETENTION",
         "D7_PROCESSOR_PROVIDER_RETENTION",
         "D8_POLICY_DISCLOSURE_AND_ACCEPTANCE"
-      ]
+      ],
+      "reviewReady": true,
+      "explicitApprovalRequired": true
     },
     "legal": {
       "status": "PENDING",
@@ -50,10 +54,12 @@
         "D6_BACKUP_COPY_RETENTION",
         "D7_PROCESSOR_PROVIDER_RETENTION",
         "D8_POLICY_DISCLOSURE_AND_ACCEPTANCE"
-      ]
+      ],
+      "reviewReady": true,
+      "explicitApprovalRequired": true
     }
   },
-  "launchApprovalStatus": "PENDING",
+  "launchApprovalStatus": "PENDING_EXPLICIT_APPROVALS",
   "launchApproved": false,
   "nextEngineeringAction": "NONE_UNTIL_EXPLICIT_APPROVAL_OR_POLICY_CHANGE",
   "finalRegressionRule": "Run one policy-aligned retention configuration regression only after approvals are recorded; do not rerun already-passed retention plumbing E2E without a relevant change.",
@@ -61,5 +67,17 @@
     "contract": "ops/community-retention-policy-proposal.json",
     "status": "READY_FOR_EXPLICIT_APPROVAL",
     "approvalsInferred": false
+  },
+  "reviewReadiness": {
+    "product": "READY_FOR_EXPLICIT_APPROVAL",
+    "privacy": "READY_FOR_REVIEW",
+    "legal": "READY_FOR_REVIEW",
+    "evidence": [
+      "ops/community-retention-policy-proposal.json",
+      "ops/community-backup-privacy-contract.json",
+      "ops/community-deletion-disclosure-contract.json",
+      "docs/community/delete-account-user-copy-review-20261001.md",
+      "docs/community/retention-d1-d2-single-stage-runtime-20261001.md"
+    ]
   }
 }

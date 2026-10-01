@@ -1,6 +1,6 @@
 {
   "schema": "dreamwish-community-production-release-evidence@1",
-  "updatedAt": "2026-10-01T21:45:00+09:00",
+  "updatedAt": "2026-10-01T21:55:00+09:00",
   "scope": "Community Core production launch",
   "productionEvidenceMustComeFromDistinctProductionEnvironment": true,
   "stagingProjectRef": "ptpdoxhrqopvczpclcij",
@@ -421,6 +421,13 @@
       "categoryCount": 9,
       "providerBindingPending": true,
       "legalApprovalInferred": false
+    },
+    "retentionApprovalReadiness": {
+      "product": "READY_FOR_EXPLICIT_APPROVAL",
+      "privacy": "READY_FOR_REVIEW",
+      "legal": "READY_FOR_REVIEW",
+      "checklist": "docs/community/retention-product-approval-checklist-20261001.md",
+      "approvalsInferred": false
     }
   }
 }
