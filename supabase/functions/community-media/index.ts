@@ -142,7 +142,7 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       const ext = EXTENSIONS[mimeType];
       if (!ext) return reply({ ok: false, error: 'Unsupported MIME type' }, 400);
       if (!Number.isFinite(byteSize) || byteSize <= 0 || byteSize > MAX_BYTES) {
-        return reply({ ok: false, error: 'Invalid staging image size' }, 400);
+        return reply({ ok: false, error: 'Invalid image size' }, 400);
       }
 
       const { data: rate, error: rateError } = await ctx.supabaseAdmin.rpc(
