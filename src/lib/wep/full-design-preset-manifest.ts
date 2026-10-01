@@ -1065,10 +1065,244 @@ function validateRoadFenceReaderCoverage(
 
 function validateBuildingCategorySeparation(
   category: AnyRecord,
+  directRootPaths: Set<string>,
   issues: FullDesignManifestIssue[]
 ) {
   if (category.requested !== true) return;
   const path = '$.categories.buildings';
+  const classes = new Set([
+    'ORDINARY_GRID_BUILDING',
+    'SPECIAL_GRID_BUILDING',
+    'OFF_GRID_BUILDING',
+    'UNKNOWN_BUILDING_SEMANTICS'
+  ]);
+
+  const typed = category.typedPlacements;
+  if (!Array.isArray(typed)) {
+    issues.push(
+      block(
+        'FULL_DESIGN_BUILDING_TYPED_PLACEMENTS_REQUIRED',
+        `${path}.typedPlacements`
+      )
+    );
+    return;
+  }
+
+  const ids = new Set<string>();
+  const ordinaryIds = new Set<string>();
+  typed.forEach((entry: unknown, index: number) => {
+    const current = `${path}.typedPlacements[${index}]`;
+    if (!plain(entry)) {
+      issues.push(
+        block(
+          'FULL_DESIGN_BUILDING_TYPED_PLACEMENT_INVALID',
+          current
+        )
+      );
+      return;
+    }
+
+    const artifactBuildingId = String(
+      entry.artifactBuildingId ?? ''
+    );
+    if (
+      !/^b\d+$/.test(artifactBuildingId) ||
+      ids.has(artifactBuildingId)
+    ) {
+      issues.push(
+        block(
+          'FULL_DESIGN_BUILDING_ARTIFACT_ID_INVALID',
+          `${current}.artifactBuildingId`
+        )
+      );
+    } else {
+      ids.add(artifactBuildingId);
+    }
+
+    const route = validateDirectRootRouteObject(
+      entry.directRootRoute,
+      `${current}.directRootRoute`,
+      issues
+    );
+    if (route && !directRootPaths.has(route)) {
+      issues.push(
+        block(
+          'FULL_DESIGN_BUILDING_ROUTE_OUTSIDE_LOCATION',
+          `${current}.directRootRoute.gridDataPath`
+        )
+      );
+    }
+
+    const itemId = safeInteger(entry.itemId);
+    const x = safeInteger(entry.localX);
+    const y = safeInteger(entry.localY);
+    const orientation = safeInteger(entry.orientation);
+    if (
+      itemId === null ||
+      itemId <= 0 ||
+      x === null ||
+      y === null ||
+      orientation === null ||
+      orientation < 0 ||
+      orientation > 15 ||
+      !Array.isArray(entry.footprint) ||
+      entry.footprint.length === 0 ||
+      entry.footprint.some(
+        (cell: unknown) =>
+          !plain(cell) ||
+          safeInteger(cell.x) === null ||
+          safeInteger(cell.y) === null
+      )
+    ) {
+      issues.push(
+        block(
+          'FULL_DESIGN_BUILDING_PLACEMENT_GEOMETRY_INVALID',
+          current
+        )
+      );
+    }
+
+    if (!plain(entry.evidence)) {
+      issues.push(
+        block(
+          'FULL_DESIGN_BUILDING_EVIDENCE_REQUIRED',
+          `${current}.evidence`
+        )
+      );
+    } else {
+      if (
+        entry.evidence.buildingItemType !== null &&
+        entry.evidence.buildingItemType !== undefined &&
+        typeof entry.evidence.buildingItemType !== 'string'
+      ) {
+        issues.push(
+          block(
+            'FULL_DESIGN_BUILDING_ITEM_TYPE_EVIDENCE_INVALID',
+            `${current}.evidence.buildingItemType`
+          )
+        );
+      }
+      if (
+        !plain(entry.evidence.signals) ||
+        (
+          entry.evidence.restorationKind !== null &&
+          entry.evidence.restorationKind !== undefined &&
+          typeof entry.evidence.restorationKind !== 'string'
+        ) ||
+        (
+          entry.evidence.sourceStateFamily !== null &&
+          entry.evidence.sourceStateFamily !== undefined &&
+          typeof entry.evidence.sourceStateFamily !== 'string'
+        )
+      ) {
+        issues.push(
+          block(
+            'FULL_DESIGN_BUILDING_EVIDENCE_INVALID',
+            `${current}.evidence`
+          )
+        );
+      }
+    }
+
+    const classification = entry.classification;
+    if (
+      !plain(classification) ||
+      classification.schema !==
+        'ddv.building-classification-result@1' ||
+      !classes.has(String(classification.classification)) ||
+      !Array.isArray(classification.blockers) ||
+      classification.persistentWriteAuthorized !== false
+    ) {
+      issues.push(
+        block(
+          'FULL_DESIGN_BUILDING_CLASSIFICATION_INVALID',
+          `${current}.classification`
+        )
+      );
+    } else if (
+      classification.classification ===
+      'ORDINARY_GRID_BUILDING'
+    ) {
+      ordinaryIds.add(artifactBuildingId);
+    }
+
+    if (
+      typeof entry.portablePlacementEligible !== 'boolean' ||
+      entry.persistentWriteAuthorized !== false ||
+      (
+        entry.portablePlacementEligible === true &&
+        (
+          classification?.classification !==
+            'ORDINARY_GRID_BUILDING' ||
+          entry.geometryStatus !== 'RESOLVED'
+        )
+      )
+    ) {
+      issues.push(
+        block(
+          'FULL_DESIGN_BUILDING_PORTABLE_ELIGIBILITY_INVALID',
+          current
+        )
+      );
+    }
+
+    if (
+      entry.restorationArtifactId !== null &&
+      entry.restorationArtifactId !== undefined &&
+      !/^r\d+$/.test(String(entry.restorationArtifactId))
+    ) {
+      issues.push(
+        block(
+          'FULL_DESIGN_BUILDING_RESTORATION_REFERENCE_INVALID',
+          `${current}.restorationArtifactId`
+        )
+      );
+    }
+  });
+
+  const summary = category.classificationSummary;
+  if (!plain(summary)) {
+    issues.push(
+      block(
+        'FULL_DESIGN_BUILDING_CLASSIFICATION_SUMMARY_REQUIRED',
+        `${path}.classificationSummary`
+      )
+    );
+  } else {
+    const expected = {
+      ordinary: typed.filter(
+        (entry: AnyRecord) =>
+          entry?.classification?.classification ===
+          'ORDINARY_GRID_BUILDING'
+      ).length,
+      special: typed.filter(
+        (entry: AnyRecord) =>
+          entry?.classification?.classification ===
+          'SPECIAL_GRID_BUILDING'
+      ).length,
+      offGrid: typed.filter(
+        (entry: AnyRecord) =>
+          entry?.classification?.classification ===
+          'OFF_GRID_BUILDING'
+      ).length,
+      unknown: typed.filter(
+        (entry: AnyRecord) =>
+          entry?.classification?.classification ===
+          'UNKNOWN_BUILDING_SEMANTICS'
+      ).length
+    };
+    for (const [key, value] of Object.entries(expected)) {
+      if (safeInteger(summary[key]) !== value) {
+        issues.push(
+          block(
+            'FULL_DESIGN_BUILDING_CLASSIFICATION_SUMMARY_MISMATCH',
+            `${path}.classificationSummary.${key}`,
+            { expected: value, actual: summary[key] }
+          )
+        );
+      }
+    }
+  }
 
   const ordinary = category.ordinaryPlacement;
   if (!plain(ordinary)) {
@@ -1091,16 +1325,22 @@ function validateBuildingCategorySeparation(
         )
       );
     }
-    const recognizedCount = safeInteger(ordinary.recognizedCount);
+    const recognizedCount = safeInteger(
+      ordinary.recognizedCount
+    );
     const portableCount = safeInteger(
       ordinary.portableCompositionCount
     );
     if (
-      recognizedCount === null ||
-      recognizedCount < 0 ||
+      recognizedCount !== typed.length ||
       portableCount === null ||
       portableCount < 0 ||
-      portableCount > recognizedCount
+      portableCount >
+        typed.filter(
+          (entry: AnyRecord) =>
+            entry?.classification?.classification ===
+            'ORDINARY_GRID_BUILDING'
+        ).length
     ) {
       issues.push(
         block(
@@ -1110,7 +1350,11 @@ function validateBuildingCategorySeparation(
       );
     }
     if (
-      !['NOT_APPLICABLE', 'UNRESOLVED', 'UNKNOWN'].includes(
+      ![
+        'NOT_APPLICABLE',
+        'PREFLIGHT_CONTRACT_AVAILABLE',
+        'BLOCKED_TYPED_CLASSES'
+      ].includes(
         String(ordinary.destinationPlacementStatus)
       )
     ) {
@@ -1122,20 +1366,18 @@ function validateBuildingCategorySeparation(
       );
     }
     const expectedReady =
-      ordinary.destinationPlacementStatus === 'NOT_APPLICABLE';
+      ordinary.destinationPlacementStatus ===
+      'NOT_APPLICABLE';
     if (
       ordinary.destinationPlacementReady !== expectedReady ||
-      ordinary.persistentWriteAuthorized !== false
-    ) {
-      issues.push(
-        block(
-          'FULL_DESIGN_BUILDING_ORDINARY_WRITE_BOUNDARY_INVALID',
-          `${path}.ordinaryPlacement`
-        )
-      );
-    }
-    if (
+      ordinary.persistentWriteAuthorized !== false ||
       !Array.isArray(ordinary.entries) ||
+      ordinary.entries.some(
+        (entry: AnyRecord) =>
+          !ordinaryIds.has(
+            String(entry?.artifactBuildingId ?? '')
+          )
+      ) ||
       !Array.isArray(ordinary.ordinaryHouseStateEntries) ||
       !Array.isArray(ordinary.blockers)
     ) {
@@ -1151,15 +1393,17 @@ function validateBuildingCategorySeparation(
   const skins = category.buildingSkins;
   if (
     !plain(skins) ||
-    skins.provisionalCodec !== 'ddv.building-skin@1' ||
-    !['NOT_APPLICABLE', 'PROVISIONAL_PENDING_01B'].includes(
-      String(skins.semanticStatus)
-    ) ||
+    skins.codec !== 'ddv.building-skin@1' ||
+    ![
+      'NOT_APPLICABLE',
+      'NOT_PRESENT',
+      'V1_10_TYPED_PREFLIGHT'
+    ].includes(String(skins.semanticStatus)) ||
     !Array.isArray(skins.entries) ||
     typeof skins.nonzeroValidatorRequired !== 'boolean' ||
     typeof skins.destinationSemanticsReady !== 'boolean' ||
     skins.destinationSemanticsReady !==
-      (skins.semanticStatus === 'NOT_APPLICABLE') ||
+      (skins.entries.length === 0) ||
     skins.persistentWriteAuthorized !== false
   ) {
     issues.push(
@@ -1173,15 +1417,19 @@ function validateBuildingCategorySeparation(
   const houses = category.playerHouses;
   if (
     !plain(houses) ||
-    houses.provisionalCodec !== 'ddv.player-house-binding@1' ||
-    !['NOT_APPLICABLE', 'PROVISIONAL_PENDING_01B'].includes(
-      String(houses.semanticStatus)
-    ) ||
+    houses.codec !== 'ddv.player-house-binding@1' ||
+    ![
+      'NOT_APPLICABLE',
+      'NOT_PRESENT',
+      'V1_10_SPECIAL_DIAGNOSTIC'
+    ].includes(String(houses.semanticStatus)) ||
     !Array.isArray(houses.entries) ||
-    typeof houses.destinationBinderCurrentlyRequired !== 'boolean' ||
+    typeof houses.destinationBinderRequired !== 'boolean' ||
+    houses.destinationBinderRequired !==
+      (houses.entries.length > 0) ||
     typeof houses.destinationSemanticsReady !== 'boolean' ||
     houses.destinationSemanticsReady !==
-      (houses.semanticStatus === 'NOT_APPLICABLE') ||
+      (houses.entries.length === 0) ||
     houses.persistentWriteAuthorized !== false
   ) {
     issues.push(
@@ -1539,7 +1787,11 @@ function validateCategories(
           );
         }
       }
-      validateBuildingCategorySeparation(category, issues);
+      validateBuildingCategorySeparation(
+        category,
+        directRootPaths,
+        issues
+      );
       validateBuildingRestorationCapture(category, directRootPaths, issues);
     }
 
