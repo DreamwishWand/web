@@ -41,16 +41,18 @@ function edgeKey(a: string, b: string) {
   return a < b ? `${a}::${b}` : `${b}::${a}`;
 }
 
-function familyDescriptors(familyBaseItemID: number) {
+function familyDescriptors(
+  familyBaseItemID: number
+): AnyRecord[] {
   return Object.entries(
     ROADFENCE_NATIVE_CATALOG_SWITCH_V125.fenceItems
   )
-    .map(([itemID, value]) => ({
+    .map(([itemID, value]): AnyRecord => ({
       itemID: Number(itemID),
-      ...(value as AnyRecord)
+      ...((value ?? {}) as AnyRecord)
     }))
     .filter(
-      (entry) =>
+      (entry: AnyRecord) =>
         Number(entry.familyBaseItemID) === Number(familyBaseItemID)
     );
 }
