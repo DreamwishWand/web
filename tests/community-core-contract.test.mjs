@@ -2565,3 +2565,129 @@ test('Product retention approval is explicit while Privacy and Legal remain pend
   assert.match(record, /PRODUCT APPROVED \/ PRIVACY PENDING \/ LEGAL PENDING/);
   assert.match(record, /closes \*\*Product approval only\*\*/);
 });
+
+
+test('Privacy review remains pending while review readiness is explicit', () => {
+  const privacy = JSON.parse(read('ops/community-privacy-review-readiness-20261002.json'));
+  const approval = JSON.parse(read('ops/community-retention-approval-state.json'));
+
+  assert.equal(privacy.state, 'REVIEW_READY_WITH_OPEN_PRIVACY_DECISIONS');
+  assert.equal(privacy.approval.product, 'APPROVED');
+  assert.equal(privacy.approval.privacy, 'PENDING');
+  assert.equal(privacy.approval.legal, 'PENDING');
+  assert.equal(privacy.approval.launchApproved, false);
+  assert.equal(privacy.engineeringConclusion, 'NO_RETENTION_ENGINEERING_CHANGE_REQUIRED_AT_THIS_STAGE');
+  assert.equal(privacy.privacyApprovalReady, false);
+
+  const byId = new Map(privacy.openDecisions.map((item) => [item.id, item]));
+  assert.equal(
+    byId.get('P1_LINKED_DDV_PROFILE_ORPHAN_MINIMIZATION')?.severity,
+    'BLOCKER_FOR_PRIVACY_APPROVAL'
+  );
+  assert.equal(
+    byId.get('P4_AGE_AND_MINORS')?.severity,
+    'BLOCKER_FOR_FINAL_PRIVACY_LEGAL_APPROVAL'
+  );
+  assert.equal(
+    byId.get('P5_PRODUCTION_PROCESSOR_BINDING')?.severity,
+    'BLOCKER_FOR_FINAL_PRIVACY_APPROVAL'
+  );
+  assert.equal(
+    byId.get('P3_UNLISTED_DISCLOSURE')?.engineeringAction,
+    'NO_RUNTIME_CHANGE_REQUIRED'
+  );
+
+  assert.equal(approval.approvals.product.status, 'APPROVED');
+  assert.equal(approval.approvals.privacy.status, 'PENDING');
+  assert.equal(approval.approvals.legal.status, 'PENDING');
+  assert.equal(approval.launchApproved, false);
+});
+
+test('production execution checklist stops before resource creation', () => {
+  const plan = JSON.parse(read('ops/community-production-execution-checklist-20261002.json'));
+  const manifest = JSON.parse(read('ops/community-production-operations.json'));
+
+  assert.equal(plan.status, 'PREPARED_TO_RESOURCE_DECISION_GATE');
+  assert.equal(plan.resourceCreationAuthorized, false);
+  assert.equal(plan.productionProjectRef, null);
+  assert.equal(plan.stopBoundary.reached, true);
+  assert.equal(plan.phase1ResourceDecision.status, 'USER_DECISION_REQUIRED_BEFORE_EXECUTION');
+  assert.equal(plan.phase2ProductionProjectProvisioning.status, 'BLOCKED_ON_USER_RESOURCE_DECISION');
+  assert.equal(plan.phase3FreshMigrationReplay.status, 'PROTOCOL_READY_RESOURCE_PENDING');
+  assert.equal(plan.sourceControl.requiredReplaySource, 'final-integrated-main');
+
+  assert.deepEqual(
+    plan.edgeFunctions.productionAllowlist,
+    manifest.edgeFunctions.productionAllowlist
+  );
+  assert.deepEqual(
+    plan.edgeFunctions.stagingOnlyDenylist,
+    manifest.edgeFunctions.stagingOnlyDenylist
+  );
+  assert.deepEqual(
+    plan.scheduledJobs.required.map((item) => item.name),
+    manifest.scheduledJobs.required
+  );
+  assert.deepEqual(plan.vaultAndSecrets.vaultNames, manifest.vault.requiredSecretNames);
+
+  assert.equal(plan.securityAdvisor.acceptance.some(
+    (item) => /Pro or above.*Leaked Password Protection/i.test(item)
+  ), true);
+  assert.equal(plan.productionSmoke.nonGoals.some(
+    (item) => /primary Community browser suite/i.test(item)
+  ), true);
+
+  assert.equal(manifest.production.projectRef, null);
+  assert.equal(manifest.production.launchReady, false);
+  assert.equal(manifest.productionPreparation.resourceCreationAuthorized, false);
+});
+
+test('04 QR Community evidence preserves review and production pending boundaries', () => {
+  const qr = JSON.parse(read('ops/community-qa-release-evidence-20261002.json'));
+
+  assert.equal(qr.workstream, '03 COMM 4');
+  assert.equal(qr.launchReady, false);
+  assert.equal(qr.userDecisionGate.reached, true);
+  assert.equal(qr.userDecisionGate.noResourceCreationAuthorized, true);
+
+  const closed = new Map(qr.closed.map((item) => [item.id, item]));
+  assert.equal(closed.get('AUTH_MAILBOX')?.state, 'CLOSED_PASS');
+  assert.equal(closed.get('RETENTION_ENGINEERING')?.state, 'CLOSED_PASS');
+  assert.equal(closed.get('RETENTION_PRODUCT_APPROVAL')?.state, 'CLOSED_APPROVED');
+  assert.equal(
+    closed.get('PRODUCTION_PREPARATION_PROTOCOLS')?.state,
+    'STATIC_PREPARATION_COMPLETE'
+  );
+
+  const review = new Map(qr.reviewPending.map((item) => [item.id, item]));
+  assert.equal(
+    review.get('PRIVACY_APPROVAL')?.state,
+    'REVIEW_READY_WITH_OPEN_PRIVACY_DECISIONS'
+  );
+  assert.equal(review.get('PRIVACY_APPROVAL')?.approved, false);
+  assert.equal(
+    review.get('LEGAL_APPROVAL')?.state,
+    'PACKET_READY_EXTERNAL_REVIEW_REQUIRED'
+  );
+  assert.equal(review.get('LEGAL_APPROVAL')?.approved, false);
+
+  const cross = new Map(qr.crossStreamPending.map((item) => [item.id, item]));
+  assert.equal(cross.get('FINAL_INTEGRATED_SOURCE_TREE')?.state, 'PENDING');
+  assert.equal(
+    cross.get('LATEST_WEP_DELTA')?.state,
+    'NO_COMMUNITY_SENSITIVE_RERUN_REQUIRED'
+  );
+  assert.equal(cross.get('LATEST_WEP_DELTA')?.rerunClosedCommunitySuites, false);
+});
+
+test('Legal packet is explicitly non-approval and jurisdiction decisions remain external', () => {
+  const packet = read('docs/community/legal-review-packet-20261002.md');
+
+  assert.match(packet, /LEGAL NOT APPROVED/);
+  assert.match(packet, /not a legal opinion/i);
+  assert.match(packet, /age\/minor/i);
+  assert.match(packet, /Linked DDV Profile/i);
+  assert.match(packet, /DMCA/i);
+  assert.match(packet, /Digital Services Act|DSA/i);
+  assert.match(packet, /Privacy and Legal remain|LEGAL = PENDING/i);
+});
