@@ -32,7 +32,7 @@
     {
       "id": "D1_CONTENT_PAYLOAD_DURATION",
       "status": "PENDING_APPROVAL",
-      "currentDefault": 30,
+      "currentDefault": 7,
       "engineeringStatus": "CLOSED",
       "requiredApprovals": [
         "product",
@@ -40,7 +40,7 @@
         "legal"
       ],
       "approvalStatus": {
-        "product": "PENDING",
+        "product": "APPROVED",
         "privacy": "PENDING",
         "legal": "PENDING"
       }
@@ -56,20 +56,20 @@
         "legal"
       ],
       "approvalStatus": {
-        "product": "PENDING",
+        "product": "APPROVED",
         "privacy": "PENDING",
         "legal": "PENDING"
       }
     },
     {
       "id": "D3_USER_FACING_DELETION_PROMISE",
-      "status": "PENDING_APPROVAL",
+      "status": "APPROVED",
       "engineeringStatus": "CLOSED",
       "requiredApprovals": [
         "product"
       ],
       "approvalStatus": {
-        "product": "PENDING"
+        "product": "APPROVED"
       }
     },
     {
@@ -82,7 +82,7 @@
         "legal"
       ],
       "approvalStatus": {
-        "product": "PENDING",
+        "product": "APPROVED",
         "privacy": "PENDING",
         "legal": "PENDING"
       }
@@ -97,7 +97,7 @@
         "legal"
       ],
       "approvalStatus": {
-        "product": "PENDING",
+        "product": "APPROVED",
         "privacy": "PENDING",
         "legal": "PENDING"
       }
@@ -112,7 +112,7 @@
         "legal"
       ],
       "approvalStatus": {
-        "product": "PENDING",
+        "product": "APPROVED",
         "privacy": "PENDING",
         "legal": "PENDING"
       }
@@ -140,7 +140,7 @@
         "legal"
       ],
       "approvalStatus": {
-        "product": "PENDING",
+        "product": "APPROVED",
         "privacy": "PENDING",
         "legal": "PENDING"
       }
@@ -157,7 +157,7 @@
   },
   "approvalStateContract": "ops/community-retention-approval-state.json",
   "approvals": {
-    "product": "PENDING",
+    "product": "APPROVED",
     "privacy": "PENDING",
     "legal": "PENDING"
   },
