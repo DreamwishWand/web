@@ -54,8 +54,8 @@ export interface NetworkCaptureAdapter {
     document: EditorDocument,
     region: CaptureRegion
   ):
-    | { status: 'supported'; data: unknown }
-    | { status: string; data?: unknown };
+    | { status: 'supported'; data: unknown; code?: string; issues?: CaptureIssue[] }
+    | { status: string; data?: unknown; code?: string; issues?: CaptureIssue[] };
 }
 
 export interface CaptureSceneOptions {
@@ -428,10 +428,28 @@ export function captureScenePreset(
     );
 
     if (!plain(result) || result.status !== 'supported') {
-      issues.push({
-        severity: 'BLOCK',
-        code: `${kind.toUpperCase()}_TOPOLOGY_CAPTURE_UNAVAILABLE`
-      });
+      const propagated = Array.isArray(result?.issues)
+        ? result.issues.filter(
+            (entry: unknown): entry is CaptureIssue =>
+              plain(entry) &&
+              entry.severity === 'BLOCK' &&
+              typeof entry.code === 'string' &&
+              entry.code.length > 0
+          )
+        : [];
+      if (propagated.length) {
+        issues.push(...propagated.map((entry) => clone(entry)));
+      } else if (typeof result?.code === 'string' && result.code.length > 0) {
+        issues.push({
+          severity: 'BLOCK',
+          code: result.code
+        });
+      } else {
+        issues.push({
+          severity: 'BLOCK',
+          code: `${kind.toUpperCase()}_TOPOLOGY_CAPTURE_UNAVAILABLE`
+        });
+      }
       return null;
     }
     return clone(result.data);
