@@ -358,3 +358,36 @@ runtime suites were not rerun.
 Remaining launch blockers are now Auth mailbox QA, Product/Privacy/Legal retention approvals,
 human mailbox placement, and production-only environment/replay/backup/restore/rotation/inventory/
 smoke/Security-Advisor gates.
+
+
+## Remaining launch-gate refresh — 2026-10-01 18:25 JST
+
+No completed backend/browser/Auth-boundary/retention-runtime suite was rerun.
+
+**Auth:** one gate remains only — real signed-in mailbox session -> reauthentication nonce ->
+password change -> provider global revoke -> Wand cutoff -> old session rejection -> fresh sign-in.
+This is operator/manual QA and cannot be replaced with synthetic email.
+
+**Retention:** Engineering remains CLOSED. Product / Privacy / Legal remain PENDING under the explicit
+D1-D8 approval matrix. 30/365 remain engineering defaults only.
+
+**Email:** existing traffic remains 5 sent / 5 delivered / 0 bounce / 0 failure / 0 complaint /
+0 delay. Human Inbox-vs-Junk placement remains PARTIAL. No synthetic warming.
+
+**Security Advisor:** current staging still reports the known unavailable
+`auth_leaked_password_protection` warning plus the intentional server-only RLS INFO findings. The
+unavailable warning is not an engineering blocker. Production Security Advisor acceptance remains a
+separate production-only gate.
+
+**WEP:** latest observed WEP HEAD
+`02ca57a8d48d2b5623e034b91e9cd52f7fe7a8d8` changes GridData/full-design placement preflight and
+authoritative capture bounds. It does not change Community transport or Preset Edge Functions.
+Therefore the already-confirmed Preset publication/Library/signed-read vertical remains valid and no
+integration-sensitive rerun is required at this checkpoint. Persistent Apply remains Core/WEP
+writer-gated.
+
+**Production:** no production project has been created. Distinct environment, final integrated
+migration replay, DB/Storage restore drills, secret rotation, Function/Cron/Vault inventory,
+production smoke and production Security Advisor remain pending. Staging evidence is not promoted.
+
+Current release state remains `launchReady=false` and production `--require-ready` blocked.
