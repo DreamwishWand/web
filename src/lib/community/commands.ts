@@ -66,13 +66,56 @@ export interface AddComment {
   parentCommentId?: EntityId;
 }
 
-export interface LinkDdvProfile {
+export type DdvProfileWorkspaceLifecycleState = 'active' | 'archived';
+export type DdvProfileWorkspaceRelationshipKind = 'self' | 'parent_guardian_managed';
+
+export interface CreateDdvProfileWorkspace {
+  relationshipKind: DdvProfileWorkspaceRelationshipKind;
+}
+
+export interface UpdateDdvProfileWorkspace {
+  workspaceId: string;
   /**
-   * Raw DDV Player ID extracted locally from GameInfo.LastCustomIdOwner.
+   * Null means use the localized default label derived from slotIndex.
+   */
+  displayName: string | null;
+  lifecycleState: DdvProfileWorkspaceLifecycleState;
+}
+
+export interface DeleteDdvProfileWorkspace {
+  workspaceId: string;
+  /**
+   * Destructive confirmation enforced again by the server RPC.
+   */
+  confirmation: 'DELETE';
+}
+
+export interface AssociateDdvIdentity {
+  workspaceId: string;
+  /**
+   * Raw DDV Player ID from GameInfo.LastCustomIdOwner.
    * It is transient request input only and must never be persisted or logged.
    */
   playerId: string;
-  relationshipKind: 'self' | 'parent_guardian_managed';
+}
+
+export interface UnlinkDdvIdentity {
+  workspaceId: string;
+}
+
+export interface DdvProfileWorkspaceCommandResult {
+  workspaceId: string;
+  slotIndex?: number;
+  displayName?: string | null;
+  lifecycleState?: DdvProfileWorkspaceLifecycleState;
+  relationshipKind?: DdvProfileWorkspaceRelationshipKind;
+  identityAssociated?: boolean;
+  identityAssociatedAt?: string | null;
+  deleted?: boolean;
+  freedSlotIndex?: number;
+  replayed?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ReportEntity {
@@ -117,7 +160,21 @@ export interface CommunityCommandBus {
   removeReaction(command: CommandEnvelope<AddReaction>): Promise<CommunityCommandResult>;
   addComment(command: CommandEnvelope<AddComment>): Promise<CommunityCommandResult>;
   reportEntity(command: CommandEnvelope<ReportEntity>): Promise<CommunityCommandResult>;
-  linkDdvProfile(command: CommandEnvelope<LinkDdvProfile>): Promise<CommunityCommandResult>;
+  createDdvProfileWorkspace(
+    command: CommandEnvelope<CreateDdvProfileWorkspace>
+  ): Promise<DdvProfileWorkspaceCommandResult>;
+  updateDdvProfileWorkspace(
+    command: CommandEnvelope<UpdateDdvProfileWorkspace>
+  ): Promise<DdvProfileWorkspaceCommandResult>;
+  deleteDdvProfileWorkspace(
+    command: CommandEnvelope<DeleteDdvProfileWorkspace>
+  ): Promise<DdvProfileWorkspaceCommandResult>;
+  associateDdvIdentity(
+    command: CommandEnvelope<AssociateDdvIdentity>
+  ): Promise<DdvProfileWorkspaceCommandResult>;
+  unlinkDdvIdentity(
+    command: CommandEnvelope<UnlinkDdvIdentity>
+  ): Promise<DdvProfileWorkspaceCommandResult>;
   applyModerationAction(
     command: CommandEnvelope<ApplyModerationAction>
   ): Promise<CommunityCommandResult>;
