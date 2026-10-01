@@ -482,6 +482,14 @@ test('Building category distinguishes absence, ordinary placement, skin and Play
     }
   );
   assert.equal(buildings.buildingSkins.nonzeroValidatorRequired, true);
+  assert.equal(
+    buildings.buildingSkins.semanticStatus,
+    'PROVISIONAL_PENDING_01B'
+  );
+  assert.equal(
+    buildings.buildingSkins.destinationSemanticsReady,
+    false
+  );
 
   assert.equal(buildings.playerHouses.entries.length, 1);
   assert.deepEqual(
@@ -491,12 +499,18 @@ test('Building category distinguishes absence, ordinary placement, skin and Play
       houseItemId: 20500005
     }
   );
-  assert.equal(buildings.playerHouses.identityField, 'houseItemId');
   assert.equal(
-    buildings.playerHouses.portableIdentityShape,
-    'houseItemId-only'
+    buildings.playerHouses.semanticStatus,
+    'PROVISIONAL_PENDING_01B'
   );
-  assert.equal(buildings.playerHouses.destinationBinderRequired, true);
+  assert.equal(
+    buildings.playerHouses.destinationSemanticsReady,
+    false
+  );
+  assert.equal(
+    buildings.playerHouses.destinationBinderCurrentlyRequired,
+    true
+  );
 
   const serialized = JSON.stringify(plan.manifest);
   assert.equal(serialized.includes('PlayerHouseIndex'), false);
@@ -577,6 +591,7 @@ test('Building skin and PlayerHouse can preflight while ordinary Building placem
   });
 
   assert.equal(preflight.ordinaryBuildingPlacementReady, false);
+  assert.equal(preflight.buildingSemanticClosureReady, false);
   assert.equal(preflight.buildingSkinPreflightReady, true);
   assert.equal(preflight.playerHouseBindingPreflightReady, true);
   assert.equal(preflight.buildingRestorationPreflightReady, true);
@@ -598,7 +613,7 @@ test('Building skin and PlayerHouse can preflight while ordinary Building placem
     preflight.issues.some(
       (issue) =>
         issue.code ===
-        'FULL_DESIGN_DESTINATION_ORDINARY_BUILDING_PLACEMENT_UNCLOSED'
+        'BUILDING_DESTINATION_SEMANTICS_UNRESOLVED'
     ),
     true
   );
@@ -651,6 +666,7 @@ test('destination preflight re-resolves portable direct roots to destination-loc
   assert.equal(preflight.buildingRestorationPreflightReady, true);
   assert.equal(preflight.environmentPreflightReady, true);
   assert.equal(preflight.ordinaryBuildingPlacementReady, false);
+  assert.equal(preflight.buildingSemanticClosureReady, false);
   assert.equal(preflight.destinationResolved, false);
   assert.equal(preflight.destinationPreflightReady, false);
   assert.equal(preflight.categoryClosureReady, false);
@@ -876,4 +892,65 @@ test('unsupported root-object category fails closed before v1.9 classifier invoc
     true
   );
   assert.equal(preflight.applyReady, false);
+});
+
+test('non-Building full-design can close destination preflight while persistent Apply remains off', () => {
+  const source = makeProfile();
+  const plan = buildCurrentV125FullDesignCapturePlan({
+    profile: source,
+    rootGridId: 10,
+    sourcePlatform: 'switch',
+    rootEditorDocuments: [
+      v17PlacementDocument(
+        'GridData/Test/Biome-A.json',
+        10,
+        { includeObject: false }
+      ),
+      v17PlacementDocument(
+        'GridData/Test/Biome-B.json',
+        11,
+        { includeObject: false }
+      )
+    ]
+  });
+
+  assert.equal(plan.sourceCategoryClosureReady, true);
+  assert.equal(plan.publicationCandidateReady, true);
+  assert.equal(plan.publicationReady, false);
+  assert.equal(
+    plan.publicationReason,
+    'FULL_DESIGN_COMMUNITY_PUBLICATION_ADAPTER_NOT_BOUND'
+  );
+  assert.equal(
+    Object.values(plan.categoryReadinessMatrix).every(
+      (entry) => entry.sourceCaptureReady === true
+    ),
+    true
+  );
+
+  const preflight = preflightCurrentV125FullDesignManifest({
+    destinationProfile: makeProfile({
+      firstGridId: 99,
+      secondGridId: 100,
+      islandGridId: 120
+    }),
+    destinationPlatform: 'switch',
+    manifest: plan.manifest
+  });
+
+  assert.equal(preflight.manifestValid, true);
+  assert.equal(preflight.routeResolutionReady, true);
+  assert.equal(preflight.rootObjectPlacementPreflightReady, true);
+  assert.equal(preflight.buildingSemanticClosureReady, true);
+  assert.equal(preflight.environmentPreflightReady, true);
+  assert.equal(preflight.categoryClosureReady, true);
+  assert.equal(preflight.destinationPreflightReady, true);
+  assert.equal(preflight.ok, true);
+  assert.equal(preflight.ddvWriteAuthorized, false);
+  assert.equal(preflight.persistentWriteAuthorized, false);
+  assert.equal(preflight.applyReady, false);
+  assert.equal(
+    preflight.applyReason,
+    'CORE_ATOMIC_PERSISTENT_COMMIT_NOT_AUTHORIZED'
+  );
 });
