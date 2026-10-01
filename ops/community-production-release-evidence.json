@@ -170,9 +170,11 @@
       "owner": "Release Operations",
       "evidence": [
         "ops/community-production-execution-checklist-20261002.json",
-        "docs/community/production-execution-runbook-20261002.md"
+        "docs/community/production-execution-runbook-20261002.md",
+        "ops/community-production-resource-decision-20261002.json",
+        "docs/community/production-resource-decision-20261002.md"
       ],
-      "pendingReason": "No production project has been created. Creation is intentionally blocked at the user resource-decision gate.",
+      "pendingReason": "Supabase Pro is owner-approved for release-stage provisioning, but the distinct production project has not yet been created.",
       "classification": "production_only_pending"
     },
     {
@@ -208,9 +210,11 @@
       "owner": "Release Operations",
       "evidence": [
         "ops/community-production-execution-checklist-20261002.json",
-        "docs/community/production-execution-runbook-20261002.md"
+        "docs/community/production-execution-runbook-20261002.md",
+        "ops/community-production-resource-decision-20261002.json",
+        "docs/community/production-resource-decision-20261002.md"
       ],
-      "pendingReason": "Protocol and requirements are prepared; actual mechanism depends on the user-selected production plan.",
+      "pendingReason": "Supabase Pro managed daily DB backup is selected for launch, but no production project/backup instance exists yet and runtime proof is pending.",
       "classification": "production_only_pending"
     },
     {
@@ -222,7 +226,9 @@
         "ops/community-backup-privacy-contract.json",
         "docs/community/production-operations-backup-recovery-20261001.md",
         "ops/community-production-execution-checklist-20261002.json",
-        "docs/community/production-execution-runbook-20261002.md"
+        "docs/community/production-execution-runbook-20261002.md",
+        "ops/community-production-resource-decision-20261002.json",
+        "docs/community/production-resource-decision-20261002.md"
       ],
       "pendingReason": "Quarantine-first restore protocol is prepared; actual production backup mechanism and drill remain pending.",
       "classification": "production_only_pending"
@@ -234,9 +240,11 @@
       "owner": "Release Operations",
       "evidence": [
         "ops/community-production-execution-checklist-20261002.json",
-        "docs/community/production-execution-runbook-20261002.md"
+        "docs/community/production-execution-runbook-20261002.md",
+        "ops/community-production-resource-decision-20261002.json",
+        "docs/community/production-resource-decision-20261002.md"
       ],
-      "pendingReason": "Requirements are prepared; independent private Storage recovery provider/mechanism is not yet selected.",
+      "pendingReason": "Cloudflare R2 Standard is selected as the independent Storage recovery provider, but the production recovery bucket/pipeline is not yet provisioned or proven.",
       "classification": "production_only_pending"
     },
     {
@@ -248,7 +256,9 @@
         "ops/community-backup-privacy-contract.json",
         "docs/community/production-operations-backup-recovery-20261001.md",
         "ops/community-production-execution-checklist-20261002.json",
-        "docs/community/production-execution-runbook-20261002.md"
+        "docs/community/production-execution-runbook-20261002.md",
+        "ops/community-production-resource-decision-20261002.json",
+        "docs/community/production-resource-decision-20261002.md"
       ],
       "pendingReason": "Storage restore/reconciliation protocol is prepared; provider and actual drill remain pending.",
       "classification": "production_only_pending"
@@ -260,7 +270,9 @@
       "owner": "Release Operations",
       "evidence": [
         "ops/community-production-execution-checklist-20261002.json",
-        "docs/community/production-execution-runbook-20261002.md"
+        "docs/community/production-execution-runbook-20261002.md",
+        "ops/community-production-resource-decision-20261002.json",
+        "docs/community/production-resource-decision-20261002.md"
       ],
       "pendingReason": "Name-only inventory and rotation procedure are prepared; production credentials do not exist yet.",
       "classification": "production_only_pending"
@@ -272,7 +284,9 @@
       "owner": "Release Operations",
       "evidence": [
         "ops/community-production-execution-checklist-20261002.json",
-        "docs/community/production-execution-runbook-20261002.md"
+        "docs/community/production-execution-runbook-20261002.md",
+        "ops/community-production-resource-decision-20261002.json",
+        "docs/community/production-resource-decision-20261002.md"
       ],
       "pendingReason": "Exact production allowlist and staging denylist are frozen; production deployment/inventory does not exist yet.",
       "classification": "production_only_pending"
@@ -284,7 +298,9 @@
       "owner": "Release Operations",
       "evidence": [
         "ops/community-production-execution-checklist-20261002.json",
-        "docs/community/production-execution-runbook-20261002.md"
+        "docs/community/production-execution-runbook-20261002.md",
+        "ops/community-production-resource-decision-20261002.json",
+        "docs/community/production-resource-decision-20261002.md"
       ],
       "pendingReason": "Expected Cron schedules and Vault names are frozen; production inventory does not exist yet.",
       "classification": "production_only_pending"
@@ -296,7 +312,9 @@
       "owner": "Release QA",
       "evidence": [
         "ops/community-production-execution-checklist-20261002.json",
-        "docs/community/production-execution-runbook-20261002.md"
+        "docs/community/production-execution-runbook-20261002.md",
+        "ops/community-production-resource-decision-20261002.json",
+        "docs/community/production-resource-decision-20261002.md"
       ],
       "pendingReason": "Minimal wiring-only production smoke protocol is prepared; no production deployment exists yet.",
       "classification": "production_only_pending"
@@ -308,7 +326,9 @@
       "owner": "Release Security",
       "evidence": [
         "ops/community-production-execution-checklist-20261002.json",
-        "docs/community/production-execution-runbook-20261002.md"
+        "docs/community/production-execution-runbook-20261002.md",
+        "ops/community-production-resource-decision-20261002.json",
+        "docs/community/production-resource-decision-20261002.md"
       ],
       "pendingReason": "Production Advisor protocol is prepared. If Pro or above is selected, Leaked Password Protection must be enabled; the Free staging exception is not acceptable on paid production. Actual production Advisor evidence is pending.",
       "classification": "production_only_pending",
@@ -482,12 +502,15 @@
       "packet": "docs/community/legal-review-packet-20261002.md"
     },
     "productionPreparation": {
-      "state": "PREPARED_TO_RESOURCE_DECISION_GATE",
+      "state": "RESOURCE_DECISION_CLOSED_PROVISION_AT_RELEASE_STAGE",
       "checklist": "ops/community-production-execution-checklist-20261002.json",
       "runbook": "docs/community/production-execution-runbook-20261002.md",
       "resourceCreationAuthorized": false,
       "productionProjectCreated": false,
-      "paidResourceCreated": false
+      "paidResourceCreated": false,
+      "resourceDecisionContract": "ops/community-production-resource-decision-20261002.json",
+      "selectedSupabasePlan": "PRO",
+      "selectedStorageRecoveryProvider": "CLOUDFLARE_R2_STANDARD"
     },
     "latestWep": {
       "head": "424116bba04be06454db32a422afaeba6e2b0044",
