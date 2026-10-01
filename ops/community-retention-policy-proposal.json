@@ -1,36 +1,39 @@
 {
   "schema": "dreamwish-community-retention-policy-proposal@1",
   "generatedAt": "2026-10-01",
-  "status": "READY_FOR_EXPLICIT_APPROVAL",
+  "status": "POLICY_ALIGNMENT_IMPLEMENTED_TARGETED_REGRESSION_PENDING",
   "notAnApproval": true,
   "purpose": "Convert the already-closed retention engineering contract into concrete launch policy choices without inferring Product, Privacy, or Legal approval.",
   "engineeringBoundary": {
-    "implementation": "CLOSED",
-    "runtimeEvidence": "CLOSED",
-    "plumbingRerunRequiredBeforeApproval": false,
+    "implementation": "POLICY_ALIGNMENT_IMPLEMENTED_STAGING",
+    "runtimeEvidence": "TARGETED_D2_REGRESSION_PENDING",
+    "plumbingRerunRequiredBeforeApproval": true,
     "contentPayloadDaysDefault": 30,
-    "operationalDetailDaysDefault": 365
+    "routineOperationalDetailDaysDefault": 90,
+    "elevatedOperationalDetailDaysMaximum": 365,
+    "note": "D1/D3 retain the original account+content deletion semantics. Only D2 changed: routine operational detail is scrubbed at 90 days; moderation/security/legal-elevated detail may remain to 365 days."
   },
   "decisions": [
     {
       "id": "D1_CONTENT_PAYLOAD_DURATION",
       "proposal": "30_DAYS_AFTER_ACCOUNT_DELETION",
       "valueDays": 30,
-      "productMeaning": "Account/public access is removed immediately; owned user-authored payload is physically purged on the scheduled content-retention stage after 30 days unless an active permitted hold blocks purge.",
+      "productMeaning": "Account/public access and owned public/private works are removed together at account deletion; owned user-authored payload is physically purged on the scheduled content-retention stage after 30 days unless an active permitted hold blocks purge.",
       "isRecoveryWindow": false,
       "implementationChangeRequired": false
     },
     {
       "id": "D2_OPERATIONAL_DETAIL_DURATION",
-      "proposal": "365_DAYS_RESTRICTED_OPERATIONAL_DETAIL_MAXIMUM",
-      "valueDays": 365,
-      "productMeaning": "Restricted operational detail needed for abuse, moderation, security, support, cleanup, or dispute history may remain until the operational scrub stage, then personal/correlation/free-text detail is removed while minimized structural records remain.",
-      "implementationChangeRequired": false
+      "proposal": "90_DAYS_ROUTINE_365_DAYS_ELEVATED",
+      "productMeaning": "Routine operational detail is minimized at 90 days. Moderation/security/legal-elevated records may retain necessary detail until the 365-day elevated scrub, subject to active retention holds. The 365-day window is not applied to ordinary operational data by default.",
+      "implementationChangeRequired": "IMPLEMENTED_STAGING_TARGETED_REGRESSION_PENDING",
+      "routineDays": 90,
+      "elevatedDaysMaximum": 365
     },
     {
       "id": "D3_USER_FACING_DELETION_PROMISE",
       "proposal": "IMMEDIATE_REMOVAL_THEN_SCHEDULED_BACKEND_PURGE",
-      "productMeaning": "Deletion immediately removes account/public access. Wand does not promise a reversible grace period or 30-day self-service recovery.",
+      "productMeaning": "Deletion is irreversible for the user: account access, Creator presence, and owned published/private works are removed together immediately; backend payload then follows staged purge. Wand does not promise a reversible grace period or 30-day self-service recovery.",
       "implementationChangeRequired": false
     },
     {
@@ -82,7 +85,7 @@
     {
       "id": "D8_POLICY_DISCLOSURE_AND_ACCEPTANCE",
       "proposal": "DISCLOSE_EACH_DELETION_STAGE_AND_EXTERNAL_COPY_BOUNDARY",
-      "productMeaning": "Launch privacy/account-deletion copy must distinguish immediate loss of access/public visibility, 30-day payload purge, 365-day operational scrub, permitted holds, minimized structural records, backup copies, and provider-controlled copies/logs.",
+      "productMeaning": "Launch privacy/account-deletion copy must explain, in plain language by data category, immediate account/work removal, 30-day payload purge, 90-day routine operational scrub, possible 365-day moderation/security/legal elevated retention, permitted holds, minimized structural records, backup copies, and provider-controlled copies/logs.",
       "implementationChangeRequired": "USER_FACING_COPY_REQUIRED_BEFORE_PUBLIC_LAUNCH"
     }
   ],
@@ -121,5 +124,5 @@
     "legal": "PENDING_EXPLICIT_APPROVAL",
     "launchApproved": false
   },
-  "nextAction": "Obtain explicit Product/Privacy/Legal approvals or requested changes. Do not infer approval from this proposal."
+  "nextAction": "Run the targeted D2 staging regression, then return the proposal to READY_FOR_EXPLICIT_APPROVAL. Do not infer approval."
 }

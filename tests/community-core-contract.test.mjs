@@ -2323,12 +2323,14 @@ test('retention launch policy proposal is concrete but never self-approves', () 
   assert.equal(proposal.status, 'READY_FOR_EXPLICIT_APPROVAL');
   assert.equal(proposal.notAnApproval, true);
   assert.equal(proposal.engineeringBoundary.contentPayloadDaysDefault, 30);
-  assert.equal(proposal.engineeringBoundary.operationalDetailDaysDefault, 365);
+  assert.equal(proposal.engineeringBoundary.routineOperationalDetailDaysDefault, 90);
+  assert.equal(proposal.engineeringBoundary.elevatedOperationalDetailDaysMaximum, 365);
 
   const byId = new Map(proposal.decisions.map((item) => [item.id, item]));
   assert.equal(byId.get('D1_CONTENT_PAYLOAD_DURATION').valueDays, 30);
   assert.equal(byId.get('D1_CONTENT_PAYLOAD_DURATION').isRecoveryWindow, false);
-  assert.equal(byId.get('D2_OPERATIONAL_DETAIL_DURATION').valueDays, 365);
+  assert.equal(byId.get('D2_OPERATIONAL_DETAIL_DURATION').routineDays, 90);
+  assert.equal(byId.get('D2_OPERATIONAL_DETAIL_DURATION').elevatedDaysMaximum, 365);
   assert.equal(
     byId.get('D3_USER_FACING_DELETION_PROMISE').proposal,
     'IMMEDIATE_REMOVAL_THEN_SCHEDULED_BACKEND_PURGE'

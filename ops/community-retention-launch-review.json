@@ -10,7 +10,8 @@
   },
   "engineeringDefaults": {
     "contentPayloadDays": 30,
-    "operationalDetailDays": 365,
+    "routineOperationalDetailDays": 90,
+    "elevatedOperationalDetailDaysMaximum": 365,
     "contentPayloadDaysIsRecoveryWindow": false,
     "durationsConfigurationDriven": true
   },
@@ -163,7 +164,7 @@
   "approvalMatrixRule": "A decision is approved only when every required approval in approvalStatus is APPROVED. Engineering closure does not imply policy approval.",
   "policyProposal": {
     "contract": "ops/community-retention-policy-proposal.json",
-    "status": "READY_FOR_EXPLICIT_APPROVAL",
+    "status": "POLICY_ALIGNMENT_IMPLEMENTED_TARGETED_REGRESSION_PENDING",
     "notAnApproval": true,
     "reviewedProviderFactsAt": "2026-10-01"
   }
