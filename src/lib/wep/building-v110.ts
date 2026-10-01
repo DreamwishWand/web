@@ -64,6 +64,8 @@ async function sha256Hex(bytes:Uint8Array) {
 
 async function fetchPinnedContract(
   url:string,
+  expectedSha256:string,
+  hashMismatchCode:string,
   fetchImpl:FetchLike
 ) {
   const response = await fetchImpl(url);
@@ -71,8 +73,8 @@ async function fetchPinnedContract(
     throw new Error('WEP_BUILDING_V110_CONTRACT_FETCH_FAILED');
   }
   const bytes = new Uint8Array(await response.arrayBuffer());
-  if ((await sha256Hex(bytes)) !== BUILDING_V110_SHA256) {
-    throw new Error('WEP_BUILDING_V110_CONTRACT_HASH_MISMATCH');
+  if ((await sha256Hex(bytes)) !== expectedSha256) {
+    throw new Error(hashMismatchCode);
   }
   let contract:AnyRecord;
   try {
@@ -812,10 +814,14 @@ export async function createSwitchV125BuildingBinding({
   const [contract, projection] = await Promise.all([
     fetchPinnedContract(
       `${prefix}${BUILDING_V110_STATIC_PATH}`,
+      BUILDING_V110_SHA256,
+      'WEP_BUILDING_V110_CONTRACT_HASH_MISMATCH',
       fetchImpl
     ),
     fetchPinnedContract(
       `${prefix}${BUILDING_V111_PROJECTION_STATIC_PATH}`,
+      BUILDING_V111_PROJECTION_SHA256,
+      'WEP_BUILDING_V111_PROJECTION_HASH_MISMATCH',
       fetchImpl
     )
   ]);
