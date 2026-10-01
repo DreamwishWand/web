@@ -89,33 +89,39 @@ Actual externalization, encryption/access logging and restore proof remain produ
 
 ## Open Privacy decisions
 
-### P1 — Linked DDV Profile orphan/minimization — **BLOCKER**
+### P1 — Linked DDV Profile identity/minimization — **identifier resolved / Privacy + Legal review pending**
 
-Account deletion deletes `wand_account_ddv_profiles`, but it does not delete/revoke the underlying
-`ddv_profiles` row. That row can retain `binding_key_hash`.
+The previous identity-source blocker is closed.
 
-The current source does not define:
+Confirmed identity source:
 
-- the raw value represented by `binding_key_hash`;
-- the hashing/KDF construction;
-- salt/pepper/key-management assumptions;
-- whether the hash can be enumerated or linked back to a DDV identifier;
-- what `verification_evidence_ref` references;
-- how long the verification evidence exists.
+- `GameInfo.LastCustomIdOwner`;
+- product semantics: DDV Player ID / User ID;
+- existing Converter/Wand representation: `mdc{GameInfo.LastCustomIdOwner}`;
+- `mdc` is a filename convention, not part of the canonical value.
 
-Privacy review therefore cannot yet determine whether an orphaned DDV Profile is a necessary
-minimal anti-abuse/fairness record or unnecessary retained personal/pseudonymous data.
+Current v1.25 evidence shows the same value in accepted Nintendo Switch and later Steam/Windows
+saves of the same cloud-linked DDV Profile.
 
-Required decision before Privacy approval:
+Technical contract:
 
-1. define the complete creation/verification lifecycle before implementation;
-2. define the binding input and one-way construction;
-3. classify re-identification/linkability risk;
-4. define verification-evidence storage and lifecycle;
-5. choose post-unlink/account-deletion semantics: delete, revoke + null binding hash, or documented
-   minimized retention with a purpose and horizon.
+- parse the save locally;
+- do not upload the raw save for normal linking;
+- do not persist/publicly expose the raw Player ID;
+- transport only the minimal identifier through the authenticated link operation;
+- convert it server-side to a versioned keyed digest;
+- store only that digest in `ddv_profiles.binding_key_hash`;
+- keep `verification_evidence_ref` NULL by default;
+- retain an ordinary revoked/unlinked/account-deletion binding digest for at most 7 days.
 
-Do not change the schema until that decision is made.
+Evidence:
+
+- `ops/community-linked-ddv-profile-core-identifier-gate-20261002.json`
+- `ops/community-linked-ddv-profile-identity-transport-20261002.json`
+- `docs/community/linked-ddv-profile-identity-transport-20261002.md`
+
+Privacy/Legal still must review the confirmed Player ID's linkability, transient transport/logging
+minimization and the exceptional correction/right-to-correction path before launch.
 
 ### P2 — Linked DDV Profile correction/unlink — **Privacy/Legal decision**
 
