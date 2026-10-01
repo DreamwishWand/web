@@ -15,6 +15,9 @@ import type {
 import {
   createFencePostLayoutDraft
 } from './fence-post-edit-contract.ts';
+import {
+  rebaseFenceRepresentationForArtifact
+} from './fence-representation-artifact.ts';
 
 type AnyRecord = Record<string, any>;
 
@@ -259,57 +262,27 @@ export function createDraftAwareNetworkCaptureAdapter(
         assertWriteBoundary(container);
 
         if (kind === 'fences') {
-          const unresolvedRepresentationIds =
-            Array.from(
-              new Set([
-                ...(
-                  plain(
-                    container.representationLayoutModified
-                  )
-                    ? Object.entries(
-                        container.representationLayoutModified
-                      )
-                        .filter(
-                          ([, modified]) =>
-                            modified === true
-                        )
-                        .map(([networkId]) =>
-                          String(networkId)
-                        )
-                    : []
-                ),
-                ...(
-                  plain(
-                    container.representationLayoutInvalidated
-                  )
-                    ? Object.entries(
-                        container.representationLayoutInvalidated
-                      )
-                        .filter(
-                          ([, invalidated]) =>
-                            invalidated === true
-                        )
-                        .map(([networkId]) =>
-                          String(networkId)
-                        )
-                    : []
+          const invalidatedRepresentationIds =
+            plain(container.representationLayoutInvalidated)
+              ? Object.entries(
+                  container.representationLayoutInvalidated
                 )
-              ])
-            ).sort();
-          if (unresolvedRepresentationIds.length) {
+                  .filter(([, invalidated]) => invalidated === true)
+                  .map(([networkId]) => String(networkId))
+                  .sort()
+              : [];
+          if (invalidatedRepresentationIds.length) {
             return {
               status: 'blocked',
-              code:
-                'WEP_FENCE_REPRESENTATION_LAYOUT_PRESET_NOT_BOUND',
+              code: 'FENCE_POST_LAYOUT_TOPOLOGY_CHANGED',
               issues: [
                 {
                   severity: 'BLOCK' as const,
-                  code:
-                    'WEP_FENCE_REPRESENTATION_LAYOUT_PRESET_NOT_BOUND',
-                  networkIds:
-                    unresolvedRepresentationIds
+                  code: 'FENCE_POST_LAYOUT_TOPOLOGY_CHANGED',
+                  networkIds: invalidatedRepresentationIds
                 }
-              ]
+              ],
+              persistentWriteAuthorized: false
             };
           }
         }
@@ -366,6 +339,99 @@ export function createDraftAwareNetworkCaptureAdapter(
           throw new Error('WEP_ROADFENCE_DRAFT_CAPTURE_RESULT_INVALID');
         }
         assertWriteBoundary(result);
+
+        if (
+          kind === 'fences' &&
+          result.status === 'supported' &&
+          plain(result.data) &&
+          Array.isArray(result.data.networks)
+        ) {
+          const representationLayouts = plain(
+            container.representationLayouts
+          )
+            ? container.representationLayouts
+            : {};
+          const localizedNetworks: AnyRecord[] = [];
+
+          for (const artifactNetwork of result.data.networks) {
+            const matches: AnyRecord[] = [];
+            for (const sourceNetwork of networks) {
+              if (
+                Number(sourceNetwork?.familyBaseItemID) !==
+                  Number(artifactNetwork?.familyBaseItemID) ||
+                String(sourceNetwork?.mode ?? '') !==
+                  String(artifactNetwork?.mode ?? '')
+              ) {
+                continue;
+              }
+
+              const sourceModel =
+                representationLayouts[
+                  String(sourceNetwork?.networkId ?? '')
+                ];
+              if (!plain(sourceModel)) continue;
+
+              try {
+                const representationLayout =
+                  rebaseFenceRepresentationForArtifact({
+                    sourceNetwork,
+                    artifactNetwork,
+                    sourceModel,
+                    region: clone(regionInput)
+                  });
+                matches.push({
+                  sourceNetworkId: String(
+                    sourceNetwork.networkId ?? ''
+                  ),
+                  representationLayout
+                });
+              } catch {
+                // Candidate mismatch is expected while binding the
+                // artifact-local graph. Only an exact unique match
+                // is accepted below.
+              }
+            }
+
+            if (matches.length !== 1) {
+              return {
+                status: 'blocked',
+                code:
+                  'WEP_FENCE_REPRESENTATION_LAYOUT_PRESET_NOT_BOUND',
+                issues: [
+                  {
+                    severity: 'BLOCK' as const,
+                    code:
+                      'WEP_FENCE_REPRESENTATION_LAYOUT_PRESET_NOT_BOUND',
+                    artifactNetworkId: String(
+                      artifactNetwork?.networkId ?? ''
+                    ),
+                    candidateCount: matches.length
+                  }
+                ],
+                persistentWriteAuthorized: false
+              };
+            }
+
+            localizedNetworks.push({
+              ...clone(artifactNetwork),
+              representationLayout: clone(
+                matches[0].representationLayout
+              )
+            });
+          }
+
+          result.data = {
+            ...clone(result.data),
+            networks: localizedNetworks,
+            normalization: {
+              ...clone(result.data.normalization ?? {}),
+              fenceRepresentationLayoutPortable: true,
+              representationLayoutRevalidatedByCore: true
+            },
+            persistentWriteAuthorized: false
+          };
+        }
+
         return clone(result) as ReturnType<
           NetworkCaptureAdapter['capture']
         >;
