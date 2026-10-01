@@ -48,7 +48,19 @@
     "signedInNonceFlowRerun": false,
     "reason": "A provider reauthentication challenge sends an Auth email. Synthetic mail is not generated merely to complete this regression. Existing PKCE recovery/password-update runtime evidence remains valid.",
     "productPathImplemented": true,
-    "finalStatus": "PENDING_ONE_REPRESENTATIVE_MAILBOX_QA"
+    "finalStatus": "PENDING_ONE_REPRESENTATIVE_MAILBOX_QA",
+    "executionMode": "REAL_MAILBOX_OPERATOR_QA",
+    "operatorManualRequired": true,
+    "syntheticSubstituteAllowed": false,
+    "remainingFlow": [
+      "real signed-in session",
+      "reauthentication nonce",
+      "password change",
+      "provider global revoke",
+      "Wand session cutoff",
+      "old session rejected",
+      "fresh sign-in succeeds"
+    ]
   },
   "launchApproved": false,
   "remaining": [
