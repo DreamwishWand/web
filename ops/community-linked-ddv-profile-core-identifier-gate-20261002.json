@@ -1,14 +1,14 @@
 {
   "schema": "dreamwish-community-linked-ddv-profile-core-identifier-gate@1",
   "checkedAt": "2026-10-02",
-  "state": "OPEN_BLOCKED_ON_DDV_CORE",
-  "evidenceStatus": "UNKNOWN",
+  "state": "CLOSED_IDENTIFIER_SOURCE_CONFIRMED",
+  "evidenceStatus": "CONFIRMED",
   "coreSsoTChecked": {
     "document": "DDV_CORE_INTEGRATION_CURRENT",
     "documentId": "1Scke2sRuvcx_qfEW5eolPPoznWxT2aA8iUgvcxIdU9Q",
     "modifiedAtObserved": "2026-10-01T20:27:22.027Z"
   },
-  "finding": "No Integrator-promoted contract currently confirms a stable local DDV Profile identifier suitable for Community binding.",
+  "finding": "GameInfo.LastCustomIdOwner is the DDV Player/User ID represented as the mdc value in existing DDV Profile Converter/Wand backup naming and is suitable as the stable DDV Profile identity source for the current v1.25 contract.",
   "requiredCoreContract": {
     "suggestedSemanticName": "ddv.profile-local-identity@1",
     "requirements": [
@@ -24,7 +24,8 @@
       "Where available, cross-platform same-cloud-profile comparison.",
       "Negative comparison against a distinct DDV Profile.",
       "Version/build-scoped field-path or native/save-schema evidence."
-    ]
+    ],
+    "status": "SATISFIED_FOR_CURRENT_V125_IDENTITY_SOURCE"
   },
   "forbiddenSubstitutes": [
     "whole raw save SHA-256",
@@ -35,9 +36,32 @@
     "online authentication identifier"
   ],
   "communityBoundary": {
-    "linkVerifyImplementationAllowed": false,
-    "failClosed": true,
+    "linkVerifyImplementationAllowed": true,
+    "failClosedOnMissingOrMalformedPlayerId": true,
     "rawIdentifierPersistentStorageAllowed": false,
-    "finalServerKeyedDigestConstruction": "PENDING_PRIVACY_REVIEW_AFTER_CORE_CONFIRMATION"
-  }
+    "rawIdentifierPublicDisplayAllowed": false,
+    "finalServerKeyedDigestConstruction": "REQUIRED",
+    "entitlementOrAuthenticationUse": "PROHIBITED"
+  },
+  "confirmedIdentity": {
+    "fieldPath": "GameInfo.LastCustomIdOwner",
+    "semanticName": "DDV Player ID / User ID",
+    "backupRepresentation": "mdc{GameInfo.LastCustomIdOwner}",
+    "mdcPrefixPartOfCanonicalValue": false,
+    "valueType": "opaque string",
+    "treatAsAuthenticationSecret": false,
+    "privacyClass": "persistent pseudonymous identifier"
+  },
+  "evidence": [
+    "Existing Wand/Converter backup contract uses mdc{GameInfo.LastCustomIdOwner}.",
+    "Nintendo Switch v1.25.0 schema-624 accepted baseline and a later fresh synced Steam/Windows v1.25.0 schema-624 baseline for the same cloud-linked DDV Profile contain exactly the same GameInfo.LastCustomIdOwner value.",
+    "The canonical stored Steam decrypted filename's mdc component exactly matches GameInfo.LastCustomIdOwner.",
+    "Owner reports this same value is the in-game User ID used for official support identification.",
+    "Gameloft DDV Help Center documents the in-game Player ID path as Settings -> Help -> Show User ID."
+  ],
+  "remainingUnknowns": [
+    "Global uniqueness/collision behavior is not independently documented in the official help article; backend uniqueness must fail closed on digest collision.",
+    "Reset/new-profile lifecycle semantics should be documented when a controlled reset/new-profile fixture becomes available, but this does not block using the official Player ID as the current Linked DDV Profile identity source.",
+    "Final Privacy/Legal approval remains separate."
+  ]
 }
