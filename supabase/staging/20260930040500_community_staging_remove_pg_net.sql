@@ -1,0 +1,1 @@
+-- pg_net was used only for the one-time staging Auth E2E request.\n-- Community runtime does not depend on it; remove it to keep the exposed schema clean.\ndrop extension if exists pg_net;\n
