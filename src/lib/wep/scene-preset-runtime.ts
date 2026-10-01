@@ -1,3 +1,7 @@
+import {
+  validateFenceRepresentationArtifactNetwork
+} from './fence-representation-artifact.ts';
+
 export interface WepIssue {
   severity: 'BLOCK' | 'WARNING';
   code: string;
@@ -190,6 +194,20 @@ function validateNetwork(
         issues.push(issue('FENCE_EDGE_INVALID', `${current}.graph.edges[${edgeIndex}]`));
       }
     });
+
+    const representation =
+      validateFenceRepresentationArtifactNetwork(network);
+    for (const entry of representation.issues ?? []) {
+      issues.push({
+        severity: 'BLOCK',
+        code: String(
+          entry?.code ??
+            'FENCE_REPRESENTATION_LAYOUT_INVALID'
+        ),
+        path: `${current}.representationLayout`,
+        ...structuredClone(entry)
+      });
+    }
   });
 }
 
