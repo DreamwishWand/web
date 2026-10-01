@@ -1696,12 +1696,16 @@ test('WEP preset artifact storage stays private and Scene-only until other valid
   const storage = read(
     'supabase/migrations/20260930124055_wep_preset_artifact_storage_v0.sql'
   );
+  const stagingStorage = read(
+    'supabase/staging/20260930124055_wep_preset_artifact_storage_bucket.sql'
+  );
   const artifact = read('supabase/functions/wep-preset-artifact/index.ts');
 
-  assert.match(storage, /wand-preset-artifacts-staging/);
-  assert.match(storage, /public,file_size_limit[\s\S]*false,/);
-  assert.match(storage, /application\/json/);
+  assert.doesNotMatch(storage, /wand-preset-artifacts-staging/);
   assert.match(storage, /preset_artifact_prepare',3600,30/);
+  assert.match(stagingStorage, /wand-preset-artifacts-staging/);
+  assert.match(stagingStorage, /public,file_size_limit[\s\S]*false,/);
+  assert.match(stagingStorage, /application\/json/);
 
   assert.match(artifact, /dreamwish-wand-preset/);
   assert.match(artifact, /PRESET_TYPE_VALIDATOR_NOT_AVAILABLE/);
