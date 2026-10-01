@@ -70,7 +70,7 @@ test('World Editor product surface is WEP-backed and writer-safe', () => {
   assert.match(page, /01B v1\.7 pinned GridData contract/);
   assert.match(page, /PLACEMENT READINESS/);
   assert.match(page, /createEditorDraftValidator/);
-  assert.match(page, /NATIVE_EXACT_BUILD_UNVERIFIED/);
+  assert.match(page, /explainWepBlocker/);
   assert.match(page, /BLOCKED \/ UNVERIFIED/);
   assert.match(page, /Review Save Prep/);
   assert.match(page, /Publish Scene Preset/);
