@@ -2584,7 +2584,15 @@ test('Privacy review remains pending while review readiness is explicit', () => 
   const byId = new Map(privacy.openDecisions.map((item) => [item.id, item]));
   assert.equal(
     byId.get('P1_LINKED_DDV_PROFILE_ORPHAN_MINIMIZATION')?.severity,
-    'BLOCKER_FOR_PRIVACY_APPROVAL'
+    'IMPLEMENTATION_DEPENDENCY_AFTER_PRODUCT_DECISION'
+  );
+  assert.equal(
+    byId.get('P1_LINKED_DDV_PROFILE_ORPHAN_MINIMIZATION')?.productDecision,
+    'APPROVED_7_DAY_TOMBSTONE'
+  );
+  assert.equal(
+    byId.get('P1_LINKED_DDV_PROFILE_ORPHAN_MINIMIZATION')?.engineeringAction,
+    'BLOCKED_ON_DDV_CORE_STABLE_IDENTIFIER_CONFIRMATION'
   );
   assert.equal(
     byId.get('P4_AGE_AND_MINORS')?.severity,
