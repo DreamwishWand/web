@@ -1,6 +1,6 @@
 # Community Production Execution Runbook — 2026-10-02
 
-Status: **PREPARED TO RESOURCE DECISION GATE / NO PRODUCTION RESOURCE CREATED**
+Status: **RESOURCE DECISION CLOSED / PROVISION AT RELEASE STAGE / NO PRODUCTION RESOURCE CREATED**
 
 Machine checklist:
 `ops/community-production-execution-checklist-20261002.json`.
@@ -53,51 +53,28 @@ The final tree must have:
 
 Never replay production from either workstream branch alone or from live staging migration history.
 
-## 2. Production resource decision — STOP HERE before provisioning
+## 2. Production resource decision — CLOSED
 
-Before any production project is created, the owner must choose the Supabase production approach
-and Storage recovery mechanism.
+Owner decision on 2026-10-02:
 
-### Option A — Supabase Pro — operationally preferred minimum
+- **Supabase Pro** is approved for the production backend;
+- **Cloudflare R2 Standard** is approved for the independent private Storage recovery copy;
+- provisioning is deferred until the **release stage**;
+- PITR remains **not required at launch** under the current <=24h RPO contract.
 
-Current public pricing/facts at preparation time:
+This closes provider/plan selection. It does not create runtime evidence.
 
-- base plan: **$25/month**;
-- automatic daily DB backups: **7-day retention**;
-- leaked-password protection: available;
-- paid-plan compute credits cover one Micro instance under current pricing structure;
-- Storage object bytes are **not** included in database backups.
+Decision record:
 
-Operational impact:
+- `ops/community-production-resource-decision-20261002.json`
+- `docs/community/production-resource-decision-20261002.md`
 
-- much lower backup operations burden;
-- production should enable leaked-password protection, removing the staging Free-plan exception;
-- still requires an independent private Storage recovery copy and Recovery Deletion Ledger.
-
-### Option B — Free + self-managed backups
-
-Base subscription can remain $0, but:
-
-- there are no managed downloadable daily backups;
-- Wand must run and monitor its own daily offsite logical DB backup;
-- Storage still needs an independent private recovery copy;
-- leaked-password protection remains unavailable;
-- Free-project lifecycle/pausing constraints make it less attractive for public production;
-- restore responsibility is substantially higher.
-
-This option is technically compatible with the <=24h RPO contract only if the self-managed backup
-pipeline and restore drill prove it.
-
-### PITR
-
-PITR is **not required** for Wand's current launch RPO.
-
-Current Supabase pricing shows roughly $100/month for a 7-day PITR window and requires at least
-Small compute. Do not enable it unless the Product/operations requirement changes.
+No production Supabase project, paid plan, R2 bucket, production secret or external production
+resource exists yet.
 
 ## 3. Production project provisioning protocol
 
-After explicit approval:
+At the release stage, after Release Control authorizes provisioning:
 
 1. create a **distinct** production Supabase project; never convert/reuse staging;
 2. target `ap-northeast-1` unless the owner deliberately changes region;
@@ -331,12 +308,17 @@ compensated limitation with the already-proven 15-character/recent-auth/revocati
 
 ## 15. Current stop boundary
 
-Everything above is prepared.
+Everything above is prepared and the owner resource decision is closed.
 
-The next step that advances the production environment requires explicit user decisions about:
+The current phase intentionally stops before provisioning because the owner selected **release-stage
+creation**, not immediate creation.
 
-1. Supabase production plan;
-2. independent Storage recovery provider/mechanism.
+At the release-stage production gate:
 
-**No production project, paid subscription/add-on, bucket, production secret, or external backup
-contract may be created before that decision.**
+1. create the distinct Supabase production project on **Pro**;
+2. enable Leaked Password Protection;
+3. create/configure the **Cloudflare R2 Standard** private recovery bucket/pipeline;
+4. bind actual provider/DPA/subprocessor/transfer/retention facts into Privacy/Legal review;
+5. continue with fresh migration replay and the production-only drills in this runbook.
+
+Until Release Control reaches that stage, do not create or pay for the production resources.
