@@ -31,6 +31,8 @@ jobs:
         run: npm run check
       - name: Community operations contract
         run: npm run verify:community-ops
+      - name: Integrated production tree preflight
+        run: npm run verify:community-integrated-tree
       - name: Contract tests
         run: npm test
       - name: Static build
