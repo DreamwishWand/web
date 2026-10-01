@@ -92,3 +92,41 @@ It does not rerun Community browser acceptance, Preset retention E2E or Scene re
 
 Its purpose is to make an unsafe final source-tree composition fail before any production migration
 replay is attempted.
+
+
+## WEP migration baseline refresh / production bucket provisioning gap
+
+Current WEP branch:
+`dev/wep-v125@3684939a5c147430e6c41bedc6620c9b6f030b6d`.
+
+**CONFIRMED STATIC — baseline migration consistency is improved:**
+
+- canonical Community support-recovery migration `20260930081600` is present;
+- obsolete `20260930081500` path is absent;
+- one-time pg_net SQL is under `supabase/staging`, not `supabase/migrations`;
+- all three WEP Preset production migrations remain present;
+- both WEP Preset functions use the environment-aware bucket resolver.
+
+**OPEN — production bucket provisioning migration:**
+
+`supabase/migrations/20260930124055_wep_preset_artifact_storage_v0.sql`
+still inserts the literal bucket:
+
+`wand-preset-artifacts-staging`.
+
+This means Edge runtime selection is production-safe, but a fresh production migration replay would
+still create the staging-named bucket.
+
+The final production tree must not do that.
+
+Required WEP-side resolution:
+
+- move staging bucket creation to staging-only provisioning; or
+- otherwise make production bucket provisioning environment-specific;
+- preserve the generic `preset_artifact_prepare` action-rate policy from the migration;
+- do not use the staging bucket name in production.
+
+The Community integrated-tree verifier now fails a fully integrated tree while that staging bucket
+literal remains in the WEP production migration.
+
+This does not reopen the already-confirmed Scene reuse or ArtifactBlob retention runtime semantics.
