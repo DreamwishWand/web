@@ -132,7 +132,12 @@
     "knownPlanUnavailableNonBlockingFindings": [
       "auth_leaked_password_protection"
     ],
-    "planUnavailableFindingIsEngineeringBlocker": false
+    "planUnavailableFindingIsEngineeringBlocker": false,
+    "productionLeakedPasswordProtectionRule": {
+      "ifProOrAbove": "MUST_ENABLE",
+      "ifFree": "KNOWN_UNAVAILABLE_COMPENSATED_LIMITATION",
+      "stagingFreeExceptionDoesNotAutomaticallyCarryToPaidProduction": true
+    }
   },
   "releaseGate": {
     "requireDistinctProductionProject": true,
@@ -158,7 +163,7 @@
     "wepPresetArtifactBucketContract": "CLOSED",
     "wepMigrationBaselineConsistency": "CONFIRMED_STATIC",
     "wepPresetProductionMigrationProvisioning": "CONFIRMED_STATIC",
-    "latestWepObservedHead": "02ca57a8d48d2b5623e034b91e9cd52f7fe7a8d8",
+    "latestWepObservedHead": "424116bba04be06454db32a422afaeba6e2b0044",
     "latestWepCommunityContractDelta": "NONE",
     "communityVerticalRerunRequired": false
   },
@@ -211,5 +216,30 @@
     "contract": "ops/community-production-release-evidence.json",
     "launchReady": false,
     "productionEvidenceMustComeFromDistinctProductionEnvironment": true
+  },
+  "privacyLegalReadiness": {
+    "privacy": {
+      "state": "REVIEW_READY_WITH_OPEN_PRIVACY_DECISIONS",
+      "contract": "ops/community-privacy-review-readiness-20261002.json",
+      "packet": "docs/community/privacy-review-readiness-20261002.md",
+      "approval": "PENDING"
+    },
+    "legal": {
+      "state": "PACKET_READY_EXTERNAL_REVIEW_REQUIRED",
+      "packet": "docs/community/legal-review-packet-20261002.md",
+      "approval": "PENDING"
+    }
+  },
+  "productionPreparation": {
+    "state": "PREPARED_TO_RESOURCE_DECISION_GATE",
+    "checklist": "ops/community-production-execution-checklist-20261002.json",
+    "runbook": "docs/community/production-execution-runbook-20261002.md",
+    "qaEvidence": "ops/community-qa-release-evidence-20261002.json",
+    "resourceCreationAuthorized": false,
+    "userDecisionRequired": [
+      "Supabase production plan",
+      "independent Storage recovery provider/mechanism"
+    ],
+    "noPaidResourceCreated": true
   }
 }
