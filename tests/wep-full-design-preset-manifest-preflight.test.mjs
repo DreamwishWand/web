@@ -941,6 +941,26 @@ test('non-Building full-design can close destination preflight while persistent 
   assert.equal(preflight.manifestValid, true);
   assert.equal(preflight.routeResolutionReady, true);
   assert.equal(preflight.rootObjectPlacementPreflightReady, true);
+  assert.equal(preflight.roadFenceModelPreflightReady, true);
+  assert.equal(preflight.roadPreflightReady, true);
+  assert.equal(preflight.fencePreflightReady, true);
+  assert.equal(
+    preflight.destination.roadFencePreflight.bindings.length,
+    4
+  );
+  assert.equal(
+    preflight.destination.roadFencePreflight.bindings.every(
+      (entry) =>
+        entry.boundsValidated === true &&
+        entry.tessellationValidated === true &&
+        entry.persistentWriteAuthorized === false
+    ),
+    true
+  );
+  assert.equal(
+    preflight.destination.roadFencePreflight.writerStatus,
+    'NOT_AUTHORIZED'
+  );
   assert.equal(preflight.buildingSemanticClosureReady, true);
   assert.equal(preflight.environmentPreflightReady, true);
   assert.equal(preflight.categoryClosureReady, true);
@@ -953,4 +973,54 @@ test('non-Building full-design can close destination preflight while persistent 
     preflight.applyReason,
     'CORE_ATOMIC_PERSISTENT_COMMIT_NOT_AUTHORIZED'
   );
+});
+
+
+test('destination Road/Fence model preflight fails closed on destination tessellation mismatch', () => {
+  const plan = buildCurrentV125FullDesignCapturePlan({
+    profile: makeProfile(),
+    rootGridId: 10,
+    sourcePlatform: 'switch',
+    rootEditorDocuments: [
+      v17PlacementDocument(
+        'GridData/Test/Biome-A.json',
+        10,
+        { includeObject: false }
+      ),
+      v17PlacementDocument(
+        'GridData/Test/Biome-B.json',
+        11,
+        { includeObject: false }
+      )
+    ]
+  });
+  const destination = makeProfile({
+    firstGridId: 99,
+    secondGridId: 100,
+    islandGridId: 120
+  });
+  destination.World.GridCollection.Grids['99'].TessellationFactor = 2;
+
+  const preflight = preflightCurrentV125FullDesignManifest({
+    destinationProfile: destination,
+    destinationPlatform: 'switch',
+    manifest: plan.manifest
+  });
+
+  assert.equal(preflight.routeResolutionReady, true);
+  assert.equal(preflight.roadFenceModelPreflightReady, false);
+  assert.equal(preflight.roadPreflightReady, false);
+  assert.equal(preflight.fencePreflightReady, false);
+  assert.equal(preflight.destinationPreflightReady, false);
+  assert.equal(
+    preflight.issues.some(
+      (issue) =>
+        issue.code ===
+        'FULL_DESIGN_DESTINATION_ROADFENCE_TESSELLATION_MISMATCH'
+    ),
+    true
+  );
+  assert.equal(preflight.ddvWriteAuthorized, false);
+  assert.equal(preflight.persistentWriteAuthorized, false);
+  assert.equal(preflight.applyReady, false);
 });
