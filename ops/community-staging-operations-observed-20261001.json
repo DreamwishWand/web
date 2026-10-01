@@ -1,0 +1,238 @@
+{
+  "schema": "dreamwish-community-staging-operations-observation@1",
+  "observedAt": "2026-10-01",
+  "purpose": "secret-free staging evidence; not a production replay source",
+  "project": {
+    "ref": "ptpdoxhrqopvczpclcij",
+    "name": "dreamwish-wand-staging",
+    "region": "ap-northeast-1",
+    "status": "ACTIVE_HEALTHY",
+    "postgres": "17.6.1.171",
+    "developmentBranches": 0
+  },
+  "storageBuckets": [
+    {
+      "name": "community-media-staging",
+      "public": false
+    },
+    {
+      "name": "wand-preset-artifacts-staging",
+      "public": false
+    }
+  ],
+  "cronJobs": [
+    {
+      "name": "community-operations-alerts-every-minute",
+      "schedule": "* * * * *",
+      "active": true
+    },
+    {
+      "name": "community-operations-escalation-alerts-every-minute",
+      "schedule": "* * * * *",
+      "active": true
+    },
+    {
+      "name": "community-operations-escalation-every-minute",
+      "schedule": "* * * * *",
+      "active": true
+    },
+    {
+      "name": "community-outbox-every-minute",
+      "schedule": "* * * * *",
+      "active": true
+    },
+    {
+      "name": "community-provider-cleanup-every-minute",
+      "schedule": "* * * * *",
+      "active": true
+    },
+    {
+      "name": "community-retention-alerts-every-minute",
+      "schedule": "* * * * *",
+      "active": true
+    },
+    {
+      "name": "community-retention-hourly",
+      "schedule": "17 * * * *",
+      "active": true
+    }
+  ],
+  "vaultSecretNames": [
+    "community_operations_email_relay_url",
+    "community_operations_escalation_worker_token",
+    "community_operations_escalation_worker_url",
+    "community_provider_cleanup_worker_token",
+    "community_provider_cleanup_worker_url",
+    "community_retention_worker_token",
+    "community_retention_worker_url"
+  ],
+  "edgeFunctions": {
+    "productionShaped": [
+      {
+        "slug": "community-command",
+        "version": 18,
+        "verifyJwt": true,
+        "sha256": "e0e2c41853320cf4fa5252d81981786b4b379cd42e061f856dd15bbfbf0c2820"
+      },
+      {
+        "slug": "community-query",
+        "version": 8,
+        "verifyJwt": true,
+        "sha256": "c1dfcba942bb65826f54a0eda6815f84cd43295cce9986b0bbd715f4519000df"
+      },
+      {
+        "slug": "community-media",
+        "version": 7,
+        "verifyJwt": true,
+        "sha256": "9212a85b8f3aa87e749c42b5235201b3aec085efedb5cfeb29fbc01c9b63ed47"
+      },
+      {
+        "slug": "community-auth",
+        "version": 4,
+        "verifyJwt": false,
+        "sha256": "901e4c38ab428a023cc85b053f723da29e477225a6eef1ac065a8c77164b1a09"
+      },
+      {
+        "slug": "community-admin",
+        "version": 12,
+        "verifyJwt": true,
+        "sha256": "98793cf0fff01c9d8780b142300f25d77868929dc52df45df25e44101abaef4e"
+      },
+      {
+        "slug": "community-account",
+        "version": 3,
+        "verifyJwt": true,
+        "sha256": "9526cce01292fbf7d14e09111a18f32e0b3100527d64751df03cf0653acd9690"
+      },
+      {
+        "slug": "community-retention",
+        "version": 4,
+        "verifyJwt": false,
+        "sha256": "44afdc156944f019395bc6dcd1c86b621cd5edb21990d876eafc1bb5e1074bdf"
+      },
+      {
+        "slug": "community-ops-escalation",
+        "version": 3,
+        "verifyJwt": false,
+        "sha256": "463c1e173b61cb462ad6523122f91e4259309fb53103a99c734cad985a5f889f"
+      },
+      {
+        "slug": "community-ops-email",
+        "version": 5,
+        "verifyJwt": false,
+        "sha256": "02f3227169513d08a1ebf0a08822a55876efda93687df9d5ae693398ac2b65de"
+      },
+      {
+        "slug": "community-email-resend",
+        "version": 4,
+        "verifyJwt": false,
+        "sha256": "61138a14c664b47c6ca89dc271eaf0957b027c9bd965f3565e85ed982cbdabe8"
+      },
+      {
+        "slug": "wep-preset-artifact",
+        "version": 13,
+        "verifyJwt": true,
+        "sha256": "e3647836a859ab18fa5195a6933586dc719be9cf522bbe9f1ba26bbb01906c64"
+      },
+      {
+        "slug": "wep-preset-retention",
+        "version": 5,
+        "verifyJwt": false,
+        "sha256": "320cbfd3efbba5682399be1dff0956990fa58c6a2b62398ea79ce81623dc6193"
+      }
+    ],
+    "stagingOnly": [
+      {
+        "slug": "community-auth-acceptance",
+        "version": 3,
+        "verifyJwt": false,
+        "disabledStub": true,
+        "httpStatus": 410,
+        "error": "STAGING_AUTH_ACCEPTANCE_DISABLED"
+      },
+      {
+        "slug": "community-auth-e2e",
+        "version": 9,
+        "verifyJwt": true,
+        "disabledStub": true,
+        "httpStatus": 410,
+        "error": "STAGING_E2E_DISABLED"
+      },
+      {
+        "slug": "community-e2e-once",
+        "version": 7,
+        "verifyJwt": true,
+        "disabledStub": true,
+        "httpStatus": 410,
+        "error": "STAGING_E2E_DISABLED"
+      },
+      {
+        "slug": "community-wep-retention-e2e",
+        "version": 5,
+        "verifyJwt": true,
+        "disabledStub": true,
+        "httpStatus": 410,
+        "error": "STAGING_E2E_DISABLED"
+      },
+      {
+        "slug": "wep-preset-flow-e2e",
+        "version": 4,
+        "verifyJwt": true,
+        "disabledStub": true,
+        "httpStatus": 410,
+        "error": "STAGING_E2E_DISABLED"
+      },
+      {
+        "slug": "wep-retention-e2e",
+        "version": 4,
+        "verifyJwt": false,
+        "disabledStub": true,
+        "httpStatus": 410,
+        "error": "STAGING_E2E_DISABLED"
+      }
+    ]
+  },
+  "appliedMigrationHistory": {
+    "count": 55,
+    "authoritativeForProductionReplay": false,
+    "notes": [
+      "staging history contains one-time staging pg_net enable/remove records",
+      "staging history contains staging media-bucket setup",
+      "staging history contains historical incremental fix migrations",
+      "staging history contains three WEP Preset storage/access/retention migrations",
+      "production replay must use final integrated source-tree migrations, not clone this history"
+    ],
+    "stagingOnlyHistoricalNames": [
+      "community_core_v0_staging_media_bucket",
+      "community_staging_pg_net",
+      "community_staging_remove_pg_net"
+    ],
+    "wepNames": [
+      "wep_preset_artifact_storage_v0",
+      "wep_preset_artifact_access_v0",
+      "wep_preset_retention_claim_v0"
+    ]
+  },
+  "securityAdvisor": {
+    "warns": [
+      {
+        "name": "auth_leaked_password_protection",
+        "count": 1,
+        "acceptedReason": "feature unavailable on current plan"
+      }
+    ],
+    "infos": [
+      {
+        "name": "rls_enabled_no_policy",
+        "count": 9,
+        "classification": "intentional server-only deny-all tables"
+      }
+    ]
+  },
+  "conclusions": {
+    "stagingAcceptanceHarnessesExecutable": false,
+    "productionMustExcludeStagingOnlyFunctions": true,
+    "stagingMigrationHistoryIsProductionReplaySource": false,
+    "secretsValuesCaptured": false
+  }
+}
