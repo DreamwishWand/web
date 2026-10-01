@@ -6,6 +6,7 @@ import {
   createLayerState,
   fitViewport,
   hitTest,
+  inspectSelection,
   projectObjects,
   screenToWorld,
   worldRectFromScreenDrag,
@@ -305,4 +306,45 @@ test('selected bounds derives occupied geometry', () => {
     controller.selectedBounds(),
     { x: 5, y: 4, w: 2, h: 2 }
   );
+});
+
+
+test('selection inspection exposes single and multi-object product details without source identity', () => {
+  const document = normalizeEditorDocument(seed);
+  const single = inspectSelection(document, ['table']);
+  assert.equal(single.count, 1);
+  assert.deepEqual(single.bounds, {
+    x: 5,
+    y: 4,
+    w: 2,
+    h: 1
+  });
+  assert.deepEqual(single.objects[0], {
+    editorId: 'table',
+    itemId: 40003102,
+    displayName: 'Bistro Table',
+    layer: 'furniture',
+    x: 5,
+    y: 4,
+    orientation: 0,
+    editability: 'editable',
+    dependencyCount: 1,
+    dependencyIds: ['cup'],
+    footprintCellCount: 2
+  });
+  assert.equal('source' in single.objects[0], false);
+
+  const multi = inspectSelection(
+    document,
+    ['table', 'cup', 'tree']
+  );
+  assert.equal(multi.count, 3);
+  assert.deepEqual(multi.bounds, {
+    x: 3,
+    y: 2,
+    w: 4,
+    h: 4
+  });
+  assert.equal(multi.layerCounts.furniture, 2);
+  assert.equal(multi.layerCounts.landscaping, 1);
 });
