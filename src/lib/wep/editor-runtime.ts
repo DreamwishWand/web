@@ -243,14 +243,21 @@ export function createEditorSession(
   input: any,
   {
     geometryAdapter = null,
-    validator = null
+    validator = null,
+    allowInvalidDraft = false
   }: {
     geometryAdapter?: GeometryAdapter | null;
     validator?: EditorValidator | null;
+    allowInvalidDraft?: boolean;
   } = {}
 ) {
   let document = normalizeEditorDocument(input);
   let selection = new Set<string>();
+  let lastValidation: ValidationResult = {
+    ok: true,
+    issues: [],
+    status: 'INITIAL'
+  };
   const undoStack: Array<Record<string, any>> = [];
   const redoStack: Array<Record<string, any>> = [];
   let sequence = 0;
@@ -293,20 +300,30 @@ export function createEditorSession(
   const commit = (
     kind: string,
     mutator: (candidate: EditorDocument) => Record<string, any> | void,
-    context: Record<string, any> = {}
+    context: Record<string, any> = {},
+    selectionAfter:
+      | ((input: {
+          beforeSelection: string[];
+          result: Record<string, any>;
+          after: EditorDocument;
+        }) => string[])
+      | null = null
   ) => {
     const before = clone(document);
+    const beforeSelection = [...selection];
+    const beforeValidation = clone(lastValidation);
     const candidate = clone(document);
     const result = mutator(candidate) ?? {};
     const validation = validate(
       candidate,
-      { kind, ...context },
+      { kind, ...context, result: clone(result) },
       before
     );
 
-    if (!validation.ok) {
+    if (!validation.ok && !allowInvalidDraft) {
       return {
         applied: false,
+        draftBlocked: true,
         kind,
         validation,
         result
@@ -314,19 +331,41 @@ export function createEditorSession(
     }
 
     document = normalizeEditorDocument(candidate);
+    const afterSelection = selectionAfter
+      ? selectionAfter({
+          beforeSelection: [...beforeSelection],
+          result: clone(result),
+          after: clone(document)
+        })
+      : beforeSelection;
+    const afterIndex = index();
+    selection = new Set(
+      [...new Set(afterSelection.map(String))].filter((id) =>
+        afterIndex.has(id)
+      )
+    );
+    lastValidation = clone(validation);
+
     undoStack.push({
       kind,
       before,
       after: clone(document),
-      context: clone(context)
+      beforeSelection,
+      afterSelection: [...selection],
+      beforeValidation,
+      afterValidation: clone(lastValidation),
+      context: clone(context),
+      result: clone(result)
     });
     redoStack.length = 0;
 
     return {
       applied: true,
+      draftBlocked: !validation.ok,
       kind,
       validation,
-      result
+      result,
+      selection: [...selection]
     };
   };
 
@@ -368,6 +407,12 @@ export function createEditorSession(
   return Object.freeze({
     getDocument: () => clone(document),
     getSelection: () => [...selection],
+    getLastValidation: () => clone(lastValidation),
+    getHistoryState: () => ({
+      undoDepth: undoStack.length,
+      redoDepth: redoStack.length,
+      lastKind: undoStack.at(-1)?.kind ?? null
+    }),
     canUndo: () => undoStack.length > 0,
     canRedo: () => redoStack.length > 0,
 
@@ -701,7 +746,11 @@ export function createEditorSession(
             idMap: Object.fromEntries(idMap)
           };
         },
-        { ids: chosen }
+        { ids: chosen },
+        ({ result }) =>
+          Array.isArray(result.createdIds)
+            ? result.createdIds.map(String)
+            : chosen
       );
     },
 
@@ -751,7 +800,6 @@ export function createEditorSession(
         }
       }
 
-      let pendingCreated: string[] = [];
       const result = commit(
         kind,
         (candidate) => {
@@ -807,19 +855,17 @@ export function createEditorSession(
             created.push(object.editorId);
           }
 
-          pendingCreated = created;
-
           return {
             createdIds: created,
             idMap: Object.fromEntries(idMap)
           };
         },
-        { graphSize: graph.length }
+        { graphSize: graph.length },
+        ({ beforeSelection, result }) =>
+          selectCreated && Array.isArray(result.createdIds)
+            ? result.createdIds.map(String)
+            : beforeSelection
       );
-
-      if (result.applied && selectCreated) {
-        selection = new Set(pendingCreated);
-      }
 
       return result;
     },
@@ -838,53 +884,48 @@ export function createEditorSession(
           candidate.objects = candidate.objects.filter(
             (object) => !closure.has(object.editorId)
           );
-          selection = new Set(
-            [...selection].filter((id) => !closure.has(id))
-          );
 
           return {
             removedIds: [...closure]
           };
         },
-        { ids: chosen }
+        { ids: chosen },
+        ({ beforeSelection }) =>
+          beforeSelection.filter((id) => !closure.has(id))
       );
     },
 
     undo() {
       if (!undoStack.length) return { applied: false };
       const entry = undoStack.pop()!;
-      redoStack.push({
-        kind: entry.kind,
-        before: clone(entry.before),
-        after: clone(entry.after),
-        context: clone(entry.context)
-      });
+      redoStack.push(clone(entry));
       document = normalizeEditorDocument(entry.before);
-      selection = new Set(
-        [...selection].filter((id) => index().has(id))
+      selection = new Set(entry.beforeSelection ?? []);
+      lastValidation = clone(
+        entry.beforeValidation ?? { ok: true, issues: [] }
       );
       return {
         applied: true,
-        kind: entry.kind
+        kind: entry.kind,
+        validation: clone(lastValidation),
+        selection: [...selection]
       };
     },
 
     redo() {
       if (!redoStack.length) return { applied: false };
       const entry = redoStack.pop()!;
-      undoStack.push({
-        kind: entry.kind,
-        before: clone(entry.before),
-        after: clone(entry.after),
-        context: clone(entry.context)
-      });
+      undoStack.push(clone(entry));
       document = normalizeEditorDocument(entry.after);
-      selection = new Set(
-        [...selection].filter((id) => index().has(id))
+      selection = new Set(entry.afterSelection ?? []);
+      lastValidation = clone(
+        entry.afterValidation ?? { ok: true, issues: [] }
       );
       return {
         applied: true,
-        kind: entry.kind
+        kind: entry.kind,
+        validation: clone(lastValidation),
+        selection: [...selection]
       };
     },
 
@@ -896,7 +937,12 @@ export function createEditorSession(
         reason: 'NO_PERSISTENT_WRITER_BOUND',
         target: clone(document.target),
         document: clone(document),
-        capabilities: clone(document.capabilities)
+        capabilities: clone(document.capabilities),
+        draftValidation: clone(lastValidation),
+        history: {
+          undoDepth: undoStack.length,
+          redoDepth: redoStack.length
+        }
       };
     }
   });
