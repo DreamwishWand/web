@@ -949,7 +949,7 @@ test('generated schema exposes the safe bootstrap RPC', () => {
 
 test('support-assisted recovery is fail-closed Open -> Verify -> Complete', () => {
   const migration = read(
-    'supabase/migrations/20260930081500_community_core_v0_support_recovery_verification.sql'
+    'supabase/migrations/20260930081600_community_core_v0_support_recovery_verification.sql'
   );
 
   assert.match(migration, /verification_method text/);
@@ -965,7 +965,7 @@ test('support-assisted recovery is fail-closed Open -> Verify -> Complete', () =
 
 test('support recovery currently permits provider recovery only and disables DDV-profile proof', () => {
   const migration = read(
-    'supabase/migrations/20260930081500_community_core_v0_support_recovery_verification.sql'
+    'supabase/migrations/20260930081600_community_core_v0_support_recovery_verification.sql'
   );
 
   assert.match(migration, /p_verification_method='linked_ddv_profile'/);
