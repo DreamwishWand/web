@@ -853,12 +853,7 @@ export function buildCurrentV125FullDesignCapturePlan({
             destinationBinderRequired:
               playerHouseEntries.length > 0,
             identityField: 'houseItemId',
-            excludedPortableFields: [
-              'PlayerHouseIndex',
-              'Built',
-              'UpgradeState',
-              'interiorGridIdentity'
-            ],
+            portableIdentityShape: 'houseItemId-only',
             persistentWriteAuthorized: false
           }
         : null,
