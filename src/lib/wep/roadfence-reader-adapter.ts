@@ -436,7 +436,9 @@ export function createDraftAwareNetworkCaptureAdapter(
               persistentWriteAuthorized: false
             },
             persistentWriteAuthorized: false
-          } as ReturnType<NetworkCaptureAdapter['capture']>;
+          } as unknown as ReturnType<
+            NetworkCaptureAdapter['capture']
+          >;
         }
 
         return clone(result) as ReturnType<
