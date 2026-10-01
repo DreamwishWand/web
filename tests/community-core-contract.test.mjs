@@ -2237,11 +2237,17 @@ test('retention D1-D8 approval matrix is explicit', () => {
     const decision = byId.get(id);
     assert.ok(decision, id);
     assert.equal(decision.engineeringStatus, 'CLOSED');
-    assert.equal(decision.status, 'PENDING_APPROVAL');
     assert.deepEqual(decision.requiredApprovals, approvals);
+
     for (const approval of approvals) {
-      assert.equal(decision.approvalStatus[approval], 'PENDING');
+      const expectedStatus = approval === 'product' ? 'APPROVED' : 'PENDING';
+      assert.equal(decision.approvalStatus[approval], expectedStatus);
     }
+
+    assert.equal(
+      decision.status,
+      id === 'D3_USER_FACING_DELETION_PROMISE' ? 'APPROVED' : 'PENDING_APPROVAL'
+    );
   }
 
   assert.equal(review.launchApproved, false);
