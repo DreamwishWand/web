@@ -1116,9 +1116,15 @@ function validateBuildingCategorySeparation(
   const skins = category.buildingSkins;
   if (
     !plain(skins) ||
-    skins.codec !== 'ddv.building-skin@1' ||
+    skins.provisionalCodec !== 'ddv.building-skin@1' ||
+    !['NOT_APPLICABLE', 'PROVISIONAL_PENDING_01B'].includes(
+      String(skins.semanticStatus)
+    ) ||
     !Array.isArray(skins.entries) ||
     typeof skins.nonzeroValidatorRequired !== 'boolean' ||
+    typeof skins.destinationSemanticsReady !== 'boolean' ||
+    skins.destinationSemanticsReady !==
+      (skins.semanticStatus === 'NOT_APPLICABLE') ||
     skins.persistentWriteAuthorized !== false
   ) {
     issues.push(
@@ -1132,11 +1138,15 @@ function validateBuildingCategorySeparation(
   const houses = category.playerHouses;
   if (
     !plain(houses) ||
-    houses.codec !== 'ddv.player-house-binding@1' ||
-    houses.identityField !== 'houseItemId' ||
-    houses.portableIdentityShape !== 'houseItemId-only' ||
+    houses.provisionalCodec !== 'ddv.player-house-binding@1' ||
+    !['NOT_APPLICABLE', 'PROVISIONAL_PENDING_01B'].includes(
+      String(houses.semanticStatus)
+    ) ||
     !Array.isArray(houses.entries) ||
-    typeof houses.destinationBinderRequired !== 'boolean' ||
+    typeof houses.destinationBinderCurrentlyRequired !== 'boolean' ||
+    typeof houses.destinationSemanticsReady !== 'boolean' ||
+    houses.destinationSemanticsReady !==
+      (houses.semanticStatus === 'NOT_APPLICABLE') ||
     houses.persistentWriteAuthorized !== false
   ) {
     issues.push(
