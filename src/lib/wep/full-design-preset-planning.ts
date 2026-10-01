@@ -17,6 +17,9 @@ import {
   createSwitchV125RoadFenceReaderBinding
 } from './roadfence-reader-adapter.ts';
 import {
+  captureAuthoritativeDirectRootBounds
+} from './griddata-v17-contract.ts';
+import {
   FULL_DESIGN_CAPTURE_MANIFEST_SCHEMA,
   FULL_DESIGN_CAPTURE_MANIFEST_VERSION,
   validateCurrentV125FullDesignManifest,
@@ -310,6 +313,107 @@ function captureRoadFenceReaderCoverage(
   });
 }
 
+function captureFullRootRoadFenceNetworks(
+  profile: AnyRecord,
+  resolved: AnyRecord,
+  rootEditorDocuments: AnyRecord[] | null,
+  directRootBounds: AnyRecord
+) {
+  if (
+    !Array.isArray(rootEditorDocuments) ||
+    !rootEditorDocuments.length ||
+    directRootBounds?.status !== 'AUTHORITATIVE_COMPLETE'
+  ) {
+    return null;
+  }
+
+  const documents = new Map(
+    rootEditorDocuments.map((document: AnyRecord) => [
+      String(document?.target?.gridDataPath ?? ''),
+      document
+    ])
+  );
+  const bounds = new Map(
+    (directRootBounds.entries ?? []).map((entry: AnyRecord) => [
+      String(entry?.directRootRoute?.gridDataPath ?? ''),
+      entry
+    ])
+  );
+  const entries: AnyRecord[] = [];
+
+  for (const root of resolved.directRoots ?? []) {
+    const gridDataPath = String(root?.gridDataPath ?? '');
+    const document = documents.get(gridDataPath);
+    const bound = bounds.get(gridDataPath);
+    if (!document || !bound) {
+      return null;
+    }
+
+    const binding = createSwitchV125RoadFenceReaderBinding({
+      profile,
+      rootGridId: root.sourceGridId
+    });
+    if (binding.summary.status !== 'supported') {
+      return {
+        status: 'blocked',
+        entries,
+        blockCodes: (binding.summary.issues ?? [])
+          .map((issue: AnyRecord) => String(issue?.code ?? ''))
+          .filter(Boolean),
+        persistentWriteAuthorized: false
+      };
+    }
+
+    const region = {
+      x: bound.bounds.x,
+      y: bound.bounds.y,
+      w: bound.bounds.w,
+      h: bound.bounds.h
+    };
+    const roads = binding.networkAdapter.capture(
+      'roads',
+      document,
+      region
+    );
+    const fences = binding.networkAdapter.capture(
+      'fences',
+      document,
+      region
+    );
+    if (roads.status !== 'supported' || fences.status !== 'supported') {
+      return {
+        status: 'blocked',
+        entries,
+        blockCodes: [
+          ...(roads.issues ?? []),
+          ...(fences.issues ?? [])
+        ]
+          .map((issue: AnyRecord) => String(issue?.code ?? ''))
+          .filter(Boolean),
+        persistentWriteAuthorized: false
+      };
+    }
+
+    entries.push({
+      directRootRoute: {
+        codec: V125_PORTABLE_CONTRACTS.location.directGridRouteCodec,
+        gridDataPath
+      },
+      captureRegion: region,
+      roads: clone(roads.data),
+      fences: clone(fences.data),
+      persistentWriteAuthorized: false
+    });
+  }
+
+  return {
+    status: 'captured',
+    entries,
+    blockCodes: [],
+    persistentWriteAuthorized: false
+  };
+}
+
 function captureEnvironment(
   profile: AnyRecord,
   type: FullDesignPresetType,
@@ -382,6 +486,25 @@ export function buildCurrentV125FullDesignCapturePlan({
           )
         })
       : null;
+  const directRootBounds =
+    Array.isArray(rootEditorDocuments) && rootEditorDocuments.length
+      ? captureAuthoritativeDirectRootBounds({
+          documents: rootEditorDocuments,
+          expectedGridDataPaths: directRootRoutes.map(
+            (route: AnyRecord) => route.gridDataPath
+          )
+        })
+      : null;
+  const directRootBoundsReady =
+    directRootBounds?.status === 'AUTHORITATIVE_COMPLETE';
+  const fullRootNetworks = captureFullRootRoadFenceNetworks(
+    profile,
+    resolved,
+    rootEditorDocuments,
+    directRootBounds
+  );
+  const fullRootNetworkCaptureReady =
+    fullRootNetworks?.status === 'captured';
   const environment = captureEnvironment(
     profile,
     type,
@@ -404,9 +527,15 @@ export function buildCurrentV125FullDesignCapturePlan({
     }
   }
 
-  if (requested('directGrids', requestedCategories)) {
+  if (
+    requested('directGrids', requestedCategories) &&
+    !directRootBoundsReady
+  ) {
     issues.push(
-      block('COMPREHENSIVE_GRIDDATA_DIMENSIONS_NOT_BOUND', 'directGrids')
+      block(
+        'AUTHORITATIVE_GRIDDATAPATH_BOUNDS_NOT_BOUND',
+        'directGrids'
+      )
     );
   }
   if (requested('rootObjects', requestedCategories)) {
@@ -425,10 +554,11 @@ export function buildCurrentV125FullDesignCapturePlan({
         : ['ROADFENCE_NATIVE_READER_NOT_SUPPORTED']) {
         issues.push(block(String(code), 'roads'));
       }
-    } else {
+    } else if (!fullRootNetworkCaptureReady) {
       issues.push(
         block(
-          'FULL_DESIGN_ROADFENCE_CAPTURE_REGION_BOUNDS_UNAVAILABLE',
+          fullRootNetworks?.blockCodes?.[0] ??
+            'FULL_DESIGN_ROADFENCE_FULL_ROOT_CAPTURE_UNAVAILABLE',
           'roads'
         )
       );
@@ -445,10 +575,11 @@ export function buildCurrentV125FullDesignCapturePlan({
         : ['ROADFENCE_NATIVE_READER_NOT_SUPPORTED']) {
         issues.push(block(String(code), 'fences'));
       }
-    } else {
+    } else if (!fullRootNetworkCaptureReady) {
       issues.push(
         block(
-          'FULL_DESIGN_ROADFENCE_CAPTURE_REGION_BOUNDS_UNAVAILABLE',
+          fullRootNetworks?.blockCodes?.[0] ??
+            'FULL_DESIGN_ROADFENCE_FULL_ROOT_CAPTURE_UNAVAILABLE',
           'fences'
         )
       );
@@ -459,22 +590,29 @@ export function buildCurrentV125FullDesignCapturePlan({
       block('FULL_DESIGN_BUILDING_COMPOSITION_INCOMPLETE', 'buildings')
     );
   }
-  if (requested('environment', requestedCategories)) {
-    issues.push(
-      block('FULL_DESIGN_ENVIRONMENT_PREFLIGHT_PARTIAL', 'environment')
-    );
-  }
 
   const categories = {
     directGrids: {
       requested: requested('directGrids', requestedCategories),
       disposition: requested('directGrids', requestedCategories)
-        ? 'captured_partial'
+        ? directRootBoundsReady
+          ? 'captured'
+          : 'captured_partial'
         : 'excluded',
-      coverageStatus: readiness.categories.directGrids.status,
-      evidenceStatus: readiness.categories.directGrids.evidenceStatus,
-      contract: readiness.categories.directGrids.contract,
+      coverageStatus: directRootBoundsReady
+        ? 'complete'
+        : readiness.categories.directGrids.status,
+      evidenceStatus: directRootBoundsReady
+        ? 'CONFIRMED_01B_V1_7_GRIDDATAPATH_DIMENSIONS'
+        : readiness.categories.directGrids.evidenceStatus,
+      contract: directRootBoundsReady
+        ? '01B-v1.7-griddata-dimensions'
+        : readiness.categories.directGrids.contract,
       directRootCount: directRootRoutes.length,
+      boundsCapture:
+        requested('directGrids', requestedCategories) && directRootBounds
+          ? clone(directRootBounds)
+          : null,
       blockers: issues
         .filter((issue) => issue.category === 'directGrids')
         .map((issue) => issue.code)
@@ -512,9 +650,11 @@ export function buildCurrentV125FullDesignCapturePlan({
     roads: {
       requested: requested('roads', requestedCategories),
       disposition: requested('roads', requestedCategories)
-        ? roadFenceReaderBound
-          ? 'captured_partial'
-          : 'blocked'
+        ? fullRootNetworkCaptureReady
+          ? 'captured'
+          : roadFenceReaderBound
+            ? 'captured_partial'
+            : 'blocked'
         : 'excluded',
       coverageStatus: readiness.categories.roads.status,
       evidenceStatus: roadFenceReaderBound
@@ -527,6 +667,16 @@ export function buildCurrentV125FullDesignCapturePlan({
         requested('roads', requestedCategories) && roadFenceReaderCoverage
           ? clone(roadFenceReaderCoverage)
           : null,
+      networkCaptures:
+        requested('roads', requestedCategories) &&
+        fullRootNetworkCaptureReady
+          ? fullRootNetworks.entries.map((entry: AnyRecord) => ({
+              directRootRoute: clone(entry.directRootRoute),
+              captureRegion: clone(entry.captureRegion),
+              network: clone(entry.roads),
+              persistentWriteAuthorized: false
+            }))
+          : null,
       blockers: issues
         .filter((issue) => issue.category === 'roads')
         .map((issue) => issue.code)
@@ -534,9 +684,11 @@ export function buildCurrentV125FullDesignCapturePlan({
     fences: {
       requested: requested('fences', requestedCategories),
       disposition: requested('fences', requestedCategories)
-        ? roadFenceReaderBound
-          ? 'captured_partial'
-          : 'blocked'
+        ? fullRootNetworkCaptureReady
+          ? 'captured'
+          : roadFenceReaderBound
+            ? 'captured_partial'
+            : 'blocked'
         : 'excluded',
       coverageStatus: readiness.categories.fences.status,
       evidenceStatus: roadFenceReaderBound
@@ -548,6 +700,16 @@ export function buildCurrentV125FullDesignCapturePlan({
       readerCoverage:
         requested('fences', requestedCategories) && roadFenceReaderCoverage
           ? clone(roadFenceReaderCoverage)
+          : null,
+      networkCaptures:
+        requested('fences', requestedCategories) &&
+        fullRootNetworkCaptureReady
+          ? fullRootNetworks.entries.map((entry: AnyRecord) => ({
+              directRootRoute: clone(entry.directRootRoute),
+              captureRegion: clone(entry.captureRegion),
+              network: clone(entry.fences),
+              persistentWriteAuthorized: false
+            }))
           : null,
       blockers: issues
         .filter((issue) => issue.category === 'fences')
@@ -587,7 +749,7 @@ export function buildCurrentV125FullDesignCapturePlan({
     environment: {
       requested: requested('environment', requestedCategories),
       disposition: requested('environment', requestedCategories)
-        ? 'captured_partial'
+        ? 'captured'
         : 'excluded',
       coverageStatus: readiness.categories.environment.status,
       evidenceStatus: readiness.categories.environment.evidenceStatus,
