@@ -208,17 +208,21 @@ test('unlisted GridDataPath remains bounds-unresolved rather than guessed', asyn
     basePath: '',
     fetchImpl: localFetch
   });
-
-  assert.throws(
-    () =>
-      projectSwitchAreaGrid(
-        opened,
-        opened.areas[0],
-        10,
-        binding
-      ),
-    /GRID_ROLE_UNRESOLVED|GRID_ROLE_AUTHORITY|WORLD_DIRECT_GRID/
+  const document = projectSwitchAreaGrid(
+    opened,
+    opened.areas[0],
+    10,
+    binding
   );
+
+  assert.equal(document.metadata.rootGridBounds, null);
+  assert.equal(
+    document.metadata.diagnostics.some(
+      (issue) => issue.code === 'ROOT_GRID_BOUNDS_UNRESOLVED'
+    ),
+    true
+  );
+  assert.equal(document.metadata.browserBinding.gridDataDimensionsBound, true);
 });
 
 test('Switch projection rejects unknown/cross-save source platform', async () => {
