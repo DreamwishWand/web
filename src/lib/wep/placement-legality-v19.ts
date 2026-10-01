@@ -310,8 +310,20 @@ export async function createSwitchV125PlacementLegalityBinding({
     geometryBaseRaw
   );
 
-  function gridDataForPath(gridDataPath: string) {
-    const gridData = gridDataForPath(String(gridDataPath));
+  function gridDataForPath(gridDataPath: string): AnyRecord {
+    const gridData = floor.getGridData(
+      floorContract,
+      String(gridDataPath),
+      {
+        gameVersion: '1.25.0',
+        platform: 'Nintendo Switch',
+        buildIdentity: '52BD625D9B4E0053',
+        profileSchemaVersion: 624
+      }
+    );
+    if (!gridData) {
+      throw new Error('WEP_V125_PLACEMENT_FLOOR_MAP_UNRESOLVED');
+    }
     return gridData;
   }
 
@@ -345,7 +357,7 @@ export async function createSwitchV125PlacementLegalityBinding({
     }
 
     const ids = Array.from(new Set((candidateIds ?? []).map(String)));
-    const byId = new Map(
+    const byId = new Map<string, AnyRecord>(
       (document.objects ?? []).map((object: AnyRecord) => [
         String(object.editorId),
         object
