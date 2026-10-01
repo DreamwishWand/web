@@ -44,8 +44,9 @@ Gallery media physical deletion and Wand Preset ArtifactBlob physical deletion a
 confirmed.
 
 **Important interpretation:** 30 days is currently a retention-delay parameter. The implementation
-does not make it a promised 30-day account-recovery or undo window. Product must not describe it as
-one unless a separate recovery contract is deliberately approved and implemented.
+does not currently establish a 30-day self-service recovery entitlement and does not make it a
+promised 30-day account-recovery or undo window. Product must not describe it as one unless a
+separate recovery contract is deliberately approved and implemented.
 
 ### Operational-detail stage — current engineering default: 365 days
 
