@@ -972,7 +972,7 @@ export function applyFenceRepresentationLayoutOperation(
       operation?.y
     );
     const nodeId = String(target?.id ?? '');
-    if (!target || !nodeRuns.has(nodeId)) {
+    if (!target) {
       return rejectOperation(
         model,
         FENCE_REPRESENTATION_LAYOUT_ERROR.OFF_RUN,
@@ -984,6 +984,13 @@ export function applyFenceRepresentationLayoutOperation(
         model,
         FENCE_REPRESENTATION_LAYOUT_ERROR
           .SEMANTIC_ANCHOR_IMMUTABLE,
+        { nodeId }
+      );
+    }
+    if (!nodeRuns.has(nodeId)) {
+      return rejectOperation(
+        model,
+        FENCE_REPRESENTATION_LAYOUT_ERROR.OFF_RUN,
         { nodeId }
       );
     }
@@ -1044,7 +1051,7 @@ export function applyFenceRepresentationLayoutOperation(
       operation?.y
     );
     const targetNodeId = String(target?.id ?? '');
-    if (!target || !nodeRuns.has(targetNodeId)) {
+    if (!target) {
       return rejectOperation(
         model,
         FENCE_REPRESENTATION_LAYOUT_ERROR.OFF_RUN,
@@ -1056,6 +1063,13 @@ export function applyFenceRepresentationLayoutOperation(
         model,
         FENCE_REPRESENTATION_LAYOUT_ERROR
           .SEMANTIC_ANCHOR_IMMUTABLE,
+        { nodeId: targetNodeId }
+      );
+    }
+    if (!nodeRuns.has(targetNodeId)) {
+      return rejectOperation(
+        model,
+        FENCE_REPRESENTATION_LAYOUT_ERROR.OFF_RUN,
         { nodeId: targetNodeId }
       );
     }
