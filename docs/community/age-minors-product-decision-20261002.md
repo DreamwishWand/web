@@ -8,9 +8,9 @@ Status: **CLOSED / PRODUCT APPROVED — PRIVACY + LEGAL REVIEW STILL REQUIRED**
 - Users **under 13 may not independently register a Wand Account**.
 - This is an **account-registration boundary**, not a ban on using Dreamwish Wand.
 - Accountless/local functionality remains available, including local save-file editing and local Editor/read-only workflows.
-- A parent or guardian may use their own Wand Account to associate/manage an under-13 user's DDV Profile.
+- A parent or guardian may use their own Wand Account to create/manage a `parent_guardian_managed` DDV Profile Workspace for an under-13 user's game profile.
 - The under-13 user does **not** receive separate Wand credentials.
-- A child DDV Profile linked to a parent/guardian account remains subject to the existing **maximum three Linked DDV Profiles per Wand Account** and the approved Linked DDV Profile lifecycle.
+- A parent/guardian-managed Workspace uses the same **maximum five retained Profile Workspaces per Wand Account** as self-managed Workspaces. Active and Archived Workspaces both count. DDV Player ID/mdc association is optional.
 
 ## Explicit Product boundary
 
@@ -35,7 +35,7 @@ The exact permitted scope for an under-13 user's Community participation through
 - follows, reactions and saves;
 - public Creator attribution and other public profile surfaces.
 
-Until that review is resolved, engineering must not infer that parent-account linkage automatically authorizes every Community interaction for an under-13 user.
+Until that review is resolved, engineering must not infer that parent-managed Workspace automatically authorizes every Community interaction for an under-13 user.
 
 ## Ages 13–17
 
