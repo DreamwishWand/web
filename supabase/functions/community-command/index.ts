@@ -23,6 +23,8 @@ const commandToRpc = {
   retryDeadLetter: 'community_retry_dead_letter_outbox',
   revokeSessions: 'community_revoke_wand_sessions',
   createDdvProfileWorkspace: 'community_create_ddv_profile_workspace_v1',
+  updateDdvProfileWorkspace: 'community_update_ddv_profile_workspace_v1',
+  deleteDdvProfileWorkspace: 'community_delete_ddv_profile_workspace_v1',
   associateDdvIdentity: 'community_associate_ddv_identity_v1',
   unlinkDdvIdentity: 'community_unlink_ddv_identity_v1'
 } as const;
@@ -46,6 +48,8 @@ const commandToRateBucket: Partial<Record<CommandName, string>> = {
   deleteWork: 'gallery_write',
   moderateWork: 'moderation_write',
   createDdvProfileWorkspace: 'ddv_profile_link',
+  updateDdvProfileWorkspace: 'ddv_profile_link',
+  deleteDdvProfileWorkspace: 'ddv_profile_link',
   associateDdvIdentity: 'ddv_profile_link',
   unlinkDdvIdentity: 'ddv_profile_link'
 };
@@ -269,6 +273,34 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         break;
       case 'createDdvProfileWorkspace':
         params.p_relationship_kind = payload.relationshipKind ?? 'self';
+        break;
+      case 'updateDdvProfileWorkspace':
+        if (typeof payload.workspaceId !== 'string' || payload.workspaceId.length === 0) {
+          return reply({ ok: false, error: 'workspaceId required' }, 400);
+        }
+        if (payload.lifecycleState !== 'active' && payload.lifecycleState !== 'archived') {
+          return reply({ ok: false, error: 'lifecycleState must be active or archived' }, 400);
+        }
+        if (
+          payload.displayName !== null &&
+          payload.displayName !== undefined &&
+          typeof payload.displayName !== 'string'
+        ) {
+          return reply({ ok: false, error: 'displayName must be a string or null' }, 400);
+        }
+        params.p_workspace_id = payload.workspaceId;
+        params.p_display_name = payload.displayName ?? null;
+        params.p_lifecycle_state = payload.lifecycleState;
+        break;
+      case 'deleteDdvProfileWorkspace':
+        if (typeof payload.workspaceId !== 'string' || payload.workspaceId.length === 0) {
+          return reply({ ok: false, error: 'workspaceId required' }, 400);
+        }
+        if (payload.confirmation !== 'DELETE') {
+          return reply({ ok: false, error: 'DELETE confirmation required' }, 400);
+        }
+        params.p_workspace_id = payload.workspaceId;
+        params.p_confirmation = payload.confirmation;
         break;
       case 'associateDdvIdentity': {
         if (typeof payload.workspaceId !== 'string' || payload.workspaceId.length === 0) {
