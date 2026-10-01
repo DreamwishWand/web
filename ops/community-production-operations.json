@@ -16,7 +16,11 @@
     "projectName": null,
     "region": "ap-northeast-1",
     "mustDifferFromStaging": true,
-    "launchReady": false
+    "launchReady": false,
+    "requiredEnvironmentConfig": [
+      "DREAMWISH_ENVIRONMENT",
+      "COMMUNITY_MEDIA_BUCKET"
+    ]
   },
   "backupPolicy": {
     "database": {
@@ -42,7 +46,8 @@
     "productionChangesRequireMigration": true,
     "directProductionDdlForbidden": true,
     "rollbackStrategy": "forward-fix-by-default-full-restore-for-data-loss-or-non-reversible-failure",
-    "preDeploymentBackupRequiredForDestructiveOrIrreversibleMigration": true
+    "preDeploymentBackupRequiredForDestructiveOrIrreversibleMigration": true,
+    "productionReplayRequiresIntegratedTree": true
   },
   "edgeFunctions": {
     "productionAllowlist": [
@@ -111,6 +116,23 @@
     "requireStagingOnlyFunctionAbsence": true,
     "requireCronAndVaultInventoryVerification": true,
     "requirePostDeploymentSecurityAdvisor": true,
-    "requirePostDeploymentSmoke": true
-  }
+    "requirePostDeploymentSmoke": true,
+    "requireNoHardcodedStagingResourcesInProductionFunctions": true,
+    "requireIntegratedMigrationReplay": true
+  },
+  "integration": {
+    "communityBranch": "dev/community-core-v0-20260930",
+    "wepBranch": "dev/wep-v125",
+    "productionReplaySource": "final-integrated-main",
+    "communityBranchAloneIsNotProductionComplete": true
+  },
+  "crossStreamBlockers": [
+    {
+      "id": "WEP_PRESET_ARTIFACT_BUCKET_EXTERNALIZATION",
+      "owner": "02 WEP",
+      "state": "OPEN",
+      "evidence": "dev/wep-v125@19d22a37784712363d0ab4db18c4590912286969",
+      "detail": "wep-preset-artifact and wep-preset-retention currently hardcode wand-preset-artifacts-staging; production must use an explicit environment-specific bucket and fail closed outside known staging."
+    }
+  ]
 }
