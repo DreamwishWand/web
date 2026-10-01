@@ -1,0 +1,201 @@
+{
+  "schema": "dreamwish-community-production-release-evidence@1",
+  "updatedAt": "2026-10-01",
+  "scope": "Community Core production launch",
+  "productionEvidenceMustComeFromDistinctProductionEnvironment": true,
+  "stagingProjectRef": "ptpdoxhrqopvczpclcij",
+  "productionProjectRef": null,
+  "launchReady": false,
+  "gates": [
+    {
+      "id": "COMMUNITY_PRIMARY_BROWSER_CLOSURE",
+      "required": true,
+      "satisfied": true,
+      "owner": "03 COMM",
+      "evidence": [
+        "docs/community/community-browser-acceptance-20261001.md",
+        "docs/community/community-closure-handoff-20261001.md"
+      ]
+    },
+    {
+      "id": "PRESET_SCENE_REUSE_VERTICAL",
+      "required": true,
+      "satisfied": true,
+      "owner": "03 COMM + 02 WEP",
+      "evidence": [
+        "docs/community/wep-road-integration-acceptance-20261001.md"
+      ]
+    },
+    {
+      "id": "PRESET_ARTIFACT_RETENTION_E2E",
+      "required": true,
+      "satisfied": true,
+      "owner": "03 COMM + 02 WEP",
+      "evidence": [
+        "docs/community/wep-preset-retention-integration-20260930.md"
+      ]
+    },
+    {
+      "id": "WEP_PRESET_ARTIFACT_BUCKET_EXTERNALIZATION",
+      "required": true,
+      "satisfied": true,
+      "owner": "02 WEP",
+      "evidence": [
+        "dev/wep-v125@c396413dc349829bc91f89b397321de38b55a3ba",
+        "staging:wep-preset-artifact-v14",
+        "staging:wep-preset-retention-v6"
+      ]
+    },
+    {
+      "id": "AUTH_PROVIDER_14_15_BOUNDARY",
+      "required": true,
+      "satisfied": true,
+      "owner": "03 COMM",
+      "evidence": [
+        "docs/community/auth-provider-boundary-revocation-runtime-20261001.md",
+        "ops/community-auth-launch-review.json"
+      ]
+    },
+    {
+      "id": "AUTH_PROVIDER_WAND_REVOCATION",
+      "required": true,
+      "satisfied": true,
+      "owner": "03 COMM",
+      "evidence": [
+        "docs/community/auth-provider-boundary-revocation-runtime-20261001.md",
+        "ops/community-auth-launch-review.json"
+      ]
+    },
+    {
+      "id": "AUTH_SIGNED_IN_REAUTH_MAILBOX",
+      "required": true,
+      "satisfied": false,
+      "owner": "03 COMM",
+      "evidence": [
+        "docs/community/auth-final-mailbox-reauth-runbook-20261001.md"
+      ],
+      "pendingReason": "Requires one real mailbox-backed signed-in reauthentication/password-change transaction; synthetic email is prohibited."
+    },
+    {
+      "id": "RETENTION_PRODUCT_PRIVACY_LEGAL_APPROVAL",
+      "required": true,
+      "satisfied": false,
+      "owner": "Product/Privacy/Legal",
+      "evidence": [
+        "ops/community-retention-launch-review.json",
+        "docs/community/privacy-retention-launch-review-20261001.md"
+      ],
+      "pendingReason": "D1-D8 remain unapproved; 30/365 are engineering defaults, not legal conclusions."
+    },
+    {
+      "id": "DISTINCT_PRODUCTION_SUPABASE_PROJECT",
+      "required": true,
+      "satisfied": false,
+      "owner": "Release Operations",
+      "evidence": [],
+      "pendingReason": "No production project has been created; staging must not be accepted as production evidence."
+    },
+    {
+      "id": "FINAL_INTEGRATED_SOURCE_TREE",
+      "required": true,
+      "satisfied": false,
+      "owner": "Release Integration",
+      "evidence": [
+        "docs/community/final-integrated-production-tree-preflight-20261001.md"
+      ],
+      "pendingReason": "Community and WEP workstreams are still separate; final-integrated-main does not yet exist as the accepted replay tree."
+    },
+    {
+      "id": "FINAL_INTEGRATED_MIGRATION_REPLAY",
+      "required": true,
+      "satisfied": false,
+      "owner": "Release Operations",
+      "evidence": [
+        "docs/community/final-integrated-production-tree-preflight-20261001.md"
+      ],
+      "pendingReason": "Must be executed against a fresh non-production target from final-integrated-main before production."
+    },
+    {
+      "id": "DATABASE_BACKUP_MECHANISM",
+      "required": true,
+      "satisfied": false,
+      "owner": "Release Operations",
+      "evidence": [],
+      "pendingReason": "Production backup mechanism has not been selected/proven."
+    },
+    {
+      "id": "DATABASE_RESTORE_DRILL",
+      "required": true,
+      "satisfied": false,
+      "owner": "Release Operations",
+      "evidence": [],
+      "pendingReason": "Requires actual restore into a non-production target."
+    },
+    {
+      "id": "STORAGE_BACKUP_MECHANISM",
+      "required": true,
+      "satisfied": false,
+      "owner": "Release Operations",
+      "evidence": [],
+      "pendingReason": "Storage object bytes require independent backup coverage."
+    },
+    {
+      "id": "STORAGE_RESTORE_DRILL",
+      "required": true,
+      "satisfied": false,
+      "owner": "Release Operations",
+      "evidence": [],
+      "pendingReason": "Requires actual object-byte restore/integrity verification in a non-production target."
+    },
+    {
+      "id": "CONTROLLED_SECRET_ROTATION",
+      "required": true,
+      "satisfied": false,
+      "owner": "Release Operations",
+      "evidence": [],
+      "pendingReason": "Must rotate one representative production worker/delivery secret without service-state ambiguity."
+    },
+    {
+      "id": "PRODUCTION_FUNCTION_INVENTORY",
+      "required": true,
+      "satisfied": false,
+      "owner": "Release Operations",
+      "evidence": [],
+      "pendingReason": "Production function allowlist and staging-only denylist must be verified after deployment."
+    },
+    {
+      "id": "PRODUCTION_CRON_VAULT_INVENTORY",
+      "required": true,
+      "satisfied": false,
+      "owner": "Release Operations",
+      "evidence": [],
+      "pendingReason": "Required Cron jobs and Vault secret names must be verified in production without reading secret values."
+    },
+    {
+      "id": "PRODUCTION_SMOKE",
+      "required": true,
+      "satisfied": false,
+      "owner": "Release QA",
+      "evidence": [],
+      "pendingReason": "Requires final production-shaped smoke after deployment."
+    },
+    {
+      "id": "PRODUCTION_SECURITY_ADVISOR",
+      "required": true,
+      "satisfied": false,
+      "owner": "Release Security",
+      "evidence": [],
+      "pendingReason": "Must be read from the production project after deployment; staging Advisor is not production evidence."
+    },
+    {
+      "id": "TRANSACTIONAL_EMAIL_HUMAN_MAILBOX_PLACEMENT",
+      "required": true,
+      "satisfied": false,
+      "owner": "03 COMM + Release QA",
+      "evidence": [
+        "docs/community/operator-email-runtime-20261001.md"
+      ],
+      "pendingReason": "Provider delivery is 5/5 but low-volume Inbox-vs-Junk observation remains partial and final production configuration is not yet available."
+    }
+  ]
+}
