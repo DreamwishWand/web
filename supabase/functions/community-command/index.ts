@@ -70,7 +70,7 @@ async function deriveDdvIdentityDigest(playerId: string): Promise<string> {
     playerId.length < 4 ||
     playerId.length > 128 ||
     playerId !== playerId.trim() ||
-    !/^[\\x21-\\x7E]+$/.test(playerId)
+    !/^[\x21-\x7E]+$/.test(playerId)
   ) {
     throw new Error('INVALID_DDV_PLAYER_ID');
   }
