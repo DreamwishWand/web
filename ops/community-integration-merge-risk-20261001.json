@@ -10,7 +10,7 @@
   },
   "wep": {
     "branch": "dev/wep-v125",
-    "head": "3684939a5c147430e6c41bedc6620c9b6f030b6d",
+    "head": "f7236064ef9a4b623efabe1d9d75211af081cbcf",
     "migrationFilesObservedAgainstMain": 56,
     "productionPresetMigrations": [
       "20260930124055_wep_preset_artifact_storage_v0.sql",
@@ -56,11 +56,12 @@
     },
     {
       "id": "WEP_PRESET_STAGING_BUCKET_IN_PRODUCTION_MIGRATION",
-      "state": "OPEN",
+      "state": "RESOLVED_IN_CURRENT_WEP_BRANCH",
       "path": "supabase/migrations/20260930124055_wep_preset_artifact_storage_v0.sql",
       "observedSha": "f1370166dec78793ee82a5206a87999c61900b15",
       "issue": "The production migration inserts storage bucket wand-preset-artifacts-staging.",
-      "requiredResolution": "Final production migration replay must not create or use the staging bucket. Move staging bucket creation to staging-only provisioning or otherwise provision the configured production bucket without a staging-name fallback, while preserving the generic preset_artifact_prepare rate policy."
+      "requiredResolution": "Final production migration replay must not create or use the staging bucket. Move staging bucket creation to staging-only provisioning or otherwise provision the configured production bucket without a staging-name fallback, while preserving the generic preset_artifact_prepare rate policy.",
+      "resolution": "Production migration SHA 099d7d4f6a653b1268596ab9a12d470e8b6760a2 no longer contains the staging bucket literal; known-staging bootstrap moved to supabase/staging."
     }
   ],
   "acceptance": {
@@ -69,6 +70,6 @@
     "finalIntegratedRequireReadyMustPass": true,
     "productionReplayFromEitherWorkstreamBranchAlone": false,
     "wepMigrationBaselineConsistency": "CONFIRMED_STATIC",
-    "wepPresetProductionBucketMigration": "OPEN"
+    "wepPresetProductionBucketMigration": "CONFIRMED_STATIC"
   }
 }
