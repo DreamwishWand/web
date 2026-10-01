@@ -1,70 +1,50 @@
-# Linked DDV Profile Lifecycle — Staging Runtime — 2026-10-02
+# DDV Profile Workspace Lifecycle — Staging Runtime — 2026-10-02
 
-Status: **DB LIFECYCLE STAGING PASS / USER LINK TRANSPORT NOT YET EXPOSED**
+Status: **PROFILE WORKSPACE DB LIFECYCLE STAGING PASS / COMMUNITY-COMMAND v20 DEPLOYED**
 
-## What is implemented
+## Current staging model
 
-Staging migration `20261001221620_community_linked_ddv_profile_lifecycle_v1` is applied and mirrored
-in the repository.
+- `20261001232814_community_ddv_profile_workspace_v1` — Workspace + optional private identity association;
+- `20261001233225_community_ddv_profile_workspace_lifecycle_v2` — stable slots, private labels, active/archive lifecycle, self-service deletion and account-deletion cleanup;
+- `20261001233707_community_ddv_profile_workspace_fk_index_v3` — composite identity-association FK coverage.
 
-The database now supports:
+The earlier `20261001221620_community_linked_ddv_profile_lifecycle_v1` remains historical evidence only and is superseded as the user-facing Product model.
 
-- `self` and `parent_guardian_managed` profile relationships;
-- the existing transaction-safe three-profile account cap;
-- 15-minute recent-auth for high-impact profile linking;
-- an engineering rate limit of 12 link attempts/hour/account;
-- service-only binding using a versioned keyed-digest format;
-- no raw Player ID database field;
-- `verification_evidence_ref = NULL` for normal linking;
-- no ordinary self-service unlink;
-- admin-only exceptional correction with recent auth, reason and AuditEvent;
-- automatic 7-day binding-digest tombstone when a link is removed;
-- account-deletion link removal flowing through the same tombstone mechanism;
-- D4 retention-hold-aware tombstone expiry;
-- expired tombstone purge through the existing retention worker, without adding a new Cron job.
+## Implemented contract
 
-## Staging runtime evidence
+- maximum 5 retained Workspaces per Wand Account;
+- active + archived both count toward the limit;
+- stable account-local `slot_index` 1–5; lowest free slot is reused after permanent deletion;
+- optional private `display_name`; null means localized Profile N from the slot;
+- `self` and `parent_guardian_managed` use the same capacity;
+- optional Player ID/mdc association; raw Player ID is not stored in PostgreSQL;
+- same-account duplicate digest association is blocked; cross-account reuse of the same digest is allowed without sharing Workspace data;
+- self-service unlink removes the identity association but preserves the Workspace;
+- Workspace delete requires explicit `DELETE` confirmation, removes the optional association through cascade and frees the slot;
+- account deletion removes that account's Workspaces and private identity associations;
+- Workspace-scoped child data may cascade from the Workspace; Account/Creator-scoped Community works must remain independent.
 
-A disposable PostgreSQL transaction created a synthetic account, verified DDV Profile and
-`parent_guardian_managed` link, then removed the link.
+## Runtime evidence
 
-Observed:
+A rollback-only staging transaction verified: five retained Workspace cap; archive still consumes capacity; stable slots 1–5; custom label/archive update; same-account duplicate identity rejection; cross-account same identity association; unlink preserves Workspace; delete confirmation; delete cascade; slot reuse; and account-deletion cleanup.
 
-- exactly one 7-day tombstone was created;
-- the relationship kind was preserved in the tombstone;
-- the active `ddv_profiles` row was removed;
-- after forcing the test tombstone expiry, the purge RPC removed it;
-- the transaction was rolled back;
-- staging returned to zero DDV Profile rows, zero links and zero tombstones.
+After rollback: Workspace rows 0, identity-association rows 0, synthetic Wand Accounts 0.
 
-Updated Edge Functions:
+## Edge/API
 
-- `community-query` v9 — owner-safe linked-profile list;
-- `community-admin` v13 — exceptional correction operation;
-- `community-retention` v5 — expired binding tombstone purge.
+- `community-command` v20 — create/update/delete Workspace, associate/unlink DDV identity;
+- `community-query` v9 — owner-safe Workspace query.
 
-Security Advisor added no new warning attributable to this migration. The existing Free-staging
-Leaked Password Protection warning remains expected; production policy still requires enabling it
-on Supabase Pro.
+Identity association derives HMAC-SHA-256 using domain `dreamwishwand/ddv-player-id/v1\0` and forwards only the digest to PostgreSQL.
 
-## Deliberately not exposed yet
+## Advisors
 
-The user-facing link command is **not** wired into `community-command` yet.
+Security Advisor: no new blocking Workspace finding. Existing INFO findings are known server-only RLS-with-no-policy tables; Free-staging Leaked Password Protection WARN remains expected and production Supabase Pro must enable it.
 
-The database RPC accepts only a keyed digest and is service-role-only. The unresolved Product/security
-question is how the trusted Edge layer obtains enough evidence before deriving that digest.
+Performance Advisor initially reported the composite identity-association FK without a covering index. Migration v3 added the index; recheck leaves only unused-index INFO findings.
 
-This keeps the completed lifecycle work usable without prematurely choosing a weaker or more
-privacy-invasive link-verification model.
+## Remaining acceptance boundary
 
+The DB lifecycle is staging-runtime closed. A live raw Player ID -> Edge HMAC -> identity association E2E remains pending because the staging `COMMUNITY_DDV_PROFILE_BINDING_KEY_V1` secret is not configured through the current tool path. The digest-only database path is runtime-tested.
 
-## Feature-gated user-link Edge candidate
-
-`community-command` v19 is deployed on staging with a new `linkDdvProfile` candidate path.
-The path derives a domain-separated HMAC-SHA-256 digest server-side and forwards only the digest to
-PostgreSQL. Raw Player ID is not assigned to any RPC parameter or log statement.
-
-The code defaults to disabled unless `COMMUNITY_DDV_PROFILE_LINK_MODE=local-player-id` is explicitly
-configured. This work did not configure that enable mode or its production binding secret. The
-deployment therefore validates Edge loading/compilation without making the unresolved Product
-assurance choice live.
+This is an engineering acceptance item, not a remaining Product owner decision. Privacy=PENDING. Legal=PENDING. No production resource was created.
