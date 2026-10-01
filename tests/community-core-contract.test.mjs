@@ -297,7 +297,7 @@ test('outbox processing isolates poison events and has bounded retry/dead-letter
 });
 
 test('temporary pg_net staging dependency is explicitly removed after Auth E2E', () => {
-  const removal = read('supabase/migrations/20260930040500_community_staging_remove_pg_net.sql');
+  const removal = read('supabase/staging/20260930040500_community_staging_remove_pg_net.sql');
   assert.match(removal, /drop extension if exists pg_net/i);
 });
 
@@ -1778,4 +1778,36 @@ test('Community production operations contract fails closed until a distinct pro
   assert.match(runbook, /No production environment, paid plan, Supabase branch, backup add-on or PITR add-on was created/i);
   assert.match(verifier, /--require-ready/);
   assert.match(verifier, /Production project ref must not equal staging/);
+});
+
+
+test('Community production migration versions are unique and staging-only SQL is excluded', () => {
+  const migrationDir = path.join(process.cwd(), 'supabase/migrations');
+  const names = fs.readdirSync(migrationDir).filter((name) => name.endsWith('.sql'));
+  const seen = new Map();
+
+  for (const name of names) {
+    assert.doesNotMatch(name, /_staging_|community_staging/i);
+    const match = name.match(/^(\d+)_/);
+    assert.ok(match, name);
+    const peers = seen.get(match[1]) ?? [];
+    peers.push(name);
+    seen.set(match[1], peers);
+  }
+
+  for (const [version, peers] of seen) {
+    assert.equal(peers.length, 1, `duplicate migration version ${version}: ${peers.join(', ')}`);
+  }
+
+  assert.ok(
+    names.includes('20260930081600_community_core_v0_support_recovery_verification.sql')
+  );
+  assert.ok(
+    fs.existsSync(
+      path.join(
+        process.cwd(),
+        'supabase/staging/20260930035820_community_staging_pg_net.sql'
+      )
+    )
+  );
 });
