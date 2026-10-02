@@ -1,4 +1,4 @@
-export const MESSAGE_KEY_PATTERN = /^[a-z][a-z0-9]*(?:\.[a-z][a-z0-9]*)+$/;
+export const MESSAGE_KEY_PATTERN = /^[a-z][A-Za-z0-9]*(?:\.[a-z][A-Za-z0-9]*)+$/;
 const PLACEHOLDER_PATTERN = /\{([a-zA-Z][a-zA-Z0-9_]*)\}/g;
 export function placeholders(value) {
   const values = typeof value === 'string' ? [value] : Object.values(value ?? {});
