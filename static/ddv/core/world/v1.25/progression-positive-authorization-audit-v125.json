@@ -1,0 +1,110 @@
+{
+  "schema": "ddv.progression-positive-authorization-audit@1",
+  "artifactId": "DDV-PROGRESSION-POSITIVE-AUTHORIZATION-AUDIT-V125-V1_15-CANDIDATE",
+  "version": "v1.15-candidate",
+  "status": "ACTIVE_TARGETED_AUDIT",
+  "owner": "01B CORE - World / Grid / Buildings",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624
+  },
+  "dependencies": {
+    "progressionSafetyV113": {
+      "status": "PROMOTED",
+      "artifactId": "DDV-PROGRESSION-WORLD-OBJECT-SAFETY-V125-V1_13",
+      "sha256": "e8fd80775276e95cb70b0dd684534244ebe21b6dba04ec341b5cf92e90c32213"
+    },
+    "integrationV114": {
+      "status": "PROMOTED",
+      "artifactId": "DDV-PROGRESSION-WORLD-OBJECT-INTEGRATION-V125-V1_14",
+      "sha256": "de7f3590c285547fd0e8f70f6141432d6c242c4c6e59540e271d6af4a1813434"
+    },
+    "questDefinitionGraph": {
+      "status": "CLOSED",
+      "artifactId": "DDV-MISSION-WORLD-OBJECT-CONSUMER-GRAPH-SWITCH-V125-27-V1",
+      "validation": "PASS",
+      "summary": {
+        "resolvedMissions": 27,
+        "confirmedPostCompletionConsumerMissions": 4,
+        "unknownConsumerTemporalityMissions": 21,
+        "noStaticPostCompletionProofMissions": 2
+      }
+    },
+    "saveProgressionReferenceIndex": {
+      "status": "CLOSED",
+      "artifactId": "DDV-PROGRESSION-REFERENCE-INDEX-V125-V1_0",
+      "schema624Coverage": "PASS"
+    }
+  },
+  "gates": [
+    {
+      "id": "conditionalSpawnRemoveWhenDone",
+      "status": "OPEN",
+      "evidenceLevel": "UNKNOWN",
+      "staticFirst": true,
+      "exactQuestion": "Trace current v1.25 ConditionalSpawnData.RemoveWhenDone from condition satisfaction through spawned-object removal, SpawnState cleanup/history handling, and save/reload persistence. Determine whether the field proves terminal object disposal, reference cleanup, both, or neither.",
+      "requiredOutput": [
+        "managed/native method identities and call relationships",
+        "definition/condition trigger semantics",
+        "GridObject removal path",
+        "SpawnActionState.SpawnedObjects cleanup semantics",
+        "save/reload persistence consequence",
+        "operation-specific implication for MOVE/ROTATE/REMOVE/DUPLICATE/REPLACE/STATE_EDIT/PRESET_CAPTURE"
+      ],
+      "runtimeEscalationRule": "Escalate to 01E only if current v1.25 static code cannot settle event ordering or persistence semantics; freeze one minimal before/after/save/reload protocol."
+    },
+    {
+      "id": "dynamicNativeConsumerExclusion",
+      "status": "OPEN",
+      "evidenceLevel": "UNKNOWN",
+      "staticFirst": true,
+      "exactQuestion": "Within a bounded current-v1.25 progression-risk object family, audit native/script consumers/listeners that are not represented by the serialized 01D Mission/Condition/ConditionalEvent/Dialogue/Story/Ftue/canonical-definition graph.",
+      "requiredOutput": [
+        "bounded family definition",
+        "semantic search anchors",
+        "listener/call graph",
+        "persistent-vs-runtime-only classification",
+        "explicit UNKNOWN classes where negative proof is unavailable"
+      ],
+      "prohibition": "Do not claim whole-game absence of dynamic/native consumers from a bounded search."
+    },
+    {
+      "id": "serializedObjectStateCompatibility",
+      "status": "OPEN",
+      "evidenceLevel": "UNKNOWN",
+      "staticFirst": true,
+      "exactQuestion": "For each candidate object family that could become terminal-editable, prove that save progression phase agrees with GridObject.State, visual/variation state, SubGrid descendants, and linked persistent parameters for each requested operation.",
+      "requiredOutput": [
+        "object family and ItemID/definition identity",
+        "serialized State family and fields",
+        "variation/visual state",
+        "SubGrid/descendant ownership",
+        "linked persistent state",
+        "operation-specific authorization matrix"
+      ],
+      "rule": "Quest completion or absence of a current serialized consumer is never sufficient by itself."
+    }
+  ],
+  "operationPolicy": {
+    "MOVE": "BLOCK_UNLESS_ALL_RELEVANT_GATES_CLOSED_FOR_OBJECT",
+    "ROTATE": "BLOCK_UNLESS_ALL_RELEVANT_GATES_CLOSED_FOR_OBJECT",
+    "REMOVE": "BLOCK_UNLESS_ALL_RELEVANT_GATES_CLOSED_FOR_OBJECT",
+    "DUPLICATE": "BLOCK_UNLESS_ALL_RELEVANT_GATES_CLOSED_FOR_OBJECT",
+    "REPLACE": "BLOCK_UNLESS_ALL_RELEVANT_GATES_CLOSED_FOR_OBJECT",
+    "STATE_EDIT": "BLOCK_UNLESS_ALL_RELEVANT_GATES_CLOSED_FOR_OBJECT",
+    "PRESET_CAPTURE": "EXCLUDE_WHILE_PROTECTED_OR_UNKNOWN"
+  },
+  "positiveAuthorization": {
+    "userControlledClassification": false,
+    "terminalEditableMutation": false,
+    "nativeRestoreExecution": false,
+    "persistentWriter": false
+  },
+  "writerBoundary": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "applyAuthorized": false
+  }
+}
