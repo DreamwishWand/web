@@ -297,24 +297,87 @@ async function runSyntheticAcceptance(page, report) {
     fullPage: true
   });
 
-  // Keyboard-only primary flow from a focusable canvas object.
-  await page.getByRole('button', { name: '選択解除' }).click();
-  const keyboardLamp = page.locator(cssObject('Editable Lamp')).first();
-  await keyboardLamp.focus();
-  assert.equal(await keyboardLamp.getAttribute('tabindex'), '0');
-  assert.equal(await keyboardLamp.getAttribute('role'), 'button');
+  // Keyboard-only primary flow: reach the canvas through real Tab navigation,
+  // then complete selection and draft commands without pointer input.
+  await page.evaluate(() => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  });
+  let tabReachedEditableCanvasObject = false;
+  let keyboardObjectLabel = '';
+  for (let index = 0; index < 100; index += 1) {
+    await page.keyboard.press('Tab');
+    const active = await page.evaluate(() => {
+      const element = document.activeElement;
+      return {
+        editorObject:
+          element instanceof Element
+            ? element.getAttribute('data-editor-object')
+            : null,
+        ariaLabel:
+          element instanceof Element
+            ? element.getAttribute('aria-label')
+            : null,
+        role:
+          element instanceof Element
+            ? element.getAttribute('role')
+            : null,
+        tabIndex:
+          element instanceof HTMLElement
+            ? element.tabIndex
+            : null
+      };
+    });
+    if (
+      active.editorObject === 'true' &&
+      (
+        String(active.ariaLabel ?? '').startsWith('Editable Chair at ') ||
+        String(active.ariaLabel ?? '').startsWith('Editable Lamp at ')
+      )
+    ) {
+      tabReachedEditableCanvasObject = true;
+      keyboardObjectLabel = String(active.ariaLabel ?? '');
+      assert.equal(active.role, 'button');
+      assert.equal(active.tabIndex, 0);
+      break;
+    }
+  }
+  assert.equal(
+    tabReachedEditableCanvasObject,
+    true,
+    'Tab navigation must reach an editable canvas object'
+  );
+
+  const labelMatch = keyboardObjectLabel.match(
+    /^(Editable Chair|Editable Lamp) at (-?\d+), (-?\d+)$/
+  );
+  assert.ok(labelMatch, `unexpected keyboard target: ${keyboardObjectLabel}`);
+  const keyboardObjectName = labelMatch[1];
+  const keyboardStartX = Number(labelMatch[2]);
+  const keyboardStartY = Number(labelMatch[3]);
+
   await page.keyboard.press('Enter');
   await expectSelected(page, 1);
-  const lampLabelBefore = await keyboardLamp.getAttribute('aria-label');
-  assert.ok(lampLabelBefore?.includes('Editable Lamp at 6, 2'));
-  await page.keyboard.press('ArrowRight');
-  await waitObject(page, 'Editable Lamp', 7, 2);
-  await page.keyboard.press('r');
   const keyboardOrientation = page
     .locator('.object-inspector .inspector-details > div')
     .filter({ hasText: 'Orientation' })
     .locator('dd');
-  await expectContains(keyboardOrientation, '4', 'keyboard rotate');
+  const orientationBefore = Number(await text(keyboardOrientation));
+
+  await page.keyboard.press('ArrowRight');
+  await waitObject(
+    page,
+    keyboardObjectName,
+    keyboardStartX + 1,
+    keyboardStartY
+  );
+  await page.keyboard.press('r');
+  await expectContains(
+    keyboardOrientation,
+    String((orientationBefore + 4) & 15),
+    'keyboard rotate'
+  );
   await page.keyboard.press('Control+c');
   const keyboardCountBeforePaste = await page.locator('g[data-editor-object]').count();
   await page.keyboard.press('Control+v');
@@ -336,6 +399,7 @@ async function runSyntheticAcceptance(page, report) {
   report.synthetic = {
     mousePrimaryWorkflow: 'PASS',
     keyboardPrimaryWorkflow: 'PASS',
+    keyboardTabReachability: 'PASS',
     mixedSelectionAvailability: 'PASS',
     searchAndLayerSelectionReconciliation: 'PASS',
     protectedPresetSource: 'PASS',
