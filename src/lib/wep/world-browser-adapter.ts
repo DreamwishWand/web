@@ -217,6 +217,9 @@ export async function createSwitchWorldReadAdapter({
 
   return Object.freeze({
     adapter,
+    progressionScopeIndex: Object.freeze(
+      structuredClone(data.scopeIndex)
+    ),
     source: Object.freeze({
       gameVersion: '1.25.0',
       platform: 'Nintendo Switch',
