@@ -178,7 +178,34 @@ const rawSwitchFixture = {
               State: {}
             }
           }
+        },
+        '760': {
+          ID: 760,
+          GridDataPath:
+            'GridData/FloatingIslands/FloatingIsland_Urban/FloatingIsland_UrbanGrid-GridData.json',
+          GridDefaultLayoutPath: '',
+          TessellationFactor: 2,
+          NextGridObjectID: 2,
+          Objects: {
+            '1': {
+              ID: 1,
+              ItemID: 40000047,
+              X: 12,
+              Y: 14,
+              Orientation: 'GridOrientation_Up',
+              State: null
+            }
+          }
         }
+      }
+    },
+    FloatingIslands: {
+      '1540000147': {
+        SceneItemId: 1540000147,
+        GridIDs: [760],
+        Unlocked: true,
+        CustomLocationPositionsPath:
+          'SceneLayouts/FloatingIslands/FloatingIsland_Urban/CustomLocations.json'
       }
     },
     Villages: [
@@ -752,7 +779,7 @@ async function runRawSaveAcceptance(page, report) {
     buffer: rawBytes
   });
   await page.getByText(/DDV save loaded locally/).waitFor();
-  await page.getByRole('button', { name: 'Open in Canvas' }).click();
+  await page.getByRole('button', { name: 'Open in Canvas' }).first().click();
   await page.getByText(/Core-bound local draft authoring/).waitFor();
 
   const progressionCard = page.locator('.progression-safety-card');
@@ -821,13 +848,43 @@ async function runRawSaveAcceptance(page, report) {
     fullPage: true
   });
 
+  await page.getByRole('button', { name: /Area \/ Grid/ }).click();
+  const floatingSection = page.locator('.floating-route-section');
+  await floatingSection.waitFor();
+  await expectContains(floatingSection, '1540000147');
+  const floatingOpen = floatingSection.getByRole('button', {
+    name: 'Open in Canvas'
+  });
+  assert.equal(await floatingOpen.count(), 1);
+  await floatingOpen.click();
+  await page.locator('.world-canvas').waitFor();
+  assert.equal(
+    await page.locator('g[data-editor-object]').count(),
+    1,
+    'promoted v1.16 direct-root route must project the Floating Island root'
+  );
+  await expectContains(
+    page.locator('.binding-state'),
+    'Read-only',
+    'Floating Island projector must not imply mutation authorization'
+  );
+  assert.equal(
+    await page.getByRole('button', { name: /^Apply$/ }).count(),
+    0
+  );
+  assert.equal(
+    await page.getByRole('button', { name: /^Commit$/ }).count(),
+    0
+  );
+
   report.rawSwitch = {
     progressionDestinationConflict: 'PASS',
     commandSpecificValidationPresentation: 'PASS',
     exactBuildUnknownFailsClosed: 'PASS',
     originalBackupByteExactDownload: 'PASS',
     savePrepPersistentBoundary: 'PASS',
-    progressionDependencyPresentation: 'PASS'
+    progressionDependencyPresentation: 'PASS',
+    floatingIslandDirectRootV116Consumption: 'PASS'
   };
 }
 
