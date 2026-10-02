@@ -276,7 +276,11 @@ function makeOrdinaryBuildingManifest() {
   }).manifest;
 }
 
-function placementBinding(nativeClass, reasonCodes = []) {
+function placementBinding(
+  nativeClass,
+  reasonCodes = [],
+  conflicts = []
+) {
   return {
     contract: 'dreamwish-wand-wep-v125-placement-binding@1',
     persistentWriteAuthorized: false,
@@ -285,12 +289,56 @@ function placementBinding(nativeClass, reasonCodes = []) {
         schema: 'ddv.native-placement-legality@1',
         nativeClass,
         reasonCodes,
+        conflicts,
         nativeConflictFlagsResolved:
           nativeClass !== 'NATIVE_UNKNOWN_UNVERIFIED',
         clearabilityResolved:
           nativeClass !== 'NATIVE_UNKNOWN_UNVERIFIED',
         persistentWriteAuthorized: false
       };
+    }
+  };
+}
+
+function progressionDestinationProjection({
+  gridId = 99,
+  gridObjectId = 41,
+  protectedConflict = true
+} = {}) {
+  const operationVetoes = {
+    DESTINATION_OVERWRITE: protectedConflict
+      ? ['PROTECTED_PROGRESSION_OBJECT_CONFLICT']
+      : []
+  };
+  return {
+    schema: 'ddv.progression-destination-veto-projection@1',
+    version: 'v1.15',
+    target: {
+      gameVersion: '1.25.0',
+      profileSchemaVersion: 624
+    },
+    byAddress: {
+      [`${gridId}:${gridObjectId}`]: {
+        schema: 'ddv.progression-destination-veto-record@1',
+        gridObjectAddress: {
+          gridId,
+          gridObjectId
+        },
+        operationVetoes,
+        positivePermission: false,
+        writerAuthorized: false
+      }
+    },
+    semantics: {
+      readPreflightOnly: true,
+      absenceOfVetoIsPermission: false,
+      positivePermission: false,
+      consumerMayOnlyUseVetoes: true
+    },
+    writerBoundary: {
+      persistentWriteAuthorized: false,
+      WORLD_PERSISTENT_WRITE_V125: false,
+      applyAuthorized: false
     }
   };
 }
@@ -897,6 +945,94 @@ test('v1.9 replacement/removal-valid result stays a separate blocked policy gate
     ),
     true
   );
+  assert.equal(preflight.applyReady, false);
+});
+
+test('v1.15 progression projection blocks protected destination replacement by exact GridObjectAddress', () => {
+  const preflight = preflightCurrentV125FullDesignManifest({
+    destinationProfile: makeProfile({
+      firstGridId: 99,
+      secondGridId: 100,
+      islandGridId: 120
+    }),
+    destinationPlatform: 'switch',
+    manifest: makePlacementManifest(),
+    placementBinding: placementBinding(
+      'NATIVE_VALID_REPLACES_OR_REMOVES_EXISTING',
+      ['GRID_OBJECT_COLLISION_CLEARABLE'],
+      [{ editorId: '41', itemId: 40001060 }]
+    ),
+    progressionDestinationProjection:
+      progressionDestinationProjection()
+  });
+
+  const entry = preflight.destination.rootObjectRouteBindings[0];
+  assert.equal(
+    entry.progressionDestinationEvaluation.status,
+    'BLOCKED'
+  );
+  assert.equal(
+    entry.progressionDestinationEvaluation.blockerCode,
+    'PROTECTED_PROGRESSION_OBJECT_CONFLICT'
+  );
+  assert.equal(
+    entry.placementBlocker,
+    'PROTECTED_PROGRESSION_OBJECT_CONFLICT'
+  );
+  assert.equal(entry.placementValidated, true);
+  assert.equal(entry.placementPolicyReady, false);
+  assert.equal(preflight.rootObjectPlacementPreflightReady, false);
+  assert.equal(
+    preflight.issues.some(
+      (issue) =>
+        issue.code === 'PROTECTED_PROGRESSION_OBJECT_CONFLICT'
+    ),
+    true
+  );
+  assert.equal(
+    entry.progressionDestinationEvaluation
+      .positivePermissionGranted,
+    false
+  );
+  assert.equal(preflight.applyReady, false);
+  assert.equal(preflight.persistentWriteAuthorized, false);
+});
+
+test('v1.15 no-veto projection never converts replacement into permission', () => {
+  const preflight = preflightCurrentV125FullDesignManifest({
+    destinationProfile: makeProfile({
+      firstGridId: 99,
+      secondGridId: 100,
+      islandGridId: 120
+    }),
+    destinationPlatform: 'switch',
+    manifest: makePlacementManifest(),
+    placementBinding: placementBinding(
+      'NATIVE_VALID_REPLACES_OR_REMOVES_EXISTING',
+      ['GRID_OBJECT_COLLISION_CLEARABLE'],
+      [{ editorId: '41', itemId: 40000001 }]
+    ),
+    progressionDestinationProjection:
+      progressionDestinationProjection({
+        protectedConflict: false
+      })
+  });
+
+  const entry = preflight.destination.rootObjectRouteBindings[0];
+  assert.equal(
+    entry.progressionDestinationEvaluation.status,
+    'NO_PROTECTED_CONFLICT_OBSERVED'
+  );
+  assert.equal(
+    entry.progressionDestinationEvaluation
+      .positivePermissionGranted,
+    false
+  );
+  assert.equal(
+    entry.placementBlocker,
+    'NATIVE_REPLACEMENT_OR_REMOVAL_POLICY_REQUIRED'
+  );
+  assert.equal(preflight.rootObjectPlacementPreflightReady, false);
   assert.equal(preflight.applyReady, false);
 });
 
