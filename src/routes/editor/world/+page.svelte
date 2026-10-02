@@ -2739,7 +2739,7 @@
           {/if}
 
           {#if scroogeStorePreview?.status === 'resolved'}
-            <h4>{t('worldEditor.store.title', {}, $locale)}</h4>
+            <h4 data-wep-surface="store-inspector">{t('worldEditor.store.title', {}, $locale)}</h4>
             <p class="inspector-note">{t('worldEditor.store.description', {}, $locale)}</p>
             <dl class="inspector-details">
               <div><dt>{t('worldEditor.store.building', {}, $locale)}</dt><dd>{scroogeStorePreview.store.buildingItemId}</dd></div>
