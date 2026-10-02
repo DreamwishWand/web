@@ -19,11 +19,11 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "cfbe090f57372410c020062c5b6d967073bf97f5",
+    "src/routes/editor/world/+page.svelte": "ed3652223c88ac41b8c803ed8d71ed6960bc8b3a",
     "src/lib/wep/world-editor-primary-job.ts": "a8e49f4f2eec543b9aaebd2d552c9da8e36270d5",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
-    "src/lib/SiteHeader.svelte": "a0dff5ce36935ddb3978ebee62ff3db11c7bfa39",
-    "src/lib/SiteFooter.svelte": "bb61bb5510127f64264f3900047965625a444d05"
+    "src/lib/SiteHeader.svelte": "9bc34ec02d370826d388f336593c172d91c83b1a",
+    "src/lib/SiteFooter.svelte": "c1f5ce8166a83e1464ad74d3a73714894650882e"
   },
   "ownership": {
     "wepOwned": [
@@ -37,9 +37,23 @@
     ]
   },
   "sharedLocaleBinding": {
-    "status": "WAITING_FOR_SHARED_WEB_CONTRACT",
-    "owner": "07 WEB / shared Web UI foundation",
-    "rule": "Do not create a WEP-specific locale store, locale selector, fallback resolver, formatter, or translation-resource loader. Bind these presentation keys only through the shared locale contract when it is promoted/returned."
+    "status": "BOUND_SHARED_WEB_V1",
+    "owner": "08 WEB / shared Web UI foundation",
+    "upstreamCommit": "425cb22ad7726f6f452bd179f3a89b81329da64b",
+    "runtime": "src/lib/i18n/runtime.js",
+    "registry": "src/lib/i18n/registry.js",
+    "fallbackLocale": "en",
+    "localeCodes": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es-ES",
+      "ja",
+      "zh-CN",
+      "pt-BR"
+    ],
+    "rule": "World Editor presentation resolves through the shared locale runtime. WEP does not own a locale store, selector, fallback resolver, formatter, or resource loader."
   },
   "translationBoundary": {
     "translate": [
@@ -1257,12 +1271,12 @@
     "evidence": {
       "tokenSource": "src/app.css",
       "token": "--gold",
-      "dayValue": "#a07837",
-      "affectedSharedSelector": ".eyebrow",
-      "qrMeasuredContrastAgainstPage": "about 3.66:1"
+      "dayValue": "#82591f",
+      "sharedMinimumMeasuredContrast": "5.183:1"
     },
-    "wepAction": "NO_LOCAL_OVERRIDE",
-    "requiredSharedAction": "07 WEB / shared Web design system must change the shared day-theme semantic token/style; WEP should inherit the shared correction."
+    "wepAction": "INHERIT_SHARED_TOKEN_NO_LOCAL_OVERRIDE",
+    "requiredSharedAction": "CLOSED in 08 WEB shared foundation; WEP inherits the shared semantic token.",
+    "resolution": "CLOSED_UPSTREAM_INHERITED"
   },
   "safetyBoundary": {
     "persistentWriteAuthorized": false,
@@ -1291,5 +1305,13 @@
       "test-only text",
       "QR private fixture paths"
     ]
+  },
+  "presentationBinding": {
+    "status": "BOUND",
+    "namespace": "worldEditor",
+    "resourceFactory": "src/lib/i18n/messages/world-editor/_factory.js",
+    "localeResources": "src/lib/i18n/messages/world-editor/<locale>.js",
+    "adapter": "src/lib/wep/world-editor-i18n.ts",
+    "machineIdentityInvariant": true
   }
 }
