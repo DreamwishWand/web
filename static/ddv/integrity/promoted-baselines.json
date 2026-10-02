@@ -165,6 +165,21 @@
       "artifactSha256": "d939055ff6e7c964a987f103215c1f6fedfb59d6e0892e420e70f8f04cea4018",
       "sourceEvidenceDriveId": "1d4l-GG5W0F3cSRIltgZyA_ZTzf8Nv7r0QG1h7Sr2x2w",
       "scope": "BASE_GAME_STORY_MENHIRS bounded Target 2/3 closure; no global positive permission"
+    },
+    {
+      "artifactId": "DDV-DIRECT-ROOT-EDITOR-DOCUMENT-V125-V1_16",
+      "artifactType": "Core/direct-root EditorDocument projection",
+      "version": "v1.16",
+      "status": "PROMOTED",
+      "mutable": false,
+      "platform": "Nintendo Switch",
+      "gameVersion": "v1.25.0",
+      "buildId": "52BD625D9B4E0053",
+      "artifactSha256": "9881ad127c17a310a3ab918148ea211483a746a02b54b2d38b0291b2d664727c",
+      "payloadSha256": "eba3e2e604b2cf976cd6080b69ba9eaef1fa94b0a3aa20a7e4f175b64e0c3d9a",
+      "sourceEvidenceDriveId": "1d4l-GG5W0F3cSRIltgZyA_ZTzf8Nv7r0QG1h7Sr2x2w",
+      "sourceCandidateSha256": "71a815e425be714a59bdaa4a355a2f3560ffe2b88111877e372e9bd3440f0c1b",
+      "scope": "read/model/preflight Floating Island direct-root EditorDocument projection only; no operation permission or persistent writer"
     }
   ]
 }

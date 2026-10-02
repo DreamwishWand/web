@@ -1,0 +1,293 @@
+{
+  "schema": "ddv.direct-root-editor-document@1",
+  "artifactId": "DDV-DIRECT-ROOT-EDITOR-DOCUMENT-V125-V1_16",
+  "version": "v1.16",
+  "status": "PROMOTED",
+  "owner": "01 CORE Integrator",
+  "target": {
+    "platform": "Nintendo Switch",
+    "titleId": "0100D39012C1A000",
+    "gameVersion": "1.25.0",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624
+  },
+  "purpose": "Project a canonically resolved current-v1.25 outdoor Floating Island direct root into the existing dreamwish-wand-wep-editor-document v1 read model without fabricating Village/Area identity.",
+  "input": {
+    "profile": "decoded schema-624 profile object",
+    "semanticLocationRef": {
+      "schema": "ddv.outdoor-location-ref@1",
+      "requiredKind": "FLOATING_ISLAND"
+    },
+    "directRootRoute": {
+      "schema": "ddv.direct-grid-route@1",
+      "identityToken": "exact current-version GridDataPath"
+    },
+    "source": {
+      "gameVersion": "must equal 1.25.0",
+      "platform": "must equal Nintendo Switch",
+      "profileSchemaVersion": "must equal 624 when supplied",
+      "buildIdentity": "may be null for read-only imported saves; null never becomes exact-build proof"
+    },
+    "requiredCoreDependencies": [
+      "promoted v1.6 location-v125.cjs semantics",
+      "promoted v1.7 griddata-dimensions-v125.json",
+      "existing current-v1.25 Core geometry index",
+      "existing current-v1.25 Core scope/classification index",
+      "existing adapter-v125 object geometry/orientation/state classification semantics"
+    ]
+  },
+  "output": {
+    "resultSchema": "ddv.direct-root-editor-document-result@1",
+    "resolvedDocumentSchema": "dreamwish-wand-wep-editor-document",
+    "resolvedDocumentVersion": 1,
+    "preserves": [
+      "semantic outdoor location identity",
+      "exact ddv.direct-grid-route@1",
+      "exact GridDataPath",
+      "exact save-local root GridID as provenance only",
+      "authoritative v1.7 bounds",
+      "GridObject ID/map-key identity",
+      "existing Core object layer/classification and fail-closed reasons",
+      "object coordinates/orientation/footprint",
+      "raw typed GridObject.State for read/inspect",
+      "exact nested SubGrid parent/child hierarchy",
+      "authoritative nested SubGrid bounds where present",
+      "existing portable SubGrid codec only when its prior portability conditions remain satisfied",
+      "read/preflight capability boundary"
+    ],
+    "doesNotCreate": [
+      "villageIndex",
+      "areaId",
+      "pseudo Village",
+      "pseudo Area",
+      "portable GridID identity",
+      "operation permission",
+      "persistent writer permission"
+    ]
+  },
+  "routeIdentityRequirements": [
+    "locationRef codec is ddv.outdoor-location-ref@1",
+    "locationRef.kind is FLOATING_ISLAND",
+    "directRootRoute codec is ddv.direct-grid-route@1",
+    "exact route GridDataPath resolves uniquely through promoted location semantics",
+    "resolved destination GridID exists and Grid record ID equals map key",
+    "resolved GridDataPath equals the supplied directRootRoute token",
+    "reverse GridID -> outdoor location resolution returns the same locationRef and directRootRoute",
+    "root ownership is unambiguous"
+  ],
+  "boundsAuthority": {
+    "artifact": "DDV Core World v1.7 GridData dimensions/bounds",
+    "machinePath": "static/ddv/core/world/v1.25/griddata-dimensions-v125.json",
+    "sha256": "75f33dc20d521d579070aa7919a96c23ce5dd329dbc6f58392f267c9dd0b1aaa",
+    "currentRecordCount": 152,
+    "formula": "bounds = {x:0,y:0,w:sizeX*TessellationFactor,h:sizeY*TessellationFactor}",
+    "directRootTessellationFactorForThisCurrentContract": 2,
+    "missingRecordPolicy": "fail closed"
+  },
+  "supportedRootRoles": [
+    {
+      "role": "FLOATING_ISLAND_DIRECT_ROOT",
+      "evidence": "CONFIRMED current-v1.25 v1.6 semantic identity/route contract",
+      "status": "SUPPORTED_READ_MODEL"
+    }
+  ],
+  "explicitlyUnsupportedRootRoles": [
+    {
+      "role": "BIOME_DIRECT_ROOT",
+      "reason": "Existing Village/Area Core loader already owns normal Biome Canvas projection; this narrow release candidate does not broaden direct-root taxonomy."
+    },
+    {
+      "role": "FloatingIsland_Library/TEMPLATE",
+      "reason": "No promoted current-v1.25 semantic SceneItemId target."
+    }
+  ],
+  "subGridPolicy": {
+    "mode": "PRESERVE_EXACT_HIERARCHY_FAIL_CLOSED",
+    "rules": [
+      "Never flatten SubGrid descendants into root Canvas coordinates.",
+      "Nested GridID remains save-local provenance, not portable identity.",
+      "Every materialized child Grid requires exact GridID/key agreement, exact GridDataPath, and v1.7 authoritative dimensions.",
+      "Nested cycles, missing child grids, unsupported DesignID state, unknown/multi state shape, or unresolved child geometry block the direct-root projection.",
+      "Readonly supported child object classes remain represented in hierarchy; portability is separate and may remain unauthorized."
+    ]
+  },
+  "capabilityBoundary": {
+    "projectorAuthorization": "NONE",
+    "worldGridRead": "supported",
+    "worldDirectRootRoute": "supported",
+    "worldAreaRoute": "not-applicable-direct-root",
+    "worldSubGridRead": "supported when projection resolves",
+    "worldGeometry": "supported when projection resolves",
+    "worldPlacementValidate": "external-core-preflight-required",
+    "worldDryRunMutation": "not-authorized-by-projector",
+    "worldPersistentWrite": "unsupported",
+    "operationVisibilityDoesNotAuthorize": [
+      "MOVE",
+      "ROTATE",
+      "REMOVE",
+      "DUPLICATE",
+      "REPLACE",
+      "STATE_EDIT",
+      "PRESET_CAPTURE",
+      "Apply"
+    ]
+  },
+  "failClosedReasonCodes": [
+    "DIRECT_ROOT_VERSION_UNSUPPORTED",
+    "DIRECT_ROOT_PLATFORM_UNSUPPORTED",
+    "DIRECT_ROOT_PROFILE_SCHEMA_UNSUPPORTED",
+    "DIRECT_ROOT_LOCATION_CODEC_UNSUPPORTED",
+    "DIRECT_ROOT_SEMANTIC_ROLE_UNSUPPORTED",
+    "DIRECT_ROOT_ROUTE_INVALID",
+    "DIRECT_ROOT_ROUTE_AMBIGUOUS",
+    "DIRECT_ROOT_ROUTE_UNRESOLVED",
+    "DIRECT_ROOT_GRID_ID_UNRESOLVED",
+    "DIRECT_ROOT_GRID_COLLECTION_MISSING",
+    "DIRECT_ROOT_GRID_MISSING",
+    "DIRECT_ROOT_GRID_KEY_ID_MISMATCH",
+    "DIRECT_ROOT_GRID_PATH_MISMATCH",
+    "DIRECT_ROOT_OWNERSHIP_UNRESOLVED",
+    "DIRECT_ROOT_ROUTE_IDENTITY_CONFLICT",
+    "DIRECT_ROOT_BOUNDS_UNRESOLVED",
+    "DIRECT_ROOT_TESSELLATION_INCONSISTENT",
+    "DIRECT_ROOT_OBJECT_INVALID",
+    "DIRECT_ROOT_OBJECT_ID_INVALID",
+    "DIRECT_ROOT_OBJECT_KEY_ID_MISMATCH",
+    "DIRECT_ROOT_OBJECT_ITEM_ID_INVALID",
+    "DIRECT_ROOT_OBJECT_STATE_UNSUPPORTED",
+    "DIRECT_ROOT_OBJECT_GEOMETRY_UNRESOLVED",
+    "DIRECT_ROOT_OBJECT_COORDINATE_INVALID",
+    "DIRECT_ROOT_SUBGRID_STATE_UNSUPPORTED",
+    "DIRECT_ROOT_SUBGRID_CHILD_ID_INVALID",
+    "DIRECT_ROOT_SUBGRID_CYCLE",
+    "DIRECT_ROOT_SUBGRID_GRID_MISSING",
+    "DIRECT_ROOT_SUBGRID_GRID_KEY_ID_MISMATCH",
+    "DIRECT_ROOT_SUBGRID_BOUNDS_UNRESOLVED",
+    "DIRECT_ROOT_SUBGRID_NESTED_STATE_UNSUPPORTED"
+  ],
+  "representativeProofTarget": {
+    "evidenceArtifact": "tests/fixtures/ddv-world/outdoor-location-routing-audit-v125.json",
+    "evidenceSourceDecryptedProfileSha256": "1cfc40196f7ee36048e1fa98c0835561901c6fed3f19ca8dd6fa36c47740dc10",
+    "privateSaveDriveId": "1FRXl5bYX6HClcVQY2L88eP8Su8lgybyS",
+    "locationRef": {
+      "codec": "ddv.outdoor-location-ref@1",
+      "kind": "FLOATING_ISLAND",
+      "sceneItemId": 1540000147
+    },
+    "directRootRoute": {
+      "codec": "ddv.direct-grid-route@1",
+      "gridDataPath": "GridData/FloatingIslands/FloatingIsland_Urban/FloatingIsland_UrbanGrid-GridData.json"
+    },
+    "observedRootGridId": 760,
+    "observedTessellationFactor": 2,
+    "observedGridObjectCount": 4230,
+    "privacyBoundary": "No private save bytes or raw per-object private content are committed by this candidate.",
+    "privateReadOnlyProjectionVerification": {
+      "evidenceStatus": "CONFIRMED",
+      "source": "private Drive representative save; raw object content not committed",
+      "sourceBytes": 12846979,
+      "projectorBranch": "dev/core-direct-root-editor-document-v125-20261002",
+      "projectorGitBlobSha": "85d31dd356b8d19122ba96ceafc9108a10bc5b00",
+      "geometryScopeBinding": "WEP pinned current-v1.25 Switch browser-read pack",
+      "result": {
+        "status": "RESOLVED",
+        "blockerCount": 0,
+        "projectedRootObjectCount": 4230,
+        "rootGridId": 760,
+        "gridDataPath": "GridData/FloatingIslands/FloatingIsland_Urban/FloatingIsland_UrbanGrid-GridData.json",
+        "rootBounds": {
+          "x": 0,
+          "y": 0,
+          "w": 260,
+          "h": 260,
+          "status": "AUTHORITATIVE_GRIDDATAPATH"
+        },
+        "subGridRootCount": 0,
+        "worldGeometry": "supported",
+        "fabricatedVillageIndex": false,
+        "fabricatedAreaId": false,
+        "persistentWriteAuthorized": false,
+        "worldPersistentWrite": "unsupported"
+      }
+    }
+  },
+  "wepConsumption": {
+    "expectedUse": "WEP passes the already-Core-resolved Floating Island locationRef and directRootRoute plus decoded profile to this projector, then consumes result.document as an ordinary EditorDocument.",
+    "forbiddenUse": [
+      "WEP must not fabricate Village/Area identity.",
+      "WEP must not derive Floating Island identity from filename.",
+      "WEP must not reinterpret raw save ownership.",
+      "WEP must not treat projection success or no blocker as mutation permission."
+    ],
+    "qrBlockerAddressed": "WEP-FLOATING-ISLAND-CANVAS-NOT-BOUND"
+  },
+  "evidenceClassification": {
+    "semanticIdentityAndRoute": "CONFIRMED",
+    "bounds": "CONFIRMED",
+    "objectReadProjection": "CONFIRMED",
+    "sameLogicalEditorDocumentShape": "CONFIRMED",
+    "persistentMutation": "NOT_AUTHORIZED",
+    "representativePrivateUrban4230Projection": "CONFIRMED"
+  },
+  "writerBoundary": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "applyAuthorized": false,
+    "saveReplacementAuthorized": false,
+    "atomicCommitAuthorized": false
+  },
+  "routeFailureDiagnostics": "The projector exposes stable DIRECT_ROOT_ROUTE_UNRESOLVED / DIRECT_ROOT_ROUTE_AMBIGUOUS codes and preserves promoted location-resolver blockers only as diagnostic detail.",
+  "implementationArtifact": {
+    "path": "static/ddv/core/world/v1.25/direct-root-editor-document-v125.cjs",
+    "sha256": "eba3e2e604b2cf976cd6080b69ba9eaef1fa94b0a3aa20a7e4f175b64e0c3d9a"
+  },
+  "regression": {
+    "testPath": "tests/ddv-core-world-direct-root-editor-document-v125.test.mjs",
+    "representativeChecks": [
+      "canonical routing audit pins Urban SceneItemId 1540000147 / GridID 760 / exact GridDataPath / 4230 GridObjects",
+      "non-sensitive 4230-object synthetic current-v1.25 profile projects 4230 EditorDocument root objects",
+      "no villageIndex/areaId/areaKey is fabricated",
+      "Urban v1.7 bounds resolve to 260x260",
+      "shared object fields match existing Area EditorDocument projection semantics",
+      "SubGrid hierarchy remains nested and authoritative child bounds are preserved",
+      "ambiguous/missing route, missing bounds, unsupported semantic role, ownership ambiguity, unresolved geometry, unsupported nested state/cycle fail closed",
+      "projector never authorizes persistent write or Apply"
+    ],
+    "verificationRun": {
+      "workflow": "CI",
+      "runId": 37018654379,
+      "runNumber": 1777,
+      "headSha": "7c887744853386f54a4b964eeb5bcbab52e71b6a",
+      "tests": 179,
+      "pass": 167,
+      "fail": 0,
+      "skipped": 12,
+      "svelteTypeErrors": 0,
+      "svelteTypeWarnings": 0,
+      "canonicalBaselineVerification": "PASS",
+      "productionStaticBuild": "PASS"
+    }
+  },
+  "runtimeEscalation": "NOT_REQUIRED_STATIC_AND_CURRENT_SAVE_ROUTE_EVIDENCE_SUFFICIENT",
+  "integratorReturn": {
+    "ready": false,
+    "promoted": true,
+    "promotionScope": "READ_MODEL_PROJECTOR_ONLY",
+    "persistentMutationPromoted": false,
+    "wepConsumptionAuthorized": true
+  },
+  "mutable": false,
+  "semanticOwner": "01B CORE - World / Grid / Buildings",
+  "promotion": {
+    "sourceBranch": "dev/core-direct-root-editor-document-v125-20261002",
+    "reviewedCandidateHead": "575d296dbebe38e9c756fed68d2042a8f2aec752",
+    "sourceCandidateContractSha256": "71a815e425be714a59bdaa4a355a2f3560ffe2b88111877e372e9bd3440f0c1b",
+    "sourceCI": {
+      "runId": 37019789662,
+      "runNumber": 1780,
+      "result": "SUCCESS"
+    },
+    "integratorDecision": "PROMOTED_READ_MODEL_PROJECTOR_ONLY",
+    "scope": "read/model/preflight direct-root EditorDocument projection only; no operation permission or persistent mutation"
+  }
+}
