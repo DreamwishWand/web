@@ -1,0 +1,74 @@
+{
+  "schema": "ddv.progression-destination-veto-contract@1",
+  "artifactId": "DDV-PROGRESSION-DESTINATION-VETO-V125-V1_15",
+  "version": "v1.15",
+  "status": "PROMOTED",
+  "owner": "01B CORE - World / Grid / Buildings",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624
+  },
+  "scope": "read-only / destination-preflight negative-veto projection",
+  "inputs": {
+    "objects": "destination GridObjects with exact GridObjectAddress and resolved ItemID when available",
+    "progressionReferenceIndex": "promoted 01A ddv.progression-reference-index@1 output",
+    "definitionDispositionByItemId": "optional Core-resolved progression-risk disposition records; WEP must not reinterpret raw Mission/Item flags",
+    "scopeIndex": "optional existing Core current-v1.25 scope records used inside Core to derive negative risk only"
+  },
+  "outputRecord": {
+    "schema": "ddv.progression-destination-veto-record@1",
+    "fields": [
+      "GridObjectAddress",
+      "ItemID when resolved",
+      "ownershipClass",
+      "phaseClass",
+      "activeReferenceDisposition",
+      "operationVetoes",
+      "evidenceStatus",
+      "reasonCodes",
+      "destinationProtected",
+      "negativeVetoFound",
+      "positivePermission=false"
+    ]
+  },
+  "negativeSemantics": {
+    "activeExactAddressReference": "veto identity-changing mutation and protect destination overwrite",
+    "unknownSystemReference": "fail closed",
+    "historicalReferenceOnly": "no active-ownership veto from that historical record",
+    "isMissionItem": "Core risk evidence -> QUEST_OWNED for negative protection only",
+    "forPuzzleOnly": "Core risk evidence -> PUZZLE_OWNED for negative protection only",
+    "explicitGridEditRestrictionWithoutStrongerClass": "Core risk evidence -> UNKNOWN_OWNERSHIP for negative protection only",
+    "protectedDestinationOverwrite": "PROTECTED_PROGRESSION_OBJECT_CONFLICT",
+    "protectedPresetSourceCapture": "PROTECTED_PROGRESSION_SOURCE_CAPTURE_EXCLUDED"
+  },
+  "noPositiveInference": {
+    "absenceOfReferenceVetoIsPermission": false,
+    "absenceOfDefinitionRiskIsUserControlled": false,
+    "missionCompletionIsTerminalProof": false,
+    "historicalOnlyReferenceIsPositivePermission": false,
+    "noVetoResult": "NO_VETO_FOUND_NOT_AUTHORIZED"
+  },
+  "wepContract": {
+    "consumerRule": "WEP consumes operationVetoes/reasonCodes and may block; WEP may not turn a no-veto record into positive permission.",
+    "requiredRepresentativeBlocker": "PROTECTED_PROGRESSION_OBJECT_CONFLICT",
+    "rawMissionStateInterpretationInWEP": false,
+    "rawItemFlagInterpretationInWEP": false,
+    "rawSaveReferenceInterpretationInWEP": false
+  },
+  "writerBoundary": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "applyAuthorized": false
+  },
+  "promotion": {
+    "sourceBranch": "dev/core-progression-gates-v125-20261002",
+    "sourceCI": {
+      "runId": 36971070641,
+      "runNumber": 1582,
+      "result": "SUCCESS"
+    },
+    "scope": "negative-veto/read-preflight only"
+  }
+}
