@@ -181,7 +181,35 @@
     "observedRootGridId": 760,
     "observedTessellationFactor": 2,
     "observedGridObjectCount": 4230,
-    "privacyBoundary": "No private save bytes or raw per-object private content are committed by this candidate."
+    "privacyBoundary": "No private save bytes or raw per-object private content are committed by this candidate.",
+    "privateReadOnlyProjectionVerification": {
+      "evidenceStatus": "CONFIRMED",
+      "source": "private Drive representative save; raw object content not committed",
+      "sourceBytes": 12846979,
+      "projectorBranch": "dev/core-direct-root-editor-document-v125-20261002",
+      "projectorGitBlobSha": "85d31dd356b8d19122ba96ceafc9108a10bc5b00",
+      "geometryScopeBinding": "WEP pinned current-v1.25 Switch browser-read pack",
+      "result": {
+        "status": "RESOLVED",
+        "blockerCount": 0,
+        "projectedRootObjectCount": 4230,
+        "rootGridId": 760,
+        "gridDataPath": "GridData/FloatingIslands/FloatingIsland_Urban/FloatingIsland_UrbanGrid-GridData.json",
+        "rootBounds": {
+          "x": 0,
+          "y": 0,
+          "w": 260,
+          "h": 260,
+          "status": "AUTHORITATIVE_GRIDDATAPATH"
+        },
+        "subGridRootCount": 0,
+        "worldGeometry": "supported",
+        "fabricatedVillageIndex": false,
+        "fabricatedAreaId": false,
+        "persistentWriteAuthorized": false,
+        "worldPersistentWrite": "unsupported"
+      }
+    }
   },
   "wepConsumption": {
     "expectedUse": "WEP passes the already-Core-resolved Floating Island locationRef and directRootRoute plus decoded profile to this projector, then consumes result.document as an ordinary EditorDocument.",
@@ -196,9 +224,10 @@
   "evidenceClassification": {
     "semanticIdentityAndRoute": "CONFIRMED",
     "bounds": "CONFIRMED",
-    "objectReadProjection": "CONFIRMED once CI regressions pass",
+    "objectReadProjection": "CONFIRMED",
     "sameLogicalEditorDocumentShape": "CONFIRMED once equivalence regression passes",
-    "persistentMutation": "NOT_AUTHORIZED"
+    "persistentMutation": "NOT_AUTHORIZED",
+    "representativePrivateUrban4230Projection": "CONFIRMED"
   },
   "writerBoundary": {
     "persistentWriteAuthorized": false,
