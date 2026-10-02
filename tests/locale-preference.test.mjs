@@ -69,10 +69,20 @@ test('reset-to-browser clears manual preference and immediately re-resolves brow
   assert.equal(await resetToBrowserLanguage({ navigatorLike: { languages: ['es-MX'] } }), 'es-ES');
   assert.equal(storage.value, null);
 });
-test('unsupported persisted locale is invalidated then browser-resolved', async () => {
-  const storage = memoryStorage('ko-KR');
-  assert.equal(await init(storage, ['de-DE']), 'de');
-  assert.equal(storage.value, null);
+test('unsupported or noncanonical persisted locale is invalidated then browser-resolved', async () => {
+  for (const stored of ['ko-KR', 'fr-FR', 'ZH-cn']) {
+    const storage = memoryStorage(stored);
+    assert.equal(await init(storage, ['de-DE']), 'de', stored);
+    assert.equal(storage.value, null, stored);
+  }
+});
+test('manual preference API accepts only launch-registry locales and persists canonical tag', async () => {
+  const storage = memoryStorage();
+  await init(storage, ['en-US']);
+  assert.throws(() => setManualLocalePreference('fr-FR'), /Unsupported manual locale/);
+  setManualLocalePreference('JA');
+  assert.equal(storage.value, 'ja');
+  assert.equal(getActiveLocale(), 'ja');
 });
 test('unavailable or corrupt local storage does not break startup or session-only manual choice', async () => {
   const storage = {
