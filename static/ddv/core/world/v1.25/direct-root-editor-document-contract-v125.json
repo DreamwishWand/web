@@ -139,8 +139,8 @@
     "DIRECT_ROOT_LOCATION_CODEC_UNSUPPORTED",
     "DIRECT_ROOT_SEMANTIC_ROLE_UNSUPPORTED",
     "DIRECT_ROOT_ROUTE_INVALID",
-    "DIRECT_GRID_ROUTE_NOT_FOUND",
-    "DIRECT_GRID_ROUTE_AMBIGUOUS",
+    "DIRECT_ROOT_ROUTE_AMBIGUOUS",
+    "DIRECT_ROOT_ROUTE_UNRESOLVED",
     "DIRECT_ROOT_GRID_ID_UNRESOLVED",
     "DIRECT_ROOT_GRID_COLLECTION_MISSING",
     "DIRECT_ROOT_GRID_MISSING",
@@ -206,5 +206,6 @@
     "applyAuthorized": false,
     "saveReplacementAuthorized": false,
     "atomicCommitAuthorized": false
-  }
+  },
+  "routeFailureDiagnostics": "The projector exposes stable DIRECT_ROOT_ROUTE_UNRESOLVED / DIRECT_ROOT_ROUTE_AMBIGUOUS codes and preserves promoted location-resolver blockers only as diagnostic detail."
 }
