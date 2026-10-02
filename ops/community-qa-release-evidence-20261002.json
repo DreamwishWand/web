@@ -131,7 +131,7 @@
         "self-service unlink preserves the Workspace",
         "Workspace delete requires confirmation and frees the slot",
         "account deletion removes Workspaces and private identity associations",
-        "community-command v20 exposes create/update/delete/associate/unlink server routes",
+        "community-command v22 exposes create/update/delete/associate/unlink server routes",
         "community-query v10 exposes the owner-safe Workspace query and removes the legacy linkedDdvProfiles route"
       ]
     }
@@ -198,7 +198,7 @@
         "same-account duplicate identity association blocked",
         "self-service unlink preserves Workspace",
         "self-service Workspace deletion requires confirmation and frees capacity",
-        "community-command v20 and community-query v10 match current branch source",
+        "community-command v22 and community-query v10 match current branch source",
         "live raw Player ID Edge E2E remains pending staging secret/runtime verification"
       ],
       "qrInstruction": "Treat Product contract, DB lifecycle and Edge source alignment as CLOSED. Keep live authenticated identity-association E2E, Privacy/Legal, final integration and production runtime gates OPEN."
@@ -233,7 +233,7 @@
       "evidence": [
         "ops/community-linked-ddv-profile-lifecycle-runtime-20261002.json"
       ],
-      "detail": "DB digest path is runtime-tested. community-command v21 fixes printable-ASCII validation and NUL domain separation. Live raw Player ID -> Edge HMAC -> association E2E still requires staging COMMUNITY_DDV_PROFILE_BINDING_KEY_V1 configuration."
+      "detail": "DB digest path is runtime-tested. Current community-command v22 contains corrected printable-ASCII validation and real NUL domain separation. Live raw Player ID -> Edge HMAC -> association E2E still requires staging COMMUNITY_DDV_PROFILE_BINDING_KEY_V1 configuration."
     },
     {
       "id": "DDV_PROFILE_WORKSPACE_STAGING_UI",
