@@ -10,6 +10,11 @@ on:
       - 'src/lib/wep/world-editor-primary-job.ts'
       - 'src/lib/wep/progression-safety-v113.ts'
       - 'src/lib/wep/progression-integration-v114.ts'
+      - 'src/lib/wep/progression-destination-v115.ts'
+      - 'src/lib/wep/progression-destination-projection-v115.ts'
+      - 'src/lib/wep/full-design-preset-preflight.ts'
+      - 'static/ddv/core/save/v1.25/progression-reference-index-v125.part*.jsfrag'
+      - 'static/ddv/core/world/v1.25/progression-destination-veto-v125.cjs'
   workflow_dispatch:
 
 permissions:
