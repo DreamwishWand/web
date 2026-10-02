@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { base } from '$app/paths';
-  import { locale, setLocale, t, SUPPORTED_LOCALES } from '$lib/i18n/runtime.js';
+  import { locale, t, SUPPORTED_LOCALES } from '$lib/i18n/runtime.js';
+  import { resetToBrowserLanguage, setManualLocalePreference } from '$lib/i18n/preference.js';
 
   let theme: 'night' | 'day' = 'night';
 
@@ -16,7 +17,11 @@
   }
 
   function changeLocale(event: Event): void {
-    setLocale((event.currentTarget as HTMLSelectElement).value);
+    setManualLocalePreference((event.currentTarget as HTMLSelectElement).value);
+  }
+
+  function useBrowserLanguage(): void {
+    void resetToBrowserLanguage();
   }
 </script>
 
@@ -39,6 +44,7 @@
       <select id="site-locale" class="locale-select" value={$locale} on:change={changeLocale}>
         {#each SUPPORTED_LOCALES as option}<option value={option.code}>{option.nativeName}</option>{/each}
       </select>
+      <button class="locale-reset" type="button" on:click={useBrowserLanguage}>{t('shared.locale.useBrowserLanguage', {}, $locale)}</button>
     </div>
     <button class="theme-button" type="button" aria-label={theme === 'night' ? t('shared.theme.switchToDay', {}, $locale) : t('shared.theme.switchToNight', {}, $locale)} aria-pressed={theme === 'day'} on:click={toggleTheme}>
       {#if theme === 'night'}<span aria-hidden="true">☀</span><span class="theme-label">{t('shared.theme.light', {}, $locale)}</span>{:else}<span aria-hidden="true">☾</span><span class="theme-label">{t('shared.theme.dark', {}, $locale)}</span>{/if}
