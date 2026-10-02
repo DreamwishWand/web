@@ -2853,6 +2853,7 @@
         <section class="side-card">
           <p class="eyebrow">{t('worldEditor.search.eyebrow', {}, $locale)}</p>
           <input
+            data-wep-search-input
             bind:value={query}
             on:input={() =>
               refreshProjection({ reconcileHiddenSelection: true })}
