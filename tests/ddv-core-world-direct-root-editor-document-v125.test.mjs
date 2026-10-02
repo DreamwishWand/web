@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
+import {createHash} from 'node:crypto';
 
 const require=createRequire(import.meta.url);
 const projectorApi=require('../static/ddv/core/world/v1.25/direct-root-editor-document-v125.cjs');
@@ -90,6 +91,9 @@ function project(profile,overrides={}){
 test('machine contract is exact-build scoped, read/model only, and does not fabricate Area identity',()=>{
   assert.equal(contract.schema,'ddv.direct-root-editor-document@1');
   assert.equal(contract.artifactId,'DDV-DIRECT-ROOT-EDITOR-DOCUMENT-V125-V1_16-CANDIDATE');
+  assert.equal(contract.status,'READY_FOR_INTEGRATOR_REVIEW');
+  const moduleBytes=readFileSync(new URL('../static/ddv/core/world/v1.25/direct-root-editor-document-v125.cjs',import.meta.url));
+  assert.equal(createHash('sha256').update(moduleBytes).digest('hex'),contract.implementationArtifact.sha256);
   assert.equal(contract.target.platform,'Nintendo Switch');
   assert.equal(contract.target.titleId,'0100D39012C1A000');
   assert.equal(contract.target.buildId,'52BD625D9B4E0053');
