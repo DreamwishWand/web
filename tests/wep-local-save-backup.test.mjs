@@ -74,7 +74,7 @@ test('raw save route keeps the generated original backup available after load st
     'originalSaveBackup = createOriginalSaveBackup({'
   );
   const messageIndex = worldEditorPageSource.indexOf(
-    'DDV saveをローカルで読み込みました。schema',
+    "'worldEditor.open.saveLoaded'",
     createIndex
   );
 
