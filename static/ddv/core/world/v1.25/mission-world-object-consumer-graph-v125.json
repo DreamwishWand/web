@@ -1,0 +1,85 @@
+{
+  "schema": "ddv.mission-world-object-consumer-graph-manifest@1",
+  "artifactId": "DDV-MISSION-WORLD-OBJECT-CONSUMER-GRAPH-SWITCH-V125-27-V1",
+  "version": "v1",
+  "status": "PROMOTED_DEPENDENCY",
+  "owner": "01D CORE - Game DB / Item Semantics",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624
+  },
+  "sourceArtifact": {
+    "gzipDriveId": "1u1I1T83yQk_Hl3yLMsqrweXkPWNENy7R",
+    "gzipSha256": "c1931a8259941ea1591782900bb0f1adc420ead078510b029d7f30f201f25f35",
+    "jsonSha256": "cf8ca25f8c3e0874e3bf769ca0eef366c1aff8658ba3710fce3e47042a2c9ba1",
+    "jsonBytes": 1405308,
+    "validationDriveId": "1AYy4oJlXwl6CXRN0YYyfQx-ZbfWvZIZO",
+    "validationSha256": "c05b651679392e89a71bf287dafcdc55444b2a9295e48df33065bcabb2154a65",
+    "packageDriveId": "1q0SnicwNqNi0kGv0DW5ZxeOntsOLB-MW",
+    "packageSha256": "78576bc399373112fe0ce9787648c81cd8b4cb29ae76b96a5608d400f52a9017",
+    "humanMemoDriveId": "1I4ADD3bIGnvfc2S6p2IKXnk1NwgAKhKi"
+  },
+  "validation": "PASS",
+  "summary": {
+    "targetMissionCount": 27,
+    "resolvedMissionCount": 27,
+    "missionConsumerEdges": 62,
+    "explicitPostCompletionMissionConsumerEdges": 46,
+    "conditionalEventConsumerEdges": 83,
+    "canonicalDefinitionConsumerRecords": 91,
+    "associatedWorldObjectCountDistinct": 99,
+    "confirmedPostCompletionConsumerMissionCount": 4,
+    "currentConsumerTemporalityUnknownMissionCount": 21,
+    "noStaticPostCompletionProofMissionCount": 2
+  },
+  "confirmedPostCompletionConsumerMissionIds": [
+    2070000868,
+    2070000968,
+    2070001348,
+    2070001496
+  ],
+  "temporalityUnknownMissionIds": [
+    2070000867,
+    2070000942,
+    2070000966,
+    2070000969,
+    2070000982,
+    2070000993,
+    2070001012,
+    2070001045,
+    2070001111,
+    2070001118,
+    2070001127,
+    2070001307,
+    2070001347,
+    2070001380,
+    2070001390,
+    2070001392,
+    2070001476,
+    2070001481,
+    2070001494,
+    2070001495,
+    2070001606
+  ],
+  "noStaticPostCompletionProofMissionIds": [
+    2070000994,
+    2070001617
+  ],
+  "interpretation": {
+    "confirmedPostCompletion": "BLOCK_TERMINAL_ASSUMPTION",
+    "temporalityUnknown": "FAIL_CLOSED",
+    "noStaticPostCompletionProof": "NOT_TERMINAL_PROOF"
+  },
+  "remainingQuestions": [
+    "ConditionalSpawnData.RemoveWhenDone exact native removal timing/path/persistence",
+    "dynamic/native consumers outside serialized Mission/Condition/ConditionalEvent/Dialogue/Story/Ftue/canonical definitions",
+    "object-specific serialized State/variation/SubGrid compatibility"
+  ],
+  "terminalEditabilityAuthorized": false,
+  "writerBoundary": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false
+  }
+}
