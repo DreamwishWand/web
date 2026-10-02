@@ -304,4 +304,14 @@ test('World Editor route binds keyboard, mouse multi-select, blocker UI, inspect
   assert.match(worldEditorRouteSource, /validationPresentation\.groups/);
   assert.match(worldEditorRouteSource, /runPrimaryOriginalBackup/);
   assert.match(worldEditorRouteSource, /primaryJobAvailability\.commands\.delete\.enabled/);
+  assert.match(
+    worldEditorRouteSource,
+    /aria-describedby=\{!primaryJobAvailability\.commands\.move\.enabled \? 'wep-reason-move' : undefined\}/
+  );
+  assert.match(
+    worldEditorRouteSource,
+    /tabindex=\{object\.editorId === canvasFocusEditorId \? 0 : -1\}/
+  );
+  assert.match(worldEditorRouteSource, /event\.key === '\[' \|\| event\.key === '\]'/);
+  assert.match(worldEditorRouteSource, /data-editor-object-id=\{object\.editorId\}/);
 });
