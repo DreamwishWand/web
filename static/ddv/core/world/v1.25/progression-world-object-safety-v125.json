@@ -1,0 +1,154 @@
+{
+  "schema": "ddv.progression-world-object-safety@1",
+  "artifactId": "DDV-PROGRESSION-WORLD-OBJECT-SAFETY-V125-V1_13",
+  "version": "v1.13",
+  "status": "PROMOTED",
+  "mutable": false,
+  "owner": "01 CORE Integrator",
+  "semanticOwner": "01B CORE - World / Grid / Buildings",
+  "scope": "read/model/capture/preflight safety only",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "titleId": "0100D39012C1A000",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624
+  },
+  "sourceEvidence": {
+    "handoffDriveId": "1mTFwN-qgyiGLrKoWUbgRq278NAZbcVmPSwKkmQX6OmU",
+    "definitionRiskCandidateSha256": "66566e18a6e9c6a75a6fc423bdabda829157d4bc432b5223b8f9014c57d83d83",
+    "consumerGraphCandidateSha256": "63e281b2ebda4d04edcba9db86b8076db19293b4cf19c0c02a6593329ee6bd1f",
+    "phasePolicyCandidateSha256": "0623bbe05f513fd2c17a03c5fec6d945921b7259e4d194000499989fa558d7df",
+    "wepCapabilityMatrixCandidateSha256": "690d0c02e91da99d343e65cb9d5e070403f86f1072211583a51f673af71cfd93"
+  },
+  "confirmedStaticFacts": {
+    "progressionRiskDefinitionCount": 2808,
+    "explicitStatusEdgeCount": 145,
+    "referencedMissionIdCount": 27,
+    "conditionalEventActiveReferencePath": "ConditionalEventHistoryData.ActiveEvents[*].SpawnState.SpawnedObjects",
+    "activeReferenceIdentity": "GridObjectAddress(GridID,GridObjectID)",
+    "crossGridRemap": "ConditionalEventHistoryData.OnObjectSwitchedGrid remaps active SpawnedObjects addresses",
+    "gridEditRestrictionSufficient": false,
+    "isMissionItemSufficient": false,
+    "absenceOfGridEditRestrictionMeansUserControlled": false
+  },
+  "ownershipClasses": [
+    "USER_CONTROLLED",
+    "QUEST_OWNED",
+    "PROGRESSION_BOUND",
+    "PUZZLE_OWNED",
+    "SYSTEM_SPAWNED",
+    "GLOBAL_SHARED_STATE",
+    "UNKNOWN_OWNERSHIP"
+  ],
+  "phaseClasses": [
+    "PROGRESSION_ACTIVE_LOCKED",
+    "PROGRESSION_FUTURE_DEPENDENCY",
+    "PROGRESSION_TERMINAL_EDITABLE",
+    "PROGRESSION_TERMINAL_FIXED_STATE",
+    "UNKNOWN",
+    "INCONSISTENT"
+  ],
+  "operations": [
+    "MOVE",
+    "ROTATE",
+    "REMOVE",
+    "DUPLICATE",
+    "REPLACE",
+    "STATE_MUTATE",
+    "PRESET_CAPTURE",
+    "DESTINATION_OVERWRITE"
+  ],
+  "failClosedPolicy": {
+    "applicationGate": "Apply this policy only to objects with explicit progression-risk evidence. Absence of evidence never proves USER_CONTROLLED.",
+    "protectedOwnershipClasses": [
+      "QUEST_OWNED",
+      "PROGRESSION_BOUND",
+      "PUZZLE_OWNED",
+      "SYSTEM_SPAWNED",
+      "GLOBAL_SHARED_STATE",
+      "UNKNOWN_OWNERSHIP"
+    ],
+    "blockedPhaseClasses": [
+      "PROGRESSION_ACTIVE_LOCKED",
+      "PROGRESSION_FUTURE_DEPENDENCY",
+      "PROGRESSION_TERMINAL_FIXED_STATE",
+      "UNKNOWN",
+      "INCONSISTENT"
+    ],
+    "terminalEditableRule": "PROGRESSION_TERMINAL_EDITABLE is not a blanket authorization. Each operation requires complete current-version consumer/reference proof plus serialized object State consistency.",
+    "questCompletionRule": "Quest or Mission completion alone never enables any mutation operation.",
+    "inconsistentRule": "Any disagreement between progression state and serialized object State blocks."
+  },
+  "identityReferencePolicy": {
+    "activeGridObjectAddressIsIdentityBearing": true,
+    "activeReferenceIdentityChangeAuthorized": false,
+    "crossGridMovementWithoutReferenceRemapAuthorized": false,
+    "historicalCollectedRecordsMustNotBeTreatedAsActiveReferences": true
+  },
+  "presetPolicy": {
+    "protectedSourceCapture": "EXCLUDE",
+    "protectedDestinationOccupancy": "PRESERVE_AS_OCCUPANCY",
+    "nativeReplaceOrRemoveClassOverridesProtection": false,
+    "unknownProgressionRiskCapture": "EXCLUDE",
+    "unknownProgressionRiskDestinationOverwrite": "BLOCK"
+  },
+  "blockers": {
+    "protectedDestinationConflict": "PROTECTED_PROGRESSION_OBJECT_CONFLICT",
+    "questOwnedMutation": "QUEST_OWNED_OBJECT_MUTATION_FORBIDDEN",
+    "ownershipUnknown": "PROGRESSION_OWNERSHIP_UNKNOWN",
+    "systemSpawnedMutation": "SYSTEM_SPAWNED_OBJECT_MUTATION_FORBIDDEN",
+    "referenceSensitiveIdentityChange": "REFERENCE_SENSITIVE_OBJECT_IDENTITY_CHANGE_FORBIDDEN",
+    "stateInconsistent": "PROGRESSION_STATE_INCONSISTENT"
+  },
+  "positiveAuthorizationBoundary": {
+    "authorizesUserControlledClassification": false,
+    "authorizesTerminalEditableMutation": false,
+    "authorizesPersistentWriter": false,
+    "reason": "Complete current-version Mission consumer graph and schema-624 active ProgressionReferenceIndex are not closed."
+  },
+  "dependencies": {
+    "questDefinitionGraph": {
+      "owner": "01D / Quest-definition extraction",
+      "status": "OPEN",
+      "requirement": "MissionID -> internal identity -> steps/objectives -> spawn/replace/remove/reference edges -> downstream/future consumers"
+    },
+    "saveProgressionReferenceIndex": {
+      "owner": "01A / Save Core",
+      "status": "OPEN",
+      "requirement": "schema-624 active identity-bearing references keyed by GridObjectAddress and ItemID, separated from historical records"
+    }
+  },
+  "wepActivation": {
+    "safeToConsumeNow": [
+      "fail-closed ownership/phase vocabulary",
+      "protected destination collision blocker",
+      "protected progression exclusion from portable Preset source capture",
+      "active identity-reference change blocker",
+      "UNKNOWN and INCONSISTENT blockers"
+    ],
+    "mustNotDo": [
+      "infer USER_CONTROLLED from missing GridEditRestriction",
+      "infer USER_CONTROLLED from IsMissionItem=false",
+      "treat Mission completion as mutation permission",
+      "treat NATIVE_VALID_REPLACES_OR_REMOVES_EXISTING as protected-object overwrite permission",
+      "authorize terminal mutation without complete consumer/reference proof"
+    ]
+  },
+  "writerBoundary": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "prohibitedActions": [
+      "persistent progression object MOVE",
+      "persistent progression object ROTATE",
+      "persistent progression object REMOVE",
+      "persistent progression object DUPLICATE",
+      "persistent progression object REPLACE",
+      "persistent progression object STATE mutation",
+      "native restore execution",
+      "save replacement",
+      "atomic persistent commit",
+      "Apply"
+    ]
+  }
+}
