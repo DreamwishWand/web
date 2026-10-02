@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import {
   ROADFENCE_AUTHORING_CAPABILITIES,
@@ -111,4 +112,24 @@ test('Road cell delete stays a topology-only preview with writer disabled', () =
   );
   assert.equal(deleted.operationLayer, 'logicalTopology');
   assert.equal(deleted.persistentWriteAuthorized, false);
+});
+
+
+const worldEditorRouteSource = readFileSync(
+  new URL('../src/routes/editor/world/+page.svelte', import.meta.url),
+  'utf8'
+);
+
+test('World Editor renders promoted logical Road/Fence authoring as local-draft controls only', () => {
+  assert.match(worldEditorRouteSource, /data-wep-roadfence-authoring/);
+  assert.match(worldEditorRouteSource, /worldEditor\.roadFence\.polyline/);
+  assert.match(worldEditorRouteSource, /worldEditor\.roadFence\.rectangle/);
+  assert.match(worldEditorRouteSource, /on:click=\{previewRoadFenceConnected\}/);
+  assert.match(worldEditorRouteSource, /on:click=\{eyedropRoadFence\}/);
+  assert.match(worldEditorRouteSource, /on:click=\{replaceRoadFenceStyle\}/);
+  assert.match(worldEditorRouteSource, /on:click=\{deleteRoadFenceUnit\}/);
+  assert.match(worldEditorRouteSource, /on:click=\{transformRoadFenceDraft\}/);
+  assert.match(worldEditorRouteSource, /roadFenceReaderBinding\?\.summary\?\.status === 'supported'/);
+  assert.match(worldEditorRouteSource, /worldEditor\.fence\.writerUnauthorized/);
+  assert.match(worldEditorRouteSource, /persistentWriteAuthorized=\{String\(/);
 });
