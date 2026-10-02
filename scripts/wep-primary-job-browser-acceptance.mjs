@@ -164,6 +164,40 @@ const rawSwitchFixture = {
   }
 };
 
+const progressionDestinationFixture = {
+  ...structuredClone(rawSwitchFixture),
+  ConditionalEventHistory: { ActiveEvents: {} },
+  World: {
+    ...structuredClone(rawSwitchFixture.World),
+    GridCollection: {
+      Grids: {
+        '10': {
+          ID: 10,
+          GridDataPath:
+            'GridData/Villages/Village04-BeachLevel-GridData.json',
+          GridDefaultLayoutPath: '',
+          TessellationFactor: 1,
+          NextGridObjectID: 201,
+          Objects: {
+            '200': {
+              ID: 200,
+              ItemID: 40001060,
+              X: 2,
+              Y: 3,
+              Orientation: 'GridOrientation_Up',
+              State: {}
+            }
+          }
+        }
+      },
+      DiffGrids: {}
+    },
+    MissionSlots: {},
+    QuestInfo: {},
+    Keyholes: {}
+  }
+};
+
 function cssObject(prefix) {
   return `g[data-editor-object][aria-label^="${prefix} at"]`;
 }
@@ -439,6 +473,32 @@ async function runRawSaveAcceptance(page, report) {
   await expectContains(progressionCard, 'Not authorized');
   await expectContains(progressionCard, 'OPEN');
 
+  const destinationInput = page.locator(
+    '.full-design-destination-button input[type="file"]'
+  );
+  await destinationInput.waitFor();
+  await destinationInput.setInputFiles({
+    name: 'progression-destination.profile.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(
+      JSON.stringify(progressionDestinationFixture)
+    )
+  });
+  const destinationIssues = page.locator(
+    '.full-design-destination-issues'
+  );
+  await destinationIssues.waitFor();
+  await expectContains(
+    destinationIssues,
+    'PROTECTED_PROGRESSION_OBJECT_CONFLICT',
+    'progression destination conflict'
+  );
+  await expectContains(
+    page.locator('.full-design-destination-result'),
+    'UNAUTHORIZED',
+    'destination write authorization'
+  );
+
   const firstObject = page.locator('g[data-editor-object]').first();
   await firstObject.click();
   const toolbar = page.locator('.toolbar-actions');
@@ -474,6 +534,7 @@ async function runRawSaveAcceptance(page, report) {
   });
 
   report.rawSwitch = {
+    progressionDestinationConflict: 'PASS',
     commandSpecificValidationPresentation: 'PASS',
     exactBuildUnknownFailsClosed: 'PASS',
     originalBackupByteExactDownload: 'PASS',
