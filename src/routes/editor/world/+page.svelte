@@ -3017,12 +3017,14 @@
               aria-label={t('worldEditor.command.moveLeftAria', {}, $locale)}
             >←</button>
             <button
-              disabled={!primaryJobAvailability.commands.move.enabled}
+              aria-disabled={!primaryJobAvailability.commands.move.enabled}
+              aria-describedby={!primaryJobAvailability.commands.move.enabled ? 'wep-reason-move' : undefined}
               on:click={() => runPrimaryMutation('move', 'up')}
               aria-label={t('worldEditor.command.moveUpAria', {}, $locale)}
             >↑</button>
             <button
-              disabled={!primaryJobAvailability.commands.move.enabled}
+              aria-disabled={!primaryJobAvailability.commands.move.enabled}
+              aria-describedby={!primaryJobAvailability.commands.move.enabled ? 'wep-reason-move' : undefined}
               on:click={() => runPrimaryMutation('move', 'down')}
               aria-label={t('worldEditor.command.moveDownAria', {}, $locale)}
             >↓</button>
