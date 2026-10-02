@@ -19,7 +19,7 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "8a688089f1500fb91289ef3ad19ed0b399ddb0d9",
+    "src/routes/editor/world/+page.svelte": "091c92e6fcc71a9713ac119b1cb507778967bf24",
     "src/lib/wep/world-editor-primary-job.ts": "a8e49f4f2eec543b9aaebd2d552c9da8e36270d5",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "9bc34ec02d370826d388f336593c172d91c83b1a",
@@ -1076,10 +1076,35 @@
         "note": "Raw WEP_FENCE_* codes routed to fencePostMessage remain machine diagnostics and are never translated."
       },
       {
-        "surface": "Road/Fence authoring status strings currently present in route script",
+        "surface": "Road/Fence logical authoring panel and live status",
         "source": "src/routes/editor/world/+page.svelte",
-        "reachability": "LATENT_NOT_CURRENTLY_RENDERED",
+        "reachability": "RENDERED_LOCAL_DRAFT_ONLY",
         "strings": [
+          "ROAD / FENCE LOGICAL AUTHORING",
+          "Logical topology draft",
+          "Create and edit Road/Fence logical topology in the local EditorDocument draft. These controls never authorize native save serialization.",
+          "Network kind",
+          "Logical network",
+          "Family Base Item ID",
+          "Fence mode",
+          "Control points (x,y; x,y; …)",
+          "Seed node ID",
+          "Adjacent node ID",
+          "Target Family Base Item ID",
+          "Translate X",
+          "Translate Y",
+          "Rotate quarter turns",
+          "Orthogonal",
+          "Diagonal",
+          "Polyline",
+          "Rectangle outline",
+          "Connected selection",
+          "Fence branch selection",
+          "Eyedropper",
+          "Replace style",
+          "Erase logical unit",
+          "Topology transform",
+          "Local draft preview · persistent DDV writer disabled",
           "Logical network draft created. Persistent writer remains disabled.",
           "Logical network draft was blocked.",
           "Connected selection · {count} logical units",
@@ -1097,7 +1122,8 @@
           "Topology transform preview blocked.",
           "Topology transform stored in the local draft.",
           "Topology transform blocked."
-        ]
+        ],
+        "note": "Controls render only when the promoted Road/Fence reader is supported and a local draft authoring session is bound. All handlers preserve persistentWriteAuthorized=false; raw WEP/Core diagnostics remain untranslated machine values."
       }
     ],
     "sceneCapture": [
