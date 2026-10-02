@@ -1812,6 +1812,8 @@ export type Database = {
         Args: {
           p_auth_subject: string
           p_confirmation: string
+          p_issued_at_epoch: number
+          p_session_id: string
           p_workspace_id: string
         }
         Returns: Json
