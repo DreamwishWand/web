@@ -184,6 +184,16 @@ try {
   report.gates['WE-PREVIEW'] = gate('CLOSED / PASS', { representativeDraftPreview: true, persistentWriteAuthorized: false });
   report.gates['WE-VALIDATE'] = gate('CLOSED / PASS', { route: 'resolved', bounds: 'authoritative', floorTypeAndNativePlacement: 'command-specific', noVetoIsPermission: false });
 
+  await page.getByRole('button', { name: '選択解除' }).click();
+  const supportedFurniture = page
+    .locator('g[data-editor-object]:not(.locked)')
+    .filter({ has: page.locator('rect.layer-furniture') })
+    .first();
+  assert.ok(
+    await supportedFurniture.count(),
+    'representative Meadow must expose at least one editable furniture object for Scene capture'
+  );
+  await supportedFurniture.click();
   await page.getByRole('button', { name: 'Capture Preview' }).click();
   const artifactSummary = page.locator('.artifact-summary');
   if (await artifactSummary.count()) {
@@ -231,17 +241,39 @@ try {
   const storeObject = page.locator('g[data-editor-object]').first();
   await storeObject.click();
   const inspector = page.locator('.object-inspector');
-  await expectContains(inspector, 'Scrooge Store Inventory');
-  await expectContains(inspector, 'Read-only Core v1.12 view');
-  await expectContains(inspector, 'no Shop fallback or persistent mutation is available');
-  report.gates['WE-SCROOGE-BROWSER-FIXTURE'] = gate('CLOSED / PASS', { gridId: fixtureFacts.storeGridHit.gridId, buildingItemId: fixtureFacts.storeGridHit.storeItemId, mutationAuthorized: false });
+  const inspectorText = await compactText(inspector);
+  const scroogePass = inspectorText.includes('Scrooge Store Inventory');
+  if (scroogePass) {
+    await expectContains(inspector, 'Read-only Core v1.12 view');
+    await expectContains(inspector, 'no Shop fallback or persistent mutation is available');
+    report.gates['WE-SCROOGE-BROWSER-FIXTURE'] = gate('CLOSED / PASS', {
+      gridId: fixtureFacts.storeGridHit.gridId,
+      buildingItemId: fixtureFacts.storeGridHit.storeItemId,
+      mutationAuthorized: false
+    });
+  } else {
+    report.defects.push({
+      id: 'WEP-SCROOGE-PROFILEWORLD-ADAPTER-MISSING',
+      gate: 'WE-SCROOGE-BROWSER-FIXTURE',
+      severity: 'launch-blocking-for-representative-contract',
+      detail: 'The exact save has World.Stores and selected BuildingItemID 20300028, but the v1.12 browser binding resolves only profile.ProfileWorld.Stores, so the read-only Scrooge inspector does not render.'
+    });
+    report.gates['WE-SCROOGE-BROWSER-FIXTURE'] = gate('BLOCKED', {
+      gridId: fixtureFacts.storeGridHit.gridId,
+      buildingItemId: fixtureFacts.storeGridHit.storeItemId,
+      sourceStoreCollection: 'World.Stores',
+      browserBindingExpectedCollection: 'ProfileWorld.Stores',
+      selectedInspectorText: inspectorText,
+      mutationAuthorized: false
+    }, 'WEP-SCROOGE-PROFILEWORLD-ADAPTER-MISSING');
+  }
 
   report.gates['WE-FIXTURE-COVERAGE'] = gate('BLOCKED', {
     exactFixture: 'PASS',
     denseVillage: 'PASS',
     floatingIslandPlanning: 'PASS',
     floatingIslandCanvas: 'BLOCKED',
-    storeInspector: 'PASS',
+    storeInspector: scroogePass ? 'PASS' : 'BLOCKED',
     roadFenceReader: 'PASS',
     roadFenceLogicalAuthoringUI: rfControlCount > 0 ? 'PASS' : 'BLOCKED'
   }, report.defects.map((item) => item.id).join(' + '));
