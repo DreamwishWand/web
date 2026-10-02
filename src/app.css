@@ -37,10 +37,10 @@
   --ink: #24344f;
   --ink-soft: #3d506e;
   --ink-muted: #536985;
-  --gold: #8b642b;
+  --gold: #82591f;
   --gold-strong: #d7a653;
   --gold-ink: #fff9ee;
-  --focus-ring: #8b642b;
+  --focus-ring: #82591f;
   --border: rgba(66, 93, 152, 0.17);
   --shadow: 0 22px 65px rgba(85, 108, 162, 0.12);
   --save-card: linear-gradient(138deg, #d7eaff, #e5eaff 78%, #f0e9ff);
@@ -51,6 +51,9 @@
   --world-accent: #69469a;
   --help-accent: #28766e;
   --decor-accent: #9a4e71;
+  --hero-day-start: #e9f2ff;
+  --hero-day-mid: #e7eaff;
+  --hero-day-end: #fff2ed;
   color-scheme: light;
 }
 * { box-sizing: border-box; }
@@ -86,7 +89,7 @@ button { cursor: pointer; }
 .theme-label { font-size: 12px; font-weight: 700; letter-spacing: .04em; }
 .eyebrow { margin: 0; font-size: 11px; letter-spacing: .23em; font-weight: 800; color: var(--gold); }
 .hero { overflow: hidden; position: relative; isolation: isolate; background: radial-gradient(ellipse at 81% 16%, rgba(117,105,197,.28), transparent 42%), radial-gradient(ellipse at 12% 90%, rgba(57,112,178,.18), transparent 50%), linear-gradient(145deg, #161d39 5%, #1e2c4e 56%, #1a253f); }
-:root[data-theme='day'] .hero { background: radial-gradient(ellipse at 83% 8%, rgba(255,195,181,.56), transparent 43%), radial-gradient(ellipse at 8% 86%, rgba(132,193,251,.35), transparent 50%), linear-gradient(135deg, #e9f2ff 0%, #e7eaff 50%, #fff2ed 100%); }
+:root[data-theme='day'] .hero { background: radial-gradient(ellipse at 83% 8%, rgba(255,195,181,.56), transparent 43%), radial-gradient(ellipse at 8% 86%, rgba(132,193,251,.35), transparent 50%), linear-gradient(135deg, var(--hero-day-start) 0%, var(--hero-day-mid) 50%, var(--hero-day-end) 100%); }
 .hero-stars { position: absolute; z-index: -1; inset: 0; opacity: .8; background-image: radial-gradient(circle at 12% 19%, var(--gold) 0 1px, transparent 2px), radial-gradient(circle at 40% 11%, #b9c8ff 0 1px, transparent 2px), radial-gradient(circle at 72% 29%, var(--gold) 0 1.5px, transparent 2.5px), radial-gradient(circle at 90% 64%, #c5d9fb 0 1px, transparent 2px), radial-gradient(circle at 30% 73%, #a9baf2 0 1px, transparent 2px); background-size: 440px 330px; }
 :root[data-theme='day'] .hero-stars { opacity: .45; }
 .hero-content { min-height: 532px; display: grid; grid-template-columns: 1.1fr .9fr; align-items: center; gap: 36px; padding-block: 42px 58px; }
