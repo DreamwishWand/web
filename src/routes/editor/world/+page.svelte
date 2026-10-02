@@ -47,6 +47,9 @@
     createSwitchV125BuildingBinding
   } from '$lib/wep/building-v110';
   import {
+    createSwitchV125ScroogeStoreBinding
+  } from '$lib/wep/scrooge-store-v112';
+  import {
     buildObjectInspectorModel,
     buildPrimaryJobAvailability,
     describeDraftValidation,
@@ -110,6 +113,8 @@
   let roadFenceSceneCaptureAdapter: any = null;
   let placementLegalityBinding: any = null;
   let buildingV110Binding: any = null;
+  let scroogeStoreV112Binding: any = null;
+  let scroogeStorePreview: any = null;
   let includeRoads = false;
   let includeFences = false;
   let fencePostNetworks: any[] = [];
@@ -195,6 +200,15 @@
   $: selectedInspectorObject =
     objectInspector.selection.kind === 'SINGLE'
       ? objectInspector.selection.object ?? null
+      : null;
+  $: scroogeStorePreview =
+    worldSource &&
+    selectedInspectorObject &&
+    scroogeStoreV112Binding
+      ? scroogeStoreV112Binding.resolveStoreForItem(
+          worldSource.profile,
+          selectedInspectorObject.itemId
+        )
       : null;
 
   function editorBlockerText(code: string) {
@@ -1557,6 +1571,10 @@
             await createSwitchV125BuildingBinding({
               basePath: base
             });
+          scroogeStoreV112Binding ??=
+            await createSwitchV125ScroogeStoreBinding({
+              basePath: base
+            });
         }
 
         session = null;
@@ -1630,6 +1648,10 @@
         });
       buildingV110Binding ??=
         await createSwitchV125BuildingBinding({
+          basePath: base
+        });
+      scroogeStoreV112Binding ??=
+        await createSwitchV125ScroogeStoreBinding({
           basePath: base
         });
 
@@ -2461,6 +2483,50 @@
                   {action.label}
                   <small>{action.uiReasonCode ?? 'Core + WEP handler ready'}</small>
                 </button>
+              {/each}
+            </div>
+          {/if}
+
+          {#if scroogeStorePreview?.status === 'resolved'}
+            <h4>Scrooge Store Inventory</h4>
+            <p class="inspector-note">
+              Read-only Core v1.12 view. Store identity is resolved by exact
+              <code>ProfileWorld.Stores[].BuildingItemID</code> match; no Shop fallback or persistent mutation is available.
+            </p>
+            <dl class="inspector-details">
+              <div><dt>Building</dt><dd>{scroogeStorePreview.store.buildingItemId}</dd></div>
+              <div><dt>Displays</dt><dd>{scroogeStorePreview.store.displayCount}</dd></div>
+              <div><dt>Slots</dt><dd>{scroogeStorePreview.store.totalSlotCount}</dd></div>
+              <div><dt>Available</dt><dd>{scroogeStorePreview.store.availableSlotCount}</dd></div>
+              <div><dt>Last refresh</dt><dd>{scroogeStorePreview.store.lastRefresh ?? 'unknown'}</dd></div>
+              <div><dt>Weighted items</dt><dd>{scroogeStorePreview.store.weightedItemCount}</dd></div>
+            </dl>
+            <div class="attached-actions">
+              {#each scroogeStorePreview.store.displays as display}
+                <div class="inspector-note">
+                  <strong>Display {display.displayIndex}</strong>
+                  <span>
+                    Item {display.displayItemId ?? 'unknown'} ·
+                    {display.layoutType ?? 'layout unknown'} ·
+                    {display.slots.length} slot{display.slots.length === 1 ? '' : 's'}
+                  </span>
+                  {#each display.slots as slot}
+                    <small>
+                      [{display.displayIndex}:{slot.slotIndex}]
+                      {slot.item?.status === 'resolved'
+                        ? `Item ${slot.item.id} ×${slot.item.amount}`
+                        : slot.item === null
+                          ? 'Empty'
+                          : 'Item unreadable'}
+                      · {slot.isAvailable === true
+                        ? 'Available'
+                        : slot.isAvailable === false
+                          ? 'Unavailable'
+                          : 'Availability unknown'}
+                      · Currency {slot.currencyId ?? 'unknown'}
+                    </small>
+                  {/each}
+                </div>
               {/each}
             </div>
           {/if}
