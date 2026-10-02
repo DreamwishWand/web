@@ -20,6 +20,8 @@ jobs:
           node-version: '22'
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
+      - name: Syntax-check exact private acceptance harness
+        run: node --check scripts/qr-wep-r6-exact-private-acceptance.mjs
       - name: Build static World Editor
         env:
           BASE_PATH: /web
