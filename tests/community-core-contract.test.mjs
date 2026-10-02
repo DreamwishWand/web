@@ -51,7 +51,7 @@ test('shared interactions do not create product-local creator or save models', (
   assert.doesNotMatch(schema, /gallery_creators|preset_creators|gallery_saves|preset_saves/i);
 });
 
-test('DDV profile link limit is enforced transactionally', () => {
+test('historical Community v0 DDV link table keeps its original max-three guard for replay fidelity', () => {
   assert.match(schema, /enforce_ddv_profile_limit/i);
   assert.match(schema, />= 3/);
   assert.match(schema, /at most three DDV Profiles/i);
@@ -111,7 +111,7 @@ test('ownership integrity is enforced below product adapters', () => {
   }
 });
 
-test('linked DDV profiles are private owner/staff data', () => {
+test('historical Community v0 linked-DDV tables remain private in replayed base schema', () => {
   assert.match(schema, /ddv_profiles_owner_read/i);
   assert.match(schema, /wand_account_ddv_profiles_owner_read/i);
   assert.doesNotMatch(schema, /ddv_profiles_public_read/i);
@@ -129,7 +129,7 @@ test('privileged moderation and audit records are append-only', () => {
 });
 
 
-test('DDV profile link cap is safe under concurrent transactions', () => {
+test('historical Community v0 DDV max-three guard remains transaction-safe for migration replay', () => {
   assert.match(schema, /pg_advisory_xact_lock/i);
   assert.match(schema, /hashtextextended\(new\.account_id::text/i);
 });
