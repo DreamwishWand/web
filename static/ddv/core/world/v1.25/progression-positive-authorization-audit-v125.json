@@ -41,8 +41,8 @@
   "gates": [
     {
       "id": "conditionalSpawnRemoveWhenDone",
-      "status": "OPEN_NATIVE_SEMANTICS",
-      "evidenceLevel": "HIGH_CONFIDENCE_PARTIAL",
+      "status": "CLOSED_STATIC",
+      "evidenceLevel": "CONFIRMED",
       "staticFirst": true,
       "exactQuestion": "Trace current v1.25 ConditionalSpawnData.RemoveWhenDone from condition satisfaction through spawned-object removal, SpawnState cleanup/history handling, and save/reload persistence. Determine whether the field proves terminal object disposal, reference cleanup, both, or neither.",
       "requiredOutput": [
@@ -80,15 +80,104 @@
             "removeWhenDone": true,
             "activeSpawnStateAddressPersistsInBothSamples": true,
             "referencedTargetMaterializedInSaveLocalGrids": false,
-            "rawGridObjectAddress": "REDACTED_FROM_PUBLIC_REPO"
+            "rawGridObjectAddress": "REDACTED_FROM_PUBLIC_REPO",
+            "doOnce": false,
+            "currentDefinition": {
+              "name": "Request!Story!Expansion03!MRQS_E03_060_RepairCruellaCar",
+              "conditionsOperator": "AND",
+              "conditions": [
+                {
+                  "type": "MissionStepStatus",
+                  "missionId": 2070001380,
+                  "stepId": 9,
+                  "status": "Completed"
+                },
+                {
+                  "type": "DialogueFlag",
+                  "flagId": 2030501328,
+                  "inversed": false
+                },
+                {
+                  "type": "DialogueFlag",
+                  "flagId": 2030501329,
+                  "inversed": false
+                }
+              ],
+              "action": "Spawn",
+              "removeWhenDone": true
+            }
           }
         },
         "conclusions": {
           "missionCompletionImpliesSpawnStateReferenceRemoved": false,
           "persistedSpawnedObjectsAddressProvesLiveMaterializedObject": false,
-          "exactNativeCleanupTimingClosed": false
+          "exactNativeCleanupTimingClosed": true,
+          "removeWhenDoneIsPositiveTerminalityEvidence": false,
+          "counterexampleRetentionExplainedByCurrentDefinition": true,
+          "counterexampleExplanation": "The event is DoOnce=false and its Mission condition is MissionStepStatus(step 9, Completed), which remains compatible with whole-Mission completion. Mission completion therefore does not force the event Conditions false and does not trigger UndoSpawn."
         },
         "privateEvidencePolicy": "Full per-save indexes and exact raw address remain in private-derived 01A evidence / canonical handoff, not public repo."
+      },
+      "runtimeEscalationDecision": "NOT_REQUIRED_STATIC_CLOSED",
+      "nativeSemantics": {
+        "evidenceBoundary": "CONFIRMED_CURRENT_SWITCH_V1_25_0",
+        "methods": {
+          "initialize": {
+            "method": "Meta.ConditionalEventHistoryData.Initialize",
+            "rva": "0x58B44A0"
+          },
+          "evaluate": {
+            "method": "Meta.ConditionalEventHistoryData.Evaluate",
+            "rva": "0x58B5040"
+          },
+          "undoAction": {
+            "method": "Meta.ConditionalEventHistoryData.UndoAction",
+            "rva": "0x58B5880"
+          },
+          "undoSpawn": {
+            "method": "Meta.ConditionalEventHistoryData.UndoSpawn",
+            "rva": "0x58BC360"
+          },
+          "removeFromGridValidate": {
+            "method": "Meta.RemoveFromGrid.Types.Request.ValidateThis",
+            "rva": "0x57D0920"
+          },
+          "removeFromGridApply": {
+            "method": "Meta.RemoveFromGrid.Types.Response.ApplyThis",
+            "rva": "0x57D21E0"
+          }
+        },
+        "ordering": [
+          "Initialize reconstructs the current ConditionalEvent definition list and calls Evaluate(ConditionListener=-1) before registering ongoing event listeners.",
+          "Evaluate treats ActiveEvents map membership as the current active flag, reevaluates Conditions unless the event is already active with DoOnce=true, and acts only when evaluated truth differs from ActiveEvents membership.",
+          "On true->false transition Evaluate calls UndoAction(event,state) before ActiveEvents.Remove(event.ID).",
+          "Spawn action dispatch in UndoAction tail-calls UndoSpawn.",
+          "UndoSpawn checks ConditionalSpawnData.RemoveWhenDone. If false, it performs no GridObject removal. If true, it enumerates SpawnActionState.SpawnedObjects and constructs Meta.RemoveFromGrid request/response actions with the saved GridID/GridObjectID and Automatic=true.",
+          "UndoSpawn does not remove or clear individual SpawnedObjects addresses in place.",
+          "After UndoAction returns, Evaluate removes the entire ActiveEvents entry. Therefore successful event deactivation drops the persisted SpawnState structurally through ActiveEvents removal."
+        ],
+        "removeFromGridFailureBoundary": {
+          "behavior": "RemoveFromGrid validation can return InvalidGrid or InvalidGridObjectId when the saved address no longer materializes. UndoSpawn does not use the returned Apply result to retain/clear SpawnedObjects; ActiveEvents removal is ordered after UndoAction returns.",
+          "implication": "Object-removal success and ActiveEvents/SpawnState cleanup are separate outcomes."
+        },
+        "reloadPersistence": {
+          "serializedFields": [
+            "ConditionalEventHistoryData.ActiveEvents",
+            "ConditionalEventState.SpawnState",
+            "SpawnActionState.SpawnedObjects"
+          ],
+          "initializeReevaluation": true,
+          "implication": "A serialized active record is reevaluated on Initialize. It is removed only if the current event condition evaluates false (except already-active DoOnce events skip reevaluation). It is not auto-cleared merely because an associated Mission is completed."
+        },
+        "retainedRecordClassification": {
+          "activeEventsMeaning": "OPERATIONAL_ACTIVE_STATE",
+          "spawnedObjectAddressMeaning": "RECORDED_SPAWN_IDENTITY_NOT_LIVENESS_PROOF",
+          "implication": "A retained ActiveEvents/SpawnState entry is not a historical archive marker, but a retained SpawnedObjects address can be stale/unmaterialized."
+        },
+        "terminality": {
+          "removeWhenDoneAlonePositiveEvidence": false,
+          "statement": "RemoveWhenDone is an undo/removal policy consulted only when a Spawn ConditionalEvent transitions active->inactive. It does not prove Mission terminality, event deactivation, GridObject removal success, SpawnState cleanup by Mission completion, or absence of downstream consumers."
+        }
       }
     },
     {
