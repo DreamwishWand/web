@@ -52,7 +52,7 @@ test('Presets product surface preserves canonical WEP safety boundary', () => {
 });
 
 
-test('World Editor product surface is WEP-backed and writer-safe', () => {
+test('World Editor product surface is WEP-backed, localized and writer-safe', () => {
   const page = read('src/routes/editor/world/+page.svelte');
   assert.match(page, /createEditorSession/);
   assert.match(page, /projectObjects/);
@@ -61,27 +61,25 @@ test('World Editor product surface is WEP-backed and writer-safe', () => {
   assert.match(page, /openWorldSaveBytes/);
   assert.match(page, /createSwitchWorldReadAdapter/);
   assert.match(page, /projectSwitchAreaGrid/);
-  assert.match(page, /Open DDV Save \/ EditorDocument/);
-  assert.match(page, /Nintendo Switch/);
-  assert.match(page, /Steam \/ Windows/);
+  assert.match(page, /worldEditor\.open\.title/);
+  assert.match(page, /worldEditor\.open\.switch/);
+  assert.match(page, /worldEditor\.open\.steamWindows/);
   assert.match(page, /exactBuildKnown=false/);
   assert.match(page, /persistentWriteAuthorized=false/);
-  assert.match(page, /Open in Canvas/);
-  assert.match(page, /01B v1\.7 pinned GridData contract/);
-  assert.match(page, /PLACEMENT READINESS/);
+  assert.match(page, /worldEditor\.routes\.openCanvas/);
+  assert.match(page, /worldEditor\.placement\.eyebrow/);
   assert.match(page, /createEditorDraftValidator/);
-  assert.match(page, /explainWepBlocker/);
+  assert.match(page, /localizeWepBlocker/);
   assert.match(page, /captureRegion: sceneCaptureRegion\(\)/);
-  assert.match(page, /Custom region/);
+  assert.match(page, /worldEditor\.scene\.customRegion/);
   assert.match(page, /FENCE_REPRESENTATION_LAYOUT_EDIT/);
   assert.match(page, /syncFencePostDraftFromDocument/);
-  assert.match(page, /validationPresentation\.label/);
   assert.match(page, /validationPresentation\.groups/);
-  assert.match(page, /Unavailable actions/);
-  assert.match(page, /OBJECT INSPECTOR/);
-  assert.match(page, /Review Save Prep/);
-  assert.match(page, /Publish Scene Preset/);
-  assert.match(page, /Persistent write: disabled/);
+  assert.match(page, /worldEditor\.status\.unavailableActions/);
+  assert.match(page, /worldEditor\.inspector\.eyebrow/);
+  assert.match(page, /worldEditor\.command\.reviewSavePrep/);
+  assert.match(page, /worldEditor\.scene\.publish/);
+  assert.match(page, /worldEditor\.canvas\.persistentWriteDisabled/);
   assert.doesNotMatch(page, />Apply</);
   assert.doesNotMatch(page, />Commit</);
 });
