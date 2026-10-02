@@ -141,19 +141,21 @@
       "evidence": [
         "Owner approved minimum age 13 for an independent Wand Account.",
         "Independent Wand Account registration by users under 13 is prohibited.",
-        "Accountless local functionality remains available, including local save-file editing and local Editor/read-only workflows.",
-        "A parent or guardian may associate/manage an under-13 user's DDV Profile through the parent's Wand Account; no separate under-13 Wand credentials are created.",
-        "Parent/guardian-managed Profile Workspaces consume the same maximum-five retained Workspace capacity as self-managed Workspaces."
+        "Accountless local functionality remains available.",
+        "A parent/guardian may manage an under-13 DDV Profile Workspace; there are no separate under-13 Wand credentials.",
+        "Under-13 Product Community scope is now closed: parent-account DreamSnaps submission only plus passive viewing.",
+        "The child-managed profile has no voting, reactions, comments/replies, follows, saves/favorites, Q&A/Tips, Preset or other Community publication rights.",
+        "After Results, the DreamSnaps work may receive non-text reactions and saves/favorites, but comments/replies remain disabled.",
+        "Public attribution is the parent Creator Profile; child Workspace identity and minor provenance remain private."
       ],
       "requiredDecision": [
-        "Product age/minors eligibility decision is CLOSED.",
+        "Product age/minors eligibility and under-13 Community-scope decisions are CLOSED.",
         "Privacy/Legal must define the minimal age-gate/age-assurance data flow and whether full date-of-birth collection is necessary.",
-        "Privacy/Legal must determine jurisdiction-specific parental notice/consent/verification requirements.",
-        "Privacy/Legal must determine the permitted scope and safeguards for under-13 Community participation through a parent/guardian-managed account.",
-        "Privacy/Legal must define any minor-specific defaults, notices, safety and moderation requirements for ages 13-17."
+        "Privacy/Legal must review jurisdiction-specific parental notice/consent/verification requirements for the approved DreamSnaps-only managed model.",
+        "Privacy/Legal must define any additional minor-specific defaults, notices, safety and moderation requirements for ages 13-17."
       ],
-      "engineeringAction": "WAIT_FOR_PRIVACY_LEGAL_AGE_GATE_AND_PARENT_MANAGED_COMMUNITY_CONTRACT",
-      "productDecision": "APPROVED_13_PLUS_INDEPENDENT_ACCOUNT__UNDER13_ACCOUNTLESS_AND_PARENT_MANAGED_ASSOCIATION",
+      "engineeringAction": "WAIT_FOR_PRIVACY_LEGAL_AGE_GATE_REVIEW_OF_APPROVED_DREAMSNAPS_ONLY_MANAGED_MODEL",
+      "productDecision": "APPROVED_13_PLUS_INDEPENDENT_ACCOUNT__UNDER13_PARENT_MANAGED_DREAMSNAPS_ONLY",
       "decisionRecord": "ops/community-age-minors-product-decision-20261002.json"
     },
     {
@@ -219,7 +221,8 @@
         "No single canonical launch workflow for access/export/correction/objection requests was found."
       ],
       "requiredDecision": [
-        "After launch jurisdictions are fixed, define required access/correction/export/objection/appeal workflows and response channels."
+        "Product launch posture is global-by-default with jurisdiction-specific fail-closed Account/Community gating where Legal requires.",
+        "Legal/Privacy must now define access/correction/export/objection/appeal workflows and response channels for the actual launch jurisdictions."
       ],
       "engineeringAction": "NONE_UNTIL_LEGAL_SCOPE"
     },
@@ -238,7 +241,7 @@
     }
   ],
   "legalReviewDependencies": [
-    "launch_jurisdictions",
+    "global_launch_jurisdiction_policy_closed__legal_country_by_country_review_pending",
     "age_minors_implementation_parent_managed_scope",
     "privacy_rights_workflow",
     "ugc_terms_license_and_moderation",
@@ -247,5 +250,5 @@
   ],
   "engineeringConclusion": "NO_RETENTION_ENGINEERING_CHANGE_REQUIRED_AT_THIS_STAGE",
   "privacyApprovalReady": false,
-  "nextAction": "Profile Workspace Product, staging DB lifecycle, and Edge source alignment are closed. Complete live identity-association Edge E2E when the staging HMAC secret can be verified through an authenticated runtime request, while Privacy/Legal review the optional identifier transport/correction boundary and age/minors Community scope."
+  "nextAction": "Product decisions for global launch posture, DDV-locale parity, WCAG 2.2 AA, under-13 DreamSnaps-only managed participation, and DreamSnaps integrity/privacy are closed. Privacy/Legal must review jurisdictional implementation and minor safeguards; Engineering still owes the staging Player-ID Edge E2E after HMAC-secret availability."
 }
