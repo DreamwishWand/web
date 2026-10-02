@@ -182,8 +182,8 @@
     },
     {
       "id": "dynamicNativeConsumerExclusion",
-      "status": "OPEN",
-      "evidenceLevel": "UNKNOWN",
+      "status": "CLOSED_BOUNDED_FAMILY",
+      "evidenceLevel": "CONFIRMED",
       "staticFirst": true,
       "exactQuestion": "Within a bounded current-v1.25 progression-risk object family, audit native/script consumers/listeners that are not represented by the serialized 01D Mission/Condition/ConditionalEvent/Dialogue/Story/Ftue/canonical-definition graph.",
       "requiredOutput": [
@@ -193,12 +193,22 @@
         "persistent-vs-runtime-only classification",
         "explicit UNKNOWN classes where negative proof is unavailable"
       ],
-      "prohibition": "Do not claim whole-game absence of dynamic/native consumers from a bounded search."
+      "prohibition": "Do not claim whole-game absence of dynamic/native consumers from a bounded search.",
+      "boundedFamilyClosure": {
+        "familyId": "BASE_GAME_STORY_MENHIRS",
+        "artifactId": "DDV-PROGRESSION-MENHIR-FAMILY-AUDIT-V125-V1_15-CANDIDATE",
+        "artifactPath": "static/ddv/core/world/v1.25/progression-menhir-family-audit-v125.json",
+        "auditStatus": "CLOSED_FOR_DECLARED_STATIC_UNIVERSE_WITH_EXPLICIT_UNKNOWN_CLASSES",
+        "globalScopeStatus": "OPEN_OUTSIDE_DECLARED_BOUNDED_FAMILY",
+        "positiveAuthorization": false,
+        "currentSchema624RuntimeEscalation": "NOT_REQUIRED_FOR_BOUNDED_FAMILY"
+      },
+      "conclusion": "Target 2 is closed for the exact eight current-v1.25 Story Menhir Furniture definitions within the declared Game DB + current Switch IL2CPP metadata/string/call-relationship universe. The audit found consumers outside 01D, including a versioned Nurturing profile migration and ProfileWorld Keyhole state; explicit reflection/data-driven unknown classes remain fail-closed. No whole-game absence claim is made."
     },
     {
       "id": "serializedObjectStateCompatibility",
-      "status": "OPEN",
-      "evidenceLevel": "UNKNOWN",
+      "status": "CLOSED_OPERATION_SPECIFIC_BOUNDED_FAMILY",
+      "evidenceLevel": "CONFIRMED_NEGATIVE_WITH_HIGH_CONFIDENCE_SAME_GRID_TRANSFORM_PRESERVATION",
       "staticFirst": true,
       "exactQuestion": "For each candidate object family that could become terminal-editable, prove that save progression phase agrees with GridObject.State, visual/variation state, SubGrid descendants, and linked persistent parameters for each requested operation.",
       "requiredOutput": [
@@ -209,7 +219,25 @@
         "linked persistent state",
         "operation-specific authorization matrix"
       ],
-      "rule": "Quest completion or absence of a current serialized consumer is never sufficient by itself."
+      "rule": "Quest completion or absence of a current serialized consumer is never sufficient by itself.",
+      "boundedFamilyClosure": {
+        "familyId": "BASE_GAME_STORY_MENHIRS",
+        "artifactId": "DDV-PROGRESSION-MENHIR-FAMILY-AUDIT-V125-V1_15-CANDIDATE",
+        "artifactPath": "static/ddv/core/world/v1.25/progression-menhir-family-audit-v125.json",
+        "globalScopeStatus": "OPEN_OUTSIDE_DECLARED_BOUNDED_FAMILY",
+        "operationSummary": {
+          "MOVE": "STATE_COMPATIBILITY_HIGH_CONFIDENCE__POSITIVE_PERMISSION_FALSE",
+          "ROTATE": "STATE_COMPATIBILITY_HIGH_CONFIDENCE__POSITIVE_PERMISSION_FALSE",
+          "REMOVE": "CONFIRMED_FORBIDDEN",
+          "DUPLICATE": "BLOCKED_UNKNOWN_OR_LINKED_IDENTITY_CONFLICT",
+          "REPLACE": "BLOCKED_UNKNOWN",
+          "STATE_EDIT": "BLOCKED",
+          "PRESET_CAPTURE": "CONFIRMED_EXCLUDED"
+        },
+        "positiveAuthorization": false,
+        "currentSchema624RuntimeEscalation": "NOT_REQUIRED_FOR_BOUNDED_FAMILY"
+      },
+      "conclusion": "Target 3 is operation-specifically closed for the exact Story Menhir family. Five members have no typed interaction state, three use GridState.Keyhole GUID linkage to ProfileWorld.Keyholes current persistent state, all eight have no SubGrid, and native Remove is forbidden for all eight. MOVE/ROTATE state preservation does not become positive mutation permission."
     }
   ],
   "operationPolicy": {
@@ -231,5 +259,39 @@
     "persistentWriteAuthorized": false,
     "WORLD_PERSISTENT_WRITE_V125": false,
     "applyAuthorized": false
+  },
+  "destinationProgressionVetoProjection": {
+    "status": "IMPLEMENTATION_READY_CANDIDATE",
+    "artifactId": "DDV-PROGRESSION-DESTINATION-VETO-V125-V1_15-CANDIDATE",
+    "contractPath": "static/ddv/core/world/v1.25/progression-destination-veto-contract-v125.json",
+    "modulePath": "static/ddv/core/world/v1.25/progression-destination-veto-v125.cjs",
+    "tests": [
+      "tests/ddv-core-world-progression-veto-projection-v125.test.mjs"
+    ],
+    "inputs": [
+      "promoted 01A ddv.progression-reference-index@1 output",
+      "Core-resolved current-v1.25 progression-risk/definition disposition"
+    ],
+    "output": "ddv.progression-destination-veto-record@1 per exact destination GridObjectAddress",
+    "readPreflightOnly": true,
+    "requiredBlocker": "PROTECTED_PROGRESSION_OBJECT_CONFLICT",
+    "noPositiveInference": {
+      "absenceOfVetoIsPermission": false,
+      "userControlledFromMissingRisk": false,
+      "missionCompletionIsTerminalProof": false
+    },
+    "wepBoundary": "WEP consumes Core operationVetoes/reasonCodes only; WEP must not reinterpret raw Mission state, Item flags, or save references.",
+    "positiveAuthorization": false,
+    "writerAuthorized": false
+  },
+  "integratorReturn": {
+    "ready": true,
+    "reasonCodes": [
+      "TARGET2_CLOSED_FOR_ONE_BOUNDED_FAMILY",
+      "TARGET3_CLOSED_OPERATION_SPECIFIC_FOR_ONE_BOUNDED_FAMILY",
+      "DESTINATION_NEGATIVE_VETO_PROJECTION_IMPLEMENTATION_READY"
+    ],
+    "smallestPromotionCandidate": "DESTINATION_PROGRESSION_VETO_PROJECTION_PLUS_STORY_MENHIR_BOUNDED_CLOSURES",
+    "doNotPromoteWholeV115Scaffold": true
   }
 }
