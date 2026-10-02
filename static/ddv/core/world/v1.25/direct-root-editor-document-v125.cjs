@@ -129,8 +129,8 @@ function createProjector(config={}){
   if(directRootRoute?.codec!=='ddv.direct-grid-route@1'||typeof directRootRoute.gridDataPath!=='string'||!directRootRoute.gridDataPath)return blocked('DIRECT_ROOT_ROUTE_INVALID');
   const resolved=locationApi.resolveDestinationDirectRoot(profile,locationRef,directRootRoute);
   if(resolved?.status!=='RESOLVED'){
-   const code=resolved?.blockers?.[0]?.code||'DIRECT_ROOT_ROUTE_UNRESOLVED';
-   return blocked(code,{locationStatus:resolved?.status??'UNKNOWN',route:clone(directRootRoute)},resolved?.status==='AMBIGUOUS_FAIL_CLOSED'?'AMBIGUOUS_FAIL_CLOSED':'UNRESOLVED');
+   const ambiguous=resolved?.status==='AMBIGUOUS_FAIL_CLOSED';
+   return blocked(ambiguous?'DIRECT_ROOT_ROUTE_AMBIGUOUS':'DIRECT_ROOT_ROUTE_UNRESOLVED',{locationStatus:resolved?.status??'UNKNOWN',route:clone(directRootRoute),upstreamBlockers:clone(resolved?.blockers||[])},ambiguous?'AMBIGUOUS_FAIL_CLOSED':'UNRESOLVED');
   }
   const gridId=safeInt(resolved.destinationGridId);if(gridId===null)return blocked('DIRECT_ROOT_GRID_ID_UNRESOLVED');
   const grids=asObject(profile?.World?.GridCollection?.Grids);if(!grids)return blocked('DIRECT_ROOT_GRID_COLLECTION_MISSING');
