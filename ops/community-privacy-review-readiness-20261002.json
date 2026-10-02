@@ -88,9 +88,11 @@
         "One Wand Account may retain at most five Workspaces across active + archived states; archive does not free capacity and deletion does.",
         "Self-service identity unlink preserves the Workspace; Workspace deletion requires explicit destructive confirmation.",
         "Rollback runtime verified five-slot capacity, archive behavior, same-account duplicate rejection, cross-account reuse, unlink, delete, slot reuse and account-deletion cleanup with zero fixture residue.",
-        "community-command v22 and community-query v10 are deployed on staging and match the current branch source.",
+        "community-command v23 and community-query v10 are deployed on staging and match the current branch source.",
         "ops/community-linked-ddv-profile-lifecycle-runtime-20261002.json",
-        "docs/community/linked-ddv-profile-lifecycle-runtime-20261002.md"
+        "docs/community/linked-ddv-profile-lifecycle-runtime-20261002.md",
+        "Destructive Profile Workspace deletion requires explicit DELETE confirmation plus session-bound recent authentication within 900 seconds.",
+        "Workspace management and optional DDV identity actions use separate rate buckets; the superseded ddv_profile_link bucket is disabled."
       ],
       "requiredDecision": [
         "Privacy/Legal: review transient Player ID transport and pseudonymous cross-context linkability.",
