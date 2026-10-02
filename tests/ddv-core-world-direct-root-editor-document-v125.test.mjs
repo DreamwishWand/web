@@ -90,8 +90,12 @@ function project(profile,overrides={}){
 
 test('machine contract is exact-build scoped, read/model only, and does not fabricate Area identity',()=>{
   assert.equal(contract.schema,'ddv.direct-root-editor-document@1');
-  assert.equal(contract.artifactId,'DDV-DIRECT-ROOT-EDITOR-DOCUMENT-V125-V1_16-CANDIDATE');
-  assert.equal(contract.status,'READY_FOR_INTEGRATOR_REVIEW');
+  assert.equal(contract.artifactId,'DDV-DIRECT-ROOT-EDITOR-DOCUMENT-V125-V1_16');
+  assert.equal(contract.status,'PROMOTED');
+  assert.equal(contract.mutable,false);
+  assert.equal(contract.owner,'01 CORE Integrator');
+  assert.equal(contract.semanticOwner,'01B CORE - World / Grid / Buildings');
+  assert.equal(contract.promotion.integratorDecision,'PROMOTED_READ_MODEL_PROJECTOR_ONLY');
   const moduleBytes=readFileSync(new URL('../static/ddv/core/world/v1.25/direct-root-editor-document-v125.cjs',import.meta.url));
   assert.equal(createHash('sha256').update(moduleBytes).digest('hex'),contract.implementationArtifact.sha256);
   assert.equal(contract.target.platform,'Nintendo Switch');
