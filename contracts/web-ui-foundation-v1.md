@@ -14,7 +14,7 @@ Launch registry is fixed to EN, FR, IT, DE, ES-ES, JA, ZH-CN and PT-BR. Runtime 
 - Runtime API: `src/lib/i18n/runtime.js`
 - Build gate/report: `npm run verify:web-foundation`
 
-Stable message keys use lowercase dot namespaces, e.g. `shared.nav.explore`. Core reason codes, internal enum values, contract IDs and blocker IDs are machine identifiers and MUST NOT be translated; UI owners map them to localized presentation keys.
+Stable message keys use dot-separated lowerCamelCase segments, e.g. `shared.nav.explore` and `shared.theme.switchToDay`. Core reason codes, internal enum values, contract IDs and blocker IDs are machine identifiers and MUST NOT be translated; UI owners map them to localized presentation keys.
 
 Runtime exports: `locale.subscribe`, `setLocale`, `t`, `formatNumber`, `formatDate`, `setMissingKeyReporter`, `getLocaleDiagnostics`, `configureLocalePreferenceAdapter`, and `restoreLocalePreference`.
 
