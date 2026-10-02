@@ -70,7 +70,7 @@ export function createLocalLocalePreferenceAdapter(storageLike = defaultStorage(
       }
     },
     write(locale) {
-      const canonical = normalizeLocale(locale);
+      const canonical = typeof locale === 'string' ? exactSupported.get(locale.trim().toLowerCase()) ?? null : null;
       if (!canonical) return false;
       try {
         storageLike?.setItem?.(LOCALE_PREFERENCE_STORAGE_KEY, canonical);
@@ -98,7 +98,9 @@ export async function initializeLocalePreference({ storage = defaultStorage(), n
 }
 
 export function setManualLocalePreference(locale) {
-  return setManualLocale(locale);
+  const canonical = typeof locale === 'string' ? exactSupported.get(locale.trim().toLowerCase()) ?? null : null;
+  if (!canonical) throw new RangeError(`Unsupported manual locale: ${String(locale)}`);
+  return setManualLocale(canonical);
 }
 
 export async function resetToBrowserLanguage({ navigatorLike = globalThis.navigator } = {}) {
