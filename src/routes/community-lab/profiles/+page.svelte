@@ -1,6 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { CommunityLabClient, type CommunitySession } from '$lib/community/staging-http-client';
+  import {
+    CommunityHttpError,
+    CommunityLabClient,
+    type CommunitySession
+  } from '$lib/community/staging-http-client';
 
   const CONFIG_KEY = 'dreamwishwand-community-lab-config-v1';
 
@@ -103,7 +107,12 @@
       status = `${label}: PASS`;
       return value;
     } catch (cause) {
-      error = cause instanceof Error ? cause.message : String(cause);
+      if (cause instanceof CommunityHttpError && cause.code === 'RECENT_AUTH_REQUIRED') {
+        error =
+          'Recent authentication is required for this destructive action. Sign out, sign in again, then retry within 15 minutes.';
+      } else {
+        error = cause instanceof Error ? cause.message : String(cause);
+      }
       status = `${label}: FAILED`;
       return null;
     } finally {
@@ -411,7 +420,9 @@
         <p class="profile-meta">
           Deletion is irreversible. Workspace-scoped private data is deleted with the Workspace.
           Account/Creator-scoped Gallery posts, Wand Presets, and Q&amp;A/Tips remain independent.
-          Deleting the Workspace frees its slot.
+          Deleting the Workspace frees its slot. For safety, deletion also requires a sign-in session
+          created within the last 15 minutes; if the server requests recent authentication, sign out
+          and sign in again before retrying.
         </p>
         <label>
           Type <strong>DELETE</strong> to confirm
