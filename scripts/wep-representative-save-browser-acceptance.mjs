@@ -118,9 +118,9 @@ try {
   });
   await page.getByText(/DDV saveをローカルで読み込みました/).waitFor();
   const sourceBrowser = page.locator('.save-source-browser');
-  await expectContains(sourceBrowser, 'Schema 624', 'schema');
-  await expectContains(sourceBrowser, 'Source switch', 'platform');
-  await expectContains(sourceBrowser, 'Floating 13', 'floating-island count');
+  await expectContains(sourceBrowser, 'Schema624', 'schema');
+  await expectContains(sourceBrowser, 'Sourceswitch', 'platform');
+  await expectContains(sourceBrowser, 'Floating13', 'floating-island count');
   report.gates['WE-OPEN'] = gate('CLOSED / PASS', { exactSha256: fixtureSha256, exactSize: fixtureBytes.byteLength, schema: 624, sourcePlatform: 'switch' });
 
   const floatingCard = page.locator('.floating-route-section .area-route').filter({ hasText: '4230 objects' }).first();
