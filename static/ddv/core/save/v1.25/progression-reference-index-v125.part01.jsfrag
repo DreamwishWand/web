@@ -1,0 +1,113 @@
+export const PROGRESSION_REFERENCE_INDEX_CONTRACT = 'ddv.progression-reference-index@1';
+export const PROGRESSION_REFERENCE_INDEX_ARTIFACT = 'DDV-PROGRESSION-REFERENCE-INDEX-V125-V1_0';
+export const SUPPORTED_PROFILE_SCHEMA = 624;
+
+const Activity = Object.freeze({ ACTIVE: 'ACTIVE', HISTORICAL: 'HISTORICAL', UNKNOWN: 'UNKNOWN' });
+const Evidence = Object.freeze({ CONFIRMED: 'CONFIRMED', HIGH_CONFIDENCE: 'HIGH_CONFIDENCE', UNKNOWN: 'UNKNOWN' });
+
+export function buildProgressionReferenceIndex(profile, options = {}) {
+  requireObject(profile, 'profile');
+  const gameInfo = requireObject(profile.GameInfo, 'GameInfo');
+  if (gameInfo.Version !== SUPPORTED_PROFILE_SCHEMA) throw new Error(`UNSUPPORTED_PROFILE_SCHEMA:${String(gameInfo.Version)}`);
+
+  const references = [];
+  const unresolvedSavePaths = [];
+  const missionState = buildMissionState(profile);
+  const objectLookup = buildObjectLookup(profile);
+  const keyholeOwners = buildKeyholeOwnerLookup(profile);
+  const coverageScan = scanIdentityBearingPaths(profile);
+
+  let seq = 0;
+  const add = (entry) => {
+    const normalized = Object.freeze({
+      referenceId: `PR${String(++seq).padStart(6, '0')}`,
+      sourcePath: entry.sourcePath,
+      sourceType: entry.sourceType,
+      gridId: intOrNull(entry.gridId),
+      gridObjectId: intOrNull(entry.gridObjectId),
+      itemId: intOrNull(entry.itemId),
+      relatedItemIds: Object.freeze(uniqueInts(entry.relatedItemIds ?? [])),
+      activity: entry.activity,
+      lifecycleStateSaveOnly: entry.lifecycleStateSaveOnly,
+      terminality: 'UNKNOWN',
+      targetResolution: entry.targetResolution ?? 'NOT_APPLICABLE',
+      activeOwnershipVeto: Boolean(entry.activeOwnershipVeto),
+      safetyDisposition: entry.safetyDisposition,
+      evidenceStatus: entry.evidenceStatus,
+      evidenceBasis: entry.evidenceBasis,
+      missionId: intOrNull(entry.missionId),
+      conditionalEventId: intOrNull(entry.conditionalEventId),
+      keyholeGuid: typeof entry.keyholeGuid === 'string' ? entry.keyholeGuid : null,
+      candidateGridObjectAddresses: Object.freeze((entry.candidateGridObjectAddresses ?? []).map(freezeAddress)),
+      notes: Object.freeze((entry.notes ?? []).slice())
+    });
+    references.push(normalized);
+    return normalized;
+  };
+
+  // PROMOTED semantics: ActiveEvents SpawnState.SpawnedObjects is an active, identity-bearing GridObjectAddress.
+  const activeEvents = asObject(profile.ConditionalEventHistory)?.ActiveEvents;
+  if (activeEvents && typeof activeEvents === 'object') {
+    for (const [eventIdRaw, eventState] of Object.entries(activeEvents)) {
+      const spawned = asObject(eventState)?.SpawnState?.SpawnedObjects;
+      if (!Array.isArray(spawned)) continue;
+      for (let i = 0; i < spawned.length; i += 1) {
+        const addr = asObject(spawned[i]);
+        if (!addr || !Number.isSafeInteger(addr.GridID) || !Number.isSafeInteger(addr.GridObjectID)) {
+          unresolvedSavePaths.push({
+            sourcePath: `/ConditionalEventHistory/ActiveEvents/${esc(eventIdRaw)}/SpawnState/SpawnedObjects/${i}`,
+            reason: 'INVALID_GRID_OBJECT_ADDRESS', evidenceStatus: Evidence.CONFIRMED
+          });
+          continue;
+        }
+        const resolved = resolveAddress(objectLookup, addr.GridID, addr.GridObjectID);
+        add({
+          sourcePath: `/ConditionalEventHistory/ActiveEvents/${esc(eventIdRaw)}/SpawnState/SpawnedObjects/${i}`,
+          sourceType: 'CONDITIONAL_EVENT_ACTIVE_SPAWNED_OBJECT',
+          gridId: addr.GridID,
+          gridObjectId: addr.GridObjectID,
+          itemId: resolved.itemId,
+          activity: Activity.ACTIVE,
+          lifecycleStateSaveOnly: resolved.resolution === 'DIFF_REMOVED_OBJECT'
+            ? 'ACTIVE_REFERENCE_TARGET_INCONSISTENT_WITH_SAVE_REMOVAL'
+            : 'ACTIVE_IDENTITY_REFERENCE',
+          targetResolution: resolved.resolution,
+          activeOwnershipVeto: true,
+          safetyDisposition: resolved.resolution === 'DIFF_REMOVED_OBJECT' ? 'BLOCK_INCONSISTENT' : 'BLOCK_ACTIVE_IDENTITY_REFERENCE',
+          evidenceStatus: Evidence.CONFIRMED,
+          evidenceBasis: 'PROMOTED_STATIC_ACTIVE_REFERENCE_PLUS_SCHEMA624_SAVE',
+          conditionalEventId: safeIntString(eventIdRaw),
+          notes: resolved.itemId == null ? ['ItemID cannot be derived from save alone when the target object is not materialized in Grids or DiffGrids.ModifiedObjects.'] : []
+        });
+      }
+    }
+  }
+
+  // System location pointer. Identity-bearing but not evidence of active progression ownership.
+  const linked = asObject(profile.Player)?.LastUsedLinkedEnvironmentEnter;
+  if (linked && typeof linked === 'object') {
+    for (const [key, raw] of Object.entries(linked)) {
+      const addr = asObject(raw);
+      if (!addr || !Number.isSafeInteger(addr.GridID) || !Number.isSafeInteger(addr.GridObjectID)) continue;
+      const resolved = resolveAddress(objectLookup, addr.GridID, addr.GridObjectID);
+      add({
+        sourcePath: `/Player/LastUsedLinkedEnvironmentEnter/${esc(key)}`,
+        sourceType: 'LAST_USED_LINKED_ENVIRONMENT_ENTER',
+        gridId: addr.GridID, gridObjectId: addr.GridObjectID, itemId: resolved.itemId,
+        activity: Activity.UNKNOWN,
+        lifecycleStateSaveOnly: 'RECOVERABLE_LOCATION_REFERENCE_ONLY',
+        targetResolution: resolved.resolution,
+        activeOwnershipVeto: true,
+        safetyDisposition: 'FAIL_CLOSED_UNKNOWN_SYSTEM_REFERENCE',
+        evidenceStatus: Evidence.HIGH_CONFIDENCE,
+        evidenceBasis: 'SCHEMA624_EXACT_ADDRESS_SYSTEM_POINTER',
+        notes: ['Do not reinterpret this pointer as active quest ownership or terminality.']
+      });
+    }
+  }
+
+  // Achievement collected GridObjectAddresses are historical bookkeeping, never active ownership.
+  const achievements = toArray(asObject(profile.Player)?.AchievementsData ?? []);
+  for (let ai = 0; ai < achievements.length; ai += 1) {
+    const addresses = asObject(achievements[ai])?.GridObjectsCollected?.GridObjectAddresses;
+    if (!Array.isArray(addresse
