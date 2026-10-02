@@ -171,7 +171,7 @@ const copy = {
   'worldEditor.canvas.ariaLabel': 'Canvas World Editor dall’alto',
   'worldEditor.canvas.visibleCount': '{count} visibili',
   'worldEditor.canvas.mouseHelp': 'Mouse: clic seleziona · Ctrl/⌘/Maiusc+clic selezione multipla',
-  'worldEditor.canvas.keyboardHelp': 'Tastiera: frecce spostano · R ruota · Ctrl/⌘ C/V/D · Canc · Ctrl/⌘ Z · Maiusc+Z ripete · Esc cancella',
+  'worldEditor.canvas.keyboardHelp': "Tastiera: Tab entra nel Canvas · [ / ] cambia focus · Invio seleziona · frecce spostano · R ruota · Ctrl/⌘ C/V/D · Canc · Ctrl/⌘ Z · Maiusc+Z ripete · Esc cancella",
   'worldEditor.canvas.roadFenceLocked': 'Road / Fence appaiono bloccati quando la relativa capability non è collegata.',
   'worldEditor.canvas.backupReady': 'Backup originale: download locale byte-exact pronto',
   'worldEditor.canvas.backupNotLoaded': 'Backup originale: non caricato',
