@@ -45,19 +45,63 @@ function token(name) {
   const value = match[1];
   return value.length === 4 ? `#${value.slice(1).split('').map((ch) => ch + ch).join('')}` : value;
 }
-function luminance(hex) {
-  const rgb = [1,3,5].map((index) => parseInt(hex.slice(index, index + 2), 16) / 255).map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
-  return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+function hexToRgb(hex) {
+  return [1,3,5].map((index) => parseInt(hex.slice(index, index + 2), 16));
+}
+function linearChannel(value) {
+  const channel = value / 255;
+  return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+}
+function luminanceRgb(rgb) {
+  return 0.2126 * linearChannel(rgb[0]) + 0.7152 * linearChannel(rgb[1]) + 0.0722 * linearChannel(rgb[2]);
+}
+function contrastRgb(a,b) {
+  const values=[luminanceRgb(a),luminanceRgb(b)].sort((x,y)=>y-x);
+  return (values[0]+0.05)/(values[1]+0.05);
 }
 function contrast(a,b) {
-  const values=[luminance(a),luminance(b)].sort((x,y)=>y-x);
-  return (values[0]+0.05)/(values[1]+0.05);
+  return contrastRgb(hexToRgb(a), hexToRgb(b));
+}
+function blend(foreground, background, alpha) {
+  return foreground.map((value, index) => value * alpha + background[index] * (1 - alpha));
+}
+function interpolate(a, b, amount) {
+  return a.map((value, index) => value * (1 - amount) + b[index] * amount);
 }
 const gold = token('gold');
 for (const name of ['page','page-2','surface','surface-raised','hero-day-start','hero-day-mid','hero-day-end']) {
   const ratio = contrast(gold, token(name));
   report.contrast[`gold/${name}`] = Number(ratio.toFixed(3));
   if (ratio < 4.5) errors.push(`day --gold contrast against --${name} is ${ratio.toFixed(2)}:1 (<4.5:1)`);
+}
+
+const dayHeroRule = css.match(/:root\[data-theme='day'\] \.hero \{ background: ([^;]+); \}/)?.[1] ?? '';
+const radialLayers = [...dayHeroRule.matchAll(/rgba\((\d+),(\d+),(\d+),([0-9.]+)\)/g)]
+  .map((match) => ({ rgb: [Number(match[1]), Number(match[2]), Number(match[3])], maxAlpha: Number(match[4]) }));
+if (radialLayers.length !== 2) errors.push(`expected exactly two day hero radial rgba layers, found ${radialLayers.length}`);
+
+if (radialLayers.length === 2) {
+  const anchors = ['hero-day-start','hero-day-mid','hero-day-end'].map((name) => hexToRgb(token(name)));
+  const goldRgb = hexToRgb(gold);
+  let worst = { ratio: Infinity, segment: -1, position: 0, warmAlpha: 0, coolAlpha: 0, background: null };
+  for (let segment = 0; segment < 2; segment += 1) {
+    for (let positionStep = 0; positionStep <= 100; positionStep += 1) {
+      const base = interpolate(anchors[segment], anchors[segment + 1], positionStep / 100);
+      for (let warmStep = 0; warmStep <= Math.round(radialLayers[0].maxAlpha * 100); warmStep += 1) {
+        const warmAlpha = warmStep / 100;
+        const withWarm = blend(radialLayers[0].rgb, base, warmAlpha);
+        for (let coolStep = 0; coolStep <= Math.round(radialLayers[1].maxAlpha * 100); coolStep += 1) {
+          const coolAlpha = coolStep / 100;
+          const composed = blend(radialLayers[1].rgb, withWarm, coolAlpha);
+          const ratio = contrastRgb(goldRgb, composed);
+          if (ratio < worst.ratio) worst = { ratio, segment, position: positionStep / 100, warmAlpha, coolAlpha, background: composed.map((x) => Math.round(x)) };
+        }
+      }
+    }
+  }
+  report.contrast['gold/hero-composited-worst'] = Number(worst.ratio.toFixed(3));
+  report.contrast['gold/hero-composited-worst-detail'] = worst;
+  if (worst.ratio < 4.5) errors.push(`day --gold worst-case sampled hero composite is ${worst.ratio.toFixed(2)}:1 (<4.5:1)`);
 }
 
 console.log(JSON.stringify(report, null, 2));
