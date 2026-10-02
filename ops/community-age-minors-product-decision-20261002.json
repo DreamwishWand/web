@@ -1,7 +1,7 @@
 {
-  "schema": "dreamwish-community-age-minors-product-decision@1",
+  "schema": "dreamwish-community-age-minors-product-decision@2",
   "decidedAt": "2026-10-02",
-  "state": "CLOSED_PRODUCT_APPROVED_PRIVACY_LEGAL_REVIEW_PENDING",
+  "state": "CLOSED_PRODUCT_APPROVED_UNDER13_COMMUNITY_SCOPE_DEFINED__PRIVACY_LEGAL_REVIEW_PENDING",
   "ownerApproved": true,
   "productPolicy": {
     "minimumIndependentWandAccountAge": 13,
@@ -19,7 +19,43 @@
       "childDdvProfileMayBeLinkedToParentGuardianAccount": false,
       "childDdvProfileMayUseParentGuardianWorkspace": true,
       "workspaceCapacity": "Same maximum of five retained Profile Workspaces per Wand Account; self and parent_guardian_managed count together; active and archived both count.",
-      "playerIdAssociationRequired": false
+      "playerIdAssociationRequired": false,
+      "communityScope": {
+        "actor": "PARENT_OR_GUARDIAN_WAND_ACCOUNT",
+        "childIndependentCommunityActor": false,
+        "allowed": [
+          "parent may select/manage a DreamSnaps candidate sourced from a parent_guardian_managed Workspace",
+          "parent may submit that candidate as the Wand Account's single final DreamSnaps entry for the round",
+          "parent and child may passively view DreamSnaps entries together"
+        ],
+        "disallowedForChildManagedProfile": [
+          "Formal Judging / voting",
+          "reactions",
+          "comments / replies",
+          "Q&A / Answers / Tips",
+          "follows",
+          "saves / favorites",
+          "Gallery publication outside the post-result DreamSnaps lifecycle",
+          "Preset publication",
+          "other independent Community writes"
+        ],
+        "postResultInboundInteraction": {
+          "reactionsAllowed": true,
+          "savesFavoritesAllowed": true,
+          "commentsRepliesAllowed": false,
+          "followsTarget": "PARENT_CREATOR_PROFILE_ONLY",
+          "reasonForDisabledCommentsPubliclyDisclosed": false
+        },
+        "publicAttribution": {
+          "creatorIdentity": "PARENT_CREATOR_PROFILE",
+          "childWorkspaceIdentityPublic": false,
+          "under13ManagedStatusPublic": false
+        },
+        "notifications": {
+          "recipient": "PARENT_OR_GUARDIAN_WAND_ACCOUNT",
+          "separateChildNotificationIdentity": false
+        }
+      }
     },
     "independentAccountEligibility": "AGE_13_OR_OLDER",
     "ageAssuranceProviderApproved": false,
@@ -31,14 +67,18 @@
       "Independent registration by users under 13 is prohibited.",
       "Accountless local save/editor functionality remains available regardless of Wand Account eligibility.",
       "A parent or guardian may use their own Wand Account to create/manage a parent_guardian_managed DDV Profile Workspace for an under-13 user's game profile; no separate under-13 Wand credentials are created.",
-      "Parent-managed Workspaces use the same maximum-five retained Workspace capacity as self-managed Workspaces."
+      "Parent-managed Workspaces use the same maximum-five retained Workspace capacity as self-managed Workspaces.",
+      "An under-13 managed profile is not an independent Community actor. Its only Community contribution path at launch is a DreamSnaps work submitted through the parent/guardian Wand Account.",
+      "Passive DreamSnaps viewing with the parent is allowed; the child-managed profile does not vote, react, comment, reply, follow, save/favorite, participate in Q&A/Tips, or publish other Community content.",
+      "After DreamSnaps results, non-text reactions and saves/favorites may be received on the work; comments/replies remain disabled for under-13-managed provenance at launch.",
+      "Public attribution uses the parent Creator Profile. Child Workspace identity and under-13-managed status remain private."
     ],
     "privacyLegalStillOpen": [
       "Final age-gate/age-assurance implementation and data minimization.",
-      "Whether and under what conditions an under-13 user may participate in publishing, comments, Q&A, DreamSnaps, follows, reactions, saves or other Community interactions through a parent/guardian-managed account.",
       "Required parental notice/consent/verification semantics by launch jurisdiction.",
-      "Minor-specific default privacy, safety and moderation requirements for ages 13-17.",
-      "Required Terms/Privacy/Community Rules wording."
+      "Minor-specific default privacy, safety and moderation requirements for independent users aged 13-17.",
+      "Required Terms/Privacy/Community Rules wording.",
+      "External review of the approved parent-managed DreamSnaps-only participation model."
     ]
   },
   "nonGoals": [
