@@ -12,7 +12,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,4 +24,21 @@ jobs:
         with:
           name: qr-wep4-static-build
           path: build/
+          if-no-files-found: error
+      - shell: bash
+        run: |
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          CHROME_REAL="$(readlink -f "$CHROME_BIN")"
+          CHROME_DIR="$(dirname "$CHROME_REAL")"
+          CHROME_PARENT="$(dirname "$CHROME_DIR")"
+          CHROME_BASE="$(basename "$CHROME_DIR")"
+          "$CHROME_BIN" --version | tee /tmp/chrome-version.txt
+          tar -C "$CHROME_PARENT" -czf /tmp/qr-chrome-runtime.tar.gz "$CHROME_BASE"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qr-chrome-runtime
+          path: |
+            /tmp/qr-chrome-runtime.tar.gz
+            /tmp/chrome-version.txt
           if-no-files-found: error
