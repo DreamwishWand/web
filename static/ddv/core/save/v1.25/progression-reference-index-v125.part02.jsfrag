@@ -1,0 +1,121 @@
+s)) continue;
+    for (let i = 0; i < addresses.length; i += 1) {
+      const addr = asObject(addresses[i]);
+      if (!addr || !Number.isSafeInteger(addr.GridID) || !Number.isSafeInteger(addr.GridObjectID)) continue;
+      const resolved = resolveAddress(objectLookup, addr.GridID, addr.GridObjectID);
+      add({
+        sourcePath: `/Player/AchievementsData/${ai}/GridObjectsCollected/GridObjectAddresses/${i}`,
+        sourceType: 'ACHIEVEMENT_COLLECTED_GRID_OBJECT',
+        gridId: addr.GridID, gridObjectId: addr.GridObjectID, itemId: resolved.itemId,
+        activity: Activity.HISTORICAL,
+        lifecycleStateSaveOnly: 'HISTORICAL_COLLECTED_BOOKKEEPING',
+        targetResolution: resolved.resolution,
+        activeOwnershipVeto: false,
+        safetyDisposition: 'PRESERVE_HISTORY_ONLY',
+        evidenceStatus: Evidence.CONFIRMED,
+        evidenceBasis: 'HISTORICAL_COLLECTED_OBJECT_POLICY'
+      });
+    }
+  }
+
+  // Mission/objective collected IDs: historical bookkeeping. GridObjectIdsCollected lacks GridID by schema.
+  walkMissionObjectives(profile, ({ sourceBase, missionId, objective }) => {
+    for (let i = 0; i < (objective.GridObjectIdsCollected?.length ?? 0); i += 1) {
+      const oid = objective.GridObjectIdsCollected[i];
+      if (!Number.isSafeInteger(oid)) continue;
+      add({
+        sourcePath: `${sourceBase}/GridObjectIdsCollected/${i}`,
+        sourceType: 'MISSION_OBJECTIVE_COLLECTED_GRID_OBJECT_ID',
+        gridObjectId: oid,
+        activity: Activity.HISTORICAL,
+        lifecycleStateSaveOnly: 'HISTORICAL_COLLECTED_BOOKKEEPING',
+        targetResolution: 'PARTIAL_IDENTITY_GRID_ID_NOT_SERIALIZED',
+        activeOwnershipVeto: false,
+        safetyDisposition: 'PRESERVE_HISTORY_ONLY',
+        evidenceStatus: Evidence.CONFIRMED,
+        evidenceBasis: 'HISTORICAL_COLLECTED_OBJECT_POLICY',
+        missionId
+      });
+    }
+    for (let i = 0; i < (objective.ItemIdsCollected?.length ?? 0); i += 1) {
+      const itemId = extractItemId(objective.ItemIdsCollected[i]);
+      if (itemId == null) continue;
+      add({
+        sourcePath: `${sourceBase}/ItemIdsCollected/${i}`,
+        sourceType: 'MISSION_OBJECTIVE_COLLECTED_ITEM_ID',
+        itemId,
+        activity: Activity.HISTORICAL,
+        lifecycleStateSaveOnly: 'HISTORICAL_COLLECTED_BOOKKEEPING',
+        activeOwnershipVeto: false,
+        safetyDisposition: 'PRESERVE_HISTORY_ONLY',
+        evidenceStatus: Evidence.CONFIRMED,
+        evidenceBasis: 'HISTORICAL_COLLECTED_OBJECT_POLICY',
+        missionId
+      });
+    }
+  });
+
+  // Duty collected GridObjectAddresses are historical bookkeeping, not active ownership.
+  addDutyHistoricalGridAddresses(profile, objectLookup, add);
+
+  // Other collected/used progression counters are history/progress bookkeeping, not current object ownership.
+  addHistoricalItemLists(profile, add);
+
+  // Keyhole state is current serialized system state, but save alone cannot prove active vs terminal.
+  const keyholes = asObject(asObject(profile.World)?.Keyholes);
+  if (keyholes) {
+    for (const [guid, stateRaw] of Object.entries(keyholes)) {
+      const state = asObject(stateRaw) ?? {};
+      const owners = keyholeOwners.get(guid) ?? [];
+      const distinctItemIds = uniqueInts(owners.map((x) => x.itemId));
+      const related = uniqueInts((Array.isArray(state.Content) ? state.Content : []).map(extractItemId));
+      const candidates = owners.map((x) => ({ gridId: x.gridId, gridObjectId: x.gridObjectId }));
+      const resolution = owners.length === 1 ? owners[0].resolution : owners.length > 1 ? 'AMBIGUOUS_KEYHOLE_OWNER' : 'KEYHOLE_OWNER_NOT_SAVE_LOCAL';
+      add({
+        sourcePath: `/World/Keyholes/${esc(guid)}`,
+        sourceType: 'KEYHOLE_CURRENT_STATE',
+        gridId: owners.length === 1 ? owners[0].gridId : null,
+        gridObjectId: owners.length === 1 ? owners[0].gridObjectId : null,
+        itemId: distinctItemIds.length === 1 ? distinctItemIds[0] : null,
+        relatedItemIds: related,
+        activity: Activity.UNKNOWN,
+        lifecycleStateSaveOnly: 'CURRENT_SYSTEM_STATE_TERMINALITY_UNKNOWN',
+        targetResolution: resolution,
+        activeOwnershipVeto: true,
+        safetyDisposition: 'FAIL_CLOSED_UNKNOWN_SYSTEM_REFERENCE',
+        evidenceStatus: Evidence.HIGH_CONFIDENCE,
+        evidenceBasis: 'SCHEMA624_KEYHOLE_GUID_JOIN_CURRENT_STATE',
+        keyholeGuid: guid,
+        candidateGridObjectAddresses: owners.length > 1 ? candidates : [],
+        notes: ['Current Content is not promoted to ACTIVE ownership from save structure alone. PreviousContent is historical bookkeeping.']
+      });
+
+      const previous = Array.isArray(state.PreviousContent) ? state.PreviousContent : [];
+      for (let i = 0; i < previous.length; i += 1) {
+        const relatedItem = extractItemId(previous[i]);
+        add({
+          sourcePath: `/World/Keyholes/${esc(guid)}/PreviousContent/${i}`,
+          sourceType: 'KEYHOLE_PREVIOUS_CONTENT',
+          gridId: owners.length === 1 ? owners[0].gridId : null,
+          gridObjectId: owners.length === 1 ? owners[0].gridObjectId : null,
+          itemId: distinctItemIds.length === 1 ? distinctItemIds[0] : null,
+          relatedItemIds: relatedItem == null ? [] : [relatedItem],
+          activity: Activity.HISTORICAL,
+          lifecycleStateSaveOnly: 'HISTORICAL_PREVIOUS_CONTENT',
+          targetResolution: resolution,
+          activeOwnershipVeto: false,
+          safetyDisposition: 'PRESERVE_HISTORY_ONLY',
+          evidenceStatus: Evidence.HIGH_CONFIDENCE,
+          evidenceBasis: 'SCHEMA624_PREVIOUS_CONTENT_FIELD',
+          keyholeGuid: guid
+        });
+      }
+    }
+  }
+
+  // Garden child-object reference: same GridID is derivable from owning garden object. Zero means no reference.
+  addGardenSaplingReferences(profile, objectLookup, add);
+
+  if (coverageScan.unknownIdentityBearingPathShapes.length > 0) {
+    for (const path of coverageScan.unknownIdentityBearingPathShapes) {
+      unresolvedSavePaths.push({ sourcePath: path, reason: 'UNCL
