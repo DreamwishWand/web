@@ -348,6 +348,18 @@ async function runSyntheticAcceptance(page, report) {
     true,
     'Tab navigation must reach an editable canvas object'
   );
+  const focusedCanvasStrokeWidth = await page.evaluate(() => {
+    const active = document.activeElement;
+    const cell =
+      active instanceof Element
+        ? active.querySelector('.object-cell')
+        : null;
+    return cell ? getComputedStyle(cell).strokeWidth : '';
+  });
+  assert.ok(
+    Number.parseFloat(focusedCanvasStrokeWidth) >= 0.2,
+    `focused canvas object must have a visible focus stroke; got ${focusedCanvasStrokeWidth}`
+  );
 
   const labelMatch = keyboardObjectLabel.match(
     /^(Editable Chair|Editable Lamp) at (-?\d+), (-?\d+)$/
@@ -400,6 +412,7 @@ async function runSyntheticAcceptance(page, report) {
     mousePrimaryWorkflow: 'PASS',
     keyboardPrimaryWorkflow: 'PASS',
     keyboardTabReachability: 'PASS',
+    keyboardVisibleFocus: 'PASS',
     mixedSelectionAvailability: 'PASS',
     searchAndLayerSelectionReconciliation: 'PASS',
     protectedPresetSource: 'PASS',
