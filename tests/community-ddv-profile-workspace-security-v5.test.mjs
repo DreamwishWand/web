@@ -9,6 +9,10 @@ const command=fs.readFileSync(
   new URL('../supabase/functions/community-command/index.ts',import.meta.url),
   'utf8'
 );
+const generated=fs.readFileSync(
+  new URL('../src/lib/generated/database.types.ts',import.meta.url),
+  'utf8'
+);
 
 assert.match(sql,/ddv_profile_workspace_delete_recent_auth_seconds',900/i);
 assert.match(sql,/ddv_profile_workspace_write',3600,60,true/i);
@@ -40,3 +44,8 @@ assert.ok(!command.includes("createDdvProfileWorkspace: 'ddv_profile_link'"));
 assert.ok(!command.includes("associateDdvIdentity: 'ddv_profile_link'"));
 
 console.log('PASS Profile Workspace delete recent-auth and rate-limit v5 contract');
+
+assert.match(
+  generated,
+  /community_delete_ddv_profile_workspace_v1:[\s\S]*p_auth_subject: string[\s\S]*p_confirmation: string[\s\S]*p_issued_at_epoch: number[\s\S]*p_session_id: string[\s\S]*p_workspace_id: string/
+);
