@@ -47,3 +47,21 @@ test('operation policy does not silently convert no-veto into permission',()=>{
   }
   assert.equal(audit.operationPolicy.PRESET_CAPTURE,'EXCLUDE_WHILE_PROTECTED_OR_UNKNOWN');
 });
+
+
+test('RemoveWhenDone save-side evidence rejects naive completion and liveness inferences',()=>{
+  const remove=audit.gates.find((gate)=>gate.id==='conditionalSpawnRemoveWhenDone');
+  assert.equal(remove.status,'OPEN_NATIVE_SEMANTICS');
+  assert.equal(remove.evidenceLevel,'HIGH_CONFIDENCE_PARTIAL');
+  assert.equal(remove.observedEvidence.staticDefinitionSummary.removeWhenDoneSpawnActionCount,18);
+  assert.equal(remove.observedEvidence.staticDefinitionSummary.targetMissionCount,9);
+  assert.equal(remove.observedEvidence.currentSchema624Samples.switchAndSteamBothContainAllNineMissionsCompleted,true);
+  assert.equal(remove.observedEvidence.currentSchema624Samples.counterexample.removeWhenDone,true);
+  assert.equal(remove.observedEvidence.currentSchema624Samples.counterexample.activeSpawnStateAddressPersistsInBothSamples,true);
+  assert.equal(remove.observedEvidence.currentSchema624Samples.counterexample.referencedTargetMaterializedInSaveLocalGrids,false);
+  assert.equal(remove.observedEvidence.currentSchema624Samples.counterexample.rawGridObjectAddress,'REDACTED_FROM_PUBLIC_REPO');
+  assert.equal(remove.observedEvidence.conclusions.missionCompletionImpliesSpawnStateReferenceRemoved,false);
+  assert.equal(remove.observedEvidence.conclusions.persistedSpawnedObjectsAddressProvesLiveMaterializedObject,false);
+  assert.equal(remove.observedEvidence.conclusions.exactNativeCleanupTimingClosed,false);
+  assert.equal(audit.positiveAuthorization.terminalEditableMutation,false);
+});
