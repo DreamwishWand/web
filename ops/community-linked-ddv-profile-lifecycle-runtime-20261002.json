@@ -69,7 +69,7 @@
       "syntheticAccounts": 0
     },
     "edgeDeployments": {
-      "communityCommand": 21,
+      "communityCommand": 22,
       "communityQuery": 10,
       "communityAdmin": 14
     },
@@ -110,7 +110,7 @@
       "fixed": true,
       "currentValidationRegex": "^[\\x21-\\x7E]+$",
       "currentDomainSeparator": "dreamwishwand/ddv-player-id/v1\\0 (NUL before Player ID)",
-      "deployedVersion": 21,
+      "deployedVersion": 22,
       "regressionTest": "tests/community-ddv-profile-workspace-edge-v1.test.mjs"
     },
     "acceptanceUi": {
@@ -134,7 +134,7 @@
     "rawPlayerIdDatabaseForwarding": false,
     "requiredSecret": "COMMUNITY_DDV_PROFILE_BINDING_KEY_V1",
     "liveRawPlayerIdE2E": "PENDING_STAGING_SECRET_RUNTIME_VERIFICATION",
-    "note": "Workspace lifecycle and Edge source alignment are closed. A live raw Player ID -> Edge HMAC -> identity association request still requires staging secret/runtime verification through an authenticated session."
+    "note": "Workspace lifecycle and Edge source alignment are closed. community-command v22 contains the corrected printable-ASCII validation and real NUL domain separator. A live raw Player ID -> Edge HMAC -> identity association request still requires staging secret/runtime verification through an authenticated session."
   },
   "ownerDecisionsRemaining": [],
   "privacyApproval": "PENDING",
