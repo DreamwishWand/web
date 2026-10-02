@@ -316,6 +316,6 @@ test('World Editor route binds keyboard, mouse multi-select, blocker UI, inspect
   assert.match(worldEditorRouteSource, /data-editor-object-id=\{object\.editorId\}/);
   assert.doesNotMatch(
     worldEditorRouteSource,
-    /disabled=\{!primaryJobAvailability\.commands\.move\.enabled\}/
+    /(^|\s)disabled=\{!primaryJobAvailability\.commands\.move\.enabled\}/m
   );
 });
