@@ -151,6 +151,7 @@ const rawSwitchFixture = {
     },
     Villages: [
       {
+        SceneItemId: 1540000000,
         Areas: {
           '7': {
             GridIDs: [10],
