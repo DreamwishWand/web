@@ -96,6 +96,18 @@ test('all 70 blocker and 24 Core reason identities resolve localized presentatio
   );
 });
 
+test('Character House Core reason is explicitly localized in every non-English launch locale', () => {
+  const code =
+    'CHARACTER_HOUSE_PRESENCE_SIDE_EFFECTS_REQUIRE_DEDICATED_LIFECYCLE';
+  const english = localizeCoreReason(code, 'en');
+  assert.match(english, /Character House/);
+  for (const locale of launchLocales.filter((entry) => entry !== 'en')) {
+    const localized = localizeCoreReason(code, locale);
+    assert.notEqual(localized, english, locale);
+    assert.ok(localized.length > 0, locale);
+  }
+});
+
 test('every static World Editor message key referenced by the route resolves in every launch locale', () => {
   const keys = [...routeSource.matchAll(/['"](worldEditor\.[a-zA-Z0-9.]+)['"]/g)]
     .map((match) => match[1]);
@@ -227,4 +239,10 @@ test('World Editor route retains machine values and persistent writer boundary w
   assert.match(routeSource, /worldEditor\.scene\.captureBlocked/);
   assert.match(routeSource, /worldEditor\.fullDesign\.preflightBoundary/);
   assert.match(routeSource, /worldEditor\.progression\.explanation/);
+  assert.match(routeSource, /bind:value=\{query\}/);
+  assert.match(routeSource, /wep-reason-move/);
+  assert.match(
+    routeSource,
+    /tabindex=\{object\.editorId === canvasFocusEditorId \? 0 : -1\}/
+  );
 });
