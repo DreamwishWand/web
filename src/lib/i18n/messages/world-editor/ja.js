@@ -185,7 +185,7 @@ const copy = {
   'worldEditor.canvas.ariaLabel': 'World Editor top-down canvas',
   'worldEditor.canvas.visibleCount': '{count}件表示',
   'worldEditor.canvas.mouseHelp': 'マウス: クリックで選択 · Ctrl/⌘/Shift+クリックで複数選択',
-  'worldEditor.canvas.keyboardHelp': 'キーボード: 矢印で移動 · Rで回転 · Ctrl/⌘ C/V/D · Delete · Ctrl/⌘ Z · Shift+ZでRedo · Escで選択解除',
+  'worldEditor.canvas.keyboardHelp': "キーボード: TabでCanvasへ · [ / ]でフォーカス移動 · Enterで選択 · 矢印で移動 · Rで回転 · Ctrl/⌘ C/V/D · Delete · Ctrl/⌘ Z · Shift+ZでRedo · Escで選択解除",
   'worldEditor.canvas.roadFenceLocked': 'Road / Fenceはcapability未接続時にlocked表示されます。',
   'worldEditor.canvas.backupReady': '原本バックアップ: byte-exact local download準備完了',
   'worldEditor.canvas.backupNotLoaded': '原本バックアップ: 未読込',
