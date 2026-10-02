@@ -474,7 +474,7 @@ async function runSyntheticAcceptance(page, report) {
   assert.equal(await page.getByRole('button', { name: 'Capture Preview' }).isEnabled(), true);
   await page.getByRole('button', { name: 'Capture Preview' }).click();
   await expectContains(page.locator('.status'), 'Scene Preset capture blocked.');
-  await expectContains(page.locator('.status'), 'not silently included in portable source content');
+  await expectContains(page.locator('.status'), 'never silently included in portable source content');
   assert.equal(await page.locator('.artifact-summary').count(), 0);
 
   await page.screenshot({
