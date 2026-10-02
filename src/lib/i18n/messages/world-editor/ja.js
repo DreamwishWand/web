@@ -585,6 +585,7 @@ const coreReasonSpecific = {
   MISSION_ITEM_READ_ONLY: 'このobjectはcurrent Core mission-item policyで保護され、inspectはできますがmutationはできません。',
   PROTECTED_PROGRESSION_OBJECT_CONFLICT: 'このobjectはprogression/system ownershipで保護され、上書きやportable contentとしての扱いはできません。',
   UNKNOWN_BUILDING_SEMANTICS: 'CoreがこのItemIDをsafe ordinary Buildingとして証明できないためmutationは無効です。',
+  CHARACTER_HOUSE_PRESENCE_SIDE_EFFECTS_REQUIRE_DEDICATED_LIFECYCLE: "このCharacter Houseはcharacter-presence lifecycle stateと結び付いているため、generic mutationは無効です。",
   WORLD_OBJECT_NOT_EDITABLE: '選択中のobjectにcurrent Core projectionでread-onlyまたはblockedのものが含まれています。'
 };
 
