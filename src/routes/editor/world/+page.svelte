@@ -2785,123 +2785,138 @@
       <main class="editor-shell">
         <div class="editor-toolbar">
           <div>
-            <span class="toolbar-label">DRAFT TOOLS</span>
-            <strong>{selectedCount} selected</strong>
+            <span class="toolbar-label">{t('worldEditor.toolbar.eyebrow', {}, $locale)}</span>
+            <strong>{t('worldEditor.toolbar.selectedCount', { count: selectedCount }, $locale)}</strong>
           </div>
           <div class="toolbar-actions">
             <button
               disabled={!primaryJobAvailability.commands.move.enabled}
               on:click={() => runPrimaryMutation('move', 'left')}
-              aria-label="Move left"
+              aria-label={t('worldEditor.command.moveLeftAria', {}, $locale)}
             >←</button>
             <button
               disabled={!primaryJobAvailability.commands.move.enabled}
               on:click={() => runPrimaryMutation('move', 'up')}
-              aria-label="Move up"
+              aria-label={t('worldEditor.command.moveUpAria', {}, $locale)}
             >↑</button>
             <button
               disabled={!primaryJobAvailability.commands.move.enabled}
               on:click={() => runPrimaryMutation('move', 'down')}
-              aria-label="Move down"
+              aria-label={t('worldEditor.command.moveDownAria', {}, $locale)}
             >↓</button>
             <button
               disabled={!primaryJobAvailability.commands.move.enabled}
               on:click={() => runPrimaryMutation('move', 'right')}
-              aria-label="Move right"
+              aria-label={t('worldEditor.command.moveRightAria', {}, $locale)}
             >→</button>
             <button
               disabled={!primaryJobAvailability.commands.rotate.enabled}
               on:click={() => runPrimaryMutation('rotate', 'rotate')}
-            >Rotate</button>
+            >{t('worldEditor.command.rotate', {}, $locale)}</button>
             <button
               disabled={!primaryJobAvailability.commands.copy.enabled}
               on:click={runPrimaryCopy}
-            >Copy</button>
+            >{t('worldEditor.command.copy', {}, $locale)}</button>
             <button
               disabled={!primaryJobAvailability.commands.paste.enabled}
               on:click={runPrimaryPaste}
-            >Paste</button>
+            >{t('worldEditor.command.paste', {}, $locale)}</button>
             <button
               disabled={!primaryJobAvailability.commands.duplicate.enabled}
               on:click={() => runPrimaryMutation('duplicate', 'duplicate')}
-            >Duplicate</button>
+            >{t('worldEditor.command.duplicate', {}, $locale)}</button>
             <button
               disabled={!primaryJobAvailability.commands.delete.enabled}
               on:click={() => runPrimaryMutation('delete', 'delete')}
-            >Delete</button>
+            >{t('worldEditor.command.delete', {}, $locale)}</button>
             <button
               disabled={!primaryJobAvailability.commands.undo.enabled}
               on:click={runPrimaryUndo}
-            >Undo</button>
+            >{t('worldEditor.command.undo', {}, $locale)}</button>
             <button
               disabled={!primaryJobAvailability.commands.redo.enabled}
               on:click={runPrimaryRedo}
-            >Redo</button>
+            >{t('worldEditor.command.redo', {}, $locale)}</button>
             <button
               class="save-prep"
               disabled={!primaryJobAvailability.commands.reviewSavePrep.enabled}
               on:click={runPrimarySavePrep}
-            >Review Save Prep</button>
+            >{t('worldEditor.command.reviewSavePrep', {}, $locale)}</button>
             <button
               class="save-prep"
               disabled={!primaryJobAvailability.commands.downloadOriginalBackup.enabled}
               on:click={runPrimaryOriginalBackup}
-            >Download Original Backup</button>
+            >{t('worldEditor.command.downloadOriginalBackup', {}, $locale)}</button>
           </div>
         </div>
 
         <div class="draft-status" aria-live="polite">
           <span>
-            Draft authoring
-            <strong>{mutationBound ? 'Available' : 'Read-only'}</strong>
+            {t('worldEditor.status.draftAuthoring', {}, $locale)}
+            <strong>{mutationBound
+              ? t('worldEditor.status.available', {}, $locale)
+              : t('worldEditor.status.readOnly', {}, $locale)}</strong>
           </span>
           <span>
-            Last command
-            <strong>{lastDraftCommand || 'None'}</strong>
+            {t('worldEditor.status.lastCommand', {}, $locale)}
+            <strong>{lastDraftCommand || t('worldEditor.status.none', {}, $locale)}</strong>
           </span>
           <span>
-            Validation
-            <strong>
-              {validationPresentation.label}
-            </strong>
+            {t('worldEditor.status.validation', {}, $locale)}
+            <strong>{validationPresentation.status === 'VALID'
+              ? t('worldEditor.validation.pass', {}, $locale)
+              : validationPresentation.status === 'NOT_RUN'
+                ? t('worldEditor.validation.notRun', {}, $locale)
+                : t('worldEditor.validation.blocked', {}, $locale)}</strong>
           </span>
           <span>
-            Clipboard
+            {t('worldEditor.status.clipboard', {}, $locale)}
             <strong>
               {copiedDraftClipboard?.graph?.length
-                ? `${copiedDraftClipboard.graph.length} object graph`
-                : 'Empty'}
+                ? t(
+                    'worldEditor.status.objectGraph',
+                    { count: copiedDraftClipboard.graph.length },
+                    $locale
+                  )
+                : t('worldEditor.status.empty', {}, $locale)}
             </strong>
           </span>
           <span>
-            Original backup
+            {t('worldEditor.status.originalBackup', {}, $locale)}
             <strong>
               {originalSaveBackup
-                ? `${originalSaveBackup.byteLength} bytes ready`
-                : 'Unavailable'}
+                ? t(
+                    'worldEditor.status.bytesReady',
+                    { byteLength: originalSaveBackup.byteLength },
+                    $locale
+                  )
+                : t('worldEditor.status.unavailable', {}, $locale)}
             </strong>
           </span>
           <span>
-            Persistent save
-            <strong>Unavailable</strong>
+            {t('worldEditor.status.persistentSave', {}, $locale)}
+            <strong>{t('worldEditor.status.unavailable', {}, $locale)}</strong>
           </span>
         </div>
         <div class="command-availability" aria-live="polite">
-          <strong>Unavailable actions</strong>
+          <strong>{t('worldEditor.status.unavailableActions', {}, $locale)}</strong>
           {#each Object.entries(primaryJobAvailability.commands) as [command, state]}
             {#if !state.enabled}
               <span>
-                <b>{PRIMARY_COMMAND_LABELS[command] ?? command}</b>
-                {state.reason}
+                <b>{commandLabelText(command)}</b>
+                {commandReasonText(command, state)}
               </span>
             {/if}
           {/each}
         </div>
         {#if validationPresentation.groups.length}
-          <div class="validation-groups" aria-label="Draft validation categories">
+          <div
+            class="validation-groups"
+            aria-label={t('worldEditor.validation.categoriesAria', {}, $locale)}
+          >
             {#each validationPresentation.groups as group}
               <span>
-                <strong>{group.label}</strong>
+                <strong>{validationGroupText(group)}</strong>
                 <code>{group.codes.join(' · ')}</code>
               </span>
             {/each}
@@ -2923,7 +2938,7 @@
             class="world-canvas"
             viewBox={`${areaBounds.x} ${areaBounds.y} ${areaBounds.w} ${areaBounds.h}`}
             preserveAspectRatio="xMidYMid meet"
-            aria-label="World Editor top-down canvas"
+            aria-label={t('worldEditor.canvas.ariaLabel', {}, $locale)}
           >
             <defs>
               <pattern
@@ -2957,7 +2972,15 @@
                 class:locked={object.ui.locked}
                 role="button"
                 tabindex="0"
-                aria-label={`${object.metadata?.displayName ?? object.itemId} at ${object.x}, ${object.y}`}
+                aria-label={t(
+                  'worldEditor.canvas.objectAria',
+                  {
+                    name: object.metadata?.displayName ?? object.itemId,
+                    x: object.x,
+                    y: object.y
+                  },
+                  $locale
+                )}
                 data-editor-object="true"
                 on:click|stopPropagation={(event) =>
                   selectObject(
@@ -2989,29 +3012,24 @@
         </div>
 
         <div class="canvas-footer">
-          <span>{projected.length} visible</span>
+          <span>{t('worldEditor.canvas.visibleCount', { count: projected.length }, $locale)}</span>
+          <span>{t('worldEditor.canvas.mouseHelp', {}, $locale)}</span>
+          <span>{t('worldEditor.canvas.keyboardHelp', {}, $locale)}</span>
+          <span>{t('worldEditor.canvas.roadFenceLocked', {}, $locale)}</span>
           <span>
-            Mouse: click selects · Ctrl/⌘/Shift-click multi-selects
+            {originalSaveBackup
+              ? t('worldEditor.canvas.backupReady', {}, $locale)
+              : t('worldEditor.canvas.backupNotLoaded', {}, $locale)}
           </span>
-          <span>
-            Keyboard: arrows move · R rotate · Ctrl/⌘ C/V/D · Delete · Ctrl/⌘ Z · Shift+Z redo · Esc clear
-          </span>
-          <span>
-            Road / Fenceはcapability未接続時にlocked表示されます。
-          </span>
-          <span>
-            Original backup:
-            {originalSaveBackup ? 'byte-exact local download ready' : 'not loaded'}
-          </span>
-          <span>Persistent write: disabled</span>
+          <span>{t('worldEditor.canvas.persistentWriteDisabled', {}, $locale)}</span>
         </div>
         {#if draftSavePreparation}
           <div class="save-preparation">
-            <strong>Save preparation</strong>
+            <strong>{t('worldEditor.savePrep.title', {}, $locale)}</strong>
             <span>
               {draftSavePreparation.writeReady
-                ? 'Writer contract ready'
-                : 'Blocked before persistent commit'}
+                ? t('worldEditor.savePrep.writerReady', {}, $locale)
+                : t('worldEditor.savePrep.blocked', {}, $locale)}
             </span>
             <code>{draftSavePreparation.reason}</code>
             <small>
