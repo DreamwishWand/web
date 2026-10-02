@@ -179,8 +179,11 @@ function normalizeStore(raw:AnyRecord) {
 }
 
 function storesFromProfile(profile:AnyRecord) {
-  return Array.isArray(profile?.ProfileWorld?.Stores)
-    ? profile.ProfileWorld.Stores
+  if (Array.isArray(profile?.ProfileWorld?.Stores)) {
+    return profile.ProfileWorld.Stores;
+  }
+  return Array.isArray(profile?.World?.Stores)
+    ? profile.World.Stores
     : null;
 }
 
