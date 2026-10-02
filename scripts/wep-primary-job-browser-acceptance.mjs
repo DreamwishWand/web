@@ -273,6 +273,44 @@ async function assertNoHorizontalOverflow(locator, label) {
   }
 }
 
+async function horizontalOverflowOffenders(page) {
+  return page.evaluate(() => {
+    const viewportWidth = window.innerWidth;
+    return [...document.querySelectorAll('body *')]
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return {
+          tag: element.tagName.toLowerCase(),
+          className: String(element.className ?? '').slice(0, 160),
+          dataSurface: element.getAttribute('data-wep-surface'),
+          text: String(element.textContent ?? '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 180),
+          left: Math.round(rect.left),
+          right: Math.round(rect.right),
+          width: Math.round(rect.width),
+          clientWidth: element.clientWidth,
+          scrollWidth: element.scrollWidth,
+          whiteSpace: style.whiteSpace,
+          minWidth: style.minWidth,
+          overflowX: style.overflowX
+        };
+      })
+      .filter((entry) =>
+        entry.width > 0 &&
+        (
+          entry.right > viewportWidth + 2 ||
+          entry.left < -2 ||
+          entry.scrollWidth > entry.clientWidth + 2
+        )
+      )
+      .sort((a, b) => (b.right - viewportWidth) - (a.right - viewportWidth))
+      .slice(0, 20);
+  });
+}
+
 async function editorSemanticSnapshot(page) {
   return {
     selectedCount: await page.locator('g.selected[data-editor-object]').count(),
@@ -343,11 +381,21 @@ async function runLocaleLayoutAcceptance(page, report) {
       htmlLang: document.documentElement.lang,
       dataLocale: document.documentElement.dataset.locale
     }));
-    assert.ok(
-      pageMetrics.scrollWidth <= pageMetrics.innerWidth + 2,
-      locale + ': page has horizontal overflow ' +
-        pageMetrics.scrollWidth + ' > ' + pageMetrics.innerWidth
-    );
+    if (pageMetrics.scrollWidth > pageMetrics.innerWidth + 2) {
+      const offenders = await horizontalOverflowOffenders(page);
+      await page.screenshot({
+        path: path.join(
+          artifactsDir,
+          'locale-' + locale.replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '-overflow.png'
+        ),
+        fullPage: true
+      });
+      assert.fail(
+        locale + ': page has horizontal overflow ' +
+          pageMetrics.scrollWidth + ' > ' + pageMetrics.innerWidth +
+          '; offenders=' + JSON.stringify(offenders)
+      );
+    }
     assert.equal(pageMetrics.htmlLang, locale);
     assert.equal(pageMetrics.dataLocale, locale);
 
