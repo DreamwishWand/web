@@ -579,15 +579,21 @@ async function runSyntheticAcceptance(page, report) {
     page.locator('.command-availability'),
     'Core cannot prove safe user ownership for this progression-risk object'
   );
-  const disabledMove = toolbar.getByRole('button', { name: 'Move right' });
-  assert.equal(await disabledMove.getAttribute('aria-disabled'), 'true');
-  const describedBy = await disabledMove.getAttribute('aria-describedby');
-  assert.equal(describedBy, 'wep-reason-move');
-  assert.equal(
-    await page.locator('#' + describedBy).count(),
-    1,
-    'disabled primary command reason must be programmatically associated'
-  );
+  for (const name of ['Move left', 'Move up', 'Move down', 'Move right']) {
+    const disabledMove = toolbar.getByRole('button', { name });
+    assert.equal(
+      await disabledMove.getAttribute('aria-disabled'),
+      'true',
+      name
+    );
+    const describedBy = await disabledMove.getAttribute('aria-describedby');
+    assert.equal(describedBy, 'wep-reason-move', name);
+    assert.equal(
+      await page.locator('#' + describedBy).count(),
+      1,
+      name + ': disabled primary command reason must be programmatically associated'
+    );
+  }
 
   // Protected source content must fail closed with an actionable Preset reason.
   await page.getByRole('button', { name: 'Clear selection' }).click();
