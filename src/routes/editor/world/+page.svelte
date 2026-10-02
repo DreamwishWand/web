@@ -2439,44 +2439,44 @@
 <svelte:window on:keydown={handlePrimaryJobKeydown} />
 
 <svelte:head>
-  <title>World Editor | Dreamwish Wand</title>
+  <title>{t('worldEditor.meta.title', {}, $locale)}</title>
   <meta
     name="description"
-    content="Dreamwish Wand World Editor — inspect WEP EditorDocuments, capture portable Scene Presets and publish them without writing to DDV saves."
+    content={t('worldEditor.meta.description', {}, $locale)}
   />
 </svelte:head>
 
 <section class="world-page container">
   <div class="world-heading">
     <div>
-      <p class="eyebrow">DECORATE / WORLD EDITOR</p>
-      <h1>World Editor</h1>
+      <p class="eyebrow">{t('worldEditor.nav.eyebrow', {}, $locale)}</p>
+      <h1>{t('worldEditor.nav.title', {}, $locale)}</h1>
       <p class="page-intro">
-        WEP EditorDocumentをローカルで表示・選択し、portable Scene Presetへcaptureします。
+        WEP EditorDocumentをローカルで表示・選択し、portable {t('worldEditor.fence.scenePreset', {}, $locale)}へcaptureします。
         現在の製品surfaceからDDVセーブへpersistent writeは行いません。
       </p>
     </div>
-    <a class="preset-link" href={`${base}/presets/`}>Presetsを見る →</a>
+    <a class="preset-link" href={`${base}/presets/`}>{t('worldEditor.nav.presets', {}, $locale)}</a>
   </div>
 
   <section class="load-panel">
     <div>
-      <p class="eyebrow">LOCAL INPUT</p>
-      <h2>Open DDV Save / EditorDocument</h2>
+      <p class="eyebrow">{t('worldEditor.open.eyebrow', {}, $locale)}</p>
+      <h2>{t('worldEditor.open.title', {}, $locale)}</h2>
       <p>
         暗号化された通常DDV profile、復号済み <code>profile.json</code>、
         または <code>dreamwish-wand-wep-editor-document</code> をブラウザ内で読み込みます。
-        raw saveを開く場合だけ、ファイルを取得したstorage platformを指定してください。
-        ファイル内容はPublishを実行するまでCommunityへ送信しません。
+        raw saveを開く場合だけ、{t('worldEditor.target.file', {}, $locale)}を取得したstorage platformを指定してください。
+        {t('worldEditor.target.file', {}, $locale)}内容はPublishを実行するまで{t('worldEditor.scene.community', {}, $locale)}へ送信しません。
       </p>
     </div>
     <div class="load-controls">
       <label class="platform-select">
-        <span>Source platform</span>
+        <span>{t('worldEditor.open.source{t('worldEditor.target.platform', {}, $locale)}', {}, $locale)}</span>
         <select bind:value={sourcePlatform} disabled={loading}>
-          <option value="unknown">Unknown / choose later</option>
-          <option value="switch">Nintendo Switch</option>
-          <option value="steam-windows">Steam / Windows</option>
+          <option value="unknown">{t('worldEditor.open.{t('worldEditor.store.unknown', {}, $locale)}{t('worldEditor.target.platform', {}, $locale)}', {}, $locale)}</option>
+          <option value="switch">{t('worldEditor.open.switch', {}, $locale)}</option>
+          <option value="steam-windows">{t('worldEditor.open.steamWindows', {}, $locale)}</option>
         </select>
       </label>
       <label class="file-button">
@@ -2486,7 +2486,7 @@
           on:change={openEditorDocument}
           disabled={loading}
         />
-        {fileName ? '別のファイルを開く' : 'DDV Save / EditorDocumentを開く'}
+        {fileName ? t('worldEditor.open.openAnotherFile', {}, $locale) : t('worldEditor.open.title', {}, $locale)}
       </label>
     </div>
   </section>
@@ -2499,64 +2499,64 @@
     <div class="workspace">
       <aside class="sidebar">
         <section class="side-card">
-          <p class="eyebrow">TARGET</p>
+          <p class="eyebrow">{t('worldEditor.target.eyebrow', {}, $locale)}</p>
           <dl>
-            <div><dt>File</dt><dd>{fileName || '—'}</dd></div>
-            <div><dt>Game</dt><dd>{editorDocument.target?.gameVersion ?? '—'}</dd></div>
-            <div><dt>Platform</dt><dd>{editorDocument.target?.platform ?? '—'}</dd></div>
-            <div><dt>Area</dt><dd>{editorDocument.target?.areaKey ?? '—'}</dd></div>
-            <div><dt>Objects</dt><dd>{objectCount}</dd></div>
-            <div><dt>Selected</dt><dd>{selectedCount}</dd></div>
+            <div><dt>{t('worldEditor.target.file', {}, $locale)}</dt><dd>{fileName || '—'}</dd></div>
+            <div><dt>{t('worldEditor.target.game', {}, $locale)}</dt><dd>{editorDocument.target?.gameVersion ?? '—'}</dd></div>
+            <div><dt>{t('worldEditor.target.platform', {}, $locale)}</dt><dd>{editorDocument.target?.platform ?? '—'}</dd></div>
+            <div><dt>{t('worldEditor.target.area', {}, $locale)}</dt><dd>{editorDocument.target?.areaKey ?? '—'}</dd></div>
+            <div><dt>{t('worldEditor.target.objects', {}, $locale)}</dt><dd>{objectCount}</dd></div>
+            <div><dt>{t('worldEditor.target.selected', {}, $locale)}</dt><dd>{selectedCount}</dd></div>
           </dl>
           <p class:blocked={!mutationBound} class="binding-state">
             {mutationBound
               ? editorDocument.target?.platform === 'synthetic'
-                ? 'Synthetic draft authoring'
-                : 'Core-bound local draft authoring · persistent write OFF'
-              : 'Read-only target · no trusted draft authoring binding'}
+                ? t('worldEditor.target.syntheticDraft', {}, $locale)
+                : t('worldEditor.target.coreBoundDraft', {}, $locale)
+              : t('worldEditor.target.readOnly', {}, $locale)}
           </p>
           {#if worldSource}
             <button class="back-to-routes" on:click={returnToSaveRoutes}>
-              ← Area / Grid一覧へ戻る
+              {t('worldEditor.nav.backTo{t('worldEditor.placement.route', {}, $locale)}s', {}, $locale)}
             </button>
           {/if}
         </section>
 
         {#if placementReadiness}
           <section class="side-card placement-readiness-card">
-            <p class="eyebrow">PLACEMENT READINESS</p>
+            <p class="eyebrow">{t('worldEditor.placement.eyebrow', {}, $locale)}</p>
             <dl>
               <div>
-                <dt>Route</dt>
-                <dd>{placementReadiness.route.status === 'RESOLVED' ? 'Resolved' : 'Blocked'}</dd>
+                <dt>{t('worldEditor.placement.route', {}, $locale)}</dt>
+                <dd>{placementReadiness.route.status === 'RESOLVED' ? t('worldEditor.placement.resolved', {}, $locale) : t('worldEditor.placement.blocked', {}, $locale)}</dd>
               </div>
               <div>
-                <dt>Bounds</dt>
-                <dd>{placementReadiness.bounds.status === 'AUTHORITATIVE' ? 'Authoritative · 01B v1.7' : 'Blocked'}</dd>
+                <dt>{t('worldEditor.placement.bounds', {}, $locale)}</dt>
+                <dd>{placementReadiness.bounds.status === 'AUTHORITATIVE' ? t('worldEditor.placement.authoritativeBounds', {}, $locale) : t('worldEditor.placement.blocked', {}, $locale)}</dd>
               </div>
               <div>
-                <dt>Legality</dt>
+                <dt>{t('worldEditor.placement.legality', {}, $locale)}</dt>
                 <dd>
                   {draftValidation
                     ? draftValidation.ok
-                      ? 'Current command PASS'
-                      : 'Blocked / unverified'
+                      ? t('worldEditor.placement.currentCommandPass', {}, $locale)
+                      : t('worldEditor.placement.blockedUnverified', {}, $locale)
                     : draftAuthoringBound
-                      ? 'v1.9 bound · command-specific'
-                      : 'Not bound'}
+                      ? t('worldEditor.placement.commandSpecific', {}, $locale)
+                      : t('worldEditor.placement.notBound', {}, $locale)}
                 </dd>
               </div>
               <div>
-                <dt>DDV write</dt>
-                <dd>Disabled</dd>
+                <dt>{t('worldEditor.placement.ddvWrite', {}, $locale)}</dt>
+                <dd>{t('worldEditor.placement.disabled', {}, $locale)}</dd>
               </div>
             </dl>
             <p class="placement-readiness-note">
               {placementReadiness.bounds.status !== 'AUTHORITATIVE'
                 ? placementReadiness.bounds.blocker
                 : draftAuthoringBound
-                  ? 'v1.8 FloorType and v1.9 native placement are evaluated after each draft command. exactBuildKnown=false remains an explicit blocker and is never promoted to VALID.'
-                  : 'Authoritative bounds are available; native placement remains unavailable until a trusted Core draft binding is attached.'}
+                  ? t('worldEditor.placement.boundNote', {}, $locale)
+                  : t('worldEditor.placement.unboundNote', {}, $locale)}
             </p>
           </section>
         {/if}
@@ -2566,41 +2566,41 @@
             class="side-card progression-safety-card"
             aria-labelledby="progression-safety-title"
           >
-            <p class="eyebrow">PROGRESSION SAFETY</p>
-            <h3 id="progression-safety-title">Dependency evidence ≠ permission</h3>
+            <p class="eyebrow">{t('worldEditor.progression.eyebrow', {}, $locale)}</p>
+            <h3 id="progression-safety-title">{t('worldEditor.progression.title', {}, $locale)}</h3>
             <dl>
               <div>
-                <dt>Quest graph</dt>
+                <dt>{t('worldEditor.progression.questGraph', {}, $locale)}</dt>
                 <dd>{progressionProofStatus.questDefinitionGraph}</dd>
               </div>
               <div>
-                <dt>Save refs</dt>
+                <dt>{t('worldEditor.progression.saveRefs', {}, $locale)}</dt>
                 <dd>{progressionProofStatus.saveProgressionReferenceIndex}</dd>
               </div>
               <div>
-                <dt>Terminal edit</dt>
-                <dd>{progressionProofStatus.terminalEditableMutationAuthorized ? 'Authorized' : 'Not authorized'}</dd>
+                <dt>{t('worldEditor.progression.terminalEdit', {}, $locale)}</dt>
+                <dd>{progressionProofStatus.terminalEditableMutationAuthorized ? t('worldEditor.progression.authorized', {}, $locale) : t('worldEditor.progression.notAuthorized', {}, $locale)}</dd>
               </div>
               <div>
-                <dt>Positive permission</dt>
-                <dd>{progressionProofStatus.positivePermissionGranted ? 'Granted' : 'Not granted'}</dd>
+                <dt>{t('worldEditor.progression.positivePermission', {}, $locale)}</dt>
+                <dd>{progressionProofStatus.positivePermissionGranted ? t('worldEditor.progression.granted', {}, $locale) : t('worldEditor.progression.notGranted', {}, $locale)}</dd>
               </div>
               <div>
-                <dt>Persistent write</dt>
-                <dd>{progressionProofStatus.persistentWriteAuthorized ? 'Authorized' : 'Disabled'}</dd>
+                <dt>{t('worldEditor.progression.persistentWrite', {}, $locale)}</dt>
+                <dd>{progressionProofStatus.persistentWriteAuthorized ? t('worldEditor.progression.authorized', {}, $locale) : t('worldEditor.placement.disabled', {}, $locale)}</dd>
               </div>
             </dl>
-            <div class="progression-proof-gates" aria-label="Remaining progression proof gates">
+            <div class="progression-proof-gates" aria-label={t('worldEditor.progression.remainingGates', {}, $locale)}>
               <span>
-                Spawn/remove proof
+                {t('worldEditor.progression.spawnRemoveProof', {}, $locale)}
                 <strong>{progressionProofStatus.conditionalSpawnRemoveWhenDone}</strong>
               </span>
               <span>
-                Native consumer exclusion
+                {t('worldEditor.progression.nativeConsumerExclusion', {}, $locale)}
                 <strong>{progressionProofStatus.dynamicNativeConsumerExclusion}</strong>
               </span>
               <span>
-                Serialized state compatibility
+                {t('worldEditor.progression.serialized{t('worldEditor.inspector.state', {}, $locale)}Compatibility', {}, $locale)}
                 <strong>{progressionProofStatus.objectSerializedStateCompatibility}</strong>
               </span>
             </div>
@@ -2613,16 +2613,16 @@
         {/if}
 
         <section class="side-card">
-          <p class="eyebrow">LAYERS</p>
+          <p class="eyebrow">{t('worldEditor.layers.eyebrow', {}, $locale)}</p>
           <div class="layer-list">
             {#each WEP_LAYERS as layer}
               <button
                 class:off={!layerState[layer].visible}
-                on:click={() => toggleLayer(layer)}
+                on:click={() => toggle{t('worldEditor.inspector.layer', {}, $locale)}(layer)}
               >
                 <span>{layer}</span>
                 <small>
-                  {layerState[layer].locked ? 'locked' : 'selectable'}
+                  {layerState[layer].locked ? t('worldEditor.layers.locked', {}, $locale) : t('worldEditor.layers.selectable', {}, $locale)}
                 </small>
               </button>
             {/each}
@@ -2630,45 +2630,45 @@
         </section>
 
         <section class="side-card">
-          <p class="eyebrow">SEARCH</p>
+          <p class="eyebrow">{t('worldEditor.search.eyebrow', {}, $locale)}</p>
           <input
             value={query}
             on:input={(event) =>
-              setQuery((event.currentTarget as HTMLInputElement).value)}
-            placeholder="Item ID / name / tag"
-            aria-label="World object search"
+              setQuery((event.current{t('worldEditor.floating.target', {}, $locale)} as HTML{t('worldEditor.routes.input', {}, $locale)}Element).value)}
+            placeholder="{t('worldEditor.search.placeholder', {}, $locale)}"
+            aria-label="{t('worldEditor.search.ariaLabel', {}, $locale)}"
           />
           <div class="selection-actions">
-            <button on:click={selectAllVisible}>Visibleを選択</button>
+            <button on:click={selectAllVisible}>{t('worldEditor.search.selectVisible', {}, $locale)}</button>
             <button
               class:active={selectedOnly}
               disabled={!selection.length && !selectedOnly}
               on:click={toggleSelectedOnly}
-            >選択のみ</button>
-            <button on:click={clearSelection}>選択解除</button>
+            >{t('worldEditor.search.selectedOnly', {}, $locale)}</button>
+            <button on:click={clearSelection}>{t('worldEditor.search.clearSelection', {}, $locale)}</button>
           </div>
           <small class="selection-scope-note">
-            Search / layer filters define the command-visible selection scope. Objects hidden by a filter are removed from the active selection before Move / Rotate / Duplicate / Delete.
+            {t('worldEditor.search.scopeNote', {}, $locale)}
           </small>
         </section>
 
         <section class="side-card object-inspector">
-          <p class="eyebrow">OBJECT INSPECTOR</p>
-          <h3>Selected Object</h3>
+          <p class="eyebrow">{t('worldEditor.inspector.eyebrow', {}, $locale)}</p>
+          <h3>{t('worldEditor.inspector.title', {}, $locale)}</h3>
           {#if objectInspector.selection.kind === 'NONE'}
-            <p class="inspector-note">Select an object to inspect it. Read-only and protected objects remain inspectable.</p>
+            <p class="inspector-note">{t('worldEditor.inspector.none', {}, $locale)}</p>
           {:else if objectInspector.selection.kind === 'MULTI'}
             <p class="inspector-note">
-              {objectInspector.selection.count} objects selected. Common Actions apply only when every selected object is editable under the current Core projection.
+              {objectInspector.selection.count} objects selected. {t('worldEditor.inspector.commonActions', {}, $locale)} apply only when every selected object is editable under the current Core projection.
             </p>
           {:else if selectedInspectorObject}
             <dl class="inspector-details">
-              <div><dt>Item ID</dt><dd>{selectedInspectorObject.itemId}</dd></div>
-              <div><dt>Layer</dt><dd>{selectedInspectorObject.layer}</dd></div>
-              <div><dt>Editability</dt><dd>{selectedInspectorObject.editability}</dd></div>
-              <div><dt>Position</dt><dd>{selectedInspectorObject.x}, {selectedInspectorObject.y}</dd></div>
-              <div><dt>Orientation</dt><dd>{selectedInspectorObject.orientation}</dd></div>
-              <div><dt>State</dt><dd>{selectedInspectorObject.stateKind ?? 'none'}</dd></div>
+              <div><dt>{t('worldEditor.inspector.itemId', {}, $locale)}</dt><dd>{selectedInspectorObject.itemId}</dd></div>
+              <div><dt>{t('worldEditor.inspector.layer', {}, $locale)}</dt><dd>{selectedInspectorObject.layer}</dd></div>
+              <div><dt>{t('worldEditor.inspector.editability', {}, $locale)}</dt><dd>{selectedInspectorObject.editability}</dd></div>
+              <div><dt>{t('worldEditor.inspector.position', {}, $locale)}</dt><dd>{selectedInspectorObject.x}, {selectedInspectorObject.y}</dd></div>
+              <div><dt>{t('worldEditor.inspector.orientation', {}, $locale)}</dt><dd>{selectedInspectorObject.orientation}</dd></div>
+              <div><dt>{t('worldEditor.inspector.state', {}, $locale)}</dt><dd>{selectedInspectorObject.stateKind ?? 'none'}</dd></div>
             </dl>
             {#if selectedInspectorObject.reasonCodes.length}
               <div class="inspector-reasons">
@@ -2679,56 +2679,56 @@
             {/if}
           {/if}
 
-          <h4>Common Actions</h4>
+          <h4>{t('worldEditor.inspector.commonActions', {}, $locale)}</h4>
           <div class="inspector-common-actions">
-            <button disabled={!primaryJobAvailability.commands.move.enabled} on:click={() => runPrimaryMutation('move', 'right')}>Move →</button>
-            <button disabled={!primaryJobAvailability.commands.rotate.enabled} on:click={() => runPrimaryMutation('rotate', 'rotate')}>Rotate</button>
-            <button disabled={!primaryJobAvailability.commands.copy.enabled} on:click={runPrimaryCopy}>Copy</button>
-            <button disabled={!primaryJobAvailability.commands.duplicate.enabled} on:click={() => runPrimaryMutation('duplicate', 'duplicate')}>Duplicate</button>
-            <button disabled={!primaryJobAvailability.commands.delete.enabled} on:click={() => runPrimaryMutation('delete', 'delete')}>Delete draft</button>
+            <button disabled={!primaryJobAvailability.commands.move.enabled} on:click={() => runPrimaryMutation('move', 'right')}>{t('worldEditor.command.moveRight', {}, $locale)}</button>
+            <button disabled={!primaryJobAvailability.commands.rotate.enabled} on:click={() => runPrimaryMutation('rotate', 'rotate')}>{t('worldEditor.command.rotate', {}, $locale)}</button>
+            <button disabled={!primaryJobAvailability.commands.copy.enabled} on:click={runPrimaryCopy}>{t('worldEditor.command.copy', {}, $locale)}</button>
+            <button disabled={!primaryJobAvailability.commands.duplicate.enabled} on:click={() => runPrimaryMutation('duplicate', 'duplicate')}>{t('worldEditor.command.duplicate', {}, $locale)}</button>
+            <button disabled={!primaryJobAvailability.commands.delete.enabled} on:click={() => runPrimaryMutation('delete', 'delete')}>{t('worldEditor.command.deleteDraft', {}, $locale)}</button>
           </div>
 
-          <h4>Attached State Actions</h4>
+          <h4>{t('worldEditor.inspector.attachedActions', {}, $locale)}</h4>
           {#if objectInspector.attachedState.status === 'CORE_CAPABILITY_NOT_BOUND'}
             <p class="inspector-note">
-              No Core attached-state capability contract is bound for this object. Wand does not infer Chest, PlayerHouse, Shop, Building, or progression actions from ItemID.
+              {t('worldEditor.inspector.noCapabilityContract', {}, $locale)}
             </p>
           {:else if objectInspector.attachedState.status === 'SINGLE_OBJECT_REQUIRED'}
-            <p class="inspector-note">Select exactly one object to inspect attached-state actions.</p>
+            <p class="inspector-note">{t('worldEditor.inspector.singleRequired', {}, $locale)}</p>
           {:else if objectInspector.attachedState.actions.length === 0}
-            <p class="inspector-note">Core exposes no attached-state action for this object.</p>
+            <p class="inspector-note">{t('worldEditor.inspector.noAttachedActions', {}, $locale)}</p>
           {:else}
             <div class="attached-actions">
               {#each objectInspector.attachedState.actions as action}
                 <button disabled={!action.uiEnabled}>
                   {action.label}
-                  <small>{action.uiReasonCode ?? 'Core + WEP handler ready'}</small>
+                  <small>{action.uiReasonCode ?? t('worldEditor.inspector.handlerReady', {}, $locale)}</small>
                 </button>
               {/each}
             </div>
           {/if}
 
           {#if scroogeStorePreview?.status === 'resolved'}
-            <h4>Scrooge Store Inventory</h4>
+            <h4>{t('worldEditor.store.title', {}, $locale)}</h4>
             <p class="inspector-note">
-              Read-only Core v1.12 view. Store identity is resolved by exact
-              <code>ProfileWorld.Stores[].BuildingItemID</code> match; no Shop fallback or persistent mutation is available.
+              {t('worldEditor.status.readOnly', {}, $locale)} Core v1.12 view. Store identity is resolved by exact
+              <code>ProfileWorld.Stores[].{t('worldEditor.store.building', {}, $locale)}ItemID</code> match; no Shop fallback or persistent mutation is available.
             </p>
             <dl class="inspector-details">
-              <div><dt>Building</dt><dd>{scroogeStorePreview.store.buildingItemId}</dd></div>
-              <div><dt>Displays</dt><dd>{scroogeStorePreview.store.displayCount}</dd></div>
-              <div><dt>Slots</dt><dd>{scroogeStorePreview.store.totalSlotCount}</dd></div>
-              <div><dt>Available</dt><dd>{scroogeStorePreview.store.availableSlotCount}</dd></div>
-              <div><dt>Last refresh</dt><dd>{scroogeStorePreview.store.lastRefresh ?? 'unknown'}</dd></div>
-              <div><dt>Weighted items</dt><dd>{scroogeStorePreview.store.weightedItemCount}</dd></div>
+              <div><dt>{t('worldEditor.store.building', {}, $locale)}</dt><dd>{scroogeStorePreview.store.buildingItemId}</dd></div>
+              <div><dt>{t('worldEditor.store.displays', {}, $locale)}</dt><dd>{scroogeStorePreview.store.displayCount}</dd></div>
+              <div><dt>{t('worldEditor.store.slots', {}, $locale)}</dt><dd>{scroogeStorePreview.store.totalSlotCount}</dd></div>
+              <div><dt>{t('worldEditor.store.available', {}, $locale)}</dt><dd>{scroogeStorePreview.store.availableSlotCount}</dd></div>
+              <div><dt>{t('worldEditor.store.lastRefresh', {}, $locale)}</dt><dd>{scroogeStorePreview.store.lastRefresh ?? t('worldEditor.store.unknown', {}, $locale)}</dd></div>
+              <div><dt>{t('worldEditor.store.weightedItems', {}, $locale)}</dt><dd>{scroogeStorePreview.store.weightedItemCount}</dd></div>
             </dl>
             <div class="attached-actions">
               {#each scroogeStorePreview.store.displays as display}
                 <div class="inspector-note">
                   <strong>Display {display.displayIndex}</strong>
                   <span>
-                    Item {display.displayItemId ?? 'unknown'} ·
-                    {display.layoutType ?? 'layout unknown'} ·
+                    Item {display.displayItemId ?? t('worldEditor.store.unknown', {}, $locale)} ·
+                    {display.layoutType ?? t('worldEditor.store.layoutUnknown', {}, $locale)} ·
                     {display.slots.length} slot{display.slots.length === 1 ? '' : 's'}
                   </span>
                   {#each display.slots as slot}
@@ -2737,14 +2737,14 @@
                       {slot.item?.status === 'resolved'
                         ? `Item ${slot.item.id} ×${slot.item.amount}`
                         : slot.item === null
-                          ? 'Empty'
-                          : 'Item unreadable'}
+                          ? t('worldEditor.store.empty', {}, $locale)
+                          : t('worldEditor.store.itemUnreadable', {}, $locale)}
                       · {slot.isAvailable === true
-                        ? 'Available'
+                        ? t('worldEditor.store.available', {}, $locale)
                         : slot.isAvailable === false
-                          ? 'Unavailable'
-                          : 'Availability unknown'}
-                      · Currency {slot.currencyId ?? 'unknown'}
+                          ? t('worldEditor.store.unavailable', {}, $locale)
+                          : t('worldEditor.store.availabilityUnknown', {}, $locale)}
+                      · Currency {slot.currencyId ?? t('worldEditor.store.unknown', {}, $locale)}
                     </small>
                   {/each}
                 </div>
@@ -2757,109 +2757,109 @@
       <main class="editor-shell">
         <div class="editor-toolbar">
           <div>
-            <span class="toolbar-label">DRAFT TOOLS</span>
+            <span class="toolbar-label">{t('worldEditor.toolbar.eyebrow', {}, $locale)}</span>
             <strong>{selectedCount} selected</strong>
           </div>
           <div class="toolbar-actions">
             <button
               disabled={!primaryJobAvailability.commands.move.enabled}
               on:click={() => runPrimaryMutation('move', 'left')}
-              aria-label="Move left"
+              aria-label="{t('worldEditor.command.moveLeftAria', {}, $locale)}"
             >←</button>
             <button
               disabled={!primaryJobAvailability.commands.move.enabled}
               on:click={() => runPrimaryMutation('move', 'up')}
-              aria-label="Move up"
+              aria-label="{t('worldEditor.command.moveUpAria', {}, $locale)}"
             >↑</button>
             <button
               disabled={!primaryJobAvailability.commands.move.enabled}
               on:click={() => runPrimaryMutation('move', 'down')}
-              aria-label="Move down"
+              aria-label="{t('worldEditor.command.moveDownAria', {}, $locale)}"
             >↓</button>
             <button
               disabled={!primaryJobAvailability.commands.move.enabled}
               on:click={() => runPrimaryMutation('move', 'right')}
-              aria-label="Move right"
+              aria-label="{t('worldEditor.command.moveRightAria', {}, $locale)}"
             >→</button>
             <button
               disabled={!primaryJobAvailability.commands.rotate.enabled}
               on:click={() => runPrimaryMutation('rotate', 'rotate')}
-            >Rotate</button>
+            >{t('worldEditor.command.rotate', {}, $locale)}</button>
             <button
               disabled={!primaryJobAvailability.commands.copy.enabled}
               on:click={runPrimaryCopy}
-            >Copy</button>
+            >{t('worldEditor.command.copy', {}, $locale)}</button>
             <button
               disabled={!primaryJobAvailability.commands.paste.enabled}
               on:click={runPrimaryPaste}
-            >Paste</button>
+            >{t('worldEditor.command.paste', {}, $locale)}</button>
             <button
               disabled={!primaryJobAvailability.commands.duplicate.enabled}
               on:click={() => runPrimaryMutation('duplicate', 'duplicate')}
-            >Duplicate</button>
+            >{t('worldEditor.command.duplicate', {}, $locale)}</button>
             <button
               disabled={!primaryJobAvailability.commands.delete.enabled}
               on:click={() => runPrimaryMutation('delete', 'delete')}
-            >Delete</button>
+            >{t('worldEditor.command.delete', {}, $locale)}</button>
             <button
               disabled={!primaryJobAvailability.commands.undo.enabled}
               on:click={runPrimaryUndo}
-            >Undo</button>
+            >{t('worldEditor.command.undo', {}, $locale)}</button>
             <button
               disabled={!primaryJobAvailability.commands.redo.enabled}
               on:click={runPrimaryRedo}
-            >Redo</button>
+            >{t('worldEditor.command.redo', {}, $locale)}</button>
             <button
               class="save-prep"
               disabled={!primaryJobAvailability.commands.reviewSavePrep.enabled}
               on:click={runPrimarySavePrep}
-            >Review Save Prep</button>
+            >{t('worldEditor.command.reviewSavePrep', {}, $locale)}</button>
             <button
               class="save-prep"
               disabled={!primaryJobAvailability.commands.downloadOriginalBackup.enabled}
               on:click={runPrimaryOriginalBackup}
-            >Download Original Backup</button>
+            >{t('worldEditor.command.downloadOriginalBackup', {}, $locale)}</button>
           </div>
         </div>
 
         <div class="draft-status" aria-live="polite">
           <span>
-            Draft authoring
-            <strong>{mutationBound ? 'Available' : 'Read-only'}</strong>
+            {t('worldEditor.status.draftAuthoring', {}, $locale)}
+            <strong>{mutationBound ? t('worldEditor.store.available', {}, $locale) : t('worldEditor.status.readOnly', {}, $locale)}</strong>
           </span>
           <span>
-            Last command
-            <strong>{lastDraftCommand || 'None'}</strong>
+            {t('worldEditor.status.lastCommand', {}, $locale)}
+            <strong>{lastDraftCommand || t('worldEditor.status.none', {}, $locale)}</strong>
           </span>
           <span>
-            Validation
+            {t('worldEditor.status.validation', {}, $locale)}
             <strong>
               {validationPresentation.label}
             </strong>
           </span>
           <span>
-            Clipboard
+            {t('worldEditor.status.clipboard', {}, $locale)}
             <strong>
               {copiedDraftClipboard?.graph?.length
                 ? `${copiedDraftClipboard.graph.length} object graph`
-                : 'Empty'}
+                : t('worldEditor.store.empty', {}, $locale)}
             </strong>
           </span>
           <span>
-            Original backup
+            {t('worldEditor.status.originalBackup', {}, $locale)}
             <strong>
               {originalSaveBackup
                 ? `${originalSaveBackup.byteLength} bytes ready`
-                : 'Unavailable'}
+                : t('worldEditor.store.unavailable', {}, $locale)}
             </strong>
           </span>
           <span>
-            Persistent save
-            <strong>Unavailable</strong>
+            {t('worldEditor.status.persistentSave', {}, $locale)}
+            <strong>{t('worldEditor.store.unavailable', {}, $locale)}</strong>
           </span>
         </div>
         <div class="command-availability" aria-live="polite">
-          <strong>Unavailable actions</strong>
+          <strong>{t('worldEditor.status.unavailableActions', {}, $locale)}</strong>
           {#each Object.entries(primaryJobAvailability.commands) as [command, state]}
             {#if !state.enabled}
               <span>
@@ -2870,7 +2870,7 @@
           {/each}
         </div>
         {#if validationPresentation.groups.length}
-          <div class="validation-groups" aria-label="Draft validation categories">
+          <div class="validation-groups" aria-label={t('worldEditor.validation.categoriesAria', {}, $locale)}>
             {#each validationPresentation.groups as group}
               <span>
                 <strong>{group.label}</strong>
@@ -2895,7 +2895,7 @@
             class="world-canvas"
             viewBox={`${areaBounds.x} ${areaBounds.y} ${areaBounds.w} ${areaBounds.h}`}
             preserveAspectRatio="xMidYMid meet"
-            aria-label="World Editor top-down canvas"
+            aria-label={t('worldEditor.canvas.ariaLabel', {}, $locale)}
           >
             <defs>
               <pattern
@@ -2963,27 +2963,27 @@
         <div class="canvas-footer">
           <span>{projected.length} visible</span>
           <span>
-            Mouse: click selects · Ctrl/⌘/Shift-click multi-selects
+            {t('worldEditor.canvas.mouseHelp', {}, $locale)}
           </span>
           <span>
-            Keyboard: arrows move · R rotate · Ctrl/⌘ C/V/D · Delete · Ctrl/⌘ Z · Shift+Z redo · Esc clear
+            {t('worldEditor.canvas.keyboardHelp', {}, $locale)}
           </span>
           <span>
-            Road / Fenceはcapability未接続時にlocked表示されます。
+            {t('worldEditor.canvas.road{t('worldEditor.fullDesign.category.fences', {}, $locale)}Locked', {}, $locale)}
           </span>
           <span>
-            Original backup:
+            {t('worldEditor.status.originalBackup', {}, $locale)}:
             {originalSaveBackup ? 'byte-exact local download ready' : 'not loaded'}
           </span>
-          <span>Persistent write: disabled</span>
+          <span>{t('worldEditor.canvas.persistentWrite{t('worldEditor.placement.disabled', {}, $locale)}', {}, $locale)}</span>
         </div>
         {#if draftSavePreparation}
           <div class="save-preparation">
-            <strong>Save preparation</strong>
+            <strong>{t('worldEditor.savePrep.title', {}, $locale)}</strong>
             <span>
               {draftSavePreparation.writeReady
-                ? 'Writer contract ready'
-                : 'Blocked before persistent commit'}
+                ? t('worldEditor.savePrep.writerReady', {}, $locale)
+                : t('worldEditor.savePrep.blocked', {}, $locale)}
             </span>
             <code>{draftSavePreparation.reason}</code>
             <small>
@@ -2998,29 +2998,29 @@
       <section class="fence-post-panel" aria-labelledby="fence-post-title">
         <div class="fence-post-heading">
           <div>
-            <p class="eyebrow">FENCE REPRESENTATION / CORE-BOUND MODEL</p>
-            <h2 id="fence-post-title">Post layout</h2>
+            <p class="eyebrow">{t('worldEditor.fence.eyebrow', {}, $locale)}</p>
+            <h2 id="fence-post-title">{t('worldEditor.fence.title', {}, $locale)}</h2>
             <p>
-              Promoted 01C/Core contractのlogicalTopologyとrepresentationLayoutを分離したまま、
+              Promoted 01C/Core contractのlogical{t('worldEditor.fence.topology', {}, $locale)}とrepresentationLayoutを分離したまま、
               degree-2 interior Base/postだけを編集します。interval可否はfamily+modeのexact extension vocabularyから判定し、
-              captured/pinned postは明示操作なしに変更しません。
+              captured/pinned postは明示操作{t('worldEditor.status.none', {}, $locale)}に変更しません。
             </p>
           </div>
           <div class="full-design-gates">
-            <span>Topology <strong>Separate operation</strong></span>
-            <span>DDV write <strong>Disabled</strong></span>
-            <span>Scene Preset <strong>Blocked after post-layout edit</strong></span>
+            <span>{t('worldEditor.fence.topology', {}, $locale)} <strong>{t('worldEditor.fence.separateOperation', {}, $locale)}</strong></span>
+            <span>{t('worldEditor.placement.ddvWrite', {}, $locale)} <strong>{t('worldEditor.placement.disabled', {}, $locale)}</strong></span>
+            <span>{t('worldEditor.fence.scenePreset', {}, $locale)} <strong>{t('worldEditor.fence.b{t('worldEditor.layers.locked', {}, $locale)}AfterEdit', {}, $locale)}</strong></span>
           </div>
         </div>
 
         <div class="fence-post-controls">
           <label>
-            <span>Fence network</span>
+            <span>{t('worldEditor.fence.network', {}, $locale)}</span>
             <select
               value={fencePostSelectedNetworkId}
               on:change={(event) =>
-                loadFencePostDraft(
-                  (event.currentTarget as HTMLSelectElement).value
+                load{t('worldEditor.fullDesign.category.fences', {}, $locale)}{t('worldEditor.fence.post', {}, $locale)}Draft(
+                  (event.current{t('worldEditor.floating.target', {}, $locale)} as HTMLSelectElement).value
                 )}
             >
               {#each fencePostNetworks as network}
@@ -3034,61 +3034,61 @@
           {#if fencePostDraft && fencePostValidation}
             <div class="fence-post-summary">
               <span>
-                Max interval
+                {t('worldEditor.fence.maxInterval', {}, $locale)}
                 <strong>{fencePostValidation.constraints?.maximumPostInterval ?? '—'}</strong>
-                <small>catalog-derived</small>
+                <small>{t('worldEditor.fence.catalogDerived', {}, $locale)}</small>
               </span>
               <span>
-                Semantic anchors
+                {t('worldEditor.fence.semanticAnchors', {}, $locale)}
                 <strong>{fencePostDraft.logicalTopology?.semanticAnchors?.length ?? 0}</strong>
               </span>
               <span>
-                Representation posts
+                {t('worldEditor.fence.representation{t('worldEditor.fence.post', {}, $locale)}s', {}, $locale)}
                 <strong>{fencePostDraft.representationLayout?.posts?.length ?? 0}</strong>
               </span>
               <span>
-                Representation mode
+                {t('worldEditor.fence.representationMode', {}, $locale)}
                 <strong>
                   {fencePostDraft.representationLayout?.intent === 'EXACT_PRESERVATION'
-                    ? 'Exact preservation'
-                    : 'Generated design'}
+                    ? t('worldEditor.fence.exactPreservation', {}, $locale)
+                    : t('worldEditor.fence.generatedDesign', {}, $locale)}
                 </strong>
                 <small>{fencePostDraft.representationLayout?.policy}</small>
               </span>
               <span>
-                Core preflight
-                <strong>{fencePostValidation.ok ? 'PASS' : 'BLOCKED'}</strong>
+                {t('worldEditor.fence.corePreflight', {}, $locale)}
+                <strong>{fencePostValidation.ok ? t('worldEditor.validation.pass', {}, $locale) : t('worldEditor.fullDesign.blockedCaps', {}, $locale)}</strong>
               </span>
             </div>
 
             <div class="fence-post-editor-grid">
               <div class="fence-post-form">
                 <label>
-                  <span>Post</span>
+                  <span>{t('worldEditor.fence.post', {}, $locale)}</span>
                   <select bind:value={fencePostMoveNodeId}>
-                    <option value="">Choose post</option>
+                    <option value="">{t('worldEditor.fence.choose{t('worldEditor.fence.post', {}, $locale)}', {}, $locale)}</option>
                     {#each fencePostDraft.representationLayout?.posts ?? [] as post}
                       <option value={post.nodeId}>
-                        ({post.x}, {post.y}) {post.pinned ? '· pinned' : ''}
+                        ({post.x}, {post.y}) {post.pinned ? t('worldEditor.fence.pinnedSuffix', {}, $locale) : ''}
                       </option>
                     {/each}
                   </select>
                 </label>
                 <label>
-                  <span>X</span>
+                  <span>{t('worldEditor.scene.x', {}, $locale)}</span>
                   <input type="number" bind:value={fencePostEditX} />
                 </label>
                 <label>
-                  <span>Y</span>
+                  <span>{t('worldEditor.scene.y', {}, $locale)}</span>
                   <input type="number" bind:value={fencePostEditY} />
                 </label>
-                <button on:click={insertFencePostDraft}>Insert Post</button>
+                <button on:click={insertFencePostDraft}>{t('worldEditor.fence.insert{t('worldEditor.fence.post', {}, $locale)}', {}, $locale)}</button>
                 <button
                   disabled={!fencePostMoveNodeId}
                   on:click={moveFencePostDraft}
-                >Move Post</button>
+                >{t('worldEditor.fence.move{t('worldEditor.fence.post', {}, $locale)}', {}, $locale)}</button>
                 <button on:click={autoLayoutFencePosts}>
-                  Centered balanced auto-layout
+                  {t('worldEditor.fence.centeredAutoLayout', {}, $locale)}
                 </button>
               </div>
 
@@ -3099,10 +3099,10 @@
                     <span>{post.source}</span>
                     <button
                       on:click={() =>
-                        toggleFencePostPinned(post.nodeId, !post.pinned)}
-                    >{post.pinned ? 'Unpin' : 'Pin'}</button>
-                    <button on:click={() => removeFencePostDraft(post.nodeId)}>
-                      Remove Post
+                        toggle{t('worldEditor.fullDesign.category.fences', {}, $locale)}{t('worldEditor.fence.post', {}, $locale)}{t('worldEditor.fence.pin', {}, $locale)}ned(post.nodeId, !post.pinned)}
+                    >{post.pinned ? t('worldEditor.fence.unpin', {}, $locale) : t('worldEditor.fence.pin', {}, $locale)}</button>
+                    <button on:click={() => remove{t('worldEditor.fullDesign.category.fences', {}, $locale)}{t('worldEditor.fence.post', {}, $locale)}Draft(post.nodeId)}>
+                      {t('worldEditor.fence.remove{t('worldEditor.fence.post', {}, $locale)}', {}, $locale)}
                     </button>
                   </div>
                 {/each}
@@ -3129,12 +3129,12 @@
             {/if}
 
             <div class="fence-topology-boundary">
-              <strong>Topology edit</strong>
+              <strong>{t('worldEditor.fence.topologyEdit', {}, $locale)}</strong>
               <span>
                 endpoint / corner / junction / mode-boundary変更、segment delete、split/joinは
-                representationLayoutではなくlogicalTopologyの操作です。このpanelでは実行しません。
+                representationLayoutではなくlogical{t('worldEditor.fence.topology', {}, $locale)}の操作です。このpanelでは実行しません。
               </span>
-              <button disabled>Topology mutation writer not authorized</button>
+              <button disabled>{t('worldEditor.fence.writer{t('worldEditor.fullDesign.unauthorized', {}, $locale)}', {}, $locale)}</button>
             </div>
           {/if}
         </div>
@@ -3145,57 +3145,57 @@
       <section class="full-design-panel" aria-labelledby="full-design-title">
         <div class="full-design-heading">
           <div>
-            <p class="eyebrow">FULL-DESIGN PRESET READINESS</p>
+            <p class="eyebrow">{t('worldEditor.fullDesign.eyebrow', {}, $locale)}</p>
             <h2 id="full-design-title">
               {fullDesignPlan?.presetType === 'floating_island'
-                ? 'Floating Island Preset plan'
-                : 'Biome Preset plan'}
+                ? t('worldEditor.fullDesign.floatingPlan', {}, $locale)
+                : t('worldEditor.fullDesign.biomePlan', {}, $locale)}
             </h2>
             <p>
               current 01B portable identity/state契約とv1.7 authoritative GridData boundsから作る
-              read-only capture manifestです。これは公開Preset artifactでもApply planでもありません。
+              read-only capture manifestです。これは{t('worldEditor.scene.public', {}, $locale)}Preset artifactでも{t('worldEditor.fullDesign.apply', {}, $locale)} planでもありません。
             </p>
           </div>
           <div class="full-design-gates">
             <span>
-              Source artifact
-              <strong>{fullDesignPlan?.publicationCandidateReady ? 'Candidate ready' : 'Blocked'}</strong>
+              {t('worldEditor.fullDesign.sourceArtifact', {}, $locale)}
+              <strong>{fullDesignPlan?.publicationCandidateReady ? t('worldEditor.fullDesign.candidateReady', {}, $locale) : t('worldEditor.placement.blocked', {}, $locale)}</strong>
             </span>
-            <span>Community publish <strong>Not bound</strong></span>
-            <span>Apply <strong>Disabled</strong></span>
+            <span>{t('worldEditor.fullDesign.communityPublish', {}, $locale)} <strong>{t('worldEditor.placement.notBound', {}, $locale)}</strong></span>
+            <span>{t('worldEditor.fullDesign.apply', {}, $locale)} <strong>{t('worldEditor.placement.disabled', {}, $locale)}</strong></span>
           </div>
         </div>
 
         {#if fullDesignPlan}
           <div class="full-design-summary">
             <div>
-              <span>Semantic target</span>
+              <span>{t('worldEditor.fullDesign.semantic{t('worldEditor.floating.target', {}, $locale)}', {}, $locale)}</span>
               <strong>{fullDesignIdentityLabel(fullDesignPlan)}</strong>
             </div>
             <div>
-              <span>Portable direct roots</span>
+              <span>{t('worldEditor.fullDesign.portableDirectRoots', {}, $locale)}</span>
               <strong>{fullDesignPlan.directRootRoutes.length}</strong>
             </div>
             <div>
-              <span>Manifest v1</span>
-              <strong>{fullDesignPlan.manifestValidation?.ok ? 'Strict validation PASS' : 'Blocked'}</strong>
+              <span>{t('worldEditor.fullDesign.manifestV1', {}, $locale)}</span>
+              <strong>{fullDesignPlan.manifestValidation?.ok ? t('worldEditor.fullDesign.strictPass', {}, $locale) : t('worldEditor.placement.blocked', {}, $locale)}</strong>
             </div>
             <div>
-              <span>Source categories</span>
-              <strong>{fullDesignPlan.sourceCategoryClosureReady ? 'Closed' : 'Blocked'}</strong>
+              <span>{t('worldEditor.fullDesign.sourceCategories', {}, $locale)}</span>
+              <strong>{fullDesignPlan.sourceCategoryClosureReady ? t('worldEditor.fullDesign.closed', {}, $locale) : t('worldEditor.placement.blocked', {}, $locale)}</strong>
             </div>
             <div>
-              <span>Exact build</span>
-              <strong>Unproven from save</strong>
+              <span>{t('worldEditor.fullDesign.exactBuild', {}, $locale)}</span>
+              <strong>{t('worldEditor.fullDesign.unprovenFromSave', {}, $locale)}</strong>
             </div>
             <div>
-              <span>Persistent write</span>
-              <strong>Unauthorized</strong>
+              <span>{t('worldEditor.progression.persistentWrite', {}, $locale)}</span>
+              <strong>{t('worldEditor.fullDesign.unauthorized', {}, $locale)}</strong>
             </div>
           </div>
 
           <div class="full-design-routes">
-            <span>Portable direct-root routes</span>
+            <span>{t('worldEditor.fullDesign.routes', {}, $locale)}</span>
             {#each fullDesignPlan.directRootRoutes as route}
               <code>{route.gridDataPath}</code>
             {/each}
@@ -3214,33 +3214,33 @@
                 {#if categoryKey === 'buildings' && category?.ordinaryPlacement}
                   <div class="building-readiness-lines">
                     <span>
-                      v1.10 classes
+                      {t('worldEditor.fullDesign.v110Classes', {}, $locale)}
                       <strong>
                         ordinary {category.classificationSummary?.ordinary ?? 0} ·
                         special {category.classificationSummary?.special ?? 0} ·
                         off-grid {category.classificationSummary?.offGrid ?? 0} ·
-                        unknown {category.classificationSummary?.unknown ?? 0}
+                        {t('worldEditor.store.unknown', {}, $locale)} {category.classificationSummary?.unknown ?? 0}
                       </strong>
                     </span>
                     <span>
-                      Ordinary placement
+                      {t('worldEditor.fullDesign.ordinaryPlacement', {}, $locale)}
                       <strong>
                         {category.ordinaryPlacement.destinationPlacementStatus === 'NOT_APPLICABLE'
-                          ? 'No Building'
+                          ? t('worldEditor.fullDesign.noBuildingShort', {}, $locale)
                           : category.ordinaryPlacement.destinationPlacementStatus === 'PREFLIGHT_CONTRACT_AVAILABLE'
-                            ? 'Typed preflight available'
-                            : 'Blocked by typed class/evidence'}
+                            ? t('worldEditor.fullDesign.typedPreflightAvailable', {}, $locale)
+                            : t('worldEditor.fullDesign.blockedTypedEvidence', {}, $locale)}
                       </strong>
                     </span>
                     <span>
-                      Building skin
+                      {t('worldEditor.fullDesign.buildingSkin', {}, $locale)}
                       <strong>
                         {category.buildingSkins?.entries?.length ?? 0} ·
                         {category.buildingSkins?.semanticStatus ?? 'UNKNOWN'}
                       </strong>
                     </span>
                     <span>
-                      PlayerHouse
+                      {t('worldEditor.fullDesign.playerHouse', {}, $locale)}
                       <strong>
                         {category.playerHouses?.entries?.length ?? 0} ·
                         {category.playerHouses?.semanticStatus ?? 'UNKNOWN'}
@@ -3251,7 +3251,7 @@
                 <small>
                   {category.blockers?.length
                     ? fullDesignBlockerText(category.blockers[0])
-                    : 'No category blocker recorded'}
+                    : t('worldEditor.fullDesign.noCategoryBlocker', {}, $locale)}
                 </small>
               </article>
             {/each}
@@ -3259,30 +3259,30 @@
 
           <p class="full-design-boundary">
             source GridID / GridObjectIDはmanifestから除去されます。Quest / NPC / progression /
-            online entitlementはfull-design decoration stateに含めません。Road/Fenceは01C Core readerと
+            online entitlementはfull-design decoration stateに含めません。{t('worldEditor.fullDesign.category.roads', {}, $locale)}/{t('worldEditor.fullDesign.category.fences', {}, $locale)}は01C Core readerと
             promoted representation-layout contractを消費し、clipped/unsupported topologyはfail-closedです。
-            Buildingはpromoted v1.10 typed contractをconsumeし、ordinary / special / off-grid / unknownを分離します。
+            {t('worldEditor.store.building', {}, $locale)}はpromoted v1.10 typed contractをconsumeし、ordinary / special / off-grid / {t('worldEditor.store.unknown', {}, $locale)}を分離します。
             House/Otherをordinaryへ昇格するのは5つのauthoritative special signalがすべてfalseの場合だけです。
-            Destination stock/ownership・multiplicity・typed initial-state validatorが無ければordinary placementもfail-closedです。
-            Destination preflightとpersistent Applyは別Gateで、DDV write authorizationは無効です。
+            {t('worldEditor.fullDesign.destination', {}, $locale)} stock/ownership・multiplicity・typed initial-state validatorが無ければordinary placementもfail-closedです。
+            {t('worldEditor.fullDesign.destinationPreflight', {}, $locale)}とpersistent {t('worldEditor.fullDesign.apply', {}, $locale)}は別Gateで、{t('worldEditor.fullDesign.ddvWriteAuthorization', {}, $locale)}は{t('worldEditor.placement.disabled', {}, $locale)}です。
           </p>
 
           <div class="full-design-destination">
             <div class="full-design-destination-copy">
               <div>
-                <span>Destination preflight</span>
+                <span>{t('worldEditor.fullDesign.destinationPreflight', {}, $locale)}</span>
                 <strong>{fullDesignDestinationStatus(fullDesignDestinationPreflight)}</strong>
               </div>
               <p>
-                別のNintendo Switch v1.25.0 saveをローカルで読み込み、semantic target、
+                別の{t('worldEditor.open.switch', {}, $locale)} v1.25.0 saveをローカルで読み込み、semantic target、
                 portable direct-root route、v1.8 FloorType map、v1.9 native placement legality、
-                Building / PlayerHouse / Environmentをread-onlyで検証します。
-                ファイルはこの操作ではアップロードされません。
+                {t('worldEditor.store.building', {}, $locale)} / {t('worldEditor.fullDesign.playerHouse', {}, $locale)} / {t('worldEditor.fullDesign.category.environment', {}, $locale)}をread-onlyで検証します。
+                {t('worldEditor.target.file', {}, $locale)}はこの操作ではアップロードされません。
               </p>
             </div>
 
             <label class="file-button full-design-destination-button">
-              {fullDesignDestinationLoading ? 'Checking…' : 'Check destination save'}
+              {fullDesignDestinationLoading ? t('worldEditor.fullDesign.checking', {}, $locale) : t('worldEditor.fullDesign.checkDestination', {}, $locale)}
               <input
                 type="file"
                 accept=".json,.save,application/json,application/octet-stream"
@@ -3293,84 +3293,84 @@
 
             {#if fullDesignDestinationFileName}
               <div class="full-design-destination-result">
-                <span>Destination</span>
+                <span>{t('worldEditor.fullDesign.destination', {}, $locale)}</span>
                 <code>{fullDesignDestinationFileName}</code>
                 {#if fullDesignDestinationPreflight}
                   <strong>
-                    Routes {fullDesignDestinationPreflight.destination?.directRootResolutions?.length ?? 0}
+                    {t('worldEditor.placement.route', {}, $locale)}s {fullDesignDestinationPreflight.destination?.directRootResolutions?.length ?? 0}
                     / {fullDesignPlan.directRootRoutes.length}
                   </strong>
                   <strong>
-                    Road / Fence model preflight
+                    {t('worldEditor.fullDesign.road{t('worldEditor.fullDesign.category.fences', {}, $locale)}Preflight', {}, $locale)}
                     {fullDesignDestinationPreflight.roadFenceModelPreflightReady
                       ? `PASS · ${fullDesignDestinationPreflight.destination?.roadFencePreflight?.bindings?.length ?? 0} root-category bindings · writer OFF`
-                      : 'BLOCKED'}
+                      : t('worldEditor.fullDesign.blockedCaps', {}, $locale)}
                   </strong>
                   <strong>
-                    Building v1.10 contract
+                    {t('worldEditor.fullDesign.buildingContract', {}, $locale)}
                     {fullDesignDestinationPreflight.buildingV110ContractBound
-                      ? 'BOUND'
-                      : 'NOT BOUND'}
+                      ? t('worldEditor.fullDesign.bound', {}, $locale)
+                      : t('worldEditor.fullDesign.notBoundCaps', {}, $locale)}
                   </strong>
                   <strong>
-                    Building typed preflight
+                    {t('worldEditor.fullDesign.buildingTypedPreflight', {}, $locale)}
                     {fullDesignDestinationPreflight.buildingV110TypedPreflightReady
-                      ? 'PASS / N/A'
-                      : 'BLOCKED'}
+                      ? t('worldEditor.fullDesign.passNA', {}, $locale)
+                      : t('worldEditor.fullDesign.blockedCaps', {}, $locale)}
                   </strong>
                   <strong>
-                    Ordinary Building placement
+                    {t('worldEditor.fullDesign.ordinary{t('worldEditor.store.building', {}, $locale)}Placement', {}, $locale)}
                     {fullDesignDestinationPreflight.ordinaryBuildingPlacementReady
-                      ? 'PASS / N/A'
-                      : 'BLOCKED'}
+                      ? t('worldEditor.fullDesign.passNA', {}, $locale)
+                      : t('worldEditor.fullDesign.blockedCaps', {}, $locale)}
                   </strong>
                   <strong>
-                    Building skin diagnostic
+                    {t('worldEditor.fullDesign.buildingSkinDiagnostic', {}, $locale)}
                     {fullDesignDestinationPreflight.buildingSkinPreflightReady
-                      ? 'PASS / N/A'
-                      : 'BLOCKED'}
+                      ? t('worldEditor.fullDesign.passNA', {}, $locale)
+                      : t('worldEditor.fullDesign.blockedCaps', {}, $locale)}
                   </strong>
                   <strong>
-                    PlayerHouse binding diagnostic
+                    {t('worldEditor.fullDesign.playerHouseDiagnostic', {}, $locale)}
                     {fullDesignDestinationPreflight.playerHouseBindingPreflightReady
-                      ? 'PASS / N/A'
-                      : 'BLOCKED · lifecycle still separate'}
+                      ? t('worldEditor.fullDesign.passNA', {}, $locale)
+                      : t('worldEditor.fullDesign.lifecycleBlocked', {}, $locale)}
                   </strong>
                   <strong>
-                    Environment
+                    {t('worldEditor.fullDesign.category.environment', {}, $locale)}
                     {fullDesignDestinationPreflight.environmentPreflightReady
-                      ? 'PASS'
-                      : 'BLOCKED'}
+                      ? t('worldEditor.validation.pass', {}, $locale)
+                      : t('worldEditor.fullDesign.blockedCaps', {}, $locale)}
                   </strong>
                   <strong>
-                    Route resolved
+                    {t('worldEditor.fullDesign.route{t('worldEditor.placement.resolved', {}, $locale)}', {}, $locale)}
                     {fullDesignDestinationPreflight.routeResolutionReady
-                      ? 'PASS'
-                      : 'BLOCKED'}
+                      ? t('worldEditor.validation.pass', {}, $locale)
+                      : t('worldEditor.fullDesign.blockedCaps', {}, $locale)}
                   </strong>
                   <strong>
-                    Bounds validated
+                    {t('worldEditor.fullDesign.boundsValidated', {}, $locale)}
                     {fullDesignDestinationPreflight.destination?.rootObjectRouteBindings?.length
                       ? `${fullDesignDestinationPreflight.destination.rootObjectRouteBindings.filter((entry: any) => entry.boundsValidated).length} / ${fullDesignDestinationPreflight.destination.rootObjectRouteBindings.length}`
-                      : 'No portable ordinary objects'}
+                      : t('worldEditor.fullDesign.noPortableObjects', {}, $locale)}
                   </strong>
                   <strong>
-                    Placement validated
+                    {t('worldEditor.fullDesign.placementValidated', {}, $locale)}
                     {fullDesignDestinationPreflight.nativePlacementContractBound
                       ? fullDesignNativePlacementSummary(fullDesignDestinationPreflight)
-                      : 'Contract not bound'}
+                      : t('worldEditor.fullDesign.contractNotBound', {}, $locale)}
                   </strong>
                   <strong>
-                    DDV write authorization
+                    {t('worldEditor.fullDesign.ddvWriteAuthorization', {}, $locale)}
                     {fullDesignDestinationPreflight.ddvWriteAuthorized
-                      ? 'AUTHORIZED'
-                      : 'UNAUTHORIZED'}
+                      ? t('worldEditor.fullDesign.authorizedCaps', {}, $locale)
+                      : t('worldEditor.fullDesign.unauthorizedCaps', {}, $locale)}
                   </strong>
                   <strong>
-                    Category closure
+                    {t('worldEditor.fullDesign.categoryClosure', {}, $locale)}
                     {fullDesignDestinationPreflight.categoryClosureReady
-                      ? 'PASS'
-                      : 'BLOCKED'}
+                      ? t('worldEditor.validation.pass', {}, $locale)
+                      : t('worldEditor.fullDesign.blockedCaps', {}, $locale)}
                   </strong>
                 {/if}
               </div>
@@ -3389,24 +3389,24 @@
 
             {#if fullDesignDestinationError}
               <div class="full-design-error">
-                <strong>Destination preflight blocked</strong>
+                <strong>{t('worldEditor.fullDesign.destination{t('worldEditor.placement.b{t('worldEditor.layers.locked', {}, $locale)}', {}, $locale)}{t('worldEditor.scene.fieldTitle', {}, $locale)}', {}, $locale)}</strong>
                 <code>{fullDesignDestinationError}</code>
               </div>
             {/if}
 
             <small>
-              native placementは CLEAR / REPLACES_OR_REMOVES_EXISTING / INVALID /
+              native placementは CLEAR / REPLACES_OR_REMOVES_E{t('worldEditor.scene.x', {}, $locale)}ISTING / INVALID /
               UNKNOWN_UNVERIFIED を別Gateで保持します。UNKNOWNはVALIDへ昇格しません。
-              Road/Fenceはdestination root・bounds/tessellation・portable model整合までをpreflightし、
+              {t('worldEditor.fullDesign.category.roads', {}, $locale)}/{t('worldEditor.fullDesign.category.fences', {}, $locale)}はdestination root・bounds/tessellation・portable model整合までをpreflightし、
               persistence serializer / inventory cost / commit authorizationとは分離します。
-              このpreflightが成功してもApplyは有効になりません。
+              このpreflightが成功しても{t('worldEditor.fullDesign.apply', {}, $locale)}は有効になりません。
             </small>
           </div>
         {:else}
           <div class="full-design-error">
-            <strong>Full-design planning blocked</strong>
+            <strong>{t('worldEditor.fullDesign.planning{t('worldEditor.placement.b{t('worldEditor.layers.locked', {}, $locale)}', {}, $locale)}{t('worldEditor.scene.fieldTitle', {}, $locale)}', {}, $locale)}</strong>
             <code>{fullDesignPlanError}</code>
-            <span>World Canvas自体はread-onlyのまま利用できます。</span>
+            <span>{t('worldEditor.fullDesign.canvasReadOnly', {}, $locale)}</span>
           </div>
         {/if}
       </section>
@@ -3414,39 +3414,39 @@
 
     <section class="capture-panel">
       <div class="capture-copy">
-        <p class="eyebrow">SCENE PRESET</p>
-        <h2>Capture &amp; Publish</h2>
+        <p class="eyebrow">{t('worldEditor.scene.eyebrow', {}, $locale)}</p>
+        <h2>{t('worldEditor.scene.capture', {}, $locale)} &amp; Publish</h2>
         <p>
           選択objectとSubGrid dependency closureをportable artifactへ変換します。
-          source Grid / GridObject identityは公開artifactへ持ち出しません。
+          source Grid / GridObject identityは{t('worldEditor.scene.public', {}, $locale)}artifactへ持ち出しません。
         </p>
       </div>
 
       <div class="capture-form">
         <label>
-          <span>Title</span>
-          <input bind:value={presetTitle} placeholder="My Scene Preset" />
+          <span>{t('worldEditor.scene.fieldTitle', {}, $locale)}</span>
+          <input bind:value={presetTitle} placeholder={t('worldEditor.scene.titlePlaceholder', {}, $locale)} />
         </label>
         <label>
-          <span>Description</span>
+          <span>{t('worldEditor.scene.fieldDescription', {}, $locale)}</span>
           <textarea
             bind:value={presetDescription}
             rows="3"
-            placeholder="この飾り付けについて"
+            placeholder={t('worldEditor.scene.descriptionPlaceholder', {}, $locale)}
           ></textarea>
         </label>
         <label>
-          <span>Visibility</span>
+          <span>{t('worldEditor.scene.visibility', {}, $locale)}</span>
           <select bind:value={visibility}>
-            <option value="unlisted">Unlisted</option>
-            <option value="public">Public</option>
-            <option value="private">Private</option>
+            <option value="unlisted">{t('worldEditor.scene.unlisted', {}, $locale)}</option>
+            <option value="public">{t('worldEditor.scene.public', {}, $locale)}</option>
+            <option value="private">{t('worldEditor.scene.private', {}, $locale)}</option>
           </select>
         </label>
 
         <div class="capture-region-options">
           <label>
-            <span>Capture Region</span>
+            <span>{t('worldEditor.scene.captureRegion', {}, $locale)}</span>
             <select
               bind:value={captureRegionMode}
               on:change={() => {
@@ -3454,37 +3454,37 @@
                 published = null;
               }}
             >
-              <option value="selection">Selected object bounds</option>
-              <option value="custom">Custom region</option>
+              <option value="selection">{t('worldEditor.scene.selected{t('worldEditor.placement.bounds', {}, $locale)}', {}, $locale)}</option>
+              <option value="custom">{t('worldEditor.scene.customRegion', {}, $locale)}</option>
             </select>
           </label>
           <button
             type="button"
             disabled={!selectedCount}
             on:click={useSelectedCaptureRegion}
-          >Use selected bounds</button>
+          >{t('worldEditor.scene.use{t('worldEditor.target.selected', {}, $locale)}{t('worldEditor.placement.bounds', {}, $locale)}', {}, $locale)}</button>
           {#if captureRegionMode === 'custom'}
             <div class="capture-region-grid">
               <label>
-                <span>X</span>
+                <span>{t('worldEditor.scene.x', {}, $locale)}</span>
                 <input type="number" step="1" bind:value={captureRegionX} />
               </label>
               <label>
-                <span>Y</span>
+                <span>{t('worldEditor.scene.y', {}, $locale)}</span>
                 <input type="number" step="1" bind:value={captureRegionY} />
               </label>
               <label>
-                <span>Width</span>
+                <span>{t('worldEditor.scene.width', {}, $locale)}</span>
                 <input type="number" min="1" step="1" bind:value={captureRegionW} />
               </label>
               <label>
-                <span>Height</span>
+                <span>{t('worldEditor.scene.height', {}, $locale)}</span>
                 <input type="number" min="1" step="1" bind:value={captureRegionH} />
               </label>
             </div>
           {/if}
           <small>
-            Selection boundsは選択objectのoccupied boundsを使用します。Custom regionはRoad/Fenceを含む範囲を明示できます。authoritative root bounds外やtopology clippingはfail-closedです。
+            {t('worldEditor.scene.regionNote', {}, $locale)}
           </small>
         </div>
 
@@ -3495,7 +3495,7 @@
               bind:checked={includeRoads}
               disabled={roadFenceReaderBinding?.summary?.status !== 'supported'}
             />
-            <span>Include Roads</span>
+            <span>{t('worldEditor.scene.include{t('worldEditor.fullDesign.category.roads', {}, $locale)}', {}, $locale)}</span>
           </label>
           <label>
             <input
@@ -3503,11 +3503,11 @@
               bind:checked={includeFences}
               disabled={roadFenceReaderBinding?.summary?.status !== 'supported'}
             />
-            <span>Include Fences</span>
+            <span>{t('worldEditor.scene.include{t('worldEditor.fullDesign.category.fences', {}, $locale)}', {}, $locale)}</span>
           </label>
           <small>
-            01C contained-only Capture Region。境界でtopologyが切れる場合は
-            <code>TOPOLOGY_CLIPPED_UNSUPPORTED</code>で停止します。
+            01C contained-only {t('worldEditor.scene.captureRegion', {}, $locale)}。境界でtopologyが切れる場合は
+            <code>TOPOLOG{t('worldEditor.scene.y', {}, $locale)}_CLIPPED_UNSUPPORTED</code>で停止します。
           </small>
         </div>
 
@@ -3515,7 +3515,7 @@
           <button
             disabled={!selectedCount || loading}
             on:click={previewScene}
-          >Capture Preview</button>
+          >{t('worldEditor.scene.capturePreview', {}, $locale)}</button>
           <button
             class="publish"
             disabled={
@@ -3526,42 +3526,42 @@
               loading
             }
             on:click={publishScene}
-          >Publish Scene Preset</button>
+          >{t('worldEditor.scene.publish', {}, $locale)}</button>
         </div>
       </div>
 
       <div class="capture-status">
         <div>
-          <span>Capture</span>
+          <span>{t('worldEditor.scene.capture', {}, $locale)}</span>
           <strong>
             {capturePreview
               ? capturePreview.publicationReady
-                ? 'Ready'
-                : 'Blocked'
-              : 'Not run'}
+                ? t('worldEditor.scene.ready', {}, $locale)
+                : t('worldEditor.placement.blocked', {}, $locale)
+              : t('worldEditor.validation.notRun', {}, $locale)}
           </strong>
         </div>
         <div>
-          <span>Community</span>
-          <strong>{connected && creatorProfileId ? 'Connected' : 'Sign-in required'}</strong>
+          <span>{t('worldEditor.scene.community', {}, $locale)}</span>
+          <strong>{connected && creatorProfileId ? t('worldEditor.scene.connected', {}, $locale) : t('worldEditor.scene.signInRequired', {}, $locale)}</strong>
         </div>
         <div>
-          <span>Roads / Fences</span>
+          <span>{t('worldEditor.scene.roads{t('worldEditor.fullDesign.category.fences', {}, $locale)}', {}, $locale)}</span>
           <strong>
             {roadFenceReaderBinding?.summary?.status === 'supported'
               ? `Core reader bound · ${roadFenceReaderBinding.summary.roadNetworkCount} road / ${roadFenceReaderBinding.summary.fenceNetworkCount} fence`
-              : 'Raw Switch root Grid required'}
+              : t('worldEditor.scene.rawSwitchRequired', {}, $locale)}
           </strong>
         </div>
         <div>
-          <span>DDV Write</span>
-          <strong>Disabled</strong>
+          <span>{t('worldEditor.scene.ddvWrite', {}, $locale)}</span>
+          <strong>{t('worldEditor.placement.disabled', {}, $locale)}</strong>
         </div>
       </div>
 
       {#if capturePreview}
         <div class="artifact-summary">
-          <strong>Portable artifact preview</strong>
+          <strong>{t('worldEditor.scene.artifactPreview', {}, $locale)}</strong>
           <span>{capturePreview.artifact.objects.length} objects</span>
           <span>
             {Object.keys(capturePreview.artifact.requirements.itemQuantities).length}
@@ -3571,20 +3571,20 @@
             bounds {capturePreview.artifact.bounds.w} × {capturePreview.artifact.bounds.h}
           </span>
           {#if capturePreview.artifact.networks?.roads}
-            <span>{capturePreview.artifact.networks.roads.networks.length} Road networks</span>
+            <span>{capturePreview.artifact.networks.roads.networks.length} {t('worldEditor.fullDesign.category.roads', {}, $locale)} networks</span>
           {/if}
           {#if capturePreview.artifact.networks?.fences}
-            <span>{capturePreview.artifact.networks.fences.networks.length} Fence networks</span>
+            <span>{capturePreview.artifact.networks.fences.networks.length} {t('worldEditor.fence.network', {}, $locale)}s</span>
           {/if}
         </div>
       {/if}
 
       {#if published}
         <div class="published-card">
-          <p class="eyebrow">PUBLISHED</p>
+          <p class="eyebrow">{t('worldEditor.scene.published', {}, $locale)}</p>
           <strong>{presetTitle}</strong>
           <code>{published.presetArtifactId}</code>
-          <a href={`${base}/presets/`}>Presetsで確認する →</a>
+          <a href={`${base}/presets/`}>{t('worldEditor.nav.viewPublishedPreset', {}, $locale)}</a>
         </div>
       {/if}
     </section>
@@ -3592,30 +3592,30 @@
     <section class="save-source-browser">
       <div class="save-source-heading">
         <div>
-          <p class="eyebrow">SAVE ROUTES / READ-ONLY</p>
-          <h2>Area &amp; Direct Grid</h2>
+          <p class="eyebrow">{t('worldEditor.routes.eyebrow', {}, $locale)}</p>
+          <h2>{t('worldEditor.target.area', {}, $locale)} &amp; Direct Grid</h2>
           <p>
-            save intakeは完了しています。Nintendo Switch sourceでは、
+            save intakeは完了しています。{t('worldEditor.open.switch', {}, $locale)} sourceでは、
             Integrator-approved 01B v1.7 GridData bindingとSwitch v1.25 canonical geometry/scopeを使って
             選択したroot Gridをread-only EditorDocument / Canvasへ変換できます。
           </p>
         </div>
         <dl>
-          <div><dt>File</dt><dd>{fileName}</dd></div>
-          <div><dt>Input</dt><dd>{worldSource.inputFormat}</dd></div>
-          <div><dt>Schema</dt><dd>{worldSource.profileSchemaVersion}</dd></div>
-          <div><dt>Source</dt><dd>{worldSource.saveIdentity.sourcePlatform}</dd></div>
-          <div><dt>Last save</dt><dd>{worldSource.saveIdentity.lastSavePlatform}</dd></div>
-          <div><dt>Areas</dt><dd>{worldSource.areas.length}</dd></div>
-          <div><dt>Floating</dt><dd>{worldSource.floatingIslands?.length ?? 0}</dd></div>
+          <div><dt>{t('worldEditor.target.file', {}, $locale)}</dt><dd>{fileName}</dd></div>
+          <div><dt>{t('worldEditor.routes.input', {}, $locale)}</dt><dd>{worldSource.inputFormat}</dd></div>
+          <div><dt>{t('worldEditor.routes.schema', {}, $locale)}</dt><dd>{worldSource.profileSchemaVersion}</dd></div>
+          <div><dt>{t('worldEditor.routes.source', {}, $locale)}</dt><dd>{worldSource.saveIdentity.sourcePlatform}</dd></div>
+          <div><dt>{t('worldEditor.routes.lastSave', {}, $locale)}</dt><dd>{worldSource.saveIdentity.lastSavePlatform}</dd></div>
+          <div><dt>{t('worldEditor.routes.areas', {}, $locale)}</dt><dd>{worldSource.areas.length}</dd></div>
+          <div><dt>{t('worldEditor.routes.floating', {}, $locale)}</dt><dd>{worldSource.floatingIslands?.length ?? 0}</dd></div>
         </dl>
       </div>
 
       <div class="save-contract">
-        <strong>Read contract only</strong>
+        <strong>{t('worldEditor.routes.readContractOnly', {}, $locale)}</strong>
         <span>
           current-v1.25 schema 624 / exactBuildKnown=false /
-          persistentWriteAuthorized=false
+          persistentWrite{t('worldEditor.progression.authorized', {}, $locale)}=false
         </span>
       </div>
 
@@ -3625,9 +3625,9 @@
             <header>
               <div>
                 <span>Village {area.villageIndex}</span>
-                <strong>Area {area.areaId}</strong>
+                <strong>{t('worldEditor.target.area', {}, $locale)} {area.areaId}</strong>
               </div>
-              <small>{area.unlocked === false ? 'locked in save' : 'save route'}</small>
+              <small>{area.unlocked === false ? t('worldEditor.routes.lockedInSave', {}, $locale) : t('worldEditor.routes.saveRoute', {}, $locale)}</small>
             </header>
 
             <div class="root-grid-list">
@@ -3635,7 +3635,7 @@
                 <div class="root-grid-row">
                   <div>
                     <strong>Grid {root.gridId}</strong>
-                    <span>{root.gridDataPath ?? 'GridDataPath unavailable'}</span>
+                    <span>{root.gridDataPath ?? t('worldEditor.routes.gridPathUnavailable', {}, $locale)}</span>
                   </div>
                   <div class="root-grid-meta">
                     <span>{root.objectCount} objects</span>
@@ -3653,7 +3653,7 @@
                     }
                     on:click={() => openSaveGridInCanvas(area, root.gridId)}
                   >
-                    Open in Canvas
+                    {t('worldEditor.routes.openCanvas', {}, $locale)}
                   </button>
                 </div>
               {/each}
@@ -3665,8 +3665,8 @@
       <div class="floating-route-section">
         <div class="floating-route-heading">
           <div>
-            <p class="eyebrow">FLOATING ISLANDS / READ-ONLY PLANNING</p>
-            <strong>Semantic routes</strong>
+            <p class="eyebrow">{t('worldEditor.floating.eyebrow', {}, $locale)}</p>
+            <strong>{t('worldEditor.floating.semantic{t('worldEditor.placement.route', {}, $locale)}s', {}, $locale)}</strong>
           </div>
           <small>
             Canvas loader未接続のため、ここではcurrent 01B portable identity / direct-root contractと
@@ -3680,15 +3680,15 @@
               <article class="area-route">
                 <header>
                   <div>
-                    <span>Floating Island</span>
+                    <span>{t('worldEditor.floating.island', {}, $locale)}</span>
                     <strong>SceneItemId {island.sceneItemId}</strong>
                   </div>
-                  <small>{island.unlocked === false ? 'locked in save' : 'semantic route'}</small>
+                  <small>{island.unlocked === false ? t('worldEditor.routes.lockedInSave', {}, $locale) : t('worldEditor.floating.semanticRoute', {}, $locale)}</small>
                 </header>
 
                 <div class="floating-route-roots">
                   {#each island.roots as root}
-                    <code>{root.gridDataPath ?? 'GridDataPath unavailable'}</code>
+                    <code>{root.gridDataPath ?? t('worldEditor.routes.gridPathUnavailable', {}, $locale)}</code>
                   {/each}
                 </div>
 
@@ -3702,21 +3702,21 @@
                       loading ||
                       worldSource.saveIdentity.sourcePlatform !== 'switch'
                     }
-                    on:click={() => previewFloatingIslandPlan(island)}
+                    on:click={() => preview{t('worldEditor.routes.floating', {}, $locale)}IslandPlan(island)}
                   >
-                    Preview full-design plan
+                    {t('worldEditor.floating.previewPlan', {}, $locale)}
                   </button>
                 </div>
               </article>
             {/each}
           </div>
         {:else}
-          <p class="floating-route-empty">Core-resolved Floating Island routeはこのsaveではありません。</p>
+          <p class="floating-route-empty">Core-resolved {t('worldEditor.floating.island', {}, $locale)} routeはこのsaveではありません。</p>
         {/if}
 
         {#if worldSource.floatingIslandDiagnostics?.length}
           <div class="floating-route-diagnostics">
-            <strong>Unresolved identities</strong>
+            <strong>{t('worldEditor.floating.unresolvedIdentities', {}, $locale)}</strong>
             {#each worldSource.floatingIslandDiagnostics.slice(0, 5) as diagnostic}
               <span>
                 <code>{diagnostic.mapKey}</code>
@@ -3729,31 +3729,31 @@
         {#if floatingIslandPlan}
           <div class="floating-plan-preview">
             <div>
-              <span>Target</span>
+              <span>{t('worldEditor.floating.target', {}, $locale)}</span>
               <strong>{fullDesignIdentityLabel(floatingIslandPlan)}</strong>
             </div>
             <div>
-              <span>Manifest</span>
-              <strong>{floatingIslandPlan.manifestValidation?.ok ? 'Strict validation PASS' : 'Blocked'}</strong>
+              <span>{t('worldEditor.floating.manifest', {}, $locale)}</span>
+              <strong>{floatingIslandPlan.manifestValidation?.ok ? t('worldEditor.fullDesign.strictPass', {}, $locale) : t('worldEditor.placement.blocked', {}, $locale)}</strong>
             </div>
             <div>
-              <span>Direct roots</span>
+              <span>{t('worldEditor.fullDesign.category.directRoots', {}, $locale)}</span>
               <strong>{floatingIslandPlan.directRootRoutes.length}</strong>
             </div>
             <div>
-              <span>Publication / Apply</span>
-              <strong>Blocked / Disabled</strong>
+              <span>{t('worldEditor.floating.publication{t('worldEditor.fullDesign.apply', {}, $locale)}', {}, $locale)}</span>
+              <strong>{t('worldEditor.floating.b{t('worldEditor.layers.locked', {}, $locale)}{t('worldEditor.placement.disabled', {}, $locale)}', {}, $locale)}</strong>
             </div>
             <p>
-              Building / PlayerHouse / Environment portable stateは現在の01B contractでcaptureされます。
-              Floating IslandのEditorDocument composition / Canvas / placement validationは未bindingです。
+              {t('worldEditor.store.building', {}, $locale)} / {t('worldEditor.fullDesign.playerHouse', {}, $locale)} / {t('worldEditor.fullDesign.category.environment', {}, $locale)} portable stateは現在の01B contractでcaptureされます。
+              {t('worldEditor.floating.island', {}, $locale)}のEditorDocument composition / Canvas / placement validationは{t('worldEditor.placement.notBound', {}, $locale)}です。
             </p>
           </div>
         {/if}
 
         {#if floatingIslandPlanError}
           <div class="full-design-error">
-            <strong>Floating Island planning blocked</strong>
+            <strong>{t('worldEditor.floating.planning{t('worldEditor.placement.b{t('worldEditor.layers.locked', {}, $locale)}', {}, $locale)}', {}, $locale)}</strong>
             <code>{floatingIslandPlanError}</code>
           </div>
         {/if}
@@ -3761,26 +3761,26 @@
 
       <p class="projection-boundary">
         Switch Canvasは01B v1.7 pinned GridData contract + checksum検証済み01D-derived geometry/scopeを使用します。
-        Steam / unknown sourceは対応dataが承認されるまでArea/Grid列挙でfail-closedです。
-        Authoritative Root Grid bounds / reachable SubGrid dimensionsとsupported Road/Fence logical read/captureはbinding済みです。
-        native terrain/FloorType/occupancy legality、topology edit、real-target mutationは未bindingです。
+        Steam / {t('worldEditor.store.unknown', {}, $locale)} sourceは対応dataが承認されるまで{t('worldEditor.target.area', {}, $locale)}/Grid列挙でfail-closedです。
+        Authoritative Root Grid bounds / reachable SubGrid dimensionsとsupported {t('worldEditor.fullDesign.category.roads', {}, $locale)}/{t('worldEditor.fullDesign.category.fences', {}, $locale)} logical read/captureはbinding済みです。
+        native terrain/FloorType/occupancy legality、topology edit、real-target mutationは{t('worldEditor.placement.notBound', {}, $locale)}です。
       </p>
     </section>
   {:else}
     <div class="empty-world">
       <span aria-hidden="true">◇</span>
-      <strong>DDV Save または EditorDocument を開いてください</strong>
+      <strong>{t('worldEditor.open.empty{t('worldEditor.scene.fieldTitle', {}, $locale)}', {}, $locale)}</strong>
       <p>
-        ファイルはブラウザ内で処理されます。Publishを実行するまでCommunityへ送信しません。
+        {t('worldEditor.open.empty{t('worldEditor.scene.fieldDescription', {}, $locale)}', {}, $locale)}
       </p>
     </div>
   {/if}
 
   <div class="safety-note">
-    <strong>Current safety boundary</strong>
+    <strong>{t('worldEditor.safety.title', {}, $locale)}</strong>
     <span>
-      Nintendo Switch / Steamの実DDV targetに対するpersistent ADD / DELETE / MOVE / ROTATE、
-      native GridObject ID allocation、inventory消費、Road/Fence mutation、save replacementは未許可です。
+      {t('worldEditor.open.switch', {}, $locale)} / Steamの実DDV targetに対するpersistent ADD / DELETE / MOVE / ROTATE、
+      native GridObject ID allocation、inventory消費、{t('worldEditor.fullDesign.category.roads', {}, $locale)}/{t('worldEditor.fullDesign.category.fences', {}, $locale)} mutation、save replacementは{t('worldEditor.progression.notAuthorized', {}, $locale)}です。
     </span>
   </div>
 </section>
