@@ -551,8 +551,12 @@ export function preflightCurrentV125FullDesignManifest({
           clone(nativePlacementReasonCodes),
         nativeConflictFlagsResolved,
         clearabilityResolved,
-        progressionDestinationEvaluation:
-          clone(progressionDestinationEvaluation),
+        ...(progressionDestinationEvaluation
+          ? {
+              progressionDestinationEvaluation:
+                clone(progressionDestinationEvaluation)
+            }
+          : {}),
         placementValidated,
         placementPolicyReady,
         placementBlocker,
