@@ -32,7 +32,7 @@ After rollback: Workspace rows 0, identity-association rows 0, synthetic Wand Ac
 
 ## Edge/API
 
-- `community-command` v20 — create/update/delete Workspace, associate/unlink DDV identity;
+- `community-command` v22 — create/update/delete Workspace, associate/unlink DDV identity;
 - `community-query` v10 — owner-safe Workspace query using `community_get_ddv_profile_workspaces_v1`; legacy `linkedDdvProfiles` routing is removed.
 
 Identity association derives HMAC-SHA-256 using domain `dreamwishwand/ddv-player-id/v1\0` and forwards only the digest to PostgreSQL.
@@ -61,12 +61,12 @@ During concurrent verification, lifecycle v2 and FK-index v3 were each recorded 
 
 Two additional idempotent v2/v3 applications appeared in **staging migration history only** during concurrent work (`20261001234029` / `20261001234035`). They are not canonical repository migrations and are excluded from fresh production replay. The canonical repository sequence is `20261001232814 -> 20261001233225 -> 20261001233707 -> 20261001234524`.
 
-## Edge v21 correction and staging acceptance UI
+## Edge correction and staging acceptance UI
 
 A pre-activation static review found two escaping defects in the initial identity derivation source: the printable-ASCII regular expression and the intended NUL domain separator had been double escaped. Because the staging HMAC secret was not configured, live Player ID association was not enabled through this path.
 
-`community-command` v21 corrects the validation to printable ASCII `0x21..0x7E` and encodes a real NUL between the `dreamwishwand/ddv-player-id/v1` domain and the Player ID. Regression coverage locks both source properties.
+The corrected source first entered the v21 deployment. Current staging `community-command` **v22** contains the same printable-ASCII `0x21..0x7E` validation and a real NUL between the `dreamwishwand/ddv-player-id/v1` domain and the Player ID. Regression coverage locks both source properties.
 
 A staging-only `/community-lab/profiles/` acceptance surface is now source-implemented for five-slot Workspace creation, private labeling, Active/Archived state, optional Player ID association, unlink and confirmed deletion. It does not persist Player ID in browser storage and clears the input after an association attempt.
 
-Browser/runtime acceptance for this page remains pending branch build plus an authenticated staging session. It is not yet classified as browser PASS.
+Browser/runtime acceptance for this page remains pending branch build plus an authenticated staging session. It is not yet classified as browser PASS. The source-level HMAC separator regression assertion was also corrected after the Edge escape fix.
