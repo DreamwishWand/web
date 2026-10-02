@@ -297,10 +297,10 @@ test('World Editor route binds keyboard, mouse multi-select, blocker UI, inspect
   );
   assert.match(worldEditorRouteSource, /event\.ctrlKey \|\| event\.metaKey \|\| event\.shiftKey/);
   assert.match(worldEditorRouteSource, /on:click\|stopPropagation/);
-  assert.match(worldEditorRouteSource, /OBJECT INSPECTOR/);
-  assert.match(worldEditorRouteSource, /Common Actions/);
-  assert.match(worldEditorRouteSource, /Attached State Actions/);
-  assert.match(worldEditorRouteSource, /Unavailable actions/);
+  assert.match(worldEditorRouteSource, /worldEditor\.inspector\.eyebrow/);
+  assert.match(worldEditorRouteSource, /worldEditor\.inspector\.commonActions/);
+  assert.match(worldEditorRouteSource, /worldEditor\.inspector\.attachedActions/);
+  assert.match(worldEditorRouteSource, /worldEditor\.status\.unavailableActions/);
   assert.match(worldEditorRouteSource, /validationPresentation\.groups/);
   assert.match(worldEditorRouteSource, /runPrimaryOriginalBackup/);
   assert.match(worldEditorRouteSource, /primaryJobAvailability\.commands\.delete\.enabled/);
