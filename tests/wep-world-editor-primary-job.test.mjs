@@ -303,5 +303,5 @@ test('World Editor route binds keyboard, mouse multi-select, blocker UI, inspect
   assert.match(worldEditorRouteSource, /Unavailable actions/);
   assert.match(worldEditorRouteSource, /validationPresentation\.groups/);
   assert.match(worldEditorRouteSource, /runPrimaryOriginalBackup/);
-  assert.match(worldEditorRouteSource, /primaryCommandAllowed\('delete'\)/);
+  assert.match(worldEditorRouteSource, /primaryJobAvailability\.commands\.delete\.enabled/);
 });
