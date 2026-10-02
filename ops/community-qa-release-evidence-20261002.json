@@ -88,7 +88,7 @@
     },
     {
       "id": "AGE_MINORS_PRODUCT_POLICY",
-      "state": "CLOSED_PRODUCT_APPROVED_PRIVACY_LEGAL_REVIEW_PENDING",
+      "state": "CLOSED_PRODUCT_APPROVED_UNDER13_COMMUNITY_SCOPE_DEFINED__PRIVACY_LEGAL_REVIEW_PENDING",
       "evidence": [
         "ops/community-age-minors-product-decision-20261002.json",
         "docs/community/age-minors-product-decision-20261002.md"
@@ -98,7 +98,19 @@
         "under13IndependentRegistrationAllowed": false,
         "accountlessLocalUseAllowed": true,
         "parentGuardianManagedDdvProfileAssociationAllowed": true,
-        "separateUnder13WandCredentials": false
+        "separateUnder13WandCredentials": false,
+        "under13IndependentCommunityActor": false,
+        "allowedCommunityContribution": "PARENT_ACCOUNT_DREAMSNAPS_SUBMISSION_ONLY",
+        "passiveDreamSnapsViewingAllowed": true,
+        "childVotingAllowed": false,
+        "childReactionsAllowed": false,
+        "childCommentsRepliesAllowed": false,
+        "childQATipsAllowed": false,
+        "postResultInboundReactionsAllowed": true,
+        "postResultInboundSavesFavoritesAllowed": true,
+        "postResultInboundCommentsRepliesAllowed": false,
+        "publicAttribution": "PARENT_CREATOR_PROFILE_ONLY",
+        "childMinorProvenancePublic": false
       }
     },
     {
@@ -138,6 +150,42 @@
         "legacy ddv_profile_link rate bucket is disabled",
         "community-command v23 exposes the current Workspace command surface"
       ]
+    },
+    {
+      "id": "GLOBAL_LAUNCH_LOCALIZATION_ACCESSIBILITY_PRODUCT_POLICY",
+      "state": "CLOSED_PRODUCT_APPROVED_PRIVACY_LEGAL_REVIEW_PENDING",
+      "evidence": [
+        "ops/product-launch-jurisdiction-localization-accessibility-20261002.json",
+        "docs/product/launch-jurisdiction-localization-accessibility-20261002.md"
+      ],
+      "decision": {
+        "globalProductByDefault": true,
+        "localAccountlessRegionLocked": false,
+        "communityGlobalByDefault": true,
+        "jurisdictionSpecificFailClosedGateAllowed": true,
+        "launchLocaleRule": "MATCH_CURRENT_SUPPORTED_DDV_LANGUAGES",
+        "currentVerifiedLocaleCount": 8,
+        "expansionBeyondDdvLanguagesPlanned": false,
+        "accessibilityTarget": "WCAG_2_2_AA"
+      }
+    },
+    {
+      "id": "DREAMSNAPS_INTEGRITY_PRIVACY_PRODUCT_POLICY",
+      "state": "CLOSED_PRODUCT_APPROVED_ENGINEERING_PRIVACY_LEGAL_REMAIN",
+      "evidence": [
+        "ops/product-dreamsnaps-integrity-privacy-decision-20261002.json",
+        "docs/product/dreamsnaps-integrity-privacy-decision-20261002.md"
+      ],
+      "decision": {
+        "gameScreenshotRequired": true,
+        "externalVisualEditingAllowed": false,
+        "activeVotingCreatorIdentityHidden": true,
+        "activeVotingSocialSignalsHidden": true,
+        "officialSaveDerivedResultsDefaultVisibility": "PRIVATE",
+        "publicOfficialResultsRequirePostResultsOptIn": true,
+        "under13PostResultReactionsAllowed": true,
+        "under13PostResultCommentsAllowed": false
+      }
     }
   ],
   "reviewPending": [
