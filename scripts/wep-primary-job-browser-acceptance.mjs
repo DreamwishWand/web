@@ -127,6 +127,38 @@ const rawSwitchFixture = {
     LastSaveDeviceInfo: { deviceType: 'DeviceType_Switch' }
   },
   Player: {},
+  ProfileWorld: {
+    Stores: [
+      {
+        BuildingItemID: 40000047,
+        Displays: [
+          {
+            DisplayItemID: 2140000001,
+            DisplayInfo: {
+              Slots: [
+                {
+                  Item: { id: 40000001, amount: 1 },
+                  IsAvailable: true,
+                  CurrencyId: 80000000
+                },
+                {
+                  Item: null,
+                  IsAvailable: false,
+                  CurrencyId: 0
+                }
+              ],
+              LayoutType: 'FourItems',
+              LastRefresh: '2026-10-01T00:00:00Z'
+            }
+          }
+        ],
+        LastRefresh: '2026-10-01T00:00:00Z',
+        WeightedItems: { 40000001: 100, 40000002: 75 },
+        CurrentSequenceIndexPerUpgrade: [-1, 2]
+      }
+    ],
+    Shops: []
+  },
   World: {
     GridCollection: {
       Grids: {
@@ -291,7 +323,7 @@ async function runSyntheticAcceptance(page, report) {
   assert.equal(await page.locator('g[data-editor-object]').count(), beforeDuplicate);
 
   // Search/layer filtering must reconcile hidden selection.
-  await page.getByRole('button', { name: '選択解除' }).click();
+  await page.getByRole('button', { name: 'Clear selection' }).click();
   await page.locator(cssObject('Editable Chair')).first().click();
   await page.getByLabel('World object search').fill('lamp');
   await expectSelected(page, 0);
@@ -319,7 +351,7 @@ async function runSyntheticAcceptance(page, report) {
   );
 
   // Protected source content must fail closed with an actionable Preset reason.
-  await page.getByRole('button', { name: '選択解除' }).click();
+  await page.getByRole('button', { name: 'Clear selection' }).click();
   await unknown.click();
   assert.equal(await page.getByRole('button', { name: 'Capture Preview' }).isEnabled(), true);
   await page.getByRole('button', { name: 'Capture Preview' }).click();
@@ -464,7 +496,7 @@ async function runRawSaveAcceptance(page, report) {
     mimeType: 'application/json',
     buffer: rawBytes
   });
-  await page.getByText(/DDV saveをローカルで読み込みました/).waitFor();
+  await page.getByText(/DDV save loaded locally/).waitFor();
   await page.getByRole('button', { name: 'Open in Canvas' }).click();
   await page.getByText(/Core-bound local draft authoring/).waitFor();
 
