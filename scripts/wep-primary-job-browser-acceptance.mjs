@@ -345,7 +345,7 @@ async function runLocaleLayoutAcceptance(page, report) {
   await localeSelect.waitFor();
   await page.setViewportSize({ width: 1280, height: 1100 });
 
-  const localeSearch = page.getByLabel('World object search');
+  const localeSearch = page.locator('[data-wep-search-input]');
   await localeSearch.fill('40');
   const baseline = await editorSemanticSnapshot(page);
   report.localeLayout = {};
