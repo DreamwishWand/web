@@ -53,6 +53,9 @@
     createSwitchV125ProgressionIntegrationBinding
   } from '$lib/wep/progression-integration-v114';
   import {
+    buildSwitchV125DestinationProgressionProjection
+  } from '$lib/wep/progression-destination-projection-v115';
+  import {
     buildObjectInspectorModel,
     buildPrimaryJobAvailability,
     describeDraftValidation,
@@ -1368,6 +1371,17 @@
         await createSwitchV125BuildingBinding({
           basePath: base
         });
+      switchWorldBinding ??=
+        await createSwitchWorldReadAdapter({
+          basePath: base
+        });
+      const destinationProgression =
+        await buildSwitchV125DestinationProgressionProjection({
+          profile: opened.profile,
+          progressionScopeIndex:
+            switchWorldBinding.progressionScopeIndex,
+          basePath: base
+        });
 
       fullDesignDestinationPreflight =
         preflightCurrentV125FullDesignManifest({
@@ -1375,6 +1389,8 @@
           destinationPlatform: opened.saveIdentity.sourcePlatform,
           manifest: fullDesignPlan.manifest,
           placementBinding: placementLegalityBinding,
+          progressionDestinationProjection:
+            destinationProgression.projection,
           buildingBinding: buildingV110Binding
         });
     } catch (error) {
