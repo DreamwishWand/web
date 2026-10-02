@@ -931,14 +931,15 @@
   }
 
   function fullDesignCategoryLabel(key: string) {
-    return ({
-      directGrids: 'Direct roots',
-      rootObjects: 'Placed objects',
-      roads: 'Roads',
-      fences: 'Fences',
-      buildings: 'Buildings / PlayerHouse',
-      environment: 'Environment'
-    } as Record<string, string>)[key] ?? key;
+    const messageKey = ({
+      directGrids: 'worldEditor.fullDesign.category.directRoots',
+      rootObjects: 'worldEditor.fullDesign.category.placedObjects',
+      roads: 'worldEditor.fullDesign.category.roads',
+      fences: 'worldEditor.fullDesign.category.fences',
+      buildings: 'worldEditor.fullDesign.category.buildings',
+      environment: 'worldEditor.fullDesign.category.environment'
+    } as Record<string, string>)[key];
+    return messageKey ? t(messageKey, {}, $locale) : key;
   }
 
   function fullDesignCategoryEntries(plan: any): Array<[string, any]> {
@@ -946,14 +947,22 @@
   }
 
   function fullDesignDispositionLabel(value: any) {
-    if (value?.disposition === 'captured_partial') return 'Included · partial';
-    if (value?.disposition === 'blocked') return 'Blocked';
-    if (value?.disposition === 'excluded') return 'Excluded';
-    return String(value?.disposition ?? 'Unknown');
+    if (value?.disposition === 'captured_partial') {
+      return t('worldEditor.fullDesign.disposition.partial', {}, $locale);
+    }
+    if (value?.disposition === 'blocked') {
+      return t('worldEditor.fullDesign.blocked', {}, $locale);
+    }
+    if (value?.disposition === 'excluded') {
+      return t('worldEditor.fullDesign.disposition.excluded', {}, $locale);
+    }
+    return value?.disposition
+      ? String(value.disposition)
+      : t('worldEditor.fullDesign.disposition.unknown', {}, $locale);
   }
 
   function fullDesignBlockerText(code: string) {
-    return explainWepBlocker(code).message;
+    return localizeWepBlocker(code, $locale).message;
   }
 
   function fullDesignCategoryDetail(
@@ -972,8 +981,16 @@
         category?.portableComposition?.missingRoutes?.length ?? 0
       );
       return category?.portableComposition
-        ? `${count} inventoried · ${portable} portable · ${unresolved} unresolved · ${missing} route missing`
-        : `${count} direct-root object${count === 1 ? '' : 's'} inventoried`;
+        ? t(
+            'worldEditor.fullDesign.rootObjectsDetail',
+            { count, portable, unresolved, missing },
+            $locale
+          )
+        : t(
+            'worldEditor.fullDesign.rootObjectsOnly',
+            { count },
+            $locale
+          );
     }
     if (categoryKey === 'roads' || categoryKey === 'fences') {
       const coverage = Array.isArray(category?.readerCoverage)
@@ -993,19 +1010,42 @@
           ),
         0
       );
-      return `${supported}/${coverage.length} roots reader-supported · ${networks} logical network${networks === 1 ? '' : 's'}`;
+      return t(
+        'worldEditor.fullDesign.networkCoverage',
+        { supported, total: coverage.length, networks },
+        $locale
+      );
     }
     if (categoryKey === 'buildings') {
       const ordinary = category?.ordinaryPlacement;
       const skins = Number(category?.buildingSkins?.entries?.length ?? 0);
       const houses = Number(category?.playerHouses?.entries?.length ?? 0);
       if (ordinary?.destinationPlacementStatus === 'NOT_APPLICABLE') {
-        return `No Building present · skins ${skins} · PlayerHouse ${houses}`;
+        return t(
+          'worldEditor.fullDesign.noBuilding',
+          { skins, houses },
+          $locale
+        );
       }
-      return `ordinary Building ${Number(ordinary?.recognizedCount ?? 0)} · destination ${String(ordinary?.destinationPlacementStatus ?? 'UNKNOWN').toLowerCase()} · skins ${skins} · PlayerHouse ${houses}`;
+      return t(
+        'worldEditor.fullDesign.buildingDetail',
+        {
+          count: Number(ordinary?.recognizedCount ?? 0),
+          status: String(
+            ordinary?.destinationPlacementStatus ?? 'UNKNOWN'
+          ).toLowerCase(),
+          skins,
+          houses
+        },
+        $locale
+      );
     }
     if (categoryKey === 'environment' && category?.portableState) {
-      return `codec ${category.portableState.codec}`;
+      return t(
+        'worldEditor.fullDesign.codec',
+        { codec: category.portableState.codec },
+        $locale
+      );
     }
     return '';
   }
@@ -1328,11 +1368,23 @@
   }
 
   function fullDesignDestinationStatus(preflight: any) {
-    if (!preflight) return 'Not checked';
-    if (!preflight.manifestValid) return 'Manifest blocked';
-    if (!preflight.destinationPreflightReady) return 'Destination blocked';
-    if (!preflight.categoryClosureReady) return 'Destination resolved · product blocked';
-    return 'Ready for future apply gate';
+    if (!preflight) {
+      return t('worldEditor.fullDesign.notChecked', {}, $locale);
+    }
+    if (!preflight.manifestValid) {
+      return t('worldEditor.fullDesign.manifestBlocked', {}, $locale);
+    }
+    if (!preflight.destinationPreflightReady) {
+      return t('worldEditor.fullDesign.destinationBlocked', {}, $locale);
+    }
+    if (!preflight.categoryClosureReady) {
+      return t(
+        'worldEditor.fullDesign.destinationResolvedProductBlocked',
+        {},
+        $locale
+      );
+    }
+    return t('worldEditor.fullDesign.futureApplyReady', {}, $locale);
   }
 
   function fullDesignNativePlacementSummary(preflight: any) {
@@ -1363,19 +1415,22 @@
         NATIVE_PLACEMENT_CLASSES.UNKNOWN
       ) counts.unknown += 1;
     }
-    return `clear ${counts.clear} · replace/remove ${counts.replaces} · invalid ${counts.invalid} · unknown ${counts.unknown}`;
+    return t(
+      'worldEditor.fullDesign.nativePlacementSummary',
+      counts,
+      $locale
+    );
   }
 
   function fullDesignDestinationIssueText(issue: any) {
-    const explanation = explainWepBlocker(
-      issue?.code ?? 'WEP_UNKNOWN_BLOCKER',
-      issue?.detail ?? issue
-    );
-    return String(
-      issue?.detail?.message ??
-        issue?.detail?.status ??
-        explanation.message
-    );
+    const machineDetail =
+      issue?.detail?.message ?? issue?.detail?.status ?? null;
+    return machineDetail
+      ? String(machineDetail)
+      : localizeWepBlocker(
+          issue?.code ?? 'WEP_UNKNOWN_BLOCKER',
+          $locale
+        ).message;
   }
 
   async function openFullDesignDestination(event: Event) {
@@ -1440,12 +1495,23 @@
   function fullDesignIdentityLabel(plan: any) {
     const identity = plan?.semanticIdentity;
     if (identity?.kind === 'BIOME') {
-      return `Village SceneItemId ${identity.villageSceneItemId} · AreaType ${identity.villageAreaType}`;
+      return t(
+        'worldEditor.fullDesign.identityBiome',
+        {
+          sceneItemId: identity.villageSceneItemId,
+          areaType: identity.villageAreaType
+        },
+        $locale
+      );
     }
     if (identity?.kind === 'FLOATING_ISLAND') {
-      return `Floating Island SceneItemId ${identity.sceneItemId}`;
+      return t(
+        'worldEditor.fullDesign.identityFloating',
+        { sceneItemId: identity.sceneItemId },
+        $locale
+      );
     }
-    return 'Unresolved';
+    return t('worldEditor.fullDesign.identityUnresolved', {}, $locale);
   }
 
   onMount(async () => {
@@ -1931,7 +1997,10 @@
   };
 
   function primaryCommandReason(command: PrimaryJobCommand) {
-    return primaryJobAvailability?.commands?.[command]?.reason ?? '';
+    const state = primaryJobAvailability?.commands?.[command];
+    return state
+      ? commandReasonText(command, state)
+      : '';
   }
 
   function primaryCommandAllowed(command: PrimaryJobCommand) {
@@ -1940,7 +2009,13 @@
 
   function rejectPrimaryCommand(command: PrimaryJobCommand) {
     const reason = primaryCommandReason(command);
-    message = reason || `${PRIMARY_COMMAND_LABELS[command] ?? command} is unavailable.`;
+    message =
+      reason ||
+      t(
+        'worldEditor.command.unavailableFallback',
+        { label: commandLabelText(command) },
+        $locale
+      );
   }
 
   function runPrimaryMutation(
