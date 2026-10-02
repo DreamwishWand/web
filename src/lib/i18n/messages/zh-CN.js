@@ -1,4 +1,6 @@
+import worldEditor from './world-editor/zh-CN.js';
 export default Object.freeze({
+  ...worldEditor,
   "shared.a11y.skipToContent": "跳到主要内容",
   "shared.brand.homeLabel": "Dreamwish Wand 首页",
   "shared.nav.primaryLabel": "主导航",
