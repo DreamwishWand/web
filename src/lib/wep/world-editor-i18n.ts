@@ -1,5 +1,5 @@
-import { t } from '$lib/i18n/runtime.js';
-import { machineCodeSegment } from '$lib/i18n/messages/world-editor/_factory.js';
+import { t } from '../i18n/runtime.js';
+import { machineCodeSegment } from '../i18n/messages/world-editor/_factory.js';
 
 type Params = Record<string, unknown>;
 
