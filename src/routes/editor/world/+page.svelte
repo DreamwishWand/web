@@ -3671,27 +3671,23 @@
     <section class="save-source-browser">
       <div class="save-source-heading">
         <div>
-          <p class="eyebrow">SAVE ROUTES / READ-ONLY</p>
-          <h2>Area &amp; Direct Grid</h2>
-          <p>
-            save intakeは完了しています。Nintendo Switch sourceでは、
-            Integrator-approved 01B v1.7 GridData bindingとSwitch v1.25 canonical geometry/scopeを使って
-            選択したroot Gridをread-only EditorDocument / Canvasへ変換できます。
-          </p>
+          <p class="eyebrow">{t('worldEditor.routes.eyebrow', {}, $locale)}</p>
+          <h2>{t('worldEditor.routes.title', {}, $locale)}</h2>
+          <p>{t('worldEditor.routes.description', {}, $locale)}</p>
         </div>
         <dl>
-          <div><dt>File</dt><dd>{fileName}</dd></div>
-          <div><dt>Input</dt><dd>{worldSource.inputFormat}</dd></div>
-          <div><dt>Schema</dt><dd>{worldSource.profileSchemaVersion}</dd></div>
-          <div><dt>Source</dt><dd>{worldSource.saveIdentity.sourcePlatform}</dd></div>
-          <div><dt>Last save</dt><dd>{worldSource.saveIdentity.lastSavePlatform}</dd></div>
-          <div><dt>Areas</dt><dd>{worldSource.areas.length}</dd></div>
-          <div><dt>Floating</dt><dd>{worldSource.floatingIslands?.length ?? 0}</dd></div>
+          <div><dt>{t('worldEditor.target.file', {}, $locale)}</dt><dd>{fileName}</dd></div>
+          <div><dt>{t('worldEditor.routes.input', {}, $locale)}</dt><dd>{worldSource.inputFormat}</dd></div>
+          <div><dt>{t('worldEditor.routes.schema', {}, $locale)}</dt><dd>{worldSource.profileSchemaVersion}</dd></div>
+          <div><dt>{t('worldEditor.routes.source', {}, $locale)}</dt><dd>{worldSource.saveIdentity.sourcePlatform}</dd></div>
+          <div><dt>{t('worldEditor.routes.lastSave', {}, $locale)}</dt><dd>{worldSource.saveIdentity.lastSavePlatform}</dd></div>
+          <div><dt>{t('worldEditor.routes.areas', {}, $locale)}</dt><dd>{worldSource.areas.length}</dd></div>
+          <div><dt>{t('worldEditor.routes.floating', {}, $locale)}</dt><dd>{worldSource.floatingIslands?.length ?? 0}</dd></div>
         </dl>
       </div>
 
       <div class="save-contract">
-        <strong>Read contract only</strong>
+        <strong>{t('worldEditor.routes.readContractOnly', {}, $locale)}</strong>
         <span>
           current-v1.25 schema 624 / exactBuildKnown=false /
           persistentWriteAuthorized=false
@@ -3703,22 +3699,24 @@
           <article class="area-route">
             <header>
               <div>
-                <span>Village {area.villageIndex}</span>
-                <strong>Area {area.areaId}</strong>
+                <span>{t('worldEditor.routes.village', { index: area.villageIndex }, $locale)}</span>
+                <strong>{t('worldEditor.routes.area', { areaId: area.areaId }, $locale)}</strong>
               </div>
-              <small>{area.unlocked === false ? 'locked in save' : 'save route'}</small>
+              <small>{area.unlocked === false
+                ? t('worldEditor.routes.lockedInSave', {}, $locale)
+                : t('worldEditor.routes.saveRoute', {}, $locale)}</small>
             </header>
 
             <div class="root-grid-list">
               {#each area.roots as root}
                 <div class="root-grid-row">
                   <div>
-                    <strong>Grid {root.gridId}</strong>
-                    <span>{root.gridDataPath ?? 'GridDataPath unavailable'}</span>
+                    <strong>{t('worldEditor.routes.grid', { gridId: root.gridId }, $locale)}</strong>
+                    <span>{root.gridDataPath ?? t('worldEditor.routes.gridPathUnavailable', {}, $locale)}</span>
                   </div>
                   <div class="root-grid-meta">
-                    <span>{root.objectCount} objects</span>
-                    <span>tess ×{root.tessellationFactor}</span>
+                    <span>{t('worldEditor.routes.objectCount', { count: root.objectCount }, $locale)}</span>
+                    <span>{t('worldEditor.routes.tessellation', { factor: root.tessellationFactor }, $locale)}</span>
                   </div>
                   <button
                     disabled={
@@ -3727,12 +3725,12 @@
                     }
                     title={
                       worldSource.saveIdentity.sourcePlatform === 'switch'
-                        ? 'Open with canonical 01B v1.7 read projection'
-                        : 'Switch v1.25 browser read data is required for Canvas projection'
+                        ? t('worldEditor.routes.openCanvasTitle', {}, $locale)
+                        : t('worldEditor.routes.switchRequiredTitle', {}, $locale)
                     }
                     on:click={() => openSaveGridInCanvas(area, root.gridId)}
                   >
-                    Open in Canvas
+                    {t('worldEditor.routes.openCanvas', {}, $locale)}
                   </button>
                 </div>
               {/each}
@@ -3744,13 +3742,10 @@
       <div class="floating-route-section">
         <div class="floating-route-heading">
           <div>
-            <p class="eyebrow">FLOATING ISLANDS / READ-ONLY PLANNING</p>
-            <strong>Semantic routes</strong>
+            <p class="eyebrow">{t('worldEditor.floating.eyebrow', {}, $locale)}</p>
+            <strong>{t('worldEditor.floating.semanticRoutes', {}, $locale)}</strong>
           </div>
-          <small>
-            Canvas loader未接続のため、ここではcurrent 01B portable identity / direct-root contractと
-            v1.7 GridData authorityによるfull-design planningだけを行います。
-          </small>
+          <small>{t('worldEditor.floating.description', {}, $locale)}</small>
         </div>
 
         {#if worldSource.floatingIslands?.length}
@@ -3759,23 +3754,29 @@
               <article class="area-route">
                 <header>
                   <div>
-                    <span>Floating Island</span>
-                    <strong>SceneItemId {island.sceneItemId}</strong>
+                    <span>{t('worldEditor.floating.island', {}, $locale)}</span>
+                    <strong>{t('worldEditor.floating.sceneItemId', { sceneItemId: island.sceneItemId }, $locale)}</strong>
                   </div>
-                  <small>{island.unlocked === false ? 'locked in save' : 'semantic route'}</small>
+                  <small>{island.unlocked === false
+                    ? t('worldEditor.floating.lockedInSave', {}, $locale)
+                    : t('worldEditor.floating.semanticRoute', {}, $locale)}</small>
                 </header>
 
                 <div class="floating-route-roots">
                   {#each island.roots as root}
-                    <code>{root.gridDataPath ?? 'GridDataPath unavailable'}</code>
+                    <code>{root.gridDataPath ?? t('worldEditor.routes.gridPathUnavailable', {}, $locale)}</code>
                   {/each}
                 </div>
 
                 <div class="floating-route-actions">
-                  <span>
-                    {island.roots.length} direct root{island.roots.length === 1 ? '' : 's'} ·
-                    {floatingIslandObjectCount(island)} objects
-                  </span>
+                  <span>{t(
+                    'worldEditor.floating.summary',
+                    {
+                      rootCount: island.roots.length,
+                      objectCount: floatingIslandObjectCount(island)
+                    },
+                    $locale
+                  )}</span>
                   <button
                     disabled={
                       loading ||
@@ -3783,19 +3784,19 @@
                     }
                     on:click={() => previewFloatingIslandPlan(island)}
                   >
-                    Preview full-design plan
+                    {t('worldEditor.floating.previewPlan', {}, $locale)}
                   </button>
                 </div>
               </article>
             {/each}
           </div>
         {:else}
-          <p class="floating-route-empty">Core-resolved Floating Island routeはこのsaveではありません。</p>
+          <p class="floating-route-empty">{t('worldEditor.floating.none', {}, $locale)}</p>
         {/if}
 
         {#if worldSource.floatingIslandDiagnostics?.length}
           <div class="floating-route-diagnostics">
-            <strong>Unresolved identities</strong>
+            <strong>{t('worldEditor.floating.unresolvedIdentities', {}, $locale)}</strong>
             {#each worldSource.floatingIslandDiagnostics.slice(0, 5) as diagnostic}
               <span>
                 <code>{diagnostic.mapKey}</code>
@@ -3808,59 +3809,48 @@
         {#if floatingIslandPlan}
           <div class="floating-plan-preview">
             <div>
-              <span>Target</span>
+              <span>{t('worldEditor.floating.target', {}, $locale)}</span>
               <strong>{fullDesignIdentityLabel(floatingIslandPlan)}</strong>
             </div>
             <div>
-              <span>Manifest</span>
-              <strong>{floatingIslandPlan.manifestValidation?.ok ? 'Strict validation PASS' : 'Blocked'}</strong>
+              <span>{t('worldEditor.floating.manifest', {}, $locale)}</span>
+              <strong>{floatingIslandPlan.manifestValidation?.ok
+                ? t('worldEditor.fullDesign.strictPass', {}, $locale)
+                : t('worldEditor.fullDesign.blocked', {}, $locale)}</strong>
             </div>
             <div>
-              <span>Direct roots</span>
+              <span>{t('worldEditor.floating.directRoots', {}, $locale)}</span>
               <strong>{floatingIslandPlan.directRootRoutes.length}</strong>
             </div>
             <div>
-              <span>Publication / Apply</span>
-              <strong>Blocked / Disabled</strong>
+              <span>{t('worldEditor.floating.publicationApply', {}, $locale)}</span>
+              <strong>{t('worldEditor.floating.blockedDisabled', {}, $locale)}</strong>
             </div>
-            <p>
-              Building / PlayerHouse / Environment portable stateは現在の01B contractでcaptureされます。
-              Floating IslandのEditorDocument composition / Canvas / placement validationは未bindingです。
-            </p>
+            <p>{t('worldEditor.floating.planNote', {}, $locale)}</p>
           </div>
         {/if}
 
         {#if floatingIslandPlanError}
           <div class="full-design-error">
-            <strong>Floating Island planning blocked</strong>
+            <strong>{t('worldEditor.floating.planningBlocked', {}, $locale)}</strong>
             <code>{floatingIslandPlanError}</code>
           </div>
         {/if}
       </div>
 
-      <p class="projection-boundary">
-        Switch Canvasは01B v1.7 pinned GridData contract + checksum検証済み01D-derived geometry/scopeを使用します。
-        Steam / unknown sourceは対応dataが承認されるまでArea/Grid列挙でfail-closedです。
-        Authoritative Root Grid bounds / reachable SubGrid dimensionsとsupported Road/Fence logical read/captureはbinding済みです。
-        native terrain/FloorType/occupancy legality、topology edit、real-target mutationは未bindingです。
-      </p>
+      <p class="projection-boundary">{t('worldEditor.floating.projectionBoundary', {}, $locale)}</p>
     </section>
   {:else}
     <div class="empty-world">
       <span aria-hidden="true">◇</span>
-      <strong>DDV Save または EditorDocument を開いてください</strong>
-      <p>
-        ファイルはブラウザ内で処理されます。Publishを実行するまでCommunityへ送信しません。
-      </p>
+      <strong>{t('worldEditor.open.emptyTitle', {}, $locale)}</strong>
+      <p>{t('worldEditor.open.emptyDescription', {}, $locale)}</p>
     </div>
   {/if}
 
   <div class="safety-note">
-    <strong>Current safety boundary</strong>
-    <span>
-      Nintendo Switch / Steamの実DDV targetに対するpersistent ADD / DELETE / MOVE / ROTATE、
-      native GridObject ID allocation、inventory消費、Road/Fence mutation、save replacementは未許可です。
-    </span>
+    <strong>{t('worldEditor.safety.title', {}, $locale)}</strong>
+    <span>{t('worldEditor.safety.description', {}, $locale)}</span>
   </div>
 </section>
 
