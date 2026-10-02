@@ -16,7 +16,14 @@ for (const token of [
   "unlinkDdvIdentity: 'community_unlink_ddv_identity_v1'",
   "deriveDdvIdentityDigest",
   "params.p_workspace_id = payload.workspaceId",
-  "params.p_binding_key_hash = bindingDigest"
+  "params.p_binding_key_hash = bindingDigest",
+  "createDdvProfileWorkspace: 'ddv_profile_workspace_write'",
+  "updateDdvProfileWorkspace: 'ddv_profile_workspace_write'",
+  "deleteDdvProfileWorkspace: 'ddv_profile_workspace_write'",
+  "associateDdvIdentity: 'ddv_profile_identity'",
+  "unlinkDdvIdentity: 'ddv_profile_identity'",
+  "params.p_session_id = sessionId",
+  "params.p_issued_at_epoch = issuedAt"
 ]) assert.ok(command.includes(token), token);
 
 assert.ok(query.includes("ddvProfileWorkspaces: 'community_get_ddv_profile_workspaces_v1'"));
@@ -33,3 +40,6 @@ assert.ok(command.includes('DDV_PROFILE_WORKSPACE_LIMIT_REACHED'));
 assert.ok(command.includes('DDV_IDENTITY_ALREADY_ASSOCIATED_IN_ACCOUNT'));
 
 console.log('PASS DDV Profile Workspace Edge transport contract');
+
+assert.ok(!command.includes("createDdvProfileWorkspace: 'ddv_profile_link'"));
+assert.ok(!command.includes("associateDdvIdentity: 'ddv_profile_link'"));
