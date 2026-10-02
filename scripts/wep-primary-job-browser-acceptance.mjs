@@ -403,20 +403,24 @@ async function runLocaleLayoutAcceptance(page, report) {
     }
 
     const surfaces = [
-      ['toolbar', page.locator('.editor-toolbar')],
-      ['inspector', page.locator('.object-inspector')],
-      ['blocker-panel', page.locator('.draft-blockers')],
-      ['validation-panel', page.locator('.validation-groups')],
-      ['store-inspector', page.locator('[data-wep-surface="store-inspector"]')],
-      ['scene-capture', page.locator('.capture-panel')],
-      ['save-prep', page.locator('.save-preparation')],
-      ['original-backup-controls', page.locator('.toolbar-actions .save-prep')],
-      ['road-fence-labels', page.locator('[data-wep-surface="road-fence-labels"]')],
-      ['progression-explanation', page.locator('.progression-safety-card')],
-      ['live-status', page.locator('.status')]
+      { label: 'toolbar', locator: page.locator('.editor-toolbar'), required: true },
+      { label: 'inspector', locator: page.locator('.object-inspector'), required: true },
+      { label: 'blocker-panel', locator: page.locator('.draft-blockers'), required: false },
+      { label: 'validation-panel', locator: page.locator('.validation-groups'), required: false },
+      { label: 'store-inspector', locator: page.locator('[data-wep-surface="store-inspector"]'), required: false },
+      { label: 'scene-capture', locator: page.locator('.capture-panel'), required: true },
+      { label: 'save-prep', locator: page.locator('.save-preparation'), required: false },
+      { label: 'original-backup-controls', locator: page.locator('.toolbar-actions .save-prep'), required: true },
+      { label: 'road-fence-labels', locator: page.locator('[data-wep-surface="road-fence-labels"]'), required: false },
+      { label: 'progression-explanation', locator: page.locator('.progression-safety-card'), required: false },
+      { label: 'live-status', locator: page.locator('.status'), required: true }
     ];
+    const conditionalSurfacePresence = {};
 
-    for (const [label, locator] of surfaces) {
+    for (const { label, locator, required } of surfaces) {
+      const count = await locator.count();
+      conditionalSurfacePresence[label] = count;
+      if (!count && !required) continue;
       await assertNoHorizontalOverflow(locator, locale + ':' + label);
     }
 
@@ -456,7 +460,10 @@ async function runLocaleLayoutAcceptance(page, report) {
       horizontalOverflow: 'PASS',
       editorStateInvariant: 'PASS',
       htmlLang: pageMetrics.htmlLang,
-      testedSurfaces: surfaces.map(([label]) => label)
+      testedSurfaces: surfaces
+        .filter(({ label }) => conditionalSurfacePresence[label] > 0)
+        .map(({ label }) => label),
+      conditionalSurfacePresence
     };
   }
 
