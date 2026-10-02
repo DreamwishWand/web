@@ -1,4 +1,6 @@
 import '../ddv/core/world/runtime-v125/adapter-v125.js';
+import '../ddv/core/world/runtime-v125/location-v125.js';
+import '../ddv/core/world/runtime-v125/direct-root-editor-document-v125.js';
 
 import {
   GRIDDATA_DIMENSIONS_V125_RECORD_COUNT,
@@ -16,6 +18,8 @@ export const WORLD_GRIDDATA_DIMENSIONS_V125_SHA256 =
 export const WORLD_READ_SWITCH_V125_SHA256 =
   '53db127eb796c0d4b103695258700d18de69f5403d1067cd956396cd1b03ffa6';
 export const WORLD_READ_SWITCH_V125_BUILD_ID = '52BD625D9B4E0053';
+export const WORLD_DIRECT_ROOT_EDITOR_DOCUMENT_V116_SHA256 =
+  'eba3e2e604b2cf976cd6080b69ba9eaef1fa94b0a3aa20a7e4f175b64e0c3d9a';
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
@@ -45,6 +49,34 @@ type CoreWorldApi = {
     loadAreaGrid(profile: Record<string, any>, locator: Record<string, unknown>): any;
   };
 };
+
+function locationApi(): any {
+  const api = (globalThis as any).DdvCoreWorldV125Location;
+  if (
+    !api ||
+    api.CURRENT_GAME_VERSION !== '1.25.0' ||
+    api.CURRENT_PROFILE_SCHEMA !== 624 ||
+    api.LOCATION_CODEC !== 'ddv.outdoor-location-ref@1' ||
+    api.DIRECT_GRID_ROUTE_CODEC !== 'ddv.direct-grid-route@1'
+  ) {
+    throw new Error('WEP_WORLD_LOCATION_CORE_CONTRACT_MISMATCH');
+  }
+  return api;
+}
+
+function directRootApi(): any {
+  const api = (globalThis as any).DdvCoreDirectRootEditorDocumentV125;
+  if (
+    !api ||
+    typeof api.createProjector !== 'function' ||
+    api.CONTRACT_SCHEMA !== 'ddv.direct-root-editor-document@1' ||
+    api.CURRENT_GAME_VERSION !== '1.25.0' ||
+    api.CURRENT_PROFILE_SCHEMA !== 624
+  ) {
+    throw new Error('WEP_WORLD_DIRECT_ROOT_PROJECTOR_NOT_LOADED');
+  }
+  return api;
+}
 
 function coreApi(): CoreWorldApi {
   const api = (globalThis as any).DdvCoreWorldV125 as CoreWorldApi | undefined;
@@ -214,9 +246,19 @@ export async function createSwitchWorldReadAdapter({
     gridDataDimensions,
     gridRoleIndex: roleAuthority
   });
+  const directRootProjector = directRootApi().createProjector({
+    locationApi: locationApi(),
+    worldApi: api,
+    gridDataDimensions,
+    gridDataDimensionsSha256:
+      WORLD_GRIDDATA_DIMENSIONS_V125_SHA256,
+    geometryIndex: data.geometryIndex,
+    scopeIndex: data.scopeIndex
+  });
 
   return Object.freeze({
     adapter,
+    directRootProjector,
     progressionScopeIndex: Object.freeze(
       structuredClone(data.scopeIndex)
     ),
@@ -234,7 +276,11 @@ export async function createSwitchWorldReadAdapter({
       roleAuthoritySha256: WORLD_ROLE_AUTHORITY_V125_SHA256,
       readDataSha256: WORLD_READ_SWITCH_V125_SHA256,
       readDataBuildID: WORLD_READ_SWITCH_V125_BUILD_ID,
-      readDataSource: data.provenance
+      readDataSource: data.provenance,
+      directRootEditorDocumentContract:
+        'DDV-DIRECT-ROOT-EDITOR-DOCUMENT-V125-V1_16',
+      directRootEditorDocumentSha256:
+        WORLD_DIRECT_ROOT_EDITOR_DOCUMENT_V116_SHA256
     })
   });
 }
@@ -288,6 +334,103 @@ export function projectSwitchAreaGrid(
         gridDataDimensionsBound: true,
         gridDataDimensionsSha256:
           binding.provenance.gridDataDimensionsSha256,
+        roadFenceLogicalBinding: true
+      }
+    }
+  };
+}
+
+
+export function projectSwitchFloatingIslandGrid(
+  opened: OpenWorldSaveResult,
+  island: { sceneItemId: number; roots: Array<{ gridId: number; gridDataPath: string | null }> },
+  root: { gridId: number; gridDataPath: string | null },
+  binding: Awaited<ReturnType<typeof createSwitchWorldReadAdapter>>
+) {
+  if (
+    opened.profileSchemaVersion !== 624 ||
+    opened.compatibility.gameVersion !== '1.25.0'
+  ) {
+    throw new Error('WEP_WORLD_SAVE_CONTRACT_MISMATCH');
+  }
+  if (opened.saveIdentity.sourcePlatform !== 'switch') {
+    throw new Error('WEP_WORLD_SWITCH_SOURCE_PLATFORM_REQUIRED');
+  }
+
+  const gridDataPath = String(root?.gridDataPath ?? '');
+  const rootGridId = Number(root?.gridId);
+  const listed = (island?.roots ?? []).some(
+    (entry) =>
+      Number(entry?.gridId) === rootGridId &&
+      String(entry?.gridDataPath ?? '') === gridDataPath
+  );
+  if (
+    !Number.isSafeInteger(rootGridId) ||
+    !gridDataPath ||
+    !listed
+  ) {
+    throw new Error('WEP_WORLD_FLOATING_DIRECT_ROOT_ROUTE_INVALID');
+  }
+
+  const locations = locationApi();
+  const locationRef = locations.locationRefFloatingIsland(
+    island.sceneItemId
+  );
+  if (!locationRef) {
+    throw new Error('WEP_WORLD_FLOATING_LOCATION_IDENTITY_INVALID');
+  }
+
+  const directRootRoute = {
+    codec: locations.DIRECT_GRID_ROUTE_CODEC,
+    gridDataPath
+  };
+  const result = binding.directRootProjector.project(
+    opened.profile,
+    {
+      locationRef,
+      directRootRoute,
+      source: binding.source
+    }
+  );
+  if (result?.status !== 'RESOLVED' || !result?.document) {
+    throw new Error(
+      String(
+        result?.blockers?.[0]?.code ??
+          'WEP_WORLD_DIRECT_ROOT_PROJECTION_BLOCKED'
+      )
+    );
+  }
+
+  const document = result.document;
+  return {
+    ...document,
+    target: {
+      ...document.target,
+      exactBuildKnown: false,
+      persistentWriteAuthorized: false
+    },
+    capabilities: {
+      ...document.capabilities,
+      worldPlacementValidate:
+        'browser-disabled-direct-root-read-model',
+      worldDryRunMutation: 'not-authorized-by-projector',
+      worldPersistentWrite: 'unsupported'
+    },
+    metadata: {
+      ...document.metadata,
+      browserBinding: {
+        adapter:
+          '01B-v1.16-direct-root-integrator-promoted',
+        sourcePlatform: 'switch',
+        exactBuildKnown: false,
+        persistentWriteAuthorized: false,
+        gridDataDimensionsBound: true,
+        gridDataDimensionsSha256:
+          binding.provenance.gridDataDimensionsSha256,
+        directRootEditorDocumentContract:
+          'DDV-DIRECT-ROOT-EDITOR-DOCUMENT-V125-V1_16',
+        directRootEditorDocumentSha256:
+          WORLD_DIRECT_ROOT_EDITOR_DOCUMENT_V116_SHA256,
         roadFenceLogicalBinding: true
       }
     }
