@@ -22,6 +22,8 @@ assert.match(page,/Archiving never frees a slot; deletion does/);
 assert.match(page,/Profile \$\{workspace\.slotIndex\}/);
 assert.match(page,/parent_guardian_managed/);
 assert.match(page,/confirmation: 'DELETE'/);
+assert.match(page,/RECENT_AUTH_REQUIRED/);
+assert.match(page,/within the last 15 minutes/);
 assert.match(page,/Workspace-scoped private data is deleted/);
 assert.match(page,/Gallery posts, Wand Presets, and Q&amp;A\/Tips remain independent/);
 assert.match(page,/Player ID is not required/);
