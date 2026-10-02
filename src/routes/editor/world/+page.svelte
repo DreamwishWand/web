@@ -243,11 +243,7 @@
   }
 
   function commandLabelText(command: string) {
-    return localizeCommandLabel(
-      command,
-      PRIMARY_COMMAND_LABELS[command] ?? command,
-      $locale
-    );
+    return localizeCommandLabel(command, command, $locale);
   }
 
   function validationGroupText(group: any) {
@@ -2012,19 +2008,6 @@
     selectedOnly = !selectedOnly;
     refreshProjection();
   }
-
-  const PRIMARY_COMMAND_LABELS: Record<string, string> = {
-    move: 'Move',
-    rotate: 'Rotate',
-    copy: 'Copy',
-    paste: 'Paste',
-    duplicate: 'Duplicate',
-    delete: 'Delete draft',
-    undo: 'Undo',
-    redo: 'Redo',
-    reviewSavePrep: 'Review Save Prep',
-    downloadOriginalBackup: 'Download Original Backup'
-  };
 
   function primaryCommandReason(command: PrimaryJobCommand) {
     const state = primaryJobAvailability?.commands?.[command];
