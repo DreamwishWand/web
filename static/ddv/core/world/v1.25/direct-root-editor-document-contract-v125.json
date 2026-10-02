@@ -2,7 +2,7 @@
   "schema": "ddv.direct-root-editor-document@1",
   "artifactId": "DDV-DIRECT-ROOT-EDITOR-DOCUMENT-V125-V1_16-CANDIDATE",
   "version": "v1.16-candidate",
-  "status": "SOURCE_CONTRACT_READY_PENDING_CI",
+  "status": "READY_FOR_INTEGRATOR_REVIEW",
   "owner": "01B CORE - World / Grid / Buildings",
   "target": {
     "platform": "Nintendo Switch",
@@ -207,5 +207,43 @@
     "saveReplacementAuthorized": false,
     "atomicCommitAuthorized": false
   },
-  "routeFailureDiagnostics": "The projector exposes stable DIRECT_ROOT_ROUTE_UNRESOLVED / DIRECT_ROOT_ROUTE_AMBIGUOUS codes and preserves promoted location-resolver blockers only as diagnostic detail."
+  "routeFailureDiagnostics": "The projector exposes stable DIRECT_ROOT_ROUTE_UNRESOLVED / DIRECT_ROOT_ROUTE_AMBIGUOUS codes and preserves promoted location-resolver blockers only as diagnostic detail.",
+  "implementationArtifact": {
+    "path": "static/ddv/core/world/v1.25/direct-root-editor-document-v125.cjs",
+    "sha256": "1f281714f84c9da5cf4273dfe58907565c5262b52b692396ba0df3578cf3b9b3"
+  },
+  "regression": {
+    "testPath": "tests/ddv-core-world-direct-root-editor-document-v125.test.mjs",
+    "representativeChecks": [
+      "canonical routing audit pins Urban SceneItemId 1540000147 / GridID 760 / exact GridDataPath / 4230 GridObjects",
+      "non-sensitive 4230-object synthetic current-v1.25 profile projects 4230 EditorDocument root objects",
+      "no villageIndex/areaId/areaKey is fabricated",
+      "Urban v1.7 bounds resolve to 260x260",
+      "shared object fields match existing Area EditorDocument projection semantics",
+      "SubGrid hierarchy remains nested and authoritative child bounds are preserved",
+      "ambiguous/missing route, missing bounds, unsupported semantic role, ownership ambiguity, unresolved geometry, unsupported nested state/cycle fail closed",
+      "projector never authorizes persistent write or Apply"
+    ],
+    "verificationRun": {
+      "workflow": "CI",
+      "runId": 37018654379,
+      "runNumber": 1777,
+      "headSha": "7c887744853386f54a4b964eeb5bcbab52e71b6a",
+      "tests": 179,
+      "pass": 167,
+      "fail": 0,
+      "skipped": 12,
+      "svelteTypeErrors": 0,
+      "svelteTypeWarnings": 0,
+      "canonicalBaselineVerification": "PASS",
+      "productionStaticBuild": "PASS"
+    }
+  },
+  "runtimeEscalation": "NOT_REQUIRED_STATIC_AND_CURRENT_SAVE_ROUTE_EVIDENCE_SUFFICIENT",
+  "integratorReturn": {
+    "ready": true,
+    "promotionScope": "READ_MODEL_PROJECTOR_ONLY",
+    "doNotPromotePersistentMutation": true,
+    "wepConsumptionAfterPromotionOnly": true
+  }
 }
