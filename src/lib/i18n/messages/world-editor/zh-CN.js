@@ -585,6 +585,7 @@ const coreReasonSpecific = {
   MISSION_ITEM_READ_ONLY: '此对象受到当前 Core mission-item policy 保护，可检查但不可 mutation。',
   PROTECTED_PROGRESSION_OBJECT_CONFLICT: '此对象受到 progression/system ownership 保护，不能被覆盖，也不能作为 portable content。',
   UNKNOWN_BUILDING_SEMANTICS: 'Core 无法证明此 ItemID 属于安全 ordinary Building，因此 mutation 保持禁用。',
+  CHARACTER_HOUSE_PRESENCE_SIDE_EFFECTS_REQUIRE_DEDICATED_LIFECYCLE: "此角色住宅与角色驻留生命周期状态关联，因此禁用通用修改。",
   WORLD_OBJECT_NOT_EDITABLE: '至少一个已选对象在当前 Core projection 中为只读或 blocked。'
 };
 
