@@ -877,6 +877,12 @@ async function runRawSaveAcceptance(page, report) {
     0
   );
 
+  // Restore the normal Area draft route before the existing locale-layout
+  // suite, whose surface inventory intentionally includes draft-only panels.
+  await page.getByRole('button', { name: /Area \/ Grid/ }).click();
+  await page.getByRole('button', { name: 'Open in Canvas' }).first().click();
+  await page.getByText(/Core-bound local draft authoring/).waitFor();
+
   report.rawSwitch = {
     progressionDestinationConflict: 'PASS',
     commandSpecificValidationPresentation: 'PASS',
