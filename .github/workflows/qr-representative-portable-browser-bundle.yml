@@ -1,0 +1,39 @@
+name: QR representative browser bundle
+
+on:
+  pull_request:
+    branches: [dev/wep-v125]
+    paths:
+      - '.github/workflows/qr-representative-portable-browser-bundle.yml'
+      - 'scripts/wep-representative-save-browser-acceptance.mjs'
+      - 'src/**'
+      - 'static/**'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Build local-root static acceptance bundle
+        run: npm run build
+      - name: Upload portable acceptance bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr-representative-browser-bundle
+          path: |
+            build/
+            scripts/wep-representative-save-browser-acceptance.mjs
+            node_modules/playwright-core/
+          if-no-files-found: error
