@@ -1,0 +1,71 @@
+{
+  "schema": "ddv.progression-reference-index-manifest@1",
+  "artifactId": "DDV-PROGRESSION-REFERENCE-INDEX-V125-V1_0",
+  "version": "v1.0",
+  "status": "PROMOTED_DEPENDENCY",
+  "owner": "01A CORE - Save / Version / Codec",
+  "scope": "read-only schema-624 active/historical/unknown world-object reference projection",
+  "target": {
+    "gameVersion": "1.25.0",
+    "profileSchemaVersion": 624
+  },
+  "reusablePackage": {
+    "driveId": "1W_N_5G_RAd_zD42ODwr3NKRLQX_hYuYS",
+    "bytes": 17154,
+    "sha256": "340fcab446a0f2e7db31604a927d90e1664398652285e325da2b1bcb092d480b",
+    "components": {
+      "sourceModuleSha256": "7a7d9fb0e83d0b6607fe2015d14ba288c9408411fa839031fbeffbc4a9fff152",
+      "schemaSha256": "202828cf32944dd780ecf01a8c86f8ce41d38253f3bfaad76974b62824c7ced6",
+      "syntheticTestsSha256": "24f03210021c7ada4a66aef6c9cfa8aa45e9fbc4d548b2b6b392822ba8fec442",
+      "coverageSummarySha256": "71138fb6f7c699da1bf8578d35893e87edbce9f5c5378884eadbab04199fe31f",
+      "syntheticTestResult": "11/11 PASS"
+    }
+  },
+  "privateDerivedEvidence": {
+    "driveId": "1Rvf98EDMyFf-Z4ifOl-EkgZn4h5suuIW",
+    "bytes": 159015,
+    "sha256": "2d1b12327484d246d8e9487c36c5abd1fc1566abb77309b2231e5a2073208417",
+    "repositoryPolicy": "DO_NOT_COMMIT_PRIVATE_DERIVED_FULL_INDEXES"
+  },
+  "currentSamples": {
+    "switch": {
+      "source": "Session939 / Rev7592",
+      "references": 2170,
+      "active": 1716,
+      "historical": 0,
+      "unknown": 454,
+      "activeAddressItemIdResolved": 42,
+      "activeAddressItemIdUnmaterialized": 1674,
+      "outputSha256": "a4a81250364e77fbb8108a836bb66a0e9c533c40ca1cd9faaac5db092cce303e"
+    },
+    "steam": {
+      "source": "Session944 / Rev7605",
+      "references": 2173,
+      "active": 1716,
+      "historical": 3,
+      "unknown": 454,
+      "activeAddressItemIdResolved": 42,
+      "activeAddressItemIdUnmaterialized": 1674,
+      "outputSha256": "7d7d0244f1aeb7120e6cf08eea161bffaf14a9b10fdcdc85699a29e484f77b8f"
+    }
+  },
+  "promotedSemantics": {
+    "conditionalEventActiveSpawnedObject": "ACTIVE_IDENTITY_REFERENCE",
+    "activeAddressWithoutItemId": "STILL_VETOES_IDENTITY_CHANGING_MUTATION",
+    "historicalCollectedReferences": "PRESERVE_HISTORY_ONLY__NO_ACTIVE_OWNERSHIP_VETO",
+    "lastUsedLinkedEnvironmentEnter": "UNKNOWN_SYSTEM_REFERENCE__FAIL_CLOSED",
+    "keyholeCurrentState": "UNKNOWN_TERMINALITY__FAIL_CLOSED",
+    "missionCompletion": "CONTEXT_ONLY__NEVER_TERMINAL_EDITABILITY_PROOF",
+    "unknownIdentityBearingPathShapesCurrentSamples": 0
+  },
+  "joinKeys": [
+    "GridObjectAddress(GridID,GridObjectID)",
+    "ItemID",
+    "MissionID optional context"
+  ],
+  "terminalityAuthorized": false,
+  "writerBoundary": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false
+  }
+}
