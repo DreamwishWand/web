@@ -322,10 +322,21 @@ async function editorSemanticSnapshot(page) {
       }))
     ),
     commandDisabled: await page.locator('.toolbar-actions button').evaluateAll(
-      (buttons) => buttons.map((button) => button.hasAttribute('disabled'))
+      (buttons) => buttons.map(
+        (button) =>
+          button.hasAttribute('disabled') ||
+          button.getAttribute('aria-disabled') === 'true'
+      )
     ),
     validationCodes: await page.locator('.validation-groups code').allTextContents()
   };
+}
+
+async function isSemanticallyDisabled(locator) {
+  return (
+    (await locator.getAttribute('aria-disabled')) === 'true' ||
+    (await locator.isDisabled())
+  );
 }
 
 async function runLocaleLayoutAcceptance(page, report) {
@@ -334,6 +345,8 @@ async function runLocaleLayoutAcceptance(page, report) {
   await localeSelect.waitFor();
   await page.setViewportSize({ width: 1280, height: 1100 });
 
+  const localeSearch = page.getByLabel('World object search');
+  await localeSearch.fill('40');
   const baseline = await editorSemanticSnapshot(page);
   report.localeLayout = {};
 
@@ -349,6 +362,11 @@ async function runLocaleLayoutAcceptance(page, report) {
       afterSwitch,
       baseline,
       locale + ': locale switching must not mutate editor state or command authorization'
+    );
+    assert.equal(
+      await localeSearch.inputValue(),
+      '40',
+      locale + ': locale switch must preserve visible Search value'
     );
 
     const capturePreview = page.locator('.capture-actions button').first();
@@ -419,6 +437,8 @@ async function runLocaleLayoutAcceptance(page, report) {
   await page.waitForFunction(
     () => document.documentElement.lang === 'en'
   );
+  assert.equal(await localeSearch.inputValue(), '40');
+  await localeSearch.fill('');
 }
 
 async function runSyntheticAcceptance(page, report) {
@@ -494,7 +514,12 @@ async function runSyntheticAcceptance(page, report) {
   await page.getByLabel('World object search').fill('lamp');
   await expectSelected(page, 0);
   await expectContains(page.locator('.canvas-footer'), '1 visible', 'search visible count');
-  assert.equal(await toolbar.getByRole('button', { name: 'Move right' }).isDisabled(), true);
+  assert.equal(
+    await isSemanticallyDisabled(
+      toolbar.getByRole('button', { name: 'Move right' })
+    ),
+    true
+  );
   await page.getByLabel('World object search').fill('');
 
   await page.locator(cssObject('Editable Lamp')).first().click();
@@ -510,10 +535,24 @@ async function runSyntheticAcceptance(page, report) {
   assert.equal(await toolbar.getByRole('button', { name: 'Move right' }).isEnabled(), true);
   await unknown.click({ modifiers: ['Control'] });
   await expectSelected(page, 3);
-  assert.equal(await toolbar.getByRole('button', { name: 'Move right' }).isDisabled(), true);
+  assert.equal(
+    await isSemanticallyDisabled(
+      toolbar.getByRole('button', { name: 'Move right' })
+    ),
+    true
+  );
   await expectContains(
     page.locator('.command-availability'),
     'Core cannot prove safe user ownership for this progression-risk object'
+  );
+  const disabledMove = toolbar.getByRole('button', { name: 'Move right' });
+  assert.equal(await disabledMove.getAttribute('aria-disabled'), 'true');
+  const describedBy = await disabledMove.getAttribute('aria-describedby');
+  assert.equal(describedBy, 'wep-reason-move');
+  assert.equal(
+    await page.locator('#' + describedBy).count(),
+    1,
+    'disabled primary command reason must be programmatically associated'
   );
 
   // Protected source content must fail closed with an actionable Preset reason.
@@ -581,7 +620,39 @@ async function runSyntheticAcceptance(page, report) {
     true,
     'Tab navigation must reach an editable canvas object'
   );
-  const focusedCanvasStrokeWidth = await page.evaluate(() => {
+  assert.equal(
+    await page.locator('g[data-editor-object][tabindex="0"]').count(),
+    1,
+    'Canvas must expose one roving Tab stop regardless of object count'
+  );
+  const focusedBeforeRove = await page.evaluate(() =>
+    document.activeElement instanceof Element
+      ? document.activeElement.getAttribute('aria-label')
+      : null
+  );
+  await page.keyboard.press(']');
+  const focusedAfterRove = await page.evaluate(() =>
+    document.activeElement instanceof Element
+      ? document.activeElement.getAttribute('aria-label')
+      : null
+  );
+  assert.notEqual(
+    focusedAfterRove,
+    focusedBeforeRove,
+    'Bracket navigation must move the roving Canvas focus target'
+  );
+  await page.keyboard.press('[');
+  assert.equal(
+    await page.evaluate(() =>
+      document.activeElement instanceof Element
+        ? document.activeElement.getAttribute('aria-label')
+        : null
+    ),
+    focusedBeforeRove,
+    'Reverse bracket navigation must restore the prior Canvas focus target'
+  );
+
+    const focusedCanvasStrokeWidth = await page.evaluate(() => {
     const active = document.activeElement;
     const cell =
       active instanceof Element
