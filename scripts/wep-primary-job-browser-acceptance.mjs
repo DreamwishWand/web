@@ -576,7 +576,7 @@ async function runSyntheticAcceptance(page, report) {
       document.activeElement.blur();
     }
   });
-  let tabReachedEditableCanvasObject = false;
+  let tabReachedCanvasObject = false;
   let keyboardObjectLabel = '';
   for (let index = 0; index < 100; index += 1) {
     await page.keyboard.press('Tab');
@@ -601,14 +601,8 @@ async function runSyntheticAcceptance(page, report) {
             : null
       };
     });
-    if (
-      active.editorObject === 'true' &&
-      (
-        String(active.ariaLabel ?? '').startsWith('Editable Chair at ') ||
-        String(active.ariaLabel ?? '').startsWith('Editable Lamp at ')
-      )
-    ) {
-      tabReachedEditableCanvasObject = true;
+    if (active.editorObject === 'true') {
+      tabReachedCanvasObject = true;
       keyboardObjectLabel = String(active.ariaLabel ?? '');
       assert.equal(active.role, 'button');
       assert.equal(active.tabIndexAttribute, '0');
@@ -616,20 +610,44 @@ async function runSyntheticAcceptance(page, report) {
     }
   }
   assert.equal(
-    tabReachedEditableCanvasObject,
+    tabReachedCanvasObject,
     true,
-    'Tab navigation must reach an editable canvas object'
+    'Tab navigation must reach the single roving Canvas object'
   );
   assert.equal(
     await page.locator('g[data-editor-object][tabindex="0"]').count(),
     1,
     'Canvas must expose one roving Tab stop regardless of object count'
   );
-  const focusedBeforeRove = await page.evaluate(() =>
-    document.activeElement instanceof Element
-      ? document.activeElement.getAttribute('aria-label')
-      : null
+
+  // The current roving target may be the readonly object selected by the
+  // preceding protected-source test. Bracket navigation must make every
+  // projected object keyboard-reachable without creating thousands of Tab stops.
+  for (
+    let index = 0;
+    index < Math.max(1, await page.locator('g[data-editor-object]').count());
+    index += 1
+  ) {
+    if (
+      keyboardObjectLabel.startsWith('Editable Chair at ') ||
+      keyboardObjectLabel.startsWith('Editable Lamp at ')
+    ) break;
+    await page.keyboard.press(']');
+    keyboardObjectLabel = String(
+      await page.evaluate(() =>
+        document.activeElement instanceof Element
+          ? document.activeElement.getAttribute('aria-label')
+          : ''
+      )
+    );
+  }
+  assert.ok(
+    keyboardObjectLabel.startsWith('Editable Chair at ') ||
+      keyboardObjectLabel.startsWith('Editable Lamp at '),
+    'Roving bracket navigation must reach an editable Canvas object'
   );
+
+  const focusedBeforeRove = keyboardObjectLabel;
   await page.keyboard.press(']');
   const focusedAfterRove = await page.evaluate(() =>
     document.activeElement instanceof Element
@@ -652,7 +670,7 @@ async function runSyntheticAcceptance(page, report) {
     'Reverse bracket navigation must restore the prior Canvas focus target'
   );
 
-    const focusedCanvasStrokeWidth = await page.evaluate(() => {
+  const focusedCanvasStrokeWidth = await page.evaluate(() => {
     const active = document.activeElement;
     const cell =
       active instanceof Element
