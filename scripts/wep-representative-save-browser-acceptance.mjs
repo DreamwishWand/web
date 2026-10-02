@@ -198,6 +198,7 @@ try {
   await destinationInput.setInputFiles({ name: path.basename(fixturePath), mimeType: 'application/json', buffer: fixtureBytes });
   const destination = page.locator('.full-design-destination-result');
   await destination.waitFor();
+  await destination.getByText(/DDV write authorization/).waitFor();
   await expectContains(destination, 'DDV write authorization UNAUTHORIZED');
   await expectContains(destination, 'Route resolved PASS');
   report.gates['WE-NONBUILDING-FULLDESIGN-PREFLIGHT'] = gate('CLOSED / PASS', { destination: 'same exact representative save', ddvWriteAuthorization: 'UNAUTHORIZED', progressionDestinationVetoEvidence: 'REUSED_EXISTING_TARGETED_PASS' });
