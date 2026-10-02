@@ -37,7 +37,7 @@
     ]
   },
   "sharedLocaleBinding": {
-    "status": "BOUND_SHARED_WEB_V1_R6_FIXES",
+    "status": "BOUND_SHARED_WEB_V1",
     "owner": "08 WEB / shared Web UI foundation",
     "upstreamCommit": "425cb22ad7726f6f452bd179f3a89b81329da64b",
     "runtime": "src/lib/i18n/runtime.js",
