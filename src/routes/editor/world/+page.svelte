@@ -3044,24 +3044,20 @@
       <section class="fence-post-panel" aria-labelledby="fence-post-title">
         <div class="fence-post-heading">
           <div>
-            <p class="eyebrow">FENCE REPRESENTATION / CORE-BOUND MODEL</p>
-            <h2 id="fence-post-title">Post layout</h2>
-            <p>
-              Promoted 01C/Core contractのlogicalTopologyとrepresentationLayoutを分離したまま、
-              degree-2 interior Base/postだけを編集します。interval可否はfamily+modeのexact extension vocabularyから判定し、
-              captured/pinned postは明示操作なしに変更しません。
-            </p>
+            <p class="eyebrow">{t('worldEditor.fence.eyebrow', {}, $locale)}</p>
+            <h2 id="fence-post-title">{t('worldEditor.fence.title', {}, $locale)}</h2>
+            <p>{t('worldEditor.fence.description', {}, $locale)}</p>
           </div>
           <div class="full-design-gates">
-            <span>Topology <strong>Separate operation</strong></span>
-            <span>DDV write <strong>Disabled</strong></span>
-            <span>Scene Preset <strong>Blocked after post-layout edit</strong></span>
+            <span>{t('worldEditor.fence.topology', {}, $locale)} <strong>{t('worldEditor.fence.separateOperation', {}, $locale)}</strong></span>
+            <span>{t('worldEditor.fence.ddvWrite', {}, $locale)} <strong>{t('worldEditor.fence.disabled', {}, $locale)}</strong></span>
+            <span>{t('worldEditor.fence.scenePreset', {}, $locale)} <strong>{t('worldEditor.fence.blockedAfterEdit', {}, $locale)}</strong></span>
           </div>
         </div>
 
         <div class="fence-post-controls">
           <label>
-            <span>Fence network</span>
+            <span>{t('worldEditor.fence.network', {}, $locale)}</span>
             <select
               value={fencePostSelectedNetworkId}
               on:change={(event) =>
@@ -3080,42 +3076,46 @@
           {#if fencePostDraft && fencePostValidation}
             <div class="fence-post-summary">
               <span>
-                Max interval
+                {t('worldEditor.fence.maxInterval', {}, $locale)}
                 <strong>{fencePostValidation.constraints?.maximumPostInterval ?? '—'}</strong>
-                <small>catalog-derived</small>
+                <small>{t('worldEditor.fence.catalogDerived', {}, $locale)}</small>
               </span>
               <span>
-                Semantic anchors
+                {t('worldEditor.fence.semanticAnchors', {}, $locale)}
                 <strong>{fencePostDraft.logicalTopology?.semanticAnchors?.length ?? 0}</strong>
               </span>
               <span>
-                Representation posts
+                {t('worldEditor.fence.representationPosts', {}, $locale)}
                 <strong>{fencePostDraft.representationLayout?.posts?.length ?? 0}</strong>
               </span>
               <span>
-                Representation mode
+                {t('worldEditor.fence.representationMode', {}, $locale)}
                 <strong>
                   {fencePostDraft.representationLayout?.intent === 'EXACT_PRESERVATION'
-                    ? 'Exact preservation'
-                    : 'Generated design'}
+                    ? t('worldEditor.fence.exactPreservation', {}, $locale)
+                    : t('worldEditor.fence.generatedDesign', {}, $locale)}
                 </strong>
                 <small>{fencePostDraft.representationLayout?.policy}</small>
               </span>
               <span>
-                Core preflight
-                <strong>{fencePostValidation.ok ? 'PASS' : 'BLOCKED'}</strong>
+                {t('worldEditor.fence.corePreflight', {}, $locale)}
+                <strong>{fencePostValidation.ok
+                  ? t('worldEditor.validation.pass', {}, $locale)
+                  : t('worldEditor.fullDesign.blockedCaps', {}, $locale)}</strong>
               </span>
             </div>
 
             <div class="fence-post-editor-grid">
               <div class="fence-post-form">
                 <label>
-                  <span>Post</span>
+                  <span>{t('worldEditor.fence.post', {}, $locale)}</span>
                   <select bind:value={fencePostMoveNodeId}>
-                    <option value="">Choose post</option>
+                    <option value="">{t('worldEditor.fence.choosePost', {}, $locale)}</option>
                     {#each fencePostDraft.representationLayout?.posts ?? [] as post}
                       <option value={post.nodeId}>
-                        ({post.x}, {post.y}) {post.pinned ? '· pinned' : ''}
+                        ({post.x}, {post.y}) {post.pinned
+                          ? t('worldEditor.fence.pinnedSuffix', {}, $locale)
+                          : ''}
                       </option>
                     {/each}
                   </select>
@@ -3128,13 +3128,13 @@
                   <span>Y</span>
                   <input type="number" bind:value={fencePostEditY} />
                 </label>
-                <button on:click={insertFencePostDraft}>Insert Post</button>
+                <button on:click={insertFencePostDraft}>{t('worldEditor.fence.insertPost', {}, $locale)}</button>
                 <button
                   disabled={!fencePostMoveNodeId}
                   on:click={moveFencePostDraft}
-                >Move Post</button>
+                >{t('worldEditor.fence.movePost', {}, $locale)}</button>
                 <button on:click={autoLayoutFencePosts}>
-                  Centered balanced auto-layout
+                  {t('worldEditor.fence.centeredAutoLayout', {}, $locale)}
                 </button>
               </div>
 
@@ -3146,9 +3146,11 @@
                     <button
                       on:click={() =>
                         toggleFencePostPinned(post.nodeId, !post.pinned)}
-                    >{post.pinned ? 'Unpin' : 'Pin'}</button>
+                    >{post.pinned
+                      ? t('worldEditor.fence.unpin', {}, $locale)
+                      : t('worldEditor.fence.pin', {}, $locale)}</button>
                     <button on:click={() => removeFencePostDraft(post.nodeId)}>
-                      Remove Post
+                      {t('worldEditor.fence.removePost', {}, $locale)}
                     </button>
                   </div>
                 {/each}
@@ -3161,9 +3163,17 @@
                   <span>
                     <code>{issue.code}</code>
                     {issue.maximumPostInterval
-                      ? `max ${issue.maximumPostInterval}`
+                      ? t(
+                          'worldEditor.fence.maximum',
+                          { value: issue.maximumPostInterval },
+                          $locale
+                        )
                       : issue.distance
-                        ? `interval ${issue.distance}`
+                        ? t(
+                            'worldEditor.fence.interval',
+                            { value: issue.distance },
+                            $locale
+                          )
                         : ''}
                   </span>
                 {/each}
@@ -3175,12 +3185,9 @@
             {/if}
 
             <div class="fence-topology-boundary">
-              <strong>Topology edit</strong>
-              <span>
-                endpoint / corner / junction / mode-boundary変更、segment delete、split/joinは
-                representationLayoutではなくlogicalTopologyの操作です。このpanelでは実行しません。
-              </span>
-              <button disabled>Topology mutation writer not authorized</button>
+              <strong>{t('worldEditor.fence.topologyEdit', {}, $locale)}</strong>
+              <span>{t('worldEditor.fence.topologyBoundary', {}, $locale)}</span>
+              <button disabled>{t('worldEditor.fence.writerUnauthorized', {}, $locale)}</button>
             </div>
           {/if}
         </div>
