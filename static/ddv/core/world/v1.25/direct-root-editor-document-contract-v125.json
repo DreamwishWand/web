@@ -1,9 +1,9 @@
 {
   "schema": "ddv.direct-root-editor-document@1",
-  "artifactId": "DDV-DIRECT-ROOT-EDITOR-DOCUMENT-V125-V1_16-CANDIDATE",
-  "version": "v1.16-candidate",
-  "status": "READY_FOR_INTEGRATOR_REVIEW",
-  "owner": "01B CORE - World / Grid / Buildings",
+  "artifactId": "DDV-DIRECT-ROOT-EDITOR-DOCUMENT-V125-V1_16",
+  "version": "v1.16",
+  "status": "PROMOTED",
+  "owner": "01 CORE Integrator",
   "target": {
     "platform": "Nintendo Switch",
     "titleId": "0100D39012C1A000",
@@ -225,7 +225,7 @@
     "semanticIdentityAndRoute": "CONFIRMED",
     "bounds": "CONFIRMED",
     "objectReadProjection": "CONFIRMED",
-    "sameLogicalEditorDocumentShape": "CONFIRMED once equivalence regression passes",
+    "sameLogicalEditorDocumentShape": "CONFIRMED",
     "persistentMutation": "NOT_AUTHORIZED",
     "representativePrivateUrban4230Projection": "CONFIRMED"
   },
@@ -239,7 +239,7 @@
   "routeFailureDiagnostics": "The projector exposes stable DIRECT_ROOT_ROUTE_UNRESOLVED / DIRECT_ROOT_ROUTE_AMBIGUOUS codes and preserves promoted location-resolver blockers only as diagnostic detail.",
   "implementationArtifact": {
     "path": "static/ddv/core/world/v1.25/direct-root-editor-document-v125.cjs",
-    "sha256": "1f281714f84c9da5cf4273dfe58907565c5262b52b692396ba0df3578cf3b9b3"
+    "sha256": "eba3e2e604b2cf976cd6080b69ba9eaef1fa94b0a3aa20a7e4f175b64e0c3d9a"
   },
   "regression": {
     "testPath": "tests/ddv-core-world-direct-root-editor-document-v125.test.mjs",
@@ -270,9 +270,24 @@
   },
   "runtimeEscalation": "NOT_REQUIRED_STATIC_AND_CURRENT_SAVE_ROUTE_EVIDENCE_SUFFICIENT",
   "integratorReturn": {
-    "ready": true,
+    "ready": false,
+    "promoted": true,
     "promotionScope": "READ_MODEL_PROJECTOR_ONLY",
-    "doNotPromotePersistentMutation": true,
-    "wepConsumptionAfterPromotionOnly": true
+    "persistentMutationPromoted": false,
+    "wepConsumptionAuthorized": true
+  },
+  "mutable": false,
+  "semanticOwner": "01B CORE - World / Grid / Buildings",
+  "promotion": {
+    "sourceBranch": "dev/core-direct-root-editor-document-v125-20261002",
+    "reviewedCandidateHead": "575d296dbebe38e9c756fed68d2042a8f2aec752",
+    "sourceCandidateContractSha256": "71a815e425be714a59bdaa4a355a2f3560ffe2b88111877e372e9bd3440f0c1b",
+    "sourceCI": {
+      "runId": 37019789662,
+      "runNumber": 1780,
+      "result": "SUCCESS"
+    },
+    "integratorDecision": "PROMOTED_READ_MODEL_PROJECTOR_ONLY",
+    "scope": "read/model/preflight direct-root EditorDocument projection only; no operation permission or persistent mutation"
   }
 }
