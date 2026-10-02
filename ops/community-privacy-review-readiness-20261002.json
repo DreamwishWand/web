@@ -88,7 +88,7 @@
         "One Wand Account may retain at most five Workspaces across active + archived states; archive does not free capacity and deletion does.",
         "Self-service identity unlink preserves the Workspace; Workspace deletion requires explicit destructive confirmation.",
         "Rollback runtime verified five-slot capacity, archive behavior, same-account duplicate rejection, cross-account reuse, unlink, delete, slot reuse and account-deletion cleanup with zero fixture residue.",
-        "community-command v20 and community-query v10 are deployed on staging and match the current branch source.",
+        "community-command v22 and community-query v10 are deployed on staging and match the current branch source.",
         "ops/community-linked-ddv-profile-lifecycle-runtime-20261002.json",
         "docs/community/linked-ddv-profile-lifecycle-runtime-20261002.md"
       ],
