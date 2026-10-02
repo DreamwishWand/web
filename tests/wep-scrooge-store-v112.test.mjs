@@ -142,6 +142,6 @@ test('World Editor exposes the v1.12 Store state only as read-only inspector dat
   assert.match(route,/createSwitchV125ScroogeStoreBinding/);
   assert.match(route,/worldEditor\.store\.title/);
   assert.match(route,/worldEditor\.store\.description/);
-  assert.match(route,/ProfileWorld\.Stores\[\]\.BuildingItemID/);
+  assert.match(route,/resolveStoreForItem/);
   assert.doesNotMatch(route,/purchaseScrooge|restockScrooge|writeScroogeStore/);
 });
