@@ -69,6 +69,20 @@ type AnyRecord = Record<string, any>;
 const CORE_REASON_TEXT: Record<string, string> = Object.freeze({
   MISSION_ITEM_READ_ONLY:
     'This object is protected by the current Core mission-item policy and is inspectable but not mutable.',
+  PROTECTED_PROGRESSION_OBJECT_CONFLICT:
+    'This object is protected by progression/system ownership and cannot be overwritten or treated as portable content.',
+  QUEST_OWNED_OBJECT_MUTATION_FORBIDDEN:
+    'This object is quest-owned under the current Core evidence and generic mutation is forbidden.',
+  PROGRESSION_OWNERSHIP_UNKNOWN:
+    'Core cannot prove safe user ownership for this progression-risk object, so mutation remains disabled.',
+  SYSTEM_SPAWNED_OBJECT_MUTATION_FORBIDDEN:
+    'This object is system-spawned under the current Core evidence and generic mutation is forbidden.',
+  REFERENCE_SENSITIVE_OBJECT_IDENTITY_CHANGE_FORBIDDEN:
+    'An active progression/system reference is identity-sensitive, so moving, replacing, or removing the object is blocked.',
+  PROGRESSION_STATE_INCONSISTENT:
+    'Progression state and serialized object state are inconsistent, so all mutation remains disabled.',
+  PROGRESSION_OPERATION_PROOF_NOT_CLOSED:
+    'This operation lacks complete current-version consumer/reference proof; terminal progression state alone is not permission to mutate.',
   GRID_EDIT_RESTRICTION_PRESENT:
     'This object has an explicit Core grid-edit restriction and is inspectable but not mutable.',
   BUILDING_READ_ONLY:
