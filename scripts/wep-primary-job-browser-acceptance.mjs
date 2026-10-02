@@ -476,7 +476,7 @@ async function runRawSaveAcceptance(page, report) {
   const destinationInput = page.locator(
     '.full-design-destination-button input[type="file"]'
   );
-  await destinationInput.waitFor();
+  await destinationInput.waitFor({ state: 'attached' });
   await destinationInput.setInputFiles({
     name: 'progression-destination.profile.json',
     mimeType: 'application/json',
