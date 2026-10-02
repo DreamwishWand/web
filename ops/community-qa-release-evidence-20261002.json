@@ -120,7 +120,8 @@
         "supabase/migrations/20261001233225_community_ddv_profile_workspace_lifecycle_v2.sql",
         "supabase/migrations/20261001233707_community_ddv_profile_workspace_fk_index_v3.sql",
         "ops/community-linked-ddv-profile-lifecycle-runtime-20261002.json",
-        "docs/community/linked-ddv-profile-lifecycle-runtime-20261002.md"
+        "docs/community/linked-ddv-profile-lifecycle-runtime-20261002.md",
+        "supabase/migrations/20261002003039_community_ddv_profile_workspace_delete_reauth_rate_v5.sql"
       ],
       "facts": [
         "five retained Profile Workspaces per Wand Account",
@@ -131,8 +132,11 @@
         "self-service unlink preserves the Workspace",
         "Workspace delete requires confirmation and frees the slot",
         "account deletion removes Workspaces and private identity associations",
-        "community-command v22 exposes create/update/delete/associate/unlink server routes",
-        "community-query v10 exposes the owner-safe Workspace query and removes the legacy linkedDdvProfiles route"
+        "community-query v10 exposes the owner-safe Workspace query and removes the legacy linkedDdvProfiles route",
+        "Workspace deletion requires explicit DELETE confirmation plus session-bound recent authentication within 900 seconds",
+        "Workspace management rate bucket is 60/hour/account; DDV identity associate/unlink bucket is 12/hour/account",
+        "legacy ddv_profile_link rate bucket is disabled",
+        "community-command v23 exposes the current Workspace command surface"
       ]
     }
   ],
@@ -198,8 +202,9 @@
         "same-account duplicate identity association blocked",
         "self-service unlink preserves Workspace",
         "self-service Workspace deletion requires confirmation and frees capacity",
-        "community-command v22 and community-query v10 match current branch source",
-        "live raw Player ID Edge E2E remains pending staging secret/runtime verification"
+        "community-command v23 and community-query v10 match current staging/branch source",
+        "live raw Player ID Edge E2E remains pending staging secret/runtime verification",
+        "Destructive Profile Workspace deletion is protected by explicit confirmation plus 900-second session-bound recent authentication."
       ],
       "qrInstruction": "Treat Product contract, DB lifecycle and Edge source alignment as CLOSED. Keep live authenticated identity-association E2E, Privacy/Legal, final integration and production runtime gates OPEN."
     }
@@ -233,7 +238,7 @@
       "evidence": [
         "ops/community-linked-ddv-profile-lifecycle-runtime-20261002.json"
       ],
-      "detail": "DB digest path is runtime-tested. Current community-command v22 contains corrected printable-ASCII validation and real NUL domain separation. Live raw Player ID -> Edge HMAC -> association E2E still requires staging COMMUNITY_DDV_PROFILE_BINDING_KEY_V1 configuration."
+      "detail": "DB digest path is runtime-tested. Current community-command v23 contains corrected Player ID HMAC handling plus the v5 Workspace delete recent-auth/rate split. Live raw Player ID -> Edge HMAC -> association E2E still requires staging COMMUNITY_DDV_PROFILE_BINDING_KEY_V1 configuration."
     },
     {
       "id": "DDV_PROFILE_WORKSPACE_STAGING_UI",
