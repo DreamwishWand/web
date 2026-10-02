@@ -585,6 +585,7 @@ const coreReasonSpecific = {
   MISSION_ITEM_READ_ONLY: 'Este objeto é protegido pela política Core atual de mission-item e pode ser inspecionado, mas não modificado.',
   PROTECTED_PROGRESSION_OBJECT_CONFLICT: 'Este objeto é protegido por ownership de progression/system e não pode ser sobrescrito nem tratado como conteúdo portátil.',
   UNKNOWN_BUILDING_SEMANTICS: 'Core não consegue comprovar uma classificação ordinary Building segura para este ItemID; a mutação continua desativada.',
+  CHARACTER_HOUSE_PRESENCE_SIDE_EFFECTS_REQUIRE_DEDICATED_LIFECYCLE: "Esta Character House está vinculada ao estado do ciclo de vida de presença do personagem; por isso, a modificação genérica fica desativada。",
   WORLD_OBJECT_NOT_EDITABLE: 'Pelo menos um objeto selecionado é somente leitura ou está bloqueado pela projeção Core atual.'
 };
 
