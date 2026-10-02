@@ -9,6 +9,7 @@ export default Object.freeze({
   "shared.theme.switchToNight": "切换到深色主题",
   "shared.theme.light": "浅色",
   "shared.theme.dark": "深色",
+  "shared.locale.useBrowserLanguage": "使用浏览器语言",
   "shared.locale.label": "语言",
   "shared.footer.disclaimer": "非官方粉丝项目，与 Disney 或 Gameloft 无关联。",
   "shared.footer.helpBugs": "帮助与问题",
