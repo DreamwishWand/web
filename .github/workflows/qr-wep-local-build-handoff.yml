@@ -1,0 +1,34 @@
+name: QR WEP local-build handoff
+
+on:
+  pull_request:
+    branches: [dev/wep-v125]
+    paths:
+      - '.github/workflows/qr-wep-local-build-handoff.yml'
+      - 'src/**'
+      - 'static/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'svelte.config.js'
+      - 'vite.config.*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qr-wep-static-build
+          path: build/
+          if-no-files-found: error
