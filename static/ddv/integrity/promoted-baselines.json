@@ -97,6 +97,47 @@
       "sourceEvidenceDriveId": "1mTFwN-qgyiGLrKoWUbgRq278NAZbcVmPSwKkmQX6OmU",
       "sourceCandidateSha256": "0623bbe05f513fd2c17a03c5fec6d945921b7259e4d194000499989fa558d7df",
       "scope": "read/model/capture/preflight safety only"
+    },
+    {
+      "artifactId": "DDV-PROGRESSION-REFERENCE-INDEX-V125-V1_0",
+      "artifactType": "Core/schema-624 progression reference index manifest",
+      "version": "v1.0",
+      "status": "PROMOTED",
+      "mutable": false,
+      "platform": "Cross-save schema 624",
+      "gameVersion": "v1.25.0",
+      "buildId": "schema-624",
+      "artifactSha256": "fc2445f8877eb00950c506814341d5b81a3f70d2a0a6540b77d86cb7a0182b2f",
+      "sourceEvidenceDriveId": "1W_N_5G_RAd_zD42ODwr3NKRLQX_hYuYS",
+      "sourceCandidateSha256": "340fcab446a0f2e7db31604a927d90e1664398652285e325da2b1bcb092d480b",
+      "scope": "read-only active/historical/unknown progression reference projection"
+    },
+    {
+      "artifactId": "DDV-MISSION-WORLD-OBJECT-CONSUMER-GRAPH-SWITCH-V125-27-V1",
+      "artifactType": "Core/27-Mission world-object consumer graph manifest",
+      "version": "v1",
+      "status": "PROMOTED",
+      "mutable": false,
+      "platform": "Nintendo Switch",
+      "gameVersion": "v1.25.0",
+      "buildId": "52BD625D9B4E0053",
+      "artifactSha256": "f27083a8f650a2bbe6853e12c50adf2012ffb3d52f3087fba2a0b0598823b808",
+      "sourceEvidenceDriveId": "1u1I1T83yQk_Hl3yLMsqrweXkPWNENy7R",
+      "sourceCandidateSha256": "c1931a8259941ea1591782900bb0f1adc420ead078510b029d7f30f201f25f35",
+      "scope": "static Mission/current consumer graph with explicit unknown temporality"
+    },
+    {
+      "artifactId": "DDV-PROGRESSION-WORLD-OBJECT-INTEGRATION-V125-V1_14",
+      "artifactType": "Core/progression world-object dependency integration",
+      "version": "v1.14",
+      "status": "PROMOTED",
+      "mutable": false,
+      "platform": "Nintendo Switch",
+      "gameVersion": "v1.25.0",
+      "buildId": "52BD625D9B4E0053",
+      "artifactSha256": "de7f3590c285547fd0e8f70f6141432d6c242c4c6e59540e271d6af4a1813434",
+      "sourceEvidenceDriveId": "1Scke2sRuvcx_qfEW5eolPPoznWxT2aA8iUgvcxIdU9Q",
+      "scope": "01A/01D dependency closure; positive mutation authorization remains false"
     }
   ]
 }
