@@ -2439,44 +2439,36 @@
 <svelte:window on:keydown={handlePrimaryJobKeydown} />
 
 <svelte:head>
-  <title>World Editor | Dreamwish Wand</title>
+  <title>{t('worldEditor.meta.title', {}, $locale)}</title>
   <meta
     name="description"
-    content="Dreamwish Wand World Editor — inspect WEP EditorDocuments, capture portable Scene Presets and publish them without writing to DDV saves."
+    content={t('worldEditor.meta.description', {}, $locale)}
   />
 </svelte:head>
 
 <section class="world-page container">
   <div class="world-heading">
     <div>
-      <p class="eyebrow">DECORATE / WORLD EDITOR</p>
-      <h1>World Editor</h1>
-      <p class="page-intro">
-        WEP EditorDocumentをローカルで表示・選択し、portable Scene Presetへcaptureします。
-        現在の製品surfaceからDDVセーブへpersistent writeは行いません。
-      </p>
+      <p class="eyebrow">{t('worldEditor.nav.eyebrow', {}, $locale)}</p>
+      <h1>{t('worldEditor.nav.title', {}, $locale)}</h1>
+      <p class="page-intro">{t('worldEditor.nav.intro', {}, $locale)}</p>
     </div>
-    <a class="preset-link" href={`${base}/presets/`}>Presetsを見る →</a>
+    <a class="preset-link" href={`${base}/presets/`}>{t('worldEditor.nav.presets', {}, $locale)}</a>
   </div>
 
   <section class="load-panel">
     <div>
-      <p class="eyebrow">LOCAL INPUT</p>
-      <h2>Open DDV Save / EditorDocument</h2>
-      <p>
-        暗号化された通常DDV profile、復号済み <code>profile.json</code>、
-        または <code>dreamwish-wand-wep-editor-document</code> をブラウザ内で読み込みます。
-        raw saveを開く場合だけ、ファイルを取得したstorage platformを指定してください。
-        ファイル内容はPublishを実行するまでCommunityへ送信しません。
-      </p>
+      <p class="eyebrow">{t('worldEditor.open.eyebrow', {}, $locale)}</p>
+      <h2>{t('worldEditor.open.title', {}, $locale)}</h2>
+      <p>{t('worldEditor.open.description', {}, $locale)}</p>
     </div>
     <div class="load-controls">
       <label class="platform-select">
-        <span>Source platform</span>
+        <span>{t('worldEditor.open.sourcePlatform', {}, $locale)}</span>
         <select bind:value={sourcePlatform} disabled={loading}>
-          <option value="unknown">Unknown / choose later</option>
-          <option value="switch">Nintendo Switch</option>
-          <option value="steam-windows">Steam / Windows</option>
+          <option value="unknown">{t('worldEditor.open.unknownPlatform', {}, $locale)}</option>
+          <option value="switch">{t('worldEditor.open.switch', {}, $locale)}</option>
+          <option value="steam-windows">{t('worldEditor.open.steamWindows', {}, $locale)}</option>
         </select>
       </label>
       <label class="file-button">
@@ -2486,7 +2478,9 @@
           on:change={openEditorDocument}
           disabled={loading}
         />
-        {fileName ? '別のファイルを開く' : 'DDV Save / EditorDocumentを開く'}
+        {fileName
+          ? t('worldEditor.open.openAnotherFile', {}, $locale)
+          : t('worldEditor.open.openFile', {}, $locale)}
       </label>
     </div>
   </section>
@@ -2499,64 +2493,68 @@
     <div class="workspace">
       <aside class="sidebar">
         <section class="side-card">
-          <p class="eyebrow">TARGET</p>
+          <p class="eyebrow">{t('worldEditor.target.eyebrow', {}, $locale)}</p>
           <dl>
-            <div><dt>File</dt><dd>{fileName || '—'}</dd></div>
-            <div><dt>Game</dt><dd>{editorDocument.target?.gameVersion ?? '—'}</dd></div>
-            <div><dt>Platform</dt><dd>{editorDocument.target?.platform ?? '—'}</dd></div>
-            <div><dt>Area</dt><dd>{editorDocument.target?.areaKey ?? '—'}</dd></div>
-            <div><dt>Objects</dt><dd>{objectCount}</dd></div>
-            <div><dt>Selected</dt><dd>{selectedCount}</dd></div>
+            <div><dt>{t('worldEditor.target.file', {}, $locale)}</dt><dd>{fileName || '—'}</dd></div>
+            <div><dt>{t('worldEditor.target.game', {}, $locale)}</dt><dd>{editorDocument.target?.gameVersion ?? '—'}</dd></div>
+            <div><dt>{t('worldEditor.target.platform', {}, $locale)}</dt><dd>{editorDocument.target?.platform ?? '—'}</dd></div>
+            <div><dt>{t('worldEditor.target.area', {}, $locale)}</dt><dd>{editorDocument.target?.areaKey ?? '—'}</dd></div>
+            <div><dt>{t('worldEditor.target.objects', {}, $locale)}</dt><dd>{objectCount}</dd></div>
+            <div><dt>{t('worldEditor.target.selected', {}, $locale)}</dt><dd>{selectedCount}</dd></div>
           </dl>
           <p class:blocked={!mutationBound} class="binding-state">
             {mutationBound
               ? editorDocument.target?.platform === 'synthetic'
-                ? 'Synthetic draft authoring'
-                : 'Core-bound local draft authoring · persistent write OFF'
-              : 'Read-only target · no trusted draft authoring binding'}
+                ? t('worldEditor.target.syntheticDraft', {}, $locale)
+                : t('worldEditor.target.coreBoundDraft', {}, $locale)
+              : t('worldEditor.target.readOnly', {}, $locale)}
           </p>
           {#if worldSource}
             <button class="back-to-routes" on:click={returnToSaveRoutes}>
-              ← Area / Grid一覧へ戻る
+              {t('worldEditor.nav.backToRoutes', {}, $locale)}
             </button>
           {/if}
         </section>
 
         {#if placementReadiness}
           <section class="side-card placement-readiness-card">
-            <p class="eyebrow">PLACEMENT READINESS</p>
+            <p class="eyebrow">{t('worldEditor.placement.eyebrow', {}, $locale)}</p>
             <dl>
               <div>
-                <dt>Route</dt>
-                <dd>{placementReadiness.route.status === 'RESOLVED' ? 'Resolved' : 'Blocked'}</dd>
+                <dt>{t('worldEditor.placement.route', {}, $locale)}</dt>
+                <dd>{placementReadiness.route.status === 'RESOLVED'
+                  ? t('worldEditor.placement.resolved', {}, $locale)
+                  : t('worldEditor.placement.blocked', {}, $locale)}</dd>
               </div>
               <div>
-                <dt>Bounds</dt>
-                <dd>{placementReadiness.bounds.status === 'AUTHORITATIVE' ? 'Authoritative · 01B v1.7' : 'Blocked'}</dd>
+                <dt>{t('worldEditor.placement.bounds', {}, $locale)}</dt>
+                <dd>{placementReadiness.bounds.status === 'AUTHORITATIVE'
+                  ? t('worldEditor.placement.authoritativeBounds', {}, $locale)
+                  : t('worldEditor.placement.blocked', {}, $locale)}</dd>
               </div>
               <div>
-                <dt>Legality</dt>
+                <dt>{t('worldEditor.placement.legality', {}, $locale)}</dt>
                 <dd>
                   {draftValidation
                     ? draftValidation.ok
-                      ? 'Current command PASS'
-                      : 'Blocked / unverified'
+                      ? t('worldEditor.placement.currentCommandPass', {}, $locale)
+                      : t('worldEditor.placement.blockedUnverified', {}, $locale)
                     : draftAuthoringBound
-                      ? 'v1.9 bound · command-specific'
-                      : 'Not bound'}
+                      ? t('worldEditor.placement.commandSpecific', {}, $locale)
+                      : t('worldEditor.placement.notBound', {}, $locale)}
                 </dd>
               </div>
               <div>
-                <dt>DDV write</dt>
-                <dd>Disabled</dd>
+                <dt>{t('worldEditor.placement.ddvWrite', {}, $locale)}</dt>
+                <dd>{t('worldEditor.placement.disabled', {}, $locale)}</dd>
               </div>
             </dl>
             <p class="placement-readiness-note">
               {placementReadiness.bounds.status !== 'AUTHORITATIVE'
                 ? placementReadiness.bounds.blocker
                 : draftAuthoringBound
-                  ? 'v1.8 FloorType and v1.9 native placement are evaluated after each draft command. exactBuildKnown=false remains an explicit blocker and is never promoted to VALID.'
-                  : 'Authoritative bounds are available; native placement remains unavailable until a trusted Core draft binding is attached.'}
+                  ? t('worldEditor.placement.boundNote', {}, $locale)
+                  : t('worldEditor.placement.unboundNote', {}, $locale)}
             </p>
           </section>
         {/if}
@@ -2566,54 +2564,61 @@
             class="side-card progression-safety-card"
             aria-labelledby="progression-safety-title"
           >
-            <p class="eyebrow">PROGRESSION SAFETY</p>
-            <h3 id="progression-safety-title">Dependency evidence ≠ permission</h3>
+            <p class="eyebrow">{t('worldEditor.progression.eyebrow', {}, $locale)}</p>
+            <h3 id="progression-safety-title">{t('worldEditor.progression.title', {}, $locale)}</h3>
             <dl>
               <div>
-                <dt>Quest graph</dt>
+                <dt>{t('worldEditor.progression.questGraph', {}, $locale)}</dt>
                 <dd>{progressionProofStatus.questDefinitionGraph}</dd>
               </div>
               <div>
-                <dt>Save refs</dt>
+                <dt>{t('worldEditor.progression.saveRefs', {}, $locale)}</dt>
                 <dd>{progressionProofStatus.saveProgressionReferenceIndex}</dd>
               </div>
               <div>
-                <dt>Terminal edit</dt>
-                <dd>{progressionProofStatus.terminalEditableMutationAuthorized ? 'Authorized' : 'Not authorized'}</dd>
+                <dt>{t('worldEditor.progression.terminalEdit', {}, $locale)}</dt>
+                <dd>{progressionProofStatus.terminalEditableMutationAuthorized
+                  ? t('worldEditor.progression.authorized', {}, $locale)
+                  : t('worldEditor.progression.notAuthorized', {}, $locale)}</dd>
               </div>
               <div>
-                <dt>Positive permission</dt>
-                <dd>{progressionProofStatus.positivePermissionGranted ? 'Granted' : 'Not granted'}</dd>
+                <dt>{t('worldEditor.progression.positivePermission', {}, $locale)}</dt>
+                <dd>{progressionProofStatus.positivePermissionGranted
+                  ? t('worldEditor.progression.granted', {}, $locale)
+                  : t('worldEditor.progression.notGranted', {}, $locale)}</dd>
               </div>
               <div>
-                <dt>Persistent write</dt>
-                <dd>{progressionProofStatus.persistentWriteAuthorized ? 'Authorized' : 'Disabled'}</dd>
+                <dt>{t('worldEditor.progression.persistentWrite', {}, $locale)}</dt>
+                <dd>{progressionProofStatus.persistentWriteAuthorized
+                  ? t('worldEditor.progression.authorized', {}, $locale)
+                  : t('worldEditor.progression.disabled', {}, $locale)}</dd>
               </div>
             </dl>
-            <div class="progression-proof-gates" aria-label="Remaining progression proof gates">
+            <div
+              class="progression-proof-gates"
+              aria-label={t('worldEditor.progression.remainingGates', {}, $locale)}
+            >
               <span>
-                Spawn/remove proof
+                {t('worldEditor.progression.spawnRemoveProof', {}, $locale)}
                 <strong>{progressionProofStatus.conditionalSpawnRemoveWhenDone}</strong>
               </span>
               <span>
-                Native consumer exclusion
+                {t('worldEditor.progression.nativeConsumerExclusion', {}, $locale)}
                 <strong>{progressionProofStatus.dynamicNativeConsumerExclusion}</strong>
               </span>
               <span>
-                Serialized state compatibility
+                {t('worldEditor.progression.serializedStateCompatibility', {}, $locale)}
                 <strong>{progressionProofStatus.objectSerializedStateCompatibility}</strong>
               </span>
             </div>
             <p class="progression-safety-note">
-              CLOSED here means the v1.14 dependency evidence is integrated; it does not authorize terminal mutation.
-              ACTIVE identity references and UNKNOWN reference activity remain blockers. HISTORICAL reference alone creates no active-reference veto, but grants no positive permission.
-              No positive-authorization contract is bound to this editor surface.
+              {t('worldEditor.progression.explanation', {}, $locale)}
             </p>
           </section>
         {/if}
 
         <section class="side-card">
-          <p class="eyebrow">LAYERS</p>
+          <p class="eyebrow">{t('worldEditor.layers.eyebrow', {}, $locale)}</p>
           <div class="layer-list">
             {#each WEP_LAYERS as layer}
               <button
@@ -2622,7 +2627,9 @@
               >
                 <span>{layer}</span>
                 <small>
-                  {layerState[layer].locked ? 'locked' : 'selectable'}
+                  {layerState[layer].locked
+                    ? t('worldEditor.layers.locked', {}, $locale)
+                    : t('worldEditor.layers.selectable', {}, $locale)}
                 </small>
               </button>
             {/each}
@@ -2630,121 +2637,142 @@
         </section>
 
         <section class="side-card">
-          <p class="eyebrow">SEARCH</p>
+          <p class="eyebrow">{t('worldEditor.search.eyebrow', {}, $locale)}</p>
           <input
             value={query}
             on:input={(event) =>
               setQuery((event.currentTarget as HTMLInputElement).value)}
-            placeholder="Item ID / name / tag"
-            aria-label="World object search"
+            placeholder={t('worldEditor.search.placeholder', {}, $locale)}
+            aria-label={t('worldEditor.search.ariaLabel', {}, $locale)}
           />
           <div class="selection-actions">
-            <button on:click={selectAllVisible}>Visibleを選択</button>
+            <button on:click={selectAllVisible}>{t('worldEditor.search.selectVisible', {}, $locale)}</button>
             <button
               class:active={selectedOnly}
               disabled={!selection.length && !selectedOnly}
               on:click={toggleSelectedOnly}
-            >選択のみ</button>
-            <button on:click={clearSelection}>選択解除</button>
+            >{t('worldEditor.search.selectedOnly', {}, $locale)}</button>
+            <button on:click={clearSelection}>{t('worldEditor.search.clearSelection', {}, $locale)}</button>
           </div>
           <small class="selection-scope-note">
-            Search / layer filters define the command-visible selection scope. Objects hidden by a filter are removed from the active selection before Move / Rotate / Duplicate / Delete.
+            {t('worldEditor.search.scopeNote', {}, $locale)}
           </small>
         </section>
 
         <section class="side-card object-inspector">
-          <p class="eyebrow">OBJECT INSPECTOR</p>
-          <h3>Selected Object</h3>
+          <p class="eyebrow">{t('worldEditor.inspector.eyebrow', {}, $locale)}</p>
+          <h3>{t('worldEditor.inspector.title', {}, $locale)}</h3>
           {#if objectInspector.selection.kind === 'NONE'}
-            <p class="inspector-note">Select an object to inspect it. Read-only and protected objects remain inspectable.</p>
+            <p class="inspector-note">{t('worldEditor.inspector.none', {}, $locale)}</p>
           {:else if objectInspector.selection.kind === 'MULTI'}
             <p class="inspector-note">
-              {objectInspector.selection.count} objects selected. Common Actions apply only when every selected object is editable under the current Core projection.
+              {t(
+                'worldEditor.inspector.multi',
+                { count: objectInspector.selection.count },
+                $locale
+              )}
             </p>
           {:else if selectedInspectorObject}
             <dl class="inspector-details">
-              <div><dt>Item ID</dt><dd>{selectedInspectorObject.itemId}</dd></div>
-              <div><dt>Layer</dt><dd>{selectedInspectorObject.layer}</dd></div>
-              <div><dt>Editability</dt><dd>{selectedInspectorObject.editability}</dd></div>
-              <div><dt>Position</dt><dd>{selectedInspectorObject.x}, {selectedInspectorObject.y}</dd></div>
-              <div><dt>Orientation</dt><dd>{selectedInspectorObject.orientation}</dd></div>
-              <div><dt>State</dt><dd>{selectedInspectorObject.stateKind ?? 'none'}</dd></div>
+              <div><dt>{t('worldEditor.inspector.itemId', {}, $locale)}</dt><dd>{selectedInspectorObject.itemId}</dd></div>
+              <div><dt>{t('worldEditor.inspector.layer', {}, $locale)}</dt><dd>{selectedInspectorObject.layer}</dd></div>
+              <div><dt>{t('worldEditor.inspector.editability', {}, $locale)}</dt><dd>{selectedInspectorObject.editability}</dd></div>
+              <div><dt>{t('worldEditor.inspector.position', {}, $locale)}</dt><dd>{selectedInspectorObject.x}, {selectedInspectorObject.y}</dd></div>
+              <div><dt>{t('worldEditor.inspector.orientation', {}, $locale)}</dt><dd>{selectedInspectorObject.orientation}</dd></div>
+              <div><dt>{t('worldEditor.inspector.state', {}, $locale)}</dt><dd>{selectedInspectorObject.stateKind ?? 'none'}</dd></div>
             </dl>
             {#if selectedInspectorObject.reasonCodes.length}
               <div class="inspector-reasons">
                 {#each selectedInspectorObject.reasonCodes as code}
-                  <span><code>{code}</code>{explainCoreObjectReason(code)}</span>
+                  <span><code>{code}</code>{coreReasonText(code)}</span>
                 {/each}
               </div>
             {/if}
           {/if}
 
-          <h4>Common Actions</h4>
+          <h4>{t('worldEditor.inspector.commonActions', {}, $locale)}</h4>
           <div class="inspector-common-actions">
-            <button disabled={!primaryJobAvailability.commands.move.enabled} on:click={() => runPrimaryMutation('move', 'right')}>Move →</button>
-            <button disabled={!primaryJobAvailability.commands.rotate.enabled} on:click={() => runPrimaryMutation('rotate', 'rotate')}>Rotate</button>
-            <button disabled={!primaryJobAvailability.commands.copy.enabled} on:click={runPrimaryCopy}>Copy</button>
-            <button disabled={!primaryJobAvailability.commands.duplicate.enabled} on:click={() => runPrimaryMutation('duplicate', 'duplicate')}>Duplicate</button>
-            <button disabled={!primaryJobAvailability.commands.delete.enabled} on:click={() => runPrimaryMutation('delete', 'delete')}>Delete draft</button>
+            <button disabled={!primaryJobAvailability.commands.move.enabled} on:click={() => runPrimaryMutation('move', 'right')}>{t('worldEditor.command.moveRight', {}, $locale)}</button>
+            <button disabled={!primaryJobAvailability.commands.rotate.enabled} on:click={() => runPrimaryMutation('rotate', 'rotate')}>{t('worldEditor.command.rotate', {}, $locale)}</button>
+            <button disabled={!primaryJobAvailability.commands.copy.enabled} on:click={runPrimaryCopy}>{t('worldEditor.command.copy', {}, $locale)}</button>
+            <button disabled={!primaryJobAvailability.commands.duplicate.enabled} on:click={() => runPrimaryMutation('duplicate', 'duplicate')}>{t('worldEditor.command.duplicate', {}, $locale)}</button>
+            <button disabled={!primaryJobAvailability.commands.delete.enabled} on:click={() => runPrimaryMutation('delete', 'delete')}>{t('worldEditor.command.deleteDraft', {}, $locale)}</button>
           </div>
 
-          <h4>Attached State Actions</h4>
+          <h4>{t('worldEditor.inspector.attachedActions', {}, $locale)}</h4>
           {#if objectInspector.attachedState.status === 'CORE_CAPABILITY_NOT_BOUND'}
             <p class="inspector-note">
-              No Core attached-state capability contract is bound for this object. Wand does not infer Chest, PlayerHouse, Shop, Building, or progression actions from ItemID.
+              {t('worldEditor.inspector.noCapabilityContract', {}, $locale)}
             </p>
           {:else if objectInspector.attachedState.status === 'SINGLE_OBJECT_REQUIRED'}
-            <p class="inspector-note">Select exactly one object to inspect attached-state actions.</p>
+            <p class="inspector-note">{t('worldEditor.inspector.singleRequired', {}, $locale)}</p>
           {:else if objectInspector.attachedState.actions.length === 0}
-            <p class="inspector-note">Core exposes no attached-state action for this object.</p>
+            <p class="inspector-note">{t('worldEditor.inspector.noAttachedActions', {}, $locale)}</p>
           {:else}
             <div class="attached-actions">
               {#each objectInspector.attachedState.actions as action}
                 <button disabled={!action.uiEnabled}>
                   {action.label}
-                  <small>{action.uiReasonCode ?? 'Core + WEP handler ready'}</small>
+                  <small>{action.uiReasonCode ?? t('worldEditor.inspector.handlerReady', {}, $locale)}</small>
                 </button>
               {/each}
             </div>
           {/if}
 
           {#if scroogeStorePreview?.status === 'resolved'}
-            <h4>Scrooge Store Inventory</h4>
-            <p class="inspector-note">
-              Read-only Core v1.12 view. Store identity is resolved by exact
-              <code>ProfileWorld.Stores[].BuildingItemID</code> match; no Shop fallback or persistent mutation is available.
-            </p>
+            <h4>{t('worldEditor.store.title', {}, $locale)}</h4>
+            <p class="inspector-note">{t('worldEditor.store.description', {}, $locale)}</p>
             <dl class="inspector-details">
-              <div><dt>Building</dt><dd>{scroogeStorePreview.store.buildingItemId}</dd></div>
-              <div><dt>Displays</dt><dd>{scroogeStorePreview.store.displayCount}</dd></div>
-              <div><dt>Slots</dt><dd>{scroogeStorePreview.store.totalSlotCount}</dd></div>
-              <div><dt>Available</dt><dd>{scroogeStorePreview.store.availableSlotCount}</dd></div>
-              <div><dt>Last refresh</dt><dd>{scroogeStorePreview.store.lastRefresh ?? 'unknown'}</dd></div>
-              <div><dt>Weighted items</dt><dd>{scroogeStorePreview.store.weightedItemCount}</dd></div>
+              <div><dt>{t('worldEditor.store.building', {}, $locale)}</dt><dd>{scroogeStorePreview.store.buildingItemId}</dd></div>
+              <div><dt>{t('worldEditor.store.displays', {}, $locale)}</dt><dd>{scroogeStorePreview.store.displayCount}</dd></div>
+              <div><dt>{t('worldEditor.store.slots', {}, $locale)}</dt><dd>{scroogeStorePreview.store.totalSlotCount}</dd></div>
+              <div><dt>{t('worldEditor.store.available', {}, $locale)}</dt><dd>{scroogeStorePreview.store.availableSlotCount}</dd></div>
+              <div><dt>{t('worldEditor.store.lastRefresh', {}, $locale)}</dt><dd>{scroogeStorePreview.store.lastRefresh ?? t('worldEditor.store.unknown', {}, $locale)}</dd></div>
+              <div><dt>{t('worldEditor.store.weightedItems', {}, $locale)}</dt><dd>{scroogeStorePreview.store.weightedItemCount}</dd></div>
             </dl>
             <div class="attached-actions">
               {#each scroogeStorePreview.store.displays as display}
                 <div class="inspector-note">
-                  <strong>Display {display.displayIndex}</strong>
-                  <span>
-                    Item {display.displayItemId ?? 'unknown'} ·
-                    {display.layoutType ?? 'layout unknown'} ·
-                    {display.slots.length} slot{display.slots.length === 1 ? '' : 's'}
-                  </span>
+                  <strong>{t(
+                    'worldEditor.store.display',
+                    { displayIndex: display.displayIndex },
+                    $locale
+                  )}</strong>
+                  <span>{t(
+                    'worldEditor.store.displaySummary',
+                    {
+                      itemId: display.displayItemId ?? t('worldEditor.store.unknown', {}, $locale),
+                      layoutType: display.layoutType ?? t('worldEditor.store.layoutUnknown', {}, $locale),
+                      count: display.slots.length
+                    },
+                    $locale
+                  )}</span>
                   {#each display.slots as slot}
                     <small>
                       [{display.displayIndex}:{slot.slotIndex}]
                       {slot.item?.status === 'resolved'
-                        ? `Item ${slot.item.id} ×${slot.item.amount}`
+                        ? t(
+                            'worldEditor.store.itemAmount',
+                            { itemId: slot.item.id, amount: slot.item.amount },
+                            $locale
+                          )
                         : slot.item === null
-                          ? 'Empty'
-                          : 'Item unreadable'}
+                          ? t('worldEditor.store.empty', {}, $locale)
+                          : t('worldEditor.store.itemUnreadable', {}, $locale)}
                       · {slot.isAvailable === true
-                        ? 'Available'
+                        ? t('worldEditor.store.available', {}, $locale)
                         : slot.isAvailable === false
-                          ? 'Unavailable'
-                          : 'Availability unknown'}
-                      · Currency {slot.currencyId ?? 'unknown'}
+                          ? t('worldEditor.store.unavailable', {}, $locale)
+                          : t('worldEditor.store.availabilityUnknown', {}, $locale)}
+                      · {t(
+                        'worldEditor.store.currency',
+                        {
+                          currencyId:
+                            slot.currencyId ??
+                            t('worldEditor.store.unknown', {}, $locale)
+                        },
+                        $locale
+                      )}
                     </small>
                   {/each}
                 </div>
