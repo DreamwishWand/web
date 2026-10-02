@@ -1,4 +1,6 @@
+import worldEditor from './world-editor/ja.js';
 export default Object.freeze({
+  ...worldEditor,
   "shared.a11y.skipToContent": "本文へ移動",
   "shared.brand.homeLabel": "Dreamwish Wand ホーム",
   "shared.nav.primaryLabel": "メインナビゲーション",
