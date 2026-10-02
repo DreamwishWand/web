@@ -32,6 +32,8 @@ jobs:
         run: deno check --node-modules-dir=auto supabase/functions/*/index.ts
       - name: Type and component checks
         run: npm run check
+      - name: Shared web accessibility/localization gates
+        run: npm run verify:web-foundation
       - name: Canonical baseline integrity
         run: npm run verify:canonical
       - name: Contract tests
