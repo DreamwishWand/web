@@ -1655,7 +1655,7 @@
       if (Array.isArray(parsed?.objects)) {
         const normalized = normalizeEditorDocument(parsed);
         if (normalized.schema !== WEP_EDITOR_SCHEMA) {
-          throw new Error('WEP EditorDocument schema が一致しません。');
+          throw new Error(t('worldEditor.open.schemaMismatch', {}, $locale));
         }
 
         worldSource = null;
@@ -1678,8 +1678,8 @@
 
         message =
           editorDocument.target?.platform === 'synthetic'
-            ? 'EditorDocument をローカルで読み込みました。synthetic target のdraft操作が利用できます。'
-            : 'EditorDocument をローカルで読み込みました。untrusted imported real-target documentにはCore authoring bindingを自動付与せずread-onlyにします。';
+            ? t('worldEditor.open.editorDocumentSyntheticLoaded', {}, $locale)
+            : t('worldEditor.open.editorDocumentRealLoaded', {}, $locale);
       } else {
         const opened = await openWorldSaveBytes(bytes, {
           sourcePlatform
@@ -1722,8 +1722,14 @@
         copiedDraftClipboard = null;
         clipboardPasteCount = 0;
 
-        message =
-          `DDV saveをローカルで読み込みました。schema ${opened.profileSchemaVersion} / ${opened.areas.length} Areas。Canvasでroot Gridを開くとCore-bound local draft authoringを利用できます。exact buildはsave単体から証明せず、persistent writeは無効です。`;
+        message = t(
+          'worldEditor.open.saveLoaded',
+          {
+            schema: opened.profileSchemaVersion,
+            areaCount: opened.areas.length
+          },
+          $locale
+        );
       }
     } catch (error) {
       session = null;
@@ -1751,8 +1757,7 @@
     if (!worldSource) return;
 
     if (worldSource.saveIdentity.sourcePlatform !== 'switch') {
-      message =
-        '現在のbrowser World projectionはNintendo Switch v1.25.0の承認済みstatic-data scopeだけです。Steam/unknown sourceはArea/Grid列挙までread-onlyで停止します。';
+      message = t('worldEditor.open.switchOnlyProjection', {}, $locale);
       return;
     }
 
@@ -1879,11 +1884,13 @@
       );
 
       message =
-        'Switch v1.25.0のCore-bound draft Canvasを生成しました。Move / Rotate / Duplicate / Delete / Undo / Redoはローカルdraftとして利用できます。' +
+        t('worldEditor.open.canvasLoadedBase', {}, $locale) +
+        ' ' +
         (unresolvedBounds
-          ? ' このGridDataPathはauthoritative bounds未解決のためvalidationはfail-closedです。'
-          : ' v1.8 FloorType + v1.9 native placement classifierを各commandのvalidationに使用します。') +
-        ' save単体ではexact Build IDを証明できないためnative validationはUNVERIFIEDのまま保持し、persistent DDV writeは無効です。';
+          ? t('worldEditor.open.canvasBoundsUnresolved', {}, $locale)
+          : t('worldEditor.open.canvasValidationBound', {}, $locale)) +
+        ' ' +
+        t('worldEditor.open.canvasExactBuildBoundary', {}, $locale);
     } catch (error) {
       session = null;
       editorDocument = null;
@@ -1928,8 +1935,7 @@
     clipboardPasteCount = 0;
     query = '';
     selectedOnly = false;
-    message =
-      'DDV saveのArea / direct Grid一覧へ戻りました。persistent writeは無効です。';
+    message = t('worldEditor.open.returnedToRoutes', {}, $locale);
   }
 
   function selectObject(id: string, toggle = false) {
@@ -2094,12 +2100,16 @@
     event.preventDefault();
     if (shortcut === 'CLEAR_SELECTION') {
       clearSelection();
-      message = 'Selection cleared.';
+      message = t('worldEditor.selection.cleared', {}, $locale);
       return;
     }
     if (shortcut === 'SELECT_VISIBLE') {
       selectAllVisible();
-      message = `Selected ${projected.length} visible object${projected.length === 1 ? '' : 's'}.`;
+      message = t(
+        'worldEditor.selection.visibleSelected',
+        { count: projected.length },
+        $locale
+      );
       return;
     }
     if (shortcut === 'MOVE_UP') return runPrimaryMutation('move', 'up');
@@ -2123,20 +2133,23 @@
       const blocker = firstDraftBlocker(result.validation);
       message = blocker
         ? editorBlockerText(String(blocker.code))
-        : 'The draft command was rejected by validation.';
+        : t('worldEditor.validation.commandRejected', {}, $locale);
     } else if (result?.draftBlocked) {
       const blocker = firstDraftBlocker(result.validation);
-      message =
-        'Draft updated locally, but validation is blocked. ' +
-        editorBlockerText(
-          String(
-            blocker?.code ??
-              'NATIVE_PLACEMENT_UNVERIFIED'
+      message = t(
+        'worldEditor.validation.draftUpdatedBlocked',
+        {
+          reason: editorBlockerText(
+            String(
+              blocker?.code ??
+                'NATIVE_PLACEMENT_UNVERIFIED'
+            )
           )
-        );
+        },
+        $locale
+      );
     } else {
-      message =
-        'Draft updated and current command preflight passed. Persistent DDV write remains disabled.';
+      message = t('worldEditor.validation.draftUpdatedPass', {}, $locale);
     }
 
     capturePreview = null;
@@ -2222,8 +2235,7 @@
     refreshDraftState();
     syncFencePostDraftFromDocument();
     rebuildFullDesignPlan();
-    message =
-      'Undo restored the draft model, selection, validation and Fence representation state together.';
+    message = t('worldEditor.selection.undoRestored', {}, $locale);
   }
 
   function redo() {
@@ -2237,8 +2249,7 @@
     refreshDraftState();
     syncFencePostDraftFromDocument();
     rebuildFullDesignPlan();
-    message =
-      'Redo restored the draft model, selection, validation and Fence representation state together.';
+    message = t('worldEditor.selection.redoRestored', {}, $locale);
   }
 
   function downloadOriginalSaveBackup() {
@@ -2254,8 +2265,7 @@
     anchor.rel = 'noopener';
     anchor.click();
     URL.revokeObjectURL(href);
-    message =
-      'Original save backup downloaded byte-for-byte without serialization or DDV mutation.';
+    message = t('worldEditor.backup.downloaded', {}, $locale);
   }
 
   function reviewSavePreparation() {
@@ -2264,8 +2274,11 @@
     const code = String(
       draftSavePreparation?.reason ?? 'NO_PERSISTENT_WRITER_BOUND'
     );
-    message =
-      'Save preparation reviewed. ' + editorBlockerText(code);
+    message = t(
+      'worldEditor.savePrep.reviewed',
+      { reason: editorBlockerText(code) },
+      $locale
+    );
   }
 
   function selectedSceneBounds() {
@@ -2282,7 +2295,7 @@
   function useSelectedCaptureRegion() {
     const bounds = selectedSceneBounds();
     if (!bounds) {
-      message = 'Capture Regionに使うobjectを選択してください。';
+      message = t('worldEditor.scene.selectForRegion', {}, $locale);
       return;
     }
     captureRegionX = Number(bounds.x);
@@ -2317,7 +2330,7 @@
 
   function previewScene() {
     if (!session || !selection.length) {
-      message = 'Scene Presetに含めるobjectを選択してください。';
+      message = t('worldEditor.scene.selectForPreset', {}, $locale);
       return;
     }
 
@@ -2341,8 +2354,7 @@
       publishKey = crypto.randomUUID();
 
       if (capturePreview.publicationReady) {
-        message =
-          'Scene captureはpublication-readyです。source Grid/GridObject identityはartifactから除去されています。';
+        message = t('worldEditor.scene.publicationReady', {}, $locale);
       } else {
         const code =
           capturePreview.issues?.find(
@@ -2370,12 +2382,14 @@
         const reasonCode = Array.isArray(blockedObject?.metadata?.reasons)
           ? blockedObject.metadata.reasons[0]
           : null;
-        message =
-          'Scene Preset capture blocked. ' +
-          (reasonCode
-            ? explainCoreObjectReason(String(reasonCode))
-            : 'The selection contains content that is not portable under the current Core/WEP contract.') +
-          ' Protected/read-only objects are not silently included in portable source content.';
+        const reason = reasonCode
+          ? coreReasonText(String(reasonCode))
+          : t('worldEditor.scene.nonPortableSelection', {}, $locale);
+        message = t(
+          'worldEditor.scene.captureBlocked',
+          { reason },
+          $locale
+        );
       } else {
         message = code;
       }
@@ -2390,8 +2404,7 @@
       !creatorProfileId ||
       !presetTitle.trim()
     ) {
-      message =
-        'publishには認証済みWand Account、Creator Profile、Preset titleが必要です。';
+      message = t('worldEditor.scene.publishRequirements', {}, $locale);
       return;
     }
 
@@ -2426,8 +2439,7 @@
 
       capturePreview = result.captured;
       published = result.published;
-      message =
-        'Scene Presetを公開しました。DDVセーブへの書き込みは行っていません。';
+      message = t('worldEditor.scene.publishedStatus', {}, $locale);
     } catch (error) {
       message = error instanceof Error ? error.message : String(error);
     } finally {
