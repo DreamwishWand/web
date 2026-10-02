@@ -54,7 +54,7 @@ function contrast(a,b) {
   return (values[0]+0.05)/(values[1]+0.05);
 }
 const gold = token('gold');
-for (const name of ['page','surface','surface-raised']) {
+for (const name of ['page','page-2','surface','surface-raised','hero-day-start','hero-day-mid','hero-day-end']) {
   const ratio = contrast(gold, token(name));
   report.contrast[`gold/${name}`] = Number(ratio.toFixed(3));
   if (ratio < 4.5) errors.push(`day --gold contrast against --${name} is ${ratio.toFixed(2)}:1 (<4.5:1)`);
