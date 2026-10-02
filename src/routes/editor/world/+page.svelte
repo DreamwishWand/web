@@ -676,8 +676,8 @@
       rfNetworkId = networkId;
       rfPreview = preview;
       rfMessage = result?.applied
-        ? 'Logical network draft created. Persistent writer remains disabled.'
-        : 'Logical network draft was blocked.';
+        ? t('worldEditor.fence.networkCreated', {}, $locale)
+        : t('worldEditor.fence.networkBlocked', {}, $locale);
     } catch (error) {
       rfMessage =
         error instanceof Error ? error.message : String(error);
@@ -701,8 +701,17 @@
               seed: rfSeedNodeId
             });
       rfMessage = rfPreview.ok
-        ? `Connected selection · ${rfPreview.logicalQuantity ?? rfPreview.cells?.length ?? 0} logical units`
-        : 'Connected selection blocked.';
+        ? t(
+            'worldEditor.fence.connectedSelection',
+            {
+              count:
+                rfPreview.logicalQuantity ??
+                rfPreview.cells?.length ??
+                0
+            },
+            $locale
+          )
+        : t('worldEditor.fence.connectedBlocked', {}, $locale);
     } catch (error) {
       rfMessage =
         error instanceof Error ? error.message : String(error);
@@ -720,8 +729,12 @@
         adjacentNodeId: rfAdjacentNodeId
       });
       rfMessage = rfPreview.ok
-        ? `Fence segment · ${rfPreview.logicalQuantity} logical units`
-        : 'Fence segment selection blocked.';
+        ? t(
+            'worldEditor.fence.segmentSelection',
+            { count: rfPreview.logicalQuantity },
+            $locale
+          )
+        : t('worldEditor.fence.segmentBlocked', {}, $locale);
     } catch (error) {
       rfMessage =
         error instanceof Error ? error.message : String(error);
@@ -749,8 +762,8 @@
         rfMode = String(sample.mode ?? rfMode);
       }
       rfMessage = sample.ok
-        ? 'Eyedropper loaded family and mode into the authoring controls.'
-        : 'Eyedropper could not sample the selected logical unit.';
+        ? t('worldEditor.fence.eyedropperLoaded', {}, $locale)
+        : t('worldEditor.fence.eyedropperBlocked', {}, $locale);
     } catch (error) {
       rfMessage =
         error instanceof Error ? error.message : String(error);
@@ -791,7 +804,7 @@
             });
       rfPreview = preview;
       if (!preview.ok) {
-        rfMessage = 'Style replacement preview blocked.';
+        rfMessage = t('worldEditor.fence.stylePreviewBlocked', {}, $locale);
         return;
       }
       const next = {
@@ -813,8 +826,8 @@
       );
       rfFamilyBaseItemID = targetFamilyBaseItemID;
       rfMessage = result?.applied
-        ? 'Style replacement stored in the local logical draft.'
-        : 'Style replacement blocked.';
+        ? t('worldEditor.fence.styleStored', {}, $locale)
+        : t('worldEditor.fence.styleBlocked', {}, $locale);
     } catch (error) {
       rfMessage =
         error instanceof Error ? error.message : String(error);
@@ -839,7 +852,7 @@
             });
       rfPreview = preview;
       if (!preview.ok) {
-        rfMessage = 'Topology delete/split preview blocked.';
+        rfMessage = t('worldEditor.fence.deletePreviewBlocked', {}, $locale);
         return;
       }
       const next =
@@ -866,8 +879,8 @@
         }
       );
       rfMessage = result?.applied
-        ? 'Topology delete/split stored in the local draft.'
-        : 'Topology delete/split blocked.';
+        ? t('worldEditor.fence.deleteStored', {}, $locale)
+        : t('worldEditor.fence.deleteBlocked', {}, $locale);
     } catch (error) {
       rfMessage =
         error instanceof Error ? error.message : String(error);
@@ -895,7 +908,7 @@
             );
       rfPreview = preview;
       if (!preview.ok) {
-        rfMessage = 'Topology transform preview blocked.';
+        rfMessage = t('worldEditor.fence.transformPreviewBlocked', {}, $locale);
         return;
       }
       const next =
@@ -922,8 +935,8 @@
         }
       );
       rfMessage = result?.applied
-        ? 'Topology transform stored in the local draft.'
-        : 'Topology transform blocked.';
+        ? t('worldEditor.fence.transformStored', {}, $locale)
+        : t('worldEditor.fence.transformBlocked', {}, $locale);
     } catch (error) {
       rfMessage =
         error instanceof Error ? error.message : String(error);
@@ -1185,8 +1198,14 @@
       !result.validation.ok
     ) {
       fencePostValidation = result.validation;
-      fencePostMessage =
-        `${label}: BLOCKED · ${firstIssue ?? 'representation validation'}`;
+      fencePostMessage = t(
+        'worldEditor.fence.editBlocked',
+        {
+          operation: label,
+          detail: firstIssue ?? 'representation validation'
+        },
+        $locale
+      );
       return;
     }
     if (
@@ -1237,8 +1256,11 @@
     refreshDraftState();
     syncFencePostDraftFromDocument();
     rebuildFullDesignPlan();
-    fencePostMessage =
-      `${label}: Core preflight PASS · Undo/Redo enabled · portable representation will be revalidated during Scene/full-design capture`;
+    fencePostMessage = t(
+      'worldEditor.fence.editPass',
+      { operation: label },
+      $locale
+    );
   }
 
   function insertFencePostDraft() {
@@ -1250,7 +1272,7 @@
           Number(fencePostEditX),
           Number(fencePostEditY)
         ),
-        'Insert Post'
+        t('worldEditor.fence.insertPost', {}, $locale)
       );
     } catch (error) {
       fencePostMessage =
@@ -1268,7 +1290,7 @@
           Number(fencePostEditX),
           Number(fencePostEditY)
         ),
-        'Move Post'
+        t('worldEditor.fence.movePost', {}, $locale)
       );
     } catch (error) {
       fencePostMessage =
@@ -1281,7 +1303,7 @@
     try {
       commitFencePostDraft(
         removeFencePost(fencePostDraft, nodeId),
-        'Remove Post'
+        t('worldEditor.fence.removePost', {}, $locale)
       );
     } catch (error) {
       fencePostMessage =
@@ -1294,7 +1316,9 @@
     try {
       commitFencePostDraft(
         setFencePostPinned(fencePostDraft, nodeId, pinned),
-        pinned ? 'Pin Post' : 'Unpin Post'
+        pinned
+          ? t('worldEditor.fence.pinPost', {}, $locale)
+          : t('worldEditor.fence.unpinPost', {}, $locale)
       );
     } catch (error) {
       fencePostMessage =
@@ -1310,7 +1334,7 @@
           fencePostDraft,
           FENCE_POST_AUTO_LAYOUT.CENTERED_BALANCED
         ),
-        'Centered balanced auto-layout'
+        t('worldEditor.fence.centeredAutoLayout', {}, $locale)
       );
     } catch (error) {
       fencePostMessage =
