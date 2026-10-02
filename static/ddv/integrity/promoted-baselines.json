@@ -138,6 +138,33 @@
       "artifactSha256": "de7f3590c285547fd0e8f70f6141432d6c242c4c6e59540e271d6af4a1813434",
       "sourceEvidenceDriveId": "1Scke2sRuvcx_qfEW5eolPPoznWxT2aA8iUgvcxIdU9Q",
       "scope": "01A/01D dependency closure; positive mutation authorization remains false"
+    },
+    {
+      "artifactId": "DDV-PROGRESSION-DESTINATION-VETO-V125-V1_15",
+      "artifactType": "Core/progression destination negative-veto projection",
+      "version": "v1.15",
+      "status": "PROMOTED",
+      "mutable": false,
+      "platform": "Nintendo Switch",
+      "gameVersion": "v1.25.0",
+      "buildId": "52BD625D9B4E0053",
+      "artifactSha256": "d68364585b6563b583241b2cd98e28e70a26d3eed35c28b1f09fe672487c2123",
+      "payloadSha256": "41bb86f2489079ab3b953a90124fc9898b1ceab40ca5c4553d7c8877538e2206",
+      "sourceEvidenceDriveId": "1d4l-GG5W0F3cSRIltgZyA_ZTzf8Nv7r0QG1h7Sr2x2w",
+      "scope": "read-only destination-preflight negative veto; no positive permission"
+    },
+    {
+      "artifactId": "DDV-PROGRESSION-MENHIR-FAMILY-AUDIT-V125-V1_15",
+      "artifactType": "Core/bounded progression family audit",
+      "version": "v1.15",
+      "status": "PROMOTED",
+      "mutable": false,
+      "platform": "Nintendo Switch",
+      "gameVersion": "v1.25.0",
+      "buildId": "52BD625D9B4E0053",
+      "artifactSha256": "d939055ff6e7c964a987f103215c1f6fedfb59d6e0892e420e70f8f04cea4018",
+      "sourceEvidenceDriveId": "1d4l-GG5W0F3cSRIltgZyA_ZTzf8Nv7r0QG1h7Sr2x2w",
+      "scope": "BASE_GAME_STORY_MENHIRS bounded Target 2/3 closure; no global positive permission"
     }
   ]
 }
