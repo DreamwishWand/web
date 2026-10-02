@@ -1,0 +1,64 @@
+name: QR exact representative save acceptance
+
+on:
+  pull_request:
+    branches: [dev/wep-v125]
+    paths:
+      - '.github/workflows/qr-representative-exact-private-run.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-private-fixture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      FIXTURE_URL: 'https://sdmntpreastus.oaiusercontent.com/files/00000000-e858-81f9-a3c3-44b75eeaaad2/raw?se=2026-10-02T10%3A57%3A13Z&sp=r&sv=2026-02-06&sr=b&scid=f4b21dc9-9f38-5a9f-a457-beb3d9444077&skoid=03727f49-62d3-42ac-8350-1c0e6559d238&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-02T02%3A34%3A40Z&ske=2026-10-03T02%3A34%3A40Z&sks=b&skv=2026-02-06&sig=5IyUOnyDdMbDbGDMh48FefqomHHNeqpGfuKQdqJbWLo%3D'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Download short-lived exact fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --silent --show-error "$FIXTURE_URL" -o /tmp/representative.profile.json
+          test "$(stat -c%s /tmp/representative.profile.json)" = "12846979"
+          test "$(sha256sum /tmp/representative.profile.json | awk '{print $1}')" = "1cfc40196f7ee36048e1fa98c0835561901c6fed3f19ca8dd6fa36c47740dc10"
+      - id: chrome
+        shell: bash
+        run: |
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "path=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+      - name: Start local current WEP
+        shell: bash
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4173 >/tmp/qr-exact-vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl --fail --silent http://127.0.0.1:4173/editor/world/ >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/qr-exact-vite.log
+          exit 1
+      - name: Run exact representative A-H acceptance
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          WEP_BASE_URL: http://127.0.0.1:4173/editor/world/
+          WEP_REPRESENTATIVE_FIXTURE_PATH: /tmp/representative.profile.json
+        run: node scripts/wep-representative-save-browser-acceptance.mjs
+      - name: Remove fixture before artifact collection
+        if: always()
+        run: rm -f /tmp/representative.profile.json
+      - name: Upload report only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr-exact-representative-save-report
+          path: .artifacts/wep-representative-save/representative-acceptance-report.json
+          if-no-files-found: error
