@@ -314,4 +314,8 @@ test('World Editor route binds keyboard, mouse multi-select, blocker UI, inspect
   );
   assert.match(worldEditorRouteSource, /event\.key === '\[' \|\| event\.key === '\]'/);
   assert.match(worldEditorRouteSource, /data-editor-object-id=\{object\.editorId\}/);
+  assert.doesNotMatch(
+    worldEditorRouteSource,
+    /disabled=\{!primaryJobAvailability\.commands\.move\.enabled\}/
+  );
 });
