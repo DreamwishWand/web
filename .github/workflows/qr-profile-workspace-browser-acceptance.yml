@@ -1,0 +1,52 @@
+name: QR Profile Workspace browser acceptance
+
+on:
+  pull_request:
+    branches: [dev/community-core-v0-20260930]
+    paths:
+      - '.github/workflows/qr-profile-workspace-browser-acceptance.yml'
+      - 'scripts/qr-profile-workspace-browser-acceptance.mjs'
+      - 'src/routes/community-lab/profiles/**'
+      - 'src/lib/community/staging-http-client.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  profile-workspace-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - id: chrome
+        shell: bash
+        run: |
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "path=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+          "$CHROME_BIN" --version
+      - shell: bash
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4173 > /tmp/qr-profile-vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl --fail --silent http://127.0.0.1:4173/community-lab/profiles/ >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/qr-profile-vite.log
+          exit 1
+      - env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          QR_PROFILE_BASE_URL: http://127.0.0.1:4173/community-lab/profiles/
+        run: node scripts/qr-profile-workspace-browser-acceptance.mjs
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr-profile-workspace-browser-acceptance
+          path: .artifacts/profile-workspace-qr/
+          if-no-files-found: error
