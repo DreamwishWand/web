@@ -3121,11 +3121,11 @@
                   </select>
                 </label>
                 <label>
-                  <span>X</span>
+                  <span>{t('worldEditor.scene.x', {}, $locale)}</span>
                   <input type="number" bind:value={fencePostEditX} />
                 </label>
                 <label>
-                  <span>Y</span>
+                  <span>{t('worldEditor.scene.y', {}, $locale)}</span>
                   <input type="number" bind:value={fencePostEditY} />
                 </label>
                 <button on:click={insertFencePostDraft}>{t('worldEditor.fence.insertPost', {}, $locale)}</button>
@@ -3483,39 +3483,36 @@
 
     <section class="capture-panel">
       <div class="capture-copy">
-        <p class="eyebrow">SCENE PRESET</p>
-        <h2>Capture &amp; Publish</h2>
-        <p>
-          選択objectとSubGrid dependency closureをportable artifactへ変換します。
-          source Grid / GridObject identityは公開artifactへ持ち出しません。
-        </p>
+        <p class="eyebrow">{t('worldEditor.scene.eyebrow', {}, $locale)}</p>
+        <h2>{t('worldEditor.scene.title', {}, $locale)}</h2>
+        <p>{t('worldEditor.scene.description', {}, $locale)}</p>
       </div>
 
       <div class="capture-form">
         <label>
-          <span>Title</span>
-          <input bind:value={presetTitle} placeholder="My Scene Preset" />
+          <span>{t('worldEditor.scene.fieldTitle', {}, $locale)}</span>
+          <input bind:value={presetTitle} placeholder={t('worldEditor.scene.titlePlaceholder', {}, $locale)} />
         </label>
         <label>
-          <span>Description</span>
+          <span>{t('worldEditor.scene.fieldDescription', {}, $locale)}</span>
           <textarea
             bind:value={presetDescription}
             rows="3"
-            placeholder="この飾り付けについて"
+            placeholder={t('worldEditor.scene.descriptionPlaceholder', {}, $locale)}
           ></textarea>
         </label>
         <label>
-          <span>Visibility</span>
+          <span>{t('worldEditor.scene.visibility', {}, $locale)}</span>
           <select bind:value={visibility}>
-            <option value="unlisted">Unlisted</option>
-            <option value="public">Public</option>
-            <option value="private">Private</option>
+            <option value="unlisted">{t('worldEditor.scene.unlisted', {}, $locale)}</option>
+            <option value="public">{t('worldEditor.scene.public', {}, $locale)}</option>
+            <option value="private">{t('worldEditor.scene.private', {}, $locale)}</option>
           </select>
         </label>
 
         <div class="capture-region-options">
           <label>
-            <span>Capture Region</span>
+            <span>{t('worldEditor.scene.captureRegion', {}, $locale)}</span>
             <select
               bind:value={captureRegionMode}
               on:change={() => {
@@ -3523,15 +3520,15 @@
                 published = null;
               }}
             >
-              <option value="selection">Selected object bounds</option>
-              <option value="custom">Custom region</option>
+              <option value="selection">{t('worldEditor.scene.selectedBounds', {}, $locale)}</option>
+              <option value="custom">{t('worldEditor.scene.customRegion', {}, $locale)}</option>
             </select>
           </label>
           <button
             type="button"
             disabled={!selectedCount}
             on:click={useSelectedCaptureRegion}
-          >Use selected bounds</button>
+          >{t('worldEditor.scene.useSelectedBounds', {}, $locale)}</button>
           {#if captureRegionMode === 'custom'}
             <div class="capture-region-grid">
               <label>
@@ -3543,18 +3540,16 @@
                 <input type="number" step="1" bind:value={captureRegionY} />
               </label>
               <label>
-                <span>Width</span>
+                <span>{t('worldEditor.scene.width', {}, $locale)}</span>
                 <input type="number" min="1" step="1" bind:value={captureRegionW} />
               </label>
               <label>
-                <span>Height</span>
+                <span>{t('worldEditor.scene.height', {}, $locale)}</span>
                 <input type="number" min="1" step="1" bind:value={captureRegionH} />
               </label>
             </div>
           {/if}
-          <small>
-            Selection boundsは選択objectのoccupied boundsを使用します。Custom regionはRoad/Fenceを含む範囲を明示できます。authoritative root bounds外やtopology clippingはfail-closedです。
-          </small>
+          <small>{t('worldEditor.scene.regionNote', {}, $locale)}</small>
         </div>
 
         <div class="network-capture-options">
@@ -3564,7 +3559,7 @@
               bind:checked={includeRoads}
               disabled={roadFenceReaderBinding?.summary?.status !== 'supported'}
             />
-            <span>Include Roads</span>
+            <span>{t('worldEditor.scene.includeRoads', {}, $locale)}</span>
           </label>
           <label>
             <input
@@ -3572,11 +3567,11 @@
               bind:checked={includeFences}
               disabled={roadFenceReaderBinding?.summary?.status !== 'supported'}
             />
-            <span>Include Fences</span>
+            <span>{t('worldEditor.scene.includeFences', {}, $locale)}</span>
           </label>
           <small>
-            01C contained-only Capture Region。境界でtopologyが切れる場合は
-            <code>TOPOLOGY_CLIPPED_UNSUPPORTED</code>で停止します。
+            {t('worldEditor.scene.networkNote', {}, $locale)}
+            <code>TOPOLOGY_CLIPPED_UNSUPPORTED</code>
           </small>
         </div>
 
@@ -3584,7 +3579,7 @@
           <button
             disabled={!selectedCount || loading}
             on:click={previewScene}
-          >Capture Preview</button>
+          >{t('worldEditor.scene.capturePreview', {}, $locale)}</button>
           <button
             class="publish"
             disabled={
@@ -3595,65 +3590,80 @@
               loading
             }
             on:click={publishScene}
-          >Publish Scene Preset</button>
+          >{t('worldEditor.scene.publish', {}, $locale)}</button>
         </div>
       </div>
 
       <div class="capture-status">
         <div>
-          <span>Capture</span>
+          <span>{t('worldEditor.scene.capture', {}, $locale)}</span>
           <strong>
             {capturePreview
               ? capturePreview.publicationReady
-                ? 'Ready'
-                : 'Blocked'
-              : 'Not run'}
+                ? t('worldEditor.scene.ready', {}, $locale)
+                : t('worldEditor.scene.blocked', {}, $locale)
+              : t('worldEditor.scene.notRun', {}, $locale)}
           </strong>
         </div>
         <div>
-          <span>Community</span>
-          <strong>{connected && creatorProfileId ? 'Connected' : 'Sign-in required'}</strong>
+          <span>{t('worldEditor.scene.community', {}, $locale)}</span>
+          <strong>{connected && creatorProfileId
+            ? t('worldEditor.scene.connected', {}, $locale)
+            : t('worldEditor.scene.signInRequired', {}, $locale)}</strong>
         </div>
         <div>
-          <span>Roads / Fences</span>
+          <span>{t('worldEditor.scene.roadsFences', {}, $locale)}</span>
           <strong>
             {roadFenceReaderBinding?.summary?.status === 'supported'
-              ? `Core reader bound · ${roadFenceReaderBinding.summary.roadNetworkCount} road / ${roadFenceReaderBinding.summary.fenceNetworkCount} fence`
-              : 'Raw Switch root Grid required'}
+              ? t(
+                  'worldEditor.scene.readerBound',
+                  {
+                    roadCount: roadFenceReaderBinding.summary.roadNetworkCount,
+                    fenceCount: roadFenceReaderBinding.summary.fenceNetworkCount
+                  },
+                  $locale
+                )
+              : t('worldEditor.scene.rawSwitchRequired', {}, $locale)}
           </strong>
         </div>
         <div>
-          <span>DDV Write</span>
-          <strong>Disabled</strong>
+          <span>{t('worldEditor.scene.ddvWrite', {}, $locale)}</span>
+          <strong>{t('worldEditor.scene.disabled', {}, $locale)}</strong>
         </div>
       </div>
 
       {#if capturePreview}
         <div class="artifact-summary">
-          <strong>Portable artifact preview</strong>
-          <span>{capturePreview.artifact.objects.length} objects</span>
-          <span>
-            {Object.keys(capturePreview.artifact.requirements.itemQuantities).length}
-            item types
-          </span>
-          <span>
-            bounds {capturePreview.artifact.bounds.w} × {capturePreview.artifact.bounds.h}
-          </span>
+          <strong>{t('worldEditor.scene.artifactPreview', {}, $locale)}</strong>
+          <span>{t('worldEditor.scene.objectsCount', { count: capturePreview.artifact.objects.length }, $locale)}</span>
+          <span>{t(
+            'worldEditor.scene.itemTypesCount',
+            { count: Object.keys(capturePreview.artifact.requirements.itemQuantities).length },
+            $locale
+          )}</span>
+          <span>{t(
+            'worldEditor.scene.bounds',
+            {
+              width: capturePreview.artifact.bounds.w,
+              height: capturePreview.artifact.bounds.h
+            },
+            $locale
+          )}</span>
           {#if capturePreview.artifact.networks?.roads}
-            <span>{capturePreview.artifact.networks.roads.networks.length} Road networks</span>
+            <span>{t('worldEditor.scene.roadNetworksCount', { count: capturePreview.artifact.networks.roads.networks.length }, $locale)}</span>
           {/if}
           {#if capturePreview.artifact.networks?.fences}
-            <span>{capturePreview.artifact.networks.fences.networks.length} Fence networks</span>
+            <span>{t('worldEditor.scene.fenceNetworksCount', { count: capturePreview.artifact.networks.fences.networks.length }, $locale)}</span>
           {/if}
         </div>
       {/if}
 
       {#if published}
         <div class="published-card">
-          <p class="eyebrow">PUBLISHED</p>
+          <p class="eyebrow">{t('worldEditor.scene.published', {}, $locale)}</p>
           <strong>{presetTitle}</strong>
           <code>{published.presetArtifactId}</code>
-          <a href={`${base}/presets/`}>Presetsで確認する →</a>
+          <a href={`${base}/presets/`}>{t('worldEditor.nav.viewPublishedPreset', {}, $locale)}</a>
         </div>
       {/if}
     </section>
