@@ -48,16 +48,17 @@ test('World Editor localization inventory is complete for its pinned presentatio
   }
 });
 
-test('World Editor inventory preserves the eight launch locale contract without creating a WEP locale runtime', () => {
+test('World Editor inventory binds the eight launch locales through the shared runtime without a WEP locale runtime', () => {
   assert.deepEqual(
     inventory.launchLocales,
     ['EN', 'FR', 'IT', 'DE', 'ES-ES', 'JA', 'ZH-CN', 'PT-BR']
   );
   assert.equal(
     inventory.sharedLocaleBinding.status,
-    'WAITING_FOR_SHARED_WEB_CONTRACT'
+    'BOUND_SHARED_WEB_V1'
   );
-  assert.equal(inventory.sharedLocaleBinding.owner, '07 WEB / shared Web UI foundation');
+  assert.equal(inventory.sharedLocaleBinding.owner, '08 WEB / shared Web UI foundation');
+  assert.equal(inventory.sharedLocaleBinding.fallbackLocale, 'en');
 });
 
 test('all Core reason keys and blocker presentation families are inventoried while machine keys stay stable', () => {
@@ -129,7 +130,14 @@ test('day-theme gold contrast defect stays owned by shared Web and WEP adds no l
     'A11Y-DAY-GOLD-TEXT-CONTRAST'
   );
   assert.equal(inventory.accessibility.owner, 'shared-web');
-  assert.equal(inventory.accessibility.wepAction, 'NO_LOCAL_OVERRIDE');
+  assert.equal(
+    inventory.accessibility.wepAction,
+    'INHERIT_SHARED_TOKEN_NO_LOCAL_OVERRIDE'
+  );
+  assert.equal(
+    inventory.accessibility.evidence.dayValue,
+    '#82591f'
+  );
 
   const worldEditorRoute = readFileSync(
     new URL('../src/routes/editor/world/+page.svelte', import.meta.url),
