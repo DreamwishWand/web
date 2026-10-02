@@ -8,6 +8,8 @@ const CURRENT_PROFILE_SCHEMA=624;
 const OPS=Object.freeze(['MOVE','ROTATE','REMOVE','DUPLICATE','REPLACE','STATE_EDIT','PRESET_CAPTURE','DESTINATION_OVERWRITE']);
 const PROTECTED_OWNERSHIP=new Set(['QUEST_OWNED','PROGRESSION_BOUND','PUZZLE_OWNED','SYSTEM_SPAWNED','GLOBAL_SHARED_STATE','UNKNOWN_OWNERSHIP']);
 const identityChanging=new Set(['REMOVE','DUPLICATE','REPLACE']);
+const mutationOps=new Set(['MOVE','ROTATE','REMOVE','DUPLICATE','REPLACE','STATE_EDIT']);
+const ownershipMutationReason=Object.freeze({QUEST_OWNED:'QUEST_OWNED_OBJECT_MUTATION_FORBIDDEN',PROGRESSION_BOUND:'PROTECTED_PROGRESSION_OBJECT_MUTATION_FORBIDDEN',PUZZLE_OWNED:'PUZZLE_OWNED_OBJECT_MUTATION_FORBIDDEN',SYSTEM_SPAWNED:'SYSTEM_SPAWNED_OBJECT_MUTATION_FORBIDDEN',GLOBAL_SHARED_STATE:'GLOBAL_SHARED_STATE_MUTATION_FORBIDDEN',UNKNOWN_OWNERSHIP:'PROGRESSION_OWNERSHIP_UNKNOWN'});
 const arr=v=>Array.isArray(v)?v:[];
 const safeInt=v=>Number.isSafeInteger(Number(v))?Number(v):null;
 const addrKey=(g,o)=>String(g)+':'+String(o);
@@ -70,10 +72,16 @@ function projectOne(object,index,definitionDispositionByItemId){
   }
   if(active.length)for(const op of identityChanging)vetoes[op].push('REFERENCE_SENSITIVE_OBJECT_IDENTITY_CHANGE_FORBIDDEN');
   if(unknown.length)for(const op of OPS)vetoes[op].push('PROGRESSION_OWNERSHIP_UNKNOWN');
-  if(ownership&&PROTECTED_OWNERSHIP.has(ownership)){
+  const definitionProtected=Boolean(disp&&PROTECTED_OWNERSHIP.has(disp.ownershipClass));
+  if(definitionProtected){
+    const code=ownershipMutationReason[disp.ownershipClass]||'PROTECTED_PROGRESSION_OBJECT_MUTATION_FORBIDDEN';
+    for(const op of mutationOps)vetoes[op].push(code);
     vetoes.DESTINATION_OVERWRITE.push('PROTECTED_PROGRESSION_OBJECT_CONFLICT');
     vetoes.PRESET_CAPTURE.push('PROTECTED_PROGRESSION_SOURCE_CAPTURE_EXCLUDED');
     if(phase==='UNKNOWN')reasons.push('PROTECTED_OWNERSHIP_WITHOUT_POSITIVE_PHASE_PROOF');
+  }else if(active.length){
+    vetoes.DESTINATION_OVERWRITE.push('PROTECTED_PROGRESSION_OBJECT_CONFLICT');
+    vetoes.PRESET_CAPTURE.push('PROTECTED_PROGRESSION_SOURCE_CAPTURE_EXCLUDED');
   }
   for(const op of OPS)vetoes[op]=unique(vetoes[op]);
   const anyVeto=OPS.some(op=>vetoes[op].length>0);
