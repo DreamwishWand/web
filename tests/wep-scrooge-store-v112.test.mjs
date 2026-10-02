@@ -140,8 +140,8 @@ const route=readFileSync(
 );
 test('World Editor exposes the v1.12 Store state only as read-only inspector data',()=>{
   assert.match(route,/createSwitchV125ScroogeStoreBinding/);
-  assert.match(route,/Scrooge Store Inventory/);
-  assert.match(route,/Read-only Core v1\.12 view/);
+  assert.match(route,/worldEditor\.store\.title/);
+  assert.match(route,/worldEditor\.store\.description/);
   assert.match(route,/ProfileWorld\.Stores\[\]\.BuildingItemID/);
   assert.doesNotMatch(route,/purchaseScrooge|restockScrooge|writeScroogeStore/);
 });
