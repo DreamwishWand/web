@@ -214,7 +214,17 @@ async function runSyntheticAcceptance(page, report) {
   await chair.click();
   await expectSelected(page, 1);
   const toolbar = page.locator('.toolbar-actions');
-  assert.equal(await toolbar.getByRole('button', { name: 'Move right' }).isEnabled(), true);
+  const initialMove = toolbar.getByRole('button', { name: 'Move right' });
+  report.syntheticInitialCommandState = {
+    binding: await text(page.locator('.binding-state')),
+    toolbar: await text(page.locator('.editor-toolbar')),
+    unavailable: await text(page.locator('.command-availability')),
+    inspector: await text(page.locator('.object-inspector')),
+    moveEnabled: await initialMove.isEnabled(),
+    moveDisabledAttribute: await initialMove.getAttribute('disabled')
+  };
+  console.log('SYNTHETIC_INITIAL_COMMAND_STATE', JSON.stringify(report.syntheticInitialCommandState));
+  assert.equal(await initialMove.isEnabled(), true);
   await toolbar.getByRole('button', { name: 'Move right' }).click();
   await waitObject(page, 'Editable Chair', 3, 2);
   await toolbar.getByRole('button', { name: 'Undo' }).click();
