@@ -94,6 +94,10 @@ try {
   report.browser.userAgent = await page.evaluate(() => navigator.userAgent);
   report.browser.baseUrl = baseUrl;
 
+  await page.locator('#site-locale').selectOption('en');
+  await page.waitForFunction(
+    () => document.documentElement.lang === 'en'
+  );
   await page.locator('.platform-select select').selectOption('switch');
   const sourceInput = page.locator(
     '.load-panel input[type="file"]'
