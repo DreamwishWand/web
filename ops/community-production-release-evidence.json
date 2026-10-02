@@ -534,7 +534,7 @@
       "rawPlayerIdPersistent": false,
       "digestStorage": "private.ddv_identity_associations.binding_key_hash",
       "stagingDbLifecycle": "CLOSED_RUNTIME_PASS",
-      "edgeDeployment": "community-command v22 / community-query v10 / community-admin v14",
+      "edgeDeployment": "community-command v23 / community-query v10 / community-admin v14",
       "liveRawPlayerIdEdgeE2E": "PENDING_STAGING_HMAC_SECRET_CONFIGURATION",
       "privacyApproval": "PENDING",
       "legalApproval": "PENDING",
@@ -545,7 +545,13 @@
         "docs/community/linked-ddv-profile-lifecycle-runtime-20261002.md"
       ],
       "stagingAcceptanceUi": "/community-lab/profiles/ source implemented; browser acceptance pending",
-      "identityTransportCorrection": "Double-escape bug fixed before live identity activation; current v22 contains printable-ASCII validation and a real NUL domain separator."
+      "identityTransportCorrection": "Double-escape bug fixed before live identity activation; current v22 contains printable-ASCII validation and a real NUL domain separator.",
+      "workspaceDeleteRecentAuthSeconds": 900,
+      "workspaceDeleteRecentAuthRuntime": "PASS",
+      "workspaceWriteRateLimit": "60/hour/account",
+      "identityAssociationRateLimit": "12/hour/account",
+      "legacyDdvProfileLinkRateBucketEnabled": false,
+      "latestWorkspaceSecurityMigration": "20261002003039_community_ddv_profile_workspace_delete_reauth_rate_v5"
     }
   }
 }
