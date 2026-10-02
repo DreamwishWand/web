@@ -2556,11 +2556,11 @@
 
           <h4>Common Actions</h4>
           <div class="inspector-common-actions">
-            <button disabled={!primaryCommandAllowed('move')} on:click={() => runPrimaryMutation('move', 'right')}>Move →</button>
-            <button disabled={!primaryCommandAllowed('rotate')} on:click={() => runPrimaryMutation('rotate', 'rotate')}>Rotate</button>
-            <button disabled={!primaryCommandAllowed('copy')} on:click={runPrimaryCopy}>Copy</button>
-            <button disabled={!primaryCommandAllowed('duplicate')} on:click={() => runPrimaryMutation('duplicate', 'duplicate')}>Duplicate</button>
-            <button disabled={!primaryCommandAllowed('delete')} on:click={() => runPrimaryMutation('delete', 'delete')}>Delete draft</button>
+            <button disabled={!primaryJobAvailability.commands.move.enabled} on:click={() => runPrimaryMutation('move', 'right')}>Move →</button>
+            <button disabled={!primaryJobAvailability.commands.rotate.enabled} on:click={() => runPrimaryMutation('rotate', 'rotate')}>Rotate</button>
+            <button disabled={!primaryJobAvailability.commands.copy.enabled} on:click={runPrimaryCopy}>Copy</button>
+            <button disabled={!primaryJobAvailability.commands.duplicate.enabled} on:click={() => runPrimaryMutation('duplicate', 'duplicate')}>Duplicate</button>
+            <button disabled={!primaryJobAvailability.commands.delete.enabled} on:click={() => runPrimaryMutation('delete', 'delete')}>Delete draft</button>
           </div>
 
           <h4>Attached State Actions</h4>
@@ -2637,61 +2637,61 @@
           </div>
           <div class="toolbar-actions">
             <button
-              disabled={!primaryCommandAllowed('move')}
+              disabled={!primaryJobAvailability.commands.move.enabled}
               on:click={() => runPrimaryMutation('move', 'left')}
               aria-label="Move left"
             >←</button>
             <button
-              disabled={!primaryCommandAllowed('move')}
+              disabled={!primaryJobAvailability.commands.move.enabled}
               on:click={() => runPrimaryMutation('move', 'up')}
               aria-label="Move up"
             >↑</button>
             <button
-              disabled={!primaryCommandAllowed('move')}
+              disabled={!primaryJobAvailability.commands.move.enabled}
               on:click={() => runPrimaryMutation('move', 'down')}
               aria-label="Move down"
             >↓</button>
             <button
-              disabled={!primaryCommandAllowed('move')}
+              disabled={!primaryJobAvailability.commands.move.enabled}
               on:click={() => runPrimaryMutation('move', 'right')}
               aria-label="Move right"
             >→</button>
             <button
-              disabled={!primaryCommandAllowed('rotate')}
+              disabled={!primaryJobAvailability.commands.rotate.enabled}
               on:click={() => runPrimaryMutation('rotate', 'rotate')}
             >Rotate</button>
             <button
-              disabled={!primaryCommandAllowed('copy')}
+              disabled={!primaryJobAvailability.commands.copy.enabled}
               on:click={runPrimaryCopy}
             >Copy</button>
             <button
-              disabled={!primaryCommandAllowed('paste')}
+              disabled={!primaryJobAvailability.commands.paste.enabled}
               on:click={runPrimaryPaste}
             >Paste</button>
             <button
-              disabled={!primaryCommandAllowed('duplicate')}
+              disabled={!primaryJobAvailability.commands.duplicate.enabled}
               on:click={() => runPrimaryMutation('duplicate', 'duplicate')}
             >Duplicate</button>
             <button
-              disabled={!primaryCommandAllowed('delete')}
+              disabled={!primaryJobAvailability.commands.delete.enabled}
               on:click={() => runPrimaryMutation('delete', 'delete')}
             >Delete</button>
             <button
-              disabled={!primaryCommandAllowed('undo')}
+              disabled={!primaryJobAvailability.commands.undo.enabled}
               on:click={runPrimaryUndo}
             >Undo</button>
             <button
-              disabled={!primaryCommandAllowed('redo')}
+              disabled={!primaryJobAvailability.commands.redo.enabled}
               on:click={runPrimaryRedo}
             >Redo</button>
             <button
               class="save-prep"
-              disabled={!primaryCommandAllowed('reviewSavePrep')}
+              disabled={!primaryJobAvailability.commands.reviewSavePrep.enabled}
               on:click={runPrimarySavePrep}
             >Review Save Prep</button>
             <button
               class="save-prep"
-              disabled={!primaryCommandAllowed('downloadOriginalBackup')}
+              disabled={!primaryJobAvailability.commands.downloadOriginalBackup.enabled}
               on:click={runPrimaryOriginalBackup}
             >Download Original Backup</button>
           </div>
