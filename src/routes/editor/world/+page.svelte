@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { base } from '$app/paths';
+  import { locale, t } from '$lib/i18n/runtime.js';
   import { CommunityLabClient } from '$lib/community/staging-http-client';
   import { readCommunityBrowserConfig } from '$lib/community/runtime-config';
   import { createPresetCommunityBridge } from '$lib/wep/preset-community-bridge';
@@ -38,7 +39,13 @@
     createSwitchV125RoadFenceReaderBinding
   } from '$lib/wep/roadfence-reader-adapter';
   import { assessCurrentV125BrowserPlacementReadiness } from '$lib/wep/placement-readiness';
-  import { explainWepBlocker } from '$lib/wep/blocker-messages';
+  import {
+    localizeCommandLabel,
+    localizeCommandReason,
+    localizeCoreReason,
+    localizeValidationGroup,
+    localizeWepBlocker
+  } from '$lib/wep/world-editor-i18n';
   import {
     NATIVE_PLACEMENT_CLASSES,
     createSwitchV125PlacementLegalityBinding
@@ -59,7 +66,6 @@
     buildObjectInspectorModel,
     buildPrimaryJobAvailability,
     describeDraftValidation,
-    explainCoreObjectReason,
     resolvePrimaryJobShortcut,
     type PrimaryJobCommand
   } from '$lib/wep/world-editor-primary-job';
@@ -221,7 +227,35 @@
       : null;
 
   function editorBlockerText(code: string) {
-    return explainWepBlocker(code).message;
+    return localizeWepBlocker(code, $locale).message;
+  }
+
+  function coreReasonText(code: string) {
+    return localizeCoreReason(code, $locale);
+  }
+
+  function commandReasonText(command: string, state: any) {
+    return localizeCommandReason(
+      state?.reasonCode,
+      String(state?.reason ?? ''),
+      $locale
+    );
+  }
+
+  function commandLabelText(command: string) {
+    return localizeCommandLabel(
+      command,
+      PRIMARY_COMMAND_LABELS[command] ?? command,
+      $locale
+    );
+  }
+
+  function validationGroupText(group: any) {
+    return localizeValidationGroup(
+      String(group?.id ?? ''),
+      String(group?.label ?? ''),
+      $locale
+    );
   }
 
   function firstDraftBlocker(validation: any) {
