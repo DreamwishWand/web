@@ -3,6 +3,9 @@ import {
   type EditorDocument,
   type EditorObject
 } from './scene-capture-runtime.ts';
+import {
+  PROGRESSION_V113_BLOCKERS
+} from './progression-safety-v113.ts';
 
 type AnyRecord = Record<string, any>;
 
@@ -65,6 +68,16 @@ function portableClassification(object: EditorObject) {
   if (object.editability !== 'editable') {
     reasons.push('ROOT_OBJECT_EDITABILITY_NOT_PORTABLE');
   }
+
+  const progressionReasons = Array.isArray(object.metadata?.reasons)
+    ? object.metadata.reasons
+        .map(String)
+        .filter((reason: string) =>
+          (PROGRESSION_V113_BLOCKERS as readonly string[])
+            .includes(reason)
+        )
+    : [];
+  reasons.push(...progressionReasons);
 
   return {
     portable: reasons.length === 0,
