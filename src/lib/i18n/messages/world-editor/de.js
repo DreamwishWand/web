@@ -585,6 +585,7 @@ const coreReasonSpecific = {
   MISSION_ITEM_READ_ONLY: 'Dieses Objekt ist durch die aktuelle Core-Mission-Item-Richtlinie geschützt und inspizierbar, aber nicht veränderbar.',
   PROTECTED_PROGRESSION_OBJECT_CONFLICT: 'Dieses Objekt ist durch Progression-/System-Ownership geschützt und darf weder überschrieben noch als portabler Inhalt behandelt werden.',
   UNKNOWN_BUILDING_SEMANTICS: 'Core kann für diese ItemID keine sichere Ordinary-Building-Klassifizierung beweisen; Mutation bleibt deaktiviert.',
+  CHARACTER_HOUSE_PRESENCE_SIDE_EFFECTS_REQUIRE_DEDICATED_LIFECYCLE: "Dieses Character House ist an den Lebenszyklusstatus der Charakteranwesenheit gebunden; generische Änderungen sind daher deaktiviert.",
   WORLD_OBJECT_NOT_EDITABLE: 'Mindestens ein ausgewähltes Objekt ist unter der aktuellen Core-Projektion schreibgeschützt oder blockiert.'
 };
 
