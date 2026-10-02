@@ -40,9 +40,10 @@ for (const locale of SUPPORTED_LOCALES) {
 const css = readFileSync(new URL('src/app.css', root), 'utf8');
 const dayBlock = css.match(/:root\[data-theme='day'\]\s*\{([\s\S]*?)\}/)?.[1] ?? '';
 function token(name) {
-  const match = dayBlock.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})`));
+  const match = dayBlock.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?)`));
   if (!match) throw new Error(`Missing day token --${name}`);
-  return match[1];
+  const value = match[1];
+  return value.length === 4 ? `#${value.slice(1).split('').map((ch) => ch + ch).join('')}` : value;
 }
 function luminance(hex) {
   const rgb = [1,3,5].map((index) => parseInt(hex.slice(index, index + 2), 16) / 255).map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
