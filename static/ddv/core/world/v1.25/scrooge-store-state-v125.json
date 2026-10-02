@@ -1,0 +1,128 @@
+{
+  "schema": "ddv.scrooge-store-state@1",
+  "artifactId": "DDV-SCROOGE-STORE-STATE-V125-V1_12",
+  "version": "v1.12",
+  "status": "PROMOTED",
+  "mutable": false,
+  "owner": "01 CORE Integrator",
+  "semanticOwner": "01B CORE - World / Grid / Buildings",
+  "scope": "read/model/draft-preflight only",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "titleId": "0100D39012C1A000",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624
+  },
+  "sourceEvidence": {
+    "handoffDriveId": "1mTFwN-qgyiGLrKoWUbgRq278NAZbcVmPSwKkmQX6OmU",
+    "candidateArtifact": "DDV_SCROOGE_STORE_STATE_V125_V1_CANDIDATE.json",
+    "candidateSha256": "a456b7daa8b503baf78ae044f3fb760b6874dc8c17991cb5c5f218d69889f002",
+    "saveEvidence": "current v1.25 schema-624 profiles independently confirm StoreInfo/DisplayInfo/Slot serialized shape and distinct BuildingItemID-keyed entries"
+  },
+  "collectionBoundary": {
+    "authoritativeStoreCollection": "ProfileWorld.Stores",
+    "distinctCollection": "ProfileWorld.Shops",
+    "rule": "Do not merge or substitute ProfileWorld.Shops for ProfileWorld.Stores. StallData.ShopData / ProfileWorld.Shops synchronization is a separate unresolved Stall/Shop contract."
+  },
+  "identity": {
+    "selectedWorldObjectKey": "GridObject.ItemID",
+    "authoritativeLookup": "ProfileWorld.GetStore(Item) / exact StoreInfo.BuildingItemID equality",
+    "serializedStoreKey": "StoreInfo.BuildingItemID",
+    "rule": "A selected Scrooge/general Store Building resolves only to the StoreInfo whose BuildingItemID exactly equals the selected Building ItemID.",
+    "crossWorldMergeAllowed": false,
+    "saveLocalGridObjectIdPortable": false
+  },
+  "serializedModel": {
+    "StoreInfo": [
+      "BuildingItemID",
+      "Displays",
+      "LastRefresh",
+      "WeightedItems",
+      "CurrentSequenceIndexPerUpgrade"
+    ],
+    "StoreDisplay": [
+      "DisplayItemID",
+      "DisplayInfo"
+    ],
+    "DisplayInfo": [
+      "Slots",
+      "LayoutType",
+      "LastRefresh"
+    ],
+    "DisplaySlot": [
+      "Item",
+      "IsAvailable",
+      "CurrencyId"
+    ],
+    "itemShape": "ItemAmount or null; observed ItemAmount uses id + amount",
+    "price": {
+      "serializedSlotField": false,
+      "model": "derived by game logic; do not invent or persist Price in the Store slot codec"
+    }
+  },
+  "readAddress": {
+    "store": "BuildingItemID",
+    "display": "DisplayIndex",
+    "slot": "SlotIndex",
+    "tuple": [
+      "BuildingItemID",
+      "DisplayIndex",
+      "SlotIndex"
+    ]
+  },
+  "nativeBehaviorEvidence": {
+    "purchaseAvailabilityTransition": "CONFIRMED native purchase flow marks the successful slot IsAvailable=false before currency/item transaction",
+    "promotionUse": "read/model semantics only; does not authorize replaying purchase or mutating slots"
+  },
+  "exteriorStateBoundary": {
+    "synchronizer": "ScroogeStoreSynchronizer",
+    "rule": "Exterior synchronized Building state is distinct from ProfileWorld.Stores inventory state. Synchronizer membership does not collapse per-BuildingItemID StoreInfo records."
+  },
+  "writerBoundary": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "authorizedActions": [
+      "read selected Store identity",
+      "read serialized StoreInfo",
+      "read Displays and Slots",
+      "render inspector/preview",
+      "draft-only validation"
+    ],
+    "prohibitedActions": [
+      "persistent Store slot mutation",
+      "purchase replay",
+      "restock/refresh generation",
+      "exact generator-equivalent weighting/order claim",
+      "manual LastRefresh mutation",
+      "manual WeightedItems mutation",
+      "manual CurrentSequenceIndexPerUpgrade mutation",
+      "Scrooge exterior synchronizer mutation",
+      "Premium Shop mutation",
+      "Moonstones mutation",
+      "receipt mutation",
+      "authentication mutation",
+      "Premium/DLC entitlement mutation",
+      "save replacement",
+      "atomic persistent commit",
+      "Apply"
+    ]
+  },
+  "unresolved": {
+    "generatorEquivalentRestock": "NOT_PROMOTED",
+    "persistentManualSlotWriter": "NOT_PROMOTED",
+    "stallShopPrecedenceSynchronization": "SEPARATE_TARGETED_01B_EVIDENCE",
+    "premiumOnlineCommerce": "OUT_OF_SCOPE_SAFETY_BOUNDARY"
+  },
+  "wepActivation": {
+    "safeToConsumeNow": [
+      "selected BuildingItemID -> exact StoreInfo lookup",
+      "read-only Store/Display/Slot inspector",
+      "availability/currency/item serialized presentation",
+      "Store address BuildingItemID + DisplayIndex + SlotIndex",
+      "explicit separation of Store inventory from exterior synchronizer"
+    ],
+    "mutationHandlerAuthorized": false,
+    "requiredFailureMode": "If exact StoreInfo lookup is absent or ambiguous, attached-state action remains unavailable/read-only; do not infer a replacement Store."
+  }
+}
