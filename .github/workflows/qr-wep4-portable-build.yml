@@ -1,0 +1,27 @@
+name: QR WEP4 portable build
+
+on:
+  pull_request:
+    branches: [dev/wep-v125]
+    paths:
+      - '.github/workflows/qr-wep4-portable-build.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qr-wep4-static-build
+          path: build/
+          if-no-files-found: error
