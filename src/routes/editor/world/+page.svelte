@@ -3198,57 +3198,60 @@
       <section class="full-design-panel" aria-labelledby="full-design-title">
         <div class="full-design-heading">
           <div>
-            <p class="eyebrow">FULL-DESIGN PRESET READINESS</p>
+            <p class="eyebrow">{t('worldEditor.fullDesign.eyebrow', {}, $locale)}</p>
             <h2 id="full-design-title">
               {fullDesignPlan?.presetType === 'floating_island'
-                ? 'Floating Island Preset plan'
-                : 'Biome Preset plan'}
+                ? t('worldEditor.fullDesign.floatingPlan', {}, $locale)
+                : t('worldEditor.fullDesign.biomePlan', {}, $locale)}
             </h2>
-            <p>
-              current 01B portable identity/state契約とv1.7 authoritative GridData boundsから作る
-              read-only capture manifestです。これは公開Preset artifactでもApply planでもありません。
-            </p>
+            <p>{t('worldEditor.fullDesign.description', {}, $locale)}</p>
           </div>
           <div class="full-design-gates">
             <span>
-              Source artifact
-              <strong>{fullDesignPlan?.publicationCandidateReady ? 'Candidate ready' : 'Blocked'}</strong>
+              {t('worldEditor.fullDesign.sourceArtifact', {}, $locale)}
+              <strong>{fullDesignPlan?.publicationCandidateReady
+                ? t('worldEditor.fullDesign.candidateReady', {}, $locale)
+                : t('worldEditor.fullDesign.blocked', {}, $locale)}</strong>
             </span>
-            <span>Community publish <strong>Not bound</strong></span>
-            <span>Apply <strong>Disabled</strong></span>
+            <span>{t('worldEditor.fullDesign.communityPublish', {}, $locale)} <strong>{t('worldEditor.fullDesign.notBound', {}, $locale)}</strong></span>
+            <span>{t('worldEditor.fullDesign.apply', {}, $locale)} <strong>{t('worldEditor.fullDesign.disabled', {}, $locale)}</strong></span>
           </div>
         </div>
 
         {#if fullDesignPlan}
           <div class="full-design-summary">
             <div>
-              <span>Semantic target</span>
+              <span>{t('worldEditor.fullDesign.semanticTarget', {}, $locale)}</span>
               <strong>{fullDesignIdentityLabel(fullDesignPlan)}</strong>
             </div>
             <div>
-              <span>Portable direct roots</span>
+              <span>{t('worldEditor.fullDesign.portableDirectRoots', {}, $locale)}</span>
               <strong>{fullDesignPlan.directRootRoutes.length}</strong>
             </div>
             <div>
-              <span>Manifest v1</span>
-              <strong>{fullDesignPlan.manifestValidation?.ok ? 'Strict validation PASS' : 'Blocked'}</strong>
+              <span>{t('worldEditor.fullDesign.manifestV1', {}, $locale)}</span>
+              <strong>{fullDesignPlan.manifestValidation?.ok
+                ? t('worldEditor.fullDesign.strictPass', {}, $locale)
+                : t('worldEditor.fullDesign.blocked', {}, $locale)}</strong>
             </div>
             <div>
-              <span>Source categories</span>
-              <strong>{fullDesignPlan.sourceCategoryClosureReady ? 'Closed' : 'Blocked'}</strong>
+              <span>{t('worldEditor.fullDesign.sourceCategories', {}, $locale)}</span>
+              <strong>{fullDesignPlan.sourceCategoryClosureReady
+                ? t('worldEditor.fullDesign.closed', {}, $locale)
+                : t('worldEditor.fullDesign.blocked', {}, $locale)}</strong>
             </div>
             <div>
-              <span>Exact build</span>
-              <strong>Unproven from save</strong>
+              <span>{t('worldEditor.fullDesign.exactBuild', {}, $locale)}</span>
+              <strong>{t('worldEditor.fullDesign.unprovenFromSave', {}, $locale)}</strong>
             </div>
             <div>
-              <span>Persistent write</span>
-              <strong>Unauthorized</strong>
+              <span>{t('worldEditor.fullDesign.persistentWrite', {}, $locale)}</span>
+              <strong>{t('worldEditor.fullDesign.unauthorized', {}, $locale)}</strong>
             </div>
           </div>
 
           <div class="full-design-routes">
-            <span>Portable direct-root routes</span>
+            <span>{t('worldEditor.fullDesign.routes', {}, $locale)}</span>
             {#each fullDesignPlan.directRootRoutes as route}
               <code>{route.gridDataPath}</code>
             {/each}
@@ -3267,33 +3270,37 @@
                 {#if categoryKey === 'buildings' && category?.ordinaryPlacement}
                   <div class="building-readiness-lines">
                     <span>
-                      v1.10 classes
-                      <strong>
-                        ordinary {category.classificationSummary?.ordinary ?? 0} ·
-                        special {category.classificationSummary?.special ?? 0} ·
-                        off-grid {category.classificationSummary?.offGrid ?? 0} ·
-                        unknown {category.classificationSummary?.unknown ?? 0}
-                      </strong>
+                      {t('worldEditor.fullDesign.v110Classes', {}, $locale)}
+                      <strong>{t(
+                        'worldEditor.fullDesign.classCounts',
+                        {
+                          ordinary: category.classificationSummary?.ordinary ?? 0,
+                          special: category.classificationSummary?.special ?? 0,
+                          offGrid: category.classificationSummary?.offGrid ?? 0,
+                          unknown: category.classificationSummary?.unknown ?? 0
+                        },
+                        $locale
+                      )}</strong>
                     </span>
                     <span>
-                      Ordinary placement
+                      {t('worldEditor.fullDesign.ordinaryPlacement', {}, $locale)}
                       <strong>
                         {category.ordinaryPlacement.destinationPlacementStatus === 'NOT_APPLICABLE'
-                          ? 'No Building'
+                          ? t('worldEditor.fullDesign.noBuildingShort', {}, $locale)
                           : category.ordinaryPlacement.destinationPlacementStatus === 'PREFLIGHT_CONTRACT_AVAILABLE'
-                            ? 'Typed preflight available'
-                            : 'Blocked by typed class/evidence'}
+                            ? t('worldEditor.fullDesign.typedPreflightAvailable', {}, $locale)
+                            : t('worldEditor.fullDesign.blockedTypedEvidence', {}, $locale)}
                       </strong>
                     </span>
                     <span>
-                      Building skin
+                      {t('worldEditor.fullDesign.buildingSkin', {}, $locale)}
                       <strong>
                         {category.buildingSkins?.entries?.length ?? 0} ·
                         {category.buildingSkins?.semanticStatus ?? 'UNKNOWN'}
                       </strong>
                     </span>
                     <span>
-                      PlayerHouse
+                      {t('worldEditor.fullDesign.playerHouse', {}, $locale)}
                       <strong>
                         {category.playerHouses?.entries?.length ?? 0} ·
                         {category.playerHouses?.semanticStatus ?? 'UNKNOWN'}
@@ -3304,38 +3311,29 @@
                 <small>
                   {category.blockers?.length
                     ? fullDesignBlockerText(category.blockers[0])
-                    : 'No category blocker recorded'}
+                    : t('worldEditor.fullDesign.noCategoryBlocker', {}, $locale)}
                 </small>
               </article>
             {/each}
           </div>
 
           <p class="full-design-boundary">
-            source GridID / GridObjectIDはmanifestから除去されます。Quest / NPC / progression /
-            online entitlementはfull-design decoration stateに含めません。Road/Fenceは01C Core readerと
-            promoted representation-layout contractを消費し、clipped/unsupported topologyはfail-closedです。
-            Buildingはpromoted v1.10 typed contractをconsumeし、ordinary / special / off-grid / unknownを分離します。
-            House/Otherをordinaryへ昇格するのは5つのauthoritative special signalがすべてfalseの場合だけです。
-            Destination stock/ownership・multiplicity・typed initial-state validatorが無ければordinary placementもfail-closedです。
-            Destination preflightとpersistent Applyは別Gateで、DDV write authorizationは無効です。
+            {t('worldEditor.fullDesign.boundary', {}, $locale)}
           </p>
 
           <div class="full-design-destination">
             <div class="full-design-destination-copy">
               <div>
-                <span>Destination preflight</span>
+                <span>{t('worldEditor.fullDesign.destinationPreflight', {}, $locale)}</span>
                 <strong>{fullDesignDestinationStatus(fullDesignDestinationPreflight)}</strong>
               </div>
-              <p>
-                別のNintendo Switch v1.25.0 saveをローカルで読み込み、semantic target、
-                portable direct-root route、v1.8 FloorType map、v1.9 native placement legality、
-                Building / PlayerHouse / Environmentをread-onlyで検証します。
-                ファイルはこの操作ではアップロードされません。
-              </p>
+              <p>{t('worldEditor.fullDesign.destinationDescription', {}, $locale)}</p>
             </div>
 
             <label class="file-button full-design-destination-button">
-              {fullDesignDestinationLoading ? 'Checking…' : 'Check destination save'}
+              {fullDesignDestinationLoading
+                ? t('worldEditor.fullDesign.checking', {}, $locale)
+                : t('worldEditor.fullDesign.checkDestination', {}, $locale)}
               <input
                 type="file"
                 accept=".json,.save,application/json,application/octet-stream"
@@ -3346,84 +3344,108 @@
 
             {#if fullDesignDestinationFileName}
               <div class="full-design-destination-result">
-                <span>Destination</span>
+                <span>{t('worldEditor.fullDesign.destination', {}, $locale)}</span>
                 <code>{fullDesignDestinationFileName}</code>
                 {#if fullDesignDestinationPreflight}
                   <strong>
-                    Routes {fullDesignDestinationPreflight.destination?.directRootResolutions?.length ?? 0}
-                    / {fullDesignPlan.directRootRoutes.length}
+                    {t(
+                      'worldEditor.fullDesign.routesCount',
+                      {
+                        resolved: fullDesignDestinationPreflight.destination?.directRootResolutions?.length ?? 0,
+                        total: fullDesignPlan.directRootRoutes.length
+                      },
+                      $locale
+                    )}
                   </strong>
                   <strong>
-                    Road / Fence model preflight
+                    {t('worldEditor.fullDesign.roadFencePreflight', {}, $locale)}
                     {fullDesignDestinationPreflight.roadFenceModelPreflightReady
-                      ? `PASS · ${fullDesignDestinationPreflight.destination?.roadFencePreflight?.bindings?.length ?? 0} root-category bindings · writer OFF`
-                      : 'BLOCKED'}
+                      ? t(
+                          'worldEditor.fullDesign.roadFencePass',
+                          {
+                            count:
+                              fullDesignDestinationPreflight.destination?.roadFencePreflight?.bindings?.length ?? 0
+                          },
+                          $locale
+                        )
+                      : t('worldEditor.fullDesign.blockedCaps', {}, $locale)}
                   </strong>
                   <strong>
-                    Building v1.10 contract
+                    {t('worldEditor.fullDesign.buildingContract', {}, $locale)}
                     {fullDesignDestinationPreflight.buildingV110ContractBound
-                      ? 'BOUND'
-                      : 'NOT BOUND'}
+                      ? t('worldEditor.fullDesign.bound', {}, $locale)
+                      : t('worldEditor.fullDesign.notBoundCaps', {}, $locale)}
                   </strong>
                   <strong>
-                    Building typed preflight
+                    {t('worldEditor.fullDesign.buildingTypedPreflight', {}, $locale)}
                     {fullDesignDestinationPreflight.buildingV110TypedPreflightReady
-                      ? 'PASS / N/A'
-                      : 'BLOCKED'}
+                      ? t('worldEditor.fullDesign.passNA', {}, $locale)
+                      : t('worldEditor.fullDesign.blockedCaps', {}, $locale)}
                   </strong>
                   <strong>
-                    Ordinary Building placement
+                    {t('worldEditor.fullDesign.ordinaryBuildingPlacement', {}, $locale)}
                     {fullDesignDestinationPreflight.ordinaryBuildingPlacementReady
-                      ? 'PASS / N/A'
-                      : 'BLOCKED'}
+                      ? t('worldEditor.fullDesign.passNA', {}, $locale)
+                      : t('worldEditor.fullDesign.blockedCaps', {}, $locale)}
                   </strong>
                   <strong>
-                    Building skin diagnostic
+                    {t('worldEditor.fullDesign.buildingSkinDiagnostic', {}, $locale)}
                     {fullDesignDestinationPreflight.buildingSkinPreflightReady
-                      ? 'PASS / N/A'
-                      : 'BLOCKED'}
+                      ? t('worldEditor.fullDesign.passNA', {}, $locale)
+                      : t('worldEditor.fullDesign.blockedCaps', {}, $locale)}
                   </strong>
                   <strong>
-                    PlayerHouse binding diagnostic
+                    {t('worldEditor.fullDesign.playerHouseDiagnostic', {}, $locale)}
                     {fullDesignDestinationPreflight.playerHouseBindingPreflightReady
-                      ? 'PASS / N/A'
-                      : 'BLOCKED · lifecycle still separate'}
+                      ? t('worldEditor.fullDesign.passNA', {}, $locale)
+                      : t('worldEditor.fullDesign.lifecycleBlocked', {}, $locale)}
                   </strong>
                   <strong>
-                    Environment
+                    {t('worldEditor.fullDesign.environment', {}, $locale)}
                     {fullDesignDestinationPreflight.environmentPreflightReady
-                      ? 'PASS'
-                      : 'BLOCKED'}
+                      ? t('worldEditor.validation.pass', {}, $locale)
+                      : t('worldEditor.fullDesign.blockedCaps', {}, $locale)}
                   </strong>
                   <strong>
-                    Route resolved
+                    {t('worldEditor.fullDesign.routeResolved', {}, $locale)}
                     {fullDesignDestinationPreflight.routeResolutionReady
-                      ? 'PASS'
-                      : 'BLOCKED'}
+                      ? t('worldEditor.validation.pass', {}, $locale)
+                      : t('worldEditor.fullDesign.blockedCaps', {}, $locale)}
                   </strong>
                   <strong>
-                    Bounds validated
+                    {t('worldEditor.fullDesign.boundsValidated', {}, $locale)}
                     {fullDesignDestinationPreflight.destination?.rootObjectRouteBindings?.length
-                      ? `${fullDesignDestinationPreflight.destination.rootObjectRouteBindings.filter((entry: any) => entry.boundsValidated).length} / ${fullDesignDestinationPreflight.destination.rootObjectRouteBindings.length}`
-                      : 'No portable ordinary objects'}
+                      ? t(
+                          'worldEditor.fullDesign.ratio',
+                          {
+                            valid:
+                              fullDesignDestinationPreflight.destination.rootObjectRouteBindings.filter(
+                                (entry: any) => entry.boundsValidated
+                              ).length,
+                            total:
+                              fullDesignDestinationPreflight.destination.rootObjectRouteBindings.length
+                          },
+                          $locale
+                        )
+                      : t('worldEditor.fullDesign.noPortableObjects', {}, $locale)}
                   </strong>
                   <strong>
-                    Placement validated
+                    {t('worldEditor.fullDesign.placementValidated', {}, $locale)}
                     {fullDesignDestinationPreflight.nativePlacementContractBound
                       ? fullDesignNativePlacementSummary(fullDesignDestinationPreflight)
-                      : 'Contract not bound'}
+                      : t('worldEditor.fullDesign.contractNotBound', {}, $locale)}
                   </strong>
                   <strong>
-                    DDV write authorization
+                    {t('worldEditor.fullDesign.ddvWriteAuthorization', {}, $locale)}
                     {fullDesignDestinationPreflight.ddvWriteAuthorized
-                      ? 'AUTHORIZED'
-                      : 'UNAUTHORIZED'}
+                      ? t('worldEditor.fullDesign.authorizedCaps', {}, $locale)
+                      : t('worldEditor.fullDesign.unauthorizedCaps', {}, $locale)}
                   </strong>
                   <strong>
-                    Category closure
+                    {t('worldEditor.fullDesign.categoryClosure', {}, $locale)}
                     {fullDesignDestinationPreflight.categoryClosureReady
-                      ? 'PASS'
-                      : 'BLOCKED'}
+                      ? t('worldEditor.validation.pass', {}, $locale)
+                      : t('worldEditor.fullDesign.blockedCaps', {}, $locale)}
                   </strong>
                 {/if}
               </div>
@@ -3442,24 +3464,18 @@
 
             {#if fullDesignDestinationError}
               <div class="full-design-error">
-                <strong>Destination preflight blocked</strong>
+                <strong>{t('worldEditor.fullDesign.destinationBlockedTitle', {}, $locale)}</strong>
                 <code>{fullDesignDestinationError}</code>
               </div>
             {/if}
 
-            <small>
-              native placementは CLEAR / REPLACES_OR_REMOVES_EXISTING / INVALID /
-              UNKNOWN_UNVERIFIED を別Gateで保持します。UNKNOWNはVALIDへ昇格しません。
-              Road/Fenceはdestination root・bounds/tessellation・portable model整合までをpreflightし、
-              persistence serializer / inventory cost / commit authorizationとは分離します。
-              このpreflightが成功してもApplyは有効になりません。
-            </small>
+            <small>{t('worldEditor.fullDesign.preflightBoundary', {}, $locale)}</small>
           </div>
         {:else}
           <div class="full-design-error">
-            <strong>Full-design planning blocked</strong>
+            <strong>{t('worldEditor.fullDesign.planningBlockedTitle', {}, $locale)}</strong>
             <code>{fullDesignPlanError}</code>
-            <span>World Canvas自体はread-onlyのまま利用できます。</span>
+            <span>{t('worldEditor.fullDesign.canvasReadOnly', {}, $locale)}</span>
           </div>
         {/if}
       </section>
