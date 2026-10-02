@@ -47,11 +47,11 @@ const commandToRateBucket: Partial<Record<CommandName, string>> = {
   unpublishWork: 'gallery_write',
   deleteWork: 'gallery_write',
   moderateWork: 'moderation_write',
-  createDdvProfileWorkspace: 'ddv_profile_link',
-  updateDdvProfileWorkspace: 'ddv_profile_link',
-  deleteDdvProfileWorkspace: 'ddv_profile_link',
-  associateDdvIdentity: 'ddv_profile_link',
-  unlinkDdvIdentity: 'ddv_profile_link'
+  createDdvProfileWorkspace: 'ddv_profile_workspace_write',
+  updateDdvProfileWorkspace: 'ddv_profile_workspace_write',
+  deleteDdvProfileWorkspace: 'ddv_profile_workspace_write',
+  associateDdvIdentity: 'ddv_profile_identity',
+  unlinkDdvIdentity: 'ddv_profile_identity'
 };
 
 const textEncoder = new TextEncoder();
@@ -293,12 +293,17 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         params.p_lifecycle_state = payload.lifecycleState;
         break;
       case 'deleteDdvProfileWorkspace':
+        if (!sessionId) {
+          return reply({ ok: false, error: 'JWT session-id claim missing' }, 401);
+        }
         if (typeof payload.workspaceId !== 'string' || payload.workspaceId.length === 0) {
           return reply({ ok: false, error: 'workspaceId required' }, 400);
         }
         if (payload.confirmation !== 'DELETE') {
           return reply({ ok: false, error: 'DELETE confirmation required' }, 400);
         }
+        params.p_session_id = sessionId;
+        params.p_issued_at_epoch = issuedAt;
         params.p_workspace_id = payload.workspaceId;
         params.p_confirmation = payload.confirmation;
         break;
