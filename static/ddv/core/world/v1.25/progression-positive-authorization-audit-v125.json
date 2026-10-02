@@ -41,8 +41,8 @@
   "gates": [
     {
       "id": "conditionalSpawnRemoveWhenDone",
-      "status": "OPEN",
-      "evidenceLevel": "UNKNOWN",
+      "status": "OPEN_NATIVE_SEMANTICS",
+      "evidenceLevel": "HIGH_CONFIDENCE_PARTIAL",
       "staticFirst": true,
       "exactQuestion": "Trace current v1.25 ConditionalSpawnData.RemoveWhenDone from condition satisfaction through spawned-object removal, SpawnState cleanup/history handling, and save/reload persistence. Determine whether the field proves terminal object disposal, reference cleanup, both, or neither.",
       "requiredOutput": [
@@ -53,7 +53,43 @@
         "save/reload persistence consequence",
         "operation-specific implication for MOVE/ROTATE/REMOVE/DUPLICATE/REPLACE/STATE_EDIT/PRESET_CAPTURE"
       ],
-      "runtimeEscalationRule": "Escalate to 01E only if current v1.25 static code cannot settle event ordering or persistence semantics; freeze one minimal before/after/save/reload protocol."
+      "runtimeEscalationRule": "Escalate to 01E only if current v1.25 static code cannot settle event ordering or persistence semantics; freeze one minimal before/after/save/reload protocol.",
+      "observedEvidence": {
+        "evidenceBoundary": "HIGH_CONFIDENCE_STATIC_SAVE_CORRELATION_WITH_CONFIRMED_SAMPLE_FACTS",
+        "staticDefinitionSummary": {
+          "removeWhenDoneSpawnActionCount": 18,
+          "targetMissionCount": 9,
+          "targetMissionIds": [
+            2070000867,
+            2070000982,
+            2070000993,
+            2070001347,
+            2070001348,
+            2070001380,
+            2070001476,
+            2070001495,
+            2070001496
+          ]
+        },
+        "currentSchema624Samples": {
+          "switchAndSteamBothContainAllNineMissionsCompleted": true,
+          "counterexample": {
+            "conditionalEventId": 1520002098,
+            "missionId": 2070001380,
+            "staticSpawnItemId": 40004738,
+            "removeWhenDone": true,
+            "activeSpawnStateAddressPersistsInBothSamples": true,
+            "referencedTargetMaterializedInSaveLocalGrids": false,
+            "rawGridObjectAddress": "REDACTED_FROM_PUBLIC_REPO"
+          }
+        },
+        "conclusions": {
+          "missionCompletionImpliesSpawnStateReferenceRemoved": false,
+          "persistedSpawnedObjectsAddressProvesLiveMaterializedObject": false,
+          "exactNativeCleanupTimingClosed": false
+        },
+        "privateEvidencePolicy": "Full per-save indexes and exact raw address remain in private-derived 01A evidence / canonical handoff, not public repo."
+      }
     },
     {
       "id": "dynamicNativeConsumerExclusion",
