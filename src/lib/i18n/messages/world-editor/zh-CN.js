@@ -185,7 +185,7 @@ const copy = {
   'worldEditor.canvas.ariaLabel': 'World Editor 顶视 Canvas',
   'worldEditor.canvas.visibleCount': '可见 {count} 个',
   'worldEditor.canvas.mouseHelp': '鼠标：单击选择 · Ctrl/⌘/Shift+单击多选',
-  'worldEditor.canvas.keyboardHelp': '键盘：方向键移动 · R 旋转 · Ctrl/⌘ C/V/D · Delete · Ctrl/⌘ Z · Shift+Z 重做 · Esc 清除选择',
+  'worldEditor.canvas.keyboardHelp': "键盘：Tab 进入 Canvas · [ / ] 切换焦点 · Enter 选择 · 方向键移动 · R 旋转 · Ctrl/⌘ C/V/D · Delete · Ctrl/⌘ Z · Shift+Z 重做 · Esc 清除选择",
   'worldEditor.canvas.roadFenceLocked': 'Road / Fence 在 capability 未连接时显示为 locked。',
   'worldEditor.canvas.backupReady': '原始备份：byte-exact 本地下载已就绪',
   'worldEditor.canvas.backupNotLoaded': '原始备份：未加载',
