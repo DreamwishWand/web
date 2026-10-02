@@ -3034,7 +3034,7 @@
           <span>{t('worldEditor.canvas.visibleCount', { count: projected.length }, $locale)}</span>
           <span>{t('worldEditor.canvas.mouseHelp', {}, $locale)}</span>
           <span>{t('worldEditor.canvas.keyboardHelp', {}, $locale)}</span>
-          <span>{t('worldEditor.canvas.roadFenceLocked', {}, $locale)}</span>
+          <span data-wep-surface="road-fence-labels">{t('worldEditor.canvas.roadFenceLocked', {}, $locale)}</span>
           <span>
             {originalSaveBackup
               ? t('worldEditor.canvas.backupReady', {}, $locale)
