@@ -50,6 +50,9 @@
     createSwitchV125ScroogeStoreBinding
   } from '$lib/wep/scrooge-store-v112';
   import {
+    createSwitchV125ProgressionIntegrationBinding
+  } from '$lib/wep/progression-integration-v114';
+  import {
     buildObjectInspectorModel,
     buildPrimaryJobAvailability,
     describeDraftValidation,
@@ -114,6 +117,7 @@
   let placementLegalityBinding: any = null;
   let buildingV110Binding: any = null;
   let scroogeStoreV112Binding: any = null;
+  let progressionV114Binding: any = null;
   let scroogeStorePreview: any = null;
   let includeRoads = false;
   let includeFences = false;
@@ -1575,6 +1579,10 @@
             await createSwitchV125ScroogeStoreBinding({
               basePath: base
             });
+          progressionV114Binding ??=
+            await createSwitchV125ProgressionIntegrationBinding({
+              basePath: base
+            });
         }
 
         session = null;
@@ -1654,6 +1662,10 @@
         await createSwitchV125ScroogeStoreBinding({
           basePath: base
         });
+      progressionV114Binding ??=
+        await createSwitchV125ProgressionIntegrationBinding({
+          basePath: base
+        });
 
       const projectedDocument = projectSwitchAreaGrid(
         worldSource,
@@ -1665,8 +1677,12 @@
         buildingV110Binding.annotateEditorDocument(
           projectedDocument
         );
+      const progressionAnnotatedDocument =
+        progressionV114Binding.annotateEditorDocument(
+          classifiedDocument
+        );
       const normalized = normalizeEditorDocument(
-        classifiedDocument
+        progressionAnnotatedDocument
       );
 
       roadFenceReaderBinding =
@@ -1704,12 +1720,14 @@
         try {
           fullDesignRootDocuments.push(
             normalizeEditorDocument(
-              buildingV110Binding.annotateEditorDocument(
-                projectSwitchAreaGrid(
-                  worldSource,
-                  area,
-                  Number(root.gridId),
-                  switchWorldBinding
+              progressionV114Binding.annotateEditorDocument(
+                buildingV110Binding.annotateEditorDocument(
+                  projectSwitchAreaGrid(
+                    worldSource,
+                    area,
+                    Number(root.gridId),
+                    switchWorldBinding
+                  )
                 )
               )
             )
