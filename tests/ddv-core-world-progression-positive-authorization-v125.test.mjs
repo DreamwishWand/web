@@ -17,7 +17,7 @@ test('v1.15 candidate starts only after 01A/01D dependency closure',()=>{
 });
 
 test('positive progression mutation remains impossible while any targeted gate is open',()=>{
-  assert.deepEqual(audit.gates.map((gate)=>gate.status),['OPEN','OPEN','OPEN']);
+  assert.deepEqual(audit.gates.map((gate)=>gate.status),['OPEN_NATIVE_SEMANTICS','OPEN','OPEN']);
   assert.equal(audit.positiveAuthorization.userControlledClassification,false);
   assert.equal(audit.positiveAuthorization.terminalEditableMutation,false);
   assert.equal(audit.positiveAuthorization.nativeRestoreExecution,false);
