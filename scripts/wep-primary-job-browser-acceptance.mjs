@@ -328,7 +328,7 @@ async function runLocaleLayoutAcceptance(page, report) {
       ['scene-capture', page.locator('.capture-panel')],
       ['save-prep', page.locator('.save-preparation')],
       ['original-backup-controls', page.locator('.toolbar-actions .save-prep')],
-      ['road-fence-labels', page.locator('.full-design-destination-result')],
+      ['road-fence-labels', page.locator('[data-wep-surface="road-fence-labels"]')],
       ['progression-explanation', page.locator('.progression-safety-card')],
       ['live-status', page.locator('.status')]
     ];
