@@ -388,7 +388,7 @@ async function runSyntheticAcceptance(page, report) {
   await expectContains(progressionCard, 'Not authorized');
   await expectContains(progressionCard, 'Not granted');
   await expectContains(progressionCard, 'OPEN');
-  await expectContains(progressionCard, 'HISTORICAL reference alone');
+  await expectContains(progressionCard, 'A HISTORICAL reference by itself');
   await expectContains(progressionCard, 'No positive-authorization contract is bound');
 
   const chair = page.locator(cssObject('Editable Chair')).first();
