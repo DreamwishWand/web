@@ -6,7 +6,7 @@ on:
     paths:
       - '.github/workflows/wep-browser-acceptance.yml'
       - 'scripts/wep-primary-job-browser-acceptance.mjs'
-      - 'src/routes/editor/world/+page.svelte'
+      - 'src/routes/editor/world/**'
       - 'src/lib/wep/world-editor-primary-job.ts'
       - 'src/lib/wep/progression-safety-v113.ts'
       - 'src/lib/wep/progression-integration-v114.ts'
