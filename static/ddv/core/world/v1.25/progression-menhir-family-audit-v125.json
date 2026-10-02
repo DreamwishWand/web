@@ -1,0 +1,460 @@
+{
+  "schema": "ddv.progression-bounded-family-audit@1",
+  "artifactId": "DDV-PROGRESSION-MENHIR-FAMILY-AUDIT-V125-V1_15",
+  "version": "v1.15",
+  "status": "PROMOTED_BOUNDED_FAMILY_BLOCKED",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624
+  },
+  "family": {
+    "id": "BASE_GAME_STORY_MENHIRS",
+    "definition": "exact current-v1.25 Furniture definitions whose internal name starts Mission!Story!Menhirs!",
+    "membershipCount": 8,
+    "members": [
+      {
+        "itemID": 40001060,
+        "internalName": "Mission!Story!Menhirs!Courage",
+        "prefabAddress": "guid:5da45939029610f4b8655c907dee9a50",
+        "isMissionItem": true,
+        "forPuzzleOnly": false,
+        "subGrid": null,
+        "keyholeGuid": null,
+        "nativeGridEditRestriction": {
+          "MOVE": [
+            {
+              "CommonConditions": {
+                "Condition": 2130000494
+              }
+            }
+          ],
+          "ROTATE": [
+            {
+              "CommonConditions": {
+                "Condition": 2130000494
+              }
+            }
+          ],
+          "REMOVE": false,
+          "SELECT": [
+            {
+              "CommonConditions": {
+                "Condition": 2130000494
+              }
+            }
+          ]
+        }
+      },
+      {
+        "itemID": 40001062,
+        "internalName": "Mission!Story!Menhirs!Power",
+        "prefabAddress": "guid:d88b19d1f4ed8f84ca7770dd15d65fb8",
+        "isMissionItem": true,
+        "forPuzzleOnly": false,
+        "subGrid": null,
+        "keyholeGuid": null,
+        "nativeGridEditRestriction": {
+          "MOVE": [
+            {
+              "CommonConditions": {
+                "Condition": 2130000492
+              }
+            }
+          ],
+          "ROTATE": [
+            {
+              "CommonConditions": {
+                "Condition": 2130000492
+              }
+            }
+          ],
+          "REMOVE": false,
+          "SELECT": [
+            {
+              "CommonConditions": {
+                "Condition": 2130000492
+              }
+            }
+          ]
+        }
+      },
+      {
+        "itemID": 40001068,
+        "internalName": "Mission!Story!Menhirs!Trust",
+        "prefabAddress": "guid:0bdada9ca71c4bb43bcf0520412557f3",
+        "isMissionItem": true,
+        "forPuzzleOnly": false,
+        "subGrid": null,
+        "keyholeGuid": null,
+        "nativeGridEditRestriction": {
+          "MOVE": [
+            {
+              "CommonConditions": {
+                "Condition": 2130000493
+              }
+            }
+          ],
+          "ROTATE": [
+            {
+              "CommonConditions": {
+                "Condition": 2130000493
+              }
+            }
+          ],
+          "REMOVE": false,
+          "SELECT": [
+            {
+              "CommonConditions": {
+                "Condition": 2130000493
+              }
+            }
+          ]
+        }
+      },
+      {
+        "itemID": 40001071,
+        "internalName": "Mission!Story!Menhirs!Friendship",
+        "prefabAddress": "guid:6a89daef04369e1448459a4439f58ecf",
+        "isMissionItem": true,
+        "forPuzzleOnly": false,
+        "subGrid": null,
+        "keyholeGuid": null,
+        "nativeGridEditRestriction": {
+          "MOVE": [
+            {
+              "CommonConditions": {
+                "Condition": 2130000491
+              }
+            }
+          ],
+          "ROTATE": [
+            {
+              "CommonConditions": {
+                "Condition": 2130000491
+              }
+            }
+          ],
+          "REMOVE": false,
+          "SELECT": [
+            {
+              "CommonConditions": {
+                "Condition": 2130000491
+              }
+            }
+          ]
+        }
+      },
+      {
+        "itemID": 40001072,
+        "internalName": "Mission!Story!Menhirs!Unity",
+        "prefabAddress": "guid:72f33c440189f544cbc9383debc55005",
+        "isMissionItem": true,
+        "forPuzzleOnly": false,
+        "subGrid": null,
+        "keyholeGuid": "84f5ac58-35dc-4b86-86bb-0280ad55b2c6",
+        "nativeGridEditRestriction": {
+          "MOVE": [
+            {
+              "CommonConditions": {
+                "Condition": 2130000957
+              }
+            }
+          ],
+          "ROTATE": [
+            {
+              "CommonConditions": {
+                "Condition": 2130000957
+              }
+            }
+          ],
+          "REMOVE": false,
+          "SELECT": [
+            {
+              "CommonConditions": {
+                "Condition": 2130000957
+              }
+            }
+          ]
+        }
+      },
+      {
+        "itemID": 40001073,
+        "internalName": "Mission!Story!Menhirs!Nurturing",
+        "prefabAddress": "guid:9ff9568cb18d9b24d95fd0492ddfb6b5",
+        "isMissionItem": true,
+        "forPuzzleOnly": false,
+        "subGrid": null,
+        "keyholeGuid": null,
+        "nativeGridEditRestriction": {
+          "MOVE": [
+            {
+              "CommonConditions": {
+                "Condition": 2130000539
+              }
+            }
+          ],
+          "ROTATE": [
+            {
+              "CommonConditions": {
+                "Condition": 2130000539
+              }
+            }
+          ],
+          "REMOVE": false,
+          "SELECT": [
+            {
+              "CommonConditions": {
+                "Condition": 2130000539
+              }
+            }
+          ]
+        }
+      },
+      {
+        "itemID": 40001074,
+        "internalName": "Mission!Story!Menhirs!Love",
+        "prefabAddress": "guid:dcc023b3f4382fd42982bd48b90c0149",
+        "isMissionItem": true,
+        "forPuzzleOnly": false,
+        "subGrid": null,
+        "keyholeGuid": "0be848e1-bba5-42c0-891c-8ae7d49c1261",
+        "nativeGridEditRestriction": {
+          "MOVE": [
+            {
+              "MissionCompleted": {
+                "Mission": 2070000860
+              }
+            }
+          ],
+          "ROTATE": [
+            {
+              "MissionCompleted": {
+                "Mission": 2070000860
+              }
+            }
+          ],
+          "REMOVE": false,
+          "SELECT": [
+            {
+              "MissionCompleted": {
+                "Mission": 2070000860
+              }
+            }
+          ]
+        }
+      },
+      {
+        "itemID": 40001075,
+        "internalName": "Mission!Story!Menhirs!Rememberance",
+        "prefabAddress": "guid:75ced60f742b1ad45a343a99393dd5c9",
+        "isMissionItem": true,
+        "forPuzzleOnly": false,
+        "subGrid": null,
+        "keyholeGuid": "a77c4bd5-2427-47ed-8d1c-6c4ae426e4f1",
+        "nativeGridEditRestriction": {
+          "MOVE": [
+            {
+              "MissionCompleted": {
+                "Mission": 2070000948
+              }
+            }
+          ],
+          "ROTATE": [
+            {
+              "MissionCompleted": {
+                "Mission": 2070000948
+              }
+            }
+          ],
+          "REMOVE": false,
+          "SELECT": [
+            {
+              "MissionCompleted": {
+                "Mission": 2070000948
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "progressionRisk": "all 8 IsMissionItem=true; all 8 native CanBeRemoved=false; MOVE/ROTATE/SELECT are condition-gated"
+  },
+  "target2DynamicNativeConsumerAudit": {
+    "status": "CLOSED_FOR_DECLARED_STATIC_UNIVERSE_WITH_EXPLICIT_UNKNOWN_CLASSES",
+    "evidenceLevel": "CONFIRMED",
+    "searchUniverse": [
+      "current v1.25 lossless Game DB exact 8 definitions and restriction/interaction fields",
+      "current Switch v1.25 IL2CPP ScriptMethod names containing Menhir/Keyhole",
+      "current ScriptString exact 8 internal names, 8 decimal ItemIDs, and 3 Keyhole GUIDs",
+      "current native call paths for KeyholeGridData, ProfileWorld IKeyholesProvider, UpdateGridObjectTransform and ProfileUpdater",
+      "promoted v1.13 definition-risk evidence and v1.14/01A/01D dispositions consumed without re-extraction"
+    ],
+    "consumersFound": [
+      {
+        "kind": "DEFINITION_NATIVE_GRID_EDIT_RESTRICTION",
+        "membership": "all 8",
+        "persistent": true,
+        "representedBy01D": false,
+        "details": "six use CommonConditions IDs; Love uses MissionCompleted 2070000860; Rememberance uses MissionCompleted 2070000948. These two Mission IDs are outside the promoted 27-Mission graph.",
+        "disposition": "CORE_EVALUATE_OR_FAIL_CLOSED"
+      },
+      {
+        "kind": "PROFILEWORLD_KEYHOLE_LINKED_STATE",
+        "membership": [
+          40001072,
+          40001074,
+          40001075
+        ],
+        "persistent": true,
+        "representedBy01D": false,
+        "representedBy01A": true,
+        "details": "GridState.Keyhole carries KeyholeConfigDataGUID; authoritative current state is ProfileWorld.Keyholes[GUID] with Content/CurrentLevel/PreviousContent.",
+        "disposition": "UNKNOWN_SYSTEM_REFERENCE_FAIL_CLOSED"
+      },
+      {
+        "kind": "VERSIONED_PROFILE_MIGRATION",
+        "membership": [
+          40001073
+        ],
+        "persistent": true,
+        "representedBy01D": false,
+        "method": "Meta.Util.MoveSavannahMenhirProfileUpdate.DoApplyProfile",
+        "rva": "0x5BF98A0",
+        "hardcodedItemID": 40001073,
+        "profileUpdaterVersion": 164,
+        "currentSchema624Active": false,
+        "evidence": "ProfileUpdater filters updates by Version >= loaded ProfileVersion; current schema/profile version 624 excludes version 164.",
+        "disposition": "HISTORICAL_UPGRADE_CONSUMER_NOT_CURRENT_RUNTIME_VETO"
+      },
+      {
+        "kind": "GENERIC_KEYHOLE_STATE_MACHINE",
+        "membership": [
+          40001072,
+          40001074,
+          40001075
+        ],
+        "persistent": true,
+        "representedBy01D": false,
+        "methods": [
+          "Meta.Keyhole.*",
+          "Meta.ProfileWorld.IKeyholesProvider.AddKeyhole",
+          "Meta.ProfileWorld.IKeyholesProvider.RemoveKeyhole",
+          "Meta.ProfileWorld.FixCompletedKeyholes"
+        ],
+        "disposition": "LINKED_PERSISTENT_STATE_CONSUMER"
+      },
+      {
+        "kind": "KEYHOLE_UI_TRACKING",
+        "membership": [
+          40001072,
+          40001074,
+          40001075
+        ],
+        "persistent": false,
+        "representedBy01D": false,
+        "methods": [
+          "RefreshKeyholes",
+          "OnTrackedKeyholeUpdated",
+          "TryGetKeyholeTitleItem"
+        ],
+        "disposition": "RUNTIME_ONLY_UI_CACHE_NO_PERSISTENT_OWNERSHIP_AUTHORITY"
+      }
+    ],
+    "excludedMenhirNamedMethods": [
+      {
+        "method": "ProfileConditionalUpdateAll.<FixFriendshipIsEverythingVisitArea>g__IsMeadowMenhirKeyholeCompleted|4_0",
+        "reason": "uses hardcoded Keyhole GUID 7eb88e7a-21c6-4361-b926-ea5551d98a9b, which is not any of the three Story Menhir Keyhole GUIDs"
+      }
+    ],
+    "unknownClasses": [
+      "Unity prefab/addressable serialized MonoBehaviour references that are data-driven and do not surface the 8 ItemIDs/internal names/3 GUIDs in current IL2CPP ScriptMethod/ScriptString search",
+      "reflection or generated runtime consumer whose target family is supplied only at runtime and cannot be bounded by current static identity anchors"
+    ],
+    "negativeProofBoundary": "No claim is made outside the declared Game DB + current Switch IL2CPP metadata/string/call-relationship universe. Explicit UNKNOWN classes remain fail-closed.",
+    "positiveAuthorization": false
+  },
+  "target3SerializedStateAgreement": {
+    "status": "CLOSED_OPERATION_SPECIFIC_FOR_FAMILY",
+    "evidenceLevel": "CONFIRMED_NEGATIVE_WITH_HIGH_CONFIDENCE_TRANSFORM_PRESERVATION",
+    "stateFamilies": {
+      "nonKeyholeMembers": [
+        40001060,
+        40001062,
+        40001068,
+        40001071,
+        40001073
+      ],
+      "nonKeyholeGridState": "NONE_FROM_FURNITURE_STATE_PROVIDER_FOR_THESE_DEFINITIONS",
+      "keyholeMembers": [
+        40001072,
+        40001074,
+        40001075
+      ],
+      "keyholeGridState": "GridState.Keyhole.KeyholeConfigDataGUID",
+      "keyholeLinkedPersistentState": "ProfileWorld.Keyholes[GUID] -> Keyhole(Content, GUID, CurrentLevel, PreviousContent)",
+      "subGrid": "NONE_ALL_8",
+      "variationState": "NO_SEPARATE_VARIATION/SKIN_FIELD_FOUND_IN_CURRENT_DEFINITION_OR_GRIDSTATE_PATH_FOR_THIS_FAMILY",
+      "orientationState": "GridObject.Orientation only; no Menhir-specific orientation state payload found"
+    },
+    "nativeLifecycle": {
+      "keyholeGetGridStateData": "FurnitureItemData.GetGridStateData dispatches Keyhole interaction to KeyholeInteraction.GetGridStateData RVA 0x4555660",
+      "keyholeInitialize": "KeyholeGridData.Initialize RVA 0x415DC90 binds through IKeyholesProvider.AddKeyhole and stores returned GUID linkage",
+      "keyholeDeinitialize": "KeyholeGridData.Deinitialize RVA 0x415E020 is a no-op in current v1.25",
+      "addKeyhole": "ProfileWorld.IKeyholesProvider.AddKeyhole RVA 0x597DA90 reuses existing map entry by config GUID or creates Keyhole(CurrentLevel=0) then returns Keyhole.GUID",
+      "sameGridTransform": "UpdateGridObjectTransform.ApplyThis RVA 0x4FC6DA0 uses GridClearingExtensions.UpdateTransformWithClearing and does not dispatch Keyhole initialize/deinitialize or mutate ProfileWorld.Keyholes in the traced path"
+    },
+    "terminalVisualBoundary": {
+      "keyholeConfigTransformInto": "UNKNOWN_NOT_PRESENT_IN_CURRENT_CANONICAL_EXTRACTED_KEYHOLE_CONFIG_CORPUS",
+      "implication": "Do not claim a universal terminal visual representation or STATE_EDIT permission for Keyhole Menhirs."
+    },
+    "operationMatrix": {
+      "MOVE": {
+        "stateCompatibility": "HIGH_CONFIDENCE_STATE_PRESERVING_SAME_GRID_ONLY",
+        "authorization": "BLOCK_UNLESS_NATIVE_CONDITION_TRUE_AND_V1_13_V1_14_REFERENCE_VETOES_CLEAR_AND_UNKNOWN_DYNAMIC_CLASSES_ACCEPTED_BY_FUTURE_POLICY",
+        "positivePermissionNow": false
+      },
+      "ROTATE": {
+        "stateCompatibility": "HIGH_CONFIDENCE_STATE_PRESERVING_SAME_GRID_ONLY",
+        "authorization": "BLOCK_UNLESS_NATIVE_CONDITION_TRUE_AND_V1_13_V1_14_REFERENCE_VETOES_CLEAR_AND_UNKNOWN_DYNAMIC_CLASSES_ACCEPTED_BY_FUTURE_POLICY",
+        "positivePermissionNow": false
+      },
+      "REMOVE": {
+        "authorization": "CONFIRMED_FORBIDDEN",
+        "reason": "CanBeRemoved=false for all 8"
+      },
+      "DUPLICATE": {
+        "authorization": "BLOCKED_UNKNOWN_OR_LINKED_IDENTITY_CONFLICT",
+        "reason": "mission-owned identity; Keyhole members share global GUID-linked state; no native duplicate lifecycle proof"
+      },
+      "REPLACE": {
+        "authorization": "BLOCKED_UNKNOWN",
+        "reason": "no safe replacement lifecycle proof; Remove is natively forbidden"
+      },
+      "STATE_EDIT": {
+        "authorization": "BLOCKED",
+        "reason": "Keyhole state is progression/system state; non-Keyhole members have no editable typed state payload"
+      },
+      "PRESET_CAPTURE": {
+        "authorization": "CONFIRMED_EXCLUDED",
+        "reason": "v1.13 protected progression object source capture policy"
+      }
+    },
+    "positiveAuthorization": false
+  },
+  "writerBoundary": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "applyAuthorized": false
+  },
+  "promotion": {
+    "sourceBranch": "dev/core-progression-gates-v125-20261002",
+    "sourceCI": {
+      "runId": 36971070641,
+      "runNumber": 1582,
+      "result": "SUCCESS"
+    },
+    "scope": "BASE_GAME_STORY_MENHIRS only; negative/operation-specific closure, no global positive authorization"
+  }
+}
