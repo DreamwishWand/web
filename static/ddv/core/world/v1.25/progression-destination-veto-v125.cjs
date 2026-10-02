@@ -71,7 +71,11 @@ function projectOne(object,index,definitionDispositionByItemId){
     for(const [op,codes] of Object.entries(disp.nativeOperationVetoes||{}))if(vetoes[op])vetoes[op].push(...arr(codes));
   }
   if(active.length)for(const op of identityChanging)vetoes[op].push('REFERENCE_SENSITIVE_OBJECT_IDENTITY_CHANGE_FORBIDDEN');
-  if(unknown.length)for(const op of OPS)vetoes[op].push('PROGRESSION_OWNERSHIP_UNKNOWN');
+  if(unknown.length){
+    for(const op of OPS)vetoes[op].push('PROGRESSION_OWNERSHIP_UNKNOWN');
+    vetoes.DESTINATION_OVERWRITE.push('PROTECTED_PROGRESSION_OBJECT_CONFLICT');
+    vetoes.PRESET_CAPTURE.push('PROTECTED_PROGRESSION_SOURCE_CAPTURE_EXCLUDED');
+  }
   const definitionProtected=Boolean(disp&&PROTECTED_OWNERSHIP.has(disp.ownershipClass));
   if(definitionProtected){
     const code=ownershipMutationReason[disp.ownershipClass]||'PROTECTED_PROGRESSION_OBJECT_MUTATION_FORBIDDEN';
