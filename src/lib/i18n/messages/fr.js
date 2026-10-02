@@ -1,4 +1,6 @@
+import worldEditor from './world-editor/fr.js';
 export default Object.freeze({
+  ...worldEditor,
   "shared.a11y.skipToContent": "Aller au contenu principal",
   "shared.brand.homeLabel": "Accueil Dreamwish Wand",
   "shared.nav.primaryLabel": "Navigation principale",
