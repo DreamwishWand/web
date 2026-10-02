@@ -19,7 +19,7 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "091c92e6fcc71a9713ac119b1cb507778967bf24",
+    "src/routes/editor/world/+page.svelte": "56201deef29003391880a6d09c35543ca82409a0",
     "src/lib/wep/world-editor-primary-job.ts": "a8e49f4f2eec543b9aaebd2d552c9da8e36270d5",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "9bc34ec02d370826d388f336593c172d91c83b1a",
@@ -37,7 +37,7 @@
     ]
   },
   "sharedLocaleBinding": {
-    "status": "BOUND_SHARED_WEB_V1",
+    "status": "BOUND_SHARED_WEB_V1_R6_FIXES",
     "owner": "08 WEB / shared Web UI foundation",
     "upstreamCommit": "425cb22ad7726f6f452bd179f3a89b81329da64b",
     "runtime": "src/lib/i18n/runtime.js",
@@ -53,7 +53,8 @@
       "zh-CN",
       "pt-BR"
     ],
-    "rule": "World Editor presentation resolves through the shared locale runtime. WEP does not own a locale store, selector, fallback resolver, formatter, or resource loader."
+    "rule": "World Editor presentation resolves through the shared locale runtime. WEP does not own a locale store, selector, fallback resolver, formatter, or resource loader.",
+    "routeChangeNote": "Source pin refreshed only for promoted v1.16 Floating Island Canvas binding, search-value synchronization, programmatic disabled-reason association, and roving Canvas focus. Existing inventory scope/categories remain unchanged."
   },
   "translationBoundary": {
     "translate": [
