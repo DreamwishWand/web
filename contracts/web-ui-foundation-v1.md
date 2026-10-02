@@ -23,7 +23,7 @@ Fallback locale is EN. Missing locale keys fall back to EN and emit diagnostics;
 Locale persistence is deliberately a boundary, not a Product decision. No persistence adapter is installed by this foundation. Product may later install an adapter and decide when persistence is appropriate.
 
 ## Accessibility
-Day-theme `--gold` is a text-facing token and MUST keep >=4.5:1 contrast against every shared day background on which normal gold text is used. CI currently gates `--page`, `--page-2`, `--surface`, `--surface-raised`, and the three tokenized day-hero gradient anchors.
+Day-theme `--gold` is a text-facing token and MUST keep >=4.5:1 contrast against every shared day background on which normal gold text is used. CI gates `--page`, `--page-2`, `--surface`, `--surface-raised`, the three tokenized day-hero gradient anchors, and a conservative sampled composition of both day-hero radial overlays across the full linear-gradient span. Anchor-only checks are not sufficient for gradient text.
 
 Shared primitives:
 - global `:focus-visible` ring for links, buttons, inputs, selects, textareas, summaries and explicit tabindex targets;
