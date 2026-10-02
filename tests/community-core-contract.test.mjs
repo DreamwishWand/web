@@ -2871,7 +2871,7 @@ test('DDV mdc Edge association HMACs locally and never forwards the raw identifi
   assert.match(command, /COMMUNITY_DDV_PROFILE_BINDING_KEY_V1/);
   assert.match(command, /crypto\.subtle\.importKey/);
   assert.match(command, /crypto\.subtle\.sign\('HMAC'/);
-  assert.match(command, /dreamwishwand\/ddv-player-id\/v1\\\\0/);
+  assert.match(command, /dreamwishwand\/ddv-player-id\/v1\\0/);
   assert.match(command, /params\.p_binding_key_hash = bindingDigest/);
   assert.match(command, /params\.p_workspace_id = payload\.workspaceId/);
   assert.doesNotMatch(command, /params\.[A-Za-z0-9_]*player[A-Za-z0-9_]*id\s*=\s*playerId/i);
