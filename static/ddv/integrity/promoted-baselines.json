@@ -83,6 +83,20 @@
       "sourceEvidenceDriveId": "1mTFwN-qgyiGLrKoWUbgRq278NAZbcVmPSwKkmQX6OmU",
       "sourceCandidateSha256": "a456b7daa8b503baf78ae044f3fb760b6874dc8c17991cb5c5f218d69889f002",
       "scope": "read/model/draft-preflight only"
+    },
+    {
+      "artifactId": "DDV-PROGRESSION-WORLD-OBJECT-SAFETY-V125-V1_13",
+      "artifactType": "Core/progression world-object safety contract",
+      "version": "v1.13",
+      "status": "PROMOTED",
+      "mutable": false,
+      "platform": "Nintendo Switch",
+      "gameVersion": "v1.25.0",
+      "buildId": "52BD625D9B4E0053",
+      "artifactSha256": "e8fd80775276e95cb70b0dd684534244ebe21b6dba04ec341b5cf92e90c32213",
+      "sourceEvidenceDriveId": "1mTFwN-qgyiGLrKoWUbgRq278NAZbcVmPSwKkmQX6OmU",
+      "sourceCandidateSha256": "0623bbe05f513fd2c17a03c5fec6d945921b7259e4d194000499989fa558d7df",
+      "scope": "read/model/capture/preflight safety only"
     }
   ]
 }
