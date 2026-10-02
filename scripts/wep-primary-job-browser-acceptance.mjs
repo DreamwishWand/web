@@ -255,6 +255,124 @@ async function waitObject(page, prefix, x, y) {
   await page.locator(`g[data-editor-object][aria-label^="${prefix} at ${x}, ${y}"]`).waitFor();
 }
 
+async function assertNoHorizontalOverflow(locator, label) {
+  const count = await locator.count();
+  assert.ok(count > 0, label + ': surface must exist');
+  for (let index = 0; index < count; index += 1) {
+    const element = locator.nth(index);
+    await element.waitFor({ state: 'visible' });
+    const metrics = await element.evaluate((node) => ({
+      clientWidth: node.clientWidth,
+      scrollWidth: node.scrollWidth
+    }));
+    assert.ok(
+      metrics.scrollWidth <= metrics.clientWidth + 2,
+      label + ': horizontal overflow ' +
+        metrics.scrollWidth + ' > ' + metrics.clientWidth
+    );
+  }
+}
+
+async function editorSemanticSnapshot(page) {
+  return {
+    selectedCount: await page.locator('g.selected[data-editor-object]').count(),
+    objectCount: await page.locator('g[data-editor-object]').count(),
+    selectedCells: await page.locator('g.selected .object-cell').evaluateAll(
+      (cells) => cells.map((cell) => ({
+        x: cell.getAttribute('x'),
+        y: cell.getAttribute('y')
+      }))
+    ),
+    commandDisabled: await page.locator('.toolbar-actions button').evaluateAll(
+      (buttons) => buttons.map((button) => button.hasAttribute('disabled'))
+    ),
+    validationCodes: await page.locator('.validation-groups code').allTextContents()
+  };
+}
+
+async function runLocaleLayoutAcceptance(page, report) {
+  const locales = ['de', 'fr', 'pt-BR', 'ja', 'zh-CN'];
+  const localeSelect = page.locator('#site-locale');
+  await localeSelect.waitFor();
+  await page.setViewportSize({ width: 1280, height: 1100 });
+
+  const baseline = await editorSemanticSnapshot(page);
+  report.localeLayout = {};
+
+  for (const locale of locales) {
+    await localeSelect.selectOption(locale);
+    await page.waitForFunction(
+      (expected) => document.documentElement.lang === expected,
+      locale
+    );
+
+    const afterSwitch = await editorSemanticSnapshot(page);
+    assert.deepEqual(
+      afterSwitch,
+      baseline,
+      locale + ': locale switching must not mutate editor state or command authorization'
+    );
+
+    const capturePreview = page.locator('.capture-actions button').first();
+    if (await capturePreview.isEnabled()) {
+      await capturePreview.click();
+      await page.locator('.status').waitFor();
+    }
+
+    const surfaces = [
+      ['toolbar', page.locator('.editor-toolbar')],
+      ['inspector', page.locator('.object-inspector')],
+      ['blocker-panel', page.locator('.draft-blockers')],
+      ['validation-panel', page.locator('.validation-groups')],
+      ['store-inspector', page.locator('[data-wep-surface="store-inspector"]')],
+      ['scene-capture', page.locator('.capture-panel')],
+      ['save-prep', page.locator('.save-preparation')],
+      ['original-backup-controls', page.locator('.toolbar-actions .save-prep')],
+      ['road-fence-labels', page.locator('.full-design-destination-result')],
+      ['progression-explanation', page.locator('.progression-safety-card')],
+      ['live-status', page.locator('.status')]
+    ];
+
+    for (const [label, locator] of surfaces) {
+      await assertNoHorizontalOverflow(locator, locale + ':' + label);
+    }
+
+    const pageMetrics = await page.evaluate(() => ({
+      innerWidth: window.innerWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+      htmlLang: document.documentElement.lang,
+      dataLocale: document.documentElement.dataset.locale
+    }));
+    assert.ok(
+      pageMetrics.scrollWidth <= pageMetrics.innerWidth + 2,
+      locale + ': page has horizontal overflow ' +
+        pageMetrics.scrollWidth + ' > ' + pageMetrics.innerWidth
+    );
+    assert.equal(pageMetrics.htmlLang, locale);
+    assert.equal(pageMetrics.dataLocale, locale);
+
+    await page.screenshot({
+      path: path.join(
+        artifactsDir,
+        'locale-' + locale.replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '.png'
+      ),
+      fullPage: true
+    });
+
+    report.localeLayout[locale] = {
+      horizontalOverflow: 'PASS',
+      editorStateInvariant: 'PASS',
+      htmlLang: pageMetrics.htmlLang,
+      testedSurfaces: surfaces.map(([label]) => label)
+    };
+  }
+
+  await localeSelect.selectOption('en');
+  await page.waitForFunction(
+    () => document.documentElement.lang === 'en'
+  );
+}
+
 async function runSyntheticAcceptance(page, report) {
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
   await page.locator('input[type="file"]').setInputFiles({
@@ -589,7 +707,8 @@ const report = {
   consoleErrors: [],
   pageErrors: [],
   synthetic: {},
-  rawSwitch: {}
+  rawSwitch: {},
+  localeLayout: {}
 };
 
 try {
@@ -605,6 +724,7 @@ try {
 
   await runSyntheticAcceptance(page, report);
   await runRawSaveAcceptance(page, report);
+  await runLocaleLayoutAcceptance(page, report);
 
   // Product boundary: browser acceptance itself must not surface persistent writer controls.
   assert.equal(report.pageErrors.length, 0, `page errors: ${report.pageErrors.join(' | ')}`);
