@@ -69,6 +69,20 @@
       "payloadSha256": "7e878f908c153bcb3c84fa1824f2dbff9ac813650c25e7c00e5547cb8004c4dc",
       "sourceEvidenceDriveId": "1mTFwN-qgyiGLrKoWUbgRq278NAZbcVmPSwKkmQX6OmU",
       "scope": "read/model/preflight classification only"
+    },
+    {
+      "artifactId": "DDV-SCROOGE-STORE-STATE-V125-V1_12",
+      "artifactType": "Core/Scrooge Store read-state contract",
+      "version": "v1.12",
+      "status": "PROMOTED",
+      "mutable": false,
+      "platform": "Nintendo Switch",
+      "gameVersion": "v1.25.0",
+      "buildId": "52BD625D9B4E0053",
+      "artifactSha256": "322cd1768a5a75fa8ceea60a0ed7dd65d048666849067ed5ab034a483c60c578",
+      "sourceEvidenceDriveId": "1mTFwN-qgyiGLrKoWUbgRq278NAZbcVmPSwKkmQX6OmU",
+      "sourceCandidateSha256": "a456b7daa8b503baf78ae044f3fb760b6874dc8c17991cb5c5f218d69889f002",
+      "scope": "read/model/draft-preflight only"
     }
   ]
 }
