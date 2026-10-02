@@ -1,0 +1,100 @@
+{
+  "schema": "ddv.progression-world-object-integration@1",
+  "artifactId": "DDV-PROGRESSION-WORLD-OBJECT-INTEGRATION-V125-V1_14",
+  "version": "v1.14",
+  "status": "PROMOTED",
+  "owner": "01 CORE Integrator",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624
+  },
+  "parent": {
+    "artifactId": "DDV-PROGRESSION-WORLD-OBJECT-SAFETY-V125-V1_13",
+    "sha256": "e8fd80775276e95cb70b0dd684534244ebe21b6dba04ec341b5cf92e90c32213"
+  },
+  "dependencyClosure": {
+    "questDefinitionGraph": {
+      "status": "CLOSED",
+      "artifactId": "DDV-MISSION-WORLD-OBJECT-CONSUMER-GRAPH-SWITCH-V125-27-V1",
+      "validation": "PASS"
+    },
+    "saveProgressionReferenceIndex": {
+      "status": "CLOSED",
+      "artifactId": "DDV-PROGRESSION-REFERENCE-INDEX-V125-V1_0",
+      "syntheticTests": "11/11 PASS",
+      "currentSchema624Coverage": "PASS"
+    }
+  },
+  "integratedFindings": {
+    "postCompletionConsumerMissions": [
+      2070000868,
+      2070000968,
+      2070001348,
+      2070001496
+    ],
+    "missionTemporalityStillUnknownCount": 21,
+    "noStaticPostCompletionProofCount": 2,
+    "activeConditionalEventAddressCountPerCurrentSample": 1716,
+    "activeConditionalEventAddressItemIdResolvedPerCurrentSample": 42,
+    "activeConditionalEventAddressItemIdUnmaterializedPerCurrentSample": 1674,
+    "unknownCurrentSystemReferenceCountPerCurrentSample": 454,
+    "historicalReferenceRule": "HISTORICAL references never become active ownership solely because the referenced object currently exists",
+    "unresolvedItemIdRule": "an exact ACTIVE GridObjectAddress remains a veto even when ItemID cannot be derived from save-local Grids/DiffGrids"
+  },
+  "positiveAuthorizationBoundary": {
+    "authorizesUserControlledClassification": false,
+    "authorizesTerminalEditableMutation": false,
+    "authorizesPersistentWriter": false,
+    "reason": "01A/01D dependencies are closed, but dynamic/native consumer exclusion, ConditionalSpawnData.RemoveWhenDone runtime semantics, and object-specific serialized State consistency remain unresolved."
+  },
+  "operationPolicy": {
+    "activeExactAddressReference": "BLOCK_IDENTITY_CHANGING_OPERATION",
+    "unknownSystemReference": "FAIL_CLOSED",
+    "historicalReference": "NO_ACTIVE_OWNERSHIP_VETO_FROM_THIS_REFERENCE",
+    "confirmedPostCompletionConsumer": "BLOCK_TERMINAL_ASSUMPTION",
+    "unknownConsumerTemporality": "FAIL_CLOSED",
+    "noStaticPostCompletionConsumerFound": "NOT_POSITIVE_PERMISSION",
+    "otherwise": "DEFER_TO_V1_13_AND_NORMAL_CORE_VALIDATION"
+  },
+  "presetPolicy": {
+    "protectedSourceCapture": "EXCLUDE",
+    "protectedDestinationOccupancy": "PRESERVE_AND_BLOCK_OVERWRITE",
+    "historicalReferenceAlone": "DOES_NOT_CREATE_PROGRESSION_VETO",
+    "positivePermissionGranted": false
+  },
+  "remainingGates": {
+    "conditionalSpawnRemoveWhenDone": {
+      "owner": "01B static-first then 01E only if runtime remains necessary",
+      "status": "OPEN"
+    },
+    "dynamicNativeConsumerExclusion": {
+      "owner": "01B / targeted native-static audit",
+      "status": "OPEN"
+    },
+    "objectSerializedStateCompatibility": {
+      "owner": "01B object-specific semantic closure",
+      "status": "OPEN"
+    }
+  },
+  "wepConsumption": {
+    "safeNow": [
+      "treat 01A and 01D dependency status as CLOSED",
+      "preserve active-address and unknown-system vetoes",
+      "do not let historical bookkeeping alone block an otherwise safe object",
+      "show refined blocker reasons"
+    ],
+    "mustNot": [
+      "enable PROGRESSION_TERMINAL_EDITABLE mutation",
+      "infer ItemID for unmaterialized active addresses",
+      "infer safe ownership from missing current consumer",
+      "enable native restore writer or Apply"
+    ]
+  },
+  "writerBoundary": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "applyAuthorized": false
+  }
+}
