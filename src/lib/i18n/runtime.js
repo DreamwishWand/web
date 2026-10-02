@@ -47,7 +47,7 @@ export async function restoreLocalePreference({ automaticLocale = FALLBACK_LOCAL
     emitDiagnostic({ type: 'preference-read-failed', message: error instanceof Error ? error.message : String(error) });
   }
 
-  const candidate = normalizeLocale(stored);
+  const candidate = typeof stored === 'string' ? SUPPORTED_LOCALES.find((entry) => entry.code === stored)?.code ?? null : null;
   if (candidate) return setLocale(candidate);
 
   if (invalidateUnsupported && stored !== null && stored !== undefined && typeof preferenceAdapter.clear === 'function') {
