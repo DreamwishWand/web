@@ -19,6 +19,9 @@ import {
   BUILDING_V110_CLASS,
   type BuildingV110Binding
 } from './building-v110.ts';
+import {
+  evaluateProgressionDestinationConflicts
+} from './progression-destination-v115.ts';
 
 type AnyRecord = Record<string, any>;
 
@@ -86,6 +89,7 @@ export function preflightCurrentV125FullDesignManifest({
   manifest,
   restorationContext = {},
   placementBinding = null,
+  progressionDestinationProjection = null,
   buildingBinding = null,
   buildingContext = {}
 }: {
@@ -94,6 +98,7 @@ export function preflightCurrentV125FullDesignManifest({
   manifest: unknown;
   restorationContext?: AnyRecord;
   placementBinding?: CurrentV125PlacementBinding | null;
+  progressionDestinationProjection?: AnyRecord | null;
   buildingBinding?: BuildingV110Binding | null;
   buildingContext?: AnyRecord;
 }) {
@@ -297,6 +302,7 @@ export function preflightCurrentV125FullDesignManifest({
       let nativePlacementReasonCodes: string[] = [];
       let nativeConflictFlagsResolved = false;
       let clearabilityResolved = false;
+      let progressionDestinationEvaluation: AnyRecord | null = null;
 
       if (!bound) {
         rootObjectPlacementPreflightReady = false;
@@ -404,7 +410,41 @@ export function preflightCurrentV125FullDesignManifest({
           clearabilityResolved =
             nativeResult.clearabilityResolved === true;
 
-          if (
+          progressionDestinationEvaluation =
+            evaluateProgressionDestinationConflicts({
+              projection: progressionDestinationProjection,
+              destinationGridId,
+              conflicts: Array.isArray(nativeResult.conflicts)
+                ? nativeResult.conflicts
+                : []
+            });
+
+          if (progressionDestinationEvaluation.blocked === true) {
+            placementValidated =
+              nativePlacementClass ===
+                NATIVE_PLACEMENT_CLASSES.VALID_CLEAR ||
+              nativePlacementClass ===
+                NATIVE_PLACEMENT_CLASSES
+                  .VALID_REPLACES_OR_REMOVES_EXISTING;
+            rootObjectPlacementPreflightReady = false;
+            placementPolicyReady = false;
+            placementBlocker =
+              'PROTECTED_PROGRESSION_OBJECT_CONFLICT';
+            issues.push(
+              block(
+                'PROTECTED_PROGRESSION_OBJECT_CONFLICT',
+                `$.categories.rootObjects.portableComposition.entries[${index}]`,
+                {
+                  artifactObjectId: entry?.artifactObjectId,
+                  gridDataPath,
+                  destinationGridId,
+                  nativePlacementClass,
+                  matchedProgressionRecords:
+                    progressionDestinationEvaluation.matchedRecords?.length ?? 0
+                }
+              )
+            );
+          } else if (
             nativePlacementClass ===
             NATIVE_PLACEMENT_CLASSES.VALID_CLEAR
           ) {
@@ -511,6 +551,8 @@ export function preflightCurrentV125FullDesignManifest({
           clone(nativePlacementReasonCodes),
         nativeConflictFlagsResolved,
         clearabilityResolved,
+        progressionDestinationEvaluation:
+          clone(progressionDestinationEvaluation),
         placementValidated,
         placementPolicyReady,
         placementBlocker,
