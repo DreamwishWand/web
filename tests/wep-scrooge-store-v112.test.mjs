@@ -82,6 +82,28 @@ test('exact ProfileWorld.Stores BuildingItemID resolves Store inventory',()=>{
   assert.equal(result.persistentWriteAuthorized,false);
 });
 
+test('raw serialized World.Stores adapts to canonical Store semantics',()=>{
+  const profile={
+    World:{
+      Stores:[
+        {
+          BuildingItemID:20300028,
+          Displays:[],
+          WeightedItems:{},
+          CurrentSequenceIndexPerUpgrade:[0]
+        }
+      ]
+    }
+  };
+
+  const result=binding.resolveStoreForItem(profile,20300028);
+  assert.equal(result.status,'resolved');
+  assert.equal(result.sourceCollection,'ProfileWorld.Stores');
+  assert.equal(result.store.buildingItemId,20300028);
+  assert.equal(result.store.displayCount,0);
+  assert.equal(result.persistentWriteAuthorized,false);
+});
+
 test('WEP never falls back from Stores to ProfileWorld.Shops',()=>{
   const profile={
     ProfileWorld:{
@@ -131,6 +153,7 @@ const source=readFileSync(
 test('Store binder contains no hard-coded Scrooge Building ItemID list',()=>{
   assert.doesNotMatch(source,/20300\d{3}/);
   assert.match(source,/ProfileWorld\?\.Stores/);
+  assert.match(source,/World\?\.Stores/);
   assert.match(source,/BuildingItemID/);
 });
 
