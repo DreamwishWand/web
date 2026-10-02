@@ -504,3 +504,39 @@ test('strict manifest validation rejects tampered composition routes and write p
     true
   );
 });
+
+
+test('explicit Core progression blockers remain visible in non-portable Preset diagnostics', () => {
+  const composition = captureCurrentV125RootObjectComposition({
+    documents: [
+      document('GridData/Test/A.json', [
+        object({
+          editorId: 'progression-risk',
+          itemId: 40000999,
+          editability: 'readonly',
+          reasons: [
+            'PROTECTED_PROGRESSION_OBJECT_CONFLICT',
+            'PROGRESSION_STATE_INCONSISTENT'
+          ]
+        })
+      ])
+    ],
+    expectedGridDataPaths: ['GridData/Test/A.json']
+  });
+
+  assert.equal(composition.entries.length, 0);
+  assert.equal(composition.unresolved.length, 1);
+  assert.equal(
+    composition.unresolved[0].reasons.includes(
+      'PROTECTED_PROGRESSION_OBJECT_CONFLICT'
+    ),
+    true
+  );
+  assert.equal(
+    composition.unresolved[0].reasons.includes(
+      'PROGRESSION_STATE_INCONSISTENT'
+    ),
+    true
+  );
+  assert.equal(composition.persistentWriteAuthorized, false);
+});
