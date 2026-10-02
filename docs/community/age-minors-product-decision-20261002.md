@@ -25,17 +25,26 @@ Those implementation choices remain subject to Privacy/Legal review.
 
 ## Under-13 parent-managed Community participation
 
-Product approves the **parent/guardian-managed account association model**.
+The under-13 DDV Profile Workspace is **not an independent Community actor**. The Wand Account and public Creator identity remain the parent/guardian's.
 
-The exact permitted scope for an under-13 user's Community participation through that account remains a targeted external Legal/Privacy question. In particular, external review must determine the required conditions for:
+Launch Product scope:
 
-- publishing Gallery / Preset / DreamSnaps content;
-- comments and replies;
-- Q&A / Tips;
-- follows, reactions and saves;
-- public Creator attribution and other public profile surfaces.
+- the parent may manage a DreamSnaps candidate sourced from a `parent_guardian_managed` Workspace;
+- the parent may submit that candidate as the Wand Account's **single final DreamSnaps entry** for the round;
+- the parent and child may passively view DreamSnaps entries together;
+- the child-managed profile does not receive a separate vote, Formal Judging identity, reaction/comment/reply controls, follow/save/favorite rights, Q&A/Tips participation, Gallery publication rights outside the post-result DreamSnaps lifecycle, Preset publication rights, or other independent Community writes.
 
-Until that review is resolved, engineering must not infer that parent-managed Workspace automatically authorizes every Community interaction for an under-13 user.
+For a DreamSnaps work with under-13-managed provenance:
+
+- active Voting follows the normal anonymous competition rules;
+- after Results, ordinary non-text reactions and saves/favorites **may be received**;
+- comments and replies are **disabled at launch**;
+- follows attach only to the parent Creator Profile;
+- public attribution is the **parent Creator Profile**;
+- the child Workspace identity and the fact that it is under-13-managed are **not public metadata**;
+- notifications go to the parent/guardian Wand Account, never to a separate child identity.
+
+The disabled-comment state must not reveal that the work is child-managed. Privacy/Legal still reviews the approved model, but Product scope itself is closed.
 
 ## Ages 13–17
 
