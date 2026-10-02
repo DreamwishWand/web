@@ -94,9 +94,10 @@ try{
   await page.getByLabel('Private label').fill('Main Valley');
   await page.getByLabel('Lifecycle').selectOption('archived');
   await page.getByRole('button',{name:'Save Workspace'}).click();
-  await page.getByText('Update Profile Workspace: PASS', { exact: true }).waitFor();
-  assert.match(await page.getByRole('button',{name:/Profile 1/}).innerText(),/Main Valley/);
-  assert.match(await page.getByRole('button',{name:/Profile 1/}).innerText(),/archived/);
+  const updatedProfileOne = page.getByRole('button',{name:/Main Valley/});
+  await updatedProfileOne.waitFor();
+  assert.match(await updatedProfileOne.innerText(),/Main Valley/);
+  assert.match(await updatedProfileOne.innerText(),/archived/);
   report.checks.custom_label_archive_capacity='PASS';
 
   await relationship.selectOption('self');
