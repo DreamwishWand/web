@@ -4,11 +4,13 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import {
   WORLD_ADAPTER_V16_SOURCE_SHA256,
+  WORLD_DIRECT_ROOT_EDITOR_DOCUMENT_V116_SHA256,
   WORLD_GRIDDATA_DIMENSIONS_V125_SHA256,
   WORLD_READ_SWITCH_V125_SHA256,
   WORLD_ROLE_AUTHORITY_V125_SHA256,
   createSwitchWorldReadAdapter,
-  projectSwitchAreaGrid
+  projectSwitchAreaGrid,
+  projectSwitchFloatingIslandGrid
 } from '../src/lib/wep/world-browser-adapter.ts';
 import { openWorldSaveBytes } from '../src/lib/wep/world-save-source.ts';
 
@@ -78,6 +80,14 @@ test('canonical adapter source and static inputs retain pinned bytes', async () 
     WORLD_ADAPTER_V16_SOURCE_SHA256
   );
   assert.equal(
+    hash(
+      await repoFile(
+        './src/lib/ddv/core/world/runtime-v125/direct-root-editor-document-v125.js'
+      )
+    ),
+    WORLD_DIRECT_ROOT_EDITOR_DOCUMENT_V116_SHA256
+  );
+  assert.equal(
     hash(await repoFile('./static/ddv/core/world/v1.25/grid-role-authority-v125.json')),
     WORLD_ROLE_AUTHORITY_V125_SHA256
   );
@@ -105,6 +115,14 @@ test('Switch read binding verifies and expands compact canonical data', async ()
   assert.equal(binding.provenance.readDataBuildID, '52BD625D9B4E0053');
   assert.equal(binding.provenance.adapterContractVersion, '01B-v1.7');
   assert.equal(binding.provenance.gridDataDimensionRecordCount, 152);
+  assert.equal(
+    binding.provenance.directRootEditorDocumentContract,
+    'DDV-DIRECT-ROOT-EDITOR-DOCUMENT-V125-V1_16'
+  );
+  assert.equal(
+    binding.provenance.directRootEditorDocumentSha256,
+    WORLD_DIRECT_ROOT_EDITOR_DOCUMENT_V116_SHA256
+  );
 });
 
 test('raw Switch save projects to read-only browser EditorDocument', async () => {
@@ -149,6 +167,86 @@ test('raw Switch save projects to read-only browser EditorDocument', async () =>
   assert.equal(document.metadata.browserBinding.roadFenceLogicalBinding, true);
 });
 
+
+
+test('promoted v1.16 Floating Island direct root projects into the normal browser EditorDocument without Area identity', async () => {
+  const floating = structuredClone(profile);
+  floating.World.GridCollection.Grids['760'] = {
+    ID: 760,
+    GridDataPath:
+      'GridData/FloatingIslands/FloatingIsland_Urban/FloatingIsland_UrbanGrid-GridData.json',
+    GridDefaultLayoutPath: '',
+    TessellationFactor: 2,
+    NextGridObjectID: 2,
+    Objects: {
+      '1': {
+        ID: 1,
+        ItemID: 40000047,
+        X: 12,
+        Y: 14,
+        Orientation: 'GridOrientation_Up',
+        State: null
+      }
+    }
+  };
+  floating.World.FloatingIslands = {
+    '1540000147': {
+      SceneItemId: 1540000147,
+      GridIDs: [760],
+      Unlocked: true,
+      CustomLocationPositionsPath:
+        'SceneLayouts/FloatingIslands/FloatingIsland_Urban/CustomLocations.json'
+    }
+  };
+
+  const opened = await openWorldSaveBytes(
+    new TextEncoder().encode(JSON.stringify(floating)),
+    { sourcePlatform: 'switch' }
+  );
+  const binding = await createSwitchWorldReadAdapter({
+    basePath: '',
+    fetchImpl: localFetch
+  });
+  const island = opened.floatingIslands.find(
+    (entry) => entry.sceneItemId === 1540000147
+  );
+  assert.ok(island);
+  const document = projectSwitchFloatingIslandGrid(
+    opened,
+    island,
+    island.roots[0],
+    binding
+  );
+
+  assert.equal(document.schema, 'dreamwish-wand-wep-editor-document');
+  assert.equal(document.objects.length, 1);
+  assert.equal(document.target.directRootRole, 'FLOATING_ISLAND_DIRECT_ROOT');
+  assert.equal(document.target.rootGridId, 760);
+  assert.equal(
+    document.target.gridDataPath,
+    'GridData/FloatingIslands/FloatingIsland_Urban/FloatingIsland_UrbanGrid-GridData.json'
+  );
+  assert.equal('villageIndex' in document.target, false);
+  assert.equal('areaId' in document.target, false);
+  assert.equal('areaKey' in document.target, false);
+  assert.equal(document.target.persistentWriteAuthorized, false);
+  assert.equal(
+    document.capabilities.worldDryRunMutation,
+    'not-authorized-by-projector'
+  );
+  assert.equal(document.capabilities.worldPersistentWrite, 'unsupported');
+  assert.deepEqual(document.metadata.rootGridBounds, {
+    x: 0,
+    y: 0,
+    w: 260,
+    h: 260,
+    status: 'AUTHORITATIVE_GRIDDATAPATH'
+  });
+  assert.equal(
+    document.metadata.browserBinding.directRootEditorDocumentContract,
+    'DDV-DIRECT-ROOT-EDITOR-DOCUMENT-V125-V1_16'
+  );
+});
 
 test('v1.7 explicit Village04 single-grid alias is resolved from authority v2', async () => {
   const aliasProfile = structuredClone(profile);
