@@ -1643,8 +1643,14 @@
       const selectedVisible = projected.find((object) =>
         selection.includes(object.editorId)
       );
+      const firstKeyboardTarget = projected.find(
+        (object) => object.ui?.locked !== true
+      );
       canvasFocusEditorId =
-        selectedVisible?.editorId ?? projected[0]?.editorId ?? '';
+        selectedVisible?.editorId ??
+        firstKeyboardTarget?.editorId ??
+        projected[0]?.editorId ??
+        '';
     }
   }
 
