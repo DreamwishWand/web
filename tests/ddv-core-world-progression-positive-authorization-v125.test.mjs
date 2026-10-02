@@ -16,8 +16,8 @@ test('v1.15 candidate starts only after 01A/01D dependency closure',()=>{
   assert.equal(audit.dependencies.saveProgressionReferenceIndex.status,'CLOSED');
 });
 
-test('positive progression mutation remains impossible while any targeted gate is open',()=>{
-  assert.deepEqual(audit.gates.map((gate)=>gate.status),['CLOSED_STATIC','OPEN','OPEN']);
+test('bounded gate closure does not grant global positive progression mutation',()=>{
+  assert.deepEqual(audit.gates.map((gate)=>gate.status),['CLOSED_STATIC','CLOSED_BOUNDED_FAMILY','CLOSED_OPERATION_SPECIFIC_BOUNDED_FAMILY']);
   assert.equal(audit.positiveAuthorization.userControlledClassification,false);
   assert.equal(audit.positiveAuthorization.terminalEditableMutation,false);
   assert.equal(audit.positiveAuthorization.nativeRestoreExecution,false);
@@ -78,4 +78,29 @@ test('RemoveWhenDone native semantics are statically closed without turning comp
   assert.match(remove.nativeSemantics.ordering.join(' '),/UndoAction/);
   assert.match(remove.nativeSemantics.ordering.join(' '),/ActiveEvents\.Remove/);
   assert.equal(audit.positiveAuthorization.terminalEditableMutation,false);
+});
+
+
+test('Target 2/3 closures are explicitly bounded to Story Menhirs',()=>{
+  const dynamic=audit.gates.find((gate)=>gate.id==='dynamicNativeConsumerExclusion');
+  assert.equal(dynamic.boundedFamilyClosure.familyId,'BASE_GAME_STORY_MENHIRS');
+  assert.equal(dynamic.boundedFamilyClosure.globalScopeStatus,'OPEN_OUTSIDE_DECLARED_BOUNDED_FAMILY');
+  assert.equal(dynamic.boundedFamilyClosure.positiveAuthorization,false);
+  const state=audit.gates.find((gate)=>gate.id==='serializedObjectStateCompatibility');
+  assert.equal(state.boundedFamilyClosure.familyId,'BASE_GAME_STORY_MENHIRS');
+  assert.equal(state.boundedFamilyClosure.operationSummary.REMOVE,'CONFIRMED_FORBIDDEN');
+  assert.equal(state.boundedFamilyClosure.operationSummary.PRESET_CAPTURE,'CONFIRMED_EXCLUDED');
+  assert.equal(state.boundedFamilyClosure.positiveAuthorization,false);
+});
+
+test('destination progression veto projection is implementation-ready but veto-only',()=>{
+  const p=audit.destinationProgressionVetoProjection;
+  assert.equal(p.status,'IMPLEMENTATION_READY_CANDIDATE');
+  assert.equal(p.requiredBlocker,'PROTECTED_PROGRESSION_OBJECT_CONFLICT');
+  assert.equal(p.readPreflightOnly,true);
+  assert.equal(p.noPositiveInference.absenceOfVetoIsPermission,false);
+  assert.equal(p.positiveAuthorization,false);
+  assert.equal(p.writerAuthorized,false);
+  assert.equal(audit.integratorReturn.ready,true);
+  assert.equal(audit.integratorReturn.doNotPromoteWholeV115Scaffold,true);
 });
