@@ -185,7 +185,7 @@ const copy = {
   'worldEditor.canvas.ariaLabel': 'Canvas World Editor en vue de dessus',
   'worldEditor.canvas.visibleCount': '{count} visibles',
   'worldEditor.canvas.mouseHelp': 'Souris : clic pour sélectionner · Ctrl/⌘/Maj+clic pour sélection multiple',
-  'worldEditor.canvas.keyboardHelp': 'Clavier : flèches pour déplacer · R pour pivoter · Ctrl/⌘ C/V/D · Suppr · Ctrl/⌘ Z · Maj+Z pour rétablir · Échap pour effacer',
+  'worldEditor.canvas.keyboardHelp': "Clavier : Tab entre dans le Canvas · [ / ] change le focus · Entrée sélectionne · flèches déplacent · R pivote · Ctrl/⌘ C/V/D · Suppr · Ctrl/⌘ Z · Maj+Z rétablit · Échap efface",
   'worldEditor.canvas.roadFenceLocked': 'Road / Fence apparaissent verrouillés quand leur capability n’est pas connectée.',
   'worldEditor.canvas.backupReady': 'Sauvegarde originale : téléchargement local byte-exact prêt',
   'worldEditor.canvas.backupNotLoaded': 'Sauvegarde originale : non chargée',
