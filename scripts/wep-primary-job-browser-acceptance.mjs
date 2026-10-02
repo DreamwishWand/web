@@ -323,9 +323,9 @@ async function runSyntheticAcceptance(page, report) {
           element instanceof Element
             ? element.getAttribute('role')
             : null,
-        tabIndex:
-          element instanceof HTMLElement
-            ? element.tabIndex
+        tabIndexAttribute:
+          element instanceof Element
+            ? element.getAttribute('tabindex')
             : null
       };
     });
@@ -339,7 +339,7 @@ async function runSyntheticAcceptance(page, report) {
       tabReachedEditableCanvasObject = true;
       keyboardObjectLabel = String(active.ariaLabel ?? '');
       assert.equal(active.role, 'button');
-      assert.equal(active.tabIndex, 0);
+      assert.equal(active.tabIndexAttribute, '0');
       break;
     }
   }
