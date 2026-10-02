@@ -585,6 +585,7 @@ const coreReasonSpecific = {
   MISSION_ITEM_READ_ONLY: 'Cet objet est protégé par la politique Core mission-item actuelle ; il peut être inspecté mais pas modifié.',
   PROTECTED_PROGRESSION_OBJECT_CONFLICT: 'Cet objet est protégé par la propriété progression/système et ne peut pas être écrasé ni traité comme contenu portable.',
   UNKNOWN_BUILDING_SEMANTICS: 'Core ne peut pas prouver une classification Building ordinaire sûre pour cet ItemID ; la mutation reste donc désactivée.',
+  CHARACTER_HOUSE_PRESENCE_SIDE_EFFECTS_REQUIRE_DEDICATED_LIFECYCLE: "Cette Character House est liée à l’état du cycle de vie de présence du personnage ; la mutation générique est donc désactivée.",
   WORLD_OBJECT_NOT_EDITABLE: 'Au moins un objet sélectionné est en lecture seule ou bloqué par la projection Core actuelle.'
 };
 
