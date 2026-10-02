@@ -66,7 +66,7 @@ try{
       if(p.confirmation!=='DELETE') return json(route,400,{error:'CONFIRMATION_REQUIRED',message:'DELETE confirmation required.'});
       if(requireRecentAuthOnce){
         requireRecentAuthOnce=false;
-        return json(route,401,{error:'RECENT_AUTH_REQUIRED',message:'Recent authentication required.'});
+        return json(route,403,{error:'RECENT_AUTH_REQUIRED',message:'Recent authentication required.'});
       }
       workspaces=workspaces.filter(w=>w.workspaceId!==row.workspaceId);
       return json(route,200,{ok:true,data:{deleted:true,workspaceId:row.workspaceId}});
