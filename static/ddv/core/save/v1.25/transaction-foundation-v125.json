@@ -2,7 +2,7 @@
   "schema": "ddv.safe-persistent-transaction-foundation@1",
   "artifactId": "DDV-SAFE-PERSISTENT-TRANSACTION-FOUNDATION-V125-V1_0",
   "version": "v1.0",
-  "status": "01A_CANDIDATE_FOR_INTEGRATOR_REVIEW",
+  "status": "PROMOTED_CANDIDATE_PENDING_MERGE",
   "owner": "01A CORE - Save / Codec / Versioning",
   "scope": "temporary verified write-candidate production only; no persistent replacement",
   "target": {
@@ -87,7 +87,10 @@
   "minimumMutationSubsetProposal": {
     "id": "EXISTING_ORDINARY_ROOT_GRID_OBJECT_SAME_GRID_TRANSFORM_V125",
     "status": "REQUIRES_01B_SEMANTIC_FREEZE_BEFORE_RUNTIME",
-    "operations": ["MOVE", "ROTATE"],
+    "operations": [
+      "MOVE",
+      "ROTATE"
+    ],
     "whyThisSubset": "no identity allocation, no object creation/deletion, no inventory transaction, no topology compiler, no Building lifecycle, and no cross-grid remap is required",
     "requiredObjectConstraints": [
       "existing root GridObject only",
@@ -104,24 +107,67 @@
       "no NextGridObjectID change",
       "native placement validation passes for final transform"
     ],
-    "proposedSerializedDelta": ["X", "Y", "Orientation"],
+    "proposedSerializedDelta": [
+      "X",
+      "Y",
+      "Orientation"
+    ],
     "positiveAuthorization": false,
     "reason": "01A does not own World/object-family write semantics; 01B must prove whether X/Y/Orientation-only serialization is complete for this exact subset"
   },
   "failClosedMatrix": [
-    {"condition":"unsupported or ambiguous source platform/build/schema/codec","result":"REJECT"},
-    {"condition":"source length/hash differs from plan","result":"REJECT"},
-    {"condition":"wrong GridID/GridObjectID/ItemID","result":"REJECT"},
-    {"condition":"precondition mismatch","result":"REJECT"},
-    {"condition":"mutation outside exact allowed paths","result":"REJECT"},
-    {"condition":"GameInfo mutation","result":"REJECT"},
-    {"condition":"unrelated-state drift","result":"REJECT"},
-    {"condition":"opaque/unknown-field loss","result":"REJECT"},
-    {"condition":"unexpected GridObject creation/deletion/reidentification","result":"REJECT"},
-    {"condition":"canonical reparse or codec reopen failure","result":"REJECT"},
-    {"condition":"postcondition mismatch","result":"REJECT"},
-    {"condition":"candidate/backup/plan/manifest tamper","result":"REJECT"},
-    {"condition":"serializer semantic normalization","result":"REJECT_IN_V1"}
+    {
+      "condition": "unsupported or ambiguous source platform/build/schema/codec",
+      "result": "REJECT"
+    },
+    {
+      "condition": "source length/hash differs from plan",
+      "result": "REJECT"
+    },
+    {
+      "condition": "wrong GridID/GridObjectID/ItemID",
+      "result": "REJECT"
+    },
+    {
+      "condition": "precondition mismatch",
+      "result": "REJECT"
+    },
+    {
+      "condition": "mutation outside exact allowed paths",
+      "result": "REJECT"
+    },
+    {
+      "condition": "GameInfo mutation",
+      "result": "REJECT"
+    },
+    {
+      "condition": "unrelated-state drift",
+      "result": "REJECT"
+    },
+    {
+      "condition": "opaque/unknown-field loss",
+      "result": "REJECT"
+    },
+    {
+      "condition": "unexpected GridObject creation/deletion/reidentification",
+      "result": "REJECT"
+    },
+    {
+      "condition": "canonical reparse or codec reopen failure",
+      "result": "REJECT"
+    },
+    {
+      "condition": "postcondition mismatch",
+      "result": "REJECT"
+    },
+    {
+      "condition": "candidate/backup/plan/manifest tamper",
+      "result": "REJECT"
+    },
+    {
+      "condition": "serializer semantic normalization",
+      "result": "REJECT_IN_V1"
+    }
   ],
   "atomicReplacementDesign": {
     "status": "DESIGN_FROZEN_NOT_IMPLEMENTED_NOT_AUTHORIZED",
@@ -226,5 +272,11 @@
       "WE-COMMIT",
       "WE-RELOAD"
     ]
+  },
+  "integratorReview": {
+    "status": "ACCEPTED_PENDING_MERGE",
+    "correction": "Independent candidate verification now rebinds manifest plan/input/output/target/operation/semanticDiff/sourceEvidence/verification fields to recomputed plan and candidate semantics, including rejection of self-rehashed semantic manifest tamper.",
+    "ci": "PR head CI must pass after Integrator hardening before merge",
+    "persistentAuthorizationChanged": false
   }
 }
