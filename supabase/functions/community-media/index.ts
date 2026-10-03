@@ -259,6 +259,38 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       });
     }
 
+    if (action === 'dreamsnapJudgeRead') {
+      const entryId = String(body.entryId ?? '');
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(entryId)) {
+        return reply({ ok: false, error: 'Valid entryId required' }, 400);
+      }
+      const { data: media, error: mediaError } = await ctx.supabaseAdmin.rpc(
+        'community_get_dreamsnap_judge_media_storage_v1',
+        { p_auth_subject: subject, p_entry_id: entryId }
+      );
+      if (mediaError || !media) {
+        return reply({ ok: false, error: 'DREAMSNAP_MEDIA_FORBIDDEN' }, 403);
+      }
+      const { data: signed, error: signError } = await ctx.supabaseAdmin.storage
+        .from(BUCKET)
+        .createSignedUrl(String(media.storageKey), 300);
+      if (signError || !signed?.signedUrl) {
+        return reply({ ok: false, error: 'MEDIA_SIGN_FAILED' }, 400);
+      }
+      return reply({
+        ok: true,
+        action,
+        media: {
+          mediaId: media.mediaId,
+          mimeType: media.mimeType,
+          width: media.width,
+          height: media.height,
+          signedUrl: signed.signedUrl,
+          expiresIn: 300
+        }
+      });
+    }
+
     if (action === 'read') {
       const mediaId = String(body.mediaId ?? '');
       const { data: media, error: mediaError } = await ctx.supabaseAdmin.rpc(
