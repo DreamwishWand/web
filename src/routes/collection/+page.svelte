@@ -19,7 +19,7 @@
 
   $: copy = collectionCopy($locale);
   $: records = runtimeIndex ? rawRows.map((row) => decodeCollectionRecord(runtimeIndex, row, $locale)) : [];
-  $: filtered = filterCollectionRecords(records, { query, family, world, universe }).sort((a, b) => a.label.localeCompare(b.label, $locale));
+  $: filtered = filterCollectionRecords(records, { query, family, world, universe }).sort((a: any, b: any) => a.label.localeCompare(b.label, $locale));
   $: visible = filtered.slice(0, DISPLAY_LIMIT);
   $: families = runtimeIndex?.f ?? [];
   $: worlds = runtimeIndex?.w ?? [];
