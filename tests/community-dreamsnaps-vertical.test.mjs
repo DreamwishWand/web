@@ -86,11 +86,16 @@ test('Judge projection is blind and formal votes are separated from browse react
 
 test('official in-game results remain separate and private-by-default', () => {
   const commands = read('supabase/migrations/20261003044400_community_dreamsnaps_commands_v1.sql');
+  const provenance = read('supabase/migrations/20261003044800_community_dreamsnaps_ingame_result_provenance_v1.sql');
+  const edge = read('supabase/functions/community-command/index.ts');
   const projection = read('supabase/migrations/20261003044500_community_dreamsnaps_projection_v1.sql');
   const my = read('src/routes/dreamsnaps/my/+page.svelte');
   const results = read('src/routes/dreamsnaps/results/+page.svelte');
 
-  assert.ok(commands.includes('community_dreamsnap_record_official_result_v1'));
+  assert.ok(provenance.includes('community_dreamsnap_ingest_ingame_result_v1'));
+  assert.match(provenance, /p_source_kind not in \('save','official_evidence'\)/);
+  assert.match(provenance, /source_reference/);
+  assert.doesNotMatch(edge, /recordDreamsnapOfficialResult/);
   assert.ok(commands.includes('community_dreamsnap_set_official_result_publication_v1'));
   assert.ok(projection.includes('private.dreamsnap_public_official_result'));
   assert.ok(projection.includes("'wandResults'"));
@@ -129,10 +134,10 @@ test('DreamSnaps Edge boundaries expose only the intended signed and public oper
     'castDreamsnapVote',
     'addDreamsnapBrowseReaction',
     'addDreamsnapSpecialPick',
-    'recordDreamsnapOfficialResult',
     'setDreamsnapOfficialResultPublication',
     'publishDreamsnapGallery'
   ]) assert.ok(command.includes(name), name);
+  assert.doesNotMatch(command, /recordDreamsnapOfficialResult/);
 
   assert.ok(query.includes("dreamsnapJudge: 'community_get_dreamsnap_judge_v1'"));
   assert.ok(query.includes("myDreamsnaps: 'community_get_my_dreamsnaps_v1'"));
