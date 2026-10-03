@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { base } from '$app/paths';
-  import { locale, t } from '$lib/i18n/runtime.js';
+  import { locale, ct as t } from '$lib/i18n/community.js';
   import { createCommunityBrowserClient, callPublicCommunityRpc } from '$lib/community/browser-client';
   import GalleryBrowse from '$lib/community/GalleryBrowse.svelte';
   import GalleryDetail from '$lib/community/GalleryDetail.svelte';
