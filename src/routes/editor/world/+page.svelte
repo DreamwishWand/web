@@ -1936,6 +1936,12 @@
         fencePostValidation = null;
       }
 
+      verifiedExportBaselineDocument = cloneLocal(normalized);
+      verifiedExportReview = null;
+      verifiedExportResult = null;
+      verifiedExportErrorCode = '';
+      verifiedExportErrorDetail = '';
+      verifiedExportConfirmed = false;
       fullDesignRootDocuments = [cloneLocal(normalized)];
       fullDesignSourceRootGridId = Number(rootGridId);
       for (const root of area.roots ?? []) {
@@ -2017,6 +2023,12 @@
     island: any,
     root: any
   ) {
+    verifiedExportBaselineDocument = null;
+    verifiedExportReview = null;
+    verifiedExportResult = null;
+    verifiedExportErrorCode = '';
+    verifiedExportErrorDetail = '';
+    verifiedExportConfirmed = false;
     if (!worldSource) return;
 
     if (worldSource.saveIdentity.sourcePlatform !== 'switch') {
@@ -2187,6 +2199,12 @@
     draftValidation = null;
     draftSavePreparation = null;
     lastDraftCommand = '';
+    verifiedExportBaselineDocument = null;
+    verifiedExportReview = null;
+    verifiedExportResult = null;
+    verifiedExportErrorCode = '';
+    verifiedExportErrorDetail = '';
+    verifiedExportConfirmed = false;
     copiedDraftClipboard = null;
     clipboardPasteCount = 0;
     query = '';
