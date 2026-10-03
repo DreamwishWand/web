@@ -1,8 +1,30 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import { locale, ct as t } from '$lib/i18n/community.js';
+  import { getPublicCommunityMedia } from '$lib/community/browser-client';
   export let work: any;
   export let onClose: () => void;
+  let mediaUrls: Record<string, string> = {};
+  let loadedKey = '';
+
+  $: mediaKey = (work?.mediaIds ?? []).map(String).join(',');
+  $: if (mediaKey && mediaKey !== loadedKey) {
+    loadedKey = mediaKey;
+    void loadMedia(work.mediaIds ?? []);
+  }
+
+  async function loadMedia(ids: string[]) {
+    const entries: Array<[string, string]> = [];
+    for (const id of ids.slice(0, 10)) {
+      try {
+        const media = await getPublicCommunityMedia(String(id));
+        entries.push([String(id), media.signedUrl]);
+      } catch {
+        // Keep an accessible placeholder when public media cannot be signed.
+      }
+    }
+    mediaUrls = Object.fromEntries(entries);
+  }
 </script>
 
 <article class="detail">
@@ -14,10 +36,13 @@
 
   <div class="media">
     {#each work.mediaIds ?? [] as mediaId}
-      <div class="placeholder" aria-label={t('gallery.media.placeholder', {}, $locale)}>
-        <span>{t('gallery.media.placeholder', {}, $locale)}</span>
-        <code>{mediaId}</code>
-      </div>
+      {#if mediaUrls[String(mediaId)]}
+        <img src={mediaUrls[String(mediaId)]} alt="" loading="lazy" />
+      {:else}
+        <div class="placeholder" role="img" aria-label={t('gallery.media.placeholder', {}, $locale)}>
+          <span>{t('gallery.media.placeholder', {}, $locale)}</span>
+        </div>
+      {/if}
     {/each}
   </div>
 
@@ -46,5 +71,5 @@
 </article>
 
 <style>
-  .detail{margin-top:24px;padding:22px;border:1px solid var(--border);border-radius:20px;background:var(--surface)}.head,.chips{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.head{justify-content:space-between}.head button{min-height:42px;border:1px solid var(--border);border-radius:999px;background:var(--surface-raised);color:var(--ink);padding:8px 14px}.media{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.placeholder{aspect-ratio:16/9;display:grid;place-items:center;text-align:center;border:1px solid var(--border);border-radius:14px;background:var(--surface-raised);color:var(--ink-muted)}.placeholder code{font-size:10px}.chips span{border:1px solid var(--border);border-radius:999px;padding:6px 10px;font-size:12px}@media(max-width:760px){.media{grid-template-columns:1fr}}
+  .detail{margin-top:24px;padding:22px;border:1px solid var(--border);border-radius:20px;background:var(--surface)}.head,.chips{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.head{justify-content:space-between}.head button{min-height:42px;border:1px solid var(--border);border-radius:999px;background:var(--surface-raised);color:var(--ink);padding:8px 14px}.media{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.media img,.placeholder{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:14px}.placeholder{display:grid;place-items:center;text-align:center;border:1px solid var(--border);border-radius:14px;background:var(--surface-raised);color:var(--ink-muted)}.placeholder code{font-size:10px}.chips span{border:1px solid var(--border);border-radius:999px;padding:6px 10px;font-size:12px}@media(max-width:760px){.media{grid-template-columns:1fr}}
 </style>
