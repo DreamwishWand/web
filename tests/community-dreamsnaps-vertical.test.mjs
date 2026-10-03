@@ -9,6 +9,7 @@ function read(path) {
 test('DreamSnaps is a first-class CommunityWork domain with account-scoped competition rights', () => {
   const schema = read('supabase/migrations/20261003044300_community_dreamsnaps_schema_v1.sql');
   const fix = read('supabase/migrations/20261003044600_community_dreamsnaps_native_revision_fix_v1.sql');
+  const integrity = read('supabase/migrations/20261003044700_community_dreamsnaps_integrity_pool_v1.sql');
 
   for (const token of [
     'public.dreamsnap_challenges',
@@ -30,11 +31,28 @@ test('DreamSnaps is a first-class CommunityWork domain with account-scoped compe
   assert.match(schema, /formal_vote_allowance integer not null/i);
   assert.match(schema, /special_pick_allowance integer not null/i);
   assert.match(schema, /minimum_real_eligible_entries integer not null/i);
+  assert.match(integrity, /minimum_real_eligible_creators/i);
+  assert.match(integrity, /count\(distinct w\.creator_profile_id\)/i);
+  assert.match(integrity, /e\.origin_kind='user'/i);
+  assert.match(integrity, /work_revision_media_one_dreamsnap_competition_image_uq/i);
 
   assert.match(fix, /add column if not exists caption text/i);
   assert.match(fix, /insert into public\.dreamsnap_work_revisions/i);
   assert.doesNotMatch(fix, /insert into public\.gallery_works/i);
   assert.doesNotMatch(fix, /insert into public\.gallery_work_revisions/i);
+});
+
+test('integrity assessment can fail closed before entry and project into active entry eligibility', () => {
+  const integrity = read('supabase/migrations/20261003044700_community_dreamsnaps_integrity_pool_v1.sql');
+  const acceptance = read('supabase/staging/acceptance/dreamsnaps-golden-vertical-20261003.sql');
+
+  assert.ok(integrity.includes('community_dreamsnap_apply_integrity_assessment_v1'));
+  assert.match(integrity, /'eligible','under_review','rejected'/);
+  assert.match(integrity, /suspicion_flags/);
+  assert.match(integrity, /entryEligibilityState/);
+  assert.match(acceptance, /ACCEPTANCE_INVALID_MEDIA_NOT_BLOCKED/);
+  assert.match(acceptance, /ACCEPTANCE_INTEGRITY_REVIEW_DID_NOT_BLOCK_ENTRY/);
+  assert.match(acceptance, /ACCEPTANCE_REAL_POOL_ENTRY_CREATOR_FLOOR_NOT_MET/);
 });
 
 test('Work revision editing stays separate from explicit competition entry revision replacement', () => {
