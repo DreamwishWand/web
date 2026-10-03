@@ -478,7 +478,7 @@ const copy = {
   'worldEditor.live.coreReasonStateUnsupported': '此对象带有 attached state，其 mutation semantics 尚未 promoted 用于 generic editing。',
   'worldEditor.live.coreReasonRootGrid': '所选 root Grid 可见，但当前 Core role contract 未授权其 mutation。',
   'worldEditor.live.coreReasonFallback': 'Core 将此对象保持为只读。',
-  'worldEditor.live.coreReasonDefault': '所选对象在当前 Core projection 中为只读。'
+  'worldEditor.live.coreReasonDefault': '所选对象在当前 Core projection 中为只读。',
   "worldEditor.verifiedExport.eyebrow": "已验证替换导出",
   "worldEditor.verifiedExport.title": "检查更改并导出",
   "worldEditor.verifiedExport.description": "发布版写入器仅支持同一根网格中一个现有普通家具的移动或直角旋转。Wand 会生成并独立验证一个编辑后的替换存档，不会覆盖已加载的源存档。",
