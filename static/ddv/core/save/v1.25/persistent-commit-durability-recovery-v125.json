@@ -31,7 +31,8 @@
       "candidateToPostColdTargetGridDiff": 0,
       "serializedCompanionFieldsObserved": false,
       "transformNormalizationObserved": false
-    }
+    },
+    "manual01ERestoreUse": "SUPPORTING_EVIDENCE_ONLY_NOT_PRODUCT_RECOVERY_PROOF"
   },
   "contracts": {
     "engine": "dreamwish.ddv.persistent-commit-engine@1",
@@ -319,6 +320,28 @@
   },
   "implementationEvidence": {
     "localFailureInjection": "48/48 PASS before repo integration; repo integration adds real promoted 01A+01B binding test",
-    "githubCi": "PENDING"
+    "githubCi": {
+      "pullRequest": 61,
+      "branch": "dev/core-save-persistent-commit-durability-v125",
+      "implementationHeadBeforeCiMetadata": "2a5ce3dd322599ae862eceedb3cc8be79ad8ae05",
+      "runId": 37103274699,
+      "runNumber": 1975,
+      "conclusion": "SUCCESS",
+      "overallTests": 259,
+      "overallPass": 247,
+      "overallFail": 0,
+      "overallSkip": 12,
+      "focusedPersistentCommitTests": 49,
+      "focusedPersistentCommitPass": 49,
+      "focusedPersistentCommitFail": 0,
+      "steps": {
+        "edgeFunctionTypeChecks": "PASS",
+        "typeAndComponentChecks": "PASS",
+        "sharedWebAccessibilityLocalization": "PASS",
+        "canonicalBaselineIntegrity": "PASS",
+        "contractTests": "PASS",
+        "staticBuild": "PASS"
+      }
+    }
   }
 }
