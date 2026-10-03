@@ -52,6 +52,7 @@ jobs:
           test -f build/gallery/index.html
           test -f build/gallery/publish/index.html
           test -f build/gallery/my/index.html
+          test -f build/gallery/interact/index.html
           test -f build/qa/index.html
           test -f build/qa/ask/index.html
           test -f build/qa/participate/index.html
