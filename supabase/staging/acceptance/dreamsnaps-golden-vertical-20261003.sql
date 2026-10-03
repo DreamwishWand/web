@@ -354,9 +354,10 @@ begin
   v_json:=public.community_dreamsnap_finalize_results_v1(v_challenge,v_cv,clock_timestamp());
   if (v_json->>'resultCount')::int<>3 then raise exception 'ACCEPTANCE_RESULTS_COUNT_WRONG'; end if;
 
-  perform public.community_dreamsnap_record_official_result_v1(
+  perform public.community_dreamsnap_ingest_ingame_result_v1(
     v_subjects[1],v_entry_a,1234.5,7,4000,250,
-    jsonb_build_object('source','acceptance')
+    'save','sha256:'||repeat('e',64),clock_timestamp(),
+    jsonb_build_object('source','rollback_acceptance')
   );
 
   v_public:=public.community_get_dreamsnap_results_public_v1(v_challenge);
