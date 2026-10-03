@@ -38,7 +38,7 @@
     <nav class="main-nav" aria-label={t('shared.nav.primaryLabel', {}, $locale)}>
       <a href={`${base}/explore/`}>{t('shared.nav.explore', {}, $locale)}</a>
       <a href={`${base}/editor/`}>{t('shared.nav.editor', {}, $locale)}</a>
-      <a href={`${base}/projects/`}>{t('shared.nav.projects', {}, $locale)}</a>
+      <a href={`${base}/moodboards/`}>{t('shared.nav.projects', {}, $locale)}</a>
       <CommunityNav />
     </nav>
     <div class="locale-control">
