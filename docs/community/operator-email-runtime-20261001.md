@@ -1,0 +1,235 @@
+# Community Core operator critical email runtime — 2026-10-01
+
+Status: **CONFIRMED DELIVERY / REPRESENTATIVE MAILBOX PLACEMENT CLOSED**
+
+## Scope
+
+This runtime acceptance verifies the real staging path:
+
+persistent Operations Alert
+-> durable external-delivery queue
+-> `community-ops-email`
+-> internal `community-email-resend`
+-> Resend
+-> configured operator mailbox.
+
+The operator mailbox address itself is secret configuration and is intentionally omitted from this
+evidence.
+
+## Configuration
+
+Provider:
+
+- Resend
+
+Verified sender domain:
+
+- `dreamwishwand.com`
+
+Sender:
+
+- `Dreamwish Wand Ops <ops@dreamwishwand.com>`
+
+Canonical channel:
+
+- `operator_email`
+
+Destination:
+
+- `community-email-resend` Edge Function
+
+Authentication:
+
+- existing Vault-backed `operations_escalation` worker token;
+- no separate relay bearer secret.
+
+Required Edge secrets present/configured by the operator:
+
+- `RESEND_API_KEY`
+- `DREAMWISH_OPERATOR_EMAIL`
+
+## Runtime acceptance
+
+A safe staging critical-alert fixture was created with:
+
+- alert type: `outbox_dead_letter`;
+- severity: `critical`;
+- metadata limited to staging acceptance markers;
+- no user/report/media/provider identity data.
+
+Observed:
+
+- delivery queue state: `delivered`;
+- delivery attempts: 1;
+- delivery HTTP status: 200;
+- delivery error: null;
+- Resend provider status: `delivered`;
+- sender: `Dreamwish Wand Ops <ops@dreamwishwand.com>`;
+- subject shape: `[Dreamwish Wand][CRITICAL] <alert-type>`.
+
+Provider payload contained only:
+
+- alert type;
+- severity;
+- occurrence;
+- first/last seen timestamps;
+- internal `/community-ops/` instruction.
+
+It did not contain:
+
+- operator recipient address in the canonical alert payload;
+- provider subject;
+- Wand user email;
+- password/token;
+- recovery reference;
+- raw report detail;
+- media signed URL;
+- private DDV/Wand profile data.
+
+After provider delivery was confirmed:
+
+- the synthetic canonical alert was set to `resolved`;
+- its delivered external-delivery record was preserved as audit evidence;
+- staging open critical alert count returned to 0.
+
+## Evidence classification
+
+**CONFIRMED**
+
+- real Resend provider delivery from the production-shaped staging transport;
+- correct sender identity;
+- canonical alert survives independently of external mail transport;
+- minimized payload;
+- test alert cleanup/resolution.
+
+**CONFIRMED additional acceptance**
+
+- human operator confirmed the first critical-alert message was visible in the configured mailbox;
+- reopening the same canonical alert produced occurrence 2 and a distinct second external delivery;
+- occurrence 2 reached Resend with provider status `delivered`;
+- a controlled internal relay failure produced HTTP 404, delivery state `pending`, attempts = 1,
+  and preserved the canonical open alert;
+- the relay endpoint was restored to `community-email-resend`;
+- the exact same delivery retried and completed with HTTP 200, state `delivered`, attempts = 2;
+- Resend recorded the recovered delivery as `delivered`;
+- both acceptance fixture alerts were resolved afterward;
+- open critical alert count returned to 0;
+- canonical relay endpoint is restored.
+
+Provider delivery, retry and recurrence are CONFIRMED. Human mailbox delivery is also CONFIRMED, but iCloud placed the two rapid recurrence/retry test messages in Junk. Inbox placement is therefore PARTIAL and remains a launch-hardening item.
+
+Observed deliverability caveat:
+
+- the initial operator message was visible to the human operator;
+- the two additional rapid test messages were found in the iCloud Junk folder;
+- this test pattern was unusually bursty for a brand-new sending domain and is not representative of normal incident volume;
+- do not use synthetic warmup traffic; build reputation with real low-volume transactional mail and positive recipient feedback.
+
+Still open:
+
+- iCloud inbox-placement recheck after the operator marks the messages as Not Junk;
+- DMARC publication check/hardening;
+- real browser Auth verification/recovery email acceptance.
+
+
+## Low-volume observation update — 2026-10-01
+
+No synthetic warmup traffic was sent for this observation.
+
+Existing provider traffic for the preceding seven-day window was reviewed through Resend:
+
+- sent: 5;
+- delivered: 5;
+- delivery rate: 100%;
+- bounced: 0;
+- failed: 0;
+- complained: 0;
+- delivery-delayed: 0.
+
+The five existing messages covered real staging Auth verification/recovery and previously executed
+operator acceptance alerts. The sender domain remains verified with sending enabled in the
+ap-northeast-1 region.
+
+Classification:
+
+- **CONFIRMED provider delivery health:** 5/5 existing messages delivered with no bounce/complaint/failure signal;
+- **PARTIAL inbox placement:** provider `delivered` does not distinguish Inbox from Junk, and the
+  prior iCloud Junk observations remain relevant;
+- **POLICY:** continue observation from normal low-volume transactional use only. Do not generate
+  synthetic warming traffic.
+
+
+## Post-Auth acceptance observation — 2026-10-01
+
+The provider password-boundary / session-revocation acceptance generated no Auth email.
+
+A fresh Resend metrics read after that acceptance remains unchanged:
+
+- sent: 5;
+- delivered: 5;
+- bounced: 0;
+- failed: 0;
+- complained: 0;
+- delivery-delayed: 0.
+
+Therefore the Auth 14/15 + revocation regression did not act as synthetic warming and did not alter
+the deliverability sample.
+
+Inbox placement remains PARTIAL: provider `delivered` still does not prove Inbox placement, and the
+previous mixed iCloud Inbox/Junk observation remains the relevant human-mailbox evidence.
+
+The final signed-in reauthentication QA may legitimately generate one reauthentication message (and
+possibly the enabled password-changed security notification) as part of a real transaction. Do not
+repeat that flow merely to increase sending volume.
+
+
+## Production-readiness evidence refresh — 2026-10-01
+
+Existing traffic was re-read without sending any new message.
+
+Current provider evidence remains:
+
+- sent: 5;
+- delivered: 5;
+- bounced: 0;
+- failed: 0;
+- complained: 0;
+- delivery-delayed: 0;
+- delivery rate: 100%.
+
+Sender domain readback:
+
+- `dreamwishwand.com`;
+- status: verified;
+- sending: enabled;
+- region: ap-northeast-1.
+
+This closes provider-delivery evidence for the current sample.
+
+Human mailbox placement remains **PARTIAL** because provider `delivered` does not distinguish Inbox
+from Junk and prior iCloud placement was mixed. No synthetic warming was generated.
+
+
+## Representative real-Auth mailbox closure — 2026-10-01
+
+No synthetic warming traffic was generated.
+
+One normal staging browser transaction used a representative QA Gmail mailbox and generated only
+the messages required by the actual Auth flow. Human mailbox observation confirmed:
+
+- signup confirmation: Inbox;
+- signed-in reauthentication message: Inbox;
+- password-changed security notification: Inbox.
+
+Resend readback after the transaction showed the current observed sample at 8 sent / 8 delivered.
+The three new messages correspond to the real Auth transaction above.
+
+Launch classification:
+
+- **CONFIRMED representative mailbox placement:** the required low-volume human mailbox observation is complete;
+- prior iCloud mixed Inbox/Junk placement remains valid historical evidence and is not erased;
+- this does **not** claim that every mailbox provider will always place Wand mail in Inbox;
+- no extra message was sent to improve reputation or inflate the sample.
+
+The separate Auth runtime details are recorded in
+`docs/community/auth-final-mailbox-reauth-runtime-20261001.md`.

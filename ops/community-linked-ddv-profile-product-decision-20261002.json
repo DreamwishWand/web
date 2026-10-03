@@ -1,0 +1,74 @@
+{
+  "schema": "dreamwish-community-ddv-profile-workspace-product-decision@2",
+  "decidedAt": "2026-10-02",
+  "status": "PRODUCT_APPROVED_WORKSPACE_MODEL_IMPLEMENTED_STAGING",
+  "productApproved": true,
+  "profileWorkspace": {
+    "maxPerWandAccount": 5,
+    "capacityScope": "ACTIVE_AND_ARCHIVED_COMBINED",
+    "archiveFreesSlot": false,
+    "deletionFreesSlot": true,
+    "stableSlots": "1-5 account-local; lowest free slot reused after deletion",
+    "relationshipKinds": [
+      "self",
+      "parent_guardian_managed"
+    ],
+    "parentGuardianManagedUsesSameCapacity": true,
+    "wandCloudIncreasesLimit": false,
+    "playerIdRequired": false,
+    "selfServiceDelete": true,
+    "destructiveConfirmationRequired": true
+  },
+  "identityAssociation": {
+    "sourceField": "GameInfo.LastCustomIdOwner",
+    "semanticName": "DDV Player ID / User ID",
+    "optional": true,
+    "authenticationSecret": false,
+    "ownershipProof": false,
+    "entitlementProof": false,
+    "rawIdentifierStored": false,
+    "storedForm": "HMAC-SHA-256 versioned digest",
+    "sameAccountDuplicateAssociationAllowed": false,
+    "crossAccountSameIdentityAssociationAllowed": true,
+    "normalSelfServiceUnlink": true,
+    "unlinkDeletesWorkspace": false,
+    "ordinaryCooldownOrClaimTombstone": false
+  },
+  "workspaceDeletion": {
+    "removesWorkspaceScopedPrivateData": true,
+    "examples": [
+      "Collection/profile state",
+      "DreamSnaps profile/archive state",
+      "future profile-scoped progression state where implemented"
+    ],
+    "independentAccountCreatorDataSurvives": true,
+    "independentExamples": [
+      "Gallery publications",
+      "Wand Presets",
+      "Q&A Questions/Answers/Tips"
+    ]
+  },
+  "fairness": {
+    "profileCountMultipliesVotingRights": false,
+    "profileCountMultipliesFinalEntryRights": false,
+    "competitionIdentity": "Wand Account"
+  },
+  "privacyBoundary": {
+    "privacyApprovalStillPending": true,
+    "legalApprovalStillPending": true,
+    "rawPlayerIdPublicExposure": "PROHIBITED",
+    "privateWorkspaceDataCrossAccountMerge": "PROHIBITED"
+  },
+  "legacyExclusiveBindingModel": {
+    "status": "SUPERSEDED",
+    "historicalMigration": "20261001221620_community_linked_ddv_profile_lifecycle_v1",
+    "maxThree": false,
+    "noSelfServiceUnlink": false,
+    "globalExclusiveClaim": false
+  },
+  "engineeringBoundary": {
+    "stagingWorkspaceModelImplemented": true,
+    "productionResourceCreationAuthorized": false,
+    "launchApproved": false
+  }
+}

@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - 'dev/**'
+      - 'integration/**'
   pull_request:
 
 permissions:
@@ -36,6 +37,10 @@ jobs:
         run: npm run verify:web-foundation
       - name: Canonical baseline integrity
         run: npm run verify:canonical
+      - name: Community operations contract
+        run: npm run verify:community-ops
+      - name: Integrated production tree preflight
+        run: npm run verify:community-integrated-tree
       - name: Contract tests
         run: npm test
       - name: Static build
