@@ -263,7 +263,7 @@ try {
   await A.locator('input[type="email"]').fill(actors.A.email);
   await A.locator('input[type="password"]').fill('deliberately-wrong-password');
   await A.getByRole('button', { name: /Sign in/i }).click();
-  const alertVisible = await A.locator('[role="alert"]').isVisible().catch(() => false);
+  const alertVisible = await A.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 10000 }).then(() => true).catch(() => false);
   addCheck('A11Y-FORM-ERROR-LIVE', 'A', '/gallery/publish/', 'Invalid sign-in error exposed through role=alert', alertVisible, alertVisible ? 'role=alert visible' : 'No role=alert');
 
   await A.goto(baseUrl + '/gallery/publish/', { waitUntil: 'networkidle' });
@@ -617,6 +617,7 @@ try {
 } finally {
   for (const ctx of Object.values(contexts)) await ctx.close().catch(() => {});
   await browser.close().catch(() => {});
+  report.routeErrors = Object.fromEntries(Array.from(routeErrors.entries()).map(([key, value]) => [key, value]));
   report.timestampCompleted = new Date().toISOString();
   await writeFile(path.join(outDir, 'gallery-qa-browser-report.json'), JSON.stringify(report, null, 2));
   console.log('QR_RESULT=' + report.result + ' checks=' + report.checks.length + ' defects=' + report.defects.length + ' consoleErrors=' + report.consoleErrorCount + ' pageErrors=' + report.pageErrorCount);
