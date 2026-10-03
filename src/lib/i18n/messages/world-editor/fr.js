@@ -478,7 +478,7 @@ const copy = {
   'worldEditor.live.coreReasonStateUnsupported': 'L’objet porte un état associé dont les sémantiques de mutation ne sont pas promues pour l’édition générique.',
   'worldEditor.live.coreReasonRootGrid': 'La root Grid sélectionnée est visible mais non autorisée pour mutation par le contrat de rôle Core actuel.',
   'worldEditor.live.coreReasonFallback': 'Core maintient cet objet en lecture seule.',
-  'worldEditor.live.coreReasonDefault': 'L’objet sélectionné est en lecture seule dans la projection Core actuelle.'
+  'worldEditor.live.coreReasonDefault': 'L’objet sélectionné est en lecture seule dans la projection Core actuelle.',
   "worldEditor.verifiedExport.eyebrow": "EXPORT DE REMPLACEMENT VÉRIFIÉ",
   "worldEditor.verifiedExport.title": "Vérifier les modifications et exporter",
   "worldEditor.verifiedExport.description": "Le writer de lancement prend en charge un seul déplacement ou une rotation cardinale d’un meuble ordinaire existant dans la même grille racine. Wand crée puis vérifie indépendamment une sauvegarde modifiée de remplacement sans écraser la source chargée.",
