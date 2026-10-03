@@ -6,7 +6,7 @@ export default Object.freeze({
   "shared.nav.primaryLabel": "主导航",
   "shared.nav.explore": "探索",
   "shared.nav.editor": "编辑器",
-  "shared.nav.projects": "灵感板",
+  "shared.nav.projects": "我的项目",
   "shared.theme.switchToDay": "切换到浅色主题",
   "shared.theme.switchToNight": "切换到深色主题",
   "shared.theme.light": "浅色",
