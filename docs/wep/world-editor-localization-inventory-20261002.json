@@ -19,7 +19,7 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "062d1da568a82bcd66dce97f9a63aee72698f0b0",
+    "src/routes/editor/world/+page.svelte": "45630c17effc70ca2f4f69f2a5175a76341dcce5",
     "src/lib/wep/world-editor-primary-job.ts": "a8e49f4f2eec543b9aaebd2d552c9da8e36270d5",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "2136578c63d9e7b8f76e5bc4298bdb02cf4cfec2",
