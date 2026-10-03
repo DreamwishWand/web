@@ -31,7 +31,7 @@ const commandToRpc = {
   changeVisibility: 'community_change_work_visibility',
   unpublishWork: 'community_unpublish_work',
   deleteWork: 'community_delete_work',
-  moderateWork: 'community_moderate_work_v3',
+  moderateWork: 'community_moderate_entity_v4',
   retryDeadLetter: 'community_retry_dead_letter_outbox',
   revokeSessions: 'community_revoke_wand_sessions',
   createDdvProfileWorkspace: 'community_create_ddv_profile_workspace_v1',
