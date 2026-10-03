@@ -69,3 +69,22 @@ test('anonymous Community reads stay behind the allowlisted public Edge boundary
   assert.match(migration, /from public,anon,authenticated/);
   assert.match(migration, /to service_role/);
 });
+
+
+test('interactive Community routes reactively leave signed-out state after browser sign-in', async () => {
+  const fs = await import('node:fs');
+  const routePaths = [
+    '../src/routes/gallery/interact/+page.svelte',
+    '../src/routes/qa/participate/+page.svelte',
+    '../src/routes/qa/tip/+page.svelte'
+  ];
+
+  for (const routePath of routePaths) {
+    const source = fs.readFileSync(new URL(routePath, import.meta.url), 'utf8');
+    assert.match(source, /let signedIn = false;/, routePath);
+    assert.match(source, /signedIn = Boolean\(client\?\.session\);/, routePath);
+    assert.match(source, /signedIn = true;\s*await load\(\);/, routePath);
+    assert.match(source, /\{:else if !signedIn\}/, routePath);
+    assert.doesNotMatch(source, /\{:else if !client\.session\}/, routePath);
+  }
+});
