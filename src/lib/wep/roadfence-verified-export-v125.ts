@@ -391,8 +391,7 @@ export function analyzeRoadFenceVerifiedDraft({
     reader,change.kind,change.source,change.networkId
   );
   const transform=transformFor(
-    change.desired?.coordinateSpace??
-    sourceBinding.sourceNetwork?.coordinateSpace
+    change.desired??sourceBinding.sourceNetwork
   );
   const surface=validateTargetSurface(
     draftDocument,change.kind,change.desired,transform
