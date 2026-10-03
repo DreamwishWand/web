@@ -331,6 +331,7 @@ begin
   from public.dreamsnap_wand_results r
   join public.dreamsnap_entries e on e.entry_id=r.entry_id
   join public.community_works w on w.work_id=e.work_id
+  join public.creator_profiles cp on cp.creator_profile_id=w.creator_profile_id
   join public.work_revision_media wrm
     on wrm.work_revision_id=r.entry_revision_id
    and wrm.ordinal=0
@@ -338,7 +339,9 @@ begin
   where r.challenge_id=p_challenge_id
     and e.entry_state='entered'
     and e.eligibility_state='eligible'
-    and w.moderation_state='clear';
+    and w.moderation_state='clear'
+    and cp.profile_visibility='public'
+    and cp.moderation_state='clear';
 
   select coalesce(jsonb_agg(jsonb_build_object(
     'entryId',e.entry_id,
@@ -349,10 +352,13 @@ begin
   into v_official
   from public.dreamsnap_entries e
   join public.community_works w on w.work_id=e.work_id
+  join public.creator_profiles cp on cp.creator_profile_id=w.creator_profile_id
   where e.challenge_id=p_challenge_id
     and e.entry_state='entered'
     and e.eligibility_state='eligible'
     and w.moderation_state='clear'
+    and cp.profile_visibility='public'
+    and cp.moderation_state='clear'
     and private.dreamsnap_public_official_result(e.entry_id) is not null;
 
   return jsonb_build_object(
@@ -659,6 +665,76 @@ begin
 end
 $$;
 
+create or replace function private.dreamsnap_apply_work_moderation_effect_v1(
+  p_work_id uuid,
+  p_action text
+)
+returns integer
+language plpgsql
+security definer
+set search_path=pg_catalog,public,private
+as $
+declare
+  v_affected integer:=0;
+begin
+  if p_action in ('restrict','remove') then
+    update public.dreamsnap_entries
+    set eligibility_state='ineligible',updated_at=now()
+    where work_id=p_work_id
+      and entry_state='entered'
+      and eligibility_state<>'ineligible';
+    get diagnostics v_affected=row_count;
+    delete from public.search_documents where work_id=p_work_id;
+  elsif p_action='restore' then
+    update public.dreamsnap_entries e
+    set eligibility_state='eligible',updated_at=now()
+    where e.work_id=p_work_id
+      and e.entry_state='entered'
+      and exists(
+        select 1 from public.dreamsnap_work_revisions dr
+        where dr.revision_id=e.entry_revision_id and dr.integrity_state='eligible'
+      );
+    get diagnostics v_affected=row_count;
+
+    insert into public.search_documents(
+      entity_id,work_id,work_type,creator_profile_id,title,text_content,tags,facets,published_at,updated_at
+    )
+    select
+      w.work_id,w.work_id,'dreamsnap',w.creator_profile_id,c.title,coalesce(gr.description,''),
+      array[]::text[],
+      jsonb_build_object(
+        'challengeId',c.challenge_id,'commentsEnabled',gp.comments_enabled,'competitionArchive',true
+      ),
+      gp.published_at,now()
+    from public.community_works w
+    join public.dreamsnap_gallery_publications gp on gp.work_id=w.work_id
+    join public.dreamsnap_entries e on e.entry_id=gp.entry_id
+    join public.dreamsnap_challenges c on c.challenge_id=e.challenge_id
+    join public.gallery_work_revisions gr on gr.revision_id=gp.revision_id
+    where w.work_id=p_work_id
+      and w.lifecycle_state='published'
+      and w.visibility='public'
+      and w.moderation_state='clear'
+      and gp.publication_state='published'
+      and c.lifecycle_state in ('results','closed')
+      and e.entry_state='entered'
+      and e.eligibility_state='eligible'
+    on conflict(entity_id) do update set
+      creator_profile_id=excluded.creator_profile_id,
+      title=excluded.title,text_content=excluded.text_content,
+      tags=excluded.tags,facets=excluded.facets,
+      published_at=excluded.published_at,updated_at=now();
+  else
+    raise exception 'Unsupported DreamSnaps moderation projection action';
+  end if;
+
+  return v_affected;
+end
+$;
+
+revoke execute on function private.dreamsnap_apply_work_moderation_effect_v1(uuid,text)
+from public,anon,authenticated,service_role;
+
 create or replace function public.community_moderate_entity_v5(
   p_auth_subject uuid,
   p_session_id uuid,
@@ -689,55 +765,7 @@ begin
   );
 
   if v_work_type='dreamsnap' then
-    if p_action in ('restrict','remove') then
-      update public.dreamsnap_entries
-      set eligibility_state='ineligible',updated_at=now()
-      where work_id=v_target
-        and entry_state='entered'
-        and eligibility_state<>'ineligible';
-      get diagnostics v_affected=row_count;
-      delete from public.search_documents where work_id=v_target;
-    elsif p_action='restore' then
-      update public.dreamsnap_entries e
-      set eligibility_state='eligible',updated_at=now()
-      where e.work_id=v_target
-        and e.entry_state='entered'
-        and exists(
-          select 1 from public.dreamsnap_work_revisions dr
-          where dr.revision_id=e.entry_revision_id and dr.integrity_state='eligible'
-        );
-      get diagnostics v_affected=row_count;
-
-      insert into public.search_documents(
-        entity_id,work_id,work_type,creator_profile_id,title,text_content,tags,facets,published_at,updated_at
-      )
-      select
-        w.work_id,w.work_id,'dreamsnap',w.creator_profile_id,c.title,coalesce(gr.description,''),
-        array[]::text[],
-        jsonb_build_object(
-          'challengeId',c.challenge_id,'commentsEnabled',gp.comments_enabled,'competitionArchive',true
-        ),
-        gp.published_at,now()
-      from public.community_works w
-      join public.dreamsnap_gallery_publications gp on gp.work_id=w.work_id
-      join public.dreamsnap_entries e on e.entry_id=gp.entry_id
-      join public.dreamsnap_challenges c on c.challenge_id=e.challenge_id
-      join public.gallery_work_revisions gr on gr.revision_id=gp.revision_id
-      where w.work_id=v_target
-        and w.lifecycle_state='published'
-        and w.visibility='public'
-        and w.moderation_state='clear'
-        and gp.publication_state='published'
-        and c.lifecycle_state in ('results','closed')
-        and e.entry_state='entered'
-        and e.eligibility_state='eligible'
-      on conflict(entity_id) do update set
-        creator_profile_id=excluded.creator_profile_id,
-        title=excluded.title,text_content=excluded.text_content,
-        tags=excluded.tags,facets=excluded.facets,
-        published_at=excluded.published_at,updated_at=now();
-    end if;
-
+    v_affected:=private.dreamsnap_apply_work_moderation_effect_v1(v_target,p_action);
     v_result:=v_result || jsonb_build_object(
       'dreamsnapEligibilityRowsChanged',v_affected
     );
