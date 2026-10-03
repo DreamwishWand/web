@@ -157,6 +157,7 @@
   let verifiedExportErrorCode = '';
   let verifiedExportErrorDetail = '';
   let verifiedExportLoading = false;
+  let verifiedExportBuildConfirmed = false;
   let verifiedExportConfirmed = false;
   let copiedDraftClipboard: any = null;
   let clipboardPasteCount = 0;
@@ -1708,6 +1709,7 @@
     verifiedExportResult = null;
     verifiedExportErrorCode = '';
     verifiedExportErrorDetail = '';
+    verifiedExportBuildConfirmed = false;
     verifiedExportConfirmed = false;
     message = '';
     capturePreview = null;
@@ -2548,6 +2550,8 @@
     const key = ({
       WEP_EXPORT_UNSUPPORTED_VERSION_BUILD:
         'worldEditor.verifiedExport.failure.unsupportedBuild',
+      WEP_EXPORT_EXACT_BUILD_CONFIRMATION_REQUIRED:
+        'worldEditor.verifiedExport.failure.buildConfirmation',
       WEP_EXPORT_NO_ELIGIBLE_PENDING_CHANGE:
         'worldEditor.verifiedExport.failure.noEligibleChange',
       WEP_EXPORT_UNSUPPORTED_PENDING_CHANGE:
@@ -2614,7 +2618,8 @@
         draftDocument: editorDocument,
         placementBinding: placementLegalityBinding,
         worldBinding: switchWorldBinding,
-        basePath: base
+        basePath: base,
+        exactBuildConfirmed: verifiedExportBuildConfirmed
       });
       if (
         selection.length !== 1 ||
