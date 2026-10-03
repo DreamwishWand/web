@@ -26,6 +26,7 @@ export function structuralTransactionExtensionRequestV125() {
       targetKind: 'GRID_OBJECT_SET',
       identityPolicy: 'ALLOW_DECLARED_GRID_OBJECT_SET_DELTA',
       declarations: [
+        'gridId',
         'preservedGridObjectIds',
         'createdGridObjectIds',
         'deletedGridObjectIds',
@@ -33,6 +34,10 @@ export function structuralTransactionExtensionRequestV125() {
         'nextGridObjectIDBefore',
         'nextGridObjectIDAfter',
         'allowedStructuralPaths'
+      ],
+      pathClasses: [
+        '/World/GridCollection/Grids/{gridId}/Objects/{declaredCreatedOrDeletedId}',
+        '/World/GridCollection/Grids/{gridId}/NextGridObjectID'
       ],
       verification: [
         'identity delta equals declaration exactly',
