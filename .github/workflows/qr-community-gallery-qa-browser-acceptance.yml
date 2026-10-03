@@ -14,15 +14,10 @@ permissions:
 
 jobs:
   browser:
-    environment: github-pages
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
       QR_FROZEN_HEAD: 775c5d50d80ad68c4c2c5f37f94bb09835222f12
-      QR_SUPABASE_URL: ${{ vars.DREAMWISH_SUPABASE_URL }}
-      QR_SUPABASE_PUBLISHABLE_KEY: ${{ vars.DREAMWISH_SUPABASE_PUBLISHABLE_KEY }}
-      VITE_SUPABASE_URL: ${{ vars.DREAMWISH_SUPABASE_URL }}
-      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.DREAMWISH_SUPABASE_PUBLISHABLE_KEY }}
       QR_BASE_URL: http://127.0.0.1:4173
     steps:
       - uses: actions/checkout@v4
@@ -39,6 +34,44 @@ jobs:
             exit 1
           fi
 
+      - name: Resolve public browser config without recording values
+        shell: bash
+        run: |
+          set -euo pipefail
+          root='https://dreamwishwand.github.io/web'
+          tmp="$(mktemp -d)"
+          curl -fsSL "$root/" -o "$tmp/index.html"
+          key=''
+          url=''
+          while IFS= read -r src; do
+            case "$src" in
+              http*) asset="$src" ;;
+              /*) asset="https://dreamwishwand.github.io$src" ;;
+              *) asset="$root/$src" ;;
+            esac
+            file="$tmp/$(basename "$src")"
+            curl -fsSL "$asset" -o "$file" || continue
+            if [ -z "$key" ]; then
+              key="$(grep -oE 'sb_publishable_[A-Za-z0-9_-]+' "$file" | head -n1 || true)"
+            fi
+            if [ -z "$url" ]; then
+              url="$(grep -oE 'https://[a-z0-9]+\.supabase\.co' "$file" | head -n1 || true)"
+            fi
+          done < <(grep -oE 'src="[^"]+\.js"' "$tmp/index.html" | sed -E 's/^src="//;s/"$//')
+          test "$url" = 'https://ptpdoxhrqopvczpclcij.supabase.co'
+          case "$key" in
+            sb_publishable_*) ;;
+            *) echo "Configured public Pages build did not expose a modern publishable key." >&2; exit 1 ;;
+          esac
+          echo "::add-mask::$key"
+          {
+            echo "QR_SUPABASE_URL=$url"
+            echo "QR_SUPABASE_PUBLISHABLE_KEY=$key"
+            echo "VITE_SUPABASE_URL=$url"
+            echo "VITE_SUPABASE_PUBLISHABLE_KEY=$key"
+          } >> "$GITHUB_ENV"
+          echo "Configured public browser boundary resolved for staging project."
+
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -49,7 +82,7 @@ jobs:
       - name: Verify browser configuration boundary
         shell: bash
         run: |
-          test -n "$QR_SUPABASE_URL"
+          test "$QR_SUPABASE_URL" = 'https://ptpdoxhrqopvczpclcij.supabase.co'
           case "$QR_SUPABASE_PUBLISHABLE_KEY" in
             sb_publishable_*) ;;
             *) echo "Publishable browser key missing or wrong key type." >&2; exit 1 ;;
