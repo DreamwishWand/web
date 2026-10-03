@@ -62,7 +62,11 @@ try {
     const commitMessages = execFileSync('git', ['log', '--format=%B', 'origin/main..HEAD'], { encoding: 'utf8' });
     explicitPromotion = /\[PROMOTE\]/i.test(commitMessages);
   } else if (eventName === 'push') {
-    const diff = execFileSync('git', ['diff-tree', '--no-commit-id', '--name-only', '-m', '-r', 'HEAD'], { encoding: 'utf8' });
+    // For merge commits, compare the resulting tree to the first parent (the
+    // branch being protected). Using diff-tree -m compares against every parent
+    // and can falsely treat a baseline that is merely absent/stale on the
+    // merged-in branch as a new canonical change.
+    const diff = execFileSync('git', ['diff', '--name-only', 'HEAD^1', 'HEAD'], { encoding: 'utf8' });
     registryChanged = diff.split(/\r?\n/).includes(registryPath);
     let commitMessages = execFileSync('git', ['log', '-1', '--format=%B', 'HEAD'], { encoding: 'utf8' });
     if (/^Merge /m.test(commitMessages) || commitMessages.trim().length > 0) {

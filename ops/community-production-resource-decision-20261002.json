@@ -1,0 +1,56 @@
+{
+  "schema": "dreamwish-community-production-resource-decision@1",
+  "decidedAt": "2026-10-02",
+  "ownerDecision": "APPROVED",
+  "timing": "AT_RELEASE_STAGE",
+  "productionResourcesMayBeCreatedNow": false,
+  "supabase": {
+    "plan": "PRO",
+    "status": "APPROVED_FOR_RELEASE_PROVISIONING",
+    "pitr": "NOT_REQUIRED_AT_LAUNCH",
+    "leakedPasswordProtection": "MUST_ENABLE_IN_PRODUCTION",
+    "productionProject": "NOT_YET_CREATED",
+    "stagingReuseForbidden": true
+  },
+  "storageRecovery": {
+    "provider": "Cloudflare",
+    "service": "R2 Standard",
+    "status": "APPROVED_FOR_RELEASE_PROVISIONING",
+    "role": "independent private rollback-domain recovery copy",
+    "targetRetentionDays": 7,
+    "maximumRpoHours": 24,
+    "productionBucket": "NOT_YET_CREATED"
+  },
+  "privacyLegalBoundary": {
+    "providerSelectionClosed": true,
+    "finalPrivacyBindingPending": [
+      "actual Supabase production project region/configuration",
+      "Supabase DPA/subprocessor/transfer and provider retention review",
+      "Cloudflare R2 account/bucket region-location behavior and contractual/privacy review",
+      "Cloudflare DPA/subprocessor/transfer review",
+      "actual backup/log/object retention confirmation",
+      "user-facing processor/provider disclosure"
+    ],
+    "legalApprovalStillRequired": true,
+    "privacyApprovalStillRequired": true
+  },
+  "productionGatesStillOpen": [
+    "FINAL_INTEGRATED_SOURCE_TREE",
+    "DISTINCT_PRODUCTION_SUPABASE_PROJECT",
+    "FINAL_INTEGRATED_MIGRATION_REPLAY",
+    "DATABASE_BACKUP_MECHANISM_RUNTIME_PROOF",
+    "DATABASE_RESTORE_DRILL",
+    "STORAGE_BACKUP_MECHANISM_RUNTIME_PROOF",
+    "STORAGE_RESTORE_DRILL",
+    "RECOVERY_DELETION_LEDGER_EXTERNALIZATION_AND_RECONCILIATION",
+    "CONTROLLED_SECRET_ROTATION",
+    "PRODUCTION_FUNCTION_INVENTORY",
+    "PRODUCTION_CRON_VAULT_INVENTORY",
+    "PRODUCTION_SMOKE",
+    "PRODUCTION_SECURITY_ADVISOR",
+    "PRIVACY_APPROVAL",
+    "LEGAL_APPROVAL"
+  ],
+  "noPaidResourceCreatedByDecision": true,
+  "noProductionProjectCreatedByDecision": true
+}

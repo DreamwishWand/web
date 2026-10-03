@@ -1,0 +1,69 @@
+{
+  "schema": "dreamwish-product-dreamsnaps-integrity-privacy@1",
+  "decidedAt": "2026-10-02",
+  "state": "PRODUCT_CLOSED__ENGINEERING_ENFORCEMENT_AND_PRIVACY_LEGAL_REVIEW_PENDING",
+  "competitionIntegrity": {
+    "submittedImageMustBeGameScreenshot": true,
+    "externalVisualPostProcessingAllowed": false,
+    "prohibitedExamples": [
+      "added text/logos/graphics",
+      "decorative frames",
+      "compositing",
+      "external visual edits"
+    ],
+    "fullScreenshotPresentationRequired": true,
+    "uniformCompetitionPresentationRequired": true,
+    "enforcementModel": [
+      "explicit submission rule/attestation",
+      "reliable file/dimension/aspect/full-screen validation where technically supportable",
+      "suspicious-content detection where appropriate",
+      "report/moderation process"
+    ],
+    "cryptographicProofOfUneditedImageClaimed": false,
+    "technicalDetectionMethodOwnerDecision": false
+  },
+  "activeVotingPrivacy": {
+    "creatorIdentityHidden": true,
+    "commentsHidden": true,
+    "reactionsHidden": true,
+    "followerPopularityHidden": true,
+    "rankAndVoteStateHidden": true,
+    "formalJudgingTotalsHidden": true,
+    "socialSignalsDoNotInfluenceFormalJudging": true
+  },
+  "officialSaveDerivedResults": {
+    "defaultVisibility": "PRIVATE",
+    "publicDisclosure": "EXPLICIT_OPT_IN_AFTER_RESULTS",
+    "fields": [
+      "official score",
+      "official rank",
+      "Moonstones",
+      "Pixel Dust",
+      "participation/result metadata"
+    ],
+    "noAutoPublishWithImage": true
+  },
+  "under13ManagedDreamSnaps": {
+    "submissionActor": "PARENT_OR_GUARDIAN_WAND_ACCOUNT",
+    "childIndependentVotingOrInteraction": false,
+    "postResultInboundReactionsAllowed": true,
+    "postResultSavesFavoritesAllowed": true,
+    "postResultCommentsRepliesAllowed": false,
+    "publicCreatorAttribution": "PARENT_CREATOR_PROFILE",
+    "childWorkspaceIdentityPublic": false,
+    "under13ManagedStatusPublic": false
+  },
+  "boundary": {
+    "productDecisionClosed": true,
+    "engineeringOpen": [
+      "exact screenshot/full-screen validation implementation",
+      "suspicious-content detection implementation",
+      "browser/runtime acceptance"
+    ],
+    "privacyLegalOpen": [
+      "minor-specific legal/privacy review",
+      "final launch-jurisdiction disclosure/consent requirements"
+    ],
+    "launchApproved": false
+  }
+}
