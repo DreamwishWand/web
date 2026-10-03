@@ -38,6 +38,7 @@ begin
         and w.lifecycle_state='published'
         and w.visibility='public'
         and w.moderation_state='clear'
+        and private.is_discoverable_work(w.work_id)
     );
 
   if v_result is null then
