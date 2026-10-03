@@ -9,15 +9,24 @@ const commandToRpc = {
   createGalleryDraft: 'community_create_gallery_draft',
   createGalleryWork: 'community_create_gallery_work_v1',
   publishGallery: 'community_publish_gallery_v4',
+  registerDreamsnapWork: 'community_register_dreamsnap_work_v1',
+  updateDreamsnapWork: 'community_dreamsnap_update_work_revision_v1',
+  joinDreamsnapEvent: 'community_dreamsnap_join_event_v1',
+  replaceDreamsnapEntryRevision: 'community_dreamsnap_replace_entry_revision_v1',
+  castDreamsnapVote: 'community_dreamsnap_cast_formal_vote_v1',
+  addDreamsnapBrowseReaction: 'community_dreamsnap_add_browse_reaction_v1',
+  addDreamsnapSpecialPick: 'community_dreamsnap_special_pick_v1',
+  setDreamsnapOfficialResultPublication: 'community_dreamsnap_set_official_result_publication_v1',
+  publishDreamsnapGallery: 'community_dreamsnap_publish_gallery_v1',
   saveEntity: 'community_save_entity',
   unsaveEntity: 'community_unsave_entity',
   followCreator: 'community_follow_creator',
   unfollowCreator: 'community_unfollow_creator',
   addReaction: 'community_add_reaction',
   removeReaction: 'community_remove_reaction',
-  addComment: 'community_add_comment_v2',
-  setGalleryCommentsEnabled: 'community_set_gallery_comments_enabled_v1',
-  removeGalleryComment: 'community_gallery_author_remove_comment_v1',
+  addComment: 'community_add_comment_v3',
+  setGalleryCommentsEnabled: 'community_set_gallery_comments_enabled_v2',
+  removeGalleryComment: 'community_gallery_author_remove_comment_v2',
   askQuestion: 'community_ask_question_v1',
   addAnswer: 'community_add_answer_v1',
   setSameHere: 'community_set_same_here_v1',
@@ -31,7 +40,7 @@ const commandToRpc = {
   changeVisibility: 'community_change_work_visibility',
   unpublishWork: 'community_unpublish_work',
   deleteWork: 'community_delete_work',
-  moderateWork: 'community_moderate_entity_v4',
+  moderateWork: 'community_moderate_entity_v5',
   retryDeadLetter: 'community_retry_dead_letter_outbox',
   revokeSessions: 'community_revoke_wand_sessions',
   createDdvProfileWorkspace: 'community_create_ddv_profile_workspace_v1',
@@ -48,6 +57,15 @@ const commandToRateBucket: Partial<Record<CommandName, string>> = {
   createGalleryDraft: 'gallery_write',
   createGalleryWork: 'gallery_write',
   publishGallery: 'gallery_write',
+  registerDreamsnapWork: 'dreamsnap_write',
+  updateDreamsnapWork: 'dreamsnap_write',
+  joinDreamsnapEvent: 'dreamsnap_write',
+  replaceDreamsnapEntryRevision: 'dreamsnap_write',
+  castDreamsnapVote: 'dreamsnap_judge',
+  addDreamsnapBrowseReaction: 'dreamsnap_signal',
+  addDreamsnapSpecialPick: 'dreamsnap_signal',
+  setDreamsnapOfficialResultPublication: 'dreamsnap_write',
+  publishDreamsnapGallery: 'dreamsnap_write',
   saveEntity: 'save',
   unsaveEntity: 'save',
   followCreator: 'follow',
@@ -251,6 +269,54 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         params.p_moodboard_snapshot_ref = payload.moodboardSnapshotRef ?? null;
         params.p_idempotency_key = payload.idempotencyKey;
         break;
+      case 'registerDreamsnapWork':
+        params.p_creator_profile_id = payload.creatorProfileId;
+        params.p_challenge_id = payload.challengeId;
+        params.p_workspace_id = payload.workspaceId ?? null;
+        params.p_media_id = payload.mediaId;
+        params.p_caption = payload.caption ?? null;
+        params.p_game_screenshot_attested = payload.gameScreenshotAttested === true;
+        params.p_no_external_edits_attested = payload.noExternalEditsAttested === true;
+        params.p_idempotency_key = payload.idempotencyKey;
+        break;
+      case 'updateDreamsnapWork':
+        params.p_work_id = payload.workId;
+        params.p_expected_version = payload.expectedVersion;
+        params.p_media_id = payload.mediaId;
+        params.p_caption = payload.caption ?? null;
+        params.p_game_screenshot_attested = payload.gameScreenshotAttested === true;
+        params.p_no_external_edits_attested = payload.noExternalEditsAttested === true;
+        params.p_idempotency_key = payload.idempotencyKey;
+        break;
+      case 'joinDreamsnapEvent':
+        params.p_work_id = payload.workId;
+        params.p_idempotency_key = payload.idempotencyKey;
+        break;
+      case 'replaceDreamsnapEntryRevision':
+        params.p_entry_id = payload.entryId;
+        params.p_revision_id = payload.revisionId;
+        break;
+      case 'castDreamsnapVote':
+        params.p_challenge_id = payload.challengeId;
+        params.p_entry_id = payload.entryId;
+        break;
+      case 'addDreamsnapBrowseReaction':
+        params.p_challenge_id = payload.challengeId;
+        params.p_entry_id = payload.entryId;
+        params.p_reaction_kind = payload.reactionKind;
+        break;
+      case 'addDreamsnapSpecialPick':
+        params.p_challenge_id = payload.challengeId;
+        params.p_entry_id = payload.entryId;
+        break;
+      case 'setDreamsnapOfficialResultPublication':
+        params.p_entry_id = payload.entryId;
+        params.p_public_fields = Array.isArray(payload.publicFields) ? payload.publicFields : [];
+        break;
+      case 'publishDreamsnapGallery':
+        params.p_entry_id = payload.entryId;
+        params.p_comments_enabled = payload.commentsEnabled !== false;
+        break;
       case 'saveEntity':
       case 'unsaveEntity':
         params.p_target_entity_id = payload.targetEntityId;
@@ -434,7 +500,12 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         error.message.includes('Idempotency key reused') ||
         error.message.includes('DDV_PROFILE_WORKSPACE_LIMIT_REACHED') ||
         error.message.includes('DDV_IDENTITY_ASSOCIATION_EXISTS') ||
-        error.message.includes('DDV_IDENTITY_ALREADY_ASSOCIATED_IN_ACCOUNT');
+        error.message.includes('DDV_IDENTITY_ALREADY_ASSOCIATED_IN_ACCOUNT') ||
+        error.message.includes('already used its DreamSnaps entry right') ||
+        error.message.includes('allowance is exhausted') ||
+        error.message.includes('already judged') ||
+        error.message.includes('already has this Wand Account Special Pick') ||
+        error.message.includes('entry revision is frozen');
       const recentAuth = error.message.includes('Recent authentication required');
       const forbidden =
         recentAuth ||
@@ -442,7 +513,10 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         error.message.includes('does not own') ||
         error.message.includes('not accessible') ||
         error.message.includes('not active') ||
-        error.message.includes('role required');
+        error.message.includes('role required') ||
+        error.message.includes('Self-judging') ||
+        error.message.includes('Self Special Pick') ||
+        error.message.includes('DREAMSNAP_REAL_ENTRY_FLOOR_NOT_MET');
 
       return reply(
         {

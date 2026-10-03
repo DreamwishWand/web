@@ -48,6 +48,7 @@
   <h1>{t('gallery.title', {}, $locale)}</h1>
   <p class="page-intro">{t('gallery.intro', {}, $locale)}</p>
   <p class="route-links">
+    <a class="inline-link" href={`${base}/gallery/dreamsnaps/`}>{t('dreamsnaps.gallery.title', {}, $locale)}</a>
     <a class="inline-link" href={`${base}/gallery/publish/`}>{t('gallery.tab.publish', {}, $locale)}</a>
     <a class="inline-link" href={`${base}/gallery/my/`}>{t('gallery.tab.my', {}, $locale)}</a>
   </p>

@@ -9,7 +9,12 @@ const ALLOWED = new Set([
   'community_get_question_public_v1',
   'community_get_question_redirect_public_v1',
   'community_get_tip_public_v1',
-  'community_search_questions_v1'
+  'community_search_questions_v1',
+  'community_get_current_dreamsnap_challenge_public_v1',
+  'community_list_dreamsnap_result_rounds_public_v1',
+  'community_get_dreamsnap_results_public_v1',
+  'community_get_gallery_dreamsnap_public_v1',
+  'community_search_gallery_dreamsnaps_public_v1'
 ]);
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -24,7 +29,8 @@ function reply(body: unknown, status = 200) {
 function singleUuidPayload(rpc: string, payload: JsonObject): JsonObject | null {
   const key =
     rpc === 'community_get_creator_public_v1' ? 'p_creator_profile_id' :
-    rpc === 'community_get_gallery_public_v1' ? 'p_work_id' :
+    rpc === 'community_get_gallery_public_v1' || rpc === 'community_get_gallery_dreamsnap_public_v1' ? 'p_work_id' :
+    rpc === 'community_get_dreamsnap_results_public_v1' ? 'p_challenge_id' :
     rpc === 'community_get_question_public_v1' || rpc === 'community_get_question_redirect_public_v1'
       ? 'p_question_id' :
     rpc === 'community_get_tip_public_v1' ? 'p_tip_id' :
@@ -73,6 +79,30 @@ function sanitizeSearchQuestions(payload: JsonObject): JsonObject | null {
   };
 }
 
+function sanitizeDreamsnapRounds(payload: JsonObject): JsonObject | null {
+  const rawLimit = payload.p_limit;
+  const limit =
+    rawLimit == null ? 50 :
+    Number.isInteger(rawLimit) ? Math.max(1, Math.min(100, Number(rawLimit))) :
+    NaN;
+  return Number.isFinite(limit) ? { p_limit: limit } : null;
+}
+
+function sanitizeDreamsnapGallerySearch(payload: JsonObject): JsonObject | null {
+  const rawQuery = payload.p_query;
+  const query =
+    rawQuery == null ? null :
+    typeof rawQuery === 'string' && rawQuery.length <= 100 ? rawQuery :
+    undefined;
+  if (query === undefined) return null;
+  const rawLimit = payload.p_limit;
+  const limit =
+    rawLimit == null ? 30 :
+    Number.isInteger(rawLimit) ? Math.max(1, Math.min(50, Number(rawLimit))) :
+    NaN;
+  return Number.isFinite(limit) ? { p_query: query, p_limit: limit } : null;
+}
+
 const publicFetch = withSupabase({ auth: 'none' }, async (req, ctx) => {
   if (req.method !== 'POST') return reply({ error: 'POST required' }, 405);
 
@@ -92,11 +122,17 @@ const publicFetch = withSupabase({ auth: 'none' }, async (req, ctx) => {
   if (!ALLOWED.has(rpc)) return reply({ error: 'Unsupported public query' }, 400);
 
   const params =
-    rpc === 'community_search_questions_v1'
-      ? sanitizeSearchQuestions(payload)
-      : singleUuidPayload(rpc, payload);
+    rpc === 'community_get_current_dreamsnap_challenge_public_v1'
+      ? {}
+      : rpc === 'community_search_questions_v1'
+        ? sanitizeSearchQuestions(payload)
+        : rpc === 'community_list_dreamsnap_result_rounds_public_v1'
+          ? sanitizeDreamsnapRounds(payload)
+          : rpc === 'community_search_gallery_dreamsnaps_public_v1'
+            ? sanitizeDreamsnapGallerySearch(payload)
+            : singleUuidPayload(rpc, payload);
 
-  if (!params) return reply({ error: 'Invalid public query parameters' }, 400);
+  if (params === null) return reply({ error: 'Invalid public query parameters' }, 400);
 
   const { data, error } = await ctx.supabaseAdmin.rpc(rpc, params);
   if (error) {

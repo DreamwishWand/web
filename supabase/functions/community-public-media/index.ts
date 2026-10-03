@@ -34,7 +34,7 @@ const publicFetch = withSupabase({ auth: 'none' }, async (req, ctx) => {
   }
 
   const { data: media, error: mediaError } = await ctx.supabaseAdmin.rpc(
-    'community_get_public_media_storage_v1',
+    'community_get_public_media_storage_v2',
     { p_media_id: mediaId }
   );
   if (mediaError || !media) {
