@@ -1,0 +1,117 @@
+name: QR Gallery Q&A browser acceptance
+
+on:
+  push:
+    branches:
+      - qr/community-gallery-qa-browser-r2-20261003
+    paths:
+      - '.github/workflows/qr-community-gallery-qa-browser-acceptance.yml'
+      - 'scripts/qr-community-gallery-qa-browser-acceptance.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      QR_FROZEN_HEAD: 586f4794e67fa2410066e1751f6b4b96df332e4e
+      QR_BASE_URL: http://127.0.0.1:4173
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify frozen product source
+        shell: bash
+        run: |
+          test "$(git merge-base "$QR_FROZEN_HEAD" HEAD)" = "$QR_FROZEN_HEAD"
+          if ! git diff --quiet "$QR_FROZEN_HEAD"...HEAD -- src supabase static package.json package-lock.json svelte.config.js vite.config.ts vite.config.js; then
+            echo "Frozen product source changed on QR branch." >&2
+            git diff --name-only "$QR_FROZEN_HEAD"...HEAD -- src supabase static package.json package-lock.json svelte.config.js vite.config.ts vite.config.js
+            exit 1
+          fi
+
+      - name: Bind browser-safe staging config
+        shell: bash
+        env:
+          QR_STAGING_URL: https://ptpdoxhrqopvczpclcij.supabase.co
+          QR_STAGING_PUBLISHABLE_KEY: sb_publishable_cwUD6Tut8vFgdsBBYPS1Pg_-gtimqpv
+        run: |
+          set -euo pipefail
+          test "$QR_STAGING_URL" = 'https://ptpdoxhrqopvczpclcij.supabase.co'
+          case "$QR_STAGING_PUBLISHABLE_KEY" in
+            sb_publishable_*) ;;
+            *) echo "Modern browser publishable key missing." >&2; exit 1 ;;
+          esac
+          echo "::add-mask::$QR_STAGING_PUBLISHABLE_KEY"
+          {
+            echo "QR_SUPABASE_URL=$QR_STAGING_URL"
+            echo "QR_SUPABASE_PUBLISHABLE_KEY=$QR_STAGING_PUBLISHABLE_KEY"
+            echo "VITE_SUPABASE_URL=$QR_STAGING_URL"
+            echo "VITE_SUPABASE_PUBLISHABLE_KEY=$QR_STAGING_PUBLISHABLE_KEY"
+          } >> "$GITHUB_ENV"
+          echo "Browser-safe staging boundary bound from the active Supabase publishable key."
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+
+      - name: Verify browser configuration boundary
+        shell: bash
+        run: |
+          test "$QR_SUPABASE_URL" = 'https://ptpdoxhrqopvczpclcij.supabase.co'
+          case "$QR_SUPABASE_PUBLISHABLE_KEY" in
+            sb_publishable_*) ;;
+            *) echo "Publishable browser key missing or wrong key type." >&2; exit 1 ;;
+          esac
+
+      - name: Build frozen production-shaped routes
+        env:
+          BASE_PATH: ''
+        run: npm run build
+
+      - name: Reject browser-secret patterns
+        shell: bash
+        run: |
+          if grep -R -E -n 'sb_secret_|SUPABASE_SERVICE_ROLE|service_role' build >/tmp/qr-secret-scan.txt; then
+            cat /tmp/qr-secret-scan.txt
+            echo "Forbidden privileged-secret pattern reached browser build." >&2
+            exit 1
+          fi
+
+      - id: chrome
+        shell: bash
+        run: |
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "path=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+          "$CHROME_BIN" --version
+
+      - name: Start local frozen build
+        shell: bash
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/qr-gallery-qa-vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl --fail --silent http://127.0.0.1:4173/gallery/ >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/qr-gallery-qa-vite.log
+          exit 1
+
+      - name: Focused Gallery Q&A browser acceptance
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+        run: node scripts/qr-community-gallery-qa-browser-acceptance.mjs
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr-community-gallery-qa-browser-acceptance
+          path: .artifacts/gallery-qa-qr/
+          if-no-files-found: warn
