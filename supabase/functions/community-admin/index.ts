@@ -22,7 +22,7 @@ const operationToRpc = {
   getSecurityPolicy: 'community_get_security_policy_summary',
   listActionRatePolicies: 'community_get_action_rate_policies',
   listModerationCases: 'community_get_moderation_cases',
-  moderateCase: 'community_moderate_work_v2'
+  moderateCase: 'community_moderate_entity_v4'
 
 } as const;
 
