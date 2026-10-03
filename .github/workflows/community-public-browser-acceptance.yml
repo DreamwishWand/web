@@ -1,0 +1,70 @@
+name: Community public browser acceptance
+
+on:
+  push:
+    branches:
+      - 'integration/**'
+    paths:
+      - '.github/workflows/community-public-browser-acceptance.yml'
+      - 'scripts/community-public-browser-acceptance.mjs'
+      - 'src/routes/gallery/**'
+      - 'src/routes/qa/**'
+      - 'src/lib/community/**'
+      - 'src/lib/i18n/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VITE_SUPABASE_URL: ${{ vars.DREAMWISH_SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.DREAMWISH_SUPABASE_PUBLISHABLE_KEY }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install app dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Install browser driver library only
+        run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Require public Community configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$VITE_SUPABASE_URL"
+          test -n "$VITE_SUPABASE_PUBLISHABLE_KEY"
+      - name: Resolve system Chrome
+        id: chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "path=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+          "$CHROME_BIN" --version
+      - name: Start local integrated Community UI
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4173 > /tmp/community-vite.log 2>&1 &
+          echo $! > /tmp/community-vite.pid
+          for i in $(seq 1 60); do
+            if curl --fail --silent --show-error http://127.0.0.1:4173/gallery/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/community-vite.log
+          exit 1
+      - name: Run anonymous Gallery/Q&A browser acceptance
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          COMMUNITY_BASE_URL: http://127.0.0.1:4173
+        run: node scripts/community-public-browser-acceptance.mjs
