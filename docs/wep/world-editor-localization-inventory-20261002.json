@@ -19,7 +19,7 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "37e74f4f68a8043144441c637d1d6274f2ba267b",
+    "src/routes/editor/world/+page.svelte": "062d1da568a82bcd66dce97f9a63aee72698f0b0",
     "src/lib/wep/world-editor-primary-job.ts": "a8e49f4f2eec543b9aaebd2d552c9da8e36270d5",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "2136578c63d9e7b8f76e5bc4298bdb02cf4cfec2",
@@ -1016,7 +1016,9 @@
           "Download integrity bundle",
           "Download manifest",
           "Keep the exact original backup. Install or import the edited save using your normal save-transfer workflow. Recovery is user-mediated by reinstalling/importing the retained original backup.",
-          "Review Changes passed. Confirm the exact semantic change to enable Apply / Export."
+          "Review Changes passed. Confirm the exact semantic change to enable Apply / Export.",
+          "I confirm this source was created by Nintendo Switch DDV v1.25.0, Build ID 52BD625D9B4E0053.",
+          "The save format cannot prove the executable Build ID. Confirm the exact source build before Review Changes."
         ],
         "failurePresentationKeys": [
           "worldEditor.verifiedExport.failure.unsupportedBuild",
@@ -1034,9 +1036,10 @@
           "worldEditor.verifiedExport.failure.exportAssembly",
           "worldEditor.verifiedExport.failure.reload",
           "worldEditor.verifiedExport.failure.reloadMismatch",
-          "worldEditor.verifiedExport.failure.generic"
+          "worldEditor.verifiedExport.failure.generic",
+          "worldEditor.verifiedExport.failure.buildConfirmation"
         ],
-        "note": "Raw WEP_EXPORT_*, TX_*, Core contract IDs, hashes, Item/Grid/Object IDs, operation enums, and manifest identifiers remain untranslated diagnostics. Presentation wrappers are localized in all eight launch locales. This surface exports an independently verified replacement artifact only; it does not authorize direct persistent replacement."
+        "note": "Raw WEP_EXPORT_*, TX_*, Core contract IDs, hashes, Item/Grid/Object IDs, operation enums, and manifest identifiers remain untranslated diagnostics. Presentation wrappers are localized in all eight launch locales. Because the save format does not prove the executable BID, exact Switch v1.25.0 / 52BD625D9B4E0053 user confirmation is required before Review Changes. This surface exports an independently verified replacement artifact only; it does not authorize direct persistent replacement."
       }
     ],
     "selection": [
