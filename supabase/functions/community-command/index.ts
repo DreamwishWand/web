@@ -7,19 +7,31 @@ const commandToRpc = {
   ensureAccountCreator: 'community_ensure_account_creator',
   updateCreatorProfile: 'community_update_creator_profile',
   createGalleryDraft: 'community_create_gallery_draft',
-  publishGallery: 'community_publish_gallery_v3',
+  createGalleryWork: 'community_create_gallery_work_v1',
+  publishGallery: 'community_publish_gallery_v4',
   saveEntity: 'community_save_entity',
   unsaveEntity: 'community_unsave_entity',
   followCreator: 'community_follow_creator',
   unfollowCreator: 'community_unfollow_creator',
   addReaction: 'community_add_reaction',
   removeReaction: 'community_remove_reaction',
-  addComment: 'community_add_comment',
+  addComment: 'community_add_comment_v2',
+  setGalleryCommentsEnabled: 'community_set_gallery_comments_enabled_v1',
+  removeGalleryComment: 'community_gallery_author_remove_comment_v1',
+  askQuestion: 'community_ask_question_v1',
+  addAnswer: 'community_add_answer_v1',
+  setSameHere: 'community_set_same_here_v1',
+  setAnswerUtility: 'community_set_answer_utility_v1',
+  resolveQuestion: 'community_resolve_question_v1',
+  createTip: 'community_create_tip_v1',
+  setQaFreshness: 'community_set_qa_freshness_v1',
+  removeOutdatedQa: 'community_remove_outdated_qa_v1',
+  withdrawDuplicateQuestion: 'community_withdraw_duplicate_question_v1',
   reportEntity: 'community_report_entity',
   changeVisibility: 'community_change_work_visibility',
   unpublishWork: 'community_unpublish_work',
   deleteWork: 'community_delete_work',
-  moderateWork: 'community_moderate_work_v2',
+  moderateWork: 'community_moderate_work_v3',
   retryDeadLetter: 'community_retry_dead_letter_outbox',
   revokeSessions: 'community_revoke_wand_sessions',
   createDdvProfileWorkspace: 'community_create_ddv_profile_workspace_v1',
@@ -34,6 +46,7 @@ type CommandName = keyof typeof commandToRpc;
 const commandToRateBucket: Partial<Record<CommandName, string>> = {
   updateCreatorProfile: 'profile_write',
   createGalleryDraft: 'gallery_write',
+  createGalleryWork: 'gallery_write',
   publishGallery: 'gallery_write',
   saveEntity: 'save',
   unsaveEntity: 'save',
@@ -42,6 +55,17 @@ const commandToRateBucket: Partial<Record<CommandName, string>> = {
   addReaction: 'reaction',
   removeReaction: 'reaction',
   addComment: 'comment',
+  setGalleryCommentsEnabled: 'gallery_write',
+  removeGalleryComment: 'gallery_write',
+  askQuestion: 'qa_write',
+  addAnswer: 'qa_write',
+  setSameHere: 'qa_signal',
+  setAnswerUtility: 'qa_signal',
+  resolveQuestion: 'qa_write',
+  createTip: 'qa_write',
+  setQaFreshness: 'qa_write',
+  removeOutdatedQa: 'qa_write',
+  withdrawDuplicateQuestion: 'qa_write',
   reportEntity: 'report',
   changeVisibility: 'gallery_write',
   unpublishWork: 'gallery_write',
@@ -207,6 +231,11 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         params.p_gallery_kind = payload.galleryKind;
         params.p_idempotency_key = payload.idempotencyKey;
         break;
+      case 'createGalleryWork':
+        params.p_creator_profile_id = payload.creatorProfileId;
+        params.p_gallery_kind = payload.galleryKind;
+        params.p_idempotency_key = payload.idempotencyKey;
+        break;
       case 'publishGallery':
         if (!Array.isArray(payload.mediaIds) || payload.mediaIds.length === 0) {
           return reply({ ok: false, error: 'mediaIds required' }, 400);
@@ -217,6 +246,9 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         params.p_description = payload.description ?? null;
         params.p_media_ids = payload.mediaIds;
         params.p_preset_revision_ids = Array.isArray(payload.presetRevisionIds) ? payload.presetRevisionIds : [];
+        params.p_used_item_ids = Array.isArray(payload.usedItemIds) ? payload.usedItemIds : [];
+        params.p_featured_item_ids = Array.isArray(payload.featuredItemIds) ? payload.featuredItemIds : [];
+        params.p_moodboard_snapshot_ref = payload.moodboardSnapshotRef ?? null;
         params.p_idempotency_key = payload.idempotencyKey;
         break;
       case 'saveEntity':
@@ -238,6 +270,65 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         params.p_parent_comment_id = payload.parentCommentId ?? null;
         params.p_body = payload.body;
         params.p_idempotency_key = payload.idempotencyKey;
+        break;
+      case 'setGalleryCommentsEnabled':
+        params.p_work_id = payload.workId;
+        params.p_enabled = payload.enabled;
+        break;
+      case 'removeGalleryComment':
+        params.p_work_id = payload.workId;
+        params.p_comment_id = payload.commentId;
+        params.p_reason = payload.reason;
+        break;
+      case 'askQuestion':
+        params.p_creator_profile_id = payload.creatorProfileId;
+        params.p_title = payload.title;
+        params.p_body = payload.body;
+        params.p_context_tags = payload.contextTags;
+        params.p_platform = payload.platform ?? null;
+        params.p_game_version = payload.gameVersion ?? null;
+        params.p_idempotency_key = payload.idempotencyKey;
+        break;
+      case 'addAnswer':
+        params.p_creator_profile_id = payload.creatorProfileId;
+        params.p_question_id = payload.questionId;
+        params.p_body = payload.body;
+        params.p_idempotency_key = payload.idempotencyKey;
+        break;
+      case 'setSameHere':
+        params.p_question_id = payload.questionId;
+        params.p_active = payload.active === true;
+        break;
+      case 'setAnswerUtility':
+        params.p_answer_id = payload.answerId;
+        params.p_utility_kind = payload.utility ?? null;
+        break;
+      case 'resolveQuestion':
+        params.p_question_id = payload.questionId;
+        params.p_accepted_answer_id = payload.acceptedAnswerId ?? null;
+        params.p_solution_note = payload.solutionNote ?? null;
+        break;
+      case 'createTip':
+        params.p_creator_profile_id = payload.creatorProfileId;
+        params.p_title = payload.title;
+        params.p_body = payload.body;
+        params.p_context_tags = Array.isArray(payload.contextTags) ? payload.contextTags : null;
+        params.p_platform = payload.platform ?? null;
+        params.p_game_version = payload.gameVersion ?? null;
+        params.p_source_question_id = payload.sourceQuestionId ?? null;
+        params.p_source_answer_id = payload.sourceAnswerId ?? null;
+        params.p_idempotency_key = payload.idempotencyKey;
+        break;
+      case 'setQaFreshness':
+        params.p_target_entity_id = payload.targetEntityId;
+        params.p_freshness = payload.freshness;
+        break;
+      case 'removeOutdatedQa':
+        params.p_target_entity_id = payload.targetEntityId;
+        break;
+      case 'withdrawDuplicateQuestion':
+        params.p_question_id = payload.questionId;
+        params.p_target_question_id = payload.targetQuestionId;
         break;
       case 'reportEntity':
         params.p_target_entity_id = payload.targetEntityId;
