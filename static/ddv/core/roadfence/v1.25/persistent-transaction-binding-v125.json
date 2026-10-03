@@ -1,0 +1,45 @@
+{
+  "schema": "ddv.roadfence-structural-transaction-binding@1",
+  "artifactId": "DDV-ROADFENCE-STRUCTURAL-TRANSACTION-BINDING-V125-V1_0",
+  "taskId": "01C-PERSISTENT-ROADFENCE-COMPILER-WRITER-V125-V1",
+  "owner": "01C CORE — Road / Fence + 01A CORE transaction foundation",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "titleId": "0100D39012C1A000",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchema": 624
+  },
+  "status": "ENGINEERING_CLOSED",
+  "input": "ddv.roadfence-native-mutation-set@1",
+  "output": "dreamwish.ddv.save-transaction-plan@1 + dreamwish.ddv.save-transaction-candidate@1",
+  "structuralCapability": "STRUCTURAL_WRITE_CANDIDATE",
+  "targetKind": "GRID_OBJECT_SET",
+  "mutationAdapter": "01c-roadfence-grid-object-set-v125-v1",
+  "binding": [
+    "compiler preserved/created/deleted GridObject IDs map exactly to 01A declared identity delta",
+    "compiler created raw objects map exactly to declared object-map additions",
+    "compiler deleted raw objects are source-bound preconditions and whole-entry removals",
+    "preserved owned raw objects are exact before/after",
+    "NextGridObjectID transition is exact and created IDs remain contiguous fresh IDs",
+    "allowed structural paths are re-derived and must equal compiler output exactly",
+    "candidate is independently reopened and reverified by 01A"
+  ],
+  "preservation": {
+    "ListInventory": "EXACT_UNCHANGED",
+    "CollectionSets": "EXACT_UNCHANGED",
+    "entitlementPremiumDlc": "EXACT_UNCHANGED",
+    "progression": "EXACT_UNCHANGED",
+    "StoreShop": "EXACT_UNCHANGED",
+    "GameInfo": "EXACT_UNCHANGED",
+    "unrelatedGridObjects": "EXACT_UNCHANGED",
+    "preservedOwnedUnknownFields": "OPAQUE_EXACT"
+  },
+  "acceptedRuntimeReuse": "No new runtime is required when compiler descriptors are equivalent to already-promoted Road/Fence runtime classes.",
+  "current01aWriteCandidateCompatible": true,
+  "verifiedBrowserReplacementCandidate": true,
+  "persistentWriteAuthorized": false,
+  "WORLD_PERSISTENT_WRITE_V125": false,
+  "productApplyAuthorized": false,
+  "directSourceReplacementAuthorized": false
+}

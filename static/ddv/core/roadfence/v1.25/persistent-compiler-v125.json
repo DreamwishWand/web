@@ -1,0 +1,115 @@
+{
+  "schema": "ddv.roadfence-persistent-compiler@1",
+  "artifactId": "DDV-ROADFENCE-PERSISTENT-COMPILER-WRITER-V125-V1_0",
+  "taskId": "01C-PERSISTENT-ROADFENCE-COMPILER-WRITER-V125-V1",
+  "owner": "01C CORE — Road / Fence",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "tid": "0100D39012C1A000",
+    "bid": "52BD625D9B4E0053",
+    "profileSchema": 624
+  },
+  "inputContracts": {
+    "road": "logical Road network with explicit resolved per-cell mode",
+    "fenceTopology": "logical Fence topology",
+    "fenceRepresentationLayout": "canonical ddv.fence-representation-layout@1 for captured/manual layouts; generated topology requires explicit ddv.fence-generated-layout-request@1",
+    "catalog": "dreamwish-wand-roadfence-native-catalog@v1",
+    "surface": "external authoritative world-surface validation",
+    "modeBoundaryBatch": "WEP mode-homogeneous Fence networks plus native-reader modeBoundaryTouches; v1 writer admits only exact promoted FM01 boundary batch"
+  },
+  "outputContract": "ddv.roadfence-native-mutation-set@1",
+  "identityLifecycle": {
+    "preserveRule": "preserve source GridObject ID and complete raw object only when the source native descriptor exactly matches a required resulting descriptor",
+    "deleteRule": "owned source descriptors not required by the resulting representation are deleted as whole GridObject map entries",
+    "createRule": "unmatched resulting descriptors receive fresh monotonically allocated IDs beginning at source NextGridObjectID",
+    "deletedIdReuse": false,
+    "allocationOrdering": "deterministic compiler descriptor order; not claimed as native DDV creation-order semantics",
+    "unrelatedIdentityDrift": "forbidden",
+    "nextGridObjectID": "before + createdObjectCount; deletion never decrements the counter",
+    "sourceObjectMapIntegrity": "Grid.Objects must be an object map; numeric map key must equal object.ID; duplicate IDs rejected",
+    "nextGridObjectIDPrecondition": "source NextGridObjectID must be greater than every existing GridObject ID"
+  },
+  "structuralMutation": {
+    "allowedPathClasses": [
+      "/World/GridCollection/Grids/{gridId}/Objects/{declaredCreatedOrDeletedId}",
+      "/World/GridCollection/Grids/{gridId}/NextGridObjectID"
+    ],
+    "inPlaceOwnedObjectFieldRewriteV1": false,
+    "requires01aExtension": false,
+    "dependencyId": "DDV-SAFE-STRUCTURAL-GRID-OBJECT-TRANSACTION-EXTENSION-V125-V1_0",
+    "sourceFamilyIsolation": "owned sourceObjectIds must resolve to the expected source Road/Fence family; family replacement is allowed only through an explicitly supported replacement operation",
+    "nativeSeedMergeRule": "ROAD_SAME_FAMILY_MERGE must preserve at least one exact source descriptor identity",
+    "dependencySatisfied": true,
+    "current01aWriteCandidateCompatible": true,
+    "bindingContract": "ddv.roadfence-structural-transaction-binding@1"
+  },
+  "road": {
+    "orientation": "GridOrientation_Down only for generated current-v1.25 Road cells",
+    "orthogonalState": null,
+    "diagonalState": {
+      "FenceMode": {
+        "Diagonal": true
+      }
+    },
+    "mixedTransitionNormalization": "only explicit already-resolved networks matching promoted patterns are accepted; generic mixed claims are rejected"
+  },
+  "fence": {
+    "topologyLayoutSeparated": true,
+    "capturedDefault": "EXACT_PRESERVATION / PRESERVE_EXISTING",
+    "representationOnlyOperations": [
+      "FENCE_MOVE_POST",
+      "FENCE_INSERT_POST",
+      "FENCE_REMOVE_POST"
+    ],
+    "semanticAnchors": [
+      "ENDPOINT",
+      "CORNER",
+      "JUNCTION",
+      "MODE_BOUNDARY"
+    ],
+    "maxSpanRule": "1 + max(exactExtensionKeys(family, mode))",
+    "adjacentBaseInterval": 1,
+    "silentRedistribution": false,
+    "singletonSemanticBaseMaterialization": true,
+    "canonicalRepresentationModelRequired": true,
+    "silentAutoLayout": false,
+    "generatedLayoutRequiresExplicitRequest": true,
+    "modeBoundaryCompilation": "compile each mode-homogeneous network independently and reconcile one atomic GridObject-set mutation; exact FM01 only"
+  },
+  "quantity": {
+    "roadLogicalQuantity": "persistent Road cell count",
+    "fenceLogicalQuantity": "logical graph node/base-unit count",
+    "nativeObjectCountIndependent": true,
+    "representationObjectCountIndependent": true,
+    "wandInventoryDelta": 0
+  },
+  "preservation": {
+    "ListInventory": "EXACT_UNCHANGED",
+    "Collection": "EXACT_UNCHANGED",
+    "PremiumDlcEntitlement": "EXACT_UNCHANGED",
+    "MoonstonesReceiptsAuthentication": "EXACT_UNCHANGED",
+    "progression": "EXACT_UNCHANGED",
+    "StoreShop": "EXACT_UNCHANGED",
+    "GameInfo": "EXACT_UNCHANGED",
+    "unrelatedGridObjects": "EXACT_UNCHANGED",
+    "unknownOpaqueFields": "EXACT_UNCHANGED on unrelated and preserved objects"
+  },
+  "safety": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "productApplyAuthorized": false,
+    "sourceReplacementAuthorized": false,
+    "equalQ5IndentedSmoothWriterSemantic": false,
+    "unsupportedVariantsFailClosed": true,
+    "disconnectedRoadMultiComponentSingleCall": false,
+    "ownedSourceUnknownFieldDeletionOrReplacement": false,
+    "preservedOwnedUnknownFieldsRemainOpaque": true
+  },
+  "transformQuantum": {
+    "roadSavePitch": "2 * source Grid.TessellationFactor; positive only",
+    "fenceSavePitch": "source Grid.TessellationFactor; positive only",
+    "arbitraryScaling": false,
+    "negativePitchMirroring": false
+  }
+}

@@ -5,82 +5,243 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "contract", "planContract", "planId", "planSha256", "semanticOwner", "mutationAdapter", "capability",
-    "input", "output", "target", "operation", "semanticDiff", "verification", "sourceEvidence",
-    "persistentWriteAuthorized", "WORLD_PERSISTENT_WRITE_V125", "candidateManifestSha256"
+    "contract",
+    "planContract",
+    "planId",
+    "planSha256",
+    "semanticOwner",
+    "mutationAdapter",
+    "capability",
+    "input",
+    "output",
+    "target",
+    "operation",
+    "semanticDiff",
+    "verification",
+    "sourceEvidence",
+    "persistentWriteAuthorized",
+    "WORLD_PERSISTENT_WRITE_V125",
+    "candidateManifestSha256"
   ],
   "properties": {
-    "contract": { "const": "dreamwish.ddv.save-transaction-candidate@1" },
-    "planContract": { "const": "dreamwish.ddv.save-transaction-plan@1" },
-    "planId": { "type": "string", "minLength": 1 },
-    "planSha256": { "$ref": "#/$defs/sha256" },
-    "semanticOwner": { "type": "string", "minLength": 1 },
-    "mutationAdapter": { "type": "object" },
+    "contract": {
+      "const": "dreamwish.ddv.save-transaction-candidate@1"
+    },
+    "planContract": {
+      "const": "dreamwish.ddv.save-transaction-plan@1"
+    },
+    "planId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "planSha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "semanticOwner": {
+      "type": "string",
+      "minLength": 1
+    },
+    "mutationAdapter": {
+      "type": "object"
+    },
     "capability": {
-      "type": "object", "additionalProperties": false,
-      "required": ["required", "writeCandidate", "persistentWrite"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "writeCandidate",
+        "persistentWrite"
+      ],
       "properties": {
-        "required": { "const": "WRITE_CANDIDATE" },
-        "writeCandidate": { "const": true },
-        "persistentWrite": { "const": false }
+        "required": {
+          "enum": [
+            "WRITE_CANDIDATE",
+            "STRUCTURAL_WRITE_CANDIDATE"
+          ]
+        },
+        "writeCandidate": {
+          "const": true
+        },
+        "persistentWrite": {
+          "const": false
+        }
       }
     },
     "input": {
-      "type": "object", "additionalProperties": false,
-      "required": ["platform", "gameVersion", "profileGameInfoVersion", "originalFileLength", "originalSha256", "codecContract", "targetBuild", "exactBuildContractId"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform",
+        "gameVersion",
+        "profileGameInfoVersion",
+        "originalFileLength",
+        "originalSha256",
+        "codecContract",
+        "targetBuild",
+        "exactBuildContractId"
+      ],
       "properties": {
-        "platform": { "enum": ["switch", "steam-windows"] },
-        "gameVersion": { "type": "string" },
-        "profileGameInfoVersion": { "type": "integer" },
-        "originalFileLength": { "type": "integer", "minimum": 1 },
-        "originalSha256": { "$ref": "#/$defs/sha256" },
-        "codecContract": { "type": "string" },
-        "targetBuild": { "type": "object" },
-        "exactBuildContractId": { "type": "string", "minLength": 1 }
+        "platform": {
+          "enum": [
+            "switch",
+            "steam-windows"
+          ]
+        },
+        "gameVersion": {
+          "type": "string"
+        },
+        "profileGameInfoVersion": {
+          "type": "integer"
+        },
+        "originalFileLength": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "originalSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "codecContract": {
+          "type": "string"
+        },
+        "targetBuild": {
+          "type": "object"
+        },
+        "exactBuildContractId": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "output": {
-      "type": "object", "additionalProperties": false,
-      "required": ["format", "candidateFileLength", "candidateSha256", "noOp"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "candidateFileLength",
+        "candidateSha256",
+        "noOp"
+      ],
       "properties": {
-        "format": { "enum": ["plain", "packaged"] },
-        "candidateFileLength": { "type": "integer", "minimum": 1 },
-        "candidateSha256": { "$ref": "#/$defs/sha256" },
-        "noOp": { "type": "boolean" }
+        "format": {
+          "enum": [
+            "plain",
+            "packaged"
+          ]
+        },
+        "candidateFileLength": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "candidateSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "noOp": {
+          "type": "boolean"
+        }
       }
     },
-    "target": { "type": "object" },
-    "operation": { "type": "object" },
-    "semanticDiff": { "$ref": "#/$defs/semanticDiff" },
-    "verification": { "type": "object" },
-    "sourceEvidence": { "type": "array" },
-    "persistentWriteAuthorized": { "const": false },
-    "WORLD_PERSISTENT_WRITE_V125": { "const": false },
-    "candidateManifestSha256": { "$ref": "#/$defs/sha256" }
+    "target": {
+      "type": "object"
+    },
+    "operation": {
+      "type": "object"
+    },
+    "semanticDiff": {
+      "$ref": "#/$defs/semanticDiff"
+    },
+    "verification": {
+      "type": "object"
+    },
+    "sourceEvidence": {
+      "type": "array"
+    },
+    "persistentWriteAuthorized": {
+      "const": false
+    },
+    "WORLD_PERSISTENT_WRITE_V125": {
+      "const": false
+    },
+    "candidateManifestSha256": {
+      "$ref": "#/$defs/sha256"
+    }
   },
   "$defs": {
-    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
     "semanticDiff": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "contract", "allChangedPaths", "intentionalChangedPaths", "serializerNormalizedEquivalentPaths",
-        "unrelatedChangedPaths", "unknownChangedPaths", "forbiddenChangedPaths", "identityDelta", "arrayPolicy",
-        "unknownStatePolicy", "serializerNormalizationPolicy", "accepted"
+        "contract",
+        "allChangedPaths",
+        "intentionalChangedPaths",
+        "serializerNormalizedEquivalentPaths",
+        "unrelatedChangedPaths",
+        "unknownChangedPaths",
+        "forbiddenChangedPaths",
+        "identityDelta",
+        "arrayPolicy",
+        "unknownStatePolicy",
+        "serializerNormalizationPolicy",
+        "accepted"
       ],
       "properties": {
-        "contract": { "const": "dreamwish.ddv.save-semantic-diff@1" },
-        "allChangedPaths": { "type": "array", "items": { "type": "string" } },
-        "intentionalChangedPaths": { "type": "array", "items": { "type": "string" } },
-        "serializerNormalizedEquivalentPaths": { "type": "array", "items": { "type": "string" } },
-        "unrelatedChangedPaths": { "type": "array", "items": { "type": "string" } },
-        "unknownChangedPaths": { "type": "array", "items": { "type": "string" } },
-        "forbiddenChangedPaths": { "type": "array", "items": { "type": "string" } },
-        "identityDelta": { "type": "object" },
-        "arrayPolicy": { "const": "PRESERVE_ORDER_AND_LENGTH_OUTSIDE_INTENTIONAL" },
-        "unknownStatePolicy": { "const": "OPAQUE_UNCHANGED_REQUIRED" },
-        "serializerNormalizationPolicy": { "const": "REJECT_SEMANTIC_NORMALIZATION" },
-        "accepted": { "type": "boolean" }
+        "contract": {
+          "const": "dreamwish.ddv.save-semantic-diff@1"
+        },
+        "allChangedPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "intentionalChangedPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "serializerNormalizedEquivalentPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unrelatedChangedPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unknownChangedPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "forbiddenChangedPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "identityDelta": {
+          "type": "object"
+        },
+        "arrayPolicy": {
+          "const": "PRESERVE_ORDER_AND_LENGTH_OUTSIDE_INTENTIONAL"
+        },
+        "unknownStatePolicy": {
+          "const": "OPAQUE_UNCHANGED_REQUIRED"
+        },
+        "serializerNormalizationPolicy": {
+          "const": "REJECT_SEMANTIC_NORMALIZATION"
+        },
+        "accepted": {
+          "type": "boolean"
+        }
       }
     }
   }

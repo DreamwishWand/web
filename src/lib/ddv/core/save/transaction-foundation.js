@@ -8,10 +8,12 @@ export const SEMANTIC_DIFF_CONTRACT='dreamwish.ddv.save-semantic-diff@1';
 export const TRANSACTION_VERIFICATION_CONTRACT='dreamwish.ddv.save-transaction-verification@1';
 export const MUTATION_ADAPTER_CONTRACT='dreamwish.ddv.save-mutation-adapter@1';
 export const WRITE_CANDIDATE_CAPABILITY='WRITE_CANDIDATE';
+export const STRUCTURAL_WRITE_CANDIDATE_CAPABILITY='STRUCTURAL_WRITE_CANDIDATE';
 
 const MAX_PLAN_JSON_BYTES=1024*1024;
 const ALWAYS_FORBIDDEN_PREFIXES=Object.freeze(['/GameInfo']);
 const GRID_IDENTITY_POLICY='PRESERVE_ALL_GRID_OBJECT_IDENTITIES';
+const STRUCTURAL_GRID_IDENTITY_POLICY='ALLOW_DECLARED_GRID_OBJECT_SET_DELTA';
 const ARRAY_POLICY='PRESERVE_ORDER_AND_LENGTH_OUTSIDE_INTENTIONAL';
 const UNKNOWN_POLICY='OPAQUE_UNCHANGED_REQUIRED';
 const SERIALIZER_POLICY='REJECT_SEMANTIC_NORMALIZATION';
@@ -24,7 +26,7 @@ export async function createVerifiedWriteCandidate({session,plan,adapter,contrac
   const build=matchSupportedBuild(ctx.saveIdentity,p.input.targetBuild,contracts);
   if(build.status!==BuildMatchStatus.Exact||!build.contract)throw txError('TX_UNSUPPORTED_TARGET_BUILD',build.reason);
   validateInputIdentity({session,ctx,plan:p,buildContract:build.contract});
-  validateTargetIdentity(before,p.target);
+  validateTargetIdentity(before,p.target,'before');
   assertConditions(before,p.preconditions,'TX_PRECONDITION_FAILED');
   const beforeIdentity=collectGridObjectIdentity(before);
   const preflight=evaluateSavePreflight({
@@ -51,10 +53,11 @@ export async function createVerifiedWriteCandidate({session,plan,adapter,contrac
   });
   const after=reopened.getSnapshot();
   assertConditions(after,p.postconditions,'TX_POSTCONDITION_FAILED');
-  validateTargetIdentity(after,p.target);
+  validateTargetIdentity(after,p.target,'after');
+  validateStructuralTransition(before,after,p);
   const semanticDiff=buildSemanticDiff(before,after,p,beforeIdentity);
-  assertAcceptableDiff(semanticDiff);
-  if(!sameStringArray(exported.changedPaths,semanticDiff.allChangedPaths))
+  assertAcceptableDiff(semanticDiff,p);
+  if(!sameStringArray([...exported.changedPaths].sort(),semanticDiff.allChangedPaths))
     throw txError('TX_EXPORT_DIFF_DISAGREES_WITH_SEMANTIC_DIFF');
 
   const runtimeAssertion=createRuntimeAssertionManifest({preflight,exportResult:exported});
@@ -65,7 +68,7 @@ export async function createVerifiedWriteCandidate({session,plan,adapter,contrac
   const baseManifest=deepFreeze({
     contract:TRANSACTION_CANDIDATE_CONTRACT,planContract:TRANSACTION_PLAN_CONTRACT,
     planId:p.planId,planSha256,semanticOwner:p.semanticOwner,mutationAdapter:structuredClone(p.mutationAdapter),
-    capability:{required:WRITE_CANDIDATE_CAPABILITY,writeCandidate:true,persistentWrite:false},
+    capability:{required:p.capabilityRequired,writeCandidate:true,persistentWrite:false},
     input:{
       platform:p.input.platform,gameVersion:p.input.gameVersion,profileGameInfoVersion:p.input.profileGameInfoVersion,
       originalFileLength:session.source.length,originalSha256:exported.sourceRawSha256,codecContract:p.input.codecContract,
@@ -80,7 +83,7 @@ export async function createVerifiedWriteCandidate({session,plan,adapter,contrac
     semanticDiff,
     verification:{
       temporarySerialization:'PASS',canonicalReparse:'PASS',schemaVersion:'PASS',expectedPostcondition:'PASS',
-      unrelatedStatePreservation:'PASS',gridObjectIdentityPreservation:'PASS',opaqueUnknownPreservation:'PASS',
+      unrelatedStatePreservation:'PASS',gridObjectIdentityPreservation:p.target.kind==='GRID_OBJECT_SET'?'DECLARED_DELTA_PASS':'PASS',opaqueUnknownPreservation:'PASS',
       runtimeAssertionContract:runtimeAssertion.contract
     },
     sourceEvidence:structuredClone(p.sourceEvidence),
@@ -118,11 +121,12 @@ export async function verifyWriteCandidate({candidate,codec,contracts=CURRENT_V1
   const buildContract=requireExactBuild(sourceSession,p.input.targetBuild,contracts);
   validateInputIdentity({session:sourceSession,ctx:sourceSession.getPreflightContext(),plan:p,buildContract});
   const before=sourceSession.getSnapshot(),after=outputSession.getSnapshot();
-  validateTargetIdentity(before,p.target);validateTargetIdentity(after,p.target);
+  validateTargetIdentity(before,p.target,'before');validateTargetIdentity(after,p.target,'after');
   assertConditions(before,p.preconditions,'TX_PRECONDITION_FAILED');
   assertConditions(after,p.postconditions,'TX_POSTCONDITION_FAILED');
+  validateStructuralTransition(before,after,p);
   const semanticDiff=buildSemanticDiff(before,after,p,collectGridObjectIdentity(before));
-  assertAcceptableDiff(semanticDiff);
+  assertAcceptableDiff(semanticDiff,p);
   assertManifestBindings({
     manifest,plan:p,semanticDiff,sourceSession,outputSession,buildContract,sourceSha256,candidateSha256
   });
@@ -143,21 +147,26 @@ export function buildSemanticDiff(before,after,plan,beforeIdentity=collectGridOb
     else if(matchesAnyPrefix(path,p.preservation.unknownPathPrefixes))unknown.push(path);
     else unrelated.push(path);
   }
-  const identityDelta=compareIdentityInventories(beforeIdentity,collectGridObjectIdentity(after));
+  const identityDelta=compareIdentityInventories(
+    beforeIdentity,
+    collectGridObjectIdentity(after),
+    p.preservation.gridObjectIdentityPolicy
+  );
+  const identityAccepted=identityDeltaMatchesPlan(identityDelta,p);
   return deepFreeze({
     contract:SEMANTIC_DIFF_CONTRACT,allChangedPaths,intentionalChangedPaths:intentional,
     serializerNormalizedEquivalentPaths:[],unrelatedChangedPaths:unrelated,unknownChangedPaths:unknown,
     forbiddenChangedPaths:forbidden,identityDelta,arrayPolicy:ARRAY_POLICY,unknownStatePolicy:UNKNOWN_POLICY,
     serializerNormalizationPolicy:SERIALIZER_POLICY,
-    accepted:!forbidden.length&&!unrelated.length&&!unknown.length&&!identityDelta.changed
+    accepted:!forbidden.length&&!unrelated.length&&!unknown.length&&identityAccepted
   });
 }
 
-function assertAcceptableDiff(diff){
+function assertAcceptableDiff(diff,plan){
   if(diff.forbiddenChangedPaths.length)throw txError('TX_FORBIDDEN_STATE_CHANGED',diff.forbiddenChangedPaths.join(', '));
   if(diff.unknownChangedPaths.length)throw txError('TX_UNKNOWN_STATE_CHANGED',diff.unknownChangedPaths.join(', '));
   if(diff.unrelatedChangedPaths.length)throw txError('TX_UNRELATED_STATE_CHANGED',diff.unrelatedChangedPaths.join(', '));
-  if(diff.identityDelta.changed)throw txError('TX_GRID_OBJECT_IDENTITY_CHANGED',JSON.stringify(diff.identityDelta));
+  if(!identityDeltaMatchesPlan(diff.identityDelta,plan))throw txError('TX_GRID_OBJECT_IDENTITY_CHANGED',JSON.stringify(diff.identityDelta));
   if(diff.serializerNormalizedEquivalentPaths.length)throw txError('TX_SERIALIZER_NORMALIZATION_NOT_ALLOWED');
 }
 
@@ -167,7 +176,7 @@ function assertManifestBindings({manifest,plan,semanticDiff,sourceSession,output
     throw txError('TX_MANIFEST_PLAN_BINDING_MISMATCH');
   if(!semanticEqual(manifest.mutationAdapter,plan.mutationAdapter))
     throw txError('TX_MANIFEST_PLAN_BINDING_MISMATCH','mutationAdapter');
-  const expectedCapability={required:WRITE_CANDIDATE_CAPABILITY,writeCandidate:true,persistentWrite:false};
+  const expectedCapability={required:plan.capabilityRequired,writeCandidate:true,persistentWrite:false};
   if(!semanticEqual(manifest.capability,expectedCapability))
     throw txError('TX_MANIFEST_PLAN_BINDING_MISMATCH','capability');
 
@@ -200,7 +209,7 @@ function assertManifestBindings({manifest,plan,semanticDiff,sourceSession,output
     throw txError('TX_MANIFEST_EVIDENCE_BINDING_MISMATCH');
   const expectedVerification={
     temporarySerialization:'PASS',canonicalReparse:'PASS',schemaVersion:'PASS',expectedPostcondition:'PASS',
-    unrelatedStatePreservation:'PASS',gridObjectIdentityPreservation:'PASS',opaqueUnknownPreservation:'PASS',
+    unrelatedStatePreservation:'PASS',gridObjectIdentityPreservation:plan.target.kind==='GRID_OBJECT_SET'?'DECLARED_DELTA_PASS':'PASS',opaqueUnknownPreservation:'PASS',
     runtimeAssertionContract:RUNTIME_ASSERTION_CONTRACT
   };
   if(!semanticEqual(manifest.verification,expectedVerification))
@@ -213,7 +222,7 @@ function normalizePlan(value){
   const p=structuredClone(value);
   if(p.contract!==TRANSACTION_PLAN_CONTRACT)throw txError('TX_PLAN_CONTRACT_UNSUPPORTED');
   requireString(p.planId,'TX_PLAN_ID_REQUIRED');requireString(p.semanticOwner,'TX_SEMANTIC_OWNER_REQUIRED');
-  if(p.capabilityRequired!==WRITE_CANDIDATE_CAPABILITY)throw txError('TX_CAPABILITY_REQUIRED_INVALID');
+  if(![WRITE_CANDIDATE_CAPABILITY,STRUCTURAL_WRITE_CANDIDATE_CAPABILITY].includes(p.capabilityRequired))throw txError('TX_CAPABILITY_REQUIRED_INVALID');
   if(!p.input||typeof p.input!=='object')throw txError('TX_INPUT_IDENTITY_REQUIRED');
   if(!Object.values(PlatformFamily).includes(p.input.platform)||p.input.platform===PlatformFamily.Unknown)throw txError('TX_INPUT_PLATFORM_AMBIGUOUS');
   requireString(p.input.gameVersion,'TX_GAME_VERSION_REQUIRED');requireInt(p.input.profileGameInfoVersion,'TX_PROFILE_VERSION_REQUIRED');
@@ -225,9 +234,7 @@ function normalizePlan(value){
   if(!p.operation||typeof p.operation!=='object')throw txError('TX_OPERATION_REQUIRED');
   requireString(p.operation.id,'TX_OPERATION_ID_REQUIRED');requireString(p.operation.owner,'TX_OPERATION_OWNER_REQUIRED');requireString(p.operation.kind,'TX_OPERATION_KIND_REQUIRED');
   if(p.operation.owner!==p.semanticOwner)throw txError('TX_OPERATION_OWNER_MISMATCH');
-  if(!p.target||p.target.kind!=='GRID_OBJECT')throw txError('TX_TARGET_KIND_UNSUPPORTED');
-  requireInt(p.target.gridId,'TX_TARGET_GRID_ID_REQUIRED');requireInt(p.target.gridObjectId,'TX_TARGET_GRID_OBJECT_ID_REQUIRED');
-  if(p.target.itemId!==null&&p.target.itemId!==undefined)requireInt(p.target.itemId,'TX_TARGET_ITEM_ID_INVALID');
+  p.target=normalizeTarget(p.target,p.capabilityRequired);
 
   if(!p.mutationAdapter||p.mutationAdapter.contract!==MUTATION_ADAPTER_CONTRACT)throw txError('TX_MUTATION_ADAPTER_CONTRACT_REQUIRED');
   requireString(p.mutationAdapter.id,'TX_MUTATION_ADAPTER_ID_REQUIRED');requireString(p.mutationAdapter.owner,'TX_MUTATION_ADAPTER_OWNER_REQUIRED');
@@ -244,7 +251,8 @@ function normalizePlan(value){
   });
   if(new Set(p.allowedChanges.map(x=>x.path)).size!==p.allowedChanges.length)throw txError('TX_ALLOWED_CHANGE_DUPLICATE');
   p.forbiddenPathPrefixes=normalizePointers(p.forbiddenPathPrefixes??[],'TX_FORBIDDEN_PREFIX_INVALID');
-  p.preservation=normalizePreservation(p.preservation);
+  p.preservation=normalizePreservation(p.preservation,p.target.kind);
+  if(p.target.kind==='GRID_OBJECT_SET')assertStructuralAllowedPaths(p);
   p.sourceEvidence=normalizeEvidence(p.sourceEvidence);
   if(!Object.prototype.hasOwnProperty.call(p,'intent'))p.intent=null;
   rejectPatchIntent(p.intent);
@@ -252,14 +260,15 @@ function normalizePlan(value){
   return deepFreeze(p);
 }
 
-function normalizePreservation(value){
+function normalizePreservation(value,targetKind){
   if(!value||typeof value!=='object')throw txError('TX_PRESERVATION_POLICY_REQUIRED');
-  if(value.gridObjectIdentityPolicy!==GRID_IDENTITY_POLICY)throw txError('TX_GRID_IDENTITY_POLICY_UNSUPPORTED');
+  const expectedIdentityPolicy=targetKind==='GRID_OBJECT_SET'?STRUCTURAL_GRID_IDENTITY_POLICY:GRID_IDENTITY_POLICY;
+  if(value.gridObjectIdentityPolicy!==expectedIdentityPolicy)throw txError('TX_GRID_IDENTITY_POLICY_UNSUPPORTED');
   if(value.arrayPolicy!==ARRAY_POLICY)throw txError('TX_ARRAY_POLICY_UNSUPPORTED');
   if(value.unknownStatePolicy!==UNKNOWN_POLICY)throw txError('TX_UNKNOWN_STATE_POLICY_UNSUPPORTED');
   if(value.serializerNormalizationPolicy!==SERIALIZER_POLICY)throw txError('TX_SERIALIZER_POLICY_UNSUPPORTED');
   return {
-    gridObjectIdentityPolicy:GRID_IDENTITY_POLICY,arrayPolicy:ARRAY_POLICY,unknownStatePolicy:UNKNOWN_POLICY,
+    gridObjectIdentityPolicy:expectedIdentityPolicy,arrayPolicy:ARRAY_POLICY,unknownStatePolicy:UNKNOWN_POLICY,
     serializerNormalizationPolicy:SERIALIZER_POLICY,
     unknownPathPrefixes:normalizePointers(value.unknownPathPrefixes??[],'TX_UNKNOWN_PREFIX_INVALID')
   };
@@ -296,13 +305,30 @@ function requireExactBuild(session,targetBuild,contracts){
   if(build.status!==BuildMatchStatus.Exact||!build.contract)throw txError('TX_UNSUPPORTED_TARGET_BUILD',build.reason);
   return build.contract;
 }
-function validateTargetIdentity(profile,target){
+function validateTargetIdentity(profile,target,phase='before'){
   const gc=asObj(asObj(profile.World)?.GridCollection),grids=asObj(gc?.Grids);
   const grid=asObj(grids?.[String(target.gridId)]??grids?.[target.gridId]);
   if(!grid||Number(grid.ID)!==target.gridId)throw txError('TX_TARGET_GRID_IDENTITY_MISMATCH');
-  const objects=asObj(grid.Objects),obj=asObj(objects?.[String(target.gridObjectId)]??objects?.[target.gridObjectId]);
-  if(!obj||Number(obj.ID)!==target.gridObjectId)throw txError('TX_TARGET_GRID_OBJECT_IDENTITY_MISMATCH');
-  if(target.itemId!==null&&target.itemId!==undefined&&Number(obj.ItemID)!==target.itemId)throw txError('TX_TARGET_ITEM_IDENTITY_MISMATCH');
+  const objects=asObj(grid.Objects);
+  if(target.kind==='GRID_OBJECT'){
+    const obj=asObj(objects?.[String(target.gridObjectId)]??objects?.[target.gridObjectId]);
+    if(!obj||Number(obj.ID)!==target.gridObjectId)throw txError('TX_TARGET_GRID_OBJECT_IDENTITY_MISMATCH');
+    if(target.itemId!==null&&target.itemId!==undefined&&Number(obj.ItemID)!==target.itemId)throw txError('TX_TARGET_ITEM_IDENTITY_MISMATCH');
+    return;
+  }
+  if(!objects)throw txError('TX_TARGET_GRID_OBJECT_MAP_REQUIRED');
+  const nextExpected=phase==='after'?target.nextGridObjectIDAfter:target.nextGridObjectIDBefore;
+  if(Number(grid.NextGridObjectID)!==nextExpected)throw txError('TX_NEXT_GRID_OBJECT_ID_MISMATCH',String(grid.NextGridObjectID));
+  const mustExist=phase==='after'
+    ? [...target.preservedGridObjectIds,...target.createdGridObjectIds]
+    : [...target.preservedGridObjectIds,...target.deletedGridObjectIds];
+  const mustNotExist=phase==='after'?target.deletedGridObjectIds:target.createdGridObjectIds;
+  for(const id of mustExist){
+    const obj=asObj(objects[String(id)]);
+    if(!obj||Number(obj.ID)!==id)throw txError('TX_DECLARED_GRID_OBJECT_IDENTITY_MISMATCH',String(id));
+  }
+  for(const id of mustNotExist)if(Object.prototype.hasOwnProperty.call(objects,String(id)))
+    throw txError('TX_DECLARED_GRID_OBJECT_PRESENCE_MISMATCH',String(id));
 }
 function assertConditions(profile,conditions,code){
   for(const c of conditions){
@@ -325,12 +351,104 @@ function collectGridObjectIdentity(profile){
     for(const [key,child] of Object.entries(obj))walk(child,`${path}/${escapePointer(key)}`);
   }
 }
-function compareIdentityInventories(before,after){
+function compareIdentityInventories(before,after,policy=GRID_IDENTITY_POLICY){
   const l=new Map(before.map(x=>[x.path,x])),r=new Map(after.map(x=>[x.path,x])),added=[],removed=[],reidentified=[];
   for(const [path,e] of l){const o=r.get(path);if(!o)removed.push(e);else if(e.id!==o.id||e.itemId!==o.itemId)reidentified.push({path,before:e,after:o});}
   for(const [path,e] of r)if(!l.has(path))added.push(e);
-  return deepFreeze({policy:GRID_IDENTITY_POLICY,changed:!!(added.length||removed.length||reidentified.length),added,removed,reidentified});
+  return deepFreeze({policy,changed:!!(added.length||removed.length||reidentified.length),added,removed,reidentified});
 }
+function normalizeTarget(value,capabilityRequired){
+  if(!value||typeof value!=='object')throw txError('TX_TARGET_REQUIRED');
+  const target=structuredClone(value);
+  requireInt(target.gridId,'TX_TARGET_GRID_ID_REQUIRED');
+  if(target.kind==='GRID_OBJECT'){
+    if(capabilityRequired!==WRITE_CANDIDATE_CAPABILITY)throw txError('TX_TARGET_CAPABILITY_MISMATCH');
+    requireInt(target.gridObjectId,'TX_TARGET_GRID_OBJECT_ID_REQUIRED');
+    if(target.itemId!==null&&target.itemId!==undefined)requireInt(target.itemId,'TX_TARGET_ITEM_ID_INVALID');
+    return {kind:'GRID_OBJECT',gridId:target.gridId,gridObjectId:target.gridObjectId,itemId:target.itemId??null};
+  }
+  if(target.kind!=='GRID_OBJECT_SET')throw txError('TX_TARGET_KIND_UNSUPPORTED');
+  if(capabilityRequired!==STRUCTURAL_WRITE_CANDIDATE_CAPABILITY)throw txError('TX_TARGET_CAPABILITY_MISMATCH');
+  const preserved=normalizeIdList(target.preservedGridObjectIds,'TX_PRESERVED_GRID_OBJECT_IDS_INVALID');
+  const created=normalizeIdList(target.createdGridObjectIds,'TX_CREATED_GRID_OBJECT_IDS_INVALID');
+  const deleted=normalizeIdList(target.deletedGridObjectIds,'TX_DELETED_GRID_OBJECT_IDS_INVALID');
+  if(!created.length&&!deleted.length)throw txError('TX_STRUCTURAL_IDENTITY_DELTA_REQUIRED');
+  const all=[...preserved,...created,...deleted];
+  if(new Set(all).size!==all.length)throw txError('TX_STRUCTURAL_IDENTITY_SET_OVERLAP');
+  requireInt(target.nextGridObjectIDBefore,'TX_NEXT_GRID_OBJECT_ID_BEFORE_INVALID');
+  requireInt(target.nextGridObjectIDAfter,'TX_NEXT_GRID_OBJECT_ID_AFTER_INVALID');
+  const expectedCreated=Array.from({length:created.length},(_,i)=>target.nextGridObjectIDBefore+i);
+  if(!sameNumberArray(created,expectedCreated))throw txError('TX_CREATED_GRID_OBJECT_IDS_NOT_FRESH_CONTIGUOUS');
+  if(target.nextGridObjectIDAfter!==target.nextGridObjectIDBefore+created.length)throw txError('TX_NEXT_GRID_OBJECT_ID_TRANSITION_INVALID');
+  const pairs=normalizeReplacementPairs(target.replacementIdentityPairs??[],deleted,created);
+  return {
+    kind:'GRID_OBJECT_SET',gridId:target.gridId,
+    preservedGridObjectIds:preserved,createdGridObjectIds:created,deletedGridObjectIds:deleted,
+    replacementIdentityPairs:pairs,
+    nextGridObjectIDBefore:target.nextGridObjectIDBefore,nextGridObjectIDAfter:target.nextGridObjectIDAfter
+  };
+}
+function normalizeIdList(value,code){
+  if(!Array.isArray(value))throw txError(code);
+  const out=value.map(id=>{requireInt(id,code);return id;}).sort((a,b)=>a-b);
+  if(new Set(out).size!==out.length)throw txError(code);
+  return out;
+}
+function normalizeReplacementPairs(value,deleted,created){
+  if(!Array.isArray(value))throw txError('TX_REPLACEMENT_IDENTITY_PAIRS_INVALID');
+  const deletedSet=new Set(deleted),createdSet=new Set(created),seenDeleted=new Set(),seenCreated=new Set();
+  return value.map(pair=>{
+    if(!pair||typeof pair!=='object')throw txError('TX_REPLACEMENT_IDENTITY_PAIRS_INVALID');
+    const d=pair.deletedGridObjectId,c=pair.createdGridObjectId;
+    requireInt(d,'TX_REPLACEMENT_IDENTITY_PAIRS_INVALID');requireInt(c,'TX_REPLACEMENT_IDENTITY_PAIRS_INVALID');
+    if(!deletedSet.has(d)||!createdSet.has(c)||seenDeleted.has(d)||seenCreated.has(c))throw txError('TX_REPLACEMENT_IDENTITY_PAIRS_INVALID');
+    seenDeleted.add(d);seenCreated.add(c);
+    return {deletedGridObjectId:d,createdGridObjectId:c};
+  });
+}
+function assertStructuralAllowedPaths(plan){
+  const root=`/World/GridCollection/Grids/${plan.target.gridId}`;
+  const expected=[
+    ...plan.target.deletedGridObjectIds.map(id=>`${root}/Objects/${id}`),
+    ...plan.target.createdGridObjectIds.map(id=>`${root}/Objects/${id}`)
+  ];
+  if(plan.target.nextGridObjectIDBefore!==plan.target.nextGridObjectIDAfter)expected.push(`${root}/NextGridObjectID`);
+  expected.sort();
+  const actual=plan.allowedChanges.map(x=>x.path).slice().sort();
+  if(!sameStringArray(actual,expected))throw txError('TX_STRUCTURAL_ALLOWED_PATHS_MISMATCH');
+}
+function validateStructuralTransition(before,after,plan){
+  if(plan.target.kind!=='GRID_OBJECT_SET')return;
+  const beforeGrid=getGrid(before,plan.target.gridId),afterGrid=getGrid(after,plan.target.gridId);
+  const beforeObjects=asObj(beforeGrid.Objects),afterObjects=asObj(afterGrid.Objects);
+  if(!beforeObjects||!afterObjects)throw txError('TX_TARGET_GRID_OBJECT_MAP_REQUIRED');
+  for(const id of plan.target.preservedGridObjectIds){
+    if(!semanticEqual(beforeObjects[String(id)],afterObjects[String(id)]))throw txError('TX_PRESERVED_GRID_OBJECT_CHANGED',String(id));
+  }
+  const expectedAfterKeys=new Set(Object.keys(beforeObjects));
+  for(const id of plan.target.deletedGridObjectIds)expectedAfterKeys.delete(String(id));
+  for(const id of plan.target.createdGridObjectIds)expectedAfterKeys.add(String(id));
+  const actualAfterKeys=new Set(Object.keys(afterObjects));
+  if(!sameStringArray([...expectedAfterKeys].sort(),[...actualAfterKeys].sort()))throw txError('TX_GRID_OBJECT_SET_MEMBERSHIP_MISMATCH');
+}
+function identityDeltaMatchesPlan(identityDelta,plan){
+  if(!identityDelta.changed)return true;
+  if(plan.target.kind!=='GRID_OBJECT_SET'||plan.preservation.gridObjectIdentityPolicy!==STRUCTURAL_GRID_IDENTITY_POLICY)return false;
+  if(identityDelta.reidentified.length)return false;
+  const root=`/World/GridCollection/Grids/${plan.target.gridId}/Objects`;
+  const expectedAdded=plan.target.createdGridObjectIds.map(id=>`${root}/${id}`).sort();
+  const expectedRemoved=plan.target.deletedGridObjectIds.map(id=>`${root}/${id}`).sort();
+  const actualAdded=identityDelta.added.map(x=>x.path).sort();
+  const actualRemoved=identityDelta.removed.map(x=>x.path).sort();
+  return sameStringArray(actualAdded,expectedAdded)&&sameStringArray(actualRemoved,expectedRemoved);
+}
+function getGrid(profile,gridId){
+  const gc=asObj(asObj(profile.World)?.GridCollection),grids=asObj(gc?.Grids);
+  const grid=asObj(grids?.[String(gridId)]??grids?.[gridId]);
+  if(!grid||Number(grid.ID)!==gridId)throw txError('TX_TARGET_GRID_IDENTITY_MISMATCH');
+  return grid;
+}
+function sameNumberArray(a,b){return a.length===b.length&&a.every((v,i)=>v===b[i]);}
 function getPointer(root,pointer){
   if(pointer==='')return {exists:true,value:root};
   const tokens=pointer.slice(1).split('/').map(t=>t.replaceAll('~1','/').replaceAll('~0','~'));let cur=root;
