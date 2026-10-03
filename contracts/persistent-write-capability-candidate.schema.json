@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "dreamwish.ddv.persistent-write-capability-candidate@1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract",
+    "status",
+    "target",
+    "executionSurface",
+    "semanticSubset",
+    "operations",
+    "durabilityAssumptions",
+    "backupRecoveryContract",
+    "backupRetention",
+    "residualRuntime",
+    "browserAtomicCommit",
+    "deviceNativeAtomicCommitProven",
+    "persistentWriteAuthorized",
+    "WORLD_PERSISTENT_WRITE_V125"
+  ],
+  "properties": {
+    "contract": {
+      "const": "dreamwish.ddv.persistent-write-capability-candidate@1"
+    },
+    "status": {
+      "const": "READY_FOR_INTEGRATOR_REVIEW_NOT_PROMOTED"
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform",
+        "gameVersion",
+        "titleId",
+        "buildId",
+        "schema"
+      ],
+      "properties": {
+        "platform": {
+          "const": "Nintendo Switch"
+        },
+        "gameVersion": {
+          "const": "1.25.0"
+        },
+        "titleId": {
+          "const": "0100D39012C1A000"
+        },
+        "buildId": {
+          "const": "52BD625D9B4E0053"
+        },
+        "schema": {
+          "const": 624
+        }
+      }
+    },
+    "executionSurface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "environmentContract",
+        "hostOs",
+        "browser",
+        "localFilesystemOnly",
+        "sameMountSiblingTemp",
+        "fileFsyncRequired",
+        "directoryFsyncRequired",
+        "externalWriterQuiescenceRequired",
+        "networkFilesystemSupported"
+      ],
+      "properties": {
+        "kind": {
+          "const": "LINUX_POSIX_LOCAL_BRIDGE"
+        },
+        "environmentContract": {
+          "const": "dreamwish.ddv.node-posix-local-commit-surface@1"
+        },
+        "hostOs": {
+          "const": "linux"
+        },
+        "browser": {
+          "const": false
+        },
+        "localFilesystemOnly": {
+          "const": true
+        },
+        "sameMountSiblingTemp": {
+          "const": true
+        },
+        "fileFsyncRequired": {
+          "const": true
+        },
+        "directoryFsyncRequired": {
+          "const": true
+        },
+        "externalWriterQuiescenceRequired": {
+          "const": true
+        },
+        "networkFilesystemSupported": {
+          "const": false
+        }
+      }
+    },
+    "semanticSubset": {
+      "const": "DDV-MINIMUM-PERSISTENT-TRANSFORM-SEMANTICS-V125-V1_0"
+    },
+    "operations": {
+      "type": "array",
+      "const": [
+        "MOVE",
+        "ROTATE"
+      ]
+    },
+    "durabilityAssumptions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "backupRecoveryContract": {
+      "const": "dreamwish.ddv.persistent-commit-journal@1"
+    },
+    "backupRetention": {
+      "const": "UNTIL_EXPLICIT_POST_RELOAD_ACK"
+    },
+    "residualRuntime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "owner",
+        "scope"
+      ],
+      "properties": {
+        "required": {
+          "const": true
+        },
+        "owner": {
+          "const": "01E"
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "browserAtomicCommit": {
+      "const": false
+    },
+    "deviceNativeAtomicCommitProven": {
+      "const": false
+    },
+    "persistentWriteAuthorized": {
+      "const": false
+    },
+    "WORLD_PERSISTENT_WRITE_V125": {
+      "const": false
+    }
+  }
+}
