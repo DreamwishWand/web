@@ -382,7 +382,7 @@ test('Community Lab remains an internal route and is not linked from the public 
 
 test('authenticated command adapter exposes session-bound moderation without accepting a client actor', () => {
   const source = read('supabase/functions/community-command/index.ts');
-  assert.match(source, /moderateWork: 'community_moderate_entity_v4'/);
+  assert.match(source, /moderateWork: 'community_moderate_entity_v5'/);
   assert.match(source, /params\.p_session_id = sessionId/);
   assert.match(source, /params\.p_issued_at_epoch = issuedAt/);
   assert.match(source, /params\.p_case_id = payload\.caseId/);
@@ -1482,7 +1482,7 @@ test('production-shaped moderation queue is role-gated, privacy-minimized and re
   assert.doesNotMatch(migration, /'reporterAccountId'/);
 
   assert.match(admin, /listModerationCases: 'community_get_moderation_cases'/);
-  assert.match(admin, /moderateCase: 'community_moderate_entity_v4'/);
+  assert.match(admin, /moderateCase: 'community_moderate_entity_v5'/);
   assert.match(admin, /operation === 'moderateCase'[\s\S]*p_auth_subject: subject/);
 
   assert.match(page, /Moderation queue/);
@@ -1536,12 +1536,12 @@ test('moderation operations require session-bound recent-auth and close linked r
   assert.match(entityModeration, /require_recent_moderation_staff/);
   assert.match(entityModeration, /set status='closed'/);
 
-  assert.match(command, /moderateWork: 'community_moderate_entity_v4'/);
+  assert.match(command, /moderateWork: 'community_moderate_entity_v5'/);
   assert.match(command, /p_session_id = sessionId/);
   assert.match(command, /RECENT_AUTH_REQUIRED/);
 
   assert.match(admin, /listModerationCases: 'community_get_moderation_cases'/);
-  assert.match(admin, /moderateCase: 'community_moderate_entity_v4'/);
+  assert.match(admin, /moderateCase: 'community_moderate_entity_v5'/);
   assert.match(admin, /Moderator or admin role required/);
 
   assert.match(page, /Moderation cases/);
