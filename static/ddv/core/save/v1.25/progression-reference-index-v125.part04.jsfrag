@@ -1,0 +1,105 @@
+st groups = asObject(asObject(profile.World)?.MissionSlots) ?? {};
+  for (const [groupId, slotGroupRaw] of Object.entries(groups)) {
+    const slotsRaw = asObject(slotGroupRaw)?.Slots;
+    const entries = Array.isArray(slotsRaw) ? slotsRaw.map((v,i)=>[String(i),v]) : Object.entries(asObject(slotsRaw) ?? {});
+    for (const [slotId, slotRaw] of entries) {
+      const slot = asObject(slotRaw); if (!slot) continue;
+      const steps = Array.isArray(slot.MissionSteps) ? slot.MissionSteps : [];
+      for (let si=0; si<steps.length; si++) {
+        const subs = Array.isArray(asObject(steps[si])?.SubSteps) ? steps[si].SubSteps : [];
+        for (let ssi=0; ssi<subs.length; ssi++) {
+          const objs = Array.isArray(asObject(subs[ssi])?.Objectives) ? subs[ssi].Objectives : [];
+          for (let oi=0; oi<objs.length; oi++) {
+            const objective = asObject(objs[oi]); if (!objective) continue;
+            fn({ sourceBase: `/World/MissionSlots/${esc(groupId)}/Slots/${esc(slotId)}/MissionSteps/${si}/SubSteps/${ssi}/Objectives/${oi}`, missionId: intOrNull(slot.MissionId), objective });
+          }
+        }
+      }
+    }
+  }
+}
+
+
+function addDutyHistoricalGridAddresses(profile, lookup, add) {
+  const duties = asObject(asObject(profile.Player)?.DutySlots) ?? {};
+  for (const [groupId, gRaw] of Object.entries(duties)) {
+    const slotsRaw = asObject(gRaw)?.Slots;
+    const slots = Array.isArray(slotsRaw) ? slotsRaw : objectValues(slotsRaw);
+    for (let si = 0; si < slots.length; si += 1) {
+      const addrs = asObject(asObject(asObject(slots[si])?.StepData)?.GridObjectsCollected)?.GridObjectAddresses;
+      if (!Array.isArray(addrs)) continue;
+      for (let i = 0; i < addrs.length; i += 1) {
+        const addr = asObject(addrs[i]);
+        if (!addr || !Number.isSafeInteger(addr.GridID) || !Number.isSafeInteger(addr.GridObjectID)) continue;
+        const resolved = resolveAddress(lookup, addr.GridID, addr.GridObjectID);
+        add({
+          sourcePath: `/Player/DutySlots/${esc(groupId)}/Slots/${si}/StepData/GridObjectsCollected/GridObjectAddresses/${i}`,
+          sourceType: 'DUTY_COLLECTED_GRID_OBJECT',
+          gridId: addr.GridID, gridObjectId: addr.GridObjectID, itemId: resolved.itemId,
+          activity: Activity.HISTORICAL,
+          lifecycleStateSaveOnly: 'HISTORICAL_COLLECTED_BOOKKEEPING',
+          targetResolution: resolved.resolution,
+          activeOwnershipVeto: false,
+          safetyDisposition: 'PRESERVE_HISTORY_ONLY',
+          evidenceStatus: Evidence.CONFIRMED,
+          evidenceBasis: 'HISTORICAL_COLLECTED_OBJECT_POLICY'
+        });
+      }
+    }
+  }
+}
+
+function addHistoricalItemLists(profile, add) {
+  const roots = [];
+  const player = asObject(profile.Player) ?? {};
+  for (const [i,a] of toArray(player.AchievementsData ?? []).entries()) roots.push({ base:`/Player/AchievementsData/${i}`, obj:asObject(a), key:'ItemsUsed', type:'ACHIEVEMENT_ITEMS_USED' });
+  const duties = asObject(player.DutySlots) ?? {};
+  for (const [groupId,gRaw] of Object.entries(duties)) {
+    const slots = objectValues(asObject(gRaw)?.Slots);
+    for (let i=0;i<slots.length;i++) roots.push({ base:`/Player/DutySlots/${esc(groupId)}/Slots/${i}`, obj:asObject(slots[i]), key:'ItemsUsed', type:'DUTY_ITEMS_USED' });
+  }
+  collectItemIdsCollected(player.BattlePassStates, '/Player/BattlePassStates', roots);
+  collectItemIdsCollected(player.EvolveStatesProfile, '/Player/EvolveStatesProfile', roots);
+  for (const r of roots) {
+    const values = Array.isArray(r.obj?.[r.key]) ? r.obj[r.key] : [];
+    for (let i=0;i<values.length;i++) {
+      const itemId = extractItemId(values[i]); if (itemId == null) continue;
+      add({ sourcePath:`${r.base}/${r.key}/${i}`, sourceType:r.type, itemId,
+        activity:Activity.HISTORICAL, lifecycleStateSaveOnly:'HISTORICAL_COLLECTED_BOOKKEEPING', activeOwnershipVeto:false,
+        safetyDisposition:'PRESERVE_HISTORY_ONLY', evidenceStatus:Evidence.CONFIRMED, evidenceBasis:'HISTORICAL_COLLECTED_OBJECT_POLICY' });
+    }
+  }
+}
+
+function collectItemIdsCollected(node, base, roots) {
+  const seen = new Set();
+  const walk = (x, path) => {
+    if (!x || typeof x !== 'object') return;
+    if (Array.isArray(x)) { for(let i=0;i<x.length;i++) walk(x[i],`${path}/${i}`); return; }
+    for (const [k,v] of Object.entries(x)) {
+      const p=`${path}/${esc(k)}`;
+      if (k === 'ItemIdsCollected' && Array.isArray(v) && !seen.has(v)) { seen.add(v); roots.push({base:path,obj:x,key:k,type:'PROGRESSION_ITEM_IDS_COLLECTED'}); }
+      else walk(v,p);
+    }
+  };
+  walk(node, base);
+}
+
+function addGardenSaplingReferences(profile, lookup, add) {
+  const gc = asObject(asObject(profile.World)?.GridCollection) ?? {};
+  const process = (grids, collectionType) => {
+    for (const [gridKey,gRaw] of Object.entries(asObject(grids) ?? {})) {
+      const g=asObject(gRaw); if(!g||!Number.isSafeInteger(g.ID)) continue;
+      const objs = collectionType==='GRID' ? asObject(g.Objects) : asObject(g.ModifiedObjects);
+      for (const [objectKey,objRaw] of Object.entries(objs ?? {})) {
+        const obj=asObject(objRaw); if(!obj) continue;
+        const slots=asObject(obj.State)?.GardenData?.Slots;
+        if(!Array.isArray(slots)) continue;
+        for(let i=0;i<slots.length;i++) {
+          const oid=asObject(slots[i])?.Harvest?.SaplingGridObjectID;
+          if(!Number.isSafeInteger(oid) || oid===0) continue;
+          const resolved=resolveAddress(lookup,g.ID,oid);
+          add({ sourcePath:`/World/GridCollection/${collectionType==='GRID'?'Grids':'DiffGrids'}/${esc(gridKey)}/${collectionType==='GRID'?'Objects':'ModifiedObjects'}/${esc(objectKey)}/State/GardenData/Slots/${i}/Harvest/SaplingGridObjectID`,
+            sourceType:'GARDEN_SAPLING_GRID_OBJECT_REFERENCE', gridId:g.ID, gridObjectId:oid, itemId:resolved.itemId,
+            activity:Activity.UNKNOWN, lifecycleStateSaveOnly:'CURRENT_SYSTEM_CHILD_REFERENCE_TERMINALITY_UNKNOWN', targetResolution:resolved.resolution,
+            activeOwnershipVeto:t

@@ -1,0 +1,71 @@
+{
+  "schema": "dreamwish-community-ddv-profile-identity-transport@2",
+  "decidedAt": "2026-10-02",
+  "state": "WORKSPACE_OPTIONAL_ASSOCIATION_IMPLEMENTED_STAGING_PRIVACY_LEGAL_PENDING",
+  "identity": {
+    "sourceField": "GameInfo.LastCustomIdOwner",
+    "semanticName": "DDV Player ID / User ID",
+    "mdcPrefixCanonical": false,
+    "crossSaveBehavior": "SAME_ID_OBSERVED_SWITCH_STEAM_SAME_PROFILE",
+    "rawValuePersistence": "PROHIBITED",
+    "publicExposure": "PROHIBITED",
+    "authenticationSecret": false,
+    "ownershipProof": false,
+    "entitlementProof": false
+  },
+  "profileWorkspace": {
+    "requiredForProfileScopedWandUse": true,
+    "playerIdAssociationRequired": false,
+    "maxPerAccount": 5,
+    "activeAndArchivedCountTogether": true,
+    "defaultPresentation": "localized Profile N from stable slotIndex when custom displayName is null"
+  },
+  "client": {
+    "manualPlayerIdEntryAllowed": true,
+    "localSaveObservationAllowed": true,
+    "rawSaveUploadRequired": false,
+    "rawPlayerIdTransit": "TRANSIENT_REQUEST_BODY_ONLY"
+  },
+  "transport": {
+    "method": "AUTHENTICATED_POST_BODY_OVER_TLS",
+    "queryStringUse": false,
+    "urlPathUse": false,
+    "requestBodyLogging": false,
+    "analyticsCapture": false,
+    "recentAuthenticationRequired": false
+  },
+  "serverDigest": {
+    "algorithm": "HMAC-SHA-256",
+    "domainSeparation": "dreamwishwand/ddv-player-id/v1\\0",
+    "input": "exact UTF-8 GameInfo.LastCustomIdOwner string",
+    "normalization": "NONE_BEYOND_JSON_STRING_DECODING",
+    "secret": "dedicated environment secret",
+    "storedFormat": "hmac-sha256:v1:<hex>",
+    "databaseField": "private.ddv_identity_associations.binding_key_hash",
+    "rawIdentifierStored": false
+  },
+  "transactionalBehavior": {
+    "sameDigestSameWorkspace": "IDEMPOTENT_SUCCESS",
+    "sameDigestDifferentWorkspaceSameAccount": "FAIL_DDV_IDENTITY_ALREADY_ASSOCIATED_IN_ACCOUNT",
+    "sameDigestDifferentAccount": "ALLOWED_PRIVATE_ASSOCIATIONS_REMAIN_SEPARATE",
+    "accountAtFiveWorkspaces": "FAIL_DDV_PROFILE_WORKSPACE_LIMIT_REACHED",
+    "workspaceIdentityAssociationCardinality": "ZERO_OR_ONE",
+    "crossPlatformSameMdc": "SAME_WORKSPACE_WITHIN_ONE_ACCOUNT_WHEN_USER_ASSOCIATES_IT"
+  },
+  "lifecycle": {
+    "normalSelfServiceUnlink": true,
+    "unlinkDeletesWorkspace": false,
+    "ordinaryRelinkCooldownDays": 0,
+    "workspaceDeleteRequiresConfirmation": true,
+    "workspaceDeleteRemovesAssociation": true,
+    "accountDeleteRemovesWorkspacesAndAssociations": true
+  },
+  "securityBoundary": {
+    "playerIdMayNotAuthenticateWand": true,
+    "playerIdMayNotRecoverWandAccount": true,
+    "playerIdMayNotGrantEntitlements": true,
+    "playerIdMayNotUnlockMoonstonesPremiumOrDlc": true,
+    "crossAccountAssociationMustNotExposePrivateWorkspaceData": true
+  },
+  "launchApproved": false
+}

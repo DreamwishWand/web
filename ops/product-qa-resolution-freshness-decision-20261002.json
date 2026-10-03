@@ -1,0 +1,63 @@
+{
+  "schema": "dreamwish-product-qa-resolution-freshness@1",
+  "decidedAt": "2026-10-02",
+  "state": "PRODUCT_APPROVED",
+  "productPrinciple": "Normal Q&A/Tips surfaces retain knowledge only when it is useful for the current supported DDV version/platform context. Wand is not a historical knowledge archive.",
+  "questionResolution": {
+    "states": [
+      "UNRESOLVED",
+      "SOLVED"
+    ],
+    "solvedRequirement": "At least one reusable resolution record must exist.",
+    "acceptedAnswer": {
+      "optional": true,
+      "maxPerQuestion": 1,
+      "selectableByQuestionAuthor": true
+    },
+    "solutionNote": {
+      "allowed": true,
+      "requiredWhenSolvedWithoutAcceptedAnswer": true,
+      "purpose": "Record self-resolution or a synthesized resolution so later readers can understand how the issue was solved."
+    },
+    "invalidOrNonProblem": {
+      "action": "DELETE_OR_WITHDRAW_FROM_USER_FACING_KNOWLEDGE",
+      "examples": [
+        "mistaken question",
+        "not actually a problem",
+        "insufficient/invalid premise",
+        "duplicate with no unique value"
+      ],
+      "note": "Do not mark these SOLVED merely to close them."
+    }
+  },
+  "freshness": {
+    "userFacingStates": [
+      "CURRENT",
+      "NEEDS_RECHECK"
+    ],
+    "current": "Believed useful/applicable for the current supported DDV version/platform context.",
+    "needsRecheck": "Temporary uncertainty after a relevant DDV update/system change or conflicting evidence; excluded from normal current/recommended surfaces until revalidated.",
+    "outdated": "TERMINAL_DELETE",
+    "historicalStateExists": false,
+    "onConfirmedOutdated": {
+      "tip": "Delete from normal knowledge storage/public surfaces.",
+      "answer": "Delete the outdated answer. If the question itself remains current and has no other current solution, return the question to UNRESOLVED.",
+      "question": "Delete the whole question/thread when the problem itself is no longer applicable to the current supported DDV state."
+    },
+    "retentionException": "Only minimal structural/audit/moderation records may remain when required by moderation, security, legal hold, or deletion-ledger contracts; obsolete knowledge payload is not kept for ordinary history."
+  },
+  "revalidation": {
+    "mayUse": [
+      "author verification on the current supported DDV version/platform",
+      "credible Worked / Does Not Work feedback",
+      "moderator or Database/Knowledge review",
+      "update-diff evidence linked to affected systems/entities"
+    ],
+    "popularitySignalsNotSufficient": true
+  },
+  "launchBoundary": {
+    "historicalKnowledgeArchive": false,
+    "productDecisionClosed": true,
+    "engineeringAndQaStillRequired": true
+  }
+}

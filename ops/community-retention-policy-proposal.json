@@ -1,0 +1,147 @@
+{
+  "schema": "dreamwish-community-retention-policy-proposal@1",
+  "generatedAt": "2026-10-01",
+  "status": "READY_FOR_EXPLICIT_APPROVAL",
+  "notAnApproval": true,
+  "purpose": "Convert the already-closed retention engineering contract into concrete launch policy choices without inferring Product, Privacy, or Legal approval.",
+  "engineeringBoundary": {
+    "implementation": "CLOSED_STAGING",
+    "runtimeEvidence": "CONFIRMED_EXISTING_RETENTION_E2E_PLUS_CURRENT_STAGING_SCHEMA_FUNCTIONS",
+    "plumbingRerunRequiredBeforeApproval": false,
+    "contentPayloadDaysDefault": 7,
+    "operationalDetailDaysDefault": 90,
+    "note": "Current launch policy is one operational-retention stage: 90 days. Moderation/security/legal exceptions use D4 retention holds instead of a separate 365-day tier."
+  },
+  "decisions": [
+    {
+      "id": "D1_CONTENT_PAYLOAD_DURATION",
+      "proposal": "7_DAYS_AFTER_ACCOUNT_DELETION",
+      "valueDays": 7,
+      "productMeaning": "Account/public access and owned public/private works are removed together immediately at account deletion; owned user-authored payload is physically purged by the scheduled content-retention stage within 7 days unless an active permitted hold blocks purge.",
+      "isRecoveryWindow": false,
+      "implementationChangeRequired": false
+    },
+    {
+      "id": "D2_OPERATIONAL_DETAIL_DURATION",
+      "proposal": "90_DAYS_SINGLE_STAGE_WITH_D4_HOLDS",
+      "productMeaning": "Operational detail is scrubbed at 90 days. If moderation, security, or legal necessity still exists, the D4 hold prevents the job from being claimed; once the hold no longer applies, overdue scrub becomes eligible without a separate fixed 365-day tier.",
+      "implementationChangeRequired": false,
+      "valueDays": 90
+    },
+    {
+      "id": "D3_USER_FACING_DELETION_PROMISE",
+      "proposal": "IMMEDIATE_REMOVAL_THEN_SCHEDULED_BACKEND_PURGE",
+      "productMeaning": "Deletion is irreversible for the user: account access, Creator presence, and owned published/private works are removed together immediately; backend payload is then physically purged within 7 days. Wand does not promise a recovery or undo window.",
+      "implementationChangeRequired": false
+    },
+    {
+      "id": "D4_RETENTION_HOLD_POLICY",
+      "proposal": "ADMIN_ONLY_MODERATION_SECURITY_LEGAL_HOLDS",
+      "productMeaning": "Only moderation, security, or legal holds are permitted. Hold create/release requires recent-auth admin authority, a recorded reason, and audit history. A hold may extend retention beyond 90 days only while the documented necessity remains; expiry should be set when a determinate end exists, otherwise explicit admin release is required.",
+      "implementationChangeRequired": false,
+      "currentRuntimeEnforcement": {
+        "allowedTypes": [
+          "moderation",
+          "security",
+          "legal"
+        ],
+        "recentAuthAdminRequired": true,
+        "reasonLengthCharacters": {
+          "min": 8,
+          "max": 500
+        },
+        "expirySupported": true,
+        "addAndReleaseAudited": true
+      }
+    },
+    {
+      "id": "D5_STRUCTURAL_TOMBSTONE_POLICY",
+      "proposal": "PRESERVE_MINIMIZED_RELATIONSHIP_SKELETON_AFTER_SCRUB",
+      "productMeaning": "After payload purge and operational scrub, retain only stable IDs, revision numbering/relationships, deletion-event identity, and non-sensitive structure needed to preserve integrity of historical publication/moderation/report relationships. Do not retain deleted user-authored payload or unnecessary re-identifying detail.",
+      "implementationChangeRequired": false,
+      "eventualDestructionHorizon": "NOT_PROPOSED_AT_LAUNCH_REVIEW"
+    },
+    {
+      "id": "D6_BACKUP_COPY_RETENTION",
+      "proposal": "QUARANTINED_DB_STORAGE_RECOVERY_WITH_EXTERNAL_DELETION_LEDGER",
+      "productMeaning": "Database and Storage recovery copies remain separate. Recovery is restored into a non-production target first. Before any restored Community data becomes user-visible, a minimal deletion ledger outside the primary rollback domain is replayed so accounts/content deleted after the backup point cannot reappear.",
+      "implementationChangeRequired": "PRODUCTION_MECHANISM_PENDING",
+      "launchTargets": {
+        "databaseRpoHoursMax": 24,
+        "storageRpoHoursMax": 24,
+        "rtoHoursTarget": 4,
+        "storageRecoveryCopyRetentionDaysTarget": 7,
+        "recoveryDeletionLedgerRetentionDays": 90
+      },
+      "providerPlanBinding": "Bind the actual Supabase production backup window and external Storage-backup provider before launch. Any longer recovery-copy retention must be reviewed and disclosed.",
+      "launchComplexityChoice": "No PITR requirement at launch. Prefer provider-managed daily DB backup plus one independent private Storage recovery copy path. Provider/plan selection remains production operations.",
+      "recoveryDeletionLedgerContract": "ops/community-backup-privacy-contract.json"
+    },
+    {
+      "id": "D7_PROCESSOR_PROVIDER_RETENTION",
+      "proposal": "MINIMIZE_PROVIDER_DATA_AND_DISCLOSE_MATERIAL_PROVIDER_WINDOWS",
+      "productMeaning": "Wand minimizes personal/content data sent to processors. Provider-controlled backup/log/email copies are not represented as obeying Wand's 7-day or 90-day timers. Material launch-provider retention windows are documented and disclosed in the Privacy Policy.",
+      "implementationChangeRequired": "DISCLOSURE_CONTRACT_READY_PROVIDER_BINDING_PENDING",
+      "disclosureContract": "ops/community-deletion-disclosure-contract.json"
+    },
+    {
+      "id": "D8_POLICY_DISCLOSURE_AND_ACCEPTANCE",
+      "proposal": "CATEGORY_BY_CATEGORY_PLAIN_LANGUAGE_DISCLOSURE",
+      "productMeaning": "Deletion UI and Privacy Policy explain each data category separately: immediate account/work removal, 7-day payload purge, immediate private-interaction removal, asynchronous auth-provider cleanup, 90-day operational scrub, justified holds, minimal structural tombstones, backup recovery copies, and provider-controlled copies/logs.",
+      "implementationChangeRequired": "DISCLOSURE_CONTRACT_READY_USER_FACING_COPY_AND_APPROVAL_PENDING",
+      "disclosureContract": "ops/community-deletion-disclosure-contract.json"
+    }
+  ],
+  "providerFactsReviewedAt": "2026-10-01",
+  "providerFacts": {
+    "supabase": {
+      "source": "https://supabase.com/docs/guides/platform/backups",
+      "databaseDailyBackupRetentionByPlanDays": {
+        "Pro": 7,
+        "Team": 14,
+        "Enterprise": "up to 30"
+      },
+      "storageObjectsIncludedInDatabaseBackup": false,
+      "logsAccessibleRetentionByPlanDays": {
+        "Free": 1,
+        "Pro": 7,
+        "Team": 28,
+        "Enterprise": 90
+      },
+      "logsSource": "https://supabase.com/docs/guides/troubleshooting/check-usage-for-monthly-active-users-mau-MwZaBs",
+      "productionPlan": "UNDECIDED"
+    },
+    "resend": {
+      "source": "https://resend.com/security/gdpr",
+      "emailAndLogRetentionDaysForFreeProScale": 30,
+      "backupRetentionDays": 7,
+      "remainingCustomerDataDeletionAfterAccountTerminationDaysMax": 90,
+      "dataStorageRegion": "United States",
+      "enterpriseRetention": "flexible",
+      "note": "Provider facts describe Resend's stated service retention and are not a Wand legal sufficiency conclusion."
+    }
+  },
+  "approvalState": {
+    "product": "APPROVED",
+    "privacy": "PENDING_EXPLICIT_APPROVAL",
+    "legal": "PENDING_EXPLICIT_APPROVAL",
+    "launchApproved": false
+  },
+  "nextAction": "Product approval is complete. Obtain explicit Privacy and Legal approvals or requested changes; then run one final policy/configuration regression before launch readiness.",
+  "productApproval": {
+    "status": "APPROVED",
+    "approvedAt": "2026-10-02",
+    "formalDecisionIds": [
+      "D1_CONTENT_PAYLOAD_DURATION",
+      "D2_OPERATIONAL_DETAIL_DURATION",
+      "D3_USER_FACING_DELETION_PROMISE",
+      "D4_RETENTION_HOLD_POLICY",
+      "D5_STRUCTURAL_TOMBSTONE_POLICY",
+      "D6_BACKUP_COPY_RETENTION",
+      "D8_POLICY_DISCLOSURE_AND_ACCEPTANCE"
+    ],
+    "productDirectionAlsoSupports": "D7_PROCESSOR_PROVIDER_RETENTION",
+    "evidence": "docs/community/retention-product-approval-record-20261002.md",
+    "note": "D7 formal approval remains Privacy/Legal because Product is not a required approver for that decision."
+  }
+}

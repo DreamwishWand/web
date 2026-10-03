@@ -1,0 +1,111 @@
+{
+  "schema": "dreamwish-community-deletion-disclosure-contract@1",
+  "generatedAt": "2026-10-01",
+  "status": "READY_FOR_PRODUCT_PRIVACY_LEGAL_REVIEW",
+  "notLegalApproval": true,
+  "plainLanguageRule": "Tell Wizards what happens by data category and timing. Do not say all data is deleted immediately, and do not expose internal queue/table terminology in user-facing copy.",
+  "categories": [
+    {
+      "id": "ACCOUNT_CREATOR",
+      "userLabel": "Wand Account and Creator Profile",
+      "timing": "IMMEDIATE",
+      "behavior": "Access ends immediately and cannot be recovered. Creator profile is anonymized/private; profile avatar and bio are removed from the active profile.",
+      "backendNote": "Wand account becomes deleted; AuthIdentity is retired and session cutoff advances."
+    },
+    {
+      "id": "PUBLISHED_PRIVATE_WORKS",
+      "userLabel": "Published and private works",
+      "timing": "IMMEDIATE_ACCESS_REMOVAL_THEN_WITHIN_7_DAYS_PAYLOAD_PURGE",
+      "behavior": "Owned works are removed from Community access and discovery immediately. User-authored payload such as media and Preset payload is physically purged within 7 days unless an allowed retention hold applies.",
+      "recoveryWindow": false
+    },
+    {
+      "id": "COMMENTS",
+      "userLabel": "Comments",
+      "timing": "IMMEDIATE",
+      "behavior": "Authored comments are deleted/anonymized in place so conversation structure can remain without the original comment text."
+    },
+    {
+      "id": "PRIVATE_INTERACTIONS",
+      "userLabel": "Saves, follows, reactions, notifications and linked DDV profiles",
+      "timing": "IMMEDIATE",
+      "behavior": "Private interaction state and linked DDV profiles are removed as part of account deletion."
+    },
+    {
+      "id": "AUTH_PROVIDER_ACCOUNT",
+      "userLabel": "Sign-in account",
+      "timing": "ACCESS_IMMEDIATE_PROVIDER_CLEANUP_ASYNC",
+      "behavior": "Wand access and sessions are revoked immediately. Deletion at the authentication provider is processed asynchronously with retry; the original provider identifier is not retained in public Community tables."
+    },
+    {
+      "id": "OPERATIONAL_RECORDS",
+      "userLabel": "Security, moderation and operational records",
+      "timing": "90_DAYS",
+      "behavior": "Operational detail is normally deleted or minimized at 90 days after account deletion.",
+      "exception": "Moderation, security or legal retention hold may delay the applicable scrub only while justified."
+    },
+    {
+      "id": "STRUCTURAL_TOMBSTONES",
+      "userLabel": "Minimal technical records",
+      "timing": "MINIMIZED_STRUCTURE_MAY_REMAIN",
+      "behavior": "Minimal non-content identifiers and relationship/revision structure may remain where needed to preserve database, publication, moderation or audit integrity. Deleted user-authored payload and unnecessary re-identifying detail are not retained for this purpose."
+    },
+    {
+      "id": "BACKUP_RECOVERY_COPIES",
+      "userLabel": "Backup and recovery copies",
+      "timing": "SEPARATE_RECOVERY_POLICY",
+      "behavior": "Backup copies follow a separate recovery policy. Restores are quarantined and deletion reconciliation must run before restored Community data can become user-visible.",
+      "contract": "ops/community-backup-privacy-contract.json"
+    },
+    {
+      "id": "PROVIDER_COPIES_LOGS",
+      "userLabel": "Service-provider copies and logs",
+      "timing": "PROVIDER_CONTROLLED",
+      "behavior": "Some authentication, infrastructure and transactional-email copies/logs are held by service providers under their own retention windows. Wand minimizes data sent to providers and discloses material provider-controlled retention."
+    }
+  ],
+  "providerDisclosureSnapshot": {
+    "reviewedAt": "2026-10-01",
+    "supabase": {
+      "productionPlan": "UNDECIDED",
+      "managedDailyDatabaseBackupRetentionDays": {
+        "Pro": 7,
+        "Team": 14,
+        "Enterprise": "up_to_30"
+      },
+      "storageObjectBytesIncludedInDatabaseBackup": false,
+      "accessibleLogRetentionDays": {
+        "Free": 1,
+        "Pro": 7,
+        "Team": 28,
+        "Enterprise": 90
+      }
+    },
+    "resend": {
+      "emailAndLogRetentionDaysFreeProScale": 30,
+      "backupRetentionDays": 7,
+      "remainingCustomerDataDeletionAfterAccountTerminationDaysMax": 90
+    }
+  },
+  "surfaces": {
+    "deleteAccountConfirmation": {
+      "mustState": [
+        "deletion is irreversible",
+        "account/Creator/owned works disappear from Community access immediately",
+        "user-authored payload is purged within 7 days",
+        "some operational records are normally minimized at 90 days",
+        "moderation/security/legal holds and backup/provider copies may follow separate rules"
+      ],
+      "mustNotState": [
+        "all copies are physically deleted immediately",
+        "the 7-day period is a recovery window",
+        "the 90-day period applies to user-authored content payload"
+      ]
+    },
+    "privacyPolicy": {
+      "mustExplainAllCategoryIds": true,
+      "providerNamesAndMaterialRetentionWindowsRequired": true,
+      "backupRestoreReconciliationRequired": true
+    }
+  }
+}
