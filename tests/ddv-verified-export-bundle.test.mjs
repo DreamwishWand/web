@@ -3,7 +3,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 
-import { createVerifiedExportBundle } from '../src/lib/ddv/core/save/verified-export-bundle.js';
+import { createVerifiedCandidateExportBundle, createVerifiedExportBundle } from '../src/lib/ddv/core/save/verified-export-bundle.js';
+import { TRANSACTION_CANDIDATE_CONTRACT, TRANSACTION_VERIFICATION_CONTRACT } from '../src/lib/ddv/core/save/transaction-foundation.js';
 import { p1gPackagedProfileCodec } from '../src/lib/ddv/core/save/p1g-packaged-profile-codec.js';
 import { SafeProfileEditSession } from '../src/lib/ddv/core/save/safe-edit-session.js';
 import { BuildIdentityKind, PlatformFamily, RuntimeGateStatus } from '../src/lib/ddv/core/save/versioning.js';
@@ -72,3 +73,62 @@ for(const c of [
     await writeFile(`/mnt/data/${c.label.toLowerCase()}_verified_export_bundle.zip`,bundle.bytes);
   });
 }
+
+
+test('verified candidate export requires independent 01A verification and reuses exact candidate bytes',async()=>{
+  const backup=Uint8Array.from([1,2,3,4]);
+  const edited=Uint8Array.from([5,6,7,8,9]);
+  const sourceSha=createHash('sha256').update(backup).digest('hex');
+  const editedSha=createHash('sha256').update(edited).digest('hex');
+  const candidate={
+    manifest:{
+      contract:TRANSACTION_CANDIDATE_CONTRACT,
+      planId:'candidate-export-test',
+      planSha256:'1'.repeat(64),
+      candidateManifestSha256:'2'.repeat(64),
+      input:{gameVersion:'1.25.0',targetBuild:switchTarget,originalSha256:sourceSha},
+      output:{candidateSha256:editedSha},
+      operation:{id:'WORLD_EXISTING_ROOT_STATELESS_FURNITURE_TRANSFORM_V125',kind:'MOVE'},
+      semanticDiff:{intentionalChangedPaths:['/World/GridCollection/Grids/1/Objects/2/X']},
+      capability:{persistentWrite:false},
+      persistentWriteAuthorized:false,
+      WORLD_PERSISTENT_WRITE_V125:false
+    },
+    backupOriginalBytes:backup,
+    candidateBytes:edited
+  };
+  const verification={
+    contract:TRANSACTION_VERIFICATION_CONTRACT,
+    status:'PASS',
+    planId:'candidate-export-test',
+    sourceSha256:sourceSha,
+    candidateSha256:editedSha
+  };
+  const out=await createVerifiedCandidateExportBundle({
+    candidate,verification,gameVersion:'1.25.0',
+    targetBuild:switchTarget,sourceName:'profile'
+  });
+  assert.equal(out.contract,'dreamwish.ddv.verified-candidate-browser-export@1');
+  assert.deepEqual(out.edited.bytes,edited);
+  assert.deepEqual(out.backup.bytes,backup);
+  assert.equal(out.edited.fileName,'profile');
+  assert.equal(out.edited.sha256,editedSha);
+  assert.equal(out.backup.sha256,sourceSha);
+  assert.equal(out.integrity.manifest.candidateManifestSha256,'2'.repeat(64));
+  assert.equal(out.integrity.manifest.persistentWriteAuthorized,false);
+  assert.equal(out.persistentWriteAuthorized,false);
+  const entries=parseStoredZip(out.bundle.bytes);
+  assert.deepEqual(entries.get('profile'),edited);
+  assert.deepEqual(entries.get('DDV_BACKUP_original_profile'),backup);
+
+  await assert.rejects(
+    ()=>createVerifiedCandidateExportBundle({
+      candidate,
+      verification:{...verification,status:'FAILED'},
+      gameVersion:'1.25.0',
+      targetBuild:switchTarget,
+      sourceName:'profile'
+    }),
+    /CANDIDATE_INDEPENDENT_VERIFICATION_REQUIRED/
+  );
+});
