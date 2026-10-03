@@ -16,7 +16,6 @@ const commandToRpc = {
   castDreamsnapVote: 'community_dreamsnap_cast_formal_vote_v1',
   addDreamsnapBrowseReaction: 'community_dreamsnap_add_browse_reaction_v1',
   addDreamsnapSpecialPick: 'community_dreamsnap_special_pick_v1',
-  recordDreamsnapOfficialResult: 'community_dreamsnap_record_official_result_v1',
   setDreamsnapOfficialResultPublication: 'community_dreamsnap_set_official_result_publication_v1',
   publishDreamsnapGallery: 'community_dreamsnap_publish_gallery_v1',
   saveEntity: 'community_save_entity',
@@ -65,7 +64,6 @@ const commandToRateBucket: Partial<Record<CommandName, string>> = {
   castDreamsnapVote: 'dreamsnap_judge',
   addDreamsnapBrowseReaction: 'dreamsnap_signal',
   addDreamsnapSpecialPick: 'dreamsnap_signal',
-  recordDreamsnapOfficialResult: 'dreamsnap_write',
   setDreamsnapOfficialResultPublication: 'dreamsnap_write',
   publishDreamsnapGallery: 'dreamsnap_write',
   saveEntity: 'save',
@@ -310,17 +308,6 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       case 'addDreamsnapSpecialPick':
         params.p_challenge_id = payload.challengeId;
         params.p_entry_id = payload.entryId;
-        break;
-      case 'recordDreamsnapOfficialResult':
-        params.p_entry_id = payload.entryId;
-        params.p_score = payload.score ?? null;
-        params.p_rank = payload.rank ?? null;
-        params.p_moonstones = payload.moonstones ?? null;
-        params.p_pixel_dust = payload.pixelDust ?? null;
-        params.p_official_payload =
-          payload.officialPayload && typeof payload.officialPayload === 'object'
-            ? payload.officialPayload
-            : {};
         break;
       case 'setDreamsnapOfficialResultPublication':
         params.p_entry_id = payload.entryId;
