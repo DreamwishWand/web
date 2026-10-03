@@ -1005,7 +1005,16 @@ async function runVerifiedExportAcceptance(page, report) {
   assert.equal(await reviewButton.isEnabled(), true);
   await reviewButton.click();
   const review = exportPanel.locator('.verified-export-review');
-  await review.waitFor();
+  const reviewError = exportPanel.locator('.verified-export-error');
+  await Promise.race([
+    review.waitFor({ state: 'visible', timeout: 10000 }),
+    reviewError.waitFor({ state: 'visible', timeout: 10000 })
+  ]);
+  if (await reviewError.isVisible()) {
+    const diagnostic = await text(reviewError);
+    report.verifiedExport.reviewFailure = diagnostic;
+    throw new Error('VERIFIED_EXPORT_REVIEW_FAIL: ' + diagnostic);
+  }
   await expectContains(review, 'MOVE');
   await expectContains(review, 'Item 40000048');
   await expectContains(review, 'Area 7');
