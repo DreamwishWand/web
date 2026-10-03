@@ -2,7 +2,7 @@ name: WEP primary-job browser acceptance
 
 on:
   push:
-    branches: [dev/wep-v125]
+    branches: [dev/wep-v125, 'integration/**']
     paths:
       - '.github/workflows/wep-browser-acceptance.yml'
       - 'scripts/wep-primary-job-browser-acceptance.mjs'
