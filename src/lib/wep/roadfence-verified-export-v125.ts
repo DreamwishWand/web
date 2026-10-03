@@ -406,7 +406,7 @@ export function analyzeRoadFenceVerifiedDraft({
       change.desired,
       sourceBinding.sourceObjectIds
     );
-    mutationSet=compileRoadMutationV125({
+    mutationSet=(compileRoadMutationV125 as any)({
       buildIdentity:BUILD_V125_SWITCH,
       sourceGrid,
       sourceObjectIds:sourceBinding.sourceObjectIds,
@@ -422,7 +422,7 @@ export function analyzeRoadFenceVerifiedDraft({
     if(!change.desiredLayout) {
       fail('WEP_ROADFENCE_FENCE_LAYOUT_REQUIRED');
     }
-    mutationSet=compileFenceMutationV125({
+    mutationSet=(compileFenceMutationV125 as any)({
       buildIdentity:BUILD_V125_SWITCH,
       sourceGrid,
       sourceObjectIds:sourceBinding.sourceObjectIds,
@@ -579,7 +579,7 @@ export async function commitRoadFenceVerifiedExport({
   });
   let bound:any;
   try {
-    bound=await createRoadFenceVerifiedWriteCandidateV125({
+    bound=await (createRoadFenceVerifiedWriteCandidateV125 as any)({
       session:safeSession,
       mutationSet:review.analysis.mutationSet,
       planId:
