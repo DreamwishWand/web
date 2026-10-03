@@ -2,7 +2,7 @@
   "schema": "ddv.minimum-persistent-transform-semantics@1",
   "artifactId": "DDV-MINIMUM-PERSISTENT-TRANSFORM-SEMANTICS-V125-V1_0-CANDIDATE",
   "version": "v1.0-candidate",
-  "status": "READY_FOR_INTEGRATOR_REVIEW",
+  "status": "SOURCE_CONTRACT_READY_PENDING_CI",
   "semanticOwner": "01B CORE - World / Grid / Buildings",
   "requestId": "01A-TO-01B-MIN-TRANSFORM-WRITE-SEMANTICS-V125",
   "target": {
@@ -169,117 +169,122 @@
     }
   },
   "admissibleClassifier": {
-    "schema": "ddv.minimum-persistent-transform-admissibility@1",
-    "positiveAuthority": [
-      "01D current-v1.25 Furniture writeScopeTier == CORE_STATELESS_FURNITURE",
-      "exact concreteType == FurnitureItemData",
-      "State == null",
-      "Core object classification == editable / furniture / NONE with zero reasons",
-      "current semantic root relation is explicitly ROOT",
-      "same destination root GridID",
-      "v1.9 placement result == NATIVE_VALID_CLEAR"
+    "inputContracts": {
+      "scopeRecord": "canonical v1.25 flat scopeIndex record",
+      "coreClassification": "01B adapter basic classification (FurnitureItemData / stateKind NONE / layer furniture / editable / no reasons)",
+      "progressionRecord": "ddv.progression-destination-veto-record@1",
+      "placementEvidence": {
+        "revision": "V125_NATIVE_ORDINARY_CARDINAL_NONWALL_GROUPSET_2",
+        "result": "placement-v125.cjs validateOrdinaryCardinalPlacement result"
+      },
+      "rootEvidence": "exact ROOT source address for existing object in the same target Grid"
+    },
+    "requiredScopeRecord": {
+      "concreteType": "FurnitureItemData",
+      "scopeTier": "CORE_STATELESS_FURNITURE",
+      "interaction": "None",
+      "isMissionItem": false,
+      "forPuzzleOnly": false,
+      "explicitGridEditRestriction": "null/false",
+      "nativePresetKnownRejectReasons": [],
+      "isSyncOnlineItem": false
+    },
+    "requiredSerializedObjectShape": [
+      "ID",
+      "ItemID",
+      "X",
+      "Y",
+      "Orientation",
+      "State"
     ],
-    "mandatoryNegativeExclusions": [
-      "riskSignals.isMissionItem == true",
-      "riskSignals.forPuzzleOnly == true",
-      "explicit GridEditRestriction",
-      "non-empty nativePresetKnownRejectReasons",
-      "onlineSemantics.isSyncOnlineItem != false",
-      "online category != Normal/0",
-      "expansions != [BaseGame]",
-      "gameSource present",
-      "ownership route != GENERIC_LIST or ownershipCanonicalItemID != ItemID",
-      "any GridObject State other than exact null",
-      "any top-level GridObject field outside current ID/ItemID/X/Y/Orientation/State subset, including serialized From",
-      "Building/PlayerHouse/Road/Fence/SubGrid/special concrete types by exact family classifier",
-      "non-ROOT relation or parent relation",
-      "cross-root destination",
-      "v1.15 active/unknown/historical reference presence in this minimum candidate",
-      "any MOVE/ROTATE progression veto",
-      "placement class other than NATIVE_VALID_CLEAR",
-      "non-cardinal source or destination orientation",
-      "ROTATE candidate that changes X or Y (anchor-changing/pivot/group rotation)"
-    ],
-    "noPositiveInferenceFrom": [
-      "absence of GridEditRestriction",
-      "IsMissionItem=false alone",
-      "v1.15 no-veto result alone",
-      "placement PASS alone"
-    ],
-    "currentDefinitionPopulationNote": {
-      "CORE_STATELESS_FURNITURE": 3276,
-      "additionallyBaseGameNormalNonSyncGenericListGameSourceNull": 1325,
-      "note": "Counts are definition-side scope only; per-save root/progression/placement gates further reduce admissible objects."
-    }
+    "requiredState": "State === null",
+    "unknownAdditionalGridObjectFields": "REJECT",
+    "progressionPolicy": {
+      "requireNegativeVetoFound": false,
+      "requireDestinationProtected": false,
+      "allowReferenceDispositions": [
+        "NONE_OBSERVED",
+        "HISTORICAL_ONLY"
+      ],
+      "requireActiveReferences": 0,
+      "requireUnknownReferences": 0,
+      "historicalReferences": "PRESERVE_UNCHANGED_ALLOWED",
+      "requireOperationVetoes": 0,
+      "note": "Absence of a v1.15 veto is not positive permission by itself; all classifier and placement gates must independently pass."
+    },
+    "placementPolicy": {
+      "revision": "V125_NATIVE_ORDINARY_CARDINAL_NONWALL_GROUPSET_2",
+      "sameRootGrid": true,
+      "clearArea": false,
+      "automaticSpawning": false,
+      "requiredResult": {
+        "status": "VALID",
+        "valid": true,
+        "verdict": "VALID"
+      }
+    },
+    "failClosedExclusions": [
+      "Building / PlayerHouse",
+      "Road / Fence",
+      "SubGrid parent or child",
+      "cross-root or cross-grid transform",
+      "non-null or unknown GridObject State",
+      "mission/puzzle/restricted/sync-online Furniture",
+      "ACTIVE or UNKNOWN progression reference/veto",
+      "unsupported or invalid placement",
+      "non-cardinal orientation",
+      "unknown extra serialized GridObject field"
+    ]
   },
   "operationSemantics": {
     "MOVE": {
-      "oneTransactionOneExistingObject": true,
-      "sameRootGridRequired": true,
-      "exactAllowedSerializedFields": [
+      "exactSerializedMutationSet": [
         "X",
         "Y"
       ],
-      "requiredInvariants": [
-        "Orientation",
-        "ID",
-        "ItemID",
-        "State",
-        "object-map key",
-        "root Grid membership",
-        "NextGridObjectID"
-      ],
-      "clearArea": false,
-      "destinationPlacement": "NATIVE_VALID_CLEAR",
-      "noOp": "REJECT"
+      "Orientation": "MUST_PRESERVE",
+      "identity": "MUST_PRESERVE",
+      "state": "MUST_PRESERVE_NULL",
+      "nextGridObjectId": "MUST_PRESERVE"
     },
     "ROTATE": {
-      "oneTransactionOneExistingObject": true,
-      "sameRootGridRequired": true,
-      "editorSemantic": "ROTATE_CARDINAL_ONE_OBJECT_ANCHOR_PRESERVING",
-      "exactAllowedSerializedFields": [
+      "exactSerializedMutationSet": [
         "Orientation"
       ],
-      "note": "Frozen v1.0 ROTATE consumes the existing Core rotateObjectInPlace semantics: X/Y stay byte-semantically unchanged and only Orientation changes. Generalized anchor-moving rotation remains excluded.",
-      "cardinalOrientations": [
-        0,
-        4,
-        8,
-        12
-      ],
-      "requiredInvariants": [
-        "X",
-        "Y",
-        "ID",
-        "ItemID",
-        "State",
-        "object-map key",
-        "root Grid membership",
-        "NextGridObjectID"
-      ],
-      "clearArea": false,
-      "destinationPlacement": "NATIVE_VALID_CLEAR",
-      "noOp": "REJECT"
-    }
+      "X": "MUST_PRESERVE",
+      "Y": "MUST_PRESERVE",
+      "mode": "ANCHOR_PRESERVING_CARDINAL_ONLY",
+      "identity": "MUST_PRESERVE",
+      "state": "MUST_PRESERVE_NULL",
+      "nextGridObjectId": "MUST_PRESERVE"
+    },
+    "companionSerializedFields": [],
+    "runtimeDerivedOnly": [
+      "GridCells occupancy remove/add",
+      "GridObject gridArea / derived footprint",
+      "GridChangedOperation.UpdateTransform dispatch"
+    ]
   },
   "nativePlacementRequirements": {
-    "consumedContract": "ddv.native-placement-legality@1",
-    "requiredClass": "NATIVE_VALID_CLEAR",
+    "implementation": "static/ddv/core/world/v1.25/placement-v125.cjs",
+    "revision": "V125_NATIVE_ORDINARY_CARDINAL_NONWALL_GROUPSET_2",
+    "requiredResult": {
+      "status": "VALID",
+      "valid": true,
+      "verdict": "VALID"
+    },
+    "requireSameRootGrid": true,
     "requireClearAreaFalse": true,
-    "rejectClasses": [
-      "NATIVE_VALID_REPLACES_OR_REMOVES_EXISTING",
-      "NATIVE_INVALID",
-      "NATIVE_UNKNOWN_UNVERIFIED"
-    ],
+    "requireAutomaticSpawningFalse": true,
     "requiredExistingPreconditions": [
       "authoritative v1.7 bounds",
       "authoritative v1.8 FloorType",
       "current-v1.25 resolved geometry/layers",
       "cardinal non-wall placement",
-      "resolved occupancy excluding the target object's original occupancy",
+      "resolved occupancy excluding target original occupancy",
       "same-root final candidate"
     ],
-    "safetyRule": "Native placement validation is necessary but not sufficient; classifier, progression, object-family and preservation gates must also pass."
+    "safetyRule": "Placement VALID is necessary but never sufficient; scope, root, progression, state, identity and preservation gates must also pass."
   },
   "preservation": {
     "requiredUnchanged": [
@@ -330,7 +335,17 @@
     },
     "appliesOnlyAfterAdmissibility": "ADMISSIBLE",
     "persistentWriteAuthorized": false,
-    "WORLD_PERSISTENT_WRITE_V125": false
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "planBindingHardening": {
+      "exactOperationGateRequired": true,
+      "exactAllowedPathsRequired": true,
+      "requiredIdentityPrePostconditions": true,
+      "requiredStateNullPrePostconditions": true,
+      "requiredBeforeAndFinalTransformPrePostconditions": true,
+      "requiredNextGridObjectIdPreservation": true,
+      "required01APreservationPolicies": true,
+      "arbitraryConditionWeakening": "REJECT"
+    }
   },
   "runtimeAcceptance": {
     "currentStatus": "PENDING_AFTER_INTEGRATOR_PROMOTION",
@@ -367,43 +382,27 @@
     "headBeforeFinalMetadata": "8856a3dd8747dae61c0e80f19115be2512fe1ebc"
   },
   "currentSaveEvidence": {
-    "sourceSha256": "1cfc40196f7ee36048e1fa98c0835561901c6fed3f19ca8dd6fa36c47740dc10",
-    "sourcePlatform": "Nintendo Switch",
-    "profileSchemaVersion": 624,
-    "observedSerializedOrientationRepresentation": "GridOrientation_* enum strings",
-    "strictDefinitionAndObjectFilterBeforeProgressionAndPlacement": {
-      "rootStateNullObjects": 119,
-      "cardinalRootStateNullObjects": 62,
-      "note": "This is non-authorizing population evidence only. Every candidate still requires exact root evidence, v1.15 progression-clear evidence and v1.9 NATIVE_VALID_CLEAR."
-    }
+    "status": "STRUCTURAL_ONLY_NO_PRIVATE_BYTES_COMMITTED",
+    "note": "Current v1.25 canonical fixture confirms GridObject serialization shape and ordinary flat scopeIndex shape. Runtime persistence/reload remains owned by 01E."
   },
   "regression": {
-    "workflow": "CI",
-    "runId": 37086313045,
-    "runNumber": 1849,
-    "headSha": "8856a3dd8747dae61c0e80f19115be2512fe1ebc",
-    "result": "SUCCESS",
-    "tests": 209,
-    "pass": 197,
-    "fail": 0,
-    "skipped": 12,
-    "svelteTypeErrors": 0,
-    "svelteTypeWarnings": 0,
-    "canonicalBaselineVerification": "PASS (13 protected entries)",
-    "productionStaticBuild": "PASS",
-    "bindingProofs": [
-      "MOVE -> 01A verified write candidate with intentional semantic diff X/Y only",
-      "anchor-preserving ROTATE -> 01A verified write candidate with intentional semantic diff Orientation only",
-      "decoded enum-string orientation representation preserved",
-      "ID/ItemID/State/object map key/root membership/NextGridObjectID unchanged",
-      "unrelated opaque target-neighbor State, Player state and World state unchanged",
-      "overbroad MOVE allowlist including Orientation rejected by semantic adapter"
+    "implementation": "tests/ddv-core-world-min-transform-write-v125.test.mjs",
+    "required": [
+      "canonical flat scope positive/negative",
+      "historical-only progression allowed while ACTIVE/UNKNOWN rejected",
+      "exact promoted placement revision/result",
+      "MOVE X/Y-only 01A candidate",
+      "ROTATE Orientation-only 01A candidate",
+      "unknown extra serialized object field reject",
+      "overbroad allowed-path reject",
+      "required pre/postcondition tamper reject",
+      "writer boundary remains false"
     ]
   },
   "integratorReturn": {
-    "ready": true,
-    "promotionScope": "WORLD_OBJECT_FAMILY_SEMANTICS_AND_MUTATION_ADAPTER_ONLY",
-    "runtimeAfterPromotion": "ACTIVATE_01E_NARROW_CONTROLLED_ACCEPTANCE",
-    "persistentApplyStillBlocked": true
+    "status": "PENDING_CI_AND_REVIEW",
+    "nextIfPromoted": "Activate 01E only for controlled exact-build runtime persistence/cold-reload acceptance.",
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false
   }
 }
