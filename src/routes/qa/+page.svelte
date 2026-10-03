@@ -16,7 +16,7 @@
   let busy = false;
   let error = '';
 
-  onMount(() => { void search(); });
+  onMount(() => { const params = new URLSearchParams(window.location.search); const questionId = params.get('question'); const tipId = params.get('tip'); void search(); if (questionId) void open(questionId, 'question'); else if (tipId) void open(tipId, 'tip'); });
 
   async function search() {
     if (!client) return;
