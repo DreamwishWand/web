@@ -106,6 +106,23 @@ async function expectCode(promise,code){
   await assert.rejects(promise,error=>{assert.equal(error.code,code,error?.stack||String(error));return true;});
 }
 
+function canonicalJson(value){return JSON.stringify(canonicalize(value));}
+function canonicalize(value){
+  if(Array.isArray(value))return value.map(canonicalize);
+  if(value&&typeof value==='object'){const out={};for(const key of Object.keys(value).sort())out[key]=canonicalize(value[key]);return out;}
+  return value;
+}
+async function manifestSha(manifest){
+  const copy=structuredClone(manifest);delete copy.candidateManifestSha256;
+  const digest=await globalThis.crypto.subtle.digest('SHA-256',encoder.encode(canonicalJson(copy)));
+  return [...new Uint8Array(digest)].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+async function withRehashedManifest(candidate,mutate){
+  const manifest=structuredClone(candidate.manifest);mutate(manifest);
+  manifest.candidateManifestSha256=await manifestSha(manifest);
+  return {...candidate,manifest};
+}
+
 test('machine contracts keep WRITE_CANDIDATE separate from PERSISTENT_WRITE',async()=>{
   const planSchema=JSON.parse(await readFile(new URL('../contracts/save-transaction-plan.schema.json',import.meta.url),'utf8'));
   const candidateSchema=JSON.parse(await readFile(new URL('../contracts/save-transaction-candidate.schema.json',import.meta.url),'utf8'));
@@ -214,6 +231,24 @@ test('negative candidate tamper fails independent hash verification',async()=>{
   const tampered={...candidate,candidateBytes:candidate.candidateBytes.slice()};
   tampered.candidateBytes[tampered.candidateBytes.length-2]^=1;
   await expectCode(verifyWriteCandidate({candidate:tampered,codec:plainCodec()}),'TX_CANDIDATE_HASH_MISMATCH');
+});
+
+test('negative self-rehashed manifest target tamper is rejected by plan binding',async()=>{
+  const session=await openSession(),plan=await planFor(session);
+  const candidate=await createVerifiedWriteCandidate({session,plan,adapter:adapter()});
+  const tampered=await withRehashedManifest(candidate,manifest=>{manifest.target.gridObjectId=999;});
+  await expectCode(verifyWriteCandidate({candidate:tampered,codec:plainCodec()}),'TX_MANIFEST_TARGET_BINDING_MISMATCH');
+});
+
+test('negative self-rehashed semantic-diff relabeling is rejected by independent verification',async()=>{
+  const session=await openSession(),plan=await planFor(session);
+  const candidate=await createVerifiedWriteCandidate({session,plan,adapter:adapter()});
+  const tampered=await withRehashedManifest(candidate,manifest=>{
+    manifest.semanticDiff.intentionalChangedPaths=[];
+    manifest.semanticDiff.unrelatedChangedPaths=[...manifest.semanticDiff.allChangedPaths];
+    manifest.semanticDiff.accepted=false;
+  });
+  await expectCode(verifyWriteCandidate({candidate:tampered,codec:plainCodec()}),'TX_MANIFEST_SEMANTIC_DIFF_BINDING_MISMATCH');
 });
 
 test('negative ambiguous source platform fails closed',async()=>{
