@@ -68,6 +68,11 @@
     reviewMinimumVerifiedTransform
   } from '$lib/wep/min-verified-transform-export-v1';
   import {
+    ROADFENCE_VERIFIED_EXPORT_CONTRACT,
+    commitRoadFenceVerifiedExport,
+    reviewRoadFenceVerifiedExport
+  } from '$lib/wep/roadfence-verified-export-v125';
+  import {
     buildObjectInspectorModel,
     buildPrimaryJobAvailability,
     describeDraftValidation,
@@ -2550,15 +2555,39 @@
     const key = ({
       WEP_EXPORT_UNSUPPORTED_VERSION_BUILD:
         'worldEditor.verifiedExport.failure.unsupportedBuild',
+      WEP_ROADFENCE_UNSUPPORTED_VERSION_BUILD:
+        'worldEditor.verifiedExport.failure.unsupportedBuild',
       WEP_EXPORT_EXACT_BUILD_CONFIRMATION_REQUIRED:
+        'worldEditor.verifiedExport.failure.buildConfirmation',
+      WEP_ROADFENCE_EXACT_BUILD_CONFIRMATION_REQUIRED:
         'worldEditor.verifiedExport.failure.buildConfirmation',
       WEP_EXPORT_NO_ELIGIBLE_PENDING_CHANGE:
         'worldEditor.verifiedExport.failure.noEligibleChange',
+      WEP_ROADFENCE_NO_ELIGIBLE_PENDING_CHANGE:
+        'worldEditor.verifiedExport.failure.noEligibleChange',
       WEP_EXPORT_UNSUPPORTED_PENDING_CHANGE:
+        'worldEditor.verifiedExport.failure.unsupportedChange',
+      WEP_ROADFENCE_CONCURRENT_NON_NETWORK_CHANGE:
+        'worldEditor.verifiedExport.failure.unsupportedChange',
+      WEP_ROADFENCE_MULTI_NETWORK_CHANGE_UNSUPPORTED:
+        'worldEditor.verifiedExport.failure.unsupportedChange',
+      WEP_ROADFENCE_NETWORK_REMOVAL_UNSUPPORTED_V1:
+        'worldEditor.verifiedExport.failure.unsupportedChange',
+      WEP_ROADFENCE_FENCE_LAYOUT_INVALIDATED:
+        'worldEditor.verifiedExport.failure.unsupportedChange',
+      WEP_ROADFENCE_FENCE_LAYOUT_REQUIRED:
+        'worldEditor.verifiedExport.failure.unsupportedChange',
+      WEP_ROADFENCE_MULTI_POST_EDIT_UNSUPPORTED:
+        'worldEditor.verifiedExport.failure.unsupportedChange',
+      WEP_ROADFENCE_COMPILER_BLOCKED:
         'worldEditor.verifiedExport.failure.unsupportedChange',
       WEP_EXPORT_SOURCE_CHANGED_SINCE_PLAN:
         'worldEditor.verifiedExport.failure.sourceChanged',
+      WEP_ROADFENCE_SOURCE_CHANGED_SINCE_PLAN:
+        'worldEditor.verifiedExport.failure.sourceChanged',
       WEP_EXPORT_REVIEW_STALE:
+        'worldEditor.verifiedExport.failure.reviewStale',
+      WEP_ROADFENCE_REVIEW_STALE:
         'worldEditor.verifiedExport.failure.reviewStale',
       WEP_EXPORT_TARGET_IDENTITY_MISMATCH:
         'worldEditor.verifiedExport.failure.identityMismatch',
@@ -2570,15 +2599,31 @@
         'worldEditor.verifiedExport.failure.progressionVeto',
       WEP_EXPORT_INVALID_DESTINATION:
         'worldEditor.verifiedExport.failure.invalidDestination',
+      WEP_ROADFENCE_TARGET_SURFACE_BOUNDS_REQUIRED:
+        'worldEditor.verifiedExport.failure.invalidDestination',
+      WEP_ROADFENCE_TARGET_SURFACE_OUT_OF_BOUNDS:
+        'worldEditor.verifiedExport.failure.invalidDestination',
+      WEP_ROADFENCE_CANDIDATE_GENERATION_FAILED:
+        'worldEditor.verifiedExport.failure.candidateGeneration',
       WEP_EXPORT_CANDIDATE_GENERATION_FAILED:
         'worldEditor.verifiedExport.failure.candidateGeneration',
       WEP_EXPORT_CANDIDATE_VERIFICATION_FAILED:
         'worldEditor.verifiedExport.failure.candidateVerification',
+      WEP_ROADFENCE_CANDIDATE_VERIFICATION_FAILED:
+        'worldEditor.verifiedExport.failure.candidateVerification',
       WEP_EXPORT_ASSEMBLY_FAILED:
+        'worldEditor.verifiedExport.failure.exportAssembly',
+      WEP_ROADFENCE_EXPORT_ASSEMBLY_FAILED:
         'worldEditor.verifiedExport.failure.exportAssembly',
       WEP_EXPORT_RELOAD_REPARSE_FAILED:
         'worldEditor.verifiedExport.failure.reload',
+      WEP_ROADFENCE_RELOAD_REPARSE_FAILED:
+        'worldEditor.verifiedExport.failure.reload',
+      WEP_ROADFENCE_RELOAD_NATIVE_READER_BLOCKED:
+        'worldEditor.verifiedExport.failure.reload',
       WEP_EXPORT_RELOAD_IDENTITY_OR_TRANSFORM_MISMATCH:
+        'worldEditor.verifiedExport.failure.reloadMismatch',
+      WEP_ROADFENCE_RELOAD_LOGICAL_NETWORK_MISMATCH:
         'worldEditor.verifiedExport.failure.reloadMismatch'
     } as Record<string, string>)[code];
     return t(
@@ -2594,7 +2639,6 @@
       !worldSourceBytes ||
       !verifiedExportBaselineDocument ||
       !editorDocument ||
-      !placementLegalityBinding ||
       !switchWorldBinding
     ) {
       verifiedExportErrorCode = 'WEP_EXPORT_NO_ELIGIBLE_PENDING_CHANGE';
@@ -2609,27 +2653,73 @@
     verifiedExportErrorDetail = '';
     verifiedExportConfirmed = false;
     try {
-      const review = await reviewMinimumVerifiedTransform({
-        sourceBytes: worldSourceBytes,
-        sourceName: fileName || 'profile',
-        sourceEpoch: worldSourceEpoch,
-        opened: worldSource,
-        baselineDocument: verifiedExportBaselineDocument,
-        draftDocument: editorDocument,
-        placementBinding: placementLegalityBinding,
-        worldBinding: switchWorldBinding,
-        basePath: base,
-        exactBuildConfirmed: verifiedExportBuildConfirmed
-      });
-      if (
-        selection.length !== 1 ||
-        selection[0] !== review.change.editorId
-      ) {
-        throw Object.assign(
-          new Error('WEP_EXPORT_CHANGED_OBJECT_MUST_BE_SELECTED'),
-          { code: 'WEP_EXPORT_CHANGED_OBJECT_MUST_BE_SELECTED' }
-        );
+      let review: any = null;
+      let furnitureError: any = null;
+      if (placementLegalityBinding) {
+        try {
+          review = await reviewMinimumVerifiedTransform({
+            sourceBytes: worldSourceBytes,
+            sourceName: fileName || 'profile',
+            sourceEpoch: worldSourceEpoch,
+            opened: worldSource,
+            baselineDocument: verifiedExportBaselineDocument,
+            draftDocument: editorDocument,
+            placementBinding: placementLegalityBinding,
+            worldBinding: switchWorldBinding,
+            basePath: base,
+            exactBuildConfirmed: verifiedExportBuildConfirmed
+          });
+          if (
+            selection.length !== 1 ||
+            selection[0] !== review.change.editorId
+          ) {
+            throw Object.assign(
+              new Error('WEP_EXPORT_CHANGED_OBJECT_MUST_BE_SELECTED'),
+              { code: 'WEP_EXPORT_CHANGED_OBJECT_MUST_BE_SELECTED' }
+            );
+          }
+        } catch (error: any) {
+          furnitureError = error;
+          const fallbackCodes = new Set([
+            'WEP_EXPORT_NO_ELIGIBLE_PENDING_CHANGE',
+            'WEP_EXPORT_UNSUPPORTED_PENDING_CHANGE'
+          ]);
+          const code = String(
+            error?.code ?? error?.message ?? ''
+          );
+          if (!fallbackCodes.has(code)) throw error;
+          review = null;
+        }
       }
+
+      if (!review) {
+        try {
+          review = await reviewRoadFenceVerifiedExport({
+            sourceBytes: worldSourceBytes,
+            sourceName: fileName || 'profile',
+            sourceEpoch: worldSourceEpoch,
+            opened: worldSource,
+            baselineDocument: verifiedExportBaselineDocument,
+            draftDocument: editorDocument,
+            exactBuildConfirmed: verifiedExportBuildConfirmed
+          });
+        } catch (roadFenceError: any) {
+          const roadFenceCode = String(
+            roadFenceError?.code ??
+              roadFenceError?.message ??
+              'WEP_ROADFENCE_REVIEW_FAILED'
+          );
+          if (
+            roadFenceCode ===
+              'WEP_ROADFENCE_NO_ELIGIBLE_PENDING_CHANGE' &&
+            furnitureError
+          ) {
+            throw furnitureError;
+          }
+          throw roadFenceError;
+        }
+      }
+
       verifiedExportReview = review;
       message = t(
         'worldEditor.verifiedExport.reviewReady',
@@ -2655,21 +2745,39 @@
       !worldSourceBytes ||
       !verifiedExportBaselineDocument ||
       !editorDocument ||
-      !switchWorldBinding
+      !worldSource
     ) return;
     verifiedExportLoading = true;
     verifiedExportResult = null;
     verifiedExportErrorCode = '';
     verifiedExportErrorDetail = '';
     try {
-      verifiedExportResult = await commitMinimumVerifiedTransform({
-        review: verifiedExportReview,
-        currentSourceEpoch: worldSourceEpoch,
-        sourceBytes: worldSourceBytes,
-        baselineDocument: verifiedExportBaselineDocument,
-        draftDocument: editorDocument,
-        worldBinding: switchWorldBinding
-      });
+      if (
+        verifiedExportReview.contract ===
+        ROADFENCE_VERIFIED_EXPORT_CONTRACT
+      ) {
+        verifiedExportResult =
+          await commitRoadFenceVerifiedExport({
+            review: verifiedExportReview,
+            currentSourceEpoch: worldSourceEpoch,
+            sourceBytes: worldSourceBytes,
+            opened: worldSource,
+            baselineDocument: verifiedExportBaselineDocument,
+            draftDocument: editorDocument
+          });
+      } else {
+        if (!switchWorldBinding) {
+          throw new Error('WEP_EXPORT_WORLD_BINDING_REQUIRED');
+        }
+        verifiedExportResult = await commitMinimumVerifiedTransform({
+          review: verifiedExportReview,
+          currentSourceEpoch: worldSourceEpoch,
+          sourceBytes: worldSourceBytes,
+          baselineDocument: verifiedExportBaselineDocument,
+          draftDocument: editorDocument,
+          worldBinding: switchWorldBinding
+        });
+      }
       message = t(
         'worldEditor.verifiedExport.success',
         {},
@@ -3565,39 +3673,72 @@
 
           {#if verifiedExportReview}
             <div class="verified-export-review" aria-live="polite">
-              <div>
-                <span>{t('worldEditor.verifiedExport.operation', {}, $locale)}</span>
-                <strong>{verifiedExportReview.change.operation}</strong>
-              </div>
-              <div>
-                <span>{t('worldEditor.verifiedExport.object', {}, $locale)}</span>
-                <strong>{verifiedExportReview.change.editorId} · Item {verifiedExportReview.change.itemId}</strong>
-              </div>
-              <div>
-                <span>{t('worldEditor.verifiedExport.context', {}, $locale)}</span>
-                <strong>
-                  Area {verifiedExportReview.baselineTarget.areaId} ·
-                  Grid {verifiedExportReview.change.gridId}
-                </strong>
-              </div>
-              <div>
-                <span>{t('worldEditor.verifiedExport.validation', {}, $locale)}</span>
-                <strong>{t('worldEditor.verifiedExport.pass', {}, $locale)}</strong>
-              </div>
-              {#if verifiedExportReview.change.operation === 'MOVE'}
+              {#if verifiedExportReview.contract === ROADFENCE_VERIFIED_EXPORT_CONTRACT}
+                <div>
+                  <span>{t('worldEditor.verifiedExport.operation', {}, $locale)}</span>
+                  <strong>{verifiedExportReview.analysis.operation}</strong>
+                </div>
+                <div>
+                  <span>{t('worldEditor.roadFence.network', {}, $locale)}</span>
+                  <strong>{verifiedExportReview.analysis.kind} · {verifiedExportReview.analysis.networkId}</strong>
+                </div>
+                <div>
+                  <span>{t('worldEditor.verifiedExport.context', {}, $locale)}</span>
+                  <strong>Grid {verifiedExportReview.analysis.gridId}</strong>
+                </div>
+                <div>
+                  <span>{t('worldEditor.verifiedExport.validation', {}, $locale)}</span>
+                  <strong>{t('worldEditor.verifiedExport.pass', {}, $locale)}</strong>
+                </div>
                 <div class="verified-export-delta">
-                  <span>{t('worldEditor.verifiedExport.previousPosition', {}, $locale)}</span>
-                  <strong>X {verifiedExportReview.change.before.x} · Y {verifiedExportReview.change.before.y}</strong>
-                  <span>{t('worldEditor.verifiedExport.newPosition', {}, $locale)}</span>
-                  <strong>X {verifiedExportReview.change.after.x} · Y {verifiedExportReview.change.after.y}</strong>
+                  <span>Logical quantity</span>
+                  <strong>
+                    {verifiedExportReview.analysis.mutationSet.logicalQuantity.before}
+                    →
+                    {verifiedExportReview.analysis.mutationSet.logicalQuantity.after}
+                  </strong>
+                  <span>Native objects</span>
+                  <strong>
+                    {verifiedExportReview.analysis.mutationSet.nativeObjectCount.before}
+                    →
+                    {verifiedExportReview.analysis.mutationSet.nativeObjectCount.after}
+                  </strong>
                 </div>
               {:else}
-                <div class="verified-export-delta">
-                  <span>{t('worldEditor.verifiedExport.previousOrientation', {}, $locale)}</span>
-                  <strong>{verifiedExportReview.change.before.orientation}</strong>
-                  <span>{t('worldEditor.verifiedExport.newOrientation', {}, $locale)}</span>
-                  <strong>{verifiedExportReview.change.after.orientation}</strong>
+                <div>
+                  <span>{t('worldEditor.verifiedExport.operation', {}, $locale)}</span>
+                  <strong>{verifiedExportReview.change.operation}</strong>
                 </div>
+                <div>
+                  <span>{t('worldEditor.verifiedExport.object', {}, $locale)}</span>
+                  <strong>{verifiedExportReview.change.editorId} · Item {verifiedExportReview.change.itemId}</strong>
+                </div>
+                <div>
+                  <span>{t('worldEditor.verifiedExport.context', {}, $locale)}</span>
+                  <strong>
+                    Area {verifiedExportReview.baselineTarget.areaId} ·
+                    Grid {verifiedExportReview.change.gridId}
+                  </strong>
+                </div>
+                <div>
+                  <span>{t('worldEditor.verifiedExport.validation', {}, $locale)}</span>
+                  <strong>{t('worldEditor.verifiedExport.pass', {}, $locale)}</strong>
+                </div>
+                {#if verifiedExportReview.change.operation === 'MOVE'}
+                  <div class="verified-export-delta">
+                    <span>{t('worldEditor.verifiedExport.previousPosition', {}, $locale)}</span>
+                    <strong>X {verifiedExportReview.change.before.x} · Y {verifiedExportReview.change.before.y}</strong>
+                    <span>{t('worldEditor.verifiedExport.newPosition', {}, $locale)}</span>
+                    <strong>X {verifiedExportReview.change.after.x} · Y {verifiedExportReview.change.after.y}</strong>
+                  </div>
+                {:else}
+                  <div class="verified-export-delta">
+                    <span>{t('worldEditor.verifiedExport.previousOrientation', {}, $locale)}</span>
+                    <strong>{verifiedExportReview.change.before.orientation}</strong>
+                    <span>{t('worldEditor.verifiedExport.newOrientation', {}, $locale)}</span>
+                    <strong>{verifiedExportReview.change.after.orientation}</strong>
+                  </div>
+                {/if}
               {/if}
               <label class="verified-export-confirm">
                 <input
@@ -3639,7 +3780,15 @@
                 </div>
                 <div>
                   <dt>{t('worldEditor.verifiedExport.reload', {}, $locale)}</dt>
-                  <dd>{verifiedExportResult.reload.status} · Grid {verifiedExportResult.reload.gridId} · Object {verifiedExportResult.reload.gridObjectId}</dd>
+                  <dd>
+                    {verifiedExportResult.reload.status} ·
+                    Grid {verifiedExportResult.reload.gridId}
+                    {#if verifiedExportResult.reload.gridObjectId !== undefined}
+                      · Object {verifiedExportResult.reload.gridObjectId}
+                    {:else}
+                      · {verifiedExportResult.reload.kind} · {verifiedExportResult.reload.operation}
+                    {/if}
+                  </dd>
                 </div>
               </dl>
               <div class="verified-export-downloads">
