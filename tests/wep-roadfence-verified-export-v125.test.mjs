@@ -176,8 +176,8 @@ test('WEP Road edit reaches promoted structural candidate, export bundle, and na
   assert.equal(result.reload.networkMatch,true);
   assert.equal(result.source.untouched,true);
   assert.equal(result.directSourceReplacementAuthorized,false);
-  assert.ok(result.artifacts.editedSave.bytes.length>0);
-  assert.ok(result.artifacts.originalBackup.bytes.length>0);
+  assert.ok(result.artifacts.edited.bytes.length>0);
+  assert.ok(result.artifacts.backup.bytes.length>0);
 });
 
 test('WEP Fence post move consumes canonical representationLayout and reaches structural candidate',async()=>{
