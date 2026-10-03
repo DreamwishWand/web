@@ -40,6 +40,8 @@ jobs:
       - name: Build static site
         env:
           BASE_PATH: /web
+          VITE_SUPABASE_URL: ${{ vars.DREAMWISH_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.DREAMWISH_SUPABASE_PUBLISHABLE_KEY }}
         run: npm run build
       - name: Verify static routes
         run: |
@@ -47,6 +49,15 @@ jobs:
           test -f build/editor/index.html
           test -f build/editor/items/index.html
           test -f build/explore/index.html
+          test -f build/gallery/index.html
+          test -f build/gallery/publish/index.html
+          test -f build/gallery/my/index.html
+          test -f build/qa/index.html
+          test -f build/qa/ask/index.html
+          test -f build/qa/participate/index.html
+          test -f build/qa/tip/index.html
+          test -f build/qa/my/index.html
+          test -f build/creator/index.html
           test -f build/404.html
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
