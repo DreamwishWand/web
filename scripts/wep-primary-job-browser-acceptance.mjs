@@ -1,13 +1,132 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from 'playwright-core';
+import { makeSyntheticP1gProfile } from '../tests/helpers/p1g-fixture.mjs';
+import { p1gPackagedProfileCodec } from '../src/lib/ddv/core/save/p1g-packaged-profile-codec.js';
+import '../src/lib/ddv/core/world/runtime-v125/griddata-floor-v125.js';
+import '../src/lib/ddv/core/world/runtime-v125/placement-v125.js';
 
 const artifactsDir = path.resolve('.artifacts/wep-browser');
 await mkdir(artifactsDir, { recursive: true });
 
 const baseUrl = process.env.WEP_BASE_URL || 'http://127.0.0.1:4173/editor/world/';
 const executablePath = process.env.CHROME_BIN || undefined;
+
+
+async function resolveVerifiedExportMoveCell() {
+  const gridDataPath =
+    'GridData/Villages/Village04-BeachLevel-GridData.json';
+  const [floorContract, placementGeometry, readPack] =
+    await Promise.all([
+      readFile(
+        new URL(
+          '../static/ddv/core/world/v1.25/griddata-floor-maps-v125.json',
+          import.meta.url
+        ),
+        'utf8'
+      ).then(JSON.parse),
+      readFile(
+        new URL(
+          '../static/ddv/core/world/v1.25/placement-geometry-switch-v125.json',
+          import.meta.url
+        ),
+        'utf8'
+      ).then(JSON.parse),
+      readFile(
+        new URL(
+          '../static/ddv/v1.25/world-read-switch.json',
+          import.meta.url
+        ),
+        'utf8'
+      ).then(JSON.parse)
+    ]);
+
+  const floorApi = globalThis.DdvCoreWorldV125GridDataFloor;
+  const placementApi = globalThis.DdvCoreWorldV125Placement;
+  assert.ok(floorApi?.getGridData);
+  assert.ok(placementApi?.validateOrdinaryCardinalPlacement);
+
+  const itemId = 40000048;
+  const raw = placementGeometry.geometry[String(itemId)];
+  const baseGeometry = readPack.geometry[String(itemId)];
+  assert.ok(Array.isArray(raw) && raw.length === 3);
+  assert.ok(Array.isArray(baseGeometry) && baseGeometry.length === 4);
+  const geometryIndex = {
+    [itemId]: {
+      concreteType: baseGeometry[0],
+      sizeX: Number(baseGeometry[1]),
+      sizeY: Number(baseGeometry[2]),
+      subGridDataPath: baseGeometry[3],
+      areaTessellationFactor: 1,
+      acceptedFloorTypesFlag: Number(raw[0]) >>> 0,
+      strideOverride:
+        raw[1] === null || raw[1] === undefined
+          ? null
+          : Number(raw[1]) >>> 0,
+      layers: raw[2].map((value) => Number(value) >>> 0)
+    }
+  };
+  const gridData = floorApi.getGridData(
+    floorContract,
+    gridDataPath,
+    {
+      gameVersion: '1.25.0',
+      platform: 'Nintendo Switch',
+      buildIdentity: '52BD625D9B4E0053',
+      profileSchemaVersion: 624
+    }
+  );
+  assert.ok(gridData);
+
+  const tessellationFactor = 2;
+  const maxX = gridData.sizeX * tessellationFactor;
+  const maxY = gridData.sizeY * tessellationFactor;
+  const validate = (x, y) =>
+    placementApi.validateOrdinaryCardinalPlacement({
+      gridData,
+      geometryIndex,
+      objects: [],
+      candidate: {
+        editorId: 'g10:o101',
+        itemId,
+        x,
+        y,
+        orientation: 0
+      },
+      gridTessellationFactor: tessellationFactor,
+      excludeEditorId: 'g10:o101',
+      clearArea: false,
+      automaticSpawning: false
+    });
+
+  for (let y = 0; y < maxY; y += 1) {
+    for (let x = 0; x + 1 < maxX; x += 1) {
+      const before = validate(x, y);
+      if (before?.status !== 'VALID') continue;
+      const after = validate(x + 1, y);
+      if (after?.status !== 'VALID') continue;
+      return Object.freeze({
+        x,
+        y,
+        afterX: x + 1,
+        afterY: y,
+        gridDataPath,
+        tessellationFactor,
+        beforeFloorType: before.cell?.floorType ?? null,
+        afterFloorType: after.cell?.floorType ?? null
+      });
+    }
+  }
+  throw new Error('NO_VALID_BROWSER_ACCEPTANCE_MOVE_CELL');
+}
+
+const verifiedExportMove = await resolveVerifiedExportMoveCell();
+console.log(
+  'VERIFIED_EXPORT_FIXTURE_CELL',
+  JSON.stringify(verifiedExportMove)
+);
 
 const syntheticFixture = {
   schema: 'dreamwish-wand-wep-editor-document',
@@ -224,6 +343,59 @@ const rawSwitchFixture = {
   }
 };
 
+
+const verifiedExportProfile = {
+  GameInfo: {
+    Version: 624,
+    InitialVersion: 624,
+    LastSaveDeviceInfo: { deviceType: 'DeviceType_Switch' }
+  },
+  Player: {},
+  ProfileWorld: { Stores: [], Shops: [] },
+  ConditionalEventHistory: { ActiveEvents: {} },
+  World: {
+    GridCollection: {
+      Grids: {
+        '10': {
+          ID: 10,
+          GridDataPath: 'GridData/Villages/Village04-BeachLevel-GridData.json',
+          GridDefaultLayoutPath: '',
+          TessellationFactor: verifiedExportMove.tessellationFactor,
+          NextGridObjectID: 102,
+          Objects: {
+            '101': {
+              ID: 101,
+              ItemID: 40000048,
+              X: verifiedExportMove.x,
+              Y: verifiedExportMove.y,
+              Orientation: 'GridOrientation_Up',
+              State: null
+            }
+          }
+        }
+      },
+      DiffGrids: {}
+    },
+    Villages: [
+      {
+        SceneItemId: 1540000000,
+        Areas: {
+          '7': {
+            GridIDs: [10],
+            Unlocked: true,
+            EnvironmentEffectItemID: 0,
+            EnvironmentEffectOrientation: 'GridOrientation_Up'
+          }
+        }
+      }
+    ],
+    FloatingIslands: {},
+    MissionSlots: {},
+    QuestInfo: {},
+    Keyholes: {}
+  }
+};
+
 const progressionDestinationFixture = {
   ...structuredClone(rawSwitchFixture),
   ConditionalEventHistory: { ActiveEvents: {} },
@@ -260,6 +432,10 @@ const progressionDestinationFixture = {
 
 function cssObject(prefix) {
   return `g[data-editor-object][aria-label^="${prefix} at"]`;
+}
+
+function sha256Hex(bytes) {
+  return createHash('sha256').update(bytes).digest('hex');
 }
 
 async function text(locator) {
@@ -907,6 +1083,207 @@ async function runRawSaveAcceptance(page, report) {
   };
 }
 
+
+async function runVerifiedExportAcceptance(page, report) {
+  await page.goto(baseUrl, { waitUntil: 'networkidle' });
+  await page.locator('.platform-select select').selectOption('switch');
+
+  const packagedBytes = Buffer.from(
+    makeSyntheticP1gProfile(verifiedExportProfile)
+  );
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'profile',
+    mimeType: 'application/octet-stream',
+    buffer: packagedBytes
+  });
+  await page.getByText(/DDV save loaded locally/).waitFor();
+  await page.getByRole('button', { name: 'Open in Canvas' }).first().click();
+  await page.getByText(/Core-bound local draft authoring/).waitFor();
+
+  const exportPanel = page.locator('[data-wep-verified-export]');
+  await exportPanel.waitFor();
+  const reviewButton = exportPanel.getByRole('button', {
+    name: 'Review Changes'
+  });
+  assert.equal(
+    await reviewButton.isDisabled(),
+    true,
+    'Review Changes must be gated until exact build is explicitly confirmed'
+  );
+
+  const buildConfirm = exportPanel.locator(
+    '.verified-export-build-confirm input[type="checkbox"]'
+  );
+  await buildConfirm.check();
+  assert.equal(await buildConfirm.isChecked(), true);
+
+  const object = page.locator('g[data-editor-object]').first();
+  await object.click();
+  await expectSelected(page, 1);
+  const toolbar = page.locator('.toolbar-actions');
+  await toolbar.getByRole('button', { name: 'Move right' }).click();
+
+  assert.equal(await reviewButton.isEnabled(), true);
+  await reviewButton.click();
+  const review = exportPanel.locator('.verified-export-review');
+  const reviewError = exportPanel.locator('.verified-export-error');
+  await Promise.race([
+    review.waitFor({ state: 'visible', timeout: 10000 }),
+    reviewError.waitFor({ state: 'visible', timeout: 10000 })
+  ]);
+  if (await reviewError.isVisible()) {
+    const diagnostic = await text(reviewError);
+    report.verifiedExport.reviewFailure = diagnostic;
+    throw new Error('VERIFIED_EXPORT_REVIEW_FAIL: ' + diagnostic);
+  }
+  await expectContains(review, 'MOVE');
+  await expectContains(review, 'Item 40000048');
+  await expectContains(review, 'Area 7');
+  await expectContains(review, 'Grid 10');
+  await expectContains(review, 'PASS');
+
+  const applyButton = exportPanel.getByRole('button', {
+    name: 'Apply / Export'
+  });
+  assert.equal(
+    await applyButton.isDisabled(),
+    true,
+    'Apply / Export must require explicit semantic confirmation'
+  );
+  const semanticConfirm = exportPanel.locator(
+    '.verified-export-confirm input[type="checkbox"]'
+  );
+  await semanticConfirm.check();
+  assert.equal(await semanticConfirm.isChecked(), true);
+
+  await applyButton.click();
+  const success = exportPanel.locator('.verified-export-success');
+  await success.waitFor({ state: 'visible' });
+  await expectContains(success, 'Verified edited save generated');
+  await expectContains(success, 'PASS · Grid 10 · Object 101');
+
+  const [backupDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    exportPanel.getByRole('button', {
+      name: 'Download original backup'
+    }).click()
+  ]);
+  const backupPath = path.join(
+    artifactsDir,
+    'verified-export-original.profile'
+  );
+  await backupDownload.saveAs(backupPath);
+  assert.deepEqual(
+    await readFile(backupPath),
+    packagedBytes,
+    'verified export backup must be byte-exact original source'
+  );
+
+  const [editedDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    exportPanel.getByRole('button', {
+      name: 'Download edited save'
+    }).click()
+  ]);
+  const editedPath = path.join(
+    artifactsDir,
+    'verified-export-edited.profile'
+  );
+  await editedDownload.saveAs(editedPath);
+  const editedBytes = await readFile(editedPath);
+  const originalSha256 = sha256Hex(packagedBytes);
+  const editedSha256 = sha256Hex(editedBytes);
+  assert.notDeepEqual(
+    editedBytes,
+    packagedBytes,
+    'edited replacement must differ from original source'
+  );
+  const loadedEdited = await p1gPackagedProfileCodec.loadProfile(
+    new Uint8Array(editedBytes)
+  );
+  assert.equal(loadedEdited.inputType, 'packaged');
+  const editedProfile = JSON.parse(loadedEdited.jsonText);
+  const editedObject =
+    editedProfile.World.GridCollection.Grids['10'].Objects['101'];
+  assert.equal(editedObject.ID, 101);
+  assert.equal(editedObject.ItemID, 40000048);
+  assert.equal(editedObject.State, null);
+  assert.equal(editedObject.X, verifiedExportMove.afterX);
+  assert.equal(editedObject.Y, verifiedExportMove.afterY);
+  assert.equal(editedObject.Orientation, 'GridOrientation_Up');
+  assert.equal(
+    editedProfile.World.GridCollection.Grids['10'].NextGridObjectID,
+    102
+  );
+
+  const [manifestDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    exportPanel.getByRole('button', {
+      name: 'Download manifest'
+    }).click()
+  ]);
+  const manifestPath = path.join(
+    artifactsDir,
+    'verified-export-manifest.json'
+  );
+  await manifestDownload.saveAs(manifestPath);
+  const manifest = JSON.parse(
+    (await readFile(manifestPath)).toString('utf8')
+  );
+  assert.equal(
+    manifest.artifact,
+    'dreamwish.ddv.verified-candidate-export-bundle'
+  );
+  assert.equal(manifest.schemaVersion, 2);
+  assert.equal(manifest.operation.kind, 'MOVE');
+  assert.equal(manifest.sourceSha256, originalSha256);
+  assert.equal(manifest.editedSha256, editedSha256);
+  assert.equal(manifest.persistentWriteAuthorized, false);
+  assert.equal(manifest.WORLD_PERSISTENT_WRITE_V125, false);
+
+  const [bundleDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    exportPanel.getByRole('button', {
+      name: 'Download integrity bundle'
+    }).click()
+  ]);
+  const bundlePath = path.join(
+    artifactsDir,
+    'verified-export-bundle.zip'
+  );
+  await bundleDownload.saveAs(bundlePath);
+  assert.ok((await readFile(bundlePath)).length > packagedBytes.length);
+
+  report.verifiedExport = {
+    packagedSource: 'PASS',
+    exactBuildExplicitConfirmation: 'PASS',
+    reviewChanges: 'PASS',
+    semanticConfirmation: 'PASS',
+    writeCandidateGeneration: 'PASS',
+    independentVerification: 'PASS',
+    canonicalReopenReload: 'PASS',
+    originalBackupByteExact: 'PASS',
+    editedReplacementDownload: 'PASS',
+    manifest: 'PASS',
+    integrityBundle: 'PASS',
+    sourceOverwrite: 'NOT_PERFORMED',
+    originalSha256,
+    editedSha256,
+    candidateByteIdentity:
+      manifest.editedSha256 === editedSha256 ? 'PASS' : 'FAIL',
+    candidateContract: manifest.transactionCandidateContract,
+    verificationContract: manifest.transactionVerificationContract
+  };
+
+  await page.screenshot({
+    path: path.join(
+      artifactsDir,
+      'verified-replacement-export-pass.png'
+    ),
+    fullPage: true
+  });
+}
+
 const browser = await chromium.launch({
   headless: true,
   executablePath,
@@ -921,7 +1298,8 @@ const report = {
   pageErrors: [],
   synthetic: {},
   rawSwitch: {},
-  localeLayout: {}
+  localeLayout: {},
+  verifiedExport: {}
 };
 
 try {
@@ -938,6 +1316,7 @@ try {
   await runSyntheticAcceptance(page, report);
   await runRawSaveAcceptance(page, report);
   await runLocaleLayoutAcceptance(page, report);
+  await runVerifiedExportAcceptance(page, report);
 
   // Product boundary: browser acceptance itself must not surface persistent writer controls.
   assert.equal(report.pageErrors.length, 0, `page errors: ${report.pageErrors.join(' | ')}`);

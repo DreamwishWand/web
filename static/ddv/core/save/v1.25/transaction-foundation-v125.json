@@ -1,0 +1,282 @@
+{
+  "schema": "ddv.safe-persistent-transaction-foundation@1",
+  "artifactId": "DDV-SAFE-PERSISTENT-TRANSACTION-FOUNDATION-V125-V1_0",
+  "version": "v1.0",
+  "status": "PROMOTED",
+  "owner": "01A CORE - Save / Codec / Versioning",
+  "scope": "temporary verified write-candidate production only; no persistent replacement",
+  "target": {
+    "primaryPlatform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "titleId": "0100D39012C1A000",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624,
+    "steam": "separately scoped; no Switch semantic inheritance"
+  },
+  "contracts": {
+    "plan": "dreamwish.ddv.save-transaction-plan@1",
+    "candidate": "dreamwish.ddv.save-transaction-candidate@1",
+    "semanticDiff": "dreamwish.ddv.save-semantic-diff@1",
+    "verification": "dreamwish.ddv.save-transaction-verification@1",
+    "mutationAdapter": "dreamwish.ddv.save-mutation-adapter@1",
+    "existingSafeSession": "SafeProfileEditSession",
+    "existingPreflight": "dreamwish.ddv.save-preflight@1",
+    "existingRuntimeAssertion": "dreamwish.ddv.runtime-assertion@1"
+  },
+  "capabilities": {
+    "READ": true,
+    "MODEL": true,
+    "DRAFT_EDIT": true,
+    "PREFLIGHT": true,
+    "WRITE_CANDIDATE": true,
+    "PERSISTENT_WRITE": false
+  },
+  "pipeline": [
+    "immutable original bytes",
+    "canonical parse",
+    "explicit transaction plan validation",
+    "exact source/build/schema/codec identity validation",
+    "target identity validation",
+    "precondition validation",
+    "semantic-owner mutation adapter",
+    "exact allowed-path enforcement",
+    "temporary serialization",
+    "canonical reparse",
+    "expected postcondition validation",
+    "semantic diff classification",
+    "unrelated/unknown/forbidden-state preservation verification",
+    "GridObject identity inventory verification",
+    "runtime assertion binding",
+    "verified write-candidate manifest",
+    "independent candidate re-verification"
+  ],
+  "mutationPlanPolicy": {
+    "arbitraryJsonPatchPrimaryContract": false,
+    "adapterBindingRequired": true,
+    "adapterOwnerMustEqualSemanticOwner": true,
+    "exactAllowedPathsRequired": true,
+    "preconditionsRequiredBySemanticOwner": true,
+    "postconditionsRequiredBySemanticOwner": true,
+    "sourceEvidenceRequired": true,
+    "GameInfoMutationAlwaysForbidden": true
+  },
+  "preservation": {
+    "defaultInvariant": "all state not explicitly authorized by the transaction plan must remain semantically unchanged",
+    "intentional": "exact allowed JSON Pointer leaf/path delta",
+    "serializerNormalizedEquivalent": "currently rejected; accepted candidates record an empty set",
+    "unrelated": "changed path outside the intentional allowlist; fail closed",
+    "unknown": "changed path under a plan-declared opaque/unknown prefix; fail closed",
+    "forbidden": "GameInfo or plan-declared forbidden prefix; fail closed",
+    "opaqueUnknownFields": "must survive semantically unchanged",
+    "arrayPolicy": "PRESERVE_ORDER_AND_LENGTH_OUTSIDE_INTENTIONAL",
+    "gridObjectIdentityPolicy": "PRESERVE_ALL_GRID_OBJECT_IDENTITIES",
+    "unexpectedEntityCreationDeletionReidentification": "fail closed",
+    "saveLevelIdentityMetadata": "GameInfo immutable"
+  },
+  "candidateBoundary": {
+    "originalBackup": "exact original input bytes retained in memory and hash-bound",
+    "candidate": "temporary verified encoded copy only",
+    "manifestSelfHash": true,
+    "planHash": true,
+    "candidateHash": true,
+    "backupHash": true,
+    "independentReopen": true,
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false
+  },
+  "minimumMutationSubsetProposal": {
+    "id": "EXISTING_ORDINARY_ROOT_GRID_OBJECT_SAME_GRID_TRANSFORM_V125",
+    "status": "REQUIRES_01B_SEMANTIC_FREEZE_BEFORE_RUNTIME",
+    "operations": [
+      "MOVE",
+      "ROTATE"
+    ],
+    "whyThisSubset": "no identity allocation, no object creation/deletion, no inventory transaction, no topology compiler, no Building lifecycle, and no cross-grid remap is required",
+    "requiredObjectConstraints": [
+      "existing root GridObject only",
+      "ordinary non-Building Furniture-class object",
+      "no SubGrid state",
+      "no Road/Fence class",
+      "no Character/NPC semantics",
+      "no Store/Shop/Stall semantics",
+      "no entitlement/premium/DLC state",
+      "no active or UNKNOWN progression ownership/reference veto",
+      "no special lifecycle/state codec",
+      "same root Grid only",
+      "no object ID or ItemID change",
+      "no NextGridObjectID change",
+      "native placement validation passes for final transform"
+    ],
+    "proposedSerializedDelta": [
+      "X",
+      "Y",
+      "Orientation"
+    ],
+    "positiveAuthorization": false,
+    "reason": "01A does not own World/object-family write semantics; 01B must prove whether X/Y/Orientation-only serialization is complete for this exact subset"
+  },
+  "failClosedMatrix": [
+    {
+      "condition": "unsupported or ambiguous source platform/build/schema/codec",
+      "result": "REJECT"
+    },
+    {
+      "condition": "source length/hash differs from plan",
+      "result": "REJECT"
+    },
+    {
+      "condition": "wrong GridID/GridObjectID/ItemID",
+      "result": "REJECT"
+    },
+    {
+      "condition": "precondition mismatch",
+      "result": "REJECT"
+    },
+    {
+      "condition": "mutation outside exact allowed paths",
+      "result": "REJECT"
+    },
+    {
+      "condition": "GameInfo mutation",
+      "result": "REJECT"
+    },
+    {
+      "condition": "unrelated-state drift",
+      "result": "REJECT"
+    },
+    {
+      "condition": "opaque/unknown-field loss",
+      "result": "REJECT"
+    },
+    {
+      "condition": "unexpected GridObject creation/deletion/reidentification",
+      "result": "REJECT"
+    },
+    {
+      "condition": "canonical reparse or codec reopen failure",
+      "result": "REJECT"
+    },
+    {
+      "condition": "postcondition mismatch",
+      "result": "REJECT"
+    },
+    {
+      "condition": "candidate/backup/plan/manifest tamper",
+      "result": "REJECT"
+    },
+    {
+      "condition": "serializer semantic normalization",
+      "result": "REJECT_IN_V1"
+    }
+  ],
+  "atomicReplacementDesign": {
+    "status": "DESIGN_FROZEN_NOT_IMPLEMENTED_NOT_AUTHORIZED",
+    "separation": {
+      "transactionEngineProven": "01A local/offline candidate gate",
+      "deviceSpecificAtomicReplacementProven": "future platform/local-backend gate",
+      "gameAcceptsAndReloads": "01E runtime gate"
+    },
+    "requiredAdapterPrimitives": [
+      "read exact source bytes immediately before commit",
+      "create exact backup in separate recoverable path",
+      "write sibling temporary candidate",
+      "durably flush temporary file where platform supports fsync-equivalent",
+      "re-read and hash/reparse temporary candidate",
+      "atomic replace/rename primitive proven for target storage",
+      "durably flush parent directory/metadata where required",
+      "post-replacement read/hash/reparse verification",
+      "atomic rollback from exact backup if post-write verification fails"
+    ],
+    "commitSequence": [
+      "acquire exclusive save transaction lock",
+      "re-read source and require original hash/length match",
+      "write byte-exact backup and verify backup hash",
+      "write candidate to temporary sibling path",
+      "flush temporary candidate",
+      "re-read temporary candidate and run independent candidate verification",
+      "persist an interruption-detection transaction marker/journal outside the source file",
+      "perform one proven atomic replacement",
+      "flush containing directory/metadata as required by platform",
+      "re-read committed file and verify candidate hash plus canonical parse",
+      "mark transaction committed and retain backup according to external retention policy"
+    ],
+    "interruptedWriteDetection": "transaction marker records source hash, candidate hash, backup location and phase; startup/recovery must never guess which bytes are authoritative",
+    "rollbackSequence": [
+      "block further writes",
+      "preserve unexpected/corrupt current source for diagnostics",
+      "verify backup hash against pre-commit source hash",
+      "restore backup through the same proven atomic replacement primitive",
+      "flush and re-read restored source",
+      "require exact source hash and canonical parse before clearing recovery state"
+    ],
+    "backupNamingBoundary": "must include timestamp/transaction id plus source-hash prefix; never silently overwrite the only verified backup",
+    "retentionBoundary": "product/platform policy external to this contract; at least one verified pre-commit backup must survive until post-reload acceptance"
+  },
+  "exactNext01BRequirement": {
+    "requestId": "01A-TO-01B-MIN-TRANSFORM-WRITE-SEMANTICS-V125",
+    "target": "Nintendo Switch DDV v1.25.0 BID 52BD625D9B4E0053 schema 624",
+    "question": "For one existing ordinary non-Building, non-SubGrid, non-Road/Fence, progression-clear root GridObject in the same root Grid, is persistent MOVE/ROTATE completely represented by changing only X/Y/Orientation while preserving ID, ItemID, State, parent/root membership, object-map key, NextGridObjectID and all unrelated state?",
+    "mustReturn": [
+      "exact admissible object classifier",
+      "exact serialized fields required for MOVE",
+      "exact serialized fields required for ROTATE",
+      "whether any companion/cached/synchronizer field must change",
+      "required preconditions and native-placement validation",
+      "explicit exclusions",
+      "one frozen mutation adapter contract suitable for 01A plan binding"
+    ],
+    "doNotInfer": [
+      "editability from absence of restriction flags",
+      "persistent safety from WEP draft-edit support",
+      "persistent safety from native placement validity alone"
+    ]
+  },
+  "runtimeAcceptanceRequiredBeforePersistentAuthorization": {
+    "owner": "01E after 01B semantic freeze and Integrator promotion",
+    "status": "NOT_YET_REQUESTED",
+    "minimumProtocol": [
+      "start from one fresh exact-build-bound Switch baseline and record source hash",
+      "select one 01B-approved ordinary object and record GridID/GridObjectID/ItemID/X/Y/Orientation/State",
+      "produce candidate only through the frozen 01A transaction engine + 01B mutation adapter",
+      "independently verify candidate diff contains only the frozen serialized transform fields",
+      "retain exact original backup",
+      "install candidate through a separately controlled replacement step; do not treat this as atomic-replacement acceptance",
+      "game loads successfully and target object appears at intended position/orientation with same identity",
+      "perform normal in-game save",
+      "fully exit the game process and relaunch",
+      "target transform and identity persist after cold relaunch",
+      "post-runtime save shows no unexplained structural/progression/inventory/identity mutation attributable to the writer",
+      "restore the exact backup in a separate recovery check and confirm the game loads it"
+    ],
+    "persistentAuthorizationStillAlsoRequires": [
+      "device-specific atomic replacement/durability/interruption proof",
+      "rollback/recovery acceptance",
+      "Integrator capability promotion",
+      "persistentWriteAuthorized=true in the exact build capability registry"
+    ]
+  },
+  "writerBoundary": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "prohibited": [
+      "persistent Apply",
+      "real save replacement",
+      "atomic commit execution",
+      "rollback writer execution",
+      "native restore",
+      "persistent World object mutation",
+      "persistent Road/Fence mutation",
+      "Building/PlayerHouse mutation",
+      "progression-sensitive mutation",
+      "entitlement/premium/DLC mutation",
+      "WE-COMMIT",
+      "WE-RELOAD"
+    ]
+  },
+  "integratorReview": {
+    "status": "ACCEPTED",
+    "correction": "Independent candidate verification now rebinds manifest plan/input/output/target/operation/semanticDiff/sourceEvidence/verification fields to recomputed plan and candidate semantics, including rejection of self-rehashed semantic manifest tamper.",
+    "ci": "Integrator-hardened PR head must remain CI-green; promotion becomes canonical on merge to main",
+    "persistentAuthorizationChanged": false
+  }
+}

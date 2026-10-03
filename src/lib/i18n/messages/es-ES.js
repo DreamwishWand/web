@@ -11,6 +11,7 @@ export default Object.freeze({
   "shared.theme.switchToNight": "Cambiar al tema oscuro",
   "shared.theme.light": "Claro",
   "shared.theme.dark": "Oscuro",
+  "shared.locale.useBrowserLanguage": "Usar el idioma del navegador",
   "shared.locale.label": "Idioma",
   "shared.footer.disclaimer": "Proyecto de fans no oficial, sin afiliación con Disney ni Gameloft.",
   "shared.footer.helpBugs": "Ayuda y errores",

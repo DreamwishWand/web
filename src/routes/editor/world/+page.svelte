@@ -64,6 +64,10 @@
     buildSwitchV125DestinationProgressionProjection
   } from '$lib/wep/progression-destination-projection-v115';
   import {
+    commitMinimumVerifiedTransform,
+    reviewMinimumVerifiedTransform
+  } from '$lib/wep/min-verified-transform-export-v1';
+  import {
     buildObjectInspectorModel,
     buildPrimaryJobAvailability,
     describeDraftValidation,
@@ -145,6 +149,16 @@
   let draftSavePreparation: any = null;
   let lastDraftCommand = '';
   let originalSaveBackup: any = null;
+  let worldSourceBytes: Uint8Array | null = null;
+  let worldSourceEpoch = 0;
+  let verifiedExportBaselineDocument: any = null;
+  let verifiedExportReview: any = null;
+  let verifiedExportResult: any = null;
+  let verifiedExportErrorCode = '';
+  let verifiedExportErrorDetail = '';
+  let verifiedExportLoading = false;
+  let verifiedExportBuildConfirmed = false;
+  let verifiedExportConfirmed = false;
   let copiedDraftClipboard: any = null;
   let clipboardPasteCount = 0;
   let roadFenceRootDraft: any = null;
@@ -270,6 +284,12 @@
     }
     draftValidation = session.getLastValidation?.() ?? null;
     draftSavePreparation = session.previewPersistentCommit?.() ?? null;
+    if (verifiedExportReview) {
+      verifiedExportReview = null;
+      verifiedExportConfirmed = false;
+      verifiedExportErrorCode = 'WEP_EXPORT_REVIEW_STALE';
+      verifiedExportErrorDetail = '';
+    }
   }
 
   function coreDraftGeometryAdapter(binding: any) {
@@ -1682,6 +1702,15 @@
     if (!file) return;
 
     loading = true;
+    worldSourceEpoch += 1;
+    worldSourceBytes = null;
+    verifiedExportBaselineDocument = null;
+    verifiedExportReview = null;
+    verifiedExportResult = null;
+    verifiedExportErrorCode = '';
+    verifiedExportErrorDetail = '';
+    verifiedExportBuildConfirmed = false;
+    verifiedExportConfirmed = false;
     message = '';
     capturePreview = null;
     published = null;
@@ -1720,6 +1749,7 @@
         }
 
         worldSource = null;
+        worldSourceBytes = null;
         originalSaveBackup = null;
         session = createEditorSession(normalized);
         editorDocument = session.getDocument();
@@ -1772,6 +1802,7 @@
         canvasFocusEditorId = '';
         layerState = null;
         worldSource = opened;
+        worldSourceBytes = bytes.slice();
         fileName = file.name;
         query = '';
         selectedOnly = false;
@@ -1798,6 +1829,13 @@
       session = null;
       editorDocument = null;
       worldSource = null;
+      worldSourceBytes = null;
+      verifiedExportBaselineDocument = null;
+      verifiedExportReview = null;
+      verifiedExportResult = null;
+      verifiedExportErrorCode = '';
+      verifiedExportErrorDetail = '';
+      verifiedExportConfirmed = false;
       projected = [];
       selection = [];
       canvasFocusEditorId = '';
@@ -1900,6 +1938,12 @@
         fencePostValidation = null;
       }
 
+      verifiedExportBaselineDocument = cloneLocal(normalized);
+      verifiedExportReview = null;
+      verifiedExportResult = null;
+      verifiedExportErrorCode = '';
+      verifiedExportErrorDetail = '';
+      verifiedExportConfirmed = false;
       fullDesignRootDocuments = [cloneLocal(normalized)];
       fullDesignSourceRootGridId = Number(rootGridId);
       for (const root of area.roots ?? []) {
@@ -1981,6 +2025,12 @@
     island: any,
     root: any
   ) {
+    verifiedExportBaselineDocument = null;
+    verifiedExportReview = null;
+    verifiedExportResult = null;
+    verifiedExportErrorCode = '';
+    verifiedExportErrorDetail = '';
+    verifiedExportConfirmed = false;
     if (!worldSource) return;
 
     if (worldSource.saveIdentity.sourcePlatform !== 'switch') {
@@ -2151,6 +2201,12 @@
     draftValidation = null;
     draftSavePreparation = null;
     lastDraftCommand = '';
+    verifiedExportBaselineDocument = null;
+    verifiedExportReview = null;
+    verifiedExportResult = null;
+    verifiedExportErrorCode = '';
+    verifiedExportErrorDetail = '';
+    verifiedExportConfirmed = false;
     copiedDraftClipboard = null;
     clipboardPasteCount = 0;
     query = '';
@@ -2474,6 +2530,161 @@
     anchor.click();
     URL.revokeObjectURL(href);
     message = t('worldEditor.backup.downloaded', {}, $locale);
+  }
+
+  function downloadVerifiedArtifact(artifact: any) {
+    if (!artifact?.bytes || !artifact?.fileName) return;
+    const blob = new Blob([artifact.bytes], {
+      type: artifact.mimeType ?? 'application/octet-stream'
+    });
+    const href = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = href;
+    anchor.download = artifact.fileName;
+    anchor.rel = 'noopener';
+    anchor.click();
+    URL.revokeObjectURL(href);
+  }
+
+  function verifiedExportFailureText(code: string) {
+    const key = ({
+      WEP_EXPORT_UNSUPPORTED_VERSION_BUILD:
+        'worldEditor.verifiedExport.failure.unsupportedBuild',
+      WEP_EXPORT_EXACT_BUILD_CONFIRMATION_REQUIRED:
+        'worldEditor.verifiedExport.failure.buildConfirmation',
+      WEP_EXPORT_NO_ELIGIBLE_PENDING_CHANGE:
+        'worldEditor.verifiedExport.failure.noEligibleChange',
+      WEP_EXPORT_UNSUPPORTED_PENDING_CHANGE:
+        'worldEditor.verifiedExport.failure.unsupportedChange',
+      WEP_EXPORT_SOURCE_CHANGED_SINCE_PLAN:
+        'worldEditor.verifiedExport.failure.sourceChanged',
+      WEP_EXPORT_REVIEW_STALE:
+        'worldEditor.verifiedExport.failure.reviewStale',
+      WEP_EXPORT_TARGET_IDENTITY_MISMATCH:
+        'worldEditor.verifiedExport.failure.identityMismatch',
+      WEP_EXPORT_OBJECT_NO_LONGER_ADMISSIBLE:
+        'worldEditor.verifiedExport.failure.notAdmissible',
+      WEP_EXPORT_CHANGED_OBJECT_MUST_BE_SELECTED:
+        'worldEditor.verifiedExport.failure.changedObjectSelected',
+      WEP_EXPORT_PROGRESSION_VETO:
+        'worldEditor.verifiedExport.failure.progressionVeto',
+      WEP_EXPORT_INVALID_DESTINATION:
+        'worldEditor.verifiedExport.failure.invalidDestination',
+      WEP_EXPORT_CANDIDATE_GENERATION_FAILED:
+        'worldEditor.verifiedExport.failure.candidateGeneration',
+      WEP_EXPORT_CANDIDATE_VERIFICATION_FAILED:
+        'worldEditor.verifiedExport.failure.candidateVerification',
+      WEP_EXPORT_ASSEMBLY_FAILED:
+        'worldEditor.verifiedExport.failure.exportAssembly',
+      WEP_EXPORT_RELOAD_REPARSE_FAILED:
+        'worldEditor.verifiedExport.failure.reload',
+      WEP_EXPORT_RELOAD_IDENTITY_OR_TRANSFORM_MISMATCH:
+        'worldEditor.verifiedExport.failure.reloadMismatch'
+    } as Record<string, string>)[code];
+    return t(
+      key ?? 'worldEditor.verifiedExport.failure.generic',
+      {},
+      $locale
+    );
+  }
+
+  async function reviewVerifiedExport() {
+    if (
+      !worldSource ||
+      !worldSourceBytes ||
+      !verifiedExportBaselineDocument ||
+      !editorDocument ||
+      !placementLegalityBinding ||
+      !switchWorldBinding
+    ) {
+      verifiedExportErrorCode = 'WEP_EXPORT_NO_ELIGIBLE_PENDING_CHANGE';
+      verifiedExportErrorDetail = '';
+      verifiedExportReview = null;
+      return;
+    }
+    verifiedExportLoading = true;
+    verifiedExportReview = null;
+    verifiedExportResult = null;
+    verifiedExportErrorCode = '';
+    verifiedExportErrorDetail = '';
+    verifiedExportConfirmed = false;
+    try {
+      const review = await reviewMinimumVerifiedTransform({
+        sourceBytes: worldSourceBytes,
+        sourceName: fileName || 'profile',
+        sourceEpoch: worldSourceEpoch,
+        opened: worldSource,
+        baselineDocument: verifiedExportBaselineDocument,
+        draftDocument: editorDocument,
+        placementBinding: placementLegalityBinding,
+        worldBinding: switchWorldBinding,
+        basePath: base,
+        exactBuildConfirmed: verifiedExportBuildConfirmed
+      });
+      if (
+        selection.length !== 1 ||
+        selection[0] !== review.change.editorId
+      ) {
+        throw Object.assign(
+          new Error('WEP_EXPORT_CHANGED_OBJECT_MUST_BE_SELECTED'),
+          { code: 'WEP_EXPORT_CHANGED_OBJECT_MUST_BE_SELECTED' }
+        );
+      }
+      verifiedExportReview = review;
+      message = t(
+        'worldEditor.verifiedExport.reviewReady',
+        {},
+        $locale
+      );
+    } catch (error: any) {
+      verifiedExportErrorCode = String(
+        error?.code ?? error?.message ?? 'WEP_EXPORT_REVIEW_FAILED'
+      );
+      verifiedExportErrorDetail =
+        error?.detail ? JSON.stringify(error.detail) : '';
+      message = verifiedExportFailureText(verifiedExportErrorCode);
+    } finally {
+      verifiedExportLoading = false;
+    }
+  }
+
+  async function applyVerifiedExport() {
+    if (
+      !verifiedExportReview ||
+      !verifiedExportConfirmed ||
+      !worldSourceBytes ||
+      !verifiedExportBaselineDocument ||
+      !editorDocument ||
+      !switchWorldBinding
+    ) return;
+    verifiedExportLoading = true;
+    verifiedExportResult = null;
+    verifiedExportErrorCode = '';
+    verifiedExportErrorDetail = '';
+    try {
+      verifiedExportResult = await commitMinimumVerifiedTransform({
+        review: verifiedExportReview,
+        currentSourceEpoch: worldSourceEpoch,
+        sourceBytes: worldSourceBytes,
+        baselineDocument: verifiedExportBaselineDocument,
+        draftDocument: editorDocument,
+        worldBinding: switchWorldBinding
+      });
+      message = t(
+        'worldEditor.verifiedExport.success',
+        {},
+        $locale
+      );
+    } catch (error: any) {
+      verifiedExportErrorCode = String(
+        error?.code ?? error?.message ?? 'WEP_EXPORT_COMMIT_FAILED'
+      );
+      verifiedExportErrorDetail =
+        error?.detail ? JSON.stringify(error.detail) : '';
+      message = verifiedExportFailureText(verifiedExportErrorCode);
+    } finally {
+      verifiedExportLoading = false;
+    }
   }
 
   function reviewSavePreparation() {
@@ -3284,6 +3495,173 @@
             </small>
           </div>
         {/if}
+
+        <section
+          class="verified-export-panel"
+          data-wep-verified-export
+          aria-labelledby="wep-verified-export-title"
+        >
+          <div class="verified-export-heading">
+            <div>
+              <span class="toolbar-label">{t('worldEditor.verifiedExport.eyebrow', {}, $locale)}</span>
+              <h3 id="wep-verified-export-title">{t('worldEditor.verifiedExport.title', {}, $locale)}</h3>
+              <p>{t('worldEditor.verifiedExport.description', {}, $locale)}</p>
+            </div>
+            <button
+              type="button"
+              disabled={
+                verifiedExportLoading ||
+                !verifiedExportBaselineDocument ||
+                !worldSourceBytes ||
+                !verifiedExportBuildConfirmed
+              }
+              aria-describedby="wep-verified-export-review-reason"
+              on:click={reviewVerifiedExport}
+            >
+              {verifiedExportLoading
+                ? t('worldEditor.verifiedExport.working', {}, $locale)
+                : t('worldEditor.verifiedExport.reviewChanges', {}, $locale)}
+            </button>
+          </div>
+
+          {#if !verifiedExportBaselineDocument || !worldSourceBytes}
+            <p id="wep-verified-export-review-reason" class="verified-export-note">
+              {t('worldEditor.verifiedExport.areaOnly', {}, $locale)}
+            </p>
+          {:else}
+            <p id="wep-verified-export-review-reason" class="verified-export-note">
+              {t('worldEditor.verifiedExport.sourceImmutable', {}, $locale)}
+            </p>
+          {/if}
+
+          {#if verifiedExportBaselineDocument && worldSourceBytes}
+            <label class="verified-export-build-confirm">
+              <input
+                type="checkbox"
+                bind:checked={verifiedExportBuildConfirmed}
+                disabled={verifiedExportLoading}
+              />
+              <span>{t('worldEditor.verifiedExport.buildConfirm', {}, $locale)}</span>
+            </label>
+            {#if !verifiedExportBuildConfirmed}
+              <p class="verified-export-note">
+                {t('worldEditor.verifiedExport.buildConfirmRequired', {}, $locale)}
+              </p>
+            {/if}
+          {/if}
+
+          {#if verifiedExportErrorCode}
+            <div class="verified-export-error" role="alert">
+              <strong>{verifiedExportFailureText(verifiedExportErrorCode)}</strong>
+              <code>{verifiedExportErrorCode}</code>
+              {#if verifiedExportErrorDetail}
+                <details>
+                  <summary>{t('worldEditor.verifiedExport.diagnostics', {}, $locale)}</summary>
+                  <code>{verifiedExportErrorDetail}</code>
+                </details>
+              {/if}
+            </div>
+          {/if}
+
+          {#if verifiedExportReview}
+            <div class="verified-export-review" aria-live="polite">
+              <div>
+                <span>{t('worldEditor.verifiedExport.operation', {}, $locale)}</span>
+                <strong>{verifiedExportReview.change.operation}</strong>
+              </div>
+              <div>
+                <span>{t('worldEditor.verifiedExport.object', {}, $locale)}</span>
+                <strong>{verifiedExportReview.change.editorId} · Item {verifiedExportReview.change.itemId}</strong>
+              </div>
+              <div>
+                <span>{t('worldEditor.verifiedExport.context', {}, $locale)}</span>
+                <strong>
+                  Area {verifiedExportReview.baselineTarget.areaId} ·
+                  Grid {verifiedExportReview.change.gridId}
+                </strong>
+              </div>
+              <div>
+                <span>{t('worldEditor.verifiedExport.validation', {}, $locale)}</span>
+                <strong>{t('worldEditor.verifiedExport.pass', {}, $locale)}</strong>
+              </div>
+              {#if verifiedExportReview.change.operation === 'MOVE'}
+                <div class="verified-export-delta">
+                  <span>{t('worldEditor.verifiedExport.previousPosition', {}, $locale)}</span>
+                  <strong>X {verifiedExportReview.change.before.x} · Y {verifiedExportReview.change.before.y}</strong>
+                  <span>{t('worldEditor.verifiedExport.newPosition', {}, $locale)}</span>
+                  <strong>X {verifiedExportReview.change.after.x} · Y {verifiedExportReview.change.after.y}</strong>
+                </div>
+              {:else}
+                <div class="verified-export-delta">
+                  <span>{t('worldEditor.verifiedExport.previousOrientation', {}, $locale)}</span>
+                  <strong>{verifiedExportReview.change.before.orientation}</strong>
+                  <span>{t('worldEditor.verifiedExport.newOrientation', {}, $locale)}</span>
+                  <strong>{verifiedExportReview.change.after.orientation}</strong>
+                </div>
+              {/if}
+              <label class="verified-export-confirm">
+                <input
+                  type="checkbox"
+                  bind:checked={verifiedExportConfirmed}
+                  disabled={verifiedExportLoading}
+                />
+                <span>{t('worldEditor.verifiedExport.confirm', {}, $locale)}</span>
+              </label>
+              <button
+                type="button"
+                class="verified-export-apply"
+                disabled={!verifiedExportConfirmed || verifiedExportLoading}
+                aria-describedby={!verifiedExportConfirmed ? 'wep-verified-export-confirm-reason' : undefined}
+                on:click={applyVerifiedExport}
+              >
+                {t('worldEditor.verifiedExport.applyExport', {}, $locale)}
+              </button>
+              {#if !verifiedExportConfirmed}
+                <small id="wep-verified-export-confirm-reason">
+                  {t('worldEditor.verifiedExport.confirmRequired', {}, $locale)}
+                </small>
+              {/if}
+            </div>
+          {/if}
+
+          {#if verifiedExportResult}
+            <div class="verified-export-success" aria-live="polite">
+              <strong>{t('worldEditor.verifiedExport.success', {}, $locale)}</strong>
+              <p>{t('worldEditor.verifiedExport.successDetail', {}, $locale)}</p>
+              <dl>
+                <div>
+                  <dt>{t('worldEditor.verifiedExport.editedHash', {}, $locale)}</dt>
+                  <dd><code>{verifiedExportResult.artifacts.edited.sha256}</code></dd>
+                </div>
+                <div>
+                  <dt>{t('worldEditor.verifiedExport.backupHash', {}, $locale)}</dt>
+                  <dd><code>{verifiedExportResult.artifacts.backup.sha256}</code></dd>
+                </div>
+                <div>
+                  <dt>{t('worldEditor.verifiedExport.reload', {}, $locale)}</dt>
+                  <dd>{verifiedExportResult.reload.status} · Grid {verifiedExportResult.reload.gridId} · Object {verifiedExportResult.reload.gridObjectId}</dd>
+                </div>
+              </dl>
+              <div class="verified-export-downloads">
+                <button type="button" on:click={() => downloadVerifiedArtifact(verifiedExportResult.artifacts.edited)}>
+                  {t('worldEditor.verifiedExport.downloadEdited', {}, $locale)}
+                </button>
+                <button type="button" on:click={() => downloadVerifiedArtifact(verifiedExportResult.artifacts.backup)}>
+                  {t('worldEditor.verifiedExport.downloadBackup', {}, $locale)}
+                </button>
+                <button type="button" on:click={() => downloadVerifiedArtifact(verifiedExportResult.artifacts.bundle)}>
+                  {t('worldEditor.verifiedExport.downloadBundle', {}, $locale)}
+                </button>
+                <button type="button" on:click={() => downloadVerifiedArtifact(verifiedExportResult.artifacts.integrity)}>
+                  {t('worldEditor.verifiedExport.downloadManifest', {}, $locale)}
+                </button>
+              </div>
+              <p class="verified-export-recovery">
+                {t('worldEditor.verifiedExport.recovery', {}, $locale)}
+              </p>
+            </div>
+          {/if}
+        </section>
       </main>
     </div>
 
@@ -4277,4 +4655,5 @@
   .road-fence-authoring-panel{margin-top:22px;border:1px solid var(--border);border-radius:22px;background:var(--surface);padding:24px;box-shadow:var(--shadow)}.road-fence-authoring-heading{display:flex;justify-content:space-between;gap:24px;align-items:flex-start}.road-fence-authoring-heading h2{font-family:Georgia,serif;font-size:30px;font-weight:500;margin:8px 0}.road-fence-authoring-heading p:not(.eyebrow){max-width:760px;color:var(--ink-soft);font-size:12px;line-height:1.8}.road-fence-authoring-grid{display:grid;gap:14px;margin-top:18px}.road-fence-authoring-form{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}.road-fence-authoring-form label{display:grid;gap:6px;font-size:9px;color:var(--ink-muted)}.road-fence-authoring-form label>span{letter-spacing:.08em;text-transform:uppercase}.road-fence-authoring-form input,.road-fence-authoring-form select,.road-fence-authoring-form textarea{width:100%;min-width:0;background:var(--surface-raised);color:var(--ink);border:1px solid var(--border);border-radius:10px;padding:9px 11px}.road-fence-authoring-form textarea{resize:vertical}.road-fence-authoring-form .road-fence-points{grid-column:span 2}.road-fence-authoring-actions{display:flex;gap:7px;flex-wrap:wrap}.road-fence-authoring-actions button{border:1px solid var(--border);background:var(--surface-raised);color:var(--ink-soft);border-radius:9px;padding:8px 10px;font-size:10px;font-weight:800}.road-fence-authoring-actions button:disabled{opacity:.35;cursor:not-allowed}.road-fence-authoring-status{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:baseline;padding:10px 12px;border:1px solid var(--border);border-radius:11px;background:var(--page-2);font-size:9px;color:var(--ink-muted)}.road-fence-authoring-status strong{color:var(--ink-soft)}.road-fence-authoring-status code{overflow-wrap:anywhere}@media(max-width:900px){.road-fence-authoring-heading{flex-direction:column}.road-fence-authoring-form{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:620px){.road-fence-authoring-form{grid-template-columns:1fr}.road-fence-authoring-form .road-fence-points{grid-column:auto}.road-fence-authoring-status{grid-template-columns:1fr}}
 
   .building-readiness-lines{display:grid;gap:5px;margin-top:6px}.building-readiness-lines span{display:flex;justify-content:space-between;gap:10px;font-size:10px;color:var(--ink-muted)}.building-readiness-lines strong{color:var(--ink-soft);text-align:right}.fence-post-panel{margin-top:22px;border:1px solid var(--border);border-radius:22px;background:var(--surface);padding:24px;box-shadow:var(--shadow)}.fence-post-heading{display:flex;justify-content:space-between;gap:24px;align-items:flex-start}.fence-post-heading h2{font-family:Georgia,serif;font-size:30px;font-weight:500;margin:8px 0}.fence-post-heading p:not(.eyebrow){max-width:760px;color:var(--ink-soft);font-size:12px;line-height:1.8}.fence-post-controls{display:grid;gap:14px;margin-top:18px}.fence-post-controls label{display:grid;gap:6px;font-size:10px;color:var(--ink-muted)}.fence-post-controls select,.fence-post-controls input{background:var(--surface-raised);color:var(--ink);border:1px solid var(--border);border-radius:10px;padding:9px 11px}.fence-post-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.fence-post-summary>span{display:grid;gap:4px;padding:11px;border-radius:12px;background:var(--surface-raised);font-size:9px;color:var(--ink-muted)}.fence-post-summary strong{font-size:13px;color:var(--ink)}.fence-post-editor-grid{display:grid;grid-template-columns:minmax(280px,.8fr) 1.2fr;gap:12px}.fence-post-form,.fence-post-list,.fence-topology-boundary{border:1px solid var(--border);border-radius:14px;padding:14px;background:var(--page-2)}.fence-post-form{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px}.fence-post-form button,.fence-post-list button,.fence-topology-boundary button{border:1px solid var(--border);background:var(--surface-raised);color:var(--ink-soft);border-radius:9px;padding:8px 10px;font-weight:800}.fence-post-list{display:grid;gap:7px;align-content:start}.fence-post-list>div{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:8px;font-size:10px}.fence-topology-boundary{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.fence-topology-boundary span{flex:1;min-width:260px;font-size:10px;line-height:1.6;color:var(--ink-muted)}@media(max-width:800px){.fence-post-heading{flex-direction:column}.fence-post-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.fence-post-editor-grid{grid-template-columns:1fr}.fence-post-form{grid-template-columns:1fr 1fr}.fence-post-list>div{grid-template-columns:1fr 1fr}}
+  .verified-export-panel{margin:12px 14px 14px;padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--page-2);display:grid;gap:12px}.verified-export-heading{display:flex;justify-content:space-between;gap:18px;align-items:flex-start}.verified-export-heading h3{margin:4px 0;font-size:15px}.verified-export-heading p,.verified-export-note,.verified-export-success p,.verified-export-recovery{margin:0;color:var(--ink-muted);font-size:9px;line-height:1.65}.verified-export-heading button,.verified-export-review button,.verified-export-downloads button{border:1px solid var(--border);background:var(--surface-raised);color:var(--ink);border-radius:9px;padding:8px 11px;font-size:10px;font-weight:800}.verified-export-heading button:disabled,.verified-export-review button:disabled{opacity:.4;cursor:not-allowed}.verified-export-error{display:grid;gap:5px;padding:11px;border:1px solid var(--border);border-radius:10px;background:var(--surface);font-size:9px}.verified-export-error strong{color:var(--decor-accent)}.verified-export-error code{overflow-wrap:anywhere;color:var(--ink-muted)}.verified-export-review{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.verified-export-review>div{display:grid;gap:4px;padding:10px;border-radius:10px;background:var(--surface-raised)}.verified-export-review>div>span,.verified-export-success dt{font-size:8px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-muted)}.verified-export-review>div>strong{font-size:10px;overflow-wrap:anywhere}.verified-export-review .verified-export-delta{grid-column:span 2;grid-template-columns:auto 1fr;align-items:baseline}.verified-export-build-confirm{display:flex;gap:8px;align-items:flex-start;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface);font-size:9px;color:var(--ink-soft)}.verified-export-build-confirm input{margin-top:2px}.verified-export-confirm{grid-column:1/-1;display:flex;gap:8px;align-items:flex-start;font-size:9px;color:var(--ink-soft)}.verified-export-confirm input{margin-top:2px}.verified-export-apply{grid-column:1/-1;justify-self:start}.verified-export-review>small{grid-column:1/-1;color:var(--ink-muted);font-size:8px}.verified-export-success{display:grid;gap:9px;padding:12px;border:1px solid var(--border);border-radius:11px;background:var(--surface)}.verified-export-success>strong{color:var(--help-accent)}.verified-export-success dl{display:grid;gap:6px;margin:0}.verified-export-success dl>div{display:grid;grid-template-columns:100px minmax(0,1fr);gap:8px}.verified-export-success dd{margin:0;font-size:9px;overflow-wrap:anywhere}.verified-export-downloads{display:flex;gap:7px;flex-wrap:wrap}@media(max-width:700px){.verified-export-heading{flex-direction:column}.verified-export-review{grid-template-columns:1fr}.verified-export-review .verified-export-delta{grid-column:auto}.verified-export-success dl>div{grid-template-columns:1fr}}
 </style>

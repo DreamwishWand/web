@@ -55,6 +55,11 @@ type LegalityCore = {
   persistentWriteAuthorized: false;
 };
 
+type PlacementCore = {
+  revision: string;
+  validateOrdinaryCardinalPlacement(input: AnyRecord): AnyRecord;
+};
+
 function floorCore(): FloorCore {
   const api = (globalThis as any).DdvCoreWorldV125GridDataFloor as
     | FloorCore
@@ -66,6 +71,20 @@ function floorCore(): FloorCore {
     typeof api.getGridData !== 'function'
   ) {
     throw new Error('WEP_V125_FLOOR_CORE_CONTRACT_MISMATCH');
+  }
+  return api;
+}
+
+function placementCore(): PlacementCore {
+  const api = (globalThis as any).DdvCoreWorldV125Placement as
+    | PlacementCore
+    | undefined;
+  if (
+    !api ||
+    api.revision !== 'V125_NATIVE_ORDINARY_CARDINAL_NONWALL_GROUPSET_2' ||
+    typeof api.validateOrdinaryCardinalPlacement !== 'function'
+  ) {
+    throw new Error('WEP_V125_MIN_TRANSFORM_PLACEMENT_CORE_MISMATCH');
   }
   return api;
 }
@@ -304,6 +323,7 @@ export async function createSwitchV125PlacementLegalityBinding({
     )
   ]);
   const floor = floorCore();
+  const placement = placementCore();
   const legality = legalityCore();
   const geometryIndex = normalizeGeometryInput(
     geometryRaw,
@@ -335,6 +355,60 @@ export async function createSwitchV125PlacementLegalityBinding({
       y: Number(object.y),
       orientation: Number(object.orientation)
     }));
+  }
+
+  function classifyMinimumTransformPlacement({
+    document,
+    editorId
+  }: {
+    document: AnyRecord;
+    editorId: string;
+  }) {
+    if (
+      document?.target?.gameVersion !== '1.25.0' ||
+      document?.target?.platform !== 'Nintendo Switch' ||
+      Number(document?.target?.profileSchemaVersion) !== 624 ||
+      typeof document?.target?.gridDataPath !== 'string' ||
+      !document.target.gridDataPath
+    ) {
+      throw new Error('WEP_V125_MIN_TRANSFORM_PLACEMENT_TARGET_MISMATCH');
+    }
+
+    const id = String(editorId ?? '');
+    const candidate = (document.objects ?? []).find(
+      (object: AnyRecord) => String(object?.editorId ?? '') === id
+    );
+    if (!candidate) {
+      throw new Error('WEP_V125_MIN_TRANSFORM_PLACEMENT_OBJECT_MISSING');
+    }
+
+    const result = placement.validateOrdinaryCardinalPlacement({
+      gridData: gridDataForPath(document.target.gridDataPath),
+      geometryIndex,
+      objects: editorObjects(document),
+      candidate: {
+        editorId: id,
+        itemId: Number(candidate.itemId),
+        x: Number(candidate.x),
+        y: Number(candidate.y),
+        orientation: Number(candidate.orientation)
+      },
+      gridTessellationFactor: Number(
+        document.target.tessellationFactor ?? 1
+      ),
+      excludeEditorId: id,
+      clearArea: false,
+      automaticSpawning: false
+    });
+
+    return Object.freeze({
+      revision: placement.revision,
+      sameRootGrid: true,
+      clearArea: false,
+      automaticSpawning: false,
+      result: structuredClone(result),
+      persistentWriteAuthorized: false
+    });
   }
 
   function classifyEditorCandidates({
@@ -588,6 +662,7 @@ export async function createSwitchV125PlacementLegalityBinding({
     profileSchemaVersion: 624,
     classify,
     classifyEditorCandidates,
+    classifyMinimumTransformPlacement,
     createEditorDraftValidator,
     provenance: Object.freeze({
       floorMapSha256: GRIDDATA_FLOOR_MAP_V125_SHA256,
