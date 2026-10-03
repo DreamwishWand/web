@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from 'playwright-core';
+import { makeSyntheticP1gProfile } from '../tests/helpers/p1g-fixture.mjs';
+import { p1gPackagedProfileCodec } from '../src/lib/ddv/core/save/p1g-packaged-profile-codec.js';
 
 const artifactsDir = path.resolve('.artifacts/wep-browser');
 await mkdir(artifactsDir, { recursive: true });
@@ -221,6 +223,59 @@ const rawSwitchFixture = {
         }
       }
     ]
+  }
+};
+
+
+const verifiedExportProfile = {
+  GameInfo: {
+    Version: 624,
+    InitialVersion: 624,
+    LastSaveDeviceInfo: { deviceType: 'DeviceType_Switch' }
+  },
+  Player: {},
+  ProfileWorld: { Stores: [], Shops: [] },
+  ConditionalEventHistory: { ActiveEvents: {} },
+  World: {
+    GridCollection: {
+      Grids: {
+        '10': {
+          ID: 10,
+          GridDataPath: 'GridData/Villages/Village04-BeachLevel-GridData.json',
+          GridDefaultLayoutPath: '',
+          TessellationFactor: 1,
+          NextGridObjectID: 102,
+          Objects: {
+            '101': {
+              ID: 101,
+              ItemID: 40000048,
+              X: 20,
+              Y: 20,
+              Orientation: 'GridOrientation_Up',
+              State: null
+            }
+          }
+        }
+      },
+      DiffGrids: {}
+    },
+    Villages: [
+      {
+        SceneItemId: 1540000000,
+        Areas: {
+          '7': {
+            GridIDs: [10],
+            Unlocked: true,
+            EnvironmentEffectItemID: 0,
+            EnvironmentEffectOrientation: 'GridOrientation_Up'
+          }
+        }
+      }
+    ],
+    FloatingIslands: {},
+    MissionSlots: {},
+    QuestInfo: {},
+    Keyholes: {}
   }
 };
 
