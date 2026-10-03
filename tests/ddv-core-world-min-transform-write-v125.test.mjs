@@ -114,12 +114,12 @@ test('strict minimum MOVE classifier is positive only for exact stateless root F
   assert.equal(a.WORLD_PERSISTENT_WRITE_V125,false);
 });
 
-test('strict minimum ROTATE classifier permits anchor X/Y adjustment and preserves enum-string serialization',()=>{
-  const a=classify(profile(),{operation:'ROTATE',finalTransform:{x:9,y:21,orientation:4}});
+test('strict minimum ROTATE is anchor-preserving and mutates Orientation only',()=>{
+  const a=classify(profile(),{operation:'ROTATE',finalTransform:{x:10,y:20,orientation:4}});
   assert.equal(a.status,'ADMISSIBLE');
-  assert.deepEqual(a.allowedSerializedFields,['X','Y','Orientation']);
-  assert.deepEqual(a.finalTransform,{x:9,y:21,orientation:4});
-  assert.deepEqual(a.serializedFinalTransform,{x:9,y:21,orientation:'GridOrientation_Right'});
+  assert.deepEqual(a.allowedSerializedFields,['Orientation']);
+  assert.deepEqual(a.finalTransform,{x:10,y:20,orientation:4});
+  assert.deepEqual(a.serializedFinalTransform,{x:10,y:20,orientation:'GridOrientation_Right'});
 });
 
 test('positive authority is not inferred from missing restriction or v1.15 no-veto alone',()=>{
@@ -188,6 +188,8 @@ test('non-cardinal transforms and operation semantic violations fail closed',()=
   assert.ok(moveRotate.reasonCodes.includes('MOVE_ORIENTATION_MUST_BE_PRESERVED'));
   const rotateNoOp=classify(profile(),{operation:'ROTATE',finalTransform:{x:10,y:20,orientation:0}});
   assert.ok(rotateNoOp.reasonCodes.includes('ROTATE_ORIENTATION_MUST_CHANGE'));
+  const rotateMoved=classify(profile(),{operation:'ROTATE',finalTransform:{x:9,y:21,orientation:4}});
+  assert.ok(rotateMoved.reasonCodes.includes('ROTATE_ANCHOR_MOVE_UNSUPPORTED'));
 });
 
 test('MOVE adapter binds to 01A transaction engine with exact X/Y semantic diff and preservation',async()=>{
@@ -226,8 +228,8 @@ test('MOVE adapter binds to 01A transaction engine with exact X/Y semantic diff 
   assert.deepEqual(snap.Player.OpaquePlayer,{keep:[1,2,3]});
 });
 
-test('ROTATE adapter binds to 01A engine with exact X/Y/Orientation diff and enum representation',async()=>{
-  const root=profile(),a=classify(root,{operation:'ROTATE',finalTransform:{x:9,y:21,orientation:4}});
+test('ROTATE adapter binds to 01A engine with Orientation-only diff and enum representation',async()=>{
+  const root=profile(),a=classify(root,{operation:'ROTATE',finalTransform:{x:10,y:20,orientation:4}});
   assert.equal(a.status,'ADMISSIBLE');
   const session=await sessionFor(root);
   const plan=buildMinimumTransformTransactionPlan({
@@ -235,8 +237,6 @@ test('ROTATE adapter binds to 01A engine with exact X/Y/Orientation diff and enu
     nextGridObjectId:100,planId:'min-rotate-1'
   });
   assert.deepEqual(plan.allowedChanges.map(x=>x.path),[
-    '/World/GridCollection/Grids/7/Objects/42/X',
-    '/World/GridCollection/Grids/7/Objects/42/Y',
     '/World/GridCollection/Grids/7/Objects/42/Orientation'
   ]);
   const candidate=await createVerifiedWriteCandidate({session,plan,adapter:minimumPersistentTransformAdapter});
@@ -245,7 +245,7 @@ test('ROTATE adapter binds to 01A engine with exact X/Y/Orientation diff and enu
   assert.equal(verified.status,'PASS');
   const reopened=await SafeProfileEditSession.open({sourceBytes:candidate.candidateBytes,codec:codec(),sourcePlatform:PlatformFamily.Switch});
   const o=reopened.getSnapshot().World.GridCollection.Grids['7'].Objects['42'];
-  assert.deepEqual({X:o.X,Y:o.Y,Orientation:o.Orientation},{X:9,Y:21,Orientation:'GridOrientation_Right'});
+  assert.deepEqual({X:o.X,Y:o.Y,Orientation:o.Orientation},{X:10,Y:20,Orientation:'GridOrientation_Right'});
 });
 
 test('semantic adapter rejects an overbroad MOVE plan that tries to authorize Orientation',async()=>{
