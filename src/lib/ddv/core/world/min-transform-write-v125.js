@@ -100,10 +100,7 @@ function rootEvidenceClear(e,gridId,objectId,mapKey){
     && Number(e.gridId)===gridId
     && Number(e.gridObjectId)===objectId
     && String(e.objectMapKey)===String(mapKey)
-    && Number(e.rootGridId)===gridId
     && (e.parentAddress===null||e.parentAddress===undefined)
-    && e.rootOwnershipResolved===true
-    && Number(e.destinationRootGridId)===gridId
   );
 }
 function orientationSerializedLike(sourceRaw,n){return typeof sourceRaw==='string'?ORIENTATION_NAMES[n]:n;}
@@ -131,7 +128,7 @@ export function classifyMinimumPersistentTransform({
   progressionRecord,placementEvidence,operation,finalTransform
 }={}){
   const reasons=[];
-  if(source?.platform!=='switch'||source?.gameVersion!==GAME_VERSION||Number(source?.profileSchemaVersion)!==PROFILE_SCHEMA||source?.buildIdentity!==SWITCH_BID)reasons.push('EXACT_SWITCH_V125_BUILD_REQUIRED');
+  if(source?.platform!=='Nintendo Switch'||source?.gameVersion!==GAME_VERSION||Number(source?.profileSchemaVersion)!==PROFILE_SCHEMA||source?.buildIdentity!==SWITCH_BID)reasons.push('EXACT_SWITCH_V125_BUILD_REQUIRED');
   const gridId=int(target?.gridId),objectId=int(target?.gridObjectId),itemId=int(target?.itemId),mapKey=target?.objectMapKey;
   if(gridId===null||objectId===null||itemId===null||mapKey===undefined||mapKey===null)reasons.push('TARGET_IDENTITY_REQUIRED');
   const grid=gridId===null?null:gridOf(profile,gridId);
