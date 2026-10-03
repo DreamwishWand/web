@@ -478,7 +478,7 @@ const copy = {
   'worldEditor.live.coreReasonStateUnsupported': 'このobjectにはgeneric editingへpromoteされていないmutation semanticsを持つattached stateがあります。',
   'worldEditor.live.coreReasonRootGrid': '選択したroot Gridは表示できますが、current Core role contractではmutation未許可です。',
   'worldEditor.live.coreReasonFallback': 'Coreによりこのobjectはread-onlyです。',
-  'worldEditor.live.coreReasonDefault': '選択したobjectはcurrent Core projectionでread-onlyです。'
+  'worldEditor.live.coreReasonDefault': '選択したobjectはcurrent Core projectionでread-onlyです。',
   "worldEditor.verifiedExport.eyebrow": "検証済み置換エクスポート",
   "worldEditor.verifiedExport.title": "変更を確認してエクスポート",
   "worldEditor.verifiedExport.description": "launch writerが対応するのは、同じroot Grid内に既に存在する通常Furniture 1個のMOVEまたはcardinal ROTATEだけです。Wandは編集済み置換セーブを生成し、独立検証します。読み込んだsourceは上書きしません。",
