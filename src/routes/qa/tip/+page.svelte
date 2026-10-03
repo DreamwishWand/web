@@ -8,13 +8,15 @@
   let questionId = '', answerId = '', creatorProfileId = '';
   let email = '', password = '', title = '', body = '';
   let question: any = null;
+  let signedIn = false;
   let busy = false, error = '', tipId = '';
 
   onMount(() => {
     const params = new URLSearchParams(window.location.search);
     questionId = params.get('question') ?? '';
     answerId = params.get('answer') ?? '';
-    if (client?.session) void load();
+    signedIn = Boolean(client?.session);
+    if (signedIn) void load();
   });
 
   async function run<T>(fn: () => Promise<T>): Promise<T | null> {
@@ -28,7 +30,9 @@
     if (!client) return;
     const session = await run(() => client.signInWithPassword(email.trim(), password));
     if (!session) return;
-    password = ''; await load();
+    password = '';
+    signedIn = true;
+    await load();
   }
 
   async function load() {
@@ -66,7 +70,7 @@
 
   {#if !client}
     <div class="notice">{t('community.configUnavailable', {}, $locale)}</div>
-  {:else if !client.session}
+  {:else if !signedIn}
     <div class="card">
       <label>{t('community.auth.email', {}, $locale)}<input type="email" bind:value={email} /></label>
       <label>{t('community.auth.password', {}, $locale)}<input type="password" bind:value={password} /></label>
