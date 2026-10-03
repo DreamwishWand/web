@@ -1061,6 +1061,9 @@ export type Database = {
           rank: number | null
           recorded_at: string
           score: number | null
+          source_kind: string
+          source_observed_at: string | null
+          source_reference: string | null
           updated_at: string
         }
         Insert: {
@@ -1072,6 +1075,9 @@ export type Database = {
           rank?: number | null
           recorded_at?: string
           score?: number | null
+          source_kind: string
+          source_observed_at?: string | null
+          source_reference?: string | null
           updated_at?: string
         }
         Update: {
@@ -1083,6 +1089,9 @@ export type Database = {
           rank?: number | null
           recorded_at?: string
           score?: number | null
+          source_kind?: string
+          source_observed_at?: string | null
+          source_reference?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2922,6 +2931,21 @@ export type Database = {
         }
         Returns: Json
       }
+      community_dreamsnap_ingest_ingame_result_v1: {
+        Args: {
+          p_auth_subject: string
+          p_entry_id: string
+          p_moonstones: number
+          p_official_payload?: Json
+          p_pixel_dust: number
+          p_rank: number
+          p_score: number
+          p_source_kind: string
+          p_source_observed_at: string
+          p_source_reference: string
+        }
+        Returns: Json
+      }
       community_dreamsnap_join_event_v1: {
         Args: {
           p_auth_subject: string
@@ -2935,18 +2959,6 @@ export type Database = {
           p_auth_subject: string
           p_comments_enabled?: boolean
           p_entry_id: string
-        }
-        Returns: Json
-      }
-      community_dreamsnap_record_official_result_v1: {
-        Args: {
-          p_auth_subject: string
-          p_entry_id: string
-          p_moonstones: number
-          p_official_payload?: Json
-          p_pixel_dust: number
-          p_rank: number
-          p_score: number
         }
         Returns: Json
       }
