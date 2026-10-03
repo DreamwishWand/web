@@ -478,7 +478,7 @@ const copy = {
   'worldEditor.live.coreReasonStateUnsupported': 'Das Objekt besitzt angehängten Status, dessen Mutationssemantik nicht für generische Bearbeitung freigegeben ist.',
   'worldEditor.live.coreReasonRootGrid': 'Das ausgewählte Root Grid ist sichtbar, aber nach dem aktuellen Core-Rollenvertrag nicht zur Mutation autorisiert.',
   'worldEditor.live.coreReasonFallback': 'Core hält dieses Objekt schreibgeschützt.',
-  'worldEditor.live.coreReasonDefault': 'Das ausgewählte Objekt ist unter der aktuellen Core-Projektion schreibgeschützt.'
+  'worldEditor.live.coreReasonDefault': 'Das ausgewählte Objekt ist unter der aktuellen Core-Projektion schreibgeschützt.',
   "worldEditor.verifiedExport.eyebrow": "VERIFIZIERTER ERSATZ-EXPORT",
   "worldEditor.verifiedExport.title": "Änderungen prüfen & exportieren",
   "worldEditor.verifiedExport.description": "Der Launch-Writer unterstützt genau ein Verschieben oder eine kardinale Drehung vorhandener gewöhnlicher Möbel im selben Root-Grid. Wand erstellt und prüft unabhängig eine bearbeitete Ersatz-Speicherdatei und überschreibt die geladene Quelle nie.",
