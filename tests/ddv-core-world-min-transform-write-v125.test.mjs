@@ -63,7 +63,7 @@ function coreClassification(overrides={}){
   return {itemId:40000048,concreteType:'FurnitureItemData',stateKind:'NONE',layer:'furniture',editability:'editable',reasons:[],...overrides};
 }
 function rootEvidence(overrides={}){
-  return {relation:'ROOT',gridId:7,gridObjectId:42,objectMapKey:'42',rootGridId:7,parentAddress:null,rootOwnershipResolved:true,destinationRootGridId:7,...overrides};
+  return {relation:'ROOT',gridId:7,gridObjectId:42,objectMapKey:'42',...overrides};
 }
 function progressionRecord(overrides={}){
   return {
@@ -100,7 +100,7 @@ function placementEvidence({x=11,y=21,orientation=0,resultOverride=null,...overr
 function classify(root,{operation='MOVE',finalTransform={x:11,y:21,orientation:0},scope=scopeRecord(),core=coreClassification(),rootEv=rootEvidence(),progression=progressionRecord(),placementEvidenceOverride=null}={}){
   const pe=placementEvidenceOverride??placementEvidence({x:finalTransform.x,y:finalTransform.y,orientation:finalTransform.orientation});
   return classifyMinimumPersistentTransform({
-    source:{platform:'switch',gameVersion:'1.25.0',profileSchemaVersion:624,buildIdentity:'52BD625D9B4E0053'},
+    source:{platform:'Nintendo Switch',gameVersion:'1.25.0',profileSchemaVersion:624,buildIdentity:'52BD625D9B4E0053'},
     profile:root,target:{gridId:7,gridObjectId:42,itemId:40000048,objectMapKey:'42'},
     scopeRecord:scope,coreClassification:core,rootEvidence:rootEv,
     progressionRecord:progression,placementEvidence:pe,operation,finalTransform
@@ -174,7 +174,7 @@ test('Building/SubGrid/state/source-field/special interaction are fail-closed',(
 });
 
 test('non-root/cross-root evidence and progression references are fail-closed',()=>{
-  const nested=classify(profile(),{rootEv:rootEvidence({relation:'SUBGRID_CHILD',rootGridId:5,parentAddress:{gridId:5,gridObjectId:1}})});
+  const nested=classify(profile(),{rootEv:rootEvidence({relation:'SUBGRID_CHILD',parentAddress:{gridId:5,gridObjectId:1}})});
   assert.ok(nested.reasonCodes.includes('EXACT_ROOT_RELATION_REQUIRED'));
 
   const active=classify(profile(),{progression:progressionRecord({
