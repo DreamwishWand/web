@@ -36,10 +36,13 @@
       "/World/GridCollection/Grids/{gridId}/NextGridObjectID"
     ],
     "inPlaceOwnedObjectFieldRewriteV1": false,
-    "requires01aExtension": true,
+    "requires01aExtension": false,
     "dependencyId": "DDV-SAFE-STRUCTURAL-GRID-OBJECT-TRANSACTION-EXTENSION-V125-V1_0",
     "sourceFamilyIsolation": "owned sourceObjectIds must resolve to the expected source Road/Fence family; family replacement is allowed only through an explicitly supported replacement operation",
-    "nativeSeedMergeRule": "ROAD_SAME_FAMILY_MERGE must preserve at least one exact source descriptor identity"
+    "nativeSeedMergeRule": "ROAD_SAME_FAMILY_MERGE must preserve at least one exact source descriptor identity",
+    "dependencySatisfied": true,
+    "current01aWriteCandidateCompatible": true,
+    "bindingContract": "ddv.roadfence-structural-transaction-binding@1"
   },
   "road": {
     "orientation": "GridOrientation_Down only for generated current-v1.25 Road cells",

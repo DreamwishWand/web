@@ -3,11 +3,7 @@
   "id": "DDV-SAFE-STRUCTURAL-GRID-OBJECT-TRANSACTION-EXTENSION-V125-V1_0",
   "requester": "01C CORE — Road / Fence",
   "targetFoundation": "DDV-SAFE-PERSISTENT-TRANSACTION-FOUNDATION-V125-V1_0",
-  "currentBlocker": {
-    "planTarget": "single existing GRID_OBJECT",
-    "gridObjectIdentityPolicy": "PRESERVE_ALL_GRID_OBJECT_IDENTITIES",
-    "identityDeltaFailure": "TX_GRID_OBJECT_IDENTITY_CHANGED"
-  },
+  "currentBlocker": null,
   "minimumAdditiveExtension": {
     "capability": "STRUCTURAL_WRITE_CANDIDATE",
     "targetKind": "GRID_OBJECT_SET",
@@ -59,5 +55,13 @@
     "relaxation of the promoted ordinary-Furniture WRITE_CANDIDATE identity policy"
   ],
   "persistentWriteAuthorized": false,
-  "WORLD_PERSISTENT_WRITE_V125": false
+  "WORLD_PERSISTENT_WRITE_V125": false,
+  "status": "SATISFIED",
+  "satisfiedBy": {
+    "mergeCommit": "39781bd93c5b131dd768b001c42fab74f028d7cd",
+    "capability": "STRUCTURAL_WRITE_CANDIDATE",
+    "targetKind": "GRID_OBJECT_SET",
+    "identityPolicy": "ALLOW_DECLARED_GRID_OBJECT_SET_DELTA"
+  },
+  "bindingArtifact": "DDV-ROADFENCE-STRUCTURAL-TRANSACTION-BINDING-V125-V1_0"
 }
