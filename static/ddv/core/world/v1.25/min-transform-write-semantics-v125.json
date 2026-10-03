@@ -1,0 +1,429 @@
+{
+  "schema": "ddv.minimum-persistent-transform-semantics@1",
+  "artifactId": "DDV-MINIMUM-PERSISTENT-TRANSFORM-SEMANTICS-V125-V1_0",
+  "version": "v1.0",
+  "status": "PROMOTED",
+  "semanticOwner": "01B CORE - World / Grid / Buildings",
+  "requestId": "01A-TO-01B-MIN-TRANSFORM-WRITE-SEMANTICS-V125",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "titleId": "0100D39012C1A000",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624
+  },
+  "upstream": {
+    "transactionFoundation": {
+      "artifactId": "DDV-SAFE-PERSISTENT-TRANSACTION-FOUNDATION-V125-V1_0",
+      "contract": "ddv.safe-persistent-transaction-foundation@1",
+      "mainCommit": "ced3cfcffec467d6a7f7deb1f93859e89a232728",
+      "WRITE_CANDIDATE": true,
+      "PERSISTENT_WRITE": false
+    },
+    "consumedWithoutReResearch": [
+      "v1.7 GridData dimensions/bounds",
+      "v1.8 GridData FloorType",
+      "v1.9 native placement legality",
+      "v1.10/v1.11 Building read/classification",
+      "v1.12 Scrooge Store state",
+      "v1.13-v1.15 progression safety/integration/destination veto",
+      "v1.16 direct-root EditorDocument projector"
+    ]
+  },
+  "conclusion": {
+    "evidenceStatus": "CONFIRMED_STATIC_CURRENT_V125",
+    "answer": "YES_FOR_FROZEN_MINIMUM_SUBSET",
+    "serializedTransformTuple": [
+      "X",
+      "Y",
+      "Orientation"
+    ],
+    "moveExactSemanticMutationSet": [
+      "X",
+      "Y"
+    ],
+    "rotateExactSemanticMutationSet": [
+      "Orientation"
+    ],
+    "requiredPersistentCompanionMutations": [],
+    "nativeRuntimeOnlyEffects": [
+      "GridCells.RemoveFromGridCells before transform",
+      "GridCells.AddToGridCells after transform",
+      "GridChangedOperation.UpdateTransform event dispatch"
+    ],
+    "runtimeOnlyState": [
+      "Grid._gridCells",
+      "GridObject.gridArea"
+    ],
+    "rule": "Runtime cache maintenance and event dispatch are not serialized companion fields. The offline adapter MUST NOT synthesize them into the save.",
+    "note": "The native UpdateTransform tuple is X/Y/Orientation, but the frozen minimum ROTATE operation is a one-object anchor-preserving cardinal rotation. X/Y must remain unchanged. Anchor-changing/group/pivot rotation is explicitly outside v1.0."
+  },
+  "currentNativeEvidence": {
+    "source": {
+      "dumpCsSha256": "a94ae73d522f160d21255b195b4d834bf5c79db59ddbd8cdfc32e54c6e0671f0",
+      "mainSha256": "3258d5e05aded708c06017b8763fa37bfb696385a2ab29dd8a182d3938cbc0e0"
+    },
+    "GridObject": {
+      "protobufFields": {
+        "ID": 1,
+        "ItemID": 2,
+        "X": 3,
+        "Y": 4,
+        "Orientation": 5,
+        "State": 6,
+        "From": 7
+      },
+      "managedOffsets": {
+        "ID": "0x18",
+        "ItemID": "0x1C",
+        "X": "0x20",
+        "Y": "0x24",
+        "Orientation": "0x28",
+        "State": "0x30",
+        "gridArea": "0x48"
+      },
+      "runtimeOnly": [
+        "gridArea"
+      ],
+      "evidenceStatus": "CONFIRMED"
+    },
+    "Grid": {
+      "protobufFields": {
+        "ID": 1,
+        "GridDataPath": 2,
+        "GridDefaultLayoutPath": 3,
+        "TessellationFactor": 4,
+        "Objects": 5,
+        "NextGridObjectID": 6
+      },
+      "runtimeOnly": [
+        "_gridCells",
+        "parentWorld",
+        "GridData",
+        "AvailableFloorTypes"
+      ],
+      "evidenceStatus": "CONFIRMED"
+    },
+    "UpdateGridObjectTransform": {
+      "validateThisRva": "0x4FC5260",
+      "applyThisRva": "0x4FC6DA0",
+      "requestFields": {
+        "GridID": 1,
+        "GridObjectID": 2,
+        "GridObjectItemID": 15,
+        "NewX": 3,
+        "NewY": 4,
+        "NewOrientation": 5,
+        "ClearArea": 6
+      },
+      "resultEnum": [
+        "Success",
+        "InvalidGrid",
+        "InvalidGridObjectId",
+        "InvalidTransform",
+        "DesyncDetected"
+      ],
+      "clearAreaFalsePath": "IGridInternal.UpdateTransform",
+      "clearAreaTruePath": "GridClearingExtensions.UpdateTransformWithClearing",
+      "clearAreaTruePolicy": "EXCLUDED"
+    },
+    "GridUpdateTransform": {
+      "rva": "0x4E78A70",
+      "serializedStores": [
+        {
+          "offset": "GridObject+0x28",
+          "field": "Orientation"
+        },
+        {
+          "offset": "GridObject+0x20/+0x24",
+          "fields": [
+            "X",
+            "Y"
+          ]
+        }
+      ],
+      "immediateNonSerializedEffects": [
+        {
+          "method": "GridCells.RemoveFromGridCells",
+          "rva": "0x4EC42B0"
+        },
+        {
+          "method": "GridCells.AddToGridCells",
+          "rva": "0x4EC3C70"
+        },
+        {
+          "event": "GridChangedOperation.UpdateTransform",
+          "value": 2
+        }
+      ],
+      "gridProtobufWritesObserved": [],
+      "otherGridObjectProtobufWritesObserved": [],
+      "evidenceStatus": "CONFIRMED"
+    },
+    "eventConsumerBoundary": {
+      "uniqueItemMonitor": "UpdateTransform not treated as Add/Remove identity event",
+      "buildingStateSynchronizer": "Building-only; excluded by exact FurnitureItemData classifier",
+      "snippetTrapHandler": "special interactive Furniture family; excluded by CORE_STATELESS_FURNITURE + interaction None + State null",
+      "missionObjectiveHandlers": "gameplay event side effects are unrelated progression state, not placement companion state; 01A preservation requires them unchanged for an offline transform candidate",
+      "evidenceStatus": "CONFIRMED_BOUNDED_TO_FROZEN_SUBSET"
+    }
+  },
+  "admissibleClassifier": {
+    "inputContracts": {
+      "scopeRecord": "canonical v1.25 flat scopeIndex record",
+      "coreClassification": "01B adapter basic classification (FurnitureItemData / stateKind NONE / layer furniture / editable / no reasons)",
+      "progressionRecord": "ddv.progression-destination-veto-record@1",
+      "placementEvidence": {
+        "revision": "V125_NATIVE_ORDINARY_CARDINAL_NONWALL_GROUPSET_2",
+        "result": "placement-v125.cjs validateOrdinaryCardinalPlacement result"
+      },
+      "rootEvidence": "existing Editor object source shape: {relation:'ROOT', gridId, gridObjectId, objectMapKey}; optional parentAddress must be null/absent"
+    },
+    "requiredScopeRecord": {
+      "concreteType": "FurnitureItemData",
+      "scopeTier": "CORE_STATELESS_FURNITURE",
+      "interaction": "None",
+      "isMissionItem": false,
+      "forPuzzleOnly": false,
+      "explicitGridEditRestriction": "null/false",
+      "nativePresetKnownRejectReasons": [],
+      "isSyncOnlineItem": false
+    },
+    "requiredSerializedObjectShape": [
+      "ID",
+      "ItemID",
+      "X",
+      "Y",
+      "Orientation",
+      "State"
+    ],
+    "requiredState": "State === null",
+    "unknownAdditionalGridObjectFields": "REJECT",
+    "progressionPolicy": {
+      "requireNegativeVetoFound": false,
+      "requireDestinationProtected": false,
+      "allowReferenceDispositions": [
+        "NONE_OBSERVED",
+        "HISTORICAL_ONLY"
+      ],
+      "requireActiveReferences": 0,
+      "requireUnknownReferences": 0,
+      "historicalReferences": "PRESERVE_UNCHANGED_ALLOWED",
+      "requireOperationVetoes": 0,
+      "note": "Absence of a v1.15 veto is not positive permission by itself; all classifier and placement gates must independently pass."
+    },
+    "placementPolicy": {
+      "revision": "V125_NATIVE_ORDINARY_CARDINAL_NONWALL_GROUPSET_2",
+      "sameRootGrid": true,
+      "clearArea": false,
+      "automaticSpawning": false,
+      "requiredResult": {
+        "status": "VALID",
+        "valid": true,
+        "verdict": "VALID"
+      }
+    },
+    "failClosedExclusions": [
+      "Building / PlayerHouse",
+      "Road / Fence",
+      "SubGrid parent or child",
+      "cross-root or cross-grid transform",
+      "non-null or unknown GridObject State",
+      "mission/puzzle/restricted/sync-online Furniture",
+      "ACTIVE or UNKNOWN progression reference/veto",
+      "unsupported or invalid placement",
+      "non-cardinal orientation",
+      "unknown extra serialized GridObject field"
+    ],
+    "sourceIdentity": {
+      "platform": "Nintendo Switch",
+      "gameVersion": "1.25.0",
+      "buildIdentity": "52BD625D9B4E0053",
+      "profileSchemaVersion": 624
+    },
+    "sameRootRule": "Target Grid is the existing object's source Grid; operation has no destination-grid field. Cross-grid transforms are outside the contract."
+  },
+  "operationSemantics": {
+    "MOVE": {
+      "exactSerializedMutationSet": [
+        "X",
+        "Y"
+      ],
+      "Orientation": "MUST_PRESERVE",
+      "identity": "MUST_PRESERVE",
+      "state": "MUST_PRESERVE_NULL",
+      "nextGridObjectId": "MUST_PRESERVE"
+    },
+    "ROTATE": {
+      "exactSerializedMutationSet": [
+        "Orientation"
+      ],
+      "X": "MUST_PRESERVE",
+      "Y": "MUST_PRESERVE",
+      "mode": "ANCHOR_PRESERVING_CARDINAL_ONLY",
+      "identity": "MUST_PRESERVE",
+      "state": "MUST_PRESERVE_NULL",
+      "nextGridObjectId": "MUST_PRESERVE"
+    },
+    "companionSerializedFields": [],
+    "runtimeDerivedOnly": [
+      "GridCells occupancy remove/add",
+      "GridObject gridArea / derived footprint",
+      "GridChangedOperation.UpdateTransform dispatch"
+    ]
+  },
+  "nativePlacementRequirements": {
+    "implementation": "static/ddv/core/world/v1.25/placement-v125.cjs",
+    "revision": "V125_NATIVE_ORDINARY_CARDINAL_NONWALL_GROUPSET_2",
+    "requiredResult": {
+      "status": "VALID",
+      "valid": true,
+      "verdict": "VALID"
+    },
+    "requireSameRootGrid": true,
+    "requireClearAreaFalse": true,
+    "requireAutomaticSpawningFalse": true,
+    "requiredExistingPreconditions": [
+      "authoritative v1.7 bounds",
+      "authoritative v1.8 FloorType",
+      "current-v1.25 resolved geometry/layers",
+      "cardinal non-wall placement",
+      "resolved occupancy excluding target original occupancy",
+      "same-root final candidate"
+    ],
+    "safetyRule": "Placement VALID is necessary but never sufficient; scope, root, progression, state, identity and preservation gates must also pass."
+  },
+  "preservation": {
+    "requiredUnchanged": [
+      "GridObject.ID",
+      "GridObject.ItemID",
+      "GridObject.State",
+      "object-map key",
+      "root Grid membership",
+      "parent/root relationship",
+      "Grid.NextGridObjectID",
+      "all unrelated GridObjects",
+      "inventory",
+      "progression/objective state",
+      "Store/Shop state",
+      "entitlement/premium/DLC state",
+      "unknown/opaque unrelated state",
+      "GameInfo"
+    ],
+    "transactionCompatibility": {
+      "gridObjectIdentityPolicy": "PRESERVE_ALL_GRID_OBJECT_IDENTITIES",
+      "arrayPolicy": "PRESERVE_ORDER_AND_LENGTH_OUTSIDE_INTENTIONAL",
+      "unknownStatePolicy": "OPAQUE_UNCHANGED_REQUIRED",
+      "serializerNormalizationPolicy": "REJECT_SEMANTIC_NORMALIZATION"
+    }
+  },
+  "mutationAdapter": {
+    "contract": "dreamwish.ddv.save-mutation-adapter@1",
+    "id": "01b-minimum-root-furniture-transform-v125-v1",
+    "owner": "01B CORE - World / Grid / Buildings",
+    "implementationPath": "src/lib/ddv/core/world/min-transform-write-v125.js",
+    "MOVE": {
+      "writes": [
+        "X",
+        "Y"
+      ],
+      "mustNotWrite": [
+        "Orientation"
+      ]
+    },
+    "ROTATE": {
+      "writes": [
+        "Orientation"
+      ],
+      "mustNotWrite": [
+        "X",
+        "Y"
+      ]
+    },
+    "appliesOnlyAfterAdmissibility": "ADMISSIBLE",
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "planBindingHardening": {
+      "exactOperationGateRequired": true,
+      "exactAllowedPathsRequired": true,
+      "requiredIdentityPrePostconditions": true,
+      "requiredStateNullPrePostconditions": true,
+      "requiredBeforeAndFinalTransformPrePostconditions": true,
+      "requiredNextGridObjectIdPreservation": true,
+      "required01APreservationPolicies": true,
+      "arbitraryConditionWeakening": "REJECT"
+    }
+  },
+  "runtimeAcceptance": {
+    "currentStatus": "PENDING_AFTER_INTEGRATOR_PROMOTION",
+    "exactRemainingQuestion": "For one classifier-admissible ordinary root stateless Furniture object on Switch v1.25.0, does a candidate save whose semantic diff is limited to X/Y for MOVE or Orientation for anchor-preserving ROTATE load successfully, survive an in-game save plus full quit/relaunch, and preserve ID, ItemID, State, map key, root membership, NextGridObjectID, inventory, progression/objective state and opaque unrelated state without game-driven normalization or a required serialized companion mutation?",
+    "requiredOperations": [
+      "MOVE",
+      "ROTATE"
+    ],
+    "activationOwner": "01E after Integrator promotion only",
+    "whyRuntimeStillNeeded": "No controlled current-v1.25 ordinary Furniture before/after + cold-reload acceptance artifact was found in the current evidence set. Static serialized semantics are closed; persistence/reload acceptance is the remaining gate."
+  },
+  "writerBoundary": {
+    "WRITE_CANDIDATE": true,
+    "PERSISTENT_WRITE": false,
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "applyAuthorized": false,
+    "sourceReplacementAuthorized": false,
+    "atomicCommitAuthorized": false
+  },
+  "integrationBoundary": {
+    "discovered01APathOrderIssue": {
+      "status": "NOT_A_V1_0_BLOCKER_AFTER_SCOPE_NARROWING",
+      "observation": "A synthetic anchor-changing ROTATE that changed X/Y/Orientation together exposed TX_EXPORT_DIFF_DISAGREES_WITH_SEMANTIC_DIFF because the promoted 01A foundation compares export changed-path order with a sorted semantic diff.",
+      "action": "01B does not modify the promoted 01A foundation. v1.0 ROTATE is constrained to anchor-preserving Orientation-only mutation. Any future anchor-changing/group rotation requires a separate Integrator/01A compatibility closure."
+    }
+  },
+  "implementation": {
+    "sourcePath": "src/lib/ddv/core/world/min-transform-write-v125.js",
+    "sourceSha256": "a00042669dca33e05588f6d0989ff0f46857a35fdfe852022312f2f6464a9c5e",
+    "testPath": "tests/ddv-core-world-min-transform-write-v125.test.mjs",
+    "testSha256": "a5614805298ee340b8297a78d8841d0b25f5a1046a1ebfb26bfd0764960ac93a",
+    "branch": "dev/core-min-transform-write-semantics-v125-20261003",
+    "headBeforeFinalMetadata": "8856a3dd8747dae61c0e80f19115be2512fe1ebc"
+  },
+  "currentSaveEvidence": {
+    "status": "STRUCTURAL_ONLY_NO_PRIVATE_BYTES_COMMITTED",
+    "note": "Current v1.25 canonical fixture confirms GridObject serialization shape and ordinary flat scopeIndex shape. Runtime persistence/reload remains owned by 01E."
+  },
+  "regression": {
+    "implementation": "tests/ddv-core-world-min-transform-write-v125.test.mjs",
+    "required": [
+      "canonical flat scope positive/negative",
+      "historical-only progression allowed while ACTIVE/UNKNOWN rejected",
+      "exact promoted placement revision/result",
+      "MOVE X/Y-only 01A candidate",
+      "ROTATE Orientation-only 01A candidate",
+      "unknown extra serialized object field reject",
+      "overbroad allowed-path reject",
+      "required pre/postcondition tamper reject",
+      "writer boundary remains false"
+    ]
+  },
+  "integratorReturn": {
+    "status": "ACCEPTED",
+    "reviewFindings": [
+      "Classifier now consumes canonical flat v1.25 scopeIndex records rather than an invented nested definition shape.",
+      "Historical-only progression references are allowed when no ACTIVE/UNKNOWN reference or operation veto exists; all historical state remains unchanged.",
+      "Placement gate is bound to the real promoted/current v1.25 placement-v125.cjs revision and exact VALID result shape.",
+      "Root proof is bound to the actual Editor source address shape.",
+      "Semantic-owner adapter verifies exact allowed paths, required identity/State/transform pre/postconditions, NextGridObjectID preservation and 01A preservation policies."
+    ],
+    "ci": {
+      "pushRunId": 37086764008,
+      "pushRunNumber": 1862,
+      "pullRequestRunId": 37086766670,
+      "pullRequestRunNumber": 1863,
+      "conclusion": "SUCCESS"
+    },
+    "next": "01E controlled exact-build runtime persistence/cold-reload acceptance",
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false
+  }
+}

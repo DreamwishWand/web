@@ -180,6 +180,34 @@
       "sourceEvidenceDriveId": "1d4l-GG5W0F3cSRIltgZyA_ZTzf8Nv7r0QG1h7Sr2x2w",
       "sourceCandidateSha256": "71a815e425be714a59bdaa4a355a2f3560ffe2b88111877e372e9bd3440f0c1b",
       "scope": "read/model/preflight Floating Island direct-root EditorDocument projection only; no operation permission or persistent writer"
+    },
+    {
+      "artifactId": "DDV-SAFE-PERSISTENT-TRANSACTION-FOUNDATION-V125-V1_0",
+      "artifactType": "Core/Save safe transaction candidate foundation",
+      "version": "v1.0",
+      "status": "PROMOTED",
+      "mutable": false,
+      "platform": "Nintendo Switch",
+      "gameVersion": "v1.25.0",
+      "buildId": "52BD625D9B4E0053",
+      "artifactSha256": "ad80a05f90790bfc73bc202949f49216477ff1384dfe75b796e269154de97335",
+      "payloadSha256": "01de86ac651bafc248d02870165d03049b25325bab9c59d61617b680103c102c",
+      "sourceEvidenceDriveId": "1ZFAdqWae-BmORG8RXVMFHz7yweAAdk8Chrevxo-l-cg",
+      "scope": "temporary verified WRITE_CANDIDATE transaction foundation only; persistent writing remains unauthorized"
+    },
+    {
+      "artifactId": "DDV-MINIMUM-PERSISTENT-TRANSFORM-SEMANTICS-V125-V1_0",
+      "artifactType": "Core/minimum persistent transform semantic-owner contract",
+      "version": "v1.0",
+      "status": "PROMOTED",
+      "mutable": false,
+      "platform": "Nintendo Switch",
+      "gameVersion": "v1.25.0",
+      "buildId": "52BD625D9B4E0053",
+      "artifactSha256": "f6cbbcf4391214173aff6bcacdac46e4992b0f85063a6a0fa94ba23837ec8df3",
+      "payloadSha256": "c7c134df63c59b9cdfa883901ed16f9e02dfeffa4596ebf11f07aa185c9a6ef5",
+      "sourceEvidenceDriveId": "1d4l-GG5W0F3cSRIltgZyA_ZTzf8Nv7r0QG1h7Sr2x2w",
+      "scope": "WRITE_CANDIDATE semantic authorization only for same-root existing CORE_STATELESS_FURNITURE: MOVE X/Y; anchor-preserving cardinal ROTATE Orientation; persistent writing remains unauthorized"
     }
   ]
 }
