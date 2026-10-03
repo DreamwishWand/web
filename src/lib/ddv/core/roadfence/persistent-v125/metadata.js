@@ -15,12 +15,9 @@ export function structuralTransactionExtensionRequestV125() {
     requestedBy: ROADFENCE_SEMANTIC_OWNER,
     targetFoundation:
       'DDV-SAFE-PERSISTENT-TRANSACTION-FOUNDATION-V125-V1_0',
-    currentBlocker: {
-      planTarget: 'single existing GRID_OBJECT',
-      gridObjectIdentityPolicy:
-        'PRESERVE_ALL_GRID_OBJECT_IDENTITIES',
-      identityDeltaFailure: 'TX_GRID_OBJECT_IDENTITY_CHANGED'
-    },
+    status: 'SATISFIED',
+    satisfiedBy: ROADFENCE_STRUCTURAL_TRANSACTION_DEPENDENCY,
+    currentBlocker: null,
     minimumAdditiveCapability: {
       capability: 'STRUCTURAL_WRITE_CANDIDATE',
       targetKind: 'GRID_OBJECT_SET',
@@ -77,7 +74,8 @@ export function compilerMetadataV125() {
     profileSchema: CURRENT_SCHEMA,
     semanticOwner: ROADFENCE_SEMANTIC_OWNER,
     compilerProducesStructuralMutationSet: true,
-    bindsToCurrent01aWriteCandidate: false,
+    bindsToCurrent01aWriteCandidate: true,
+    structuralTransactionDependencySatisfied: true,
     structuralTransactionDependency:
       ROADFENCE_STRUCTURAL_TRANSACTION_DEPENDENCY,
     preservesInventoryCollectionEntitlement: true,

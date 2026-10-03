@@ -137,8 +137,9 @@ export function buildCompilerResult({
     ),
     structuralTransactionDependency: {
       required: true,
+      satisfied: true,
       id: ROADFENCE_STRUCTURAL_TRANSACTION_DEPENDENCY,
-      current01aWriteCandidateCompatible: false
+      current01aWriteCandidateCompatible: true
     },
     quantityInvariant: {
       logicalQuantityIsNotNativeObjectCount: true,

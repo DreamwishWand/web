@@ -146,7 +146,8 @@ function fm01Network() {
 test('metadata exposes structural dependency without enabling Apply', () => {
   const meta = roadFencePersistentCompilerMetadataV125();
   assert.equal(meta.compilerProducesStructuralMutationSet, true);
-  assert.equal(meta.bindsToCurrent01aWriteCandidate, false);
+  assert.equal(meta.bindsToCurrent01aWriteCandidate, true);
+  assert.equal(meta.structuralTransactionDependencySatisfied, true);
   assert.equal(meta.structuralTransactionDependency, 'DDV-SAFE-STRUCTURAL-GRID-OBJECT-TRANSACTION-EXTENSION-V125-V1_0');
   assert.equal(meta.persistentWriteAuthorized, false);
   assert.equal(meta.WORLD_PERSISTENT_WRITE_V125, false);
