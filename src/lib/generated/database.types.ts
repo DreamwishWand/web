@@ -427,6 +427,32 @@ export type Database = {
         }
         Relationships: []
       }
+      community_entity_origins: {
+        Row: {
+          created_at: string
+          entity_id: string
+          origin_kind: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          origin_kind: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          origin_kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_entity_origins_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: true
+            referencedRelation: "community_entities"
+            referencedColumns: ["entity_id"]
+          },
+        ]
+      }
       community_work_revisions: {
         Row: {
           created_at: string
@@ -711,6 +737,32 @@ export type Database = {
           },
         ]
       }
+      gallery_revision_items: {
+        Row: {
+          featured: boolean
+          gallery_revision_id: string
+          item_id: number
+        }
+        Insert: {
+          featured?: boolean
+          gallery_revision_id: string
+          item_id: number
+        }
+        Update: {
+          featured?: boolean
+          gallery_revision_id?: string
+          item_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gallery_revision_items_gallery_revision_id_fkey"
+            columns: ["gallery_revision_id"]
+            isOneToOne: false
+            referencedRelation: "gallery_work_revisions"
+            referencedColumns: ["revision_id"]
+          },
+        ]
+      }
       gallery_revision_presets: {
         Row: {
           gallery_revision_id: string
@@ -767,6 +819,32 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "community_work_revisions"
             referencedColumns: ["revision_id"]
+          },
+        ]
+      }
+      gallery_work_settings: {
+        Row: {
+          comments_enabled: boolean
+          updated_at: string
+          work_id: string
+        }
+        Insert: {
+          comments_enabled?: boolean
+          updated_at?: string
+          work_id: string
+        }
+        Update: {
+          comments_enabled?: boolean
+          updated_at?: string
+          work_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gallery_work_settings_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: true
+            referencedRelation: "gallery_works"
+            referencedColumns: ["work_id"]
           },
         ]
       }
@@ -1275,6 +1353,308 @@ export type Database = {
           },
         ]
       }
+      qa_answer_utility: {
+        Row: {
+          account_id: string
+          answer_id: string
+          updated_at: string
+          utility_kind: string
+        }
+        Insert: {
+          account_id: string
+          answer_id: string
+          updated_at?: string
+          utility_kind: string
+        }
+        Update: {
+          account_id?: string
+          answer_id?: string
+          updated_at?: string
+          utility_kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_answer_utility_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "wand_accounts"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "qa_answer_utility_answer_id_fkey"
+            columns: ["answer_id"]
+            isOneToOne: false
+            referencedRelation: "qa_answers"
+            referencedColumns: ["answer_id"]
+          },
+        ]
+      }
+      qa_answers: {
+        Row: {
+          answer_id: string
+          created_at: string
+          freshness: string
+          question_id: string
+          updated_at: string
+        }
+        Insert: {
+          answer_id: string
+          created_at?: string
+          freshness?: string
+          question_id: string
+          updated_at?: string
+        }
+        Update: {
+          answer_id?: string
+          created_at?: string
+          freshness?: string
+          question_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_answers_answer_id_fkey"
+            columns: ["answer_id"]
+            isOneToOne: true
+            referencedRelation: "comments"
+            referencedColumns: ["comment_id"]
+          },
+          {
+            foreignKeyName: "qa_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "community_works"
+            referencedColumns: ["work_id"]
+          },
+        ]
+      }
+      qa_question_redirects: {
+        Row: {
+          created_at: string
+          question_id: string
+          redirect_kind: string
+          target_question_id: string
+        }
+        Insert: {
+          created_at?: string
+          question_id: string
+          redirect_kind?: string
+          target_question_id: string
+        }
+        Update: {
+          created_at?: string
+          question_id?: string
+          redirect_kind?: string
+          target_question_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_question_redirects_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: true
+            referencedRelation: "community_works"
+            referencedColumns: ["work_id"]
+          },
+          {
+            foreignKeyName: "qa_question_redirects_target_question_id_fkey"
+            columns: ["target_question_id"]
+            isOneToOne: false
+            referencedRelation: "community_works"
+            referencedColumns: ["work_id"]
+          },
+        ]
+      }
+      qa_question_revisions: {
+        Row: {
+          body: string
+          context_tags: string[]
+          game_version: string | null
+          platform: string | null
+          revision_id: string
+          title: string
+        }
+        Insert: {
+          body: string
+          context_tags: string[]
+          game_version?: string | null
+          platform?: string | null
+          revision_id: string
+          title: string
+        }
+        Update: {
+          body?: string
+          context_tags?: string[]
+          game_version?: string | null
+          platform?: string | null
+          revision_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_question_revisions_revision_id_fkey"
+            columns: ["revision_id"]
+            isOneToOne: true
+            referencedRelation: "community_work_revisions"
+            referencedColumns: ["revision_id"]
+          },
+        ]
+      }
+      qa_question_state: {
+        Row: {
+          accepted_answer_id: string | null
+          freshness: string
+          resolution_state: string
+          solution_note: string | null
+          updated_at: string
+          work_id: string
+        }
+        Insert: {
+          accepted_answer_id?: string | null
+          freshness?: string
+          resolution_state?: string
+          solution_note?: string | null
+          updated_at?: string
+          work_id: string
+        }
+        Update: {
+          accepted_answer_id?: string | null
+          freshness?: string
+          resolution_state?: string
+          solution_note?: string | null
+          updated_at?: string
+          work_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_question_state_accepted_answer_id_fkey"
+            columns: ["accepted_answer_id"]
+            isOneToOne: false
+            referencedRelation: "comments"
+            referencedColumns: ["comment_id"]
+          },
+          {
+            foreignKeyName: "qa_question_state_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: true
+            referencedRelation: "community_works"
+            referencedColumns: ["work_id"]
+          },
+        ]
+      }
+      qa_same_here: {
+        Row: {
+          account_id: string
+          created_at: string
+          question_id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          question_id: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          question_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_same_here_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "wand_accounts"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "qa_same_here_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "community_works"
+            referencedColumns: ["work_id"]
+          },
+        ]
+      }
+      qa_tip_revisions: {
+        Row: {
+          body: string
+          context_tags: string[]
+          game_version: string | null
+          platform: string | null
+          revision_id: string
+          source_answer_id: string | null
+          source_question_id: string | null
+          title: string
+        }
+        Insert: {
+          body: string
+          context_tags: string[]
+          game_version?: string | null
+          platform?: string | null
+          revision_id: string
+          source_answer_id?: string | null
+          source_question_id?: string | null
+          title: string
+        }
+        Update: {
+          body?: string
+          context_tags?: string[]
+          game_version?: string | null
+          platform?: string | null
+          revision_id?: string
+          source_answer_id?: string | null
+          source_question_id?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_tip_revisions_revision_id_fkey"
+            columns: ["revision_id"]
+            isOneToOne: true
+            referencedRelation: "community_work_revisions"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "qa_tip_revisions_source_answer_id_fkey"
+            columns: ["source_answer_id"]
+            isOneToOne: false
+            referencedRelation: "qa_answers"
+            referencedColumns: ["answer_id"]
+          },
+          {
+            foreignKeyName: "qa_tip_revisions_source_question_id_fkey"
+            columns: ["source_question_id"]
+            isOneToOne: false
+            referencedRelation: "community_works"
+            referencedColumns: ["work_id"]
+          },
+        ]
+      }
+      qa_tip_state: {
+        Row: {
+          freshness: string
+          updated_at: string
+          work_id: string
+        }
+        Insert: {
+          freshness?: string
+          updated_at?: string
+          work_id: string
+        }
+        Update: {
+          freshness?: string
+          updated_at?: string
+          work_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_tip_state_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: true
+            referencedRelation: "community_works"
+            referencedColumns: ["work_id"]
+          },
+        ]
+      }
       reactions: {
         Row: {
           account_id: string
@@ -1567,7 +1947,28 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      community_add_answer_v1: {
+        Args: {
+          p_auth_subject: string
+          p_body: string
+          p_creator_profile_id: string
+          p_idempotency_key: string
+          p_question_id: string
+        }
+        Returns: Json
+      }
       community_add_comment: {
+        Args: {
+          p_auth_subject: string
+          p_body: string
+          p_creator_profile_id: string
+          p_idempotency_key: string
+          p_parent_comment_id: string
+          p_target_entity_id: string
+        }
+        Returns: Json
+      }
+      community_add_comment_v2: {
         Args: {
           p_auth_subject: string
           p_body: string
@@ -1716,6 +2117,19 @@ export type Database = {
         }
         Returns: Json
       }
+      community_ask_question_v1: {
+        Args: {
+          p_auth_subject: string
+          p_body: string
+          p_context_tags: string[]
+          p_creator_profile_id: string
+          p_game_version?: string
+          p_idempotency_key?: string
+          p_platform?: string
+          p_title: string
+        }
+        Returns: Json
+      }
       community_associate_ddv_identity_v1: {
         Args: {
           p_auth_subject: string
@@ -1808,6 +2222,30 @@ export type Database = {
         }
         Returns: Json
       }
+      community_create_gallery_work_v1: {
+        Args: {
+          p_auth_subject: string
+          p_creator_profile_id: string
+          p_gallery_kind: string
+          p_idempotency_key: string
+        }
+        Returns: Json
+      }
+      community_create_tip_v1: {
+        Args: {
+          p_auth_subject: string
+          p_body: string
+          p_context_tags?: string[]
+          p_creator_profile_id: string
+          p_game_version?: string
+          p_idempotency_key?: string
+          p_platform?: string
+          p_source_answer_id?: string
+          p_source_question_id?: string
+          p_title: string
+        }
+        Returns: Json
+      }
       community_delete_ddv_profile_workspace_v1: {
         Args: {
           p_auth_subject: string
@@ -1872,8 +2310,21 @@ export type Database = {
         Args: { p_auth_subject: string; p_creator_profile_id: string }
         Returns: Json
       }
+      community_gallery_author_remove_comment_v1: {
+        Args: {
+          p_auth_subject: string
+          p_comment_id: string
+          p_reason: string
+          p_work_id: string
+        }
+        Returns: Json
+      }
       community_get_action_rate_policies: {
         Args: { p_admin_auth_subject: string }
+        Returns: Json
+      }
+      community_get_creator_public_v1: {
+        Args: { p_creator_profile_id: string }
         Returns: Json
       }
       community_get_ddv_profile_workspaces_v1: {
@@ -1882,6 +2333,14 @@ export type Database = {
       }
       community_get_dead_letter_outbox: {
         Args: { p_auth_subject: string; p_limit?: number }
+        Returns: Json
+      }
+      community_get_gallery_public_v1: {
+        Args: { p_work_id: string }
+        Returns: Json
+      }
+      community_get_gallery_v1: {
+        Args: { p_auth_subject: string; p_work_id: string }
         Returns: Json
       }
       community_get_linked_ddv_profiles: {
@@ -1899,6 +2358,14 @@ export type Database = {
           p_limit?: number
           p_state?: string
         }
+        Returns: Json
+      }
+      community_get_my_gallery_v1: {
+        Args: { p_auth_subject: string; p_limit?: number }
+        Returns: Json
+      }
+      community_get_my_qa_activity_v1: {
+        Args: { p_auth_subject: string; p_limit?: number }
         Returns: Json
       }
       community_get_notifications: {
@@ -1937,6 +2404,22 @@ export type Database = {
         }
         Returns: Json
       }
+      community_get_public_media_storage_v1: {
+        Args: { p_media_id: string }
+        Returns: Json
+      }
+      community_get_question_public_v1: {
+        Args: { p_question_id: string }
+        Returns: Json
+      }
+      community_get_question_redirect_public_v1: {
+        Args: { p_question_id: string }
+        Returns: Json
+      }
+      community_get_question_v1: {
+        Args: { p_auth_subject: string; p_question_id: string }
+        Returns: Json
+      }
       community_get_recovery_cases: {
         Args: {
           p_admin_auth_subject: string
@@ -1969,6 +2452,7 @@ export type Database = {
         Args: { p_admin_auth_subject: string }
         Returns: Json
       }
+      community_get_tip_public_v1: { Args: { p_tip_id: string }; Returns: Json }
       community_get_work: {
         Args: { p_auth_subject: string; p_work_id: string }
         Returns: Json
@@ -1983,6 +2467,17 @@ export type Database = {
         }
         Returns: Json
       }
+      community_moderate_entity_v4: {
+        Args: {
+          p_action: string
+          p_auth_subject: string
+          p_case_id: string
+          p_issued_at_epoch: number
+          p_reason: string
+          p_session_id: string
+        }
+        Returns: Json
+      }
       community_moderate_work: {
         Args: {
           p_action: string
@@ -1993,6 +2488,17 @@ export type Database = {
         Returns: Json
       }
       community_moderate_work_v2: {
+        Args: {
+          p_action: string
+          p_auth_subject: string
+          p_case_id: string
+          p_issued_at_epoch: number
+          p_reason: string
+          p_session_id: string
+        }
+        Returns: Json
+      }
+      community_moderate_work_v3: {
         Args: {
           p_action: string
           p_auth_subject: string
@@ -2027,6 +2533,22 @@ export type Database = {
           p_media_ids: string[]
           p_preset_revision_ids: string[]
           p_title: string
+          p_work_id: string
+        }
+        Returns: Json
+      }
+      community_publish_gallery_v4: {
+        Args: {
+          p_auth_subject: string
+          p_description: string
+          p_expected_version: number
+          p_featured_item_ids?: number[]
+          p_idempotency_key?: string
+          p_media_ids: string[]
+          p_moodboard_snapshot_ref?: string
+          p_preset_revision_ids?: string[]
+          p_title: string
+          p_used_item_ids?: number[]
           p_work_id: string
         }
         Returns: Json
@@ -2076,6 +2598,10 @@ export type Database = {
         }
         Returns: Json
       }
+      community_remove_outdated_qa_v1: {
+        Args: { p_auth_subject: string; p_target_entity_id: string }
+        Returns: Json
+      }
       community_remove_reaction: {
         Args: {
           p_auth_subject: string
@@ -2091,6 +2617,15 @@ export type Database = {
           p_idempotency_key: string
           p_reason_code: string
           p_target_entity_id: string
+        }
+        Returns: Json
+      }
+      community_resolve_question_v1: {
+        Args: {
+          p_accepted_answer_id?: string
+          p_auth_subject: string
+          p_question_id: string
+          p_solution_note?: string
         }
         Returns: Json
       }
@@ -2127,6 +2662,56 @@ export type Database = {
           work_id: string
           work_type: Database["public"]["Enums"]["work_type"]
         }[]
+      }
+      community_search_questions_v1: {
+        Args: {
+          p_context_tags?: string[]
+          p_limit?: number
+          p_query?: string
+          p_unanswered_only?: boolean
+        }
+        Returns: {
+          answer_count: number
+          context_tags: string[]
+          creator_profile_id: string
+          freshness: string
+          game_version: string
+          platform: string
+          published_at: string
+          question_id: string
+          resolution_state: string
+          same_here_count: number
+          text_content: string
+          title: string
+        }[]
+      }
+      community_set_answer_utility_v1: {
+        Args: {
+          p_answer_id: string
+          p_auth_subject: string
+          p_utility_kind: string
+        }
+        Returns: Json
+      }
+      community_set_gallery_comments_enabled_v1: {
+        Args: { p_auth_subject: string; p_enabled: boolean; p_work_id: string }
+        Returns: Json
+      }
+      community_set_qa_freshness_v1: {
+        Args: {
+          p_auth_subject: string
+          p_freshness: string
+          p_target_entity_id: string
+        }
+        Returns: Json
+      }
+      community_set_same_here_v1: {
+        Args: {
+          p_active: boolean
+          p_auth_subject: string
+          p_question_id: string
+        }
+        Returns: Json
       }
       community_tombstone_account: {
         Args: {
@@ -2182,6 +2767,14 @@ export type Database = {
       community_verify_worker_token: {
         Args: { p_token: string; p_worker_name: string }
         Returns: boolean
+      }
+      community_withdraw_duplicate_question_v1: {
+        Args: {
+          p_auth_subject: string
+          p_question_id: string
+          p_target_question_id: string
+        }
+        Returns: Json
       }
       wep_get_accessible_preset_blob: {
         Args: {
