@@ -28,14 +28,14 @@ export async function callPublicCommunityRpc<T>(
   const config = getCommunityBrowserConfig();
   if (!config) throw new Error('COMMUNITY_BROWSER_CONFIG_UNAVAILABLE');
 
-  const response = await fetch(`${config.supabaseUrl}/rest/v1/rpc/${rpc}`, {
+  const response = await fetch(`${config.supabaseUrl}/functions/v1/community-public-query`, {
     method: 'POST',
     headers: {
       apikey: config.publishableKey,
       accept: 'application/json',
       'content-type': 'application/json'
     },
-    body: JSON.stringify(payload)
+    body: JSON.stringify({ rpc, payload })
   });
 
   const text = await response.text();
