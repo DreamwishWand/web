@@ -1,6 +1,6 @@
 <script lang="ts">
   import { base } from '$app/paths';
-  import { locale, t } from '$lib/i18n/runtime.js';
+  import { locale, ct as t } from '$lib/i18n/community.js';
   export let work: any;
   export let onClose: () => void;
 </script>
