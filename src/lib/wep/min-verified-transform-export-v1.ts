@@ -403,6 +403,7 @@ export async function reviewMinimumVerifiedTransform({
     sourceByteLength:safeSession.source.length,
     targetBuild,
     change,
+    baselineTarget:clone(baselineDocument.target),
     plan,
     admissibility:clone(admissibility),
     progressionRecord:clone(progressionRecord),
@@ -499,20 +500,12 @@ export async function commitMinimumVerifiedTransform({
     reopened=await openWorldSaveBytes(candidate.candidateBytes,{
       sourcePlatform:PlatformFamily.Switch
     });
-    const villageIndex=Number(review.plan?.target?.villageIndex ??
-      review.change?.beforeObject?.metadata?.villageIndex ??
-      review.change?.beforeObject?.source?.villageIndex ??
-      review.change?.route?.villageIndex ??
-      review.change?.baselineTarget?.villageIndex);
-    const areaId=Number(review.change?.baselineTarget?.areaId);
-    const baselineTarget=review.change?.baselineTarget ??
-      review.baselineTarget;
-    const v=Number.isSafeInteger(villageIndex)
-      ? villageIndex
-      : Number(baselineTarget?.villageIndex);
-    const a=Number.isSafeInteger(areaId)
-      ? areaId
-      : Number(baselineTarget?.areaId);
+    const baselineTarget=review.baselineTarget;
+    const v=Number(baselineTarget?.villageIndex);
+    const a=Number(baselineTarget?.areaId);
+    if(!Number.isSafeInteger(v)||!Number.isSafeInteger(a)) {
+      throw new Error('RELOAD_AREA_IDENTITY_MISSING');
+    }
     const area=reopened.areas.find(
       (entry:any)=>
         Number(entry.villageIndex)===v &&
