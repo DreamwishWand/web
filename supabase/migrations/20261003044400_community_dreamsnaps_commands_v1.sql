@@ -830,11 +830,15 @@ declare
   v_state text;
 begin
   v_account_id:=private.resolve_active_account(p_auth_subject);
-  select e.*,c.lifecycle_state into v_entry,v_state
-  from public.dreamsnap_entries e
-  join public.dreamsnap_challenges c on c.challenge_id=e.challenge_id
-  where e.entry_id=p_entry_id
-  for update of e;
+  select * into v_entry
+  from public.dreamsnap_entries
+  where entry_id=p_entry_id
+  for update;
+  if v_entry.entry_id is not null then
+    select lifecycle_state into v_state
+    from public.dreamsnap_challenges
+    where challenge_id=v_entry.challenge_id;
+  end if;
   if v_entry.entry_id is null then raise exception 'DreamSnaps entry not found'; end if;
   if v_entry.account_id<>v_account_id then raise exception 'Actor does not own DreamSnaps entry'; end if;
   if v_state not in ('results','closed') then raise exception 'Official DreamSnaps result is not available before Results'; end if;
@@ -879,10 +883,14 @@ declare
   v_fields text[];
 begin
   v_account_id:=private.resolve_active_account(p_auth_subject);
-  select e.*,c.lifecycle_state into v_entry,v_state
-  from public.dreamsnap_entries e
-  join public.dreamsnap_challenges c on c.challenge_id=e.challenge_id
-  where e.entry_id=p_entry_id;
+  select * into v_entry
+  from public.dreamsnap_entries
+  where entry_id=p_entry_id;
+  if v_entry.entry_id is not null then
+    select lifecycle_state into v_state
+    from public.dreamsnap_challenges
+    where challenge_id=v_entry.challenge_id;
+  end if;
   if v_entry.entry_id is null then raise exception 'DreamSnaps entry not found'; end if;
   if v_entry.account_id<>v_account_id then raise exception 'Actor does not own DreamSnaps entry'; end if;
   if v_state not in ('results','closed') then raise exception 'Official DreamSnaps result cannot be published before Results'; end if;
