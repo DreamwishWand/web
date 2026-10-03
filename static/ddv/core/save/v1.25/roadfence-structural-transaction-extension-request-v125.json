@@ -1,18 +1,18 @@
 {
-  "schema": "ddv.roadfence-01a-structural-extension-request@1",
+  "contract": "ddv.roadfence-01a-structural-extension-request@1",
   "id": "DDV-SAFE-STRUCTURAL-GRID-OBJECT-TRANSACTION-EXTENSION-V125-V1_0",
-  "requester": "01C CORE — Road / Fence",
+  "requestedBy": "01C CORE — Road / Fence",
   "targetFoundation": "DDV-SAFE-PERSISTENT-TRANSACTION-FOUNDATION-V125-V1_0",
   "currentBlocker": {
     "planTarget": "single existing GRID_OBJECT",
     "gridObjectIdentityPolicy": "PRESERVE_ALL_GRID_OBJECT_IDENTITIES",
     "identityDeltaFailure": "TX_GRID_OBJECT_IDENTITY_CHANGED"
   },
-  "minimumAdditiveExtension": {
+  "minimumAdditiveCapability": {
     "capability": "STRUCTURAL_WRITE_CANDIDATE",
     "targetKind": "GRID_OBJECT_SET",
     "identityPolicy": "ALLOW_DECLARED_GRID_OBJECT_SET_DELTA",
-    "requiredDeclaration": [
+    "declarations": [
       "gridId",
       "preservedGridObjectIds",
       "createdGridObjectIds",
@@ -22,41 +22,37 @@
       "nextGridObjectIDAfter",
       "allowedStructuralPaths"
     ],
-    "verification": [
-      "actual created/deleted/preserved identity delta equals declaration exactly",
-      "created map keys did not exist in source and exist exactly once in candidate",
-      "created object.ID equals its map key",
-      "deleted map keys and IDs are absent in candidate",
-      "deleted IDs are not reused by created objects",
-      "preserved raw object payload is unchanged unless a separately authorized field delta exists",
-      "unrelated GridObject identity and payload are exact",
-      "NextGridObjectID before/after equals declaration and is monotonic",
-      "canonical reparse succeeds and candidate semantic diff matches declaration",
-      "serializer normalization remains rejected"
-    ],
     "pathClasses": [
       "/World/GridCollection/Grids/{gridId}/Objects/{declaredCreatedOrDeletedId}",
       "/World/GridCollection/Grids/{gridId}/NextGridObjectID"
+    ],
+    "verification": [
+      "identity delta equals declaration exactly",
+      "created object-map keys are new and unique",
+      "created object.ID equals map key",
+      "deleted identities are absent after",
+      "deleted IDs are never reused",
+      "preserved raw objects remain unchanged",
+      "NextGridObjectID is exact and monotonic",
+      "unrelated identity and opaque state remain unchanged",
+      "canonical reparse and serializer-normalization rejection remain mandatory"
     ]
   },
-  "unchangedExistingSafety": [
-    "exact target build, source hash and codec binding",
-    "GameInfo always forbidden",
-    "array order/length preservation outside explicitly future-authorized array structural contracts",
-    "unknown/opaque state preservation",
-    "unrelated Grid/Area/root metadata preservation",
-    "ListInventory/Collection/Premium/DLC/Moonstone/receipt/authentication preservation",
-    "progression and Store/Shop preservation",
-    "browser-local immutable-source verified replacement-artifact architecture",
-    "independent candidate verification"
+  "unchangedPolicies": [
+    "exact build/source-hash/codec binding",
+    "GameInfo forbidden",
+    "unknown and opaque state preservation",
+    "inventory and Collection and entitlement preservation",
+    "progression and Store and Shop preservation",
+    "browser-local immutable-source replacement artifact architecture"
   ],
-  "notRequested": [
+  "explicitlyNotRequested": [
     "arbitrary JSON patch",
-    "generic array create/delete",
+    "generic array structural mutation",
     "cross-grid mutation",
-    "inventory debit/refund",
-    "source filesystem overwrite",
-    "relaxation of the promoted ordinary-Furniture WRITE_CANDIDATE identity policy"
+    "inventory mutation",
+    "persistent filesystem replacement",
+    "relaxation of minimum Furniture identity policy"
   ],
   "persistentWriteAuthorized": false,
   "WORLD_PERSISTENT_WRITE_V125": false
