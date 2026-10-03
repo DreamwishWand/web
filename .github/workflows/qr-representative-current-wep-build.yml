@@ -1,0 +1,39 @@
+name: QR Representative Current WEP Build
+
+on:
+  push:
+    branches:
+      - qr/representative-save-acceptance-r3-20261002
+    paths:
+      - '.github/workflows/qr-representative-current-wep-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact R9 WEP checkpoint
+        uses: actions/checkout@v4
+        with:
+          ref: 9229cc5b1df0d9cc77364647df0f0fd65973c07d
+          fetch-depth: 1
+      - name: Verify exact source
+        run: test "$(git rev-parse HEAD)" = "9229cc5b1df0d9cc77364647df0f0fd65973c07d"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Build static site
+        env:
+          BASE_PATH: ''
+        run: npm run build
+      - run: printf '%s\n' '9229cc5b1df0d9cc77364647df0f0fd65973c07d' > build/QR_FROZEN_SOURCE_SHA.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qr-representative-current-wep-build-9229cc5
+          path: build/
+          if-no-files-found: error
+          retention-days: 2
