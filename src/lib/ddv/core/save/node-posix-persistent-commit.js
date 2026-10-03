@@ -43,21 +43,36 @@ export function createNodePosixFilesystemAdapter({allowNonLinuxForTests=false}={
       if(process.platform!=='linux'&&!allowNonLinuxForTests)throw pcError('PC_ENV_LINUX_REQUIRED');
       const target=path.resolve(targetPath),parent=path.dirname(target),backupDir=path.resolve(backupDirectory);
       if(mode==='AUTHORIZED')throw pcError('PC_PERSISTENT_WRITE_NOT_AUTHORIZED');
+      let proofRealRoot=null;
       if(mode==='PROOF_ONLY'){
         const root=path.resolve(proofRoot||'');
         if(!isInside(root,target)||!isInside(root,backupDir))throw pcError('PC_PROOF_PATH_OUTSIDE_ROOT');
         const marker=path.join(root,PROOF_MARKER);
         const markerText=await fs.readFile(marker,'utf8').catch(()=>null);
         if(markerText!=='DREAMWISH_WAND_COMMIT_PROOF_ROOT_V1\n')throw pcError('PC_PROOF_ROOT_MARKER_REQUIRED');
+        proofRealRoot=await fs.realpath(root).catch(()=>{throw pcError('PC_PROOF_ROOT_REALPATH_REQUIRED');});
+        const realParent=await fs.realpath(parent).catch(()=>{throw pcError('PC_PROOF_PARENT_REALPATH_REQUIRED');});
+        if(!isInside(proofRealRoot,realParent))throw pcError('PC_PROOF_REALPATH_OUTSIDE_ROOT');
       }
       const lst=await fs.lstat(target).catch(()=>null);
       if(!lst&&!recovery)throw pcError('PC_TARGET_MUST_BE_REGULAR_NON_SYMLINK_FILE');
       if(lst&&(!lst.isFile()||lst.isSymbolicLink()))throw pcError('PC_TARGET_MUST_BE_REGULAR_NON_SYMLINK_FILE');
       const parentStat=await fs.stat(parent);
-      if(lst){const targetStat=await fs.stat(target);if(parentStat.dev!==targetStat.dev)throw pcError('PC_TARGET_PARENT_DEVICE_MISMATCH');}
+      if(lst){
+        const targetStat=await fs.stat(target);
+        if(parentStat.dev!==targetStat.dev)throw pcError('PC_TARGET_PARENT_DEVICE_MISMATCH');
+        if(proofRealRoot){
+          const realTarget=await fs.realpath(target).catch(()=>{throw pcError('PC_PROOF_TARGET_REALPATH_REQUIRED');});
+          if(!isInside(proofRealRoot,realTarget))throw pcError('PC_PROOF_REALPATH_OUTSIDE_ROOT');
+        }
+      }
       await fs.mkdir(backupDir,{recursive:true,mode:0o700});
       const bd=await fs.lstat(backupDir);
       if(!bd.isDirectory()||bd.isSymbolicLink())throw pcError('PC_BACKUP_DIRECTORY_INVALID');
+      if(proofRealRoot){
+        const realBackup=await fs.realpath(backupDir).catch(()=>{throw pcError('PC_PROOF_BACKUP_REALPATH_REQUIRED');});
+        if(!isInside(proofRealRoot,realBackup))throw pcError('PC_PROOF_REALPATH_OUTSIDE_ROOT');
+      }
       await probeDirectoryFsync(parent);
       await probeDirectoryFsync(backupDir);
       await probeAtomicReplace(parent);
