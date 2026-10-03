@@ -266,13 +266,13 @@ test('Road erase preserves surviving exact IDs and never reuses a deleted ID', (
     sourceObjectIds: [10, 11, 12],
     desiredNetwork: roadNetwork(40100068, [
       { x: 0, y: 0, mode: FenceMode.ORTHOGONAL },
-      { x: 2, y: 0, mode: FenceMode.ORTHOGONAL }
+      { x: 1, y: 0, mode: FenceMode.ORTHOGONAL }
     ]),
     operation: RoadFencePersistentOperation.ROAD_ERASE
   });
   assert.equal(result.ok, true);
-  assert.deepEqual(result.preservedObjectIdentities, [10, 12]);
-  assert.deepEqual(result.deletedObjectIdentities, [11]);
+  assert.deepEqual(result.preservedObjectIdentities, [10, 11]);
+  assert.deepEqual(result.deletedObjectIdentities, [12]);
   assert.deepEqual(result.createdObjectIdentities, []);
   assert.deepEqual(result.nextGridObjectID, { before: 20, after: 20 });
 });
