@@ -17,14 +17,15 @@
     "browserAtomicCommit",
     "deviceNativeAtomicCommitProven",
     "persistentWriteAuthorized",
-    "WORLD_PERSISTENT_WRITE_V125"
+    "WORLD_PERSISTENT_WRITE_V125",
+    "integrator"
   ],
   "properties": {
     "contract": {
       "const": "dreamwish.ddv.persistent-write-capability-candidate@1"
     },
     "status": {
-      "const": "READY_FOR_INTEGRATOR_REVIEW_NOT_PROMOTED"
+      "const": "INTEGRATOR_ACCEPTED_PROOF_ONLY_RUNTIME_REQUIRED_NOT_AUTHORIZED"
     },
     "target": {
       "type": "object",
@@ -158,6 +159,30 @@
     },
     "WORLD_PERSISTENT_WRITE_V125": {
       "const": false
+    },
+    "integrator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "foundationAccepted",
+        "persistentWritePromotionAllowedNow",
+        "proofRootRealpathConfinement",
+        "nextOwner"
+      ],
+      "properties": {
+        "foundationAccepted": {
+          "const": true
+        },
+        "persistentWritePromotionAllowedNow": {
+          "const": false
+        },
+        "proofRootRealpathConfinement": {
+          "const": true
+        },
+        "nextOwner": {
+          "const": "01E"
+        }
+      }
     }
   }
 }
