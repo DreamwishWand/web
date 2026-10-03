@@ -1,4 +1,4 @@
-import { ROADFENCE_NATIVE_CATALOG_SWITCH_V125 } from '../catalog-v125-switch.js';
+import { ROADFENCE_NATIVE_CATALOG_SWITCH_V125 } from './catalog-v125-switch.js';
 import {
   FenceRepresentationPolicy,
   RoadFencePersistentOperation,
