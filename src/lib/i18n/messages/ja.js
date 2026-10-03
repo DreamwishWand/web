@@ -6,7 +6,7 @@ export default Object.freeze({
   "shared.nav.primaryLabel": "メインナビゲーション",
   "shared.nav.explore": "Explore",
   "shared.nav.editor": "Editor",
-  "shared.nav.projects": "Moodboards",
+  "shared.nav.projects": "My Projects",
   "shared.theme.switchToDay": "ライトテーマに切り替え",
   "shared.theme.switchToNight": "ダークテーマに切り替え",
   "shared.theme.light": "ライト",
