@@ -22,7 +22,7 @@
     "src/routes/editor/world/+page.svelte": "c44f4dbcf5560bae9e073f4d20504c5ea259f6d1",
     "src/lib/wep/world-editor-primary-job.ts": "a8e49f4f2eec543b9aaebd2d552c9da8e36270d5",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
-    "src/lib/SiteHeader.svelte": "9bc34ec02d370826d388f336593c172d91c83b1a",
+    "src/lib/SiteHeader.svelte": "2136578c63d9e7b8f76e5bc4298bdb02cf4cfec2",
     "src/lib/SiteFooter.svelte": "c1f5ce8166a83e1464ad74d3a73714894650882e"
   },
   "ownership": {
