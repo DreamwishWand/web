@@ -238,10 +238,10 @@ test('Community Edge adapters trust the verified Supabase user ID, never a clien
   }
 });
 
-test('active Gallery command path is media-backed v3 and the old media-less RPC is revoked', () => {
+test('active Gallery command path is media-backed v4 and the old media-less RPC is revoked', () => {
   const source = read('supabase/functions/community-command/index.ts');
   const preset = read('supabase/migrations/20260930035240_community_core_v0_preset_bridge.sql');
-  assert.match(source, /publishGallery: 'community_publish_gallery_v3'/);
+  assert.match(source, /publishGallery: 'community_publish_gallery_v4'/);
   assert.match(source, /mediaIds required/);
   assert.match(source, /p_preset_revision_ids/);
   assert.match(preset, /revoke execute on function public\.community_publish_gallery_v2/i);
@@ -276,6 +276,7 @@ test('query adapter exposes authorized Preset detail without direct canonical ta
 
 test('author lifecycle commands preserve privacy and tombstone semantics', () => {
   const lifecycle = read('supabase/migrations/20260930041000_community_core_v0_author_lifecycle.sql');
+  const entityModeration = read('supabase/migrations/20261003042600_community_comment_answer_moderation_v1.sql');
   const command = read('supabase/functions/community-command/index.ts');
   assert.match(lifecycle, /community_change_work_visibility/i);
   assert.match(lifecycle, /community_unpublish_work/i);
@@ -306,6 +307,7 @@ test('generated database types include sealed revisions and current server RPCs'
   const generated = read('src/lib/generated/database.types.ts');
   assert.match(generated, /sealed_at: string \| null/);
   assert.match(generated, /community_publish_gallery_v3/);
+  assert.match(generated, /community_publish_gallery_v4/);
   assert.match(generated, /community_change_work_visibility/);
   assert.match(generated, /community_unpublish_work/);
   assert.match(generated, /community_delete_work/);
@@ -381,7 +383,7 @@ test('Community Lab remains an internal route and is not linked from the public 
 
 test('authenticated command adapter exposes session-bound moderation without accepting a client actor', () => {
   const source = read('supabase/functions/community-command/index.ts');
-  assert.match(source, /moderateWork: 'community_moderate_work_v2'/);
+  assert.match(source, /moderateWork: 'community_moderate_entity_v4'/);
   assert.match(source, /params\.p_session_id = sessionId/);
   assert.match(source, /params\.p_issued_at_epoch = issuedAt/);
   assert.match(source, /params\.p_case_id = payload\.caseId/);
@@ -1481,7 +1483,7 @@ test('production-shaped moderation queue is role-gated, privacy-minimized and re
   assert.doesNotMatch(migration, /'reporterAccountId'/);
 
   assert.match(admin, /listModerationCases: 'community_get_moderation_cases'/);
-  assert.match(admin, /moderateCase: 'community_moderate_work_v2'/);
+  assert.match(admin, /moderateCase: 'community_moderate_entity_v4'/);
   assert.match(admin, /operation === 'moderateCase'[\s\S]*p_auth_subject: subject/);
 
   assert.match(page, /Moderation queue/);
@@ -1530,8 +1532,11 @@ test('moderation operations require session-bound recent-auth and close linked r
   assert.match(migration, /r\.status in \('open','triaged'\)/);
   assert.match(migration, /community_get_moderation_cases/);
   assert.doesNotMatch(migration, /reporterAccountId/);
+  assert.match(entityModeration, /community_moderate_entity_v4/);
+  assert.match(entityModeration, /require_recent_moderation_staff/);
+  assert.match(entityModeration, /set status='closed'/);
 
-  assert.match(command, /moderateWork: 'community_moderate_work_v2'/);
+  assert.match(command, /moderateWork: 'community_moderate_entity_v4'/);
   assert.match(command, /p_session_id = sessionId/);
   assert.match(command, /RECENT_AUTH_REQUIRED/);
 
@@ -1555,6 +1560,7 @@ test('generated schema exposes moderation operations without private helpers', (
 
   assert.match(generated, /community_get_moderation_cases/);
   assert.match(generated, /community_moderate_work_v2/);
+  assert.match(generated, /community_moderate_entity_v4/);
   assert.doesNotMatch(generated, /require_recent_moderation_staff/);
 });
 
