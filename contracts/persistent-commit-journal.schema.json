@@ -1,0 +1,412 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "dreamwish.ddv.persistent-commit-journal@1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract",
+    "engineContract",
+    "transactionId",
+    "state",
+    "revision",
+    "createdAt",
+    "updatedAt",
+    "execution",
+    "target",
+    "paths",
+    "source",
+    "candidate",
+    "operation",
+    "runtimeEvidence",
+    "build",
+    "verificationEnvelope",
+    "backupRetention",
+    "persistentWriteAuthorized",
+    "WORLD_PERSISTENT_WRITE_V125",
+    "integrity"
+  ],
+  "properties": {
+    "contract": {
+      "const": "dreamwish.ddv.persistent-commit-journal@1"
+    },
+    "engineContract": {
+      "const": "dreamwish.ddv.persistent-commit-engine@1"
+    },
+    "transactionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96,
+      "pattern": "^[A-Za-z0-9._-]+$"
+    },
+    "state": {
+      "enum": [
+        "PREPARE",
+        "REPLACE_READY",
+        "REPLACED",
+        "COMMITTED",
+        "ABORTED",
+        "RECOVERY_REQUIRED",
+        "ROLLED_BACK"
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "createdAt": {
+      "type": "string",
+      "minLength": 1
+    },
+    "updatedAt": {
+      "type": "string",
+      "minLength": 1
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "environment",
+        "proofRoot"
+      ],
+      "properties": {
+        "mode": {
+          "const": "PROOF_ONLY"
+        },
+        "proofRoot": {
+          "type": "string"
+        },
+        "environment": {
+          "type": "object",
+          "required": [
+            "contract",
+            "os",
+            "node",
+            "browser",
+            "atomicReplace",
+            "fileDurability",
+            "directoryDurability",
+            "networkFilesystemSupport",
+            "persistentWriteAuthorized"
+          ],
+          "properties": {
+            "contract": {
+              "const": "dreamwish.ddv.node-posix-local-commit-surface@1"
+            },
+            "os": {
+              "const": "linux"
+            },
+            "node": {
+              "type": "string",
+              "minLength": 1
+            },
+            "browser": {
+              "const": false
+            },
+            "atomicReplace": {
+              "const": "POSIX_RENAME_OVER_EXISTING_SAME_MOUNT"
+            },
+            "fileDurability": {
+              "const": "FSYNC_REQUIRED"
+            },
+            "directoryDurability": {
+              "const": "PARENT_DIRECTORY_FSYNC_REQUIRED"
+            },
+            "networkFilesystemSupport": {
+              "const": false
+            },
+            "persistentWriteAuthorized": {
+              "const": false
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "paths": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "targetPath",
+        "lockPath",
+        "tempPath",
+        "rollbackTempPath",
+        "backupPath",
+        "journalPath"
+      ],
+      "properties": {
+        "targetPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lockPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tempPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rollbackTempPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "backupPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "journalPath": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sha256",
+        "length"
+      ],
+      "properties": {
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sha256",
+        "length",
+        "manifestSha256",
+        "planSha256"
+      ],
+      "properties": {
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "manifestSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "planSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "owner",
+        "kind",
+        "runtimeGate"
+      ],
+      "properties": {
+        "id": {
+          "const": "WORLD_EXISTING_ROOT_STATELESS_FURNITURE_TRANSFORM_V125"
+        },
+        "owner": {
+          "const": "01B CORE - World / Grid / Buildings"
+        },
+        "kind": {
+          "enum": [
+            "MOVE",
+            "ROTATE"
+          ]
+        },
+        "runtimeGate": {
+          "const": "PENDING"
+        }
+      }
+    },
+    "runtimeEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract",
+        "status",
+        "moveReturnedSha256",
+        "rotateReturnedSha256",
+        "coldPersistence",
+        "serializedCompanionFieldsObserved",
+        "transformNormalizationObserved"
+      ],
+      "properties": {
+        "contract": {
+          "const": "ddv.minimum-persistent-transform-runtime-acceptance@1"
+        },
+        "status": {
+          "const": "CONFIRMED_PASS"
+        },
+        "moveReturnedSha256": {
+          "const": "d2cf6d75329eee852d6c52adda68207696084827813839be8127ead356725508"
+        },
+        "rotateReturnedSha256": {
+          "const": "19a4d88220da359f26d43e49507c56f5613be5e9fbc28b74d22cf2cdc831a0c7"
+        },
+        "coldPersistence": {
+          "const": true
+        },
+        "serializedCompanionFieldsObserved": {
+          "const": false
+        },
+        "transformNormalizationObserved": {
+          "const": false
+        }
+      }
+    },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform",
+        "gameVersion",
+        "profileGameInfoVersion",
+        "targetBuild",
+        "exactBuildContractId"
+      ],
+      "properties": {
+        "platform": {
+          "const": "switch"
+        },
+        "gameVersion": {
+          "const": "1.25.0"
+        },
+        "profileGameInfoVersion": {
+          "const": 624
+        },
+        "targetBuild": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "platform",
+            "kind",
+            "value"
+          ],
+          "properties": {
+            "platform": {
+              "const": "switch"
+            },
+            "kind": {
+              "const": "switch-bid"
+            },
+            "value": {
+              "const": "52BD625D9B4E0053"
+            }
+          }
+        },
+        "exactBuildContractId": {
+          "const": "ddv-switch-v1.25.0-52BD625D9B4E0053-v624"
+        }
+      }
+    },
+    "verificationEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate"
+      ],
+      "properties": {
+        "candidate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "manifest",
+            "plan"
+          ],
+          "properties": {
+            "manifest": {
+              "type": "object"
+            },
+            "plan": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    "backupRetention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "automaticDeletion",
+        "minimum",
+        "lastKnownGoodBackupDeletionForbidden"
+      ],
+      "properties": {
+        "automaticDeletion": {
+          "const": false
+        },
+        "minimum": {
+          "const": "UNTIL_EXPLICIT_POST_RELOAD_ACK"
+        },
+        "lastKnownGoodBackupDeletionForbidden": {
+          "const": true
+        }
+      }
+    },
+    "failureCode": {
+      "type": "string"
+    },
+    "rollbackFailureCode": {
+      "type": "string"
+    },
+    "recoveryReason": {
+      "type": "string"
+    },
+    "externalSourceChanged": {
+      "type": "boolean"
+    },
+    "persistentWriteAuthorized": {
+      "const": false
+    },
+    "WORLD_PERSISTENT_WRITE_V125": {
+      "const": false
+    },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "sha256"
+      ],
+      "properties": {
+        "algorithm": {
+          "const": "SHA-256"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    }
+  }
+}
