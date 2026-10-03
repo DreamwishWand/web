@@ -64,6 +64,10 @@
     buildSwitchV125DestinationProgressionProjection
   } from '$lib/wep/progression-destination-projection-v115';
   import {
+    commitMinimumVerifiedTransform,
+    reviewMinimumVerifiedTransform
+  } from '$lib/wep/min-verified-transform-export-v1';
+  import {
     buildObjectInspectorModel,
     buildPrimaryJobAvailability,
     describeDraftValidation,
@@ -145,6 +149,15 @@
   let draftSavePreparation: any = null;
   let lastDraftCommand = '';
   let originalSaveBackup: any = null;
+  let worldSourceBytes: Uint8Array | null = null;
+  let worldSourceEpoch = 0;
+  let verifiedExportBaselineDocument: any = null;
+  let verifiedExportReview: any = null;
+  let verifiedExportResult: any = null;
+  let verifiedExportErrorCode = '';
+  let verifiedExportErrorDetail = '';
+  let verifiedExportLoading = false;
+  let verifiedExportConfirmed = false;
   let copiedDraftClipboard: any = null;
   let clipboardPasteCount = 0;
   let roadFenceRootDraft: any = null;
@@ -270,6 +283,12 @@
     }
     draftValidation = session.getLastValidation?.() ?? null;
     draftSavePreparation = session.previewPersistentCommit?.() ?? null;
+    if (verifiedExportReview) {
+      verifiedExportReview = null;
+      verifiedExportConfirmed = false;
+      verifiedExportErrorCode = 'WEP_EXPORT_REVIEW_STALE';
+      verifiedExportErrorDetail = '';
+    }
   }
 
   function coreDraftGeometryAdapter(binding: any) {
