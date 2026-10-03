@@ -4,12 +4,128 @@ import path from 'node:path';
 import { chromium } from 'playwright-core';
 import { makeSyntheticP1gProfile } from '../tests/helpers/p1g-fixture.mjs';
 import { p1gPackagedProfileCodec } from '../src/lib/ddv/core/save/p1g-packaged-profile-codec.js';
+import '../src/lib/ddv/core/world/runtime-v125/griddata-floor-v125.js';
+import '../src/lib/ddv/core/world/runtime-v125/placement-v125.js';
 
 const artifactsDir = path.resolve('.artifacts/wep-browser');
 await mkdir(artifactsDir, { recursive: true });
 
 const baseUrl = process.env.WEP_BASE_URL || 'http://127.0.0.1:4173/editor/world/';
 const executablePath = process.env.CHROME_BIN || undefined;
+
+
+async function resolveVerifiedExportMoveCell() {
+  const gridDataPath =
+    'GridData/Villages/Village04-BeachLevel-GridData.json';
+  const [floorContract, placementGeometry, readPack] =
+    await Promise.all([
+      readFile(
+        new URL(
+          '../static/ddv/core/world/v1.25/griddata-floor-maps-v125.json',
+          import.meta.url
+        ),
+        'utf8'
+      ).then(JSON.parse),
+      readFile(
+        new URL(
+          '../static/ddv/core/world/v1.25/placement-geometry-switch-v125.json',
+          import.meta.url
+        ),
+        'utf8'
+      ).then(JSON.parse),
+      readFile(
+        new URL(
+          '../static/ddv/v1.25/world-read-switch.json',
+          import.meta.url
+        ),
+        'utf8'
+      ).then(JSON.parse)
+    ]);
+
+  const floorApi = globalThis.DdvCoreWorldV125GridDataFloor;
+  const placementApi = globalThis.DdvCoreWorldV125Placement;
+  assert.ok(floorApi?.getGridData);
+  assert.ok(placementApi?.validateOrdinaryCardinalPlacement);
+
+  const itemId = 40000048;
+  const raw = placementGeometry.geometry[String(itemId)];
+  const baseGeometry = readPack.geometry[String(itemId)];
+  assert.ok(Array.isArray(raw) && raw.length === 3);
+  assert.ok(Array.isArray(baseGeometry) && baseGeometry.length === 4);
+  const geometryIndex = {
+    [itemId]: {
+      concreteType: baseGeometry[0],
+      sizeX: Number(baseGeometry[1]),
+      sizeY: Number(baseGeometry[2]),
+      subGridDataPath: baseGeometry[3],
+      areaTessellationFactor: 1,
+      acceptedFloorTypesFlag: Number(raw[0]) >>> 0,
+      strideOverride:
+        raw[1] === null || raw[1] === undefined
+          ? null
+          : Number(raw[1]) >>> 0,
+      layers: raw[2].map((value) => Number(value) >>> 0)
+    }
+  };
+  const gridData = floorApi.getGridData(
+    floorContract,
+    gridDataPath,
+    {
+      gameVersion: '1.25.0',
+      platform: 'Nintendo Switch',
+      buildIdentity: '52BD625D9B4E0053',
+      profileSchemaVersion: 624
+    }
+  );
+  assert.ok(gridData);
+
+  const tessellationFactor = 2;
+  const maxX = gridData.sizeX * tessellationFactor;
+  const maxY = gridData.sizeY * tessellationFactor;
+  const validate = (x, y) =>
+    placementApi.validateOrdinaryCardinalPlacement({
+      gridData,
+      geometryIndex,
+      objects: [],
+      candidate: {
+        editorId: 'g10:o101',
+        itemId,
+        x,
+        y,
+        orientation: 0
+      },
+      gridTessellationFactor: tessellationFactor,
+      excludeEditorId: 'g10:o101',
+      clearArea: false,
+      automaticSpawning: false
+    });
+
+  for (let y = 0; y < maxY; y += 1) {
+    for (let x = 0; x + 1 < maxX; x += 1) {
+      const before = validate(x, y);
+      if (before?.status !== 'VALID') continue;
+      const after = validate(x + 1, y);
+      if (after?.status !== 'VALID') continue;
+      return Object.freeze({
+        x,
+        y,
+        afterX: x + 1,
+        afterY: y,
+        gridDataPath,
+        tessellationFactor,
+        beforeFloorType: before.cell?.floorType ?? null,
+        afterFloorType: after.cell?.floorType ?? null
+      });
+    }
+  }
+  throw new Error('NO_VALID_BROWSER_ACCEPTANCE_MOVE_CELL');
+}
+
+const verifiedExportMove = await resolveVerifiedExportMoveCell();
+console.log(
+  'VERIFIED_EXPORT_FIXTURE_CELL',
+  JSON.stringify(verifiedExportMove)
+);
 
 const syntheticFixture = {
   schema: 'dreamwish-wand-wep-editor-document',
@@ -243,14 +359,14 @@ const verifiedExportProfile = {
           ID: 10,
           GridDataPath: 'GridData/Villages/Village04-BeachLevel-GridData.json',
           GridDefaultLayoutPath: '',
-          TessellationFactor: 1,
+          TessellationFactor: verifiedExportMove.tessellationFactor,
           NextGridObjectID: 102,
           Objects: {
             '101': {
               ID: 101,
               ItemID: 40000048,
-              X: 56,
-              Y: 311,
+              X: verifiedExportMove.x,
+              Y: verifiedExportMove.y,
               Orientation: 'GridOrientation_Up',
               State: null
             }
@@ -1085,8 +1201,8 @@ async function runVerifiedExportAcceptance(page, report) {
   assert.equal(editedObject.ID, 101);
   assert.equal(editedObject.ItemID, 40000048);
   assert.equal(editedObject.State, null);
-  assert.equal(editedObject.X, 57);
-  assert.equal(editedObject.Y, 311);
+  assert.equal(editedObject.X, verifiedExportMove.afterX);
+  assert.equal(editedObject.Y, verifiedExportMove.afterY);
   assert.equal(editedObject.Orientation, 'GridOrientation_Up');
   assert.equal(
     editedProfile.World.GridCollection.Grids['10'].NextGridObjectID,
