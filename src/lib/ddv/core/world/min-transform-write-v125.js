@@ -119,9 +119,10 @@ function transform(op,before,after,reasons){
     return {before:{x:bx,y:by,orientation:bo},after:{x:ax,y:ay,orientation:ao},serializedBefore:{x:bx,y:by,orientation:before.orientation},serializedAfter:{x:ax,y:ay,orientation:before.orientation},allowedFields:['X','Y']};
   }
   if(op==='ROTATE'){
+    if(ax!==bx||ay!==by)reasons.push('ROTATE_ANCHOR_MOVE_UNSUPPORTED');
     if(ao===bo)reasons.push('ROTATE_ORIENTATION_MUST_CHANGE');
     if(((ao-bo+16)%16)%4!==0)reasons.push('ROTATE_CARDINAL_DELTA_REQUIRED');
-    return {before:{x:bx,y:by,orientation:bo},after:{x:ax,y:ay,orientation:ao},serializedBefore:{x:bx,y:by,orientation:before.orientation},serializedAfter:{x:ax,y:ay,orientation:orientationSerializedLike(before.orientation,ao)},allowedFields:['X','Y','Orientation']};
+    return {before:{x:bx,y:by,orientation:bo},after:{x:ax,y:ay,orientation:ao},serializedBefore:{x:bx,y:by,orientation:before.orientation},serializedAfter:{x:bx,y:by,orientation:orientationSerializedLike(before.orientation,ao)},allowedFields:['Orientation']};
   }
   reasons.push('TRANSFORM_OPERATION_UNSUPPORTED');return null;
 }
@@ -190,7 +191,7 @@ function gridPointer(a,field){
   return `/World/GridCollection/Grids/${ptrSegment(a.target.gridId)}/${field}`;
 }
 function expectedAllowedPaths(admissibility){
-  const fields=admissibility.operation==='MOVE'?['X','Y']:['X','Y','Orientation'];
+  const fields=admissibility.operation==='MOVE'?['X','Y']:['Orientation'];
   return fields.map(field=>objectPointer(admissibility,field));
 }
 function conditionsForTransform(admissibility,which){
@@ -304,7 +305,8 @@ export const minimumPersistentTransformAdapter=Object.freeze({
       object.X=x;object.Y=y;
     }else{
       if(normalizedOrientation(object.Orientation)===ori)throw Error('MIN_TRANSFORM_ROTATE_ORIENTATION_UNCHANGED');
-      object.X=x;object.Y=y;object.Orientation=serialized.orientation;
+      if(int(object.X)!==x||int(object.Y)!==y)throw Error('MIN_TRANSFORM_ROTATE_ANCHOR_CHANGE_FORBIDDEN');
+      object.Orientation=serialized.orientation;
     }
   },
   persistentWriteAuthorized:false,
