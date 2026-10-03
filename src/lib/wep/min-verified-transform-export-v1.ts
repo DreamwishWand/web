@@ -417,11 +417,15 @@ export async function commitMinimumVerifiedTransform({
   review,
   currentSourceEpoch,
   sourceBytes,
+  baselineDocument,
+  draftDocument,
   worldBinding
 }:{
   review:AnyRecord;
   currentSourceEpoch:number;
   sourceBytes:Uint8Array;
+  baselineDocument:AnyRecord;
+  draftDocument:AnyRecord;
   worldBinding:AnyRecord;
 }) {
   if(
@@ -433,6 +437,13 @@ export async function commitMinimumVerifiedTransform({
   }
   if(!(sourceBytes instanceof Uint8Array)||!sourceBytes.length) {
     error('WEP_EXPORT_SOURCE_REQUIRED');
+  }
+  const currentChange=analyzeMinimumTransformDraft({
+    baselineDocument,
+    draftDocument
+  });
+  if(!semanticEqual(currentChange,review.change)) {
+    error('WEP_EXPORT_REVIEW_STALE');
   }
 
   const sourceHashBefore=await sha256Hex(sourceBytes);
