@@ -153,6 +153,15 @@ export function planFenceNativeV125({
         .map((base) => String(base.nodeId))
     );
 
+    for (const semanticNodeId of semanticAnchors) {
+      addBase(
+        semanticNodeId,
+        component.mode,
+        true,
+        false
+      );
+    }
+
     for (const span of component.spans) {
       const path = span.nodeIds.map(String);
       const from = path[0];
