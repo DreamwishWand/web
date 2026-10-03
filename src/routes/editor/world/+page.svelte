@@ -1701,6 +1701,14 @@
     if (!file) return;
 
     loading = true;
+    worldSourceEpoch += 1;
+    worldSourceBytes = null;
+    verifiedExportBaselineDocument = null;
+    verifiedExportReview = null;
+    verifiedExportResult = null;
+    verifiedExportErrorCode = '';
+    verifiedExportErrorDetail = '';
+    verifiedExportConfirmed = false;
     message = '';
     capturePreview = null;
     published = null;
@@ -1739,6 +1747,7 @@
         }
 
         worldSource = null;
+        worldSourceBytes = null;
         originalSaveBackup = null;
         session = createEditorSession(normalized);
         editorDocument = session.getDocument();
@@ -1791,6 +1800,7 @@
         canvasFocusEditorId = '';
         layerState = null;
         worldSource = opened;
+        worldSourceBytes = bytes.slice();
         fileName = file.name;
         query = '';
         selectedOnly = false;
@@ -1817,6 +1827,13 @@
       session = null;
       editorDocument = null;
       worldSource = null;
+      worldSourceBytes = null;
+      verifiedExportBaselineDocument = null;
+      verifiedExportReview = null;
+      verifiedExportResult = null;
+      verifiedExportErrorCode = '';
+      verifiedExportErrorDetail = '';
+      verifiedExportConfirmed = false;
       projected = [];
       selection = [];
       canvasFocusEditorId = '';
