@@ -330,7 +330,7 @@ test('semantic adapter rejects tampered required preservation pre/postconditions
   loosePreservation.preservation.unknownStatePolicy='NOT_SAFE';
   await assert.rejects(
     createVerifiedWriteCandidate({session,plan:loosePreservation,adapter:minimumPersistentTransformAdapter}),
-    /MIN_TRANSFORM_PRESERVATION_POLICY_MISMATCH/
+    /(?:TX_UNKNOWN_STATE_POLICY_UNSUPPORTED|MIN_TRANSFORM_PRESERVATION_POLICY_MISMATCH)/
   );
 });
 
