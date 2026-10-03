@@ -10,6 +10,8 @@ const queryToRpc = {
   myGallery: 'community_get_my_gallery_v1',
   question: 'community_get_question_v1',
   myQaActivity: 'community_get_my_qa_activity_v1',
+  dreamsnapJudge: 'community_get_dreamsnap_judge_v1',
+  myDreamsnaps: 'community_get_my_dreamsnaps_v1',
   saved: 'community_get_saved',
   notifications: 'community_get_notifications',
   preset: 'community_get_preset',
@@ -85,6 +87,13 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         break;
       case 'question':
         params.p_question_id = payload.questionId;
+        break;
+      case 'dreamsnapJudge':
+        params.p_challenge_id = payload.challengeId;
+        params.p_limit = payload.limit ?? 12;
+        break;
+      case 'myDreamsnaps':
+        params.p_limit = payload.limit ?? 100;
         break;
       case 'myGallery':
       case 'myQaActivity':
