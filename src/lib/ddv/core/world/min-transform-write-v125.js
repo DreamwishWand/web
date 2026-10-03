@@ -49,39 +49,38 @@ function result(status,reasons,extra={}){
     ...extra
   });
 }
-function exactItemFamily(item){
-  const rs=item?.riskSignals||{},online=item?.onlineSemantics||{},ownership=item?.ownership||{};
-  return item?.concreteType==='FurnitureItemData'
-    && rs.writeScopeTier==='CORE_STATELESS_FURNITURE'
-    && rs.interaction==='None'
-    && rs.isMissionItem!==true
-    && rs.forPuzzleOnly!==true
-    && rs.explicitGridEditRestriction!==true
-    && arr(rs.nativePresetKnownRejectReasons).length===0
-    && online.isSyncOnlineItem===false
-    && online?.onlineCategory?.name==='Normal'
-    && Number(online?.onlineCategory?.value)===0
-    && same(item?.expansions,['BaseGame'])
-    && item?.gameSource==null
-    && ownership.profileAddItemRoute==='GENERIC_LIST'
-    && Number(ownership.ownershipCanonicalItemID)===Number(item?.itemID);
+function exactItemFamily(scope){
+  return scope?.concreteType==='FurnitureItemData'
+    && scope.scopeTier==='CORE_STATELESS_FURNITURE'
+    && scope.interaction==='None'
+    && scope.isMissionItem===false
+    && scope.forPuzzleOnly===false
+    && (scope.explicitGridEditRestriction===null||scope.explicitGridEditRestriction===false)
+    && arr(scope.nativePresetKnownRejectReasons).length===0
+    && scope.isSyncOnlineItem===false
+    && Number.isSafeInteger(Number(scope.itemID));
 }
 function progressionClear(rec,op,gridId,objectId,itemId){
   if(!rec||rec.schema!=='ddv.progression-destination-veto-record@1')return false;
   if(Number(rec?.gridObjectAddress?.gridId)!==gridId||Number(rec?.gridObjectAddress?.gridObjectId)!==objectId)return false;
   if(Number(rec.itemID)!==itemId)return false;
   if(rec.negativeVetoFound!==false||rec.destinationProtected!==false)return false;
-  if(rec.activeReferenceDisposition!=='NONE_OBSERVED')return false;
-  if(arr(rec?.references?.active).length||arr(rec?.references?.unknown).length||arr(rec?.references?.historical).length)return false;
+  if(!['NONE_OBSERVED','HISTORICAL_ONLY'].includes(rec.activeReferenceDisposition))return false;
+  if(arr(rec?.references?.active).length||arr(rec?.references?.unknown).length)return false;
   if(arr(rec?.operationVetoes?.[op]).length)return false;
   return true;
 }
+export const PLACEMENT_REVISION='V125_NATIVE_ORDINARY_CARDINAL_NONWALL_GROUPSET_2';
 function placementClear(p){
   return Boolean(
     p
-    && p.schema==='ddv.native-placement-legality@1'
-    && p.nativeClass==='NATIVE_VALID_CLEAR'
-    && p.persistentWriteAuthorized===false
+    && p.revision===PLACEMENT_REVISION
+    && p.sameRootGrid===true
+    && p.clearArea===false
+    && p.automaticSpawning===false
+    && p.result?.status==='VALID'
+    && p.result?.valid===true
+    && p.result?.verdict==='VALID'
   );
 }
 function coreClassClear(c){
@@ -128,8 +127,8 @@ function transform(op,before,after,reasons){
 }
 
 export function classifyMinimumPersistentTransform({
-  source,profile,target,itemDefinition,coreClassification,rootEvidence,
-  progressionRecord,placementResult,operation,finalTransform
+  source,profile,target,scopeRecord,coreClassification,rootEvidence,
+  progressionRecord,placementEvidence,operation,finalTransform
 }={}){
   const reasons=[];
   if(source?.platform!=='switch'||source?.gameVersion!==GAME_VERSION||Number(source?.profileSchemaVersion)!==PROFILE_SCHEMA||source?.buildIdentity!==SWITCH_BID)reasons.push('EXACT_SWITCH_V125_BUILD_REQUIRED');
@@ -148,12 +147,12 @@ export function classifyMinimumPersistentTransform({
     if(unknown.length)reasons.push('GRIDOBJECT_EXTRA_OR_SOURCE_FIELD_UNSUPPORTED');
   }
   if(!rootEvidenceClear(rootEvidence,gridId,objectId,mapKey))reasons.push('EXACT_ROOT_RELATION_REQUIRED');
-  if(!exactItemFamily(itemDefinition)||Number(itemDefinition?.itemID)!==itemId)reasons.push('CORE_STATELESS_BASEGAME_FURNITURE_REQUIRED');
+  if(!exactItemFamily(scopeRecord)||Number(scopeRecord?.itemID)!==itemId)reasons.push('CORE_STATELESS_FURNITURE_SCOPE_REQUIRED');
   if(!coreClassClear(coreClassification))reasons.push('CORE_OBJECT_CLASSIFICATION_NOT_EDITABLE_STATELESS_FURNITURE');
   const op=String(operation||'');
   if(!['MOVE','ROTATE'].includes(op))reasons.push('TRANSFORM_OPERATION_UNSUPPORTED');
   if(!progressionClear(progressionRecord,op,gridId,objectId,itemId))reasons.push('PROGRESSION_CLEAR_REQUIRED');
-  if(!placementClear(placementResult))reasons.push('NATIVE_VALID_CLEAR_REQUIRED');
+  if(!placementClear(placementEvidence))reasons.push('V125_NATIVE_PLACEMENT_VALID_REQUIRED');
   const before=object?{x:object.X,y:object.Y,orientation:object.Orientation}:null;
   const tx=transform(op,before,finalTransform,reasons);
   if(grid&&int(grid.NextGridObjectID)===null)reasons.push('NEXT_GRID_OBJECT_ID_REQUIRED');
@@ -172,13 +171,13 @@ export function classifyMinimumPersistentTransform({
       NextGridObjectID:'UNCHANGED',unrelatedObjectState:'UNCHANGED',
       unknownOpaqueUnrelatedState:'UNCHANGED'
     }),
-    nativePlacementClass:'NATIVE_VALID_CLEAR',
+    nativePlacementRevision:PLACEMENT_REVISION,
     clearArea:false,
     runtimeGate:'PENDING_01E_AFTER_INTEGRATOR_PROMOTION',
     evidence:Object.freeze({
-      itemFamily:'01D_CORE_STATELESS_FURNITURE_PLUS_BASEGAME_NORMAL_NON_SYNC',
-      progression:'V1_15_NEGATIVE_VETO_CLEAR_NONE_OBSERVED',
-      placement:'V1_9_NATIVE_VALID_CLEAR',
+      itemFamily:'V125_CANONICAL_SCOPE_CORE_STATELESS_FURNITURE',
+      progression:'V1_15_NO_ACTIVE_OR_UNKNOWN_OPERATION_VETO',
+      placement:PLACEMENT_REVISION,
       nativeTransform:'SWITCH_V125_GRID_UPDATE_TRANSFORM_STATIC_CLOSURE'
     })
   });
@@ -266,6 +265,7 @@ export function buildMinimumTransformTransactionPlan({
       operation:admissibility.operation,
       objectMapKey:admissibility.target.objectMapKey,
       finalTransform:clone(admissibility.finalTransform),
+      beforeSerializedTransform:clone(admissibility.serializedBeforeTransform),
       finalSerializedTransform:clone(admissibility.serializedFinalTransform),
       semanticContract:MIN_TRANSFORM_CONTRACT,
       persistentWriteAuthorized:false
@@ -273,12 +273,23 @@ export function buildMinimumTransformTransactionPlan({
   });
 }
 
+function conditionMap(conditions){
+  const out=new Map();
+  for(const c of arr(conditions))out.set(`${c?.path}|${c?.operator}`,c);
+  return out;
+}
+function requireEqualsCondition(map,path,value,code){
+  const c=map.get(`${path}|EQUALS`);
+  if(!c||!same(c.value,value))throw Error(code);
+}
 function assertPlanBinding(plan){
   if(!plan||plan.contract!=='dreamwish.ddv.save-transaction-plan@1')throw Error('MIN_TRANSFORM_PLAN_REQUIRED');
   if(plan.semanticOwner!==SEMANTIC_OWNER||plan.operation?.owner!==SEMANTIC_OWNER)throw Error('MIN_TRANSFORM_PLAN_OWNER_MISMATCH');
   if(plan.mutationAdapter?.contract!==MUTATION_ADAPTER_CONTRACT||plan.mutationAdapter?.id!==MUTATION_ADAPTER_ID||plan.mutationAdapter?.owner!==SEMANTIC_OWNER)throw Error('MIN_TRANSFORM_ADAPTER_BINDING_MISMATCH');
   if(plan.operation?.id!=='WORLD_EXISTING_ROOT_STATELESS_FURNITURE_TRANSFORM_V125')throw Error('MIN_TRANSFORM_OPERATION_ID_MISMATCH');
   if(!['MOVE','ROTATE'].includes(plan.operation?.kind))throw Error('MIN_TRANSFORM_OPERATION_UNSUPPORTED');
+  if(plan.operation?.structuralCapabilitiesSupported!==true||plan.operation?.planSupported!==true||plan.operation?.validationPassed!==true||plan.operation?.runtimeGate!=='PENDING')throw Error('MIN_TRANSFORM_OPERATION_GATE_MISMATCH');
+  if(plan.target?.kind!=='GRID_OBJECT')throw Error('MIN_TRANSFORM_TARGET_KIND_MISMATCH');
   const key=String(plan.intent?.objectMapKey??'');
   if(!key)throw Error('MIN_TRANSFORM_OBJECT_MAP_KEY_REQUIRED');
   const pseudo={operation:plan.operation.kind,target:{gridId:plan.target.gridId,gridObjectId:plan.target.gridObjectId,itemId:plan.target.itemId,objectMapKey:key}};
@@ -286,6 +297,27 @@ function assertPlanBinding(plan){
   const actual=arr(plan.allowedChanges).map(x=>x?.path).sort();
   if(!same(actual,expected))throw Error('MIN_TRANSFORM_ALLOWED_PATHS_MISMATCH');
   if(plan.intent?.persistentWriteAuthorized!==false||plan.intent?.semanticContract!==MIN_TRANSFORM_CONTRACT)throw Error('MIN_TRANSFORM_INTENT_CONTRACT_MISMATCH');
+  const before=plan.intent?.beforeSerializedTransform,after=plan.intent?.finalSerializedTransform;
+  if(!before||!after)throw Error('MIN_TRANSFORM_SERIALIZED_TRANSFORM_BINDING_REQUIRED');
+  const pre=conditionMap(plan.preconditions),post=conditionMap(plan.postconditions);
+  const gridId=Number(plan.target.gridId),objectId=Number(plan.target.gridObjectId),itemId=Number(plan.target.itemId);
+  const gridIdPath=gridPointer(pseudo,'ID'),nextPath=gridPointer(pseudo,'NextGridObjectID');
+  const idPath=objectPointer(pseudo,'ID'),itemPath=objectPointer(pseudo,'ItemID'),statePath=objectPointer(pseudo,'State');
+  const xPath=objectPointer(pseudo,'X'),yPath=objectPointer(pseudo,'Y'),oriPath=objectPointer(pseudo,'Orientation');
+  requireEqualsCondition(pre,gridIdPath,gridId,'MIN_TRANSFORM_PRECONDITION_GRID_ID_REQUIRED');
+  requireEqualsCondition(post,gridIdPath,gridId,'MIN_TRANSFORM_POSTCONDITION_GRID_ID_REQUIRED');
+  const preNext=pre.get(`${nextPath}|EQUALS`),postNext=post.get(`${nextPath}|EQUALS`);
+  if(!preNext||!postNext||!same(preNext.value,postNext.value))throw Error('MIN_TRANSFORM_NEXT_GRID_OBJECT_ID_PRESERVATION_REQUIRED');
+  for(const [map,prefix,t] of [[pre,'PRE',before],[post,'POST',after]]){
+    requireEqualsCondition(map,idPath,objectId,`MIN_TRANSFORM_${prefix}_OBJECT_ID_REQUIRED`);
+    requireEqualsCondition(map,itemPath,itemId,`MIN_TRANSFORM_${prefix}_ITEM_ID_REQUIRED`);
+    requireEqualsCondition(map,statePath,null,`MIN_TRANSFORM_${prefix}_STATE_NULL_REQUIRED`);
+    requireEqualsCondition(map,xPath,t.x,`MIN_TRANSFORM_${prefix}_X_REQUIRED`);
+    requireEqualsCondition(map,yPath,t.y,`MIN_TRANSFORM_${prefix}_Y_REQUIRED`);
+    requireEqualsCondition(map,oriPath,t.orientation,`MIN_TRANSFORM_${prefix}_ORIENTATION_REQUIRED`);
+  }
+  const p=plan.preservation||{};
+  if(p.gridObjectIdentityPolicy!=='PRESERVE_ALL_GRID_OBJECT_IDENTITIES'||p.arrayPolicy!=='PRESERVE_ORDER_AND_LENGTH_OUTSIDE_INTENTIONAL'||p.unknownStatePolicy!=='OPAQUE_UNCHANGED_REQUIRED'||p.serializerNormalizationPolicy!=='REJECT_SEMANTIC_NORMALIZATION')throw Error('MIN_TRANSFORM_PRESERVATION_POLICY_MISMATCH');
 }
 
 export const minimumPersistentTransformAdapter=Object.freeze({
