@@ -3488,6 +3488,156 @@
             </small>
           </div>
         {/if}
+
+        <section
+          class="verified-export-panel"
+          data-wep-verified-export
+          aria-labelledby="wep-verified-export-title"
+        >
+          <div class="verified-export-heading">
+            <div>
+              <span class="toolbar-label">{t('worldEditor.verifiedExport.eyebrow', {}, $locale)}</span>
+              <h3 id="wep-verified-export-title">{t('worldEditor.verifiedExport.title', {}, $locale)}</h3>
+              <p>{t('worldEditor.verifiedExport.description', {}, $locale)}</p>
+            </div>
+            <button
+              type="button"
+              disabled={
+                verifiedExportLoading ||
+                !verifiedExportBaselineDocument ||
+                !worldSourceBytes
+              }
+              aria-describedby="wep-verified-export-review-reason"
+              on:click={reviewVerifiedExport}
+            >
+              {verifiedExportLoading
+                ? t('worldEditor.verifiedExport.working', {}, $locale)
+                : t('worldEditor.verifiedExport.reviewChanges', {}, $locale)}
+            </button>
+          </div>
+
+          {#if !verifiedExportBaselineDocument || !worldSourceBytes}
+            <p id="wep-verified-export-review-reason" class="verified-export-note">
+              {t('worldEditor.verifiedExport.areaOnly', {}, $locale)}
+            </p>
+          {:else}
+            <p id="wep-verified-export-review-reason" class="verified-export-note">
+              {t('worldEditor.verifiedExport.sourceImmutable', {}, $locale)}
+            </p>
+          {/if}
+
+          {#if verifiedExportErrorCode}
+            <div class="verified-export-error" role="alert">
+              <strong>{verifiedExportFailureText(verifiedExportErrorCode)}</strong>
+              <code>{verifiedExportErrorCode}</code>
+              {#if verifiedExportErrorDetail}
+                <details>
+                  <summary>{t('worldEditor.verifiedExport.diagnostics', {}, $locale)}</summary>
+                  <code>{verifiedExportErrorDetail}</code>
+                </details>
+              {/if}
+            </div>
+          {/if}
+
+          {#if verifiedExportReview}
+            <div class="verified-export-review" aria-live="polite">
+              <div>
+                <span>{t('worldEditor.verifiedExport.operation', {}, $locale)}</span>
+                <strong>{verifiedExportReview.change.operation}</strong>
+              </div>
+              <div>
+                <span>{t('worldEditor.verifiedExport.object', {}, $locale)}</span>
+                <strong>{verifiedExportReview.change.editorId} · Item {verifiedExportReview.change.itemId}</strong>
+              </div>
+              <div>
+                <span>{t('worldEditor.verifiedExport.context', {}, $locale)}</span>
+                <strong>
+                  Area {verifiedExportReview.baselineTarget.areaId} ·
+                  Grid {verifiedExportReview.change.gridId}
+                </strong>
+              </div>
+              <div>
+                <span>{t('worldEditor.verifiedExport.validation', {}, $locale)}</span>
+                <strong>{t('worldEditor.verifiedExport.pass', {}, $locale)}</strong>
+              </div>
+              {#if verifiedExportReview.change.operation === 'MOVE'}
+                <div class="verified-export-delta">
+                  <span>{t('worldEditor.verifiedExport.previousPosition', {}, $locale)}</span>
+                  <strong>X {verifiedExportReview.change.before.x} · Y {verifiedExportReview.change.before.y}</strong>
+                  <span>{t('worldEditor.verifiedExport.newPosition', {}, $locale)}</span>
+                  <strong>X {verifiedExportReview.change.after.x} · Y {verifiedExportReview.change.after.y}</strong>
+                </div>
+              {:else}
+                <div class="verified-export-delta">
+                  <span>{t('worldEditor.verifiedExport.previousOrientation', {}, $locale)}</span>
+                  <strong>{verifiedExportReview.change.before.orientation}</strong>
+                  <span>{t('worldEditor.verifiedExport.newOrientation', {}, $locale)}</span>
+                  <strong>{verifiedExportReview.change.after.orientation}</strong>
+                </div>
+              {/if}
+              <label class="verified-export-confirm">
+                <input
+                  type="checkbox"
+                  bind:checked={verifiedExportConfirmed}
+                  disabled={verifiedExportLoading}
+                />
+                <span>{t('worldEditor.verifiedExport.confirm', {}, $locale)}</span>
+              </label>
+              <button
+                type="button"
+                class="verified-export-apply"
+                disabled={!verifiedExportConfirmed || verifiedExportLoading}
+                aria-describedby={!verifiedExportConfirmed ? 'wep-verified-export-confirm-reason' : undefined}
+                on:click={applyVerifiedExport}
+              >
+                {t('worldEditor.verifiedExport.applyExport', {}, $locale)}
+              </button>
+              {#if !verifiedExportConfirmed}
+                <small id="wep-verified-export-confirm-reason">
+                  {t('worldEditor.verifiedExport.confirmRequired', {}, $locale)}
+                </small>
+              {/if}
+            </div>
+          {/if}
+
+          {#if verifiedExportResult}
+            <div class="verified-export-success" aria-live="polite">
+              <strong>{t('worldEditor.verifiedExport.success', {}, $locale)}</strong>
+              <p>{t('worldEditor.verifiedExport.successDetail', {}, $locale)}</p>
+              <dl>
+                <div>
+                  <dt>{t('worldEditor.verifiedExport.editedHash', {}, $locale)}</dt>
+                  <dd><code>{verifiedExportResult.artifacts.edited.sha256}</code></dd>
+                </div>
+                <div>
+                  <dt>{t('worldEditor.verifiedExport.backupHash', {}, $locale)}</dt>
+                  <dd><code>{verifiedExportResult.artifacts.backup.sha256}</code></dd>
+                </div>
+                <div>
+                  <dt>{t('worldEditor.verifiedExport.reload', {}, $locale)}</dt>
+                  <dd>{verifiedExportResult.reload.status} · Grid {verifiedExportResult.reload.gridId} · Object {verifiedExportResult.reload.gridObjectId}</dd>
+                </div>
+              </dl>
+              <div class="verified-export-downloads">
+                <button type="button" on:click={() => downloadVerifiedArtifact(verifiedExportResult.artifacts.edited)}>
+                  {t('worldEditor.verifiedExport.downloadEdited', {}, $locale)}
+                </button>
+                <button type="button" on:click={() => downloadVerifiedArtifact(verifiedExportResult.artifacts.backup)}>
+                  {t('worldEditor.verifiedExport.downloadBackup', {}, $locale)}
+                </button>
+                <button type="button" on:click={() => downloadVerifiedArtifact(verifiedExportResult.artifacts.bundle)}>
+                  {t('worldEditor.verifiedExport.downloadBundle', {}, $locale)}
+                </button>
+                <button type="button" on:click={() => downloadVerifiedArtifact(verifiedExportResult.artifacts.integrity)}>
+                  {t('worldEditor.verifiedExport.downloadManifest', {}, $locale)}
+                </button>
+              </div>
+              <p class="verified-export-recovery">
+                {t('worldEditor.verifiedExport.recovery', {}, $locale)}
+              </p>
+            </div>
+          {/if}
+        </section>
       </main>
     </div>
 
