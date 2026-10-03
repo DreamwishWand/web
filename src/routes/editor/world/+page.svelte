@@ -3512,7 +3512,8 @@
               disabled={
                 verifiedExportLoading ||
                 !verifiedExportBaselineDocument ||
-                !worldSourceBytes
+                !worldSourceBytes ||
+                !verifiedExportBuildConfirmed
               }
               aria-describedby="wep-verified-export-review-reason"
               on:click={reviewVerifiedExport}
@@ -3531,6 +3532,22 @@
             <p id="wep-verified-export-review-reason" class="verified-export-note">
               {t('worldEditor.verifiedExport.sourceImmutable', {}, $locale)}
             </p>
+          {/if}
+
+          {#if verifiedExportBaselineDocument && worldSourceBytes}
+            <label class="verified-export-build-confirm">
+              <input
+                type="checkbox"
+                bind:checked={verifiedExportBuildConfirmed}
+                disabled={verifiedExportLoading}
+              />
+              <span>{t('worldEditor.verifiedExport.buildConfirm', {}, $locale)}</span>
+            </label>
+            {#if !verifiedExportBuildConfirmed}
+              <p class="verified-export-note">
+                {t('worldEditor.verifiedExport.buildConfirmRequired', {}, $locale)}
+              </p>
+            {/if}
           {/if}
 
           {#if verifiedExportErrorCode}
