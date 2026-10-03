@@ -455,7 +455,7 @@ const copy = {
   'worldEditor.live.coreReasonStateUnsupported': 'L’oggetto contiene stato associato la cui semantica di mutazione non è promossa per l’editing generico.',
   'worldEditor.live.coreReasonRootGrid': 'La root Grid selezionata è visibile ma non autorizzata alla mutazione dal contratto di ruolo Core corrente.',
   'worldEditor.live.coreReasonFallback': 'Core mantiene questo oggetto in sola lettura.',
-  'worldEditor.live.coreReasonDefault': 'L’oggetto selezionato è in sola lettura nella proiezione Core corrente.'
+  'worldEditor.live.coreReasonDefault': 'L’oggetto selezionato è in sola lettura nella proiezione Core corrente.',
   "worldEditor.verifiedExport.eyebrow": "ESPORTAZIONE SOSTITUTIVA VERIFICATA",
   "worldEditor.verifiedExport.title": "Rivedi modifiche ed esporta",
   "worldEditor.verifiedExport.description": "Il writer di lancio supporta un solo MOVE o una rotazione cardinale di un normale mobile esistente nella stessa griglia radice. Wand crea e verifica indipendentemente un salvataggio modificato sostitutivo senza sovrascrivere la sorgente caricata.",
