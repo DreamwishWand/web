@@ -1,0 +1,89 @@
+rue, safetyDisposition:'FAIL_CLOSED_UNKNOWN_SYSTEM_REFERENCE', evidenceStatus:Evidence.HIGH_CONFIDENCE,
+            evidenceBasis:'SCHEMA624_SAME_GRID_OBJECT_ID_REFERENCE' });
+        }
+      }
+    }
+  };
+  process(gc.Grids,'GRID'); process(gc.DiffGrids,'DIFF');
+}
+
+function scanIdentityBearingPaths(profile) {
+  const exactAddressPairPathShapes = new Map();
+  const gridObjectAddressContainerPathShapes = new Map();
+  const gridObjectIdsCollectedPathShapes = new Map();
+  const saplingGridObjectIdPathShapes = new Map();
+  const unknown = new Set();
+  const visit = (x,path=[]) => {
+    if (Array.isArray(x)) { for(let i=0;i<x.length;i++) visit(x[i],[...path,i]); return; }
+    if (!x || typeof x !== 'object') return;
+    const pathStr='/' + path.map(String).map(esc).join('/');
+    const shape=normalizePath(path);
+    if (Object.prototype.hasOwnProperty.call(x,'GridID') && Object.prototype.hasOwnProperty.call(x,'GridObjectID')) {
+      exactAddressPairPathShapes.set(shape,(exactAddressPairPathShapes.get(shape)??0)+1);
+      if (!isKnownExactAddressPath(path)) unknown.add(shape);
+    }
+    if (Object.prototype.hasOwnProperty.call(x,'GridObjectAddresses')) gridObjectAddressContainerPathShapes.set(`${shape}/GridObjectAddresses`,(gridObjectAddressContainerPathShapes.get(`${shape}/GridObjectAddresses`)??0)+1);
+    if (Object.prototype.hasOwnProperty.call(x,'GridObjectIdsCollected')) gridObjectIdsCollectedPathShapes.set(`${shape}/GridObjectIdsCollected`,(gridObjectIdsCollectedPathShapes.get(`${shape}/GridObjectIdsCollected`)??0)+1);
+    if (Object.prototype.hasOwnProperty.call(x,'SaplingGridObjectID')) saplingGridObjectIdPathShapes.set(`${shape}/SaplingGridObjectID`,(saplingGridObjectIdPathShapes.get(`${shape}/SaplingGridObjectID`)??0)+1);
+    for (const [k,v] of Object.entries(x)) visit(v,[...path,k]);
+  };
+  visit(profile,[]);
+  return {
+    exactAddressPairPathShapes: mapToObject(exactAddressPairPathShapes),
+    gridObjectAddressContainerPathShapes: mapToObject(gridObjectAddressContainerPathShapes),
+    gridObjectIdsCollectedPathShapes: mapToObject(gridObjectIdsCollectedPathShapes),
+    saplingGridObjectIdPathShapes: mapToObject(saplingGridObjectIdPathShapes),
+    unknownIdentityBearingPathShapes: [...unknown].sort()
+  };
+}
+
+function isKnownExactAddressPath(path) {
+  const s=normalizePath(path);
+  return s === '/ConditionalEventHistory/ActiveEvents/*/SpawnState/SpawnedObjects/*' ||
+    s === '/Player/LastUsedLinkedEnvironmentEnter/*' ||
+    s === '/Player/AchievementsData/*/GridObjectsCollected/GridObjectAddresses/*' ||
+    s === '/Player/DutySlots/*/Slots/*/StepData/GridObjectsCollected/GridObjectAddresses/*';
+}
+
+function buildKnownUnresolvedContexts(profile) {
+  const out=[];
+  const world=asObject(profile.World)??{};
+  const scanPuzzles=(arr,base)=>{ if(!Array.isArray(arr)) return; for(let i=0;i<arr.length;i++){ const p=asObject(arr[i]); if(!p)continue; out.push({sourcePath:`${base}/${i}`,reason:'GRID_LEVEL_PUZZLE_CONTEXT_HAS_MISSION_AND_GRID_IDS_BUT_NO_GRID_OBJECT_ID',evidenceStatus:Evidence.CONFIRMED,missionId:intOrNull(p.MissionItemID),gridIds:uniqueInts(p.GridIDs??[]),answerGridIds:uniqueInts(p.AnswerGridIDs??[]),terminality:'UNKNOWN'}); }};
+  scanPuzzles(world.SceneryPuzzles,'/World/SceneryPuzzles');
+  const realms=asObject(world.Realms)??{};
+  for(const [rk,rv] of Object.entries(realms)) scanPuzzles(asObject(rv)?.SceneryPuzzles,`/World/Realms/${esc(rk)}/SceneryPuzzles`);
+  out.push({sourcePath:'/World/QuestInfo/MissionsCompleted',reason:'MISSION_COMPLETION_CONTEXT_ONLY_NOT_OBJECT_TERMINALITY',evidenceStatus:Evidence.CONFIRMED,terminality:'UNKNOWN'});
+  out.push({sourcePath:'/World/MissionSlots/*/Slots/*',reason:'MISSION_STATE_CONTEXT_PRESENT_BUT_NO_DIRECT_ACTIVE_GRID_OBJECT_ADDRESS_OUTSIDE_COLLECTED_HISTORY_FIELDS',evidenceStatus:Evidence.CONFIRMED,terminality:'UNKNOWN'});
+  out.push({sourcePath:'/ConditionalEventHistory/ActiveEvents/*/{AddTimeLostTreasureState,SpawnSnippetState,RecurringEventState,RecurringEventsState,SendMailboxState}',reason:'SYSTEM_IDS_ARE_NOT_GRID_OBJECT_ADDRESS_OR_ITEMID_WORLD_OBJECT_IDENTITY',evidenceStatus:Evidence.CONFIRMED,terminality:'UNKNOWN'});
+  return out;
+}
+
+function buildIndexes(refs) {
+  const byGridObjectAddress={}, byItemId={};
+  for (const r of refs) {
+    if (r.gridId != null && r.gridObjectId != null) pushIndex(byGridObjectAddress,addrKey(r.gridId,r.gridObjectId),r.referenceId);
+    if (r.itemId != null) pushIndex(byItemId,String(r.itemId),r.referenceId);
+  }
+  return {byGridObjectAddress,byItemId};
+}
+
+function summarize(refs,coverage,missionState,profile) {
+  const count=(k,v)=>refs.filter(r=>r[k]===v).length;
+  const histFields = countHistoricalFieldCoverage(profile);
+  return {
+    referenceCount: refs.length,
+    activeReferenceCount: count('activity','ACTIVE'), historicalReferenceCount: count('activity','HISTORICAL'), unknownReferenceCount: count('activity','UNKNOWN'),
+    activeIdentityVetoCount: refs.filter(r=>r.activeOwnershipVeto).length,
+    conditionalEventActiveAddressCount: count('sourceType','CONDITIONAL_EVENT_ACTIVE_SPAWNED_OBJECT'),
+    conditionalEventSaveLocalResolvedItemCount: refs.filter(r=>r.sourceType==='CONDITIONAL_EVENT_ACTIVE_SPAWNED_OBJECT'&&r.itemId!=null).length,
+    conditionalEventSaveLocalUnmaterializedCount: refs.filter(r=>r.sourceType==='CONDITIONAL_EVENT_ACTIVE_SPAWNED_OBJECT'&&r.targetResolution==='SAVE_LOCAL_OBJECT_NOT_MATERIALIZED').length,
+    keyholeStateCount: count('sourceType','KEYHOLE_CURRENT_STATE'),
+    missionSlotCount: missionState.missionSlots.length,
+    questCompletedMissionIdCount: missionState.questInfo.missionsCompleted.length,
+    unknownIdentityBearingPathShapeCount: coverage.unknownIdentityBearingPathShapes.length,
+    historicalFieldCoverage: histFields
+  };
+}
+
+function countHistoricalFieldCoverage(profile){
+  const out={missionObjectiveGridObjectIdsCollected:{fields:0,nonEmptyFields:0,values:0},missionObjectiveItemIdsCollected:{fields:0,nonEmptyFields:0,values:0},achievementGridObjectAddresses

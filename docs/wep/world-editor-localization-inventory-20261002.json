@@ -1,0 +1,1344 @@
+{
+  "schema": "dreamwish-wand-world-editor-localization-inventory@1",
+  "status": "COMPLETE_FOR_PINNED_SOURCES",
+  "generatedAt": "2026-10-02",
+  "target": {
+    "product": "Decorate / World Editor",
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "profileSchemaVersion": 624
+  },
+  "launchLocales": [
+    "EN",
+    "FR",
+    "IT",
+    "DE",
+    "ES-ES",
+    "JA",
+    "ZH-CN",
+    "PT-BR"
+  ],
+  "sourcePins": {
+    "src/routes/editor/world/+page.svelte": "c44f4dbcf5560bae9e073f4d20504c5ea259f6d1",
+    "src/lib/wep/world-editor-primary-job.ts": "a8e49f4f2eec543b9aaebd2d552c9da8e36270d5",
+    "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
+    "src/lib/SiteHeader.svelte": "9bc34ec02d370826d388f336593c172d91c83b1a",
+    "src/lib/SiteFooter.svelte": "c1f5ce8166a83e1464ad74d3a73714894650882e"
+  },
+  "ownership": {
+    "wepOwned": [
+      "src/routes/editor/world/+page.svelte",
+      "src/lib/wep/world-editor-primary-job.ts",
+      "src/lib/wep/blocker-messages.ts"
+    ],
+    "sharedWebRenderedOnWorldEditor": [
+      "src/lib/SiteHeader.svelte",
+      "src/lib/SiteFooter.svelte"
+    ]
+  },
+  "sharedLocaleBinding": {
+    "status": "BOUND_SHARED_WEB_V1",
+    "owner": "08 WEB / shared Web UI foundation",
+    "upstreamCommit": "425cb22ad7726f6f452bd179f3a89b81329da64b",
+    "runtime": "src/lib/i18n/runtime.js",
+    "registry": "src/lib/i18n/registry.js",
+    "fallbackLocale": "en",
+    "localeCodes": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es-ES",
+      "ja",
+      "zh-CN",
+      "pt-BR"
+    ],
+    "rule": "World Editor presentation resolves through the shared locale runtime. WEP does not own a locale store, selector, fallback resolver, formatter, or resource loader.",
+    "routeChangeNote": "Source pin refreshed only for promoted v1.16 Floating Island Canvas binding, search-value synchronization, programmatic disabled-reason association, and roving Canvas focus. Existing inventory scope/categories remain unchanged."
+  },
+  "translationBoundary": {
+    "translate": [
+      "headings and navigation labels",
+      "button labels and aria labels",
+      "inspector field labels and explanatory copy",
+      "validation category labels",
+      "blocker title/message/action presentation",
+      "save/open/backup/export-prep explanatory copy",
+      "selection/search/layer presentation labels",
+      "Road/Fence presentation labels and explanatory copy",
+      "Scene capture/publish presentation",
+      "Store inspector presentation",
+      "progression-protection explanatory copy",
+      "errors/status/live-region presentation wrappers"
+    ],
+    "neverTranslate": [
+      "Core/WEP machine reason code",
+      "schema ID",
+      "contract ID",
+      "artifact ID",
+      "ItemID",
+      "GridID",
+      "GridObjectID",
+      "GridDataPath",
+      "SceneItemId",
+      "AreaType enum/value",
+      "profile schema number",
+      "DDV Build ID",
+      "native placement machine class",
+      "machine lifecycle/status enum when intentionally shown as diagnostic",
+      "codec identifier",
+      "raw diagnostic code"
+    ],
+    "invariant": "Machine codes stay as stable logic/data keys. Localization selects only presentation text keyed around them; no semantic branch may compare translated text."
+  },
+  "categories": {
+    "navigation": [
+      {
+        "surface": "World Editor product navigation",
+        "source": "src/routes/editor/world/+page.svelte",
+        "strings": [
+          "DECORATE / WORLD EDITOR",
+          "World Editor",
+          "Presetsを見る →",
+          "← Area / Grid一覧へ戻る",
+          "Presetsで確認する →"
+        ]
+      },
+      {
+        "surface": "Shared site shell rendered on World Editor",
+        "owner": "shared-web",
+        "source": [
+          "src/lib/SiteHeader.svelte",
+          "src/lib/SiteFooter.svelte"
+        ],
+        "strings": [
+          "本文へ移動",
+          "Dreamwish Wand ホーム",
+          "メインナビゲーション",
+          "Explore",
+          "Editor",
+          "My Projects",
+          "ライトモードに切り替え",
+          "ダークモードに切り替え",
+          "Light",
+          "Dark",
+          "非公式ファン制作プロジェクト。Disney／Gameloftとは無関係です。",
+          "Help & Bugs"
+        ]
+      }
+    ],
+    "buttons": [
+      {
+        "surface": "Open/editor controls",
+        "source": "src/routes/editor/world/+page.svelte",
+        "strings": [
+          "別のファイルを開く",
+          "DDV Save / EditorDocumentを開く",
+          "Move →",
+          "Rotate",
+          "Copy",
+          "Paste",
+          "Duplicate",
+          "Delete draft",
+          "Delete",
+          "Undo",
+          "Redo",
+          "Review Save Prep",
+          "Download Original Backup",
+          "Open in Canvas",
+          "Preview full-design plan",
+          "Checking…",
+          "Check destination save",
+          "Capture Preview",
+          "Publish Scene Preset",
+          "Use selected bounds"
+        ]
+      },
+      {
+        "surface": "Directional aria labels",
+        "source": "src/routes/editor/world/+page.svelte",
+        "strings": [
+          "Move left",
+          "Move up",
+          "Move down",
+          "Move right"
+        ]
+      }
+    ],
+    "inspector": [
+      {
+        "surface": "Object inspector",
+        "source": "src/routes/editor/world/+page.svelte",
+        "strings": [
+          "OBJECT INSPECTOR",
+          "Selected Object",
+          "Select an object to inspect it. Read-only and protected objects remain inspectable.",
+          "{count} objects selected. Common Actions apply only when every selected object is editable under the current Core projection.",
+          "Item ID",
+          "Layer",
+          "Editability",
+          "Position",
+          "Orientation",
+          "State",
+          "Common Actions",
+          "Attached State Actions",
+          "No Core attached-state capability contract is bound for this object. Wand does not infer Chest, PlayerHouse, Shop, Building, or progression actions from ItemID.",
+          "Select exactly one object to inspect attached-state actions.",
+          "Core exposes no attached-state action for this object.",
+          "Core + WEP handler ready"
+        ]
+      }
+    ],
+    "validation": [
+      {
+        "surface": "Placement readiness",
+        "source": "src/routes/editor/world/+page.svelte",
+        "strings": [
+          "PLACEMENT READINESS",
+          "Route",
+          "Bounds",
+          "Legality",
+          "DDV write",
+          "Resolved",
+          "Blocked",
+          "Authoritative · 01B v1.7",
+          "Current command PASS",
+          "Blocked / unverified",
+          "v1.9 bound · command-specific",
+          "Not bound",
+          "Disabled",
+          "v1.8 FloorType and v1.9 native placement are evaluated after each draft command. exactBuildKnown=false remains an explicit blocker and is never promoted to VALID.",
+          "Authoritative bounds are available; native placement remains unavailable until a trusted Core draft binding is attached."
+        ]
+      },
+      {
+        "surface": "Draft validation presentation",
+        "source": "src/lib/wep/world-editor-primary-job.ts",
+        "strings": [
+          "Not run",
+          "PASS",
+          "Native placement invalid",
+          "Replacement/removal policy blocked",
+          "Native placement unverified",
+          "Exact build unverified",
+          "Other blocker",
+          "Blocked"
+        ]
+      },
+      {
+        "surface": "Draft/Canvas validation status",
+        "source": "src/routes/editor/world/+page.svelte",
+        "strings": [
+          "Validation",
+          "Unavailable actions",
+          "Draft validation categories",
+          "World Editor top-down canvas",
+          "Save preparation",
+          "Writer contract ready",
+          "Blocked before persistent commit",
+          "Persistent write: disabled"
+        ]
+      },
+      {
+        "surface": "Full-design planning/preflight",
+        "source": "src/routes/editor/world/+page.svelte",
+        "strings": [
+          "FULL-DESIGN PRESET READINESS",
+          "Floating Island Preset plan",
+          "Biome Preset plan",
+          "Source artifact",
+          "Candidate ready",
+          "Community publish",
+          "Not bound",
+          "Apply",
+          "Semantic target",
+          "Portable direct roots",
+          "Manifest v1",
+          "Strict validation PASS",
+          "Source categories",
+          "Closed",
+          "Exact build",
+          "Unproven from save",
+          "Persistent write",
+          "Unauthorized",
+          "Portable direct-root routes",
+          "Direct roots",
+          "Placed objects",
+          "Roads",
+          "Fences",
+          "Buildings / PlayerHouse",
+          "Environment",
+          "Included · partial",
+          "Excluded",
+          "Unknown",
+          "{count} inventoried · {portable} portable · {unresolved} unresolved · {missing} route missing",
+          "{count} direct-root object(s) inventoried",
+          "{supported}/{total} roots reader-supported · {networks} logical network(s)",
+          "No Building present · skins {skins} · PlayerHouse {houses}",
+          "ordinary Building {count} · destination {status} · skins {skins} · PlayerHouse {houses}",
+          "codec {codec}",
+          "v1.10 classes",
+          "ordinary {count} · special {count} · off-grid {count} · unknown {count}",
+          "Ordinary placement",
+          "No Building",
+          "Typed preflight available",
+          "Blocked by typed class/evidence",
+          "Building skin",
+          "PlayerHouse",
+          "No category blocker recorded",
+          "Destination preflight",
+          "Not checked",
+          "Manifest blocked",
+          "Destination blocked",
+          "Destination resolved · product blocked",
+          "Ready for future apply gate",
+          "Destination",
+          "Routes {resolved} / {total}",
+          "Road / Fence model preflight",
+          "PASS · {count} root-category bindings · writer OFF",
+          "Building v1.10 contract",
+          "BOUND",
+          "NOT BOUND",
+          "Building typed preflight",
+          "PASS / N/A",
+          "BLOCKED",
+          "Ordinary Building placement",
+          "Building skin diagnostic",
+          "PlayerHouse binding diagnostic",
+          "BLOCKED · lifecycle still separate",
+          "Route resolved",
+          "Bounds validated",
+          "{valid} / {total}",
+          "No portable ordinary objects",
+          "Placement validated",
+          "Contract not bound",
+          "DDV write authorization",
+          "AUTHORIZED",
+          "UNAUTHORIZED",
+          "Category closure",
+          "Destination preflight blocked",
+          "Full-design planning blocked",
+          "World Canvas自体はread-onlyのまま利用できます。",
+          "clear {count} · replace/remove {count} · invalid {count} · unknown {count}"
+        ]
+      }
+    ],
+    "blockerExplanation": [
+      {
+        "surface": "Core object reason explanations",
+        "source": "src/lib/wep/world-editor-primary-job.ts",
+        "count": 24,
+        "keyPattern": "worldEditor.coreReason.{machineCode}",
+        "entries": [
+          {
+            "machineCode": "MISSION_ITEM_READ_ONLY",
+            "message": "This object is protected by the current Core mission-item policy and is inspectable but not mutable."
+          },
+          {
+            "machineCode": "PROTECTED_PROGRESSION_OBJECT_CONFLICT",
+            "message": "This object is protected by progression/system ownership and cannot be overwritten or treated as portable content."
+          },
+          {
+            "machineCode": "QUEST_OWNED_OBJECT_MUTATION_FORBIDDEN",
+            "message": "This object is quest-owned under the current Core evidence and generic mutation is forbidden."
+          },
+          {
+            "machineCode": "PROGRESSION_OWNERSHIP_UNKNOWN",
+            "message": "Core cannot prove safe user ownership for this progression-risk object, so mutation remains disabled."
+          },
+          {
+            "machineCode": "SYSTEM_SPAWNED_OBJECT_MUTATION_FORBIDDEN",
+            "message": "This object is system-spawned under the current Core evidence and generic mutation is forbidden."
+          },
+          {
+            "machineCode": "REFERENCE_SENSITIVE_OBJECT_IDENTITY_CHANGE_FORBIDDEN",
+            "message": "An active progression/system reference is identity-sensitive, so moving, replacing, or removing the object is blocked."
+          },
+          {
+            "machineCode": "PROGRESSION_STATE_INCONSISTENT",
+            "message": "Progression state and serialized object state are inconsistent, so all mutation remains disabled."
+          },
+          {
+            "machineCode": "PROGRESSION_OPERATION_PROOF_NOT_CLOSED",
+            "message": "This operation lacks complete current-version consumer/reference proof; terminal progression state alone is not permission to mutate."
+          },
+          {
+            "machineCode": "GRID_EDIT_RESTRICTION_PRESENT",
+            "message": "This object has an explicit Core grid-edit restriction and is inspectable but not mutable."
+          },
+          {
+            "machineCode": "BUILDING_READ_ONLY",
+            "message": "This Building is read-only until Core proves an ordinary editable Building classification for its ItemID."
+          },
+          {
+            "machineCode": "UNKNOWN_BUILDING_SEMANTICS",
+            "message": "Core cannot prove a safe ordinary Building classification for this ItemID, so mutation remains disabled."
+          },
+          {
+            "machineCode": "BUILDING_SPECIAL_SEMANTICS_UNRESOLVED",
+            "message": "This Building has special lifecycle semantics and is inspectable but not available to generic Canvas mutation."
+          },
+          {
+            "machineCode": "CHARACTER_HOUSE_PRESENCE_SIDE_EFFECTS_REQUIRE_DEDICATED_LIFECYCLE",
+            "message": "This Character House is tied to character-presence lifecycle state, so generic mutation is disabled."
+          },
+          {
+            "machineCode": "STALL_SHOP_LOCAL_GLOBAL_STATE_LIFECYCLE_UNRESOLVED",
+            "message": "This Stall carries linked shop state, so generic mutation is disabled until that lifecycle is closed."
+          },
+          {
+            "machineCode": "WELL_FASTTRAVEL_GLOBAL_STATE_AND_IDENTITY_REQUIRE_DEDICATED_LIFECYCLE",
+            "message": "This Wishing Well is tied to fast-travel and shared world state, so generic mutation is disabled."
+          },
+          {
+            "machineCode": "GARDEN_TYPED_STATE_LIFECYCLE_REQUIRES_DEDICATED_CONTRACT",
+            "message": "This Garden has dedicated persistent state and cannot use generic Building mutation."
+          },
+          {
+            "machineCode": "OFFGRID_BUILDING_PROFILEWORLD_LIFECYCLE_REQUIRED",
+            "message": "This Off-Grid Building uses a separate ProfileWorld lifecycle and cannot use generic Grid commands."
+          },
+          {
+            "machineCode": "BUILDING_SHARED_SYNCHRONIZER_LIFECYCLE_REQUIRED",
+            "message": "This Building participates in synchronized/shared state and cannot be mutated independently."
+          },
+          {
+            "machineCode": "HOUSE_DATA_READ_ONLY",
+            "message": "This HouseData object is read-only until a dedicated Core lifecycle capability allows this operation."
+          },
+          {
+            "machineCode": "ROAD_FENCE_DELEGATED_01C",
+            "message": "Road/Fence topology is handled by the dedicated Core Road/Fence model, not generic object commands."
+          },
+          {
+            "machineCode": "GEOMETRY_UNRESOLVED",
+            "message": "Core geometry is unresolved for this object, so mutation stays disabled."
+          },
+          {
+            "machineCode": "FURNITURE_POLICY_MISSING",
+            "message": "Core item-policy evidence is missing for this object, so mutation stays disabled."
+          },
+          {
+            "machineCode": "NON_FURNITURE_WORLD_CLASS",
+            "message": "This world object class is not authorized for generic World Editor mutation."
+          },
+          {
+            "machineCode": "WORLD_OBJECT_NOT_EDITABLE",
+            "message": "At least one selected object is read-only or blocked by the current Core projection."
+          }
+        ]
+      },
+      {
+        "surface": "WEP blocker title/message/action catalog",
+        "source": "src/lib/wep/blocker-messages.ts",
+        "count": 70,
+        "keyPattern": "worldEditor.blocker.{machineCode}.{title|message|action}",
+        "entries": [
+          {
+            "machineCode": "WEP_WORLD_PROFILE_SCHEMA_UNSUPPORTED",
+            "title": "Unsupported DDV save version",
+            "message": "This save is outside the currently verified DDV v1.25.0 / schema 624 World Editor contract.",
+            "action": "Use a supported save or wait for the matching Core compatibility contract."
+          },
+          {
+            "machineCode": "FULL_DESIGN_DESTINATION_PLATFORM_CONTRACT_UNAVAILABLE",
+            "title": "Destination platform contract unavailable",
+            "message": "The selected destination platform is not covered by the current full-design destination contract.",
+            "action": "Use a currently supported destination platform."
+          },
+          {
+            "machineCode": "DIRECT_GRID_ROUTE_UNRESOLVED",
+            "title": "Grid route unresolved",
+            "message": "Wand cannot resolve an exact portable GridDataPath route for this operation.",
+            "action": "Choose a route with authoritative GridDataPath identity."
+          },
+          {
+            "machineCode": "ROOT_GRID_BOUNDS_UNRESOLVED",
+            "title": "Grid bounds unavailable",
+            "message": "Authoritative GridData dimensions are unavailable for this root.",
+            "action": "Keep the draft read-only for bounds-dependent operations."
+          },
+          {
+            "machineCode": "AUTHORITATIVE_GRIDDATAPATH_BOUNDS_NOT_BOUND",
+            "title": "Grid bounds unavailable",
+            "message": "Authoritative GridDataPath dimensions are not bound for this destination root.",
+            "action": "Do not apply placement until the destination bounds contract is available."
+          },
+          {
+            "machineCode": "GRID_BOUNDS_EXCEEDED",
+            "title": "Outside Grid bounds",
+            "message": "The draft extends beyond authoritative GridData bounds.",
+            "action": "Move the selection back inside the valid Grid extent."
+          },
+          {
+            "machineCode": "NATIVE_EXACT_BUILD_UNVERIFIED",
+            "title": "Exact DDV build unverified",
+            "message": "The save identifies the supported schema, but it does not prove the exact DDV executable Build ID. The local draft may continue, but native placement is not promoted to verified.",
+            "action": "Treat this as a draft-only result; persistent Apply remains unavailable."
+          },
+          {
+            "machineCode": "NATIVE_PLACEMENT_INVALID",
+            "title": "Native placement rejected",
+            "message": "The promoted DDV native placement classifier rejects this draft position.",
+            "action": "Move or rotate the affected object and run validation again."
+          },
+          {
+            "machineCode": "NATIVE_PLACEMENT_UNVERIFIED",
+            "title": "Native placement unverified",
+            "message": "Native placement could not be verified for this object, geometry, occupancy, or conflict state.",
+            "action": "Do not treat UNKNOWN as VALID. Adjust the draft or wait for the missing Core evidence."
+          },
+          {
+            "machineCode": "NATIVE_REPLACEMENT_OR_REMOVAL_POLICY_REQUIRED",
+            "title": "Replacement/removal policy unresolved",
+            "message": "DDV placement may require replacing or removing an existing object, but Wand does not yet have complete safe CanBeCleared/replacement policy coverage.",
+            "action": "Keep the operation draft-only and avoid persistent mutation."
+          },
+          {
+            "machineCode": "FULL_DESIGN_DESTINATION_NATIVE_REPLACEMENT_POLICY_REQUIRED",
+            "title": "Replacement/removal policy unresolved",
+            "message": "Destination placement is native-valid only through replacement/removal behavior whose persistent policy is not closed.",
+            "action": "Do not Apply until Core closes the replacement/removal policy contract."
+          },
+          {
+            "machineCode": "FULL_DESIGN_DESTINATION_NATIVE_PLACEMENT_INVALID",
+            "title": "Destination placement invalid",
+            "message": "At least one destination object placement is rejected by native placement legality.",
+            "action": "Review the affected object and destination placement."
+          },
+          {
+            "machineCode": "FULL_DESIGN_DESTINATION_NATIVE_PLACEMENT_UNVERIFIED",
+            "title": "Destination placement unverified",
+            "message": "At least one destination object remains NATIVE_UNKNOWN_UNVERIFIED.",
+            "action": "Do not promote the destination to Apply-ready."
+          },
+          {
+            "machineCode": "GEOMETRY_UNRESOLVED",
+            "title": "Object geometry unresolved",
+            "message": "The object footprint or geometry required for safe placement validation is unresolved.",
+            "action": "Keep this object read-only for geometry-dependent draft operations."
+          },
+          {
+            "machineCode": "GEOMETRY_ADAPTER_REQUIRED",
+            "title": "Rotation geometry unavailable",
+            "message": "The current Core geometry adapter is not bound for this rotation.",
+            "action": "Leave the object unchanged."
+          },
+          {
+            "machineCode": "SELECTION_GEOMETRY_ADAPTER_REQUIRED",
+            "title": "Multi-selection rotation unavailable",
+            "message": "The current Core contract cannot resolve the requested multi-selection rotation.",
+            "action": "Leave the selection unchanged."
+          },
+          {
+            "machineCode": "CUSTOM_SELECTION_PIVOT_UNSUPPORTED",
+            "title": "Custom pivot unsupported",
+            "message": "The current Core rotation contract does not support a custom selection pivot.",
+            "action": "Use the supported selection rotation behavior."
+          },
+          {
+            "machineCode": "WEP_EDITOR_DRAFT_OPERATION_UNSUPPORTED",
+            "title": "Draft operation unsupported",
+            "message": "This command is outside the current v1.25 World Editor authoring contract.",
+            "action": "Use one of the currently supported draft commands."
+          },
+          {
+            "machineCode": "BUILDING_DESTINATION_SEMANTICS_UNRESOLVED",
+            "title": "Legacy Building blocker",
+            "message": "The blanket Building blocker has been superseded by promoted v1.10 typed category gates.",
+            "action": "Rebuild the artifact with the current Building v1.10 binding."
+          },
+          {
+            "machineCode": "WEP_BUILDING_V110_CONTRACT_NOT_BOUND",
+            "title": "Building v1.10 contract unavailable",
+            "message": "The promoted Building read/model/preflight contract is not bound to this WEP flow.",
+            "action": "Keep Building capture and destination reuse blocked until the exact v1.10 contract is loaded."
+          },
+          {
+            "machineCode": "UNKNOWN_BUILDING_SEMANTICS",
+            "title": "Building semantics unknown",
+            "message": "Wand cannot prove that this Building is ordinary. House/Other requires every promoted special/global/shared signal to resolve authoritatively false.",
+            "action": "Do not infer ordinary placement. Supply the missing authoritative Building classification evidence."
+          },
+          {
+            "machineCode": "SPECIAL_BUILDING_TRANSFORM_LIFECYCLE_UNRESOLVED",
+            "title": "Special Building transform blocked",
+            "message": "This Building has special/global/shared lifecycle semantics and cannot use ordinary same-grid transform behavior.",
+            "action": "Keep the transform blocked until a dedicated lifecycle contract is promoted."
+          },
+          {
+            "machineCode": "SPECIAL_BUILDING_PLACEMENT_LIFECYCLE_REQUIRED",
+            "title": "Special Building placement blocked",
+            "message": "This Building class requires dedicated placement/lifecycle behavior rather than ordinary Grid placement.",
+            "action": "Do not route it through the ordinary Building placement path."
+          },
+          {
+            "machineCode": "CHARACTER_HOUSE_PRESENCE_SIDE_EFFECTS_REQUIRE_DEDICATED_LIFECYCLE",
+            "title": "Character House lifecycle required",
+            "message": "Character House presence and removal can affect character state, so generic Building placement is unsafe.",
+            "action": "Keep Character House placement/transfer/removal blocked."
+          },
+          {
+            "machineCode": "STALL_SHOP_LOCAL_GLOBAL_STATE_LIFECYCLE_UNRESOLVED",
+            "title": "Stall / Shop lifecycle unresolved",
+            "message": "StallData and global shop state have linked lifecycle semantics that are not closed for copy/apply.",
+            "action": "Keep Stall / Shop placement and reuse blocked."
+          },
+          {
+            "machineCode": "WELL_FASTTRAVEL_GLOBAL_STATE_AND_IDENTITY_REQUIRE_DEDICATED_LIFECYCLE",
+            "title": "Well / Fast Travel lifecycle required",
+            "message": "Well placement is linked to global fast-travel identity and state.",
+            "action": "Keep Well / Fast Travel mutation blocked."
+          },
+          {
+            "machineCode": "GARDEN_TYPED_STATE_LIFECYCLE_REQUIRES_DEDICATED_CONTRACT",
+            "title": "Garden lifecycle required",
+            "message": "Garden typed state requires a dedicated lifecycle contract.",
+            "action": "Keep Garden mutation blocked."
+          },
+          {
+            "machineCode": "OFFGRID_BUILDING_PROFILEWORLD_LIFECYCLE_REQUIRED",
+            "title": "Off-grid Building lifecycle required",
+            "message": "This Building is owned by an off-grid/ProfileWorld lifecycle rather than ordinary Grid placement.",
+            "action": "Keep off-grid Building mutation blocked."
+          },
+          {
+            "machineCode": "BUILDING_SHARED_SYNCHRONIZER_LIFECYCLE_REQUIRED",
+            "title": "Shared Building synchronizer lifecycle required",
+            "message": "This Building participates in shared/global synchronization and cannot be treated as an ordinary Grid object.",
+            "action": "Keep mutation blocked until the synchronizer lifecycle is closed."
+          },
+          {
+            "machineCode": "BUILDING_SPECIAL_SEMANTICS_UNRESOLVED",
+            "title": "Special Building semantics unresolved",
+            "message": "Wand has evidence that ordinary placement cannot be assumed, but the exact special lifecycle is unresolved.",
+            "action": "Keep the Building fail-closed."
+          },
+          {
+            "machineCode": "WEP_BUILDING_SOURCE_GEOMETRY_UNRESOLVED",
+            "title": "Building geometry unresolved",
+            "message": "The Building class is ordinary-capable, but its source footprint is not authoritative enough for portable placement.",
+            "action": "Keep placement capture blocked until geometry is resolved."
+          },
+          {
+            "machineCode": "WEP_BUILDING_STOCK_OWNERSHIP_VALIDATOR_NOT_BOUND",
+            "title": "Building stock / ownership check unavailable",
+            "message": "Ordinary Building destination placement requires a destination stock/ownership check.",
+            "action": "Keep destination placement blocked until this validator is bound."
+          },
+          {
+            "machineCode": "WEP_BUILDING_MULTIPLICITY_VALIDATOR_NOT_BOUND",
+            "title": "Building multiplicity check unavailable",
+            "message": "Ordinary Building destination placement requires a current-scene already-placed/multiplicity check.",
+            "action": "Keep destination placement blocked until this validator is bound."
+          },
+          {
+            "machineCode": "WEP_BUILDING_TYPED_STATE_VALIDATOR_NOT_BOUND",
+            "title": "Building initial-state check unavailable",
+            "message": "Ordinary Building destination placement requires typed initial-state/provider compatibility validation.",
+            "action": "Keep destination placement blocked until this validator is bound."
+          },
+          {
+            "machineCode": "WEP_BUILDING_STOCK_OWNERSHIP_BLOCKED",
+            "title": "Building stock / ownership rejected",
+            "message": "The destination stock/ownership validator rejected this Building placement.",
+            "action": "Do not place the Building at this destination."
+          },
+          {
+            "machineCode": "WEP_BUILDING_MULTIPLICITY_BLOCKED",
+            "title": "Building multiplicity rejected",
+            "message": "The destination already-placed/multiplicity validator rejected this Building placement.",
+            "action": "Resolve the destination multiplicity conflict."
+          },
+          {
+            "machineCode": "WEP_BUILDING_TYPED_STATE_BLOCKED",
+            "title": "Building typed state incompatible",
+            "message": "The destination typed initial-state/provider validator rejected this Building placement.",
+            "action": "Do not place the Building with incompatible typed state."
+          },
+          {
+            "machineCode": "FULL_DESIGN_DESTINATION_BUILDING_ROUTE_UNRESOLVED",
+            "title": "Building destination route unresolved",
+            "message": "An ordinary Building artifact could not be rebound to a destination-local direct Grid.",
+            "action": "Keep this Building destination preflight blocked."
+          },
+          {
+            "machineCode": "FULL_DESIGN_DESTINATION_BUILDING_BOUNDS_UNAVAILABLE",
+            "title": "Building destination bounds unavailable",
+            "message": "Authoritative destination GridData bounds or tessellation do not validate this Building placement.",
+            "action": "Keep this Building destination preflight blocked."
+          },
+          {
+            "machineCode": "FULL_DESIGN_DESTINATION_BUILDING_PLACEMENT_CONTRACT_NOT_BOUND",
+            "title": "Building placement classifier unavailable",
+            "message": "The promoted v1.8/v1.9 FloorType/native placement binding is unavailable for this ordinary Building.",
+            "action": "Keep Building placement blocked."
+          },
+          {
+            "machineCode": "FULL_DESIGN_DESTINATION_BUILDING_PLACEMENT_PREFLIGHT_ERROR",
+            "title": "Building placement preflight error",
+            "message": "Native placement preflight could not be completed for this ordinary Building.",
+            "action": "Keep the Building blocked and review the detailed preflight error."
+          },
+          {
+            "machineCode": "FULL_DESIGN_DESTINATION_BUILDING_CLASSIFICATION_MISMATCH",
+            "title": "Building classification mismatch",
+            "message": "The destination preflight classification does not match the source artifact classification evidence.",
+            "action": "Do not reinterpret the Building class; rebuild or review the artifact."
+          },
+          {
+            "machineCode": "BUILDING_V1_10_TYPED_PREFLIGHT_BLOCKED",
+            "title": "Building v1.10 preflight blocked",
+            "message": "At least one Building did not satisfy its promoted typed category gate.",
+            "action": "Review the class-specific blocker before reuse."
+          },
+          {
+            "machineCode": "BUILDING_CROSS_GRID_LIFECYCLE_REQUIRED",
+            "title": "Building cross-Grid transfer blocked",
+            "message": "Building cross-Grid transfer requires lifecycle semantics beyond same-Grid ordinary transforms.",
+            "action": "Keep cross-Grid Building transfer blocked."
+          },
+          {
+            "machineCode": "BUILDING_REMOVAL_LIFECYCLE_WRITE_NOT_AUTHORIZED",
+            "title": "Building removal writer unavailable",
+            "message": "Building removal may update inventory or category-specific state and is not authorized for persistent mutation.",
+            "action": "Do not persistently remove this Building."
+          },
+          {
+            "machineCode": "BUILDING_BASE_REPLACEMENT_SEMANTICS_UNKNOWN",
+            "title": "Building base replacement blocked",
+            "message": "Generic different-ItemID Building replacement semantics are not promoted.",
+            "action": "Do not replace the base Building definition."
+          },
+          {
+            "machineCode": "TOPOLOGY_CLIPPED_UNSUPPORTED",
+            "title": "Road/Fence topology crosses the capture boundary",
+            "message": "The selected Capture Region would cut through a native Road/Fence component.",
+            "action": "Expand the Capture Region so the entire connected component is contained."
+          },
+          {
+            "machineCode": "ROADFENCE_NATIVE_READER_NOT_SUPPORTED",
+            "title": "Road/Fence model unavailable",
+            "message": "The current root cannot be represented through the promoted Road/Fence logical reader.",
+            "action": "Keep Road/Fence authoring read-only for this root."
+          },
+          {
+            "machineCode": "WEP_ROADFENCE_DRAFT_LATTICE_UNRESOLVED",
+            "title": "Road/Fence lattice unresolved",
+            "message": "Wand cannot prove the native logical-to-save coordinate lattice for this Road/Fence family in the current root.",
+            "action": "Start from an existing network of the same family or keep new topology creation blocked."
+          },
+          {
+            "machineCode": "WEP_FENCE_REPRESENTATION_LAYOUT_PRESET_NOT_BOUND",
+            "title": "Portable Fence post layout unresolved",
+            "message": "Wand could not bind exactly one Core-valid representation layout to the captured artifact-local Fence topology.",
+            "action": "Keep the capture fail-closed; restore a valid representation model or undo the topology change."
+          },
+          {
+            "machineCode": "FENCE_POST_SEMANTIC_ANCHOR_IMMUTABLE",
+            "title": "Semantic Fence anchor cannot move",
+            "message": "Endpoint, corner, junction, and mode-boundary anchors are topology semantics, not representation-only posts.",
+            "action": "Use a topology operation instead of a post-layout operation."
+          },
+          {
+            "machineCode": "FENCE_POST_INTERVAL_OVER_MAX",
+            "title": "Fence post interval too large",
+            "message": "The requested post spacing exceeds the family/mode interval supported by the versioned Core catalog.",
+            "action": "Insert or move a post to produce a supported interval."
+          },
+          {
+            "machineCode": "FENCE_POST_INTERVAL_UNSUPPORTED",
+            "title": "Fence post interval unsupported",
+            "message": "The requested interval is not present in the exact Core extension vocabulary for this Fence family and mode.",
+            "action": "Choose spacing that the current family/mode catalog can represent."
+          },
+          {
+            "machineCode": "FENCE_POST_OFF_RUN",
+            "title": "Fence post is off its semantic run",
+            "message": "Representation-only posts must remain on the same straight semantic run.",
+            "action": "Move the post within its current run or use a topology edit."
+          },
+          {
+            "machineCode": "FENCE_POST_LAYOUT_TOPOLOGY_CHANGED",
+            "title": "Fence topology changed",
+            "message": "The previous representation layout no longer matches the logical Fence topology.",
+            "action": "Regenerate and preflight representation layout."
+          },
+          {
+            "machineCode": "FENCE_POST_LAYOUT_QUANTITY_CHANGED",
+            "title": "Fence logical quantity changed",
+            "message": "A representation-only operation cannot change logical Fence quantity.",
+            "action": "Use a topology operation and then regenerate representation layout."
+          },
+          {
+            "machineCode": "FULL_DESIGN_ROOT_OBJECT_COMPOSITION_UNRESOLVED",
+            "title": "Placed-object composition unresolved",
+            "message": "One or more direct-root objects are not portable under the current Core contract.",
+            "action": "Review the unresolved root objects before publication or reuse."
+          },
+          {
+            "machineCode": "FULL_DESIGN_ROOT_OBJECT_ROUTE_DOCUMENTS_MISSING",
+            "title": "Direct-root document missing",
+            "message": "One or more direct-root EditorDocuments could not be bound into the full-design artifact.",
+            "action": "Load all authoritative direct roots before treating the design as complete."
+          },
+          {
+            "machineCode": "FULL_DESIGN_ROADFENCE_CAPTURE_REGION_BOUNDS_UNAVAILABLE",
+            "title": "Road/Fence capture bounds unavailable",
+            "message": "The logical reader is available, but authoritative full-root bounds are missing.",
+            "action": "Keep full-root Road/Fence capture blocked."
+          },
+          {
+            "machineCode": "FULL_DESIGN_DESTINATION_ROADFENCE_CAPTURE_MISSING",
+            "title": "Road/Fence destination capture missing",
+            "message": "The full-design artifact does not contain the required portable Road/Fence network capture for destination preflight.",
+            "action": "Rebuild the source artifact from all required direct roots."
+          },
+          {
+            "machineCode": "FULL_DESIGN_DESTINATION_ROADFENCE_ROUTE_UNRESOLVED",
+            "title": "Road/Fence destination route unresolved",
+            "message": "A portable Road/Fence capture could not be rebound to its destination-local direct Grid.",
+            "action": "Keep destination reuse blocked for this root."
+          },
+          {
+            "machineCode": "FULL_DESIGN_DESTINATION_ROADFENCE_BOUNDS_UNAVAILABLE",
+            "title": "Road/Fence destination bounds unavailable",
+            "message": "Authoritative GridData bounds evidence is unavailable for the destination Road/Fence root.",
+            "action": "Keep Road/Fence destination reuse blocked until authoritative bounds are available."
+          },
+          {
+            "machineCode": "FULL_DESIGN_DESTINATION_ROADFENCE_TESSELLATION_MISMATCH",
+            "title": "Road/Fence destination Grid mismatch",
+            "message": "The resolved destination Grid tessellation does not match the authoritative portable root contract.",
+            "action": "Do not reinterpret or rescale the Road/Fence artifact; keep the destination blocked."
+          },
+          {
+            "machineCode": "FULL_DESIGN_BUILDING_SOURCE_RECOGNITION_INCOMPLETE",
+            "title": "Building recognition incomplete",
+            "message": "One or more Building-related source states are not safely recognized.",
+            "action": "Keep the Building category provisional and blocked."
+          },
+          {
+            "machineCode": "FULL_DESIGN_BUILDING_RESTORATION_CAPTURE_UNRESOLVED",
+            "title": "Building restoration state unresolved",
+            "message": "A Building Skin or PlayerHouse restoration state could not be captured safely.",
+            "action": "Do not publish or reuse the full design as complete."
+          },
+          {
+            "machineCode": "FULL_DESIGN_REQUIRED_CATEGORY_EXCLUDED",
+            "title": "Required design category excluded",
+            "message": "A required full-design category was excluded, so the artifact is not complete.",
+            "action": "Include every required category or keep the design incomplete."
+          },
+          {
+            "machineCode": "FULL_DESIGN_COMMUNITY_PUBLICATION_ADAPTER_NOT_BOUND",
+            "title": "Full-design publication adapter unavailable",
+            "message": "The source artifact candidate is complete, but Community publication for this full-design type is not yet connected.",
+            "action": "Keep publicationReady=false until the Community adapter is bound."
+          },
+          {
+            "machineCode": "CORE_COMMIT_ADAPTER_NOT_BOUND",
+            "title": "DDV Apply unavailable",
+            "message": "The WEP preflight path is available, but no authorized Core persistent commit adapter is bound.",
+            "action": "Review the preflight only; do not write the DDV save."
+          },
+          {
+            "machineCode": "NO_PERSISTENT_WRITER_BOUND",
+            "title": "Persistent writer unavailable",
+            "message": "No authorized persistent DDV save writer is bound to this World Editor session.",
+            "action": "Export/review the draft only; do not replace the source save."
+          },
+          {
+            "machineCode": "CORE_ATOMIC_PERSISTENT_COMMIT_NOT_AUTHORIZED",
+            "title": "Atomic persistent commit unavailable",
+            "message": "The current Core contract does not authorize atomic persistent world commit.",
+            "action": "Stop after preview and preflight."
+          }
+        ]
+      },
+      {
+        "surface": "Core reason fallback presentation",
+        "source": "src/lib/wep/world-editor-primary-job.ts",
+        "strings": [
+          "DDV native preset/edit policy rejects this object in the current Core scope.",
+          "The object carries attached state whose mutation semantics are not promoted for generic editing.",
+          "The selected root Grid is visible but not authorized for mutation by the current Core role contract.",
+          "Core keeps this object read-only: {machineCode}.",
+          "The selected object is read-only under the current Core projection."
+        ]
+      },
+      {
+        "surface": "Generic blocker fallback presentation",
+        "source": "src/lib/wep/blocker-messages.ts",
+        "strings": [
+          "Operation blocked",
+          "Wand reported an unresolved contract condition: {machine-derived-readable-condition}.",
+          "Wand reported an unresolved contract condition.",
+          "Keep the operation fail-closed and review the detailed code."
+        ]
+      }
+    ],
+    "saveOpen": [
+      {
+        "surface": "Local input",
+        "source": "src/routes/editor/world/+page.svelte",
+        "strings": [
+          "WEP EditorDocumentをローカルで表示・選択し、portable Scene Presetへcaptureします。現在の製品surfaceからDDVセーブへpersistent writeは行いません。",
+          "LOCAL INPUT",
+          "Open DDV Save / EditorDocument",
+          "暗号化された通常DDV profile、復号済み profile.json、または dreamwish-wand-wep-editor-document をブラウザ内で読み込みます。raw saveを開く場合だけ、ファイルを取得したstorage platformを指定してください。ファイル内容はPublishを実行するまでCommunityへ送信しません。",
+          "Source platform",
+          "Unknown / choose later",
+          "Nintendo Switch",
+          "Steam / Windows",
+          "TARGET",
+          "File",
+          "Game",
+          "Platform",
+          "Area",
+          "Objects",
+          "Selected",
+          "Synthetic draft authoring",
+          "Core-bound local draft authoring · persistent write OFF",
+          "Read-only target · no trusted draft authoring binding"
+        ]
+      },
+      {
+        "surface": "Save intake/live status",
+        "source": "src/routes/editor/world/+page.svelte",
+        "strings": [
+          "WEP EditorDocument schema が一致しません。",
+          "EditorDocument をローカルで読み込みました。synthetic target のdraft操作が利用できます。",
+          "EditorDocument をローカルで読み込みました。untrusted imported real-target documentにはCore authoring bindingを自動付与せずread-onlyにします。",
+          "DDV saveをローカルで読み込みました。schema {schema} / {areaCount} Areas。Canvasでroot Gridを開くとCore-bound local draft authoringを利用できます。exact buildはsave単体から証明せず、persistent writeは無効です。",
+          "現在のbrowser World projectionはNintendo Switch v1.25.0の承認済みstatic-data scopeだけです。Steam/unknown sourceはArea/Grid列挙までread-onlyで停止します。",
+          "Switch v1.25.0のCore-bound draft Canvasを生成しました。Move / Rotate / Duplicate / Delete / Undo / Redoはローカルdraftとして利用できます。",
+          "このGridDataPathはauthoritative bounds未解決のためvalidationはfail-closedです。",
+          "v1.8 FloorType + v1.9 native placement classifierを各commandのvalidationに使用します。",
+          "save単体ではexact Build IDを証明できないためnative validationはUNVERIFIEDのまま保持し、persistent DDV writeは無効です。",
+          "DDV saveのArea / direct Grid一覧へ戻りました。persistent writeは無効です。"
+        ]
+      },
+      {
+        "surface": "Save route browser",
+        "source": "src/routes/editor/world/+page.svelte",
+        "strings": [
+          "SAVE ROUTES / READ-ONLY",
+          "Area & Direct Grid",
+          "save intakeは完了しています。Nintendo Switch sourceでは、Integrator-approved 01B v1.7 GridData bindingとSwitch v1.25 canonical geometry/scopeを使って選択したroot Gridをread-only EditorDocument / Canvasへ変換できます。",
+          "Input",
+          "Schema",
+          "Source",
+          "Last save",
+          "Areas",
+          "Floating",
+          "Read contract only",
+          "Village {villageIndex}",
+          "Area {areaId}",
+          "locked in save",
+          "save route",
+          "Grid {gridId}",
+          "GridDataPath unavailable",
+          "{count} objects",
+          "tess ×{factor}",
+          "Open with canonical 01B v1.7 read projection",
+          "Switch v1.25 browser read data is required for Canvas projection",
+          "FLOATING ISLANDS / READ-ONLY PLANNING",
+          "Semantic routes",
+          "Canvas loader未接続のため、ここではcurrent 01B portable identity / direct-root contractとv1.7 GridData authorityによるfull-design planningだけを行います。",
+          "Floating Island",
+          "SceneItemId {sceneItemId}",
+          "semantic route",
+          "{count} direct root(s) · {count} objects",
+          "Core-resolved Floating Island routeはこのsaveではありません。",
+          "Unresolved identities",
+          "Target",
+          "Publication / Apply",
+          "Blocked / Disabled",
+          "Building / PlayerHouse / Environment portable stateは現在の01B contractでcaptureされます。Floating IslandのEditorDocument composition / Canvas / placement validationは未bindingです。",
+          "Floating Island planning blocked",
+          "Switch Canvasは01B v1.7 pinned GridData contract + checksum検証済み01D-derived geometry/scopeを使用します。Steam / unknown sourceは対応dataが承認されるまでArea/Grid列挙でfail-closedです。Authoritative Root Grid bounds / reachable SubGrid dimensionsとsupported Road/Fence logical read/captureはbinding済みです。native terrain/FloorType/occupancy legality、topology edit、real-target mutationは未bindingです。",
+          "DDV Save または EditorDocument を開いてください",
+          "ファイルはブラウザ内で処理されます。Publishを実行するまでCommunityへ送信しません。",
+          "Current safety boundary",
+          "Nintendo Switch / Steamの実DDV targetに対するpersistent ADD / DELETE / MOVE / ROTATE、native GridObject ID allocation、inventory消費、Road/Fence mutation、save replacementは未許可です。"
+        ]
+      }
+    ],
+    "backupExportPrep": [
+      {
+        "surface": "Original backup/save prep",
+        "source": "src/routes/editor/world/+page.svelte",
+        "strings": [
+          "Original backup",
+          "{byteLength} bytes ready",
+          "Unavailable",
+          "Persistent save",
+          "Original backup: byte-exact local download ready",
+          "Original backup: not loaded",
+          "Original save backup downloaded byte-for-byte without serialization or DDV mutation.",
+          "Save preparation reviewed. {blockerPresentation}",
+          "Load a raw DDV save first. Imported EditorDocuments do not create an Original Save Backup.",
+          "Open an EditorDocument or a supported DDV root Grid before reviewing save preparation."
+        ]
+      }
+    ],
+    "selection": [
+      {
+        "surface": "Search/layers/selection",
+        "source": "src/routes/editor/world/+page.svelte",
+        "strings": [
+          "LAYERS",
+          "locked",
+          "selectable",
+          "SEARCH",
+          "Item ID / name / tag",
+          "World object search",
+          "Visibleを選択",
+          "選択のみ",
+          "選択解除",
+          "Search / layer filters define the command-visible selection scope. Objects hidden by a filter are removed from the active selection before Move / Rotate / Duplicate / Delete.",
+          "{count} selected",
+          "{count} visible",
+          "Mouse: click selects · Ctrl/⌘/Shift-click multi-selects",
+          "Keyboard: arrows move · R rotate · Ctrl/⌘ C/V/D · Delete · Ctrl/⌘ Z · Shift+Z redo · Esc clear",
+          "Selection cleared.",
+          "Selected {count} visible object(s)."
+        ]
+      },
+      {
+        "surface": "Command availability",
+        "source": "src/lib/wep/world-editor-primary-job.ts",
+        "strings": [
+          "No trusted local draft-authoring binding is available for this target.",
+          "Select at least one visible object first.",
+          "Copy an editable object selection before using Paste.",
+          "There is no local draft command to undo.",
+          "There is no local draft command to redo.",
+          "Open an EditorDocument or a supported DDV root Grid before reviewing save preparation.",
+          "Load a raw DDV save first. Imported EditorDocuments do not create an Original Save Backup."
+        ]
+      }
+    ],
+    "roadFence": [
+      {
+        "surface": "Fence representation panel",
+        "source": "src/routes/editor/world/+page.svelte",
+        "strings": [
+          "FENCE REPRESENTATION / CORE-BOUND MODEL",
+          "Post layout",
+          "Promoted 01C/Core contractのlogicalTopologyとrepresentationLayoutを分離したまま、degree-2 interior Base/postだけを編集します。interval可否はfamily+modeのexact extension vocabularyから判定し、captured/pinned postは明示操作なしに変更しません。",
+          "Topology",
+          "Separate operation",
+          "DDV write",
+          "Disabled",
+          "Scene Preset",
+          "Blocked after post-layout edit",
+          "Fence network",
+          "Max interval",
+          "catalog-derived",
+          "Semantic anchors",
+          "Representation posts",
+          "Representation mode",
+          "Exact preservation",
+          "Generated design",
+          "Core preflight",
+          "Post",
+          "Choose post",
+          "· pinned",
+          "Insert Post",
+          "Move Post",
+          "Centered balanced auto-layout",
+          "Unpin",
+          "Pin",
+          "Remove Post",
+          "max {maximumPostInterval}",
+          "interval {distance}",
+          "Topology edit",
+          "endpoint / corner / junction / mode-boundary変更、segment delete、split/joinはrepresentationLayoutではなくlogicalTopologyの操作です。このpanelでは実行しません。",
+          "Topology mutation writer not authorized",
+          "Road / Fence model preflight",
+          "Road / Fenceはcapability未接続時にlocked表示されます。"
+        ]
+      },
+      {
+        "surface": "Fence representation edit live status",
+        "source": "src/routes/editor/world/+page.svelte",
+        "strings": [
+          "{operation}: BLOCKED · {machineIssueCodeOrPresentationFallback}",
+          "{operation}: Core preflight PASS · Undo/Redo enabled · portable representation will be revalidated during Scene/full-design capture",
+          "Insert Post",
+          "Move Post",
+          "Remove Post",
+          "Pin Post",
+          "Unpin Post",
+          "Centered balanced auto-layout"
+        ],
+        "note": "Raw WEP_FENCE_* codes routed to fencePostMessage remain machine diagnostics and are never translated."
+      },
+      {
+        "surface": "Road/Fence logical authoring panel and live status",
+        "source": "src/routes/editor/world/+page.svelte",
+        "reachability": "RENDERED_LOCAL_DRAFT_ONLY",
+        "strings": [
+          "ROAD / FENCE LOGICAL AUTHORING",
+          "Logical topology draft",
+          "Create and edit Road/Fence logical topology in the local EditorDocument draft. These controls never authorize native save serialization.",
+          "Network kind",
+          "Logical network",
+          "Family Base Item ID",
+          "Fence mode",
+          "Control points (x,y; x,y; …)",
+          "Seed node ID",
+          "Adjacent node ID",
+          "Target Family Base Item ID",
+          "Translate X",
+          "Translate Y",
+          "Rotate quarter turns",
+          "Orthogonal",
+          "Diagonal",
+          "Polyline",
+          "Rectangle outline",
+          "Connected selection",
+          "Fence branch selection",
+          "Eyedropper",
+          "Replace style",
+          "Erase logical unit",
+          "Topology transform",
+          "Local draft preview · persistent DDV writer disabled",
+          "Logical network draft created. Persistent writer remains disabled.",
+          "Logical network draft was blocked.",
+          "Connected selection · {count} logical units",
+          "Connected selection blocked.",
+          "Fence segment · {count} logical units",
+          "Fence segment selection blocked.",
+          "Eyedropper loaded family and mode into the authoring controls.",
+          "Eyedropper could not sample the selected logical unit.",
+          "Style replacement preview blocked.",
+          "Style replacement stored in the local logical draft.",
+          "Style replacement blocked.",
+          "Topology delete/split preview blocked.",
+          "Topology delete/split stored in the local draft.",
+          "Topology delete/split blocked.",
+          "Topology transform preview blocked.",
+          "Topology transform stored in the local draft.",
+          "Topology transform blocked."
+        ],
+        "note": "Controls render only when the promoted Road/Fence reader is supported and a local draft authoring session is bound. All handlers preserve persistentWriteAuthorized=false; raw WEP/Core diagnostics remain untranslated machine values."
+      }
+    ],
+    "sceneCapture": [
+      {
+        "surface": "Scene Preset capture/publish",
+        "source": "src/routes/editor/world/+page.svelte",
+        "strings": [
+          "SCENE PRESET",
+          "Capture & Publish",
+          "選択objectとSubGrid dependency closureをportable artifactへ変換します。source Grid / GridObject identityは公開artifactへ持ち出しません。",
+          "Title",
+          "My Scene Preset",
+          "Description",
+          "この飾り付けについて",
+          "Visibility",
+          "Unlisted",
+          "Public",
+          "Private",
+          "Capture Region",
+          "Selected object bounds",
+          "Custom region",
+          "X",
+          "Y",
+          "Width",
+          "Height",
+          "Selection boundsは選択objectのoccupied boundsを使用します。Custom regionはRoad/Fenceを含む範囲を明示できます。authoritative root bounds外やtopology clippingはfail-closedです。",
+          "Include Roads",
+          "Include Fences",
+          "01C contained-only Capture Region。境界でtopologyが切れる場合は TOPOLOGY_CLIPPED_UNSUPPORTED で停止します。",
+          "Capture",
+          "Ready",
+          "Not run",
+          "Community",
+          "Connected",
+          "Sign-in required",
+          "Roads / Fences",
+          "Core reader bound · {roadCount} road / {fenceCount} fence",
+          "Raw Switch root Grid required",
+          "DDV Write",
+          "Portable artifact preview",
+          "{count} objects",
+          "{count} item types",
+          "bounds {width} × {height}",
+          "{count} Road networks",
+          "{count} Fence networks",
+          "PUBLISHED"
+        ]
+      },
+      {
+        "surface": "Scene capture/publish live status",
+        "source": "src/routes/editor/world/+page.svelte",
+        "strings": [
+          "Capture Regionに使うobjectを選択してください。",
+          "Scene Presetに含めるobjectを選択してください。",
+          "Scene captureはpublication-readyです。source Grid/GridObject identityはartifactから除去されています。",
+          "Scene Preset capture blocked. {coreReasonOrFallback} Protected/read-only objects are not silently included in portable source content.",
+          "The selection contains content that is not portable under the current Core/WEP contract.",
+          "publishには認証済みWand Account、Creator Profile、Preset titleが必要です。",
+          "Scene Presetを公開しました。DDVセーブへの書き込みは行っていません。"
+        ]
+      }
+    ],
+    "storeInspector": [
+      {
+        "surface": "Scrooge Store read-only inspector",
+        "source": "src/routes/editor/world/+page.svelte",
+        "strings": [
+          "Scrooge Store Inventory",
+          "Read-only Core v1.12 view. Store identity is resolved by exact ProfileWorld.Stores[].BuildingItemID match; no Shop fallback or persistent mutation is available.",
+          "Building",
+          "Displays",
+          "Slots",
+          "Available",
+          "Last refresh",
+          "Weighted items",
+          "Display {displayIndex}",
+          "Item {itemId} · {layoutType} · {count} slot(s)",
+          "layout unknown",
+          "unknown",
+          "Empty",
+          "Item unreadable",
+          "Unavailable",
+          "Availability unknown",
+          "Currency {currencyId}",
+          "Item {itemId} ×{amount}"
+        ]
+      }
+    ],
+    "progressionProtection": [
+      {
+        "surface": "Progression safety presentation",
+        "source": "src/routes/editor/world/+page.svelte",
+        "strings": [
+          "PROGRESSION SAFETY",
+          "Dependency evidence ≠ permission",
+          "Quest graph",
+          "Save refs",
+          "Terminal edit",
+          "Authorized",
+          "Not authorized",
+          "Positive permission",
+          "Granted",
+          "Not granted",
+          "Persistent write",
+          "Remaining progression proof gates",
+          "Spawn/remove proof",
+          "Native consumer exclusion",
+          "Serialized state compatibility",
+          "CLOSED here means the v1.14 dependency evidence is integrated; it does not authorize terminal mutation. ACTIVE identity references and UNKNOWN reference activity remain blockers. HISTORICAL reference alone creates no active-reference veto, but grants no positive permission. No positive-authorization contract is bound to this editor surface."
+        ],
+        "machineValuesNotTranslated": [
+          "CLOSED",
+          "OPEN",
+          "ACTIVE",
+          "UNKNOWN",
+          "HISTORICAL"
+        ]
+      }
+    ],
+    "errorsStatusLiveRegions": [
+      {
+        "surface": "Primary command/live status",
+        "source": "src/routes/editor/world/+page.svelte",
+        "strings": [
+          "{commandLabel} is unavailable.",
+          "The draft command was rejected by validation.",
+          "Draft updated locally, but validation is blocked. {blockerPresentation}",
+          "Draft updated and current command preflight passed. Persistent DDV write remains disabled.",
+          "Copied {count} draft object(s) with dependency closure. No DDV state changed.",
+          "Undo restored the draft model, selection, validation and Fence representation state together.",
+          "Redo restored the draft model, selection, validation and Fence representation state together.",
+          "Draft authoring",
+          "Available",
+          "Read-only",
+          "Last command",
+          "None",
+          "Clipboard",
+          "{count} object graph",
+          "Empty"
+        ]
+      },
+      {
+        "surface": "Head metadata",
+        "source": "src/routes/editor/world/+page.svelte",
+        "strings": [
+          "World Editor | Dreamwish Wand",
+          "Dreamwish Wand World Editor — inspect WEP EditorDocuments, capture portable Scene Presets and publish them without writing to DDV saves."
+        ]
+      },
+      {
+        "surface": "Raw machine diagnostic passthrough",
+        "source": "src/routes/editor/world/+page.svelte",
+        "policy": "NOT_TRANSLATED",
+        "examples": [
+          "error.message / String(error)",
+          "fullDesignDestinationError",
+          "floatingIslandPlanError",
+          "fencePost raw WEP_* code",
+          "full-design issue.code",
+          "draftValidation issue.code",
+          "published.presetArtifactId",
+          "diagnostic.code"
+        ],
+        "rule": "Keep raw code/value stable and optionally render a separately localized presentation label/message. Never replace the machine value with localized text."
+      }
+    ]
+  },
+  "accessibility": {
+    "defect": "A11Y-DAY-GOLD-TEXT-CONTRAST",
+    "owner": "shared-web",
+    "evidence": {
+      "tokenSource": "src/app.css",
+      "token": "--gold",
+      "dayValue": "#82591f",
+      "sharedMinimumMeasuredContrast": "5.183:1"
+    },
+    "wepAction": "INHERIT_SHARED_TOKEN_NO_LOCAL_OVERRIDE",
+    "requiredSharedAction": "CLOSED in 08 WEB shared foundation; WEP inherits the shared semantic token.",
+    "resolution": "CLOSED_UPSTREAM_INHERITED"
+  },
+  "safetyBoundary": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "apply": false,
+    "saveReplacement": false,
+    "nativeRestore": false,
+    "atomicCommit": false
+  },
+  "completeness": {
+    "status": "COMPLETE_FOR_PINNED_SOURCES",
+    "method": [
+      "manual review of all current World Editor route markup and live/status-producing script paths",
+      "exhaustive enumeration of all 70 blocker catalog machine keys with title/message/action presentation fields",
+      "exhaustive enumeration of all 24 Core object-reason machine keys with presentation messages",
+      "owner-separated shared SiteHeader/SiteFooter strings rendered on the World Editor surface",
+      "source Git blob pins invalidate this inventory when any inventoried source changes"
+    ],
+    "knownNonPresentationExclusions": [
+      "imports and module paths",
+      "internal operation names and command enum values",
+      "schema/contract/artifact IDs",
+      "machine blocker/reason codes",
+      "save/profile identities and raw diagnostic values",
+      "CSS class names and style tokens",
+      "test-only text",
+      "QR private fixture paths"
+    ]
+  },
+  "presentationBinding": {
+    "status": "BOUND",
+    "namespace": "worldEditor",
+    "resourceFactory": "src/lib/i18n/messages/world-editor/_factory.js",
+    "localeResources": "src/lib/i18n/messages/world-editor/<locale>.js",
+    "adapter": "src/lib/wep/world-editor-i18n.ts",
+    "machineIdentityInvariant": true
+  }
+}

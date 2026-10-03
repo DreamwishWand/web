@@ -1,0 +1,108 @@
+name: WEP primary-job browser acceptance
+
+on:
+  push:
+    branches: [dev/wep-v125]
+    paths:
+      - '.github/workflows/wep-browser-acceptance.yml'
+      - 'scripts/wep-primary-job-browser-acceptance.mjs'
+      - 'src/routes/editor/world/**'
+      - 'src/lib/i18n/**'
+      - 'src/lib/wep/world-editor-i18n.ts'
+      - 'src/app.css'
+      - 'src/lib/wep/world-editor-primary-job.ts'
+      - 'src/lib/wep/progression-safety-v113.ts'
+      - 'src/lib/wep/progression-integration-v114.ts'
+      - 'src/lib/wep/progression-destination-v115.ts'
+      - 'src/lib/wep/progression-destination-projection-v115.ts'
+      - 'src/lib/wep/full-design-preset-preflight.ts'
+      - 'static/ddv/core/save/v1.25/progression-reference-index-v125.part*.jsfrag'
+      - 'static/ddv/core/world/v1.25/progression-destination-veto-v125.cjs'
+  pull_request:
+    branches: [dev/wep-v125]
+    paths:
+      - '.github/workflows/wep-browser-acceptance.yml'
+      - 'scripts/wep-primary-job-browser-acceptance.mjs'
+      - 'src/routes/editor/world/**'
+      - 'src/lib/i18n/**'
+      - 'src/lib/wep/world-editor-i18n.ts'
+      - 'src/app.css'
+      - 'src/lib/wep/world-editor-primary-job.ts'
+      - 'src/lib/wep/progression-safety-v113.ts'
+      - 'src/lib/wep/progression-integration-v114.ts'
+      - 'src/lib/wep/progression-destination-v115.ts'
+      - 'src/lib/wep/progression-destination-projection-v115.ts'
+      - 'src/lib/wep/full-design-preset-preflight.ts'
+      - 'static/ddv/core/save/v1.25/progression-reference-index-v125.part*.jsfrag'
+      - 'static/ddv/core/world/v1.25/progression-destination-veto-v125.cjs'
+      - 'docs/verification/wep-progression-destination-route-v115-*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install app dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Install browser driver library only
+        run: npm install --no-save --package-lock=false playwright-core@1.55.0
+
+      - name: Install CJK fonts for visual acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+          fc-cache -f
+
+      - name: Resolve system Chrome
+        id: chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "path=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+          "$CHROME_BIN" --version
+
+      - name: Start local World Editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4173 > /tmp/wep-vite.log 2>&1 &
+          echo $! > /tmp/wep-vite.pid
+          for i in $(seq 1 60); do
+            if curl --fail --silent --show-error http://127.0.0.1:4173/editor/world/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/wep-vite.log
+          exit 1
+
+      - name: Run primary-job browser acceptance
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          WEP_BASE_URL: http://127.0.0.1:4173/editor/world/
+        run: node scripts/wep-primary-job-browser-acceptance.mjs
+
+      - name: Upload acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wep-primary-job-browser-acceptance
+          path: .artifacts/wep-browser/
+          if-no-files-found: error

@@ -1,4 +1,6 @@
+import worldEditor from './world-editor/it.js';
 export default Object.freeze({
+  ...worldEditor,
   "shared.a11y.skipToContent": "Vai al contenuto principale",
   "shared.brand.homeLabel": "Home di Dreamwish Wand",
   "shared.nav.primaryLabel": "Navigazione principale",
@@ -9,7 +11,6 @@ export default Object.freeze({
   "shared.theme.switchToNight": "Passa al tema scuro",
   "shared.theme.light": "Chiaro",
   "shared.theme.dark": "Scuro",
-  "shared.locale.useBrowserLanguage": "Usa la lingua del browser",
   "shared.locale.label": "Lingua",
   "shared.footer.disclaimer": "Progetto fan non ufficiale, non affiliato a Disney o Gameloft.",
   "shared.footer.helpBugs": "Aiuto e bug",

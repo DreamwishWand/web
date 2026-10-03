@@ -1,4 +1,6 @@
+import worldEditor from './world-editor/zh-CN.js';
 export default Object.freeze({
+  ...worldEditor,
   "shared.a11y.skipToContent": "跳到主要内容",
   "shared.brand.homeLabel": "Dreamwish Wand 首页",
   "shared.nav.primaryLabel": "主导航",
@@ -9,7 +11,6 @@ export default Object.freeze({
   "shared.theme.switchToNight": "切换到深色主题",
   "shared.theme.light": "浅色",
   "shared.theme.dark": "深色",
-  "shared.locale.useBrowserLanguage": "使用浏览器语言",
   "shared.locale.label": "语言",
   "shared.footer.disclaimer": "非官方粉丝项目，与 Disney 或 Gameloft 无关联。",
   "shared.footer.helpBugs": "帮助与问题",

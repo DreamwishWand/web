@@ -3,7 +3,6 @@ name: CI
 on:
   push:
     branches:
-      - main
       - 'dev/**'
   pull_request:
 
@@ -16,8 +15,6 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -34,8 +31,8 @@ jobs:
         run: npm run check
       - name: Shared web accessibility/localization gates
         run: npm run verify:web-foundation
-      - name: Canonical baseline integrity
-        run: npm run verify:canonical
+      - name: Integrated production tree preflight
+        run: npm run verify:community-integrated-tree -- --require-ready
       - name: Contract tests
         run: npm test
       - name: Static build
