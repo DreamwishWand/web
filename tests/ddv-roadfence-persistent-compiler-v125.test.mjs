@@ -454,7 +454,15 @@ test('Fence representation edits reject over-max spans, semantic anchors and top
     )
   });
   assert.equal(overMax.ok, false);
-  assert.equal(overMax.failClosedReason.code, 'FENCE_POST_INTERVAL_OVER_MAX');
+  assert.equal(
+    overMax.failClosedReason.code,
+    'FENCE_REPRESENTATION_LAYOUT_INVALID'
+  );
+  assert.ok(
+    overMax.failClosedReason.detail.issues.some(
+      (issue) => issue.code === 'FENCE_POST_INTERVAL_OVER_MAX'
+    )
+  );
 
   const corner = {
     familyBaseItemID: 40700246,
