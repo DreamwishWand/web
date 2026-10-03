@@ -1,0 +1,340 @@
+{
+  "schema": "dreamwish-community-qa-release-evidence@1",
+  "generatedAt": "2026-10-02",
+  "workstream": "03 COMM 5",
+  "purpose": "Event-driven evidence delta for 04 QR; not a launch verdict.",
+  "source": {
+    "communityBranch": "dev/community-core-v0-20260930",
+    "baseConfirmedHead": "8a25e6cf99e00ca56f3bd359d5560a2e6859c1c3",
+    "currentWepObservedHead": "424116bba04be06454db32a422afaeba6e2b0044"
+  },
+  "closed": [
+    {
+      "id": "AUTH_MAILBOX",
+      "state": "CLOSED_PASS",
+      "evidence": [
+        "docs/community/auth-final-mailbox-reauth-runtime-20261001.md",
+        "ops/community-auth-launch-review.json"
+      ],
+      "rerunAllowed": false
+    },
+    {
+      "id": "RETENTION_ENGINEERING",
+      "state": "CLOSED_PASS",
+      "evidence": [
+        "docs/community/retention-d1-d2-single-stage-runtime-20261001.md",
+        "ops/community-retention-policy-proposal.json"
+      ],
+      "rerunAllowed": false
+    },
+    {
+      "id": "RETENTION_PRODUCT_APPROVAL",
+      "state": "CLOSED_APPROVED",
+      "evidence": [
+        "docs/community/retention-product-approval-record-20261002.md"
+      ],
+      "productDirection": {
+        "d1": "payload purge <=7d",
+        "d2": "operational detail 90d",
+        "d3": "immediate irreversible deletion",
+        "d4": "moderation/security/legal hold only while justified",
+        "d5": "minimized structural tombstones",
+        "d6": "quarantine-first recovery + minimal external deletion ledger",
+        "d7": "provider minimization/disclosure direction supported",
+        "d8": "category-specific disclosure"
+      }
+    },
+    {
+      "id": "PRODUCTION_PREPARATION_PROTOCOLS",
+      "state": "STATIC_PREPARATION_COMPLETE",
+      "evidence": [
+        "ops/community-production-execution-checklist-20261002.json",
+        "docs/community/production-execution-runbook-20261002.md"
+      ],
+      "note": "Execution evidence does not exist yet and must not be treated as production PASS."
+    },
+    {
+      "id": "PRODUCTION_RESOURCE_SELECTION",
+      "state": "CLOSED_APPROVED_FOR_RELEASE_STAGE",
+      "evidence": [
+        "ops/community-production-resource-decision-20261002.json",
+        "docs/community/production-resource-decision-20261002.md"
+      ],
+      "decision": {
+        "supabasePlan": "PRO",
+        "storageRecoveryProvider": "CLOUDFLARE_R2_STANDARD",
+        "provisioningTiming": "AT_RELEASE_STAGE"
+      },
+      "note": "Selection is closed; provisioning/runtime evidence remains production-only pending."
+    },
+    {
+      "id": "DDV_PROFILE_WORKSPACE_PRODUCT_LIFECYCLE",
+      "state": "CLOSED_PRODUCT_APPROVED",
+      "evidence": [
+        "ops/community-linked-ddv-profile-product-decision-20261002.json",
+        "ops/community-linked-ddv-profile-identity-transport-20261002.json"
+      ],
+      "decision": {
+        "maxRetainedWorkspaces": 5,
+        "activeAndArchivedCountTogether": true,
+        "archiveFreesSlot": false,
+        "deletionFreesSlot": true,
+        "playerIdAssociationOptional": true,
+        "normalSelfServiceUnlink": true,
+        "workspaceDeleteRequiresConfirmation": true,
+        "crossAccountSameIdentityAssociationAllowed": true,
+        "profileCountMultipliesCompetitionRights": false
+      }
+    },
+    {
+      "id": "AGE_MINORS_PRODUCT_POLICY",
+      "state": "CLOSED_PRODUCT_APPROVED_UNDER13_COMMUNITY_SCOPE_DEFINED__PRIVACY_LEGAL_REVIEW_PENDING",
+      "evidence": [
+        "ops/community-age-minors-product-decision-20261002.json",
+        "docs/community/age-minors-product-decision-20261002.md"
+      ],
+      "decision": {
+        "minimumIndependentWandAccountAge": 13,
+        "under13IndependentRegistrationAllowed": false,
+        "accountlessLocalUseAllowed": true,
+        "parentGuardianManagedDdvProfileAssociationAllowed": true,
+        "separateUnder13WandCredentials": false,
+        "under13IndependentCommunityActor": false,
+        "allowedCommunityContribution": "PARENT_ACCOUNT_DREAMSNAPS_SUBMISSION_ONLY",
+        "passiveDreamSnapsViewingAllowed": true,
+        "childVotingAllowed": false,
+        "childReactionsAllowed": false,
+        "childCommentsRepliesAllowed": false,
+        "childQATipsAllowed": false,
+        "postResultInboundReactionsAllowed": true,
+        "postResultInboundSavesFavoritesAllowed": true,
+        "postResultInboundCommentsRepliesAllowed": false,
+        "publicAttribution": "PARENT_CREATOR_PROFILE_ONLY",
+        "childMinorProvenancePublic": false
+      }
+    },
+    {
+      "id": "DDV_PROFILE_IDENTIFIER_SOURCE",
+      "state": "CLOSED_CONFIRMED",
+      "evidence": [
+        "ops/community-linked-ddv-profile-core-identifier-gate-20261002.json"
+      ],
+      "decision": {
+        "sourceField": "GameInfo.LastCustomIdOwner",
+        "semanticName": "DDV Player ID / User ID"
+      }
+    },
+    {
+      "id": "DDV_PROFILE_WORKSPACE_DB_LIFECYCLE",
+      "state": "CLOSED_STAGING_RUNTIME_PASS",
+      "evidence": [
+        "supabase/migrations/20261001232814_community_ddv_profile_workspace_v1.sql",
+        "supabase/migrations/20261001233225_community_ddv_profile_workspace_lifecycle_v2.sql",
+        "supabase/migrations/20261001233707_community_ddv_profile_workspace_fk_index_v3.sql",
+        "ops/community-linked-ddv-profile-lifecycle-runtime-20261002.json",
+        "docs/community/linked-ddv-profile-lifecycle-runtime-20261002.md",
+        "supabase/migrations/20261002003039_community_ddv_profile_workspace_delete_reauth_rate_v5.sql"
+      ],
+      "facts": [
+        "five retained Profile Workspaces per Wand Account",
+        "active + archived both consume capacity",
+        "self and parent_guardian_managed use the same capacity",
+        "Player ID association is optional and raw Player ID is not stored in PostgreSQL",
+        "same-account duplicate identity association is blocked while cross-account reuse is allowed",
+        "self-service unlink preserves the Workspace",
+        "Workspace delete requires confirmation and frees the slot",
+        "account deletion removes Workspaces and private identity associations",
+        "community-query v10 exposes the owner-safe Workspace query and removes the legacy linkedDdvProfiles route",
+        "Workspace deletion requires explicit DELETE confirmation plus session-bound recent authentication within 900 seconds",
+        "Workspace management rate bucket is 60/hour/account; DDV identity associate/unlink bucket is 12/hour/account",
+        "legacy ddv_profile_link rate bucket is disabled",
+        "community-command v23 exposes the current Workspace command surface"
+      ]
+    },
+    {
+      "id": "GLOBAL_LAUNCH_LOCALIZATION_ACCESSIBILITY_PRODUCT_POLICY",
+      "state": "CLOSED_PRODUCT_APPROVED_PRIVACY_LEGAL_REVIEW_PENDING",
+      "evidence": [
+        "ops/product-launch-jurisdiction-localization-accessibility-20261002.json",
+        "docs/product/launch-jurisdiction-localization-accessibility-20261002.md"
+      ],
+      "decision": {
+        "globalProductByDefault": true,
+        "localAccountlessRegionLocked": false,
+        "communityGlobalByDefault": true,
+        "jurisdictionSpecificFailClosedGateAllowed": true,
+        "launchLocaleRule": "MATCH_CURRENT_SUPPORTED_DDV_LANGUAGES",
+        "currentVerifiedLocaleCount": 8,
+        "expansionBeyondDdvLanguagesPlanned": false,
+        "accessibilityTarget": "WCAG_2_2_AA"
+      }
+    },
+    {
+      "id": "DREAMSNAPS_INTEGRITY_PRIVACY_PRODUCT_POLICY",
+      "state": "CLOSED_PRODUCT_APPROVED_ENGINEERING_PRIVACY_LEGAL_REMAIN",
+      "evidence": [
+        "ops/product-dreamsnaps-integrity-privacy-decision-20261002.json",
+        "docs/product/dreamsnaps-integrity-privacy-decision-20261002.md"
+      ],
+      "decision": {
+        "gameScreenshotRequired": true,
+        "externalVisualEditingAllowed": false,
+        "activeVotingCreatorIdentityHidden": true,
+        "activeVotingSocialSignalsHidden": true,
+        "officialSaveDerivedResultsDefaultVisibility": "PRIVATE",
+        "publicOfficialResultsRequirePostResultsOptIn": true,
+        "under13PostResultReactionsAllowed": true,
+        "under13PostResultCommentsAllowed": false
+      }
+    }
+  ],
+  "reviewPending": [
+    {
+      "id": "PRIVACY_APPROVAL",
+      "state": "REVIEW_READY_WITH_OPEN_PRIVACY_DECISIONS",
+      "evidence": [
+        "ops/community-privacy-review-readiness-20261002.json",
+        "docs/community/privacy-review-readiness-20261002.md"
+      ],
+      "blockers": [
+        "P5_PRODUCTION_PROCESSOR_BINDING"
+      ],
+      "decisions": [
+        "P2_LINKED_DDV_PROFILE_CORRECTION_UNLINK",
+        "P3_UNLISTED_DISCLOSURE",
+        "P6_MODERATION_AUDIT_FREE_TEXT",
+        "P8_MEDIA_STORAGE_KEY_PSEUDONYM",
+        "P9_DATA_RIGHTS_WORKFLOW",
+        "P10_PROVIDER_CLEANUP_SUBJECT",
+        "P1_LINKED_DDV_PROFILE_IDENTIFIER_AND_TRANSPORT_REVIEW_AFTER_PRODUCT_DECISION",
+        "P4_AGE_MINORS_IMPLEMENTATION_AND_PARENT_MANAGED_COMMUNITY_SCOPE"
+      ],
+      "approved": false,
+      "note": "Age/minors Product policy is closed at 13+ for independent Wand Accounts; under-13 independent registration is prohibited, accountless local use remains available, and parent/guardian-managed DDV Profile association is allowed. Privacy still requires implementation/scope review, stable identifier/transport review and release-stage provider binding."
+    },
+    {
+      "id": "LEGAL_APPROVAL",
+      "state": "PACKET_READY_EXTERNAL_REVIEW_REQUIRED",
+      "evidence": [
+        "docs/community/legal-review-packet-20261002.md",
+        "ops/community-legal-review-readiness-20261002.json"
+      ],
+      "requiredExternalDecisions": [
+        "launch operator/entity and jurisdictions",
+        "implementation of the approved 13+ independent-account boundary; under-13 parent/guardian-managed Community scope; age assurance/parental consent by jurisdiction",
+        "privacy rights workflow",
+        "processor/DPA/cross-border treatment",
+        "Linked DDV Profile retention/correction semantics",
+        "Terms/UGC license/IP policy",
+        "copyright notice/takedown/counter-notice/repeat-infringer strategy",
+        "moderation/report/appeal obligations",
+        "legal-hold procedure",
+        "actual production backup/provider boundaries"
+      ],
+      "approved": false
+    },
+    {
+      "id": "DDV_PROFILE_WORKSPACE_PRIVACY_LEGAL_REVIEW",
+      "state": "ENGINEERING_DB_AND_EDGE_SOURCE_ALIGNMENT_CLOSED__PRIVACY_LEGAL_REVIEW_PENDING",
+      "evidence": [
+        "ops/community-privacy-review-readiness-20261002.json",
+        "docs/community/privacy-review-readiness-20261002.md",
+        "ops/community-linked-ddv-profile-product-decision-20261002.json",
+        "ops/community-linked-ddv-profile-lifecycle-runtime-20261002.json",
+        "docs/community/linked-ddv-profile-lifecycle-runtime-20261002.md"
+      ],
+      "facts": [
+        "max five retained Profile Workspaces across active + archived states",
+        "optional Player ID association using transient raw input and private versioned HMAC digest",
+        "cross-account same identity association allowed without private-data merge",
+        "same-account duplicate identity association blocked",
+        "self-service unlink preserves Workspace",
+        "self-service Workspace deletion requires confirmation and frees capacity",
+        "community-command v23 and community-query v10 match current staging/branch source",
+        "live raw Player ID Edge E2E remains pending staging secret/runtime verification",
+        "Destructive Profile Workspace deletion is protected by explicit confirmation plus 900-second session-bound recent authentication."
+      ],
+      "qrInstruction": "Treat Product contract, DB lifecycle and Edge source alignment as CLOSED. Keep live authenticated identity-association E2E, Privacy/Legal, final integration and production runtime gates OPEN."
+    }
+  ],
+  "crossStreamPending": [
+    {
+      "id": "FINAL_INTEGRATED_SOURCE_TREE",
+      "state": "PENDING",
+      "currentFacts": {
+        "communityHead": "8a25e6cf99e00ca56f3bd359d5560a2e6859c1c3",
+        "wepHead": "424116bba04be06454db32a422afaeba6e2b0044",
+        "mergeBase": "cfda06eb904544bbfa5286c4eb61b5856dd3ea51",
+        "replaySourceRequired": "final-integrated-main"
+      },
+      "preflightCommand": "npm run verify:community-integrated-tree -- --require-ready"
+    },
+    {
+      "id": "LATEST_WEP_DELTA",
+      "state": "NO_COMMUNITY_SENSITIVE_RERUN_REQUIRED",
+      "comparison": {
+        "base": "ba55070f3c48df3bef9d1b12aaf056ed4978791a",
+        "head": "424116bba04be06454db32a422afaeba6e2b0044",
+        "commits": 66,
+        "changedCommunityTransportPublicationSignedReadRetentionEdgeContracts": false
+      },
+      "rerunClosedCommunitySuites": false
+    },
+    {
+      "id": "DDV_PROFILE_IDENTITY_EDGE_E2E",
+      "state": "PENDING_STAGING_SECRET_RUNTIME_VERIFICATION",
+      "evidence": [
+        "ops/community-linked-ddv-profile-lifecycle-runtime-20261002.json"
+      ],
+      "detail": "DB digest path is runtime-tested. Current community-command v23 contains corrected Player ID HMAC handling plus the v5 Workspace delete recent-auth/rate split. Live raw Player ID -> Edge HMAC -> association E2E still requires staging COMMUNITY_DDV_PROFILE_BINDING_KEY_V1 configuration."
+    },
+    {
+      "id": "DDV_PROFILE_WORKSPACE_STAGING_UI",
+      "state": "READY_FOR_BROWSER_ACCEPTANCE",
+      "evidence": [
+        "src/routes/community-lab/profiles/+page.svelte",
+        "tests/community-ddv-profile-workspace-ui-v1.test.mjs",
+        "ops/community-linked-ddv-profile-lifecycle-runtime-20261002.json"
+      ],
+      "detail": "Staging-only source supports create/list/rename/archive/restore/optional Player ID/unlink/confirmed delete. Authenticated browser acceptance and branch build evidence remain pending."
+    }
+  ],
+  "productionOnlyPending": [
+    "DISTINCT_PRODUCTION_SUPABASE_PROJECT",
+    "FINAL_INTEGRATED_MIGRATION_REPLAY",
+    "DATABASE_BACKUP_MECHANISM",
+    "DATABASE_RESTORE_DRILL",
+    "STORAGE_BACKUP_MECHANISM",
+    "STORAGE_RESTORE_DRILL",
+    "RECOVERY_DELETION_LEDGER_EXTERNALIZATION_AND_RECONCILIATION",
+    "CONTROLLED_SECRET_ROTATION",
+    "PRODUCTION_FUNCTION_ALLOWLIST_DENYLIST_INVENTORY",
+    "PRODUCTION_CRON_VAULT_INVENTORY",
+    "PRODUCTION_SMOKE",
+    "PRODUCTION_SECURITY_ADVISOR"
+  ],
+  "userDecisionGate": {
+    "reached": true,
+    "state": "CLOSED_APPROVED_FOR_RELEASE_STAGE",
+    "decisionsNeeded": [],
+    "decision": {
+      "supabasePlan": "PRO",
+      "storageRecoveryProvider": "CLOUDFLARE_R2_STANDARD"
+    },
+    "provisioningDeferredUntil": "RELEASE_STAGE",
+    "noResourceCreationAuthorizedInCurrentPhase": true
+  },
+  "prohibitedRerunsUnlessSemanticChange": [
+    "Auth",
+    "mailbox",
+    "primary Community browser suite",
+    "visibility/ownership acceptance",
+    "Scene Preset vertical",
+    "ArtifactBlob retention E2E",
+    "retention plumbing E2E",
+    "moderation runtime",
+    "rate-limit runtime"
+  ],
+  "launchReady": false,
+  "instructionToQR": "Treat DDV Profile Workspace Product contract, DB lifecycle and Edge source alignment as CLOSED. Keep live authenticated identity-association E2E, Privacy/Legal, final integration and production runtime gates OPEN."
+}

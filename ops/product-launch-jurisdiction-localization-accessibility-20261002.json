@@ -1,0 +1,69 @@
+{
+  "schema": "dreamwish-product-launch-jurisdiction-localization-accessibility@1",
+  "decidedAt": "2026-10-02",
+  "state": "PRODUCT_APPROVED__PRIVACY_LEGAL_JURISDICTION_REVIEW_PENDING",
+  "ownerApproved": true,
+  "jurisdiction": {
+    "productPosition": "GLOBAL_PRODUCT",
+    "accountlessLocalFeatures": "GLOBAL_BY_DEFAULT",
+    "community": "GLOBAL_BY_DEFAULT",
+    "jurisdictionSpecificFailClosedGate": true,
+    "gateScope": "If Privacy/Legal determines a jurisdiction cannot be supported at launch, restrict Wand Account registration and/or Community writes there as required rather than disabling accountless local Wand functionality globally.",
+    "signedOutPublicRead": "Available where lawful; Legal may require jurisdiction-specific restrictions.",
+    "commercialRegionLockByDefault": false,
+    "implementationMethod": "TBD_WITH_PRIVACY_LEGAL",
+    "legalApprovalStillRequired": true
+  },
+  "localization": {
+    "rule": "Wand launch locale set must match all languages supported by the current supported Disney Dreamlight Valley release; Wand does not intentionally add game-data languages that DDV itself does not support.",
+    "currentVerifiedLocaleSet": [
+      "English",
+      "French",
+      "Italian",
+      "German",
+      "Spanish - Spain",
+      "Japanese",
+      "Simplified Chinese",
+      "Portuguese - Brazil"
+    ],
+    "currentVerifiedLocaleCount": 8,
+    "parityIsUpdateAcceptanceGate": true,
+    "firstPartySurfaces": [
+      "navigation and UI",
+      "system status/error/recovery text",
+      "canonical Wand Database labels/taxonomy",
+      "Guide canonical content intended for launch",
+      "moderation/report reasons",
+      "account/auth/security/moderation transactional email where used"
+    ],
+    "userGeneratedContent": {
+      "machineTranslationRequiredAtLaunch": false,
+      "preserveOriginalLanguage": true,
+      "localizedEntityTagsAndTaxonomyPreferred": true,
+      "titleBodyAutomaticTranslation": "NOT_REQUIRED"
+    },
+    "expansionBeyondDdvLanguagesPlanned": false
+  },
+  "accessibility": {
+    "launchTarget": "WCAG_2_2_AA",
+    "appliesTo": "Public Wand web UI and launch-critical authenticated UI",
+    "requirements": [
+      "keyboard-operable core jobs and non-drag alternative for drag operations",
+      "visible and non-obscured focus",
+      "semantic labels/names/roles for actionable controls and status/error messaging",
+      "AA contrast and readable responsive layout",
+      "screen-reader-compatible navigation, forms, dialogs, validation and command-disabled reasons",
+      "touch target and pointer alternatives consistent with WCAG 2.2 AA",
+      "World Editor must expose non-pointer control paths for launch-critical editing operations rather than requiring drag-only interaction"
+    ],
+    "ugcMediaBoundary": "Wand must provide accessible surrounding controls/metadata and support descriptive text where applicable; Wand does not claim that every creator-supplied image is intrinsically accessible.",
+    "standardSource": "W3C WCAG 2.2 Recommendation",
+    "legalConformanceByJurisdictionStillRequiresReview": true
+  },
+  "releaseBoundary": {
+    "productDecisionClosed": true,
+    "privacyPending": true,
+    "legalPending": true,
+    "launchReady": false
+  }
+}

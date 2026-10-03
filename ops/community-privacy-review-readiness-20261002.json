@@ -1,0 +1,254 @@
+{
+  "schema": "dreamwish-community-privacy-review-readiness@1",
+  "reviewedAt": "2026-10-02",
+  "scope": "Community Core privacy review readiness; engineering is not reopened",
+  "state": "REVIEW_READY_WITH_OPEN_PRIVACY_DECISIONS",
+  "approval": {
+    "product": "APPROVED",
+    "privacy": "PENDING",
+    "legal": "PENDING",
+    "launchApproved": false
+  },
+  "confirmedControls": [
+    {
+      "id": "MINIMIZATION_RETENTION",
+      "status": "CONFIRMED",
+      "facts": [
+        "User-authored payload purge is scheduled within 7 days after immediate irreversible account/community removal.",
+        "Operational detail is scrubbed at 90 days.",
+        "There is no fixed 365-day elevated tier.",
+        "D4 moderation/security/legal holds are the only Product-approved exception and must remain justified."
+      ]
+    },
+    {
+      "id": "DELETION_SEMANTICS",
+      "status": "CONFIRMED",
+      "facts": [
+        "Creator identity is anonymized/private immediately.",
+        "Owned works are hidden/deleted from Community access and search immediately.",
+        "Comments are replaced with [deleted] and marked deleted.",
+        "Saved items, follows, reactions, notification deliveries, and WandAccount-DDVProfile links are deleted immediately.",
+        "Auth identity is retired and provider-account cleanup is queued."
+      ]
+    },
+    {
+      "id": "VISIBILITY_ACCESS",
+      "status": "CONFIRMED",
+      "facts": [
+        "PUBLIC published clear works are discoverable and directly accessible.",
+        "UNLISTED published clear works are directly accessible when the identifier/link is known but are not public discovery results.",
+        "PRIVATE works are owner/staff only.",
+        "Linked DDV Profile rows are owner/staff only.",
+        "Reports are reporter/staff; moderation cases/actions and audit events are staff-only."
+      ]
+    },
+    {
+      "id": "MEDIA_OBJECT_STORAGE",
+      "status": "CONFIRMED",
+      "facts": [
+        "Observed staging media and Preset buckets are private.",
+        "Community media read access is authorization-gated and uses a signed URL with 300-second lifetime.",
+        "Community media responses use Cache-Control private, no-store.",
+        "Non-staging Community/WEP bucket configuration fails closed if required explicit bucket configuration is missing."
+      ]
+    },
+    {
+      "id": "BACKUP_RESURRECTION_PREVENTION",
+      "status": "DESIGN_CONFIRMED_RUNTIME_PENDING",
+      "facts": [
+        "Restore is quarantine-first.",
+        "Recovery Deletion Ledger is outside the primary rollback domain and limited by contract to deletionEventId, accountId, requestedAt.",
+        "Ledger retention target is 90 days.",
+        "Promotion is blocked if deletion reconciliation is unavailable or incomplete.",
+        "Actual production backup/storage providers and restore drills remain pending."
+      ]
+    },
+    {
+      "id": "PROVIDER_BOUNDARY",
+      "status": "PROVIDER_SELECTION_CONFIRMED_FINAL_BINDING_PENDING",
+      "facts": [
+        "Wand does not claim provider-controlled backups/logs/email copies obey the primary 7-day/90-day timers.",
+        "Owner approved Supabase Pro for production and Cloudflare R2 Standard for independent Storage recovery, to be provisioned at release stage.",
+        "No production Supabase project or R2 recovery bucket exists yet.",
+        "Material provider retention, region/location behavior, DPA/subprocessor/transfer facts and final disclosure must be bound before Privacy approval."
+      ]
+    }
+  ],
+  "openDecisions": [
+    {
+      "id": "P1_LINKED_DDV_PROFILE_ORPHAN_MINIMIZATION",
+      "severity": "DB_AND_EDGE_WORKSPACE_LIFECYCLE_STAGING_PASS__PRIVACY_LEGAL_REVIEW_PENDING",
+      "evidence": [
+        "GameInfo.LastCustomIdOwner is the confirmed DDV Player ID/User ID identity source.",
+        "DDV Profile Workspace use does not require a Player ID/mdc association.",
+        "Raw Player ID is transient only and is not persisted or publicly exposed.",
+        "The optional identity association stores only a domain-separated HMAC-SHA-256 digest in private.ddv_identity_associations.binding_key_hash.",
+        "The digest is unique only within one Wand Account; the same DDV identity may be associated by another Wand Account without sharing private Workspace data.",
+        "Staging migrations 20261001232814, 20261001233225 and 20261001233707 implement the Workspace model, lifecycle and FK index.",
+        "One Wand Account may retain at most five Workspaces across active + archived states; archive does not free capacity and deletion does.",
+        "Self-service identity unlink preserves the Workspace; Workspace deletion requires explicit destructive confirmation.",
+        "Rollback runtime verified five-slot capacity, archive behavior, same-account duplicate rejection, cross-account reuse, unlink, delete, slot reuse and account-deletion cleanup with zero fixture residue.",
+        "community-command v23 and community-query v10 are deployed on staging and match the current branch source.",
+        "ops/community-linked-ddv-profile-lifecycle-runtime-20261002.json",
+        "docs/community/linked-ddv-profile-lifecycle-runtime-20261002.md",
+        "Destructive Profile Workspace deletion requires explicit DELETE confirmation plus session-bound recent authentication within 900 seconds.",
+        "Workspace management and optional DDV identity actions use separate rate buckets; the superseded ddv_profile_link bucket is disabled."
+      ],
+      "requiredDecision": [
+        "Privacy/Legal: review transient Player ID transport and pseudonymous cross-context linkability.",
+        "Privacy/Legal: confirm final correction/deletion disclosure for optional DDV identity association and Profile Workspace data.",
+        "Live staging raw-Player-ID Edge E2E remains an engineering acceptance item once the staging HMAC secret can be verified through an authenticated runtime request; it is not an owner Product decision."
+      ],
+      "engineeringAction": "STAGING_WORKSPACE_LIFECYCLE_AND_EDGE_SOURCE_ALIGNMENT_CLOSED__LIVE_IDENTITY_EDGE_E2E_PENDING_SECRET_RUNTIME_VERIFICATION__PRIVACY_LEGAL_REVIEW_PENDING",
+      "productDecision": "APPROVED_OPTIONAL_NONEXCLUSIVE_PROFILE_WORKSPACE_ASSOCIATION",
+      "decisionRecord": "ops/community-linked-ddv-profile-identity-transport-20261002.json"
+    },
+    {
+      "id": "P2_LINKED_DDV_PROFILE_CORRECTION_UNLINK",
+      "severity": "PRODUCT_AND_STAGING_ENGINEERING_CLOSED_PRIVACY_LEGAL_REVIEW_PENDING",
+      "evidence": [
+        "Normal self-service DDV identity unlink is Product-approved and implemented.",
+        "Unlink removes only the optional identity association and preserves the Profile Workspace.",
+        "The same mdc cannot be associated with multiple Workspaces inside one Wand Account.",
+        "The same mdc may be associated by different Wand Accounts; it does not confer access to another account's private Workspace data.",
+        "Profile Workspace deletion is a separate destructive action requiring explicit confirmation.",
+        "Workspace deletion removes Workspace-scoped private data; Account/Creator-scoped Gallery, Wand Preset and Q&A/Tips data remain independent.",
+        "Staging rollback runtime verified unlink-preserves-Workspace and delete-frees-slot behavior."
+      ],
+      "requiredDecision": [
+        "Product decision is CLOSED.",
+        "Privacy/Legal must review user-facing correction/deletion disclosure and any jurisdiction-specific data-rights requirements."
+      ],
+      "engineeringAction": "NO_PRODUCT_ENGINEERING_DECISION_PENDING__PRIVACY_LEGAL_REVIEW_ONLY",
+      "productDecision": "SELF_SERVICE_UNLINK_ALLOWED__WORKSPACE_DELETE_SEPARATE"
+    },
+    {
+      "id": "P3_UNLISTED_DISCLOSURE",
+      "severity": "DISCLOSURE_REQUIRED",
+      "evidence": [
+        "UNLISTED published clear works are direct-readable by anon/authenticated callers who know the work identifier/link.",
+        "UNLISTED works are not public discovery results."
+      ],
+      "requiredDecision": [
+        "User-facing visibility copy must say unlisted means link/identifier access, not private.",
+        "Terms/Privacy wording must not imply only the owner can read unlisted work."
+      ],
+      "engineeringAction": "NO_RUNTIME_CHANGE_REQUIRED"
+    },
+    {
+      "id": "P4_AGE_AND_MINORS",
+      "severity": "PRODUCT_DECISION_CLOSED_PRIVACY_LEGAL_REVIEW_PENDING",
+      "evidence": [
+        "Owner approved minimum age 13 for an independent Wand Account.",
+        "Independent Wand Account registration by users under 13 is prohibited.",
+        "Accountless local functionality remains available.",
+        "A parent/guardian may manage an under-13 DDV Profile Workspace; there are no separate under-13 Wand credentials.",
+        "Under-13 Product Community scope is now closed: parent-account DreamSnaps submission only plus passive viewing.",
+        "The child-managed profile has no voting, reactions, comments/replies, follows, saves/favorites, Q&A/Tips, Preset or other Community publication rights.",
+        "After Results, the DreamSnaps work may receive non-text reactions and saves/favorites, but comments/replies remain disabled.",
+        "Public attribution is the parent Creator Profile; child Workspace identity and minor provenance remain private."
+      ],
+      "requiredDecision": [
+        "Product age/minors eligibility and under-13 Community-scope decisions are CLOSED.",
+        "Privacy/Legal must define the minimal age-gate/age-assurance data flow and whether full date-of-birth collection is necessary.",
+        "Privacy/Legal must review jurisdiction-specific parental notice/consent/verification requirements for the approved DreamSnaps-only managed model.",
+        "Privacy/Legal must define any additional minor-specific defaults, notices, safety and moderation requirements for ages 13-17."
+      ],
+      "engineeringAction": "WAIT_FOR_PRIVACY_LEGAL_AGE_GATE_REVIEW_OF_APPROVED_DREAMSNAPS_ONLY_MANAGED_MODEL",
+      "productDecision": "APPROVED_13_PLUS_INDEPENDENT_ACCOUNT__UNDER13_PARENT_MANAGED_DREAMSNAPS_ONLY",
+      "decisionRecord": "ops/community-age-minors-product-decision-20261002.json"
+    },
+    {
+      "id": "P5_PRODUCTION_PROCESSOR_BINDING",
+      "severity": "BLOCKER_FOR_FINAL_PRIVACY_APPROVAL",
+      "evidence": [
+        "Owner approved Supabase Pro for the production backend.",
+        "Owner approved Cloudflare R2 Standard as the independent Storage recovery provider.",
+        "Provisioning is explicitly deferred to the release stage.",
+        "No production Supabase project or R2 recovery bucket exists yet.",
+        "Current D6/D7 remain design contracts until provider-specific configuration, contractual and runtime evidence is bound."
+      ],
+      "requiredDecision": [
+        "At release stage, bind actual Supabase project region/configuration, backup/log retention, DPA/subprocessors/transfer terms and deletion behavior.",
+        "At release stage, bind actual Cloudflare R2 account/bucket configuration, applicable location behavior, DPA/subprocessors/transfers, retention and deletion behavior.",
+        "Update final Privacy Policy/provider disclosure from those launch facts before Privacy approval."
+      ],
+      "engineeringAction": "RELEASE_STAGE_PROVIDER_BINDING_REQUIRED"
+    },
+    {
+      "id": "P6_MODERATION_AUDIT_FREE_TEXT",
+      "severity": "GOVERNANCE_REQUIRED",
+      "evidence": [
+        "Report detail, moderation action reason/state, retention-hold reason and some audit metadata can contain free text/JSON.",
+        "These are restricted by RLS/staff boundaries and operational detail is minimized at the 90-day stage."
+      ],
+      "requiredDecision": [
+        "Adopt operator guidance to avoid copying unnecessary personal/sensitive information into free-text fields.",
+        "Legal/Privacy must define when an active case/hold justifies retention beyond the normal scrub."
+      ],
+      "engineeringAction": "NO_SCHEMA_CHANGE_REQUIRED_UNLESS_REVIEW_REQUESTS_ONE"
+    },
+    {
+      "id": "P7_DELETION_LEDGER_RUNTIME_GUARDS",
+      "severity": "PRODUCTION_RUNTIME_GATE",
+      "evidence": [
+        "Contract field set is minimized.",
+        "External storage/encryption/access logging and 90-day deletion are not yet production-implemented."
+      ],
+      "requiredDecision": [
+        "Select external rollback-independent storage and prove encryption, operator-only access, auditability, expiry and restore reconciliation."
+      ],
+      "engineeringAction": "PRODUCTION_ONLY"
+    },
+    {
+      "id": "P8_MEDIA_STORAGE_KEY_PSEUDONYM",
+      "severity": "ACCEPT_OR_CHANGE",
+      "evidence": [
+        "Community upload storage keys are prefixed by the Auth subject.",
+        "Buckets are private and read access is signed/authorized.",
+        "Content payload is purged within 7 days under the approved D1 design."
+      ],
+      "requiredDecision": [
+        "Privacy should explicitly accept the provider-subject prefix as a short-lived backend pseudonymous identifier or request an opaque identifier migration."
+      ],
+      "engineeringAction": "NO_CHANGE_UNLESS_PRIVACY_REQUESTS_ONE"
+    },
+    {
+      "id": "P9_DATA_RIGHTS_WORKFLOW",
+      "severity": "LEGAL_PRIVACY_DECISION",
+      "evidence": [
+        "Account deletion exists and is proven.",
+        "No single canonical launch workflow for access/export/correction/objection requests was found."
+      ],
+      "requiredDecision": [
+        "Product launch posture is global-by-default with jurisdiction-specific fail-closed Account/Community gating where Legal requires.",
+        "Legal/Privacy must now define access/correction/export/objection/appeal workflows and response channels for the actual launch jurisdictions."
+      ],
+      "engineeringAction": "NONE_UNTIL_LEGAL_SCOPE"
+    },
+    {
+      "id": "P10_PROVIDER_CLEANUP_SUBJECT",
+      "severity": "ACCEPTABLE_NECESSITY_REQUIRES_PRIVACY_ACCEPTANCE",
+      "evidence": [
+        "private.provider_cleanup_jobs retains provider_subject while provider deletion is pending.",
+        "The field is needed to identify the provider account to delete.",
+        "Completed provider-cleanup jobs are removed by the operational scrub."
+      ],
+      "requiredDecision": [
+        "Privacy should record the provider-subject retention purpose as deletion execution/retry only and disallow secondary use."
+      ],
+      "engineeringAction": "NO_RUNTIME_CHANGE_REQUIRED"
+    }
+  ],
+  "legalReviewDependencies": [
+    "global_launch_jurisdiction_policy_closed__legal_country_by_country_review_pending",
+    "age_minors_implementation_parent_managed_scope",
+    "privacy_rights_workflow",
+    "ugc_terms_license_and_moderation",
+    "copyright_notice_takedown_strategy",
+    "processor_dpa_and_cross_border_transfer_review"
+  ],
+  "engineeringConclusion": "NO_RETENTION_ENGINEERING_CHANGE_REQUIRED_AT_THIS_STAGE",
+  "privacyApprovalReady": false,
+  "nextAction": "Product decisions for global launch posture, DDV-locale parity, WCAG 2.2 AA, under-13 DreamSnaps-only managed participation, and DreamSnaps integrity/privacy are closed. Privacy/Legal must review jurisdictional implementation and minor safeguards; Engineering still owes the staging Player-ID Edge E2E after HMAC-secret availability."
+}
