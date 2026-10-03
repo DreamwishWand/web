@@ -25,7 +25,9 @@
     "deletedIdReuse": false,
     "allocationOrdering": "deterministic compiler descriptor order; not claimed as native DDV creation-order semantics",
     "unrelatedIdentityDrift": "forbidden",
-    "nextGridObjectID": "before + createdObjectCount; deletion never decrements the counter"
+    "nextGridObjectID": "before + createdObjectCount; deletion never decrements the counter",
+    "sourceObjectMapIntegrity": "Grid.Objects must be an object map; numeric map key must equal object.ID; duplicate IDs rejected",
+    "nextGridObjectIDPrecondition": "source NextGridObjectID must be greater than every existing GridObject ID"
   },
   "structuralMutation": {
     "allowedPathClasses": [
@@ -34,7 +36,9 @@
     ],
     "inPlaceOwnedObjectFieldRewriteV1": false,
     "requires01aExtension": true,
-    "dependencyId": "DDV-SAFE-STRUCTURAL-GRID-OBJECT-TRANSACTION-EXTENSION-V125-V1_0"
+    "dependencyId": "DDV-SAFE-STRUCTURAL-GRID-OBJECT-TRANSACTION-EXTENSION-V125-V1_0",
+    "sourceFamilyIsolation": "owned sourceObjectIds must resolve to the expected source Road/Fence family; family replacement is allowed only through an explicitly supported replacement operation",
+    "nativeSeedMergeRule": "ROAD_SAME_FAMILY_MERGE must preserve at least one exact source descriptor identity"
   },
   "road": {
     "orientation": "GridOrientation_Down only for generated current-v1.25 Road cells",
@@ -62,7 +66,8 @@
     ],
     "maxSpanRule": "1 + max(exactExtensionKeys(family, mode))",
     "adjacentBaseInterval": 1,
-    "silentRedistribution": false
+    "silentRedistribution": false,
+    "singletonSemanticBaseMaterialization": true
   },
   "quantity": {
     "roadLogicalQuantity": "persistent Road cell count",
@@ -88,6 +93,13 @@
     "productApplyAuthorized": false,
     "sourceReplacementAuthorized": false,
     "equalQ5IndentedSmoothWriterSemantic": false,
-    "unsupportedVariantsFailClosed": true
+    "unsupportedVariantsFailClosed": true,
+    "disconnectedRoadMultiComponentSingleCall": false
+  },
+  "transformQuantum": {
+    "roadSavePitch": "2 * source Grid.TessellationFactor; positive only",
+    "fenceSavePitch": "source Grid.TessellationFactor; positive only",
+    "arbitraryScaling": false,
+    "negativePitchMirroring": false
   }
 }
