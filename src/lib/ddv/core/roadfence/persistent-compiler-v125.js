@@ -4,7 +4,7 @@ import {
   RoadFencePersistentOperation,
   RoadFenceWriterSupportStatus,
   REPRESENTATION_ONLY_FENCE_OPS
-} from './constants.js';
+} from './persistent-v125/constants.js';
 import {
   normalizeBuildIdentity,
   normalizeCatalog,
@@ -14,27 +14,27 @@ import {
   requireWritableSupport,
   topologyFingerprintIgnoringFamily,
   fail
-} from './common.js';
+} from './persistent-v125/common.js';
 import {
   classifyRoadWriterSupport,
   normalizeRoadNetwork,
   planRoadNativeV125
-} from './road.js';
+} from './persistent-v125/road.js';
 import {
   normalizeFenceNetwork,
   planFenceNativeV125,
   requireFenceTessellationFactor
-} from './fence-layout.js';
-import { classifyFenceWriterSupport } from './fence-support.js';
-import { reconcileNativeRepresentation } from './reconcile.js';
+} from './persistent-v125/fence-layout.js';
+import { classifyFenceWriterSupport } from './persistent-v125/fence-support.js';
+import { reconcileNativeRepresentation } from './persistent-v125/reconcile.js';
 import {
   buildCompilerResult,
   compilerFailure
-} from './result-core.js';
+} from './persistent-v125/result-core.js';
 import {
   compilerMetadataV125,
   structuralTransactionExtensionRequestV125
-} from './metadata.js';
+} from './persistent-v125/metadata.js';
 
 export {
   FenceRepresentationPolicy,
