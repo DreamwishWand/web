@@ -1,0 +1,44 @@
+name: QR Gallery Q&A frozen build
+
+on:
+  push:
+    branches:
+      - qr/community-gallery-qa-browser-20261003
+    paths:
+      - .github/workflows/qr-gallery-qa-frozen-build.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out frozen application source
+        uses: actions/checkout@v4
+        with:
+          ref: 775c5d50d80ad68c4c2c5f37f94bb09835222f12
+          fetch-depth: 1
+      - name: Verify frozen source
+        run: test "$(git rev-parse HEAD)" = "775c5d50d80ad68c4c2c5f37f94bb09835222f12"
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Build frozen production-shaped static site
+        env:
+          BASE_PATH: /web
+          VITE_SUPABASE_URL: ${{ vars.DREAMWISH_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.DREAMWISH_SUPABASE_PUBLISHABLE_KEY }}
+        run: npm run build
+      - name: Record source identity
+        run: printf '%s\n' '775c5d50d80ad68c4c2c5f37f94bb09835222f12' > build/QR_FROZEN_SOURCE_SHA.txt
+      - name: Upload frozen build
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr-gallery-qa-frozen-build-775c5d5
+          path: build/
+          if-no-files-found: error
+          retention-days: 1
