@@ -1,0 +1,266 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+import { SafeProfileEditSession } from '../src/lib/ddv/core/save/safe-edit-session.js';
+import {
+  createVerifiedWriteCandidate,
+  verifyWriteCandidate
+} from '../src/lib/ddv/core/save/transaction-foundation.js';
+import { BuildIdentityKind, PlatformFamily } from '../src/lib/ddv/core/save/versioning.js';
+import {
+  MIN_TRANSFORM_CONTRACT,
+  MUTATION_ADAPTER_ID,
+  classifyMinimumPersistentTransform,
+  buildMinimumTransformTransactionPlan,
+  minimumPersistentTransformAdapter
+} from '../src/lib/ddv/core/world/min-transform-write-v125.js';
+
+const encoder=new TextEncoder(),decoder=new TextDecoder();
+const targetBuild={platform:PlatformFamily.Switch,kind:BuildIdentityKind.SwitchBid,value:'52BD625D9B4E0053'};
+
+function profile(){
+  return {
+    GameInfo:{InitialVersion:518,Version:624,LastSaveDeviceInfo:{deviceType:'DeviceType_Switch'},OpaqueMetadata:{keep:'exact'}},
+    Player:{Level:50,OpaquePlayer:{keep:[1,2,3]}},
+    World:{
+      GridCollection:{Grids:{
+        '7':{
+          ID:7,GridDataPath:'GridData/Test/Test-GridData.json',GridDefaultLayoutPath:'',TessellationFactor:2,NextGridObjectID:100,
+          Objects:{
+            '42':{ID:42,ItemID:40000048,X:10,Y:20,Orientation:'GridOrientation_Up',State:null},
+            '99':{ID:99,ItemID:49999999,X:30,Y:30,Orientation:'GridOrientation_Up',State:{OpaqueState:{keep:true}}}
+          }
+        }
+      }},
+      OpaqueWorldState:{keep:{nested:['a','b']}},
+      ConditionalEventHistoryData:{Opaque:{keep:true}}
+    },
+    Settings:{Language:'en'}
+  };
+}
+function itemDefinition(overrides={}){
+  return {
+    itemID:40000048,concreteType:'FurnitureItemData',expansions:['BaseGame'],gameSource:null,
+    onlineSemantics:{isSyncOnlineItem:false,onlineCategory:{value:0,name:'Normal'}},
+    ownership:{profileAddItemRoute:'GENERIC_LIST',ownershipCanonicalItemID:40000048},
+    riskSignals:{
+      writeScopeTier:'CORE_STATELESS_FURNITURE',interaction:'None',isMissionItem:false,forPuzzleOnly:false,
+      nativePresetKnownRejectReasons:[],...overrides.riskSignals
+    },
+    ...Object.fromEntries(Object.entries(overrides).filter(([k])=>k!=='riskSignals'))
+  };
+}
+function coreClassification(overrides={}){
+  return {itemId:40000048,concreteType:'FurnitureItemData',stateKind:'NONE',layer:'furniture',editability:'editable',reasons:[],...overrides};
+}
+function rootEvidence(overrides={}){
+  return {relation:'ROOT',gridId:7,gridObjectId:42,objectMapKey:'42',rootGridId:7,parentAddress:null,rootOwnershipResolved:true,destinationRootGridId:7,...overrides};
+}
+function progressionRecord(overrides={}){
+  return {
+    schema:'ddv.progression-destination-veto-record@1',
+    gridObjectAddress:{gridId:7,gridObjectId:42},itemID:40000048,
+    ownershipClass:'UNCLASSIFIED_NO_POSITIVE_INFERENCE',phaseClass:'UNKNOWN',
+    activeReferenceDisposition:'NONE_OBSERVED',
+    references:{active:[],unknown:[],historical:[]},
+    operationVetoes:{MOVE:[],ROTATE:[],REMOVE:[],DUPLICATE:[],REPLACE:[],STATE_EDIT:[],PRESET_CAPTURE:[],DESTINATION_OVERWRITE:[]},
+    evidenceStatus:'UNKNOWN',reasonCodes:[],destinationProtected:false,negativeVetoFound:false,positivePermission:false,
+    ...overrides
+  };
+}
+function placementResult(overrides={}){
+  return {schema:'ddv.native-placement-legality@1',nativeClass:'NATIVE_VALID_CLEAR',reasonCodes:[],nativeConflictFlagsResolved:true,clearabilityResolved:true,persistentWriteAuthorized:false,...overrides};
+}
+function classify(root,{operation='MOVE',finalTransform={x:11,y:21,orientation:0},item=itemDefinition(),core=coreClassification(),rootEv=rootEvidence(),progression=progressionRecord(),placement=placementResult()}={}){
+  return classifyMinimumPersistentTransform({
+    source:{platform:'switch',gameVersion:'1.25.0',profileSchemaVersion:624,buildIdentity:'52BD625D9B4E0053'},
+    profile:root,target:{gridId:7,gridObjectId:42,itemId:40000048,objectMapKey:'42'},
+    itemDefinition:item,coreClassification:core,rootEvidence:rootEv,
+    progressionRecord:progression,placementResult:placement,operation,finalTransform
+  });
+}
+function readVersion(text){try{return JSON.parse(text)?.GameInfo?.Version??624;}catch{return 624;}}
+function codec(){
+  return {
+    contract:'p1g-v0',
+    async loadProfile(input){const text=decoder.decode(input);return {inputType:'plain',jsonText:text,metadata:{version:readVersion(text)}};},
+    parseProfileText(text){return {metadata:{version:readVersion(text)}};},
+    async createEncodedProfile(text){return encoder.encode(JSON.stringify(JSON.parse(text)));},
+    getProfileVersion(metadata){return metadata.version;}
+  };
+}
+async function sessionFor(root=profile()){
+  return SafeProfileEditSession.open({sourceBytes:encoder.encode(JSON.stringify(root)),codec:codec(),sourcePlatform:PlatformFamily.Switch});
+}
+async function txInput(session){
+  const ctx=session.getPreflightContext();
+  return {
+    platform:PlatformFamily.Switch,gameVersion:'1.25.0',profileGameInfoVersion:624,
+    originalFileLength:session.source.length,originalSha256:ctx.saveIdentity.sourceRawSha256,
+    codecContract:ctx.codecContract,targetBuild:{...targetBuild}
+  };
+}
+
+test('strict minimum MOVE classifier is positive only for exact stateless root Furniture + v1.15 clear + NATIVE_VALID_CLEAR',()=>{
+  const a=classify(profile());
+  assert.equal(a.schema,'ddv.minimum-persistent-transform-admissibility@1');
+  assert.equal(a.contract,MIN_TRANSFORM_CONTRACT);
+  assert.equal(a.status,'ADMISSIBLE');
+  assert.deepEqual(a.allowedSerializedFields,['X','Y']);
+  assert.deepEqual(a.beforeTransform,{x:10,y:20,orientation:0});
+  assert.deepEqual(a.serializedBeforeTransform,{x:10,y:20,orientation:'GridOrientation_Up'});
+  assert.deepEqual(a.serializedFinalTransform,{x:11,y:21,orientation:'GridOrientation_Up'});
+  assert.equal(a.persistentWriteAuthorized,false);
+  assert.equal(a.WORLD_PERSISTENT_WRITE_V125,false);
+});
+
+test('strict minimum ROTATE classifier permits anchor X/Y adjustment and preserves enum-string serialization',()=>{
+  const a=classify(profile(),{operation:'ROTATE',finalTransform:{x:9,y:21,orientation:4}});
+  assert.equal(a.status,'ADMISSIBLE');
+  assert.deepEqual(a.allowedSerializedFields,['X','Y','Orientation']);
+  assert.deepEqual(a.finalTransform,{x:9,y:21,orientation:4});
+  assert.deepEqual(a.serializedFinalTransform,{x:9,y:21,orientation:'GridOrientation_Right'});
+});
+
+test('positive authority is not inferred from missing restriction or v1.15 no-veto alone',()=>{
+  const noTier=classify(profile(),{item:itemDefinition({riskSignals:{writeScopeTier:undefined}})});
+  assert.equal(noTier.status,'REJECTED');
+  assert.ok(noTier.reasonCodes.includes('CORE_STATELESS_BASEGAME_FURNITURE_REQUIRED'));
+  const readonly=classify(profile(),{core:coreClassification({editability:'readonly',reasons:['GRID_EDIT_RESTRICTION_PRESENT']})});
+  assert.equal(readonly.status,'REJECTED');
+  assert.ok(readonly.reasonCodes.includes('CORE_OBJECT_CLASSIFICATION_NOT_EDITABLE_STATELESS_FURNITURE'));
+});
+
+test('Building/SubGrid/state/source-field/special interaction are fail-closed',()=>{
+  const building=classify(profile(),{item:itemDefinition({concreteType:'BuildingItemData'}),core:coreClassification({concreteType:'BuildingItemData',layer:'building',editability:'readonly',reasons:['BUILDING_READ_ONLY']})});
+  assert.equal(building.status,'REJECTED');
+
+  const sub=profile();sub.World.GridCollection.Grids['7'].Objects['42'].State={SubGrid:{GridID:88,DesignID:null}};
+  const subResult=classify(sub,{core:coreClassification({stateKind:'SubGrid'})});
+  assert.ok(subResult.reasonCodes.includes('GRIDOBJECT_STATE_MUST_BE_NULL'));
+
+  const sourced=profile();sourced.World.GridCollection.Grids['7'].Objects['42'].From='Mission';
+  assert.ok(classify(sourced).reasonCodes.includes('GRIDOBJECT_EXTRA_OR_SOURCE_FIELD_UNSUPPORTED'));
+
+  const interactive=classify(profile(),{item:itemDefinition({riskSignals:{writeScopeTier:'STATEFUL_INTERACTION',interaction:'Toggle'}})});
+  assert.equal(interactive.status,'REJECTED');
+});
+
+test('non-root/cross-root evidence and progression references are fail-closed',()=>{
+  const nested=classify(profile(),{rootEv:rootEvidence({relation:'SUBGRID_CHILD',rootGridId:5,parentAddress:{gridId:5,gridObjectId:1}})});
+  assert.ok(nested.reasonCodes.includes('EXACT_ROOT_RELATION_REQUIRED'));
+
+  const active=classify(profile(),{progression:progressionRecord({
+    activeReferenceDisposition:'ACTIVE_EXACT_ADDRESS',
+    references:{active:['r1'],unknown:[],historical:[]},
+    negativeVetoFound:true,destinationProtected:true,
+    operationVetoes:{MOVE:['PROTECTED'],ROTATE:[]}
+  })});
+  assert.ok(active.reasonCodes.includes('PROGRESSION_CLEAR_REQUIRED'));
+
+  const historical=classify(profile(),{progression:progressionRecord({
+    activeReferenceDisposition:'HISTORICAL_ONLY',references:{active:[],unknown:[],historical:['h1']}
+  })});
+  assert.ok(historical.reasonCodes.includes('PROGRESSION_CLEAR_REQUIRED'));
+});
+
+test('premium/DLC/online-sync and unresolved ownership-route families are excluded',()=>{
+  const premium=classify(profile(),{item:itemDefinition({onlineSemantics:{isSyncOnlineItem:true,onlineCategory:{value:1,name:'Premium'}}})});
+  assert.ok(premium.reasonCodes.includes('CORE_STATELESS_BASEGAME_FURNITURE_REQUIRED'));
+  const dlc=classify(profile(),{item:itemDefinition({expansions:['Expansion1']})});
+  assert.ok(dlc.reasonCodes.includes('CORE_STATELESS_BASEGAME_FURNITURE_REQUIRED'));
+  const route=classify(profile(),{item:itemDefinition({ownership:{profileAddItemRoute:'SPECIAL',ownershipCanonicalItemID:40000048}})});
+  assert.ok(route.reasonCodes.includes('CORE_STATELESS_BASEGAME_FURNITURE_REQUIRED'));
+});
+
+test('only exact NATIVE_VALID_CLEAR is admissible; replace/remove and unknown fail closed',()=>{
+  for(const nativeClass of ['NATIVE_VALID_REPLACES_OR_REMOVES_EXISTING','NATIVE_INVALID','NATIVE_UNKNOWN_UNVERIFIED']){
+    const r=classify(profile(),{placement:placementResult({nativeClass})});
+    assert.equal(r.status,'REJECTED');
+    assert.ok(r.reasonCodes.includes('NATIVE_VALID_CLEAR_REQUIRED'));
+  }
+});
+
+test('non-cardinal transforms and operation semantic violations fail closed',()=>{
+  const nonCard=classify(profile(),{operation:'ROTATE',finalTransform:{x:10,y:20,orientation:2}});
+  assert.ok(nonCard.reasonCodes.includes('CARDINAL_ORIENTATION_REQUIRED'));
+  const moveRotate=classify(profile(),{operation:'MOVE',finalTransform:{x:11,y:20,orientation:4}});
+  assert.ok(moveRotate.reasonCodes.includes('MOVE_ORIENTATION_MUST_BE_PRESERVED'));
+  const rotateNoOp=classify(profile(),{operation:'ROTATE',finalTransform:{x:10,y:20,orientation:0}});
+  assert.ok(rotateNoOp.reasonCodes.includes('ROTATE_ORIENTATION_MUST_CHANGE'));
+});
+
+test('MOVE adapter binds to 01A transaction engine with exact X/Y semantic diff and preservation',async()=>{
+  const root=profile(),a=classify(root);
+  assert.equal(a.status,'ADMISSIBLE');
+  const session=await sessionFor(root);
+  const plan=buildMinimumTransformTransactionPlan({
+    admissibility:a,transactionInput:await txInput(session),
+    nextGridObjectId:100,planId:'min-move-1'
+  });
+  assert.equal(plan.mutationAdapter.id,MUTATION_ADAPTER_ID);
+  assert.equal(plan.operation.kind,'MOVE');
+  assert.deepEqual(plan.allowedChanges.map(x=>x.path),[
+    '/World/GridCollection/Grids/7/Objects/42/X',
+    '/World/GridCollection/Grids/7/Objects/42/Y'
+  ]);
+  const candidate=await createVerifiedWriteCandidate({session,plan,adapter:minimumPersistentTransformAdapter});
+  assert.deepEqual(new Set(candidate.manifest.semanticDiff.intentionalChangedPaths),new Set(plan.allowedChanges.map(x=>x.path)));
+  assert.deepEqual(candidate.manifest.semanticDiff.unrelatedChangedPaths,[]);
+  assert.deepEqual(candidate.manifest.semanticDiff.unknownChangedPaths,[]);
+  assert.equal(candidate.manifest.semanticDiff.identityDelta.changed,false);
+  assert.equal(candidate.manifest.capability.writeCandidate,true);
+  assert.equal(candidate.manifest.capability.persistentWrite,false);
+  assert.equal(candidate.manifest.persistentWriteAuthorized,false);
+  assert.equal(candidate.manifest.WORLD_PERSISTENT_WRITE_V125,false);
+  const verified=await verifyWriteCandidate({candidate,codec:codec()});
+  assert.equal(verified.status,'PASS');
+
+  const reopened=await SafeProfileEditSession.open({sourceBytes:candidate.candidateBytes,codec:codec(),sourcePlatform:PlatformFamily.Switch});
+  const snap=reopened.getSnapshot(),o=snap.World.GridCollection.Grids['7'].Objects['42'];
+  assert.equal(o.X,11);assert.equal(o.Y,21);assert.equal(o.Orientation,'GridOrientation_Up');
+  assert.equal(o.ID,42);assert.equal(o.ItemID,40000048);assert.equal(o.State,null);
+  assert.equal(snap.World.GridCollection.Grids['7'].NextGridObjectID,100);
+  assert.deepEqual(snap.World.GridCollection.Grids['7'].Objects['99'].State,{OpaqueState:{keep:true}});
+  assert.deepEqual(snap.World.OpaqueWorldState,{keep:{nested:['a','b']}});
+  assert.deepEqual(snap.Player.OpaquePlayer,{keep:[1,2,3]});
+});
+
+test('ROTATE adapter binds to 01A engine with exact X/Y/Orientation diff and enum representation',async()=>{
+  const root=profile(),a=classify(root,{operation:'ROTATE',finalTransform:{x:9,y:21,orientation:4}});
+  assert.equal(a.status,'ADMISSIBLE');
+  const session=await sessionFor(root);
+  const plan=buildMinimumTransformTransactionPlan({
+    admissibility:a,transactionInput:await txInput(session),
+    nextGridObjectId:100,planId:'min-rotate-1'
+  });
+  assert.deepEqual(plan.allowedChanges.map(x=>x.path),[
+    '/World/GridCollection/Grids/7/Objects/42/X',
+    '/World/GridCollection/Grids/7/Objects/42/Y',
+    '/World/GridCollection/Grids/7/Objects/42/Orientation'
+  ]);
+  const candidate=await createVerifiedWriteCandidate({session,plan,adapter:minimumPersistentTransformAdapter});
+  assert.deepEqual(new Set(candidate.manifest.semanticDiff.intentionalChangedPaths),new Set(plan.allowedChanges.map(x=>x.path)));
+  const verified=await verifyWriteCandidate({candidate,codec:codec()});
+  assert.equal(verified.status,'PASS');
+  const reopened=await SafeProfileEditSession.open({sourceBytes:candidate.candidateBytes,codec:codec(),sourcePlatform:PlatformFamily.Switch});
+  const o=reopened.getSnapshot().World.GridCollection.Grids['7'].Objects['42'];
+  assert.deepEqual({X:o.X,Y:o.Y,Orientation:o.Orientation},{X:9,Y:21,Orientation:'GridOrientation_Right'});
+});
+
+test('semantic adapter rejects an overbroad MOVE plan that tries to authorize Orientation',async()=>{
+  const root=profile(),a=classify(root),session=await sessionFor(root);
+  const plan=structuredClone(buildMinimumTransformTransactionPlan({
+    admissibility:a,transactionInput:await txInput(session),nextGridObjectId:100,planId:'tampered-move'
+  }));
+  plan.allowedChanges.push({path:'/World/GridCollection/Grids/7/Objects/42/Orientation',classification:'INTENTIONAL'});
+  await assert.rejects(
+    createVerifiedWriteCandidate({session,plan,adapter:minimumPersistentTransformAdapter}),
+    /MIN_TRANSFORM_ALLOWED_PATHS_MISMATCH/
+  );
+});
+
+test('writer boundary stays false despite positive semantic closure',()=>{
+  assert.equal(minimumPersistentTransformAdapter.persistentWriteAuthorized,false);
+  assert.equal(minimumPersistentTransformAdapter.WORLD_PERSISTENT_WRITE_V125,false);
+});
