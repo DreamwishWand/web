@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from 'playwright-core';
@@ -431,6 +432,10 @@ const progressionDestinationFixture = {
 
 function cssObject(prefix) {
   return `g[data-editor-object][aria-label^="${prefix} at"]`;
+}
+
+function sha256Hex(bytes) {
+  return createHash('sha256').update(bytes).digest('hex');
 }
 
 async function text(locator) {
@@ -1186,6 +1191,8 @@ async function runVerifiedExportAcceptance(page, report) {
   );
   await editedDownload.saveAs(editedPath);
   const editedBytes = await readFile(editedPath);
+  const originalSha256 = sha256Hex(packagedBytes);
+  const editedSha256 = sha256Hex(editedBytes);
   assert.notDeepEqual(
     editedBytes,
     packagedBytes,
@@ -1229,6 +1236,8 @@ async function runVerifiedExportAcceptance(page, report) {
   );
   assert.equal(manifest.schemaVersion, 2);
   assert.equal(manifest.operation.kind, 'MOVE');
+  assert.equal(manifest.sourceSha256, originalSha256);
+  assert.equal(manifest.editedSha256, editedSha256);
   assert.equal(manifest.persistentWriteAuthorized, false);
   assert.equal(manifest.WORLD_PERSISTENT_WRITE_V125, false);
 
@@ -1257,7 +1266,13 @@ async function runVerifiedExportAcceptance(page, report) {
     editedReplacementDownload: 'PASS',
     manifest: 'PASS',
     integrityBundle: 'PASS',
-    sourceOverwrite: 'NOT_PERFORMED'
+    sourceOverwrite: 'NOT_PERFORMED',
+    originalSha256,
+    editedSha256,
+    candidateByteIdentity:
+      manifest.editedSha256 === editedSha256 ? 'PASS' : 'FAIL',
+    candidateContract: manifest.transactionCandidateContract,
+    verificationContract: manifest.transactionVerificationContract
   };
 
   await page.screenshot({
