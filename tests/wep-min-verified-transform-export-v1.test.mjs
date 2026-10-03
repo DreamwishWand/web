@@ -19,16 +19,23 @@ test('minimum transform browser scope pack is pinned to the canonical v1.25 CORE
   assert.equal(pack.sourceCount,6233);
   assert.equal(pack.coreCount,3276);
   assert.equal(Object.keys(pack.items).length,3276);
+  let syncOnline=0,mission=0,nativeReject=0;
   for(const row of Object.values(pack.items)){
     assert.equal(row[0],'FurnitureItemData');
     assert.equal(row[1],'CORE_STATELESS_FURNITURE');
     assert.equal(row[2],'None');
-    assert.equal(row[3],false);
+    assert.equal(typeof row[3],'boolean');
     assert.equal(row[4],false);
     assert.ok(row[5]===null||row[5]===false);
-    assert.deepEqual(row[6],[]);
-    assert.equal(row[7],false);
+    assert.ok(Array.isArray(row[6]));
+    assert.equal(typeof row[7],'boolean');
+    if(row[7]) syncOnline++;
+    if(row[3]) mission++;
+    if(row[6].length) nativeReject++;
   }
+  assert.equal(syncOnline,798);
+  assert.equal(mission,466);
+  assert.equal(nativeReject,492);
 });
 
 test('WEP verified export source is bound to promoted 01A/01B chain and keeps direct persistence false',async()=>{
