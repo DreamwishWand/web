@@ -156,7 +156,14 @@ export function compileRoadMutationV125({
       fail('UNKNOWN_ROADFENCE_FAMILY');
     }
 
-    checkRoadSourceFamily(sourceNetwork, network, operation);
+    const normalizedSourceNetwork = sourceNetwork == null
+      ? null
+      : normalizeRoadNetwork(sourceNetwork);
+    checkRoadSourceFamily(
+      normalizedSourceNetwork,
+      network,
+      operation
+    );
     const support = classifyRoadWriterSupport(
       network,
       operation,
@@ -239,6 +246,10 @@ export function compileFenceMutationV125({
     );
     if (!family) fail('UNKNOWN_ROADFENCE_FAMILY');
 
+    const normalizedSourceNetwork = sourceNetwork == null
+      ? null
+      : normalizeFenceNetwork(sourceNetwork);
+
     if (
       REPRESENTATION_ONLY_FENCE_OPS.has(operation) &&
       representationLayout == null
@@ -246,7 +257,7 @@ export function compileFenceMutationV125({
       fail('FENCE_REPRESENTATION_LAYOUT_REQUIRED');
     }
     checkFenceRepresentationTopology(
-      sourceNetwork,
+      normalizedSourceNetwork,
       network,
       operation
     );
@@ -259,7 +270,7 @@ export function compileFenceMutationV125({
     );
     const expectedSourceFamilyBaseItemID =
       operation === RoadFencePersistentOperation.FENCE_STYLE_REPLACE
-        ? sourceNetwork?.familyBaseItemID
+        ? normalizedSourceNetwork?.familyBaseItemID
         : network.familyBaseItemID;
     if (
       (sourceObjectIds ?? []).length &&
@@ -287,7 +298,7 @@ export function compileFenceMutationV125({
     const support = classifyFenceWriterSupport(
       network,
       planned,
-      { operation, sourceNetwork }
+      { operation, sourceNetwork: normalizedSourceNetwork }
     );
     requireWritableSupport(support);
 
