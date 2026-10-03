@@ -158,6 +158,20 @@ export function reconcileNativeRepresentation({
     'NextGridObjectID'
   );
   const existingIds = new Set(allObjects.map((object) => object.id));
+  const maximumExistingId = allObjects.length
+    ? Math.max(...allObjects.map((object) => object.id))
+    : 0;
+  if (nextBefore <= maximumExistingId) {
+    fail(
+      'GRIDOBJECT_ID_ALLOCATION_INVALID',
+      'NextGridObjectID must be greater than every existing GridObject ID',
+      { nextGridObjectID: nextBefore, maximumExistingId }
+    );
+  }
+  const nextAfter = nextBefore + pending.length;
+  if (!Number.isSafeInteger(nextAfter)) {
+    fail('GRIDOBJECT_ID_ALLOCATION_INVALID', String(nextAfter));
+  }
   const created = pending.map((descriptor, index) => {
     const id = nextBefore + index;
     if (!Number.isSafeInteger(id) || existingIds.has(id)) {
@@ -220,7 +234,7 @@ export function reconcileNativeRepresentation({
     replacementIdentityPairs,
     nextGridObjectID: {
       before: nextBefore,
-      after: nextBefore + created.length
+      after: nextAfter
     },
     nativeObjectCount: {
       before: owned.length,
