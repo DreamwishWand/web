@@ -101,5 +101,6 @@
     "fenceSavePitch": "source Grid.TessellationFactor; positive only",
     "arbitraryScaling": false,
     "negativePitchMirroring": false
-  }
+  },
+  "outputSchemaFile": "contracts/roadfence-native-mutation-set.schema.json"
 }
