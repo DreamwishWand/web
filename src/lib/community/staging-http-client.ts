@@ -496,6 +496,18 @@ export class CommunityLabClient {
     return this.#edge<EdgeResult<T>>('community-media', { action, ...payload });
   }
 
+  /**
+   * WEP-owned Preset artifact transport. This restores the accepted WEP
+   * browser bridge on top of the current Community client without changing
+   * Community command/query/auth semantics.
+   */
+  async preset<T = unknown>(
+    action: string,
+    payload: Record<string, unknown> = {}
+  ): Promise<EdgeResult<T>> {
+    return this.#edge<EdgeResult<T>>('wep-preset-artifact', { action, ...payload });
+  }
+
   async admin<T = unknown>(
     operation: string,
     payload: Record<string, unknown> = {}
