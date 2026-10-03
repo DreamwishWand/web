@@ -1,8 +1,8 @@
 {
   "schema": "ddv.minimum-persistent-transform-semantics@1",
-  "artifactId": "DDV-MINIMUM-PERSISTENT-TRANSFORM-SEMANTICS-V125-V1_0-CANDIDATE",
-  "version": "v1.0-candidate",
-  "status": "SOURCE_CONTRACT_READY_PENDING_CI",
+  "artifactId": "DDV-MINIMUM-PERSISTENT-TRANSFORM-SEMANTICS-V125-V1_0",
+  "version": "v1.0",
+  "status": "PROMOTED",
   "semanticOwner": "01B CORE - World / Grid / Buildings",
   "requestId": "01A-TO-01B-MIN-TRANSFORM-WRITE-SEMANTICS-V125",
   "target": {
@@ -407,8 +407,22 @@
     ]
   },
   "integratorReturn": {
-    "status": "PENDING_CI_AND_REVIEW",
-    "nextIfPromoted": "Activate 01E only for controlled exact-build runtime persistence/cold-reload acceptance.",
+    "status": "ACCEPTED",
+    "reviewFindings": [
+      "Classifier now consumes canonical flat v1.25 scopeIndex records rather than an invented nested definition shape.",
+      "Historical-only progression references are allowed when no ACTIVE/UNKNOWN reference or operation veto exists; all historical state remains unchanged.",
+      "Placement gate is bound to the real promoted/current v1.25 placement-v125.cjs revision and exact VALID result shape.",
+      "Root proof is bound to the actual Editor source address shape.",
+      "Semantic-owner adapter verifies exact allowed paths, required identity/State/transform pre/postconditions, NextGridObjectID preservation and 01A preservation policies."
+    ],
+    "ci": {
+      "pushRunId": 37086764008,
+      "pushRunNumber": 1862,
+      "pullRequestRunId": 37086766670,
+      "pullRequestRunNumber": 1863,
+      "conclusion": "SUCCESS"
+    },
+    "next": "01E controlled exact-build runtime persistence/cold-reload acceptance",
     "persistentWriteAuthorized": false,
     "WORLD_PERSISTENT_WRITE_V125": false
   }
