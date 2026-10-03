@@ -131,8 +131,26 @@ export function reconcileNativeRepresentation({
     });
   }
 
-  const deleted = owned
-    .filter((object) => !matchedIds.has(object.id))
+  const deletedSourceObjects = owned.filter(
+    (object) => !matchedIds.has(object.id)
+  );
+  for (const object of deletedSourceObjects) {
+    const known = new Set([
+      'ID', 'ItemID', 'X', 'Y', 'Orientation', 'State'
+    ]);
+    const unknownFields = Object.keys(object.raw).filter(
+      (field) => !known.has(field)
+    );
+    if (unknownFields.length) {
+      fail(
+        'ROADFENCE_SOURCE_OBJECT_UNKNOWN_FIELD_REPLACEMENT_UNSUPPORTED',
+        'owned Road/Fence object with unknown fields cannot be deleted or replaced',
+        { gridObjectId: object.id, unknownFields }
+      );
+    }
+  }
+
+  const deleted = deletedSourceObjects
     .map((object) => {
       const fenceDescriptor = catalog.fenceItems.get(object.itemID);
       return {

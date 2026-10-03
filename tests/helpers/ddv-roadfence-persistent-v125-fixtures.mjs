@@ -1,4 +1,7 @@
 import { FenceMode } from '../../src/lib/ddv/core/roadfence/logical.js';
+import {
+  fenceLogicalTopologyFingerprint
+} from '../../src/lib/ddv/core/roadfence/representation-layout-v125.ts';
 
 export const BUILD_V125_SWITCH = Object.freeze({
   platform: 'Nintendo Switch',
@@ -102,25 +105,107 @@ export function lineFence(
   };
 }
 
+export function generatedFenceLayoutRequest() {
+  return {
+    contract: 'ddv.fence-generated-layout-request@1',
+    policy: 'GENERATED_NATIVE_GREEDY',
+    explicitUserAction: true
+  };
+}
+
 export function straightFenceLayout(
   quantity,
   postIndexes,
   policy = 'EXACT_PRESERVATION',
-  mode = FenceMode.ORTHOGONAL
+  mode = FenceMode.ORTHOGONAL,
+  familyBaseItemID = 40700246,
+  modeBoundaryNodeIds = []
 ) {
-  return {
-    contract: 'ddv.fence-representation-layout@1',
-    policy,
-    runs: [
-      {
+  const nodes = Array.from(
+    { length: quantity },
+    (_, index) => ({
+      id: 'n' + String(index),
+      x: index,
+      y: mode === FenceMode.DIAGONAL ? index : 0,
+      mode
+    })
+  );
+  const edges = Array.from(
+    { length: Math.max(0, quantity - 1) },
+    (_, index) => ({
+      a: 'n' + String(index),
+      b: 'n' + String(index + 1)
+    })
+  );
+  const boundary = new Set(modeBoundaryNodeIds.map(String));
+  const anchors = [];
+  if (quantity >= 1) {
+    anchors.push({
+      nodeId: 'n0',
+      x: nodes[0].x,
+      y: nodes[0].y,
+      reason: boundary.has('n0') ? 'MODE_BOUNDARY' : 'ENDPOINT'
+    });
+  }
+  if (quantity > 1) {
+    const lastId = 'n' + String(quantity - 1);
+    anchors.push({
+      nodeId: lastId,
+      x: nodes.at(-1).x,
+      y: nodes.at(-1).y,
+      reason: boundary.has(lastId) ? 'MODE_BOUNDARY' : 'ENDPOINT'
+    });
+  }
+  const runs = quantity > 1
+    ? [{
+        runId: 'run:0',
         mode,
-        fromNodeId: 'n0',
-        toNodeId: 'n' + String(quantity - 1),
-        postNodeIds: postIndexes.map(
-          (index) => 'n' + String(index)
-        )
-      }
-    ]
+        nodeIds: nodes.map((node) => node.id),
+        startAnchorNodeId: 'n0',
+        endAnchorNodeId: 'n' + String(quantity - 1),
+        intervalLength: quantity - 1
+      }]
+    : [];
+  const logicalTopology = {
+    familyBaseItemID,
+    mode,
+    logicalQuantity: quantity,
+    graph: { nodes, edges },
+    modeBoundaryNodeIds: [...boundary],
+    semanticAnchors: anchors,
+    runs
+  };
+  const manual =
+    policy === 'EXPLICIT_USER_LAYOUT' ||
+    policy === 'MANUAL_PINNED_POSTS';
+  return {
+    schema: 'ddv.fence-representation-layout@1',
+    contractSource: {
+      gameVersion: '1.25.0',
+      platform: 'Nintendo Switch'
+    },
+    networkId: 'fixture',
+    logicalTopology,
+    representationLayout: {
+      intent: manual ? 'GENERATED_DESIGN' : 'EXACT_PRESERVATION',
+      policy: manual ? 'MANUAL_PINNED_POSTS' : 'PRESERVE_EXISTING',
+      posts: postIndexes.map((index) => ({
+        kind: 'DEGREE2_INTERIOR_POST',
+        nodeId: 'n' + String(index),
+        runId: 'run:0',
+        x: nodes[index]?.x,
+        y: nodes[index]?.y,
+        pinned: true,
+        source: manual ? 'MANUAL' : 'CAPTURED_NATIVE_BASE'
+      }))
+    },
+    invariants: {
+      sourceTopologyFingerprint:
+        fenceLogicalTopologyFingerprint(logicalTopology),
+      sourceLogicalQuantity: quantity
+    },
+    provenance: { fixture: true },
+    persistentWriteAuthorized: false
   };
 }
 

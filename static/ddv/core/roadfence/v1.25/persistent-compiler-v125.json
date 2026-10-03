@@ -13,9 +13,10 @@
   "inputContracts": {
     "road": "logical Road network with explicit resolved per-cell mode",
     "fenceTopology": "logical Fence topology",
-    "fenceRepresentationLayout": "ddv.fence-representation-layout@1",
+    "fenceRepresentationLayout": "canonical ddv.fence-representation-layout@1 for captured/manual layouts; generated topology requires explicit ddv.fence-generated-layout-request@1",
     "catalog": "dreamwish-wand-roadfence-native-catalog@v1",
-    "surface": "external authoritative world-surface validation"
+    "surface": "external authoritative world-surface validation",
+    "modeBoundaryBatch": "WEP mode-homogeneous Fence networks plus native-reader modeBoundaryTouches; v1 writer admits only exact promoted FM01 boundary batch"
   },
   "outputContract": "ddv.roadfence-native-mutation-set@1",
   "identityLifecycle": {
@@ -67,7 +68,11 @@
     "maxSpanRule": "1 + max(exactExtensionKeys(family, mode))",
     "adjacentBaseInterval": 1,
     "silentRedistribution": false,
-    "singletonSemanticBaseMaterialization": true
+    "singletonSemanticBaseMaterialization": true,
+    "canonicalRepresentationModelRequired": true,
+    "silentAutoLayout": false,
+    "generatedLayoutRequiresExplicitRequest": true,
+    "modeBoundaryCompilation": "compile each mode-homogeneous network independently and reconcile one atomic GridObject-set mutation; exact FM01 only"
   },
   "quantity": {
     "roadLogicalQuantity": "persistent Road cell count",
@@ -94,7 +99,9 @@
     "sourceReplacementAuthorized": false,
     "equalQ5IndentedSmoothWriterSemantic": false,
     "unsupportedVariantsFailClosed": true,
-    "disconnectedRoadMultiComponentSingleCall": false
+    "disconnectedRoadMultiComponentSingleCall": false,
+    "ownedSourceUnknownFieldDeletionOrReplacement": false,
+    "preservedOwnedUnknownFieldsRemainOpaque": true
   },
   "transformQuantum": {
     "roadSavePitch": "2 * source Grid.TessellationFactor; positive only",

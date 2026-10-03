@@ -4,13 +4,22 @@ import {
   createFenceNetwork,
   resolveFenceExtensionNativePlacement
 } from '../logical.js';
-import { FenceRepresentationPolicy, persistentModeState } from './constants.js';
+import {
+  FENCE_GENERATED_LAYOUT_REQUEST_CONTRACT,
+  FenceRepresentationPolicy,
+  persistentModeState
+} from './constants.js';
+import {
+  FENCE_REPRESENTATION_LAYOUT_SCHEMA,
+  validateFenceRepresentationLayoutModel
+} from '../representation-layout-v125.ts';
 import {
   clone,
   descriptorOrder,
   fail,
   logicalToSave,
-  positiveInteger
+  positiveInteger,
+  topologyFingerprintIgnoringFamily
 } from './common.js';
 
 export function normalizeFenceNetwork(input) {
@@ -93,22 +102,87 @@ export function planFenceNativeV125({
     });
   }
 
-  const layout =
-    !representationLayout ||
-    representationLayout.policy === FenceRepresentationPolicy.GENERATED_NATIVE_GREEDY
-      ? generatedGreedyLayout(network, compiled, family)
-      : clone(representationLayout);
-
-  if (
-    layout.contract !== 'ddv.fence-representation-layout@1' ||
-    !Array.isArray(layout.runs)
-  ) {
-    fail('FENCE_REPRESENTATION_LAYOUT_CONTRACT_MISMATCH');
+  if (!representationLayout) {
+    fail(
+      'FENCE_REPRESENTATION_LAYOUT_REQUIRED',
+      'persistent Fence compilation never chooses a representation policy implicitly'
+    );
   }
 
-  const supportedPolicies = new Set(Object.values(FenceRepresentationPolicy));
-  if (!supportedPolicies.has(layout.policy)) {
-    fail('FENCE_REPRESENTATION_LAYOUT_POLICY_UNSUPPORTED');
+  let layout;
+  let publicRepresentationLayout;
+
+  if (
+    representationLayout.contract === FENCE_GENERATED_LAYOUT_REQUEST_CONTRACT &&
+    representationLayout.policy === FenceRepresentationPolicy.GENERATED_NATIVE_GREEDY
+  ) {
+    layout = generatedGreedyLayout(network, compiled, family);
+    publicRepresentationLayout = {
+      contract: 'ddv.fence-generated-layout-resolution@1',
+      request: clone(representationLayout),
+      policy: FenceRepresentationPolicy.GENERATED_NATIVE_GREEDY,
+      runs: clone(layout.runs)
+    };
+  } else if (
+    representationLayout.schema === FENCE_REPRESENTATION_LAYOUT_SCHEMA
+  ) {
+    const validation = validateFenceRepresentationLayoutModel(
+      representationLayout
+    );
+    if (!validation.ok) {
+      fail(
+        'FENCE_REPRESENTATION_LAYOUT_INVALID',
+        'canonical representationLayout validation failed',
+        { issues: clone(validation.issues ?? []) }
+      );
+    }
+    if (
+      Number(representationLayout.logicalTopology?.familyBaseItemID) !==
+        Number(network.familyBaseItemID) ||
+      Number(representationLayout.logicalTopology?.logicalQuantity) !==
+        Number(network.graph.nodes.length) ||
+      topologyFingerprintIgnoringFamily({
+        kind: 'fence',
+        graph: representationLayout.logicalTopology?.graph
+      }) !== topologyFingerprintIgnoringFamily(network)
+    ) {
+      fail('FENCE_REPRESENTATION_LAYOUT_NETWORK_MISMATCH');
+    }
+
+    const mode = String(representationLayout.logicalTopology?.mode ?? '');
+    if (
+      !network.graph.nodes.every(
+        (node) => String(node.mode ?? mode) === mode
+      )
+    ) {
+      fail('FENCE_REPRESENTATION_LAYOUT_MODE_MISMATCH');
+    }
+
+    const postsByRun = new Map();
+    for (const post of representationLayout.representationLayout?.posts ?? []) {
+      const runId = String(post?.runId ?? '');
+      const bucket = postsByRun.get(runId) ?? [];
+      bucket.push(String(post?.nodeId ?? ''));
+      postsByRun.set(runId, bucket);
+    }
+    layout = {
+      contract: FENCE_REPRESENTATION_LAYOUT_SCHEMA,
+      policy: String(
+        representationLayout.representationLayout?.policy ?? ''
+      ),
+      runs: (validation.runs ?? []).map((run) => ({
+        runId: String(run.runId),
+        mode: String(run.mode),
+        fromNodeId: String(run.startAnchorNodeId),
+        toNodeId: String(run.endAnchorNodeId),
+        postNodeIds: [
+          ...(postsByRun.get(String(run.runId)) ?? [])
+        ]
+      }))
+    };
+    publicRepresentationLayout = clone(representationLayout);
+  } else {
+    fail('FENCE_REPRESENTATION_LAYOUT_CONTRACT_MISMATCH');
   }
 
   const nodeById = new Map(
@@ -257,7 +331,8 @@ export function planFenceNativeV125({
     logicalQuantity: network.graph.nodes.length,
     nativeObjectCount: objects.length,
     objects,
-    representationLayout: layout,
+    representationLayout: publicRepresentationLayout,
+    resolvedRepresentationLayout: layout,
     compiled
   };
 }

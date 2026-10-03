@@ -6,6 +6,7 @@ import {
   RoadFencePersistentOperation,
   RoadFenceWriterSupportStatus,
   compileFenceMutationV125,
+  compileFenceNetworkBatchV125,
   compileRoadMutationV125,
   roadFencePersistentCompilerMetadataV125,
   roadFenceStructuralTransactionExtensionRequestV125
@@ -17,12 +18,16 @@ import {
 import { ROADFENCE_NATIVE_CATALOG_SWITCH_V125 } from '../src/lib/ddv/core/roadfence/catalog-v125-switch.js';
 import { readRoadFenceNativeGridV125 } from '../src/lib/ddv/core/roadfence/native-reader-v125.js';
 import {
+  fenceLogicalTopologyFingerprint
+} from '../src/lib/ddv/core/roadfence/representation-layout-v125.ts';
+import {
   BUILD_V125_SWITCH,
   applyMutation,
   lineFence,
   makeGrid,
   makeObject,
   orthogonalRectCells,
+  generatedFenceLayoutRequest,
   roadNetwork,
   straightFenceLayout
 } from './helpers/ddv-roadfence-persistent-v125-fixtures.mjs';
@@ -52,7 +57,7 @@ function compileFence({
   sourceObjectIds = [],
   sourceNetwork = null,
   desiredNetwork,
-  representationLayout = null,
+  representationLayout = generatedFenceLayoutRequest(),
   operation = RoadFencePersistentOperation.FENCE_SET_TOPOLOGY,
   transform = { originSave: { x: 0, y: 0 }, pitchX: 2, pitchY: 2 }
 }) {
@@ -469,17 +474,29 @@ test('Fence representation edits reject over-max spans, semantic anchors and top
       ]
     }
   };
-  const badLayout = {
-    contract: 'ddv.fence-representation-layout@1',
-    policy: FenceRepresentationPolicy.EXPLICIT_USER_LAYOUT,
-    runs: [
-      { mode: FenceMode.ORTHOGONAL, fromNodeId: 'a', toNodeId: 'c', postNodeIds: ['c'] },
-      { mode: FenceMode.ORTHOGONAL, fromNodeId: 'c', toNodeId: 'e', postNodeIds: [] }
-    ]
-  };
-  const anchorBlocked = compileFence({ desiredNetwork: corner, representationLayout: badLayout });
+  const endpointModel = straightFenceLayout(
+    3,
+    [],
+    FenceRepresentationPolicy.EXPLICIT_USER_LAYOUT
+  );
+  endpointModel.representationLayout.posts.push({
+    kind: 'DEGREE2_INTERIOR_POST',
+    nodeId: 'n0',
+    runId: 'run:0',
+    x: 0,
+    y: 0,
+    pinned: true,
+    source: 'MANUAL'
+  });
+  const anchorBlocked = compileFence({
+    desiredNetwork: lineFence(3),
+    representationLayout: endpointModel
+  });
   assert.equal(anchorBlocked.ok, false);
-  assert.equal(anchorBlocked.failClosedReason.code, 'FENCE_POST_SEMANTIC_ANCHOR_IMMUTABLE');
+  assert.equal(
+    anchorBlocked.failClosedReason.code,
+    'FENCE_REPRESENTATION_LAYOUT_INVALID'
+  );
 
   const topologyBlocked = compileFence({
     sourceNetwork: lineFence(4),
@@ -628,6 +645,256 @@ test('unrelated GridObject and opaque Grid metadata survive application unchange
   assert.equal(output.Objects['101'].ID, 101);
   assert.equal(Object.values(output.Objects).filter((entry) => entry.ID === 100).length, 1);
   assert.equal(Object.values(output.Objects).filter((entry) => entry.ID === 101).length, 1);
+});
+
+test('Fence writer requires an explicit representation contract; no implicit greedy layout', () => {
+  const network = lineFence(3);
+  const result = compileFenceMutationV125({
+    buildIdentity: BUILD_V125_SWITCH,
+    sourceGrid: makeGrid(),
+    desiredNetwork: network,
+    representationLayout: null,
+    transform: { originSave: { x: 0, y: 0 }, pitchX: 2, pitchY: 2 },
+    targetSurfaceValidated: true
+  });
+  assert.equal(result.ok, false);
+  assert.equal(
+    result.failClosedReason.code,
+    'FENCE_REPRESENTATION_LAYOUT_REQUIRED'
+  );
+});
+
+test('canonical q33 representation model is the writer input contract', () => {
+  const network = lineFence(33);
+  const model = straightFenceLayout(33, [6, 13, 19, 26]);
+  const result = compileFence({
+    desiredNetwork: network,
+    representationLayout: model
+  });
+  assert.equal(result.ok, true);
+  assert.equal(
+    result.input.representationLayout.schema,
+    'ddv.fence-representation-layout@1'
+  );
+  assert.equal(result.nativeObjectCount.after, 11);
+});
+
+test('FM01 WEP-shaped mode-homogeneous networks compile as one atomic batch', () => {
+  const orthogonal = {
+    networkId: 'orth',
+    ...lineFence(3, FenceMode.ORTHOGONAL)
+  };
+  const diagonal = {
+    networkId: 'diag',
+    familyBaseItemID: 40700246,
+    graph: {
+      nodes: [
+        { id: 'n0', x: 3, y: 1, mode: FenceMode.DIAGONAL }
+      ],
+      edges: []
+    }
+  };
+  const orthLayout = straightFenceLayout(
+    3,
+    [],
+    FenceRepresentationPolicy.EXACT_PRESERVATION,
+    FenceMode.ORTHOGONAL,
+    40700246,
+    ['n2']
+  );
+  orthLayout.networkId = 'orth';
+
+  const diagTopology = {
+    familyBaseItemID: 40700246,
+    mode: FenceMode.DIAGONAL,
+    logicalQuantity: 1,
+    graph: structuredClone(diagonal.graph),
+    modeBoundaryNodeIds: ['n0'],
+    semanticAnchors: [
+      { nodeId: 'n0', x: 3, y: 1, reason: 'MODE_BOUNDARY' }
+    ],
+    runs: []
+  };
+  const diagonalLayout = {
+    schema: 'ddv.fence-representation-layout@1',
+    contractSource: {
+      gameVersion: '1.25.0',
+      platform: 'Nintendo Switch'
+    },
+    networkId: 'diag',
+    logicalTopology: diagTopology,
+    representationLayout: {
+      intent: 'EXACT_PRESERVATION',
+      policy: 'PRESERVE_EXISTING',
+      posts: []
+    },
+    invariants: {
+      sourceTopologyFingerprint:
+        fenceLogicalTopologyFingerprint(diagTopology),
+      sourceLogicalQuantity: 1
+    },
+    provenance: { fixture: true },
+    persistentWriteAuthorized: false
+  };
+
+  const result = compileFenceNetworkBatchV125({
+    buildIdentity: BUILD_V125_SWITCH,
+    sourceGrid: makeGrid(),
+    components: [
+      {
+        desiredNetwork: orthogonal,
+        representationLayout: orthLayout,
+        sourceObjectIds: [],
+        transform: { originSave: { x: 0, y: 0 }, pitchX: 2, pitchY: 2 }
+      },
+      {
+        desiredNetwork: diagonal,
+        representationLayout: diagonalLayout,
+        sourceObjectIds: [],
+        transform: { originSave: { x: 0, y: 0 }, pitchX: 2, pitchY: 2 }
+      }
+    ],
+    modeBoundaryTouches: [
+      {
+        familyBaseItemID: 40700246,
+        classification: 'geometric-cross-mode-touch',
+        authoritativeConnectedEdge: false,
+        a: {
+          networkId: 'orth',
+          x: 2,
+          y: 0,
+          mode: FenceMode.ORTHOGONAL
+        },
+        b: {
+          networkId: 'diag',
+          x: 3,
+          y: 1,
+          mode: FenceMode.DIAGONAL
+        }
+      }
+    ],
+    targetSurfaceValidated: true
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.batch, true);
+  assert.equal(result.componentCount, 2);
+  assert.equal(result.logicalQuantity.after, 4);
+  assert.equal(result.nativeObjectCount.after, 4);
+  assert.ok(result.evidence.some((entry) => entry.id === 'DW-FM01'));
+});
+
+test('mode-boundary batch outside exact FM01 shape remains runtime-required', () => {
+  const orthogonal = {
+    networkId: 'orth',
+    ...lineFence(2, FenceMode.ORTHOGONAL)
+  };
+  const diagonal = {
+    networkId: 'diag',
+    familyBaseItemID: 40700246,
+    graph: {
+      nodes: [
+        { id: 'n0', x: 2, y: 1, mode: FenceMode.DIAGONAL }
+      ],
+      edges: []
+    }
+  };
+  const orthLayout = straightFenceLayout(
+    2,
+    [],
+    FenceRepresentationPolicy.EXACT_PRESERVATION,
+    FenceMode.ORTHOGONAL,
+    40700246,
+    ['n1']
+  );
+  orthLayout.networkId = 'orth';
+  const diagTopology = {
+    familyBaseItemID: 40700246,
+    mode: FenceMode.DIAGONAL,
+    logicalQuantity: 1,
+    graph: structuredClone(diagonal.graph),
+    modeBoundaryNodeIds: ['n0'],
+    semanticAnchors: [
+      { nodeId: 'n0', x: 2, y: 1, reason: 'MODE_BOUNDARY' }
+    ],
+    runs: []
+  };
+  const diagonalLayout = {
+    schema: 'ddv.fence-representation-layout@1',
+    contractSource: { gameVersion: '1.25.0', platform: 'Nintendo Switch' },
+    networkId: 'diag',
+    logicalTopology: diagTopology,
+    representationLayout: {
+      intent: 'EXACT_PRESERVATION',
+      policy: 'PRESERVE_EXISTING',
+      posts: []
+    },
+    invariants: {
+      sourceTopologyFingerprint:
+        fenceLogicalTopologyFingerprint(diagTopology),
+      sourceLogicalQuantity: 1
+    },
+    provenance: { fixture: true },
+    persistentWriteAuthorized: false
+  };
+  const result = compileFenceNetworkBatchV125({
+    buildIdentity: BUILD_V125_SWITCH,
+    sourceGrid: makeGrid(),
+    components: [
+      {
+        desiredNetwork: orthogonal,
+        representationLayout: orthLayout,
+        sourceObjectIds: [],
+        transform: { originSave: { x: 0, y: 0 }, pitchX: 2, pitchY: 2 }
+      },
+      {
+        desiredNetwork: diagonal,
+        representationLayout: diagonalLayout,
+        sourceObjectIds: [],
+        transform: { originSave: { x: 0, y: 0 }, pitchX: 2, pitchY: 2 }
+      }
+    ],
+    modeBoundaryTouches: [
+      {
+        familyBaseItemID: 40700246,
+        classification: 'geometric-cross-mode-touch',
+        authoritativeConnectedEdge: false,
+        a: { networkId: 'orth', x: 1, y: 0, mode: FenceMode.ORTHOGONAL },
+        b: { networkId: 'diag', x: 2, y: 1, mode: FenceMode.DIAGONAL }
+      }
+    ],
+    targetSurfaceValidated: true
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.status, RoadFenceWriterSupportStatus.RUNTIME_REQUIRED);
+});
+
+test('deleting/replacing an owned Road/Fence object with unknown fields fails closed', () => {
+  const source = makeGrid([
+    makeObject(
+      10,
+      40100068,
+      0,
+      0,
+      'GridOrientation_Down',
+      null,
+      { UnknownFutureField: { keep: true } }
+    )
+  ], 11);
+  const result = compileRoad({
+    source,
+    sourceObjectIds: [10],
+    sourceNetwork: roadNetwork(40100068, [
+      { x: 0, y: 0, mode: FenceMode.ORTHOGONAL }
+    ]),
+    desiredNetwork: roadNetwork(40100068, [
+      { x: 1, y: 0, mode: FenceMode.ORTHOGONAL }
+    ])
+  });
+  assert.equal(result.ok, false);
+  assert.equal(
+    result.failClosedReason.code,
+    'ROADFENCE_SOURCE_OBJECT_UNKNOWN_FIELD_REPLACEMENT_UNSUPPORTED'
+  );
 });
 
 test('exact build and external surface gates fail closed', () => {
