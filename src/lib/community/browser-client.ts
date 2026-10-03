@@ -1,4 +1,3 @@
-import { env } from '$env/dynamic/public';
 import { CommunityClient } from './staging-http-client';
 
 export interface CommunityBrowserConfig {
@@ -11,8 +10,8 @@ function normalizeUrl(value: string): string {
 }
 
 export function getCommunityBrowserConfig(): CommunityBrowserConfig | null {
-  const supabaseUrl = String(env.PUBLIC_SUPABASE_URL ?? '').trim();
-  const publishableKey = String(env.PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '').trim();
+  const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL ?? '').trim();
+  const publishableKey = String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '').trim();
   if (!supabaseUrl || !publishableKey) return null;
   return { supabaseUrl: normalizeUrl(supabaseUrl), publishableKey };
 }
