@@ -40,7 +40,7 @@ jobs:
       - name: Community operations contract
         run: npm run verify:community-ops
       - name: Integrated production tree preflight
-        run: npm run verify:community-integrated-tree
+        run: npm run verify:community-integrated-tree -- --require-ready
       - name: Starter tests
         run: npm test
       - name: Build static site
@@ -57,6 +57,8 @@ jobs:
           test -f build/editor/world/index.html
           test -f build/explore/index.html
           test -f build/presets/index.html
+          test -f build/projects/index.html
+          test -f build/help/index.html
           test -f build/gallery/index.html
           test -f build/gallery/publish/index.html
           test -f build/gallery/my/index.html
@@ -73,6 +75,11 @@ jobs:
           test -f build/dreamsnaps/judge/index.html
           test -f build/dreamsnaps/results/index.html
           test -f build/dreamsnaps/my/index.html
+          test -f build/community-lab/index.html
+          test -f build/community-lab/account/index.html
+          test -f build/community-lab/profiles/index.html
+          test -f build/community-lab/recovery/index.html
+          test -f build/community-ops/index.html
           test -f build/404.html
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
