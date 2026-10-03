@@ -33,6 +33,10 @@ jobs:
           fi
       - name: Type and component checks
         run: npm run check
+      - name: Shared web accessibility/localization gates
+        run: npm run verify:web-foundation
+      - name: Integrated production tree preflight
+        run: npm run verify:community-integrated-tree -- --require-ready
       - name: Canonical baseline integrity
         run: npm run verify:canonical
       - name: Starter tests
@@ -46,7 +50,9 @@ jobs:
           test -f build/index.html
           test -f build/editor/index.html
           test -f build/editor/items/index.html
+          test -f build/editor/world/index.html
           test -f build/explore/index.html
+          test -f build/presets/index.html
           test -f build/404.html
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

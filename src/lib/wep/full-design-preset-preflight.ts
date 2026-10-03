@@ -1,0 +1,1238 @@
+import {
+  validateCurrentV125FullDesignManifest,
+  type FullDesignCategory,
+  type FullDesignManifestIssue
+} from './full-design-preset-manifest.ts';
+import {
+  preflightV125PortableRestoration,
+  resolveV125DestinationDirectRoot,
+  resolveV125OutdoorLocation
+} from './world-portable-contracts.ts';
+import {
+  footprintWithinAuthoritativeBounds
+} from './griddata-v17-contract.ts';
+import {
+  NATIVE_PLACEMENT_CLASSES,
+  type CurrentV125PlacementBinding
+} from './placement-legality-v19.ts';
+import {
+  BUILDING_V110_CLASS,
+  type BuildingV110Binding
+} from './building-v110.ts';
+import {
+  evaluateProgressionDestinationConflicts
+} from './progression-destination-v115.ts';
+
+type AnyRecord = Record<string, any>;
+
+export type FullDesignDestinationIssue = {
+  severity: 'BLOCK';
+  code: string;
+  path: string;
+  detail?: Record<string, unknown>;
+};
+
+function block(
+  code: string,
+  path: string,
+  detail?: Record<string, unknown>
+): FullDesignDestinationIssue {
+  return {
+    severity: 'BLOCK',
+    code,
+    path,
+    ...(detail ? { detail } : {})
+  };
+}
+
+function clone<T>(value: T): T {
+  return structuredClone(value);
+}
+
+function manifestIssuesAsDestinationIssues(
+  issues: FullDesignManifestIssue[]
+): FullDesignDestinationIssue[] {
+  return issues.map((issue) => ({
+    severity: 'BLOCK',
+    code: issue.code,
+    path: issue.path,
+    ...(issue.detail ? { detail: clone(issue.detail) } : {})
+  }));
+}
+
+function categoryBlockers(manifest: AnyRecord) {
+  const output: Array<{
+    category: FullDesignCategory;
+    code: string;
+  }> = [];
+
+  for (const category of [
+    'directGrids',
+    'rootObjects',
+    'roads',
+    'fences',
+    'buildings',
+    'environment'
+  ] as FullDesignCategory[]) {
+    const blockers = manifest?.categories?.[category]?.blockers;
+    if (!Array.isArray(blockers)) continue;
+    for (const code of blockers) {
+      output.push({ category, code: String(code) });
+    }
+  }
+  return output;
+}
+
+export function preflightCurrentV125FullDesignManifest({
+  destinationProfile,
+  destinationPlatform,
+  manifest,
+  restorationContext = {},
+  placementBinding = null,
+  progressionDestinationProjection = null,
+  buildingBinding = null,
+  buildingContext = {}
+}: {
+  destinationProfile: AnyRecord;
+  destinationPlatform: string;
+  manifest: unknown;
+  restorationContext?: AnyRecord;
+  placementBinding?: CurrentV125PlacementBinding | null;
+  progressionDestinationProjection?: AnyRecord | null;
+  buildingBinding?: BuildingV110Binding | null;
+  buildingContext?: AnyRecord;
+}) {
+  const validation = validateCurrentV125FullDesignManifest(manifest);
+  if (!validation.ok || !validation.manifest) {
+    return {
+      ok: false,
+      manifestValid: false,
+      destinationResolved: false,
+      destinationPreflightReady: false,
+      categoryClosureReady: false,
+      routeResolutionReady: false,
+      rootObjectRouteBindingReady: false,
+      rootObjectPlacementPreflightReady: false,
+      roadFenceModelPreflightReady: false,
+      roadPreflightReady: false,
+      fencePreflightReady: false,
+      ordinaryBuildingPlacementReady: false,
+      buildingV110TypedPreflightReady: false,
+      buildingSemanticClosureReady: false,
+      buildingSkinPreflightReady: false,
+      playerHouseBindingPreflightReady: false,
+      buildingRestorationPreflightReady: false,
+      environmentPreflightReady: false,
+      issues: manifestIssuesAsDestinationIssues(validation.issues),
+      categoryBlockers: [],
+      destination: null,
+      ddvWriteAuthorized: false,
+      persistentWriteAuthorized: false,
+      applyReady: false,
+      applyReason: 'FULL_DESIGN_MANIFEST_INVALID'
+    };
+  }
+
+  const normalized = validation.manifest as AnyRecord;
+  const issues: FullDesignDestinationIssue[] = [];
+  const blockers = categoryBlockers(normalized);
+
+  if (destinationPlatform !== 'switch') {
+    issues.push(
+      block(
+        'FULL_DESIGN_DESTINATION_PLATFORM_CONTRACT_UNAVAILABLE',
+        '$.destinationPlatform',
+        { destinationPlatform }
+      )
+    );
+  }
+
+  let locationResolution: AnyRecord | null = null;
+  try {
+    locationResolution = resolveV125OutdoorLocation(
+      destinationProfile,
+      normalized.semanticIdentity
+    );
+  } catch (error) {
+    issues.push(
+      block(
+        'FULL_DESIGN_DESTINATION_PROFILE_CONTRACT_UNAVAILABLE',
+        '$.destinationProfile',
+        {
+          message: error instanceof Error ? error.message : String(error)
+        }
+      )
+    );
+  }
+
+  if (
+    locationResolution &&
+    locationResolution.status !== 'RESOLVED'
+  ) {
+    issues.push(
+      block(
+        'FULL_DESIGN_DESTINATION_LOCATION_UNRESOLVED',
+        '$.semanticIdentity',
+        {
+          status: String(locationResolution.status),
+          blockers: clone(locationResolution.blockers ?? [])
+        }
+      )
+    );
+  }
+
+  const routeResolutions: AnyRecord[] = [];
+  if (destinationPlatform === 'switch' && locationResolution?.status === 'RESOLVED') {
+    normalized.directRootRoutes.forEach((route: AnyRecord, index: number) => {
+      try {
+        const resolved = resolveV125DestinationDirectRoot(
+          destinationProfile,
+          normalized.semanticIdentity,
+          route
+        );
+        if (resolved.status !== 'RESOLVED') {
+          issues.push(
+            block(
+              'FULL_DESIGN_DESTINATION_DIRECT_ROOT_UNRESOLVED',
+              `$.directRootRoutes[${index}]`,
+              {
+                status: String(resolved.status),
+                gridDataPath: route.gridDataPath,
+                blockers: clone(resolved.blockers ?? [])
+              }
+            )
+          );
+          return;
+        }
+        routeResolutions.push({
+          gridDataPath: route.gridDataPath,
+          destinationGridId: Number(resolved.destinationGridId),
+          persistentWriteAuthorized: false
+        });
+      } catch (error) {
+        issues.push(
+          block(
+            'FULL_DESIGN_DESTINATION_DIRECT_ROOT_PREFLIGHT_ERROR',
+            `$.directRootRoutes[${index}]`,
+            {
+              gridDataPath: route.gridDataPath,
+              message: error instanceof Error ? error.message : String(error)
+            }
+          )
+        );
+      }
+    });
+  }
+
+  const destinationIds = routeResolutions.map((x) => x.destinationGridId);
+  if (new Set(destinationIds).size !== destinationIds.length) {
+    issues.push(
+      block(
+        'FULL_DESIGN_DESTINATION_DIRECT_ROOT_COLLISION',
+        '$.directRootRoutes'
+      )
+    );
+  }
+
+  const destinationGridByPath = new Map(
+    routeResolutions.map((entry) => [
+      String(entry.gridDataPath),
+      Number(entry.destinationGridId)
+    ])
+  );
+  const rootComposition =
+    normalized.categories.rootObjects?.portableComposition;
+  const rootObjectRouteBindings: AnyRecord[] = [];
+  let rootObjectRouteBindingReady = true;
+  let rootObjectPlacementPreflightReady = true;
+
+  const boundsCapture =
+    normalized.categories.directGrids?.boundsCapture;
+  const boundsByPath = new Map<string, AnyRecord>(
+    Array.isArray(boundsCapture?.entries)
+      ? boundsCapture.entries.map((entry: AnyRecord) => [
+          String(entry?.directRootRoute?.gridDataPath ?? ''),
+          entry
+        ])
+      : []
+  );
+
+  if (rootComposition && Array.isArray(rootComposition.entries)) {
+    rootComposition.entries.forEach((entry: AnyRecord, index: number) => {
+      const gridDataPath = String(
+        entry?.directRootRoute?.gridDataPath ?? ''
+      );
+      const resolvedDestinationGridId =
+        destinationGridByPath.get(gridDataPath);
+      const destinationGridId = Number(resolvedDestinationGridId);
+      if (!Number.isSafeInteger(destinationGridId)) {
+        rootObjectRouteBindingReady = false;
+        issues.push(
+          block(
+            'FULL_DESIGN_DESTINATION_ROOT_OBJECT_ROUTE_UNRESOLVED',
+            `$.categories.rootObjects.portableComposition.entries[${index}].directRootRoute`,
+            {
+              artifactObjectId: entry?.artifactObjectId,
+              gridDataPath
+            }
+          )
+        );
+        return;
+      }
+      const bound = boundsByPath.get(gridDataPath);
+      const destinationGrid =
+        destinationProfile?.World?.GridCollection?.Grids?.[
+          String(destinationGridId)
+        ] ??
+        destinationProfile?.World?.GridCollection?.Grids?.[
+          destinationGridId
+        ];
+      const destinationTessellation = Number(
+        destinationGrid?.TessellationFactor ?? 1
+      );
+      const expectedTessellation = Number(
+        bound?.tessellationFactor
+      );
+      let boundsValidated = false;
+      let placementValidated = false;
+      let placementPolicyReady = false;
+      let placementBlocker: string | null =
+        'NATIVE_PLACEMENT_CONTRACT_NOT_BOUND';
+      let nativePlacementClass: string | null = null;
+      let nativePlacementReasonCodes: string[] = [];
+      let nativeConflictFlagsResolved = false;
+      let clearabilityResolved = false;
+      let progressionDestinationEvaluation: AnyRecord | null = null;
+
+      if (!bound) {
+        rootObjectPlacementPreflightReady = false;
+        placementBlocker =
+          'AUTHORITATIVE_GRIDDATAPATH_BOUNDS_NOT_BOUND';
+        issues.push(
+          block(
+            'FULL_DESIGN_DESTINATION_ROOT_OBJECT_BOUNDS_UNAVAILABLE',
+            `$.categories.rootObjects.portableComposition.entries[${index}]`,
+            {
+              artifactObjectId: entry?.artifactObjectId,
+              gridDataPath
+            }
+          )
+        );
+      } else if (
+        !Number.isSafeInteger(destinationTessellation) ||
+        destinationTessellation <= 0 ||
+        destinationTessellation !== expectedTessellation
+      ) {
+        rootObjectPlacementPreflightReady = false;
+        placementBlocker =
+          'DESTINATION_TESSELLATION_MISMATCH';
+        issues.push(
+          block(
+            'FULL_DESIGN_DESTINATION_TESSELLATION_MISMATCH',
+            `$.categories.rootObjects.portableComposition.entries[${index}]`,
+            {
+              artifactObjectId: entry?.artifactObjectId,
+              gridDataPath,
+              expectedTessellation,
+              destinationTessellation
+            }
+          )
+        );
+      } else if (
+        !footprintWithinAuthoritativeBounds(
+          {
+            x: Number(entry.localX),
+            y: Number(entry.localY),
+            footprint: entry.footprint
+          },
+          bound.bounds
+        )
+      ) {
+        rootObjectPlacementPreflightReady = false;
+        placementBlocker =
+          'GRID_BOUNDS_EXCEEDED';
+        issues.push(
+          block(
+            'FULL_DESIGN_DESTINATION_ROOT_OBJECT_BOUNDS_INVALID',
+            `$.categories.rootObjects.portableComposition.entries[${index}]`,
+            {
+              artifactObjectId: entry?.artifactObjectId,
+              gridDataPath
+            }
+          )
+        );
+      } else if (String(entry?.layer ?? '') !== 'furniture') {
+        boundsValidated = true;
+        rootObjectPlacementPreflightReady = false;
+        placementBlocker =
+          'NATIVE_PLACEMENT_CATEGORY_UNSUPPORTED';
+        issues.push(
+          block(
+            'FULL_DESIGN_DESTINATION_NATIVE_PLACEMENT_CATEGORY_UNSUPPORTED',
+            `$.categories.rootObjects.portableComposition.entries[${index}]`,
+            {
+              artifactObjectId: entry?.artifactObjectId,
+              gridDataPath,
+              layer: String(entry?.layer ?? '')
+            }
+          )
+        );
+      } else if (!placementBinding) {
+        boundsValidated = true;
+        rootObjectPlacementPreflightReady = false;
+        issues.push(
+          block(
+            'FULL_DESIGN_DESTINATION_NATIVE_PLACEMENT_CONTRACT_NOT_BOUND',
+            `$.categories.rootObjects.portableComposition.entries[${index}]`,
+            {
+              artifactObjectId: entry?.artifactObjectId,
+              gridDataPath
+            }
+          )
+        );
+      } else {
+        boundsValidated = true;
+        try {
+          const nativeResult = placementBinding.classify({
+            profile: destinationProfile,
+            destinationGridId,
+            gridDataPath,
+            candidate: entry
+          });
+          nativePlacementClass = String(nativeResult.nativeClass);
+          nativePlacementReasonCodes = Array.isArray(
+            nativeResult.reasonCodes
+          )
+            ? nativeResult.reasonCodes.map(String)
+            : [];
+          nativeConflictFlagsResolved =
+            nativeResult.nativeConflictFlagsResolved === true;
+          clearabilityResolved =
+            nativeResult.clearabilityResolved === true;
+
+          progressionDestinationEvaluation =
+            evaluateProgressionDestinationConflicts({
+              projection: progressionDestinationProjection,
+              destinationGridId,
+              conflicts: Array.isArray(nativeResult.conflicts)
+                ? nativeResult.conflicts
+                : []
+            });
+
+          if (progressionDestinationEvaluation.blocked === true) {
+            placementValidated =
+              nativePlacementClass ===
+                NATIVE_PLACEMENT_CLASSES.VALID_CLEAR ||
+              nativePlacementClass ===
+                NATIVE_PLACEMENT_CLASSES
+                  .VALID_REPLACES_OR_REMOVES_EXISTING;
+            rootObjectPlacementPreflightReady = false;
+            placementPolicyReady = false;
+            placementBlocker =
+              'PROTECTED_PROGRESSION_OBJECT_CONFLICT';
+            issues.push(
+              block(
+                'PROTECTED_PROGRESSION_OBJECT_CONFLICT',
+                `$.categories.rootObjects.portableComposition.entries[${index}]`,
+                {
+                  artifactObjectId: entry?.artifactObjectId,
+                  gridDataPath,
+                  destinationGridId,
+                  nativePlacementClass,
+                  matchedProgressionRecords:
+                    progressionDestinationEvaluation.matchedRecords?.length ?? 0
+                }
+              )
+            );
+          } else if (
+            nativePlacementClass ===
+            NATIVE_PLACEMENT_CLASSES.VALID_CLEAR
+          ) {
+            placementValidated = true;
+            placementPolicyReady = true;
+            placementBlocker = null;
+          } else if (
+            nativePlacementClass ===
+            NATIVE_PLACEMENT_CLASSES
+              .VALID_REPLACES_OR_REMOVES_EXISTING
+          ) {
+            placementValidated = true;
+            rootObjectPlacementPreflightReady = false;
+            placementBlocker =
+              'NATIVE_REPLACEMENT_OR_REMOVAL_POLICY_REQUIRED';
+            issues.push(
+              block(
+                'FULL_DESIGN_DESTINATION_NATIVE_REPLACEMENT_POLICY_REQUIRED',
+                `$.categories.rootObjects.portableComposition.entries[${index}]`,
+                {
+                  artifactObjectId: entry?.artifactObjectId,
+                  gridDataPath,
+                  nativePlacementClass,
+                  reasonCodes: clone(nativePlacementReasonCodes)
+                }
+              )
+            );
+          } else if (
+            nativePlacementClass ===
+            NATIVE_PLACEMENT_CLASSES.INVALID
+          ) {
+            rootObjectPlacementPreflightReady = false;
+            placementBlocker =
+              'NATIVE_PLACEMENT_INVALID';
+            issues.push(
+              block(
+                'FULL_DESIGN_DESTINATION_NATIVE_PLACEMENT_INVALID',
+                `$.categories.rootObjects.portableComposition.entries[${index}]`,
+                {
+                  artifactObjectId: entry?.artifactObjectId,
+                  gridDataPath,
+                  nativePlacementClass,
+                  reasonCodes: clone(nativePlacementReasonCodes)
+                }
+              )
+            );
+          } else {
+            rootObjectPlacementPreflightReady = false;
+            placementBlocker =
+              'NATIVE_PLACEMENT_UNKNOWN_UNVERIFIED';
+            issues.push(
+              block(
+                'FULL_DESIGN_DESTINATION_NATIVE_PLACEMENT_UNVERIFIED',
+                `$.categories.rootObjects.portableComposition.entries[${index}]`,
+                {
+                  artifactObjectId: entry?.artifactObjectId,
+                  gridDataPath,
+                  nativePlacementClass:
+                    nativePlacementClass ||
+                    NATIVE_PLACEMENT_CLASSES.UNKNOWN,
+                  reasonCodes: clone(nativePlacementReasonCodes),
+                  clearabilityResolved
+                }
+              )
+            );
+          }
+        } catch (error) {
+          rootObjectPlacementPreflightReady = false;
+          placementBlocker =
+            'NATIVE_PLACEMENT_PREFLIGHT_ERROR';
+          issues.push(
+            block(
+              'FULL_DESIGN_DESTINATION_NATIVE_PLACEMENT_PREFLIGHT_ERROR',
+              `$.categories.rootObjects.portableComposition.entries[${index}]`,
+              {
+                artifactObjectId: entry?.artifactObjectId,
+                gridDataPath,
+                message:
+                  error instanceof Error
+                    ? error.message
+                    : String(error)
+              }
+            )
+          );
+        }
+      }
+
+      rootObjectRouteBindings.push({
+        artifactObjectId: entry.artifactObjectId,
+        gridDataPath,
+        destinationGridId,
+        itemId: entry.itemId,
+        localX: entry.localX,
+        localY: entry.localY,
+        orientation: entry.orientation,
+        footprint: clone(entry.footprint),
+        portableState: clone(entry.portableState),
+        routeResolved: true,
+        boundsValidated,
+        floorMapBound:
+          Boolean(placementBinding) && boundsValidated,
+        nativePlacementClass,
+        nativePlacementReasonCodes:
+          clone(nativePlacementReasonCodes),
+        nativeConflictFlagsResolved,
+        clearabilityResolved,
+        ...(progressionDestinationEvaluation
+          ? {
+              progressionDestinationEvaluation:
+                clone(progressionDestinationEvaluation)
+            }
+          : {}),
+        placementValidated,
+        placementPolicyReady,
+        placementBlocker,
+        ddvWriteAuthorized: false,
+        persistentWriteAuthorized: false
+      });
+    });
+  }
+
+  const roadFenceDestinationBindings: AnyRecord[] = [];
+
+  function preflightRoadFenceCategory(
+    categoryKey: 'roads' | 'fences'
+  ) {
+    const category = normalized.categories?.[categoryKey];
+    if (category?.requested !== true) {
+      return true;
+    }
+    if (!Array.isArray(category.networkCaptures)) {
+      issues.push(
+        block(
+          'FULL_DESIGN_DESTINATION_ROADFENCE_CAPTURE_MISSING',
+          `$.categories.${categoryKey}.networkCaptures`,
+          { category: categoryKey }
+        )
+      );
+      return false;
+    }
+
+    let ready = true;
+    for (const [index, capture] of
+      category.networkCaptures.entries()) {
+      const gridDataPath = String(
+        capture?.directRootRoute?.gridDataPath ?? ''
+      );
+      const destinationGridId = Number(
+        destinationGridByPath.get(gridDataPath)
+      );
+      const bound = boundsByPath.get(gridDataPath);
+      const destinationGrid =
+        destinationProfile?.World?.GridCollection?.Grids?.[
+          String(destinationGridId)
+        ] ??
+        destinationProfile?.World?.GridCollection?.Grids?.[
+          destinationGridId
+        ];
+      const destinationTessellation = Number(
+        destinationGrid?.TessellationFactor ?? 1
+      );
+      const expectedTessellation = Number(
+        bound?.tessellationFactor
+      );
+
+      if (
+        !gridDataPath ||
+        !Number.isSafeInteger(destinationGridId) ||
+        !destinationGrid
+      ) {
+        ready = false;
+        issues.push(
+          block(
+            'FULL_DESIGN_DESTINATION_ROADFENCE_ROUTE_UNRESOLVED',
+            `$.categories.${categoryKey}.networkCaptures[${index}]`,
+            { category: categoryKey, gridDataPath }
+          )
+        );
+        continue;
+      }
+
+      if (
+        !bound ||
+        !Number.isSafeInteger(expectedTessellation) ||
+        expectedTessellation <= 0
+      ) {
+        ready = false;
+        issues.push(
+          block(
+            'FULL_DESIGN_DESTINATION_ROADFENCE_BOUNDS_UNAVAILABLE',
+            `$.categories.${categoryKey}.networkCaptures[${index}]`,
+            {
+              category: categoryKey,
+              gridDataPath,
+              destinationGridId
+            }
+          )
+        );
+        continue;
+      }
+
+      if (
+        !Number.isSafeInteger(destinationTessellation) ||
+        destinationTessellation !== expectedTessellation
+      ) {
+        ready = false;
+        issues.push(
+          block(
+            'FULL_DESIGN_DESTINATION_ROADFENCE_TESSELLATION_MISMATCH',
+            `$.categories.${categoryKey}.networkCaptures[${index}]`,
+            {
+              category: categoryKey,
+              gridDataPath,
+              destinationGridId,
+              expectedTessellation,
+              destinationTessellation
+            }
+          )
+        );
+        continue;
+      }
+
+      const networks = Array.isArray(capture?.network?.networks)
+        ? capture.network.networks
+        : [];
+      roadFenceDestinationBindings.push({
+        category: categoryKey,
+        gridDataPath,
+        destinationGridId,
+        boundsValidated: true,
+        tessellationValidated: true,
+        logicalNetworkCount: networks.length,
+        representationLayoutCount:
+          categoryKey === 'fences'
+            ? networks.filter(
+                (network: AnyRecord) =>
+                  network?.representationLayout != null
+              ).length
+            : 0,
+        artifactValidation:
+          'STRICT_MANIFEST_VALIDATION_PASSED',
+        persistentWriteAuthorized: false
+      });
+    }
+
+    return ready;
+  }
+
+  const roadPreflightReady =
+    preflightRoadFenceCategory('roads');
+  const fencePreflightReady =
+    preflightRoadFenceCategory('fences');
+  const roadFenceModelPreflightReady =
+    roadPreflightReady && fencePreflightReady;
+
+  const buildingCategory = normalized.categories.buildings;
+  const ordinaryPlacement = buildingCategory?.ordinaryPlacement;
+  const typedBuildingEntries =
+    buildingCategory?.requested === true &&
+    Array.isArray(buildingCategory?.typedPlacements)
+      ? buildingCategory.typedPlacements
+      : [];
+  const buildingTypedPreflights: AnyRecord[] = [];
+
+  function callBuildingValidator(
+    name: string,
+    input: AnyRecord
+  ) {
+    const validator = buildingContext?.[name];
+    return typeof validator === 'function'
+      ? validator(clone(input))
+      : null;
+  }
+
+  let buildingV110TypedPreflightReady =
+    buildingCategory?.requested !== true ||
+    typedBuildingEntries.length === 0 ||
+    Boolean(buildingBinding);
+
+  if (
+    buildingCategory?.requested === true &&
+    typedBuildingEntries.length > 0 &&
+    !buildingBinding
+  ) {
+    buildingV110TypedPreflightReady = false;
+    issues.push(
+      block(
+        'WEP_BUILDING_V110_CONTRACT_NOT_BOUND',
+        '$.categories.buildings.typedPlacements'
+      )
+    );
+  }
+
+  for (
+    let index = 0;
+    index < typedBuildingEntries.length;
+    index += 1
+  ) {
+    const entry = typedBuildingEntries[index];
+    const path =
+      `$.categories.buildings.typedPlacements[${index}]`;
+    const gridDataPath = String(
+      entry?.directRootRoute?.gridDataPath ?? ''
+    );
+    const destinationGridId = Number(
+      destinationGridByPath.get(gridDataPath)
+    );
+    const bound = boundsByPath.get(gridDataPath);
+    let nativePlacementResult: AnyRecord | null = null;
+    let typedResult: AnyRecord | null = null;
+    let classification: AnyRecord | null = null;
+
+    if (!buildingBinding) {
+      buildingTypedPreflights.push({
+        artifactBuildingId: entry.artifactBuildingId,
+        classification: clone(entry.classification),
+        ready: false,
+        blockers: [
+          { code: 'WEP_BUILDING_V110_CONTRACT_NOT_BOUND' }
+        ],
+        persistentWriteAuthorized: false
+      });
+      continue;
+    }
+
+    classification = buildingBinding.classifyEvidence(
+      entry.evidence
+    );
+    if (
+      classification.classification !==
+      entry?.classification?.classification
+    ) {
+      buildingV110TypedPreflightReady = false;
+      issues.push(
+        block(
+          'FULL_DESIGN_DESTINATION_BUILDING_CLASSIFICATION_MISMATCH',
+          path,
+          {
+            artifactBuildingId: entry.artifactBuildingId,
+            sourceClassification:
+              entry?.classification?.classification,
+            destinationClassification:
+              classification.classification
+          }
+        )
+      );
+    }
+
+    const classificationName = String(
+      classification.classification
+    );
+    const ordinary =
+      classificationName === BUILDING_V110_CLASS.ORDINARY;
+
+    let routeReady =
+      Number.isSafeInteger(destinationGridId);
+    let boundsReady = false;
+    let floorMapReady = false;
+
+    if (ordinary && !routeReady) {
+      buildingV110TypedPreflightReady = false;
+      issues.push(
+        block(
+          'FULL_DESIGN_DESTINATION_BUILDING_ROUTE_UNRESOLVED',
+          path,
+          {
+            artifactBuildingId: entry.artifactBuildingId,
+            gridDataPath
+          }
+        )
+      );
+    }
+
+    if (ordinary && routeReady) {
+      const destinationGrid =
+        destinationProfile?.World?.GridCollection?.Grids?.[
+          String(destinationGridId)
+        ] ??
+        destinationProfile?.World?.GridCollection?.Grids?.[
+          destinationGridId
+        ];
+      const destinationTessellation = Number(
+        destinationGrid?.TessellationFactor ?? 1
+      );
+      const expectedTessellation = Number(
+        bound?.tessellationFactor
+      );
+
+      boundsReady =
+        Boolean(bound) &&
+        Number.isSafeInteger(destinationTessellation) &&
+        destinationTessellation > 0 &&
+        destinationTessellation === expectedTessellation &&
+        footprintWithinAuthoritativeBounds(
+          {
+            x: Number(entry.localX),
+            y: Number(entry.localY),
+            footprint: entry.footprint
+          },
+          bound?.bounds
+        );
+
+      if (!boundsReady) {
+        buildingV110TypedPreflightReady = false;
+        issues.push(
+          block(
+            'FULL_DESIGN_DESTINATION_BUILDING_BOUNDS_UNAVAILABLE',
+            path,
+            {
+              artifactBuildingId: entry.artifactBuildingId,
+              gridDataPath,
+              destinationGridId
+            }
+          )
+        );
+      }
+
+      floorMapReady =
+        Boolean(placementBinding) && boundsReady;
+      if (!placementBinding) {
+        buildingV110TypedPreflightReady = false;
+        issues.push(
+          block(
+            'FULL_DESIGN_DESTINATION_BUILDING_PLACEMENT_CONTRACT_NOT_BOUND',
+            path,
+            {
+              artifactBuildingId: entry.artifactBuildingId,
+              gridDataPath
+            }
+          )
+        );
+      } else if (boundsReady) {
+        try {
+          nativePlacementResult = placementBinding.classify({
+            profile: destinationProfile,
+            destinationGridId,
+            gridDataPath,
+            candidate: {
+              itemId: entry.itemId,
+              localX: entry.localX,
+              localY: entry.localY,
+              orientation: entry.orientation
+            }
+          });
+        } catch (error) {
+          buildingV110TypedPreflightReady = false;
+          issues.push(
+            block(
+              'FULL_DESIGN_DESTINATION_BUILDING_PLACEMENT_PREFLIGHT_ERROR',
+              path,
+              {
+                artifactBuildingId: entry.artifactBuildingId,
+                message:
+                  error instanceof Error
+                    ? error.message
+                    : String(error)
+              }
+            )
+          );
+        }
+      }
+    }
+
+    const validatorInput = {
+      artifactBuildingId: entry.artifactBuildingId,
+      itemId: entry.itemId,
+      classification: clone(classification),
+      evidence: clone(entry.evidence),
+      gridDataPath,
+      destinationGridId,
+      destinationProfile
+    };
+
+    typedResult = buildingBinding.ordinaryPlacementPreflight({
+      evidence: entry.evidence,
+      destinationStockOwnership: ordinary
+        ? callBuildingValidator(
+            'validateDestinationStockOwnership',
+            validatorInput
+          )
+        : null,
+      currentSceneMultiplicity: ordinary
+        ? callBuildingValidator(
+            'validateCurrentSceneMultiplicity',
+            validatorInput
+          )
+        : null,
+      typedInitialStateCompatibility: ordinary
+        ? callBuildingValidator(
+            'validateTypedInitialStateCompatibility',
+            validatorInput
+          )
+        : null,
+      boundsReady,
+      floorMapReady,
+      placementResult: nativePlacementResult
+    });
+
+    if (!typedResult.ready) {
+      buildingV110TypedPreflightReady = false;
+      for (const blockerEntry of typedResult.blockers ?? []) {
+        const code = String(
+          blockerEntry?.code ??
+          'FULL_DESIGN_DESTINATION_BUILDING_PREFLIGHT_BLOCKED'
+        );
+        issues.push(
+          block(code, path, {
+            artifactBuildingId: entry.artifactBuildingId,
+            itemId: entry.itemId,
+            classification:
+              classification.classification,
+            subtype: classification.subtype ?? null,
+            detail: clone(blockerEntry)
+          })
+        );
+      }
+    }
+
+    buildingTypedPreflights.push({
+      artifactBuildingId: entry.artifactBuildingId,
+      gridDataPath,
+      destinationGridId:
+        Number.isSafeInteger(destinationGridId)
+          ? destinationGridId
+          : null,
+      classification: clone(classification),
+      routeResolved: routeReady,
+      boundsValidated: boundsReady,
+      floorMapBound: floorMapReady,
+      nativePlacementClass:
+        nativePlacementResult?.nativeClass ?? null,
+      ready: typedResult.ready === true,
+      blockers: clone(typedResult.blockers ?? []),
+      ddvWriteAuthorized: false,
+      persistentWriteAuthorized: false
+    });
+  }
+
+  const buildingRestorationPreflights: AnyRecord[] = [];
+  const buildingEntries =
+    buildingCategory?.requested === true &&
+    Array.isArray(buildingCategory?.restorationCapture?.entries)
+      ? buildingCategory.restorationCapture.entries
+      : [];
+  const buildingUnresolved =
+    buildingCategory?.requested === true &&
+    Array.isArray(buildingCategory?.restorationCapture?.unresolved)
+      ? buildingCategory.restorationCapture.unresolved
+      : [];
+
+  if (buildingCategory?.requested === true && buildingUnresolved.length > 0) {
+    issues.push(
+      block(
+        'FULL_DESIGN_SOURCE_BUILDING_RESTORATION_UNRESOLVED',
+        '$.categories.buildings.restorationCapture.unresolved',
+        { count: buildingUnresolved.length }
+      )
+    );
+  }
+
+  for (let index = 0; index < buildingEntries.length; index += 1) {
+    const entry = buildingEntries[index];
+    try {
+      const result = preflightV125PortableRestoration(
+        destinationProfile,
+        entry.portableState,
+        restorationContext
+      );
+      buildingRestorationPreflights.push({
+        artifactRestorationId: entry.artifactRestorationId,
+        kind: entry.kind,
+        directRootRoute: clone(entry.directRootRoute),
+        itemId: entry.itemId,
+        status: result.status,
+        result: clone(result),
+        ddvWriteAuthorized: false,
+        persistentWriteAuthorized: false
+      });
+      if (!['VALID', 'VALID_NOOP'].includes(String(result.status))) {
+        issues.push(
+          block(
+            'FULL_DESIGN_DESTINATION_BUILDING_RESTORATION_BLOCKED',
+            `$.categories.buildings.restorationCapture.entries[${index}].portableState`,
+            {
+              artifactRestorationId: entry.artifactRestorationId,
+              kind: entry.kind,
+              status: String(result.status),
+              blockers: clone(result.blockers ?? []),
+              issues: clone(result.issues ?? [])
+            }
+          )
+        );
+      }
+    } catch (error) {
+      issues.push(
+        block(
+          'FULL_DESIGN_DESTINATION_BUILDING_RESTORATION_PREFLIGHT_ERROR',
+          `$.categories.buildings.restorationCapture.entries[${index}].portableState`,
+          {
+            artifactRestorationId: entry.artifactRestorationId,
+            kind: entry.kind,
+            message: error instanceof Error ? error.message : String(error)
+          }
+        )
+      );
+    }
+  }
+
+  const buildingSkinPreflights =
+    buildingRestorationPreflights.filter(
+      (entry) => entry.kind === 'BUILDING_SKIN'
+    );
+  const playerHouseBindingPreflights =
+    buildingRestorationPreflights.filter(
+      (entry) => entry.kind === 'PLAYER_HOUSE'
+    );
+  const buildingSkinSourceEntries = buildingEntries.filter(
+    (entry: AnyRecord) => entry.kind === 'BUILDING_SKIN'
+  );
+  const playerHouseSourceEntries = buildingEntries.filter(
+    (entry: AnyRecord) => entry.kind === 'PLAYER_HOUSE'
+  );
+
+  const buildingSkinPreflightReady =
+    buildingCategory?.requested !== true ||
+    (buildingSkinPreflights.length ===
+      buildingSkinSourceEntries.length &&
+      buildingSkinPreflights.every((entry) =>
+        ['VALID', 'VALID_NOOP'].includes(String(entry.status))
+      ));
+  const playerHouseBindingPreflightReady =
+    buildingCategory?.requested !== true ||
+    (playerHouseBindingPreflights.length ===
+      playerHouseSourceEntries.length &&
+      playerHouseBindingPreflights.every((entry) =>
+        ['VALID', 'VALID_NOOP'].includes(String(entry.status))
+      ));
+  const buildingRestorationPreflightReady =
+    buildingCategory?.requested !== true ||
+    (buildingUnresolved.length === 0 &&
+      buildingSkinPreflightReady &&
+      playerHouseBindingPreflightReady);
+
+  const ordinaryBuildingPlacementReady =
+    buildingCategory?.requested !== true ||
+    (
+      buildingV110TypedPreflightReady &&
+      typedBuildingEntries.every(
+        (entry: AnyRecord) =>
+          entry?.classification?.classification ===
+          BUILDING_V110_CLASS.ORDINARY
+      )
+    );
+  const buildingSemanticClosureReady =
+    buildingCategory?.requested !== true ||
+    (
+      ordinaryBuildingPlacementReady &&
+      buildingRestorationPreflightReady
+    );
+
+  let environmentPreflight: AnyRecord | null = null;
+  const environmentCategory = normalized.categories.environment;
+  if (environmentCategory?.requested === true) {
+    try {
+      environmentPreflight = preflightV125PortableRestoration(
+        destinationProfile,
+        environmentCategory.portableState,
+        restorationContext
+      );
+      if (
+        !['VALID', 'VALID_NOOP'].includes(String(environmentPreflight.status))
+      ) {
+        issues.push(
+          block(
+            'FULL_DESIGN_DESTINATION_ENVIRONMENT_BLOCKED',
+            '$.categories.environment.portableState',
+            {
+              status: String(environmentPreflight.status),
+              blockers: clone(environmentPreflight.blockers ?? []),
+              issues: clone(environmentPreflight.issues ?? [])
+            }
+          )
+        );
+      }
+    } catch (error) {
+      issues.push(
+        block(
+          'FULL_DESIGN_DESTINATION_ENVIRONMENT_PREFLIGHT_ERROR',
+          '$.categories.environment.portableState',
+          {
+            message: error instanceof Error ? error.message : String(error)
+          }
+        )
+      );
+    }
+  }
+
+  const routeResolutionReady =
+    destinationPlatform === 'switch' &&
+    locationResolution?.status === 'RESOLVED' &&
+    routeResolutions.length === normalized.directRootRoutes.length &&
+    new Set(destinationIds).size === destinationIds.length;
+
+  const environmentPreflightReady =
+    environmentCategory?.requested !== true ||
+    ['VALID', 'VALID_NOOP'].includes(String(environmentPreflight?.status));
+
+  const destinationResolved =
+    routeResolutionReady &&
+    rootObjectRouteBindingReady &&
+    rootObjectPlacementPreflightReady &&
+    roadFenceModelPreflightReady &&
+    buildingSemanticClosureReady &&
+    buildingRestorationPreflightReady &&
+    environmentPreflightReady &&
+    issues.length === 0;
+  const categoryClosureReady = blockers.length === 0;
+  const overallOk = destinationResolved && categoryClosureReady;
+
+  return {
+    ok: overallOk,
+    manifestValid: true,
+    destinationResolved,
+    destinationPreflightReady: destinationResolved,
+    categoryClosureReady,
+    routeResolutionReady,
+    rootObjectRouteBindingReady,
+    rootObjectPlacementPreflightReady,
+    roadFenceModelPreflightReady,
+    roadPreflightReady,
+    fencePreflightReady,
+    nativePlacementContractBound: Boolean(placementBinding),
+    buildingV110ContractBound: Boolean(buildingBinding),
+    ordinaryBuildingPlacementReady,
+    buildingV110TypedPreflightReady,
+    buildingSemanticClosureReady,
+    buildingSkinPreflightReady,
+    playerHouseBindingPreflightReady,
+    buildingRestorationPreflightReady,
+    environmentPreflightReady,
+    issues,
+    categoryBlockers: blockers,
+    destination: {
+      platform: destinationPlatform,
+      gameVersion: '1.25.0',
+      profileSchemaVersion: 624,
+      exactBuildKnown: false,
+      semanticIdentity: clone(normalized.semanticIdentity),
+      directRootResolutions: routeResolutions,
+      rootObjectRouteBindings: clone(rootObjectRouteBindings),
+      roadFencePreflight: {
+        ready: roadFenceModelPreflightReady,
+        roadReady: roadPreflightReady,
+        fenceReady: fencePreflightReady,
+        bindings: clone(roadFenceDestinationBindings),
+        persistentWriteAuthorized: false,
+        writerStatus: 'NOT_AUTHORIZED'
+      },
+      buildingSemanticStatus: {
+        closureReady: buildingSemanticClosureReady,
+        contract:
+          buildingBinding?.contract ??
+          'ddv.building-read-model-preflight@1',
+        contractBound: Boolean(buildingBinding),
+        typedPreflightReady:
+          buildingV110TypedPreflightReady,
+        blocker: buildingSemanticClosureReady
+          ? null
+          : buildingBinding
+            ? 'BUILDING_V1_10_TYPED_PREFLIGHT_BLOCKED'
+            : 'WEP_BUILDING_V110_CONTRACT_NOT_BOUND'
+      },
+      buildingTypedPreflights:
+        clone(buildingTypedPreflights),
+      ordinaryBuildingPlacement: clone(ordinaryPlacement ?? null),
+      buildingSkinPreflights: clone(buildingSkinPreflights),
+      playerHouseBindingPreflights: clone(playerHouseBindingPreflights),
+      buildingRestorationPreflights: clone(buildingRestorationPreflights),
+      environmentPreflight: environmentPreflight
+        ? clone(environmentPreflight)
+        : null
+    },
+    ddvWriteAuthorized: false,
+    persistentWriteAuthorized: false,
+    applyReady: false,
+    applyReason:
+      blockers.length > 0
+        ? 'FULL_DESIGN_CATEGORY_CLOSURE_INCOMPLETE'
+        : 'CORE_ATOMIC_PERSISTENT_COMMIT_NOT_AUTHORIZED'
+  };
+}

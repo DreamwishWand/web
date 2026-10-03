@@ -1,0 +1,25 @@
+:{fields:0,nonEmptyFields:0,values:0},achievementItemsUsed:{fields:0,nonEmptyFields:0,values:0},dutyGridObjectAddresses:{fields:0,nonEmptyFields:0,values:0},dutyItemsUsed:{fields:0,nonEmptyFields:0,values:0},otherItemIdsCollected:{fields:0,nonEmptyFields:0,values:0},keyholePreviousContent:{fields:0,nonEmptyFields:0,values:0}};
+  walkMissionObjectives(profile,({objective})=>{ for(const [k,t] of [['GridObjectIdsCollected','missionObjectiveGridObjectIdsCollected'],['ItemIdsCollected','missionObjectiveItemIdsCollected']]){const v=Array.isArray(objective[k])?objective[k]:[];out[t].fields++;if(v.length)out[t].nonEmptyFields++;out[t].values+=v.length;} });
+  for(const a of toArray(asObject(profile.Player)?.AchievementsData??[])){const aa=asObject(a)??{};const ga=asObject(aa.GridObjectsCollected)?.GridObjectAddresses;const gv=Array.isArray(ga)?ga:[];out.achievementGridObjectAddresses.fields++;if(gv.length)out.achievementGridObjectAddresses.nonEmptyFields++;out.achievementGridObjectAddresses.values+=gv.length;const iu=Array.isArray(aa.ItemsUsed)?aa.ItemsUsed:[];out.achievementItemsUsed.fields++;if(iu.length)out.achievementItemsUsed.nonEmptyFields++;out.achievementItemsUsed.values+=iu.length;}
+  const duties=asObject(asObject(profile.Player)?.DutySlots)??{};for(const g of Object.values(duties))for(const s of objectValues(asObject(g)?.Slots)){const so=asObject(s)??{};const ga=asObject(asObject(so.StepData)?.GridObjectsCollected)?.GridObjectAddresses;const gv=Array.isArray(ga)?ga:[];out.dutyGridObjectAddresses.fields++;if(gv.length)out.dutyGridObjectAddresses.nonEmptyFields++;out.dutyGridObjectAddresses.values+=gv.length;const v=Array.isArray(so.ItemsUsed)?so.ItemsUsed:[];out.dutyItemsUsed.fields++;if(v.length)out.dutyItemsUsed.nonEmptyFields++;out.dutyItemsUsed.values+=v.length;}
+  const seen=new Set();const scan=(x)=>{if(Array.isArray(x)){for(const v of x)scan(v);return;}if(!x||typeof x!=='object')return;for(const [k,v] of Object.entries(x)){if(k==='ItemIdsCollected'&&Array.isArray(v)&&!seen.has(v)){seen.add(v);out.otherItemIdsCollected.fields++;if(v.length)out.otherItemIdsCollected.nonEmptyFields++;out.otherItemIdsCollected.values+=v.length;}else scan(v);}};scan(asObject(profile.Player)?.BattlePassStates);scan(asObject(profile.Player)?.EvolveStatesProfile);
+  for(const st of Object.values(asObject(asObject(profile.World)?.Keyholes)??{})){const v=Array.isArray(asObject(st)?.PreviousContent)?st.PreviousContent:[];out.keyholePreviousContent.fields++;if(v.length)out.keyholePreviousContent.nonEmptyFields++;out.keyholePreviousContent.values+=v.length;}
+  return out;
+}
+
+function extractItemId(v){if(Number.isSafeInteger(v))return v;const o=asObject(v);for(const k of ['ItemID','ItemId','itemId','Id','id'])if(Number.isSafeInteger(o?.[k]))return o[k];return null;}
+function objectValues(x){if(Array.isArray(x))return x;if(x&&typeof x==='object')return Object.values(x);return [];}
+function toArray(x){return objectValues(x);}
+function isObjectRecord(o){return o&&typeof o==='object'&&Number.isSafeInteger(o.ID);}
+function asObject(x){return x&&typeof x==='object'&&!Array.isArray(x)?x:null;}
+function requireObject(x,n){const o=asObject(x);if(!o)throw new Error(`INVALID_${n.toUpperCase()}`);return o;}
+function intOrNull(x){return Number.isSafeInteger(x)?x:null;}
+function safeIntString(x){const n=Number(x);return Number.isSafeInteger(n)?n:null;}
+function uniqueInts(xs){return [...new Set(xs.filter(Number.isSafeInteger))];}
+function addrKey(g,o){return `${g}:${o}`;}
+function pushIndex(obj,key,id){if(!obj[key])obj[key]=[];obj[key].push(id);}
+function esc(s){return String(s).replaceAll('~','~0').replaceAll('/','~1');}
+function freezeAddress(a){return Object.freeze({gridId:intOrNull(a.gridId),gridObjectId:intOrNull(a.gridObjectId)});}
+function normalizePath(path){return '/' + path.map((s)=>typeof s==='number'||/^\d+$/.test(String(s))?'*':esc(s)).join('/');}
+function mapToObject(m){return Object.fromEntries([...m.entries()].sort(([a],[b])=>a.localeCompare(b)));}
+function deepFreeze(x){if(x&&typeof x==='object'&&!Object.isFrozen(x)){Object.freeze(x);for(const v of Object.values(x))deepFreeze(v);}return x;}

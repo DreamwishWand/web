@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - 'dev/**'
+      - 'integration/**'
   pull_request:
 
 permissions:
@@ -34,6 +35,8 @@ jobs:
         run: npm run check
       - name: Shared web accessibility/localization gates
         run: npm run verify:web-foundation
+      - name: Integrated production tree preflight
+        run: npm run verify:community-integrated-tree -- --require-ready
       - name: Canonical baseline integrity
         run: npm run verify:canonical
       - name: Contract tests

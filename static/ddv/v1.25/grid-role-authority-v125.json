@@ -1,0 +1,952 @@
+{
+  "byGridDataPath": {
+    "GridData/Villages/Village04-BeachLevel-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "BeachLevelGrid",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "Village04"
+    },
+    "GridData/Villages/Village04-DarkLevel-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "DarkLevelGrid",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "Village04"
+    },
+    "GridData/Villages/Village04-ForestLevel-GridData_BlockSpawn.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "ForestLevelGrid",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "Village04"
+    },
+    "GridData/Villages/Village04-MeadowLevel-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 2130000041,
+      "sceneGridName": "MeadowLevelGrid",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "Village04"
+    },
+    "GridData/Villages/Village04-SavannahLevel-GridData_BlockSpawn.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "SavannahLevelGrid",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "Village04"
+    },
+    "GridData/Villages/Village04-SnowLevel-GridData_BlockSpawn.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "SnowLevelGrid",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "Village04"
+    },
+    "GridData/Villages/Village04-UrbanLevel-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "UrbanLevelGrid",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "Village04"
+    },
+    "GridData/Villages/Village04-WetlandsLevel-GridData_BlockSpawning.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "WetlandsLevelGrid",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "Village04"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-DesertArea01LevelGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "DesertArea01LevelGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-DesertArea01SecretGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "DesertArea01SecretGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-DesertArea02LevelGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "DesertArea02LevelGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-DesertArea02SecretGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "DesertArea02SecretGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-DesertArea03LevelGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "DesertArea03LevelGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-DesertArea03LevelGrid02-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "DesertArea03LevelGrid02",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-DesertArea03SecretGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "DesertArea03SecretGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-DesertArea04LevelGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "DesertArea04LevelGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-DesertArea04LevelGrid02-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "DesertArea04LevelGrid02",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-DesertArea04SecretGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "DesertArea04SecretGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-JungleArea01LevelGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "JungleArea01LevelGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-JungleArea01LevelGrid02-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "JungleArea01LevelGrid02",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-JungleArea01LevelGrid03-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "JungleArea01LevelGrid03",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-JungleArea01SecretGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "JungleArea01SecretGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-JungleArea01SecretGrid02-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "JungleArea01SecretGrid02",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-JungleArea02LevelGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "JungleArea02LevelGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-JungleArea02LevelGrid02-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "JungleArea02LevelGrid02",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-JungleArea02LevelGrid03-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "JungleArea02LevelGrid03",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-JungleArea03LevelGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "JungleArea03LevelGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-JungleArea04LevelGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "JungleArea04LevelGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-JungleArea04SecretGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "JungleArea04SecretGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-JungleArea04SecretGrid02-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "JungleArea04SecretGrid02",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-JungleArea04SecretGrid03-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "JungleArea04SecretGrid03",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-JungleArea04SecretGrid04-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "JungleArea04SecretGrid04",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-OutpostArea01LevelGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "OutpostArea01LevelGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-OutpostArea01LevelGrid02-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "OutpostArea01LevelGrid02",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-OutpostArea01SecretGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "OutpostArea01SecretGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-OutpostArea02LevelGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "OutpostArea02LevelGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-OutpostArea02SecretGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "OutpostArea02SecretGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-OutpostArea03LevelGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "OutpostArea03LevelGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-OutpostArea03SecretGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "OutpostArea03SecretGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-OutpostArea04LevelGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "OutpostArea04LevelGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-OutpostArea04SecretGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "OutpostArea04SecretGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion01/VillageExpansion01-OutpostArea04SecretGrid02-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "DesertArea04SecretGrid02",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion01"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-FairyTalesArea01LevelGrid_GridMerge-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "FairyTalesArea01LevelGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-FairyTalesArea01LevelGrid_trial-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "FairyTalesArea01LevelGrid_trial",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-FairyTalesArea02LevelGrid_GridMerge-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "FairyTalesArea02LevelGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-FairyTalesArea02LevelGrid_trial-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "FairyTalesArea02LevelGrid_trial",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-FairyTalesArea03LevelGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "FairyTalesArea03LevelGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-FairyTalesArea03LevelGrid_trial-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "FairyTalesArea03LevelGrid_trial",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-FairyTalesArea04LevelGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "FairyTalesArea04LevelGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-FairyTalesArea04LevelGrid02-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "FairyTalesArea04LevelGrid02",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-FairyTalesArea04LevelGrid03-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "FairyTalesArea04LevelGrid03",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-FairyTalesArea04LevelGrid_dungeon-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "FairyTalesArea04LevelGrid02_dungeon",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-LibraryArea01LevelGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LibraryArea01LevelGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-LibraryArea01LevelGrid02-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LibraryArea01LevelGrid02",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-LibraryArea01LevelGrid03-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LibraryArea01LevelGrid03",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-LibraryArea01LevelGrid04-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LibraryArea01LevelGrid04",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-LibraryArea01LevelGrid05-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LibraryArea01LevelGrid05",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-LibraryArea02LevelGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LibraryArea02LevelGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-LibraryArea02LevelGrid02-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LibraryArea02LevelGrid02",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-LibraryArea02LevelGrid03-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LibraryArea02LevelGrid03",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-LibraryArea02LevelGrid04_secret-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LibraryArea02LevelGrid04_secret",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-MythologyArea01LevelGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "MythologyArea01LevelGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-MythologyArea01LevelGrid02-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "MythologyArea01LevelGrid02",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-MythologyArea01LevelGrid_trial-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "MythologyArea01LevelGrid_trial",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-MythologyArea02LevelGrid_Grid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "MythologyArea02LevelGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-MythologyArea02LevelGrid_trial-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "MythologyArea02LevelGrid_trial",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-MythologyArea03LevelGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "MythologyArea03LevelGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-MythologyArea03LevelGrid02-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "MythologyArea03LevelGrid02",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-MythologyArea03LevelGrid_trial-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "MythologyArea03LevelGrid_trial",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-MythologyArea04LevelGrid01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "MythologyArea04LevelGrid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-MythologyArea04LevelGrid02-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "MythologyArea04LevelGrid02",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-MythologyArea04LevelGrid03-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "MythologyArea04LevelGrid03",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion02/VillageExpansion02-MythologyArea04LevelGrid_dungeon-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "MythologyArea04LevelGrid_dungeon",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion02"
+    },
+    "GridData/Villages/VillageExpansion03/VillageExpansion03-LevelGrid_Fashion01Area01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LevelGrid_Fashion01Area01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion03"
+    },
+    "GridData/Villages/VillageExpansion03/VillageExpansion03-LevelGrid_Fashion01Area02-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LevelGrid_Fashion01Area02",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion03"
+    },
+    "GridData/Villages/VillageExpansion03/VillageExpansion03-LevelGrid_Fashion02Area01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LevelGrid_Fashion02Area01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion03"
+    },
+    "GridData/Villages/VillageExpansion03/VillageExpansion03-LevelGrid_Fashion02Area02-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 2130004534,
+      "sceneGridName": "LevelGrid_Fashion02Area02",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion03"
+    },
+    "GridData/Villages/VillageExpansion03/VillageExpansion03-LevelGrid_Fashion02Area03-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LevelGrid_Fashion02Area03",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion03"
+    },
+    "GridData/Villages/VillageExpansion03/VillageExpansion03-LevelGrid_Fashion03Area01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LevelGrid_Fashion03Area01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion03"
+    },
+    "GridData/Villages/VillageExpansion03/VillageExpansion03-LevelGrid_Fashion03Area02-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LevelGrid_Fashion03Area02",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion03"
+    },
+    "GridData/Villages/VillageExpansion03/VillageExpansion03-LevelGrid_Fashion04Area01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LevelGrid_Fashion04Area01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion03"
+    },
+    "GridData/Villages/VillageExpansion03/VillageExpansion03-LevelGrid_Fashion04Area02-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 2130004768,
+      "sceneGridName": "LevelGrid_Fashion04Area02",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion03"
+    },
+    "GridData/Villages/VillageExpansion03/VillageExpansion03-LevelGrid_Rockies01Area01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LevelGrid_Rockies01Area01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion03"
+    },
+    "GridData/Villages/VillageExpansion03/VillageExpansion03-LevelGrid_Rockies01Area02-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LevelGrid_Rockies01Area02",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion03"
+    },
+    "GridData/Villages/VillageExpansion03/VillageExpansion03-LevelGrid_Rockies01Area03-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LevelGrid_Rockies01Area03",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion03"
+    },
+    "GridData/Villages/VillageExpansion03/VillageExpansion03-LevelGrid_Rockies02Area01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LevelGrid_Rockies02Area01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion03"
+    },
+    "GridData/Villages/VillageExpansion03/VillageExpansion03-LevelGrid_Rockies03Area01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LevelGrid_Rockies03Area01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion03"
+    },
+    "GridData/Villages/VillageExpansion03/VillageExpansion03-LevelGrid_Rockies04Area01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LevelGrid_Rockies04Area01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion03"
+    },
+    "GridData/Villages/VillageExpansion03/VillageExpansion03-LevelGrid_Rockies05Area01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LevelGrid_Rockies05Area01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion03"
+    },
+    "GridData/Villages/VillageExpansion03/VillageExpansion03-LevelGrid_Rockies05Area02-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LevelGrid_Rockies05Area02",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion03"
+    },
+    "GridData/Villages/VillageExpansion03/VillageExpansion03-LevelGrid_Rockies05Area03-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LevelGrid_Rockies05Area03",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion03"
+    },
+    "GridData/Villages/VillageExpansion03/VillageExpansion03-LevelGrid_Rockies05Area04-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LevelGrid_Rockies05Area04",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion03"
+    },
+    "GridData/Villages/VillageExpansion03/VillageExpansion03-LevelGrid_Wishland01Area01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LevelGrid_Wishland01Area01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion03"
+    },
+    "GridData/Villages/VillageExpansion03/VillageExpansion03-LevelGrid_Wishland01Area02-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LevelGrid_Wishland01Area02",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion03"
+    },
+    "GridData/Villages/VillageExpansion03/VillageExpansion03-LevelGrid_Wishland01Area03-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LevelGrid_Wishland01Area03",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion03"
+    },
+    "GridData/Villages/VillageExpansion03/VillageExpansion03-LevelGrid_Wishland02Area01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LevelGrid_Wishland02Area01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion03"
+    },
+    "GridData/Villages/VillageExpansion03/VillageExpansion03-LevelGrid_Wishland02Area02-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LevelGrid_Wishland02Area02",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion03"
+    },
+    "GridData/Villages/VillageExpansion03/VillageExpansion03-LevelGrid_Wishland03Area01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LevelGrid_Wishland03Area01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion03"
+    },
+    "GridData/Villages/VillageExpansion03/VillageExpansion03-LevelGrid_Wishland04Area01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LevelGrid_Wishland04Area01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion03"
+    },
+    "GridData/Villages/VillageExpansion03/VillageExpansion03-LevelGrid_Wishland04Area02-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "LevelGrid_Wishland04Area02",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageExpansion03"
+    },
+    "GridData/Villages/VillageWinnieDLC/VillageWinnieDLC-LevelGrid_Honeywood01_Area01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 2130005087,
+      "sceneGridName": "Grid02",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageWinnieDLC"
+    },
+    "GridData/Villages/VillageWinnieDLC/VillageWinnieDLC-LevelGrid_Honeywood01_Area02-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "Grid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageWinnieDLC"
+    },
+    "GridData/Villages/VillageWinnieDLC/VillageWinnieDLC-LevelGrid_Honeywood01_Area03-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "Grid03",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageWinnieDLC"
+    },
+    "GridData/Villages/VillageWinnieDLC/VillageWinnieDLC-LevelGrid_Honeywood01_Area04-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "Grid04",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageWinnieDLC"
+    },
+    "GridData/Villages/VillageWinnieDLC/VillageWinnieDLC-LevelGrid_Honeywood02_Area01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "Grid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageWinnieDLC"
+    },
+    "GridData/Villages/VillageWinnieDLC/VillageWinnieDLC-LevelGrid_Honeywood02_Area02-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 2130005069,
+      "sceneGridName": "Grid02",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageWinnieDLC"
+    },
+    "GridData/Villages/VillageWinnieDLC/VillageWinnieDLC-LevelGrid_Honeywood03_Area01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "Grid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageWinnieDLC"
+    },
+    "GridData/Villages/VillageWinnieDLC/VillageWinnieDLC-LevelGrid_Honeywood03_Area02-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "Grid02",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageWinnieDLC"
+    },
+    "GridData/Villages/VillageWinnieDLC/VillageWinnieDLC-LevelGrid_Honeywood04_Area01-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "Grid01",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageWinnieDLC"
+    },
+    "GridData/Villages/VillageWinnieDLC/VillageWinnieDLC-LevelGrid_Honeywood04_Area02-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": false,
+      "lockedConditionItemID": 2130005463,
+      "sceneGridName": "Grid02",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageWinnieDLC"
+    },
+    "GridData/Villages/VillageWinnieDLC/VillageWinnieDLC-LevelGrid_Honeywood04_Area03-GridData.json": {
+      "authority": "CURRENT_V125_SCENE_GRIDSCRIPT",
+      "disableGridEditMode": true,
+      "lockedConditionItemID": 0,
+      "sceneGridName": "Grid03",
+      "scriptID": "345477fead2c548d21152cdc07ed287a",
+      "villageAsset": "VillageWinnieDLC"
+    }
+  },
+  "counts": {
+    "conditionalLock": 6,
+    "disabled": 32,
+    "records": 111,
+    "unconditional": 73
+  },
+  "evidence": {
+    "bundleParity": [
+      {
+        "normalizedSha256": "eca2c12ba9b41e0d9aa434fe3047314ac50d29e62fade6123266b133bd9320c6",
+        "recordCount": 8,
+        "steamBundleDriveId": "1odsQh82ealksBdo4NNEMj2XU4mhqXzap",
+        "switchBundleDriveId": "1z9kdplvg2TCi26T-pCyAPGsPPKuBR8us",
+        "villageAsset": "Village04"
+      },
+      {
+        "normalizedSha256": "2e7f827c70da171fcb75cec2cabcfa802457ef7d64be084ddbc34c842fc50308",
+        "recordCount": 34,
+        "steamBundleDriveId": "1iKL7cEQhwFI9wwPa_iYx-iiTpqcfNzfw",
+        "switchBundleDriveId": "1fKJhEOJhXMHvlChIODPEWY1BUj4rMWZg",
+        "villageAsset": "VillageExpansion01"
+      },
+      {
+        "normalizedSha256": "4a8b6d1254fd24f46c6d166200fc4fba4218677fc9a96b57e9c1b9c66d633404",
+        "recordCount": 31,
+        "steamBundleDriveId": "1x8NLe6LHY1i20VkkbbfMlvuTMbgk5drG",
+        "switchBundleDriveId": "15qws0DwiqTOCZymiVYnxU383OubPqY5a",
+        "villageAsset": "VillageExpansion02"
+      },
+      {
+        "normalizedSha256": "89fe6a67377bf96676be3881efd25a37a00738b9620218ce41ab9da067061cdd",
+        "recordCount": 27,
+        "steamBundleDriveId": "1aP5WSpjwrHcOrqUQ_Dk94YjC4bRK0NtE",
+        "switchBundleDriveId": "1CkEyz15hR4Ml8A1HSYiD6bEw05fgGnbs",
+        "villageAsset": "VillageExpansion03"
+      },
+      {
+        "normalizedSha256": "d08bcddf36e74cd93818eae16cbcc879da40dc3d9676027d4c30249cb4ead6ac",
+        "recordCount": 11,
+        "steamBundleDriveId": "1oeYbua6Y4taENFsxBwcwWcIQEB5f_ScX",
+        "switchBundleDriveId": "1mT88q36RHFjB1Q_dELLifupHMbraFKSU",
+        "villageAsset": "VillageWinnieDLC"
+      }
+    ],
+    "gridScriptID": "345477fead2c548d21152cdc07ed287a",
+    "normalizedCombinedSha256": "fce2b8a5e4c554758c48281d233d3cf838744672cebd25e8500dab8c6840d06e",
+    "platformParity": "CONFIRMED_STATIC",
+    "steamFullVersion": "releases_1.25-v1.25.0-8687-gdd3d3a5ae738-incremental-14",
+    "switchBid": "52BD625D9B4E0053"
+  },
+  "gameVersion": "1.25.0",
+  "policy": {
+    "conditionalLock": "fail closed",
+    "multiGridMutationAuthorizeOnlyWhen": "exact GridDataPath authority match AND disableGridEditMode=false AND lockedConditionItemID=0",
+    "pathHeuristics": "not authorization",
+    "singleGridBehavior": "existing single-direct-grid baseline unchanged",
+    "unknown": "fail closed"
+  },
+  "schema": "dreamwish-wand-ddv-grid-role-authority",
+  "version": 1
+}

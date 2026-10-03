@@ -1,0 +1,115 @@
+ASSIFIED_IDENTITY_BEARING_SCHEMA_PATH', evidenceStatus: Evidence.UNKNOWN });
+    }
+  }
+  unresolvedSavePaths.push(...buildKnownUnresolvedContexts(profile));
+
+  const indexes = buildIndexes(references);
+  const summary = summarize(references, coverageScan, missionState, profile);
+
+  return deepFreeze({
+    contract: PROGRESSION_REFERENCE_INDEX_CONTRACT,
+    artifactId: PROGRESSION_REFERENCE_INDEX_ARTIFACT,
+    version: 'v1.0',
+    mutable: false,
+    target: { profileSchemaVersion: SUPPORTED_PROFILE_SCHEMA, gameVersion: '1.25.0' },
+    source: {
+      sourceLabel: typeof options.sourceLabel === 'string' ? options.sourceLabel : null,
+      sourceSha256: typeof options.sourceSha256 === 'string' ? options.sourceSha256 : null,
+      packagedSourceSha256: typeof options.packagedSourceSha256 === 'string' ? options.packagedSourceSha256 : null,
+      revision: gameInfo.Revision ?? null,
+      session: gameInfo.Session ?? null,
+      modified: gameInfo.Modified ?? null,
+      lastSaveDeviceType: asObject(gameInfo.LastSaveDeviceInfo)?.deviceType ?? null
+    },
+    references,
+    indexes,
+    missionState,
+    coverage: { ...coverageScan, summary },
+    unresolvedSavePaths,
+    joinContract: {
+      primaryAddressKey: 'GridID:GridObjectID',
+      primaryItemKey: 'ItemID',
+      optionalMissionKey: 'MissionID',
+      consumerGraphJoin: 'Join 01D Mission consumer edges by missionId and/or itemId; never infer terminality from names or completion alone.'
+    },
+    writerBoundary: { persistentWriteAuthorized: false, WORLD_PERSISTENT_WRITE_V125: false }
+  });
+}
+
+function buildObjectLookup(profile) {
+  const current = new Map(), modified = new Map(), removed = new Set();
+  const grids = asObject(asObject(asObject(profile.World)?.GridCollection)?.Grids) ?? {};
+  for (const grid of Object.values(grids)) {
+    const g = asObject(grid); if (!g || !Number.isSafeInteger(g.ID)) continue;
+    for (const obj of objectValues(g.Objects)) if (isObjectRecord(obj)) current.set(addrKey(g.ID, obj.ID), obj);
+  }
+  const diffs = asObject(asObject(asObject(profile.World)?.GridCollection)?.DiffGrids) ?? {};
+  for (const grid of Object.values(diffs)) {
+    const g = asObject(grid); if (!g || !Number.isSafeInteger(g.ID)) continue;
+    for (const obj of objectValues(g.ModifiedObjects)) if (isObjectRecord(obj)) modified.set(addrKey(g.ID, obj.ID), obj);
+    const ros = Array.isArray(g.RemovedObjects) ? g.RemovedObjects : objectValues(g.RemovedObjects);
+    for (const raw of ros) {
+      const oid = Number.isSafeInteger(raw) ? raw : Number.isSafeInteger(asObject(raw)?.ID) ? asObject(raw).ID : null;
+      if (oid != null) removed.add(addrKey(g.ID, oid));
+    }
+  }
+  return { current, modified, removed };
+}
+
+function resolveAddress(lookup, gridId, gridObjectId) {
+  const key = addrKey(gridId, gridObjectId);
+  if (lookup.current.has(key)) return { resolution: 'GRID_OBJECT_PRESENT', itemId: intOrNull(lookup.current.get(key).ItemID) };
+  if (lookup.modified.has(key)) return { resolution: 'DIFF_MODIFIED_OBJECT_PRESENT', itemId: intOrNull(lookup.modified.get(key).ItemID) };
+  if (lookup.removed.has(key)) return { resolution: 'DIFF_REMOVED_OBJECT', itemId: null };
+  return { resolution: 'SAVE_LOCAL_OBJECT_NOT_MATERIALIZED', itemId: null };
+}
+
+function buildKeyholeOwnerLookup(profile) {
+  const out = new Map();
+  const addFrom = (grid, objects, resolution) => {
+    const g = asObject(grid); if (!g || !Number.isSafeInteger(g.ID)) return;
+    for (const obj of objectValues(objects)) {
+      if (!isObjectRecord(obj)) continue;
+      const guid = asObject(asObject(obj.State)?.Keyhole)?.KeyholeConfigDataGUID;
+      if (typeof guid !== 'string' || guid.length === 0) continue;
+      if (!out.has(guid)) out.set(guid, []);
+      out.get(guid).push({ gridId: g.ID, gridObjectId: obj.ID, itemId: intOrNull(obj.ItemID), resolution });
+    }
+  };
+  const gc = asObject(asObject(profile.World)?.GridCollection) ?? {};
+  for (const g of Object.values(asObject(gc.Grids) ?? {})) addFrom(g, asObject(g)?.Objects, 'GRID_OBJECT_PRESENT');
+  for (const g of Object.values(asObject(gc.DiffGrids) ?? {})) addFrom(g, asObject(g)?.ModifiedObjects, 'DIFF_MODIFIED_OBJECT_PRESENT');
+  return out;
+}
+
+function buildMissionState(profile) {
+  const missionSlots = [];
+  const groups = asObject(asObject(profile.World)?.MissionSlots) ?? {};
+  for (const [groupId, slotGroupRaw] of Object.entries(groups)) {
+    const slots = objectValues(asObject(slotGroupRaw)?.Slots);
+    for (let slotIndex = 0; slotIndex < slots.length; slotIndex += 1) {
+      const slot = asObject(slots[slotIndex]); if (!slot) continue;
+      const objectiveStatuses = [];
+      for (const step of Array.isArray(slot.MissionSteps) ? slot.MissionSteps : [])
+        for (const sub of Array.isArray(asObject(step)?.SubSteps) ? step.SubSteps : [])
+          for (const obj of Array.isArray(asObject(sub)?.Objectives) ? sub.Objectives : [])
+            if (typeof asObject(obj)?.Status === 'string') objectiveStatuses.push(obj.Status);
+      missionSlots.push({
+        slotGroupId: safeIntString(groupId), slotIndex, missionId: intOrNull(slot.MissionId),
+        currentStepIndex: intOrNull(slot.CurrentStepIndex), objectiveStatuses,
+        terminality: 'UNKNOWN', evidenceStatus: Evidence.CONFIRMED
+      });
+    }
+  }
+  const questInfo = asObject(asObject(profile.World)?.QuestInfo) ?? {};
+  const completed = uniqueInts(Array.isArray(questInfo.MissionsCompleted) ? questInfo.MissionsCompleted : []);
+  const questGroups = [];
+  for (const [groupId, raw] of Object.entries(asObject(questInfo.Groups) ?? {})) {
+    const g = asObject(raw) ?? {};
+    questGroups.push({ groupId: safeIntString(groupId), missionIds: uniqueInts(Array.isArray(g.Missions) ? g.Missions : []), activeInPrevCycle: Boolean(g.ActiveInPrevCycle), terminality: 'UNKNOWN' });
+  }
+  return { missionSlots, questInfo: { missionsCompleted: completed, groups: questGroups, completionDoesNotAuthorizeMutation: true } };
+}
+
+function walkMissionObjectives(profile, fn) {
+  con
