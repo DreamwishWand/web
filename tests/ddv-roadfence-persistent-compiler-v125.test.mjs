@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -137,6 +138,26 @@ function fm01Network() {
     }
   };
 }
+
+test('published structural request and mutation schema match runtime contract', async () => {
+  const publishedRequest = JSON.parse(await readFile(
+    new URL('../static/ddv/core/save/v1.25/roadfence-structural-transaction-extension-request-v125.json', import.meta.url),
+    'utf8'
+  ));
+  assert.deepEqual(
+    publishedRequest,
+    JSON.parse(JSON.stringify(roadFenceStructuralTransactionExtensionRequestV125()))
+  );
+  const schema = JSON.parse(await readFile(
+    new URL('../contracts/roadfence-native-mutation-set.schema.json', import.meta.url),
+    'utf8'
+  ));
+  assert.equal(schema.$id, 'ddv.roadfence-native-mutation-set@1');
+  assert.equal(schema.properties.semanticOwner.const, '01C CORE — Road / Fence');
+  assert.equal(schema.properties.persistentWriteAuthorized.const, false);
+  assert.equal(schema.properties.WORLD_PERSISTENT_WRITE_V125.const, false);
+  assert.equal(schema.properties.productApplyAuthorized.const, false);
+});
 
 test('metadata exposes structural dependency without enabling Apply', () => {
   const meta = roadFencePersistentCompilerMetadataV125();
