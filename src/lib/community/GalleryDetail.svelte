@@ -55,6 +55,10 @@
     </p>
   {/if}
 
+  <p><a class="inline-link" href={`${base}/gallery/interact/?work=${work.workId}`}>
+    {t('community.action.save', {}, $locale)} · {t('community.action.react', {}, $locale)} · {t('community.action.comment', {}, $locale)}
+  </a></p>
+
   {#if work.usedItems?.length}
     <h3>{t('gallery.detail.usedItems', {}, $locale)}</h3>
     <div class="chips">
