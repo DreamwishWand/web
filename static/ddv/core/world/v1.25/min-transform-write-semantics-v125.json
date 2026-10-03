@@ -177,7 +177,7 @@
         "revision": "V125_NATIVE_ORDINARY_CARDINAL_NONWALL_GROUPSET_2",
         "result": "placement-v125.cjs validateOrdinaryCardinalPlacement result"
       },
-      "rootEvidence": "exact ROOT source address for existing object in the same target Grid"
+      "rootEvidence": "existing Editor object source shape: {relation:'ROOT', gridId, gridObjectId, objectMapKey}; optional parentAddress must be null/absent"
     },
     "requiredScopeRecord": {
       "concreteType": "FurnitureItemData",
@@ -234,7 +234,14 @@
       "unsupported or invalid placement",
       "non-cardinal orientation",
       "unknown extra serialized GridObject field"
-    ]
+    ],
+    "sourceIdentity": {
+      "platform": "Nintendo Switch",
+      "gameVersion": "1.25.0",
+      "buildIdentity": "52BD625D9B4E0053",
+      "profileSchemaVersion": 624
+    },
+    "sameRootRule": "Target Grid is the existing object's source Grid; operation has no destination-grid field. Cross-grid transforms are outside the contract."
   },
   "operationSemantics": {
     "MOVE": {
