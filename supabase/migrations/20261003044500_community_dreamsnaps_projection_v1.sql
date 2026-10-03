@@ -673,7 +673,7 @@ returns integer
 language plpgsql
 security definer
 set search_path=pg_catalog,public,private
-as $
+as $$
 declare
   v_affected integer:=0;
 begin
@@ -730,7 +730,7 @@ begin
 
   return v_affected;
 end
-$;
+$$;
 
 revoke execute on function private.dreamsnap_apply_work_moderation_effect_v1(uuid,text)
 from public,anon,authenticated,service_role;
