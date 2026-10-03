@@ -1,0 +1,47 @@
+{
+  "contract": "dreamwish.ddv.persistent-write-capability-candidate@1",
+  "status": "READY_FOR_INTEGRATOR_REVIEW_NOT_PROMOTED",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "titleId": "0100D39012C1A000",
+    "buildId": "52BD625D9B4E0053",
+    "schema": 624
+  },
+  "executionSurface": {
+    "kind": "LINUX_POSIX_LOCAL_BRIDGE",
+    "environmentContract": "dreamwish.ddv.node-posix-local-commit-surface@1",
+    "hostOs": "linux",
+    "browser": false,
+    "localFilesystemOnly": true,
+    "sameMountSiblingTemp": true,
+    "fileFsyncRequired": true,
+    "directoryFsyncRequired": true,
+    "externalWriterQuiescenceRequired": true,
+    "networkFilesystemSupported": false
+  },
+  "semanticSubset": "DDV-MINIMUM-PERSISTENT-TRANSFORM-SEMANTICS-V125-V1_0",
+  "operations": [
+    "MOVE",
+    "ROTATE"
+  ],
+  "durabilityAssumptions": [
+    "declared local POSIX filesystem profile",
+    "same-mount sibling temp",
+    "rename-over-existing runtime probe succeeds",
+    "file fsync succeeds",
+    "target and backup directory fsync succeeds",
+    "external save writers quiescent"
+  ],
+  "backupRecoveryContract": "dreamwish.ddv.persistent-commit-journal@1",
+  "backupRetention": "UNTIL_EXPLICIT_POST_RELOAD_ACK",
+  "residualRuntime": {
+    "required": true,
+    "owner": "01E",
+    "scope": "one already-promoted transform through the exact production local bridge, one real post-replace interruption/recovery on that deployment filesystem, Switch product-flow load/save/cold-relaunch, then exact-backup rollback through the same flow"
+  },
+  "browserAtomicCommit": false,
+  "deviceNativeAtomicCommitProven": false,
+  "persistentWriteAuthorized": false,
+  "WORLD_PERSISTENT_WRITE_V125": false
+}
