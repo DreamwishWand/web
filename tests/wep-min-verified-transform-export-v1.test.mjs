@@ -50,6 +50,8 @@ test('WEP verified export source is bound to promoted 01A/01B chain and keeps di
     'openWorldSaveBytes',
     'projectSwitchAreaGrid',
     'WEP_EXPORT_SOURCE_CHANGED_SINCE_PLAN',
+    'WEP_EXPORT_EXACT_BUILD_CONFIRMATION_REQUIRED',
+    'exactBuildConfirmed',
     'WEP_EXPORT_UNSUPPORTED_PENDING_CHANGE',
     'persistentWriteAuthorized:false',
     'WORLD_PERSISTENT_WRITE_V125:false'
