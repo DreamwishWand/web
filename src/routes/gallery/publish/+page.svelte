@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { base } from '$app/paths';
-  import { locale, t } from '$lib/i18n/runtime.js';
+  import { locale, ct as t } from '$lib/i18n/community.js';
   import { createCommunityBrowserClient } from '$lib/community/browser-client';
 
   const client = createCommunityBrowserClient();
