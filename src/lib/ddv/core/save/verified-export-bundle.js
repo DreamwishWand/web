@@ -1,3 +1,4 @@
+import { TRANSACTION_CANDIDATE_CONTRACT, TRANSACTION_VERIFICATION_CONTRACT } from './transaction-foundation.js';
 import { BuildMatchStatus, matchSupportedBuild } from './versioning.js';
 
 const encoder = new TextEncoder();
@@ -74,6 +75,134 @@ export async function createVerifiedExportBundle({ result, gameVersion, targetBu
     sha256: bundleSha256,
     manifest
   });
+}
+
+
+/**
+ * Build the launch browser-local replacement artifact set from an independently
+ * verified 01A WRITE_CANDIDATE. The source bytes are never mutated or written.
+ */
+export async function createVerifiedCandidateExportBundle({
+  candidate,
+  verification,
+  gameVersion,
+  targetBuild,
+  sourceName = 'profile'
+}) {
+  requireVerifiedCandidate(candidate, verification);
+  if (typeof gameVersion !== 'string' || !/^\d+\.\d+\.\d+$/.test(gameVersion)) {
+    throw new Error('INVALID_GAME_VERSION');
+  }
+  const target = normalizeTargetBuild(targetBuild);
+  const manifest = candidate.manifest;
+  if (!sameTargetBuild(manifest?.input?.targetBuild, target)) {
+    throw new Error('EXPORT_TARGET_BUILD_CONTEXT_MISMATCH');
+  }
+  if (manifest?.input?.gameVersion !== gameVersion) {
+    throw new Error('EXPORT_GAME_VERSION_BUILD_MISMATCH');
+  }
+  if (manifest?.persistentWriteAuthorized !== false ||
+      manifest?.WORLD_PERSISTENT_WRITE_V125 !== false ||
+      manifest?.capability?.persistentWrite !== false) {
+    throw new Error('WEB_EXPORT_MUST_NOT_AUTHORIZE_PERSISTENT_REPLACE');
+  }
+
+  const backup = candidate.backupOriginalBytes.slice();
+  const edited = candidate.candidateBytes.slice();
+  const sourceSha256 = await sha256Hex(backup);
+  const editedSha256 = await sha256Hex(edited);
+  if (sourceSha256 !== manifest.input.originalSha256 ||
+      sourceSha256 !== verification.sourceSha256) {
+    throw new Error('BACKUP_SOURCE_HASH_MISMATCH');
+  }
+  if (editedSha256 !== manifest.output.candidateSha256 ||
+      editedSha256 !== verification.candidateSha256) {
+    throw new Error('EDITED_OUTPUT_HASH_MISMATCH');
+  }
+
+  const safeSourceName = sanitizeSourceName(sourceName);
+  const backupName = `DDV_BACKUP_original_${safeSourceName}`;
+  const editedName = safeSourceName;
+  const integrityName = 'DDV_WAND_EXPORT_MANIFEST.json';
+  const integrity = Object.freeze({
+    artifact: 'dreamwish.ddv.verified-candidate-export-bundle',
+    schemaVersion: 2,
+    gameVersion,
+    targetBuild: target,
+    sourceSha256,
+    editedSha256,
+    backupFile: backupName,
+    editedFile: editedName,
+    transactionCandidateContract: TRANSACTION_CANDIDATE_CONTRACT,
+    transactionVerificationContract: TRANSACTION_VERIFICATION_CONTRACT,
+    candidateManifestSha256: manifest.candidateManifestSha256,
+    planSha256: manifest.planSha256,
+    planId: manifest.planId,
+    operation: Object.freeze({
+      id: manifest.operation?.id ?? null,
+      kind: manifest.operation?.kind ?? null
+    }),
+    semanticDiff: structuredClone(manifest.semanticDiff),
+    persistentWriteAuthorized: false,
+    WORLD_PERSISTENT_WRITE_V125: false
+  });
+  const integrityBytes = encoder.encode(JSON.stringify(integrity, null, 2) + '\n');
+  const zipBytes = buildStoredZip([
+    { name: backupName, bytes: backup },
+    { name: editedName, bytes: edited },
+    { name: integrityName, bytes: integrityBytes }
+  ]);
+  const bundleSha256 = await sha256Hex(zipBytes);
+
+  return Object.freeze({
+    contract: 'dreamwish.ddv.verified-candidate-browser-export@1',
+    bundle: Object.freeze({
+      fileName: `DreamwishWand_DDV_VerifiedExport_v${gameVersion.replaceAll('.', '_')}.zip`,
+      mimeType: 'application/zip',
+      bytes: zipBytes,
+      sha256: bundleSha256
+    }),
+    edited: Object.freeze({
+      fileName: editedName,
+      mimeType: 'application/octet-stream',
+      bytes: edited,
+      sha256: editedSha256
+    }),
+    backup: Object.freeze({
+      fileName: backupName,
+      mimeType: 'application/octet-stream',
+      bytes: backup,
+      sha256: sourceSha256
+    }),
+    integrity: Object.freeze({
+      fileName: integrityName,
+      mimeType: 'application/json',
+      bytes: integrityBytes,
+      manifest: integrity
+    }),
+    persistentWriteAuthorized: false,
+    WORLD_PERSISTENT_WRITE_V125: false
+  });
+}
+
+function requireVerifiedCandidate(candidate, verification) {
+  if (!candidate || typeof candidate !== 'object' ||
+      candidate.manifest?.contract !== TRANSACTION_CANDIDATE_CONTRACT ||
+      !(candidate.backupOriginalBytes instanceof Uint8Array) ||
+      !(candidate.candidateBytes instanceof Uint8Array)) {
+    throw new Error('INVALID_TRANSACTION_CANDIDATE');
+  }
+  if (!verification || verification.contract !== TRANSACTION_VERIFICATION_CONTRACT ||
+      verification.status !== 'PASS' ||
+      verification.planId !== candidate.manifest.planId) {
+    throw new Error('CANDIDATE_INDEPENDENT_VERIFICATION_REQUIRED');
+  }
+}
+
+function sanitizeSourceName(value) {
+  const name = String(value ?? '').trim().replace(/[\\/\u0000-\u001f\u007f]/g, '_');
+  if (!name || name === '.' || name === '..') return 'profile';
+  return name.slice(0, 180);
 }
 
 function requireExportResult(value) {
