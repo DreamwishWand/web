@@ -142,7 +142,7 @@ export function normalizeTransform(input = {}) {
   if (!plain(input.originSave)) fail('ROADFENCE_ORIGIN_SAVE_REQUIRED');
   const pitchX = safeInteger(input.pitchX, 'pitchX');
   const pitchY = safeInteger(input.pitchY == null ? pitchX : input.pitchY, 'pitchY');
-  if (pitchX === 0 || pitchY === 0) fail('ROADFENCE_INVALID_GRID_QUANTUM');
+  if (pitchX <= 0 || pitchY <= 0) fail('ROADFENCE_INVALID_GRID_QUANTUM');
   return {
     originLogical: {
       x: safeInteger(input.originLogical?.x ?? 0, 'originLogical.x'),
@@ -165,19 +165,34 @@ export function logicalToSave(point, transform) {
 }
 
 export function normalizeGridObjects(grid) {
-  if (!plain(grid) || !(plain(grid.Objects) || Array.isArray(grid.Objects))) {
-    fail('ROADFENCE_SOURCE_GRID_REQUIRED');
+  if (!plain(grid) || !plain(grid.Objects)) {
+    fail('ROADFENCE_SOURCE_GRID_OBJECT_MAP_REQUIRED');
   }
-  const raw = Array.isArray(grid.Objects) ? grid.Objects : Object.values(grid.Objects);
-  return raw.map((object) => ({
-    raw: object,
-    id: safeInteger(object.ID, 'GridObject.ID'),
-    itemID: positiveInteger(object.ItemID, 'GridObject.ItemID'),
-    x: safeInteger(object.X, 'GridObject.X'),
-    y: safeInteger(object.Y, 'GridObject.Y'),
-    orientation: String(object.Orientation ?? ''),
-    state: object.State ?? null
-  }));
+  const seenIds = new Set();
+  return Object.entries(grid.Objects).map(([mapKey, object]) => {
+    if (!plain(object)) fail('ROADFENCE_SOURCE_GRID_OBJECT_INVALID', mapKey);
+    const mapId = safeInteger(mapKey, 'GridObject map key');
+    const id = safeInteger(object.ID, 'GridObject.ID');
+    if (mapId !== id) {
+      fail('ROADFENCE_SOURCE_OBJECT_MAP_KEY_MISMATCH', mapKey, {
+        mapKey: mapId,
+        objectId: id
+      });
+    }
+    if (seenIds.has(id)) {
+      fail('ROADFENCE_SOURCE_OBJECT_ID_DUPLICATE', String(id));
+    }
+    seenIds.add(id);
+    return {
+      raw: object,
+      id,
+      itemID: positiveInteger(object.ItemID, 'GridObject.ItemID'),
+      x: safeInteger(object.X, 'GridObject.X'),
+      y: safeInteger(object.Y, 'GridObject.Y'),
+      orientation: String(object.Orientation ?? ''),
+      state: object.State ?? null
+    };
+  });
 }
 
 export function nativeDescriptor(object) {
