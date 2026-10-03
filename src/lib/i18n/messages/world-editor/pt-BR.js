@@ -478,7 +478,7 @@ const copy = {
   'worldEditor.live.coreReasonStateUnsupported': 'O objeto carrega estado anexado cuja semântica de mutação não foi promovida para edição genérica.',
   'worldEditor.live.coreReasonRootGrid': 'A root Grid selecionada é visível, mas não está autorizada para mutação pelo contrato de função Core atual.',
   'worldEditor.live.coreReasonFallback': 'Core mantém este objeto somente leitura.',
-  'worldEditor.live.coreReasonDefault': 'O objeto selecionado é somente leitura na projeção Core atual.'
+  'worldEditor.live.coreReasonDefault': 'O objeto selecionado é somente leitura na projeção Core atual.',
   "worldEditor.verifiedExport.eyebrow": "EXPORTAÇÃO DE SUBSTITUIÇÃO VERIFICADA",
   "worldEditor.verifiedExport.title": "Revisar alterações e exportar",
   "worldEditor.verifiedExport.description": "O writer de lançamento aceita apenas um MOVE ou uma rotação cardinal de um móvel comum existente na mesma grade raiz. O Wand cria e verifica de forma independente um save editado de substituição sem sobrescrever a origem carregada.",
