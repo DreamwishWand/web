@@ -1,0 +1,352 @@
+{
+  "schema": "ddv.minimum-persistent-transform-semantics@1",
+  "artifactId": "DDV-MINIMUM-PERSISTENT-TRANSFORM-SEMANTICS-V125-V1_0-CANDIDATE",
+  "version": "v1.0-candidate",
+  "status": "SOURCE_CONTRACT_READY_PENDING_CI",
+  "semanticOwner": "01B CORE - World / Grid / Buildings",
+  "requestId": "01A-TO-01B-MIN-TRANSFORM-WRITE-SEMANTICS-V125",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "titleId": "0100D39012C1A000",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624
+  },
+  "upstream": {
+    "transactionFoundation": {
+      "artifactId": "DDV-SAFE-PERSISTENT-TRANSACTION-FOUNDATION-V125-V1_0",
+      "contract": "ddv.safe-persistent-transaction-foundation@1",
+      "mainCommit": "ced3cfcffec467d6a7f7deb1f93859e89a232728",
+      "WRITE_CANDIDATE": true,
+      "PERSISTENT_WRITE": false
+    },
+    "consumedWithoutReResearch": [
+      "v1.7 GridData dimensions/bounds",
+      "v1.8 GridData FloorType",
+      "v1.9 native placement legality",
+      "v1.10/v1.11 Building read/classification",
+      "v1.12 Scrooge Store state",
+      "v1.13-v1.15 progression safety/integration/destination veto",
+      "v1.16 direct-root EditorDocument projector"
+    ]
+  },
+  "conclusion": {
+    "evidenceStatus": "CONFIRMED_STATIC_CURRENT_V125",
+    "answer": "YES_FOR_FROZEN_MINIMUM_SUBSET",
+    "serializedTransformTuple": [
+      "X",
+      "Y",
+      "Orientation"
+    ],
+    "moveExactSemanticMutationSet": [
+      "X",
+      "Y"
+    ],
+    "rotateExactSemanticMutationSet": [
+      "X",
+      "Y",
+      "Orientation"
+    ],
+    "requiredPersistentCompanionMutations": [],
+    "nativeRuntimeOnlyEffects": [
+      "GridCells.RemoveFromGridCells before transform",
+      "GridCells.AddToGridCells after transform",
+      "GridChangedOperation.UpdateTransform event dispatch"
+    ],
+    "runtimeOnlyState": [
+      "Grid._gridCells",
+      "GridObject.gridArea"
+    ],
+    "rule": "Runtime cache maintenance and event dispatch are not serialized companion fields. The offline adapter MUST NOT synthesize them into the save."
+  },
+  "currentNativeEvidence": {
+    "source": {
+      "dumpCsSha256": "a94ae73d522f160d21255b195b4d834bf5c79db59ddbd8cdfc32e54c6e0671f0",
+      "mainSha256": "3258d5e05aded708c06017b8763fa37bfb696385a2ab29dd8a182d3938cbc0e0"
+    },
+    "GridObject": {
+      "protobufFields": {
+        "ID": 1,
+        "ItemID": 2,
+        "X": 3,
+        "Y": 4,
+        "Orientation": 5,
+        "State": 6,
+        "From": 7
+      },
+      "managedOffsets": {
+        "ID": "0x18",
+        "ItemID": "0x1C",
+        "X": "0x20",
+        "Y": "0x24",
+        "Orientation": "0x28",
+        "State": "0x30",
+        "gridArea": "0x48"
+      },
+      "runtimeOnly": [
+        "gridArea"
+      ],
+      "evidenceStatus": "CONFIRMED"
+    },
+    "Grid": {
+      "protobufFields": {
+        "ID": 1,
+        "GridDataPath": 2,
+        "GridDefaultLayoutPath": 3,
+        "TessellationFactor": 4,
+        "Objects": 5,
+        "NextGridObjectID": 6
+      },
+      "runtimeOnly": [
+        "_gridCells",
+        "parentWorld",
+        "GridData",
+        "AvailableFloorTypes"
+      ],
+      "evidenceStatus": "CONFIRMED"
+    },
+    "UpdateGridObjectTransform": {
+      "validateThisRva": "0x4FC5260",
+      "applyThisRva": "0x4FC6DA0",
+      "requestFields": {
+        "GridID": 1,
+        "GridObjectID": 2,
+        "GridObjectItemID": 15,
+        "NewX": 3,
+        "NewY": 4,
+        "NewOrientation": 5,
+        "ClearArea": 6
+      },
+      "resultEnum": [
+        "Success",
+        "InvalidGrid",
+        "InvalidGridObjectId",
+        "InvalidTransform",
+        "DesyncDetected"
+      ],
+      "clearAreaFalsePath": "IGridInternal.UpdateTransform",
+      "clearAreaTruePath": "GridClearingExtensions.UpdateTransformWithClearing",
+      "clearAreaTruePolicy": "EXCLUDED"
+    },
+    "GridUpdateTransform": {
+      "rva": "0x4E78A70",
+      "serializedStores": [
+        {
+          "offset": "GridObject+0x28",
+          "field": "Orientation"
+        },
+        {
+          "offset": "GridObject+0x20/+0x24",
+          "fields": [
+            "X",
+            "Y"
+          ]
+        }
+      ],
+      "immediateNonSerializedEffects": [
+        {
+          "method": "GridCells.RemoveFromGridCells",
+          "rva": "0x4EC42B0"
+        },
+        {
+          "method": "GridCells.AddToGridCells",
+          "rva": "0x4EC3C70"
+        },
+        {
+          "event": "GridChangedOperation.UpdateTransform",
+          "value": 2
+        }
+      ],
+      "gridProtobufWritesObserved": [],
+      "otherGridObjectProtobufWritesObserved": [],
+      "evidenceStatus": "CONFIRMED"
+    },
+    "eventConsumerBoundary": {
+      "uniqueItemMonitor": "UpdateTransform not treated as Add/Remove identity event",
+      "buildingStateSynchronizer": "Building-only; excluded by exact FurnitureItemData classifier",
+      "snippetTrapHandler": "special interactive Furniture family; excluded by CORE_STATELESS_FURNITURE + interaction None + State null",
+      "missionObjectiveHandlers": "gameplay event side effects are unrelated progression state, not placement companion state; 01A preservation requires them unchanged for an offline transform candidate",
+      "evidenceStatus": "CONFIRMED_BOUNDED_TO_FROZEN_SUBSET"
+    }
+  },
+  "admissibleClassifier": {
+    "schema": "ddv.minimum-persistent-transform-admissibility@1",
+    "positiveAuthority": [
+      "01D current-v1.25 Furniture writeScopeTier == CORE_STATELESS_FURNITURE",
+      "exact concreteType == FurnitureItemData",
+      "State == null",
+      "Core object classification == editable / furniture / NONE with zero reasons",
+      "current semantic root relation is explicitly ROOT",
+      "same destination root GridID",
+      "v1.9 placement result == NATIVE_VALID_CLEAR"
+    ],
+    "mandatoryNegativeExclusions": [
+      "riskSignals.isMissionItem == true",
+      "riskSignals.forPuzzleOnly == true",
+      "explicit GridEditRestriction",
+      "non-empty nativePresetKnownRejectReasons",
+      "onlineSemantics.isSyncOnlineItem != false",
+      "online category != Normal/0",
+      "expansions != [BaseGame]",
+      "gameSource present",
+      "ownership route != GENERIC_LIST or ownershipCanonicalItemID != ItemID",
+      "any GridObject State other than exact null",
+      "any top-level GridObject field outside current ID/ItemID/X/Y/Orientation/State subset, including serialized From",
+      "Building/PlayerHouse/Road/Fence/SubGrid/special concrete types by exact family classifier",
+      "non-ROOT relation or parent relation",
+      "cross-root destination",
+      "v1.15 active/unknown/historical reference presence in this minimum candidate",
+      "any MOVE/ROTATE progression veto",
+      "placement class other than NATIVE_VALID_CLEAR",
+      "non-cardinal source or destination orientation"
+    ],
+    "noPositiveInferenceFrom": [
+      "absence of GridEditRestriction",
+      "IsMissionItem=false alone",
+      "v1.15 no-veto result alone",
+      "placement PASS alone"
+    ],
+    "currentDefinitionPopulationNote": {
+      "CORE_STATELESS_FURNITURE": 3276,
+      "additionallyBaseGameNormalNonSyncGenericListGameSourceNull": 1325,
+      "note": "Counts are definition-side scope only; per-save root/progression/placement gates further reduce admissible objects."
+    }
+  },
+  "operationSemantics": {
+    "MOVE": {
+      "oneTransactionOneExistingObject": true,
+      "sameRootGridRequired": true,
+      "exactAllowedSerializedFields": [
+        "X",
+        "Y"
+      ],
+      "requiredInvariants": [
+        "Orientation",
+        "ID",
+        "ItemID",
+        "State",
+        "object-map key",
+        "root Grid membership",
+        "NextGridObjectID"
+      ],
+      "clearArea": false,
+      "destinationPlacement": "NATIVE_VALID_CLEAR",
+      "noOp": "REJECT"
+    },
+    "ROTATE": {
+      "oneTransactionOneExistingObject": true,
+      "sameRootGridRequired": true,
+      "editorSemantic": "ROTATE_CARDINAL",
+      "exactAllowedSerializedFields": [
+        "X",
+        "Y",
+        "Orientation"
+      ],
+      "note": "X/Y are allowed because native/WEP cardinal rotation may adjust the serialized anchor while changing Orientation.",
+      "cardinalOrientations": [
+        0,
+        4,
+        8,
+        12
+      ],
+      "requiredInvariants": [
+        "ID",
+        "ItemID",
+        "State",
+        "object-map key",
+        "root Grid membership",
+        "NextGridObjectID"
+      ],
+      "clearArea": false,
+      "destinationPlacement": "NATIVE_VALID_CLEAR",
+      "noOp": "REJECT"
+    }
+  },
+  "nativePlacementRequirements": {
+    "consumedContract": "ddv.native-placement-legality@1",
+    "requiredClass": "NATIVE_VALID_CLEAR",
+    "requireClearAreaFalse": true,
+    "rejectClasses": [
+      "NATIVE_VALID_REPLACES_OR_REMOVES_EXISTING",
+      "NATIVE_INVALID",
+      "NATIVE_UNKNOWN_UNVERIFIED"
+    ],
+    "requiredExistingPreconditions": [
+      "authoritative v1.7 bounds",
+      "authoritative v1.8 FloorType",
+      "current-v1.25 resolved geometry/layers",
+      "cardinal non-wall placement",
+      "resolved occupancy excluding the target object's original occupancy",
+      "same-root final candidate"
+    ],
+    "safetyRule": "Native placement validation is necessary but not sufficient; classifier, progression, object-family and preservation gates must also pass."
+  },
+  "preservation": {
+    "requiredUnchanged": [
+      "GridObject.ID",
+      "GridObject.ItemID",
+      "GridObject.State",
+      "object-map key",
+      "root Grid membership",
+      "parent/root relationship",
+      "Grid.NextGridObjectID",
+      "all unrelated GridObjects",
+      "inventory",
+      "progression/objective state",
+      "Store/Shop state",
+      "entitlement/premium/DLC state",
+      "unknown/opaque unrelated state",
+      "GameInfo"
+    ],
+    "transactionCompatibility": {
+      "gridObjectIdentityPolicy": "PRESERVE_ALL_GRID_OBJECT_IDENTITIES",
+      "arrayPolicy": "PRESERVE_ORDER_AND_LENGTH_OUTSIDE_INTENTIONAL",
+      "unknownStatePolicy": "OPAQUE_UNCHANGED_REQUIRED",
+      "serializerNormalizationPolicy": "REJECT_SEMANTIC_NORMALIZATION"
+    }
+  },
+  "mutationAdapter": {
+    "contract": "dreamwish.ddv.save-mutation-adapter@1",
+    "id": "01b-minimum-root-furniture-transform-v125-v1",
+    "owner": "01B CORE - World / Grid / Buildings",
+    "implementationPath": "src/lib/ddv/core/world/min-transform-write-v125.js",
+    "MOVE": {
+      "writes": [
+        "X",
+        "Y"
+      ],
+      "mustNotWrite": [
+        "Orientation"
+      ]
+    },
+    "ROTATE": {
+      "writes": [
+        "X",
+        "Y",
+        "Orientation"
+      ]
+    },
+    "appliesOnlyAfterAdmissibility": "ADMISSIBLE",
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false
+  },
+  "runtimeAcceptance": {
+    "currentStatus": "PENDING_AFTER_INTEGRATOR_PROMOTION",
+    "exactRemainingQuestion": "For one classifier-admissible ordinary root stateless Furniture object on Switch v1.25.0, does a candidate save whose semantic diff is limited to the operation-specific X/Y[/Orientation] fields load successfully, survive an in-game save plus full quit/relaunch, and preserve ID, ItemID, State, map key, root membership, NextGridObjectID, inventory, progression/objective state and opaque unrelated state without game-driven normalization or a required serialized companion mutation?",
+    "requiredOperations": [
+      "MOVE",
+      "ROTATE"
+    ],
+    "activationOwner": "01E after Integrator promotion only",
+    "whyRuntimeStillNeeded": "No controlled current-v1.25 ordinary Furniture before/after + cold-reload acceptance artifact was found in the current evidence set. Static serialized semantics are closed; persistence/reload acceptance is the remaining gate."
+  },
+  "writerBoundary": {
+    "WRITE_CANDIDATE": true,
+    "PERSISTENT_WRITE": false,
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "applyAuthorized": false,
+    "sourceReplacementAuthorized": false,
+    "atomicCommitAuthorized": false
+  }
+}
