@@ -719,6 +719,7 @@ export type Database = {
           judging_opens_at: string
           lifecycle_state: string
           minimum_height: number | null
+          minimum_real_eligible_creators: number
           minimum_real_eligible_entries: number
           minimum_width: number | null
           required_aspect_denominator: number | null
@@ -746,6 +747,7 @@ export type Database = {
           judging_opens_at: string
           lifecycle_state?: string
           minimum_height?: number | null
+          minimum_real_eligible_creators: number
           minimum_real_eligible_entries: number
           minimum_width?: number | null
           required_aspect_denominator?: number | null
@@ -773,6 +775,7 @@ export type Database = {
           judging_opens_at?: string
           lifecycle_state?: string
           minimum_height?: number | null
+          minimum_real_eligible_creators?: number
           minimum_real_eligible_entries?: number
           minimum_width?: number | null
           required_aspect_denominator?: number | null
@@ -1214,9 +1217,11 @@ export type Database = {
           created_at: string
           game_screenshot_attested: boolean
           integrity_checks: Json
+          integrity_reason: string | null
           integrity_state: string
           no_external_edits_attested: boolean
           revision_id: string
+          suspicion_flags: string[]
         }
         Insert: {
           caption?: string | null
@@ -1224,9 +1229,11 @@ export type Database = {
           created_at?: string
           game_screenshot_attested: boolean
           integrity_checks?: Json
+          integrity_reason?: string | null
           integrity_state: string
           no_external_edits_attested: boolean
           revision_id: string
+          suspicion_flags?: string[]
         }
         Update: {
           caption?: string | null
@@ -1234,9 +1241,11 @@ export type Database = {
           created_at?: string
           game_screenshot_attested?: boolean
           integrity_checks?: Json
+          integrity_reason?: string | null
           integrity_state?: string
           no_external_edits_attested?: boolean
           revision_id?: string
+          suspicion_flags?: string[]
         }
         Relationships: [
           {
@@ -2885,6 +2894,15 @@ export type Database = {
           p_challenge_id: string
           p_entry_id: string
           p_reaction_kind: string
+        }
+        Returns: Json
+      }
+      community_dreamsnap_apply_integrity_assessment_v1: {
+        Args: {
+          p_integrity_state: string
+          p_reason?: string
+          p_revision_id: string
+          p_suspicion_flags?: string[]
         }
         Returns: Json
       }
