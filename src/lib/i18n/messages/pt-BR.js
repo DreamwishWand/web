@@ -6,7 +6,7 @@ export default Object.freeze({
   "shared.nav.primaryLabel": "Navegação principal",
   "shared.nav.explore": "Explorar",
   "shared.nav.editor": "Editor",
-  "shared.nav.projects": "Meus projetos",
+  "shared.nav.projects": "Moodboards",
   "shared.theme.switchToDay": "Mudar para o tema claro",
   "shared.theme.switchToNight": "Mudar para o tema escuro",
   "shared.theme.light": "Claro",
