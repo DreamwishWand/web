@@ -3,7 +3,7 @@
   "artifactId": "DDV-MIN-PERSISTENT-COMMIT-DURABILITY-RECOVERY-V125-V1_0",
   "taskId": "01A-MIN-PERSISTENT-COMMIT-DURABILITY-RECOVERY-V125",
   "version": "v1.0",
-  "status": "READY_FOR_INTEGRATOR_REVIEW_CAPABILITY_CANDIDATE_NOT_AUTHORIZED",
+  "status": "PROMOTED_PROOF_ONLY_RUNTIME_REQUIRED",
   "owner": "01A CORE - Save / Codec / Versioning",
   "target": {
     "platform": "Nintendo Switch",
@@ -62,7 +62,8 @@
         "fsync succeeds for backup/temp/journal files",
         "fsync succeeds for target and backup containing directories",
         "backup directory is durable local storage",
-        "production capability remains blocked until exact deployed filesystem crash/durability acceptance"
+        "production capability remains blocked until exact deployed filesystem crash/durability acceptance",
+        "PROOF_ONLY path confinement is enforced against filesystem realpaths; symlinked parent escape outside the marked proof root is rejected"
       ],
       "proofModeOnly": true,
       "authorizedExecutionImplemented": false
@@ -315,25 +316,29 @@
   },
   "integratorReview": {
     "ready": true,
-    "promotionAllowedNow": false,
-    "nextDecision": "select exact production execution surface and decide whether to authorize one 01E execution-surface acceptance"
+    "foundationAccepted": true,
+    "foundationPromotionAllowedNow": true,
+    "persistentWritePromotionAllowedNow": false,
+    "reviewFinding": "PROOF_ONLY confinement was hardened from lexical path containment to filesystem-realpath containment before promotion; regression rejects symlinked-parent escapes.",
+    "nextDecision": "Reactivate 01E for exact execution-surface/process-interruption/rollback acceptance. AUTHORIZED execution remains intentionally unavailable until that return."
   },
   "implementationEvidence": {
     "localFailureInjection": "48/48 PASS before repo integration; repo integration adds real promoted 01A+01B binding test",
     "githubCi": {
       "pullRequest": 61,
       "branch": "dev/core-save-persistent-commit-durability-v125",
-      "implementationHeadBeforeCiMetadata": "2a5ce3dd322599ae862eceedb3cc8be79ad8ae05",
-      "runId": 37103274699,
-      "runNumber": 1975,
+      "head": "c61bdf23e068101b0023980852fedd0e65261db5",
+      "runId": 37104278386,
+      "runNumber": 1994,
       "conclusion": "SUCCESS",
-      "overallTests": 259,
-      "overallPass": 247,
+      "overallTests": 260,
+      "overallPass": 248,
       "overallFail": 0,
       "overallSkip": 12,
-      "focusedPersistentCommitTests": 49,
-      "focusedPersistentCommitPass": 49,
+      "focusedPersistentCommitTests": 50,
+      "focusedPersistentCommitPass": 50,
       "focusedPersistentCommitFail": 0,
+      "integratorHardening": "filesystem-realpath proof-root confinement + symlink-escape negative regression",
       "steps": {
         "edgeFunctionTypeChecks": "PASS",
         "typeAndComponentChecks": "PASS",
