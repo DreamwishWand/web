@@ -1,0 +1,110 @@
+export const MOODBOARD_COPY = Object.freeze({
+  en: {
+    eyebrow:'PLAN YOUR NEXT CREATION', title:'Moodboards', intro:'Collect items, Wand Presets, Gallery works and notes before editing your Valley.',
+    local:'Local-first', localDetail:'Free Moodboards stay in this browser profile. No Wand Account is required.',
+    newBoard:'New Moodboard', titleLabel:'Title', description:'Description', create:'Create', boards:'Moodboards', empty:'No Moodboards yet.',
+    inspiration:'Inspiration', addInspiration:'Add inspiration', type:'Type', label:'Label', url:'URL (optional)', entity:'Wand entity ID (optional)',
+    note:'Note (optional)', add:'Add', remove:'Remove', export:'Export backup', import:'Import backup', restore:'Restore previous snapshot',
+    delete:'Delete Moodboard', filter:'Filter inspiration', choose:'Choose a Moodboard.', saved:'Saved locally.', created:'Moodboard created.',
+    imported:'Backup imported.', restored:'Previous local snapshot restored.', deleted:'Moodboard deleted.', added:'Inspiration added.', removed:'Inspiration removed.',
+    noBackup:'No previous local snapshot is available.', invalid:'Could not load that Moodboard backup.', recovery:'Recovery',
+    recoveryDetail:'Each local write keeps the previous valid document as one rollback snapshot. Export JSON for durable recovery.',
+    cloud:'Wand Cloud', cloudDetail:'Cloud sync is not bound here. Local Moodboards remain fully usable without it.',
+    item:'Item', gallery:'Gallery Work', preset:'Wand Preset', link:'Link', noteType:'Note', count:'references'
+  },
+  fr: {
+    eyebrow:'PRÉPAREZ VOTRE PROCHAINE CRÉATION', title:'Moodboards', intro:'Rassemblez objets, Presets Wand, œuvres Gallery et notes avant de modifier votre vallée.',
+    local:'Local d’abord', localDetail:'Les Moodboards gratuits restent dans ce profil de navigateur. Aucun compte Wand requis.',
+    newBoard:'Nouveau Moodboard', titleLabel:'Titre', description:'Description', create:'Créer', boards:'Moodboards', empty:'Aucun Moodboard.',
+    inspiration:'Inspirations', addInspiration:'Ajouter une inspiration', type:'Type', label:'Libellé', url:'URL (facultatif)', entity:'ID d’entité Wand (facultatif)',
+    note:'Note (facultatif)', add:'Ajouter', remove:'Retirer', export:'Exporter la sauvegarde', import:'Importer une sauvegarde', restore:'Restaurer l’instantané précédent',
+    delete:'Supprimer le Moodboard', filter:'Filtrer les inspirations', choose:'Choisissez un Moodboard.', saved:'Enregistré localement.', created:'Moodboard créé.',
+    imported:'Sauvegarde importée.', restored:'Instantané précédent restauré.', deleted:'Moodboard supprimé.', added:'Inspiration ajoutée.', removed:'Inspiration retirée.',
+    noBackup:'Aucun instantané précédent disponible.', invalid:'Impossible de charger cette sauvegarde Moodboard.', recovery:'Récupération',
+    recoveryDetail:'Chaque écriture locale conserve le document valide précédent comme instantané de retour. Exportez un JSON pour une récupération durable.',
+    cloud:'Wand Cloud', cloudDetail:'La synchronisation Cloud n’est pas liée ici. Les Moodboards locaux restent pleinement utilisables.',
+    item:'Objet', gallery:'Œuvre Gallery', preset:'Preset Wand', link:'Lien', noteType:'Note', count:'références'
+  },
+  it: {
+    eyebrow:'PIANIFICA LA PROSSIMA CREAZIONE', title:'Moodboards', intro:'Raccogli oggetti, Preset Wand, opere Gallery e note prima di modificare la tua Valley.',
+    local:'Prima locale', localDetail:'I Moodboard gratuiti restano in questo profilo del browser. Non serve un account Wand.',
+    newBoard:'Nuovo Moodboard', titleLabel:'Titolo', description:'Descrizione', create:'Crea', boards:'Moodboards', empty:'Nessun Moodboard.',
+    inspiration:'Ispirazione', addInspiration:'Aggiungi ispirazione', type:'Tipo', label:'Etichetta', url:'URL (facoltativo)', entity:'ID entità Wand (facoltativo)',
+    note:'Nota (facoltativa)', add:'Aggiungi', remove:'Rimuovi', export:'Esporta backup', import:'Importa backup', restore:'Ripristina snapshot precedente',
+    delete:'Elimina Moodboard', filter:'Filtra ispirazione', choose:'Scegli un Moodboard.', saved:'Salvato localmente.', created:'Moodboard creato.',
+    imported:'Backup importato.', restored:'Snapshot precedente ripristinato.', deleted:'Moodboard eliminato.', added:'Ispirazione aggiunta.', removed:'Ispirazione rimossa.',
+    noBackup:'Nessuno snapshot precedente disponibile.', invalid:'Impossibile caricare questo backup Moodboard.', recovery:'Ripristino',
+    recoveryDetail:'Ogni scrittura locale conserva il documento valido precedente come snapshot di rollback. Esporta JSON per il recupero duraturo.',
+    cloud:'Wand Cloud', cloudDetail:'La sincronizzazione Cloud non è collegata qui. I Moodboard locali restano pienamente utilizzabili.',
+    item:'Oggetto', gallery:'Opera Gallery', preset:'Preset Wand', link:'Link', noteType:'Nota', count:'riferimenti'
+  },
+  de: {
+    eyebrow:'PLANE DEINE NÄCHSTE KREATION', title:'Moodboards', intro:'Sammle Gegenstände, Wand Presets, Gallery-Werke und Notizen vor der Bearbeitung deines Valley.',
+    local:'Lokal zuerst', localDetail:'Kostenlose Moodboards bleiben in diesem Browserprofil. Kein Wand-Konto erforderlich.',
+    newBoard:'Neues Moodboard', titleLabel:'Titel', description:'Beschreibung', create:'Erstellen', boards:'Moodboards', empty:'Noch keine Moodboards.',
+    inspiration:'Inspiration', addInspiration:'Inspiration hinzufügen', type:'Typ', label:'Bezeichnung', url:'URL (optional)', entity:'Wand-Entitäts-ID (optional)',
+    note:'Notiz (optional)', add:'Hinzufügen', remove:'Entfernen', export:'Backup exportieren', import:'Backup importieren', restore:'Vorherigen Snapshot wiederherstellen',
+    delete:'Moodboard löschen', filter:'Inspiration filtern', choose:'Wähle ein Moodboard.', saved:'Lokal gespeichert.', created:'Moodboard erstellt.',
+    imported:'Backup importiert.', restored:'Vorheriger Snapshot wiederhergestellt.', deleted:'Moodboard gelöscht.', added:'Inspiration hinzugefügt.', removed:'Inspiration entfernt.',
+    noBackup:'Kein vorheriger Snapshot verfügbar.', invalid:'Dieses Moodboard-Backup konnte nicht geladen werden.', recovery:'Wiederherstellung',
+    recoveryDetail:'Jeder lokale Schreibvorgang behält das vorherige gültige Dokument als Rollback-Snapshot. Exportiere JSON für dauerhafte Wiederherstellung.',
+    cloud:'Wand Cloud', cloudDetail:'Cloud-Synchronisierung ist hier nicht angebunden. Lokale Moodboards bleiben vollständig nutzbar.',
+    item:'Gegenstand', gallery:'Gallery-Werk', preset:'Wand Preset', link:'Link', noteType:'Notiz', count:'Referenzen'
+  },
+  'es-ES': {
+    eyebrow:'PLANIFICA TU PRÓXIMA CREACIÓN', title:'Moodboards', intro:'Reúne objetos, Presets de Wand, obras de Gallery y notas antes de editar tu Valle.',
+    local:'Primero local', localDetail:'Los Moodboards gratuitos permanecen en este perfil del navegador. No hace falta una cuenta Wand.',
+    newBoard:'Nuevo Moodboard', titleLabel:'Título', description:'Descripción', create:'Crear', boards:'Moodboards', empty:'Aún no hay Moodboards.',
+    inspiration:'Inspiración', addInspiration:'Añadir inspiración', type:'Tipo', label:'Etiqueta', url:'URL (opcional)', entity:'ID de entidad Wand (opcional)',
+    note:'Nota (opcional)', add:'Añadir', remove:'Quitar', export:'Exportar copia', import:'Importar copia', restore:'Restaurar instantánea anterior',
+    delete:'Eliminar Moodboard', filter:'Filtrar inspiración', choose:'Elige un Moodboard.', saved:'Guardado localmente.', created:'Moodboard creado.',
+    imported:'Copia importada.', restored:'Instantánea anterior restaurada.', deleted:'Moodboard eliminado.', added:'Inspiración añadida.', removed:'Inspiración eliminada.',
+    noBackup:'No hay una instantánea anterior disponible.', invalid:'No se pudo cargar esa copia de Moodboard.', recovery:'Recuperación',
+    recoveryDetail:'Cada escritura local conserva el documento válido anterior como instantánea de reversión. Exporta JSON para una recuperación duradera.',
+    cloud:'Wand Cloud', cloudDetail:'La sincronización Cloud no está conectada aquí. Los Moodboards locales siguen siendo plenamente utilizables.',
+    item:'Objeto', gallery:'Obra de Gallery', preset:'Preset de Wand', link:'Enlace', noteType:'Nota', count:'referencias'
+  },
+  ja: {
+    eyebrow:'次の飾り付けを計画する', title:'Moodboards', intro:'Valleyを編集する前に、アイテム、Wand Preset、Gallery作品、メモを集めて構想を整理します。',
+    local:'ローカル優先', localDetail:'無料のMoodboardはこのブラウザープロファイル内に保存されます。Wand Accountは不要です。',
+    newBoard:'新しいMoodboard', titleLabel:'タイトル', description:'説明', create:'作成', boards:'Moodboards', empty:'Moodboardはまだありません。',
+    inspiration:'インスピレーション', addInspiration:'インスピレーションを追加', type:'種類', label:'表示名', url:'URL（任意）', entity:'Wand entity ID（任意）',
+    note:'メモ（任意）', add:'追加', remove:'削除', export:'バックアップを書き出す', import:'バックアップを読み込む', restore:'直前のスナップショットを復元',
+    delete:'Moodboardを削除', filter:'インスピレーションを絞り込む', choose:'Moodboardを選択してください。', saved:'ローカルに保存しました。', created:'Moodboardを作成しました。',
+    imported:'バックアップを読み込みました。', restored:'直前のスナップショットを復元しました。', deleted:'Moodboardを削除しました。', added:'インスピレーションを追加しました。', removed:'インスピレーションを削除しました。',
+    noBackup:'復元できる直前スナップショットがありません。', invalid:'そのMoodboardバックアップは読み込めません。', recovery:'復元',
+    recoveryDetail:'ローカル書き込みのたびに、直前の正常な文書を1世代のrollback snapshotとして保持します。長期保全にはJSONバックアップを書き出してください。',
+    cloud:'Wand Cloud', cloudDetail:'この画面にはCloud同期を接続していません。ローカルMoodboardはCloudなしで完全に利用できます。',
+    item:'アイテム', gallery:'Gallery作品', preset:'Wand Preset', link:'リンク', noteType:'メモ', count:'件'
+  },
+  'zh-CN': {
+    eyebrow:'规划下一次创作', title:'Moodboards', intro:'在编辑山谷前收集物品、Wand Preset、Gallery 作品和笔记。',
+    local:'本地优先', localDetail:'免费的 Moodboard 保存在当前浏览器配置中，无需 Wand 账户。',
+    newBoard:'新建 Moodboard', titleLabel:'标题', description:'说明', create:'创建', boards:'Moodboards', empty:'还没有 Moodboard。',
+    inspiration:'灵感', addInspiration:'添加灵感', type:'类型', label:'名称', url:'URL（可选）', entity:'Wand 实体 ID（可选）',
+    note:'笔记（可选）', add:'添加', remove:'移除', export:'导出备份', import:'导入备份', restore:'恢复上一个快照',
+    delete:'删除 Moodboard', filter:'筛选灵感', choose:'请选择一个 Moodboard。', saved:'已保存到本地。', created:'已创建 Moodboard。',
+    imported:'已导入备份。', restored:'已恢复上一个快照。', deleted:'已删除 Moodboard。', added:'已添加灵感。', removed:'已移除灵感。',
+    noBackup:'没有可用的上一个快照。', invalid:'无法加载该 Moodboard 备份。', recovery:'恢复',
+    recoveryDetail:'每次本地写入都会保留上一个有效文档作为回滚快照。请导出 JSON 备份以便长期恢复。',
+    cloud:'Wand Cloud', cloudDetail:'此界面尚未连接 Cloud 同步。本地 Moodboard 无需 Cloud 也可完整使用。',
+    item:'物品', gallery:'Gallery 作品', preset:'Wand Preset', link:'链接', noteType:'笔记', count:'项'
+  },
+  'pt-BR': {
+    eyebrow:'PLANEJE SUA PRÓXIMA CRIAÇÃO', title:'Moodboards', intro:'Reúna itens, Presets do Wand, obras da Gallery e notas antes de editar o seu Vale.',
+    local:'Local primeiro', localDetail:'Moodboards gratuitos ficam neste perfil do navegador. Nenhuma conta Wand é necessária.',
+    newBoard:'Novo Moodboard', titleLabel:'Título', description:'Descrição', create:'Criar', boards:'Moodboards', empty:'Ainda não há Moodboards.',
+    inspiration:'Inspiração', addInspiration:'Adicionar inspiração', type:'Tipo', label:'Rótulo', url:'URL (opcional)', entity:'ID de entidade Wand (opcional)',
+    note:'Nota (opcional)', add:'Adicionar', remove:'Remover', export:'Exportar backup', import:'Importar backup', restore:'Restaurar snapshot anterior',
+    delete:'Excluir Moodboard', filter:'Filtrar inspiração', choose:'Escolha um Moodboard.', saved:'Salvo localmente.', created:'Moodboard criado.',
+    imported:'Backup importado.', restored:'Snapshot anterior restaurado.', deleted:'Moodboard excluído.', added:'Inspiração adicionada.', removed:'Inspiração removida.',
+    noBackup:'Nenhum snapshot anterior está disponível.', invalid:'Não foi possível carregar esse backup de Moodboard.', recovery:'Recuperação',
+    recoveryDetail:'Cada gravação local mantém o documento válido anterior como snapshot de rollback. Exporte JSON para recuperação duradoura.',
+    cloud:'Wand Cloud', cloudDetail:'A sincronização Cloud não está conectada aqui. Moodboards locais continuam totalmente utilizáveis.',
+    item:'Item', gallery:'Obra da Gallery', preset:'Preset do Wand', link:'Link', noteType:'Nota', count:'referências'
+  }
+});
+
+export function moodboardCopy(locale) {
+  return MOODBOARD_COPY[locale] ?? MOODBOARD_COPY.en;
+}
