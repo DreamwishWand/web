@@ -47,6 +47,7 @@ Applied successfully to staging project `ptpdoxhrqopvczpclcij`:
 - `20261003044600_community_dreamsnaps_native_revision_fix_v1.sql`
 - `20261003044700_community_dreamsnaps_integrity_pool_v1.sql`
 - `20261003044800_community_dreamsnaps_ingame_result_provenance_v1.sql`
+- `20261003044900_community_dreamsnaps_fk_indexes_v1.sql`
 
 Important invariant correction found by acceptance testing:
 
@@ -173,13 +174,13 @@ Public query allowlist does not expose Judge.
 
 ## CI evidence
 
-Accepted code HEAD before this handoff-only commit:
+Accepted code HEAD before this handoff-only update:
 
-`d4c45812f38f319c1a3452830a026182830d8b9a`
+`5872d06db7b75caf87790aad057d9b996f40a219`
 
 GitHub Actions CI run:
 
-`37107581846` — **SUCCESS**
+`37108109813` / #2052 — **SUCCESS**
 
 Successful steps include:
 
@@ -191,6 +192,16 @@ Successful steps include:
 - integrated production tree preflight
 - contract tests
 - static build
+
+## Advisor closure
+
+**CONFIRMED**
+
+- Staging Performance Advisor initially reported 15 DreamSnaps foreign keys without covering indexes.
+- Migration `20261003044900_community_dreamsnaps_fk_indexes_v1.sql` adds only covering indexes; it changes no product, authorization, or lifecycle semantics.
+- After migration, `unindexed_foreign_keys` findings are 0.
+- Remaining Performance Advisor findings are `unused_index` INFO, expected immediately after creating indexes on a staging surface without persistent production traffic.
+- Security Advisor shows no new DreamSnaps WARN. The only WARN remains the pre-existing `auth_leaked_password_protection` setting. DreamSnaps/service-only tables appear as RLS-without-policy INFO because direct anon/authenticated table access is intentionally revoked and Edge/service-role contracts own access.
 
 ## Launch blocker
 
