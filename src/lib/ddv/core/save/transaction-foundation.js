@@ -1,5 +1,5 @@
 import { SafeProfileEditSession, diffPaths } from './safe-edit-session.js';
-import { createRuntimeAssertionManifest, evaluateSavePreflight } from './save-preflight.js';
+import { RUNTIME_ASSERTION_CONTRACT, createRuntimeAssertionManifest, evaluateSavePreflight } from './save-preflight.js';
 import { BuildMatchStatus, CURRENT_V125_BUILD_CONTRACTS, PlatformFamily, matchSupportedBuild } from './versioning.js';
 
 export const TRANSACTION_PLAN_CONTRACT='dreamwish.ddv.save-transaction-plan@1';
@@ -115,14 +115,17 @@ export async function verifyWriteCandidate({candidate,codec,contracts=CURRENT_V1
 
   const sourceSession=await SafeProfileEditSession.open({sourceBytes:candidate.backupOriginalBytes,codec,sourcePlatform:manifest.input.platform,contracts});
   const outputSession=await SafeProfileEditSession.open({sourceBytes:candidate.candidateBytes,codec,sourcePlatform:manifest.input.platform,contracts});
-  validateInputIdentity({session:sourceSession,ctx:sourceSession.getPreflightContext(),plan:p,buildContract:requireExactBuild(sourceSession,p.input.targetBuild,contracts)});
+  const buildContract=requireExactBuild(sourceSession,p.input.targetBuild,contracts);
+  validateInputIdentity({session:sourceSession,ctx:sourceSession.getPreflightContext(),plan:p,buildContract});
   const before=sourceSession.getSnapshot(),after=outputSession.getSnapshot();
   validateTargetIdentity(before,p.target);validateTargetIdentity(after,p.target);
   assertConditions(before,p.preconditions,'TX_PRECONDITION_FAILED');
   assertConditions(after,p.postconditions,'TX_POSTCONDITION_FAILED');
   const semanticDiff=buildSemanticDiff(before,after,p,collectGridObjectIdentity(before));
   assertAcceptableDiff(semanticDiff);
-  if(!sameStringArray(semanticDiff.allChangedPaths,manifest.semanticDiff.allChangedPaths))throw txError('TX_REVERIFIED_DIFF_MISMATCH');
+  assertManifestBindings({
+    manifest,plan:p,semanticDiff,sourceSession,outputSession,buildContract,sourceSha256,candidateSha256
+  });
   return deepFreeze({
     contract:TRANSACTION_VERIFICATION_CONTRACT,status:'PASS',planId:p.planId,
     sourceSha256,candidateSha256,semanticDiff,persistentWriteAuthorized:false,WORLD_PERSISTENT_WRITE_V125:false
@@ -157,6 +160,53 @@ function assertAcceptableDiff(diff){
   if(diff.identityDelta.changed)throw txError('TX_GRID_OBJECT_IDENTITY_CHANGED',JSON.stringify(diff.identityDelta));
   if(diff.serializerNormalizedEquivalentPaths.length)throw txError('TX_SERIALIZER_NORMALIZATION_NOT_ALLOWED');
 }
+
+function assertManifestBindings({manifest,plan,semanticDiff,sourceSession,outputSession,buildContract,sourceSha256,candidateSha256}){
+  const sourceCtx=sourceSession.getPreflightContext(),outputCtx=outputSession.getPreflightContext();
+  if(manifest.planContract!==TRANSACTION_PLAN_CONTRACT||manifest.planId!==plan.planId||manifest.semanticOwner!==plan.semanticOwner)
+    throw txError('TX_MANIFEST_PLAN_BINDING_MISMATCH');
+  if(!semanticEqual(manifest.mutationAdapter,plan.mutationAdapter))
+    throw txError('TX_MANIFEST_PLAN_BINDING_MISMATCH','mutationAdapter');
+  const expectedCapability={required:WRITE_CANDIDATE_CAPABILITY,writeCandidate:true,persistentWrite:false};
+  if(!semanticEqual(manifest.capability,expectedCapability))
+    throw txError('TX_MANIFEST_PLAN_BINDING_MISMATCH','capability');
+
+  const expectedInput={
+    platform:plan.input.platform,gameVersion:plan.input.gameVersion,profileGameInfoVersion:plan.input.profileGameInfoVersion,
+    originalFileLength:sourceSession.source.length,originalSha256:sourceSha256,codecContract:plan.input.codecContract,
+    targetBuild:plan.input.targetBuild,exactBuildContractId:buildContract.id
+  };
+  if(!semanticEqual(manifest.input,expectedInput))
+    throw txError('TX_MANIFEST_INPUT_BINDING_MISMATCH');
+  if(outputCtx.saveIdentity.sourcePlatform!==plan.input.platform||
+     outputCtx.saveIdentity.profileGameInfoVersion!==plan.input.profileGameInfoVersion||
+     outputCtx.codecContract!==plan.input.codecContract)
+    throw txError('TX_OUTPUT_IDENTITY_BINDING_MISMATCH');
+
+  const expectedOutput={
+    format:sourceCtx.inputFormat,candidateFileLength:candidateBytesLength(outputSession),
+    candidateSha256,noOp:semanticDiff.allChangedPaths.length===0
+  };
+  if(!semanticEqual(manifest.output,expectedOutput)||outputCtx.inputFormat!==sourceCtx.inputFormat)
+    throw txError('TX_MANIFEST_OUTPUT_BINDING_MISMATCH');
+  if(!semanticEqual(manifest.target,plan.target))
+    throw txError('TX_MANIFEST_TARGET_BINDING_MISMATCH');
+  const expectedOperation={id:plan.operation.id,owner:plan.operation.owner,kind:plan.operation.kind,runtimeGate:plan.operation.runtimeGate};
+  if(!semanticEqual(manifest.operation,expectedOperation))
+    throw txError('TX_MANIFEST_OPERATION_BINDING_MISMATCH');
+  if(!semanticEqual(manifest.semanticDiff,semanticDiff))
+    throw txError('TX_MANIFEST_SEMANTIC_DIFF_BINDING_MISMATCH');
+  if(!semanticEqual(manifest.sourceEvidence,plan.sourceEvidence))
+    throw txError('TX_MANIFEST_EVIDENCE_BINDING_MISMATCH');
+  const expectedVerification={
+    temporarySerialization:'PASS',canonicalReparse:'PASS',schemaVersion:'PASS',expectedPostcondition:'PASS',
+    unrelatedStatePreservation:'PASS',gridObjectIdentityPreservation:'PASS',opaqueUnknownPreservation:'PASS',
+    runtimeAssertionContract:RUNTIME_ASSERTION_CONTRACT
+  };
+  if(!semanticEqual(manifest.verification,expectedVerification))
+    throw txError('TX_MANIFEST_VERIFICATION_BINDING_MISMATCH');
+}
+function candidateBytesLength(session){return session.source.length;}
 
 function normalizePlan(value){
   if(!value||typeof value!=='object')throw txError('TX_PLAN_REQUIRED');
