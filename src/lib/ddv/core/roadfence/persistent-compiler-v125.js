@@ -8,7 +8,9 @@ import {
 import {
   normalizeBuildIdentity,
   normalizeCatalog,
+  normalizeGridObjects,
   normalizeTransform,
+  positiveInteger,
   requireWritableSupport,
   topologyFingerprintIgnoringFamily,
   fail
@@ -40,6 +42,69 @@ export {
   RoadFenceWriterSupportStatus
 };
 
+
+function requireCompilerTransformQuantum(sourceGrid, transform, kind) {
+  const tessellationFactor = positiveInteger(
+    sourceGrid?.TessellationFactor,
+    'TessellationFactor'
+  );
+  const expectedPitch =
+    kind === 'road' ? tessellationFactor * 2 : tessellationFactor;
+  if (
+    transform.pitchX !== expectedPitch ||
+    transform.pitchY !== expectedPitch
+  ) {
+    fail('ROADFENCE_INVALID_GRID_QUANTUM', undefined, {
+      kind,
+      expectedPitch,
+      pitchX: transform.pitchX,
+      pitchY: transform.pitchY
+    });
+  }
+}
+
+function requireOwnedSourceFamily({
+  sourceGrid,
+  sourceObjectIds,
+  kind,
+  catalogMaps,
+  expectedFamilyBaseItemID
+}) {
+  if (!(sourceObjectIds ?? []).length) return;
+  const byId = new Map(
+    normalizeGridObjects(sourceGrid).map((object) => [object.id, object])
+  );
+  for (const rawId of sourceObjectIds) {
+    const id = Number(rawId);
+    const object = byId.get(id);
+    if (!object) fail('ROADFENCE_SOURCE_OBJECT_ID_MISSING', String(id));
+    const descriptor =
+      kind === 'road'
+        ? catalogMaps.roadItems.get(object.itemID)
+        : catalogMaps.fenceItems.get(object.itemID);
+    if (!descriptor) {
+      fail(
+        kind === 'road'
+          ? 'ROAD_SOURCE_OBJECT_FAMILY_MISMATCH'
+          : 'FENCE_SOURCE_OBJECT_FAMILY_MISMATCH',
+        String(id)
+      );
+    }
+    if (descriptor.familyBaseItemID !== expectedFamilyBaseItemID) {
+      fail(
+        kind === 'road'
+          ? 'ROAD_SOURCE_OBJECT_FAMILY_MISMATCH'
+          : 'FENCE_SOURCE_OBJECT_FAMILY_MISMATCH',
+        String(id),
+        {
+          expectedFamilyBaseItemID,
+          actualFamilyBaseItemID: descriptor.familyBaseItemID
+        }
+      );
+    }
+  }
+}
+
 function checkRoadSourceFamily(sourceNetwork, desiredNetwork, operation) {
   if (!sourceNetwork) return;
   if (
@@ -58,6 +123,9 @@ function checkFenceRepresentationTopology(
   if (!REPRESENTATION_ONLY_FENCE_OPS.has(operation)) return;
   if (!sourceNetwork) {
     fail('FENCE_REPRESENTATION_EDIT_SOURCE_TOPOLOGY_REQUIRED');
+  }
+  if (sourceNetwork.familyBaseItemID !== desiredNetwork.familyBaseItemID) {
+    fail('FENCE_REPRESENTATION_EDIT_FAMILY_CHANGED');
   }
   if (
     topologyFingerprintIgnoringFamily(sourceNetwork) !==
@@ -96,9 +164,23 @@ export function compileRoadMutationV125({
     );
     requireWritableSupport(support);
 
+    const normalizedTransform = normalizeTransform(transform);
+    requireCompilerTransformQuantum(
+      sourceGrid,
+      normalizedTransform,
+      'road'
+    );
+    requireOwnedSourceFamily({
+      sourceGrid,
+      sourceObjectIds,
+      kind: 'road',
+      catalogMaps,
+      expectedFamilyBaseItemID: network.familyBaseItemID
+    });
+
     const planned = planRoadNativeV125(
       network,
-      normalizeTransform(transform)
+      normalizedTransform
     );
     const reconciliation = reconcileNativeRepresentation({
       sourceGrid,
@@ -107,6 +189,12 @@ export function compileRoadMutationV125({
       kind: 'road',
       catalog: catalogMaps
     });
+    if (
+      operation === RoadFencePersistentOperation.ROAD_SAME_FAMILY_MERGE &&
+      reconciliation.preserved.length === 0
+    ) {
+      fail('ROAD_NATIVE_SEED_NOT_PRESERVED');
+    }
 
     return {
       ok: true,
@@ -163,11 +251,35 @@ export function compileFenceMutationV125({
       operation
     );
 
+    const normalizedTransform = normalizeTransform(transform);
+    requireCompilerTransformQuantum(
+      sourceGrid,
+      normalizedTransform,
+      'fence'
+    );
+    const expectedSourceFamilyBaseItemID =
+      operation === RoadFencePersistentOperation.FENCE_STYLE_REPLACE
+        ? sourceNetwork?.familyBaseItemID
+        : network.familyBaseItemID;
+    if (
+      (sourceObjectIds ?? []).length &&
+      !Number.isInteger(expectedSourceFamilyBaseItemID)
+    ) {
+      fail('FENCE_SOURCE_TOPOLOGY_REQUIRED');
+    }
+    requireOwnedSourceFamily({
+      sourceGrid,
+      sourceObjectIds,
+      kind: 'fence',
+      catalogMaps,
+      expectedFamilyBaseItemID: expectedSourceFamilyBaseItemID
+    });
+
     const planned = planFenceNativeV125({
       network,
       representationLayout,
       family,
-      transform: normalizeTransform(transform),
+      transform: normalizedTransform,
       tessellationFactor:
         requireFenceTessellationFactor(sourceGrid)
     });
