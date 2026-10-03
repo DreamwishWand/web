@@ -2560,6 +2560,8 @@
         'worldEditor.verifiedExport.failure.identityMismatch',
       WEP_EXPORT_OBJECT_NO_LONGER_ADMISSIBLE:
         'worldEditor.verifiedExport.failure.notAdmissible',
+      WEP_EXPORT_CHANGED_OBJECT_MUST_BE_SELECTED:
+        'worldEditor.verifiedExport.failure.changedObjectSelected',
       WEP_EXPORT_PROGRESSION_VETO:
         'worldEditor.verifiedExport.failure.progressionVeto',
       WEP_EXPORT_INVALID_DESTINATION:
