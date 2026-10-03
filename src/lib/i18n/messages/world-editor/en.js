@@ -478,7 +478,7 @@ const copy = {
   'worldEditor.live.coreReasonStateUnsupported': 'The object carries attached state whose mutation semantics are not promoted for generic editing.',
   'worldEditor.live.coreReasonRootGrid': 'The selected root Grid is visible but not authorized for mutation by the current Core role contract.',
   'worldEditor.live.coreReasonFallback': 'Core keeps this object read-only.',
-  'worldEditor.live.coreReasonDefault': 'The selected object is read-only under the current Core projection.'
+  'worldEditor.live.coreReasonDefault': 'The selected object is read-only under the current Core projection.',
   "worldEditor.verifiedExport.eyebrow": "VERIFIED REPLACEMENT EXPORT",
   "worldEditor.verifiedExport.title": "Review Changes & Export",
   "worldEditor.verifiedExport.description": "The launch writer supports one existing same-root ordinary Furniture MOVE or cardinal ROTATE. Wand creates and independently verifies an edited replacement save; it never overwrites the loaded source.",
