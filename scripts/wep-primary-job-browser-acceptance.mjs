@@ -249,8 +249,8 @@ const verifiedExportProfile = {
             '101': {
               ID: 101,
               ItemID: 40000048,
-              X: 20,
-              Y: 20,
+              X: 56,
+              Y: 311,
               Orientation: 'GridOrientation_Up',
               State: null
             }
@@ -1085,8 +1085,8 @@ async function runVerifiedExportAcceptance(page, report) {
   assert.equal(editedObject.ID, 101);
   assert.equal(editedObject.ItemID, 40000048);
   assert.equal(editedObject.State, null);
-  assert.equal(editedObject.X, 21);
-  assert.equal(editedObject.Y, 20);
+  assert.equal(editedObject.X, 57);
+  assert.equal(editedObject.Y, 311);
   assert.equal(editedObject.Orientation, 'GridOrientation_Up');
   assert.equal(
     editedProfile.World.GridCollection.Grids['10'].NextGridObjectID,
