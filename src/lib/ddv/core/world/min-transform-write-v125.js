@@ -15,6 +15,12 @@ export const PROFILE_SCHEMA=624;
 export const SWITCH_BID='52BD625D9B4E0053';
 export const TITLE_ID='0100D39012C1A000';
 export const CARDINAL_ORIENTATIONS=Object.freeze([0,4,8,12]);
+export const ORIENTATION_NAMES=Object.freeze([
+  'GridOrientation_Up','GridOrientation_UpUpRight','GridOrientation_UpRight','GridOrientation_UpRightRight',
+  'GridOrientation_Right','GridOrientation_DownRightRight','GridOrientation_DownRight','GridOrientation_DownDownRight',
+  'GridOrientation_Down','GridOrientation_DownDownLeft','GridOrientation_DownLeft','GridOrientation_DownLeftLeft',
+  'GridOrientation_Left','GridOrientation_UpLeftLeft','GridOrientation_UpLeft','GridOrientation_UpUpLeft'
+]);
 const CARDINAL=new Set(CARDINAL_ORIENTATIONS);
 const KNOWN_GRID_OBJECT_KEYS=new Set(['ID','ItemID','X','Y','Orientation','State']);
 
@@ -29,13 +35,7 @@ function objectOf(grid,mapKey){return grid?.Objects?.[String(mapKey)]??grid?.Obj
 function normalizedOrientation(v){
   const n=int(v);
   if(n!==null)return n;
-  const names=[
-    'GridOrientation_Up','GridOrientation_UpUpRight','GridOrientation_UpRight','GridOrientation_UpRightRight',
-    'GridOrientation_Right','GridOrientation_DownRightRight','GridOrientation_DownRight','GridOrientation_DownDownRight',
-    'GridOrientation_Down','GridOrientation_DownDownLeft','GridOrientation_DownLeft','GridOrientation_DownLeftLeft',
-    'GridOrientation_Left','GridOrientation_UpLeftLeft','GridOrientation_UpLeft','GridOrientation_UpUpLeft'
-  ];
-  const i=names.indexOf(String(v));return i>=0?i:null;
+  const i=ORIENTATION_NAMES.indexOf(String(v));return i>=0?i:null;
 }
 function result(status,reasons,extra={}){
   return Object.freeze({
@@ -107,6 +107,7 @@ function rootEvidenceClear(e,gridId,objectId,mapKey){
     && Number(e.destinationRootGridId)===gridId
   );
 }
+function orientationSerializedLike(sourceRaw,n){return typeof sourceRaw==='string'?ORIENTATION_NAMES[n]:n;}
 function transform(op,before,after,reasons){
   const bx=int(before?.x),by=int(before?.y),bo=normalizedOrientation(before?.orientation);
   const ax=int(after?.x),ay=int(after?.y),ao=normalizedOrientation(after?.orientation);
@@ -115,12 +116,12 @@ function transform(op,before,after,reasons){
   if(op==='MOVE'){
     if(ao!==bo)reasons.push('MOVE_ORIENTATION_MUST_BE_PRESERVED');
     if(ax===bx&&ay===by)reasons.push('MOVE_NOOP_NOT_A_WRITE_CANDIDATE');
-    return {before:{x:bx,y:by,orientation:bo},after:{x:ax,y:ay,orientation:ao},allowedFields:['X','Y']};
+    return {before:{x:bx,y:by,orientation:bo},after:{x:ax,y:ay,orientation:ao},serializedBefore:{x:bx,y:by,orientation:before.orientation},serializedAfter:{x:ax,y:ay,orientation:before.orientation},allowedFields:['X','Y']};
   }
   if(op==='ROTATE'){
     if(ao===bo)reasons.push('ROTATE_ORIENTATION_MUST_CHANGE');
     if(((ao-bo+16)%16)%4!==0)reasons.push('ROTATE_CARDINAL_DELTA_REQUIRED');
-    return {before:{x:bx,y:by,orientation:bo},after:{x:ax,y:ay,orientation:ao},allowedFields:['X','Y','Orientation']};
+    return {before:{x:bx,y:by,orientation:bo},after:{x:ax,y:ay,orientation:ao},serializedBefore:{x:bx,y:by,orientation:before.orientation},serializedAfter:{x:ax,y:ay,orientation:orientationSerializedLike(before.orientation,ao)},allowedFields:['X','Y','Orientation']};
   }
   reasons.push('TRANSFORM_OPERATION_UNSUPPORTED');return null;
 }
@@ -161,6 +162,8 @@ export function classifyMinimumPersistentTransform({
     target:{gridId,gridObjectId:objectId,itemId,objectMapKey:String(mapKey)},
     beforeTransform:tx.before,
     finalTransform:tx.after,
+    serializedBeforeTransform:tx.serializedBefore,
+    serializedFinalTransform:tx.serializedAfter,
     allowedSerializedFields:Object.freeze(tx.allowedFields),
     preservation:Object.freeze({
       ID:'UNCHANGED',ItemID:'UNCHANGED',State:'UNCHANGED_NULL',objectMapKey:'UNCHANGED',
@@ -191,7 +194,7 @@ function expectedAllowedPaths(admissibility){
   return fields.map(field=>objectPointer(admissibility,field));
 }
 function conditionsForTransform(admissibility,which){
-  const t=which==='before'?admissibility.beforeTransform:admissibility.finalTransform;
+  const t=which==='before'?admissibility.serializedBeforeTransform:admissibility.serializedFinalTransform;
   const out=[
     {path:objectPointer(admissibility,'ID'),operator:'EQUALS',value:admissibility.target.gridObjectId},
     {path:objectPointer(admissibility,'ItemID'),operator:'EQUALS',value:admissibility.target.itemId},
@@ -262,6 +265,7 @@ export function buildMinimumTransformTransactionPlan({
       operation:admissibility.operation,
       objectMapKey:admissibility.target.objectMapKey,
       finalTransform:clone(admissibility.finalTransform),
+      finalSerializedTransform:clone(admissibility.serializedFinalTransform),
       semanticContract:MIN_TRANSFORM_CONTRACT,
       persistentWriteAuthorized:false
     }
@@ -293,14 +297,14 @@ export const minimumPersistentTransformAdapter=Object.freeze({
     const grid=gridOf(draft,gridId);if(!grid||int(grid.ID)!==gridId)throw Error('MIN_TRANSFORM_TARGET_GRID_MISSING');
     const object=objectOf(grid,key);if(!object||int(object.ID)!==objectId||String(object.ID)!==key||int(object.ItemID)!==itemId)throw Error('MIN_TRANSFORM_TARGET_IDENTITY_MISMATCH');
     if(object.State!==null)throw Error('MIN_TRANSFORM_STATE_CHANGED_BEFORE_APPLY');
-    const final=intent?.finalTransform||{},x=int(final.x),y=int(final.y),ori=normalizedOrientation(final.orientation);
-    if(x===null||y===null||ori===null||!CARDINAL.has(ori))throw Error('MIN_TRANSFORM_FINAL_TRANSFORM_INVALID');
+    const final=intent?.finalTransform||{},serialized=intent?.finalSerializedTransform||{},x=int(final.x),y=int(final.y),ori=normalizedOrientation(final.orientation);
+    if(x===null||y===null||ori===null||!CARDINAL.has(ori)||normalizedOrientation(serialized.orientation)!==ori)throw Error('MIN_TRANSFORM_FINAL_TRANSFORM_INVALID');
     if(plan.operation.kind==='MOVE'){
       if(normalizedOrientation(object.Orientation)!==ori)throw Error('MIN_TRANSFORM_MOVE_ORIENTATION_CHANGE_FORBIDDEN');
       object.X=x;object.Y=y;
     }else{
       if(normalizedOrientation(object.Orientation)===ori)throw Error('MIN_TRANSFORM_ROTATE_ORIENTATION_UNCHANGED');
-      object.X=x;object.Y=y;object.Orientation=ori;
+      object.X=x;object.Y=y;object.Orientation=serialized.orientation;
     }
   },
   persistentWriteAuthorized:false,
