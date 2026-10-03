@@ -1,0 +1,262 @@
+{
+  "schema": "dreamwish-community-production-ops@1",
+  "generatedAt": "2026-10-01T19:35:38+09:00",
+  "staging": {
+    "projectRef": "ptpdoxhrqopvczpclcij",
+    "projectName": "dreamwish-wand-staging",
+    "region": "ap-northeast-1",
+    "planObserved": "free",
+    "storageBucketsObserved": [
+      "community-media-staging",
+      "wand-preset-artifacts-staging"
+    ]
+  },
+  "production": {
+    "projectRef": null,
+    "projectName": null,
+    "region": "ap-northeast-1",
+    "mustDifferFromStaging": true,
+    "launchReady": false,
+    "requiredEnvironmentConfig": [
+      "DREAMWISH_ENVIRONMENT",
+      "COMMUNITY_MEDIA_BUCKET",
+      "WEP_PRESET_ARTIFACT_BUCKET"
+    ],
+    "resourceDecision": {
+      "status": "APPROVED_FOR_RELEASE_STAGE",
+      "contract": "ops/community-production-resource-decision-20261002.json",
+      "supabasePlan": "PRO",
+      "storageRecoveryProvider": "CLOUDFLARE_R2_STANDARD",
+      "provisionNow": false,
+      "provisionAt": "RELEASE_STAGE"
+    }
+  },
+  "backupPolicy": {
+    "database": {
+      "launchRequirement": "managed-daily-or-verified-offsite-logical-backup",
+      "maximumRpoHours": 24,
+      "restoreDrillRequired": true,
+      "freePlanStagingIsNotProductionBackupEvidence": true,
+      "preferredShortestAvailableRecoveryWindow": true,
+      "pitrRequiredAtLaunch": false,
+      "productionPlanBinding": "SUPABASE_PRO_APPROVED_FOR_RELEASE_PROVISIONING",
+      "selectedLaunchMechanism": "managed-daily-database-backup-on-supabase-pro"
+    },
+    "storageObjects": {
+      "separateBackupRequired": true,
+      "maximumRpoHours": 24,
+      "restoreDrillRequired": true,
+      "databaseBackupDoesNotRestoreObjectBytes": true,
+      "independentRollbackDomainRequired": true,
+      "privateOnly": true,
+      "targetCopyRetentionDays": 7,
+      "providerSelection": "CLOUDFLARE_R2_STANDARD_APPROVED_FOR_RELEASE_PROVISIONING",
+      "selectedProvider": {
+        "provider": "Cloudflare",
+        "service": "R2 Standard"
+      }
+    },
+    "restore": {
+      "targetRtoHours": 4,
+      "restoreToNonProductionTargetFirst": true,
+      "authAndObjectIntegrityChecksRequired": true,
+      "deletionLedgerReconciliationRequired": true,
+      "restoredSessionsMustBeRevalidated": true,
+      "promotionBlockedIfReconciliationUnavailable": true
+    },
+    "recoveryDeletionLedger": {
+      "required": true,
+      "contract": "ops/community-backup-privacy-contract.json",
+      "outsidePrimaryRollbackDomain": true,
+      "retentionDays": 90,
+      "minimalFields": [
+        "deletionEventId",
+        "accountId",
+        "requestedAt"
+      ],
+      "productionImplementation": "PENDING"
+    }
+  },
+  "migrationPolicy": {
+    "sourceOfTruth": "supabase/migrations",
+    "productionChangesRequireMigration": true,
+    "directProductionDdlForbidden": true,
+    "rollbackStrategy": "forward-fix-by-default-full-restore-for-data-loss-or-non-reversible-failure",
+    "preDeploymentBackupRequiredForDestructiveOrIrreversibleMigration": true,
+    "productionReplayRequiresIntegratedTree": true
+  },
+  "edgeFunctions": {
+    "productionAllowlist": [
+      "community-account",
+      "community-admin",
+      "community-auth",
+      "community-command",
+      "community-email-resend",
+      "community-media",
+      "community-ops-email",
+      "community-ops-escalation",
+      "community-query",
+      "community-retention",
+      "wep-preset-artifact",
+      "wep-preset-retention"
+    ],
+    "stagingOnlyDenylist": [
+      "community-auth-acceptance",
+      "community-auth-e2e",
+      "community-e2e-once",
+      "community-wep-retention-e2e",
+      "wep-preset-flow-e2e",
+      "wep-retention-e2e"
+    ]
+  },
+  "scheduledJobs": {
+    "required": [
+      "community-operations-alerts-every-minute",
+      "community-operations-escalation-alerts-every-minute",
+      "community-operations-escalation-every-minute",
+      "community-outbox-every-minute",
+      "community-provider-cleanup-every-minute",
+      "community-retention-alerts-every-minute",
+      "community-retention-hourly"
+    ]
+  },
+  "vault": {
+    "requiredSecretNames": [
+      "community_operations_email_relay_url",
+      "community_operations_escalation_worker_token",
+      "community_operations_escalation_worker_url",
+      "community_provider_cleanup_worker_token",
+      "community_provider_cleanup_worker_url",
+      "community_retention_worker_token",
+      "community_retention_worker_url"
+    ],
+    "requiredEdgeSecretNames": [
+      "DREAMWISH_OPERATOR_EMAIL",
+      "RESEND_API_KEY"
+    ],
+    "secretValuesMustNeverAppearInRepository": true,
+    "rotationDrillRequired": true
+  },
+  "security": {
+    "minimumPasswordLength": 15,
+    "compositionRuleRequired": false,
+    "securityChangeNotificationsRequired": true,
+    "knownAcceptedAdvisorWarning": "auth_leaked_password_protection",
+    "knownPlanUnavailableNonBlockingFindings": [
+      "auth_leaked_password_protection"
+    ],
+    "planUnavailableFindingIsEngineeringBlocker": false,
+    "productionLeakedPasswordProtectionRule": {
+      "ifProOrAbove": "MUST_ENABLE",
+      "ifFree": "KNOWN_UNAVAILABLE_COMPENSATED_LIMITATION",
+      "stagingFreeExceptionDoesNotAutomaticallyCarryToPaidProduction": true
+    }
+  },
+  "releaseGate": {
+    "requireDistinctProductionProject": true,
+    "requireDatabaseRestoreDrill": true,
+    "requireStorageRestoreDrill": true,
+    "requireSecretRotationDrill": true,
+    "requireProductionFunctionAllowlistVerification": true,
+    "requireStagingOnlyFunctionAbsence": true,
+    "requireCronAndVaultInventoryVerification": true,
+    "requirePostDeploymentSecurityAdvisor": true,
+    "requirePostDeploymentSmoke": true,
+    "requireNoHardcodedStagingResourcesInProductionFunctions": true,
+    "requireIntegratedMigrationReplay": true,
+    "requireRetentionPolicyApproval": true,
+    "requireAuthLaunchAcceptance": true
+  },
+  "integration": {
+    "communityBranch": "dev/community-core-v0-20260930",
+    "wepBranch": "dev/wep-v125",
+    "productionReplaySource": "final-integrated-main",
+    "communityBranchAloneIsNotProductionComplete": true,
+    "wepBranchHead": "f7236064ef9a4b623efabe1d9d75211af081cbcf",
+    "wepPresetArtifactBucketContract": "CLOSED",
+    "wepMigrationBaselineConsistency": "CONFIRMED_STATIC",
+    "wepPresetProductionMigrationProvisioning": "CONFIRMED_STATIC",
+    "latestWepObservedHead": "424116bba04be06454db32a422afaeba6e2b0044",
+    "latestWepCommunityContractDelta": "NONE",
+    "communityVerticalRerunRequired": false
+  },
+  "crossStreamBlockers": [
+    {
+      "id": "WEP_PRESET_ARTIFACT_BUCKET_EXTERNALIZATION",
+      "owner": "02 WEP",
+      "state": "CLOSED",
+      "evidence": "dev/wep-v125@c396413dc349829bc91f89b397321de38b55a3ba; staging wep-preset-artifact v14 / wep-preset-retention v6",
+      "detail": "Edge-function bucket selection is environment-aware and fail-closed outside known staging. This does not close production migration provisioning."
+    },
+    {
+      "id": "WEP_PRESET_ARTIFACT_BUCKET_PRODUCTION_MIGRATION",
+      "owner": "02 WEP",
+      "state": "CLOSED",
+      "evidence": "dev/wep-v125@f7236064ef9a4b623efabe1d9d75211af081cbcf; production migration SHA 099d7d4f6a653b1268596ab9a12d470e8b6760a2; staging bootstrap SHA e3af6f5d019365f4dfc507d27e37a0b6810e2b16; verifier SHA 006b02f70d2d99761a07f2eca62443e8609d720c",
+      "detail": "Production migration no longer creates/names the staging bucket and preserves only preset_artifact_prepare rate policy. Known staging bucket bootstrap is isolated under supabase/staging. Final fresh-target replay remains Release Operations work."
+    }
+  ],
+  "privacyRetentionReview": {
+    "contract": "ops/community-retention-launch-review.json",
+    "technicalState": "CONFIRMED",
+    "launchApproved": false,
+    "engineeringDefaults": {
+      "contentPayloadDays": 7,
+      "operationalDetailDays": 90
+    },
+    "approvalRequired": true,
+    "approvalStateContract": "ops/community-retention-approval-state.json",
+    "engineeringDecisionBoundary": "CLOSED",
+    "approvals": {
+      "product": "APPROVED",
+      "privacy": "PENDING",
+      "legal": "PENDING"
+    },
+    "contentPayloadDays": 7,
+    "contentPayloadDaysIsRecoveryWindow": false,
+    "operationalDetailDays": 90,
+    "exceptionPolicy": "D4_MODERATION_SECURITY_LEGAL_HOLD"
+  },
+  "authLaunchReview": {
+    "contract": "ops/community-auth-launch-review.json",
+    "providerPasswordBoundary": "CONFIRMED",
+    "providerAndWandRevocation": "CONFIRMED",
+    "signedInReauthentication": "CONFIRMED",
+    "launchApproved": true,
+    "evidence": "docs/community/auth-final-mailbox-reauth-runtime-20261001.md"
+  },
+  "releaseEvidence": {
+    "contract": "ops/community-production-release-evidence.json",
+    "launchReady": false,
+    "productionEvidenceMustComeFromDistinctProductionEnvironment": true
+  },
+  "privacyLegalReadiness": {
+    "privacy": {
+      "state": "REVIEW_READY_WITH_OPEN_PRIVACY_DECISIONS",
+      "contract": "ops/community-privacy-review-readiness-20261002.json",
+      "packet": "docs/community/privacy-review-readiness-20261002.md",
+      "approval": "PENDING"
+    },
+    "legal": {
+      "state": "PACKET_READY_EXTERNAL_REVIEW_REQUIRED",
+      "packet": "docs/community/legal-review-packet-20261002.md",
+      "approval": "PENDING"
+    },
+    "providerSelection": {
+      "state": "OWNER_APPROVED",
+      "supabasePlan": "PRO",
+      "storageRecoveryProvider": "CLOUDFLARE_R2_STANDARD",
+      "finalProviderBindingStillPending": true
+    }
+  },
+  "productionPreparation": {
+    "state": "RESOURCE_DECISION_CLOSED_PROVISION_AT_RELEASE_STAGE",
+    "checklist": "ops/community-production-execution-checklist-20261002.json",
+    "runbook": "docs/community/production-execution-runbook-20261002.md",
+    "qaEvidence": "ops/community-qa-release-evidence-20261002.json",
+    "resourceCreationAuthorized": false,
+    "userDecisionRequired": [],
+    "noPaidResourceCreated": true,
+    "resourceDecisionContract": "ops/community-production-resource-decision-20261002.json"
+  }
+}

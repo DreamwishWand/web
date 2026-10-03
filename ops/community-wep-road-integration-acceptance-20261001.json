@@ -1,0 +1,76 @@
+{
+  "schema": "dreamwish-community-wep-road-integration-acceptance@1",
+  "observedAt": "2026-10-01T00:45:58Z",
+  "scope": "integration-sensitive Road-inclusive Scene delta only; completed primary/closure suites not rerun",
+  "wep": {
+    "branch": "dev/wep-v125",
+    "head": "4af63c9fc9a6a2a6954e0a5bdd6d4df54a678c28",
+    "workflowRunId": 36796732109,
+    "workflowConclusion": "success",
+    "tests": {
+      "total": 365,
+      "pass": 353,
+      "fail": 0,
+      "fixtureDependentSkip": 12
+    },
+    "delta": {
+      "roadInclusiveCommunityBridgeRegression": true,
+      "roadNetworkId": "r0",
+      "expectedApplyBlock": "ROAD_TOPOLOGY_APPLY_UNAVAILABLE",
+      "writeReady": false
+    }
+  },
+  "liveStaging": {
+    "projectRef": "ptpdoxhrqopvczpclcij",
+    "temporaryFunction": {
+      "slug": "wep-preset-flow-e2e",
+      "acceptanceVersion": 5,
+      "acceptanceVerifyJwt": false,
+      "acceptanceSha256": "5af846e29ee80e6165a24ad24fc00eb12cb13d0edd22380a54b4b1185448e74d",
+      "requestHttpStatus": 200,
+      "executionTimeMs": 14286,
+      "resultInterpretation": "PASS because harness returned HTTP 500 on any assertion/runtime failure and HTTP 200 only after all acceptance assertions succeeded"
+    },
+    "assertions": {
+      "realAuthDisposableUsers": true,
+      "accountCreatorBootstrap": true,
+      "signedArtifactPrepareUpload": true,
+      "serverArtifactValidation": true,
+      "publicPresetPublication": true,
+      "publicDiscovery": true,
+      "secondUserResolveWork": true,
+      "librarySave": true,
+      "presetDetail": true,
+      "signedRead": true,
+      "checksumVerified": true,
+      "byteSizeVerified": true,
+      "roadEnvelopeRoundTrip": true,
+      "roadNetworkId": "r0",
+      "persistentWriteAuthorized": false
+    },
+    "cleanup": {
+      "providerUsersRemaining": 0,
+      "creatorHandlesRemaining": 0,
+      "publicSearchMatchesRemaining": 0,
+      "newPresetStorageObjectsRemaining": 0,
+      "providerCleanupJobsRemaining": 0,
+      "deletionEventsRemainingByPolicy": 2,
+      "futureRetentionJobsRemainingByPolicy": 4,
+      "directAuditDeletionPerformed": false
+    },
+    "restoredFunction": {
+      "version": 6,
+      "verifyJwt": true,
+      "sha256": "6f5b62c8b151a162e4a9deabde66b069e94fa6cf472ec8f3d51a633f96737342",
+      "httpStatus": 410,
+      "error": "STAGING_E2E_DISABLED"
+    }
+  },
+  "classification": {
+    "communityTransportStorageRuntime": "CONFIRMED",
+    "wepRoadRevalidationPreflight": "CONFIRMED_STATIC_CI",
+    "composedIntegrationSensitiveAcceptance": "CONFIRMED",
+    "persistentApply": "BLOCKED",
+    "productionPresetBucketExternalization": "OPEN_WEP_DEPENDENCY"
+  }
+}

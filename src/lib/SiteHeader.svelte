@@ -3,6 +3,7 @@
   import { base } from '$app/paths';
   import { locale, t, SUPPORTED_LOCALES } from '$lib/i18n/runtime.js';
   import { resetToBrowserLanguage, setManualLocalePreference } from '$lib/i18n/preference.js';
+  import CommunityNav from '$lib/community/CommunityNav.svelte';
 
   let theme: 'night' | 'day' = 'night';
 
@@ -38,6 +39,7 @@
       <a href={`${base}/explore/`}>{t('shared.nav.explore', {}, $locale)}</a>
       <a href={`${base}/editor/`}>{t('shared.nav.editor', {}, $locale)}</a>
       <a href={`${base}/projects/`}>{t('shared.nav.projects', {}, $locale)}</a>
+      <CommunityNav />
     </nav>
     <div class="locale-control">
       <label class="visually-hidden" for="site-locale">{t('shared.locale.label', {}, $locale)}</label>

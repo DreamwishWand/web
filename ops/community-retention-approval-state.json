@@ -1,0 +1,88 @@
+{
+  "schema": "dreamwish-community-retention-approval-state@1",
+  "updatedAt": "2026-10-02",
+  "engineering": {
+    "implementationStatus": "CONFIRMED",
+    "runtimeEvidenceStatus": "CONFIRMED",
+    "decisionBoundaryStatus": "CLOSED",
+    "contentPayloadDaysDefault": 7,
+    "operationalDetailDaysDefault": 90,
+    "defaultsAreLegalConclusion": false,
+    "plumbingReimplementationRequired": false,
+    "plumbingRerunRequiredBeforeApproval": false,
+    "note": "Engineering is closed on a single 90-day operational scrub. Moderation/security/legal exceptions use D4 holds rather than a second fixed-duration tier."
+  },
+  "approvals": {
+    "product": {
+      "status": "APPROVED",
+      "mayBeInferredFromEngineeringDefault": false,
+      "requiredDecisionIds": [
+        "D1_CONTENT_PAYLOAD_DURATION",
+        "D2_OPERATIONAL_DETAIL_DURATION",
+        "D3_USER_FACING_DELETION_PROMISE",
+        "D4_RETENTION_HOLD_POLICY",
+        "D5_STRUCTURAL_TOMBSTONE_POLICY",
+        "D6_BACKUP_COPY_RETENTION",
+        "D8_POLICY_DISCLOSURE_AND_ACCEPTANCE"
+      ],
+      "reviewReady": true,
+      "explicitApprovalRequired": true,
+      "approvedAt": "2026-10-02",
+      "evidence": "docs/community/retention-product-approval-record-20261002.md"
+    },
+    "privacy": {
+      "status": "PENDING",
+      "mayBeInferredFromEngineeringDefault": false,
+      "requiredDecisionIds": [
+        "D1_CONTENT_PAYLOAD_DURATION",
+        "D2_OPERATIONAL_DETAIL_DURATION",
+        "D4_RETENTION_HOLD_POLICY",
+        "D5_STRUCTURAL_TOMBSTONE_POLICY",
+        "D6_BACKUP_COPY_RETENTION",
+        "D7_PROCESSOR_PROVIDER_RETENTION",
+        "D8_POLICY_DISCLOSURE_AND_ACCEPTANCE"
+      ],
+      "reviewReady": true,
+      "explicitApprovalRequired": true
+    },
+    "legal": {
+      "status": "PENDING",
+      "mayBeInferredFromEngineeringDefault": false,
+      "requiredDecisionIds": [
+        "D1_CONTENT_PAYLOAD_DURATION",
+        "D2_OPERATIONAL_DETAIL_DURATION",
+        "D4_RETENTION_HOLD_POLICY",
+        "D5_STRUCTURAL_TOMBSTONE_POLICY",
+        "D6_BACKUP_COPY_RETENTION",
+        "D7_PROCESSOR_PROVIDER_RETENTION",
+        "D8_POLICY_DISCLOSURE_AND_ACCEPTANCE"
+      ],
+      "reviewReady": true,
+      "explicitApprovalRequired": true
+    }
+  },
+  "launchApprovalStatus": "PENDING_PRIVACY_LEGAL_APPROVALS",
+  "launchApproved": false,
+  "nextEngineeringAction": "NONE_UNTIL_PRIVACY_LEGAL_REVIEW_OR_POLICY_CHANGE",
+  "finalRegressionRule": "Run one policy-aligned retention configuration regression only after approvals are recorded; do not rerun already-passed retention plumbing E2E without a relevant change.",
+  "policyProposal": {
+    "contract": "ops/community-retention-policy-proposal.json",
+    "status": "READY_FOR_EXPLICIT_APPROVAL",
+    "approvalsInferred": false
+  },
+  "reviewReadiness": {
+    "product": "APPROVED",
+    "privacy": "REVIEW_READY_WITH_OPEN_PRIVACY_DECISIONS",
+    "legal": "PACKET_READY_EXTERNAL_REVIEW_REQUIRED",
+    "evidence": [
+      "ops/community-retention-policy-proposal.json",
+      "ops/community-backup-privacy-contract.json",
+      "ops/community-deletion-disclosure-contract.json",
+      "docs/community/delete-account-user-copy-review-20261001.md",
+      "docs/community/retention-d1-d2-single-stage-runtime-20261001.md",
+      "ops/community-privacy-review-readiness-20261002.json",
+      "docs/community/privacy-review-readiness-20261002.md",
+      "docs/community/legal-review-packet-20261002.md"
+    ]
+  }
+}
