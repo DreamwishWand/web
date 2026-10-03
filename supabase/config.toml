@@ -1,3 +1,8 @@
 [functions.community-public-media]
 verify_jwt = false
 import_map = "./functions/community-public-media/deno.json"
+
+
+[functions.community-public-query]
+verify_jwt = false
+import_map = "./functions/community-public-query/deno.json"
