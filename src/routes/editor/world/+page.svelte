@@ -2530,6 +2530,156 @@
     message = t('worldEditor.backup.downloaded', {}, $locale);
   }
 
+  function downloadVerifiedArtifact(artifact: any) {
+    if (!artifact?.bytes || !artifact?.fileName) return;
+    const blob = new Blob([artifact.bytes], {
+      type: artifact.mimeType ?? 'application/octet-stream'
+    });
+    const href = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = href;
+    anchor.download = artifact.fileName;
+    anchor.rel = 'noopener';
+    anchor.click();
+    URL.revokeObjectURL(href);
+  }
+
+  function verifiedExportFailureText(code: string) {
+    const key = ({
+      WEP_EXPORT_UNSUPPORTED_VERSION_BUILD:
+        'worldEditor.verifiedExport.failure.unsupportedBuild',
+      WEP_EXPORT_NO_ELIGIBLE_PENDING_CHANGE:
+        'worldEditor.verifiedExport.failure.noEligibleChange',
+      WEP_EXPORT_UNSUPPORTED_PENDING_CHANGE:
+        'worldEditor.verifiedExport.failure.unsupportedChange',
+      WEP_EXPORT_SOURCE_CHANGED_SINCE_PLAN:
+        'worldEditor.verifiedExport.failure.sourceChanged',
+      WEP_EXPORT_REVIEW_STALE:
+        'worldEditor.verifiedExport.failure.reviewStale',
+      WEP_EXPORT_TARGET_IDENTITY_MISMATCH:
+        'worldEditor.verifiedExport.failure.identityMismatch',
+      WEP_EXPORT_OBJECT_NO_LONGER_ADMISSIBLE:
+        'worldEditor.verifiedExport.failure.notAdmissible',
+      WEP_EXPORT_PROGRESSION_VETO:
+        'worldEditor.verifiedExport.failure.progressionVeto',
+      WEP_EXPORT_INVALID_DESTINATION:
+        'worldEditor.verifiedExport.failure.invalidDestination',
+      WEP_EXPORT_CANDIDATE_GENERATION_FAILED:
+        'worldEditor.verifiedExport.failure.candidateGeneration',
+      WEP_EXPORT_CANDIDATE_VERIFICATION_FAILED:
+        'worldEditor.verifiedExport.failure.candidateVerification',
+      WEP_EXPORT_ASSEMBLY_FAILED:
+        'worldEditor.verifiedExport.failure.exportAssembly',
+      WEP_EXPORT_RELOAD_REPARSE_FAILED:
+        'worldEditor.verifiedExport.failure.reload',
+      WEP_EXPORT_RELOAD_IDENTITY_OR_TRANSFORM_MISMATCH:
+        'worldEditor.verifiedExport.failure.reloadMismatch'
+    } as Record<string, string>)[code];
+    return t(
+      key ?? 'worldEditor.verifiedExport.failure.generic',
+      {},
+      $locale
+    );
+  }
+
+  async function reviewVerifiedExport() {
+    if (
+      !worldSource ||
+      !worldSourceBytes ||
+      !verifiedExportBaselineDocument ||
+      !editorDocument ||
+      !placementLegalityBinding ||
+      !switchWorldBinding
+    ) {
+      verifiedExportErrorCode = 'WEP_EXPORT_NO_ELIGIBLE_PENDING_CHANGE';
+      verifiedExportErrorDetail = '';
+      verifiedExportReview = null;
+      return;
+    }
+    verifiedExportLoading = true;
+    verifiedExportReview = null;
+    verifiedExportResult = null;
+    verifiedExportErrorCode = '';
+    verifiedExportErrorDetail = '';
+    verifiedExportConfirmed = false;
+    try {
+      const review = await reviewMinimumVerifiedTransform({
+        sourceBytes: worldSourceBytes,
+        sourceName: fileName || 'profile',
+        sourceEpoch: worldSourceEpoch,
+        opened: worldSource,
+        baselineDocument: verifiedExportBaselineDocument,
+        draftDocument: editorDocument,
+        placementBinding: placementLegalityBinding,
+        worldBinding: switchWorldBinding,
+        basePath: base
+      });
+      if (
+        selection.length !== 1 ||
+        selection[0] !== review.change.editorId
+      ) {
+        throw Object.assign(
+          new Error('WEP_EXPORT_CHANGED_OBJECT_MUST_BE_SELECTED'),
+          { code: 'WEP_EXPORT_CHANGED_OBJECT_MUST_BE_SELECTED' }
+        );
+      }
+      verifiedExportReview = review;
+      message = t(
+        'worldEditor.verifiedExport.reviewReady',
+        {},
+        $locale
+      );
+    } catch (error: any) {
+      verifiedExportErrorCode = String(
+        error?.code ?? error?.message ?? 'WEP_EXPORT_REVIEW_FAILED'
+      );
+      verifiedExportErrorDetail =
+        error?.detail ? JSON.stringify(error.detail) : '';
+      message = verifiedExportFailureText(verifiedExportErrorCode);
+    } finally {
+      verifiedExportLoading = false;
+    }
+  }
+
+  async function applyVerifiedExport() {
+    if (
+      !verifiedExportReview ||
+      !verifiedExportConfirmed ||
+      !worldSourceBytes ||
+      !verifiedExportBaselineDocument ||
+      !editorDocument ||
+      !switchWorldBinding
+    ) return;
+    verifiedExportLoading = true;
+    verifiedExportResult = null;
+    verifiedExportErrorCode = '';
+    verifiedExportErrorDetail = '';
+    try {
+      verifiedExportResult = await commitMinimumVerifiedTransform({
+        review: verifiedExportReview,
+        currentSourceEpoch: worldSourceEpoch,
+        sourceBytes: worldSourceBytes,
+        baselineDocument: verifiedExportBaselineDocument,
+        draftDocument: editorDocument,
+        worldBinding: switchWorldBinding
+      });
+      message = t(
+        'worldEditor.verifiedExport.success',
+        {},
+        $locale
+      );
+    } catch (error: any) {
+      verifiedExportErrorCode = String(
+        error?.code ?? error?.message ?? 'WEP_EXPORT_COMMIT_FAILED'
+      );
+      verifiedExportErrorDetail =
+        error?.detail ? JSON.stringify(error.detail) : '';
+      message = verifiedExportFailureText(verifiedExportErrorCode);
+    } finally {
+      verifiedExportLoading = false;
+    }
+  }
+
   function reviewSavePreparation() {
     if (!session) return;
     draftSavePreparation = session.previewPersistentCommit();
