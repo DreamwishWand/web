@@ -1209,6 +1209,7 @@ export type Database = {
       }
       dreamsnap_work_revisions: {
         Row: {
+          caption: string | null
           challenge_id: string
           created_at: string
           game_screenshot_attested: boolean
@@ -1218,6 +1219,7 @@ export type Database = {
           revision_id: string
         }
         Insert: {
+          caption?: string | null
           challenge_id: string
           created_at?: string
           game_screenshot_attested: boolean
@@ -1227,6 +1229,7 @@ export type Database = {
           revision_id: string
         }
         Update: {
+          caption?: string | null
           challenge_id?: string
           created_at?: string
           game_screenshot_attested?: boolean
