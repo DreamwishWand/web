@@ -43,8 +43,6 @@
       "Y"
     ],
     "rotateExactSemanticMutationSet": [
-      "X",
-      "Y",
       "Orientation"
     ],
     "requiredPersistentCompanionMutations": [],
@@ -57,7 +55,8 @@
       "Grid._gridCells",
       "GridObject.gridArea"
     ],
-    "rule": "Runtime cache maintenance and event dispatch are not serialized companion fields. The offline adapter MUST NOT synthesize them into the save."
+    "rule": "Runtime cache maintenance and event dispatch are not serialized companion fields. The offline adapter MUST NOT synthesize them into the save.",
+    "note": "The native UpdateTransform tuple is X/Y/Orientation, but the frozen minimum ROTATE operation is a one-object anchor-preserving cardinal rotation. X/Y must remain unchanged. Anchor-changing/group/pivot rotation is explicitly outside v1.0."
   },
   "currentNativeEvidence": {
     "source": {
@@ -198,7 +197,8 @@
       "v1.15 active/unknown/historical reference presence in this minimum candidate",
       "any MOVE/ROTATE progression veto",
       "placement class other than NATIVE_VALID_CLEAR",
-      "non-cardinal source or destination orientation"
+      "non-cardinal source or destination orientation",
+      "ROTATE candidate that changes X or Y (anchor-changing/pivot/group rotation)"
     ],
     "noPositiveInferenceFrom": [
       "absence of GridEditRestriction",
@@ -236,13 +236,11 @@
     "ROTATE": {
       "oneTransactionOneExistingObject": true,
       "sameRootGridRequired": true,
-      "editorSemantic": "ROTATE_CARDINAL",
+      "editorSemantic": "ROTATE_CARDINAL_ONE_OBJECT_ANCHOR_PRESERVING",
       "exactAllowedSerializedFields": [
-        "X",
-        "Y",
         "Orientation"
       ],
-      "note": "X/Y are allowed because native/WEP cardinal rotation may adjust the serialized anchor while changing Orientation.",
+      "note": "Frozen v1.0 ROTATE consumes the existing Core rotateObjectInPlace semantics: X/Y stay byte-semantically unchanged and only Orientation changes. Generalized anchor-moving rotation remains excluded.",
       "cardinalOrientations": [
         0,
         4,
@@ -250,6 +248,8 @@
         12
       ],
       "requiredInvariants": [
+        "X",
+        "Y",
         "ID",
         "ItemID",
         "State",
@@ -321,9 +321,11 @@
     },
     "ROTATE": {
       "writes": [
-        "X",
-        "Y",
         "Orientation"
+      ],
+      "mustNotWrite": [
+        "X",
+        "Y"
       ]
     },
     "appliesOnlyAfterAdmissibility": "ADMISSIBLE",
@@ -332,7 +334,7 @@
   },
   "runtimeAcceptance": {
     "currentStatus": "PENDING_AFTER_INTEGRATOR_PROMOTION",
-    "exactRemainingQuestion": "For one classifier-admissible ordinary root stateless Furniture object on Switch v1.25.0, does a candidate save whose semantic diff is limited to the operation-specific X/Y[/Orientation] fields load successfully, survive an in-game save plus full quit/relaunch, and preserve ID, ItemID, State, map key, root membership, NextGridObjectID, inventory, progression/objective state and opaque unrelated state without game-driven normalization or a required serialized companion mutation?",
+    "exactRemainingQuestion": "For one classifier-admissible ordinary root stateless Furniture object on Switch v1.25.0, does a candidate save whose semantic diff is limited to X/Y for MOVE or Orientation for anchor-preserving ROTATE load successfully, survive an in-game save plus full quit/relaunch, and preserve ID, ItemID, State, map key, root membership, NextGridObjectID, inventory, progression/objective state and opaque unrelated state without game-driven normalization or a required serialized companion mutation?",
     "requiredOperations": [
       "MOVE",
       "ROTATE"
@@ -348,5 +350,12 @@
     "applyAuthorized": false,
     "sourceReplacementAuthorized": false,
     "atomicCommitAuthorized": false
+  },
+  "integrationBoundary": {
+    "discovered01APathOrderIssue": {
+      "status": "NOT_A_V1_0_BLOCKER_AFTER_SCOPE_NARROWING",
+      "observation": "A synthetic anchor-changing ROTATE that changed X/Y/Orientation together exposed TX_EXPORT_DIFF_DISAGREES_WITH_SEMANTIC_DIFF because the promoted 01A foundation compares export changed-path order with a sorted semantic diff.",
+      "action": "01B does not modify the promoted 01A foundation. v1.0 ROTATE is constrained to anchor-preserving Orientation-only mutation. Any future anchor-changing/group rotation requires a separate Integrator/01A compatibility closure."
+    }
   }
 }
