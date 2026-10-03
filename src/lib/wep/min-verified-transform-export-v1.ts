@@ -283,7 +283,7 @@ export async function reviewMinimumVerifiedTransform({
     }),
     SafeProfileEditSession.open({
       sourceBytes:sourceBytes.slice(),
-      codec:p1gPackagedProfileCodec,
+      codec:p1gPackagedProfileCodec as any,
       sourcePlatform:PlatformFamily.Switch
     })
   ]);
@@ -387,7 +387,7 @@ export async function reviewMinimumVerifiedTransform({
     codecContract:ctx.codecContract,
     targetBuild:{...targetBuild}
   };
-  const plan=buildMinimumTransformTransactionPlan({
+  const plan=(buildMinimumTransformTransactionPlan as any)({
     admissibility,
     transactionInput,
     nextGridObjectId:Number(grid.NextGridObjectID),
@@ -443,7 +443,7 @@ export async function commitMinimumVerifiedTransform({
 
   const safeSession=await SafeProfileEditSession.open({
     sourceBytes:sourceBytes.slice(),
-    codec:p1gPackagedProfileCodec,
+    codec:p1gPackagedProfileCodec as any,
     sourcePlatform:PlatformFamily.Switch
   });
   const ctx=safeSession.getPreflightContext();
@@ -516,7 +516,7 @@ export async function commitMinimumVerifiedTransform({
       reopened,
       area,
       Number(review.change.gridId),
-      worldBinding
+      worldBinding as any
     );
   } catch(cause:any) {
     error('WEP_EXPORT_RELOAD_REPARSE_FAILED',{
