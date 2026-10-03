@@ -41,7 +41,7 @@
   "sharedLocaleBinding": {
     "status": "BOUND_SHARED_WEB_V1",
     "owner": "08 WEB / shared Web UI foundation",
-    "upstreamCommit": "425cb22ad7726f6f452bd179f3a89b81329da64b",
+    "upstreamCommit": "03dc3c8f367affbaada571d33583090a148b30d4",
     "runtime": "src/lib/i18n/runtime.js",
     "registry": "src/lib/i18n/registry.js",
     "fallbackLocale": "en",
@@ -1363,8 +1363,8 @@
     "evidence": {
       "tokenSource": "src/app.css",
       "token": "--gold",
-      "dayValue": "#82591f",
-      "sharedMinimumMeasuredContrast": "5.183:1"
+      "dayValue": "#764c16",
+      "sharedMinimumMeasuredContrast": "4.787:1"
     },
     "wepAction": "INHERIT_SHARED_TOKEN_NO_LOCAL_OVERRIDE",
     "requiredSharedAction": "CLOSED in 08 WEB shared foundation; WEP inherits the shared semantic token.",
