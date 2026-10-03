@@ -68,7 +68,7 @@
 
   function addBoard(): void {
     try {
-      const result = createMoodboard(documentData, { title: boardTitle, description: boardDescription }, { idFactory: () => crypto.randomUUID() });
+      const result = createMoodboard(documentData, { title: boardTitle, description: boardDescription });
       persist(result.document, copy.created);
       selectedId = result.board.id;
       boardTitle = '';
@@ -96,7 +96,7 @@
     try {
       const result = addMoodboardReference(documentData, selected.id, {
         type: referenceType, label: referenceLabel, url: referenceUrl, entityId: referenceEntityId, note: referenceNote
-      }, { idFactory: () => crypto.randomUUID() });
+      });
       persist(result.document, copy.added);
       referenceLabel = referenceUrl = referenceEntityId = referenceNote = '';
     } catch (error) { status = error instanceof Error ? error.message : String(error); }
