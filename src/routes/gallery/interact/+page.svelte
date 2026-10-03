@@ -9,11 +9,13 @@
   let work: any = null;
   let creatorProfileId = '';
   let email = '', password = '', commentBody = '';
+  let signedIn = false;
   let busy = false, error = '';
 
   onMount(() => {
     workId = new URLSearchParams(window.location.search).get('work') ?? '';
-    if (client?.session) void load();
+    signedIn = Boolean(client?.session);
+    if (signedIn) void load();
   });
 
   async function run<T>(fn: () => Promise<T>): Promise<T | null> {
@@ -28,6 +30,7 @@
     const session = await run(() => client.signInWithPassword(email.trim(), password));
     if (!session) return;
     password = '';
+    signedIn = true;
     await load();
   }
 
@@ -74,7 +77,7 @@
 
   {#if !client}
     <div class="notice">{t('community.configUnavailable', {}, $locale)}</div>
-  {:else if !client.session}
+  {:else if !signedIn}
     <div class="panel auth">
       <label>{t('community.auth.email', {}, $locale)}<input type="email" bind:value={email} autocomplete="email" /></label>
       <label>{t('community.auth.password', {}, $locale)}<input type="password" bind:value={password} autocomplete="current-password" /></label>
