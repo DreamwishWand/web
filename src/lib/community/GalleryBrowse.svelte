@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { locale, t } from '$lib/i18n/runtime.js';
+  import { locale, ct as t } from '$lib/i18n/community.js';
   export let works: any[] = [];
   export let query = '';
   export let busy = false;
