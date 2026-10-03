@@ -2,7 +2,7 @@
   "schema": "ddv.minimum-persistent-transform-semantics@1",
   "artifactId": "DDV-MINIMUM-PERSISTENT-TRANSFORM-SEMANTICS-V125-V1_0-CANDIDATE",
   "version": "v1.0-candidate",
-  "status": "SOURCE_CONTRACT_READY_PENDING_CI",
+  "status": "READY_FOR_INTEGRATOR_REVIEW",
   "semanticOwner": "01B CORE - World / Grid / Buildings",
   "requestId": "01A-TO-01B-MIN-TRANSFORM-WRITE-SEMANTICS-V125",
   "target": {
@@ -357,5 +357,53 @@
       "observation": "A synthetic anchor-changing ROTATE that changed X/Y/Orientation together exposed TX_EXPORT_DIFF_DISAGREES_WITH_SEMANTIC_DIFF because the promoted 01A foundation compares export changed-path order with a sorted semantic diff.",
       "action": "01B does not modify the promoted 01A foundation. v1.0 ROTATE is constrained to anchor-preserving Orientation-only mutation. Any future anchor-changing/group rotation requires a separate Integrator/01A compatibility closure."
     }
+  },
+  "implementation": {
+    "sourcePath": "src/lib/ddv/core/world/min-transform-write-v125.js",
+    "sourceSha256": "a00042669dca33e05588f6d0989ff0f46857a35fdfe852022312f2f6464a9c5e",
+    "testPath": "tests/ddv-core-world-min-transform-write-v125.test.mjs",
+    "testSha256": "a5614805298ee340b8297a78d8841d0b25f5a1046a1ebfb26bfd0764960ac93a",
+    "branch": "dev/core-min-transform-write-semantics-v125-20261003",
+    "headBeforeFinalMetadata": "8856a3dd8747dae61c0e80f19115be2512fe1ebc"
+  },
+  "currentSaveEvidence": {
+    "sourceSha256": "1cfc40196f7ee36048e1fa98c0835561901c6fed3f19ca8dd6fa36c47740dc10",
+    "sourcePlatform": "Nintendo Switch",
+    "profileSchemaVersion": 624,
+    "observedSerializedOrientationRepresentation": "GridOrientation_* enum strings",
+    "strictDefinitionAndObjectFilterBeforeProgressionAndPlacement": {
+      "rootStateNullObjects": 119,
+      "cardinalRootStateNullObjects": 62,
+      "note": "This is non-authorizing population evidence only. Every candidate still requires exact root evidence, v1.15 progression-clear evidence and v1.9 NATIVE_VALID_CLEAR."
+    }
+  },
+  "regression": {
+    "workflow": "CI",
+    "runId": 37086313045,
+    "runNumber": 1849,
+    "headSha": "8856a3dd8747dae61c0e80f19115be2512fe1ebc",
+    "result": "SUCCESS",
+    "tests": 209,
+    "pass": 197,
+    "fail": 0,
+    "skipped": 12,
+    "svelteTypeErrors": 0,
+    "svelteTypeWarnings": 0,
+    "canonicalBaselineVerification": "PASS (13 protected entries)",
+    "productionStaticBuild": "PASS",
+    "bindingProofs": [
+      "MOVE -> 01A verified write candidate with intentional semantic diff X/Y only",
+      "anchor-preserving ROTATE -> 01A verified write candidate with intentional semantic diff Orientation only",
+      "decoded enum-string orientation representation preserved",
+      "ID/ItemID/State/object map key/root membership/NextGridObjectID unchanged",
+      "unrelated opaque target-neighbor State, Player state and World state unchanged",
+      "overbroad MOVE allowlist including Orientation rejected by semantic adapter"
+    ]
+  },
+  "integratorReturn": {
+    "ready": true,
+    "promotionScope": "WORLD_OBJECT_FAMILY_SEMANTICS_AND_MUTATION_ADAPTER_ONLY",
+    "runtimeAfterPromotion": "ACTIVATE_01E_NARROW_CONTROLLED_ACCEPTANCE",
+    "persistentApplyStillBlocked": true
   }
 }
