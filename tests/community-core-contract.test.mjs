@@ -276,7 +276,6 @@ test('query adapter exposes authorized Preset detail without direct canonical ta
 
 test('author lifecycle commands preserve privacy and tombstone semantics', () => {
   const lifecycle = read('supabase/migrations/20260930041000_community_core_v0_author_lifecycle.sql');
-  const entityModeration = read('supabase/migrations/20261003042600_community_comment_answer_moderation_v1.sql');
   const command = read('supabase/functions/community-command/index.ts');
   assert.match(lifecycle, /community_change_work_visibility/i);
   assert.match(lifecycle, /community_unpublish_work/i);
@@ -1519,6 +1518,7 @@ test('moderation operations require session-bound recent-auth and close linked r
   const migration = read(
     'supabase/migrations/20260930120042_community_core_v0_moderation_operations.sql'
   );
+  const entityModeration = read('supabase/migrations/20261003042600_community_comment_answer_moderation_v1.sql');
   const command = read('supabase/functions/community-command/index.ts');
   const admin = read('supabase/functions/community-admin/index.ts');
   const page = read('src/routes/community-ops/+page.svelte');
@@ -1541,7 +1541,7 @@ test('moderation operations require session-bound recent-auth and close linked r
   assert.match(command, /RECENT_AUTH_REQUIRED/);
 
   assert.match(admin, /listModerationCases: 'community_get_moderation_cases'/);
-  assert.match(admin, /moderateCase: 'community_moderate_work_v2'/);
+  assert.match(admin, /moderateCase: 'community_moderate_entity_v4'/);
   assert.match(admin, /Moderator or admin role required/);
 
   assert.match(page, /Moderation cases/);
