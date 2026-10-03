@@ -136,7 +136,7 @@ test('day-theme gold contrast defect stays owned by shared Web and WEP adds no l
   );
   assert.equal(
     inventory.accessibility.evidence.dayValue,
-    '#82591f'
+    '#764c16'
   );
 
   const worldEditorRoute = readFileSync(
@@ -155,4 +155,16 @@ test('localization inventory does not relax the World Editor persistent-write sa
     nativeRestore: false,
     atomicCommit: false
   });
+});
+
+
+test('integrated shared shell includes Community navigation in the World Editor inventory', () => {
+  const shell = inventory.categories.navigation.find(
+    (entry) => entry.surface === 'Shared site shell rendered on World Editor'
+  );
+  assert.ok(shell);
+  assert.equal(shell.source.includes('src/lib/community/CommunityNav.svelte'), true);
+  for (const label of ['Gallery', 'DreamSnaps', 'Q&A']) {
+    assert.equal(shell.strings.includes(label), true);
+  }
 });
