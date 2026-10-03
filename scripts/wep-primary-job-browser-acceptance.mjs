@@ -962,6 +962,188 @@ async function runRawSaveAcceptance(page, report) {
   };
 }
 
+
+async function runVerifiedExportAcceptance(page, report) {
+  await page.goto(baseUrl, { waitUntil: 'networkidle' });
+  await page.locator('.platform-select select').selectOption('switch');
+
+  const packagedBytes = Buffer.from(
+    makeSyntheticP1gProfile(verifiedExportProfile)
+  );
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'profile',
+    mimeType: 'application/octet-stream',
+    buffer: packagedBytes
+  });
+  await page.getByText(/DDV save loaded locally/).waitFor();
+  await page.getByRole('button', { name: 'Open in Canvas' }).first().click();
+  await page.getByText(/Core-bound local draft authoring/).waitFor();
+
+  const exportPanel = page.locator('[data-wep-verified-export]');
+  await exportPanel.waitFor();
+  const reviewButton = exportPanel.getByRole('button', {
+    name: 'Review Changes'
+  });
+  assert.equal(
+    await reviewButton.isDisabled(),
+    true,
+    'Review Changes must be gated until exact build is explicitly confirmed'
+  );
+
+  const buildConfirm = exportPanel.locator(
+    '.verified-export-build-confirm input[type="checkbox"]'
+  );
+  await buildConfirm.check();
+  assert.equal(await buildConfirm.isChecked(), true);
+
+  const object = page.locator('g[data-editor-object]').first();
+  await object.click();
+  await expectSelected(page, 1);
+  const toolbar = page.locator('.toolbar-actions');
+  await toolbar.getByRole('button', { name: 'Move right' }).click();
+
+  assert.equal(await reviewButton.isEnabled(), true);
+  await reviewButton.click();
+  const review = exportPanel.locator('.verified-export-review');
+  await review.waitFor();
+  await expectContains(review, 'MOVE');
+  await expectContains(review, 'Item 40000048');
+  await expectContains(review, 'Area 7');
+  await expectContains(review, 'Grid 10');
+  await expectContains(review, 'PASS');
+
+  const applyButton = exportPanel.getByRole('button', {
+    name: 'Apply / Export'
+  });
+  assert.equal(
+    await applyButton.isDisabled(),
+    true,
+    'Apply / Export must require explicit semantic confirmation'
+  );
+  const semanticConfirm = exportPanel.locator(
+    '.verified-export-confirm input[type="checkbox"]'
+  );
+  await semanticConfirm.check();
+  assert.equal(await semanticConfirm.isChecked(), true);
+
+  await applyButton.click();
+  const success = exportPanel.locator('.verified-export-success');
+  await success.waitFor({ state: 'visible' });
+  await expectContains(success, 'Verified edited save generated');
+  await expectContains(success, 'PASS · Grid 10 · Object 101');
+
+  const [backupDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    exportPanel.getByRole('button', {
+      name: 'Download original backup'
+    }).click()
+  ]);
+  const backupPath = path.join(
+    artifactsDir,
+    'verified-export-original.profile'
+  );
+  await backupDownload.saveAs(backupPath);
+  assert.deepEqual(
+    await readFile(backupPath),
+    packagedBytes,
+    'verified export backup must be byte-exact original source'
+  );
+
+  const [editedDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    exportPanel.getByRole('button', {
+      name: 'Download edited save'
+    }).click()
+  ]);
+  const editedPath = path.join(
+    artifactsDir,
+    'verified-export-edited.profile'
+  );
+  await editedDownload.saveAs(editedPath);
+  const editedBytes = await readFile(editedPath);
+  assert.notDeepEqual(
+    editedBytes,
+    packagedBytes,
+    'edited replacement must differ from original source'
+  );
+  const loadedEdited = await p1gPackagedProfileCodec.loadProfile(
+    new Uint8Array(editedBytes)
+  );
+  assert.equal(loadedEdited.inputType, 'packaged');
+  const editedProfile = JSON.parse(loadedEdited.jsonText);
+  const editedObject =
+    editedProfile.World.GridCollection.Grids['10'].Objects['101'];
+  assert.equal(editedObject.ID, 101);
+  assert.equal(editedObject.ItemID, 40000048);
+  assert.equal(editedObject.State, null);
+  assert.equal(editedObject.X, 21);
+  assert.equal(editedObject.Y, 20);
+  assert.equal(editedObject.Orientation, 'GridOrientation_Up');
+  assert.equal(
+    editedProfile.World.GridCollection.Grids['10'].NextGridObjectID,
+    102
+  );
+
+  const [manifestDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    exportPanel.getByRole('button', {
+      name: 'Download manifest'
+    }).click()
+  ]);
+  const manifestPath = path.join(
+    artifactsDir,
+    'verified-export-manifest.json'
+  );
+  await manifestDownload.saveAs(manifestPath);
+  const manifest = JSON.parse(
+    (await readFile(manifestPath)).toString('utf8')
+  );
+  assert.equal(
+    manifest.artifact,
+    'dreamwish.ddv.verified-candidate-export-bundle'
+  );
+  assert.equal(manifest.schemaVersion, 2);
+  assert.equal(manifest.operation.kind, 'MOVE');
+  assert.equal(manifest.persistentWriteAuthorized, false);
+  assert.equal(manifest.WORLD_PERSISTENT_WRITE_V125, false);
+
+  const [bundleDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    exportPanel.getByRole('button', {
+      name: 'Download integrity bundle'
+    }).click()
+  ]);
+  const bundlePath = path.join(
+    artifactsDir,
+    'verified-export-bundle.zip'
+  );
+  await bundleDownload.saveAs(bundlePath);
+  assert.ok((await readFile(bundlePath)).length > packagedBytes.length);
+
+  report.verifiedExport = {
+    packagedSource: 'PASS',
+    exactBuildExplicitConfirmation: 'PASS',
+    reviewChanges: 'PASS',
+    semanticConfirmation: 'PASS',
+    writeCandidateGeneration: 'PASS',
+    independentVerification: 'PASS',
+    canonicalReopenReload: 'PASS',
+    originalBackupByteExact: 'PASS',
+    editedReplacementDownload: 'PASS',
+    manifest: 'PASS',
+    integrityBundle: 'PASS',
+    sourceOverwrite: 'NOT_PERFORMED'
+  };
+
+  await page.screenshot({
+    path: path.join(
+      artifactsDir,
+      'verified-replacement-export-pass.png'
+    ),
+    fullPage: true
+  });
+}
+
 const browser = await chromium.launch({
   headless: true,
   executablePath,
@@ -976,7 +1158,8 @@ const report = {
   pageErrors: [],
   synthetic: {},
   rawSwitch: {},
-  localeLayout: {}
+  localeLayout: {},
+  verifiedExport: {}
 };
 
 try {
@@ -993,6 +1176,7 @@ try {
   await runSyntheticAcceptance(page, report);
   await runRawSaveAcceptance(page, report);
   await runLocaleLayoutAcceptance(page, report);
+  await runVerifiedExportAcceptance(page, report);
 
   // Product boundary: browser acceptance itself must not surface persistent writer controls.
   assert.equal(report.pageErrors.length, 0, `page errors: ${report.pageErrors.join(' | ')}`);
