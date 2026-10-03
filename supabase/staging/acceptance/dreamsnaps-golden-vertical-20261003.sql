@@ -17,6 +17,7 @@ declare
   v_media_a uuid:=gen_random_uuid();
   v_media_b uuid:=gen_random_uuid();
   v_media_c uuid:=gen_random_uuid();
+  v_media_bad uuid:=gen_random_uuid();
   v_work_a uuid;
   v_work_b uuid;
   v_work_c uuid;
@@ -41,6 +42,8 @@ declare
   v_vote_cap_blocked boolean:=false;
   v_special_cap_blocked boolean:=false;
   v_minor_comment_blocked boolean:=false;
+  v_invalid_media_blocked boolean:=false;
+  v_integrity_blocked boolean:=false;
   v_changed integer;
 begin
   select
@@ -107,7 +110,8 @@ begin
   values
     (v_media_a,'media_asset'),
     (v_media_b,'media_asset'),
-    (v_media_c,'media_asset');
+    (v_media_c,'media_asset'),
+    (v_media_bad,'media_asset');
 
   insert into public.media_assets(
     media_id,owner_account_id,storage_key,mime_type,byte_size,width,height,
@@ -115,13 +119,15 @@ begin
   ) values
     (v_media_a,v_accounts[1],'acceptance/'||v_media_a::text||'.png','image/png',1000,1920,1080,repeat('a',64),'ready','clear'),
     (v_media_b,v_accounts[2],'acceptance/'||v_media_b::text||'.png','image/png',1000,1920,1080,repeat('b',64),'ready','clear'),
-    (v_media_c,v_accounts[3],'acceptance/'||v_media_c::text||'.png','image/png',1000,1920,1080,repeat('c',64),'ready','clear');
+    (v_media_c,v_accounts[3],'acceptance/'||v_media_c::text||'.png','image/png',1000,1920,1080,repeat('c',64),'ready','clear'),
+    (v_media_bad,v_accounts[1],'acceptance/'||v_media_bad::text||'.png','image/png',1000,1600,1000,repeat('d',64),'ready','clear');
 
   insert into public.dreamsnap_challenges(
     challenge_key,title,description,lifecycle_state,
     submission_opens_at,submission_closes_at,judging_opens_at,judging_closes_at,
     results_at,closes_at,
-    formal_vote_allowance,special_pick_allowance,minimum_real_eligible_entries,
+    formal_vote_allowance,special_pick_allowance,
+    minimum_real_eligible_entries,minimum_real_eligible_creators,
     allow_post_formal_browse,allow_special_picks,result_algorithm,
     required_aspect_numerator,required_aspect_denominator,minimum_width,minimum_height,
     is_synthetic
@@ -136,7 +142,7 @@ begin
     now()-interval '4 hours',
     now()-interval '3 hours',
     now()+interval '1 hour',
-    2,1,3,true,true,'formal_vote_count_v1',
+    2,1,3,3,true,true,'formal_vote_count_v1',
     16,9,1280,720,false
   )
   returning challenge_id into v_challenge;
@@ -145,6 +151,22 @@ begin
     v_subjects[2],'parent_guardian_managed'
   );
   v_workspace_b:=(v_json->>'workspaceId')::uuid;
+
+  begin
+    perform public.community_register_dreamsnap_work_v1(
+      v_subjects[1],v_creators[1],v_challenge,null,v_media_bad,
+      'Invalid aspect',true,true,'accept-register-invalid-'||gen_random_uuid()::text
+    );
+  exception when others then
+    if position('aspect ratio does not match round policy' in sqlerrm)>0 then
+      v_invalid_media_blocked:=true;
+    else
+      raise;
+    end if;
+  end;
+  if not v_invalid_media_blocked then
+    raise exception 'ACCEPTANCE_INVALID_MEDIA_NOT_BLOCKED';
+  end if;
 
   v_json:=public.community_register_dreamsnap_work_v1(
     v_subjects[1],v_creators[1],v_challenge,null,v_media_a,
@@ -177,16 +199,50 @@ begin
     raise exception 'ACCEPTANCE_MANAGED_UNDER13_NOT_DERIVED';
   end if;
 
+  if private.dreamsnap_real_entry_floor_met(v_challenge) then
+    raise exception 'ACCEPTANCE_REAL_POOL_FLOOR_MET_TOO_EARLY';
+  end if;
+
   v_json:=public.community_register_dreamsnap_work_v1(
     v_subjects[3],v_creators[3],v_challenge,null,v_media_c,
     'Entry C',true,true,'accept-register-c-'||gen_random_uuid()::text
   );
   v_work_c:=(v_json->>'workId')::uuid;
   v_rev_c:=(v_json->>'revisionId')::uuid;
+
+  perform public.community_dreamsnap_apply_integrity_assessment_v1(
+    v_rev_c,'under_review',array['acceptance_suspicious']::text[],
+    'Rollback acceptance suspicious-content gate'
+  );
+
+  begin
+    perform public.community_dreamsnap_join_event_v1(
+      v_subjects[3],v_work_c,'accept-join-c-blocked-'||gen_random_uuid()::text
+    );
+  exception when others then
+    if position('not competition-eligible' in sqlerrm)>0 then
+      v_integrity_blocked:=true;
+    else
+      raise;
+    end if;
+  end;
+  if not v_integrity_blocked then
+    raise exception 'ACCEPTANCE_INTEGRITY_REVIEW_DID_NOT_BLOCK_ENTRY';
+  end if;
+
+  perform public.community_dreamsnap_apply_integrity_assessment_v1(
+    v_rev_c,'eligible',array[]::text[],
+    'Rollback acceptance cleared'
+  );
+
   v_json:=public.community_dreamsnap_join_event_v1(
     v_subjects[3],v_work_c,'accept-join-c-'||gen_random_uuid()::text
   );
   v_entry_c:=(v_json->>'entryId')::uuid;
+
+  if not private.dreamsnap_real_entry_floor_met(v_challenge) then
+    raise exception 'ACCEPTANCE_REAL_POOL_ENTRY_CREATOR_FLOOR_NOT_MET';
+  end if;
 
   v_json:=public.community_register_dreamsnap_work_v1(
     v_subjects[1],v_creators[1],v_challenge,null,v_media_a,
