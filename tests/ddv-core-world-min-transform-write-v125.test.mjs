@@ -152,7 +152,7 @@ test('strict minimum ROTATE is anchor-preserving and mutates Orientation only',(
 test('positive authority is not inferred from missing restriction or v1.15 no-veto alone',()=>{
   const noTier=classify(profile(),{scope:scopeRecord({scopeTier:undefined})});
   assert.equal(noTier.status,'REJECTED');
-  assert.ok(noTier.reasonCodes.includes('CORE_STATELESS_BASEGAME_FURNITURE_REQUIRED'));
+  assert.ok(noTier.reasonCodes.includes('CORE_STATELESS_FURNITURE_SCOPE_REQUIRED'));
   const readonly=classify(profile(),{core:coreClassification({editability:'readonly',reasons:['GRID_EDIT_RESTRICTION_PRESENT']})});
   assert.equal(readonly.status,'REJECTED');
   assert.ok(readonly.reasonCodes.includes('CORE_OBJECT_CLASSIFICATION_NOT_EDITABLE_STATELESS_FURNITURE'));
@@ -169,7 +169,7 @@ test('Building/SubGrid/state/source-field/special interaction are fail-closed',(
   const sourced=profile();sourced.World.GridCollection.Grids['7'].Objects['42'].From='Mission';
   assert.ok(classify(sourced).reasonCodes.includes('GRIDOBJECT_EXTRA_OR_SOURCE_FIELD_UNSUPPORTED'));
 
-  const interactive=classify(profile(),{scope:scopeRecord({riskSignals:{writeScopeTier:'STATEFUL_INTERACTION',interaction:'Toggle'}})});
+  const interactive=classify(profile(),{scope:scopeRecord({scopeTier:'STATEFUL_INTERACTION',interaction:'Toggle'})});
   assert.equal(interactive.status,'REJECTED');
 });
 
