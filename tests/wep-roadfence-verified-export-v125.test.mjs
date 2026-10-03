@@ -345,3 +345,21 @@ test('Road/Fence verified export source has no direct source replacement or pers
   assert.ok(!source.includes('executePersistentCommit('));
   assert.ok(!source.includes('targetPath'));
 });
+
+
+test('World Editor routes Road/Fence draft changes through the same verified export panel',async()=>{
+  const source=await readFile(
+    new URL('../src/routes/editor/world/+page.svelte',import.meta.url),
+    'utf8'
+  );
+  for(const required of [
+    'ROADFENCE_VERIFIED_EXPORT_CONTRACT',
+    'reviewRoadFenceVerifiedExport',
+    'commitRoadFenceVerifiedExport',
+    'roadFenceChanged',
+    "verifiedExportReview.contract === ROADFENCE_VERIFIED_EXPORT_CONTRACT"
+  ]) assert.ok(source.includes(required),required);
+  assert.ok(source.includes("t('worldEditor.roadFence.kind'"));
+  assert.ok(source.includes("t('worldEditor.roadFence.network'"));
+  assert.ok(!source.includes('executePersistentCommit('));
+});
