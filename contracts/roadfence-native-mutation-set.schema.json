@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ddv.roadfence-native-mutation-set@1",
+  "title": "Dreamwish Wand DDV v1.25 Road/Fence Native Mutation Set",
+  "type": "object",
+  "required": [
+    "contract",
+    "ok",
+    "semanticOwner",
+    "persistentWriteAuthorized",
+    "WORLD_PERSISTENT_WRITE_V125",
+    "productApplyAuthorized"
+  ],
+  "properties": {
+    "contract": {
+      "const": "ddv.roadfence-native-mutation-set@1"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "semanticOwner": {
+      "const": "01C CORE — Road / Fence"
+    },
+    "persistentWriteAuthorized": {
+      "const": false
+    },
+    "WORLD_PERSISTENT_WRITE_V125": {
+      "const": false
+    },
+    "productApplyAuthorized": {
+      "const": false
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "ok": {
+          "const": true
+        }
+      },
+      "required": [
+        "compiler",
+        "sourceBuildIdentity",
+        "targetGrid",
+        "operation",
+        "support",
+        "input",
+        "sourceObjectIds",
+        "preservedObjectIdentities",
+        "createdObjectIdentities",
+        "deletedObjectIdentities",
+        "replacementIdentityPairs",
+        "preservedObjects",
+        "createdObjects",
+        "deletedObjects",
+        "resultingNativeDescriptors",
+        "nextGridObjectID",
+        "logicalQuantity",
+        "nativeObjectCount",
+        "representationCounts",
+        "allowedSemanticPaths",
+        "structuralTransactionDependency",
+        "quantityInvariant",
+        "preservation",
+        "evidence",
+        "failClosedReason"
+      ]
+    },
+    {
+      "properties": {
+        "ok": {
+          "const": false
+        }
+      },
+      "required": [
+        "status",
+        "failClosedReason"
+      ]
+    }
+  ],
+  "additionalProperties": true,
+  "$comment": "Semantic-owner contract only. It does not authorize product Apply or direct persistent source replacement."
+}
