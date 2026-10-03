@@ -19,7 +19,7 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "c44f4dbcf5560bae9e073f4d20504c5ea259f6d1",
+    "src/routes/editor/world/+page.svelte": "37e74f4f68a8043144441c637d1d6274f2ba267b",
     "src/lib/wep/world-editor-primary-job.ts": "a8e49f4f2eec543b9aaebd2d552c9da8e36270d5",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "2136578c63d9e7b8f76e5bc4298bdb02cf4cfec2",
@@ -54,7 +54,7 @@
       "pt-BR"
     ],
     "rule": "World Editor presentation resolves through the shared locale runtime. WEP does not own a locale store, selector, fallback resolver, formatter, or resource loader.",
-    "routeChangeNote": "Source pin refreshed only for promoted v1.16 Floating Island Canvas binding, search-value synchronization, programmatic disabled-reason association, and roving Canvas focus. Existing inventory scope/categories remain unchanged."
+    "routeChangeNote": "Source pin refreshed for the verified replacement export launch slice: Review Changes, explicit confirmation, independently verified WRITE_CANDIDATE export, user-mediated backup/recovery downloads, and localized fail-closed presentation. Existing shared locale ownership and machine-code invariants are unchanged."
   },
   "translationBoundary": {
     "translate": [
@@ -981,6 +981,62 @@
           "Load a raw DDV save first. Imported EditorDocuments do not create an Original Save Backup.",
           "Open an EditorDocument or a supported DDV root Grid before reviewing save preparation."
         ]
+      },
+      {
+        "surface": "Verified replacement export",
+        "source": "src/routes/editor/world/+page.svelte",
+        "strings": [
+          "VERIFIED REPLACEMENT EXPORT",
+          "Review Changes & Export",
+          "The launch writer supports one existing same-root ordinary Furniture MOVE or cardinal ROTATE. Wand creates and independently verifies an edited replacement save; it never overwrites the loaded source.",
+          "Verifying…",
+          "Review Changes",
+          "Verified export is available only for a supported Switch v1.25.0 Area root loaded from the original packaged save.",
+          "The loaded source is immutable. Review validates the current draft against the exact original source before any edited artifact can become ready.",
+          "Diagnostics",
+          "Operation",
+          "Object",
+          "Area / Grid",
+          "Preflight",
+          "PASS",
+          "Previous position",
+          "New position",
+          "Previous orientation",
+          "New orientation",
+          "I reviewed this exact change and want Wand to generate a verified edited replacement save.",
+          "Apply / Export",
+          "Confirm the reviewed semantic change before generating the edited save.",
+          "Verified edited save generated",
+          "Independent candidate verification and canonical reopen/reload passed. The originally loaded save was not overwritten.",
+          "Edited SHA-256",
+          "Original SHA-256",
+          "Reload verification",
+          "Download edited save",
+          "Download original backup",
+          "Download integrity bundle",
+          "Download manifest",
+          "Keep the exact original backup. Install or import the edited save using your normal save-transfer workflow. Recovery is user-mediated by reinstalling/importing the retained original backup.",
+          "Review Changes passed. Confirm the exact semantic change to enable Apply / Export."
+        ],
+        "failurePresentationKeys": [
+          "worldEditor.verifiedExport.failure.unsupportedBuild",
+          "worldEditor.verifiedExport.failure.noEligibleChange",
+          "worldEditor.verifiedExport.failure.unsupportedChange",
+          "worldEditor.verifiedExport.failure.sourceChanged",
+          "worldEditor.verifiedExport.failure.reviewStale",
+          "worldEditor.verifiedExport.failure.identityMismatch",
+          "worldEditor.verifiedExport.failure.notAdmissible",
+          "worldEditor.verifiedExport.failure.changedObjectSelected",
+          "worldEditor.verifiedExport.failure.progressionVeto",
+          "worldEditor.verifiedExport.failure.invalidDestination",
+          "worldEditor.verifiedExport.failure.candidateGeneration",
+          "worldEditor.verifiedExport.failure.candidateVerification",
+          "worldEditor.verifiedExport.failure.exportAssembly",
+          "worldEditor.verifiedExport.failure.reload",
+          "worldEditor.verifiedExport.failure.reloadMismatch",
+          "worldEditor.verifiedExport.failure.generic"
+        ],
+        "note": "Raw WEP_EXPORT_*, TX_*, Core contract IDs, hashes, Item/Grid/Object IDs, operation enums, and manifest identifiers remain untranslated diagnostics. Presentation wrappers are localized in all eight launch locales. This surface exports an independently verified replacement artifact only; it does not authorize direct persistent replacement."
       }
     ],
     "selection": [
