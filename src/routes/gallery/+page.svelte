@@ -13,7 +13,7 @@
   let busy = false;
   let error = '';
 
-  onMount(() => { void browse(); });
+  onMount(() => { const workId = new URLSearchParams(window.location.search).get('work'); void browse(); if (workId) void openWork(workId); });
 
   async function browse() {
     if (!client) return;
