@@ -34,6 +34,7 @@ begin
         on w.work_id=r.work_id
        and w.current_published_revision_id=r.revision_id
       where wrm.media_id=m.media_id
+        and w.work_type='gallery'
         and w.lifecycle_state='published'
         and w.visibility='public'
         and w.moderation_state='clear'
