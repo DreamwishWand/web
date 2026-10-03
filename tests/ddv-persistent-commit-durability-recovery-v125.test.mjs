@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, access } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, access, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
@@ -129,6 +129,25 @@ test('restart from ROLLED_BACK is idempotent',async()=>{const ws=await makeWorks
 test('journal tamper is rejected',async()=>{const ws=await makeWorkspace();const c=await run(ws,{id:'tamper'});const j=JSON.parse(await readFile(c.paths.journalPath,'utf8'));j.state='ABORTED';await writeFile(c.paths.journalPath,JSON.stringify(j));await assert.rejects(recoverPersistentCommit({targetPath:ws.target,journalPath:c.paths.journalPath,adapter:createNodePosixFilesystemAdapter(),verification:verification()}),e=>e.code==='PC_JOURNAL_INTEGRITY_MISMATCH');});
 
 test('proof-only execution refuses paths outside marked proof root and AUTHORIZED mode remains off',async()=>{const ws=await makeWorkspace();const other=await mkdtemp(path.join(tmpdir(),'outside-'));const outside=path.join(other,'profile');await writeFile(outside,ws.source);await assert.rejects(executePersistentCommit({candidate:ws.candidate,targetPath:outside,backupDirectory:ws.backup,transactionId:'outside',adapter:createNodePosixFilesystemAdapter(),verification:verification(),runtimeEvidence:runtimeEvidence(),mode:'PROOF_ONLY',proofRoot:ws.root}),e=>e.code==='PC_PROOF_PATH_OUTSIDE_ROOT');await assert.rejects(executePersistentCommit({candidate:ws.candidate,targetPath:ws.target,backupDirectory:ws.backup,transactionId:'auth',adapter:createNodePosixFilesystemAdapter(),verification:verification(),runtimeEvidence:runtimeEvidence(),mode:'AUTHORIZED',proofRoot:ws.root}),e=>e.code==='PC_PERSISTENT_WRITE_NOT_AUTHORIZED');});
+
+test('proof-only realpath confinement rejects a symlinked parent that escapes the marked root',async()=>{
+  const ws=await makeWorkspace();
+  const outsideDir=await mkdtemp(path.join(tmpdir(),'ddv-proof-symlink-outside-'));
+  const outsideTarget=path.join(outsideDir,'profile.json');
+  await writeFile(outsideTarget,ws.source);
+  const escape=path.join(ws.root,'escape');
+  await symlink(outsideDir,escape,'dir');
+  const escapedTarget=path.join(escape,'profile.json');
+  await assert.rejects(
+    executePersistentCommit({
+      candidate:ws.candidate,targetPath:escapedTarget,backupDirectory:ws.backup,transactionId:'symlink-escape',
+      adapter:createNodePosixFilesystemAdapter(),verification:verification(),runtimeEvidence:runtimeEvidence(),
+      mode:'PROOF_ONLY',proofRoot:ws.root
+    }),
+    e=>e.code==='PC_PROOF_REALPATH_OUTSIDE_ROOT'
+  );
+  assert.deepEqual(new Uint8Array(await readFile(outsideTarget)),ws.source);
+});
 
 
 test('adapter failures: backup create/flush, temp write/flush and temp verification all fail before replacement',async()=>{
