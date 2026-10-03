@@ -1,0 +1,3 @@
+[functions.community-public-media]
+verify_jwt = false
+import_map = "./functions/community-public-media/deno.json"
