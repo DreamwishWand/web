@@ -44,15 +44,15 @@ const report = {
 const secrets = [];
 const actors = {
   A: {
-    email: 'delivered@resend.dev',
+    email: `delivered+qr-gqa-${runId}-a@resend.dev`,
     password: 'QRa!' + crypto.randomBytes(24).toString('base64url') + '7z'
   },
   B: {
-    email: 'bounced@resend.dev',
+    email: `delivered+qr-gqa-${runId}-b@resend.dev`,
     password: 'QRb!' + crypto.randomBytes(24).toString('base64url') + '8y'
   },
   M: {
-    email: 'complained@resend.dev',
+    email: `delivered+qr-gqa-${runId}-m@resend.dev`,
     password: 'QRm!' + crypto.randomBytes(24).toString('base64url') + '9x'
   }
 };
