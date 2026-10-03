@@ -29,7 +29,8 @@
     "DRAFT_EDIT": true,
     "PREFLIGHT": true,
     "WRITE_CANDIDATE": true,
-    "PERSISTENT_WRITE": false
+    "PERSISTENT_WRITE": false,
+    "STRUCTURAL_WRITE_CANDIDATE": true
   },
   "pipeline": [
     "immutable original bytes",
@@ -46,6 +47,7 @@
     "semantic diff classification",
     "unrelated/unknown/forbidden-state preservation verification",
     "GridObject identity inventory verification",
+    "declared GridObject-set identity-delta verification when structural target is used",
     "runtime assertion binding",
     "verified write-candidate manifest",
     "independent candidate re-verification"
@@ -69,8 +71,11 @@
     "forbidden": "GameInfo or plan-declared forbidden prefix; fail closed",
     "opaqueUnknownFields": "must survive semantically unchanged",
     "arrayPolicy": "PRESERVE_ORDER_AND_LENGTH_OUTSIDE_INTENTIONAL",
-    "gridObjectIdentityPolicy": "PRESERVE_ALL_GRID_OBJECT_IDENTITIES",
-    "unexpectedEntityCreationDeletionReidentification": "fail closed",
+    "gridObjectIdentityPolicy": [
+      "PRESERVE_ALL_GRID_OBJECT_IDENTITIES for GRID_OBJECT",
+      "ALLOW_DECLARED_GRID_OBJECT_SET_DELTA for GRID_OBJECT_SET only"
+    ],
+    "unexpectedEntityCreationDeletionReidentification": "fail closed except exact created/deleted identity set declared by a GRID_OBJECT_SET structural plan; reidentification remains forbidden",
     "saveLevelIdentityMetadata": "GameInfo immutable"
   },
   "candidateBoundary": {
@@ -167,6 +172,18 @@
     {
       "condition": "serializer semantic normalization",
       "result": "REJECT_IN_V1"
+    },
+    {
+      "condition": "GRID_OBJECT_SET declared identity delta differs from actual add/remove set",
+      "result": "REJECT"
+    },
+    {
+      "condition": "created GridObject IDs are not contiguous from exact NextGridObjectID",
+      "result": "REJECT"
+    },
+    {
+      "condition": "preserved structural GridObject raw payload changes",
+      "result": "REJECT"
     }
   ],
   "atomicReplacementDesign": {
@@ -278,5 +295,29 @@
     "correction": "Independent candidate verification now rebinds manifest plan/input/output/target/operation/semanticDiff/sourceEvidence/verification fields to recomputed plan and candidate semantics, including rejection of self-rehashed semantic manifest tamper.",
     "ci": "Integrator-hardened PR head must remain CI-green; promotion becomes canonical on merge to main",
     "persistentAuthorizationChanged": false
+  },
+  "structuralGridObjectSetExtension": {
+    "id": "DDV-SAFE-STRUCTURAL-GRID-OBJECT-TRANSACTION-EXTENSION-V125-V1_0",
+    "status": "IMPLEMENTED_WRITE_CANDIDATE_ONLY",
+    "capability": "STRUCTURAL_WRITE_CANDIDATE",
+    "targetKind": "GRID_OBJECT_SET",
+    "identityPolicy": "ALLOW_DECLARED_GRID_OBJECT_SET_DELTA",
+    "rules": [
+      "one declared Grid only",
+      "preserved IDs exist before/after and their raw payload is exact",
+      "deleted IDs exist before and are absent after",
+      "created IDs are absent before and exist after with object.ID equal to map key",
+      "created IDs are contiguous fresh IDs beginning at exact source NextGridObjectID",
+      "NextGridObjectIDAfter equals NextGridObjectIDBefore plus created count",
+      "deleted IDs are never reused by created IDs",
+      "actual identity delta must equal declaration exactly; reidentification is forbidden",
+      "allowed structural paths are exactly declared object-map additions/removals plus NextGridObjectID when advanced",
+      "unrelated object membership/payload and all unrelated/opaque state remain exact"
+    ],
+    "arbitraryJsonPatch": false,
+    "crossGridMutation": false,
+    "inventoryMutation": false,
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false
   }
 }
