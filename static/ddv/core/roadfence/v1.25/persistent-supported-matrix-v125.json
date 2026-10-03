@@ -92,7 +92,8 @@
       "operations": [
         "any structural writer"
       ],
-      "status": "UNSUPPORTED"
+      "status": "UNSUPPORTED",
+      "notes": "Also rejects invalid/non-positive save pitch, source family mismatch, stale/non-monotonic NextGridObjectID, object-map key/ID mismatch, and unrelated Road/Fence coordinate occupancy."
     }
   ],
   "fence": [
@@ -138,14 +139,15 @@
       ]
     },
     {
-      "class": "Biome2Fence same-mode diagonal 90-degree corner",
+      "class": "Biome2Fence same-mode diagonal 90-degree q5 corner: two N3 diagonal spans sharing the semantic corner",
       "operations": [
         "FENCE_SET_TOPOLOGY"
       ],
       "status": "FENCE_CONFIRMED_WRITABLE",
       "runtimeEvidence": [
         "confirmed diagonal 90-degree corner"
-      ]
+      ],
+      "notes": "Longer or differently partitioned diagonal corners remain RUNTIME_REQUIRED; do not infer from the q5 representative."
     },
     {
       "class": "Biome2Fence FM01 extension-backed orthogonal to diagonal mode boundary: orthogonal q3 + adjacent diagonal q1",
@@ -216,5 +218,14 @@
     "noRuntimeForImplementationAlone": true
   },
   "persistentWriteAuthorized": false,
-  "WORLD_PERSISTENT_WRITE_V125": false
+  "WORLD_PERSISTENT_WRITE_V125": false,
+  "compilerSafety": {
+    "exactTransformQuantum": true,
+    "sourceFamilyIsolation": true,
+    "nativeSeedMustActuallySurviveMerge": true,
+    "gridObjectMapKeyEqualsObjectId": true,
+    "nextGridObjectIDAboveExistingMax": true,
+    "deletedIdReuse": false,
+    "disconnectedRoadMultiComponentSingleCall": "UNSUPPORTED"
+  }
 }
