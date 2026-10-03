@@ -154,11 +154,13 @@ export function classifyFenceWriterSupport(
     }
     if (
       component.spans.length === 2 &&
+      network.graph.nodes.length === 5 &&
+      component.spans.every((span) => span.nodeIds.length === 3) &&
       [...graphDegrees(network.graph).values()].every((degree) => degree <= 2)
     ) {
       return support(
         RoadFenceWriterSupportStatus.FENCE_CONFIRMED_WRITABLE,
-        'FENCE_DIAGONAL_90_CORNER_CONFIRMED',
+        'FENCE_DIAGONAL_90_CORNER_Q5_CONFIRMED',
         ['DW-FC02']
       );
     }
