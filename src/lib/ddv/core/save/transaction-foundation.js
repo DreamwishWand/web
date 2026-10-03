@@ -57,7 +57,7 @@ export async function createVerifiedWriteCandidate({session,plan,adapter,contrac
   validateStructuralTransition(before,after,p);
   const semanticDiff=buildSemanticDiff(before,after,p,beforeIdentity);
   assertAcceptableDiff(semanticDiff,p);
-  if(!sameStringArray(exported.changedPaths,semanticDiff.allChangedPaths))
+  if(!sameStringArray([...exported.changedPaths].sort(),semanticDiff.allChangedPaths))
     throw txError('TX_EXPORT_DIFF_DISAGREES_WITH_SEMANTIC_DIFF');
 
   const runtimeAssertion=createRuntimeAssertionManifest({preflight,exportResult:exported});
