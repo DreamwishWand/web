@@ -34,43 +34,26 @@ jobs:
             exit 1
           fi
 
-      - name: Resolve public browser config without recording values
+      - name: Bind browser-safe staging config
         shell: bash
+        env:
+          QR_STAGING_URL: https://ptpdoxhrqopvczpclcij.supabase.co
+          QR_STAGING_PUBLISHABLE_KEY: sb_publishable_cwUD6Tut8vFgdsBBYPS1Pg_-gtimqpv
         run: |
           set -euo pipefail
-          root='https://dreamwishwand.github.io/web'
-          tmp="$(mktemp -d)"
-          curl -fsSL "$root/" -o "$tmp/index.html"
-          key=''
-          url=''
-          while IFS= read -r src; do
-            case "$src" in
-              http*) asset="$src" ;;
-              /*) asset="https://dreamwishwand.github.io$src" ;;
-              *) asset="$root/$src" ;;
-            esac
-            file="$tmp/$(basename "$src")"
-            curl -fsSL "$asset" -o "$file" || continue
-            if [ -z "$key" ]; then
-              key="$(grep -oE 'sb_publishable_[A-Za-z0-9_-]+' "$file" | head -n1 || true)"
-            fi
-            if [ -z "$url" ]; then
-              url="$(grep -oE 'https://[a-z0-9]+\.supabase\.co' "$file" | head -n1 || true)"
-            fi
-          done < <(grep -oE 'src="[^"]+\.js"' "$tmp/index.html" | sed -E 's/^src="//;s/"$//')
-          test "$url" = 'https://ptpdoxhrqopvczpclcij.supabase.co'
-          case "$key" in
+          test "$QR_STAGING_URL" = 'https://ptpdoxhrqopvczpclcij.supabase.co'
+          case "$QR_STAGING_PUBLISHABLE_KEY" in
             sb_publishable_*) ;;
-            *) echo "Configured public Pages build did not expose a modern publishable key." >&2; exit 1 ;;
+            *) echo "Modern browser publishable key missing." >&2; exit 1 ;;
           esac
-          echo "::add-mask::$key"
+          echo "::add-mask::$QR_STAGING_PUBLISHABLE_KEY"
           {
-            echo "QR_SUPABASE_URL=$url"
-            echo "QR_SUPABASE_PUBLISHABLE_KEY=$key"
-            echo "VITE_SUPABASE_URL=$url"
-            echo "VITE_SUPABASE_PUBLISHABLE_KEY=$key"
+            echo "QR_SUPABASE_URL=$QR_STAGING_URL"
+            echo "QR_SUPABASE_PUBLISHABLE_KEY=$QR_STAGING_PUBLISHABLE_KEY"
+            echo "VITE_SUPABASE_URL=$QR_STAGING_URL"
+            echo "VITE_SUPABASE_PUBLISHABLE_KEY=$QR_STAGING_PUBLISHABLE_KEY"
           } >> "$GITHUB_ENV"
-          echo "Configured public browser boundary resolved for staging project."
+          echo "Browser-safe staging boundary bound from the active Supabase publishable key."
 
       - uses: actions/setup-node@v4
         with:
