@@ -1,0 +1,231 @@
+{
+  "schema": "ddv.roadfence-persistent-supported-matrix@1",
+  "taskId": "01C-PERSISTENT-ROADFENCE-COMPILER-WRITER-V125-V1",
+  "target": "Nintendo Switch / DDV v1.25.0 / BID 52BD625D9B4E0053 / schema 624",
+  "statuses": [
+    "ROAD_CONFIRMED_WRITABLE",
+    "FENCE_CONFIRMED_WRITABLE",
+    "READ_MODEL_ONLY",
+    "RUNTIME_REQUIRED",
+    "UNSUPPORTED",
+    "UNKNOWN"
+  ],
+  "road": [
+    {
+      "class": "Path_MainStreet connected orthogonal/null cell graph",
+      "operations": [
+        "ROAD_SET_TOPOLOGY",
+        "ROAD_ERASE",
+        "ROAD_SAME_FAMILY_MERGE"
+      ],
+      "status": "ROAD_CONFIRMED_WRITABLE",
+      "runtimeEvidence": [
+        "DW-R01",
+        "ROAD-COMP-01",
+        "ROAD-COMP-02",
+        "Steam Composite Batch C"
+      ],
+      "notes": "Includes region, hollow/ring and exact cell erase; disconnected multi-component scope is not accepted in one v1 compiler call."
+    },
+    {
+      "class": "Path_MainStreet isolated dense 2x2 diagonal quantum",
+      "operations": [
+        "ROAD_SET_TOPOLOGY"
+      ],
+      "status": "ROAD_CONFIRMED_WRITABLE",
+      "runtimeEvidence": [
+        "DW-R02",
+        "S-R02"
+      ]
+    },
+    {
+      "class": "Path_MainStreet positive mixed q5: one +X cardinal cell followed by promoted +X,+Y dense diagonal block",
+      "operations": [
+        "ROAD_SET_TOPOLOGY"
+      ],
+      "status": "ROAD_CONFIRMED_WRITABLE",
+      "runtimeEvidence": [
+        "ROAD-RM01",
+        "S-R03"
+      ],
+      "notes": "Requires explicit already-resolved five-cell state assignment; generic path normalization is not used."
+    },
+    {
+      "class": "Path_Gold orthogonal 3x3 q9 merge preserving at least one exact native same-family seed",
+      "operations": [
+        "ROAD_SAME_FAMILY_MERGE"
+      ],
+      "status": "ROAD_CONFIRMED_WRITABLE",
+      "runtimeEvidence": [
+        "ROAD-COMP-03 / Steam Composite Batch C"
+      ]
+    },
+    {
+      "class": "Mirrored/negative-slope or other unpromoted mixed cardinal-diagonal Road transition",
+      "operations": [
+        "ROAD_SET_TOPOLOGY"
+      ],
+      "status": "RUNTIME_REQUIRED",
+      "runtimeEvidence": [],
+      "notes": "Do not infer symmetry from ROAD-RM01."
+    },
+    {
+      "class": "Equal-q5 indented vs smooth Road visual form",
+      "operations": [
+        "any writer-facing visual-style distinction"
+      ],
+      "status": "UNKNOWN",
+      "runtimeEvidence": [
+        "protocol-diverged q5-vs-q4 exploratory run"
+      ],
+      "notes": "Non-product-facing; no writer semantic exists."
+    },
+    {
+      "class": "Other Road family structural generation not descriptor-equivalent to a confirmed case",
+      "operations": [
+        "create/delete/replace"
+      ],
+      "status": "RUNTIME_REQUIRED"
+    },
+    {
+      "class": "Duplicate Road cells / unresolved runtime-gated transition state / same-coordinate Road-Fence collision",
+      "operations": [
+        "any structural writer"
+      ],
+      "status": "UNSUPPORTED",
+      "notes": "Also rejects invalid/non-positive save pitch, source family mismatch, stale/non-monotonic NextGridObjectID, object-map key/ID mismatch, and unrelated Road/Fence coordinate occupancy."
+    }
+  ],
+  "fence": [
+    {
+      "class": "Biome2Fence orthogonal same-mode graph using catalog-valid representationLayout",
+      "operations": [
+        "FENCE_SET_TOPOLOGY",
+        "FENCE_TOPOLOGY_ERASE",
+        "FENCE_MOVE_POST",
+        "FENCE_INSERT_POST",
+        "FENCE_REMOVE_POST"
+      ],
+      "status": "FENCE_CONFIRMED_WRITABLE",
+      "runtimeEvidence": [
+        "DW-F01",
+        "DW-F02A",
+        "DW-F02B",
+        "DW-FE01",
+        "Steam Composite Batch C q96 rectangle/q41 cross/q49 open-U",
+        "q33 alternative-partition cold persistence"
+      ],
+      "notes": "ENDPOINT/CORNER/JUNCTION/MODE_BOUNDARY are semantic anchors; degree-2 posts are representation state."
+    },
+    {
+      "class": "Biome2Fence diagonal straight N3, both slopes",
+      "operations": [
+        "FENCE_SET_TOPOLOGY"
+      ],
+      "status": "FENCE_CONFIRMED_WRITABLE",
+      "runtimeEvidence": [
+        "DW-FD01",
+        "mirrored negative N3"
+      ]
+    },
+    {
+      "class": "Biome2Fence diagonal positive/same-sign N6 exact maximum",
+      "operations": [
+        "FENCE_SET_TOPOLOGY"
+      ],
+      "status": "FENCE_CONFIRMED_WRITABLE",
+      "runtimeEvidence": [
+        "DW-FD03"
+      ]
+    },
+    {
+      "class": "Biome2Fence same-mode diagonal 90-degree q5 corner: two N3 diagonal spans sharing the semantic corner",
+      "operations": [
+        "FENCE_SET_TOPOLOGY"
+      ],
+      "status": "FENCE_CONFIRMED_WRITABLE",
+      "runtimeEvidence": [
+        "confirmed diagonal 90-degree corner"
+      ],
+      "notes": "Longer or differently partitioned diagonal corners remain RUNTIME_REQUIRED; do not infer from the q5 representative."
+    },
+    {
+      "class": "Biome2Fence FM01 extension-backed orthogonal to diagonal mode boundary: orthogonal q3 + adjacent diagonal q1",
+      "operations": [
+        "FENCE_SET_TOPOLOGY"
+      ],
+      "status": "FENCE_CONFIRMED_WRITABLE",
+      "runtimeEvidence": [
+        "DW-FM01 cold persistence"
+      ],
+      "notes": "Two mode-homogeneous components; no bridge extension."
+    },
+    {
+      "class": "Biome2Fence N3 orthogonal component to FairyLightFence N3 orthogonal same-graph style replacement",
+      "operations": [
+        "FENCE_STYLE_REPLACE"
+      ],
+      "status": "FENCE_CONFIRMED_WRITABLE",
+      "runtimeEvidence": [
+        "DW-FRP01 cold persistence"
+      ]
+    },
+    {
+      "class": "Captured Biome2Fence q33 alternative degree-2 Base/post partition",
+      "operations": [
+        "exact round-trip",
+        "FENCE_MOVE_POST",
+        "FENCE_INSERT_POST",
+        "FENCE_REMOVE_POST"
+      ],
+      "status": "FENCE_CONFIRMED_WRITABLE",
+      "runtimeEvidence": [
+        "q33 partitions 7/7/7/7/4 and 6/7/6/7/6 cold descriptor-exact"
+      ]
+    },
+    {
+      "class": "Other diagonal over-max/junction/mode-boundary topology not byte/descriptor-equivalent to promoted cases",
+      "operations": [
+        "FENCE_SET_TOPOLOGY"
+      ],
+      "status": "RUNTIME_REQUIRED"
+    },
+    {
+      "class": "Other Fence family structural generation or representation edit",
+      "operations": [
+        "create/delete/replace/post edit"
+      ],
+      "status": "RUNTIME_REQUIRED",
+      "notes": "Catalog knowledge alone is not persistent-writer evidence."
+    },
+    {
+      "class": "Semantic-anchor removal by representation edit, over-max interval, unsupported exact extension key, off-run post, topology/quantity change under post-only operation",
+      "operations": [
+        "FENCE_MOVE_POST",
+        "FENCE_INSERT_POST",
+        "FENCE_REMOVE_POST"
+      ],
+      "status": "UNSUPPORTED"
+    }
+  ],
+  "runtimeDisposition": {
+    "reuse": [
+      "all ROAD_CONFIRMED_WRITABLE and FENCE_CONFIRMED_WRITABLE cases when compiler output descriptors are equivalent to cited accepted runtime representations"
+    ],
+    "newRuntimeRequired": [
+      "only a compiler case deliberately advanced from RUNTIME_REQUIRED after a separately reviewed evidence request"
+    ],
+    "noRuntimeForImplementationAlone": true
+  },
+  "persistentWriteAuthorized": false,
+  "WORLD_PERSISTENT_WRITE_V125": false,
+  "compilerSafety": {
+    "exactTransformQuantum": true,
+    "sourceFamilyIsolation": true,
+    "nativeSeedMustActuallySurviveMerge": true,
+    "gridObjectMapKeyEqualsObjectId": true,
+    "nextGridObjectIDAboveExistingMax": true,
+    "deletedIdReuse": false,
+    "disconnectedRoadMultiComponentSingleCall": "UNSUPPORTED"
+  }
+}
