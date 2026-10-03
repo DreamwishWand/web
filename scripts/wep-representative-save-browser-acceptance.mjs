@@ -76,6 +76,9 @@ const report = {
   pageErrors: [],
   result: 'RUNNING',
   hardBoundary: {
+    persistentWriteAuthorized: false,
+    WORLD_PERSISTENT_WRITE_V125: false,
+    PERSISTENT_WRITE: false,
     productApplyAuthorized: false,
     directSourceReplacementAuthorized: false,
     sourceOverwriteExecuted: false
