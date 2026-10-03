@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "dreamwish.ddv.save-transaction-plan@1",
+  "title": "Dreamwish Wand DDV Save Transaction Plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract", "planId", "semanticOwner", "capabilityRequired", "input", "operation", "target",
+    "mutationAdapter", "preconditions", "allowedChanges", "forbiddenPathPrefixes", "postconditions",
+    "preservation", "sourceEvidence", "intent"
+  ],
+  "properties": {
+    "contract": { "const": "dreamwish.ddv.save-transaction-plan@1" },
+    "planId": { "type": "string", "minLength": 1 },
+    "semanticOwner": { "type": "string", "minLength": 1 },
+    "capabilityRequired": { "const": "WRITE_CANDIDATE" },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["platform", "gameVersion", "profileGameInfoVersion", "originalFileLength", "originalSha256", "codecContract", "targetBuild"],
+      "properties": {
+        "platform": { "enum": ["switch", "steam-windows"] },
+        "gameVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "profileGameInfoVersion": { "type": "integer", "minimum": 0 },
+        "originalFileLength": { "type": "integer", "minimum": 1 },
+        "originalSha256": { "$ref": "#/$defs/sha256" },
+        "codecContract": { "type": "string", "minLength": 1 },
+        "targetBuild": { "$ref": "#/$defs/targetBuild" }
+      }
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "owner", "kind", "structuralCapabilitiesSupported", "planSupported", "validationPassed", "runtimeGate"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1 },
+        "structuralCapabilitiesSupported": { "type": "boolean" },
+        "planSupported": { "type": "boolean" },
+        "validationPassed": { "type": "boolean" },
+        "runtimeGate": { "enum": ["NOT_REQUIRED", "PASSED", "PENDING", "FAILED"] }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "gridId", "gridObjectId", "itemId"],
+      "properties": {
+        "kind": { "const": "GRID_OBJECT" },
+        "gridId": { "type": "integer", "minimum": 0 },
+        "gridObjectId": { "type": "integer", "minimum": 0 },
+        "itemId": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "mutationAdapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract", "id", "owner"],
+      "properties": {
+        "contract": { "const": "dreamwish.ddv.save-mutation-adapter@1" },
+        "id": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 }
+      }
+    },
+    "preconditions": { "type": "array", "items": { "$ref": "#/$defs/condition" } },
+    "allowedChanges": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "classification"],
+        "properties": {
+          "path": { "$ref": "#/$defs/jsonPointer" },
+          "classification": { "const": "INTENTIONAL" }
+        }
+      }
+    },
+    "forbiddenPathPrefixes": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/jsonPointer" } },
+    "postconditions": { "type": "array", "items": { "$ref": "#/$defs/condition" } },
+    "preservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gridObjectIdentityPolicy", "arrayPolicy", "unknownStatePolicy", "serializerNormalizationPolicy", "unknownPathPrefixes"],
+      "properties": {
+        "gridObjectIdentityPolicy": { "const": "PRESERVE_ALL_GRID_OBJECT_IDENTITIES" },
+        "arrayPolicy": { "const": "PRESERVE_ORDER_AND_LENGTH_OUTSIDE_INTENTIONAL" },
+        "unknownStatePolicy": { "const": "OPAQUE_UNCHANGED_REQUIRED" },
+        "serializerNormalizationPolicy": { "const": "REJECT_SEMANTIC_NORMALIZATION" },
+        "unknownPathPrefixes": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/jsonPointer" } }
+      }
+    },
+    "sourceEvidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "status": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "intent": { "type": ["object", "array", "string", "number", "boolean", "null"] }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "jsonPointer": { "type": "string", "pattern": "^/(?:[^~]|~[01])*(?:/(?:[^~]|~[01])*)*$" },
+    "targetBuild": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["platform", "kind", "value"],
+      "properties": {
+        "platform": { "enum": ["switch", "steam-windows"] },
+        "kind": { "enum": ["switch-bid", "steam-full-version"] },
+        "value": { "type": "string", "minLength": 1 }
+      }
+    },
+    "condition": {
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["path", "operator", "value"],
+          "properties": { "path": { "$ref": "#/$defs/jsonPointer" }, "operator": { "const": "EQUALS" }, "value": {} }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["path", "operator"],
+          "properties": { "path": { "$ref": "#/$defs/jsonPointer" }, "operator": { "enum": ["EXISTS", "NOT_EXISTS"] } }
+        }
+      ]
+    }
+  }
+}
