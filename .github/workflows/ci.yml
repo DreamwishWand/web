@@ -3,7 +3,9 @@ name: CI
 on:
   push:
     branches:
+      - main
       - 'dev/**'
+      - 'integration/**'
   pull_request:
 
 permissions:
@@ -15,6 +17,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -29,6 +33,10 @@ jobs:
         run: deno check --node-modules-dir=auto supabase/functions/*/index.ts
       - name: Type and component checks
         run: npm run check
+      - name: Shared web accessibility/localization gates
+        run: npm run verify:web-foundation
+      - name: Canonical baseline integrity
+        run: npm run verify:canonical
       - name: Community operations contract
         run: npm run verify:community-ops
       - name: Integrated production tree preflight
