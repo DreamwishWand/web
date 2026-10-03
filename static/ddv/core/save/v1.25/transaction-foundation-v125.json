@@ -2,7 +2,7 @@
   "schema": "ddv.safe-persistent-transaction-foundation@1",
   "artifactId": "DDV-SAFE-PERSISTENT-TRANSACTION-FOUNDATION-V125-V1_0",
   "version": "v1.0",
-  "status": "PROMOTED_CANDIDATE_PENDING_MERGE",
+  "status": "PROMOTED",
   "owner": "01A CORE - Save / Codec / Versioning",
   "scope": "temporary verified write-candidate production only; no persistent replacement",
   "target": {
@@ -274,9 +274,9 @@
     ]
   },
   "integratorReview": {
-    "status": "ACCEPTED_PENDING_MERGE",
+    "status": "ACCEPTED",
     "correction": "Independent candidate verification now rebinds manifest plan/input/output/target/operation/semanticDiff/sourceEvidence/verification fields to recomputed plan and candidate semantics, including rejection of self-rehashed semantic manifest tamper.",
-    "ci": "PR head CI must pass after Integrator hardening before merge",
+    "ci": "Integrator-hardened PR head must remain CI-green; promotion becomes canonical on merge to main",
     "persistentAuthorizationChanged": false
   }
 }
