@@ -1,0 +1,352 @@
+{
+  "schema": "ddv.minimum-persistent-commit-durability-recovery@1",
+  "artifactId": "DDV-MIN-PERSISTENT-COMMIT-DURABILITY-RECOVERY-V125-V1_0",
+  "taskId": "01A-MIN-PERSISTENT-COMMIT-DURABILITY-RECOVERY-V125",
+  "version": "v1.0",
+  "status": "PROMOTED_PROOF_ONLY_RUNTIME_REQUIRED",
+  "owner": "01A CORE - Save / Codec / Versioning",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "titleId": "0100D39012C1A000",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624
+  },
+  "upstream": {
+    "safeTransaction": {
+      "artifactId": "DDV-SAFE-PERSISTENT-TRANSACTION-FOUNDATION-V125-V1_0",
+      "status": "PROMOTED"
+    },
+    "minimumTransform": {
+      "artifactId": "DDV-MINIMUM-PERSISTENT-TRANSFORM-SEMANTICS-V125-V1_0",
+      "contract": "ddv.minimum-persistent-transform-semantics@1",
+      "adapterId": "01b-minimum-root-furniture-transform-v125-v1",
+      "status": "PROMOTED"
+    },
+    "runtime": {
+      "status": "CONFIRMED_PASS",
+      "moveReturnedSha256": "d2cf6d75329eee852d6c52adda68207696084827813839be8127ead356725508",
+      "rotateReturnedSha256": "19a4d88220da359f26d43e49507c56f5613be5e9fbc28b74d22cf2cdc831a0c7",
+      "coldPersistence": true,
+      "candidateToPostColdTargetGridDiff": 0,
+      "serializedCompanionFieldsObserved": false,
+      "transformNormalizationObserved": false
+    },
+    "manual01ERestoreUse": "SUPPORTING_EVIDENCE_ONLY_NOT_PRODUCT_RECOVERY_PROOF"
+  },
+  "contracts": {
+    "engine": "dreamwish.ddv.persistent-commit-engine@1",
+    "journal": "dreamwish.ddv.persistent-commit-journal@1",
+    "lock": "dreamwish.ddv.persistent-commit-lock@1",
+    "filesystemAdapter": "dreamwish.ddv.persistent-commit-filesystem-adapter@1",
+    "verificationBinding": "dreamwish.ddv.persistent-commit-verification-binding@1",
+    "runtimeEvidenceBinding": "ddv.minimum-persistent-transform-runtime-acceptance@1",
+    "capabilityCandidate": "dreamwish.ddv.persistent-write-capability-candidate@1"
+  },
+  "environmentBoundary": {
+    "browser": {
+      "atomicPersistentCommitSupported": false,
+      "reason": "Browser-only code cannot prove same-filesystem sibling temp placement, OS-level atomic rename-over-existing, file fsync, containing-directory fsync, or durable interruption-journal semantics. Browser remains verified replacement-artifact / user-mediated replacement only."
+    },
+    "localBridge": {
+      "executionSurface": "LINUX_POSIX_LOCAL_BRIDGE",
+      "contract": "dreamwish.ddv.node-posix-local-commit-surface@1",
+      "hostOs": "linux",
+      "filesystemProfile": "declared local POSIX filesystem only; network/distributed filesystems excluded unless separately profiled and promoted",
+      "requirements": [
+        "regular non-symlink target file, except recovery may restore an unexpectedly missing target from exact backup",
+        "single Wand writer guarded by exclusive O_EXCL lock marker",
+        "DDV/game/save-sync or any other external writer is quiescent for the transaction window",
+        "candidate temp is a sibling of target on the same mounted filesystem",
+        "rename-over-existing behavior passes the runtime probe on the declared filesystem",
+        "fsync succeeds for backup/temp/journal files",
+        "fsync succeeds for target and backup containing directories",
+        "backup directory is durable local storage",
+        "production capability remains blocked until exact deployed filesystem crash/durability acceptance",
+        "PROOF_ONLY path confinement is enforced against filesystem realpaths; symlinked parent escape outside the marked proof root is rejected"
+      ],
+      "proofModeOnly": true,
+      "authorizedExecutionImplemented": false
+    },
+    "communityWeb": "independent; Community/Guide/Gallery availability must not depend on local writer capability"
+  },
+  "semanticPayloadScope": {
+    "positiveScopeOnly": "existing ordinary root CORE_STATELESS_FURNITURE same-root transform",
+    "operations": {
+      "MOVE": {
+        "serializedFields": [
+          "X",
+          "Y"
+        ]
+      },
+      "ROTATE": {
+        "serializedFields": [
+          "Orientation"
+        ],
+        "mode": "ANCHOR_PRESERVING_CARDINAL"
+      }
+    },
+    "mustPreserve": [
+      "GridObject.ID",
+      "GridObject.ItemID",
+      "GridObject.State === null",
+      "object-map key",
+      "root Grid membership",
+      "Grid.NextGridObjectID",
+      "all unrelated/opaque state"
+    ],
+    "excluded": [
+      "Building",
+      "PlayerHouse",
+      "Road/Fence",
+      "SubGrid",
+      "cross-grid",
+      "create/delete",
+      "State mutation",
+      "progression-sensitive object",
+      "Store/Shop",
+      "entitlement/premium/DLC"
+    ]
+  },
+  "commitSequence": [
+    "PREPARE verified WRITE_CANDIDATE and runtime-evidence binding",
+    "exclusive lock",
+    "immediate source hash/length/reparse verification",
+    "byte-exact backup create",
+    "backup fsync + backup-directory fsync + hash/reparse verification",
+    "same-filesystem sibling temp write",
+    "temp fsync + target-directory fsync",
+    "temp re-read/hash + independent WRITE_CANDIDATE verification",
+    "durable PREPARE journal",
+    "durable REPLACE_READY journal",
+    "immediate second source hash recheck",
+    "atomic rename/replace temp -> target",
+    "target parent-directory fsync",
+    "durable REPLACED journal",
+    "target re-read/hash/reparse + independent candidate verification",
+    "durable COMMITTED journal",
+    "release lock"
+  ],
+  "journalStates": {
+    "PREPARE": "durable journal exists after backup and temp candidate have independently verified; target still expected original",
+    "REPLACE_READY": "all pre-replace gates passed; final source recheck and atomic replace are next",
+    "REPLACED": "atomic replacement plus parent-directory fsync completed; post-commit verification still required",
+    "COMMITTED": "target is exact verified candidate; exact backup retained",
+    "ABORTED": "replacement did not produce committed candidate; target is exact original or an external pre-replace source change caused fail-closed abort",
+    "RECOVERY_REQUIRED": "automatic completion/rollback did not safely close; writes blocked until explicit recovery",
+    "ROLLED_BACK": "exact backup was atomically restored and reverified"
+  },
+  "recoveryPolicy": {
+    "deterministic": true,
+    "PREPARE": "prefer exact original; remove temp; mark ABORTED",
+    "REPLACE_READY": "if target exact candidate, verify and COMMIT; if target exact original, ABORT; otherwise exact-backup rollback",
+    "REPLACED": "if target exact candidate, verify and COMMIT; if target exact original, ROLLED_BACK; otherwise rollback",
+    "RECOVERY_REQUIRED": "exact candidate -> COMMIT if independently valid; exact original -> ROLLED_BACK; other -> exact-backup rollback",
+    "COMMITTED": "idempotently verify candidate + backup; exact original is treated as ROLLED_BACK; unexpected bytes require rollback/recovery",
+    "ABORTED": "idempotently require exact original",
+    "ROLLED_BACK": "idempotently require exact original",
+    "staleLock": "recovery only; lock integrity must pass, host must match, recorded PID must be dead, then recovery reclaims lock",
+    "journalIntegrity": "SHA-256 over canonical journal excluding integrity field; tamper fails closed",
+    "interruptedTemp": "never authoritative; target original/candidate + journal decide recovery",
+    "postReplaceVerificationFailure": "attempt exact-backup rollback; failure -> RECOVERY_REQUIRED",
+    "preJournalStaleLock": "dead same-host PID + integrity-valid deterministically bound lock + no journal + exact original target => reclaim lock, discard non-authoritative temp, retain exact backup, ABORTED; live/foreign/binding-mismatched lock fails closed",
+    "missingTarget": "journal-backed recovery treats a missing target as non-authoritative and restores the exact verified backup through the same sibling-temp/rename/fsync path",
+    "pathBinding": "journal paths are re-derived from caller target path + caller backup directory + transaction id + source hash; self-rehashed path redirection is rejected",
+    "integrityBoundary": "journal SHA-256 detects accidental corruption; recovery also semantically rebinds build/runtime/candidate/plan and deterministic paths. This is not a keyed anti-malicious signature."
+  },
+  "backupLifecycle": {
+    "naming": "target basename + transaction id + source-hash prefix; never overwrite existing backup",
+    "byteExact": true,
+    "automaticDeletion": false,
+    "minimumRetention": "UNTIL_EXPLICIT_POST_RELOAD_ACK",
+    "lastKnownGoodBackupDeletionForbidden": true,
+    "v1Policy": "no time-based automatic pruning; retention cleanup is a later product/operations policy"
+  },
+  "failureInjectionMatrix": [
+    {
+      "stage": "before lock",
+      "expected": "no source mutation"
+    },
+    {
+      "stage": "after lock",
+      "expected": "source exact; lock released on handled failure"
+    },
+    {
+      "stage": "source hash mismatch",
+      "expected": "fail closed; external bytes untouched"
+    },
+    {
+      "stage": "backup create failure",
+      "expected": "source exact; no replace"
+    },
+    {
+      "stage": "backup flush failure",
+      "expected": "source exact; invalid partial backup removed"
+    },
+    {
+      "stage": "temp write failure",
+      "expected": "source exact"
+    },
+    {
+      "stage": "temp flush failure",
+      "expected": "source exact"
+    },
+    {
+      "stage": "temp verification failure",
+      "expected": "source exact"
+    },
+    {
+      "stage": "journal failure",
+      "expected": "source exact; no replace"
+    },
+    {
+      "stage": "replace failure",
+      "expected": "source exact; durable ABORTED where journal exists"
+    },
+    {
+      "stage": "hard interruption immediately after replace",
+      "expected": "journal REPLACE_READY + stale lock; restart observes exact candidate or exact original only"
+    },
+    {
+      "stage": "post-replace hash mismatch",
+      "expected": "exact backup rollback"
+    },
+    {
+      "stage": "post-replace parse failure",
+      "expected": "exact backup rollback"
+    },
+    {
+      "stage": "rollback failure",
+      "expected": "RECOVERY_REQUIRED; stale lock/recovery state retained"
+    },
+    {
+      "stage": "restart from every journal state",
+      "expected": "deterministic idempotent COMMITTED/ABORTED/ROLLED_BACK or explicit RECOVERY_REQUIRED"
+    },
+    {
+      "stage": "pre-journal process interruption with stale lock/temp",
+      "expected": "exact original remains authoritative; deterministic stale-lock recovery ABORTED"
+    },
+    {
+      "stage": "missing target during journal-backed recovery",
+      "expected": "restore exact verified backup; ROLLED_BACK"
+    },
+    {
+      "stage": "before/after parent-directory fsync and before/after terminal journal transitions",
+      "expected": "restart converges deterministically to exact candidate COMMITTED or exact original ROLLED_BACK"
+    },
+    {
+      "stage": "rollback interruption before rollback fsync / after rollback replace / after rollback verify",
+      "expected": "RECOVERY_REQUIRED is restartable and converges to exact original ROLLED_BACK"
+    },
+    {
+      "stage": "self-rehashed journal path redirection",
+      "expected": "reject by deterministic path binding"
+    }
+  ],
+  "safetyInvariant": "At every engine-controlled interruption boundary, the target selected as authoritative after recovery is either the exact pre-commit source or the exact independently verified candidate. No direct target write is performed; replacement is a single atomic rename after a durable exact backup exists.",
+  "authorization": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "productApply": false,
+    "browserAtomicCommit": false,
+    "authorizedExecutionModeImplemented": false
+  },
+  "capabilityCandidate": {
+    "contract": "dreamwish.ddv.persistent-write-capability-candidate@1",
+    "status": "READY_FOR_INTEGRATOR_REVIEW_NOT_PROMOTED",
+    "target": {
+      "platform": "Nintendo Switch",
+      "gameVersion": "1.25.0",
+      "titleId": "0100D39012C1A000",
+      "buildId": "52BD625D9B4E0053",
+      "schema": 624
+    },
+    "executionSurface": {
+      "kind": "LINUX_POSIX_LOCAL_BRIDGE",
+      "environmentContract": "dreamwish.ddv.node-posix-local-commit-surface@1",
+      "hostOs": "linux",
+      "browser": false,
+      "localFilesystemOnly": true,
+      "sameMountSiblingTemp": true,
+      "fileFsyncRequired": true,
+      "directoryFsyncRequired": true,
+      "externalWriterQuiescenceRequired": true,
+      "networkFilesystemSupported": false
+    },
+    "semanticSubset": "DDV-MINIMUM-PERSISTENT-TRANSFORM-SEMANTICS-V125-V1_0",
+    "operations": [
+      "MOVE",
+      "ROTATE"
+    ],
+    "durabilityAssumptions": [
+      "declared local POSIX filesystem profile",
+      "same-mount sibling temp",
+      "rename-over-existing runtime probe succeeds",
+      "file fsync succeeds",
+      "target and backup directory fsync succeeds",
+      "external save writers quiescent"
+    ],
+    "backupRecoveryContract": "dreamwish.ddv.persistent-commit-journal@1",
+    "backupRetention": "UNTIL_EXPLICIT_POST_RELOAD_ACK",
+    "residualRuntime": {
+      "required": true,
+      "owner": "01E",
+      "scope": "one already-promoted transform through the exact production local bridge, one real post-replace interruption/recovery on that deployment filesystem, Switch product-flow load/save/cold-relaunch, then exact-backup rollback through the same flow"
+    },
+    "browserAtomicCommit": false,
+    "deviceNativeAtomicCommitProven": false,
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false
+  },
+  "residualRuntime": {
+    "reactivate01E": true,
+    "reason": "transform semantics need no retest, but the exact production execution surface/device handoff has not been accepted. Local proof/CI cannot establish Switch save-manager/import behavior or exact deployed filesystem crash durability.",
+    "minimumNextProtocol": [
+      "Integrator selects and packages the exact production local execution surface",
+      "run one already-promoted MOVE or ROTATE only; do not retest both semantics",
+      "commit through the promoted local bridge in AUTHORIZED test build while retaining exact backup/journal",
+      "inject one real process interruption after atomic replace on that exact deployment filesystem and recover deterministically",
+      "install/import resulting exact candidate to Switch through the intended product/user flow",
+      "game load -> normal save -> full exit -> cold relaunch",
+      "verify target transform/identity unchanged and no writer-attributable drift",
+      "exercise exact-backup rollback through the same intended product/user flow and confirm game loads original"
+    ],
+    "ifBrowserOnlyChosen": "do not call it atomic PERSISTENT_WRITE; retain VERIFIED_REPLACEMENT_ARTIFACT/user-mediated replacement capability instead"
+  },
+  "integratorReview": {
+    "ready": true,
+    "foundationAccepted": true,
+    "foundationPromotionAllowedNow": true,
+    "persistentWritePromotionAllowedNow": false,
+    "reviewFinding": "PROOF_ONLY confinement was hardened from lexical path containment to filesystem-realpath containment before promotion; regression rejects symlinked-parent escapes.",
+    "nextDecision": "Reactivate 01E for exact execution-surface/process-interruption/rollback acceptance. AUTHORIZED execution remains intentionally unavailable until that return."
+  },
+  "implementationEvidence": {
+    "localFailureInjection": "48/48 PASS before repo integration; repo integration adds real promoted 01A+01B binding test",
+    "githubCi": {
+      "pullRequest": 61,
+      "branch": "dev/core-save-persistent-commit-durability-v125",
+      "head": "c61bdf23e068101b0023980852fedd0e65261db5",
+      "runId": 37104278386,
+      "runNumber": 1994,
+      "conclusion": "SUCCESS",
+      "overallTests": 260,
+      "overallPass": 248,
+      "overallFail": 0,
+      "overallSkip": 12,
+      "focusedPersistentCommitTests": 50,
+      "focusedPersistentCommitPass": 50,
+      "focusedPersistentCommitFail": 0,
+      "integratorHardening": "filesystem-realpath proof-root confinement + symlink-escape negative regression",
+      "steps": {
+        "edgeFunctionTypeChecks": "PASS",
+        "typeAndComponentChecks": "PASS",
+        "sharedWebAccessibilityLocalization": "PASS",
+        "canonicalBaselineIntegrity": "PASS",
+        "contractTests": "PASS",
+        "staticBuild": "PASS"
+      }
+    }
+  }
+}

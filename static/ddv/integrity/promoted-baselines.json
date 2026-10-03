@@ -208,6 +208,21 @@
       "payloadSha256": "c7c134df63c59b9cdfa883901ed16f9e02dfeffa4596ebf11f07aa185c9a6ef5",
       "sourceEvidenceDriveId": "1d4l-GG5W0F3cSRIltgZyA_ZTzf8Nv7r0QG1h7Sr2x2w",
       "scope": "WRITE_CANDIDATE semantic authorization only for same-root existing CORE_STATELESS_FURNITURE: MOVE X/Y; anchor-preserving cardinal ROTATE Orientation; persistent writing remains unauthorized"
+    },
+    {
+      "artifactId": "DDV-MIN-PERSISTENT-COMMIT-DURABILITY-RECOVERY-V125-V1_0",
+      "artifactType": "Core/Save persistent commit durability/recovery proof foundation",
+      "version": "v1.0",
+      "status": "PROMOTED",
+      "mutable": false,
+      "platform": "Nintendo Switch target / Linux POSIX local bridge proof surface",
+      "gameVersion": "v1.25.0",
+      "buildId": "52BD625D9B4E0053",
+      "artifactSha256": "52ab6d29aeb9a49b053241ea2da7d5bc8e5bfe7f16134ac80663d692845246e4",
+      "payloadSha256": "f1687e7509bdc7096631634792d0ab94dab37b07e90f1ba20044e1d479c35b1b",
+      "sourceEvidenceDriveId": "1ZFAdqWae-BmORG8RXVMFHz7yweAAdk8Chrevxo-l-cg",
+      "sourceCandidateSha256": "bc350d173e60b57f680442959b509ce49c6d65edf030d9a507fe643358f9628a",
+      "scope": "PROOF_ONLY durable commit/recovery foundation for promoted minimum MOVE/ROTATE subset; exact production execution-surface runtime still required; persistent writing remains unauthorized"
     }
   ]
 }
