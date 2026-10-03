@@ -704,6 +704,606 @@ export type Database = {
         }
         Relationships: []
       }
+      dreamsnap_challenges: {
+        Row: {
+          allow_post_formal_browse: boolean
+          allow_special_picks: boolean
+          challenge_id: string
+          challenge_key: string
+          closes_at: string
+          created_at: string
+          description: string | null
+          formal_vote_allowance: number
+          is_synthetic: boolean
+          judging_closes_at: string
+          judging_opens_at: string
+          lifecycle_state: string
+          minimum_height: number | null
+          minimum_real_eligible_entries: number
+          minimum_width: number | null
+          required_aspect_denominator: number | null
+          required_aspect_numerator: number | null
+          result_algorithm: string | null
+          results_at: string
+          row_version: number
+          special_pick_allowance: number
+          submission_closes_at: string
+          submission_opens_at: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          allow_post_formal_browse?: boolean
+          allow_special_picks?: boolean
+          challenge_id?: string
+          challenge_key: string
+          closes_at: string
+          created_at?: string
+          description?: string | null
+          formal_vote_allowance: number
+          is_synthetic?: boolean
+          judging_closes_at: string
+          judging_opens_at: string
+          lifecycle_state?: string
+          minimum_height?: number | null
+          minimum_real_eligible_entries: number
+          minimum_width?: number | null
+          required_aspect_denominator?: number | null
+          required_aspect_numerator?: number | null
+          result_algorithm?: string | null
+          results_at: string
+          row_version?: number
+          special_pick_allowance: number
+          submission_closes_at: string
+          submission_opens_at: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          allow_post_formal_browse?: boolean
+          allow_special_picks?: boolean
+          challenge_id?: string
+          challenge_key?: string
+          closes_at?: string
+          created_at?: string
+          description?: string | null
+          formal_vote_allowance?: number
+          is_synthetic?: boolean
+          judging_closes_at?: string
+          judging_opens_at?: string
+          lifecycle_state?: string
+          minimum_height?: number | null
+          minimum_real_eligible_entries?: number
+          minimum_width?: number | null
+          required_aspect_denominator?: number | null
+          required_aspect_numerator?: number | null
+          result_algorithm?: string | null
+          results_at?: string
+          row_version?: number
+          special_pick_allowance?: number
+          submission_closes_at?: string
+          submission_opens_at?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      dreamsnap_entries: {
+        Row: {
+          account_id: string
+          challenge_id: string
+          eligibility_state: string
+          entry_id: string
+          entry_revision_id: string
+          entry_state: string
+          frozen_at: string
+          joined_at: string
+          managed_under13: boolean
+          origin_kind: string
+          updated_at: string
+          work_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          account_id: string
+          challenge_id: string
+          eligibility_state?: string
+          entry_id?: string
+          entry_revision_id: string
+          entry_state?: string
+          frozen_at?: string
+          joined_at?: string
+          managed_under13?: boolean
+          origin_kind: string
+          updated_at?: string
+          work_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          account_id?: string
+          challenge_id?: string
+          eligibility_state?: string
+          entry_id?: string
+          entry_revision_id?: string
+          entry_state?: string
+          frozen_at?: string
+          joined_at?: string
+          managed_under13?: boolean
+          origin_kind?: string
+          updated_at?: string
+          work_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dreamsnap_entries_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "wand_accounts"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "dreamsnap_entries_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "dreamsnap_challenges"
+            referencedColumns: ["challenge_id"]
+          },
+          {
+            foreignKeyName: "dreamsnap_entries_entry_revision_id_fkey"
+            columns: ["entry_revision_id"]
+            isOneToOne: false
+            referencedRelation: "dreamsnap_work_revisions"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "dreamsnap_entries_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "dreamsnap_works"
+            referencedColumns: ["work_id"]
+          },
+          {
+            foreignKeyName: "dreamsnap_entries_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "ddv_profile_workspaces"
+            referencedColumns: ["workspace_id"]
+          },
+        ]
+      }
+      dreamsnap_entry_revision_history: {
+        Row: {
+          binding_id: string
+          bound_at: string
+          entry_id: string
+          revision_id: string
+          unbound_at: string | null
+        }
+        Insert: {
+          binding_id?: string
+          bound_at?: string
+          entry_id: string
+          revision_id: string
+          unbound_at?: string | null
+        }
+        Update: {
+          binding_id?: string
+          bound_at?: string
+          entry_id?: string
+          revision_id?: string
+          unbound_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dreamsnap_entry_revision_history_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "dreamsnap_entries"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "dreamsnap_entry_revision_history_revision_id_fkey"
+            columns: ["revision_id"]
+            isOneToOne: false
+            referencedRelation: "dreamsnap_work_revisions"
+            referencedColumns: ["revision_id"]
+          },
+        ]
+      }
+      dreamsnap_formal_votes: {
+        Row: {
+          challenge_id: string
+          created_at: string
+          entry_id: string
+          entry_revision_id: string
+          voter_account_id: string
+          voter_origin_kind: string
+        }
+        Insert: {
+          challenge_id: string
+          created_at?: string
+          entry_id: string
+          entry_revision_id: string
+          voter_account_id: string
+          voter_origin_kind: string
+        }
+        Update: {
+          challenge_id?: string
+          created_at?: string
+          entry_id?: string
+          entry_revision_id?: string
+          voter_account_id?: string
+          voter_origin_kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dreamsnap_formal_votes_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "dreamsnap_challenges"
+            referencedColumns: ["challenge_id"]
+          },
+          {
+            foreignKeyName: "dreamsnap_formal_votes_entry_id_challenge_id_fkey"
+            columns: ["entry_id", "challenge_id"]
+            isOneToOne: false
+            referencedRelation: "dreamsnap_entries"
+            referencedColumns: ["entry_id", "challenge_id"]
+          },
+          {
+            foreignKeyName: "dreamsnap_formal_votes_entry_revision_id_fkey"
+            columns: ["entry_revision_id"]
+            isOneToOne: false
+            referencedRelation: "dreamsnap_work_revisions"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "dreamsnap_formal_votes_voter_account_id_fkey"
+            columns: ["voter_account_id"]
+            isOneToOne: false
+            referencedRelation: "wand_accounts"
+            referencedColumns: ["account_id"]
+          },
+        ]
+      }
+      dreamsnap_gallery_publications: {
+        Row: {
+          comments_enabled: boolean
+          entry_id: string
+          publication_state: string
+          published_at: string
+          revision_id: string
+          updated_at: string
+          work_id: string
+        }
+        Insert: {
+          comments_enabled?: boolean
+          entry_id: string
+          publication_state?: string
+          published_at?: string
+          revision_id: string
+          updated_at?: string
+          work_id: string
+        }
+        Update: {
+          comments_enabled?: boolean
+          entry_id?: string
+          publication_state?: string
+          published_at?: string
+          revision_id?: string
+          updated_at?: string
+          work_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dreamsnap_gallery_publications_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: true
+            referencedRelation: "dreamsnap_entries"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "dreamsnap_gallery_publications_revision_id_fkey"
+            columns: ["revision_id"]
+            isOneToOne: false
+            referencedRelation: "dreamsnap_work_revisions"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "dreamsnap_gallery_publications_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: true
+            referencedRelation: "dreamsnap_works"
+            referencedColumns: ["work_id"]
+          },
+        ]
+      }
+      dreamsnap_official_result_publication: {
+        Row: {
+          entry_id: string
+          public_fields: string[]
+          published_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          entry_id: string
+          public_fields?: string[]
+          published_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          entry_id?: string
+          public_fields?: string[]
+          published_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dreamsnap_official_result_publication_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: true
+            referencedRelation: "dreamsnap_official_results"
+            referencedColumns: ["entry_id"]
+          },
+        ]
+      }
+      dreamsnap_official_results: {
+        Row: {
+          account_id: string
+          entry_id: string
+          moonstones: number | null
+          official_payload: Json
+          pixel_dust: number | null
+          rank: number | null
+          recorded_at: string
+          score: number | null
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          entry_id: string
+          moonstones?: number | null
+          official_payload?: Json
+          pixel_dust?: number | null
+          rank?: number | null
+          recorded_at?: string
+          score?: number | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          entry_id?: string
+          moonstones?: number | null
+          official_payload?: Json
+          pixel_dust?: number | null
+          rank?: number | null
+          recorded_at?: string
+          score?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dreamsnap_official_results_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "wand_accounts"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "dreamsnap_official_results_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: true
+            referencedRelation: "dreamsnap_entries"
+            referencedColumns: ["entry_id"]
+          },
+        ]
+      }
+      dreamsnap_special_picks: {
+        Row: {
+          account_id: string
+          actor_origin_kind: string
+          challenge_id: string
+          created_at: string
+          entry_id: string
+          entry_revision_id: string
+        }
+        Insert: {
+          account_id: string
+          actor_origin_kind: string
+          challenge_id: string
+          created_at?: string
+          entry_id: string
+          entry_revision_id: string
+        }
+        Update: {
+          account_id?: string
+          actor_origin_kind?: string
+          challenge_id?: string
+          created_at?: string
+          entry_id?: string
+          entry_revision_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dreamsnap_special_picks_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "wand_accounts"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "dreamsnap_special_picks_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "dreamsnap_challenges"
+            referencedColumns: ["challenge_id"]
+          },
+          {
+            foreignKeyName: "dreamsnap_special_picks_entry_id_challenge_id_fkey"
+            columns: ["entry_id", "challenge_id"]
+            isOneToOne: false
+            referencedRelation: "dreamsnap_entries"
+            referencedColumns: ["entry_id", "challenge_id"]
+          },
+          {
+            foreignKeyName: "dreamsnap_special_picks_entry_revision_id_fkey"
+            columns: ["entry_revision_id"]
+            isOneToOne: false
+            referencedRelation: "dreamsnap_work_revisions"
+            referencedColumns: ["revision_id"]
+          },
+        ]
+      }
+      dreamsnap_wand_results: {
+        Row: {
+          challenge_id: string
+          entry_id: string
+          entry_revision_id: string
+          finalized_at: string
+          formal_score: number
+          placement: number
+          result_payload: Json
+        }
+        Insert: {
+          challenge_id: string
+          entry_id: string
+          entry_revision_id: string
+          finalized_at?: string
+          formal_score: number
+          placement: number
+          result_payload?: Json
+        }
+        Update: {
+          challenge_id?: string
+          entry_id?: string
+          entry_revision_id?: string
+          finalized_at?: string
+          formal_score?: number
+          placement?: number
+          result_payload?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dreamsnap_wand_results_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "dreamsnap_challenges"
+            referencedColumns: ["challenge_id"]
+          },
+          {
+            foreignKeyName: "dreamsnap_wand_results_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: true
+            referencedRelation: "dreamsnap_entries"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "dreamsnap_wand_results_entry_revision_id_fkey"
+            columns: ["entry_revision_id"]
+            isOneToOne: false
+            referencedRelation: "dreamsnap_work_revisions"
+            referencedColumns: ["revision_id"]
+          },
+        ]
+      }
+      dreamsnap_work_revisions: {
+        Row: {
+          challenge_id: string
+          created_at: string
+          game_screenshot_attested: boolean
+          integrity_checks: Json
+          integrity_state: string
+          no_external_edits_attested: boolean
+          revision_id: string
+        }
+        Insert: {
+          challenge_id: string
+          created_at?: string
+          game_screenshot_attested: boolean
+          integrity_checks?: Json
+          integrity_state: string
+          no_external_edits_attested: boolean
+          revision_id: string
+        }
+        Update: {
+          challenge_id?: string
+          created_at?: string
+          game_screenshot_attested?: boolean
+          integrity_checks?: Json
+          integrity_state?: string
+          no_external_edits_attested?: boolean
+          revision_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dreamsnap_work_revisions_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "dreamsnap_challenges"
+            referencedColumns: ["challenge_id"]
+          },
+          {
+            foreignKeyName: "dreamsnap_work_revisions_revision_id_fkey"
+            columns: ["revision_id"]
+            isOneToOne: true
+            referencedRelation: "community_work_revisions"
+            referencedColumns: ["revision_id"]
+          },
+        ]
+      }
+      dreamsnap_works: {
+        Row: {
+          challenge_id: string
+          managed_under13: boolean
+          registered_at: string
+          source_workspace_id: string | null
+          updated_at: string
+          work_id: string
+          workspace_relationship_kind: string
+        }
+        Insert: {
+          challenge_id: string
+          managed_under13: boolean
+          registered_at?: string
+          source_workspace_id?: string | null
+          updated_at?: string
+          work_id: string
+          workspace_relationship_kind: string
+        }
+        Update: {
+          challenge_id?: string
+          managed_under13?: boolean
+          registered_at?: string
+          source_workspace_id?: string | null
+          updated_at?: string
+          work_id?: string
+          workspace_relationship_kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dreamsnap_works_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "dreamsnap_challenges"
+            referencedColumns: ["challenge_id"]
+          },
+          {
+            foreignKeyName: "dreamsnap_works_source_workspace_id_fkey"
+            columns: ["source_workspace_id"]
+            isOneToOne: false
+            referencedRelation: "ddv_profile_workspaces"
+            referencedColumns: ["workspace_id"]
+          },
+          {
+            foreignKeyName: "dreamsnap_works_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: true
+            referencedRelation: "community_works"
+            referencedColumns: ["work_id"]
+          },
+        ]
+      }
       follows: {
         Row: {
           created_at: string
@@ -1979,6 +2579,17 @@ export type Database = {
         }
         Returns: Json
       }
+      community_add_comment_v3: {
+        Args: {
+          p_auth_subject: string
+          p_body: string
+          p_creator_profile_id: string
+          p_idempotency_key: string
+          p_parent_comment_id: string
+          p_target_entity_id: string
+        }
+        Returns: Json
+      }
       community_add_reaction: {
         Args: {
           p_auth_subject: string
@@ -2265,6 +2876,105 @@ export type Database = {
         }
         Returns: Json
       }
+      community_dreamsnap_add_browse_reaction_v1: {
+        Args: {
+          p_auth_subject: string
+          p_challenge_id: string
+          p_entry_id: string
+          p_reaction_kind: string
+        }
+        Returns: Json
+      }
+      community_dreamsnap_cast_formal_vote_v1: {
+        Args: {
+          p_auth_subject: string
+          p_challenge_id: string
+          p_entry_id: string
+        }
+        Returns: Json
+      }
+      community_dreamsnap_finalize_results_v1: {
+        Args: {
+          p_challenge_id: string
+          p_effective_at?: string
+          p_expected_version: number
+        }
+        Returns: Json
+      }
+      community_dreamsnap_join_event_v1: {
+        Args: {
+          p_auth_subject: string
+          p_idempotency_key: string
+          p_work_id: string
+        }
+        Returns: Json
+      }
+      community_dreamsnap_publish_gallery_v1: {
+        Args: {
+          p_auth_subject: string
+          p_comments_enabled?: boolean
+          p_entry_id: string
+        }
+        Returns: Json
+      }
+      community_dreamsnap_record_official_result_v1: {
+        Args: {
+          p_auth_subject: string
+          p_entry_id: string
+          p_moonstones: number
+          p_official_payload?: Json
+          p_pixel_dust: number
+          p_rank: number
+          p_score: number
+        }
+        Returns: Json
+      }
+      community_dreamsnap_replace_entry_revision_v1: {
+        Args: {
+          p_auth_subject: string
+          p_entry_id: string
+          p_revision_id: string
+        }
+        Returns: Json
+      }
+      community_dreamsnap_set_official_result_publication_v1: {
+        Args: {
+          p_auth_subject: string
+          p_entry_id: string
+          p_public_fields: string[]
+        }
+        Returns: Json
+      }
+      community_dreamsnap_special_pick_v1: {
+        Args: {
+          p_auth_subject: string
+          p_challenge_id: string
+          p_entry_id: string
+        }
+        Returns: Json
+      }
+      community_dreamsnap_transition_challenge_v1: {
+        Args: {
+          p_challenge_id: string
+          p_effective_at?: string
+          p_expected_version: number
+          p_target_state: string
+        }
+        Returns: Json
+      }
+      community_dreamsnap_update_work_revision_v1: {
+        Args: {
+          p_auth_subject: string
+          p_caption: string
+          p_expected_version: number
+          p_game_screenshot_attested: boolean
+          p_idempotency_key: string
+          p_media_id: string
+          p_no_external_edits_attested: boolean
+          p_work_id: string
+        }
+        Returns: Json
+      }
       community_ensure_account_creator: {
         Args: {
           p_auth_subject: string
@@ -2319,6 +3029,15 @@ export type Database = {
         }
         Returns: Json
       }
+      community_gallery_author_remove_comment_v2: {
+        Args: {
+          p_auth_subject: string
+          p_comment_id: string
+          p_reason: string
+          p_work_id: string
+        }
+        Returns: Json
+      }
       community_get_action_rate_policies: {
         Args: { p_admin_auth_subject: string }
         Returns: Json
@@ -2327,12 +3046,36 @@ export type Database = {
         Args: { p_creator_profile_id: string }
         Returns: Json
       }
+      community_get_current_dreamsnap_challenge_public_v1: {
+        Args: never
+        Returns: Json
+      }
       community_get_ddv_profile_workspaces_v1: {
         Args: { p_auth_subject: string }
         Returns: Json
       }
       community_get_dead_letter_outbox: {
         Args: { p_auth_subject: string; p_limit?: number }
+        Returns: Json
+      }
+      community_get_dreamsnap_judge_media_storage_v1: {
+        Args: { p_auth_subject: string; p_entry_id: string }
+        Returns: Json
+      }
+      community_get_dreamsnap_judge_v1: {
+        Args: {
+          p_auth_subject: string
+          p_challenge_id: string
+          p_limit?: number
+        }
+        Returns: Json
+      }
+      community_get_dreamsnap_results_public_v1: {
+        Args: { p_challenge_id: string }
+        Returns: Json
+      }
+      community_get_gallery_dreamsnap_public_v1: {
+        Args: { p_work_id: string }
         Returns: Json
       }
       community_get_gallery_public_v1: {
@@ -2358,6 +3101,10 @@ export type Database = {
           p_limit?: number
           p_state?: string
         }
+        Returns: Json
+      }
+      community_get_my_dreamsnaps_v1: {
+        Args: { p_auth_subject: string; p_limit?: number }
         Returns: Json
       }
       community_get_my_gallery_v1: {
@@ -2405,6 +3152,10 @@ export type Database = {
         Returns: Json
       }
       community_get_public_media_storage_v1: {
+        Args: { p_media_id: string }
+        Returns: Json
+      }
+      community_get_public_media_storage_v2: {
         Args: { p_media_id: string }
         Returns: Json
       }
@@ -2467,7 +3218,22 @@ export type Database = {
         }
         Returns: Json
       }
+      community_list_dreamsnap_result_rounds_public_v1: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
       community_moderate_entity_v4: {
+        Args: {
+          p_action: string
+          p_auth_subject: string
+          p_case_id: string
+          p_issued_at_epoch: number
+          p_reason: string
+          p_session_id: string
+        }
+        Returns: Json
+      }
+      community_moderate_entity_v5: {
         Args: {
           p_action: string
           p_auth_subject: string
@@ -2586,6 +3352,20 @@ export type Database = {
         }
         Returns: undefined
       }
+      community_register_dreamsnap_work_v1: {
+        Args: {
+          p_auth_subject: string
+          p_caption: string
+          p_challenge_id: string
+          p_creator_profile_id: string
+          p_game_screenshot_attested: boolean
+          p_idempotency_key: string
+          p_media_id: string
+          p_no_external_edits_attested: boolean
+          p_workspace_id: string
+        }
+        Returns: Json
+      }
       community_register_validated_media: {
         Args: {
           p_auth_subject: string
@@ -2641,6 +3421,10 @@ export type Database = {
         Args: { p_auth_subject: string; p_target_entity_id: string }
         Returns: Json
       }
+      community_search_gallery_dreamsnaps_public_v1: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: Json
+      }
       community_search_public: {
         Args: {
           p_before_published_at?: string
@@ -2694,6 +3478,10 @@ export type Database = {
         Returns: Json
       }
       community_set_gallery_comments_enabled_v1: {
+        Args: { p_auth_subject: string; p_enabled: boolean; p_work_id: string }
+        Returns: Json
+      }
+      community_set_gallery_comments_enabled_v2: {
         Args: { p_auth_subject: string; p_enabled: boolean; p_work_id: string }
         Returns: Json
       }
