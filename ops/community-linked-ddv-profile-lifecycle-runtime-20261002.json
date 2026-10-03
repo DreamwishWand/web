@@ -1,0 +1,171 @@
+{
+  "schema": "dreamwish-community-ddv-profile-workspace-runtime@2",
+  "checkedAt": "2026-10-02",
+  "state": "PROFILE_WORKSPACE_DB_LIFECYCLE_STAGING_PASS__EDGE_COMMAND_V23__DELETE_REAUTH_RATE_SPLIT_PASS__STAGING_UI_ADDED__LEGACY_RUNTIME_DECOMMISSIONED",
+  "stagingProject": "dreamwish-wand-staging",
+  "stagingProjectRef": "ptpdoxhrqopvczpclcij",
+  "migrations": [
+    {
+      "version": "20261001232814",
+      "name": "community_ddv_profile_workspace_v1",
+      "purpose": "Workspace + optional private identity association foundation"
+    },
+    {
+      "version": "20261001233225",
+      "name": "community_ddv_profile_workspace_lifecycle_v2",
+      "purpose": "stable slots, labels, active/archive, self-service deletion, account-deletion cleanup"
+    },
+    {
+      "version": "20261001233707",
+      "name": "community_ddv_profile_workspace_fk_index_v3",
+      "purpose": "cover composite identity-association FK"
+    },
+    {
+      "version": "20261001234524",
+      "name": "community_ddv_profile_workspace_decommission_legacy_link_v4",
+      "purpose": "revoke service-role execution on superseded exclusive link/get/admin-correction RPCs"
+    },
+    {
+      "version": "20261002003039",
+      "name": "community_ddv_profile_workspace_delete_reauth_rate_v5",
+      "purpose": "require session-bound recent auth for destructive Workspace deletion; split Workspace and identity rate buckets; disable legacy link bucket"
+    }
+  ],
+  "implemented": {
+    "maxWorkspacesPerAccount": 5,
+    "capacityCounts": "active + archived",
+    "stableSlotRange": "1-5",
+    "optionalDisplayName": true,
+    "defaultLabelSource": "slotIndex",
+    "relationshipKinds": [
+      "self",
+      "parent_guardian_managed"
+    ],
+    "parentManagedUsesSameCapacity": true,
+    "playerIdAssociationOptional": true,
+    "rawPlayerIdStoredInDatabase": false,
+    "digestFormat": "hmac-sha256:v1:<64 lowercase hex>",
+    "crossAccountSameDigestAllowed": true,
+    "sameAccountDuplicateDigestBlocked": true,
+    "normalSelfServiceUnlink": true,
+    "unlinkPreservesWorkspace": true,
+    "workspaceDeleteRequiresConfirmation": true,
+    "workspaceDeleteFreesSlot": true,
+    "accountDeleteRemovesWorkspaces": true,
+    "workspaceDeleteRecentAuthSeconds": 900,
+    "workspaceWriteRateLimit": "60 per 3600 seconds per account",
+    "identityAssociationRateLimit": "12 per 3600 seconds per account",
+    "legacyDdvProfileLinkRateBucketEnabled": false
+  },
+  "stagingRuntime": {
+    "transactionRollbackTest": "PASS",
+    "verified": [
+      "five retained workspace cap",
+      "archived workspace consumes capacity",
+      "stable slots 1-5",
+      "custom label and archive update",
+      "same-account identity duplicate blocked",
+      "cross-account same identity allowed",
+      "unlink preserves workspace",
+      "delete confirmation required",
+      "workspace delete cascades identity",
+      "delete frees slot",
+      "account deletion removes workspaces",
+      "recent session permits confirmed Workspace deletion",
+      "session older than 900 seconds is rejected for Workspace deletion",
+      "stale-session rejection preserves Workspace",
+      "Workspace management and DDV identity rate buckets are separated",
+      "legacy ddv_profile_link rate bucket is disabled"
+    ],
+    "fixtureRowsAfterRollback": {
+      "workspaces": 0,
+      "associations": 0,
+      "syntheticAccounts": 0
+    },
+    "edgeDeployments": {
+      "communityCommand": 23,
+      "communityQuery": 10,
+      "communityAdmin": 14
+    },
+    "securityAdvisor": {
+      "newBlockingFindings": 0,
+      "existingInfo": "9 intentional RLS-no-policy server-only tables",
+      "existingWarn": "Leaked Password Protection disabled on Free staging; production Pro requires enablement",
+      "recheckedAfterV5": true
+    },
+    "performanceAdvisor": {
+      "newWorkspaceFkFinding": "FIXED_BY_20261001233707",
+      "recheck": "PASS_NO_UNINDEXED_FOREIGN_KEY_FINDING",
+      "remaining": "unused-index INFO only",
+      "recheckedAfterV5": true
+    },
+    "migrationHistoryNote": {
+      "canonicalRepoMigrations": [
+        "20261001232814_community_ddv_profile_workspace_v1",
+        "20261001233225_community_ddv_profile_workspace_lifecycle_v2",
+        "20261001233707_community_ddv_profile_workspace_fk_index_v3",
+        "20261002003039_community_ddv_profile_workspace_delete_reauth_rate_v5"
+      ],
+      "stagingAdditionalDuplicateHistory": [
+        "20261001234029_community_ddv_profile_workspace_lifecycle_v2",
+        "20261001234035_community_ddv_profile_workspace_fk_index_v3"
+      ],
+      "cause": "concurrent staging application during verification",
+      "semanticImpact": "NONE_OBSERVED__DDL_REAPPLICATION_IDEMPOTENT",
+      "productionRule": "REPLAY_CANONICAL_REPO_MIGRATIONS_ONLY"
+    },
+    "legacyRuntime": {
+      "exclusiveLinkRpcServiceRoleExecute": false,
+      "legacyGetRpcServiceRoleExecute": false,
+      "legacyAdminCorrectionRpcServiceRoleExecute": false,
+      "communityAdminLegacyCorrectionRoute": false
+    },
+    "stagingMigrationHistoryNote": "Two idempotent duplicate v2/v3 applications appeared in staging migration history during concurrent work (20261001234029/20261001234035). They are not canonical repository migrations and are excluded from fresh production replay; canonical repo sequence is 232814 -> 233225 -> 233707 -> 234524.",
+    "identityTransportCorrection": {
+      "issue": "Initial Edge source had double-escaped printable-ASCII regex and domain separator.",
+      "impact": "Live Player ID association was not enabled because the staging HMAC secret is still absent; no production or persisted raw-ID exposure occurred.",
+      "fixed": true,
+      "currentValidationRegex": "^[\\x21-\\x7E]+$",
+      "currentDomainSeparator": "dreamwishwand/ddv-player-id/v1\\0 (NUL before Player ID)",
+      "deployedVersion": 22,
+      "regressionTest": "tests/community-ddv-profile-workspace-edge-v1.test.mjs",
+      "currentDeployedVersion": 23
+    },
+    "acceptanceUi": {
+      "route": "/community-lab/profiles/",
+      "stagingOnly": true,
+      "supports": [
+        "create Workspace",
+        "five-slot capacity display",
+        "private label",
+        "active/archive",
+        "optional Player ID association",
+        "identity unlink",
+        "confirmed Workspace deletion"
+      ],
+      "playerIdBrowserPersistence": false,
+      "regressionTest": "tests/community-ddv-profile-workspace-ui-v1.test.mjs",
+      "deleteRecentAuthUx": true,
+      "deleteRecentAuthSeconds": 900
+    },
+    "deleteRecentAuth": {
+      "state": "PASS_ROLLBACK_RUNTIME",
+      "maxAgeSeconds": 900,
+      "successCase": "fresh synthetic auth.sessions row permitted confirmed delete",
+      "staleCase": "20-minute-old synthetic session rejected with Recent authentication required",
+      "stalePreservedWorkspace": true,
+      "fixtureResidue": "ROLLBACK_ZERO"
+    }
+  },
+  "edgeIdentityAssociation": {
+    "codeDeployed": true,
+    "rawPlayerIdDatabaseForwarding": false,
+    "requiredSecret": "COMMUNITY_DDV_PROFILE_BINDING_KEY_V1",
+    "liveRawPlayerIdE2E": "PENDING_STAGING_SECRET_RUNTIME_VERIFICATION",
+    "note": "Workspace lifecycle, destructive-delete recent auth, rate-bucket split, and Edge source alignment are closed. community-command v23 is ACTIVE. Live raw Player ID -> Edge HMAC -> identity association still requires staging secret/runtime verification through an authenticated session."
+  },
+  "ownerDecisionsRemaining": [],
+  "privacyApproval": "PENDING",
+  "legalApproval": "PENDING",
+  "launchApproved": false
+}
