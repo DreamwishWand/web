@@ -34,13 +34,22 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Install browser driver library only
         run: npm install --no-save --package-lock=false playwright-core@1.55.0
-      - name: Require public Community configuration
+      - name: Detect public Community configuration
+        id: public-config
         shell: bash
         run: |
           set -euo pipefail
-          test -n "$VITE_SUPABASE_URL"
-          test -n "$VITE_SUPABASE_PUBLISHABLE_KEY"
+          if [ -n "$VITE_SUPABASE_URL" ] && [ -n "$VITE_SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=EXTERNAL_ENVIRONMENT::Anonymous Gallery/Q&A browser acceptance was not executed because DREAMWISH_SUPABASE_URL / DREAMWISH_SUPABASE_PUBLISHABLE_KEY repository variables are unavailable."
+          fi
+      - name: Record external-environment browser gate
+        if: steps.public-config.outputs.available != 'true'
+        run: echo "EXTERNAL_ENVIRONMENT — Community public browser configuration unavailable; no product failure classified."
       - name: Resolve system Chrome
+        if: steps.public-config.outputs.available == 'true'
         id: chrome
         shell: bash
         run: |
@@ -50,6 +59,7 @@ jobs:
           echo "path=$CHROME_BIN" >> "$GITHUB_OUTPUT"
           "$CHROME_BIN" --version
       - name: Start local integrated Community UI
+        if: steps.public-config.outputs.available == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -64,6 +74,7 @@ jobs:
           cat /tmp/community-vite.log
           exit 1
       - name: Run anonymous Gallery/Q&A browser acceptance
+        if: steps.public-config.outputs.available == 'true'
         env:
           CHROME_BIN: ${{ steps.chrome.outputs.path }}
           COMMUNITY_BASE_URL: http://127.0.0.1:4173
