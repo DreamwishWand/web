@@ -37,3 +37,11 @@ jobs:
           path: build/
           if-no-files-found: error
           retention-days: 2
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qr-representative-roadfence-source-9229cc5
+          path: |
+            src/lib/ddv/core/roadfence/
+            static/ddv/core/roadfence/v1.25/
+          if-no-files-found: error
+          retention-days: 2
