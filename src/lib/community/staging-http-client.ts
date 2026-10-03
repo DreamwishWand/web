@@ -17,7 +17,7 @@ export interface EdgeResult<T = unknown> {
   [key: string]: unknown;
 }
 
-const SESSION_KEY = 'dreamwishwand-community-lab-session-v1';
+const SESSION_KEY = 'dreamwishwand-community-session-v1';
 const RECOVERY_KEY = 'dreamwishwand-community-recovery-pkce-v1';
 const RECOVERY_MAX_AGE_MS = 60 * 60 * 1000;
 export const COMMUNITY_PASSWORD_MIN_LENGTH = 15;
@@ -669,3 +669,7 @@ export class CommunityLabClient {
     return parseResponse(response) as Promise<T>;
   }
 }
+
+
+export { CommunityLabClient as CommunityClient };
+export type CommunityClientConfig = CommunityLabConfig;
