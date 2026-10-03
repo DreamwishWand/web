@@ -1,6 +1,6 @@
 {
   "contract": "dreamwish.ddv.persistent-write-capability-candidate@1",
-  "status": "READY_FOR_INTEGRATOR_REVIEW_NOT_PROMOTED",
+  "status": "INTEGRATOR_ACCEPTED_PROOF_ONLY_RUNTIME_REQUIRED_NOT_AUTHORIZED",
   "target": {
     "platform": "Nintendo Switch",
     "gameVersion": "1.25.0",
@@ -43,5 +43,11 @@
   "browserAtomicCommit": false,
   "deviceNativeAtomicCommitProven": false,
   "persistentWriteAuthorized": false,
-  "WORLD_PERSISTENT_WRITE_V125": false
+  "WORLD_PERSISTENT_WRITE_V125": false,
+  "integrator": {
+    "foundationAccepted": true,
+    "persistentWritePromotionAllowedNow": false,
+    "proofRootRealpathConfinement": true,
+    "nextOwner": "01E"
+  }
 }
