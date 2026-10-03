@@ -6,6 +6,10 @@ type JsonObject = Record<string, unknown>;
 const queryToRpc = {
   me: 'community_get_me',
   work: 'community_get_work',
+  gallery: 'community_get_gallery_v1',
+  myGallery: 'community_get_my_gallery_v1',
+  question: 'community_get_question_v1',
+  myQaActivity: 'community_get_my_qa_activity_v1',
   saved: 'community_get_saved',
   notifications: 'community_get_notifications',
   preset: 'community_get_preset',
@@ -75,6 +79,16 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         break;
       case 'work':
         params.p_work_id = payload.workId;
+        break;
+      case 'gallery':
+        params.p_work_id = payload.workId;
+        break;
+      case 'question':
+        params.p_question_id = payload.questionId;
+        break;
+      case 'myGallery':
+      case 'myQaActivity':
+        params.p_limit = payload.limit ?? 50;
         break;
       case 'saved':
       case 'notifications':
