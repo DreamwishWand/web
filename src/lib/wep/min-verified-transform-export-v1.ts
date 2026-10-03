@@ -242,7 +242,8 @@ export async function reviewMinimumVerifiedTransform({
   placementBinding,
   worldBinding,
   basePath='',
-  fetchImpl=globalThis.fetch.bind(globalThis)
+  fetchImpl=globalThis.fetch.bind(globalThis),
+  exactBuildConfirmed=false
 }:{
   sourceBytes:Uint8Array;
   sourceName:string;
@@ -254,9 +255,13 @@ export async function reviewMinimumVerifiedTransform({
   worldBinding:AnyRecord;
   basePath?:string;
   fetchImpl?:FetchLike;
+  exactBuildConfirmed?:boolean;
 }) {
   if(!(sourceBytes instanceof Uint8Array)||!sourceBytes.length) {
     error('WEP_EXPORT_SOURCE_REQUIRED');
+  }
+  if(exactBuildConfirmed!==true) {
+    error('WEP_EXPORT_EXACT_BUILD_CONFIRMATION_REQUIRED');
   }
   if(
     opened?.inputFormat!=='packaged' ||
