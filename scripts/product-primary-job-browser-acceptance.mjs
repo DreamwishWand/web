@@ -165,5 +165,6 @@ try{
   throw error;
 }finally{
   await writeFile(artifactDir+'/report.json',JSON.stringify(evidence,null,2)+'\n');
+  console.log(JSON.stringify(evidence,null,2));
   await browser.close();
 }
