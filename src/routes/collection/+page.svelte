@@ -2,8 +2,8 @@
   import { onMount } from 'svelte';
   import { base } from '$app/paths';
   import { locale, formatNumber } from '$lib/i18n/runtime.js';
-  import { collectionCopy } from '$lib/collection/copy.js';
-  import { decodeCollectionRecord, filterCollectionRecords, loadCollectionRuntime } from '$lib/collection/runtime.js';
+  import { collectionCopy, collectionFamilyLabel } from '$lib/collection/copy.js';
+  import { collectionFacetLabel, decodeCollectionRecord, filterCollectionRecords, loadCollectionRuntime } from '$lib/collection/runtime.js';
 
   type ViewMode = 'category' | 'world' | 'universe';
   let runtimeIndex: any = null;
@@ -45,15 +45,15 @@
   }
 
   function worldLabel(value: string): string {
-    const labels: Record<string,string> = {
-      IsDreamlightValley:'Dreamlight Valley', IsEternityIsle:'Eternity Isle', IsStorybookVale:'Storybook Vale',
-      IsWishBlossomMountains:'Wishblossom Mountains', isHoneywood:'Honeywood'
-    };
-    return labels[value] ?? value;
+    return runtimeIndex ? collectionFacetLabel(runtimeIndex, 'world', value, $locale) : '';
   }
 
   function universeLabel(value: string): string {
-    return value.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/([A-Z])([A-Z][a-z])/g, '$1 $2');
+    return runtimeIndex ? collectionFacetLabel(runtimeIndex, 'universe', value, $locale) : '';
+  }
+
+  function familyLabel(value: string): string {
+    return collectionFamilyLabel($locale, value);
   }
 
   function initials(familyName: string): string {
@@ -94,7 +94,7 @@
       </div>
       <label class="search"><span>{copy.search}</span><input type="search" bind:value={query} /></label>
       {#if view === 'category'}
-        <label><span>{copy.category}</span><select bind:value={family}><option value="">{copy.all}</option>{#each families as value}<option value={value}>{value}</option>{/each}</select></label>
+        <label><span>{copy.category}</span><select bind:value={family}><option value="">{copy.all}</option>{#each families as value}<option value={value}>{familyLabel(value)}</option>{/each}</select></label>
       {:else if view === 'world'}
         <label><span>{copy.world}</span><select bind:value={world}><option value="">{copy.all}</option>{#each worlds as value}<option value={value}>{worldLabel(value)}</option>{/each}</select></label>
       {:else}
@@ -111,9 +111,9 @@
       <div class="collection-grid">
         {#each visible as item}
           <article class="collection-card">
-            <div class="family-icon" aria-hidden="true">{initials(item.family)}</div>
+            <div class="family-icon" aria-hidden="true">{initials(familyLabel(item.family))}</div>
             <div class="card-copy">
-              <span class="family">{item.family}</span>
+              <span class="family">{familyLabel(item.family)}</span>
               <h2>{item.label}</h2>
               <div class="facets">
                 {#each item.worlds as value}<span>{worldLabel(value)}</span>{/each}
