@@ -109,7 +109,9 @@ try{
   ok('EXPLORE_TO_MOODBOARD_VALUE_LOOP',{referencesAfter:2,mediaFailClosed:true});
 
   await page.goto(base+'/presets/',{waitUntil:'domcontentloaded'});
-  await page.getByRole('button',{name:'In-Game Presets',exact:true}).click();
+  const inGameTab=page.locator('.preset-tabs button').nth(2);
+  await inGameTab.click();
+  await eventually(async()=>String(await inGameTab.getAttribute('class')).includes('active'));
   await eventually(async()=>await page.locator('.native-manager').count()===1);
   const profile={
     GameInfo:{InitialVersion:518,Version:624,LastSaveDeviceInfo:{deviceType:'DeviceType_Switch'}},
