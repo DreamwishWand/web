@@ -7,9 +7,10 @@ import { COLLECTION_COPY } from '../src/lib/collection/copy.js';
 import { GUIDE_COPY } from '../src/lib/guide/copy.js';
 import { EXPLORE_COPY } from '../src/lib/explore/copy.js';
 import { NATIVE_PRESET_COPY } from '../src/lib/presets/native-preset-copy.js';
+import { PRESET_PAGE_COPY } from '../src/lib/presets/page-copy.js';
 
 const locales=['en','fr','it','de','es-ES','ja','zh-CN','pt-BR'];
-const surfaces={HOME_COPY,MOODBOARD_COPY,COLLECTION_COPY,GUIDE_COPY,EXPLORE_COPY,NATIVE_PRESET_COPY};
+const surfaces={HOME_COPY,MOODBOARD_COPY,COLLECTION_COPY,GUIDE_COPY,EXPLORE_COPY,NATIVE_PRESET_COPY,PRESET_PAGE_COPY};
 
 test('new Product surfaces contain the exact eight launch locales with key parity',()=>{
   for(const [name,catalog] of Object.entries(surfaces)){
