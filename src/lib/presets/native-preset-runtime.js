@@ -120,6 +120,10 @@ export function extractNativePresetSnapshots(profile){
   });
 }
 
+/**
+ * @param {any} snapshot
+ * @param {{sourceName?: string|null, now?: string, idFactory?: (() => string)}} [options]
+ */
 export function createNativePresetBackup(snapshot,{sourceName=null,now=new Date().toISOString(),idFactory}={}){
   if(!snapshot||snapshot.contract!==NATIVE_PRESET_READ_CONTRACT)throw new TypeError('NATIVE_PRESET_SNAPSHOT_INVALID');
   const stamp=new Date(now);
