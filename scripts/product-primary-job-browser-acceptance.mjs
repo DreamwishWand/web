@@ -109,6 +109,7 @@ try{
   ok('EXPLORE_TO_MOODBOARD_VALUE_LOOP',{referencesAfter:2,mediaFailClosed:true});
 
   await page.goto(base+'/presets/',{waitUntil:'domcontentloaded'});
+  await eventually(async()=>await page.locator('.presets-page .status').count()>0);
   await page.locator('#site-locale').selectOption('en');
   const presetShellText=await page.locator('.presets-page').innerText();
   assert(!/[\u3040-\u30ff\u3400-\u9fff]/.test(presetShellText),'Presets English locale still contains Japanese static copy');
