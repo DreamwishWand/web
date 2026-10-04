@@ -23,7 +23,9 @@ export function validateCollectionRuntimeIndex(index) {
     throw new TypeError('Collection runtime target does not match the supported v1.25.0 Switch build.');
   }
   if (!Array.isArray(index.l) || index.l.length !== 8) throw new TypeError('Collection runtime must contain all eight launch locales.');
-  if (!Array.isArray(index.f) || !Array.isArray(index.c) || !Array.isArray(index.m)) throw new TypeError('Collection runtime dictionaries are incomplete.');
+  if (!Array.isArray(index.f) || !Array.isArray(index.c) || !Array.isArray(index.m) || !Array.isArray(index.w) || !Array.isArray(index.u) || !Array.isArray(index.e)) throw new TypeError('Collection runtime dictionaries are incomplete.');
+  if (!Array.isArray(index.wl) || index.wl.length !== index.w.length || !index.wl.every((labels) => Array.isArray(labels) && labels.length === 8)) throw new TypeError('Collection world labels are incomplete.');
+  if (!Array.isArray(index.ul) || index.ul.length !== index.u.length || !index.ul.every((labels) => Array.isArray(labels) && labels.length === 8)) throw new TypeError('Collection universe labels are incomplete.');
   if (!Array.isArray(index.shards) || !index.shards.length) throw new TypeError('Collection runtime shard manifest is missing.');
   const expected = Number(index.n);
   const count = index.shards.reduce((sum, shard) => sum + Number(shard?.count ?? 0), 0);
@@ -36,6 +38,18 @@ export function validateCollectionRuntimeIndex(index) {
     offset += Number(shard.count);
   }
   return index;
+}
+
+
+export function collectionFacetLabel(index, kind, value, locale = 'en') {
+  const localeIndex = LOCALE_INDEX[locale] ?? 0;
+  const values = kind === 'world' ? index.w : kind === 'universe' ? index.u : null;
+  const labels = kind === 'world' ? index.wl : kind === 'universe' ? index.ul : null;
+  if (!values || !labels) throw new TypeError(`Unsupported Collection facet kind: ${String(kind)}`);
+  const valueIndex = values.indexOf(value);
+  if (valueIndex < 0) return '';
+  const row = labels[valueIndex];
+  return cleanOfficialLabel(row?.[localeIndex]) || cleanOfficialLabel(row?.[0]) || '';
 }
 
 export function decodeCollectionRecord(index, row, locale = 'en') {
