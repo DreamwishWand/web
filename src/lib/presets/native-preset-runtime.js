@@ -7,6 +7,7 @@ export const NATIVE_PRESET_LIBRARY_SCHEMA='wand.in-game-preset-library@1';
 export const NATIVE_PRESET_LIBRARY_KEY='dreamwishwand:in-game-preset-library:v1';
 export const NATIVE_PRESET_PROFILE_SCHEMA=624;
 export const NATIVE_PRESET_ACTIVE_LIMIT=20;
+export const NATIVE_PRESET_STATE_FLAG_DELETED=16;
 export const NATIVE_PRESET_LOCAL_BACKUP_LIMIT=100;
 
 function asRecord(value){return value!==null&&typeof value==='object'&&!Array.isArray(value)?value:null;}
@@ -45,7 +46,12 @@ export async function openNativePresetProfile(sourceBytes){
   };
 }
 
-function presetWarnings(payload){
+export function nativePresetPayloadIsDeleted(payload){
+  const flags=safeInt(payload?.StateFlags);
+  return flags!==null&&(flags&NATIVE_PRESET_STATE_FLAG_DELETED)!==0;
+}
+
+export function nativePresetPayloadWarnings(payload){
   const warnings=[];
   const grids=asRecord(asRecord(payload?.GridCollection)?.Grids);
   if(!grids){warnings.push('GRID_COLLECTION_MISSING');return warnings;}
@@ -106,7 +112,7 @@ export function extractNativePresetSnapshots(profile){
   let activeOrdinal=0;
   return presets.map((rawPreset,physicalPresetIndex)=>{
     const payload=structuredClone(rawPreset);
-    const deleted=Boolean(payload?.Deleted);
+    const deleted=nativePresetPayloadIsDeleted(payload);
     const activeSlotOrdinalZeroBased=deleted?null:activeOrdinal++;
     return {
       contract:NATIVE_PRESET_READ_CONTRACT,
@@ -114,7 +120,7 @@ export function extractNativePresetSnapshots(profile){
       activeSlotOrdinalZeroBased,
       deleted,
       summary:presetSummary(payload),
-      warnings:presetWarnings(payload),
+      warnings:nativePresetPayloadWarnings(payload),
       payload
     };
   });

@@ -23,8 +23,8 @@ async function noHorizontalOverflow(page,name){
 function nativePreset(name,{deleted=false,unknown=null,item=40000001}={}){
   return {
     GridCollection:{Grids:{'0':{ID:0,GridDataPath:'',GridDefaultLayoutPath:'',TessellationFactor:2,Objects:{'0':{ID:0,ItemID:item,X:0,Y:0,Orientation:'GridOrientation_Up',State:null}},NextGridObjectID:1}},DiffGrids:{},NextGridID:1},
-    PresetName:name,ThumbnailItems:[item],ShareInfo:null,StateFlags:0,
-    ...(deleted?{Deleted:true}:{}),...(unknown?{FutureField:unknown}:{})
+    PresetName:name,ThumbnailItems:[item],ShareInfo:null,StateFlags:deleted?16:0,
+    ...(unknown?{FutureField:unknown}:{})
   };
 }
 
