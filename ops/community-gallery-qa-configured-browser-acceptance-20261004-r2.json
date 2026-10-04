@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 2,
+  "result": "CONFIGURATION_BLOCKED",
+  "workstream": "03_COMM",
+  "target": {
+    "currentMain": "5bb65e217c3e6e0c9c31239936725f90eba9a4cf",
+    "pr79": 79,
+    "acceptanceBranch": "integration/community-gallery-qa-browser-20261004",
+    "harnessOnlyHead": "9c3e2a96d030ebccfee81c8ea3e4117e5cb6a547",
+    "applicationSourceEquivalentToMain": true
+  },
+  "pr79Review": {
+    "changedFiles": 6,
+    "communitySemanticChange": false,
+    "classification": "NATIVE_PRESET_CORE_PRODUCT_ONLY"
+  },
+  "staging": {
+    "projectRef": "ptpdoxhrqopvczpclcij",
+    "url": "https://ptpdoxhrqopvczpclcij.supabase.co",
+    "publishableKey": {
+      "name": "default",
+      "type": "publishable",
+      "id": "74a0e0fb-ca3b-4e1c-8d73-20a32462bdad",
+      "valueRecorded": false
+    },
+    "elevatedBrowserKeyUsed": false
+  },
+  "browserRun": {
+    "workflow": "community-public-browser-acceptance.yml",
+    "runId": 37171017769,
+    "runNumber": 3,
+    "jobId": 111343812228,
+    "workflowConclusion": "success",
+    "detectConfiguration": "success",
+    "recordExternalEnvironmentGate": "success",
+    "resolveSystemChrome": "skipped",
+    "startIntegratedUi": "skipped",
+    "anonymousBrowserAssertions": "skipped",
+    "acceptancePass": false,
+    "blocker": "DREAMWISH_SUPABASE_URL / DREAMWISH_SUPABASE_PUBLISHABLE_KEY repository variables unavailable"
+  },
+  "companionCi": {
+    "runId": 37171017740,
+    "conclusion": "success"
+  },
+  "signedGallery": {
+    "executed": false,
+    "reason": "PUBLIC_BROWSER_CONFIGURATION_UNAVAILABLE"
+  },
+  "signedQa": {
+    "executed": false,
+    "reason": "PUBLIC_BROWSER_CONFIGURATION_UNAVAILABLE"
+  },
+  "productDefect": false,
+  "forbiddenWorkaroundsUsed": false,
+  "separateGates": {
+    "profileWorkspaceHmac": "UNCHANGED",
+    "dreamsnapsRealRound": "UNCHANGED",
+    "production": "UNCHANGED",
+    "privacy": "UNCHANGED",
+    "legal": "UNCHANGED",
+    "seedDiversity": "UNCHANGED"
+  }
+}
