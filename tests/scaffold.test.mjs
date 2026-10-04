@@ -12,10 +12,12 @@ test('static GitHub Pages build has project base path and fallback', () => {
   assert.match(read('src/routes/+layout.ts'), /trailingSlash\s*=\s*'always'/);
 });
 
-test('every homepage destination is an existing static route', () => {
-  for (const route of ['editor/items', 'editor/world', 'help', 'explore', 'projects', 'editor', 'presets']) {
+test('every canonical homepage destination is an existing static route', () => {
+  for (const route of ['explore', 'collection', 'guide', 'presets', 'gallery', 'dreamsnaps', 'qa']) {
     assert.ok(exists(`src/routes/${route}/+page.svelte`), route);
   }
+  assert.ok(exists('src/routes/moodboards/+page.svelte'), 'Decorate > Moodboards');
+  assert.ok(exists('src/routes/editor/world/+page.svelte'), 'Decorate > World Editor');
 });
 
 test('Pages action builds, verifies, and deploys static output', () => {
@@ -36,18 +38,23 @@ test('starter contains no save-reading UI or misleading edit action', () => {
 });
 
 
-test('Presets product surface preserves canonical WEP safety boundary', () => {
+test('Presets product surface preserves canonical WEP safety boundary through localized presentation', () => {
   const page = read('src/routes/presets/+page.svelte');
-  assert.match(page, />Discover</);
-  assert.match(page, />Library</);
-  assert.match(page, />In-Game Presets</);
+  const copy = read('src/lib/presets/page-copy.js');
+  assert.match(page, /presetPageCopy/);
+  assert.match(page, /\{copy\.discover\}/);
+  assert.match(page, /\{copy\.library\}/);
+  assert.match(page, /\{copy\.ingame\}/);
+  assert.match(page, /NativePresetManager/);
   assert.match(page, /createPresetCommunityBridge/);
   assert.match(page, /preflightPreset/);
   assert.match(page, /preflightBoundaryReason/);
-  assert.match(page, /Signed bytes/);
-  assert.match(page, /Reuse preflight/);
+  assert.match(page, /copy\.signedBytes/);
+  assert.match(page, /copy\.reuse/);
   assert.match(page, /CORE_COMMIT_ADAPTER_NOT_BOUND/);
-  assert.match(page, /DDVセーブへの書き込みは行いません/);
+  assert.match(page, /copy\.preflightNote/);
+  assert.match(copy, /persistent DDV/);
+  assert.match(copy, /DDVセーブへの書き込みは行いません/);
   assert.doesNotMatch(page, />Apply</);
 });
 
