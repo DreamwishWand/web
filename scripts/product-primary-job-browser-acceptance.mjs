@@ -1,3 +1,4 @@
+// R12 current-head focused browser acceptance trigger; application source remains identical to main@5bb65e217c3e6e0c9c31239936725f90eba9a4cf.
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright-core';
 
