@@ -27,3 +27,14 @@ jobs:
       - run: npm run verify:canonical
       - run: npm run verify:web-foundation
       - run: npm run build
+      - name: Verify Product surface static routes
+        run: |
+          test -f build/index.html
+          test -f build/explore/index.html
+          test -f build/moodboards/index.html
+          test -f build/collection/index.html
+          test -f build/guide/index.html
+          test -f build/presets/index.html
+          test -f build/gallery/index.html
+          test -f build/dreamsnaps/index.html
+          test -f build/qa/index.html
