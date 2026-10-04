@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-04",
+  "result": "CONFIGURATION_BLOCKED",
+  "workstream": "03_COMM",
+  "target": {
+    "repository": "DreamwishWand/web",
+    "main": "d38bb0e188e79ce28dd974860cbc3173bf190d56",
+    "pagesRun": 37166343197,
+    "pagesArtifact": 11289094503,
+    "pagesArtifactDigest": "sha256:c4447a2c68b2402e1688528352615e77f4a8931c5a09c7f6ac1d248e1d964def"
+  },
+  "staging": {
+    "projectRef": "ptpdoxhrqopvczpclcij",
+    "url": "https://ptpdoxhrqopvczpclcij.supabase.co",
+    "publishableKey": {
+      "name": "default",
+      "type": "publishable",
+      "id": "74a0e0fb-ca3b-4e1c-8d73-20a32462bdad",
+      "valueRecorded": false
+    }
+  },
+  "blocker": {
+    "githubRepositoryVariables": [
+      "DREAMWISH_SUPABASE_URL",
+      "DREAMWISH_SUPABASE_PUBLISHABLE_KEY"
+    ],
+    "mutationAvailableInCurrentGitHubConnector": false,
+    "compiledPagesConfig": "ABSENT_FAIL_CLOSED",
+    "localChromiumNetwork": "SANDBOX_BLOCKED",
+    "productDefect": false
+  },
+  "sourceDeploymentParity": {
+    "community-public-query": {
+      "version": 2,
+      "status": "ACTIVE",
+      "verifyJwt": false,
+      "exactMainSource": true
+    },
+    "community-public-media": {
+      "version": 2,
+      "status": "ACTIVE",
+      "verifyJwt": false,
+      "exactMainSource": true
+    },
+    "community-command": {
+      "version": 28,
+      "status": "ACTIVE",
+      "verifyJwt": true,
+      "exactMainSource": true
+    },
+    "community-query": {
+      "version": 13,
+      "status": "ACTIVE",
+      "verifyJwt": true,
+      "exactMainSource": true
+    },
+    "community-admin": {
+      "version": 16,
+      "status": "ACTIVE",
+      "verifyJwt": true,
+      "exactMainSource": true
+    }
+  },
+  "nonblockedChecks": {
+    "publicGalleryWorkCount": 1,
+    "publicQuestionCount": 0,
+    "publicTipCount": 0,
+    "anonPublicGallerySearch": "PASS",
+    "publicGalleryDirectProjection": "PASS",
+    "creatorAttribution": "PASS",
+    "publicMediaAuthorization": "PASS",
+    "ownerAccountLeak": "NOT_OBSERVED",
+    "directAnonSecurityDefinerDetailExecution": "REVOKED"
+  },
+  "separateGates": {
+    "profileWorkspaceHmac": "UNCHANGED_CONFIGURATION_BOUNDARY",
+    "dreamsnapsRealRound": "UNCHANGED_24_ENTRIES_12_CREATORS",
+    "production": "NOT_AUTHORIZED",
+    "privacyLegal": "NOT_CLAIMED"
+  },
+  "ownerAction": [
+    "Set repository variable DREAMWISH_SUPABASE_URL to the staging URL.",
+    "Set repository variable DREAMWISH_SUPABASE_PUBLISHABLE_KEY to the active staging publishable key named default.",
+    "Run configured anonymous browser acceptance and the signed A/B/Moderator Gallery/Q&A vertical in a network-enabled real Chrome using existing staging-only actors; do not expose actor credentials in source or evidence."
+  ]
+}
