@@ -4,8 +4,10 @@
   import { locale, t, SUPPORTED_LOCALES } from '$lib/i18n/runtime.js';
   import { resetToBrowserLanguage, setManualLocalePreference } from '$lib/i18n/preference.js';
   import CommunityNav from '$lib/community/CommunityNav.svelte';
+  import { homeCopy } from '$lib/product-home/copy.js';
 
   let theme: 'night' | 'day' = 'night';
+  $: productCopy = homeCopy($locale);
 
   onMount(() => {
     theme = document.documentElement.dataset.theme === 'day' ? 'day' : 'night';
@@ -36,9 +38,10 @@
       <span class="brand-wordmark">Dreamwish <span>Wand</span></span>
     </a>
     <nav class="main-nav" aria-label={t('shared.nav.primaryLabel', {}, $locale)}>
-      <a href={`${base}/explore/`}>{t('shared.nav.explore', {}, $locale)}</a>
-      <a href={`${base}/editor/`}>{t('shared.nav.editor', {}, $locale)}</a>
-      <a href={`${base}/projects/`}>{t('shared.nav.projects', {}, $locale)}</a>
+      <a href={`${base}/explore/`}>{productCopy.decorate}</a>
+      <a href={`${base}/collection/`}>{productCopy.collection}</a>
+      <a href={`${base}/guide/`}>{productCopy.guide}</a>
+      <a href={`${base}/presets/`}>{productCopy.presets}</a>
       <CommunityNav />
     </nav>
     <div class="locale-control">
