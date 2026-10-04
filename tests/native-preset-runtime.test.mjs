@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   NATIVE_PRESET_ACTIVE_LIMIT,
   NATIVE_PRESET_BACKUP_SCHEMA,
+  NATIVE_PRESET_STATE_FLAG_DELETED,
   addNativePresetBackup,
   createEmptyNativePresetLibrary,
   createNativePresetBackup,
@@ -14,7 +15,7 @@ import {
 
 function preset(name,{deleted=false,unknown=null,root=true}={}){
   const grids=root?{'0':{ID:0,GridDataPath:'',GridDefaultLayoutPath:'',TessellationFactor:2,Objects:{'0':{ID:0,ItemID:40000001,X:0,Y:0,Orientation:'GridOrientation_Up',State:null}},NextGridObjectID:1}}:{};
-  return {GridCollection:{Grids:grids,DiffGrids:{},NextGridID:root?1:0},PresetName:name,ThumbnailItems:[40000001],ShareInfo:null,StateFlags:0,...(deleted?{Deleted:true}:{}),...(unknown?{FutureField:unknown}:{})};
+  return {GridCollection:{Grids:grids,DiffGrids:{},NextGridID:root?1:0},PresetName:name,ThumbnailItems:[40000001],ShareInfo:null,StateFlags:deleted?NATIVE_PRESET_STATE_FLAG_DELETED:0,...(unknown?{FutureField:unknown}:{})};
 }
 
 test('native preset extraction separates physical index from active ordinal and keeps tombstones',()=>{
@@ -22,6 +23,15 @@ test('native preset extraction separates physical index from active ordinal and 
   const rows=extractNativePresetSnapshots(profile);
   assert.deepEqual(rows.map(x=>[x.physicalPresetIndex,x.activeSlotOrdinalZeroBased,x.deleted]),[[0,0,false],[1,null,true],[2,1,false]]);
   assert.equal(NATIVE_PRESET_ACTIVE_LIMIT,20);
+});
+
+test('opaque Deleted field is not native tombstone state without StateFlags bit 0x10',()=>{
+  const raw=preset('opaque',{unknown:{keep:true}});
+  raw.Deleted=true;
+  const snapshot=extractNativePresetSnapshots({World:{DecorationPresets:[raw]}})[0];
+  assert.equal(snapshot.deleted,false);
+  assert.equal(snapshot.activeSlotOrdinalZeroBased,0);
+  assert.equal(snapshot.payload.Deleted,true);
 });
 
 test('native preset backup preserves unknown native payload fields losslessly',()=>{
