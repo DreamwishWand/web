@@ -1,0 +1,124 @@
+{
+  "contract": "ddv.native-decoration-preset-persistent-restore-v125@1",
+  "status": "STATIC_CANDIDATE_RUNTIME_PENDING",
+  "semanticOwner": "01 CORE / 01E — Native DecorationPreset Restore",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "buildIdentity": {
+      "kind": "switch-bid",
+      "value": "52BD625D9B4E0053"
+    },
+    "profileSchemaVersion": 624,
+    "steamEvidenceReusable": false
+  },
+  "operation": {
+    "id": "NATIVE_DECORATION_PRESET_RESTORE_APPEND_V125",
+    "mode": "APPEND_ONLY",
+    "nativeActiveLimit": 20,
+    "activeDefinition": "StateFlags does not contain Deleted bit 0x10",
+    "destinationPhysicalIndex": "World.DecorationPresets.length before mutation",
+    "tombstoneReuse": "FORBIDDEN",
+    "replacement": "UNSUPPORTED",
+    "compactionOrReindex": "FORBIDDEN"
+  },
+  "supportedSourceBackup": {
+    "schema": "wand.in-game-preset-backup@1",
+    "version": 1,
+    "sourceProfileSchemaVersion": 624,
+    "deleted": false,
+    "payload": {
+      "requiredKnownFields": [
+        "GridCollection",
+        "PresetName",
+        "ThumbnailItems",
+        "ShareInfo",
+        "StateFlags"
+      ],
+      "stateFlags": 0,
+      "shareInfo": null,
+      "gridCollection": {
+        "rootGridId": 0,
+        "rootMustSerializeFirst": true,
+        "diffGrids": "EMPTY_ONLY",
+        "allocationCounters": "MUST_BE_ABOVE_OBSERVED_IDS"
+      },
+      "unknownFields": "OPAQUE_PRESERVE_AND_COPY"
+    }
+  },
+  "mutation": {
+    "allowedSemanticPaths": [
+      "/World/DecorationPresets"
+    ],
+    "copied": "entire supported backup payload including unknown fields",
+    "regenerated": [
+      "destination physical preset index by append position"
+    ],
+    "sourceLocalNotIdentity": [
+      "source physicalPresetIndex",
+      "source activeSlotOrdinalZeroBased"
+    ],
+    "destinationLocalPreserved": [
+      "all pre-existing World.DecorationPresets entries",
+      "all profile state outside World.DecorationPresets"
+    ],
+    "shareCodeValidity": "NEVER_SYNTHESIZE_OR_REFRESH"
+  },
+  "preflightBlockers": [
+    "wrong platform/build/schema",
+    "active preset count >= 20",
+    "invalid destination StateFlags",
+    "Deleted source tombstone",
+    "source StateFlags != 0",
+    "source ShareInfo != null",
+    "missing/invalid root Grid 0",
+    "root Grid 0 not serialized first",
+    "non-empty DiffGrids",
+    "invalid Grid/GridObject map identity",
+    "invalid NextGridID or NextGridObjectID"
+  ],
+  "verification": {
+    "immutableSource": true,
+    "exactOriginalBackup": true,
+    "exactAllowedDiff": [
+      "/World/DecorationPresets"
+    ],
+    "canonicalReopen": true,
+    "preExistingPresetPrefixEquality": true,
+    "appendedPayloadSemanticEquality": true,
+    "unrelatedStatePreservation": true,
+    "candidateHashBinding": true,
+    "sourceBackupHashBinding": true,
+    "runtimeColdReloadRequired": true
+  },
+  "safety": {
+    "persistentWriteAuthorized": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false,
+    "userMediatedImportOnly": true
+  },
+  "evidence": [
+    {
+      "id": "DDV-V1.25-WAND-PRESET-IMPLEMENTATION-STATIC-CONTRACT-2026-09-29",
+      "classification": "CONFIRMED"
+    },
+    {
+      "id": "DDV-V1.25-WAND-CONTROLLED-RUNTIME-P1I-2026-09-30",
+      "classification": "CONFIRMED",
+      "scope": "Switch append persistence oracle, not exact backup-restore closure"
+    },
+    {
+      "id": "DDV-SAFE-PERSISTENT-TRANSACTION-FOUNDATION-V125-V1_0",
+      "classification": "CONFIRMED",
+      "scope": "immutable source / encode-copy / reopen safety foundation"
+    }
+  ],
+  "unresolved": [
+    "exact backup-restore cold-reload runtime normalization",
+    "shared/imported/modified/moderated source restore semantics",
+    "replace-existing active preset semantics",
+    "Steam runtime acceptance",
+    "share-code service validity after restore"
+  ]
+}
