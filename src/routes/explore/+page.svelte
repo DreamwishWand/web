@@ -29,12 +29,12 @@
 
   function universeLabel(value:string){return runtimeIndex?collectionFacetLabel(runtimeIndex,'universe',value,$locale):'';}
   function familyLabel(value:string){return collectionFamilyLabel($locale,value);}
-  function initials(value:string){return familyLabel(value).split(/\s+/).map((x)=>x[0]).join('').slice(0,2).toUpperCase();}
+  function initials(value:string){return familyLabel(value).split(/\s+/).map((x:string)=>x[0]).join('').slice(0,2).toUpperCase();}
 
   function addToMoodboard(item:any){
     if(!selectedBoardId){status=copy.noBoards;return;}
     try{
-      const next=addMoodboardReference(moodboards,selectedBoardId,{type:'ITEM',label:item.label,entityId:String(item.itemId),note:familyLabel(item.family)},{idFactory:()=>crypto.randomUUID()}).document;
+      const next=addMoodboardReference(moodboards,selectedBoardId,{type:'ITEM',label:item.label,entityId:String(item.itemId),note:familyLabel(item.family)}).document;
       const current=localStorage.getItem(MOODBOARD_STORAGE_KEY);
       if(current)localStorage.setItem(MOODBOARD_BACKUP_KEY,current);
       localStorage.setItem(MOODBOARD_STORAGE_KEY,serializeMoodboardDocument(next));
