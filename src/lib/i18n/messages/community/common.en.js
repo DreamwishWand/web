@@ -1,0 +1,23 @@
+export default Object.freeze({
+  "community.configUnavailable": "Community services are not configured for this build.",
+  "community.auth.email": "Email",
+  "community.auth.password": "Password",
+  "community.auth.signIn": "Sign in",
+  "community.auth.signOut": "Sign out",
+  "community.auth.signedIn": "Signed in",
+  "community.auth.creatorRequired": "A Creator Profile is required to publish or contribute.",
+  "community.creator.handle": "Handle",
+  "community.creator.displayName": "Display name",
+  "community.creator.create": "Create Creator Profile",
+  "community.action.search": "Search",
+  "community.action.close": "Close",
+  "community.action.publish": "Publish",
+  "community.action.save": "Save",
+  "community.action.react": "React",
+  "community.action.report": "Report",
+  "community.action.comment": "Comment",
+  "community.action.answer": "Answer",
+  "community.action.ask": "Ask",
+  "community.action.resolve": "Mark solved",
+  "community.action.createTip": "Create Tip"
+});

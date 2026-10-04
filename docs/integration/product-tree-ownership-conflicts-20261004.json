@@ -1,0 +1,2521 @@
+{
+  "contract": "DDV-WAND-CROSS-PRODUCT-INTEGRATION-OWNERSHIP-MANIFEST@1",
+  "workstream": "09 INT — Cross-Product Integration",
+  "date": "2026-10-04",
+  "integration_branch": "integration/product-tree-current-20261004",
+  "checkpoints": {
+    "mergeBase": "1d8b1e0ed2aa932a9c9b501e8a0dabf7722cbc28",
+    "main": "870b2e2438a35b0b4dfc49c65a98b39e6a70dc26",
+    "wep": "9229cc5b1df0d9cc77364647df0f0fd65973c07d",
+    "community": "56a0164abcbfa179861d049a0e8cfba935e93473"
+  },
+  "safety_invariants": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "directSourceReplacementAuthorized": false,
+    "silentFilesystemOverwrite": false,
+    "arbitraryJsonPatching": false
+  },
+  "classification_counts": {
+    "COMPOSE": 4,
+    "MAIN / CORE": 25,
+    "COMMUNITY": 113
+  },
+  "conflicts": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "main_sha": "5319637b422e2176012dfccfed6a6a502b0b9054",
+      "wep_sha": "2c6efe5e9fbd61bf6038e9d69071573c9f3a8db3",
+      "community_sha": "00e293dc448925603f70bd4b73930778ec5aca4b",
+      "semantic_owner": "COMPOSE",
+      "resolution_policy": "MANUAL_SUPERSET_COMPOSE",
+      "retained_behavior": "Superset behavior required by integrated production tree.",
+      "discarded_or_superseded_behavior": "Single-lineage config that omits required integrated checks.",
+      "regression_tests_required": [
+        "complete CI",
+        "static production build",
+        "shared A11Y/L10N gate",
+        "Community integrated-tree preflight",
+        "WEP primary-job browser"
+      ],
+      "resolved_sha": "185cdc2b47128fbc733290814104b52129d052a3",
+      "resolved_source": "COMPOSE",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": ".github/workflows/pages.yml",
+      "main_sha": "bf819c6f24477d91f83c65ddedb6832656dace6b",
+      "wep_sha": "83756b193e32e222bfb04d78203d85d6ae4c4bd8",
+      "community_sha": "17ea9e13e4f6a36448b94f63172c0e964916ff86",
+      "semantic_owner": "COMPOSE",
+      "resolution_policy": "MANUAL_SUPERSET_COMPOSE",
+      "retained_behavior": "Superset behavior required by integrated production tree.",
+      "discarded_or_superseded_behavior": "Single-lineage config that omits required integrated checks.",
+      "regression_tests_required": [
+        "static production build",
+        "Pages workflow"
+      ],
+      "resolved_sha": "4488786ffd171174da99f044c15e198fcfe217ac",
+      "resolved_source": "COMPOSE",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "contracts/roadfence-native-mutation-set.schema.json",
+      "main_sha": "7d94988083b7c6daffcf754394c627dbdf92bc7f",
+      "wep_sha": "7d94988083b7c6daffcf754394c627dbdf92bc7f",
+      "community_sha": null,
+      "semantic_owner": "MAIN / CORE",
+      "resolution_policy": "KEEP_CURRENT_MAIN_PROMOTED_CORE",
+      "retained_behavior": "Latest promoted current-main Core/save/version/Road-Fence behavior.",
+      "discarded_or_superseded_behavior": "Older branch-local Core copies.",
+      "regression_tests_required": [
+        "Core/save contract regression",
+        "Road/Fence compiler + transaction regression"
+      ],
+      "resolved_sha": "7d94988083b7c6daffcf754394c627dbdf92bc7f",
+      "resolved_source": "MAIN",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "contracts/save-transaction-candidate.schema.json",
+      "main_sha": "09951993612d1f32d94e10f31aacc9cd1bd92d90",
+      "wep_sha": "09951993612d1f32d94e10f31aacc9cd1bd92d90",
+      "community_sha": "73f004ccbb9cf7ceb723e37d75e23a28965d56b4",
+      "semantic_owner": "MAIN / CORE",
+      "resolution_policy": "KEEP_CURRENT_MAIN_PROMOTED_CORE",
+      "retained_behavior": "Latest promoted current-main Core/save/version/Road-Fence behavior.",
+      "discarded_or_superseded_behavior": "Older branch-local Core copies.",
+      "regression_tests_required": [
+        "Core/save contract regression",
+        "Road/Fence compiler + transaction regression"
+      ],
+      "resolved_sha": "09951993612d1f32d94e10f31aacc9cd1bd92d90",
+      "resolved_source": "MAIN",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "contracts/save-transaction-plan.schema.json",
+      "main_sha": "9a6f4eef120b80c5949c2d7b9c056e338492aa18",
+      "wep_sha": "9a6f4eef120b80c5949c2d7b9c056e338492aa18",
+      "community_sha": "2ac1c344467c53a2019e7a552cfa225fc20867b6",
+      "semantic_owner": "MAIN / CORE",
+      "resolution_policy": "KEEP_CURRENT_MAIN_PROMOTED_CORE",
+      "retained_behavior": "Latest promoted current-main Core/save/version/Road-Fence behavior.",
+      "discarded_or_superseded_behavior": "Older branch-local Core copies.",
+      "regression_tests_required": [
+        "Core/save contract regression",
+        "Road/Fence compiler + transaction regression"
+      ],
+      "resolved_sha": "9a6f4eef120b80c5949c2d7b9c056e338492aa18",
+      "resolved_source": "MAIN",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "docs/community/account-deletion-runtime-20260930.md",
+      "main_sha": null,
+      "wep_sha": "832aa0f9e793348f6d1c354a27792624c0c90b0c",
+      "community_sha": "832aa0f9e793348f6d1c354a27792624c0c90b0c",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "832aa0f9e793348f6d1c354a27792624c0c90b0c",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "docs/community/account-recovery-runtime-20260930.md",
+      "main_sha": null,
+      "wep_sha": "3f8d6c32c84f109e49b044a894c8f7a224d4797e",
+      "community_sha": "3f8d6c32c84f109e49b044a894c8f7a224d4797e",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "3f8d6c32c84f109e49b044a894c8f7a224d4797e",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "docs/community/account-retention-runtime-20260930.md",
+      "main_sha": null,
+      "wep_sha": "34041b1d5e85c4bc98909a48b8c60301f94a2d56",
+      "community_sha": "c1c0940d0552cca8ddb3fb30af5cac657667c3c7",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "TAKE_ACCEPTED_COMMUNITY_CHECKPOINT",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "c1c0940d0552cca8ddb3fb30af5cac657667c3c7",
+      "resolved_source": "COMMUNITY",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "docs/community/action-rate-limit-runtime-20260930.md",
+      "main_sha": null,
+      "wep_sha": "8a66a58d801c85bf1b197118401d58af69784668",
+      "community_sha": "8a66a58d801c85bf1b197118401d58af69784668",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "8a66a58d801c85bf1b197118401d58af69784668",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "docs/community/auth-abuse-launch-policy-20260930.md",
+      "main_sha": null,
+      "wep_sha": "37598cfcefbbf28de530a44c3a102a57543c326b",
+      "community_sha": "37598cfcefbbf28de530a44c3a102a57543c326b",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "37598cfcefbbf28de530a44c3a102a57543c326b",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "docs/community/auth-launch-policy-20260930.md",
+      "main_sha": null,
+      "wep_sha": "9a39c693d2a33f7295d808db85516ec95519911c",
+      "community_sha": "96deac35a967370b56940ca6446025cd9c7cb93c",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "TAKE_ACCEPTED_COMMUNITY_CHECKPOINT",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "96deac35a967370b56940ca6446025cd9c7cb93c",
+      "resolved_source": "COMMUNITY",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "docs/community/auth-session-control-recovery-20260930.md",
+      "main_sha": null,
+      "wep_sha": "e40c4eea29730b5cbf7164cfab49391f0ccb4c14",
+      "community_sha": "e40c4eea29730b5cbf7164cfab49391f0ccb4c14",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "e40c4eea29730b5cbf7164cfab49391f0ccb4c14",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "docs/community/browser-operator-acceptance-runbook-20260930.md",
+      "main_sha": null,
+      "wep_sha": "e77dcf52874004de968e9230c811d97f23d64a01",
+      "community_sha": "e77dcf52874004de968e9230c811d97f23d64a01",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "e77dcf52874004de968e9230c811d97f23d64a01",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "docs/community/community-lab-v0.md",
+      "main_sha": null,
+      "wep_sha": "777bebc2215e2db90786d19d5f2b73a899ff59e3",
+      "community_sha": "777bebc2215e2db90786d19d5f2b73a899ff59e3",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "777bebc2215e2db90786d19d5f2b73a899ff59e3",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "docs/community/community-ops-v0.md",
+      "main_sha": null,
+      "wep_sha": "7e9a761050d56426bc34e2b508c0c10158dbd0b2",
+      "community_sha": "7e9a761050d56426bc34e2b508c0c10158dbd0b2",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "7e9a761050d56426bc34e2b508c0c10158dbd0b2",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "docs/community/identity-bootstrap-runtime-20260930.md",
+      "main_sha": null,
+      "wep_sha": "29619aa6d33bb49df6f9d011ddaef40b3e3c1112",
+      "community_sha": "29619aa6d33bb49df6f9d011ddaef40b3e3c1112",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "29619aa6d33bb49df6f9d011ddaef40b3e3c1112",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "docs/community/moderation-operations-launch-policy-20260930.md",
+      "main_sha": null,
+      "wep_sha": "9969c69188da327ea8e62f3c01a043c9c434ab91",
+      "community_sha": "9969c69188da327ea8e62f3c01a043c9c434ab91",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "9969c69188da327ea8e62f3c01a043c9c434ab91",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "docs/community/moderation-operations-runtime-20260930.md",
+      "main_sha": null,
+      "wep_sha": "15019b18fc1350f1a4b4bdddf85e6ef8c5b0c370",
+      "community_sha": "15019b18fc1350f1a4b4bdddf85e6ef8c5b0c370",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "15019b18fc1350f1a4b4bdddf85e6ef8c5b0c370",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "docs/community/notification-channel-policy-20260930.md",
+      "main_sha": null,
+      "wep_sha": "f1e9b4c984d74c6752bca47ee49eb7ec646ce32c",
+      "community_sha": "f1e9b4c984d74c6752bca47ee49eb7ec646ce32c",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "f1e9b4c984d74c6752bca47ee49eb7ec646ce32c",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "docs/community/operations-alerts-runtime-20260930.md",
+      "main_sha": null,
+      "wep_sha": "4102817f562401e9792e0937cf9a952b6c718357",
+      "community_sha": "4102817f562401e9792e0937cf9a952b6c718357",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "4102817f562401e9792e0937cf9a952b6c718357",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "docs/community/operations-escalation-policy-20260930.md",
+      "main_sha": null,
+      "wep_sha": "053f84f79adf25df51e1bc0e91fc4e64d59a0990",
+      "community_sha": "223b5133cb5cfb2a0561f1779cfe1e74308992e8",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "TAKE_ACCEPTED_COMMUNITY_CHECKPOINT",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "223b5133cb5cfb2a0561f1779cfe1e74308992e8",
+      "resolved_source": "COMMUNITY",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "docs/community/provider-cleanup-runtime-20260930.md",
+      "main_sha": null,
+      "wep_sha": "66616caf262a66fccd73cba97c95b90c7cb01f8c",
+      "community_sha": "66616caf262a66fccd73cba97c95b90c7cb01f8c",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "66616caf262a66fccd73cba97c95b90c7cb01f8c",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "docs/community/search-launch-policy-20260930.md",
+      "main_sha": null,
+      "wep_sha": "9f7996c37020c2d18088e09924b57d5df7ff4dac",
+      "community_sha": "9f7996c37020c2d18088e09924b57d5df7ff4dac",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "9f7996c37020c2d18088e09924b57d5df7ff4dac",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "docs/community/staging-acceptance-matrix-20260930.md",
+      "main_sha": null,
+      "wep_sha": "a2a68e17a702d0558ebc0bfbf5db67d679232f95",
+      "community_sha": "669ee87269359c7b7b5be856e983b7cbf718b4b8",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "TAKE_ACCEPTED_COMMUNITY_CHECKPOINT",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "669ee87269359c7b7b5be856e983b7cbf718b4b8",
+      "resolved_source": "COMMUNITY",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "docs/community/staging-runtime-gate-v0.md",
+      "main_sha": null,
+      "wep_sha": "c2c08bc4f2558e08a6cabd0751e8be5a67b8bf4f",
+      "community_sha": "c2c08bc4f2558e08a6cabd0751e8be5a67b8bf4f",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "c2c08bc4f2558e08a6cabd0751e8be5a67b8bf4f",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "docs/community/staging-vs13-concurrency-20260930.md",
+      "main_sha": null,
+      "wep_sha": "94e6e11388333f863949912764503cd90b3cc72c",
+      "community_sha": "94e6e11388333f863949912764503cd90b3cc72c",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "94e6e11388333f863949912764503cd90b3cc72c",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "docs/community/support-recovery-verification-runtime-20260930.md",
+      "main_sha": null,
+      "wep_sha": "8dfcdd74b92528c94098136daa6e57e1ac87b3f0",
+      "community_sha": "8dfcdd74b92528c94098136daa6e57e1ac87b3f0",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "8dfcdd74b92528c94098136daa6e57e1ac87b3f0",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "docs/community/transactional-email-policy-20260930.md",
+      "main_sha": null,
+      "wep_sha": "a140c0285249782a973f79e80fc600432cdcd218",
+      "community_sha": "512deae22c101641f9a0bc308679d6a2934862b0",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "TAKE_ACCEPTED_COMMUNITY_CHECKPOINT",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "512deae22c101641f9a0bc308679d6a2934862b0",
+      "resolved_source": "COMMUNITY",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "docs/community/transactional-email-provider-resend-20260930.md",
+      "main_sha": null,
+      "wep_sha": "195939b903b5ef112869536eb2a347e9da421b7a",
+      "community_sha": "dd870d93ceb211ac9e5a40c565d8fcf10517ea3b",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "TAKE_ACCEPTED_COMMUNITY_CHECKPOINT",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "dd870d93ceb211ac9e5a40c565d8fcf10517ea3b",
+      "resolved_source": "COMMUNITY",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "docs/community/vertical-slice-v0.md",
+      "main_sha": null,
+      "wep_sha": "199226740a918820d1c72c0b8f35772a94b3469d",
+      "community_sha": "199226740a918820d1c72c0b8f35772a94b3469d",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "199226740a918820d1c72c0b8f35772a94b3469d",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "docs/community/vs02-vs12-media-network-runtime-20260930.md",
+      "main_sha": null,
+      "wep_sha": "cd7a2004aed8a825e6be5b44a7dd42ba70946e55",
+      "community_sha": "cd7a2004aed8a825e6be5b44a7dd42ba70946e55",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "cd7a2004aed8a825e6be5b44a7dd42ba70946e55",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "docs/community/vs13-parallel-session-runtime-20260930.md",
+      "main_sha": null,
+      "wep_sha": "708af67137f754cb40a8bcd01357c9b35c9e9045",
+      "community_sha": "708af67137f754cb40a8bcd01357c9b35c9e9045",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "708af67137f754cb40a8bcd01357c9b35c9e9045",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "ops/community-production-operations.json",
+      "main_sha": null,
+      "wep_sha": "d9558df800b35ddc67612257e6b60c4323919808",
+      "community_sha": "f9c28e4642c58cfd6853644d001b945dfd80d444",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "TAKE_ACCEPTED_COMMUNITY_CHECKPOINT",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "f9c28e4642c58cfd6853644d001b945dfd80d444",
+      "resolved_source": "COMMUNITY",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "package.json",
+      "main_sha": "82b103b953f9512936b77d196bf6695694c68929",
+      "wep_sha": "f4b5a13cc2112070a6069c1c05d0afc993dde045",
+      "community_sha": "debad5de2583effe9b5818226a4d06264eebf3d9",
+      "semantic_owner": "COMPOSE",
+      "resolution_policy": "MANUAL_SUPERSET_COMPOSE",
+      "retained_behavior": "Superset behavior required by integrated production tree.",
+      "discarded_or_superseded_behavior": "Single-lineage config that omits required integrated checks.",
+      "regression_tests_required": [
+        "complete CI",
+        "static production build",
+        "shared A11Y/L10N gate",
+        "Community integrated-tree preflight",
+        "WEP primary-job browser"
+      ],
+      "resolved_sha": "debad5de2583effe9b5818226a4d06264eebf3d9",
+      "resolved_source": "COMMUNITY",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "scripts/verify-community-integrated-production-tree.mjs",
+      "main_sha": null,
+      "wep_sha": "006b02f70d2d99761a07f2eca62443e8609d720c",
+      "community_sha": "006b02f70d2d99761a07f2eca62443e8609d720c",
+      "semantic_owner": "COMPOSE",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Superset behavior required by integrated production tree.",
+      "discarded_or_superseded_behavior": "Single-lineage config that omits required integrated checks.",
+      "regression_tests_required": [
+        "complete CI"
+      ],
+      "resolved_sha": "006b02f70d2d99761a07f2eca62443e8609d720c",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "src/lib/community/commands.ts",
+      "main_sha": null,
+      "wep_sha": "ba00c29fef079ca9a3d773dc88457a08e5306706",
+      "community_sha": "dfbabcc474b9e21a4d6d12a065f18416a68e38b1",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "TAKE_ACCEPTED_COMMUNITY_CHECKPOINT",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "dfbabcc474b9e21a4d6d12a065f18416a68e38b1",
+      "resolved_source": "COMMUNITY",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "src/lib/community/domain.ts",
+      "main_sha": null,
+      "wep_sha": "8ddbc9da560ad98a177e3008330ae8c48aaf5461",
+      "community_sha": "8ddbc9da560ad98a177e3008330ae8c48aaf5461",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "8ddbc9da560ad98a177e3008330ae8c48aaf5461",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "src/lib/community/email-policy.ts",
+      "main_sha": null,
+      "wep_sha": "003939b4db7db72382082eac8f26c6ad2d66f471",
+      "community_sha": "003939b4db7db72382082eac8f26c6ad2d66f471",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "003939b4db7db72382082eac8f26c6ad2d66f471",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "src/lib/community/staging-http-client.ts",
+      "main_sha": null,
+      "wep_sha": "a311a3017fdd23f4e71facd9fa3b7169b97b5d77",
+      "community_sha": "756d8a6962e31df01b02b9d837404b7dac932ca4",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "TAKE_ACCEPTED_COMMUNITY_CHECKPOINT",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "4d988aee5a94f8184c1ec2e8fe831be3013436b3",
+      "resolved_source": "COMPOSE",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "src/lib/ddv/core/roadfence/persistent-compiler-v125.js",
+      "main_sha": "129623fbd3a82f10b28934c6a358fdc337fbf9fc",
+      "wep_sha": "129623fbd3a82f10b28934c6a358fdc337fbf9fc",
+      "community_sha": null,
+      "semantic_owner": "MAIN / CORE",
+      "resolution_policy": "KEEP_CURRENT_MAIN_PROMOTED_CORE",
+      "retained_behavior": "Latest promoted current-main Core/save/version/Road-Fence behavior.",
+      "discarded_or_superseded_behavior": "Older branch-local Core copies.",
+      "regression_tests_required": [
+        "Core/save contract regression",
+        "Road/Fence compiler + transaction regression"
+      ],
+      "resolved_sha": "129623fbd3a82f10b28934c6a358fdc337fbf9fc",
+      "resolved_source": "MAIN",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "src/lib/ddv/core/roadfence/persistent-transaction-v125.js",
+      "main_sha": "e03a96e0971b8ebb352ca291115ebf8bae6f80eb",
+      "wep_sha": "e03a96e0971b8ebb352ca291115ebf8bae6f80eb",
+      "community_sha": null,
+      "semantic_owner": "MAIN / CORE",
+      "resolution_policy": "KEEP_CURRENT_MAIN_PROMOTED_CORE",
+      "retained_behavior": "Latest promoted current-main Core/save/version/Road-Fence behavior.",
+      "discarded_or_superseded_behavior": "Older branch-local Core copies.",
+      "regression_tests_required": [
+        "Core/save contract regression",
+        "Road/Fence compiler + transaction regression"
+      ],
+      "resolved_sha": "e03a96e0971b8ebb352ca291115ebf8bae6f80eb",
+      "resolved_source": "MAIN",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "src/lib/ddv/core/roadfence/persistent-v125/common.js",
+      "main_sha": "7efe44130ae2e90fc1ffbcf7f23f2e3293fd2e60",
+      "wep_sha": "7efe44130ae2e90fc1ffbcf7f23f2e3293fd2e60",
+      "community_sha": null,
+      "semantic_owner": "MAIN / CORE",
+      "resolution_policy": "KEEP_CURRENT_MAIN_PROMOTED_CORE",
+      "retained_behavior": "Latest promoted current-main Core/save/version/Road-Fence behavior.",
+      "discarded_or_superseded_behavior": "Older branch-local Core copies.",
+      "regression_tests_required": [
+        "Core/save contract regression",
+        "Road/Fence compiler + transaction regression"
+      ],
+      "resolved_sha": "7efe44130ae2e90fc1ffbcf7f23f2e3293fd2e60",
+      "resolved_source": "MAIN",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "src/lib/ddv/core/roadfence/persistent-v125/constants.js",
+      "main_sha": "39bb50aee51f00dfb89deb7278bb7ff741ade8bc",
+      "wep_sha": "39bb50aee51f00dfb89deb7278bb7ff741ade8bc",
+      "community_sha": null,
+      "semantic_owner": "MAIN / CORE",
+      "resolution_policy": "KEEP_CURRENT_MAIN_PROMOTED_CORE",
+      "retained_behavior": "Latest promoted current-main Core/save/version/Road-Fence behavior.",
+      "discarded_or_superseded_behavior": "Older branch-local Core copies.",
+      "regression_tests_required": [
+        "Core/save contract regression",
+        "Road/Fence compiler + transaction regression"
+      ],
+      "resolved_sha": "39bb50aee51f00dfb89deb7278bb7ff741ade8bc",
+      "resolved_source": "MAIN",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "src/lib/ddv/core/roadfence/persistent-v125/fence-layout.js",
+      "main_sha": "0b926c635708f5f93ce7187b4f75986d4b304b69",
+      "wep_sha": "0b926c635708f5f93ce7187b4f75986d4b304b69",
+      "community_sha": null,
+      "semantic_owner": "MAIN / CORE",
+      "resolution_policy": "KEEP_CURRENT_MAIN_PROMOTED_CORE",
+      "retained_behavior": "Latest promoted current-main Core/save/version/Road-Fence behavior.",
+      "discarded_or_superseded_behavior": "Older branch-local Core copies.",
+      "regression_tests_required": [
+        "Core/save contract regression",
+        "Road/Fence compiler + transaction regression"
+      ],
+      "resolved_sha": "0b926c635708f5f93ce7187b4f75986d4b304b69",
+      "resolved_source": "MAIN",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "src/lib/ddv/core/roadfence/persistent-v125/fence-support.js",
+      "main_sha": "c24223421045401e3ce98e45a5517717a1bb200e",
+      "wep_sha": "c24223421045401e3ce98e45a5517717a1bb200e",
+      "community_sha": null,
+      "semantic_owner": "MAIN / CORE",
+      "resolution_policy": "KEEP_CURRENT_MAIN_PROMOTED_CORE",
+      "retained_behavior": "Latest promoted current-main Core/save/version/Road-Fence behavior.",
+      "discarded_or_superseded_behavior": "Older branch-local Core copies.",
+      "regression_tests_required": [
+        "Core/save contract regression",
+        "Road/Fence compiler + transaction regression"
+      ],
+      "resolved_sha": "c24223421045401e3ce98e45a5517717a1bb200e",
+      "resolved_source": "MAIN",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "src/lib/ddv/core/roadfence/persistent-v125/metadata.js",
+      "main_sha": "28adff3d2825c6df159471ef12a09035517954c7",
+      "wep_sha": "28adff3d2825c6df159471ef12a09035517954c7",
+      "community_sha": null,
+      "semantic_owner": "MAIN / CORE",
+      "resolution_policy": "KEEP_CURRENT_MAIN_PROMOTED_CORE",
+      "retained_behavior": "Latest promoted current-main Core/save/version/Road-Fence behavior.",
+      "discarded_or_superseded_behavior": "Older branch-local Core copies.",
+      "regression_tests_required": [
+        "Core/save contract regression",
+        "Road/Fence compiler + transaction regression"
+      ],
+      "resolved_sha": "28adff3d2825c6df159471ef12a09035517954c7",
+      "resolved_source": "MAIN",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "src/lib/ddv/core/roadfence/persistent-v125/reconcile.js",
+      "main_sha": "f27b4774e65ab8440c61e62cf8ac9139fadd2aab",
+      "wep_sha": "f27b4774e65ab8440c61e62cf8ac9139fadd2aab",
+      "community_sha": null,
+      "semantic_owner": "MAIN / CORE",
+      "resolution_policy": "KEEP_CURRENT_MAIN_PROMOTED_CORE",
+      "retained_behavior": "Latest promoted current-main Core/save/version/Road-Fence behavior.",
+      "discarded_or_superseded_behavior": "Older branch-local Core copies.",
+      "regression_tests_required": [
+        "Core/save contract regression",
+        "Road/Fence compiler + transaction regression"
+      ],
+      "resolved_sha": "f27b4774e65ab8440c61e62cf8ac9139fadd2aab",
+      "resolved_source": "MAIN",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "src/lib/ddv/core/roadfence/persistent-v125/result-core.js",
+      "main_sha": "d53c7c5fde037c341061244aa5ecd6bd163b024d",
+      "wep_sha": "d53c7c5fde037c341061244aa5ecd6bd163b024d",
+      "community_sha": null,
+      "semantic_owner": "MAIN / CORE",
+      "resolution_policy": "KEEP_CURRENT_MAIN_PROMOTED_CORE",
+      "retained_behavior": "Latest promoted current-main Core/save/version/Road-Fence behavior.",
+      "discarded_or_superseded_behavior": "Older branch-local Core copies.",
+      "regression_tests_required": [
+        "Core/save contract regression",
+        "Road/Fence compiler + transaction regression"
+      ],
+      "resolved_sha": "d53c7c5fde037c341061244aa5ecd6bd163b024d",
+      "resolved_source": "MAIN",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "src/lib/ddv/core/roadfence/persistent-v125/road.js",
+      "main_sha": "3a6e06784442bbf8308cc7e026b76355006961d9",
+      "wep_sha": "3a6e06784442bbf8308cc7e026b76355006961d9",
+      "community_sha": null,
+      "semantic_owner": "MAIN / CORE",
+      "resolution_policy": "KEEP_CURRENT_MAIN_PROMOTED_CORE",
+      "retained_behavior": "Latest promoted current-main Core/save/version/Road-Fence behavior.",
+      "discarded_or_superseded_behavior": "Older branch-local Core copies.",
+      "regression_tests_required": [
+        "Core/save contract regression",
+        "Road/Fence compiler + transaction regression"
+      ],
+      "resolved_sha": "3a6e06784442bbf8308cc7e026b76355006961d9",
+      "resolved_source": "MAIN",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "src/lib/ddv/core/roadfence/representation-layout-v125.ts",
+      "main_sha": "875b80489a91ded195365f74072e711535c2c94b",
+      "wep_sha": "875b80489a91ded195365f74072e711535c2c94b",
+      "community_sha": null,
+      "semantic_owner": "MAIN / CORE",
+      "resolution_policy": "KEEP_CURRENT_MAIN_PROMOTED_CORE",
+      "retained_behavior": "Latest promoted current-main Core/save/version/Road-Fence behavior.",
+      "discarded_or_superseded_behavior": "Older branch-local Core copies.",
+      "regression_tests_required": [
+        "Core/save contract regression",
+        "Road/Fence compiler + transaction regression"
+      ],
+      "resolved_sha": "875b80489a91ded195365f74072e711535c2c94b",
+      "resolved_source": "MAIN",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "src/lib/ddv/core/save/transaction-foundation.js",
+      "main_sha": "41a899225146bd425d8af3e6d5a3e13e251b8a23",
+      "wep_sha": "41a899225146bd425d8af3e6d5a3e13e251b8a23",
+      "community_sha": "b191515ae2b22c6348a354ba1070cd5836761352",
+      "semantic_owner": "MAIN / CORE",
+      "resolution_policy": "KEEP_CURRENT_MAIN_PROMOTED_CORE",
+      "retained_behavior": "Latest promoted current-main Core/save/version/Road-Fence behavior.",
+      "discarded_or_superseded_behavior": "Older branch-local Core copies.",
+      "regression_tests_required": [
+        "Core/save contract regression",
+        "Road/Fence compiler + transaction regression"
+      ],
+      "resolved_sha": "41a899225146bd425d8af3e6d5a3e13e251b8a23",
+      "resolved_source": "MAIN",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "src/lib/generated/database.types.ts",
+      "main_sha": null,
+      "wep_sha": "e8bb8f693efcee69ade97b3be5a9dd395ccf8660",
+      "community_sha": "917ec222f102f91ed035f4047be4822152bc4657",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "TAKE_ACCEPTED_COMMUNITY_CHECKPOINT",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "917ec222f102f91ed035f4047be4822152bc4657",
+      "resolved_source": "COMMUNITY",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "src/routes/community-lab/+page.svelte",
+      "main_sha": null,
+      "wep_sha": "412bc12fd4958aa79dbccc99fc447eb7eca42da6",
+      "community_sha": "89a1e445a770ca0b7a61732b251d8b0466883e5d",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "TAKE_ACCEPTED_COMMUNITY_CHECKPOINT",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "89a1e445a770ca0b7a61732b251d8b0466883e5d",
+      "resolved_source": "COMMUNITY",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "src/routes/community-lab/account/+page.svelte",
+      "main_sha": null,
+      "wep_sha": "99a91c215a58530127ccd64574ec5ae6b3702393",
+      "community_sha": "9cf2ec2f6bdce6265eda21f774fb367fae56f43a",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "TAKE_ACCEPTED_COMMUNITY_CHECKPOINT",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "9cf2ec2f6bdce6265eda21f774fb367fae56f43a",
+      "resolved_source": "COMMUNITY",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "src/routes/community-lab/recovery/+page.svelte",
+      "main_sha": null,
+      "wep_sha": "cfb3774222e291e378afbfcae5e6bfd509f5edb2",
+      "community_sha": "cfb3774222e291e378afbfcae5e6bfd509f5edb2",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "cfb3774222e291e378afbfcae5e6bfd509f5edb2",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "src/routes/community-ops/+page.svelte",
+      "main_sha": null,
+      "wep_sha": "97840b5b1eed9c29a446390039ea87515da8f6c4",
+      "community_sha": "369afecede21cdfb61bd874c4dd9d3ddadca8d6e",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "TAKE_ACCEPTED_COMMUNITY_CHECKPOINT",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "369afecede21cdfb61bd874c4dd9d3ddadca8d6e",
+      "resolved_source": "COMMUNITY",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "static/ddv/core/roadfence/v1.25/persistent-compiler-v125.json",
+      "main_sha": "69a94be143aabad1a143f73c94cca403f899f7ec",
+      "wep_sha": "69a94be143aabad1a143f73c94cca403f899f7ec",
+      "community_sha": null,
+      "semantic_owner": "MAIN / CORE",
+      "resolution_policy": "KEEP_CURRENT_MAIN_PROMOTED_CORE",
+      "retained_behavior": "Latest promoted current-main Core/save/version/Road-Fence behavior.",
+      "discarded_or_superseded_behavior": "Older branch-local Core copies.",
+      "regression_tests_required": [
+        "Core/save contract regression",
+        "Road/Fence compiler + transaction regression"
+      ],
+      "resolved_sha": "69a94be143aabad1a143f73c94cca403f899f7ec",
+      "resolved_source": "MAIN",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "static/ddv/core/roadfence/v1.25/persistent-supported-matrix-v125.json",
+      "main_sha": "84f338b50896fc226c0b18705f7267017051f9f9",
+      "wep_sha": "84f338b50896fc226c0b18705f7267017051f9f9",
+      "community_sha": null,
+      "semantic_owner": "MAIN / CORE",
+      "resolution_policy": "KEEP_CURRENT_MAIN_PROMOTED_CORE",
+      "retained_behavior": "Latest promoted current-main Core/save/version/Road-Fence behavior.",
+      "discarded_or_superseded_behavior": "Older branch-local Core copies.",
+      "regression_tests_required": [
+        "Core/save contract regression",
+        "Road/Fence compiler + transaction regression"
+      ],
+      "resolved_sha": "84f338b50896fc226c0b18705f7267017051f9f9",
+      "resolved_source": "MAIN",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "static/ddv/core/roadfence/v1.25/persistent-transaction-binding-v125.json",
+      "main_sha": "cde4e92b3d6a333a868538a889e5644b31e4a2b3",
+      "wep_sha": "cde4e92b3d6a333a868538a889e5644b31e4a2b3",
+      "community_sha": null,
+      "semantic_owner": "MAIN / CORE",
+      "resolution_policy": "KEEP_CURRENT_MAIN_PROMOTED_CORE",
+      "retained_behavior": "Latest promoted current-main Core/save/version/Road-Fence behavior.",
+      "discarded_or_superseded_behavior": "Older branch-local Core copies.",
+      "regression_tests_required": [
+        "Core/save contract regression",
+        "Road/Fence compiler + transaction regression"
+      ],
+      "resolved_sha": "cde4e92b3d6a333a868538a889e5644b31e4a2b3",
+      "resolved_source": "MAIN",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "static/ddv/core/save/v1.25/roadfence-structural-transaction-extension-request-v125.json",
+      "main_sha": "1db698d58c2b03c7b88e2530cfa981c66f456411",
+      "wep_sha": "1db698d58c2b03c7b88e2530cfa981c66f456411",
+      "community_sha": null,
+      "semantic_owner": "MAIN / CORE",
+      "resolution_policy": "KEEP_CURRENT_MAIN_PROMOTED_CORE",
+      "retained_behavior": "Latest promoted current-main Core/save/version/Road-Fence behavior.",
+      "discarded_or_superseded_behavior": "Older branch-local Core copies.",
+      "regression_tests_required": [
+        "Core/save contract regression",
+        "Road/Fence compiler + transaction regression"
+      ],
+      "resolved_sha": "1db698d58c2b03c7b88e2530cfa981c66f456411",
+      "resolved_source": "MAIN",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "static/ddv/core/save/v1.25/transaction-foundation-v125.json",
+      "main_sha": "17c3dc25914c159edbb51bbf2cc6bd6b04faea3a",
+      "wep_sha": "17c3dc25914c159edbb51bbf2cc6bd6b04faea3a",
+      "community_sha": "3c441b7f4c64e8b3af56c01a8d252bf8b4e68c46",
+      "semantic_owner": "MAIN / CORE",
+      "resolution_policy": "KEEP_CURRENT_MAIN_PROMOTED_CORE",
+      "retained_behavior": "Latest promoted current-main Core/save/version/Road-Fence behavior.",
+      "discarded_or_superseded_behavior": "Older branch-local Core copies.",
+      "regression_tests_required": [
+        "Core/save contract regression",
+        "Road/Fence compiler + transaction regression"
+      ],
+      "resolved_sha": "17c3dc25914c159edbb51bbf2cc6bd6b04faea3a",
+      "resolved_source": "MAIN",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/config.toml",
+      "main_sha": null,
+      "wep_sha": "c581b62f79e2c2b1c3322063c777c1b664dbaba3",
+      "community_sha": "47e052cedf735548d88f6cc5193978fd95c58cce",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "TAKE_ACCEPTED_COMMUNITY_CHECKPOINT",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "47e052cedf735548d88f6cc5193978fd95c58cce",
+      "resolved_source": "COMMUNITY",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/functions/community-account/deno.json",
+      "main_sha": null,
+      "wep_sha": "3330a0cb91e661bb049dba3b26f1d1d1b6c1139c",
+      "community_sha": "3330a0cb91e661bb049dba3b26f1d1d1b6c1139c",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "3330a0cb91e661bb049dba3b26f1d1d1b6c1139c",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/functions/community-account/index.ts",
+      "main_sha": null,
+      "wep_sha": "fcdaa22e92fee23f4258859ac724270909410a61",
+      "community_sha": "fcdaa22e92fee23f4258859ac724270909410a61",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "fcdaa22e92fee23f4258859ac724270909410a61",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/functions/community-admin/deno.json",
+      "main_sha": null,
+      "wep_sha": "3330a0cb91e661bb049dba3b26f1d1d1b6c1139c",
+      "community_sha": "3330a0cb91e661bb049dba3b26f1d1d1b6c1139c",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "3330a0cb91e661bb049dba3b26f1d1d1b6c1139c",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/functions/community-admin/index.ts",
+      "main_sha": null,
+      "wep_sha": "a1ff821b77cfdef784320ea00e7b2aa109e707dc",
+      "community_sha": "12247086d84322aae0d49c398ab58e4f4976c191",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "TAKE_ACCEPTED_COMMUNITY_CHECKPOINT",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "12247086d84322aae0d49c398ab58e4f4976c191",
+      "resolved_source": "COMMUNITY",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/functions/community-auth/deno.json",
+      "main_sha": null,
+      "wep_sha": "3330a0cb91e661bb049dba3b26f1d1d1b6c1139c",
+      "community_sha": "3330a0cb91e661bb049dba3b26f1d1d1b6c1139c",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "3330a0cb91e661bb049dba3b26f1d1d1b6c1139c",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/functions/community-auth/index.ts",
+      "main_sha": null,
+      "wep_sha": "7fab48ae641121cc3e1edd837fef28502ba080a0",
+      "community_sha": "7fab48ae641121cc3e1edd837fef28502ba080a0",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "7fab48ae641121cc3e1edd837fef28502ba080a0",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/functions/community-command/deno.json",
+      "main_sha": null,
+      "wep_sha": "be1ae73a4c11808880e99305d2a0353cbcada102",
+      "community_sha": "be1ae73a4c11808880e99305d2a0353cbcada102",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "be1ae73a4c11808880e99305d2a0353cbcada102",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/functions/community-command/index.ts",
+      "main_sha": null,
+      "wep_sha": "8572e0b76597e80e9551ca7c4bb831d62bf30f59",
+      "community_sha": "7ba8913071d31f429be65f5fd39201a236c8fa69",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "TAKE_ACCEPTED_COMMUNITY_CHECKPOINT",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "7ba8913071d31f429be65f5fd39201a236c8fa69",
+      "resolved_source": "COMMUNITY",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/functions/community-email-resend/index.ts",
+      "main_sha": null,
+      "wep_sha": "470a7d9daa2f383035948b284f4e702d9adab4fd",
+      "community_sha": "0e23a464daa6e9d6674e609e1bc03c84aac5147f",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "TAKE_ACCEPTED_COMMUNITY_CHECKPOINT",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "0e23a464daa6e9d6674e609e1bc03c84aac5147f",
+      "resolved_source": "COMMUNITY",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/functions/community-media/deno.json",
+      "main_sha": null,
+      "wep_sha": "be1ae73a4c11808880e99305d2a0353cbcada102",
+      "community_sha": "be1ae73a4c11808880e99305d2a0353cbcada102",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "be1ae73a4c11808880e99305d2a0353cbcada102",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/functions/community-media/index.ts",
+      "main_sha": null,
+      "wep_sha": "89e7d5142e879171113db214dae133b4a93aeb6e",
+      "community_sha": "7ea8408f051ca154e2a7765631d73916ecddbd9a",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "TAKE_ACCEPTED_COMMUNITY_CHECKPOINT",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "7ea8408f051ca154e2a7765631d73916ecddbd9a",
+      "resolved_source": "COMMUNITY",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/functions/community-ops-email/deno.json",
+      "main_sha": null,
+      "wep_sha": "e4926e6b59ffa33ca7e83a8522a83c034d3b8b28",
+      "community_sha": "e4926e6b59ffa33ca7e83a8522a83c034d3b8b28",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "e4926e6b59ffa33ca7e83a8522a83c034d3b8b28",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/functions/community-ops-email/index.ts",
+      "main_sha": null,
+      "wep_sha": "34f490bdc77ce65bc104d60d3448a39f39330672",
+      "community_sha": "bf068f69a9f1c93a57016c326cb28a08541e283d",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "TAKE_ACCEPTED_COMMUNITY_CHECKPOINT",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "bf068f69a9f1c93a57016c326cb28a08541e283d",
+      "resolved_source": "COMMUNITY",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/functions/community-ops-escalation/deno.json",
+      "main_sha": null,
+      "wep_sha": "e4926e6b59ffa33ca7e83a8522a83c034d3b8b28",
+      "community_sha": "e4926e6b59ffa33ca7e83a8522a83c034d3b8b28",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "e4926e6b59ffa33ca7e83a8522a83c034d3b8b28",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/functions/community-ops-escalation/index.ts",
+      "main_sha": null,
+      "wep_sha": "34f490bdc77ce65bc104d60d3448a39f39330672",
+      "community_sha": "00df30cbef7902937c90071ee62c0d267ddbbdd4",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "TAKE_ACCEPTED_COMMUNITY_CHECKPOINT",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "00df30cbef7902937c90071ee62c0d267ddbbdd4",
+      "resolved_source": "COMMUNITY",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/functions/community-query/deno.json",
+      "main_sha": null,
+      "wep_sha": "be1ae73a4c11808880e99305d2a0353cbcada102",
+      "community_sha": "be1ae73a4c11808880e99305d2a0353cbcada102",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "be1ae73a4c11808880e99305d2a0353cbcada102",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/functions/community-query/index.ts",
+      "main_sha": null,
+      "wep_sha": "539acf41ba66cda8f104722f2e79f28fe3990810",
+      "community_sha": "58e4da09db85fd7fe9721be1e869850fa015ea1e",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "TAKE_ACCEPTED_COMMUNITY_CHECKPOINT",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "58e4da09db85fd7fe9721be1e869850fa015ea1e",
+      "resolved_source": "COMMUNITY",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/functions/community-retention/deno.json",
+      "main_sha": null,
+      "wep_sha": "3330a0cb91e661bb049dba3b26f1d1d1b6c1139c",
+      "community_sha": "3330a0cb91e661bb049dba3b26f1d1d1b6c1139c",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "3330a0cb91e661bb049dba3b26f1d1d1b6c1139c",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/functions/community-retention/index.ts",
+      "main_sha": null,
+      "wep_sha": "c8d52af1c76c556f04118726dbacfd9e56ba680b",
+      "community_sha": "d6b3734f30d262c40768274cc522ea27ab64903d",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "TAKE_ACCEPTED_COMMUNITY_CHECKPOINT",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "d6b3734f30d262c40768274cc522ea27ab64903d",
+      "resolved_source": "COMMUNITY",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/202609300001_community_core_v0.sql",
+      "main_sha": null,
+      "wep_sha": "4be2e65544110035f1846d91ecd8fa3c1c5f5fc7",
+      "community_sha": "4be2e65544110035f1846d91ecd8fa3c1c5f5fc7",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "4be2e65544110035f1846d91ecd8fa3c1c5f5fc7",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930024950_community_core_v0_advisor_hardening.sql",
+      "main_sha": null,
+      "wep_sha": "723d7d159a1aa2c9366155479d2ab083fb3a78db",
+      "community_sha": "723d7d159a1aa2c9366155479d2ab083fb3a78db",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "723d7d159a1aa2c9366155479d2ab083fb3a78db",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930025040_community_core_v0_query_boundary.sql",
+      "main_sha": null,
+      "wep_sha": "a86c22d02e3c7331c28a9b064df57fc35b669db2",
+      "community_sha": "a86c22d02e3c7331c28a9b064df57fc35b669db2",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "a86c22d02e3c7331c28a9b064df57fc35b669db2",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930025132_community_core_v0_server_rpc.sql",
+      "main_sha": null,
+      "wep_sha": "bbf9bc830440d964c5da8b3c3cac7e926d281881",
+      "community_sha": "bbf9bc830440d964c5da8b3c3cac7e926d281881",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "bbf9bc830440d964c5da8b3c3cac7e926d281881",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930025210_community_core_v0_rpc_pgcrypto_path.sql",
+      "main_sha": null,
+      "wep_sha": "97c9259f96bb2854c1c5ece0081da4cecfcb0080",
+      "community_sha": "97c9259f96bb2854c1c5ece0081da4cecfcb0080",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "97c9259f96bb2854c1c5ece0081da4cecfcb0080",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930025920_community_core_v0_notifications.sql",
+      "main_sha": null,
+      "wep_sha": "4c62f16cbb61963afe52dfbd34aa4a48d2dc69f9",
+      "community_sha": "4c62f16cbb61963afe52dfbd34aa4a48d2dc69f9",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "4c62f16cbb61963afe52dfbd34aa4a48d2dc69f9",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930030035_community_core_v0_notification_fanout_fix.sql",
+      "main_sha": null,
+      "wep_sha": "e8c439412724acd24fc057eed24ce0e8e711dae2",
+      "community_sha": "e8c439412724acd24fc057eed24ce0e8e711dae2",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "e8c439412724acd24fc057eed24ce0e8e711dae2",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930030220_community_core_v0_notification_counter_fix.sql",
+      "main_sha": null,
+      "wep_sha": "1ad8fa92049e1802cd6fda6414b1e50845f3563a",
+      "community_sha": "1ad8fa92049e1802cd6fda6414b1e50845f3563a",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "1ad8fa92049e1802cd6fda6414b1e50845f3563a",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930031310_community_core_v0_query_rpc.sql",
+      "main_sha": null,
+      "wep_sha": "349d4b6126f6728ed121c819723b9bc9b679f844",
+      "community_sha": "349d4b6126f6728ed121c819723b9bc9b679f844",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "349d4b6126f6728ed121c819723b9bc9b679f844",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930032010_community_core_v0_outbox_cron.sql",
+      "main_sha": null,
+      "wep_sha": "67cae30567414397a1f005d739fb87a479fa29a4",
+      "community_sha": "67cae30567414397a1f005d739fb87a479fa29a4",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "67cae30567414397a1f005d739fb87a479fa29a4",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930033110_community_core_v0_media_publish_v2.sql",
+      "main_sha": null,
+      "wep_sha": "6ea89f15153b1b8a19fdd6ca83fa73b0ca548988",
+      "community_sha": "6ea89f15153b1b8a19fdd6ca83fa73b0ca548988",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "6ea89f15153b1b8a19fdd6ca83fa73b0ca548988",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930033415_community_core_v0_media_query.sql",
+      "main_sha": null,
+      "wep_sha": "e6b71f2a33dea587ce43ebf5e6a3f265ff95f53b",
+      "community_sha": "e6b71f2a33dea587ce43ebf5e6a3f265ff95f53b",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "e6b71f2a33dea587ce43ebf5e6a3f265ff95f53b",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930034330_community_core_v0_revision_sealing.sql",
+      "main_sha": null,
+      "wep_sha": "c08ed3a7d8f863fc82909daa4b5126f17002f297",
+      "community_sha": "c08ed3a7d8f863fc82909daa4b5126f17002f297",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "c08ed3a7d8f863fc82909daa4b5126f17002f297",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930035240_community_core_v0_preset_bridge.sql",
+      "main_sha": null,
+      "wep_sha": "3608f2145d6d38a7ef6185513fee9ad3a82d844c",
+      "community_sha": "3608f2145d6d38a7ef6185513fee9ad3a82d844c",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "3608f2145d6d38a7ef6185513fee9ad3a82d844c",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930041000_community_core_v0_author_lifecycle.sql",
+      "main_sha": null,
+      "wep_sha": "40300db65c9e3aa29c16ec1288f36251988ce33d",
+      "community_sha": "40300db65c9e3aa29c16ec1288f36251988ce33d",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "40300db65c9e3aa29c16ec1288f36251988ce33d",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930041800_community_core_v0_outbox_resilience.sql",
+      "main_sha": null,
+      "wep_sha": "a842c7b4b9b48e0f4afde0f0c7edcf4d08a7566e",
+      "community_sha": "a842c7b4b9b48e0f4afde0f0c7edcf4d08a7566e",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "a842c7b4b9b48e0f4afde0f0c7edcf4d08a7566e",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930043000_community_core_v0_remove_legacy_publish_rpcs.sql",
+      "main_sha": null,
+      "wep_sha": "2185af01a08a379c5955f058d8b886fdbeea8cf6",
+      "community_sha": "2185af01a08a379c5955f058d8b886fdbeea8cf6",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "2185af01a08a379c5955f058d8b886fdbeea8cf6",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930044500_community_core_v0_creator_profile_update.sql",
+      "main_sha": null,
+      "wep_sha": "80d6eecb22cb91c3d462c75c55634897150a17f4",
+      "community_sha": "80d6eecb22cb91c3d462c75c55634897150a17f4",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "80d6eecb22cb91c3d462c75c55634897150a17f4",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930050000_community_core_v0_interaction_removals.sql",
+      "main_sha": null,
+      "wep_sha": "94000414343db85b428fda4281d396e6b37fe923",
+      "community_sha": "94000414343db85b428fda4281d396e6b37fe923",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "94000414343db85b428fda4281d396e6b37fe923",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930051500_community_core_v0_dead_letter_operations.sql",
+      "main_sha": null,
+      "wep_sha": "dd9aff88293046345000acb98c3b37915d8149db",
+      "community_sha": "dd9aff88293046345000acb98c3b37915d8149db",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "dd9aff88293046345000acb98c3b37915d8149db",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930063000_community_core_v0_account_recovery.sql",
+      "main_sha": null,
+      "wep_sha": "74f300a44621ffb7248775aec6424455462fe47c",
+      "community_sha": "74f300a44621ffb7248775aec6424455462fe47c",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "74f300a44621ffb7248775aec6424455462fe47c",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930064000_community_core_v0_account_recovery_indexes.sql",
+      "main_sha": null,
+      "wep_sha": "9c5155bf12abb205cb26dea85cf160ab08f48298",
+      "community_sha": "9c5155bf12abb205cb26dea85cf160ab08f48298",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "9c5155bf12abb205cb26dea85cf160ab08f48298",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930070000_community_core_v0_session_cutoff.sql",
+      "main_sha": null,
+      "wep_sha": "283d779400f20812d2a5bd5e4c11dc5f5614f0e2",
+      "community_sha": "283d779400f20812d2a5bd5e4c11dc5f5614f0e2",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "283d779400f20812d2a5bd5e4c11dc5f5614f0e2",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930073000_community_core_v0_account_tombstone.sql",
+      "main_sha": null,
+      "wep_sha": "ac9984ec2e2aeee58ce2d5cd2f6c9959f2f02251",
+      "community_sha": "ac9984ec2e2aeee58ce2d5cd2f6c9959f2f02251",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "ac9984ec2e2aeee58ce2d5cd2f6c9959f2f02251",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930073200_community_core_v0_account_tombstone_generated_handle_fix.sql",
+      "main_sha": null,
+      "wep_sha": "f8c0f30e6994110b1adebcfa397a674131d3810c",
+      "community_sha": "f8c0f30e6994110b1adebcfa397a674131d3810c",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "f8c0f30e6994110b1adebcfa397a674131d3810c",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930074000_community_core_v0_provider_cleanup_queue.sql",
+      "main_sha": null,
+      "wep_sha": "c08c19b64f719cd6a63d9f30378339599b194afb",
+      "community_sha": "c08c19b64f719cd6a63d9f30378339599b194afb",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "c08c19b64f719cd6a63d9f30378339599b194afb",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930074200_community_core_v0_account_tombstone_provider_job.sql",
+      "main_sha": null,
+      "wep_sha": "2a1a77530d4e68fdd80923e6aba968911a68b86c",
+      "community_sha": "2a1a77530d4e68fdd80923e6aba968911a68b86c",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "2a1a77530d4e68fdd80923e6aba968911a68b86c",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930074500_community_core_v0_provider_cleanup_worker_queue.sql",
+      "main_sha": null,
+      "wep_sha": "ed647b74e2df7c506de4ffb24705d00eb71ae965",
+      "community_sha": "ed647b74e2df7c506de4ffb24705d00eb71ae965",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "ed647b74e2df7c506de4ffb24705d00eb71ae965",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930075000_community_core_v0_admin_operations.sql",
+      "main_sha": null,
+      "wep_sha": "5e6ba477c1e14ab842b0e2b87a4c3c15a918e50e",
+      "community_sha": "5e6ba477c1e14ab842b0e2b87a4c3c15a918e50e",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "5e6ba477c1e14ab842b0e2b87a4c3c15a918e50e",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930075500_community_core_v0_session_bound_recent_auth.sql",
+      "main_sha": null,
+      "wep_sha": "eab89eb8a1872ab1e63e276e7a5ba4cd7df6a163",
+      "community_sha": "eab89eb8a1872ab1e63e276e7a5ba4cd7df6a163",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "eab89eb8a1872ab1e63e276e7a5ba4cd7df6a163",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930080000_community_core_v0_provider_cleanup_scheduler_auth.sql",
+      "main_sha": null,
+      "wep_sha": "5f97e8f2db847f70d0cf50c63ad064b1357fdbd5",
+      "community_sha": "5f97e8f2db847f70d0cf50c63ad064b1357fdbd5",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "5f97e8f2db847f70d0cf50c63ad064b1357fdbd5",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930080500_community_core_v0_provider_cleanup_scheduler_setup.sql",
+      "main_sha": null,
+      "wep_sha": "bfefec90c37cdc89e059d20ea9ac769eda81b426",
+      "community_sha": "bfefec90c37cdc89e059d20ea9ac769eda81b426",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "bfefec90c37cdc89e059d20ea9ac769eda81b426",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930081000_community_core_v0_operations_alerts.sql",
+      "main_sha": null,
+      "wep_sha": "1e2bd1955cc148a1e6e72b7cd7bd745356351aa6",
+      "community_sha": "1e2bd1955cc148a1e6e72b7cd7bd745356351aa6",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "1e2bd1955cc148a1e6e72b7cd7bd745356351aa6",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930081500_community_core_v0_safe_identity_bootstrap.sql",
+      "main_sha": null,
+      "wep_sha": "5162163e266ac6ef89dcab526c22f05c2a1ec02a",
+      "community_sha": "5162163e266ac6ef89dcab526c22f05c2a1ec02a",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "5162163e266ac6ef89dcab526c22f05c2a1ec02a",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930081600_community_core_v0_support_recovery_verification.sql",
+      "main_sha": null,
+      "wep_sha": "a10bffbfb6891fe7eee747af0cc43b01ab8a5d90",
+      "community_sha": "a10bffbfb6891fe7eee747af0cc43b01ab8a5d90",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "a10bffbfb6891fe7eee747af0cc43b01ab8a5d90",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930082000_community_core_v0_retention_policy.sql",
+      "main_sha": null,
+      "wep_sha": "c56c115be66c7c9bf7c6a1121b28ce5916f231b4",
+      "community_sha": "c56c115be66c7c9bf7c6a1121b28ce5916f231b4",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "c56c115be66c7c9bf7c6a1121b28ce5916f231b4",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930082100_community_core_v0_retention_redaction_bypass.sql",
+      "main_sha": null,
+      "wep_sha": "86cb3ad6e0b8d9949cfd17eaa5f22952a628d4ae",
+      "community_sha": "86cb3ad6e0b8d9949cfd17eaa5f22952a628d4ae",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "86cb3ad6e0b8d9949cfd17eaa5f22952a628d4ae",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930082200_community_core_v0_retention_operational_redaction.sql",
+      "main_sha": null,
+      "wep_sha": "b5cc18f73f80ea1cc3b0dc6f32876d1c59e7d19e",
+      "community_sha": "b5cc18f73f80ea1cc3b0dc6f32876d1c59e7d19e",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "b5cc18f73f80ea1cc3b0dc6f32876d1c59e7d19e",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930082300_community_core_v0_retention_scheduler.sql",
+      "main_sha": null,
+      "wep_sha": "25b5d3e10c8a37f879f42d4aafcf65446f4e1563",
+      "community_sha": "25b5d3e10c8a37f879f42d4aafcf65446f4e1563",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "25b5d3e10c8a37f879f42d4aafcf65446f4e1563",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930082400_community_core_v0_retention_operations.sql",
+      "main_sha": null,
+      "wep_sha": "95251a5a25e0847385e709685e7976b3e2ce5c0c",
+      "community_sha": "95251a5a25e0847385e709685e7976b3e2ce5c0c",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "95251a5a25e0847385e709685e7976b3e2ce5c0c",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930082500_community_core_v0_artifact_retention_finalize.sql",
+      "main_sha": null,
+      "wep_sha": "24c64349b338143a9ecd5559b914112caaf176c5",
+      "community_sha": "24c64349b338143a9ecd5559b914112caaf176c5",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "24c64349b338143a9ecd5559b914112caaf176c5",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930104856_community_core_v0_external_operations_escalation.sql",
+      "main_sha": null,
+      "wep_sha": "1150e85a78556675abcc0cacc9d1a55384b8930f",
+      "community_sha": "1150e85a78556675abcc0cacc9d1a55384b8930f",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "1150e85a78556675abcc0cacc9d1a55384b8930f",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930105934_community_core_v0_external_operations_escalation_ops.sql",
+      "main_sha": null,
+      "wep_sha": "250be10834dc4b17ce38de5897917ba68e7309b8",
+      "community_sha": "250be10834dc4b17ce38de5897917ba68e7309b8",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "250be10834dc4b17ce38de5897917ba68e7309b8",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930112155_community_core_v0_operator_email_channel.sql",
+      "main_sha": null,
+      "wep_sha": "c3f10ff15391e7a3dc3f7aff8dfb67239ebf4a52",
+      "community_sha": "c3f10ff15391e7a3dc3f7aff8dfb67239ebf4a52",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "c3f10ff15391e7a3dc3f7aff8dfb67239ebf4a52",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930112416_community_core_v0_operator_email_worker.sql",
+      "main_sha": null,
+      "wep_sha": "3415b36fb7ae176f1c9be3ffd5420adff8f44595",
+      "community_sha": "3415b36fb7ae176f1c9be3ffd5420adff8f44595",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "3415b36fb7ae176f1c9be3ffd5420adff8f44595",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930113435_community_core_v0_recent_auth_launch_defaults.sql",
+      "main_sha": null,
+      "wep_sha": "59c8fed16b9c091cacd3cb29dc849e6fceadd51d",
+      "community_sha": "59c8fed16b9c091cacd3cb29dc849e6fceadd51d",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "59c8fed16b9c091cacd3cb29dc849e6fceadd51d",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930114310_community_core_v0_public_search.sql",
+      "main_sha": null,
+      "wep_sha": "70ab98552244ddad7501237a83b836a8308514a1",
+      "community_sha": "70ab98552244ddad7501237a83b836a8308514a1",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "70ab98552244ddad7501237a83b836a8308514a1",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930115623_community_core_v0_fk_index_hardening.sql",
+      "main_sha": null,
+      "wep_sha": "13461368407ed6bd367b6091689e80663db0e71c",
+      "community_sha": "13461368407ed6bd367b6091689e80663db0e71c",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "13461368407ed6bd367b6091689e80663db0e71c",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930120042_community_core_v0_moderation_operations.sql",
+      "main_sha": null,
+      "wep_sha": "9cf5d1e7c0da23fcfe050b9a7bb5fa1afb1816cf",
+      "community_sha": "9cf5d1e7c0da23fcfe050b9a7bb5fa1afb1816cf",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "9cf5d1e7c0da23fcfe050b9a7bb5fa1afb1816cf",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930122716_community_core_v0_action_rate_limits.sql",
+      "main_sha": null,
+      "wep_sha": "610343b6f834bf1076bce05ba94f1a9751ca3937",
+      "community_sha": "610343b6f834bf1076bce05ba94f1a9751ca3937",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "610343b6f834bf1076bce05ba94f1a9751ca3937",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/migrations/20260930123148_community_core_v0_action_rate_limit_fk_index.sql",
+      "main_sha": null,
+      "wep_sha": "c003f95c41524fcbc32718d49c047640604d4f20",
+      "community_sha": "c003f95c41524fcbc32718d49c047640604d4f20",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "c003f95c41524fcbc32718d49c047640604d4f20",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/staging/20260930032500_community_media_bucket.sql",
+      "main_sha": null,
+      "wep_sha": "dda5b1a1c32c07107b21b82e30c6167139eaca3c",
+      "community_sha": "dda5b1a1c32c07107b21b82e30c6167139eaca3c",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "dda5b1a1c32c07107b21b82e30c6167139eaca3c",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/staging/20260930035820_community_staging_pg_net.sql",
+      "main_sha": null,
+      "wep_sha": "90c196ff11249bb33c17c75f0a146046a30ea774",
+      "community_sha": "90c196ff11249bb33c17c75f0a146046a30ea774",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "90c196ff11249bb33c17c75f0a146046a30ea774",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "supabase/staging/20260930040500_community_staging_remove_pg_net.sql",
+      "main_sha": null,
+      "wep_sha": "a67cf01c3a18fd2c6477ef92903eee2a6c9202b9",
+      "community_sha": "a67cf01c3a18fd2c6477ef92903eee2a6c9202b9",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "a67cf01c3a18fd2c6477ef92903eee2a6c9202b9",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "tests/community-core-contract.test.mjs",
+      "main_sha": null,
+      "wep_sha": "5827605f5083cb886e17b726023b8040086edf62",
+      "community_sha": "0246e99e0d251e35415207f84218fb97ab83a44f",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "TAKE_ACCEPTED_COMMUNITY_CHECKPOINT",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "0246e99e0d251e35415207f84218fb97ab83a44f",
+      "resolved_source": "COMMUNITY",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "tests/community-vertical-slice.test.mjs",
+      "main_sha": null,
+      "wep_sha": "c7e831d675521b27fc170b0eb6fff13671b803f1",
+      "community_sha": "c7e831d675521b27fc170b0eb6fff13671b803f1",
+      "semantic_owner": "COMMUNITY",
+      "resolution_policy": "IDENTICAL_BRANCH_COPY_RETAIN_ONCE",
+      "retained_behavior": "Accepted Community backend/browser/domain semantics from integration/community-current-20261003.",
+      "discarded_or_superseded_behavior": "Older WEP-lineage Community copies where content differs.",
+      "regression_tests_required": [
+        "Community backend contract tests",
+        "Community integrated-tree/operations preflight"
+      ],
+      "resolved_sha": "c7e831d675521b27fc170b0eb6fff13671b803f1",
+      "resolved_source": "WEP",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "tests/ddv-fence-representation-layout-v125.test.mjs",
+      "main_sha": "242a560e27a7280d394af9b1d6a1f758942006e3",
+      "wep_sha": "242a560e27a7280d394af9b1d6a1f758942006e3",
+      "community_sha": null,
+      "semantic_owner": "MAIN / CORE",
+      "resolution_policy": "KEEP_CURRENT_MAIN_PROMOTED_CORE",
+      "retained_behavior": "Latest promoted current-main Core/save/version/Road-Fence behavior.",
+      "discarded_or_superseded_behavior": "Older branch-local Core copies.",
+      "regression_tests_required": [
+        "Core/save contract regression",
+        "Road/Fence compiler + transaction regression"
+      ],
+      "resolved_sha": "242a560e27a7280d394af9b1d6a1f758942006e3",
+      "resolved_source": "MAIN",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "tests/ddv-roadfence-persistent-compiler-v125.test.mjs",
+      "main_sha": "5b1cf7e935bbb2156b2f7f49749054652f5ff619",
+      "wep_sha": "5b1cf7e935bbb2156b2f7f49749054652f5ff619",
+      "community_sha": null,
+      "semantic_owner": "MAIN / CORE",
+      "resolution_policy": "KEEP_CURRENT_MAIN_PROMOTED_CORE",
+      "retained_behavior": "Latest promoted current-main Core/save/version/Road-Fence behavior.",
+      "discarded_or_superseded_behavior": "Older branch-local Core copies.",
+      "regression_tests_required": [
+        "Core/save contract regression",
+        "Road/Fence compiler + transaction regression"
+      ],
+      "resolved_sha": "5b1cf7e935bbb2156b2f7f49749054652f5ff619",
+      "resolved_source": "MAIN",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "tests/ddv-roadfence-persistent-transaction-v125.test.mjs",
+      "main_sha": "9151bd43d57ee940fcc4831ac84e8bf4b9d1977c",
+      "wep_sha": "9151bd43d57ee940fcc4831ac84e8bf4b9d1977c",
+      "community_sha": null,
+      "semantic_owner": "MAIN / CORE",
+      "resolution_policy": "KEEP_CURRENT_MAIN_PROMOTED_CORE",
+      "retained_behavior": "Latest promoted current-main Core/save/version/Road-Fence behavior.",
+      "discarded_or_superseded_behavior": "Older branch-local Core copies.",
+      "regression_tests_required": [
+        "Core/save contract regression",
+        "Road/Fence compiler + transaction regression"
+      ],
+      "resolved_sha": "9151bd43d57ee940fcc4831ac84e8bf4b9d1977c",
+      "resolved_source": "MAIN",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "tests/ddv-save-structural-grid-object-set-v125.test.mjs",
+      "main_sha": "40fdf4178ab0447989a0bf3fa8e0c602697027f9",
+      "wep_sha": "40fdf4178ab0447989a0bf3fa8e0c602697027f9",
+      "community_sha": null,
+      "semantic_owner": "MAIN / CORE",
+      "resolution_policy": "KEEP_CURRENT_MAIN_PROMOTED_CORE",
+      "retained_behavior": "Latest promoted current-main Core/save/version/Road-Fence behavior.",
+      "discarded_or_superseded_behavior": "Older branch-local Core copies.",
+      "regression_tests_required": [
+        "Core/save contract regression",
+        "Road/Fence compiler + transaction regression"
+      ],
+      "resolved_sha": "40fdf4178ab0447989a0bf3fa8e0c602697027f9",
+      "resolved_source": "MAIN",
+      "resolution_status": "RESOLVED"
+    },
+    {
+      "path": "tests/helpers/ddv-roadfence-persistent-v125-fixtures.mjs",
+      "main_sha": "e3e5c2d4dbf09ce756770a13c8d0ac6192ca94a8",
+      "wep_sha": "e3e5c2d4dbf09ce756770a13c8d0ac6192ca94a8",
+      "community_sha": null,
+      "semantic_owner": "MAIN / CORE",
+      "resolution_policy": "KEEP_CURRENT_MAIN_PROMOTED_CORE",
+      "retained_behavior": "Latest promoted current-main Core/save/version/Road-Fence behavior.",
+      "discarded_or_superseded_behavior": "Older branch-local Core copies.",
+      "regression_tests_required": [
+        "Core/save contract regression",
+        "Road/Fence compiler + transaction regression"
+      ],
+      "resolved_sha": "e3e5c2d4dbf09ce756770a13c8d0ac6192ca94a8",
+      "resolved_source": "MAIN",
+      "resolution_status": "RESOLVED"
+    }
+  ],
+  "resolution": {
+    "status": "RESOLVED",
+    "resolvedAtHead": "49f4a8de5856e3a1c8abce909fffa0a1dba3469d",
+    "resolvedAt": "2026-10-04",
+    "sourceCounts": {
+      "MAIN": 25,
+      "WEP": 91,
+      "COMMUNITY": 23,
+      "COMPOSE": 3,
+      "MISSING": 0
+    },
+    "authoritativeSubsystems": {
+      "core_save_version_roadfence": "MAIN@870b2e2438a35b0b4dfc49c65a98b39e6a70dc26",
+      "wep_world_editor_preset_verified_export": "WEP@9229cc5b1df0d9cc77364647df0f0fd65973c07d",
+      "community_backend_browser_domain": "COMMUNITY@56a0164abcbfa179861d049a0e8cfba935e93473",
+      "shared_web": "Current MAIN / 08 WEB foundation retained; accepted CommunityNav and WEP/Community catalogs composed without forking locale runtime.",
+      "ci_package_pages": "COMPOSE: integrated superset.",
+      "community_client_wep_preset_transport": "COMPOSE: current Community client + WEP-owned wep-preset-artifact transport method."
+    },
+    "verification": {
+      "ciPushRun": 37153526768,
+      "ciPullRequestRun": 37153529981,
+      "tests": {
+        "total": 753,
+        "pass": 741,
+        "fail": 0,
+        "skippedFixtureDependent": 12
+      },
+      "svelte": {
+        "errors": 0,
+        "warnings": 3
+      },
+      "integratedTree": {
+        "ready": true,
+        "requireReady": true,
+        "migrations": 82
+      },
+      "staticBuild": "PASS",
+      "staticRoutes": "PASS",
+      "wepPrimaryJobBrowser": {
+        "run": 37152994789,
+        "status": "PASS",
+        "sourceRuntimeUnchangedAfterRun": true
+      },
+      "dreamsnapsSyntheticRollback": {
+        "status": "PASS",
+        "sqlBlobSha": "303ac5077fb98f17dd9a62744408721582beb04d",
+        "persistentFixtureCreated": false
+      },
+      "communityPublicBrowser": {
+        "run": 37153526808,
+        "status": "EXTERNAL_ENVIRONMENT_NOT_EXECUTED",
+        "reason": "GitHub Actions repository variables DREAMWISH_SUPABASE_URL / DREAMWISH_SUPABASE_PUBLISHABLE_KEY unavailable."
+      },
+      "galleryQaRollbackExtraAttempt": {
+        "status": "EXTERNAL_ENVIRONMENT",
+        "reason": "Staging execution role received PostgreSQL 42501 permission denied for community_get_gallery_public_v1; optional extra attempt only."
+      },
+      "secretConfigLeakage": "PASS via Community contract tests + operations/integrated-tree checks; no secret values captured."
+    },
+    "remainingFailureClassification": {
+      "PRODUCT_DEFECT": [],
+      "INTEGRATION_DEFECT": [],
+      "EXTERNAL_ENVIRONMENT": [
+        "Anonymous Gallery/Q&A public browser acceptance awaits GitHub Actions public Community repository variables.",
+        "R9 signed Gallery/Q&A fixed-head browser actor environment remains unavailable; actor bootstrap timeout is not a product failure."
+      ],
+      "MANUAL_ACCEPTANCE": [
+        "Production provisioning/restore/secret-rotation/security operations and external Privacy/Legal approvals remain R9/release-stage gates."
+      ],
+      "CONTENT_DATA": [
+        "DreamSnaps real launch-round acceptance requires eligible real launch data; synthetic/staging fixtures do not count.",
+        "Remaining launch seed/content acceptance remains owned by DBK/QR."
+      ]
+    }
+  }
+}

@@ -1,0 +1,557 @@
+{
+  "schema": "dreamwish-community-production-release-evidence@1",
+  "updatedAt": "2026-10-02",
+  "scope": "Community Core production launch",
+  "productionEvidenceMustComeFromDistinctProductionEnvironment": true,
+  "stagingProjectRef": "ptpdoxhrqopvczpclcij",
+  "productionProjectRef": null,
+  "launchReady": false,
+  "gates": [
+    {
+      "id": "COMMUNITY_PRIMARY_BROWSER_CLOSURE",
+      "required": true,
+      "satisfied": true,
+      "owner": "03 COMM",
+      "evidence": [
+        "docs/community/community-browser-acceptance-20261001.md",
+        "docs/community/community-closure-handoff-20261001.md"
+      ],
+      "classification": "already_closed"
+    },
+    {
+      "id": "PRESET_SCENE_REUSE_VERTICAL",
+      "required": true,
+      "satisfied": true,
+      "owner": "03 COMM + 02 WEP",
+      "evidence": [
+        "docs/community/wep-road-integration-acceptance-20261001.md"
+      ],
+      "classification": "already_closed",
+      "latestWepObservedHead": "ba55070f3c48df3bef9d1b12aaf056ed4978791a",
+      "integrationSensitiveRerunRequired": false,
+      "latestDeltaAssessment": "Compared 02ca57a8..ba55070f (13 commits): changes are WEP-only Building/full-design/Fence draft UX/read-model/write-authorization gates; no Community transport, publication envelope, signed-read, retention, or Preset Edge contract files changed."
+    },
+    {
+      "id": "PRESET_ARTIFACT_RETENTION_E2E",
+      "required": true,
+      "satisfied": true,
+      "owner": "03 COMM + 02 WEP",
+      "evidence": [
+        "docs/community/wep-preset-retention-integration-20260930.md"
+      ],
+      "classification": "already_closed"
+    },
+    {
+      "id": "WEP_PRESET_ARTIFACT_BUCKET_EXTERNALIZATION",
+      "required": true,
+      "satisfied": true,
+      "owner": "02 WEP",
+      "evidence": [
+        "dev/wep-v125@c396413dc349829bc91f89b397321de38b55a3ba",
+        "staging:wep-preset-artifact-v14",
+        "staging:wep-preset-retention-v6"
+      ],
+      "classification": "already_closed"
+    },
+    {
+      "id": "WEP_COMM_MIGRATION_BASELINE_CONSISTENCY",
+      "required": true,
+      "satisfied": true,
+      "owner": "03 COMM + 02 WEP",
+      "classification": "already_closed",
+      "evidence": [
+        "dev/wep-v125@3684939a5c147430e6c41bedc6620c9b6f030b6d",
+        "scripts/verify-community-integrated-production-tree.mjs"
+      ],
+      "detail": "WEP now preserves the Community 81600 support-recovery migration and keeps one-time pg_net SQL under supabase/staging while retaining all three WEP Preset production migrations."
+    },
+    {
+      "id": "WEP_PRESET_ARTIFACT_BUCKET_PRODUCTION_MIGRATION",
+      "required": true,
+      "satisfied": true,
+      "owner": "02 WEP",
+      "classification": "already_closed",
+      "evidence": [
+        "dev/wep-v125@f7236064ef9a4b623efabe1d9d75211af081cbcf",
+        "supabase/migrations/20260930124055_wep_preset_artifact_storage_v0.sql@099d7d4f6a653b1268596ab9a12d470e8b6760a2",
+        "supabase/staging/20260930124055_wep_preset_artifact_storage_bucket.sql@e3af6f5d019365f4dfc507d27e37a0b6810e2b16",
+        "scripts/verify-community-integrated-production-tree.mjs@006b02f70d2d99761a07f2eca62443e8609d720c"
+      ],
+      "detail": "Production migration provisioning is statically closed. Runtime Edge externalization remains unchanged; final fresh-target migration replay is a separate production-only gate."
+    },
+    {
+      "id": "AUTH_PROVIDER_14_15_BOUNDARY",
+      "required": true,
+      "satisfied": true,
+      "owner": "03 COMM",
+      "evidence": [
+        "docs/community/auth-provider-boundary-revocation-runtime-20261001.md",
+        "ops/community-auth-launch-review.json"
+      ],
+      "classification": "already_closed"
+    },
+    {
+      "id": "AUTH_PROVIDER_WAND_REVOCATION",
+      "required": true,
+      "satisfied": true,
+      "owner": "03 COMM",
+      "evidence": [
+        "docs/community/auth-provider-boundary-revocation-runtime-20261001.md",
+        "ops/community-auth-launch-review.json"
+      ],
+      "classification": "already_closed"
+    },
+    {
+      "id": "AUTH_SIGNED_IN_REAUTH_MAILBOX",
+      "required": true,
+      "satisfied": true,
+      "owner": "03 COMM",
+      "evidence": [
+        "docs/community/auth-final-mailbox-reauth-runbook-20261001.md",
+        "docs/community/auth-final-mailbox-reauth-runtime-20261001.md",
+        "ops/community-auth-launch-review.json"
+      ],
+      "classification": "already_closed",
+      "detail": "Representative real-mailbox signed-in reauthentication PASS: nonce-backed password update, provider global revoke, Wand old-JWT rejection, provider refresh rejection, and fresh sign-in/Community query all confirmed."
+    },
+    {
+      "id": "RETENTION_ENGINEERING_IMPLEMENTATION",
+      "required": true,
+      "satisfied": true,
+      "owner": "03 COMM",
+      "classification": "already_closed",
+      "evidence": [
+        "ops/community-retention-launch-review.json",
+        "ops/community-retention-approval-state.json",
+        "docs/community/retention-final-approval-packet-20261001.md",
+        "supabase/migrations/20261001122209_community_retention_operational_90d_single_stage.sql",
+        "ops/community-retention-policy-proposal.json"
+      ],
+      "detail": "Retention engineering is closed on 7-day content purge + single 90-day operational scrub. The temporary 365-day elevated tier is removed; D4 moderation/security/legal holds are the only exception path."
+    },
+    {
+      "id": "RETENTION_PRODUCT_PRIVACY_LEGAL_APPROVAL",
+      "required": true,
+      "satisfied": false,
+      "owner": "Product/Privacy/Legal",
+      "evidence": [
+        "ops/community-retention-launch-review.json",
+        "ops/community-retention-approval-state.json",
+        "docs/community/privacy-retention-launch-review-20261001.md",
+        "docs/community/retention-final-approval-packet-20261001.md",
+        "ops/community-retention-policy-proposal.json",
+        "docs/community/retention-policy-proposal-20261001.md",
+        "ops/community-deletion-disclosure-contract.json",
+        "docs/community/deletion-retention-disclosure-20261001.md",
+        "docs/community/retention-product-approval-record-20261002.md",
+        "ops/community-privacy-review-readiness-20261002.json",
+        "docs/community/privacy-review-readiness-20261002.md",
+        "docs/community/legal-review-packet-20261002.md"
+      ],
+      "pendingReason": "Product is APPROVED. Privacy is review-ready but has open Linked DDV Profile, minors/age and provider-binding decisions; Legal packet is complete but external Legal approval is still required. Combined approval remains open.",
+      "classification": "approval_pending"
+    },
+    {
+      "id": "STAGING_OPERATIONS_INVENTORY",
+      "required": false,
+      "satisfied": true,
+      "owner": "03 COMM",
+      "classification": "staging_only",
+      "evidence": [
+        "ops/community-staging-operations-observed-20261001.json",
+        "docs/community/staging-operations-inventory-20261001.md"
+      ],
+      "detail": "Useful staging evidence only; it cannot satisfy production-only launch gates."
+    },
+    {
+      "id": "DISTINCT_PRODUCTION_SUPABASE_PROJECT",
+      "required": true,
+      "satisfied": false,
+      "owner": "Release Operations",
+      "evidence": [
+        "ops/community-production-execution-checklist-20261002.json",
+        "docs/community/production-execution-runbook-20261002.md",
+        "ops/community-production-resource-decision-20261002.json",
+        "docs/community/production-resource-decision-20261002.md"
+      ],
+      "pendingReason": "Supabase Pro is owner-approved for release-stage provisioning, but the distinct production project has not yet been created.",
+      "classification": "production_only_pending"
+    },
+    {
+      "id": "FINAL_INTEGRATED_SOURCE_TREE",
+      "required": true,
+      "satisfied": false,
+      "owner": "Release Integration",
+      "evidence": [
+        "docs/community/final-integrated-production-tree-preflight-20261001.md",
+        "ops/community-production-execution-checklist-20261002.json",
+        "docs/community/production-execution-runbook-20261002.md"
+      ],
+      "pendingReason": "Execution plan is prepared, but final-integrated-main has not been built/accepted. Current Community/WEP branches remain separate.",
+      "classification": "cross_stream_pending"
+    },
+    {
+      "id": "FINAL_INTEGRATED_MIGRATION_REPLAY",
+      "required": true,
+      "satisfied": false,
+      "owner": "Release Operations",
+      "evidence": [
+        "docs/community/final-integrated-production-tree-preflight-20261001.md",
+        "ops/community-production-execution-checklist-20261002.json",
+        "docs/community/production-execution-runbook-20261002.md"
+      ],
+      "pendingReason": "Replay protocol is prepared, but execution requires the accepted final-integrated-main and a user-authorized fresh target.",
+      "classification": "production_only_pending"
+    },
+    {
+      "id": "DATABASE_BACKUP_MECHANISM",
+      "required": true,
+      "satisfied": false,
+      "owner": "Release Operations",
+      "evidence": [
+        "ops/community-production-execution-checklist-20261002.json",
+        "docs/community/production-execution-runbook-20261002.md",
+        "ops/community-production-resource-decision-20261002.json",
+        "docs/community/production-resource-decision-20261002.md"
+      ],
+      "pendingReason": "Supabase Pro managed daily DB backup is selected for launch, but no production project/backup instance exists yet and runtime proof is pending.",
+      "classification": "production_only_pending"
+    },
+    {
+      "id": "DATABASE_RESTORE_DRILL",
+      "required": true,
+      "satisfied": false,
+      "owner": "Release Operations",
+      "evidence": [
+        "ops/community-backup-privacy-contract.json",
+        "docs/community/production-operations-backup-recovery-20261001.md",
+        "ops/community-production-execution-checklist-20261002.json",
+        "docs/community/production-execution-runbook-20261002.md",
+        "ops/community-production-resource-decision-20261002.json",
+        "docs/community/production-resource-decision-20261002.md"
+      ],
+      "pendingReason": "Quarantine-first restore protocol is prepared; actual production backup mechanism and drill remain pending.",
+      "classification": "production_only_pending"
+    },
+    {
+      "id": "STORAGE_BACKUP_MECHANISM",
+      "required": true,
+      "satisfied": false,
+      "owner": "Release Operations",
+      "evidence": [
+        "ops/community-production-execution-checklist-20261002.json",
+        "docs/community/production-execution-runbook-20261002.md",
+        "ops/community-production-resource-decision-20261002.json",
+        "docs/community/production-resource-decision-20261002.md"
+      ],
+      "pendingReason": "Cloudflare R2 Standard is selected as the independent Storage recovery provider, but the production recovery bucket/pipeline is not yet provisioned or proven.",
+      "classification": "production_only_pending"
+    },
+    {
+      "id": "STORAGE_RESTORE_DRILL",
+      "required": true,
+      "satisfied": false,
+      "owner": "Release Operations",
+      "evidence": [
+        "ops/community-backup-privacy-contract.json",
+        "docs/community/production-operations-backup-recovery-20261001.md",
+        "ops/community-production-execution-checklist-20261002.json",
+        "docs/community/production-execution-runbook-20261002.md",
+        "ops/community-production-resource-decision-20261002.json",
+        "docs/community/production-resource-decision-20261002.md"
+      ],
+      "pendingReason": "Storage restore/reconciliation protocol is prepared; provider and actual drill remain pending.",
+      "classification": "production_only_pending"
+    },
+    {
+      "id": "CONTROLLED_SECRET_ROTATION",
+      "required": true,
+      "satisfied": false,
+      "owner": "Release Operations",
+      "evidence": [
+        "ops/community-production-execution-checklist-20261002.json",
+        "docs/community/production-execution-runbook-20261002.md",
+        "ops/community-production-resource-decision-20261002.json",
+        "docs/community/production-resource-decision-20261002.md"
+      ],
+      "pendingReason": "Name-only inventory and rotation procedure are prepared; production credentials do not exist yet.",
+      "classification": "production_only_pending"
+    },
+    {
+      "id": "PRODUCTION_FUNCTION_INVENTORY",
+      "required": true,
+      "satisfied": false,
+      "owner": "Release Operations",
+      "evidence": [
+        "ops/community-production-execution-checklist-20261002.json",
+        "docs/community/production-execution-runbook-20261002.md",
+        "ops/community-production-resource-decision-20261002.json",
+        "docs/community/production-resource-decision-20261002.md"
+      ],
+      "pendingReason": "Exact production allowlist and staging denylist are frozen; production deployment/inventory does not exist yet.",
+      "classification": "production_only_pending"
+    },
+    {
+      "id": "PRODUCTION_CRON_VAULT_INVENTORY",
+      "required": true,
+      "satisfied": false,
+      "owner": "Release Operations",
+      "evidence": [
+        "ops/community-production-execution-checklist-20261002.json",
+        "docs/community/production-execution-runbook-20261002.md",
+        "ops/community-production-resource-decision-20261002.json",
+        "docs/community/production-resource-decision-20261002.md"
+      ],
+      "pendingReason": "Expected Cron schedules and Vault names are frozen; production inventory does not exist yet.",
+      "classification": "production_only_pending"
+    },
+    {
+      "id": "PRODUCTION_SMOKE",
+      "required": true,
+      "satisfied": false,
+      "owner": "Release QA",
+      "evidence": [
+        "ops/community-production-execution-checklist-20261002.json",
+        "docs/community/production-execution-runbook-20261002.md",
+        "ops/community-production-resource-decision-20261002.json",
+        "docs/community/production-resource-decision-20261002.md"
+      ],
+      "pendingReason": "Minimal wiring-only production smoke protocol is prepared; no production deployment exists yet.",
+      "classification": "production_only_pending"
+    },
+    {
+      "id": "PRODUCTION_SECURITY_ADVISOR",
+      "required": true,
+      "satisfied": false,
+      "owner": "Release Security",
+      "evidence": [
+        "ops/community-production-execution-checklist-20261002.json",
+        "docs/community/production-execution-runbook-20261002.md",
+        "ops/community-production-resource-decision-20261002.json",
+        "docs/community/production-resource-decision-20261002.md"
+      ],
+      "pendingReason": "Production Advisor protocol is prepared. If Pro or above is selected, Leaked Password Protection must be enabled; the Free staging exception is not acceptable on paid production. Actual production Advisor evidence is pending.",
+      "classification": "production_only_pending",
+      "knownNonBlockingCurrentPlanFinding": "auth_leaked_password_protection"
+    },
+    {
+      "id": "TRANSACTIONAL_EMAIL_PROVIDER_DELIVERY",
+      "required": true,
+      "satisfied": true,
+      "owner": "03 COMM",
+      "classification": "already_closed",
+      "evidence": [
+        "docs/community/operator-email-runtime-20261001.md"
+      ],
+      "providerMetrics": {
+        "sent": 8,
+        "delivered": 8,
+        "bounced": 0,
+        "failed": 0,
+        "complained": 0,
+        "deliveryDelayed": 0,
+        "deliveryRatePercent": 100
+      },
+      "senderDomain": {
+        "domain": "dreamwishwand.com",
+        "status": "verified",
+        "sending": "enabled",
+        "region": "ap-northeast-1"
+      },
+      "detail": "Current observed low-volume sample: 8/8 provider-delivered. The three additional messages were generated by the representative real Auth transaction, not synthetic warming."
+    },
+    {
+      "id": "TRANSACTIONAL_EMAIL_HUMAN_MAILBOX_PLACEMENT",
+      "required": true,
+      "satisfied": true,
+      "owner": "03 COMM + Release QA",
+      "evidence": [
+        "docs/community/operator-email-runtime-20261001.md",
+        "docs/community/auth-final-mailbox-reauth-runtime-20261001.md"
+      ],
+      "classification": "already_closed",
+      "providerMetrics": {
+        "sent": 8,
+        "delivered": 8,
+        "bounced": 0,
+        "failed": 0,
+        "complained": 0,
+        "deliveryDelayed": 0
+      },
+      "providerDeliveryStatus": "CONFIRMED",
+      "humanMailboxPlacement": "CONFIRMED_REPRESENTATIVE_QA_MAILBOX",
+      "detail": "A normal low-volume Auth transaction delivered signup confirmation, reauthentication, and password-changed security messages to the representative Gmail Inbox. Historical iCloud mixed Inbox/Junk evidence remains documented; no universal provider Inbox guarantee is claimed."
+    }
+  ],
+  "classificationTaxonomy": {
+    "already_closed": "Closed with existing evidence; do not rerun without a relevant change.",
+    "staging_only": "Staging evidence only; cannot satisfy production-only launch gates.",
+    "production_only_pending": "Requires evidence from the distinct production environment.",
+    "approval_pending": "Requires explicit Product/Privacy/Legal approval; engineering evidence is not approval.",
+    "operator_manual_pending": "Requires a real operator/manual QA transaction; synthetic traffic is prohibited.",
+    "cross_stream_pending": "Owned by another workstream and must remain fail-closed here."
+  },
+  "currentObservations": {
+    "resend": {
+      "sent": 8,
+      "delivered": 8,
+      "bounced": 0,
+      "failed": 0,
+      "complained": 0,
+      "deliveryDelayed": 0,
+      "deliveryRatePercent": 100,
+      "senderDomain": "dreamwishwand.com",
+      "senderDomainStatus": "verified",
+      "sending": "enabled",
+      "region": "ap-northeast-1",
+      "syntheticTrafficGenerated": false
+    },
+    "stagingSecurityAdvisor": {
+      "productionEvidence": false,
+      "rlsEnabledNoPolicyInfoCount": 9,
+      "knownPlanUnavailableWarning": "auth_leaked_password_protection",
+      "knownPlanUnavailableWarningIsEngineeringBlocker": false
+    },
+    "wep": {
+      "latestObservedHead": "ba55070f3c48df3bef9d1b12aaf056ed4978791a",
+      "communityTransportContractChangedSinceConfirmedVertical": false,
+      "communityPresetEdgeFunctionChangedSinceConfirmedVertical": false,
+      "integrationSensitiveRerunRequired": false,
+      "note": "Compared 02ca57a8..ba55070f: 13 commits touched WEP Building/full-design/Fence draft/read-model/write-authorization surfaces only. Community transport/publication/signed-read/retention contracts were unchanged; persistent Apply remains Core/WEP writer-gated."
+    },
+    "authMailboxQa": {
+      "status": "CONFIRMED_RUNTIME",
+      "representativeMailbox": "gmail",
+      "signupConfirmationPlacement": "INBOX",
+      "reauthenticationPlacement": "INBOX",
+      "passwordChangedNotificationPlacement": "INBOX",
+      "oldSessionWandRejected": true,
+      "oldRefreshRejected": true,
+      "freshSigninAndCommunityQuery": true,
+      "historicalIcloudPlacement": "MIXED_INBOX_JUNK",
+      "universalProviderInboxGuaranteeClaimed": false,
+      "evidence": "docs/community/auth-final-mailbox-reauth-runtime-20261001.md"
+    },
+    "retentionPolicyProposal": {
+      "status": "READY_FOR_EXPLICIT_APPROVAL",
+      "product": "PENDING",
+      "privacy": "PENDING",
+      "legal": "PENDING",
+      "valuesProposed": {
+        "contentPayloadDays": 7,
+        "operationalDetailDays": 90
+      },
+      "d4ExceptionPath": "moderation_security_legal_hold_only",
+      "elevatedFixedDurationTierPresent": false,
+      "noApprovalInferred": true,
+      "providerFactsReviewedAt": "2026-10-01"
+    },
+    "retentionContentPurge7d": {
+      "status": "CONFIRMED_STAGING",
+      "migration": "20261001115028_community_retention_content_purge_7d.sql",
+      "pendingContentJobs": 4,
+      "immediatelyDueAfterMigration": 0,
+      "earliestDue": "2026-10-07T22:48:06.919934Z",
+      "latestDue": "2026-10-08T01:17:59.375249Z",
+      "recoveryWindow": false
+    },
+    "retentionOperational90d": {
+      "status": "CONFIRMED_STAGING",
+      "migration": "20261001122209_community_retention_operational_90d_single_stage.sql",
+      "elevatedPolicyRows": 0,
+      "elevatedJobs": 0,
+      "elevatedColumns": 0,
+      "operationalDetailDays": 90
+    },
+    "backupPrivacyDesign": {
+      "status": "DESIGN_CLOSED_PRODUCTION_RUNTIME_PENDING",
+      "contract": "ops/community-backup-privacy-contract.json",
+      "pitrRequiredAtLaunch": false,
+      "storageRecoveryCopyRetentionDaysTarget": 7,
+      "recoveryDeletionLedgerRetentionDays": 90,
+      "productionProviderSelected": false
+    },
+    "deletionDisclosure": {
+      "status": "READY_FOR_PRODUCT_PRIVACY_LEGAL_REVIEW",
+      "contract": "ops/community-deletion-disclosure-contract.json",
+      "categoryCount": 9,
+      "providerBindingPending": true,
+      "legalApprovalInferred": false
+    },
+    "retentionApprovalReadiness": {
+      "product": "APPROVED",
+      "privacy": "READY_FOR_REVIEW",
+      "legal": "READY_FOR_REVIEW",
+      "checklist": "docs/community/retention-product-approval-checklist-20261001.md",
+      "approvalsInferred": false,
+      "productApprovalRecord": "docs/community/retention-product-approval-record-20261002.md"
+    },
+    "privacyReview": {
+      "state": "REVIEW_READY_WITH_OPEN_PRIVACY_DECISIONS",
+      "approval": "PENDING",
+      "contract": "ops/community-privacy-review-readiness-20261002.json",
+      "blockers": [
+        "P1_LINKED_DDV_PROFILE_ORPHAN_MINIMIZATION",
+        "P4_AGE_AND_MINORS",
+        "P5_PRODUCTION_PROCESSOR_BINDING"
+      ]
+    },
+    "legalReview": {
+      "state": "PACKET_READY_EXTERNAL_REVIEW_REQUIRED",
+      "approval": "PENDING",
+      "packet": "docs/community/legal-review-packet-20261002.md"
+    },
+    "productionPreparation": {
+      "state": "RESOURCE_DECISION_CLOSED_PROVISION_AT_RELEASE_STAGE",
+      "checklist": "ops/community-production-execution-checklist-20261002.json",
+      "runbook": "docs/community/production-execution-runbook-20261002.md",
+      "resourceCreationAuthorized": false,
+      "productionProjectCreated": false,
+      "paidResourceCreated": false,
+      "resourceDecisionContract": "ops/community-production-resource-decision-20261002.json",
+      "selectedSupabasePlan": "PRO",
+      "selectedStorageRecoveryProvider": "CLOUDFLARE_R2_STANDARD"
+    },
+    "latestWep": {
+      "head": "424116bba04be06454db32a422afaeba6e2b0044",
+      "deltaBase": "ba55070f3c48df3bef9d1b12aaf056ed4978791a",
+      "commitsSinceBase": 66,
+      "communitySensitiveContractChange": false,
+      "communityRerunRequired": false
+    },
+    "qaReleaseEvidence": "ops/community-qa-release-evidence-20261002.json",
+    "linkedDdvProfileLifecycle": {
+      "productStatus": "APPROVED_PROFILE_WORKSPACE_MODEL",
+      "maxRetainedWorkspaces": 5,
+      "capacityCounts": "ACTIVE_AND_ARCHIVED_COMBINED",
+      "archiveFreesSlot": false,
+      "deletionFreesSlot": true,
+      "optionalPlayerIdAssociation": true,
+      "normalSelfServiceUnlink": true,
+      "unlinkDeletesWorkspace": false,
+      "sameAccountDuplicateIdentityAssociation": false,
+      "crossAccountSameIdentityAssociation": true,
+      "rawPlayerIdPersistent": false,
+      "digestStorage": "private.ddv_identity_associations.binding_key_hash",
+      "stagingDbLifecycle": "CLOSED_RUNTIME_PASS",
+      "edgeDeployment": "community-command v23 / community-query v10 / community-admin v14",
+      "liveRawPlayerIdEdgeE2E": "PENDING_STAGING_HMAC_SECRET_CONFIGURATION",
+      "privacyApproval": "PENDING",
+      "legalApproval": "PENDING",
+      "evidence": [
+        "ops/community-linked-ddv-profile-product-decision-20261002.json",
+        "ops/community-linked-ddv-profile-identity-transport-20261002.json",
+        "ops/community-linked-ddv-profile-lifecycle-runtime-20261002.json",
+        "docs/community/linked-ddv-profile-lifecycle-runtime-20261002.md"
+      ],
+      "stagingAcceptanceUi": "/community-lab/profiles/ source implemented; browser acceptance pending",
+      "identityTransportCorrection": "Double-escape bug fixed before live identity activation; current v22 contains printable-ASCII validation and a real NUL domain separator.",
+      "workspaceDeleteRecentAuthSeconds": 900,
+      "workspaceDeleteRecentAuthRuntime": "PASS",
+      "workspaceWriteRateLimit": "60/hour/account",
+      "identityAssociationRateLimit": "12/hour/account",
+      "legacyDdvProfileLinkRateBucketEnabled": false,
+      "latestWorkspaceSecurityMigration": "20261002003039_community_ddv_profile_workspace_delete_reauth_rate_v5"
+    }
+  }
+}

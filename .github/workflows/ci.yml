@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - 'dev/**'
+      - 'integration/**'
   pull_request:
 
 permissions:
@@ -36,9 +37,47 @@ jobs:
         run: npm run verify:web-foundation
       - name: Canonical baseline integrity
         run: npm run verify:canonical
+      - name: Community operations contract
+        run: npm run verify:community-ops
+      - name: Integrated production tree preflight
+        run: npm run verify:community-integrated-tree -- --require-ready
       - name: Contract tests
         run: npm test
       - name: Static build
         env:
           BASE_PATH: /web
+          VITE_SUPABASE_URL: ${{ vars.DREAMWISH_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.DREAMWISH_SUPABASE_PUBLISHABLE_KEY }}
         run: npm run build
+      - name: Verify integrated static routes
+        run: |
+          test -f build/index.html
+          test -f build/editor/index.html
+          test -f build/editor/items/index.html
+          test -f build/editor/world/index.html
+          test -f build/explore/index.html
+          test -f build/presets/index.html
+          test -f build/projects/index.html
+          test -f build/help/index.html
+          test -f build/gallery/index.html
+          test -f build/gallery/publish/index.html
+          test -f build/gallery/my/index.html
+          test -f build/gallery/interact/index.html
+          test -f build/gallery/dreamsnaps/index.html
+          test -f build/qa/index.html
+          test -f build/qa/ask/index.html
+          test -f build/qa/participate/index.html
+          test -f build/qa/tip/index.html
+          test -f build/qa/my/index.html
+          test -f build/creator/index.html
+          test -f build/dreamsnaps/index.html
+          test -f build/dreamsnaps/submit/index.html
+          test -f build/dreamsnaps/judge/index.html
+          test -f build/dreamsnaps/results/index.html
+          test -f build/dreamsnaps/my/index.html
+          test -f build/community-lab/index.html
+          test -f build/community-lab/account/index.html
+          test -f build/community-lab/profiles/index.html
+          test -f build/community-lab/recovery/index.html
+          test -f build/community-ops/index.html
+          test -f build/404.html

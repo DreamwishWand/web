@@ -1,0 +1,99 @@
+{
+  "schema": "dreamwish-community-auth-launch-review@1",
+  "observedAt": "2026-10-01T10:35:38Z",
+  "stagingProjectRef": "ptpdoxhrqopvczpclcij",
+  "emailTrafficGeneratedByThisAcceptance": false,
+  "passwordPolicy": {
+    "configuredMinimumCodePoints": 15,
+    "mandatoryCompositionRule": false,
+    "providerBoundary": {
+      "method": "Supabase Auth admin.createUser on disposable confirmed users",
+      "password14Accepted": false,
+      "password15Accepted": true,
+      "status": "CONFIRMED_RUNTIME"
+    }
+  },
+  "revocation": {
+    "twoRealProviderSessions": true,
+    "secondSessionAcceptedBeforeRevoke": true,
+    "providerGlobalLogout": true,
+    "secondSessionRefreshRejectedAfterGlobalLogout": true,
+    "wandSessionCutoffRejectedOldJwt": true,
+    "freshPasswordSigninAfterCutoff": true,
+    "normalAccountDeletion": true,
+    "authSessionsRevokedAuditEventsObserved": 1,
+    "status": "CONFIRMED_RUNTIME"
+  },
+  "cleanup": {
+    "fixtureAuthUsersRemaining": 0,
+    "fixtureCreatorHandlesRemaining": 0,
+    "openProviderCleanupJobs": 0,
+    "deletionEventsRemainingByPolicy": 1,
+    "futureRetentionJobsRemainingByPolicy": 2,
+    "directAuditDeletionPerformed": false
+  },
+  "temporaryHarness": {
+    "slug": "community-auth-acceptance",
+    "acceptanceVersion": 6,
+    "acceptanceSha256": "afba3e1747bab44ef0316011ce48c493170c963b8215a81b9d811d113289782c",
+    "requestHttpStatus": 200,
+    "executionTimeMs": 6000,
+    "restoredVersion": 7,
+    "restoredSha256": "f9c7189a345f3d213738dc54b10ec013742cd648c4a68297ae904796087b7d0d",
+    "restoredHttpStatus": 410,
+    "restoredError": "STAGING_AUTH_ACCEPTANCE_DISABLED",
+    "productionDenylisted": true
+  },
+  "reauthentication": {
+    "signedInNonceFlowRerun": true,
+    "reason": "One representative real-mailbox signed-in reauthentication transaction completed through the normal staging browser path. No synthetic warming traffic was generated.",
+    "productPathImplemented": true,
+    "finalStatus": "CLOSED_CONFIRMED_RUNTIME",
+    "executionMode": "REAL_MAILBOX_OPERATOR_QA",
+    "operatorManualRequired": true,
+    "syntheticSubstituteAllowed": false,
+    "completedFlow": [
+      "real signed-in session",
+      "reauthentication nonce",
+      "password change",
+      "provider global revoke",
+      "Wand session cutoff",
+      "old session rejected",
+      "fresh sign-in succeeds"
+    ],
+    "remainingFlow": [],
+    "mailboxPlacement": {
+      "representativeQaMailboxProvider": "gmail",
+      "signupConfirmation": "INBOX",
+      "reauthenticationMessage": "INBOX",
+      "passwordChangedSecurityNotification": "INBOX",
+      "historicalIcloudPlacementRemainsMixed": true,
+      "universalProviderInboxGuaranteeClaimed": false
+    },
+    "runtime": {
+      "twoIndependentSessionsHealthyBeforeChange": true,
+      "nonceBackedPasswordUpdateSucceeded": true,
+      "providerGlobalLogoutSucceeded": true,
+      "oldSessionCommunityQueryRejected": true,
+      "oldSessionWandError": "SESSION_REVOKED_OR_INVALID",
+      "oldRefreshRejected": true,
+      "oldRefreshErrorCode": "refresh_token_not_found",
+      "freshPasswordSigninSucceeded": true,
+      "freshCommunityQuerySucceeded": true,
+      "status": "CONFIRMED_RUNTIME"
+    },
+    "evidence": [
+      "docs/community/auth-final-mailbox-reauth-runtime-20261001.md"
+    ]
+  },
+  "launchApproved": true,
+  "remaining": [
+    {
+      "id": "SIGNED_IN_REAUTHENTICATION_MAILBOX_QA",
+      "status": "CLOSED",
+      "detail": "Representative real-mailbox signed-in reauthentication -> password update -> provider global revoke -> Wand cutoff -> old-session rejection -> fresh sign-in/query completed."
+    }
+  ],
+  "mailboxQaEmailTrafficGenerated": true,
+  "mailboxQaSyntheticTrafficGenerated": false
+}
