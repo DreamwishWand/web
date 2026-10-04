@@ -5,6 +5,7 @@
   import { readCommunityBrowserConfig } from '$lib/community/runtime-config';
   import { createPresetCommunityBridge } from '$lib/wep/preset-community-bridge';
   import { explainWepBlocker } from '$lib/wep/blocker-messages';
+  import NativePresetManager from '$lib/presets/NativePresetManager.svelte';
   import {
     buildPublishEnvelope,
     preflightScene,
@@ -258,18 +259,8 @@
       {/if}
     </section>
   {:else}
-    <section class="panel" aria-labelledby="ingame-title">
-      <p class="eyebrow">DDV NATIVE REFERENCE</p>
-      <h2 id="ingame-title">In-Game Presets</h2>
-      <p class="page-intro">
-        DDV本体のDecorationPresetは、Wand Presetとは別の仕組みです。
-        Wand Presetはゲーム内Preset枠をcanonical storageとして使用しません。
-      </p>
-      <div class="notice">
-        <strong>現在はread-only / research boundaryです。</strong><br />
-        native presetは互換性検証やゲーム挙動のreference oracleとして扱い、
-        CommunityのWand Presetと混同しません。
-      </div>
+    <section class="panel" aria-label="In-Game Presets">
+      <NativePresetManager />
     </section>
   {/if}
 
