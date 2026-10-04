@@ -9,3 +9,35 @@ export const COLLECTION_COPY = Object.freeze({
   'pt-BR':{eyebrow:'SUA COLEÇÃO',title:'Collection',intro:'Explore o Wand Database atual por famílias, mundos e universos voltados ao usuário.',category:'Categoria',world:'Mundo',universe:'Universo',search:'Pesquisar todos os nomes oficiais',all:'Todos',results:'resultados',showing:'exibidos',loading:'Carregando dados v1.25 verificados…',failed:'Não foi possível verificar os dados da Collection.',media:'As imagens permanecem ocultas até que os bytes de mídia v1.25 atuais e os direitos de exibição pública sejam aprovados.',personal:'Progresso pessoal',personalDetail:'Carregue um save DDV compatível para adicionar Possuído / Ausente / Descoberto e estados específicos de cada família. Esta tela não inventa estado pessoal.',trackable:'Rastreável',readonly:'Somente referência',source:'Nintendo Switch · DDV v1.25.0',more:'Refine a busca ou o filtro para reduzir os resultados.',empty:'Nenhuma entrada correspondente.',itemId:'ID do item'}
 });
 export function collectionCopy(locale){return COLLECTION_COPY[locale]??COLLECTION_COPY.en;}
+
+
+const COLLECTION_FAMILY_LABELS = Object.freeze({
+  en:{
+    'Appearance':'Appearance','Board Game':'Board Game','Buildings':'Buildings','Characters':'Characters','Clothing':'Clothing','Companions':'Companions','Crafting':'Crafting','Critters':'Critters','Environment Effects':'Environment Effects','Fish':'Fish','Foraging':'Foraging','Furniture':'Furniture','Gems':'Gems','Ingredients':'Ingredients','Landscaping':'Landscaping','Lorekeeper Tales':'Lorekeeper Tales','Meals':'Meals','Mounts':'Mounts','Photo Mode':'Photo Mode','Roads & Fences':'Roads & Fences','Snippets':'Snippets','Timebending':'Timebending','Tools':'Tools','Touch of Magic':'Touch of Magic','Upgrades':'Upgrades','Wallpaper & Flooring':'Wallpaper & Flooring'
+  },
+  fr:{
+    'Appearance':'Apparence','Board Game':'Jeu de plateau','Buildings':'Bâtiments','Characters':'Personnages','Clothing':'Vêtements','Companions':'Compagnons','Crafting':'Fabrication','Critters':'Bestioles','Environment Effects':'Effets d’environnement','Fish':'Poissons','Foraging':'Cueillette','Furniture':'Meubles','Gems':'Gemmes','Ingredients':'Ingrédients','Landscaping':'Aménagement paysager','Lorekeeper Tales':'Contes du Gardien du savoir','Meals':'Repas','Mounts':'Montures','Photo Mode':'Mode photo','Roads & Fences':'Routes et clôtures','Snippets':'Fragments','Timebending':'Timebending','Tools':'Outils','Touch of Magic':'Touch of Magic','Upgrades':'Améliorations','Wallpaper & Flooring':'Papier peint et sols'
+  },
+  it:{
+    'Appearance':'Aspetto','Board Game':'Gioco da tavolo','Buildings':'Edifici','Characters':'Personaggi','Clothing':'Abbigliamento','Companions':'Compagni','Crafting':'Creazione','Critters':'Animaletti','Environment Effects':'Effetti ambientali','Fish':'Pesci','Foraging':'Raccolta','Furniture':'Mobili','Gems':'Gemme','Ingredients':'Ingredienti','Landscaping':'Paesaggistica','Lorekeeper Tales':'Racconti del Custode del sapere','Meals':'Pasti','Mounts':'Cavalcature','Photo Mode':'Modalità foto','Roads & Fences':'Strade e recinzioni','Snippets':'Frammenti','Timebending':'Timebending','Tools':'Strumenti','Touch of Magic':'Touch of Magic','Upgrades':'Potenziamenti','Wallpaper & Flooring':'Carta da parati e pavimenti'
+  },
+  de:{
+    'Appearance':'Aussehen','Board Game':'Brettspiel','Buildings':'Gebäude','Characters':'Charaktere','Clothing':'Kleidung','Companions':'Begleiter','Crafting':'Herstellung','Critters':'Kleintiere','Environment Effects':'Umgebungseffekte','Fish':'Fische','Foraging':'Sammeln','Furniture':'Möbel','Gems':'Edelsteine','Ingredients':'Zutaten','Landscaping':'Landschaftsgestaltung','Lorekeeper Tales':'Geschichten des Wissenshüters','Meals':'Gerichte','Mounts':'Reittiere','Photo Mode':'Fotomodus','Roads & Fences':'Wege & Zäune','Snippets':'Schnipsel','Timebending':'Timebending','Tools':'Werkzeuge','Touch of Magic':'Touch of Magic','Upgrades':'Verbesserungen','Wallpaper & Flooring':'Tapeten & Böden'
+  },
+  'es-ES':{
+    'Appearance':'Apariencia','Board Game':'Juego de mesa','Buildings':'Edificios','Characters':'Personajes','Clothing':'Ropa','Companions':'Compañeros','Crafting':'Fabricación','Critters':'Animalitos','Environment Effects':'Efectos ambientales','Fish':'Peces','Foraging':'Recolección','Furniture':'Muebles','Gems':'Gemas','Ingredients':'Ingredientes','Landscaping':'Paisajismo','Lorekeeper Tales':'Relatos del Guardián del saber','Meals':'Comidas','Mounts':'Monturas','Photo Mode':'Modo foto','Roads & Fences':'Caminos y vallas','Snippets':'Fragmentos','Timebending':'Timebending','Tools':'Herramientas','Touch of Magic':'Touch of Magic','Upgrades':'Mejoras','Wallpaper & Flooring':'Papel pintado y suelos'
+  },
+  ja:{
+    'Appearance':'外見','Board Game':'ボードゲーム','Buildings':'建物','Characters':'キャラクター','Clothing':'衣装','Companions':'コンパニオン','Crafting':'クラフト','Critters':'小動物','Environment Effects':'環境エフェクト','Fish':'魚','Foraging':'採集','Furniture':'家具','Gems':'宝石','Ingredients':'食材','Landscaping':'景観','Lorekeeper Tales':'ロアキーパーの物語','Meals':'料理','Mounts':'乗り物','Photo Mode':'フォトモード','Roads & Fences':'道とフェンス','Snippets':'スニペット','Timebending':'タイムベンディング','Tools':'道具','Touch of Magic':'Touch of Magic','Upgrades':'アップグレード','Wallpaper & Flooring':'壁紙と床材'
+  },
+  'zh-CN':{
+    'Appearance':'外观','Board Game':'桌游','Buildings':'建筑','Characters':'角色','Clothing':'服装','Companions':'伙伴','Crafting':'制作','Critters':'小动物','Environment Effects':'环境效果','Fish':'鱼','Foraging':'采集','Furniture':'家具','Gems':'宝石','Ingredients':'食材','Landscaping':'景观','Lorekeeper Tales':'知识守护者故事','Meals':'菜肴','Mounts':'坐骑','Photo Mode':'拍照模式','Roads & Fences':'道路与栅栏','Snippets':'片段','Timebending':'时光弯曲','Tools':'工具','Touch of Magic':'Touch of Magic','Upgrades':'升级','Wallpaper & Flooring':'壁纸与地板'
+  },
+  'pt-BR':{
+    'Appearance':'Aparência','Board Game':'Jogo de tabuleiro','Buildings':'Edifícios','Characters':'Personagens','Clothing':'Roupas','Companions':'Companheiros','Crafting':'Fabricação','Critters':'Bichinhos','Environment Effects':'Efeitos ambientais','Fish':'Peixes','Foraging':'Coleta','Furniture':'Móveis','Gems':'Gemas','Ingredients':'Ingredientes','Landscaping':'Paisagismo','Lorekeeper Tales':'Contos do Guardião do conhecimento','Meals':'Refeições','Mounts':'Montarias','Photo Mode':'Modo Foto','Roads & Fences':'Caminhos e cercas','Snippets':'Fragmentos','Timebending':'Timebending','Tools':'Ferramentas','Touch of Magic':'Touch of Magic','Upgrades':'Melhorias','Wallpaper & Flooring':'Papéis de parede e pisos'
+  }
+});
+
+export function collectionFamilyLabel(locale, family) {
+  return COLLECTION_FAMILY_LABELS[locale]?.[family] ?? COLLECTION_FAMILY_LABELS.en[family] ?? family;
+}
