@@ -1,0 +1,29 @@
+name: Product Surfaces Verification
+
+on:
+  push:
+    branches:
+      - 'dev/product-surfaces-*'
+  pull_request:
+    branches:
+      - 'integration/product-tree-current-*'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.12.0'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run check
+      - run: npm run verify:canonical
+      - run: npm run verify:web-foundation
+      - run: npm run build
