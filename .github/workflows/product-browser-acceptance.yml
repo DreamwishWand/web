@@ -2,7 +2,7 @@ name: Product primary-job browser acceptance
 
 on:
   push:
-    branches: ['dev/product-surfaces-*']
+    branches: ['dev/product-surfaces-*', 'integration/product-tree-current-*']
     paths:
       - '.github/workflows/product-browser-acceptance.yml'
       - 'scripts/product-primary-job-browser-acceptance.mjs'
