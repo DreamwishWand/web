@@ -1,7 +1,7 @@
 {
   "schema": "dreamwish-wand-world-editor-localization-inventory@1",
   "status": "COMPLETE_FOR_PINNED_SOURCES",
-  "generatedAt": "2026-10-03",
+  "generatedAt": "2026-10-04",
   "target": {
     "product": "Decorate / World Editor",
     "platform": "Nintendo Switch",
@@ -22,9 +22,10 @@
     "src/routes/editor/world/+page.svelte": "638d0c24e1e8fd22e167b59819f76e70a583bd9d",
     "src/lib/wep/world-editor-primary-job.ts": "a8e49f4f2eec543b9aaebd2d552c9da8e36270d5",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
-    "src/lib/SiteHeader.svelte": "e2427a96bcb33e082177286fdb79b3bc3795c0c0",
+    "src/lib/SiteHeader.svelte": "aefa15858cc70e80e0c5c7e66fc717508c04c344",
     "src/lib/SiteFooter.svelte": "c1f5ce8166a83e1464ad74d3a73714894650882e",
-    "src/lib/community/CommunityNav.svelte": "bd9a7636147e83c1d42931df48464f3a4c86f01b"
+    "src/lib/community/CommunityNav.svelte": "bd9a7636147e83c1d42931df48464f3a4c86f01b",
+    "src/lib/product-home/copy.js": "bbe79a69abf213f02ecfbda416900283c3455243"
   },
   "ownership": {
     "wepOwned": [
@@ -35,7 +36,8 @@
     "sharedWebRenderedOnWorldEditor": [
       "src/lib/SiteHeader.svelte",
       "src/lib/SiteFooter.svelte",
-      "src/lib/community/CommunityNav.svelte"
+      "src/lib/community/CommunityNav.svelte",
+      "src/lib/product-home/copy.js"
     ]
   },
   "sharedLocaleBinding": {
@@ -56,7 +58,7 @@
       "pt-BR"
     ],
     "rule": "World Editor presentation resolves through the shared locale runtime. WEP does not own a locale store, selector, fallback resolver, formatter, or resource loader.",
-    "routeChangeNote": "Integration-targeted source repin only: current shared SiteHeader adds the accepted CommunityNav component while retaining the shared locale runtime. CommunityNav contributes three already-localized Community catalog keys (gallery.title, dreamsnaps.title, qa.title). The existing World Editor inventory was not re-inventoried; WEP message keys, blocker/Core reason coverage, machine-code invariants, and persistent-write safety boundary are unchanged."
+    "routeChangeNote": "Product completion repin: shared SiteHeader now exposes canonical Decorate / Collection / Guide / Presets navigation using the eight-locale Product Home catalog, while CommunityNav continues to provide Gallery / DreamSnaps / Q&A. WEP-owned message keys, blocker/Core reason coverage, machine-code invariants, and persistent-write safety boundary are unchanged."
   },
   "translationBoundary": {
     "translate": [
@@ -112,15 +114,17 @@
         "source": [
           "src/lib/SiteHeader.svelte",
           "src/lib/SiteFooter.svelte",
+          "src/lib/product-home/copy.js",
           "src/lib/community/CommunityNav.svelte"
         ],
         "strings": [
           "本文へ移動",
           "Dreamwish Wand ホーム",
           "メインナビゲーション",
-          "Explore",
-          "Editor",
-          "My Projects",
+          "Decorate",
+          "Collection",
+          "Guide",
+          "Presets",
           "ライトモードに切り替え",
           "ダークモードに切り替え",
           "Light",
