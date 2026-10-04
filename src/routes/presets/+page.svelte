@@ -1,10 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { base } from '$app/paths';
+  import { locale } from '$lib/i18n/runtime.js';
+  import { presetPageCopy } from '$lib/presets/page-copy.js';
   import { CommunityLabClient } from '$lib/community/staging-http-client';
   import { readCommunityBrowserConfig } from '$lib/community/runtime-config';
   import { createPresetCommunityBridge } from '$lib/wep/preset-community-bridge';
   import { explainWepBlocker } from '$lib/wep/blocker-messages';
+  import NativePresetManager from '$lib/presets/NativePresetManager.svelte';
   import {
     buildPublishEnvelope,
     preflightScene,
@@ -37,6 +40,7 @@
   let library: LibraryRow[] = [];
   let bridge: ReturnType<typeof createPresetCommunityBridge> | null = null;
   let preflight: any = null;
+  $: copy = presetPageCopy($locale);
 
   function preflightBlockCodes(value: any): string[] {
     return Array.from(
@@ -65,7 +69,7 @@
     try {
       const config = readCommunityBrowserConfig();
       if (!config) {
-        message = 'Community runtime is not configured on this build.';
+        message = copy.communityUnavailable;
         return;
       }
 
@@ -123,7 +127,7 @@
     try {
       await bridge.saveDiscoveredWork(workId);
       await refreshLibrary();
-      message = 'Library に保存しました。';
+      message = copy.saved;
     } catch (error) {
       message = error instanceof Error ? error.message : String(error);
     } finally {
@@ -138,7 +142,7 @@
     try {
       const resolved = await bridge.resolveDiscoveredWork(workId);
       preflight = await bridge.preflightPreset(resolved.presetArtifactId);
-      message = 'Preset を検証しました。DDVへの書き込みは行っていません。';
+      message = copy.validated;
     } catch (error) {
       message = error instanceof Error ? error.message : String(error);
       preflight = null;
@@ -153,7 +157,7 @@
     message = '';
     try {
       preflight = await bridge.preflightPreset(presetArtifactId);
-      message = 'Library のPresetを検証しました。';
+      message = copy.libraryValidated;
     } catch (error) {
       message = error instanceof Error ? error.message : String(error);
       preflight = null;
@@ -174,20 +178,19 @@
 <section class="presets-page container">
   <div class="presets-heading">
     <div>
-      <p class="eyebrow">SAVE A LITTLE MAGIC</p>
-      <h1>Presets</h1>
+      <p class="eyebrow">{copy.eyebrow}</p>
+      <h1>{copy.title}</h1>
       <p class="page-intro">
-        飾り付けを作品として残し、見つけ、Libraryに保存して、もう一度あなたの世界へ。
-        Wand Presetはゲーム内のDecorationPresetとは別のWand-native artifactです。
+        {copy.intro}
       </p>
     </div>
-    <a class="create-link" href={`${base}/editor/world/`}>World Editorで作る →</a>
+    <a class="create-link" href={`${base}/editor/world/`}>{copy.create}</a>
   </div>
 
   <nav class="preset-tabs" aria-label="Preset sections">
-    <button class:active={tab === 'discover'} on:click={() => (tab = 'discover')}>Discover</button>
-    <button class:active={tab === 'library'} on:click={() => { tab = 'library'; refreshLibrary(); }}>Library</button>
-    <button class:active={tab === 'ingame'} on:click={() => (tab = 'ingame')}>In-Game Presets</button>
+    <button class:active={tab === 'discover'} on:click={() => (tab = 'discover')}>{copy.discover}</button>
+    <button class:active={tab === 'library'} on:click={() => { tab = 'library'; refreshLibrary(); }}>{copy.library}</button>
+    <button class:active={tab === 'ingame'} on:click={() => (tab = 'ingame')}>{copy.ingame}</button>
   </nav>
 
   {#if message}
@@ -197,10 +200,10 @@
   {#if tab === 'discover'}
     <section class="panel" aria-labelledby="discover-title">
       <div class="panel-heading">
-        <div><p class="eyebrow">COMMUNITY</p><h2 id="discover-title">Discover</h2></div>
+        <div><p class="eyebrow">{copy.community}</p><h2 id="discover-title">{copy.discover}</h2></div>
         <form class="search" on:submit|preventDefault={refreshDiscover}>
-          <input bind:value={query} aria-label="Presetを検索" placeholder="Presetを検索" />
-          <button disabled={loading} type="submit">Search</button>
+          <input bind:value={query} aria-label={copy.search} placeholder={copy.search} />
+          <button disabled={loading} type="submit">{copy.searchButton}</button>
         </form>
       </div>
 
@@ -210,11 +213,11 @@
             <article class="preset-card">
               <div class="preview-mark" aria-hidden="true">✦</div>
               <p class="card-kind">WAND PRESET</p>
-              <h3>{item.title || 'Untitled Preset'}</h3>
-              <p>{item.description || 'Creator shared decorating preset.'}</p>
+              <h3>{item.title || copy.untitled}</h3>
+              <p>{item.description || copy.shared}</p>
               <div class="card-actions">
-                <button disabled={!connected || loading} on:click={() => saveWork(item.workId)}>Save</button>
-                <button disabled={!connected || loading} on:click={() => inspectWork(item.workId)}>Preflight</button>
+                <button disabled={!connected || loading} on:click={() => saveWork(item.workId)}>{copy.save}</button>
+                <button disabled={!connected || loading} on:click={() => inspectWork(item.workId)}>{copy.preflight}</button>
               </div>
             </article>
           {/each}
@@ -222,78 +225,68 @@
       {:else}
         <div class="empty">
           <span aria-hidden="true">✧</span>
-          <strong>{loading ? 'Presetを探しています…' : 'まだ表示できるPresetがありません'}</strong>
-          <p>公開されたWand Presetがここに並びます。</p>
+          <strong>{loading ? copy.searching : copy.none}</strong>
+          <p>{copy.noneDetail}</p>
         </div>
       {/if}
     </section>
   {:else if tab === 'library'}
     <section class="panel" aria-labelledby="library-title">
       <div class="panel-heading">
-        <div><p class="eyebrow">SAVED FOR LATER</p><h2 id="library-title">Library</h2></div>
-        <button class="quiet-button" disabled={!connected || loading} on:click={refreshLibrary}>Refresh</button>
+        <div><p class="eyebrow">{copy.savedForLater}</p><h2 id="library-title">{copy.library}</h2></div>
+        <button class="quiet-button" disabled={!connected || loading} on:click={refreshLibrary}>{copy.refresh}</button>
       </div>
 
       {#if !connected}
         <div class="notice">
-          <strong>Wand Account接続が必要です。</strong><br />
-          LibraryはSavedItemとしてCommunity Coreに保存されます。Saveはアクセス権そのものにはなりません。
+          <strong>{copy.accountRequired}</strong><br />
+          {copy.libraryDetail}
         </div>
       {:else if library.length}
         <div class="library-list">
           {#each library as item}
             <div class="library-row">
               <div>
-                <span class:unavailable={!item.accessible}>{item.accessible ? 'Available' : 'Unavailable'}</span>
+                <span class:unavailable={!item.accessible}>{item.accessible ? copy.available : copy.unavailable}</span>
                 <code>{item.targetEntityId}</code>
               </div>
               <button disabled={!item.accessible || loading} on:click={() => inspectLibrary(item.targetEntityId)}>
-                Preflight
+                {copy.preflight}
               </button>
             </div>
           {/each}
         </div>
       {:else}
-        <div class="empty"><span aria-hidden="true">♡</span><strong>Libraryは空です</strong><p>Discoverで気になるPresetをSaveできます。</p></div>
+        <div class="empty"><span aria-hidden="true">♡</span><strong>{copy.emptyLibrary}</strong><p>{copy.emptyLibraryDetail}</p></div>
       {/if}
     </section>
   {:else}
-    <section class="panel" aria-labelledby="ingame-title">
-      <p class="eyebrow">DDV NATIVE REFERENCE</p>
-      <h2 id="ingame-title">In-Game Presets</h2>
-      <p class="page-intro">
-        DDV本体のDecorationPresetは、Wand Presetとは別の仕組みです。
-        Wand Presetはゲーム内Preset枠をcanonical storageとして使用しません。
-      </p>
-      <div class="notice">
-        <strong>現在はread-only / research boundaryです。</strong><br />
-        native presetは互換性検証やゲーム挙動のreference oracleとして扱い、
-        CommunityのWand Presetと混同しません。
-      </div>
+    <section class="panel" aria-label="In-Game Presets">
+      <NativePresetManager />
     </section>
   {/if}
 
   {#if preflight}
     <aside class="preflight-card" aria-live="polite">
       <div>
-        <p class="eyebrow">PREFLIGHT</p>
-        <h2>{preflight.validation?.presetType === 'scene' ? 'Scene Preset' : 'Preset'}</h2>
+        <p class="eyebrow">{copy.preflightEyebrow}</p>
+        <h2>{preflight.validation?.presetType === 'scene' ? copy.scenePreset : copy.preset}</h2>
       </div>
       <dl>
-        <div><dt>Artifact</dt><dd>{preflight.detail?.presetArtifactId ?? '—'}</dd></div>
-        <div><dt>Signed bytes</dt><dd>{preflight.checksumSha256 ? 'SHA-256 verified' : 'Unverified'}</dd></div>
-        <div><dt>WEP artifact</dt><dd>{preflight.validation?.ok ? 'Valid' : 'Blocked'}</dd></div>
-        <div><dt>Reuse preflight</dt><dd>{preflight.preflight?.ok ? 'PASS' : 'BLOCKED'}</dd></div>
-        <div><dt>Objects</dt><dd>{preflight.preflight?.summary?.objectCount ?? 0}</dd></div>
-        <div><dt>DDV write</dt><dd>{preflight.preflight?.writeReady ? 'Contract ready' : 'Disabled'}</dd></div>
+        <div><dt>{copy.artifact}</dt><dd>{preflight.detail?.presetArtifactId ?? '—'}</dd></div>
+        <div><dt>{copy.signedBytes}</dt><dd>{preflight.checksumSha256 ? copy.verified : copy.unverified}</dd></div>
+        <div><dt>{copy.wepArtifact}</dt><dd>{preflight.validation?.ok ? copy.valid : copy.blocked}</dd></div>
+        <div><dt>{copy.reuse}</dt><dd>{preflight.preflight?.ok ? copy.pass : copy.blocked}</dd></div>
+        <div><dt>{copy.objects}</dt><dd>{preflight.preflight?.summary?.objectCount ?? 0}</dd></div>
+        <div><dt>{copy.ddvWrite}</dt><dd>{preflight.preflight?.writeReady ? copy.contractReady : copy.disabled}</dd></div>
       </dl>
       <div class="preflight-boundary">
-        <span>Current boundary</span>
+        <span>{copy.currentBoundary}</span>
         <code>{preflightBoundaryReason(preflight)}</code>
       </div>
       {#if preflightBlockCodes(preflight).length}
         <div class="preflight-blockers">
-          <strong>Reuse blockers</strong>
+          <strong>{copy.reuseBlockers}</strong>
           {#each preflightBlockCodes(preflight) as code}
             <span>
               <code>{code}</code>
@@ -303,16 +296,14 @@
         </div>
       {/if}
       <p>
-        signed readのbyte size / SHA-256、WEP artifact validation、reuse preflightは別々のGateです。
-        それらを通過してもpersistent DDV write authorizationは自動的に得られません。
-        この画面からDDVセーブへの書き込みは行いません。
+        {copy.preflightNote}
       </p>
     </aside>
   {/if}
 
   {#if !connected}
     <p class="preview-note">
-      Community runtime未設定時はshellのみ表示します。Runtime設定済みで未認証の場合もDiscoverは利用でき、Save・Library・signed artifact readは認証済みWand Accountでのみ有効になります。
+      {copy.previewNote}
     </p>
   {/if}
 </section>
