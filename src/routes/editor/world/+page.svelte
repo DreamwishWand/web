@@ -4204,34 +4204,27 @@
                   </div>
                 {/if}
               {/if}
-              {#if verifiedExportReview.contract ===
-                ORDINARY_FURNITURE_ADD_VERIFIED_EXPORT_CONTRACT}
-                <p class="verified-export-runtime-pending" data-wep-add-runtime-gate aria-live="polite">
-                  {t('worldEditor.verifiedExport.failure.addRuntimePending', {}, $locale)}
-                </p>
-              {:else}
-                <label class="verified-export-confirm">
-                  <input
-                    type="checkbox"
-                    bind:checked={verifiedExportConfirmed}
-                    disabled={verifiedExportLoading}
-                  />
-                  <span>{t('worldEditor.verifiedExport.confirm', {}, $locale)}</span>
-                </label>
-                <button
-                  type="button"
-                  class="verified-export-apply"
-                  disabled={!verifiedExportConfirmed || verifiedExportLoading}
-                  aria-describedby={!verifiedExportConfirmed ? 'wep-verified-export-confirm-reason' : undefined}
-                  on:click={applyVerifiedExport}
-                >
-                  {t('worldEditor.verifiedExport.applyExport', {}, $locale)}
-                </button>
-                {#if !verifiedExportConfirmed}
-                  <small id="wep-verified-export-confirm-reason">
-                    {t('worldEditor.verifiedExport.confirmRequired', {}, $locale)}
-                  </small>
-                {/if}
+              <label class="verified-export-confirm">
+                <input
+                  type="checkbox"
+                  bind:checked={verifiedExportConfirmed}
+                  disabled={verifiedExportLoading}
+                />
+                <span>{t('worldEditor.verifiedExport.confirm', {}, $locale)}</span>
+              </label>
+              <button
+                type="button"
+                class="verified-export-apply"
+                disabled={!verifiedExportConfirmed || verifiedExportLoading}
+                aria-describedby={!verifiedExportConfirmed ? 'wep-verified-export-confirm-reason' : undefined}
+                on:click={applyVerifiedExport}
+              >
+                {t('worldEditor.verifiedExport.applyExport', {}, $locale)}
+              </button>
+              {#if !verifiedExportConfirmed}
+                <small id="wep-verified-export-confirm-reason">
+                  {t('worldEditor.verifiedExport.confirmRequired', {}, $locale)}
+                </small>
               {/if}
             </div>
           {/if}
