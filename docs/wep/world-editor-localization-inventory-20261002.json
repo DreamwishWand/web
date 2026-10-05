@@ -19,7 +19,7 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "edcb5d3b38a1b5df7e0cfc4d8660356534552038",
+    "src/routes/editor/world/+page.svelte": "783a8173e3b17ce1e9e61254a0d7dc47bddc1a2d",
     "src/lib/wep/world-editor-primary-job.ts": "a8e49f4f2eec543b9aaebd2d552c9da8e36270d5",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "aefa15858cc70e80e0c5c7e66fc717508c04c344",
@@ -225,7 +225,11 @@
           "No Core attached-state capability contract is bound for this object. Wand does not infer Chest, PlayerHouse, Shop, Building, or progression actions from ItemID.",
           "Select exactly one object to inspect attached-state actions.",
           "Core exposes no attached-state action for this object.",
-          "Core + WEP handler ready"
+          "Core + WEP handler ready",
+          "Precise coordinates",
+          "X",
+          "Y",
+          "Apply coordinates"
         ]
       }
     ],
