@@ -1,0 +1,308 @@
+{
+  "schema": "ddv.room-finish-semantics@1",
+  "artifactId": "DDV-ROOM-FINISH-SEMANTICS-V125-V1_0-CANDIDATE",
+  "version": "v1.0",
+  "status": "STATIC_CURRENT_NATIVE_CLOSED_SAVE_LAYER_EXTENSION_REQUIRED",
+  "owner": "01B CORE - World / Grid / Buildings",
+  "productRefs": [
+    "DEC-UX-241",
+    "DEC-UX-242"
+  ],
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "titleId": "0100D39012C1A000",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624,
+    "steam": "independent target; no Switch writer inheritance"
+  },
+  "evidence": {
+    "rawExecutable": {
+      "path": "DDVRE/01_CURRENT/Switch/v1.25.0/ExeFS/main",
+      "driveFileId": "1oZ4V2BdNSH62n7KFruNbgvGsw5eRs1Z8",
+      "sizeBytes": 96002294,
+      "sha256": "3258d5e05aded708c06017b8763fa37bfb696385a2ab29dd8a182d3938cbc0e0",
+      "buildId": "52BD625D9B4E0053",
+      "status": "CONFIRMED_EXACT_CURRENT_BUILD"
+    },
+    "managedDump": {
+      "gameVersion": "1.25.0",
+      "buildId": "52BD625D9B4E0053",
+      "status": "CONFIRMED_EXACT_CURRENT_BUILD"
+    },
+    "saveBackedAudit": {
+      "artifact": "DDV_V1.25_SAVE_BACKED_WAND_STRUCTURE_AUDIT_2026-09-29",
+      "switchDecryptedProfileSha256": "1cfc40196f7ee36048e1fa98c0835561901c6fed3f19ca8dd6fa36c47740dc10",
+      "observations": {
+        "playerHouses": 60,
+        "rooms": 240,
+        "eachRoomSlotCount": 60,
+        "everyRoomHasFloorGridId": true,
+        "everyRoomHasFourWallGridIds": true,
+        "persistedFields": [
+          "RoomPrefabAddress",
+          "Flooring",
+          "Wallpapers",
+          "WallpaperOffsetById",
+          "Ceiling"
+        ]
+      },
+      "status": "CONFIRMED_CURRENT_SAVE"
+    },
+    "indoorRoomResolver": {
+      "artifact": "DDV_V1.25_WAND_INDOOR_ROOM_RESOLVER_CONTRACT_2026-09-29",
+      "status": "CONFIRMED_STATIC",
+      "semanticIdentity": [
+        "HouseItemID",
+        "floorIndex",
+        "RoomSlot"
+      ],
+      "currentSaveLocators": [
+        "PlayerHouseIndex",
+        "FloorGridID",
+        "WallGridIDs"
+      ]
+    }
+  },
+  "roomModel": {
+    "roomSlot": {
+      "Center": 0,
+      "Left": 1,
+      "Right": 2,
+      "Top": 3
+    },
+    "wallPosition": {
+      "Top": 0,
+      "Right": 1,
+      "Bottom": 2,
+      "Left": 3
+    },
+    "fields": {
+      "FloorGridID": {
+        "protobufField": 2,
+        "writeAuthorized": false
+      },
+      "WallGridIDs": {
+        "protobufField": 3,
+        "writeAuthorized": false
+      },
+      "RoomPrefabAddress": {
+        "protobufField": 4,
+        "writeAuthorized": false
+      },
+      "Flooring": {
+        "protobufField": 5,
+        "writeAuthorized": true
+      },
+      "Wallpapers": {
+        "protobufField": 6,
+        "writeAuthorized": true,
+        "mapKey": "WallPosition"
+      },
+      "WallpaperOffsetById": {
+        "protobufField": 7,
+        "writeAuthorized": "COMPANION_REMOVE_ONLY_IN_BASE_ROOM_FINISH"
+      },
+      "Ceiling": {
+        "protobufField": 8,
+        "writeAuthorized": false
+      }
+    }
+  },
+  "currentRoomProjection": {
+    "semanticIdentity": [
+      "HouseItemID",
+      "floorIndex",
+      "RoomSlot"
+    ],
+    "resolution": [
+      "resolve current PlayerHouses entry by current-save PlayerHouseIndex when supplied and require HouseItemID equality",
+      "without PlayerHouseIndex, HouseItemID resolution is allowed only when exactly one current-save entry matches",
+      "validate floorIndex against House.Floors",
+      "resolve Floor.Rooms[RoomSlot]",
+      "require four unique Room.WallGridIDs keyed by WallPosition 0..3"
+    ],
+    "projectedReadFields": [
+      "FloorGridID",
+      "WallGridIDs",
+      "RoomPrefabAddress",
+      "Flooring",
+      "Wallpapers",
+      "WallpaperOffsetById",
+      "Ceiling"
+    ],
+    "ceilingPolicy": "READ_CONTEXT_ONLY_NO_WRITE"
+  },
+  "activeWallIdentity": {
+    "semanticIdentity": "House.Types.WallPosition",
+    "values": {
+      "Top": 0,
+      "Right": 1,
+      "Bottom": 2,
+      "Left": 3
+    },
+    "currentRuntimeCorroboration": "Mdl.Grid.WallGridScript carries House.Types.WallPosition",
+    "currentSaveBinding": "Room.WallGridIDs is keyed by the same WallPosition enum",
+    "wandRule": "Current Wall resolves to WallPosition; active wall GridID is a current-save locator and must agree with Room.WallGridIDs[position] when both are available.",
+    "failClosed": [
+      "wall position outside 0..3",
+      "active GridID does not map uniquely within the current room",
+      "wall position and GridID disagree"
+    ],
+    "evidenceStatus": "CONFIRMED_SCHEMA_PLUS_CURRENT_RUNTIME_TYPE; BINDING RULE HIGH_CONFIDENCE"
+  },
+  "flooring": {
+    "nativeTransaction": "ChangePlayerHouseFlooring",
+    "applyThisRva": "0x53D4D00",
+    "request": [
+      "PlayerHouseIndex",
+      "FloorIndex",
+      "RoomSlot",
+      "FlooringItemID"
+    ],
+    "eligibility": [
+      "Item.TryGet<TrimmingItemType> succeeds",
+      "TrimmingItemType == Flooring (1)",
+      "ProfilePlayer.HasItem(item,1) == true"
+    ],
+    "nativeResults": [
+      "Success",
+      "InvalidFloor",
+      "InvalidRoom",
+      "InvalidItem",
+      "NotEnoughItems",
+      "AlreadySet",
+      "InvalidHouse",
+      "NotAllowed"
+    ],
+    "observedApplyThisResultPaths": [
+      "Success",
+      "InvalidFloor",
+      "InvalidRoom",
+      "InvalidItem",
+      "NotEnoughItems",
+      "AlreadySet",
+      "InvalidHouse"
+    ],
+    "notAllowedPath": "UNKNOWN_NOT_OBSERVED_IN_CURRENT_APPLYTHIS_CONTROL_FLOW",
+    "saveMutation": [
+      "Room.Flooring = FlooringItemID"
+    ],
+    "inventoryConsumption": false,
+    "ownershipMutation": false,
+    "exactUnrelatedStatePolicy": "PRESERVE"
+  },
+  "wallpaper": {
+    "nativeTransaction": "ChangePlayerHouseWallpaper",
+    "applyThisRva": "0x53E1E30",
+    "helperRva": "0x53E2470",
+    "request": [
+      "PlayerHouseIndex",
+      "FloorIndex",
+      "RoomSlot",
+      "optional WallPosition oneof",
+      "WallpaperItemID"
+    ],
+    "eligibility": [
+      "Item.TryGet<TrimmingItemType> succeeds",
+      "TrimmingItemType == Wallpaper (0)",
+      "ProfilePlayer.HasItem(item,1) == true"
+    ],
+    "scopes": {
+      "CURRENT_WALL": "WallPosition oneof present; invoke helper once for that WallPosition",
+      "ALL_WALLS": "WallPosition oneof absent; native code enumerates all WallPosition values"
+    },
+    "mapSemantics": {
+      "Wallpapers": "protobuf MapField<int,int> keyed by WallPosition; map ordering has no semantic identity",
+      "WallpaperOffsetById": "protobuf MapField<int,float> keyed by Wallpaper ItemID; one room-level offset is shared by every wall using that wallpaper ItemID"
+    },
+    "perWallHelper": [
+      "read old wallpaper with Wallpapers.TryGetValue(wallPosition); absent key behaves as default old ItemID 0",
+      "if existing wallpaper equals target, that wall is unchanged",
+      "otherwise set Wallpapers[wallPosition] = target",
+      "inspect Wallpapers.Values after the set",
+      "if displaced old ItemID is no longer used by any wall, remove WallpaperOffsetById[oldItemID] if present",
+      "mark operation changed"
+    ],
+    "targetOffsetPolicy": "preserve existing target WallpaperOffsetById entry or absence; ChangePlayerHouseWallpaper does not synthesize a target offset",
+    "inventoryConsumption": false,
+    "ownershipMutation": false
+  },
+  "wallpaperOffset": {
+    "nativeTransaction": "ChangePlayerHouseWallpaperOffset",
+    "applyThisRva": "0x53DCB30",
+    "request": [
+      "PlayerHouseIndex",
+      "FloorIndex",
+      "RoomSlot",
+      "WallpaperItemID",
+      "float Offset"
+    ],
+    "nativeWrite": "Room.WallpaperOffsetById[WallpaperItemID] = Offset",
+    "wallpaperSubtypeValidation": true,
+    "ownershipCheckObserved": false,
+    "wallpaperUseCheckObserved": false,
+    "standaloneRoomFinishProductWriteAuthorized": false,
+    "productUse": "read/projection and exact companion-cleanup semantics only for DEC-UX-241..242",
+    "note": "No standalone offset control is added by this contract. A later product decision may consume the proven native transaction under a separately bounded writer contract."
+  },
+  "atomicDraftTransactions": {
+    "flooring": "one Room.Flooring replacement is one Undo/Redo transaction",
+    "currentWallWallpaper": "selected Wallpapers[WallPosition] set plus any stale displaced WallpaperOffsetById removal commit atomically",
+    "allWallsWallpaper": "all changed Wallpapers[0..3] entries plus every resulting stale displaced WallpaperOffsetById removal are computed from one pre-state and commit atomically; partial apply is forbidden",
+    "ordinaryPlacedObjectSelection": "separate domain; Room Finish never masquerades as GridObject selection"
+  },
+  "definitionAndOwnershipPolicy": {
+    "definition": "current game database item must resolve as TrimmingItemData / native TrimmingItemType required by operation",
+    "flooringNativeSubtype": 1,
+    "wallpaperNativeSubtype": 0,
+    "ownership": "native room finish requires ProfilePlayer.HasItem(item,1) for Flooring and Wallpaper",
+    "consumption": "none observed; applying room finish does not decrement ownership or inventory",
+    "premiumEntitlement": "never edited or granted by this contract",
+    "unavailableOrUnowned": "fail closed as not eligible for the operation; do not synthesize ownership"
+  },
+  "exclusions": [
+    "Ceiling write",
+    "RoomPrefabAddress write",
+    "FloorGridID write",
+    "WallGridIDs write",
+    "House/Floor/Room create/delete/reorder",
+    "PlayerHouseIndex as portable identity",
+    "GridID as portable wall identity",
+    "standalone WallpaperOffset write in DEC-UX-241..242",
+    "inventory/ownership/Collection/entitlement mutation",
+    "Store/Shop mutation",
+    "progression mutation",
+    "arbitrary JSON patch",
+    "Steam writer inference"
+  ],
+  "saveLayer": {
+    "existing01AReusableWithoutChange": false,
+    "blocker": "01A transaction-foundation v1.0 target validation only supports GRID_OBJECT and GRID_OBJECT_SET under World.GridCollection.",
+    "exactUpstreamRequest": "01B-TO-01A-ROOM-FINISH-TARGET-V125-V1",
+    "requestedShape": "extend existing WRITE_CANDIDATE with exact PLAYER_HOUSE_ROOM target identity; no generic path writer"
+  },
+  "runtimeAcceptance": {
+    "required": true,
+    "status": "BLOCKED_ON_01A_PLAYER_HOUSE_ROOM_TARGET_EXTENSION_AND_01B_ADAPTER_BINDING",
+    "why": "Native transaction semantics and current-save persistence are confirmed, but Wand verified-export acceptance for offline room-field mutation has not yet been exercised through the 01A candidate pipeline and cold reload.",
+    "frozenMinimumAfterUpstream": [
+      "one exact-build Flooring candidate changing only Room.Flooring; verify load, normal save, full exit, cold relaunch, same target room identity and unchanged inventory/ownership",
+      "one exact-build ALL_WALLS Wallpaper candidate with at least two displaced wallpaper ItemIDs and at least one displaced offset entry; verify changed Wallpapers entries, exact stale-offset removal, no target-offset synthesis, normal save, full exit and cold relaunch",
+      "restore exact original backup and confirm load"
+    ],
+    "currentWallAdditionalRuntimeRequired": false,
+    "rationale": "CURRENT_WALL uses the same confirmed native per-wall helper and the same serialized map entry shape exercised by ALL_WALLS; the oneof scope selection is statically confirmed in the exact current binary."
+  },
+  "implementation": {
+    "semanticCompiler": "src/lib/ddv/core/world/room-finish-v125.js",
+    "upstreamRequest": "static/ddv/core/save/v1.25/room-finish-transaction-target-extension-request-v125.json"
+  },
+  "hardFlags": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false
+  }
+}
