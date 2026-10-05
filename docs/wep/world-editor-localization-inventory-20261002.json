@@ -23,7 +23,7 @@
     "src/lib/wep/world-editor-primary-job.ts": "a8e49f4f2eec543b9aaebd2d552c9da8e36270d5",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "711609eb100a0809a5e9a5b274f83dd9319e3645",
-    "src/lib/SiteFooter.svelte": "c1f5ce8166a83e1464ad74d3a73714894650882e",
+    "src/lib/SiteFooter.svelte": "4b20121a1295e42aeaeb25e39cb3853bd80da0e8",
     "src/lib/community/CommunityNav.svelte": "bd9a7636147e83c1d42931df48464f3a4c86f01b",
     "src/lib/product-home/copy.js": "bbe79a69abf213f02ecfbda416900283c3455243"
   },
