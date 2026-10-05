@@ -22,7 +22,6 @@
   export let selection: string[] = [];
   export let switchWorldBinding: any = null;
   export let mutationBound = false;
-  export let selectionIds: string[] = [];
   export let presetBridge: any = null;
   export let onMutation: (result: any, label: string) => void = () => {};
 
@@ -51,7 +50,7 @@
       }))
     : [];
   $: selectedObjects = session && editorDocument
-    ? (selectionIds ?? session.getSelection?.() ?? [])
+    ? selection
         .map((id: string) =>
           editorDocument.objects?.find((object: any) => object.editorId === id)
         )
