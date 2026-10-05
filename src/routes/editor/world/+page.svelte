@@ -3323,6 +3323,7 @@
         {editorDocument}
         {switchWorldBinding}
         {mutationBound}
+        selectionIds={selection}
         presetBridge={bridge}
         onMutation={finishDraftMutation}
       />
@@ -3547,7 +3548,7 @@
                       selectedInspectorObject.editability !== 'editable' ||
                       selectedInspectorObject.layer === 'road' ||
                       selectedInspectorObject.layer === 'fence' ||
-                      selectedInspectorObject.metadata?.worldClass === 'FenceAndRoadItemData'
+                      selectedInspectorObject.worldClass === 'FenceAndRoadItemData'
                     }
                   />
                 </label>
@@ -3562,7 +3563,7 @@
                       selectedInspectorObject.editability !== 'editable' ||
                       selectedInspectorObject.layer === 'road' ||
                       selectedInspectorObject.layer === 'fence' ||
-                      selectedInspectorObject.metadata?.worldClass === 'FenceAndRoadItemData'
+                      selectedInspectorObject.worldClass === 'FenceAndRoadItemData'
                     }
                   />
                 </label>
@@ -3575,7 +3576,7 @@
                   selectedInspectorObject.editability !== 'editable' ||
                   selectedInspectorObject.layer === 'road' ||
                   selectedInspectorObject.layer === 'fence' ||
-                  selectedInspectorObject.metadata?.worldClass === 'FenceAndRoadItemData'
+                  selectedInspectorObject.worldClass === 'FenceAndRoadItemData'
                 }
               >
                 {stage1Copy.applyCoords}
