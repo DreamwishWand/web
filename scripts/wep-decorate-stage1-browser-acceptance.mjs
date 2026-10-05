@@ -411,7 +411,7 @@ try{
   const baselineLabel=await page.locator('g[data-editor-object]').first().getAttribute('aria-label');
 
   // A compatible active draft must be reusable even before its first mutation.
-  await page.locator('a[href$="/explore/"]').first().click();
+  await page.goto(root+'/explore/',{waitUntil:'networkidle'});
   await page.waitForURL(/\/explore\/?$/);
   await page.locator('.controls input[type="search"]').fill('40000048');
   await eventually(async()=>await page.locator('.card-review').count()===1);
