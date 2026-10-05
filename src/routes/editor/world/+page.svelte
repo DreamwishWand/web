@@ -88,6 +88,18 @@
     setFencePostPinned,
     validateFencePostLayoutDraft
   } from '$lib/wep/fence-post-edit-contract';
+  import WorldEditorStage1DecoratePanel from '$lib/wep/WorldEditorStage1DecoratePanel.svelte';
+  import {
+    getActiveWorldEditorMemory,
+    listRecoveryRecords,
+    recoveryCompatible,
+    routeKeyForDocument,
+    saveRecoveryRoute,
+    setActiveWorldEditorMemory,
+    sha256Fingerprint
+  } from '$lib/wep/world-editor-recovery';
+  import { readWorldEditorHandoff } from '$lib/wep/world-editor-handoff';
+  import { worldEditorStage1Copy } from '$lib/wep/world-editor-stage1-copy.js';
   import {
     previewConnectedSelection,
     previewFenceBranchSelection,
@@ -156,6 +168,11 @@
   let originalSaveBackup: any = null;
   let worldSourceBytes: Uint8Array | null = null;
   let worldSourceEpoch = 0;
+  let sourceFingerprint = '';
+  let recoveryRecords: any[] = [];
+  let recoveryRequest: any = null;
+  let recoveryStatus = '';
+  let saveFileInput: HTMLInputElement;
   let verifiedExportBaselineDocument: any = null;
   let verifiedExportReview: any = null;
   let verifiedExportResult: any = null;
@@ -208,6 +225,7 @@
     );
   $: selectedCount = selection.length;
   $: objectCount = editorDocument?.objects?.length ?? 0;
+  $: stage1Copy = worldEditorStage1Copy($locale);
   $: placementReadiness = editorDocument
     ? assessCurrentV125BrowserPlacementReadiness(editorDocument)
     : null;
@@ -321,7 +339,10 @@
     };
   }
 
-  function createSwitchDraftSession(document: any) {
+  function createSwitchDraftSession(
+    document: any,
+    recoverySnapshot: any = null
+  ) {
     if (!switchWorldBinding || !placementLegalityBinding) {
       throw new Error('WEP_WORLD_DRAFT_CORE_BINDING_UNAVAILABLE');
     }
@@ -329,8 +350,175 @@
       geometryAdapter: coreDraftGeometryAdapter(switchWorldBinding),
       validator:
         placementLegalityBinding.createEditorDraftValidator(),
-      allowInvalidDraft: true
+      allowInvalidDraft: true,
+      recoverySnapshot
     });
+  }
+
+  function recoveryTargetForCurrentSource() {
+    if (!worldSource) return null;
+    return {
+      platform: String(worldSource.saveIdentity?.sourcePlatform ?? ''),
+      gameVersion: String(worldSource.compatibility?.gameVersion ?? ''),
+      profileSchemaVersion: Number(worldSource.profileSchemaVersion)
+    };
+  }
+
+  function refreshRecoveryRecords() {
+    try {
+      recoveryRecords = listRecoveryRecords(localStorage);
+      recoveryStatus = '';
+    } catch (error) {
+      recoveryRecords = [];
+      recoveryStatus =
+        error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  function checkpointRecovery() {
+    if (
+      !session ||
+      !worldSource ||
+      !worldSourceBytes ||
+      !sourceFingerprint ||
+      typeof session.exportRecoverySnapshot !== 'function'
+    ) {
+      return;
+    }
+    const history = session.getHistoryState?.();
+    if (!history || Number(history.undoDepth ?? 0) <= 0) return;
+    const target = recoveryTargetForCurrentSource();
+    if (!target) return;
+    try {
+      saveRecoveryRoute(localStorage, {
+        sourceFingerprint,
+        sourceName: fileName || null,
+        target,
+        routeKey: routeKeyForDocument(session.getDocument()),
+        sessionSnapshot: session.exportRecoverySnapshot()
+      });
+      setActiveWorldEditorMemory({
+        sourceFingerprint,
+        sourceBytes: worldSourceBytes,
+        worldSource,
+        originalSaveBackup
+      });
+      refreshRecoveryRecords();
+    } catch (error) {
+      recoveryStatus =
+        error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  async function ensureSwitchDraftBindings() {
+    switchWorldBinding ??= await createSwitchWorldReadAdapter({
+      basePath: base
+    });
+    placementLegalityBinding ??=
+      await createSwitchV125PlacementLegalityBinding({
+        basePath: base
+      });
+    buildingV110Binding ??=
+      await createSwitchV125BuildingBinding({
+        basePath: base
+      });
+    scroogeStoreV112Binding ??=
+      await createSwitchV125ScroogeStoreBinding({
+        basePath: base
+      });
+    progressionV114Binding ??=
+      await createSwitchV125ProgressionIntegrationBinding({
+        basePath: base
+      });
+  }
+
+  async function restoreRecoveryRecord(
+    record: any,
+    memory = getActiveWorldEditorMemory()
+  ) {
+    if (!record || !memory) {
+      recoveryRequest = record;
+      saveFileInput?.click();
+      return false;
+    }
+    const target = {
+      platform: String(memory.worldSource?.saveIdentity?.sourcePlatform ?? ''),
+      gameVersion: String(memory.worldSource?.compatibility?.gameVersion ?? ''),
+      profileSchemaVersion: Number(memory.worldSource?.profileSchemaVersion)
+    };
+    if (
+      memory.sourceFingerprint !== record.sourceFingerprint ||
+      !recoveryCompatible(record, memory.sourceFingerprint, target)
+    ) {
+      recoveryRequest = record;
+      saveFileInput?.click();
+      return false;
+    }
+    if (target.platform !== 'switch') {
+      throw new Error('WEP_RECOVERY_SWITCH_DRAFT_REQUIRED');
+    }
+
+    await ensureSwitchDraftBindings();
+    const route =
+      record.routes?.[record.activeRouteKey] ?? null;
+    if (!route?.session?.document) {
+      throw new Error('WEP_RECOVERY_ACTIVE_ROUTE_MISSING');
+    }
+
+    worldSource = memory.worldSource;
+    worldSourceBytes = memory.sourceBytes.slice();
+    originalSaveBackup = memory.originalSaveBackup;
+    sourceFingerprint = memory.sourceFingerprint;
+    fileName = record.sourceName ?? fileName;
+    sourcePlatform = target.platform;
+    const recoveredDocument =
+      normalizeEditorDocument(route.session.document);
+    const firstHistory =
+      route.session.undoStack?.[0] ?? null;
+    verifiedExportBaselineDocument = normalizeEditorDocument(
+      firstHistory?.before ?? recoveredDocument
+    );
+    session = createSwitchDraftSession(
+      recoveredDocument,
+      route.session
+    );
+    editorDocument = session.getDocument();
+    draftAuthoringBound = true;
+    layerState = createLayerState({
+      capabilities: editorDocument.capabilities
+    });
+    areaBounds = deriveAreaBounds(editorDocument);
+    query = '';
+    selectedOnly = false;
+    capturePreview = null;
+    published = null;
+    verifiedExportReview = null;
+    verifiedExportResult = null;
+    verifiedExportErrorCode = '';
+    verifiedExportErrorDetail = '';
+    verifiedExportConfirmed = false;
+    fullDesignRootDocuments = [cloneLocal(verifiedExportBaselineDocument)];
+    fullDesignSourceRootGridId =
+      Number.isSafeInteger(Number(editorDocument.target?.rootGridId))
+        ? Number(editorDocument.target.rootGridId)
+        : null;
+    refreshProjection();
+    refreshDraftState();
+    syncRoadFenceSelection();
+    recoveryRequest = null;
+    recoveryStatus = '';
+    message = 'Draft resumed from exact source baseline.';
+    return true;
+  }
+
+  async function resumeRecovery(record: any) {
+    try {
+      if (await restoreRecoveryRecord(record)) return;
+      recoveryStatus = stage1Copy.sourceNeeded;
+    } catch (error) {
+      recoveryStatus =
+        error instanceof Error ? error.message : String(error);
+    }
   }
 
   function cloneLocal<T>(value: T): T {
@@ -1562,6 +1750,24 @@
   }
 
   onMount(async () => {
+    refreshRecoveryRecords();
+    try {
+      const pendingHandoff = readWorldEditorHandoff(localStorage);
+      const memory = getActiveWorldEditorMemory();
+      if (pendingHandoff && memory) {
+        const compatible = recoveryRecords.find(
+          (record: any) =>
+            record.sourceFingerprint === memory.sourceFingerprint
+        );
+        if (compatible) {
+          await restoreRecoveryRecord(compatible, memory);
+        }
+      }
+    } catch (error) {
+      recoveryStatus =
+        error instanceof Error ? error.message : String(error);
+    }
+
     try {
       const config = readCommunityBrowserConfig();
       if (!config) return;
@@ -2977,6 +3183,7 @@
       </label>
       <label class="file-button">
         <input
+          bind:this={saveFileInput}
           type="file"
           accept=".save,.json,application/json,application/octet-stream"
           on:change={openEditorDocument}
@@ -2988,6 +3195,32 @@
       </label>
     </div>
   </section>
+
+  {#if recoveryRecords.length || recoveryStatus}
+    <section class="recovery-panel" data-wep-recovery aria-labelledby="wep-recovery-title">
+      <div>
+        <p class="eyebrow">Recovery</p>
+        <h2 id="wep-recovery-title">Resume Draft</h2>
+        <p>
+          Recovery stores committed draft transactions and the exact source fingerprint.
+          If the source bytes are no longer in memory, re-open the exact original save.
+        </p>
+      </div>
+      {#if recoveryRecords.length}
+        <div class="recovery-list">
+          {#each recoveryRecords.slice(0, 5) as record}
+            <button type="button" on:click={() => resumeRecovery(record)} disabled={loading}>
+              <strong>{record.sourceName ?? 'DDV save'}</strong>
+              <span>{record.savedAt} · {record.target.platform} · {record.target.gameVersion}</span>
+            </button>
+          {/each}
+        </div>
+      {/if}
+      {#if recoveryStatus}
+        <p class="recovery-status" role="status" aria-live="polite">{recoveryStatus}</p>
+      {/if}
+    </section>
+  {/if}
 
   {#if message}
     <div class="status" aria-live="polite">{message}</div>
@@ -3018,6 +3251,17 @@
               {t('worldEditor.nav.backToRoutes', {}, $locale)}
             </button>
           {/if}
+        </section>
+
+        <section class="side-card">
+          <WorldEditorStage1DecoratePanel
+            {session}
+            {editorDocument}
+            {switchWorldBinding}
+            {mutationBound}
+            presetBridge={bridge}
+            onMutation={finishDraftMutation}
+          />
         </section>
 
         {#if placementReadiness}
