@@ -90,11 +90,13 @@
   } from '$lib/wep/fence-post-edit-contract';
   import WorldEditorStage1DecoratePanel from '$lib/wep/WorldEditorStage1DecoratePanel.svelte';
   import {
+    createRecoveryRecord,
     getActiveWorldEditorMemory,
     listRecoveryRecords,
     recoveryCompatible,
     routeKeyForDocument,
     saveRecoveryRoute,
+    setActiveWorldEditorDraftRecord,
     setActiveWorldEditorMemory,
     sha256Fingerprint
   } from '$lib/wep/world-editor-recovery';
@@ -404,19 +406,14 @@
     const target = recoveryTargetForCurrentSource();
     if (!target) return;
     try {
-      saveRecoveryRoute(localStorage, {
+      const record = saveRecoveryRoute(localStorage, {
         sourceFingerprint,
         sourceName: fileName || null,
         target,
         routeKey: routeKeyForDocument(session.getDocument()),
         sessionSnapshot: session.exportRecoverySnapshot()
       });
-      setActiveWorldEditorMemory({
-        sourceFingerprint,
-        sourceBytes: worldSourceBytes,
-        worldSource,
-        originalSaveBackup
-      });
+      setActiveWorldEditorDraftRecord(record);
       refreshRecoveryRecords();
     } catch (error) {
       recoveryStatus =
@@ -424,7 +421,38 @@
     }
   }
 
-  async function ensureSwitchDraftBindings() {
+  function rememberActiveDraftInMemory() {
+    if (
+      !session ||
+      !worldSource ||
+      !worldSourceBytes ||
+      !sourceFingerprint ||
+      typeof session.exportRecoverySnapshot !== 'function'
+    ) {
+      return;
+    }
+    const target = recoveryTargetForCurrentSource();
+    if (!target) return;
+    const snapshot = session.exportRecoverySnapshot();
+    const routeKey = routeKeyForDocument(session.getDocument());
+    const memory = getActiveWorldEditorMemory();
+    const existing =
+      memory?.activeDraftRecord &&
+      memory.activeDraftRecord.sourceFingerprint === sourceFingerprint
+        ? memory.activeDraftRecord
+        : null;
+    const record = createRecoveryRecord({
+      sourceFingerprint,
+      sourceName: fileName || null,
+      target,
+      routeKey,
+      sessionSnapshot: snapshot,
+      existing
+    });
+    setActiveWorldEditorDraftRecord(record);
+  }
+
+    async function ensureSwitchDraftBindings() {
     switchWorldBinding ??= await createSwitchWorldReadAdapter({
       basePath: base
     });
@@ -520,6 +548,7 @@
     refreshProjection();
     refreshDraftState();
     syncRoadFenceSelection();
+    rememberActiveDraftInMemory();
     recoveryRequest = null;
     recoveryStatus = '';
     message = stage1Copy.recovered;
@@ -1777,10 +1806,21 @@
       }
       const memory = getActiveWorldEditorMemory();
       if (pendingHandoff && memory) {
-        const compatible = recoveryRecords.find(
-          (record: any) =>
-            record.sourceFingerprint === memory.sourceFingerprint
-        );
+        const compatible =
+          recoveryRecords.find(
+            (record: any) =>
+              record.sourceFingerprint === memory.sourceFingerprint
+          ) ??
+          (
+            memory.activeDraftRecord &&
+            recoveryCompatible(
+              memory.activeDraftRecord,
+              memory.sourceFingerprint,
+              memory.activeDraftRecord.target
+            )
+              ? memory.activeDraftRecord
+              : null
+          );
         if (compatible) {
           await restoreRecoveryRecord(compatible, memory);
         }
@@ -2244,6 +2284,7 @@
       session = createSwitchDraftSession(normalized);
       draftAuthoringBound = true;
       editorDocument = session.getDocument();
+      rememberActiveDraftInMemory();
       layerState = createLayerState({
         capabilities: editorDocument.capabilities
       });
