@@ -1755,6 +1755,11 @@
     refreshRecoveryRecords();
     try {
       const pendingHandoff = readWorldEditorHandoff(localStorage);
+      if (pendingHandoff) {
+        switchWorldBinding ??= await createSwitchWorldReadAdapter({
+          basePath: base
+        });
+      }
       const memory = getActiveWorldEditorMemory();
       if (pendingHandoff && memory) {
         const compatible = recoveryRecords.find(
