@@ -512,6 +512,98 @@ export function createEditorSession(
     }),
     canUndo: () => undoStack.length > 0,
     canRedo: () => redoStack.length > 0,
+    reviewChanges() {
+      const baseline = undoStack.length
+        ? normalizeEditorDocument(undoStack[0].before)
+        : normalizeEditorDocument(document);
+      const before = new Map(
+        baseline.objects.map((object) => [object.editorId, object])
+      );
+      const after = new Map(
+        document.objects.map((object) => [object.editorId, object])
+      );
+      const ids = new Set([...before.keys(), ...after.keys()]);
+      const changes: Array<Record<string, any>> = [];
+
+      for (const id of ids) {
+        const previous = before.get(id) ?? null;
+        const current = after.get(id) ?? null;
+        if (!previous && current) {
+          changes.push({
+            kind: 'ADD',
+            editorId: id,
+            itemId: current.itemId,
+            before: null,
+            after: {
+              x: current.x,
+              y: current.y,
+              orientation: current.orientation
+            }
+          });
+          continue;
+        }
+        if (previous && !current) {
+          changes.push({
+            kind: 'REMOVE',
+            editorId: id,
+            itemId: previous.itemId,
+            before: {
+              x: previous.x,
+              y: previous.y,
+              orientation: previous.orientation
+            },
+            after: null
+          });
+          continue;
+        }
+        if (!previous || !current) continue;
+        const moved =
+          previous.x !== current.x ||
+          previous.y !== current.y;
+        const rotated =
+          previous.orientation !== current.orientation;
+        if (!moved && !rotated) continue;
+        changes.push({
+          kind:
+            moved && rotated
+              ? 'MOVE_ROTATE'
+              : moved
+                ? 'MOVE'
+                : 'ROTATE',
+          editorId: id,
+          itemId: current.itemId,
+          before: {
+            x: previous.x,
+            y: previous.y,
+            orientation: previous.orientation
+          },
+          after: {
+            x: current.x,
+            y: current.y,
+            orientation: current.orientation
+          }
+        });
+      }
+
+      return {
+        schema: 'dreamwish-wand-wep-draft-review@1',
+        version: 1,
+        target: clone(document.target),
+        changes,
+        commands: undoStack.map((entry) => ({
+          kind: entry.kind,
+          command: String(
+            entry.context?.command ?? entry.result?.command ?? entry.kind
+          )
+        })),
+        writeReady: false,
+        persistentWriteAuthorized: false,
+        WORLD_PERSISTENT_WRITE_V125: false,
+        PERSISTENT_WRITE: false,
+        productApplyAuthorized: false,
+        directSourceReplacementAuthorized: false
+      };
+    },
     exportRecoverySnapshot() {
       return {
         schema: 'dreamwish-wand-wep-editor-session-recovery@1',
