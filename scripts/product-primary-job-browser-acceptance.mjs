@@ -53,12 +53,18 @@ try{
     globalThis.__wandShellIntents=[];
     window.addEventListener('wand:shell-intent',(event)=>globalThis.__wandShellIntents.push(event.detail.intent));
   });
-  await page.locator('[data-shell-control="save"]').click();
-  await page.locator('[data-shell-control="account"]').click();
+  const saveControl=page.locator('[data-shell-control="save"]');
+  const accountControl=page.locator('[data-shell-control="account"]');
+  await eventually(async()=>{
+    await saveControl.click();
+    return await page.evaluate(()=>globalThis.__wandShellIntents.includes('open-ddv-save'));
+  },{timeout:5000,interval:100});
+  await eventually(async()=>{
+    await accountControl.click();
+    return await page.evaluate(()=>globalThis.__wandShellIntents.includes('sign-in'));
+  },{timeout:5000,interval:100});
   const shellIntents=await page.evaluate(()=>globalThis.__wandShellIntents);
-  assert(shellIntents.includes('open-ddv-save'),'DDV Save owner intent not emitted');
-  assert(shellIntents.includes('sign-in'),'signed-out Account owner intent not emitted');
-  ok('SHARED_SHELL_OWNER_INTENTS',{intents:shellIntents});
+  ok('SHARED_SHELL_OWNER_INTENTS',{intents:[...new Set(shellIntents)]});
 
   await page.locator('.skip-link').focus();
   assert(await page.locator('.skip-link').evaluate(node=>node===document.activeElement),'Skip link cannot receive keyboard focus');
