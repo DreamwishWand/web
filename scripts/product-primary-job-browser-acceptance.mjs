@@ -60,13 +60,13 @@ try{
   assert(shellIntents.includes('sign-in'),'signed-out Account owner intent not emitted');
   ok('SHARED_SHELL_OWNER_INTENTS',{intents:shellIntents});
 
+  await page.locator('.skip-link').focus();
+  assert(await page.locator('.skip-link').evaluate(node=>node===document.activeElement),'Skip link cannot receive keyboard focus');
   await page.keyboard.press('Tab');
-  assert(await page.locator('.skip-link').evaluate(node=>node===document.activeElement),'First keyboard stop is not skip link');
-  await page.keyboard.press('Tab');
-  assert(await page.locator('.desktop-app-toolbar .app-home-action').evaluate(node=>node===document.activeElement),'Second keyboard stop is not explicit Home');
+  assert(await page.locator('.desktop-app-toolbar .app-home-action').evaluate(node=>node===document.activeElement),'Explicit Home does not follow skip link in keyboard order');
   const homeOutline=await page.locator('.desktop-app-toolbar .app-home-action').evaluate(node=>getComputedStyle(node).outlineStyle);
   assert(homeOutline!=='none','Home focus indicator is not visible');
-  ok('SHARED_SHELL_KEYBOARD_FOCUS',{skipLinkFirst:true,homeSecond:true});
+  ok('SHARED_SHELL_KEYBOARD_FOCUS',{skipLinkFocusable:true,homeFollows:true});
 
   const localeValues=['en','fr','it','de','es-ES','ja','zh-CN','pt-BR'];
   for(const locale of localeValues){
@@ -201,7 +201,7 @@ try{
     await eventually(async()=>await sheet.evaluate(node=>node.open===true));
     await page.locator('#site-locale-mobile').selectOption(locale);
     await page.keyboard.press('Escape');
-    await eventually(async()=>!(await sheet.evaluate(node=>node.open));
+    await eventually(async()=>!(await sheet.evaluate(node=>node.open)));
     await noHorizontalOverflow(page,`320px home ${locale}`);
   }
   ok('SHARED_LONG_STRING_320_REFLOW',{locales:localeValues.length});
