@@ -2,11 +2,18 @@ name: Product primary-job browser acceptance
 
 on:
   push:
-    branches: ['dev/product-surfaces-*', 'integration/product-tree-current-*']
+    branches: ['dev/product-surfaces-*', 'dev/web-shared-ui-stage1-*', 'integration/product-tree-current-*']
     paths:
       - '.github/workflows/product-browser-acceptance.yml'
       - 'scripts/product-primary-job-browser-acceptance.mjs'
       - 'src/routes/+page.svelte'
+      - 'src/routes/decorate/**'
+      - 'src/routes/discover/**'
+      - 'src/lib/ui/**'
+      - 'src/lib/SiteHeader.svelte'
+      - 'src/lib/SiteFooter.svelte'
+      - 'src/lib/i18n/**'
+      - 'src/app.css'
       - 'src/routes/moodboards/**'
       - 'src/routes/collection/**'
       - 'src/routes/guide/**'
