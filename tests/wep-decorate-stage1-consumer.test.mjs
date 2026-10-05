@@ -19,6 +19,10 @@ import {
   recoveryCompatible,
   saveRecoveryRoute
 } from '../src/lib/wep/world-editor-recovery.ts';
+import {
+  WORLD_EDITOR_STAGE1_LOCALES,
+  worldEditorStage1Copy
+} from '../src/lib/wep/world-editor-stage1-copy.js';
 
 function storage() {
   const map = new Map();
@@ -192,4 +196,15 @@ test('Review Changes returns to empty when draft history is completely undone', 
   assert.equal(session.reviewChanges().changes.length,1);
   session.undo();
   assert.equal(session.reviewChanges().changes.length,0);
+});
+
+test('Decorate Stage 1 presentation has exact launch-locale key parity', () => {
+  const locales=['en','fr','it','de','es-ES','ja','zh-CN','pt-BR'];
+  assert.deepEqual([...WORLD_EDITOR_STAGE1_LOCALES].sort(),[...locales].sort());
+  const base=Object.keys(worldEditorStage1Copy('en')).sort();
+  for(const locale of locales){
+    const copy=worldEditorStage1Copy(locale);
+    assert.deepEqual(Object.keys(copy).sort(),base,locale);
+    for(const key of base)assert.equal(typeof copy[key],'string',locale+' '+key);
+  }
 });
