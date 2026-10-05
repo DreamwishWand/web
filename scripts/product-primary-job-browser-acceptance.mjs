@@ -36,22 +36,66 @@ page.on('console',msg=>{if(msg.type()==='error')evidence.consoleErrors.push(msg.
 
 try{
   await page.goto(base+'/',{waitUntil:'domcontentloaded'});
-  await eventually(async()=>await page.locator('.portal-card').count()===6);
-  const coreHrefs=await page.locator('.portal-card').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('href')));
-  for(const path of ['/explore/','/collection/','/guide/','/presets/','/gallery/','/dreamsnaps/'])assert(coreHrefs.some(href=>href?.endsWith(path)),`Home missing ${path}`);
-  assert((await page.locator('.participation a').getAttribute('href'))?.endsWith('/qa/'),'Home Q&A participation link missing');
-  ok('HOME_CANONICAL_PRODUCT_TREE',{coreCards:6,qaParticipation:true});
+  await eventually(async()=>await page.locator('.home-product-grid .visual-card').count()===6);
+  const coreHrefs=await page.locator('.home-product-grid .visual-card').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('href')));
+  for(const path of ['/decorate/','/collection/','/guide/','/presets/','/gallery/','/dreamsnaps/'])assert(coreHrefs.some(href=>href?.endsWith(path)),`Home missing ${path}`);
+  assert((await page.locator('.home-qa-entry .visual-card').getAttribute('href'))?.endsWith('/qa/'),'Home Q&A participation link missing');
+  assert(await page.locator('.hero').count()===0,'Home still contains marketing hero');
+  assert(await page.locator('.main-nav').count()===0,'Shared header still contains duplicate Product navigation row');
+  assert(await page.locator('.app-home-action').first().isVisible(),'Explicit Home affordance missing');
+  assert(await page.locator('[data-shell-control="save"]').isVisible(),'Desktop DDV Save control missing');
+  assert(await page.locator('[data-shell-control="account"]').isVisible(),'Desktop Account control missing');
+  assert(await page.locator('.desktop-app-toolbar .toolbar-context').getByRole('link',{name:'Discover the Wand',exact:true}).isVisible(),'Discover the Wand contextual action missing');
+  assert(await page.locator('[data-shell-control="notifications"]').count()===0,'Signed-out shell exposed Notifications');
+  ok('HOME_CLOSED_APPLICATION_DASHBOARD',{coreCards:6,qaParticipation:true,marketingHero:false,productNavRow:false});
+
+  await page.evaluate(()=>{
+    globalThis.__wandShellIntents=[];
+    window.addEventListener('wand:shell-intent',(event)=>globalThis.__wandShellIntents.push(event.detail.intent));
+  });
+  const saveControl=page.locator('[data-shell-control="save"]');
+  const accountControl=page.locator('[data-shell-control="account"]');
+  await eventually(async()=>{
+    await saveControl.click();
+    return await page.evaluate(()=>globalThis.__wandShellIntents.includes('open-ddv-save'));
+  },{timeout:5000,interval:100});
+  await eventually(async()=>{
+    await accountControl.click();
+    return await page.evaluate(()=>globalThis.__wandShellIntents.includes('sign-in'));
+  },{timeout:5000,interval:100});
+  const shellIntents=await page.evaluate(()=>globalThis.__wandShellIntents);
+  ok('SHARED_SHELL_OWNER_INTENTS',{intents:[...new Set(shellIntents)]});
+
+  await page.locator('.skip-link').focus();
+  assert(await page.locator('.skip-link').evaluate(node=>node===document.activeElement),'Skip link cannot receive keyboard focus');
+  await page.keyboard.press('Tab');
+  assert(await page.locator('.desktop-app-toolbar .app-home-action').evaluate(node=>node===document.activeElement),'Explicit Home does not follow skip link in keyboard order');
+  const homeOutline=await page.locator('.desktop-app-toolbar .app-home-action').evaluate(node=>getComputedStyle(node).outlineStyle);
+  assert(homeOutline!=='none','Home focus indicator is not visible');
+  ok('SHARED_SHELL_KEYBOARD_FOCUS',{skipLinkFocusable:true,homeFollows:true});
 
   const localeValues=['en','fr','it','de','es-ES','ja','zh-CN','pt-BR'];
   for(const locale of localeValues){
     await page.locator('#site-locale').selectOption(locale);
     await eventually(async()=>await page.locator('html').getAttribute('lang')!==null);
-    const heading=(await page.locator('#hero-title').textContent())?.trim();
+    const heading=(await page.locator('.home-dashboard-heading h1').textContent())?.trim();
     assert(Boolean(heading),`Home heading empty for ${locale}`);
     await noHorizontalOverflow(page,`home ${locale}`);
   }
   await page.locator('#site-locale').selectOption('en');
   ok('HOME_8_LOCALE_RUNTIME_SWITCH',{locales:localeValues.length});
+
+  await page.goto(base+'/decorate/',{waitUntil:'domcontentloaded'});
+  assert(await page.locator('.decorate-entry .visual-card').count()===3,'Decorate entry must expose exactly three primary cards');
+  const decorateDescriptions=await page.locator('.decorate-entry .visual-card .visual-card-copy > span:last-child').allTextContents();
+  for(const expected of ['Discover the pieces','Gather your vision','Shape your world'])assert(decorateDescriptions.includes(expected),`Decorate missing approved description: ${expected}`);
+  assert(await page.locator('.decorate-entry .page-intro').count()===0,'Decorate entry added unapproved explanatory intro');
+  ok('DECORATE_NEUTRAL_ENTRY',{cards:3});
+
+  await page.goto(base+'/discover/',{waitUntil:'domcontentloaded'});
+  assert((await page.locator('.orientation-heading h1').textContent())?.trim()==='What is Dreamwish Wand?','Discover heading does not match closed Home contract');
+  assert(await page.locator('.discover-page .visual-card').count()===7,'Discover page must introduce six Core Products plus Q&A');
+  ok('DISCOVER_THE_WAND_ORIENTATION',{entries:7});
 
   await page.goto(base+'/moodboards/',{waitUntil:'domcontentloaded'});
   await page.evaluate(()=>localStorage.removeItem('dreamwishwand:moodboards:v1'));
@@ -142,13 +186,38 @@ try{
   assert(nativeLibrary.backups[0].persistentWriteAuthorized===false,'Native preset backup crossed writer boundary');
   ok('IN_GAME_PRESET_READ_BACKUP_BOUNDARY',{physical:3,active:2,backups:1,persistentWriteAuthorized:false});
 
-  for(const path of ['/','/moodboards/','/collection/','/guide/','/explore/','/presets/']){
-    await page.setViewportSize({width:320,height:800});
+  await page.setViewportSize({width:320,height:800});
+  await page.goto(base+'/',{waitUntil:'domcontentloaded'});
+  assert(await page.locator('.mobile-app-toolbar').isVisible(),'Mobile application shell is not visible at 320px');
+  assert(!(await page.locator('.desktop-app-toolbar').isVisible()),'Desktop application toolbar remains visible at 320px');
+  assert(await page.locator('.mobile-app-toolbar [data-shell-control="save"]').count()===0,'Mobile shell exposes prohibited DDV Save control');
+  const settings=page.locator('.mobile-app-toolbar .ui-icon-button').last();
+  await settings.focus();
+  await settings.click();
+  const sheet=page.locator('.ui-sheet');
+  await eventually(async()=>await sheet.evaluate(node=>node.open===true));
+  assert(await sheet.locator('.ui-sheet-header .ui-icon-button').evaluate(node=>node===document.activeElement),'Sheet initial focus did not move to close control');
+  await page.keyboard.press('Escape');
+  await eventually(async()=>!(await sheet.evaluate(node=>node.open)));
+  assert(await settings.evaluate(node=>node===document.activeElement),'Sheet close did not restore focus to invoker');
+  ok('MOBILE_SHELL_AND_SHEET_FOCUS',{saveControl:false,focusRestored:true});
+
+  for(const locale of localeValues){
+    await settings.click();
+    await eventually(async()=>await sheet.evaluate(node=>node.open===true));
+    await page.locator('#site-locale-mobile').selectOption(locale);
+    await page.keyboard.press('Escape');
+    await eventually(async()=>!(await sheet.evaluate(node=>node.open)));
+    await noHorizontalOverflow(page,`320px home ${locale}`);
+  }
+  ok('SHARED_LONG_STRING_320_REFLOW',{locales:localeValues.length});
+
+  for(const path of ['/','/decorate/','/discover/','/moodboards/','/collection/','/guide/','/explore/','/presets/']){
     await page.goto(base+path,{waitUntil:'domcontentloaded'});
     if(path==='/collection/'||path==='/guide/'||path==='/explore/')await eventually(async()=>!(await page.locator('[role=status]').count())||!String(await page.locator('[role=status]').first().textContent()).includes('Loading'),{timeout:30000});
     await noHorizontalOverflow(page,`320px ${path}`);
   }
-  ok('PRODUCT_SURFACES_320_REFLOW',{routes:6});
+  ok('PRODUCT_SURFACES_320_REFLOW',{routes:8});
 
   assert(evidence.pageErrors.length===0,`Page errors: ${evidence.pageErrors.join(' | ')}`);
   evidence.consoleErrors=evidence.consoleErrors.filter(message=>!message.includes('Failed to load resource'));
