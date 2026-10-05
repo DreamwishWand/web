@@ -14,61 +14,72 @@
   "frozenAdapter": "01b-room-finish-v125-v1",
   "prerequisite": "01B-TO-01A-ROOM-SURFACE-TARGET-V125-V1 implemented, Integrator-promoted, and candidate generation independently verified",
   "commonSetup": [
-    "one exact-build baseline with a uniquely resolved HouseItemID + floorIndex + RoomSlot",
-    "record PlayerHouseIndex, FloorGridID, exact WallGridIDs map, Flooring, Wallpapers, WallpaperOffsetById and Ceiling",
-    "snapshot Trimming inventory/Collection/ownership/entitlement/Store/progression and unrelated Room/House state",
-    "choose generator-available non-sync TrimmingItemData definitions of exact Flooring/Wallpaper subtype"
+    "one exact-build schema-624 baseline with uniquely resolved HouseItemID + floorIndex + RoomSlot",
+    "record PlayerHouseIndex, FloorGridID, exact WallGridIDs, Flooring, Wallpapers, WallpaperOffsetById and Ceiling",
+    "resolve the unique Player.ListInventories Trimming inventory and record candidate item Amount",
+    "choose already-owned TrimmingItemData definitions with exact Flooring/Wallpaper subtype; do not grant/unlock any item"
   ],
   "cases": [
     {
       "id": "FLOORING_ONE_SCALAR",
-      "mutation": "one SET_FLOORING candidate",
+      "mutation": "one owned SET_FLOORING candidate",
       "expectedCandidateDiff": [
         "/World/PlayerHouses/{playerHouseIndex}/Floors/{floorIndex}/Rooms/{roomSlot}/Flooring"
       ],
       "runtimeAcceptance": [
         "game loads and target room renders requested flooring",
         "normal save + full exit + cold relaunch preserves flooring",
-        "WallpaperOffsetById/Ceiling/FloorGridID/WallGridIDs remain exact",
-        "no additional serialized companion field is required"
+        "Trimming Amount and all unrelated state remain exact"
       ]
     },
     {
-      "id": "WALLPAPER_CURRENT_WALL_ONE_MAP_ENTRY",
-      "mutation": "one SET_WALLPAPER CURRENT_WALL candidate using Core reverse-resolved activeWallGridId -> WallPosition",
+      "id": "WALLPAPER_CURRENT_WALL_STALE_OFFSET_REMOVED",
+      "mutation": "CURRENT_WALL where old wallpaper is unique to the changed wall and has WallpaperOffsetById entry",
+      "expectedCandidateDiff": [
+        "/World/PlayerHouses/{playerHouseIndex}/Floors/{floorIndex}/Rooms/{roomSlot}/Wallpapers/{resolvedWallPosition}",
+        "/World/PlayerHouses/{playerHouseIndex}/Floors/{floorIndex}/Rooms/{roomSlot}/WallpaperOffsetById/{oldWallpaperItemId} REMOVE"
+      ],
+      "runtimeAcceptance": [
+        "intended wall renders requested wallpaper",
+        "old offset entry is absent exactly as native helper semantics require",
+        "new wallpaper offset is not synthesized",
+        "cold relaunch preserves result"
+      ]
+    },
+    {
+      "id": "WALLPAPER_CURRENT_WALL_SHARED_OLD_OFFSET_PRESERVED",
+      "mutation": "CURRENT_WALL where another wall still uses old wallpaper",
       "expectedCandidateDiff": [
         "/World/PlayerHouses/{playerHouseIndex}/Floors/{floorIndex}/Rooms/{roomSlot}/Wallpapers/{resolvedWallPosition}"
       ],
       "runtimeAcceptance": [
-        "only intended wall renders requested wallpaper",
-        "other three Wallpapers map values remain exact",
-        "normal save + full exit + cold relaunch preserves current-wall result",
-        "WallpaperOffsetById remains exact and no offset companion mutation is required"
+        "old WallpaperOffsetById entry remains exact because old wallpaper is still referenced",
+        "cold relaunch preserves result"
       ]
     },
     {
-      "id": "WALLPAPER_ALL_WALLS_MAP_SET",
-      "mutation": "one SET_WALLPAPER ALL_WALLS semantic operation targeting WallPosition 0/1/2/3",
-      "expectedCandidateDiff": "only Wallpapers/{0..3} leaves whose before value differs from requested wallpaper",
+      "id": "WALLPAPER_ALL_WALLS_NATIVE_CLEANUP",
+      "mutation": "one owned ALL_WALLS semantic operation",
+      "expectedCandidateDiff": "differing Wallpapers/{0..3} SET leaves plus only stale-old WallpaperOffsetById REMOVE leaves whose old IDs are absent from final Wallpapers values and whose offset entries existed",
       "runtimeAcceptance": [
-        "all four room walls render requested wallpaper",
-        "normal save + full exit + cold relaunch preserves all-walls result",
-        "WallpaperOffsetById remains exact and no offset companion mutation is required"
+        "all four walls render requested wallpaper",
+        "stale old offset entries are removed and all other/new offsets obey frozen policy",
+        "cold relaunch preserves result"
       ]
     }
   ],
   "commonPostAcceptance": [
-    "HouseItemID/current-save room identity guards remain unchanged",
-    "Room Name/RoomPrefabAddress/Grid IDs/Ceiling remain exact",
-    "all GridObject identity/payload remains exact",
-    "Trimming inventory/Collection/ownership/entitlement/Store/progression remain unchanged by Wand offline writer",
+    "House/Room identity guards unchanged",
+    "Room Name/RoomPrefabAddress/GridIDs/Ceiling unchanged",
+    "all GridObject state unchanged",
+    "Trimming inventory/Collection/ownership/entitlement/Store/progression unchanged",
     "exact original backup restores and loads"
   ],
   "explicitlyNotRequested": [
-    "WallpaperOffset editing",
+    "arbitrary WallpaperOffset editing",
     "Ceiling editing",
     "room resize/expansion",
-    "native gameplay inventory debit/refund equivalence",
+    "inventory grant/debit/refund",
     "generic PlayerHouse writer",
     "arbitrary JSON patch",
     "persistent-write authorization"
