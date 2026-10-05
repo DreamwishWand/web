@@ -1,0 +1,142 @@
+{
+  "schema": "ddv.save-transaction-target-extension-request@1",
+  "requestId": "01B-TO-01A-ROOM-FINISH-TARGET-V125-V1",
+  "status": "UPSTREAM_REQUIRED_MINIMAL",
+  "requester": "01B CORE - World / Grid / Buildings",
+  "ownerRequested": "01A CORE - Save / Codec / Versioning",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "titleId": "0100D39012C1A000",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624
+  },
+  "currentFoundation": {
+    "artifactId": "DDV-SAFE-PERSISTENT-TRANSACTION-FOUNDATION-V125-V1_0",
+    "capabilityToReuse": "WRITE_CANDIDATE",
+    "currentTargetKinds": [
+      "GRID_OBJECT",
+      "GRID_OBJECT_SET"
+    ],
+    "exactBlocker": [
+      "normalizeTarget requires gridId and accepts only GRID_OBJECT / GRID_OBJECT_SET",
+      "validateTargetIdentity resolves only World.GridCollection.Grids",
+      "Room Finish target is World.PlayerHouses[playerHouseIndex].Floors[floorIndex].Rooms[roomSlot]"
+    ]
+  },
+  "minimumAdditiveExtension": {
+    "capability": "WRITE_CANDIDATE",
+    "newCapabilityEnumRequired": false,
+    "targetKind": "PLAYER_HOUSE_ROOM",
+    "targetIdentity": {
+      "required": [
+        "playerHouseIndex",
+        "houseItemId",
+        "floorIndex",
+        "roomSlot"
+      ],
+      "semantics": {
+        "playerHouseIndex": "current-save zero-based locator only",
+        "houseItemId": "semantic identity binding; before and after House.HouseItemID must equal this value",
+        "floorIndex": "zero-based current House.Floors index",
+        "roomSlot": "House.Types.RoomSlot integer 0..3"
+      }
+    },
+    "normalizeTargetRules": [
+      "playerHouseIndex, houseItemId, floorIndex and roomSlot are non-negative safe integers",
+      "roomSlot must be 0..3",
+      "no gridId/gridObjectId is required or accepted for PLAYER_HOUSE_ROOM"
+    ],
+    "targetValidationBeforeAndAfter": [
+      "World.PlayerHouses exists as an array",
+      "playerHouseIndex exists",
+      "PlayerHouses[playerHouseIndex].HouseItemID equals target.houseItemId",
+      "target floorIndex exists in House.Floors",
+      "target RoomSlot exists in Floor.Rooms",
+      "same PlayerHouses index, HouseItemID, Floors membership and Rooms membership exist after mutation"
+    ],
+    "allowedRoomFinishLeafPatterns": [
+      "Room/Flooring",
+      "Room/Wallpapers/{wallPosition where 0<=wallPosition<=3}",
+      "Room/WallpaperOffsetById/{wallpaperItemId}"
+    ],
+    "explicitlyForbiddenRoomLeaves": [
+      "Room/Name",
+      "Room/FloorGridID",
+      "Room/WallGridIDs",
+      "Room/RoomPrefabAddress",
+      "Room/Ceiling"
+    ],
+    "mapDeltaRules": [
+      "Wallpapers entry may be ADD or REPLACE only at semantic-owner-declared WallPosition key",
+      "WallpaperOffsetById entry may be REMOVE only for 01B base Room Finish wallpaper semantics when exact before-value is declared",
+      "no map-wide replacement, reorder contract, or undeclared map membership change",
+      "all allowed paths remain exact JSON Pointers supplied by the semantic-owner plan"
+    ],
+    "preservation": [
+      "GameInfo immutable",
+      "all GridObject identities and payloads exact",
+      "all unrelated World.PlayerHouses entries exact",
+      "target House fields outside the exact room path exact",
+      "target Floor fields outside the exact room record exact",
+      "target Room fields outside declared allowed paths exact",
+      "Player/inventory/Collection/ownership/entitlement/Store/progression state exact",
+      "opaque/unknown state exact",
+      "array order and length exact"
+    ],
+    "independentVerification": [
+      "candidate verifier re-resolves PLAYER_HOUSE_ROOM identity from original and candidate",
+      "candidate verifier rechecks HouseItemID binding and floor/RoomSlot existence",
+      "candidate verifier recomputes semantic diff and requires exact allowed paths",
+      "candidate verifier rejects PlayerHouses/Floors/Rooms structural membership or order changes",
+      "candidate verifier requires GridObject identity inventory unchanged",
+      "candidate verifier rejects any Ceiling/RoomPrefab/GridID/WallGridIDs change"
+    ]
+  },
+  "expected01BAdapterAfterExtension": {
+    "mutationAdapterContract": "dreamwish.ddv.save-mutation-adapter@1",
+    "proposedAdapterId": "01b-room-finish-v125-v1",
+    "semanticInput": "ddv.room-finish-mutation-set@1",
+    "operations": [
+      "SET_FLOORING",
+      "SET_WALLPAPER"
+    ],
+    "applyRule": "apply only the fully enumerated mutation-set changes after exact before-value/existence checks; no arbitrary patch input"
+  },
+  "explicitlyNotRequested": [
+    "generic arbitrary-path target",
+    "generic JSON Patch",
+    "generic PlayerHouses writer",
+    "House/Floor/Room create/delete/reorder",
+    "PlayerHouse skin/lifecycle mutation",
+    "Ceiling write",
+    "RoomPrefabAddress write",
+    "FloorGridID or WallGridIDs write",
+    "inventory/ownership/Collection/entitlement mutation",
+    "Store/Shop mutation",
+    "progression mutation",
+    "GridObject mutation",
+    "STRUCTURAL_WRITE_CANDIDATE changes",
+    "persistent source replacement",
+    "atomic replacement authorization",
+    "Steam support"
+  ],
+  "acceptanceFor01A": [
+    "existing GRID_OBJECT and GRID_OBJECT_SET regressions remain green",
+    "PLAYER_HOUSE_ROOM exact identity target passes candidate create/reopen/verify",
+    "Flooring scalar REPLACE exact diff accepted",
+    "Wallpapers key ADD/REPLACE exact diff accepted",
+    "WallpaperOffsetById exact declared REMOVE accepted",
+    "undeclared room field change rejected",
+    "PlayerHouses/Floors/Rooms membership/order change rejected",
+    "GridObject identity change rejected",
+    "manifest tamper/rebinding checks remain enforced"
+  ],
+  "hardFlags": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false
+  }
+}
