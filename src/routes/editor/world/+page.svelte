@@ -3365,7 +3365,7 @@
         {editorDocument}
         {switchWorldBinding}
         {mutationBound}
-        selectionIds={selection}
+        {selection}
         presetBridge={bridge}
         onMutation={finishDraftMutation}
       />
