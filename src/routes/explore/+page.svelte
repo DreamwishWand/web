@@ -155,7 +155,7 @@
 
   {#if selectedItem}
     <div class="modal-backdrop" role="presentation" on:click|self={closeQuickReview}>
-      <aside class="quick-review" role="dialog" aria-modal="true" aria-labelledby="quick-review-title">
+      <div class="quick-review" role="dialog" aria-modal="true" aria-labelledby="quick-review-title">
         <header><div><p class="eyebrow">{copy.quickReview}</p><h2 id="quick-review-title">{selectedItem.label}</h2></div><button bind:this={quickReviewCloseButton} type="button" on:click={closeQuickReview}>{copy.close}</button></header>
         <dl>
           <div><dt>{copy.family}</dt><dd>{familyLabel(selectedItem.family)}</dd></div>
@@ -172,7 +172,7 @@
         {:else if worldEditorSupported}
           <p class="unavailable">{copy.placementUnavailable}</p>
         {/if}
-      </aside>
+      </div>
     </div>
   {/if}
 </section>
