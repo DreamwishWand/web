@@ -331,7 +331,7 @@ export function createEditorSession(
       ).filter((id: string) => objectIds.has(id))
     );
     lastValidation = plain(recoverySnapshot.lastValidation)
-      ? clone(recoverySnapshot.lastValidation)
+      ? (clone(recoverySnapshot.lastValidation) as ValidationResult)
       : { ok: true, issues: [], status: 'RECOVERED' };
     assert(
       lastValidation.persistentWriteAuthorized !== true,
