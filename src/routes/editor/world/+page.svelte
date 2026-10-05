@@ -68,6 +68,11 @@
     reviewMinimumVerifiedTransform
   } from '$lib/wep/min-verified-transform-export-v1';
   import {
+    ORDINARY_FURNITURE_ADD_VERIFIED_EXPORT_CONTRACT,
+    commitOrdinaryFurnitureAddVerifiedExport,
+    reviewOrdinaryFurnitureAddVerifiedExport
+  } from '$lib/wep/ordinary-furniture-add-verified-export-v125';
+  import {
     ROADFENCE_VERIFIED_EXPORT_CONTRACT,
     commitRoadFenceVerifiedExport,
     reviewRoadFenceVerifiedExport
@@ -2926,6 +2931,37 @@
         'worldEditor.verifiedExport.failure.reload',
       WEP_EXPORT_RELOAD_IDENTITY_OR_TRANSFORM_MISMATCH:
         'worldEditor.verifiedExport.failure.reloadMismatch',
+      WEP_ADD_UNSUPPORTED_VERSION_BUILD:
+        'worldEditor.verifiedExport.failure.unsupportedBuild',
+      WEP_ADD_EXACT_BUILD_CONFIRMATION_REQUIRED:
+        'worldEditor.verifiedExport.failure.buildConfirmation',
+      WEP_ADD_NO_ELIGIBLE_PENDING_CHANGE:
+        'worldEditor.verifiedExport.failure.noEligibleChange',
+      WEP_ADD_UNSUPPORTED_PENDING_CHANGE:
+      WEP_ADD_CROSS_GRID_UNSUPPORTED:
+      WEP_ADD_CREATED_OBJECT_TRANSFORM_INVALID:
+        'worldEditor.verifiedExport.failure.unsupportedChange',
+      WEP_ADD_CREATED_OBJECT_NOT_ORDINARY_ROOT_STATELESS_FURNITURE:
+      WEP_ADD_OBJECT_NO_LONGER_ADMISSIBLE:
+        'worldEditor.verifiedExport.failure.notAdmissible',
+      WEP_ADD_INVALID_DESTINATION:
+        'worldEditor.verifiedExport.failure.invalidDestination',
+      WEP_ADD_SOURCE_CHANGED_SINCE_PLAN:
+        'worldEditor.verifiedExport.failure.sourceChanged',
+      WEP_ADD_REVIEW_STALE:
+        'worldEditor.verifiedExport.failure.reviewStale',
+      WEP_ADD_CANDIDATE_GENERATION_FAILED:
+        'worldEditor.verifiedExport.failure.candidateGeneration',
+      WEP_ADD_CANDIDATE_VERIFICATION_FAILED:
+        'worldEditor.verifiedExport.failure.candidateVerification',
+      WEP_ADD_ASSEMBLY_FAILED:
+        'worldEditor.verifiedExport.failure.exportAssembly',
+      WEP_ADD_RELOAD_REPARSE_FAILED:
+        'worldEditor.verifiedExport.failure.reload',
+      WEP_ADD_RELOAD_IDENTITY_OR_TRANSFORM_MISMATCH:
+        'worldEditor.verifiedExport.failure.reloadMismatch',
+      WEP_ADD_RUNTIME_ACCEPTANCE_PENDING:
+        'worldEditor.verifiedExport.failure.addRuntimePending',
       WEP_ROADFENCE_UNSUPPORTED_VERSION_BUILD:
         'worldEditor.verifiedExport.failure.unsupportedBuild',
       WEP_ROADFENCE_EXACT_BUILD_CONFIRMATION_REQUIRED:
@@ -3000,6 +3036,10 @@
       const roadFenceChanged =
         JSON.stringify(verifiedExportBaselineDocument.networks ?? null) !==
         JSON.stringify(editorDocument.networks ?? null);
+      const ordinaryAddChanged =
+        !roadFenceChanged &&
+        editorDocument.objects.length ===
+          verifiedExportBaselineDocument.objects.length + 1;
       const review = roadFenceChanged
         ? await reviewRoadFenceVerifiedExport({
             sourceBytes: worldSourceBytes,
@@ -3010,18 +3050,30 @@
             draftDocument: editorDocument,
             exactBuildConfirmed: verifiedExportBuildConfirmed
           })
-        : await reviewMinimumVerifiedTransform({
-            sourceBytes: worldSourceBytes,
-            sourceName: fileName || 'profile',
-            sourceEpoch: worldSourceEpoch,
-            opened: worldSource,
-            baselineDocument: verifiedExportBaselineDocument,
-            draftDocument: editorDocument,
-            placementBinding: placementLegalityBinding,
-            worldBinding: switchWorldBinding,
-            basePath: base,
-            exactBuildConfirmed: verifiedExportBuildConfirmed
-          });
+        : ordinaryAddChanged
+          ? await reviewOrdinaryFurnitureAddVerifiedExport({
+              sourceBytes: worldSourceBytes,
+              sourceName: fileName || 'profile',
+              sourceEpoch: worldSourceEpoch,
+              opened: worldSource,
+              baselineDocument: verifiedExportBaselineDocument,
+              draftDocument: editorDocument,
+              placementBinding: placementLegalityBinding,
+              basePath: base,
+              exactBuildConfirmed: verifiedExportBuildConfirmed
+            })
+          : await reviewMinimumVerifiedTransform({
+              sourceBytes: worldSourceBytes,
+              sourceName: fileName || 'profile',
+              sourceEpoch: worldSourceEpoch,
+              opened: worldSource,
+              baselineDocument: verifiedExportBaselineDocument,
+              draftDocument: editorDocument,
+              placementBinding: placementLegalityBinding,
+              worldBinding: switchWorldBinding,
+              basePath: base,
+              exactBuildConfirmed: verifiedExportBuildConfirmed
+            });
       if (
         review.contract !== ROADFENCE_VERIFIED_EXPORT_CONTRACT &&
         (
@@ -3076,14 +3128,24 @@
               baselineDocument: verifiedExportBaselineDocument,
               draftDocument: editorDocument
             })
-          : await commitMinimumVerifiedTransform({
-              review: verifiedExportReview,
-              currentSourceEpoch: worldSourceEpoch,
-              sourceBytes: worldSourceBytes,
-              baselineDocument: verifiedExportBaselineDocument,
-              draftDocument: editorDocument,
-              worldBinding: switchWorldBinding
-            });
+          : verifiedExportReview.contract ===
+              ORDINARY_FURNITURE_ADD_VERIFIED_EXPORT_CONTRACT
+            ? await commitOrdinaryFurnitureAddVerifiedExport({
+                review: verifiedExportReview,
+                currentSourceEpoch: worldSourceEpoch,
+                sourceBytes: worldSourceBytes,
+                baselineDocument: verifiedExportBaselineDocument,
+                draftDocument: editorDocument,
+                worldBinding: switchWorldBinding
+              })
+            : await commitMinimumVerifiedTransform({
+                review: verifiedExportReview,
+                currentSourceEpoch: worldSourceEpoch,
+                sourceBytes: worldSourceBytes,
+                baselineDocument: verifiedExportBaselineDocument,
+                draftDocument: editorDocument,
+                worldBinding: switchWorldBinding
+              });
       message = t(
         'worldEditor.verifiedExport.success',
         {},
@@ -4121,6 +4183,15 @@
                     <span>{t('worldEditor.verifiedExport.newPosition', {}, $locale)}</span>
                     <strong>X {verifiedExportReview.change.after.x} · Y {verifiedExportReview.change.after.y}</strong>
                   </div>
+                {:else if verifiedExportReview.change.operation === 'ADD'}
+                  <div class="verified-export-delta" data-wep-verified-add-review>
+                    <span>{t('worldEditor.verifiedExport.newPosition', {}, $locale)}</span>
+                    <strong>X {verifiedExportReview.change.after.x} · Y {verifiedExportReview.change.after.y}</strong>
+                    <span>{t('worldEditor.verifiedExport.newOrientation', {}, $locale)}</span>
+                    <strong>{verifiedExportReview.change.after.orientation}</strong>
+                    <span>ID</span>
+                    <strong>{verifiedExportReview.admissibility.target.createdGridObjectId}</strong>
+                  </div>
                 {:else}
                   <div class="verified-export-delta">
                     <span>{t('worldEditor.verifiedExport.previousOrientation', {}, $locale)}</span>
@@ -4130,27 +4201,34 @@
                   </div>
                 {/if}
               {/if}
-              <label class="verified-export-confirm">
-                <input
-                  type="checkbox"
-                  bind:checked={verifiedExportConfirmed}
-                  disabled={verifiedExportLoading}
-                />
-                <span>{t('worldEditor.verifiedExport.confirm', {}, $locale)}</span>
-              </label>
-              <button
-                type="button"
-                class="verified-export-apply"
-                disabled={!verifiedExportConfirmed || verifiedExportLoading}
-                aria-describedby={!verifiedExportConfirmed ? 'wep-verified-export-confirm-reason' : undefined}
-                on:click={applyVerifiedExport}
-              >
-                {t('worldEditor.verifiedExport.applyExport', {}, $locale)}
-              </button>
-              {#if !verifiedExportConfirmed}
-                <small id="wep-verified-export-confirm-reason">
-                  {t('worldEditor.verifiedExport.confirmRequired', {}, $locale)}
-                </small>
+              {#if verifiedExportReview.contract ===
+                ORDINARY_FURNITURE_ADD_VERIFIED_EXPORT_CONTRACT}
+                <p class="verified-export-runtime-pending" data-wep-add-runtime-gate aria-live="polite">
+                  {t('worldEditor.verifiedExport.failure.addRuntimePending', {}, $locale)}
+                </p>
+              {:else}
+                <label class="verified-export-confirm">
+                  <input
+                    type="checkbox"
+                    bind:checked={verifiedExportConfirmed}
+                    disabled={verifiedExportLoading}
+                  />
+                  <span>{t('worldEditor.verifiedExport.confirm', {}, $locale)}</span>
+                </label>
+                <button
+                  type="button"
+                  class="verified-export-apply"
+                  disabled={!verifiedExportConfirmed || verifiedExportLoading}
+                  aria-describedby={!verifiedExportConfirmed ? 'wep-verified-export-confirm-reason' : undefined}
+                  on:click={applyVerifiedExport}
+                >
+                  {t('worldEditor.verifiedExport.applyExport', {}, $locale)}
+                </button>
+                {#if !verifiedExportConfirmed}
+                  <small id="wep-verified-export-confirm-reason">
+                    {t('worldEditor.verifiedExport.confirmRequired', {}, $locale)}
+                  </small>
+                {/if}
               {/if}
             </div>
           {/if}
