@@ -520,6 +520,7 @@ const copy = {
   "worldEditor.verifiedExport.failure.reviewStale": "Der Entwurf wurde nach der Prüfung geändert. Prüfe den aktuellen Entwurf erneut.",
   "worldEditor.verifiedExport.failure.identityMismatch": "Die Zielobjekt-Identität entspricht nicht mehr dem geprüften Quellobjekt.",
   "worldEditor.verifiedExport.failure.notAdmissible": "Das Objekt erfüllt die promovierten Gates des minimalen zustandslosen Furniture-Writers nicht.",
+  "worldEditor.verifiedExport.failure.addRuntimePending": "Die Prüfung des Furniture-ADD-Kandidaten besteht die aktuellen statischen/Browser-Gates, aber der Export bleibt deaktiviert, bis die exakte Nintendo-Switch-Cold-Reload-Abnahme abgeschlossen ist.",
   "worldEditor.verifiedExport.failure.changedObjectSelected": "Wähle vor der Exportprüfung genau das eine durch diesen Entwurf geänderte Objekt aus.",
   "worldEditor.verifiedExport.failure.progressionVeto": "Die aktuelle Progression-Evidenz sperrt diese Objektoperation.",
   "worldEditor.verifiedExport.failure.invalidDestination": "Die endgültige Platzierung hat die exakt promovierte native Placement-Validierung nicht bestanden.",
