@@ -520,6 +520,7 @@ const copy = {
   "worldEditor.verifiedExport.failure.reviewStale": "检查后草稿发生变化。请重新检查当前草稿。",
   "worldEditor.verifiedExport.failure.identityMismatch": "目标对象身份不再与已检查的源对象一致。",
   "worldEditor.verifiedExport.failure.notAdmissible": "该对象不满足已提升的最小无状态 Furniture 写入器门限。",
+  "worldEditor.verifiedExport.failure.addRuntimePending": "Furniture ADD 候选已通过当前静态/浏览器门限，但在 Nintendo Switch 的精确冷重载验收完成前，导出仍保持禁用。",
   "worldEditor.verifiedExport.failure.changedObjectSelected": "检查导出前，请只选择此草稿中被更改的那个对象。",
   "worldEditor.verifiedExport.failure.progressionVeto": "当前 progression 证据否决此对象操作。",
   "worldEditor.verifiedExport.failure.invalidDestination": "最终位置未通过精确的已提升原生 placement 验证。",
