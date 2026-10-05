@@ -1,0 +1,63 @@
+{
+  "schema": "ddv.core-runtime-request@1",
+  "requestId": "01B-TO-01E-ORDINARY-FURNITURE-ADD-V125-V1",
+  "fromOwner": "01B CORE - World / Grid / Buildings",
+  "toOwner": "01E CORE / Runtime",
+  "status": "READY_AFTER_01B_INTEGRATOR_PROMOTION",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624
+  },
+  "semanticContract": "ddv.ordinary-furniture-add-semantics@1",
+  "frozenAdapter": "01b-ordinary-root-furniture-add-v125-v1",
+  "exactCandidate": "one classifier-admissible ordinary root CORE_STATELESS_FURNITURE ADD created only through promoted 01A STRUCTURAL_WRITE_CANDIDATE / GRID_OBJECT_SET plus the frozen 01B adapter",
+  "setup": [
+    "fresh exact-build-bound baseline; record source raw hash",
+    "choose one Trimming-independent ordinary Furniture definition satisfying the frozen classifier, including IsUnavailableForGenerator=false",
+    "choose one empty destination returning VALID under V125_NATIVE_ORDINARY_CARDINAL_NONWALL_GROUPSET_2",
+    "record GridID, source NextGridObjectID, ItemID, X/Y/Orientation and target Grid object membership",
+    "snapshot unrelated inventory/Collection/ownership/entitlement/Store/progression state"
+  ],
+  "candidateVerification": [
+    "semantic diff is exactly Objects/{source NextGridObjectID} addition plus NextGridObjectID increment by one",
+    "created map key equals created object.ID equals source NextGridObjectID",
+    "created object has exactly ID,ItemID,X,Y,Orientation,State",
+    "State is null",
+    "From is absent",
+    "all prior target-Grid objects remain exact",
+    "all unrelated profile state remains exact"
+  ],
+  "runtimeSteps": [
+    "install candidate only through the existing controlled runtime-test replacement path",
+    "load game and confirm the created Furniture appears at the intended destination",
+    "perform a normal in-game save",
+    "fully exit the game process",
+    "cold relaunch",
+    "confirm the created object remains at the intended transform"
+  ],
+  "postRuntimeAcceptance": [
+    "same GridObject ID, ItemID, X/Y/Orientation, State=null, root membership and object-map key",
+    "no required serialized companion field appeared on the created GridObject",
+    "NextGridObjectID remains exactly source + 1 with no unexpected normalization",
+    "no attributable inventory/Collection/ownership/entitlement/Store/progression mutation",
+    "exact original backup restores and loads"
+  ],
+  "explicitlyNotRequested": [
+    "multiple ADDs",
+    "batch duplicate/paste",
+    "cross-grid creation",
+    "Road/Fence creation",
+    "Building/PlayerHouse creation",
+    "Stateful/SubGrid Furniture",
+    "persistent-write authorization"
+  ],
+  "hardFlags": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false
+  }
+}
