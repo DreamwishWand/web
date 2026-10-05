@@ -146,3 +146,50 @@ test('DEC-UX-217..223 recovery round-trips committed history without raw source 
   assert.equal(JSON.stringify(s.dump()).includes('sourceBytes'),false);
   assert.equal(JSON.stringify(s.dump()).includes('worldSource'),false);
 });
+
+test('DEC-UX Stage 1 Review Changes reports actual baseline-to-draft semantics and keeps apply false', () => {
+  const session=createEditorSession(doc(),{
+    validator:()=>({ok:true,issues:[],persistentWriteAuthorized:false})
+  });
+  session.setSelection(['a','b']);
+  session.align(['a','b'],'left');
+  session.setPositions(['a'],{a:{x:2,y:3}},'PRECISE_POSITION');
+  session.insertDraftGraph([
+    {
+      localId:'new-item',
+      itemId:40000999,
+      layer:'furniture',
+      localX:0,
+      localY:0,
+      orientation:0,
+      footprint:[{x:0,y:0}],
+      portableState:null,
+      dependencyLocalIds:[],
+      metadata:{worldClass:'FurnitureItemData'}
+    }
+  ],{anchorX:8,anchorY:8,selectCreated:false,kind:'PASTE'});
+
+  const review=session.reviewChanges();
+  assert.equal(review.schema,'dreamwish-wand-wep-draft-review@1');
+  assert.equal(review.persistentWriteAuthorized,false);
+  assert.equal(review.WORLD_PERSISTENT_WRITE_V125,false);
+  assert.equal(review.PERSISTENT_WRITE,false);
+  assert.equal(review.productApplyAuthorized,false);
+  assert.equal(review.directSourceReplacementAuthorized,false);
+  assert.equal(review.writeReady,false);
+  assert.ok(review.changes.some(change=>change.editorId==='a'&&change.kind==='MOVE'));
+  assert.ok(review.changes.some(change=>change.editorId==='b'&&change.kind==='MOVE'));
+  assert.ok(review.changes.some(change=>change.itemId===40000999&&change.kind==='ADD'));
+  assert.ok(review.commands.some(command=>command.command==='ALIGN_LEFT'));
+  assert.ok(review.commands.some(command=>command.command==='PRECISE_POSITION'));
+});
+
+test('Review Changes returns to empty when draft history is completely undone', () => {
+  const session=createEditorSession(doc(),{
+    validator:()=>({ok:true,issues:[],persistentWriteAuthorized:false})
+  });
+  session.move(['a'],1,0);
+  assert.equal(session.reviewChanges().changes.length,1);
+  session.undo();
+  assert.equal(session.reviewChanges().changes.length,0);
+});
