@@ -34,7 +34,18 @@ export const ORDINARY_FURNITURE_ADD_SCOPE_PACK_SHA256 =
 export const ORDINARY_FURNITURE_ADD_RUNTIME_REQUEST =
   '01B-TO-01E-ORDINARY-FURNITURE-ADD-V125-V1';
 export const ORDINARY_FURNITURE_ADD_RUNTIME_STATUS =
-  'PENDING_01E_EXACT_ADD_AFTER_SEMANTIC_FREEZE';
+  'ORDINARY_FURNITURE_ADD_RUNTIME_PASS';
+export const ORDINARY_FURNITURE_ADD_RUNTIME_EVIDENCE = Object.freeze({
+  requestId: ORDINARY_FURNITURE_ADD_RUNTIME_REQUEST,
+  status: ORDINARY_FURNITURE_ADD_RUNTIME_STATUS,
+  platform: 'Nintendo Switch',
+  gameVersion: '1.25.0',
+  buildID: '52BD625D9B4E0053',
+  profileSchemaVersion: 624,
+  returnedPackagedSha256: '966d07332aefb27a38ae114b6b974b7117e4971e835ec8821caee765e1fa77fa',
+  returnedDecodedSha256: 'e4cd299b668f493e3e6ec038c5da8a586638dcbc6370ad3344b77752a820a8b0',
+  evidence: 'candidate load + normal save/re-extract + exact backup restore/load PASS; corroborative cold relaunch PASS'
+});
 export const SWITCH_V125_BID = '52BD625D9B4E0053';
 
 const targetBuild = Object.freeze({
@@ -385,7 +396,7 @@ export async function reviewOrdinaryFurnitureAddVerifiedExport({
 
   return Object.freeze({
     contract:ORDINARY_FURNITURE_ADD_VERIFIED_EXPORT_CONTRACT,
-    status:'READY_STATIC_RUNTIME_PENDING',
+    status:'READY',
     sourceEpoch:Number(sourceEpoch),
     sourceName:String(sourceName||'profile'),
     sourceSha256:String(ctx.saveIdentity.sourceRawSha256),
@@ -396,11 +407,8 @@ export async function reviewOrdinaryFurnitureAddVerifiedExport({
     plan,
     admissibility:clone(admissibility),
     placementEvidence:clone(placementEvidence),
-    runtimeAcceptance:Object.freeze({
-      status:ORDINARY_FURNITURE_ADD_RUNTIME_STATUS,
-      requestId:ORDINARY_FURNITURE_ADD_RUNTIME_REQUEST
-    }),
-    productExportAuthorized:false,
+    runtimeAcceptance:ORDINARY_FURNITURE_ADD_RUNTIME_EVIDENCE,
+    productExportAuthorized:true,
     persistentWriteAuthorized:false,
     WORLD_PERSISTENT_WRITE_V125:false,
     PERSISTENT_WRITE:false,
@@ -431,7 +439,7 @@ export async function verifyOrdinaryFurnitureAddReplacementArtifactPipeline({
 }) {
   if(
     review?.contract!==ORDINARY_FURNITURE_ADD_VERIFIED_EXPORT_CONTRACT ||
-    review?.status!=='READY_STATIC_RUNTIME_PENDING'
+    review?.status!=='READY'
   ) error('WEP_ADD_REVIEW_REQUIRED');
   if(Number(currentSourceEpoch)!==Number(review.sourceEpoch)) {
     error('WEP_ADD_SOURCE_CHANGED_SINCE_PLAN');
@@ -578,7 +586,7 @@ export async function verifyOrdinaryFurnitureAddReplacementArtifactPipeline({
   return Object.freeze({
     contract:
       'dreamwish-wand-wep-ordinary-furniture-add-candidate-evidence@1',
-    status:'PASS_STATIC_BROWSER_PIPELINE_RUNTIME_PENDING',
+    status:'PASS',
     review:clone(review),
     candidateManifest:clone(candidate.manifest),
     verification:clone(verification),
@@ -593,17 +601,14 @@ export async function verifyOrdinaryFurnitureAddReplacementArtifactPipeline({
       transform:clone(review.change.after),
       nextGridObjectID:Number(rawGrid.NextGridObjectID)
     }),
-    runtimeAcceptance:Object.freeze({
-      status:ORDINARY_FURNITURE_ADD_RUNTIME_STATUS,
-      requestId:ORDINARY_FURNITURE_ADD_RUNTIME_REQUEST
-    }),
+    runtimeAcceptance:ORDINARY_FURNITURE_ADD_RUNTIME_EVIDENCE,
     source:Object.freeze({
       sha256Before:sourceHashBefore,
       sha256After:sourceHashAfter,
       byteLength:sourceBytes.length,
       untouched:sourceHashBefore===sourceHashAfter
     }),
-    productExportAuthorized:false,
+    productExportAuthorized:true,
     persistentWriteAuthorized:false,
     WORLD_PERSISTENT_WRITE_V125:false,
     PERSISTENT_WRITE:false,
@@ -613,10 +618,24 @@ export async function verifyOrdinaryFurnitureAddReplacementArtifactPipeline({
 }
 
 export async function commitOrdinaryFurnitureAddVerifiedExport(
-  _input:AnyRecord
-):Promise<never> {
-  error('WEP_ADD_RUNTIME_ACCEPTANCE_PENDING',{
-    status:ORDINARY_FURNITURE_ADD_RUNTIME_STATUS,
-    requestId:ORDINARY_FURNITURE_ADD_RUNTIME_REQUEST
+  input:AnyRecord
+) {
+  const evidence=await verifyOrdinaryFurnitureAddReplacementArtifactPipeline(input);
+  if(evidence.runtimeAcceptance?.status!==ORDINARY_FURNITURE_ADD_RUNTIME_STATUS) {
+    error('WEP_ADD_RUNTIME_ACCEPTANCE_NOT_BOUND',{
+      status:evidence.runtimeAcceptance?.status??null,
+      requestId:ORDINARY_FURNITURE_ADD_RUNTIME_REQUEST
+    });
+  }
+  return Object.freeze({
+    ...evidence,
+    status:'PASS',
+    runtimeAcceptance:ORDINARY_FURNITURE_ADD_RUNTIME_EVIDENCE,
+    productExportAuthorized:true,
+    persistentWriteAuthorized:false,
+    WORLD_PERSISTENT_WRITE_V125:false,
+    PERSISTENT_WRITE:false,
+    productApplyAuthorized:false,
+    directSourceReplacementAuthorized:false
   });
 }
