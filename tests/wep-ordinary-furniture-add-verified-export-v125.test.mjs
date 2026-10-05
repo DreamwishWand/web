@@ -191,7 +191,7 @@ test('ADD review is explicit, exact-build gated and binds 01B adapter to 01A str
     exactBuildConfirmed:true
   });
   assert.equal(review.contract,ORDINARY_FURNITURE_ADD_VERIFIED_EXPORT_CONTRACT);
-  assert.equal(review.status,'READY_STATIC_RUNTIME_PENDING');
+  assert.equal(review.status,'READY');
   assert.equal(review.change.operation,'ADD');
   assert.equal(review.plan.capabilityRequired,'STRUCTURAL_WRITE_CANDIDATE');
   assert.equal(review.plan.target.kind,'GRID_OBJECT_SET');
@@ -200,7 +200,7 @@ test('ADD review is explicit, exact-build gated and binds 01B adapter to 01A str
   assert.equal(review.plan.target.nextGridObjectIDBefore,101);
   assert.equal(review.plan.target.nextGridObjectIDAfter,102);
   assert.equal(review.runtimeAcceptance.status,ORDINARY_FURNITURE_ADD_RUNTIME_STATUS);
-  assert.equal(review.productExportAuthorized,false);
+  assert.equal(review.productExportAuthorized,true);
   assert.equal(review.persistentWriteAuthorized,false);
 });
 
@@ -225,7 +225,7 @@ test('ADD candidate pipeline reaches 01A verifier, export bundle and canonical r
     draftDocument:f.draft,
     worldBinding:f.worldBinding
   });
-  assert.equal(evidence.status,'PASS_STATIC_BROWSER_PIPELINE_RUNTIME_PENDING');
+  assert.equal(evidence.status,'PASS');
   assert.equal(evidence.verification.status,'PASS');
   assert.equal(evidence.reload.gridId,10);
   assert.equal(evidence.reload.gridObjectId,101);
@@ -233,7 +233,7 @@ test('ADD candidate pipeline reaches 01A verifier, export bundle and canonical r
   assert.deepEqual(evidence.reload.transform,{x:f.validCell.x,y:f.validCell.y,orientation:0});
   assert.equal(evidence.reload.nextGridObjectID,102);
   assert.equal(evidence.source.untouched,true);
-  assert.equal(evidence.productExportAuthorized,false);
+  assert.equal(evidence.productExportAuthorized,true);
   assert.equal(evidence.persistentWriteAuthorized,false);
   assert.ok(evidence.artifacts.edited.bytes.length>0);
   assert.deepEqual(
@@ -242,11 +242,34 @@ test('ADD candidate pipeline reaches 01A verifier, export bundle and canonical r
   );
 });
 
-test('ADD product export remains fail closed until exact 01E cold-reload acceptance',async()=>{
-  await assert.rejects(
-    ()=>commitOrdinaryFurnitureAddVerifiedExport({}),
-    /WEP_ADD_RUNTIME_ACCEPTANCE_PENDING/
-  );
+test('ADD verified replacement export is enabled after exact 01E runtime acceptance',async()=>{
+  const f=await fixture();
+  const review=await reviewOrdinaryFurnitureAddVerifiedExport({
+    sourceBytes:f.bytes,
+    sourceName:'profile',
+    sourceEpoch:4,
+    opened:f.opened,
+    baselineDocument:f.baseline,
+    draftDocument:f.draft,
+    placementBinding:f.placementBinding,
+    fetchImpl:localFetch,
+    exactBuildConfirmed:true
+  });
+  const result=await commitOrdinaryFurnitureAddVerifiedExport({
+    review,
+    currentSourceEpoch:4,
+    sourceBytes:f.bytes,
+    baselineDocument:f.baseline,
+    draftDocument:f.draft,
+    worldBinding:f.worldBinding
+  });
+  assert.equal(result.status,'PASS');
+  assert.equal(result.runtimeAcceptance.status,ORDINARY_FURNITURE_ADD_RUNTIME_STATUS);
+  assert.equal(result.productExportAuthorized,true);
+  assert.equal(result.persistentWriteAuthorized,false);
+  assert.equal(result.productApplyAuthorized,false);
+  assert.ok(result.artifacts.edited.bytes.length>0);
+  assert.deepEqual(Array.from(result.artifacts.backup.bytes),Array.from(f.bytes));
 });
 
 test('ADD rejects generator-unavailable CORE definition even when local draft shape is otherwise ordinary',async()=>{
