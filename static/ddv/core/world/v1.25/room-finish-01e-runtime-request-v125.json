@@ -1,0 +1,92 @@
+{
+  "schema": "ddv.core-runtime-request@1",
+  "requestId": "01B-TO-01E-ROOM-FINISH-V125-V1",
+  "status": "READY_AFTER_BINDING_PROMOTION",
+  "fromOwner": "01B CORE - World / Grid / Buildings",
+  "toOwner": "01E CORE / Runtime",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624
+  },
+  "dependencies": [
+    "DDV-ROOM-FINISH-SEMANTICS-V125-V1_0",
+    "DDV-SAFE-PLAYER-HOUSE-ROOM-TARGET-EXTENSION-V125-V1_0",
+    "DDV-ROOM-FINISH-TRANSACTION-BINDING-V125-V1_0",
+    "01b-room-finish-v125-v1"
+  ],
+  "baselineRule": "Cases are independent. Restore the same exact clean baseline before each case. Retain exact source hash and byte-exact backup.",
+  "cases": [
+    {
+      "id": "ROOM_FINISH_FLOORING",
+      "setup": [
+        "resolve one current room by HouseItemID + floorIndex + RoomSlot",
+        "select one ProfilePlayer-owned TrimmingItemData Flooring item different from current Room.Flooring",
+        "compile only through compileRoomFlooringMutationV125",
+        "produce candidate only through buildRoomFinishTransactionPlanV125 + roomFinishMutationAdapterV125 + 01A WRITE_CANDIDATE"
+      ],
+      "candidateAcceptance": [
+        "semantic diff contains exactly Room/Flooring REPLACE",
+        "target HouseItemID/floor/RoomSlot re-resolves exactly",
+        "GridObject identity inventory is unchanged",
+        "Player inventory/Collection/ownership/entitlement/Store/progression state is exact"
+      ],
+      "runtime": [
+        "install candidate through controlled runtime-test replacement path",
+        "load game and confirm intended floor finish",
+        "ordinary in-game save",
+        "full process exit",
+        "cold relaunch and confirm floor finish persists",
+        "re-extract profile and compare target room plus unrelated state",
+        "restore exact original backup and confirm original loads"
+      ]
+    },
+    {
+      "id": "ROOM_FINISH_ALL_WALLS_WALLPAPER",
+      "setup": [
+        "restore the same exact clean baseline before this case",
+        "select a room with at least two displaced Wallpaper ItemIDs and at least one WallpaperOffsetById entry that should become stale",
+        "select one ProfilePlayer-owned Wallpaper target different from displaced wall values",
+        "compile ALL_WALLS only through compileRoomWallpaperMutationV125",
+        "produce candidate only through the frozen Room Finish transaction binding"
+      ],
+      "candidateAcceptance": [
+        "all changed Wallpapers[0..3] entries are exact declared ADD/REPLACE leaves",
+        "only displaced WallpaperOffsetById entries no longer used by any wall are removed",
+        "no target WallpaperOffsetById entry is synthesized",
+        "Ceiling, RoomPrefabAddress, FloorGridID, WallGridIDs and room membership remain exact",
+        "GridObject identity and unrelated Player/World state remain exact"
+      ],
+      "runtime": [
+        "install candidate through controlled runtime-test replacement path",
+        "load game and confirm all four walls use the intended wallpaper",
+        "ordinary in-game save",
+        "full process exit",
+        "cold relaunch and confirm wallpaper persists",
+        "re-extract and verify exact Wallpapers/stale-offset semantics",
+        "restore exact original backup and confirm original loads"
+      ]
+    }
+  ],
+  "notRequired": [
+    "separate Current Wall runtime case; it uses the same confirmed per-wall helper and serialized map-entry representation",
+    "Ceiling write",
+    "standalone wallpaper-offset write",
+    "Steam inference",
+    "generic PlayerHouse mutation"
+  ],
+  "pass": [
+    "both independent cases load and cold-reload with intended finish",
+    "re-extracted room state matches frozen semantics",
+    "no writer-attributable unrelated drift",
+    "exact backup restore loads successfully"
+  ],
+  "hardFlags": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false
+  }
+}
