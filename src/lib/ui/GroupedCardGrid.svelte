@@ -4,6 +4,6 @@
   export let className = '';
 </script>
 
-<section class="grouped-card-grid" aria-label={label} class={className} style:--card-min={minCardWidth}>
+<section class={'grouped-card-grid ' + className} aria-label={label} style:--card-min={minCardWidth}>
   <div class="responsive-card-grid"><slot /></div>
 </section>
