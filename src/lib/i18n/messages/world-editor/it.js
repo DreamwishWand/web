@@ -497,6 +497,7 @@ const copy = {
   "worldEditor.verifiedExport.failure.reviewStale": "La bozza è cambiata dopo la revisione. Rivedi di nuovo la bozza corrente.",
   "worldEditor.verifiedExport.failure.identityMismatch": "L’identità dell’oggetto target non corrisponde più all’oggetto sorgente verificato.",
   "worldEditor.verifiedExport.failure.notAdmissible": "L’oggetto non è ammissibile secondo i gate promossi del writer minimo per Furniture stateless.",
+  "worldEditor.verifiedExport.failure.addRuntimePending": "La verifica del candidato ADD di Furniture supera i gate statici/browser correnti, ma l’esportazione resta disabilitata finché non è completata l’accettazione esatta del cold reload su Nintendo Switch.",
   "worldEditor.verifiedExport.failure.changedObjectSelected": "Seleziona esattamente l’unico oggetto modificato da questa bozza prima di rivedere l’esportazione.",
   "worldEditor.verifiedExport.failure.progressionVeto": "Le evidenze di progressione correnti vietano questa operazione sull’oggetto.",
   "worldEditor.verifiedExport.failure.invalidDestination": "Il posizionamento finale non ha superato la validazione nativa promossa esatta.",

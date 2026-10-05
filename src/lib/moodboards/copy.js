@@ -10,7 +10,9 @@ export const MOODBOARD_COPY = Object.freeze({
     noBackup:'No previous local snapshot is available.', invalid:'Could not load that Moodboard backup.', recovery:'Recovery',
     recoveryDetail:'Each local write keeps the previous valid document as one rollback snapshot. Export JSON for durable recovery.',
     cloud:'Wand Cloud', cloudDetail:'Cloud sync is not bound here. Local Moodboards remain fully usable without it.',
-    item:'Item', gallery:'Gallery Work', preset:'Wand Preset', link:'Link', noteType:'Note', count:'references'
+    item:'Item', gallery:'Gallery Work', preset:'Wand Preset', link:'Link', noteType:'Note', count:'references',
+    groups:"Groups", newGroup:"New Group", createGroup:"Create Group", unsorted:"Unsorted",
+    openWorldEditor:"Open in World Editor", assignGroups:"Groups", collapse:"Collapse", expand:"Expand", noRefs:"No references in this section."
   },
   fr: {
     eyebrow:'PRÉPAREZ VOTRE PROCHAINE CRÉATION', title:'Moodboards', intro:'Rassemblez objets, Presets Wand, œuvres Gallery et notes avant de modifier votre vallée.',
@@ -23,7 +25,9 @@ export const MOODBOARD_COPY = Object.freeze({
     noBackup:'Aucun instantané précédent disponible.', invalid:'Impossible de charger cette sauvegarde Moodboard.', recovery:'Récupération',
     recoveryDetail:'Chaque écriture locale conserve le document valide précédent comme instantané de retour. Exportez un JSON pour une récupération durable.',
     cloud:'Wand Cloud', cloudDetail:'La synchronisation Cloud n’est pas liée ici. Les Moodboards locaux restent pleinement utilisables.',
-    item:'Objet', gallery:'Œuvre Gallery', preset:'Preset Wand', link:'Lien', noteType:'Note', count:'références'
+    item:'Objet', gallery:'Œuvre Gallery', preset:'Preset Wand', link:'Lien', noteType:'Note', count:'références',
+    groups:"Groupes", newGroup:"Nouveau groupe", createGroup:"Créer le groupe", unsorted:"Non classé",
+    openWorldEditor:"Ouvrir dans World Editor", assignGroups:"Groupes", collapse:"Réduire", expand:"Développer", noRefs:"Aucune référence dans cette section."
   },
   it: {
     eyebrow:'PIANIFICA LA PROSSIMA CREAZIONE', title:'Moodboards', intro:'Raccogli oggetti, Preset Wand, opere Gallery e note prima di modificare la tua Valley.',
@@ -36,7 +40,9 @@ export const MOODBOARD_COPY = Object.freeze({
     noBackup:'Nessuno snapshot precedente disponibile.', invalid:'Impossibile caricare questo backup Moodboard.', recovery:'Ripristino',
     recoveryDetail:'Ogni scrittura locale conserva il documento valido precedente come snapshot di rollback. Esporta JSON per il recupero duraturo.',
     cloud:'Wand Cloud', cloudDetail:'La sincronizzazione Cloud non è collegata qui. I Moodboard locali restano pienamente utilizzabili.',
-    item:'Oggetto', gallery:'Opera Gallery', preset:'Preset Wand', link:'Link', noteType:'Nota', count:'riferimenti'
+    item:'Oggetto', gallery:'Opera Gallery', preset:'Preset Wand', link:'Link', noteType:'Nota', count:'riferimenti',
+    groups:"Gruppi", newGroup:"Nuovo gruppo", createGroup:"Crea gruppo", unsorted:"Non ordinati",
+    openWorldEditor:"Apri in World Editor", assignGroups:"Gruppi", collapse:"Comprimi", expand:"Espandi", noRefs:"Nessun riferimento in questa sezione."
   },
   de: {
     eyebrow:'PLANE DEINE NÄCHSTE KREATION', title:'Moodboards', intro:'Sammle Gegenstände, Wand Presets, Gallery-Werke und Notizen vor der Bearbeitung deines Valley.',
@@ -49,7 +55,9 @@ export const MOODBOARD_COPY = Object.freeze({
     noBackup:'Kein vorheriger Snapshot verfügbar.', invalid:'Dieses Moodboard-Backup konnte nicht geladen werden.', recovery:'Wiederherstellung',
     recoveryDetail:'Jeder lokale Schreibvorgang behält das vorherige gültige Dokument als Rollback-Snapshot. Exportiere JSON für dauerhafte Wiederherstellung.',
     cloud:'Wand Cloud', cloudDetail:'Cloud-Synchronisierung ist hier nicht angebunden. Lokale Moodboards bleiben vollständig nutzbar.',
-    item:'Gegenstand', gallery:'Gallery-Werk', preset:'Wand Preset', link:'Link', noteType:'Notiz', count:'Referenzen'
+    item:'Gegenstand', gallery:'Gallery-Werk', preset:'Wand Preset', link:'Link', noteType:'Notiz', count:'Referenzen',
+    groups:"Gruppen", newGroup:"Neue Gruppe", createGroup:"Gruppe erstellen", unsorted:"Unsortiert",
+    openWorldEditor:"In World Editor öffnen", assignGroups:"Gruppen", collapse:"Einklappen", expand:"Ausklappen", noRefs:"Keine Referenzen in diesem Abschnitt."
   },
   'es-ES': {
     eyebrow:'PLANIFICA TU PRÓXIMA CREACIÓN', title:'Moodboards', intro:'Reúne objetos, Presets de Wand, obras de Gallery y notas antes de editar tu Valle.',
@@ -62,7 +70,9 @@ export const MOODBOARD_COPY = Object.freeze({
     noBackup:'No hay una instantánea anterior disponible.', invalid:'No se pudo cargar esa copia de Moodboard.', recovery:'Recuperación',
     recoveryDetail:'Cada escritura local conserva el documento válido anterior como instantánea de reversión. Exporta JSON para una recuperación duradera.',
     cloud:'Wand Cloud', cloudDetail:'La sincronización Cloud no está conectada aquí. Los Moodboards locales siguen siendo plenamente utilizables.',
-    item:'Objeto', gallery:'Obra de Gallery', preset:'Preset de Wand', link:'Enlace', noteType:'Nota', count:'referencias'
+    item:'Objeto', gallery:'Obra de Gallery', preset:'Preset de Wand', link:'Enlace', noteType:'Nota', count:'referencias',
+    groups:"Grupos", newGroup:"Nuevo grupo", createGroup:"Crear grupo", unsorted:"Sin clasificar",
+    openWorldEditor:"Abrir en World Editor", assignGroups:"Grupos", collapse:"Contraer", expand:"Expandir", noRefs:"No hay referencias en esta sección."
   },
   ja: {
     eyebrow:'次の飾り付けを計画する', title:'Moodboards', intro:'Valleyを編集する前に、アイテム、Wand Preset、Gallery作品、メモを集めて構想を整理します。',
@@ -75,7 +85,9 @@ export const MOODBOARD_COPY = Object.freeze({
     noBackup:'復元できる直前スナップショットがありません。', invalid:'そのMoodboardバックアップは読み込めません。', recovery:'復元',
     recoveryDetail:'ローカル書き込みのたびに、直前の正常な文書を1世代のrollback snapshotとして保持します。長期保全にはJSONバックアップを書き出してください。',
     cloud:'Wand Cloud', cloudDetail:'この画面にはCloud同期を接続していません。ローカルMoodboardはCloudなしで完全に利用できます。',
-    item:'アイテム', gallery:'Gallery作品', preset:'Wand Preset', link:'リンク', noteType:'メモ', count:'件'
+    item:'アイテム', gallery:'Gallery作品', preset:'Wand Preset', link:'リンク', noteType:'メモ', count:'件',
+    groups:"Groups", newGroup:"新しいGroup", createGroup:"Groupを作成", unsorted:"Unsorted",
+    openWorldEditor:"World Editorで開く", assignGroups:"Groups", collapse:"折りたたむ", expand:"展開", noRefs:"このセクションに参照はありません。"
   },
   'zh-CN': {
     eyebrow:'规划下一次创作', title:'Moodboards', intro:'在编辑山谷前收集物品、Wand Preset、Gallery 作品和笔记。',
@@ -88,7 +100,9 @@ export const MOODBOARD_COPY = Object.freeze({
     noBackup:'没有可用的上一个快照。', invalid:'无法加载该 Moodboard 备份。', recovery:'恢复',
     recoveryDetail:'每次本地写入都会保留上一个有效文档作为回滚快照。请导出 JSON 备份以便长期恢复。',
     cloud:'Wand Cloud', cloudDetail:'此界面尚未连接 Cloud 同步。本地 Moodboard 无需 Cloud 也可完整使用。',
-    item:'物品', gallery:'Gallery 作品', preset:'Wand Preset', link:'链接', noteType:'笔记', count:'项'
+    item:'物品', gallery:'Gallery 作品', preset:'Wand Preset', link:'链接', noteType:'笔记', count:'项',
+    groups:"分组", newGroup:"新建分组", createGroup:"创建分组", unsorted:"未分类",
+    openWorldEditor:"在 World Editor 中打开", assignGroups:"分组", collapse:"折叠", expand:"展开", noRefs:"此分区没有引用。"
   },
   'pt-BR': {
     eyebrow:'PLANEJE SUA PRÓXIMA CRIAÇÃO', title:'Moodboards', intro:'Reúna itens, Presets do Wand, obras da Gallery e notas antes de editar o seu Vale.',
@@ -101,7 +115,9 @@ export const MOODBOARD_COPY = Object.freeze({
     noBackup:'Nenhum snapshot anterior está disponível.', invalid:'Não foi possível carregar esse backup de Moodboard.', recovery:'Recuperação',
     recoveryDetail:'Cada gravação local mantém o documento válido anterior como snapshot de rollback. Exporte JSON para recuperação duradoura.',
     cloud:'Wand Cloud', cloudDetail:'A sincronização Cloud não está conectada aqui. Moodboards locais continuam totalmente utilizáveis.',
-    item:'Item', gallery:'Obra da Gallery', preset:'Preset do Wand', link:'Link', noteType:'Nota', count:'referências'
+    item:'Item', gallery:'Obra da Gallery', preset:'Preset do Wand', link:'Link', noteType:'Nota', count:'referências',
+    groups:"Grupos", newGroup:"Novo grupo", createGroup:"Criar grupo", unsorted:"Não classificados",
+    openWorldEditor:"Abrir no World Editor", assignGroups:"Grupos", collapse:"Recolher", expand:"Expandir", noRefs:"Nenhuma referência nesta seção."
   }
 });
 

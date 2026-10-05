@@ -1,0 +1,100 @@
+name: WEP Decorate Stage 1 browser acceptance
+
+on:
+  push:
+    branches: ['wep/**']
+    paths:
+      - '.github/workflows/wep-decorate-stage1-browser.yml'
+      - 'scripts/wep-decorate-stage1-browser-acceptance.mjs'
+      - 'src/routes/editor/world/**'
+      - 'src/routes/explore/**'
+      - 'src/routes/moodboards/**'
+      - 'src/lib/wep/WorldEditorStage1DecoratePanel.svelte'
+      - 'src/lib/wep/world-editor-stage1-copy.js'
+      - 'src/lib/wep/world-editor-handoff.ts'
+      - 'src/lib/wep/world-editor-recovery.ts'
+      - 'src/lib/wep/ordinary-furniture-add-verified-export-v125.ts'
+      - 'static/ddv/wep/world/v1.25/ordinary-furniture-add-scope-pack-v125.json'
+      - 'src/lib/i18n/messages/world-editor/**'
+      - 'src/lib/wep/world-editor-environment.ts'
+      - 'src/lib/wep/editor-runtime.ts'
+      - 'src/lib/wep/world-browser-adapter.ts'
+      - 'src/lib/moodboards/**'
+      - 'src/lib/explore/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/wep-decorate-stage1-browser.yml'
+      - 'scripts/wep-decorate-stage1-browser-acceptance.mjs'
+      - 'src/routes/editor/world/**'
+      - 'src/routes/explore/**'
+      - 'src/routes/moodboards/**'
+      - 'src/lib/wep/WorldEditorStage1DecoratePanel.svelte'
+      - 'src/lib/wep/world-editor-stage1-copy.js'
+      - 'src/lib/wep/world-editor-handoff.ts'
+      - 'src/lib/wep/world-editor-recovery.ts'
+      - 'src/lib/wep/ordinary-furniture-add-verified-export-v125.ts'
+      - 'static/ddv/wep/world/v1.25/ordinary-furniture-add-scope-pack-v125.json'
+      - 'src/lib/i18n/messages/world-editor/**'
+      - 'src/lib/wep/world-editor-environment.ts'
+      - 'src/lib/wep/editor-runtime.ts'
+      - 'src/lib/wep/world-browser-adapter.ts'
+      - 'src/lib/moodboards/**'
+      - 'src/lib/explore/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Install browser driver library only
+        run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Install CJK fonts
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+          fc-cache -f
+      - name: Resolve system Chrome
+        id: chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "path=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+          "$CHROME_BIN" --version
+      - name: Start local app
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4175 > /tmp/wep-stage1-vite.log 2>&1 &
+          echo $! > /tmp/wep-stage1-vite.pid
+          for i in $(seq 1 60); do
+            if curl --fail --silent --show-error http://127.0.0.1:4175/editor/world/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/wep-stage1-vite.log
+          exit 1
+      - name: Run Decorate Stage 1 acceptance
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          WEP_STAGE1_BASE_URL: http://127.0.0.1:4175
+        run: node scripts/wep-decorate-stage1-browser-acceptance.mjs
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wep-decorate-stage1-browser-acceptance
+          path: .artifacts/wep-decorate-stage1-browser/
+          if-no-files-found: error

@@ -520,6 +520,7 @@ const copy = {
   "worldEditor.verifiedExport.failure.reviewStale": "Le brouillon a changé après la vérification. Vérifiez à nouveau le brouillon actuel.",
   "worldEditor.verifiedExport.failure.identityMismatch": "L’identité de l’objet cible ne correspond plus à l’objet source vérifié.",
   "worldEditor.verifiedExport.failure.notAdmissible": "L’objet n’est pas admissible selon les gates promus du writer minimal pour Furniture sans état.",
+  "worldEditor.verifiedExport.failure.addRuntimePending": "La vérification du candidat ADD de Furniture passe les gates statiques/navigateur actuels, mais l’export reste désactivé jusqu’à la validation exacte du rechargement à froid sur Nintendo Switch.",
   "worldEditor.verifiedExport.failure.changedObjectSelected": "Sélectionnez exactement l’unique objet modifié par ce brouillon avant de vérifier l’export.",
   "worldEditor.verifiedExport.failure.progressionVeto": "Les preuves de progression actuelles interdisent cette opération sur l’objet.",
   "worldEditor.verifiedExport.failure.invalidDestination": "Le placement final a échoué à la validation native promue exacte.",

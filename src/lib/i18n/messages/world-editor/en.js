@@ -520,6 +520,7 @@ const copy = {
   "worldEditor.verifiedExport.failure.reviewStale": "The draft changed after Review Changes. Review the current draft again.",
   "worldEditor.verifiedExport.failure.identityMismatch": "The target object identity no longer matches the reviewed source object.",
   "worldEditor.verifiedExport.failure.notAdmissible": "The object is not admissible under the promoted minimum stateless-Furniture writer gates.",
+  "worldEditor.verifiedExport.failure.addRuntimePending": "Furniture ADD candidate verification passes the current static/browser gates, but export remains disabled until exact Nintendo Switch cold-reload acceptance is complete.",
   "worldEditor.verifiedExport.failure.changedObjectSelected": "Select exactly the one object changed by this draft before reviewing the export.",
   "worldEditor.verifiedExport.failure.progressionVeto": "Current progression evidence vetoes this object operation.",
   "worldEditor.verifiedExport.failure.invalidDestination": "The final placement failed the exact promoted native placement validation.",

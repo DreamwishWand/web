@@ -1,7 +1,7 @@
 {
   "schema": "dreamwish-wand-world-editor-localization-inventory@1",
   "status": "COMPLETE_FOR_PINNED_SOURCES",
-  "generatedAt": "2026-10-04",
+  "generatedAt": "2026-10-06",
   "target": {
     "product": "Decorate / World Editor",
     "platform": "Nintendo Switch",
@@ -19,17 +19,21 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "638d0c24e1e8fd22e167b59819f76e70a583bd9d",
+    "src/routes/editor/world/+page.svelte": "2e4d55326fba8d854b47f8ce8dc8302020e2e60f",
     "src/lib/wep/world-editor-primary-job.ts": "a8e49f4f2eec543b9aaebd2d552c9da8e36270d5",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "711609eb100a0809a5e9a5b274f83dd9319e3645",
-    "src/lib/SiteFooter.svelte": "4b20121a1295e42aeaeb25e39cb3853bd80da0e8"
+    "src/lib/SiteFooter.svelte": "4b20121a1295e42aeaeb25e39cb3853bd80da0e8",
+    "src/lib/wep/WorldEditorStage1DecoratePanel.svelte": "4c4e0543df4e09399afc88f53ed74ee9f07c3615",
+    "src/lib/wep/world-editor-stage1-copy.js": "55d525317ec04b8f883b484a2c5d6b78e29b067c"
   },
   "ownership": {
     "wepOwned": [
       "src/routes/editor/world/+page.svelte",
       "src/lib/wep/world-editor-primary-job.ts",
-      "src/lib/wep/blocker-messages.ts"
+      "src/lib/wep/blocker-messages.ts",
+      "src/lib/wep/WorldEditorStage1DecoratePanel.svelte",
+      "src/lib/wep/world-editor-stage1-copy.js"
     ],
     "sharedWebRenderedOnWorldEditor": [
       "src/lib/SiteHeader.svelte",
@@ -56,7 +60,7 @@
       "pt-BR"
     ],
     "rule": "World Editor presentation resolves through the shared locale runtime. WEP does not own a locale store, selector, fallback resolver, formatter, or resource loader.",
-    "routeChangeNote": "Shared-UI Stage 1 repin: SiteHeader is now the closed Home/Global Entry contextual application shell with explicit Home, Discover the Wand, owner-bound DDV Save / Notifications / Account slots, Language and Theme; mobile uses a separate compact shell without DDV Save. WEP-owned message keys, blocker/Core reason coverage, machine-code invariants and persistent-write safety are unchanged."
+    "routeChangeNote": "Promoted 08 WEB shared-shell authority is preserved: SiteHeader remains the closed Home/Global Entry contextual application shell and mobile shell boundary. Decorate Stage 1 WEP consumer presentation is added through WorldEditorStage1DecoratePanel.svelte and world-editor-stage1-copy.js on the same shared eight-locale runtime."
   },
   "translationBoundary": {
     "translate": [
@@ -71,7 +75,8 @@
       "Scene capture/publish presentation",
       "Store inspector presentation",
       "progression-protection explanatory copy",
-      "errors/status/live-region presentation wrappers"
+      "errors/status/live-region presentation wrappers",
+      "Decorate Stage 1 Moodboard handoff, pending placement, recovery, alignment/distribution, and precise-coordinate presentation"
     ],
     "neverTranslate": [
       "Core/WEP machine reason code",
@@ -172,6 +177,31 @@
           "Move down",
           "Move right"
         ]
+      },
+      {
+        "surface": "Decorate Stage 1 consumer controls",
+        "source": [
+          "src/lib/wep/WorldEditorStage1DecoratePanel.svelte",
+          "src/lib/wep/world-editor-stage1-copy.js"
+        ],
+        "strings": [
+          "Pending placement",
+          "Place",
+          "Preview & Preflight",
+          "Clear pending source",
+          "Alignment",
+          "Left",
+          "Right",
+          "Top",
+          "Bottom",
+          "Center H",
+          "Center V",
+          "Distribution",
+          "Horizontal",
+          "Vertical",
+          "Precise coordinates",
+          "Apply coordinates"
+        ]
       }
     ],
     "inspector": [
@@ -194,7 +224,11 @@
           "No Core attached-state capability contract is bound for this object. Wand does not infer Chest, PlayerHouse, Shop, Building, or progression actions from ItemID.",
           "Select exactly one object to inspect attached-state actions.",
           "Core exposes no attached-state action for this object.",
-          "Core + WEP handler ready"
+          "Core + WEP handler ready",
+          "Precise coordinates",
+          "X",
+          "Y",
+          "Apply coordinates"
         ]
       }
     ],
@@ -972,6 +1006,19 @@
           "Current safety boundary",
           "Nintendo Switch / Steamの実DDV targetに対するpersistent ADD / DELETE / MOVE / ROTATE、native GridObject ID allocation、inventory消費、Road/Fence mutation、save replacementは未許可です。"
         ]
+      },
+      {
+        "surface": "Decorate Stage 1 recovery entry",
+        "source": [
+          "src/routes/editor/world/+page.svelte",
+          "src/lib/wep/world-editor-stage1-copy.js"
+        ],
+        "strings": [
+          "Recovery",
+          "Resume Draft",
+          "Recovery stores committed draft transactions and the exact source fingerprint.",
+          "Draft resumed from exact source baseline."
+        ]
       }
     ],
     "backupExportPrep": [
@@ -997,7 +1044,7 @@
         "strings": [
           "VERIFIED REPLACEMENT EXPORT",
           "Review Changes & Export",
-          "The launch writer supports one existing same-root ordinary Furniture MOVE or cardinal ROTATE. Wand creates and independently verifies an edited replacement save; it never overwrites the loaded source.",
+          "Verified replacement export remains available only where the exact promoted writer and runtime gate are closed. Ordinary Furniture ADD may be reviewed through the promoted 01B/01A candidate pipeline, but its user-facing export remains disabled while exact Nintendo Switch cold-reload acceptance is pending.",
           "Verifying…",
           "Review Changes",
           "Verified export is available only for a supported Switch v1.25.0 Area root loaded from the original packaged save.",
@@ -1027,7 +1074,8 @@
           "Keep the exact original backup. Install or import the edited save using your normal save-transfer workflow. Recovery is user-mediated by reinstalling/importing the retained original backup.",
           "Review Changes passed. Confirm the exact semantic change to enable Apply / Export.",
           "I confirm this source was created by Nintendo Switch DDV v1.25.0, Build ID 52BD625D9B4E0053.",
-          "The save format cannot prove the executable Build ID. Confirm the exact source build before Review Changes."
+          "The save format cannot prove the executable Build ID. Confirm the exact source build before Review Changes.",
+          "Furniture ADD candidate verification passes the current static/browser gates, but export remains disabled until exact Nintendo Switch cold-reload acceptance is complete."
         ],
         "failurePresentationKeys": [
           "worldEditor.verifiedExport.failure.unsupportedBuild",
@@ -1046,9 +1094,10 @@
           "worldEditor.verifiedExport.failure.reload",
           "worldEditor.verifiedExport.failure.reloadMismatch",
           "worldEditor.verifiedExport.failure.generic",
-          "worldEditor.verifiedExport.failure.buildConfirmation"
+          "worldEditor.verifiedExport.failure.buildConfirmation",
+          "worldEditor.verifiedExport.failure.addRuntimePending"
         ],
-        "note": "Raw WEP_EXPORT_*, TX_*, Core contract IDs, hashes, Item/Grid/Object IDs, operation enums, and manifest identifiers remain untranslated diagnostics. Presentation wrappers are localized in all eight launch locales. Because the save format does not prove the executable BID, exact Switch v1.25.0 / 52BD625D9B4E0053 user confirmation is required before Review Changes. This surface exports an independently verified replacement artifact only; it does not authorize direct persistent replacement."
+        "note": "Raw WEP_EXPORT_*, WEP_ADD_*, TX_*, Core contract IDs, hashes, Item/Grid/Object IDs, operation enums, and manifest identifiers remain untranslated diagnostics. Presentation wrappers are localized in all eight launch locales. Because the save format does not prove executable BID, exact Switch v1.25.0 / 52BD625D9B4E0053 user confirmation is required before Review Changes. Ordinary Furniture ADD remains review/candidate-evidence only until 01E exact cold-reload acceptance; no ADD Apply / Export control is exposed."
       }
     ],
     "selection": [
@@ -1357,6 +1406,22 @@
           "diagnostic.code"
         ],
         "rule": "Keep raw code/value stable and optionally render a separately localized presentation label/message. Never replace the machine value with localized text."
+      },
+      {
+        "surface": "Decorate Stage 1 consumer status and fail-closed explanations",
+        "source": [
+          "src/lib/wep/WorldEditorStage1DecoratePanel.svelte",
+          "src/lib/wep/world-editor-stage1-copy.js"
+        ],
+        "strings": [
+          "Unavailable here",
+          "Open or resume a compatible save draft before placing.",
+          "Preset preflight complete.",
+          "Preset preflight failed.",
+          "Placed in the local draft. Review Changes remains authoritative.",
+          "The placement is visible in the draft but fails current validation.",
+          "Room Finish write remains unavailable until the 01A PLAYER_HOUSE_ROOM transaction target and exact Nintendo Switch runtime acceptance are complete."
+        ]
       }
     ]
   },

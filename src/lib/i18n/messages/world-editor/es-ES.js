@@ -497,6 +497,7 @@ const copy = {
   "worldEditor.verifiedExport.failure.reviewStale": "El borrador cambió después de la revisión. Revisa de nuevo el borrador actual.",
   "worldEditor.verifiedExport.failure.identityMismatch": "La identidad del objeto objetivo ya no coincide con el objeto fuente revisado.",
   "worldEditor.verifiedExport.failure.notAdmissible": "El objeto no es admisible según los gates promovidos del writer mínimo para Furniture sin estado.",
+  "worldEditor.verifiedExport.failure.addRuntimePending": "La verificación del candidato ADD de Furniture supera los gates estáticos/del navegador actuales, pero la exportación sigue deshabilitada hasta completar la aceptación exacta de recarga en frío en Nintendo Switch.",
   "worldEditor.verifiedExport.failure.changedObjectSelected": "Selecciona exactamente el único objeto modificado por este borrador antes de revisar la exportación.",
   "worldEditor.verifiedExport.failure.progressionVeto": "La evidencia de progresión actual veta esta operación del objeto.",
   "worldEditor.verifiedExport.failure.invalidDestination": "La posición final no superó la validación nativa promovida exacta.",

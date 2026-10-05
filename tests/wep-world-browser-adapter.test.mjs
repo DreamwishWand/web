@@ -401,3 +401,29 @@ test('static-data checksum mismatch fails closed', async () => {
     /WEP_WORLD_STATIC_DATA_HASH_MISMATCH/
   );
 });
+
+test('Decorate Stage 1 placement source uses canonical geometry/scope without ownership gating', async () => {
+  const binding = await createSwitchWorldReadAdapter({
+    basePath: '',
+    fetchImpl: localFetch
+  });
+  const ordinary = binding.resolveDraftPlacementSource(40000047, 1);
+  assert.equal(ordinary.status, 'SUPPORTED');
+  assert.equal(ordinary.canonicalIdentity.kind, 'DDV_ITEM_ID');
+  assert.equal(ordinary.canonicalIdentity.itemId, 40000047);
+  assert.deepEqual(ordinary.footprintSize, { w: 3, h: 2 });
+  assert.equal(ordinary.draftPlacementSupported, true);
+  assert.equal(ordinary.verifiedReplacementExportSupported, false);
+  assert.equal(ordinary.persistentWriteAuthorized, false);
+  assert.equal('owned' in ordinary, false);
+  assert.equal('favorite' in ordinary, false);
+  assert.equal('hidden' in ordinary, false);
+
+  const subgrid = binding.resolveDraftPlacementSource(40003102, 1);
+  assert.equal(subgrid.draftPlacementSupported, false);
+  assert.equal(subgrid.reasons.includes('SUBGRID_CREATION_CONTRACT_UNBOUND'), true);
+
+  const unknown = binding.resolveDraftPlacementSource(999999999, 1);
+  assert.equal(unknown.draftPlacementSupported, false);
+  assert.equal(unknown.reasons.includes('GEOMETRY_UNRESOLVED'), true);
+});

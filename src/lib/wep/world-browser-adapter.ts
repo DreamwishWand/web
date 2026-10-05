@@ -256,9 +256,83 @@ export async function createSwitchWorldReadAdapter({
     scopeIndex: data.scopeIndex
   });
 
+  function resolveDraftPlacementSource(
+    itemIdInput: number,
+    gridTessellationFactor = 1
+  ) {
+    const itemId = Number(itemIdInput);
+    if (!Number.isSafeInteger(itemId) || itemId <= 0) {
+      throw new Error('WEP_WORLD_PLACEMENT_SOURCE_ITEM_ID_INVALID');
+    }
+    const geometry = data.geometryIndex[String(itemId)] ?? null;
+    const scope = data.scopeIndex[String(itemId)] ?? null;
+    const reasons: string[] = [];
+    if (!geometry) reasons.push('GEOMETRY_UNRESOLVED');
+    const concreteType = String(geometry?.concreteType ?? '');
+    if (concreteType === 'FenceAndRoadItemData') {
+      reasons.push('ROAD_FENCE_DELEGATED_01C');
+    } else if (concreteType === 'BuildingItemData') {
+      reasons.push('BUILDING_READ_ONLY');
+    } else if (concreteType !== 'FurnitureItemData') {
+      reasons.push('NON_FURNITURE_WORLD_CLASS');
+    } else if (!scope) {
+      reasons.push('FURNITURE_POLICY_MISSING');
+    } else {
+      if (scope.isMissionItem) reasons.push('MISSION_ITEM_READ_ONLY');
+      if (scope.explicitGridEditRestriction) {
+        reasons.push('GRID_EDIT_RESTRICTION_PRESENT');
+      }
+      const nativeRejectReasons = Array.isArray(
+        scope.nativePresetKnownRejectReasons
+      )
+        ? scope.nativePresetKnownRejectReasons
+        : [];
+      for (const reason of nativeRejectReasons) {
+        reasons.push(`NATIVE_REJECT_${String(reason)}`);
+      }
+      if (geometry?.subGridDataPath) {
+        reasons.push('SUBGRID_CREATION_CONTRACT_UNBOUND');
+      }
+    }
+
+    let footprint: Array<{ x: number; y: number }> = [];
+    let footprintSize: { w: number; h: number } | null = null;
+    if (!reasons.length) {
+      const resolvedSize = (api as any).orientedFootprintSize(
+        geometry,
+        0,
+        Number(gridTessellationFactor || 1)
+      ) as { w: number; h: number };
+      footprintSize = resolvedSize;
+      for (let y = 0; y < resolvedSize.h; y += 1) {
+        for (let x = 0; x < resolvedSize.w; x += 1) {
+          footprint.push({ x, y });
+        }
+      }
+    }
+
+    return Object.freeze({
+      contract: 'dreamwish-wand-wep-draft-placement-source@1',
+      status: reasons.length ? 'BLOCKED' : 'SUPPORTED',
+      itemId,
+      canonicalIdentity: Object.freeze({ kind: 'DDV_ITEM_ID', itemId }),
+      layer: concreteType === 'FurnitureItemData' ? 'furniture' : 'static',
+      orientation: 0,
+      footprint: Object.freeze(footprint.map((cell) => Object.freeze(cell))),
+      footprintSize: footprintSize ? Object.freeze({ ...footprintSize }) : null,
+      reasons: Object.freeze([...new Set(reasons)]),
+      draftPlacementSupported: reasons.length === 0,
+      verifiedReplacementExportSupported: false,
+      persistentWriteAuthorized: false,
+      productApplyAuthorized: false,
+      directSourceReplacementAuthorized: false
+    });
+  }
+
   return Object.freeze({
     adapter,
     directRootProjector,
+    resolveDraftPlacementSource,
     progressionScopeIndex: Object.freeze(
       structuredClone(data.scopeIndex)
     ),
