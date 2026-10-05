@@ -411,7 +411,16 @@ try{
   const baselineLabel=await page.locator('g[data-editor-object]').first().getAttribute('aria-label');
 
   // A compatible active draft must be reusable even before its first mutation.
-  await page.goto(root+'/explore/',{waitUntil:'networkidle'});
+  // Shared shell intentionally has no global Product nav; use a same-origin anchor so
+  // SvelteKit performs client-side navigation without destroying the active draft.
+  await page.evaluate((href)=>{
+    const link=document.createElement('a');
+    link.href=href;
+    link.dataset.wepClientNav='explore';
+    link.textContent='Explore test navigation';
+    document.body.appendChild(link);
+  },root+'/explore/');
+  await page.locator('a[data-wep-client-nav="explore"]').click();
   await page.waitForURL(/\/explore\/?$/);
   await page.locator('.controls input[type="search"]').fill('40000048');
   await eventually(async()=>await page.locator('.card-review').count()===1);
