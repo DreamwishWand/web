@@ -459,167 +459,45 @@ function assertPlayerHouseRoomAllowedPaths(plan){
   for(const entry of plan.allowedChanges){
     const path=entry.path;
     if(path===root+'/Flooring')continue;
-    if(new RegExp('^'+escapeRegExp(root)+'/Wallpapers/[0-3]
-  if(plan.target.kind===PLAYER_HOUSE_ROOM_TARGET_KIND){
-    validatePlayerHouseRoomStructure(before,after,plan.target);
-    return;
-  }
-  if(plan.target.kind!=='GRID_OBJECT_SET')return;
-  const beforeGrid=getGrid(before,plan.target.gridId),afterGrid=getGrid(after,plan.target.gridId);
-  const beforeObjects=asObj(beforeGrid.Objects),afterObjects=asObj(afterGrid.Objects);
-  if(!beforeObjects||!afterObjects)throw txError('TX_TARGET_GRID_OBJECT_MAP_REQUIRED');
-  for(const id of plan.target.preservedGridObjectIds){
-    if(!semanticEqual(beforeObjects[String(id)],afterObjects[String(id)]))throw txError('TX_PRESERVED_GRID_OBJECT_CHANGED',String(id));
-  }
-  const expectedAfterKeys=new Set(Object.keys(beforeObjects));
-  for(const id of plan.target.deletedGridObjectIds)expectedAfterKeys.delete(String(id));
-  for(const id of plan.target.createdGridObjectIds)expectedAfterKeys.add(String(id));
-  const actualAfterKeys=new Set(Object.keys(afterObjects));
-  if(!sameStringArray([...expectedAfterKeys].sort(),[...actualAfterKeys].sort()))throw txError('TX_GRID_OBJECT_SET_MEMBERSHIP_MISMATCH');
-}
-function identityDeltaMatchesPlan(identityDelta,plan){
-  if(!identityDelta.changed)return true;
-  if(plan.target.kind!=='GRID_OBJECT_SET'||plan.preservation.gridObjectIdentityPolicy!==STRUCTURAL_GRID_IDENTITY_POLICY)return false;
-  if(identityDelta.reidentified.length)return false;
-  const root=`/World/GridCollection/Grids/${plan.target.gridId}/Objects`;
-  const expectedAdded=plan.target.createdGridObjectIds.map(id=>`${root}/${id}`).sort();
-  const expectedRemoved=plan.target.deletedGridObjectIds.map(id=>`${root}/${id}`).sort();
-  const actualAdded=identityDelta.added.map(x=>x.path).sort();
-  const actualRemoved=identityDelta.removed.map(x=>x.path).sort();
-  return sameStringArray(actualAdded,expectedAdded)&&sameStringArray(actualRemoved,expectedRemoved);
-}
-function getGrid(profile,gridId){
-  const gc=asObj(asObj(profile.World)?.GridCollection),grids=asObj(gc?.Grids);
-  const grid=asObj(grids?.[String(gridId)]??grids?.[gridId]);
-  if(!grid||Number(grid.ID)!==gridId)throw txError('TX_TARGET_GRID_IDENTITY_MISMATCH');
-  return grid;
-}
-function sameNumberArray(a,b){return a.length===b.length&&a.every((v,i)=>v===b[i]);}
-function getPointer(root,pointer){
-  if(pointer==='')return {exists:true,value:root};
-  const tokens=pointer.slice(1).split('/').map(t=>t.replaceAll('~1','/').replaceAll('~0','~'));let cur=root;
-  for(const token of tokens){
-    if(Array.isArray(cur)){if(!/^(?:0|[1-9]\d*)$/.test(token)||Number(token)>=cur.length)return {exists:false};cur=cur[Number(token)];continue;}
-    const obj=asObj(cur);if(!obj||!Object.prototype.hasOwnProperty.call(obj,token))return {exists:false};cur=obj[token];
-  }
-  return {exists:true,value:cur};
-}
-function rejectPatchIntent(value){
-  const banned=new Set(['patch','patches','jsonPatch','jsonPatches','operations']);walk(value);
-  function walk(v){if(Array.isArray(v)){v.forEach(walk);return;}const o=asObj(v);if(!o)return;for(const [k,c] of Object.entries(o)){if(banned.has(k))throw txError('TX_ARBITRARY_PATCH_INTENT_FORBIDDEN');walk(c);}}
-}
-function normalizePointers(value,code){if(!Array.isArray(value))throw txError(code);const out=value.map(x=>{validatePointer(x,code);return x;});if(new Set(out).size!==out.length)throw txError(code);return out;}
-function validatePointer(value,code){if(typeof value!=='string'||!/^\/(?:[^~]|~[01])*(?:\/(?:[^~]|~[01])*)*$/.test(value))throw txError(code);}
-function semanticEqual(a,b){return canonicalJson(a)===canonicalJson(b);}
-function canonicalJson(v){return JSON.stringify(canonicalize(v));}
-function canonicalize(v){if(Array.isArray(v))return v.map(canonicalize);if(v&&typeof v==='object'){const o={};for(const k of Object.keys(v).sort())o[k]=canonicalize(v[k]);return o;}return v;}
-function matchesAnyPrefix(path,prefixes){return prefixes.some(p=>path===p||path.startsWith(`${p}/`));}
-function summarizeFindings(v){return Array.isArray(v)?v.map(x=>x.code).join(', '):'';}
-function requireSession(s){if(!s||typeof s.getSnapshot!=='function'||typeof s.getPreflightContext!=='function'||!(s.source instanceof Uint8Array))throw txError('TX_SAFE_SESSION_REQUIRED');}
-function requireString(v,c){if(typeof v!=='string'||!v.length)throw txError(c);}
-function requireInt(v,c){if(!Number.isSafeInteger(v)||v<0)throw txError(c);}
-function requireSha(v,c){if(typeof v!=='string'||!/^[0-9a-f]{64}$/.test(v))throw txError(c);}
-function asObj(v){return v!==null&&typeof v==='object'&&!Array.isArray(v)?v:null;}
-function escapePointer(k){return k.replaceAll('~','~0').replaceAll('/','~1');}
-function sameStringArray(a,b){return a.length===b.length&&a.every((v,i)=>v===b[i]);}
-function txError(code,detail=''){const e=new Error(detail?`${code}: ${detail}`:code);e.code=code;return e;}
-function wrapStageError(code,error){return txError(code,error instanceof Error?error.message:String(error));}
-function deepFreeze(v){if(v&&typeof v==='object'&&!(v instanceof Uint8Array)&&!Object.isFrozen(v)){Object.freeze(v);for(const c of Object.values(v))deepFreeze(c);}return v;}
-async function sha256Text(t){return sha256Hex(new TextEncoder().encode(t));}
-async function sha256Hex(bytes){if(!globalThis.crypto?.subtle)throw txError('TX_WEBCRYPTO_UNAVAILABLE');const d=await globalThis.crypto.subtle.digest('SHA-256',bytes);return [...new Uint8Array(d)].map(v=>v.toString(16).padStart(2,'0')).join('');}
-).test(path))continue;
-    if(new RegExp('^'+escapeRegExp(root)+'/WallpaperOffsetById/(?:0|[1-9]\\d*)
-  if(plan.target.kind===PLAYER_HOUSE_ROOM_TARGET_KIND){
-    validatePlayerHouseRoomStructure(before,after,plan.target);
-    return;
-  }
-  if(plan.target.kind!=='GRID_OBJECT_SET')return;
-  const beforeGrid=getGrid(before,plan.target.gridId),afterGrid=getGrid(after,plan.target.gridId);
-  const beforeObjects=asObj(beforeGrid.Objects),afterObjects=asObj(afterGrid.Objects);
-  if(!beforeObjects||!afterObjects)throw txError('TX_TARGET_GRID_OBJECT_MAP_REQUIRED');
-  for(const id of plan.target.preservedGridObjectIds){
-    if(!semanticEqual(beforeObjects[String(id)],afterObjects[String(id)]))throw txError('TX_PRESERVED_GRID_OBJECT_CHANGED',String(id));
-  }
-  const expectedAfterKeys=new Set(Object.keys(beforeObjects));
-  for(const id of plan.target.deletedGridObjectIds)expectedAfterKeys.delete(String(id));
-  for(const id of plan.target.createdGridObjectIds)expectedAfterKeys.add(String(id));
-  const actualAfterKeys=new Set(Object.keys(afterObjects));
-  if(!sameStringArray([...expectedAfterKeys].sort(),[...actualAfterKeys].sort()))throw txError('TX_GRID_OBJECT_SET_MEMBERSHIP_MISMATCH');
-}
-function identityDeltaMatchesPlan(identityDelta,plan){
-  if(!identityDelta.changed)return true;
-  if(plan.target.kind!=='GRID_OBJECT_SET'||plan.preservation.gridObjectIdentityPolicy!==STRUCTURAL_GRID_IDENTITY_POLICY)return false;
-  if(identityDelta.reidentified.length)return false;
-  const root=`/World/GridCollection/Grids/${plan.target.gridId}/Objects`;
-  const expectedAdded=plan.target.createdGridObjectIds.map(id=>`${root}/${id}`).sort();
-  const expectedRemoved=plan.target.deletedGridObjectIds.map(id=>`${root}/${id}`).sort();
-  const actualAdded=identityDelta.added.map(x=>x.path).sort();
-  const actualRemoved=identityDelta.removed.map(x=>x.path).sort();
-  return sameStringArray(actualAdded,expectedAdded)&&sameStringArray(actualRemoved,expectedRemoved);
-}
-function getGrid(profile,gridId){
-  const gc=asObj(asObj(profile.World)?.GridCollection),grids=asObj(gc?.Grids);
-  const grid=asObj(grids?.[String(gridId)]??grids?.[gridId]);
-  if(!grid||Number(grid.ID)!==gridId)throw txError('TX_TARGET_GRID_IDENTITY_MISMATCH');
-  return grid;
-}
-function sameNumberArray(a,b){return a.length===b.length&&a.every((v,i)=>v===b[i]);}
-function getPointer(root,pointer){
-  if(pointer==='')return {exists:true,value:root};
-  const tokens=pointer.slice(1).split('/').map(t=>t.replaceAll('~1','/').replaceAll('~0','~'));let cur=root;
-  for(const token of tokens){
-    if(Array.isArray(cur)){if(!/^(?:0|[1-9]\d*)$/.test(token)||Number(token)>=cur.length)return {exists:false};cur=cur[Number(token)];continue;}
-    const obj=asObj(cur);if(!obj||!Object.prototype.hasOwnProperty.call(obj,token))return {exists:false};cur=obj[token];
-  }
-  return {exists:true,value:cur};
-}
-function rejectPatchIntent(value){
-  const banned=new Set(['patch','patches','jsonPatch','jsonPatches','operations']);walk(value);
-  function walk(v){if(Array.isArray(v)){v.forEach(walk);return;}const o=asObj(v);if(!o)return;for(const [k,c] of Object.entries(o)){if(banned.has(k))throw txError('TX_ARBITRARY_PATCH_INTENT_FORBIDDEN');walk(c);}}
-}
-function normalizePointers(value,code){if(!Array.isArray(value))throw txError(code);const out=value.map(x=>{validatePointer(x,code);return x;});if(new Set(out).size!==out.length)throw txError(code);return out;}
-function validatePointer(value,code){if(typeof value!=='string'||!/^\/(?:[^~]|~[01])*(?:\/(?:[^~]|~[01])*)*$/.test(value))throw txError(code);}
-function semanticEqual(a,b){return canonicalJson(a)===canonicalJson(b);}
-function canonicalJson(v){return JSON.stringify(canonicalize(v));}
-function canonicalize(v){if(Array.isArray(v))return v.map(canonicalize);if(v&&typeof v==='object'){const o={};for(const k of Object.keys(v).sort())o[k]=canonicalize(v[k]);return o;}return v;}
-function matchesAnyPrefix(path,prefixes){return prefixes.some(p=>path===p||path.startsWith(`${p}/`));}
-function summarizeFindings(v){return Array.isArray(v)?v.map(x=>x.code).join(', '):'';}
-function requireSession(s){if(!s||typeof s.getSnapshot!=='function'||typeof s.getPreflightContext!=='function'||!(s.source instanceof Uint8Array))throw txError('TX_SAFE_SESSION_REQUIRED');}
-function requireString(v,c){if(typeof v!=='string'||!v.length)throw txError(c);}
-function requireInt(v,c){if(!Number.isSafeInteger(v)||v<0)throw txError(c);}
-function requireSha(v,c){if(typeof v!=='string'||!/^[0-9a-f]{64}$/.test(v))throw txError(c);}
-function asObj(v){return v!==null&&typeof v==='object'&&!Array.isArray(v)?v:null;}
-function escapePointer(k){return k.replaceAll('~','~0').replaceAll('/','~1');}
-function sameStringArray(a,b){return a.length===b.length&&a.every((v,i)=>v===b[i]);}
-function txError(code,detail=''){const e=new Error(detail?`${code}: ${detail}`:code);e.code=code;return e;}
-function wrapStageError(code,error){return txError(code,error instanceof Error?error.message:String(error));}
-function deepFreeze(v){if(v&&typeof v==='object'&&!(v instanceof Uint8Array)&&!Object.isFrozen(v)){Object.freeze(v);for(const c of Object.values(v))deepFreeze(c);}return v;}
-async function sha256Text(t){return sha256Hex(new TextEncoder().encode(t));}
-async function sha256Hex(bytes){if(!globalThis.crypto?.subtle)throw txError('TX_WEBCRYPTO_UNAVAILABLE');const d=await globalThis.crypto.subtle.digest('SHA-256',bytes);return [...new Uint8Array(d)].map(v=>v.toString(16).padStart(2,'0')).join('');}
-).test(path))continue;
+    const wallpaperPrefix=root+'/Wallpapers/';
+    if(path.startsWith(wallpaperPrefix)){
+      const key=path.slice(wallpaperPrefix.length);
+      const position=Number(key);
+      if(String(position)===key&&Number.isInteger(position)&&position>=0&&position<=3)continue;
+    }
+    const offsetPrefix=root+'/WallpaperOffsetById/';
+    if(path.startsWith(offsetPrefix)){
+      const key=path.slice(offsetPrefix.length);
+      const itemId=Number(key);
+      if(String(itemId)===key&&Number.isSafeInteger(itemId)&&itemId>=0)continue;
+    }
     throw txError('TX_PLAYER_HOUSE_ROOM_ALLOWED_PATH_UNSUPPORTED',path);
   }
 }
 
 function validatePlayerHouseRoomStructure(before,after,target){
-  const bw=asObj(before.World),aw=asObj(after.World);
-  const bh=Array.isArray(bw?.PlayerHouses)?bw.PlayerHouses:null;
-  const ah=Array.isArray(aw?.PlayerHouses)?aw.PlayerHouses:null;
-  if(!bh||!ah||bh.length!==ah.length)throw txError('TX_PLAYER_HOUSES_STRUCTURE_CHANGED');
-  const beforeHouse=asObj(bh[target.playerHouseIndex]),afterHouse=asObj(ah[target.playerHouseIndex]);
+  const beforeWorld=asObj(before.World),afterWorld=asObj(after.World);
+  const beforeHouses=Array.isArray(beforeWorld?.PlayerHouses)?beforeWorld.PlayerHouses:null;
+  const afterHouses=Array.isArray(afterWorld?.PlayerHouses)?afterWorld.PlayerHouses:null;
+  if(!beforeHouses||!afterHouses||beforeHouses.length!==afterHouses.length)
+    throw txError('TX_PLAYER_HOUSES_STRUCTURE_CHANGED');
+  const beforeHouse=asObj(beforeHouses[target.playerHouseIndex]);
+  const afterHouse=asObj(afterHouses[target.playerHouseIndex]);
   if(!beforeHouse||!afterHouse)throw txError('TX_PLAYER_HOUSE_STRUCTURE_CHANGED');
   if(Number(beforeHouse.HouseItemID)!==target.houseItemId||Number(afterHouse.HouseItemID)!==target.houseItemId)
     throw txError('TX_PLAYER_HOUSE_ITEM_ID_MISMATCH');
-  const bf=Array.isArray(beforeHouse.Floors)?beforeHouse.Floors:null;
-  const af=Array.isArray(afterHouse.Floors)?afterHouse.Floors:null;
-  if(!bf||!af||bf.length!==af.length)throw txError('TX_PLAYER_HOUSE_FLOORS_STRUCTURE_CHANGED');
-  const beforeFloor=asObj(bf[target.floorIndex]),afterFloor=asObj(af[target.floorIndex]);
+  const beforeFloors=Array.isArray(beforeHouse.Floors)?beforeHouse.Floors:null;
+  const afterFloors=Array.isArray(afterHouse.Floors)?afterHouse.Floors:null;
+  if(!beforeFloors||!afterFloors||beforeFloors.length!==afterFloors.length)
+    throw txError('TX_PLAYER_HOUSE_FLOORS_STRUCTURE_CHANGED');
+  const beforeFloor=asObj(beforeFloors[target.floorIndex]);
+  const afterFloor=asObj(afterFloors[target.floorIndex]);
   if(!beforeFloor||!afterFloor)throw txError('TX_PLAYER_HOUSE_FLOOR_STRUCTURE_CHANGED');
-  const br=asObj(beforeFloor.Rooms),ar=asObj(afterFloor.Rooms);
-  if(!br||!ar||!sameStringArray(Object.keys(br).sort(),Object.keys(ar).sort()))
+  const beforeRooms=asObj(beforeFloor.Rooms),afterRooms=asObj(afterFloor.Rooms);
+  if(!beforeRooms||!afterRooms||!sameStringArray(Object.keys(beforeRooms).sort(),Object.keys(afterRooms).sort()))
     throw txError('TX_PLAYER_HOUSE_ROOMS_STRUCTURE_CHANGED');
-  const beforeRoom=asObj(br[String(target.roomSlot)]??br[target.roomSlot]);
-  const afterRoom=asObj(ar[String(target.roomSlot)]??ar[target.roomSlot]);
+  const beforeRoom=asObj(beforeRooms[String(target.roomSlot)]??beforeRooms[target.roomSlot]);
+  const afterRoom=asObj(afterRooms[String(target.roomSlot)]??afterRooms[target.roomSlot]);
   if(!beforeRoom||!afterRoom)throw txError('TX_PLAYER_HOUSE_ROOM_STRUCTURE_CHANGED');
   for(const field of ['Name','FloorGridID','WallGridIDs','RoomPrefabAddress','Ceiling']){
     if(!semanticEqual(beforeRoom[field],afterRoom[field]))
@@ -627,7 +505,6 @@ function validatePlayerHouseRoomStructure(before,after,target){
   }
 }
 
-function escapeRegExp(value){return String(value).replace(/[-/\\^$*+?.()|[\]{}]/g,'\\function validateStructuralTransition(before,after,plan){');}
 function validateStructuralTransition(before,after,plan){
   if(plan.target.kind===PLAYER_HOUSE_ROOM_TARGET_KIND){
     validatePlayerHouseRoomStructure(before,after,plan.target);
