@@ -145,7 +145,7 @@ try{
   assert(await boardSelect.isEnabled(),'Explore did not recover the local Moodboard');
   const selectedBoard=await boardSelect.inputValue();
   assert(Boolean(selectedBoard),'Explore did not select existing Moodboard');
-  await page.locator('.card button').first().click();
+  await page.locator('.card footer button').first().click();
   await eventually(async()=>String(await page.locator('.status').textContent()).toLowerCase().includes('added'));
   const inspiredDoc=await page.evaluate(()=>JSON.parse(localStorage.getItem('dreamwishwand:moodboards:v1')));
   assert(inspiredDoc.boards[0].references.length===2,'Explore -> Moodboard did not persist Item inspiration');
