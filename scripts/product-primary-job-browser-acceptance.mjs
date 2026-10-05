@@ -45,7 +45,7 @@ try{
   assert(await page.locator('.app-home-action').first().isVisible(),'Explicit Home affordance missing');
   assert(await page.locator('[data-shell-control="save"]').isVisible(),'Desktop DDV Save control missing');
   assert(await page.locator('[data-shell-control="account"]').isVisible(),'Desktop Account control missing');
-  assert(await page.getByText('Discover the Wand',{exact:true}).isVisible(),'Discover the Wand contextual action missing');
+  assert(await page.locator('.desktop-app-toolbar .toolbar-context').getByRole('link',{name:'Discover the Wand',exact:true}).isVisible(),'Discover the Wand contextual action missing');
   assert(await page.locator('[data-shell-control="notifications"]').count()===0,'Signed-out shell exposed Notifications');
   ok('HOME_CLOSED_APPLICATION_DASHBOARD',{coreCards:6,qaParticipation:true,marketingHero:false,productNavRow:false});
 
