@@ -256,6 +256,30 @@ test('ADD product export remains fail closed until exact 01E cold-reload accepta
 test('ADD rejects generator-unavailable CORE definition even when local draft shape is otherwise ordinary',async()=>{
   const f=await fixture();
   f.draft.objects[0].itemId=40000072;
+  let validCell=null;
+  for(let y=0;y<256&&!validCell;y++){
+    for(let x=0;x<256;x++){
+      const evidence=f.placementBinding.classify({
+        profile:f.opened.profile,
+        destinationGridId:10,
+        gridDataPath:'GridData/Villages/Village04-BeachLevel-GridData.json',
+        candidate:{
+          artifactObjectId:'generator-unavailable-probe',
+          itemId:40000072,
+          localX:x,
+          localY:y,
+          orientation:0
+        }
+      });
+      if(evidence.nativeClass===NATIVE_PLACEMENT_CLASSES.VALID_CLEAR){
+        validCell={x,y};
+        break;
+      }
+    }
+  }
+  assert.ok(validCell,'no native-valid generator-unavailable probe cell found');
+  f.draft.objects[0].x=validCell.x;
+  f.draft.objects[0].y=validCell.y;
   await assert.rejects(
     ()=>reviewOrdinaryFurnitureAddVerifiedExport({
       sourceBytes:f.bytes,
