@@ -2938,10 +2938,13 @@
       WEP_ADD_NO_ELIGIBLE_PENDING_CHANGE:
         'worldEditor.verifiedExport.failure.noEligibleChange',
       WEP_ADD_UNSUPPORTED_PENDING_CHANGE:
+        'worldEditor.verifiedExport.failure.unsupportedChange',
       WEP_ADD_CROSS_GRID_UNSUPPORTED:
+        'worldEditor.verifiedExport.failure.unsupportedChange',
       WEP_ADD_CREATED_OBJECT_TRANSFORM_INVALID:
         'worldEditor.verifiedExport.failure.unsupportedChange',
       WEP_ADD_CREATED_OBJECT_NOT_ORDINARY_ROOT_STATELESS_FURNITURE:
+        'worldEditor.verifiedExport.failure.notAdmissible',
       WEP_ADD_OBJECT_NO_LONGER_ADMISSIBLE:
         'worldEditor.verifiedExport.failure.notAdmissible',
       WEP_ADD_INVALID_DESTINATION:
