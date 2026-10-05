@@ -124,7 +124,7 @@ function codec(){
       const text=decoder.decode(input);
       return {inputType:'plain',jsonText:text,metadata:{version:readVersion(text)}};
     },
-    parseProfileText(text){return {metadata:{version:readVersion(text)};},
+    parseProfileText(text){return {metadata:{version:readVersion(text)}};},
     async createEncodedProfile(text){return encoder.encode(text);},
     getProfileVersion(metadata){return metadata.version;}
   };
