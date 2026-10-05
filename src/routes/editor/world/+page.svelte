@@ -173,6 +173,9 @@
   let recoveryRequest: any = null;
   let recoveryStatus = '';
   let pendingWorldEditorHandoff: any = null;
+  let inspectorCoordinateX = 0;
+  let inspectorCoordinateY = 0;
+  let inspectorCoordinateEditorId = '';
   let saveFileInput: HTMLInputElement;
   let verifiedExportBaselineDocument: any = null;
   let verifiedExportReview: any = null;
@@ -256,6 +259,16 @@
     objectInspector.selection.kind === 'SINGLE'
       ? objectInspector.selection.object ?? null
       : null;
+  $: if (
+    selectedInspectorObject?.editorId !== inspectorCoordinateEditorId
+  ) {
+    inspectorCoordinateEditorId =
+      selectedInspectorObject?.editorId ?? '';
+    if (selectedInspectorObject) {
+      inspectorCoordinateX = Number(selectedInspectorObject.x);
+      inspectorCoordinateY = Number(selectedInspectorObject.y);
+    }
+  }
   $: scroogeStorePreview =
     worldSource &&
     selectedInspectorObject &&
@@ -2684,6 +2697,34 @@
     if (result?.applied) checkpointRecovery();
   }
 
+  function applyInspectorCoordinates() {
+    if (
+      !session ||
+      !mutationBound ||
+      !selectedInspectorObject ||
+      selectedInspectorObject.editability !== 'editable'
+    ) {
+      return;
+    }
+    try {
+      const id = String(selectedInspectorObject.editorId);
+      const result = session.setPositions(
+        [id],
+        {
+          [id]: {
+            x: Number(inspectorCoordinateX),
+            y: Number(inspectorCoordinateY)
+          }
+        },
+        'PRECISE_POSITION'
+      );
+      finishDraftMutation(result, 'PRECISE_POSITION');
+    } catch (error) {
+      message =
+        error instanceof Error ? error.message : String(error);
+    }
+  }
+
   function copySelectedDraft() {
     if (!session || !selection.length) return;
     try {
@@ -3492,6 +3533,54 @@
               <div><dt>{t('worldEditor.inspector.orientation', {}, $locale)}</dt><dd>{selectedInspectorObject.orientation}</dd></div>
               <div><dt>{t('worldEditor.inspector.state', {}, $locale)}</dt><dd>{selectedInspectorObject.stateKind ?? 'none'}</dd></div>
             </dl>
+            <div class="inspector-precise" data-wep-inspector-coordinates>
+              <h4>{stage1Copy.precise}</h4>
+              <div>
+                <label>
+                  <span>{stage1Copy.x}</span>
+                  <input
+                    type="number"
+                    step="1"
+                    bind:value={inspectorCoordinateX}
+                    disabled={
+                      !mutationBound ||
+                      selectedInspectorObject.editability !== 'editable' ||
+                      selectedInspectorObject.layer === 'road' ||
+                      selectedInspectorObject.layer === 'fence' ||
+                      selectedInspectorObject.metadata?.worldClass === 'FenceAndRoadItemData'
+                    }
+                  />
+                </label>
+                <label>
+                  <span>{stage1Copy.y}</span>
+                  <input
+                    type="number"
+                    step="1"
+                    bind:value={inspectorCoordinateY}
+                    disabled={
+                      !mutationBound ||
+                      selectedInspectorObject.editability !== 'editable' ||
+                      selectedInspectorObject.layer === 'road' ||
+                      selectedInspectorObject.layer === 'fence' ||
+                      selectedInspectorObject.metadata?.worldClass === 'FenceAndRoadItemData'
+                    }
+                  />
+                </label>
+              </div>
+              <button
+                type="button"
+                on:click={applyInspectorCoordinates}
+                disabled={
+                  !mutationBound ||
+                  selectedInspectorObject.editability !== 'editable' ||
+                  selectedInspectorObject.layer === 'road' ||
+                  selectedInspectorObject.layer === 'fence' ||
+                  selectedInspectorObject.metadata?.worldClass === 'FenceAndRoadItemData'
+                }
+              >
+                {stage1Copy.applyCoords}
+              </button>
+            </div>
             {#if selectedInspectorObject.reasonCodes.length}
               <div class="inspector-reasons">
                 {#each selectedInspectorObject.reasonCodes as code}
@@ -5101,4 +5190,12 @@
     background:var(--surface);
     padding:16px;
   }
+
+  .inspector-precise{display:grid;gap:7px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)}
+  .inspector-precise h4{margin:0}
+  .inspector-precise>div{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .inspector-precise label{display:grid;gap:3px;font-size:8px;color:var(--ink-muted)}
+  .inspector-precise input{width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;background:var(--surface-raised);color:var(--ink);padding:7px}
+  .inspector-precise button{border:1px solid var(--border);background:var(--surface-raised);color:var(--ink);border-radius:8px;padding:7px;font-size:9px}
+  .inspector-precise button:focus-visible,.inspector-precise input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 </style>
