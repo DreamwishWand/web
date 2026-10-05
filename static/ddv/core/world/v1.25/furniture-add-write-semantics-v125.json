@@ -1,0 +1,147 @@
+{
+  "schema": "ddv.ordinary-furniture-add-semantics@1",
+  "artifactId": "DDV-ORDINARY-FURNITURE-ADD-SEMANTICS-V125-V1_0-CANDIDATE",
+  "version": "v1.0",
+  "status": "READY_FOR_INTEGRATOR_REVIEW",
+  "semanticOwner": "01B CORE - World / Grid / Buildings",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "titleId": "0100D39012C1A000",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624
+  },
+  "conclusion": {
+    "evidenceStatus": "CONFIRMED_STATIC_CURRENT_SAVE_PLUS_PROMOTED_SAVE_LAYER",
+    "ordinaryFurnitureAddClosed": true,
+    "existing01AStructuralFoundationReusable": true,
+    "new01ACapabilityRequired": false,
+    "structuralCapability": "STRUCTURAL_WRITE_CANDIDATE",
+    "targetKind": "GRID_OBJECT_SET",
+    "mutationAdapter": "01b-ordinary-root-furniture-add-v125-v1",
+    "runtime01ERequired": false,
+    "runtimeReason": "Current Switch runtime evidence already confirms ordinary placed GridObjects can cold-load independently of Collection ownership; the frozen save representation is the current normal GridObject representation. Candidate serialization/reparse and unrelated-state preservation are independently verified by the promoted 01A engine. No Road/Fence writer representation evidence is used."
+  },
+  "admissibleSubset": {
+    "definition": {
+      "concreteType": "FurnitureItemData",
+      "scopeTier": "CORE_STATELESS_FURNITURE",
+      "interaction": "None",
+      "isMissionItem": false,
+      "forPuzzleOnly": false,
+      "explicitGridEditRestriction": "null/false",
+      "nativePresetKnownRejectReasons": [],
+      "isSyncOnlineItem": false
+    },
+    "creation": {
+      "relation": "ROOT",
+      "parentAddress": null,
+      "portableState": null,
+      "dependencyIds": [],
+      "sameRootGrid": true,
+      "orientation": [0, 4, 8, 12],
+      "clearArea": false,
+      "automaticSpawning": false,
+      "placementRevision": "V125_NATIVE_ORDINARY_CARDINAL_NONWALL_GROUPSET_2",
+      "placementResultRequired": "VALID"
+    },
+    "explicitExclusions": [
+      "Building / PlayerHouse",
+      "Road / Fence",
+      "SubGrid parents or children",
+      "Character / NPC / Store",
+      "mission / puzzle / progression-owned or special lifecycle definitions",
+      "sync-online items",
+      "Wall placement",
+      "ClearArea=true",
+      "automatic spawning",
+      "non-cardinal orientation",
+      "cross-grid creation",
+      "inventory / Collection / entitlement / premium / DLC / Store mutation"
+    ]
+  },
+  "serializedMutation": {
+    "createdObjectFieldsExactly": ["ID", "ItemID", "X", "Y", "Orientation", "State"],
+    "state": null,
+    "fromField": "OMITTED",
+    "orientationEncoding": "GridOrientation_* enum label",
+    "objectMapKey": "decimal string of created ID",
+    "createdId": "exact source Grid.NextGridObjectID",
+    "nextGridObjectIDAfter": "before + 1",
+    "deletedIds": [],
+    "replacementIdentityPairs": [],
+    "ownershipMutation": "NONE",
+    "companionSerializedMutations": []
+  },
+  "currentSaveAudit": {
+    "sourceSha256": "a619e4b7d679dcbfe51636bba02cc1d3094e8e277adf21aa6b4df4edc84bc870",
+    "gridCount": 1371,
+    "gridObjectCount": 12277,
+    "exactSixFieldObjectCount": 12277,
+    "fromFieldPresentCount": 0,
+    "orientationStringCount": 12277,
+    "objectMapKeyIdMismatchCount": 0,
+    "populatedGridNextCounterNotAboveObservedMaxCount": 0,
+    "stateNullCount": 11424,
+    "stateNonNullCount": 853,
+    "rawObjectContentCommitted": false
+  },
+  "currentNativeMetadata": {
+    "gridObjectProtobufFields": {
+      "ID": 1,
+      "ItemID": 2,
+      "X": 3,
+      "Y": 4,
+      "Orientation": 5,
+      "State": 6,
+      "From": 7
+    },
+    "gridProtobufFieldsUsed": {
+      "Objects": 5,
+      "NextGridObjectID": 6
+    },
+    "placeOnGridRequestFields": [
+      "ItemID", "GridID", "PosX", "PosY", "Orientation", "GridState",
+      "ClearArea", "AutomaticSpawning", "optional From", "DesignID"
+    ],
+    "placeOnGridResponseIncludes": "GridObjectID",
+    "genericGridAnchors": {
+      "IGridGroupInternal.AddObjectWithID": "0x4E77780",
+      "IGridInternal.AddObject": "0x4E77D50",
+      "Grid.AddObject": "0x4E77D70",
+      "Grid.GetNextObjectID": "0x4E781D0",
+      "Grid.IncrementNextObjectID": "0x4E78250"
+    },
+    "note": "These generic Grid metadata anchors corroborate the creation/allocation path. Furniture ADD representation is not inferred from Road/Fence compiler or writer semantics."
+  },
+  "saveLayerBinding": {
+    "foundation": "DDV-SAFE-STRUCTURAL-GRID-OBJECT-TRANSACTION-EXTENSION-V125-V1_0",
+    "capability": "STRUCTURAL_WRITE_CANDIDATE",
+    "targetKind": "GRID_OBJECT_SET",
+    "identityPolicy": "ALLOW_DECLARED_GRID_OBJECT_SET_DELTA",
+    "createdGridObjectIds": "[source NextGridObjectID]",
+    "deletedGridObjectIds": [],
+    "replacementIdentityPairs": [],
+    "allowedChanges": [
+      "/World/GridCollection/Grids/{gridId}/Objects/{createdId}",
+      "/World/GridCollection/Grids/{gridId}/NextGridObjectID"
+    ],
+    "preservation": "all pre-existing GridObjects and all unrelated/opaque state exact",
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false
+  },
+  "wepBinding": {
+    "draftSource": "draftInserted object with source=null",
+    "conversion": "01B classifier converts canonical item + validated ROOT draft transform into one fresh save-local GridObject identity at verified-export time",
+    "sourceLocalIdentityRule": "draft editorId is never serialized as GridObjectID or object-map key",
+    "verifiedExportCompatibility": "createVerifiedWriteCandidate -> verifyWriteCandidate -> candidate reopen can consume the frozen adapter without any 01A extension",
+    "consumerPromotionRequiredBeforeUse": true
+  },
+  "hardFlags": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false
+  }
+}
