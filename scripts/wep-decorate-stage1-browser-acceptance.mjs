@@ -198,7 +198,7 @@ try{
 
   await clear.click();
   await page.locator('[data-editor-object-id="stage-a"]').click();
-  const precise=stageBound.locator('.precise-tools');
+  const precise=page.locator('[data-wep-inspector-coordinates]');
   await precise.locator('input[type="number"]').nth(0).fill('6');
   await precise.locator('input[type="number"]').nth(1).fill('8');
   await precise.getByRole('button',{name:'Apply coordinates'}).click();
