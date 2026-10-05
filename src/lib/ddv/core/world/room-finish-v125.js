@@ -8,6 +8,8 @@
 export const ROOM_FINISH_CONTRACT='ddv.room-finish-semantics@1';
 export const ROOM_PROJECTION_SCHEMA='ddv.indoor-room-finish-projection@1';
 export const ROOM_MUTATION_SCHEMA='ddv.room-finish-mutation@1';
+export const MUTATION_ADAPTER_CONTRACT='dreamwish.ddv.save-mutation-adapter@1';
+export const MUTATION_ADAPTER_ID='01b-room-finish-v125-v1';
 export const SEMANTIC_OWNER='01B CORE - World / Grid / Buildings';
 export const GAME_VERSION='1.25.0';
 export const PROFILE_SCHEMA=624;
@@ -339,3 +341,153 @@ export function applyRoomFinishDraft(profile,mutation){
   }
   return draft;
 }
+
+
+function pointerForTarget(t,tail=''){
+  const base=`/World/PlayerHouses/${t.playerHouseIndex}/Floors/${t.floorIndex}/Rooms/${t.roomSlot}`;
+  return tail?base+'/'+tail:base;
+}
+function mutationByPlan(plan){
+  const m=plan?.intent?.roomFinishMutation;
+  if(!m||m.schema!==ROOM_MUTATION_SCHEMA||m.status!=='READY')throw Error('ROOM_FINISH_PLAN_MUTATION_REQUIRED');
+  return m;
+}
+function assertRoomPlanBinding(plan){
+  if(!plan||plan.contract!=='dreamwish.ddv.save-transaction-plan@1')throw Error('ROOM_FINISH_TRANSACTION_PLAN_REQUIRED');
+  if(plan.semanticOwner!==SEMANTIC_OWNER||plan.operation?.owner!==SEMANTIC_OWNER)throw Error('ROOM_FINISH_TRANSACTION_OWNER_MISMATCH');
+  if(plan.capabilityRequired!=='WRITE_CANDIDATE')throw Error('ROOM_FINISH_TRANSACTION_CAPABILITY_MISMATCH');
+  if(plan.target?.kind!=='PLAYER_HOUSE_ROOM_SURFACE')throw Error('ROOM_FINISH_TARGET_KIND_MISMATCH');
+  if(plan.mutationAdapter?.contract!==MUTATION_ADAPTER_CONTRACT||plan.mutationAdapter?.id!==MUTATION_ADAPTER_ID||plan.mutationAdapter?.owner!==SEMANTIC_OWNER)
+    throw Error('ROOM_FINISH_ADAPTER_BINDING_MISMATCH');
+  const m=mutationByPlan(plan);
+  if(!same(plan.target.playerHouseIndex,m.target.playerHouseIndex)||
+     !same(plan.target.houseItemId,m.target.houseItemId)||
+     !same(plan.target.floorIndex,m.target.floorIndex)||
+     !same(plan.target.roomSlot,m.target.roomSlot)||
+     !same(plan.target.floorGridId,m.target.floorGridId)||
+     !same(plan.target.wallGridIds,m.target.wallGridIds))
+    throw Error('ROOM_FINISH_TARGET_MUTATION_BINDING_MISMATCH');
+  const expected=m.changes.map(x=>x.path).sort();
+  const actual=arr(plan.allowedChanges).map(x=>x?.path).sort();
+  if(!same(actual,expected))throw Error('ROOM_FINISH_ALLOWED_PATH_BINDING_MISMATCH');
+  if(plan.intent?.semanticContract!==ROOM_FINISH_CONTRACT||plan.intent?.persistentWriteAuthorized!==false)
+    throw Error('ROOM_FINISH_INTENT_CONTRACT_MISMATCH');
+  return m;
+}
+
+export function buildRoomFinishTransactionPlanCandidate({
+  mutation,transactionInput,planId='01b-room-finish-v125'
+}={}){
+  if(!mutation||mutation.schema!==ROOM_MUTATION_SCHEMA||mutation.status!=='READY')
+    throw Error('ROOM_FINISH_READY_MUTATION_REQUIRED');
+  const t=mutation.target;
+  const roomRoot=pointerForTarget(t);
+  const allowedChanges=mutation.changes.map(x=>({path:x.path,classification:'INTENTIONAL'}));
+  const preconditions=[
+    {path:`/World/PlayerHouses/${t.playerHouseIndex}/HouseItemID`,operator:'EQUALS',value:t.houseItemId},
+    {path:roomRoot+'/FloorGridID',operator:'EQUALS',value:t.floorGridId},
+    {path:roomRoot+'/WallGridIDs',operator:'EQUALS',value:clone(t.wallGridIds)},
+    ...mutation.changes.map(x=>({path:x.path,operator:'EQUALS',value:clone(x.before)}))
+  ];
+  const postconditions=[
+    {path:`/World/PlayerHouses/${t.playerHouseIndex}/HouseItemID`,operator:'EQUALS',value:t.houseItemId},
+    {path:roomRoot+'/FloorGridID',operator:'EQUALS',value:t.floorGridId},
+    {path:roomRoot+'/WallGridIDs',operator:'EQUALS',value:clone(t.wallGridIds)},
+    ...mutation.changes.map(x=>({path:x.path,operator:'EQUALS',value:clone(x.after)}))
+  ];
+  const operationKind=mutation.operation==='SET_FLOORING'
+    ? 'ROOM_SET_FLOORING'
+    : mutation.wallpaperScope===WALL_SCOPE.CURRENT_WALL
+      ? 'ROOM_SET_WALLPAPER_CURRENT_WALL'
+      : 'ROOM_SET_WALLPAPER_ALL_WALLS';
+  return Object.freeze({
+    contract:'dreamwish.ddv.save-transaction-plan@1',
+    planId,
+    semanticOwner:SEMANTIC_OWNER,
+    capabilityRequired:'WRITE_CANDIDATE',
+    input:clone(transactionInput),
+    operation:{
+      id:'WORLD_PLAYER_HOUSE_ROOM_FINISH_V125',
+      owner:SEMANTIC_OWNER,
+      kind:operationKind,
+      structuralCapabilitiesSupported:false,
+      planSupported:true,
+      validationPassed:true,
+      runtimeGate:'PENDING'
+    },
+    target:{
+      kind:'PLAYER_HOUSE_ROOM_SURFACE',
+      playerHouseIndex:t.playerHouseIndex,
+      houseItemId:t.houseItemId,
+      floorIndex:t.floorIndex,
+      roomSlot:t.roomSlot,
+      floorGridId:t.floorGridId,
+      wallGridIds:clone(t.wallGridIds)
+    },
+    mutationAdapter:{contract:MUTATION_ADAPTER_CONTRACT,id:MUTATION_ADAPTER_ID,owner:SEMANTIC_OWNER},
+    preconditions,
+    allowedChanges,
+    forbiddenPathPrefixes:['/GameInfo','/Player','/World/GridCollection','/World/Stores','/World/Shops'],
+    postconditions,
+    preservation:{
+      gridObjectIdentityPolicy:'PRESERVE_ALL_GRID_OBJECT_IDENTITIES',
+      arrayPolicy:'PRESERVE_ORDER_AND_LENGTH_OUTSIDE_INTENTIONAL',
+      unknownStatePolicy:'OPAQUE_UNCHANGED_REQUIRED',
+      serializerNormalizationPolicy:'REJECT_SEMANTIC_NORMALIZATION',
+      unknownPathPrefixes:[roomRoot+'/FutureOpaque','/World/OpaqueWorld']
+    },
+    sourceEvidence:[
+      {id:'DDV-V1.25-WAND-INDOOR-ROOM-RESOLVER-CONTRACT-2026-09-29',status:'CONFIRMED_STATIC_CROSS_PLATFORM'},
+      {id:'DDV-V1.25-SAVE-BACKED-WAND-STRUCTURE-AUDIT-2026-09-29',status:'CONFIRMED_CURRENT_SAVE'},
+      {id:'SWITCH-V125-CHANGE-PLAYER-HOUSE-FLOORING-WALLPAPER-SCHEMA',status:'CONFIRMED_CURRENT_V125_STATIC'},
+      {id:'01B-TO-01A-ROOM-SURFACE-TARGET-V125-V1',status:'UPSTREAM_TARGET_SUPPORT_REQUIRED'}
+    ],
+    intent:{
+      semanticContract:ROOM_FINISH_CONTRACT,
+      roomFinishMutation:clone(mutation),
+      wallpaperOffsetMutation:false,
+      ceilingMutation:false,
+      trimmingInventoryMutation:false,
+      collectionMutation:false,
+      entitlementMutation:false,
+      storeMutation:false,
+      progressionMutation:false,
+      persistentWriteAuthorized:false
+    }
+  });
+}
+
+export const roomFinishMutationAdapter=Object.freeze({
+  contract:MUTATION_ADAPTER_CONTRACT,
+  id:MUTATION_ADAPTER_ID,
+  owner:SEMANTIC_OWNER,
+  apply(draft,intent,plan){
+    const m=assertRoomPlanBinding(plan);
+    if(!same(intent?.roomFinishMutation,m))throw Error('ROOM_FINISH_INTENT_MUTATION_MISMATCH');
+    if(intent?.wallpaperOffsetMutation!==false||intent?.ceilingMutation!==false||
+       intent?.trimmingInventoryMutation!==false||intent?.collectionMutation!==false||
+       intent?.entitlementMutation!==false||intent?.storeMutation!==false||intent?.progressionMutation!==false)
+      throw Error('ROOM_FINISH_UNRELATED_MUTATION_FORBIDDEN');
+    const t=m.target,reasons=[];
+    const resolved=roomByResolvedPath(draft,t.playerHouseIndex,t.floorIndex,t.roomSlot,reasons);
+    if(!resolved||reasons.length)throw Error('ROOM_FINISH_TARGET_ROOM_UNRESOLVED');
+    if(positiveInt(resolved.house.HouseItemID)!==t.houseItemId)throw Error('ROOM_FINISH_HOUSE_IDENTITY_MISMATCH');
+    if(nonNegativeInt(resolved.room.FloorGridID)!==t.floorGridId)throw Error('ROOM_FINISH_FLOOR_GRID_IDENTITY_MISMATCH');
+    const wallEntries=mapEntries(resolved.room.WallGridIDs,'ROOM_FINISH_WALL_GRID_IDENTITY_MISMATCH',reasons,{valueKind:'uint'});
+    const wallMap=Object.fromEntries((wallEntries??[]).map(([k,v])=>[String(k),v]));
+    if(reasons.length||!same(wallMap,t.wallGridIds))throw Error('ROOM_FINISH_WALL_GRID_IDENTITY_MISMATCH');
+    for(const change of m.changes){
+      const suffix=change.path.slice((pointerForTarget(t)+'/').length).split('/');
+      if(suffix[0]==='Flooring'&&suffix.length===1){
+        if(nonNegativeInt(resolved.room.Flooring)!==change.before)throw Error('ROOM_FINISH_PRECONDITION_DRIFT');
+        resolved.room.Flooring=change.after;
+      }else if(suffix[0]==='Wallpapers'&&suffix.length===2){
+        const key=suffix[1];
+        if(nonNegativeInt(resolved.room.Wallpapers?.[key])!==change.before)throw Error('ROOM_FINISH_PRECONDITION_DRIFT');
+        resolved.room.Wallpapers[key]=change.after;
+      }else throw Error('ROOM_FINISH_CHANGE_PATH_UNSUPPORTED');
+    }
+  },
+  persistentWriteAuthorized:false,
+  WORLD_PERSISTENT_WRITE_V125:false
+});
