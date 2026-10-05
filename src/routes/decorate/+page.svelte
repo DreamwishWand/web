@@ -8,16 +8,16 @@
   import VisualCard from '$lib/ui/VisualCard.svelte';
 
   $: copy = decorateEntryCopy($locale);
-  const titles = {
-    explore: () => copy.explore,
-    moodboards: () => copy.moodboards,
-    worldEditor: () => copy.worldEditor
-  };
-  const descriptions = {
-    exploreDescription: () => copy.exploreDescription,
-    moodboardsDescription: () => copy.moodboardsDescription,
-    worldEditorDescription: () => copy.worldEditorDescription
-  };
+  function titleFor(id: string): string {
+    if (id === 'explore') return copy.explore;
+    if (id === 'moodboards') return copy.moodboards;
+    return copy.worldEditor;
+  }
+  function descriptionFor(key: string): string {
+    if (key === 'exploreDescription') return copy.exploreDescription;
+    if (key === 'moodboardsDescription') return copy.moodboardsDescription;
+    return copy.worldEditorDescription;
+  }
 </script>
 
 <svelte:head>
@@ -30,8 +30,8 @@
     {#each DECORATE_STAGE1_CONSUMER.entryCards as card}
       <VisualCard
         href={base + card.href}
-        title={titles[card.id]()}
-        description={descriptions[card.descriptionKey]()}
+        title={titleFor(card.id)}
+        description={descriptionFor(card.descriptionKey)}
         icon={card.icon}
       />
     {/each}
