@@ -9,11 +9,13 @@ import {
   ROOM_PROJECTION_SCHEMA,
   WALL_SCOPE,
   applyRoomFinishDraft,
+  buildRoomFinishTransactionPlanCandidate,
   classifyRoomFinishDefinition,
   planFlooringMutation,
   planWallpaperMutation,
   projectIndoorRoomFinish,
-  resolveCurrentWall
+  resolveCurrentWall,
+  roomFinishMutationAdapter
 } from '../src/lib/ddv/core/world/room-finish-v125.js';
 
 const source={
@@ -259,4 +261,40 @@ test('machine contract returns minimal bounded 01A target extension and keeps ha
   assert.ok(request.explicitlyNotRequested.includes('arbitrary JSON patch'));
   assert.ok(request.explicitlyNotRequested.includes('generic PlayerHouse writer'));
   assert.equal(request.hardFlags.PERSISTENT_WRITE,false);
+});
+
+
+test('proposed 01A binding is a bounded WRITE_CANDIDATE target and adapter mutates only frozen leaves',()=>{
+  const root=profile(),p=projection(root),d=wallpaperDef();
+  const m=planWallpaperMutation({
+    projection:p,definition:d,scope:WALL_SCOPE.CURRENT_WALL,activeWallGridId:604
+  });
+  const plan=buildRoomFinishTransactionPlanCandidate({
+    mutation:m,
+    transactionInput:{
+      platform:'switch',
+      gameVersion:'1.25.0',
+      profileGameInfoVersion:624,
+      originalFileLength:123,
+      originalSha256:'0'.repeat(64),
+      codecContract:'p1g-v0',
+      targetBuild:{platform:'switch',kind:'switch-bid',value:'52BD625D9B4E0053'}
+    },
+    planId:'room-current-wall'
+  });
+  assert.equal(plan.capabilityRequired,'WRITE_CANDIDATE');
+  assert.equal(plan.target.kind,'PLAYER_HOUSE_ROOM_SURFACE');
+  assert.equal(plan.operation.kind,'ROOM_SET_WALLPAPER_CURRENT_WALL');
+  assert.deepEqual(plan.allowedChanges,[{
+    path:'/World/PlayerHouses/0/Floors/0/Rooms/0/Wallpapers/3',
+    classification:'INTENTIONAL'
+  }]);
+  assert.equal(plan.intent.wallpaperOffsetMutation,false);
+  assert.equal(plan.intent.trimmingInventoryMutation,false);
+
+  const draft=structuredClone(root);
+  roomFinishMutationAdapter.apply(draft,structuredClone(plan.intent),plan);
+  assert.equal(draft.World.PlayerHouses[0].Floors[0].Rooms['0'].Wallpapers['3'],16000009);
+  assert.deepEqual(draft.World.PlayerHouses[0].Floors[0].Rooms['0'].WallpaperOffsetById,root.World.PlayerHouses[0].Floors[0].Rooms['0'].WallpaperOffsetById);
+  assert.deepEqual(draft.Player,root.Player);
 });
