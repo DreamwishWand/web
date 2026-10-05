@@ -105,7 +105,7 @@ async function basePlan(s,override={}){
       id:'WORLD_PLAYER_HOUSE_ROOM_FINISH_V125',
       owner:'01B CORE - World / Grid / Buildings',
       kind:'SET_FLOORING',
-      structuralCapabilitiesSupported:false,
+      structuralCapabilitiesSupported:true,
       planSupported:true,
       validationPassed:true,
       runtimeGate:'PENDING'
