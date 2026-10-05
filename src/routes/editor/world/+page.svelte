@@ -1915,6 +1915,7 @@
     loading = true;
     worldSourceEpoch += 1;
     worldSourceBytes = null;
+    sourceFingerprint = '';
     verifiedExportBaselineDocument = null;
     verifiedExportReview = null;
     verifiedExportResult = null;
@@ -1942,6 +1943,7 @@
 
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
+      const fingerprint = await sha256Fingerprint(bytes);
       let parsed: any = null;
 
       try {
@@ -1954,6 +1956,9 @@
       }
 
       if (Array.isArray(parsed?.objects)) {
+        if (recoveryRequest) {
+          throw new Error('WEP_RECOVERY_RAW_SOURCE_REQUIRED');
+        }
         const normalized = normalizeEditorDocument(parsed);
         if (normalized.schema !== WEP_EDITOR_SCHEMA) {
           throw new Error(t('worldEditor.open.schemaMismatch', {}, $locale));
@@ -2014,6 +2019,7 @@
         layerState = null;
         worldSource = opened;
         worldSourceBytes = bytes.slice();
+        sourceFingerprint = fingerprint;
         fileName = file.name;
         query = '';
         selectedOnly = false;
@@ -2027,20 +2033,54 @@
         copiedDraftClipboard = null;
         clipboardPasteCount = 0;
 
-        message = t(
-          'worldEditor.open.saveLoaded',
-          {
-            schema: opened.profileSchemaVersion,
-            areaCount: opened.areas.length
-          },
-          $locale
-        );
+        setActiveWorldEditorMemory({
+          sourceFingerprint: fingerprint,
+          sourceBytes: bytes,
+          worldSource: opened,
+          originalSaveBackup
+        });
+
+        if (recoveryRequest) {
+          if (fingerprint !== recoveryRequest.sourceFingerprint) {
+            throw new Error('WEP_RECOVERY_SOURCE_FINGERPRINT_MISMATCH');
+          }
+          const target = {
+            platform: String(opened.saveIdentity?.sourcePlatform ?? ''),
+            gameVersion: String(opened.compatibility?.gameVersion ?? ''),
+            profileSchemaVersion: Number(opened.profileSchemaVersion)
+          };
+          if (
+            !recoveryCompatible(
+              recoveryRequest,
+              fingerprint,
+              target
+            )
+          ) {
+            throw new Error('WEP_RECOVERY_SOURCE_TARGET_MISMATCH');
+          }
+          await restoreRecoveryRecord(recoveryRequest, {
+            sourceFingerprint: fingerprint,
+            sourceBytes: bytes,
+            worldSource: opened,
+            originalSaveBackup
+          });
+        } else {
+          message = t(
+            'worldEditor.open.saveLoaded',
+            {
+              schema: opened.profileSchemaVersion,
+              areaCount: opened.areas.length
+            },
+            $locale
+          );
+        }
       }
     } catch (error) {
       session = null;
       editorDocument = null;
       worldSource = null;
       worldSourceBytes = null;
+      sourceFingerprint = '';
       verifiedExportBaselineDocument = null;
       verifiedExportReview = null;
       verifiedExportResult = null;
