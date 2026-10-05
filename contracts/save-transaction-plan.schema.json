@@ -218,6 +218,39 @@
               "minimum": 0
             }
           }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "playerHouseIndex",
+            "houseItemId",
+            "floorIndex",
+            "roomSlot"
+          ],
+          "properties": {
+            "kind": {
+              "const": "PLAYER_HOUSE_ROOM"
+            },
+            "playerHouseIndex": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "houseItemId": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "floorIndex": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "roomSlot": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 3
+            }
+          }
         }
       ]
     },

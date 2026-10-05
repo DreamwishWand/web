@@ -38,6 +38,7 @@
     "explicit transaction plan validation",
     "exact source/build/schema/codec identity validation",
     "target identity validation",
+    "PLAYER_HOUSE_ROOM HouseItemID/floor/RoomSlot identity validation when room target is used",
     "precondition validation",
     "semantic-owner mutation adapter",
     "exact allowed-path enforcement",
@@ -73,6 +74,7 @@
     "arrayPolicy": "PRESERVE_ORDER_AND_LENGTH_OUTSIDE_INTENTIONAL",
     "gridObjectIdentityPolicy": [
       "PRESERVE_ALL_GRID_OBJECT_IDENTITIES for GRID_OBJECT",
+      "PRESERVE_ALL_GRID_OBJECT_IDENTITIES for PLAYER_HOUSE_ROOM",
       "ALLOW_DECLARED_GRID_OBJECT_SET_DELTA for GRID_OBJECT_SET only"
     ],
     "unexpectedEntityCreationDeletionReidentification": "fail closed except exact created/deleted identity set declared by a GRID_OBJECT_SET structural plan; reidentification remains forbidden",
@@ -183,6 +185,18 @@
     },
     {
       "condition": "preserved structural GridObject raw payload changes",
+      "result": "REJECT"
+    },
+    {
+      "condition": "PLAYER_HOUSE_ROOM HouseItemID/floor/RoomSlot identity mismatch",
+      "result": "REJECT"
+    },
+    {
+      "condition": "PLAYER_HOUSE_ROOM allowed path outside Flooring/Wallpapers/stale-offset leaf set",
+      "result": "REJECT"
+    },
+    {
+      "condition": "PLAYER_HOUSE_ROOM PlayerHouses/Floors/Rooms membership or protected room field changes",
       "result": "REJECT"
     }
   ],
@@ -317,6 +331,28 @@
     "arbitraryJsonPatch": false,
     "crossGridMutation": false,
     "inventoryMutation": false,
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false
+  },
+  "playerHouseRoomTargetExtension": {
+    "id": "DDV-SAFE-PLAYER-HOUSE-ROOM-TARGET-EXTENSION-V125-V1_0",
+    "status": "IMPLEMENTED_WRITE_CANDIDATE_ONLY",
+    "capability": "WRITE_CANDIDATE",
+    "targetKind": "PLAYER_HOUSE_ROOM",
+    "requestId": "01B-TO-01A-ROOM-FINISH-TARGET-V125-V1",
+    "allowedLeaves": [
+      "Room/Flooring",
+      "Room/Wallpapers/{WallPosition 0..3}",
+      "Room/WallpaperOffsetById/{WallpaperItemId}"
+    ],
+    "protectedLeaves": [
+      "Room/Name",
+      "Room/FloorGridID",
+      "Room/WallGridIDs",
+      "Room/RoomPrefabAddress",
+      "Room/Ceiling"
+    ],
+    "genericWriter": false,
     "persistentWriteAuthorized": false,
     "WORLD_PERSISTENT_WRITE_V125": false
   }

@@ -9,6 +9,7 @@ export const TRANSACTION_VERIFICATION_CONTRACT='dreamwish.ddv.save-transaction-v
 export const MUTATION_ADAPTER_CONTRACT='dreamwish.ddv.save-mutation-adapter@1';
 export const WRITE_CANDIDATE_CAPABILITY='WRITE_CANDIDATE';
 export const STRUCTURAL_WRITE_CANDIDATE_CAPABILITY='STRUCTURAL_WRITE_CANDIDATE';
+export const PLAYER_HOUSE_ROOM_TARGET_KIND='PLAYER_HOUSE_ROOM';
 
 const MAX_PLAN_JSON_BYTES=1024*1024;
 const ALWAYS_FORBIDDEN_PREFIXES=Object.freeze(['/GameInfo']);
@@ -253,6 +254,7 @@ function normalizePlan(value){
   p.forbiddenPathPrefixes=normalizePointers(p.forbiddenPathPrefixes??[],'TX_FORBIDDEN_PREFIX_INVALID');
   p.preservation=normalizePreservation(p.preservation,p.target.kind);
   if(p.target.kind==='GRID_OBJECT_SET')assertStructuralAllowedPaths(p);
+  if(p.target.kind===PLAYER_HOUSE_ROOM_TARGET_KIND)assertPlayerHouseRoomAllowedPaths(p);
   p.sourceEvidence=normalizeEvidence(p.sourceEvidence);
   if(!Object.prototype.hasOwnProperty.call(p,'intent'))p.intent=null;
   rejectPatchIntent(p.intent);
@@ -306,6 +308,22 @@ function requireExactBuild(session,targetBuild,contracts){
   return build.contract;
 }
 function validateTargetIdentity(profile,target,phase='before'){
+  if(target.kind===PLAYER_HOUSE_ROOM_TARGET_KIND){
+    const world=asObj(profile.World),houses=Array.isArray(world?.PlayerHouses)?world.PlayerHouses:null;
+    if(!houses)throw txError('TX_PLAYER_HOUSES_REQUIRED');
+    const house=asObj(houses[target.playerHouseIndex]);
+    if(!house)throw txError('TX_PLAYER_HOUSE_INDEX_OUT_OF_RANGE',String(target.playerHouseIndex));
+    if(Number(house.HouseItemID)!==target.houseItemId)throw txError('TX_PLAYER_HOUSE_ITEM_ID_MISMATCH');
+    const floors=Array.isArray(house.Floors)?house.Floors:null;
+    if(!floors)throw txError('TX_PLAYER_HOUSE_FLOORS_REQUIRED');
+    const floor=asObj(floors[target.floorIndex]);
+    if(!floor)throw txError('TX_PLAYER_HOUSE_FLOOR_INDEX_OUT_OF_RANGE',String(target.floorIndex));
+    const rooms=asObj(floor.Rooms);
+    if(!rooms)throw txError('TX_PLAYER_HOUSE_ROOMS_REQUIRED');
+    const room=asObj(rooms[String(target.roomSlot)]??rooms[target.roomSlot]);
+    if(!room)throw txError('TX_PLAYER_HOUSE_ROOM_SLOT_MISSING',String(target.roomSlot));
+    return;
+  }
   const gc=asObj(asObj(profile.World)?.GridCollection),grids=asObj(gc?.Grids);
   const grid=asObj(grids?.[String(target.gridId)]??grids?.[target.gridId]);
   if(!grid||Number(grid.ID)!==target.gridId)throw txError('TX_TARGET_GRID_IDENTITY_MISMATCH');
@@ -360,6 +378,23 @@ function compareIdentityInventories(before,after,policy=GRID_IDENTITY_POLICY){
 function normalizeTarget(value,capabilityRequired){
   if(!value||typeof value!=='object')throw txError('TX_TARGET_REQUIRED');
   const target=structuredClone(value);
+  if(target.kind===PLAYER_HOUSE_ROOM_TARGET_KIND){
+    if(capabilityRequired!==WRITE_CANDIDATE_CAPABILITY)throw txError('TX_TARGET_CAPABILITY_MISMATCH');
+    if(Object.prototype.hasOwnProperty.call(target,'gridId')||Object.prototype.hasOwnProperty.call(target,'gridObjectId'))
+      throw txError('TX_PLAYER_HOUSE_ROOM_GRID_TARGET_FORBIDDEN');
+    requireInt(target.playerHouseIndex,'TX_PLAYER_HOUSE_INDEX_REQUIRED');
+    requireInt(target.houseItemId,'TX_PLAYER_HOUSE_ITEM_ID_REQUIRED');
+    requireInt(target.floorIndex,'TX_PLAYER_HOUSE_FLOOR_INDEX_REQUIRED');
+    requireInt(target.roomSlot,'TX_PLAYER_HOUSE_ROOM_SLOT_REQUIRED');
+    if(target.roomSlot>3)throw txError('TX_PLAYER_HOUSE_ROOM_SLOT_INVALID');
+    return {
+      kind:PLAYER_HOUSE_ROOM_TARGET_KIND,
+      playerHouseIndex:target.playerHouseIndex,
+      houseItemId:target.houseItemId,
+      floorIndex:target.floorIndex,
+      roomSlot:target.roomSlot
+    };
+  }
   requireInt(target.gridId,'TX_TARGET_GRID_ID_REQUIRED');
   if(target.kind==='GRID_OBJECT'){
     if(capabilityRequired!==WRITE_CANDIDATE_CAPABILITY)throw txError('TX_TARGET_CAPABILITY_MISMATCH');
@@ -417,7 +452,64 @@ function assertStructuralAllowedPaths(plan){
   const actual=plan.allowedChanges.map(x=>x.path).slice().sort();
   if(!sameStringArray(actual,expected))throw txError('TX_STRUCTURAL_ALLOWED_PATHS_MISMATCH');
 }
+function assertPlayerHouseRoomAllowedPaths(plan){
+  const root='/World/PlayerHouses/'+plan.target.playerHouseIndex+
+    '/Floors/'+plan.target.floorIndex+
+    '/Rooms/'+plan.target.roomSlot;
+  for(const entry of plan.allowedChanges){
+    const path=entry.path;
+    if(path===root+'/Flooring')continue;
+    const wallpaperPrefix=root+'/Wallpapers/';
+    if(path.startsWith(wallpaperPrefix)){
+      const key=path.slice(wallpaperPrefix.length);
+      const position=Number(key);
+      if(String(position)===key&&Number.isInteger(position)&&position>=0&&position<=3)continue;
+    }
+    const offsetPrefix=root+'/WallpaperOffsetById/';
+    if(path.startsWith(offsetPrefix)){
+      const key=path.slice(offsetPrefix.length);
+      const itemId=Number(key);
+      if(String(itemId)===key&&Number.isSafeInteger(itemId)&&itemId>=0)continue;
+    }
+    throw txError('TX_PLAYER_HOUSE_ROOM_ALLOWED_PATH_UNSUPPORTED',path);
+  }
+}
+
+function validatePlayerHouseRoomStructure(before,after,target){
+  const beforeWorld=asObj(before.World),afterWorld=asObj(after.World);
+  const beforeHouses=Array.isArray(beforeWorld?.PlayerHouses)?beforeWorld.PlayerHouses:null;
+  const afterHouses=Array.isArray(afterWorld?.PlayerHouses)?afterWorld.PlayerHouses:null;
+  if(!beforeHouses||!afterHouses||beforeHouses.length!==afterHouses.length)
+    throw txError('TX_PLAYER_HOUSES_STRUCTURE_CHANGED');
+  const beforeHouse=asObj(beforeHouses[target.playerHouseIndex]);
+  const afterHouse=asObj(afterHouses[target.playerHouseIndex]);
+  if(!beforeHouse||!afterHouse)throw txError('TX_PLAYER_HOUSE_STRUCTURE_CHANGED');
+  if(Number(beforeHouse.HouseItemID)!==target.houseItemId||Number(afterHouse.HouseItemID)!==target.houseItemId)
+    throw txError('TX_PLAYER_HOUSE_ITEM_ID_MISMATCH');
+  const beforeFloors=Array.isArray(beforeHouse.Floors)?beforeHouse.Floors:null;
+  const afterFloors=Array.isArray(afterHouse.Floors)?afterHouse.Floors:null;
+  if(!beforeFloors||!afterFloors||beforeFloors.length!==afterFloors.length)
+    throw txError('TX_PLAYER_HOUSE_FLOORS_STRUCTURE_CHANGED');
+  const beforeFloor=asObj(beforeFloors[target.floorIndex]);
+  const afterFloor=asObj(afterFloors[target.floorIndex]);
+  if(!beforeFloor||!afterFloor)throw txError('TX_PLAYER_HOUSE_FLOOR_STRUCTURE_CHANGED');
+  const beforeRooms=asObj(beforeFloor.Rooms),afterRooms=asObj(afterFloor.Rooms);
+  if(!beforeRooms||!afterRooms||!sameStringArray(Object.keys(beforeRooms).sort(),Object.keys(afterRooms).sort()))
+    throw txError('TX_PLAYER_HOUSE_ROOMS_STRUCTURE_CHANGED');
+  const beforeRoom=asObj(beforeRooms[String(target.roomSlot)]??beforeRooms[target.roomSlot]);
+  const afterRoom=asObj(afterRooms[String(target.roomSlot)]??afterRooms[target.roomSlot]);
+  if(!beforeRoom||!afterRoom)throw txError('TX_PLAYER_HOUSE_ROOM_STRUCTURE_CHANGED');
+  for(const field of ['Name','FloorGridID','WallGridIDs','RoomPrefabAddress','Ceiling']){
+    if(!semanticEqual(beforeRoom[field],afterRoom[field]))
+      throw txError('TX_PLAYER_HOUSE_ROOM_PROTECTED_FIELD_CHANGED',field);
+  }
+}
+
 function validateStructuralTransition(before,after,plan){
+  if(plan.target.kind===PLAYER_HOUSE_ROOM_TARGET_KIND){
+    validatePlayerHouseRoomStructure(before,after,plan.target);
+    return;
+  }
   if(plan.target.kind!=='GRID_OBJECT_SET')return;
   const beforeGrid=getGrid(before,plan.target.gridId),afterGrid=getGrid(after,plan.target.gridId);
   const beforeObjects=asObj(beforeGrid.Objects),afterObjects=asObj(afterGrid.Objects);
