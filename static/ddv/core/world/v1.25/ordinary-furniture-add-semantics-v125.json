@@ -1,0 +1,203 @@
+{
+  "schema": "ddv.ordinary-furniture-add-semantics@1",
+  "artifactId": "DDV-ORDINARY-FURNITURE-ADD-SEMANTICS-V125-V1_0-CANDIDATE",
+  "version": "v1.0",
+  "status": "CANDIDATE_STATIC_CLOSURE",
+  "semanticOwner": "01B CORE - World / Grid / Buildings",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "titleId": "0100D39012C1A000",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624
+  },
+  "upstream": {
+    "transactionFoundation": {
+      "artifactId": "DDV-SAFE-STRUCTURAL-GRID-OBJECT-TRANSACTION-EXTENSION-V125-V1_0",
+      "capability": "STRUCTURAL_WRITE_CANDIDATE",
+      "targetKind": "GRID_OBJECT_SET",
+      "identityPolicy": "ALLOW_DECLARED_GRID_OBJECT_SET_DELTA",
+      "status": "INTEGRATOR_PROMOTED"
+    },
+    "placement": {
+      "artifactId": "DDV-NATIVE-PLACEMENT-LEGALITY-V125-V1_9",
+      "revision": "V125_NATIVE_ORDINARY_CARDINAL_NONWALL_GROUPSET_2",
+      "status": "INTEGRATOR_PROMOTED"
+    },
+    "saveShapeEvidence": {
+      "artifactId": "DDV-MINIMUM-PERSISTENT-TRANSFORM-SEMANTICS-V125-V1_0",
+      "status": "INTEGRATOR_PROMOTED",
+      "gridObjectProtobufFields": {
+        "ID": 1,
+        "ItemID": 2,
+        "X": 3,
+        "Y": 4,
+        "Orientation": 5,
+        "State": 6,
+        "From": 7
+      }
+    }
+  },
+  "conclusion": {
+    "evidenceStatus": "CONFIRMED_STATIC_CURRENT_V125_PLUS_CURRENT_SAVE_SHAPE",
+    "existing01AFoundationReusable": true,
+    "new01ACapabilityRequired": false,
+    "binding": {
+      "capability": "STRUCTURAL_WRITE_CANDIDATE",
+      "targetKind": "GRID_OBJECT_SET",
+      "createdCount": 1,
+      "deletedCount": 0,
+      "replacementIdentityPairs": 0,
+      "createdIdRule": "created GridObject ID equals exact source Grid.NextGridObjectID",
+      "mapKeyRule": "created object-map key is decimal String(created GridObject ID)",
+      "nextRule": "Grid.NextGridObjectIDAfter = Grid.NextGridObjectIDBefore + 1",
+      "preservedIdsRule": "declare every existing target-Grid GridObject ID as preservedGridObjectIds",
+      "allowedSerializedPaths": [
+        "/World/GridCollection/Grids/{gridId}/Objects/{createdGridObjectId}",
+        "/World/GridCollection/Grids/{gridId}/NextGridObjectID"
+      ]
+    }
+  },
+  "admissibleSubset": {
+    "source": [
+      "exact Nintendo Switch v1.25.0 BID 52BD625D9B4E0053",
+      "profile schema 624"
+    ],
+    "definition": [
+      "FurnitureItemData",
+      "scopeTier CORE_STATELESS_FURNITURE",
+      "interaction None",
+      "isMissionItem false",
+      "forPuzzleOnly false",
+      "explicitGridEditRestriction null/false",
+      "nativePresetKnownRejectReasons empty",
+      "isSyncOnlineItem false",
+      "isUnavailableForGenerator false"
+    ],
+    "coreClassification": [
+      "stateKind NONE",
+      "layer furniture",
+      "editability editable",
+      "no Core classification reasons"
+    ],
+    "destination": [
+      "existing exact root Grid only",
+      "root relation only; no SubGrid parent/support",
+      "same-root placement only",
+      "cardinal orientation only: 0/4/8/12",
+      "ClearArea=false",
+      "automaticSpawning=false",
+      "current placement validator result VALID",
+      "placement evidence candidate must bind exact ItemID/X/Y/Orientation"
+    ],
+    "identity": [
+      "target Grid.Objects must be an object map",
+      "every existing map key must equal object.ID",
+      "NextGridObjectID must be a safe integer and greater than every observed target-Grid object ID",
+      "Objects[String(NextGridObjectID)] must not already exist"
+    ]
+  },
+  "createdObject": {
+    "exactSerializedFields": [
+      "ID",
+      "ItemID",
+      "X",
+      "Y",
+      "Orientation",
+      "State"
+    ],
+    "exactTemplate": {
+      "ID": "source Grid.NextGridObjectID",
+      "ItemID": "canonical input Furniture ItemID",
+      "X": "validated destination X",
+      "Y": "validated destination Y",
+      "Orientation": "canonical GridOrientation_* enum name for cardinal orientation",
+      "State": null
+    },
+    "fromField": {
+      "protobufFieldNumber": 7,
+      "serializedPolicy": "OMIT",
+      "reason": "Current v1.25 observed stateless GridObjects and the promoted minimum-write required object shape serialize the ordinary stateless payload with ID/ItemID/X/Y/Orientation/State only. From is not synthesized for this frozen ADD subset."
+    },
+    "unknownAdditionalFields": "FORBIDDEN"
+  },
+  "preservation": {
+    "existingGridObjects": "EXACT",
+    "unrelatedWorldState": "EXACT",
+    "playerState": "EXACT",
+    "inventoryState": "EXACT_NO_MUTATION",
+    "collectionState": "EXACT_NO_MUTATION",
+    "ownershipState": "EXACT_NO_MUTATION",
+    "entitlementPremiumDlcState": "EXACT_NO_MUTATION",
+    "storeShopState": "EXACT_NO_MUTATION",
+    "progressionObjectiveState": "EXACT_NO_MUTATION",
+    "opaqueUnknownState": "EXACT",
+    "rule": "The ADD candidate is world-placement-only. It never debits, credits, unlocks, grants, or edits ownership/entitlement/inventory/Collection/Store state. 01A semantic diff must reject any change outside the one created object-map entry and NextGridObjectID."
+  },
+  "explicitExclusions": [
+    "Building",
+    "PlayerHouse",
+    "Road/Fence",
+    "SubGrid parent/support placement",
+    "Stateful Furniture",
+    "mission/puzzle/progression-owned definitions",
+    "definitions unavailable for generator",
+    "sync-online items",
+    "entitlement/premium/DLC state mutation",
+    "inventory/Collection/ownership mutation",
+    "Store/Shop mutation",
+    "cross-grid create/transfer",
+    "non-cardinal placement",
+    "Wall GridArea",
+    "ClearArea=true",
+    "automatic spawning",
+    "generic duplicate/paste classes outside this exact ordinary Furniture classifier",
+    "arbitrary JSON patch",
+    "persistent source replacement"
+  ],
+  "mutationAdapter": {
+    "contract": "dreamwish.ddv.save-mutation-adapter@1",
+    "id": "01b-ordinary-root-furniture-add-v125-v1",
+    "implementationPath": "src/lib/ddv/core/world/ordinary-furniture-add-v125.js",
+    "transactionCapability": "STRUCTURAL_WRITE_CANDIDATE",
+    "targetKind": "GRID_OBJECT_SET"
+  },
+  "runtimeAcceptance": {
+    "required": true,
+    "owner": "01E CORE / Runtime",
+    "requestId": "01B-TO-01E-ORDINARY-FURNITURE-ADD-V125-V1",
+    "status": "REQUIRED_AFTER_STATIC_CANDIDATE_FREEZE",
+    "exactFrozenCandidate": "one classifier-admissible ordinary root CORE_STATELESS_FURNITURE ADD created only through 01A STRUCTURAL_WRITE_CANDIDATE + 01B adapter",
+    "minimumProtocol": [
+      "use one exact Switch v1.25.0 BID 52BD625D9B4E0053 schema-624 baseline and record source hash",
+      "choose one ordinary Furniture definition satisfying the frozen classifier and one empty VALID destination in the same root Grid",
+      "record target GridID, source NextGridObjectID, ItemID, X/Y/Orientation, and hashes/snapshots of unrelated inventory/Collection/ownership/entitlement/Store/progression state",
+      "produce candidate only through ordinary-furniture-add-v125.js + promoted 01A transaction engine",
+      "independently verify semantic diff is exactly Objects/{NextGridObjectID} ADD plus NextGridObjectID increment by one",
+      "independently verify created object has exactly ID/ItemID/X/Y/Orientation/State with State=null and no From field",
+      "install candidate through the existing controlled runtime-test replacement path",
+      "game loads successfully and the object appears at the intended destination",
+      "perform a normal in-game save, fully exit the game process, then cold relaunch",
+      "created object persists with the same GridObject ID, ItemID, position, orientation, State=null, root membership and object-map key",
+      "post-runtime save shows no added serialized companion field on the created GridObject and no extra NextGridObjectID normalization",
+      "inventory/Collection/ownership/entitlement/Store/progression snapshots remain unchanged except for unrelated game-time noise that can be independently excluded",
+      "restore the exact original backup in a separate recovery check and confirm load"
+    ],
+    "notRequested": [
+      "multiple ADDs",
+      "duplicate/paste batch creation",
+      "cross-grid ADD",
+      "Road/Fence ADD",
+      "Building/PlayerHouse ADD",
+      "Stateful Furniture ADD",
+      "persistent authorization promotion"
+    ]
+  },
+  "hardFlags": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false
+  }
+}
