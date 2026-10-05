@@ -67,7 +67,8 @@
   <meta name="description" content="Browse collection-relevant Disney Dreamlight Valley entities in Dreamwish Wand." />
 </svelte:head>
 
-<ResponsiveFrame className="collection-page">
+<ResponsiveFrame>
+<section class="collection-page">
   <header class="collection-heading">
     <div>
       <p class="eyebrow">{copy.eyebrow}</p>
@@ -133,6 +134,7 @@
       <div class="empty"><span aria-hidden="true">✧</span><strong>{copy.empty}</strong></div>
     {/if}
   {/if}
+</section>
 </ResponsiveFrame>
 
 <style>
