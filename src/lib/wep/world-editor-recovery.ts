@@ -39,6 +39,7 @@ let activeMemory: null | {
   sourceBytes: Uint8Array;
   worldSource: unknown;
   originalSaveBackup: unknown;
+  activeDraftRecord: WorldEditorRecoveryRecord | null;
 } = null;
 
 function assert(condition: unknown, code: string): asserts condition {
@@ -149,6 +150,51 @@ function writeIndex(storage: StorageLike, fingerprints: string[]) {
   );
 }
 
+export function createRecoveryRecord(
+  {
+    sourceFingerprint,
+    sourceName = null,
+    target,
+    routeKey,
+    sessionSnapshot,
+    existing = null,
+    now = new Date().toISOString()
+  }: {
+    sourceFingerprint: string;
+    sourceName?: string | null;
+    target: RecoveryTarget;
+    routeKey: string;
+    sessionSnapshot: Record<string, unknown>;
+    existing?: WorldEditorRecoveryRecord | null;
+    now?: string;
+  }
+) {
+  const fingerprint = normalizeFingerprint(sourceFingerprint);
+  const route = normalizeSnapshot({
+    routeKey,
+    session: sessionSnapshot,
+    savedAt: now
+  });
+  return normalizeRecoveryRecord({
+    schema: WORLD_EDITOR_RECOVERY_SCHEMA,
+    version: 1,
+    sourceFingerprint: fingerprint,
+    sourceName,
+    target: normalizeTarget(target),
+    activeRouteKey: route.routeKey,
+    routes: {
+      ...(existing?.routes ?? {}),
+      [route.routeKey]: route
+    },
+    savedAt: new Date(now).toISOString(),
+    persistentWriteAuthorized: false,
+    WORLD_PERSISTENT_WRITE_V125: false,
+    PERSISTENT_WRITE: false,
+    productApplyAuthorized: false,
+    directSourceReplacementAuthorized: false
+  });
+}
+
 export function saveRecoveryRoute(
   storage: StorageLike,
   {
@@ -168,11 +214,6 @@ export function saveRecoveryRoute(
   }
 ) {
   const fingerprint = normalizeFingerprint(sourceFingerprint);
-  const route = normalizeSnapshot({
-    routeKey,
-    session: sessionSnapshot,
-    savedAt: now
-  });
   let existing: WorldEditorRecoveryRecord | null = null;
   const raw = storage.getItem(keyFor(fingerprint));
   if (raw) {
@@ -182,24 +223,15 @@ export function saveRecoveryRoute(
       existing = null;
     }
   }
-  const record: WorldEditorRecoveryRecord = {
-    schema: WORLD_EDITOR_RECOVERY_SCHEMA,
-    version: 1,
+  const record = createRecoveryRecord({
     sourceFingerprint: fingerprint,
     sourceName,
-    target: normalizeTarget(target),
-    activeRouteKey: route.routeKey,
-    routes: {
-      ...(existing?.routes ?? {}),
-      [route.routeKey]: route
-    },
-    savedAt: new Date(now).toISOString(),
-    persistentWriteAuthorized: false,
-    WORLD_PERSISTENT_WRITE_V125: false,
-    PERSISTENT_WRITE: false,
-    productApplyAuthorized: false,
-    directSourceReplacementAuthorized: false
-  };
+    target,
+    routeKey,
+    sessionSnapshot,
+    existing,
+    now
+  });
   storage.setItem(keyFor(fingerprint), JSON.stringify(record));
   writeIndex(storage, [...readIndex(storage), fingerprint]);
   return record;
@@ -254,13 +286,31 @@ export function setActiveWorldEditorMemory(input: {
   sourceBytes: Uint8Array;
   worldSource: unknown;
   originalSaveBackup: unknown;
+  activeDraftRecord?: WorldEditorRecoveryRecord | null;
 }) {
   activeMemory = {
     sourceFingerprint: normalizeFingerprint(input.sourceFingerprint),
     sourceBytes: input.sourceBytes.slice(),
     worldSource: input.worldSource,
-    originalSaveBackup: input.originalSaveBackup
+    originalSaveBackup: input.originalSaveBackup,
+    activeDraftRecord:
+      input.activeDraftRecord === undefined
+        ? null
+        : input.activeDraftRecord
+          ? normalizeRecoveryRecord(input.activeDraftRecord)
+          : null
   };
+}
+
+export function setActiveWorldEditorDraftRecord(
+  record: WorldEditorRecoveryRecord | null
+) {
+  if (!activeMemory) {
+    throw new Error('WEP_RECOVERY_ACTIVE_SOURCE_MEMORY_REQUIRED');
+  }
+  activeMemory.activeDraftRecord = record
+    ? normalizeRecoveryRecord(record)
+    : null;
 }
 
 export function getActiveWorldEditorMemory() {
