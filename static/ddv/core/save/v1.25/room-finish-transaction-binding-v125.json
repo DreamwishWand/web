@@ -1,0 +1,48 @@
+{
+  "schema": "ddv.room-finish-transaction-binding@1",
+  "artifactId": "DDV-ROOM-FINISH-TRANSACTION-BINDING-V125-V1_0",
+  "version": "v1.0",
+  "status": "IMPLEMENTED_WRITE_CANDIDATE_RUNTIME_PENDING",
+  "owner": "01B CORE - World / Grid / Buildings + 01A Save",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624
+  },
+  "semanticInput": "ddv.room-finish-mutation-set@1",
+  "transactionPlan": "dreamwish.ddv.save-transaction-plan@1",
+  "transactionCandidate": "dreamwish.ddv.save-transaction-candidate@1",
+  "capability": "WRITE_CANDIDATE",
+  "targetKind": "PLAYER_HOUSE_ROOM",
+  "targetExtension": "DDV-SAFE-PLAYER-HOUSE-ROOM-TARGET-EXTENSION-V125-V1_0",
+  "mutationAdapter": {
+    "contract": "dreamwish.ddv.save-mutation-adapter@1",
+    "id": "01b-room-finish-v125-v1"
+  },
+  "operations": [
+    "SET_FLOORING",
+    "SET_WALLPAPER"
+  ],
+  "exactBinding": [
+    "01B mutation-set target maps exactly to PLAYER_HOUSE_ROOM identity",
+    "mutation-set changes become exact preconditions, allowedChanges and postconditions",
+    "Flooring accepts one REPLACE only",
+    "Wallpapers accepts ADD/REPLACE only at WallPosition 0..3",
+    "WallpaperOffsetById accepts companion REMOVE only",
+    "adapter rechecks before value/existence then applies only the typed room leaf operation",
+    "all GridObject identities/payloads and unrelated state remain exact"
+  ],
+  "runtime": {
+    "status": "PENDING_01E",
+    "requestId": "01B-TO-01E-ROOM-FINISH-V125-V1",
+    "currentWallAdditionalRuntimeRequired": false
+  },
+  "hardFlags": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false
+  }
+}
