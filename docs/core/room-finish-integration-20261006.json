@@ -1,0 +1,23 @@
+{
+  "schema": "ddv.core-integration-evidence@1",
+  "date": "2026-10-06",
+  "scope": "01B Room Finish semantic contract v1.25",
+  "sourcePr": 85,
+  "integrationPr": 86,
+  "sourceHead": "1d18ebf1620fe9f025ce5e8566252772187c4bd4",
+  "baseMain": "14ea008b69b88a42e0104aae996e611651514eea",
+  "exactSourceBlobs": true,
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624
+  },
+  "hardFlags": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false
+  }
+}
