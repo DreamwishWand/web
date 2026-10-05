@@ -141,7 +141,11 @@
       "Bottom": 2,
       "Left": 3
     },
-    "currentRuntimeCorroboration": "Mdl.Grid.WallGridScript carries House.Types.WallPosition",
+    "currentRuntimeCorroboration": [
+      "Mdl.Grid.WallGridScript carries House.Types.WallPosition",
+      "GridEditMode previewWall is Nullable<(House.Types.WallPosition, Item)>",
+      "HouseWallManager.SetWallpaper accepts House.Types.WallPosition"
+    ],
     "currentSaveBinding": "Room.WallGridIDs is keyed by the same WallPosition enum",
     "wandRule": "Current Wall resolves to WallPosition; active wall GridID is a current-save locator and must agree with Room.WallGridIDs[position] when both are available.",
     "failClosed": [
@@ -149,7 +153,7 @@
       "active GridID does not map uniquely within the current room",
       "wall position and GridID disagree"
     ],
-    "evidenceStatus": "CONFIRMED_SCHEMA_PLUS_CURRENT_RUNTIME_TYPE; BINDING RULE HIGH_CONFIDENCE"
+    "evidenceStatus": "CONFIRMED_CURRENT_V125_RUNTIME_TYPE_MODEL_PLUS_ROOM_SCHEMA"
   },
   "flooring": {
     "nativeTransaction": "ChangePlayerHouseFlooring",
