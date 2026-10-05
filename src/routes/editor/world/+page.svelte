@@ -3403,6 +3403,7 @@
           <WorldEditorStage1DecoratePanel
             {session}
             {editorDocument}
+            {selection}
             {switchWorldBinding}
             {mutationBound}
             presetBridge={bridge}
