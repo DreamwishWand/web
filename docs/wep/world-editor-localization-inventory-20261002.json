@@ -1,7 +1,7 @@
 {
   "schema": "dreamwish-wand-world-editor-localization-inventory@1",
   "status": "COMPLETE_FOR_PINNED_SOURCES",
-  "generatedAt": "2026-10-04",
+  "generatedAt": "2026-10-05",
   "target": {
     "product": "Decorate / World Editor",
     "platform": "Nintendo Switch",
@@ -19,19 +19,23 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "638d0c24e1e8fd22e167b59819f76e70a583bd9d",
+    "src/routes/editor/world/+page.svelte": "2c64c754ef92b5a5256458fdf12a225ae6634a7c",
     "src/lib/wep/world-editor-primary-job.ts": "a8e49f4f2eec543b9aaebd2d552c9da8e36270d5",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "aefa15858cc70e80e0c5c7e66fc717508c04c344",
     "src/lib/SiteFooter.svelte": "c1f5ce8166a83e1464ad74d3a73714894650882e",
     "src/lib/community/CommunityNav.svelte": "bd9a7636147e83c1d42931df48464f3a4c86f01b",
-    "src/lib/product-home/copy.js": "bbe79a69abf213f02ecfbda416900283c3455243"
+    "src/lib/product-home/copy.js": "bbe79a69abf213f02ecfbda416900283c3455243",
+    "src/lib/wep/WorldEditorStage1DecoratePanel.svelte": "c8422efc461295a3d3d17816f6774345a9bc1360",
+    "src/lib/wep/world-editor-stage1-copy.js": "14f0ccd247b16fa9c34498ac2515a63693c02da6"
   },
   "ownership": {
     "wepOwned": [
       "src/routes/editor/world/+page.svelte",
       "src/lib/wep/world-editor-primary-job.ts",
-      "src/lib/wep/blocker-messages.ts"
+      "src/lib/wep/blocker-messages.ts",
+      "src/lib/wep/WorldEditorStage1DecoratePanel.svelte",
+      "src/lib/wep/world-editor-stage1-copy.js"
     ],
     "sharedWebRenderedOnWorldEditor": [
       "src/lib/SiteHeader.svelte",
@@ -58,7 +62,7 @@
       "pt-BR"
     ],
     "rule": "World Editor presentation resolves through the shared locale runtime. WEP does not own a locale store, selector, fallback resolver, formatter, or resource loader.",
-    "routeChangeNote": "Product completion repin: shared SiteHeader now exposes canonical Decorate / Collection / Guide / Presets navigation using the eight-locale Product Home catalog, while CommunityNav continues to provide Gallery / DreamSnaps / Q&A. WEP-owned message keys, blocker/Core reason coverage, machine-code invariants, and persistent-write safety boundary are unchanged."
+    "routeChangeNote": "Decorate Stage 1 bounded consumer repin: the World Editor route now renders the closed Stage 1 consumer panel, while Stage 1 presentation copy is supplied by src/lib/wep/world-editor-stage1-copy.js for the same eight launch locales. Existing shared runtime/fallback ownership, blocker/Core reason coverage, machine-code invariants, and persistent-write safety boundary are unchanged."
   },
   "translationBoundary": {
     "translate": [
@@ -73,7 +77,8 @@
       "Scene capture/publish presentation",
       "Store inspector presentation",
       "progression-protection explanatory copy",
-      "errors/status/live-region presentation wrappers"
+      "errors/status/live-region presentation wrappers",
+      "Decorate Stage 1 Moodboard handoff, pending placement, recovery, alignment/distribution, and precise-coordinate presentation"
     ],
     "neverTranslate": [
       "Core/WEP machine reason code",
@@ -172,6 +177,31 @@
           "Move up",
           "Move down",
           "Move right"
+        ]
+      },
+      {
+        "surface": "Decorate Stage 1 consumer controls",
+        "source": [
+          "src/lib/wep/WorldEditorStage1DecoratePanel.svelte",
+          "src/lib/wep/world-editor-stage1-copy.js"
+        ],
+        "strings": [
+          "Pending placement",
+          "Place",
+          "Preview & Preflight",
+          "Clear pending source",
+          "Alignment",
+          "Left",
+          "Right",
+          "Top",
+          "Bottom",
+          "Center H",
+          "Center V",
+          "Distribution",
+          "Horizontal",
+          "Vertical",
+          "Precise coordinates",
+          "Apply coordinates"
         ]
       }
     ],
@@ -973,6 +1003,19 @@
           "Current safety boundary",
           "Nintendo Switch / Steamの実DDV targetに対するpersistent ADD / DELETE / MOVE / ROTATE、native GridObject ID allocation、inventory消費、Road/Fence mutation、save replacementは未許可です。"
         ]
+      },
+      {
+        "surface": "Decorate Stage 1 recovery entry",
+        "source": [
+          "src/routes/editor/world/+page.svelte",
+          "src/lib/wep/world-editor-stage1-copy.js"
+        ],
+        "strings": [
+          "Recovery",
+          "Resume Draft",
+          "Recovery stores committed draft transactions and the exact source fingerprint.",
+          "Draft resumed from exact source baseline."
+        ]
       }
     ],
     "backupExportPrep": [
@@ -1358,6 +1401,22 @@
           "diagnostic.code"
         ],
         "rule": "Keep raw code/value stable and optionally render a separately localized presentation label/message. Never replace the machine value with localized text."
+      },
+      {
+        "surface": "Decorate Stage 1 consumer status and fail-closed explanations",
+        "source": [
+          "src/lib/wep/WorldEditorStage1DecoratePanel.svelte",
+          "src/lib/wep/world-editor-stage1-copy.js"
+        ],
+        "strings": [
+          "Unavailable here",
+          "Open or resume a compatible save draft before placing.",
+          "Preset preflight complete.",
+          "Preset preflight failed.",
+          "Placed in the local draft. Review Changes remains authoritative.",
+          "The placement is visible in the draft but fails current validation.",
+          "Room Finish is not bound because the current Core contract does not expose indoor room surface state or a safe flooring/wallpaper draft writer."
+        ]
       }
     ]
   },
