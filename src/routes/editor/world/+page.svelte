@@ -508,7 +508,7 @@
     syncRoadFenceSelection();
     recoveryRequest = null;
     recoveryStatus = '';
-    message = 'Draft resumed from exact source baseline.';
+    message = stage1Copy.recovered;
     return true;
   }
 
@@ -3244,12 +3244,9 @@
   {#if recoveryRecords.length || recoveryStatus}
     <section class="recovery-panel" data-wep-recovery aria-labelledby="wep-recovery-title">
       <div>
-        <p class="eyebrow">Recovery</p>
-        <h2 id="wep-recovery-title">Resume Draft</h2>
-        <p>
-          Recovery stores committed draft transactions and the exact source fingerprint.
-          If the source bytes are no longer in memory, re-open the exact original save.
-        </p>
+        <p class="eyebrow">{stage1Copy.recoveryEyebrow}</p>
+        <h2 id="wep-recovery-title">{stage1Copy.recoveryTitle}</h2>
+        <p>{stage1Copy.recoveryDescription}</p>
       </div>
       {#if recoveryRecords.length}
         <div class="recovery-list">
