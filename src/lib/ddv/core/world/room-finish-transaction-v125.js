@@ -346,8 +346,7 @@ export function buildRoomFinishTransactionPlanV125({
       {id:'DDV-ROOM-FINISH-SEMANTICS-V125-V1_0',status:'INTEGRATOR_PROMOTED'},
       {id:ROOM_TARGET_EXTENSION,status:'INTEGRATOR_PROMOTED'}
     ],
-    intent:intentFrom(normalized),
-    roomPath:root
+    intent:intentFrom(normalized)
   });
 }
 function assertPlanBinding(plan,intent){
