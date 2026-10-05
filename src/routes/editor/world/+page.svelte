@@ -791,6 +791,7 @@
     if (kind === 'fence') {
       syncFencePostDraftFromDocument();
     }
+    if (result?.applied) checkpointRecovery();
     return result;
   }
 
@@ -2672,6 +2673,7 @@
     refreshProjection();
     refreshDraftState();
     rebuildFullDesignPlan();
+    if (result?.applied) checkpointRecovery();
   }
 
   function copySelectedDraft() {
@@ -2750,6 +2752,7 @@
     refreshDraftState();
     syncFencePostDraftFromDocument();
     rebuildFullDesignPlan();
+    checkpointRecovery();
     message = t('worldEditor.selection.undoRestored', {}, $locale);
   }
 
@@ -2764,6 +2767,7 @@
     refreshDraftState();
     syncFencePostDraftFromDocument();
     rebuildFullDesignPlan();
+    checkpointRecovery();
     message = t('worldEditor.selection.redoRestored', {}, $locale);
   }
 
