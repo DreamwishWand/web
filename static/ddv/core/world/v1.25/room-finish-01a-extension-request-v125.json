@@ -1,0 +1,102 @@
+{
+  "schema": "ddv.core-upstream-request@1",
+  "requestId": "01B-TO-01A-ROOM-SURFACE-TARGET-V125-V1",
+  "fromOwner": "01B CORE - World / Grid / Buildings",
+  "toOwner": "01A CORE - Save / Codec / Transaction",
+  "status": "READY_MACHINE_READABLE_REQUEST",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624
+  },
+  "consumerContract": "ddv.room-finish-semantics@1",
+  "problem": "Promoted 01A WRITE_CANDIDATE verification is reusable, but current target normalization/identity validation accepts only GRID_OBJECT and GRID_OBJECT_SET. DEC-UX-241..242 requires bounded non-GridObject Room surface leaves.",
+  "minimumAdditiveExtension": {
+    "capability": "WRITE_CANDIDATE",
+    "newCapabilityRequired": false,
+    "targetKind": "PLAYER_HOUSE_ROOM_SURFACE",
+    "targetIdentityFields": [
+      "playerHouseIndex",
+      "houseItemId",
+      "floorIndex",
+      "roomSlot",
+      "floorGridId",
+      "wallGridIds"
+    ],
+    "normalizeTargetRules": [
+      "playerHouseIndex/floorIndex/roomSlot are non-negative integers",
+      "houseItemId is a positive integer",
+      "roomSlot is one of 0/1/2/3",
+      "floorGridId is a non-negative integer",
+      "wallGridIds is exactly a map for wall positions 0/1/2/3 to non-negative current-save GridIDs",
+      "do not require gridId for this target kind"
+    ],
+    "validateTargetIdentityBeforeAndAfter": [
+      "World.PlayerHouses[playerHouseIndex] exists and HouseItemID equals houseItemId",
+      "Floors[floorIndex] exists",
+      "Rooms[roomSlot] exists",
+      "Room.FloorGridID equals floorGridId",
+      "Room.WallGridIDs equals the declared wallGridIds map exactly",
+      "Room identity guards are preservation constraints and may not change"
+    ],
+    "allowedPathEnvelope": [
+      "/World/PlayerHouses/{playerHouseIndex}/Floors/{floorIndex}/Rooms/{roomSlot}/Flooring",
+      "/World/PlayerHouses/{playerHouseIndex}/Floors/{floorIndex}/Rooms/{roomSlot}/Wallpapers/{wallPosition}"
+    ],
+    "wallpaperPositionDomain": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "exactOperationBindings": {
+      "SET_FLOORING": "exactly one Flooring leaf",
+      "SET_WALLPAPER_CURRENT_WALL": "exactly one Wallpapers/{resolvedWallPosition} leaf",
+      "SET_WALLPAPER_ALL_WALLS": "only Wallpapers/{0..3} leaves; semantic owner declares targeted positions [0,1,2,3], while allowedChanges contains only leaves whose value actually changes"
+    },
+    "preservation": {
+      "gridObjectIdentityPolicy": "PRESERVE_ALL_GRID_OBJECT_IDENTITIES",
+      "arrayPolicy": "PRESERVE_ORDER_AND_LENGTH_OUTSIDE_INTENTIONAL",
+      "unknownStatePolicy": "OPAQUE_UNCHANGED_REQUIRED",
+      "serializerNormalizationPolicy": "REJECT_SEMANTIC_NORMALIZATION",
+      "roomFieldsNotListedInAllowedChanges": "MUST_PRESERVE_EXACT",
+      "allUnrelatedProfileState": "MUST_PRESERVE_EXACT"
+    },
+    "independentVerification": [
+      "re-open candidate through exact codec/build contract",
+      "re-resolve target identity before and after",
+      "semantic diff must be a subset of the declared exact Room finish leaf envelope and equal plan.allowedChanges",
+      "no GridObject identity delta",
+      "no PlayerHouses/Floors/Rooms array/map membership delta",
+      "WallpaperOffsetById, Ceiling, FloorGridID, WallGridIDs, RoomPrefabAddress and Name remain exact"
+    ]
+  },
+  "mutationAdapter": {
+    "contract": "dreamwish.ddv.save-mutation-adapter@1",
+    "id": "01b-room-finish-v125-v1",
+    "owner": "01B CORE - World / Grid / Buildings",
+    "semanticOwnerProvides": "deterministic room leaf mutation plus before/after leaf preconditions"
+  },
+  "explicitlyNotRequested": [
+    "arbitrary JSON patch",
+    "generic profile-field writer",
+    "generic PlayerHouse writer",
+    "room expansion/resize",
+    "Ceiling mutation",
+    "WallpaperOffsetById mutation",
+    "GridID mutation",
+    "Trimming inventory mutation",
+    "Collection/ownership mutation",
+    "entitlement/premium/DLC mutation",
+    "Store/Shop mutation",
+    "persistent replacement authorization"
+  ],
+  "hardFlags": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false
+  }
+}
