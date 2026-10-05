@@ -441,10 +441,11 @@
       saveFileInput?.click();
       return false;
     }
+    const memoryWorldSource: any = memory.worldSource;
     const target = {
-      platform: String(memory.worldSource?.saveIdentity?.sourcePlatform ?? ''),
-      gameVersion: String(memory.worldSource?.compatibility?.gameVersion ?? ''),
-      profileSchemaVersion: Number(memory.worldSource?.profileSchemaVersion)
+      platform: String(memoryWorldSource?.saveIdentity?.sourcePlatform ?? ''),
+      gameVersion: String(memoryWorldSource?.compatibility?.gameVersion ?? ''),
+      profileSchemaVersion: Number(memoryWorldSource?.profileSchemaVersion)
     };
     if (
       memory.sourceFingerprint !== record.sourceFingerprint ||
