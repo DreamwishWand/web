@@ -1,0 +1,84 @@
+{
+  "schema": "dreamwish-wand-wep-decorate-stage1-consumer-gap-report@1",
+  "generatedAt": "2026-10-05",
+  "sourceMain": "5bb65e217c3e6e0c9c31239936725f90eba9a4cf",
+  "target": {
+    "primaryPlatform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "buildID": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624,
+    "steamBoundary": "SEPARATE_RUNTIME_EVIDENCE"
+  },
+  "productSemantics": "DDV_WAND_PRODUCT_UX_STAGE1_CURRENT / DEC-UX-241..242, 248..260; no Product decisions changed",
+  "missingContracts": [
+    {
+      "id": "WEP_ROOM_FINISH_V125_CONSUMER_CONTRACT_REQUIRED",
+      "evidence": "CONFIRMED",
+      "semanticFieldsRequired": [
+        "current indoor PlayerHouse/house interior identity",
+        "current room identity within the active interior",
+        "surface identity for Floor, Ceiling, and Wall 1..4",
+        "current Flooring Item identity",
+        "current Wallpaper Item identity per wall/surface",
+        "current-wall targeting semantics",
+        "all-walls targeting semantics",
+        "room-surface compatibility/legality result for a candidate Flooring/Wallpaper Item",
+        "draft mutation representation that participates in Undo/Redo and Review Changes",
+        "verified candidate serialization/validation for the supported room-surface mutation subset"
+      ],
+      "currentSourcesExamined": [
+        "src/lib/wep/editor-runtime.ts",
+        "src/lib/wep/world-browser-adapter.ts",
+        "src/lib/wep/building-v110.ts",
+        "src/lib/ddv/core/world/runtime-v125/direct-root-editor-document-v125.js",
+        "src/lib/collection/runtime.js",
+        "static/ddv/core/world/v1.25/* promoted read/placement contracts found from current-main references"
+      ],
+      "whyInsufficient": "Current promoted World Editor contracts expose GridObject/object placement and Building/PlayerHouse read classification, but no canonical indoor room/surface state model or safe Flooring/Wallpaper draft/write adapter. Collection family membership alone does not define native room-surface semantics.",
+      "blockedConsumerBehavior": [
+        "DEC-UX-241 persistent indoor Room Finish topbar",
+        "DEC-UX-242 Flooring preview/apply",
+        "DEC-UX-242 Wallpaper current-wall preview/apply",
+        "DEC-UX-242 Wallpaper all-walls one-transaction apply",
+        "Room Finish Undo/Redo and Review Changes semantic diff"
+      ],
+      "requirement": "READ_AND_DRAFT_WRITE_CONTRACT",
+      "platformVersionScope": "Nintendo Switch DDV v1.25.0 / BID 52BD625D9B4E0053 / schema 624 first; Steam must be proven separately",
+      "fallbackPolicy": "NONE_FAIL_CLOSED"
+    },
+    {
+      "id": "WEP_ORDINARY_FURNITURE_ADD_VERIFIED_EXPORT_CONTRACT_REQUIRED",
+      "evidence": "CONFIRMED",
+      "semanticFieldsRequired": [
+        "ordinary Furniture GridObject creation intent",
+        "fresh GridObject ID allocation ownership for ordinary Furniture",
+        "complete native created-object payload template/state policy",
+        "NextGridObjectID mutation rule",
+        "inventory/ownership non-mutation proof for placement-only creation",
+        "verified replacement-artifact semantic verifier for this ADD class"
+      ],
+      "currentSourcesExamined": [
+        "src/lib/ddv/core/save/transaction-foundation.js",
+        "static/ddv/core/save/v1.25/transaction-foundation-v125.json",
+        "src/lib/ddv/core/roadfence/persistent-transaction-v125.js",
+        "src/lib/wep/min-verified-transform-export-v1.ts",
+        "src/lib/wep/placement-legality-v19.ts"
+      ],
+      "whyInsufficient": "01A provides a generic structural candidate foundation and Road/Fence owns a specific structural compiler, while the promoted ordinary Furniture verified export only covers existing-object MOVE/ROTATE. No ordinary Furniture ADD semantic owner/adapter is promoted.",
+      "blockedConsumerBehavior": [
+        "persistent verified replacement artifact for a newly placed Explore/Moodboard Item",
+        "persistent verified replacement artifact for generic duplicate/paste-created ordinary Furniture"
+      ],
+      "requirement": "DRAFT_ADD_IS_ALLOWED_THROUGH_EXISTING_PASTE_VALIDATOR; VERIFIED_EXPORT_ADD_REQUIRES_SEMANTIC_OWNER_AND_ADAPTER",
+      "platformVersionScope": "Nintendo Switch DDV v1.25.0 / BID 52BD625D9B4E0053 / schema 624 first; Steam separate",
+      "fallbackPolicy": "LOCAL_DRAFT_VISIBLE; REVIEW/EXPORT_FAIL_CLOSED"
+    }
+  ],
+  "preservedSafety": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false
+  }
+}
