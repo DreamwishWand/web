@@ -5,7 +5,6 @@ import { readFile } from 'node:fs/promises';
 
 import { makeSyntheticP1gProfile, syntheticProfile } from './helpers/p1g-fixture.mjs';
 import {
-  NATIVE_PLACEMENT_CLASSES,
   createSwitchV125PlacementLegalityBinding
 } from '../src/lib/wep/placement-legality-v19.ts';
 import {
@@ -92,36 +91,14 @@ async function fixture(){
     entry=>Number(entry.villageIndex)===0&&Number(entry.areaId)===7
   );
   assert.ok(area,'synthetic village area did not resolve');
-  let validCell=null;
-  for(let y=0;y<256&&!validCell;y++){
-    for(let x=0;x<256;x++){
-      const evidence=placementBinding.classify({
-        profile:opened.profile,
-        destinationGridId:10,
-        gridDataPath:'GridData/Villages/Village04-BeachLevel-GridData.json',
-        candidate:{
-          artifactObjectId:'add-probe',
-          itemId:40000048,
-          localX:x,
-          localY:y,
-          orientation:0
-        }
-      });
-      if(evidence.nativeClass===NATIVE_PLACEMENT_CLASSES.VALID_CLEAR){
-        validCell={x,y};
-        break;
-      }
-    }
-  }
-  assert.ok(validCell,'no native-valid ordinary Furniture ADD cell found');
   const baseline=projectSwitchAreaGrid(opened,area,10,worldBinding);
   const draft=structuredClone(baseline);
   draft.objects.push({
     editorId:'draft-1',
     itemId:40000048,
     layer:'furniture',
-    x:validCell.x,
-    y:validCell.y,
+    x:0,
+    y:0,
     orientation:0,
     footprint:[{x:0,y:0}],
     source:null,
@@ -135,6 +112,30 @@ async function fixture(){
       draftInserted:true
     }
   });
+  let validCell=null;
+  const maxX=Math.max(1,Number(draft.target?.size?.width??256));
+  const maxY=Math.max(1,Number(draft.target?.size?.height??256));
+  for(let y=0;y<maxY&&!validCell;y++){
+    for(let x=0;x<maxX;x++){
+      draft.objects[0].x=x;
+      draft.objects[0].y=y;
+      const evidence=placementBinding.classifyMinimumTransformPlacement({
+        document:draft,
+        editorId:'draft-1'
+      });
+      if(
+        evidence?.result?.status==='VALID' &&
+        evidence?.result?.valid===true &&
+        evidence?.result?.verdict==='VALID'
+      ){
+        validCell={x,y};
+        break;
+      }
+    }
+  }
+  assert.ok(validCell,'no native-valid ordinary Furniture ADD cell found');
+  draft.objects[0].x=validCell.x;
+  draft.objects[0].y=validCell.y;
   return {bytes,opened,worldBinding,placementBinding,baseline,draft,validCell};
 }
 
@@ -257,29 +258,27 @@ test('ADD rejects generator-unavailable CORE definition even when local draft sh
   const f=await fixture();
   f.draft.objects[0].itemId=40000072;
   let validCell=null;
-  for(let y=0;y<256&&!validCell;y++){
-    for(let x=0;x<256;x++){
-      const evidence=f.placementBinding.classify({
-        profile:f.opened.profile,
-        destinationGridId:10,
-        gridDataPath:'GridData/Villages/Village04-BeachLevel-GridData.json',
-        candidate:{
-          artifactObjectId:'generator-unavailable-probe',
-          itemId:40000072,
-          localX:x,
-          localY:y,
-          orientation:0
-        }
+  const maxX=Math.max(1,Number(f.draft.target?.size?.width??256));
+  const maxY=Math.max(1,Number(f.draft.target?.size?.height??256));
+  for(let y=0;y<maxY&&!validCell;y++){
+    for(let x=0;x<maxX;x++){
+      f.draft.objects[0].x=x;
+      f.draft.objects[0].y=y;
+      const evidence=f.placementBinding.classifyMinimumTransformPlacement({
+        document:f.draft,
+        editorId:'draft-1'
       });
-      if(evidence.nativeClass===NATIVE_PLACEMENT_CLASSES.VALID_CLEAR){
+      if(
+        evidence?.result?.status==='VALID' &&
+        evidence?.result?.valid===true &&
+        evidence?.result?.verdict==='VALID'
+      ){
         validCell={x,y};
         break;
       }
     }
   }
   assert.ok(validCell,'no native-valid generator-unavailable probe cell found');
-  f.draft.objects[0].x=validCell.x;
-  f.draft.objects[0].y=validCell.y;
   await assert.rejects(
     ()=>reviewOrdinaryFurnitureAddVerifiedExport({
       sourceBytes:f.bytes,
