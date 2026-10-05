@@ -1,7 +1,7 @@
 {
   "schema": "dreamwish-wand-wep-decorate-stage1-consumer-gap-report@1",
-  "generatedAt": "2026-10-05",
-  "sourceMain": "5bb65e217c3e6e0c9c31239936725f90eba9a4cf",
+  "generatedAt": "2026-10-06",
+  "sourceMain": "14ea008b69b88a42e0104aae996e611651514eea",
   "target": {
     "primaryPlatform": "Nintendo Switch",
     "gameVersion": "1.25.0",
@@ -12,66 +12,28 @@
   "productSemantics": "DDV_WAND_PRODUCT_UX_STAGE1_CURRENT / DEC-UX-241..242, 248..260; no Product decisions changed",
   "missingContracts": [
     {
-      "id": "WEP_ROOM_FINISH_V125_CONSUMER_CONTRACT_REQUIRED",
+      "id": "WEP_ROOM_FINISH_PLAYER_HOUSE_ROOM_TARGET_AND_RUNTIME_REQUIRED",
       "evidence": "CONFIRMED",
-      "semanticFieldsRequired": [
-        "current indoor PlayerHouse/house interior identity",
-        "current room identity within the active interior",
-        "surface identity for Floor, Ceiling, and Wall 1..4",
-        "current Flooring Item identity",
-        "current Wallpaper Item identity per wall/surface",
-        "current-wall targeting semantics",
-        "all-walls targeting semantics",
-        "room-surface compatibility/legality result for a candidate Flooring/Wallpaper Item",
-        "draft mutation representation that participates in Undo/Redo and Review Changes",
-        "verified candidate serialization/validation for the supported room-surface mutation subset"
+      "currentState": "01B_STATIC_CURRENT_NATIVE_SEMANTICS_CLOSED__01A_PLAYER_HOUSE_ROOM_TARGET_EXTENSION_AND_01E_RUNTIME_PENDING",
+      "promotedOrFrozenEvidence": [
+        "01B Room Finish semantics: src/lib/ddv/core/world/room-finish-v125.js (PR #85 frozen static/current-native closure)",
+        "01B -> 01A request: static/ddv/core/save/v1.25/room-finish-transaction-target-extension-request-v125.json",
+        "requestId: 01B-TO-01A-ROOM-FINISH-TARGET-V125-V1"
       ],
-      "currentSourcesExamined": [
-        "src/lib/wep/editor-runtime.ts",
-        "src/lib/wep/world-browser-adapter.ts",
-        "src/lib/wep/building-v110.ts",
-        "src/lib/ddv/core/world/runtime-v125/direct-root-editor-document-v125.js",
-        "src/lib/collection/runtime.js",
-        "static/ddv/core/world/v1.25/* promoted read/placement contracts found from current-main references"
+      "remainingRequirements": [
+        "01A WRITE_CANDIDATE target-kind PLAYER_HOUSE_ROOM with playerHouseIndex + houseItemId + floorIndex + roomSlot identity",
+        "strict Room Finish leaf allowlist for Flooring / Wallpapers / exact stale WallpaperOffsetById cleanup only",
+        "01B mutation-adapter binding to the promoted PLAYER_HOUSE_ROOM structural target",
+        "01E exact Nintendo Switch v1.25 cold-reload acceptance: minimum one Flooring case and one All-Walls Wallpaper case exercising displaced-offset cleanup",
+        "backup/restore acceptance"
       ],
-      "whyInsufficient": "Current promoted World Editor contracts expose GridObject/object placement and Building/PlayerHouse read classification, but no canonical indoor room/surface state model or safe Flooring/Wallpaper draft/write adapter. Collection family membership alone does not define native room-surface semantics.",
       "blockedConsumerBehavior": [
-        "DEC-UX-241 persistent indoor Room Finish topbar",
-        "DEC-UX-242 Flooring preview/apply",
-        "DEC-UX-242 Wallpaper current-wall preview/apply",
-        "DEC-UX-242 Wallpaper all-walls one-transaction apply",
-        "Room Finish Undo/Redo and Review Changes semantic diff"
+        "DEC-UX-241 Room Finish write controls",
+        "DEC-UX-242 Flooring persistent verified replacement artifact",
+        "DEC-UX-242 Wallpaper Current Wall persistent verified replacement artifact",
+        "DEC-UX-242 Wallpaper All Walls atomic persistent verified replacement artifact"
       ],
-      "requirement": "READ_AND_DRAFT_WRITE_CONTRACT",
-      "platformVersionScope": "Nintendo Switch DDV v1.25.0 / BID 52BD625D9B4E0053 / schema 624 first; Steam must be proven separately",
-      "fallbackPolicy": "NONE_FAIL_CLOSED"
-    },
-    {
-      "id": "WEP_ORDINARY_FURNITURE_ADD_VERIFIED_EXPORT_CONTRACT_REQUIRED",
-      "evidence": "CONFIRMED",
-      "semanticFieldsRequired": [
-        "ordinary Furniture GridObject creation intent",
-        "fresh GridObject ID allocation ownership for ordinary Furniture",
-        "complete native created-object payload template/state policy",
-        "NextGridObjectID mutation rule",
-        "inventory/ownership non-mutation proof for placement-only creation",
-        "verified replacement-artifact semantic verifier for this ADD class"
-      ],
-      "currentSourcesExamined": [
-        "src/lib/ddv/core/save/transaction-foundation.js",
-        "static/ddv/core/save/v1.25/transaction-foundation-v125.json",
-        "src/lib/ddv/core/roadfence/persistent-transaction-v125.js",
-        "src/lib/wep/min-verified-transform-export-v1.ts",
-        "src/lib/wep/placement-legality-v19.ts"
-      ],
-      "whyInsufficient": "01A provides a generic structural candidate foundation and Road/Fence owns a specific structural compiler, while the promoted ordinary Furniture verified export only covers existing-object MOVE/ROTATE. No ordinary Furniture ADD semantic owner/adapter is promoted.",
-      "blockedConsumerBehavior": [
-        "persistent verified replacement artifact for a newly placed Explore/Moodboard Item",
-        "persistent verified replacement artifact for generic duplicate/paste-created ordinary Furniture"
-      ],
-      "requirement": "DRAFT_ADD_IS_ALLOWED_THROUGH_EXISTING_PASTE_VALIDATOR; VERIFIED_EXPORT_ADD_REQUIRES_SEMANTIC_OWNER_AND_ADAPTER",
-      "platformVersionScope": "Nintendo Switch DDV v1.25.0 / BID 52BD625D9B4E0053 / schema 624 first; Steam separate",
-      "fallbackPolicy": "LOCAL_DRAFT_VISIBLE; REVIEW/EXPORT_FAIL_CLOSED"
+      "fallbackPolicy": "WRITE_UI_AND_PRODUCT_EXPORT_FAIL_CLOSED; NO_GENERIC_PATH_WRITER; NO_CEILING_WRITE"
     }
   ],
   "preservedSafety": {
@@ -80,5 +42,30 @@
     "PERSISTENT_WRITE": false,
     "productApplyAuthorized": false,
     "directSourceReplacementAuthorized": false
-  }
+  },
+  "resolvedStaticContracts": [
+    {
+      "id": "WEP_ORDINARY_FURNITURE_ADD_VERIFIED_EXPORT_CONTRACT_REQUIRED",
+      "evidence": "CONFIRMED",
+      "status": "BOUND_STATIC_BROWSER_PIPELINE__01E_COLD_RELOAD_PENDING",
+      "upstream": {
+        "semanticContract": "ddv.ordinary-furniture-add-semantics@1",
+        "adapterId": "01b-ordinary-root-furniture-add-v125-v1",
+        "promotionMain": "14ea008b69b88a42e0104aae996e611651514eea",
+        "structuralFoundation": "01A STRUCTURAL_WRITE_CANDIDATE / GRID_OBJECT_SET"
+      },
+      "consumerBinding": {
+        "module": "src/lib/wep/ordinary-furniture-add-verified-export-v125.ts",
+        "scopePack": "static/ddv/wep/world/v1.25/ordinary-furniture-add-scope-pack-v125.json",
+        "exactClassifier": true,
+        "nativePlacementGate": true,
+        "independentStructuralVerifier": true,
+        "reviewChangesOperation": "ADD",
+        "runtimeGate": "PENDING_01E_EXACT_ADD_AFTER_SEMANTIC_FREEZE",
+        "runtimeRequest": "01B-TO-01E-ORDINARY-FURNITURE-ADD-V125-V1",
+        "productExportAuthorized": false
+      },
+      "safety": "Candidate/export-bundle pipeline may be source/browser accepted as evidence, but user-facing ADD export remains disabled until exact 01E cold-reload acceptance."
+    }
+  ]
 }
