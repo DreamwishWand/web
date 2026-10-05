@@ -240,12 +240,9 @@ try{
   await page.getByText(/DDV save loaded locally/).waitFor();
   await page.getByRole('button',{name:'Open in Canvas'}).first().click();
   await page.getByText(/Core-bound local draft authoring/).waitFor();
-  const recoveryObject=page.locator('g[data-editor-object]').first();
-  await recoveryObject.click();
-  await page.locator('.toolbar-actions').getByRole('button',{name:'Move right'}).click();
-  assert.ok(await page.evaluate(key=>localStorage.getItem(key),recoveryIndexKey));
-  const movedLabel=await recoveryObject.getAttribute('aria-label');
+  const baselineLabel=await page.locator('g[data-editor-object]').first().getAttribute('aria-label');
 
+  // A compatible active draft must be reusable even before its first mutation.
   await page.locator('a[href$="/explore/"]').first().click();
   await page.waitForURL(/\/explore\/?$/);
   await page.locator('.controls input[type="search"]').fill('40000048');
@@ -254,9 +251,20 @@ try{
   await page.locator('.quick-review').getByRole('button',{name:'Place in World Editor'}).click();
   await page.waitForURL(/\/editor\/world\/?$/);
   await page.getByText(/Core-bound local draft authoring/).waitFor();
-  assert.equal(await page.locator('g[data-editor-object]').first().getAttribute('aria-label'),movedLabel);
+  assert.equal(
+    await page.locator('g[data-editor-object]').first().getAttribute('aria-label'),
+    baselineLabel,
+    'compatible active baseline draft was not reused'
+  );
   assert.ok((await page.locator('[data-wep-decorate-stage1] .pending-card').first().innerText()).includes('40000048'));
   pass('ACTIVE_COMPATIBLE_DRAFT_REUSE');
+
+  // A committed mutation creates persistent recovery metadata while raw source bytes remain memory-only.
+  const recoveryObject=page.locator('g[data-editor-object]').first();
+  await recoveryObject.click();
+  await page.locator('.toolbar-actions').getByRole('button',{name:'Move right'}).click();
+  assert.ok(await page.evaluate(key=>localStorage.getItem(key),recoveryIndexKey));
+  pass('RECOVERY_CHECKPOINT_AFTER_COMMITTED_MUTATION');
 
   await page.reload({waitUntil:'networkidle'});
   const recoveryPanel=page.locator('[data-wep-recovery]');
