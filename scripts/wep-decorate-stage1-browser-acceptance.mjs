@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright-core';
+import { makeSyntheticP1gProfile } from '../tests/helpers/p1g-fixture.mjs';
 
 const root=(process.env.WEP_STAGE1_BASE_URL||'http://127.0.0.1:4175').replace(/\/$/,'');
 const chrome=process.env.CHROME_BIN;
@@ -97,6 +98,35 @@ const recoveryProfile={
     QuestInfo:{},
     Keyholes:{}
   }
+};
+
+const addExportProfile={
+  GameInfo:{Version:624,InitialVersion:624,LastSaveDeviceInfo:{deviceType:'DeviceType_Switch'}},
+  Player:{},
+  ProfileWorld:{Stores:[],Shops:[]},
+  ConditionalEventHistory:{ActiveEvents:{}},
+  World:{
+    DecorationPresets:[],
+    GridCollection:{
+      Grids:{
+        '10':{
+          ID:10,
+          GridDataPath:'GridData/Villages/Village04-BeachLevel-GridData.json',
+          GridDefaultLayoutPath:'',
+          TessellationFactor:1,
+          NextGridObjectID:101,
+          Objects:{}
+        }
+      },
+      DiffGrids:{}
+    },
+    Villages:[{SceneItemId:1540000000,Areas:{'7':{GridIDs:[10],Unlocked:true,EnvironmentEffectItemID:0,EnvironmentEffectOrientation:'GridOrientation_Up'}}}],
+    FloatingIslands:{},
+    MissionSlots:{},
+    QuestInfo:{},
+    Keyholes:{}
+  },
+  Opaque:{keep:{addAcceptance:true}}
 };
 
 const browser=await chromium.launch({executablePath:chrome,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
@@ -238,6 +268,73 @@ try{
   }
   await localeSelect.selectOption('en');
   pass('LAUNCH_LOCALE_STATE_AND_LAYOUT_INVARIANCE',{locales:locales.length});
+
+  // Post-01B: exact ordinary Furniture ADD reaches Review Changes, but 01E
+  // cold-reload is still pending so user-facing export must stay fail-closed.
+  await page.goto(root+'/explore/',{waitUntil:'networkidle'});
+  await page.locator('.controls input[type="search"]').fill('40000048');
+  await eventually(async()=>await page.locator('.card-review').count()===1);
+  await page.locator('.card-review').click();
+  const addQuick=page.locator('.quick-review');
+  await addQuick.waitFor();
+  await addQuick.getByRole('button',{name:'Place in World Editor'}).click();
+  await page.waitForURL(/\/editor\/world\/?$/);
+  await page.locator('.platform-select select').selectOption('switch');
+  const addPackaged=Buffer.from(makeSyntheticP1gProfile(addExportProfile));
+  await page.locator('.load-panel input[type="file"]').setInputFiles({
+    name:'profile',
+    mimeType:'application/octet-stream',
+    buffer:addPackaged
+  });
+  await page.getByText(/DDV save loaded locally/).waitFor();
+  await page.getByRole('button',{name:'Open in Canvas'}).first().click();
+  await page.getByText(/Core-bound local draft authoring/).waitFor();
+
+  const addStage=page.locator('[data-wep-decorate-stage1]');
+  const addPending=addStage.locator('.pending-card').first();
+  assert.ok((await addPending.innerText()).includes('40000048'));
+  await addPending.locator('input[type="number"]').nth(0).fill('7');
+  await addPending.locator('input[type="number"]').nth(1).fill('7');
+  await addPending.getByRole('button',{name:'Place'}).click();
+  await eventually(async()=>await page.locator('g[data-editor-object]').count()===1);
+  const addDraftReview=addStage.locator('[data-wep-stage1-review]');
+  assert.ok((await addDraftReview.innerText()).includes('Added'));
+  assert.ok((await addDraftReview.innerText()).includes('40000048'));
+
+  const addExport=page.locator('[data-wep-verified-export]');
+  const addReviewButton=addExport.getByRole('button',{name:'Review Changes'});
+  assert.equal(await addReviewButton.isDisabled(),true);
+  await addExport.locator('.verified-export-build-confirm input[type="checkbox"]').check();
+  assert.equal(await addReviewButton.isEnabled(),true);
+  await addReviewButton.click();
+  const addVerifiedReview=addExport.locator('.verified-export-review');
+  const addVerifiedError=addExport.locator('.verified-export-error');
+  await Promise.race([
+    addVerifiedReview.waitFor({state:'visible',timeout:10000}),
+    addVerifiedError.waitFor({state:'visible',timeout:10000})
+  ]);
+  if(await addVerifiedError.isVisible()){
+    throw new Error('ADD_VERIFIED_REVIEW_FAIL: '+await addVerifiedError.innerText());
+  }
+  const addReviewText=await addVerifiedReview.innerText();
+  assert.ok(addReviewText.includes('ADD'));
+  assert.ok(addReviewText.includes('Item 40000048'));
+  assert.ok(addReviewText.includes('Area 7'));
+  assert.ok(addReviewText.includes('Grid 10'));
+  assert.ok(addReviewText.includes('X 7'));
+  assert.ok(addReviewText.includes('Y 7'));
+  assert.ok(addReviewText.includes('101'));
+  const runtimeGate=addVerifiedReview.locator('[data-wep-add-runtime-gate]');
+  await runtimeGate.waitFor();
+  assert.ok((await runtimeGate.innerText()).toLowerCase().includes('cold-reload'));
+  assert.equal(await addVerifiedReview.locator('.verified-export-confirm').count(),0);
+  assert.equal(await addVerifiedReview.getByRole('button',{name:'Apply / Export'}).count(),0);
+  pass('ORDINARY_FURNITURE_ADD_REVIEW_RUNTIME_GATE',{
+    itemId:40000048,
+    gridId:10,
+    createdGridObjectId:101,
+    runtime:'PENDING_01E'
+  });
 
   await page.goto(root+'/editor/world/',{waitUntil:'networkidle'});
   await page.locator('.platform-select select').selectOption('switch');
