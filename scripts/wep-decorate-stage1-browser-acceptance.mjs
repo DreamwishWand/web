@@ -386,16 +386,29 @@ try{
   assert.ok(addReviewText.includes(`X ${addPlacement.x}`));
   assert.ok(addReviewText.includes(`Y ${addPlacement.y}`));
   assert.ok(addReviewText.includes('101'));
-  const runtimeGate=addVerifiedReview.locator('[data-wep-add-runtime-gate]');
-  await runtimeGate.waitFor();
-  assert.ok((await runtimeGate.innerText()).toLowerCase().includes('cold-reload'));
-  assert.equal(await addVerifiedReview.locator('.verified-export-confirm').count(),0);
-  assert.equal(await addVerifiedReview.getByRole('button',{name:'Apply / Export'}).count(),0);
-  pass('ORDINARY_FURNITURE_ADD_REVIEW_RUNTIME_GATE',{
+  const addConfirm=addVerifiedReview.locator('.verified-export-confirm input[type="checkbox"]');
+  await addConfirm.check();
+  const addApply=addVerifiedReview.getByRole('button',{name:'Apply / Export'});
+  assert.equal(await addApply.isEnabled(),true);
+  await addApply.click();
+  const addSuccess=addExport.locator('.verified-export-success');
+  const addCommitError=addExport.locator('.verified-export-error');
+  await Promise.race([
+    addSuccess.waitFor({state:'visible',timeout:15000}),
+    addCommitError.waitFor({state:'visible',timeout:15000})
+  ]);
+  if(await addCommitError.isVisible()){
+    throw new Error('ADD_VERIFIED_EXPORT_FAIL: '+await addCommitError.innerText());
+  }
+  const addSuccessText=await addSuccess.innerText();
+  assert.ok(addSuccessText.includes('PASS'));
+  assert.ok(await addSuccess.getByRole('button',{name:/Download edited save/i}).isVisible());
+  assert.ok(await addSuccess.getByRole('button',{name:/Download original backup/i}).isVisible());
+  pass('ORDINARY_FURNITURE_ADD_VERIFIED_EXPORT_RUNTIME_ACCEPTED',{
     itemId:40000048,
     gridId:10,
     createdGridObjectId:101,
-    runtime:'PENDING_01E'
+    runtime:'ORDINARY_FURNITURE_ADD_RUNTIME_PASS'
   });
 
   await page.goto(root+'/editor/world/',{waitUntil:'networkidle'});
