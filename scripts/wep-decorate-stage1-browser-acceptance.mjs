@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright-core';
+import '../src/lib/ddv/core/world/runtime-v125/griddata-floor-v125.js';
+import '../src/lib/ddv/core/world/runtime-v125/placement-v125.js';
 import { makeSyntheticP1gProfile } from '../tests/helpers/p1g-fixture.mjs';
 
 const root=(process.env.WEP_STAGE1_BASE_URL||'http://127.0.0.1:4175').replace(/\/$/,'');
@@ -55,6 +57,66 @@ async function seedMoodboard(page){
   },{moodboardKey,handoffKey,recoveryIndexKey,doc});
   return JSON.stringify(doc);
 }
+
+async function resolveNativeValidAddCell(){
+  const gridDataPath='GridData/Villages/Village04-BeachLevel-GridData.json';
+  const [floorContract,placementGeometry,readPack]=await Promise.all([
+    readFile(new URL('../static/ddv/core/world/v1.25/griddata-floor-maps-v125.json',import.meta.url),'utf8').then(JSON.parse),
+    readFile(new URL('../static/ddv/core/world/v1.25/placement-geometry-switch-v125.json',import.meta.url),'utf8').then(JSON.parse),
+    readFile(new URL('../static/ddv/v1.25/world-read-switch.json',import.meta.url),'utf8').then(JSON.parse)
+  ]);
+  const floorApi=globalThis.DdvCoreWorldV125GridDataFloor;
+  const placementApi=globalThis.DdvCoreWorldV125Placement;
+  assert.ok(floorApi?.getGridData);
+  assert.ok(placementApi?.validateOrdinaryCardinalPlacement);
+  const itemId=40000048;
+  const raw=placementGeometry.geometry[String(itemId)];
+  const baseGeometry=readPack.geometry[String(itemId)];
+  assert.ok(Array.isArray(raw)&&raw.length===3);
+  assert.ok(Array.isArray(baseGeometry)&&baseGeometry.length===4);
+  const geometryIndex={
+    [itemId]:{
+      concreteType:baseGeometry[0],
+      sizeX:Number(baseGeometry[1]),
+      sizeY:Number(baseGeometry[2]),
+      subGridDataPath:baseGeometry[3],
+      areaTessellationFactor:1,
+      acceptedFloorTypesFlag:Number(raw[0])>>>0,
+      strideOverride:raw[1]===null||raw[1]===undefined?null:Number(raw[1])>>>0,
+      layers:raw[2].map(value=>Number(value)>>>0)
+    }
+  };
+  const gridData=floorApi.getGridData(floorContract,gridDataPath,{
+    gameVersion:'1.25.0',
+    platform:'Nintendo Switch',
+    buildIdentity:'52BD625D9B4E0053',
+    profileSchemaVersion:624
+  });
+  assert.ok(gridData);
+  const tessellationFactor=2;
+  const maxX=gridData.sizeX*tessellationFactor;
+  const maxY=gridData.sizeY*tessellationFactor;
+  for(let y=0;y<maxY;y++){
+    for(let x=0;x<maxX;x++){
+      const result=placementApi.validateOrdinaryCardinalPlacement({
+        gridData,
+        geometryIndex,
+        objects:[],
+        candidate:{editorId:'draft-add',itemId,x,y,orientation:0},
+        gridTessellationFactor:tessellationFactor,
+        excludeEditorId:'draft-add',
+        clearArea:false,
+        automaticSpawning:false
+      });
+      if(result?.status==='VALID'&&result?.valid===true&&result?.verdict==='VALID'){
+        return Object.freeze({x,y,gridDataPath,tessellationFactor});
+      }
+    }
+  }
+  throw new Error('NO_NATIVE_VALID_FURNITURE_ADD_CELL');
+}
+
+const addPlacement=await resolveNativeValidAddCell();
 
 const synthetic={
   schema:'dreamwish-wand-wep-editor-document',
@@ -113,7 +175,7 @@ const addExportProfile={
           ID:10,
           GridDataPath:'GridData/Villages/Village04-BeachLevel-GridData.json',
           GridDefaultLayoutPath:'',
-          TessellationFactor:1,
+          TessellationFactor:addPlacement.tessellationFactor,
           NextGridObjectID:101,
           Objects:{}
         }
@@ -293,8 +355,8 @@ try{
   const addStage=page.locator('[data-wep-decorate-stage1]');
   const addPending=addStage.locator('.pending-card').first();
   assert.ok((await addPending.innerText()).includes('40000048'));
-  await addPending.locator('input[type="number"]').nth(0).fill('7');
-  await addPending.locator('input[type="number"]').nth(1).fill('7');
+  await addPending.locator('input[type="number"]').nth(0).fill(String(addPlacement.x));
+  await addPending.locator('input[type="number"]').nth(1).fill(String(addPlacement.y));
   await addPending.getByRole('button',{name:'Place'}).click();
   await eventually(async()=>await page.locator('g[data-editor-object]').count()===1);
   const addDraftReview=addStage.locator('[data-wep-stage1-review]');
@@ -321,8 +383,8 @@ try{
   assert.ok(addReviewText.includes('Item 40000048'));
   assert.ok(addReviewText.includes('Area 7'));
   assert.ok(addReviewText.includes('Grid 10'));
-  assert.ok(addReviewText.includes('X 7'));
-  assert.ok(addReviewText.includes('Y 7'));
+  assert.ok(addReviewText.includes(`X ${addPlacement.x}`));
+  assert.ok(addReviewText.includes(`Y ${addPlacement.y}`));
   assert.ok(addReviewText.includes('101'));
   const runtimeGate=addVerifiedReview.locator('[data-wep-add-runtime-gate]');
   await runtimeGate.waitFor();
