@@ -15,9 +15,13 @@ import {
   isWorldEditorEnvironmentSupported
 } from '../src/lib/wep/world-editor-environment.ts';
 import {
+  createRecoveryRecord,
+  getActiveWorldEditorMemory,
   listRecoveryRecords,
   recoveryCompatible,
-  saveRecoveryRoute
+  saveRecoveryRoute,
+  setActiveWorldEditorDraftRecord,
+  setActiveWorldEditorMemory
 } from '../src/lib/wep/world-editor-recovery.ts';
 import {
   WORLD_EDITOR_STAGE1_LOCALES,
@@ -207,4 +211,30 @@ test('Decorate Stage 1 presentation has exact launch-locale key parity', () => {
     assert.deepEqual(Object.keys(copy).sort(),base,locale);
     for(const key of base)assert.equal(typeof copy[key],'string',locale+' '+key);
   }
+});
+
+test('DEC-UX-248/257 active compatible draft is reusable in-memory before first mutation', () => {
+  const sourceFingerprint='b'.repeat(64);
+  const session=createEditorSession(doc());
+  const target={platform:'switch',gameVersion:'1.25.0',profileSchemaVersion:624};
+  const record=createRecoveryRecord({
+    sourceFingerprint,
+    sourceName:'baseline-profile',
+    target,
+    routeKey:'switch|1.25.0|10|GridData/Test.json',
+    sessionSnapshot:session.exportRecoverySnapshot(),
+    now:'2026-10-05T00:00:00.000Z'
+  });
+  setActiveWorldEditorMemory({
+    sourceFingerprint,
+    sourceBytes:new Uint8Array([1,2,3]),
+    worldSource:{saveIdentity:{sourcePlatform:'switch'},compatibility:{gameVersion:'1.25.0'},profileSchemaVersion:624},
+    originalSaveBackup:null
+  });
+  setActiveWorldEditorDraftRecord(record);
+  const memory=getActiveWorldEditorMemory();
+  assert.equal(memory.activeDraftRecord.sourceFingerprint,sourceFingerprint);
+  assert.equal(memory.activeDraftRecord.activeRouteKey,'switch|1.25.0|10|GridData/Test.json');
+  assert.equal(memory.activeDraftRecord.persistentWriteAuthorized,false);
+  assert.deepEqual([...memory.sourceBytes],[1,2,3]);
 });
