@@ -141,7 +141,9 @@ try{
   await page.goto(root+'/explore/',{waitUntil:'networkidle'});
   await page.locator('.controls input[type="search"]').fill('40000048');
   await eventually(async()=>await page.locator('.card-review').count()===1);
-  const beforeExplore=await page.evaluate(key=>localStorage.getItem(key),moodboardKey);
+  const beforeExplore=await page.evaluate((handoffKey)=>Object.fromEntries(
+    Object.entries(localStorage).filter(([key])=>key!==handoffKey)
+  ),handoffKey);
   await page.locator('.card-review').click();
   const quick=page.locator('.quick-review');
   await quick.waitFor();
@@ -152,7 +154,14 @@ try{
   await page.waitForURL(/\/editor\/world\/?$/);
   await page.locator('[data-wep-decorate-stage1]').waitFor();
   assert.ok((await page.locator('[data-wep-decorate-stage1] .pending-card').first().innerText()).includes('40000048'));
-  assert.equal(await page.evaluate(key=>localStorage.getItem(key),moodboardKey),beforeExplore);
+  const afterExplore=await page.evaluate((handoffKey)=>Object.fromEntries(
+    Object.entries(localStorage).filter(([key])=>key!==handoffKey)
+  ),handoffKey);
+  assert.deepEqual(
+    afterExplore,
+    beforeExplore,
+    'Explore direct handoff changed Moodboard/Favorite/Collection-adjacent local state'
+  );
   pass('EXPLORE_TO_WORLD_EDITOR_DIRECT_HANDOFF');
 
   await page.locator('.load-panel input[type="file"]').setInputFiles({
