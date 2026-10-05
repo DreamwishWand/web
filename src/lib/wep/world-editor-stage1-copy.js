@@ -18,8 +18,18 @@ const RECOVERY_COPY={
   'zh-CN':{recoveryEyebrow:'恢复',recoveryTitle:'恢复草稿',recoveryDescription:'恢复功能保存已提交的草稿事务和精确的源指纹。如果源字节已不在内存中，请重新打开完全相同的原始存档。',recovered:'已从精确的源基线恢复草稿。'},
   'pt-BR':{recoveryEyebrow:'Recuperação',recoveryTitle:'Retomar rascunho',recoveryDescription:'A recuperação guarda transações confirmadas do rascunho e a impressão digital exata da origem. Se os bytes da origem não estiverem mais na memória, reabra o save original exato.',recovered:'Rascunho retomado da origem exata.'}
 };
+const REVIEW_COPY={
+  en:{review:'Review Changes',noChanges:'No draft semantic changes yet.',commands:'Commands',changes:'Changes',added:'Added',removed:'Removed',moved:'Moved',rotated:'Rotated',moveRotate:'Moved + rotated',roomFinishUnavailable:'Unavailable until the indoor room/surface Core contract is promoted.'},
+  fr:{review:'Examiner les modifications',noChanges:'Aucune modification sémantique du brouillon pour le moment.',commands:'Commandes',changes:'Modifications',added:'Ajouté',removed:'Supprimé',moved:'Déplacé',rotated:'Pivoté',moveRotate:'Déplacé + pivoté',roomFinishUnavailable:'Indisponible tant que le contrat Core des surfaces/pièces intérieures n’est pas promu.'},
+  it:{review:'Rivedi modifiche',noChanges:'Nessuna modifica semantica della bozza.',commands:'Comandi',changes:'Modifiche',added:'Aggiunto',removed:'Rimosso',moved:'Spostato',rotated:'Ruotato',moveRotate:'Spostato + ruotato',roomFinishUnavailable:'Non disponibile finché il contratto Core per stanze/superfici interne non viene promosso.'},
+  de:{review:'Änderungen prüfen',noChanges:'Noch keine semantischen Entwurfsänderungen.',commands:'Befehle',changes:'Änderungen',added:'Hinzugefügt',removed:'Entfernt',moved:'Verschoben',rotated:'Gedreht',moveRotate:'Verschoben + gedreht',roomFinishUnavailable:'Nicht verfügbar, bis der Core-Vertrag für Innenräume/Oberflächen promoviert ist.'},
+  'es-ES':{review:'Revisar cambios',noChanges:'Aún no hay cambios semánticos en el borrador.',commands:'Comandos',changes:'Cambios',added:'Añadido',removed:'Eliminado',moved:'Movido',rotated:'Rotado',moveRotate:'Movido + rotado',roomFinishUnavailable:'No disponible hasta que se promueva el contrato Core de habitación/superficie interior.'},
+  ja:{review:'Review Changes',noChanges:'Draftのsemantic changeはまだありません。',commands:'Commands',changes:'Changes',added:'追加',removed:'削除',moved:'移動',rotated:'回転',moveRotate:'移動 + 回転',roomFinishUnavailable:'屋内Room / surface Core contractがpromoteされるまで利用できません。'},
+  'zh-CN':{review:'查看更改',noChanges:'尚无草稿语义更改。',commands:'命令',changes:'更改',added:'已添加',removed:'已移除',moved:'已移动',rotated:'已旋转',moveRotate:'已移动并旋转',roomFinishUnavailable:'在室内房间/表面 Core contract 获得提升前不可用。'},
+  'pt-BR':{review:'Revisar alterações',noChanges:'Ainda não há alterações semânticas no rascunho.',commands:'Comandos',changes:'Alterações',added:'Adicionado',removed:'Removido',moved:'Movido',rotated:'Rotacionado',moveRotate:'Movido + rotacionado',roomFinishUnavailable:'Indisponível até que o contrato Core de cômodo/superfície interna seja promovido.'}
+};
 export function worldEditorStage1Copy(locale='en'){
   const key=COPY[locale]?locale:'en';
-  return {...COPY[key],...RECOVERY_COPY[key]};
+  return {...COPY[key],...RECOVERY_COPY[key],...REVIEW_COPY[key]};
 }
 export const WORLD_EDITOR_STAGE1_LOCALES=Object.freeze(Object.keys(COPY));
