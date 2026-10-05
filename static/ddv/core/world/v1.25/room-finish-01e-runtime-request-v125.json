@@ -1,0 +1,83 @@
+{
+  "schema": "ddv.core-runtime-request@1",
+  "requestId": "01B-TO-01E-ROOM-FINISH-V125-V1",
+  "fromOwner": "01B CORE - World / Grid / Buildings",
+  "toOwner": "01E CORE / Runtime",
+  "status": "BLOCKED_ON_01A_PLAYER_HOUSE_ROOM_SURFACE_TARGET_PROMOTION",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624
+  },
+  "semanticContract": "ddv.room-finish-semantics@1",
+  "frozenAdapter": "01b-room-finish-v125-v1",
+  "prerequisite": "01B-TO-01A-ROOM-SURFACE-TARGET-V125-V1 implemented, Integrator-promoted, and candidate generation independently verified",
+  "commonSetup": [
+    "one exact-build baseline with a uniquely resolved HouseItemID + floorIndex + RoomSlot",
+    "record PlayerHouseIndex, FloorGridID, exact WallGridIDs map, Flooring, Wallpapers, WallpaperOffsetById and Ceiling",
+    "snapshot Trimming inventory/Collection/ownership/entitlement/Store/progression and unrelated Room/House state",
+    "choose generator-available non-sync TrimmingItemData definitions of exact Flooring/Wallpaper subtype"
+  ],
+  "cases": [
+    {
+      "id": "FLOORING_ONE_SCALAR",
+      "mutation": "one SET_FLOORING candidate",
+      "expectedCandidateDiff": [
+        "/World/PlayerHouses/{playerHouseIndex}/Floors/{floorIndex}/Rooms/{roomSlot}/Flooring"
+      ],
+      "runtimeAcceptance": [
+        "game loads and target room renders requested flooring",
+        "normal save + full exit + cold relaunch preserves flooring",
+        "WallpaperOffsetById/Ceiling/FloorGridID/WallGridIDs remain exact",
+        "no additional serialized companion field is required"
+      ]
+    },
+    {
+      "id": "WALLPAPER_CURRENT_WALL_ONE_MAP_ENTRY",
+      "mutation": "one SET_WALLPAPER CURRENT_WALL candidate using Core reverse-resolved activeWallGridId -> WallPosition",
+      "expectedCandidateDiff": [
+        "/World/PlayerHouses/{playerHouseIndex}/Floors/{floorIndex}/Rooms/{roomSlot}/Wallpapers/{resolvedWallPosition}"
+      ],
+      "runtimeAcceptance": [
+        "only intended wall renders requested wallpaper",
+        "other three Wallpapers map values remain exact",
+        "normal save + full exit + cold relaunch preserves current-wall result",
+        "WallpaperOffsetById remains exact and no offset companion mutation is required"
+      ]
+    },
+    {
+      "id": "WALLPAPER_ALL_WALLS_MAP_SET",
+      "mutation": "one SET_WALLPAPER ALL_WALLS semantic operation targeting WallPosition 0/1/2/3",
+      "expectedCandidateDiff": "only Wallpapers/{0..3} leaves whose before value differs from requested wallpaper",
+      "runtimeAcceptance": [
+        "all four room walls render requested wallpaper",
+        "normal save + full exit + cold relaunch preserves all-walls result",
+        "WallpaperOffsetById remains exact and no offset companion mutation is required"
+      ]
+    }
+  ],
+  "commonPostAcceptance": [
+    "HouseItemID/current-save room identity guards remain unchanged",
+    "Room Name/RoomPrefabAddress/Grid IDs/Ceiling remain exact",
+    "all GridObject identity/payload remains exact",
+    "Trimming inventory/Collection/ownership/entitlement/Store/progression remain unchanged by Wand offline writer",
+    "exact original backup restores and loads"
+  ],
+  "explicitlyNotRequested": [
+    "WallpaperOffset editing",
+    "Ceiling editing",
+    "room resize/expansion",
+    "native gameplay inventory debit/refund equivalence",
+    "generic PlayerHouse writer",
+    "arbitrary JSON patch",
+    "persistent-write authorization"
+  ],
+  "hardFlags": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false
+  }
+}
