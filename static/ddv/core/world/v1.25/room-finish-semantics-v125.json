@@ -16,38 +16,35 @@
     "profileSchemaVersion": 624
   },
   "evidence": {
+    "confirmedCurrentBinary": {
+      "mainSha256": "3258d5e05aded708c06017b8763fa37bfb696385a2ab29dd8a182d3938cbc0e0",
+      "flooringApplyThisRva": "0x53D4D00",
+      "wallpaperApplyThisRva": "0x53E1E30",
+      "wallpaperChangeHelperRva": "0x53E2470",
+      "wallpaperOffsetApplyThisRva": "0x53DCB30"
+    },
     "confirmedStaticCurrentV125": [
       "ProfileWorld.PlayerHouses is a repeated House list; PlayerHouseIndex is save-local 0-based index",
       "House.Floors is repeated; Floor.Rooms is MapField<int,Room> keyed by RoomSlot",
-      "RoomSlot Center=0 Left=1 Right=2 Top=3",
-      "Room fields: FloorGridID, WallGridIDs, RoomPrefabAddress, Flooring, Wallpapers, WallpaperOffsetById, Ceiling",
-      "WallPosition Top=0 Right=1 Bottom=2 Left=3",
-      "WallGridIDs is MapField<int,uint>",
-      "Wallpapers is MapField<int,int>, therefore wall identity is map-key semantics rather than list ordering",
-      "WallpaperOffsetById is MapField<int,float>",
-      "ChangePlayerHouseFlooring request = PlayerHouseIndex/FloorIndex/RoomSlot/FlooringItemID",
-      "ChangePlayerHouseWallpaper request = PlayerHouseIndex/FloorIndex/RoomSlot + optional oneof WallPosition + WallpaperItemID",
-      "ChangePlayerHouseWallpaper Request.ModifiedWall is Nullable<WallPosition>; specified wall selects one wall and no wall selection is the all-walls transaction form",
-      "ChangePlayerHouseWallpaperOffset is a separate request keyed by WallpaperItemID + Offset and has no WallPosition",
-      "GridEditMode has separate ChangePlayerHouseWallpaperCommand and ChangePlayerHouseWallpaperOffsetCommand",
-      "TrimmingItemData is the canonical trimming definition class; TrimmingItemType Wallpaper=0 Flooring=1",
-      "native gameplay result enums include NotEnoughItems for floor/wall changes"
+      "RoomSlot Center=0 Left=1 Right=2 Top=3; WallPosition Top=0 Right=1 Bottom=2 Left=3",
+      "Room.Flooring is int; Room.Wallpapers is MapField<int,int> keyed by WallPosition",
+      "Room.WallpaperOffsetById is MapField<int,float> keyed by Wallpaper ItemID",
+      "Flooring ApplyThis resolves house/floor/room, requires Item.TryGet<TrimmingItemType> == Flooring and ProfilePlayer.HasItem(item,1), returns AlreadySet on same ID, then writes Room.Flooring only",
+      "Wallpaper ApplyThis requires TrimmingItemType Wallpaper and ProfilePlayer.HasItem(item,1); oneof WallPosition means one wall, absent wall selection enumerates all WallPosition values",
+      "Wallpaper helper replaces Wallpapers[wallPosition] and removes WallpaperOffsetById[oldWallpaperItemId] iff the old item ID is no longer present in Wallpapers.Values after replacement",
+      "Wallpaper replacement never creates or resets an offset entry for the new wallpaper ID",
+      "ChangePlayerHouseWallpaperOffset is a separate offset-value transaction and corroborates ItemID-keyed offset semantics"
     ],
     "confirmedCurrentSave": [
-      "current v1.25 audited profile has 60 PlayerHouses and 240 rooms",
-      "each audited room has one FloorGridID and four WallGridIDs",
-      "current audited rooms persist Flooring, Wallpapers, WallpaperOffsetById and Ceiling"
+      "audited schema-624 Switch profile has 60 PlayerHouses and 240 rooms",
+      "every audited room has one FloorGridID, four WallGridIDs, Flooring, Wallpapers, WallpaperOffsetById and Ceiling",
+      "Player.ListInventories is MapField<uint,ListInventory>; current Trimming ListInventory is identified by CompatibleItemType=ItemType_Trimming",
+      "observed Trimming inventory entries persist Amount and Marker"
     ],
-    "boundedWandWriteDecisions": [
-      "DEC-UX-241..242 changes only requested Room finish fields; it does not emulate native gameplay inventory debit/refund side effects",
-      "WallpaperOffsetById is preserved exactly because offset editing is a separate transaction and is not authorized by DEC-UX-241..242",
-      "Ceiling is read context only and preserved exactly",
-      "Trimming inventory, Collection, ownership/provenance, entitlement/premium/DLC, Store/Shop and progression state are preserved exactly"
-    ],
-    "notClaimed": [
-      "native ChangePlayerHouseFlooring/Wallpaper ApplyThis inventory quantity/refund algorithm",
-      "native automatic offset cleanup policy inside wallpaper replacement",
-      "persistent cold-reload acceptance of Wand offline Room surface mutation"
+    "boundedSafety": [
+      "Room Finish requires source-save ownership Amount>=1 and preserves Trimming inventory exactly; it never grants/unlocks/debits/refunds an item",
+      "owned sync-online or generator-unavailable Trimming definitions are not rejected solely by those flags because current native Room Finish gates are subtype + ownership; entitlement/provenance state remains untouched",
+      "Ceiling is read context only and never writable under DEC-UX-241..242"
     ]
   },
   "identity": {
@@ -57,9 +54,9 @@
       "RoomSlot"
     ],
     "currentSaveResolution": [
-      "PlayerHouseIndex may be used only after resolving/verifying HouseItemID in the current save",
-      "if PlayerHouseIndex is absent, HouseItemID must resolve uniquely in the current PlayerHouses list",
-      "FloorGridID and WallGridIDs are diagnostic/current-save identity guards, never portable public identity"
+      "PlayerHouseIndex may be used only after verifying HouseItemID in the current save",
+      "if PlayerHouseIndex is absent, HouseItemID must resolve uniquely",
+      "FloorGridID and WallGridIDs are diagnostic/current-save identity guards, never portable identity"
     ],
     "roomSlot": {
       "Center": 0,
@@ -98,14 +95,13 @@
   },
   "definitionEligibility": {
     "class": "TrimmingItemData",
-    "common": [
-      "item ID must be a positive current definition ID",
-      "IsUnavailableForGenerator=false",
-      "IsSyncOnlineItem=false"
-    ],
-    "flooring": "TrimmingItem.Type == Flooring",
-    "wallpaper": "TrimmingItem.Type == Wallpaper",
-    "nativeInventoryAvailability": "not a mutation companion in this bounded offline contract; no inventory amount is changed"
+    "flooring": "Item.TryGet<TrimmingItemType> == Flooring",
+    "wallpaper": "Item.TryGet<TrimmingItemType> == Wallpaper",
+    "nativeOwnershipRequired": true,
+    "ownershipSource": "unique Player.ListInventories entry with CompatibleItemType=ItemType_Trimming; Inventory[itemId].Amount >= 1",
+    "inventoryMutation": "FORBIDDEN_PRESERVE_EXACT",
+    "syncOnlinePolicy": "OWNED_ONLY_NO_GRANT; IsSyncOnlineItem alone is not a Room Finish rejection",
+    "generatorAvailabilityPolicy": "IsUnavailableForGenerator alone is not a Room Finish rejection"
   },
   "serializedMutationSemantics": {
     "flooring": {
@@ -116,9 +112,8 @@
     "wallpaperCurrentWall": {
       "operation": "SET_WALLPAPER",
       "scope": "CURRENT_WALL",
-      "exactPath": "/World/PlayerHouses/{playerHouseIndex}/Floors/{floorIndex}/Rooms/{roomSlot}/Wallpapers/{wallPosition}",
-      "mutation": "replace exactly one wall-position map value",
-      "activeWallIdentity": "wallPosition is Core-resolved from activeWallGridId via WallGridIDs reverse lookup"
+      "wallpaperPath": "/World/PlayerHouses/{playerHouseIndex}/Floors/{floorIndex}/Rooms/{roomSlot}/Wallpapers/{wallPosition}",
+      "mutation": "replace exactly one wall-position map value plus native stale-old-offset cleanup when applicable"
     },
     "wallpaperAllWalls": {
       "operation": "SET_WALLPAPER",
@@ -129,12 +124,14 @@
         2,
         3
       ],
-      "paths": "one Wallpapers/{wallPosition} leaf per wall whose current value differs from requested item",
-      "mutation": "all four wall intents are one atomic semantic operation; unchanged wall leaves remain byte/semantic-preserved"
+      "mutation": "one atomic semantic operation; set only differing Wallpapers leaves, then perform the same native stale-old-offset cleanup for old IDs no longer referenced"
     },
     "wallpaperOffsetById": {
-      "policy": "PRESERVE_EXACT",
-      "reason": "separate current-v1.25 ChangePlayerHouseWallpaperOffset transaction; DEC-UX-241..242 does not edit offset"
+      "policy": "NATIVE_STALE_OLD_ITEM_CLEANUP_ONLY",
+      "keySemantics": "Wallpaper ItemID",
+      "cleanupRule": "after each effective wallpaper replacement, if oldWallpaperItemId is absent from final/remaining Wallpapers.Values, remove WallpaperOffsetById[oldWallpaperItemId] when present",
+      "newWallpaperRule": "preserve existing new-item offset if present; otherwise do not create one",
+      "arbitraryOffsetValueEditAuthorized": false
     },
     "ceiling": {
       "policy": "PRESERVE_EXACT_READ_CONTEXT_ONLY"
@@ -151,12 +148,11 @@
   },
   "atomicDraftSemantics": {
     "oneRoomOnly": true,
-    "staleIdentityPolicy": "fail if HouseItemID, PlayerHouseIndex, FloorGridID or WallGridIDs no longer match the resolved draft source",
-    "preconditionPolicy": "each changed leaf must still equal its draft baseline before value",
-    "currentWall": "one map leaf all-or-nothing",
-    "allWalls": "all four wall intents resolved before mutation; apply changed leaf subset as one all-or-nothing draft operation",
+    "staleIdentityPolicy": "fail if HouseItemID, PlayerHouseIndex, FloorGridID or WallGridIDs drift; fail if owned Trimming amount drifts from frozen precondition",
+    "currentWall": "wallpaper leaf + any native stale-offset removal are one Undo/Redo transaction",
+    "allWalls": "all targeted wall replacements + all native stale-offset removals are one Undo/Redo transaction",
     "flooring": "one scalar all-or-nothing",
-    "undoRedo": "owned by WEP draft history; Core mutation plan is deterministic and side-effect-free"
+    "undoRedo": "owned by WEP draft history; Core mutation is deterministic"
   },
   "preservation": {
     "exact": [
@@ -165,8 +161,8 @@
       "Room.FloorGridID",
       "Room.WallGridIDs",
       "Room.RoomPrefabAddress",
-      "Room.WallpaperOffsetById",
       "Room.Ceiling",
+      "all WallpaperOffsetById entries except declared native stale-old-item cleanup removals",
       "all other rooms/houses",
       "Trimming inventory",
       "Collection",
@@ -179,7 +175,7 @@
   },
   "saveLayerBinding": {
     "existingFoundationCanRepresentDirectly": false,
-    "reason": "current 01A normalizeTarget/validateTargetIdentity only accept GRID_OBJECT and GRID_OBJECT_SET; room fields are non-GridObject profile state",
+    "reason": "current 01A normalizeTarget/validateTargetIdentity only accept GRID_OBJECT and GRID_OBJECT_SET; Room finish leaves are non-GridObject profile state",
     "newGenericCapabilityRequired": false,
     "minimumAdditiveRequest": "01B-TO-01A-ROOM-SURFACE-TARGET-V125-V1",
     "reuseCapability": "WRITE_CANDIDATE",
@@ -191,17 +187,10 @@
     "owner": "01E after 01A bounded target support and Integrator promotion",
     "requestId": "01B-TO-01E-ROOM-FINISH-V125-V1",
     "minimumCases": [
-      "one Flooring change",
-      "one CURRENT_WALL wallpaper change",
-      "one ALL_WALLS wallpaper change"
-    ],
-    "acceptance": [
-      "candidate diff contains only the frozen Room finish leaf paths for the case",
-      "WallpaperOffsetById, Ceiling, Room Grid IDs and all unrelated state remain exact",
-      "game loads and intended finish is rendered",
-      "normal in-game save + full process exit + cold relaunch preserves the intended finish",
-      "post-runtime save shows no required serialized companion field omitted by the frozen candidate",
-      "exact original backup restores and loads"
+      "one owned Flooring change",
+      "one owned CURRENT_WALL wallpaper change whose old wallpaper offset is removed because the old wallpaper becomes unreferenced",
+      "one owned CURRENT_WALL wallpaper change where old offset is preserved because another wall still uses the old wallpaper",
+      "one owned ALL_WALLS wallpaper change with native stale-offset cleanup"
     ]
   },
   "hardFlags": {
