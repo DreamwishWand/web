@@ -16,7 +16,7 @@
 
   $: if (open && dialog && !dialog.open && !opening) {
     opening = true;
-    restoreFocus = openModalDialog(dialog, { initialFocus: closeButton });
+    restoreFocus = openModalDialog(dialog, { initialFocus: closeButton } as any);
     queueMicrotask(() => { opening = false; });
   }
   $: if (!open && dialog?.open && !opening) {
