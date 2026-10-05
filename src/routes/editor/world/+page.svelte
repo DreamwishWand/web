@@ -2124,7 +2124,8 @@
             sourceFingerprint: fingerprint,
             sourceBytes: bytes,
             worldSource: opened,
-            originalSaveBackup
+            originalSaveBackup,
+            activeDraftRecord: null
           });
         } else {
           message = t(
