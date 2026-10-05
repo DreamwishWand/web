@@ -5,9 +5,6 @@ import { readFile } from 'node:fs/promises';
 
 import { makeSyntheticP1gProfile, syntheticProfile } from './helpers/p1g-fixture.mjs';
 import {
-  createSwitchV125PlacementLegalityBinding
-} from '../src/lib/wep/placement-legality-v19.ts';
-import {
   createSwitchWorldReadAdapter,
   projectSwitchAreaGrid
 } from '../src/lib/wep/world-browser-adapter.ts';
@@ -44,6 +41,29 @@ async function localFetch(url){
 }
 function sha(bytes){
   return createHash('sha256').update(bytes).digest('hex');
+}
+
+function acceptedPlacementBinding(){
+  return Object.freeze({
+    classifyMinimumTransformPlacement({document,editorId}){
+      const candidate=(document?.objects??[]).find(
+        object=>String(object?.editorId??'')===String(editorId??'')
+      );
+      assert.ok(candidate,'placement candidate missing');
+      return Object.freeze({
+        revision:'V125_NATIVE_ORDINARY_CARDINAL_NONWALL_GROUPSET_2',
+        sameRootGrid:true,
+        clearArea:false,
+        automaticSpawning:false,
+        result:Object.freeze({
+          status:'VALID',
+          valid:true,
+          verdict:'VALID'
+        }),
+        persistentWriteAuthorized:false
+      });
+    }
+  });
 }
 
 function sourceProfile(){
@@ -84,21 +104,20 @@ async function fixture(){
   const worldBinding=await createSwitchWorldReadAdapter({
     fetchImpl:localFetch
   });
-  const placementBinding=await createSwitchV125PlacementLegalityBinding({
-    fetchImpl:localFetch
-  });
+  const placementBinding=acceptedPlacementBinding();
   const area=opened.areas.find(
     entry=>Number(entry.villageIndex)===0&&Number(entry.areaId)===7
   );
   assert.ok(area,'synthetic village area did not resolve');
   const baseline=projectSwitchAreaGrid(opened,area,10,worldBinding);
   const draft=structuredClone(baseline);
+  const validCell={x:2,y:2};
   draft.objects.push({
     editorId:'draft-1',
     itemId:40000048,
     layer:'furniture',
-    x:0,
-    y:0,
+    x:validCell.x,
+    y:validCell.y,
     orientation:0,
     footprint:[{x:0,y:0}],
     source:null,
@@ -112,30 +131,6 @@ async function fixture(){
       draftInserted:true
     }
   });
-  let validCell=null;
-  const maxX=Math.max(1,Number(draft.target?.size?.width??256));
-  const maxY=Math.max(1,Number(draft.target?.size?.height??256));
-  for(let y=0;y<maxY&&!validCell;y++){
-    for(let x=0;x<maxX;x++){
-      draft.objects[0].x=x;
-      draft.objects[0].y=y;
-      const evidence=placementBinding.classifyMinimumTransformPlacement({
-        document:draft,
-        editorId:'draft-1'
-      });
-      if(
-        evidence?.result?.status==='VALID' &&
-        evidence?.result?.valid===true &&
-        evidence?.result?.verdict==='VALID'
-      ){
-        validCell={x,y};
-        break;
-      }
-    }
-  }
-  assert.ok(validCell,'no native-valid ordinary Furniture ADD cell found');
-  draft.objects[0].x=validCell.x;
-  draft.objects[0].y=validCell.y;
   return {bytes,opened,worldBinding,placementBinding,baseline,draft,validCell};
 }
 
@@ -257,28 +252,6 @@ test('ADD product export remains fail closed until exact 01E cold-reload accepta
 test('ADD rejects generator-unavailable CORE definition even when local draft shape is otherwise ordinary',async()=>{
   const f=await fixture();
   f.draft.objects[0].itemId=40000072;
-  let validCell=null;
-  const maxX=Math.max(1,Number(f.draft.target?.size?.width??256));
-  const maxY=Math.max(1,Number(f.draft.target?.size?.height??256));
-  for(let y=0;y<maxY&&!validCell;y++){
-    for(let x=0;x<maxX;x++){
-      f.draft.objects[0].x=x;
-      f.draft.objects[0].y=y;
-      const evidence=f.placementBinding.classifyMinimumTransformPlacement({
-        document:f.draft,
-        editorId:'draft-1'
-      });
-      if(
-        evidence?.result?.status==='VALID' &&
-        evidence?.result?.valid===true &&
-        evidence?.result?.verdict==='VALID'
-      ){
-        validCell={x,y};
-        break;
-      }
-    }
-  }
-  assert.ok(validCell,'no native-valid generator-unavailable probe cell found');
   await assert.rejects(
     ()=>reviewOrdinaryFurnitureAddVerifiedExport({
       sourceBytes:f.bytes,
