@@ -8,14 +8,22 @@
   import VisualCard from '$lib/ui/VisualCard.svelte';
 
   $: copy = homeCopy($locale);
-  const titleById = {
-    decorate: () => copy.decorate, collection: () => copy.collection, guide: () => copy.guide,
-    presets: () => copy.presets, gallery: () => copy.gallery, dreamsnaps: () => copy.dreamsnaps
-  };
-  const detailById = {
-    decorate: () => copy.decorateDetail, collection: () => copy.collectionDetail, guide: () => copy.guideDetail,
-    presets: () => copy.presetsDetail, gallery: () => copy.galleryDetail, dreamsnaps: () => copy.dreamsnapsDetail
-  };
+  function titleFor(id: string): string {
+    if (id === 'decorate') return copy.decorate;
+    if (id === 'collection') return copy.collection;
+    if (id === 'guide') return copy.guide;
+    if (id === 'presets') return copy.presets;
+    if (id === 'gallery') return copy.gallery;
+    return copy.dreamsnaps;
+  }
+  function detailFor(id: string): string {
+    if (id === 'decorate') return copy.decorateDetail;
+    if (id === 'collection') return copy.collectionDetail;
+    if (id === 'guide') return copy.guideDetail;
+    if (id === 'presets') return copy.presetsDetail;
+    if (id === 'gallery') return copy.galleryDetail;
+    return copy.dreamsnapsDetail;
+  }
 </script>
 
 <svelte:head>
@@ -30,7 +38,7 @@
 
   <GroupedCardGrid label={copy.products} minCardWidth="16rem" className="home-product-grid">
     {#each HOME_STAGE1_CONSUMER.coreProducts as card}
-      <VisualCard href={base + card.href} title={titleById[card.id]()} description={detailById[card.id]()} icon={card.icon} />
+      <VisualCard href={base + card.href} title={titleFor(card.id)} description={detailFor(card.id)} icon={card.icon} />
     {/each}
   </GroupedCardGrid>
 
