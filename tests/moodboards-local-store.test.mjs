@@ -5,7 +5,11 @@ import {
   addMoodboardReference,
   createEmptyMoodboardDocument,
   createMoodboard,
+  createMoodboardGroup,
+  assignMoodboardReferenceGroups,
   deleteMoodboard,
+  deleteMoodboardGroup,
+  moodboardSections,
   normalizeMoodboardDocument,
   parseMoodboardDocument,
   removeMoodboardReference,
@@ -56,4 +60,64 @@ test('Moodboard reference URLs fail closed for unsupported schemes', () => {
     type: 'URL', label: 'unsafe', url: 'javascript:alert(1)'
   }, { now: t0, idFactory: ids('unsafe') });
   assert.equal(added.reference.url, null);
+});
+
+test('Moodboard Groups are many-to-many views over canonical references and legacy duplicates collapse safely', () => {
+  let doc = createMoodboard(createEmptyMoodboardDocument(t0), { title: 'Grouped' }, { now: t0, idFactory: ids('grouped') }).document;
+  const boardId = doc.boards[0].id;
+  let result = createMoodboardGroup(doc, boardId, 'Entrance', { now: t0, idFactory: ids('entrance') });
+  doc = result.document;
+  const entrance = result.group.id;
+  result = createMoodboardGroup(doc, boardId, 'Night', { now: t0, idFactory: ids('night') });
+  doc = result.document;
+  const night = result.group.id;
+
+  const added = addMoodboardReference(doc, boardId, {
+    type: 'ITEM',
+    label: 'Lamp',
+    entityId: '40000001'
+  }, { now: t0, idFactory: ids('lamp') });
+  doc = assignMoodboardReferenceGroups(
+    added.document,
+    boardId,
+    added.reference.id,
+    [entrance, night],
+    { now: t0 }
+  );
+
+  const sections = moodboardSections(doc.boards[0]);
+  assert.equal(sections.find(section => section.id === entrance).references.length, 1);
+  assert.equal(sections.find(section => section.id === night).references.length, 1);
+  assert.equal(doc.boards[0].references.length, 1, 'Group membership duplicated canonical Item record');
+
+  doc = deleteMoodboardGroup(doc, boardId, entrance, { now: t0 });
+  assert.equal(doc.boards[0].references.length, 1, 'Deleting one Group deleted shared reference');
+  assert.deepEqual(doc.boards[0].references[0].groupIds, [night]);
+
+  const legacy = structuredClone(doc);
+  legacy.boards[0].references.push({
+    ...legacy.boards[0].references[0],
+    id: 'legacy-duplicate',
+    groupIds: []
+  });
+  const migrated = normalizeMoodboardDocument(legacy, t0);
+  assert.equal(migrated.boards[0].references.length, 1);
+  assert.equal(migrated.boards[0].references[0].entityId, '40000001');
+});
+
+test('Moodboard placement-source reads do not mutate planning membership or acquisition-adjacent state', () => {
+  let doc = createMoodboard(createEmptyMoodboardDocument(t0), { title: 'Invariant' }, { now: t0, idFactory: ids('invariant') }).document;
+  const boardId = doc.boards[0].id;
+  const before = addMoodboardReference(doc, boardId, {
+    type: 'ITEM',
+    label: 'Chair',
+    entityId: '40000123'
+  }, { now: t0, idFactory: ids('chair') }).document;
+  const snapshot = structuredClone(before);
+  const sections = moodboardSections(before.boards[0]);
+  assert.equal(sections.at(-1).references[0].entityId, '40000123');
+  assert.deepEqual(before, snapshot, 'Browsing Moodboard sections mutated stored planning state');
+  assert.equal('owned' in before.boards[0].references[0], false);
+  assert.equal('favorite' in before.boards[0].references[0], false);
+  assert.equal('hidden' in before.boards[0].references[0], false);
 });
