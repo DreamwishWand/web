@@ -172,6 +172,7 @@
   let recoveryRecords: any[] = [];
   let recoveryRequest: any = null;
   let recoveryStatus = '';
+  let pendingWorldEditorHandoff: any = null;
   let saveFileInput: HTMLInputElement;
   let verifiedExportBaselineDocument: any = null;
   let verifiedExportReview: any = null;
@@ -1755,6 +1756,7 @@
     refreshRecoveryRecords();
     try {
       const pendingHandoff = readWorldEditorHandoff(localStorage);
+      pendingWorldEditorHandoff = pendingHandoff;
       if (pendingHandoff) {
         switchWorldBinding ??= await createSwitchWorldReadAdapter({
           basePath: base
@@ -3271,6 +3273,19 @@
 
   {#if message}
     <div class="status" aria-live="polite">{message}</div>
+  {/if}
+
+  {#if pendingWorldEditorHandoff && !editorDocument}
+    <section class="pre-source-stage1" data-wep-pre-source-stage1>
+      <WorldEditorStage1DecoratePanel
+        {session}
+        {editorDocument}
+        {switchWorldBinding}
+        {mutationBound}
+        presetBridge={bridge}
+        onMutation={finishDraftMutation}
+      />
+    </section>
   {/if}
 
   {#if editorDocument}
@@ -5077,5 +5092,13 @@
   .recovery-status { grid-column: 1 / -1; }
   @media (max-width: 760px) {
     .recovery-panel { grid-template-columns: 1fr; }
+  }
+
+  .pre-source-stage1{
+    margin-top:14px;
+    border:1px solid var(--border);
+    border-radius:17px;
+    background:var(--surface);
+    padding:16px;
   }
 </style>
