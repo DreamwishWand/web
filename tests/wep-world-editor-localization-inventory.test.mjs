@@ -158,13 +158,17 @@ test('localization inventory does not relax the World Editor persistent-write sa
 });
 
 
-test('integrated shared shell includes Community navigation in the World Editor inventory', () => {
+test('closed Home shared shell inventory has explicit Home/global controls and no Product navigation dependency', () => {
   const shell = inventory.categories.navigation.find(
     (entry) => entry.surface === 'Shared site shell rendered on World Editor'
   );
   assert.ok(shell);
-  assert.equal(shell.source.includes('src/lib/community/CommunityNav.svelte'), true);
-  for (const label of ['Gallery', 'DreamSnaps', 'Q&A']) {
-    assert.equal(shell.strings.includes(label), true);
+  assert.deepEqual(shell.source, [
+    'src/lib/SiteHeader.svelte',
+    'src/lib/SiteFooter.svelte'
+  ]);
+  for (const label of ['ホーム', 'Wandを知る', 'DDVセーブを開く', '通知', 'サインイン', '言語', '設定']) {
+    assert.equal(shell.strings.includes(label), true, label);
   }
+  assert.equal(shell.source.includes('src/lib/community/CommunityNav.svelte'), false);
 });

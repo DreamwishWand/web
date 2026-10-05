@@ -1,7 +1,7 @@
 {
   "schema": "dreamwish-wand-world-editor-localization-inventory@1",
   "status": "COMPLETE_FOR_PINNED_SOURCES",
-  "generatedAt": "2026-10-05",
+  "generatedAt": "2026-10-06",
   "target": {
     "product": "Decorate / World Editor",
     "platform": "Nintendo Switch",
@@ -22,10 +22,8 @@
     "src/routes/editor/world/+page.svelte": "00a3febb07965bb44e889739b08f13baab542bd8",
     "src/lib/wep/world-editor-primary-job.ts": "a8e49f4f2eec543b9aaebd2d552c9da8e36270d5",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
-    "src/lib/SiteHeader.svelte": "aefa15858cc70e80e0c5c7e66fc717508c04c344",
-    "src/lib/SiteFooter.svelte": "c1f5ce8166a83e1464ad74d3a73714894650882e",
-    "src/lib/community/CommunityNav.svelte": "bd9a7636147e83c1d42931df48464f3a4c86f01b",
-    "src/lib/product-home/copy.js": "bbe79a69abf213f02ecfbda416900283c3455243",
+    "src/lib/SiteHeader.svelte": "711609eb100a0809a5e9a5b274f83dd9319e3645",
+    "src/lib/SiteFooter.svelte": "4b20121a1295e42aeaeb25e39cb3853bd80da0e8",
     "src/lib/wep/WorldEditorStage1DecoratePanel.svelte": "4c4e0543df4e09399afc88f53ed74ee9f07c3615",
     "src/lib/wep/world-editor-stage1-copy.js": "ef7edb294865844459754cc08b3bca4e7498319e"
   },
@@ -62,7 +60,7 @@
       "pt-BR"
     ],
     "rule": "World Editor presentation resolves through the shared locale runtime. WEP does not own a locale store, selector, fallback resolver, formatter, or resource loader.",
-    "routeChangeNote": "Decorate Stage 1 bounded consumer repin: the World Editor route now renders the closed Stage 1 consumer panel, while Stage 1 presentation copy is supplied by src/lib/wep/world-editor-stage1-copy.js for the same eight launch locales. Existing shared runtime/fallback ownership, blocker/Core reason coverage, machine-code invariants, and persistent-write safety boundary are unchanged."
+    "routeChangeNote": "Promoted 08 WEB shared-shell authority is preserved: SiteHeader remains the closed Home/Global Entry contextual application shell and mobile shell boundary. Decorate Stage 1 WEP consumer presentation is added through WorldEditorStage1DecoratePanel.svelte and world-editor-stage1-copy.js on the same shared eight-locale runtime."
   },
   "translationBoundary": {
     "translate": [
@@ -118,27 +116,28 @@
         "owner": "shared-web",
         "source": [
           "src/lib/SiteHeader.svelte",
-          "src/lib/SiteFooter.svelte",
-          "src/lib/product-home/copy.js",
-          "src/lib/community/CommunityNav.svelte"
+          "src/lib/SiteFooter.svelte"
         ],
         "strings": [
           "本文へ移動",
-          "Dreamwish Wand ホーム",
-          "メインナビゲーション",
-          "Decorate",
-          "Collection",
-          "Guide",
-          "Presets",
+          "ホーム",
+          "Dreamwish Wand",
+          "Wandを知る",
+          "ページ操作",
+          "アプリケーション操作",
+          "DDVセーブを開く",
+          "DDVセーブ",
+          "通知",
+          "未読の通知",
+          "プロフィール",
+          "サインイン",
+          "言語",
+          "ブラウザーの言語を使用",
           "ライトモードに切り替え",
           "ダークモードに切り替え",
-          "Light",
-          "Dark",
+          "設定",
           "非公式ファン制作プロジェクト。Disney／Gameloftとは無関係です。",
-          "Help & Bugs",
-          "Gallery",
-          "DreamSnaps",
-          "Q&A"
+          "Help & Bugs"
         ]
       }
     ],

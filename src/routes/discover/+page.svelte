@@ -1,6 +1,6 @@
 <script lang="ts">
   import { base } from '$app/paths';
-  import { locale } from '$lib/i18n/runtime.js';
+  import { locale, t } from '$lib/i18n/runtime.js';
   import { homeCopy } from '$lib/product-home/copy.js';
   import { HOME_STAGE1_CONSUMER } from '$lib/ui/consumer-fixtures.js';
   import ResponsiveFrame from '$lib/ui/ResponsiveFrame.svelte';
@@ -26,29 +26,17 @@
   }
 </script>
 
-<svelte:head>
-  <title>Dreamwish Wand — Home</title>
-  <meta name="description" content="Dreamwish Wand product hub for Disney Dreamlight Valley decorating, collection, guides, presets, Gallery, DreamSnaps and Q&A." />
-</svelte:head>
+<svelte:head><title>{t('shared.orientation.title', {}, $locale)} | Dreamwish Wand</title></svelte:head>
 
-<ResponsiveFrame className="home-dashboard">
-  <header class="home-dashboard-heading">
-    <h1>Dreamwish Wand</h1>
+<ResponsiveFrame className="discover-page">
+  <header class="orientation-heading">
+    <h1>{t('shared.orientation.title', {}, $locale)}</h1>
+    <p>{t('shared.orientation.intro', {}, $locale)}</p>
   </header>
-
-  <GroupedCardGrid label={copy.products} minCardWidth="16rem" className="home-product-grid">
+  <GroupedCardGrid label={t('shared.orientation.products', {}, $locale)}>
     {#each HOME_STAGE1_CONSUMER.coreProducts as card}
       <VisualCard href={base + card.href} title={titleFor(card.id)} description={detailFor(card.id)} icon={card.icon} />
     {/each}
+    <VisualCard href={base + HOME_STAGE1_CONSUMER.qa.href} title={copy.qa} description={copy.qaDetail} icon={HOME_STAGE1_CONSUMER.qa.icon} />
   </GroupedCardGrid>
-
-  <div class="home-qa-entry">
-    <VisualCard
-      href={base + HOME_STAGE1_CONSUMER.qa.href}
-      title={copy.qa}
-      description={copy.qaDetail}
-      icon={HOME_STAGE1_CONSUMER.qa.icon}
-      variant="horizontal"
-    />
-  </div>
 </ResponsiveFrame>
