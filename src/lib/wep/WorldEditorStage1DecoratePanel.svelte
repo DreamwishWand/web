@@ -19,6 +19,7 @@
 
   export let session: any = null;
   export let editorDocument: any = null;
+  export let selection: string[] = [];
   export let switchWorldBinding: any = null;
   export let mutationBound = false;
   export let selectionIds: string[] = [];
