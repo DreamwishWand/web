@@ -216,9 +216,9 @@ test('ADD candidate pipeline reaches 01A verifier, export bundle and canonical r
   assert.equal(evidence.source.untouched,true);
   assert.equal(evidence.productExportAuthorized,false);
   assert.equal(evidence.persistentWriteAuthorized,false);
-  assert.ok(evidence.artifacts.editedSave.bytes.length>0);
+  assert.ok(evidence.artifacts.edited.bytes.length>0);
   assert.deepEqual(
-    Array.from(evidence.artifacts.originalBackup.bytes),
+    Array.from(evidence.artifacts.backup.bytes),
     Array.from(f.bytes)
   );
 });
