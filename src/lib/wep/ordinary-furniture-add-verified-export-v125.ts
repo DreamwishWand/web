@@ -327,7 +327,7 @@ export async function reviewOrdinaryFurnitureAddVerifiedExport({
     parentAddress:null
   };
 
-  const admissibility=classifyOrdinaryFurnitureAdd({
+  const admissibility:any=(classifyOrdinaryFurnitureAdd as any)({
     source:{
       platform:'Nintendo Switch',
       gameVersion:'1.25.0',
@@ -374,7 +374,7 @@ export async function reviewOrdinaryFurnitureAddVerifiedExport({
     codecContract:ctx.codecContract,
     targetBuild:{...targetBuild}
   };
-  const plan=buildOrdinaryFurnitureAddTransactionPlan({
+  const plan:any=(buildOrdinaryFurnitureAddTransactionPlan as any)({
     admissibility,
     transactionInput,
     planId:
@@ -467,7 +467,7 @@ export async function verifyOrdinaryFurnitureAddReplacementArtifactPipeline({
     candidate=await createVerifiedWriteCandidate({
       session:safeSession,
       plan:review.plan,
-      adapter:ordinaryFurnitureAddAdapter
+      adapter:ordinaryFurnitureAddAdapter as any
     });
   } catch(cause:any) {
     error('WEP_ADD_CANDIDATE_GENERATION_FAILED',{
