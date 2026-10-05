@@ -520,6 +520,7 @@ const copy = {
   "worldEditor.verifiedExport.failure.reviewStale": "変更確認後にdraftが変化しました。現在のdraftをもう一度確認してください。",
   "worldEditor.verifiedExport.failure.identityMismatch": "target object identityが確認済みsource objectと一致しなくなりました。",
   "worldEditor.verifiedExport.failure.notAdmissible": "このobjectはpromoted minimum stateless-Furniture writer gateを満たしていません。",
+  "worldEditor.verifiedExport.failure.addRuntimePending": "Furniture ADD candidateは現在のstatic/browser gateをPASSしていますが、Nintendo Switchでのexact cold-reload acceptanceが完了するまでエクスポートは無効です。",
   "worldEditor.verifiedExport.failure.changedObjectSelected": "エクスポート確認前に、このdraftで変更した1個のobjectだけを選択してください。",
   "worldEditor.verifiedExport.failure.progressionVeto": "current progression evidenceがこのobject operationをvetoしています。",
   "worldEditor.verifiedExport.failure.invalidDestination": "最終配置がpromoted exact native placement validationをPASSしませんでした。",
