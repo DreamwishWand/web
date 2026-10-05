@@ -238,3 +238,21 @@ test('DEC-UX-248/257 active compatible draft is reusable in-memory before first 
   assert.equal(memory.activeDraftRecord.persistentWriteAuthorized,false);
   assert.deepEqual([...memory.sourceBytes],[1,2,3]);
 });
+
+test('DEC-UX-220..222 recovery compatibility rejects different fingerprint/version/schema', () => {
+  const sourceFingerprint='c'.repeat(64);
+  const target={platform:'switch',gameVersion:'1.25.0',profileSchemaVersion:624};
+  const record=createRecoveryRecord({
+    sourceFingerprint,
+    sourceName:'profile',
+    target,
+    routeKey:'switch|1.25.0|10|GridData/Test.json',
+    sessionSnapshot:createEditorSession(doc()).exportRecoverySnapshot(),
+    now:'2026-10-05T00:00:00.000Z'
+  });
+  assert.equal(recoveryCompatible(record,sourceFingerprint,target),true);
+  assert.equal(recoveryCompatible(record,'d'.repeat(64),target),false);
+  assert.equal(recoveryCompatible(record,sourceFingerprint,{...target,gameVersion:'1.26.0'}),false);
+  assert.equal(recoveryCompatible(record,sourceFingerprint,{...target,profileSchemaVersion:625}),false);
+  assert.equal(recoveryCompatible(record,sourceFingerprint,{...target,platform:'steam-windows'}),false);
+});
