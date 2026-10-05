@@ -19,13 +19,13 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "00a3febb07965bb44e889739b08f13baab542bd8",
+    "src/routes/editor/world/+page.svelte": "4cccec9e10b2dfb707b9db52f93a36b4a431791f",
     "src/lib/wep/world-editor-primary-job.ts": "a8e49f4f2eec543b9aaebd2d552c9da8e36270d5",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "711609eb100a0809a5e9a5b274f83dd9319e3645",
     "src/lib/SiteFooter.svelte": "4b20121a1295e42aeaeb25e39cb3853bd80da0e8",
     "src/lib/wep/WorldEditorStage1DecoratePanel.svelte": "4c4e0543df4e09399afc88f53ed74ee9f07c3615",
-    "src/lib/wep/world-editor-stage1-copy.js": "ef7edb294865844459754cc08b3bca4e7498319e"
+    "src/lib/wep/world-editor-stage1-copy.js": "55d525317ec04b8f883b484a2c5d6b78e29b067c"
   },
   "ownership": {
     "wepOwned": [
@@ -1044,7 +1044,7 @@
         "strings": [
           "VERIFIED REPLACEMENT EXPORT",
           "Review Changes & Export",
-          "The launch writer supports one existing same-root ordinary Furniture MOVE or cardinal ROTATE. Wand creates and independently verifies an edited replacement save; it never overwrites the loaded source.",
+          "Verified replacement export remains available only where the exact promoted writer and runtime gate are closed. Ordinary Furniture ADD may be reviewed through the promoted 01B/01A candidate pipeline, but its user-facing export remains disabled while exact Nintendo Switch cold-reload acceptance is pending.",
           "Verifying…",
           "Review Changes",
           "Verified export is available only for a supported Switch v1.25.0 Area root loaded from the original packaged save.",
@@ -1074,7 +1074,8 @@
           "Keep the exact original backup. Install or import the edited save using your normal save-transfer workflow. Recovery is user-mediated by reinstalling/importing the retained original backup.",
           "Review Changes passed. Confirm the exact semantic change to enable Apply / Export.",
           "I confirm this source was created by Nintendo Switch DDV v1.25.0, Build ID 52BD625D9B4E0053.",
-          "The save format cannot prove the executable Build ID. Confirm the exact source build before Review Changes."
+          "The save format cannot prove the executable Build ID. Confirm the exact source build before Review Changes.",
+          "Furniture ADD candidate verification passes the current static/browser gates, but export remains disabled until exact Nintendo Switch cold-reload acceptance is complete."
         ],
         "failurePresentationKeys": [
           "worldEditor.verifiedExport.failure.unsupportedBuild",
@@ -1093,9 +1094,10 @@
           "worldEditor.verifiedExport.failure.reload",
           "worldEditor.verifiedExport.failure.reloadMismatch",
           "worldEditor.verifiedExport.failure.generic",
-          "worldEditor.verifiedExport.failure.buildConfirmation"
+          "worldEditor.verifiedExport.failure.buildConfirmation",
+          "worldEditor.verifiedExport.failure.addRuntimePending"
         ],
-        "note": "Raw WEP_EXPORT_*, TX_*, Core contract IDs, hashes, Item/Grid/Object IDs, operation enums, and manifest identifiers remain untranslated diagnostics. Presentation wrappers are localized in all eight launch locales. Because the save format does not prove the executable BID, exact Switch v1.25.0 / 52BD625D9B4E0053 user confirmation is required before Review Changes. This surface exports an independently verified replacement artifact only; it does not authorize direct persistent replacement."
+        "note": "Raw WEP_EXPORT_*, WEP_ADD_*, TX_*, Core contract IDs, hashes, Item/Grid/Object IDs, operation enums, and manifest identifiers remain untranslated diagnostics. Presentation wrappers are localized in all eight launch locales. Because the save format does not prove executable BID, exact Switch v1.25.0 / 52BD625D9B4E0053 user confirmation is required before Review Changes. Ordinary Furniture ADD remains review/candidate-evidence only until 01E exact cold-reload acceptance; no ADD Apply / Export control is exposed."
       }
     ],
     "selection": [
@@ -1418,7 +1420,7 @@
           "Preset preflight failed.",
           "Placed in the local draft. Review Changes remains authoritative.",
           "The placement is visible in the draft but fails current validation.",
-          "Room Finish is not bound because the current Core contract does not expose indoor room surface state or a safe flooring/wallpaper draft writer."
+          "Room Finish write remains unavailable until the 01A PLAYER_HOUSE_ROOM transaction target and exact Nintendo Switch runtime acceptance are complete."
         ]
       }
     ]
