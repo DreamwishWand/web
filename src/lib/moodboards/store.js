@@ -87,19 +87,33 @@ function normalizeBoard(board, now) {
   groups.sort((a, b) => a.order - b.order || a.title.localeCompare(b.title));
   groups.forEach((group, index) => { group.order = index; });
 
-  const references = Array.isArray(board?.references)
+  const rawReferences = Array.isArray(board?.references)
     ? board.references.slice(0, MOODBOARD_MAX_REFERENCES).map((entry) => normalizeReference(entry, now, groupIds))
     : [];
+  const references = [];
   const referenceIds = new Set();
-  const canonicalEntityKeys = new Set();
-  for (const reference of references) {
-    if (referenceIds.has(reference.id)) throw new TypeError(`Duplicate Moodboard reference id: ${reference.id}`);
+  const canonicalEntityIndex = new Map();
+  for (const reference of rawReferences) {
+    if (referenceIds.has(reference.id)) continue;
     referenceIds.add(reference.id);
     if ((reference.type === 'ITEM' || reference.type === 'WAND_PRESET') && reference.entityId) {
       const key = `${reference.type}:${reference.entityId}`;
-      if (canonicalEntityKeys.has(key)) throw new TypeError(`Duplicate Moodboard canonical reference: ${key}`);
-      canonicalEntityKeys.add(key);
+      const existingIndex = canonicalEntityIndex.get(key);
+      if (existingIndex !== undefined) {
+        references[existingIndex] = {
+          ...references[existingIndex],
+          groupIds: Array.from(
+            new Set([
+              ...references[existingIndex].groupIds,
+              ...reference.groupIds
+            ])
+          )
+        };
+        continue;
+      }
+      canonicalEntityIndex.set(key, references.length);
     }
+    references.push(reference);
   }
   const createdAt = normalizeDate(board?.createdAt, now);
   return {
