@@ -3,6 +3,6 @@
   export let className = '';
 </script>
 
-<div class="responsive-frame" class:responsive-frame-wide={width === 'wide'} class:responsive-frame-full={width === 'full'} class={className}>
+<div class={'responsive-frame ' + className} class:responsive-frame-wide={width === 'wide'} class:responsive-frame-full={width === 'full'}>
   <slot />
 </div>
