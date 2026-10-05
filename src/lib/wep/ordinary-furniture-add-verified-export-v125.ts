@@ -618,7 +618,7 @@ export async function verifyOrdinaryFurnitureAddReplacementArtifactPipeline({
 }
 
 export async function commitOrdinaryFurnitureAddVerifiedExport(
-  input:AnyRecord
+  input:Parameters<typeof verifyOrdinaryFurnitureAddReplacementArtifactPipeline>[0]
 ) {
   const evidence=await verifyOrdinaryFurnitureAddReplacementArtifactPipeline(input);
   if(evidence.runtimeAcceptance?.status!==ORDINARY_FURNITURE_ADD_RUNTIME_STATUS) {
