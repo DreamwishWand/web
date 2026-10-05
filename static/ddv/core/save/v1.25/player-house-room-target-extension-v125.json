@@ -1,0 +1,67 @@
+{
+  "schema": "ddv.safe-player-house-room-target-extension@1",
+  "artifactId": "DDV-SAFE-PLAYER-HOUSE-ROOM-TARGET-EXTENSION-V125-V1_0",
+  "version": "v1.0",
+  "status": "IMPLEMENTED_WRITE_CANDIDATE_ONLY",
+  "owner": "01A CORE - Save / Codec / Versioning",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624
+  },
+  "upstreamRequest": "01B-TO-01A-ROOM-FINISH-TARGET-V125-V1",
+  "capability": "WRITE_CANDIDATE",
+  "targetKind": "PLAYER_HOUSE_ROOM",
+  "targetIdentity": {
+    "required": [
+      "playerHouseIndex",
+      "houseItemId",
+      "floorIndex",
+      "roomSlot"
+    ],
+    "roomSlotRange": [
+      0,
+      3
+    ],
+    "playerHouseIndex": "current-save locator only",
+    "houseItemId": "semantic binding required before and after"
+  },
+  "allowedRoomFinishLeaves": [
+    "Room/Flooring",
+    "Room/Wallpapers/{WallPosition 0..3}",
+    "Room/WallpaperOffsetById/{WallpaperItemId}"
+  ],
+  "protectedRoomLeaves": [
+    "Room/Name",
+    "Room/FloorGridID",
+    "Room/WallGridIDs",
+    "Room/RoomPrefabAddress",
+    "Room/Ceiling"
+  ],
+  "invariants": [
+    "PlayerHouses length/order preserved",
+    "target HouseItemID preserved",
+    "Floors length/order preserved",
+    "Rooms membership preserved",
+    "all GridObject identities/payloads preserved",
+    "only semantic-owner-declared allowed room leaf paths may change",
+    "GameInfo and unrelated/opaque state preserved"
+  ],
+  "explicitlyNotSupported": [
+    "generic PlayerHouses writer",
+    "arbitrary JSON Patch",
+    "House/Floor/Room create/delete/reorder",
+    "Ceiling write",
+    "GridObject mutation",
+    "persistent source replacement",
+    "Steam inheritance"
+  ],
+  "hardFlags": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false
+  }
+}
