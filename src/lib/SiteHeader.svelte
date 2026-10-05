@@ -8,8 +8,16 @@
   import Sheet from '$lib/ui/Sheet.svelte';
   import { dispatchShellIntent, shellState } from '$lib/ui/shell-state.js';
 
+  type ShellAction = { id: string; label: string; href?: string | null; icon?: string; current?: boolean; disabled?: boolean; pressed?: boolean; expanded?: boolean; intent?: string };
+  type ShellSnapshot = {
+    save: { state: string; label: string; status: string; href: string | null };
+    account: { signedIn: boolean; label: string; href: string | null };
+    notifications: { available: boolean; unread: boolean; href: string | null };
+    contextActions: ShellAction[];
+  };
   let theme: 'night' | 'day' = 'night';
   let mobileSettingsOpen = false;
+  $: shell = $shellState as ShellSnapshot;
 
   onMount(() => {
     theme = document.documentElement.dataset.theme === 'day' ? 'day' : 'night';
@@ -30,14 +38,14 @@
     dispatchShellIntent(intent, detail);
   }
   function accountLabel(): string {
-    return $shellState.account.signedIn
-      ? ($shellState.account.label || t('shared.shell.profile', {}, $locale))
+    return shell.account.signedIn
+      ? (shell.account.label || t('shared.shell.profile', {}, $locale))
       : t('shared.shell.signIn', {}, $locale);
   }
   function saveLabel(): string {
-    if ($shellState.save.state === 'loaded') return $shellState.save.label || t('shared.shell.ddvSave', {}, $locale);
-    if ($shellState.save.state === 'limited' || $shellState.save.state === 'unavailable') {
-      return $shellState.save.label || t('shared.shell.saveLimited', {}, $locale);
+    if (shell.save.state === 'loaded') return shell.save.label || t('shared.shell.ddvSave', {}, $locale);
+    if (shell.save.state === 'limited' || shell.save.state === 'unavailable') {
+      return shell.save.label || t('shared.shell.saveLimited', {}, $locale);
     }
     return t('shared.shell.openSave', {}, $locale);
   }
@@ -62,7 +70,7 @@
         <Icon name="sparkle" decorative={true} size={17} />
         <span>{t('shared.shell.discoverWand', {}, $locale)}</span>
       </a>
-      {#each $shellState.contextActions as action}
+      {#each shell.contextActions as action}
         {#if action.href && !action.disabled}
           <a class="toolbar-context-link" href={action.href} aria-current={action.current ? 'page' : undefined}>
             {#if action.icon}<Icon name={action.icon} decorative={true} size={17} />{/if}
@@ -86,40 +94,40 @@
     </nav>
 
     <div class="toolbar-globals" aria-label={t('shared.shell.globalControls', {}, $locale)}>
-      {#if $shellState.save.href}
-        <a class="shell-control save-control" data-shell-control="save" href={$shellState.save.href}>
+      {#if shell.save.href}
+        <a class="shell-control save-control" data-shell-control="save" href={shell.save.href}>
           <Icon name="save" decorative={true} /><span>{saveLabel()}</span>
-          {#if $shellState.save.status}<small>{$shellState.save.status}</small>{/if}
+          {#if shell.save.status}<small>{shell.save.status}</small>{/if}
         </a>
       {:else}
-        <button class="shell-control save-control" data-shell-control="save" type="button" on:click={() => activate('open-ddv-save', { state: $shellState.save.state })}>
+        <button class="shell-control save-control" data-shell-control="save" type="button" on:click={() => activate('open-ddv-save', { state: shell.save.state })}>
           <Icon name="save" decorative={true} /><span>{saveLabel()}</span>
-          {#if $shellState.save.status}<small>{$shellState.save.status}</small>{/if}
+          {#if shell.save.status}<small>{shell.save.status}</small>{/if}
         </button>
       {/if}
 
-      {#if $shellState.account.signedIn && $shellState.notifications.available}
-        {#if $shellState.notifications.href}
-          <a class="shell-control notification-control" data-shell-control="notifications" href={$shellState.notifications.href} aria-label={t('shared.shell.notifications', {}, $locale)}>
+      {#if shell.account.signedIn && shell.notifications.available}
+        {#if shell.notifications.href}
+          <a class="shell-control notification-control" data-shell-control="notifications" href={shell.notifications.href} aria-label={t('shared.shell.notifications', {}, $locale)}>
             <Icon name="bell" decorative={true} />
             <span>{t('shared.shell.notifications', {}, $locale)}</span>
-            {#if $shellState.notifications.unread}<small class="notification-unread">{t('shared.shell.notificationsUnread', {}, $locale)}</small>{/if}
+            {#if shell.notifications.unread}<small class="notification-unread">{t('shared.shell.notificationsUnread', {}, $locale)}</small>{/if}
           </a>
         {:else}
           <button class="shell-control notification-control" data-shell-control="notifications" type="button" on:click={() => activate('open-notifications')}>
             <Icon name="bell" decorative={true} />
             <span>{t('shared.shell.notifications', {}, $locale)}</span>
-            {#if $shellState.notifications.unread}<small class="notification-unread">{t('shared.shell.notificationsUnread', {}, $locale)}</small>{/if}
+            {#if shell.notifications.unread}<small class="notification-unread">{t('shared.shell.notificationsUnread', {}, $locale)}</small>{/if}
           </button>
         {/if}
       {/if}
 
-      {#if $shellState.account.href}
-        <a class="shell-control account-control" data-shell-control="account" href={$shellState.account.href}>
+      {#if shell.account.href}
+        <a class="shell-control account-control" data-shell-control="account" href={shell.account.href}>
           <Icon name="account" decorative={true} /><span>{accountLabel()}</span>
         </a>
       {:else}
-        <button class="shell-control account-control" data-shell-control="account" type="button" on:click={() => activate($shellState.account.signedIn ? 'open-account' : 'sign-in')}>
+        <button class="shell-control account-control" data-shell-control="account" type="button" on:click={() => activate(shell.account.signedIn ? 'open-account' : 'sign-in')}>
           <Icon name="account" decorative={true} /><span>{accountLabel()}</span>
         </button>
       {/if}
@@ -145,13 +153,13 @@
     </a>
     <span class="mobile-brand">Dreamwish Wand</span>
     <div class="mobile-global-actions">
-      {#if $shellState.account.signedIn && $shellState.notifications.available}
+      {#if shell.account.signedIn && shell.notifications.available}
         <button class="ui-icon-button" data-shell-control="notifications-mobile" type="button" aria-label={t('shared.shell.notifications', {}, $locale)} on:click={() => activate('open-notifications')}>
           <Icon name="bell" decorative={true} />
-          {#if $shellState.notifications.unread}<span class="mobile-unread-text">{t('shared.shell.unread', {}, $locale)}</span>{/if}
+          {#if shell.notifications.unread}<span class="mobile-unread-text">{t('shared.shell.unread', {}, $locale)}</span>{/if}
         </button>
       {/if}
-      <button class="ui-icon-button" data-shell-control="account-mobile" type="button" aria-label={accountLabel()} on:click={() => activate($shellState.account.signedIn ? 'open-account' : 'sign-in')}>
+      <button class="ui-icon-button" data-shell-control="account-mobile" type="button" aria-label={accountLabel()} on:click={() => activate(shell.account.signedIn ? 'open-account' : 'sign-in')}>
         <Icon name="account" decorative={true} />
       </button>
       <IconButton icon="settings" label={t('shared.shell.settings', {}, $locale)} on:activate={() => mobileSettingsOpen = true} />
