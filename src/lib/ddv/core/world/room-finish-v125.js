@@ -52,7 +52,10 @@ function mapEntries(value,reason,reasons,{valueKind='int'}={}){
   const out=[];
   for(const [key,raw] of Object.entries(m)){
     const k=nonNegativeInt(key);
-    let v=valueKind==='uint'?nonNegativeInt(raw):nonNegativeInt(raw);
+    let v;
+    if(valueKind==='float'){
+      const n=Number(raw);v=Number.isFinite(n)?n:null;
+    }else v=nonNegativeInt(raw);
     if(k===null||v===null){reasons.push(reason);continue;}
     out.push([k,v]);
   }
@@ -117,7 +120,7 @@ export function projectIndoorRoomFinish({source,profile,location}={}){
   if(floorGridId===null)reasons.push('ROOM_FLOOR_GRID_ID_INVALID');
   const wallGridEntries=mapEntries(room.WallGridIDs,'ROOM_WALL_GRID_MAP_INVALID',reasons,{valueKind:'uint'});
   const wallpaperEntries=mapEntries(room.Wallpapers,'ROOM_WALLPAPER_MAP_INVALID',reasons);
-  const offsets=mapEntries(room.WallpaperOffsetById,'ROOM_WALLPAPER_OFFSET_MAP_INVALID',reasons);
+  const offsets=mapEntries(room.WallpaperOffsetById,'ROOM_WALLPAPER_OFFSET_MAP_INVALID',reasons,{valueKind:'float'});
   const flooring=nonNegativeInt(room.Flooring),ceiling=nonNegativeInt(room.Ceiling);
   if(flooring===null)reasons.push('ROOM_FLOORING_INVALID');
   if(ceiling===null)reasons.push('ROOM_CEILING_INVALID');
