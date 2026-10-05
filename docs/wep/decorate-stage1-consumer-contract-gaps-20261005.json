@@ -47,7 +47,7 @@
     {
       "id": "WEP_ORDINARY_FURNITURE_ADD_VERIFIED_EXPORT_CONTRACT_REQUIRED",
       "evidence": "CONFIRMED",
-      "status": "BOUND_STATIC_BROWSER_PIPELINE__01E_COLD_RELOAD_PENDING",
+      "status": "CLOSED_RUNTIME_CONFIRMED_AND_WEP_EXPORT_ENABLED",
       "upstream": {
         "semanticContract": "ddv.ordinary-furniture-add-semantics@1",
         "adapterId": "01b-ordinary-root-furniture-add-v125-v1",
@@ -61,11 +61,18 @@
         "nativePlacementGate": true,
         "independentStructuralVerifier": true,
         "reviewChangesOperation": "ADD",
-        "runtimeGate": "PENDING_01E_EXACT_ADD_AFTER_SEMANTIC_FREEZE",
+        "runtimeGate": "ORDINARY_FURNITURE_ADD_RUNTIME_PASS",
         "runtimeRequest": "01B-TO-01E-ORDINARY-FURNITURE-ADD-V125-V1",
-        "productExportAuthorized": false
+        "productExportAuthorized": true
       },
-      "safety": "Candidate/export-bundle pipeline may be source/browser accepted as evidence, but user-facing ADD export remains disabled until exact 01E cold-reload acceptance."
+      "safety": "Browser-local verified replacement artifact/export is enabled for the exact promoted ordinary Furniture ADD subset. Source remains immutable; direct source replacement and persistent Apply remain unauthorized.",
+      "runtimeEvidence": {
+        "requestId": "01B-TO-01E-ORDINARY-FURNITURE-ADD-V125-V1",
+        "status": "CLOSED_PASS",
+        "returnedPackagedSha256": "966d07332aefb27a38ae114b6b974b7117e4971e835ec8821caee765e1fa77fa",
+        "returnedDecodedSha256": "e4cd299b668f493e3e6ec038c5da8a586638dcbc6370ad3344b77752a820a8b0",
+        "confirmation": "candidate load, normal save/re-extract, exact Grid 3 preservation and exact backup restore/load PASS; corroborative cold relaunch PASS"
+      }
     }
   ]
 }
