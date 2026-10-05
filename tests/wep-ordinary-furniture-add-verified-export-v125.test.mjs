@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 
 import { makeSyntheticP1gProfile, syntheticProfile } from './helpers/p1g-fixture.mjs';
 import {
+  NATIVE_PLACEMENT_CLASSES,
   createSwitchV125PlacementLegalityBinding
 } from '../src/lib/wep/placement-legality-v19.ts';
 import {
@@ -56,7 +57,7 @@ function sourceProfile(){
           ID:10,
           GridDataPath:'GridData/Villages/Village04-BeachLevel-GridData.json',
           GridDefaultLayoutPath:'',
-          TessellationFactor:1,
+          TessellationFactor:2,
           NextGridObjectID:101,
           Objects:{}
         }
@@ -91,14 +92,36 @@ async function fixture(){
     entry=>Number(entry.villageIndex)===0&&Number(entry.areaId)===7
   );
   assert.ok(area,'synthetic village area did not resolve');
+  let validCell=null;
+  for(let y=0;y<256&&!validCell;y++){
+    for(let x=0;x<256;x++){
+      const evidence=placementBinding.classify({
+        profile:opened.profile,
+        destinationGridId:10,
+        gridDataPath:'GridData/Villages/Village04-BeachLevel-GridData.json',
+        candidate:{
+          artifactObjectId:'add-probe',
+          itemId:40000048,
+          localX:x,
+          localY:y,
+          orientation:0
+        }
+      });
+      if(evidence.nativeClass===NATIVE_PLACEMENT_CLASSES.VALID_CLEAR){
+        validCell={x,y};
+        break;
+      }
+    }
+  }
+  assert.ok(validCell,'no native-valid ordinary Furniture ADD cell found');
   const baseline=projectSwitchAreaGrid(opened,area,10,worldBinding);
   const draft=structuredClone(baseline);
   draft.objects.push({
     editorId:'draft-1',
     itemId:40000048,
     layer:'furniture',
-    x:7,
-    y:7,
+    x:validCell.x,
+    y:validCell.y,
     orientation:0,
     footprint:[{x:0,y:0}],
     source:null,
@@ -112,7 +135,7 @@ async function fixture(){
       draftInserted:true
     }
   });
-  return {bytes,opened,worldBinding,placementBinding,baseline,draft};
+  return {bytes,opened,worldBinding,placementBinding,baseline,draft,validCell};
 }
 
 test('ordinary Furniture ADD browser scope pack is exact and pinned',async()=>{
@@ -143,7 +166,7 @@ test('ADD review is explicit, exact-build gated and binds 01B adapter to 01A str
   assert.equal(change.operation,'ADD');
   assert.equal(change.itemId,40000048);
   assert.equal(change.gridId,10);
-  assert.deepEqual(change.after,{x:7,y:7,orientation:0});
+  assert.deepEqual(change.after,{x:f.validCell.x,y:f.validCell.y,orientation:0});
 
   await assert.rejects(
     ()=>reviewOrdinaryFurnitureAddVerifiedExport({
@@ -211,7 +234,7 @@ test('ADD candidate pipeline reaches 01A verifier, export bundle and canonical r
   assert.equal(evidence.reload.gridId,10);
   assert.equal(evidence.reload.gridObjectId,101);
   assert.equal(evidence.reload.itemId,40000048);
-  assert.deepEqual(evidence.reload.transform,{x:7,y:7,orientation:0});
+  assert.deepEqual(evidence.reload.transform,{x:f.validCell.x,y:f.validCell.y,orientation:0});
   assert.equal(evidence.reload.nextGridObjectID,102);
   assert.equal(evidence.source.untouched,true);
   assert.equal(evidence.productExportAuthorized,false);
