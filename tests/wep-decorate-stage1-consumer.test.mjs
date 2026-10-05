@@ -93,19 +93,19 @@ test('DEC-UX-234..240 alignment/distribution/precise position use atomic MOVE hi
 
   session.setPositions(['a'],{a:{x:0,y:0}},'RESET_A');
   session.setPositions(['b'],{b:{x:4,y:2}},'RESET_B');
-  session.setPositions(['c'],{c:{x:10,y:4}},'RESET_C');
+  session.setPositions(['c'],{c:{x:11,y:4}},'RESET_C');
   result=session.distribute(['a','b','c'],'horizontal');
   assert.equal(result.applied,true);
   current=session.getDocument();
   assert.equal(current.objects.find(x=>x.editorId==='a').x,0);
-  assert.equal(current.objects.find(x=>x.editorId==='b').x,5);
-  assert.equal(current.objects.find(x=>x.editorId==='c').x,10);
+  assert.equal(current.objects.find(x=>x.editorId==='b').x,6);
+  assert.equal(current.objects.find(x=>x.editorId==='c').x,11);
   assert.equal(seen.at(-1).command,'DISTRIBUTE_HORIZONTAL');
 
   session.undo();
   assert.equal(session.getDocument().objects.find(x=>x.editorId==='b').x,4);
   session.redo();
-  assert.equal(session.getDocument().objects.find(x=>x.editorId==='b').x,5);
+  assert.equal(session.getDocument().objects.find(x=>x.editorId==='b').x,6);
 });
 
 test('DEC-UX-237 generic transforms fail closed for Road/Fence objects', () => {
