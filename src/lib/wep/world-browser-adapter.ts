@@ -282,7 +282,12 @@ export async function createSwitchWorldReadAdapter({
       if (scope.explicitGridEditRestriction) {
         reasons.push('GRID_EDIT_RESTRICTION_PRESENT');
       }
-      for (const reason of scope.nativePresetKnownRejectReasons ?? []) {
+      const nativeRejectReasons = Array.isArray(
+        scope.nativePresetKnownRejectReasons
+      )
+        ? scope.nativePresetKnownRejectReasons
+        : [];
+      for (const reason of nativeRejectReasons) {
         reasons.push(`NATIVE_REJECT_${String(reason)}`);
       }
       if (geometry?.subGridDataPath) {
@@ -293,13 +298,14 @@ export async function createSwitchWorldReadAdapter({
     let footprint: Array<{ x: number; y: number }> = [];
     let footprintSize: { w: number; h: number } | null = null;
     if (!reasons.length) {
-      footprintSize = adapter.geometryService.orientedFootprintSize(
-        itemId,
+      const resolvedSize = (api as any).orientedFootprintSize(
+        geometry,
         0,
         Number(gridTessellationFactor || 1)
-      );
-      for (let y = 0; y < footprintSize.h; y += 1) {
-        for (let x = 0; x < footprintSize.w; x += 1) {
+      ) as { w: number; h: number };
+      footprintSize = resolvedSize;
+      for (let y = 0; y < resolvedSize.h; y += 1) {
+        for (let x = 0; x < resolvedSize.w; x += 1) {
           footprint.push({ x, y });
         }
       }
