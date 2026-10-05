@@ -244,11 +244,13 @@ export function createEditorSession(
   {
     geometryAdapter = null,
     validator = null,
-    allowInvalidDraft = false
+    allowInvalidDraft = false,
+    recoverySnapshot = null
   }: {
     geometryAdapter?: GeometryAdapter | null;
     validator?: EditorValidator | null;
     allowInvalidDraft?: boolean;
+    recoverySnapshot?: any;
   } = {}
 ) {
   let document = normalizeEditorDocument(input);
@@ -261,6 +263,92 @@ export function createEditorSession(
   const undoStack: Array<Record<string, any>> = [];
   const redoStack: Array<Record<string, any>> = [];
   let sequence = 0;
+
+  const normalizeHistoryEntry = (entry: any) => {
+    assert(plain(entry), 'WEP_RECOVERY_HISTORY_ENTRY_INVALID');
+    assert(typeof entry.kind === 'string' && entry.kind, 'WEP_RECOVERY_HISTORY_KIND_INVALID');
+    const before = normalizeEditorDocument(entry.before);
+    const after = normalizeEditorDocument(entry.after);
+    assert(
+      JSON.stringify(before.target) === JSON.stringify(document.target) &&
+        JSON.stringify(after.target) === JSON.stringify(document.target),
+      'WEP_RECOVERY_HISTORY_TARGET_MISMATCH'
+    );
+    const beforeValidation = plain(entry.beforeValidation)
+      ? clone(entry.beforeValidation)
+      : { ok: true, issues: [] };
+    const afterValidation = plain(entry.afterValidation)
+      ? clone(entry.afterValidation)
+      : { ok: true, issues: [] };
+    assert(
+      beforeValidation.persistentWriteAuthorized !== true &&
+        afterValidation.persistentWriteAuthorized !== true,
+      'WEP_RECOVERY_HISTORY_WRITE_AUTH_INVALID'
+    );
+    return {
+      kind: entry.kind,
+      before,
+      after,
+      beforeSelection: Array.isArray(entry.beforeSelection)
+        ? entry.beforeSelection.map(String)
+        : [],
+      afterSelection: Array.isArray(entry.afterSelection)
+        ? entry.afterSelection.map(String)
+        : [],
+      beforeValidation,
+      afterValidation,
+      context: plain(entry.context) ? clone(entry.context) : {},
+      result: plain(entry.result) ? clone(entry.result) : {}
+    };
+  };
+
+  if (recoverySnapshot !== null) {
+    assert(plain(recoverySnapshot), 'WEP_RECOVERY_SNAPSHOT_INVALID');
+    assert(
+      recoverySnapshot.schema === 'dreamwish-wand-wep-editor-session-recovery@1' &&
+        Number(recoverySnapshot.version) === 1,
+      'WEP_RECOVERY_SNAPSHOT_SCHEMA_MISMATCH'
+    );
+    assert(
+      recoverySnapshot.persistentWriteAuthorized === false &&
+        recoverySnapshot.WORLD_PERSISTENT_WRITE_V125 === false &&
+        recoverySnapshot.PERSISTENT_WRITE === false &&
+        recoverySnapshot.productApplyAuthorized === false &&
+        recoverySnapshot.directSourceReplacementAuthorized === false,
+      'WEP_RECOVERY_SNAPSHOT_SAFETY_INVALID'
+    );
+    const restored = normalizeEditorDocument(recoverySnapshot.document);
+    assert(
+      JSON.stringify(restored.target) === JSON.stringify(document.target),
+      'WEP_RECOVERY_SNAPSHOT_TARGET_MISMATCH'
+    );
+    document = restored;
+    const objectIds = new Set(document.objects.map((object) => object.editorId));
+    selection = new Set(
+      (Array.isArray(recoverySnapshot.selection)
+        ? recoverySnapshot.selection.map(String)
+        : []
+      ).filter((id: string) => objectIds.has(id))
+    );
+    lastValidation = plain(recoverySnapshot.lastValidation)
+      ? clone(recoverySnapshot.lastValidation)
+      : { ok: true, issues: [], status: 'RECOVERED' };
+    assert(
+      lastValidation.persistentWriteAuthorized !== true,
+      'WEP_RECOVERY_VALIDATION_WRITE_AUTH_INVALID'
+    );
+    for (const entry of recoverySnapshot.undoStack ?? []) {
+      undoStack.push(normalizeHistoryEntry(entry));
+    }
+    for (const entry of recoverySnapshot.redoStack ?? []) {
+      redoStack.push(normalizeHistoryEntry(entry));
+    }
+    sequence = int(
+      recoverySnapshot.sequence ?? 0,
+      'WEP_RECOVERY_SEQUENCE_INVALID'
+    );
+    assert(sequence >= 0, 'WEP_RECOVERY_SEQUENCE_INVALID');
+  }
 
   const index = () => indexEditorObjects(document);
 
@@ -424,6 +512,23 @@ export function createEditorSession(
     }),
     canUndo: () => undoStack.length > 0,
     canRedo: () => redoStack.length > 0,
+    exportRecoverySnapshot() {
+      return {
+        schema: 'dreamwish-wand-wep-editor-session-recovery@1',
+        version: 1,
+        document: clone(document),
+        selection: [...selection],
+        lastValidation: clone(lastValidation),
+        undoStack: clone(undoStack),
+        redoStack: clone(redoStack),
+        sequence,
+        persistentWriteAuthorized: false,
+        WORLD_PERSISTENT_WRITE_V125: false,
+        PERSISTENT_WRITE: false,
+        productApplyAuthorized: false,
+        directSourceReplacementAuthorized: false
+      };
+    },
 
     setSelection(ids: string[]) {
       const map = index();
@@ -514,6 +619,191 @@ export function createEditorSession(
           };
         },
         { ids: chosen }
+      );
+    },
+
+    setPositions(
+      ids: string[] | null | undefined,
+      positions: Record<string, { x: number; y: number }>,
+      command = 'PRECISE_POSITION'
+    ) {
+      const chosen = ensureSelection(
+        ids?.length ? ids : [...selection]
+      );
+      assert(plain(positions), 'WEP_POSITION_MAP_INVALID');
+      const selected = new Set(chosen);
+      for (const id of chosen) {
+        assert(plain(positions[id]), 'WEP_POSITION_TARGET_MISSING');
+        int(positions[id].x, 'WEP_POSITION_X_INVALID');
+        int(positions[id].y, 'WEP_POSITION_Y_INVALID');
+      }
+      for (const object of document.objects) {
+        if (!selected.has(object.editorId)) continue;
+        assert(
+          object.layer !== 'road' &&
+            object.layer !== 'fence' &&
+            object.metadata?.worldClass !== 'FenceAndRoadItemData',
+          'WEP_GENERIC_TRANSFORM_NETWORK_OBJECT_UNSUPPORTED'
+        );
+      }
+
+      return commit(
+        'MOVE',
+        (candidate) => {
+          candidate.objects = candidate.objects.map((object) => {
+            if (!selected.has(object.editorId)) return object;
+            const target = positions[object.editorId];
+            const dx = int(target.x, 'WEP_POSITION_X_INVALID') - object.x;
+            const dy = int(target.y, 'WEP_POSITION_Y_INVALID') - object.y;
+            return geometryAdapter?.translate
+              ? geometryAdapter.translate(clone(object), dx, dy)
+              : defaultTranslate(object, dx, dy);
+          });
+          return {
+            ids: chosen,
+            command: String(command),
+            positions: Object.fromEntries(
+              chosen.map((id) => [
+                id,
+                {
+                  x: int(positions[id].x, 'WEP_POSITION_X_INVALID'),
+                  y: int(positions[id].y, 'WEP_POSITION_Y_INVALID')
+                }
+              ])
+            )
+          };
+        },
+        { ids: chosen, command: String(command) }
+      );
+    },
+
+    align(
+      ids: string[] | null | undefined,
+      mode:
+        | 'left'
+        | 'right'
+        | 'top'
+        | 'bottom'
+        | 'horizontal-center'
+        | 'vertical-center'
+    ) {
+      const chosen = ensureSelection(
+        ids?.length ? ids : [...selection]
+      );
+      assert(chosen.length >= 2, 'WEP_ALIGN_SELECTION_TOO_SMALL');
+      const selectedObjects = document.objects.filter((object) =>
+        chosen.includes(object.editorId)
+      );
+      const group = boundsFor(selectedObjects);
+      const groupRight = group.x + group.w - 1;
+      const groupBottom = group.y + group.h - 1;
+      const positions: Record<string, { x: number; y: number }> = {};
+
+      for (const object of selectedObjects) {
+        assert(
+          object.layer !== 'road' &&
+            object.layer !== 'fence' &&
+            object.metadata?.worldClass !== 'FenceAndRoadItemData',
+          'WEP_GENERIC_TRANSFORM_NETWORK_OBJECT_UNSUPPORTED'
+        );
+        const box = boundsFor([object]);
+        const right = box.x + box.w - 1;
+        const bottom = box.y + box.h - 1;
+        let dx = 0;
+        let dy = 0;
+        if (mode === 'left') dx = group.x - box.x;
+        else if (mode === 'right') dx = groupRight - right;
+        else if (mode === 'top') dy = group.y - box.y;
+        else if (mode === 'bottom') dy = groupBottom - bottom;
+        else if (mode === 'horizontal-center') {
+          const numerator =
+            group.x + groupRight - (box.x + right);
+          assert(numerator % 2 === 0, 'WEP_ALIGN_CENTER_NON_INTEGER');
+          dx = numerator / 2;
+        } else if (mode === 'vertical-center') {
+          const numerator =
+            group.y + groupBottom - (box.y + bottom);
+          assert(numerator % 2 === 0, 'WEP_ALIGN_CENTER_NON_INTEGER');
+          dy = numerator / 2;
+        } else {
+          throw new Error('WEP_ALIGN_MODE_INVALID');
+        }
+        positions[object.editorId] = {
+          x: object.x + dx,
+          y: object.y + dy
+        };
+      }
+      return this.setPositions(chosen, positions, `ALIGN_${mode.toUpperCase().replaceAll('-', '_')}`);
+    },
+
+    distribute(
+      ids: string[] | null | undefined,
+      axis: 'horizontal' | 'vertical'
+    ) {
+      const chosen = ensureSelection(
+        ids?.length ? ids : [...selection]
+      );
+      assert(chosen.length >= 3, 'WEP_DISTRIBUTE_SELECTION_TOO_SMALL');
+      assert(
+        axis === 'horizontal' || axis === 'vertical',
+        'WEP_DISTRIBUTE_AXIS_INVALID'
+      );
+      const objects = document.objects
+        .filter((object) => chosen.includes(object.editorId))
+        .map((object) => ({
+          object,
+          box: boundsFor([object])
+        }));
+      for (const { object } of objects) {
+        assert(
+          object.layer !== 'road' &&
+            object.layer !== 'fence' &&
+            object.metadata?.worldClass !== 'FenceAndRoadItemData',
+          'WEP_GENERIC_TRANSFORM_NETWORK_OBJECT_UNSUPPORTED'
+        );
+      }
+      objects.sort((a, b) =>
+        axis === 'horizontal'
+          ? a.box.x - b.box.x || a.box.y - b.box.y
+          : a.box.y - b.box.y || a.box.x - b.box.x
+      );
+
+      const first = objects[0];
+      const last = objects[objects.length - 1];
+      const firstStart = axis === 'horizontal' ? first.box.x : first.box.y;
+      const lastEnd =
+        axis === 'horizontal'
+          ? last.box.x + last.box.w - 1
+          : last.box.y + last.box.h - 1;
+      const totalSize = objects.reduce(
+        (sum, entry) =>
+          sum + (axis === 'horizontal' ? entry.box.w : entry.box.h),
+        0
+      );
+      const free = lastEnd - firstStart + 1 - totalSize;
+      const divisor = objects.length - 1;
+      assert(free >= 0, 'WEP_DISTRIBUTE_OVERLAPPING_BOUNDS_UNSUPPORTED');
+      assert(free % divisor === 0, 'WEP_DISTRIBUTE_NON_INTEGER_GAP');
+      const gap = free / divisor;
+      const positions: Record<string, { x: number; y: number }> = {};
+      let cursor = firstStart;
+      for (const entry of objects) {
+        const currentStart =
+          axis === 'horizontal' ? entry.box.x : entry.box.y;
+        const delta = cursor - currentStart;
+        positions[entry.object.editorId] = {
+          x: entry.object.x + (axis === 'horizontal' ? delta : 0),
+          y: entry.object.y + (axis === 'vertical' ? delta : 0)
+        };
+        cursor +=
+          (axis === 'horizontal' ? entry.box.w : entry.box.h) + gap;
+      }
+      return this.setPositions(
+        chosen,
+        positions,
+        axis === 'horizontal'
+          ? 'DISTRIBUTE_HORIZONTAL'
+          : 'DISTRIBUTE_VERTICAL'
       );
     },
 
