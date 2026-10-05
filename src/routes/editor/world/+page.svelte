@@ -68,6 +68,11 @@
     reviewMinimumVerifiedTransform
   } from '$lib/wep/min-verified-transform-export-v1';
   import {
+    ORDINARY_FURNITURE_ADD_VERIFIED_EXPORT_CONTRACT,
+    commitOrdinaryFurnitureAddVerifiedExport,
+    reviewOrdinaryFurnitureAddVerifiedExport
+  } from '$lib/wep/ordinary-furniture-add-verified-export-v125';
+  import {
     ROADFENCE_VERIFIED_EXPORT_CONTRACT,
     commitRoadFenceVerifiedExport,
     reviewRoadFenceVerifiedExport
@@ -88,6 +93,20 @@
     setFencePostPinned,
     validateFencePostLayoutDraft
   } from '$lib/wep/fence-post-edit-contract';
+  import WorldEditorStage1DecoratePanel from '$lib/wep/WorldEditorStage1DecoratePanel.svelte';
+  import {
+    createRecoveryRecord,
+    getActiveWorldEditorMemory,
+    listRecoveryRecords,
+    recoveryCompatible,
+    routeKeyForDocument,
+    saveRecoveryRoute,
+    setActiveWorldEditorDraftRecord,
+    setActiveWorldEditorMemory,
+    sha256Fingerprint
+  } from '$lib/wep/world-editor-recovery';
+  import { readWorldEditorHandoff } from '$lib/wep/world-editor-handoff';
+  import { worldEditorStage1Copy } from '$lib/wep/world-editor-stage1-copy.js';
   import {
     previewConnectedSelection,
     previewFenceBranchSelection,
@@ -156,6 +175,15 @@
   let originalSaveBackup: any = null;
   let worldSourceBytes: Uint8Array | null = null;
   let worldSourceEpoch = 0;
+  let sourceFingerprint = '';
+  let recoveryRecords: any[] = [];
+  let recoveryRequest: any = null;
+  let recoveryStatus = '';
+  let pendingWorldEditorHandoff: any = null;
+  let inspectorCoordinateX = 0;
+  let inspectorCoordinateY = 0;
+  let inspectorCoordinateEditorId = '';
+  let saveFileInput: HTMLInputElement;
   let verifiedExportBaselineDocument: any = null;
   let verifiedExportReview: any = null;
   let verifiedExportResult: any = null;
@@ -208,6 +236,7 @@
     );
   $: selectedCount = selection.length;
   $: objectCount = editorDocument?.objects?.length ?? 0;
+  $: stage1Copy = worldEditorStage1Copy($locale);
   $: placementReadiness = editorDocument
     ? assessCurrentV125BrowserPlacementReadiness(editorDocument)
     : null;
@@ -237,6 +266,16 @@
     objectInspector.selection.kind === 'SINGLE'
       ? objectInspector.selection.object ?? null
       : null;
+  $: if (
+    selectedInspectorObject?.editorId !== inspectorCoordinateEditorId
+  ) {
+    inspectorCoordinateEditorId =
+      selectedInspectorObject?.editorId ?? '';
+    if (selectedInspectorObject) {
+      inspectorCoordinateX = Number(selectedInspectorObject.x);
+      inspectorCoordinateY = Number(selectedInspectorObject.y);
+    }
+  }
   $: scroogeStorePreview =
     worldSource &&
     selectedInspectorObject &&
@@ -321,7 +360,10 @@
     };
   }
 
-  function createSwitchDraftSession(document: any) {
+  function createSwitchDraftSession(
+    document: any,
+    recoverySnapshot: any = null
+  ) {
     if (!switchWorldBinding || !placementLegalityBinding) {
       throw new Error('WEP_WORLD_DRAFT_CORE_BINDING_UNAVAILABLE');
     }
@@ -329,8 +371,203 @@
       geometryAdapter: coreDraftGeometryAdapter(switchWorldBinding),
       validator:
         placementLegalityBinding.createEditorDraftValidator(),
-      allowInvalidDraft: true
+      allowInvalidDraft: true,
+      recoverySnapshot
     });
+  }
+
+  function recoveryTargetForCurrentSource() {
+    if (!worldSource) return null;
+    return {
+      platform: String(worldSource.saveIdentity?.sourcePlatform ?? ''),
+      gameVersion: String(worldSource.compatibility?.gameVersion ?? ''),
+      profileSchemaVersion: Number(worldSource.profileSchemaVersion)
+    };
+  }
+
+  function refreshRecoveryRecords() {
+    try {
+      recoveryRecords = listRecoveryRecords(localStorage);
+      recoveryStatus = '';
+    } catch (error) {
+      recoveryRecords = [];
+      recoveryStatus =
+        error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  function checkpointRecovery() {
+    if (
+      !session ||
+      !worldSource ||
+      !worldSourceBytes ||
+      !sourceFingerprint ||
+      typeof session.exportRecoverySnapshot !== 'function'
+    ) {
+      return;
+    }
+    const history = session.getHistoryState?.();
+    if (!history || Number(history.undoDepth ?? 0) <= 0) return;
+    const target = recoveryTargetForCurrentSource();
+    if (!target) return;
+    try {
+      const record = saveRecoveryRoute(localStorage, {
+        sourceFingerprint,
+        sourceName: fileName || null,
+        target,
+        routeKey: routeKeyForDocument(session.getDocument()),
+        sessionSnapshot: session.exportRecoverySnapshot()
+      });
+      setActiveWorldEditorDraftRecord(record);
+      refreshRecoveryRecords();
+    } catch (error) {
+      recoveryStatus =
+        error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  function rememberActiveDraftInMemory() {
+    if (
+      !session ||
+      !worldSource ||
+      !worldSourceBytes ||
+      !sourceFingerprint ||
+      typeof session.exportRecoverySnapshot !== 'function'
+    ) {
+      return;
+    }
+    const target = recoveryTargetForCurrentSource();
+    if (!target) return;
+    const snapshot = session.exportRecoverySnapshot();
+    const routeKey = routeKeyForDocument(session.getDocument());
+    const memory = getActiveWorldEditorMemory();
+    const existing =
+      memory?.activeDraftRecord &&
+      memory.activeDraftRecord.sourceFingerprint === sourceFingerprint
+        ? memory.activeDraftRecord
+        : null;
+    const record = createRecoveryRecord({
+      sourceFingerprint,
+      sourceName: fileName || null,
+      target,
+      routeKey,
+      sessionSnapshot: snapshot,
+      existing
+    });
+    setActiveWorldEditorDraftRecord(record);
+  }
+
+    async function ensureSwitchDraftBindings() {
+    switchWorldBinding ??= await createSwitchWorldReadAdapter({
+      basePath: base
+    });
+    placementLegalityBinding ??=
+      await createSwitchV125PlacementLegalityBinding({
+        basePath: base
+      });
+    buildingV110Binding ??=
+      await createSwitchV125BuildingBinding({
+        basePath: base
+      });
+    scroogeStoreV112Binding ??=
+      await createSwitchV125ScroogeStoreBinding({
+        basePath: base
+      });
+    progressionV114Binding ??=
+      await createSwitchV125ProgressionIntegrationBinding({
+        basePath: base
+      });
+  }
+
+  async function restoreRecoveryRecord(
+    record: any,
+    memory = getActiveWorldEditorMemory()
+  ) {
+    if (!record || !memory) {
+      recoveryRequest = record;
+      saveFileInput?.click();
+      return false;
+    }
+    const memoryWorldSource: any = memory.worldSource;
+    const target = {
+      platform: String(memoryWorldSource?.saveIdentity?.sourcePlatform ?? ''),
+      gameVersion: String(memoryWorldSource?.compatibility?.gameVersion ?? ''),
+      profileSchemaVersion: Number(memoryWorldSource?.profileSchemaVersion)
+    };
+    if (
+      memory.sourceFingerprint !== record.sourceFingerprint ||
+      !recoveryCompatible(record, memory.sourceFingerprint, target)
+    ) {
+      recoveryRequest = record;
+      saveFileInput?.click();
+      return false;
+    }
+    if (target.platform !== 'switch') {
+      throw new Error('WEP_RECOVERY_SWITCH_DRAFT_REQUIRED');
+    }
+
+    await ensureSwitchDraftBindings();
+    const route =
+      record.routes?.[record.activeRouteKey] ?? null;
+    if (!route?.session?.document) {
+      throw new Error('WEP_RECOVERY_ACTIVE_ROUTE_MISSING');
+    }
+
+    worldSource = memory.worldSource;
+    worldSourceBytes = memory.sourceBytes.slice();
+    originalSaveBackup = memory.originalSaveBackup;
+    sourceFingerprint = memory.sourceFingerprint;
+    fileName = record.sourceName ?? fileName;
+    sourcePlatform = target.platform;
+    const recoveredDocument =
+      normalizeEditorDocument(route.session.document);
+    const firstHistory =
+      route.session.undoStack?.[0] ?? null;
+    verifiedExportBaselineDocument = normalizeEditorDocument(
+      firstHistory?.before ?? recoveredDocument
+    );
+    session = createSwitchDraftSession(
+      recoveredDocument,
+      route.session
+    );
+    editorDocument = session.getDocument();
+    draftAuthoringBound = true;
+    layerState = createLayerState({
+      capabilities: editorDocument.capabilities
+    });
+    areaBounds = deriveAreaBounds(editorDocument);
+    query = '';
+    selectedOnly = false;
+    capturePreview = null;
+    published = null;
+    verifiedExportReview = null;
+    verifiedExportResult = null;
+    verifiedExportErrorCode = '';
+    verifiedExportErrorDetail = '';
+    verifiedExportConfirmed = false;
+    fullDesignRootDocuments = [cloneLocal(verifiedExportBaselineDocument)];
+    fullDesignSourceRootGridId =
+      Number.isSafeInteger(Number(editorDocument.target?.rootGridId))
+        ? Number(editorDocument.target.rootGridId)
+        : null;
+    refreshProjection();
+    refreshDraftState();
+    syncRoadFenceSelection();
+    rememberActiveDraftInMemory();
+    recoveryRequest = null;
+    recoveryStatus = '';
+    message = stage1Copy.recovered;
+    return true;
+  }
+
+  async function resumeRecovery(record: any) {
+    try {
+      if (await restoreRecoveryRecord(record)) return;
+      recoveryStatus = stage1Copy.sourceNeeded;
+    } catch (error) {
+      recoveryStatus =
+        error instanceof Error ? error.message : String(error);
+    }
   }
 
   function cloneLocal<T>(value: T): T {
@@ -603,6 +840,7 @@
     if (kind === 'fence') {
       syncFencePostDraftFromDocument();
     }
+    if (result?.applied) checkpointRecovery();
     return result;
   }
 
@@ -1562,6 +1800,41 @@
   }
 
   onMount(async () => {
+    refreshRecoveryRecords();
+    try {
+      const pendingHandoff = readWorldEditorHandoff(localStorage);
+      pendingWorldEditorHandoff = pendingHandoff;
+      if (pendingHandoff) {
+        switchWorldBinding ??= await createSwitchWorldReadAdapter({
+          basePath: base
+        });
+      }
+      const memory = getActiveWorldEditorMemory();
+      if (pendingHandoff && memory) {
+        const compatible =
+          recoveryRecords.find(
+            (record: any) =>
+              record.sourceFingerprint === memory.sourceFingerprint
+          ) ??
+          (
+            memory.activeDraftRecord &&
+            recoveryCompatible(
+              memory.activeDraftRecord,
+              memory.sourceFingerprint,
+              memory.activeDraftRecord.target
+            )
+              ? memory.activeDraftRecord
+              : null
+          );
+        if (compatible) {
+          await restoreRecoveryRecord(compatible, memory);
+        }
+      }
+    } catch (error) {
+      recoveryStatus =
+        error instanceof Error ? error.message : String(error);
+    }
+
     try {
       const config = readCommunityBrowserConfig();
       if (!config) return;
@@ -1709,6 +1982,7 @@
     loading = true;
     worldSourceEpoch += 1;
     worldSourceBytes = null;
+    sourceFingerprint = '';
     verifiedExportBaselineDocument = null;
     verifiedExportReview = null;
     verifiedExportResult = null;
@@ -1736,6 +2010,7 @@
 
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
+      const fingerprint = await sha256Fingerprint(bytes);
       let parsed: any = null;
 
       try {
@@ -1748,6 +2023,9 @@
       }
 
       if (Array.isArray(parsed?.objects)) {
+        if (recoveryRequest) {
+          throw new Error('WEP_RECOVERY_RAW_SOURCE_REQUIRED');
+        }
         const normalized = normalizeEditorDocument(parsed);
         if (normalized.schema !== WEP_EDITOR_SCHEMA) {
           throw new Error(t('worldEditor.open.schemaMismatch', {}, $locale));
@@ -1808,6 +2086,7 @@
         layerState = null;
         worldSource = opened;
         worldSourceBytes = bytes.slice();
+        sourceFingerprint = fingerprint;
         fileName = file.name;
         query = '';
         selectedOnly = false;
@@ -1821,20 +2100,55 @@
         copiedDraftClipboard = null;
         clipboardPasteCount = 0;
 
-        message = t(
-          'worldEditor.open.saveLoaded',
-          {
-            schema: opened.profileSchemaVersion,
-            areaCount: opened.areas.length
-          },
-          $locale
-        );
+        setActiveWorldEditorMemory({
+          sourceFingerprint: fingerprint,
+          sourceBytes: bytes,
+          worldSource: opened,
+          originalSaveBackup
+        });
+
+        if (recoveryRequest) {
+          if (fingerprint !== recoveryRequest.sourceFingerprint) {
+            throw new Error('WEP_RECOVERY_SOURCE_FINGERPRINT_MISMATCH');
+          }
+          const target = {
+            platform: String(opened.saveIdentity?.sourcePlatform ?? ''),
+            gameVersion: String(opened.compatibility?.gameVersion ?? ''),
+            profileSchemaVersion: Number(opened.profileSchemaVersion)
+          };
+          if (
+            !recoveryCompatible(
+              recoveryRequest,
+              fingerprint,
+              target
+            )
+          ) {
+            throw new Error('WEP_RECOVERY_SOURCE_TARGET_MISMATCH');
+          }
+          await restoreRecoveryRecord(recoveryRequest, {
+            sourceFingerprint: fingerprint,
+            sourceBytes: bytes,
+            worldSource: opened,
+            originalSaveBackup,
+            activeDraftRecord: null
+          });
+        } else {
+          message = t(
+            'worldEditor.open.saveLoaded',
+            {
+              schema: opened.profileSchemaVersion,
+              areaCount: opened.areas.length
+            },
+            $locale
+          );
+        }
       }
     } catch (error) {
       session = null;
       editorDocument = null;
       worldSource = null;
       worldSourceBytes = null;
+      sourceFingerprint = '';
       verifiedExportBaselineDocument = null;
       verifiedExportReview = null;
       verifiedExportResult = null;
@@ -1976,6 +2290,7 @@
       session = createSwitchDraftSession(normalized);
       draftAuthoringBound = true;
       editorDocument = session.getDocument();
+      rememberActiveDraftInMemory();
       layerState = createLayerState({
         capabilities: editorDocument.capabilities
       });
@@ -2426,6 +2741,35 @@
     refreshProjection();
     refreshDraftState();
     rebuildFullDesignPlan();
+    if (result?.applied) checkpointRecovery();
+  }
+
+  function applyInspectorCoordinates() {
+    if (
+      !session ||
+      !mutationBound ||
+      !selectedInspectorObject ||
+      selectedInspectorObject.editability !== 'editable'
+    ) {
+      return;
+    }
+    try {
+      const id = String(selectedInspectorObject.editorId);
+      const result = session.setPositions(
+        [id],
+        {
+          [id]: {
+            x: Number(inspectorCoordinateX),
+            y: Number(inspectorCoordinateY)
+          }
+        },
+        'PRECISE_POSITION'
+      );
+      finishDraftMutation(result, 'PRECISE_POSITION');
+    } catch (error) {
+      message =
+        error instanceof Error ? error.message : String(error);
+    }
   }
 
   function copySelectedDraft() {
@@ -2504,6 +2848,7 @@
     refreshDraftState();
     syncFencePostDraftFromDocument();
     rebuildFullDesignPlan();
+    checkpointRecovery();
     message = t('worldEditor.selection.undoRestored', {}, $locale);
   }
 
@@ -2518,6 +2863,7 @@
     refreshDraftState();
     syncFencePostDraftFromDocument();
     rebuildFullDesignPlan();
+    checkpointRecovery();
     message = t('worldEditor.selection.redoRestored', {}, $locale);
   }
 
@@ -2585,6 +2931,40 @@
         'worldEditor.verifiedExport.failure.reload',
       WEP_EXPORT_RELOAD_IDENTITY_OR_TRANSFORM_MISMATCH:
         'worldEditor.verifiedExport.failure.reloadMismatch',
+      WEP_ADD_UNSUPPORTED_VERSION_BUILD:
+        'worldEditor.verifiedExport.failure.unsupportedBuild',
+      WEP_ADD_EXACT_BUILD_CONFIRMATION_REQUIRED:
+        'worldEditor.verifiedExport.failure.buildConfirmation',
+      WEP_ADD_NO_ELIGIBLE_PENDING_CHANGE:
+        'worldEditor.verifiedExport.failure.noEligibleChange',
+      WEP_ADD_UNSUPPORTED_PENDING_CHANGE:
+        'worldEditor.verifiedExport.failure.unsupportedChange',
+      WEP_ADD_CROSS_GRID_UNSUPPORTED:
+        'worldEditor.verifiedExport.failure.unsupportedChange',
+      WEP_ADD_CREATED_OBJECT_TRANSFORM_INVALID:
+        'worldEditor.verifiedExport.failure.unsupportedChange',
+      WEP_ADD_CREATED_OBJECT_NOT_ORDINARY_ROOT_STATELESS_FURNITURE:
+        'worldEditor.verifiedExport.failure.notAdmissible',
+      WEP_ADD_OBJECT_NO_LONGER_ADMISSIBLE:
+        'worldEditor.verifiedExport.failure.notAdmissible',
+      WEP_ADD_INVALID_DESTINATION:
+        'worldEditor.verifiedExport.failure.invalidDestination',
+      WEP_ADD_SOURCE_CHANGED_SINCE_PLAN:
+        'worldEditor.verifiedExport.failure.sourceChanged',
+      WEP_ADD_REVIEW_STALE:
+        'worldEditor.verifiedExport.failure.reviewStale',
+      WEP_ADD_CANDIDATE_GENERATION_FAILED:
+        'worldEditor.verifiedExport.failure.candidateGeneration',
+      WEP_ADD_CANDIDATE_VERIFICATION_FAILED:
+        'worldEditor.verifiedExport.failure.candidateVerification',
+      WEP_ADD_ASSEMBLY_FAILED:
+        'worldEditor.verifiedExport.failure.exportAssembly',
+      WEP_ADD_RELOAD_REPARSE_FAILED:
+        'worldEditor.verifiedExport.failure.reload',
+      WEP_ADD_RELOAD_IDENTITY_OR_TRANSFORM_MISMATCH:
+        'worldEditor.verifiedExport.failure.reloadMismatch',
+      WEP_ADD_RUNTIME_ACCEPTANCE_PENDING:
+        'worldEditor.verifiedExport.failure.addRuntimePending',
       WEP_ROADFENCE_UNSUPPORTED_VERSION_BUILD:
         'worldEditor.verifiedExport.failure.unsupportedBuild',
       WEP_ROADFENCE_EXACT_BUILD_CONFIRMATION_REQUIRED:
@@ -2659,6 +3039,10 @@
       const roadFenceChanged =
         JSON.stringify(verifiedExportBaselineDocument.networks ?? null) !==
         JSON.stringify(editorDocument.networks ?? null);
+      const ordinaryAddChanged =
+        !roadFenceChanged &&
+        editorDocument.objects.length ===
+          verifiedExportBaselineDocument.objects.length + 1;
       const review = roadFenceChanged
         ? await reviewRoadFenceVerifiedExport({
             sourceBytes: worldSourceBytes,
@@ -2669,18 +3053,30 @@
             draftDocument: editorDocument,
             exactBuildConfirmed: verifiedExportBuildConfirmed
           })
-        : await reviewMinimumVerifiedTransform({
-            sourceBytes: worldSourceBytes,
-            sourceName: fileName || 'profile',
-            sourceEpoch: worldSourceEpoch,
-            opened: worldSource,
-            baselineDocument: verifiedExportBaselineDocument,
-            draftDocument: editorDocument,
-            placementBinding: placementLegalityBinding,
-            worldBinding: switchWorldBinding,
-            basePath: base,
-            exactBuildConfirmed: verifiedExportBuildConfirmed
-          });
+        : ordinaryAddChanged
+          ? await reviewOrdinaryFurnitureAddVerifiedExport({
+              sourceBytes: worldSourceBytes,
+              sourceName: fileName || 'profile',
+              sourceEpoch: worldSourceEpoch,
+              opened: worldSource,
+              baselineDocument: verifiedExportBaselineDocument,
+              draftDocument: editorDocument,
+              placementBinding: placementLegalityBinding,
+              basePath: base,
+              exactBuildConfirmed: verifiedExportBuildConfirmed
+            })
+          : await reviewMinimumVerifiedTransform({
+              sourceBytes: worldSourceBytes,
+              sourceName: fileName || 'profile',
+              sourceEpoch: worldSourceEpoch,
+              opened: worldSource,
+              baselineDocument: verifiedExportBaselineDocument,
+              draftDocument: editorDocument,
+              placementBinding: placementLegalityBinding,
+              worldBinding: switchWorldBinding,
+              basePath: base,
+              exactBuildConfirmed: verifiedExportBuildConfirmed
+            });
       if (
         review.contract !== ROADFENCE_VERIFIED_EXPORT_CONTRACT &&
         (
@@ -2735,14 +3131,24 @@
               baselineDocument: verifiedExportBaselineDocument,
               draftDocument: editorDocument
             })
-          : await commitMinimumVerifiedTransform({
-              review: verifiedExportReview,
-              currentSourceEpoch: worldSourceEpoch,
-              sourceBytes: worldSourceBytes,
-              baselineDocument: verifiedExportBaselineDocument,
-              draftDocument: editorDocument,
-              worldBinding: switchWorldBinding
-            });
+          : verifiedExportReview.contract ===
+              ORDINARY_FURNITURE_ADD_VERIFIED_EXPORT_CONTRACT
+            ? await commitOrdinaryFurnitureAddVerifiedExport({
+                review: verifiedExportReview,
+                currentSourceEpoch: worldSourceEpoch,
+                sourceBytes: worldSourceBytes,
+                baselineDocument: verifiedExportBaselineDocument,
+                draftDocument: editorDocument,
+                worldBinding: switchWorldBinding
+              })
+            : await commitMinimumVerifiedTransform({
+                review: verifiedExportReview,
+                currentSourceEpoch: worldSourceEpoch,
+                sourceBytes: worldSourceBytes,
+                baselineDocument: verifiedExportBaselineDocument,
+                draftDocument: editorDocument,
+                worldBinding: switchWorldBinding
+              });
       message = t(
         'worldEditor.verifiedExport.success',
         {},
@@ -2977,6 +3383,7 @@
       </label>
       <label class="file-button">
         <input
+          bind:this={saveFileInput}
           type="file"
           accept=".save,.json,application/json,application/octet-stream"
           on:change={openEditorDocument}
@@ -2989,8 +3396,45 @@
     </div>
   </section>
 
+  {#if recoveryRecords.length || recoveryStatus}
+    <section class="recovery-panel" data-wep-recovery aria-labelledby="wep-recovery-title">
+      <div>
+        <p class="eyebrow">{stage1Copy.recoveryEyebrow}</p>
+        <h2 id="wep-recovery-title">{stage1Copy.recoveryTitle}</h2>
+        <p>{stage1Copy.recoveryDescription}</p>
+      </div>
+      {#if recoveryRecords.length}
+        <div class="recovery-list">
+          {#each recoveryRecords.slice(0, 5) as record}
+            <button type="button" on:click={() => resumeRecovery(record)} disabled={loading}>
+              <strong>{record.sourceName ?? 'DDV save'}</strong>
+              <span>{record.savedAt} · {record.target.platform} · {record.target.gameVersion}</span>
+            </button>
+          {/each}
+        </div>
+      {/if}
+      {#if recoveryStatus}
+        <p class="recovery-status" role="status" aria-live="polite">{recoveryStatus}</p>
+      {/if}
+    </section>
+  {/if}
+
   {#if message}
     <div class="status" aria-live="polite">{message}</div>
+  {/if}
+
+  {#if pendingWorldEditorHandoff && !editorDocument}
+    <section class="pre-source-stage1" data-wep-pre-source-stage1>
+      <WorldEditorStage1DecoratePanel
+        {session}
+        {editorDocument}
+        {switchWorldBinding}
+        {mutationBound}
+        {selection}
+        presetBridge={bridge}
+        onMutation={finishDraftMutation}
+      />
+    </section>
   {/if}
 
   {#if editorDocument}
@@ -3018,6 +3462,18 @@
               {t('worldEditor.nav.backToRoutes', {}, $locale)}
             </button>
           {/if}
+        </section>
+
+        <section class="side-card">
+          <WorldEditorStage1DecoratePanel
+            {session}
+            {editorDocument}
+            {selection}
+            {switchWorldBinding}
+            {mutationBound}
+            presetBridge={bridge}
+            onMutation={finishDraftMutation}
+          />
         </section>
 
         {#if placementReadiness}
@@ -3186,6 +3642,54 @@
               <div><dt>{t('worldEditor.inspector.orientation', {}, $locale)}</dt><dd>{selectedInspectorObject.orientation}</dd></div>
               <div><dt>{t('worldEditor.inspector.state', {}, $locale)}</dt><dd>{selectedInspectorObject.stateKind ?? 'none'}</dd></div>
             </dl>
+            <div class="inspector-precise" data-wep-inspector-coordinates>
+              <h4>{stage1Copy.precise}</h4>
+              <div>
+                <label>
+                  <span>{stage1Copy.x}</span>
+                  <input
+                    type="number"
+                    step="1"
+                    bind:value={inspectorCoordinateX}
+                    disabled={
+                      !mutationBound ||
+                      selectedInspectorObject.editability !== 'editable' ||
+                      selectedInspectorObject.layer === 'road' ||
+                      selectedInspectorObject.layer === 'fence' ||
+                      selectedInspectorObject.worldClass === 'FenceAndRoadItemData'
+                    }
+                  />
+                </label>
+                <label>
+                  <span>{stage1Copy.y}</span>
+                  <input
+                    type="number"
+                    step="1"
+                    bind:value={inspectorCoordinateY}
+                    disabled={
+                      !mutationBound ||
+                      selectedInspectorObject.editability !== 'editable' ||
+                      selectedInspectorObject.layer === 'road' ||
+                      selectedInspectorObject.layer === 'fence' ||
+                      selectedInspectorObject.worldClass === 'FenceAndRoadItemData'
+                    }
+                  />
+                </label>
+              </div>
+              <button
+                type="button"
+                on:click={applyInspectorCoordinates}
+                disabled={
+                  !mutationBound ||
+                  selectedInspectorObject.editability !== 'editable' ||
+                  selectedInspectorObject.layer === 'road' ||
+                  selectedInspectorObject.layer === 'fence' ||
+                  selectedInspectorObject.worldClass === 'FenceAndRoadItemData'
+                }
+              >
+                {stage1Copy.applyCoords}
+              </button>
+            </div>
             {#if selectedInspectorObject.reasonCodes.length}
               <div class="inspector-reasons">
                 {#each selectedInspectorObject.reasonCodes as code}
@@ -3681,6 +4185,15 @@
                     <strong>X {verifiedExportReview.change.before.x} · Y {verifiedExportReview.change.before.y}</strong>
                     <span>{t('worldEditor.verifiedExport.newPosition', {}, $locale)}</span>
                     <strong>X {verifiedExportReview.change.after.x} · Y {verifiedExportReview.change.after.y}</strong>
+                  </div>
+                {:else if verifiedExportReview.change.operation === 'ADD'}
+                  <div class="verified-export-delta" data-wep-verified-add-review>
+                    <span>{t('worldEditor.verifiedExport.newPosition', {}, $locale)}</span>
+                    <strong>X {verifiedExportReview.change.after.x} · Y {verifiedExportReview.change.after.y}</strong>
+                    <span>{t('worldEditor.verifiedExport.newOrientation', {}, $locale)}</span>
+                    <strong>{verifiedExportReview.change.after.orientation}</strong>
+                    <span>ID</span>
+                    <strong>{verifiedExportReview.admissibility.target.createdGridObjectId}</strong>
                   </div>
                 {:else}
                   <div class="verified-export-delta">
@@ -4756,4 +5269,51 @@
 
   .building-readiness-lines{display:grid;gap:5px;margin-top:6px}.building-readiness-lines span{display:flex;justify-content:space-between;gap:10px;font-size:10px;color:var(--ink-muted)}.building-readiness-lines strong{color:var(--ink-soft);text-align:right}.fence-post-panel{margin-top:22px;border:1px solid var(--border);border-radius:22px;background:var(--surface);padding:24px;box-shadow:var(--shadow)}.fence-post-heading{display:flex;justify-content:space-between;gap:24px;align-items:flex-start}.fence-post-heading h2{font-family:Georgia,serif;font-size:30px;font-weight:500;margin:8px 0}.fence-post-heading p:not(.eyebrow){max-width:760px;color:var(--ink-soft);font-size:12px;line-height:1.8}.fence-post-controls{display:grid;gap:14px;margin-top:18px}.fence-post-controls label{display:grid;gap:6px;font-size:10px;color:var(--ink-muted)}.fence-post-controls select,.fence-post-controls input{background:var(--surface-raised);color:var(--ink);border:1px solid var(--border);border-radius:10px;padding:9px 11px}.fence-post-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.fence-post-summary>span{display:grid;gap:4px;padding:11px;border-radius:12px;background:var(--surface-raised);font-size:9px;color:var(--ink-muted)}.fence-post-summary strong{font-size:13px;color:var(--ink)}.fence-post-editor-grid{display:grid;grid-template-columns:minmax(280px,.8fr) 1.2fr;gap:12px}.fence-post-form,.fence-post-list,.fence-topology-boundary{border:1px solid var(--border);border-radius:14px;padding:14px;background:var(--page-2)}.fence-post-form{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px}.fence-post-form button,.fence-post-list button,.fence-topology-boundary button{border:1px solid var(--border);background:var(--surface-raised);color:var(--ink-soft);border-radius:9px;padding:8px 10px;font-weight:800}.fence-post-list{display:grid;gap:7px;align-content:start}.fence-post-list>div{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:8px;font-size:10px}.fence-topology-boundary{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.fence-topology-boundary span{flex:1;min-width:260px;font-size:10px;line-height:1.6;color:var(--ink-muted)}@media(max-width:800px){.fence-post-heading{flex-direction:column}.fence-post-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.fence-post-editor-grid{grid-template-columns:1fr}.fence-post-form{grid-template-columns:1fr 1fr}.fence-post-list>div{grid-template-columns:1fr 1fr}}
   .verified-export-panel{margin:12px 14px 14px;padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--page-2);display:grid;gap:12px}.verified-export-heading{display:flex;justify-content:space-between;gap:18px;align-items:flex-start}.verified-export-heading h3{margin:4px 0;font-size:15px}.verified-export-heading p,.verified-export-note,.verified-export-success p,.verified-export-recovery{margin:0;color:var(--ink-muted);font-size:9px;line-height:1.65}.verified-export-heading button,.verified-export-review button,.verified-export-downloads button{border:1px solid var(--border);background:var(--surface-raised);color:var(--ink);border-radius:9px;padding:8px 11px;font-size:10px;font-weight:800}.verified-export-heading button:disabled,.verified-export-review button:disabled{opacity:.4;cursor:not-allowed}.verified-export-error{display:grid;gap:5px;padding:11px;border:1px solid var(--border);border-radius:10px;background:var(--surface);font-size:9px}.verified-export-error strong{color:var(--decor-accent)}.verified-export-error code{overflow-wrap:anywhere;color:var(--ink-muted)}.verified-export-review{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.verified-export-review>div{display:grid;gap:4px;padding:10px;border-radius:10px;background:var(--surface-raised)}.verified-export-review>div>span,.verified-export-success dt{font-size:8px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-muted)}.verified-export-review>div>strong{font-size:10px;overflow-wrap:anywhere}.verified-export-review .verified-export-delta{grid-column:span 2;grid-template-columns:auto 1fr;align-items:baseline}.verified-export-build-confirm{display:flex;gap:8px;align-items:flex-start;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface);font-size:9px;color:var(--ink-soft)}.verified-export-build-confirm input{margin-top:2px}.verified-export-confirm{grid-column:1/-1;display:flex;gap:8px;align-items:flex-start;font-size:9px;color:var(--ink-soft)}.verified-export-confirm input{margin-top:2px}.verified-export-apply{grid-column:1/-1;justify-self:start}.verified-export-review>small{grid-column:1/-1;color:var(--ink-muted);font-size:8px}.verified-export-success{display:grid;gap:9px;padding:12px;border:1px solid var(--border);border-radius:11px;background:var(--surface)}.verified-export-success>strong{color:var(--help-accent)}.verified-export-success dl{display:grid;gap:6px;margin:0}.verified-export-success dl>div{display:grid;grid-template-columns:100px minmax(0,1fr);gap:8px}.verified-export-success dd{margin:0;font-size:9px;overflow-wrap:anywhere}.verified-export-downloads{display:flex;gap:7px;flex-wrap:wrap}@media(max-width:700px){.verified-export-heading{flex-direction:column}.verified-export-review{grid-template-columns:1fr}.verified-export-review .verified-export-delta{grid-column:auto}.verified-export-success dl>div{grid-template-columns:1fr}}
+
+  .recovery-panel {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: minmax(220px, .8fr) minmax(280px, 1.2fr);
+    gap: 14px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--surface);
+    padding: 14px;
+  }
+  .recovery-panel h2 { margin: 4px 0 7px; font-family: Georgia, serif; font-weight: 500; }
+  .recovery-panel p { margin: 0; color: var(--ink-muted); font-size: 10px; line-height: 1.6; }
+  .recovery-list { display: grid; gap: 6px; }
+  .recovery-list button {
+    display: grid;
+    gap: 3px;
+    width: 100%;
+    text-align: left;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface-raised);
+    color: var(--ink);
+    padding: 9px 11px;
+  }
+  .recovery-list button span { color: var(--ink-muted); font-size: 8px; }
+  .recovery-list button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .recovery-status { grid-column: 1 / -1; }
+  @media (max-width: 760px) {
+    .recovery-panel { grid-template-columns: 1fr; }
+  }
+
+  .pre-source-stage1{
+    margin-top:14px;
+    border:1px solid var(--border);
+    border-radius:17px;
+    background:var(--surface);
+    padding:16px;
+  }
+
+  .inspector-precise{display:grid;gap:7px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)}
+  .inspector-precise h4{margin:0}
+  .inspector-precise>div{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .inspector-precise label{display:grid;gap:3px;font-size:8px;color:var(--ink-muted)}
+  .inspector-precise input{width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;background:var(--surface-raised);color:var(--ink);padding:7px}
+  .inspector-precise button{border:1px solid var(--border);background:var(--surface-raised);color:var(--ink);border-radius:8px;padding:7px;font-size:9px}
+  .inspector-precise button:focus-visible,.inspector-precise input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 </style>
