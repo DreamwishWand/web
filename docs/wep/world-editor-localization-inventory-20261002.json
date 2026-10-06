@@ -1420,7 +1420,7 @@
           "Preset preflight failed.",
           "Placed in the local draft. Review Changes remains authoritative.",
           "The placement is visible in the draft but fails current validation.",
-          "Room Finish write remains unavailable until the 01A PLAYER_HOUSE_ROOM transaction target and exact Nintendo Switch runtime acceptance are complete."
+          "Room Finish save-layer target and transaction binding are promoted. Write/export remains unavailable until the exact Nintendo Switch 01E Room Finish runtime acceptance is complete."
         ]
       }
     ]
