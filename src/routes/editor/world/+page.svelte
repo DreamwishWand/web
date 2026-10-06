@@ -3358,13 +3358,17 @@
   }
 
   async function reviewVerifiedExport() {
+    const roomFinishReview =
+      editorDocument?.target?.kind === 'PLAYER_HOUSE_ROOM';
     if (
       !worldSource ||
       !worldSourceBytes ||
       !verifiedExportBaselineDocument ||
       !editorDocument ||
-      !placementLegalityBinding ||
-      !switchWorldBinding
+      (
+        !roomFinishReview &&
+        (!placementLegalityBinding || !switchWorldBinding)
+      )
     ) {
       verifiedExportErrorCode = 'WEP_EXPORT_NO_ELIGIBLE_PENDING_CHANGE';
       verifiedExportErrorDetail = '';
@@ -3379,48 +3383,60 @@
     verifiedExportConfirmed = false;
     try {
       const roadFenceChanged =
+        !roomFinishReview &&
         JSON.stringify(verifiedExportBaselineDocument.networks ?? null) !==
-        JSON.stringify(editorDocument.networks ?? null);
+          JSON.stringify(editorDocument.networks ?? null);
       const ordinaryAddChanged =
+        !roomFinishReview &&
         !roadFenceChanged &&
         editorDocument.objects.length ===
           verifiedExportBaselineDocument.objects.length + 1;
-      const review = roadFenceChanged
-        ? await reviewRoadFenceVerifiedExport({
+      const review = roomFinishReview
+        ? await reviewRoomFinishVerifiedExportV125({
             sourceBytes: worldSourceBytes,
             sourceName: fileName || 'profile',
             sourceEpoch: worldSourceEpoch,
             opened: worldSource,
-            baselineDocument: verifiedExportBaselineDocument,
             draftDocument: editorDocument,
             exactBuildConfirmed: verifiedExportBuildConfirmed
           })
-        : ordinaryAddChanged
-          ? await reviewOrdinaryFurnitureAddVerifiedExport({
+        : roadFenceChanged
+          ? await reviewRoadFenceVerifiedExport({
               sourceBytes: worldSourceBytes,
               sourceName: fileName || 'profile',
               sourceEpoch: worldSourceEpoch,
               opened: worldSource,
               baselineDocument: verifiedExportBaselineDocument,
               draftDocument: editorDocument,
-              placementBinding: placementLegalityBinding,
-              basePath: base,
               exactBuildConfirmed: verifiedExportBuildConfirmed
             })
-          : await reviewMinimumVerifiedTransform({
-              sourceBytes: worldSourceBytes,
-              sourceName: fileName || 'profile',
-              sourceEpoch: worldSourceEpoch,
-              opened: worldSource,
-              baselineDocument: verifiedExportBaselineDocument,
-              draftDocument: editorDocument,
-              placementBinding: placementLegalityBinding,
-              worldBinding: switchWorldBinding,
-              basePath: base,
-              exactBuildConfirmed: verifiedExportBuildConfirmed
-            });
+          : ordinaryAddChanged
+            ? await reviewOrdinaryFurnitureAddVerifiedExport({
+                sourceBytes: worldSourceBytes,
+                sourceName: fileName || 'profile',
+                sourceEpoch: worldSourceEpoch,
+                opened: worldSource,
+                baselineDocument: verifiedExportBaselineDocument,
+                draftDocument: editorDocument,
+                placementBinding: placementLegalityBinding,
+                basePath: base,
+                exactBuildConfirmed: verifiedExportBuildConfirmed
+              })
+            : await reviewMinimumVerifiedTransform({
+                sourceBytes: worldSourceBytes,
+                sourceName: fileName || 'profile',
+                sourceEpoch: worldSourceEpoch,
+                opened: worldSource,
+                baselineDocument: verifiedExportBaselineDocument,
+                draftDocument: editorDocument,
+                placementBinding: placementLegalityBinding,
+                worldBinding: switchWorldBinding,
+                basePath: base,
+                exactBuildConfirmed: verifiedExportBuildConfirmed
+              });
       if (
         review.contract !== ROADFENCE_VERIFIED_EXPORT_CONTRACT &&
+        review.contract !== ROOM_FINISH_VERIFIED_EXPORT_CONTRACT &&
         (
           selection.length !== 1 ||
           selection[0] !== review.change.editorId
@@ -3456,7 +3472,11 @@
       !worldSourceBytes ||
       !verifiedExportBaselineDocument ||
       !editorDocument ||
-      !switchWorldBinding
+      (
+        verifiedExportReview.contract !==
+          ROOM_FINISH_VERIFIED_EXPORT_CONTRACT &&
+        !switchWorldBinding
+      )
     ) return;
     verifiedExportLoading = true;
     verifiedExportResult = null;
@@ -3474,16 +3494,24 @@
               draftDocument: editorDocument
             })
           : verifiedExportReview.contract ===
-              ORDINARY_FURNITURE_ADD_VERIFIED_EXPORT_CONTRACT
-            ? await commitOrdinaryFurnitureAddVerifiedExport({
+              ROOM_FINISH_VERIFIED_EXPORT_CONTRACT
+            ? await commitRoomFinishVerifiedExportV125({
                 review: verifiedExportReview,
                 currentSourceEpoch: worldSourceEpoch,
                 sourceBytes: worldSourceBytes,
-                baselineDocument: verifiedExportBaselineDocument,
-                draftDocument: editorDocument,
-                worldBinding: switchWorldBinding
+                draftDocument: editorDocument
               })
-            : await commitMinimumVerifiedTransform({
+            : verifiedExportReview.contract ===
+                ORDINARY_FURNITURE_ADD_VERIFIED_EXPORT_CONTRACT
+              ? await commitOrdinaryFurnitureAddVerifiedExport({
+                  review: verifiedExportReview,
+                  currentSourceEpoch: worldSourceEpoch,
+                  sourceBytes: worldSourceBytes,
+                  baselineDocument: verifiedExportBaselineDocument,
+                  draftDocument: editorDocument,
+                  worldBinding: switchWorldBinding
+                })
+              : await commitMinimumVerifiedTransform({
                 review: verifiedExportReview,
                 currentSourceEpoch: worldSourceEpoch,
                 sourceBytes: worldSourceBytes,
