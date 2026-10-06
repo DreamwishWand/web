@@ -19,13 +19,14 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "2e4d55326fba8d854b47f8ce8dc8302020e2e60f",
+    "src/routes/editor/world/+page.svelte": "cfe0e66c88cba2b562866bd6e224e6647ac6d7b5",
     "src/lib/wep/world-editor-primary-job.ts": "a8e49f4f2eec543b9aaebd2d552c9da8e36270d5",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "711609eb100a0809a5e9a5b274f83dd9319e3645",
     "src/lib/SiteFooter.svelte": "4b20121a1295e42aeaeb25e39cb3853bd80da0e8",
-    "src/lib/wep/WorldEditorStage1DecoratePanel.svelte": "4c4e0543df4e09399afc88f53ed74ee9f07c3615",
-    "src/lib/wep/world-editor-stage1-copy.js": "55d525317ec04b8f883b484a2c5d6b78e29b067c"
+    "src/lib/wep/WorldEditorStage1DecoratePanel.svelte": "7bfb2981870f803c9e3adfc9e99192211325124a",
+    "src/lib/wep/world-editor-stage1-copy.js": "9dace4b7538c04a8c650f691739d0bda22f38329",
+    "src/lib/wep/room-finish-copy.js": "f75c54053bafa416842ca17938895b20d7f47f9b"
   },
   "ownership": {
     "wepOwned": [
@@ -33,7 +34,8 @@
       "src/lib/wep/world-editor-primary-job.ts",
       "src/lib/wep/blocker-messages.ts",
       "src/lib/wep/WorldEditorStage1DecoratePanel.svelte",
-      "src/lib/wep/world-editor-stage1-copy.js"
+      "src/lib/wep/world-editor-stage1-copy.js",
+      "src/lib/wep/room-finish-copy.js"
     ],
     "sharedWebRenderedOnWorldEditor": [
       "src/lib/SiteHeader.svelte",
@@ -60,7 +62,7 @@
       "pt-BR"
     ],
     "rule": "World Editor presentation resolves through the shared locale runtime. WEP does not own a locale store, selector, fallback resolver, formatter, or resource loader.",
-    "routeChangeNote": "Promoted 08 WEB shared-shell authority is preserved: SiteHeader remains the closed Home/Global Entry contextual application shell and mobile shell boundary. Decorate Stage 1 WEP consumer presentation is added through WorldEditorStage1DecoratePanel.svelte and world-editor-stage1-copy.js on the same shared eight-locale runtime."
+    "routeChangeNote": "Promoted 08 WEB shared-shell authority is preserved. Decorate Stage 1 WEP consumer presentation and post-01E Room Finish presentation use the same shared eight-locale runtime; Room Finish adds no WEP locale runtime."
   },
   "translationBoundary": {
     "translate": [
@@ -76,7 +78,8 @@
       "Store inspector presentation",
       "progression-protection explanatory copy",
       "errors/status/live-region presentation wrappers",
-      "Decorate Stage 1 Moodboard handoff, pending placement, recovery, alignment/distribution, and precise-coordinate presentation"
+      "Decorate Stage 1 Moodboard handoff, pending placement, recovery, alignment/distribution, and precise-coordinate presentation",
+      "Room Finish surface, scope, owned-picker, preview, review, verified-export and recovery presentation"
     ],
     "neverTranslate": [
       "Core/WEP machine reason code",
@@ -201,6 +204,30 @@
           "Vertical",
           "Precise coordinates",
           "Apply coordinates"
+        ]
+      },
+      {
+        "surface": "Room Finish post-01E controls",
+        "source": [
+          "src/routes/editor/world/+page.svelte",
+          "src/lib/wep/room-finish-copy.js"
+        ],
+        "strings": [
+          "Room Finish",
+          "Floor",
+          "Wall",
+          "Ceiling",
+          "Flooring",
+          "Wallpaper",
+          "Current Wall",
+          "All Walls",
+          "Scope Preview",
+          "Add to draft",
+          "Cancel",
+          "Top",
+          "Right",
+          "Bottom",
+          "Left"
         ]
       }
     ],
@@ -1019,6 +1046,20 @@
           "Recovery stores committed draft transactions and the exact source fingerprint.",
           "Draft resumed from exact source baseline."
         ]
+      },
+      {
+        "surface": "Room Finish exact room route",
+        "source": [
+          "src/routes/editor/world/+page.svelte",
+          "src/lib/wep/room-finish-copy.js"
+        ],
+        "strings": [
+          "Current room",
+          "House",
+          "Floor",
+          "Room",
+          "Review Changes creates a verified replacement artifact. It does not overwrite the loaded source."
+        ]
       }
     ],
     "backupExportPrep": [
@@ -1421,6 +1462,19 @@
           "Placed in the local draft. Review Changes remains authoritative.",
           "The placement is visible in the draft but fails current validation.",
           "Room Finish save-layer target and transaction binding are promoted. Write/export remains unavailable until the exact Nintendo Switch 01E Room Finish runtime acceptance is complete."
+        ]
+      },
+      {
+        "surface": "Room Finish draft/export status",
+        "source": [
+          "src/routes/editor/world/+page.svelte",
+          "src/lib/wep/room-finish-copy.js"
+        ],
+        "strings": [
+          "Review or undo the current Room Finish draft before creating another.",
+          "Current Wall requires an exact active wall.",
+          "Room Finish change added to the local draft.",
+          "Native preservation: remove displaced stale wallpaper offset"
         ]
       }
     ]
