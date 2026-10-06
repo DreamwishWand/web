@@ -1,0 +1,100 @@
+{
+  "schema": "ddv.world-object-count-01d-evidence-request@1",
+  "requestId": "01B-TO-01D-WORLD-OBJECT-LIMIT-DATA-V125-V1",
+  "status": "MINIMAL_CANONICAL_PROJECTION_REQUIRED",
+  "requester": "01B CORE - World / Grid / Buildings",
+  "requestedOwner": "01D CORE / Game DB",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624
+  },
+  "reason": "Current v1.25 native/static count semantics are closed, but DDV_GAME_QUERY_INDEX_v1.25.0 does not expose ObjectLimitData/RoomObjectLimit records needed to make the count contract depend only on canonical Query authority.",
+  "currentSource": {
+    "protoDbDriveId": "1SYtvAy40ukVXdnenzPRbd121mO0iLEW0",
+    "protoDbSizeBytes": 1163280,
+    "protoDbSha256": "43ac5a41603f4b805d25f38ac43792d6b3916c1bc1205c95db9c8bf63cc9f0bf",
+    "canonicalGameDbPackageDriveId": "1824RTE5Rf7TvjSEDAPtBIQwuhqCPfCAU"
+  },
+  "exactProjection": [
+    {
+      "type": "Definitions.Grid.ObjectLimitData",
+      "exactRecordNames": [
+        "Village04ObjectLimit",
+        "VillageExpansion01ObjectLimit",
+        "VillageExpansion02ObjectLimit",
+        "VillageExpansion03ObjectLimit",
+        "VillageWinnieDLCObjectLimit",
+        "HighEndVillageObjectLimit",
+        "HighEndExpansion01ObjectLimit",
+        "HighEndExpansion02ObjectLimit",
+        "HighEndExpansion03ObjectLimit",
+        "HighEndWinnieDLCObjectLimit"
+      ],
+      "fields": [
+        "record identity/name",
+        "UniqueLimit",
+        "InstanceLimit",
+        "Exclusions[].ItemType",
+        "Exclusions[].RestrictSubType",
+        "Exclusions[].SubType",
+        "SpecificItemLimits[].Items",
+        "SpecificItemLimits[].InstanceLimit",
+        "SpecificItemLimits[].LocId"
+      ]
+    },
+    {
+      "type": "HouseExpansion / Meta.HouseExpansion",
+      "exactField": "Interior.RoomObjectLimit",
+      "fields": [
+        "UniqueLimit",
+        "InstanceLimit",
+        "Exclusions[].ItemType",
+        "Exclusions[].RestrictSubType",
+        "Exclusions[].SubType",
+        "SpecificItemLimits[].Items",
+        "SpecificItemLimits[].InstanceLimit",
+        "SpecificItemLimits[].LocId"
+      ]
+    }
+  ],
+  "canonicalization": [
+    "resolve ItemType enum numeric value and canonical name",
+    "resolve selector SubType string to current enum numeric value where the selected ItemType has a current subtype enum",
+    "preserve -1 sentinel values exactly",
+    "record source byte hash/provenance and validation result"
+  ],
+  "acceptance": [
+    "all 10 requested Village ObjectLimitData names resolve exactly once",
+    "normal records validate 600/3000; high-end records validate 1200/6000",
+    "each Village record has exactly the current Ephemeral / GroundAlteration / Fence exclusions",
+    "RoomObjectLimit validates -1/-1 and the current six-item mannequin SpecificItemLimit=5 record",
+    "projection is queryable/machine-readable from current v1.25 authority",
+    "no unrelated Game DB denominator or taxonomy is re-extracted or reclassified"
+  ],
+  "explicitlyNotRequested": [
+    "full 01D re-extraction",
+    "new Collection taxonomy",
+    "placement-limit enforcement",
+    "Road/Fence topology analysis",
+    "save mutation",
+    "Steam evidence"
+  ],
+  "outputFor01B": {
+    "preferredArtifact": "static/current authority projection or signed machine-readable handoff",
+    "fieldsRequiredForPin": [
+      "artifact path/id",
+      "sha256",
+      "source protoDb sha256",
+      "validation PASS"
+    ]
+  },
+  "hardFlags": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false
+  }
+}
