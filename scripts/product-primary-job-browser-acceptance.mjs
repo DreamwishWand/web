@@ -1,3 +1,4 @@
+// QR R15 exact-current-head Product evidence trigger — parent a8423a56520ea896c6e78badce9d57588576b589; harness-only.
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright-core';
 
