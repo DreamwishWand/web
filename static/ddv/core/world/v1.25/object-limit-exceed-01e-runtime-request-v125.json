@@ -1,0 +1,82 @@
+{
+  "schema": "ddv.runtime-evidence-request@1",
+  "requestId": "01B-TO-01E-WORLD-OBJECT-LIMIT-EXCEED-V125-V1",
+  "status": "FROZEN_NOT_DISPATCHED",
+  "semanticOwner": "01B CORE - World / Grid / Buildings",
+  "runtimeOwner": "01E CORE - Switch Runtime",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "titleId": "0100D39012C1A000",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624
+  },
+  "question": "Can one save-level ordinary Furniture addition that exceeds the regular Village generic Total Objects limit by exactly one survive DDV load, one ordinary save, full exit, and cold relaunch without repair, deletion, reversion, corruption, or unrelated mutation?",
+  "nativeCounter": {
+    "scope": "VILLAGE",
+    "objectLimitData": "regular non-HighEnd current Village ObjectLimitData",
+    "metric": "ObjectLimit.AllCount / ObjectLimitData.InstanceLimit",
+    "instanceLimit": 3000,
+    "distinctMetricHeldBelowLimit": "ObjectLimit.UniqueCount < 600",
+    "excludedClassesNotUsed": [
+      "ActivityItem/Ephemeral",
+      "Furniture/GroundAlteration",
+      "Furniture/Fence"
+    ]
+  },
+  "sourceFixtureRequirements": [
+    "Exact supported Switch v1.25.0 BID/schema target.",
+    "ProfileWorld.ExtraLimitObject == false for the selected Village.",
+    "Offline/core recount using ddv.world-object-count-consumption@1 verifies selected Village generic Total Objects == 3000 and Distinct Object Types < 600 before mutation.",
+    "At least one already-owned ordinary CORE_STATELESS_FURNITURE ItemID is already present in the counted Village so the candidate can duplicate that ItemID without changing Distinct Object Types.",
+    "One exact current-v1.25 native-placement-valid free destination cell is available in a counted Village root Grid.",
+    "Source is backed up before candidate construction."
+  ],
+  "boundedCandidate": {
+    "operation": "ADD_EXACTLY_ONE_ORDINARY_ROOT_STATELESS_FURNITURE_GRID_OBJECT",
+    "semanticContract": "ddv.ordinary-furniture-add-semantics@1",
+    "expectedCounterDelta": {
+      "totalObjects": "+1 => 3001",
+      "distinctObjectTypes": "+0"
+    },
+    "unrelatedMutations": "FORBIDDEN",
+    "roadsFences": "DO_NOT_TOUCH",
+    "inventoryEntitlementProgression": "DO_NOT_MUTATE"
+  },
+  "procedure": [
+    "Construct only the frozen one-object candidate from the backed-up source.",
+    "Load candidate in DDV and verify normal world load plus presence of the added object.",
+    "Perform one ordinary in-game save.",
+    "Extract immediately after save and verify the added object remains and all unrelated semantic state is candidate-exact.",
+    "Fully exit DDV.",
+    "Cold relaunch the same profile and verify normal load plus presence of the added object.",
+    "Perform no additional decoration edits during the acceptance sequence.",
+    "Restore the source backup after evidence capture."
+  ],
+  "passConditions": [
+    "Candidate loads without crash, forced repair, or profile rejection.",
+    "Added object remains present after the ordinary save re-extract.",
+    "Added object remains present after full exit and cold relaunch.",
+    "Offline recount remains Total Objects 3001 and Distinct Object Types unchanged from source.",
+    "No unrelated GridObject, inventory, ownership, progression, entitlement, or world state changes beyond ordinary game save noise accepted by existing verifier policy."
+  ],
+  "failConditions": [
+    "Load rejection/crash/repair.",
+    "Automatic deletion, rollback, or normalization of the added object.",
+    "Save or relaunch reverts the profile to 3000 counted instances.",
+    "Unexpected unrelated semantic mutation or instability attributable to the exceed-limit state."
+  ],
+  "interpretationBoundary": [
+    "PASS proves only one-over regular Village InstanceLimit persistence for the exact ordinary Furniture candidate.",
+    "PASS does not authorize unlimited counts, bypass native UI rules, or add a Wand placement blocker/bypass feature.",
+    "FAIL does not alter Road/Fence non-consumption semantics; Road/Fence are not used in this candidate."
+  ],
+  "dispatchAuthorized": false,
+  "writerBoundary": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false
+  }
+}
