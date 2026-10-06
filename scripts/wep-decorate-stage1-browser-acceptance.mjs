@@ -380,10 +380,11 @@ try{
   pass('ROAD_FENCE_GENERIC_TRANSFORM_FAIL_CLOSED');
 
   assert.equal(await stageBound.getByRole('button',{name:'Room Finish'}).count(),0);
-  pass('ROOM_FINISH_RUNTIME_GATE_PRESERVED',{
-    state:'BLOCKED_01E_RUNTIME_ACCEPTANCE_PENDING',
+  pass('ROOM_FINISH_NOT_EXPOSED_IN_GENERIC_STAGE1_PANEL',{
+    state:'ROOM_CONTEXT_ONLY',
     coreTarget:'PLAYER_HOUSE_ROOM',
-    transactionBinding:'01b-room-finish-v125-v1'
+    transactionBinding:'01b-room-finish-v125-v1',
+    runtimeAcceptance:'CLOSED_PASS'
   });
 
   const locales=['en','fr','it','de','es-ES','ja','zh-CN','pt-BR'];
