@@ -626,6 +626,18 @@
     });
   }
 
+  function createCurrentDraftSession(
+    document: any,
+    recoverySnapshot: any = null
+  ) {
+    if (document?.target?.kind === 'PLAYER_HOUSE_ROOM') {
+      return createEditorSession(document, {
+        recoverySnapshot
+      });
+    }
+    return createSwitchDraftSession(document, recoverySnapshot);
+  }
+
   function recoveryTargetForCurrentSource() {
     if (!worldSource) return null;
     return {
@@ -776,7 +788,7 @@
     verifiedExportBaselineDocument = normalizeEditorDocument(
       firstHistory?.before ?? recoveredDocument
     );
-    session = createSwitchDraftSession(
+    session = createCurrentDraftSession(
       recoveredDocument,
       route.session
     );
@@ -2357,6 +2369,8 @@
           originalSaveBackup
         });
 
+        refreshRoomFinishRoutes();
+
         if (recoveryRequest) {
           if (fingerprint !== recoveryRequest.sourceFingerprint) {
             throw new Error('WEP_RECOVERY_SOURCE_FINGERPRINT_MISMATCH');
@@ -2421,6 +2435,82 @@
     } finally {
       loading = false;
       input.value = '';
+    }
+  }
+
+  async function openRoomFinishRoomInCanvas(route: any) {
+    if (!worldSource) return;
+    if (
+      worldSource.saveIdentity?.sourcePlatform !== 'switch' ||
+      worldSource.compatibility?.gameVersion !== '1.25.0' ||
+      Number(worldSource.profileSchemaVersion) !== 624
+    ) {
+      message = 'WEP_ROOM_FINISH_UNSUPPORTED_VERSION_BUILD';
+      return;
+    }
+
+    loading = true;
+    message = '';
+    capturePreview = null;
+    published = null;
+    fullDesignPlan = null;
+    fullDesignPlanError = '';
+    fullDesignRootDocuments = [];
+    fullDesignSourceRootGridId = null;
+    resetFullDesignDestination();
+    resetRoadFenceCapture();
+    resetRoomFinishUi();
+
+    try {
+      await ensureRoomFinishData();
+      const normalized = normalizeEditorDocument(
+        createRoomFinishEditorDocumentV125(route.projection)
+      );
+      verifiedExportBaselineDocument = cloneLocal(normalized);
+      verifiedExportReview = null;
+      verifiedExportResult = null;
+      verifiedExportErrorCode = '';
+      verifiedExportErrorDetail = '';
+      verifiedExportBuildConfirmed = false;
+      verifiedExportConfirmed = false;
+
+      session = createCurrentDraftSession(normalized);
+      editorDocument = session.getDocument();
+      draftAuthoringBound = true;
+      projected = [];
+      selection = [];
+      canvasFocusEditorId = '';
+      layerState = createLayerState({
+        capabilities: editorDocument.capabilities
+      });
+      areaBounds = deriveAreaBounds(editorDocument);
+      query = '';
+      selectedOnly = false;
+      copiedDraftClipboard = null;
+      clipboardPasteCount = 0;
+      refreshRoomFinishOwnedItems();
+      refreshProjection();
+      refreshDraftState();
+      rememberActiveDraftInMemory();
+
+      message =
+        `${roomFinishUi.currentRoom}: ` +
+        (route.roomName ||
+          `${roomFinishUi.house} ${route.locator.houseItemId} · ` +
+          `${roomFinishUi.floorIndex} ${route.locator.floorIndex} · ` +
+          `${roomFinishUi.roomSlot} ${route.locator.roomSlot}`);
+    } catch (error) {
+      session = null;
+      editorDocument = null;
+      projected = [];
+      selection = [];
+      layerState = null;
+      draftAuthoringBound = false;
+      verifiedExportBaselineDocument = null;
+      resetRoomFinishUi();
+      message = error instanceof Error ? error.message : String(error);
+    } finally {
+      loading = false;
     }
   }
 
@@ -2779,6 +2869,8 @@
     verifiedExportConfirmed = false;
     copiedDraftClipboard = null;
     clipboardPasteCount = 0;
+    resetRoomFinishUi();
+    refreshRoomFinishRoutes();
     query = '';
     selectedOnly = false;
     message = t('worldEditor.open.returnedToRoutes', {}, $locale);
