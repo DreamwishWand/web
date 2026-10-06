@@ -40,6 +40,7 @@ export interface EditorDocument {
   networks: Record<string, any>;
   capabilities: Record<string, any>;
   metadata: Record<string, any>;
+  roomFinish: Record<string, any> | null;
 }
 
 export interface Rect {
@@ -172,7 +173,11 @@ export function normalizeEditorDocument(input: any): EditorDocument {
     objects,
     networks: clone(input.networks ?? { roads: null, fences: null }),
     capabilities: clone(input.capabilities ?? {}),
-    metadata: clone(input.metadata ?? {})
+    metadata: clone(input.metadata ?? {}),
+    roomFinish:
+      input.roomFinish === undefined || input.roomFinish === null
+        ? null
+        : clone(input.roomFinish)
   };
 }
 
@@ -585,6 +590,15 @@ export function createEditorSession(
         });
       }
 
+      for (const entry of undoStack) {
+        if (
+          entry.kind === 'ROOM_FINISH' &&
+          plain(entry.result?.reviewChange)
+        ) {
+          changes.push(clone(entry.result.reviewChange));
+        }
+      }
+
       return {
         schema: 'dreamwish-wand-wep-draft-review@1',
         version: 1,
@@ -620,6 +634,51 @@ export function createEditorSession(
         productApplyAuthorized: false,
         directSourceReplacementAuthorized: false
       };
+    },
+
+    commitRoomFinishDraft({
+      roomFinish,
+      reviewChange,
+      mutationSet
+    }: {
+      roomFinish: Record<string, any>;
+      reviewChange: Record<string, any>;
+      mutationSet: Record<string, any>;
+    }) {
+      assert(
+        plain(document.roomFinish) &&
+          document.target?.kind === 'PLAYER_HOUSE_ROOM',
+        'WEP_ROOM_FINISH_SESSION_REQUIRED'
+      );
+      assert(
+        plain(roomFinish) &&
+          roomFinish.contract === document.roomFinish?.contract,
+        'WEP_ROOM_FINISH_STATE_INVALID'
+      );
+      assert(
+        plain(reviewChange) && reviewChange.kind === 'ROOM_FINISH',
+        'WEP_ROOM_FINISH_REVIEW_CHANGE_INVALID'
+      );
+      assert(
+        plain(mutationSet) &&
+          mutationSet.contract === 'ddv.room-finish-mutation-set@1',
+        'WEP_ROOM_FINISH_MUTATION_SET_INVALID'
+      );
+      return commit(
+        'ROOM_FINISH',
+        (candidate) => {
+          candidate.roomFinish = clone(roomFinish);
+          return {
+            command: 'ROOM_FINISH',
+            reviewChange: clone(reviewChange),
+            mutationSet: clone(mutationSet)
+          };
+        },
+        {
+          command: 'ROOM_FINISH',
+          semanticDomain: 'PLAYER_HOUSE_ROOM'
+        }
+      );
     },
 
     setSelection(ids: string[]) {
