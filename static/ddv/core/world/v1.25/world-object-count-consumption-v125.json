@@ -435,7 +435,7 @@
   },
   "implementation": {
     "apiPath": "src/lib/ddv/core/world/world-object-count-consumption-v125.js",
-    "apiSha256": "bde662faa670e0a6e61103838fce709a5cadc38130b99e50c9207467f4364126",
+    "apiSha256": "1b46ee5968ee67080a1b2628950b25ad315eb8542f6ac665b8db2ba9306d6126",
     "testPath": "tests/ddv-core-world-object-count-consumption-v125.test.mjs",
     "testSha256": "391ee8842eb1248b917ab8c59dcf6afcacf8468daf287fd54dad734b040a20e3",
     "localFocusedTest": {
