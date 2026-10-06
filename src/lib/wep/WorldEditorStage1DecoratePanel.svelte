@@ -16,6 +16,7 @@
     readWorldEditorHandoff
   } from './world-editor-handoff';
   import { worldEditorStage1Copy } from './world-editor-stage1-copy.js';
+  import { roomFinishCopy } from './room-finish-copy.js';
 
   export let session: any = null;
   export let editorDocument: any = null;
@@ -43,6 +44,7 @@
   let lastPreciseEditorId = '';
 
   $: copy = worldEditorStage1Copy($locale);
+  $: rfCopy = roomFinishCopy($locale);
   $: sections = board
     ? moodboardSections(board).map((section: any) => ({
         ...section,
@@ -501,18 +503,49 @@
       </div>
       <div class="review-list">
         {#each draftReview.changes as change}
-          <article data-wep-stage1-change={change.kind}>
-            <strong>{reviewKindLabel(change.kind)}</strong>
-            <code>{change.editorId} · Item {change.itemId}</code>
-            {#if change.before}
-              <span>
-                {copy.x} {change.before.x} · {copy.y} {change.before.y} · O {change.before.orientation}
-              </span>
-            {/if}
-            {#if change.after}
-              <span>
-                → {copy.x} {change.after.x} · {copy.y} {change.after.y} · O {change.after.orientation}
-              </span>
+          <article
+            data-wep-stage1-change={change.kind}
+            data-wep-room-finish-change={change.kind === 'ROOM_FINISH' ? change.finishKind : undefined}
+          >
+            {#if change.kind === 'ROOM_FINISH'}
+              <strong>{rfCopy.roomFinish} · {change.finishKind === 'FLOORING' ? rfCopy.flooring : rfCopy.wallpaper}</strong>
+              <code>
+                {rfCopy.house} {change.target?.houseItemId} ·
+                {rfCopy.floorIndex} {change.target?.floorIndex} ·
+                {rfCopy.roomSlot} {change.target?.roomSlot}
+              </code>
+              {#if change.finishKind === 'FLOORING'}
+                <span>{change.oldItemId} → {change.newItemId}</span>
+              {:else}
+                <span>
+                  {change.scope === 'ALL_WALLS' ? rfCopy.allWalls : rfCopy.currentWall}
+                  · {rfCopy.affectedWalls}: {change.affectedWallPositions?.join(', ')}
+                </span>
+                {#each change.wallChanges ?? [] as wallChange}
+                  <span>
+                    {rfCopy.wallPosition} {String(wallChange.path).split('/').pop()}:
+                    {wallChange.before} → {wallChange.after}
+                  </span>
+                {/each}
+                {#each change.nativePreservation ?? [] as operation}
+                  <span data-wep-room-finish-review-cleanup>
+                    {rfCopy.staleCleanup} · Item {operation.itemId}
+                  </span>
+                {/each}
+              {/if}
+            {:else}
+              <strong>{reviewKindLabel(change.kind)}</strong>
+              <code>{change.editorId} · Item {change.itemId}</code>
+              {#if change.before}
+                <span>
+                  {copy.x} {change.before.x} · {copy.y} {change.before.y} · O {change.before.orientation}
+                </span>
+              {/if}
+              {#if change.after}
+                <span>
+                  → {copy.x} {change.after.x} · {copy.y} {change.after.y} · O {change.after.orientation}
+                </span>
+              {/if}
             {/if}
           </article>
         {/each}

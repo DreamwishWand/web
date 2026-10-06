@@ -327,6 +327,16 @@ export function clearActiveWorldEditorMemory() {
 
 export function routeKeyForDocument(document: EditorDocument) {
   const target = document?.target ?? {};
+  if (target.kind === 'PLAYER_HOUSE_ROOM') {
+    return [
+      String(target.platform ?? ''),
+      String(target.gameVersion ?? ''),
+      'PLAYER_HOUSE_ROOM',
+      String(target.houseItemId ?? ''),
+      String(target.floorIndex ?? ''),
+      String(target.roomSlot ?? '')
+    ].join('|');
+  }
   return [
     String(target.platform ?? ''),
     String(target.gameVersion ?? ''),

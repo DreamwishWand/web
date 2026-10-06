@@ -78,6 +78,25 @@
     reviewRoadFenceVerifiedExport
   } from '$lib/wep/roadfence-verified-export-v125';
   import {
+    ROOM_FINISH_VERIFIED_EXPORT_CONTRACT,
+    WALLPAPER_SCOPE,
+    applyRoomFinishDraftMutationV125,
+    commitRoomFinishVerifiedExportV125,
+    compileRoomFinishFlooringDraftV125,
+    compileRoomFinishWallpaperDraftV125,
+    createRoomFinishEditorDocumentV125,
+    listIndoorRoomFinishRoutesV125,
+    listOwnedRoomFinishTrimmingV125,
+    loadRoomFinishTrimmingPackV125,
+    reviewRoomFinishVerifiedExportV125,
+    roomFinishDraftReviewChange
+  } from '$lib/wep/room-finish-verified-export-v125';
+  import { roomFinishCopy } from '$lib/wep/room-finish-copy.js';
+  import {
+    decodeCollectionRecord,
+    loadCollectionRuntime
+  } from '$lib/collection/runtime.js';
+  import {
     buildObjectInspectorModel,
     buildPrimaryJobAvailability,
     describeDraftValidation,
@@ -212,6 +231,23 @@
   let rfPreview: any = null;
   let rfMessage = '';
 
+  let roomFinishPack: any = null;
+  let roomFinishCollectionRuntime: any = null;
+  let roomFinishCollectionRowsById = new Map<number, any>();
+  let roomFinishRoutes: any[] = [];
+  let roomFinishDiagnostics: any[] = [];
+  let activeRoomSurface: 'Floor' | 'Wall' | 'Ceiling' = 'Floor';
+  let activeRoomWallPosition: number | null = null;
+  let roomFinishOpen = false;
+  let roomFinishMode: 'FLOORING' | 'WALLPAPER' = 'FLOORING';
+  let roomFinishScope: 'CURRENT_WALL' | 'ALL_WALLS' = 'ALL_WALLS';
+  let roomFinishFlooringItemId = 0;
+  let roomFinishWallpaperItemId = 0;
+  let roomFinishOwnedFlooring: any[] = [];
+  let roomFinishOwnedWallpaper: any[] = [];
+  let roomFinishPreview: any = null;
+  let roomFinishStatus = '';
+
   let community: CommunityLabClient | null = null;
   let bridge: ReturnType<typeof createPresetCommunityBridge> | null = null;
   let workflow: ReturnType<typeof createScenePresetWorkflow> | null = null;
@@ -237,6 +273,11 @@
   $: selectedCount = selection.length;
   $: objectCount = editorDocument?.objects?.length ?? 0;
   $: stage1Copy = worldEditorStage1Copy($locale);
+  $: roomFinishUi = roomFinishCopy($locale);
+  $: roomFinishContextActive =
+    editorDocument?.target?.kind === 'PLAYER_HOUSE_ROOM';
+  $: roomFinishCurrentState =
+    roomFinishContextActive ? editorDocument?.roomFinish?.current ?? null : null;
   $: placementReadiness = editorDocument
     ? assessCurrentV125BrowserPlacementReadiness(editorDocument)
     : null;
@@ -285,6 +326,215 @@
           selectedInspectorObject.itemId
         )
       : null;
+
+  function roomFinishItemLabel(itemId: number) {
+    const row = roomFinishCollectionRowsById.get(Number(itemId));
+    if (!row || !roomFinishCollectionRuntime?.index) {
+      return `Item ${Number(itemId)}`;
+    }
+    try {
+      return decodeCollectionRecord(
+        roomFinishCollectionRuntime.index,
+        row,
+        $locale
+      ).label || `Item ${Number(itemId)}`;
+    } catch {
+      return `Item ${Number(itemId)}`;
+    }
+  }
+
+  function resetRoomFinishUi() {
+    activeRoomSurface = 'Floor';
+    activeRoomWallPosition = null;
+    roomFinishOpen = false;
+    roomFinishMode = 'FLOORING';
+    roomFinishScope = 'ALL_WALLS';
+    roomFinishFlooringItemId = 0;
+    roomFinishWallpaperItemId = 0;
+    roomFinishOwnedFlooring = [];
+    roomFinishOwnedWallpaper = [];
+    roomFinishPreview = null;
+    roomFinishStatus = '';
+  }
+
+  function refreshRoomFinishRoutes() {
+    if (
+      !worldSource ||
+      worldSource.saveIdentity?.sourcePlatform !== 'switch' ||
+      worldSource.compatibility?.gameVersion !== '1.25.0' ||
+      Number(worldSource.profileSchemaVersion) !== 624
+    ) {
+      roomFinishRoutes = [];
+      roomFinishDiagnostics = [];
+      return;
+    }
+    const routes = listIndoorRoomFinishRoutesV125(worldSource.profile);
+    roomFinishRoutes = [...routes.routes];
+    roomFinishDiagnostics = [...routes.diagnostics];
+  }
+
+  async function ensureRoomFinishData() {
+    if (!roomFinishPack) {
+      roomFinishPack = await loadRoomFinishTrimmingPackV125({
+        basePath: base
+      });
+    }
+    if (!roomFinishCollectionRuntime) {
+      const runtime = await loadCollectionRuntime(base);
+      roomFinishCollectionRuntime = runtime;
+      roomFinishCollectionRowsById = new Map(
+        runtime.rows.map((row: any) => [Number(row?.[0]), row])
+      );
+    }
+  }
+
+  function refreshRoomFinishOwnedItems() {
+    if (!worldSource || !roomFinishPack) {
+      roomFinishOwnedFlooring = [];
+      roomFinishOwnedWallpaper = [];
+      return;
+    }
+    roomFinishOwnedFlooring = [
+      ...listOwnedRoomFinishTrimmingV125({
+        profile: worldSource.profile,
+        pack: roomFinishPack,
+        subtype: 1
+      })
+    ];
+    roomFinishOwnedWallpaper = [
+      ...listOwnedRoomFinishTrimmingV125({
+        profile: worldSource.profile,
+        pack: roomFinishPack,
+        subtype: 0
+      })
+    ];
+    if (
+      !roomFinishOwnedFlooring.some(
+        (entry: any) =>
+          Number(entry.itemId) === Number(roomFinishFlooringItemId)
+      )
+    ) {
+      roomFinishFlooringItemId =
+        Number(roomFinishOwnedFlooring[0]?.itemId ?? 0);
+    }
+    if (
+      !roomFinishOwnedWallpaper.some(
+        (entry: any) =>
+          Number(entry.itemId) === Number(roomFinishWallpaperItemId)
+      )
+    ) {
+      roomFinishWallpaperItemId =
+        Number(roomFinishOwnedWallpaper[0]?.itemId ?? 0);
+    }
+  }
+
+  function setActiveRoomSurface(
+    surface: 'Floor' | 'Wall' | 'Ceiling',
+    wallPosition: number | null = null
+  ) {
+    activeRoomSurface = surface;
+    activeRoomWallPosition =
+      surface === 'Wall' && Number.isSafeInteger(Number(wallPosition))
+        ? Number(wallPosition)
+        : null;
+    roomFinishPreview = null;
+    roomFinishStatus = '';
+    if (
+      roomFinishScope === 'CURRENT_WALL' &&
+      activeRoomWallPosition === null
+    ) {
+      roomFinishScope = 'ALL_WALLS';
+    }
+  }
+
+  function toggleRoomFinish() {
+    if (!roomFinishContextActive) return;
+    roomFinishOpen = !roomFinishOpen;
+    roomFinishPreview = null;
+    roomFinishStatus = '';
+  }
+
+  function buildRoomFinishPreview(
+    kind: 'FLOORING' | 'WALLPAPER'
+  ) {
+    if (
+      !editorDocument ||
+      !worldSource ||
+      !roomFinishPack ||
+      !roomFinishContextActive
+    ) {
+      throw new Error('WEP_ROOM_FINISH_CONTEXT_REQUIRED');
+    }
+    const compiled =
+      kind === 'FLOORING'
+        ? compileRoomFinishFlooringDraftV125({
+            document: editorDocument,
+            profile: worldSource.profile,
+            pack: roomFinishPack,
+            itemId: Number(roomFinishFlooringItemId)
+          })
+        : compileRoomFinishWallpaperDraftV125({
+            document: editorDocument,
+            profile: worldSource.profile,
+            pack: roomFinishPack,
+            itemId: Number(roomFinishWallpaperItemId),
+            scope: roomFinishScope,
+            wallPosition:
+              roomFinishScope === WALLPAPER_SCOPE.CURRENT_WALL
+                ? activeRoomWallPosition
+                : null
+          });
+    const next = applyRoomFinishDraftMutationV125(
+      editorDocument,
+      compiled
+    );
+    const semantic = roomFinishDraftReviewChange(next);
+    if (!semantic) {
+      throw new Error('WEP_ROOM_FINISH_PREVIEW_SEMANTIC_MISSING');
+    }
+    return {
+      kind,
+      compiled,
+      next,
+      semantic
+    };
+  }
+
+  function previewRoomFinish(
+    kind: 'FLOORING' | 'WALLPAPER'
+  ) {
+    try {
+      roomFinishMode = kind;
+      roomFinishPreview = buildRoomFinishPreview(kind);
+      roomFinishStatus = '';
+    } catch (error) {
+      roomFinishPreview = null;
+      roomFinishStatus =
+        error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  function cancelRoomFinishPreview() {
+    roomFinishPreview = null;
+    roomFinishStatus = '';
+  }
+
+  function commitRoomFinishPreview() {
+    if (!session || !roomFinishPreview || !roomFinishContextActive) return;
+    try {
+      const result = session.commitRoomFinishDraft({
+        roomFinish: roomFinishPreview.next.roomFinish,
+        reviewChange: roomFinishPreview.semantic,
+        mutationSet: roomFinishPreview.compiled.mutationSet
+      });
+      roomFinishPreview = null;
+      roomFinishStatus = roomFinishUi.draftAdded;
+      finishDraftMutation(result, 'ROOM_FINISH');
+    } catch (error) {
+      roomFinishStatus =
+        error instanceof Error ? error.message : String(error);
+    }
+  }
 
   function editorBlockerText(code: string) {
     return localizeWepBlocker(code, $locale).message;
@@ -374,6 +624,18 @@
       allowInvalidDraft: true,
       recoverySnapshot
     });
+  }
+
+  function createCurrentDraftSession(
+    document: any,
+    recoverySnapshot: any = null
+  ) {
+    if (document?.target?.kind === 'PLAYER_HOUSE_ROOM') {
+      return createEditorSession(document, {
+        recoverySnapshot
+      });
+    }
+    return createSwitchDraftSession(document, recoverySnapshot);
   }
 
   function recoveryTargetForCurrentSource() {
@@ -526,7 +788,7 @@
     verifiedExportBaselineDocument = normalizeEditorDocument(
       firstHistory?.before ?? recoveredDocument
     );
-    session = createSwitchDraftSession(
+    session = createCurrentDraftSession(
       recoveredDocument,
       route.session
     );
@@ -2107,6 +2369,8 @@
           originalSaveBackup
         });
 
+        refreshRoomFinishRoutes();
+
         if (recoveryRequest) {
           if (fingerprint !== recoveryRequest.sourceFingerprint) {
             throw new Error('WEP_RECOVERY_SOURCE_FINGERPRINT_MISMATCH');
@@ -2171,6 +2435,82 @@
     } finally {
       loading = false;
       input.value = '';
+    }
+  }
+
+  async function openRoomFinishRoomInCanvas(route: any) {
+    if (!worldSource) return;
+    if (
+      worldSource.saveIdentity?.sourcePlatform !== 'switch' ||
+      worldSource.compatibility?.gameVersion !== '1.25.0' ||
+      Number(worldSource.profileSchemaVersion) !== 624
+    ) {
+      message = 'WEP_ROOM_FINISH_UNSUPPORTED_VERSION_BUILD';
+      return;
+    }
+
+    loading = true;
+    message = '';
+    capturePreview = null;
+    published = null;
+    fullDesignPlan = null;
+    fullDesignPlanError = '';
+    fullDesignRootDocuments = [];
+    fullDesignSourceRootGridId = null;
+    resetFullDesignDestination();
+    resetRoadFenceCapture();
+    resetRoomFinishUi();
+
+    try {
+      await ensureRoomFinishData();
+      const normalized = normalizeEditorDocument(
+        createRoomFinishEditorDocumentV125(route.projection)
+      );
+      verifiedExportBaselineDocument = cloneLocal(normalized);
+      verifiedExportReview = null;
+      verifiedExportResult = null;
+      verifiedExportErrorCode = '';
+      verifiedExportErrorDetail = '';
+      verifiedExportBuildConfirmed = false;
+      verifiedExportConfirmed = false;
+
+      session = createCurrentDraftSession(normalized);
+      editorDocument = session.getDocument();
+      draftAuthoringBound = true;
+      projected = [];
+      selection = [];
+      canvasFocusEditorId = '';
+      layerState = createLayerState({
+        capabilities: editorDocument.capabilities
+      });
+      areaBounds = deriveAreaBounds(editorDocument);
+      query = '';
+      selectedOnly = false;
+      copiedDraftClipboard = null;
+      clipboardPasteCount = 0;
+      refreshRoomFinishOwnedItems();
+      refreshProjection();
+      refreshDraftState();
+      rememberActiveDraftInMemory();
+
+      message =
+        `${roomFinishUi.currentRoom}: ` +
+        (route.roomName ||
+          `${roomFinishUi.house} ${route.locator.houseItemId} · ` +
+          `${roomFinishUi.floorIndex} ${route.locator.floorIndex} · ` +
+          `${roomFinishUi.roomSlot} ${route.locator.roomSlot}`);
+    } catch (error) {
+      session = null;
+      editorDocument = null;
+      projected = [];
+      selection = [];
+      layerState = null;
+      draftAuthoringBound = false;
+      verifiedExportBaselineDocument = null;
+      resetRoomFinishUi();
+      message = error instanceof Error ? error.message : String(error);
+    } finally {
+      loading = false;
     }
   }
 
@@ -2529,6 +2869,8 @@
     verifiedExportConfirmed = false;
     copiedDraftClipboard = null;
     clipboardPasteCount = 0;
+    resetRoomFinishUi();
+    refreshRoomFinishRoutes();
     query = '';
     selectedOnly = false;
     message = t('worldEditor.open.returnedToRoutes', {}, $locale);
@@ -3016,13 +3358,17 @@
   }
 
   async function reviewVerifiedExport() {
+    const roomFinishReview =
+      editorDocument?.target?.kind === 'PLAYER_HOUSE_ROOM';
     if (
       !worldSource ||
       !worldSourceBytes ||
       !verifiedExportBaselineDocument ||
       !editorDocument ||
-      !placementLegalityBinding ||
-      !switchWorldBinding
+      (
+        !roomFinishReview &&
+        (!placementLegalityBinding || !switchWorldBinding)
+      )
     ) {
       verifiedExportErrorCode = 'WEP_EXPORT_NO_ELIGIBLE_PENDING_CHANGE';
       verifiedExportErrorDetail = '';
@@ -3037,48 +3383,60 @@
     verifiedExportConfirmed = false;
     try {
       const roadFenceChanged =
+        !roomFinishReview &&
         JSON.stringify(verifiedExportBaselineDocument.networks ?? null) !==
-        JSON.stringify(editorDocument.networks ?? null);
+          JSON.stringify(editorDocument.networks ?? null);
       const ordinaryAddChanged =
+        !roomFinishReview &&
         !roadFenceChanged &&
         editorDocument.objects.length ===
           verifiedExportBaselineDocument.objects.length + 1;
-      const review = roadFenceChanged
-        ? await reviewRoadFenceVerifiedExport({
+      const review = roomFinishReview
+        ? await reviewRoomFinishVerifiedExportV125({
             sourceBytes: worldSourceBytes,
             sourceName: fileName || 'profile',
             sourceEpoch: worldSourceEpoch,
             opened: worldSource,
-            baselineDocument: verifiedExportBaselineDocument,
             draftDocument: editorDocument,
             exactBuildConfirmed: verifiedExportBuildConfirmed
           })
-        : ordinaryAddChanged
-          ? await reviewOrdinaryFurnitureAddVerifiedExport({
+        : roadFenceChanged
+          ? await reviewRoadFenceVerifiedExport({
               sourceBytes: worldSourceBytes,
               sourceName: fileName || 'profile',
               sourceEpoch: worldSourceEpoch,
               opened: worldSource,
               baselineDocument: verifiedExportBaselineDocument,
               draftDocument: editorDocument,
-              placementBinding: placementLegalityBinding,
-              basePath: base,
               exactBuildConfirmed: verifiedExportBuildConfirmed
             })
-          : await reviewMinimumVerifiedTransform({
-              sourceBytes: worldSourceBytes,
-              sourceName: fileName || 'profile',
-              sourceEpoch: worldSourceEpoch,
-              opened: worldSource,
-              baselineDocument: verifiedExportBaselineDocument,
-              draftDocument: editorDocument,
-              placementBinding: placementLegalityBinding,
-              worldBinding: switchWorldBinding,
-              basePath: base,
-              exactBuildConfirmed: verifiedExportBuildConfirmed
-            });
+          : ordinaryAddChanged
+            ? await reviewOrdinaryFurnitureAddVerifiedExport({
+                sourceBytes: worldSourceBytes,
+                sourceName: fileName || 'profile',
+                sourceEpoch: worldSourceEpoch,
+                opened: worldSource,
+                baselineDocument: verifiedExportBaselineDocument,
+                draftDocument: editorDocument,
+                placementBinding: placementLegalityBinding,
+                basePath: base,
+                exactBuildConfirmed: verifiedExportBuildConfirmed
+              })
+            : await reviewMinimumVerifiedTransform({
+                sourceBytes: worldSourceBytes,
+                sourceName: fileName || 'profile',
+                sourceEpoch: worldSourceEpoch,
+                opened: worldSource,
+                baselineDocument: verifiedExportBaselineDocument,
+                draftDocument: editorDocument,
+                placementBinding: placementLegalityBinding,
+                worldBinding: switchWorldBinding,
+                basePath: base,
+                exactBuildConfirmed: verifiedExportBuildConfirmed
+              });
       if (
         review.contract !== ROADFENCE_VERIFIED_EXPORT_CONTRACT &&
+        review.contract !== ROOM_FINISH_VERIFIED_EXPORT_CONTRACT &&
         (
           selection.length !== 1 ||
           selection[0] !== review.change.editorId
@@ -3114,7 +3472,11 @@
       !worldSourceBytes ||
       !verifiedExportBaselineDocument ||
       !editorDocument ||
-      !switchWorldBinding
+      (
+        verifiedExportReview.contract !==
+          ROOM_FINISH_VERIFIED_EXPORT_CONTRACT &&
+        !switchWorldBinding
+      )
     ) return;
     verifiedExportLoading = true;
     verifiedExportResult = null;
@@ -3132,16 +3494,24 @@
               draftDocument: editorDocument
             })
           : verifiedExportReview.contract ===
-              ORDINARY_FURNITURE_ADD_VERIFIED_EXPORT_CONTRACT
-            ? await commitOrdinaryFurnitureAddVerifiedExport({
+              ROOM_FINISH_VERIFIED_EXPORT_CONTRACT
+            ? await commitRoomFinishVerifiedExportV125({
                 review: verifiedExportReview,
                 currentSourceEpoch: worldSourceEpoch,
                 sourceBytes: worldSourceBytes,
-                baselineDocument: verifiedExportBaselineDocument,
-                draftDocument: editorDocument,
-                worldBinding: switchWorldBinding
+                draftDocument: editorDocument
               })
-            : await commitMinimumVerifiedTransform({
+            : verifiedExportReview.contract ===
+                ORDINARY_FURNITURE_ADD_VERIFIED_EXPORT_CONTRACT
+              ? await commitOrdinaryFurnitureAddVerifiedExport({
+                  review: verifiedExportReview,
+                  currentSourceEpoch: worldSourceEpoch,
+                  sourceBytes: worldSourceBytes,
+                  baselineDocument: verifiedExportBaselineDocument,
+                  draftDocument: editorDocument,
+                  worldBinding: switchWorldBinding
+                })
+              : await commitMinimumVerifiedTransform({
                 review: verifiedExportReview,
                 currentSourceEpoch: worldSourceEpoch,
                 sourceBytes: worldSourceBytes,
@@ -3798,6 +4168,17 @@
             <strong>{t('worldEditor.toolbar.selectedCount', { count: selectedCount }, $locale)}</strong>
           </div>
           <div class="toolbar-actions">
+            {#if roomFinishContextActive}
+              <button
+                type="button"
+                class:active={roomFinishOpen}
+                data-wep-room-finish-toggle
+                aria-expanded={roomFinishOpen}
+                on:click={toggleRoomFinish}
+              >
+                {roomFinishUi.roomFinish}
+              </button>
+            {/if}
             <button
               aria-disabled={!primaryJobAvailability.commands.move.enabled}
               aria-describedby={!primaryJobAvailability.commands.move.enabled ? 'wep-reason-move' : undefined}
@@ -3863,6 +4244,13 @@
               aria-describedby={!primaryJobAvailability.commands.reviewSavePrep.enabled ? 'wep-reason-reviewSavePrep' : undefined}
               on:click={runPrimarySavePrep}
             >{t('worldEditor.command.reviewSavePrep', {}, $locale)}</button>
+            {#if roomFinishContextActive}
+              <button
+                type="button"
+                aria-disabled={!primaryJobAvailability.commands.downloadOriginalBackup.enabled}
+                on:click={runPrimaryOriginalBackup}
+              >{t('worldEditor.command.downloadOriginalBackup', {}, $locale)}</button>
+            {/if}
             <button
               class="save-prep"
               aria-disabled={!primaryJobAvailability.commands.downloadOriginalBackup.enabled}
@@ -3871,6 +4259,223 @@
             >{t('worldEditor.command.downloadOriginalBackup', {}, $locale)}</button>
           </div>
         </div>
+
+        {#if roomFinishContextActive}
+          <div class="room-finish-surface-bar" data-wep-room-finish-surface>
+            <span>{roomFinishUi.surface}</span>
+            <button
+              type="button"
+              class:active={activeRoomSurface === 'Floor'}
+              on:click={() => setActiveRoomSurface('Floor')}
+            >{roomFinishUi.floor}</button>
+            <button
+              type="button"
+              class:active={activeRoomSurface === 'Wall' && activeRoomWallPosition === 0}
+              on:click={() => setActiveRoomSurface('Wall', 0)}
+            >{roomFinishUi.wall} · {roomFinishUi.top}</button>
+            <button
+              type="button"
+              class:active={activeRoomSurface === 'Wall' && activeRoomWallPosition === 1}
+              on:click={() => setActiveRoomSurface('Wall', 1)}
+            >{roomFinishUi.wall} · {roomFinishUi.right}</button>
+            <button
+              type="button"
+              class:active={activeRoomSurface === 'Wall' && activeRoomWallPosition === 2}
+              on:click={() => setActiveRoomSurface('Wall', 2)}
+            >{roomFinishUi.wall} · {roomFinishUi.bottom}</button>
+            <button
+              type="button"
+              class:active={activeRoomSurface === 'Wall' && activeRoomWallPosition === 3}
+              on:click={() => setActiveRoomSurface('Wall', 3)}
+            >{roomFinishUi.wall} · {roomFinishUi.left}</button>
+            <button
+              type="button"
+              class:active={activeRoomSurface === 'Ceiling'}
+              on:click={() => setActiveRoomSurface('Ceiling')}
+            >{roomFinishUi.ceiling}</button>
+          </div>
+
+          {#if roomFinishOpen}
+            <section
+              class="room-finish-panel"
+              data-wep-room-finish
+              aria-label={roomFinishUi.roomFinish}
+            >
+              <header>
+                <div>
+                  <span class="toolbar-label">{roomFinishUi.roomFinish}</span>
+                  <strong>{roomFinishUi.currentRoom}</strong>
+                  <small>
+                    {roomFinishUi.house} {editorDocument.target.houseItemId} ·
+                    {roomFinishUi.floorIndex} {editorDocument.target.floorIndex} ·
+                    {roomFinishUi.roomSlot} {editorDocument.target.roomSlot}
+                  </small>
+                </div>
+                <button type="button" on:click={toggleRoomFinish}>
+                  {roomFinishUi.close}
+                </button>
+              </header>
+
+              <div class="room-finish-current">
+                <div>
+                  <span>{roomFinishUi.flooring}</span>
+                  <strong>
+                    {roomFinishItemLabel(roomFinishCurrentState?.flooringItemId)}
+                    · {roomFinishCurrentState?.flooringItemId}
+                  </strong>
+                </div>
+                <div>
+                  <span>{roomFinishUi.wallpaper}</span>
+                  <strong>
+                    {#each [0,1,2,3] as wall}
+                      <em>
+                        {wall === 0 ? roomFinishUi.top
+                          : wall === 1 ? roomFinishUi.right
+                          : wall === 2 ? roomFinishUi.bottom
+                          : roomFinishUi.left}:
+                        {roomFinishCurrentState?.wallpapers?.[String(wall)]}
+                      </em>
+                    {/each}
+                  </strong>
+                </div>
+                <div>
+                  <span>{roomFinishUi.ceiling}</span>
+                  <strong>{roomFinishCurrentState?.ceilingItemId}</strong>
+                </div>
+              </div>
+
+              {#if editorDocument.roomFinish?.pendingMutationSet}
+                <p class="room-finish-pending" role="status">
+                  {roomFinishUi.pending}
+                </p>
+              {:else}
+                <div class="room-finish-edit-grid">
+                  <section>
+                    <h4>{roomFinishUi.flooring}</h4>
+                    {#if roomFinishOwnedFlooring.length}
+                      <label>
+                        <span>{roomFinishUi.chooseFlooring}</span>
+                        <select bind:value={roomFinishFlooringItemId}>
+                          {#each roomFinishOwnedFlooring as item}
+                            <option value={item.itemId}>
+                              {roomFinishItemLabel(item.itemId)} · {item.itemId}
+                            </option>
+                          {/each}
+                        </select>
+                      </label>
+                      <button
+                        type="button"
+                        on:click={() => previewRoomFinish('FLOORING')}
+                      >{roomFinishUi.scopePreview}</button>
+                    {:else}
+                      <p>{roomFinishUi.noOwnedFlooring}</p>
+                    {/if}
+                  </section>
+
+                  <section>
+                    <h4>{roomFinishUi.wallpaper}</h4>
+                    {#if roomFinishOwnedWallpaper.length}
+                      <label>
+                        <span>{roomFinishUi.chooseWallpaper}</span>
+                        <select bind:value={roomFinishWallpaperItemId}>
+                          {#each roomFinishOwnedWallpaper as item}
+                            <option value={item.itemId}>
+                              {roomFinishItemLabel(item.itemId)} · {item.itemId}
+                            </option>
+                          {/each}
+                        </select>
+                      </label>
+                      <fieldset>
+                        <legend>{roomFinishUi.scope}</legend>
+                        <label>
+                          <input
+                            type="radio"
+                            bind:group={roomFinishScope}
+                            value="CURRENT_WALL"
+                            disabled={activeRoomSurface !== 'Wall' || activeRoomWallPosition === null}
+                          />
+                          {roomFinishUi.currentWall}
+                        </label>
+                        <label>
+                          <input
+                            type="radio"
+                            bind:group={roomFinishScope}
+                            value="ALL_WALLS"
+                          />
+                          {roomFinishUi.allWalls}
+                        </label>
+                      </fieldset>
+                      {#if roomFinishScope === 'CURRENT_WALL' && activeRoomWallPosition === null}
+                        <small>{roomFinishUi.currentWallNeeded}</small>
+                      {/if}
+                      <button
+                        type="button"
+                        on:click={() => previewRoomFinish('WALLPAPER')}
+                        disabled={
+                          roomFinishScope === 'CURRENT_WALL' &&
+                          activeRoomWallPosition === null
+                        }
+                      >{roomFinishUi.scopePreview}</button>
+                    {:else}
+                      <p>{roomFinishUi.noOwnedWallpaper}</p>
+                    {/if}
+                  </section>
+                </div>
+              {/if}
+
+              {#if roomFinishPreview}
+                <div class="room-finish-preview" data-wep-room-finish-preview>
+                  <strong>{roomFinishUi.scopePreview}</strong>
+                  {#if roomFinishPreview.semantic.finishKind === 'FLOORING'}
+                    <span>
+                      {roomFinishUi.flooring}:
+                      {roomFinishPreview.semantic.oldItemId}
+                      →
+                      {roomFinishPreview.semantic.newItemId}
+                    </span>
+                  {:else}
+                    <span>
+                      {roomFinishUi.wallpaper} ·
+                      {roomFinishPreview.semantic.scope === 'ALL_WALLS'
+                        ? roomFinishUi.allWalls
+                        : roomFinishUi.currentWall}
+                    </span>
+                    <span>
+                      {roomFinishUi.affectedWalls}:
+                      {roomFinishPreview.semantic.affectedWallPositions.join(', ')}
+                    </span>
+                    {#each roomFinishPreview.semantic.nativePreservation as operation}
+                      <span data-wep-room-finish-offset-cleanup>
+                        {roomFinishUi.staleCleanup} · Item {operation.itemId}
+                      </span>
+                    {/each}
+                  {/if}
+                  <small>
+                    {roomFinishUi.house} {roomFinishPreview.semantic.target.houseItemId} ·
+                    {roomFinishUi.floorIndex} {roomFinishPreview.semantic.target.floorIndex} ·
+                    {roomFinishUi.roomSlot} {roomFinishPreview.semantic.target.roomSlot}
+                  </small>
+                  <div>
+                    <button type="button" on:click={cancelRoomFinishPreview}>
+                      {roomFinishUi.cancel}
+                    </button>
+                    <button
+                      type="button"
+                      class="primary"
+                      on:click={commitRoomFinishPreview}
+                    >{roomFinishUi.addDraft}</button>
+                  </div>
+                </div>
+              {/if}
+              {#if roomFinishStatus}
+                <p class="room-finish-status" role="status" aria-live="polite">
+                  {roomFinishStatus}
+                </p>
+              {/if}
+              <p class="room-finish-export-hint">{roomFinishUi.exportHint}</p>
+            </section>
+          {/if}
+        {/if}
 
         <div class="draft-status" aria-live="polite">
           <span>
@@ -4159,6 +4764,55 @@
                   <span>{t('worldEditor.verifiedExport.validation', {}, $locale)}</span>
                   <strong>{t('worldEditor.verifiedExport.pass', {}, $locale)}</strong>
                 </div>
+              {:else if verifiedExportReview.contract === ROOM_FINISH_VERIFIED_EXPORT_CONTRACT}
+                <div data-wep-room-finish-export-review>
+                  <span>{t('worldEditor.verifiedExport.operation', {}, $locale)}</span>
+                  <strong>
+                    {verifiedExportReview.semanticChange.finishKind === 'FLOORING'
+                      ? roomFinishUi.flooring
+                      : roomFinishUi.wallpaper}
+                  </strong>
+                </div>
+                <div>
+                  <span>{t('worldEditor.verifiedExport.context', {}, $locale)}</span>
+                  <strong>
+                    {roomFinishUi.house} {verifiedExportReview.semanticChange.target.houseItemId} ·
+                    {roomFinishUi.floorIndex} {verifiedExportReview.semanticChange.target.floorIndex} ·
+                    {roomFinishUi.roomSlot} {verifiedExportReview.semanticChange.target.roomSlot}
+                  </strong>
+                </div>
+                {#if verifiedExportReview.semanticChange.finishKind === 'FLOORING'}
+                  <div class="verified-export-delta">
+                    <span>{roomFinishUi.flooring}</span>
+                    <strong>
+                      {verifiedExportReview.semanticChange.oldItemId}
+                      →
+                      {verifiedExportReview.semanticChange.newItemId}
+                    </strong>
+                  </div>
+                {:else}
+                  <div class="verified-export-delta">
+                    <span>{roomFinishUi.scope}</span>
+                    <strong>
+                      {verifiedExportReview.semanticChange.scope === 'ALL_WALLS'
+                        ? roomFinishUi.allWalls
+                        : roomFinishUi.currentWall}
+                    </strong>
+                    <span>{roomFinishUi.affectedWalls}</span>
+                    <strong>
+                      {verifiedExportReview.semanticChange.affectedWallPositions.join(', ')}
+                    </strong>
+                    {#each verifiedExportReview.semanticChange.nativePreservation ?? [] as operation}
+                      <span data-wep-room-finish-export-cleanup>
+                        {roomFinishUi.staleCleanup} · Item {operation.itemId}
+                      </span>
+                    {/each}
+                  </div>
+                {/if}
+                <div>
+                  <span>{t('worldEditor.verifiedExport.validation', {}, $locale)}</span>
+                  <strong>{t('worldEditor.verifiedExport.pass', {}, $locale)}</strong>
+                </div>
               {:else}
                 <div>
                   <span>{t('worldEditor.verifiedExport.operation', {}, $locale)}</span>
@@ -4249,6 +4903,11 @@
                       {verifiedExportResult.reload.status} ·
                       {verifiedExportResult.reload.kind} ·
                       {verifiedExportResult.reload.operation}
+                    {:else if verifiedExportResult.review?.contract === ROOM_FINISH_VERIFIED_EXPORT_CONTRACT}
+                      {verifiedExportResult.reload.status} ·
+                      {roomFinishUi.house} {verifiedExportResult.reload.roomIdentity.houseItemId} ·
+                      {roomFinishUi.floorIndex} {verifiedExportResult.reload.roomIdentity.floorIndex} ·
+                      {roomFinishUi.roomSlot} {verifiedExportResult.reload.roomIdentity.roomSlot}
                     {:else}
                       {verifiedExportResult.reload.status} · Grid {verifiedExportResult.reload.gridId} · Object {verifiedExportResult.reload.gridObjectId}
                     {/if}
@@ -5089,6 +5748,48 @@
         </span>
       </div>
 
+      {#if roomFinishRoutes.length || roomFinishDiagnostics.length}
+        <section class="room-finish-route-section" data-wep-room-finish-routes>
+          <div class="room-finish-route-heading">
+            <div>
+              <p class="eyebrow">{roomFinishUi.roomFinish}</p>
+              <strong>{roomFinishUi.currentRoom}</strong>
+            </div>
+            <small>{roomFinishUi.exportHint}</small>
+          </div>
+          {#if roomFinishRoutes.length}
+            <div class="room-finish-route-list">
+              {#each roomFinishRoutes as route}
+                <article class="room-finish-route">
+                  <div>
+                    <strong>{route.roomName || roomFinishUi.currentRoom}</strong>
+                    <span>
+                      {roomFinishUi.house} {route.locator.houseItemId} ·
+                      {roomFinishUi.floorIndex} {route.locator.floorIndex} ·
+                      {roomFinishUi.roomSlot} {route.locator.roomSlot}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    on:click={() => openRoomFinishRoomInCanvas(route)}
+                  >
+                    {roomFinishUi.open}
+                  </button>
+                </article>
+              {/each}
+            </div>
+          {/if}
+          {#if roomFinishDiagnostics.length}
+            <div class="room-finish-route-diagnostics">
+              {#each roomFinishDiagnostics.slice(0, 5) as diagnostic}
+                <span><code>{diagnostic.code}</code></span>
+              {/each}
+            </div>
+          {/if}
+        </section>
+      {/if}
+
       <div class="area-route-list">
         {#each worldSource.areas as area}
           <article class="area-route">
@@ -5316,4 +6017,9 @@
   .inspector-precise input{width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;background:var(--surface-raised);color:var(--ink);padding:7px}
   .inspector-precise button{border:1px solid var(--border);background:var(--surface-raised);color:var(--ink);border-radius:8px;padding:7px;font-size:9px}
   .inspector-precise button:focus-visible,.inspector-precise input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+  .room-finish-route-section{margin-top:18px;border-top:1px solid var(--border);padding-top:16px;display:grid;gap:10px}.room-finish-route-heading{display:flex;justify-content:space-between;gap:18px;align-items:end}.room-finish-route-heading>div{display:grid;gap:4px}.room-finish-route-heading>div>strong{font-size:13px}.room-finish-route-heading small{max-width:620px;color:var(--ink-muted);font-size:9px;line-height:1.6}.room-finish-route-list{display:grid;gap:8px}.room-finish-route{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid var(--border);background:var(--surface-raised);border-radius:12px;padding:12px}.room-finish-route>div{display:grid;gap:3px}.room-finish-route strong{font-size:11px}.room-finish-route span{font-size:9px;color:var(--ink-muted);overflow-wrap:anywhere}.room-finish-route button,.room-finish-panel button{border:1px solid var(--border);background:var(--surface-raised);color:var(--ink);border-radius:9px;padding:8px 10px;font-size:10px;font-weight:800}.room-finish-route-diagnostics{display:grid;gap:4px;font-size:8px;color:var(--decor-accent)}
+  .toolbar-actions button.active{border-color:var(--gold);color:var(--gold)}.room-finish-surface-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:9px 14px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--page-2)}.room-finish-surface-bar>span{font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-muted);margin-right:2px}.room-finish-surface-bar button{border:1px solid var(--border);background:var(--surface);color:var(--ink-soft);border-radius:999px;padding:6px 9px;font-size:9px}.room-finish-surface-bar button.active{border-color:var(--gold);color:var(--gold);background:var(--surface-raised)}
+  .room-finish-panel{display:grid;gap:12px;margin:12px 14px 0;padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--page-2)}.room-finish-panel>header{display:flex;justify-content:space-between;gap:14px;align-items:start}.room-finish-panel>header>div{display:grid;gap:3px}.room-finish-panel>header strong{font-size:13px}.room-finish-panel>header small{font-size:8px;color:var(--ink-muted)}.room-finish-current{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.room-finish-current>div{display:grid;gap:5px;padding:10px;border-radius:10px;background:var(--surface)}.room-finish-current span,.room-finish-edit-grid label>span,.room-finish-preview>small{font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-muted)}.room-finish-current strong{display:grid;gap:2px;font-size:9px;overflow-wrap:anywhere}.room-finish-current em{font-style:normal;font-weight:500}.room-finish-edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.room-finish-edit-grid>section{display:grid;gap:8px;padding:11px;border:1px solid var(--border);border-radius:11px;background:var(--surface)}.room-finish-edit-grid h4{margin:0;font-size:11px}.room-finish-edit-grid label{display:grid;gap:5px}.room-finish-edit-grid select{width:100%;min-width:0;background:var(--surface-raised);color:var(--ink);border:1px solid var(--border);border-radius:9px;padding:8px 9px;font-size:9px}.room-finish-edit-grid fieldset{display:flex;gap:10px;flex-wrap:wrap;border:0;padding:0;margin:0}.room-finish-edit-grid legend{font-size:8px;color:var(--ink-muted);margin-bottom:4px}.room-finish-edit-grid fieldset label{display:flex;grid-template-columns:none;align-items:center;gap:5px;font-size:9px;color:var(--ink-soft)}.room-finish-edit-grid p,.room-finish-edit-grid small,.room-finish-export-hint,.room-finish-pending,.room-finish-status{margin:0;font-size:9px;line-height:1.6;color:var(--ink-muted)}.room-finish-pending{color:var(--decor-accent)}.room-finish-preview{display:grid;gap:7px;padding:11px;border:1px solid var(--gold);border-radius:11px;background:var(--surface)}.room-finish-preview>span{font-size:9px;color:var(--ink-soft)}.room-finish-preview>div{display:flex;gap:7px}.room-finish-preview button.primary{background:var(--gold-strong);color:var(--gold-ink)}.room-finish-status{color:var(--help-accent)}
+  @media(max-width:700px){.room-finish-route-heading{align-items:flex-start;flex-direction:column}.room-finish-route{grid-template-columns:1fr}.room-finish-current,.room-finish-edit-grid{grid-template-columns:1fr}.room-finish-surface-bar{align-items:flex-start}.room-finish-panel>header{flex-direction:column}}
 </style>
