@@ -78,6 +78,25 @@
     reviewRoadFenceVerifiedExport
   } from '$lib/wep/roadfence-verified-export-v125';
   import {
+    ROOM_FINISH_VERIFIED_EXPORT_CONTRACT,
+    WALLPAPER_SCOPE,
+    applyRoomFinishDraftMutationV125,
+    commitRoomFinishVerifiedExportV125,
+    compileRoomFinishFlooringDraftV125,
+    compileRoomFinishWallpaperDraftV125,
+    createRoomFinishEditorDocumentV125,
+    listIndoorRoomFinishRoutesV125,
+    listOwnedRoomFinishTrimmingV125,
+    loadRoomFinishTrimmingPackV125,
+    reviewRoomFinishVerifiedExportV125,
+    roomFinishDraftReviewChange
+  } from '$lib/wep/room-finish-verified-export-v125';
+  import { roomFinishCopy } from '$lib/wep/room-finish-copy.js';
+  import {
+    decodeCollectionRecord,
+    loadCollectionRuntime
+  } from '$lib/collection/runtime.js';
+  import {
     buildObjectInspectorModel,
     buildPrimaryJobAvailability,
     describeDraftValidation,
@@ -212,6 +231,23 @@
   let rfPreview: any = null;
   let rfMessage = '';
 
+  let roomFinishPack: any = null;
+  let roomFinishCollectionRuntime: any = null;
+  let roomFinishCollectionRowsById = new Map<number, any>();
+  let roomFinishRoutes: any[] = [];
+  let roomFinishDiagnostics: any[] = [];
+  let activeRoomSurface: 'Floor' | 'Wall' | 'Ceiling' = 'Floor';
+  let activeRoomWallPosition: number | null = null;
+  let roomFinishOpen = false;
+  let roomFinishMode: 'FLOORING' | 'WALLPAPER' = 'FLOORING';
+  let roomFinishScope: 'CURRENT_WALL' | 'ALL_WALLS' = 'ALL_WALLS';
+  let roomFinishFlooringItemId = 0;
+  let roomFinishWallpaperItemId = 0;
+  let roomFinishOwnedFlooring: any[] = [];
+  let roomFinishOwnedWallpaper: any[] = [];
+  let roomFinishPreview: any = null;
+  let roomFinishStatus = '';
+
   let community: CommunityLabClient | null = null;
   let bridge: ReturnType<typeof createPresetCommunityBridge> | null = null;
   let workflow: ReturnType<typeof createScenePresetWorkflow> | null = null;
@@ -237,6 +273,11 @@
   $: selectedCount = selection.length;
   $: objectCount = editorDocument?.objects?.length ?? 0;
   $: stage1Copy = worldEditorStage1Copy($locale);
+  $: roomFinishUi = roomFinishCopy($locale);
+  $: roomFinishContextActive =
+    editorDocument?.target?.kind === 'PLAYER_HOUSE_ROOM';
+  $: roomFinishCurrentState =
+    roomFinishContextActive ? editorDocument?.roomFinish?.current ?? null : null;
   $: placementReadiness = editorDocument
     ? assessCurrentV125BrowserPlacementReadiness(editorDocument)
     : null;
@@ -285,6 +326,215 @@
           selectedInspectorObject.itemId
         )
       : null;
+
+  function roomFinishItemLabel(itemId: number) {
+    const row = roomFinishCollectionRowsById.get(Number(itemId));
+    if (!row || !roomFinishCollectionRuntime?.index) {
+      return `Item ${Number(itemId)}`;
+    }
+    try {
+      return decodeCollectionRecord(
+        roomFinishCollectionRuntime.index,
+        row,
+        $locale
+      ).label || `Item ${Number(itemId)}`;
+    } catch {
+      return `Item ${Number(itemId)}`;
+    }
+  }
+
+  function resetRoomFinishUi() {
+    activeRoomSurface = 'Floor';
+    activeRoomWallPosition = null;
+    roomFinishOpen = false;
+    roomFinishMode = 'FLOORING';
+    roomFinishScope = 'ALL_WALLS';
+    roomFinishFlooringItemId = 0;
+    roomFinishWallpaperItemId = 0;
+    roomFinishOwnedFlooring = [];
+    roomFinishOwnedWallpaper = [];
+    roomFinishPreview = null;
+    roomFinishStatus = '';
+  }
+
+  function refreshRoomFinishRoutes() {
+    if (
+      !worldSource ||
+      worldSource.saveIdentity?.sourcePlatform !== 'switch' ||
+      worldSource.compatibility?.gameVersion !== '1.25.0' ||
+      Number(worldSource.profileSchemaVersion) !== 624
+    ) {
+      roomFinishRoutes = [];
+      roomFinishDiagnostics = [];
+      return;
+    }
+    const routes = listIndoorRoomFinishRoutesV125(worldSource.profile);
+    roomFinishRoutes = [...routes.routes];
+    roomFinishDiagnostics = [...routes.diagnostics];
+  }
+
+  async function ensureRoomFinishData() {
+    if (!roomFinishPack) {
+      roomFinishPack = await loadRoomFinishTrimmingPackV125({
+        basePath: base
+      });
+    }
+    if (!roomFinishCollectionRuntime) {
+      const runtime = await loadCollectionRuntime(base);
+      roomFinishCollectionRuntime = runtime;
+      roomFinishCollectionRowsById = new Map(
+        runtime.rows.map((row: any) => [Number(row?.[0]), row])
+      );
+    }
+  }
+
+  function refreshRoomFinishOwnedItems() {
+    if (!worldSource || !roomFinishPack) {
+      roomFinishOwnedFlooring = [];
+      roomFinishOwnedWallpaper = [];
+      return;
+    }
+    roomFinishOwnedFlooring = [
+      ...listOwnedRoomFinishTrimmingV125({
+        profile: worldSource.profile,
+        pack: roomFinishPack,
+        subtype: 1
+      })
+    ];
+    roomFinishOwnedWallpaper = [
+      ...listOwnedRoomFinishTrimmingV125({
+        profile: worldSource.profile,
+        pack: roomFinishPack,
+        subtype: 0
+      })
+    ];
+    if (
+      !roomFinishOwnedFlooring.some(
+        (entry: any) =>
+          Number(entry.itemId) === Number(roomFinishFlooringItemId)
+      )
+    ) {
+      roomFinishFlooringItemId =
+        Number(roomFinishOwnedFlooring[0]?.itemId ?? 0);
+    }
+    if (
+      !roomFinishOwnedWallpaper.some(
+        (entry: any) =>
+          Number(entry.itemId) === Number(roomFinishWallpaperItemId)
+      )
+    ) {
+      roomFinishWallpaperItemId =
+        Number(roomFinishOwnedWallpaper[0]?.itemId ?? 0);
+    }
+  }
+
+  function setActiveRoomSurface(
+    surface: 'Floor' | 'Wall' | 'Ceiling',
+    wallPosition: number | null = null
+  ) {
+    activeRoomSurface = surface;
+    activeRoomWallPosition =
+      surface === 'Wall' && Number.isSafeInteger(Number(wallPosition))
+        ? Number(wallPosition)
+        : null;
+    roomFinishPreview = null;
+    roomFinishStatus = '';
+    if (
+      roomFinishScope === 'CURRENT_WALL' &&
+      activeRoomWallPosition === null
+    ) {
+      roomFinishScope = 'ALL_WALLS';
+    }
+  }
+
+  function toggleRoomFinish() {
+    if (!roomFinishContextActive) return;
+    roomFinishOpen = !roomFinishOpen;
+    roomFinishPreview = null;
+    roomFinishStatus = '';
+  }
+
+  function buildRoomFinishPreview(
+    kind: 'FLOORING' | 'WALLPAPER'
+  ) {
+    if (
+      !editorDocument ||
+      !worldSource ||
+      !roomFinishPack ||
+      !roomFinishContextActive
+    ) {
+      throw new Error('WEP_ROOM_FINISH_CONTEXT_REQUIRED');
+    }
+    const compiled =
+      kind === 'FLOORING'
+        ? compileRoomFinishFlooringDraftV125({
+            document: editorDocument,
+            profile: worldSource.profile,
+            pack: roomFinishPack,
+            itemId: Number(roomFinishFlooringItemId)
+          })
+        : compileRoomFinishWallpaperDraftV125({
+            document: editorDocument,
+            profile: worldSource.profile,
+            pack: roomFinishPack,
+            itemId: Number(roomFinishWallpaperItemId),
+            scope: roomFinishScope,
+            wallPosition:
+              roomFinishScope === WALLPAPER_SCOPE.CURRENT_WALL
+                ? activeRoomWallPosition
+                : null
+          });
+    const next = applyRoomFinishDraftMutationV125(
+      editorDocument,
+      compiled
+    );
+    const semantic = roomFinishDraftReviewChange(next);
+    if (!semantic) {
+      throw new Error('WEP_ROOM_FINISH_PREVIEW_SEMANTIC_MISSING');
+    }
+    return {
+      kind,
+      compiled,
+      next,
+      semantic
+    };
+  }
+
+  function previewRoomFinish(
+    kind: 'FLOORING' | 'WALLPAPER'
+  ) {
+    try {
+      roomFinishMode = kind;
+      roomFinishPreview = buildRoomFinishPreview(kind);
+      roomFinishStatus = '';
+    } catch (error) {
+      roomFinishPreview = null;
+      roomFinishStatus =
+        error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  function cancelRoomFinishPreview() {
+    roomFinishPreview = null;
+    roomFinishStatus = '';
+  }
+
+  function commitRoomFinishPreview() {
+    if (!session || !roomFinishPreview || !roomFinishContextActive) return;
+    try {
+      const result = session.commitRoomFinishDraft({
+        roomFinish: roomFinishPreview.next.roomFinish,
+        reviewChange: roomFinishPreview.semantic,
+        mutationSet: roomFinishPreview.compiled.mutationSet
+      });
+      roomFinishPreview = null;
+      roomFinishStatus = roomFinishUi.draftAdded;
+      finishDraftMutation(result, 'ROOM_FINISH');
+    } catch (error) {
+      roomFinishStatus =
+        error instanceof Error ? error.message : String(error);
+    }
+  }
 
   function editorBlockerText(code: string) {
     return localizeWepBlocker(code, $locale).message;
