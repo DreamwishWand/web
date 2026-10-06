@@ -1,0 +1,28 @@
+name: 01E Room Finish Case A source bundle
+
+on:
+  push:
+    branches:
+      - 'evidence/01e-room-finish-case-a-source-bundle-20261006'
+    paths:
+      - '.github/workflows/01e-room-finish-case-a-source-bundle.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: room-finish-case-a-current-source
+          path: |
+            package.json
+            src/lib/ddv/core/save/
+            src/lib/ddv/core/world/room-finish-v125.js
+            src/lib/ddv/core/world/room-finish-transaction-v125.js
+          if-no-files-found: error
+          retention-days: 1
