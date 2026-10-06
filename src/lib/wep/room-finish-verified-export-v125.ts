@@ -26,7 +26,7 @@ export { WALLPAPER_SCOPE };
 export const ROOM_FINISH_TRIMMING_PACK_PATH =
   '/ddv/wep/world/v1.25/room-finish-trimming-pack-v125.json';
 export const ROOM_FINISH_TRIMMING_PACK_SHA256 =
-  '0ee9b067c295b7fdd6b264d6b4349e809d1be9453b524ca2f42ea98b6abc282c';
+  '32899e10d4d864ed7a9ee5571539807fec96016ceb48d747cac5315dbab3873c';
 export const ROOM_FINISH_DRAFT_CONTRACT =
   'dreamwish-wand-wep-room-finish-draft@1';
 export const ROOM_FINISH_VERIFIED_EXPORT_CONTRACT =
