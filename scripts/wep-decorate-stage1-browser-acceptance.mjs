@@ -1,3 +1,4 @@
+// QR R14 evidence trigger — exact parent e398ad59cdf62f8634251ffd3a55f942b970fb37; no application semantics changed.
 import assert from 'node:assert/strict';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright-core';
