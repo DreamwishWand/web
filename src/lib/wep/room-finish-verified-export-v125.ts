@@ -21,6 +21,8 @@ import { openWorldSaveBytes } from './world-save-source.ts';
 type AnyRecord = Record<string, any>;
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
+export { WALLPAPER_SCOPE };
+
 export const ROOM_FINISH_TRIMMING_PACK_PATH =
   '/ddv/wep/world/v1.25/room-finish-trimming-pack-v125.json';
 export const ROOM_FINISH_TRIMMING_PACK_SHA256 =
