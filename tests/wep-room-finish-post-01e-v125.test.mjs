@@ -87,6 +87,8 @@ function profile(){
     '903':{ID:903,Objects:{}},
     '904':{ID:904,Objects:{}}
   }};
+  p.World.Villages=[];
+  p.World.FloatingIslands={};
   p.World.OpaqueWorld={keep:{future:true}};
   return p;
 }
