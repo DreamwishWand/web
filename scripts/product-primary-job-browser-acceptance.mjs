@@ -1,4 +1,5 @@
-// QR R14 current-head evidence trigger — parent e398ad59cdf62f8634251ffd3a55f942b970fb37; harness-only.\nimport { mkdir, writeFile } from 'node:fs/promises';
+// QR R14 current-head evidence trigger — parent e398ad59cdf62f8634251ffd3a55f942b970fb37; harness-only.
+import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright-core';
 
 const base=(process.env.PRODUCT_BASE_URL||'http://127.0.0.1:4174').replace(/\/$/,'');
