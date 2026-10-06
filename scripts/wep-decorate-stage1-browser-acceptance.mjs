@@ -191,6 +191,70 @@ const addExportProfile={
   Opaque:{keep:{addAcceptance:true}}
 };
 
+const roomFinishProfile={
+  GameInfo:{Version:624,InitialVersion:624,LastSaveDeviceInfo:{deviceType:'DeviceType_Switch'}},
+  Player:{
+    ListInventories:{
+      '4':{
+        ID:4,
+        CompatibleItemType:'ItemType_Trimming',
+        Inventory:{
+          '160000000':{Amount:1,Marker:'ItemMarker_None'},
+          '160000224':{Amount:1,Marker:'ItemMarker_None'},
+          '160100000':{Amount:1,Marker:'ItemMarker_None'},
+          '160100001':{Amount:1,Marker:'ItemMarker_None'}
+        }
+      }
+    }
+  },
+  ProfileWorld:{Stores:[],Shops:[]},
+  ConditionalEventHistory:{ActiveEvents:{}},
+  World:{
+    DecorationPresets:[],
+    PlayerHouses:[{
+      HouseItemID:20500005,
+      Floors:[{
+        BoughtRooms:{},
+        Rooms:{
+          '0':{
+            Name:'Browser Room',
+            FloorGridID:900,
+            WallGridIDs:{'0':901,'1':902,'2':903,'3':904},
+            RoomPrefabAddress:'Room/Browser',
+            Flooring:160100000,
+            Wallpapers:{
+              '0':160000224,
+              '1':160000224,
+              '2':160000224,
+              '3':160000224
+            },
+            WallpaperOffsetById:{'160000224':0.4623557},
+            Ceiling:160000000,
+            OpaqueRoom:{keep:true}
+          }
+        }
+      }],
+      OpaqueHouse:{keep:true}
+    }],
+    GridCollection:{
+      Grids:{
+        '900':{ID:900,Objects:{}},
+        '901':{ID:901,Objects:{}},
+        '902':{ID:902,Objects:{}},
+        '903':{ID:903,Objects:{}},
+        '904':{ID:904,Objects:{}}
+      },
+      DiffGrids:{}
+    },
+    Villages:[],
+    FloatingIslands:{},
+    MissionSlots:{},
+    QuestInfo:{},
+    Keyholes:{},
+    OpaqueWorld:{keep:{roomFinishAcceptance:true}}
+  }
+};
+
 const browser=await chromium.launch({executablePath:chrome,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
 const evidence={schema:'dreamwish-wand-wep-decorate-stage1-browser@1',checks:[],pageErrors:[],consoleErrors:[]};
 function pass(name,detail={}){evidence.checks.push({name,status:'PASS',...detail});}
@@ -335,8 +399,7 @@ try{
   await localeSelect.selectOption('en');
   pass('LAUNCH_LOCALE_STATE_AND_LAYOUT_INVARIANCE',{locales:locales.length});
 
-  // Post-01B: exact ordinary Furniture ADD reaches Review Changes, but 01E
-  // cold-reload is still pending so user-facing export must stay fail-closed.
+  // Exact ordinary Furniture ADD remains bound to its accepted verified-export path.
   await page.goto(root+'/explore/',{waitUntil:'networkidle'});
   await page.locator('.controls input[type="search"]').fill('40000048');
   await eventually(async()=>await page.locator('.card-review').count()===1);
@@ -413,6 +476,137 @@ try{
     gridId:10,
     createdGridObjectId:101,
     runtime:'ORDINARY_FURNITURE_ADD_RUNTIME_PASS'
+  });
+
+  // Post-01E Room Finish: exact room identity, owned Trimming subtype,
+  // room-level draft transaction, semantic review, verified replacement artifact.
+  await page.goto(root+'/editor/world/',{waitUntil:'networkidle'});
+  await page.locator('.platform-select select').selectOption('switch');
+  const roomPackaged=Buffer.from(makeSyntheticP1gProfile(roomFinishProfile));
+  await page.locator('.load-panel input[type="file"]').setInputFiles({
+    name:'room-finish-profile',
+    mimeType:'application/octet-stream',
+    buffer:roomPackaged
+  });
+  await page.getByText(/DDV save loaded locally/).waitFor();
+  const roomRoutes=page.locator('[data-wep-room-finish-routes]');
+  await roomRoutes.waitFor();
+  assert.ok((await roomRoutes.innerText()).includes('Browser Room'));
+  await roomRoutes.locator('article').first().getByRole('button').click();
+  await page.locator('[data-wep-room-finish-toggle]').waitFor();
+  pass('ROOM_FINISH_EXACT_ROOM_ROUTE',{
+    houseItemId:20500005,
+    floorIndex:0,
+    roomSlot:0
+  });
+
+  await page.locator('[data-wep-room-finish-toggle]').click();
+  const roomPanel=page.locator('[data-wep-room-finish]');
+  await roomPanel.waitFor();
+  const roomSurface=page.locator('[data-wep-room-finish-surface]');
+  assert.ok((await roomSurface.innerText()).includes('Floor'));
+  assert.ok((await roomSurface.innerText()).includes('Wall'));
+  assert.ok((await roomSurface.innerText()).includes('Ceiling'));
+
+  const flooringSection=roomPanel.locator('.room-finish-edit-grid section').nth(0);
+  await flooringSection.locator('select').selectOption('160100001');
+  await flooringSection.getByRole('button',{name:'Scope preview'}).click();
+  let roomPreview=roomPanel.locator('[data-wep-room-finish-preview]');
+  await roomPreview.waitFor();
+  assert.ok((await roomPreview.innerText()).includes('160100000'));
+  assert.ok((await roomPreview.innerText()).includes('160100001'));
+  await roomPreview.getByRole('button',{name:'Add to draft'}).click();
+
+  const roomDraftReview=page.locator('[data-wep-stage1-review]');
+  await eventually(async()=>await roomDraftReview.locator('[data-wep-room-finish-change="FLOORING"]').count()===1);
+  assert.ok((await roomDraftReview.innerText()).includes('160100000'));
+  assert.ok((await roomDraftReview.innerText()).includes('160100001'));
+  pass('ROOM_FINISH_FLOORING_DRAFT_AND_REVIEW');
+
+  const roomToolbar=page.locator('.toolbar-actions');
+  await roomToolbar.getByRole('button',{name:'Undo'}).click();
+  await eventually(async()=>await roomDraftReview.locator('[data-wep-room-finish-change]').count()===0);
+  await roomToolbar.getByRole('button',{name:'Redo'}).click();
+  await eventually(async()=>await roomDraftReview.locator('[data-wep-room-finish-change="FLOORING"]').count()===1);
+  pass('ROOM_FINISH_UNDO_REDO_SINGLE_TRANSACTION');
+
+  const roomExport=page.locator('[data-wep-verified-export]');
+  await roomExport.locator('.verified-export-build-confirm input[type="checkbox"]').check();
+  await roomExport.getByRole('button',{name:'Review Changes'}).click();
+  const roomVerifiedReview=roomExport.locator('[data-wep-room-finish-export-review]');
+  const roomVerifiedError=roomExport.locator('.verified-export-error');
+  await Promise.race([
+    roomVerifiedReview.waitFor({state:'visible',timeout:10000}),
+    roomVerifiedError.waitFor({state:'visible',timeout:10000})
+  ]);
+  if(await roomVerifiedError.isVisible()){
+    throw new Error('ROOM_FINISH_FLOORING_REVIEW_FAIL: '+await roomVerifiedError.innerText());
+  }
+  const roomVerifiedContainer=roomExport.locator('.verified-export-review');
+  await roomVerifiedContainer.locator('.verified-export-confirm input[type="checkbox"]').check();
+  await roomVerifiedContainer.getByRole('button',{name:'Apply / Export'}).click();
+  const roomFloorSuccess=roomExport.locator('.verified-export-success');
+  await roomFloorSuccess.waitFor({state:'visible',timeout:15000});
+  assert.ok((await roomFloorSuccess.innerText()).includes('PASS'));
+  assert.ok((await roomFloorSuccess.innerText()).includes('20500005'));
+  pass('ROOM_FINISH_FLOORING_VERIFIED_EXPORT_REOPEN');
+
+  // Return draft to the source baseline before exercising wallpaper scopes.
+  await roomToolbar.getByRole('button',{name:'Undo'}).click();
+  await eventually(async()=>await roomDraftReview.locator('[data-wep-room-finish-change]').count()===0);
+  if(await roomPanel.count()===0 || !(await roomPanel.isVisible())){
+    await page.locator('[data-wep-room-finish-toggle]').click();
+    await roomPanel.waitFor();
+  }
+
+  // Current Wall scope: exact active wall identity only.
+  const topWallButton=roomSurface.getByRole('button',{name:/Wall.*Top/});
+  await topWallButton.click();
+  const wallpaperSection=roomPanel.locator('.room-finish-edit-grid section').nth(1);
+  await wallpaperSection.locator('select').selectOption('160000000');
+  await wallpaperSection.getByRole('radio',{name:'Current Wall'}).check();
+  await wallpaperSection.getByRole('button',{name:'Scope preview'}).click();
+  roomPreview=roomPanel.locator('[data-wep-room-finish-preview]');
+  await roomPreview.waitFor();
+  assert.ok((await roomPreview.innerText()).includes('Current Wall'));
+  assert.ok((await roomPreview.innerText()).includes('0'));
+  await roomPreview.getByRole('button',{name:'Add to draft'}).click();
+  await eventually(async()=>await roomDraftReview.locator('[data-wep-room-finish-change="WALLPAPER"]').count()===1);
+  assert.ok((await roomDraftReview.innerText()).includes('Current Wall'));
+  await roomToolbar.getByRole('button',{name:'Undo'}).click();
+  await eventually(async()=>await roomDraftReview.locator('[data-wep-room-finish-change]').count()===0);
+  pass('ROOM_FINISH_CURRENT_WALL_SCOPE');
+
+  // All Walls is one atomic semantic transaction and must expose stale offset cleanup.
+  if(await roomPanel.count()===0 || !(await roomPanel.isVisible())){
+    await page.locator('[data-wep-room-finish-toggle]').click();
+    await roomPanel.waitFor();
+  }
+  const wallpaperAll=roomPanel.locator('.room-finish-edit-grid section').nth(1);
+  await wallpaperAll.locator('select').selectOption('160000000');
+  await wallpaperAll.getByRole('radio',{name:'All Walls'}).check();
+  await wallpaperAll.getByRole('button',{name:'Scope preview'}).click();
+  roomPreview=roomPanel.locator('[data-wep-room-finish-preview]');
+  await roomPreview.waitFor();
+  assert.ok((await roomPreview.innerText()).includes('All Walls'));
+  assert.ok((await roomPreview.innerText()).includes('160000224'));
+  assert.equal(await roomPreview.locator('[data-wep-room-finish-offset-cleanup]').count(),1);
+  await roomPreview.getByRole('button',{name:'Add to draft'}).click();
+  await eventually(async()=>await roomDraftReview.locator('[data-wep-room-finish-change="WALLPAPER"]').count()===1);
+  assert.equal(await roomDraftReview.locator('[data-wep-room-finish-review-cleanup]').count(),1);
+
+  await roomExport.getByRole('button',{name:'Review Changes'}).click();
+  const roomAllReview=roomExport.locator('[data-wep-room-finish-export-review]');
+  await roomAllReview.waitFor({state:'visible',timeout:10000});
+  assert.equal(await roomExport.locator('[data-wep-room-finish-export-cleanup]').count(),1);
+  await roomExport.locator('.verified-export-confirm input[type="checkbox"]').check();
+  await roomExport.getByRole('button',{name:'Apply / Export'}).click();
+  await roomExport.locator('.verified-export-success').waitFor({state:'visible',timeout:15000});
+  assert.ok((await roomExport.locator('.verified-export-success').innerText()).includes('PASS'));
+  pass('ROOM_FINISH_ALL_WALLS_ATOMIC_VERIFIED_EXPORT',{
+    staleOffsetRemoved:160000224,
+    walls:4,
+    runtime: '01B-TO-01E-ROOM-FINISH-V125-V1:CLOSED_PASS'
   });
 
   await page.goto(root+'/editor/world/',{waitUntil:'networkidle'});
