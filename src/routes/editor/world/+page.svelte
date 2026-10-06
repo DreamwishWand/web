@@ -4764,6 +4764,55 @@
                   <span>{t('worldEditor.verifiedExport.validation', {}, $locale)}</span>
                   <strong>{t('worldEditor.verifiedExport.pass', {}, $locale)}</strong>
                 </div>
+              {:else if verifiedExportReview.contract === ROOM_FINISH_VERIFIED_EXPORT_CONTRACT}
+                <div data-wep-room-finish-export-review>
+                  <span>{t('worldEditor.verifiedExport.operation', {}, $locale)}</span>
+                  <strong>
+                    {verifiedExportReview.semanticChange.finishKind === 'FLOORING'
+                      ? roomFinishUi.flooring
+                      : roomFinishUi.wallpaper}
+                  </strong>
+                </div>
+                <div>
+                  <span>{t('worldEditor.verifiedExport.context', {}, $locale)}</span>
+                  <strong>
+                    {roomFinishUi.house} {verifiedExportReview.semanticChange.target.houseItemId} ·
+                    {roomFinishUi.floorIndex} {verifiedExportReview.semanticChange.target.floorIndex} ·
+                    {roomFinishUi.roomSlot} {verifiedExportReview.semanticChange.target.roomSlot}
+                  </strong>
+                </div>
+                {#if verifiedExportReview.semanticChange.finishKind === 'FLOORING'}
+                  <div class="verified-export-delta">
+                    <span>{roomFinishUi.flooring}</span>
+                    <strong>
+                      {verifiedExportReview.semanticChange.oldItemId}
+                      →
+                      {verifiedExportReview.semanticChange.newItemId}
+                    </strong>
+                  </div>
+                {:else}
+                  <div class="verified-export-delta">
+                    <span>{roomFinishUi.scope}</span>
+                    <strong>
+                      {verifiedExportReview.semanticChange.scope === 'ALL_WALLS'
+                        ? roomFinishUi.allWalls
+                        : roomFinishUi.currentWall}
+                    </strong>
+                    <span>{roomFinishUi.affectedWalls}</span>
+                    <strong>
+                      {verifiedExportReview.semanticChange.affectedWallPositions.join(', ')}
+                    </strong>
+                    {#each verifiedExportReview.semanticChange.nativePreservation ?? [] as operation}
+                      <span data-wep-room-finish-export-cleanup>
+                        {roomFinishUi.staleCleanup} · Item {operation.itemId}
+                      </span>
+                    {/each}
+                  </div>
+                {/if}
+                <div>
+                  <span>{t('worldEditor.verifiedExport.validation', {}, $locale)}</span>
+                  <strong>{t('worldEditor.verifiedExport.pass', {}, $locale)}</strong>
+                </div>
               {:else}
                 <div>
                   <span>{t('worldEditor.verifiedExport.operation', {}, $locale)}</span>
@@ -4854,6 +4903,11 @@
                       {verifiedExportResult.reload.status} ·
                       {verifiedExportResult.reload.kind} ·
                       {verifiedExportResult.reload.operation}
+                    {:else if verifiedExportResult.review?.contract === ROOM_FINISH_VERIFIED_EXPORT_CONTRACT}
+                      {verifiedExportResult.reload.status} ·
+                      {roomFinishUi.house} {verifiedExportResult.reload.roomIdentity.houseItemId} ·
+                      {roomFinishUi.floorIndex} {verifiedExportResult.reload.roomIdentity.floorIndex} ·
+                      {roomFinishUi.roomSlot} {verifiedExportResult.reload.roomIdentity.roomSlot}
                     {:else}
                       {verifiedExportResult.reload.status} · Grid {verifiedExportResult.reload.gridId} · Object {verifiedExportResult.reload.gridObjectId}
                     {/if}
