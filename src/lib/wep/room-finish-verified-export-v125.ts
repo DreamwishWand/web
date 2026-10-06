@@ -1,4 +1,7 @@
-import { PlatformFamily } from '../ddv/core/save/versioning.js';
+import {
+  BuildIdentityKind,
+  PlatformFamily
+} from '../ddv/core/save/versioning.js';
 import { SafeProfileEditSession } from '../ddv/core/save/safe-edit-session.js';
 import { p1gPackagedProfileCodec } from '../ddv/core/save/p1g-packaged-profile-codec.js';
 import { createVerifiedCandidateExportBundle } from '../ddv/core/save/verified-export-bundle.js';
@@ -602,8 +605,8 @@ export async function reviewRoomFinishVerifiedExportV125({
     sourceSha256:String(ctx.saveIdentity.sourceRawSha256),
     sourceByteLength:safeSession.source.length,
     targetBuild:Object.freeze({
-      platform:'switch',
-      kind:'bid',
+      platform:PlatformFamily.Switch,
+      kind:BuildIdentityKind.SwitchBid,
       value:ROOM_FINISH_TARGET.buildID
     }),
     mutationSet:clone(mutationSet),
