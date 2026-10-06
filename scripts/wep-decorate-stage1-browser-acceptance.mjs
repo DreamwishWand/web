@@ -509,6 +509,34 @@ try{
   assert.ok((await roomSurface.innerText()).includes('Wall'));
   assert.ok((await roomSurface.innerText()).includes('Ceiling'));
 
+  const roomFloorOptionsBefore=
+    await roomPanel.locator('.room-finish-edit-grid section').nth(0).locator('select option').count();
+  const roomWallpaperOptionsBefore=
+    await roomPanel.locator('.room-finish-edit-grid section').nth(1).locator('select option').count();
+  for(const locale of locales){
+    await localeSelect.selectOption(locale);
+    await page.waitForFunction(expected=>document.documentElement.lang===expected,locale);
+    assert.equal(
+      await roomPanel.locator('.room-finish-edit-grid section').nth(0).locator('select option').count(),
+      roomFloorOptionsBefore
+    );
+    assert.equal(
+      await roomPanel.locator('.room-finish-edit-grid section').nth(1).locator('select option').count(),
+      roomWallpaperOptionsBefore
+    );
+    const roomMetrics=await roomPanel.evaluate(node=>({
+      scrollWidth:node.scrollWidth,
+      clientWidth:node.clientWidth
+    }));
+    assertNoOverflow(roomMetrics,'room finish '+locale);
+  }
+  await localeSelect.selectOption('en');
+  pass('ROOM_FINISH_LAUNCH_LOCALE_STATE_AND_LAYOUT_INVARIANCE',{
+    locales:locales.length,
+    ownedFlooring:roomFloorOptionsBefore,
+    ownedWallpaper:roomWallpaperOptionsBefore
+  });
+
   const flooringSection=roomPanel.locator('.room-finish-edit-grid section').nth(0);
   await flooringSection.locator('select').selectOption('160100001');
   await flooringSection.getByRole('button',{name:'Scope preview'}).click();
