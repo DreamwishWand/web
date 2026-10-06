@@ -1,0 +1,118 @@
+{
+  "schema": "ddv.world-object-limit-overflow-runtime-request@1",
+  "requestId": "01B-TO-01E-OBJECT-LIMIT-OVERFLOW-V125-V1",
+  "status": "READY_FOR_CONTROL_DISPATCH_AFTER_STATIC_CONTRACT_PROMOTION",
+  "requester": "01B CORE - World / Grid / Buildings",
+  "runtimeOwner": "01E CORE / Runtime",
+  "dispatchNow": false,
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624
+  },
+  "question": "Can a save-level, verified ordinary-Furniture ADD make a normal Village generic ObjectLimit counter exceed the vanilla UI cap by exactly one and remain load/save/cold-relaunch stable without unrelated mutation?",
+  "nativePrerequisites": {
+    "profileWorldExtraLimitObject": false,
+    "selectedLimitClass": "normal Village ObjectLimitData",
+    "uniqueLimit": 600,
+    "instanceLimit": 3000,
+    "exclusions": [
+      "ActivityItem/Ephemeral",
+      "Furniture/GroundAlteration",
+      "Furniture/Fence"
+    ],
+    "counterAlgorithm": "ObjectLimit / GridCollection.CalculateLimits current-v1.25 contract",
+    "candidateWriter": "promoted ordinary Furniture ADD through verified 01A structural candidate path only"
+  },
+  "cases": [
+    {
+      "id": "TOTAL_OBJECTS_PLUS_ONE",
+      "baseline": [
+        "target Village currentAmounts.AllCount == 3000",
+        "target Village currentAmounts.UniqueCount <= 599",
+        "one classifier-admissible ordinary counted Furniture ItemID is already in the Village unique set",
+        "destination cell is independently native-placement VALID"
+      ],
+      "mutation": "add exactly one additional instance of that already-present ItemID",
+      "expectedBefore": {
+        "distinctObjectTypes": "<=599",
+        "totalObjects": 3000
+      },
+      "expectedCandidate": {
+        "distinctObjectTypes": "unchanged",
+        "totalObjects": 3001
+      },
+      "isolation": "Total Objects exceeds by one; Distinct Object Types does not newly exceed"
+    },
+    {
+      "id": "DISTINCT_OBJECT_TYPES_PLUS_ONE",
+      "baseline": [
+        "target Village currentAmounts.UniqueCount == 600",
+        "target Village currentAmounts.AllCount <= 2999",
+        "choose one classifier-admissible ordinary counted Furniture ItemID absent from the Village unique set",
+        "destination cell is independently native-placement VALID"
+      ],
+      "mutation": "add exactly one instance of the absent ItemID",
+      "expectedBefore": {
+        "distinctObjectTypes": 600,
+        "totalObjects": "<=2999"
+      },
+      "expectedCandidate": {
+        "distinctObjectTypes": 601,
+        "totalObjects": "<=3000"
+      },
+      "isolation": "Distinct Object Types exceeds by one; Total Objects does not exceed"
+    }
+  ],
+  "protocol": [
+    "record exact source save hash, backup and target Village identity",
+    "independently recompute native-aligned baseline Unique/All from Village-related grids plus recursive SubGrids using the frozen count contract",
+    "verify ProfileWorld.ExtraLimitObject == false and reject the test if high-end limits are active",
+    "produce the one-object candidate only through the already-promoted ordinary Furniture ADD verified-export path",
+    "independently verify semantic diff contains only the one created GridObject plus exact NextGridObjectID increment",
+    "independently recompute candidate Unique/All and prove the requested +1 overflow/isolation before installing",
+    "install candidate through the existing controlled runtime-test replacement path",
+    "launch DDV and verify the save loads without recovery/reset and the added object exists at the intended location",
+    "do not use vanilla placement UI to add more objects; this request tests persistence, not UI-limit bypass behavior",
+    "perform a normal in-game save, fully exit the game process, cold relaunch, and verify the same object persists",
+    "re-export/re-read the save and recompute Unique/All; the over-limit counter must still be exactly the expected value with no automatic deletion/clamping",
+    "verify unrelated inventory/ownership/entitlement/Store/progression state is unchanged apart from independently classified normal game-time noise",
+    "restore the exact original backup in a separate recovery check and confirm load"
+  ],
+  "pass": [
+    "candidate save loads normally",
+    "added object persists through normal save + full exit + cold relaunch",
+    "recomputed over-limit counter remains expected (+1) after relaunch",
+    "no automatic object deletion, counter normalization through content deletion, or unrelated semantic mutation",
+    "original backup restore succeeds"
+  ],
+  "fail": [
+    "load rejection/recovery/reset attributable to the candidate",
+    "added object is removed or transformed because the counter exceeds the cap",
+    "normal save or cold relaunch fails",
+    "post-relaunch semantic state falls back under cap through automatic content mutation",
+    "unrelated state changes beyond independently excluded normal runtime noise",
+    "backup restore failure"
+  ],
+  "notRequested": [
+    "bulk object creation",
+    "high-end 1200/6000 overflow",
+    "Road/Fence mutation or topology tests",
+    "Building/PlayerHouse mutation",
+    "Room Finish",
+    "inventory/ownership/entitlement changes",
+    "vanilla placement UI blocking changes",
+    "Wand placement-limit enforcement",
+    "persistent writer expansion"
+  ],
+  "escalationRule": "If no controlled baseline satisfying a case exists, return BLOCKED_BASELINE rather than manufacturing hundreds/thousands of objects under this request.",
+  "evidenceDependency": "ddv.world-object-count-consumption@1 candidate plus promoted ordinary Furniture ADD writer/runtime acceptance",
+  "hardFlags": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false
+  }
+}
