@@ -1,0 +1,474 @@
+{
+  "schema": "ddv.world-object-count-consumption@1",
+  "artifactId": "DDV-WORLD-OBJECT-COUNT-CONSUMPTION-V125-V1_0-CANDIDATE",
+  "version": "v1.0",
+  "status": "CANDIDATE_STATIC_CLOSURE",
+  "semanticOwner": "01B CORE - World / Grid / Buildings",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "titleId": "0100D39012C1A000",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624
+  },
+  "evidence": {
+    "switchMain": {
+      "sha256": "3258d5e05aded708c06017b8763fa37bfb696385a2ab29dd8a182d3938cbc0e0",
+      "bytes": 96002294
+    },
+    "dumpCs": {
+      "sha256": "a94ae73d522f160d21255b195b4d834bf5c79db59ddbd8cdfc32e54c6e0671f0"
+    },
+    "protoDb": {
+      "sha256": "43ac5a41603f4b805d25f38ac43792d6b3916c1bc1205c95db9c8bf63cc9f0bf"
+    },
+    "gameDatabaseLossless": {
+      "sha256": "81d3743fa9620b9e17fa702f7341426cc3d9600c100146b23902cc29c53bbae1",
+      "definitionCount": 17413
+    }
+  },
+  "nativeAnchors": {
+    "objectLimit": {
+      "checkItemRva": "0x4177360",
+      "isGoingOverLimitRva": "0x4176E30",
+      "fields": [
+        "uniqueItems",
+        "allItems",
+        "specificItems",
+        "groundAlterationCount",
+        "fenceCount",
+        "exclusions",
+        "specificItemLimits"
+      ]
+    },
+    "gridCollection": {
+      "calculateLimitsEnumerableRva": "0x4D99030",
+      "calculateLimitsRecursiveGridRva": "0x4D99340"
+    },
+    "village": {
+      "getCurrentLimitsRva": "0x574C050",
+      "getCurrentAmountsRva": "0x574C360"
+    },
+    "world": {
+      "isLimitedGridRva": "0x5978D40",
+      "isVillageRelatedGridRva": "0x59789C0"
+    },
+    "item": {
+      "equalsItemRva": "0x4C50F00",
+      "getHashCodeRva": "0x4C42EA0",
+      "identityField": "ItemID"
+    }
+  },
+  "metrics": {
+    "totalObjects": {
+      "nativeSource": "ObjectLimit.allItems / AllCount",
+      "definition": "Count of recursively visited GridObjects that do not match any ObjectLimitData.Exclusions selector.",
+      "duplicateBehavior": "Every included instance contributes +1."
+    },
+    "distinctObjectTypes": {
+      "nativeSource": "ObjectLimit.uniqueItems / UniqueCount",
+      "definition": "HashSet<Item> cardinality for the same included instances.",
+      "groupingIdentity": "exact Item.ItemID",
+      "duplicateBehavior": "Additional included instances with the same ItemID do not increase Distinct Object Types."
+    },
+    "rawPresetPlacedContent": {
+      "definition": "Logical placed contents carried by the Wand Preset, including non-consuming Road/Fence entries and recursively captured SubGrid descendants.",
+      "notEquivalentToVanillaCount": true
+    }
+  },
+  "nativeGenericExclusions": [
+    {
+      "selector": {
+        "itemType": "ActivityItem",
+        "itemTypeValue": 3,
+        "restrictSubType": true,
+        "subType": "Ephemeral",
+        "subTypeValue": 13
+      },
+      "reason": "OBJECT_LIMIT_EXCLUSION_ACTIVITY_EPHEMERAL"
+    },
+    {
+      "selector": {
+        "itemType": "Furniture",
+        "itemTypeValue": 4,
+        "restrictSubType": true,
+        "subType": "GroundAlteration",
+        "subTypeValue": 1
+      },
+      "reason": "OBJECT_LIMIT_EXCLUSION_FURNITURE_GROUND_ALTERATION"
+    },
+    {
+      "selector": {
+        "itemType": "Furniture",
+        "itemTypeValue": 4,
+        "restrictSubType": true,
+        "subType": "Fence",
+        "subTypeValue": 7
+      },
+      "reason": "OBJECT_LIMIT_EXCLUSION_FURNITURE_FENCE"
+    }
+  ],
+  "scopeSemantics": [
+    {
+      "scope": "VILLAGE",
+      "nativeObjectLimitProvider": true,
+      "aggregation": "whole Village across Areas[*].GridIDs, recursively including SubGrid descendants",
+      "regular": {
+        "uniqueLimit": 600,
+        "instanceLimit": 3000,
+        "objectLimitDataFamilies": [
+          "Village04ObjectLimit",
+          "VillageExpansion01ObjectLimit",
+          "VillageExpansion02ObjectLimit",
+          "VillageExpansion03ObjectLimit",
+          "VillageWinnieDLCObjectLimit"
+        ]
+      },
+      "highEndWhenExtraLimitObject": {
+        "uniqueLimit": 1200,
+        "instanceLimit": 6000,
+        "objectLimitDataFamilies": [
+          "HighEndVillageObjectLimit",
+          "HighEndExpansion01ObjectLimit",
+          "HighEndExpansion02ObjectLimit",
+          "HighEndExpansion03ObjectLimit",
+          "HighEndWinnieDLCObjectLimit"
+        ]
+      },
+      "perAreaCounter": false
+    },
+    {
+      "scope": "PLAYER_HOUSE_ROOM",
+      "nativeObjectLimitProvider": true,
+      "aggregation": "Room.AllGridIDs with recursive SubGrid descendants",
+      "uniqueLimit": -1,
+      "instanceLimit": -1,
+      "specificItemLimits": "separate from the generic pair; current RoomObjectLimit contains mannequin-specific caps",
+      "sharesVillageCounter": false
+    },
+    {
+      "scope": "FLOATING_ISLAND",
+      "nativeObjectLimitProvider": false,
+      "aggregation": null,
+      "uniqueLimit": null,
+      "instanceLimit": null,
+      "note": "Current v1.25 FloatingIsland is an outside location but is not returned by the ObjectLimit-provider path. Wand still computes item-level generic contribution metadata for Floating Island Presets so the user-facing pair describes reusable placed contents rather than incorrectly displaying zero."
+    }
+  ],
+  "subGridSemantics": {
+    "parentGridObject": "evaluated once by ObjectLimit.CheckItem according to the parent Item",
+    "descendants": "child GridID is recursively traversed; every descendant GridObject is independently evaluated by the same exclusion/grouping rules",
+    "flatteningRuleForWandCounter": "count the parent placement and recursively count every captured descendant placement; never collapse a SubGrid tree into one pseudo-object"
+  },
+  "currentGameDbDenominator": {
+    "furnitureDefinitionCount": 6233,
+    "furnitureFamilies": [
+      {
+        "concreteType": "FurnitureItemData",
+        "count": 4949,
+        "subtypes": {
+          "Default": 4900,
+          "Door": 49
+        }
+      },
+      {
+        "concreteType": "LandscapingItemData",
+        "count": 439,
+        "subtypes": {
+          "Landscaping": 439
+        }
+      },
+      {
+        "concreteType": "FurnitureBlockerItemData",
+        "count": 411,
+        "subtypes": {
+          "Blocker": 411
+        }
+      },
+      {
+        "concreteType": "FenceAndRoadItemData",
+        "count": 313,
+        "subtypes": {
+          "Fence": 264,
+          "GroundAlteration": 49
+        }
+      },
+      {
+        "concreteType": "FurnitureRequestItemData",
+        "count": 82,
+        "subtypes": {
+          "Request": 82
+        }
+      },
+      {
+        "concreteType": "FurnitureSnippetTrapItemData",
+        "count": 27,
+        "subtypes": {
+          "SnippetTrap": 27
+        }
+      },
+      {
+        "concreteType": "FurnitureAncientMachineItemData",
+        "count": 12,
+        "subtypes": {
+          "AncientMachine": 12
+        }
+      }
+    ],
+    "buildingDefinitionCount": 440,
+    "buildingFamilies": [
+      {
+        "concreteType": "BuildingItemData",
+        "count": 261
+      },
+      {
+        "concreteType": "OffGridBuildingItemData",
+        "count": 82
+      },
+      {
+        "concreteType": "StallBuildingItemData",
+        "count": 80
+      },
+      {
+        "concreteType": "GardenItemData",
+        "count": 17
+      }
+    ],
+    "activityEphemeralDefinitionCount": 177
+  },
+  "classSemantics": [
+    {
+      "semanticClass": "ORDINARY_FURNITURE_DEFAULT",
+      "definitionSource": "FurnitureItemData / FurnitureItemType.Default",
+      "contributesToTotalObjects": "YES",
+      "contributesToDistinctObjectTypes": "YES",
+      "distinctGroupingKey": "ItemID",
+      "duplicateInstanceBehavior": "Total +1; Distinct +0 after first same ItemID",
+      "presetCaptureVanillaAlignedCount": true,
+      "rawPresetContents": true,
+      "evidence": "CONFIRMED"
+    },
+    {
+      "semanticClass": "LANDSCAPING",
+      "definitionSource": "LandscapingItemData / FurnitureItemType.Landscaping",
+      "contributesToTotalObjects": "YES",
+      "contributesToDistinctObjectTypes": "YES",
+      "distinctGroupingKey": "ItemID",
+      "duplicateInstanceBehavior": "Total +1; Distinct +0 after first same ItemID",
+      "presetCaptureVanillaAlignedCount": true,
+      "rawPresetContents": true,
+      "evidence": "CONFIRMED"
+    },
+    {
+      "semanticClass": "FURNITURE_DOOR",
+      "definitionSource": "FurnitureItemData / FurnitureItemType.Door",
+      "contributesToTotalObjects": "YES",
+      "contributesToDistinctObjectTypes": "YES",
+      "distinctGroupingKey": "ItemID",
+      "duplicateInstanceBehavior": "Total +1; Distinct +0 after first same ItemID",
+      "presetCaptureVanillaAlignedCount": "WHEN_CAPTURED_AS_SUPPORTED_GRID_OBJECT",
+      "rawPresetContents": "WHEN_CAPTURED",
+      "evidence": "CONFIRMED_NATIVE_COUNT"
+    },
+    {
+      "semanticClass": "OTHER_NON_EXCLUDED_FURNITURE_GRID_OBJECT",
+      "definitionSource": "Furniture Request / Blocker / AncientMachine / SnippetTrap current families",
+      "contributesToTotalObjects": "YES",
+      "contributesToDistinctObjectTypes": "YES",
+      "distinctGroupingKey": "ItemID",
+      "duplicateInstanceBehavior": "Total +1; Distinct +0 after first same ItemID",
+      "condition": "the entity is actually represented as a GridObject and Preset capture has separately authorized it; progression/system safety may exclude it from a publishable Preset",
+      "presetCaptureVanillaAlignedCount": "CONDITIONAL",
+      "rawPresetContents": "CONDITIONAL",
+      "evidence": "CONFIRMED_NATIVE_COUNT / CAPTURE_ELIGIBILITY_SEPARATE"
+    },
+    {
+      "semanticClass": "GRID_BACKED_BUILDING",
+      "definitionSource": "Building ItemType represented by a GridObject, including Building/Stall/Garden families",
+      "contributesToTotalObjects": "YES",
+      "contributesToDistinctObjectTypes": "YES",
+      "distinctGroupingKey": "ItemID",
+      "duplicateInstanceBehavior": "Total +1; Distinct +0 after first same ItemID",
+      "condition": "GridCollection representation exists",
+      "presetCaptureVanillaAlignedCount": true,
+      "rawPresetContents": true,
+      "evidence": "CONFIRMED"
+    },
+    {
+      "semanticClass": "PLAYER_HOUSE_EXTERIOR_GRID_PLACEABLE",
+      "definitionSource": "PlayerHouse/HouseData placeable represented by a Building Item GridObject",
+      "contributesToTotalObjects": "YES",
+      "contributesToDistinctObjectTypes": "YES",
+      "distinctGroupingKey": "ItemID",
+      "duplicateInstanceBehavior": "Total +1; Distinct +0 after first same ItemID",
+      "condition": "GridCollection representation exists; lifecycle/apply authorization remains separate",
+      "presetCaptureVanillaAlignedCount": true,
+      "rawPresetContents": true,
+      "evidence": "CONFIRMED_NATIVE_COUNT"
+    },
+    {
+      "semanticClass": "OFF_GRID_BUILDING",
+      "definitionSource": "OffGridBuildingItemData",
+      "contributesToTotalObjects": "NO",
+      "contributesToDistinctObjectTypes": "NO",
+      "distinctGroupingKey": null,
+      "duplicateInstanceBehavior": "not applicable to GridCollection generic counter",
+      "condition": "no GridObject representation",
+      "presetCaptureVanillaAlignedCount": false,
+      "rawPresetContents": "only if a future artifact explicitly carries non-grid building state",
+      "evidence": "CONFIRMED_REPRESENTATION_BOUNDARY"
+    },
+    {
+      "semanticClass": "ROAD_GROUND_ALTERATION",
+      "definitionSource": "FenceAndRoadItemData / FurnitureItemType.GroundAlteration",
+      "contributesToTotalObjects": "NO",
+      "contributesToDistinctObjectTypes": "NO",
+      "distinctGroupingKey": null,
+      "duplicateInstanceBehavior": "all road placements remain excluded from the generic pair",
+      "presetCaptureVanillaAlignedCount": false,
+      "rawPresetContents": true,
+      "evidence": "CONFIRMED"
+    },
+    {
+      "semanticClass": "FENCE",
+      "definitionSource": "FenceAndRoadItemData / FurnitureItemType.Fence",
+      "contributesToTotalObjects": "NO",
+      "contributesToDistinctObjectTypes": "NO",
+      "distinctGroupingKey": null,
+      "duplicateInstanceBehavior": "all fence placements remain excluded from the generic pair",
+      "presetCaptureVanillaAlignedCount": false,
+      "rawPresetContents": true,
+      "evidence": "CONFIRMED"
+    },
+    {
+      "semanticClass": "EPHEMERAL_ACTIVITY_GRID_OBJECT",
+      "definitionSource": "EphemeralItemData / ActivityItemType.Ephemeral",
+      "contributesToTotalObjects": "NO",
+      "contributesToDistinctObjectTypes": "NO",
+      "distinctGroupingKey": null,
+      "duplicateInstanceBehavior": "excluded",
+      "presetCaptureVanillaAlignedCount": false,
+      "rawPresetContents": "normally excluded from supported portable Preset capture by separate ownership/safety policy",
+      "evidence": "CONFIRMED"
+    },
+    {
+      "semanticClass": "SUBGRID_CONTAINER_PARENT",
+      "definitionSource": "any GridObject with State.SubGrid",
+      "contributesToTotalObjects": "CONDITIONAL",
+      "contributesToDistinctObjectTypes": "CONDITIONAL",
+      "distinctGroupingKey": "parent ItemID if parent itself is not excluded",
+      "duplicateInstanceBehavior": "parent follows normal Item rule",
+      "condition": "parent Item evaluated normally; child tree is additionally recursive",
+      "presetCaptureVanillaAlignedCount": true,
+      "rawPresetContents": true,
+      "evidence": "CONFIRMED"
+    },
+    {
+      "semanticClass": "SUBGRID_DESCENDANT",
+      "definitionSource": "GridObject in recursively referenced State.SubGrid child Grid",
+      "contributesToTotalObjects": "CONDITIONAL",
+      "contributesToDistinctObjectTypes": "CONDITIONAL",
+      "distinctGroupingKey": "descendant ItemID when descendant is not excluded",
+      "duplicateInstanceBehavior": "same as root GridObject",
+      "condition": "evaluated by the same ObjectLimit.CheckItem exclusions",
+      "presetCaptureVanillaAlignedCount": true,
+      "rawPresetContents": true,
+      "evidence": "CONFIRMED"
+    },
+    {
+      "semanticClass": "FURNITURE_WITH_DESIGN_STATE_TOM",
+      "definitionSource": "GridObject whose underlying Item is Furniture and carries design state",
+      "contributesToTotalObjects": "CONDITIONAL",
+      "contributesToDistinctObjectTypes": "CONDITIONAL",
+      "distinctGroupingKey": "underlying exact ItemID, not DesignID",
+      "duplicateInstanceBehavior": "different designs with the same ItemID still form one Distinct Object Type",
+      "condition": "underlying Furniture subtype must be known and non-excluded; Preset/ToM product authorization is separate",
+      "presetCaptureVanillaAlignedCount": "CONDITIONAL",
+      "rawPresetContents": true,
+      "evidence": "CONFIRMED_NATIVE_GROUPING / PRODUCT_CAPTURE_SEPARATE"
+    },
+    {
+      "semanticClass": "ENVIRONMENT_STATE",
+      "definitionSource": "Area/FloatingIsland semantic environment state, not a GridObject",
+      "contributesToTotalObjects": "NO",
+      "contributesToDistinctObjectTypes": "NO",
+      "distinctGroupingKey": null,
+      "duplicateInstanceBehavior": "not applicable",
+      "presetCaptureVanillaAlignedCount": false,
+      "rawPresetContents": true,
+      "evidence": "CONFIRMED_REPRESENTATION_BOUNDARY"
+    },
+    {
+      "semanticClass": "OTHER_OR_UNKNOWN_GRID_OBJECT",
+      "definitionSource": "current/future GridObject whose ItemType/subtype authority is not bound",
+      "contributesToTotalObjects": "UNKNOWN",
+      "contributesToDistinctObjectTypes": "UNKNOWN",
+      "distinctGroupingKey": null,
+      "duplicateInstanceBehavior": "unknown until exclusion selector matching is resolved",
+      "presetCaptureVanillaAlignedCount": "FAIL_CLOSED",
+      "rawPresetContents": true,
+      "evidence": "UNKNOWN"
+    }
+  ],
+  "roadFenceConclusion": {
+    "road": {
+      "contributesToTotalObjects": false,
+      "contributesToDistinctObjectTypes": false,
+      "nativeSpecialCounterMaintained": "groundAlterationCount",
+      "genericLimitEnforcementUsesSpecialCounter": false
+    },
+    "fence": {
+      "contributesToTotalObjects": false,
+      "contributesToDistinctObjectTypes": false,
+      "nativeSpecialCounterMaintained": "fenceCount",
+      "genericLimitEnforcementUsesSpecialCounter": false
+    },
+    "note": "ObjectLimit.CheckItem updates the special counters before exclusions, but ObjectLimitData has no GroundAlteration/Fence limit fields and ObjectLimit.IsGoingOverLimit checks only Unique, Instance, and SpecificItem limits."
+  },
+  "wandCountingContract": {
+    "metricMode": "GENERIC_OBJECT_LIMIT_ITEM_CONTRIBUTION",
+    "scenePreset": "count every captured placed GridObject recursively, excluding current native generic exclusions; keep Road/Fence in raw contents",
+    "biomePreset": "same item-level rule across captured design contents; native source Village provider itself aggregates the whole Village rather than one Area",
+    "floatingIslandPreset": "same item-level contribution rule for descriptive Preset capacity metadata even though current Floating Island has no native ObjectLimit provider",
+    "unknownPolicy": "if any potentially placed content has UNKNOWN count semantics, distinctObjectTypes and totalObjects are not authoritative and must fail closed",
+    "destinationProjectionRequired": false
+  },
+  "implementation": {
+    "apiPath": "src/lib/ddv/core/world/world-object-count-consumption-v125.js",
+    "apiSha256": "bde662faa670e0a6e61103838fce709a5cadc38130b99e50c9207467f4364126",
+    "testPath": "tests/ddv-core-world-object-count-consumption-v125.test.mjs",
+    "testSha256": "391ee8842eb1248b917ab8c59dcf6afcacf8468daf287fd54dad734b040a20e3",
+    "localFocusedTest": {
+      "tests": 13,
+      "pass": 13,
+      "fail": 0
+    }
+  },
+  "upstream": {
+    "request01dRequired": false,
+    "reason": "Exact current-v1.25 Game DB denominator plus exact current protoDb ObjectLimitData payload and current Switch native call paths are available; no broad or additional 01D extraction is required."
+  },
+  "downstreamRuntime": {
+    "requiredForCountSemanticClosure": false,
+    "separateQuestion": "Can save-level edits exceed the vanilla generic object-count UI limits and survive ordinary save plus cold relaunch?",
+    "requestPath": "static/ddv/core/world/v1.25/object-limit-exceed-01e-runtime-request-v125.json"
+  },
+  "evidenceClassification": {
+    "genericInclusionExclusion": "CONFIRMED",
+    "distinctGroupingIdentity": "CONFIRMED",
+    "subGridRecursion": "CONFIRMED",
+    "roadFenceNonConsumption": "CONFIRMED",
+    "villageScopeAndLimits": "CONFIRMED",
+    "roomSeparateScope": "CONFIRMED",
+    "floatingIslandNoNativeProvider": "CONFIRMED",
+    "unknownFutureOrUnboundGridObject": "UNKNOWN_FAIL_CLOSED"
+  },
+  "writerBoundary": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false,
+    "placementLimitBlockingAdded": false
+  }
+}
