@@ -357,23 +357,37 @@ export function countWorldObjectConsumptionV125({
   }
 
   const ns=networkSummary(networks);
-  if(ns.roadsPresent){
-    excluded.push({
-      occurrenceId:'networks/roads',
-      relation:'NETWORK',
-      itemId:null,
-      reason:'VILLAGE_OBJECT_LIMIT_EXCLUSION_GROUND_ALTERATION',
-      logicalNetworkCount:ns.roadLogicalCount
-    });
-  }
-  if(ns.fencesPresent){
-    excluded.push({
-      occurrenceId:'networks/fences',
-      relation:'NETWORK',
-      itemId:null,
-      reason:'VILLAGE_OBJECT_LIMIT_EXCLUSION_FENCE',
-      logicalNetworkCount:ns.fenceLogicalCount
-    });
+  if(ns.roadsPresent||ns.fencesPresent){
+    if(profile===COUNT_PROFILE.NATIVE_ROOM){
+      blockers.push({
+        code:'ROOM_LOGICAL_NETWORK_COUNT_SEMANTICS_UNSUPPORTED',
+        detail:'Road/Fence logical network payloads are not Room GridObjects; do not project Village network exclusions into Room native counting.'
+      });
+    }else if(profile===COUNT_PROFILE.NATIVE_FLOATING_ISLAND){
+      blockers.push({
+        code:'FLOATING_ISLAND_NATIVE_OBJECT_LIMIT_NOT_APPLICABLE',
+        detail:'Floating Islands have no native ObjectLimit provider in current v1.25.'
+      });
+    }else{
+      if(ns.roadsPresent){
+        excluded.push({
+          occurrenceId:'networks/roads',
+          relation:'NETWORK',
+          itemId:null,
+          reason:'VILLAGE_OBJECT_LIMIT_EXCLUSION_GROUND_ALTERATION',
+          logicalNetworkCount:ns.roadLogicalCount
+        });
+      }
+      if(ns.fencesPresent){
+        excluded.push({
+          occurrenceId:'networks/fences',
+          relation:'NETWORK',
+          itemId:null,
+          reason:'VILLAGE_OBJECT_LIMIT_EXCLUSION_FENCE',
+          logicalNetworkCount:ns.fenceLogicalCount
+        });
+      }
+    }
   }
 
   blockers.push(...unknown.map(x=>({
