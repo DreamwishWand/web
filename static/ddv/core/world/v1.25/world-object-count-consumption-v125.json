@@ -1,0 +1,449 @@
+{
+  "schema": "ddv.world-object-count-consumption@1",
+  "artifactId": "DDV-WORLD-OBJECT-COUNT-CONSUMPTION-V125-V1_0-CANDIDATE",
+  "version": "v1.0",
+  "status": "STATIC_NATIVE_CLOSED_CANONICAL_01D_PROJECTION_PENDING",
+  "semanticOwner": "01B CORE - World / Grid / Buildings",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "titleId": "0100D39012C1A000",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624
+  },
+  "purpose": {
+    "productFields": [
+      "Distinct Object Types",
+      "Total Objects"
+    ],
+    "productRefs": [
+      "PRESET-UX-258",
+      "PRESET-UX-259",
+      "PRESET-UX-266",
+      "PRESET-UX-267"
+    ],
+    "meaning": "descriptive contribution to DDV's vanilla generic object counters; not raw serialized-node count, destination projection, or placement enforcement"
+  },
+  "evidence": {
+    "switchMain": {
+      "sha256": "3258d5e05aded708c06017b8763fa37bfb696385a2ab29dd8a182d3938cbc0e0",
+      "sizeBytes": 96002294,
+      "status": "CONFIRMED_EXACT_CURRENT_BUILD"
+    },
+    "protoDb": {
+      "driveId": "1SYtvAy40ukVXdnenzPRbd121mO0iLEW0",
+      "sizeBytes": 1163280,
+      "sha256": "43ac5a41603f4b805d25f38ac43792d6b3916c1bc1205c95db9c8bf63cc9f0bf"
+    },
+    "gameDb": {
+      "canonicalPackageDriveId": "1824RTE5Rf7TvjSEDAPtBIQwuhqCPfCAU",
+      "canonicalPackageSha256": "6bc68479f75f621a6c5582bcf071b34e97886f2362c6dc26fe536fc026dee0c2",
+      "fields": [
+        "itemID",
+        "itemType",
+        "itemTypeName",
+        "subtype",
+        "concreteItemDataType"
+      ],
+      "objectLimitDataInQueryAuthority": false
+    }
+  },
+  "native": {
+    "objectLimit": {
+      "fields": [
+        "uniqueItems:HashSet<Item>",
+        "allItems:List<Item>",
+        "specificItems:List<Item>",
+        "groundAlterationCount:int",
+        "fenceCount:int",
+        "exclusions",
+        "specificItemLimits"
+      ],
+      "rvas": {
+        "uniqueCount": "0x41765C0",
+        "allCount": "0x4176620",
+        "groundAlterationCount": "0x41767D0",
+        "fenceCount": "0x41767E0",
+        "isGoingOverLimit": "0x4176E30",
+        "checkItem": "0x4177360"
+      },
+      "rule": "CheckItem handles GroundAlteration/Fence dedicated counters, applies ObjectLimitData.Exclusions, then inserts only non-excluded occurrences into generic allItems/uniqueItems. IsGoingOverLimit checks Unique/Instance/SpecificItem limits and does not read the dedicated Road/Fence counters."
+    },
+    "distinct": {
+      "container": "HashSet<Item>",
+      "itemIdentityField": "Item.ItemID",
+      "groupingKey": "EXACT_ITEM_ID"
+    },
+    "gridTraversal": {
+      "calculateLimitsRva": "0x4D99030",
+      "recursiveRva": "0x4D99340",
+      "rule": "check each GridObject Item then recursively traverse State.SubGrid child Grid"
+    },
+    "limitedGrid": {
+      "rva": "0x5978D40",
+      "villageCurrentLimitsRva": "0x574C050",
+      "villageCurrentAmountsRva": "0x574C360",
+      "highEndSelector": {
+        "field": "ProfileWorld.ExtraLimitObject",
+        "protobufFieldNumber": 60,
+        "offset": "0x16C"
+      }
+    }
+  },
+  "limits": {
+    "villageNormal": {
+      "recordNames": [
+        "Village04ObjectLimit",
+        "VillageExpansion01ObjectLimit",
+        "VillageExpansion02ObjectLimit",
+        "VillageExpansion03ObjectLimit",
+        "VillageWinnieDLCObjectLimit"
+      ],
+      "uniqueLimit": 600,
+      "instanceLimit": 3000
+    },
+    "villageHighEnd": {
+      "recordNames": [
+        "HighEndVillageObjectLimit",
+        "HighEndExpansion01ObjectLimit",
+        "HighEndExpansion02ObjectLimit",
+        "HighEndExpansion03ObjectLimit",
+        "HighEndWinnieDLCObjectLimit"
+      ],
+      "uniqueLimit": 1200,
+      "instanceLimit": 6000
+    },
+    "villageExclusions": [
+      {
+        "itemType": "ActivityItem",
+        "itemTypeValue": 3,
+        "subType": "Ephemeral",
+        "subtypeValue": 13
+      },
+      {
+        "itemType": "Furniture",
+        "itemTypeValue": 4,
+        "subType": "GroundAlteration",
+        "subtypeValue": 1
+      },
+      {
+        "itemType": "Furniture",
+        "itemTypeValue": 4,
+        "subType": "Fence",
+        "subtypeValue": 7
+      }
+    ],
+    "room": {
+      "source": "HouseExpansion.Interior.RoomObjectLimit",
+      "uniqueLimit": -1,
+      "instanceLimit": -1,
+      "exclusions": [],
+      "specificItemLimits": [
+        {
+          "itemIds": [
+            40001920,
+            40001921,
+            40001922,
+            40001923,
+            40001924,
+            40001925
+          ],
+          "instanceLimit": 5,
+          "locId": "menu.editmode_limit_mannequin_total_reach"
+        }
+      ]
+    }
+  },
+  "scopes": {
+    "village": {
+      "provider": true,
+      "boundary": "PER_VILLAGE",
+      "aggregation": "all Village-related roots/areas plus recursive SubGrids",
+      "notPerArea": true
+    },
+    "room": {
+      "provider": true,
+      "boundary": "PER_PLAYER_HOUSE_ROOM",
+      "genericPairUnlimited": true,
+      "specificCapsSeparate": true
+    },
+    "floatingIsland": {
+      "provider": false,
+      "boundary": "NO_NATIVE_OBJECT_LIMIT_PROVIDER",
+      "presetRule": "report PRESET_VILLAGE_GENERIC_CONTRIBUTION only; never label it a Floating Island native counter"
+    }
+  },
+  "counters": {
+    "totalObjects": {
+      "includedOccurrence": "+1 each",
+      "duplicates": "all included instances count"
+    },
+    "distinctObjectTypes": {
+      "groupingKey": "ItemID",
+      "duplicates": "same ItemID counts once"
+    },
+    "currentVillageInclusionSetSame": true,
+    "note": "same included occurrence set is proven for current generic pair; multiplicity/grouping differs. Do not conflate with SpecificItemLimits or dedicated GroundAlteration/Fence diagnostics."
+  },
+  "gameDbDenominator": {
+    "furniture": {
+      "total": 6233,
+      "subtypes": [
+        [
+          0,
+          "Default",
+          "FurnitureItemData",
+          4900
+        ],
+        [
+          1,
+          "GroundAlteration",
+          "FenceAndRoadItemData",
+          49
+        ],
+        [
+          2,
+          "Landscaping",
+          "LandscapingItemData",
+          439
+        ],
+        [
+          3,
+          "Door",
+          "FurnitureItemData",
+          49
+        ],
+        [
+          5,
+          "Request",
+          "FurnitureRequestItemData",
+          82
+        ],
+        [
+          6,
+          "Blocker",
+          "FurnitureBlockerItemData",
+          411
+        ],
+        [
+          7,
+          "Fence",
+          "FenceAndRoadItemData",
+          264
+        ],
+        [
+          8,
+          "AncientMachine",
+          "FurnitureAncientMachineItemData",
+          12
+        ],
+        [
+          9,
+          "SnippetTrap",
+          "FurnitureSnippetTrapItemData",
+          27
+        ]
+      ]
+    },
+    "building": {
+      "total": 440,
+      "subtypes": [
+        [
+          0,
+          "House",
+          "BuildingItemData",
+          55
+        ],
+        [
+          1,
+          "Stall",
+          "StallBuildingItemData",
+          80
+        ],
+        [
+          2,
+          "Garden",
+          "GardenItemData",
+          17
+        ],
+        [
+          3,
+          "Other",
+          "BuildingItemData",
+          70
+        ],
+        [
+          4,
+          "OffGridBuilding",
+          "OffGridBuildingItemData",
+          82
+        ],
+        [
+          5,
+          "PlayerHouse",
+          "BuildingItemData",
+          136
+        ]
+      ]
+    },
+    "explicitEphemeralExclusion": {
+      "itemType": "ActivityItem",
+      "subtype": 13,
+      "concreteType": "EphemeralItemData",
+      "count": 177
+    }
+  },
+  "classes": [
+    {
+      "class": "ordinary/non-excluded Furniture",
+      "total": "YES",
+      "distinct": "YES",
+      "key": "ItemID",
+      "condition": "GridObject and not excluded",
+      "presetCount": true
+    },
+    {
+      "class": "Landscaping",
+      "total": "YES",
+      "distinct": "YES",
+      "key": "ItemID",
+      "condition": "GridObject",
+      "presetCount": true
+    },
+    {
+      "class": "grid-placed Buildings",
+      "total": "YES",
+      "distinct": "YES",
+      "key": "ItemID",
+      "condition": "GridCollection occurrence",
+      "presetCount": true
+    },
+    {
+      "class": "Player House exterior",
+      "total": "YES",
+      "distinct": "YES",
+      "key": "ItemID",
+      "condition": "grid-placed PlayerHouse Building occurrence",
+      "presetCount": true
+    },
+    {
+      "class": "SubGrid parent",
+      "total": "CONDITIONAL",
+      "distinct": "CONDITIONAL",
+      "key": "parent ItemID if included",
+      "condition": "classify parent independently",
+      "presetCount": true
+    },
+    {
+      "class": "SubGrid descendants",
+      "total": "CONDITIONAL",
+      "distinct": "CONDITIONAL",
+      "key": "descendant ItemID if included",
+      "condition": "recursive independent classification; grouping aggregate-wide",
+      "presetCount": true
+    },
+    {
+      "class": "Road",
+      "total": "NO",
+      "distinct": "NO",
+      "key": null,
+      "condition": "Village/Preset contribution profile; Furniture/GroundAlteration explicit exclusion",
+      "presetCount": false,
+      "rawPresetContent": true
+    },
+    {
+      "class": "Fence",
+      "total": "NO",
+      "distinct": "NO",
+      "key": null,
+      "condition": "Village/Preset contribution profile; Furniture/Fence explicit exclusion",
+      "presetCount": false,
+      "rawPresetContent": true
+    },
+    {
+      "class": "Ephemeral ActivityItem",
+      "total": "NO",
+      "distinct": "NO",
+      "key": null,
+      "condition": "Village/Preset contribution profile",
+      "presetCount": false
+    },
+    {
+      "class": "OffGridBuilding",
+      "total": "NO",
+      "distinct": "NO",
+      "key": null,
+      "condition": "not a GridCollection occurrence",
+      "presetCount": false,
+      "rawPresetContent": "if separately carried by full-design artifact"
+    },
+    {
+      "class": "environment state",
+      "total": "NO",
+      "distinct": "NO",
+      "key": null,
+      "condition": "not a GridObject",
+      "presetCount": false,
+      "rawPresetContent": true
+    },
+    {
+      "class": "other GridObject ItemTypes",
+      "total": "CONDITIONAL",
+      "distinct": "CONDITIONAL",
+      "key": "ItemID if included",
+      "condition": "YES/YES unless definition matches one of three current Village exclusions; unresolved definition => UNKNOWN/fail closed",
+      "presetCount": "FAIL_CLOSED_BY_DEFINITION"
+    }
+  ],
+  "roadFence": {
+    "status": "CONFIRMED_CURRENT_V125_STATIC_INTERNAL",
+    "roadsConsumeDistinct": false,
+    "roadsConsumeTotal": false,
+    "fencesConsumeDistinct": false,
+    "fencesConsumeTotal": false,
+    "dedicatedCounters": [
+      "groundAlterationCount",
+      "fenceCount"
+    ],
+    "genericEnforcementReadsDedicatedCounters": false
+  },
+  "subGrid": {
+    "parentAndDescendantsCountIndependently": true,
+    "recursive": true,
+    "distinctGroupingAcrossTraversal": "ItemID"
+  },
+  "presetReporting": {
+    "profile": "PRESET_VILLAGE_GENERIC_CONTRIBUTION",
+    "rawContentSeparated": true,
+    "unknownPolicy": "BLOCK_BOTH_COUNTS",
+    "destinationProjection": false,
+    "placementBlocking": false
+  },
+  "implementation": {
+    "api": "src/lib/ddv/core/world/world-object-count-consumption-v125.js",
+    "tests": "tests/ddv-core-world-object-count-consumption-v125.test.mjs"
+  },
+  "dependencies": {
+    "minimal01DRequest": "01B-TO-01D-WORLD-OBJECT-LIMIT-DATA-V125-V1",
+    "minimal01ERuntimeRequest": "01B-TO-01E-OBJECT-LIMIT-OVERFLOW-V125-V1",
+    "dispatch01ENow": false
+  },
+  "evidenceClassification": {
+    "algorithm": "CONFIRMED",
+    "villageExclusions": "CONFIRMED",
+    "roadFence": "CONFIRMED",
+    "distinctGrouping": "CONFIRMED",
+    "subGridRecursion": "CONFIRMED",
+    "villageScope": "CONFIRMED",
+    "roomScope": "CONFIRMED",
+    "floatingIslandNoProvider": "CONFIRMED",
+    "canonical01DObjectLimitProjection": "UNKNOWN_PENDING_MINIMAL_REQUEST"
+  },
+  "hardFlags": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false
+  }
+}
