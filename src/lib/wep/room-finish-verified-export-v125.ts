@@ -324,7 +324,6 @@ export function createRoomFinishEditorDocumentV125(projection:any) {
       platform:ROOM_FINISH_TARGET.platform,
       gameVersion:ROOM_FINISH_TARGET.gameVersion,
       buildID:ROOM_FINISH_TARGET.buildID,
-      kind:'PLAYER_HOUSE_ROOM',
       ...clone(target)
     },
     objects:[],
