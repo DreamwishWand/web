@@ -1,3 +1,4 @@
+// QR R15 current-head Community configuration evidence trigger — parent a8423a56520ea896c6e78badce9d57588576b589; harness-only.
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright-core';
 
