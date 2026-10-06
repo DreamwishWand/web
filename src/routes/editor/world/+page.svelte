@@ -4140,6 +4140,17 @@
             <strong>{t('worldEditor.toolbar.selectedCount', { count: selectedCount }, $locale)}</strong>
           </div>
           <div class="toolbar-actions">
+            {#if roomFinishContextActive}
+              <button
+                type="button"
+                class:active={roomFinishOpen}
+                data-wep-room-finish-toggle
+                aria-expanded={roomFinishOpen}
+                on:click={toggleRoomFinish}
+              >
+                {roomFinishUi.roomFinish}
+              </button>
+            {/if}
             <button
               aria-disabled={!primaryJobAvailability.commands.move.enabled}
               aria-describedby={!primaryJobAvailability.commands.move.enabled ? 'wep-reason-move' : undefined}
@@ -4205,6 +4216,13 @@
               aria-describedby={!primaryJobAvailability.commands.reviewSavePrep.enabled ? 'wep-reason-reviewSavePrep' : undefined}
               on:click={runPrimarySavePrep}
             >{t('worldEditor.command.reviewSavePrep', {}, $locale)}</button>
+            {#if roomFinishContextActive}
+              <button
+                type="button"
+                aria-disabled={!primaryJobAvailability.commands.downloadOriginalBackup.enabled}
+                on:click={runPrimaryOriginalBackup}
+              >{t('worldEditor.command.downloadOriginalBackup', {}, $locale)}</button>
+            {/if}
             <button
               class="save-prep"
               aria-disabled={!primaryJobAvailability.commands.downloadOriginalBackup.enabled}
@@ -4213,6 +4231,223 @@
             >{t('worldEditor.command.downloadOriginalBackup', {}, $locale)}</button>
           </div>
         </div>
+
+        {#if roomFinishContextActive}
+          <div class="room-finish-surface-bar" data-wep-room-finish-surface>
+            <span>{roomFinishUi.surface}</span>
+            <button
+              type="button"
+              class:active={activeRoomSurface === 'Floor'}
+              on:click={() => setActiveRoomSurface('Floor')}
+            >{roomFinishUi.floor}</button>
+            <button
+              type="button"
+              class:active={activeRoomSurface === 'Wall' && activeRoomWallPosition === 0}
+              on:click={() => setActiveRoomSurface('Wall', 0)}
+            >{roomFinishUi.wall} · {roomFinishUi.top}</button>
+            <button
+              type="button"
+              class:active={activeRoomSurface === 'Wall' && activeRoomWallPosition === 1}
+              on:click={() => setActiveRoomSurface('Wall', 1)}
+            >{roomFinishUi.wall} · {roomFinishUi.right}</button>
+            <button
+              type="button"
+              class:active={activeRoomSurface === 'Wall' && activeRoomWallPosition === 2}
+              on:click={() => setActiveRoomSurface('Wall', 2)}
+            >{roomFinishUi.wall} · {roomFinishUi.bottom}</button>
+            <button
+              type="button"
+              class:active={activeRoomSurface === 'Wall' && activeRoomWallPosition === 3}
+              on:click={() => setActiveRoomSurface('Wall', 3)}
+            >{roomFinishUi.wall} · {roomFinishUi.left}</button>
+            <button
+              type="button"
+              class:active={activeRoomSurface === 'Ceiling'}
+              on:click={() => setActiveRoomSurface('Ceiling')}
+            >{roomFinishUi.ceiling}</button>
+          </div>
+
+          {#if roomFinishOpen}
+            <section
+              class="room-finish-panel"
+              data-wep-room-finish
+              aria-label={roomFinishUi.roomFinish}
+            >
+              <header>
+                <div>
+                  <span class="toolbar-label">{roomFinishUi.roomFinish}</span>
+                  <strong>{roomFinishUi.currentRoom}</strong>
+                  <small>
+                    {roomFinishUi.house} {editorDocument.target.houseItemId} ·
+                    {roomFinishUi.floorIndex} {editorDocument.target.floorIndex} ·
+                    {roomFinishUi.roomSlot} {editorDocument.target.roomSlot}
+                  </small>
+                </div>
+                <button type="button" on:click={toggleRoomFinish}>
+                  {roomFinishUi.close}
+                </button>
+              </header>
+
+              <div class="room-finish-current">
+                <div>
+                  <span>{roomFinishUi.flooring}</span>
+                  <strong>
+                    {roomFinishItemLabel(roomFinishCurrentState?.flooringItemId)}
+                    · {roomFinishCurrentState?.flooringItemId}
+                  </strong>
+                </div>
+                <div>
+                  <span>{roomFinishUi.wallpaper}</span>
+                  <strong>
+                    {#each [0,1,2,3] as wall}
+                      <em>
+                        {wall === 0 ? roomFinishUi.top
+                          : wall === 1 ? roomFinishUi.right
+                          : wall === 2 ? roomFinishUi.bottom
+                          : roomFinishUi.left}:
+                        {roomFinishCurrentState?.wallpapers?.[String(wall)]}
+                      </em>
+                    {/each}
+                  </strong>
+                </div>
+                <div>
+                  <span>{roomFinishUi.ceiling}</span>
+                  <strong>{roomFinishCurrentState?.ceilingItemId}</strong>
+                </div>
+              </div>
+
+              {#if editorDocument.roomFinish?.pendingMutationSet}
+                <p class="room-finish-pending" role="status">
+                  {roomFinishUi.pending}
+                </p>
+              {:else}
+                <div class="room-finish-edit-grid">
+                  <section>
+                    <h4>{roomFinishUi.flooring}</h4>
+                    {#if roomFinishOwnedFlooring.length}
+                      <label>
+                        <span>{roomFinishUi.chooseFlooring}</span>
+                        <select bind:value={roomFinishFlooringItemId}>
+                          {#each roomFinishOwnedFlooring as item}
+                            <option value={item.itemId}>
+                              {roomFinishItemLabel(item.itemId)} · {item.itemId}
+                            </option>
+                          {/each}
+                        </select>
+                      </label>
+                      <button
+                        type="button"
+                        on:click={() => previewRoomFinish('FLOORING')}
+                      >{roomFinishUi.scopePreview}</button>
+                    {:else}
+                      <p>{roomFinishUi.noOwnedFlooring}</p>
+                    {/if}
+                  </section>
+
+                  <section>
+                    <h4>{roomFinishUi.wallpaper}</h4>
+                    {#if roomFinishOwnedWallpaper.length}
+                      <label>
+                        <span>{roomFinishUi.chooseWallpaper}</span>
+                        <select bind:value={roomFinishWallpaperItemId}>
+                          {#each roomFinishOwnedWallpaper as item}
+                            <option value={item.itemId}>
+                              {roomFinishItemLabel(item.itemId)} · {item.itemId}
+                            </option>
+                          {/each}
+                        </select>
+                      </label>
+                      <fieldset>
+                        <legend>{roomFinishUi.scope}</legend>
+                        <label>
+                          <input
+                            type="radio"
+                            bind:group={roomFinishScope}
+                            value="CURRENT_WALL"
+                            disabled={activeRoomSurface !== 'Wall' || activeRoomWallPosition === null}
+                          />
+                          {roomFinishUi.currentWall}
+                        </label>
+                        <label>
+                          <input
+                            type="radio"
+                            bind:group={roomFinishScope}
+                            value="ALL_WALLS"
+                          />
+                          {roomFinishUi.allWalls}
+                        </label>
+                      </fieldset>
+                      {#if roomFinishScope === 'CURRENT_WALL' && activeRoomWallPosition === null}
+                        <small>{roomFinishUi.currentWallNeeded}</small>
+                      {/if}
+                      <button
+                        type="button"
+                        on:click={() => previewRoomFinish('WALLPAPER')}
+                        disabled={
+                          roomFinishScope === 'CURRENT_WALL' &&
+                          activeRoomWallPosition === null
+                        }
+                      >{roomFinishUi.scopePreview}</button>
+                    {:else}
+                      <p>{roomFinishUi.noOwnedWallpaper}</p>
+                    {/if}
+                  </section>
+                </div>
+              {/if}
+
+              {#if roomFinishPreview}
+                <div class="room-finish-preview" data-wep-room-finish-preview>
+                  <strong>{roomFinishUi.scopePreview}</strong>
+                  {#if roomFinishPreview.semantic.finishKind === 'FLOORING'}
+                    <span>
+                      {roomFinishUi.flooring}:
+                      {roomFinishPreview.semantic.oldItemId}
+                      →
+                      {roomFinishPreview.semantic.newItemId}
+                    </span>
+                  {:else}
+                    <span>
+                      {roomFinishUi.wallpaper} ·
+                      {roomFinishPreview.semantic.scope === 'ALL_WALLS'
+                        ? roomFinishUi.allWalls
+                        : roomFinishUi.currentWall}
+                    </span>
+                    <span>
+                      {roomFinishUi.affectedWalls}:
+                      {roomFinishPreview.semantic.affectedWallPositions.join(', ')}
+                    </span>
+                    {#each roomFinishPreview.semantic.nativePreservation as operation}
+                      <span data-wep-room-finish-offset-cleanup>
+                        {roomFinishUi.staleCleanup} · Item {operation.itemId}
+                      </span>
+                    {/each}
+                  {/if}
+                  <small>
+                    {roomFinishUi.house} {roomFinishPreview.semantic.target.houseItemId} ·
+                    {roomFinishUi.floorIndex} {roomFinishPreview.semantic.target.floorIndex} ·
+                    {roomFinishUi.roomSlot} {roomFinishPreview.semantic.target.roomSlot}
+                  </small>
+                  <div>
+                    <button type="button" on:click={cancelRoomFinishPreview}>
+                      {roomFinishUi.cancel}
+                    </button>
+                    <button
+                      type="button"
+                      class="primary"
+                      on:click={commitRoomFinishPreview}
+                    >{roomFinishUi.addDraft}</button>
+                  </div>
+                </div>
+              {/if}
+              {#if roomFinishStatus}
+                <p class="room-finish-status" role="status" aria-live="polite">
+                  {roomFinishStatus}
+                </p>
+              {/if}
+              <p class="room-finish-export-hint">{roomFinishUi.exportHint}</p>
+            </section>
+          {/if}
+        {/if}
 
         <div class="draft-status" aria-live="polite">
           <span>
@@ -5430,6 +5665,48 @@
           persistentWriteAuthorized=false
         </span>
       </div>
+
+      {#if roomFinishRoutes.length || roomFinishDiagnostics.length}
+        <section class="room-finish-route-section" data-wep-room-finish-routes>
+          <div class="room-finish-route-heading">
+            <div>
+              <p class="eyebrow">{roomFinishUi.roomFinish}</p>
+              <strong>{roomFinishUi.currentRoom}</strong>
+            </div>
+            <small>{roomFinishUi.exportHint}</small>
+          </div>
+          {#if roomFinishRoutes.length}
+            <div class="room-finish-route-list">
+              {#each roomFinishRoutes as route}
+                <article class="room-finish-route">
+                  <div>
+                    <strong>{route.roomName || roomFinishUi.currentRoom}</strong>
+                    <span>
+                      {roomFinishUi.house} {route.locator.houseItemId} ·
+                      {roomFinishUi.floorIndex} {route.locator.floorIndex} ·
+                      {roomFinishUi.roomSlot} {route.locator.roomSlot}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    on:click={() => openRoomFinishRoomInCanvas(route)}
+                  >
+                    {roomFinishUi.open}
+                  </button>
+                </article>
+              {/each}
+            </div>
+          {/if}
+          {#if roomFinishDiagnostics.length}
+            <div class="room-finish-route-diagnostics">
+              {#each roomFinishDiagnostics.slice(0, 5) as diagnostic}
+                <span><code>{diagnostic.code}</code></span>
+              {/each}
+            </div>
+          {/if}
+        </section>
+      {/if}
 
       <div class="area-route-list">
         {#each worldSource.areas as area}
