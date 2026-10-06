@@ -546,7 +546,14 @@ try{
   await roomVerifiedContainer.locator('.verified-export-confirm input[type="checkbox"]').check();
   await roomVerifiedContainer.getByRole('button',{name:'Apply / Export'}).click();
   const roomFloorSuccess=roomExport.locator('.verified-export-success');
-  await roomFloorSuccess.waitFor({state:'visible',timeout:15000});
+  const roomFloorCommitError=roomExport.locator('.verified-export-error');
+  await Promise.race([
+    roomFloorSuccess.waitFor({state:'visible',timeout:15000}),
+    roomFloorCommitError.waitFor({state:'visible',timeout:15000})
+  ]);
+  if(await roomFloorCommitError.isVisible()){
+    throw new Error('ROOM_FINISH_FLOORING_EXPORT_FAIL: '+await roomFloorCommitError.innerText());
+  }
   assert.ok((await roomFloorSuccess.innerText()).includes('PASS'));
   assert.ok((await roomFloorSuccess.innerText()).includes('20500005'));
   pass('ROOM_FINISH_FLOORING_VERIFIED_EXPORT_REOPEN');
@@ -601,8 +608,16 @@ try{
   assert.equal(await roomExport.locator('[data-wep-room-finish-export-cleanup]').count(),1);
   await roomExport.locator('.verified-export-confirm input[type="checkbox"]').check();
   await roomExport.getByRole('button',{name:'Apply / Export'}).click();
-  await roomExport.locator('.verified-export-success').waitFor({state:'visible',timeout:15000});
-  assert.ok((await roomExport.locator('.verified-export-success').innerText()).includes('PASS'));
+  const roomAllSuccess=roomExport.locator('.verified-export-success');
+  const roomAllCommitError=roomExport.locator('.verified-export-error');
+  await Promise.race([
+    roomAllSuccess.waitFor({state:'visible',timeout:15000}),
+    roomAllCommitError.waitFor({state:'visible',timeout:15000})
+  ]);
+  if(await roomAllCommitError.isVisible()){
+    throw new Error('ROOM_FINISH_ALL_WALLS_EXPORT_FAIL: '+await roomAllCommitError.innerText());
+  }
+  assert.ok((await roomAllSuccess.innerText()).includes('PASS'));
   pass('ROOM_FINISH_ALL_WALLS_ATOMIC_VERIFIED_EXPORT',{
     staleOffsetRemoved:160000224,
     walls:4,
