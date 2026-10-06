@@ -1,4 +1,5 @@
-// QR R14 current-head evidence trigger — parent e398ad59cdf62f8634251ffd3a55f942b970fb37; harness-only.\nimport assert from 'node:assert/strict';
+// QR R14 current-head evidence trigger — parent e398ad59cdf62f8634251ffd3a55f942b970fb37; harness-only.
+import assert from 'node:assert/strict';
 import { chromium } from 'playwright-core';
 
 const baseUrl = String(process.env.COMMUNITY_BASE_URL ?? 'http://127.0.0.1:4173').replace(/\/$/, '');
