@@ -12,28 +12,36 @@
   "productSemantics": "DDV_WAND_PRODUCT_UX_STAGE1_CURRENT / DEC-UX-241..242, 248..260; no Product decisions changed",
   "missingContracts": [
     {
-      "id": "WEP_ROOM_FINISH_PLAYER_HOUSE_ROOM_TARGET_AND_RUNTIME_REQUIRED",
+      "id": "WEP_ROOM_FINISH_RUNTIME_ACCEPTANCE_REQUIRED",
       "evidence": "CONFIRMED",
-      "currentState": "01B_STATIC_CURRENT_NATIVE_SEMANTICS_CLOSED__01A_PLAYER_HOUSE_ROOM_TARGET_EXTENSION_AND_01E_RUNTIME_PENDING",
+      "currentState": "CORE_TARGET_AND_TRANSACTION_BINDING_PROMOTED__01E_RUNTIME_PENDING_FIXTURE_B",
       "promotedOrFrozenEvidence": [
-        "01B Room Finish semantics: src/lib/ddv/core/world/room-finish-v125.js (PR #85 frozen static/current-native closure)",
-        "01B -> 01A request: static/ddv/core/save/v1.25/room-finish-transaction-target-extension-request-v125.json",
-        "requestId: 01B-TO-01A-ROOM-FINISH-TARGET-V125-V1"
+        "01B Room Finish semantics promoted via PR #86 at 99548b23ef7654d85ffa7ba55c729424fb3dab46",
+        "01A PLAYER_HOUSE_ROOM WRITE_CANDIDATE target promoted via PR #87 at 187886bb4b580b1a3402f0a5a9a43408cd98980d",
+        "01A target contract: static/ddv/core/save/v1.25/player-house-room-target-extension-v125.json",
+        "01B/01A transaction binding promoted via PR #90 at e398ad59cdf62f8634251ffd3a55f942b970fb37",
+        "transaction binding: static/ddv/core/save/v1.25/room-finish-transaction-binding-v125.json",
+        "runtime request: static/ddv/core/world/v1.25/room-finish-01e-runtime-request-v125.json",
+        "requestId: 01B-TO-01E-ROOM-FINISH-V125-V1"
       ],
       "remainingRequirements": [
-        "01A WRITE_CANDIDATE target-kind PLAYER_HOUSE_ROOM with playerHouseIndex + houseItemId + floorIndex + roomSlot identity",
-        "strict Room Finish leaf allowlist for Flooring / Wallpapers / exact stale WallpaperOffsetById cleanup only",
-        "01B mutation-adapter binding to the promoted PLAYER_HOUSE_ROOM structural target",
-        "01E exact Nintendo Switch v1.25 cold-reload acceptance: minimum one Flooring case and one All-Walls Wallpaper case exercising displaced-offset cleanup",
-        "backup/restore acceptance"
+        "01E exact Nintendo Switch v1.25 Room Finish runtime acceptance: independent Flooring and All-Walls Wallpaper cases",
+        "All-Walls native fixture must exercise displaced WallpaperOffsetById cleanup; current known runtime baseline does not contain that native state",
+        "exact backup restore/load acceptance for both runtime cases"
       ],
       "blockedConsumerBehavior": [
         "DEC-UX-241 Room Finish write controls",
-        "DEC-UX-242 Flooring persistent verified replacement artifact",
-        "DEC-UX-242 Wallpaper Current Wall persistent verified replacement artifact",
-        "DEC-UX-242 Wallpaper All Walls atomic persistent verified replacement artifact"
+        "DEC-UX-242 Flooring verified replacement artifact/export",
+        "DEC-UX-242 Wallpaper Current Wall verified replacement artifact/export",
+        "DEC-UX-242 Wallpaper All Walls atomic verified replacement artifact/export"
       ],
-      "fallbackPolicy": "WRITE_UI_AND_PRODUCT_EXPORT_FAIL_CLOSED; NO_GENERIC_PATH_WRITER; NO_CEILING_WRITE"
+      "fallbackPolicy": "WRITE_UI_AND_PRODUCT_EXPORT_FAIL_CLOSED_UNTIL_01E_PASS; CORE_CONTRACT_IS_NOT_MISSING; NO_CEILING_WRITE",
+      "runtimeGate": {
+        "status": "BLOCKED_FIXTURE_B",
+        "requestId": "01B-TO-01E-ROOM-FINISH-V125-V1",
+        "productExportAuthorized": false,
+        "note": "Save-layer target/binding are promoted. Runtime acceptance remains the sole Room Finish consumer blocker."
+      }
     }
   ],
   "preservedSafety": {

@@ -316,7 +316,11 @@ try{
   pass('ROAD_FENCE_GENERIC_TRANSFORM_FAIL_CLOSED');
 
   assert.equal(await stageBound.getByRole('button',{name:'Room Finish'}).count(),0);
-  pass('ROOM_FINISH_NO_FAKE_BINDING',{state:'BLOCKED_MISSING_CORE_CONTRACT'});
+  pass('ROOM_FINISH_RUNTIME_GATE_PRESERVED',{
+    state:'BLOCKED_01E_RUNTIME_ACCEPTANCE_PENDING',
+    coreTarget:'PLAYER_HOUSE_ROOM',
+    transactionBinding:'01b-room-finish-v125-v1'
+  });
 
   const locales=['en','fr','it','de','es-ES','ja','zh-CN','pt-BR'];
   const localeSelect=page.locator('#site-locale');
