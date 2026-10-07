@@ -398,6 +398,38 @@ export function createPresetCommunityBridge({
     }
   }
 
+  async function unpublishSceneProduct(
+    presetArtifactId: string,
+    idempotencyKey: string
+  ) {
+    assert(
+      typeof community.presetProduct === 'function',
+      'WEP_PRESET_PRODUCT_TRANSPORT_REQUIRED'
+    );
+    assert(String(presetArtifactId), 'WEP_PRESET_ARTIFACT_ID_REQUIRED');
+    assert(String(idempotencyKey).trim(), 'WEP_PRESET_IDEMPOTENCY_KEY_REQUIRED');
+    return community.presetProduct('unpublish', {
+      presetArtifactId: String(presetArtifactId),
+      idempotencyKey: String(idempotencyKey).trim()
+    });
+  }
+
+  async function deleteSceneProduct(
+    presetArtifactId: string,
+    idempotencyKey: string
+  ) {
+    assert(
+      typeof community.presetProduct === 'function',
+      'WEP_PRESET_PRODUCT_TRANSPORT_REQUIRED'
+    );
+    assert(String(presetArtifactId), 'WEP_PRESET_ARTIFACT_ID_REQUIRED');
+    assert(String(idempotencyKey).trim(), 'WEP_PRESET_IDEMPOTENCY_KEY_REQUIRED');
+    return community.presetProduct('delete', {
+      presetArtifactId: String(presetArtifactId),
+      idempotencyKey: String(idempotencyKey).trim()
+    });
+  }
+
   async function discover({
     query = null,
     creatorProfileId = null,
@@ -719,6 +751,8 @@ export function createPresetCommunityBridge({
   return Object.freeze({
     publishScene,
     publishSceneProduct,
+    unpublishSceneProduct,
+    deleteSceneProduct,
     discover,
     resolveDiscoveredWork,
     saveToLibrary,

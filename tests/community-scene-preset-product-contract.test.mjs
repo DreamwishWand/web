@@ -47,7 +47,10 @@ test('Scene product browser path uses dedicated WEP transport, exact signed-read
   const detailRoute=read('src/routes/presets/detail/+page.svelte');
   const editor=read('src/routes/editor/world/+page.svelte');
   const panel=read('src/lib/wep/WorldEditorStage1DecoratePanel.svelte');
+  const presets=read('src/routes/presets/+page.svelte');
   const verifier=read('scripts/verify-community-integrated-production-tree.mjs');
+  const ci=read('.github/workflows/ci.yml');
+  const pages=read('.github/workflows/pages.yml');
 
   assert.match(client,/presetProduct<[\s\S]*wep-scene-preset-product/);
   assert.match(bridge,/publishSceneProduct/);
@@ -61,26 +64,41 @@ test('Scene product browser path uses dedicated WEP transport, exact signed-read
   assert.match(publishRoute,/publishSceneProduct/);
   assert.match(publishRoute,/existingPresetArtifactId/);
   assert.match(publishRoute,/recordScenePresetPublication/);
+  assert.match(publishRoute,/unpublishSceneProduct/);
+  assert.match(publishRoute,/deleteSceneProduct/);
+  assert.match(publishRoute,/markScenePresetUnpublished/);
+  assert.match(publishRoute,/clearScenePresetPublication/);
   assert.match(detailRoute,/community_get_scene_preset_public_v1/);
   assert.match(detailRoute,/expectedChecksumSha256/);
   assert.match(detailRoute,/createScenePresetHandoff/);
+  assert.match(detailRoute,/loadCollectionRuntime/);
+  assert.match(detailRoute,/itemQuantities/);
   assert.match(editor,/saveScenePresetPrivateMaster/);
   assert.match(editor,/\/presets\/publish\/\?master=/);
   assert.match(panel,/handoff\.presetRevisionId/);
   assert.match(panel,/handoff\.checksumSha256/);
+  assert.match(presets,/listScenePresetPrivateMasters/);
+  assert.match(presets,/\/presets\/publish\/\?master=/);
   assert.match(verifier,/supabase\/functions\/wep-scene-preset-product\/index\.ts/);
+  assert.match(verifier,/20261007124300_scene_preset_product_vertical_v1\.sql/);
+  for(const workflow of [ci,pages]){
+    assert.match(workflow,/build\/presets\/publish\/index\.html/);
+    assert.match(workflow,/build\/presets\/detail\/index\.html/);
+  }
 });
 
 test('Scene product locale-specific launch copy covers exactly the eight Wand locales',()=>{
   const detail=read('src/lib/presets/scene-preset-detail-copy.js');
   const publish=read('src/lib/presets/scene-preset-publish-copy.js');
   const master=read('src/lib/presets/scene-preset-private-master-copy.js');
+  const library=read('src/lib/presets/scene-preset-library-copy.js');
+  const items=read('src/lib/presets/scene-preset-items-copy.js');
   for(const locale of ['en','fr','it','de','es-ES','ja','zh-CN','pt-BR']){
     assert.match(detail,new RegExp(locale.replace('-','\\-')));
     assert.match(publish,new RegExp(locale.replace('-','\\-')));
     assert.match(master,new RegExp(locale.replace('-','\\-')));
   }
-  for(const source of [detail,publish,master]){
+  for(const source of [detail,publish,master,library,items]){
     assert.match(source,/Object\.freeze/);
   }
 });

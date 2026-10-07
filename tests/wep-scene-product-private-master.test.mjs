@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  clearScenePresetPublication,
   getScenePresetPrivateMaster,
+  markScenePresetUnpublished,
   recordScenePresetPublication,
   saveScenePresetPrivateMaster
 } from '../src/lib/wep/scene-preset-private-master.ts';
@@ -58,6 +60,7 @@ test('private Scene master survives publication and preserves one master identit
   });
   assert.equal(first.presetType,'scene');
   assert.equal(first.publication,null);
+  assert.equal(first.publicLifecycle,'none');
   assert.equal(first.changesNotPublished,false);
   assert.equal(first.persistentWriteAuthorized,false);
   assert.equal(first.productApplyAuthorized,false);
@@ -74,6 +77,7 @@ test('private Scene master survives publication and preserves one master identit
     byteSize:321,
     publishedAt:'2026-10-07T12:01:00.000Z'
   },'2026-10-07T12:01:00.000Z');
+  assert.equal(published.publicLifecycle,'published');
   assert.equal(published.changesNotPublished,false);
 
   const changed=structuredClone(artifact);
@@ -87,7 +91,17 @@ test('private Scene master survives publication and preserves one master identit
   assert.equal(second.masterId,first.masterId);
   assert.equal(second.publication.presetArtifactId,published.publication.presetArtifactId);
   assert.equal(second.publication.presetRevisionId,published.publication.presetRevisionId);
+  assert.equal(second.publicLifecycle,'published');
   assert.equal(second.changesNotPublished,true);
+
+  const unpublished=markScenePresetUnpublished(storage,first.masterId,'2026-10-07T12:03:00.000Z');
+  assert.equal(unpublished.publicLifecycle,'unpublished');
+  assert.equal(unpublished.publication.presetArtifactId,published.publication.presetArtifactId);
+
+  const cleared=clearScenePresetPublication(storage,first.masterId,'2026-10-07T12:04:00.000Z');
+  assert.equal(cleared.publicLifecycle,'none');
+  assert.equal(cleared.publication,null);
+  assert.equal(cleared.artifact.objects[0].localX,2);
   assert.equal(getScenePresetPrivateMaster(storage,first.masterId).artifact.objects[0].localX,2);
 });
 

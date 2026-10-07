@@ -10,7 +10,9 @@
     validatePublishablePreset
   } from '$lib/wep/scene-preset-runtime';
   import {
+    clearScenePresetPublication,
     getScenePresetPrivateMaster,
+    markScenePresetUnpublished,
     recordScenePresetPublication
   } from '$lib/wep/scene-preset-private-master';
   import { scenePresetPublishCopy } from '$lib/presets/scene-preset-publish-copy.js';
@@ -74,6 +76,7 @@
     if(!publicTitle.trim()){message=copy.missingTitle;return;}
     if(!isUpdate&&files.length===0){message=copy.missingImage;return;}
     if(!bridge||!creatorProfileId){message=copy.account;return;}
+    const wasUpdate=Boolean(master.publication);
     busy=true;
     message=copy.publishing;
     try{
@@ -105,12 +108,43 @@
       files=[];
       clearPreview();
       publishKey=crypto.randomUUID();
-      message=isUpdate?copy.updated:copy.published;
+      message=wasUpdate?copy.updated:copy.published;
     }catch(error){
       message=error instanceof Error?error.message:String(error);
     }finally{
       busy=false;
     }
+  }
+
+  async function unpublishPublic(){
+    if(!bridge||!master?.publication)return;
+    busy=true;message='';
+    try{
+      await bridge.unpublishSceneProduct(
+        master.publication.presetArtifactId,
+        'scene-unpublish-'+crypto.randomUUID()
+      );
+      master=markScenePresetUnpublished(localStorage,master.masterId);
+      message=copy.unpublished;
+    }catch(error){
+      message=error instanceof Error?error.message:String(error);
+    }finally{busy=false;}
+  }
+
+  async function deletePublic(){
+    if(!bridge||!master?.publication)return;
+    if(!window.confirm(copy.deleteConfirm))return;
+    busy=true;message='';
+    try{
+      await bridge.deleteSceneProduct(
+        master.publication.presetArtifactId,
+        'scene-delete-'+crypto.randomUUID()
+      );
+      master=clearScenePresetPublication(localStorage,master.masterId);
+      message=copy.deleted;
+    }catch(error){
+      message=error instanceof Error?error.message:String(error);
+    }finally{busy=false;}
   }
 </script>
 
@@ -169,11 +203,19 @@
 
     <div class="actions">
       <button class="primary" disabled={busy} on:click={publish}>
-        {isUpdate?copy.publishUpdate:copy.publish}
+        {master.publication
+          ? master.publicLifecycle === 'unpublished'
+            ? copy.republish
+            : copy.publishUpdate
+          : copy.publish}
       </button>
       <a href={base+'/editor/world/'}>{copy.back}</a>
       {#if master.publication}
-        <a href={base+'/presets/detail/?work='+master.publication.workId}>{copy.openDetail}</a>
+        {#if master.publicLifecycle === 'published'}
+          <a href={base+'/presets/detail/?work='+master.publication.workId}>{copy.openDetail}</a>
+          <button disabled={busy} on:click={unpublishPublic}>{copy.unpublish}</button>
+        {/if}
+        <button class="danger" disabled={busy} on:click={deletePublic}>{copy.deletePublic}</button>
       {/if}
     </div>
   {/if}
@@ -183,5 +225,5 @@
 </section>
 
 <style>
-.publish-page{max-width:980px;padding-block:60px 90px}.eyebrow{font-size:10px;letter-spacing:.18em;font-weight:900;color:var(--gold)}h1{font-family:Georgia,serif;font-size:clamp(36px,6vw,62px);font-weight:500;margin:8px 0 12px}.panel{margin-top:20px;padding:22px;border:1px solid var(--border);border-radius:20px;background:var(--surface)}.facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.facts div{padding:12px;border-radius:12px;background:var(--surface-raised)}.facts span,label span{display:block;font-size:10px;color:var(--ink-muted);margin-bottom:7px}.panel label{display:block;margin-top:14px}.panel input[type="text"],.panel input:not([type]),.panel textarea{width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:12px;background:var(--surface-raised);color:var(--ink);padding:11px 12px}.hint,.revision,.changes,.boundary,.status{font-size:12px;line-height:1.7;color:var(--ink-soft)}.changes{color:var(--gold)}.preview img{width:100%;max-height:420px;object-fit:cover;border-radius:16px}.preview h2{font-family:Georgia,serif;font-weight:500;font-size:30px}.preview-facts,.actions{display:flex;gap:10px;flex-wrap:wrap}.preview-facts span{border:1px solid var(--border);border-radius:999px;padding:6px 10px;font-size:11px}.actions{margin-top:22px}.actions button,.actions a{min-height:44px;border:1px solid var(--border);border-radius:999px;background:var(--surface-raised);color:var(--ink);padding:10px 16px;font-weight:800;text-decoration:none}.actions .primary{color:var(--gold)}.boundary,.status{margin-top:16px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface)}@media(max-width:760px){.facts{grid-template-columns:1fr 1fr}}@media(max-width:480px){.facts{grid-template-columns:1fr}}
+.publish-page{max-width:980px;padding-block:60px 90px}.eyebrow{font-size:10px;letter-spacing:.18em;font-weight:900;color:var(--gold)}h1{font-family:Georgia,serif;font-size:clamp(36px,6vw,62px);font-weight:500;margin:8px 0 12px}.panel{margin-top:20px;padding:22px;border:1px solid var(--border);border-radius:20px;background:var(--surface)}.facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.facts div{padding:12px;border-radius:12px;background:var(--surface-raised)}.facts span,label span{display:block;font-size:10px;color:var(--ink-muted);margin-bottom:7px}.panel label{display:block;margin-top:14px}.panel input[type="text"],.panel input:not([type]),.panel textarea{width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:12px;background:var(--surface-raised);color:var(--ink);padding:11px 12px}.hint,.revision,.changes,.boundary,.status{font-size:12px;line-height:1.7;color:var(--ink-soft)}.changes{color:var(--gold)}.preview img{width:100%;max-height:420px;object-fit:cover;border-radius:16px}.preview h2{font-family:Georgia,serif;font-weight:500;font-size:30px}.preview-facts,.actions{display:flex;gap:10px;flex-wrap:wrap}.preview-facts span{border:1px solid var(--border);border-radius:999px;padding:6px 10px;font-size:11px}.actions{margin-top:22px}.actions button,.actions a{min-height:44px;border:1px solid var(--border);border-radius:999px;background:var(--surface-raised);color:var(--ink);padding:10px 16px;font-weight:800;text-decoration:none}.actions .primary{color:var(--gold)}.actions .danger{color:var(--decor-accent)}.boundary,.status{margin-top:16px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface)}@media(max-width:760px){.facts{grid-template-columns:1fr 1fr}}@media(max-width:480px){.facts{grid-template-columns:1fr}}
 </style>

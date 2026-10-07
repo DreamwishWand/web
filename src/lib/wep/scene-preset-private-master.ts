@@ -23,6 +23,7 @@ export type ScenePresetPrivateMaster = {
   authoredTitle: string | null;
   artifact: any;
   publication: ScenePresetPublicationRef | null;
+  publicLifecycle: 'none' | 'published' | 'unpublished';
   changesNotPublished: boolean;
   createdAt: string;
   updatedAt: string;
@@ -106,6 +107,12 @@ export function normalizeScenePresetPrivateMaster(
     authoredTitle: normalizeTitle(input.authoredTitle),
     artifact: clone(input.artifact),
     publication: normalizePublication(input.publication),
+    publicLifecycle:
+      input.publicLifecycle === 'unpublished'
+        ? 'unpublished'
+        : input.publication
+          ? 'published'
+          : 'none',
     changesNotPublished: input.changesNotPublished === true,
     createdAt: timestamp(String(input.createdAt ?? '')),
     updatedAt: timestamp(String(input.updatedAt ?? '')),
@@ -178,6 +185,7 @@ export function saveScenePresetPrivateMaster(
     authoredTitle: normalizeTitle(authoredTitle),
     artifact: clone(artifact),
     publication: existing?.publication ?? null,
+    publicLifecycle: existing?.publicLifecycle ?? 'none',
     changesNotPublished: Boolean(existing?.publication),
     createdAt: existing?.createdAt ?? stamp,
     updatedAt: stamp,
@@ -203,6 +211,44 @@ export function recordScenePresetPublication(
   const next = normalizeScenePresetPrivateMaster({
     ...existing,
     publication: normalizePublication(publication),
+    publicLifecycle: 'published',
+    changesNotPublished: false,
+    updatedAt: timestamp(now)
+  });
+  writeAll(storage, [...all.filter((entry) => entry.masterId !== existing.masterId), next]);
+  return next;
+}
+
+export function markScenePresetUnpublished(
+  storage: StorageLike,
+  masterId: string,
+  now = new Date().toISOString()
+) {
+  const all = readAll(storage);
+  const existing = all.find((entry) => entry.masterId === String(masterId));
+  assert(existing, 'WEP_SCENE_MASTER_NOT_FOUND');
+  assert(existing.publication, 'WEP_SCENE_MASTER_PUBLICATION_NOT_FOUND');
+  const next = normalizeScenePresetPrivateMaster({
+    ...existing,
+    publicLifecycle: 'unpublished',
+    updatedAt: timestamp(now)
+  });
+  writeAll(storage, [...all.filter((entry) => entry.masterId !== existing.masterId), next]);
+  return next;
+}
+
+export function clearScenePresetPublication(
+  storage: StorageLike,
+  masterId: string,
+  now = new Date().toISOString()
+) {
+  const all = readAll(storage);
+  const existing = all.find((entry) => entry.masterId === String(masterId));
+  assert(existing, 'WEP_SCENE_MASTER_NOT_FOUND');
+  const next = normalizeScenePresetPrivateMaster({
+    ...existing,
+    publication: null,
+    publicLifecycle: 'none',
     changesNotPublished: false,
     updatedAt: timestamp(now)
   });
