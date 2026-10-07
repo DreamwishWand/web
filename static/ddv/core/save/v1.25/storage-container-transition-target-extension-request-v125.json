@@ -1,0 +1,174 @@
+{
+  "contract": "ddv.save.storage-furniture-transition-extension-request@1",
+  "requestId": "01B-TO-01A-STORAGE-FURNITURE-TRANSITION-V125-V1",
+  "ownerRequested": "01A / Core Save",
+  "semanticOwner": "01B CORE - World / Grid / Buildings",
+  "status": "REQUESTED_MINIMUM_ADDITIVE_EXTENSION",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "switchBid": "52BD625D9B4E0053",
+    "profileSchema": 624
+  },
+  "currentFoundation": {
+    "capabilityToReuse": "STRUCTURAL_WRITE_CANDIDATE",
+    "currentTargetKinds": [
+      "GRID_OBJECT",
+      "GRID_OBJECT_SET",
+      "PLAYER_HOUSE_ROOM"
+    ],
+    "blocker": [
+      "GRID_OBJECT_SET binds exactly one GridID",
+      "GRID_OBJECT_SET allowed structural paths are confined to that Grid Objects map plus that Grid NextGridObjectID",
+      "put-away/re-place also change one existing Player.ListInventories furniture Amount leaf",
+      "cross-grid move removes from one Grid and adds to another Grid"
+    ]
+  },
+  "minimumAdditiveExtension": {
+    "capability": "STRUCTURAL_WRITE_CANDIDATE",
+    "newCapabilityEnumRequired": false,
+    "targetKind": "STORAGE_FURNITURE_TRANSITION",
+    "identityPolicy": "ALLOW_DECLARED_STORAGE_FURNITURE_TRANSITION_ONLY",
+    "modes": [
+      "CROSS_GRID_MOVE",
+      "PUT_AWAY_NONEMPTY",
+      "REPLACE_NONEMPTY"
+    ],
+    "requiredIdentity": {
+      "common": [
+        "itemId",
+        "containerInventoryId",
+        "containerParentItemId == itemId",
+        "containerBelongsToPlayer == true",
+        "containerSize == exact current-definition default/requested Size",
+        "complete active-reference evidence"
+      ],
+      "CROSS_GRID_MOVE": [
+        "sourceGridId",
+        "sourceGridObjectId",
+        "destinationGridId",
+        "destinationGridObjectId",
+        "destinationNextGridObjectIDBefore",
+        "destinationNextGridObjectIDAfter=before+1"
+      ],
+      "PUT_AWAY_NONEMPTY": [
+        "sourceGridId",
+        "sourceGridObjectId",
+        "listInventoryId",
+        "listAmountBefore",
+        "listAmountAfter=before+1"
+      ],
+      "REPLACE_NONEMPTY": [
+        "destinationGridId",
+        "destinationGridObjectId",
+        "destinationNextGridObjectIDBefore",
+        "destinationNextGridObjectIDAfter=before+1",
+        "listInventoryId",
+        "listAmountBefore>=1",
+        "listAmountAfter=before-1",
+        "hash-bound same-save GridObject template carrying the exact selected Storage.ContainerInventoryID"
+      ]
+    },
+    "allowedPathsByMode": {
+      "CROSS_GRID_MOVE": [
+        "/World/GridCollection/Grids/{sourceGridId}/Objects/{sourceGridObjectId}",
+        "/World/GridCollection/Grids/{destinationGridId}/Objects/{destinationGridObjectId}",
+        "/World/GridCollection/Grids/{destinationGridId}/NextGridObjectID"
+      ],
+      "PUT_AWAY_NONEMPTY": [
+        "/World/GridCollection/Grids/{sourceGridId}/Objects/{sourceGridObjectId}",
+        "/Player/ListInventories/{listInventoryId}/Inventory/{itemId}/Amount"
+      ],
+      "REPLACE_NONEMPTY": [
+        "/World/GridCollection/Grids/{destinationGridId}/Objects/{destinationGridObjectId}",
+        "/World/GridCollection/Grids/{destinationGridId}/NextGridObjectID",
+        "/Player/ListInventories/{listInventoryId}/Inventory/{itemId}/Amount"
+      ]
+    },
+    "protectedState": [
+      "/GameInfo exact",
+      "/Player/ContainerInventories exact including selected ContainerInventory and every slot",
+      "/Player/NextContainerInventoryID exact",
+      "all unrelated Player.ListInventories entries/fields exact including Marker",
+      "all unrelated GridObjects and Grids exact",
+      "all PlayerHouses exact",
+      "Store/Shop exact",
+      "progression/quest/event state exact",
+      "opaque/unknown state exact"
+    ],
+    "structuralRules": [
+      "destination GridObjectID must be the exact fresh destination NextGridObjectID for ADD modes",
+      "destination NextGridObjectID advances by exactly one only when a destination object is added",
+      "source and destination object-map keys equal their embedded GridObject.ID",
+      "CROSS_GRID_MOVE destination payload equals source GridObject payload except ID/X/Y/Orientation; State.Storage.ContainerInventoryID is exact",
+      "PUT_AWAY_NONEMPTY requires selected ContainerInventory to be non-empty and preserves that complete map entry exact",
+      "REPLACE_NONEMPTY requires selected ContainerInventory to be non-empty, currently unreferenced, and preserves it exact",
+      "actual GridObject identity delta and allowed Player amount delta must equal declaration exactly",
+      "no ContainerInventory create/delete/re-ID/slot mutation is allowed in this extension"
+    ]
+  },
+  "sameGridMoveDisposition": {
+    "extensionNeeded": false,
+    "existingCapability": "WRITE_CANDIDATE",
+    "existingTargetKind": "GRID_OBJECT",
+    "ownerAction": "01B will provide a storage-specific transform adapter that permits only X/Y/Orientation and preserves GridObject.State plus Player.ContainerInventories/ListInventories exact"
+  },
+  "explicitlyNotRequested": [
+    "generic ContainerInventory writer",
+    "generic Player writer",
+    "generic cross-grid writer",
+    "arbitrary JSON patch",
+    "broad inventory mutation",
+    "ListInventory map entry creation/removal",
+    "ContainerInventory creation/removal",
+    "NextContainerInventoryID mutation",
+    "empty-storage lifecycle",
+    "HomeStorage support",
+    "non-player storage support",
+    "ownership grant/removal",
+    "entitlement/Premium/DLC/receipt/Moonstone/auth mutation",
+    "persistent source replacement",
+    "persistent write authorization",
+    "Steam support",
+    "Road/Fence changes"
+  ],
+  "evidenceBinding": [
+    {
+      "id": "ddv.storage-furniture-container-semantics@1",
+      "status": "STATIC_CURRENT_NATIVE_CLOSED"
+    },
+    {
+      "id": "SWITCH-V125-GRID-SWITCH-0x4E7A220",
+      "status": "CONFIRMED"
+    },
+    {
+      "id": "SWITCH-V125-PICKUP-LIST-APPLY-0x5FC9560",
+      "status": "CONFIRMED"
+    },
+    {
+      "id": "SWITCH-V125-PUTDOWN-LIST-APPLY-0x5FCF3D0",
+      "status": "CONFIRMED"
+    },
+    {
+      "id": "SWITCH-V125-REMOVE-CONTAINER-0x59508D0",
+      "status": "CONFIRMED"
+    },
+    {
+      "id": "SWITCH-V125-ORPHAN-REUSE-PREDICATE-0x59AB710",
+      "status": "CONFIRMED"
+    }
+  ],
+  "hardFlags": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false
+  },
+  "returnTo01B": [
+    "promoted target-kind implementation commit/PR",
+    "exact target validation and structural-transition verification rules",
+    "focused CI result",
+    "confirmation that ContainerInventories and NextContainerInventoryID are structurally protected"
+  ]
+}
