@@ -30,7 +30,9 @@ export function preflightScenePresetDestinationV125({
     target.platform !== 'Nintendo Switch' ||
     target.gameVersion !== '1.25.0' ||
     Number(target.profileSchemaVersion) !== 624 ||
-    String(target.buildIdentity ?? '') !== '52BD625D9B4E0053'
+    target.exactBuildKnown !== true ||
+    String(target.contractBuildIdentity ?? '') !== '52BD625D9B4E0053' ||
+    String(target.sourceBuildIdentity ?? '') !== '52BD625D9B4E0053'
   ) {
     issues.push({severity:'BLOCK',code:'DESTINATION_VERSION_BUILD_UNSUPPORTED'});
   }
@@ -42,12 +44,12 @@ export function preflightScenePresetDestinationV125({
       destinationGameVersion:target.gameVersion
     });
   }
-  if (source.buildIdentity && source.buildIdentity !== target.buildIdentity) {
+  if (source.buildIdentity && source.buildIdentity !== target.contractBuildIdentity) {
     issues.push({
       severity:'BLOCK',
       code:'SOURCE_BUILD_IDENTITY_UNSUPPORTED',
       sourceBuildIdentity:source.buildIdentity,
-      destinationBuildIdentity:target.buildIdentity
+      destinationBuildIdentity:target.contractBuildIdentity
     });
   }
   if (
