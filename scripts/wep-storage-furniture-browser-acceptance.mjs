@@ -244,7 +244,7 @@ try{
   const operation=review.locator('[data-wep-storage-review-operation]');
   const protectedIdentity=review.locator('[data-wep-storage-protected-identity]');
   assert.ok((await operation.innerText()).includes('STORAGE SAME-GRID MOVE'));
-  const identityText=await protectedIdentity.innerText();
+  const identityText=String(await protectedIdentity.textContent());
   assert.ok(identityText.includes('ContainerInventoryID'));
   assert.ok(identityText.includes(String(CID)));
   assert.ok(identityText.includes('PROTECTED_ATTACHED_STATE'));
