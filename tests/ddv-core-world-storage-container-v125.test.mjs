@@ -4,6 +4,7 @@ import {readFile} from 'node:fs/promises';
 
 import {
   ACTIVE_REFERENCE_EVIDENCE_CONTRACT,
+  GRID_OBJECT_TEMPLATE_EVIDENCE_CONTRACT,
   STORAGE_01A_REQUEST_ID,
   STORAGE_01E_REQUEST_ID,
   STORAGE_CONTAINER_CONTRACT,
@@ -82,6 +83,7 @@ function placed(root=profile(),overrides={}){
     activeReferenceEvidence:refsPlaced(),listInventoryId:LIST,...overrides
   });
 }
+function templateEvidence(){return {contract:GRID_OBJECT_TEMPLATE_EVIDENCE_CONTRACT,provenance:'SAME_SAVE_HASH_BOUND',sourceSha256:'a'.repeat(64),itemId:ITEM,containerInventoryId:CONTAINER,gridObject:storageObject()};}
 function storedRoot(){
   const root=profile();
   delete root.World.GridCollection.Grids['3'].Objects['42'];
@@ -162,7 +164,7 @@ test('stored non-empty container resolves only with zero active references and h
   const root=storedRoot();
   const r=resolveStoredStorageContainerV125({
     source,profile:root,containerInventoryId:CONTAINER,itemDefinition,
-    activeReferenceEvidence:refsStored(),listInventoryId:LIST,gridObjectTemplate:storageObject()
+    activeReferenceEvidence:refsStored(),listInventoryId:LIST,gridObjectTemplateEvidence:templateEvidence()
   });
   assert.equal(r.status,'READY');
   assert.equal(r.state,'STORED_UNPLACED_NONEMPTY');
@@ -176,7 +178,7 @@ test('explicit re-place binds the selected same-save ContainerInventoryID and de
   const root=storedRoot();
   const r=resolveStoredStorageContainerV125({
     source,profile:root,containerInventoryId:CONTAINER,itemDefinition,
-    activeReferenceEvidence:refsStored(),listInventoryId:LIST,gridObjectTemplate:storageObject()
+    activeReferenceEvidence:refsStored(),listInventoryId:LIST,gridObjectTemplateEvidence:templateEvidence()
   });
   const m=compileStorageRePlaceNonemptyV125({
     resolvedStored:r,profile:root,
@@ -232,7 +234,7 @@ test('non-empty-only put-away/re-place contract rejects empty content',()=>{
   root.Player.ListInventories['2'].Inventory[String(ITEM)].Amount=3;
   const stored=resolveStoredStorageContainerV125({
     source,profile:root,containerInventoryId:CONTAINER,itemDefinition,
-    activeReferenceEvidence:refsStored(),listInventoryId:LIST,gridObjectTemplate:storageObject()
+    activeReferenceEvidence:refsStored(),listInventoryId:LIST,gridObjectTemplateEvidence:templateEvidence()
   });
   assert.equal(stored.status,'REJECTED');
   assert.ok(stored.reasonCodes.includes('NONEMPTY_STORED_CONTAINER_REQUIRED'));
