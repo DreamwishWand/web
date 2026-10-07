@@ -3800,6 +3800,7 @@
         {session}
         {editorDocument}
         {switchWorldBinding}
+        {placementLegalityBinding}
         {mutationBound}
         {selection}
         presetBridge={bridge}

@@ -61,13 +61,14 @@
     if(!client?.session||!bridge||!detail?.presetArtifactId){useState=copy.signIn;return;}
     useState=copy.preflight;handoffReady=false;
     try{
-      const result=await bridge.preflightPreset(detail.presetArtifactId,{
-        presetRevisionId:detail.presetRevisionId,
-        expectedChecksumSha256:detail.checksumSha256,
-        expectedByteSize:detail.byteSize
-      });
-      const blockers=(result?.preflight?.issues??[]).filter((issue:any)=>issue?.severity==='BLOCK').map((issue:any)=>String(issue?.code??'')).filter(Boolean);
-      if(blockers.length){useState=copy.blocked+': '+blockers.join(', ');return;}
+      await bridge.loadPresetRevision(
+        detail.presetArtifactId,
+        detail.presetRevisionId,
+        {
+          expectedChecksumSha256:detail.checksumSha256,
+          expectedByteSize:detail.byteSize
+        }
+      );
       writeWorldEditorHandoff(localStorage,createScenePresetHandoff({
         presetArtifactId:detail.presetArtifactId,
         presetRevisionId:detail.presetRevisionId,

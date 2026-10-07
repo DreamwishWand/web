@@ -29,6 +29,7 @@ export interface PresetCommunityTransport {
     finalize?: unknown;
     read?: unknown;
   }>;
+  discardFinalizedImage?(mediaId: string): Promise<unknown>;
 }
 
 export interface WepPresetHooks {
@@ -329,8 +330,8 @@ export function createPresetCommunityBridge({
       })
     );
 
+    const mediaIds: string[] = [];
     try {
-      const mediaIds: string[] = [];
       for (const image of images) {
         const uploaded = await community.uploadAndFinalizeImage!(image);
         assert(String(uploaded?.mediaId ?? ''), 'WEP_PRESET_PUBLIC_IMAGE_FINALIZE_FAILED');
@@ -393,6 +394,15 @@ export function createPresetCommunityBridge({
         await community.presetProduct('discard', { storageKey });
       } catch {
         // Best effort. A successfully registered immutable revision cannot be discarded.
+      }
+      if (typeof community.discardFinalizedImage === 'function') {
+        for (const mediaId of mediaIds) {
+          try {
+            await community.discardFinalizedImage(mediaId);
+          } catch {
+            // Server refuses discard if a concurrent/successful publication attached the media.
+          }
+        }
       }
       throw error;
     }

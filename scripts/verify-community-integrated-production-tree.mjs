@@ -68,7 +68,8 @@ const wepRequired = {
     'supabase/migrations/20260930124055_wep_preset_artifact_storage_v0.sql',
     'supabase/migrations/20260930124357_wep_preset_artifact_access_v0.sql',
     'supabase/migrations/20260930125310_wep_preset_retention_claim_v0.sql',
-    'supabase/migrations/20261007124300_scene_preset_product_vertical_v1.sql'
+    'supabase/migrations/20261007124300_scene_preset_product_vertical_v1.sql',
+    'supabase/migrations/20261008051000_scene_preset_unattached_media_discard_v1.sql'
   ],
   functions: [
     'supabase/functions/wep-preset-artifact/index.ts',
@@ -100,12 +101,14 @@ if (presentWepPaths.length === 0) {
   );
 } else {
   const artifact = read(wepRequired.functions[0]);
-  const retention = read(wepRequired.functions[1]);
+  const sceneProduct = read(wepRequired.functions[1]);
+  const retention = read(wepRequired.functions[2]);
   const resolver = read(wepRequired.resolver);
   const storageMigration = read(wepRequired.migrations[0]);
 
   for (const [label, source] of [
     ['wep-preset-artifact', artifact],
+    ['wep-scene-preset-product', sceneProduct],
     ['wep-preset-retention', retention]
   ]) {
     fail(
@@ -129,6 +132,14 @@ if (presentWepPaths.length === 0) {
   fail(
     /WEP_PRESET_ARTIFACT_BUCKET_STAGING_FORBIDDEN_OUTSIDE_KNOWN_STAGING/.test(resolver),
     'WEP Preset bucket resolver must reject the staging bucket outside known staging.'
+  );
+  fail(
+    !exists('supabase/migrations/20261007201500_scene_preset_product_vertical_v1.sql'),
+    'Superseded duplicate Scene Preset vertical migration must not survive integration.'
+  );
+  fail(
+    !exists('src/lib/wep/scene-preset-master.ts'),
+    'Duplicate Scene private-master domain must not survive integration.'
   );
   fail(
     !/wand-preset-artifacts-staging/.test(storageMigration),

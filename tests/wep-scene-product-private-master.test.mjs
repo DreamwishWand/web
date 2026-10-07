@@ -15,6 +15,7 @@ import {
   preflightScene,
   validatePublishablePreset
 } from '../src/lib/wep/scene-preset-runtime.ts';
+import { preflightScenePresetDestinationV125 } from '../src/lib/wep/scene-preset-destination-preflight.ts';
 
 class MemoryStorage {
   #map=new Map();
@@ -136,4 +137,117 @@ test('Scene schema version mismatch fails closed and preflight never promotes wh
   assert.equal(preflight.ok,true);
   assert.equal(preflight.writeReady,false);
   assert.equal(preflight.reason,'CORE_COMMIT_ADAPTER_NOT_BOUND');
+});
+
+
+test('destination preflight binds exact Switch target and native placement without authorizing whole-Scene Apply',()=>{
+  const destination={
+    target:{
+      platform:'Nintendo Switch',
+      gameVersion:'1.25.0',
+      profileSchemaVersion:624,
+      exactBuildKnown:true,
+      contractBuildIdentity:'52BD625D9B4E0053',
+      sourceBuildIdentity:'52BD625D9B4E0053',
+      gridDataPath:'Village_Grid',
+      tessellationFactor:1
+    },
+    objects:[]
+  };
+  const placementBinding={
+    contract:'dreamwish-wand-wep-v125-placement-binding@1',
+    classifyEditorCandidates({candidateIds}){
+      return {ok:true,issues:[],results:candidateIds.map((editorId)=>({editorId}))};
+    }
+  };
+  const result=preflightScenePresetDestinationV125({
+    artifact,
+    destinationDocument:destination,
+    placementBinding,
+    anchor:{x:5,y:7},
+    roadFenceTopologySupported:false
+  });
+  assert.equal(result.ok,true);
+  assert.equal(result.writeReady,false);
+  assert.equal(result.reason,'WHOLE_SCENE_PERSISTENT_APPLY_NOT_AUTHORIZED');
+  assert.equal(result.persistentWriteAuthorized,false);
+  assert.equal(result.productApplyAuthorized,false);
+  assert.equal(result.directSourceReplacementAuthorized,false);
+  assert.deepEqual(result.placements.map((entry)=>[entry.x,entry.y]),[[5,7]]);
+});
+
+test('destination preflight returns exact version, placement and topology blockers fail closed',()=>{
+  const destination={
+    target:{
+      platform:'Nintendo Switch',
+      gameVersion:'1.25.0',
+      profileSchemaVersion:624,
+      exactBuildKnown:false,
+      contractBuildIdentity:'52BD625D9B4E0053',
+      sourceBuildIdentity:null,
+      gridDataPath:'Village_Grid',
+      tessellationFactor:1
+    },
+    objects:[]
+  };
+  const badPlacement={
+    contract:'dreamwish-wand-wep-v125-placement-binding@1',
+    classifyEditorCandidates(){
+      return {ok:false,issues:[{severity:'BLOCK',code:'NATIVE_PLACEMENT_INVALID'}]};
+    }
+  };
+  const withRoad=structuredClone(artifact);
+  withRoad.networks.roads={
+    schema:'dreamwish-wand-wep-network-capture',
+    version:1,
+    kind:'roads',
+    originPolicy:'capture-region-top-left',
+    networks:[{networkId:'r0',familyBaseItemID:40100068,cells:[{x:0,y:0,mode:'orthogonal'}]}],
+    normalization:{sourceGridObjectIdsRemoved:true,artifactNetworkIdsLocal:true,partialTopologyFailsClosed:true},
+    persistentWriteAuthorized:false
+  };
+  withRoad.requirements.roadTopology=true;
+
+  const result=preflightScenePresetDestinationV125({
+    artifact:withRoad,
+    destinationDocument:destination,
+    placementBinding:badPlacement,
+    roadFenceTopologySupported:false
+  });
+  const codes=new Set(result.issues.map((issue)=>issue.code));
+  assert.equal(result.ok,false);
+  assert.equal(codes.has('DESTINATION_VERSION_BUILD_UNSUPPORTED'),true);
+  assert.equal(codes.has('ROAD_TOPOLOGY_APPLY_UNAVAILABLE'),true);
+  assert.equal(result.writeReady,false);
+});
+
+
+test('destination preflight surfaces native placement blockers from the promoted v1.25 binding',()=>{
+  const destination={
+    target:{
+      platform:'Nintendo Switch',
+      gameVersion:'1.25.0',
+      profileSchemaVersion:624,
+      exactBuildKnown:true,
+      contractBuildIdentity:'52BD625D9B4E0053',
+      sourceBuildIdentity:'52BD625D9B4E0053',
+      gridDataPath:'Village_Grid',
+      tessellationFactor:1
+    },
+    objects:[]
+  };
+  const placementBinding={
+    contract:'dreamwish-wand-wep-v125-placement-binding@1',
+    classifyEditorCandidates(){
+      return {ok:false,issues:[{severity:'BLOCK',code:'NATIVE_PLACEMENT_INVALID'}]};
+    }
+  };
+  const result=preflightScenePresetDestinationV125({
+    artifact,
+    destinationDocument:destination,
+    placementBinding
+  });
+  assert.equal(result.ok,false);
+  assert.equal(result.issues.some((issue)=>issue.code==='NATIVE_PLACEMENT_INVALID'),true);
+  assert.equal(result.writeReady,false);
 });

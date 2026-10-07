@@ -633,6 +633,13 @@ export class CommunityLabClient {
     return { mediaId, finalize, read };
   }
 
+  async discardFinalizedImage(mediaId: string): Promise<EdgeResult<any>> {
+    const id = String(mediaId ?? '').trim();
+    if (!id) throw new Error('Media ID is required.');
+    return this.media('discard', { mediaId: id });
+  }
+
+
   async #refresh(): Promise<CommunitySession> {
     if (!this.#session?.refreshToken) {
       throw new Error('No refresh token is available. Sign in again.');
