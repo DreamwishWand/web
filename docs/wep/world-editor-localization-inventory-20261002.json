@@ -19,7 +19,7 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "25c6b962fff5061a598fbc1ca00fb2403cda67a4",
+    "src/routes/editor/world/+page.svelte": "9585ef303b8fe03908846c5e9f3617d4d4e04b0f",
     "src/lib/wep/world-editor-primary-job.ts": "25aba45c6004c020400a249c848c3bc2281fd4a0",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "711609eb100a0809a5e9a5b274f83dd9319e3645",
@@ -36,16 +36,14 @@
       "src/lib/wep/blocker-messages.ts",
       "src/lib/wep/WorldEditorStage1DecoratePanel.svelte",
       "src/lib/wep/world-editor-stage1-copy.js",
-      "src/lib/wep/room-finish-copy.js"
+      "src/lib/wep/room-finish-copy.js",
+      "src/lib/presets/scene-preset-private-master-copy.js"
     ],
     "sharedWebRenderedOnWorldEditor": [
       "src/lib/SiteHeader.svelte",
       "src/lib/SiteFooter.svelte",
       "src/lib/community/CommunityNav.svelte",
       "src/lib/product-home/copy.js"
-    ],
-    "presetProductOwnedRenderedOnWorldEditor": [
-      "src/lib/presets/scene-preset-private-master-copy.js"
     ]
   },
   "sharedLocaleBinding": {
@@ -66,7 +64,7 @@
       "pt-BR"
     ],
     "rule": "World Editor presentation resolves through the shared locale runtime. WEP does not own a locale store, selector, fallback resolver, formatter, or resource loader.",
-    "routeChangeNote": "Promoted 08 WEB shared-shell authority is preserved. Decorate Stage 1 WEP consumer presentation, post-01E Room Finish presentation, and Scene private-master handoff use the same shared eight-locale runtime; no WEP-local locale store is introduced."
+    "routeChangeNote": "Promoted 08 WEB shared-shell authority is preserved. Decorate Stage 1, Storage Furniture, Room Finish, and Scene private-master capture presentation use the shared eight-locale runtime. Scene public Publish/Detail remains a separate Product surface; World Editor no longer owns direct publication visibility controls."
   },
   "translationBoundary": {
     "translate": [
@@ -83,8 +81,7 @@
       "progression-protection explanatory copy",
       "errors/status/live-region presentation wrappers",
       "Decorate Stage 1 Moodboard handoff, pending placement, recovery, alignment/distribution, and precise-coordinate presentation",
-      "Room Finish surface, scope, owned-picker, preview, review, verified-export and recovery presentation",
-      "Scene private-master save / continue-to-publish presentation"
+      "Room Finish surface, scope, owned-picker, preview, review, verified-export and recovery presentation"
     ],
     "neverTranslate": [
       "Core/WEP machine reason code",
@@ -172,9 +169,8 @@
           "Checking…",
           "Check destination save",
           "Capture Preview",
-          "Use selected bounds",
-          "Save Private Master",
-          "Continue to Publish"
+          "Publish Scene Preset",
+          "Use selected bounds"
         ]
       },
       {
@@ -1293,16 +1289,20 @@
     ],
     "sceneCapture": [
       {
-        "surface": "Scene Preset capture/private-master handoff",
-        "source": [
-          "src/routes/editor/world/+page.svelte",
-          "src/lib/presets/scene-preset-private-master-copy.js"
-        ],
+        "surface": "Scene Preset capture/publish",
+        "source": "src/routes/editor/world/+page.svelte",
         "strings": [
           "SCENE PRESET",
+          "Capture & Publish",
           "選択objectとSubGrid dependency closureをportable artifactへ変換します。source Grid / GridObject identityは公開artifactへ持ち出しません。",
           "Title",
           "My Scene Preset",
+          "Description",
+          "この飾り付けについて",
+          "Visibility",
+          "Unlisted",
+          "Public",
+          "Private",
           "Capture Region",
           "Selected object bounds",
           "Custom region",
@@ -1330,12 +1330,7 @@
           "bounds {width} × {height}",
           "{count} Road networks",
           "{count} Fence networks",
-          "PUBLISHED",
-          "Capture & Save",
-          "Save Private Master",
-          "Private master saved.",
-          "Continue to Publish",
-          "Changes not published"
+          "PUBLISHED"
         ]
       },
       {
@@ -1350,6 +1345,22 @@
           "publishには認証済みWand Account、Creator Profile、Preset titleが必要です。",
           "Scene Presetを公開しました。DDVセーブへの書き込みは行っていません。"
         ]
+      },
+      {
+        "surface": "Scene private-master capture / explicit Publish handoff",
+        "owner": "09 INT consuming WEP + Product authority",
+        "source": [
+          "src/routes/editor/world/+page.svelte",
+          "src/lib/presets/scene-preset-private-master-copy.js"
+        ],
+        "strings": [
+          "Capture & Save",
+          "Save Private Master",
+          "Private master saved.",
+          "Continue to Publish",
+          "Changes not published"
+        ],
+        "note": "Create/save and public Publish are separate operations. Public Title/image requirements live on the dedicated Presets Publish surface."
       }
     ],
     "storeInspector": [

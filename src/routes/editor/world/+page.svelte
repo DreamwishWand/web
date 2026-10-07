@@ -11,7 +11,6 @@
     validatePublishablePreset
   } from '$lib/wep/scene-preset-runtime';
   import { captureScenePreset } from '$lib/wep/scene-capture-runtime';
-  import { createScenePresetWorkflow } from '$lib/wep/scene-preset-workflow';
   import { saveScenePresetPrivateMaster } from '$lib/wep/scene-preset-private-master';
   import { scenePrivateMasterCopy } from '$lib/presets/scene-preset-private-master-copy.js';
   import {
@@ -166,7 +165,6 @@
   let fileName = '';
   let message = '';
   let capturePreview: any = null;
-  let published: any = null;
   let loading = false;
   let sourcePlatform = 'unknown';
   let switchWorldBinding: any = null;
@@ -261,14 +259,10 @@
 
   let community: CommunityLabClient | null = null;
   let bridge: ReturnType<typeof createPresetCommunityBridge> | null = null;
-  let workflow: ReturnType<typeof createScenePresetWorkflow> | null = null;
   let connected = false;
   let creatorProfileId = '';
 
   let presetTitle = '';
-  let presetDescription = '';
-  let visibility = 'unlisted';
-  let publishKey = '';
   let privateSceneMaster: any = null;
   let captureRegionMode: 'selection' | 'custom' = 'selection';
   let captureRegionX = 0;
@@ -814,7 +808,6 @@
     query = '';
     selectedOnly = false;
     capturePreview = null;
-    published = null;
     verifiedExportReview = null;
     verifiedExportResult = null;
     verifiedExportErrorCode = '';
@@ -1787,7 +1780,6 @@
     lastDraftCommand =
       'FENCE_REPRESENTATION_LAYOUT_EDIT';
     capturePreview = null;
-    published = null;
     refreshProjection();
     refreshDraftState();
     syncFencePostDraftFromDocument();
@@ -2128,12 +2120,6 @@
         }
       });
 
-      workflow = createScenePresetWorkflow({
-        publisher: bridge,
-        captureScene: captureScenePreset as any,
-        publicationValidator: validatePublishablePreset
-      });
-
       connected = Boolean(community.session);
       if (!connected) return;
 
@@ -2267,7 +2253,6 @@
     verifiedExportConfirmed = false;
     message = '';
     capturePreview = null;
-    published = null;
     fullDesignPlan = null;
     fullDesignPlanError = '';
     fullDesignRootDocuments = [];
@@ -2321,8 +2306,6 @@
         selection = [];
         canvasFocusEditorId = '';
         presetTitle = '';
-        presetDescription = '';
-        publishKey = '';
         refreshProjection();
         refreshDraftState();
 
@@ -2366,8 +2349,6 @@
         query = '';
         selectedOnly = false;
         presetTitle = '';
-        presetDescription = '';
-        publishKey = '';
         draftAuthoringBound = false;
         draftValidation = null;
         draftSavePreparation = null;
@@ -2465,7 +2446,6 @@
     loading = true;
     message = '';
     capturePreview = null;
-    published = null;
     fullDesignPlan = null;
     fullDesignPlanError = '';
     fullDesignRootDocuments = [];
@@ -2537,7 +2517,6 @@
 
     loading = true;
     capturePreview = null;
-    published = null;
     fullDesignPlan = null;
     fullDesignPlanError = '';
     resetFullDesignDestination();
@@ -2663,8 +2642,6 @@
       selectedOnly = false;
       selection = [];
       presetTitle = '';
-      presetDescription = '';
-      publishKey = '';
       refreshProjection();
       refreshDraftState();
       syncRoadFenceSelection();
@@ -2724,7 +2701,6 @@
 
     loading = true;
     capturePreview = null;
-    published = null;
     fullDesignPlan = null;
     fullDesignPlanError = '';
     resetFullDesignDestination();
@@ -2830,8 +2806,6 @@
       selection = [];
       canvasFocusEditorId = '';
       presetTitle = '';
-      presetDescription = '';
-      publishKey = '';
       refreshProjection();
       refreshDraftState();
 
@@ -2874,7 +2848,6 @@
     canvasFocusEditorId = '';
     layerState = null;
     capturePreview = null;
-    published = null;
     fullDesignPlan = null;
     fullDesignPlanError = '';
     fullDesignRootDocuments = [];
@@ -2908,7 +2881,6 @@
       : session.setSelection([id]);
     if (selectedOnly) refreshProjection();
     capturePreview = null;
-    published = null;
   }
 
   function selectAllVisible() {
@@ -2918,7 +2890,6 @@
     );
     if (selectedOnly) refreshProjection();
     capturePreview = null;
-    published = null;
   }
 
   function clearSelection() {
@@ -2927,7 +2898,6 @@
     selection = [];
     if (selectedOnly) refreshProjection();
     capturePreview = null;
-    published = null;
   }
 
   function toggleLayer(layer: string) {
@@ -3103,7 +3073,6 @@
     }
 
     capturePreview = null;
-    published = null;
     refreshProjection();
     refreshDraftState();
     rebuildFullDesignPlan();
@@ -3209,7 +3178,6 @@
     if (!result?.applied) return;
     lastDraftCommand = `UNDO ${result.kind ?? ''}`.trim();
     capturePreview = null;
-    published = null;
     refreshProjection();
     refreshDraftState();
     syncFencePostDraftFromDocument();
@@ -3224,7 +3192,6 @@
     if (!result?.applied) return;
     lastDraftCommand = `REDO ${result.kind ?? ''}`.trim();
     capturePreview = null;
-    published = null;
     refreshProjection();
     refreshDraftState();
     syncFencePostDraftFromDocument();
@@ -3643,7 +3610,6 @@
     captureRegionH = Number(bounds.h);
     captureRegionMode = 'custom';
     capturePreview = null;
-    published = null;
   }
 
   function sceneCaptureRegion() {
@@ -3689,8 +3655,6 @@
         },
         validatePublishablePreset
       );
-      published = null;
-      publishKey = crypto.randomUUID();
 
       if (capturePreview.publicationReady) {
         message = t('worldEditor.scene.publicationReady', {}, $locale);
@@ -3703,7 +3667,6 @@
       }
     } catch (error) {
       capturePreview = null;
-      publishKey = '';
       const code = error instanceof Error ? error.message : String(error);
       if (code === 'WEP_SCENE_SELECTION_BLOCKED') {
         const selectedIds = new Set(selection.map(String));
@@ -3752,56 +3715,6 @@
     }
   }
 
-  async function publishScene() {
-    if (
-      !session ||
-      !workflow ||
-      !connected ||
-      !creatorProfileId ||
-      !presetTitle.trim()
-    ) {
-      message = t('worldEditor.scene.publishRequirements', {}, $locale);
-      return;
-    }
-
-    loading = true;
-    message = '';
-
-    try {
-      if (!publishKey) publishKey = crypto.randomUUID();
-
-      const result: any = await workflow.publishCapturedScene({
-        document: session.getDocument(),
-        capture: {
-          selectionIds: selection,
-          captureRegion: sceneCaptureRegion(),
-          includeRoads,
-          includeFences,
-          networkAdapter:
-            roadFenceSceneCaptureAdapter ??
-            roadFenceReaderBinding?.networkAdapter ??
-            null
-        },
-        creatorProfileId,
-        visibility,
-        title: presetTitle.trim(),
-        description: presetDescription.trim() || null,
-        metadata: {
-          sourceSurface: 'world-editor',
-          artifactType: 'scene'
-        },
-        idempotencyKey: `world-editor-scene-${publishKey}`
-      });
-
-      capturePreview = result.captured;
-      published = result.published;
-      message = t('worldEditor.scene.publishedStatus', {}, $locale);
-    } catch (error) {
-      message = error instanceof Error ? error.message : String(error);
-    } finally {
-      loading = false;
-    }
-  }
 </script>
 
 <svelte:window on:keydown={handlePrimaryJobKeydown} />
@@ -5679,8 +5592,7 @@
               bind:value={captureRegionMode}
               on:change={() => {
                 capturePreview = null;
-                published = null;
-              }}
+                          }}
             >
               <option value="selection">{t('worldEditor.scene.selectedBounds', {}, $locale)}</option>
               <option value="custom">{t('worldEditor.scene.customRegion', {}, $locale)}</option>
@@ -5827,14 +5739,7 @@
         </div>
       {/if}
 
-      {#if published}
-        <div class="published-card">
-          <p class="eyebrow">{t('worldEditor.scene.published', {}, $locale)}</p>
-          <strong>{presetTitle}</strong>
-          <code>{published.presetArtifactId}</code>
-          <a href={`${base}/presets/`}>{t('worldEditor.nav.viewPublishedPreset', {}, $locale)}</a>
-        </div>
-      {/if}
+
     </section>
   {:else if worldSource}
     <section class="save-source-browser">
