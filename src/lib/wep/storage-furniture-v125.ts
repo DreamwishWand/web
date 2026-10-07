@@ -176,7 +176,34 @@ export async function commitStorageFurnitureVerifiedExportV125({review,currentSo
   const g=Number(review.change.gridId),o=Number(review.change.gridObjectId),cid=Number(review.protectedStorage.containerInventoryId),after=rawObject(reopened.profile,g,o),before=rawObject(sourceProfile,g,o);
   if(!after||!before||Number(after.ID)!==o||Number(after.ItemID)!==Number(review.change.itemId)||Number(after?.State?.Storage?.ContainerInventoryID)!==cid||Number(after.X)!==Number(review.change.after.x)||Number(after.Y)!==Number(review.change.after.y)||String(after.Orientation)!==String(before.Orientation)||!eq(sourceProfile?.Player?.ContainerInventories,reopened.profile?.Player?.ContainerInventories)||!eq(sourceProfile?.Player?.ListInventories,reopened.profile?.Player?.ListInventories)) fail('WEP_STORAGE_RELOAD_IDENTITY_OR_PRESERVATION_MISMATCH');
   const sourceHashAfter=await sha256Hex(sourceBytes);if(sourceHashAfter!==sourceHashBefore) fail('WEP_STORAGE_SOURCE_MUTATED');
-  return Object.freeze({contract:STORAGE_FURNITURE_VERIFIED_EXPORT_CONTRACT,status:'PASS',semanticOperation:review.semanticOperation,review:clone(review),verification:clone(verified),artifacts,source:{sha256Before:sourceHashBefore,sha256After:sourceHashAfter,untouched:true},protectedStorage:clone(review.protectedStorage),persistentWriteAuthorized:false,WORLD_PERSISTENT_WRITE_V125:false,PERSISTENT_WRITE:false,productApplyAuthorized:false,directSourceReplacementAuthorized:false});
+  return Object.freeze({
+    contract:STORAGE_FURNITURE_VERIFIED_EXPORT_CONTRACT,
+    status:'PASS',
+    semanticOperation:review.semanticOperation,
+    review:clone(review),
+    verification:clone(verified),
+    artifacts,
+    reload:Object.freeze({
+      status:'PASS',
+      inputFormat:reopened.inputFormat,
+      profileSchemaVersion:reopened.profileSchemaVersion,
+      gridId:g,
+      gridObjectId:o,
+      itemId:Number(review.change.itemId),
+      transform:clone(review.change.after),
+      containerInventoryId:cid,
+      storageIdentityPreserved:true,
+      containerInventoriesPreserved:true,
+      listInventoriesPreserved:true
+    }),
+    source:{sha256Before:sourceHashBefore,sha256After:sourceHashAfter,untouched:true},
+    protectedStorage:clone(review.protectedStorage),
+    persistentWriteAuthorized:false,
+    WORLD_PERSISTENT_WRITE_V125:false,
+    PERSISTENT_WRITE:false,
+    productApplyAuthorized:false,
+    directSourceReplacementAuthorized:false
+  });
 }
 
 export function planStorageCrossGridMoveInternalV125({profile,itemDefinitionsById,transactionInput,gridId,gridObjectId,destination,placementEvidence,planId}:AnyRecord){
