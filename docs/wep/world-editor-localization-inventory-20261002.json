@@ -1,7 +1,7 @@
 {
   "schema": "dreamwish-wand-world-editor-localization-inventory@1",
   "status": "COMPLETE_FOR_PINNED_SOURCES",
-  "generatedAt": "2026-10-06",
+  "generatedAt": "2026-10-07",
   "target": {
     "product": "Decorate / World Editor",
     "platform": "Nintendo Switch",
@@ -19,8 +19,8 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "cfe0e66c88cba2b562866bd6e224e6647ac6d7b5",
-    "src/lib/wep/world-editor-primary-job.ts": "a8e49f4f2eec543b9aaebd2d552c9da8e36270d5",
+    "src/routes/editor/world/+page.svelte": "fc3df9ebf6a2f12c0a1b70b5dfa422a4fedbff51",
+    "src/lib/wep/world-editor-primary-job.ts": "25aba45c6004c020400a249c848c3bc2281fd4a0",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "711609eb100a0809a5e9a5b274f83dd9319e3645",
     "src/lib/SiteFooter.svelte": "4b20121a1295e42aeaeb25e39cb3853bd80da0e8",
