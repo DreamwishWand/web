@@ -1,0 +1,3 @@
+04 QR exact-current-head Storage Furniture acceptance trigger.
+Parent/main authority: 52166f81c107de66dbfab8a6c16aaecc33b21ee0.
+Evidence-only file; no application/runtime semantics.
