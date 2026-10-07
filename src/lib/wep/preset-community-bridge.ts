@@ -37,10 +37,12 @@ export interface PresetCommunityBridgeOptions {
 export interface PublishSceneOptions {
   artifact: unknown;
   creatorProfileId: string;
-  visibility?: string;
   title: string;
   description?: string | null;
+  mediaIds: string[];
   metadata?: Record<string, unknown>;
+  presetArtifactId?: string | null;
+  expectedPresetRevisionId?: string | null;
   idempotencyKey: string;
 }
 
@@ -151,10 +153,12 @@ export function createPresetCommunityBridge({
   async function publishScene({
     artifact,
     creatorProfileId,
-    visibility = 'unlisted',
     title,
     description = null,
+    mediaIds,
     metadata = {},
+    presetArtifactId = null,
+    expectedPresetRevisionId = null,
     idempotencyKey
   }: PublishSceneOptions) {
     const preparedEnvelope = hooks.buildPublishEnvelope(artifact);
@@ -166,8 +170,15 @@ export function createPresetCommunityBridge({
     }
 
     assert(preparedEnvelope.presetType === 'scene', 'WEP_PRESET_TYPE_NOT_SCENE');
+    assert(Number(preparedEnvelope.schemaVersion) === 1, 'WEP_PRESET_SCHEMA_VERSION_UNSUPPORTED');
     assert(String(creatorProfileId), 'WEP_PRESET_CREATOR_REQUIRED');
     assert(String(title).trim(), 'WEP_PRESET_TITLE_REQUIRED');
+    assert(Array.isArray(mediaIds) && mediaIds.length > 0, 'WEP_PRESET_PUBLIC_IMAGE_REQUIRED');
+    assert(mediaIds.length <= 10, 'WEP_PRESET_PUBLIC_IMAGE_LIMIT');
+    const normalizedMediaIds = mediaIds.map(String).filter(Boolean);
+    assert(normalizedMediaIds.length === mediaIds.length, 'WEP_PRESET_PUBLIC_IMAGE_ID_INVALID');
+    assert(new Set(normalizedMediaIds).size === normalizedMediaIds.length, 'WEP_PRESET_PUBLIC_IMAGE_DUPLICATE');
+    assert((presetArtifactId == null) === (expectedPresetRevisionId == null), 'WEP_PRESET_PUBLISH_UPDATE_IDENTITY_INCOMPLETE');
     assert(String(idempotencyKey).trim(), 'WEP_PRESET_IDEMPOTENCY_KEY_REQUIRED');
 
     const prepare: any = await community.preset('prepare', {
@@ -204,10 +215,12 @@ export function createPresetCommunityBridge({
       published = await community.preset('publish', {
         storageKey,
         creatorProfileId: String(creatorProfileId),
-        visibility: String(visibility || 'unlisted'),
         title: String(title).trim(),
         description: description == null ? null : String(description),
+        mediaIds: normalizedMediaIds,
         metadata: isObject(metadata) ? metadata : {},
+        presetArtifactId: presetArtifactId ? String(presetArtifactId) : null,
+        expectedPresetRevisionId: expectedPresetRevisionId ? String(expectedPresetRevisionId) : null,
         idempotencyKey: String(idempotencyKey).trim()
       });
     } catch (error) {
@@ -220,30 +233,56 @@ export function createPresetCommunityBridge({
     }
 
     const data = dataOf(published) ?? {};
+    const nextPresetArtifactId = requireId(
+      data,
+      'presetArtifactId',
+      'WEP_PRESET_PUBLISH_ARTIFACT_ID_MISSING'
+    );
+    const nextPresetRevisionId = requireId(
+      data,
+      'presetRevisionId',
+      'WEP_PRESET_PUBLISH_REVISION_ID_MISSING'
+    );
+    const presetWorkId = requireId(
+      data,
+      'presetWorkId',
+      'WEP_PRESET_PUBLISH_WORK_ID_MISSING'
+    );
+    const presetWorkRevisionId = requireId(
+      data,
+      'presetWorkRevisionId',
+      'WEP_PRESET_PUBLISH_WORK_REVISION_ID_MISSING'
+    );
+    const galleryWorkId = requireId(
+      data,
+      'galleryWorkId',
+      'WEP_PRESET_PUBLISH_GALLERY_WORK_ID_MISSING'
+    );
+    const galleryRevisionId = requireId(
+      data,
+      'galleryRevisionId',
+      'WEP_PRESET_PUBLISH_GALLERY_REVISION_ID_MISSING'
+    );
+
+    if (presetArtifactId) {
+      assert(nextPresetArtifactId === String(presetArtifactId), 'WEP_PRESET_PUBLISH_UPDATE_ARTIFACT_CHANGED');
+      assert(nextPresetRevisionId !== String(expectedPresetRevisionId), 'WEP_PRESET_PUBLISH_UPDATE_REVISION_NOT_ADVANCED');
+    }
+
     return {
-      presetArtifactId: requireId(
-        data,
-        'presetArtifactId',
-        'WEP_PRESET_PUBLISH_ARTIFACT_ID_MISSING'
-      ),
-      presetRevisionId: requireId(
-        data,
-        'presetRevisionId',
-        'WEP_PRESET_PUBLISH_REVISION_ID_MISSING'
-      ),
-      workId: requireId(
-        data,
-        'workId',
-        'WEP_PRESET_PUBLISH_WORK_ID_MISSING'
-      ),
-      workRevisionId: requireId(
-        data,
-        'workRevisionId',
-        'WEP_PRESET_PUBLISH_WORK_REVISION_ID_MISSING'
-      ),
+      presetArtifactId: nextPresetArtifactId,
+      presetRevisionId: nextPresetRevisionId,
+      presetWorkId,
+      presetWorkRevisionId,
+      galleryWorkId,
+      galleryRevisionId,
+      workId: presetWorkId,
+      workRevisionId: presetWorkRevisionId,
+      revisionNumber: Number(data.revisionNumber ?? 0),
       storageKey: String(data.storageKey ?? ''),
       checksumSha256: String(data.checksumSha256 ?? ''),
-      byteSize: Number(data.byteSize ?? preparedEnvelope.envelope.byteSize)
+      byteSize: Number(data.byteSize ?? preparedEnvelope.envelope.byteSize),
+      schemaVersion: Number(data.schemaVersion ?? preparedEnvelope.schemaVersion)
     };
   }
 
@@ -337,57 +376,81 @@ export function createPresetCommunityBridge({
       .filter((entry) => entry.targetEntityId);
   }
 
-  async function loadPreset(presetArtifactId: string) {
+  async function loadPreset(
+    presetArtifactId: string,
+    { expectedPresetRevisionId = null }: { expectedPresetRevisionId?: string | null } = {}
+  ) {
     assert(String(presetArtifactId), 'WEP_PRESET_ARTIFACT_ID_REQUIRED');
 
     const [detailResult, readResult] = await Promise.all([
       community.query('preset', {
         presetArtifactId: String(presetArtifactId)
       }),
-      community.preset('read', {
-        presetArtifactId: String(presetArtifactId)
-      })
+      community.preset(
+        'read',
+        expectedPresetRevisionId
+          ? { presetRevisionId: String(expectedPresetRevisionId) }
+          : { presetArtifactId: String(presetArtifactId) }
+      )
     ]);
 
     const detail = dataOf(detailResult) ?? {};
     const read = presetOf(readResult) ?? {};
+
+    const detailArtifactId = String(detail.presetArtifactId ?? '');
+    const detailRevisionId = String(detail.presetRevisionId ?? '');
+    const readArtifactId = String(read.presetArtifactId ?? '');
+    const readRevisionId = String(read.presetRevisionId ?? '');
+    assert(detailArtifactId === String(presetArtifactId), 'WEP_PRESET_DETAIL_ID_MISMATCH');
+    assert(readArtifactId === String(presetArtifactId), 'WEP_PRESET_READ_ID_MISMATCH');
+    assert(detailRevisionId && readRevisionId, 'WEP_PRESET_REVISION_ID_MISSING');
+    if (expectedPresetRevisionId) {
+      assert(detailRevisionId === String(expectedPresetRevisionId), 'WEP_PRESET_REVISION_CHANGED');
+      assert(readRevisionId === String(expectedPresetRevisionId), 'WEP_PRESET_READ_REVISION_MISMATCH');
+    } else {
+      assert(readRevisionId === detailRevisionId, 'WEP_PRESET_READ_REVISION_MISMATCH');
+    }
+
+    const readBlobId = String(read.blobId ?? '');
+    const readStorageKey = String(read.storageKey ?? '');
+    assert(readBlobId, 'WEP_PRESET_READ_BLOB_ID_MISSING');
+    assert(/^published\/[^/]+\/[0-9a-f]{64}\.json$/i.test(readStorageKey), 'WEP_PRESET_READ_STORAGE_KEY_INVALID');
+
+    const detailSchemaVersion = Number(detail.schemaVersion ?? 0);
+    const readSchemaVersion = Number(read.schemaVersion ?? 0);
+    assert(detailSchemaVersion === 1 && readSchemaVersion === 1, 'WEP_PRESET_SCHEMA_VERSION_UNSUPPORTED');
+    assert(readSchemaVersion === detailSchemaVersion, 'WEP_PRESET_METADATA_SCHEMA_MISMATCH');
+
+    const detailContentType = String(detail.contentType ?? '');
+    const readContentType = String(read.contentType ?? '');
+    assert(detailContentType === 'application/json' && readContentType === 'application/json', 'WEP_PRESET_CONTENT_TYPE_UNSUPPORTED');
+    assert(readContentType === detailContentType, 'WEP_PRESET_METADATA_CONTENT_TYPE_MISMATCH');
+
+    const detailByteSize = Number(detail.byteSize ?? 0);
+    const readByteSize = Number(read.byteSize ?? 0);
+    assert(Number.isSafeInteger(detailByteSize) && detailByteSize > 0, 'WEP_PRESET_DETAIL_BYTE_SIZE_INVALID');
+    assert(readByteSize === detailByteSize, 'WEP_PRESET_METADATA_BYTE_SIZE_MISMATCH');
+
+    const detailChecksum = String(detail.checksumSha256 ?? '').toLowerCase();
+    const readChecksum = String(read.checksumSha256 ?? '').toLowerCase();
+    assert(/^[0-9a-f]{64}$/.test(detailChecksum), 'WEP_PRESET_DETAIL_CHECKSUM_INVALID');
+    assert(readChecksum === detailChecksum, 'WEP_PRESET_METADATA_CHECKSUM_MISMATCH');
+
+    assert(String(detail.presetType ?? '') === 'scene', 'WEP_PRESET_DETAIL_TYPE_MISMATCH');
+    assert(String(read.presetType ?? '') === 'scene', 'WEP_PRESET_READ_TYPE_MISMATCH');
+
     const signedUrl = String(read.signedUrl ?? '');
     assert(signedUrl, 'WEP_PRESET_READ_SIGNED_URL_MISSING');
-
-    const response = await requireOk(
-      await fetchImpl(signedUrl, { method: 'GET' })
-    );
+    const response = await requireOk(await fetchImpl(signedUrl, { method: 'GET' }));
     const bytes = await response.arrayBuffer();
-    const byteSize = Number(read.byteSize ?? detail.byteSize ?? 0);
-
-    assert(
-      Number.isSafeInteger(byteSize) && byteSize > 0,
-      'WEP_PRESET_READ_BYTE_SIZE_INVALID'
-    );
-    assert(
-      bytes.byteLength === byteSize,
-      'WEP_PRESET_READ_BYTE_SIZE_MISMATCH'
-    );
+    assert(bytes.byteLength === readByteSize, 'WEP_PRESET_READ_BYTE_SIZE_MISMATCH');
 
     const checksum = await sha256Hex(bytes);
-    const expected = String(
-      read.checksumSha256 ?? detail.checksumSha256 ?? ''
-    ).toLowerCase();
-
-    assert(
-      /^[0-9a-f]{64}$/.test(expected),
-      'WEP_PRESET_READ_CHECKSUM_INVALID'
-    );
-    assert(
-      checksum === expected,
-      'WEP_PRESET_READ_CHECKSUM_MISMATCH'
-    );
+    assert(checksum === readChecksum, 'WEP_PRESET_READ_CHECKSUM_MISMATCH');
 
     let artifact: unknown;
     try {
-      artifact = JSON.parse(
-        new TextDecoder('utf-8', { fatal: true }).decode(bytes)
-      );
+      artifact = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
     } catch {
       throw new WepPresetBridgeError('WEP_PRESET_READ_JSON_INVALID');
     }
@@ -399,30 +462,26 @@ export function createPresetCommunityBridge({
         validation?.issues ?? []
       );
     }
-
-    assert(
-      String(detail.presetArtifactId ?? presetArtifactId) ===
-        String(presetArtifactId),
-      'WEP_PRESET_DETAIL_ID_MISMATCH'
-    );
-    assert(
-      String(detail.presetType ?? validation.presetType) ===
-        validation.presetType,
-      'WEP_PRESET_DETAIL_TYPE_MISMATCH'
-    );
-    assert(
-      Number(detail.schemaVersion ?? validation.schemaVersion) ===
-        validation.schemaVersion,
-      'WEP_PRESET_DETAIL_SCHEMA_MISMATCH'
-    );
+    assert(validation.presetType === 'scene', 'WEP_PRESET_READ_TYPE_MISMATCH');
+    assert(Number(validation.schemaVersion) === readSchemaVersion, 'WEP_PRESET_READ_SCHEMA_MISMATCH');
 
     return {
       artifact,
       validation,
       detail,
       read,
+      authoritative: {
+        presetArtifactId: readArtifactId,
+        presetRevisionId: readRevisionId,
+        blobId: readBlobId,
+        storageKey: readStorageKey,
+        schemaVersion: readSchemaVersion,
+        contentType: readContentType,
+        byteSize: readByteSize,
+        checksumSha256: readChecksum
+      },
       checksumSha256: checksum,
-      byteSize
+      byteSize: readByteSize
     };
   }
 
@@ -446,7 +505,11 @@ export function createPresetCommunityBridge({
     presetArtifactId: string,
     options: Record<string, unknown> = {}
   ) {
-    const loaded = await loadPreset(presetArtifactId);
+    const expectedPresetRevisionId =
+      options.expectedPresetRevisionId == null ? null : String(options.expectedPresetRevisionId);
+    const preflightOptions = { ...options };
+    delete preflightOptions.expectedPresetRevisionId;
+    const loaded = await loadPreset(presetArtifactId, { expectedPresetRevisionId });
 
     assert(
       loaded.validation.presetType === 'scene',
@@ -455,8 +518,26 @@ export function createPresetCommunityBridge({
 
     return {
       ...loaded,
-      preflight: hooks.preflightScene(loaded.artifact, options)
+      preflight: hooks.preflightScene(loaded.artifact, preflightOptions)
     };
+  }
+
+  async function changeLifecycle(
+    presetArtifactId: string,
+    expectedPresetRevisionId: string,
+    lifecycleAction: 'unpublish' | 'delete',
+    idempotencyKey: string
+  ) {
+    assert(String(presetArtifactId), 'WEP_PRESET_ARTIFACT_ID_REQUIRED');
+    assert(String(expectedPresetRevisionId), 'WEP_PRESET_REVISION_ID_REQUIRED');
+    assert(['unpublish','delete'].includes(lifecycleAction), 'WEP_PRESET_LIFECYCLE_ACTION_UNSUPPORTED');
+    assert(String(idempotencyKey).trim(), 'WEP_PRESET_IDEMPOTENCY_KEY_REQUIRED');
+    return community.preset('lifecycle', {
+      presetArtifactId: String(presetArtifactId),
+      expectedPresetRevisionId: String(expectedPresetRevisionId),
+      lifecycleAction,
+      idempotencyKey: String(idempotencyKey).trim()
+    });
   }
 
   return Object.freeze({
@@ -469,7 +550,8 @@ export function createPresetCommunityBridge({
     loadPreset,
     loadDiscoveredWork,
     saveDiscoveredWork,
-    preflightPreset
+    preflightPreset,
+    changeLifecycle
   });
 }
 
