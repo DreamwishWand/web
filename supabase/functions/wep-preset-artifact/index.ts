@@ -155,6 +155,9 @@ function validateArtifact(value: unknown) {
     const object = raw as Record<string, unknown>;
     const id = String(object.artifactObjectId ?? '');
     if (!/^o\d+$/.test(id) || ids.has(id)) throw new Error('Scene artifact object identity is invalid');
+    if (!['furniture','building','landscaping'].includes(String(object.layer ?? ''))) {
+      throw new Error('SCENE_OBJECT_CLASS_UNSUPPORTED');
+    }
     ids.add(id);
     if (!Number.isInteger(Number(object.itemId)) || Number(object.itemId) <= 0) throw new Error('Scene itemId is invalid');
     if (!Number.isInteger(Number(object.localX)) || !Number.isInteger(Number(object.localY))) throw new Error('Scene local position is invalid');
@@ -170,6 +173,19 @@ function validateArtifact(value: unknown) {
     for (const dependencyId of raw.dependencyIds as string[]) {
       if (!ids.has(dependencyId)) throw new Error('Scene dependency points outside artifact');
     }
+  }
+
+  const source = artifact.source as Record<string, unknown> | undefined;
+  if (
+    source?.platform === 'Nintendo Switch' &&
+    (
+      source.gameVersion !== '1.25.0' ||
+      source.exactBuildKnown !== true ||
+      source.buildIdentity !== '52BD625D9B4E0053' ||
+      Number(source.profileSchemaVersion) !== 624
+    )
+  ) {
+    throw new Error('PRESET_SOURCE_VERSION_BUILD_UNSUPPORTED');
   }
 
   const networks = artifact.networks;
