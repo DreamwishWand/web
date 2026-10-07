@@ -1,0 +1,366 @@
+{
+  "contract": "ddv.storage-furniture-container-semantics@1",
+  "requestId": "01B-WHOLE-DESIGN-STORAGE-CONTAINER-V125-V1",
+  "owner": "01B CORE - World / Grid / Buildings",
+  "status": "STATIC_CURRENT_NATIVE_CLOSED_SAVE_LAYER_EXTENSION_REQUIRED",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "switchBid": "52BD625D9B4E0053",
+    "profileSchema": 624
+  },
+  "hardFlags": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false
+  },
+  "scope": {
+    "included": [
+      "FurnitureItemData InteractionsCase=Container",
+      "BelongsToPlayer=true",
+      "non-empty content-bearing storage",
+      "same-Grid move",
+      "cross-Grid move",
+      "put-away",
+      "re-place"
+    ],
+    "excluded": [
+      "FurnitureItemData HomeStorage shared shell",
+      "empty-container writer lifecycle",
+      "non-player ContainerInventory",
+      "generic ContainerInventory editing",
+      "portable copying of ContainerInventoryID between saves/users",
+      "ownership/entitlement/Premium/DLC/receipt/Moonstone/auth mutation"
+    ]
+  },
+  "evidence": [
+    {
+      "id": "CURRENT-V125-MANAGED-DUMP",
+      "status": "CONFIRMED",
+      "detail": "StorageGridData.ContainerInventoryID; ProfilePlayer.ContainerInventories/ListInventories; ContainerInventory.ParentItemID/Size/Inventory/BelongsToPlayer schema"
+    },
+    {
+      "id": "SWITCH-V125-STORAGE-INITIALIZE-0x415C0B0",
+      "status": "CONFIRMED",
+      "detail": "StorageGridData.Initialize calls AddContainerInventory and stores returned uint ContainerInventoryID"
+    },
+    {
+      "id": "SWITCH-V125-STORAGE-DEINITIALIZE-0x415C4A0",
+      "status": "CONFIRMED",
+      "detail": "ordinary path calls RemoveContainerInventory unless runtime IsUpgrading"
+    },
+    {
+      "id": "SWITCH-V125-ADD-CONTAINER-0x5950370",
+      "status": "CONFIRMED",
+      "detail": "orphan reuse path"
+    },
+    {
+      "id": "SWITCH-V125-ORPHAN-REUSE-PREDICATE-0x59AB710",
+      "status": "CONFIRMED",
+      "detail": "BelongsToPlayer + exact Size + non-null exact ParentItem(Furniture ItemID)"
+    },
+    {
+      "id": "SWITCH-V125-REMOVE-CONTAINER-0x59508D0",
+      "status": "CONFIRMED",
+      "detail": "empty removes map entry; non-empty player-owned persists and enters runtime orphan cache"
+    },
+    {
+      "id": "SWITCH-V125-PICKUP-LIST-APPLY-0x5FC9560",
+      "status": "CONFIRMED",
+      "detail": "GridObject removal/deinitialize then ListInventory AddItem amount 1"
+    },
+    {
+      "id": "SWITCH-V125-PUTDOWN-LIST-APPLY-0x5FCF3D0",
+      "status": "CONFIRMED",
+      "detail": "ListInventory RemoveItem amount 1 then GridObject creation; response returns new GridObjectID"
+    },
+    {
+      "id": "SWITCH-V125-UPDATE-GRID-TRANSFORM-0x4FC6DA0",
+      "status": "CONFIRMED",
+      "detail": "same-grid transform; existing state/identity not deinitialized"
+    },
+    {
+      "id": "SWITCH-V125-SWITCH-GRID-APPLY-0x4FCBF50",
+      "status": "CONFIRMED",
+      "detail": "delegates to Grid.SwitchGridObjectGrid"
+    },
+    {
+      "id": "SWITCH-V125-GRID-SWITCH-0x4E7A220",
+      "status": "CONFIRMED",
+      "detail": "destination add preserves source GridState; source remove is called with deInitialize=false; new destination GridObjectID allocated"
+    },
+    {
+      "id": "USER-OBSERVATION-FILLED-STORAGE-MOVABLE",
+      "status": "SCENARIO_DISCOVERY_ONLY",
+      "detail": "not used as internal semantic proof"
+    }
+  ],
+  "identityLinkage": {
+    "furnitureItemId": "GridObject.ItemID",
+    "placedObjectIdentity": "(GridID, GridObjectID) address; GridObjectID is grid-local",
+    "storageOuterLink": "GridObject.State.Storage.ContainerInventoryID",
+    "storagePersistentIdentity": "Player.ContainerInventories[ContainerInventoryID] with embedded ContainerInventory.ID equal to map key",
+    "ownerLink": "ContainerInventory.ParentItemID == Furniture ItemID; NOT GridID and NOT GridObjectID",
+    "listStock": "Player.ListInventories[listInventoryId].Inventory[FurnitureItemID].Amount",
+    "slots": "ContainerInventory.Inventory[]; structural transitions preserve the complete record",
+    "crossGridRemap": "GridObject address changes; ContainerInventoryID does not",
+    "portableIdentityPolicy": "ContainerInventoryID is same-save identity only and must never be copied as a portable Preset identity"
+  },
+  "activeReferencePolicy": {
+    "authority": "complete effective current-save storage-reference index",
+    "rawOccurrenceSearch": "INSUFFICIENT",
+    "placedRequirement": "exactly one active reference matching source GridID/GridObjectID/ItemID",
+    "storedRequirement": "zero active references",
+    "duplicateReferenceBehavior": "FAIL_CLOSED"
+  },
+  "orphanReuse": {
+    "key": [
+      "BelongsToPlayer=true",
+      "ContainerInventory.Size == definition/default requested Size",
+      "ParentItemID non-null",
+      "ParentItemID == requested Furniture ItemID"
+    ],
+    "selectedIdentityWhenUnique": "deterministic by uniqueness",
+    "selectedIdentityWhenMultiple": "runtime orphan-cache ordering; not a portable/file-format guarantee",
+    "exactContentReattachmentWhenMultiple": "UNKNOWN_FROM_PORTABLE_ITEM_IDENTITY_FAIL_CLOSED"
+  },
+  "preservationMatrix": [
+    {
+      "scenario": "SAME_GRID_MOVE",
+      "gridObjectId": "PRESERVED",
+      "gridId": "PRESERVED",
+      "containerInventoryId": "PRESERVED",
+      "containerRecordAndSlots": "EXACT",
+      "listStock": "EXACT",
+      "status": "CONFIRMED"
+    },
+    {
+      "scenario": "CROSS_GRID_MOVE",
+      "gridObjectId": "NEW_DESTINATION_ID",
+      "gridId": "CHANGED",
+      "containerInventoryId": "PRESERVED",
+      "containerRecordAndSlots": "EXACT",
+      "listStock": "EXACT",
+      "status": "CONFIRMED"
+    },
+    {
+      "scenario": "PUT_AWAY_NONEMPTY_PLAYER",
+      "gridObjectId": "REMOVED",
+      "gridId": "UNPLACED",
+      "containerInventoryId": "PRESERVED_UNREFERENCED",
+      "containerRecordAndSlots": "EXACT",
+      "listStock": "+1",
+      "status": "CONFIRMED"
+    },
+    {
+      "scenario": "REPLACE_UNIQUE_COMPATIBLE_ORPHAN_NATIVE",
+      "gridObjectId": "NEW",
+      "gridId": "DESTINATION",
+      "containerInventoryId": "REUSED",
+      "containerRecordAndSlots": "EXACT",
+      "listStock": "-1",
+      "status": "CONFIRMED_WITH_UNIQUE_COMPATIBLE_ORPHAN"
+    },
+    {
+      "scenario": "REPLACE_MULTIPLE_COMPATIBLE_ORPHANS_NATIVE",
+      "gridObjectId": "NEW",
+      "gridId": "DESTINATION",
+      "containerInventoryId": "RUNTIME_SELECTION",
+      "containerRecordAndSlots": "SELECTED_RECORD_EXACT",
+      "listStock": "-1",
+      "status": "EXACT_RECORD_SELECTION_NOT_PORTABLE_FAIL_CLOSED"
+    },
+    {
+      "scenario": "PUT_AWAY_EMPTY",
+      "gridObjectId": "REMOVED",
+      "gridId": "UNPLACED",
+      "containerInventoryId": "MAP_ENTRY_DELETED",
+      "containerRecordAndSlots": "DELETED",
+      "listStock": "+1",
+      "status": "CONFIRMED_BUT_WRITER_EXCLUDED"
+    },
+    {
+      "scenario": "REPLACE_NO_COMPATIBLE_ORPHAN",
+      "gridObjectId": "NEW",
+      "gridId": "DESTINATION",
+      "containerInventoryId": "NEWLY_ALLOCATED",
+      "containerRecordAndSlots": "DEFAULT_NEW_CONTAINER",
+      "listStock": "-1",
+      "status": "CONFIRMED_BUT_WRITER_EXCLUDED"
+    },
+    {
+      "scenario": "NON_PLAYER_NONEMPTY_REMOVE",
+      "gridObjectId": "UNKNOWN",
+      "gridId": "UNKNOWN",
+      "containerInventoryId": "NO_PLAYER_ORPHAN_GUARANTEE",
+      "containerRecordAndSlots": "UNSUPPORTED",
+      "listStock": "UNKNOWN",
+      "status": "UNSUPPORTED_FAIL_CLOSED"
+    }
+  ],
+  "transitionContracts": {
+    "SAME_GRID_MOVE": {
+      "nativeTransaction": "UpdateGridObjectTransform",
+      "smallestMutation": [
+        "GridObject.X",
+        "GridObject.Y",
+        "GridObject.Orientation"
+      ],
+      "requiredPreservation": [
+        "GridObject.ID",
+        "GridObject.ItemID",
+        "GridObject.State including Storage.ContainerInventoryID",
+        "Player.ContainerInventories exact",
+        "Player.ListInventories exact"
+      ],
+      "clearArea": false,
+      "current01A": "SUFFICIENT via WRITE_CANDIDATE / GRID_OBJECT with new 01B storage adapter"
+    },
+    "CROSS_GRID_MOVE": {
+      "nativeTransaction": "SwitchGridObjectGrid",
+      "smallestMutation": [
+        "source GridObject REMOVE",
+        "destination GridObject ADD with source payload/state and fresh destination ID",
+        "destination NextGridObjectID +1"
+      ],
+      "requiredPreservation": [
+        "Player.ContainerInventories exact",
+        "Player.ListInventories exact",
+        "Storage.ContainerInventoryID exact"
+      ],
+      "clearArea": false,
+      "current01A": "INSUFFICIENT because GRID_OBJECT_SET is one declared Grid only"
+    },
+    "PUT_AWAY_NONEMPTY": {
+      "nativeTransaction": "PickUpListItem",
+      "smallestMutation": [
+        "source GridObject REMOVE",
+        "existing ListInventory furniture Amount +1"
+      ],
+      "requiredPreservation": [
+        "selected non-empty Player.ContainerInventories[ContainerInventoryID] exact including slots/ParentItemID/Size"
+      ],
+      "current01A": "INSUFFICIENT because structural target cannot atomically cover Grid + Player.ListInventories"
+    },
+    "REPLACE_NONEMPTY": {
+      "nativeTransaction": "PutDownListItem + StorageGridData.Initialize/AddContainerInventory",
+      "smallestNativePostState": [
+        "destination GridObject ADD with fresh destination ID",
+        "destination NextGridObjectID +1",
+        "existing ListInventory furniture Amount -1",
+        "compatible orphan ContainerInventory exact"
+      ],
+      "directOfflineBindingBoundary": "explicit existing ContainerInventoryID binding requires a hash-bound same-save GridObject template plus complete zero-active-reference evidence; this post-state construction needs bounded 01E acceptance before promotion",
+      "current01A": "INSUFFICIENT"
+    }
+  },
+  "failureBehavior": {
+    "nativeEnums": {
+      "PickUpListItem": [
+        "Success",
+        "InvalidGrid",
+        "InvalidGridObjectID",
+        "InvalidItem",
+        "DesyncDetected"
+      ],
+      "PutDownListItem": [
+        "Success",
+        "NotEnoughItems",
+        "InvalidItem",
+        "InvalidGrid",
+        "InvalidDesignId",
+        "OverLimits",
+        "Occupied"
+      ],
+      "UpdateGridObjectTransform": [
+        "Success",
+        "InvalidGrid",
+        "InvalidGridObjectID",
+        "InvalidTransform",
+        "DesyncDetected"
+      ],
+      "SwitchGridObjectGrid": [
+        "Success",
+        "InvalidOldGrid",
+        "InvalidOldGridObjectID",
+        "InvalidNewGrid",
+        "InvalidTransform",
+        "DesyncDetected"
+      ]
+    },
+    "wandFailClosed": [
+      "exact build/schema mismatch",
+      "HomeStorage instead of Container",
+      "BelongsToPlayer != true",
+      "ParentItemID mismatch/null",
+      "container map key/embedded ID mismatch",
+      "definition/default Size mismatch",
+      "malformed slots",
+      "duplicate or incomplete active-reference evidence",
+      "clearArea=true or collateral placement clearing",
+      "multiple compatible orphan records when exact content identity must be preserved",
+      "missing existing ListInventory item entry",
+      "empty container for non-empty-only writer path",
+      "unknown state/template provenance"
+    ]
+  },
+  "capacityContentBoundary": {
+    "movement": "same/cross-grid movement preserves complete ContainerInventory; no item-by-item capacity rewrite",
+    "orphanCompatibility": "exact Size equality is required for native reuse",
+    "contentEditing": "OUT_OF_SCOPE; no generic ContainerInventory writer",
+    "BlockMoveTo": "not promoted as a furniture-movement blocker by current evidence"
+  },
+  "remapSynchronizer": {
+    "genericGridEditInfrastructure": [
+      "GridCommand.ResolvedGridID",
+      "GridCommand.ResolvedGridObjectID",
+      "ChangeGrid",
+      "ResolveIDsInRemainingCommands",
+      "ResolveIDs",
+      "UpdateResynchronizedIDs"
+    ],
+    "storageSpecificContainerRemap": "NONE_REQUIRED_FOR_CONFIRMED_CROSS_GRID_PATH because ContainerInventoryID remains stable",
+    "separateStorageSpecificGridIdListener": "NOT_FOUND_NOT_REQUIRED_FOR_SMALLEST_CONTRACT"
+  },
+  "saveLayer": {
+    "existing01AReusableWithoutChangeFor": [
+      "SAME_GRID_MOVE"
+    ],
+    "existing01AInsufficientFor": [
+      "CROSS_GRID_MOVE",
+      "PUT_AWAY_NONEMPTY",
+      "REPLACE_NONEMPTY"
+    ],
+    "additiveRequest": "01B-TO-01A-STORAGE-FURNITURE-TRANSITION-V125-V1"
+  },
+  "runtimeAcceptance": {
+    "required": true,
+    "reason": "ordinary stateless Furniture ADD runtime evidence explicitly does not generalize to stateful Storage/cross-grid; direct explicit ContainerInventoryID re-place post-state has not been game-accepted yet",
+    "requestId": "01B-TO-01E-STORAGE-CONTAINER-TRANSITION-V125-V1",
+    "timing": "only after additive 01A target + frozen 01B adapter exist"
+  },
+  "unresolved": [
+    {
+      "item": "exact ContainerInventoryID chosen when multiple compatible orphans exist",
+      "status": "RUNTIME_STATE_DEPENDENT_NOT_PORTABLE",
+      "policy": "fail closed for exact-content mapping"
+    },
+    {
+      "item": "empty storage writer lifecycle",
+      "status": "EXCLUDED_FROM_THIS_CLOSURE",
+      "policy": "fail closed"
+    },
+    {
+      "item": "HomeStorage shell semantics for structural writer",
+      "status": "EXCLUDED",
+      "policy": "fail closed"
+    },
+    {
+      "item": "non-player content-bearing storage removal",
+      "status": "UNSUPPORTED",
+      "policy": "fail closed"
+    }
+  ]
+}
