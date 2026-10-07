@@ -1,0 +1,107 @@
+{
+  "schema": "ddv.storage-furniture-transaction-binding@1",
+  "artifactId": "DDV-STORAGE-FURNITURE-TRANSACTION-BINDING-V125-V1_0",
+  "status": "01B_BINDING_CANDIDATE",
+  "owner": "01B CORE - World / Grid / Buildings",
+  "requestId": "01B-STORAGE-FURNITURE-TRANSITION-ADAPTER-BINDING-V125-V1",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624,
+    "steamInference": false
+  },
+  "upstream": {
+    "main": "3766b384497a667a2b151d36e31f73f750b40b45",
+    "targetContract": "static/ddv/core/save/v1.25/storage-furniture-transition-target-v125.json",
+    "targetSchema": "ddv.save.storage-furniture-transition-target@1",
+    "status": "01A_PROMOTED"
+  },
+  "adapters": {
+    "sameGridMove": {
+      "contract": "dreamwish.ddv.save-mutation-adapter@1",
+      "id": "01b-storage-furniture-same-grid-move-v125-v1",
+      "capability": "WRITE_CANDIDATE",
+      "targetKind": "GRID_OBJECT",
+      "operation": "MOVE",
+      "serializedChanges": ["GridObject.X", "GridObject.Y"],
+      "orientation": "PRESERVE_EXACT",
+      "state": "PRESERVE_EXACT",
+      "containerInventoryId": "PRESERVE_EXACT"
+    },
+    "structural": {
+      "contract": "dreamwish.ddv.save-mutation-adapter@1",
+      "id": "01b-storage-furniture-transition-v125-v1",
+      "capability": "STRUCTURAL_WRITE_CANDIDATE",
+      "targetKind": "STORAGE_FURNITURE_TRANSITION",
+      "modes": ["CROSS_GRID_MOVE", "PUT_AWAY_NONEMPTY", "REPLACE_NONEMPTY"]
+    }
+  },
+  "activeReferenceIndex": {
+    "schema": "ddv.storage-active-reference-index@1",
+    "implementation": "src/lib/ddv/core/world/storage-active-reference-index-v125.js",
+    "machineContract": "static/ddv/core/world/v1.25/storage-active-reference-index-v125.json",
+    "requiredStatus": "COMPLETE_CURRENT_SAVE"
+  },
+  "modeBindings": {
+    "SAME_GRID_MOVE": {
+      "allowedPaths": ["/World/GridCollection/Grids/{gridId}/Objects/{gridObjectId}/X", "/World/GridCollection/Grids/{gridId}/Objects/{gridObjectId}/Y"],
+      "requiredPreservation": ["GridObject.ID", "GridObject.ItemID", "GridObject.Orientation", "GridObject.State including Storage.ContainerInventoryID", "/Player/ContainerInventories", "/Player/ListInventories", "/Player/NextContainerInventoryID", "unrelated state"]
+    },
+    "CROSS_GRID_MOVE": {
+      "allowedPaths": ["source GridObject REMOVE", "destination GridObject ADD", "destination NextGridObjectID +1"],
+      "destinationId": "exact prior destination NextGridObjectID",
+      "destinationPayload": "source payload exact except ID/X/Y/Orientation",
+      "containerInventoryId": "preserve exact"
+    },
+    "PUT_AWAY_NONEMPTY": {
+      "allowedPaths": ["source GridObject REMOVE", "existing Furniture ListInventory Amount +1"],
+      "selectedContainer": ["BelongsToPlayer=true", "non-empty", "exact Size", "ParentItemID==ItemID", "post active references=0", "record/slots/opaque exact"]
+    },
+    "REPLACE_NONEMPTY": {
+      "allowedPaths": ["destination GridObject ADD", "destination NextGridObjectID +1", "existing Furniture ListInventory Amount -1"],
+      "selectedContainer": ["non-empty", "pre active references=0", "same-save identity"],
+      "templateEvidence": {
+        "schema": "ddv.storage-grid-object-template-evidence@1",
+        "provenance": "SAME_SAVE_HASH_BOUND",
+        "bindings": ["sourceSha256 == transaction input originalSha256", "itemId exact", "containerInventoryId exact"]
+      }
+    }
+  },
+  "verification": [
+    "all candidates pass promoted 01A transaction verifier",
+    "wrapper re-checks actual semanticDiff.allChangedPaths against 01B exactChangedPaths",
+    "01A storage target independently re-scans active Storage references before/after for structural modes",
+    "01A storage target preserves Player.ContainerInventories and Player.NextContainerInventoryID exactly",
+    "01A storage target preserves ListInventory membership and Marker; only declared Amount leaf may change",
+    "same-grid plan binds exact selected ContainerInventory/ListInventory/NextContainerInventoryID pre/post and admits only X/Y"
+  ],
+  "explicitExclusions": [
+    "generic ContainerInventory writer",
+    "generic Player writer",
+    "generic cross-grid writer",
+    "arbitrary JSON Patch",
+    "ContainerInventory create/delete/re-ID",
+    "slot content editing",
+    "ListInventory map-entry create/remove",
+    "HomeStorage",
+    "empty-storage lifecycle",
+    "non-player storage mutation",
+    "ownership synthesis",
+    "entitlement/Premium/DLC/receipt/Moonstone/auth mutation",
+    "Steam support"
+  ],
+  "nextRuntimeRequest": {
+    "requestId": "01B-TO-01E-STORAGE-CONTAINER-TRANSITION-V125-V1",
+    "dispatchBy01B": false,
+    "cases": ["A_CROSS_GRID_MOVE", "B_PUT_AWAY_THEN_EXPLICIT_REPLACE"],
+    "status": "RETURN_TO_CONTROL_ONLY_AFTER_BINDING_PROMOTION"
+  },
+  "hardFlags": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false
+  }
+}

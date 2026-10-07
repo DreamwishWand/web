@@ -1,0 +1,48 @@
+{
+  "schema": "ddv.storage-active-reference-index@1",
+  "artifactId": "DDV-STORAGE-ACTIVE-REFERENCE-INDEX-V125-V1_0",
+  "status": "01B_BINDING_CANDIDATE",
+  "owner": "01B CORE - World / Grid / Buildings",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624,
+    "steamInference": false
+  },
+  "scan": {
+    "root": "World.GridCollection.Grids[*].Objects[*]",
+    "referenceShape": "GridObject.State.Storage.ContainerInventoryID",
+    "statusRequiredForWriteBinding": "COMPLETE_CURRENT_SAVE",
+    "itemDefinitionBinding": "each Storage reference must resolve to FurnitureItemData interaction Container",
+    "homeStorage": "REJECT",
+    "malformedStorageState": "REJECT_INCOMPLETE",
+    "unknownStorageItemDefinition": "REJECT_INCOMPLETE",
+    "gridOrObjectKeyIdMismatch": "REJECT_INCOMPLETE"
+  },
+  "selectedContainerRules": [
+    "selected containerInventoryId is queried only from a COMPLETE_CURRENT_SAVE scan",
+    "more than one active reference for the selected ContainerInventoryID is rejected",
+    "placed storage binding requires exactly one reference at the exact GridID/GridObjectID/ItemID",
+    "stored non-empty re-place binding requires zero active references"
+  ],
+  "failClosed": [
+    "duplicate active references",
+    "incomplete scan",
+    "malformed Storage state",
+    "UNKNOWN reference state",
+    "HomeStorage",
+    "non-player storage",
+    "ParentItemID mismatch",
+    "Size mismatch",
+    "ambiguous template provenance",
+    "missing exact same-save binding"
+  ],
+  "hardFlags": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false
+  }
+}

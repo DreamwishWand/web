@@ -272,6 +272,6 @@ test('01A and 01E machine requests remain narrow and all hard flags stay false',
 
   const runtime=JSON.parse(await readFile(new URL('../static/ddv/core/world/v1.25/storage-container-01e-runtime-request-v125.json',import.meta.url),'utf8'));
   assert.equal(runtime.requestId,STORAGE_01E_REQUEST_ID);
-  assert.equal(runtime.status,'FROZEN_WAIT_01A_EXTENSION_AND_01B_ADAPTER');
+  assert.equal(runtime.status,'FROZEN_WAIT_01B_BINDING_PROMOTION');
   assert.deepEqual(runtime.protocol.map(x=>x.case),['A_CROSS_GRID_MOVE','B_PUT_AWAY_THEN_EXPLICIT_REPLACE']);
 });
