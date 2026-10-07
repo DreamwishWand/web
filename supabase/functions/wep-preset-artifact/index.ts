@@ -5,7 +5,7 @@ import { resolveRuntimeWepPresetArtifactBucket } from '../_shared/wep-preset-art
 const BUCKET = resolveRuntimeWepPresetArtifactBucket();
 const MAX_BYTES = 25 * 1024 * 1024;
 const CONTENT_TYPE = 'application/json';
-const ALLOWED_TYPES = new Set(['scene','biome','floating_island','tom_furniture','tom_clothing']);
+const ALLOWED_TYPES = new Set(['scene']);
 
 function reply(body: unknown, status = 200) {
   return Response.json(body, {
@@ -132,7 +132,7 @@ function validateArtifact(value: unknown) {
   rejectSaveLocalIdentity(artifact);
   if (artifact.schema !== 'dreamwish-wand-preset') throw new Error('Unsupported Preset schema');
   const schemaVersion = Number(artifact.artifactVersion ?? artifact.schemaVersion ?? 0);
-  if (!Number.isInteger(schemaVersion) || schemaVersion <= 0) throw new Error('Invalid Preset schema version');
+  if (!Number.isInteger(schemaVersion) || schemaVersion !== 1) throw new Error('PRESET_SCHEMA_VERSION_UNSUPPORTED');
   const presetType = String(artifact.type ?? artifact.artifactType ?? '').toLowerCase();
   if (!ALLOWED_TYPES.has(presetType)) throw new Error('Unsupported Preset type');
 
@@ -243,13 +243,21 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
   if (action === 'publish') {
     const storageKey = String(body.storageKey ?? '');
     const creatorProfileId = String(body.creatorProfileId ?? '');
-    const visibility = String(body.visibility ?? 'private');
     const title = String(body.title ?? '').trim();
     const description = body.description == null ? null : String(body.description);
     const idempotencyKey = String(body.idempotencyKey ?? '').trim();
     const metadata = body.metadata && typeof body.metadata === 'object' && !Array.isArray(body.metadata) ? body.metadata : {};
+    const mediaIds = Array.isArray(body.mediaIds) ? body.mediaIds.map(String).filter(Boolean) : [];
+    const presetArtifactId = body.presetArtifactId ? String(body.presetArtifactId) : null;
+    const expectedPresetRevisionId = body.expectedPresetRevisionId ? String(body.expectedPresetRevisionId) : null;
     if (!creatorProfileId || !title || !idempotencyKey) {
       return reply({ ok: false, error: 'PUBLISH_METADATA_REQUIRED' }, 400);
+    }
+    if (mediaIds.length < 1 || mediaIds.length > 10 || new Set(mediaIds).size !== mediaIds.length) {
+      return reply({ ok: false, error: 'PUBLIC_IMAGE_REQUIRED' }, 400);
+    }
+    if ((presetArtifactId === null) !== (expectedPresetRevisionId === null)) {
+      return reply({ ok: false, error: 'PUBLISH_UPDATE_IDENTITY_INCOMPLETE' }, 400);
     }
 
     const finalDigest = hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${accountId}:${idempotencyKey}`)));
@@ -298,13 +306,14 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       }
     }
 
-    const { data, error } = await ctx.supabaseAdmin.rpc('community_publish_preset_envelope', {
+    const { data, error } = await ctx.supabaseAdmin.rpc('community_publish_scene_preset_v1', {
       p_auth_subject: subject,
       p_creator_profile_id: creatorProfileId,
-      p_visibility: visibility,
-      p_preset_type: validated.presetType,
+      p_preset_artifact_id: presetArtifactId,
+      p_expected_preset_revision_id: expectedPresetRevisionId,
       p_title: title,
       p_description: description,
+      p_media_ids: mediaIds,
       p_artifact_storage_key: publishedStorageKey,
       p_schema_version: validated.schemaVersion,
       p_content_type: CONTENT_TYPE,
@@ -397,6 +406,7 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         presetRevisionId: meta.presetRevisionId,
         presetType: meta.presetType,
         blobId: meta.blobId,
+        storageKey: meta.storageKey,
         schemaVersion: meta.schemaVersion,
         contentType: meta.contentType,
         byteSize: meta.byteSize,
@@ -405,6 +415,25 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         expiresIn: 300
       }
     });
+  }
+
+  if (action === 'lifecycle') {
+    const presetArtifactId = String(body.presetArtifactId ?? '');
+    const expectedPresetRevisionId = String(body.expectedPresetRevisionId ?? '');
+    const lifecycleAction = String(body.lifecycleAction ?? '');
+    const idempotencyKey = String(body.idempotencyKey ?? '').trim();
+    if (!presetArtifactId || !expectedPresetRevisionId || !['unpublish','delete'].includes(lifecycleAction) || !idempotencyKey) {
+      return reply({ ok: false, error: 'LIFECYCLE_METADATA_REQUIRED' }, 400);
+    }
+    const { data, error } = await ctx.supabaseAdmin.rpc('community_scene_preset_lifecycle_v1', {
+      p_auth_subject: subject,
+      p_preset_artifact_id: presetArtifactId,
+      p_expected_preset_revision_id: expectedPresetRevisionId,
+      p_action: lifecycleAction,
+      p_idempotency_key: idempotencyKey
+    });
+    if (error) return reply({ ok: false, error: 'PRESET_LIFECYCLE_FAILED', message: error.message }, 400);
+    return reply({ ok: true, action, data });
   }
 
   if (action === 'discard') {
