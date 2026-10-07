@@ -64,7 +64,9 @@ test('World Editor product surface is WEP-backed, localized and writer-safe', ()
   assert.match(page, /createEditorSession/);
   assert.match(page, /projectObjects/);
   assert.match(page, /captureScenePreset/);
-  assert.match(page, /createScenePresetWorkflow/);
+  assert.match(page, /saveScenePresetPrivateMaster/);
+  assert.match(page, /\/presets\/publish\/\?master=/);
+  assert.match(page, /scenePrivateCopy\.continuePublish/);
   assert.match(page, /openWorldSaveBytes/);
   assert.match(page, /createSwitchWorldReadAdapter/);
   assert.match(page, /projectSwitchAreaGrid/);
@@ -85,7 +87,9 @@ test('World Editor product surface is WEP-backed, localized and writer-safe', ()
   assert.match(page, /worldEditor\.status\.unavailableActions/);
   assert.match(page, /worldEditor\.inspector\.eyebrow/);
   assert.match(page, /worldEditor\.command\.reviewSavePrep/);
-  assert.match(page, /worldEditor\.scene\.publish/);
+  assert.doesNotMatch(page, /publishCapturedScene/);
+  assert.doesNotMatch(page, /value="unlisted"/);
+  assert.doesNotMatch(page, /value="private"/);
   assert.match(page, /worldEditor\.canvas\.persistentWriteDisabled/);
   assert.doesNotMatch(page, />Apply</);
   assert.doesNotMatch(page, />Commit</);
