@@ -73,6 +73,14 @@
     reviewOrdinaryFurnitureAddVerifiedExport
   } from '$lib/wep/ordinary-furniture-add-verified-export-v125';
   import {
+    STORAGE_FURNITURE_VERIFIED_EXPORT_CONTRACT,
+    annotateStorageFurnitureDocumentV125,
+    commitStorageFurnitureVerifiedExportV125,
+    isStorageFurnitureEditorObjectV125,
+    loadStorageFurnitureDefinitionPack,
+    reviewStorageSameGridMoveVerifiedExportV125
+  } from '$lib/wep/storage-furniture-v125';
+  import {
     ROADFENCE_VERIFIED_EXPORT_CONTRACT,
     commitRoadFenceVerifiedExport,
     reviewRoadFenceVerifiedExport
@@ -176,6 +184,7 @@
   let buildingV110Binding: any = null;
   let scroogeStoreV112Binding: any = null;
   let progressionV114Binding: any = null;
+  let storageFurniturePack: any = null;
   let scroogeStorePreview: any = null;
   let includeRoads = false;
   let includeFences = false;
@@ -2550,6 +2559,10 @@
         await createSwitchV125ProgressionIntegrationBinding({
           basePath: base
         });
+      storageFurniturePack ??=
+        await loadStorageFurnitureDefinitionPack({
+          basePath: base
+        });
 
       const projectedDocument = projectSwitchAreaGrid(
         worldSource,
@@ -2565,8 +2578,15 @@
         progressionV114Binding.annotateEditorDocument(
           classifiedDocument
         );
+      const storageAnnotatedDocument =
+        annotateStorageFurnitureDocumentV125({
+          document: progressionAnnotatedDocument,
+          profile: worldSource.profile,
+          itemDefinitionsById:
+            storageFurniturePack.itemDefinitionsById
+        });
       const normalized = normalizeEditorDocument(
-        progressionAnnotatedDocument
+        storageAnnotatedDocument
       );
 
       roadFenceReaderBinding =
@@ -3391,6 +3411,26 @@
         !roadFenceChanged &&
         editorDocument.objects.length ===
           verifiedExportBaselineDocument.objects.length + 1;
+      const storageChanged =
+        !roomFinishReview &&
+        !roadFenceChanged &&
+        !ordinaryAddChanged &&
+        verifiedExportBaselineDocument.objects.some(
+          (before: any) => {
+            if (!isStorageFurnitureEditorObjectV125(before)) {
+              return false;
+            }
+            const after = editorDocument.objects.find(
+              (object: any) =>
+                String(object.editorId) ===
+                String(before.editorId)
+            );
+            return Boolean(
+              after &&
+              JSON.stringify(before) !== JSON.stringify(after)
+            );
+          }
+        );
       const review = roomFinishReview
         ? await reviewRoomFinishVerifiedExportV125({
             sourceBytes: worldSourceBytes,
@@ -3422,7 +3462,22 @@
                 basePath: base,
                 exactBuildConfirmed: verifiedExportBuildConfirmed
               })
-            : await reviewMinimumVerifiedTransform({
+            : storageChanged
+              ? await reviewStorageSameGridMoveVerifiedExportV125({
+                  sourceBytes: worldSourceBytes,
+                  sourceName: fileName || 'profile',
+                  sourceEpoch: worldSourceEpoch,
+                  opened: worldSource,
+                  baselineDocument:
+                    verifiedExportBaselineDocument,
+                  draftDocument: editorDocument,
+                  placementBinding: placementLegalityBinding,
+                  itemDefinitionsById:
+                    storageFurniturePack.itemDefinitionsById,
+                  exactBuildConfirmed:
+                    verifiedExportBuildConfirmed
+                })
+              : await reviewMinimumVerifiedTransform({
                 sourceBytes: worldSourceBytes,
                 sourceName: fileName || 'profile',
                 sourceEpoch: worldSourceEpoch,
@@ -3511,7 +3566,19 @@
                   draftDocument: editorDocument,
                   worldBinding: switchWorldBinding
                 })
-              : await commitMinimumVerifiedTransform({
+              : verifiedExportReview.contract ===
+                  STORAGE_FURNITURE_VERIFIED_EXPORT_CONTRACT
+                ? await commitStorageFurnitureVerifiedExportV125({
+                    review: verifiedExportReview,
+                    currentSourceEpoch: worldSourceEpoch,
+                    sourceBytes: worldSourceBytes,
+                    baselineDocument:
+                      verifiedExportBaselineDocument,
+                    draftDocument: editorDocument,
+                    itemDefinitionsById:
+                      storageFurniturePack.itemDefinitionsById
+                  })
+                : await commitMinimumVerifiedTransform({
                 review: verifiedExportReview,
                 currentSourceEpoch: worldSourceEpoch,
                 sourceBytes: worldSourceBytes,
@@ -4809,6 +4876,42 @@
                     {/each}
                   </div>
                 {/if}
+                <div>
+                  <span>{t('worldEditor.verifiedExport.validation', {}, $locale)}</span>
+                  <strong>{t('worldEditor.verifiedExport.pass', {}, $locale)}</strong>
+                </div>
+              {:else if verifiedExportReview.contract === STORAGE_FURNITURE_VERIFIED_EXPORT_CONTRACT}
+                <div data-wep-storage-review-operation>
+                  <span>{t('worldEditor.verifiedExport.operation', {}, $locale)}</span>
+                  <strong>{verifiedExportReview.semanticOperation}</strong>
+                </div>
+                <div>
+                  <span>{t('worldEditor.verifiedExport.object', {}, $locale)}</span>
+                  <strong>Item {verifiedExportReview.change.itemId}</strong>
+                </div>
+                <div data-wep-storage-review-route>
+                  <span>{t('worldEditor.verifiedExport.context', {}, $locale)}</span>
+                  <strong>
+                    Grid {verifiedExportReview.change.gridId} /
+                    Object {verifiedExportReview.change.gridObjectId}
+                    →
+                    Grid {verifiedExportReview.change.gridId} /
+                    Object {verifiedExportReview.change.gridObjectId}
+                  </strong>
+                </div>
+                <div class="verified-export-delta">
+                  <span>{t('worldEditor.verifiedExport.previousPosition', {}, $locale)}</span>
+                  <strong>X {verifiedExportReview.change.before.x} · Y {verifiedExportReview.change.before.y}</strong>
+                  <span>{t('worldEditor.verifiedExport.newPosition', {}, $locale)}</span>
+                  <strong>X {verifiedExportReview.change.after.x} · Y {verifiedExportReview.change.after.y}</strong>
+                </div>
+                <div data-wep-storage-protected-identity>
+                  <span>ContainerInventoryID</span>
+                  <strong>
+                    {verifiedExportReview.protectedStorage.containerInventoryId}
+                    · {verifiedExportReview.protectedStorage.contents}
+                  </strong>
+                </div>
                 <div>
                   <span>{t('worldEditor.verifiedExport.validation', {}, $locale)}</span>
                   <strong>{t('worldEditor.verifiedExport.pass', {}, $locale)}</strong>
