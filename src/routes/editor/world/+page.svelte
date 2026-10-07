@@ -12,6 +12,8 @@
   } from '$lib/wep/scene-preset-runtime';
   import { captureScenePreset } from '$lib/wep/scene-capture-runtime';
   import { createScenePresetWorkflow } from '$lib/wep/scene-preset-workflow';
+  import { saveScenePresetPrivateMaster } from '$lib/wep/scene-preset-private-master';
+  import { scenePrivateMasterCopy } from '$lib/presets/scene-preset-private-master-copy.js';
   import {
     WEP_EDITOR_SCHEMA,
     WEP_LAYERS,
@@ -267,6 +269,7 @@
   let presetDescription = '';
   let visibility = 'unlisted';
   let publishKey = '';
+  let privateSceneMaster: any = null;
   let captureRegionMode: 'selection' | 'custom' = 'selection';
   let captureRegionX = 0;
   let captureRegionY = 0;
@@ -283,6 +286,7 @@
   $: objectCount = editorDocument?.objects?.length ?? 0;
   $: stage1Copy = worldEditorStage1Copy($locale);
   $: roomFinishUi = roomFinishCopy($locale);
+  $: scenePrivateCopy = scenePrivateMasterCopy($locale);
   $: roomFinishContextActive =
     editorDocument?.target?.kind === 'PLAYER_HOUSE_ROOM';
   $: roomFinishCurrentState =
@@ -3731,6 +3735,23 @@
     }
   }
 
+  function savePrivateSceneMaster() {
+    if (!capturePreview?.publicationReady) {
+      message = 'WEP_SCENE_CAPTURE_NOT_READY';
+      return;
+    }
+    try {
+      privateSceneMaster = saveScenePresetPrivateMaster(localStorage, {
+        artifact: capturePreview.artifact,
+        masterId: privateSceneMaster?.masterId ?? null,
+        authoredTitle: presetTitle.trim() || null
+      });
+      message = scenePrivateCopy.saved;
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+  }
+
   async function publishScene() {
     if (
       !session ||
@@ -5641,30 +5662,14 @@
     <section class="capture-panel">
       <div class="capture-copy">
         <p class="eyebrow">{t('worldEditor.scene.eyebrow', {}, $locale)}</p>
-        <h2>{t('worldEditor.scene.title', {}, $locale)}</h2>
-        <p>{t('worldEditor.scene.description', {}, $locale)}</p>
+        <h2>{scenePrivateCopy.title}</h2>
+        <p>{scenePrivateCopy.description}</p>
       </div>
 
       <div class="capture-form">
         <label>
           <span>{t('worldEditor.scene.fieldTitle', {}, $locale)}</span>
           <input bind:value={presetTitle} placeholder={t('worldEditor.scene.titlePlaceholder', {}, $locale)} />
-        </label>
-        <label>
-          <span>{t('worldEditor.scene.fieldDescription', {}, $locale)}</span>
-          <textarea
-            bind:value={presetDescription}
-            rows="3"
-            placeholder={t('worldEditor.scene.descriptionPlaceholder', {}, $locale)}
-          ></textarea>
-        </label>
-        <label>
-          <span>{t('worldEditor.scene.visibility', {}, $locale)}</span>
-          <select bind:value={visibility}>
-            <option value="unlisted">{t('worldEditor.scene.unlisted', {}, $locale)}</option>
-            <option value="public">{t('worldEditor.scene.public', {}, $locale)}</option>
-            <option value="private">{t('worldEditor.scene.private', {}, $locale)}</option>
-          </select>
         </label>
 
         <div class="capture-region-options">
@@ -5738,17 +5743,24 @@
             on:click={previewScene}
           >{t('worldEditor.scene.capturePreview', {}, $locale)}</button>
           <button
-            class="publish"
-            disabled={
-              !capturePreview?.publicationReady ||
-              !connected ||
-              !creatorProfileId ||
-              !presetTitle.trim() ||
-              loading
-            }
-            on:click={publishScene}
-          >{t('worldEditor.scene.publish', {}, $locale)}</button>
+            disabled={!capturePreview?.publicationReady || loading}
+            on:click={savePrivateSceneMaster}
+          >{scenePrivateCopy.save}</button>
         </div>
+
+        {#if privateSceneMaster}
+          <div class="publication-master">
+            <strong>
+              {privateSceneMaster.publication && privateSceneMaster.changesNotPublished
+                ? scenePrivateCopy.changes
+                : scenePrivateCopy.saved}
+            </strong>
+            <a
+              class="publish"
+              href={base + '/presets/publish/?master=' + privateSceneMaster.masterId}
+            >{scenePrivateCopy.continuePublish}</a>
+          </div>
+        {/if}
       </div>
 
       <div class="capture-status">

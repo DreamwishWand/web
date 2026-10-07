@@ -136,6 +136,7 @@
       "community-query",
       "community-retention",
       "wep-preset-artifact",
+      "wep-scene-preset-product",
       "wep-preset-retention"
     ],
     "stagingOnlyDenylist": [

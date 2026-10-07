@@ -31,12 +31,10 @@ export type WorldEditorHandoff =
       version: 1;
       sourceSurface: 'presets';
       intent: 'SCENE_PRESET';
-      workId: string;
       presetArtifactId: string;
       presetRevisionId: string;
-      schemaVersion: 1;
-      byteSize: number;
       checksumSha256: string;
+      byteSize: number;
       createdAt: string;
       persistentWriteAuthorized: false;
       productApplyAuthorized: false;
@@ -107,38 +105,38 @@ export function createMoodboardHandoff(
 }
 
 export function createScenePresetHandoff(
-  input: {
-    workId: string;
+  {
+    presetArtifactId,
+    presetRevisionId,
+    checksumSha256,
+    byteSize,
+    createdAt
+  }: {
     presetArtifactId: string;
     presetRevisionId: string;
-    schemaVersion: number;
-    byteSize: number;
     checksumSha256: string;
+    byteSize: number;
     createdAt?: string;
   }
 ): WorldEditorHandoff {
-  const workId=String(input.workId??'').trim();
-  const presetArtifactId=String(input.presetArtifactId??'').trim();
-  const presetRevisionId=String(input.presetRevisionId??'').trim();
-  const checksumSha256=String(input.checksumSha256??'').trim().toLowerCase();
-  assert(workId, 'WEP_HANDOFF_PRESET_WORK_ID_REQUIRED');
-  assert(presetArtifactId, 'WEP_HANDOFF_PRESET_ARTIFACT_ID_REQUIRED');
-  assert(presetRevisionId, 'WEP_HANDOFF_PRESET_REVISION_ID_REQUIRED');
-  assert(Number(input.schemaVersion)===1, 'WEP_HANDOFF_PRESET_SCHEMA_UNSUPPORTED');
-  assert(Number.isSafeInteger(Number(input.byteSize)) && Number(input.byteSize)>0, 'WEP_HANDOFF_PRESET_SIZE_INVALID');
-  assert(/^[0-9a-f]{64}$/.test(checksumSha256), 'WEP_HANDOFF_PRESET_CHECKSUM_INVALID');
+  const artifactId = String(presetArtifactId ?? '').trim();
+  const revisionId = String(presetRevisionId ?? '').trim();
+  const checksum = String(checksumSha256 ?? '').trim().toLowerCase();
+  const size = Number(byteSize);
+  assert(artifactId, 'WEP_HANDOFF_PRESET_ARTIFACT_ID_REQUIRED');
+  assert(revisionId, 'WEP_HANDOFF_PRESET_REVISION_ID_REQUIRED');
+  assert(/^[0-9a-f]{64}$/.test(checksum), 'WEP_HANDOFF_PRESET_CHECKSUM_INVALID');
+  assert(Number.isSafeInteger(size) && size > 0, 'WEP_HANDOFF_PRESET_BYTE_SIZE_INVALID');
   return Object.freeze({
     schema: WORLD_EDITOR_HANDOFF_SCHEMA,
     version: 1 as const,
     sourceSurface: 'presets' as const,
     intent: 'SCENE_PRESET' as const,
-    workId,
-    presetArtifactId,
-    presetRevisionId,
-    schemaVersion: 1 as const,
-    byteSize: Number(input.byteSize),
-    checksumSha256,
-    createdAt: stamp(input.createdAt),
+    presetArtifactId: artifactId,
+    presetRevisionId: revisionId,
+    checksumSha256: checksum,
+    byteSize: size,
+    createdAt: stamp(createdAt),
     ...safety()
   });
 }
@@ -164,12 +162,10 @@ export function normalizeWorldEditorHandoff(value: unknown): WorldEditorHandoff 
   }
   if (input.sourceSurface === 'presets' && input.intent === 'SCENE_PRESET') {
     return createScenePresetHandoff({
-      workId: String(input.workId ?? ''),
       presetArtifactId: String(input.presetArtifactId ?? ''),
       presetRevisionId: String(input.presetRevisionId ?? ''),
-      schemaVersion: Number(input.schemaVersion ?? 0),
-      byteSize: Number(input.byteSize ?? 0),
       checksumSha256: String(input.checksumSha256 ?? ''),
+      byteSize: Number(input.byteSize),
       createdAt: String(input.createdAt ?? '')
     });
   }

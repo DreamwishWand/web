@@ -67,10 +67,12 @@ const wepRequired = {
   migrations: [
     'supabase/migrations/20260930124055_wep_preset_artifact_storage_v0.sql',
     'supabase/migrations/20260930124357_wep_preset_artifact_access_v0.sql',
-    'supabase/migrations/20260930125310_wep_preset_retention_claim_v0.sql'
+    'supabase/migrations/20260930125310_wep_preset_retention_claim_v0.sql',
+    'supabase/migrations/20261007124300_scene_preset_product_vertical_v1.sql'
   ],
   functions: [
     'supabase/functions/wep-preset-artifact/index.ts',
+    'supabase/functions/wep-scene-preset-product/index.ts',
     'supabase/functions/wep-preset-retention/index.ts'
   ],
   resolver: 'supabase/functions/_shared/wep-preset-artifact-bucket.ts'

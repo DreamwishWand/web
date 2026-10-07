@@ -112,6 +112,11 @@
       if (handoff?.sourceSurface === 'explore' && handoff.intent === 'ITEM') {
         pendingItemId = Number(handoff.itemId);
       } else if (
+        handoff?.sourceSurface === 'presets' &&
+        handoff.intent === 'SCENE_PRESET'
+      ) {
+        pendingPresetArtifactId = String(handoff.presetArtifactId ?? '') || null;
+      } else if (
         handoff?.sourceSurface === 'moodboard' &&
         handoff.referenceId &&
         board
@@ -238,8 +243,26 @@
     }
     presetLoading = true;
     try {
-      await presetBridge.preflightPreset(pendingPresetArtifactId);
-      presetStatus = copy.presetChecked;
+      const exactRevision =
+        handoff?.sourceSurface === 'presets' &&
+        handoff?.intent === 'SCENE_PRESET'
+          ? {
+              presetRevisionId: handoff.presetRevisionId,
+              expectedChecksumSha256: handoff.checksumSha256,
+              expectedByteSize: handoff.byteSize
+            }
+          : {};
+      const result = await presetBridge.preflightPreset(
+        pendingPresetArtifactId,
+        exactRevision
+      );
+      const blockers = (result?.preflight?.issues ?? [])
+        .filter((issue: any) => issue?.severity === 'BLOCK')
+        .map((issue: any) => String(issue?.code ?? ''))
+        .filter(Boolean);
+      presetStatus = blockers.length
+        ? copy.presetFailed + ' ' + blockers.join(', ')
+        : copy.presetChecked;
     } catch (error) {
       presetStatus =
         copy.presetFailed +
