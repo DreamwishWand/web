@@ -262,7 +262,14 @@ try{
   await exportPanel.locator('.verified-export-confirm input[type="checkbox"]').check();
   await applyButton.click();
   const success=exportPanel.locator('.verified-export-success');
-  await success.waitFor({state:'visible',timeout:15000});
+  const applyError=exportPanel.locator('.verified-export-error');
+  await Promise.race([
+    success.waitFor({state:'visible',timeout:15000}),
+    applyError.waitFor({state:'visible',timeout:15000})
+  ]);
+  if(await applyError.isVisible()){
+    throw new Error('STORAGE_APPLY_FAIL: '+await applyError.innerText());
+  }
   assert.ok((await success.innerText()).includes('Verified edited save generated'));
 
   const [backupDownload]=await Promise.all([
