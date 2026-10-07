@@ -25,6 +25,22 @@ export type WorldEditorHandoff =
       persistentWriteAuthorized: false;
       productApplyAuthorized: false;
       directSourceReplacementAuthorized: false;
+    }
+  | {
+      schema: typeof WORLD_EDITOR_HANDOFF_SCHEMA;
+      version: 1;
+      sourceSurface: 'presets';
+      intent: 'SCENE_PRESET';
+      workId: string;
+      presetArtifactId: string;
+      presetRevisionId: string;
+      schemaVersion: 1;
+      byteSize: number;
+      checksumSha256: string;
+      createdAt: string;
+      persistentWriteAuthorized: false;
+      productApplyAuthorized: false;
+      directSourceReplacementAuthorized: false;
     };
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
@@ -90,6 +106,43 @@ export function createMoodboardHandoff(
   });
 }
 
+export function createScenePresetHandoff(
+  input: {
+    workId: string;
+    presetArtifactId: string;
+    presetRevisionId: string;
+    schemaVersion: number;
+    byteSize: number;
+    checksumSha256: string;
+    createdAt?: string;
+  }
+): WorldEditorHandoff {
+  const workId=String(input.workId??'').trim();
+  const presetArtifactId=String(input.presetArtifactId??'').trim();
+  const presetRevisionId=String(input.presetRevisionId??'').trim();
+  const checksumSha256=String(input.checksumSha256??'').trim().toLowerCase();
+  assert(workId, 'WEP_HANDOFF_PRESET_WORK_ID_REQUIRED');
+  assert(presetArtifactId, 'WEP_HANDOFF_PRESET_ARTIFACT_ID_REQUIRED');
+  assert(presetRevisionId, 'WEP_HANDOFF_PRESET_REVISION_ID_REQUIRED');
+  assert(Number(input.schemaVersion)===1, 'WEP_HANDOFF_PRESET_SCHEMA_UNSUPPORTED');
+  assert(Number.isSafeInteger(Number(input.byteSize)) && Number(input.byteSize)>0, 'WEP_HANDOFF_PRESET_SIZE_INVALID');
+  assert(/^[0-9a-f]{64}$/.test(checksumSha256), 'WEP_HANDOFF_PRESET_CHECKSUM_INVALID');
+  return Object.freeze({
+    schema: WORLD_EDITOR_HANDOFF_SCHEMA,
+    version: 1 as const,
+    sourceSurface: 'presets' as const,
+    intent: 'SCENE_PRESET' as const,
+    workId,
+    presetArtifactId,
+    presetRevisionId,
+    schemaVersion: 1 as const,
+    byteSize: Number(input.byteSize),
+    checksumSha256,
+    createdAt: stamp(input.createdAt),
+    ...safety()
+  });
+}
+
 export function normalizeWorldEditorHandoff(value: unknown): WorldEditorHandoff {
   assert(value && typeof value === 'object' && !Array.isArray(value), 'WEP_HANDOFF_INVALID');
   const input = value as Record<string, unknown>;
@@ -106,6 +159,17 @@ export function normalizeWorldEditorHandoff(value: unknown): WorldEditorHandoff 
     return createMoodboardHandoff(String(input.boardId ?? ''), {
       referenceId: input.referenceId == null ? null : String(input.referenceId),
       groupId: input.groupId == null ? null : String(input.groupId),
+      createdAt: String(input.createdAt ?? '')
+    });
+  }
+  if (input.sourceSurface === 'presets' && input.intent === 'SCENE_PRESET') {
+    return createScenePresetHandoff({
+      workId: String(input.workId ?? ''),
+      presetArtifactId: String(input.presetArtifactId ?? ''),
+      presetRevisionId: String(input.presetRevisionId ?? ''),
+      schemaVersion: Number(input.schemaVersion ?? 0),
+      byteSize: Number(input.byteSize ?? 0),
+      checksumSha256: String(input.checksumSha256 ?? ''),
       createdAt: String(input.createdAt ?? '')
     });
   }
