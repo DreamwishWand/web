@@ -19,14 +19,15 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "fc3df9ebf6a2f12c0a1b70b5dfa422a4fedbff51",
+    "src/routes/editor/world/+page.svelte": "6d3857adc877dbd09a2556e1e4e9f52083a0f4dd",
     "src/lib/wep/world-editor-primary-job.ts": "25aba45c6004c020400a249c848c3bc2281fd4a0",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "711609eb100a0809a5e9a5b274f83dd9319e3645",
     "src/lib/SiteFooter.svelte": "4b20121a1295e42aeaeb25e39cb3853bd80da0e8",
-    "src/lib/wep/WorldEditorStage1DecoratePanel.svelte": "7bfb2981870f803c9e3adfc9e99192211325124a",
+    "src/lib/wep/WorldEditorStage1DecoratePanel.svelte": "1e4fe21cf5af6b5c73b3fc8728503f2856c62db4",
     "src/lib/wep/world-editor-stage1-copy.js": "9dace4b7538c04a8c650f691739d0bda22f38329",
-    "src/lib/wep/room-finish-copy.js": "f75c54053bafa416842ca17938895b20d7f47f9b"
+    "src/lib/wep/room-finish-copy.js": "f75c54053bafa416842ca17938895b20d7f47f9b",
+    "src/lib/presets/scene-preset-private-master-copy.js": "bba3422251abb0f62500e741b3c1e91b3ae9b396"
   },
   "ownership": {
     "wepOwned": [
@@ -35,7 +36,8 @@
       "src/lib/wep/blocker-messages.ts",
       "src/lib/wep/WorldEditorStage1DecoratePanel.svelte",
       "src/lib/wep/world-editor-stage1-copy.js",
-      "src/lib/wep/room-finish-copy.js"
+      "src/lib/wep/room-finish-copy.js",
+      "src/lib/presets/scene-preset-private-master-copy.js"
     ],
     "sharedWebRenderedOnWorldEditor": [
       "src/lib/SiteHeader.svelte",
@@ -62,7 +64,7 @@
       "pt-BR"
     ],
     "rule": "World Editor presentation resolves through the shared locale runtime. WEP does not own a locale store, selector, fallback resolver, formatter, or resource loader.",
-    "routeChangeNote": "Promoted 08 WEB shared-shell authority is preserved. Decorate Stage 1 WEP consumer presentation and post-01E Room Finish presentation use the same shared eight-locale runtime; Room Finish adds no WEP locale runtime."
+    "routeChangeNote": "Promoted 08 WEB shared-shell authority is preserved. Decorate Stage 1, Storage Furniture, Room Finish, Scene private-master capture, and Scene destination-preflight presentation use the shared eight-locale runtime. Preset machine blocker codes remain untranslated logic keys."
   },
   "translationBoundary": {
     "translate": [
@@ -1343,6 +1345,22 @@
           "publishには認証済みWand Account、Creator Profile、Preset titleが必要です。",
           "Scene Presetを公開しました。DDVセーブへの書き込みは行っていません。"
         ]
+      },
+      {
+        "surface": "Scene private-master capture / explicit Publish handoff",
+        "owner": "09 INT consuming WEP + Product authority",
+        "source": [
+          "src/routes/editor/world/+page.svelte",
+          "src/lib/presets/scene-preset-private-master-copy.js"
+        ],
+        "strings": [
+          "Capture & Save",
+          "Save Private Master",
+          "Private master saved.",
+          "Continue to Publish",
+          "Changes not published"
+        ],
+        "note": "Create/save and public Publish are separate operations. Public Title/image requirements live on the dedicated Presets Publish surface."
       }
     ],
     "storeInspector": [

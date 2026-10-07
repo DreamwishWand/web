@@ -508,6 +508,13 @@ export class CommunityLabClient {
     return this.#edge<EdgeResult<T>>('wep-preset-artifact', { action, ...payload });
   }
 
+  async presetProduct<T = unknown>(
+    action: string,
+    payload: Record<string, unknown> = {}
+  ): Promise<EdgeResult<T>> {
+    return this.#edge<EdgeResult<T>>('wep-scene-preset-product', { action, ...payload });
+  }
+
   async admin<T = unknown>(
     operation: string,
     payload: Record<string, unknown> = {}
@@ -625,6 +632,13 @@ export class CommunityLabClient {
     const read = await this.media('read', { mediaId });
     return { mediaId, finalize, read };
   }
+
+  async discardFinalizedImage(mediaId: string): Promise<EdgeResult<any>> {
+    const id = String(mediaId ?? '').trim();
+    if (!id) throw new Error('Media ID is required.');
+    return this.media('discard', { mediaId: id });
+  }
+
 
   async #refresh(): Promise<CommunitySession> {
     if (!this.#session?.refreshToken) {

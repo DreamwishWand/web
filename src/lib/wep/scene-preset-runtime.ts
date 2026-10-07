@@ -230,6 +230,8 @@ export function validatePublishablePreset(artifact: unknown) {
   const schemaVersion = Number(artifact.artifactVersion ?? artifact.schemaVersion ?? 0);
   if (!Number.isSafeInteger(schemaVersion) || schemaVersion <= 0) {
     issues.push(issue('PRESET_SCHEMA_VERSION_INVALID'));
+  } else if (schemaVersion !== 1) {
+    issues.push(issue('PRESET_SCHEMA_VERSION_UNSUPPORTED'));
   }
 
   const presetType = String(artifact.type ?? artifact.artifactType ?? '').toLowerCase();

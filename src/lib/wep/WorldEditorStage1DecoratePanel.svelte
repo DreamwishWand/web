@@ -17,11 +17,13 @@
   } from './world-editor-handoff';
   import { worldEditorStage1Copy } from './world-editor-stage1-copy.js';
   import { roomFinishCopy } from './room-finish-copy.js';
+  import { preflightScenePresetDestinationV125 } from './scene-preset-destination-preflight';
 
   export let session: any = null;
   export let editorDocument: any = null;
   export let selection: string[] = [];
   export let switchWorldBinding: any = null;
+  export let placementLegalityBinding: any = null;
   export let mutationBound = false;
   export let presetBridge: any = null;
   export let onMutation: (result: any, label: string) => void = () => {};
@@ -111,6 +113,11 @@
 
       if (handoff?.sourceSurface === 'explore' && handoff.intent === 'ITEM') {
         pendingItemId = Number(handoff.itemId);
+      } else if (
+        handoff?.sourceSurface === 'presets' &&
+        handoff.intent === 'SCENE_PRESET'
+      ) {
+        pendingPresetArtifactId = String(handoff.presetArtifactId ?? '') || null;
       } else if (
         handoff?.sourceSurface === 'moodboard' &&
         handoff.referenceId &&
@@ -236,10 +243,46 @@
       presetStatus = copy.presetAccount;
       return;
     }
+    if (!editorDocument || !placementLegalityBinding) {
+      presetStatus = copy.sourceNeeded;
+      return;
+    }
     presetLoading = true;
     try {
-      await presetBridge.preflightPreset(pendingPresetArtifactId);
-      presetStatus = copy.presetChecked;
+      const exactRevision =
+        handoff?.sourceSurface === 'presets' &&
+        handoff?.intent === 'SCENE_PRESET'
+          ? {
+              presetRevisionId: String(handoff.presetRevisionId ?? ''),
+              expectedChecksumSha256: String(handoff.checksumSha256 ?? ''),
+              expectedByteSize: Number(handoff.byteSize)
+            }
+          : null;
+      const loaded = exactRevision?.presetRevisionId
+        ? await presetBridge.loadPresetRevision(
+            pendingPresetArtifactId,
+            exactRevision.presetRevisionId,
+            {
+              expectedChecksumSha256: exactRevision.expectedChecksumSha256,
+              expectedByteSize: exactRevision.expectedByteSize
+            }
+          )
+        : await presetBridge.loadPreset(pendingPresetArtifactId);
+      const preflight = preflightScenePresetDestinationV125({
+        artifact: loaded.artifact,
+        destinationDocument: editorDocument,
+        placementBinding: placementLegalityBinding,
+        anchor: { x: Number(placementX), y: Number(placementY) },
+        inventory: null,
+        roadFenceTopologySupported: false
+      });
+      const blockers = (preflight?.issues ?? [])
+        .filter((issue: any) => issue?.severity === 'BLOCK')
+        .map((issue: any) => String(issue?.code ?? ''))
+        .filter(Boolean);
+      presetStatus = blockers.length
+        ? copy.presetFailed + ' ' + blockers.join(', ')
+        : copy.presetChecked;
     } catch (error) {
       presetStatus =
         copy.presetFailed +
@@ -385,13 +428,15 @@
       <code>{pendingPresetArtifactId}</code>
       <button
         type="button"
-        disabled={presetLoading || !presetBridge}
+        disabled={presetLoading || !presetBridge || !editorDocument || !placementLegalityBinding}
         on:click={preflightPendingPreset}
       >
         {copy.preflight}
       </button>
       {#if !presetBridge}
         <p class="boundary-note">{copy.presetAccount}</p>
+      {:else if !editorDocument || !placementLegalityBinding}
+        <p class="boundary-note">{copy.sourceNeeded}</p>
       {/if}
       {#if presetStatus}
         <p class="stage1-status" aria-live="polite">{presetStatus}</p>
