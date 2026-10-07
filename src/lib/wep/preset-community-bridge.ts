@@ -528,7 +528,8 @@ export function createPresetCommunityBridge({
       expectedChecksumSha256 = null,
       expectedByteSize = null,
       requireBlobIdentity = false,
-      requireStorageKey = false
+      requireStorageKey = false,
+      requireContentType = false
     }: {
       presetArtifactId: string;
       presetRevisionId?: string | null;
@@ -536,6 +537,7 @@ export function createPresetCommunityBridge({
       expectedByteSize?: number | null;
       requireBlobIdentity?: boolean;
       requireStorageKey?: boolean;
+      requireContentType?: boolean;
     }
   ) {
     const read = presetOf(readInput) ?? {};
@@ -557,10 +559,12 @@ export function createPresetCommunityBridge({
     }
     assert(String(read.presetType ?? '') === 'scene', 'WEP_PRESET_READ_TYPE_UNSUPPORTED');
     assert(Number(read.schemaVersion) === 1, 'WEP_PRESET_READ_SCHEMA_UNSUPPORTED');
-    assert(
-      String(read.contentType ?? '') === 'application/json',
-      'WEP_PRESET_READ_CONTENT_TYPE_INVALID'
-    );
+    if (requireContentType) {
+      assert(
+        String(read.contentType ?? '') === 'application/json',
+        'WEP_PRESET_READ_CONTENT_TYPE_INVALID'
+      );
+    }
 
     const signedUrl = String(read.signedUrl ?? '');
     assert(signedUrl, 'WEP_PRESET_READ_SIGNED_URL_MISSING');
@@ -703,7 +707,8 @@ export function createPresetCommunityBridge({
       expectedChecksumSha256,
       expectedByteSize,
       requireBlobIdentity: true,
-      requireStorageKey: true
+      requireStorageKey: true,
+      requireContentType: true
     });
   }
 
