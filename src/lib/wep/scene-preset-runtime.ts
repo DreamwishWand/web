@@ -228,8 +228,8 @@ export function validatePublishablePreset(artifact: unknown) {
   }
 
   const schemaVersion = Number(artifact.artifactVersion ?? artifact.schemaVersion ?? 0);
-  if (!Number.isSafeInteger(schemaVersion) || schemaVersion <= 0) {
-    issues.push(issue('PRESET_SCHEMA_VERSION_INVALID'));
+  if (!Number.isSafeInteger(schemaVersion) || schemaVersion !== 1) {
+    issues.push(issue('PRESET_SCHEMA_VERSION_UNSUPPORTED'));
   }
 
   const presetType = String(artifact.type ?? artifact.artifactType ?? '').toLowerCase();
@@ -266,6 +266,9 @@ export function validatePublishablePreset(artifact: unknown) {
           issues.push(issue('SCENE_OBJECT_ID_INVALID', `${current}.artifactObjectId`));
         } else {
           ids.add(id);
+        }
+        if (!['furniture','building','landscaping'].includes(String(object.layer ?? ''))) {
+          issues.push(issue('SCENE_OBJECT_CLASS_UNSUPPORTED', `${current}.layer`));
         }
         if (
           !Number.isSafeInteger(Number(object.itemId)) ||
@@ -305,10 +308,24 @@ export function validatePublishablePreset(artifact: unknown) {
     }
   }
 
+  if (
+    presetType === 'scene' &&
+    plain(artifact.source) &&
+    artifact.source.platform === 'Nintendo Switch' &&
+    (
+      artifact.source.gameVersion !== '1.25.0' ||
+      artifact.source.exactBuildKnown !== true ||
+      artifact.source.buildIdentity !== '52BD625D9B4E0053' ||
+      Number(artifact.source.profileSchemaVersion) !== 624
+    )
+  ) {
+    issues.push(issue('PRESET_SOURCE_VERSION_BUILD_UNSUPPORTED', '$.source'));
+  }
+
   return {
     ok: issues.length === 0,
     presetType: presetType || null,
-    schemaVersion: Number.isSafeInteger(schemaVersion) && schemaVersion > 0 ? schemaVersion : null,
+    schemaVersion: schemaVersion === 1 ? 1 : null,
     issues
   };
 }
