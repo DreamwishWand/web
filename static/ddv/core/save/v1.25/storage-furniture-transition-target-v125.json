@@ -1,0 +1,53 @@
+{
+  "schema": "ddv.save.storage-furniture-transition-target@1",
+  "artifactId": "DDV-SAVE-STORAGE-FURNITURE-TRANSITION-TARGET-V125-V1_0",
+  "version": "v1.0",
+  "status": "01A_TARGET_EXTENSION_CANDIDATE",
+  "owner": "01A / Core Save",
+  "upstreamRequestId": "01B-TO-01A-STORAGE-FURNITURE-TRANSITION-V125-V1",
+  "upstreamSemanticContract": "ddv.storage-furniture-container-semantics@1",
+  "baseCommit": "b02f5c9b52f2f64e7dc097ee4704cb29230bfbf5",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchemaVersion": 624,
+    "steamInference": false
+  },
+  "capability": "STRUCTURAL_WRITE_CANDIDATE",
+  "newCapabilityEnumAdded": false,
+  "targetKind": "STORAGE_FURNITURE_TRANSITION",
+  "identityPolicy": "ALLOW_DECLARED_STORAGE_FURNITURE_TRANSITION_ONLY",
+  "supportedModes": ["CROSS_GRID_MOVE", "PUT_AWAY_NONEMPTY", "REPLACE_NONEMPTY"],
+  "sameGridMove": {"included": false, "reason": "existing WRITE_CANDIDATE / GRID_OBJECT is sufficient"},
+  "commonIdentity": {
+    "required": ["itemId", "containerInventoryId", "containerParentItemId == itemId", "containerBelongsToPlayer == true", "containerSize > 0 and equal to selected save ContainerInventory.Size", "ddv.storage-active-reference-index@1 status COMPLETE_CURRENT_SAVE"],
+    "independentVerifier": ["re-scan World.GridCollection.Grids[*].Objects for State.Storage.ContainerInventoryID", "require declared COMPLETE_CURRENT_SAVE reference set equals source scan exactly", "require candidate reference set equals the mode-specific expected post-state", "re-bind selected Player.ContainerInventories record before and after"],
+    "unknownOrIncompleteReferences": "REJECT"
+  },
+  "modes": {
+    "CROSS_GRID_MOVE": {
+      "requiredIdentity": ["sourceGridId", "sourceGridObjectId", "destinationGridId", "destinationGridObjectId", "destinationNextGridObjectIDBefore", "destinationNextGridObjectIDAfter"],
+      "rules": ["sourceGridId != destinationGridId", "destinationGridObjectId == destinationNextGridObjectIDBefore", "destinationNextGridObjectIDAfter == destinationNextGridObjectIDBefore + 1", "source active reference is exactly one source GridObject address", "candidate active reference is exactly one destination GridObject address", "destination payload equals source payload except ID/X/Y/Orientation", "State.Storage.ContainerInventoryID is unchanged"],
+      "allowedPaths": ["/World/GridCollection/Grids/{sourceGridId}/Objects/{sourceGridObjectId}", "/World/GridCollection/Grids/{destinationGridId}/Objects/{destinationGridObjectId}", "/World/GridCollection/Grids/{destinationGridId}/NextGridObjectID"]
+    },
+    "PUT_AWAY_NONEMPTY": {
+      "requiredIdentity": ["sourceGridId", "sourceGridObjectId", "listInventoryId", "listAmountBefore", "listAmountAfter"],
+      "rules": ["listAmountAfter == listAmountBefore + 1", "selected ContainerInventory is non-empty", "source active reference is exact before mutation", "selected ContainerInventory has zero active references after mutation", "existing ListInventory entry only; no map-entry creation/removal"],
+      "allowedPaths": ["/World/GridCollection/Grids/{sourceGridId}/Objects/{sourceGridObjectId}", "/Player/ListInventories/{listInventoryId}/Inventory/{itemId}/Amount"]
+    },
+    "REPLACE_NONEMPTY": {
+      "requiredIdentity": ["destinationGridId", "destinationGridObjectId", "destinationNextGridObjectIDBefore", "destinationNextGridObjectIDAfter", "listInventoryId", "listAmountBefore", "listAmountAfter", "ddv.storage-grid-object-template-evidence@1"],
+      "rules": ["destinationGridObjectId == destinationNextGridObjectIDBefore", "destinationNextGridObjectIDAfter == destinationNextGridObjectIDBefore + 1", "listAmountBefore >= 1 and listAmountAfter == listAmountBefore - 1", "selected ContainerInventory is non-empty and has zero active references before mutation", "template provenance is SAME_SAVE_HASH_BOUND and sourceSha256 equals transaction input originalSha256", "candidate destination payload equals template except ID/X/Y/Orientation", "State.Storage.ContainerInventoryID is unchanged", "existing ListInventory entry only; no map-entry creation/removal"],
+      "allowedPaths": ["/World/GridCollection/Grids/{destinationGridId}/Objects/{destinationGridObjectId}", "/World/GridCollection/Grids/{destinationGridId}/NextGridObjectID", "/Player/ListInventories/{listInventoryId}/Inventory/{itemId}/Amount"]
+    }
+  },
+  "protectedState": {
+    "exact": ["/GameInfo", "/Player/ContainerInventories including every selected/unselected record and every slot", "/Player/NextContainerInventoryID", "all unrelated Player.ListInventories entries and fields including Marker", "all unrelated Grids and GridObjects", "/World/PlayerHouses", "Store/Shop state", "progression/quest/event state", "opaque/unknown state"],
+    "structuralHardChecks": ["Player.ContainerInventories before == after semantically exact", "Player.NextContainerInventoryID before == after semantically exact", "selected ContainerInventory before == after exact", "ListInventories membership exact and only declared Amount leaf may differ in PUT_AWAY_NONEMPTY / REPLACE_NONEMPTY", "GridObject identity delta exactly matches declared mode", "source/destination map keys equal embedded GridObject.ID", "candidate verifier re-runs target identity and structural transition checks independently"]
+  },
+  "explicitExclusions": ["generic Player writer", "generic cross-grid writer", "generic ContainerInventory writer", "ContainerInventory create/delete/re-ID", "ContainerInventory slot mutation", "ListInventory map-entry create/remove", "arbitrary JSON patch", "broad inventory mutation", "empty-storage lifecycle", "HomeStorage", "non-player storage", "ownership synthesis/removal", "Premium/DLC/entitlement/receipt/Moonstone/auth mutation", "persistent source replacement", "Road/Fence mutation", "Steam support"],
+  "existingTargetRegressionRequired": ["GRID_OBJECT", "GRID_OBJECT_SET", "PLAYER_HOUSE_ROOM"],
+  "semanticAdapterBinding": {"owner": "01B CORE - World / Grid / Buildings", "status": "READY_AFTER_01A_PROMOTION", "sequence": ["01A target promotion", "01B semantic adapter binding", "01E bounded runtime"], "01ADispatches01E": false},
+  "hardFlags": {"persistentWriteAuthorized": false, "WORLD_PERSISTENT_WRITE_V125": false, "PERSISTENT_WRITE": false, "productApplyAuthorized": false, "directSourceReplacementAuthorized": false}
+}
