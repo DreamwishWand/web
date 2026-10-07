@@ -27,3 +27,5 @@ Verification notes:
 - Internal CI PR: #101 against temporary integration base only; DO NOT MERGE.
 
 - CI run 37625518152 classified 7 failures as integration regressions; legacy signed-read compatibility and obsolete direct-publish localization assumptions were corrected.
+
+- Staging temporary E2E harness v8 honors Supabase per-trace retryAfterMs once; product rate limits are unchanged.
