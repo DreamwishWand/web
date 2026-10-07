@@ -1,4 +1,4 @@
-import { preflightScene } from './scene-preset-runtime';
+import { preflightScene } from './scene-preset-runtime.ts';
 
 type AnyRecord = Record<string, any>;
 
