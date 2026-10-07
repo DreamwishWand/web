@@ -1,0 +1,73 @@
+name: WEP Storage Furniture browser acceptance
+
+on:
+  push:
+    branches: ['wep/**']
+    paths:
+      - '.github/workflows/wep-storage-furniture-browser.yml'
+      - 'scripts/wep-storage-furniture-browser-acceptance.mjs'
+      - 'src/routes/editor/world/**'
+      - 'src/lib/wep/storage-furniture-v125.ts'
+      - 'src/lib/wep/world-editor-primary-job.ts'
+      - 'static/ddv/wep/world/v1.25/storage-furniture-definition-pack-v125.json'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/wep-storage-furniture-browser.yml'
+      - 'scripts/wep-storage-furniture-browser-acceptance.mjs'
+      - 'src/routes/editor/world/**'
+      - 'src/lib/wep/storage-furniture-v125.ts'
+      - 'src/lib/wep/world-editor-primary-job.ts'
+      - 'static/ddv/wep/world/v1.25/storage-furniture-definition-pack-v125.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  storage-browser-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Install browser driver library only
+        run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Resolve system Chrome
+        id: chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "path=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+          "$CHROME_BIN" --version
+      - name: Start local app
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4177 > /tmp/wep-storage-vite.log 2>&1 &
+          echo $! > /tmp/wep-storage-vite.pid
+          for i in $(seq 1 60); do
+            if curl --fail --silent --show-error http://127.0.0.1:4177/editor/world/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/wep-storage-vite.log
+          exit 1
+      - name: Run focused Storage Furniture acceptance
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          WEP_STORAGE_BASE_URL: http://127.0.0.1:4177
+        run: node scripts/wep-storage-furniture-browser-acceptance.mjs
+      - name: Upload focused browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wep-storage-furniture-browser-acceptance
+          path: .artifacts/wep-storage-furniture-browser/
+          if-no-files-found: error

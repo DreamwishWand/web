@@ -233,6 +233,36 @@ export function buildPrimaryJobAvailability({
     selectionGate = command(true);
   }
 
+  const storageObjects = objects.filter(
+    (object) =>
+      object?.metadata?.storageCapability?.contract ===
+        'dreamwish-wand-wep-storage-furniture-capability@1' &&
+      object?.metadata?.storageCapability?.status === 'SUPPORTED_NONEMPTY'
+  );
+  const storageSelected = storageObjects.length > 0;
+  const moveGate =
+    storageSelected && objects.length !== 1
+      ? command(
+          false,
+          'WEP_STORAGE_SINGLE_OBJECT_MOVE_REQUIRED',
+          'Storage Furniture persistent review is bound to one exact placed Container Furniture at a time.'
+        )
+      : selectionGate;
+  const storageGenericMutationGate = storageSelected
+    ? command(
+        false,
+        'WEP_STORAGE_PROTECTED_ATTACHED_STATE',
+        'This non-empty Storage Furniture carries protected attached ContainerInventory state; use only the promoted Storage operation.'
+      )
+    : selectionGate;
+  const rotateGate = storageSelected
+    ? command(
+        false,
+        'WEP_STORAGE_ROTATE_NOT_PROMOTED',
+        'The frozen Storage SAME_GRID_MOVE contract permits position changes only; rotation remains fail-closed.'
+      )
+    : selectionGate;
+
   const clipboardGate = !mutationBound
     ? command(
         false,
@@ -253,12 +283,12 @@ export function buildPrimaryJobAvailability({
     selectedBlockedCount: blocked.length,
     selectedReasonCodes: reasons,
     commands: {
-      move: selectionGate,
-      rotate: selectionGate,
-      copy: selectionGate,
+      move: moveGate,
+      rotate: rotateGate,
+      copy: storageGenericMutationGate,
       paste: clipboardGate,
-      duplicate: selectionGate,
-      delete: selectionGate,
+      duplicate: storageGenericMutationGate,
+      delete: storageGenericMutationGate,
       undo: mutationBound && canUndo
         ? command(true)
         : command(
