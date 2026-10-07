@@ -21,3 +21,7 @@ Safety remains fail-closed:
 - whole-Scene automatic persistent Apply is not authorized.
 
 The existing WEP artifact bucket and Community PresetArtifact/PresetRevision/ArtifactBlob domains are reused. No duplicate Item, Creator, Preset payload-store or entitlement model is introduced.
+
+Verification notes:
+- Staging DDL rollback parse: PASS; no migration state or synthetic product data retained.
+- Internal CI PR: #101 against temporary integration base only; DO NOT MERGE.
