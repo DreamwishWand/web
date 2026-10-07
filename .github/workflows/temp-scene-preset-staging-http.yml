@@ -1,0 +1,28 @@
+name: TEMP Scene Preset Staging HTTP Acceptance
+
+on:
+  pull_request:
+    branches:
+      - integration/presets-scene-product-ci-base-20261007
+
+permissions:
+  contents: read
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Invoke staging Scene Preset product acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          response="$(curl --fail-with-body --silent --show-error --max-time 120             https://ptpdoxhrqopvczpclcij.supabase.co/functions/v1/wep-preset-flow-e2e)"
+          printf '%s\n' "$response"
+          RESPONSE="$response" node -e '
+            const body=JSON.parse(process.env.RESPONSE);
+            if(body.ok!==true || body.status!=="PASS") {
+              console.error("STAGING_ACCEPTANCE_FAILED", body.error ?? body);
+              process.exit(1);
+            }
+            console.log("SCENE_PRESET_STAGING_HTTP_PASS", JSON.stringify(body));
+          '
