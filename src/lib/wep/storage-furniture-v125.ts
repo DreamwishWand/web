@@ -157,7 +157,7 @@ export async function reviewStorageSameGridMoveVerifiedExportV125({sourceBytes,s
   const transition=compileStorageSameGridMoveV125({resolved:exact.resolved,profile,destination:{x:change.after.x,y:change.after.y,orientation},placementEvidence});
   const ctx=session.getPreflightContext();
   const transactionInput={platform:PlatformFamily.Switch,gameVersion:'1.25.0',profileGameInfoVersion:624,originalFileLength:session.source.length,originalSha256:ctx.saveIdentity.sourceRawSha256,codecContract:ctx.codecContract,targetBuild:{...targetBuild}};
-  const plan=buildStorageSameGridMoveTransactionPlanV125({transition,resolved:exact.resolved,profile,transactionInput,activeReferenceEvidence:exact.evidence,planId:`wep-storage-same-grid-${change.gridId}-${change.gridObjectId}-${String(ctx.saveIdentity.sourceRawSha256).slice(0,12)}`});
+  const plan=(buildStorageSameGridMoveTransactionPlanV125 as any)({transition,resolved:exact.resolved,profile,transactionInput,activeReferenceEvidence:exact.evidence,planId:`wep-storage-same-grid-${change.gridId}-${change.gridObjectId}-${String(ctx.saveIdentity.sourceRawSha256).slice(0,12)}`});
   return Object.freeze({contract:STORAGE_FURNITURE_VERIFIED_EXPORT_CONTRACT,status:'READY',semanticOperation:'STORAGE SAME-GRID MOVE',sourceEpoch:Number(sourceEpoch),sourceName:String(sourceName||'profile'),sourceSha256:String(ctx.saveIdentity.sourceRawSha256),sourceByteLength:session.source.length,targetBuild,change,plan,placementEvidence,protectedStorage:Object.freeze({containerInventoryId:Number(exact.resolved.containerInventoryId),itemId:Number(exact.resolved.itemId),contents:'PROTECTED_ATTACHED_STATE',editable:false,portable:false}),runtimeAcceptance:STORAGE_RUNTIME_ACCEPTANCE,persistentWriteAuthorized:false,WORLD_PERSISTENT_WRITE_V125:false,PERSISTENT_WRITE:false,productApplyAuthorized:false,directSourceReplacementAuthorized:false});
 }
 
@@ -172,20 +172,21 @@ export async function commitStorageFurnitureVerifiedExportV125({review,currentSo
   const coreVerification=verified?.verification?.coreVerification;if(coreVerification?.status!=='PASS') fail('WEP_STORAGE_CANDIDATE_VERIFICATION_FAILED');
   const artifacts=await createVerifiedCandidateExportBundle({candidate:candidateBundle.candidate,verification:coreVerification,gameVersion:'1.25.0',targetBuild:{...targetBuild},sourceName:review.sourceName});
   const reopened=await openWorldSaveBytes(candidateBundle.candidate.candidateBytes,{sourcePlatform:PlatformFamily.Switch});
-  const g=Number(review.change.gridId),o=Number(review.change.gridObjectId),cid=Number(review.protectedStorage.containerInventoryId),after=rawObject(reopened.profile,g,o),before=rawObject(session.getSnapshot(),g,o);
-  if(!after||!before||Number(after.ID)!==o||Number(after.ItemID)!==Number(review.change.itemId)||Number(after?.State?.Storage?.ContainerInventoryID)!==cid||Number(after.X)!==Number(review.change.after.x)||Number(after.Y)!==Number(review.change.after.y)||String(after.Orientation)!==String(before.Orientation)||!eq(session.getSnapshot()?.Player?.ContainerInventories,reopened.profile?.Player?.ContainerInventories)||!eq(session.getSnapshot()?.Player?.ListInventories,reopened.profile?.Player?.ListInventories)) fail('WEP_STORAGE_RELOAD_IDENTITY_OR_PRESERVATION_MISMATCH');
+  const sourceProfile:any=session.getSnapshot();
+  const g=Number(review.change.gridId),o=Number(review.change.gridObjectId),cid=Number(review.protectedStorage.containerInventoryId),after=rawObject(reopened.profile,g,o),before=rawObject(sourceProfile,g,o);
+  if(!after||!before||Number(after.ID)!==o||Number(after.ItemID)!==Number(review.change.itemId)||Number(after?.State?.Storage?.ContainerInventoryID)!==cid||Number(after.X)!==Number(review.change.after.x)||Number(after.Y)!==Number(review.change.after.y)||String(after.Orientation)!==String(before.Orientation)||!eq(sourceProfile?.Player?.ContainerInventories,reopened.profile?.Player?.ContainerInventories)||!eq(sourceProfile?.Player?.ListInventories,reopened.profile?.Player?.ListInventories)) fail('WEP_STORAGE_RELOAD_IDENTITY_OR_PRESERVATION_MISMATCH');
   const sourceHashAfter=await sha256Hex(sourceBytes);if(sourceHashAfter!==sourceHashBefore) fail('WEP_STORAGE_SOURCE_MUTATED');
   return Object.freeze({contract:STORAGE_FURNITURE_VERIFIED_EXPORT_CONTRACT,status:'PASS',semanticOperation:review.semanticOperation,review:clone(review),verification:clone(verified),artifacts,source:{sha256Before:sourceHashBefore,sha256After:sourceHashAfter,untouched:true},protectedStorage:clone(review.protectedStorage),persistentWriteAuthorized:false,WORLD_PERSISTENT_WRITE_V125:false,PERSISTENT_WRITE:false,productApplyAuthorized:false,directSourceReplacementAuthorized:false});
 }
 
 export function planStorageCrossGridMoveInternalV125({profile,itemDefinitionsById,transactionInput,gridId,gridObjectId,destination,placementEvidence,planId}:AnyRecord){
   const x=resolvePlacedExact(profile,itemDefinitionsById,Number(gridId),Number(gridObjectId)),transition=compileStorageCrossGridMoveV125({resolved:x.resolved,profile,destination,placementEvidence});
-  const plan=buildStorageCrossGridMoveTransactionPlanV125({transition,resolved:x.resolved,profile,transactionInput,activeReferenceEvidence:x.evidence,planId});
+  const plan=(buildStorageCrossGridMoveTransactionPlanV125 as any)({transition,resolved:x.resolved,profile,transactionInput,activeReferenceEvidence:x.evidence,planId});
   return Object.freeze({status:'INTERNAL_ONLY',semanticOperation:'STORAGE CROSS-GRID MOVE',plan,protectedStorage:{containerInventoryId:x.resolved.containerInventoryId,contents:'PROTECTED_ATTACHED_STATE'},persistentWriteAuthorized:false,productApplyAuthorized:false,directSourceReplacementAuthorized:false});
 }
 export function planStoragePutAwayNonemptyInternalV125({profile,itemDefinitionsById,transactionInput,gridId,gridObjectId,planId}:AnyRecord){
   const x=resolvePlacedExact(profile,itemDefinitionsById,Number(gridId),Number(gridObjectId)),transition=compileStoragePutAwayNonemptyV125({resolved:x.resolved});
-  const plan=buildStoragePutAwayNonemptyTransactionPlanV125({transition,resolved:x.resolved,profile,transactionInput,activeReferenceEvidence:x.evidence,planId});
+  const plan=(buildStoragePutAwayNonemptyTransactionPlanV125 as any)({transition,resolved:x.resolved,profile,transactionInput,activeReferenceEvidence:x.evidence,planId});
   return Object.freeze({status:'INTERNAL_ONLY',semanticOperation:'STORAGE PUT AWAY',plan,protectedStorage:{containerInventoryId:x.resolved.containerInventoryId,contents:'PROTECTED_ATTACHED_STATE'},persistentWriteAuthorized:false,productApplyAuthorized:false,directSourceReplacementAuthorized:false});
 }
 export function planStorageReplaceNonemptyInternalV125({profile,itemDefinitionsById,transactionInput,itemId,containerInventoryId,gridObjectTemplate,destination,placementEvidence,planId}:AnyRecord){
@@ -195,6 +196,6 @@ export function planStorageReplaceNonemptyInternalV125({profile,itemDefinitionsB
   const resolvedStored=resolveStoredStorageContainerV125({source:sourceContract,profile,containerInventoryId:Number(containerInventoryId),itemDefinition:definition,activeReferenceEvidence:evidence,listInventoryId,gridObjectTemplateEvidence:templateEvidence});
   if(resolvedStored?.status!=='READY') fail('WEP_STORAGE_STORED_RESOLUTION_REJECTED',clone(resolvedStored?.reasonCodes??[]));
   const transition=compileStorageRePlaceNonemptyV125({resolvedStored,profile,destination,placementEvidence});
-  const plan=buildStorageReplaceNonemptyTransactionPlanV125({transition,resolvedStored,profile,transactionInput,activeReferenceEvidence:evidence,planId});
+  const plan=(buildStorageReplaceNonemptyTransactionPlanV125 as any)({transition,resolvedStored,profile,transactionInput,activeReferenceEvidence:evidence,planId});
   return Object.freeze({status:'INTERNAL_ONLY',semanticOperation:'STORAGE RE-PLACE',plan,protectedStorage:{containerInventoryId:Number(containerInventoryId),contents:'PROTECTED_ATTACHED_STATE'},sameSaveHashBound:templateEvidence.sourceSha256,persistentWriteAuthorized:false,productApplyAuthorized:false,directSourceReplacementAuthorized:false});
 }
