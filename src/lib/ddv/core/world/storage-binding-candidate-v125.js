@@ -1,11 +1,11 @@
 /* 01B canonical storage candidate entrypoint — Switch DDV v1.25 only. */
 'use strict';
+import {SafeProfileEditSession} from '../save/safe-edit-session.js';
 import {
   buildStorageActiveReferenceIndexV125,
   selectStorageActiveReferenceEvidenceV125
 } from './storage-active-reference-index-v125.js';
 import {
-  STORAGE_SAME_GRID_ADAPTER_ID,
   STORAGE_TRANSACTION_BINDING_CONTRACT,
   createVerifiedStorageBindingCandidateV125,
   verifyStorageBindingCandidateV125
@@ -18,31 +18,39 @@ function expectedBeforeCount(plan){
   if(mode==='REPLACE_NONEMPTY')return 0;
   throw Error('STORAGE_BINDING_MODE_REQUIRED');
 }
-
-export async function createVerifiedStorageBindingCandidateFromCurrentSaveV125({session,plan,itemDefinitionsById}={}){
-  if(!session||typeof session.getSnapshot!=='function')throw Error('STORAGE_SAFE_SESSION_REQUIRED');
-  if(!plan||plan.intent?.bindingContract!==STORAGE_TRANSACTION_BINDING_CONTRACT)throw Error('STORAGE_BINDING_PLAN_REQUIRED');
-  const index=buildStorageActiveReferenceIndexV125({
+function indexFor(profile,itemDefinitionsById){
+  return buildStorageActiveReferenceIndexV125({
     source:{platform:'Nintendo Switch',gameVersion:'1.25.0',profileSchemaVersion:624,buildIdentity:'52BD625D9B4E0053'},
-    profile:session.getSnapshot(),itemDefinitionsById
+    profile,itemDefinitionsById
   });
+}
+function rebind(index,plan){
   const evidence=selectStorageActiveReferenceEvidenceV125({
     index,
     containerInventoryId:plan.intent.containerInventoryId,
     expectedReferenceCount:expectedBeforeCount(plan)
   });
   if(!equal(evidence,plan.intent.activeReferenceEvidence))throw Error('STORAGE_ACTIVE_REFERENCE_PLAN_BINDING_MISMATCH');
+  return evidence;
+}
+
+export async function createVerifiedStorageBindingCandidateFromCurrentSaveV125({session,plan,itemDefinitionsById}={}){
+  if(!session||typeof session.getSnapshot!=='function')throw Error('STORAGE_SAFE_SESSION_REQUIRED');
+  if(!plan||plan.intent?.bindingContract!==STORAGE_TRANSACTION_BINDING_CONTRACT)throw Error('STORAGE_BINDING_PLAN_REQUIRED');
+  const index=indexFor(session.getSnapshot(),itemDefinitionsById),evidence=rebind(index,plan);
   const candidate=await createVerifiedStorageBindingCandidateV125({session,plan});
   return Object.freeze({candidate,activeReferenceIndex:index,activeReferenceEvidence:evidence});
 }
 
 export async function verifyStorageBindingCandidateFromCurrentSaveV125({candidate,codec,itemDefinitionsById}={}){
+  if(!codec||typeof codec.loadProfile!=='function')throw Error('STORAGE_CODEC_REQUIRED');
   const verification=await verifyStorageBindingCandidateV125({candidate,codec});
-  if(candidate?.plan?.mutationAdapter?.id===STORAGE_SAME_GRID_ADAPTER_ID){
-    // SAME_GRID_MOVE uses generic GRID_OBJECT verification. Its candidate diff is X/Y-only,
-    // so source COMPLETE_CURRENT_SAVE projection plus exact changed-path verification proves
-    // the storage reference cannot be added, removed, or redirected by the candidate.
-    if(!itemDefinitionsById)throw Error('STORAGE_ITEM_DEFINITIONS_REQUIRED_FOR_SAME_GRID_VERIFY');
-  }
-  return Object.freeze({contract:STORAGE_TRANSACTION_BINDING_CONTRACT,status:'PASS',verification});
+  const source=await SafeProfileEditSession.open({sourceBytes:candidate.backupOriginalBytes,codec,sourcePlatform:'switch'});
+  const index=indexFor(source.getSnapshot(),itemDefinitionsById),evidence=rebind(index,candidate.plan);
+  return Object.freeze({
+    contract:STORAGE_TRANSACTION_BINDING_CONTRACT,status:'PASS',verification,
+    sourceActiveReferenceIndex:index,sourceActiveReferenceEvidence:evidence,
+    persistentWriteAuthorized:false,WORLD_PERSISTENT_WRITE_V125:false,PERSISTENT_WRITE:false,
+    productApplyAuthorized:false,directSourceReplacementAuthorized:false
+  });
 }
