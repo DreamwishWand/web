@@ -25,3 +25,5 @@ The existing WEP artifact bucket and Community PresetArtifact/PresetRevision/Art
 Verification notes:
 - Staging DDL rollback parse: PASS; no migration state or synthetic product data retained.
 - Internal CI PR: #101 against temporary integration base only; DO NOT MERGE.
+
+- CI run 37625518152 classified 7 failures as integration regressions; legacy signed-read compatibility and obsolete direct-publish localization assumptions were corrected.
