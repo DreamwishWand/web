@@ -7,6 +7,7 @@
 export const STORAGE_CONTAINER_CONTRACT='ddv.storage-furniture-container-semantics@1';
 export const STORAGE_TRANSITION_CONTRACT='ddv.storage-furniture-transition-set@1';
 export const ACTIVE_REFERENCE_EVIDENCE_CONTRACT='ddv.storage-active-reference-index@1';
+export const GRID_OBJECT_TEMPLATE_EVIDENCE_CONTRACT='ddv.storage-grid-object-template-evidence@1';
 export const STORAGE_01A_REQUEST_ID='01B-TO-01A-STORAGE-FURNITURE-TRANSITION-V125-V1';
 export const STORAGE_01E_REQUEST_ID='01B-TO-01E-STORAGE-CONTAINER-TRANSITION-V125-V1';
 export const SEMANTIC_OWNER='01B CORE - World / Grid / Buildings';
@@ -191,7 +192,7 @@ export function resolvePlacedStorageFurnitureV125({
 }
 
 export function resolveStoredStorageContainerV125({
-  source,profile,containerInventoryId,itemDefinition,activeReferenceEvidence,listInventoryId,gridObjectTemplate
+  source,profile,containerInventoryId,itemDefinition,activeReferenceEvidence,listInventoryId,gridObjectTemplateEvidence
 }={}){
   const reasons=sourceReasons(source);
   const containerId=int(containerInventoryId),itemId=int(itemDefinition?.itemId);
@@ -206,9 +207,14 @@ export function resolveStoredStorageContainerV125({
   if(refs.length!==0)reasons.push('STORED_CONTAINER_MUST_HAVE_ZERO_ACTIVE_REFERENCES');
   if(!nonempty(slots))reasons.push('NONEMPTY_STORED_CONTAINER_REQUIRED');
   const list=itemId===null?null:validateListStock(profile,listInventoryId,itemId,reasons,{minimum:1});
-  const template=isObj(gridObjectTemplate)?clone(gridObjectTemplate):null;
+  const templateEvidence=isObj(gridObjectTemplateEvidence)?gridObjectTemplateEvidence:null;
+  const template=templateEvidence?.contract===GRID_OBJECT_TEMPLATE_EVIDENCE_CONTRACT &&
+    templateEvidence?.provenance==='SAME_SAVE_HASH_BOUND' &&
+    typeof templateEvidence?.sourceSha256==='string' && /^[0-9a-f]{64}$/.test(templateEvidence.sourceSha256) &&
+    isObj(templateEvidence?.gridObject) ? clone(templateEvidence.gridObject) : null;
   const templateStorage=storageStateOf(template).storage;
-  if(!template||int(template.ItemID)!==itemId||int(templateStorage?.ContainerInventoryID)!==containerId)
+  if(!template||int(templateEvidence?.containerInventoryId)!==containerId||int(templateEvidence?.itemId)!==itemId||
+     int(template.ItemID)!==itemId||int(templateStorage?.ContainerInventoryID)!==containerId)
     reasons.push('HASH_BOUND_SAME_SAVE_GRID_OBJECT_TEMPLATE_REQUIRED');
   if(reasons.length)return fail(reasons,{containerInventoryId:containerId});
   return ready({
@@ -218,6 +224,7 @@ export function resolveStoredStorageContainerV125({
     listInventory:{id:list.listInventoryId,amount:list.amount,marker:clone(list.data.Marker)},
     activeReferences:[],
     gridObjectTemplate:template,
+    gridObjectTemplateEvidence:{contract:templateEvidence.contract,provenance:templateEvidence.provenance,sourceSha256:templateEvidence.sourceSha256,itemId,containerInventoryId:containerId},
     identityModel:{
       storageIdentity:'ContainerInventoryID remains the persistent content identity',
       placedIdentity:'none while unplaced',
