@@ -1,0 +1,144 @@
+{
+  "contract": "ddv.storage-container-runtime-acceptance-request@1",
+  "requestId": "01B-TO-01E-STORAGE-CONTAINER-TRANSITION-V125-V1",
+  "ownerRequested": "01E / Core Runtime",
+  "semanticOwner": "01B CORE - World / Grid / Buildings",
+  "status": "FROZEN_WAIT_01A_EXTENSION_AND_01B_ADAPTER",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "switchBid": "52BD625D9B4E0053",
+    "profileSchema": 624
+  },
+  "whyRuntimeIsRequired": [
+    "existing ordinary Furniture ADD runtime evidence explicitly excludes stateful Storage and cross-grid",
+    "cross-grid structural candidate spans two Grid roots while preserving a live Storage.ContainerInventoryID",
+    "offline REPLACE_NONEMPTY explicitly binds a selected same-save ContainerInventoryID, whereas native PutDownListItem selects compatible orphan state through runtime cache"
+  ],
+  "exactFixture": {
+    "source": "one backed-up exact-build Switch v1.25.0/schema-624 save",
+    "storageFurniture": [
+      "FurnitureItemData InteractionsCase=Container",
+      "BelongsToPlayer=true",
+      "ContainerInventory.ParentItemID == Furniture ItemID",
+      "ContainerInventory.Size == exact current item-definition default/requested Size",
+      "at least one slot Amount > 0",
+      "exactly one active effective storage reference to selected ContainerInventoryID",
+      "existing ListInventory furniture entry for ItemID",
+      "clear-area-false native-valid free destination in a different root Grid/biome",
+      "no malformed/duplicate storage references"
+    ],
+    "recordBefore": [
+      "source packaged/raw hash and decoded semantic hash",
+      "GridID/GridObjectID/ItemID/X/Y/Orientation/full GridObject payload",
+      "StorageGridData full payload and ContainerInventoryID",
+      "ContainerInventory complete map entry including slots/Size/ExtraSize/BelongsToPlayer/ParentItemID",
+      "ListInventory ID + ItemID Amount + Marker",
+      "source and destination NextGridObjectID"
+    ]
+  },
+  "protocol": [
+    {
+      "case": "A_CROSS_GRID_MOVE",
+      "start": "fresh exact original baseline",
+      "candidate": [
+        "remove exactly selected source GridObject",
+        "add exactly one destination GridObject with fresh destination NextGridObjectID",
+        "destination payload equals source payload except ID/X/Y/Orientation",
+        "State.Storage.ContainerInventoryID remains exact",
+        "advance destination NextGridObjectID by exactly one",
+        "Player.ContainerInventories exact",
+        "Player.ListInventories exact"
+      ],
+      "acceptance": [
+        "independent candidate verification PASS",
+        "DDV normal load",
+        "moved storage visible at destination",
+        "open storage and verify recorded contents are present",
+        "ordinary in-game save",
+        "full process exit",
+        "immediate re-extract and semantic compare: same destination GridObject/ContainerInventoryID and exact ContainerInventory contents",
+        "no writer-attributable unrelated mutation"
+      ]
+    },
+    {
+      "case": "B_PUT_AWAY_THEN_EXPLICIT_REPLACE",
+      "start": "restore fresh exact original baseline before B1",
+      "B1_putAwayCandidate": [
+        "remove exactly selected source GridObject",
+        "increment only existing ListInventory ItemID Amount by one",
+        "preserve selected non-empty Player.ContainerInventories[ContainerInventoryID] byte/semantic exact",
+        "do not change NextContainerInventoryID"
+      ],
+      "B1_acceptance": [
+        "independent candidate verification PASS",
+        "DDV normal load",
+        "storage furniture is unplaced/returned to furniture stock",
+        "ordinary in-game save",
+        "full process exit",
+        "re-extract: selected ContainerInventoryID still exists unreferenced with exact contents/ParentItemID/Size",
+        "ListInventory amount remains expected +1"
+      ],
+      "B2_replaceCandidate": [
+        "use B1 post-save as source",
+        "bind the same selected ContainerInventoryID using the hash-bound original same-save GridObject template",
+        "add exactly one destination GridObject with fresh destination ID and exact Storage.ContainerInventoryID",
+        "advance destination NextGridObjectID by one",
+        "decrement only existing ListInventory ItemID Amount by one",
+        "preserve selected ContainerInventory map entry and contents exact",
+        "do not change NextContainerInventoryID"
+      ],
+      "B2_acceptance": [
+        "independent candidate verification PASS",
+        "DDV normal load",
+        "re-placed storage visible",
+        "open storage and verify original recorded contents are present",
+        "ordinary in-game save",
+        "full process exit",
+        "re-extract: destination outer link still points to same ContainerInventoryID; contents exact; ListInventory amount expected",
+        "no writer-attributable unrelated mutation"
+      ]
+    }
+  ],
+  "notRequested": [
+    "same-grid move runtime case",
+    "empty storage",
+    "new ContainerInventory allocation",
+    "generic ContainerInventory editing",
+    "multiple-compatible-orphan ordering experiment",
+    "HomeStorage",
+    "non-player storage",
+    "Steam",
+    "ownership/entitlement/Premium/DLC/receipt/Moonstone/auth mutation",
+    "Road/Fence",
+    "cold relaunch beyond the ordinary-save/full-exit/re-extract question unless a second-load-only discrepancy appears"
+  ],
+  "stopConditions": [
+    "candidate fails independent verification",
+    "game rejects/repairs/reverts candidate",
+    "ContainerInventoryID changes unexpectedly",
+    "contents or ParentItemID/Size mutate unexpectedly",
+    "B1 deletes the non-empty player ContainerInventory",
+    "B2 fails to reopen the selected contents",
+    "unexplained writer-attributable Player/World state changes"
+  ],
+  "returnEvidence": [
+    "exact source/candidate/post-save hashes for A, B1, B2",
+    "before/after full selected GridObject + StorageGridData",
+    "before/after selected ContainerInventory complete entry",
+    "before/after ListInventory entry",
+    "before/after source/destination NextGridObjectID",
+    "semantic diff classified intended/unrelated/runtime churn",
+    "user-visible load/placement/storage-open observations",
+    "exact original backup restore/load observation"
+  ],
+  "finalRestore": "restore exact original backup after evidence capture and confirm DDV loads it",
+  "promotionBoundary": "PASS authorizes only the frozen storage transition candidate/export subset after Integrator review; it does not set persistent/direct source writer flags true",
+  "hardFlags": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false
+  }
+}
