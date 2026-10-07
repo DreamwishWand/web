@@ -141,7 +141,12 @@ const publicFetch = withSupabase({ auth: 'none' }, async (req, ctx) => {
   if (error) {
     const notFound =
       error.message.includes('not found') ||
-      error.message.includes('not accessible');
+      error.message.includes('not accessible') ||
+      error.message.includes('not publicly accessible') ||
+      (
+        rpc === 'community_get_scene_preset_public_v1' &&
+        error.message.includes('unavailable')
+      );
     return reply({ error: notFound ? 'NOT_FOUND' : 'PUBLIC_QUERY_FAILED' }, notFound ? 404 : 400);
   }
 
