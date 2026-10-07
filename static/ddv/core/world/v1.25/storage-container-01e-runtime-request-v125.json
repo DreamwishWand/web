@@ -3,12 +3,20 @@
   "requestId": "01B-TO-01E-STORAGE-CONTAINER-TRANSITION-V125-V1",
   "ownerRequested": "01E / Core Runtime",
   "semanticOwner": "01B CORE - World / Grid / Buildings",
-  "status": "FROZEN_WAIT_01A_EXTENSION_AND_01B_ADAPTER",
+  "status": "FROZEN_WAIT_01B_BINDING_PROMOTION",
+  "dispatchBoundary": "return to Control only after 01B binding is CLOSED / PROMOTED; 01B does not execute 01E",
+  "upstream": {
+    "01ARequest": "01B-TO-01A-STORAGE-FURNITURE-TRANSITION-V125-V1",
+    "01AStatus": "CLOSED_PROMOTED",
+    "promotedMain": "3766b384497a667a2b151d36e31f73f750b40b45",
+    "01BBindingRequest": "01B-STORAGE-FURNITURE-TRANSITION-ADAPTER-BINDING-V125-V1"
+  },
   "target": {
     "platform": "Nintendo Switch",
     "gameVersion": "1.25.0",
     "switchBid": "52BD625D9B4E0053",
-    "profileSchema": 624
+    "profileSchema": 624,
+    "steamInference": false
   },
   "whyRuntimeIsRequired": [
     "existing ordinary Furniture ADD runtime evidence explicitly excludes stateful Storage and cross-grid",
@@ -57,7 +65,8 @@
         "open storage and verify recorded contents are present",
         "ordinary in-game save",
         "full process exit",
-        "immediate re-extract and semantic compare: same destination GridObject/ContainerInventoryID and exact ContainerInventory contents",
+        "re-extract and semantic compare: same destination GridObject/ContainerInventoryID and exact ContainerInventory contents",
+        "cold relaunch the same post-save profile and verify normal load, same outer link, and contents visible",
         "no writer-attributable unrelated mutation"
       ]
     },
@@ -81,7 +90,7 @@
       ],
       "B2_replaceCandidate": [
         "use B1 post-save as source",
-        "bind the same selected ContainerInventoryID using the hash-bound original same-save GridObject template",
+        "bind the same selected ContainerInventoryID using ddv.storage-grid-object-template-evidence@1 SAME_SAVE_HASH_BOUND to B1 post-save originalSha256, exact itemId and exact containerInventoryId",
         "add exactly one destination GridObject with fresh destination ID and exact Storage.ContainerInventoryID",
         "advance destination NextGridObjectID by one",
         "decrement only existing ListInventory ItemID Amount by one",
@@ -96,6 +105,7 @@
         "ordinary in-game save",
         "full process exit",
         "re-extract: destination outer link still points to same ContainerInventoryID; contents exact; ListInventory amount expected",
+        "cold relaunch the same post-save profile and verify normal load, same outer link, and original contents visible",
         "no writer-attributable unrelated mutation"
       ]
     }
@@ -110,8 +120,7 @@
     "non-player storage",
     "Steam",
     "ownership/entitlement/Premium/DLC/receipt/Moonstone/auth mutation",
-    "Road/Fence",
-    "cold relaunch beyond the ordinary-save/full-exit/re-extract question unless a second-load-only discrepancy appears"
+    "Road/Fence"
   ],
   "stopConditions": [
     "candidate fails independent verification",
@@ -120,16 +129,18 @@
     "contents or ParentItemID/Size mutate unexpectedly",
     "B1 deletes the non-empty player ContainerInventory",
     "B2 fails to reopen the selected contents",
+    "cold relaunch changes or loses the expected outer link or contents",
     "unexplained writer-attributable Player/World state changes"
   ],
   "returnEvidence": [
-    "exact source/candidate/post-save hashes for A, B1, B2",
+    "exact source/candidate/post-save/cold-relaunch hashes for A, B1, B2 as applicable",
     "before/after full selected GridObject + StorageGridData",
     "before/after selected ContainerInventory complete entry",
     "before/after ListInventory entry",
     "before/after source/destination NextGridObjectID",
     "semantic diff classified intended/unrelated/runtime churn",
     "user-visible load/placement/storage-open observations",
+    "cold-relaunch observation for A and B2",
     "exact original backup restore/load observation"
   ],
   "finalRestore": "restore exact original backup after evidence capture and confirm DDV loads it",
