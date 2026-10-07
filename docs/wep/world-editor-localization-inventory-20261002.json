@@ -19,14 +19,15 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "fc3df9ebf6a2f12c0a1b70b5dfa422a4fedbff51",
+    "src/routes/editor/world/+page.svelte": "25c6b962fff5061a598fbc1ca00fb2403cda67a4",
     "src/lib/wep/world-editor-primary-job.ts": "25aba45c6004c020400a249c848c3bc2281fd4a0",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "711609eb100a0809a5e9a5b274f83dd9319e3645",
     "src/lib/SiteFooter.svelte": "4b20121a1295e42aeaeb25e39cb3853bd80da0e8",
-    "src/lib/wep/WorldEditorStage1DecoratePanel.svelte": "7bfb2981870f803c9e3adfc9e99192211325124a",
+    "src/lib/wep/WorldEditorStage1DecoratePanel.svelte": "64e01922c66482b0c282a44873246ba943c39723",
     "src/lib/wep/world-editor-stage1-copy.js": "9dace4b7538c04a8c650f691739d0bda22f38329",
-    "src/lib/wep/room-finish-copy.js": "f75c54053bafa416842ca17938895b20d7f47f9b"
+    "src/lib/wep/room-finish-copy.js": "f75c54053bafa416842ca17938895b20d7f47f9b",
+    "src/lib/presets/scene-preset-private-master-copy.js": "bba3422251abb0f62500e741b3c1e91b3ae9b396"
   },
   "ownership": {
     "wepOwned": [
@@ -42,6 +43,9 @@
       "src/lib/SiteFooter.svelte",
       "src/lib/community/CommunityNav.svelte",
       "src/lib/product-home/copy.js"
+    ],
+    "presetProductOwnedRenderedOnWorldEditor": [
+      "src/lib/presets/scene-preset-private-master-copy.js"
     ]
   },
   "sharedLocaleBinding": {
@@ -62,7 +66,7 @@
       "pt-BR"
     ],
     "rule": "World Editor presentation resolves through the shared locale runtime. WEP does not own a locale store, selector, fallback resolver, formatter, or resource loader.",
-    "routeChangeNote": "Promoted 08 WEB shared-shell authority is preserved. Decorate Stage 1 WEP consumer presentation and post-01E Room Finish presentation use the same shared eight-locale runtime; Room Finish adds no WEP locale runtime."
+    "routeChangeNote": "Promoted 08 WEB shared-shell authority is preserved. Decorate Stage 1 WEP consumer presentation, post-01E Room Finish presentation, and Scene private-master handoff use the same shared eight-locale runtime; no WEP-local locale store is introduced."
   },
   "translationBoundary": {
     "translate": [
@@ -79,7 +83,8 @@
       "progression-protection explanatory copy",
       "errors/status/live-region presentation wrappers",
       "Decorate Stage 1 Moodboard handoff, pending placement, recovery, alignment/distribution, and precise-coordinate presentation",
-      "Room Finish surface, scope, owned-picker, preview, review, verified-export and recovery presentation"
+      "Room Finish surface, scope, owned-picker, preview, review, verified-export and recovery presentation",
+      "Scene private-master save / continue-to-publish presentation"
     ],
     "neverTranslate": [
       "Core/WEP machine reason code",
@@ -167,8 +172,9 @@
           "Checking…",
           "Check destination save",
           "Capture Preview",
-          "Publish Scene Preset",
-          "Use selected bounds"
+          "Use selected bounds",
+          "Save Private Master",
+          "Continue to Publish"
         ]
       },
       {
@@ -1287,20 +1293,16 @@
     ],
     "sceneCapture": [
       {
-        "surface": "Scene Preset capture/publish",
-        "source": "src/routes/editor/world/+page.svelte",
+        "surface": "Scene Preset capture/private-master handoff",
+        "source": [
+          "src/routes/editor/world/+page.svelte",
+          "src/lib/presets/scene-preset-private-master-copy.js"
+        ],
         "strings": [
           "SCENE PRESET",
-          "Capture & Publish",
           "選択objectとSubGrid dependency closureをportable artifactへ変換します。source Grid / GridObject identityは公開artifactへ持ち出しません。",
           "Title",
           "My Scene Preset",
-          "Description",
-          "この飾り付けについて",
-          "Visibility",
-          "Unlisted",
-          "Public",
-          "Private",
           "Capture Region",
           "Selected object bounds",
           "Custom region",
@@ -1328,7 +1330,12 @@
           "bounds {width} × {height}",
           "{count} Road networks",
           "{count} Fence networks",
-          "PUBLISHED"
+          "PUBLISHED",
+          "Capture & Save",
+          "Save Private Master",
+          "Private master saved.",
+          "Continue to Publish",
+          "Changes not published"
         ]
       },
       {

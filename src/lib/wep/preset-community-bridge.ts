@@ -527,12 +527,14 @@ export function createPresetCommunityBridge({
       presetRevisionId = null,
       expectedChecksumSha256 = null,
       expectedByteSize = null,
+      requireBlobIdentity = false,
       requireStorageKey = false
     }: {
       presetArtifactId: string;
       presetRevisionId?: string | null;
       expectedChecksumSha256?: string | null;
       expectedByteSize?: number | null;
+      requireBlobIdentity?: boolean;
       requireStorageKey?: boolean;
     }
   ) {
@@ -547,7 +549,9 @@ export function createPresetCommunityBridge({
         'WEP_PRESET_READ_REVISION_ID_MISMATCH'
       );
     }
-    assert(String(read.blobId ?? ''), 'WEP_PRESET_READ_BLOB_ID_MISSING');
+    if (requireBlobIdentity) {
+      assert(String(read.blobId ?? ''), 'WEP_PRESET_READ_BLOB_ID_MISSING');
+    }
     if (requireStorageKey) {
       assert(String(read.storageKey ?? ''), 'WEP_PRESET_READ_STORAGE_KEY_MISSING');
     }
@@ -698,6 +702,7 @@ export function createPresetCommunityBridge({
       presetRevisionId: String(presetRevisionId),
       expectedChecksumSha256,
       expectedByteSize,
+      requireBlobIdentity: true,
       requireStorageKey: true
     });
   }
