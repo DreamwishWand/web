@@ -526,12 +526,14 @@ export function createPresetCommunityBridge({
       presetArtifactId,
       presetRevisionId = null,
       expectedChecksumSha256 = null,
-      expectedByteSize = null
+      expectedByteSize = null,
+      requireStorageKey = false
     }: {
       presetArtifactId: string;
       presetRevisionId?: string | null;
       expectedChecksumSha256?: string | null;
       expectedByteSize?: number | null;
+      requireStorageKey?: boolean;
     }
   ) {
     const read = presetOf(readInput) ?? {};
@@ -546,7 +548,9 @@ export function createPresetCommunityBridge({
       );
     }
     assert(String(read.blobId ?? ''), 'WEP_PRESET_READ_BLOB_ID_MISSING');
-    assert(String(read.storageKey ?? ''), 'WEP_PRESET_READ_STORAGE_KEY_MISSING');
+    if (requireStorageKey) {
+      assert(String(read.storageKey ?? ''), 'WEP_PRESET_READ_STORAGE_KEY_MISSING');
+    }
     assert(String(read.presetType ?? '') === 'scene', 'WEP_PRESET_READ_TYPE_UNSUPPORTED');
     assert(Number(read.schemaVersion) === 1, 'WEP_PRESET_READ_SCHEMA_UNSUPPORTED');
     assert(
@@ -616,7 +620,7 @@ export function createPresetCommunityBridge({
       checksumSha256: checksum,
       byteSize,
       blobId: String(read.blobId),
-      storageKey: String(read.storageKey),
+      storageKey: String(read.storageKey ?? ''),
       presetRevisionId: String(read.presetRevisionId)
     };
   }
@@ -693,7 +697,8 @@ export function createPresetCommunityBridge({
       presetArtifactId: String(presetArtifactId),
       presetRevisionId: String(presetRevisionId),
       expectedChecksumSha256,
-      expectedByteSize
+      expectedByteSize,
+      requireStorageKey: true
     });
   }
 

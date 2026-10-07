@@ -425,6 +425,18 @@ begin
     'scene_preset_product.published:' || v_preset_revision_id::text
   );
 
+  insert into public.outbox_events(aggregate_type,aggregate_id,event_type,payload,dedupe_key)
+  values(
+    'community_work',v_gallery_work_id,'work.published',
+    jsonb_build_object(
+      'workId',v_gallery_work_id,
+      'revisionId',v_gallery_revision_id,
+      'presetArtifactId',v_preset_id,
+      'presetRevisionId',v_preset_revision_id
+    ),
+    'scene_preset_gallery.published:' || v_gallery_revision_id::text
+  );
+
   v_response:=jsonb_build_object(
     'presetArtifactId',v_preset_id,
     'presetRevisionId',v_preset_revision_id,
@@ -615,6 +627,15 @@ begin
   delete from public.search_documents
   where entity_id in (v_preset.community_work_id,v_preset.associated_gallery_work_id);
 
+  insert into public.outbox_events(aggregate_type,aggregate_id,event_type,payload,dedupe_key)
+  values
+    ('community_work',v_preset.community_work_id,'work.unpublished',
+      jsonb_build_object('workId',v_preset.community_work_id),
+      'scene_preset.unpublished:' || v_preset.community_work_id::text || ':' || p_idempotency_key),
+    ('community_work',v_preset.associated_gallery_work_id,'work.unpublished',
+      jsonb_build_object('workId',v_preset.associated_gallery_work_id),
+      'scene_preset_gallery.unpublished:' || v_preset.associated_gallery_work_id::text || ':' || p_idempotency_key);
+
   v_response:=jsonb_build_object(
     'presetArtifactId',v_preset.preset_artifact_id,
     'workId',v_preset.community_work_id,
@@ -692,6 +713,15 @@ begin
 
   delete from public.search_documents
   where entity_id in (v_preset.community_work_id,v_preset.associated_gallery_work_id);
+
+  insert into public.outbox_events(aggregate_type,aggregate_id,event_type,payload,dedupe_key)
+  values
+    ('community_work',v_preset.community_work_id,'work.deleted',
+      jsonb_build_object('workId',v_preset.community_work_id),
+      'scene_preset.deleted:' || v_preset.community_work_id::text || ':' || p_idempotency_key),
+    ('community_work',v_preset.associated_gallery_work_id,'work.deleted',
+      jsonb_build_object('workId',v_preset.associated_gallery_work_id),
+      'scene_preset_gallery.deleted:' || v_preset.associated_gallery_work_id::text || ':' || p_idempotency_key);
 
   v_response:=jsonb_build_object(
     'presetArtifactId',v_preset.preset_artifact_id,
