@@ -117,7 +117,7 @@ export const CURRENT_PROFILE_READ_CONTRACTS = Object.freeze([
     runtimeReadAcceptance: RuntimeGateStatus.Passed
   }),
   Object.freeze({
-    id: 'ddv-switch-v1.25.3-9A239D3DB569756D-v626-read-static',
+    id: 'ddv-switch-v1.25.3-9A239D3DB569756D-v626-read-accepted',
     platform: PlatformFamily.Switch,
     gameVersion: '1.25.3',
     profileGameInfoVersion: 626,
@@ -127,8 +127,8 @@ export const CURRENT_PROFILE_READ_CONTRACTS = Object.freeze([
     }),
     codecContract: 'p1g-v0',
     offlineReadInspectionAllowed: true,
-    productionReadAccepted: false,
-    runtimeReadAcceptance: RuntimeGateStatus.Pending
+    productionReadAccepted: true,
+    runtimeReadAcceptance: RuntimeGateStatus.Passed
   }),
   Object.freeze({
     id: 'ddv-steam-windows-v1.25.3-releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22-v626-read-static',
