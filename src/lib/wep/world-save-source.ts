@@ -1,9 +1,12 @@
 import { p1gPackagedProfileCodec } from '../ddv/core/save/p1g-packaged-profile-codec.js';
 import { parseSafeJson } from '../ddv/core/save/safe-edit-session.js';
 import {
+  BuildIdentityKind,
   PlatformFamily,
+  ProfileReadCompatibilityStatus,
   detectSaveIdentity
 } from '../ddv/core/save/versioning.js';
+import { evaluateProfile626ReadOnlyCompatibility } from '../ddv/core/save/profile626-compatibility-v1253.js';
 import {
   currentV125FloatingIslandIdentityAdapter,
   resolveV125OutdoorLocation
@@ -11,6 +14,7 @@ import {
 
 export const WEP_WORLD_READ_GAME_VERSION = '1.25.0';
 export const WEP_WORLD_READ_PROFILE_SCHEMA = 624;
+export const WEP_WORLD_READONLY_626_PROVENANCE = 'switch-exefs-bid-externally-verified';
 export const WEP_WORLD_READ_DATA_SWITCH_DRIVE_ID =
   '1gkaPeA3uWcOtdQMK0jVcwVffN6W89Hui';
 export const WEP_WORLD_READ_DATA_SWITCH_SHA256 =
@@ -61,11 +65,18 @@ export interface OpenWorldSaveResult {
   areas: WorldAreaRoute[];
   floatingIslands: WorldFloatingIslandRoute[];
   floatingIslandDiagnostics: WorldFloatingIslandDiagnostic[];
+  structuralDiagnostics: { villageCount: number | null; areaRecordCount: number | null; gridRecordCount: number | null; notes: string[] } | null;
   compatibility: {
-    readContract: 'current-v125-schema624';
-    gameVersion: '1.25.0';
+    readContract: string;
+    gameVersion: string;
     schemaMatched: true;
-    exactBuildKnown: false;
+    exactBuildKnown: boolean;
+    productionReadAccepted: boolean;
+    readOnly: boolean;
+    routesAuthorized: boolean;
+    editingAuthorized: false;
+    verifiedReplacementCandidateAuthorized: false;
+    productApplyAuthorized: false;
     persistentWriteAuthorized: false;
   };
 }
@@ -106,7 +117,7 @@ function requireCurrentProfile(profile: Record<string, any>): number {
     gameInfo.Version,
     'WEP_WORLD_PROFILE_SCHEMA_INVALID'
   );
-  if (version !== WEP_WORLD_READ_PROFILE_SCHEMA) {
+  if (version !== WEP_WORLD_READ_PROFILE_SCHEMA && version !== 626) {
     throw new Error('WEP_WORLD_PROFILE_SCHEMA_UNSUPPORTED');
   }
   return version;
@@ -307,12 +318,39 @@ export function listWorldFloatingIslandRoutes(
   };
 }
 
+/** Structural, non-semantic counts only. No 624 projectors touch 626. */
+function inspect626WorldStructure(profile: Record<string, any>) {
+  const world = asRecord(profile.World);
+  const villages = world?.Villages;
+  const grids = asRecord(asRecord(world?.GridCollection)?.Grids);
+  const areaRecordCount = Array.isArray(villages)
+    ? villages.reduce((sum: number, village: unknown) => {
+        const areas = asRecord(asRecord(village)?.Areas);
+        return sum + (areas ? Object.keys(areas).length : 0);
+      }, 0)
+    : null;
+  return {
+    villageCount: Array.isArray(villages) ? villages.length : null,
+    areaRecordCount,
+    gridRecordCount: grids ? Object.keys(grids).length : null,
+    notes: [
+      'WEP_SCHEMA626_WORLD_STRUCTURE_ONLY',
+      'WEP_SCHEMA626_AREA_GRID_NATIVE_SEMANTICS_UNVERIFIED',
+      'WEP_SCHEMA626_EDITOR_DRAFT_AND_WRITER_DISABLED'
+    ]
+  };
+}
+
 export async function openWorldSaveBytes(
   sourceBytes: Uint8Array,
   {
-    sourcePlatform = PlatformFamily.Unknown
+    sourcePlatform = PlatformFamily.Unknown,
+    targetBuild = null,
+    sourceEvidence = null
   }: {
     sourcePlatform?: string;
+    targetBuild?: { platform: string; kind: string; value: string } | null;
+    sourceEvidence?: string | null;
   } = {}
 ): Promise<OpenWorldSaveResult> {
   if (!(sourceBytes instanceof Uint8Array) || sourceBytes.length === 0) {
@@ -343,6 +381,58 @@ export async function openWorldSaveBytes(
         : PlatformFamily.Unknown
   });
 
+  if (profileSchemaVersion === 626) {
+    if (inputFormat !== 'packaged') {
+      throw new Error('WEP_WORLD_626_PACKAGED_SOURCE_REQUIRED');
+    }
+    if (sourceEvidence !== WEP_WORLD_READONLY_626_PROVENANCE ||
+        sourcePlatform !== PlatformFamily.Switch ||
+        targetBuild?.platform !== PlatformFamily.Switch ||
+        targetBuild?.kind !== BuildIdentityKind.SwitchBid ||
+        typeof targetBuild?.value !== 'string' ||
+        !targetBuild.value.trim()) {
+      throw new Error('WEP_WORLD_626_EXTERNAL_SOURCE_VERIFICATION_REQUIRED');
+    }
+    const evaluated = evaluateProfile626ReadOnlyCompatibility({
+      profile,
+      sourcePlatform: PlatformFamily.Switch,
+      targetBuild: targetBuild as import('../ddv/core/save/versioning.js').TargetBuildIdentity,
+      sourceRawSha256: null
+    });
+    if (evaluated.readMatch.status !== ProfileReadCompatibilityStatus.ExactAccepted ||
+        evaluated.capabilities.productionReadAccepted !== true ||
+        evaluated.capabilities.structuralReadOnly !== true ||
+        evaluated.capabilities.planOperation !== false ||
+        evaluated.capabilities.encodeCopy !== false ||
+        evaluated.capabilities.verifiedReplacementCandidate !== false ||
+        evaluated.structural.valid !== true) {
+      throw new Error('WEP_WORLD_626_READ_CONTRACT_' + evaluated.readMatch.status);
+    }
+    return {
+      inputFormat,
+      profile,
+      profileSchemaVersion,
+      saveIdentity,
+      areas: [],
+      floatingIslands: [],
+      floatingIslandDiagnostics: [],
+      structuralDiagnostics: inspect626WorldStructure(profile),
+      compatibility: {
+        readContract: evaluated.readMatch.contract.id,
+        gameVersion: evaluated.readMatch.contract.gameVersion,
+        schemaMatched: true,
+        exactBuildKnown: true,
+        productionReadAccepted: true,
+        readOnly: true,
+        routesAuthorized: false,
+        editingAuthorized: false,
+        verifiedReplacementCandidateAuthorized: false,
+        productApplyAuthorized: false,
+        persistentWriteAuthorized: false
+      }
+    };
+  }
+
   const floatingIslandRoutes =
     listWorldFloatingIslandRoutes(profile);
 
@@ -354,11 +444,18 @@ export async function openWorldSaveBytes(
     areas: listWorldAreaRoutes(profile),
     floatingIslands: floatingIslandRoutes.routes,
     floatingIslandDiagnostics: floatingIslandRoutes.diagnostics,
+    structuralDiagnostics: null,
     compatibility: {
       readContract: 'current-v125-schema624',
       gameVersion: WEP_WORLD_READ_GAME_VERSION,
       schemaMatched: true,
       exactBuildKnown: false,
+      productionReadAccepted: true,
+      readOnly: false,
+      routesAuthorized: true,
+      editingAuthorized: false,
+      verifiedReplacementCandidateAuthorized: false,
+      productApplyAuthorized: false,
       persistentWriteAuthorized: false
     }
   };

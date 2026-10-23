@@ -1,0 +1,127 @@
+/** Isolated 8-locale copy: v1.25.3 offline viewing does NOT imply editing. */
+const COPY = Object.freeze({
+  en: {
+    build: 'Externally verified Switch Build ID (BID)',
+    proof: 'I independently verified this BID from the source Switch game executable (ExeFS main) and confirmed this save was extracted from Switch storage.',
+    proofHint: 'Required only for v1.25.3 schema 626. The save metadata and last-save device do not prove the build.',
+    viewing: 'Supported for viewing — offline read-only',
+    editing: 'Editing unavailable for this game version',
+    source: 'Source verification required',
+    unsupported: 'Unsupported save version or build',
+    diagnostic: 'World structure (diagnostic only)',
+    village: 'Village records',
+    area: 'Area records',
+    grids: 'Grid records',
+    boundary: 'Native Area/Grid placement semantics are not verified for v1.25.3. Canvas, drafting, candidates, exporting edited saves and Apply are disabled.',
+    retry: 'Verify the Switch extraction source and exact ExeFS BID, then choose the file again.'
+  },
+  ja: {
+    build: '外部確認済みSwitch Build ID（BID）',
+    proof: 'セーブの抽出元がSwitchであることと、ゲーム実行ファイル（ExeFS main）のBIDを別途確認しました。',
+    proofHint: 'v1.25.3／schema626のみ必須です。セーブ内の情報や最終保存機種だけではBIDを証明できません。',
+    viewing: '閲覧に対応 — オフライン読取専用',
+    editing: 'このゲーム版では編集できません',
+    source: '抽出元とBIDの確認が必要です',
+    unsupported: '未対応のセーブ版またはビルド',
+    diagnostic: 'World構造（診断のみ）',
+    village: 'Villageレコード',
+    area: 'Areaレコード',
+    grids: 'Gridレコード',
+    boundary: 'v1.25.3の配置意味論は未検証です。Canvas、ドラフト、変更候補、編集済みセーブの出力、Applyは無効です。',
+    retry: 'Switchの抽出元とExeFSのBIDを確認してから、再度ファイルを選択してください。'
+  },
+  de: {
+    build: 'Extern bestätigte Switch-Build-ID (BID)',
+    proof: 'Ich habe die BID aus der Switch-ExeFS und die Herkunft der gespeicherten Daten unabhängig bestätigt.',
+    proofHint: 'Nur für v1.25.3 / Schema 626. Das letzte Speichergerät beweist die BID nicht.',
+    viewing: 'Ansehen unterstützt — offline, schreibgeschützt',
+    editing: 'Bearbeitung für diese Spielversion nicht verfügbar',
+    source: 'Quellprüfung erforderlich',
+    unsupported: 'Nicht unterstützte Speicherversion oder Build',
+    diagnostic: 'Weltstruktur (nur Diagnose)',
+    village: 'Dorfdatensätze',
+    area: 'Gebietsdatensätze',
+    grids: 'Rasterdatensätze',
+    boundary: 'Platzierungssemantik in v1.25.3 nicht verifiziert. Canvas, Bearbeitung, Export und Anwenden sind deaktiviert.',
+    retry: 'Switch-Herkunft und ExeFS-BID prüfen und Datei erneut wählen.'
+  },
+  fr: {
+    build: 'Identifiant de build Switch (BID) vérifié séparément',
+    proof: 'J’ai vérifié le BID dans ExeFS et la provenance Switch de cette sauvegarde.',
+    proofHint: 'Requis uniquement pour v1.25.3 / schéma 626. Le dernier appareil ne prouve pas le BID.',
+    viewing: 'Consultation prise en charge — lecture seule hors ligne',
+    editing: 'Modification indisponible pour cette version',
+    source: 'Vérification de la source requise',
+    unsupported: 'Version ou build de sauvegarde non pris en charge',
+    diagnostic: 'Structure du monde (diagnostic uniquement)',
+    village: 'Enregistrements de villages',
+    area: 'Enregistrements de zones',
+    grids: 'Enregistrements de grilles',
+    boundary: 'Placement v1.25.3 non validé. Canvas, brouillons, export modifié et application désactivés.',
+    retry: 'Vérifiez la source Switch et le BID ExeFS, puis sélectionnez à nouveau le fichier.'
+  },
+  it: {
+    build: 'Build ID Switch (BID) verificato esternamente',
+    proof: 'Ho verificato il BID in ExeFS e la provenienza Switch del salvataggio.',
+    proofHint: 'Richiesto solo per v1.25.3 / schema 626. L’ultimo dispositivo non prova il BID.',
+    viewing: 'Visualizzazione supportata — sola lettura offline',
+    editing: 'Modifica non disponibile per questa versione',
+    source: 'Verifica origine richiesta',
+    unsupported: 'Versione o build non supportata',
+    diagnostic: 'Struttura mondo (solo diagnosi)',
+    village: 'Record villaggi',
+    area: 'Record aree',
+    grids: 'Record griglie',
+    boundary: 'Semantica del posizionamento v1.25.3 non verificata. Canvas, bozze, export modificato e Apply disabilitati.',
+    retry: 'Verifica origine Switch e BID ExeFS, poi seleziona di nuovo il file.'
+  },
+  'es-ES': {
+    build: 'Build ID de Switch (BID) verificado externamente',
+    proof: 'He verificado el BID en ExeFS y el origen Switch de este guardado.',
+    proofHint: 'Solo necesario para v1.25.3 / esquema 626. El último dispositivo no demuestra el BID.',
+    viewing: 'Visualización compatible — solo lectura sin conexión',
+    editing: 'Edición no disponible para esta versión',
+    source: 'Es necesario verificar el origen',
+    unsupported: 'Versión o compilación no compatible',
+    diagnostic: 'Estructura del mundo (solo diagnóstico)',
+    village: 'Registros de aldeas',
+    area: 'Registros de áreas',
+    grids: 'Registros de cuadrículas',
+    boundary: 'Colocación de v1.25.3 sin verificar. Canvas, borradores, exportación editada y Apply desactivados.',
+    retry: 'Verifica el origen Switch y el BID de ExeFS y vuelve a elegir el archivo.'
+  },
+  'pt-BR': {
+    build: 'Build ID do Switch (BID) verificado externamente',
+    proof: 'Verifiquei o BID no ExeFS e a origem Switch deste save.',
+    proofHint: 'Necessário somente para v1.25.3 / esquema 626. O último dispositivo não comprova o BID.',
+    viewing: 'Visualização disponível — somente leitura offline',
+    editing: 'Edição indisponível nesta versão',
+    source: 'Verificação da origem necessária',
+    unsupported: 'Versão ou build não compatível',
+    diagnostic: 'Estrutura do mundo (apenas diagnóstico)',
+    village: 'Registros de vilas',
+    area: 'Registros de áreas',
+    grids: 'Registros de grades',
+    boundary: 'Posicionamento v1.25.3 não verificado. Canvas, rascunhos, exportação editada e Apply desativados.',
+    retry: 'Verifique a origem Switch e o BID ExeFS e selecione o arquivo novamente.'
+  },
+  'zh-CN': {
+    build: '已独立核实的 Switch Build ID（BID）',
+    proof: '我已从 ExeFS 核实 BID，并确认存档来自 Switch 存储。',
+    proofHint: '仅 v1.25.3 / schema 626 必需。上次保存设备不能证明 BID。',
+    viewing: '支持查看 — 离线只读',
+    editing: '此游戏版本不可编辑',
+    source: '需要核实存档来源',
+    unsupported: '不支持的存档版本或构建',
+    diagnostic: '世界结构（仅诊断）',
+    village: '村庄记录',
+    area: '区域记录',
+    grids: '网格记录',
+    boundary: 'v1.25.3 的放置语义未经验证。画布、草稿、修改导出和应用均已禁用。',
+    retry: '核实 Switch 来源与 ExeFS BID 后重新选择文件。'
+  }
+});
+export function worldReadonlyCopy(locale) {
+  return COPY[locale] ?? COPY.en;
+}
+export const WORLD_READONLY_COPY_LOCALES = Object.freeze(Object.keys(COPY));

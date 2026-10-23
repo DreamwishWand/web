@@ -71,7 +71,9 @@ test('World Editor product surface is WEP-backed, localized and writer-safe', ()
   assert.match(page, /worldEditor\.open\.title/);
   assert.match(page, /worldEditor\.open\.switch/);
   assert.match(page, /worldEditor\.open\.steamWindows/);
-  assert.match(page, /exactBuildKnown=false/);
+  assert.match(page, /exactBuildKnown=\{String\(worldSource\.compatibility\.exactBuildKnown\)\}/);
+  assert.match(page, /data-wep-626-readonly/);
+  assert.match(page, /worldSource\.compatibility\.readOnly/);
   assert.match(page, /persistentWriteAuthorized=false/);
   assert.match(page, /worldEditor\.routes\.openCanvas/);
   assert.match(page, /worldEditor\.placement\.eyebrow/);
