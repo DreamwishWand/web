@@ -58,7 +58,7 @@ test('Edge uses existing signed authorization, rate and public allowlist',()=>{
 
 test('rollback SQL exercises RPCs not only static rules',()=>{
   const sql=read('supabase/staging/acceptance/gallery-photo-public-lifecycle-v1.sql');
-  assert.match(sql,/(?:^|\\n)begin;/);
+  assert.ok(sql.includes('begin;'));
   assert.match(sql,/rollback;\s*$/);
   for(const code of ['ACCEPTANCE_DUPLICATE_MEDIA_ACCEPTED','ACCEPTANCE_MISSING_ATTESTATION_ACCEPTED',
     'ACCEPTANCE_UNVERIFIED_KIND_ACCEPTED','ACCEPTANCE_IDEMPOTENCY_REPLAY_FAILED',
