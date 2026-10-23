@@ -3,77 +3,165 @@
   import { base } from '$app/paths';
   import { locale, ct as t } from '$lib/i18n/community.js';
   import { createCommunityBrowserClient } from '$lib/community/browser-client';
+  import { workUrl, GALLERY_OWNER_MUTATION_BLOCKER } from '$lib/gallery/stage1.js';
+  import OverflowMenu from '$lib/ui/OverflowMenu.svelte';
+  import Sheet from '$lib/ui/Sheet.svelte';
+  const client=createCommunityBrowserClient();
+  let signedIn=false,busy=false,error='',message='',email='',password='';
+  let tab:'works'|'saved'='works';
+  let kind='all';
+  let query='';
+  let data:any={myWorks:[],saved:[]};
+  let management:any=null,ownerDetail:any=null;
+  let showManagement=false;
+  let commentsEnabled=true;
+  let managementError='';
+  let ownerBusy=false;
 
-  const client = createCommunityBrowserClient();
-  let signedIn = false, busy = false, error = '';
-  let email = '', password = '';
-  let data: any = { myWorks: [], saved: [] };
-
-  onMount(() => { signedIn = Boolean(client?.session); if (signedIn) void load(); });
-
-  async function run<T>(fn: () => Promise<T>): Promise<T | null> {
-    busy = true; error = '';
-    try { return await fn(); }
-    catch (cause) { error = cause instanceof Error ? cause.message : String(cause); return null; }
-    finally { busy = false; }
+  onMount(()=>{signedIn=Boolean(client?.session);if(signedIn)void load();});
+  async function run<T>(f:()=>Promise<T>):Promise<T|null>{
+    busy=true;error='';
+    try{return await f()}catch(e){error=e instanceof Error?e.message:String(e);return null}
+    finally{busy=false}
   }
-
-  async function signIn() {
-    if (!client) return;
-    const session = await run(() => client.signInWithPassword(email.trim(), password));
-    if (!session) return;
-    password = ''; signedIn = true; await load();
+  async function signIn(){
+    if(!client)return;
+    const ok=await run(()=>client.signInWithPassword(email.trim(),password));
+    if(ok){password='';signedIn=true;await load();}
   }
-
-  async function load() {
-    if (!client?.session) return;
-    const result: any = await run(() => client.query('myGallery', { limit: 100 }));
-    if (result?.data) data = result.data;
+  async function load(){
+    if(!client?.session)return;
+    const res:any=await run(()=>client.query('myGallery',{limit:100}));
+    if(res?.data)data=res.data;
   }
-
-  async function unsave(id: string) {
-    if (!client?.session) return;
-    await run(() => client.command('unsaveEntity', { targetEntityId: id }));
-    await load();
+  $: works=(data.myWorks??[]).filter((w:any)=>w.lifecycleState==='published' && w.visibility==='public' &&
+    (kind==='all'||(kind==='decorations' ? ['outdoor','indoor'].includes(w.galleryKind) : w.galleryKind?.startsWith('tom_'))) &&
+    (!query.trim()||String(w.title??'').toLowerCase().includes(query.trim().toLowerCase())));
+  $: saved=(data.saved??[]).filter((s:any)=>s.work && ['outdoor','indoor','tom_furniture','tom_clothing'].includes(s.work.galleryKind) &&
+    (kind==='all'||(kind==='decorations'?['outdoor','indoor'].includes(s.work.galleryKind):s.work.galleryKind.startsWith('tom_'))) &&
+    (!query.trim()||String(s.work?.title??'').toLowerCase().includes(query.trim().toLowerCase())));
+  async function unsave(id:string){
+    if(!client?.session)return;
+    const ok=await run(()=>client.command('unsaveEntity',{targetEntityId:id}));
+    if(ok)await load();
+  }
+  async function manage(work:any){
+    management=work;ownerDetail=null;managementError='';showManagement=true;ownerBusy=true;
+    try{
+      const result:any=await client?.query('gallery',{workId:work.workId});
+      ownerDetail=result?.data??null;
+      commentsEnabled=ownerDetail?.commentsEnabled!==false;
+    }catch(e){managementError=e instanceof Error?e.message:String(e)}
+    finally{ownerBusy=false}
+  }
+  async function setComments(){
+    if(!client?.session||!management?.workId)return;
+    ownerBusy=true;managementError='';
+    const newState=!commentsEnabled;
+    try{
+      await client.command('setGalleryCommentsEnabled',{workId:management.workId,enabled:newState});
+      commentsEnabled=newState;
+    }catch(e){managementError=e instanceof Error?e.message:String(e)}
+    finally{ownerBusy=false}
   }
 </script>
-
-<svelte:head><title>{t('gallery.my.title', {}, $locale)} | Dreamwish Wand</title></svelte:head>
-<section class="inside-page container">
-  <a class="inline-link" href={`${base}/gallery/`}>← {t('gallery.title', {}, $locale)}</a>
-  <h1>{t('gallery.my.title', {}, $locale)}</h1>
-
-  {#if !client}
-    <div class="notice">{t('community.configUnavailable', {}, $locale)}</div>
+<svelte:head><title>{t('galleryv1.myGallery',{},$locale)} | Dreamwish Wand</title></svelte:head>
+<section class="gallery-my responsive-frame">
+  <a href={base+'/gallery/'} class="inline-link">← {t('galleryv1.returnToGallery',{},$locale)}</a>
+  <header><h1>{t('galleryv1.myGallery',{},$locale)}</h1><a class="publish-link" href={base+'/gallery/publish/'}>{t('galleryv1.publishWork',{},$locale)}</a></header>
+  {#if !client}<p role="status" class="notice">{t('community.configUnavailable',{},$locale)}</p>
   {:else if !signedIn}
-    <div class="form-card">
-      <label>{t('community.auth.email', {}, $locale)}<input type="email" bind:value={email} /></label>
-      <label>{t('community.auth.password', {}, $locale)}<input type="password" bind:value={password} /></label>
-      <button type="button" disabled={busy || !email || !password} on:click={signIn}>{t('community.auth.signIn', {}, $locale)}</button>
+    <div class="sign-in">
+      <h2>{t('galleryv1.signIn',{},$locale)}</h2>
+      <label>{t('community.auth.email',{},$locale)}<input type="email" autocomplete="email" bind:value={email}/></label>
+      <label>{t('community.auth.password',{},$locale)}<input type="password" autocomplete="current-password" bind:value={password}/></label>
+      <button type="button" disabled={busy||!email||!password} on:click={signIn}>{t('community.auth.signIn',{},$locale)}</button>
     </div>
   {:else}
-    <div class="columns">
-      <section class="panel">
-        <h2>{t('gallery.my.works', {}, $locale)}</h2>
-        {#each data.myWorks ?? [] as work}
-          <a class="row" href={`${base}/gallery/?work=${work.workId}`}><strong>{work.title ?? work.galleryKind}</strong><span>{work.moderationState}</span></a>
-        {:else}<p>{t('gallery.my.emptyWorks', {}, $locale)}</p>{/each}
-      </section>
-      <section class="panel">
-        <h2>{t('gallery.my.saved', {}, $locale)}</h2>
-        {#each data.saved ?? [] as saved}
-          <div class="saved">
-            <a class="row" aria-disabled={!saved.accessible} href={saved.accessible ? `${base}/gallery/?work=${saved.targetEntityId}` : undefined}><strong>{saved.work?.title ?? saved.targetEntityId}</strong></a>
-            <button type="button" on:click={() => unsave(String(saved.targetEntityId))}>{t('gallery.my.unsave', {}, $locale)}</button>
-          </div>
-        {:else}<p>{t('gallery.my.emptySaved', {}, $locale)}</p>{/each}
-      </section>
+    <div class="switcher" role="group" aria-label={t('galleryv1.myGallery',{},$locale)}>
+      <button type="button" aria-pressed={tab==='works'} class:active={tab==='works'} on:click={()=>tab='works'}>{t('galleryv1.myWorks',{},$locale)}</button>
+      <button type="button" aria-pressed={tab==='saved'} class:active={tab==='saved'} on:click={()=>tab='saved'}>{t('galleryv1.saved',{},$locale)}</button>
     </div>
+    <div class="controls">
+      <label>{t('galleryv1.category',{},$locale)}
+        <select bind:value={kind}>
+          <option value="all">{t('galleryv1.all',{},$locale)}</option>
+          <option value="decorations">{t('galleryv1.decorations',{},$locale)}</option>
+          <option value="tom">{t('galleryv1.tom',{},$locale)}</option>
+        </select>
+      </label>
+      <label>{t('galleryv1.search',{},$locale)}<input bind:value={query}/></label>
+      <button type="button" disabled={busy} on:click={load}>{t('galleryv1.retry',{},$locale)}</button>
+    </div>
+    {#if busy}<p role="status">{t('galleryv1.loading',{},$locale)}</p>{/if}
+    {#if error}<p role="alert">{t('galleryv1.error',{},$locale)}: {error}</p>{/if}
+    {#if tab==='works'}
+      <div class="my-grid">
+        {#each works as work (work.workId)}
+          <article class="my-card">
+            <a href={workUrl(base,work.workId)}>
+              <strong>{work.title??work.galleryKind}</strong>
+              <small>{work.galleryKind} · PUBLIC</small>
+            </a>
+            <OverflowMenu label={t('galleryv1.manageMenu',{},$locale)}>
+              <a href={workUrl(base,work.workId)}>{t('galleryv1.viewWork',{},$locale)}</a>
+              <button type="button" on:click={()=>manage(work)}>{t('galleryv1.manageComments',{},$locale)}</button>
+              <button type="button" on:click={()=>manage(work)}>{t('galleryv1.editPresentation',{},$locale)}</button>
+              <button type="button" on:click={()=>manage(work)}>{t('galleryv1.deleteWork',{},$locale)}</button>
+            </OverflowMenu>
+          </article>
+        {:else}<p role="status">{t('galleryv1.emptyWorks',{},$locale)}</p>{/each}
+      </div>
+    {:else}
+      <div class="my-grid">
+        {#each saved as item (item.targetEntityId)}
+          <article class="my-card">
+            {#if item.accessible}
+              <a href={workUrl(base,item.targetEntityId)}><strong>{item.work.title??item.targetEntityId}</strong></a>
+            {:else}<span>{t('galleryv1.unavailable',{},$locale)}</span>{/if}
+            <button type="button" disabled={busy} on:click={()=>unsave(String(item.targetEntityId))}>{t('gallery.my.unsave',{},$locale)}</button>
+          </article>
+        {:else}<p role="status">{t('galleryv1.emptySaved',{},$locale)}</p>{/each}
+      </div>
+    {/if}
   {/if}
-
-  {#if error}<p class="form-error" role="alert">{t('shared.form.error', { message: error }, $locale)}</p>{/if}
+  {#if message}<p role="status">{message}</p>{/if}
 </section>
-
+<Sheet bind:open={showManagement} title={t('galleryv1.ownerActions',{},$locale)} closeLabel={t('community.action.close',{},$locale)} position="end">
+  {#if management}
+    <section class="owner-panel">
+      <h3>{management.title}</h3>
+      <p>{t('galleryv1.publicOnly',{},$locale)}</p>
+      <a href={workUrl(base,management.workId)}>{t('galleryv1.viewWork',{},$locale)}</a>
+      {#if ownerBusy}<p role="status">{t('galleryv1.loading',{},$locale)}</p>{/if}
+      {#if managementError}<p role="alert">{managementError}</p>{/if}
+      {#if ownerDetail?.isOwner}
+        <label class="comment-control"><input type="checkbox" checked={commentsEnabled} disabled={ownerBusy} on:change={setComments}/>{t('galleryv1.manageComments',{},$locale)}</label>
+      {/if}
+      <div class="blocked-actions">
+        <h3>{t('galleryv1.editPresentation',{},$locale)}</h3>
+        <p>{t('galleryv1.serverMissing',{},$locale)} <code>{GALLERY_OWNER_MUTATION_BLOCKER}</code></p>
+        <button type="button" disabled>{t('galleryv1.publishUpdate',{},$locale)}</button>
+        <button type="button" disabled>{t('galleryv1.unpublish',{},$locale)}</button>
+        <h3>{t('galleryv1.deleteWork',{},$locale)}</h3>
+        <p>{t('galleryv1.removeNote',{},$locale)}</p>
+        <button type="button" disabled>{t('galleryv1.deleteWork',{},$locale)}</button>
+      </div>
+    </section>
+  {/if}
+</Sheet>
 <style>
-  .form-card,.panel{margin-top:22px;padding:20px;border:1px solid var(--border);border-radius:20px;background:var(--surface)}.form-card{display:grid;gap:12px;max-width:620px}label{display:grid;gap:5px}input{min-height:42px;border:1px solid var(--border);border-radius:11px;background:var(--surface-raised);color:var(--ink);padding:9px 11px}.columns{display:grid;grid-template-columns:1fr 1fr;gap:18px}.panel{display:grid;gap:9px}.row{display:flex;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--border);border-radius:12px;color:var(--ink)}.row span{color:var(--ink-muted);font-size:12px}.saved{display:grid;grid-template-columns:1fr auto;gap:8px}.saved button,.form-card button{border:1px solid var(--border);border-radius:999px;background:var(--surface-raised);color:var(--ink);padding:8px 12px}.form-error{color:#ffb6b6}@media(max-width:760px){.columns{grid-template-columns:1fr}}
+.gallery-my{width:min(1150px,calc(100% - 32px));margin:auto;padding:26px 0 68px}
+header{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin:18px 0}
+h1{font:600 clamp(30px,5vw,48px) Georgia,serif;margin:0}
+button,.publish-link{min-height:44px;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--ink);padding:9px 14px;font:inherit}
+button:disabled{opacity:.55}.switcher{display:flex;gap:8px;margin:20px 0}.switcher button.active{border-color:var(--gold);font-weight:800}
+.controls{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin:16px 0}.controls label,.sign-in label{display:grid;gap:6px;min-width:200px;flex:1;color:var(--ink-soft)}
+input:not([type=checkbox]),select{min-height:44px;min-width:0;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface-raised);color:var(--ink);font:inherit}
+.sign-in{display:grid;gap:12px;max-width:540px;padding:20px;border:1px solid var(--border);border-radius:20px}
+.my-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));gap:14px}
+.my-card{min-height:140px;min-width:0;display:flex;justify-content:space-between;align-items:start;gap:10px;padding:18px;border:1px solid var(--border);border-radius:20px;background:var(--surface)}
+.my-card a{display:grid;gap:10px;min-width:0;overflow-wrap:anywhere;color:var(--ink)}.my-card small{color:var(--ink-muted)}
+.owner-panel{display:grid;gap:12px}.blocked-actions{display:grid;gap:12px;padding:14px;border:1px solid var(--border);border-radius:15px;overflow-wrap:anywhere}
+.comment-control{display:flex;align-items:center;gap:10px}.notice{padding:15px;background:var(--surface)}
 </style>
