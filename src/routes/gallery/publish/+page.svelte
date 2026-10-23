@@ -5,6 +5,9 @@
   import { locale, ct as t } from '$lib/i18n/community.js';
   import { createCommunityBrowserClient } from '$lib/community/browser-client';
   import PhotoPreview from '$lib/gallery/PhotoPreview.svelte';
+  import VerifiedSubjectPicker from '$lib/gallery/VerifiedSubjectPicker.svelte';
+  import { isSelectableSubject, subjectDisplayIdentity } from '$lib/gallery/verified-subjects.js';
+  import type { GalleryKind, SubjectType, VerifiedGallerySubject } from '$lib/gallery/verified-subjects.js';
   import { validateGalleryComposition, validateGalleryImages, moveMedia, MAX_IMAGES, assertClassifiedPhotoPublishContract, GALLERY_PUBLICATION_BLOCKER } from '$lib/gallery/stage1.js';
 
   const client = createCommunityBrowserClient();
@@ -17,24 +20,29 @@
   let creatorProfileId = '';
   let creatorLabel = '';
   let email = '', password = '', handle = '', displayName = '';
-  let kind = 'outdoor', targetType = 'biome', targetName = '', baseItemId = '';
+  let kind: GalleryKind = 'outdoor', targetType: SubjectType = 'biome';
+  let selectedSubject: VerifiedGallerySubject|null = null;
+  let subjectCatalogReady = false;
   let title = '', description = '';
   let originalityConfirmed = false;
   let publishedWorkId = '';
 
   onMount(() => {
     const family = new URLSearchParams(location.search).get('type');
-    if (family === 'tom') { kind = 'tom_furniture'; targetType = 'base_item'; }
+    if (family === 'tom') { kind = 'tom_furniture'; targetType = 'tom_furniture'; }
     signedIn = Boolean(client?.session);
     if (signedIn) void loadIdentity();
   });
   onDestroy(() => { for (const item of images) URL.revokeObjectURL(item.url); });
 
   $: isTom = kind.startsWith('tom_');
-  $: validErrors = validateGalleryComposition({ kind, targetType, targetName, baseItemId, title, description, files: images.map(x=>x.file), originalityConfirmed });
-  $: firstStageValid = Boolean(kind) && Boolean(targetName.trim()) &&
-    (kind === 'outdoor' ? ['biome','floating_island'].includes(targetType) :
-    kind === 'indoor' ? targetType === 'room' : /^\d+$/.test(baseItemId.trim()));
+  $: targetName = selectedSubject ? subjectDisplayIdentity(selectedSubject) : '';
+  $: baseItemId = selectedSubject?.baseItemId == null ? '' : String(selectedSubject.baseItemId);
+  $: firstStageValid = subjectCatalogReady && isSelectableSubject(selectedSubject,kind,targetType);
+  $: validErrors = [
+    ...validateGalleryComposition({ kind, targetType, targetName, baseItemId, title, description, files: images.map(x=>x.file), originalityConfirmed }),
+    ...(!firstStageValid ? ['verified_subject'] : [])
+  ];
   $: mediaValid = validateGalleryImages(images.map(item=>item.file)) === null && Boolean(title.trim()) && title.trim().length <= 240 && description.length <= 20000;
   $: kindLabel = kind === 'outdoor' ? t('gallery.kind.outdoor',{},$locale) : kind === 'indoor' ? t('gallery.kind.indoor',{},$locale) : kind === 'tom_furniture' ? t('gallery.kind.tomFurniture',{},$locale) : t('gallery.kind.tomClothing',{},$locale);
 
@@ -60,10 +68,15 @@
     const result: any = await run(() => client.command('ensureAccountCreator', { handle: handle.trim(), displayName: displayName.trim() }));
     if (result?.data?.creatorProfileId) { creatorProfileId = String(result.data.creatorProfileId); creatorLabel = displayName.trim(); }
   }
-  function setKind(value: string) {
+  function setKind(value: GalleryKind) {
     kind = value;
-    targetType = value === 'outdoor' ? 'biome' : value === 'indoor' ? 'room' : 'base_item';
-    targetName = ''; baseItemId = '';
+    targetType = value === 'outdoor' ? 'biome' : value === 'indoor' ? 'room' : value;
+    selectedSubject = null;
+    subjectCatalogReady = false;
+  }
+  function setTargetType(value: SubjectType) {
+    targetType = value;
+    selectedSubject = null;
   }
   function chooseFiles(event: Event) {
     const selected = Array.from((event.currentTarget as HTMLInputElement).files ?? []);
@@ -97,8 +110,9 @@
     if (!client?.session || !creatorProfileId) { error = t('galleryv1.signIn',{},$locale); return; }
     // No network/media upload or draft creation occurs before the owner contract
     // declares classification/subject identity + atomic media publication support.
+    // No authorized owner READY/CLEAR upload and cleanup contract proven.
     try { assertClassifiedPhotoPublishContract(null); }
-    catch { error = t('galleryv1.technicalBlock',{},$locale) + ' (' + GALLERY_PUBLICATION_BLOCKER + ')'; }
+    catch { error = t('galleryv1.uploadNotReady',{},$locale) + ' (' + GALLERY_PUBLICATION_BLOCKER + ')'; }
   }
 </script>
 
@@ -122,7 +136,7 @@
     <div class="form-panel">
       <h2>{t('galleryv1.content',{},$locale)}</h2>
       <label>{t('galleryv1.kind',{},$locale)}
-        <select value={kind} on:change={(e)=>setKind((e.currentTarget as HTMLSelectElement).value)}>
+        <select value={kind} on:change={(e)=>setKind((e.currentTarget as HTMLSelectElement).value as GalleryKind)}>
           <option value="outdoor">{t('gallery.kind.outdoor',{},$locale)}</option>
           <option value="indoor">{t('gallery.kind.indoor',{},$locale)}</option>
           <option value="tom_furniture">{t('gallery.kind.tomFurniture',{},$locale)}</option>
@@ -131,19 +145,16 @@
       </label>
       {#if !isTom}
         <label>{t('galleryv1.targetType',{},$locale)}
-          <select bind:value={targetType}>
+          <select value={targetType} on:change={(e)=>setTargetType((e.currentTarget as HTMLSelectElement).value as SubjectType)}>
             {#if kind==='outdoor'}
               <option value="biome">{t('galleryv1.biome',{},$locale)}</option>
               <option value="floating_island">{t('galleryv1.floatingIsland',{},$locale)}</option>
             {:else}<option value="room">{t('galleryv1.room',{},$locale)}</option>{/if}
           </select>
         </label>
-        <label>{t('galleryv1.targetName',{},$locale)}<input bind:value={targetName} maxlength="120" required /></label>
-      {:else}
-        <label>{t('galleryv1.baseItem',{},$locale)}<input inputmode="numeric" pattern="[0-9]+" bind:value={baseItemId} required /></label>
-        <label>{t('galleryv1.targetName',{},$locale)}<input bind:value={targetName} maxlength="120" required /></label>
-        <p class="notice" role="status">{t('galleryv1.technicalBlock',{},$locale)}</p>
       {/if}
+      <VerifiedSubjectPicker {kind} subjectType={targetType} selected={selectedSubject}
+        onChoose={(subject)=>selectedSubject=subject} onReady={(ready)=>subjectCatalogReady=ready} />
       <p class="helper">{t('galleryv1.photoOnly',{},$locale)} · {t('galleryv1.noPreset',{},$locale)}</p>
     </div>
   {:else if step===2}
@@ -187,9 +198,9 @@
         <label>{t('community.creator.displayName',{},$locale)}<input bind:value={displayName} /></label>
         <button type="button" disabled={busy || !handle.trim() || !displayName.trim()} on:click={ensureCreator}>{t('community.creator.create',{},$locale)}</button>
       {/if}
-      <p class="notice" role="status">{t('galleryv1.technicalBlock',{},$locale)} <code>{GALLERY_PUBLICATION_BLOCKER}</code></p>
+      <p class="notice" role="status">{t('galleryv1.uploadNotReady',{},$locale)} <code>{GALLERY_PUBLICATION_BLOCKER}</code></p>
       <p>{t('galleryv1.technicalBlockDetail',{},$locale)}</p>
-      <button type="button" disabled={busy || !originalityConfirmed || !signedIn || !creatorProfileId} on:click={publish}>{t('galleryv1.publishWork',{},$locale)}</button>
+      <button type="button" disabled aria-disabled="true" title={t('galleryv1.uploadNotReady',{},$locale)}>{t('galleryv1.publishWork',{},$locale)}</button>
     </div>
   {/if}
 
