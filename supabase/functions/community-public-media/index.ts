@@ -73,6 +73,7 @@ const publicFetch = withSupabase({ auth: 'none' }, async (req, ctx) => {
     const {data:blob,error:downloadError}=await ctx.supabaseAdmin.storage
       .from(bucketName()).download(String(gallery.storageKey));
     if (downloadError || !blob) return reply({ok:false,error:'GALLERY_MEDIA_STORAGE_UNAVAILABLE'},404);
+    if (blob.size !== Number(gallery.byteSize)) return reply({ok:false,error:'GALLERY_MEDIA_STORAGE_SIZE_MISMATCH'},409);
     return new Response(blob.stream(),{
       status:200,
       headers:{
