@@ -19,10 +19,118 @@ export const VERIFIED_CORE_IDENTITIES_V125 = Object.freeze([
     galleryKind:'outdoor',subjectType:'floating_island',
     canonicalTargetId:'1540000147',baseItemId:null,
     semanticIdentityCodec:'ddv.outdoor-location-ref@1',
-    evidenceRef:'static/ddv/core/world/v1.25/direct-root-editor-document-contract-v125.json#representativeProofTarget.locationRef',
+    evidenceRef:'tests/fixtures/ddv-world/outdoor-location-routing-audit-v125.json#/floatingIslands/0/sceneItemId',
     evidenceSourceSha256:'1cfc40196f7ee36048e1fa98c0835561901c6fed3f19ca8dd6fa36c47740dc10',
-    evidenceClass:'CONFIRMED_CURRENT_V125_SEMANTIC_LOCATION_IDENTITY',
-    scope:'Urban Floating Island; not a general enumeration of Floating Islands'
+    evidenceClass:'CONFIRMED_V125_SEMANTIC_LOCATION_ROUTE_PARITY',
+    scope:'Audit floatingIslands[0] exact SceneItemId, not save-local GridID or screenshot label'
+  }),
+  Object.freeze({
+    galleryKind:'outdoor',subjectType:'floating_island',
+    canonicalTargetId:'1540000148',baseItemId:null,
+    semanticIdentityCodec:'ddv.outdoor-location-ref@1',
+    evidenceRef:'tests/fixtures/ddv-world/outdoor-location-routing-audit-v125.json#/floatingIslands/1/sceneItemId',
+    evidenceSourceSha256:'1cfc40196f7ee36048e1fa98c0835561901c6fed3f19ca8dd6fa36c47740dc10',
+    evidenceClass:'CONFIRMED_V125_SEMANTIC_LOCATION_ROUTE_PARITY',
+    scope:'Audit floatingIslands[1] exact SceneItemId, not save-local GridID or screenshot label'
+  }),
+  Object.freeze({
+    galleryKind:'outdoor',subjectType:'floating_island',
+    canonicalTargetId:'1540000149',baseItemId:null,
+    semanticIdentityCodec:'ddv.outdoor-location-ref@1',
+    evidenceRef:'tests/fixtures/ddv-world/outdoor-location-routing-audit-v125.json#/floatingIslands/2/sceneItemId',
+    evidenceSourceSha256:'1cfc40196f7ee36048e1fa98c0835561901c6fed3f19ca8dd6fa36c47740dc10',
+    evidenceClass:'CONFIRMED_V125_SEMANTIC_LOCATION_ROUTE_PARITY',
+    scope:'Audit floatingIslands[2] exact SceneItemId, not save-local GridID or screenshot label'
+  }),
+  Object.freeze({
+    galleryKind:'outdoor',subjectType:'floating_island',
+    canonicalTargetId:'1540000150',baseItemId:null,
+    semanticIdentityCodec:'ddv.outdoor-location-ref@1',
+    evidenceRef:'tests/fixtures/ddv-world/outdoor-location-routing-audit-v125.json#/floatingIslands/3/sceneItemId',
+    evidenceSourceSha256:'1cfc40196f7ee36048e1fa98c0835561901c6fed3f19ca8dd6fa36c47740dc10',
+    evidenceClass:'CONFIRMED_V125_SEMANTIC_LOCATION_ROUTE_PARITY',
+    scope:'Audit floatingIslands[3] exact SceneItemId, not save-local GridID or screenshot label'
+  }),
+  Object.freeze({
+    galleryKind:'outdoor',subjectType:'floating_island',
+    canonicalTargetId:'1540000151',baseItemId:null,
+    semanticIdentityCodec:'ddv.outdoor-location-ref@1',
+    evidenceRef:'tests/fixtures/ddv-world/outdoor-location-routing-audit-v125.json#/floatingIslands/4/sceneItemId',
+    evidenceSourceSha256:'1cfc40196f7ee36048e1fa98c0835561901c6fed3f19ca8dd6fa36c47740dc10',
+    evidenceClass:'CONFIRMED_V125_SEMANTIC_LOCATION_ROUTE_PARITY',
+    scope:'Audit floatingIslands[4] exact SceneItemId, not save-local GridID or screenshot label'
+  }),
+  Object.freeze({
+    galleryKind:'outdoor',subjectType:'floating_island',
+    canonicalTargetId:'1540000152',baseItemId:null,
+    semanticIdentityCodec:'ddv.outdoor-location-ref@1',
+    evidenceRef:'tests/fixtures/ddv-world/outdoor-location-routing-audit-v125.json#/floatingIslands/5/sceneItemId',
+    evidenceSourceSha256:'1cfc40196f7ee36048e1fa98c0835561901c6fed3f19ca8dd6fa36c47740dc10',
+    evidenceClass:'CONFIRMED_V125_SEMANTIC_LOCATION_ROUTE_PARITY',
+    scope:'Audit floatingIslands[5] exact SceneItemId, not save-local GridID or screenshot label'
+  }),
+  Object.freeze({
+    galleryKind:'outdoor',subjectType:'floating_island',
+    canonicalTargetId:'1540000153',baseItemId:null,
+    semanticIdentityCodec:'ddv.outdoor-location-ref@1',
+    evidenceRef:'tests/fixtures/ddv-world/outdoor-location-routing-audit-v125.json#/floatingIslands/6/sceneItemId',
+    evidenceSourceSha256:'1cfc40196f7ee36048e1fa98c0835561901c6fed3f19ca8dd6fa36c47740dc10',
+    evidenceClass:'CONFIRMED_V125_SEMANTIC_LOCATION_ROUTE_PARITY',
+    scope:'Audit floatingIslands[6] exact SceneItemId, not save-local GridID or screenshot label'
+  }),
+  Object.freeze({
+    galleryKind:'outdoor',subjectType:'floating_island',
+    canonicalTargetId:'1540000154',baseItemId:null,
+    semanticIdentityCodec:'ddv.outdoor-location-ref@1',
+    evidenceRef:'tests/fixtures/ddv-world/outdoor-location-routing-audit-v125.json#/floatingIslands/7/sceneItemId',
+    evidenceSourceSha256:'1cfc40196f7ee36048e1fa98c0835561901c6fed3f19ca8dd6fa36c47740dc10',
+    evidenceClass:'CONFIRMED_V125_SEMANTIC_LOCATION_ROUTE_PARITY',
+    scope:'Audit floatingIslands[7] exact SceneItemId, not save-local GridID or screenshot label'
+  }),
+  Object.freeze({
+    galleryKind:'outdoor',subjectType:'floating_island',
+    canonicalTargetId:'1540000192',baseItemId:null,
+    semanticIdentityCodec:'ddv.outdoor-location-ref@1',
+    evidenceRef:'tests/fixtures/ddv-world/outdoor-location-routing-audit-v125.json#/floatingIslands/8/sceneItemId',
+    evidenceSourceSha256:'1cfc40196f7ee36048e1fa98c0835561901c6fed3f19ca8dd6fa36c47740dc10',
+    evidenceClass:'CONFIRMED_V125_SEMANTIC_LOCATION_ROUTE_PARITY',
+    scope:'Audit floatingIslands[8] exact SceneItemId, not save-local GridID or screenshot label'
+  }),
+  Object.freeze({
+    galleryKind:'outdoor',subjectType:'floating_island',
+    canonicalTargetId:'1540000193',baseItemId:null,
+    semanticIdentityCodec:'ddv.outdoor-location-ref@1',
+    evidenceRef:'tests/fixtures/ddv-world/outdoor-location-routing-audit-v125.json#/floatingIslands/9/sceneItemId',
+    evidenceSourceSha256:'1cfc40196f7ee36048e1fa98c0835561901c6fed3f19ca8dd6fa36c47740dc10',
+    evidenceClass:'CONFIRMED_V125_SEMANTIC_LOCATION_ROUTE_PARITY',
+    scope:'Audit floatingIslands[9] exact SceneItemId, not save-local GridID or screenshot label'
+  }),
+  Object.freeze({
+    galleryKind:'outdoor',subjectType:'floating_island',
+    canonicalTargetId:'1540000194',baseItemId:null,
+    semanticIdentityCodec:'ddv.outdoor-location-ref@1',
+    evidenceRef:'tests/fixtures/ddv-world/outdoor-location-routing-audit-v125.json#/floatingIslands/10/sceneItemId',
+    evidenceSourceSha256:'1cfc40196f7ee36048e1fa98c0835561901c6fed3f19ca8dd6fa36c47740dc10',
+    evidenceClass:'CONFIRMED_V125_SEMANTIC_LOCATION_ROUTE_PARITY',
+    scope:'Audit floatingIslands[10] exact SceneItemId, not save-local GridID or screenshot label'
+  }),
+  Object.freeze({
+    galleryKind:'outdoor',subjectType:'floating_island',
+    canonicalTargetId:'1540000238',baseItemId:null,
+    semanticIdentityCodec:'ddv.outdoor-location-ref@1',
+    evidenceRef:'tests/fixtures/ddv-world/outdoor-location-routing-audit-v125.json#/floatingIslands/11/sceneItemId',
+    evidenceSourceSha256:'1cfc40196f7ee36048e1fa98c0835561901c6fed3f19ca8dd6fa36c47740dc10',
+    evidenceClass:'CONFIRMED_V125_SEMANTIC_LOCATION_ROUTE_PARITY',
+    scope:'Audit floatingIslands[11] exact SceneItemId, not save-local GridID or screenshot label'
+  }),
+  Object.freeze({
+    galleryKind:'outdoor',subjectType:'floating_island',
+    canonicalTargetId:'1540000246',baseItemId:null,
+    semanticIdentityCodec:'ddv.outdoor-location-ref@1',
+    evidenceRef:'tests/fixtures/ddv-world/outdoor-location-routing-audit-v125.json#/floatingIslands/12/sceneItemId',
+    evidenceSourceSha256:'1cfc40196f7ee36048e1fa98c0835561901c6fed3f19ca8dd6fa36c47740dc10',
+    evidenceClass:'CONFIRMED_V125_SEMANTIC_LOCATION_ROUTE_PARITY',
+    scope:'Audit floatingIslands[12] exact SceneItemId, not save-local GridID or screenshot label'
   })
 ]);
 function fail(code){return Object.freeze({ok:false,code,verificationState:'pending'});}

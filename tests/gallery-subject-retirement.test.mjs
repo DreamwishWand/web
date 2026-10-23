@@ -27,14 +27,23 @@ const base={
 const evidence={verifiedForWorkId:'w-gallery',verifiedRevisionId:'revision-a',alreadyIssuedUrlsRevoked:true};
 
 test('authoritative v1.25 Gallery registry candidate comes from exact Core semantic island identity, not UI/screenshot',()=>{
-  assert.equal(source.length,1);
+  assert.equal(source.length,13);
   assert.equal(verified.subjectType,'floating_island');
   assert.equal(verified.canonicalTargetId,'1540000147');
   assert.equal(verified.baseItemId,null);
   assert.equal(verified.platform,'switch');
   assert.equal(verified.buildId,GALLERY_SUBJECT_TARGET_V125.buildId);
   assert.equal(validateGallerySubjectForEnrollment(verified).ok,true);
-  assert.equal(verified.evidenceClass,'CONFIRMED_CURRENT_V125_SEMANTIC_LOCATION_IDENTITY');
+  assert.equal(verified.evidenceClass,'CONFIRMED_V125_SEMANTIC_LOCATION_ROUTE_PARITY');
+  const audit=JSON.parse(fs.readFileSync(
+    new URL('../tests/fixtures/ddv-world/outdoor-location-routing-audit-v125.json',import.meta.url),'utf8'));
+  assert.equal(audit.summary.floatingIslandCount,13);
+  for(const [index,row] of audit.floatingIslands.entries()){
+    assert.equal(source[index].canonicalTargetId,String(row.sceneItemId));
+    assert.equal(source[index].evidenceRef,
+      'tests/fixtures/ddv-world/outdoor-location-routing-audit-v125.json#/floatingIslands/'+index+'/sceneItemId');
+    assert.equal(validateGallerySubjectForEnrollment(source[index]).ok,true);
+  }
 });
 
 test('all five classifications exist; unreviewed biome/room/ToM Base Item IDs are rejected, never guessed',()=>{
@@ -119,10 +128,11 @@ test('SQL extends PR #108 only via service read model and trigger, with no repla
   assert.equal(GALLERY_DEPENDENCY_CONSUMER_V1.linkedRetirementCommand,null);
   assert.equal(GALLERY_DEPENDENCY_CONSUMER_V1.cloudKeepPrivateCommand,null);
 });
-test('reviewed seed references a single Core-proven island, no invented ToM/room/biome values',()=>{
+test('reviewed seed contains exactly 13 Core-proven island IDs; no invented ToM/room/biome values',()=>{
   const sql=fs.readFileSync(new URL('../supabase/seeds/gallery-verified-subjects-v125-reviewed-20261024.sql',import.meta.url),'utf8');
   assert.match(sql,/1540000147/);
-  assert.match(sql,/representativeProofTarget.locationRef/);
+  assert.match(sql,/outdoor-location-routing-audit-v125.json/);
+  assert.equal((sql.match(/sceneItemId'\)/g)||[]).length,13);
   assert.match(sql,/GALLERY_SUBJECT_EXISTING_EVIDENCE_CONFLICT/);
   assert.doesNotMatch(sql,/'tom_furniture'|'tom_clothing'|'room'|'biome'/);
 });
