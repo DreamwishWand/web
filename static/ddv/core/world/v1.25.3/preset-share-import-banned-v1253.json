@@ -27,14 +27,15 @@
       "type": "Il2CppDumper dump.cs",
       "driveId": "1hU6xRnr0ehmNZveuXiYdOYOcZN0b1LRu",
       "sha256": "2cf3629aac90d15a36a399af7e4735a3bae4251c8732232f951815c2ac14b86f",
-      "nativeRvaStatus": "NOT_EXTRACTED"
+      "nativeRvaStatus": "DECLARATIONS_EXTRACTED_BODY_UNAVAILABLE"
     },
     "steam1253": {
       "type": "Il2CppDumper dump.cs",
       "driveId": "1Jt3QQ1j3cNfovJmIWXZdSLsZtjz7OvQc",
       "sha256": "08307a26419cbf239c77b7dd0b3fa96036dc514cc46c5d7d5d1cb9780a1cdb05",
-      "nativeRvaStatus": "NOT_EXTRACTED",
-      "buildIdentity": "releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22"
+      "nativeRvaStatus": "DECLARATIONS_EXTRACTED_BODY_UNAVAILABLE",
+      "buildIdentity": "releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22",
+      "exactCodeMapperSupport": "METADATA_ONLY; client interpreter presently Switch-only, Steam must remain fail closed"
     }
   },
   "confirmed": {
@@ -67,7 +68,14 @@
         "TaskAwaiter<UpdateDecorationPresetStateFlags.Types.Response>"
       ],
       "interpretation": "ADDITIONAL_BOOLEAN_AWAIT_CONFIRMED; PREDICATE_UNKNOWN"
-    }
+    },
+    "steam1253EnumAndLocalizationParity": {
+      "shareBanned": 14,
+      "importBanned": 17,
+      "key": "menu.decoration_preset_banned_text",
+      "sourceSha256": "08307a26419cbf239c77b7dd0b3fa96036dc514cc46c5d7d5d1cb9780a1cdb05"
+    },
+    "steam1253ShareStateMachineAddsBooleanAwaiter": true
   },
   "switchNativeAnchors": [
     {
@@ -106,7 +114,7 @@
     "native method body/call graph unavailable; dump.cs cannot prove branch predicates",
     "Banned trigger policy identity/moderation/permission specifics",
     "end-to-end share/import response propagation",
-    "Steam independent native RVA and runtime",
+    "Steam executable-body/call-graph equivalence and runtime flow (RVA now separately extracted)",
     "server-auth/ban checks"
   ],
   "downstream": [
@@ -122,5 +130,32 @@
     "productApplyAuthorized": false,
     "directSourceReplacementAuthorized": false,
     "nativeWriterAuthorized": false
-  }
+  },
+  "steamNativeAnchors": [
+    {
+      "method": "Client.GenerateDecorationPresetShareCode(int,CancellationToken)",
+      "v1250Rva": "0x4C693C0",
+      "v1253Rva": "0x4C6B210"
+    },
+    {
+      "method": "Client.<GenerateDecorationPresetShareCode>d__721.MoveNext",
+      "v1250Rva": "0x4C83FB0",
+      "v1253Rva": "0x4C85E00"
+    },
+    {
+      "method": "OnlineClient.LookupDecorationPresetShareAsync(string)",
+      "v1250Rva": "0x4CEE140",
+      "v1253Rva": "0x4CF0190"
+    },
+    {
+      "method": "OnlineClient.DownloadAndSaveDecorationPresetAsync(...)",
+      "v1250Rva": "0x4CEEF80",
+      "v1253Rva": "0x4CF0FD0"
+    },
+    {
+      "method": "DecorationPresetCatalog.ImportDecoPresetShareCode(string)",
+      "v1250Rva": "0x60C4560",
+      "v1253Rva": "0x60C6F50"
+    }
+  ]
 }
