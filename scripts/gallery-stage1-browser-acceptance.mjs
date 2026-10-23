@@ -16,6 +16,7 @@ const context=await browser.newContext({viewport:{width:1280,height:900}});
 const page=await context.newPage();
 // Unsigned synthetic transport acceptance only. No real staging key or user media.
 let subjectScenario='verified';
+const catalogRequests=[];
 const mockSubject={
   subjectId:'11111111-1111-4111-8111-111111111111',galleryKind:'outdoor',subjectType:'floating_island',
   canonicalTargetId:'fixture-scene-item',baseItemId:null,platform:'switch',
@@ -27,6 +28,7 @@ await page.route('https://gallery-lookup-browser.invalid/**',async route=>{
   const url=new URL(route.request().url());
   if(url.pathname.endsWith('/functions/v1/community-public-query')){
     const body=route.request().postDataJSON();
+    catalogRequests.push({rpc:body?.rpc,kind:body?.payload?.p_gallery_kind});
     if(body?.rpc!=='community_list_verified_gallery_subjects_v1')
       return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:'Unsupported public query'})});
     if(subjectScenario==='network-error')
@@ -63,7 +65,15 @@ try{
   // The default Outdoor subtype is Biome. Registry currently includes Islands only:
   // select the Island subtype *before* waiting for available subject cards.
   await page.locator('select').filter({has:page.locator('option[value="floating_island"]')}).selectOption('floating_island');
-  await page.locator('.subject-options button').first().waitFor({state:'visible',timeout:10000});
+  try { await page.locator('.subject-options button').first().waitFor({state:'visible',timeout:10000}); }
+  catch(cause){
+    console.log('SUBJECT_DIAGNOSTIC',JSON.stringify({
+      catalogRequests,kind:await page.locator('select').filter({has:page.locator('option[value="floating_island"]')}).inputValue(),
+      pickerText:await page.locator('.subject-picker').allTextContents(),
+      html:await page.locator('.subject-picker').first().innerHTML()
+    }).slice(0,5500));
+    throw cause;
+  }
   await page.locator('.subject-options button').first().click();
   assert(await page.getByText('SceneItemId fixture-scene-item').count()>0,'missing canonical display fallback');
   const stageTwo=page.getByRole('heading',{name:'Images & presentation'});
