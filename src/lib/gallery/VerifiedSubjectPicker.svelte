@@ -4,7 +4,7 @@
   import { callPublicCommunityRpc, getCommunityBrowserConfig } from '$lib/community/browser-client';
   import {
     VERIFIED_SUBJECT_RPC, SUBJECT_TYPES, parseVerifiedSubjectLookup, isSelectableSubject,
-    subjectDisplayIdentity, filterVerifiedSubjects, resolveCurrentSubject
+    subjectDisplayIdentity, filterVerifiedSubjects, resolveCurrentSubject, sameVerifiedSubjectAuthority
   } from '$lib/gallery/verified-subjects.js';
   import type { VerifiedGallerySubject, GalleryKind, SubjectType } from '$lib/gallery/verified-subjects.js';
 
@@ -54,8 +54,10 @@
       if(request!==requestNumber || kind!==requestedKind)return;
       records=parseVerifiedSubjectLookup(response,requestedKind);
       // Preserve only selections that are still in the current authoritative registry.
-      if(selected && !resolveCurrentSubject(records,selected.subjectId,kind,subjectType)){
-        onChoose(null);
+      if(selected){
+        const current=resolveCurrentSubject(records,selected.subjectId,kind,subjectType);
+        if(!current || !sameVerifiedSubjectAuthority(current,selected))onChoose(null);
+        else onChoose(current);
       }
       catalogState='ready';
       onReady(true);
