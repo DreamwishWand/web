@@ -506,6 +506,12 @@ export function captureScenePreset(
     source: {
       gameVersion: document.target?.gameVersion ?? null,
       platform: document.target?.platform ?? null,
+      buildIdentity:
+        document.target?.exactBuildKnown === true
+          ? (document.target?.sourceBuildIdentity ?? document.target?.contractBuildIdentity ?? null)
+          : null,
+      exactBuildKnown: document.target?.exactBuildKnown === true,
+      profileSchemaVersion: document.target?.profileSchemaVersion ?? null,
       areaKey: document.target?.areaKey ?? null
     },
     bounds: { w: region.w, h: region.h },

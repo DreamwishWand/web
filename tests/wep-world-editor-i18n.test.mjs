@@ -229,13 +229,16 @@ test('World Editor route retains machine values and persistent writer boundary w
     'NATIVE_PLACEMENT_CLASSES',
     'TOPOLOGY_CLIPPED_UNSUPPORTED',
     'persistentWriteAuthorized: false',
-    'value="unlisted"',
-    'value="public"',
-    'value="private"'
+    'saveScenePresetPrivateMaster',
+    '/presets/publish/?master=',
+    'scenePrivateCopy'
   ]) {
     assert.ok(routeSource.includes(machineToken), machineToken);
   }
   assert.doesNotMatch(routeSource, /--gold\s*:/);
+  assert.doesNotMatch(routeSource, /publishCapturedScene/);
+  assert.doesNotMatch(routeSource, /value="unlisted"/);
+  assert.doesNotMatch(routeSource, /value="private"/);
   assert.match(routeSource, /worldEditor\.scene\.captureBlocked/);
   assert.match(routeSource, /worldEditor\.fullDesign\.preflightBoundary/);
   assert.match(routeSource, /worldEditor\.progression\.explanation/);

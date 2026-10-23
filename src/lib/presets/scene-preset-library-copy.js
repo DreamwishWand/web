@@ -1,0 +1,12 @@
+export const SCENE_PRESET_LIBRARY_LOCALES=Object.freeze(['en','fr','it','de','es-ES','ja','zh-CN','pt-BR']);
+const C=Object.freeze({
+en:{title:'Private Scene Masters',detail:'Private masters stay on this browser until you publish or delete them locally.',untitled:'Untitled Scene',published:'Published',unpublished:'Unpublished',private:'Private',changes:'Changes not published',continuePublish:'Open / Publish'},
+fr:{title:'Masters Scene privés',detail:'Les masters privés restent dans ce navigateur jusqu’à publication ou suppression locale.',untitled:'Scene sans titre',published:'Publié',unpublished:'Dépublié',private:'Privé',changes:'Modifications non publiées',continuePublish:'Ouvrir / Publier'},
+it:{title:'Master Scene privati',detail:'I master privati restano in questo browser finché non vengono pubblicati o eliminati localmente.',untitled:'Scene senza titolo',published:'Pubblicato',unpublished:'Non pubblicato',private:'Privato',changes:'Modifiche non pubblicate',continuePublish:'Apri / Pubblica'},
+de:{title:'Private Scene-Master',detail:'Private Master bleiben in diesem Browser, bis sie veröffentlicht oder lokal gelöscht werden.',untitled:'Unbenannte Scene',published:'Veröffentlicht',unpublished:'Nicht veröffentlicht',private:'Privat',changes:'Nicht veröffentlichte Änderungen',continuePublish:'Öffnen / Veröffentlichen'},
+'es-ES':{title:'Masters Scene privados',detail:'Los masters privados permanecen en este navegador hasta que se publiquen o se eliminen localmente.',untitled:'Scene sin título',published:'Publicado',unpublished:'Sin publicar',private:'Privado',changes:'Cambios sin publicar',continuePublish:'Abrir / Publicar'},
+ja:{title:'Private Scene Masters',detail:'private masterは、このブラウザ内でPublishまたはlocal削除するまで保持されます。',untitled:'無題のScene',published:'Published',unpublished:'Unpublished',private:'Private',changes:'Changes not published',continuePublish:'開く / Publish'},
+'zh-CN':{title:'Private Scene Masters',detail:'private master 会保留在此浏览器中，直到发布或本地删除。',untitled:'无标题 Scene',published:'已发布',unpublished:'已取消发布',private:'私有',changes:'未发布的更改',continuePublish:'打开 / 发布'},
+'pt-BR':{title:'Masters Scene privados',detail:'Masters privados permanecem neste navegador até serem publicados ou excluídos localmente.',untitled:'Scene sem título',published:'Publicado',unpublished:'Despublicado',private:'Privado',changes:'Alterações não publicadas',continuePublish:'Abrir / Publicar'}
+});
+export function scenePresetLibraryCopy(locale){return C[locale]??C.en;}

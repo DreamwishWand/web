@@ -59,6 +59,8 @@ jobs:
           test -f build/decorate/index.html
           test -f build/discover/index.html
           test -f build/presets/index.html
+          test -f build/presets/publish/index.html
+          test -f build/presets/detail/index.html
           test -f build/projects/index.html
           test -f build/help/index.html
           test -f build/gallery/index.html

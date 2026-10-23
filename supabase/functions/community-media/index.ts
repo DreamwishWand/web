@@ -291,6 +291,34 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       });
     }
 
+    if (action === 'discard') {
+      const mediaId = String(body.mediaId ?? '');
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(mediaId)) {
+        return reply({ ok: false, error: 'Valid mediaId required' }, 400);
+      }
+      const { data: prepared, error: prepareError } = await ctx.supabaseAdmin.rpc(
+        'community_prepare_unattached_media_discard_v1',
+        { p_auth_subject: subject, p_media_id: mediaId }
+      );
+      if (prepareError || !prepared?.discardable) {
+        return reply({ ok: false, error: 'MEDIA_DISCARD_FORBIDDEN', message: prepareError?.message }, 409);
+      }
+      const storageKey = String(prepared.storageKey ?? '');
+      if (!storageKey) return reply({ ok: false, error: 'MEDIA_DISCARD_STORAGE_KEY_MISSING' }, 500);
+      const { error: removeError } = await ctx.supabaseAdmin.storage.from(BUCKET).remove([storageKey]);
+      if (removeError) {
+        return reply({ ok: false, error: 'MEDIA_STORAGE_DISCARD_FAILED', message: removeError.message }, 500);
+      }
+      const { data: finalized, error: finalizeError } = await ctx.supabaseAdmin.rpc(
+        'community_finalize_unattached_media_discard_v1',
+        { p_auth_subject: subject, p_media_id: mediaId }
+      );
+      if (finalizeError || !finalized?.discarded) {
+        return reply({ ok: false, error: 'MEDIA_DISCARD_FINALIZE_FAILED', message: finalizeError?.message }, 500);
+      }
+      return reply({ ok: true, action, data: { mediaId, discarded: true } });
+    }
+
     if (action === 'read') {
       const mediaId = String(body.mediaId ?? '');
       const { data: media, error: mediaError } = await ctx.supabaseAdmin.rpc(

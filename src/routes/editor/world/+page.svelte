@@ -11,7 +11,8 @@
     validatePublishablePreset
   } from '$lib/wep/scene-preset-runtime';
   import { captureScenePreset } from '$lib/wep/scene-capture-runtime';
-  import { createScenePresetWorkflow } from '$lib/wep/scene-preset-workflow';
+  import { saveScenePresetPrivateMaster } from '$lib/wep/scene-preset-private-master';
+  import { scenePrivateMasterCopy } from '$lib/presets/scene-preset-private-master-copy.js';
   import {
     WEP_EDITOR_SCHEMA,
     WEP_LAYERS,
@@ -164,7 +165,6 @@
   let fileName = '';
   let message = '';
   let capturePreview: any = null;
-  let published: any = null;
   let loading = false;
   let sourcePlatform = 'unknown';
   let switchWorldBinding: any = null;
@@ -259,14 +259,11 @@
 
   let community: CommunityLabClient | null = null;
   let bridge: ReturnType<typeof createPresetCommunityBridge> | null = null;
-  let workflow: ReturnType<typeof createScenePresetWorkflow> | null = null;
   let connected = false;
   let creatorProfileId = '';
 
   let presetTitle = '';
-  let presetDescription = '';
-  let visibility = 'unlisted';
-  let publishKey = '';
+  let privateSceneMaster: any = null;
   let captureRegionMode: 'selection' | 'custom' = 'selection';
   let captureRegionX = 0;
   let captureRegionY = 0;
@@ -283,6 +280,7 @@
   $: objectCount = editorDocument?.objects?.length ?? 0;
   $: stage1Copy = worldEditorStage1Copy($locale);
   $: roomFinishUi = roomFinishCopy($locale);
+  $: scenePrivateCopy = scenePrivateMasterCopy($locale);
   $: roomFinishContextActive =
     editorDocument?.target?.kind === 'PLAYER_HOUSE_ROOM';
   $: roomFinishCurrentState =
@@ -810,7 +808,6 @@
     query = '';
     selectedOnly = false;
     capturePreview = null;
-    published = null;
     verifiedExportReview = null;
     verifiedExportResult = null;
     verifiedExportErrorCode = '';
@@ -1783,7 +1780,6 @@
     lastDraftCommand =
       'FENCE_REPRESENTATION_LAYOUT_EDIT';
     capturePreview = null;
-    published = null;
     refreshProjection();
     refreshDraftState();
     syncFencePostDraftFromDocument();
@@ -2124,12 +2120,6 @@
         }
       });
 
-      workflow = createScenePresetWorkflow({
-        publisher: bridge,
-        captureScene: captureScenePreset as any,
-        publicationValidator: validatePublishablePreset
-      });
-
       connected = Boolean(community.session);
       if (!connected) return;
 
@@ -2263,7 +2253,6 @@
     verifiedExportConfirmed = false;
     message = '';
     capturePreview = null;
-    published = null;
     fullDesignPlan = null;
     fullDesignPlanError = '';
     fullDesignRootDocuments = [];
@@ -2317,8 +2306,6 @@
         selection = [];
         canvasFocusEditorId = '';
         presetTitle = '';
-        presetDescription = '';
-        publishKey = '';
         refreshProjection();
         refreshDraftState();
 
@@ -2362,8 +2349,6 @@
         query = '';
         selectedOnly = false;
         presetTitle = '';
-        presetDescription = '';
-        publishKey = '';
         draftAuthoringBound = false;
         draftValidation = null;
         draftSavePreparation = null;
@@ -2461,7 +2446,6 @@
     loading = true;
     message = '';
     capturePreview = null;
-    published = null;
     fullDesignPlan = null;
     fullDesignPlanError = '';
     fullDesignRootDocuments = [];
@@ -2533,7 +2517,6 @@
 
     loading = true;
     capturePreview = null;
-    published = null;
     fullDesignPlan = null;
     fullDesignPlanError = '';
     resetFullDesignDestination();
@@ -2659,8 +2642,6 @@
       selectedOnly = false;
       selection = [];
       presetTitle = '';
-      presetDescription = '';
-      publishKey = '';
       refreshProjection();
       refreshDraftState();
       syncRoadFenceSelection();
@@ -2720,7 +2701,6 @@
 
     loading = true;
     capturePreview = null;
-    published = null;
     fullDesignPlan = null;
     fullDesignPlanError = '';
     resetFullDesignDestination();
@@ -2826,8 +2806,6 @@
       selection = [];
       canvasFocusEditorId = '';
       presetTitle = '';
-      presetDescription = '';
-      publishKey = '';
       refreshProjection();
       refreshDraftState();
 
@@ -2870,7 +2848,6 @@
     canvasFocusEditorId = '';
     layerState = null;
     capturePreview = null;
-    published = null;
     fullDesignPlan = null;
     fullDesignPlanError = '';
     fullDesignRootDocuments = [];
@@ -2904,7 +2881,6 @@
       : session.setSelection([id]);
     if (selectedOnly) refreshProjection();
     capturePreview = null;
-    published = null;
   }
 
   function selectAllVisible() {
@@ -2914,7 +2890,6 @@
     );
     if (selectedOnly) refreshProjection();
     capturePreview = null;
-    published = null;
   }
 
   function clearSelection() {
@@ -2923,7 +2898,6 @@
     selection = [];
     if (selectedOnly) refreshProjection();
     capturePreview = null;
-    published = null;
   }
 
   function toggleLayer(layer: string) {
@@ -3099,7 +3073,6 @@
     }
 
     capturePreview = null;
-    published = null;
     refreshProjection();
     refreshDraftState();
     rebuildFullDesignPlan();
@@ -3205,7 +3178,6 @@
     if (!result?.applied) return;
     lastDraftCommand = `UNDO ${result.kind ?? ''}`.trim();
     capturePreview = null;
-    published = null;
     refreshProjection();
     refreshDraftState();
     syncFencePostDraftFromDocument();
@@ -3220,7 +3192,6 @@
     if (!result?.applied) return;
     lastDraftCommand = `REDO ${result.kind ?? ''}`.trim();
     capturePreview = null;
-    published = null;
     refreshProjection();
     refreshDraftState();
     syncFencePostDraftFromDocument();
@@ -3639,7 +3610,6 @@
     captureRegionH = Number(bounds.h);
     captureRegionMode = 'custom';
     capturePreview = null;
-    published = null;
   }
 
   function sceneCaptureRegion() {
@@ -3685,8 +3655,6 @@
         },
         validatePublishablePreset
       );
-      published = null;
-      publishKey = crypto.randomUUID();
 
       if (capturePreview.publicationReady) {
         message = t('worldEditor.scene.publicationReady', {}, $locale);
@@ -3699,7 +3667,6 @@
       }
     } catch (error) {
       capturePreview = null;
-      publishKey = '';
       const code = error instanceof Error ? error.message : String(error);
       if (code === 'WEP_SCENE_SELECTION_BLOCKED') {
         const selectedIds = new Set(selection.map(String));
@@ -3731,56 +3698,23 @@
     }
   }
 
-  async function publishScene() {
-    if (
-      !session ||
-      !workflow ||
-      !connected ||
-      !creatorProfileId ||
-      !presetTitle.trim()
-    ) {
-      message = t('worldEditor.scene.publishRequirements', {}, $locale);
+  function savePrivateSceneMaster() {
+    if (!capturePreview?.publicationReady) {
+      message = 'WEP_SCENE_CAPTURE_NOT_READY';
       return;
     }
-
-    loading = true;
-    message = '';
-
     try {
-      if (!publishKey) publishKey = crypto.randomUUID();
-
-      const result: any = await workflow.publishCapturedScene({
-        document: session.getDocument(),
-        capture: {
-          selectionIds: selection,
-          captureRegion: sceneCaptureRegion(),
-          includeRoads,
-          includeFences,
-          networkAdapter:
-            roadFenceSceneCaptureAdapter ??
-            roadFenceReaderBinding?.networkAdapter ??
-            null
-        },
-        creatorProfileId,
-        visibility,
-        title: presetTitle.trim(),
-        description: presetDescription.trim() || null,
-        metadata: {
-          sourceSurface: 'world-editor',
-          artifactType: 'scene'
-        },
-        idempotencyKey: `world-editor-scene-${publishKey}`
+      privateSceneMaster = saveScenePresetPrivateMaster(localStorage, {
+        artifact: capturePreview.artifact,
+        masterId: privateSceneMaster?.masterId ?? null,
+        authoredTitle: presetTitle.trim() || null
       });
-
-      capturePreview = result.captured;
-      published = result.published;
-      message = t('worldEditor.scene.publishedStatus', {}, $locale);
+      message = scenePrivateCopy.saved;
     } catch (error) {
       message = error instanceof Error ? error.message : String(error);
-    } finally {
-      loading = false;
     }
   }
+
 </script>
 
 <svelte:window on:keydown={handlePrimaryJobKeydown} />
@@ -3866,6 +3800,7 @@
         {session}
         {editorDocument}
         {switchWorldBinding}
+        {placementLegalityBinding}
         {mutationBound}
         {selection}
         presetBridge={bridge}
@@ -5641,30 +5576,14 @@
     <section class="capture-panel">
       <div class="capture-copy">
         <p class="eyebrow">{t('worldEditor.scene.eyebrow', {}, $locale)}</p>
-        <h2>{t('worldEditor.scene.title', {}, $locale)}</h2>
-        <p>{t('worldEditor.scene.description', {}, $locale)}</p>
+        <h2>{scenePrivateCopy.title}</h2>
+        <p>{scenePrivateCopy.description}</p>
       </div>
 
       <div class="capture-form">
         <label>
           <span>{t('worldEditor.scene.fieldTitle', {}, $locale)}</span>
           <input bind:value={presetTitle} placeholder={t('worldEditor.scene.titlePlaceholder', {}, $locale)} />
-        </label>
-        <label>
-          <span>{t('worldEditor.scene.fieldDescription', {}, $locale)}</span>
-          <textarea
-            bind:value={presetDescription}
-            rows="3"
-            placeholder={t('worldEditor.scene.descriptionPlaceholder', {}, $locale)}
-          ></textarea>
-        </label>
-        <label>
-          <span>{t('worldEditor.scene.visibility', {}, $locale)}</span>
-          <select bind:value={visibility}>
-            <option value="unlisted">{t('worldEditor.scene.unlisted', {}, $locale)}</option>
-            <option value="public">{t('worldEditor.scene.public', {}, $locale)}</option>
-            <option value="private">{t('worldEditor.scene.private', {}, $locale)}</option>
-          </select>
         </label>
 
         <div class="capture-region-options">
@@ -5674,8 +5593,7 @@
               bind:value={captureRegionMode}
               on:change={() => {
                 capturePreview = null;
-                published = null;
-              }}
+                          }}
             >
               <option value="selection">{t('worldEditor.scene.selectedBounds', {}, $locale)}</option>
               <option value="custom">{t('worldEditor.scene.customRegion', {}, $locale)}</option>
@@ -5738,17 +5656,24 @@
             on:click={previewScene}
           >{t('worldEditor.scene.capturePreview', {}, $locale)}</button>
           <button
-            class="publish"
-            disabled={
-              !capturePreview?.publicationReady ||
-              !connected ||
-              !creatorProfileId ||
-              !presetTitle.trim() ||
-              loading
-            }
-            on:click={publishScene}
-          >{t('worldEditor.scene.publish', {}, $locale)}</button>
+            disabled={!capturePreview?.publicationReady || loading}
+            on:click={savePrivateSceneMaster}
+          >{scenePrivateCopy.save}</button>
         </div>
+
+        {#if privateSceneMaster}
+          <div class="publication-master">
+            <strong>
+              {privateSceneMaster.publication && privateSceneMaster.changesNotPublished
+                ? scenePrivateCopy.changes
+                : scenePrivateCopy.saved}
+            </strong>
+            <a
+              class="publish"
+              href={base + '/presets/publish/?master=' + privateSceneMaster.masterId}
+            >{scenePrivateCopy.continuePublish}</a>
+          </div>
+        {/if}
       </div>
 
       <div class="capture-status">
@@ -5815,14 +5740,7 @@
         </div>
       {/if}
 
-      {#if published}
-        <div class="published-card">
-          <p class="eyebrow">{t('worldEditor.scene.published', {}, $locale)}</p>
-          <strong>{presetTitle}</strong>
-          <code>{published.presetArtifactId}</code>
-          <a href={`${base}/presets/`}>{t('worldEditor.nav.viewPublishedPreset', {}, $locale)}</a>
-        </div>
-      {/if}
+
     </section>
   {:else if worldSource}
     <section class="save-source-browser">

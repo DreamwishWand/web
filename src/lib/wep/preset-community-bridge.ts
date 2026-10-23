@@ -11,6 +11,10 @@ export interface PresetCommunityTransport {
     action: string,
     payload?: Record<string, unknown>
   ): Promise<PresetCommunityEdgeResult<T>>;
+  presetProduct<T = unknown>(
+    action: string,
+    payload?: Record<string, unknown>
+  ): Promise<PresetCommunityEdgeResult<T>>;
   command<T = unknown>(
     command: string,
     payload: Record<string, unknown>
@@ -20,6 +24,12 @@ export interface PresetCommunityTransport {
     payload?: Record<string, unknown>
   ): Promise<PresetCommunityEdgeResult<T>>;
   searchPublicWorks(options?: Record<string, unknown>): Promise<JsonObject[]>;
+  uploadAndFinalizeImage?(file: File): Promise<{
+    mediaId: string;
+    finalize?: unknown;
+    read?: unknown;
+  }>;
+  discardFinalizedImage?(mediaId: string): Promise<unknown>;
 }
 
 export interface WepPresetHooks {
@@ -42,6 +52,11 @@ export interface PublishSceneOptions {
   description?: string | null;
   metadata?: Record<string, unknown>;
   idempotencyKey: string;
+}
+
+export interface PublishSceneProductOptions extends PublishSceneOptions {
+  images?: File[];
+  existingPresetArtifactId?: string | null;
 }
 
 export interface DiscoveryOptions {
@@ -247,6 +262,184 @@ export function createPresetCommunityBridge({
     };
   }
 
+  async function publishSceneProduct({
+    artifact,
+    creatorProfileId,
+    visibility = 'public',
+    title,
+    description = null,
+    metadata = {},
+    idempotencyKey,
+    images = [],
+    existingPresetArtifactId = null
+  }: PublishSceneProductOptions) {
+    assert(
+      typeof community.presetProduct === 'function',
+      'WEP_PRESET_PRODUCT_TRANSPORT_REQUIRED'
+    );
+    const preparedEnvelope = hooks.buildPublishEnvelope(artifact);
+    if (!preparedEnvelope?.ok) {
+      throw new WepPresetBridgeError(
+        'WEP_PRESET_NOT_PUBLISHABLE',
+        preparedEnvelope?.issues ?? []
+      );
+    }
+    assert(preparedEnvelope.presetType === 'scene', 'WEP_PRESET_TYPE_NOT_SCENE');
+    assert(preparedEnvelope.schemaVersion === 1, 'WEP_PRESET_SCHEMA_VERSION_UNSUPPORTED');
+    assert(String(creatorProfileId), 'WEP_PRESET_CREATOR_REQUIRED');
+    assert(String(title).trim(), 'WEP_PRESET_TITLE_REQUIRED');
+    assert(String(idempotencyKey).trim(), 'WEP_PRESET_IDEMPOTENCY_KEY_REQUIRED');
+    assert(String(visibility) === 'public', 'WEP_PRESET_PRODUCT_PUBLICATION_PUBLIC_ONLY');
+    assert(Array.isArray(images) && images.length <= 10, 'WEP_PRESET_PUBLIC_IMAGE_LIMIT');
+    if (!existingPresetArtifactId) {
+      assert(images.length > 0, 'WEP_PRESET_PUBLIC_IMAGE_REQUIRED');
+    }
+    if (images.length > 0) {
+      assert(
+        typeof community.uploadAndFinalizeImage === 'function',
+        'WEP_PRESET_COMMUNITY_MEDIA_UPLOAD_REQUIRED'
+      );
+    }
+
+    const prepare: any = await community.presetProduct('prepare', {
+      byteSize: preparedEnvelope.envelope.byteSize
+    });
+    const storageKey = requireId(
+      prepare,
+      'storageKey',
+      'WEP_PRESET_PREPARE_STORAGE_KEY_MISSING'
+    );
+    const signedUrl = String(prepare?.signedUpload?.signedUrl ?? '');
+    assert(signedUrl, 'WEP_PRESET_PREPARE_SIGNED_URL_MISSING');
+
+    const form = new FormData();
+    form.append('cacheControl', '3600');
+    form.append(
+      '',
+      new Blob([preparedEnvelope.envelope.json], {
+        type: 'application/json'
+      }),
+      'preset.json'
+    );
+
+    await requireOk(
+      await fetchImpl(signedUrl, {
+        method: 'PUT',
+        headers: { 'x-upsert': 'false' },
+        body: form
+      })
+    );
+
+    const mediaIds: string[] = [];
+    try {
+      for (const image of images) {
+        const uploaded = await community.uploadAndFinalizeImage!(image);
+        assert(String(uploaded?.mediaId ?? ''), 'WEP_PRESET_PUBLIC_IMAGE_FINALIZE_FAILED');
+        mediaIds.push(String(uploaded.mediaId));
+      }
+
+      const published: any = await community.presetProduct('publish', {
+        storageKey,
+        presetArtifactId: existingPresetArtifactId
+          ? String(existingPresetArtifactId)
+          : null,
+        creatorProfileId: String(creatorProfileId),
+        title: String(title).trim(),
+        description: description == null ? null : String(description),
+        metadata: isObject(metadata) ? metadata : {},
+        mediaIds,
+        idempotencyKey: String(idempotencyKey).trim()
+      });
+
+      const data = dataOf(published) ?? {};
+      return {
+        presetArtifactId: requireId(
+          data,
+          'presetArtifactId',
+          'WEP_PRESET_PUBLISH_ARTIFACT_ID_MISSING'
+        ),
+        presetRevisionId: requireId(
+          data,
+          'presetRevisionId',
+          'WEP_PRESET_PUBLISH_REVISION_ID_MISSING'
+        ),
+        workId: requireId(
+          data,
+          'workId',
+          'WEP_PRESET_PUBLISH_WORK_ID_MISSING'
+        ),
+        workRevisionId: requireId(
+          data,
+          'workRevisionId',
+          'WEP_PRESET_PUBLISH_WORK_REVISION_ID_MISSING'
+        ),
+        galleryWorkId: requireId(
+          data,
+          'galleryWorkId',
+          'WEP_PRESET_PUBLISH_GALLERY_WORK_ID_MISSING'
+        ),
+        galleryWorkRevisionId: requireId(
+          data,
+          'galleryWorkRevisionId',
+          'WEP_PRESET_PUBLISH_GALLERY_REVISION_ID_MISSING'
+        ),
+        presetRevisionNumber: Number(data.presetRevisionNumber ?? 0),
+        storageKey: String(data.storageKey ?? ''),
+        checksumSha256: String(data.checksumSha256 ?? '').toLowerCase(),
+        byteSize: Number(data.byteSize ?? preparedEnvelope.envelope.byteSize),
+        mediaIds: Array.isArray(data.mediaIds) ? data.mediaIds.map(String) : mediaIds
+      };
+    } catch (error) {
+      try {
+        await community.presetProduct('discard', { storageKey });
+      } catch {
+        // Best effort. A successfully registered immutable revision cannot be discarded.
+      }
+      if (typeof community.discardFinalizedImage === 'function') {
+        for (const mediaId of mediaIds) {
+          try {
+            await community.discardFinalizedImage(mediaId);
+          } catch {
+            // Server refuses discard if a concurrent/successful publication attached the media.
+          }
+        }
+      }
+      throw error;
+    }
+  }
+
+  async function unpublishSceneProduct(
+    presetArtifactId: string,
+    idempotencyKey: string
+  ) {
+    assert(
+      typeof community.presetProduct === 'function',
+      'WEP_PRESET_PRODUCT_TRANSPORT_REQUIRED'
+    );
+    assert(String(presetArtifactId), 'WEP_PRESET_ARTIFACT_ID_REQUIRED');
+    assert(String(idempotencyKey).trim(), 'WEP_PRESET_IDEMPOTENCY_KEY_REQUIRED');
+    return community.presetProduct('unpublish', {
+      presetArtifactId: String(presetArtifactId),
+      idempotencyKey: String(idempotencyKey).trim()
+    });
+  }
+
+  async function deleteSceneProduct(
+    presetArtifactId: string,
+    idempotencyKey: string
+  ) {
+    assert(
+      typeof community.presetProduct === 'function',
+      'WEP_PRESET_PRODUCT_TRANSPORT_REQUIRED'
+    );
+    assert(String(presetArtifactId), 'WEP_PRESET_ARTIFACT_ID_REQUIRED');
+    assert(String(idempotencyKey).trim(), 'WEP_PRESET_IDEMPOTENCY_KEY_REQUIRED');
+    return community.presetProduct('delete', {
+      presetArtifactId: String(presetArtifactId),
+      idempotencyKey: String(idempotencyKey).trim()
+    });
+  }
+
   async function discover({
     query = null,
     creatorProfileId = null,
@@ -337,51 +530,79 @@ export function createPresetCommunityBridge({
       .filter((entry) => entry.targetEntityId);
   }
 
-  async function loadPreset(presetArtifactId: string) {
-    assert(String(presetArtifactId), 'WEP_PRESET_ARTIFACT_ID_REQUIRED');
+  async function verifySignedRead(
+    readInput: any,
+    {
+      presetArtifactId,
+      presetRevisionId = null,
+      expectedChecksumSha256 = null,
+      expectedByteSize = null,
+      requireBlobIdentity = false,
+      requireStorageKey = false,
+      requireContentType = false
+    }: {
+      presetArtifactId: string;
+      presetRevisionId?: string | null;
+      expectedChecksumSha256?: string | null;
+      expectedByteSize?: number | null;
+      requireBlobIdentity?: boolean;
+      requireStorageKey?: boolean;
+      requireContentType?: boolean;
+    }
+  ) {
+    const read = presetOf(readInput) ?? {};
+    assert(
+      String(read.presetArtifactId ?? '') === String(presetArtifactId),
+      'WEP_PRESET_READ_ARTIFACT_ID_MISMATCH'
+    );
+    if (presetRevisionId) {
+      assert(
+        String(read.presetRevisionId ?? '') === String(presetRevisionId),
+        'WEP_PRESET_READ_REVISION_ID_MISMATCH'
+      );
+    }
+    if (requireBlobIdentity) {
+      assert(String(read.blobId ?? ''), 'WEP_PRESET_READ_BLOB_ID_MISSING');
+    }
+    if (requireStorageKey) {
+      assert(String(read.storageKey ?? ''), 'WEP_PRESET_READ_STORAGE_KEY_MISSING');
+    }
+    assert(String(read.presetType ?? '') === 'scene', 'WEP_PRESET_READ_TYPE_UNSUPPORTED');
+    assert(Number(read.schemaVersion) === 1, 'WEP_PRESET_READ_SCHEMA_UNSUPPORTED');
+    if (requireContentType) {
+      assert(
+        String(read.contentType ?? '') === 'application/json',
+        'WEP_PRESET_READ_CONTENT_TYPE_INVALID'
+      );
+    }
 
-    const [detailResult, readResult] = await Promise.all([
-      community.query('preset', {
-        presetArtifactId: String(presetArtifactId)
-      }),
-      community.preset('read', {
-        presetArtifactId: String(presetArtifactId)
-      })
-    ]);
-
-    const detail = dataOf(detailResult) ?? {};
-    const read = presetOf(readResult) ?? {};
     const signedUrl = String(read.signedUrl ?? '');
     assert(signedUrl, 'WEP_PRESET_READ_SIGNED_URL_MISSING');
-
-    const response = await requireOk(
-      await fetchImpl(signedUrl, { method: 'GET' })
-    );
+    const response = await requireOk(await fetchImpl(signedUrl, { method: 'GET' }));
     const bytes = await response.arrayBuffer();
-    const byteSize = Number(read.byteSize ?? detail.byteSize ?? 0);
-
+    const byteSize = Number(read.byteSize ?? 0);
     assert(
       Number.isSafeInteger(byteSize) && byteSize > 0,
       'WEP_PRESET_READ_BYTE_SIZE_INVALID'
     );
-    assert(
-      bytes.byteLength === byteSize,
-      'WEP_PRESET_READ_BYTE_SIZE_MISMATCH'
-    );
+    assert(bytes.byteLength === byteSize, 'WEP_PRESET_READ_BYTE_SIZE_MISMATCH');
+    if (expectedByteSize != null) {
+      assert(
+        Number(expectedByteSize) === byteSize,
+        'WEP_PRESET_READ_EXPECTED_BYTE_SIZE_MISMATCH'
+      );
+    }
 
     const checksum = await sha256Hex(bytes);
-    const expected = String(
-      read.checksumSha256 ?? detail.checksumSha256 ?? ''
-    ).toLowerCase();
-
-    assert(
-      /^[0-9a-f]{64}$/.test(expected),
-      'WEP_PRESET_READ_CHECKSUM_INVALID'
-    );
-    assert(
-      checksum === expected,
-      'WEP_PRESET_READ_CHECKSUM_MISMATCH'
-    );
+    const expected = String(read.checksumSha256 ?? '').toLowerCase();
+    assert(/^[0-9a-f]{64}$/.test(expected), 'WEP_PRESET_READ_CHECKSUM_INVALID');
+    assert(checksum === expected, 'WEP_PRESET_READ_CHECKSUM_MISMATCH');
+    if (expectedChecksumSha256) {
+      assert(
+        String(expectedChecksumSha256).toLowerCase() === expected,
+        'WEP_PRESET_READ_EXPECTED_CHECKSUM_MISMATCH'
+      );
+    }
 
     let artifact: unknown;
     try {
@@ -399,31 +620,106 @@ export function createPresetCommunityBridge({
         validation?.issues ?? []
       );
     }
-
+    assert(validation.presetType === 'scene', 'WEP_PRESET_READ_TYPE_UNSUPPORTED');
+    assert(validation.schemaVersion === 1, 'WEP_PRESET_READ_SCHEMA_UNSUPPORTED');
     assert(
-      String(detail.presetArtifactId ?? presetArtifactId) ===
-        String(presetArtifactId),
-      'WEP_PRESET_DETAIL_ID_MISMATCH'
+      String(read.presetType) === String(validation.presetType),
+      'WEP_PRESET_READ_TYPE_MISMATCH'
     );
     assert(
-      String(detail.presetType ?? validation.presetType) ===
-        validation.presetType,
-      'WEP_PRESET_DETAIL_TYPE_MISMATCH'
-    );
-    assert(
-      Number(detail.schemaVersion ?? validation.schemaVersion) ===
-        validation.schemaVersion,
-      'WEP_PRESET_DETAIL_SCHEMA_MISMATCH'
+      Number(read.schemaVersion) === Number(validation.schemaVersion),
+      'WEP_PRESET_READ_SCHEMA_MISMATCH'
     );
 
     return {
       artifact,
       validation,
-      detail,
       read,
       checksumSha256: checksum,
-      byteSize
+      byteSize,
+      blobId: String(read.blobId),
+      storageKey: String(read.storageKey ?? ''),
+      presetRevisionId: String(read.presetRevisionId)
     };
+  }
+
+  async function loadPreset(presetArtifactId: string) {
+    assert(String(presetArtifactId), 'WEP_PRESET_ARTIFACT_ID_REQUIRED');
+
+    const [detailResult, readResult] = await Promise.all([
+      community.query('preset', {
+        presetArtifactId: String(presetArtifactId)
+      }),
+      community.preset('read', {
+        presetArtifactId: String(presetArtifactId)
+      })
+    ]);
+
+    const detail = dataOf(detailResult) ?? {};
+    const loaded = await verifySignedRead(readResult, {
+      presetArtifactId: String(presetArtifactId)
+    });
+
+    assert(
+      String(detail.presetArtifactId ?? '') === String(presetArtifactId),
+      'WEP_PRESET_DETAIL_ID_MISMATCH'
+    );
+    assert(
+      String(detail.presetRevisionId ?? '') === loaded.presetRevisionId,
+      'WEP_PRESET_DETAIL_REVISION_MISMATCH'
+    );
+    assert(
+      String(detail.presetType ?? '') === loaded.validation.presetType,
+      'WEP_PRESET_DETAIL_TYPE_MISMATCH'
+    );
+    assert(
+      Number(detail.schemaVersion) === loaded.validation.schemaVersion,
+      'WEP_PRESET_DETAIL_SCHEMA_MISMATCH'
+    );
+    assert(
+      Number(detail.byteSize) === loaded.byteSize,
+      'WEP_PRESET_DETAIL_BYTE_SIZE_MISMATCH'
+    );
+    assert(
+      String(detail.checksumSha256 ?? '').toLowerCase() === loaded.checksumSha256,
+      'WEP_PRESET_DETAIL_CHECKSUM_MISMATCH'
+    );
+
+    return {
+      ...loaded,
+      detail
+    };
+  }
+
+  async function loadPresetRevision(
+    presetArtifactId: string,
+    presetRevisionId: string,
+    {
+      expectedChecksumSha256 = null,
+      expectedByteSize = null
+    }: {
+      expectedChecksumSha256?: string | null;
+      expectedByteSize?: number | null;
+    } = {}
+  ) {
+    assert(
+      typeof community.presetProduct === 'function',
+      'WEP_PRESET_PRODUCT_TRANSPORT_REQUIRED'
+    );
+    assert(String(presetArtifactId), 'WEP_PRESET_ARTIFACT_ID_REQUIRED');
+    assert(String(presetRevisionId), 'WEP_PRESET_REVISION_ID_REQUIRED');
+    const readResult = await community.presetProduct('read', {
+      presetRevisionId: String(presetRevisionId)
+    });
+    return verifySignedRead(readResult, {
+      presetArtifactId: String(presetArtifactId),
+      presetRevisionId: String(presetRevisionId),
+      expectedChecksumSha256,
+      expectedByteSize,
+      requireBlobIdentity: true,
+      requireStorageKey: true,
+      requireContentType: true
+    });
   }
 
   async function loadDiscoveredWork(workId: string) {
@@ -446,7 +742,25 @@ export function createPresetCommunityBridge({
     presetArtifactId: string,
     options: Record<string, unknown> = {}
   ) {
-    const loaded = await loadPreset(presetArtifactId);
+    const {
+      presetRevisionId = null,
+      expectedChecksumSha256 = null,
+      expectedByteSize = null,
+      ...destinationOptions
+    } = options as Record<string, any>;
+
+    const loaded = presetRevisionId
+      ? await loadPresetRevision(
+          presetArtifactId,
+          String(presetRevisionId),
+          {
+            expectedChecksumSha256:
+              expectedChecksumSha256 == null ? null : String(expectedChecksumSha256),
+            expectedByteSize:
+              expectedByteSize == null ? null : Number(expectedByteSize)
+          }
+        )
+      : await loadPreset(presetArtifactId);
 
     assert(
       loaded.validation.presetType === 'scene',
@@ -455,18 +769,22 @@ export function createPresetCommunityBridge({
 
     return {
       ...loaded,
-      preflight: hooks.preflightScene(loaded.artifact, options)
+      preflight: hooks.preflightScene(loaded.artifact, destinationOptions)
     };
   }
 
   return Object.freeze({
     publishScene,
+    publishSceneProduct,
+    unpublishSceneProduct,
+    deleteSceneProduct,
     discover,
     resolveDiscoveredWork,
     saveToLibrary,
     removeFromLibrary,
     listLibrary,
     loadPreset,
+    loadPresetRevision,
     loadDiscoveredWork,
     saveDiscoveredWork,
     preflightPreset
