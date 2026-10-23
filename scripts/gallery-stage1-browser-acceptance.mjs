@@ -66,11 +66,11 @@ try{
   // Selecting during SSR hydration is overwritten by the initial Biome value.
   await page.getByText('No verified subject is registered',{exact:false}).waitFor({state:'visible',timeout:10000});
   // The default Outdoor subtype is Biome; the fixture contains Islands only.
-  await page.locator('select').filter({has:page.locator('option[value="floating_island"]')}).selectOption('floating_island');
+  await page.getByRole('button',{name:'Floating Island',exact:true}).click();
   try { await page.locator('.subject-options button').first().waitFor({state:'visible',timeout:10000}); }
   catch(cause){
     console.log('SUBJECT_DIAGNOSTIC',JSON.stringify({
-      catalogRequests,kind:await page.locator('select').filter({has:page.locator('option[value="floating_island"]')}).inputValue(),
+      catalogRequests,islandPressed:await page.getByRole('button',{name:'Floating Island',exact:true}).getAttribute('aria-pressed'),
       pickerText:await page.locator('.subject-picker').allTextContents(),
       html:await page.locator('.subject-picker').first().innerHTML()
     }).slice(0,5500));
@@ -114,7 +114,7 @@ try{
   pass('TOM_EMPTY_REGISTRY_NO_GUESSED_BASE_ITEM');
   await page.goto(origin+'/gallery/publish/?type=decorations',{waitUntil:'domcontentloaded'});
   await page.getByText('No verified subject is registered',{exact:false}).waitFor({state:'visible',timeout:10000});
-  await page.locator('select').filter({has:page.locator('option[value="floating_island"]')}).selectOption('floating_island');
+  await page.getByRole('button',{name:'Floating Island',exact:true}).click();
   await page.locator('.subject-options button').first().waitFor({state:'visible',timeout:10000});
   subjectScenario='wrong-build';
   await page.getByRole('button',{name:'Refresh verified subjects'}).click();
