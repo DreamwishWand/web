@@ -53,17 +53,19 @@ begin
  end;
  if not v_error then raise exception 'GENERIC_FINALIZE_BYPASSED_ABORT';end if;
  v_error:=false;
- begin perform public.community_gallery_media_intent_cleanup_probe_v1(v_auth,v_key);
+ begin perform public.community_gallery_media_intent_enqueue_cleanup_v1(v_auth,v_key);
  exception when others then
    if position('GALLERY_UPLOAD_CLEANUP_NOT_DUE' in sqlerrm)>0 then v_error:=true;else raise;end if;
  end;
  if not v_error then raise exception 'EARLY_CLEANUP_ACCEPTED';end if;
  update public.community_media_upload_intents
    set expires_at=now()-interval '6 minutes' where storage_key=v_key;
- perform public.community_gallery_media_intent_cleanup_probe_v1(v_auth,v_key);
- perform public.community_gallery_media_intent_cleanup_finish_v1(v_auth,v_key);
- if exists(select 1 from public.community_media_upload_intents where storage_key=v_key)
- then raise exception 'CLEANUP_INTENT_REMAINED';end if;
+ v_response:=public.community_gallery_media_intent_enqueue_cleanup_v1(v_auth,v_key);
+ if (v_response->>'queued')::boolean<>true then raise exception 'EXPIRED_CLEANUP_QUEUE_FAILED';end if;
+ v_response:=public.community_claim_gallery_media_orphans_v1(1,gen_random_uuid());
+ -- Worker claim must serialize with finalize; separate dedicated test covers
+ -- lock-token bound completion and retry.
+ if (v_response->>'claimed')::int<>1 then raise exception 'RETENTION_WORKER_CLAIM_MISSING';end if;
 
  v_key2:=v_auth::text||'/'||gen_random_uuid()||'.png';
  perform public.community_gallery_media_intent_open_v1(v_auth,v_key2,'image/png',128);
