@@ -74,6 +74,10 @@
     selectedSubject = null;
     subjectCatalogReady = false;
   }
+  function setTargetType(value: SubjectType) {
+    targetType = value;
+    selectedSubject = null;
+  }
   function chooseFiles(event: Event) {
     const selected = Array.from((event.currentTarget as HTMLInputElement).files ?? []);
     if (!selected.length) return;
@@ -139,15 +143,15 @@
           <option value="tom_clothing">{t('gallery.kind.tomClothing',{},$locale)}</option>
         </select>
       </label>
-      {#if !isTom}
-        <label>{t('galleryv1.targetType',{},$locale)}
-          <select bind:value={targetType} on:change={()=>{ selectedSubject=null; }}>
-            {#if kind==='outdoor'}
-              <option value="biome">{t('galleryv1.biome',{},$locale)}</option>
-              <option value="floating_island">{t('galleryv1.floatingIsland',{},$locale)}</option>
-            {:else}<option value="room">{t('galleryv1.room',{},$locale)}</option>{/if}
-          </select>
-        </label>
+      {#if kind==='outdoor'}
+        <div class="subject-type-switch" role="group" aria-label={t('galleryv1.targetType',{},$locale)}>
+          <button type="button" aria-pressed={targetType==='biome'} class:active={targetType==='biome'}
+            on:click={()=>setTargetType('biome')}>{t('galleryv1.biome',{},$locale)}</button>
+          <button type="button" aria-pressed={targetType==='floating_island'} class:active={targetType==='floating_island'}
+            on:click={()=>setTargetType('floating_island')}>{t('galleryv1.floatingIsland',{},$locale)}</button>
+        </div>
+      {:else if kind==='indoor'}
+        <p>{t('galleryv1.targetType',{},$locale)}: {t('galleryv1.room',{},$locale)}</p>
       {/if}
       <VerifiedSubjectPicker {kind} subjectType={targetType} selected={selectedSubject}
         onChoose={(subject)=>selectedSubject=subject} onReady={(ready)=>subjectCatalogReady=ready} />
@@ -219,6 +223,7 @@
   button{min-height:44px;padding:9px 14px;border:1px solid var(--border);background:var(--surface-raised);color:var(--ink);border-radius:12px}
   button:disabled{opacity:.55}.media-row{display:flex;align-items:center;gap:12px;min-width:0;padding:10px;border:1px solid var(--border);border-radius:14px;margin:10px 0}.media-row img{width:112px;max-width:34%;aspect-ratio:16/10;object-fit:cover;border-radius:9px}
   .media-meta{display:grid;gap:5px;flex:1;min-width:0}.media-meta span{overflow-wrap:anywhere;font-size:12px}.media-actions{display:flex;gap:5px}.media-actions button{min-width:42px}
+  .subject-type-switch{display:flex;flex-wrap:wrap;gap:8px}.subject-type-switch button.active{border:2px solid var(--gold);font-weight:700}
   .notice{padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--surface-raised);overflow-wrap:anywhere}.helper{color:var(--ink-muted)}.form-error{color:var(--ink);font-weight:700}
   @media(max-width:560px){.media-row{flex-wrap:wrap}.media-actions{width:100%;justify-content:flex-end}}
 </style>
