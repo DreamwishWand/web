@@ -157,12 +157,63 @@ export default {
       }
     }
 
+    // Reuse the SAME pg_cron #33 -> Vault token -> retention_cleanup worker.
+    // Orphan work is bounded and claimed with a DB lease. Storage remove and
+    // DB completion deliberately live on opposite sides of an idempotent retry.
+    let galleryOrphans: {claimed:number;completed:number;failed:number;workerFailure?:string} = {claimed:0,completed:0,failed:0};
+    try {
+      const galleryLockToken = crypto.randomUUID();
+      const {data: galleryClaim,error:galleryClaimError} = await ctx.supabaseAdmin.rpc(
+        'community_claim_gallery_media_orphans_v1',
+        {p_limit:Math.min(limit,20),p_lock_token:galleryLockToken}
+      );
+      if (galleryClaimError) throw galleryClaimError;
+      const orphanJobs = Array.isArray(galleryClaim?.jobs) ? galleryClaim.jobs as Array<{storageKey:string}> : [];
+      galleryOrphans.claimed=orphanJobs.length;
+      for(const orphan of orphanJobs){
+        try{
+          const key=String(orphan.storageKey);
+          const {error:removeError}=await ctx.supabaseAdmin.storage.from(MEDIA_BUCKET).remove([key]);
+          if(removeError){
+            const {error:infoError}=await ctx.supabaseAdmin.storage.from(MEDIA_BUCKET).info(key);
+            if(Number(infoError?.status)!==404)throw removeError;
+          }
+          // Must prove object is physically absent from origin metadata before
+          // committing DB cleanup; CDN old-token policy belongs to #116.
+          const {data:stillThere,error:infoError}=await ctx.supabaseAdmin.storage.from(MEDIA_BUCKET).info(key);
+          if(stillThere || Number(infoError?.status)!==404)
+            throw new Error('GALLERY_ORPHAN_STORAGE_REMOVAL_NOT_CONFIRMED');
+          const {error:doneError}=await ctx.supabaseAdmin.rpc(
+            'community_complete_gallery_media_orphan_v1',
+            {p_storage_key:key,p_lock_token:galleryLockToken}
+          );
+          if(doneError)throw doneError;
+          galleryOrphans.completed++;
+        }catch(error){
+          galleryOrphans.failed++;
+          const {error:failedRpcError}=await ctx.supabaseAdmin.rpc(
+            'community_fail_gallery_media_orphan_v1',
+            {p_storage_key:String(orphan.storageKey),p_lock_token:galleryLockToken,
+              p_error:messageOf(error)}
+          );
+          if(failedRpcError) {
+            // Reclaim after the DB lease expires; fail-closed without a delete
+            // of metadata or a false success result.
+            galleryOrphans.workerFailure='GALLERY_ORPHAN_FAILURE_ACK_FAILED';
+          }
+        }
+      }
+    } catch(error){
+      galleryOrphans.workerFailure='GALLERY_ORPHAN_CLAIM_FAILED';
+    }
+
     return reply({
       ok: true,
       claimed: jobs.length,
       completed: results.filter((result) => result.ok === true).length,
       failed: results.filter((result) => result.ok !== true).length,
       ddvBindingTombstonesPurged: Number(ddvBindingPurge?.purged ?? 0),
+      galleryOrphans,
       results
     });
   })
