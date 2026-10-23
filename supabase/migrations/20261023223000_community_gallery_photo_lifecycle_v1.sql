@@ -85,6 +85,7 @@ declare
   v_prior text;
   v_create jsonb;
   v_publish jsonb;
+  v_previous_revision uuid;
   v_index integer:=0;
 begin
   v_account:=private.resolve_active_account(p_auth_subject);
@@ -147,6 +148,18 @@ begin
     end if;
   end loop;
 
+  -- Do not share public media IDs with unrelated Works: a second Work could
+  -- otherwise keep the image publicly addressable after this Work is retired.
+  if exists(
+    select 1 from public.work_revision_media rm
+    join public.community_work_revisions rr on rr.revision_id=rm.work_revision_id
+    join public.community_works rw on rw.work_id=rr.work_id
+    where rm.media_id=any(p_media_ids)
+      and rw.work_id is distinct from p_work_id
+      and rw.lifecycle_state='published' and rw.visibility='public'
+      and rw.moderation_state='clear'
+  ) then raise exception 'GALLERY_MEDIA_ALREADY_PUBLIC_ON_DIFFERENT_WORK'; end if;
+
   -- The cover leads the immutable order; the remaining images retain their supplied order.
   v_media_order:=array[p_cover_media_id]::uuid[];
   foreach v_media in array p_media_ids loop
@@ -196,6 +209,7 @@ begin
       where cr.work_id=v_work_id) then
       raise exception 'GALLERY_PRESET_DEPENDENCY_REQUIRES_09_INT';
     end if;
+    v_previous_revision:=v_work.current_published_revision_id;
     select coalesce(max(revision_number),0)+1 into v_n
       from public.community_work_revisions where work_id=v_work_id;
     v_revision:=gen_random_uuid();
@@ -224,10 +238,18 @@ begin
     insert into public.outbox_events(aggregate_type,aggregate_id,event_type,payload,dedupe_key)
     values('community_work',v_work_id,'work.presentation_updated',
       jsonb_build_object('workId',v_work_id,'revisionId',v_revision,
-        'previousRevisionId',v_work.current_published_revision_id,
+        'previousRevisionId',v_previous_revision,
         'subjectId',p_subject_id),
       'work.presentation_updated:'||v_revision::text);
   end if;
+
+  update public.search_documents
+    set facets=facets || jsonb_build_object('galleryKind',p_gallery_kind,
+      'subjectId',p_subject_id,'subjectType',v_subject.subject_type,
+      'baseItemId',v_subject.base_item_id,'photoOnly',true,
+      'coverMediaId',p_cover_media_id),
+      updated_at=now()
+    where entity_id=v_work_id;
 
   insert into public.gallery_photo_revision_fields(
     revision_id,subject_id,cover_media_id,originality_attested
