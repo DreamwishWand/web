@@ -9,6 +9,9 @@ const commandToRpc = {
   createGalleryDraft: 'community_create_gallery_draft',
   createGalleryWork: 'community_create_gallery_work_v1',
   publishGallery: 'community_publish_gallery_v4',
+  publishGalleryPhoto: 'community_publish_gallery_photo_v1',
+  updateGalleryPhoto: 'community_update_gallery_photo_v1',
+  retireGalleryPhoto: 'community_retire_gallery_photo_v1',
   registerDreamsnapWork: 'community_register_dreamsnap_work_v1',
   updateDreamsnapWork: 'community_dreamsnap_update_work_revision_v1',
   joinDreamsnapEvent: 'community_dreamsnap_join_event_v1',
@@ -57,6 +60,9 @@ const commandToRateBucket: Partial<Record<CommandName, string>> = {
   createGalleryDraft: 'gallery_write',
   createGalleryWork: 'gallery_write',
   publishGallery: 'gallery_write',
+  publishGalleryPhoto: 'gallery_write',
+  updateGalleryPhoto: 'gallery_write',
+  retireGalleryPhoto: 'gallery_write',
   registerDreamsnapWork: 'dreamsnap_write',
   updateDreamsnapWork: 'dreamsnap_write',
   joinDreamsnapEvent: 'dreamsnap_write',
@@ -267,6 +273,32 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         params.p_used_item_ids = Array.isArray(payload.usedItemIds) ? payload.usedItemIds : [];
         params.p_featured_item_ids = Array.isArray(payload.featuredItemIds) ? payload.featuredItemIds : [];
         params.p_moodboard_snapshot_ref = payload.moodboardSnapshotRef ?? null;
+        params.p_idempotency_key = payload.idempotencyKey;
+        break;
+      case 'publishGalleryPhoto':
+        params.p_creator_profile_id = payload.creatorProfileId;
+        params.p_subject_id = payload.subjectId;
+        params.p_title = payload.title;
+        params.p_description = payload.description ?? null;
+        params.p_media_ids = payload.mediaIds;
+        params.p_cover_media_id = payload.coverMediaId;
+        params.p_original_work_attested = payload.originalWorkAttested === true;
+        params.p_idempotency_key = payload.idempotencyKey;
+        break;
+      case 'updateGalleryPhoto':
+        params.p_work_id = payload.workId;
+        params.p_expected_version = payload.expectedVersion;
+        params.p_title = payload.title;
+        params.p_description = payload.description ?? null;
+        params.p_media_ids = payload.mediaIds;
+        params.p_cover_media_id = payload.coverMediaId;
+        params.p_subject_id = payload.subjectId;
+        params.p_idempotency_key = payload.idempotencyKey;
+        break;
+      case 'retireGalleryPhoto':
+        params.p_work_id = payload.workId;
+        params.p_expected_version = payload.expectedVersion;
+        params.p_mode = payload.mode;
         params.p_idempotency_key = payload.idempotencyKey;
         break;
       case 'registerDreamsnapWork':
@@ -497,6 +529,8 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
     if (error) {
       const conflict =
         error.message.includes('Row version conflict') ||
+        error.message.includes('GALLERY_VERSION_CONFLICT') ||
+        error.message.includes('GALLERY_IDEMPOTENCY_CONFLICT') ||
         error.message.includes('Idempotency key reused') ||
         error.message.includes('DDV_PROFILE_WORKSPACE_LIMIT_REACHED') ||
         error.message.includes('DDV_IDENTITY_ASSOCIATION_EXISTS') ||
@@ -511,6 +545,7 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         recentAuth ||
         error.message.includes('DDV Profile Workspace not found') ||
         error.message.includes('does not own') ||
+        error.message.includes('GALLERY_NOT_OWNER') ||
         error.message.includes('not accessible') ||
         error.message.includes('not active') ||
         error.message.includes('role required') ||
