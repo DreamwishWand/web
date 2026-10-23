@@ -71,7 +71,18 @@ export const galleryStage1Catalogs = Object.freeze({
     "galleryv1.publicOnly": "Gallery Work publication is PUBLIC only.",
     "galleryv1.unavailable": "Not currently available",
     "galleryv1.retry": "Retry",
-    "galleryv1.search": "Search"
+    "galleryv1.search": "Search",
+    "galleryv1.verifiedSubject": "Verified subject",
+    "galleryv1.findSubject": "Search registered subjects",
+    "galleryv1.searchSubjectHint": "Search by verified name or ID",
+    "galleryv1.noVerifiedSubject": "No verified subject is registered for this category or type.",
+    "galleryv1.subjectLookupError": "Verified subject lookup failed.",
+    "galleryv1.subjectUnsupported": "Unsupported platform, build, or verification state",
+    "galleryv1.canonicalId": "Canonical ID",
+    "galleryv1.selectedSubject": "Selected subject",
+    "galleryv1.subjectSourceNote": "Subjects are provided by the verified server registry. An ID is shown when no official localized name is available.",
+    "galleryv1.retrySubjects": "Refresh verified subjects",
+    "galleryv1.uploadNotReady": "Publishing remains disabled until authenticated READY/CLEAR owner-media upload and rollback are proven."
   }),
   "ja": Object.freeze({
     "galleryv1.decorations": "Decorations",
@@ -145,7 +156,18 @@ export const galleryStage1Catalogs = Object.freeze({
     "galleryv1.publicOnly": "Gallery作品の公開範囲はPUBLICのみです。",
     "galleryv1.unavailable": "現在利用できません",
     "galleryv1.retry": "再試行",
-    "galleryv1.search": "検索"
+    "galleryv1.search": "検索",
+    "galleryv1.verifiedSubject": "検証済みの対象",
+    "galleryv1.findSubject": "登録済み対象を検索",
+    "galleryv1.searchSubjectHint": "正式名称またはIDで検索",
+    "galleryv1.noVerifiedSubject": "このカテゴリ・種類には検証済み対象が登録されていません。",
+    "galleryv1.subjectLookupError": "検証済み対象を取得できませんでした。",
+    "galleryv1.subjectUnsupported": "プラットフォーム・ビルド・検証状態が未対応です",
+    "galleryv1.canonicalId": "Canonical ID",
+    "galleryv1.selectedSubject": "選択中の対象",
+    "galleryv1.subjectSourceNote": "サーバーの検証済みRegistryを参照します。正式な翻訳名がない場合はIDを表示します。",
+    "galleryv1.retrySubjects": "対象一覧を再取得",
+    "galleryv1.uploadNotReady": "所有者認証付きのREADY/CLEAR画像アップロードと失敗時の復旧が未検証のため、公開は無効です。"
   }),
   "fr": Object.freeze({
     "galleryv1.decorations": "Décorations",
@@ -219,7 +241,18 @@ export const galleryStage1Catalogs = Object.freeze({
     "galleryv1.publicOnly": "La galerie accepte uniquement PUBLIC.",
     "galleryv1.unavailable": "Indisponible",
     "galleryv1.retry": "Réessayer",
-    "galleryv1.search": "Rechercher"
+    "galleryv1.search": "Rechercher",
+    "galleryv1.verifiedSubject": "Sujet vérifié",
+    "galleryv1.findSubject": "Rechercher des sujets enregistrés",
+    "galleryv1.searchSubjectHint": "Rechercher par nom vérifié ou ID",
+    "galleryv1.noVerifiedSubject": "Aucun sujet vérifié enregistré pour cette catégorie ou ce type.",
+    "galleryv1.subjectLookupError": "Échec du chargement des sujets vérifiés.",
+    "galleryv1.subjectUnsupported": "Plateforme, version ou vérification non prise en charge",
+    "galleryv1.canonicalId": "ID canonique",
+    "galleryv1.selectedSubject": "Sujet sélectionné",
+    "galleryv1.subjectSourceNote": "Les sujets proviennent du registre vérifié du serveur. L’ID s’affiche sans nom officiel localisé.",
+    "galleryv1.retrySubjects": "Actualiser les sujets",
+    "galleryv1.uploadNotReady": "Publication désactivée : transfert média autorisé READY/CLEAR et restauration non vérifiés."
   }),
   "it": Object.freeze({
     "galleryv1.decorations": "Decorazioni",
@@ -293,7 +326,18 @@ export const galleryStage1Catalogs = Object.freeze({
     "galleryv1.publicOnly": "La visibilità della Gallery è solo PUBLIC.",
     "galleryv1.unavailable": "Non disponibile",
     "galleryv1.retry": "Riprova",
-    "galleryv1.search": "Cerca"
+    "galleryv1.search": "Cerca",
+    "galleryv1.verifiedSubject": "Soggetto verificato",
+    "galleryv1.findSubject": "Cerca soggetti registrati",
+    "galleryv1.searchSubjectHint": "Cerca per nome o ID verificato",
+    "galleryv1.noVerifiedSubject": "Nessun soggetto verificato per questa categoria o tipo.",
+    "galleryv1.subjectLookupError": "Ricerca soggetti verificati non riuscita.",
+    "galleryv1.subjectUnsupported": "Piattaforma, build o verifica non supportata",
+    "galleryv1.canonicalId": "ID canonico",
+    "galleryv1.selectedSubject": "Soggetto selezionato",
+    "galleryv1.subjectSourceNote": "I soggetti provengono dal registro verificato del server. Senza nome localizzato ufficiale appare l’ID.",
+    "galleryv1.retrySubjects": "Aggiorna soggetti",
+    "galleryv1.uploadNotReady": "Pubblicazione disabilitata: caricamento media del proprietario READY/CLEAR e ripristino non verificati."
   }),
   "de": Object.freeze({
     "galleryv1.decorations": "Dekorationen",
@@ -367,7 +411,18 @@ export const galleryStage1Catalogs = Object.freeze({
     "galleryv1.publicOnly": "Gallery-Werke sind nur ÖFFENTLICH.",
     "galleryv1.unavailable": "Derzeit nicht verfügbar",
     "galleryv1.retry": "Wiederholen",
-    "galleryv1.search": "Suchen"
+    "galleryv1.search": "Suchen",
+    "galleryv1.verifiedSubject": "Verifiziertes Motiv",
+    "galleryv1.findSubject": "Registrierte Motive suchen",
+    "galleryv1.searchSubjectHint": "Nach geprüftem Namen oder ID suchen",
+    "galleryv1.noVerifiedSubject": "Für diese Kategorie oder diesen Typ ist kein Motiv verifiziert.",
+    "galleryv1.subjectLookupError": "Verifizierte Motive konnten nicht geladen werden.",
+    "galleryv1.subjectUnsupported": "Plattform, Build oder Verifikation nicht unterstützt",
+    "galleryv1.canonicalId": "Kanonische ID",
+    "galleryv1.selectedSubject": "Gewähltes Motiv",
+    "galleryv1.subjectSourceNote": "Motive stammen aus dem verifizierten Serverregister. Ohne offiziellen lokalisierten Namen wird die ID angezeigt.",
+    "galleryv1.retrySubjects": "Motive aktualisieren",
+    "galleryv1.uploadNotReady": "Veröffentlichen deaktiviert: autorisierter READY/CLEAR-Medienupload und Rollback nicht nachgewiesen."
   }),
   "es-ES": Object.freeze({
     "galleryv1.decorations": "Decoraciones",
@@ -441,7 +496,18 @@ export const galleryStage1Catalogs = Object.freeze({
     "galleryv1.publicOnly": "Gallery solo permite PUBLIC.",
     "galleryv1.unavailable": "No disponible",
     "galleryv1.retry": "Reintentar",
-    "galleryv1.search": "Buscar"
+    "galleryv1.search": "Buscar",
+    "galleryv1.verifiedSubject": "Sujeto verificado",
+    "galleryv1.findSubject": "Buscar sujetos registrados",
+    "galleryv1.searchSubjectHint": "Buscar por nombre o ID verificados",
+    "galleryv1.noVerifiedSubject": "No hay sujetos verificados para esta categoría o tipo.",
+    "galleryv1.subjectLookupError": "Error al consultar sujetos verificados.",
+    "galleryv1.subjectUnsupported": "Plataforma, versión o verificación no compatible",
+    "galleryv1.canonicalId": "ID canónico",
+    "galleryv1.selectedSubject": "Sujeto seleccionado",
+    "galleryv1.subjectSourceNote": "Los sujetos proceden del registro verificado del servidor. Sin nombre oficial traducido se muestra el ID.",
+    "galleryv1.retrySubjects": "Actualizar sujetos",
+    "galleryv1.uploadNotReady": "Publicación deshabilitada: carga de medios READY/CLEAR autorizada y reversión sin demostrar."
   }),
   "zh-CN": Object.freeze({
     "galleryv1.decorations": "装饰作品",
@@ -515,7 +581,18 @@ export const galleryStage1Catalogs = Object.freeze({
     "galleryv1.publicOnly": "图库作品仅允许 PUBLIC。",
     "galleryv1.unavailable": "当前不可用",
     "galleryv1.retry": "重试",
-    "galleryv1.search": "搜索"
+    "galleryv1.search": "搜索",
+    "galleryv1.verifiedSubject": "已验证对象",
+    "galleryv1.findSubject": "搜索已登记对象",
+    "galleryv1.searchSubjectHint": "按已验证名称或 ID 搜索",
+    "galleryv1.noVerifiedSubject": "此类别或类型暂无已验证对象。",
+    "galleryv1.subjectLookupError": "无法获取已验证对象。",
+    "galleryv1.subjectUnsupported": "平台、版本或验证状态不受支持",
+    "galleryv1.canonicalId": "规范 ID",
+    "galleryv1.selectedSubject": "已选对象",
+    "galleryv1.subjectSourceNote": "对象来自服务器已验证注册表；没有官方本地化名称时显示 ID。",
+    "galleryv1.retrySubjects": "刷新对象",
+    "galleryv1.uploadNotReady": "尚未验证所有者授权的 READY/CLEAR 媒体上传及回滚，发布已禁用。"
   }),
   "pt-BR": Object.freeze({
     "galleryv1.decorations": "Decorações",
@@ -589,6 +666,17 @@ export const galleryStage1Catalogs = Object.freeze({
     "galleryv1.publicOnly": "Obras da Gallery são apenas PUBLIC.",
     "galleryv1.unavailable": "Indisponível",
     "galleryv1.retry": "Tentar novamente",
-    "galleryv1.search": "Buscar"
+    "galleryv1.search": "Buscar",
+    "galleryv1.verifiedSubject": "Assunto verificado",
+    "galleryv1.findSubject": "Buscar assuntos registrados",
+    "galleryv1.searchSubjectHint": "Buscar por nome verificado ou ID",
+    "galleryv1.noVerifiedSubject": "Nenhum assunto verificado para esta categoria ou tipo.",
+    "galleryv1.subjectLookupError": "Falha ao buscar assuntos verificados.",
+    "galleryv1.subjectUnsupported": "Plataforma, versão ou verificação sem suporte",
+    "galleryv1.canonicalId": "ID canônico",
+    "galleryv1.selectedSubject": "Assunto selecionado",
+    "galleryv1.subjectSourceNote": "Os assuntos vêm do registro verificado do servidor. Sem nome oficial localizado, exibimos o ID.",
+    "galleryv1.retrySubjects": "Atualizar assuntos",
+    "galleryv1.uploadNotReady": "Publicação desativada: envio de mídia READY/CLEAR pelo proprietário e reversão não comprovados."
   })
 });
