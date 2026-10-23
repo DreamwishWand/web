@@ -60,8 +60,10 @@ try{
   assert(await page.locator('.filters button').count()===3,'ToM All/Furniture/Clothing missing');
   pass('TOM_CATEGORY_AND_PUBLISH_ENTRY');
   await page.goto(origin+'/gallery/publish/?type=decorations',{waitUntil:'domcontentloaded'});
-  await page.locator('.subject-options button').first().waitFor({state:'visible',timeout:10000});
+  // The default Outdoor subtype is Biome. Registry currently includes Islands only:
+  // select the Island subtype *before* waiting for available subject cards.
   await page.locator('select').filter({has:page.locator('option[value="floating_island"]')}).selectOption('floating_island');
+  await page.locator('.subject-options button').first().waitFor({state:'visible',timeout:10000});
   await page.locator('.subject-options button').first().click();
   assert(await page.getByText('SceneItemId fixture-scene-item').count()>0,'missing canonical display fallback');
   const stageTwo=page.getByRole('heading',{name:'Images & presentation'});
@@ -86,6 +88,7 @@ try{
   assert(await page.locator('input[inputmode=numeric]').count()===0,'unverified Base Item input exposed');
   pass('TOM_EMPTY_REGISTRY_NO_GUESSED_BASE_ITEM');
   await page.goto(origin+'/gallery/publish/?type=decorations',{waitUntil:'domcontentloaded'});
+  await page.locator('select').filter({has:page.locator('option[value="floating_island"]')}).selectOption('floating_island');
   await page.locator('.subject-options button').first().waitFor({state:'visible',timeout:10000});
   subjectScenario='wrong-build';
   await page.getByRole('button',{name:'Refresh verified subjects'}).click();
