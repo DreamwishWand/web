@@ -51,6 +51,7 @@ try{
   assert(await page.locator('.gallery-composer').locator('button').filter({hasText:'Publish Work'}).count()>=1,'Explicit publish CTA absent');
   pass('PHOTO_COMPOSER_PREVIEW_LOCAL_NO_UPLOAD',{files:2});
   await page.goto(origin+'/gallery/publish/?type=tom',{waitUntil:'domcontentloaded'});
+  await page.locator('input[inputmode=numeric]').waitFor({state:'visible',timeout:10000});
   assert(await page.locator('input[inputmode=numeric]').count()===1,'ToM Base Item input missing');
   pass('TOM_SPECIFIC_BASE_ITEM_INPUT');
   await page.goto(origin+'/gallery/my/',{waitUntil:'domcontentloaded'});
