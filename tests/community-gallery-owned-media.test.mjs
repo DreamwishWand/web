@@ -16,7 +16,9 @@ test('gallery owner media contract reuses existing Community Media and canonical
  assert.equal(GALLERY_OWNER_MEDIA_FLOW_V1.maxImages,10);
  assert.equal(GALLERY_OWNER_MEDIA_FLOW_V1.maxBytesEach,20971520);
  assert.equal(GALLERY_OWNER_MEDIA_FLOW_V1.signedUploadLifetimeSeconds,7200);
- assert.equal(GALLERY_OWNER_MEDIA_FLOW_V1.cleanupIsAutomatic,true);\n assert.equal(GALLERY_OWNER_MEDIA_FLOW_V1.cleanupUsesExistingRetentionCron,true);\n assert.equal(GALLERY_OWNER_MEDIA_FLOW_V1.cleanupOwnerCallQueuesOnly,true);
+ assert.equal(GALLERY_OWNER_MEDIA_FLOW_V1.cleanupIsAutomatic,true);
+ assert.equal(GALLERY_OWNER_MEDIA_FLOW_V1.cleanupUsesExistingRetentionCron,true);
+ assert.equal(GALLERY_OWNER_MEDIA_FLOW_V1.cleanupOwnerCallQueuesOnly,true);
  assert.equal(GALLERY_OWNER_MEDIA_FLOW_V1.deleteAuthorized,false);
  assert.deepEqual(assertGalleryPhotoMediaV1([sample],sample.mediaId),['m-1']);
 });
@@ -73,7 +75,8 @@ test('storage existence preflight is enforced inside canonical community-command
    assert.ok(media.includes(action));
  }
  assert.match(media,/community_gallery_media_intent_complete_v1/);
- assert.match(media,/community_gallery_media_intent_enqueue_cleanup_v1/);\n assert.doesNotMatch(media,/community_gallery_media_intent_cleanup_finish_v1/);
+ assert.match(media,/community_gallery_media_intent_enqueue_cleanup_v1/);
+ assert.doesNotMatch(media,/community_gallery_media_intent_cleanup_finish_v1/);
 });
 test('database abort/cleanup and immutable Gallery publish security share the original models',()=>{
  const sql=fs.readFileSync(new URL('../supabase/migrations/20261024234000_community_gallery_owner_upload_intent_v1.sql',import.meta.url),'utf8');
