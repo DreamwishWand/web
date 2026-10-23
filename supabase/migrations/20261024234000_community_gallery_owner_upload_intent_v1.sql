@@ -33,7 +33,7 @@ set search_path=pg_catalog,public,private as $$
 declare v_account uuid;
 begin
  v_account:=private.resolve_active_account(p_auth_subject);
- if p_storage_key is null or p_storage_key !~ ('^'||p_auth_subject::text||'/[0-9a-f-]{36}\\.(jpg|png|webp)$')
+ if p_storage_key is null or p_storage_key !~ ('^'||p_auth_subject::text||'/[0-9a-f-]{36}[.](jpg|png|webp)$')
  or p_mime_type not in ('image/jpeg','image/png','image/webp')
  or p_expected_bytes not between 1 and 20971520 then
    raise exception 'GALLERY_UPLOAD_INTENT_INVALID';
