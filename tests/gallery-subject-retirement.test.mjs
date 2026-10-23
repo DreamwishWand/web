@@ -136,3 +136,15 @@ test('reviewed seed contains exactly 13 Core-proven island IDs; no invented ToM/
   assert.match(sql,/GALLERY_SUBJECT_EXISTING_EVIDENCE_CONFLICT/);
   assert.doesNotMatch(sql,/'tom_furniture'|'tom_clothing'|'room'|'biome'/);
 });
+
+test('staging negative retirement fixture reuses 03 COMM API and asserts denied-delete rollback',()=>{
+  const sql=fs.readFileSync(new URL('../supabase/staging/acceptance/gallery-photo-retirement-negative-v1.sql',import.meta.url),'utf8');
+  assert.match(sql,/community_publish_gallery_photo_v1/);
+  assert.match(sql,/GALLERY_DEPENDENT_PUBLIC_RETIREMENT_09_INT_REQUIRED/);
+  assert.match(sql,/GALLERY_ISSUED_MEDIA_URL_REVOKE_UNPROVEN/);
+  assert.match(sql,/ACCEPTANCE_DENIED_DELETE_NOT_ATOMIC/);
+  assert.match(sql,/ACCEPTANCE_NONOWNER_UPDATE_ACCEPTED/);
+  assert.match(sql,/GALLERY_PHOTO_RETIREMENT_NEGATIVE_V1_ROLLBACK_PASS/);
+  assert.match(sql,/rollback;/i);
+  assert.doesNotMatch(sql,/create or replace function public.community_publish_gallery_photo_v1/i);
+});
