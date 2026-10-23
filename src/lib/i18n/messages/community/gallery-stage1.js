@@ -82,7 +82,8 @@ export const galleryStage1Catalogs = Object.freeze({
     "galleryv1.selectedSubject": "Selected subject",
     "galleryv1.subjectSourceNote": "Subjects are provided by the verified server registry. An ID is shown when no official localized name is available.",
     "galleryv1.retrySubjects": "Refresh verified subjects",
-    "galleryv1.uploadNotReady": "Publishing remains disabled until authenticated READY/CLEAR owner-media upload and rollback are proven."
+    "galleryv1.uploadNotReady": "Publishing remains disabled until authenticated READY/CLEAR owner-media upload and rollback are proven.",
+    "galleryv1.retirementBlocked": "Delete and Keep Private are disabled: issued media links may remain accessible for up to 300 seconds; dependent retirement and private preservation are not proven."
   }),
   "ja": Object.freeze({
     "galleryv1.decorations": "Decorations",
@@ -167,7 +168,8 @@ export const galleryStage1Catalogs = Object.freeze({
     "galleryv1.selectedSubject": "選択中の対象",
     "galleryv1.subjectSourceNote": "サーバーの検証済みRegistryを参照します。正式な翻訳名がない場合はIDを表示します。",
     "galleryv1.retrySubjects": "対象一覧を再取得",
-    "galleryv1.uploadNotReady": "所有者認証付きのREADY/CLEAR画像アップロードと失敗時の復旧が未検証のため、公開は無効です。"
+    "galleryv1.uploadNotReady": "所有者認証付きのREADY/CLEAR画像アップロードと失敗時の復旧が未検証のため、公開は無効です。",
+    "galleryv1.retirementBlocked": "削除と非公開保存は無効です。発行済みの画像URLが最大300秒有効な場合があり、依存作品の撤去と非公開データ保存の安全性が未検証です。"
   }),
   "fr": Object.freeze({
     "galleryv1.decorations": "Décorations",
@@ -252,7 +254,8 @@ export const galleryStage1Catalogs = Object.freeze({
     "galleryv1.selectedSubject": "Sujet sélectionné",
     "galleryv1.subjectSourceNote": "Les sujets proviennent du registre vérifié du serveur. L’ID s’affiche sans nom officiel localisé.",
     "galleryv1.retrySubjects": "Actualiser les sujets",
-    "galleryv1.uploadNotReady": "Publication désactivée : transfert média autorisé READY/CLEAR et restauration non vérifiés."
+    "galleryv1.uploadNotReady": "Publication désactivée : transfert média autorisé READY/CLEAR et restauration non vérifiés.",
+    "galleryv1.retirementBlocked": "Supprimer et Garder privé sont désactivés : les liens média déjà émis peuvent rester accessibles jusqu’à 300 secondes et la conservation privée n’est pas validée."
   }),
   "it": Object.freeze({
     "galleryv1.decorations": "Decorazioni",
@@ -337,7 +340,8 @@ export const galleryStage1Catalogs = Object.freeze({
     "galleryv1.selectedSubject": "Soggetto selezionato",
     "galleryv1.subjectSourceNote": "I soggetti provengono dal registro verificato del server. Senza nome localizzato ufficiale appare l’ID.",
     "galleryv1.retrySubjects": "Aggiorna soggetti",
-    "galleryv1.uploadNotReady": "Pubblicazione disabilitata: caricamento media del proprietario READY/CLEAR e ripristino non verificati."
+    "galleryv1.uploadNotReady": "Pubblicazione disabilitata: caricamento media del proprietario READY/CLEAR e ripristino non verificati.",
+    "galleryv1.retirementBlocked": "Elimina e Mantieni privato disabilitati: i link media emessi possono restare accessibili fino a 300 secondi; la conservazione privata non è verificata."
   }),
   "de": Object.freeze({
     "galleryv1.decorations": "Dekorationen",
@@ -422,7 +426,8 @@ export const galleryStage1Catalogs = Object.freeze({
     "galleryv1.selectedSubject": "Gewähltes Motiv",
     "galleryv1.subjectSourceNote": "Motive stammen aus dem verifizierten Serverregister. Ohne offiziellen lokalisierten Namen wird die ID angezeigt.",
     "galleryv1.retrySubjects": "Motive aktualisieren",
-    "galleryv1.uploadNotReady": "Veröffentlichen deaktiviert: autorisierter READY/CLEAR-Medienupload und Rollback nicht nachgewiesen."
+    "galleryv1.uploadNotReady": "Veröffentlichen deaktiviert: autorisierter READY/CLEAR-Medienupload und Rollback nicht nachgewiesen.",
+    "galleryv1.retirementBlocked": "Löschen und Privat behalten sind deaktiviert: ausgestellte Medienlinks können bis zu 300 Sekunden abrufbar bleiben; private Aufbewahrung ist nicht nachgewiesen."
   }),
   "es-ES": Object.freeze({
     "galleryv1.decorations": "Decoraciones",
@@ -507,7 +512,8 @@ export const galleryStage1Catalogs = Object.freeze({
     "galleryv1.selectedSubject": "Sujeto seleccionado",
     "galleryv1.subjectSourceNote": "Los sujetos proceden del registro verificado del servidor. Sin nombre oficial traducido se muestra el ID.",
     "galleryv1.retrySubjects": "Actualizar sujetos",
-    "galleryv1.uploadNotReady": "Publicación deshabilitada: carga de medios READY/CLEAR autorizada y reversión sin demostrar."
+    "galleryv1.uploadNotReady": "Publicación deshabilitada: carga de medios READY/CLEAR autorizada y reversión sin demostrar.",
+    "galleryv1.retirementBlocked": "Eliminar y Conservar en privado están deshabilitados: los enlaces emitidos pueden seguir accesibles hasta 300 segundos; la conservación privada no está verificada."
   }),
   "zh-CN": Object.freeze({
     "galleryv1.decorations": "装饰作品",
@@ -592,7 +598,8 @@ export const galleryStage1Catalogs = Object.freeze({
     "galleryv1.selectedSubject": "已选对象",
     "galleryv1.subjectSourceNote": "对象来自服务器已验证注册表；没有官方本地化名称时显示 ID。",
     "galleryv1.retrySubjects": "刷新对象",
-    "galleryv1.uploadNotReady": "尚未验证所有者授权的 READY/CLEAR 媒体上传及回滚，发布已禁用。"
+    "galleryv1.uploadNotReady": "尚未验证所有者授权的 READY/CLEAR 媒体上传及回滚，发布已禁用。",
+    "galleryv1.retirementBlocked": "删除及保留私有副本已禁用：已签发的媒体链接最长可能在 300 秒内仍可访问，关联撤销和私有保存尚未验证。"
   }),
   "pt-BR": Object.freeze({
     "galleryv1.decorations": "Decorações",
@@ -677,6 +684,7 @@ export const galleryStage1Catalogs = Object.freeze({
     "galleryv1.selectedSubject": "Assunto selecionado",
     "galleryv1.subjectSourceNote": "Os assuntos vêm do registro verificado do servidor. Sem nome oficial localizado, exibimos o ID.",
     "galleryv1.retrySubjects": "Atualizar assuntos",
-    "galleryv1.uploadNotReady": "Publicação desativada: envio de mídia READY/CLEAR pelo proprietário e reversão não comprovados."
+    "galleryv1.uploadNotReady": "Publicação desativada: envio de mídia READY/CLEAR pelo proprietário e reversão não comprovados.",
+    "galleryv1.retirementBlocked": "Excluir e Manter privado estão desativados: links de mídia já emitidos podem funcionar por até 300 segundos; a preservação privada não foi comprovada."
   })
 });
