@@ -55,6 +55,7 @@ test('current Gallery revision media requires the public Edge proxy, historical 
  assert.match(media,/gallery\.galleryManaged === true/);
  assert.match(media,/if \(gallery\.publiclyAccessible !== true\)/);
  assert.match(media,/\.download\(String\(gallery\.storageKey\)\)/);
+ assert.match(media,/blob\.size !== Number\(gallery\.byteSize\)/);
  assert.match(media,/'CDN-Cache-Control':'no-store'/);
  assert.match(media,/'Surrogate-Control':'no-store'/);
  assert.match(media,/'X-Content-Type-Options':'nosniff'/);
