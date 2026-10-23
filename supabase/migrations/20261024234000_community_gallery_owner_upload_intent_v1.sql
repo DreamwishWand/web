@@ -45,6 +45,26 @@ exception when unique_violation then
  raise exception 'GALLERY_UPLOAD_KEY_REUSED';
 end $$;
 
+create or replace function public.community_gallery_media_intent_probe_v1(
+ p_auth_subject uuid,p_storage_key text)
+returns jsonb language plpgsql stable security definer
+set search_path=pg_catalog,public,private as $
+declare v_account uuid;v_intent public.community_media_upload_intents%rowtype;
+begin
+ v_account:=private.resolve_active_account(p_auth_subject);
+ select * into v_intent from public.community_media_upload_intents
+ where storage_key=p_storage_key and owner_account_id=v_account and auth_subject=p_auth_subject;
+ if v_intent.storage_key is null then raise exception 'GALLERY_UPLOAD_FORBIDDEN'; end if;
+ if v_intent.state='aborted' then raise exception 'GALLERY_UPLOAD_ABORTED'; end if;
+ if v_intent.state='pending' and now()>v_intent.expires_at
+ then raise exception 'GALLERY_UPLOAD_EXPIRED'; end if;
+ return jsonb_build_object('state',v_intent.state,'mediaId',v_intent.media_id,
+   'mimeType',v_intent.mime_type,'expectedBytes',v_intent.expected_bytes);
+end $;
+revoke all on function public.community_gallery_media_intent_probe_v1(uuid,text)
+ from public,anon,authenticated;
+grant execute on function public.community_gallery_media_intent_probe_v1(uuid,text) to service_role;
+
 -- Cancel invalidates ALL Gallery finalize attempts; the old signed upload token
 -- still lives for at most two hours. Never promise immediate object deletion.
 create or replace function public.community_gallery_media_intent_cancel_v1(
