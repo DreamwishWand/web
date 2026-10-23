@@ -14,14 +14,33 @@ export const PUBLIC_PROJECTION_SURFACES=Object.freeze([
   'public_discovery','public_detail','creator_profile','saved_library',
   'direct_url','linked_preset_listing','public_media_authorization','search_index'
 ]);
-const fail=(code,extra={})=>Object.freeze({
+export type GalleryDependencyEdgeV1 = {
+  kind:string;galleryWorkId:string;ownerAccountId:string;dependentId:string;
+  state:'public_active'|'private_retained'|'historical_reference';
+};
+export type GalleryRetirementInputV1 = {
+  galleryWorkId?:string;
+  ownerAccountId?:string;
+  mode?:'delete'|'unpublish_keep_private';
+  dependencies?:GalleryDependencyEdgeV1[];
+  coverage?:Record<string,string>;
+  revisionPin?:{galleryWorkId:string;ownerAccountId:string;currentPublishedRevisionId:string}|null;
+  cloudPreservation?:{
+    provider:string;durablyStored?:boolean;aclVerified?:boolean;restoreVerified?:boolean;
+    ownerAccountId?:string;galleryWorkId?:string;
+  }|null;
+  issuedMediaRevocation?:{
+    alreadyIssuedUrlsRevoked?:boolean;verifiedForWorkId?:string;verifiedRevisionId?:string;
+    newIssuanceDenied?:boolean;
+  }|null;
+};
+const fail=(code:string,extra:Record<string,unknown>={})=>Object.freeze({
   ok:false,retirementAuthorized:false,code,...extra
 });
-function hasOwn(x,k){return Object.prototype.hasOwnProperty.call(x,k);}
 export function planGalleryRetirement({
   galleryWorkId,ownerAccountId,mode,dependencies,coverage,
   cloudPreservation=null,issuedMediaRevocation=null,revisionPin=null
-}={}){
+}:GalleryRetirementInputV1={}){
   if(!galleryWorkId||!ownerAccountId||!['delete','unpublish_keep_private'].includes(mode))
     return fail('GALLERY_RETIREMENT_INPUT_INVALID');
   if(!Array.isArray(dependencies)||!coverage||typeof coverage!=='object')
