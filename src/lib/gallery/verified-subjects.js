@@ -46,6 +46,11 @@ export function normalizeVerifiedSubject(value,expectedKind){
   // Native save-local Design.Id/GridID or guessed Item ID must not be a subject UUID.
   const baseRequired=expectedKind.startsWith('tom_');
   if(baseRequired!== (s.baseItemId!==null))return null;
+  // Verified ToM is a typed Base Item, not Motif or native Design.Id.
+  if(baseRequired && s.canonicalTargetId!==String(s.baseItemId))return null;
+  // The native Outdoor Biome key must retain both SceneItemID and AreaType.
+  // Verification of the exact tuple remains solely the server's responsibility.
+  if(s.subjectType==='biome' && !/^\\d+:\\d+$/.test(s.canonicalTargetId))return null;
   return {
     subjectId:s.subjectId,galleryKind:s.galleryKind,subjectType:s.subjectType,
     canonicalTargetId:s.canonicalTargetId,baseItemId:s.baseItemId,
