@@ -77,5 +77,5 @@ test('Svelte picker uses public-query only and fail-closed actions remain',()=>{
   assert.doesNotMatch(composer,/inputmode="numeric"|bind:value=\{targetName\}/);
   assert.doesNotMatch(composer,/uploadAndFinalizeImage|command\(['"]publishGalleryPhoto/);
   assert.match(composer,/disabled aria-disabled="true"/);
-  for(const action of ['publishUpdate','unpublish','deleteWork'])assert.match(management,new RegExp('disabled>\\{t\\(\\'galleryv1\\.'+action));
+  for(const action of ['publishUpdate','unpublish','deleteWork'])assert.ok(management.includes(`disabled>{t('galleryv1.${action}'`),action);
 });
