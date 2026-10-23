@@ -215,6 +215,6 @@ export default {
       ddvBindingTombstonesPurged: Number(ddvBindingPurge?.purged ?? 0),
       galleryOrphans,
       results
-    });
+    }, galleryOrphans.workerFailure ? 503 : 200);
   })
 };
