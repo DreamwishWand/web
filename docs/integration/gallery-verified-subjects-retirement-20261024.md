@@ -81,3 +81,12 @@ Hard flags remain false: `persistentWriteAuthorized=false`, `WORLD_PERSISTENT_WR
 - Cloud Unpublish and Keep Private remains unimplemented/unapproved rather than pretending local backup or private draft is durable server preservation.
 - Signed browser E2E remains CONFIGURATION_BLOCKED by missing reviewed public GitHub Actions Supabase values and legitimate signed A/B/Moderator actors; `pageErrors` and `consoleErrors` are NOT_EXECUTED for that scope, not [].
 - Return classification: PARTIAL / 08_WEB_CONSUMER_WAIT_ON_03_COMM_AND_QR. No whole release PASS; hard DDV writer flags all false.
+
+## Final additional rollback acceptance — 2026-10-24
+
+- Reused PR #108's existing staging acceptance fixture with a single changed unlinked Delete expectation; proof file `supabase/staging/acceptance/gallery-photo-retirement-negative-v1.sql`.
+- Live staging SQL transaction PASS: PUBLIC Create, revision update, idempotency, nonowner rejection, linked Preset Delete rejection, Cloud Unpublish rejection, all five synthetic classification branches, plus **unlinked Delete rejection** on `GALLERY_ISSUED_MEDIA_URL_REVOKE_UNPROVEN`.
+- Failed unlinked DELETE preserves current public revision, Search and Detail; no partial state change. The entire fixture transaction ROLLBACKs.
+- Post fixture readback: 13 persistent reviewed Core subjects, 0 ACCEPTANCE_ONLY fixture subjects, 0 classified synthetic photo Work rows, 0 acceptance/ media rows.
+- Final implementation CI run `40023442473` SUCCESS: 913 tests / 901 PASS / 0 FAIL / 12 fixture-dependent SKIP; Svelte 0 errors / 3 existing warnings; integratedReady=true / requireReady=true / migrations=89; static build/routes PASS.
+- Signed Chrome: CONFIGURATION_BLOCKED, NOT_EXECUTED. No `pageErrors=[]` or `consoleErrors=[]` claim for this unrun browser slice.
