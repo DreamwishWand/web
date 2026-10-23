@@ -65,7 +65,8 @@ export function evaluateProfile626ReadOnlyCompatibility(args) {
   }
   if (readMatch.status === ProfileReadCompatibilityStatus.SchemaMismatch ||
       readMatch.status === ProfileReadCompatibilityStatus.UnsupportedBuild ||
-      readMatch.status === ProfileReadCompatibilityStatus.InvalidTarget) {
+      readMatch.status === ProfileReadCompatibilityStatus.InvalidTarget ||
+      readMatch.status === ProfileReadCompatibilityStatus.SourcePlatformMismatch) {
     findings.push({ code: readMatch.status, severity: 'ERROR', message: readMatch.reason });
   } else if (readMatch.status === ProfileReadCompatibilityStatus.StaticCompatibleRuntimePending) {
     findings.push({
