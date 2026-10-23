@@ -133,8 +133,8 @@ export const VERIFIED_CORE_IDENTITIES_V125 = Object.freeze([
     scope:'Audit floatingIslands[12] exact SceneItemId, not save-local GridID or screenshot label'
   })
 ]);
-function fail(code){return Object.freeze({ok:false,code,verificationState:'pending'});}
-function exactIdentity(x,y){
+function fail(code:string){return Object.freeze({ok:false,code,verificationState:'pending'});}
+function exactIdentity(x:any,y:any){
   return x?.galleryKind===y.galleryKind &&
     x?.subjectType===y.subjectType &&
     x?.canonicalTargetId===y.canonicalTargetId &&
@@ -142,12 +142,12 @@ function exactIdentity(x,y){
     x?.evidenceRef===y.evidenceRef &&
     x?.evidenceSourceSha256===y.evidenceSourceSha256;
 }
-export function validateGallerySubjectForEnrollment(candidate,{approvedIdentityManifest=VERIFIED_CORE_IDENTITIES_V125}={}){
+export function validateGallerySubjectForEnrollment(candidate:Record<string,any>|null,{approvedIdentityManifest=VERIFIED_CORE_IDENTITIES_V125}:{approvedIdentityManifest?:readonly any[]}={}){
   if(!candidate||typeof candidate!=='object')return fail('GALLERY_SUBJECT_EVIDENCE_MISSING');
   for(const [key,value] of Object.entries(GALLERY_SUBJECT_TARGET_V125)){
     if(candidate[key]!==value)return fail('GALLERY_SUBJECT_VERSION_PLATFORM_UNPROVEN');
   }
-  const kind=GALLERY_SUBJECT_KINDS[candidate.subjectType];
+  const kind=GALLERY_SUBJECT_KINDS[candidate.subjectType as keyof typeof GALLERY_SUBJECT_KINDS];
   if(!kind||kind!==candidate.galleryKind)return fail('GALLERY_SUBJECT_KIND_MISMATCH');
   if(!candidate.evidenceRef||!candidate.evidenceSourceSha256 ||
       !/^[0-9a-f]{64}$/.test(candidate.evidenceSourceSha256))
