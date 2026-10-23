@@ -84,7 +84,8 @@ function sanitizeSearchQuestions(payload: JsonObject): JsonObject | null {
 function sanitizeVerifiedGallerySubjects(payload: JsonObject): JsonObject | null {
   const kind = payload.p_gallery_kind;
   if (kind != null &&
-      !['outdoor','indoor','tom_furniture','tom_clothing'].includes(String(kind))) return null;
+      (typeof kind !== 'string' ||
+       !['outdoor','indoor','tom_furniture','tom_clothing'].includes(kind))) return null;
   const raw = payload.p_limit;
   if (raw != null && (!Number.isInteger(raw) || Number(raw)<1 || Number(raw)>100)) return null;
   return { p_gallery_kind: kind ?? null, p_limit: raw ?? 50 };
