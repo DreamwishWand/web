@@ -70,6 +70,9 @@ export function parseVerifiedSubjectLookup(response,expectedKind){
 }
 /** @param {VerifiedGallerySubject|null|undefined} subject @param {GalleryKind} kind @param {SubjectType} type */
 export function isSelectableSubject(subject,kind,type){
+  // A Room locator depends on owner/save HouseItemID + floorIndex + RoomSlot.
+  // Global catalog verification alone cannot authorize that per-account binding.
+  if(type==='room')return false;
   return !!subject && subject.galleryKind===kind && subject.subjectType===type &&
     subject.verificationState==='verified' &&
     subject.platform===VERIFIED_CONTEXT.platform &&
