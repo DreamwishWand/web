@@ -32,7 +32,7 @@
       "driveId": "1BzO6W0RxR3eIHh6OdvDugKedIDOBFbdM",
       "sha256": "823316081efe513c3920ff5a870fae03b68fa5f6ff6be2de5c5eb87aaa674",
       "staticParity": "BYTE_IDENTICAL_ONLY",
-      "nativeRva": "UNKNOWN"
+      "nativeRva": "DECLARATIONS_EXTRACTED; BODY_UNAVAILABLE"
     },
     "switch1250Dump": {
       "driveId": "13nyviL_uZ9w-Op_9VhJsdpe0Ho4l2cdj",
@@ -41,6 +41,14 @@
     "switch1253Dump": {
       "driveId": "17_y_G-olsu7zzOBcKwJg5YTFOW9JQbto",
       "sha256": "638a5618728e92821ab146d4281e7cc47657785317a065e810a83034c217bf6b"
+    },
+    "steam1250Dump": {
+      "driveId": "1hU6xRnr0ehmNZveuXiYdOYOcZN0b1LRu",
+      "sha256": "2cf3629aac90d15a36a399af7e4735a3bae4251c8732232f951815c2ac14b86f"
+    },
+    "steam1253Dump": {
+      "driveId": "1Jt3QQ1j3cNfovJmIWXZdSLsZtjz7OvQc",
+      "sha256": "08307a26419cbf239c77b7dd0b3fa96036dc514cc46c5d7d5d1cb9780a1cdb05"
     }
   },
   "typedDecode": {
@@ -86,7 +94,24 @@
     ],
     "gridFootprint": "2x2 to 1x1 according to GridAreaData typed size fields",
     "nativeLayerMeaning": "UNKNOWN_PER_BIT_POSITION",
-    "evidence": "CONFIRMED typed protobuf metadata + 07DBK verified record wire delta"
+    "evidence": "CONFIRMED typed protobuf metadata + 07DBK verified record wire delta",
+    "unchangedFields": [
+      {
+        "name": "GridAreaData.AcceptedFloorTypesFlag",
+        "fieldNumber": 4,
+        "before": 130807039,
+        "after": 130807039
+      }
+    ],
+    "directRawRecordRecheck": {
+      "status": "PASS",
+      "switch1250TotalFurnitureRecords": 6233,
+      "switch1253TotalFurnitureRecords": 6233,
+      "switch1250ShaMatches": true,
+      "switch1253ShaMatches": true,
+      "recordShaMatchesBoth": true,
+      "otherRecordFieldsUnchanged": true
+    }
   },
   "switchNativeSemanticAnchors": [
     {
@@ -120,7 +145,7 @@
     "whether marker ZeroPaintingBlocker can be placed using ordinary editor operations",
     "gameplay effect of layer cell mask 66 vs 4/68",
     "real Switch v1.25.3 in-game save/reload for this quest Furniture",
-    "Steam native method implementation comparison"
+    "Steam native executable body comparison: not performed (metadata RVA only)"
   ],
   "downstreamContract": {
     "owner": "02 WEP / Item Placement Validator",
@@ -139,5 +164,32 @@
     "productApplyAuthorized": false,
     "directSourceReplacementAuthorized": false,
     "nativeWriterAuthorized": false
-  }
+  },
+  "steamNativeSemanticAnchors": [
+    {
+      "identity": "GridAreaData.GetGridArea()",
+      "v1250Rva": "0x36FB430",
+      "v1253Rva": "0x36FC890"
+    },
+    {
+      "identity": "GridAreaData.get_SizeX()",
+      "v1250Rva": "0x669170",
+      "v1253Rva": "0x669170"
+    },
+    {
+      "identity": "GridAreaData.get_SizeY()",
+      "v1250Rva": "0x6B2F90",
+      "v1253Rva": "0x6B2F90"
+    },
+    {
+      "identity": "GridAreaData.get_Layers()",
+      "v1250Rva": "0x65C490",
+      "v1253Rva": "0x65C490"
+    },
+    {
+      "identity": "FurnitureItemData.get_GridAreaData()",
+      "v1250Rva": "0x6634E0",
+      "v1253Rva": "0x6634E0"
+    }
+  ]
 }
