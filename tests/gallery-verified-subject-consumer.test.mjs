@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {
   VERIFIED_SUBJECT_RPC, VERIFIED_SUBJECT_CONTRACT, VERIFIED_CONTEXT, SUBJECT_TYPES,
   parseVerifiedSubjectLookup, isSelectableSubject, resolveCurrentSubject,
-  filterVerifiedSubjects, subjectDisplayIdentity
+  filterVerifiedSubjects, subjectDisplayIdentity, sameVerifiedSubjectAuthority
 } from '../src/lib/gallery/verified-subjects.js';
 const id='11111111-1111-4111-8111-111111111111';
 const island=Object.freeze({
@@ -63,6 +63,10 @@ test('stale selection is revoked when registry or selected type changes',()=>{
   assert.equal(resolveCurrentSubject([],old.subjectId,'outdoor','floating_island'),null);
   assert.equal(resolveCurrentSubject([old],old.subjectId,'outdoor','biome'),null);
   assert.equal(resolveCurrentSubject([{...old,buildId:'obsolete'}],old.subjectId,'outdoor','floating_island'),null);
+  assert.equal(sameVerifiedSubjectAuthority(old,{...old,displayName:'Translated official name'}),true);
+  assert.equal(sameVerifiedSubjectAuthority(old,{...old,canonicalTargetId:'changed'}),false);
+  assert.equal(sameVerifiedSubjectAuthority(old,{...old,evidenceRef:'tampered'}),false);
+  assert.equal(sameVerifiedSubjectAuthority(old,{...old,profileSchema:626}),false);
 });
 test('local search does not mutate canonical identity; unsupported records remain unselectable',()=>{
   const arr=[selected(),{...selected(),subjectId:'22222222-2222-4222-8222-222222222222',buildId:'wrong'}];
