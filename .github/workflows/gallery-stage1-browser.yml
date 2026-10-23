@@ -17,6 +17,11 @@ on:
 permissions:
   contents: read
 
+# Latest-HEAD browser evidence only; avoid simultaneous apt/font setup on every edit.
+concurrency:
+  group: gallery-stage1-unsigned-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   unsigned-browser:
     runs-on: ubuntu-latest
