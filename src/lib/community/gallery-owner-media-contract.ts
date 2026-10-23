@@ -29,7 +29,7 @@ export type GalleryOwnerMediaErrorV1 =
   | 'GALLERY_UPLOAD_INTENT_FAILED'|'GALLERY_UPLOAD_NOT_ACTIVE'
   | 'GALLERY_UPLOAD_FINALIZE_CONFLICT'|'GALLERY_UPLOAD_CANCEL_FORBIDDEN'
   | 'GALLERY_UPLOAD_CLEANUP_NOT_DUE'|'GALLERY_UPLOAD_STORAGE_CLEANUP_RETRY'
-  | 'GALLERY_UPLOAD_DB_CLEANUP_RETRY'
+  | 'GALLERY_UPLOAD_DB_CLEANUP_RETRY'\n  | 'GALLERY_UPLOAD_CLEANUP_WORKER_ONLY'\n  | 'GALLERY_UPLOAD_PREPARE_ABORT_REQUIRES_RETRY'
   | 'GALLERY_MEDIA_STORAGE_OBJECT_UNAVAILABLE'
   | 'GALLERY_MEDIA_NOT_READY_OR_NOT_OWNED'|'GALLERY_MEDIA_SELECTION_INVALID'
   | 'GALLERY_ROW_VERSION_CONFLICT'|'GALLERY_IDEMPOTENCY_CONFLICT'
@@ -43,8 +43,8 @@ export type GalleryOwnerMediaTransportV1=Readonly<{
   finalize(storageKey:string):Promise<GalleryOwnerReadyMediaV1>;
   /** Server-declared ABORT immediately denies finalize; object cleanup is expiry-delayed */
   abort(storageKey:string):Promise<GalleryOwnerAbortV1>;
-  /** Retryable only after token expiration+5min; not an automatic sweeper */
-  cleanup(storageKey:string):Promise<{cleaned:true;storageKey:string}>;
+  /** Queues an expired/aborted key with the existing hourly retention worker; does NOT synchronously delete bytes. */
+  cleanup(storageKey:string):Promise<{queued:true;alreadyClaimed:boolean}>;
   /** Existing community-command publishGalleryPhoto, no alternate publication API */
   publish(input:PublishGalleryPhotoV1):Promise<PublishGalleryPhotoResultV1>;
 }>;
@@ -112,7 +112,7 @@ export const GALLERY_OWNER_MEDIA_FLOW_V1=Object.freeze({
   signedUploadLifetimeSeconds:7200,
   cleanupGraceSeconds:300,
   immediateCancelledStorageTokenRevocation:false,
-  cleanupIsAutomatic:false,
+  cleanupUsesExistingRetentionCron:true,\n  cleanupOwnerCallQueuesOnly:true,\n  cleanupBatchMax:20,\n  cleanupIsAutomatic:true,
   deleteAuthorized:false,
   cloudKeepPrivateAuthorized:false,
   ddvNativeWriteAuthorized:false
