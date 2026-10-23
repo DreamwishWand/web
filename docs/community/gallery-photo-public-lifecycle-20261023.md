@@ -12,7 +12,7 @@
 - `community_publish_gallery_photo_v1(authSubject, creatorProfileId, workId nullable, expectedVersion nullable only for new, galleryKind, subjectId, title, description, mediaIds, coverMediaId, originalityAttested, idempotencyKey)`
 - `community_delete_gallery_photo_v1(authSubject,workId,expectedVersion,idempotencyKey)`
 - `community_get_gallery_photo_public_v1(workId)` exposed through fixed public-query Edge allowlist (NOT anonymous direct RPC)
-- `gallery_verified_subjects`: trusted, versioned, evidence-ref-backed 09 INT subject registry. Only `verification_state=verified` accepted. Registry is **empty by design** pending Game DB provenance.
+- `gallery_verified_subjects`: trusted, versioned, evidence-ref-backed 09 INT subject registry. Only `verification_state=verified` accepted. Registry is **empty by design** pending Game DB provenance. Exact canonical subject uniqueness (including null Base Item for Decorations) is enforced by an expression index.
 - `gallery_photo_subjects`: immutable creator/account/type/target binding to one Work.
 - `gallery_photo_revision_fields`: revision-scoped canonical subject, cover and provenance attestation.
 
@@ -70,6 +70,7 @@ Positive response: `{ok:true,command:'publishGalleryPhoto',data:{workId,revision
   - `20261023223400_community_gallery_photo_existing_seal_trigger_v1.sql`
   - `20261023223600_community_gallery_photo_null_version_guard_v1.sql`
   - `20261023223800_community_gallery_photo_fk_indexes_v1.sql`
+  - `20261023224000_community_gallery_subject_exact_identity_v1.sql`
 - The intermediate 223200 seal-order migration was superseded by 223400, which deliberately consumes the **existing** `seal_current_work_revision` trigger. Preserve applied migration order; do not squash migration history behind staging.
 - Rollback-only staging SQL: `supabase/staging/acceptance/gallery-photo-public-lifecycle-v1.sql`. It executes real DB procedures, tests all category branches and negative paths, then `ROLLBACK`. **No canonical subject seed or media fixture remains**.
 - New classification publication's server source is implemented and exercised with temporary test subjects; **no real Game DB registry subject has yet been accepted**. This limits actual 08 WEB release enablement.
