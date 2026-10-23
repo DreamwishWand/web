@@ -1,0 +1,143 @@
+{
+  "schema": "ddv.furniture-40600547-placement-boundary-v1253@1",
+  "requestId": "01B-V1253-FURNITURE-40600547-PLACEMENT-BOUNDARY-V1",
+  "status": "PARTIAL_TYPED_STATIC_CLOSED_NATIVE_PLACEMENT_PENDING",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.3",
+    "buildId": "9A239D3DB569756D",
+    "schema": 626,
+    "itemId": 40600547,
+    "identity": "SEC_Oogi_030_ZeroPaintingBlocker",
+    "sourceDefinitionType": "FurnitureItemData"
+  },
+  "baseline": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "buildId": "52BD625D9B4E0053",
+    "schema": 624
+  },
+  "sources": {
+    "switch1250Furniture": {
+      "driveId": "11y97Ub-VCPM0S5zq5bKIzumVqPUUNu2q",
+      "sha256": "4a5320900176f7bd4626e0f23b7b68d1de3780e4d9f395308dc6dfdec8538cad",
+      "recordSha256": "fd7dc6e80b7735ef56351e449671bfcc53a86151149ce7936a665d8df5f4803a"
+    },
+    "switch1253Furniture": {
+      "driveId": "1x2Zo1evlXbwxfKiTlO2ouCnYOs8bGgHc",
+      "sha256": "823316081efe513c3920ff5a870fae03b68fa5f6ff6be2de0de5c5eb87aaa674",
+      "recordSha256": "1343a17b02f7eddd8ec77fdafd88a8af9df8d218be844e6754e9a2dd0caddfda"
+    },
+    "steam1253Furniture": {
+      "driveId": "1BzO6W0RxR3eIHh6OdvDugKedIDOBFbdM",
+      "sha256": "823316081efe513c3920ff5a870fae03b68fa5f6ff6be2de5c5eb87aaa674",
+      "staticParity": "BYTE_IDENTICAL_ONLY",
+      "nativeRva": "UNKNOWN"
+    },
+    "switch1250Dump": {
+      "driveId": "13nyviL_uZ9w-Op_9VhJsdpe0Ho4l2cdj",
+      "sha256": "a94ae73d522f160d21255b195b4d834bf5c79db59ddbd8cdfc32e54c6e0671f0"
+    },
+    "switch1253Dump": {
+      "driveId": "17_y_G-olsu7zzOBcKwJg5YTFOW9JQbto",
+      "sha256": "638a5618728e92821ab146d4281e7cc47657785317a065e810a83034c217bf6b"
+    }
+  },
+  "typedDecode": {
+    "protobufParent": "FurnitureItemData.GridAreaData",
+    "parentFieldNumber": 6,
+    "type": "GridAreaData",
+    "paths": [
+      {
+        "wire": "6.1",
+        "name": "GridAreaData.SizeX",
+        "type": "int32",
+        "before": 2,
+        "after": 1
+      },
+      {
+        "wire": "6.2",
+        "name": "GridAreaData.SizeY",
+        "type": "int32",
+        "before": 2,
+        "after": 1
+      },
+      {
+        "wire": "6.3",
+        "name": "GridAreaData.Layers",
+        "type": "repeated uint32 (fixed32 packed)",
+        "before": [
+          4,
+          68,
+          4,
+          68
+        ],
+        "after": [
+          66
+        ],
+        "beforeLittleEndianHex": "04000000440000000400000044000000",
+        "afterLittleEndianHex": "42000000"
+      }
+    ],
+    "invariants": [
+      "exactly one modified Furniture record 40600547",
+      "no new Furniture ID",
+      "no generic placement topology revision implied"
+    ],
+    "gridFootprint": "2x2 to 1x1 according to GridAreaData typed size fields",
+    "nativeLayerMeaning": "UNKNOWN_PER_BIT_POSITION",
+    "evidence": "CONFIRMED typed protobuf metadata + 07DBK verified record wire delta"
+  },
+  "switchNativeSemanticAnchors": [
+    {
+      "identity": "GridAreaData.GetGridArea()",
+      "v1250Rva": "0x4139E60",
+      "v1253Rva": "0x4140E30"
+    },
+    {
+      "identity": "GridAreaData.get_SizeX()",
+      "v1250Rva": "0x41380B0",
+      "v1253Rva": "0x413F080"
+    },
+    {
+      "identity": "GridAreaData.get_SizeY()",
+      "v1250Rva": "0x41380D0",
+      "v1253Rva": "0x413F0A0"
+    },
+    {
+      "identity": "GridAreaData.get_Layers()",
+      "v1250Rva": "0x41380F0",
+      "v1253Rva": "0x413F0C0"
+    },
+    {
+      "identity": "FurnitureItemData.get_GridAreaData()",
+      "v1250Rva": "0x45373E0",
+      "v1253Rva": "0x453E240"
+    }
+  ],
+  "runtimeUnknowns": [
+    "actual native placement validator/collision rejection path",
+    "whether marker ZeroPaintingBlocker can be placed using ordinary editor operations",
+    "gameplay effect of layer cell mask 66 vs 4/68",
+    "real Switch v1.25.3 in-game save/reload for this quest Furniture",
+    "Steam native method implementation comparison"
+  ],
+  "downstreamContract": {
+    "owner": "02 WEP / Item Placement Validator",
+    "required": "version-specific item geometry and native classification; stale v1.25.0 geometry cannot certify placement of 40600547",
+    "fallback": "NATIVE_UNKNOWN_UNVERIFIED / APPLY_DISABLED",
+    "integration": [
+      "09 INT",
+      "08 WEB",
+      "04 QR"
+    ]
+  },
+  "hardFlags": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false,
+    "nativeWriterAuthorized": false
+  }
+}
