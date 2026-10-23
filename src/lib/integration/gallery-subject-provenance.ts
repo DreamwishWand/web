@@ -1,3 +1,4 @@
+import { VERIFIED_ADDITIONAL_GALLERY_IDENTITIES_V125, reviewedV125AdditionalGallerySubjectCandidates } from './gallery-reviewed-subjects-v125.ts';
 /**
  * 09 INT — Gallery verified subject source gate.
  * This is an evidence-bound registry ADAPTER, not an alternate Gallery API.
@@ -140,7 +141,11 @@ function exactIdentity(x:any,y:any){
     x?.canonicalTargetId===y.canonicalTargetId &&
     x?.baseItemId===y.baseItemId &&
     x?.evidenceRef===y.evidenceRef &&
-    x?.evidenceSourceSha256===y.evidenceSourceSha256;
+    x?.evidenceSourceSha256===y.evidenceSourceSha256 &&
+    x?.rawPayloadSha256===y.rawPayloadSha256 &&
+    x?.concreteItemDataType===y.concreteItemDataType &&
+    x?.semanticIdentityCodec===y.semanticIdentityCodec &&
+    x?.evidenceClass===y.evidenceClass;
 }
 export function validateGallerySubjectForEnrollment(candidate:Record<string,any>|null){
   if(!candidate||typeof candidate!=='object')return fail('GALLERY_SUBJECT_EVIDENCE_MISSING');
@@ -158,7 +163,8 @@ export function validateGallerySubjectForEnrollment(candidate:Record<string,any>
   if(!['tom_furniture','tom_clothing'].includes(candidate.subjectType) &&
       candidate.baseItemId!==null)
     return fail('GALLERY_SUBJECT_BASE_ITEM_MUST_BE_NULL');
-  if(!VERIFIED_CORE_IDENTITIES_V125.some(approved=>exactIdentity(candidate,approved)))
+  if(![...VERIFIED_CORE_IDENTITIES_V125,...VERIFIED_ADDITIONAL_GALLERY_IDENTITIES_V125]
+      .some(approved=>exactIdentity(candidate,approved)))
     return fail('GALLERY_SUBJECT_NOT_IN_REVIEWED_AUTHORITY');
   return Object.freeze({ok:true,verificationState:'verified',identity:Object.freeze({
     galleryKind:candidate.galleryKind,subjectType:candidate.subjectType,
@@ -170,4 +176,8 @@ export function validateGallerySubjectForEnrollment(candidate:Record<string,any>
 }
 export function reviewedV125GallerySubjectCandidates(){
   return VERIFIED_CORE_IDENTITIES_V125.map(source=>Object.freeze({...GALLERY_SUBJECT_TARGET_V125,...source}));
+}
+
+export function reviewedAllV125GallerySubjectCandidates(){
+  return [...reviewedV125GallerySubjectCandidates(),...reviewedV125AdditionalGallerySubjectCandidates()];
 }
