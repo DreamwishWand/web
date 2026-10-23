@@ -34,7 +34,7 @@ Staging project `ptpdoxhrqopvczpclcij`:
 - `supabase/staging/acceptance/gallery-owner-media-public-v1.sql` **SQL PASS** via BEGIN/ROLLBACK. Uses existing staging Wand Account/Auth identity and exact registered authoritative Floating Island Subject. Exercises owner signed-key journal/open, nonowner refusal, canceled key generic Media insert denied, premature cleanup denied, expired cleanup path DB only, READY/CLEAR owner media, publisher real DB PUBLIC create/current detail, true immutable published update, idem replay, stale rejection, protected published Media abort. *Test image rows are synthetic transactional fixtures; they do not prove actual Storage object bytes.*
 - `supabase/staging/acceptance/gallery-owner-media-invalid-orphan-v1.sql` **SQL PASS** via BEGIN/ROLLBACK: mismatched MIME, byteSize, expired journal deny generic finalize, raw anon/authenticated table/RPC grants remain revoked, guards count.
 - Existing `supabase/staging/acceptance/gallery-photo-retirement-negative-v1.sql` **SQL PASS** after new migrations: all photo Delete still fail-closed, previous public snapshots/revisions remain.
-- Staging `community-command v30` (verify_jwt=true) deployed with Storage `.info` validation, `community-media v10` (verify_jwt=true) deployed with the new actions. `community-public-query v7` and `community-public-media v3` remain unchanged.
+- Staging `community-command v30` (verify_jwt=true) deployed with Storage `.info` validation, `community-media v11` (verify_jwt=true) deployed with the new actions. `community-public-query v7` and `community-public-media v3` remain unchanged.
 - Active registered subjects: 92. No source Game DB record guessed; SQL fixture Work/Media rows roll back.
 - **NOT_EXECUTED**: owner/other/anon/moderator actual signed HTTP uploads, physical Storage `.uploadToSignedUrl`, public-media binary retrieve, 2h-expiry physical deletion/re-upload replay, Chrome A/B/Moderator; no genuine actor tokens/config. Do not turn these into PASS or turn old signed URL/CDN claim into immediate revoke.
 
@@ -47,3 +47,9 @@ Staging project `ptpdoxhrqopvczpclcij`:
 - **All native save writers/Product Apply remain OFF** for both Switch v1.25.0 and v1.25.3.
 
 No production resources changed. No incomplete drafts merged.
+
+### Final verified rollout / CI addendum
+- Current live staging Community Media Edge is **v11** with verified JWT after the HTTP cleanup 404 retry hardening; existing signed Command Edge is **v30**. Deploy confirmed ACTIVE. No production resources changed.
+- Implemented code HEAD prior to this documentation adjustment `ed2a384ce48be108b2ca16749ab586162095101a` CI [40035623426](https://github.com/DreamwishWand/web/actions/runs/40035623426) SUCCESS: 930 total / 918 PASS / 0 FAIL / 12 existing fixture SKIP. This is not an authenticated Storage E2E result.
+- Post-rollback database readback 92 verified subjects, 0 classified Gallery Photo works, 0 outstanding test upload intents, 7 preexisting MediaAssets, #113 old-signed-URL delete negative trigger count 1. Original MediaAsset Storage completeness pre-existing: only 2 of 7 MediaAssets have corresponding object metadata. The new Gallery PUBLIC ingress Storage.info preflight rejects missing objects; never treat phantom READY as publishable.
+- Security Advisor includes one pre-existing Auth leaked-password-protection WARN and RLS-without-policy INFO (service-only); no newly identified HIGH/CRITICAL.
