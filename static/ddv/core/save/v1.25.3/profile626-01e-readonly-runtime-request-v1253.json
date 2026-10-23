@@ -1,0 +1,74 @@
+{
+  "schema": "ddv.runtime-acceptance-request@1",
+  "requestId": "01E-V1253-SCHEMA626-CONTROLLED-SAVE-READONLY-ACCEPTANCE-V1",
+  "owner": "01E",
+  "issuedBy": "01A",
+  "status": "READY_WHEN_REAL_SCHEMA626_SAVE_IS_AVAILABLE",
+  "purpose": "Close the real-save read-only acceptance gate for DDV v1.25.3 schema 626 without authorizing mutation or replacement.",
+  "exactTargets": [
+    {
+      "platform": "switch",
+      "gameVersion": "1.25.3",
+      "buildIdentity": {
+        "kind": "switch-bid",
+        "value": "9A239D3DB569756D"
+      },
+      "profileSchema": 626
+    },
+    {
+      "platform": "steam-windows",
+      "gameVersion": "1.25.3",
+      "buildIdentity": {
+        "kind": "steam-full-version",
+        "value": "releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22"
+      },
+      "profileSchema": 626
+    }
+  ],
+  "prerequisites": {
+    "staticContract": "ddv.save.profile626-serialization-structural-gate@1",
+    "realSaveRequirement": "At least one unmodified DDV-produced packaged schema626 profile for each platform acceptance actually claimed. A cross-save profile may be used only when its source/build provenance is recorded separately; LastSaveDeviceInfo is diagnostic and is not a build identifier.",
+    "currentlyProvided": false
+  },
+  "protocol": [
+    "Hash and retain the exact original packaged bytes before any operation.",
+    "Open through the canonical P1G codec in read-only mode; require GameInfo, Player, World and exact GameInfo.Version=626.",
+    "Bind the attempt to the exact platform target build identity; reject unknown build, wrong identity kind, schema624/625/627, malformed root, duplicate JSON keys, unsafe numbers and unsupported ZIP/envelope states.",
+    "Record the decoded structural inventory needed for regression, including top-level keys and hashes/counts for unknown/opaque-preservation sentinels where present. Do not normalize or drop unrecognized fields.",
+    "Perform no edit and no encoded replacement generation. Verify the exact original packaged input bytes remain unchanged and no source file is replaced.",
+    "Repeat canonical decode/read inspection from a fresh process/session and confirm the same schema/root/opaque semantic projection.",
+    "If an ordinary in-game save and cold relaunch sample is available without introducing unrelated gameplay changes, re-extract and compare schema/version plus structural/unknown-field continuity. Classify ordinary game save drift separately from Wand-attributable mutation.",
+    "Return exact source hashes, build provenance, codec result, structural comparison and any failure code. A PASS closes production read acceptance only; it does not authorize encode-copy, local writer, persistent replacement, or product Apply."
+  ],
+  "acceptance": {
+    "required": [
+      "real DDV-produced packaged save opens successfully",
+      "GameInfo.Version is exactly 626",
+      "required root is intact",
+      "unknown/opaque observed data is semantically preserved by read-only inspection",
+      "source packaged bytes are unchanged",
+      "malformed/unsupported negative cases fail closed",
+      "fresh-session re-read matches"
+    ],
+    "optionalWhenAvailable": [
+      "ordinary game save then re-extract comparison",
+      "full exit/cold relaunch comparison"
+    ],
+    "explicitlyNotProvenByPass": [
+      "verified replacement candidate generation",
+      "schema626 modified encode/repack safety",
+      "any 01B/01C writer semantics",
+      "local save writer",
+      "persistent source replacement",
+      "Premium/DLC/entitlement/auth mutation"
+    ]
+  },
+  "hardFlags": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false,
+    "localSaveWriterAuthorized": false
+  }
+}
