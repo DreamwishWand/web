@@ -80,12 +80,19 @@ begin
  if (v_gateway->>'galleryManaged')::boolean is distinct from true
  or (v_gateway->>'publiclyAccessible')::boolean is distinct from true
  then raise exception 'NEW_CURRENT_REVISION_NOT_ACCESSIBLE';end if;
- -- A synthetic DIRECT fixture revocation models an inactive Work,
- -- NOT authorization for a product Retirement API.
- update public.community_works set visibility='private' where work_id=v_work;
+ -- The original #113 trigger must reject premature direct PRIVATE
+ -- transitions even for SQL-only fixtures; never bypass the protection.
+ v_rejected:=false;
+ begin
+   update public.community_works set visibility='private' where work_id=v_work;
+ exception when others then
+   if position('GALLERY_CLOUD_PRIVATE_PRESERVATION_09_INT_REQUIRED' in sqlerrm)>0
+   then v_rejected:=true;else raise;end if;
+ end;
+ if not v_rejected then raise exception 'PREMATURE_PRIVATE_TRANSITION_ACCEPTED';end if;
  v_gateway:=public.community_gallery_media_gateway_v1(v_media2);
- if (v_gateway->>'publiclyAccessible')::boolean is distinct from false
- or v_gateway ? 'storageKey' then raise exception 'REVOKED_GALLERY_STILL_PUBLIC';end if;
+ if (v_gateway->>'publiclyAccessible')::boolean is distinct from true
+ then raise exception 'BLOCKED_PRIVATE_CHANGED_PUBLIC_DETAIL';end if;
  if has_function_privilege('anon','public.community_gallery_media_gateway_v1(uuid)','EXECUTE')
  or has_function_privilege('authenticated','public.community_gallery_retirement_preflight_v1(uuid,uuid)','EXECUTE')
  or not has_function_privilege('service_role','public.community_gallery_media_gateway_v1(uuid)','EXECUTE')
