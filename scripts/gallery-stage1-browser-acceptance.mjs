@@ -76,8 +76,21 @@ try{
     }).slice(0,5500));
     throw cause;
   }
-  await page.locator('.subject-options button').first().click();
+  await page.locator('.subject-options button').first().focus();
+  await page.keyboard.press('Enter');
+  assert((await page.locator('.subject-options button').first().getAttribute('aria-pressed'))==='true','keyboard Subject selection failed');
   assert(await page.getByText('SceneItemId fixture-scene-item').count()>0,'missing canonical display fallback');
+  subjectScenario='empty';
+  await page.getByRole('button',{name:'Refresh verified subjects'}).click();
+  await page.getByText('No verified subject is registered',{exact:false}).waitFor({state:'visible',timeout:10000});
+  assert(await page.getByRole('button',{name:/Continue/}).last().isDisabled()===false,'unexpected step navigation disable');
+  await page.getByRole('button',{name:/Continue/}).last().click();
+  assert(await page.getByRole('heading',{name:'Images & presentation'}).count()===0,'stale registry selection passed gate');
+  subjectScenario='verified';
+  await page.getByRole('button',{name:'Refresh verified subjects'}).click();
+  await page.locator('.subject-options button').first().waitFor({state:'visible',timeout:10000});
+  await page.locator('.subject-options button').first().click();
+  pass('PICKER_KEYBOARD_AND_STALE_SELECTION_FAIL_CLOSED');
   const stageTwo=page.getByRole('heading',{name:'Images & presentation'});
   await page.getByRole('button',{name:/Continue/}).last().click();
   await stageTwo.waitFor({state:'visible',timeout:10000});
