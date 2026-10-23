@@ -559,16 +559,21 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         error.message.includes('Self Special Pick') ||
         error.message.includes('DREAMSNAP_REAL_ENTRY_FLOOR_NOT_MET');
 
+      const galleryErrorCode =
+        (command === 'publishGalleryPhoto' || command === 'deleteGalleryPhoto')
+          ? /^GALLERY_[A-Z0-9_]+/.exec(error.message)?.[0] ?? null
+          : null;
+
       return reply(
         {
           ok: false,
-          error: recentAuth
+          error: galleryErrorCode ?? (recentAuth
             ? 'RECENT_AUTH_REQUIRED'
             : conflict
               ? 'CONFLICT'
               : forbidden
                 ? 'FORBIDDEN'
-                : 'COMMAND_FAILED',
+                : 'COMMAND_FAILED'),
           message: error.message
         },
         conflict ? 409 : forbidden ? 403 : 400
