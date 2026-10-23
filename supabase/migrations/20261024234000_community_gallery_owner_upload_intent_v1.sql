@@ -9,7 +9,7 @@ create table if not exists public.community_media_upload_intents (
   mime_type text not null check(mime_type in ('image/jpeg','image/png','image/webp')),
   expected_bytes bigint not null check(expected_bytes between 1 and 20971520),
   state text not null default 'pending' check(state in ('pending','finalized','aborted')),
-  media_id uuid unique references public.media_assets(media_id),
+  media_id uuid unique references public.media_assets(media_id) on delete set null,
   issued_at timestamptz not null default now(),
   expires_at timestamptz not null default (now()+interval '2 hours'),
   aborted_at timestamptz,
@@ -63,9 +63,9 @@ begin
    return jsonb_build_object('aborted',true,'alreadyAborted',true,
      'cleanupEligibleAt',v_intent.expires_at+interval '5 minutes');
  end if;
- if v_intent.media_id is not null then
+ if v_intent.media_id is not null or exists(select 1 from public.media_assets where storage_key=p_storage_key) then
    select * into v_media from public.media_assets
-   where media_id=v_intent.media_id and owner_account_id=v_account for update;
+   where storage_key=p_storage_key and owner_account_id=v_account for update;
    if v_media.media_id is null then raise exception 'GALLERY_MEDIA_NOT_FOUND'; end if;
    if exists(select 1 from public.work_revision_media where media_id=v_media.media_id)
      or exists(select 1 from public.creator_profiles where avatar_media_id=v_media.media_id) then
@@ -123,6 +123,8 @@ end $$;
 create or replace function private.community_media_reject_aborted_gallery_upload_v1()
 returns trigger language plpgsql set search_path=pg_catalog,public as $$
 begin
+ perform 1 from public.community_media_upload_intents i
+  where i.storage_key=new.storage_key for share;
  if exists(select 1 from public.community_media_upload_intents i
   where i.storage_key=new.storage_key and i.state='aborted') then
    raise exception 'GALLERY_UPLOAD_ABORTED';
@@ -143,6 +145,9 @@ create or replace function private.community_media_lock_ready_gallery_link_v1()
 returns trigger language plpgsql set search_path=pg_catalog,public as $$
 declare v_processing public.media_assets%rowtype;
 begin
+ if not exists(select 1 from public.community_work_revisions r
+    join public.gallery_works g on g.work_id=r.work_id
+    where r.revision_id=new.work_revision_id) then return new; end if;
  select * into v_processing from public.media_assets where media_id=new.media_id for share;
  if v_processing.media_id is null or v_processing.processing_state<>'ready'
  or v_processing.moderation_state<>'clear' or v_processing.purged_at is not null then
@@ -155,6 +160,66 @@ drop trigger if exists community_media_lock_ready_gallery_link
 create trigger community_media_lock_ready_gallery_link
  before insert on public.work_revision_media for each row
  execute function private.community_media_lock_ready_gallery_link_v1();
+
+
+-- Cleanup must execute AFTER the signed upload token has expired and a grace
+-- period has elapsed. Can be retried following an Storage remove failure.
+create or replace function public.community_gallery_media_intent_cleanup_probe_v1(
+ p_auth_subject uuid,p_storage_key text)
+returns jsonb language plpgsql security definer
+set search_path=pg_catalog,public,private as $
+declare v_account uuid;v_intent public.community_media_upload_intents%rowtype;
+begin
+ v_account:=private.resolve_active_account(p_auth_subject);
+ select * into v_intent from public.community_media_upload_intents
+ where storage_key=p_storage_key and owner_account_id=v_account and auth_subject=p_auth_subject
+ for update;
+ if v_intent.storage_key is null then raise exception 'GALLERY_UPLOAD_FORBIDDEN'; end if;
+ if v_intent.state<>'aborted' or now() < v_intent.expires_at+interval '5 minutes'
+ then raise exception 'GALLERY_UPLOAD_CLEANUP_NOT_DUE'; end if;
+ if exists(select 1 from public.media_assets m
+   join public.work_revision_media r on r.media_id=m.media_id
+   where m.storage_key=p_storage_key)
+ or exists(select 1 from public.media_assets m
+   join public.creator_profiles c on c.avatar_media_id=m.media_id
+   where m.storage_key=p_storage_key) then
+   raise exception 'GALLERY_MEDIA_ALREADY_BOUND';
+ end if;
+ return jsonb_build_object('storageKey',p_storage_key,'cleanupAllowed',true);
+end $;
+
+create or replace function public.community_gallery_media_intent_cleanup_finish_v1(
+ p_auth_subject uuid,p_storage_key text)
+returns jsonb language plpgsql security definer
+set search_path=pg_catalog,public,private as $
+declare v_account uuid;v_intent public.community_media_upload_intents%rowtype;
+ v_media public.media_assets%rowtype;
+begin
+ v_account:=private.resolve_active_account(p_auth_subject);
+ select * into v_intent from public.community_media_upload_intents
+ where storage_key=p_storage_key and owner_account_id=v_account and auth_subject=p_auth_subject
+ for update;
+ if v_intent.storage_key is null or v_intent.state<>'aborted'
+ or now()<v_intent.expires_at+interval '5 minutes'
+ then raise exception 'GALLERY_UPLOAD_CLEANUP_NOT_DUE'; end if;
+ select * into v_media from public.media_assets
+ where storage_key=p_storage_key and owner_account_id=v_account for update;
+ if v_media.media_id is not null then
+   if v_media.processing_state<>'quarantined'
+   or exists(select 1 from public.work_revision_media where media_id=v_media.media_id)
+   or exists(select 1 from public.creator_profiles where avatar_media_id=v_media.media_id) then
+     raise exception 'GALLERY_MEDIA_ALREADY_BOUND';
+   end if;
+   delete from public.media_assets where media_id=v_media.media_id;
+   delete from public.community_entities where entity_id=v_media.media_id;
+ end if;
+ delete from public.community_media_upload_intents where storage_key=p_storage_key;
+ return jsonb_build_object('cleaned',true,'storageKey',p_storage_key);
+end $;
+revoke all on function public.community_gallery_media_intent_cleanup_probe_v1(uuid,text) from public,anon,authenticated;
+revoke all on function public.community_gallery_media_intent_cleanup_finish_v1(uuid,text) from public,anon,authenticated;
+grant execute on function public.community_gallery_media_intent_cleanup_probe_v1(uuid,text) to service_role;
+grant execute on function public.community_gallery_media_intent_cleanup_finish_v1(uuid,text) to service_role;
 
 revoke all on function public.community_gallery_media_intent_open_v1(uuid,text,text,bigint) from public,anon,authenticated;
 revoke all on function public.community_gallery_media_intent_cancel_v1(uuid,text) from public,anon,authenticated;
