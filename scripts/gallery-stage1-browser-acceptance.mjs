@@ -69,9 +69,18 @@ try{
     await page.goto(origin+path,{waitUntil:'domcontentloaded'});
     for(const locale of locales){
       const menu=page.locator('.mobile-app-toolbar .ui-icon-button').last();
-      await menu.click();
-      await page.locator('#site-locale-mobile').selectOption(locale);
+      const settingsSheet=page.locator('dialog.ui-sheet').first();
+      let opened=false;
+      for(let attempt=0;attempt<8;attempt++){
+        await menu.click();
+        opened=await settingsSheet.evaluate(node=>node.open===true);
+        if(opened)break;
+        await page.waitForTimeout(150);
+      }
+      assert(opened,path+' mobile settings did not open after hydrated click');
+      await settingsSheet.locator('#site-locale-mobile').selectOption(locale);
       await page.keyboard.press('Escape');
+      await settingsSheet.waitFor({state:'hidden',timeout:10000});
       await overflow(page,path+'/'+locale);
     }
   }
