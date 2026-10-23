@@ -17,7 +17,10 @@
   let records: VerifiedGallerySubject[]=[];
   let query='';
   let error='';
-  let loading=false;
+  // SSR must not render "zero verified subjects" before the first lookup.
+  // The empty state is meaningful only after a successful authoritative response.
+  let loading=true;
+  let catalogState:'initializing'|'loading'|'ready'|'error'|'unconfigured'='initializing';
   let mounted=false;
   let requestNumber=0;
   let loadedKind: GalleryKind|null=null;
@@ -35,9 +38,11 @@
     loadedKind=requestedKind;
     error='';
     loading=true;
+    catalogState='loading';
     onReady(false);
     if(!configured) {
       error='COMMUNITY_BROWSER_CONFIG_UNAVAILABLE';
+      catalogState='unconfigured';
       loading=false;
       onChoose(null);
       return;
@@ -52,12 +57,14 @@
       if(selected && !resolveCurrentSubject(records,selected.subjectId,kind,subjectType)){
         onChoose(null);
       }
+      catalogState='ready';
       onReady(true);
     }catch(cause){
       if(request!==requestNumber || kind!==requestedKind)return;
       records=[];
       onChoose(null);
       error=cause instanceof Error?cause.message:String(cause);
+      catalogState='error';
     }finally{
       if(request===requestNumber)loading=false;
     }
@@ -75,7 +82,7 @@
   }
 </script>
 
-<div class="subject-picker">
+<div class="subject-picker" data-catalog-state={catalogState} data-subject-type={subjectType}>
   <div class="subject-heading">
     <h3>{t('galleryv1.verifiedSubject',{},$locale)}</h3>
     <button type="button" on:click={reload} disabled={loading} aria-label={t('galleryv1.retrySubjects',{},$locale)}>
