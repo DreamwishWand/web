@@ -19,6 +19,7 @@ declare
   v_second_revision uuid;
   v_row bigint;
   v_block boolean;
+  v_artifact uuid:=gen_random_uuid();
 begin
   select ai.provider_subject::uuid,wa.account_id,c.creator_profile_id
   into v_subject,v_account,v_creator
@@ -150,6 +151,35 @@ begin
       then v_block:=true; else raise; end if;
   end;
   if not v_block then raise exception 'ACCEPTANCE_PRIVATE_PRESERVATION_BYPASS'; end if;
+
+  v_block:=false;
+  begin
+    perform public.community_publish_gallery_photo_v1(v_subject,v_creator,v_work,null,
+      'outdoor',v_target,'Missing Version',null,array[v_media_1],v_media_1,true,v_key||':null-version');
+  exception when others then
+    if position('GALLERY_ROW_VERSION_CONFLICT' in sqlerrm)>0 then v_block:=true; else raise; end if;
+  end;
+  if not v_block then raise exception 'ACCEPTANCE_NULL_ROW_VERSION_ACCEPTED'; end if;
+
+  -- Existing Preset linkage must block deletion until 09 INT supplies atomic retirement.
+  insert into public.community_entities(entity_id,entity_type)
+  values(v_artifact,'preset_artifact');
+  insert into public.preset_artifacts(
+    preset_artifact_id,owner_account_id,creator_profile_id,preset_type,associated_gallery_work_id
+  ) values(v_artifact,v_account,v_creator,'scene',v_work);
+
+  v_block:=false;
+  begin
+    perform public.community_delete_gallery_photo_v1(
+      v_subject,v_work,(v_update->>'rowVersion')::bigint,v_key||':blocked-linked-delete');
+  exception when others then
+    if position('GALLERY_DEPENDENT_PUBLIC_RETIREMENT_09_INT_REQUIRED' in sqlerrm)>0
+      then v_block:=true; else raise; end if;
+  end;
+  if not v_block then raise exception 'ACCEPTANCE_DEPENDENT_PRESET_DELETION_ACCEPTED'; end if;
+  if (select lifecycle_state from public.community_works where work_id=v_work)<>'published' then
+    raise exception 'ACCEPTANCE_PARTIAL_DELETION_CHANGED_PUBLIC_WORK'; end if;
+  delete from public.preset_artifacts where preset_artifact_id=v_artifact;
 
   perform public.community_delete_gallery_photo_v1(
     v_subject,v_work,(v_update->>'rowVersion')::bigint,v_key||':delete');
