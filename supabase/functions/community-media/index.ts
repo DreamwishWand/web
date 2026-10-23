@@ -304,7 +304,14 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         });
       if (probeError) return reply({ok:false,error:'GALLERY_UPLOAD_CLEANUP_NOT_DUE'},409);
       const {error: removeError} = await ctx.supabaseAdmin.storage.from(BUCKET).remove([storageKey]);
-      if (removeError) return reply({ok:false,error:'GALLERY_UPLOAD_STORAGE_CLEANUP_RETRY'},503);
+      if (removeError) {
+        // Retried cleanup may find that the previous Storage remove succeeded
+        // but DB finalize failed. Only confirmed 404 missing-object may proceed.
+        const {error: infoError} = await ctx.supabaseAdmin.storage.from(BUCKET).info(storageKey);
+        if (Number(infoError?.status) !== 404) {
+          return reply({ok:false,error:'GALLERY_UPLOAD_STORAGE_CLEANUP_RETRY'},503);
+        }
+      }
       const {data,error} = await ctx.supabaseAdmin.rpc(
         'community_gallery_media_intent_cleanup_finish_v1',{
           p_auth_subject:subject,p_storage_key:storageKey
