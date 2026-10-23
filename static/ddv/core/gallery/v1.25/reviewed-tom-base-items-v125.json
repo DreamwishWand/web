@@ -1,0 +1,635 @@
+{
+  "schema": "ddv.gallery-v125-reviewed-tom-base-item-definitions@1",
+  "target": {
+    "platform": "switch",
+    "gameVersion": "1.25.0",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchema": 624
+  },
+  "source": {
+    "filename": "DDV_GAME_DATABASE_LOSSLESS_v1.25.0.json.gz",
+    "driveFileId": "1_iMow5gXJTmgbogw1y7S8vTQp-Bj2vI8",
+    "sha256": "df78c309a8023667c92426e3b929ed3e51aadf10d943835a3673cefa585f8048",
+    "queryIndexSha256": "f3472e53bfcd55f13249cc79ddeae83ea71168fcb356c7038a0c0935eca2d06e",
+    "evidenceClass": "CONFIRMED_GAME_FILE_DERIVED_WITH_SCHEMA_ASSIST"
+  },
+  "audit": {
+    "concreteFurnitureDefinitions": 4949,
+    "concreteClothingDefinitions": 1900,
+    "customizationRule": "CanAddDecals || CanChangeColor",
+    "furnitureBothTrue": 40,
+    "furnitureOneFlagTrue": 0,
+    "clothingBothTrue": 35,
+    "clothingOneFlagTrue": 0,
+    "unknownConcreteTypesNotPromoted": true,
+    "explicitlyExcludedFurnitureAncientMachineIds": [
+      40800010,
+      40800011,
+      40800012,
+      40800026
+    ],
+    "notAnOwnershipOrEntitlementAudit": true
+  },
+  "records": [
+    {
+      "itemId": 40001801,
+      "sourceOrdinal": 6179,
+      "rawPayloadSha256": "6b422a9654f3cee45163e4716238404e1550a44ed205017de561998cb56322a6",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40001803,
+      "sourceOrdinal": 6183,
+      "rawPayloadSha256": "9329e5b1b350e0b75b3217286dd80f9a1d14683e11c184347c63107ea2cdb04c",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40001880,
+      "sourceOrdinal": 6242,
+      "rawPayloadSha256": "2fc7ce776bc6641a39028be00cac55ca1a5d26b4c31ec09cfa1b027b449a07d7",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40001882,
+      "sourceOrdinal": 6243,
+      "rawPayloadSha256": "dc22b6859d0e489effaa949767b9a2d8f5e843ade13d2def14e6eb3759d0755c",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40001883,
+      "sourceOrdinal": 6244,
+      "rawPayloadSha256": "213231f53815dcfcba5e7a4d4bd6f33f845c981f7a8a1c355a820cccf29bfaf6",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40001884,
+      "sourceOrdinal": 6245,
+      "rawPayloadSha256": "e314ce914c3b472737e0c2306f2ff62a5f5d6afe82e2767fa88c6ef0afd756c5",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40001885,
+      "sourceOrdinal": 6246,
+      "rawPayloadSha256": "b1a357b462d21cbd802fb85f59dd9e86d4c31cc2ccb6213f8ffeef626dce6f7a",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40001891,
+      "sourceOrdinal": 6252,
+      "rawPayloadSha256": "4d0395df7c9ae652b70a7c25c41603d2a99b897dcb74c706917a3c91939889a1",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40001892,
+      "sourceOrdinal": 6253,
+      "rawPayloadSha256": "a0bee148a656ee08d8d18600b1067be73bd9b74403042fc8bbe0cf875143167f",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40001897,
+      "sourceOrdinal": 6257,
+      "rawPayloadSha256": "38d042b8fe4ed957bcb40626bb29ba59663dfd69a9877b587c0934cb8b148d62",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40001898,
+      "sourceOrdinal": 6258,
+      "rawPayloadSha256": "9dd26045fc803aafd2d3fe95991a9ddf633c98900ae0dd3b12e81731a41365ad",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40001899,
+      "sourceOrdinal": 6259,
+      "rawPayloadSha256": "86a60b84ad174b71f45ef3a8e84ab918ae371bb92eb8ab02a4b2e0ce8d2c4cc2",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40001900,
+      "sourceOrdinal": 6260,
+      "rawPayloadSha256": "1feed08734b1338b9328adc85d74c573a1e25e665165096399cdddeb36cdccc2",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40001906,
+      "sourceOrdinal": 6266,
+      "rawPayloadSha256": "0e4796700cbd55e79776359d71574b7a04c80086515e5e34f1403005352445b2",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40001908,
+      "sourceOrdinal": 6268,
+      "rawPayloadSha256": "47a38e0fc2d45e213535db1603bf97c2964f84a4c3b9f3476d7203a19e496403",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40002397,
+      "sourceOrdinal": 6749,
+      "rawPayloadSha256": "ef87d1668161736c9dd1643f957d17da6ed092973098794e96858b78561fdf1c",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40002585,
+      "sourceOrdinal": 6908,
+      "rawPayloadSha256": "171097f6b7f349d01ea0b21a1ec6915349f9d43206eef8e330ee8ea1554dca48",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40002686,
+      "sourceOrdinal": 7006,
+      "rawPayloadSha256": "c99800ccab717a6ff35cbb5cfe61d83ffa78c83fc2db8449e84f8981042bcd92",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40002687,
+      "sourceOrdinal": 7007,
+      "rawPayloadSha256": "a72493111cf301dfc18f593bfa397fa2d0ce869931e542c7be3e9590b1298e39",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40002688,
+      "sourceOrdinal": 7008,
+      "rawPayloadSha256": "1b8ada827d9acd3a21b1b0647ba4d08df42adae0f5ff0f5acdb4d4f0418e389b",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40002689,
+      "sourceOrdinal": 7009,
+      "rawPayloadSha256": "c1dc5523c744a5f403ec1c162c32091129878dcfb752864f220bf5488a6577ec",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40002690,
+      "sourceOrdinal": 7010,
+      "rawPayloadSha256": "c666cb290764d9a89648ccec2711e86d6478912251550e3d47d43795df375bd3",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40002706,
+      "sourceOrdinal": 7023,
+      "rawPayloadSha256": "c670ef2e095a556e85432cc4e57019b41a6cac51b67f3fc2be9e6198665641aa",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40002707,
+      "sourceOrdinal": 7024,
+      "rawPayloadSha256": "2d83cf37eeb7b277e684383fd0281573a53cdef2ac116930343e09cadbc0bb85",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40002727,
+      "sourceOrdinal": 7047,
+      "rawPayloadSha256": "1e6e7d3108df618fe68b77ee06b0dac0b59fb86a8dd7efd462d4a2e0c3ba060c",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40002816,
+      "sourceOrdinal": 7130,
+      "rawPayloadSha256": "5b3f185dc1efbf548f2719bca5977d69c21ad0f4ee659c9c90d273ae09393457",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40300020,
+      "sourceOrdinal": 7348,
+      "rawPayloadSha256": "ef1b3b96cca53f597714d322a8b0a26ac12cd807229dab86e2a223ac1d49bc34",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40004339,
+      "sourceOrdinal": 8518,
+      "rawPayloadSha256": "faa260f1d700c7288c76f58b8c82f4e06c7c1c844c11ced8dfaa50e0c638aa4a",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40004421,
+      "sourceOrdinal": 8569,
+      "rawPayloadSha256": "f8b8218260dce37dad62928b819c129be1325692d6149cd18b3d08e19db3e963",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40004469,
+      "sourceOrdinal": 8606,
+      "rawPayloadSha256": "cda667b35e56bd72f7e817b0e7186869056415705882add55363d997a5bbb218",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40005102,
+      "sourceOrdinal": 9354,
+      "rawPayloadSha256": "db815b369cac49fcbf57b480a593f68c922f6d74ce73918e9219e4e40e32956b",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40005125,
+      "sourceOrdinal": 9382,
+      "rawPayloadSha256": "ccc4c5a6256022d4ebde5444cd06c236964dd297f4be1b6ed6deba951a361393",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40005130,
+      "sourceOrdinal": 9420,
+      "rawPayloadSha256": "94f0b0ef198822730d6736941bf6c8d9303d3a852e6024fd2e644ea83a678bcc",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40005139,
+      "sourceOrdinal": 9429,
+      "rawPayloadSha256": "bd7778a901ecfdfdac665ded46de5f36651b62bea2003459258143c56a5d4e82",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40005140,
+      "sourceOrdinal": 9430,
+      "rawPayloadSha256": "b813c1525c6e697c3948565eaee379fb69fc30e755fbd6f33cce37c389442cad",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40005141,
+      "sourceOrdinal": 9431,
+      "rawPayloadSha256": "bdad38f5bd7a475ab947f8459189458150ee6fbe3a58d42f02e4ef17badbae88",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40005142,
+      "sourceOrdinal": 9432,
+      "rawPayloadSha256": "0e9d6b178d765cfad6e6da647f556a1c086d7d5a80bfcfabda42ef5dd6bb2191",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40005233,
+      "sourceOrdinal": 9513,
+      "rawPayloadSha256": "18571d4f38c2c7b7302bb03b381159d5c781bb23d6e73b52b668571a2d0c6189",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40005647,
+      "sourceOrdinal": 9906,
+      "rawPayloadSha256": "5c62cd448e8aef6fc6ef158d3de1fbe84d8c2bd0086550e1f2e96b33540b78d9",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 40006207,
+      "sourceOrdinal": 10329,
+      "rawPayloadSha256": "c5a6033542baa3ebce71eaf1034feaaddfd24e53097fdf0b6eefbd0d0585c7eb",
+      "concreteType": "FurnitureItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50000211,
+      "sourceOrdinal": 10587,
+      "rawPayloadSha256": "bc7745020367293fefc90b367b2313e138359c95ff8635d1eb2ad4284ba35a99",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50000227,
+      "sourceOrdinal": 10617,
+      "rawPayloadSha256": "c899e1ed0195d5ce66f4b9f9bd27b374626379c4105c909ef887a83a7ee63239",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50900051,
+      "sourceOrdinal": 10920,
+      "rawPayloadSha256": "35596847f8414ffb04dcaf4ed11d971c1ec2d1081da1e1b1f014f34e2944459c",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50900052,
+      "sourceOrdinal": 10921,
+      "rawPayloadSha256": "ae930d2c735778be9aa0adeb6e81f380212aff1330330c6372a1a6e46d6acb08",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50000338,
+      "sourceOrdinal": 10928,
+      "rawPayloadSha256": "07f108729b2e2a9e19c43489ea08adb013cac1cc7565604adc39cb5ecb63ff8c",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50900065,
+      "sourceOrdinal": 11070,
+      "rawPayloadSha256": "5558bdf78293f37bbc6d642cfbc47efe43b6aea81b4684fc2e41751663ce6c15",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50900069,
+      "sourceOrdinal": 11074,
+      "rawPayloadSha256": "25353cd9e0842481e7d88399476dcf02e3cc8188824d7ed239f3fa2c0425b7ee",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50400058,
+      "sourceOrdinal": 11104,
+      "rawPayloadSha256": "b560dc7d6ae93040856f742b2ef71c86a58118d7e873ddd144cb111486bc7480",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50700089,
+      "sourceOrdinal": 11108,
+      "rawPayloadSha256": "56976ab7d00deb327cb21f2e74fb455c682001cd7dc060329f6ed11f3e9c9806",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50700090,
+      "sourceOrdinal": 11109,
+      "rawPayloadSha256": "cafef07bb73675c1e941433f9e26eba66d94b115b9b99e237e1f8b3c151e27bc",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50700091,
+      "sourceOrdinal": 11113,
+      "rawPayloadSha256": "993e572ab6d2f458f8d14aa9e52c589b0b7648587b81041aa248fc68bdc8e9cb",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50000349,
+      "sourceOrdinal": 11114,
+      "rawPayloadSha256": "e89ad4eeb34b2e7948ef994f8f92fe6624d6cac43448b40be0573f90b0fbbc15",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50400059,
+      "sourceOrdinal": 11115,
+      "rawPayloadSha256": "aed0c938add466a7defb3e13dad78ed78ff51e895a47ca1cfe5f0a18659ffebc",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50400060,
+      "sourceOrdinal": 11116,
+      "rawPayloadSha256": "705c7e31fd9c2ad9d2ccdedde8ee29bab6b2d3881b69b480e8ec9e8e12b981ca",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50400065,
+      "sourceOrdinal": 11123,
+      "rawPayloadSha256": "1f1a02cfa7e9d832e23d5c556d601e5559fd82cefe50ed573751f99eafe6f780",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50800026,
+      "sourceOrdinal": 11131,
+      "rawPayloadSha256": "34ab956f6a88ff1459a547c6fea157ec9b272ad4f328b4b3f18f1b2697adbda8",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50400066,
+      "sourceOrdinal": 11140,
+      "rawPayloadSha256": "2971a224dc6ee8488439569744ea8d49f10fb115c7a27230d00d4ecb336caab1",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50400071,
+      "sourceOrdinal": 11145,
+      "rawPayloadSha256": "1efc8badc43d7f14d611bc809b3f43bbe395949e6e5eb6c9e2aac23dd9b0aa5d",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50400075,
+      "sourceOrdinal": 11158,
+      "rawPayloadSha256": "1252f177cb21a8e7b53c8d7a2c57492e6aa84cf1896735a2d5d3352ef785ce99",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50400116,
+      "sourceOrdinal": 11417,
+      "rawPayloadSha256": "ec2cd440c817deb0ec1979a0d61051df9d957f236e4c536e10540031e0d6557a",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50400152,
+      "sourceOrdinal": 11588,
+      "rawPayloadSha256": "b4d7462342607e9dfe6be872e489a2cf856883646cdcd0c58c79e19b398bd93c",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50600060,
+      "sourceOrdinal": 11592,
+      "rawPayloadSha256": "ca85ccfac1876d6bf0bbd972ed647181cfd3b6b5308553aa568676502aa67bcc",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50900139,
+      "sourceOrdinal": 11602,
+      "rawPayloadSha256": "9f950c337dfb656e059779ae75a069131f84ac43f53874c9aeafba3b9f562c3d",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50700168,
+      "sourceOrdinal": 11604,
+      "rawPayloadSha256": "817c9b32b082c7ebff10dff4ef82c26e05c5d9c4143c0c921da07e6a17cdc7c3",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50700172,
+      "sourceOrdinal": 11612,
+      "rawPayloadSha256": "a9511bc9d885db52bd4cdb9a92f757766046709044331dca702f3887bd7a821d",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 51200015,
+      "sourceOrdinal": 11613,
+      "rawPayloadSha256": "dac7daab7b5cb52e60ba455bfa066275fa7765ff6511513ae0555722552d45d8",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50200124,
+      "sourceOrdinal": 11614,
+      "rawPayloadSha256": "87913c791f23cbd6acdc49721fd9524bb9df22e9125e7f4358cafa29cc259c1c",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50200125,
+      "sourceOrdinal": 11615,
+      "rawPayloadSha256": "a9f41038b904717277d64888e154ef00fd0a282e3c9bd43b0a44aa9c46cd0a39",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 51200016,
+      "sourceOrdinal": 11620,
+      "rawPayloadSha256": "ebd71ba7c4630a98736cd260dc5f0d4dd9ff86e11351d3c47839b7765ba361e9",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50700174,
+      "sourceOrdinal": 11621,
+      "rawPayloadSha256": "aeb6b09dbdd1c5776bcec673b9c140d2daf0723e2b1520ebd93f914d1f4c9a7c",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50400164,
+      "sourceOrdinal": 11622,
+      "rawPayloadSha256": "9b6019b0967248a2313e36e8e1f51c0b5271d8402ff11e099fc5b402a7da6758",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50000402,
+      "sourceOrdinal": 11689,
+      "rawPayloadSha256": "ad09dba27509a8862e1ecbe082a1151bd8056899bca0dabec2c02a052c331d01",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50000403,
+      "sourceOrdinal": 11690,
+      "rawPayloadSha256": "b13ba798cb7d2c7ce7878e284bb70e774b1d855adf9b881da9c353f4db0b3314",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50700191,
+      "sourceOrdinal": 11822,
+      "rawPayloadSha256": "ca57f13840ea31e80e3babcd503643a1a5859acf9b1efc3371c39543cfe77715",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    },
+    {
+      "itemId": 50900337,
+      "sourceOrdinal": 12177,
+      "rawPayloadSha256": "6694bee9e73f5e58884fca4b017c3f3c799c3be07c6373c7471281ba2ef0ecbc",
+      "concreteType": "ClothingItemData",
+      "canAddDecals": true,
+      "canChangeColor": true
+    }
+  ]
+}
