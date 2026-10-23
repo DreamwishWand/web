@@ -9,6 +9,8 @@ on:
       - 'src/routes/gallery/**'
       - 'src/lib/i18n/messages/community/**'
       - 'scripts/gallery-stage1-browser-acceptance.mjs'
+      - 'tests/gallery-verified-subject-consumer.test.mjs'
+      - 'tests/gallery-stage1-consumer.test.mjs'
       - '.github/workflows/gallery-stage1-browser.yml'
   workflow_dispatch:
 
