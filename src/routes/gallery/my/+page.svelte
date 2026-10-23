@@ -160,12 +160,13 @@
             <PhotoPreview title={stagedTitle} description={stagedDescription} creator={String(ownerDetail?.creator?.displayName??'')} category={String(management.galleryKind)} imageUrls={ownerMediaUrls} />
           {/if}
         {/if}
-        <p>{t('galleryv1.serverMissing',{},$locale)} <code>{GALLERY_OWNER_MUTATION_BLOCKER}</code></p>
-        <button type="button" disabled>{t('galleryv1.publishUpdate',{},$locale)}</button>
-        <button type="button" disabled>{t('galleryv1.unpublish',{},$locale)}</button>
+        <p>{t('galleryv1.uploadNotReady',{},$locale)} <code>{GALLERY_OWNER_MUTATION_BLOCKER}</code></p>
+        <button type="button" disabled aria-disabled="true">{t('galleryv1.publishUpdate',{},$locale)}</button>
+        <p role="status">{t('galleryv1.retirementBlocked',{},$locale)}</p>
+        <button type="button" disabled aria-disabled="true">{t('galleryv1.unpublish',{},$locale)}</button>
         <h3>{t('galleryv1.deleteWork',{},$locale)}</h3>
         <p>{t('galleryv1.removeNote',{},$locale)}</p>
-        <button type="button" disabled>{t('galleryv1.deleteWork',{},$locale)}</button>
+        <button type="button" disabled aria-disabled="true">{t('galleryv1.deleteWork',{},$locale)}</button>
       </div>
     </section>
   {/if}
