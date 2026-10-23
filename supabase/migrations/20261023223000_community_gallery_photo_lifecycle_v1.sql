@@ -42,7 +42,7 @@ create or replace function private.gallery_photo_subject_immutable_v1()
 returns trigger language plpgsql set search_path=pg_catalog as $$
 begin raise exception 'GALLERY_SUBJECT_IMMUTABLE'; end $$;
 drop trigger if exists gallery_photo_subject_immutable on public.gallery_photo_subjects;
-create trigger gallery_photo_subject_immutable before update or delete
+create trigger gallery_photo_subject_immutable before update
 on public.gallery_photo_subjects for each row execute function private.gallery_photo_subject_immutable_v1();
 
 create table if not exists public.gallery_photo_revision_fields (
@@ -57,7 +57,7 @@ alter table public.gallery_photo_revision_fields enable row level security;
 revoke all on public.gallery_photo_revision_fields from public,anon,authenticated;
 grant select,insert on public.gallery_photo_revision_fields to service_role;
 drop trigger if exists gallery_photo_revision_immutable on public.gallery_photo_revision_fields;
-create trigger gallery_photo_revision_immutable before update or delete
+create trigger gallery_photo_revision_immutable before update
 on public.gallery_photo_revision_fields for each row execute function private.gallery_photo_subject_immutable_v1();
 
 create or replace function public.community_publish_gallery_photo_v1(
