@@ -16,7 +16,7 @@ test('gallery owner media contract reuses existing Community Media and canonical
  assert.equal(GALLERY_OWNER_MEDIA_FLOW_V1.maxImages,10);
  assert.equal(GALLERY_OWNER_MEDIA_FLOW_V1.maxBytesEach,20971520);
  assert.equal(GALLERY_OWNER_MEDIA_FLOW_V1.signedUploadLifetimeSeconds,7200);
- assert.equal(GALLERY_OWNER_MEDIA_FLOW_V1.cleanupIsAutomatic,false);
+ assert.equal(GALLERY_OWNER_MEDIA_FLOW_V1.cleanupIsAutomatic,true);\n assert.equal(GALLERY_OWNER_MEDIA_FLOW_V1.cleanupUsesExistingRetentionCron,true);\n assert.equal(GALLERY_OWNER_MEDIA_FLOW_V1.cleanupOwnerCallQueuesOnly,true);
  assert.equal(GALLERY_OWNER_MEDIA_FLOW_V1.deleteAuthorized,false);
  assert.deepEqual(assertGalleryPhotoMediaV1([sample],sample.mediaId),['m-1']);
 });
@@ -41,7 +41,7 @@ test('owner upload correctly returns server READY and compensates errors with ab
   upload:async()=>{actions.push('upload');},
   finalize:async()=>{actions.push('finalize');return {...sample,storageKey:'signed/k.png'};},
   abort:async()=>{actions.push('abort');return {aborted:true,alreadyAborted:false,cleanupEligibleAt:'after-token-expiry'};},
-  cleanup:async()=>({cleaned:true,storageKey:'signed/k.png'}),
+  cleanup:async()=>({queued:true,alreadyClaimed:false}),
   publish:async()=>{throw new Error('should not publish in upload');}
  };
  const answer=await uploadGalleryOwnerMediaV1(transport,{mimeType:'image/png',byteSize:127},new Uint8Array(127));
@@ -73,7 +73,7 @@ test('storage existence preflight is enforced inside canonical community-command
    assert.ok(media.includes(action));
  }
  assert.match(media,/community_gallery_media_intent_complete_v1/);
- assert.match(media,/community_gallery_media_intent_cleanup_probe_v1/);
+ assert.match(media,/community_gallery_media_intent_enqueue_cleanup_v1/);\n assert.doesNotMatch(media,/community_gallery_media_intent_cleanup_finish_v1/);
 });
 test('database abort/cleanup and immutable Gallery publish security share the original models',()=>{
  const sql=fs.readFileSync(new URL('../supabase/migrations/20261024234000_community_gallery_owner_upload_intent_v1.sql',import.meta.url),'utf8');
@@ -88,4 +88,24 @@ test('database abort/cleanup and immutable Gallery publish security share the or
  assert.match(receipt,/IMMUTABLE_UPDATE_INVALID/);
  assert.match(receipt,/STALE_UPDATE_ACCEPTED/);
  assert.match(receipt,/rollback;\s*$/);
+});
+
+test('existing hourly Vault-authenticated retention worker owns Gallery orphan Storage deletion',()=>{
+ const retention=fs.readFileSync(new URL('../supabase/functions/community-retention/index.ts',import.meta.url),'utf8');
+ assert.match(retention,/community_verify_worker_token/);
+ assert.match(retention,/community_claim_gallery_media_orphans_v1/);
+ assert.match(retention,/community_complete_gallery_media_orphan_v1/);
+ assert.match(retention,/community_fail_gallery_media_orphan_v1/);
+ assert.match(retention,/GALLERY_ORPHAN_STORAGE_REMOVAL_NOT_CONFIRMED/);
+ const sql=fs.readFileSync(new URL('../supabase/migrations/20261024235000_community_gallery_orphan_retention_worker_v1.sql',import.meta.url),'utf8');
+ assert.match(sql,/for update skip locked limit p_limit/);
+ assert.match(sql,/cleanup_lease_token/);
+ assert.match(sql,/community_gallery_media_intent_enqueue_cleanup_v1/);
+ assert.match(sql,/GALLERY_CLEANUP_WORKER_ONLY/);
+ assert.match(sql,/gallery_media_orphan_cleaned/);
+ const acceptance=fs.readFileSync(new URL('../supabase/staging/acceptance/gallery-orphan-retention-worker-v1.sql',import.meta.url),'utf8');
+ assert.match(acceptance,/REFERENCED_MEDIA_CLAIMED_FOR_DELETION/);
+ assert.match(acceptance,/ACTIVE_LEASE_DOUBLE_CLAIMED/);
+ assert.match(acceptance,/FAILED_RETRY_NOT_RECORDED/);
+ assert.match(acceptance,/rollback;\s*$/);
 });
