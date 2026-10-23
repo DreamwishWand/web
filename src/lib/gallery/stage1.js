@@ -10,7 +10,7 @@ export const GALLERY_OWNER_MUTATION_BLOCKER = 'GALLERY_IMMUTABLE_REVISION_AND_RE
 export const kinds = Object.freeze(['outdoor','indoor','tom_furniture','tom_clothing']);
 export const MAX_IMAGES = 10;
 export const ALLOWED_IMAGE_TYPES = Object.freeze(['image/jpeg','image/png','image/webp']);
-export const categoryFor = (kind) => kind?.startsWith('tom_') ? 'tom' : 'decorations';
+export const categoryFor = (kind) => kinds.includes(kind) ? (kind.startsWith('tom_') ? 'tom' : 'decorations') : null;
 
 export function validateGalleryImages(files) {
   if(!Array.isArray(files)||files.length<1||files.length>MAX_IMAGES) return 'count';
