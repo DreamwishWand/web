@@ -84,3 +84,16 @@ test('owner retirement preflight consumes 09 INT graph and never enables prematu
  assert.match(acceptance,/rollback;\s*$/);
  assert.match(cloud,/blockedOperations:\['delete','unpublishKeepPrivate','restorePrivate','republishPrivate'\]/);
 });
+
+test('retirement preflight does not claim universal signed token issuance halt',()=>{
+ const migration=read('supabase/migrations/20261024235800_community_gallery_retirement_other_token_issuers_v1.sql');
+ const signedOwnerRead=read('supabase/functions/community-media/index.ts');
+ const acceptance=read('supabase/staging/acceptance/gallery-retirement-gateway-preflight-v1.sql');
+ assert.match(migration,/'newPublicGalleryStorageSignedUrlIssued',false/);
+ assert.match(migration,/'authenticatedOwnerReadMayMintStorageSignedUrl',true/);
+ assert.match(migration,/GALLERY_AUTHENTICATED_MEDIA_READ_STILL_MINTS_SIGNED_URL/);
+ assert.match(signedOwnerRead,/if \(action === 'read'\)/);
+ assert.match(signedOwnerRead,/\.createSignedUrl\(media\.storageKey, 300\)/);
+ assert.match(acceptance,/authenticatedOwnerReadMayMintStorageSignedUrl/);
+ assert.match(cloud,/authenticatedOwnerReadStillMintsSignedStorageUrl:true/);
+});
