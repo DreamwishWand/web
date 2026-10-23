@@ -38,3 +38,18 @@ test('versioned machine evidence independently pins 6.1/6.2/6.3 typed and no nat
  assert.equal(m.sources.switch1253Furniture.recordSha256,FURNITURE_40600547_NEW.recordSha256);
  assert.ok(m.runtimeUnknowns.length>0);assert.equal(m.downstreamContract.fallback,'NATIVE_UNKNOWN_UNVERIFIED / APPLY_DISABLED');hard(m.hardFlags);
 });
+
+test('baseline v1.25 placement comparator distinguishes old and new exclusive layer masks without certifying v1.25.3 native',async()=>{
+  await import('../src/lib/ddv/core/world/runtime-v125/placement-v125.js');
+  const api=globalThis.DdvCoreWorldV125Placement;
+  assert.equal(typeof api?.layersCollide,'function');
+  const old=FURNITURE_40600547_OLD.gridArea.Layers;
+  const newer=FURNITURE_40600547_NEW.gridArea.Layers;
+  assert.deepEqual(old.map(v=>v&api.EXCLUSIVE),[4,4,4,4]);
+  assert.deepEqual(newer.map(v=>v&api.EXCLUSIVE),[2]);
+  assert.equal(api.layersCollide(68,66),false);
+  assert.equal(api.layersCollide(66,66),true);
+  const raw=JSON.parse(await readFile(new URL('../static/ddv/core/world/v1.25.3/furniture-40600547-placement-boundary-v1253.json',import.meta.url),'utf8'));
+  assert.equal(raw.baselineCollisionComparison.evidence.includes('HYPOTHESIS only for v1.25.3'),true);
+  assert.equal(raw.downstreamContract.fallback,'NATIVE_UNKNOWN_UNVERIFIED / APPLY_DISABLED');
+});
