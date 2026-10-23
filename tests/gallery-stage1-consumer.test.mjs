@@ -31,6 +31,7 @@ test('photo-only validation enforces title, one declared target, authentic creat
   assert.ok(validateGalleryComposition({...input,files:Array.from({length:11},(_,i)=>file('n'+i))}).includes('images_count'));
   assert.ok(validateGalleryComposition({...input,kind:'tom_furniture',targetType:'base_item',baseItemId:'bad'}).includes('baseItem'));
   assert.equal(validateGalleryImages([file('one'),file('one')]),'duplicate');
+  assert.equal(validateGalleryImages([file('existing'),file('new'),file('new')]),'duplicate');
   assert.equal(validateGalleryImages([{...file('x'),type:'text/plain'}]),'type');
 });
 test('cover ordering is reversible with non-drag buttons',()=>{
@@ -66,6 +67,8 @@ test('Gallery root and publish composer preserve owner-closed IA, PUBLIC-only an
   assert.match(composer,/PhotoPreview/);
   assert.match(composer,/moveMedia/);
   assert.match(composer,/on:change=\{chooseFiles\}/);
+  assert.match(composer,/validateGalleryImages\(\[\.\.\.images\.map\(item=>item\.file\), \.\.\.selected\]\)/);
+  assert.match(composer,/mediaValid = validateGalleryImages\(images\.map\(item=>item\.file\)\)/);
   assert.match(composer,/originalityConfirmed/);
   assert.match(composer,/assertClassifiedPhotoPublishContract\(null\)/);
   assert.doesNotMatch(composer,/client\.command\('createGalleryWork'|uploadAndFinalizeImage\(/);
