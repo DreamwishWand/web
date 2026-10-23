@@ -25,7 +25,7 @@ The **13** audited Floating Island IDs are `1540000147, 1540000148, 1540000149, 
 
 Core-pinned 13-row enrollment SQL is `supabase/seeds/gallery-verified-subjects-v125-reviewed-20261024.sql`; it targets **the existing** `gallery_verified_subjects` table and conflicts on different provenance instead of silently overwriting a row. The positive adapter is `src/lib/integration/gallery-subject-provenance.ts`. It rejects unsigned/unreviewed kind and ID, absent Base Item proof, wrong platform/version/build/schema and mismatched evidence. v1.25.3 schema626 and Steam are not enrolled.
 
-Until accepted registry enrollment is applied, these are **reviewed candidate rows**, not actual persisted `verified` rows. Rollback fixture rows do not count as persistent real registration or Gallery content seeds.
+**Staging enrolled and verified:** 13 permanent `gallery_verified_subjects` rows, all `outdoor/floating_island`, `switch/1.25.0/52BD625D9B4E0053/schema624`, with 13 distinct target IDs and 13 distinct evidence refs. The other four subject types remain 0. These are real subject-classification records, NOT Gallery content/Creator/seed works; rollback fixtures were never counted. Production has not been modified.
 
 ## Exact dependency graph
 
@@ -67,3 +67,17 @@ Use `publishGalleryPhoto` for Create/Update only when subject is registry-issued
 - PRs #102/#105/#108/#113 remain unmerged pending controlled acceptance. No whole-release PASS.
 
 Hard flags remain false: `persistentWriteAuthorized=false`, `WORLD_PERSISTENT_WRITE_V125=false`, `PERSISTENT_WRITE=false`, `productApplyAuthorized=false`, `directSourceReplacementAuthorized=false`.
+
+## Engineering and staging verification — 2026-10-24
+
+- Integration branch parent is 03 COMM PR #108 exact head `a7a492254d9e5f571e41adf151e2fe893d84c813`, itself based on main `52166f81c107de66dbfab8a6c16aaecc33b21ee0`. PR #113 is stacked, DRAFT and DO_NOT_MERGE.
+- CI run `40022936744`: SUCCESS. 912 tests / 900 PASS / 0 FAIL / 12 existing fixture-dependent SKIP. Svelte 0 errors / 3 warnings. Shared A11Y/L10N, canonical baseline, Community ops, integrated-tree `integratedReady=true / requireReady=true / migrations=89`, and static build/routes PASS.
+- Live staging verified subject registry: 13 exact v1.25 Floating Island entries persisted via source-pinned 13-row seed and read back (13 distinct target/evidence refs). Non-Floating subjects remain 0. There were no synthetic Gallery Work or image content seeds.
+- New additive migration `gallery_retirement_negative_gate_v1` applied to STAGING ONLY. Runtime readback: `private.gallery_photo_dependency_snapshot_v1(uuid)` present, `graphComplete=false`, `anon EXECUTE=false`, `authenticated EXECUTE=false`, `service_role EXECUTE=true`; `gallery_photo_issued_url_retirement_gate` present (1 trigger). No production changes.
+- Prior to staging application, migration+13-row seed parsed within BEGIN/ROLLBACK successfully and returned 13 provisional verified entries. Follow-up transaction invoked graph read with contract `ddv.gallery-public-dependency-retirement@1` and proved negative ACL; rollback returned without retained synthetic changes.
+- Security Advisor: 22 INFO `rls_enabled_no_policy` service-owned/restricted tables, 1 WARN `auth_leaked_password_protection` (pre-existing Auth operations issue). No new HIGH/CRITICAL finding was returned. See [Supabase RLS-no-policy info](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy).
+- Existing 03 COMM Gallery staging acceptance established PUBLIC create/update/immutability, negative SQL ACL and unlinked delete under the PRE-negative-gate contract. Do not mislabel it as PASS for current negative-gate deletion behavior; fresh signed actors and exact current staging runtime acceptance remain OPEN.
+- Delete of classified PUBLIC Gallery photo Work is now deliberately blocked in staging by `GALLERY_ISSUED_MEDIA_URL_REVOKE_UNPROVEN` until infrastructure/03 COMM proves previously issued signed URL invalidation. This intentionally supersedes older unlinked Delete success assertions. Moderation hide/public-query authorization still follows 03 COMM owner; old signed URL remains a security blocker.
+- Cloud Unpublish and Keep Private remains unimplemented/unapproved rather than pretending local backup or private draft is durable server preservation.
+- Signed browser E2E remains CONFIGURATION_BLOCKED by missing reviewed public GitHub Actions Supabase values and legitimate signed A/B/Moderator actors; `pageErrors` and `consoleErrors` are NOT_EXECUTED for that scope, not [].
+- Return classification: PARTIAL / 08_WEB_CONSUMER_WAIT_ON_03_COMM_AND_QR. No whole release PASS; hard DDV writer flags all false.
