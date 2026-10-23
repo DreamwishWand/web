@@ -17,7 +17,7 @@ begin
  where wa.status='active'
  order by wa.account_id limit 1;
  if a is null then raise exception 'NO_STAGING_OWNER';end if;
- select subject_id into subject_id from public.gallery_verified_subjects
+ select g.subject_id into subject_id from public.gallery_verified_subjects g
  where subject_type='floating_island' and verification_state='verified'
  order by canonical_target_id limit 1;
  if subject_id is null then raise exception 'NO_CANONICAL_SUBJECT';end if;
