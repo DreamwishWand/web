@@ -41,7 +41,7 @@ export function planGalleryRetirement({
   galleryWorkId,ownerAccountId,mode,dependencies,coverage,
   cloudPreservation=null,issuedMediaRevocation=null,revisionPin=null
 }:GalleryRetirementInputV1={}){
-  if(!galleryWorkId||!ownerAccountId||!['delete','unpublish_keep_private'].includes(mode))
+  if(!galleryWorkId||!ownerAccountId||(mode!=='delete'&&mode!=='unpublish_keep_private'))
     return fail('GALLERY_RETIREMENT_INPUT_INVALID');
   if(!Array.isArray(dependencies)||!coverage||typeof coverage!=='object')
     return fail('GALLERY_DEPENDENCY_SNAPSHOT_UNAVAILABLE');
