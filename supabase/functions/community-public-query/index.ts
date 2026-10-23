@@ -7,6 +7,7 @@ const ALLOWED = new Set([
   'community_get_creator_public_v1',
   'community_get_gallery_public_v1',
   'community_get_gallery_photo_public_v1',
+  'community_list_verified_gallery_subjects_v1',
   'community_get_question_public_v1',
   'community_get_question_redirect_public_v1',
   'community_get_tip_public_v1',
@@ -20,10 +21,10 @@ const ALLOWED = new Set([
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function reply(body: unknown, status = 200) {
+function reply(body: unknown, status = 200, noStore = false) {
   return Response.json(body, {
     status,
-    headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=30' }
+    headers: { ...corsHeaders, 'Cache-Control': noStore ? 'private, no-store' : 'public, max-age=30' }
   });
 }
 
@@ -80,6 +81,16 @@ function sanitizeSearchQuestions(payload: JsonObject): JsonObject | null {
   };
 }
 
+function sanitizeVerifiedGallerySubjects(payload: JsonObject): JsonObject | null {
+  const kind = payload.p_gallery_kind;
+  if (kind != null &&
+      (typeof kind !== 'string' ||
+       !['outdoor','indoor','tom_furniture','tom_clothing'].includes(kind))) return null;
+  const raw = payload.p_limit;
+  if (raw != null && (!Number.isInteger(raw) || Number(raw)<1 || Number(raw)>100)) return null;
+  return { p_gallery_kind: kind ?? null, p_limit: raw ?? 50 };
+}
+
 function sanitizeDreamsnapRounds(payload: JsonObject): JsonObject | null {
   const rawLimit = payload.p_limit;
   const limit =
@@ -123,7 +134,9 @@ const publicFetch = withSupabase({ auth: 'none' }, async (req, ctx) => {
   if (!ALLOWED.has(rpc)) return reply({ error: 'Unsupported public query' }, 400);
 
   const params =
-    rpc === 'community_get_current_dreamsnap_challenge_public_v1'
+    rpc === 'community_list_verified_gallery_subjects_v1'
+      ? sanitizeVerifiedGallerySubjects(payload)
+      : rpc === 'community_get_current_dreamsnap_challenge_public_v1'
       ? {}
       : rpc === 'community_search_questions_v1'
         ? sanitizeSearchQuestions(payload)
@@ -135,15 +148,17 @@ const publicFetch = withSupabase({ auth: 'none' }, async (req, ctx) => {
 
   if (params === null) return reply({ error: 'Invalid public query parameters' }, 400);
 
+  const noStore = rpc === 'community_get_gallery_photo_public_v1' ||
+    rpc === 'community_list_verified_gallery_subjects_v1';
   const { data, error } = await ctx.supabaseAdmin.rpc(rpc, params);
   if (error) {
     const notFound =
       error.message.includes('not found') ||
       error.message.includes('not accessible');
-    return reply({ error: notFound ? 'NOT_FOUND' : 'PUBLIC_QUERY_FAILED' }, notFound ? 404 : 400);
+    return reply({ error: notFound ? 'NOT_FOUND' : 'PUBLIC_QUERY_FAILED' }, notFound ? 404 : 400, noStore);
   }
 
-  return reply(data);
+  return reply(data, 200, noStore);
 });
 
 export default {

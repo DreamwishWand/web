@@ -14,7 +14,7 @@ function bucketName(): string {
 function reply(body: unknown, status = 200) {
   return Response.json(body, {
     status,
-    headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=60' }
+    headers: { ...corsHeaders, 'Cache-Control': 'private, no-store', 'Pragma': 'no-cache', 'Vary': 'Origin' }
   });
 }
 
