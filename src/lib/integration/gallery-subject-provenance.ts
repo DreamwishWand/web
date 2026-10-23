@@ -142,7 +142,7 @@ function exactIdentity(x:any,y:any){
     x?.evidenceRef===y.evidenceRef &&
     x?.evidenceSourceSha256===y.evidenceSourceSha256;
 }
-export function validateGallerySubjectForEnrollment(candidate:Record<string,any>|null,{approvedIdentityManifest=VERIFIED_CORE_IDENTITIES_V125}:{approvedIdentityManifest?:readonly any[]}={}){
+export function validateGallerySubjectForEnrollment(candidate:Record<string,any>|null){
   if(!candidate||typeof candidate!=='object')return fail('GALLERY_SUBJECT_EVIDENCE_MISSING');
   for(const [key,value] of Object.entries(GALLERY_SUBJECT_TARGET_V125)){
     if(candidate[key]!==value)return fail('GALLERY_SUBJECT_VERSION_PLATFORM_UNPROVEN');
@@ -158,8 +158,7 @@ export function validateGallerySubjectForEnrollment(candidate:Record<string,any>
   if(!['tom_furniture','tom_clothing'].includes(candidate.subjectType) &&
       candidate.baseItemId!==null)
     return fail('GALLERY_SUBJECT_BASE_ITEM_MUST_BE_NULL');
-  if(!Array.isArray(approvedIdentityManifest) ||
-      !approvedIdentityManifest.some(approved=>exactIdentity(candidate,approved)))
+  if(!VERIFIED_CORE_IDENTITIES_V125.some(approved=>exactIdentity(candidate,approved)))
     return fail('GALLERY_SUBJECT_NOT_IN_REVIEWED_AUTHORITY');
   return Object.freeze({ok:true,verificationState:'verified',identity:Object.freeze({
     galleryKind:candidate.galleryKind,subjectType:candidate.subjectType,
