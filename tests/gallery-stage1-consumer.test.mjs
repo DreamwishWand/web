@@ -76,8 +76,8 @@ test('Gallery root and publish composer preserve owner-closed IA, PUBLIC-only an
 test('owner management never invokes unsafe unpublish/delete or unproven revision API',()=>{
   const s=read('src/routes/gallery/my/+page.svelte');
   assert.match(s,/setGalleryCommentsEnabled/);
-  assert.match(s,/disabled>\{t\('galleryv1\.publishUpdate'/);
-  assert.match(s,/disabled>\{t\('galleryv1\.deleteWork'/);
+  assert.match(s,/disabled aria-disabled="true">\{t\('galleryv1\.publishUpdate'/);
+  assert.match(s,/disabled aria-disabled="true">\{t\('galleryv1\.deleteWork'/);
   assert.doesNotMatch(s,/client\.command\('deleteWork'|client\.command\('unpublishWork'/);
   assert.match(s,/query\('myGallery'/);
 });
