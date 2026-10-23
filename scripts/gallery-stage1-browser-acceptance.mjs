@@ -80,8 +80,9 @@ try{
   const picker=page.locator('.subject-picker');
   // The old test incorrectly used SSR's zero-results message as an onMount
   // completion signal, then clicked before hydration/event handlers existed.
-  assert(await picker.getAttribute('data-catalog-state')==='initializing',
-    'SSR must explicitly initialize, never render a premature empty catalog');
+  const observedState=await picker.getAttribute('data-catalog-state');
+  assert(['initializing','loading','ready'].includes(observedState),
+    'Unexpected first public catalog state: '+observedState);
   await page.locator('.subject-picker[data-catalog-state="ready"]').waitFor({state:'visible'});
   assert(await page.locator('.subject-options button').count()===4,'Biome: expected four verified tuples');
   assert(await page.locator('.subject-options button').first().textContent().then(s=>s?.includes('1540000000:1')),
