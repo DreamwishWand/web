@@ -287,7 +287,7 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
 
     if (action === 'galleryAbort' || action === 'galleryCleanup') {
       const storageKey = typeof body.storageKey === 'string' ? body.storageKey : '';
-      if (!/^[0-9a-f-]{36}\\/[0-9a-f-]{36}\\.(?:jpg|png|webp)$/.test(storageKey) ||
+      if (!/^[0-9a-f-]{36}[/][0-9a-f-]{36}[.](?:jpg|png|webp)$/.test(storageKey) ||
           !storageKey.startsWith(subject + '/')) {
         return reply({ok:false,error:'GALLERY_UPLOAD_KEY_INVALID'},400);
       }
