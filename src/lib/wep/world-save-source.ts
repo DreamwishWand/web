@@ -396,7 +396,7 @@ export async function openWorldSaveBytes(
     const evaluated = evaluateProfile626ReadOnlyCompatibility({
       profile,
       sourcePlatform: PlatformFamily.Switch,
-      targetBuild,
+      targetBuild: targetBuild as import('../ddv/core/save/versioning.js').TargetBuildIdentity,
       sourceRawSha256: null
     });
     if (evaluated.readMatch.status !== ProfileReadCompatibilityStatus.ExactAccepted ||
