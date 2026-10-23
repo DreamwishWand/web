@@ -1,6 +1,15 @@
 import { withSupabase } from 'npm:@supabase/server';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
+const KNOWN_GALLERY_STAGING_PROJECT_REF = 'ptpdoxhrqopvczpclcij';
+function resolveMediaBucketForGallery(): string {
+  const explicit = Deno.env.get('COMMUNITY_MEDIA_BUCKET')?.trim();
+  if (explicit) return explicit;
+  const url = Deno.env.get('SUPABASE_URL') ?? '';
+  if (url.includes(KNOWN_GALLERY_STAGING_PROJECT_REF)) return 'community-media-staging';
+  throw new Error('COMMUNITY_MEDIA_BUCKET must be configured.');
+}
+
 type JsonObject = Record<string, unknown>;
 
 const commandToRpc = {
@@ -528,6 +537,29 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         break;
       case 'revokeSessions':
         break;
+    }
+
+    if (command === 'publishGalleryPhoto') {
+      // This supplements (NEVER replaces) the canonical atomic SQL checks.
+      // The DB owns owner/READY/CLEAR and actual Work revision mutation.
+      const { data: manifest, error: manifestError } = await ctx.supabaseAdmin.rpc(
+        'community_gallery_photo_owned_media_manifest_v1', {
+          p_auth_subject: subject, p_media_ids: params.p_media_ids
+        }
+      );
+      if (manifestError || !manifest || !Array.isArray(manifest.items) ||
+          manifest.items.length !== (params.p_media_ids as string[]).length) {
+        return reply({ ok:false, error:'GALLERY_MEDIA_NOT_READY_OR_NOT_OWNED' },403);
+      }
+      // READY alone is insufficient: reject orphan MediaAsset rows whose
+      // Storage object has already disappeared or differs in actual size.
+      for (const item of manifest.items) {
+        const { data: object, error: objectError } = await ctx.supabaseAdmin.storage
+          .from(resolveMediaBucketForGallery()).info(String(item.storageKey));
+        if (objectError || !object || Number(object.size) !== Number(item.byteSize)) {
+          return reply({ok:false,error:'GALLERY_MEDIA_STORAGE_OBJECT_UNAVAILABLE'},409);
+        }
+      }
     }
 
     const { data, error } = await ctx.supabaseAdmin.rpc(rpc, params);
