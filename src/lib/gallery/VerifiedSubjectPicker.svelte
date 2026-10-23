@@ -66,6 +66,13 @@
     const match=resolveCurrentSubject(records,subjectId,kind,subjectType);
     onChoose(match);
   }
+  function subjectTypeLabel(type:SubjectType){
+    const key=type==='biome'?'galleryv1.biome':
+      type==='floating_island'?'galleryv1.floatingIsland':
+      type==='room'?'galleryv1.room':
+      type==='tom_furniture'?'galleryv1.furniture':'galleryv1.clothing';
+    return t(key,{},$locale);
+  }
 </script>
 
 <div class="subject-picker">
@@ -93,7 +100,7 @@
           disabled={!isSelectableSubject(subject,kind,subjectType)}
           on:click={()=>choose(subject.subjectId)}>
           <strong>{subjectDisplayIdentity(subject)}</strong>
-          <small>{subject.subjectType} · {subject.platform} {subject.gameVersion} · {subject.buildId} · schema {subject.profileSchema}</small>
+          <small>{subjectTypeLabel(subject.subjectType)} · {subject.platform} {subject.gameVersion} · {subject.buildId} · schema {subject.profileSchema}</small>
           <small>{t('galleryv1.canonicalId',{},$locale)}: {subject.canonicalTargetId}</small>
           {#if !isSelectableSubject(subject,kind,subjectType)}
             <span>{t('galleryv1.subjectUnsupported',{},$locale)}</span>
