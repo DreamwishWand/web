@@ -53,3 +53,9 @@ Never claim a generic `pending_expiry` date ensures deletion security; no date c
 - **#128:** separate Product Owner finalized unbound READY retention approval required before any new TTL cleanup.
 
 **Status: PARTIAL / new-token prevention transport STAGING code+DB accepted / real old-token replay, Cloud and positive retirement BLOCKED.** DDV native save writers & Product Apply OFF. Do not merge drafts.
+
+## Follow-up: authenticated owner Media reader remains a second signed URL issuer
+
+Source audit found that the existing authenticated `community-media` Edge's `action:'read'` uses `community_get_media_storage_key` with owner account authorization, then `createSignedUrl(storageKey,300)`. This is distinct from the **anonymous PUBLIC Gallery media endpoint** now using the gateway. As long as an authenticated owner can mint a signed Storage URL, a recipient of that bearer URL can replay it until expiry and browser/CDN considerations may extend prior visibility. Thus **there is no universal stop-new-token guarantee** and no valid positive PUBLIC retirement permission. Historical user-owned media retrieval must not be silently disabled while #116 private lifecycle design remains unaccepted.
+
+A second additive migration `20261024235800_community_gallery_retirement_other_token_issuers_v1.sql` updates the owner-only read-only retirement preflight to explicitly return `newPublicGalleryStorageSignedUrlIssued:false` **but** `authenticatedOwnerReadMayMintStorageSignedUrl:true`, and includes blocker `GALLERY_AUTHENTICATED_MEDIA_READ_STILL_MINTS_SIGNED_URL`. The typed 08 WEB contract and rollback acceptance now assert that separation. To close #116, redesign the owner-read private media access to a session-authorized, revocable gateway consistent with Cloud owner ACL; then test genuine signed bearer replay and CDN/Browser caches. No authorization/visibility mutation has been enabled in this partial phase.
