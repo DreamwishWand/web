@@ -113,10 +113,12 @@ test('post-Results Gallery projection is explicit and managed-under-13 comments 
   assert.match(schema, /c\.lifecycle_state in \('results','closed'\)/);
   assert.match(fix, /v_comments:=case when v_entry\.managed_under13 then false/);
   assert.match(fix, /if v_managed and p_enabled then/);
-  assert.ok(gallery.includes('community_search_gallery_dreamsnaps_public_v1'));
-  assert.ok(gallery.includes('community_get_gallery_dreamsnap_public_v1'));
-  assert.ok(gallery.includes("addComment"));
-  assert.ok(gallery.includes("reportEntity"));
+  // Gallery/DreamSnaps is a legacy redirect; DreamSnaps is an independent
+  // 06G Product and must not remain a Gallery child.
+  assert.ok(gallery.includes("goto(base+'/dreamsnaps/'"));
+  assert.doesNotMatch(gallery, /community_search_gallery_dreamsnaps_public_v1|community_get_gallery_dreamsnap_public_v1/);
+  const independent = read('src/routes/dreamsnaps/+page.svelte');
+  assert.ok(independent.includes('dreamsnaps'));
 });
 
 test('DreamSnaps Edge boundaries expose only the intended signed and public operations', () => {
