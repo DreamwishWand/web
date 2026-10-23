@@ -191,5 +191,48 @@
       "v1250Rva": "0x6634E0",
       "v1253Rva": "0x6634E0"
     }
-  ]
+  ],
+  "baselineCollisionComparison": {
+    "baselineFile": "src/lib/ddv/core/world/runtime-v125/placement-v125.js",
+    "baselineVersion": "Nintendo Switch / Steam evidence-bound existing v1.25.0 ordinary placement subset (does not establish v1.25.3 native behavior)",
+    "constants": {
+      "EXCLUSIVE": 31,
+      "CLEAR": 32,
+      "BLOCKING": 64
+    },
+    "oldCellMasks": [
+      4,
+      68,
+      4,
+      68
+    ],
+    "newCellMasks": [
+      66
+    ],
+    "decodedOldCells": [
+      {
+        "value": 4,
+        "exclusiveBits": 4,
+        "blocking": false,
+        "clear": false
+      },
+      {
+        "value": 68,
+        "exclusiveBits": 4,
+        "blocking": true,
+        "clear": false
+      }
+    ],
+    "decodedNewCell": {
+      "value": 66,
+      "exclusiveBits": 2,
+      "blocking": true,
+      "clear": false
+    },
+    "oldNewExclusiveBitsDiffer": true,
+    "baselineLayersCollideOld68VsNew66": false,
+    "baselineLayersCollideNew66VsNew66": true,
+    "evidence": "CONFIRMED for exact existing v1.25.0 comparator and typed mask values; HYPOTHESIS only for v1.25.3 native collision effects",
+    "instruction": "Do not bypass quest/native gates. This does not authorize placement, persistent save writer, general collision model change, or reuse across versions."
+  }
 }
