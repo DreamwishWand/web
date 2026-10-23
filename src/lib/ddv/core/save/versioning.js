@@ -38,6 +38,15 @@ export const BuildMatchStatus = Object.freeze({
   InvalidTarget: 'INVALID_TARGET'
 });
 
+export const ProfileReadCompatibilityStatus = Object.freeze({
+  ExactAccepted: 'EXACT_ACCEPTED',
+  StaticCompatibleRuntimePending: 'STATIC_COMPATIBLE_RUNTIME_PENDING',
+  SourcePlatformMismatch: 'SOURCE_PLATFORM_MISMATCH',
+  UnsupportedBuild: 'UNSUPPORTED_BUILD',
+  SchemaMismatch: 'SCHEMA_MISMATCH',
+  InvalidTarget: 'INVALID_TARGET'
+});
+
 /**
  * Current 01A research contracts only. Do not add a build by analogy.
  * Persistent replacement is intentionally disabled until A4 + required 01E gates close.
@@ -66,6 +75,74 @@ export const CURRENT_V125_BUILD_CONTRACTS = Object.freeze([
     }),
     codecContract: 'p1g-v0',
     persistentWriteAuthorized: false
+  })
+]);
+
+/**
+ * Read-only compatibility registry. This is intentionally separate from
+ * CURRENT_V125_BUILD_CONTRACTS so a statically understood newer profile cannot
+ * inherit any plan/encode/write capability from the v1.25.0 writer registry.
+ *
+ * productionReadAccepted means the exact build/schema pair has completed the
+ * version-specific real-save read acceptance. offlineReadInspectionAllowed
+ * only authorizes a non-mutating inspection attempt through the existing codec.
+ */
+export const CURRENT_PROFILE_READ_CONTRACTS = Object.freeze([
+  Object.freeze({
+    id: 'ddv-switch-v1.25.0-52BD625D9B4E0053-v624-read',
+    platform: PlatformFamily.Switch,
+    gameVersion: '1.25.0',
+    profileGameInfoVersion: 624,
+    buildIdentity: Object.freeze({
+      kind: BuildIdentityKind.SwitchBid,
+      value: '52BD625D9B4E0053'
+    }),
+    codecContract: 'p1g-v0',
+    offlineReadInspectionAllowed: true,
+    productionReadAccepted: true,
+    runtimeReadAcceptance: RuntimeGateStatus.Passed
+  }),
+  Object.freeze({
+    id: 'ddv-steam-windows-v1.25.0-releases_1.25-v1.25.0-8687-gdd3d3a5ae738-incremental-14-v624-read',
+    platform: PlatformFamily.SteamWindows,
+    gameVersion: '1.25.0',
+    profileGameInfoVersion: 624,
+    buildIdentity: Object.freeze({
+      kind: BuildIdentityKind.SteamFullVersion,
+      value: 'releases_1.25-v1.25.0-8687-gdd3d3a5ae738-incremental-14'
+    }),
+    codecContract: 'p1g-v0',
+    offlineReadInspectionAllowed: true,
+    productionReadAccepted: true,
+    runtimeReadAcceptance: RuntimeGateStatus.Passed
+  }),
+  Object.freeze({
+    id: 'ddv-switch-v1.25.3-9A239D3DB569756D-v626-read-accepted',
+    platform: PlatformFamily.Switch,
+    gameVersion: '1.25.3',
+    profileGameInfoVersion: 626,
+    buildIdentity: Object.freeze({
+      kind: BuildIdentityKind.SwitchBid,
+      value: '9A239D3DB569756D'
+    }),
+    codecContract: 'p1g-v0',
+    offlineReadInspectionAllowed: true,
+    productionReadAccepted: true,
+    runtimeReadAcceptance: RuntimeGateStatus.Passed
+  }),
+  Object.freeze({
+    id: 'ddv-steam-windows-v1.25.3-releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22-v626-read-static',
+    platform: PlatformFamily.SteamWindows,
+    gameVersion: '1.25.3',
+    profileGameInfoVersion: 626,
+    buildIdentity: Object.freeze({
+      kind: BuildIdentityKind.SteamFullVersion,
+      value: 'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22'
+    }),
+    codecContract: 'p1g-v0',
+    offlineReadInspectionAllowed: true,
+    productionReadAccepted: false,
+    runtimeReadAcceptance: RuntimeGateStatus.Pending
   })
 ]);
 
@@ -186,6 +263,70 @@ export function matchSupportedBuild(saveIdentity, targetBuild, contracts = CURRE
   }
 
   return Object.freeze({ status: BuildMatchStatus.Exact, contract: candidate, reason: 'Exact target build and profile version contract match.' });
+}
+
+/**
+ * Match an exact build/schema pair for non-mutating profile inspection.
+ * This never confers plan, encode-copy, replacement, or local-writer authority.
+ *
+ * @param {SaveIdentity} saveIdentity
+ * @param {TargetBuildIdentity} targetBuild
+ * @param {readonly object[]} [contracts]
+ */
+export function matchProfileReadContract(saveIdentity, targetBuild, contracts = CURRENT_PROFILE_READ_CONTRACTS) {
+  if (!isTargetBuildIdentity(targetBuild)) {
+    return Object.freeze({
+      status: ProfileReadCompatibilityStatus.InvalidTarget,
+      contract: null,
+      reason: 'Target build identity is incomplete or invalid.'
+    });
+  }
+
+  const candidate = contracts.find((contract) =>
+    contract.platform === targetBuild.platform &&
+    contract.buildIdentity.kind === targetBuild.kind &&
+    contract.buildIdentity.value === targetBuild.value
+  ) ?? null;
+
+  if (!candidate) {
+    return Object.freeze({
+      status: ProfileReadCompatibilityStatus.UnsupportedBuild,
+      contract: null,
+      reason: 'Exact target build is not in the read compatibility registry.'
+    });
+  }
+
+  if (saveIdentity.profileGameInfoVersion !== candidate.profileGameInfoVersion) {
+    return Object.freeze({
+      status: ProfileReadCompatibilityStatus.SchemaMismatch,
+      contract: candidate,
+      reason: `Profile GameInfo.Version ${String(saveIdentity.profileGameInfoVersion)} does not match read contract ${candidate.profileGameInfoVersion}.`
+    });
+  }
+
+  // Schema 626 production read acceptance is proven only for source bytes
+  // extracted from the matching platform. LastSaveDeviceInfo may differ under
+  // cross-save and is deliberately not used as a platform identity.
+  if (candidate.profileGameInfoVersion === 626 &&
+      saveIdentity?.sourcePlatform !== candidate.platform) {
+    return Object.freeze({
+      status: ProfileReadCompatibilityStatus.SourcePlatformMismatch,
+      contract: candidate,
+      reason: 'Schema 626 read acceptance requires an independently known matching source/storage platform.'
+    });
+  }
+
+  const accepted = candidate.productionReadAccepted === true &&
+    candidate.runtimeReadAcceptance === RuntimeGateStatus.Passed;
+  return Object.freeze({
+    status: accepted
+      ? ProfileReadCompatibilityStatus.ExactAccepted
+      : ProfileReadCompatibilityStatus.StaticCompatibleRuntimePending,
+    contract: candidate,
+    reason: accepted
+      ? 'Exact target build/schema read contract is runtime accepted.'
+      : 'Exact target build/schema is statically compatible for offline read inspection; real-save runtime acceptance is still pending.'
+  });
 }
 
 /**
