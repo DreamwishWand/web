@@ -161,11 +161,11 @@ test('v1.25.3 schema626 is separate read-only compatibility and is not added to 
 
   const switchRead = matchProfileReadContract(switchIdentity, switch1253Target);
   const steamRead = matchProfileReadContract(steamIdentity, steam1253Target);
-  assert.equal(switchRead.status, ProfileReadCompatibilityStatus.StaticCompatibleRuntimePending);
+  assert.equal(switchRead.status, ProfileReadCompatibilityStatus.ExactAccepted);
   assert.equal(steamRead.status, ProfileReadCompatibilityStatus.StaticCompatibleRuntimePending);
-  assert.equal(switchRead.contract.runtimeReadAcceptance, RuntimeGateStatus.Pending);
+  assert.equal(switchRead.contract.runtimeReadAcceptance, RuntimeGateStatus.Passed);
   assert.equal(steamRead.contract.runtimeReadAcceptance, RuntimeGateStatus.Pending);
-  assert.equal(switchRead.contract.productionReadAccepted, false);
+  assert.equal(switchRead.contract.productionReadAccepted, true);
   assert.equal(steamRead.contract.productionReadAccepted, false);
 });
 
@@ -188,4 +188,31 @@ test('existing v1.25.0 read and writer contracts remain accepted unchanged', () 
   assert.equal(matchSupportedBuild(identity, switchTarget).status, BuildMatchStatus.Exact);
   assert.equal(matchProfileReadContract(identity, switchTarget).status, ProfileReadCompatibilityStatus.ExactAccepted);
   assert.equal(CURRENT_PROFILE_READ_CONTRACTS.filter((x) => x.gameVersion === '1.25.0').length, 2);
+});
+
+test('v1.25.3 read acceptance binds independently proven source platform, not last-save device', () => {
+  const sourceSwitchWithWindowsLastSave = detectSaveIdentity(root(626, 'DeviceType_Windows'), {
+    sourcePlatform: PlatformFamily.Switch
+  });
+  assert.equal(sourceSwitchWithWindowsLastSave.sourceLastSaveRelationship, 'DIFFERENT_CROSS_SAVE_POSSIBLE');
+  assert.equal(matchProfileReadContract(sourceSwitchWithWindowsLastSave, switch1253Target).status,
+    ProfileReadCompatibilityStatus.ExactAccepted);
+  assert.equal(matchProfileReadContract(sourceSwitchWithWindowsLastSave, steam1253Target).status,
+    ProfileReadCompatibilityStatus.SourcePlatformMismatch);
+
+  const unknownSource = detectSaveIdentity(root(626), {});
+  const wrongSource = detectSaveIdentity(root(626), { sourcePlatform: PlatformFamily.SteamWindows });
+  assert.equal(matchProfileReadContract(unknownSource, switch1253Target).status,
+    ProfileReadCompatibilityStatus.SourcePlatformMismatch);
+  assert.equal(matchProfileReadContract(wrongSource, switch1253Target).status,
+    ProfileReadCompatibilityStatus.SourcePlatformMismatch);
+
+  const steamSource = detectSaveIdentity(root(626, 'DeviceType_Windows'), {
+    sourcePlatform: PlatformFamily.SteamWindows
+  });
+  assert.equal(matchProfileReadContract(steamSource, steam1253Target).status,
+    ProfileReadCompatibilityStatus.StaticCompatibleRuntimePending);
+
+  assert.equal(CURRENT_V125_BUILD_CONTRACTS.filter(x => x.gameVersion === '1.25.3').length, 0,
+    'read-only promotion must never enable schema626 writer');
 });
