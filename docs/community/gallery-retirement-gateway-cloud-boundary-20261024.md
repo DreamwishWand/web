@@ -1,0 +1,55 @@
+# 03 COMM #116 — Gallery issued URL retirement, no-new-token public gateway, Wand Cloud guard (2026-10-24)
+
+Scope: **ISSUE #116 ONLY**. Existing PR chain #108 → #113 → #118 → #123 → #126; this bounded change lives in **Draft PR #129**, stacked on exact #126 HEAD `dab166af0c9363f228556ebcb51a51853d7e270e`. Do not merge. Current main independently WEP-integrated `71e568c9b576c54f8d100fae2ae883c835de7602`. No duplicate Gallery publisher, MediaAsset, Creator/Auth, Storage bucket, DDV writer, or 09 INT graph ownership. #124 Upload/Orphans and #128 finalized-unbound retention are NOT changed.
+
+## Evidence / issue boundaries
+
+**CONFIRMED from pre-change source:** Existing `community-public-media` minted a Supabase Storage signed download URL with max 300s when `community_get_public_media_storage_v2(mediaId)` judged a Work current/public. Stopping issuance prevents NEW URLs; it cannot revoke ones already issued. Edge `Cache-Control: private, no-store` guards only new Edge responses, not old signed Storage object URLs. Smart CDN caches signed URL objects; published docs discuss invalidation on changed/deleted objects, but deletion itself requires private preservation/graph closure; browser caches and downloaded copies cannot be forcibly erased. A 300s clock alone is **NOT** a confidentiality/revocation guarantee. Actual old URL replay at 0/60/300/+s across warmed/unwarmed CDN has **NOT_EXECUTED**: no authorized disposable signed media fixture.
+
+**CONFIRMED Staging DB:** There is no demonstrated Wand Cloud entitlement, verified subscription / payment status or Cloud-private owner media container+restoration acceptance in current deployment. Do not claim Cloud durability, and do not use browser local storage/PC exports as a substitute. 09 INT's existing `private.gallery_photo_dependency_snapshot_v1(workId)` returns `graphComplete:false`, `retirementAuthorized:false`, `issuedSignedUrlRevocationProven:false`, with unimplemented graph categories `unknown_not_deployed`; this is **not** an empty dependency set. Exact Switch DDV v1.25.0 (BID52BD625D9B4E0053, schema624) Staging registry has 92 reviewed targets: Island13/Biome4/ToM Furniture40/ToM Clothing35/Room0. No new subject IDs enrolled.
+
+## Applied non-destructive implementation
+
+`supabase/migrations/20261024235500_community_gallery_retirement_gateway_preflight_v1.sql` adds **only two service_role-only read RPCs**:
+
+1. `community_gallery_media_gateway_v1(uuid)`: across **current and immutable historical** Gallery Photo Work revisions, decides `galleryManaged`. For Gallery-owned Media, returns storage metadata **only if** its exact current published Revision is discoverable (Work visibility, moderation, lifecycle/soft-delete and Media READY/CLEAR); a historical or revoked photo remains `galleryManaged:true, publiclyAccessible:false` and MUST NOT fall through to legacy token issuance. For non-Gallery Media, `galleryManaged:false` allows the original DreamSnaps-only signed URL fallback. No browser raw SQL grants.
+2. `community_gallery_retirement_preflight_v1(authSubject,workId)`: resolves active Wand Account and proves Gallery Photo Work ownership; reads original 09 INT private snapshot, returns current `rowVersion` and `revisionId`, dependency coverage/count, explicit `graphComplete:false`, `previousSignedUrlsRevoked:false`, no verified Cloud entitlement/private retention/restore, blocked reason codes, `operationAuthorized:false`, `deleteAuthorized:false`, `unpublishKeepPrivateAuthorized:false`. Does not write Work, media or idempotency state.
+
+Existing `community-public-media` Edge **v4**, public JWT OFF as before, now routes eligible Gallery media to **an Edge-proxied GET binary stream**, with a per-request service-role RPC check and Storage Admin download. The POST resolver returns `media:{mediaId,transport:'edge_proxy',streamUrl,mimeType,byteSize,width,height,checksumSha256,rawStorageSignedUrlIssued:false}`, NOT a Storage signed URL. The GET route independently calls the same RPC and serves bytes as `image/jpeg/png/webp` with `Cache-Control:private,no-store,max-age=0`, `CDN-Cache-Control:no-store`, `Surrogate-Control:no-store`, `Pragma:no-cache`, `Vary:Origin` and `X-Content-Type-Options:nosniff`. Stored bytes are never returned if a new request fails public/current/READY/CLEAR. As with all distributed media serving, an in-flight GET may have started before a retirement transaction and already-downloaded/browser-cached bytes cannot be recalled. **No positive retirement is enabled yet.** Existing non-Gallery DreamSnaps public POST still returns its original 300s signed URL; GET only accepts Gallery-managed media.
+
+Existing JWT-authenticated `community-query` Edge **v14** adds `{query:'galleryRetirementPreflight',payload:{workId}}`, validates UUID and resolves session before service RPC. Non-owner yields a generic FORBIDDEN. No new standalone HTTP API and no public query of private owner details.
+
+Typed 08 WEB contract: `src/lib/community/gallery-retirement-contract.ts` includes `GalleryMediaPublicGatewayV1`, `GalleryRetirementPreflightV1`, `GalleryRetirementAvailabilityV1`, plus concrete disabled gating. Use `media.streamUrl` for future Gallery image retrieval, **not** nonexistent `media.signedUrl`. The legacy signed property remains only for non-Gallery DreamSnaps. For owner-only preflight call existing `community-query` with authenticated session, never treat `ownerEligible:true` as `operationAuthorized:true`. Gallery Public Gallery Create/Update remains separately owned by #124 and 08 WEB must not enable that or any retirement UI from this change.
+
+## Safe retirement state model (not enabled)
+
+| Stage | Verified truth | Release |
+| --- | --- | --- |
+| `public_active` | Existing PUBLIC Gallery listings/current detail/media authorized | Existing read only |
+| owner preflight requested | Query returns row version and 09 INT incomplete graph | **Available** read only |
+| `retirement_requested` | NOT persisted: no new lifecycle status invented, no partial retirement | **Disabled** |
+| `new_issuance_stopped` | New Gallery public Edge transport issues NO signed Storage tokens; previously issued legacy tokens remain | **Transport change deployed**, not an actual retirement |
+| `visibility_revoked` | 09 INT trigger actively denies direct PRIVATE change until Cloud preservation / graph evidence | **Disabled** |
+| `media_cleanup_eligible` | Old signedURL/CDN replay, dependencies, private durability unknown; no premature delete | **Disabled** |
+| `retirement_completed` | No proof of all historical tokens gone, Cloud data durable, linked listings atomically delisted | **Disabled** |
+
+Never claim a generic `pending_expiry` date ensures deletion security; no date currently establishes actual browser/CDN purge. Immutable WorkRevision must remain. Browser Local export is not Wand Cloud.
+
+## Staging and negative evidence
+
+- Project `ptpdoxhrqopvczpclcij`: additive migration applied with separate BEGIN/ROLLBACK dry-run. `supabase/staging/acceptance/gallery-retirement-gateway-preflight-v1.sql` passed after rollback: current Work Media exposed, historical Media denied with no storage key, owner preflight blocked, non-owner forbidden, no Work mutation, existing 09 INT direct PUBLIC→PRIVATE trigger raises `GALLERY_CLOUD_PRIVATE_PRESERVATION_09_INT_REQUIRED`, service-only grants.
+- Re-ran existing `gallery-photo-retirement-negative-v1.sql` and `gallery-owner-media-public-v1.sql` SQL rollback **PASS**. All synthetic works/assets rolled back, no actual user data or Storage objects deleted.
+- Staging Edge versions: `community-public-media v4` ACTIVE JWT OFF existing public; `community-query v14` ACTIVE JWT ON; `community-media v12`, `community-command v30`, `community-retention v7` unchanged.
+- Actual HTTP negatives via Staging `pg_net`: request #68531 POST nonexistent media **404 MEDIA_NOT_PUBLIC**; #68532 GET nonexistent gallery media **404 MEDIA_NOT_GALLERY**; #68533 anonymous preflight on auth-only Query **401 UNAUTHORIZED_NO_AUTH_HEADER**. These are **real HTTP negatives**, not signed Actor end-to-end or CDN replay.
+- No actual safe PUBLIC→PRIVATE Media, Cloud copy+restore or positive linked dependency retirement tested; underlying graph and entitlement missing. Production untouched. Raw Media objects still private. #128 finalized unbound ready media remains protected.
+- Later final-head CI result should be attached separately; **do not count a running CI as PASS**.
+
+## Required next engineering proof, owners
+
+- **04 QR #121:** disposable authenticated owner A/B/moderator, real Gallery photo signed legacy URL obtained before transition, replay same URL at 0/60/300/after expiry across CDN and browser; test Edge public stream current/no-store and historical after immutable Update, credential-free GET 404 post visibility revocation if/when authorized; prove not cached behind a proxy. No fake PASS from SQL.
+- **09 INT #119:** complete actual Preset/ToM/native/dependent listing graph; classify UNKNOWN where registry undeployed; provide server atomic delist/rollback and status. Do not let 03 COMM infer absent dependencies.
+- **Community Cloud:** real verified entitlement, owner-scoped Cloud-private Work+Media retention/ACL, immutable revisions, restore/republish, rollback/retry/retention policy and operations; signed URL retirement policy also requires old token/CDN evidence.
+- **08 WEB #120:** support separate `streamUrl` and existing legacy `signedUrl`, owner preflight read-only states, display reasons, keep Delete/Cloud Unpublish/Restore/Republish DISABLED until server retirement authorized. Keep Gallery Create/Update disabled until Issue #124 signed E2E accepted.
+- **#128:** separate Product Owner finalized unbound READY retention approval required before any new TTL cleanup.
+
+**Status: PARTIAL / new-token prevention transport STAGING code+DB accepted / real old-token replay, Cloud and positive retirement BLOCKED.** DDV native save writers & Product Apply OFF. Do not merge drafts.
