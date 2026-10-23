@@ -74,15 +74,15 @@ test('synthetic schema626 packaged P1G can be decoded read-only without losing o
     sourceRawSha256: 'a'.repeat(64)
   });
 
-  assert.equal(report.readMatch.status, ProfileReadCompatibilityStatus.StaticCompatibleRuntimePending);
+  assert.equal(report.readMatch.status, ProfileReadCompatibilityStatus.ExactAccepted);
   assert.equal(report.capabilities.offlineReadInspectionAllowed, true);
-  assert.equal(report.capabilities.productionReadAccepted, false);
+  assert.equal(report.capabilities.productionReadAccepted, true);
   assert.equal(report.capabilities.planOperation, false);
   assert.equal(report.capabilities.encodeCopy, false);
   assert.equal(report.capabilities.verifiedReplacementCandidate, false);
   assert.equal(report.capabilities.localSaveWriter, false);
   assert.equal(report.capabilities.persistentWrite, false);
-  assert.ok(report.findings.some((x) => x.code === 'SCHEMA626_REAL_SAVE_RUNTIME_ACCEPTANCE_PENDING'));
+  assert.ok(!report.findings.some((x) => x.code === 'SCHEMA626_REAL_SAVE_RUNTIME_ACCEPTANCE_PENDING'));
 });
 
 test('Steam schema626 gets the same static read-only status without transferring Switch address evidence', () => {
@@ -130,4 +130,27 @@ test('01E schema626 request is read-only and cannot be interpreted as writer pro
   assert.ok(runtimeRequest.acceptance.explicitlyNotProvenByPass.includes('schema626 modified encode/repack safety'));
   assert.ok(runtimeRequest.acceptance.explicitlyNotProvenByPass.includes('local save writer'));
   for (const value of Object.values(runtimeRequest.hardFlags)) assert.equal(value, false);
+});
+
+test('v1.25.3 schema626 refuses missing/mismatched source platform regardless of matching target BID', () => {
+  for (const sourcePlatform of [undefined, PlatformFamily.Unknown, PlatformFamily.SteamWindows]) {
+    const report = evaluateProfile626ReadOnlyCompatibility({
+      profile: profile626(),
+      targetBuild: PROFILE626_SWITCH_TARGET,
+      sourcePlatform
+    });
+    assert.equal(report.readMatch.status, ProfileReadCompatibilityStatus.SourcePlatformMismatch);
+    assert.equal(report.capabilities.offlineReadInspectionAllowed, false);
+    assert.equal(report.capabilities.productionReadAccepted, false);
+    assert.ok(report.findings.some((x) => x.code === 'SOURCE_PLATFORM_MISMATCH'));
+  }
+
+  const crossSave = evaluateProfile626ReadOnlyCompatibility({
+    profile: profile626('DeviceType_Windows'),
+    targetBuild: PROFILE626_SWITCH_TARGET,
+    sourcePlatform: PlatformFamily.Switch
+  });
+  assert.equal(crossSave.capabilities.productionReadAccepted, true,
+    'LastSaveDeviceInfo is not the independently sourced platform/build identity');
+  assert.equal(crossSave.saveIdentity.sourceLastSaveRelationship, 'DIFFERENT_CROSS_SAVE_POSSIBLE');
 });
