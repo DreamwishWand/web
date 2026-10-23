@@ -74,10 +74,6 @@
     selectedSubject = null;
     subjectCatalogReady = false;
   }
-  function setTargetType(value: SubjectType) {
-    targetType = value;
-    selectedSubject = null;
-  }
   function chooseFiles(event: Event) {
     const selected = Array.from((event.currentTarget as HTMLInputElement).files ?? []);
     if (!selected.length) return;
@@ -145,7 +141,7 @@
       </label>
       {#if !isTom}
         <label>{t('galleryv1.targetType',{},$locale)}
-          <select value={targetType} on:change={(e)=>setTargetType((e.currentTarget as HTMLSelectElement).value as SubjectType)}>
+          <select bind:value={targetType} on:change={()=>{ selectedSubject=null; }}>
             {#if kind==='outdoor'}
               <option value="biome">{t('galleryv1.biome',{},$locale)}</option>
               <option value="floating_island">{t('galleryv1.floatingIsland',{},$locale)}</option>
