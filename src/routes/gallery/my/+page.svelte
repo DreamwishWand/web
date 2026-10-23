@@ -2,7 +2,8 @@
   import { onMount } from 'svelte';
   import { base } from '$app/paths';
   import { locale, ct as t } from '$lib/i18n/community.js';
-  import { createCommunityBrowserClient } from '$lib/community/browser-client';
+  import { createCommunityBrowserClient, getPublicCommunityMedia } from '$lib/community/browser-client';
+  import PhotoPreview from '$lib/gallery/PhotoPreview.svelte';
   import { workUrl, GALLERY_OWNER_MUTATION_BLOCKER } from '$lib/gallery/stage1.js';
   import OverflowMenu from '$lib/ui/OverflowMenu.svelte';
   import Sheet from '$lib/ui/Sheet.svelte';
@@ -17,6 +18,8 @@
   let commentsEnabled=true;
   let managementError='';
   let ownerBusy=false;
+  let stagedTitle='', stagedDescription='', ownerMediaUrls:string[]=[];
+  let showEditPreview=false;
 
   onMount(()=>{signedIn=Boolean(client?.session);if(signedIn)void load();});
   async function run<T>(f:()=>Promise<T>):Promise<T|null>{
@@ -47,10 +50,19 @@
   }
   async function manage(work:any){
     management=work;ownerDetail=null;managementError='';showManagement=true;ownerBusy=true;
+    stagedTitle=String(work.title??'');stagedDescription='';ownerMediaUrls=[];showEditPreview=false;
     try{
       const result:any=await client?.query('gallery',{workId:work.workId});
       ownerDetail=result?.data??null;
       commentsEnabled=ownerDetail?.commentsEnabled!==false;
+      stagedTitle=String(ownerDetail?.title??work.title??'');
+      stagedDescription=String(ownerDetail?.description??'');
+      for(const mediaId of (ownerDetail?.mediaIds??[]).slice(0,10)){
+        try{
+          const media=await getPublicCommunityMedia(String(mediaId));
+          ownerMediaUrls=[...ownerMediaUrls,media.signedUrl];
+        }catch{ /* leave public media unavailable rather than bypassing authorization */ }
+      }
     }catch(e){managementError=e instanceof Error?e.message:String(e)}
     finally{ownerBusy=false}
   }
@@ -140,6 +152,14 @@
       {/if}
       <div class="blocked-actions">
         <h3>{t('galleryv1.editPresentation',{},$locale)}</h3>
+        {#if ownerDetail?.isOwner}
+          <label>{t('galleryv1.title',{},$locale)}<input bind:value={stagedTitle} maxlength="240" /></label>
+          <label>{t('galleryv1.description',{},$locale)}<textarea bind:value={stagedDescription} maxlength="20000"></textarea></label>
+          <button type="button" on:click={()=>showEditPreview=!showEditPreview}>{t('galleryv1.preview',{},$locale)}</button>
+          {#if showEditPreview}
+            <PhotoPreview title={stagedTitle} description={stagedDescription} creator={String(ownerDetail?.creator?.displayName??'')} category={String(management.galleryKind)} imageUrls={ownerMediaUrls} />
+          {/if}
+        {/if}
         <p>{t('galleryv1.serverMissing',{},$locale)} <code>{GALLERY_OWNER_MUTATION_BLOCKER}</code></p>
         <button type="button" disabled>{t('galleryv1.publishUpdate',{},$locale)}</button>
         <button type="button" disabled>{t('galleryv1.unpublish',{},$locale)}</button>
@@ -163,5 +183,5 @@ input:not([type=checkbox]),select{min-height:44px;min-width:0;padding:10px;borde
 .my-card{min-height:140px;min-width:0;display:flex;justify-content:space-between;align-items:start;gap:10px;padding:18px;border:1px solid var(--border);border-radius:20px;background:var(--surface)}
 .my-card a{display:grid;gap:10px;min-width:0;overflow-wrap:anywhere;color:var(--ink)}.my-card small{color:var(--ink-muted)}
 .owner-panel{display:grid;gap:12px}.blocked-actions{display:grid;gap:12px;padding:14px;border:1px solid var(--border);border-radius:15px;overflow-wrap:anywhere}
-.comment-control{display:flex;align-items:center;gap:10px}.notice{padding:15px;background:var(--surface)}
+.comment-control{display:flex;align-items:center;gap:10px}.blocked-actions label{display:grid;gap:6px}.blocked-actions input,.blocked-actions textarea{width:100%;min-width:0;padding:10px;border:1px solid var(--border);border-radius:12px;background:var(--surface-raised);color:var(--ink)}.blocked-actions textarea{min-height:100px;resize:vertical}.notice{padding:15px;background:var(--surface)}
 </style>
