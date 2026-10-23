@@ -20,6 +20,12 @@ declare
   v_row bigint;
   v_block boolean;
   v_artifact uuid:=gen_random_uuid();
+  v_kind text;
+  v_subject_type text;
+  v_base bigint;
+  v_case_media uuid;
+  v_case_subject uuid;
+  v_case_response jsonb;
 begin
   select ai.provider_subject::uuid,wa.account_id,c.creator_profile_id
   into v_subject,v_account,v_creator
@@ -199,6 +205,37 @@ begin
   exception when others then v_block:=true;
   end;
   if not v_block then raise exception 'ACCEPTANCE_DELETED_MEDIA_RESOLVER_ACCESSIBLE'; end if;
+  -- Four additional classifications share no media and no Work identity.
+  for v_kind,v_subject_type,v_base in
+    select * from (values
+      ('outdoor'::text,'floating_island'::text,null::bigint),
+      ('indoor'::text,'room'::text,null::bigint),
+      ('tom_furniture'::text,'tom_furniture'::text,40000001::bigint),
+      ('tom_clothing'::text,'tom_clothing'::text,50000001::bigint)
+    ) x(k,t,b)
+  loop
+    v_case_media:=gen_random_uuid();
+    insert into public.community_entities(entity_id,entity_type)
+    values(v_case_media,'media_asset');
+    insert into public.media_assets(media_id,owner_account_id,storage_key,mime_type,
+      byte_size,width,height,checksum_sha256,processing_state,moderation_state)
+    values(v_case_media,v_account,'acceptance/'||v_case_media||'.png',
+      'image/png',12345,1920,1080,repeat('a',64),'ready','clear');
+    insert into public.gallery_verified_subjects(
+      gallery_kind,subject_type,canonical_target_id,base_item_id,
+      platform,game_version,build_id,profile_schema,evidence_ref,verification_state
+    ) values(v_kind,v_subject_type,'ACCEPTANCE_ONLY_'||gen_random_uuid()::text,
+      v_base,'switch','1.25.0','52BD625D9B4E0053',624,
+      'rollback-only-contract-fixture','verified') returning subject_id into v_case_subject;
+    v_case_response:=public.community_publish_gallery_photo_v1(v_subject,v_creator,null,null,
+      v_kind,v_case_subject,'Classification acceptance',null,
+      array[v_case_media],v_case_media,true,v_key||':class:'||v_subject_type);
+    if v_case_response->>'galleryKind'<>v_kind or v_case_response->>'subjectType'<>v_subject_type
+      or (v_case_response->>'baseItemId')::bigint is distinct from v_base
+      or (public.community_get_gallery_photo_public_v1((v_case_response->>'workId')::uuid)->>'subjectType')<>v_subject_type
+    then raise exception 'ACCEPTANCE_CLASSIFICATION_FAILED %',v_subject_type; end if;
+  end loop;
+
   raise notice 'GALLERY_PHOTO_V1_ROLLBACK_PASS';
 end $$;
 rollback;
