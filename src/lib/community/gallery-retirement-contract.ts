@@ -52,7 +52,8 @@ export const GALLERY_MEDIA_RETIREMENT_V1=Object.freeze({
   deletionAuthorized:false,
   cloudPrivateTransitionAuthorized:false,
   signedChromeAcceptance:'CONFIGURATION_BLOCKED',
-  publicVisibilityCannotGuaranteeImmediateErase:true
+  publicVisibilityCannotGuaranteeImmediateErase:true,
+  authenticatedOwnerReadMayCreateNewSignedUrl:true
 } as const);
 
 /** The existing public-media Edge now routes Gallery photo revisions through
@@ -86,7 +87,8 @@ export type GalleryRetirementPreflightV1=Readonly<{
   dependencyCoverage:Readonly<Record<string,string>>;
   linkedPresetRevisionCount:number;
   associatedPresetArtifactCount:number;
-  newGallerySignedStorageUrlIssued:false;
+  newPublicGalleryStorageSignedUrlIssued:false;
+  authenticatedOwnerReadMayMintStorageSignedUrl:true;
   galleryNewTransport:'per_request_authorized_edge_proxy';
   historicallyIssuedStorageSignedUrlMaxSeconds:300;
   previousSignedUrlsRevoked:false;
@@ -126,6 +128,7 @@ export const GALLERY_RETIREMENT_OWNER_PREFLIGHT_V1=Object.freeze({
   privateRestoreVerified:false,
   graphComplete:false,
   priorStorageTokensRevoked:false,
+  authenticatedOwnerReadStillMintsSignedStorageUrl:true,
   listDetailNewTokensRevokedOnlyOnFutureRetirement:false,
   supportedOperations:['retirementPreflight'],
   blockedOperations:['delete','unpublishKeepPrivate','restorePrivate','republishPrivate'],
