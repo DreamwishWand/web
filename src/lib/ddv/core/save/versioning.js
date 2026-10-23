@@ -41,6 +41,7 @@ export const BuildMatchStatus = Object.freeze({
 export const ProfileReadCompatibilityStatus = Object.freeze({
   ExactAccepted: 'EXACT_ACCEPTED',
   StaticCompatibleRuntimePending: 'STATIC_COMPATIBLE_RUNTIME_PENDING',
+  SourcePlatformMismatch: 'SOURCE_PLATFORM_MISMATCH',
   UnsupportedBuild: 'UNSUPPORTED_BUILD',
   SchemaMismatch: 'SCHEMA_MISMATCH',
   InvalidTarget: 'INVALID_TARGET'
@@ -300,6 +301,18 @@ export function matchProfileReadContract(saveIdentity, targetBuild, contracts = 
       status: ProfileReadCompatibilityStatus.SchemaMismatch,
       contract: candidate,
       reason: `Profile GameInfo.Version ${String(saveIdentity.profileGameInfoVersion)} does not match read contract ${candidate.profileGameInfoVersion}.`
+    });
+  }
+
+  // Schema 626 production read acceptance is proven only for source bytes
+  // extracted from the matching platform. LastSaveDeviceInfo may differ under
+  // cross-save and is deliberately not used as a platform identity.
+  if (candidate.profileGameInfoVersion === 626 &&
+      saveIdentity?.sourcePlatform !== candidate.platform) {
+    return Object.freeze({
+      status: ProfileReadCompatibilityStatus.SourcePlatformMismatch,
+      contract: candidate,
+      reason: 'Schema 626 read acceptance requires an independently known matching source/storage platform.'
     });
   }
 
