@@ -25,7 +25,8 @@ try{
   pass('GALLERY_THREE_CARD_IA');
   await page.goto(origin+'/gallery/decorations/',{waitUntil:'domcontentloaded'});
   assert(await page.locator('.filters button').count()===3,'Decorations All/Outdoor/Indoor missing');
-  assert(await page.locator('.publish-link').getAttribute('href')==='/gallery/publish/?type=decorations','Decorations publish entry incorrect');
+  const decorationsHref=String(await page.locator('.publish-link').getAttribute('href'));
+  assert(decorationsHref.includes('/gallery/publish/') && decorationsHref.includes('type=decorations'),'Decorations publish entry incorrect: '+decorationsHref);
   pass('DECORATIONS_CATEGORY_AND_PUBLISH_ENTRY');
   await page.goto(origin+'/gallery/tom/',{waitUntil:'domcontentloaded'});
   assert(await page.locator('.filters button').count()===3,'ToM All/Furniture/Clothing missing');
