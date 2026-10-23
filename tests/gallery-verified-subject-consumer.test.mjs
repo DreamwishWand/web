@@ -29,6 +29,9 @@ test('zero subjects is a valid authoritative empty category, never an invented e
   for(const kind of ['outdoor','indoor','tom_furniture','tom_clothing'])
     assert.deepEqual(parseVerifiedSubjectLookup(envelope([]),kind),[]);
   assert.deepEqual(SUBJECT_TYPES.indoor,['room']);
+  const saveScopedRoom={...island,galleryKind:'indoor',subjectType:'room',canonicalTargetId:'house:floor:slot'};
+  assert.equal(isSelectableSubject(saveScopedRoom,'indoor','room'),false,
+    'a globally visible Room label cannot replace owner/save-scoped binding');
   assert.deepEqual(SUBJECT_TYPES.tom_clothing,['tom_clothing']);
 });
 test('wrong platform, build, schema, verification and wrong kind cannot be selected',()=>{
