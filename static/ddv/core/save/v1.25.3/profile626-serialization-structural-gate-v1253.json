@@ -1,0 +1,167 @@
+{
+  "schema": "ddv.save.profile626-serialization-structural-gate@1",
+  "artifact": "DDV-SAVE-PROFILE626-SERIALIZATION-STRUCTURAL-GATE-V1253-V1_0",
+  "requestId": "01A-V1253-PROFILE626-SERIALIZATION-STRUCTURAL-GATE-V1",
+  "status": "STATIC_GATE_CLOSED_RUNTIME_ACCEPTANCE_PENDING",
+  "target": {
+    "switch": {
+      "gameVersion": "1.25.3",
+      "buildId": "9A239D3DB569756D",
+      "profileSchema": 626,
+      "rawFolderDriveId": "1Hn0ZbNMeeE6Q-hODzsWs90Ice4AdFQFv",
+      "mainDriveId": "1towEM6WrKL6ZMwepI76xyPfpzxuqS6BN",
+      "mainSha256": "16957e6ed546daeb196f296362d5ded885fad9eeff70584870f645e1204ca94a",
+      "mainElfDriveId": "1GjTxJePTbu7U-2QRu9xLtnvwvnENQxQU",
+      "mainElfSha256": "e99b1aa67ec729053d847adb3621d63e4f2ced570826b8b923531378752b8ebf"
+    },
+    "steamWindows": {
+      "gameVersion": "1.25.3",
+      "fullVersion": "releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22",
+      "profileSchema": 626,
+      "rawFolderDriveId": "1UO5G0Ni9JY2u4h1Wt5YZ3uiQp66Br8jr",
+      "fullVersionDriveId": "1gRtYsEmeUi0G0vj4rifGDBTeRb4UhWN9",
+      "gameAssemblyDriveId": "1NTrBAoXIMPsuxjVO4OZNXnL0-SI9HU2U",
+      "gameAssemblySha256": "66644cf655e158086f83ffd654222ecfb5744c08423a644d3c0edc3244d66e4c"
+    }
+  },
+  "baseline": {
+    "switch": {
+      "gameVersion": "1.25.0",
+      "buildId": "52BD625D9B4E0053",
+      "profileSchema": 624,
+      "dumpCsDriveId": "13nyviL_uZ9w-Op_9VhJsdpe0Ho4l2cdj",
+      "dumpCsSha256": "a94ae73d522f160d21255b195b4d834bf5c79db59ddbd8cdfc32e54c6e0671f0"
+    },
+    "steamWindows": {
+      "gameVersion": "1.25.0",
+      "profileSchema": 624,
+      "dumpCsDriveId": "1hU6xRnr0ehmNZveuXiYdOYOcZN0b1LRu",
+      "dumpCsSha256": "2cf3629aac90d15a36a399af7e4735a3bae4251c8732232f951815c2ac14b86f"
+    }
+  },
+  "upstream": {
+    "artifactDriveId": "1K_ssDTCit7gLZhrXSFaSjj-VZoy8Ew8g",
+    "artifactSha256": "5c498b44b3ce90fbf1813da4384f1a59b265f51e3c0d95d3065be5768a02d2e3"
+  },
+  "staticEvidence": {
+    "il2cppMetadataFormat": {
+      "value": 31,
+      "classification": "CONFIRMED"
+    },
+    "profileVersioning": {
+      "from": 624,
+      "to": 626,
+      "classification": "CONFIRMED"
+    },
+    "generatedProtobufModel": {
+      "classification": "CONFIRMED",
+      "method": "normalize all dump.cs types implementing IMessage<T>, remove address/TypeDefIndex noise, compare same-platform declarations",
+      "switch": {
+        "v1250Count": 2538,
+        "v1253Count": 2538,
+        "added": 0,
+        "removed": 0,
+        "changed": 0,
+        "v1250DumpSha256": "a94ae73d522f160d21255b195b4d834bf5c79db59ddbd8cdfc32e54c6e0671f0",
+        "v1253DumpSha256": "638a5618728e92821ab146d4281e7cc47657785317a065e810a83034c217bf6b"
+      },
+      "steamWindows": {
+        "v1250Count": 2538,
+        "v1253Count": 2538,
+        "added": 0,
+        "removed": 0,
+        "changed": 0,
+        "v1250DumpSha256": "2cf3629aac90d15a36a399af7e4735a3bae4251c8732232f951815c2ac14b86f",
+        "v1253DumpSha256": "08307a26419cbf239c77b7dd0b3fa96036dc514cc46c5d7d5d1cb9780a1cdb05"
+      },
+      "implication": "No added/removed/changed generated protobuf serialized type declaration or field-number declaration was observed across schema 624 -> 626. This does not prove native serializer method-body equivalence or real-save envelope equivalence."
+    },
+    "rootProfileDeclarationHashes": {
+      "classification": "CONFIRMED",
+      "Profile": "3fe0fe20a9e457653b9595b3bccabccef39fccd3cd90bc745f504e39b17c5ff2",
+      "ProfilePlayer": "fc6273e90b9b08f35faee59640bde59ff9cbc1d16f3ff178a1df0cee4f3b9e40",
+      "ProfileWorld": "fb35b3230f0d69fa11c24cedabc3e639cd2c416a792d5f3352dccdb09eac6136",
+      "note": "Hashes are equal on Switch v1.25.0/v1.25.3 and Steam v1.25.0/v1.25.3 after address/TypeDefIndex normalization."
+    },
+    "profileUpdates": {
+      "classification": "CONFIRMED",
+      "v1250SubclassCount": 171,
+      "v1253SubclassCount": 173,
+      "added": [
+        "InvalidPurpleImpatiensFlowerProfileUpdate",
+        "FixRewardsOfVLGLady040ProfileUpdate"
+      ],
+      "removed": [],
+      "switchNativeRegistration": [
+        {
+          "update": "InvalidPurpleImpatiensFlowerProfileUpdate",
+          "version": 624,
+          "evidence": "ProfileUpdater::.ctor RVA 0x5BBEB80; AddUpdate call at 0x5BC1AD0 with w1=624 and MethodInfo global 0x0B2049A8 mapped by script.json"
+        },
+        {
+          "update": "FixRewardsOfVLGLady040ProfileUpdate",
+          "version": 625,
+          "evidence": "ProfileUpdater::.ctor RVA 0x5BBEB80; AddUpdate call at 0x5BC1AE8 with w1=625 and MethodInfo global 0x0B204920 mapped by script.json"
+        }
+      ],
+      "switchApplicationMechanics": {
+        "addUpdateVersionAssignment": "CONFIRMED: ProfileUpdater.AddUpdate<T> RVA 0x37EF2E0 stores versionToApplyUpdate into ProfileUpdate.Version at 0x37EF490.",
+        "ordering": "CONFIRMED: ProfileUpdater constructor materializes OrderedEnumerable<ProfileUpdate,int> with descending=false and key selector x.Version, then ToList.",
+        "eligibility": "CONFIRMED: <TryGetUpdaterToApply>b__11_0 compares update.Version >= ProfileUpdater.ProfileVersion.",
+        "derivedOrder": "A loaded schema 624 profile selects versions 624 then 625; schema 625 selects version 625; schema 626 selects neither new migration."
+      },
+      "steamWindowsNative": {
+        "classification": "HIGH_CONFIDENCE",
+        "evidence": "Steam ProfileUpdater::.ctor RVA 0x49135C0 independently contains consecutive AddUpdate calls with version immediates 624 at 0x4915BB7 and 625 at 0x4915BCE. Exact generic MethodInfo-to-class mapping was not promoted without the oversized Steam script.json mapping artifact; no Switch RVA was transferred to Steam."
+      }
+    },
+    "realSchema626Save": {
+      "classification": "UNKNOWN",
+      "status": "NOT_PROVIDED"
+    }
+  },
+  "compatibilityMatrix": {
+    "p1gCodecStaticParser": {
+      "classification": "HIGH_CONFIDENCE",
+      "result": "SCHEMA_AGNOSTIC_STATIC_PATH",
+      "rationale": "Current P1G codec validates the required GameInfo/Player/World root and records GameInfo.Version; it does not hard-code schema 624. Synthetic schema626 coverage is required in repo tests. Real DDV-produced schema626 P1G acceptance remains runtime pending."
+    },
+    "safeJsonUnknownOpaquePreservation": {
+      "classification": "HIGH_CONFIDENCE",
+      "result": "OFFLINE_READ_ONLY_SEMANTIC_PRESERVATION",
+      "rationale": "Safe JSON parse rejects duplicate keys/unsafe numeric forms and returns the complete object graph. Static model comparison found no protobuf field declaration delta. Real schema626 save preservation remains runtime pending."
+    },
+    "writerRegistry": {
+      "classification": "CONFIRMED",
+      "result": "V1250_ONLY",
+      "rationale": "CURRENT_V125_BUILD_CONTRACTS remains unchanged and contains only exact schema624 v1.25.0 targets. v1.25.3 is intentionally added only to a separate read compatibility registry."
+    },
+    "verifiedReplacementCandidate": {
+      "classification": "CONFIRMED",
+      "authorized": false
+    },
+    "localSaveWriter": {
+      "classification": "CONFIRMED",
+      "authorized": false
+    },
+    "persistentNativeWriting": {
+      "classification": "CONFIRMED",
+      "authorized": false
+    }
+  },
+  "unresolved": [
+    "Real DDV-produced schema626 packaged save is not provided; P1G envelope/decode on a real v1.25.3 save is not runtime accepted.",
+    "Real schema626 unknown/opaque field preservation across decode/no-op inspection is not runtime accepted.",
+    "Native serializer/deserializer method-body semantic equivalence is not claimed from declaration parity.",
+    "No v1.25.3 mutation/encode-copy/writer operation has version-specific runtime acceptance.",
+    "Steam exact generic MethodInfo-to-new-ProfileUpdate mapping remains unpromoted; Steam declaration/model compatibility is independently confirmed and Steam registration version immediates are independently observed."
+  ],
+  "hardFlags": {
+    "persistentWriteAuthorized": false,
+    "WORLD_PERSISTENT_WRITE_V125": false,
+    "PERSISTENT_WRITE": false,
+    "productApplyAuthorized": false,
+    "directSourceReplacementAuthorized": false,
+    "localSaveWriterAuthorized": false
+  }
+}
