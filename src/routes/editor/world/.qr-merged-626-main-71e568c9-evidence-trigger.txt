@@ -1,0 +1,3 @@
+04 QR evidence trigger only. Parent commit: 71e568c9b576c54f8d100fae2ae883c835de7602
+This hidden text file is non-executable and changes no application/test/harness behavior. It exists solely to invoke three path-filtered WEP browser workflows on the exact post-merge code tree. This does NOT claim that workflows executed at literal main commit SHA.
+Issue #127 / 04-QR-MERGED-WEP-SWITCH626-READONLY-ACCEPTANCE-V1.
