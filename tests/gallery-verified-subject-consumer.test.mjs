@@ -43,9 +43,13 @@ test('wrong platform, build, schema, verification and wrong kind cannot be selec
   assert.throws(()=>parseVerifiedSubjectLookup(envelope([{...island,subjectType:'room'}]),'outdoor'),/CATALOG_INVALID/);
 });
 test('wrong ToM Base Item and native nonportable identity rejected',()=>{
-  const tom={...island,galleryKind:'tom_furniture',subjectType:'tom_furniture',baseItemId:41000001};
+  const tom={...island,galleryKind:'tom_furniture',subjectType:'tom_furniture',canonicalTargetId:'41000001',baseItemId:41000001};
   assert.equal(parseVerifiedSubjectLookup(envelope([tom]),'tom_furniture').length,1);
   assert.throws(()=>parseVerifiedSubjectLookup(envelope([{...tom,baseItemId:null}]),'tom_furniture'),/CATALOG_INVALID/);
+  assert.throws(()=>parseVerifiedSubjectLookup(envelope([{...tom,canonicalTargetId:'motif-ID'}]),'tom_furniture'),/CATALOG_INVALID/);
+  assert.throws(()=>parseVerifiedSubjectLookup(envelope([{...tom,baseItemId:51000001}]),'tom_furniture'),/CATALOG_INVALID/);
+  assert.throws(()=>parseVerifiedSubjectLookup(envelope([{...island,subjectType:'biome',canonicalTargetId:'1540000000'}]),'outdoor'),/CATALOG_INVALID/);
+  assert.equal(parseVerifiedSubjectLookup(envelope([{...island,subjectType:'biome',canonicalTargetId:'1540000000:1'}]),'outdoor')[0].canonicalTargetId,'1540000000:1');
   assert.throws(()=>parseVerifiedSubjectLookup(envelope([{...tom,subjectId:'nativeDesign-1'}]),'tom_furniture'),/CATALOG_INVALID/);
   assert.throws(()=>parseVerifiedSubjectLookup(envelope([{...island,baseItemId:100}]),'outdoor'),/CATALOG_INVALID/);
 });
