@@ -38,6 +38,10 @@ jobs:
           test -n "$CHROME_BIN"
           echo "path=$CHROME_BIN" >> "$GITHUB_OUTPUT"
       - name: Start local UI
+        env:
+          # Synthetic public-query browser fixture, NOT real staging credentials.
+          VITE_SUPABASE_URL: https://gallery-lookup-browser.invalid
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_browser_fixture_only
         run: |
           npm run dev -- --host 127.0.0.1 --port 4174 > /tmp/gallery-vite.log 2>&1 &
           for i in $(seq 1 60); do
