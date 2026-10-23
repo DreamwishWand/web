@@ -90,6 +90,15 @@ export function isSelectableSubject(subject,kind,type){
 export function subjectDisplayIdentity(subject){
   return subject.displayName?.trim() || subject.displayIdentity?.trim() || subject.canonicalTargetId;
 }
+/** Two observations of the same UUID are equivalent only if all binding-critical fields match.
+ * Localized names and displayIdentity may legitimately improve without changing provenance.
+ * @param {VerifiedGallerySubject} a @param {VerifiedGallerySubject} b */
+export function sameVerifiedSubjectAuthority(a,b){
+  return !!a&&!!b&&[
+    'subjectId','galleryKind','subjectType','canonicalTargetId','baseItemId',
+    'platform','gameVersion','buildId','profileSchema','evidenceRef','verificationState'
+  ].every(key=>a[key]===b[key]);
+}
 /** @param {VerifiedGallerySubject[]} subjects @param {string} subjectId @param {GalleryKind} kind @param {SubjectType} type */
 export function resolveCurrentSubject(subjects,subjectId,kind,type){
   return subjects.find(s=>s.subjectId===subjectId&&isSelectableSubject(s,kind,type))??null;
