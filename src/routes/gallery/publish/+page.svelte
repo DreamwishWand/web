@@ -5,7 +5,7 @@
   import { locale, ct as t } from '$lib/i18n/community.js';
   import { createCommunityBrowserClient } from '$lib/community/browser-client';
   import PhotoPreview from '$lib/gallery/PhotoPreview.svelte';
-  import { validateGalleryComposition, moveMedia, MAX_IMAGES, assertClassifiedPhotoPublishContract, GALLERY_PUBLICATION_BLOCKER } from '$lib/gallery/stage1.js';
+  import { validateGalleryComposition, validateGalleryImages, moveMedia, MAX_IMAGES, assertClassifiedPhotoPublishContract, GALLERY_PUBLICATION_BLOCKER } from '$lib/gallery/stage1.js';
 
   const client = createCommunityBrowserClient();
   type MediaSelection = { id: string; file: File; url: string };
@@ -35,7 +35,7 @@
   $: firstStageValid = Boolean(kind) && Boolean(targetName.trim()) &&
     (kind === 'outdoor' ? ['biome','floating_island'].includes(targetType) :
     kind === 'indoor' ? targetType === 'room' : /^\d+$/.test(baseItemId.trim()));
-  $: mediaValid = images.length >= 1 && images.length <= MAX_IMAGES && Boolean(title.trim()) && title.trim().length <= 240 && description.length <= 20000;
+  $: mediaValid = validateGalleryImages(images.map(item=>item.file)) === null && Boolean(title.trim()) && title.trim().length <= 240 && description.length <= 20000;
   $: kindLabel = kind === 'outdoor' ? t('gallery.kind.outdoor',{},$locale) : kind === 'indoor' ? t('gallery.kind.indoor',{},$locale) : kind === 'tom_furniture' ? t('gallery.kind.tomFurniture',{},$locale) : t('gallery.kind.tomClothing',{},$locale);
 
   async function run<T>(fn: () => Promise<T>): Promise<T | null> {
@@ -68,15 +68,14 @@
   function chooseFiles(event: Event) {
     const selected = Array.from((event.currentTarget as HTMLInputElement).files ?? []);
     if (!selected.length) return;
-    if (selected.length + images.length > MAX_IMAGES || selected.some(f=>!['image/jpeg','image/png','image/webp'].includes(f.type)||f.size<=0)) {
-      error = t('galleryv1.imagesHelp',{},$locale);
+    // Validate the entire prospective selection before allocating any blob URL.
+    // In particular, reject duplicate files selected together (not only duplicates
+    // of files that were already in the composer).
+    const issue = validateGalleryImages([...images.map(item=>item.file), ...selected]);
+    if (issue) {
+      error = issue === 'duplicate' ? t('galleryv1.formInvalid',{},$locale) : t('galleryv1.imagesHelp',{},$locale);
       (event.currentTarget as HTMLInputElement).value = '';
       return;
-    }
-    const existing = new Set(images.map(x=>[x.file.name,x.file.size,x.file.lastModified].join(':')));
-    if (selected.some(f=>existing.has([f.name,f.size,f.lastModified].join(':')))) {
-      error = t('galleryv1.formInvalid',{},$locale);
-      (event.currentTarget as HTMLInputElement).value = ''; return;
     }
     images = [...images,...selected.map(file=>({ id: crypto.randomUUID(), file, url: URL.createObjectURL(file) }))];
     (event.currentTarget as HTMLInputElement).value = '';
