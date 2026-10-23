@@ -179,20 +179,29 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       }
 
       const storageKey = `${subject}/${crypto.randomUUID()}.${ext}`;
-      const { data, error } = await ctx.supabaseAdmin.storage
-        .from(BUCKET)
-        .createSignedUploadUrl(storageKey);
-
-      if (error || !data) {
-        return reply({ ok: false, error: 'UPLOAD_PREPARE_FAILED', message: error?.message }, 400);
-      }
-
       if (action === 'galleryPrepare') {
+        // Create journal FIRST. A failed journal must NEVER leave an
+        // untracked valid 2-hour upload token.
         const { error: intentError } = await ctx.supabaseAdmin.rpc('community_gallery_media_intent_open_v1', {
           p_auth_subject: subject, p_storage_key: storageKey,
           p_mime_type: mimeType, p_expected_bytes: byteSize
         });
         if (intentError) return reply({ ok: false, error: 'GALLERY_UPLOAD_INTENT_FAILED' }, 400);
+      }
+      const { data, error } = await ctx.supabaseAdmin.storage
+        .from(BUCKET)
+        .createSignedUploadUrl(storageKey);
+
+      if (error || !data) {
+        if (action === 'galleryPrepare') {
+          // Keep the aborted intent for the unattended Retention Worker.
+          const { error: abortError } = await ctx.supabaseAdmin.rpc(
+            'community_gallery_media_intent_cancel_v1',
+            {p_auth_subject:subject,p_storage_key:storageKey}
+          );
+          if (abortError) return reply({ok:false,error:'GALLERY_UPLOAD_PREPARE_ABORT_REQUIRES_RETRY'},503);
+        }
+        return reply({ ok: false, error: 'UPLOAD_PREPARE_FAILED' }, 400);
       }
       return reply({
         ok: true,
@@ -298,25 +307,13 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         if (error) return reply({ok:false,error:'GALLERY_UPLOAD_CANCEL_FORBIDDEN'},409);
         return reply({ok:true,action,data});
       }
-      const {error: probeError} = await ctx.supabaseAdmin.rpc(
-        'community_gallery_media_intent_cleanup_probe_v1',{
-          p_auth_subject:subject,p_storage_key:storageKey
-        });
-      if (probeError) return reply({ok:false,error:'GALLERY_UPLOAD_CLEANUP_NOT_DUE'},409);
-      const {error: removeError} = await ctx.supabaseAdmin.storage.from(BUCKET).remove([storageKey]);
-      if (removeError) {
-        // Retried cleanup may find that the previous Storage remove succeeded
-        // but DB finalize failed. Only confirmed 404 missing-object may proceed.
-        const {error: infoError} = await ctx.supabaseAdmin.storage.from(BUCKET).info(storageKey);
-        if (Number(infoError?.status) !== 404) {
-          return reply({ok:false,error:'GALLERY_UPLOAD_STORAGE_CLEANUP_RETRY'},503);
-        }
-      }
+      // The existing Community Retention Worker owns physical deletion;
+      // owner action is an idempotent queue/retry request only.
       const {data,error} = await ctx.supabaseAdmin.rpc(
-        'community_gallery_media_intent_cleanup_finish_v1',{
+        'community_gallery_media_intent_enqueue_cleanup_v1',{
           p_auth_subject:subject,p_storage_key:storageKey
         });
-      if (error) return reply({ok:false,error:'GALLERY_UPLOAD_DB_CLEANUP_RETRY'},503);
+      if (error) return reply({ok:false,error:'GALLERY_UPLOAD_CLEANUP_NOT_DUE'},409);
       return reply({ok:true,action,data});
     }
 
