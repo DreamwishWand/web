@@ -182,6 +182,38 @@ create trigger community_media_lock_ready_gallery_link
  execute function private.community_media_lock_ready_gallery_link_v1();
 
 
+-- Service-only owner Media list for the existing publishGalleryPhoto Edge.
+-- READ ONLY: returns owner/READY/CLEAR keys and sizes, not external Storage tokens.
+create or replace function public.community_gallery_photo_owned_media_manifest_v1(
+ p_auth_subject uuid,p_media_ids uuid[])
+returns jsonb language plpgsql stable security definer
+set search_path=pg_catalog,public,private as $$
+declare v_account uuid;v_count integer;v_result jsonb;
+begin
+ v_account:=private.resolve_active_account(p_auth_subject);
+ if coalesce(cardinality(p_media_ids),0) not between 1 and 10
+ or exists(select 1 from unnest(p_media_ids) t where t is null)
+ or (select count(distinct t) from unnest(p_media_ids) t)<>cardinality(p_media_ids)
+ then raise exception 'GALLERY_MEDIA_SELECTION_INVALID'; end if;
+ select count(*),coalesce(jsonb_agg(jsonb_build_object(
+  'mediaId',m.media_id,'storageKey',m.storage_key,'byteSize',m.byte_size,
+  'mimeType',m.mime_type,'checksumSha256',m.checksum_sha256) order by x.ordinal),'[]'::jsonb)
+ into v_count,v_result from unnest(p_media_ids) with ordinality x(mid,ordinal)
+ join public.media_assets m on m.media_id=x.mid
+ where m.owner_account_id=v_account and m.processing_state='ready'
+ and m.moderation_state='clear' and m.purged_at is null
+ and m.mime_type in ('image/jpeg','image/png','image/webp')
+ and m.byte_size between 1 and 20971520 and m.width>0 and m.height>0;
+ if v_count<>cardinality(p_media_ids) then
+   raise exception 'GALLERY_MEDIA_NOT_READY_OR_NOT_OWNED';
+ end if;
+ return jsonb_build_object('items',v_result,'count',v_count);
+end $$;
+revoke all on function public.community_gallery_photo_owned_media_manifest_v1(uuid,uuid[])
+ from public,anon,authenticated;
+grant execute on function public.community_gallery_photo_owned_media_manifest_v1(uuid,uuid[])
+ to service_role;
+
 -- Cleanup must execute AFTER the signed upload token has expired and a grace
 -- period has elapsed. Can be retried following an Storage remove failure.
 create or replace function public.community_gallery_media_intent_cleanup_probe_v1(
