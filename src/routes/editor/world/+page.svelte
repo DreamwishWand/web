@@ -24,7 +24,8 @@
     projectObjects,
     reconcileSelectionToProjection
   } from '$lib/wep/canvas-runtime';
-  import { openWorldSaveBytes } from '$lib/wep/world-save-source';
+  import { openWorldSaveBytes, WEP_WORLD_READONLY_626_PROVENANCE } from '$lib/wep/world-save-source';
+  import { worldReadonlyCopy } from '$lib/wep/world-readonly-copy.js';
   import {
     createOriginalSaveBackup
   } from '$lib/wep/local-save-backup';
@@ -167,6 +168,8 @@
   let published: any = null;
   let loading = false;
   let sourcePlatform = 'unknown';
+  let sourceBuildId = '';
+  let sourceProvenanceConfirmed = false;
   let switchWorldBinding: any = null;
   let fullDesignPlan: any = null;
   let fullDesignPlanError = '';
@@ -282,6 +285,7 @@
   $: selectedCount = selection.length;
   $: objectCount = editorDocument?.objects?.length ?? 0;
   $: stage1Copy = worldEditorStage1Copy($locale);
+  $: readonly626Copy = worldReadonlyCopy($locale);
   $: roomFinishUi = roomFinishCopy($locale);
   $: roomFinishContextActive =
     editorDocument?.target?.kind === 'PLAYER_HOUSE_ROOM';
@@ -2004,6 +2008,9 @@
         new Uint8Array(await file.arrayBuffer()),
         { sourcePlatform: 'switch' }
       );
+      if (!opened.compatibility.routesAuthorized || opened.profileSchemaVersion !== 624) {
+        throw new Error('WEP_FULL_DESIGN_DESTINATION_V125_ONLY');
+      }
       if (opened.saveIdentity.sourcePlatform !== 'switch') {
         throw new Error('FULL_DESIGN_DESTINATION_SWITCH_SOURCE_REQUIRED');
       }
@@ -2328,13 +2335,17 @@
             : t('worldEditor.open.editorDocumentRealLoaded', {}, $locale);
       } else {
         const opened = await openWorldSaveBytes(bytes, {
-          sourcePlatform
+          sourcePlatform,
+          targetBuild: sourcePlatform === 'switch' ? {
+            platform: 'switch', kind: 'switch-bid', value: sourceBuildId.trim().toUpperCase()
+          } : null,
+          sourceEvidence: sourceProvenanceConfirmed ? WEP_WORLD_READONLY_626_PROVENANCE : null
         });
         originalSaveBackup = createOriginalSaveBackup({
           bytes,
           sourceName: file.name
         });
-        if (opened.saveIdentity.sourcePlatform === 'switch') {
+        if (opened.compatibility.routesAuthorized && opened.saveIdentity.sourcePlatform === 'switch') {
           buildingV110Binding ??=
             await createSwitchV125BuildingBinding({
               basePath: base
@@ -2371,16 +2382,16 @@
         copiedDraftClipboard = null;
         clipboardPasteCount = 0;
 
-        setActiveWorldEditorMemory({
-          sourceFingerprint: fingerprint,
-          sourceBytes: bytes,
-          worldSource: opened,
-          originalSaveBackup
-        });
+        if (opened.compatibility.routesAuthorized) {
+          setActiveWorldEditorMemory({
+            sourceFingerprint: fingerprint, sourceBytes: bytes, worldSource: opened, originalSaveBackup
+          });
+        }
 
         refreshRoomFinishRoutes();
 
         if (recoveryRequest) {
+          if (!opened.compatibility.routesAuthorized) throw new Error('WEP_WORLD_626_RECOVERY_NOT_AUTHORIZED');
           if (fingerprint !== recoveryRequest.sourceFingerprint) {
             throw new Error('WEP_RECOVERY_SOURCE_FINGERPRINT_MISMATCH');
           }
@@ -2405,6 +2416,8 @@
             originalSaveBackup,
             activeDraftRecord: null
           });
+        } else if (opened.compatibility.readOnly) {
+          message = readonly626Copy.viewing;
         } else {
           message = t(
             'worldEditor.open.saveLoaded',
@@ -2440,7 +2453,11 @@
     originalSaveBackup = null;
     copiedDraftClipboard = null;
     clipboardPasteCount = 0;
-      message = error instanceof Error ? error.message : String(error);
+      const errorCode = error instanceof Error ? error.message : String(error);
+      message = errorCode.startsWith('WEP_WORLD_626_EXTERNAL_SOURCE_VERIFICATION')
+        ? readonly626Copy.source + ' — ' + readonly626Copy.retry
+        : errorCode.startsWith('WEP_WORLD_626_READ_CONTRACT') || errorCode === 'WEP_WORLD_PROFILE_SCHEMA_UNSUPPORTED' || errorCode === 'WEP_WORLD_626_PACKAGED_SOURCE_REQUIRED'
+          ? readonly626Copy.unsupported + ' — ' + errorCode : errorCode;
     } finally {
       loading = false;
       input.value = '';
@@ -2525,6 +2542,10 @@
 
   async function openSaveGridInCanvas(area: any, rootGridId: number) {
     if (!worldSource) return;
+    if (!worldSource.compatibility?.routesAuthorized || Number(worldSource.profileSchemaVersion) !== 624) {
+      message = readonly626Copy.editing;
+      return;
+    }
 
     if (worldSource.saveIdentity.sourcePlatform !== 'switch') {
       message = t('worldEditor.open.switchOnlyProjection', {}, $locale);
@@ -2712,7 +2733,10 @@
     verifiedExportErrorDetail = '';
     verifiedExportConfirmed = false;
     if (!worldSource) return;
-
+    if (!worldSource.compatibility?.routesAuthorized || Number(worldSource.profileSchemaVersion) !== 624) {
+      message = readonly626Copy.editing;
+      return;
+    }
     if (worldSource.saveIdentity.sourcePlatform !== 'switch') {
       message = t('worldEditor.open.switchOnlyProjection', {}, $locale);
       return;
@@ -3818,6 +3842,17 @@
           <option value="steam-windows">{t('worldEditor.open.steamWindows', {}, $locale)}</option>
         </select>
       </label>
+      {#if sourcePlatform === 'switch'}
+        <label class="platform-select" data-wep-626-bid>
+          <span>{readonly626Copy.build}</span>
+          <input type="text" bind:value={sourceBuildId} maxlength="16" autocomplete="off" spellcheck="false" placeholder="9A239D3DB569756D" disabled={loading} style="max-width:100%;box-sizing:border-box" />
+        </label>
+        <label class="wep-626-provenance" data-wep-626-provenance>
+          <input type="checkbox" bind:checked={sourceProvenanceConfirmed} disabled={loading} />
+          <span>{readonly626Copy.proof}</span>
+        </label>
+        <small class="wep-626-hint">{readonly626Copy.proofHint}</small>
+      {/if}
       <label class="file-button">
         <input
           bind:this={saveFileInput}
@@ -3860,7 +3895,7 @@
     <div class="status" aria-live="polite">{message}</div>
   {/if}
 
-  {#if pendingWorldEditorHandoff && !editorDocument}
+  {#if pendingWorldEditorHandoff && !editorDocument && !worldSource}
     <section class="pre-source-stage1" data-wep-pre-source-stage1>
       <WorldEditorStage1DecoratePanel
         {session}
@@ -5846,11 +5881,28 @@
       <div class="save-contract">
         <strong>{t('worldEditor.routes.readContractOnly', {}, $locale)}</strong>
         <span>
-          current-v1.25 schema 624 / exactBuildKnown=false /
+          {worldSource.compatibility.readContract} /
+          exactBuildKnown={String(worldSource.compatibility.exactBuildKnown)} /
           persistentWriteAuthorized=false
         </span>
       </div>
 
+      {#if worldSource.compatibility.readOnly}
+        <section class="room-finish-route-section" data-wep-626-readonly role="status" aria-live="polite" style="min-width:0;overflow-wrap:anywhere">
+          <h3>{readonly626Copy.viewing} · v{worldSource.compatibility.gameVersion} / schema {worldSource.profileSchemaVersion}</h3>
+          <p><strong>{readonly626Copy.editing}</strong></p>
+          <p>{readonly626Copy.boundary}</p>
+          <h4>{readonly626Copy.diagnostic}</h4>
+          <dl>
+            <div><dt>{readonly626Copy.village}</dt><dd>{worldSource.structuralDiagnostics?.villageCount ?? '—'}</dd></div>
+            <div><dt>{readonly626Copy.area}</dt><dd>{worldSource.structuralDiagnostics?.areaRecordCount ?? '—'}</dd></div>
+            <div><dt>{readonly626Copy.grids}</dt><dd>{worldSource.structuralDiagnostics?.gridRecordCount ?? '—'}</dd></div>
+          </dl>
+          {#each worldSource.structuralDiagnostics?.notes ?? [] as note}
+            <p><code>{note}</code></p>
+          {/each}
+        </section>
+      {:else}
       {#if roomFinishRoutes.length || roomFinishDiagnostics.length}
         <section class="room-finish-route-section" data-wep-room-finish-routes>
           <div class="room-finish-route-heading">
@@ -6051,6 +6103,7 @@
       </div>
 
       <p class="projection-boundary">{t('worldEditor.floating.projectionBoundary', {}, $locale)}</p>
+      {/if}
     </section>
   {:else}
     <div class="empty-world">
