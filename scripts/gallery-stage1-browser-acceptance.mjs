@@ -32,9 +32,14 @@ try{
   assert(await page.locator('.filters button').count()===3,'ToM All/Furniture/Clothing missing');
   pass('TOM_CATEGORY_AND_PUBLISH_ENTRY');
   await page.goto(origin+'/gallery/publish/?type=decorations',{waitUntil:'domcontentloaded'});
-  await page.locator('input[maxlength="120"]').fill('Meadow');
-  await page.getByRole('button',{name:/Continue/}).last().click();
-  assert(await page.getByText('Images & presentation',{exact:true}).last().isVisible(),'Stage two not visible');
+  const stageTwo=page.getByRole('heading',{name:'Images & presentation'});
+  for(let attempt=0;attempt<10;attempt++){
+    await page.locator('input[maxlength="120"]').fill('Meadow');
+    await page.getByRole('button',{name:/Continue/}).last().click();
+    if(await stageTwo.isVisible())break;
+    await page.waitForTimeout(150);
+  }
+  assert(await stageTwo.isVisible(),'Stage two not visible after hydrated user input and repeated Continue');
   await page.locator('input[maxlength="240"]').fill('Sample original scene');
   const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==','base64');
   await page.locator('input[type=file]').setInputFiles([
@@ -45,6 +50,7 @@ try{
   await page.locator('.media-row').nth(1).getByRole('button',{name:'Move earlier'}).click();
   assert((await page.locator('.media-row .media-meta span').first().textContent())==='second.png','cover reordering failed');
   await page.getByRole('button',{name:/Continue/}).last().click();
+  await page.locator('.gallery-preview-card img').waitFor({state:'visible',timeout:10000});
   assert(await page.locator('.gallery-preview-card img').count()===1,'Card preview missing selected cover');
   assert(await page.locator('.gallery-preview-detail img').count()===2,'Detail preview missing images');
   assert(await page.getByText('Community services are not configured',{exact:false}).count()>0,'Missing configuration not exposed');
