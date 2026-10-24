@@ -328,6 +328,99 @@ def test_missing_preset_work_lifecycle_writer_fence(a,b):
     assert one(a,"SELECT lifecycle_state,row_version FROM public.community_works WHERE work_id=%s",(PW,))==original
     assert one(a,"SELECT lifecycle_state,row_version FROM public.community_works WHERE work_id=%s",(G,))==before_gallery
 
+
+def test_candidate_lifecycle_shared_lock_guard(a,b):
+    """Candidate explicit envelope: PresetArtifact -> PresetWork -> GalleryWork.
+
+    This is NOT a deployed RPC or generic trigger. Stage A holds the Gallery
+    lock while B attempts an artifact-first lifecycle writer: no mutation may
+    commit before release. Then B retries the ENTIRE transaction after release.
+    """
+    before=one(a,"SELECT lifecycle_state,row_version FROM public.community_works WHERE work_id=%s",(PW,))
+    gallery_before=one(a,"SELECT lifecycle_state,row_version FROM public.community_works WHERE work_id=%s",(G,))
+    apid=one(a,"SELECT pg_backend_pid()")[0]
+    bpid=one(b,"SELECT pg_backend_pid()")[0]
+    entered=threading.Event(); finished=threading.Event(); observed={}
+    assert apid!=bpid
+    a.execute("BEGIN")
+    try:
+        assert one(a,"SELECT work_id FROM public.community_works WHERE work_id=%s FOR UPDATE",(G,))==(G,)
+        def contender():
+            try:
+                b.execute("BEGIN")
+                b.execute("SET LOCAL lock_timeout='1600ms'")
+                # Discover the relationship without taking target row locks.
+                assert one(b,"SELECT associated_gallery_work_id FROM public.preset_artifacts WHERE preset_artifact_id=%s",(P,))==(G,)
+                assert one(b,"SELECT preset_artifact_id FROM public.preset_artifacts WHERE preset_artifact_id=%s FOR UPDATE",(P,))==(P,)
+                assert one(b,"SELECT work_id FROM public.community_works WHERE work_id=%s FOR UPDATE",(PW,))==(PW,)
+                entered.set()
+                try:
+                    assert one(b,"SELECT work_id FROM public.community_works WHERE work_id=%s FOR UPDATE",(G,))==(G,)
+                    b.execute("UPDATE public.community_works SET lifecycle_state='unpublished' WHERE work_id=%s",(PW,))
+                    observed["prematureCommit"]=True
+                except psycopg.Error as e:
+                    observed["sqlstate"]=e.sqlstate
+            except Exception as e:
+                observed["unexpected"]=repr(e)
+            finally:
+                b.execute("ROLLBACK")
+                finished.set()
+        t=threading.Thread(target=contender,daemon=True)
+        t.start()
+        assert entered.wait(4),"CANDIDATE_WRITER_NOT_ENTERED"
+        was_blocked=False
+        deadline=time.monotonic()+2.5
+        while time.monotonic()<deadline and not finished.is_set():
+            pids=one(a,"SELECT pg_blocking_pids(%s)",(bpid,))[0]
+            if apid in (pids or []):
+                was_blocked=True
+                break
+            time.sleep(.02)
+        assert finished.wait(5),"CANDIDATE_WRITER_DID_NOT_TIMEOUT"
+        t.join(1)
+        assert observed=={"sqlstate":"55P03"},observed
+        assert was_blocked,"CANDIDATE_WRITER_NO_ACTUAL_GALLERY_WAIT"
+        assert one(a,"SELECT lifecycle_state,row_version FROM public.community_works WHERE work_id=%s",(PW,))==before
+        print(json.dumps({"case":"candidate-lifecycle-enrolled-while-gallery-locked",
+            "holderPid":apid,"writerPid":bpid,"actualGalleryBlockingObserved":was_blocked,
+            "sqlstate":"55P03","presetStatusUnaffected":True,
+            "candidateDeployed":False,"positiveRetirementAuthorized":False}))
+    finally:
+        a.execute("ROLLBACK")
+    # New transaction. The old locked graph and any previous auth must not be reused.
+    b.execute("BEGIN")
+    try:
+        b.execute("SET LOCAL lock_timeout='3s'")
+        assert one(b,"SELECT associated_gallery_work_id FROM public.preset_artifacts WHERE preset_artifact_id=%s",(P,))==(G,)
+        assert one(b,"SELECT preset_artifact_id FROM public.preset_artifacts WHERE preset_artifact_id=%s FOR UPDATE",(P,))==(P,)
+        assert one(b,"SELECT work_id FROM public.community_works WHERE work_id=%s FOR UPDATE",(PW,))==(PW,)
+        assert one(b,"SELECT work_id FROM public.community_works WHERE work_id=%s FOR UPDATE",(G,))==(G,)
+        assert one(b,"SELECT lifecycle_state,row_version FROM public.community_works WHERE work_id=%s",(PW,))==before
+        assert one(b,"SELECT lifecycle_state,row_version FROM public.community_works WHERE work_id=%s",(G,))==gallery_before
+        with b.cursor() as cur:
+            cur.execute("UPDATE public.community_works SET lifecycle_state='unpublished' WHERE work_id=%s",(PW,))
+            assert cur.rowcount==1
+        b.execute("COMMIT")
+    except:
+        b.execute("ROLLBACK")
+        raise
+    assert one(a,"SELECT lifecycle_state FROM public.community_works WHERE work_id=%s",(PW,))==("unpublished",)
+    assert one(a,"SELECT lifecycle_state,row_version FROM public.community_works WHERE work_id=%s",(G,))==gallery_before
+    # Isolated-only fixture restoration, never remote user Work.
+    b.execute("BEGIN")
+    try:
+        b.execute("UPDATE public.community_works SET lifecycle_state=%s,row_version=%s WHERE work_id=%s",(before[0],before[1],PW))
+        b.execute("COMMIT")
+    except:
+        b.execute("ROLLBACK")
+        raise
+    assert one(a,"SELECT lifecycle_state,row_version FROM public.community_works WHERE work_id=%s",(PW,))==before
+    print(json.dumps({"case":"candidate-lifecycle-whole-transaction-retry",
+        "retryAfterHolderReleaseCommittedInDisposableFixture":True,
+        "fixtureRestored":True,"deployedRpcRetryProven":False,
+        "allWriterEnrollmentProven":False,"graphComplete":False,
+        "retirementAuthorized":False}))
+
 def main():
     assert os.getenv("DDVRE_EPHEMERAL_GITHUB_PG")=="CONFIRMED"
     url=os.environ["DDVRE_EPHEMERAL_POSTGRES_DSN"]
@@ -385,6 +478,7 @@ def main():
         test_consistent_artifact_preset_gallery_order(a,b)
         test_bounded_clean_transaction_replay(a)
         test_missing_preset_work_lifecycle_writer_fence(a,b)
+        test_candidate_lifecycle_shared_lock_guard(a,b)
     print(json.dumps({"result":"ISOLATED_KNOWN_WRITER_FENCE_CONCURRENCY_PASS",
         "realPostgreSQLSessions":True,"verifiedTriggerPaths":3,"stagingAcceptance":False,
         "allWriterCoverage":False,"graphComplete":False,"retirementAuthorized":False}))
