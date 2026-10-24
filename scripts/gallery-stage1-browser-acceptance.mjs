@@ -362,6 +362,12 @@ try{
   cloudScenario='inconsistent';
   await retryCloud.click();
   await page.locator('.cloud-preservation-readiness [role=alert]').waitFor({state:'visible',timeout:10000});
+  cloudScenario='forbidden';
+  await retryCloud.focus();
+  await page.keyboard.press('Enter');
+  await page.locator('.gallery-retirement-preflight [role=alert]').waitFor({state:'visible',timeout:10000});
+  assert(await cloudPanel.count()===0,'nonowner Cloud manifest still displayed');
+  pass('SYNTHETIC_CLOUD_WRONG_OWNER_KEYBOARD_RETRY_FAIL_CLOSED');
   cloudScenario='valid';
   await retryCloud.click();
   await cloudPanel.locator('dl').waitFor({state:'visible',timeout:10000});
