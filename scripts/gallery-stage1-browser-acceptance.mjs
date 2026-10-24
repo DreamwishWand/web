@@ -299,9 +299,9 @@ try{
   await page.goto(origin+'/gallery/my/',{waitUntil:'domcontentloaded'});
   await page.locator('.my-card .overflow-menu summary').first().waitFor({state:'visible',timeout:10000});
   await page.locator('.my-card .overflow-menu summary').first().click();
-  await page.locator('.my-card .overflow-menu button').filter({hasText:'Edit Presentation'}).first().click();
+  await page.locator('.my-card .overflow-menu button').nth(1).click();
   await page.locator('.gallery-retirement-preflight').waitFor({state:'visible',timeout:10000});
-  const ownerButton=page.locator('.owner-panel button').filter({hasText:'Preview'}).first();
+  const ownerButton=page.locator('.owner-panel .blocked-actions button:not([disabled])').first();
   await ownerButton.click();
   const ownerImage=page.locator('.owner-media-read img').first();
   await ownerImage.waitFor({state:'visible',timeout:10000});
