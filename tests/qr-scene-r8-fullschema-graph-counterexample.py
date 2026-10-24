@@ -1,5 +1,5 @@
 # 04 QR R11 refreshed acceptance adapted from independent 09 INT exact source 9e1e714fa495aadfdf5b8190866150aa34d34ced.
-# RUN AGAINST 03 COMM PR134 LATEST d2e4576830bb7e37e4f7981c5777912e7b3be85c; local PG only.
+# RUN AGAINST 03 COMM PR134 LATEST 83654e7517a151bf34e24089a5c0a07ca1e6a89d; local PG only.
 #!/usr/bin/env python3
 """09 INT R8: actual 03 COMM inert paired Scene RPC concurrency on an isolated FULL
 113-migration local Supabase database. Strictly NO remote/staging/production DSN.
@@ -117,6 +117,7 @@ def fixture(c):
         c.execute("ROLLBACK")
         raise
     g["auth"]=auth
+    g["creator"]=creator
     g["expectedHistoricalEdgeSha256"]=historical_edge_hash(c,g)
     return g
 
@@ -139,12 +140,13 @@ def snapshot(c,g):
 
 def invoke(c,g,expected_edge_sha256=None):
     return one(c,"""select private.scene_save_revision_paired_candidate_v1(
-      %s,%s,%s,%s,%s,%s,%s::uuid[],%s,%s,%s,%s::jsonb,%s,%s)""",
+      %s,%s,%s,%s,%s,%s,%s::uuid[],%s,%s,%s,%s::jsonb,%s,%s,%s,%s,%s,%s,%s)""",
       (g["auth"],g["artifact"],g["presetRev"],g["presetVersion"],g["galleryVersion"],
        g["newBlob"],[g["oldMedia"],g["newMedia"]],g["newMedia"],
-       "R8 Linked Scene V2","R8 disposable regression",
-       json.dumps({"r8":"isolated-full-schema"}),"r8-paired-"+str(g["artifact"]),
-       expected_edge_sha256 or g["expectedHistoricalEdgeSha256"]))[0]
+       "R11 Linked Scene V2","R11 local-only regression",
+       json.dumps({"r11":"isolated-current-fullschema"}),"r11-paired-"+str(g["artifact"]),
+       expected_edge_sha256 or g["expectedHistoricalEdgeSha256"],
+       g["galleryWork"],g["galleryRev"],g["creator"],'e'*64,512))[0]
 
 def concurrent(url,g):
     with psycopg.connect(url,autocommit=True) as a, psycopg.connect(url,autocommit=True) as b:
@@ -556,7 +558,7 @@ def concurrent_other_known_reference_writers(url,g):
                 b.execute("ROLLBACK")
             assert historical_edge_hash(a,g)==before_digest
         print(json.dumps({"result":"R11_ALL_THREE_KNOWN_REFERENCE_TRIGGER_LOCKS_LOCAL_PASS",
-            "schemaSource":"03COMM_PR134_QR_LATEST_D2E45768",
+            "schemaSource":"03COMM_PR134_QR_LATEST_83654E75",
             "allWriterGraphComplete":False,"retirementAuthorized":False}))
 
 
