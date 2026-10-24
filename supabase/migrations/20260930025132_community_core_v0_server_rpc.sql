@@ -27,7 +27,7 @@ begin
   end if;
   return v_account_id;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.community_add_comment(p_auth_subject uuid, p_creator_profile_id uuid, p_target_entity_id uuid, p_parent_comment_id uuid, p_body text, p_idempotency_key text)
@@ -88,7 +88,7 @@ begin
   where account_id=v_account_id and idempotency_key=p_idempotency_key;
   return v_response;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.community_add_reaction(p_auth_subject uuid, p_target_entity_id uuid, p_reaction_kind text)
@@ -120,7 +120,7 @@ begin
   end if;
   return jsonb_build_object('targetEntityId',p_target_entity_id,'reactionKind',p_reaction_kind);
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.community_create_gallery_draft(p_auth_subject uuid, p_creator_profile_id uuid, p_visibility text, p_gallery_kind text, p_idempotency_key text)
@@ -191,7 +191,7 @@ begin
   where account_id=v_account_id and idempotency_key=p_idempotency_key;
   return v_response;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.community_ensure_account_creator(p_auth_subject uuid, p_handle text, p_display_name text)
@@ -243,7 +243,7 @@ begin
     'creatorProfileId',v_creator_id
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.community_follow_creator(p_auth_subject uuid, p_creator_profile_id uuid)
@@ -277,7 +277,7 @@ begin
   end if;
   return jsonb_build_object('creatorProfileId',p_creator_profile_id,'following',true);
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.community_moderate_work(p_auth_subject uuid, p_case_id uuid, p_action text, p_reason text)
@@ -356,7 +356,7 @@ begin
 
   return jsonb_build_object('workId',v_target,'actionId',v_action_id,'moderationState',v_next);
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.community_publish_gallery(p_auth_subject uuid, p_work_id uuid, p_expected_version bigint, p_title text, p_description text, p_idempotency_key text)
@@ -461,7 +461,7 @@ begin
   where account_id=v_account_id and idempotency_key=p_idempotency_key;
   return v_response;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.community_report_entity(p_auth_subject uuid, p_target_entity_id uuid, p_reason_code text, p_detail text, p_idempotency_key text)
@@ -523,7 +523,7 @@ begin
   where account_id=v_account_id and idempotency_key=p_idempotency_key;
   return v_response;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.community_save_entity(p_auth_subject uuid, p_target_entity_id uuid)
@@ -544,7 +544,7 @@ begin
   on conflict do nothing;
   return jsonb_build_object('targetEntityId',p_target_entity_id,'saved',true);
 end;
-$function$
+$function$;
 
 
 
