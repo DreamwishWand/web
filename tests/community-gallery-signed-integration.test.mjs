@@ -80,7 +80,7 @@ test('Edge contract matches runner: owner JWT binary, public checksum and signed
  assert.match(publicMedia,/no-store/);
 });
 test('real runner source-pinning was updated to the inspected synchronized backend',()=>{
- assert.equal(BACKEND_SHA,'6bb2fe8fa7e78c5254800a8f59abf7cd02deeefb');
+ assert.equal(BACKEND_SHA,'02750fcbcfd3f94fc12b39c8adf5757fa24a5646');
  const workflow=read('.github/workflows/community-public-browser-acceptance.yml');
  assert.match(workflow,/signed_gallery/);
  assert.match(workflow,/environment: staging-gallery-signed-acceptance/);
