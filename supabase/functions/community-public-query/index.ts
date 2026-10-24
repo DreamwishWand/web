@@ -7,6 +7,7 @@ const ALLOWED = new Set([
   'community_get_creator_public_v1',
   'community_get_gallery_public_v1',
   'community_get_gallery_photo_public_v1',
+  'community_get_scene_preset_public_v1',
   'community_list_verified_gallery_subjects_v1',
   'community_get_question_public_v1',
   'community_get_question_redirect_public_v1',
@@ -31,7 +32,7 @@ function reply(body: unknown, status = 200, noStore = false) {
 function singleUuidPayload(rpc: string, payload: JsonObject): JsonObject | null {
   const key =
     rpc === 'community_get_creator_public_v1' ? 'p_creator_profile_id' :
-    rpc === 'community_get_gallery_public_v1' || rpc === 'community_get_gallery_photo_public_v1' || rpc === 'community_get_gallery_dreamsnap_public_v1' ? 'p_work_id' :
+    rpc === 'community_get_gallery_public_v1' || rpc === 'community_get_gallery_photo_public_v1' || rpc === 'community_get_gallery_dreamsnap_public_v1' || rpc === 'community_get_scene_preset_public_v1' ? 'p_work_id' :
     rpc === 'community_get_dreamsnap_results_public_v1' ? 'p_challenge_id' :
     rpc === 'community_get_question_public_v1' || rpc === 'community_get_question_redirect_public_v1'
       ? 'p_question_id' :
@@ -148,7 +149,8 @@ const publicFetch = withSupabase({ auth: 'none' }, async (req, ctx) => {
 
   if (params === null) return reply({ error: 'Invalid public query parameters' }, 400);
 
-  const noStore = rpc === 'community_get_gallery_photo_public_v1' ||
+  const noStore = rpc === 'community_get_scene_preset_public_v1' ||
+    rpc === 'community_get_gallery_photo_public_v1' ||
     rpc === 'community_list_verified_gallery_subjects_v1';
   const { data, error } = await ctx.supabaseAdmin.rpc(rpc, params);
   if (error) {
