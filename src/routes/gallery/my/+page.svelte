@@ -2,8 +2,8 @@
   import { onMount } from 'svelte';
   import { base } from '$app/paths';
   import { locale, ct as t } from '$lib/i18n/community.js';
-  import { createCommunityBrowserClient, getGalleryPublicMedia } from '$lib/community/browser-client';
-  import PhotoPreview from '$lib/gallery/PhotoPreview.svelte';
+  import { createCommunityBrowserClient } from '$lib/community/browser-client';
+  import OwnerGalleryMediaPreview from '$lib/gallery/OwnerGalleryMediaPreview.svelte';
   import { parseGalleryRetirementPreflight } from '$lib/community/gallery-preflight.js';
   import { workUrl, GALLERY_OWNER_MUTATION_BLOCKER } from '$lib/gallery/stage1.js';
   import OverflowMenu from '$lib/ui/OverflowMenu.svelte';
@@ -19,7 +19,7 @@
   let commentsEnabled=true;
   let managementError='';
   let ownerBusy=false;
-  let stagedTitle='', stagedDescription='', ownerMediaUrls:string[]=[];
+  let stagedTitle='', stagedDescription='';
   let showEditPreview=false;
   let preflight:any=null,preflightBusy=false,preflightError='';
   let managementRequest=0;
@@ -58,7 +58,7 @@
     // The server's owner-only preflight is authoritative. Do not gate it on
     // legacy Gallery Detail's optional isOwner projection.
     void loadPreflight(String(work.workId),request);
-    stagedTitle=String(work.title??'');stagedDescription='';ownerMediaUrls=[];showEditPreview=false;
+    stagedTitle=String(work.title??'');stagedDescription='';showEditPreview=false;
     try{
       const result:any=await client?.query('gallery',{workId:work.workId});
       if(request!==managementRequest)return;
@@ -66,12 +66,6 @@
       commentsEnabled=ownerDetail?.commentsEnabled!==false;
       stagedTitle=String(ownerDetail?.title??work.title??'');
       stagedDescription=String(ownerDetail?.description??'');
-      for(const mediaId of (ownerDetail?.mediaIds??[]).slice(0,10)){
-        try{
-          const media=await getGalleryPublicMedia(String(mediaId));
-          if(request===managementRequest)ownerMediaUrls=[...ownerMediaUrls,media.streamUrl];
-        }catch{ /* leave public media unavailable rather than bypassing authorization */ }
-      }
     }catch(e){if(request===managementRequest)managementError=e instanceof Error?e.message:String(e)}
     finally{if(request===managementRequest)ownerBusy=false}
   }
@@ -176,8 +170,14 @@
           <label>{t('galleryv1.title',{},$locale)}<input bind:value={stagedTitle} maxlength="240" /></label>
           <label>{t('galleryv1.description',{},$locale)}<textarea bind:value={stagedDescription} maxlength="20000"></textarea></label>
           <button type="button" on:click={()=>showEditPreview=!showEditPreview}>{t('galleryv1.preview',{},$locale)}</button>
-          {#if showEditPreview}
-            <PhotoPreview title={stagedTitle} description={stagedDescription} creator={String(ownerDetail?.creator?.displayName??'')} category={String(management.galleryKind)} imageUrls={ownerMediaUrls} />
+          {#if showEditPreview && showManagement && client?.session}
+            {#key String(management.workId)}
+              <OwnerGalleryMediaPreview {client} workId={String(management.workId)}
+                mediaIds={(ownerDetail?.mediaIds??[]).map(String)}
+                title={stagedTitle} description={stagedDescription}
+                creator={String(ownerDetail?.creator?.displayName??'')}
+                category={String(management.galleryKind)} />
+            {/key}
           {/if}
         {/if}
         <p>{t('galleryv1.uploadNotReady',{},$locale)} <code>{GALLERY_OWNER_MUTATION_BLOCKER}</code></p>
