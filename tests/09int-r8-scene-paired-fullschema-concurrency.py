@@ -220,11 +220,69 @@ def concurrent(url,g):
             "allCrossProductWritersEnrolled":False,
             "graphComplete":False,"retirementAuthorized":False}))
 
+
+def stale_historical_graph_counterexample(url,g):
+    """Prove R8 writer's rowVersion+distinct Gallery Work set is not a complete
+    fingerprint of immutable historical GalleryRevision->PresetRevision edges.
+    All commits here are ephemeral local Supabase only, no Staging/Production.
+    """
+    def edges(c):
+        return one(c,"""select count(*) from public.gallery_revision_presets gp
+            join public.community_work_revisions wr on wr.revision_id=gp.gallery_revision_id
+            join public.preset_revisions pr on pr.preset_revision_id=gp.preset_revision_id
+            where pr.preset_artifact_id=%s and wr.work_id=%s""",
+            (g["artifact"],g["galleryWork"]))[0]
+    with psycopg.connect(url,autocommit=True) as c:
+        original_gallery_version=one(c,"select row_version from public.community_works where work_id=%s",(g["galleryWork"],))[0]
+        original_preset_version=one(c,"select row_version from public.community_works where work_id=%s",(g["presetWork"],))[0]
+        original_edges=edges(c)
+        assert original_edges==1,original_edges
+        # A new UNSEALED Gallery WorkRevision references the same immutable
+        # PresetRevision. Its GalleryWork identity is unchanged and rowVersion
+        # does NOT change, but its historical dependency graph is different.
+        new_gallery_revision=uuid.uuid4()
+        owner=one(c,"select owner_account_id from public.community_works where work_id=%s",(g["galleryWork"],))[0]
+        c.execute("BEGIN")
+        try:
+            execute(c,"""insert into public.community_work_revisions
+                (revision_id,work_id,revision_number,created_by_account_id,shared_metadata)
+                values(%s,%s,2,%s,'{"r8":"extra_unsealed_historical_link"}'::jsonb)""",
+                (new_gallery_revision,g["galleryWork"],owner))
+            execute(c,"insert into public.gallery_work_revisions(revision_id,title,description,metadata) values(%s,'R8 Extra Historic Ref',null,'{}'::jsonb)",
+                (new_gallery_revision,))
+            execute(c,"insert into public.gallery_revision_presets(gallery_revision_id,preset_revision_id) values(%s,%s)",
+                (new_gallery_revision,g["presetRev"]))
+            c.execute("COMMIT")
+        except:
+            c.execute("ROLLBACK");raise
+        assert edges(c)==2
+        assert one(c,"select row_version from public.community_works where work_id=%s",(g["galleryWork"],))[0]==original_gallery_version
+        assert one(c,"select row_version from public.community_works where work_id=%s",(g["presetWork"],))[0]==original_preset_version
+        baseline=snapshot(c,g)
+        c.execute("BEGIN")
+        try:
+            candidate_response=invoke(c,g)
+            assert candidate_response and candidate_response.get("presetRevisionId"),candidate_response
+            # No graph fingerprint pin was passed; candidate accepts a stale
+            # rowVersion when only SAME Gallery Work gains an extra ref edge.
+            print(json.dumps({"case":"R8_HISTORICAL_SAME_GALLERY_EDGE_GRAPH_PIN_NEGATIVE",
+              "originalLinkedEdges":original_edges,"newLinkedEdges":edges(c),
+              "galleryRowVersionUnchanged":True,"sourceCandidateAcceptedChangedHistoricalGraph":True,
+              "allWriterHistoricalFingerprintClosed":False,
+              "sourceOwnerOnlyCandidate":True,"positiveRetirementAuthorized":False}))
+        finally:
+            c.execute("ROLLBACK")
+        assert snapshot(c,g)==baseline
+        print(json.dumps({"case":"R8_HISTORICAL_GRAPH_NEGATIVE_ROLLBACK",
+            "candidateWriteRolledBack":True,"positiveRetirementAuthorized":False}))
+
+
 def main():
     url=local_dsn()
     with psycopg.connect(url,autocommit=True) as c:
         g=fixture(c)
     concurrent(url,g)
+    stale_historical_graph_counterexample(url,g)
 
 if __name__=="__main__":
     main()
