@@ -156,7 +156,7 @@ def concurrent(url,g):
         before=snapshot(a,g)
         assert before["presetRevisions"]==1
         # Full migration: no external Edge role may invoke candidate.
-        sig="private.scene_save_revision_paired_candidate_v1(uuid,uuid,uuid,bigint,bigint,uuid,uuid[],uuid,text,text,jsonb,text,text)"
+        sig="private.scene_save_revision_paired_candidate_v1(uuid,uuid,uuid,bigint,bigint,uuid,uuid[],uuid,text,text,jsonb,text,text,uuid,uuid,uuid,text,bigint)"
         for role in ("anon","authenticated","service_role"):
             assert one(a,"select has_function_privilege(%s,%s,'EXECUTE')",(role,sig))[0] is False
         started=threading.Event()
