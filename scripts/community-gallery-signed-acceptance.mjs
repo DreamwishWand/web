@@ -122,6 +122,7 @@ export async function runSignedGallery(env, transport = fetch, sleep = (ms) => n
   const active = [];
   const prepared = [];
   let workId = null;
+  let publicationAttempted = false;
   const headers = (session, type = 'application/json') => {
     const value = {apikey: cfg.key, 'cache-control': 'no-store'};
     if (type) value['content-type'] = type;
@@ -240,6 +241,7 @@ export async function runSignedGallery(env, transport = fetch, sleep = (ms) => n
       mediaIds:[uploaded[index].mediaId], coverMediaId:uploaded[index].mediaId,
       originalityAttested:true, idempotencyKey:randomUUID(), ...extra
     });
+    publicationAttempted = true; // commit outcome might become unknown after a network failure
     const created = requireStatus(await command(a, 'publishGalleryPhoto', payload(0)), 200, 'gallery_public_create');
     workId = ensureUuid(created?.data?.workId, 'PUBLIC_WORK_ID_MISSING');
     evidence.disposableWorkId = workId;
@@ -283,10 +285,23 @@ export async function runSignedGallery(env, transport = fetch, sleep = (ms) => n
     safeEvent(evidence.events,'historical_owner_binary_sha256','PASS',{httpStatus:200,bytes:historicalOwner.bytes.length});
     const preflight = requireStatus(await query(a,'galleryRetirementPreflight',{workId}),
       200,'owner_cloud_readonly_preflight');
-    if (preflight?.data?.operationAuthorized === true ||
-        preflight?.data?.deleteAuthorized === true ||
-        preflight?.data?.cloudEntitlementVerified === true)
-      throw new Error('CLOUD_PRESERVATION_UNEXPECTEDLY_AUTHORIZED');
+    const cloud = preflight?.data?.cloudPreservation;
+    if (preflight?.data?.contract !== 'ddv.gallery-public-retirement-preflight@1' ||
+        preflight?.data?.workId !== workId ||
+        preflight?.data?.ownerEligible !== true ||
+        preflight?.data?.operationAuthorized !== false ||
+        preflight?.data?.deleteAuthorized !== false ||
+        preflight?.data?.cloudEntitlementVerified !== false ||
+        preflight?.data?.previousSignedUrlsRevoked !== false ||
+        preflight?.data?.dependencySnapshotNotAtomicMutationFence !== true ||
+        cloud?.contract !== 'ddv.gallery-cloud-preservation-readiness@1' ||
+        cloud?.cloudEntitlementVerified !== false ||
+        cloud?.cloudPrivateStorageAclVerified !== false ||
+        cloud?.cloudBackupAndRestoreVerified !== false ||
+        cloud?.privateSaveAuthorized !== false ||
+        cloud?.restoreAuthorized !== false ||
+        cloud?.entitlement?.source !== 'not_configured')
+      throw new Error('CLOUD_PRESERVATION_FAIL_CLOSED_CONTRACT_MISMATCH');
     requireStatus(await query(b,'galleryRetirementPreflight',{workId}),
       403,'nonowner_cloud_preflight_denial');
     evidence.remaining.push('OLD_ISSUED_STORAGE_URL_TIMING_NOT_EXECUTED: requires approved independent historical bearer fixture');
@@ -303,10 +318,17 @@ export async function runSignedGallery(env, transport = fetch, sleep = (ms) => n
   } finally {
     // Best-effort journal cancellation of strictly newly prepared, unbound
     // keys only. This queues logical cleanup; it NEVER removes Storage objects.
-    if (active[0]) for (const entry of prepared.filter((p) => !p.bound)) {
+    if (publicationAttempted && prepared.some(p=>!p.bound)) {
+      // A lost HTTP reply could conceal a committed public revision. Keep
+      // uncertain blobs untouched for owner-scoped operator inventory.
+      evidence.remaining.push('UNCERTAIN_PUBLICATION_OUTCOME: preserve media; operator read-only inventory required');
+    }
+    if (!publicationAttempted && active[0]) for (const entry of prepared.filter((p) => !p.bound)) {
       try {
-        await media(active[0],'galleryAbort',{storageKey:entry.storageKey});
-        safeEvent(evidence.events,'unbound_abort_requested','PASS');
+        const abort = await media(active[0],'galleryAbort',{storageKey:entry.storageKey});
+        safeEvent(evidence.events,'unbound_abort_requested',
+          abort.status === 200 && abort.data?.ok === true ? 'PASS' : 'NOT_CONFIRMED',
+          {httpStatus:abort.status});
       } catch {
         safeEvent(evidence.events,'unbound_abort_requested','NOT_CONFIRMED');
       }
