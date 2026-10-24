@@ -98,3 +98,22 @@ test('retirement preflight does not claim universal signed token issuance halt',
  assert.match(acceptance,/authenticatedOwnerReadMayMintStorageSignedUrl/);
  assert.match(cloud,/authenticatedOwnerReadStillMintsSignedStorageUrl:false/);
 });
+
+test('owner Gallery binary reader protects pending and historical media',()=>{
+ const gate=read('supabase/migrations/20261025000500_gallery_owner_read_no_signed_url_v1.sql');
+ const revised=read('supabase/migrations/20261025000600_gallery_owner_read_issuer_closed_preflight_v1.sql');
+ const edge=read('supabase/functions/community-media/index.ts');
+ const fixture=read('supabase/staging/acceptance/gallery-owner-binary-read-v1.sql');
+ assert.ok(gate.includes('community_gallery_owner_media_read_v1'));
+ assert.ok(gate.includes('private.resolve_active_account(p_auth_subject)'));
+ assert.ok(gate.includes('gallery_photo_subjects'));
+ assert.ok(gate.includes("'signedStorageUrlIssued',false"));
+ assert.ok(edge.includes("action === 'galleryReadBytes'"));
+ assert.ok(edge.includes("community_gallery_owner_media_read_v1"));
+ assert.ok(edge.includes("crypto.subtle.digest('SHA-256',bytes)"));
+ assert.ok(revised.includes("'authenticatedOwnerReadMayMintStorageSignedUrl',false"));
+ assert.ok(fixture.includes('HISTORICAL_OWNER_PROXY_DENIED'));
+ assert.ok(fixture.includes('NONOWNER_STORAGE_KEY_LEAK'));
+ assert.ok(cloud.includes('galleryOwnerStorageSignedUrlIssuerEnabled:false'));
+ assert.ok(cloud.includes('cloudEntitlementVerified:false'));
+});
