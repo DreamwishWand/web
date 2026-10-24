@@ -229,9 +229,7 @@ begin
     v_second_blob,array[v_media,v_second_media],v_second_media,
     'Paired Scene V2','Revision with a new Cover',
     '{"source":"synthetic-ci"}'::jsonb,'paired-update:'||v_tag,v_initial_pin,
-      v_gallery_work,
-      (select current_published_revision_id from public.community_works
-       where work_id=v_gallery_work),v_creator,
+      v_gallery_work,v_gallery_revision,v_creator,
       (select lower(checksum_sha256) from public.artifact_blobs where blob_id=v_second_blob),
       (select byte_size from public.artifact_blobs where blob_id=v_second_blob));
   if (v_paired_result->>'artifactBlobId')::uuid is distinct from v_second_blob
@@ -252,9 +250,7 @@ begin
     v_second_blob,array[v_media,v_second_media],v_second_media,
     'Paired Scene V2','Revision with a new Cover',
     '{"source":"synthetic-ci"}'::jsonb,'paired-update:'||v_tag,v_initial_pin,
-      v_gallery_work,
-      (select current_published_revision_id from public.community_works
-       where work_id=v_gallery_work),v_creator,
+      v_gallery_work,v_gallery_revision,v_creator,
       (select lower(checksum_sha256) from public.artifact_blobs where blob_id=v_second_blob),
       (select byte_size from public.artifact_blobs where blob_id=v_second_blob));
   if v_replay is distinct from v_paired_result
@@ -300,9 +296,7 @@ begin
       v_second_blob,array[v_media,v_second_media],v_second_media,
       'DIFFERENT TITLE','Revision with a new Cover',
       '{"source":"synthetic-ci"}'::jsonb,'paired-update:'||v_tag,v_initial_pin,
-      v_gallery_work,
-      (select current_published_revision_id from public.community_works
-       where work_id=v_gallery_work),v_creator,
+      v_gallery_work,v_gallery_revision,v_creator,
       (select lower(checksum_sha256) from public.artifact_blobs where blob_id=v_second_blob),
       (select byte_size from public.artifact_blobs where blob_id=v_second_blob));
   exception when others then
