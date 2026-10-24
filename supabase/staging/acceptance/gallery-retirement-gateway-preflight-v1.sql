@@ -54,7 +54,7 @@ begin
  or (v_pref->>'graphComplete')::boolean is distinct from false
  or (v_pref->>'previousSignedUrlsRevoked')::boolean is distinct from false
  or (v_pref->>'newPublicGalleryStorageSignedUrlIssued')::boolean is distinct from false
- or (v_pref->>'authenticatedOwnerReadMayMintStorageSignedUrl')::boolean is distinct from true
+ or (v_pref->>'authenticatedOwnerReadMayMintStorageSignedUrl')::boolean is distinct from false
  or (v_pref->>'cloudEntitlementVerified')::boolean is distinct from false
  or (v_pref->>'rowVersion')::bigint is distinct from (v_published->>'rowVersion')::bigint
  then raise exception 'RETIREMENT_PREFLIGHT_NOT_FAIL_CLOSED';end if;
