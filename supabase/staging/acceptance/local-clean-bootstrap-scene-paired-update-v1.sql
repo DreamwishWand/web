@@ -184,6 +184,14 @@ begin
     or v_readiness->>'pairedGalleryPublishAuthorized'<>'false'
     or v_readiness->>'saveRevisionAuthorized'<>'false'
     or v_readiness->>'crossOwnerOrUnresolvedGalleryCount'<>'0'
+    or v_readiness->>'pairedGalleryWorkId' is distinct from v_gallery_work::text
+    or v_readiness->>'pairedGalleryWorkRowVersion' is distinct from
+      (select row_version::text from public.community_works
+       where work_id=v_gallery_work)
+    or v_readiness->>'pairedGalleryCurrentWorkRevisionId' is distinct from
+      v_gallery_revision::text
+    or v_readiness->>'pairedGallerySnapshotIsAtomicFence'<>'false'
+    or v_readiness->>'historicalEdgeSetIsAtomicFence'<>'false'
   then raise exception 'SCENE_LINKED_READINESS_MUST_STAY_FAILCLOSED';end if;
 
 
