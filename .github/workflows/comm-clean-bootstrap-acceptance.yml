@@ -55,6 +55,15 @@ jobs:
       - name: Source-Candidate migration static regression
         shell: bash
         run: node --test tests/community-gallery-stacked-migration-order.test.mjs
+      - name: 04 QR freeze 114-source base (prevent PR test-merge contamination)
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          a=list(Path('supabase/migrations').glob('*.sql'))
+          assert len(a)==114, f'QR Source114 pin contaminated: {len(a)}'
+          assert not Path('supabase/migrations/20261025002700_active_identity_regular_resolver_guard_v1.sql').exists()
+          print('QR_R13_EXACT_114_SOURCE_PIN_PASS')
+          PY
       - uses: supabase/setup-cli@v1
         with:
           version: 2.81.3
