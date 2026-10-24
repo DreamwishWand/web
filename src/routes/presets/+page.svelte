@@ -8,6 +8,7 @@
   import { createPresetCommunityBridge } from '$lib/wep/preset-community-bridge';
   import { explainWepBlocker } from '$lib/wep/blocker-messages';
   import NativePresetManager from '$lib/presets/NativePresetManager.svelte';
+  import SceneRevisionReadOnlyPanel from '$lib/wep/SceneRevisionReadOnlyPanel.svelte';
   import {
     buildPublishEnvelope,
     preflightScene,
@@ -40,6 +41,8 @@
   let library: LibraryRow[] = [];
   let bridge: ReturnType<typeof createPresetCommunityBridge> | null = null;
   let preflight: any = null;
+  let selectedSceneWorkId = '';
+  let selectedOwnerSceneArtifactId = '';
   $: copy = presetPageCopy($locale);
 
   function preflightBlockCodes(value: any): string[] {
@@ -142,10 +145,13 @@
     try {
       const resolved = await bridge.resolveDiscoveredWork(workId);
       preflight = await bridge.preflightPreset(resolved.presetArtifactId);
+      selectedSceneWorkId = resolved.presetType === 'scene' ? workId : '';
+      selectedOwnerSceneArtifactId = preflight?.validation?.presetType === 'scene' ? resolved.presetArtifactId : '';
       message = copy.validated;
     } catch (error) {
       message = error instanceof Error ? error.message : String(error);
       preflight = null;
+      selectedOwnerSceneArtifactId = '';
     } finally {
       loading = false;
     }
@@ -157,10 +163,13 @@
     message = '';
     try {
       preflight = await bridge.preflightPreset(presetArtifactId);
+      selectedSceneWorkId = '';
+      selectedOwnerSceneArtifactId = preflight?.validation?.presetType === 'scene' ? presetArtifactId : '';
       message = copy.libraryValidated;
     } catch (error) {
       message = error instanceof Error ? error.message : String(error);
       preflight = null;
+      selectedOwnerSceneArtifactId = '';
     } finally {
       loading = false;
     }
@@ -218,6 +227,7 @@
               <div class="card-actions">
                 <button disabled={!connected || loading} on:click={() => saveWork(item.workId)}>{copy.save}</button>
                 <button disabled={!connected || loading} on:click={() => inspectWork(item.workId)}>{copy.preflight}</button>
+                <button type="button" disabled={loading} on:click={() => {selectedSceneWorkId=item.workId;selectedOwnerSceneArtifactId='';}} aria-label="Scene current revision preview">Scene revision</button>
               </div>
             </article>
           {/each}
@@ -300,6 +310,8 @@
       </p>
     </aside>
   {/if}
+
+  <SceneRevisionReadOnlyPanel workId={selectedSceneWorkId} presetArtifactId={selectedOwnerSceneArtifactId} {bridge} {connected} />
 
   {#if !connected}
     <p class="preview-note">
