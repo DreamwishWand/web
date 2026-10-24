@@ -117,7 +117,7 @@ begin
   -- Public read must fail once the Work leaves discoverability, even though
   -- its immutable historic revision and ArtifactBlob still exist.
   update public.community_works
-  set moderation_state='hidden'
+  set moderation_state='restricted'
   where work_id=(v_pub->>'workId')::uuid;
   v_bad:=false;
   begin
