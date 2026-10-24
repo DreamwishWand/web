@@ -238,7 +238,9 @@
               <p>{t('galleryv1.graphState',{},$locale)}: {preflight.graphComplete?t('galleryv1.complete',{},$locale):t('galleryv1.incomplete',{},$locale)}</p>
               {#if preflight.dependencyProjection}
                 {@const dep=preflight.dependencyProjection}
-                <section class="gallery-dependency-readiness" aria-label={t('galleryv1.depTitle',{},$locale)}>
+                <section class="gallery-dependency-readiness" aria-label={t('galleryv1.depTitle',{},$locale)}
+                  data-read-only="true" data-owner-mismatch={dep.ownerMismatchEdgeCount>0?'true':'false'}
+                  data-creator-mismatch={dep.creatorMismatchEdgeCount>0?'true':'false'}>
                   <h4>{t('galleryv1.depTitle',{},$locale)}</h4>
                   <p role="status">{t('galleryv1.depDiagnosticOnly',{},$locale)}</p>
                   <dl class="cloud-readiness-grid">
