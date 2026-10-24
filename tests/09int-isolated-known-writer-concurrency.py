@@ -117,6 +117,69 @@ def test_block(a,b,label,stmt,expect_block=True):
         b.execute("ROLLBACK")
     assert digest(a)==before,label+": retry rollback failed"
 
+
+def test_synthetic_lock_order_inversion(a,b):
+    """Negative demonstration, NOT an implemented Gallery retirement RPC.
+
+    Existing Scene writes acquire PresetArtifact -> GalleryWork.
+    A hypothetical Gallery-first retirement taking GalleryWork -> PresetArtifact
+    can create a deadlock. No UPDATE/DELETE occurs in this test.
+    """
+    before=digest(a)
+    apid=one(a,"SELECT pg_backend_pid()")[0]
+    bpid=one(b,"SELECT pg_backend_pid()")[0]
+    assert apid!=bpid
+    started=threading.Event(); done=threading.Event()
+    result={}
+    a.execute("BEGIN")
+    a.execute("SET LOCAL statement_timeout='7s'")
+    try:
+        assert one(a,"SELECT work_id FROM public.community_works WHERE work_id=%s FOR UPDATE",(G,))==(G,)
+        def artifact_first_writer():
+            try:
+                b.execute("BEGIN")
+                b.execute("SET LOCAL statement_timeout='7s'")
+                assert one(b,"SELECT preset_artifact_id FROM public.preset_artifacts WHERE preset_artifact_id=%s FOR UPDATE",(P,))==(P,)
+                started.set()
+                try:
+                    one(b,"SELECT work_id FROM public.community_works WHERE work_id=%s FOR UPDATE",(G,))
+                    result["bState"]="completed"
+                except psycopg.Error as err:
+                    result["bState"]=err.sqlstate
+            except Exception as exc:
+                result["error"]=str(exc)
+            finally:
+                b.execute("ROLLBACK")
+                done.set()
+        worker=threading.Thread(target=artifact_first_writer,daemon=True)
+        worker.start()
+        assert started.wait(4),"SCENE_ORDER_WRITER_NOT_STARTED"
+        observed=False; deadline=time.monotonic()+4
+        while time.monotonic()<deadline:
+            blockers=one(a,"SELECT pg_blocking_pids(%s)",(bpid,))[0]
+            if apid in (blockers or []):
+                observed=True; break
+            time.sleep(.03)
+        assert observed,"SCENE_WRITER_WAITING_ON_GALLERY_NOT_OBSERVED"
+        try:
+            one(a,"SELECT preset_artifact_id FROM public.preset_artifacts WHERE preset_artifact_id=%s FOR UPDATE",(P,))
+            result["aState"]="completed"
+        except psycopg.Error as err:
+            result["aState"]=err.sqlstate
+    finally:
+        a.execute("ROLLBACK")
+    assert done.wait(5),"INVERTED_WORKER_STUCK"
+    worker.join(1)
+    assert "error" not in result,result
+    assert "40P01" in (result.get("aState"),result.get("bState")),("EXPECTED_DEADLOCK_NOT_OBSERVED",result)
+    assert digest(a)==before,"SYNTHETIC_DEADLOCK_CHANGED_GRAPH"
+    print(json.dumps({"case":"synthetic-reverse-lock-order-deadlock",
+          "holderPid":apid,"sceneWriterPid":bpid,
+          "sceneWriterBlockedByGallery":observed,
+          "observedSqlstate40P01":True,"allTransactionsRolledBack":True,
+          "actualRetirementRPCExecuted":False,
+          "lockOrderContractAccepted":False}))
+
 def main():
     assert os.getenv("DDVRE_EPHEMERAL_GITHUB_PG")=="CONFIRMED"
     url=os.environ["DDVRE_EPHEMERAL_POSTGRES_DSN"]
