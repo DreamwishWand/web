@@ -1,4 +1,4 @@
-name: 03 COMM Isolated Clean Bootstrap Acceptance
+name: 03 COMM Source-Candidate Clean Bootstrap Acceptance
 
 on:
   push:
@@ -28,7 +28,7 @@ jobs:
           from pathlib import Path
           import re
           fs=sorted(Path('supabase/migrations').glob('*.sql'))
-          assert len(fs)==111, f'expected 111 integrated files, got {len(fs)}'
+          assert len(fs)==113, f'expected 113 candidate SQL files (111 base +2), got {len(fs)}'
           vs=[f.name.split('_',1)[0] for f in fs]
           assert all(re.fullmatch(r'\d{12}(?:\d{2})?',v) for v in vs)
           assert len(vs)==len(set(vs)), 'migration version collision'
@@ -37,8 +37,11 @@ jobs:
                          ('20261025002300','gallery_capacity_effective_cleanup_diagnostics_v1'),
                          ('20261025002400','gallery_known_reference_writer_fence_v1')]:
               assert sum(f.name==v+'_'+name+'.sql' for f in fs)==1
-          print('SOURCE_111_MIGRATIONS_UNIQUE_AND_ORDERED_PASS')
+          print('SOURCE_CANDIDATE_113_MIGRATIONS_UNIQUE_AND_ORDERED_PASS')
           PY
+      - name: Source-Candidate migration static regression
+        shell: bash
+        run: node --test tests/community-gallery-stacked-migration-order.test.mjs
       - uses: supabase/setup-cli@v1
         with:
           version: 2.81.3
@@ -74,7 +77,7 @@ jobs:
           DECLARE v int;
           BEGIN
             SELECT count(*) INTO v FROM supabase_migrations.schema_migrations;
-            IF v<>111 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_111: %',v;END IF;
+            IF v<>113 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_113: %',v;END IF;
             IF to_regclass('public.gallery_photo_revision_fields') IS NULL OR
                to_regclass('public.community_media_upload_intents') IS NULL OR
                to_regclass('public.gallery_verified_subjects') IS NULL OR
@@ -104,7 +107,7 @@ jobs:
             IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid='public.gallery_photo_revision_fields'::regclass)
              OR NOT (SELECT relrowsecurity FROM pg_class WHERE oid='public.community_media_upload_intents'::regclass)
             THEN RAISE EXCEPTION 'RLS_NOT_ENABLED';END IF;
-            RAISE NOTICE 'LOCAL_111_APPLIED_LEDGER_FUNCTION_TRIGGER_RLS_ACL_PHYSICAL_FAILCLOSED_PASS';
+            RAISE NOTICE 'LOCAL_SOURCE_CANDIDATE_113_LEDGER_FUNCTION_TRIGGER_RLS_ACL_PHYSICAL_FAILCLOSED_PASS';
           END $checks$;
           SELECT extname FROM pg_extension ORDER BY extname;
           SELECT n.nspname,COUNT(*) FILTER (WHERE p.prosecdef) AS security_definer_count
@@ -116,10 +119,10 @@ jobs:
         shell: bash
         run: |
           {
-            echo 'Source pinned to PR #129 SHA 02750fcbcfd3f94fc12b39c8adf5757fa24a5646.'
+            echo 'Source candidate based on PR #129 SHA 02750fcbcfd3f94fc12b39c8adf5757fa24a5646 with two source-only parent migrations and ten RPC semicolon corrections. PR #129 unchanged.'
             echo 'Isolated disposable local Supabase container; no Staging/Production changes.'
             echo 'Authenticated Owner A/B/Moderator, signed HTTP bytes, CDN replay: NOT_EXECUTED (no disposable actor credentials).'
-            echo 'Existing actor/verified-subject SQL fixtures: NOT_EXECUTED without seeded disposable fixtures.'
+            echo 'Existing actor/verified-subject SQL fixtures: NOT_EXECUTED without seeded disposable fixtures. Legacy staging-only provider identity RPCs and Scene Preset vertical behaviors NOT reproduced.'
             echo 'Trigger/capacity/negative migration structural proofs are not live race proof.'
             echo 'No physical Storage deletion, Shared Cron #33 or Cloud Entitlement promotion.'
           } | tee /tmp/comm-bootstrap-limitations.log
@@ -139,130 +142,3 @@ jobs:
         shell: bash
         run: supabase stop --no-backup || true
 
-  diagnostic-replay-after-temporary-ddl-terminators:
-    name: Diagnostic only - temp exported DDL semicolons (NOT canonical PASS)
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
-        with:
-          version: 2.81.3
-      - name: Temporarily normalize ten reconstructed function-body terminators
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          file=Path('supabase/migrations/20260930025132_community_core_v0_server_rpc.sql')
-          before=file.read_text()
-          after,count=re.subn(r'(?m)^\$function\$[ \t]*$', '$function$;', before)
-          assert count==10, f'unexpected reconstructed function closing count={count}'
-          assert before!=after
-          file.write_text(after)
-          print('DIAGNOSTIC_ONLY_TEN_SEMICOLONS_PATCHED_IN_DISPOSABLE_RUNNER')
-          print('CANONICAL_ORIGINAL_SOURCE_BOOTSTRAP_RESULT_REMAINS_FAIL')
-          # Second source blocker: the canonical tree has no CREATE TABLE for
-          # private.provider_identity_cleanup_jobs, but migration 115623
-          # assumes that Staging-only relation already exists.
-          fk=Path('supabase/migrations/20260930115623_community_core_v0_fk_index_hardening.sql')
-          source=fk.read_text()
-          missing='create index if not exists provider_identity_cleanup_jobs_account_idx' + chr(10) + '  on private.provider_identity_cleanup_jobs(account_id);'
-          assert source.count(missing)==1
-          fk.write_text(source.replace(missing,
-              '-- DIAGNOSTIC ONLY: omitted index targeting Staging-only missing parent',1))
-          print('DIAGNOSTIC_ONLY_STAGING_ONLY_PARENT_INDEX_SKIPPED_IN_RUNNER')
-          print('CANONICAL_SOURCE_REMAINS_UNCHANGED_AND_NOT_ACCEPTED')
-          # Third dependency gap, source lacks the Scene Preset vertical parent
-          # column that is present in Staging. This is NOT an accepted migration.
-          fence=Path('supabase/migrations/20261025002400_gallery_known_reference_writer_fence_v1.sql')
-          fence.write_text(
-              'alter table public.preset_artifacts add column if not exists associated_gallery_work_id uuid references public.gallery_works(work_id);' + chr(10)
-              + fence.read_text())
-          print('DIAGNOSTIC_ONLY_STAGING_COLUMN_SHAPE_RECONSTRUCTED_IN_RUNNER')
-          print('CANONICAL_SOURCE_REMAINS_FAIL')
-          PY
-          printf 'project_id = "ddvre_comm_bootstrap_diagnostic_temp_20261024"\n' | cat - supabase/config.toml > /tmp/comm-diag-config.toml
-          mv /tmp/comm-diag-config.toml supabase/config.toml
-      - name: Reattempt disposable empty Supabase replay with temporary local-only DDL patch
-        shell: bash
-        run: |
-          set -euo pipefail
-          timeout 1500s supabase start --debug 2>&1 | tee /tmp/comm-diagnostic-replay.log
-          echo 'DIAGNOSTIC_TEMP_PATCH_REPLAY_COMPLETE_NOT_SOURCE_PASS'
-      - name: Repeat diagnostic-only empty DB replay to evaluate consistency
-        shell: bash
-        run: |
-          set -euo pipefail
-          timeout 900s supabase db reset --no-seed 2>&1 | tee /tmp/comm-diagnostic-reset.log
-          echo 'DIAGNOSTIC_TEMP_PATCH_SECOND_REPLAY_NOT_CANONICAL_SOURCE_PASS'
-      - name: DIAGNOSTIC structural safety on temporary patched local schema - NOT source PASS
-        shell: bash
-        run: |
-          set -euo pipefail
-          db_container=$(docker ps --format '{{.Names}}' | grep '^supabase_db_' | head -1)
-          test -n "$db_container"
-          docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL' | tee /tmp/comm-diagnostic-structural.log
-          DO $checks$
-          DECLARE v int;
-          BEGIN
-            SELECT count(*) INTO v FROM supabase_migrations.schema_migrations;
-            IF v<>111 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_111: %',v;END IF;
-            IF to_regclass('public.gallery_photo_revision_fields') IS NULL OR
-               to_regclass('public.community_media_upload_intents') IS NULL OR
-               to_regclass('public.gallery_verified_subjects') IS NULL OR
-               to_regclass('private.gallery_media_capacity_policy_v1') IS NULL
-            THEN RAISE EXCEPTION 'MISSING_PARENT_SCHEMA';END IF;
-            IF to_regprocedure('public.community_gallery_media_intent_cancel_v1(uuid,text)') IS NULL OR
-               to_regprocedure('public.community_gallery_physical_cleanup_gate_v1()') IS NULL OR
-               to_regprocedure('public.community_gallery_media_capacity_ops_v1()') IS NULL OR
-               to_regprocedure('private.gallery_known_reference_writer_fence_v1()') IS NULL
-            THEN RAISE EXCEPTION 'MISSING_FUNCTION_DEPENDENCY';END IF;
-            SELECT count(*) INTO v FROM pg_trigger
-             WHERE NOT tgisinternal AND tgenabled='O' AND tgname IN
-             ('gallery_revision_presets_known_reference_fence',
-              'preset_artifacts_known_gallery_reference_fence',
-              'preset_revision_publications_known_gallery_reference_fence');
-            IF v<>3 THEN RAISE EXCEPTION 'MISSING_KNOWN_REFERENCE_TRIGGERS %',v;END IF;
-            IF has_function_privilege('anon','private.gallery_known_reference_writer_fence_v1()','EXECUTE')
-             OR has_function_privilege('authenticated','private.gallery_known_reference_writer_fence_v1()','EXECUTE')
-             OR has_function_privilege('service_role','private.gallery_known_reference_writer_fence_v1()','EXECUTE')
-             OR has_function_privilege('anon','public.community_gallery_physical_cleanup_gate_v1()','EXECUTE')
-             OR has_function_privilege('authenticated','public.community_gallery_physical_cleanup_gate_v1()','EXECUTE')
-            THEN RAISE EXCEPTION 'SECURITY_DEFINER_OR_TRIGGER_GRANT_EXPOSED';END IF;
-            IF (public.community_gallery_physical_cleanup_gate_v1()->>'physicalDeleteAuthorized')::boolean IS DISTINCT FROM false
-             OR (public.community_gallery_media_capacity_ops_v1()->>'effectivePhysicalCleanupPerHour')::integer<>0
-             OR (public.community_gallery_media_capacity_ops_v1()->>'finalized72hExpiryActive')::boolean IS DISTINCT FROM false
-            THEN RAISE EXCEPTION 'PHYSICAL_OR_TTL_FAILCLOSED_VIOLATION';END IF;
-            IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid='public.gallery_photo_revision_fields'::regclass)
-             OR NOT (SELECT relrowsecurity FROM pg_class WHERE oid='public.community_media_upload_intents'::regclass)
-            THEN RAISE EXCEPTION 'RLS_NOT_ENABLED';END IF;
-            RAISE NOTICE 'LOCAL_111_APPLIED_LEDGER_FUNCTION_TRIGGER_RLS_ACL_PHYSICAL_FAILCLOSED_PASS';
-          END $checks$;
-          SELECT extname FROM pg_extension ORDER BY extname;
-          SELECT n.nspname,COUNT(*) FILTER (WHERE p.prosecdef) AS security_definer_count
-          FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-          WHERE n.nspname IN ('public','private') GROUP BY n.nspname ORDER BY n.nspname;
-          SQL
-      - name: Validate migration ledger only if diagnostic bootstrap completes
-        shell: bash
-        run: |
-          set -euo pipefail
-          db_container=$(docker ps --format '{{.Names}}' | grep '^supabase_db_' | head -1)
-          test -n "$db_container"
-          docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres -At -c 'select count(*) from supabase_migrations.schema_migrations;' | tee /tmp/comm-diagnostic-ledger.log
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: comm-bootstrap-temporary-ddl-diagnostics
-          path: |
-            /tmp/comm-diagnostic-replay.log
-            /tmp/comm-diagnostic-ledger.log
-            /tmp/comm-diagnostic-reset.log
-            /tmp/comm-diagnostic-structural.log
-          retention-days: 14
-          if-no-files-found: warn
-      - name: Discard diagnostic local stack
-        if: always()
-        run: supabase stop --no-backup || true
