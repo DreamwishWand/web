@@ -19,7 +19,7 @@ const fixture=(id,related=[])=>{
  publicationStatus:'PUBLISHED',publicationApproved:true,rightsApproved:true,currentVersionReviewed:true,allEightLocalesReviewed:true,
  sourceEnglishGuidanceSha256:p.sourceHash,sourceLabel:'SYNTHETIC TEST ONLY',confidence:'CONFIRMED',reviewedAt:'2026-10-24',
  dlcContext:[],relatedArticleIds:related,localized:Object.fromEntries(SYSTEMS_LOCALES.map(lang=>[lang,{
- title: id==='DREAMSNAPS'?'DreamSnaps test article':'Photo Mode test article',
+ title: id==='DREAMSNAPS'?(lang==='ja'?'ドリームスナップス':'DreamSnaps test article'):'Photo Mode test article',
  summary:'Synthetic reviewed test copy; not released content.',
  prerequisites:['Synthetic prerequisite'],instructions:['Synthetic instruction'],warnings:['Synthetic warning']
  }]))};
@@ -100,6 +100,10 @@ try{
   assert(await page.locator('.systems-result').count()===2,'Synthetic published browse does not include exactly two');
   await page.locator('#systems-search').fill('写真と');
   await until(async()=>await page.locator('.systems-result').count()===2);
+  await page.locator('#systems-search').fill('ドリームスナップス');
+  await until(async()=>await page.locator('.systems-result').count()===1);
+  assert((await page.locator('.systems-result').first().getAttribute('href')).includes('DREAMSNAPS'),'Japanese approved title was not searchable in EN UI');
+  success('CROSS_LOCALE_REVIEWED_JA_TITLE_IN_EN_SEARCH');
   await page.locator('#systems-search').fill('DreamSnaps');
   await until(async()=>await page.locator('.systems-result').count()===2);
   const ids=await page.locator('.systems-result').evaluateAll(nodes=>nodes.map(node=>new URL(node.getAttribute('href'),location.href).searchParams.get('article')));
