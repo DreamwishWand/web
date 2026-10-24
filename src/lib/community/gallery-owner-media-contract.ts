@@ -32,6 +32,9 @@ export type GalleryOwnerMediaErrorV1 =
   | 'GALLERY_UPLOAD_DB_CLEANUP_RETRY'
   | 'GALLERY_UPLOAD_CLEANUP_WORKER_ONLY'
   | 'GALLERY_UPLOAD_PREPARE_ABORT_REQUIRES_RETRY'
+  | 'GALLERY_UPLOAD_OUTSTANDING_COUNT_EXCEEDED'
+  | 'GALLERY_UPLOAD_RESERVED_BYTES_EXCEEDED'
+  | 'GALLERY_UPLOAD_FORBIDDEN'|'GALLERY_OWNER_STATUS_UNAVAILABLE'
   | 'GALLERY_MEDIA_STORAGE_OBJECT_UNAVAILABLE'
   | 'GALLERY_MEDIA_NOT_READY_OR_NOT_OWNED'|'GALLERY_MEDIA_SELECTION_INVALID'
   | 'GALLERY_ROW_VERSION_CONFLICT'|'GALLERY_IDEMPOTENCY_CONFLICT'
@@ -47,6 +50,10 @@ export type GalleryOwnerMediaTransportV1=Readonly<{
   abort(storageKey:string):Promise<GalleryOwnerAbortV1>;
   /** Queues an expired/aborted key with the existing hourly retention worker; does NOT synchronously delete bytes. */
   cleanup(storageKey:string):Promise<{queued:true;alreadyClaimed:boolean}>;
+  /** Owner read-only: no browser-local fake expiry or Cloud durability claim */
+  status(storageKey:string):Promise<GalleryOwnerTemporaryStatusV1>;
+  /** Quota reconciliation from authoritative DB account ledger */
+  capacity():Promise<GalleryOwnerCapacityV1>;
   /** Existing community-command publishGalleryPhoto, no alternate publication API */
   publish(input:PublishGalleryPhotoV1):Promise<PublishGalleryPhotoResultV1>;
 }>;
@@ -121,4 +128,50 @@ export const GALLERY_OWNER_MEDIA_FLOW_V1=Object.freeze({
   deleteAuthorized:false,
   cloudKeepPrivateAuthorized:false,
   ddvNativeWriteAuthorized:false
+} as const);
+
+/** 06 PRODUCT #128: ttl is INACTIVE; never show invented 72h countdown.
+ * Quotas count physically reserved aborted bytes until Worker confirms removal.
+ */
+export type GalleryOwnerCapacityV1=Readonly<{
+  activeUnboundCount:number;
+  reservedBytes:number;
+  abortedAwaitingPhysicalCleanup:number;
+  finalizedUnboundCount:number;
+  maxActiveUnbound:number;
+  maxReservedBytes:number;
+  quotaEnforced:boolean;
+  ttlActive:false;
+}>;
+export type GalleryOwnerTemporaryStatusV1=Readonly<{
+  contract:'ddv.gallery-owned-media-status@1';
+  uploadState:'pending'|'finalized'|'aborted';
+  mediaId:string|null;
+  finalizedAt:string|null;
+  temporary:boolean;
+  durablyReferenced:boolean;
+  processingState:'quarantined'|'processing'|'ready'|'rejected'|null;
+  moderationState:'clear'|'under_review'|'restricted'|'removed'|null;
+  ttlActive:false;
+  reuseExpiresAt:null;
+  reuseEligible:boolean;
+  reuploadRequired:boolean;
+  cleanupQueued:boolean;
+  cleanupEligibleAt:string|null;
+  capacity:GalleryOwnerCapacityV1;
+}>;
+export const GALLERY_OWNER_RETENTION_SAFETY_V1=Object.freeze({
+  conditionalRetentionHours:72,
+  ttlEnforcementActivated:false,
+  autoDeleteFinalizedUnbound:false,
+  legacyExpiryBackfilled:false,
+  maximumOutstandingUnboundIntents:10,
+  maximumPhysicalReservationBytes:200*1024*1024,
+  maximumGalleryImageBytes:20*1024*1024,
+  quotaAdmissionAtomic:true,
+  abortedStillConsumesPhysicalReservedBytes:true,
+  durableRevisionExemptsTemporaryQuota:true,
+  currentPhysicalRemovalOnlyAfterOwnerAbortOrExpiredPending:true,
+  signedOwnerStorageDeletionAccepted:false,
+  uiShowActive72HourCountdown:false
 } as const);
