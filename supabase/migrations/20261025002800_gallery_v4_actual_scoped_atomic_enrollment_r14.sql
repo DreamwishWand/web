@@ -100,7 +100,7 @@ begin
        where wr.work_id=any(v_galleries)),'[]'::jsonb)
   );
   return v_result;
-end
+end;
 $graph$;
 revoke all on function private.gallery_v4_scoped_graph_r14(uuid,uuid[])
   from public,anon,authenticated,service_role;
@@ -187,7 +187,7 @@ begin
   if private.resolve_active_account(p_auth_subject) is distinct from p_owner then
     raise exception 'R14_ACTOR_OR_PRIVACY_STALE';
   end if;
-end
+end;
 $atomic$;
 revoke all on function private.gallery_v4_atomic_lock_scoped_r14(uuid,uuid,uuid,uuid[])
   from public,anon,authenticated,service_role;
@@ -449,5 +449,5 @@ begin
   set response=v_response,completed_at=now()
   where account_id=v_account_id and idempotency_key=p_idempotency_key;
   return v_response;
-end
-$$;
+end;
+$;
