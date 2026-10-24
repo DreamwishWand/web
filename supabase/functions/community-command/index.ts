@@ -562,7 +562,36 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       }
     }
 
-    const { data, error } = await ctx.supabaseAdmin.rpc(rpc, params);
+    // R14 SOURCE-SCOPED actual Gallery v4 writer only. Every separate RPC is
+    // a NEW PostgreSQL transaction, never a statement/savepoint replay.
+    // Reauthorization checks the real JWT subject, current Identity, session
+    // cutoff and Privacy barrier before EVERY attempt; semantic stale
+    // owner/version/idempotency errors are terminal, not retryable.
+    const maxAttempts = command === 'publishGallery' ? 3 : 1;
+    const retryStartedAt = Date.now();
+    let data: unknown = null;
+    let error: {code?: string; message: string} | null = null;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      if (attempt > 0) {
+        const {error: reauthError} = await ctx.supabaseAdmin.rpc(
+          'community_authorize_session',authorizationParams
+        );
+        if (reauthError) return reply({ok:false,error:'SESSION_REVOKED_OR_PRIVACY_SUPPRESSED'},401);
+      }
+      const outcome = await ctx.supabaseAdmin.rpc(rpc,params);
+      data=outcome.data;
+      error=outcome.error;
+      if (!error) break;
+      const transient =
+        ['40P01','55P03','40001'].includes(String(error.code ?? '')) ||
+        error.message.includes('R14_GRAPH_CHANGED_RETRY_WHOLE_TRANSACTION') ||
+        error.message.includes('R14_ARTIFACT_ROSTER_CHANGED_RETRY_WHOLE_TRANSACTION');
+      if (!transient || attempt+1>=maxAttempts ||
+          Date.now()-retryStartedAt>1700) break;
+      // Bounded jitter is safe only because the DB mutation RPC itself
+      // rolls back ALL revisions/Search/Outbox/idempotency on an error.
+      await new Promise(resolve => setTimeout(resolve,30+Math.floor(Math.random()*65)));
+    }
     if (error) {
       const conflict =
         error.message.includes('Row version conflict') ||
