@@ -15,6 +15,7 @@ on:
       - 'supabase/staging/acceptance/local-clean-bootstrap-scene-revision-readiness-v1.sql'
       - 'supabase/staging/acceptance/local-clean-bootstrap-scene-paired-update-v1.sql'
       - 'supabase/staging/acceptance/local-clean-bootstrap-account-privacy-suppression-v1.sql'
+      - 'tests/comm-privacy-r12-two-session.py'
       - '.github/workflows/comm-clean-bootstrap-acceptance.yml'
 
 permissions:
@@ -176,6 +177,15 @@ jobs:
             fi
           done
           exit "$fail"
+      - name: Independent two-Postgres-backend account-privacy concurrency (LOCAL ONLY)
+        shell: bash
+        env:
+          DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
+          DATABASE_URL: ''
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'psycopg[binary]>=3.2,<4'
+          python3 tests/comm-privacy-r12-two-session.py 2>&1 | tee /tmp/comm-privacy-two-session.log
       - name: Record bounded acceptance limitations without pretending actor E2E
         if: always()
         shell: bash
@@ -200,6 +210,7 @@ jobs:
             /tmp/comm-synthetic-seed.log
             /tmp/comm-accept-*.log
             /tmp/comm-bootstrap-limitations.log
+            /tmp/comm-privacy-two-session.log
           if-no-files-found: warn
           retention-days: 14
       - name: Stop and discard only disposable local stack
