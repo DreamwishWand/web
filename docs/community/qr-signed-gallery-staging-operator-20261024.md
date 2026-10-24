@@ -4,7 +4,7 @@ Status: HARNESS IMPLEMENTED / OFFLINE CONTRACT TEST REQUIRED / REAL AUTH SIGNED 
 
 ## Source boundary
 
-- QA branch: `integration/qr-signed-gallery-e2e-harness-20261024`, initially branched from 03 COMM Draft PR #129 `0175ecb22d37bb53a79c690340911f8700c25956`; this is the exact backend SHA pinned by the harness. PR #123 -> #126 -> #129 integration was confirmed at this SHA. If any parent/child source or deployed migration advances, review, repin and rerun CI before signed acceptance.
+- QA branch: `integration/qr-signed-gallery-e2e-harness-20261024`, initially branched from 03 COMM Draft PR #129 `6bb2fe8fa7e78c5254800a8f59abf7cd02deeefb`; this is the exact backend SHA pinned by the harness. PR #123 -> #126 -> #129 integration was confirmed at this SHA. If any parent/child source or deployed migration advances, review, repin and rerun CI before signed acceptance.
 - Existing anonymous workflow `.github/workflows/community-public-browser-acceptance.yml` is preserved; manual `signed_gallery=true` adds a separately gated A/B/M job. No new repository/test stack. Node 22 built-in fetch/FormData and tests under existing `scripts/`, `tests/`.
 - Operator must verify actual deployed migrations/Edge versions independently and record them in the approved private run. Harness output labels backend SHA as pinned source, NOT an automatically attested live deployment revision.
 
@@ -22,7 +22,7 @@ Create/protect **Environment** `staging-gallery-signed-acceptance`: require name
 Within **that Environment Variables**, set:
 
 - `DREAMWISH_GALLERY_E2E_APPROVAL=APPROVED_DISPOSABLE_GALLERY_STAGING_ONLY` **only after** separate explicit scoped media/auth operator authorization;
-- `DREAMWISH_GALLERY_BACKEND_SHA=0175ecb22d37bb53a79c690340911f8700c25956` **only if** this exact target is reviewed and deployed;
+- `DREAMWISH_GALLERY_BACKEND_SHA=6bb2fe8fa7e78c5254800a8f59abf7cd02deeefb` **only if** this exact target is reviewed and deployed;
 - `DREAMWISH_GALLERY_SUBJECT_ID` = one pre-reviewed verified Switch v1.25.0/schema624 Floating Island UUID appropriate to Gallery kind `outdoor`;
 - `DREAMWISH_GALLERY_DB_MIGRATION` = operator-verified latest applied Staging DB migration version (14 digits; e.g. `20261025002200`, not an unverified guess);
 - `DREAMWISH_GALLERY_EDGE_VERSIONS` = operator-verified exact `community-media:vN;community-public-media:vN;community-query:vN;community-command:vN`, current example `community-media:v16;community-public-media:v6;community-query:v14;community-command:v30`. Harness labels these attestations, not independent deployment proof;
