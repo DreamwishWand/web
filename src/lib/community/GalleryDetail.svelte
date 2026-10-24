@@ -9,7 +9,7 @@
   let loadedKey = '';
   let requestId=0;
 
-  $: mediaKey = (work?.mediaIds ?? []).map(String).join(',');
+  $: mediaKey = [String(work?.workId??''),String(work?.revisionId??work?.rowVersion??''),...(work?.mediaIds??[]).map(String)].join(':');
   $: if (mediaKey !== loadedKey) {
     loadedKey = mediaKey;
     mediaUrls={};
