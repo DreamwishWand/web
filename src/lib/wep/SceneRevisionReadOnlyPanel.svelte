@@ -4,6 +4,7 @@
   import { readCommunityBrowserConfig } from '$lib/community/runtime-config';
   import {
     createSceneRevisionGalleryConsumer,
+    diagnoseSceneRevisionPairing,
     type ScenePublicCurrentRead,
     type SceneOwnerReadiness
   } from './scene-revision-gallery-consumer';
@@ -23,6 +24,7 @@
   let signing = false;
   let selectedKey = '';
   $: copy = sceneRevisionCopy($locale);
+  $: diagnosis = owner ? diagnoseSceneRevisionPairing(current, owner) : null;
   $: selectionKey = workId + '/' + presetArtifactId;
   $: if (selectionKey !== selectedKey) {
     selectedKey = selectionKey;
@@ -127,6 +129,7 @@
         <div><dt>{copy.presetRevision}</dt><dd><code>{current.presetRevisionId}</code></dd></div>
         <div><dt>{copy.galleryRevision}</dt><dd><code>{current.galleryWorkRevisionId ?? '—'}</code></dd></div>
         <div><dt>SHA-256</dt><dd><code>{current.checksumSha256}</code></dd></div>
+        <div><dt>{copy.currentMediaCount}</dt><dd>{current.mediaIds.length}</dd></div>
       </dl>
       {#if current.coverMediaId}
         <div class="cover" data-wep-scene-current-cover>
@@ -150,13 +153,21 @@
         <div><dt>{copy.revisionCount}</dt><dd>{owner.revisionCount}</dd></div>
         <div><dt>{copy.historicGallery}</dt><dd>{owner.knownHistoricalGalleryCount}</dd></div>
         <div><dt>{copy.galleryReferences}</dt><dd>{owner.knownGalleryReferenceCount}</dd></div>
+        <div><dt>{copy.pairedGalleryOwner}</dt><dd><code>{owner.pairedGalleryWorkId ?? copy.unknown}</code></dd></div>
+        <div><dt>{copy.pairedGalleryRowVersion}</dt><dd>{owner.pairedGalleryWorkRowVersion ?? copy.unknown}</dd></div>
+        <div><dt>{copy.pairedGalleryCurrentRevision}</dt><dd><code>{owner.pairedGalleryCurrentWorkRevisionId ?? copy.unknown}</code></dd></div>
+        <div><dt>{copy.historicalScope}</dt><dd><code>{owner.historicalEdgeSetScope ?? copy.unknown}</code></dd></div>
+        <div><dt>{copy.historicalEdgeSha}</dt><dd><code>{owner.historicalEdgeSetSha256 ?? copy.unknown}</code></dd></div>
+        <div><dt>{copy.graphFence}</dt><dd>{copy.notAtomic}</dd></div>
       </dl>
-      <div class="blockers">
-        <strong>{copy.blockers}</strong>
-        {#each owner.blockedReasons as reason}
-          <code>{reason}</code>
-        {/each}
-      </div>
+      {#if diagnosis}
+        <div data-wep-scene-owner-comparison class="blockers" role="status" aria-live="polite">
+          <strong>{copy.comparison}: {copy.diagnosticsOnly}</strong>
+          {#each diagnosis.blockedReasons as reason}
+            <code>{reason}</code>
+          {/each}
+        </div>
+      {/if}
     {/if}
     <p>{copy.boundary}</p>
     <strong class="write-blocked" data-wep-scene-save-disabled>{copy.saveBlocked}</strong>
