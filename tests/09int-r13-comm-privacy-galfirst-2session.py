@@ -110,6 +110,58 @@ def invoke_gallery(b,g):
        [g["oldMedia"]],[g["presetRev"]],[],[],None,
        "r13-source-gallery-"+str(uuid.uuid4())))[0]
 
+def transient_retry_preflight(url,g):
+    """Actual owner Privacy RPC fails 55P03 while Account lock is held.
+    Entire failed DB transaction rolls back. A subsequent separate fresh
+    transaction reauthorizes and attempts the same privacy operation in
+    privacy_race() -- NOT a statement/savepoint continuation.
+    """
+    with psycopg.connect(url,autocommit=True) as a,psycopg.connect(url,autocommit=True) as b:
+        apid=one(a,"select pg_backend_pid()")[0]
+        bpid=one(b,"select pg_backend_pid()")[0]
+        assert apid!=bpid
+        a.execute("BEGIN")
+        finished=threading.Event()
+        result={}
+        try:
+            assert one(a,"select account_id from public.wand_accounts where account_id=%s for update",
+                       (g["owner"],))==(g["owner"],)
+            def worker():
+                try:
+                    b.execute("BEGIN")
+                    b.execute("set local lock_timeout='950ms'")
+                    try:
+                        invoke_suppression(b,g)
+                        result["unexpectedSuccess"]=True
+                    except psycopg.Error as ex:
+                        result["sqlstate"]=ex.sqlstate
+                except Exception as ex:
+                    result["unexpected"]=repr(ex)
+                finally:
+                    b.execute("ROLLBACK")
+                    finished.set()
+            t=threading.Thread(target=worker,daemon=True)
+            t.start()
+            blocked=False
+            deadline=time.monotonic()+2
+            while time.monotonic()<deadline and not finished.is_set():
+                pids=one(a,"select pg_blocking_pids(%s)",(bpid,))[0]
+                if apid in (pids or []):
+                    blocked=True
+                    break
+                time.sleep(.025)
+            assert finished.wait(6),"R13_PRIVACY_LOCK_TIMEOUT_MISSING"
+            t.join(1)
+            assert blocked and result.get("sqlstate")=="55P03" and not result.get("unexpectedSuccess"),result
+            assert one(a,"select count(*) from private.account_privacy_suppressions where account_id=%s",(g["owner"],))[0]==0
+            print(json.dumps({"case":"R13_ACTUAL_OWNER_PRIVACY_RPC_TRANSIENT_LOCK_RETRY_BOUNDARY",
+              "distinctBackends":True,"blockedByAccountRoot":True,
+              "sqlstate":"55P03","failedWholeTransactionRolledBack":True,
+              "subsequentExecutionRequiresFreshTransactionAndReauthorization":True,
+              "automaticProductionRetryImplemented":False}))
+        finally:
+            a.execute("ROLLBACK")
+
 def privacy_race(a,b,g):
     holder=one(a,"select pg_backend_pid()")[0]
     publisher=one(b,"select pg_backend_pid()")[0]
@@ -235,6 +287,7 @@ def verify_public_and_moderation(c,g):
 def main():
     with psycopg.connect(dsn,autocommit=True) as setup:
         g=prep_fixture(setup)
+    transient_retry_preflight(dsn,g)
     with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=True) as b:
         privacy_race(a,b,g)
     with psycopg.connect(dsn,autocommit=True) as c:
