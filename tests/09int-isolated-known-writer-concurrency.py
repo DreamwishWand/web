@@ -118,6 +118,86 @@ def test_block(a,b,label,stmt,expect_block=True):
     assert digest(a)==before,label+": retry rollback failed"
 
 
+
+def test_consistent_artifact_preset_gallery_order(a,b):
+    """Positive *lock-order control only*: A and B acquire Artifact -> PresetWork -> GalleryWork.
+
+    This is an isolated, read-only row-lock contract demonstration.
+    It does NOT prove any existing deployed RPC participates in this order.
+    """
+    before=digest(a)
+    apid=one(a,"SELECT pg_backend_pid()")[0]
+    bpid=one(b,"SELECT pg_backend_pid()")[0]
+    assert apid!=bpid
+    start=threading.Event()
+    done=threading.Event()
+    result={}
+    a.execute("BEGIN")
+    a.execute("SET LOCAL statement_timeout='7s'")
+    try:
+        assert one(a,"SELECT preset_artifact_id FROM public.preset_artifacts WHERE preset_artifact_id=%s FOR UPDATE",(P,))==(P,)
+        def same_order_writer():
+            try:
+                b.execute("BEGIN")
+                b.execute("SET LOCAL statement_timeout='7s'")
+                start.set()
+                assert one(b,"SELECT preset_artifact_id FROM public.preset_artifacts WHERE preset_artifact_id=%s FOR UPDATE",(P,))==(P,)
+                assert one(b,"SELECT work_id FROM public.community_works WHERE work_id=%s FOR UPDATE",(PW,))==(PW,)
+                assert one(b,"SELECT work_id FROM public.community_works WHERE work_id=%s FOR UPDATE",(G,))==(G,)
+                result["acquiredAll"]=True
+            except psycopg.Error as err:
+                result["sqlstate"]=err.sqlstate
+            except Exception as exc:
+                result["unexpected"]=type(exc).__name__+":"+str(exc)
+            finally:
+                b.execute("ROLLBACK")
+                done.set()
+        t=threading.Thread(target=same_order_writer,daemon=True)
+        t.start()
+        assert start.wait(3),"ORDERED_WRITER_NOT_STARTED"
+        observed=False
+        deadline=time.monotonic()+3
+        while time.monotonic()<deadline:
+            holders=one(a,"SELECT pg_blocking_pids(%s)",(bpid,))[0]
+            if apid in (holders or []):
+                observed=True
+                break
+            time.sleep(.025)
+        assert observed,"ORDERED_WRITER_BLOCKING_NOT_OBSERVED"
+        assert one(a,"SELECT work_id FROM public.community_works WHERE work_id=%s FOR UPDATE",(PW,))==(PW,)
+        assert one(a,"SELECT work_id FROM public.community_works WHERE work_id=%s FOR UPDATE",(G,))==(G,)
+    finally:
+        a.execute("ROLLBACK")
+    assert done.wait(5),"ORDERED_WRITER_DID_NOT_RESUME"
+    t.join(1)
+    assert result=={"acquiredAll":True},result
+    assert digest(a)==before,"ORDERED_LOCK_CONTROL_MUTATED_GRAPH"
+    print(json.dumps({"case":"candidate-consistent-artifact-preset-gallery-order",
+        "holderPid":apid,"waitingPid":bpid,
+        "pgBlockingPidsIncludesHolder":observed,
+        "secondWriterAcquiredAllAfterRollback":True,
+        "deadlockObserved":False,"allTransactionsRolledBack":True,
+        "allDeployedWritersEnrolled":False}))
+
+def test_bounded_clean_transaction_replay(a):
+    """A clean full-transaction retry *shape* after synthetic 40P01, not live RPC retry."""
+    before=digest(a)
+    for attempt in range(1,3):
+        a.execute("BEGIN")
+        try:
+            a.execute("SET LOCAL lock_timeout='1800ms'")
+            a.execute("SET LOCAL statement_timeout='5s'")
+            assert one(a,"SELECT preset_artifact_id FROM public.preset_artifacts WHERE preset_artifact_id=%s FOR UPDATE",(P,))==(P,)
+            assert one(a,"SELECT work_id FROM public.community_works WHERE work_id=%s FOR UPDATE",(PW,))==(PW,)
+            assert one(a,"SELECT work_id FROM public.community_works WHERE work_id=%s FOR UPDATE",(G,))==(G,)
+            assert digest(a)==before,"REPLAY_CHANGED_GRAPH"
+        finally:
+            a.execute("ROLLBACK")
+    assert digest(a)==before,"REPLAY_ROLLBACK_CHANGED_GRAPH"
+    print(json.dumps({"case":"bounded-clean-transaction-replay-shape",
+        "attempts":2,"transactionLevelRollback":True,"immutableBaselinePreserved":True,
+        "realRPCIdempotentRetryAccepted":False}))
+
 def test_synthetic_lock_order_inversion(a,b):
     """Negative demonstration, NOT an implemented Gallery retirement RPC.
 
@@ -234,6 +314,8 @@ def main():
         test_block(a,b,"preset-revision-publication-insert",publication)
         assert one(a,"SELECT row_version FROM public.community_works WHERE work_id=%s",(G,))[0]==0
         test_synthetic_lock_order_inversion(a,b)
+        test_consistent_artifact_preset_gallery_order(a,b)
+        test_bounded_clean_transaction_replay(a)
     print(json.dumps({"result":"ISOLATED_KNOWN_WRITER_FENCE_CONCURRENCY_PASS",
         "realPostgreSQLSessions":True,"verifiedTriggerPaths":3,"stagingAcceptance":False,
         "allWriterCoverage":False,"graphComplete":False,"retirementAuthorized":False}))
