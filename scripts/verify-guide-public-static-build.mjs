@@ -22,6 +22,10 @@ assert.equal(hashes.length,45);
 const privateV17Markers=['ddv.guide-systems-native-locdb-provenance-promotion@17',
   'editorialguidancetext','aiinternaleditorial','nativetermproof',
   'humanreviewqueue315','verifiedv16nativecorrections11'];
+// 07 DBK V18 is an owner-only reviewer workbook/package, never a public asset.
+const privateV18Markers=['ddv.guide-systems-independent-review-package@18',
+  'ddv.guide-systems-consumer-return@18','ddv.guide-systems-reviewer-consumer@18',
+  'sourceenglishfivesections','humanreview315','reviewerdecision','rightsrevieweridentity'];
 let scanned=0;
 const leaks=[];
 async function scan(dir) {
@@ -35,8 +39,9 @@ async function scan(dir) {
     scanned++;
     for(let i=0;i<hashes.length;i++)if(source.includes(hashes[i]))leaks.push({file:path,record:REVIEWED_EN_PAGES[i].id});
     for(const marker of privateV17Markers)if(source.includes(marker))leaks.push({file:path,privateMarker:marker});
+    for(const marker of privateV18Markers)if(source.includes(marker))leaks.push({file:path,privateV18Marker:marker});
   }
 }
 await scan(built);
 assert.equal(leaks.length,0,'Unapproved article source hashes are present in emitted public assets: '+JSON.stringify(leaks.slice(0,8)));
-console.log(JSON.stringify({result:'PASS',publicApproved:0,reviewedEN:45,unpublishedHashesExposed:0,privateV17MarkersExposed:0,assetsScanned:scanned}));
+console.log(JSON.stringify({result:'PASS',publicApproved:0,reviewedEN:45,unpublishedHashesExposed:0,privateV17MarkersExposed:0,privateV18MarkersExposed:0,assetsScanned:scanned}));

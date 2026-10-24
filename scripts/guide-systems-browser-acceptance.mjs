@@ -98,6 +98,21 @@ try{
   assert(!(await page.locator('main').innerText()).includes('SYNTHETIC PRIVATE TITLE'),'V17 draft title rendered from public URL');
   success('V17_PRIVATE_CORPUS_REJECTED_AT_PUBLIC_MANIFEST_URL');
   await page.unroute('**/ddv/guide/v1.25/systems-public.json');
+  const privateV18={schema:'ddv.guide-systems-consumer-return@18',
+    consumerContract:{schema:'ddv.guide-systems-reviewer-consumer@18',
+      access:'DO_NOT_PUBLISH_ON_WEB_OR_STATIC_ASSETS',
+      valuesNow:{publicEligibleArticles:0}},
+    publicationGate45:[{articleId:'DREAMSNAPS',publicEligible:false}],
+    syntheticInternalDraftTitle:'PRIVATE V18 OWNER ONLY — NEVER PUBLIC'};
+  await page.route('**/ddv/guide/v1.25/systems-public.json',route=>route.fulfill({
+    status:200,contentType:'application/json',body:JSON.stringify(privateV18)}));
+  await page.goto(base+'/guide/systems/?article=DREAMSNAPS',{waitUntil:'domcontentloaded'});
+  await until(async()=>await page.locator('[data-systems-state="error"]').count()===1);
+  assert(!(await page.locator('main').innerText()).includes('PRIVATE V18 OWNER ONLY'),
+    'V18 reviewer payload rendered from public URL');
+  assert(await page.locator('.systems-detail').count()===0,'V18 reviewer payload opened public detail');
+  success('V18_OWNER_ONLY_REVIEWER_PACKAGE_REJECTED_BY_PUBLIC_URL');
+  await page.unroute('**/ddv/guide/v1.25/systems-public.json');
 
   // Browser-positive contract is tested only after injecting synthetic fixture
   // approval into this ephemeral CI checkout. The real source is restored in finally.
