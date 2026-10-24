@@ -146,5 +146,8 @@ test('QR-SCN-INT-06 offline proof is not a 03 COMM paired transaction call or re
  assert.match(privateWriter,/p_media_ids uuid\[\]/);
  assert.match(privateWriter,/p_cover_media_id uuid/);
  assert.match(intent,/expectedPresetWorkRowVersion: readiness\.workRowVersion/);
- assert.doesNotMatch(intent,/expectedGalleryWorkRowVersion:/);
+ assert.match(intent,/expectedGalleryWorkRowVersion: null/);
+ assert.match(intent,/expectedHistoricalEdgeSetSha256: null/);
+ assert.match(intent,/historicalEdgePinAvailable: false as const/);
+ assert.match(intent,/historicalEdgePinIsAtomicFence: false as const/);
 });
