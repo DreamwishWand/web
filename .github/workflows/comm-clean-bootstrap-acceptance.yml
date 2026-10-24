@@ -163,6 +163,17 @@ jobs:
           file.write_text(after)
           print('DIAGNOSTIC_ONLY_TEN_SEMICOLONS_PATCHED_IN_DISPOSABLE_RUNNER')
           print('CANONICAL_ORIGINAL_SOURCE_BOOTSTRAP_RESULT_REMAINS_FAIL')
+          # Second source blocker: the canonical tree has no CREATE TABLE for
+          # private.provider_identity_cleanup_jobs, but migration 115623
+          # assumes that Staging-only relation already exists.
+          fk=Path('supabase/migrations/20260930115623_community_core_v0_fk_index_hardening.sql')
+          source=fk.read_text()
+          missing='create index if not exists provider_identity_cleanup_jobs_account_idx\\n  on private.provider_identity_cleanup_jobs(account_id);'
+          assert source.count(missing)==1
+          fk.write_text(source.replace(missing,
+              '-- DIAGNOSTIC ONLY: omitted index targeting Staging-only missing parent',1))
+          print('DIAGNOSTIC_ONLY_STAGING_ONLY_PARENT_INDEX_SKIPPED_IN_RUNNER')
+          print('CANONICAL_SOURCE_REMAINS_UNCHANGED_AND_NOT_ACCEPTED')
           PY
           printf 'project_id = "ddvre_comm_bootstrap_diagnostic_temp_20261024"\n' | cat - supabase/config.toml > /tmp/comm-diag-config.toml
           mv /tmp/comm-diag-config.toml supabase/config.toml
