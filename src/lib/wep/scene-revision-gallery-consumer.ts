@@ -75,9 +75,10 @@ export interface SceneOwnerReadiness {
   blockedReasons: string[];
 }
 
-export function parseScenePublicCurrent(raw: unknown, expectedWorkId: string): ScenePublicCurrentRead {
+export function parseScenePublicCurrent(rawInput: unknown, expectedWorkId: string): ScenePublicCurrentRead {
+  const raw = rawInput as Record<string, any>;
   if (!validId(expectedWorkId)) invalid('WEP_SCENE_WORK_ID_INVALID');
-  if (!object(raw) || raw.presetType !== 'scene' ||
+  if (!object(rawInput) || raw.presetType !== 'scene' ||
     raw.workId !== expectedWorkId ||
     !validId(raw.workRevisionId) || !validId(raw.presetArtifactId) ||
     !validId(raw.presetRevisionId) || !validId(raw.creatorProfileId)) {
@@ -91,7 +92,7 @@ export function parseScenePublicCurrent(raw: unknown, expectedWorkId: string): S
   }
   const mediaIds = raw.mediaIds;
   if (!Array.isArray(mediaIds) || mediaIds.length > 10 ||
-      mediaIds.some(v => !validId(v)) || new Set(mediaIds).size !== mediaIds.length) {
+      mediaIds.some((v: unknown) => !validId(v)) || new Set(mediaIds).size !== mediaIds.length) {
     invalid('WEP_SCENE_PUBLIC_CURRENT_MEDIA_SET_INVALID');
   }
   const gallery = raw.galleryWorkId;
@@ -136,9 +137,10 @@ export function parseScenePublicCurrent(raw: unknown, expectedWorkId: string): S
   });
 }
 
-export function parseSceneOwnerReadiness(raw: unknown, expectedPresetArtifactId: string): SceneOwnerReadiness {
+export function parseSceneOwnerReadiness(rawInput: unknown, expectedPresetArtifactId: string): SceneOwnerReadiness {
+  const raw = rawInput as Record<string, any>;
   if (!validId(expectedPresetArtifactId)) invalid('WEP_SCENE_OWNER_PRESET_ID_INVALID');
-  if (!object(raw) ||
+  if (!object(rawInput) ||
     raw.contract !== SCENE_OWNER_READINESS_CONTRACT ||
     raw.presetArtifactId !== expectedPresetArtifactId ||
     !validId(raw.presetWorkId) || raw.presetType !== 'scene' ||
@@ -158,7 +160,7 @@ export function parseSceneOwnerReadiness(raw: unknown, expectedPresetArtifactId:
       typeof raw.dependencyFingerprintSha256 !== 'string' ||
       !SHA256.test(raw.dependencyFingerprintSha256) ||
       !Array.isArray(raw.blockedReasons) ||
-      raw.blockedReasons.some(x => typeof x !== 'string')) {
+      raw.blockedReasons.some((x: unknown) => typeof x !== 'string')) {
     invalid('WEP_SCENE_OWNER_READINESS_DETAIL_INVALID');
   }
   // A positive upstream flag is NOT an invitation for WEP to enable writing.
@@ -201,7 +203,7 @@ export function createSceneRevisionGalleryConsumer(deps: SceneRevisionConsumerDe
         !current.mediaIds.includes(current.coverMediaId)) {
       invalid('WEP_SCENE_CURRENT_COVER_UNAVAILABLE');
     }
-    const result = await deps.publicMedia(current.coverMediaId);
+    const result = await deps.publicMedia(current.coverMediaId!);
     const url = typeof result?.signedUrl === 'string' ? result.signedUrl : '';
     if (!url.startsWith('https://') || !/^image\//.test(String(result?.mimeType || ''))) {
       invalid('WEP_SCENE_CURRENT_COVER_INVALID_OR_EXPIRED');
