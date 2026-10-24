@@ -197,7 +197,7 @@ test('owner diagnostic Scene history pin is advisory and paired candidate requir
     "'dependencyFingerprintIsAtomicFence',false",
     "'saveRevisionAuthorized',false"
   ]) assert.ok(readiness.includes(term), 'readiness must retain scoped advisory only: ' + term);
-  assert.ok(candidate.includes('p_expected_historical_edge_set_sha256 text'));
+  assert.ok(sql.includes('p_expected_historical_edge_set_sha256 text'));
   assert.ok(candidate.includes("'historicalEdgePin',p_expected_historical_edge_set_sha256"));
   assert.ok(candidate.includes("p_expected_historical_edge_set_sha256 !~ '^[0-9a-f]{64}$'"));
   const lock = candidate.indexOf('where work_id=v_assoc for update;');
