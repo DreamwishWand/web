@@ -1,6 +1,7 @@
 <script lang="ts">
   import { locale } from '$lib/i18n/runtime.js';
   import { callPublicCommunityRpc, getPublicCommunityMedia } from '$lib/community/browser-client';
+  import { readCommunityBrowserConfig } from '$lib/community/runtime-config';
   import {
     createSceneRevisionGalleryConsumer,
     type ScenePublicCurrentRead,
@@ -33,9 +34,12 @@
   }
 
   function reader() {
+    // Use the SAME configured Community endpoint as the Presets bridge, including
+    // the authorized session-scoped Staging Lab fallback (no direct DB access).
+    const config = readCommunityBrowserConfig();
     return createSceneRevisionGalleryConsumer({
-      publicQuery: callPublicCommunityRpc,
-      publicMedia: getPublicCommunityMedia,
+      publicQuery: (rpc, payload) => callPublicCommunityRpc(rpc, payload, config ?? undefined),
+      publicMedia: (id) => getPublicCommunityMedia(id, config ?? undefined),
       ownerReadiness: async (id: string) => {
         if (!connected || typeof bridge?.inspectSceneRevisionReadiness !== 'function') {
           throw new Error('WEP_SCENE_OWNER_AUTH_OR_READINESS_UNAVAILABLE');
