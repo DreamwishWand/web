@@ -19,6 +19,8 @@ const approvedEnv = () => ({
   DREAMWISH_GALLERY_E2E_APPROVAL:'APPROVED_DISPOSABLE_GALLERY_STAGING_ONLY',
   DREAMWISH_GALLERY_BACKEND_SHA:BACKEND_SHA,
   DREAMWISH_GALLERY_SUBJECT_ID:'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+  DREAMWISH_GALLERY_DB_MIGRATION:'20261025002200',
+  DREAMWISH_GALLERY_EDGE_VERSIONS:'community-media:v16;community-public-media:v6;community-query:v14;community-command:v30',
   DREAMWISH_GALLERY_M_MODERATOR_APPROVED:'true',
   ...Object.fromEntries(['A','B','M'].flatMap((actor) => [
     ['DREAMWISH_GALLERY_' + actor + '_EMAIL','offline-' + actor + '@example.invalid'],
