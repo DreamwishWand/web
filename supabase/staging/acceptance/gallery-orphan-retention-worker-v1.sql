@@ -24,13 +24,18 @@ begin
  key_a:=a::text||'/'||gen_random_uuid()||'.png';
  key_b:=a::text||'/'||gen_random_uuid()||'.png';
  key_c:=a::text||'/'||gen_random_uuid()||'.png';
- perform public.community_gallery_media_intent_open_v1(a,key_a,'image/png',128);
- perform public.community_gallery_media_intent_open_v1(a,key_b,'image/png',128);
- perform public.community_gallery_media_intent_open_v1(a,key_c,'image/png',128);
+ -- Backdated fixtures are born expired; never mutate the immutable URL
+ -- deadline after prepare, even in acceptance tests.
+ insert into public.community_media_upload_intents(
+   storage_key,owner_account_id,auth_subject,mime_type,expected_bytes,issued_at,expires_at)
+ select k,account_id,a,'image/png',128,now()-interval '3 hours',now()-interval '10 minutes'
+ from unnest(array[key_a,key_b]) k;
+ -- Stagger retry eligibility with mutable scheduling metadata only.
+ update public.community_media_upload_intents set cleanup_retry_at=now()+interval '1 hour'
+ where storage_key=key_b;
 
  -- A: abandoned pending key, nothing attached, automatic orphan claim.
- update public.community_media_upload_intents set expires_at=now()-interval '10 minutes'
- where storage_key=key_a;
+
  res:=public.community_claim_gallery_media_orphans_v1(1,token_a);
  if (res->>'claimed')::integer<>1
  or (res->'jobs'->0->>'storageKey')<>key_a then
@@ -67,8 +72,8 @@ begin
 
  -- B: owner-aborted pending, expired. The worker must reclaim automatically.
  perform public.community_gallery_media_intent_cancel_v1(a,key_b);
- update public.community_media_upload_intents set expires_at=now()-interval '10 minutes'
- where storage_key=key_b;
+ update public.community_media_upload_intents set cleanup_retry_at=now()-interval '1 minute' where storage_key=key_b;
+
  res:=public.community_claim_gallery_media_orphans_v1(1,token_a);
  if (res->'jobs'->0->>'storageKey')<>key_b then raise exception 'ABORT_NOT_CLAIMED';end if;
  perform public.community_complete_gallery_media_orphan_v1(key_b,token_a);
@@ -85,8 +90,7 @@ begin
  public_work:=public.community_publish_gallery_photo_v1(a,creator,null,null,
   'outdoor',subject_id,'Protected published gallery media',null,array[media_c],media_c,true,
   'gallery-cleaner-rollback-'||gen_random_uuid()::text);
- update public.community_media_upload_intents set expires_at=now()-interval '10 minutes'
- where storage_key=key_c;
+
  res:=public.community_claim_gallery_media_orphans_v1(5,token_b);
  if (res->>'claimed')::int<>0 then raise exception 'REFERENCED_MEDIA_CLAIMED_FOR_DELETION';end if;
  if (select state from public.community_media_upload_intents where storage_key=key_c)<>'finalized'

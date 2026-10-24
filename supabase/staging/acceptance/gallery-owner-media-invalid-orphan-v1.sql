@@ -1,7 +1,7 @@
 -- SQL-only #124 negative/ACL supplement; no object writes and no permanent fixtures.
 begin;
 do $$
-declare v_auth uuid;v_account uuid;v_other uuid;v_key text;v_media uuid:=gen_random_uuid();
+declare v_auth uuid;v_account uuid;v_other uuid;v_key text;v_expired_key text;v_media uuid:=gen_random_uuid();
  v_bad boolean;v_subject uuid;
 begin
  select ai.provider_subject::uuid,wa.account_id into v_auth,v_account
@@ -32,12 +32,17 @@ begin
  if position('GALLERY_UPLOAD_BODY_MISMATCH' in sqlerrm)>0 then v_bad:=true;else raise;end if;
  end;
  if not v_bad then raise exception 'SIZE_MISMATCH_ACCEPTED';end if;
- update public.community_media_upload_intents set expires_at=now()-interval '1 minute' where storage_key=v_key;
+ -- Synthetic old upload is inserted with immutable expired deadline.
+ v_expired_key:=v_auth::text||'/'||gen_random_uuid()||'.png';
+ insert into public.community_media_upload_intents(
+ storage_key,owner_account_id,auth_subject,mime_type,expected_bytes,issued_at,expires_at)
+ values(v_expired_key,v_account,v_auth,'image/png',128,
+ now()-interval '3 hours',now()-interval '1 minute');
  v_bad:=false;
  begin
   insert into public.community_entities(entity_id,entity_type) values(v_media,'media_asset');
   insert into public.media_assets(media_id,owner_account_id,storage_key,mime_type,byte_size,width,height,checksum_sha256,processing_state,moderation_state)
-  values(v_media,v_account,v_key,'image/png',128,16,16,repeat('b',64),'ready','clear');
+  values(v_media,v_account,v_expired_key,'image/png',128,16,16,repeat('b',64),'ready','clear');
  exception when others then
  if position('GALLERY_UPLOAD_EXPIRED_OR_CLOSED' in sqlerrm)>0 then v_bad:=true;else raise;end if;
  end;

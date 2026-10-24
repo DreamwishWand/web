@@ -112,3 +112,45 @@ test('existing hourly Vault-authenticated retention worker owns Gallery orphan S
  assert.match(acceptance,/FAILED_RETRY_NOT_RECORDED/);
  assert.match(acceptance,/rollback;\s*$/);
 });
+
+test('Product #128 conditional 72h retention is server-authoritative, immutable and PHYSICAL TTL OFF',()=>{
+ const sql=fs.readFileSync(new URL('../supabase/migrations/20261024235900_community_gallery_immutable_finalize_capacity_v1.sql',import.meta.url),'utf8');
+ assert.match(sql,/new\.finalized_at:=clock_timestamp\(\)/);
+ assert.match(sql,/GALLERY_FINALIZATION_IDENTITY_IMMUTABLE/);
+ assert.match(sql,/physical_expiry_deletion_accepted boolean not null default false/);
+ assert.match(sql,/check\(physical_expiry_deletion_accepted=false\)/);
+ assert.match(sql,/expiry_enabled boolean not null default false/);
+ assert.match(sql,/new\.reuse_expires_at:=new\.finalized_at\+interval '72 hours'/);
+ assert.match(sql,/new\.reuse_expires_at:=null/);
+ assert.match(sql,/community_gallery_media_owner_status_v1/);
+ assert.match(sql,/'ttlActive',false/);
+ assert.match(sql,/'reuseExpiresAt',null/);
+ const worker=fs.readFileSync(new URL('../supabase/functions/community-retention/index.ts',import.meta.url),'utf8');
+ assert.match(worker,/community_gallery_media_capacity_ops_v1/);
+ assert.doesNotMatch(worker,/community_claim_expired_finalized_gallery_media_v1/);
+});
+test('Gallery prepare serializes quota 10 intents / 200 MiB and protects existing legal holds',()=>{
+ const sql=fs.readFileSync(new URL('../supabase/migrations/20261024235900_community_gallery_immutable_finalize_capacity_v1.sql',import.meta.url),'utf8');
+ const hold=fs.readFileSync(new URL('../supabase/migrations/20261025000100_community_gallery_account_hold_cleanup_guard_v1.sql',import.meta.url),'utf8');
+ const media=fs.readFileSync(new URL('../supabase/functions/community-media/index.ts',import.meta.url),'utf8');
+ const fixture=fs.readFileSync(new URL('../supabase/staging/acceptance/gallery-finalized-retention-capacity-v1.sql',import.meta.url),'utf8');
+ assert.match(sql,/max_active_unbound integer not null default 10/);
+ assert.match(sql,/max_reserved_bytes bigint not null default 209715200/);
+ assert.match(sql,/from public\.wand_accounts where account_id=v_account for update/);
+ assert.match(sql,/GALLERY_UPLOAD_OUTSTANDING_COUNT_EXCEEDED/);
+ assert.match(sql,/GALLERY_UPLOAD_RESERVED_BYTES_EXCEEDED/);
+ assert.match(sql,/sum\(expected_bytes\) filter\(where not durable\)/);
+ assert.match(sql,/where i\.owner_account_id=p_account/);
+ assert.match(hold,/private\.account_retention_holds/);
+ assert.match(hold,/GALLERY_UPLOAD_RETENTION_HOLD/);
+ assert.match(hold,/ACCOUNT_RETENTION_HOLD/);
+ assert.match(media,/action === 'galleryStatus'/);
+ assert.match(media,/action === 'galleryCapacity'/);
+ assert.match(media,/GALLERY_UPLOAD_OUTSTANDING_COUNT_EXCEEDED/);
+ assert.match(fixture,/FINALIZE_REPLAY_RESET_CLOCK/);
+ assert.match(fixture,/ABORTED_BYTES_QUOTA_BYPASS/);
+ assert.match(fixture,/DURABLE_REVISION_QUOTA_RELEASE_FAILED/);
+ assert.match(fixture,/LEGAL_HOLD_ABORT_ACCEPTED/);
+ assert.match(fixture,/HELD_ORPHAN_CLAIMED/);
+ assert.match(fixture,/rollback;\s*$/);
+});
