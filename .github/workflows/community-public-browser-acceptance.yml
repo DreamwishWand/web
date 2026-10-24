@@ -12,6 +12,12 @@ on:
       - 'src/lib/community/**'
       - 'src/lib/i18n/**'
   workflow_dispatch:
+    inputs:
+      signed_gallery:
+        description: 'Explicit approved disposable A/B/M Gallery signed E2E (no real user media)'
+        type: boolean
+        required: true
+        default: false
 
 permissions:
   contents: read
@@ -79,3 +85,39 @@ jobs:
           CHROME_BIN: ${{ steps.chrome.outputs.path }}
           COMMUNITY_BASE_URL: http://127.0.0.1:4173
         run: node scripts/community-public-browser-acceptance.mjs
+
+  signed-gallery-staging:
+    name: Signed Gallery A/B/M staging (operator approval required)
+    if: github.event_name == 'workflow_dispatch' && inputs.signed_gallery == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: staging-gallery-signed-acceptance
+    env:
+      DREAMWISH_SUPABASE_URL: ${{ vars.DREAMWISH_SUPABASE_URL }}
+      DREAMWISH_SUPABASE_PUBLISHABLE_KEY: ${{ vars.DREAMWISH_SUPABASE_PUBLISHABLE_KEY }}
+      DREAMWISH_GALLERY_E2E_APPROVAL: ${{ vars.DREAMWISH_GALLERY_E2E_APPROVAL }}
+      DREAMWISH_GALLERY_BACKEND_SHA: ${{ vars.DREAMWISH_GALLERY_BACKEND_SHA }}
+      DREAMWISH_GALLERY_SUBJECT_ID: ${{ vars.DREAMWISH_GALLERY_SUBJECT_ID }}
+      DREAMWISH_GALLERY_DB_MIGRATION: ${{ vars.DREAMWISH_GALLERY_DB_MIGRATION }}
+      DREAMWISH_GALLERY_EDGE_VERSIONS: ${{ vars.DREAMWISH_GALLERY_EDGE_VERSIONS }}
+      DREAMWISH_GALLERY_M_MODERATOR_APPROVED: ${{ vars.DREAMWISH_GALLERY_M_MODERATOR_APPROVED }}
+      DREAMWISH_GALLERY_A_ACCOUNT_ID: ${{ vars.DREAMWISH_GALLERY_A_ACCOUNT_ID }}
+      DREAMWISH_GALLERY_B_ACCOUNT_ID: ${{ vars.DREAMWISH_GALLERY_B_ACCOUNT_ID }}
+      DREAMWISH_GALLERY_M_ACCOUNT_ID: ${{ vars.DREAMWISH_GALLERY_M_ACCOUNT_ID }}
+      DREAMWISH_GALLERY_A_EMAIL: ${{ secrets.DREAMWISH_GALLERY_A_EMAIL }}
+      DREAMWISH_GALLERY_B_EMAIL: ${{ secrets.DREAMWISH_GALLERY_B_EMAIL }}
+      DREAMWISH_GALLERY_M_EMAIL: ${{ secrets.DREAMWISH_GALLERY_M_EMAIL }}
+      DREAMWISH_GALLERY_A_PASSWORD: ${{ secrets.DREAMWISH_GALLERY_A_PASSWORD }}
+      DREAMWISH_GALLERY_B_PASSWORD: ${{ secrets.DREAMWISH_GALLERY_B_PASSWORD }}
+      DREAMWISH_GALLERY_M_PASSWORD: ${{ secrets.DREAMWISH_GALLERY_M_PASSWORD }}
+    steps:
+      - name: Check out exact integration source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Offline signed-harness acceptance gates (zero network)
+        run: node --test tests/community-gallery-signed-acceptance.test.mjs
+      - name: Mandatory operator-approved real signed Gallery E2E
+        run: node scripts/community-gallery-signed-acceptance.mjs --live
