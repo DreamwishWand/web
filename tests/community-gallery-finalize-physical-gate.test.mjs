@@ -4,7 +4,7 @@ import fs from 'node:fs';
 
 const media=fs.readFileSync(new URL('../supabase/functions/community-media/index.ts',import.meta.url),'utf8');
 const retention=fs.readFileSync(new URL('../supabase/functions/community-retention/index.ts',import.meta.url),'utf8');
-const guard=fs.readFileSync(new URL('../supabase/migrations/20261025000400_gallery_physical_cleanup_explicit_gate_v1.sql',import.meta.url),'utf8');
+const guard=fs.readFileSync(new URL('../supabase/migrations/20261025000400_gallery_physical_delete_failclosed_v1.sql',import.meta.url),'utf8');
 
 test('galleryFinalize never physically removes its object on invalid size or malformed image',()=>{
   assert.match(media,/if \(action === 'finalize' \|\| action === 'galleryFinalize'\)/);
