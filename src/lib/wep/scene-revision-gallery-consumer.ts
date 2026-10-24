@@ -61,6 +61,15 @@ export interface SceneOwnerReadiness {
   latestRevisionNumber: number;
   currentArtifactAvailable: boolean;
   hasAssociatedGallery: boolean;
+  // Owner-only, non-atomic hints from 03 COMM Readiness @1.
+  pairedGalleryWorkId: string | null;
+  pairedGalleryWorkRowVersion: number | null;
+  pairedGalleryCurrentWorkRevisionId: string | null;
+  pairedGallerySnapshotIsAtomicFence: false;
+  historicalEdgeSetScope: 'scene-historical-edges-v1' | null;
+  historicalEdgeSetSha256: string | null;
+  historicalEdgeSetIsAtomicFence: false;
+  contractGapReasons: string[];
   knownHistoricalGalleryCount: number;
   knownGalleryReferenceCount: number;
   crossOwnerOrUnresolvedGalleryCount: number;
@@ -163,6 +172,49 @@ export function parseSceneOwnerReadiness(rawInput: unknown, expectedPresetArtifa
       raw.blockedReasons.some((x: unknown) => typeof x !== 'string')) {
     invalid('WEP_SCENE_OWNER_READINESS_DETAIL_INVALID');
   }
+  // Backward-compatible READ contract: older Staging deployments can omit
+  // newer keys, but they MUST NOT silently appear complete. Unknown scope is
+  // not a valid pin; malformed IDs/versions or optimistic flags fail closed.
+  const optionalUuid = (v: unknown) => v === null || validId(v);
+  const galleryId = raw.pairedGalleryWorkId ?? null;
+  const galleryVersion = raw.pairedGalleryWorkRowVersion ?? null;
+  const galleryRevision = raw.pairedGalleryCurrentWorkRevisionId ?? null;
+  const scope = raw.historicalEdgeSetScope ?? null;
+  const edgeSha = raw.historicalEdgeSetSha256 ?? null;
+  if (!optionalUuid(galleryId) || !optionalUuid(galleryRevision) ||
+      (galleryVersion !== null && (!Number.isSafeInteger(galleryVersion) || galleryVersion < 0)) ||
+      (edgeSha !== null && (typeof edgeSha !== 'string' || !SHA256.test(edgeSha)))) {
+    invalid('WEP_SCENE_OWNER_GALLERY_VERSION_OR_HISTORY_INVALID');
+  }
+  if (raw.pairedGallerySnapshotIsAtomicFence !== undefined &&
+      raw.pairedGallerySnapshotIsAtomicFence !== false ||
+      raw.historicalEdgeSetIsAtomicFence !== undefined &&
+      raw.historicalEdgeSetIsAtomicFence !== false) {
+    invalid('WEP_SCENE_OWNER_UNAPPROVED_ATOMIC_FENCE');
+  }
+  const contractGapReasons: string[] = [];
+  const paired = raw.hasAssociatedGallery === true;
+  if (paired && galleryId === null) contractGapReasons.push('SCENE_PAIRED_GALLERY_OWNER_ID_UNAVAILABLE');
+  if (paired && galleryVersion === null) contractGapReasons.push('SCENE_PAIRED_GALLERY_ROWVERSION_UNAVAILABLE');
+  if (paired && galleryRevision === null) contractGapReasons.push('SCENE_PAIRED_GALLERY_CURRENT_REVISION_UNAVAILABLE');
+  if (paired && (scope !== 'scene-historical-edges-v1' || edgeSha === null)) {
+    contractGapReasons.push('SCENE_HISTORICAL_EDGE_SET_SCOPE_OR_SHA_UNAVAILABLE');
+  }
+  if (paired && raw.crossOwnerOrUnresolvedGalleryCount > 0) {
+    contractGapReasons.push('SCENE_REFERENCE_IDENTITY_CONFLICT');
+  }
+  if (!paired && (galleryId !== null || galleryVersion !== null || galleryRevision !== null)) {
+    contractGapReasons.push('SCENE_PAIRED_GALLERY_UNEXPECTED_OWNER_VERSION');
+  }
+  if (galleryId === null && (galleryVersion !== null || galleryRevision !== null)) {
+    contractGapReasons.push('SCENE_PAIRED_GALLERY_PARTIAL_VERSION_UNTRUSTED');
+  }
+  if (scope !== null && scope !== 'scene-historical-edges-v1') {
+    contractGapReasons.push('SCENE_HISTORICAL_EDGE_SET_SCOPE_UNSUPPORTED');
+  }
+  if ((scope === null) !== (edgeSha === null)) {
+    contractGapReasons.push('SCENE_HISTORICAL_EDGE_SET_PARTIAL');
+  }
   // A positive upstream flag is NOT an invitation for WEP to enable writing.
   const disabled = ['dependencyFingerprintIsAtomicFence','graphComplete',
     'saveRevisionAuthorized','pairedGalleryPublishAuthorized','unpublishAuthorized',
@@ -175,8 +227,68 @@ export function parseSceneOwnerReadiness(rawInput: unknown, expectedPresetArtifa
   }
   return Object.freeze({
     ...raw,
-    blockedReasons: Object.freeze([...raw.blockedReasons])
+    pairedGalleryWorkId: galleryId as string | null,
+    pairedGalleryWorkRowVersion: galleryVersion as number | null,
+    pairedGalleryCurrentWorkRevisionId: galleryRevision as string | null,
+    pairedGallerySnapshotIsAtomicFence: false,
+    historicalEdgeSetScope: scope === 'scene-historical-edges-v1' ? scope : null,
+    historicalEdgeSetSha256: scope === 'scene-historical-edges-v1'
+      ? (edgeSha as string | null)?.toLowerCase() ?? null : null,
+    historicalEdgeSetIsAtomicFence: false,
+    contractGapReasons: Object.freeze(contractGapReasons),
+    blockedReasons: Object.freeze([...new Set([...raw.blockedReasons, ...contractGapReasons])])
   }) as unknown as SceneOwnerReadiness;
+}
+
+/** Authenticated owner diagnostics only: never call this from a PUBLIC reader. */
+export function diagnoseSceneRevisionPairing(
+  current: ScenePublicCurrentRead | null,
+  owner: SceneOwnerReadiness
+) {
+  const issues = [...owner.blockedReasons];
+  if (!current) {
+    issues.push('SCENE_PUBLIC_CURRENT_NOT_COMPARED');
+  } else {
+    if (current.presetArtifactId !== owner.presetArtifactId ||
+        current.workId !== owner.presetWorkId ||
+        current.presetRevisionId !== owner.currentPresetRevisionId) {
+      issues.push('SCENE_CURRENT_PRESET_REVISION_STALE_OR_MISMATCHED');
+    }
+    if (owner.hasAssociatedGallery) {
+      if (current.galleryWorkId !== owner.pairedGalleryWorkId ||
+          !current.galleryWorkId) {
+        issues.push('SCENE_PAIRED_GALLERY_WORK_ID_MISMATCH');
+      }
+      if (current.galleryWorkRevisionId !== owner.pairedGalleryCurrentWorkRevisionId ||
+          !current.galleryWorkRevisionId) {
+        issues.push('SCENE_PAIRED_GALLERY_CURRENT_REVISION_STALE');
+      }
+      if (!current.coverMediaId || !current.mediaIds.includes(current.coverMediaId)) {
+        issues.push('SCENE_CURRENT_MEDIA_COVER_NOT_VERIFIED');
+      }
+    } else if (current.galleryWorkId || current.galleryWorkRevisionId) {
+      issues.push('SCENE_PUBLIC_GALLERY_WITHOUT_OWNER_ASSOCIATION');
+    }
+  }
+  if (owner.hasAssociatedGallery && owner.pairedGalleryWorkRowVersion === null) {
+    issues.push('SCENE_PAIRED_GALLERY_ROWVERSION_UNAVAILABLE');
+  }
+  // Neither Public Current nor this owner Readiness contains an atomic
+  // snapshot of the caller-approved graph. An R9 SHA is scoped and observed.
+  issues.push('SCENE_HISTORICAL_EDGE_SET_NOT_ATOMIC');
+  issues.push('SCENE_PAIRED_GALLERY_ROWVERSION_NOT_ATOMIC');
+  issues.push('SCENE_GLOBAL_ALL_WRITER_GRAPH_NOT_ACCEPTED');
+  return Object.freeze({
+    currentCompared: current !== null,
+    diagnosticScope: 'AUTHENTICATED_OWNER_ONLY' as const,
+    currentOnlyMediaIds: current ? Object.freeze([...current.mediaIds]) : Object.freeze([] as string[]),
+    currentCoverMediaId: current?.coverMediaId ?? null,
+    historicMediaAvailable: false as const,
+    pairedSnapshotIsAtomicFence: false as const,
+    historicalEdgeSetIsAtomicFence: false as const,
+    saveRevisionAuthorized: false as const,
+    blockedReasons: Object.freeze([...new Set(issues)])
+  });
 }
 
 export interface SceneRevisionConsumerDeps {
@@ -235,7 +347,10 @@ export function createSceneRevisionGalleryConsumer(deps: SceneRevisionConsumerDe
   ) {
     if (current.presetArtifactId !== readiness.presetArtifactId ||
       current.workId !== readiness.presetWorkId ||
-      current.presetRevisionId !== readiness.currentPresetRevisionId) {
+      current.presetRevisionId !== readiness.currentPresetRevisionId ||
+      (readiness.hasAssociatedGallery && (
+        current.galleryWorkId !== readiness.pairedGalleryWorkId ||
+        current.galleryWorkRevisionId !== readiness.pairedGalleryCurrentWorkRevisionId))) {
       invalid('WEP_SCENE_REVISION_STALE_OR_MISMATCHED_IDENTITY');
     }
     if (!capture.validation?.ok || capture.validation.presetType !== 'scene' ||
@@ -253,7 +368,7 @@ export function createSceneRevisionGalleryConsumer(deps: SceneRevisionConsumerDe
       capture: Object.freeze({ selectedObjects: capture.selectionIds.length,
         requiredSubGridDescendants: true, roads: capture.includeRoads === true,
         fences: capture.includeFences === true }),
-      blockers: Object.freeze([...SCENE_REVISION_WRITE_BLOCKERS, ...readiness.blockedReasons]),
+      blockers: diagnoseSceneRevisionPairing(current, readiness).blockedReasons,
       saveRevisionAuthorized: false,
       pairedGalleryPublishAuthorized: false
     });
