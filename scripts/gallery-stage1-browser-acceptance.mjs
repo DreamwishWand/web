@@ -16,6 +16,11 @@ const context=await browser.newContext({viewport:{width:1280,height:900}});
 const page=await context.newPage();
 // Unsigned synthetic transport acceptance only. No real staging key or user media.
 let subjectScenario='verified';
+let mediaScenario='no-fixture';
+const gatewayId='33333333-3333-4333-8333-333333333333';
+const gatewayUrl='https://gallery-lookup-browser.invalid/functions/v1/community-public-media?mediaId='+gatewayId;
+const gatewayCalls=[];
+const tinyPng=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==','base64');
 const catalogRequests=[];
 const uuid=index=>'11111111-1111-4111-8111-'+String(index).padStart(12,'0');
 function mockSubject(index,kind,type,canonical,baseItemId=null){
@@ -38,9 +43,26 @@ const mockCatalog=[
 assert(mockCatalog.length===92,'synthetic catalog count');
 await page.route('https://gallery-lookup-browser.invalid/**',async route=>{
   const url=new URL(route.request().url());
+  if(url.pathname.endsWith('/functions/v1/community-public-media')){
+    gatewayCalls.push({method:route.request().method(),path:url.pathname,query:url.search});
+    if(mediaScenario==='revoked'||mediaScenario==='historical'||mediaScenario==='private'||mediaScenario==='missing')
+      return route.fulfill({status:404,contentType:'application/json',body:'{"ok":false,"error":"MEDIA_NOT_PUBLIC"}'});
+    if(mediaScenario==='unavailable')
+      return route.fulfill({status:503,contentType:'application/json',body:'{"ok":false,"error":"GALLERY_MEDIA_AUTHORITY_UNAVAILABLE"}'});
+    if(route.request().method()==='GET')
+      return route.fulfill({status:200,contentType:'image/png',body:tinyPng,
+        headers:{'Cache-Control':'private, no-store','CDN-Cache-Control':'no-store','Content-Type':'image/png'}});
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
+      ok:true,media:{mediaId:gatewayId,transport:'edge_proxy',streamUrl:gatewayUrl,
+      rawStorageSignedUrlIssued:false,mimeType:'image/png',byteSize:tinyPng.length,width:1,height:1}
+    })});
+  }
   if(url.pathname.endsWith('/functions/v1/community-public-query')){
     const body=route.request().postDataJSON();
     catalogRequests.push({rpc:body?.rpc,kind:body?.payload?.p_gallery_kind});
+    if(body?.rpc==='community_get_gallery_public_v1'){
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({mediaIds:[gatewayId]})});
+    }
     if(body?.rpc!=='community_list_verified_gallery_subjects_v1')
       return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:'Unsupported public query'})});
     if(subjectScenario==='network-error')
@@ -56,7 +78,9 @@ await page.route('https://gallery-lookup-browser.invalid/**',async route=>{
     })});
   }
   if(url.pathname.endsWith('/rest/v1/rpc/community_search_public'))
-    return route.fulfill({status:200,contentType:'application/json',body:'[]'});
+    return route.fulfill({status:200,contentType:'application/json',body:mediaScenario==='no-fixture'?'[]':JSON.stringify([
+      {work_id:'44444444-4444-4444-8444-444444444444',title:'Proxy fixture',
+       facets:{galleryKind:'outdoor'},text_content:'Synthetic cover only'}])});
   return route.fulfill({status:400,contentType:'application/json',body:'{"error":"Synthetic browser environment"}'});
 });
 page.on('pageerror',e=>report.pageErrors.push(String(e)));
@@ -172,6 +196,23 @@ try{
   await page.goto(origin+'/gallery/my/',{waitUntil:'domcontentloaded'});
   assert(await page.getByRole('button',{name:'Sign in',exact:false}).count()>0,'My Gallery unsigned auth state missing');
   pass('MY_GALLERY_AUTH_REQUIRED');
+  mediaScenario='ok';
+  await page.goto(origin+'/gallery/decorations/',{waitUntil:'domcontentloaded'});
+  await page.locator('.gallery-card .gallery-proxy-image').first().waitFor({state:'visible',timeout:10000});
+  await page.locator('.gallery-card .gallery-proxy-image').first().evaluate(async img=>{
+    if(!img.complete)await new Promise((resolve,reject)=>{img.addEventListener('load',resolve,{once:true});img.addEventListener('error',reject,{once:true})});
+    if(img.naturalWidth===0)throw new Error('Proxy image failed browser binary load');
+  });
+  assert(gatewayCalls.some(x=>x.method==='POST')&&gatewayCalls.some(x=>x.method==='GET'),
+    'Gallery must resolve streamUrl then load GET through same Edge');
+  assert(!gatewayCalls.some(x=>x.path.includes('/storage/')),'raw Storage route used');
+  pass('EDGE_PROXY_BROWSER_POST_AND_BINARY_GET',{transport:'synthetic_authorized_gateway'});
+  mediaScenario='revoked';
+  await page.reload({waitUntil:'domcontentloaded'});
+  await page.locator('.gallery-card .gallery-proxy-placeholder').first().waitFor({state:'visible',timeout:10000});
+  assert(await page.locator('.gallery-card img').count()===0,'revoked media still rendered');
+  pass('GALLERY_REVOKED_BINARY_FAIL_CLOSED');
+  mediaScenario='no-fixture';
   const locales=['en','fr','it','de','es-ES','ja','zh-CN','pt-BR'];
   await page.setViewportSize({width:320,height:760});
   for(const path of ['/gallery/','/gallery/decorations/','/gallery/tom/','/gallery/publish/','/gallery/my/']){
