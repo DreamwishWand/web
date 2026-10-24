@@ -192,9 +192,9 @@ begin
   if has_function_privilege('service_role',
       'private.scene_save_revision_paired_candidate_v1(uuid,uuid,uuid,bigint,bigint,uuid,uuid[],uuid,text,text,jsonb,text,text)','EXECUTE')
       or has_function_privilege('anon',
-      'private.scene_save_revision_paired_candidate_v1(uuid,uuid,uuid,bigint,bigint,uuid,uuid[],uuid,text,text,jsonb,text)','EXECUTE')
+      'private.scene_save_revision_paired_candidate_v1(uuid,uuid,uuid,bigint,bigint,uuid,uuid[],uuid,text,text,jsonb,text,text)','EXECUTE')
       or has_function_privilege('authenticated',
-      'private.scene_save_revision_paired_candidate_v1(uuid,uuid,uuid,bigint,bigint,uuid,uuid[],uuid,text,text,jsonb,text)','EXECUTE')
+      'private.scene_save_revision_paired_candidate_v1(uuid,uuid,uuid,bigint,bigint,uuid,uuid[],uuid,text,text,jsonb,text,text)','EXECUTE')
   then raise exception 'PAIRED_SCENE_CANDIDATE_EXPOSED_TO_CLIENT';end if;
 
   insert into public.community_entities(entity_id,entity_type)
