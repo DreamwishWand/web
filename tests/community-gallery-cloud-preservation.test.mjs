@@ -42,6 +42,8 @@ test('Cloud manifest audits all historical immutable Media and Cover references'
   assert.match(migration,/'cloudBackupAndRestoreVerified',false/);
   assert.match(acceptance,/GALLERY_CLOUD_PRESERVATION_OWNER_READONLY_SQL_ROLLBACK_PASS/);
   assert.match(acceptance,/CLOUD_PREFLIGHT_NONOWNER_LEAK/);
+  assert.match(acceptance,/INVALID_HISTORICAL_MEDIA_NOT_FAIL_CLOSED/);
+  assert.match(acceptance,/checksum_sha256=repeat\('z',64\)/);
   assert.match(acceptance,/revisionRowCount/);
   assert.match(acceptance,/historicalRevisionRowCount/);
   assert.match(acceptance,/rollback;\s*$/);
