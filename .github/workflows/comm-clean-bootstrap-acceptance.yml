@@ -197,6 +197,54 @@ jobs:
           set -euo pipefail
           timeout 900s supabase db reset --no-seed 2>&1 | tee /tmp/comm-diagnostic-reset.log
           echo 'DIAGNOSTIC_TEMP_PATCH_SECOND_REPLAY_NOT_CANONICAL_SOURCE_PASS'
+      - name: DIAGNOSTIC structural safety on temporary patched local schema - NOT source PASS
+        shell: bash
+        run: |
+          set -euo pipefail
+          db_container=$(docker ps --format '{{.Names}}' | grep '^supabase_db_' | head -1)
+          test -n "$db_container"
+          docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL' | tee /tmp/comm-diagnostic-structural.log
+          DO $checks$
+          DECLARE v int;
+          BEGIN
+            SELECT count(*) INTO v FROM supabase_migrations.schema_migrations;
+            IF v<>111 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_111: %',v;END IF;
+            IF to_regclass('public.gallery_photo_revision_fields') IS NULL OR
+               to_regclass('public.community_media_upload_intents') IS NULL OR
+               to_regclass('public.gallery_verified_subjects') IS NULL OR
+               to_regclass('private.gallery_media_capacity_policy_v1') IS NULL
+            THEN RAISE EXCEPTION 'MISSING_PARENT_SCHEMA';END IF;
+            IF to_regprocedure('public.community_gallery_media_intent_cancel_v1(uuid,text)') IS NULL OR
+               to_regprocedure('public.community_gallery_physical_cleanup_gate_v1()') IS NULL OR
+               to_regprocedure('public.community_gallery_media_capacity_ops_v1()') IS NULL OR
+               to_regprocedure('private.gallery_known_reference_writer_fence_v1()') IS NULL
+            THEN RAISE EXCEPTION 'MISSING_FUNCTION_DEPENDENCY';END IF;
+            SELECT count(*) INTO v FROM pg_trigger
+             WHERE NOT tgisinternal AND tgenabled='O' AND tgname IN
+             ('gallery_revision_presets_known_reference_fence',
+              'preset_artifacts_known_gallery_reference_fence',
+              'preset_revision_publications_known_gallery_reference_fence');
+            IF v<>3 THEN RAISE EXCEPTION 'MISSING_KNOWN_REFERENCE_TRIGGERS %',v;END IF;
+            IF has_function_privilege('anon','private.gallery_known_reference_writer_fence_v1()','EXECUTE')
+             OR has_function_privilege('authenticated','private.gallery_known_reference_writer_fence_v1()','EXECUTE')
+             OR has_function_privilege('service_role','private.gallery_known_reference_writer_fence_v1()','EXECUTE')
+             OR has_function_privilege('anon','public.community_gallery_physical_cleanup_gate_v1()','EXECUTE')
+             OR has_function_privilege('authenticated','public.community_gallery_physical_cleanup_gate_v1()','EXECUTE')
+            THEN RAISE EXCEPTION 'SECURITY_DEFINER_OR_TRIGGER_GRANT_EXPOSED';END IF;
+            IF (public.community_gallery_physical_cleanup_gate_v1()->>'physicalDeleteAuthorized')::boolean IS DISTINCT FROM false
+             OR (public.community_gallery_media_capacity_ops_v1()->>'effectivePhysicalCleanupPerHour')::integer<>0
+             OR (public.community_gallery_media_capacity_ops_v1()->>'finalized72hExpiryActive')::boolean IS DISTINCT FROM false
+            THEN RAISE EXCEPTION 'PHYSICAL_OR_TTL_FAILCLOSED_VIOLATION';END IF;
+            IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid='public.gallery_photo_revision_fields'::regclass)
+             OR NOT (SELECT relrowsecurity FROM pg_class WHERE oid='public.community_media_upload_intents'::regclass)
+            THEN RAISE EXCEPTION 'RLS_NOT_ENABLED';END IF;
+            RAISE NOTICE 'LOCAL_111_APPLIED_LEDGER_FUNCTION_TRIGGER_RLS_ACL_PHYSICAL_FAILCLOSED_PASS';
+          END $checks$;
+          SELECT extname FROM pg_extension ORDER BY extname;
+          SELECT n.nspname,COUNT(*) FILTER (WHERE p.prosecdef) AS security_definer_count
+          FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+          WHERE n.nspname IN ('public','private') GROUP BY n.nspname ORDER BY n.nspname;
+          SQL
       - name: Validate migration ledger only if diagnostic bootstrap completes
         shell: bash
         run: |
@@ -212,6 +260,7 @@ jobs:
             /tmp/comm-diagnostic-replay.log
             /tmp/comm-diagnostic-ledger.log
             /tmp/comm-diagnostic-reset.log
+            /tmp/comm-diagnostic-structural.log
           retention-days: 14
           if-no-files-found: warn
       - name: Discard diagnostic local stack
