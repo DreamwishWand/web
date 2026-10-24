@@ -134,7 +134,14 @@ export async function prepareSceneRevisionOfflineIntent(args: SceneRevisionArtif
       currentGalleryWorkRevisionId: current.galleryWorkRevisionId,
       expectedPresetWorkRowVersion: readiness.workRowVersion,
       dependencyFingerprintSha256: readiness.dependencyFingerprintSha256,
-      dependencyFingerprintIsAtomicFence: false as const
+      dependencyFingerprintIsAtomicFence: false as const,
+      // The current owner readiness fingerprint is NOT the 03 COMM R9
+      // historical-edge SHA input. No trusted Gallery rowVersion/edge graph
+      // seal is available from the accepted read-only consumer.
+      expectedGalleryWorkRowVersion: null,
+      expectedHistoricalEdgeSetSha256: null,
+      historicalEdgePinAvailable: false as const,
+      historicalEdgePinIsAtomicFence: false as const
     }),
     artifact: Object.freeze({
       schemaVersion: proof.envelope.schemaVersion,
@@ -166,6 +173,8 @@ export async function prepareSceneRevisionOfflineIntent(args: SceneRevisionArtif
       'SCENE_OWNER_READY_MEDIA_MANIFEST_NOT_VERIFIED',
       'SCENE_ARTIFACT_BLOB_REGISTRATION_NOT_ACCEPTED',
       'SCENE_BACKEND_ALL_WRITER_R7_NOT_ACCEPTED',
+      'SCENE_CALLER_HISTORICAL_EDGE_PIN_NOT_AVAILABLE',
+      'SCENE_GALLERY_EXPECTED_ROWVERSION_NOT_AVAILABLE',
       'SCENE_SIGNED_STAGING_E2E_NOT_ACCEPTED'
     ])
   });
