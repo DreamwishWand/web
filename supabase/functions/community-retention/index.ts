@@ -1,5 +1,6 @@
 import { withSupabase } from 'npm:@supabase/server';
 import { classifyGalleryOriginIntegrity } from '../_shared/gallery-origin-integrity.mjs';
+import { classifyGalleryPhysicalCleanupGate } from '../_shared/gallery-physical-cleanup-gate.mjs';
 
 type RetentionJob = {
   retentionJobId: string;
@@ -170,8 +171,14 @@ export default {
         'community_gallery_physical_cleanup_gate_v1'
       );
       if(cleanupGateError) throw cleanupGateError;
-      if(cleanupGate?.physicalDeleteAuthorized!==true) {
-        galleryOrphans.cleanupBlocked=String(cleanupGate?.reason??'GALLERY_PHYSICAL_CLEANUP_NOT_ACCEPTED');
+      const galleryPhysicalCleanupGateState=classifyGalleryPhysicalCleanupGate(cleanupGate);
+      if(galleryPhysicalCleanupGateState==='invalid') {
+        // A null/partial or prematurely positive privileged RPC is not proof
+        // that an external Storage deletion is permitted. No lease is claimed.
+        galleryOrphans.cleanupBlocked='GALLERY_PHYSICAL_CLEANUP_GATE_INVALID';
+        galleryOrphans.workerFailure='GALLERY_PHYSICAL_CLEANUP_GATE_INVALID';
+      } else if(galleryPhysicalCleanupGateState!=='authorized') {
+        galleryOrphans.cleanupBlocked='GALLERY_PHYSICAL_STORAGE_DELETE_E2E_NOT_ACCEPTED';
       } else {
       const galleryLockToken = crypto.randomUUID();
       const {data: galleryClaim,error:galleryClaimError} = await ctx.supabaseAdmin.rpc(
