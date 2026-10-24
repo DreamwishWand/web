@@ -182,11 +182,30 @@ def main():
     isolated_two_sessions(url,g,"R12_LEGACY_MODERATION_RPC_BYPASS_ARTIFACT_LOCK",
                           moderation,expect="success")
 
-    # Source-derived bulk stage of ACCOUNT ERASURE, not the sensitive
-    # community_tombstone_account session/recent-auth RPC itself. Its exact
-    # update target/predicate exists in the current live function definition.
-    # This negative must NOT be used to delay actual privacy hiding; the
-    # contract needs immediate read suppression independent of graph cleanup.
+    # Synthetic local Supabase Auth users/sessions: the next path invokes the
+    # ACTUAL account tombstone RPC including its require_recent_session check.
+    # It does NOT make this a genuinely signed HTTP Owner actor/Staging test.
+    session=uuid.uuid4()
+    with psycopg.connect(url,autocommit=True) as c:
+        c.execute("BEGIN")
+        try:
+            execute(c,"insert into auth.users(id) values(%s) on conflict(id) do nothing",(g["auth"],))
+            execute(c,"insert into auth.sessions(id,user_id,created_at) values(%s,%s,clock_timestamp())",
+                    (session,g["auth"]))
+            c.execute("COMMIT")
+        except:
+            c.execute("ROLLBACK")
+            raise
+    def full_account_tombstone(b):
+        issued=one(b,"select extract(epoch from clock_timestamp())::bigint")[0]
+        return one(b,"select public.community_tombstone_account(%s,%s,%s,'DELETE')",
+                   (g["auth"],session,issued))[0]
+    isolated_two_sessions(url,g,"R12_ACTUAL_TOMBSTONE_ACCOUNT_RPC_GALLERY_GUARD_COLLISION",
+                          full_account_tombstone,expect="retirement_denied")
+
+    # Keep a separate source-derived bulk-stage diagnostic. Neither isolated
+    # test permits bypassing Cloud/retirement safety to hide/delete publicly.
+    # The contract needs immediate read suppression independent of cleanup.
     def erasure_bulk(b):
         return execute(b,"""update public.community_works
            set lifecycle_state='deleted',visibility='private'
@@ -196,9 +215,9 @@ def main():
     print(json.dumps({"result":"R12_HETEROGENEOUS_WRITER_SOURCE_GAP_EVIDENCE_PASS",
       "actualGalleryFirstBypassConfirmed":True,
       "actualModerationBypassConfirmed":True,
-      "accountErasureRpcNotInvoked":True,
+      "actualTombstoneAccountRpcInvokedWithSyntheticAuthSession":True,
       "sourceDerivedAccountErasureBulkBlockedByGalleryCloudGuard":True,
-      "accountErasureUserJobPotentiallyBlocked":True,
+      "accountErasureRpcBlockedByGalleryCloudGuard":True,
       "genericPresetLifecyclePositivePermissionEnabled":False,
       "globalAllWriterLockOrderAccepted":False,
       "moderationAndErasureOperationsDisabled":False,
