@@ -209,7 +209,7 @@ try{
   pass('EDGE_PROXY_BROWSER_POST_AND_BINARY_GET',{transport:'synthetic_authorized_gateway'});
   mediaScenario='revoked';
   await page.reload({waitUntil:'domcontentloaded'});
-  await page.locator('.gallery-card .gallery-proxy-placeholder').first().waitFor({state:'visible',timeout:10000});
+  await page.locator('.gallery-card .missing-image').first().waitFor({state:'visible',timeout:10000});
   assert(await page.locator('.gallery-card img').count()===0,'revoked media still rendered');
   pass('GALLERY_REVOKED_BINARY_FAIL_CLOSED');
   mediaScenario='no-fixture';
