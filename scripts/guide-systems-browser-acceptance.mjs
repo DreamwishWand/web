@@ -19,7 +19,7 @@ const fixture=(id,related=[])=>{
  publicationStatus:'PUBLISHED',publicationApproved:true,rightsApproved:true,currentVersionReviewed:true,allEightLocalesReviewed:true,
  sourceEnglishGuidanceSha256:p.sourceHash,sourceLabel:'SYNTHETIC TEST ONLY',confidence:'CONFIRMED',reviewedAt:'2026-10-24',
  dlcContext:[],relatedArticleIds:related,localized:Object.fromEntries(SYSTEMS_LOCALES.map(lang=>[lang,{
- title: id==='DREAMSNAPS'?(lang==='ja'?'ドリームスナップス':'DreamSnaps test article'):'Photo Mode test article',
+ title: id==='DREAMSNAPS'?(lang==='ja'?'ドリームスナップス':'DreamSnaps test article'):(lang==='fr'?'TrèsLongTitreDeTestSansEspaceTrèsLongTitreDeTestSansEspace':'Photo Mode test article'),
  summary:'Synthetic reviewed test copy; not released content.',
  prerequisites:['Synthetic prerequisite'],instructions:['Synthetic instruction'],warnings:['Synthetic warning']
  }]))};
@@ -86,6 +86,18 @@ try{
   assert(await page.locator('.systems-result').count()===0,'Client trusted forged public manifest approval');
   success('FORGED_PUBLIC_MANIFEST_REJECTED_BY_COMPILED_ZERO_ALLOWLIST');
   await page.unroute('**/ddv/guide/v1.25/systems-public.json');
+  const privateV17={schema:'ddv.guide-systems-native-locdb-provenance-promotion@17',
+    target:{platform:'Nintendo Switch',gameVersion:'1.25.0',buildID:'52BD625D9B4E0053',schema:624},
+    editorial315:[{articleId:'DREAMSNAPS',locale:'JA',editorialGuidanceText:'SYNTHETIC V17 PRIVATE BODY'}],
+    consumer360:[{articleId:'DREAMSNAPS',locale:'JA',previewTitle:'SYNTHETIC PRIVATE TITLE',
+      humanGameUIQA:false,rightsSigned:false,publicEligible:false}]};
+  await page.route('**/ddv/guide/v1.25/systems-public.json',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(privateV17)}));
+  await page.goto(base+'/guide/systems/?article=DREAMSNAPS',{waitUntil:'domcontentloaded'});
+  await until(async()=>await page.locator('[data-systems-state="error"]').count()===1);
+  assert(!(await page.locator('main').innerText()).includes('SYNTHETIC PRIVATE BODY'),'V17 draft body rendered from public URL');
+  assert(!(await page.locator('main').innerText()).includes('SYNTHETIC PRIVATE TITLE'),'V17 draft title rendered from public URL');
+  success('V17_PRIVATE_CORPUS_REJECTED_AT_PUBLIC_MANIFEST_URL');
+  await page.unroute('**/ddv/guide/v1.25/systems-public.json');
 
   // Browser-positive contract is tested only after injecting synthetic fixture
   // approval into this ephemeral CI checkout. The real source is restored in finally.
@@ -98,6 +110,15 @@ try{
   await page.goto(base+'/guide/systems/',{waitUntil:'domcontentloaded'});
   await until(async()=>await page.locator('.systems-result').count()===2);
   assert(await page.locator('.systems-result').count()===2,'Synthetic published browse does not include exactly two');
+  await page.locator('#site-locale').selectOption('fr');
+  await page.setViewportSize({width:320,height:800});
+  await noOverflow();
+  assert((await page.locator('.systems-result').nth(1).textContent()).includes('TrèsLongTitreDeTestSansEspace'),'Long FR title fixture not rendered');
+  await page.locator('.systems-result').nth(1).focus();
+  assert(await page.locator('.systems-result').nth(1).evaluate(node=>node===document.activeElement),'Keyboard link focus missing');
+  await page.setViewportSize({width:1280,height:900});
+  await page.locator('#site-locale').selectOption('en');
+  success('V17_LONG_UNBROKEN_LOCALE_TITLE_320PX_KEYBOARD');
   await page.locator('#systems-search').fill('写真と');
   await until(async()=>await page.locator('.systems-result').count()===2);
   await page.locator('#systems-search').fill('ドリームスナップス');
