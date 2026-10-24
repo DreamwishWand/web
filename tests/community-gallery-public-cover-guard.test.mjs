@@ -16,7 +16,7 @@ test('historical Gallery Cover-only images never fall through to public signed-U
   assert.match(guard, /if not v_gallery_managed then[\s\S]*?'galleryManaged',false/i);
   // Positive streaming still needs an actual current WorkRevision Media row
   // AND discoverable current published Work + READY/CLEAR Media.
-  assert.match(guard, /FROM public\.work_revision_media rm[\s\S]*?JOIN public\.gallery_photo_subjects g/);
+  assert.match(guard, /from public\.work_revision_media rm[\s\S]*?join public\.gallery_photo_subjects g/i);
   assert.match(guard, /w\.current_published_revision_id=r\.revision_id/);
   assert.match(guard, /private\.is_discoverable_work\(w\.work_id\)/);
   assert.match(guard, /m\.processing_state='ready' and m\.moderation_state='clear'/);
