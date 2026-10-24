@@ -162,3 +162,24 @@ test('paired Scene Save Revision candidate is inert outside database owner and c
   assert.doesNotMatch(edge, /scene_save_revision_paired_candidate_v1/i);
   assert.doesNotMatch(edge, /action === 'saveRevision'|action === 'pairedPublish'/i);
 });
+
+test('paired candidate rechecks exact historical Gallery Revision edges after ordered locks', () => {
+  const body = sql.split('create or replace function private.scene_save_revision_paired_candidate_v1(')[1]
+    ?.split('$paired_scene_candidate$')[1];
+  assert.ok(body, 'Scene paired candidate missing');
+  const pre = body.indexOf('into v_backlinks_before');
+  const workLock = body.indexOf('where work_id=v_assoc for update;');
+  const post = body.indexOf('into v_backlinks_locked');
+  const reject = body.indexOf('SCENE_REVISION_BACKLINK_SNAPSHOT_CHANGED');
+  const mutation = body.indexOf('insert into public.idempotency_keys');
+  assert.ok(
+    pre >= 0 && workLock > pre && post > workLock &&
+    reject > post && mutation > reject,
+    'revision edges must be snapshotted before locks, rechecked after locks and before mutation'
+  );
+  assert.equal(
+    body.split("gp.gallery_revision_id::text||'/'||").length - 1, 2,
+    'both snapshots must key by GalleryRevision AND PresetRevision, not just GalleryWork ID'
+  );
+  assert.ok(body.includes('v_backlinks_locked is distinct from v_backlinks_before'));
+});

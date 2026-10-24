@@ -717,6 +717,8 @@ declare
   v_gallery_subject public.gallery_photo_subjects%rowtype;
   v_current_preset_revision uuid;
   v_current_links uuid[];
+  v_backlinks_before text[];
+  v_backlinks_locked text[];
   v_assoc uuid;
   v_gallery_ids uuid[];
   v_media uuid;
@@ -793,6 +795,22 @@ begin
     raise exception 'SCENE_REVISION_MULTIPLE_GALLERY_BACKLINKS_UNSUPPORTED';
   end if;
 
+  -- A distinct Gallery Work ID set cannot detect links added to a DIFFERENT
+  -- revision of the SAME Gallery while waiting to acquire our Work locks.
+  -- Record each immutable revision edge; compare again under those locks.
+  -- This is a bounded candidate check, NOT a substitute for the R7 global
+  -- all-writer graph registry or a caller-pinned atomic dependency fingerprint.
+  select coalesce(array_agg(e.edge order by e.edge),array[]::text[])
+    into v_backlinks_before
+  from (
+    select distinct gp.gallery_revision_id::text||'/'||
+      gp.preset_revision_id::text as edge
+    from public.gallery_revision_presets gp
+    join public.preset_revisions pr
+      on pr.preset_revision_id=gp.preset_revision_id
+    where pr.preset_artifact_id=p_preset_artifact_id
+  ) e;
+
   select * into v_artifact from public.preset_artifacts
     where preset_artifact_id=p_preset_artifact_id for update;
   if v_artifact.owner_account_id is distinct from v_account
@@ -823,7 +841,23 @@ begin
     or not private.is_discoverable_work(v_gallery.work_id)
   then raise exception 'SCENE_REVISION_PUBLIC_PAIR_REQUIRED';end if;
 
-  -- No link may be added, removed or redirected during our locked check.
+  -- Recheck the EXACT historical revision-edge set, not merely Gallery
+  -- Work IDs: two revisions of one Gallery share the same Work ID.
+  select coalesce(array_agg(e.edge order by e.edge),array[]::text[])
+    into v_backlinks_locked
+  from (
+    select distinct gp.gallery_revision_id::text||'/'||
+      gp.preset_revision_id::text as edge
+    from public.gallery_revision_presets gp
+    join public.preset_revisions pr
+      on pr.preset_revision_id=gp.preset_revision_id
+    where pr.preset_artifact_id=p_preset_artifact_id
+  ) e;
+  if v_backlinks_locked is distinct from v_backlinks_before then
+    raise exception 'SCENE_REVISION_BACKLINK_SNAPSHOT_CHANGED';
+  end if;
+
+  -- No Gallery Work may be added, removed or redirected under locked check.
   select coalesce(array_agg(distinct wr.work_id order by wr.work_id),
                   array[]::uuid[]) into v_current_links
   from public.gallery_revision_presets gp
