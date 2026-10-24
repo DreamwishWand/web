@@ -826,6 +826,7 @@ begin
     or p_expected_creator_profile_id is null
     or p_expected_artifact_checksum_sha256 is null
     or p_expected_artifact_checksum_sha256 !~ '^[0-9a-f]{64}$'
+    or p_expected_artifact_byte_size is null
     or p_expected_artifact_byte_size not between 1 and 26214400
     or p_preset_artifact_id is null
     or p_title is null or length(btrim(p_title)) not between 1 and 160
@@ -1009,6 +1010,9 @@ begin
       or v_media_row.purged_at is not null
       or v_media_row.mime_type not in ('image/jpeg','image/png','image/webp')
       or v_media_row.byte_size not between 1 and 20971520
+      or v_media_row.checksum_sha256 is null
+      or v_media_row.checksum_sha256 !~ '^[0-9a-fA-F]{64}$'
+      or coalesce(length(btrim(v_media_row.storage_key)),0)=0
       or coalesce(v_media_row.width,0)<=0 or coalesce(v_media_row.height,0)<=0
     then raise exception 'SCENE_REVISION_MEDIA_NOT_OWNER_READY_CLEAR';end if;
   end loop;
