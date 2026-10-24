@@ -4,7 +4,7 @@
 -- pg_get_functiondef text with exactly one PERFORM insertion before its first Work lock.
 -- Fixture-only account resolver and mock tables live in the regression script.
 -- This candidate covers linked PresetWork generic UNPUBLISH ONLY; no positive Gallery retirement.
-create or replace function private.cross_product_lock_linked_preset_work_r7(p_work_id uuid)
+create or replace function private.cross_product_lock_linked_preset_work_r7(p_work_id uuid, p_actor_account_id uuid)
 returns void
 language plpgsql
 set search_path=pg_catalog,public,private
@@ -15,7 +15,15 @@ declare
   v_gallery_after uuid;
   v_artifacts uuid[];
   v_preset_work uuid;
+  v_owner_account_id uuid;
 begin
+  -- Validate provisional owner before acquiring dependency locks to avoid
+  -- turning an unauthenticated foreign Work id into a lock contention oracle.
+  select owner_account_id into v_owner_account_id
+  from public.community_works where work_id=p_work_id;
+  if v_owner_account_id is distinct from p_actor_account_id then
+    raise exception 'R7_PROVISIONAL_OWNER_MISMATCH';
+  end if;
   -- Provisional discovery; identities must be rechecked after row locks.
   select coalesce(array_agg(preset_artifact_id order by preset_artifact_id),array[]::uuid[])
     into v_artifacts
@@ -39,6 +47,10 @@ begin
   perform 1 from public.community_works
     where work_id=p_work_id and work_type='preset' for update;
   if not found then raise exception 'R7_LINKED_PRESET_WORK_MISSING';end if;
+  select owner_account_id into v_owner_account_id from public.community_works where work_id=p_work_id;
+  if v_owner_account_id is distinct from p_actor_account_id then
+    raise exception 'R7_LOCKED_OWNER_MISMATCH';
+  end if;
   if v_gallery is not null then
     perform 1 from public.community_works
       where work_id=v_gallery and work_type='gallery' for update;
@@ -53,7 +65,7 @@ begin
   -- This narrow helper does not assert graphComplete or retirementAuthorized.
 end
 $r7$;
-revoke all on function private.cross_product_lock_linked_preset_work_r7(uuid)
+revoke all on function private.cross_product_lock_linked_preset_work_r7(uuid,uuid)
   from public,anon,authenticated,service_role;
 
 -- Minimal candidate: exact deployed generic RPC with a single pre-row-lock call.
@@ -87,7 +99,7 @@ begin
     return v_response;
   end if;
 
-  perform private.cross_product_lock_linked_preset_work_r7(p_work_id);
+  perform private.cross_product_lock_linked_preset_work_r7(p_work_id,v_account_id);
 
   select * into v_work
   from public.community_works
