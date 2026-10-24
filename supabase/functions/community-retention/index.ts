@@ -207,6 +207,14 @@ export default {
       galleryOrphans.workerFailure='GALLERY_ORPHAN_CLAIM_FAILED';
     }
 
+    // Aggregate-only capacity telemetry. TTL FINALIZED purge is intentionally
+    // absent: #128 requires signed Storage + Privacy/Legal/Ops acceptance.
+    const {data:galleryCapacityMetrics,error:galleryCapacityError} =
+      await ctx.supabaseAdmin.rpc('community_gallery_media_capacity_ops_v1');
+    if(galleryCapacityError) {
+      galleryOrphans.workerFailure='GALLERY_CAPACITY_TELEMETRY_FAILED';
+    }
+
     return reply({
       ok: true,
       claimed: jobs.length,
@@ -214,6 +222,7 @@ export default {
       failed: results.filter((result) => result.ok !== true).length,
       ddvBindingTombstonesPurged: Number(ddvBindingPurge?.purged ?? 0),
       galleryOrphans,
+      galleryCapacityMetrics:galleryCapacityError ? null : galleryCapacityMetrics,
       results
     }, galleryOrphans.workerFailure ? 503 : 200);
   })
