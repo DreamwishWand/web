@@ -22,7 +22,7 @@ const mock=(id='DREAMSNAPS')=>{
     sourceLabel:'Synthetic reviewed test source',confidence:'CONFIRMED',reviewedAt:'2026-10-24',
     dlcContext:[],relatedArticleIds:[],
     localized:Object.fromEntries(SYSTEMS_LOCALES.map(locale=>[locale,{
-      title:id==='DREAMSNAPS'?'DreamSnaps':source.titleEN,
+      title:id==='DREAMSNAPS'?(locale==='ja'?'ドリームスナップス':'DreamSnaps'):source.titleEN,
       summary:'Synthetic published fixture, not user-visible live article.',
       prerequisites:[],instructions:['Synthetic instruction'],warnings:[]
     }]))};
@@ -82,7 +82,8 @@ test('Strict positive synthetic preview is an 8-reviewed-rights-approved source-
   assert.equal(canonicalSystemHref('UNVERIFIED'),null);
   assert.deepEqual(browsePublishedSystems(approved,{query:'dreamsnaps',locale:'ja'}).map(x=>x.id),['DREAMSNAPS']);
   assert.deepEqual(browsePublishedSystems(approved,{query:'写真と',locale:'en'}).map(x=>x.id),['DREAMSNAPS']);
-  assert.deepEqual(browsePublishedSystems(approved,{query:'ドリーム',locale:'en'}).map(x=>x.id),[]);
+  assert.deepEqual(browsePublishedSystems(approved,{query:'ドリームスナップス',locale:'en'}).map(x=>x.id),['DREAMSNAPS']);
+  assert.deepEqual(browsePublishedSystems(approved,{query:'無関係の項目',locale:'en'}).map(x=>x.id),[]);
   assert.deepEqual(browsePublishedSystems(approved,{categoryId:'basics-progression-settings'}),[]);
   assert.deepEqual(browsePublishedSystems(approved,{groupId:'photos-dreamsnaps'}).map(x=>x.id),['DREAMSNAPS']);
   assert.deepEqual(browsePublishedSystems(approved,{version:'1.25.3'}),[]);
