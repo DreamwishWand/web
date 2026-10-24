@@ -1,0 +1,63 @@
+name: QA Guide V17 public browser and static gate
+on:
+  push:
+    branches:
+      - 'integration/qr-guide-v17-*'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: qr-guide-v17-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  public-safe-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install reproducible web dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Native Japanese/Chinese text fonts
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+      - name: Resolve actual Chrome
+        id: chrome
+        run: |
+          set -euo pipefail
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$BIN"
+          echo "bin=$BIN" >> "$GITHUB_OUTPUT"
+      - name: Guide V17 independent offline reviewer gates
+        run: node --test tests/qr-guide-v17-release-gates.test.mjs
+      - name: Build production assets with public zero eligibility
+        run: npm run build
+      - name: Verify static artifact has no unpublished EN hashes
+        run: node scripts/verify-guide-public-static-build.mjs build
+      - name: Start isolated local web server
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4178 > /tmp/guide-qa-v17.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:4178/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/guide-qa-v17.log
+          exit 1
+      - name: Chrome 320px/8 locale/keyboard/browser publication-denial checks
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.bin }}
+          GUIDE_BASE_URL: http://127.0.0.1:4178
+        run: node scripts/guide-systems-browser-acceptance.mjs
+      - name: Keep browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr-guide-v17-browser-evidence
+          path: .artifacts/guide-systems-browser/
+          if-no-files-found: warn
