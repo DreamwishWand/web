@@ -1,3 +1,4 @@
+import { readAuthenticatedGalleryOwnerMedia, OWNER_MEDIA_UUID, GalleryOwnerMediaError } from './gallery-owner-media.js';
 export interface CommunityLabConfig {
   supabaseUrl: string;
   publishableKey: string;
@@ -495,6 +496,28 @@ export class CommunityLabClient {
   ): Promise<EdgeResult<T>> {
     return this.#edge<EdgeResult<T>>('community-media', { action, ...payload });
   }
+  /** No Storage URL issuer: one current owner JWT for BOTH metadata and bytes.
+   * Each stage fences session switch, expiry, logout or refresh; never retry 401
+   * by silently switching actor or issuing a fresh signed Storage token.
+   */
+  async readGalleryOwnerMedia(mediaId: string, signal?: AbortSignal): Promise<{
+    blob: Blob; mimeType: string; width: number; height: number; mediaId: string;
+  }> {
+    if(!OWNER_MEDIA_UUID.test(mediaId))throw new GalleryOwnerMediaError('OWNER_MEDIA_ID_INVALID',400);
+    const lease=await this.#validSession();
+    const assertCurrent=()=>{
+      if(this.#session!==lease || !this.#session ||
+        this.#session.userId!==lease.userId || this.#session.accessToken!==lease.accessToken ||
+        this.#session.expiresAt<=Date.now() || signal?.aborted)
+        throw new GalleryOwnerMediaError('OWNER_MEDIA_SESSION_CHANGED',401);
+    };
+    assertCurrent();
+    return readAuthenticatedGalleryOwnerMedia({
+      endpoint:`${this.config.supabaseUrl}/functions/v1/community-media`,
+      apikey:this.config.publishableKey,accessToken:lease.accessToken,mediaId,signal,assertCurrent
+    });
+  }
+
 
   /**
    * WEP-owned Preset artifact transport. This restores the accepted WEP
