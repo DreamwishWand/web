@@ -82,7 +82,7 @@ try{
   await until(async()=>await page.locator('.systems-result').count()===2);
   const ids=await page.locator('.systems-result').evaluateAll(nodes=>nodes.map(node=>new URL(node.getAttribute('href'),location.href).searchParams.get('article')));
   assert(new Set(ids).size===2&&ids.includes('DREAMSNAPS')&&ids.includes('PHOTO_MODE'),'Bilingual category alias or canonical dedup failed');
-  await page.locator('.systems-result').click();
+  await page.locator('.systems-result').first().click();
   await until(async()=>await page.locator('[data-systems-state="detail"]').count()===1);
   assert((await page.locator('.systems-detail h2').textContent()).includes('DreamSnaps'),'Stable detail mismatch');
   assert(await page.locator('.systems-detail ol li').count()===1,'Verified instruction missing');
