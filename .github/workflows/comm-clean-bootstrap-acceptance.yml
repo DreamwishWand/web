@@ -138,3 +138,56 @@ jobs:
         if: always()
         shell: bash
         run: supabase stop --no-backup || true
+
+  diagnostic-replay-after-temporary-ddl-terminators:
+    name: Diagnostic only - temp exported DDL semicolons (NOT canonical PASS)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Temporarily normalize ten reconstructed function-body terminators
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          file=Path('supabase/migrations/20260930025132_community_core_v0_server_rpc.sql')
+          before=file.read_text()
+          after,count=re.subn(r'(?m)^\$function\$[ \t]*$', '$function$;', before)
+          assert count==10, f'unexpected reconstructed function closing count={count}'
+          assert before!=after
+          file.write_text(after)
+          print('DIAGNOSTIC_ONLY_TEN_SEMICOLONS_PATCHED_IN_DISPOSABLE_RUNNER')
+          print('CANONICAL_ORIGINAL_SOURCE_BOOTSTRAP_RESULT_REMAINS_FAIL')
+          PY
+          printf 'project_id = "ddvre_comm_bootstrap_diagnostic_temp_20261024"\n' | cat - supabase/config.toml > /tmp/comm-diag-config.toml
+          mv /tmp/comm-diag-config.toml supabase/config.toml
+      - name: Reattempt disposable empty Supabase replay with temporary local-only DDL patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 1500s supabase start --debug 2>&1 | tee /tmp/comm-diagnostic-replay.log
+          echo 'DIAGNOSTIC_TEMP_PATCH_REPLAY_COMPLETE_NOT_SOURCE_PASS'
+      - name: Validate migration ledger only if diagnostic bootstrap completes
+        shell: bash
+        run: |
+          set -euo pipefail
+          db_container=$(docker ps --format '{{.Names}}' | grep '^supabase_db_' | head -1)
+          test -n "$db_container"
+          docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres -At -c 'select count(*) from supabase_migrations.schema_migrations;' | tee /tmp/comm-diagnostic-ledger.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: comm-bootstrap-temporary-ddl-diagnostics
+          path: |
+            /tmp/comm-diagnostic-replay.log
+            /tmp/comm-diagnostic-ledger.log
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Discard diagnostic local stack
+        if: always()
+        run: supabase stop --no-backup || true
