@@ -13,7 +13,7 @@ import {
 } from './scene-capture-runtime.ts';
 import { sha256Hex } from './preset-community-bridge.ts';
 import type { ScenePublicCurrentRead, SceneOwnerReadiness } from './scene-revision-gallery-consumer.ts';
-import { SCENE_REVISION_WRITE_BLOCKERS } from './scene-revision-gallery-consumer.ts';
+import { SCENE_REVISION_WRITE_BLOCKERS, diagnoseSceneRevisionPairing } from './scene-revision-gallery-consumer.ts';
 
 const SWITCH_V125_BID = '52BD625D9B4E0053';
 
@@ -74,6 +74,16 @@ export async function prepareSceneRevisionOfflineIntent(args: SceneRevisionArtif
       readiness.pairedGalleryPublishAuthorized !== false) {
     reject('WEP_SCENE_REVISION_OWNER_IDENTITY_STALE');
   }
+  // Owner+public are two separately authorized reads; an old Gallery revision
+  // or unresolved owner-owned pair must never be treated as a reusable revision.
+  const diagnostic = diagnoseSceneRevisionPairing(current, readiness);
+  const hardIdentityMismatch = diagnostic.blockedReasons.some(x => [
+    'SCENE_CURRENT_PRESET_REVISION_STALE_OR_MISMATCHED',
+    'SCENE_PAIRED_GALLERY_WORK_ID_MISMATCH',
+    'SCENE_PAIRED_GALLERY_CURRENT_REVISION_STALE',
+    'SCENE_PUBLIC_GALLERY_WITHOUT_OWNER_ASSOCIATION'
+  ].includes(x));
+  if (hardIdentityMismatch) reject('WEP_SCENE_REVISION_PAIRED_GALLERY_IDENTITY_STALE');
   if (!Array.isArray(capture?.selectionIds) || capture.selectionIds.length === 0 ||
       capture.selectionIds.some(id => typeof id !== 'string' || id.length === 0) ||
       new Set(capture.selectionIds).size !== capture.selectionIds.length ||
@@ -135,6 +145,13 @@ export async function prepareSceneRevisionOfflineIntent(args: SceneRevisionArtif
       expectedPresetWorkRowVersion: readiness.workRowVersion,
       dependencyFingerprintSha256: readiness.dependencyFingerprintSha256,
       dependencyFingerprintIsAtomicFence: false as const,
+      observedPairedGalleryWorkId: readiness.pairedGalleryWorkId,
+      observedPairedGalleryWorkRowVersion: readiness.pairedGalleryWorkRowVersion,
+      observedPairedGalleryCurrentWorkRevisionId: readiness.pairedGalleryCurrentWorkRevisionId,
+      pairedGallerySnapshotIsAtomicFence: false as const,
+      observedHistoricalEdgeSetScope: readiness.historicalEdgeSetScope,
+      observedHistoricalEdgeSetSha256: readiness.historicalEdgeSetSha256,
+      observedHistoricalEdgeSetIsAtomicFence: false as const,
       // The current owner readiness fingerprint is NOT the 03 COMM R9
       // historical-edge SHA input. No trusted Gallery rowVersion/edge graph
       // seal is available from the accepted read-only consumer.
@@ -175,7 +192,8 @@ export async function prepareSceneRevisionOfflineIntent(args: SceneRevisionArtif
       'SCENE_BACKEND_ALL_WRITER_R7_NOT_ACCEPTED',
       'SCENE_CALLER_HISTORICAL_EDGE_PIN_NOT_AVAILABLE',
       'SCENE_GALLERY_EXPECTED_ROWVERSION_NOT_AVAILABLE',
-      'SCENE_SIGNED_STAGING_E2E_NOT_ACCEPTED'
+      'SCENE_SIGNED_STAGING_E2E_NOT_ACCEPTED',
+      ...diagnostic.blockedReasons
     ])
   });
 }
