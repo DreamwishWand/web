@@ -88,3 +88,33 @@ test('three owner RPCs fail-closed on every Preset Work until all-writer graph c
   const ownerGateTail = sql.split('-- 03 COMM #119 R5 fail-closed OWNER-ONLY gap containment.')[1];
   assert.doesNotMatch(ownerGateTail, /create or replace function public\.community_(moderate_work|tombstone_account)\s*\(/);
 });
+
+
+test('Scene Revision owner preflight is read-only and cannot unlock R6 lifecycle', () => {
+  const edge = readFileSync(
+    join(root, 'supabase/functions/wep-preset-artifact/index.ts'), 'utf8'
+  );
+  const block = sql.split(
+    /create or replace function public\.community_scene_revision_readiness_v1\s*\(/i
+  )[1];
+  assert.ok(block, 'Scene revision readiness not installed');
+  assert.match(block, /stable\s+security definer/i);
+  assert.match(block, /private\.resolve_active_account\(p_auth_subject\)/);
+  assert.match(block, /owner_account_id=v_owner/);
+  assert.match(block, /join public\.preset_revisions pr/);
+  assert.match(block, /join public\.community_work_revisions cwr/);
+  assert.match(block, /associated_gallery_work_id/);
+  assert.match(block, /'graphComplete',false/);
+  assert.match(block, /'saveRevisionAuthorized',false/);
+  assert.match(block, /'pairedGalleryPublishAuthorized',false/);
+  assert.match(block, /'unpublishAuthorized',false/);
+  assert.match(block, /'deleteAuthorized',false/);
+  assert.match(block, /'restoreAuthorized',false/);
+  assert.match(block, /'dependencyFingerprintIsAtomicFence',false/);
+  assert.match(sql, /revoke all on function public\.community_scene_revision_readiness_v1\(uuid,uuid\)[\s\S]*?from public,anon,authenticated/i);
+  assert.match(sql, /grant execute on function public\.community_scene_revision_readiness_v1\(uuid,uuid\)[\s\S]*?to service_role/i);
+  assert.match(edge, /if \(action === 'revisionReadiness'\)/);
+  assert.match(edge, /community_scene_revision_readiness_v1/);
+  assert.match(edge, /SCENE_REVISION_READINESS_FORBIDDEN_OR_UNAVAILABLE/);
+  assert.doesNotMatch(block.split('$scene_readiness$')[0], /\b(insert into|update public\.|delete from public\.)/i);
+});
