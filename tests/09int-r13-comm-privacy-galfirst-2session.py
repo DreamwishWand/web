@@ -77,6 +77,20 @@ def prep_fixture(c):
                (g["galleryWork"],g["presetWork"]))[0]==2
     assert one(c,"select public.community_gallery_media_gateway_v1(%s)",(g["oldMedia"],))[0]["publiclyAccessible"] is True
     assert one(c,"select count(*) from private.account_privacy_suppressions where account_id=%s",(owner,))[0]==0
+    # Current 03 COMM Source resolve_active_account no longer explicitly
+    # checks identity_state=active. Exercise this exact actor predicate in a
+    # rolled-back local transaction; it must be returned as a separate
+    # authorization gap, not equated with a signed identity attack.
+    c.execute("BEGIN")
+    try:
+        execute(c,"update public.auth_identities set identity_state='retired' where account_id=%s",(g["staffAccount"],))
+        accepted=one(c,"select private.resolve_active_account(%s)",(g["staffAuth"],))[0]
+        assert accepted==g["staffAccount"],("SOURCE_AUTH_IDENTITY_BEHAVIOR_CHANGED",accepted)
+        print(json.dumps({"case":"R13_SOURCE_ACTIVE_ACCOUNT_RESOLVER_RETIRED_AUTH_IDENTITY_NEGATIVE",
+          "retiredSyntheticIdentityStillResolvesOwner":True,
+          "actualSignedTokenAccepted":False,"rolledBack":True}))
+    finally:
+        c.execute("ROLLBACK")
     return g
 
 def invoke_suppression(a,g):
