@@ -14,7 +14,7 @@ URL=f.local_dsn()
 def one(c,q,p=()):return f.one(c,q,p)[0]
 def execute(c,q,p=()):return f.execute(c,q,p)
 def scan(c,groups):
-    arts=sorted([g["artifact"] for g in groups],key=str)
+    arts=sorted({g["artifact"] for g in groups},key=str)
     assert len(set(arts))==2
     records=c.execute("""select pa.preset_artifact_id,pa.owner_account_id,pa.creator_profile_id,
        pa.community_work_id,pa.associated_gallery_work_id,pa.preset_type
@@ -198,6 +198,57 @@ def execute_race(groups):
           "twoSearchAndOutboxPublicationTransactions":True,
           "signedStagingOrPublicRPCEnrolled":False}))
 
+def bounded_auto_retry_with_source(groups,third):
+    """Validation-only automatic WHOLE transaction retries on real SQLSTATE
+    55P03. No recovery from stale caller pin or revoked actor. This is not
+    deployed Service/Edge retry handling.
+    """
+    with psycopg.connect(URL,autocommit=True) as a,psycopg.connect(URL,autocommit=True) as b:
+        prior=counts(a,groups)
+        owner=scan(a,groups)["account"]
+        a.execute("BEGIN")
+        one(a,"select preset_artifact_id from public.preset_artifacts where preset_artifact_id=%s for update",
+            (sorted([groups[0]["artifact"],groups[1]["artifact"]],key=str)[0],))
+        attempts=[]
+        try:
+            for index in range(1,4):
+                b.execute("BEGIN")
+                b.execute("set local lock_timeout='600ms'")
+                try:
+                    # Each retry RESOLVES its own current actor, graph roster,
+                    # versions and privacy; never reuse a successful precheck.
+                    latest=scan(b,groups)["sha"]
+                    acquire(b,groups,latest)
+                    source_publish(b,third)
+                    b.execute("COMMIT")
+                    attempts.append("COMMIT")
+                    break
+                except psycopg.Error as exc:
+                    b.execute("ROLLBACK")
+                    if exc.sqlstate not in ("55P03","40P01","40001"):
+                        raise
+                    attempts.append(exc.sqlstate)
+                    assert counts(a,groups)==prior,"R15_PARTIAL_STATE_AFTER_TRANSIENT"
+                    if index==1:
+                        a.execute("ROLLBACK")
+                    elif index==3:
+                        raise AssertionError("R15_BOUNDED_RETRY_EXHAUSTED")
+                except:
+                    b.execute("ROLLBACK");raise
+        finally:
+            if a.info.transaction_status!=psycopg.pq.TransactionStatus.IDLE:
+                a.execute("ROLLBACK")
+        assert attempts==["55P03","COMMIT"],attempts
+        final=counts(b,groups)
+        assert final[2][0]==final[2][1]==1 and final[2][2]>=1
+        assert final[:2]==prior[:2],(prior,final)
+        print(json.dumps({"case":"R15_TEST_DRIVER_BOUNDED_FRESH_WHOLE_TRANSACTION_RETRY",
+          "sourceGalleryWriterExecuted":True,"transientSqlstate":"55P03",
+          "attempts":2,"maxAttempts":3,"freshActorAndGraphPerAttempt":True,
+          "firstFailedTransactionFullyRolledBack":True,
+          "secondTransactionCommittedLocally":True,"semanticStaleNotAutomaticallyRefreshed":True,
+          "automaticProductionRetryImplemented":False}))
+
 def main():
     with psycopg.connect(URL,autocommit=True) as c:
         groups=[f.fixture(c),f.fixture(c)]
@@ -205,10 +256,18 @@ def main():
         registry=scan(c,groups)
         assert len(registry["artifacts"])==2 and len(registry["galleries"])==4
     execute_race(groups)
+    # A third draft reuses Scene 1: distinct Work, shared Artifact graph.
+    # It is published via the unchanged actual v4 RPC only after a bounded
+    # transient-only retry runner succeeds in a freshly authorized txn.
+    third=dict(groups[0])
+    with psycopg.connect(URL,autocommit=True) as c:
+        prepare_draft(c,third)
+    expanded=[*groups,third]
+    bounded_auto_retry_with_source(expanded,third)
     print(json.dumps({"result":"R15_TWO_ACTUAL_SOURCE_GALLERY_WRITERS_SCOPED_MULTI_GRAPH_PASS",
       "ownerSourceCommit":"1d98e4234f6b6762c46c6a26e59a00640f18053b",
       "sourceMigrationCount":115,"fullAllFacetGraphComplete":False,
-      "productionAllWriterEnrollment":False,"automaticRetryDeployed":False,
+      "productionAllWriterEnrollment":False,"automaticRetryDeployed":False,"testDriverBoundedTransientRetryPassed":True,
       "retirementAuthorized":False}))
 
 if __name__=="__main__":main()
