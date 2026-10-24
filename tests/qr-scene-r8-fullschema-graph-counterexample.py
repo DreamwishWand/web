@@ -560,6 +560,38 @@ def concurrent_other_known_reference_writers(url,g):
             "allWriterGraphComplete":False,"retirementAuthorized":False}))
 
 
+def gallery_row_version_stale_rejected(url,g):
+    """04 QR independent: a caller with wrong paired Gallery Work rowVersion
+    must be denied before any persistent media/search/outbox writes.
+    All data is synthetic in the 113-migration local PG instance.
+    """
+    with psycopg.connect(url,autocommit=True) as c:
+        actual_gallery_version=one(c,
+            "select row_version from public.community_works where work_id=%s",
+            (g["galleryWork"],))[0]
+        actual_preset_version=one(c,
+            "select row_version from public.community_works where work_id=%s",
+            (g["presetWork"],))[0]
+        before=snapshot(c,g)
+        wrong=dict(g)
+        wrong["galleryVersion"]=actual_gallery_version+1
+        wrong["presetVersion"]=actual_preset_version
+        wrong["expectedHistoricalEdgeSha256"]=historical_edge_hash(c,g)
+        c.execute("BEGIN")
+        try:
+            try:
+                invoke(c,wrong)
+                raise AssertionError("QR_GALLERY_ROWVERSION_UNEXPECTED_SUCCESS")
+            except psycopg.Error as error:
+                assert "SCENE_REVISION_ROW_VERSION_CONFLICT" in str(error),str(error)
+                print(json.dumps({"case":"QR_LATEST_SCENE_GALLERY_ROWVERSION_STALE_REJECTED",
+                    "wrongVersionWasCallerSupplied":True,"galleryWorkVersionUnchanged":True,
+                    "sourcePairingAuthorizationAbsent":True,"realSignedStagingActor":False}))
+        finally:
+            c.execute("ROLLBACK")
+        assert snapshot(c,g)==before,"QR_ROWVERSION_REJECTION_PARTIAL_CHANGE"
+
+
 def main():
     url=local_dsn()
     with psycopg.connect(url,autocommit=True) as c:
@@ -568,6 +600,7 @@ def main():
     stale_historical_graph_counterexample(url,g)
     concurrent_known_reference_edge_insert(url,g)
     concurrent_other_known_reference_writers(url,g)
+    gallery_row_version_stale_rejected(url,g)
 
 if __name__=="__main__":
     main()
