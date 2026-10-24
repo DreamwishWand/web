@@ -136,6 +136,18 @@ begin
  v_capacity:=private.gallery_media_capacity_snapshot_v1(v_account);
  if (v_capacity->>'reservedBytes')::bigint<>209715200 then
    raise exception 'RECLAIMED_TEMP_CAPACITY_NOT_REUSABLE';end if;
+ -- Reuse existing private account-retention legal hold contract.
+ insert into private.account_retention_holds(account_id,hold_type,reason,created_by_account_id)
+ values(v_account,'legal','rollback-only gallery retention hold',v_account);
+ v_bad:=false;
+ begin perform public.community_gallery_media_intent_cancel_v1(v_auth,v_keys[3]);
+ exception when others then
+   if position('GALLERY_UPLOAD_RETENTION_HOLD' in sqlerrm)>0
+     then v_bad:=true;else raise;end if;
+ end;
+ if not v_bad then raise exception 'LEGAL_HOLD_ABORT_ACCEPTED';end if;
+ if (select state from public.community_media_upload_intents where storage_key=v_keys[3])<>'pending'
+ then raise exception 'LEGAL_HOLD_CHANGED_INTENT';end if;
  v_op:=public.community_gallery_media_capacity_ops_v1();
  if (v_op->>'ttlPhysicalDeletionEnabled')::boolean is distinct from false
   or (v_op->>'workerMaxPerHourlyRun')::int<>20
