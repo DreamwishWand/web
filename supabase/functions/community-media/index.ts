@@ -186,7 +186,11 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
           p_auth_subject: subject, p_storage_key: storageKey,
           p_mime_type: mimeType, p_expected_bytes: byteSize
         });
-        if (intentError) return reply({ ok: false, error: 'GALLERY_UPLOAD_INTENT_FAILED' }, 400);
+        if (intentError) {
+          const reason=String(intentError.message??'');
+          const quotaCode=/^GALLERY_UPLOAD_(?:OUTSTANDING_COUNT_EXCEEDED|RESERVED_BYTES_EXCEEDED)/.exec(reason)?.[0];
+          return reply({ok:false,error:quotaCode??'GALLERY_UPLOAD_INTENT_FAILED'},quotaCode?429:400);
+        }
       }
       const { data, error } = await ctx.supabaseAdmin.storage
         .from(BUCKET)
@@ -292,6 +296,23 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
           checksumSha256: checksum
         }
       });
+    }
+
+    if (action === 'galleryStatus' || action === 'galleryCapacity') {
+      const storageKey = action === 'galleryStatus' ? String(body.storageKey ?? '') : null;
+      if (action === 'galleryStatus' &&
+         (!storageKey?.startsWith(subject + '/') ||
+          !/^[0-9a-f-]{36}[/][0-9a-f-]{36}[.](?:jpg|png|webp)$/.test(storageKey))) {
+        return reply({ok:false,error:'GALLERY_UPLOAD_KEY_INVALID'},400);
+      }
+      const {data,error} = await ctx.supabaseAdmin.rpc(
+        'community_gallery_media_owner_status_v1',{
+          p_auth_subject:subject,p_storage_key:storageKey
+        });
+      if(error) return reply({ok:false,
+        error:error.message?.includes('GALLERY_UPLOAD_FORBIDDEN')
+          ? 'GALLERY_UPLOAD_FORBIDDEN' : 'GALLERY_OWNER_STATUS_UNAVAILABLE'},403);
+      return reply({ok:true,action,data});
     }
 
     if (action === 'galleryAbort' || action === 'galleryCleanup') {
