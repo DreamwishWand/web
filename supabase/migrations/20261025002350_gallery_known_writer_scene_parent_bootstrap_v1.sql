@@ -498,3 +498,190 @@ grant execute on function public.community_unpublish_work(uuid,uuid,bigint,text)
   to service_role;
 grant execute on function public.community_delete_work(uuid,uuid,bigint,text)
   to service_role;
+
+
+-- 03 COMM / 09 INT R6: OWNER-ONLY, READ-ONLY Scene revision readiness.
+-- This observes both historical GalleryRevisionPreset links and the immutable
+-- Gallery association field; it never mutates a revision, locks a graph or
+-- authorizes a lifecycle writer. A graph fingerprint is advisory, NOT a fence.
+create or replace function public.community_scene_revision_readiness_v1(
+  p_auth_subject uuid,
+  p_preset_artifact_id uuid
+)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path=pg_catalog,public,private,extensions
+as $scene_readiness$
+declare
+  v_owner uuid;
+  v_artifact public.preset_artifacts%rowtype;
+  v_work public.community_works%rowtype;
+  v_revision_count integer:=0;
+  v_latest_revision integer:=0;
+  v_current_preset_revision uuid;
+  v_current_blob public.artifact_blobs%rowtype;
+  v_assoc_ids uuid[]:=array[]::uuid[];
+  v_link_ids uuid[]:=array[]::uuid[];
+  v_all_ids uuid[]:=array[]::uuid[];
+  v_cross_owner integer:=0;
+  v_referenced_unknown integer:=0;
+  v_current_gallery_matches integer:=0;
+  v_ref_hash text;
+  v_blocked jsonb;
+begin
+  v_owner:=private.resolve_active_account(p_auth_subject);
+  if p_preset_artifact_id is null then
+    raise exception 'SCENE_REVISION_NOT_OWNER_OR_UNAVAILABLE';
+  end if;
+  select * into v_artifact
+  from public.preset_artifacts
+  where preset_artifact_id=p_preset_artifact_id
+    and preset_type='scene'
+    and owner_account_id=v_owner;
+  if v_artifact.preset_artifact_id is null then
+    raise exception 'SCENE_REVISION_NOT_OWNER_OR_UNAVAILABLE';
+  end if;
+  select * into v_work from public.community_works
+  where work_id=v_artifact.community_work_id
+    and owner_account_id=v_owner
+    and creator_profile_id=v_artifact.creator_profile_id
+    and work_type='preset';
+  if v_work.work_id is null then
+    raise exception 'SCENE_REVISION_NOT_OWNER_OR_UNAVAILABLE';
+  end if;
+
+  select count(*)::integer,coalesce(max(pr.revision_number),0)::integer
+  into v_revision_count,v_latest_revision
+  from public.preset_revisions pr
+  where pr.preset_artifact_id=v_artifact.preset_artifact_id;
+
+  select pr.preset_revision_id into v_current_preset_revision
+  from public.preset_revision_publications pp
+  join public.preset_revisions pr on pr.preset_revision_id=pp.preset_revision_id
+  where pp.work_revision_id=v_work.current_published_revision_id
+    and pr.preset_artifact_id=v_artifact.preset_artifact_id;
+
+  select b.* into v_current_blob
+  from public.preset_revisions pr
+  join public.artifact_blobs b on b.blob_id=pr.artifact_blob_id
+  where pr.preset_revision_id=v_current_preset_revision and b.purged_at is null;
+
+  select coalesce(array_agg(distinct x.gallery_id order by x.gallery_id),array[]::uuid[])
+  into v_link_ids
+  from (
+    select cwr.work_id as gallery_id
+    from public.gallery_revision_presets grp
+    join public.community_work_revisions cwr
+      on cwr.revision_id=grp.gallery_revision_id
+    join public.preset_revisions pr
+      on pr.preset_revision_id=grp.preset_revision_id
+    where pr.preset_artifact_id=v_artifact.preset_artifact_id
+  ) x;
+
+  if v_artifact.associated_gallery_work_id is not null then
+    v_assoc_ids:=array[v_artifact.associated_gallery_work_id];
+  end if;
+  select coalesce(array_agg(distinct x.id order by x.id),array[]::uuid[])
+  into v_all_ids from (
+    select unnest(v_assoc_ids) as id
+    union all
+    select unnest(v_link_ids) as id
+  ) x;
+
+  -- A link to another account or a missing/non-Gallery Work is not treated
+  -- as a safe empty dependency set; do not return foreign Work identifiers.
+  select count(*) filter (
+     where gw.work_id is not null
+       and gw.owner_account_id=v_owner
+       and gw.creator_profile_id=v_artifact.creator_profile_id
+       and gw.work_type='gallery'
+    )::integer,
+    count(*) filter (
+     where gw.work_id is null
+       or gw.owner_account_id is distinct from v_owner
+       or gw.creator_profile_id is distinct from v_artifact.creator_profile_id
+       or gw.work_type is distinct from 'gallery'
+    )::integer
+  into v_current_gallery_matches,v_cross_owner
+  from unnest(v_all_ids) x(id)
+  left join public.community_works gw on gw.work_id=x.id;
+
+  select count(*)::integer into v_referenced_unknown
+  from public.gallery_revision_presets grp
+  join public.community_work_revisions cwr
+    on cwr.revision_id=grp.gallery_revision_id
+  join public.preset_revisions pr
+    on pr.preset_revision_id=grp.preset_revision_id
+  where pr.preset_artifact_id=v_artifact.preset_artifact_id
+    and not exists(
+      select 1 from public.gallery_works g where g.work_id=cwr.work_id
+    );
+
+  -- Stable fingerprint is useful for human comparison, but does NOT
+  -- replace transaction locks or under-lock recomputation.
+  v_ref_hash:=encode(extensions.digest(
+    convert_to(concat_ws('|',v_artifact.preset_artifact_id::text,
+      v_artifact.community_work_id::text,v_work.row_version::text,
+      coalesce(v_current_preset_revision::text,''),
+      v_latest_revision::text,
+      array_to_string(v_all_ids,',')),
+    'UTF8'),'sha256'),'hex');
+
+  v_blocked:=jsonb_build_array(
+    'SCENE_REVISION_ATOMIC_WRITER_NOT_APPROVED',
+    'GALLERY_ALL_WRITER_LOCK_PROTOCOL_UNVERIFIED',
+    'SCENE_PAIRED_MEDIA_COVER_PUBLICATION_NOT_ACCEPTED',
+    'SCENE_STORAGE_ROLLBACK_AND_RETRY_NOT_ACCEPTED'
+  );
+  if v_cross_owner>0 or v_referenced_unknown>0 then
+    v_blocked:=v_blocked||jsonb_build_array(
+      'SCENE_REFERENCE_IDENTITY_CONFLICT'
+    );
+  end if;
+  if v_revision_count=0 then
+    v_blocked:=v_blocked||jsonb_build_array(
+      'SCENE_NO_REVISION'
+    );
+  end if;
+  if v_current_preset_revision is null or v_current_blob.blob_id is null then
+    v_blocked:=v_blocked||jsonb_build_array(
+      'SCENE_CURRENT_ARTIFACT_UNAVAILABLE'
+    );
+  end if;
+
+  return jsonb_build_object(
+    'contract','ddv.scene-revision-readiness@1',
+    'presetArtifactId',v_artifact.preset_artifact_id,
+    'presetWorkId',v_work.work_id,
+    'presetType',v_artifact.preset_type,
+    'ownerEligible',true,
+    'workRowVersion',v_work.row_version,
+    'lifecycleState',v_work.lifecycle_state,
+    'visibility',v_work.visibility,
+    'currentPresetRevisionId',v_current_preset_revision,
+    'revisionCount',v_revision_count,
+    'latestRevisionNumber',v_latest_revision,
+    'currentArtifactAvailable',v_current_blob.blob_id is not null,
+    'hasAssociatedGallery',v_artifact.associated_gallery_work_id is not null,
+    'knownHistoricalGalleryCount',cardinality(v_link_ids),
+    'knownGalleryReferenceCount',cardinality(v_all_ids),
+    'crossOwnerOrUnresolvedGalleryCount',v_cross_owner+v_referenced_unknown,
+    'dependencyFingerprintSha256',v_ref_hash,
+    'dependencyFingerprintIsAtomicFence',false,
+    'graphComplete',false,
+    'saveRevisionAuthorized',false,
+    'pairedGalleryPublishAuthorized',false,
+    'unpublishAuthorized',false,
+    'deleteAuthorized',false,
+    'restoreAuthorized',false,
+    'blockedReasons',v_blocked
+  );
+end
+$scene_readiness$;
+
+revoke all on function public.community_scene_revision_readiness_v1(uuid,uuid)
+  from public,anon,authenticated;
+grant execute on function public.community_scene_revision_readiness_v1(uuid,uuid)
+  to service_role;
