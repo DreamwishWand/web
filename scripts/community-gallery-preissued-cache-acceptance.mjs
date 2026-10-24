@@ -79,7 +79,8 @@ export async function probePreissued(env, options = {}) {
         cacheControl:response.headers.get('cache-control')?.slice(0,100) ?? null,
         cdnCacheStatus:response.headers.get('cf-cache-status')?.slice(0,40) ?? null
       });
-      if (sec === 0 && status !== 200) throw Error('OLD_TOKEN_INITIAL_NOT_ACCESSIBLE');
+      if (browserResult === null) throw Error('OLD_TOKEN_BROWSER_NOT_OBSERVED');
+      if (sec === 0 && (status !== 200 || browserResult !== 200)) throw Error('OLD_TOKEN_INITIAL_NOT_ACCESSIBLE');
       if (sec === 360 && (status === 200 || browserResult === 200)) throw Error('OLD_TOKEN_POST_EXPIRY_STILL_PUBLIC');
     }
     evidence.outcome='PASS_ONLY_BEARER_TIMING';
