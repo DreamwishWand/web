@@ -1,0 +1,78 @@
+name: 09 INT R15 actual owner119 historical Gallery Work lock closure
+on:
+  push:
+    branches:
+      - validation/09int-r15-owner119-historical-gallery-lock-20261025
+
+permissions:
+  contents: read
+
+jobs:
+  r15-historical-linked-gallery-lock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install local two-connection PostgreSQL driver
+        run: python -m pip install --disable-pip-version-check 'psycopg[binary]>=3,<4'
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Require exact Source119 isolated local Supabase
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('supabase/config.toml')
+          s=p.read_text()
+          assert not any(line.strip().startswith('project_id =') for line in s.splitlines())
+          p.write_text('project_id = "ddvre_09int_r15_historical_lock"\n'+s)
+          migrations=list(Path('supabase/migrations').glob('*.sql'))
+          assert len(migrations)==119,(len(migrations),'EXPECTED_OWNER_R14_SOURCE119')
+          PY
+          echo 'NO staging/production link or secrets'
+      - name: Local-only exact Source119 migration bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 1500s supabase start > /tmp/r15-historical-start.log 2>&1 || {
+            grep -Ein -B 3 -A 7 'error|failed|SQLSTATE|syntax|migration' /tmp/r15-historical-start.log | tail -n 100 || true
+            tail -n 30 /tmp/r15-historical-start.log || true
+            exit 1
+          }
+          echo 'LOCAL_SOURCE119_MIGRATIONS_APPLIED'
+      - name: Synthetic disposable account source seed
+        shell: bash
+        run: |
+          set -euo pipefail
+          db_container=$(docker ps --format '{{.Names}}' | grep '^supabase_db_' | head -1)
+          test -n "$db_container"
+          docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/staging/acceptance/local-clean-bootstrap-synthetic-seed-v1.sql > /tmp/r15-historical-seed.log 2>&1 || {
+            tail -n 60 /tmp/r15-historical-seed.log
+            exit 1
+          }
+      - name: Actual Source v4 historical Gallery-work held lock / full rollback
+        env:
+          DDVRE_R8_ISOLATED_LOCAL: CONFIRMED
+          DDVRE_R8_POSTGRES_DSN: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: python -u tests/09int-r15-owner119-historical-linked-gallery-lock.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: 09int-r15-historical-linked-gallery-lock-evidence
+          path: |
+            /tmp/r15-historical-start.log
+            /tmp/r15-historical-seed.log
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Discard only the disposable local DB
+        if: always()
+        run: supabase stop --no-backup || true
