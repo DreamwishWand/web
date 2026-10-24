@@ -142,7 +142,7 @@ def invoke(c,g,expected_edge_sha256=None):
        g["newBlob"],[g["oldMedia"],g["newMedia"]],g["newMedia"],
        "R8 Linked Scene V2","R8 disposable regression",
        json.dumps({"r8":"isolated-full-schema"}),"r8-paired-"+str(g["artifact"]),
-       expected_edge_sha256 or g["expectedHistoricalEdgeSha256"])))[0]
+       expected_edge_sha256 or g["expectedHistoricalEdgeSha256"]))[0]
 
 def concurrent(url,g):
     with psycopg.connect(url,autocommit=True) as a, psycopg.connect(url,autocommit=True) as b:
