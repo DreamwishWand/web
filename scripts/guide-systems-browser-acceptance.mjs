@@ -79,7 +79,9 @@ try{
   await page.locator('#systems-search').fill('写真と');
   await until(async()=>await page.locator('.systems-result').count()===2);
   await page.locator('#systems-search').fill('DreamSnaps');
-  assert(await page.locator('.systems-result').count()===1,'Bilingual canonical alias/dedup failed');
+  await until(async()=>await page.locator('.systems-result').count()===2);
+  const ids=await page.locator('.systems-result').evaluateAll(nodes=>nodes.map(node=>new URL(node.getAttribute('href'),location.href).searchParams.get('article')));
+  assert(new Set(ids).size===2&&ids.includes('DREAMSNAPS')&&ids.includes('PHOTO_MODE'),'Bilingual category alias or canonical dedup failed');
   await page.locator('.systems-result').click();
   await until(async()=>await page.locator('[data-systems-state="detail"]').count()===1);
   assert((await page.locator('.systems-detail h2').textContent()).includes('DreamSnaps'),'Stable detail mismatch');
