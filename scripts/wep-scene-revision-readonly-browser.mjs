@@ -54,7 +54,7 @@ await page.route('https://cover.example.invalid/image.png',async route=>{
 await page.goto(url,{waitUntil:'networkidle'});
 const card=page.locator('.preset-card',{hasText:'Example Scene'});
 await card.waitFor({timeout:15000});
-await card.getByRole('button',{name:'Scene revision'}).click();
+await card.getByRole('button',{name:'Scene current revision preview'}).click();
 const panel=page.locator('[data-wep-scene-revision-readonly]');
 await panel.waitFor({timeout:15000});
 assert.equal(await panel.getByRole('button',{name:'Inspect current'}).isEnabled(),true);
