@@ -76,11 +76,16 @@ test('Temporary media retention stays inactive without server activation or expi
   }
 });
 test('Only Gallery display fetches Edge proxy; no DreamSnaps transport change',()=>{
-  for(const p of ['src/lib/gallery/GalleryStage1Browse.svelte','src/lib/community/GalleryDetail.svelte','src/routes/gallery/my/+page.svelte']){
+  for(const p of ['src/lib/gallery/GalleryStage1Browse.svelte','src/lib/community/GalleryDetail.svelte']){
     const source=readFileSync(new URL('../'+p,import.meta.url),'utf8');
     assert.match(source,/getGalleryPublicMedia/);
     assert.doesNotMatch(source,/\.signedUrl/);
   }
-  const edge=readFileSync(new URL('../supabase/functions/community-public-media/index.ts',import.meta.url),'utf8');
+  const my=readFileSync(new URL('../src/routes/gallery/my/+page.svelte',import.meta.url),'utf8');
+  assert.match(my,/OwnerGalleryMediaPreview/);
+  assert.doesNotMatch(my,/getGalleryPublicMedia|\\.signedUrl/);
+  const owner=readFileSync(new URL('../src/lib/gallery/OwnerGalleryMediaPreview.svelte',import.meta.url),'utf8');
+  assert.match(owner,/readGalleryOwnerMedia/);
+    const edge=readFileSync(new URL('../supabase/functions/community-public-media/index.ts',import.meta.url),'utf8');
   assert.match(edge,/community_get_public_media_storage_v2/);
 });
