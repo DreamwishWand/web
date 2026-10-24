@@ -208,21 +208,27 @@ def privacy_race(a,b,g):
             break
         time.sleep(.02)
     if mode=="source-gap":
-        assert finished.wait(3),("R13_UNEXPECTED_SOURCE_ACCOUNT_LOCK",result)
-        assert result.get("state")=="success" and not blocked,result
-        assert result["response"].get("revisionId"),result
+        # Actual source already waits on the privacy transaction in this
+        # particular Gallery v4 path (likely an account FK/idempotency
+        # admission lock). This is a positive observed constraint, NOT a
+        # universal account-root protocol or proof of deterministic ordering.
+        assert blocked,("R13_SOURCE_GALLERY_FK_ACCOUNT_WAIT_NOT_OBSERVED",result)
         a.execute("COMMIT")
+        assert finished.wait(6),("R13_SOURCE_WRITER_POST_PRIVACY_RECHECK_MISSING",result)
         resume.set()
         t.join(12)
         assert not t.is_alive() and "unexpected" not in result,result
-        assert one(a,"select lifecycle_state from public.community_works where work_id=%s",(g["newGallery"],))[0]=="published"
-        assert one(a,"select count(*) from public.search_documents where work_id=%s",(g["newGallery"],))[0]==1
-        print(json.dumps({"case":"R13_SOURCE_REAL_BARRIER_VS_GALLERY_FIRST_WRITER_RACE",
+        assert result.get("state")=="error" and result.get("sqlstate")=="P0001",result
+        assert "ACCOUNT_PRIVACY_SUPPRESSED" in result.get("error",""),result
+        assert one(a,"select lifecycle_state from public.community_works where work_id=%s",(g["newGallery"],))[0]=="draft"
+        assert one(a,"select count(*) from public.search_documents where work_id=%s",(g["newGallery"],))[0]==0
+        print(json.dumps({"case":"R13_CURRENT_OWNER_SOURCE_GALLERY_V4_INCIDENTAL_ACCOUNT_BLOCK",
           "holderPid":holder,"publisherPid":publisher,
-          "sourceGalleryRpcSucceededBeforePrivacyCommit":True,
-          "galleryCommitAfterPrivacyCommit":True,
-          "newOwnerPublishedWorkAfterSuppression":True,
-          "sourceAccountRootLockMissing":True,"positivePermissionAccepted":False}))
+          "realPgBlockingPidsAgainstPrivacyTxn":True,
+          "sourceGalleryRpcAcceptedAfterPrivacyCommit":False,
+          "sourceWriterErroredP0001AndFullyRolledBack":True,
+          "authoritativeAllWriterRootLockProven":False,
+          "allWriterGraphEnrolled":False}))
     else:
         assert blocked,("R13_FENCE_DID_NOT_BLOCK_ON_ACCOUNT_ROW",result)
         a.execute("COMMIT")
