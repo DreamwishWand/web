@@ -4,6 +4,11 @@ on:
   push:
     branches: ['verification/comm-clean-bootstrap-20261024']
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/staging/acceptance/local-clean-bootstrap-synthetic-seed-v1.sql'
+      - '.github/workflows/comm-clean-bootstrap-acceptance.yml'
 
 permissions:
   contents: read
