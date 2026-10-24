@@ -63,3 +63,28 @@ test('unsafe legacy Scene lifecycle writers are NOT restored', () => {
     /create\s+(?:or\s+replace\s+)?function\s+public\.community_(?:prepare|finalize)_unattached_media_discard_v1\s*\(/i
   );
 });
+
+
+test('three owner RPCs fail-closed on every Preset Work until all-writer graph contract', () => {
+  const parts = sql.split(/create or replace function public\.(community_change_work_visibility|community_unpublish_work|community_delete_work)\s*\(/i);
+  for (const name of [
+    'community_change_work_visibility',
+    'community_unpublish_work',
+    'community_delete_work'
+  ]) {
+    const index = parts.findIndex((part) => part.toLowerCase() === name);
+    assert.ok(index >= 0, 'owner RPC missing: ' + name);
+    const fn = parts[index + 1].split(/\n\$\$;/)[0];
+    assert.match(fn, /if v_work\.work_type='preset' then\s+raise exception 'PRESET_OWNER_LIFECYCLE_GLOBAL_WRITER_CONTRACT_REQUIRED'/);
+    assert.ok(
+      fn.indexOf('PRESET_OWNER_LIFECYCLE_GLOBAL_WRITER_CONTRACT_REQUIRED') <
+      fn.indexOf('insert into public.idempotency_keys'),
+      'owner gate must precede idempotency and mutation: ' + name
+    );
+    assert.match(fn, /v_work\.owner_account_id<>v_account_id/);
+    assert.match(fn, /v_work\.row_version<>p_expected_version/);
+  }
+  // These are NOT the emergency moderation / privacy erasure RPCs.
+  const ownerGateTail = sql.split('-- 03 COMM #119 R5 fail-closed OWNER-ONLY gap containment.')[1];
+  assert.doesNotMatch(ownerGateTail, /create or replace function public\.community_(moderate_work|tombstone_account)\s*\(/);
+});
