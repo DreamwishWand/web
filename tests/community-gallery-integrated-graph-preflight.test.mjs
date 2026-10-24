@@ -35,7 +35,7 @@ test('owner preflight propagates source graph coverage and fingerprint only as n
   assert.match(current,new RegExp(field+":"));
  }
  assert.match(projection,/'dependencySnapshotNotAtomicMutationFence',true/);
- assert.ok(projection.includes("~ '^[0-9a-f]{64}
+ assert.match(projection,/'dependencyGraphFingerprintSha256',case/);
  assert.match(projection,/'cloudPreservation',v_preservation/);
  assert.match(projection,/'operationAuthorized',false/);
  assert.match(projection,/'deleteAuthorized',false/);
