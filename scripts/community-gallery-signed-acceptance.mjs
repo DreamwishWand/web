@@ -7,7 +7,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
 export const STAGING_URL = 'https://ptpdoxhrqopvczpclcij.supabase.co';
-export const BACKEND_SHA = '0175ecb22d37bb53a79c690340911f8700c25956';
+export const BACKEND_SHA = '6bb2fe8fa7e78c5254800a8f59abf7cd02deeefb';
 export const PNG_BYTES = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/a6UAAAAASUVORK5CYII=', 'base64'
 );
