@@ -92,6 +92,7 @@ export function browsePublishedSystems(manifest, {locale='en', query='', categor
     if (!q) return true;
     const candidates = [article.id, article.primaryMechanicKey,
       body.title, body.summary, article.localized.en.title,
+      article.localized.ja?.title, article.localized.ja?.summary,
       category?.en, category?.ja, group?.en, group?.ja];
     return candidates.some(candidate => normalized(candidate).includes(q));
   });
