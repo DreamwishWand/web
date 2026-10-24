@@ -33,6 +33,10 @@ const rawOwner={
   lifecycleState:'published',visibility:'public',currentPresetRevisionId:U.rev,
   revisionCount:2,latestRevisionNumber:2,currentArtifactAvailable:true,
   hasAssociatedGallery:true,knownHistoricalGalleryCount:1,knownGalleryReferenceCount:1,
+  pairedGalleryWorkId:U.gallery,pairedGalleryWorkRowVersion:13,
+  pairedGalleryCurrentWorkRevisionId:U.gr,pairedGallerySnapshotIsAtomicFence:false,
+  historicalEdgeSetScope:'scene-historical-edges-v1',
+  historicalEdgeSetSha256:'c'.repeat(64),historicalEdgeSetIsAtomicFence:false,
   crossOwnerOrUnresolvedGalleryCount:0,dependencyFingerprintSha256:'a'.repeat(64),
   dependencyFingerprintIsAtomicFence:false,graphComplete:false,
   saveRevisionAuthorized:false,pairedGalleryPublishAuthorized:false,
@@ -75,6 +79,10 @@ test('v1.25.0 Scene artifact proof hashes exact WEP JSON bytes without upload or
     'atomicRevisionWriterAuthorized','pairedGalleryPublishAuthorized',
     'saveRevisionAuthorized','productApplyAuthorized']) assert.equal(proof[key],false,key);
   assert.equal(proof.identity.dependencyFingerprintIsAtomicFence,false);
+  assert.equal(proof.identity.observedPairedGalleryWorkRowVersion,13);
+  assert.equal(proof.identity.observedPairedGalleryCurrentWorkRevisionId,U.gr);
+  assert.equal(proof.identity.observedHistoricalEdgeSetScope,'scene-historical-edges-v1');
+  assert.equal(proof.identity.observedHistoricalEdgeSetSha256,'c'.repeat(64));
   assert.equal(proof.identity.expectedGalleryWorkRowVersion,null);
   assert.equal(proof.identity.expectedHistoricalEdgeSetSha256,null);
   assert.equal(proof.identity.historicalEdgePinAvailable,false);
@@ -188,5 +196,33 @@ test('A forged offline capture claim cannot silently omit requested Road/Fence t
       prepareSceneRevisionOfflineIntent(proposal),
       /WEP_SCENE_REVISION_REQUIRED_NETWORK_MISSING_OR_UNEXPECTED/
     );
+  }
+});
+
+test('Source contract ownership mismatch cannot be converted into a reusable Offline Revision intent',async()=>{
+  for(const changes of [
+    {pairedGalleryWorkId:U.work},{pairedGalleryCurrentWorkRevisionId:U.wr},
+    {currentPresetRevisionId:U.wr}
+  ]){
+    await assert.rejects(
+      prepareSceneRevisionOfflineIntent({...args,readiness:{...readiness,...changes}}),
+      /WEP_SCENE_REVISION_(PAIRED_GALLERY_IDENTITY_STALE|OWNER_IDENTITY_STALE)/
+    );
+  }
+});
+test('Scope/version are diagnostics only; missing or unrecognized scope cannot mint expected atomic pin',async()=>{
+  for(const changes of [
+    {pairedGalleryWorkRowVersion:null},
+    {historicalEdgeSetScope:null,historicalEdgeSetSha256:null},
+    {historicalEdgeSetScope:'unknown-v2'}
+  ]){
+    const o=parseSceneOwnerReadiness({...rawOwner,...changes},U.pa);
+    const p=await prepareSceneRevisionOfflineIntent({...args,readiness:o});
+    assert.equal(p.identity.expectedGalleryWorkRowVersion,null);
+    assert.equal(p.identity.expectedHistoricalEdgeSetSha256,null);
+    assert.equal(p.identity.historicalEdgePinAvailable,false);
+    assert.equal(p.identity.observedHistoricalEdgeSetIsAtomicFence,false);
+    assert.equal(p.saveRevisionAuthorized,false);
+    assert.ok(p.blockedReasons.some(x=>x.includes('UNAVAILABLE')||x.includes('UNSUPPORTED')));
   }
 });
