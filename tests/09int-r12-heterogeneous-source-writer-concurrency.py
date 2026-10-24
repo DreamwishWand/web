@@ -80,6 +80,12 @@ def isolated_two_sessions(url,g,label,writer,held="artifact",expect="success",ti
                 assert results.get("result")=="error",(label,results)
                 assert "PRESET_OWNER_LIFECYCLE_GLOBAL_WRITER_CONTRACT_REQUIRED" in results.get("message",""),(label,results)
                 assert not blocked,(label,"EXPECTED_FAST_DENY",results)
+            elif expect=="retirement_denied":
+                assert results.get("result")=="error" and not blocked,(label,results)
+                assert any(v in results.get("message","") for v in (
+                    "GALLERY_CLOUD_PRIVATE_PRESERVATION_09_INT_REQUIRED",
+                    "GALLERY_ISSUED_MEDIA_URL_REVOKE_UNPROVEN",
+                    "GALLERY_DEPENDENT_PUBLIC_RETIREMENT_09_INT_REQUIRED")),(label,results)
             elif expect=="lock":
                 assert results.get("state")=="55P03" and blocked,(label,results)
             else:
@@ -109,16 +115,25 @@ def main():
             execute(c,"insert into public.account_roles(account_id,role) values(%s,'moderator') on conflict do nothing",(owner,))
             execute(c,"insert into public.moderation_cases(case_id,target_entity_id) values(%s,%s)",
                 (case,g["galleryWork"]))
-            # Legacy gallery-v4 publication requires draft/unpublished Gallery,
-            # not an already published Gallery. Existing immutable revision link
-            # stays as historical evidence (source source-safe rollback fixture).
-            execute(c,"update public.community_works set lifecycle_state='unpublished' where work_id=%s",
-                (g["galleryWork"],))
+            # A separate draft Gallery is required for v4; do not force a
+            # PUBLIC Gallery to unpublished (Cloud safety guard correctly denies).
+            g["publishingGalleryWork"]=uuid.uuid4()
+            execute(c,"insert into public.community_entities(entity_id,entity_type) values(%s,'community_work')",
+                (g["publishingGalleryWork"],))
+            execute(c,"""insert into public.community_works(
+                work_id,owner_account_id,creator_profile_id,work_type,visibility,moderation_state)
+                select %s,owner_account_id,creator_profile_id,'gallery','public','clear'
+                from public.community_works where work_id=%s""",
+                (g["publishingGalleryWork"],g["galleryWork"]))
+            execute(c,"insert into public.gallery_works(work_id,gallery_kind) values(%s,'outdoor')",
+                (g["publishingGalleryWork"],))
+            execute(c,"insert into public.gallery_work_settings(work_id,comments_enabled) values(%s,true)",
+                (g["publishingGalleryWork"],))
             c.execute("COMMIT")
         except:
             c.execute("ROLLBACK")
             raise
-        g["galleryVersion"]=one(c,"select row_version from public.community_works where work_id=%s",(g["galleryWork"],))[0]
+        g["publishingGalleryVersion"]=one(c,"select row_version from public.community_works where work_id=%s",(g["publishingGalleryWork"],))[0]
 
     # HARD DENY is the CURRENT source state; this is NOT positive enrollment.
     for name in ("community_change_work_visibility","community_unpublish_work","community_delete_work"):
@@ -138,12 +153,12 @@ def main():
     def gallery_first(b):
         resp=one(b,"""select public.community_publish_gallery_v4(
           %s,%s,%s,%s,%s,%s::uuid[],%s::uuid[],%s::bigint[],%s::bigint[],%s,%s)""",
-          (g["auth"],g["galleryWork"],g["galleryVersion"],"R12 isolated gallery current",
+          (g["auth"],g["publishingGalleryWork"],g["publishingGalleryVersion"],"R12 isolated gallery current",
            "rollback-only Source RPC",[g["oldMedia"]],[g["presetRev"]],[],[],None,
            "r12-gallery-"+str(uuid.uuid4())))[0]
         assert resp.get("revisionId"),resp
         assert one(b,"select current_published_revision_id from public.community_works where work_id=%s",
-                   (g["galleryWork"],))[0]==uuid.UUID(resp["revisionId"])
+                   (g["publishingGalleryWork"],))[0]==uuid.UUID(resp["revisionId"])
         return resp
     isolated_two_sessions(url,g,"R12_GALLERY_FIRST_CURRENT_REVISION_BYPASS_ARTIFACT_LOCK",
                           gallery_first,expect="success")
@@ -177,12 +192,13 @@ def main():
            set lifecycle_state='deleted',visibility='private'
            where owner_account_id=%s and lifecycle_state<>'deleted'""",(owner,))
     isolated_two_sessions(url,g,"R12_ACCOUNT_ERASURE_SOURCE_DERIVED_BULK",
-                          erasure_bulk,expect="success")
+                          erasure_bulk,expect="retirement_denied")
     print(json.dumps({"result":"R12_HETEROGENEOUS_WRITER_SOURCE_GAP_EVIDENCE_PASS",
       "actualGalleryFirstBypassConfirmed":True,
       "actualModerationBypassConfirmed":True,
       "accountErasureRpcNotInvoked":True,
-      "sourceDerivedAccountErasureBulkBypassConfirmed":True,
+      "sourceDerivedAccountErasureBulkBlockedByGalleryCloudGuard":True,
+      "accountErasureUserJobPotentiallyBlocked":True,
       "genericPresetLifecyclePositivePermissionEnabled":False,
       "globalAllWriterLockOrderAccepted":False,
       "moderationAndErasureOperationsDisabled":False,
