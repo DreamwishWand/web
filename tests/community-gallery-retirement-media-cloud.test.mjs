@@ -117,3 +117,12 @@ test('owner Gallery binary reader protects pending and historical media',()=>{
  assert.ok(cloud.includes('galleryOwnerStorageSignedUrlIssuerEnabled:false'));
  assert.ok(cloud.includes('cloudEntitlementVerified:false'));
 });
+
+test('immutable Gallery cover Media cannot fall into legacy raw signed-URL issuer',()=>{
+ const migration=read('supabase/migrations/20261025000800_gallery_owner_historical_cover_issuer_guard_v1.sql');
+ assert.ok(migration.includes('gallery_photo_revision_fields'));
+ assert.ok(migration.includes('where f.cover_media_id=p_media_id'));
+ assert.ok(migration.includes('v_gallery:=v_gallery or v_photo_bound or v_cover_bound'));
+ assert.ok(migration.includes('or not (v_valid_intent or v_photo_bound or v_cover_bound)'));
+ assert.ok(migration.includes("'galleryManaged',true,'ownerAuthorized',false"));
+});
