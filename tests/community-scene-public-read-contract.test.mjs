@@ -183,3 +183,30 @@ test('paired candidate rechecks exact historical Gallery Revision edges after or
   );
   assert.ok(body.includes('v_backlinks_locked is distinct from v_backlinks_before'));
 });
+
+test('owner diagnostic Scene history pin is advisory and paired candidate requires a caller-pinned digest', () => {
+  const readiness = sql.split('create or replace function public.community_scene_revision_readiness_v1(')[1]
+    ?.split('$scene_readiness$')[1];
+  const candidate = sql.split('create or replace function private.scene_save_revision_paired_candidate_v1(')[1]
+    ?.split('$paired_scene_candidate$')[1];
+  assert.ok(readiness && candidate);
+  for (const term of [
+    "'historicalEdgeSetScope','scene-historical-edges-v1'",
+    "'historicalEdgeSetSha256',v_scoped_edge_sha256",
+    "'historicalEdgeSetIsAtomicFence',false",
+    "'dependencyFingerprintIsAtomicFence',false",
+    "'saveRevisionAuthorized',false"
+  ]) assert.ok(readiness.includes(term), 'readiness must retain scoped advisory only: ' + term);
+  assert.ok(candidate.includes('p_expected_historical_edge_set_sha256 text'));
+  assert.ok(candidate.includes("'historicalEdgePin',p_expected_historical_edge_set_sha256"));
+  assert.ok(candidate.includes("p_expected_historical_edge_set_sha256 !~ '^[0-9a-f]{64}$'"));
+  const lock = candidate.indexOf('where work_id=v_assoc for update;');
+  const read = candidate.indexOf('into v_backlinks_locked');
+  const callerPin = candidate.indexOf('SCENE_REVISION_CALLER_EDGE_FINGERPRINT_STALE');
+  const mutation = candidate.indexOf('insert into public.idempotency_keys');
+  assert.ok(lock >= 0 && read > lock && callerPin > read && mutation > callerPin);
+  assert.ok(candidate.includes("'scene-historical-edges-v1|'||v_artifact.preset_artifact_id::text"));
+  assert.ok(candidate.includes("array_to_string(v_backlinks_locked,'|')"));
+  assert.match(sql, /revoke all on function private\.scene_save_revision_paired_candidate_v1\([\s\S]*?\)\s+from public,anon,authenticated,service_role/i);
+  assert.doesNotMatch(sql, /grant execute on function private\.scene_save_revision_paired_candidate_v1/i);
+});
