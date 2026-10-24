@@ -168,7 +168,7 @@ jobs:
           # assumes that Staging-only relation already exists.
           fk=Path('supabase/migrations/20260930115623_community_core_v0_fk_index_hardening.sql')
           source=fk.read_text()
-          missing='create index if not exists provider_identity_cleanup_jobs_account_idx\\n  on private.provider_identity_cleanup_jobs(account_id);'
+          missing='create index if not exists provider_identity_cleanup_jobs_account_idx' + chr(10) + '  on private.provider_identity_cleanup_jobs(account_id);'
           assert source.count(missing)==1
           fk.write_text(source.replace(missing,
               '-- DIAGNOSTIC ONLY: omitted index targeting Staging-only missing parent',1))
