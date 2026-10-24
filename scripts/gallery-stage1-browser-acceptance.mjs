@@ -302,6 +302,11 @@ try{
   await page.locator('.my-card .overflow-menu button').nth(1).click();
   await page.locator('.gallery-retirement-preflight').waitFor({state:'visible',timeout:10000});
   const ownerButton=page.locator('.owner-panel .blocked-actions button:not([disabled])').first();
+  await page.evaluate(()=>{
+    window.__ownerRevocations=[];
+    const original=URL.revokeObjectURL.bind(URL);
+    URL.revokeObjectURL=(url)=>{window.__ownerRevocations.push(url);original(url)};
+  });
   await ownerButton.click();
   const ownerImage=page.locator('.owner-media-read img').first();
   await ownerImage.waitFor({state:'visible',timeout:10000});
@@ -319,8 +324,11 @@ try{
   assert(await page.locator('.owner-panel button[disabled]').count()>=2,
     'Owner preview accidentally enabled unsafe mutation');
   pass('SYNTHETIC_OWNER_JWT_METADATA_BINARY_BLOB_PREVIEW_AND_PREFLIGHT');
+  const initialOwnerUrl=await ownerImage.getAttribute('src');
   ownerScenario='checksum';
   await ownerButton.click(); // unmount -> revoke prior object URL
+  assert(await page.evaluate(url=>window.__ownerRevocations.includes(url),initialOwnerUrl),
+    'Owner Blob URL was not revoked after preview close');
   await ownerButton.click(); // load wrong SHA bytes; MUST fail closed
   await page.locator('.owner-media-read [role=alert]').waitFor({state:'visible',timeout:10000});
   assert(await page.locator('.owner-media-read img').count()===0,'checksum mismatch still displayed');
