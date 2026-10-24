@@ -111,6 +111,9 @@ def counts(c,groups):
 def execute_race(groups):
     with psycopg.connect(URL,autocommit=True) as a,psycopg.connect(URL,autocommit=True) as b:
         before=counts(a,groups);assert all(v[0]==v[1]==v[2]==0 for v in before)
+        holder_pid=one(a,"select pg_backend_pid()")
+        contender_pid=one(b,"select pg_backend_pid()")
+        assert holder_pid!=contender_pid
         base_pin=scan(a,groups)["sha"]
         held=threading.Event();release=threading.Event();done=threading.Event();result={}
         def writer_a():
@@ -130,15 +133,14 @@ def execute_race(groups):
         assert held.wait(10),"R15_HOLDER_DID_NOT_ACQUIRE_BOTH_ARTIFACTS"
         # Observe actual PostgreSQL blocker identity from a third read-only
         # probe; the TWO mutation/contender sessions remain A and B.
-        holder_pid=one(b,"select pg_backend_pid()") # set below using A before thread on next version
-        bpid=holder_pid
+        bpid=contender_pid
         probe_stop=threading.Event();observed={}
         def watch_lock():
             with psycopg.connect(URL,autocommit=True) as watch:
                 limit=time.monotonic()+3
                 while time.monotonic()<limit and not probe_stop.is_set():
                     blockers=one(watch,"select pg_blocking_pids(%s)",(bpid,))
-                    if blockers:
+                    if holder_pid in blockers:
                         observed["blocked"]=True
                         observed["blockingPids"]=list(blockers)
                         break
