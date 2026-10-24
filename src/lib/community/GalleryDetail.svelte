@@ -1,29 +1,33 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import { locale, ct as t } from '$lib/i18n/community.js';
-  import { getPublicCommunityMedia } from '$lib/community/browser-client';
+  import { getGalleryPublicMedia } from '$lib/community/browser-client';
+  import GalleryProxyImage from '$lib/gallery/GalleryProxyImage.svelte';
   export let work: any;
   export let onClose: () => void;
-  let mediaUrls: Record<string, string> = {};
+  let mediaUrls: Record<string, any> = {};
   let loadedKey = '';
+  let requestId=0;
 
   $: mediaKey = (work?.mediaIds ?? []).map(String).join(',');
-  $: if (mediaKey && mediaKey !== loadedKey) {
+  $: if (mediaKey !== loadedKey) {
     loadedKey = mediaKey;
-    void loadMedia(work.mediaIds ?? []);
+    mediaUrls={};
+    void loadMedia(work?.mediaIds ?? []);
   }
 
   async function loadMedia(ids: string[]) {
-    const entries: Array<[string, string]> = [];
+    const request=++requestId;
+    const entries: Array<[string, any]> = [];
     for (const id of ids.slice(0, 10)) {
       try {
-        const media = await getPublicCommunityMedia(String(id));
-        entries.push([String(id), media.signedUrl]);
+        const media = await getGalleryPublicMedia(String(id));
+        entries.push([String(id), media]);
       } catch {
         // Keep an accessible placeholder when public media cannot be signed.
       }
     }
-    mediaUrls = Object.fromEntries(entries);
+    if(request===requestId)mediaUrls = Object.fromEntries(entries);
   }
 </script>
 
@@ -37,7 +41,7 @@
   <div class="media">
     {#each work.mediaIds ?? [] as mediaId}
       {#if mediaUrls[String(mediaId)]}
-        <img src={mediaUrls[String(mediaId)]} alt="" loading="lazy" />
+        <GalleryProxyImage media={mediaUrls[String(mediaId)]} alt="" />
       {:else}
         <div class="placeholder" role="img" aria-label={t('gallery.media.placeholder', {}, $locale)}>
           <span>{t('gallery.media.placeholder', {}, $locale)}</span>
