@@ -57,3 +57,30 @@ test('source-only runner covers exact new ledger and local rollback evidence', (
   assert.match(workflow,/local-clean-bootstrap-account-privacy-suppression-v1\.sql/);
   assert.match(workflow,/supabase\/migrations\/20261025002600_account_privacy_suppression_barrier_v1\.sql/);
 });
+
+
+test('all source-only sensitive QA, DreamSnaps and media projections apply suppression filters', () => {
+  for (const name of [
+    'community_search_questions_v1',
+    'community_get_question_redirect_public_v1',
+    'community_get_question_public_v1',
+    'community_get_gallery_public_v1',
+    'community_get_gallery_dreamsnap_public_v1',
+    'community_search_gallery_dreamsnaps_public_v1',
+    'community_get_dreamsnap_results_public_v1',
+    'community_get_dreamsnap_judge_v1',
+    'community_get_dreamsnap_judge_media_storage_v1',
+    'community_get_public_media_storage_v2'
+  ]) {
+    const begin = sql.indexOf('create or replace function public.' + name + '(');
+    assert.ok(begin >= 0, 'missing owned read filter for ' + name);
+    const end = sql.indexOf('$$;', begin);
+    assert.ok(end > begin, 'read function incomplete: ' + name);
+    assert.match(sql.slice(begin, end), /is_account_privacy_suppressed|is_discoverable_work/,
+      'suppressed account leaked by ' + name);
+  }
+  // The original Gallery Cloud guard must remain unchanged and no old
+  // signed Storage bearer should be advertised as immediately revoked.
+  assert.match(sql, /previousBearerUrlsRevoked',false/);
+  assert.doesNotMatch(sql, /GALLERY_CLOUD_PRIVATE_PRESERVATION_09_INT_REQUIRED.*(disable|remove)/i);
+});
