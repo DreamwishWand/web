@@ -18,9 +18,9 @@ export function parseGalleryCloudPreservation(value,currentRevisionId){
     invalid();
   const ent=value.entitlement,db=value.databaseManifest;
   if(!object(ent)||!object(db)||ent.source!=='not_configured'||
-    ent.state!=='unverified'||!boolean(ent.verified)||!boolean(ent.active)||
-    !boolean(ent.providerEvidencePresent)||
-    !boolean(value.ownerAccountResolved)||!boolean(value.creatorOwnershipAndModerationValid)||
+    ent.state!=='unverified'||ent.verified!==false||ent.active!==false||
+    ent.providerEvidencePresent!==false||
+    value.ownerAccountResolved!==true||!boolean(value.creatorOwnershipAndModerationValid)||
     db.workRowFound!==true||!uuidOrNull(db.currentRevisionId)||
     db.currentRevisionId!==currentRevisionId||
     !boolean(db.currentRevisionPresent)||!boolean(db.currentRevisionSealed)||
