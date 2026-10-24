@@ -29,9 +29,6 @@ jobs:
           echo "path=$BIN" >> "$GITHUB_OUTPUT"
       - name: Start isolated synthetic browser
         shell: bash
-        env:
-          VITE_SUPABASE_URL: https://staging.example.invalid
-          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_synthetic_readonly_only
         run: |
           set -euo pipefail
           npm run dev -- --host 127.0.0.1 --port 4189 > /tmp/wep-scene-vite.log 2>&1 &

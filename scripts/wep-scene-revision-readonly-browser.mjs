@@ -27,6 +27,12 @@ let mode='good';
 try{
 const ctx=await browser.newContext({viewport:{width:1280,height:960}});
 const page=await ctx.newPage();
+await page.addInitScript(() => {
+  sessionStorage.setItem('dreamwishwand-community-lab-config-v1',JSON.stringify({
+    supabaseUrl:'https://staging.example.invalid',
+    publishableKey:'sb_publishable_synthetic_readonly_only'
+  }));
+});
 page.on('pageerror',e=>report.pageErrors.push(String(e)));
 page.on('console',m=>{if(m.type()==='error')report.consoleErrors.push(m.text())});
 await page.route('https://staging.example.invalid/**',async route=>{
@@ -66,6 +72,7 @@ await panel.locator('[data-wep-scene-current-cover] img').waitFor({timeout:15000
 assert.ok((await panel.innerText()).includes(ids.galleryRevision));
 assert.ok((await panel.innerText()).includes('Historical media not available'));
 pass('CURRENT_REVISION_WITH_GALLERY_COVER_READ_ONLY');
+pass('STAGING_LAB_CONFIG_PUBLIC_CURRENT_AND_MEDIA_SAME_ENDPOINT');
 mode='expired';
 await panel.getByRole('button',{name:'Retry cover'}).click();
 await panel.getByText(/unavailable or expired/i).waitFor({timeout:15000});
