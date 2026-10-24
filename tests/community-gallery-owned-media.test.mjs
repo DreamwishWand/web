@@ -184,3 +184,23 @@ test('unsanctioned physical Gallery object removal cannot be launched by hourly 
  assert.match(worker,/cleanupBlocked/);
  assert.match(worker,/GALLERY_GLOBAL_ALERT_UNAVAILABLE/);
 });
+
+test('hourly operator reconciles Storage origin bytes with MediaAsset and Intent journal without deleting',()=>{
+ const sql=fs.readFileSync(new URL('../supabase/migrations/20261025000700_gallery_storage_origin_reconciliation_v1.sql',import.meta.url),'utf8');
+ const worker=fs.readFileSync(new URL('../supabase/functions/community-retention/index.ts',import.meta.url),'utf8');
+ const fixture=fs.readFileSync(new URL('../supabase/staging/acceptance/gallery-origin-reconciliation-v1.sql',import.meta.url),'utf8');
+ assert.match(sql,/left join public\.media_assets m on m\.storage_key=o\.name/);
+ assert.match(sql,/left join public\.community_media_upload_intents i on i\.storage_key=o\.name/);
+ assert.match(sql,/originUntrackedObjectCount/);
+ assert.match(sql,/finalizedReadyMissingOriginCount/);
+ assert.match(sql,/registeredOriginSizeMismatchCount/);
+ assert.match(sql,/physicalRemovalAccepted',false/);
+ assert.match(sql,/safeToAutoDelete',false/);
+ assert.match(sql,/revoke all on function public\.community_gallery_storage_reconciliation_v1/);
+ assert.match(worker,/community_gallery_storage_reconciliation_v1/);
+ assert.match(worker,/galleryOriginIntegrity/);
+ assert.match(worker,/GALLERY_ORIGIN_RECONCILIATION_UNAVAILABLE/);
+ assert.match(fixture,/MISSING_ORIGIN_NOT_DETECTED/);
+ assert.match(fixture,/RECONCILIATION_ACL_UNSAFE/);
+ assert.match(fixture,/rollback;\s*$/);
+});
