@@ -722,9 +722,10 @@ test('Community Ops console is internal, admin-only in intent, and omits secrets
   assert.doesNotMatch(header, /community-ops/i);
 });
 
-test('Community command session authorization is single-source and uses verified jwtClaims', () => {
+test('Community command authorizes initial verified JWT and reauthorizes bounded fresh Gallery retries', () => {
   const command = read('supabase/functions/community-command/index.ts');
-  assert.equal((command.match(/community_authorize_session/g) ?? []).length, 1);
+  assert.equal((command.match(/community_authorize_session/g) ?? []).length, 2);
+  assert.match(command, /if \(attempt > 0\)[\s\S]*community_authorize_session/);
   assert.equal((command.match(/const issuedAt/g) ?? []).length, 1);
   assert.doesNotMatch(command, /function jwtIssuedAt/);
   assert.match(command, /ctx\.jwtClaims\?\.iat/);
