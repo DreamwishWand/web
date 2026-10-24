@@ -147,7 +147,7 @@ begin
       left join public.media_assets m on m.media_id=wrm.media_id
       where wrm.work_revision_id=v_gallery.current_published_revision_id
         and (m.media_id is null or m.processing_state<>'ready'
-          or m.moderation_state<>'clear')
+          or m.moderation_state<>'clear' or m.purged_at is not null)
     ) then raise exception 'Associated Gallery media is not publicly ready'; end if;
 
     select coalesce(jsonb_agg(wrm.media_id order by wrm.ordinal),'[]'::jsonb)
@@ -158,7 +158,7 @@ begin
     from public.gallery_photo_revision_fields f
     join public.media_assets m on m.media_id=f.cover_media_id
     where f.revision_id=v_gallery.current_published_revision_id
-      and m.processing_state='ready' and m.moderation_state='clear';
+      and m.processing_state='ready' and m.moderation_state='clear' and m.purged_at is null;
 
     if exists (
       select 1 from public.gallery_photo_revision_fields f
