@@ -260,6 +260,74 @@ def test_synthetic_lock_order_inversion(a,b):
           "actualRetirementRPCExecuted":False,
           "lockOrderContractAccepted":False}))
 
+
+def test_missing_preset_work_lifecycle_writer_fence(a,b):
+    """Negative minimal-schema test: Gallery row lock alone does not fence Preset Work state.
+
+    Models a deployed table mutation class, NOT the actual RPC with auth/RLS/triggers.
+    """
+    original=one(a,"SELECT lifecycle_state,row_version FROM public.community_works WHERE work_id=%s",(PW,))
+    before_gallery=one(a,"SELECT lifecycle_state,row_version FROM public.community_works WHERE work_id=%s",(G,))
+    apid=one(a,"SELECT pg_backend_pid()")[0]
+    bpid=one(b,"SELECT pg_backend_pid()")[0]
+    assert apid!=bpid
+    committed=threading.Event()
+    began=threading.Event()
+    result={}
+    a.execute("BEGIN")
+    try:
+        assert one(a,"SELECT work_id FROM public.community_works WHERE work_id=%s FOR UPDATE",(G,))==(G,)
+        def preset_lifecycle_mutation():
+            try:
+                b.execute("BEGIN")
+                b.execute("SET LOCAL lock_timeout='1300ms'")
+                began.set()
+                with b.cursor() as cur:
+                    cur.execute("UPDATE public.community_works SET lifecycle_state='unpublished' WHERE work_id=%s",(PW,))
+                    result["updateCount"]=cur.rowcount
+                b.execute("COMMIT")
+                result["committed"]=True
+            except psycopg.Error as exc:
+                result["sqlstate"]=exc.sqlstate
+                b.execute("ROLLBACK")
+            except Exception as exc:
+                result["error"]=repr(exc)
+                b.execute("ROLLBACK")
+            finally:
+                committed.set()
+        t=threading.Thread(target=preset_lifecycle_mutation,daemon=True)
+        t.start()
+        assert began.wait(4),"PRESET_LIFECYCLE_WORKER_NOT_STARTED"
+        assert committed.wait(4),"PRESET_WORK_UPDATE_INCORRECTLY_WAITED_FOR_GALLERY_LOCK"
+        t.join(1)
+        assert result=={"updateCount":1,"committed":True},result
+        blockers=one(a,"SELECT pg_blocking_pids(%s)",(bpid,))[0]
+        assert apid not in (blockers or []),"UNEXPECTED_GALLERY_WORK_FENCE"
+        after_lifecycle=one(a,"SELECT lifecycle_state FROM public.community_works WHERE work_id=%s",(PW,))[0]
+        assert after_lifecycle=="unpublished",after_lifecycle
+        assert one(a,"SELECT lifecycle_state,row_version FROM public.community_works WHERE work_id=%s",(G,))==before_gallery
+        print(json.dumps({"case":"preset-work-lifecycle-bypasses-gallery-lock-negative",
+          "galleryHolderPid":apid,"presetStatusWriterPid":bpid,
+          "presetUnpublishCommittedWhileGalleryHeld":True,
+          "galleryWorkRowVersionUnchanged":True,
+          "requiresNewSharedWriterFence":True,
+          "deployedRPCInvoked":False,
+          "fullSupabaseSchemaUsed":False,
+          "positiveRetirementAuthorized":False}))
+    finally:
+        a.execute("ROLLBACK")
+    b.execute("BEGIN")
+    try:
+        with b.cursor() as cur:
+            cur.execute("UPDATE public.community_works SET lifecycle_state=%s,row_version=%s WHERE work_id=%s",(original[0],original[1],PW))
+            assert cur.rowcount==1
+        b.execute("COMMIT")
+    except:
+        b.execute("ROLLBACK")
+        raise
+    assert one(a,"SELECT lifecycle_state,row_version FROM public.community_works WHERE work_id=%s",(PW,))==original
+    assert one(a,"SELECT lifecycle_state,row_version FROM public.community_works WHERE work_id=%s",(G,))==before_gallery
+
 def main():
     assert os.getenv("DDVRE_EPHEMERAL_GITHUB_PG")=="CONFIRMED"
     url=os.environ["DDVRE_EPHEMERAL_POSTGRES_DSN"]
@@ -316,6 +384,7 @@ def main():
         test_synthetic_lock_order_inversion(a,b)
         test_consistent_artifact_preset_gallery_order(a,b)
         test_bounded_clean_transaction_replay(a)
+        test_missing_preset_work_lifecycle_writer_fence(a,b)
     print(json.dumps({"result":"ISOLATED_KNOWN_WRITER_FENCE_CONCURRENCY_PASS",
         "realPostgreSQLSessions":True,"verifiedTriggerPaths":3,"stagingAcceptance":False,
         "allWriterCoverage":False,"graphComplete":False,"retirementAuthorized":False}))
