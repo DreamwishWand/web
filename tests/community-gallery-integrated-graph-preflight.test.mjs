@@ -56,24 +56,3 @@ test('integrated Staging fixture checks owner, immutable history, fingerprint, m
  assert.match(integration,/REGISTRY_MISSING/);
  assert.match(integration,/structuralIntegrityObserved/);
 });
-"));
- assert.match(projection,/'cloudPreservation',v_preservation/);
- assert.match(projection,/'operationAuthorized',false/);
- assert.match(projection,/'deleteAuthorized',false/);
- assert.match(projection,/'unpublishKeepPrivateAuthorized',false/);
- assert.match(projection,/'cloudEntitlementVerified',false/);
- assert.match(projection,/'previousSignedUrlsRevoked',false/);
- assert.doesNotMatch(projection,/\b(update|delete|insert)\s+(?:public\.)?community_works\b/i);
-});
-
-test('integrated Staging fixture checks owner, immutable history, fingerprint, missing registry and unsafe refusal',()=>{
- assert.match(integration,/begin;[\s\S]*rollback;\s*$/i);
- assert.match(integration,/GALLERY_INTEGRATED_09INT_OWNER_CLOUD_READONLY_ROLLBACK_PASS/);
- assert.match(integration,/OWNER_GRAPH_PROJECTION_BAD_OR_UNSAFE/);
- assert.match(integration,/OWNER_GRAPH_IMMUTABLE_HISTORY_FINGERPRINT_DID_NOT_CHANGE/);
- assert.match(integration,/CLOUD_PREFLIGHT_NONOWNER_LEAK/);
- assert.match(integration,/INVALID_HISTORICAL_MEDIA_NOT_FAIL_CLOSED/);
- assert.match(integration,/NATIVE_IN_GAME_LISTING_REGISTRY_NOT_DEPLOYED/);
- assert.match(integration,/REGISTRY_MISSING/);
- assert.match(integration,/structuralIntegrityObserved/);
-});
