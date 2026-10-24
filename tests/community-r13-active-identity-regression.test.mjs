@@ -36,8 +36,8 @@ test('session-bound rules stay separate and remain fail closed for retired JWT-s
 test('actual Source regressions run from a disposable isolated current 116-migration head only',()=>{
   const fixture=read('supabase/staging/acceptance/local-clean-bootstrap-r13-retired-identity-v1.sql');
   const twosession=read('tests/comm-r13-retired-identity-two-session.py');
-  assert.match(workflow,/assert len\(fs\)==118/);
-  assert.match(workflow,/MIGRATION_LEDGER_NOT_118/);
+  assert.match(workflow,/assert len\(fs\)==119/);
+  assert.match(workflow,/MIGRATION_LEDGER_NOT_119/);
   assert.match(workflow,/local-clean-bootstrap-r13-retired-identity-v1\.sql/);
   assert.match(workflow,/comm-r13-retired-identity-two-session\.py/);
   assert.match(fixture,/rollback;/i);
