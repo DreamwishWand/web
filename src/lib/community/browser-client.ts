@@ -23,9 +23,10 @@ export function createCommunityBrowserClient(): CommunityClient | null {
 
 export async function callPublicCommunityRpc<T>(
   rpc: string,
-  payload: Record<string, unknown> = {}
+  payload: Record<string, unknown> = {},
+  explicitConfig?: CommunityBrowserConfig
 ): Promise<T> {
-  const config = getCommunityBrowserConfig();
+  const config = explicitConfig ?? getCommunityBrowserConfig();
   if (!config) throw new Error('COMMUNITY_BROWSER_CONFIG_UNAVAILABLE');
 
   const response = await fetch(`${config.supabaseUrl}/functions/v1/community-public-query`, {
@@ -58,13 +59,13 @@ export async function callPublicCommunityRpc<T>(
 }
 
 
-export async function getPublicCommunityMedia(mediaId: string): Promise<{
+export async function getPublicCommunityMedia(mediaId: string, explicitConfig?: CommunityBrowserConfig): Promise<{
   signedUrl: string;
   mimeType: string | null;
   width: number | null;
   height: number | null;
 }> {
-  const config = getCommunityBrowserConfig();
+  const config = explicitConfig ?? getCommunityBrowserConfig();
   if (!config) throw new Error('COMMUNITY_BROWSER_CONFIG_UNAVAILABLE');
 
   const response = await fetch(`${config.supabaseUrl}/functions/v1/community-public-media`, {
