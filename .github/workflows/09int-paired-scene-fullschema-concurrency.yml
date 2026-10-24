@@ -1,0 +1,77 @@
+name: 09 INT R8 full-source Paired Scene true concurrency (isolated)
+on:
+  push:
+    branches:
+      - validation/09int-paired-scene-fullschema-r8-20261024
+
+permissions:
+  contents: read
+
+jobs:
+  paired-scene-real-db-concurrency:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install two-session PostgreSQL driver
+        run: python -m pip install --disable-pip-version-check 'psycopg[binary]>=3,<4'
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Pin local-only independent Supabase project
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('supabase/config.toml')
+          s=p.read_text()
+          assert 'project_id' in s
+          s=s.replace('project_id = "dreamwishwand"', 'project_id = "ddvre_09int_r8_ephemeral_local"')
+          if 'ddvre_09int_r8_ephemeral_local' not in s:
+              import re
+              s=re.sub(r'^project_id\s*=\s*".*?"', 'project_id = "ddvre_09int_r8_ephemeral_local"', s, count=1,flags=re.M)
+          assert 'ddvre_09int_r8_ephemeral_local' in s
+          p.write_text(s)
+          migrations=list(Path('supabase/migrations').glob('*.sql'))
+          assert len(migrations)==113,(len(migrations),'EXPECTED_PR134_SOURCE113')
+          PY
+          echo 'NO supabase link, NO remote secrets, NO Staging/Production access'
+      - name: Start independent local Supabase Postgres and apply 113 source migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 1500s supabase start > /tmp/r8-supabase-start.log 2>&1 || { tail -n 80 /tmp/r8-supabase-start.log; exit 1; }
+          echo 'LOCAL_SUPABASE_113_SOURCE_MIGRATIONS_APPLIED'
+      - name: Seed synthetic local account and minimal reference corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          db_container=$(docker ps --format '{{.Names}}' | grep '^supabase_db_' | head -1)
+          test -n "$db_container"
+          docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/staging/acceptance/local-clean-bootstrap-synthetic-seed-v1.sql > /tmp/r8-seed.log 2>&1 || { tail -n 60 /tmp/r8-seed.log; exit 1; }
+          echo 'ONLY_EPHEMERAL_SYNTHETIC_ACCOUNT_SEEDED'
+      - name: Prove true two-session contention using 03 COMM paired Scene RPC itself
+        env:
+          DDVRE_R8_ISOLATED_LOCAL: CONFIRMED
+          DDVRE_R8_POSTGRES_DSN: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: python -u tests/09int-r8-scene-paired-fullschema-concurrency.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: 09int-r8-paired-scene-isolated-source-evidence
+          path: |
+            /tmp/r8-supabase-start.log
+            /tmp/r8-seed.log
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Discard only the ephemeral local DB, no backup
+        if: always()
+        run: supabase stop --no-backup || true
