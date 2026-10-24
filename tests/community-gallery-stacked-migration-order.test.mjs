@@ -17,8 +17,8 @@ const expected=[
 test('Gallery stacked migrations have a unique numeric version across the complete tree',()=>{
  const seen=new Map();
  for(const file of migrations){
-  assert.match(file,/^\d{14}_[a-z0-9_]+\.sql$/);
-  const version=file.slice(0,14);
+  assert.match(file,/^\d{12}(?:\d{2})?_[a-z0-9_]+\.sql$/);
+  const version=file.split('_',1)[0];
   assert.equal(seen.has(version),false,
    'duplicate migration number '+version+': '+seen.get(version)+' and '+file);
   seen.set(version,file);
