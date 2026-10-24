@@ -7,7 +7,7 @@ import psycopg
 
 DSN="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
 assert os.getenv("DDVRE_PRIVACY_ISOLATED_LOCAL")=="CONFIRMED"
-assert os.getenv("DATABASE_URL") is None, "No remote DATABASE_URL permitted"
+assert not os.getenv("DATABASE_URL"), "No remote DATABASE_URL permitted"
 
 def one(c, sql, params=()):
     return c.execute(sql,params).fetchone()[0]
