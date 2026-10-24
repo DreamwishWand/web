@@ -122,3 +122,29 @@ test('QR-SCN-INT-05 paired DB transaction candidate has zero executable API gran
  assert.match(source,/async function saveRevision\(\): Promise<never>/);
  assert.match(source,/WEP_SCENE_REVISION_ATOMIC_WRITER_NOT_AUTHORIZED/);
 });
+
+test('QR-SCN-INT-06 offline proof is not a 03 COMM paired transaction call or ready Media manifest',()=>{
+ const intent=read('src/lib/wep/scene-revision-offline-intent.ts');
+ assert.match(intent,/prepareSceneRevisionOfflineIntent/);
+ assert.match(intent,/sourceExternallyVerified\s*!==\s*true/);
+ assert.match(intent,/SWITCH_V125_BID\s*=\s*'52BD625D9B4E0053'/);
+ assert.match(intent,/profileSchema\s*!==\s*624/);
+ assert.match(intent,/new TextEncoder\(\)\.encode\(proof\.envelope\.json\)/);
+ assert.match(intent,/await sha256Hex\(checkedBytes\)/);
+ for(const disabled of ['mediaManifestAuthorized','artifactBlobRegistered','atomicRevisionWriterAuthorized',
+   'pairedGalleryPublishAuthorized','saveRevisionAuthorized','productApplyAuthorized'])
+   assert.match(intent,new RegExp(disabled+': false as const'));
+ assert.match(intent,/proposedMediaIds: Object\.freeze\(\[\] as string\[\]\)/);
+ assert.match(intent,/proposedCoverMediaId: null/);
+ assert.doesNotMatch(intent,/\b(?:fetch\(|supabase\.|\.rpc\(|\.upload\(|\.publish\()/);
+ // SQL candidate requires two independently locked rowVersions, committed registered Blob
+ // and an actual validated 1..10 READY/CLEAR media manifest. Offline intent supplies
+ // diagnostics, NEVER the authoritative transaction or required linked Gallery rowVersion.
+ assert.match(privateWriter,/p_expected_preset_work_version bigint/);
+ assert.match(privateWriter,/p_expected_gallery_work_version bigint/);
+ assert.match(privateWriter,/p_artifact_blob_id uuid/);
+ assert.match(privateWriter,/p_media_ids uuid\[\]/);
+ assert.match(privateWriter,/p_cover_media_id uuid/);
+ assert.match(intent,/expectedPresetWorkRowVersion: readiness\.workRowVersion/);
+ assert.doesNotMatch(intent,/expectedGalleryWorkRowVersion:/);
+});
