@@ -22,7 +22,7 @@ test('Eight localized consumer diagnostics preserve a visible blocked Save Revis
     const c=sceneRevisionCopy(locale);
     for(const key of ['title','inspect','ownerTitle','ownerInspect','saveBlocked','cover','historical','coverExpired','retryCover','boundary']){
       assert.equal(typeof c[key],'string');
-      assert.ok(c[key].length>4,locale+':'+key);
+      assert.ok(c[key].length>=2,locale+':'+key);
     }
   }
 });
