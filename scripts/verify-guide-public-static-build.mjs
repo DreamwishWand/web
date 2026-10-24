@@ -16,6 +16,12 @@ assert.deepEqual(runtime.records?.systems,[], 'Legacy Systems must not publish r
 assert.deepEqual(runtime.records?.issues,[], 'CHC Issue candidates must not be presented as public Guide articles');
 const hashes=REVIEWED_EN_PAGES.map(page=>page.sourceHash.toLowerCase());
 assert.equal(hashes.length,45);
+// V17 reviewer-only corpus fields must not appear in any emitted browser asset.
+// These markers catch accidental import of machine/editorial drafts without
+// requiring the 315 unpublished draft bodies or their hashes in this repo.
+const privateV17Markers=['ddv.guide-systems-native-locdb-provenance-promotion@17',
+  'editorialguidancetext','aiinternaleditorial','nativetermproof',
+  'humanreviewqueue315','verifiedv16nativecorrections11'];
 let scanned=0;
 const leaks=[];
 async function scan(dir) {
@@ -28,8 +34,9 @@ async function scan(dir) {
     const source=(await readFile(path,'utf8')).toLowerCase();
     scanned++;
     for(let i=0;i<hashes.length;i++)if(source.includes(hashes[i]))leaks.push({file:path,record:REVIEWED_EN_PAGES[i].id});
+    for(const marker of privateV17Markers)if(source.includes(marker))leaks.push({file:path,privateMarker:marker});
   }
 }
 await scan(built);
 assert.equal(leaks.length,0,'Unapproved article source hashes are present in emitted public assets: '+JSON.stringify(leaks.slice(0,8)));
-console.log(JSON.stringify({result:'PASS',publicApproved:0,reviewedEN:45,unpublishedHashesExposed:0,assetsScanned:scanned}));
+console.log(JSON.stringify({result:'PASS',publicApproved:0,reviewedEN:45,unpublishedHashesExposed:0,privateV17MarkersExposed:0,assetsScanned:scanned}));
