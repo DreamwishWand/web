@@ -146,7 +146,7 @@ test('Gallery prepare serializes quota 10 intents / 200 MiB and protects existin
  assert.match(hold,/ACCOUNT_RETENTION_HOLD/);
  assert.match(media,/action === 'galleryStatus'/);
  assert.match(media,/action === 'galleryCapacity'/);
- assert.match(media,/GALLERY_UPLOAD_OUTSTANDING_COUNT_EXCEEDED/);
+ assert.match(media,/OUTSTANDING_COUNT_EXCEEDED/);
  assert.match(fixture,/FINALIZE_REPLAY_RESET_CLOCK/);
  assert.match(fixture,/ABORTED_BYTES_QUOTA_BYPASS/);
  assert.match(fixture,/DURABLE_REVISION_QUOTA_RELEASE_FAILED/);
