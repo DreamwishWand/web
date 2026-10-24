@@ -4,7 +4,7 @@ begin;
 do $$
 declare
  v_auth uuid;v_other uuid;v_account uuid;v_creator uuid;v_subject uuid;
- v_key text;v_keys text[]:='{}';v_media uuid:=gen_random_uuid();
+ v_key text;v_holdkey text;v_keys text[]:='{}';v_media uuid:=gen_random_uuid();
  v_final jsonb;v_pre jsonb;v_capacity jsonb;v_op jsonb;v_pub jsonb;
  v_clock timestamptz;v_count int;v_bad boolean;v_nonce text:=gen_random_uuid()::text;
 begin
@@ -148,6 +148,15 @@ begin
  if not v_bad then raise exception 'LEGAL_HOLD_ABORT_ACCEPTED';end if;
  if (select state from public.community_media_upload_intents where storage_key=v_keys[3])<>'pending'
  then raise exception 'LEGAL_HOLD_CHANGED_INTENT';end if;
+ v_holdkey:=v_auth::text||'/'||gen_random_uuid()||'.png';
+ insert into public.community_media_upload_intents(storage_key,owner_account_id,auth_subject,
+  mime_type,expected_bytes,issued_at,expires_at)
+ values(v_holdkey,v_account,v_auth,'image/png',128,
+   now()-interval '3 hours',now()-interval '10 minutes');
+ if (public.community_claim_gallery_media_orphans_v1(1,gen_random_uuid())->>'claimed')::int<>0
+ then raise exception 'HELD_ORPHAN_CLAIMED';end if;
+ if (select cleanup_last_error from public.community_media_upload_intents where storage_key=v_holdkey)
+    <> 'ACCOUNT_RETENTION_HOLD' then raise exception 'HOLD_CLEANUP_AUDIT_MISSING';end if;
  v_op:=public.community_gallery_media_capacity_ops_v1();
  if (v_op->>'ttlPhysicalDeletionEnabled')::boolean is distinct from false
   or (v_op->>'workerMaxPerHourlyRun')::int<>20
