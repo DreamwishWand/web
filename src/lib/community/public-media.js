@@ -23,7 +23,7 @@ export function requireGalleryEdgeMedia(input,mediaId,supabaseUrl){
   try{url=new URL(m.streamUrl);base=new URL(supabaseUrl)}catch{invalid('GALLERY_MEDIA_STREAM_URL_INVALID')}
   if(base.protocol!=='https:'&&base.hostname!=='gallery-lookup-browser.invalid')
     invalid('GALLERY_MEDIA_CONFIG_UNSAFE');
-  if(url.origin!==base.origin || url.pathname!==base.pathname.replace(/\\/$/,'')+GALLERY_PUBLIC_MEDIA_ROUTE ||
+  if(url.origin!==base.origin || url.pathname!==(base.pathname.endsWith('/')?base.pathname.slice(0,-1):base.pathname)+GALLERY_PUBLIC_MEDIA_ROUTE ||
     url.searchParams.get('mediaId')!==mediaId || Array.from(url.searchParams.keys()).some(k=>k!=='mediaId') ||
     url.hash || url.username || url.password)invalid('GALLERY_MEDIA_STREAM_URL_INVALID');
   return Object.freeze({transport:'edge_proxy',streamUrl:m.streamUrl,mimeType:m.mimeType,
