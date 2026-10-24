@@ -30,6 +30,9 @@ begin
    storage_key,owner_account_id,auth_subject,mime_type,expected_bytes,issued_at,expires_at)
  select k,account_id,a,'image/png',128,now()-interval '3 hours',now()-interval '10 minutes'
  from unnest(array[key_a,key_b,key_c]) k;
+ -- Stagger retry eligibility with mutable scheduling metadata only.
+ update public.community_media_upload_intents set cleanup_retry_at=now()+interval '1 hour'
+ where storage_key in (key_b,key_c);
 
  -- A: abandoned pending key, nothing attached, automatic orphan claim.
 
@@ -69,6 +72,7 @@ begin
 
  -- B: owner-aborted pending, expired. The worker must reclaim automatically.
  perform public.community_gallery_media_intent_cancel_v1(a,key_b);
+ update public.community_media_upload_intents set cleanup_retry_at=now()-interval '1 minute' where storage_key=key_b;
 
  res:=public.community_claim_gallery_media_orphans_v1(1,token_a);
  if (res->'jobs'->0->>'storageKey')<>key_b then raise exception 'ABORT_NOT_CLAIMED';end if;
