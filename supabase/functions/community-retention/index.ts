@@ -234,6 +234,23 @@ export default {
       galleryOrphans.workerFailure='GALLERY_GLOBAL_ALERT_UNAVAILABLE';
     }
 
+    // Reconcile *actual* origin object catalog against the existing
+    // MediaAsset + Gallery intent journal. Read-only, service role only.
+    // Never act on untracked blobs: Cloud/legacy authority remains UNKNOWN.
+    const {data:galleryOriginReconciliation,error:galleryOriginError} =
+      await ctx.supabaseAdmin.rpc('community_gallery_storage_reconciliation_v1',{
+        p_bucket:MEDIA_BUCKET
+      });
+    if(galleryOriginError || !galleryOriginReconciliation) {
+      galleryOrphans.workerFailure='GALLERY_ORIGIN_RECONCILIATION_UNAVAILABLE';
+    }
+    const galleryOriginIntegrity =
+      galleryOriginError || !galleryOriginReconciliation ? 'unknown' :
+      Number(galleryOriginReconciliation.originUntrackedObjectCount ?? 0)>0 ||
+      Number(galleryOriginReconciliation.registeredOriginSizeMismatchCount ?? 0)>0 ||
+      Number(galleryOriginReconciliation.finalizedReadyMissingOriginCount ?? 0)>0
+        ? 'critical' : 'normal';
+
     return reply({
       ok: true,
       claimed: jobs.length,
@@ -243,6 +260,8 @@ export default {
       galleryOrphans,
       galleryCapacityMetrics:galleryCapacityError ? null : galleryCapacityMetrics,
       galleryAdmissionAlert:galleryAdmissionAlertError ? null : galleryAdmissionAlert,
+      galleryOriginReconciliation:galleryOriginError ? null : galleryOriginReconciliation,
+      galleryOriginIntegrity,
       results
     }, galleryOrphans.workerFailure ? 503 : 200);
   })
