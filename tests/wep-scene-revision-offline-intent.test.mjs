@@ -5,7 +5,7 @@ import {
   parseScenePublicCurrent, parseSceneOwnerReadiness,
   SCENE_REVISION_WRITE_BLOCKERS
 } from '../src/lib/wep/scene-revision-gallery-consumer.ts';
-import { prepareSceneRevisionOfflineIntent } from '../src/lib/wep/scene-revision-offline-intent.ts';
+import { prepareSceneRevisionOfflineIntent, prepareCapturedSceneRevisionOfflineIntent } from '../src/lib/wep/scene-revision-offline-intent.ts';
 import { buildPublishEnvelope } from '../src/lib/wep/scene-preset-runtime.ts';
 
 const U = {
@@ -75,6 +75,14 @@ test('v1.25.0 Scene artifact proof hashes exact WEP JSON bytes without upload or
     'atomicRevisionWriterAuthorized','pairedGalleryPublishAuthorized',
     'saveRevisionAuthorized','productApplyAuthorized']) assert.equal(proof[key],false,key);
   assert.equal(proof.identity.dependencyFingerprintIsAtomicFence,false);
+  assert.equal(proof.identity.expectedGalleryWorkRowVersion,null);
+  assert.equal(proof.identity.expectedHistoricalEdgeSetSha256,null);
+  assert.equal(proof.identity.historicalEdgePinAvailable,false);
+  assert.equal(proof.identity.historicalEdgePinIsAtomicFence,false);
+  assert.ok(proof.blockedReasons.includes('SCENE_CALLER_HISTORICAL_EDGE_PIN_NOT_AVAILABLE'));
+  assert.ok(proof.blockedReasons.includes('SCENE_GALLERY_EXPECTED_ROWVERSION_NOT_AVAILABLE'));
+  assert.equal(proof.capture.requiredSubGridDescendantsValidated,false);
+  assert.equal(proof.capture.captureRuntimeVerified,false);
 });
 test('platform/build/schema provenance refuses 626 and Steam or nonverified v1.25.0',async()=>{
   const badSources=[
@@ -124,4 +132,61 @@ test('No server, network transport, Storage signed upload or writer can run from
   assert.ok(result.blockedReasons.includes('SCENE_BACKEND_ALL_WRITER_R7_NOT_ACCEPTED'));
   assert.ok(result.blockedReasons.includes('SCENE_SIGNED_STAGING_E2E_NOT_ACCEPTED'));
   assert.ok(result.blockedReasons.includes('SCENE_OWNER_READY_MEDIA_MANIFEST_NOT_VERIFIED'));
+});
+
+test('Runtime-captured Scene derives dependency closure and verifies exact byte hash without writes',async()=>{
+  const document={
+    target:{gameVersion:'1.25.0',platform:'switch',areaKey:'Village01'},
+    objects:[
+      {editorId:'a',itemId:1001,layer:'furniture',x:1,y:1,orientation:0,
+        footprint:[{x:0,y:0}],portableState:null,dependencyIds:['b']},
+      {editorId:'b',itemId:1002,layer:'furniture',x:2,y:1,orientation:0,
+        footprint:[{x:0,y:0}],portableState:{
+          codec:'subgrid.serialized-local-child@1',
+          child:{width:1,height:1,tessellationFactor:1,
+            objects:[{itemId:3001,localX:0,localY:0,orientation:0,footprint:[{x:0,y:0}]}]}
+        },dependencyIds:[]}
+    ]
+  };
+  const before=JSON.stringify(document);
+  const base={...args,document,captureOptions:{selectionIds:['a'],includeRoads:false,includeFences:false,title:'Runtime Capture'}};
+  const result=await prepareCapturedSceneRevisionOfflineIntent(base);
+  assert.equal(result.capture.selectedObjectCount,1);
+  assert.equal(result.capture.closureObjectCount,2);
+  assert.equal(result.capture.requiredSubGridDescendantsValidated,true);
+  assert.equal(result.capture.captureRuntimeVerified,true);
+  assert.deepEqual(result.capture.captureRegion,{x:1,y:1,w:2,h:1});
+  assert.match(result.artifact.checksumSha256,/^[0-9a-f]{64}$/);
+  assert.equal(result.saveRevisionAuthorized,false);
+  assert.deepEqual(result.proposedMediaIds,[]);
+  assert.equal(JSON.stringify(document),before);
+  for(const invalid of [
+    {...base,source:{...source,gameVersion:'1.25.3',buildId:'9A239D3DB569756D',profileSchema:626}},
+    {...base,document:{...document,target:{...document.target,platform:'steam'}}},
+    {...base,captureOptions:{...base.captureOptions,selectionIds:['a','a']}},
+    {...base,captureOptions:{...base.captureOptions,selectionIds:['missing']}},
+    {...base,captureOptions:{...base.captureOptions,includeRoads:true}},
+    {...base,captureOptions:{...base.captureOptions,includeFences:true}},
+    {...base,document:{...document,objects:[{...document.objects[0],editability:'blocked'},document.objects[1]]}},
+    {...base,document:{...document,objects:[{...document.objects[0],dependencyIds:['missing']},document.objects[1]]}}
+  ]){
+    await assert.rejects(prepareCapturedSceneRevisionOfflineIntent(invalid),/WEP_/);
+  }
+});
+
+test('A forged offline capture claim cannot silently omit requested Road/Fence topology',async()=>{
+  for(const requirements of [
+    {roadTopology:true,fenceTopology:false},
+    {roadTopology:false,fenceTopology:true}
+  ]){
+    const proposal={
+      ...args,
+      artifact:{...artifact,requirements:{...artifact.requirements,...requirements}},
+      capture:{...capture,includeRoads:requirements.roadTopology,includeFences:requirements.fenceTopology}
+    };
+    await assert.rejects(
+      prepareSceneRevisionOfflineIntent(proposal),
+      /WEP_SCENE_REVISION_REQUIRED_NETWORK_MISSING_OR_UNEXPECTED/
+    );
+  }
 });
