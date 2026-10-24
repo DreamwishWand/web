@@ -60,7 +60,7 @@ await page.route('https://gallery-lookup-browser.invalid/**',async route=>{
   if(url.pathname.endsWith('/functions/v1/community-public-query')){
     const body=route.request().postDataJSON();
     catalogRequests.push({rpc:body?.rpc,kind:body?.payload?.p_gallery_kind});
-    if(body?.rpc==='community_get_gallery_public_v1'){
+    if(body?.rpc==='community_get_gallery_photo_public_v1'){
       return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({mediaIds:[gatewayId]})});
     }
     if(body?.rpc!=='community_list_verified_gallery_subjects_v1')
