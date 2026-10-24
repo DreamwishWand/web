@@ -27,3 +27,24 @@ Platform scope: Nintendo Switch DDV v1.25.0, BID `52BD625D9B4E0053`, schema 624;
 R17 bindings: `PRE-DISC` **BLOCKED**, `PRE-LIB` **PARTIAL**, `PRE-ING` **BLOCKED**, `SEED-PRESETS` **BLOCKED**. No Scene-specific seventh product or new Core node. Source/CI is not a release PASS.
 
 Gate to promote: 03 COMM+09 INT+02 WEP must produce a reviewed writer API with owner/version/atomicity contract, artifact/media/storage and global R6 all-writer locks; QR then runs disposable normal-auth positive/negative, real Storage and independent two-session cases; Native DDV Writer/Product Apply remain OFF until their distinct acceptance.
+
+## QR cross-stream integration addendum — after 03 COMM #134 and 02 WEP #135 (2026-10-24)
+
+**Actual source revisions used**: PR #134 `720c1a5155620f652c8cc71c8532bfacaff6d03e`; PR #135 `9fac321f0a3fd469615731db038c2e0ae88277c1`. WEP PR #135 is based on an **older** #134 commit `25202608cad55a203c101bbcd84f52bd0e5797b8`. Its untouched owner branch is therefore not certified synced by its own base. 04 QR's QA-only integration branch `integration/qr-scene-revision-r17-acceptance-20261024` combines their **non-overlapping changed WEP files** with the latest PR #134 via non-force and recorded two-parent commit; it does NOT update #134/#135/#129 or Signed Gallery #132. No owner PR is automatically approved for merger.
+
+**New executed acceptance**:
+- `QR-SCN-INT-01`: read `community_get_scene_preset_public_v1` SQL JSON projection keys and compare all typed WEP fields, exclude signed URL/storage key/historical media from DTO.
+- `QR-SCN-INT-02`: verify `community_scene_revision_readiness_v1` SQL owner/identity/version/counter/graph flags and four exact WEP write-blocked reasons.
+- `QR-SCN-INT-03`: reject mismatched Gallery Work/Revision/Cover, duplicate media, invalid SHA/revision and stale WEP Current↔Owner identity; offline only.
+- `QR-SCN-INT-04`: forged `ownerEligible` / graphComplete / saveRevisionAuthorized / atomic fingerprint and missing blockers fail closed, Save Revision always rejected.
+- `QR-SCN-INT-05`: 03 COMM private Scene revision paired writer remains **DB-owner-only / REVOKED including service_role**; no Edge command/public positive Writer, regardless of successful synthetic DB fixture.
+- `QR-WEP-BROWSER`: actual Chrome against isolated locally running Presets page using synthetic HTTP interception, current Scene+cover display, expiry/retry denial, altered Cover denial, 320px overflow and zero Page/Console error; **no real JWT/Storage/CDN**.
+- WEP own tests and 8 locale UI diagnostics now pass in same combined CI, while native Apply/persistent writes remain disabled.
+
+**Executed CI evidence**: combined exact HEAD `9d60fe95e969297fc82f7193fd38e33ba04b1082` [Actions 40081821723](https://github.com/DreamwishWand/web/actions/runs/40081821723) SUCCESS 1021 total/1009 PASS/0 FAIL/12 old SKIP; isolated [Chrome job 40081818046](https://github.com/DreamwishWand/web/actions/runs/40081818046) SUCCESS, 7/7 QR cross-source tests, Chrome synthetic fixture completed with no error. Two distinct kinds of evidence must not be conflated: **real browser process** but **synthetic network/identity/media**; source contract but **not real signed runtime**.
+
+**03 COMM new source-only stage**: `private.scene_save_revision_paired_candidate_v1` can atomically create two new preset/Gallery immutable Revisions and switch Cover in local disposable PG with stale/duplicate/idempotency/rollback negatives, but no service_role grant, Edge Writer, real object bytes or normal Auth; PR #134 source-to-Staging functional parity remains PARTIAL. **09 INT R7** has proven one disposable two-connection source-derived generic PresetWork `community_unpublish_work` lock candidate, but not all writers (Gallery-first, moderation, account erasure, other Preset types), not Staging true session. Keep graphComplete and retirementAuthorized false and do not infer end-to-end transaction safety.
+
+**R17**: PRE-DISC BLOCKED, PRE-LIB PARTIAL, PRE-ING BLOCKED, SEED-PRESETS BLOCKED; all other 30-node scores untouched (PASS0/PARTIAL12/BLOCKED18). Human/real staging acceptance and full historical referential/ownership/three-party signed media/URL/CDN/404/403/409 cases remain NOT_EXECUTED. Positive retirement, Cloud Private/Restore, physical cleanup, 72h retention and native DDV Writer/Product Apply remain OFF.
+
+**Required next**: 03 COMM+09 INT agree one universal R7 all-writer lock/Media order, historical graph validation and moderation/erasure right-to-remove; 02 WEP reviewed 03 COMM API Writer with exact byte validation + TTL/retry; 04 QR authorized real disposable A/B/M staging signed HTTP and independent two-session scenario. Until then no enablement.
