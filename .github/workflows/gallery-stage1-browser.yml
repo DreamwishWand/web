@@ -15,6 +15,7 @@ on:
       - 'src/lib/community/staging-http-client.ts'
       - 'tests/gallery-owner-media-capacity-consumer.test.mjs'
       - 'tests/gallery-cloud-preservation-consumer.test.mjs'
+      - 'tests/gallery-integrated-backend-contract-consumer.test.mjs'
       - 'src/lib/community/gallery-preflight.js'
       - 'tests/gallery-media-gateway-consumer.test.mjs'
       - 'tests/gallery-verified-subject-consumer.test.mjs'
