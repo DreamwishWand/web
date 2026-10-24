@@ -221,7 +221,7 @@ Staging `ptpdoxhrqopvczpclcij` via information_schema + pg_constraint + actual r
 
 ### Minimal source-backed shared row fence (verified partial coverage, NOT atomic retirement)
 
-New **additive** migration `supabase/migrations/20261025002200_gallery_known_reference_writer_fence_v1.sql` deployed to Staging as `gallery_known_reference_writer_fence_v1`. It installs **one private trigger function and three triggers**:
+New **additive** migration `supabase/migrations/20261025002400_gallery_known_reference_writer_fence_v1.sql` deployed to Staging as `gallery_known_reference_writer_fence_v1`. It installs **one private trigger function and three triggers**:
 1. `gallery_revision_presets` **BEFORE INSERT** finds Gallery Work from immutable revision and acquires `community_works FOR UPDATE`.
 2. `preset_artifacts` **BEFORE INSERT OR UPDATE OF associated_gallery_work_id** acquires locks on previous and next Gallery Work (sorted UUID) before adding/changing backlink.
 3. `preset_revision_publications` **BEFORE INSERT** finds existing related Gallery Work through associated PresetArtifact and immutable GalleryRevision->PresetRevision links, locks each work sorted UUID.
