@@ -128,9 +128,23 @@ def execute_race(groups):
             finally:done.set()
         t=threading.Thread(target=writer_a,daemon=True);t.start()
         assert held.wait(10),"R15_HOLDER_DID_NOT_ACQUIRE_BOTH_ARTIFACTS"
-        pid_a=one(b,"select pg_backend_pid()") # B is probe; holder PID through separate query below
-        # B's first attempt locks the same graph, always sorted and must wait
-        # on A's first Artifact. Force SQLSTATE 55P03 and WHOLE transaction rollback.
+        # Observe actual PostgreSQL blocker identity from a third read-only
+        # probe; the TWO mutation/contender sessions remain A and B.
+        holder_pid=one(b,"select pg_backend_pid()") # set below using A before thread on next version
+        bpid=holder_pid
+        probe_stop=threading.Event();observed={}
+        def watch_lock():
+            with psycopg.connect(URL,autocommit=True) as watch:
+                limit=time.monotonic()+3
+                while time.monotonic()<limit and not probe_stop.is_set():
+                    blockers=one(watch,"select pg_blocking_pids(%s)",(bpid,))
+                    if blockers:
+                        observed["blocked"]=True
+                        observed["blockingPids"]=list(blockers)
+                        break
+                    time.sleep(.02)
+        watcher=threading.Thread(target=watch_lock,daemon=True);watcher.start()
+        # B's first attempt locks the same graph and times out in full SQL txn.
         b.execute("BEGIN");b.execute("set local lock_timeout='850ms'")
         try:
             try:
@@ -140,6 +154,8 @@ def execute_race(groups):
                 assert err.sqlstate=="55P03",err
                 result["timeout"]="55P03"
         finally:b.execute("ROLLBACK")
+        probe_stop.set();watcher.join(2)
+        assert observed.get("blocked") is True,"R15_PG_BLOCKING_PIDS_NOT_OBSERVED"
         assert counts(b,groups)==before,"R15_B_PARTIAL_STATE_AFTER_TIMEOUT"
         release.set();assert done.wait(12),result;t.join(1)
         assert result.get("acommitted") and "aerror" not in result,result
@@ -171,6 +187,7 @@ def execute_race(groups):
           for row in counts(b,groups))
         print(json.dumps({"case":"R15_ACTUAL_TWO_GALLERY_WRITERS_MULTI_ARTIFACT_GRAPH",
           "twoIndependentPostgreSQLConnections":True,
+          "pgBlockingPidsConfirmed":True,
           "sortedArtifacts":2,"sortedPresetWorks":2,"sortedGalleryWorks":4,
           "firstAttemptSqlstate":"55P03","failedCommandRolledBack":True,
           "firstGallerySourceCommittedLocally":True,
