@@ -1,6 +1,6 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { chromium } from 'playwright-core';
-import { PAGE_INDEX } from '../src/lib/guide/systems-catalog.js';
+import { REVIEWED_EN_PAGE_INDEX } from '../tests/fixtures/guide-systems-reviewed-en.js';
 import { SYSTEMS_LOCALES, SYSTEMS_PUBLIC_SCHEMA } from '../src/lib/guide/systems-public.js';
 
 const base=(process.env.GUIDE_BASE_URL || 'http://127.0.0.1:4178').replace(/\/$/,'');
@@ -14,7 +14,7 @@ const success=name=>evidence.checks.push({name,status:'PASS'});
 async function until(fn,timeout=15000){const stop=Date.now()+timeout;while(Date.now()<stop){if(await fn())return;await new Promise(r=>setTimeout(r,125));}throw Error('Timeout waiting: '+fn.toString());}
 const target={platform:'Nintendo Switch',gameVersion:'1.25.0',buildID:'52BD625D9B4E0053',saveSchema:624};
 const fixture=(id,related=[])=>{
- const p=PAGE_INDEX.get(id);
+ const p=REVIEWED_EN_PAGE_INDEX.get(id);
  return {id,categoryId:p.categoryId,groupId:p.groupId,primaryMechanicKey:p.mechanicKey,
  publicationStatus:'PUBLISHED',publicationApproved:true,rightsApproved:true,currentVersionReviewed:true,allEightLocalesReviewed:true,
  sourceEnglishGuidanceSha256:p.sourceHash,sourceLabel:'SYNTHETIC TEST ONLY',confidence:'CONFIRMED',reviewedAt:'2026-10-24',
@@ -25,6 +25,12 @@ const fixture=(id,related=[])=>{
  }]))};
 };
 const sample={schema:SYSTEMS_PUBLIC_SCHEMA,target,articles:[fixture('DREAMSNAPS',['PHOTO_MODE']),fixture('PHOTO_MODE',['DREAMSNAPS'])]};
+const approvedFixturePages=['DREAMSNAPS','PHOTO_MODE'].map(id=>({...REVIEWED_EN_PAGE_INDEX.get(id),approved:true}));
+const catalogPath='src/lib/guide/systems-catalog.js';
+const catalogOriginal=await readFile(catalogPath,'utf8');
+const catalogAnchor='export const APPROVED_SYSTEM_PAGES = Object.freeze([]);';
+if(!catalogOriginal.includes(catalogAnchor))throw Error('Public-approved catalog does not start empty');
+let testCatalogInstalled=false;
 const browser=await chromium.launch({executablePath:bin,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
 const ctx=await browser.newContext({viewport:{width:1280,height:900},locale:'en-US'});
 const page=await ctx.newPage();
@@ -72,6 +78,22 @@ try{
   }
   success('EIGHT_LOCALES_320PX_AND_A11Y_CONTROLS');
 
+  // Even a forged manifest with every publication flag true is rejected when the
+  // *shipped* zero-page compiled allowlist is unchanged.
+  await page.route('**/ddv/guide/v1.25/systems-public.json',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(sample)}));
+  await page.goto(base+'/guide/systems/',{waitUntil:'domcontentloaded'});
+  await until(async()=>await page.locator('[data-systems-state="error"]').count()===1);
+  assert(await page.locator('.systems-result').count()===0,'Client trusted forged public manifest approval');
+  success('FORGED_PUBLIC_MANIFEST_REJECTED_BY_COMPILED_ZERO_ALLOWLIST');
+  await page.unroute('**/ddv/guide/v1.25/systems-public.json');
+
+  // Browser-positive contract is tested only after injecting synthetic fixture
+  // approval into this ephemeral CI checkout. The real source is restored in finally.
+  // This is never a production build flag or deployable publication endpoint.
+  await writeFile(catalogPath,catalogOriginal.replace(catalogAnchor,
+    'export const APPROVED_SYSTEM_PAGES = Object.freeze('+JSON.stringify(approvedFixturePages)+');'));
+  testCatalogInstalled=true;
+  await new Promise(resolve=>setTimeout(resolve,700));
   await page.route('**/ddv/guide/v1.25/systems-public.json',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(sample)}));
   await page.goto(base+'/guide/systems/',{waitUntil:'domcontentloaded'});
   await until(async()=>await page.locator('.systems-result').count()===2);
