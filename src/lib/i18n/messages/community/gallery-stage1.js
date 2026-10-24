@@ -1,5 +1,7 @@
 export const galleryStage1Catalogs = Object.freeze({
   "en": Object.freeze({
+    "galleryv1.retryAfterServerSeconds": "Server retry guidance: {count} seconds.",
+    "galleryv1.retryAtServer": "Server retry date: {date}.",
     "galleryv1.ownerMediaRead": "Private owner image preview",
     "galleryv1.ownerMediaLoading": "Loading your private images…",
     "galleryv1.ownerMediaFailure": "The image could not be loaded.",
@@ -123,6 +125,8 @@ export const galleryStage1Catalogs = Object.freeze({
     "galleryv1.retirementBlocked": "Delete and Keep Private are disabled: issued media links may remain accessible for up to 300 seconds; dependent retirement and private preservation are not proven."
   }),
   "ja": Object.freeze({
+    "galleryv1.retryAfterServerSeconds": "サーバー指定の再試行時間：{count}秒。",
+    "galleryv1.retryAtServer": "サーバー指定の再試行日時：{date}。",
     "galleryv1.ownerMediaRead": "所有者限定の画像プレビュー",
     "galleryv1.ownerMediaLoading": "非公開画像を読み込んでいます…",
     "galleryv1.ownerMediaFailure": "画像を読み込めませんでした。",
@@ -246,6 +250,8 @@ export const galleryStage1Catalogs = Object.freeze({
     "galleryv1.retirementBlocked": "削除と非公開保存は無効です。発行済みの画像URLが最大300秒有効な場合があり、依存作品の撤去と非公開データ保存の安全性が未検証です。"
   }),
   "fr": Object.freeze({
+    "galleryv1.retryAfterServerSeconds": "Délai indiqué par le serveur : {count} secondes.",
+    "galleryv1.retryAtServer": "Date de nouvelle tentative du serveur : {date}.",
     "galleryv1.ownerMediaRead": "Aperçu privé du propriétaire",
     "galleryv1.ownerMediaLoading": "Chargement des images privées…",
     "galleryv1.ownerMediaFailure": "Impossible de charger l’image.",
@@ -369,6 +375,8 @@ export const galleryStage1Catalogs = Object.freeze({
     "galleryv1.retirementBlocked": "Supprimer et Garder privé sont désactivés : les liens média déjà émis peuvent rester accessibles jusqu’à 300 secondes et la conservation privée n’est pas validée."
   }),
   "it": Object.freeze({
+    "galleryv1.retryAfterServerSeconds": "Attesa indicata dal server: {count} secondi.",
+    "galleryv1.retryAtServer": "Data di nuovo tentativo dal server: {date}.",
     "galleryv1.ownerMediaRead": "Anteprima privata del proprietario",
     "galleryv1.ownerMediaLoading": "Caricamento immagini private…",
     "galleryv1.ownerMediaFailure": "Impossibile caricare l’immagine.",
@@ -492,6 +500,8 @@ export const galleryStage1Catalogs = Object.freeze({
     "galleryv1.retirementBlocked": "Elimina e Mantieni privato disabilitati: i link media emessi possono restare accessibili fino a 300 secondi; la conservazione privata non è verificata."
   }),
   "de": Object.freeze({
+    "galleryv1.retryAfterServerSeconds": "Vom Server genannte Wartezeit: {count} Sekunden.",
+    "galleryv1.retryAtServer": "Vom Server genannter Wiederholungszeitpunkt: {date}.",
     "galleryv1.ownerMediaRead": "Privatvorschau des Eigentümers",
     "galleryv1.ownerMediaLoading": "Private Bilder werden geladen…",
     "galleryv1.ownerMediaFailure": "Das Bild konnte nicht geladen werden.",
@@ -615,6 +625,8 @@ export const galleryStage1Catalogs = Object.freeze({
     "galleryv1.retirementBlocked": "Löschen und Privat behalten sind deaktiviert: ausgestellte Medienlinks können bis zu 300 Sekunden abrufbar bleiben; private Aufbewahrung ist nicht nachgewiesen."
   }),
   "es-ES": Object.freeze({
+    "galleryv1.retryAfterServerSeconds": "Espera indicada por el servidor: {count} segundos.",
+    "galleryv1.retryAtServer": "Fecha de reintento indicada por el servidor: {date}.",
     "galleryv1.ownerMediaRead": "Vista privada del propietario",
     "galleryv1.ownerMediaLoading": "Cargando imágenes privadas…",
     "galleryv1.ownerMediaFailure": "No se pudo cargar la imagen.",
@@ -738,6 +750,8 @@ export const galleryStage1Catalogs = Object.freeze({
     "galleryv1.retirementBlocked": "Eliminar y Conservar en privado están deshabilitados: los enlaces emitidos pueden seguir accesibles hasta 300 segundos; la conservación privada no está verificada."
   }),
   "zh-CN": Object.freeze({
+    "galleryv1.retryAfterServerSeconds": "服务器指定的重试等待：{count}秒。",
+    "galleryv1.retryAtServer": "服务器指定的重试时间：{date}。",
     "galleryv1.ownerMediaRead": "所有者私密图片预览",
     "galleryv1.ownerMediaLoading": "正在加载私密图片…",
     "galleryv1.ownerMediaFailure": "无法加载图片。",
@@ -861,6 +875,8 @@ export const galleryStage1Catalogs = Object.freeze({
     "galleryv1.retirementBlocked": "删除及保留私有副本已禁用：已签发的媒体链接最长可能在 300 秒内仍可访问，关联撤销和私有保存尚未验证。"
   }),
   "pt-BR": Object.freeze({
+    "galleryv1.retryAfterServerSeconds": "Tempo de espera indicado pelo servidor: {count} segundos.",
+    "galleryv1.retryAtServer": "Data de nova tentativa indicada pelo servidor: {date}.",
     "galleryv1.ownerMediaRead": "Prévia privada do proprietário",
     "galleryv1.ownerMediaLoading": "Carregando imagens privadas…",
     "galleryv1.ownerMediaFailure": "Não foi possível carregar a imagem.",
