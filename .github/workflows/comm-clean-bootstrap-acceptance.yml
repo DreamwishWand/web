@@ -2,7 +2,7 @@ name: 03 COMM Source-Candidate Clean Bootstrap Acceptance
 
 on:
   push:
-    branches: ['verification/comm-clean-bootstrap-20261024']
+    branches: ['verification/comm-clean-bootstrap-20261024', 'validation/04qr-r13-identity-fixed-20261024']
   workflow_dispatch:
   pull_request:
     paths:
@@ -191,6 +191,21 @@ jobs:
           python3 -m pip install --quiet 'psycopg[binary]>=3.2,<4'
           python3 tests/comm-r13-retired-identity-two-session.py 2>&1 | tee /tmp/comm-r13-retired-identity-two-session.log
           python3 tests/comm-privacy-r12-two-session.py 2>&1 | tee /tmp/comm-privacy-two-session.log
+      - name: Independent 04 QR R13 repaired Identity rejection (115 Source migrations / local PG)
+        env:
+          DDVRE_QR_R13_ISOLATED_LOCAL: CONFIRMED
+          DATABASE_URL: ''
+        run: |
+          set -euo pipefail
+          python3 tests/qr-r13-retired-identity-counterexample.py | tee /tmp/qr-r13-identity-repaired.json
+          python3 - <<'PY'
+          import json
+          r=json.load(open('/tmp/qr-r13-identity-repaired.json'))
+          assert r['activeIdentity']=='PASS'
+          assert r['retiredIdentity']=='PASS_REJECTED', r
+          assert r['realSignedJwt'] is False and r['productionAuthorized'] is False
+          print('QR_R13_RETIRED_IDENTITY_INDEPENDENT_SOURCE_LOCAL_PASS')
+          PY
       - name: Record bounded acceptance limitations without pretending actor E2E
         if: always()
         shell: bash
