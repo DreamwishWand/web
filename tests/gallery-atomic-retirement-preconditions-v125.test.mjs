@@ -85,3 +85,40 @@ test('read-only transaction acceptance never creates mutation authority',()=>{
  assert.doesNotMatch(sql,/delete\s+from\s+public\./i);
  assert.doesNotMatch(sql,/update\s+public\./i);
 });
+
+
+test('source-audited generic Preset publisher inserts Work/Revision/public Search but lacks complete gallery reverse link',()=>{
+ const s=fs.readFileSync(new URL('../supabase/migrations/20260930035240_community_core_v0_preset_bridge.sql',import.meta.url),'utf8');
+ const section=s.slice(s.indexOf('create or replace function public.community_publish_preset_envelope('),
+   s.indexOf('create or replace function public.community_publish_gallery_v3('));
+ assert.match(section,/p_preset_type text/);
+ assert.match(section,/insert into public.preset_artifacts\(/);
+ assert.match(section,/insert into public.preset_revisions\(/);
+ assert.match(section,/insert into public.preset_revision_publications\(/);
+ assert.match(section,/insert into public.search_documents\(/);
+ assert.match(section,/pg_advisory_xact_lock\(hashtextextended\(v_account_id::text \|\| ':' \|\| p_idempotency_key,0\)\)/);
+ assert.doesNotMatch(section,/associated_gallery_work_id/);
+ assert.doesNotMatch(section,/gallery_revision_presets/);
+});
+test('source-audited Scene UI, generic discovery and local Native presets do not create global Native listing',()=>{
+ const bridge=fs.readFileSync(new URL('../src/lib/wep/preset-community-bridge.ts',import.meta.url),'utf8');
+ const native=fs.readFileSync(new URL('../src/lib/presets/native-preset-runtime.js',import.meta.url),'utf8');
+ const search=fs.readFileSync(new URL('../supabase/migrations/20260930114310_community_core_v0_public_search.sql',import.meta.url),'utf8');
+ assert.match(bridge,/async function publishScene\(/);
+ assert.match(bridge,/preparedEnvelope\.presetType === 'scene'/);
+ assert.match(bridge,/loaded\.validation\.presetType === 'scene'/);
+ assert.match(bridge,/community\.searchPublicWorks/);
+ assert.match(bridge,/community\.command\('saveEntity'/);
+ assert.match(native,/world\.DecorationPresets/);
+ assert.match(native,/persistentWriteAuthorized:false/);
+ assert.match(search,/from public.search_documents d/);
+ assert.match(search,/p_work_type is null or d.work_type=p_work_type/);
+});
+test('current Gallery v3 publisher locks Work but per-account idempotency is not universal graph lock',()=>{
+ const s=fs.readFileSync(new URL('../supabase/migrations/20260930035240_community_core_v0_preset_bridge.sql',import.meta.url),'utf8');
+ const section=s.slice(s.indexOf('create or replace function public.community_publish_gallery_v3('));
+ assert.match(section,/from public.community_works\s+where work_id=p_work_id\s+for update/);
+ assert.match(section,/insert into public.gallery_revision_presets\(/);
+ assert.match(section,/pg_advisory_xact_lock\(hashtextextended\(v_account_id::text/);
+ assert.equal(assessGalleryAtomicRetirementPreconditionsV1(basic).operationAuthorized,false);
+});
