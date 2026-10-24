@@ -174,6 +174,14 @@ jobs:
               '-- DIAGNOSTIC ONLY: omitted index targeting Staging-only missing parent',1))
           print('DIAGNOSTIC_ONLY_STAGING_ONLY_PARENT_INDEX_SKIPPED_IN_RUNNER')
           print('CANONICAL_SOURCE_REMAINS_UNCHANGED_AND_NOT_ACCEPTED')
+          # Third dependency gap, source lacks the Scene Preset vertical parent
+          # column that is present in Staging. This is NOT an accepted migration.
+          fence=Path('supabase/migrations/20261025002400_gallery_known_reference_writer_fence_v1.sql')
+          fence.write_text(
+              'alter table public.preset_artifacts add column if not exists associated_gallery_work_id uuid references public.gallery_works(work_id);' + chr(10)
+              + fence.read_text())
+          print('DIAGNOSTIC_ONLY_STAGING_COLUMN_SHAPE_RECONSTRUCTED_IN_RUNNER')
+          print('CANONICAL_SOURCE_REMAINS_FAIL')
           PY
           printf 'project_id = "ddvre_comm_bootstrap_diagnostic_temp_20261024"\n' | cat - supabase/config.toml > /tmp/comm-diag-config.toml
           mv /tmp/comm-diag-config.toml supabase/config.toml
@@ -183,6 +191,12 @@ jobs:
           set -euo pipefail
           timeout 1500s supabase start --debug 2>&1 | tee /tmp/comm-diagnostic-replay.log
           echo 'DIAGNOSTIC_TEMP_PATCH_REPLAY_COMPLETE_NOT_SOURCE_PASS'
+      - name: Repeat diagnostic-only empty DB replay to evaluate consistency
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 900s supabase db reset --no-seed 2>&1 | tee /tmp/comm-diagnostic-reset.log
+          echo 'DIAGNOSTIC_TEMP_PATCH_SECOND_REPLAY_NOT_CANONICAL_SOURCE_PASS'
       - name: Validate migration ledger only if diagnostic bootstrap completes
         shell: bash
         run: |
@@ -197,6 +211,7 @@ jobs:
           path: |
             /tmp/comm-diagnostic-replay.log
             /tmp/comm-diagnostic-ledger.log
+            /tmp/comm-diagnostic-reset.log
           retention-days: 14
           if-no-files-found: warn
       - name: Discard diagnostic local stack
