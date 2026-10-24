@@ -56,7 +56,7 @@ test('Owner preflight validates work, revision/version, but cannot authorize ret
     assert.throws(()=>parseGalleryRetirementPreflight(x,work));
   const my=readFileSync(new URL('../src/routes/gallery/my/+page.svelte',import.meta.url),'utf8');
   assert.match(my,/client.query\('galleryRetirementPreflight',\{workId\}\)/);
-  assert.match(my,/if\(!client\?\.session\|\|!ownerDetail\?\.isOwner/);
+  assert.match(my,/if\(!client\?\.session\|\|management\?\.workId!==workId/);
   for(const key of ['publishUpdate','deleteWork','unpublish'])assert.ok(my.includes(`disabled aria-disabled="true">{t('galleryv1.${key}'`));
   assert.doesNotMatch(my,/deleteGalleryPhoto|unpublishKeepPrivate|client.command\('galleryAbort'/);
 });
