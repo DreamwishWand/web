@@ -749,7 +749,12 @@ create or replace function private.scene_save_revision_paired_candidate_v1(
   p_description text,
   p_metadata jsonb,
   p_idempotency_key text,
-  p_expected_historical_edge_set_sha256 text
+  p_expected_historical_edge_set_sha256 text,
+  p_expected_gallery_work_id uuid,
+  p_expected_gallery_current_work_revision_id uuid,
+  p_expected_creator_profile_id uuid,
+  p_expected_artifact_checksum_sha256 text,
+  p_expected_artifact_byte_size bigint
 ) returns jsonb language plpgsql
 set search_path=pg_catalog,public,private,extensions
 as $paired_scene_candidate$
@@ -794,7 +799,12 @@ begin
       'blob',p_artifact_blob_id,'media',to_jsonb(p_media_ids),
       'cover',p_cover_media_id,'title',p_title,'description',p_description,
       'metadata',coalesce(p_metadata,'{}'::jsonb),
-      'historicalEdgePin',p_expected_historical_edge_set_sha256)::text,
+      'historicalEdgePin',p_expected_historical_edge_set_sha256,
+      'expectedGalleryWork',p_expected_gallery_work_id,
+      'expectedGalleryCurrentRevision',p_expected_gallery_current_work_revision_id,
+      'expectedCreator',p_expected_creator_profile_id,
+      'expectedArtifactSha256',p_expected_artifact_checksum_sha256,
+      'expectedArtifactBytes',p_expected_artifact_byte_size)::text,
       'UTF8'),'sha256'),'hex');
   select request_hash,response into v_existing_hash,v_response
   from public.idempotency_keys
@@ -811,6 +821,12 @@ begin
     or p_artifact_blob_id is null
     or p_expected_historical_edge_set_sha256 is null
     or p_expected_historical_edge_set_sha256 !~ '^[0-9a-f]{64}$'
+    or p_expected_gallery_work_id is null
+    or p_expected_gallery_current_work_revision_id is null
+    or p_expected_creator_profile_id is null
+    or p_expected_artifact_checksum_sha256 is null
+    or p_expected_artifact_checksum_sha256 !~ '^[0-9a-f]{64}$'
+    or p_expected_artifact_byte_size not between 1 and 26214400
     or p_preset_artifact_id is null
     or p_title is null or length(btrim(p_title)) not between 1 and 160
   then raise exception 'SCENE_REVISION_REQUIRED_FIELDS';end if;
@@ -865,6 +881,8 @@ begin
   if v_artifact.owner_account_id is distinct from v_account
     or v_artifact.preset_type<>'scene'
     or v_artifact.associated_gallery_work_id is distinct from v_assoc
+    or v_artifact.associated_gallery_work_id is distinct from p_expected_gallery_work_id
+    or v_artifact.creator_profile_id is distinct from p_expected_creator_profile_id
   then raise exception 'SCENE_REVISION_GRAPH_CHANGED';end if;
   select * into v_preset_work from public.community_works
     where work_id=v_artifact.community_work_id for update;
@@ -881,6 +899,12 @@ begin
   if v_preset_work.row_version is distinct from p_expected_preset_work_version
     or v_gallery.row_version is distinct from p_expected_gallery_work_version
   then raise exception 'SCENE_REVISION_ROW_VERSION_CONFLICT';end if;
+  -- Two Work versions alone do not prove the immutable current Gallery
+  -- pointer is still the version whose Cover/Media the owner previewed.
+  -- The identity is recomputed from locked DB rows, NEVER client authority.
+  if v_gallery.current_published_revision_id is distinct from
+      p_expected_gallery_current_work_revision_id
+  then raise exception 'SCENE_REVISION_GALLERY_CURRENT_REVISION_STALE';end if;
   if v_preset_work.lifecycle_state<>'published'
     or v_gallery.lifecycle_state<>'published'
     or v_preset_work.visibility<>'public' or v_gallery.visibility<>'public'
@@ -959,6 +983,13 @@ begin
     or exists(select 1 from public.preset_revisions pr
               where pr.artifact_blob_id=v_blob.blob_id)
   then raise exception 'SCENE_REVISION_BLOB_INVALID_OR_REUSED';end if;
+  -- Only compare caller expectations with the registered owner blob row.
+  -- This does NOT attest that Storage bytes were fetched/hashed; a signed
+  -- Storage byte-receipt/portable JSON validation path is still required.
+  if lower(v_blob.checksum_sha256) is distinct from
+       p_expected_artifact_checksum_sha256
+    or v_blob.byte_size is distinct from p_expected_artifact_byte_size
+  then raise exception 'SCENE_REVISION_REGISTERED_BLOB_EXPECTATION_STALE';end if;
 
   v_count:=coalesce(cardinality(p_media_ids),0);
   if v_count not between 1 and 10 or p_cover_media_id is null
@@ -1060,6 +1091,12 @@ begin
     'presetWorkRevisionId',v_preset_work_revision_id,
     'galleryWorkId',v_gallery.work_id,
     'galleryWorkRevisionId',v_gallery_work_revision_id,
+    'previousGalleryWorkRevisionId',p_expected_gallery_current_work_revision_id,
+    'artifactBlobId',v_blob.blob_id,
+    'artifactChecksumSha256',lower(v_blob.checksum_sha256),
+    'artifactByteSize',v_blob.byte_size,
+    'artifactSchemaVersion',v_blob.schema_version,
+    'mediaIds',to_jsonb(p_media_ids),
     'mediaCount',v_count,'coverMediaId',p_cover_media_id);
   update public.idempotency_keys
   set response=v_response,completed_at=now()
@@ -1070,5 +1107,5 @@ $paired_scene_candidate$;
 
 -- NO Edge, authenticated/anon or service role can invoke this candidate.
 revoke all on function private.scene_save_revision_paired_candidate_v1(
-  uuid,uuid,uuid,bigint,bigint,uuid,uuid[],uuid,text,text,jsonb,text,text)
+  uuid,uuid,uuid,bigint,bigint,uuid,uuid[],uuid,text,text,jsonb,text,text,uuid,uuid,uuid,text,bigint)
 from public,anon,authenticated,service_role;
