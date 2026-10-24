@@ -2,7 +2,7 @@ name: 03 COMM Source-Candidate Clean Bootstrap Acceptance
 
 on:
   push:
-    branches: ['verification/comm-clean-bootstrap-20261024']
+    branches: ['verification/comm-clean-bootstrap-20261024', 'validation/04qr-r14-crossproduct-privacy-20261025']
   workflow_dispatch:
   pull_request:
     paths:
@@ -181,6 +181,16 @@ jobs:
             fi
           done
           exit "$fail"
+      - name: 04 QR R14 independent Q&A Tip public suppression behavioral source test
+        env:
+          DDVRE_QR_R14_LOCAL: CONFIRMED
+          DATABASE_URL: ''
+          SUPABASE_DB_URL: ''
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'psycopg[binary]>=3.2,<4'
+          python3 tests/qr-r14-qa-tip-public-behavior.py | tee /tmp/qr-r14-qa-source.log
+          grep -F QR_R14_QA_TIP_BEHAVIOR_SOURCE_PASS /tmp/qr-r14-qa-source.log
       - name: Independent two-Postgres-backend account-privacy concurrency (LOCAL ONLY)
         shell: bash
         env:
