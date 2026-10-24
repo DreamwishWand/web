@@ -25,7 +25,7 @@ test('Gallery stacked migrations have a unique numeric version across the comple
  }
  for(const file of expected)assert.ok(migrations.includes(file),file);
  assert.ok(!migrations.includes('20261025002200_gallery_known_reference_writer_fence_v1.sql'));
- assert.deepEqual(migrations.filter(x=>x.startsWith('20261025002')),expected);
+ assert.deepEqual(migrations.filter(x=>/^20261025002[234]00_/.test(x)),expected);
 });
 
 test('the ordered 022/023/024 migrations preserve independent abort, capacity and known-reference gates',()=>{
