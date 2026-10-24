@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createSceneRevisionGalleryConsumer, parseScenePublicCurrent, parseSceneOwnerReadiness,
-  SCENE_PUBLIC_CURRENT_RPC, SCENE_REVISION_WRITE_BLOCKERS
+  SCENE_PUBLIC_CURRENT_RPC, SCENE_REVISION_WRITE_BLOCKERS, diagnoseSceneRevisionPairing
 } from '../src/lib/wep/scene-revision-gallery-consumer.ts';
 
 const ID = {
@@ -30,6 +30,12 @@ const owner = {
   presetType:'scene',ownerEligible:true,workRowVersion:6,lifecycleState:'published',
   visibility:'public',currentPresetRevisionId:ID.presetRevision,revisionCount:4,
   latestRevisionNumber:4,currentArtifactAvailable:true,hasAssociatedGallery:true,
+  pairedGalleryWorkId:ID.gallery,pairedGalleryWorkRowVersion:9,
+  pairedGalleryCurrentWorkRevisionId:ID.galleryRevision,
+  pairedGallerySnapshotIsAtomicFence:false,
+  historicalEdgeSetScope:'scene-historical-edges-v1',
+  historicalEdgeSetSha256:'9'.repeat(64),
+  historicalEdgeSetIsAtomicFence:false,
   knownHistoricalGalleryCount:2,knownGalleryReferenceCount:3,
   crossOwnerOrUnresolvedGalleryCount:0,
   dependencyFingerprintSha256:'e'.repeat(64),
@@ -139,4 +145,85 @@ test('Source version gates: no v1.25.3 DDV writer inferred from Scene revision U
   assert.equal(preview.mode,'NEW_SCENE');
   assert.equal(preview.saveRevisionAuthorized,false);
   assert.equal(preview.pairedGalleryPublishAuthorized,false);
+});
+
+test('PR134 Readiness @1 owner-only paired Gallery/History hint is parsed but NEVER an atomic writer fence',()=>{
+  const o=parseSceneOwnerReadiness(owner,ID.preset);
+  assert.equal(o.pairedGalleryWorkId,ID.gallery);
+  assert.equal(o.pairedGalleryWorkRowVersion,9);
+  assert.equal(o.pairedGalleryCurrentWorkRevisionId,ID.galleryRevision);
+  assert.equal(o.historicalEdgeSetScope,'scene-historical-edges-v1');
+  assert.equal(o.historicalEdgeSetSha256,'9'.repeat(64));
+  assert.equal(o.pairedGallerySnapshotIsAtomicFence,false);
+  assert.equal(o.historicalEdgeSetIsAtomicFence,false);
+  const diag=diagnoseSceneRevisionPairing(parseScenePublicCurrent(current,ID.work),o);
+  assert.equal(diag.currentCompared,true);
+  assert.equal(diag.diagnosticScope,'AUTHENTICATED_OWNER_ONLY');
+  assert.equal(diag.saveRevisionAuthorized,false);
+  assert.equal(diag.historicMediaAvailable,false);
+  assert.equal(diag.currentCoverMediaId,ID.cover);
+  assert.equal(diag.currentOnlyMediaIds.length,2);
+  assert.ok(diag.blockedReasons.includes('SCENE_HISTORICAL_EDGE_SET_NOT_ATOMIC'));
+  assert.ok(diag.blockedReasons.includes('SCENE_PAIRED_GALLERY_ROWVERSION_NOT_ATOMIC'));
+  assert.equal('signedUrl' in diag,false);
+  assert.equal('storageKey' in diag,false);
+});
+test('Older source without Gallery versions or scoped SHA is accepted read-only but explicitly blocked',()=>{
+  const legacy={...owner};
+  for(const key of ['pairedGalleryWorkId','pairedGalleryWorkRowVersion',
+    'pairedGalleryCurrentWorkRevisionId','pairedGallerySnapshotIsAtomicFence',
+    'historicalEdgeSetScope','historicalEdgeSetSha256','historicalEdgeSetIsAtomicFence'])delete legacy[key];
+  const o=parseSceneOwnerReadiness(legacy,ID.preset);
+  assert.equal(o.pairedGalleryWorkId,null);
+  assert.equal(o.pairedGalleryWorkRowVersion,null);
+  assert.equal(o.historicalEdgeSetSha256,null);
+  assert.ok(o.blockedReasons.includes('SCENE_PAIRED_GALLERY_OWNER_ID_UNAVAILABLE'));
+  assert.ok(o.blockedReasons.includes('SCENE_PAIRED_GALLERY_ROWVERSION_UNAVAILABLE'));
+  assert.ok(o.blockedReasons.includes('SCENE_HISTORICAL_EDGE_SET_SCOPE_OR_SHA_UNAVAILABLE'));
+  const diag=diagnoseSceneRevisionPairing(parseScenePublicCurrent(current,ID.work),o);
+  assert.ok(diag.blockedReasons.includes('SCENE_PAIRED_GALLERY_WORK_ID_MISMATCH'));
+  assert.ok(diag.blockedReasons.includes('SCENE_PAIRED_GALLERY_CURRENT_REVISION_STALE'));
+});
+test('Mixed public/owner current identities, unknown references and stale paired revisions refuse matching',()=>{
+  const o=parseSceneOwnerReadiness(owner,ID.preset);
+  for(const raw of [
+    {...current,presetRevisionId:ID.revision},
+    {...current,galleryWorkRevisionId:ID.revision},
+    {...current,galleryWorkId:ID.work},
+    {...current,presetArtifactId:ID.gallery}
+  ]){
+    const publicRead=parseScenePublicCurrent(raw,ID.work);
+    const diag=diagnoseSceneRevisionPairing(publicRead,o);
+    assert.ok(diag.blockedReasons.some(x=>x.includes('MISMATCH')||x.includes('STALE')),diag.blockedReasons.join(','));
+    assert.equal(diag.saveRevisionAuthorized,false);
+  }
+  const conflict=parseSceneOwnerReadiness({...owner,crossOwnerOrUnresolvedGalleryCount:1},ID.preset);
+  assert.ok(conflict.blockedReasons.includes('SCENE_REFERENCE_IDENTITY_CONFLICT'));
+});
+test('Invalid history hash/version, unsupported scope, forged atomic flags all fail closed',()=>{
+  for(const changes of [
+    {pairedGalleryWorkRowVersion:-1},{pairedGalleryWorkRowVersion:1.5},
+    {pairedGalleryWorkId:'bad'},{pairedGalleryCurrentWorkRevisionId:'bad'},
+    {historicalEdgeSetSha256:'bad'},{pairedGallerySnapshotIsAtomicFence:true},
+    {historicalEdgeSetIsAtomicFence:true}
+  ]){
+    assert.throws(()=>parseSceneOwnerReadiness({...owner,...changes},ID.preset),/WEP_SCENE_OWNER_/);
+  }
+  const scope=parseSceneOwnerReadiness({...owner,historicalEdgeSetScope:'unexpected-v2'},ID.preset);
+  assert.equal(scope.historicalEdgeSetScope,null);
+  assert.equal(scope.historicalEdgeSetSha256,null);
+  assert.ok(scope.blockedReasons.includes('SCENE_HISTORICAL_EDGE_SET_SCOPE_UNSUPPORTED'));
+  assert.ok(scope.blockedReasons.includes('SCENE_HISTORICAL_EDGE_SET_SCOPE_OR_SHA_UNAVAILABLE'));
+});
+
+test('Authenticated owner Readiness @1 does not expose Creator ID; public Creator alone cannot authorize future writer',()=>{
+  const currentRead=parseScenePublicCurrent(current,ID.work);
+  const o=parseSceneOwnerReadiness(owner,ID.preset);
+  assert.equal(o.ownerCreatorProfileId,null);
+  assert.ok(diagnoseSceneRevisionPairing(currentRead,o).blockedReasons.includes('SCENE_OWNER_CREATOR_CROSSREAD_UNAVAILABLE'));
+  const simulatedFuture=parseSceneOwnerReadiness({...owner,creatorProfileId:ID.creator},ID.preset);
+  assert.equal(simulatedFuture.ownerCreatorProfileId,ID.creator);
+  const foreign=parseSceneOwnerReadiness({...owner,creatorProfileId:ID.work},ID.preset);
+  assert.ok(diagnoseSceneRevisionPairing(currentRead,foreign).blockedReasons.includes('SCENE_PUBLIC_OWNER_CREATOR_MISMATCH'));
+  assert.throws(()=>parseSceneOwnerReadiness({...owner,creatorProfileId:'invalid'},ID.preset),/WEP_SCENE_OWNER_CREATOR_IDENTITY_INVALID/);
 });

@@ -12,7 +12,15 @@ test('Scene read-only panel wiring stays visible in Discover and auth-gated in o
   assert.match(panel,/getPublicCommunityMedia/);
   assert.match(panel,/bridge\.inspectSceneRevisionReadiness/);
   assert.match(panel,/!connected/);
+  assert.match(panel,/ownerBridge = bridge/);
+  assert.match(panel,/owner = null/);
+  assert.match(panel,/connected && bridge === requestedBridge/);
   assert.match(panel,/data-wep-scene-save-disabled/);
+  assert.match(panel,/diagnoseSceneRevisionPairing/);
+  assert.match(panel,/data-wep-scene-owner-comparison/);
+  assert.match(panel,/owner\.historicalEdgeSetScope/);
+  assert.match(panel,/owner\.pairedGalleryWorkRowVersion/);
+  assert.match(panel,/role="status"/);
   assert.doesNotMatch(panel,/on:click=\{(?:saveRevision|publishScene|deleteScene)/);
   assert.doesNotMatch(panel,/community\.media\('finalize'/);
 });
@@ -20,7 +28,10 @@ test('Eight localized consumer diagnostics preserve a visible blocked Save Revis
   assert.deepEqual([...SCENE_REVISION_COPY_LOCALES].sort(),['en','ja','de','fr','it','es-ES','pt-BR','zh-CN'].sort());
   for(const locale of SCENE_REVISION_COPY_LOCALES){
     const c=sceneRevisionCopy(locale);
-    for(const key of ['title','inspect','ownerTitle','ownerInspect','saveBlocked','cover','historical','coverExpired','retryCover','boundary']){
+    for(const key of ['title','inspect','ownerTitle','ownerInspect','saveBlocked','cover','historical','coverExpired','retryCover','boundary',
+      'pairedGalleryOwner','pairedGalleryRowVersion','pairedGalleryCurrentRevision',
+      'historicalScope','historicalEdgeSha','graphFence','notAtomic','comparison',
+      'currentMediaCount','unknown','diagnosticsOnly']){
       assert.equal(typeof c[key],'string');
       assert.ok(c[key].length>=2,locale+':'+key);
     }
