@@ -107,7 +107,7 @@ test('history without older revisions stays known empty, not invented historical
 });
 test('wrong owner, anonymous and malformed external errors cannot be turned into capability',()=>{
  assert.throws(()=>parse({...preflight,ownerEligible:false}));
- assert.throws(()=>parse(undefined));
+ assert.throws(()=>parseGalleryRetirementPreflight(undefined,workId));
  assert.throws(()=>parse({...preflight,cloudPreservation:{}}));
  const view=readFileSync(new URL('../src/routes/gallery/my/+page.svelte',import.meta.url),'utf8');
  assert.match(view,/client!.query\('galleryRetirementPreflight',\{workId\}\)/);
