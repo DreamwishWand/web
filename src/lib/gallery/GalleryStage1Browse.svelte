@@ -37,7 +37,7 @@
         const id=String(work.work_id);
         if(coverUrls[id])continue;
         try {
-          const detail:any=await callPublicCommunityRpc('community_get_gallery_public_v1',{p_work_id:id});
+          const detail:any=await callPublicCommunityRpc('community_get_gallery_photo_public_v1',{p_work_id:id});
           const first=detail?.mediaIds?.[0];
           if(first) {
             const media=await getGalleryPublicMedia(String(first));
