@@ -215,6 +215,14 @@ jobs:
           assert r['realSignedJwt'] is False and r['productionAuthorized'] is False
           print('QR_R13_RETIRED_IDENTITY_INDEPENDENT_SOURCE_LOCAL_PASS')
           PY
+      - name: Independent 04 QR Source Privacy commit, read suppression, fault rollback, idempotency
+        env:
+          DDVRE_QR_R13_ISOLATED_LOCAL: CONFIRMED
+          DATABASE_URL: ''
+        run: |
+          set -euo pipefail
+          python3 tests/qr-r13-privacy-source-invariants.py | tee /tmp/qr-r13-privacy-independent.json
+          grep -F 'QR_R13_115_SOURCE_LOCAL_PRIVACY_INDEPENDENT_PASS' /tmp/qr-r13-privacy-independent.json
       - name: Record bounded acceptance limitations without pretending actor E2E
         if: always()
         shell: bash
