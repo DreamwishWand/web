@@ -49,6 +49,8 @@ jobs:
           VITE_SUPABASE_URL: ${{ vars.DREAMWISH_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.DREAMWISH_SUPABASE_PUBLISHABLE_KEY }}
         run: npm run build
+      - name: Audit Guide Systems public static publication boundary
+        run: node scripts/verify-guide-public-static-build.mjs build
       - name: Verify integrated static routes
         run: |
           test -f build/index.html

@@ -128,17 +128,19 @@ try{
 
   await page.goto(base+'/guide/',{waitUntil:'domcontentloaded'});
   await eventually(async()=>await page.locator('.result-list button').count()>0,{timeout:30000});
-  assert(await page.locator('.guide-tabs button').count()===5,'Guide does not expose five canonical sections');
+  assert(await page.locator('.guide-tabs button').count()===3,'Guide must retain Quest, Star Path and Event tabs only');
+  assert(await page.locator('.guide-tabs a[href$="/guide/systems/"]').count()===1,'Guide Systems canonical root link is missing');
   assert(await page.locator('.result-list button').count()===160,'Quest list does not honor bounded 160 display cap');
-  await page.locator('.guide-tabs button').nth(3).click();
-  await eventually(async()=>await page.locator('.result-list button').count()===45);
+  await page.locator('.guide-tabs a[href$="/guide/systems/"]').click();
+  await eventually(async()=>await page.locator('[data-systems-state="empty"]').count()===1);
+  assert(await page.locator('.category-block').count()===7,'Seven approved Systems category cards missing');
+  assert(await page.locator('[data-systems-state="results"]').count()===0,'Unapproved Guide article exposed');
   await page.locator('#site-locale').selectOption('ja');
-  await eventually(async()=>await page.locator('.fallback').count()>0);
-  assert((await page.locator('.detail h2').textContent())?.trim(),'Guide detail missing after System selection');
-  ok('GUIDE_CANONICAL_FAMILIES_AND_REVIEW_FALLBACK',{sections:5,systems:45,unreviewedLocaleFallback:true});
+  assert((await page.locator('.category-block').first().textContent()).includes('基本・進行・設定'),'Approved Japanese category label missing');
+  ok('GUIDE_CANONICAL_FOUR_ROOT_AND_SEVEN_CATEGORY_PUBLICATION_GATE',{sections:4,categories:7,publicSystems:0});
   await page.locator('#site-locale').selectOption('en');
 
-  await page.goto(base+'/explore/',{waitUntil:'domcontentloaded'});
+    await page.goto(base+'/explore/',{waitUntil:'domcontentloaded'});
   await eventually(async()=>await page.locator('.grid .card').count()>0,{timeout:30000});
   assert(await page.locator('.card img').count()===0,'Explore rendered media despite media gate');
   const boardSelect=page.locator('.controls select').nth(2);

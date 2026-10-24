@@ -1,0 +1,175 @@
+import { mkdir, writeFile, readFile } from 'node:fs/promises';
+import { chromium } from 'playwright-core';
+import { REVIEWED_EN_PAGE_INDEX } from '../tests/fixtures/guide-systems-reviewed-en.js';
+import { SYSTEMS_LOCALES, SYSTEMS_PUBLIC_SCHEMA } from '../src/lib/guide/systems-public.js';
+
+const base=(process.env.GUIDE_BASE_URL || 'http://127.0.0.1:4178').replace(/\/$/,'');
+const bin=process.env.CHROME_BIN;
+if(!bin)throw Error('CHROME_BIN required');
+const dir='.artifacts/guide-systems-browser';
+await mkdir(dir,{recursive:true});
+const evidence={startedAt:new Date().toISOString(),url:base,checks:[],pageErrors:[],consoleErrors:[],synthetic:true};
+const assert=(v,m)=>{if(!v)throw Error(m);};
+const success=name=>evidence.checks.push({name,status:'PASS'});
+async function until(fn,timeout=15000){const stop=Date.now()+timeout;while(Date.now()<stop){if(await fn())return;await new Promise(r=>setTimeout(r,125));}throw Error('Timeout waiting: '+fn.toString());}
+const target={platform:'Nintendo Switch',gameVersion:'1.25.0',buildID:'52BD625D9B4E0053',saveSchema:624};
+const fixture=(id,related=[])=>{
+ const p=REVIEWED_EN_PAGE_INDEX.get(id);
+ return {id,categoryId:p.categoryId,groupId:p.groupId,primaryMechanicKey:p.mechanicKey,
+ publicationStatus:'PUBLISHED',publicationApproved:true,rightsApproved:true,currentVersionReviewed:true,allEightLocalesReviewed:true,
+ sourceEnglishGuidanceSha256:p.sourceHash,sourceLabel:'SYNTHETIC TEST ONLY',confidence:'CONFIRMED',reviewedAt:'2026-10-24',
+ dlcContext:[],relatedArticleIds:related,localized:Object.fromEntries(SYSTEMS_LOCALES.map(lang=>[lang,{
+ title: id==='DREAMSNAPS'?(lang==='ja'?'ドリームスナップス':'DreamSnaps test article'):(lang==='fr'?'TrèsLongTitreDeTestSansEspaceTrèsLongTitreDeTestSansEspace':'Photo Mode test article'),
+ summary:'Synthetic reviewed test copy; not released content.',
+ prerequisites:['Synthetic prerequisite'],instructions:['Synthetic instruction'],warnings:['Synthetic warning']
+ }]))};
+};
+const sample={schema:SYSTEMS_PUBLIC_SCHEMA,target,articles:[fixture('DREAMSNAPS',['PHOTO_MODE']),fixture('PHOTO_MODE',['DREAMSNAPS'])]};
+const approvedFixturePages=['DREAMSNAPS','PHOTO_MODE'].map(id=>({...REVIEWED_EN_PAGE_INDEX.get(id),approved:true}));
+const catalogPath='src/lib/guide/systems-catalog.js';
+const catalogOriginal=await readFile(catalogPath,'utf8');
+const catalogAnchor='export const APPROVED_SYSTEM_PAGES = Object.freeze([]);';
+if(!catalogOriginal.includes(catalogAnchor))throw Error('Public-approved catalog does not start empty');
+let testCatalogInstalled=false;
+const browser=await chromium.launch({executablePath:bin,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+const ctx=await browser.newContext({viewport:{width:1280,height:900},locale:'en-US'});
+const page=await ctx.newPage();
+page.on('pageerror',err=>evidence.pageErrors.push(String(err)));
+page.on('console',msg=>{if(msg.type()==='error')evidence.consoleErrors.push(msg.text());});
+async function noOverflow(){const dims=await page.evaluate(()=>[document.documentElement.scrollWidth,document.documentElement.clientWidth]);assert(dims[0]<=dims[1]+2,'Horizontal overflow '+dims);}
+try{
+  await page.goto(base+'/guide/',{waitUntil:'domcontentloaded'});
+  await until(async()=>await page.locator('.guide-tabs a[href$="/guide/systems/"]').count()===1);
+  assert(await page.locator('.guide-tabs button').count()===3,'Guide must show three other root tabs');
+  success('GUIDE_FOUR_CHILD_ROOT');
+
+  await page.locator('.guide-tabs a[href$="/guide/systems/"]').click();
+  await until(async()=>await page.locator('[data-systems-state="empty"]').count()===1);
+  assert(await page.locator('.category-block').count()===7,'Seven approved categories missing');
+  assert(await page.locator('[data-systems-state="results"]').count()===0,'Unapproved article exposed');
+  assert(!(await page.locator('main').innerText()).includes('Quest and Mission Progression'),'Leaked unpublished article title');
+  success('ZERO_PUBLIC_ARTICLES_SEVEN_CATEGORY_BROWSE');
+
+  await page.locator('.category-block').nth(3).locator('button').first().click();
+  assert(await page.locator('.group-list button').count()===5,'Gathering category must expose 4 groups plus All');
+  await page.locator('.group-list button').nth(2).click();
+  assert(await page.locator('[data-systems-state="empty"]').count()===1,'Empty category leaked content');
+  success('CANONICAL_GROUPS_AND_EMPTY');
+
+  await page.locator('#systems-search').fill('ドリームスナップス');
+  assert(await page.locator('[data-systems-state="results"]').count()===0,'Unknown JA alias creates unapproved result');
+  await page.locator('#systems-version').selectOption('1.25.3');
+  assert(await page.locator('[data-systems-state="unknown-version"]').count()===1,'Unknown build not blocked');
+  success('SEARCH_PUBLICATION_AND_UNKNOWN_VERSION_GATE');
+
+  await page.goto(base+'/guide/systems/?article=DREAMSNAPS',{waitUntil:'domcontentloaded'});
+  await until(async()=>await page.locator('[data-systems-state="unpublished"]').count()===1);
+  success('UNPUBLISHED_STABLE_ENTITY_URL_NO_LEAK');
+
+  for(const lang of SYSTEMS_LOCALES){
+    await page.locator('#site-locale').selectOption(lang);
+    await page.locator('.category-block').first().locator('button').first().click();
+    const heading=(await page.locator('h1').textContent()||'').trim();
+    assert(heading.length>0,'Missing '+lang+' interface heading');
+    assert((await page.locator('.category-block').count())===7,'Changed categories '+lang);
+    await page.setViewportSize({width:320,height:800});
+    await noOverflow();
+    await page.setViewportSize({width:1280,height:900});
+  }
+  success('EIGHT_LOCALES_320PX_AND_A11Y_CONTROLS');
+
+  // Even a forged manifest with every publication flag true is rejected when the
+  // *shipped* zero-page compiled allowlist is unchanged.
+  await page.route('**/ddv/guide/v1.25/systems-public.json',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(sample)}));
+  await page.goto(base+'/guide/systems/',{waitUntil:'domcontentloaded'});
+  await until(async()=>await page.locator('[data-systems-state="error"]').count()===1);
+  assert(await page.locator('.systems-result').count()===0,'Client trusted forged public manifest approval');
+  success('FORGED_PUBLIC_MANIFEST_REJECTED_BY_COMPILED_ZERO_ALLOWLIST');
+  await page.unroute('**/ddv/guide/v1.25/systems-public.json');
+  const privateV17={schema:'ddv.guide-systems-native-locdb-provenance-promotion@17',
+    target:{platform:'Nintendo Switch',gameVersion:'1.25.0',buildID:'52BD625D9B4E0053',schema:624},
+    editorial315:[{articleId:'DREAMSNAPS',locale:'JA',editorialGuidanceText:'SYNTHETIC V17 PRIVATE BODY'}],
+    consumer360:[{articleId:'DREAMSNAPS',locale:'JA',previewTitle:'SYNTHETIC PRIVATE TITLE',
+      humanGameUIQA:false,rightsSigned:false,publicEligible:false}]};
+  await page.route('**/ddv/guide/v1.25/systems-public.json',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(privateV17)}));
+  await page.goto(base+'/guide/systems/?article=DREAMSNAPS',{waitUntil:'domcontentloaded'});
+  await until(async()=>await page.locator('[data-systems-state="error"]').count()===1);
+  assert(!(await page.locator('main').innerText()).includes('SYNTHETIC PRIVATE BODY'),'V17 draft body rendered from public URL');
+  assert(!(await page.locator('main').innerText()).includes('SYNTHETIC PRIVATE TITLE'),'V17 draft title rendered from public URL');
+  success('V17_PRIVATE_CORPUS_REJECTED_AT_PUBLIC_MANIFEST_URL');
+  await page.unroute('**/ddv/guide/v1.25/systems-public.json');
+  const privateV18={schema:'ddv.guide-systems-consumer-return@18',
+    consumerContract:{schema:'ddv.guide-systems-reviewer-consumer@18',
+      access:'DO_NOT_PUBLISH_ON_WEB_OR_STATIC_ASSETS',
+      valuesNow:{publicEligibleArticles:0}},
+    publicationGate45:[{articleId:'DREAMSNAPS',publicEligible:false}],
+    syntheticInternalDraftTitle:'PRIVATE V18 OWNER ONLY — NEVER PUBLIC'};
+  await page.route('**/ddv/guide/v1.25/systems-public.json',route=>route.fulfill({
+    status:200,contentType:'application/json',body:JSON.stringify(privateV18)}));
+  await page.goto(base+'/guide/systems/?article=DREAMSNAPS',{waitUntil:'domcontentloaded'});
+  await until(async()=>await page.locator('[data-systems-state="error"]').count()===1);
+  assert(!(await page.locator('main').innerText()).includes('PRIVATE V18 OWNER ONLY'),
+    'V18 reviewer payload rendered from public URL');
+  assert(await page.locator('.systems-detail').count()===0,'V18 reviewer payload opened public detail');
+  success('V18_OWNER_ONLY_REVIEWER_PACKAGE_REJECTED_BY_PUBLIC_URL');
+  await page.unroute('**/ddv/guide/v1.25/systems-public.json');
+
+  // Browser-positive contract is tested only after injecting synthetic fixture
+  // approval into this ephemeral CI checkout. The real source is restored in finally.
+  // This is never a production build flag or deployable publication endpoint.
+  await writeFile(catalogPath,catalogOriginal.replace(catalogAnchor,
+    'export const APPROVED_SYSTEM_PAGES = Object.freeze('+JSON.stringify(approvedFixturePages)+');'));
+  testCatalogInstalled=true;
+  await new Promise(resolve=>setTimeout(resolve,700));
+  await page.route('**/ddv/guide/v1.25/systems-public.json',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(sample)}));
+  await page.goto(base+'/guide/systems/',{waitUntil:'domcontentloaded'});
+  await until(async()=>await page.locator('.systems-result').count()===2);
+  assert(await page.locator('.systems-result').count()===2,'Synthetic published browse does not include exactly two');
+  await page.locator('#site-locale').selectOption('fr');
+  await page.setViewportSize({width:320,height:800});
+  await noOverflow();
+  assert((await page.locator('.systems-result').nth(1).textContent()).includes('TrèsLongTitreDeTestSansEspace'),'Long FR title fixture not rendered');
+  await page.locator('.systems-result').nth(1).focus();
+  assert(await page.locator('.systems-result').nth(1).evaluate(node=>node===document.activeElement),'Keyboard link focus missing');
+  await page.setViewportSize({width:1280,height:900});
+  await page.locator('#site-locale').selectOption('en');
+  success('V17_LONG_UNBROKEN_LOCALE_TITLE_320PX_KEYBOARD');
+  await page.locator('#systems-search').fill('写真と');
+  await until(async()=>await page.locator('.systems-result').count()===2);
+  await page.locator('#systems-search').fill('ドリームスナップス');
+  await until(async()=>await page.locator('.systems-result').count()===1);
+  assert((await page.locator('.systems-result').first().getAttribute('href')).includes('DREAMSNAPS'),'Japanese approved title was not searchable in EN UI');
+  success('CROSS_LOCALE_REVIEWED_JA_TITLE_IN_EN_SEARCH');
+  await page.locator('#systems-search').fill('DreamSnaps');
+  await until(async()=>await page.locator('.systems-result').count()===2);
+  const ids=await page.locator('.systems-result').evaluateAll(nodes=>nodes.map(node=>new URL(node.getAttribute('href'),location.href).searchParams.get('article')));
+  assert(new Set(ids).size===2&&ids.includes('DREAMSNAPS')&&ids.includes('PHOTO_MODE'),'Bilingual category alias or canonical dedup failed');
+  await page.locator('.systems-result').first().click();
+  await until(async()=>await page.locator('[data-systems-state="detail"]').count()===1);
+  assert((await page.locator('.systems-detail h2').textContent()).includes('DreamSnaps'),'Stable detail mismatch');
+  assert(await page.locator('.systems-detail ol li').count()===1,'Verified instruction missing');
+  assert(await page.locator('.systems-detail a[href*="PHOTO_MODE"]').count()===1,'Approved related system link missing');
+  assert(!(await page.locator('main').innerText()).includes('QUEST_MISSION_PROGRESSION'),'Non-public relation leaked');
+  success('SYNTHETIC_APPROVED_SEARCH_DETAIL_CANONICAL_RELATED');
+
+  const rejected={...sample,articles:[{...sample.articles[0],rightsApproved:false}]};
+  await page.unroute('**/ddv/guide/v1.25/systems-public.json');
+  await page.route('**/ddv/guide/v1.25/systems-public.json',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(rejected)}));
+  await page.goto(base+'/guide/systems/?article=DREAMSNAPS',{waitUntil:'domcontentloaded'});
+  await until(async()=>await page.locator('[data-systems-state="error"]').count()===1);
+  assert(await page.locator('.systems-detail').count()===0,'Failed manifest still displayed article');
+  success('MALFORMED_OR_UNAPPROVED_CONTENT_FAIL_CLOSED');
+
+  assert(evidence.pageErrors.length===0,'Page errors: '+evidence.pageErrors);
+  assert(evidence.consoleErrors.length===0,'Console errors: '+evidence.consoleErrors);
+  success('PAGE_AND_CONSOLE_ERRORS_ZERO');
+}catch(e){
+ evidence.failed=String(e);
+ await page.screenshot({path:dir+'/failure.png',fullPage:true}).catch(()=>{});
+ throw e;
+}finally{
+ evidence.completedAt=new Date().toISOString();
+ await writeFile(dir+'/evidence.json',JSON.stringify(evidence,null,2)+'\n');
+ await browser.close();
+ console.log(JSON.stringify({checks:evidence.checks.length,failed:evidence.failed||null,synthetic:true,pageErrors:evidence.pageErrors,consoleErrors:evidence.consoleErrors}));
+}
