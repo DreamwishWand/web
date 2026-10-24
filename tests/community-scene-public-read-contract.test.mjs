@@ -210,3 +210,31 @@ test('owner diagnostic Scene history pin is advisory and paired candidate requir
   assert.match(sql, /revoke all on function private\.scene_save_revision_paired_candidate_v1\([\s\S]*?\)\s+from public,anon,authenticated,service_role/i);
   assert.doesNotMatch(sql, /grant execute on function private\.scene_save_revision_paired_candidate_v1/i);
 });
+
+test('paired Gallery version hints are owner-scoped, nullable and non-atomic in Scene readiness', () => {
+  const readiness = sql.split('create or replace function public.community_scene_revision_readiness_v1(')[1]
+    ?.split('$scene_readiness$')[1];
+  assert.ok(readiness);
+  const ownedLookup = readiness.indexOf('select * into v_owned_gallery from public.community_works');
+  const diagnostic = readiness.indexOf("'pairedGalleryWorkId',v_owned_gallery.work_id");
+  assert.ok(ownedLookup >= 0 && diagnostic > ownedLookup);
+  for (const guard of [
+    'v_artifact.associated_gallery_work_id is not null',
+    'v_cross_owner=0 and v_referenced_unknown=0',
+    'cardinality(v_all_ids)=1',
+    'v_all_ids[1]=v_artifact.associated_gallery_work_id',
+    'owner_account_id=v_owner',
+    'creator_profile_id=v_artifact.creator_profile_id',
+    "work_type='gallery'"
+  ]) assert.ok(readiness.includes(guard), 'owner/graph guard absent: ' + guard);
+  for (const hint of [
+    "'pairedGalleryWorkId',v_owned_gallery.work_id",
+    "'pairedGalleryWorkRowVersion',v_owned_gallery.row_version",
+    "'pairedGalleryCurrentWorkRevisionId'",
+    "'pairedGallerySnapshotIsAtomicFence',false",
+    "'graphComplete',false",
+    "'saveRevisionAuthorized',false"
+  ]) assert.ok(readiness.includes(hint), 'readiness hint/gate absent: ' + hint);
+  assert.ok(readiness.indexOf('v_owned_gallery.work_id') > ownedLookup);
+  assert.doesNotMatch(readiness, /'storageKey'|'signedUrl'|'rawUrl'/);
+});
