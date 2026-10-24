@@ -163,7 +163,9 @@ with psycopg.connect(dsn,autocommit=True) as c:
         raise AssertionError("SUPPRESSED_ACTOR_AUTHORIZED")
     except psycopg.Error as e:
         assert "ACCOUNT_PRIVACY_SUPPRESSED" in str(e),str(e)
-    assert state(c)==(1,1,1,1)
+    # Phase1 must purge the disposable Search projection while retaining
+    # immutable Gallery revision, Gallery Outbox, and Idempotency history.
+    assert state(c)==(1,0,1,1),state(c)
     assert one(c,"select private.is_discoverable_work(%s)",(g["target"],)) is False
     print(json.dumps({"case":"R14_ACTUAL_V4_PRIVACY_DENIED",
       "suppressionCommitted":True,"galleryHistoryPreserved":True}))
