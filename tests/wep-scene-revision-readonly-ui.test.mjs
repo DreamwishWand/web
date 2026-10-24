@@ -12,6 +12,9 @@ test('Scene read-only panel wiring stays visible in Discover and auth-gated in o
   assert.match(panel,/getPublicCommunityMedia/);
   assert.match(panel,/bridge\.inspectSceneRevisionReadiness/);
   assert.match(panel,/!connected/);
+  assert.match(panel,/ownerBridge = bridge/);
+  assert.match(panel,/owner = null/);
+  assert.match(panel,/connected && bridge === requestedBridge/);
   assert.match(panel,/data-wep-scene-save-disabled/);
   assert.match(panel,/diagnoseSceneRevisionPairing/);
   assert.match(panel,/data-wep-scene-owner-comparison/);
