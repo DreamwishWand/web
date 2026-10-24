@@ -23,6 +23,11 @@
   let loading = false;
   let signing = false;
   let selectedKey = '';
+  let ownerBridge: any = null;
+  $: if (!connected || bridge !== ownerBridge) {
+    ownerBridge = bridge;
+    owner = null;
+  }
   $: copy = sceneRevisionCopy($locale);
   $: diagnosis = owner ? diagnoseSceneRevisionPairing(current, owner) : null;
   $: selectionKey = workId + '/' + presetArtifactId;
@@ -77,11 +82,14 @@
     error = '';
     owner = null;
     const requested = selectionKey;
+    const requestedBridge = bridge;
     try {
       const found = await reader().readOwner(presetArtifactId);
-      if (requested === selectionKey) owner = found;
+      if (requested === selectionKey && connected && bridge === requestedBridge) owner = found;
     } catch (e) {
-      if (requested === selectionKey) error = e instanceof Error ? e.message : String(e);
+      if (requested === selectionKey && connected && bridge === requestedBridge) {
+        error = e instanceof Error ? e.message : String(e);
+      }
     } finally {
       loading = false;
     }
