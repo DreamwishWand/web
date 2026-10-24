@@ -313,12 +313,129 @@ def stale_historical_graph_counterexample(url,g):
             "retirementAuthorized":False}))
 
 
+
+def concurrent_known_reference_edge_insert(url,g):
+    """R10: source trigger vs GalleryWork row lock in ACTUAL local 113-migration DB.
+
+    The new unsealed GalleryRevision is precreated before the lock, so the
+    waiting operation is the GalleryRevisionPreset INSERT (known-writer trigger),
+    not a previous parent-Work FK insertion. No row deletion/revocation.
+    """
+    with psycopg.connect(url,autocommit=True) as a, psycopg.connect(url,autocommit=True) as b:
+        apid=one(a,"select pg_backend_pid()")[0]
+        bpid=one(b,"select pg_backend_pid()")[0]
+        assert apid!=bpid
+        assert one(a,"""select count(*) from pg_trigger
+            where tgname='gallery_revision_presets_known_reference_fence'
+              and tgenabled='O'""")[0]==1, "R10_EXPECTED_DEPLOYED_REFERENCE_FENCE_MISSING"
+        orig_edge_hash=historical_edge_hash(a,g)
+        orig_work_versions=one(a,"""select p.row_version,g.row_version
+            from public.community_works p cross join public.community_works g
+            where p.work_id=%s and g.work_id=%s""",
+            (g["presetWork"],g["galleryWork"]))
+        owner=one(a,"select owner_account_id from public.community_works where work_id=%s",(g["galleryWork"],))[0]
+        newrev=uuid.uuid4()
+        a.execute("BEGIN")
+        try:
+            rev_number=one(a,"""select coalesce(max(revision_number),0)+1
+                from public.community_work_revisions where work_id=%s""",(g["galleryWork"],))[0]
+            execute(a,"""insert into public.community_work_revisions
+                (revision_id,work_id,revision_number,created_by_account_id,shared_metadata)
+                values(%s,%s,%s,%s,'{"r10":"isolated_pending_link"}'::jsonb)""",
+                (newrev,g["galleryWork"],rev_number,owner))
+            execute(a,"""insert into public.gallery_work_revisions(revision_id,title,description,metadata)
+                values(%s,'R10 pending no-public edge',null,'{}'::jsonb)""",(newrev,))
+            a.execute("COMMIT")
+        except:
+            a.execute("ROLLBACK")
+            raise
+        # Work rowVersion itself is not a seal of unlinked historical revisions.
+        assert historical_edge_hash(a,g)==orig_edge_hash
+        assert one(a,"""select p.row_version,g.row_version
+            from public.community_works p cross join public.community_works g
+            where p.work_id=%s and g.work_id=%s""",
+            (g["presetWork"],g["galleryWork"]))==orig_work_versions
+        started=threading.Event()
+        done=threading.Event()
+        result={}
+        a.execute("BEGIN")
+        try:
+            assert one(a,"select work_id from public.community_works where work_id=%s for update",
+                (g["galleryWork"],))==(g["galleryWork"],)
+            def edge_writer():
+                try:
+                    b.execute("BEGIN")
+                    b.execute("set local lock_timeout='1900ms'")
+                    b.execute("set local statement_timeout='8s'")
+                    started.set()
+                    try:
+                        execute(b,"""insert into public.gallery_revision_presets
+                            (gallery_revision_id,preset_revision_id) values(%s,%s)""",
+                            (newrev,g["presetRev"]))
+                        result["unexpectedSuccess"]=True
+                    except psycopg.Error as error:
+                        result["sqlstate"]=error.sqlstate
+                        result["error"]=str(error).splitlines()[0]
+                except Exception as error:
+                    result["unexpected"]=repr(error)
+                finally:
+                    b.execute("ROLLBACK")
+                    done.set()
+            t=threading.Thread(target=edge_writer,daemon=True)
+            t.start()
+            assert started.wait(5), "R10_EDGE_INSERT_NOT_STARTED"
+            blocked=False
+            wait_event_type=None
+            deadline=time.monotonic()+3
+            while time.monotonic()<deadline and not done.is_set():
+                blocking_pids, event=one(a,"""select pg_blocking_pids(%s),
+                    (select wait_event_type from pg_stat_activity where pid=%s)""",
+                    (bpid,bpid))
+                if apid in (blocking_pids or []):
+                    blocked=True
+                    wait_event_type=event
+                    break
+                time.sleep(.025)
+            assert done.wait(8),"R10_EDGE_TIMEOUT_NOT_OBSERVED"
+            t.join(1)
+            assert blocked and result.get("sqlstate")=="55P03",result
+            assert not result.get("unexpectedSuccess") and not result.get("unexpected"),result
+            assert historical_edge_hash(a,g)==orig_edge_hash,"R10_FAILED_EDGE_INSERT_LEFT_REFERENCE"
+            print(json.dumps({"case":"R10_ACTUAL_GALLERY_REVISION_PRESET_INSERT_TRIGGER_TWO_SESSIONS",
+                "holderPid":apid,"writerPid":bpid,"waitEventType":wait_event_type,
+                "writerBlockedByGalleryWorkLock":True,"sqlstate":result["sqlstate"],
+                "timedOutInsertRolledBack":True,"presetAndGalleryRowVersionsUnchanged":True,
+                "full113SourceMigrations":True,"actualStagingOrSignedActor":False}))
+        finally:
+            a.execute("ROLLBACK")
+        assert historical_edge_hash(a,g)==orig_edge_hash
+        # Reference INSERT is admitted only after Gallery lock release; however
+        # roll back it here so the ephemeral fixture has no durable new edge.
+        b.execute("BEGIN")
+        try:
+            execute(b,"""insert into public.gallery_revision_presets
+                (gallery_revision_id,preset_revision_id) values(%s,%s)""",
+                (newrev,g["presetRev"]))
+            assert historical_edge_hash(b,g)!=orig_edge_hash
+            print(json.dumps({"case":"R10_REFERENCE_WRITER_AFTER_GALLERY_LOCK_RELEASE",
+                "newEdgeVisibleInSameTransaction":True,
+                "sameWorkRowVersionsWithoutRevisionPointerChange":True,
+                "commitAuthorized":False}))
+        finally:
+            b.execute("ROLLBACK")
+        assert historical_edge_hash(a,g)==orig_edge_hash
+        print(json.dumps({"result":"R10_KNOWN_REFERENCE_TRIGGER_TWO_SESSION_LOCAL_PASS",
+            "unknownReferenceWriterGraphComplete":False,
+            "retirementAuthorized":False}))
+
+
 def main():
     url=local_dsn()
     with psycopg.connect(url,autocommit=True) as c:
         g=fixture(c)
     concurrent(url,g)
     stale_historical_graph_counterexample(url,g)
+    concurrent_known_reference_edge_insert(url,g)
 
 if __name__=="__main__":
     main()
