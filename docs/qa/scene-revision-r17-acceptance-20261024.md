@@ -61,3 +61,28 @@ Gate to promote: 03 COMM+09 INT+02 WEP must produce a reviewed writer API with o
 **Latest executable result:** exact QA HEAD `b07b6ca47caf34e33b9ee45cf5a654af2e905b9f` [GitHub CI #40082670521](https://github.com/DreamwishWand/web/actions/runs/40082670521) **SUCCESS: 1028 tests / 1016 PASS / 0 FAIL / 12 inherited SKIP**. [Actual Chrome #40082667825](https://github.com/DreamwishWand/web/actions/runs/40082667825) **SUCCESS**, independent cross-source 6/6 + older negative-only 7/7 (13/13) and synthetic HTTP Current Cover/expiry/tamper/320px browser PASS. Browser is real; identity, Gallery Media, CDN/old issued URLs are synthetic. No actual auth or Storage acceptance.
 
 **R17 status unchanged**: PRE-DISC BLOCKED / PRE-LIB PARTIAL / PRE-ING BLOCKED / SEED-PRESETS BLOCKED; 30 nodes PASS0/PARTIAL12/BLOCKED18. P1I/native Apply independent E2E not touched. Global current/historical/Moderator/Privacy-erasure Gallery/R7 locking and two-session Staging proof remain missing, so `graphComplete=false`, `retirementAuthorized=false`, all unsafe writers/Cloud Private/Restore/physical delete/72h OFF.
+
+## Latest R9/R11 caller-history and known reference writer acceptance (2026-10-24)
+
+**Sources QA actually used:** 03 COMM current Draft #134 `d2e4576830bb7e37e4f7981c5777912e7b3be85c` source; 02 WEP current Draft #135 `2ab11d528d43b54a5afee4856f80ffe9abc4ee69`; 09 INT R11 validation `9e1e714fa495aadfdf5b8190866150aa34d34ced` (test alone is insufficient: it was executed AGAINST the current #134 migration in QR's own 113-migration isolated DB). All sources combined in QA-only Draft #136 via verified non-force source merges; **none of the owner PRs or Signed Gallery PR132 was modified**.
+
+| Release gate | Executed evidence | Verdict |
+|---|---|---|
+| R9 stale historical caller graph changed BEFORE request | Real local PG17: new noncurrent edge within same GalleryWork leaves both Work versions unchanged, old caller SHA rejected with `SCENE_REVISION_CALLER_EDGE_FINGERPRINT_STALE`; snapshot/rollback unchanged | PASS, isolated only |
+| R11 reference INSERT in GalleryRevisionPreset | Two real PG sessions, Gallery Work holder blocks writer; 55P03, rollback | PASS, isolated only |
+| R11 PresetArtifact associated Gallery reference update | Same real Gallery Work lock, 55P03 and rollback | PASS, isolated only |
+| R11 PresetRevisionPublication INSERT | Same real Gallery Work lock, 55P03 and rollback | PASS, isolated only |
+| GalleryWork rowVersion stale/invalid | New QR standalone local source RPC negative requiring `SCENE_REVISION_ROW_VERSION_CONFLICT`, no side effects | Pending exact-head R11 job until proof recorded |
+| Concurrent historical edge during held GalleryWork lock | R11 known-reference trigger blocks legitimate edge writer before commit; exact before/after graph source recheck in paired Writer | PARTIAL: bounded 3 trigger paths; unregistered writers unproven |
+| PresetWork lifecycle update avoids or follows common locks | Generic owner lifecycle fail-closed pending global Writer registry, no safe positive lifecycle Writer | BLOCKED for global contract |
+| Retry after lock contention rechecks effective actor authority/current-history graph | R11 local rollback→new transaction success/replay; same-owner synthetic fixture and source recheck; no independent normal JWT/moderation/erasure actor | PARTIAL |
+| Partial Work/Media/Search and late exception rollback | Local 113 migration true SQL rollback, no partial persistent updates; no real Storage/Cloud bytes | PASS isolated, NOT signed Storage |
+| Real normal A/B/M Auth, signed Storage, public/current/history, 409, Cloud/CDN | Protected Actor secrets/approval not available | NOT_EXECUTED |
+
+**Latest standalone evidence:** earlier code-head [local R11 #40088243931](https://github.com/DreamwishWand/web/actions/runs/40088243931) SUCCESS against #134 latest source. Output included holder/writer PIDs, Lock/55P03 and `R11_ALL_THREE_KNOWN_REFERENCE_TRIGGER_LOCKS_LOCAL_PASS`, stale old SHA rejection, same-owner fresh caller SHA candidate; **allWriterGraphComplete=false** and retirementAuthorized=false. Source QA positive currently stopped at inert DB candidate; a green Source CI isn't a user-job PASS.
+
+**New independently authored 04 QR regressions:** `QR-SCN-R11-01..03` check current #134 caller-pinned SHA under Artifact/PresetWork/GalleryWork lock ordering and before new Revisions; check Owner Readiness returns GalleryWork rowVersion/current Work revision and scoped historical digest as DIAGNOSTIC only; ensure WEP offline proposal has null expected GalleryWork rowVersion & historical pin and false all authorizations; ensure three trigger definitions exist and local R11 script checks all 3. Additional local actual SQL test verifies GalleryWork stale rowVersion without mutation. R11 fixture is based on independent 09 INT validation but uses latest 03 COMM source, not stale cloned SQL.
+
+**Limit:** signed owner read-only Readiness on Staging is not deployed, real bytes/ACK and global Writer/Owner/Moderation/Erasure graph remain unavailable. All current published/Cloud positive operations and native DDV persistent Apply remain OFF.
+
+**R17 30 PASS0/PARTIAL12/BLOCKED18**, PRE-DISC BLOCKED, PRE-LIB PARTIAL, PRE-ING BLOCKED, SEED-PRESETS BLOCKED. Re-evaluate upon deployed full graph generation + all-writer proof + approved disposable normal A/B/M/storage + moderator/account-erasure acceptance; never promote from local SQL/CI alone.
