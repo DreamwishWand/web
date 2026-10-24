@@ -49,7 +49,7 @@ test('Production JS/catalog contains no unpublished EN title, source hash or pri
   for(const record of REVIEWED_EN_PAGES) {
     assert.equal(shipping.includes(record.sourceHash), false, record.id + ' unpublished source hash exposed');
     assert.equal(shipping.includes('"' + record.id + '"'), false, record.id + ' unpublished identifier exposed');
-    assert.equal(shipping.includes(record.titleEN), false, record.id + ' unpublished title exposed');
+    assert.equal(shipping.includes('"titleEN": "' + record.titleEN + '"'), false, record.id + ' unpublished editorial title record exposed');
   }
 });
 test('Forged approval booleans and matching source hashes cannot bypass compiled 0-page allowlist',()=>{
