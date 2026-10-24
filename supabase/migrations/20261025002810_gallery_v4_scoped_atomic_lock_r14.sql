@@ -83,6 +83,3 @@ begin
   end if;
 end;
 $atomic$;
-revoke all on function private.gallery_v4_atomic_lock_scoped_r14(uuid,uuid,uuid,uuid[])
-  from public,anon,authenticated,service_role;
-
