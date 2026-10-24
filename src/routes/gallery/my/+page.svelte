@@ -2,8 +2,9 @@
   import { onMount } from 'svelte';
   import { base } from '$app/paths';
   import { locale, ct as t } from '$lib/i18n/community.js';
-  import { createCommunityBrowserClient, getPublicCommunityMedia } from '$lib/community/browser-client';
+  import { createCommunityBrowserClient, getGalleryPublicMedia } from '$lib/community/browser-client';
   import PhotoPreview from '$lib/gallery/PhotoPreview.svelte';
+  import { parseGalleryRetirementPreflight } from '$lib/community/gallery-preflight.js';
   import { workUrl, GALLERY_OWNER_MUTATION_BLOCKER } from '$lib/gallery/stage1.js';
   import OverflowMenu from '$lib/ui/OverflowMenu.svelte';
   import Sheet from '$lib/ui/Sheet.svelte';
@@ -20,6 +21,8 @@
   let ownerBusy=false;
   let stagedTitle='', stagedDescription='', ownerMediaUrls:string[]=[];
   let showEditPreview=false;
+  let preflight:any=null,preflightBusy=false,preflightError='';
+  let managementRequest=0;
 
   onMount(()=>{signedIn=Boolean(client?.session);if(signedIn)void load();});
   async function run<T>(f:()=>Promise<T>):Promise<T|null>{
@@ -49,22 +52,37 @@
     if(ok)await load();
   }
   async function manage(work:any){
+    const request=++managementRequest;
     management=work;ownerDetail=null;managementError='';showManagement=true;ownerBusy=true;
+    preflight=null;preflightError='';preflightBusy=false;
     stagedTitle=String(work.title??'');stagedDescription='';ownerMediaUrls=[];showEditPreview=false;
     try{
       const result:any=await client?.query('gallery',{workId:work.workId});
+      if(request!==managementRequest)return;
       ownerDetail=result?.data??null;
       commentsEnabled=ownerDetail?.commentsEnabled!==false;
       stagedTitle=String(ownerDetail?.title??work.title??'');
       stagedDescription=String(ownerDetail?.description??'');
       for(const mediaId of (ownerDetail?.mediaIds??[]).slice(0,10)){
         try{
-          const media=await getPublicCommunityMedia(String(mediaId));
-          ownerMediaUrls=[...ownerMediaUrls,media.signedUrl];
+          const media=await getGalleryPublicMedia(String(mediaId));
+          if(request===managementRequest)ownerMediaUrls=[...ownerMediaUrls,media.streamUrl];
         }catch{ /* leave public media unavailable rather than bypassing authorization */ }
       }
-    }catch(e){managementError=e instanceof Error?e.message:String(e)}
-    finally{ownerBusy=false}
+      if(ownerDetail?.isOwner && request===managementRequest)void loadPreflight(String(work.workId),request);
+    }catch(e){if(request===managementRequest)managementError=e instanceof Error?e.message:String(e)}
+    finally{if(request===managementRequest)ownerBusy=false}
+  }
+  async function loadPreflight(workId:string,request=managementRequest){
+    if(!client?.session||!ownerDetail?.isOwner||management?.workId!==workId)return;
+    preflightBusy=true;preflightError='';preflight=null;
+    try{
+      const result:any=await client.query('galleryRetirementPreflight',{workId});
+      if(request!==managementRequest)return;
+      preflight=parseGalleryRetirementPreflight(result?.data,workId);
+    }catch(e){
+      if(request===managementRequest)preflightError=e instanceof Error?e.message:String(e);
+    }finally{if(request===managementRequest)preflightBusy=false}
   }
   async function setComments(){
     if(!client?.session||!management?.workId)return;
@@ -162,6 +180,25 @@
         {/if}
         <p>{t('galleryv1.uploadNotReady',{},$locale)} <code>{GALLERY_OWNER_MUTATION_BLOCKER}</code></p>
         <button type="button" disabled aria-disabled="true">{t('galleryv1.publishUpdate',{},$locale)}</button>
+        {#if ownerDetail?.isOwner}
+          <section class="gallery-retirement-preflight" aria-label={t('galleryv1.retirementPreflight',{},$locale)}>
+            <h3>{t('galleryv1.retirementPreflight',{},$locale)}</h3>
+            <p>{t('galleryv1.preflightReadOnly',{},$locale)}</p>
+            {#if preflightBusy}<p role="status">{t('galleryv1.loading',{},$locale)}</p>
+            {:else if preflightError}<p role="alert">{t('galleryv1.preflightUnavailable',{},$locale)} <code>{preflightError}</code></p>
+            {:else if preflight}
+              <p>{t('galleryv1.currentRevision',{},$locale)}: <code>{preflight.revisionId??'—'}</code> · {t('galleryv1.rowVersion',{},$locale)}: {preflight.rowVersion}</p>
+              <p>{t('galleryv1.graphState',{},$locale)}: {preflight.graphComplete?t('galleryv1.complete',{},$locale):t('galleryv1.incomplete',{},$locale)}</p>
+              <p>{t('galleryv1.cloudState',{},$locale)}: {preflight.cloudEntitlementVerified?t('galleryv1.verified',{},$locale):t('galleryv1.unverified',{},$locale)}</p>
+              <p>{t('galleryv1.mediaLinkState',{},$locale)}: {preflight.previousSignedUrlsRevoked&&preflight.cdnAndBrowserPurgeProven?t('galleryv1.verified',{},$locale):t('galleryv1.unverified',{},$locale)}</p>
+              {#if preflight.blockedReasons.length}
+                <p>{t('galleryv1.disabledReasons',{},$locale)}</p>
+                <ul>{#each preflight.blockedReasons as reason}<li><code>{reason}</code></li>{/each}</ul>
+              {/if}
+            {/if}
+            <button type="button" disabled={preflightBusy} on:click={()=>loadPreflight(String(management.workId))}>{t('galleryv1.retry',{},$locale)}</button>
+          </section>
+        {/if}
         <p role="status">{t('galleryv1.retirementBlocked',{},$locale)}</p>
         <button type="button" disabled aria-disabled="true">{t('galleryv1.unpublish',{},$locale)}</button>
         <h3>{t('galleryv1.deleteWork',{},$locale)}</h3>
