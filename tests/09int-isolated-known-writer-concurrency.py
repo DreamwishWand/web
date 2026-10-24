@@ -421,6 +421,183 @@ def test_candidate_lifecycle_shared_lock_guard(a,b):
         "allWriterEnrollmentProven":False,"graphComplete":False,
         "retirementAuthorized":False}))
 
+
+R7_FILE=Path("tests/09int-r7-source-derived-linked-unpublish-candidate.sql")
+R7_OWNER=uuid.uuid4()
+R7_NONOWNER=uuid.uuid4()
+
+def setup_r7_source_derived(c):
+    """Only local disposable PG schema stubs for actual source-derived RPC execution.
+
+    Functions in the Staging RPC resolve real auth and use other production tables;
+    the fixture mocks only their transaction-related dependencies, not roles/RLS.
+    """
+    c.execute("CREATE SCHEMA IF NOT EXISTS extensions")
+    c.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto")
+    c.execute("ALTER TABLE public.community_works ADD COLUMN owner_account_id uuid")
+    c.execute("ALTER TABLE public.preset_artifacts ADD COLUMN community_work_id uuid")
+    c.execute("UPDATE public.community_works SET owner_account_id=%s",(R7_OWNER,))
+    c.execute("UPDATE public.preset_artifacts SET community_work_id=%s WHERE preset_artifact_id=%s",(PW,P))
+    c.execute("""
+       CREATE TABLE public.idempotency_keys (
+         account_id uuid NOT NULL,
+         idempotency_key text NOT NULL,
+         command_name text NOT NULL,
+         request_hash text NOT NULL,
+         response jsonb, completed_at timestamptz,
+         PRIMARY KEY(account_id,idempotency_key));
+       CREATE TABLE public.search_documents (
+         entity_id uuid PRIMARY KEY, work_id uuid NOT NULL);
+       CREATE TABLE public.outbox_events (
+         aggregate_type text NOT NULL, aggregate_id uuid NOT NULL,
+         event_type text NOT NULL,payload jsonb NOT NULL,
+         dedupe_key text UNIQUE);
+       CREATE OR REPLACE FUNCTION private.resolve_active_account(p_auth_subject uuid)
+       RETURNS uuid LANGUAGE plpgsql AS $mock$
+       BEGIN
+         IF p_auth_subject IS NULL THEN RAISE EXCEPTION 'MOCK_AUTH_SUBJECT_NULL'; END IF;
+         RETURN p_auth_subject;
+       END $mock$;
+       CREATE OR REPLACE FUNCTION private.r7_fixture_increment_row_version()
+       RETURNS trigger LANGUAGE plpgsql AS $version$
+       BEGIN
+         NEW.row_version := OLD.row_version+1;
+         RETURN NEW;
+       END $version$;
+       CREATE TRIGGER r7_fixture_work_row_version
+         BEFORE UPDATE ON public.community_works FOR EACH ROW
+         EXECUTE FUNCTION private.r7_fixture_increment_row_version();
+    """)
+    c.execute("INSERT INTO public.search_documents(entity_id,work_id) VALUES(%s,%s)",(PW,PW))
+    sql=R7_FILE.read_text()
+    assert "perform private.cross_product_lock_linked_preset_work_r7(p_work_id,v_account_id);" in sql
+    assert "SECURITY DEFINER" in sql
+    c.execute(sql)
+    assert one(c,"SELECT has_function_privilege('anon','private.cross_product_lock_linked_preset_work_r7(uuid,uuid)','EXECUTE')")[0] is False
+    assert one(c,"SELECT has_function_privilege('authenticated','private.cross_product_lock_linked_preset_work_r7(uuid,uuid)','EXECUTE')")[0] is False
+    assert one(c,"SELECT has_function_privilege('service_role','private.cross_product_lock_linked_preset_work_r7(uuid,uuid)','EXECUTE')")[0] is False
+
+def test_r7_source_derived_writer_rpc(a,b):
+    """Invoke the ACTUAL STAGING-SOURCE-DERIVED community_unpublish_work with
+    one candidate helper insertion. Unlike R6 this does NOT update Work directly.
+    """
+    row=lambda conn: one(conn,"SELECT lifecycle_state,row_version FROM public.community_works WHERE work_id=%s",(PW,))
+    before=row(a)
+    assert before==("published",0),before
+    initial_gallery=one(a,"SELECT lifecycle_state,row_version FROM public.community_works WHERE work_id=%s",(G,))
+    assert one(a,"SELECT count(*) FROM public.search_documents WHERE work_id=%s",(PW,))[0]==1
+    apid=one(a,"SELECT pg_backend_pid()")[0]
+    bpid=one(b,"SELECT pg_backend_pid()")[0]
+    assert apid!=bpid
+    begin=threading.Event();end=threading.Event();result={}
+    a.execute("BEGIN")
+    try:
+        assert one(a,"SELECT work_id FROM public.community_works WHERE work_id=%s FOR UPDATE",(G,))==(G,)
+        def writer():
+            try:
+                b.execute("BEGIN")
+                b.execute("SET LOCAL lock_timeout='1700ms'")
+                assert one(b,"SELECT pg_backend_pid()")[0]==bpid
+                result["attemptedAt"]=time.monotonic()
+                begin.set()
+                try:
+                    one(b,"SELECT public.community_unpublish_work(%s,%s,%s,%s)",
+                        (R7_OWNER,PW,0,"r7-source-generic-unpublish"))
+                    result["completedWhileGalleryLocked"]=True
+                except psycopg.Error as ex:
+                    result["sqlstate"]=ex.sqlstate
+                    result["failedAt"]=time.monotonic()
+            except Exception as ex:
+                result["unexpected"]=str(ex)
+            finally:
+                b.execute("ROLLBACK")
+                end.set()
+        thread=threading.Thread(target=writer,daemon=True)
+        thread.start()
+        assert begin.wait(4),"R7_SOURCE_RPC_WRITER_NOT_STARTED"
+        blocked=False;deadline=time.monotonic()+3
+        while time.monotonic()<deadline and not end.is_set():
+            pids=one(a,"SELECT pg_blocking_pids(%s)",(bpid,))[0]
+            if apid in (pids or []):
+                blocked=True;break
+            time.sleep(.02)
+        assert end.wait(5),"R7_SOURCE_RPC_WRITER_DID_NOT_FINISH"
+        thread.join(1)
+        assert result.get("sqlstate")=="55P03" and "unexpected" not in result,result
+        assert not result.get("completedWhileGalleryLocked",False)
+        assert blocked,"R7_NO_REAL_GALLERY_ROW_WAIT_OBSERVED"
+        assert row(a)==before
+        assert one(a,"SELECT count(*) FROM public.idempotency_keys")[0]==0
+        assert one(a,"SELECT count(*) FROM public.outbox_events")[0]==0
+        assert one(a,"SELECT count(*) FROM public.search_documents WHERE work_id=%s",(PW,))[0]==1
+        print(json.dumps({"case":"source-derived-unpublish-rpc-shared-lock-timeout",
+            "holderPid":apid,"writerPid":bpid,"pgBlockingPidsVerified":True,
+            "sqlstate":"55P03","idempotencyRowsAfterRollback":0,
+            "outboxRowsAfterRollback":0,"searchRowsAfterRollback":1,
+            "actualStagingSourceBodyWithOneInsertion":True,
+            "productionAuthAndRlsUsed":False,
+            "deployedBackendWriterUpdated":False}))
+    finally:
+        a.execute("ROLLBACK")
+    assert row(a)==before
+    # Simulate source-RPC retries: entirely new transaction & actor/graph re-read.
+    b.execute("BEGIN")
+    try:
+        res=one(b,"SELECT public.community_unpublish_work(%s,%s,%s,%s)",
+              (R7_OWNER,PW,0,"r7-source-generic-unpublish"))[0]
+        assert row(b)==("unpublished",1)
+        assert one(b,"SELECT count(*) FROM public.idempotency_keys")[0]==1
+        assert one(b,"SELECT count(*) FROM public.outbox_events")[0]==1
+        assert one(b,"SELECT count(*) FROM public.search_documents WHERE work_id=%s",(PW,))[0]==0
+    finally:
+        b.execute("ROLLBACK")
+    assert row(a)==before
+    assert one(a,"SELECT count(*) FROM public.idempotency_keys")[0]==0
+    assert one(a,"SELECT count(*) FROM public.outbox_events")[0]==0
+    assert one(a,"SELECT count(*) FROM public.search_documents WHERE work_id=%s",(PW,))[0]==1
+    print(json.dumps({"case":"source-derived-unpublish-rpc-retry-and-full-rollback",
+        "retryUsesNewTransaction":True,"workRowVersionInTx":1,
+        "idempotencyAndOutboxRolledBack":True,
+        "searchProjectionRolledBack":True,"staleGraphReauthorizationProven":False}))
+    # Authorized local-only COMMIT and duplicate idempotent replay prove actual
+    # candidate RPC participates in one transaction. Fixture is ephemeral.
+    b.execute("BEGIN")
+    try:
+        first=one(b,"SELECT public.community_unpublish_work(%s,%s,%s,%s)",
+                  (R7_OWNER,PW,0,"r7-source-generic-unpublish"))[0]
+        b.execute("COMMIT")
+    except:
+        b.execute("ROLLBACK"); raise
+    assert row(a)==("unpublished",1)
+    assert one(a,"SELECT count(*) FROM public.outbox_events")[0]==1
+    assert one(a,"SELECT count(*) FROM public.idempotency_keys")[0]==1
+    assert one(a,"SELECT count(*) FROM public.search_documents WHERE work_id=%s",(PW,))[0]==0
+    replay=one(a,"SELECT public.community_unpublish_work(%s,%s,%s,%s)",
+              (R7_OWNER,PW,0,"r7-source-generic-unpublish"))[0]
+    assert replay==first
+    assert row(a)==("unpublished",1)
+    assert one(a,"SELECT count(*) FROM public.outbox_events")[0]==1
+    # Different actor must be denied by the candidate helper before Graph lock.
+    b.execute("BEGIN")
+    try:
+        try:
+            one(b,"SELECT public.community_unpublish_work(%s,%s,%s,%s)",
+                (R7_NONOWNER,PW,1,"r7-unauthorized"))
+            raise AssertionError("NONOWNER_CANDIDATE_WRITER_WAS_AUTHORIZED")
+        except psycopg.Error as e:
+            assert e.sqlstate=="P0001",e.sqlstate
+            assert "OWNER_MISMATCH" in str(e)
+    finally:
+        b.execute("ROLLBACK")
+    assert row(a)==("unpublished",1)
+    assert one(a,"SELECT lifecycle_state,row_version FROM public.community_works WHERE work_id=%s",(G,))==initial_gallery
+    print(json.dumps({"case":"source-derived-unpublish-rpc-commit-idempotency-owner",
+        "idempotentReplayWithoutDuplicateOutbox":True,"nonownerRejected":True,
+        "galleryWorkRowVersionUnchanged":True,
+        "isolatedFixtureOnly":True,
+        "productionRpcIdempotentRetryApproved":False,
+        "graphComplete":False,"retirementAuthorized":False}))
+
 def main():
     assert os.getenv("DDVRE_EPHEMERAL_GITHUB_PG")=="CONFIRMED"
     url=os.environ["DDVRE_EPHEMERAL_POSTGRES_DSN"]
@@ -479,6 +656,10 @@ def main():
         test_bounded_clean_transaction_replay(a)
         test_missing_preset_work_lifecycle_writer_fence(a,b)
         test_candidate_lifecycle_shared_lock_guard(a,b)
+    with psycopg.connect(url,autocommit=True) as setup:
+        setup_r7_source_derived(setup)
+    with psycopg.connect(url,autocommit=True) as r7a, psycopg.connect(url,autocommit=True) as r7b:
+        test_r7_source_derived_writer_rpc(r7a,r7b)
     print(json.dumps({"result":"ISOLATED_KNOWN_WRITER_FENCE_CONCURRENCY_PASS",
         "realPostgreSQLSessions":True,"verifiedTriggerPaths":3,"stagingAcceptance":False,
         "allWriterCoverage":False,"graphComplete":False,"retirementAuthorized":False}))
