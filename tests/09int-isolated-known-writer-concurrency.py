@@ -233,6 +233,7 @@ def main():
         publication=("INSERT INTO public.preset_revision_publications(work_revision_id,preset_revision_id) VALUES(%s,%s)",(PWR,PR))
         test_block(a,b,"preset-revision-publication-insert",publication)
         assert one(a,"SELECT row_version FROM public.community_works WHERE work_id=%s",(G,))[0]==0
+        test_synthetic_lock_order_inversion(a,b)
     print(json.dumps({"result":"ISOLATED_KNOWN_WRITER_FENCE_CONCURRENCY_PASS",
         "realPostgreSQLSessions":True,"verifiedTriggerPaths":3,"stagingAcceptance":False,
         "allWriterCoverage":False,"graphComplete":False,"retirementAuthorized":False}))
