@@ -19,11 +19,18 @@ def gallery_rpc(c,g,key="r14-source",expected=None):
        [g["media"]],[g["presetRev"]],[],[],None,key))
 
 with psycopg.connect(dsn,autocommit=True,connect_timeout=4) as c:
-    owner,auth,creator=c.execute("""select a.account_id,a.provider_subject::uuid,
-      cp.creator_profile_id from public.auth_identities a
-      join public.creator_profiles cp on cp.owner_account_id=a.account_id
-      where cp.handle='isolated_bootstrap_creator'
-      and a.provider='supabase' and a.identity_state='active' limit 1""").fetchone()
+    # R12 phase1 intentionally commits suppression of its own fixture Owner.
+    # R14 MUST use a new independent synthetic account, never share seed data.
+    owner,auth,creator=uuid.uuid4(),uuid.uuid4(),uuid.uuid4()
+    with c.transaction():
+        execsql(c,"insert into public.wand_accounts(account_id) values(%s)",(owner,))
+        execsql(c,"""insert into public.auth_identities(
+          account_id,provider,provider_subject,last_verified_at,identity_state
+        ) values(%s,'supabase',%s,clock_timestamp(),'active')""",(owner,str(auth)))
+        execsql(c,"insert into public.community_entities(entity_id,entity_type) values(%s,'creator_profile')",(creator,))
+        execsql(c,"""insert into public.creator_profiles(
+          creator_profile_id,owner_account_id,handle,display_name
+        ) values(%s,%s,%s,%s)""",(creator,owner,"isolated_r14_"+uuid.uuid4().hex[:12],"R14 Local Test Creator"))
     g={"owner":owner,"auth":auth,"creator":creator,
        "artifact":uuid.uuid4(),"presetWork":uuid.uuid4(),
        "oldGallery":uuid.uuid4(),"target":uuid.uuid4(),
