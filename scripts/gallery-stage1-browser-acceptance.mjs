@@ -1,4 +1,5 @@
 import { mkdir, writeFile } from 'node:fs/promises';
+import {createHash} from 'node:crypto';
 import { chromium } from 'playwright-core';
 const origin=(process.env.PRODUCT_BASE_URL??'http://127.0.0.1:4174').replace(/\/$/,'');
 const executablePath=process.env.CHROME_BIN;
@@ -17,6 +18,12 @@ const page=await context.newPage();
 // Unsigned synthetic transport acceptance only. No real staging key or user media.
 let subjectScenario='verified';
 let mediaScenario='no-fixture';
+let ownerScenario='off';
+const ownerId='55555555-5555-4555-8555-555555555555';
+const ownerWorkId='66666666-6666-4666-8666-666666666666';
+const ownerPng=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==','base64');
+const ownerSha=createHash('sha256').update(ownerPng).digest('hex');
+const ownerReadCalls=[];
 const gatewayId='33333333-3333-4333-8333-333333333333';
 const gatewayUrl='https://gallery-lookup-browser.invalid/functions/v1/community-public-media?mediaId='+gatewayId;
 const gatewayCalls=[];
@@ -43,6 +50,44 @@ const mockCatalog=[
 assert(mockCatalog.length===92,'synthetic catalog count');
 await page.route('https://gallery-lookup-browser.invalid/**',async route=>{
   const url=new URL(route.request().url());
+  if(url.pathname.endsWith('/functions/v1/community-query')&&ownerScenario!=='off'){
+    const req=route.request(),body=req.postDataJSON();
+    if(req.headers()['authorization']!=='Bearer synthetic-owner-token')
+      return route.fulfill({status:401,contentType:'application/json',body:'{"ok":false,"error":"SESSION_REVOKED_OR_INVALID"}'});
+    if(body.query==='myGallery')
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,data:{
+        myWorks:[{workId:ownerWorkId,title:'Private owner test',galleryKind:'outdoor',
+          lifecycleState:'published',visibility:'public'}],saved:[]}})});
+    if(body.query==='gallery')
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,data:{
+        workId:ownerWorkId,isOwner:true,title:'Private owner test',mediaIds:[ownerId],
+        description:'Fixture owner Work',creator:{displayName:'Test creator'}}})});
+    if(body.query==='galleryRetirementPreflight')
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,data:{
+        contract:'ddv.gallery-public-retirement-preflight@1',workId:ownerWorkId,
+        rowVersion:1,revisionId:ownerId,ownerEligible:true,graphComplete:false,dependencyCoverage:{},
+        blockedReasons:['GALLERY_DEPENDENCY_GRAPH_INCOMPLETE'],cloudEntitlementVerified:false,
+        cloudPrivateStorageVerified:false,previousSignedUrlsRevoked:false,cdnAndBrowserPurgeProven:false
+      }})});
+    return route.fulfill({status:400,contentType:'application/json',body:'{"error":"Fixture query unsupported"}'});
+  }
+  if(url.pathname.endsWith('/functions/v1/community-media')&&ownerScenario!=='off'){
+    const req=route.request(),body=req.postDataJSON();
+    ownerReadCalls.push({action:body.action,mediaId:body.mediaId,bearer:req.headers()['authorization']==='Bearer synthetic-owner-token'});
+    if(!req.headers()['authorization']||ownerScenario==='forbidden')
+      return route.fulfill({status:403,contentType:'application/json',body:'{"ok":false,"error":"GALLERY_OWNER_MEDIA_FORBIDDEN"}'});
+    if(body.action==='read')
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,action:'read',
+        media:{mediaId:ownerId,transport:'authenticated_edge_binary_post',readAction:'galleryReadBytes',
+        requiresOwnerBearer:true,rawStorageSignedUrlIssued:false,mimeType:'image/png',
+        byteSize:ownerPng.length,width:1,height:1,checksumSha256:ownerSha}})});
+    if(body.action==='galleryReadBytes'){
+      const payload=ownerScenario==='checksum'?Buffer.from(ownerPng).fill(1):ownerPng;
+      return route.fulfill({status:200,body:payload,headers:{'Content-Type':'image/png',
+        'Content-Length':String(payload.length),'Cache-Control':'private, no-store'}});
+    }
+    return route.fulfill({status:400,contentType:'application/json',body:'{"error":"Wrong binary action"}'});
+  }
   if(url.pathname.endsWith('/functions/v1/community-public-media')){
     gatewayCalls.push({method:route.request().method(),path:url.pathname,query:url.search});
     if(mediaScenario==='revoked'||mediaScenario==='historical'||mediaScenario==='private'||mediaScenario==='missing')
@@ -244,7 +289,46 @@ try{
     }
   }
   pass('GALLERY_320_REFLOW_EIGHT_LOCALES',{locales:8,routes:5});
-  report.consoleErrors=report.consoleErrors.filter(x=>!x.includes('Failed to load resource'));
+  // Synthetic auth only: use the exact two POSTs with an ephemeral actor token.
+  // Never treat this as signed Staging acceptance or seed real Auth credentials.
+  ownerScenario='valid';
+  await page.evaluate(()=>sessionStorage.setItem('dreamwishwand-community-session-v1',JSON.stringify({
+    accessToken:'synthetic-owner-token',refreshToken:'synthetic-refresh-token',
+    expiresAt:Date.now()+600000,userId:'77777777-7777-4777-8777-777777777777',email:null
+  })));
+  await page.goto(origin+'/gallery/my/',{waitUntil:'domcontentloaded'});
+  await page.locator('.my-card .overflow-menu summary').first().waitFor({state:'visible',timeout:10000});
+  await page.locator('.my-card .overflow-menu summary').first().click();
+  await page.locator('.my-card .overflow-menu button').filter({hasText:'Edit Presentation'}).first().click();
+  await page.locator('.gallery-retirement-preflight').waitFor({state:'visible',timeout:10000});
+  const ownerButton=page.locator('.owner-panel button').filter({hasText:'Preview'}).first();
+  await ownerButton.click();
+  const ownerImage=page.locator('.owner-media-read img').first();
+  await ownerImage.waitFor({state:'visible',timeout:10000});
+  await ownerImage.evaluate(async img=>{
+    if(!img.complete)await new Promise((resolve,reject)=>{
+      img.addEventListener('load',resolve,{once:true});img.addEventListener('error',reject,{once:true})});
+    if(!img.naturalWidth)throw new Error('Owner Blob image failed');
+  });
+  assert((await ownerImage.getAttribute('src')).startsWith('blob:'),
+    'Owner media must display only memory Blob URL');
+  assert(ownerReadCalls.some(x=>x.action==='read'&&x.bearer)&&
+    ownerReadCalls.some(x=>x.action==='galleryReadBytes'&&x.bearer),
+    'Owner binary two authenticated POSTs not observed');
+  await overflow(page,'owner-preview-320');
+  assert(await page.locator('.owner-panel button[disabled]').count()>=2,
+    'Owner preview accidentally enabled unsafe mutation');
+  pass('SYNTHETIC_OWNER_JWT_METADATA_BINARY_BLOB_PREVIEW_AND_PREFLIGHT');
+  ownerScenario='checksum';
+  await ownerButton.click(); // unmount -> revoke prior object URL
+  await ownerButton.click(); // load wrong SHA bytes; MUST fail closed
+  await page.locator('.owner-media-read [role=alert]').waitFor({state:'visible',timeout:10000});
+  assert(await page.locator('.owner-media-read img').count()===0,'checksum mismatch still displayed');
+  pass('SYNTHETIC_OWNER_SHA_MISMATCH_FAIL_CLOSED_AND_RETRY');
+  // Clear synthetic session before proceeding; no user token in DOM or URL.
+  await page.evaluate(()=>sessionStorage.removeItem('dreamwishwand-community-session-v1'));
+  ownerScenario='off';
+    report.consoleErrors=report.consoleErrors.filter(x=>!x.includes('Failed to load resource'));
   assert(!report.pageErrors.length,'page JS errors '+report.pageErrors.join(';'));
   assert(!report.consoleErrors.length,'console errors '+report.consoleErrors.join(';'));
   report.status='PASS';report.catalogTransport='SYNTHETIC_HTTP_INTERCEPTION_ONLY';
