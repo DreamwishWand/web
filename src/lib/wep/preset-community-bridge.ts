@@ -459,6 +459,30 @@ export function createPresetCommunityBridge({
     };
   }
 
+  async function inspectSceneRevisionReadiness(presetArtifactId: string) {
+    assert(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(presetArtifactId),
+      'WEP_SCENE_REVISION_READINESS_ID_INVALID'
+    );
+    const response = await community.preset('revisionReadiness', { presetArtifactId });
+    const readiness = isObject(response?.readiness) ? response.readiness : null;
+    assert(
+      response?.ok === true && readiness?.contract === 'ddv.scene-revision-readiness@1',
+      'WEP_SCENE_REVISION_READINESS_CONTRACT_INVALID'
+    );
+    assert(
+      readiness.graphComplete === false &&
+      readiness.saveRevisionAuthorized === false &&
+      readiness.pairedGalleryPublishAuthorized === false &&
+      readiness.unpublishAuthorized === false &&
+      readiness.deleteAuthorized === false &&
+      readiness.restoreAuthorized === false &&
+      readiness.dependencyFingerprintIsAtomicFence === false,
+      'WEP_SCENE_REVISION_READINESS_UNSUPPORTED_POSITIVE'
+    );
+    return readiness;
+  }
+
   return Object.freeze({
     publishScene,
     discover,
@@ -469,7 +493,8 @@ export function createPresetCommunityBridge({
     loadPreset,
     loadDiscoveredWork,
     saveDiscoveredWork,
-    preflightPreset
+    preflightPreset,
+    inspectSceneRevisionReadiness
   });
 }
 
