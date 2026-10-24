@@ -237,7 +237,13 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       }
 
       if (blob.size <= 0 || blob.size > MAX_BYTES) {
-        await ctx.supabaseAdmin.storage.from(BUCKET).remove([storageKey]);
+        // #124: physical deletion of ANY Gallery upload origin remains
+        // disabled until distributed Storage race/hold acceptance.
+        // The journal/retention worker owns eventual Gallery cleanup.
+        // Preserve legacy non-Gallery validation cleanup behavior.
+        if (action !== 'galleryFinalize') {
+          await ctx.supabaseAdmin.storage.from(BUCKET).remove([storageKey]);
+        }
         return reply({ ok: false, error: 'INVALID_FILE_SIZE' }, 400);
       }
 
@@ -247,7 +253,13 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       try {
         detected = detectImage(bytes);
       } catch (error) {
-        await ctx.supabaseAdmin.storage.from(BUCKET).remove([storageKey]);
+        // #124: physical deletion of ANY Gallery upload origin remains
+        // disabled until distributed Storage race/hold acceptance.
+        // The journal/retention worker owns eventual Gallery cleanup.
+        // Preserve legacy non-Gallery validation cleanup behavior.
+        if (action !== 'galleryFinalize') {
+          await ctx.supabaseAdmin.storage.from(BUCKET).remove([storageKey]);
+        }
         return reply({
           ok: false,
           error: 'INVALID_IMAGE',
