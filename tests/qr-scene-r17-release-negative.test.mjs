@@ -59,7 +59,7 @@ test('SCN-04 Public Scene current-only projection cannot disclose raw Storage ke
  assert.ok(fn);
  assert.match(fn,/current_published_revision_id/i);
  assert.match(fn,/preset_revisions/i);
- assert.match(fn,/lifecycle_state='published'|lifecycle_state\s*<>\s*'published'/i);
+ assert.match(fn,/private\.is_discoverable_work\(p_work_id\)/i);
  assert.doesNotMatch(fn,/'storageKey'|'signedUrl'|'rawUrl'|'blobId'/i);
  assert.match(gallery,/'community_get_scene_preset_public_v1'/);
  assert.match(gallery,/no-store/);
@@ -83,7 +83,8 @@ test('SCN-06 Gallery paired cover and all-writer graph remain OFF, no accidental
  assert.match(bootstrap,/PRESET_OWNER_LIFECYCLE_GLOBAL_WRITER_CONTRACT_REQUIRED/);
  const actions=['community_change_work_visibility','community_unpublish_work','community_delete_work'];
  for(const action of actions) assert.match(bootstrap,new RegExp('create or replace function public\\.'+action+'\\s*\\(','i'));
- assert.match(bootstrap,/GALLERY_REFERENCE_FENCE|gallery_known_reference/i);
+ assert.match(bootstrap,/Gallery known-reference Writer Fence trigger creation/i);
+ assert.match(read('supabase/migrations/20261025002400_gallery_known_reference_writer_fence_v1.sql'),/gallery_known_reference_writer_fence_v1/);
 });
 test('SCN-07 Concurrency/rollback boundary is fail-closed until real R6 two-session and paired bytes proof',()=>{
  const source=read('docs/community/clean-bootstrap-staging-feature-parity-20261024.md');
