@@ -43,13 +43,13 @@ with psycopg.connect(DSN,autocommit=True,connect_timeout=4) as c:
         challenge=one(c,"""insert into public.dreamsnap_challenges(
           challenge_key,title,description,lifecycle_state,
           submission_opens_at,submission_closes_at,judging_opens_at,judging_closes_at,results_at,closes_at,
-          formal_vote_allowance,special_pick_allowance,minimum_real_eligible_entries,
+          formal_vote_allowance,special_pick_allowance,minimum_real_eligible_entries,minimum_real_eligible_creators,
           allow_post_formal_browse,allow_special_picks,result_algorithm,
           required_aspect_numerator,required_aspect_denominator,minimum_width,minimum_height,is_synthetic)
           values(%s,'R14 Synthetic Round','QA ONLY','submission_open',
           now()-interval '7 hours',now()-interval '6 hours',now()-interval '5 hours',
           now()-interval '4 hours',now()-interval '3 hours',now()+interval '1 hour',
-          2,0,3,true,false,'formal_vote_count_v1',16,9,1280,720,true)
+          2,0,3,3,true,false,'formal_vote_count_v1',16,9,1280,720,true)
           returning challenge_id""",(tag,))
         registered=one(c,"select public.community_register_dreamsnap_work_v1(%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                 (subject,creator,challenge,None,media,"QR R14 safe synthetic",True,True,"register-"+tag))
