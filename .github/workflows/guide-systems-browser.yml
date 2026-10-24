@@ -7,6 +7,8 @@ on:
       - '.github/workflows/guide-systems-browser.yml'
       - 'scripts/guide-systems-browser-acceptance.mjs'
       - 'src/lib/guide/**'
+      - 'tests/guide-systems-public.test.mjs'
+      - 'tests/fixtures/guide-systems-reviewed-en.js'
       - 'src/routes/guide/**'
       - 'static/ddv/guide/**'
       - 'src/lib/i18n/**'
