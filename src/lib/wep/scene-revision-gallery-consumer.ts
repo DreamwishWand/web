@@ -53,6 +53,8 @@ export interface SceneOwnerReadiness {
   presetWorkId: string;
   presetType: 'scene';
   ownerEligible: true;
+  // Owner RPC verifies creator internally but does not return its ID in @1.
+  ownerCreatorProfileId: string | null;
   workRowVersion: number;
   lifecycleState: string;
   visibility: string;
@@ -176,6 +178,10 @@ export function parseSceneOwnerReadiness(rawInput: unknown, expectedPresetArtifa
   // newer keys, but they MUST NOT silently appear complete. Unknown scope is
   // not a valid pin; malformed IDs/versions or optimistic flags fail closed.
   const optionalUuid = (v: unknown) => v === null || validId(v);
+  const ownerCreatorProfileId = raw.creatorProfileId ?? null;
+  if (ownerCreatorProfileId !== null && !validId(ownerCreatorProfileId)) {
+    invalid('WEP_SCENE_OWNER_CREATOR_IDENTITY_INVALID');
+  }
   const galleryId = raw.pairedGalleryWorkId ?? null;
   const galleryVersion = raw.pairedGalleryWorkRowVersion ?? null;
   const galleryRevision = raw.pairedGalleryCurrentWorkRevisionId ?? null;
@@ -227,6 +233,7 @@ export function parseSceneOwnerReadiness(rawInput: unknown, expectedPresetArtifa
   }
   return Object.freeze({
     ...raw,
+    ownerCreatorProfileId: ownerCreatorProfileId as string | null,
     pairedGalleryWorkId: galleryId as string | null,
     pairedGalleryWorkRowVersion: galleryVersion as number | null,
     pairedGalleryCurrentWorkRevisionId: galleryRevision as string | null,
@@ -249,6 +256,11 @@ export function diagnoseSceneRevisionPairing(
   if (!current) {
     issues.push('SCENE_PUBLIC_CURRENT_NOT_COMPARED');
   } else {
+    if (owner.ownerCreatorProfileId === null) {
+      issues.push('SCENE_OWNER_CREATOR_CROSSREAD_UNAVAILABLE');
+    } else if (current.creatorProfileId !== owner.ownerCreatorProfileId) {
+      issues.push('SCENE_PUBLIC_OWNER_CREATOR_MISMATCH');
+    }
     if (current.presetArtifactId !== owner.presetArtifactId ||
         current.workId !== owner.presetWorkId ||
         current.presetRevisionId !== owner.currentPresetRevisionId) {
