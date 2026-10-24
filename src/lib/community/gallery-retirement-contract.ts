@@ -74,12 +74,70 @@ export type GalleryMediaPublicGatewayV1 = Readonly<{
     checksumSha256:string;
   }>;
 }>;
+/** #116 Owner-validated metadata audit only. Cloud entitlement authority is
+ * NOT configured. SQL row counts/relationships are not a backup, verified
+ * Storage object nor proof of successful Cloud restoration.
+ */
+export type GalleryCloudPreservationReadinessV1=Readonly<{
+  contract:'ddv.gallery-cloud-preservation-readiness@1';
+  entitlement:Readonly<{
+    source:'not_configured';state:'unverified';
+    verified:false;active:false;providerEvidencePresent:false;
+  }>;
+  ownerAccountResolved:true;
+  creatorOwnershipAndModerationValid:boolean;
+  databaseManifest:Readonly<{
+    workRowFound:true;
+    currentRevisionId:string|null;
+    currentRevisionPresent:boolean;
+    currentRevisionSealed:boolean;
+    revisionRowCount:number;
+    historicalRevisionRowCount:number;
+    sealedRevisionRowCount:number;
+    coverReferenceCount:number;
+    coverWithoutCompositionCount:number;
+    mediaReferenceCount:number;
+    distinctMediaCount:number;
+    invalidOrNonOwnedMediaCount:number;
+    structuralIntegrityObserved:boolean;
+  }>;
+  storageObjectByteReadbackVerified:false;
+  cloudPrivateStorageAclVerified:false;
+  cloudBackupAndRestoreVerified:false;
+  cloudEntitlementVerified:false;
+  dependencyGraphCoverageVerified:false;
+  signedUrlAndCacheRevocationProven:false;
+  privateSaveAuthorized:false;
+  privateDetailAuthorized:false;
+  restoreAuthorized:false;
+  republishAuthorized:false;
+  blockedReasons:readonly string[];
+}>;
+
+export const GALLERY_CLOUD_PRESERVATION_READINESS_V1=Object.freeze({
+  edge:'community-query',
+  query:'galleryRetirementPreflight',
+  ownerJwtAndActiveAccountRequired:true,
+  cloudEntitlementSourceConfigured:false,
+  serverSqlSnapshotIsNotCloudBackup:true,
+  restoreCreatesNewImmutableRevisionOnceAuthorized:true,
+  restoreRequiresRowVersionAndReferencedMediaPreflight:true,
+  noPersistentPrivateFreeWork:true,
+  incompleteCrossProductGraphFailsClosed:true,
+  requiresPhysicalStorageAclAndReadbackProof:true,
+  oldSignedTokensMaySurviveUpTo300Seconds:true,
+  currentOperations:['readOnlyPreflight'],
+  disabledOperations:['unpublishKeepPrivate','delete','restorePrivate','republishPrivate'],
+  nativeWriterAuthorized:false
+} as const);
+
 export type GalleryRetirementPreflightV1=Readonly<{
   contract:'ddv.gallery-public-retirement-preflight@1';
   workId:string;
   rowVersion:number;
   revisionId:string|null;
   ownerEligible:true;
+  cloudPreservation:GalleryCloudPreservationReadinessV1;
   lifecycleState:string;
   visibility:string;
   moderationState:string;
