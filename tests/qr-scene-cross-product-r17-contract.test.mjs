@@ -151,3 +151,63 @@ test('QR-SCN-INT-06 offline proof is not a 03 COMM paired transaction call or re
  assert.match(intent,/historicalEdgePinAvailable: false as const/);
  assert.match(intent,/historicalEdgePinIsAtomicFence: false as const/);
 });
+
+
+test('QR-SCN-R11-01 current 03 COMM caller-pinned edge SHA is verified under Artifact/Preset/Gallery locks before writes',()=>{
+ const src=read('supabase/migrations/20261025002350_gallery_known_writer_scene_parent_bootstrap_v1.sql');
+ const fn=src.slice(src.indexOf('create or replace function private.scene_save_revision_paired_candidate_v1('));
+ const indexes=[
+  fn.indexOf('into v_backlinks_before'),
+  fn.indexOf('where preset_artifact_id=p_preset_artifact_id for update;'),
+  fn.indexOf('where work_id=v_artifact.community_work_id for update;'),
+  fn.indexOf('where work_id=v_assoc for update;'),
+  fn.indexOf('into v_backlinks_locked'),
+  fn.indexOf("SCENE_REVISION_BACKLINK_SNAPSHOT_CHANGED"),
+  fn.indexOf("SCENE_REVISION_CALLER_EDGE_FINGERPRINT_STALE"),
+  fn.indexOf('insert into public.preset_revisions')
+ ];
+ assert.ok(indexes.every(x=>x>=0),indexes.join(','));
+ assert.deepEqual([...indexes].sort((a,b)=>a-b),indexes,'graph equality check must precede new revision');
+ assert.match(fn,/p_expected_historical_edge_set_sha256 text/);
+ assert.match(fn,/'scene-historical-edges-v1\|'/);
+ assert.match(fn,/array_to_string\(v_backlinks_locked,'\|'\)/);
+ assert.match(fn,/v_preset_work\.row_version is distinct from p_expected_preset_work_version/);
+ assert.match(fn,/v_gallery\.row_version is distinct from p_expected_gallery_work_version/);
+ // This is still DB-owner only, no release writer.
+ assert.match(src,/revoke all on function private\.scene_save_revision_paired_candidate_v1\([\s\S]*?from public,anon,authenticated,service_role/i);
+});
+test('QR-SCN-R11-02 Owner paired Gallery diagnostic is NOT atomic authority in read-only Source and WEP Intent',()=>{
+ const source=read('supabase/migrations/20261025002350_gallery_known_writer_scene_parent_bootstrap_v1.sql');
+ for(const flag of [
+  "'pairedGalleryWorkId',v_owned_gallery.work_id",
+  "'pairedGalleryWorkRowVersion',v_owned_gallery.row_version",
+  "'pairedGallerySnapshotIsAtomicFence',false",
+  "'historicalEdgeSetScope','scene-historical-edges-v1'",
+  "'historicalEdgeSetSha256',v_scoped_edge_sha256",
+  "'historicalEdgeSetIsAtomicFence',false",
+  "'graphComplete',false",
+  "'saveRevisionAuthorized',false"
+ ])assert.ok(source.includes(flag),flag);
+ const intent=read('src/lib/wep/scene-revision-offline-intent.ts');
+ assert.match(intent,/expectedGalleryWorkRowVersion: null/);
+ assert.match(intent,/expectedHistoricalEdgeSetSha256: null/);
+ assert.match(intent,/historicalEdgePinAvailable: false as const/);
+ assert.match(intent,/pairedGalleryPublishAuthorized: false as const/);
+ assert.match(intent,/productApplyAuthorized: false as const/);
+});
+test('QR-SCN-R11-03 known reference writers all participate in Gallery lock without global registry claims',()=>{
+ const fence=read('supabase/migrations/20261025002400_gallery_known_reference_writer_fence_v1.sql');
+ const expected=['gallery_revision_presets','preset_artifacts','preset_revision_publications'];
+ for(const relation of expected)assert.match(fence,new RegExp('on public\\.'+relation+'\\b','i'));
+ const source=read('supabase/migrations/20261025002350_gallery_known_writer_scene_parent_bootstrap_v1.sql');
+ assert.match(source,/'SCENE_ALL_WRITER_LOCK_PROTOCOL_UNVERIFIED'/);
+ const testCode=read('tests/qr-scene-r8-fullschema-graph-counterexample.py');
+ for(const code of [
+  'R9_CALLER_PIN_HISTORICAL_EDGE_STALE_REJECTED',
+  'R11_ACTUAL_PR134_REFERENCE_WRITER_TRIGGER',
+  'R11_KNOWN_REFERENCE_TRIGGER_LOCKS_LOCAL_PASS',
+  'R8_REAL_03COMM_FULLSOURCE_PAIRED_RPC_CONCURRENT_LOCK',
+  'R9_STALE_FAILURE_PARTIAL_MUTATION',
+  'R11_BYPASS_GALLERY_WORK_LOCK'
+ ])assert.ok(testCode.includes(code),code);
+});
