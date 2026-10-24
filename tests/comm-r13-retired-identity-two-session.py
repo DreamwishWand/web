@@ -73,6 +73,11 @@ with psycopg.connect(DSN, autocommit=True) as a, psycopg.connect(DSN, autocommit
         assert "Active AuthIdentity not found" in str(e),str(e)
     b.execute("rollback")
     assert scalar(b,"select count(*) from private.account_privacy_suppressions where account_id=%s",(owner,))==0
+    # Discard only the synthetic historical actor to leave existing R12
+    # privacy fixtures' owner identity lookup completely unambiguous.
+    b.execute("delete from auth.sessions where id=%s",(session,))
+    b.execute("delete from public.auth_identities where provider='supabase' and provider_subject=%s",(str(retired),))
+    b.execute("delete from auth.users where id=%s",(retired,))
     print(json.dumps({
       "result":"03COMM_R13_RETIRED_IDENTITY_TWO_BACKEND_SOURCE_PASS",
       "twoDistinctPostgresBackends":True,
