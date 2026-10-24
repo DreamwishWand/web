@@ -25,6 +25,21 @@
   let managementRequest=0;
   let preflightGeneration=0;
   let preflightSessionToken='';
+  const dependencyKinds=[
+    {key:'scene',label:'galleryv1.depScene'},
+    {key:'biome',label:'galleryv1.depBiome'},
+    {key:'floating_island',label:'galleryv1.depIsland'},
+    {key:'tom_furniture',label:'galleryv1.depToMFurniture'},
+    {key:'tom_clothing',label:'galleryv1.depToMClothing'},
+    {key:'native_listing',label:'galleryv1.depNative'}
+  ] as const;
+  function coverageLabel(value:string){
+    return value==='VERIFIED'?'galleryv1.depVerified':
+      value==='VERIFIED_EMPTY'?'galleryv1.depVerifiedEmpty':
+      value==='REGISTRY_MISSING'?'galleryv1.depRegistryMissing':
+      value==='VERSION_UNSUPPORTED'?'galleryv1.depUnsupported':
+      'galleryv1.depUnknown';
+  }
 
   onMount(()=>{
     signedIn=Boolean(client?.session);
@@ -221,6 +236,28 @@
             {:else if preflight}
               <p role="status" class="cloud-preservation-summary">{t('galleryv1.cloudReadOnlySummary',{},$locale)}</p>
               <p>{t('galleryv1.graphState',{},$locale)}: {preflight.graphComplete?t('galleryv1.complete',{},$locale):t('galleryv1.incomplete',{},$locale)}</p>
+              {#if preflight.dependencyProjection}
+                {@const dep=preflight.dependencyProjection}
+                <section class="gallery-dependency-readiness" aria-label={t('galleryv1.depTitle',{},$locale)}>
+                  <h4>{t('galleryv1.depTitle',{},$locale)}</h4>
+                  <p role="status">{t('galleryv1.depDiagnosticOnly',{},$locale)}</p>
+                  <dl class="cloud-readiness-grid">
+                    <div><dt>{t('galleryv1.depSourceVersion',{},$locale)}</dt><dd>{t(coverageLabel(dep.sourceVersionState??'SEMANTICS_UNKNOWN'),{},$locale)}</dd></div>
+                    {#each dependencyKinds as item}
+                      <div><dt>{t(item.label,{},$locale)}</dt><dd>{t(coverageLabel(dep.classification[item.key]),{},$locale)}</dd></div>
+                    {/each}
+                    <div><dt>{t('galleryv1.depRelationCoverage',{},$locale)}</dt><dd>{Object.keys(dep.relationCoverage).length} {t('galleryv1.depRelationsObserved',{},$locale)}</dd></div>
+                    <div><dt>{t('galleryv1.depMissingSources',{},$locale)}</dt><dd>{dep.missingSources.length}</dd></div>
+                    <div><dt>{t('galleryv1.depBlockedReasons',{},$locale)}</dt><dd>{dep.blockedReasons.length}</dd></div>
+                    <div><dt>{t('galleryv1.depOwnerMismatch',{},$locale)}</dt><dd>{dep.ownerMismatchEdgeCount===0?t('galleryv1.depNoMismatch',{},$locale):t('galleryv1.depMismatchFound',{},$locale)}</dd></div>
+                    <div><dt>{t('galleryv1.depCreatorMismatch',{},$locale)}</dt><dd>{dep.creatorMismatchEdgeCount===0?t('galleryv1.depNoMismatch',{},$locale):t('galleryv1.depMismatchFound',{},$locale)}</dd></div>
+                    <div><dt>{t('galleryv1.depFingerprint',{},$locale)}</dt><dd>{dep.graphFingerprintSha256?t('galleryv1.depFingerprintObserved',{},$locale):t('galleryv1.cloudNotVerified',{},$locale)}</dd></div>
+                  </dl>
+                  <p>{t('galleryv1.depMissingDisclaimer',{},$locale)}</p>
+                </section>
+              {:else}
+                <p class="gallery-dependency-legacy" role="status">{t('galleryv1.depLegacyUnknown',{},$locale)}</p>
+              {/if}
               {#if preflight.cloudPreservation}
                 {@const cp=preflight.cloudPreservation}
                 <div class="cloud-preservation-readiness" aria-label={t('galleryv1.cloudReadinessTitle',{},$locale)}>
@@ -278,7 +315,9 @@ input:not([type=checkbox]),select{min-height:44px;min-width:0;padding:10px;borde
 .my-card a{display:grid;gap:10px;min-width:0;overflow-wrap:anywhere;color:var(--ink)}.my-card small{color:var(--ink-muted)}
 .owner-panel{display:grid;gap:12px}
 .cloud-preservation-readiness{display:grid;gap:10px;min-width:0}
-.cloud-preservation-readiness h4{margin:0}
+.cloud-preservation-readiness h4,.gallery-dependency-readiness h4{margin:0}
+.gallery-dependency-readiness{display:grid;gap:10px;min-width:0}
+.gallery-dependency-readiness p{overflow-wrap:anywhere}
 .cloud-readiness-grid{display:grid;gap:8px;min-width:0;margin:0}
 .cloud-readiness-grid>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;border-bottom:1px solid var(--border);padding:6px 0;min-width:0}
 .cloud-readiness-grid dt,.cloud-readiness-grid dd{margin:0;overflow-wrap:anywhere}
