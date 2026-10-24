@@ -120,12 +120,22 @@ def historical_caller_gap(g):
 
 def multi_artifact_fail_closed(g):
     with psycopg.connect(url,autocommit=True) as c:
-        g2=f.fixture(c)
         before=state(c,g)
+        owner,creator=f.one(c,"select owner_account_id,creator_profile_id from public.community_works where work_id=%s",(g["target"],))
+        extra_work,extra_artifact=uuid.uuid4(),uuid.uuid4()
         c.execute("BEGIN")
         try:
-            ex(c,"update public.preset_artifacts set associated_gallery_work_id=%s where preset_artifact_id=%s",
-               (g["target"],g2["artifact"]))
+            ex(c,"insert into public.community_entities(entity_id,entity_type) values(%s,'community_work'),(%s,'preset_artifact')",
+               (extra_work,extra_artifact))
+            ex(c,"""insert into public.community_works(work_id,owner_account_id,creator_profile_id,work_type,visibility,moderation_state)
+                    values(%s,%s,%s,'preset','public','clear')""",(extra_work,owner,creator))
+            # Create new Artifact already bound to target; never change the
+            # identity of a published, immutable prior Scene Revision.
+            ex(c,"""insert into public.preset_artifacts(
+                preset_artifact_id,owner_account_id,creator_profile_id,community_work_id,
+                preset_type,associated_gallery_work_id)
+                values(%s,%s,%s,%s,'scene',%s)""",
+                (extra_artifact,owner,creator,extra_work,g["target"]))
             c.execute("COMMIT")
         except:c.execute("ROLLBACK");raise
         snap=one(c,"select private.gallery_v4_scoped_graph_r14(%s,%s::uuid[])",(g["target"],[g["presetRev"]]))
