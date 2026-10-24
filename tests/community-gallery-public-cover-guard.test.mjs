@@ -13,14 +13,14 @@ test('historical Gallery Cover-only images never fall through to public signed-U
   // Cover references from immutable Gallery revisions classify as galleryManaged,
   // even if an inconsistent WorkRevision Media membership is missing.
   assert.match(guard, /OR EXISTS\([\s\S]*?gallery_photo_revision_fields f[\s\S]*?f\.cover_media_id=p_media_id[\s\S]*?INTO v_gallery_managed/);
-  assert.match(guard, /IF NOT v_gallery_managed THEN[\s\S]*?'galleryManaged',false/);
+  assert.match(guard, /if not v_gallery_managed then[\\s\\S]*?'galleryManaged',false/i);
   // Positive streaming still needs an actual current WorkRevision Media row
   // AND discoverable current published Work + READY/CLEAR Media.
   assert.match(guard, /FROM public\.work_revision_media rm[\s\S]*?JOIN public\.gallery_photo_subjects g/);
   assert.match(guard, /w\.current_published_revision_id=r\.revision_id/);
   assert.match(guard, /private\.is_discoverable_work\(w\.work_id\)/);
   assert.match(guard, /m\.processing_state='ready' and m\.moderation_state='clear'/);
-  assert.match(guard, /IF v_media IS NULL THEN[\s\S]*?'galleryManaged',true,'publiclyAccessible',false/);
+  assert.match(guard, /if v_media is null then[\\s\\S]*?'galleryManaged',true,'publiclyAccessible',false/i);
   assert.match(guard, /grant execute on function public\.community_gallery_media_gateway_v1\(uuid\)\s+to service_role/);
   assert.match(guard, /revoke all on function public\.community_gallery_media_gateway_v1\(uuid\)\s+from public,anon,authenticated/);
   assert.match(ownerGuard, /f\.cover_media_id=p_media_id/);
