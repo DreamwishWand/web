@@ -6,6 +6,24 @@ create function pg_temp.scene_test_cover_failure() returns trigger
 language plpgsql as $forced$ begin
   raise exception 'CI_FORCED_SCENE_COVER_WRITE_FAILURE';
 end $forced$;
+
+-- Unprivileged diagnostic oracle scoped to this disposable SQL fixture.
+-- Owner preflight is read-only; it does NOT create an atomic Graph fence.
+create function pg_temp.scene_edge_pin(p_preset uuid,p_gallery uuid)
+returns text language sql stable as $pin$
+  select encode(extensions.digest(convert_to(
+    'scene-historical-edges-v1|'||p_preset::text||'|'||p_gallery::text||
+    '|'||coalesce(string_agg(edge,'|' order by edge),''),
+    'UTF8'),'sha256'),'hex')
+  from (
+    select distinct gp.gallery_revision_id::text||'/'||
+      gp.preset_revision_id::text as edge
+    from public.gallery_revision_presets gp
+    join public.preset_revisions pr
+      on pr.preset_revision_id=gp.preset_revision_id
+    where pr.preset_artifact_id=p_preset
+  ) scoped;
+$pin$;
 do $linked$
 declare
   v_auth uuid;
@@ -36,6 +54,10 @@ declare
   v_paired_result jsonb;
   v_replay jsonb;
   v_stage_error text;
+  v_initial_pin text;
+  v_pin_before_extra_edge text;
+  v_extra_gallery_revision uuid:=gen_random_uuid();
+  v_versions_before uuid[];
 begin
   select ai.provider_subject::uuid, c.owner_account_id, c.creator_profile_id
   into v_auth,v_owner,v_creator
@@ -162,17 +184,25 @@ begin
     or v_readiness->>'pairedGalleryPublishAuthorized'<>'false'
     or v_readiness->>'saveRevisionAuthorized'<>'false'
     or v_readiness->>'crossOwnerOrUnresolvedGalleryCount'<>'0'
+    or v_readiness->>'pairedGalleryWorkId' is distinct from v_gallery_work::text
+    or v_readiness->>'pairedGalleryWorkRowVersion' is distinct from
+      (select row_version::text from public.community_works
+       where work_id=v_gallery_work)
+    or v_readiness->>'pairedGalleryCurrentWorkRevisionId' is distinct from
+      v_gallery_revision::text
+    or v_readiness->>'pairedGallerySnapshotIsAtomicFence'<>'false'
+    or v_readiness->>'historicalEdgeSetIsAtomicFence'<>'false'
   then raise exception 'SCENE_LINKED_READINESS_MUST_STAY_FAILCLOSED';end if;
 
 
   -- This routine is postgres-only in the disposable DB. It MUST NOT be
   -- callable by service_role/anon/authenticated in the source candidate.
   if has_function_privilege('service_role',
-      'private.scene_save_revision_paired_candidate_v1(uuid,uuid,uuid,bigint,bigint,uuid,uuid[],uuid,text,text,jsonb,text)','EXECUTE')
+      'private.scene_save_revision_paired_candidate_v1(uuid,uuid,uuid,bigint,bigint,uuid,uuid[],uuid,text,text,jsonb,text,text)','EXECUTE')
       or has_function_privilege('anon',
-      'private.scene_save_revision_paired_candidate_v1(uuid,uuid,uuid,bigint,bigint,uuid,uuid[],uuid,text,text,jsonb,text)','EXECUTE')
+      'private.scene_save_revision_paired_candidate_v1(uuid,uuid,uuid,bigint,bigint,uuid,uuid[],uuid,text,text,jsonb,text,text)','EXECUTE')
       or has_function_privilege('authenticated',
-      'private.scene_save_revision_paired_candidate_v1(uuid,uuid,uuid,bigint,bigint,uuid,uuid[],uuid,text,text,jsonb,text)','EXECUTE')
+      'private.scene_save_revision_paired_candidate_v1(uuid,uuid,uuid,bigint,bigint,uuid,uuid[],uuid,text,text,jsonb,text,text)','EXECUTE')
   then raise exception 'PAIRED_SCENE_CANDIDATE_EXPOSED_TO_CLIENT';end if;
 
   insert into public.community_entities(entity_id,entity_type)
@@ -193,11 +223,12 @@ begin
   select row_version into v_gallery_ver from public.community_works
   where work_id=v_gallery_work;
 
+  v_initial_pin:=pg_temp.scene_edge_pin(v_preset_id,v_gallery_work);
   v_paired_result:=private.scene_save_revision_paired_candidate_v1(
     v_auth,v_preset_id,v_preset_revision,v_preset_ver,v_gallery_ver,
     v_second_blob,array[v_media,v_second_media],v_second_media,
     'Paired Scene V2','Revision with a new Cover',
-    '{"source":"synthetic-ci"}'::jsonb,'paired-update:'||v_tag);
+    '{"source":"synthetic-ci"}'::jsonb,'paired-update:'||v_tag,v_initial_pin);
   if (v_paired_result->>'mediaCount')::integer<>2
     or (v_paired_result->>'coverMediaId')::uuid is distinct from v_second_media
   then raise exception 'PAIRED_SCENE_COMMIT_RESPONSE_INVALID';end if;
@@ -206,7 +237,7 @@ begin
     v_auth,v_preset_id,v_preset_revision,v_preset_ver,v_gallery_ver,
     v_second_blob,array[v_media,v_second_media],v_second_media,
     'Paired Scene V2','Revision with a new Cover',
-    '{"source":"synthetic-ci"}'::jsonb,'paired-update:'||v_tag);
+    '{"source":"synthetic-ci"}'::jsonb,'paired-update:'||v_tag,v_initial_pin);
   if v_replay is distinct from v_paired_result
   then raise exception 'PAIRED_SCENE_IDENTICAL_RETRY_NOT_IDEMPOTENT';end if;
 
@@ -249,7 +280,7 @@ begin
       v_auth,v_preset_id,v_preset_revision,v_preset_ver,v_gallery_ver,
       v_second_blob,array[v_media,v_second_media],v_second_media,
       'DIFFERENT TITLE','Revision with a new Cover',
-      '{"source":"synthetic-ci"}'::jsonb,'paired-update:'||v_tag);
+      '{"source":"synthetic-ci"}'::jsonb,'paired-update:'||v_tag,v_initial_pin);
   exception when others then
     get stacked diagnostics v_stage_error=message_text;
     if v_stage_error='SCENE_REVISION_IDEMPOTENCY_CONFLICT' then
@@ -265,7 +296,7 @@ begin
       (select row_version from public.community_works where work_id=v_preset_work),
       (select row_version from public.community_works where work_id=v_gallery_work),
       v_second_blob,array[v_media,v_second_media],v_second_media,
-      'Foreign','Foreign', '{}'::jsonb,'other:'||v_tag);
+      'Foreign','Foreign', '{}'::jsonb,'other:'||v_tag,pg_temp.scene_edge_pin(v_preset_id,v_gallery_work));
   exception when others then
     get stacked diagnostics v_stage_error=message_text;
     if v_stage_error='SCENE_REVISION_PAIRED_RELATION_REQUIRED'
@@ -278,7 +309,7 @@ begin
     perform private.scene_save_revision_paired_candidate_v1(
       v_auth,v_preset_id,v_preset_revision,v_preset_ver,v_gallery_ver,
       v_blob,array[v_media,v_second_media],v_second_media,
-      'Stale','Stale', '{}'::jsonb,'stale:'||v_tag);
+      'Stale','Stale', '{}'::jsonb,'stale:'||v_tag,pg_temp.scene_edge_pin(v_preset_id,v_gallery_work));
   exception when others then
     get stacked diagnostics v_stage_error=message_text;
     if v_stage_error='SCENE_REVISION_ROW_VERSION_CONFLICT' then
@@ -301,7 +332,7 @@ begin
       (select row_version from public.community_works where work_id=v_preset_work),
       (select row_version from public.community_works where work_id=v_gallery_work),
       v_third_blob,array[v_media,v_second_media],gen_random_uuid(),
-      'Bad cover','Failure', '{}'::jsonb,'bad-cover:'||v_tag);
+      'Bad cover','Failure', '{}'::jsonb,'bad-cover:'||v_tag,pg_temp.scene_edge_pin(v_preset_id,v_gallery_work));
   exception when others then
     get stacked diagnostics v_stage_error=message_text;
     if v_stage_error='SCENE_REVISION_MEDIA_COUNT_COVER_OR_UNIQUENESS_INVALID'
@@ -320,7 +351,7 @@ begin
       (select row_version from public.community_works where work_id=v_preset_work),
       (select row_version from public.community_works where work_id=v_gallery_work),
       v_third_blob,array[v_media,gen_random_uuid()],v_media,
-      'Invalid media','Failure', '{}'::jsonb,'bad-media:'||v_tag);
+      'Invalid media','Failure', '{}'::jsonb,'bad-media:'||v_tag,pg_temp.scene_edge_pin(v_preset_id,v_gallery_work));
   exception when others then
     get stacked diagnostics v_stage_error=message_text;
     if v_stage_error='SCENE_REVISION_MEDIA_NOT_OWNER_READY_CLEAR'
@@ -333,6 +364,54 @@ begin
         where preset_artifact_id=v_preset_id)<>v_revision_count
   then raise exception 'PAIRED_SCENE_FAILED_UPDATE_SIDE_EFFECT';end if;
   raise notice 'LOCAL_SCENE_PAIRED_NONOWNER_STALE_MEDIA_ROLLBACK_PASS';
+
+  -- R8/R9 regression: a noncurrent historical revision linked to the SAME
+  -- GalleryWork changes references without updating either Work rowVersion.
+  -- An unchanged caller pin MUST now fail BEFORE idempotency or any mutation.
+  v_pin_before_extra_edge:=pg_temp.scene_edge_pin(v_preset_id,v_gallery_work);
+  v_versions_before:=array[
+    (select current_published_revision_id from public.community_works where work_id=v_preset_work),
+    (select current_published_revision_id from public.community_works where work_id=v_gallery_work)
+  ];
+  select row_version into v_preset_ver from public.community_works where work_id=v_preset_work;
+  select row_version into v_gallery_ver from public.community_works where work_id=v_gallery_work;
+  insert into public.community_work_revisions(
+    revision_id,work_id,revision_number,created_by_account_id,shared_metadata)
+  values(v_extra_gallery_revision,v_gallery_work,
+    (select max(revision_number)+1 from public.community_work_revisions
+      where work_id=v_gallery_work),v_owner,
+    '{"fixture":"unpublished-historical-extra-edge"}'::jsonb);
+  insert into public.gallery_work_revisions(revision_id,title,description,metadata)
+  values(v_extra_gallery_revision,'Unpublished history','Regression fixture','{}'::jsonb);
+  insert into public.gallery_revision_presets(gallery_revision_id,preset_revision_id)
+  values(v_extra_gallery_revision,v_preset_revision);
+  if pg_temp.scene_edge_pin(v_preset_id,v_gallery_work)=v_pin_before_extra_edge
+    or (select row_version from public.community_works where work_id=v_preset_work)<>v_preset_ver
+    or (select row_version from public.community_works where work_id=v_gallery_work)<>v_gallery_ver
+  then raise exception 'SCENE_STALE_EDGE_FIXTURE_NOT_VALID';end if;
+  v_denied:=false;
+  begin
+    perform private.scene_save_revision_paired_candidate_v1(
+      v_auth,v_preset_id,(v_paired_result->>'presetRevisionId')::uuid,
+      v_preset_ver,v_gallery_ver,v_third_blob,array[v_media,v_second_media],
+      v_second_media,'Must refuse','Extra historical edge',
+      '{}'::jsonb,'stale-history:'||v_tag,v_pin_before_extra_edge);
+  exception when others then
+    get stacked diagnostics v_stage_error=message_text;
+    if v_stage_error='SCENE_REVISION_CALLER_EDGE_FINGERPRINT_STALE'
+    then v_denied:=true;else raise;end if;
+  end;
+  if not v_denied
+    or exists(select 1 from public.idempotency_keys
+      where account_id=v_owner and idempotency_key='stale-history:'||v_tag)
+    or (select count(*) from public.preset_revisions
+        where preset_artifact_id=v_preset_id)<>v_revision_count
+    or array[
+      (select current_published_revision_id from public.community_works where work_id=v_preset_work),
+      (select current_published_revision_id from public.community_works where work_id=v_gallery_work)
+    ] is distinct from v_versions_before
+  then raise exception 'SCENE_STALE_EDGE_PIN_ATOMIC_REJECTION_FAILED';end if;
+  raise notice 'LOCAL_SCENE_SAME_GALLERY_STALE_CALLER_PIN_DENY_PASS';
 
 
   -- Deliberately fail LATE, after the PresetRevision, WorkRevisions and
@@ -353,7 +432,7 @@ begin
       (select row_version from public.community_works where work_id=v_preset_work),
       (select row_version from public.community_works where work_id=v_gallery_work),
       v_fault_blob,array[v_media,v_second_media],v_second_media,
-      'Forced rollback','Fault injection', '{}'::jsonb,'fault:'||v_tag);
+      'Forced rollback','Fault injection', '{}'::jsonb,'fault:'||v_tag,pg_temp.scene_edge_pin(v_preset_id,v_gallery_work));
   exception when others then
     get stacked diagnostics v_stage_error=message_text;
     if v_stage_error='CI_FORCED_SCENE_COVER_WRITE_FAILURE'

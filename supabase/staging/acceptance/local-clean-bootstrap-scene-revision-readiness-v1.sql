@@ -60,6 +60,11 @@ begin
     or v_before->>'revisionCount'<>'1'
     or v_before->>'knownGalleryReferenceCount'<>'0'
     or v_before->>'knownHistoricalGalleryCount'<>'0'
+    or v_before->'pairedGalleryWorkId' is distinct from 'null'::jsonb
+    or v_before->'pairedGalleryWorkRowVersion' is distinct from 'null'::jsonb
+    or v_before->'pairedGalleryCurrentWorkRevisionId' is distinct from 'null'::jsonb
+    or v_before->>'pairedGallerySnapshotIsAtomicFence'<>'false'
+    or v_before->>'historicalEdgeSetIsAtomicFence'<>'false'
     or v_before->>'graphComplete'<>'false'
     or v_before->>'saveRevisionAuthorized'<>'false'
     or v_before->>'pairedGalleryPublishAuthorized'<>'false'
