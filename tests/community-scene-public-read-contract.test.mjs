@@ -27,6 +27,8 @@ test('Scene public read is a strictly guarded current-Revision, read-only functi
   assert.match(sql, /blob_id=v_preset_revision\.artifact_blob_id and purged_at is null/);
   assert.match(sql, /m\.processing_state<>'ready'/);
   assert.match(sql, /m\.moderation_state<>'clear'/);
+  assert.match(sql, /m\.purged_at is not null/);
+  assert.match(sql, /m\.purged_at is null/);
   assert.match(sql, /'mediaIds',v_media_ids/);
   assert.match(sql, /'coverMediaId',v_cover/);
   const projection = sql.split('return jsonb_build_object(').at(-1).split('end\n$scene_read$')[0];
