@@ -13,6 +13,7 @@ on:
       - 'supabase/staging/acceptance/local-clean-bootstrap-scene-linked-gallery-read-v1.sql'
       - 'supabase/staging/acceptance/local-clean-bootstrap-preset-generic-owner-lifecycle-deny-v1.sql'
       - 'supabase/staging/acceptance/local-clean-bootstrap-scene-revision-readiness-v1.sql'
+      - 'supabase/staging/acceptance/local-clean-bootstrap-scene-paired-update-v1.sql'
       - '.github/workflows/comm-clean-bootstrap-acceptance.yml'
 
 permissions:
@@ -153,6 +154,7 @@ jobs:
             local-clean-bootstrap-scene-linked-gallery-read-v1.sql \
             local-clean-bootstrap-preset-generic-owner-lifecycle-deny-v1.sql \
             local-clean-bootstrap-scene-revision-readiness-v1.sql \
+            local-clean-bootstrap-scene-paired-update-v1.sql \
             gallery-owner-media-invalid-orphan-v1.sql \
             gallery-global-backpressure-v1.sql \
             gallery-capacity-effective-throughput-v1.sql \

@@ -118,3 +118,47 @@ test('Scene Revision owner preflight is read-only and cannot unlock R6 lifecycle
   assert.match(edge, /SCENE_REVISION_READINESS_FORBIDDEN_OR_UNAVAILABLE/);
   assert.doesNotMatch(block.split('$scene_readiness$')[1], /\b(insert into|update public\.|delete from public\.)/i);
 });
+
+
+test('paired Scene Save Revision candidate is inert outside database owner and covers atomic publication', () => {
+  const sig = /create or replace function private\.scene_save_revision_paired_candidate_v1\s*\(/i;
+  assert.match(sql, sig);
+  const body = sql.split(sig)[1].split('$paired_scene_candidate$')[1];
+  assert.ok(body, 'candidate body unavailable');
+  assert.match(sql, /revoke all on function private\.scene_save_revision_paired_candidate_v1\([\s\S]*?\)\s+from public,anon,authenticated,service_role/i);
+  assert.doesNotMatch(sql, /grant execute on function private\.scene_save_revision_paired_candidate_v1/i);
+  const needles = [
+    'private.resolve_active_account(p_auth_subject)',
+    'p_expected_preset_revision_id',
+    'p_expected_gallery_work_version',
+    'p_expected_preset_work_version',
+    "preset_type='scene'",
+    'associated_gallery_work_id',
+    'from public.gallery_revision_presets',
+    'from public.preset_artifacts',
+    'from public.community_works',
+    'for update',
+    'for share',
+    'p_media_ids',
+    'p_cover_media_id',
+    'p_artifact_blob_id',
+    'community_work_revisions',
+    'preset_revision_publications',
+    'gallery_revision_presets',
+    'gallery_photo_revision_fields',
+    'work_revision_media',
+    'search_documents',
+    'outbox_events',
+    'idempotency_keys',
+    'SCENE_REVISION_ROW_VERSION_CONFLICT',
+    'SCENE_REVISION_CURRENT_LINK_STALE',
+    'SCENE_REVISION_MEDIA_NOT_OWNER_READY_CLEAR',
+    'SCENE_REVISION_BLOB_INVALID_OR_REUSED'
+  ];
+  for (const term of needles) assert.ok(body.includes(term), 'candidate missing '+term);
+  assert.doesNotMatch(body, /\bstorage\.remove\b|\bcreateSignedUrl\b|\bhttp_post\b/i);
+  // Existing authenticated Edge MUST NOT expose candidate function by name.
+  const edge = readFileSync(join(root,'supabase/functions/wep-preset-artifact/index.ts'),'utf8');
+  assert.doesNotMatch(edge, /scene_save_revision_paired_candidate_v1/i);
+  assert.doesNotMatch(edge, /action === 'saveRevision'|action === 'pairedPublish'/i);
+});
