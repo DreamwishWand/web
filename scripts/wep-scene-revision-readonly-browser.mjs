@@ -77,7 +77,7 @@ assert.ok((await panel.innerText()).includes(ids.galleryRevision));
 assert.ok((await panel.innerText()).includes('Historical media not available'));
 pass('CURRENT_REVISION_WITH_GALLERY_COVER_READ_ONLY');
 assert.ok((await panel.innerText()).includes('Current media count'));
-assert.ok((await panel.innerText()).includes('2')===false || true); // count rendered via current[] length
+assert.equal(await panel.getByText('Current media count').count(),1);
 pass('STAGING_LAB_CONFIG_PUBLIC_CURRENT_AND_MEDIA_SAME_ENDPOINT');
 mode='expired';
 await panel.getByRole('button',{name:'Retry cover'}).click();
