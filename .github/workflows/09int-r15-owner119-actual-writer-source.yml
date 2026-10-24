@@ -45,7 +45,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          timeout 1500s supabase start > /tmp/r8-supabase-start.log 2>&1 || { tail -n 80 /tmp/r8-supabase-start.log; exit 1; }
+          timeout 1500s supabase start > /tmp/r8-supabase-start.log 2>&1 || {
+            echo 'R15_OWNER_SOURCE_BOOTSTRAP_FAILED_EXACT_PIN'
+            grep -Ein -B 3 -A 7 'error|failed|SQLSTATE|syntax|migration' /tmp/r8-supabase-start.log | tail -n 100 || true
+            tail -n 30 /tmp/r8-supabase-start.log || true
+            exit 1
+          }
           echo 'LOCAL_SUPABASE_119_OWNER_SOURCE_MIGRATIONS_APPLIED'
       - name: Seed synthetic local account and minimal reference corpus
         shell: bash
