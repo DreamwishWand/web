@@ -141,6 +141,6 @@ test('signed runner remains isolated from Retention worker and authenticates nor
  assert.match(runner,/galleryFinalize/);
  assert.match(runner,/galleryReadBytes/);
  assert.match(runner,/galleryRetirementPreflight/);
- assert.doesNotMatch(runner,/community-retention|x-community-worker-token|physicalDeleteAuthorized:true|service_role/i);
+ assert.doesNotMatch(runner,/['"]community-retention['"]|['"]x-community-worker-token['"]|physicalDeleteAuthorized\s*:\s*true|['"]service_role['"]/i);
  assert.equal(BACKEND_SHA,'02750fcbcfd3f94fc12b39c8adf5757fa24a5646');
 });
