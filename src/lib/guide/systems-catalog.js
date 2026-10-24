@@ -1,0 +1,704 @@
+// Source: 06C owner-approved seven-category taxonomy + 07 DBK 2026-10-24 45-page CSV.
+// The 45 records are reviewed EN editorial inventory, NOT approved public articles.
+// IDs are derived stable taxonomy/primary mechanic handles, not newly approved product names.
+export const SYSTEMS_SOURCE = Object.freeze({platform:'Nintendo Switch',gameVersion:'1.25.0',buildID:'52BD625D9B4E0053',schema:624,taxonomyRevision:'2026-10-24',reviewedEnglishCount:45,publicApprovedCount:0});
+export const SYSTEM_CATEGORIES = Object.freeze([
+  {
+    "id": "basics-progression-settings",
+    "en": "Basics, Progression & Settings",
+    "ja": "基本・進行・設定",
+    "groups": [
+      {
+        "id": "play-basics",
+        "en": "Play Basics",
+        "ja": "プレイの基本"
+      },
+      {
+        "id": "progression-duties",
+        "en": "Progression & Duties",
+        "ja": "進行・デューティ"
+      },
+      {
+        "id": "settings-saves-dlc",
+        "en": "Settings, Saves & DLC Access",
+        "ja": "設定・セーブ・DLC利用権"
+      }
+    ]
+  },
+  {
+    "id": "exploration-travel-tools",
+    "en": "Exploration, Travel & Tools",
+    "ja": "探索・移動・道具",
+    "groups": [
+      {
+        "id": "worlds-unlocks",
+        "en": "Worlds & Unlocks",
+        "ja": "世界とエリアの解放"
+      },
+      {
+        "id": "maps-fast-travel",
+        "en": "Maps & Fast Travel",
+        "ja": "マップと移動"
+      },
+      {
+        "id": "tools-obstacles",
+        "en": "Tools & Obstacles",
+        "ja": "道具と障害物"
+      }
+    ]
+  },
+  {
+    "id": "villagers-companions-mounts",
+    "en": "Villagers, Companions & Mounts",
+    "ja": "住民・仲間・マウント",
+    "groups": [
+      {
+        "id": "villagers-friendship",
+        "en": "Villagers & Friendship",
+        "ja": "住民と友情"
+      },
+      {
+        "id": "critters-companions",
+        "en": "Critters & Companions",
+        "ja": "クリッターとコンパニオン"
+      },
+      {
+        "id": "mounts-abilities",
+        "en": "Mounts & Abilities",
+        "ja": "マウントと能力"
+      }
+    ]
+  },
+  {
+    "id": "gathering-cooking-crafting",
+    "en": "Gathering, Cooking & Crafting",
+    "ja": "採集・料理・クラフト",
+    "groups": [
+      {
+        "id": "gathering-farming",
+        "en": "Gathering & Farming",
+        "ja": "採集・農業・釣り・採掘"
+      },
+      {
+        "id": "timebending-gathering",
+        "en": "Timebending Gathering",
+        "ja": "Timebendingでの採集"
+      },
+      {
+        "id": "cooking-crafting-conversion",
+        "en": "Cooking, Crafting & Conversion",
+        "ja": "料理・製作・変換"
+      },
+      {
+        "id": "machines-automation",
+        "en": "Machines & Automation",
+        "ja": "設備と自動化"
+      }
+    ]
+  },
+  {
+    "id": "inventory-collections-shops",
+    "en": "Inventory, Collections & Shops",
+    "ja": "所持品・収集・ショップ",
+    "groups": [
+      {
+        "id": "inventory-storage-collection",
+        "en": "Inventory, Storage & Collection",
+        "ja": "所持品・収納・図鑑"
+      },
+      {
+        "id": "currencies-shops-purchases",
+        "en": "Currencies, Shops & Purchases",
+        "ja": "通貨・ショップ・購入"
+      },
+      {
+        "id": "mail-rewards-codes",
+        "en": "Mail, Rewards & Codes",
+        "ja": "郵便・報酬・コード"
+      }
+    ]
+  },
+  {
+    "id": "decorating-customization",
+    "en": "Decorating & Customization",
+    "ja": "飾り付け・カスタマイズ",
+    "groups": [
+      {
+        "id": "placement-building-housing",
+        "en": "Placement, Building & Housing",
+        "ja": "配置・建築・住宅"
+      },
+      {
+        "id": "wardrobe-touch-of-magic",
+        "en": "Wardrobe & Touch of Magic",
+        "ja": "服・家具のカスタマイズ"
+      },
+      {
+        "id": "native-presets-reuse",
+        "en": "Native Presets & Reuse",
+        "ja": "ゲーム内プリセット・デザイン再利用"
+      }
+    ]
+  },
+  {
+    "id": "photography-social-activities",
+    "en": "Photography, Social & Activities",
+    "ja": "撮影・交流・アクティビティ",
+    "groups": [
+      {
+        "id": "photos-dreamsnaps",
+        "en": "Photos & DreamSnaps",
+        "ja": "写真とDreamSnaps"
+      },
+      {
+        "id": "social-challenges-minigames",
+        "en": "Social, Challenges & Minigames",
+        "ja": "交流・チャレンジ・ミニゲーム"
+      }
+    ]
+  }
+]);
+export const REVIEWED_EN_PAGES = Object.freeze([
+  {
+    "id": "QUEST_MISSION_PROGRESSION",
+    "titleEN": "Quest and Mission Progression",
+    "categoryId": "basics-progression-settings",
+    "groupId": "play-basics",
+    "mechanicKey": "quest_progression",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "1f9a276ccb679b0aac915af7e6356ad4f3bd6d7656dd8db49a37eecb2422aeab",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "STAR_PATH_SEASONAL",
+    "titleEN": "Star Paths",
+    "categoryId": "basics-progression-settings",
+    "groupId": "progression-duties",
+    "mechanicKey": "star_paths",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "39320981c5a6f8e95777cd924ce8bcabf10ba7ff38a0840c5070599e11e78941",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "STAR_PATH_FTUE_ASTRONOMERS_JOURNEY",
+    "titleEN": "Astronomer's Journey",
+    "categoryId": "basics-progression-settings",
+    "groupId": "progression-duties",
+    "mechanicKey": "star_paths",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "cea3e521806288bfa0006c6dbb4012d9d44a8b4642abb8993c7c0e620972fc82",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "EVENTS_EVENT_BOARD",
+    "titleEN": "Events and Event Board",
+    "categoryId": "basics-progression-settings",
+    "groupId": "progression-duties",
+    "mechanicKey": "events_event_board",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "3afab79119af4c051409ec090480335e30bd029cb35948f5bb622d5150669153",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "DREAMLIGHT_DUTIES",
+    "titleEN": "Dreamlight Duties",
+    "categoryId": "basics-progression-settings",
+    "groupId": "progression-duties",
+    "mechanicKey": "dreamlight_duties",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "a707b5fb20c8b58569feaf1ee9bb4278a20d673fd0adf4dd27227663c848d8dd",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "COLLECTION_DISCOVERY",
+    "titleEN": "Collection Discovery",
+    "categoryId": "inventory-collections-shops",
+    "groupId": "inventory-storage-collection",
+    "mechanicKey": "collection",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "561d7a846b0821e1990306b43e6ff7a136de9d5725f4f020013f4cbaf5bd5265",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "INVENTORY_BACKPACK",
+    "titleEN": "Backpack Inventory",
+    "categoryId": "inventory-collections-shops",
+    "groupId": "inventory-storage-collection",
+    "mechanicKey": "inventory_backpack",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "2e310a96dd9a910d1ce2acae12cd1fe4af699e27dbfe118224139b0daf128a19",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "STORAGE_CHESTS",
+    "titleEN": "Storage Chests",
+    "categoryId": "inventory-collections-shops",
+    "groupId": "inventory-storage-collection",
+    "mechanicKey": "storage_containers",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "d2ddef02bb8d895792bd03b1e8d90c6e348cfa1bb77f6d5425939ab4e689a6ca",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "SCROOGE_STORE_CATALOG",
+    "titleEN": "Scrooge McDuck's Store",
+    "categoryId": "inventory-collections-shops",
+    "groupId": "currencies-shops-purchases",
+    "mechanicKey": "scrooge_store",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "c18320a931b58646ec08a8d000d42f87647d468b15b4bcb7c5d089a74ef2f8ec",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "PREMIUM_SHOP_PURCHASE_UNITS",
+    "titleEN": "Premium Shop Purchase Units",
+    "categoryId": "inventory-collections-shops",
+    "groupId": "currencies-shops-purchases",
+    "mechanicKey": "premium_shop",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "0c0b1fd84b09ffe5ff2201dc06504e000fc4ac1353955d1a7bad0035c379f5d0",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "DREAMSNAPS",
+    "titleEN": "DreamSnaps",
+    "categoryId": "photography-social-activities",
+    "groupId": "photos-dreamsnaps",
+    "mechanicKey": "dreamsnaps",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "720ea1a2576619f0c8ad1c579c241a0d1703e49ecd5cdbd4657287ca72001d29",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "DECORATING_FURNITURE_MODE",
+    "titleEN": "Furniture and Decorating Mode",
+    "categoryId": "decorating-customization",
+    "groupId": "placement-building-housing",
+    "mechanicKey": "decorating_mode",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "8708de31b2f48f6500384e236f8e2813673d5458a6159d385b94ce34ab5159c0",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "DECORATION_PRESETS",
+    "titleEN": "Decoration Presets",
+    "categoryId": "decorating-customization",
+    "groupId": "native-presets-reuse",
+    "mechanicKey": "native_decoration_presets",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "9ff5364efb13c8b8f84470f348754fca0cebca2f357c71dca0bae2c0c6c0722a",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "TOUCH_OF_MAGIC",
+    "titleEN": "Touch of Magic",
+    "categoryId": "decorating-customization",
+    "groupId": "wardrobe-touch-of-magic",
+    "mechanicKey": "touch_of_magic_clothing",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "91e8e05b1598ec0235fa6fc31ac0d4de6bbc19411dabcdc93683dd81cbde7b16",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "CRAFTING",
+    "titleEN": "Crafting",
+    "categoryId": "gathering-cooking-crafting",
+    "groupId": "cooking-crafting-conversion",
+    "mechanicKey": "crafting",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "26ed560958a565851e06f3ef2ffae228aa4621a0a48146d31ebd6198c421b2bd",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "COOKING",
+    "titleEN": "Cooking",
+    "categoryId": "gathering-cooking-crafting",
+    "groupId": "cooking-crafting-conversion",
+    "mechanicKey": "cooking",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "c3ac9d9f32175dd732b5da10089aafa2c67b78a763f7caf081802b3b4186a0b5",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "GARDENING",
+    "titleEN": "Gardening",
+    "categoryId": "gathering-cooking-crafting",
+    "groupId": "gathering-farming",
+    "mechanicKey": "gardening",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "ad3d9a0ae974f3528e349e8ef9e477edd223b2e86af5707d07fce31eba0d9774",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "FISHING",
+    "titleEN": "Fishing",
+    "categoryId": "gathering-cooking-crafting",
+    "groupId": "gathering-farming",
+    "mechanicKey": "fishing",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "7b21ad93a56dc5569f46721c628b00a61375fd1fcda989067407a2a1fa7f7515",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "MINING",
+    "titleEN": "Mining",
+    "categoryId": "gathering-cooking-crafting",
+    "groupId": "gathering-farming",
+    "mechanicKey": "mining",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "787628756e218e74685a8322c2224f9f0a4c4108176a7a2499a144ab5071e21f",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "FORAGING",
+    "titleEN": "Foraging",
+    "categoryId": "gathering-cooking-crafting",
+    "groupId": "gathering-farming",
+    "mechanicKey": "foraging",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "63e235b0bbf3862f857fedda0c24461938daa315046a59c73ebf201e096d7a89",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "CRITTER_FEEDING",
+    "titleEN": "Critter Feeding",
+    "categoryId": "villagers-companions-mounts",
+    "groupId": "critters-companions",
+    "mechanicKey": "critter_feeding",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "d314372a635017511c060e8ee8bd3ab8a85886c48560ca8bff2fa6a8b7db0680",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "VILLAGER_FRIENDSHIP",
+    "titleEN": "Villager Friendship",
+    "categoryId": "villagers-companions-mounts",
+    "groupId": "villagers-friendship",
+    "mechanicKey": "friendship",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "34fab071d187aa4f148c530ce545cde3d203ef9052556fac13818fe7e5f31353",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "HANGOUT_ROLES_BONUS",
+    "titleEN": "Hangout Roles and Bonuses",
+    "categoryId": "villagers-companions-mounts",
+    "groupId": "villagers-friendship",
+    "mechanicKey": "hangout_roles",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "7df2eadc5e3013d43dae078446e303ca9e2cde395fa1c13335a7f4fb821e3449",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "CHARACTER_REALM_UNLOCK",
+    "titleEN": "Character and Realm Unlocks",
+    "categoryId": "exploration-travel-tools",
+    "groupId": "worlds-unlocks",
+    "mechanicKey": "realms",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "ef7500e722f9a8898fe2635b1e392f61b87ee05131247aa7da5578c581197bdf",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "BIOME_WORLD_ACCESS",
+    "titleEN": "Biome and World Access",
+    "categoryId": "exploration-travel-tools",
+    "groupId": "worlds-unlocks",
+    "mechanicKey": "biome_world_access",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "0c53c53040adf2c278ff4ee0b3174cf3516b09e555b61c3f9c4fae7597c0ae68",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "ROYAL_TOOLS_UPGRADES",
+    "titleEN": "Royal Tools and Upgrades",
+    "categoryId": "exploration-travel-tools",
+    "groupId": "tools-obstacles",
+    "mechanicKey": "royal_tools",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "ea2ea78a935f3aaef9ef17fe601fddb8b06b3a89d8af9a9da7d1d873fbd7d65e",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "FAST_TRAVEL_WISHING_WELLS",
+    "titleEN": "Fast Travel and Wishing Wells",
+    "categoryId": "exploration-travel-tools",
+    "groupId": "maps-fast-travel",
+    "mechanicKey": "fast_travel",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "1753bd6909b91131503dc934c75d23a1ccb0ec41d82f3c790f1431114dc6740d",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "PLAYER_HOUSE_ROOMS",
+    "titleEN": "Player House and Rooms",
+    "categoryId": "decorating-customization",
+    "groupId": "placement-building-housing",
+    "mechanicKey": "player_house_rooms",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "5d7e8bbac4401802b6f80097cec4c7d25bd36885e62695ca70d49c65f7751048",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "COMPANIONS",
+    "titleEN": "Companions",
+    "categoryId": "villagers-companions-mounts",
+    "groupId": "critters-companions",
+    "mechanicKey": "companions",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "372bc55acbf8e3d8ea52965a4ac8d7a070cf7f8ad48da9a1fb96fb170fa82c36",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "PHOTO_MODE",
+    "titleEN": "Photo Mode",
+    "categoryId": "photography-social-activities",
+    "groupId": "photos-dreamsnaps",
+    "mechanicKey": "photo_mode",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "5c4672d998de15d42f7057310aac8e6f3dd58ccb5738a6f3b7924bd0b2eeefc7",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "MULTIPLAYER_VALLEY_VISITS",
+    "titleEN": "Multiplayer Valley Visits",
+    "categoryId": "photography-social-activities",
+    "groupId": "social-challenges-minigames",
+    "mechanicKey": "multiplayer_valley_visits",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "194dc76bfca3263ed0019f406dc1a2484ec0d0a65634109e0a21220ac07466cf",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "FLOATING_ISLANDS",
+    "titleEN": "Floating Islands",
+    "categoryId": "exploration-travel-tools",
+    "groupId": "worlds-unlocks",
+    "mechanicKey": "floating_islands",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "4c20ed26468185f9167d5bbe4aae6186c30fb4b7158a5282d4a75b16f700d3f4",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "MOUNTS_BONDING_GEAR",
+    "titleEN": "Mounts, Bonding, and Gear",
+    "categoryId": "villagers-companions-mounts",
+    "groupId": "mounts-abilities",
+    "mechanicKey": "mounts",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "07c57080be37b5855ac17044592f91cb0c7d4d39e1e49b7cb615b30f0c7a9653",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "EXPANSION_ADVENTURE_ACCESS",
+    "titleEN": "Expansion and Adventure Access",
+    "categoryId": "exploration-travel-tools",
+    "groupId": "worlds-unlocks",
+    "mechanicKey": "expansion_adventure_access",
+    "priority": "P0",
+    "version": "1.25.0",
+    "sourceHash": "66b7139f56eec51ee2cceafe359f7af38938932a7b159c319518dc0675d89582",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "TIMEBENDING",
+    "titleEN": "Timebending",
+    "categoryId": "gathering-cooking-crafting",
+    "groupId": "timebending-gathering",
+    "mechanicKey": "timebending",
+    "priority": "P1",
+    "version": "1.25.0",
+    "sourceHash": "72d43fba5ab15d59589321f6cb3aa47dcbe42630583ad7358725ed4cbccafb1d",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "SCRAMBLECOIN_BOARD_GAME",
+    "titleEN": "Scramblecoin",
+    "categoryId": "photography-social-activities",
+    "groupId": "social-challenges-minigames",
+    "mechanicKey": "scramblecoin",
+    "priority": "P1",
+    "version": "1.25.0",
+    "sourceHash": "161c072e9a656e7e0d68fedf16acd44dd31955b822b1e5fce65d2b50332d251a",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "SNIPPETS_LOREKEEPER_TALES",
+    "titleEN": "Snippets and Lorekeeper Tales",
+    "categoryId": "inventory-collections-shops",
+    "groupId": "inventory-storage-collection",
+    "mechanicKey": "snippets_lorekeeper",
+    "priority": "P1",
+    "version": "1.25.0",
+    "sourceHash": "5ae0b49e7537c9d7306cefdb07f6c5e24a854c84b2f5e75180abc738814e43b6",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "DAISY_BOUTIQUE_CHALLENGES",
+    "titleEN": "Daisy's Boutique Challenges",
+    "categoryId": "photography-social-activities",
+    "groupId": "social-challenges-minigames",
+    "mechanicKey": "boutique_challenges",
+    "priority": "P1",
+    "version": "1.25.0",
+    "sourceHash": "9ff88ab4f4e57d9aab94fcaaf7c9cb916a07f6404bbd8867aebc483cfb497358",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "RESTAURANT_ORDERS",
+    "titleEN": "Restaurant Orders",
+    "categoryId": "gathering-cooking-crafting",
+    "groupId": "cooking-crafting-conversion",
+    "mechanicKey": "restaurant_orders",
+    "priority": "P1",
+    "version": "1.25.0",
+    "sourceHash": "151de2464bf4a5caa3759afc54e40f8fd0f4ef84a578ce499dcbf4a96ea80356",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "CAMPAIGN_CODES_MECHANIC",
+    "titleEN": "Campaign and Promo Codes",
+    "categoryId": "inventory-collections-shops",
+    "groupId": "mail-rewards-codes",
+    "mechanicKey": "campaign_codes",
+    "priority": "P1",
+    "version": "1.25.0",
+    "sourceHash": "0a78e8345a779ef3027e497a5b127b9d8633d05c52251169e64372d49028edb9",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "CLOUD_SAVE_CROSS_SAVE",
+    "titleEN": "Cloud Save and Cross-Save",
+    "categoryId": "basics-progression-settings",
+    "groupId": "settings-saves-dlc",
+    "mechanicKey": "cloud_cross_save",
+    "priority": "P1",
+    "version": "1.25.0",
+    "sourceHash": "5fb4fe1a9f53160291b4d89f81e88cfc02459a965b172d8d42dc1d7a2cf9e2c8",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "GAME_CURRENCIES_RESOURCES",
+    "titleEN": "Currencies and Resources",
+    "categoryId": "inventory-collections-shops",
+    "groupId": "currencies-shops-purchases",
+    "mechanicKey": "currencies_resources",
+    "priority": "P1",
+    "version": "1.25.0",
+    "sourceHash": "f1505ddf63a8fe60be72e81498f5f34ae462744d25daa407e99d0e22ee3dbb2b",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "MEMORIES",
+    "titleEN": "Memories",
+    "categoryId": "inventory-collections-shops",
+    "groupId": "inventory-storage-collection",
+    "mechanicKey": "memories",
+    "priority": "P1",
+    "version": "1.25.0",
+    "sourceHash": "88da0a41521b8e65d49697463de6627924cdfe9d89051a2df9b53a0b3f7ab658",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "MAILBOX_REWARDS",
+    "titleEN": "Mailbox and Rewards",
+    "categoryId": "inventory-collections-shops",
+    "groupId": "mail-rewards-codes",
+    "mechanicKey": "mailbox_rewards",
+    "priority": "P1",
+    "version": "1.25.0",
+    "sourceHash": "10a9fb8b2d2f2e2725ee8a8b4460e774104ca2eabfa7c2d4b58dcd1b8266d615",
+    "reviewedEN": true,
+    "approved": false
+  },
+  {
+    "id": "PREMIUM_DLC_ENTITLEMENTS",
+    "titleEN": "Premium and DLC Entitlements",
+    "categoryId": "basics-progression-settings",
+    "groupId": "settings-saves-dlc",
+    "mechanicKey": "premium_dlc_entitlements",
+    "priority": "P1",
+    "version": "1.25.0",
+    "sourceHash": "82533d8a74cea7345185178fdbf88961ce7fae09c06c079b5f30e0e850bf6a31",
+    "reviewedEN": true,
+    "approved": false
+  }
+]);
+export const PAGE_INDEX = new Map(REVIEWED_EN_PAGES.map(page => [page.id,page]));
+export const CATEGORY_INDEX = new Map(SYSTEM_CATEGORIES.map(category => [category.id,category]));
