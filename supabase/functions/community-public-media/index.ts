@@ -56,6 +56,13 @@ const publicFetch = withSupabase({ auth: 'none' }, async (req, ctx) => {
       Number(gallery.byteSize)<1 || Number(gallery.byteSize)>20971520) {
       return reply({ok:false,error:'GALLERY_MEDIA_INVALID'},404);
     }
+    // Require an authoritative stored digest before advertising or serving
+    // Gallery media. A replacement blob with identical byte length is NOT
+    // the same immutable revision image.
+    const expectedSha256=String(gallery.checksumSha256??'').toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(expectedSha256)) {
+      return reply({ok:false,error:'GALLERY_MEDIA_CHECKSUM_INVALID'},409);
+    }
     if (req.method === 'POST') {
       const streamUrl=`${requestUrl.origin}${requestUrl.pathname}?mediaId=${encodeURIComponent(mediaId)}`;
       return reply({
@@ -74,7 +81,18 @@ const publicFetch = withSupabase({ auth: 'none' }, async (req, ctx) => {
       .from(bucketName()).download(String(gallery.storageKey));
     if (downloadError || !blob) return reply({ok:false,error:'GALLERY_MEDIA_STORAGE_UNAVAILABLE'},404);
     if (blob.size !== Number(gallery.byteSize)) return reply({ok:false,error:'GALLERY_MEDIA_STORAGE_SIZE_MISMATCH'},409);
-    return new Response(blob.stream(),{
+    // Strictly bounded by the existing 20 MiB Gallery image maximum. Verify
+    // the COMPLETE payload before the first byte is returned to the caller,
+    // as the owner-only Gallery reader already does.
+    let verifiedBytes:ArrayBuffer;
+    try { verifiedBytes=await blob.arrayBuffer(); }
+    catch { return reply({ok:false,error:'GALLERY_MEDIA_BYTES_UNAVAILABLE'},404); }
+    const checksumBytes=new Uint8Array(await crypto.subtle.digest('SHA-256',verifiedBytes));
+    const actualSha256=Array.from(checksumBytes,(b)=>b.toString(16).padStart(2,'0')).join('');
+    if (actualSha256!==expectedSha256) {
+      return reply({ok:false,error:'GALLERY_MEDIA_STORAGE_CHECKSUM_MISMATCH'},409);
+    }
+    return new Response(verifiedBytes,{
       status:200,
       headers:{
         ...corsHeaders,
