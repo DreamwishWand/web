@@ -1,0 +1,314 @@
+// 04 QR / #130: real, operator-approved Gallery Staging acceptance.
+// No service_role, Vault, direct SQL, privileged Storage remove or Cron calls.
+// CLI --preflight is secret-free and never performs a network request.
+// CLI --live REQUIRES an explicitly approved, disposable, three-actor scope.
+import assert from 'node:assert/strict';
+import { createHash, randomUUID } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
+
+export const STAGING_URL = 'https://ptpdoxhrqopvczpclcij.supabase.co';
+export const BACKEND_SHA = '7ed57b73368a8ae5cfb4d3e7cb576c647577dfd8';
+export const PNG_BYTES = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/a6UAAAAASUVORK5CYII=', 'base64'
+);
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const SHA = /^[0-9a-f]{40}$/;
+const MAX_BYTES = 20 * 1024 * 1024;
+const APPROVAL = 'APPROVED_DISPOSABLE_GALLERY_STAGING_ONLY';
+const actors = ['A', 'B', 'M'];
+export const sha256 = (value) => createHash('sha256').update(value).digest('hex');
+export function validateLiveConfig(env) {
+  const required = [
+    'DREAMWISH_SUPABASE_URL', 'DREAMWISH_SUPABASE_PUBLISHABLE_KEY',
+    'DREAMWISH_GALLERY_E2E_APPROVAL', 'DREAMWISH_GALLERY_BACKEND_SHA',
+    'DREAMWISH_GALLERY_SUBJECT_ID',
+    ...actors.flatMap((actor) => [
+      'DREAMWISH_GALLERY_' + actor + '_EMAIL',
+      'DREAMWISH_GALLERY_' + actor + '_PASSWORD',
+      'DREAMWISH_GALLERY_' + actor + '_ACCOUNT_ID'
+    ])
+  ];
+  const missing = required.filter((name) => typeof env[name] !== 'string' || env[name].length === 0);
+  if (missing.length) throw new Error('EXTERNAL_ENVIRONMENT: missing ' + missing.join(','));
+  if (env.DREAMWISH_SUPABASE_URL !== STAGING_URL) throw new Error('STAGING_TARGET_NOT_APPROVED');
+  if (!env.DREAMWISH_SUPABASE_PUBLISHABLE_KEY.startsWith('sb_publishable_'))
+    throw new Error('PUBLISHABLE_KEY_REQUIRED');
+  if (env.DREAMWISH_GALLERY_E2E_APPROVAL !== APPROVAL) throw new Error('DISPOSABLE_SCOPE_NOT_APPROVED');
+  if (env.DREAMWISH_GALLERY_BACKEND_SHA !== BACKEND_SHA) throw new Error('BACKEND_SHA_NOT_PINNED');
+  if (!UUID.test(env.DREAMWISH_GALLERY_SUBJECT_ID)) throw new Error('VERIFIED_SUBJECT_ID_REQUIRED');
+  if (PNG_BYTES.length < 1 || PNG_BYTES.length > MAX_BYTES) throw new Error('TEST_IMAGE_BOUNDS');
+  for (const actor of actors) {
+    if (!UUID.test(env['DREAMWISH_GALLERY_' + actor + '_ACCOUNT_ID']))
+      throw new Error('APPROVED_ACTOR_ID_REQUIRED_' + actor);
+  }
+  const ids = actors.map((actor) => env['DREAMWISH_GALLERY_' + actor + '_ACCOUNT_ID'].toLowerCase());
+  if (new Set(ids).size !== 3) throw new Error('ACTOR_ACCOUNT_COLLISION');
+  if (env.CI === 'true' && !(env.GITHUB_REF || '').startsWith('refs/heads/integration/'))
+    throw new Error('INTEGRATION_BRANCH_REQUIRED');
+  if (env.DREAMWISH_GALLERY_M_MODERATOR_APPROVED !== 'true')
+    throw new Error('MODERATOR_SCOPE_NOT_APPROVED');
+  return {
+    url: STAGING_URL,
+    key: env.DREAMWISH_SUPABASE_PUBLISHABLE_KEY,
+    subjectId: env.DREAMWISH_GALLERY_SUBJECT_ID,
+    approvedAccountIds: ids,
+    credentials: actors.map((actor) => ({
+      label: actor,
+      email: env['DREAMWISH_GALLERY_' + actor + '_EMAIL'],
+      password: env['DREAMWISH_GALLERY_' + actor + '_PASSWORD']
+    }))
+  };
+}
+export function assertSignedUploadUrl(raw, ownerUserId) {
+  const url = new URL(raw);
+  if (url.origin !== STAGING_URL) throw new Error('SIGNED_UPLOAD_EXTERNAL_ORIGIN');
+  if (!url.pathname.startsWith('/storage/v1/object/upload/sign/community-media-staging/'))
+    throw new Error('SIGNED_UPLOAD_BUCKET_OR_PATH');
+  if (!url.pathname.includes('/' + ownerUserId + '/'))
+    throw new Error('SIGNED_UPLOAD_OWNER_PATH');
+  if (!url.searchParams.has('token')) throw new Error('SIGNED_UPLOAD_TOKEN_MISSING');
+  return raw;
+}
+export function assertBinary(bytes, expected) {
+  assert(Number.isSafeInteger(expected.byteSize) && expected.byteSize > 0 && expected.byteSize <= MAX_BYTES);
+  assert.equal(bytes.length, expected.byteSize, 'BINARY_SIZE_MISMATCH');
+  assert.match(expected.checksumSha256, /^[a-f0-9]{64}$/i);
+  assert.equal(sha256(bytes), expected.checksumSha256.toLowerCase(), 'BINARY_SHA256_MISMATCH');
+}
+function ensureUuid(value, error) {
+  if (typeof value !== 'string' || !UUID.test(value)) throw new Error(error);
+  return value;
+}
+function statusError(result, label) {
+  const e = new Error(label + '_HTTP_' + result.status);
+  e.status = result.status;
+  e.code = typeof result.data?.error === 'string' && /^[A-Z0-9_]{1,70}$/.test(result.data.error)
+    ? result.data.error : 'HTTP_STATUS';
+  return e;
+}
+function safeEvent(log, name, status, extra = {}) {
+  log.push({case: name, status, ...extra});
+}
+export async function runSignedGallery(env, transport = fetch, sleep = (ms) => new Promise((r) => setTimeout(r, ms))) {
+  const cfg = validateLiveConfig(env); // MUST preflight all scopes before network
+  const evidence = {
+    kind: 'REAL_SIGNED_STAGING_ONLY',
+    backendSha: BACKEND_SHA,
+    runnerSha: /^[a-f0-9]{40}$/.test(env.GITHUB_SHA || '') ? env.GITHUB_SHA : 'LOCAL',
+    edgeVersions: 'operator-must-verify-current-deployment',
+    actorScope: 'APPROVED_DISPOSABLE_A_B_M',
+    mediaSha256: sha256(PNG_BYTES),
+    mediaByteSize: PNG_BYTES.length,
+    events: [],
+    remaining: []
+  };
+  const active = [];
+  const prepared = [];
+  let workId = null;
+  const headers = (session, type = 'application/json') => {
+    const value = {apikey: cfg.key, 'cache-control': 'no-store'};
+    if (type) value['content-type'] = type;
+    if (session) value.authorization = 'Bearer ' + session.access_token;
+    return value;
+  };
+  async function call(path, body, session, method = 'POST') {
+    const response = await transport(cfg.url + path, {
+      method, headers: headers(session),
+      body: body === undefined ? undefined : JSON.stringify(body),
+      redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(20000)
+    });
+    let data = null;
+    try { data = await response.json(); } catch { /* status remains authoritative */ }
+    return {status: response.status, data, cacheControl: response.headers.get('cache-control')};
+  }
+  async function binary(path, body, session, method = 'POST') {
+    const response = await transport(cfg.url + path, {
+      method, headers: headers(session, method === 'GET' ? null : 'application/json'),
+      body: body === undefined ? undefined : JSON.stringify(body),
+      redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(20000)
+    });
+    if (response.status !== 200) return {status: response.status, data: null};
+    const raw = Buffer.from(await response.arrayBuffer());
+    return {status: response.status, bytes: raw, cacheControl: response.headers.get('cache-control')};
+  }
+  const requireStatus = (res, expected, label) => {
+    if (res.status !== expected) throw statusError(res, label);
+    safeEvent(evidence.events, label, 'PASS', {httpStatus: res.status});
+    return res.data;
+  };
+  const paths = {
+    media: '/functions/v1/community-media',
+    command: '/functions/v1/community-command',
+    query: '/functions/v1/community-query',
+    publicQuery: '/functions/v1/community-public-query',
+    publicMedia: '/functions/v1/community-public-media'
+  };
+  const media = (actor, action, body) => call(paths.media, {action, ...body}, actor);
+  const command = (actor, commandName, payload) => call(paths.command, {command: commandName, payload}, actor);
+  const query = (actor, name, payload = {}) => call(paths.query, {query: name, payload}, actor);
+  const nonce = randomUUID();
+  try {
+    // Fresh normal Supabase password sessions; no JWT mint or admin impersonation.
+    for (const item of cfg.credentials) {
+      const result = await call('/auth/v1/token?grant_type=password',
+        {email: item.email, password: item.password}, null);
+      const session = requireStatus(result, 200, 'auth_' + item.label);
+      ensureUuid(session?.user?.id, 'NORMAL_AUTH_USER_ID_MISSING');
+      if (!session?.access_token || !session?.refresh_token) throw new Error('NORMAL_AUTH_SESSION_MISSING');
+      active.push(session);
+      const me = requireStatus(await query(session, 'me'), 200, 'identity_' + item.label);
+      const index = actors.indexOf(item.label);
+      const account = ensureUuid(me?.data?.accountId, 'WAND_ACCOUNT_NOT_LINKED_' + item.label);
+      assert.equal(account.toLowerCase(), cfg.approvedAccountIds[index], 'ACTOR_ACCOUNT_NOT_APPROVED_' + item.label);
+      if (item.label === 'A') ensureUuid(me?.data?.creatorProfileId, 'OWNER_CREATOR_PROFILE_MISSING');
+    }
+    const [a, b, m] = active;
+    // Role entitlement proof via existing moderator-authorized read-only RPC;
+    // limit zero, response is intentionally discarded to avoid leaking other cases.
+    const role = await call('/functions/v1/community-admin',
+      {operation:'listModerationCases',payload:{limit:0}}, m);
+    requireStatus(role, 200, 'moderator_role_read_only');
+    const subjects = requireStatus(await call(paths.publicQuery, {
+      rpc: 'community_list_verified_gallery_subjects_v1',
+      payload: {p_gallery_kind:'outdoor', p_limit:100}
+    }, null), 200, 'verified_subjects');
+    const rows = Array.isArray(subjects) ? subjects :
+      Array.isArray(subjects?.data) ? subjects.data :
+      Array.isArray(subjects?.items) ? subjects.items : [];
+    if (!rows.some((row) => (row.subjectId || row.subject_id) === cfg.subjectId))
+      throw new Error('APPROVED_SUBJECT_NOT_VERIFIED');
+    const identity = requireStatus(await query(a, 'me'), 200, 'owner_profile_for_publish');
+    const creatorProfileId = ensureUuid(identity?.data?.creatorProfileId, 'CREATOR_PROFILE_MISSING');
+    const uploaded = [];
+    for (let i = 0; i < 2; i += 1) {
+      const name = 'media_' + (i + 1);
+      const preparedBody = requireStatus(await media(a, 'galleryPrepare',
+        {mimeType:'image/png', byteSize:PNG_BYTES.length}), 200, name + '_prepare');
+      const storageKey = String(preparedBody?.storageKey || '');
+      if (!storageKey.startsWith(a.user.id + '/') || !/\.png$/.test(storageKey) ||
+          !/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.png$/i.test(storageKey))
+        throw new Error('UNEXPECTED_DISPOSABLE_STORAGE_KEY');
+      prepared.push({storageKey, bound:false});
+      const signedUrl = assertSignedUploadUrl(preparedBody?.signedUpload?.signedUrl, a.user.id);
+      const form = new FormData();
+      form.append('cacheControl', '0');
+      form.append('', new Blob([PNG_BYTES], {type:'image/png'}), 'qr-disposable.png');
+      const put = await transport(signedUrl, {
+        method:'PUT', headers:{'x-upsert':'false'}, body:form, redirect:'error',
+        cache:'no-store', signal:AbortSignal.timeout(20000)
+      });
+      if (![200,201].includes(put.status)) throw new Error(name + '_SIGNED_PUT_HTTP_' + put.status);
+      safeEvent(evidence.events, name + '_signed_put', 'PASS', {httpStatus:put.status});
+      const finalized = requireStatus(await media(a, 'galleryFinalize', {storageKey}), 200, name + '_finalize');
+      const mediaId = ensureUuid(finalized?.data?.mediaId, 'FINALIZED_MEDIA_ID_MISSING');
+      requireStatus(await media(a, 'galleryStatus', {storageKey}), 200, name + '_owner_status');
+      uploaded.push({storageKey, mediaId});
+    }
+    const payload = (index, extra = {}) => ({
+      galleryKind:'outdoor', creatorProfileId, subjectId:cfg.subjectId,
+      title:'QA approved disposable ' + nonce.slice(0, 8) + ' rev ' + (index + 1),
+      description:'Temporary signed Gallery acceptance; not a user work',
+      mediaIds:[uploaded[index].mediaId], coverMediaId:uploaded[index].mediaId,
+      originalityAttested:true, idempotencyKey:randomUUID(), ...extra
+    });
+    const created = requireStatus(await command(a, 'publishGalleryPhoto', payload(0)), 200, 'gallery_public_create');
+    workId = ensureUuid(created?.data?.workId, 'PUBLIC_WORK_ID_MISSING');
+    evidence.disposableWorkId = workId;
+    evidence.disposableMediaIds = uploaded.map((v) => v.mediaId);
+    prepared[0].bound = true;
+    const revision = Number(created?.data?.rowVersion);
+    if (!Number.isSafeInteger(revision) || revision < 1) throw new Error('CREATE_ROW_VERSION_MISSING');
+    const newer = requireStatus(await command(a, 'publishGalleryPhoto',
+      payload(1, {workId,expectedVersion:revision})), 200, 'gallery_immutable_update');
+    prepared[1].bound = true;
+    const newerVersion = Number(newer?.data?.rowVersion);
+    if (!Number.isSafeInteger(newerVersion) || newerVersion <= revision)
+      throw new Error('IMMUTABLE_VERSION_NOT_ADVANCED');
+    const stale = await command(a, 'publishGalleryPhoto',
+      payload(1, {workId,expectedVersion:revision}));
+    requireStatus(stale, 409, 'gallery_stale_revision_conflict');
+    const descriptor = requireStatus(await call(paths.publicMedia,
+      {mediaId:uploaded[1].mediaId}, null), 200, 'public_binary_descriptor');
+    if (descriptor?.media?.rawStorageSignedUrlIssued !== false ||
+        descriptor?.media?.transport !== 'edge_proxy')
+      throw new Error('RAW_PUBLIC_STORAGE_SIGNER_DETECTED');
+    const expected = {byteSize:PNG_BYTES.length,checksumSha256:evidence.mediaSha256};
+    const publicGet = await binary(paths.publicMedia + '?mediaId=' + uploaded[1].mediaId, undefined, null,'GET');
+    if (publicGet.status !== 200) throw statusError(publicGet,'public_binary_get');
+    assertBinary(publicGet.bytes,expected);
+    if (!/no-store/.test(publicGet.cacheControl || '')) throw new Error('PUBLIC_BINARY_CACHE_CONTROL');
+    safeEvent(evidence.events,'public_binary_get_sha256','PASS',{httpStatus:200,bytes:publicGet.bytes.length});
+    const ownerGet = await binary(paths.media, {action:'galleryReadBytes',mediaId:uploaded[1].mediaId},a);
+    if (ownerGet.status !== 200) throw statusError(ownerGet,'owner_binary_read');
+    assertBinary(ownerGet.bytes,expected);
+    safeEvent(evidence.events,'owner_binary_sha256','PASS',{httpStatus:200,bytes:ownerGet.bytes.length});
+    for (const [label, actor] of [['B',b],['M',m],['anonymous',null]]) {
+      const denied = await media(actor,'galleryReadBytes',{mediaId:uploaded[1].mediaId});
+      requireStatus(denied, actor ? 403 : 401, label + '_owner_binary_denial');
+    }
+    requireStatus(await call(paths.publicMedia,{mediaId:uploaded[0].mediaId},null),
+      404,'historical_public_denial');
+    requireStatus(await media(a,'galleryReadBytes',{mediaId:uploaded[0].mediaId}),
+      200,'historical_owner_read_metadata_only_forbidden_expected');
+    const preflight = requireStatus(await query(a,'galleryRetirementPreflight',{workId}),
+      200,'owner_cloud_readonly_preflight');
+    if (preflight?.data?.operationAuthorized === true ||
+        preflight?.data?.deleteAuthorized === true ||
+        preflight?.data?.cloudEntitlementVerified === true)
+      throw new Error('CLOUD_PRESERVATION_UNEXPECTEDLY_AUTHORIZED');
+    requireStatus(await query(b,'galleryRetirementPreflight',{workId}),
+      403,'nonowner_cloud_preflight_denial');
+    evidence.remaining.push('OLD_ISSUED_STORAGE_URL_TIMING_NOT_EXECUTED: requires approved independent historical bearer fixture');
+    evidence.remaining.push('BROWSER_CDN_CACHE_NOT_EXECUTED: requires dedicated old bearer and controlled browser timing');
+    evidence.remaining.push('PHYSICAL_DELETE_NOT_EXECUTED: separate operator/legal/ops approval');
+    evidence.remaining.push('DISPOSABLE_PUBLISHED_WORK_RETAINED: no unsafe delete/unpublish authorization');
+    return evidence;
+  } catch (err) {
+    safeEvent(evidence.events,'signed_gallery_e2e','FAILED',{
+      errorCode: /^[A-Z0-9_]+$/.test(err?.code || '') ? err.code : 'ASSERTION_FAILED',
+      status: Number.isInteger(err?.status) ? err.status : null
+    });
+    throw Object.assign(new Error('SIGNED_GALLERY_E2E_FAILED'), {evidence});
+  } finally {
+    // Best-effort journal cancellation of strictly newly prepared, unbound
+    // keys only. This queues logical cleanup; it NEVER removes Storage objects.
+    if (active[0]) for (const entry of prepared.filter((p) => !p.bound)) {
+      try {
+        await media(active[0],'galleryAbort',{storageKey:entry.storageKey});
+        safeEvent(evidence.events,'unbound_abort_requested','PASS');
+      } catch {
+        safeEvent(evidence.events,'unbound_abort_requested','NOT_CONFIRMED');
+      }
+    }
+    for (const session of active) {
+      try {
+        await transport(cfg.url + '/auth/v1/logout?scope=local',
+          {method:'POST',headers:headers(session),signal:AbortSignal.timeout(10000)});
+      } catch { /* no session details in evidence */ }
+    }
+  }
+}
+export async function main(env = process.env, args = process.argv.slice(2)) {
+  if (args.includes('--preflight')) {
+    console.log(JSON.stringify({status:'HARNESS_PREFLIGHT_ONLY',networkRequests:0,
+      staging:STAGING_URL,backendSha:BACKEND_SHA,liveAcceptance:'NOT_EXECUTED'}));
+    return;
+  }
+  if (!args.includes('--live')) throw new Error('EXPLICIT_LIVE_FLAG_REQUIRED');
+  let result;
+  try {
+    result = await runSignedGallery(env);
+    console.log(JSON.stringify(result));
+  } catch (error) {
+    const evidence = error?.evidence || {kind:'REAL_SIGNED_STAGING_ONLY',events:[],
+      remaining:['LIVE_NOT_ACCEPTED']};
+    console.log(JSON.stringify({ ...evidence, overall:'FAIL_OR_INCOMPLETE' }));
+    process.exitCode = 1;
+  }
+}
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch(() => {
+    console.error('SIGNED_GALLERY_PRECONDITION_REJECTED'); // never print secrets or URLs
+    process.exitCode = 2;
+  });
+}
