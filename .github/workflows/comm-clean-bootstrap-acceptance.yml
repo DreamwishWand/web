@@ -8,6 +8,7 @@ on:
     paths:
       - 'supabase/migrations/**'
       - 'supabase/staging/acceptance/local-clean-bootstrap-synthetic-seed-v1.sql'
+      - 'supabase/staging/acceptance/local-clean-bootstrap-scene-identity-guard-v1.sql'
       - '.github/workflows/comm-clean-bootstrap-acceptance.yml'
 
 permissions:
@@ -143,6 +144,7 @@ jobs:
           echo 'ISOLATED_SYNTHETIC_ACTORS_INSERTED_ONLY_IN_DISPOSABLE_LOCAL_DB'
           fail=0
           for fixture in \
+            local-clean-bootstrap-scene-identity-guard-v1.sql \
             gallery-owner-media-invalid-orphan-v1.sql \
             gallery-global-backpressure-v1.sql \
             gallery-capacity-effective-throughput-v1.sql \
@@ -169,7 +171,7 @@ jobs:
             echo 'Source candidate based on PR #129 SHA 02750fcbcfd3f94fc12b39c8adf5757fa24a5646 with two source-only parent migrations and ten RPC semicolon corrections. PR #129 unchanged.'
             echo 'Isolated disposable local Supabase container; no Staging/Production changes.'
             echo 'Authenticated Owner A/B/Moderator, signed HTTP bytes, CDN replay: NOT_EXECUTED (no disposable actor credentials).'
-            echo 'Synthetic local Actor/Subject SQL fixtures are NOT signed JWT accounts/verified game subjects, no HTTP or Storage bytes; legacy staging-only provider identity RPCs and Scene Preset vertical behaviors NOT reproduced.'
+            echo 'Synthetic local Actor/Subject SQL fixtures are NOT signed JWT accounts/verified game subjects, no HTTP or Storage bytes; legacy staging-only provider identity RPCs and Scene Preset product vertical behaviors NOT reproduced; only Scene association immutability is exercised.'
             echo 'Trigger/capacity/negative migration structural proofs are not live race proof.'
             echo 'No physical Storage deletion, Shared Cron #33 or Cloud Entitlement promotion.'
           } | tee /tmp/comm-bootstrap-limitations.log
