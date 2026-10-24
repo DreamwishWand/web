@@ -1,3 +1,5 @@
+import type { GalleryVerifiedSubjectPublicV1, GalleryVerifiedSubjectPublicResultV1 } from '../community/gallery-retirement-contract.ts';
+import { reviewedAllV125GallerySubjectCandidates } from './gallery-subject-provenance.ts';
 import type {
   GalleryPhotoTarget,
   PublishGalleryPhotoV1,
@@ -18,28 +20,24 @@ export const GALLERY_VERIFIED_SUBJECT_INTEGRATION_API_V1 = Object.freeze({
   deleteCommand:'deleteGalleryPhoto',
   detailEdge:'community-public-query',
   detailRpc:'community_get_gallery_photo_public_v1',
-  verifiedSubjectCatalogRead:'03_COMM_PENDING',
+  verifiedSubjectCatalogRead:'community_list_verified_gallery_subjects_v1',
   dependentGraph:'private.gallery_photo_dependency_snapshot_v1',
   linkedRetirement:'NOT_AUTHORIZED',
   keepPrivateCloud:'NOT_AUTHORIZED',
   issuedMediaUrlImmediateRevocation:'NOT_PROVEN',
   sourceSchema:'gallery_verified_subjects',
-  registeredSubjectKinds:['floating_island'],
-  unverifiedSubjectKinds:['biome','room','tom_furniture','tom_clothing'],
+  registeredSubjectKinds:['floating_island','biome','tom_furniture','tom_clothing'],
+  unverifiedSubjectKinds:['room'],
   persistentWriteAuthorized:false,
   productApplyAuthorized:false,
   directSourceReplacementAuthorized:false
 } as const);
 
-export type GalleryVerifiedSubjectV125 = GalleryPhotoTarget & Readonly<{
-  /** SubjectId issued by the existing 03 COMM registry, not a client-computed UUID. */
-  evidenceRef:string;
-  verificationState:'verified';
-}>;
+export type GalleryVerifiedSubjectV125 = GalleryVerifiedSubjectPublicV1;
 
 export type GalleryPublishAvailabilityV1 =
   | Readonly<{status:'READY';subject:GalleryVerifiedSubjectV125;command:'publishGalleryPhoto'}>
-  | Readonly<{status:'BLOCKED';reason:'GALLERY_VERIFIED_SUBJECT_REQUIRED'|'GALLERY_SUBJECT_CATALOG_UNAVAILABLE'|'GALLERY_SUBJECT_VERSION_PLATFORM_UNPROVEN'}>;
+  | Readonly<{status:'BLOCKED';reason:'GALLERY_VERIFIED_SUBJECT_REQUIRED'|'GALLERY_SUBJECT_CATALOG_UNAVAILABLE'|'GALLERY_SUBJECT_VERSION_PLATFORM_UNPROVEN'|'GALLERY_SUBJECT_NOT_IN_REVIEWED_AUTHORITY'}>;
 
 export type GalleryRetirementAvailabilityV1 =
   | Readonly<{status:'BLOCKED';code:
@@ -70,5 +68,30 @@ export function galleryPublishAvailabilityV1(subject:GalleryVerifiedSubjectV125|
   if(subject.platform!=='switch'||subject.gameVersion!=='1.25.0'||
     subject.buildId!=='52BD625D9B4E0053'||subject.profileSchema!==624)
     return {status:'BLOCKED',reason:'GALLERY_SUBJECT_VERSION_PLATFORM_UNPROVEN'};
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(subject.subjectId))
+    return {status:'BLOCKED',reason:'GALLERY_VERIFIED_SUBJECT_REQUIRED'};
+  if(!reviewedAllV125GallerySubjectCandidates().some(row=>
+    row.galleryKind===subject.galleryKind && row.subjectType===subject.subjectType &&
+    row.canonicalTargetId===subject.canonicalTargetId &&
+    row.baseItemId===subject.baseItemId && row.evidenceRef===subject.evidenceRef))
+    return {status:'BLOCKED',reason:'GALLERY_SUBJECT_NOT_IN_REVIEWED_AUTHORITY'};
   return {status:'READY',subject,command:'publishGalleryPhoto'};
+}
+
+/** Fail closed on malformed/unreviewed public-query responses. The server-owned
+ * subjectId is never calculated from Base Item IDs or a local Save identifier. */
+export function bindVerifiedGallerySubjectLookupV1(payload:unknown):
+  | Readonly<{status:'READY'; subjects:readonly GalleryVerifiedSubjectV125[]; partial:true}>
+  | Readonly<{status:'BLOCKED';reason:'GALLERY_SUBJECT_CATALOG_UNAVAILABLE'|'GALLERY_SUBJECT_NOT_IN_REVIEWED_AUTHORITY'}> {
+  if(!payload || typeof payload!=='object')return {status:'BLOCKED',reason:'GALLERY_SUBJECT_CATALOG_UNAVAILABLE'};
+  const p=payload as Partial<GalleryVerifiedSubjectPublicResultV1>;
+  if(p.contract!=='ddv.gallery-verified-subject-public-lookup@1' ||
+     p.catalogStatus!=='partial_verified_only' || p.displayNamesVerified!==false ||
+     !Array.isArray(p.subjects) || p.subjects.length>100)
+    return {status:'BLOCKED',reason:'GALLERY_SUBJECT_CATALOG_UNAVAILABLE'};
+  for(const subject of p.subjects){
+    if(galleryPublishAvailabilityV1(subject).status!=='READY')
+      return {status:'BLOCKED',reason:'GALLERY_SUBJECT_NOT_IN_REVIEWED_AUTHORITY'};
+  }
+  return {status:'READY',subjects:p.subjects,partial:true};
 }
