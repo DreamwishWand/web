@@ -1,0 +1,41 @@
+name: 09 INT isolated PostgreSQL writer-fence concurrency
+on:
+  push:
+    branches:
+      - validation/09int-isolated-pg-concurrency-20261024
+
+permissions:
+  contents: read
+
+jobs:
+  known-reference-locks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ephemeral_test_only
+          POSTGRES_DB: ddvre_09int_isolated
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ddvre_09int_isolated"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install PostgreSQL wire client (test-only)
+        run: python -m pip install --disable-pip-version-check 'psycopg[binary]>=3,<4'
+      - name: Assert actual two-connection row locks on exact source migration
+        env:
+          DDVRE_EPHEMERAL_GITHUB_PG: CONFIRMED
+          DDVRE_EPHEMERAL_POSTGRES_DSN: postgresql://postgres:ephemeral_test_only@127.0.0.1:5432/ddvre_09int_isolated
+        run: python -u tests/09int-isolated-known-writer-concurrency.py
