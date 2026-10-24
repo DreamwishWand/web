@@ -56,7 +56,7 @@ test('capacity Ops distinguish nominal Worker claim budget and currently disable
 
 test('Retention physical removal still impossible while gate closed, no real Cloud entitlement fiction',()=>{
  const gate=worker.indexOf("'community_gallery_physical_cleanup_gate_v1'");
- const deny=worker.indexOf("if(cleanupGate?.physicalDeleteAuthorized!==true)",gate);
+ const deny=worker.indexOf("else if(galleryPhysicalCleanupGateState!=='authorized')",gate);
  const removal=worker.indexOf('.remove([key])',deny);
  assert.ok(gate>=0&&deny>gate&&removal>deny);
  assert.ok(physical.includes("'physicalDeleteAuthorized',false"));

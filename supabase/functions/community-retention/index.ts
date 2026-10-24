@@ -1,4 +1,6 @@
 import { withSupabase } from 'npm:@supabase/server';
+import { classifyGalleryOriginIntegrity } from '../_shared/gallery-origin-integrity.mjs';
+import { classifyGalleryPhysicalCleanupGate } from '../_shared/gallery-physical-cleanup-gate.mjs';
 
 type RetentionJob = {
   retentionJobId: string;
@@ -169,8 +171,14 @@ export default {
         'community_gallery_physical_cleanup_gate_v1'
       );
       if(cleanupGateError) throw cleanupGateError;
-      if(cleanupGate?.physicalDeleteAuthorized!==true) {
-        galleryOrphans.cleanupBlocked=String(cleanupGate?.reason??'GALLERY_PHYSICAL_CLEANUP_NOT_ACCEPTED');
+      const galleryPhysicalCleanupGateState=classifyGalleryPhysicalCleanupGate(cleanupGate);
+      if(galleryPhysicalCleanupGateState==='invalid') {
+        // A null/partial or prematurely positive privileged RPC is not proof
+        // that an external Storage deletion is permitted. No lease is claimed.
+        galleryOrphans.cleanupBlocked='GALLERY_PHYSICAL_CLEANUP_GATE_INVALID';
+        galleryOrphans.workerFailure='GALLERY_PHYSICAL_CLEANUP_GATE_INVALID';
+      } else if(galleryPhysicalCleanupGateState!=='authorized') {
+        galleryOrphans.cleanupBlocked='GALLERY_PHYSICAL_STORAGE_DELETE_E2E_NOT_ACCEPTED';
       } else {
       const galleryLockToken = crypto.randomUUID();
       const {data: galleryClaim,error:galleryClaimError} = await ctx.supabaseAdmin.rpc(
@@ -244,12 +252,15 @@ export default {
     if(galleryOriginError || !galleryOriginReconciliation) {
       galleryOrphans.workerFailure='GALLERY_ORIGIN_RECONCILIATION_UNAVAILABLE';
     }
-    const galleryOriginIntegrity =
-      galleryOriginError || !galleryOriginReconciliation ? 'unknown' :
-      Number(galleryOriginReconciliation.originUntrackedObjectCount ?? 0)>0 ||
-      Number(galleryOriginReconciliation.registeredOriginSizeMismatchCount ?? 0)>0 ||
-      Number(galleryOriginReconciliation.finalizedReadyMissingOriginCount ?? 0)>0
-        ? 'critical' : 'normal';
+    const galleryOriginIntegrity = classifyGalleryOriginIntegrity(
+      galleryOriginError ? null : galleryOriginReconciliation
+    );
+    if (!galleryOriginError && galleryOriginReconciliation &&
+        galleryOriginIntegrity === 'unknown') {
+      // A malformed/partial operator RPC is not a healthy Storage inventory.
+      // Return 503 so the existing operator channel can alert on lost proof.
+      galleryOrphans.workerFailure='GALLERY_ORIGIN_RECONCILIATION_INVALID';
+    }
 
     return reply({
       ok: true,
@@ -260,7 +271,7 @@ export default {
       galleryOrphans,
       galleryCapacityMetrics:galleryCapacityError ? null : galleryCapacityMetrics,
       galleryAdmissionAlert:galleryAdmissionAlertError ? null : galleryAdmissionAlert,
-      galleryOriginReconciliation:galleryOriginError ? null : galleryOriginReconciliation,
+      galleryOriginReconciliation:galleryOriginIntegrity==='unknown' ? null : galleryOriginReconciliation,
       galleryOriginIntegrity,
       results
     }, galleryOrphans.workerFailure ? 503 : 200);
