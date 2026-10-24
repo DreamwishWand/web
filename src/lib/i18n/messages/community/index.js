@@ -19,15 +19,17 @@ import dreamsnapJa from './dreamsnaps.ja.js';
 import dreamsnapZh from './dreamsnaps.zh-CN.js';
 import dreamsnapPt from './dreamsnaps.pt-BR.js';
 
+import { galleryStage1Catalogs } from './gallery-stage1.js';
+
 const merge = (...parts) => Object.freeze(Object.assign({}, ...parts));
 
 export const communityCatalogs = Object.freeze({
-  en: merge(en, dreamsnapEn),
-  fr: merge(fr, dreamsnapFr),
-  it: merge(it, dreamsnapIt),
-  de: merge(de, dreamsnapDe),
-  'es-ES': merge(es, esQa, dreamsnapEs),
-  ja: merge(ja, jaQa, dreamsnapJa),
-  'zh-CN': merge(zh, zhQa, dreamsnapZh),
-  'pt-BR': merge(pt, ptQa, dreamsnapPt)
+  en: merge(en, dreamsnapEn, galleryStage1Catalogs["en"]),
+  fr: merge(fr, dreamsnapFr, galleryStage1Catalogs["fr"]),
+  it: merge(it, dreamsnapIt, galleryStage1Catalogs["it"]),
+  de: merge(de, dreamsnapDe, galleryStage1Catalogs["de"]),
+  'es-ES': merge(es, esQa, dreamsnapEs, galleryStage1Catalogs['es-ES']),
+  ja: merge(ja, jaQa, dreamsnapJa, galleryStage1Catalogs["ja"]),
+  'zh-CN': merge(zh, zhQa, dreamsnapZh, galleryStage1Catalogs['zh-CN']),
+  'pt-BR': merge(pt, ptQa, dreamsnapPt, galleryStage1Catalogs['pt-BR'])
 });

@@ -1,0 +1,80 @@
+name: Gallery Stage 1 public UI browser (unsigned)
+
+on:
+  push:
+    branches: ['dev/web-gallery-stage1-*']
+    paths:
+      - 'src/lib/gallery/**'
+      - 'src/lib/community/GalleryDetail.svelte'
+      - 'src/routes/gallery/**'
+      - 'src/lib/i18n/messages/community/**'
+      - 'scripts/gallery-stage1-browser-acceptance.mjs'
+      - 'src/lib/community/browser-client.ts'
+      - 'src/lib/community/public-media.js'
+      - 'src/lib/community/gallery-owner-media.js'
+      - 'src/lib/community/staging-http-client.ts'
+      - 'tests/gallery-owner-media-capacity-consumer.test.mjs'
+      - 'tests/gallery-cloud-preservation-consumer.test.mjs'
+      - 'tests/gallery-integrated-backend-contract-consumer.test.mjs'
+      - 'src/lib/community/gallery-preflight.js'
+      - 'tests/gallery-media-gateway-consumer.test.mjs'
+      - 'tests/gallery-verified-subject-consumer.test.mjs'
+      - 'tests/gallery-stage1-consumer.test.mjs'
+      - '.github/workflows/gallery-stage1-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Latest-HEAD browser evidence only; avoid simultaneous apt/font setup on every edit.
+concurrency:
+  group: gallery-stage1-unsigned-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unsigned-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Install CJK fonts
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+          fc-cache -f
+      - name: Resolve Chrome
+        id: chrome
+        run: |
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "path=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+      - name: Start local UI
+        env:
+          # Synthetic public-query browser fixture, NOT real staging credentials.
+          VITE_SUPABASE_URL: https://gallery-lookup-browser.invalid
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_browser_fixture_only
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4174 > /tmp/gallery-vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4174/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/gallery-vite.log
+          exit 1
+      - name: Gallery unsigned / no-configuration browser acceptance
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          PRODUCT_BASE_URL: http://127.0.0.1:4174
+        run: node scripts/gallery-stage1-browser-acceptance.mjs
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gallery-stage1-unsigned-browser
+          path: .artifacts/gallery-stage1/
+          if-no-files-found: error
