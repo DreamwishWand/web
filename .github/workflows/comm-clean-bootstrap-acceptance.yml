@@ -21,6 +21,7 @@ on:
       - 'supabase/migrations/20261025002800_gallery_v4_actual_scoped_atomic_enrollment_r14.sql'
       - 'supabase/migrations/20261025002810_gallery_v4_scoped_atomic_lock_r14.sql'
       - 'supabase/migrations/20261025002820_gallery_v4_actual_writer_enrollment_r14.sql'
+      - 'supabase/migrations/20261025002830_gallery_v4_private_helper_acl_r14.sql'
       - 'supabase/staging/acceptance/local-clean-bootstrap-r13-retired-identity-v1.sql'
       - '.github/workflows/comm-clean-bootstrap-acceptance.yml'
 
@@ -47,7 +48,7 @@ jobs:
           from pathlib import Path
           import re
           fs=sorted(Path('supabase/migrations').glob('*.sql'))
-          assert len(fs)==118, f'expected 118 source SQL files (115 prior + 3 R14 actual Gallery-v4), got {len(fs)}'
+          assert len(fs)==119, f'expected 119 source SQL files (115 prior + 4 R14 scoped Gallery-v4/ACL), got {len(fs)}'
           vs=[f.name.split('_',1)[0] for f in fs]
           assert all(re.fullmatch(r'\d{12}(?:\d{2})?',v) for v in vs)
           assert len(vs)==len(set(vs)), 'migration version collision'
@@ -56,7 +57,7 @@ jobs:
                          ('20261025002300','gallery_capacity_effective_cleanup_diagnostics_v1'),
                          ('20261025002400','gallery_known_reference_writer_fence_v1')]:
               assert sum(f.name==v+'_'+name+'.sql' for f in fs)==1
-          print('SOURCE_CANDIDATE_118_MIGRATIONS_UNIQUE_AND_ORDERED_PASS')
+          print('SOURCE_CANDIDATE_119_MIGRATIONS_UNIQUE_AND_ORDERED_PASS')
           PY
       - name: Source-Candidate migration static regression
         shell: bash
@@ -96,7 +97,7 @@ jobs:
           DECLARE v int;
           BEGIN
             SELECT count(*) INTO v FROM supabase_migrations.schema_migrations;
-            IF v<>118 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_118: %',v;END IF;
+            IF v<>119 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_119: %',v;END IF;
             IF to_regclass('public.gallery_photo_revision_fields') IS NULL OR
                to_regclass('public.community_media_upload_intents') IS NULL OR
                to_regclass('public.gallery_verified_subjects') IS NULL OR
@@ -126,7 +127,7 @@ jobs:
             IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid='public.gallery_photo_revision_fields'::regclass)
              OR NOT (SELECT relrowsecurity FROM pg_class WHERE oid='public.community_media_upload_intents'::regclass)
             THEN RAISE EXCEPTION 'RLS_NOT_ENABLED';END IF;
-            RAISE NOTICE 'LOCAL_SOURCE_CANDIDATE_118_LEDGER_FUNCTION_TRIGGER_RLS_ACL_PHYSICAL_FAILCLOSED_PASS';
+            RAISE NOTICE 'LOCAL_SOURCE_CANDIDATE_119_LEDGER_FUNCTION_TRIGGER_RLS_ACL_PHYSICAL_FAILCLOSED_PASS';
           END $checks$;
           SELECT extname FROM pg_extension ORDER BY extname;
           SELECT n.nspname,COUNT(*) FILTER (WHERE p.prosecdef) AS security_definer_count
@@ -146,12 +147,13 @@ jobs:
             supabase/migrations/20261025002700_active_identity_regular_resolver_guard_v1.sql \
             supabase/migrations/20261025002800_gallery_v4_actual_scoped_atomic_enrollment_r14.sql \
             supabase/migrations/20261025002810_gallery_v4_scoped_atomic_lock_r14.sql \
-            supabase/migrations/20261025002820_gallery_v4_actual_writer_enrollment_r14.sql; do
+            supabase/migrations/20261025002820_gallery_v4_actual_writer_enrollment_r14.sql \
+            supabase/migrations/20261025002830_gallery_v4_private_helper_acl_r14.sql; do
             for attempt in 1 2; do
               docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < "$file"
             done
           done
-          echo 'SEVEN_ADDITIVE_SOURCE_MIGRATIONS_SAME_SCHEMA_REAPPLY_PASS' | tee /tmp/comm-parent-reapply.log
+          echo 'EIGHT_ADDITIVE_SOURCE_MIGRATIONS_SAME_SCHEMA_REAPPLY_PASS' | tee /tmp/comm-parent-reapply.log
       - name: Seed LOCAL disposable actors and run existing negative Gallery SQL fixtures
         shell: bash
         run: |
