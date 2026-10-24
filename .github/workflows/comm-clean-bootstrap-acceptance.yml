@@ -193,8 +193,8 @@ jobs:
           set -euo pipefail
           python3 -m pip install --quiet 'psycopg[binary]>=3.2,<4'
           python3 tests/comm-r13-retired-identity-two-session.py 2>&1 | tee /tmp/comm-r13-retired-identity-two-session.log
-          python3 tests/comm-r14-actual-gallery-v4-two-session.py 2>&1 | tee /tmp/comm-r14-actual-gallery-v4-two-session.log
           python3 tests/comm-privacy-r12-two-session.py 2>&1 | tee /tmp/comm-privacy-two-session.log
+          python3 tests/comm-r14-actual-gallery-v4-two-session.py 2>&1 | tee /tmp/comm-r14-actual-gallery-v4-two-session.log
       - name: Record bounded acceptance limitations without pretending actor E2E
         if: always()
         shell: bash
