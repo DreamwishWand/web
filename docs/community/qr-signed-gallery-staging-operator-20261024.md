@@ -4,7 +4,7 @@ Status: HARNESS IMPLEMENTED / OFFLINE CONTRACT TEST REQUIRED / REAL AUTH SIGNED 
 
 ## Source boundary
 
-- QA branch: `integration/qr-signed-gallery-e2e-harness-20261024`, initially branched from 03 COMM Draft PR #129 `6bb2fe8fa7e78c5254800a8f59abf7cd02deeefb`; this is the exact backend SHA pinned by the harness. PR #123 -> #126 -> #129 integration was confirmed at this SHA. If any parent/child source or deployed migration advances, review, repin and rerun CI before signed acceptance.
+- QA branch: `integration/qr-signed-gallery-e2e-harness-20261024`, initially branched from 03 COMM Draft PR #129 `02750fcbcfd3f94fc12b39c8adf5757fa24a5646`; this is the exact backend SHA pinned by the harness. PR #123 -> #126 -> #129 integration was confirmed at this SHA. If any parent/child source or deployed migration advances, review, repin and rerun CI before signed acceptance.
 - Existing anonymous workflow `.github/workflows/community-public-browser-acceptance.yml` is preserved; manual `signed_gallery=true` adds a separately gated A/B/M job. No new repository/test stack. Node 22 built-in fetch/FormData and tests under existing `scripts/`, `tests/`.
 - Operator must verify actual deployed migrations/Edge versions independently and record them in the approved private run. Harness output labels backend SHA as pinned source, NOT an automatically attested live deployment revision.
 
@@ -22,7 +22,7 @@ Create/protect **Environment** `staging-gallery-signed-acceptance`: require name
 Within **that Environment Variables**, set:
 
 - `DREAMWISH_GALLERY_E2E_APPROVAL=APPROVED_DISPOSABLE_GALLERY_STAGING_ONLY` **only after** separate explicit scoped media/auth operator authorization;
-- `DREAMWISH_GALLERY_BACKEND_SHA=6bb2fe8fa7e78c5254800a8f59abf7cd02deeefb` **only if** this exact target is reviewed and deployed;
+- `DREAMWISH_GALLERY_BACKEND_SHA=02750fcbcfd3f94fc12b39c8adf5757fa24a5646` **only if** this exact target is reviewed and deployed;
 - `DREAMWISH_GALLERY_SUBJECT_ID` = one pre-reviewed verified Switch v1.25.0/schema624 Floating Island UUID appropriate to Gallery kind `outdoor`;
 - `DREAMWISH_GALLERY_DB_MIGRATION` = operator-verified latest applied Staging DB migration version (14 digits; e.g. `20261025002200`, not an unverified guess);
 - `DREAMWISH_GALLERY_EDGE_VERSIONS` = operator-verified exact `community-media:vN;community-public-media:vN;community-query:vN;community-command:vN`, current example `community-media:v16;community-public-media:v6;community-query:v14;community-command:v30`. Harness labels these attestations, not independent deployment proof;
@@ -59,6 +59,6 @@ Forbidden: emails, passwords, tokens, refresh tokens, signed URLs, unrelated acc
 
 ## Final integration verification — 2026-10-24
 
-Backend lineage after upstream owner synchronization: PR #123 `a4c5f5df8dc229aaec9474b83214bd1b8da5951a` → PR #126 `cf6f153099ecdbcf5990878d60ca102f006b7061` → PR #129 `6bb2fe8fa7e78c5254800a8f59abf7cd02deeefb`. Initial QA snapshot was updated through explicit reviewed backend merge commits. Recheck exact current heads before a real signed run. Latest tests source-check stacked migrations `20261025002200` Abort Cover, `20261025002300` capacity physical 0/h, `20261025002400` known reference writer fence, and source/Edge contract. Staging read-only PostgreSQL confirmed all three known writer triggers, Abort Cover reference guard and capacity effective throughput diagnostics; this is not a true two-session concurrency test.
+Backend lineage after upstream owner synchronization: PR #123 `a4c5f5df8dc229aaec9474b83214bd1b8da5951a` → PR #126 `cf6f153099ecdbcf5990878d60ca102f006b7061` → PR #129 `02750fcbcfd3f94fc12b39c8adf5757fa24a5646`. Initial QA snapshot was updated through explicit reviewed backend merge commits. Recheck exact current heads before a real signed run. Latest tests source-check stacked migrations `20261025002200` Abort Cover, `20261025002300` capacity physical 0/h, `20261025002400` known reference writer fence, and source/Edge contract. Staging read-only PostgreSQL confirmed all three known writer triggers, Abort Cover reference guard and capacity effective throughput diagnostics; this is not a true two-session concurrency test.
 
 Verified Subject public RPC returns `{contract:'ddv.gallery-verified-subject-public-lookup@1',subjects:[...]}` and the selected `outdoor` subject must be independently verified `switch` / `1.25.0` / BID `52BD625D9B4E0053` / schema `624`. An earlier runner expecting a top-level array was corrected. Owner Cloud nested `{contract:'ddv.gallery-cloud-preservation-readiness@1'}` must be negative for entitlement/private ACL/restore while blocked; no positive private Cloud acceptance. Normal authorized M role check is a no-row invalid-filter probe, **not** a real moderation queue read. No migration or Edge revision proves GitHub Actions Environment approvals; those remain human Operator-controlled.
