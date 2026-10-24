@@ -45,3 +45,11 @@ Date: 2026-10-24 | Owner: 02 WEP | Status: SOURCE+SYNTHETIC ONLY / DO NOT MERGE 
 ## QA / handoff
 
 CI on WEP's final exact HEAD must be reported from actual GitHub Actions, not inferred from passing earlier SHA. Synthetic browser mocks HTTP and Media; it is **not** signed Staging user acceptance. Update WEP Handoff, Current State and release Roadmap without promoting R17 release matrix (30 nodes PASS0/PARTIAL12/BLOCKED18). Return contract gaps to 03 COMM Issue #124, 09 INT Issue #119 and 04 QR Scene PR #136 / Issue #130.
+
+## Backend owner contract verification addendum (2026-10-24)
+
+03 COMM source Draft PR #134 moved beyond the initial snapshot to observed `c7e25340a6363e827d5d700d91e53a4363b60002`; owner-authored [`docs/community/scene-owner-revision-atomic-authority-contract-v1.md`](https://github.com/DreamwishWand/web/blob/c7e25340a6363e827d5d700d91e53a4363b60002/docs/community/scene-owner-revision-atomic-authority-contract-v1.md) proposes a **future**, noncallable owner request envelope with `expectedCreatorProfileId`, both Work RowVersions, Gallery current Revision, exact historicalEdge scope/SHA, registered ArtifactBlob byte receipt, READY Media/Cover and idempotency, all server-rechecked under locks. This is not a deployed Owner HTTP action.
+
+**Additional gap:** Owner Readiness @1 proves Creator linkage inside the DB but does not expose a CreatorProfileId to the WEP client. WEP represents `ownerCreatorProfileId=null` and `expectedCreatorProfileId=null`, retains the public `creatorProfileId` only as nonauthoritative metadata, and blocks `SCENE_OWNER_CREATOR_CROSSREAD_UNAVAILABLE` when comparing public/owner views. If a future explicitly scoped Owner Readiness provides creatorProfileId, a mismatch blocks `SCENE_PUBLIC_OWNER_CREATOR_MISMATCH`; no client identity is an authorization substitute.
+
+**No shortcut:** New backend candidate tests for stale historical link/current Gallery pointer and ArtifactBlob metadata do not prove actual Storage bytes, safe all-writer enrollment, signed Staging or a callable Writer. The accepted WEP contract remains `saveRevisionAuthorized=false`, `pairedGalleryPublishAuthorized=false`, `productApplyAuthorized=false`. Sync to #134 only by Control-authorized non-force integration after backend Owner freeze and independent QR signed acceptance.
