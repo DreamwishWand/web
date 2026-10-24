@@ -47,8 +47,15 @@ await page.route('https://gallery-lookup-browser.invalid/**',async route=>{
     gatewayCalls.push({method:route.request().method(),path:url.pathname,query:url.search});
     if(mediaScenario==='revoked'||mediaScenario==='historical'||mediaScenario==='private'||mediaScenario==='missing')
       return route.fulfill({status:404,contentType:'application/json',body:'{"ok":false,"error":"MEDIA_NOT_PUBLIC"}'});
+    if(mediaScenario==='forbidden')
+      return route.fulfill({status:403,contentType:'application/json',body:'{"ok":false,"error":"FORBIDDEN"}'});
     if(mediaScenario==='unavailable')
       return route.fulfill({status:503,contentType:'application/json',body:'{"ok":false,"error":"GALLERY_MEDIA_AUTHORITY_UNAVAILABLE"}'});
+    if(mediaScenario==='legacy-gallery')
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
+        ok:true,media:{mediaId:gatewayId,signedUrl:'https://example.test/storage/v1/object/sign/forbidden',
+        mimeType:'image/png',width:1,height:1}
+      })});
     if(route.request().method()==='GET')
       return route.fulfill({status:200,contentType:'image/png',body:tinyPng,
         headers:{'Cache-Control':'private, no-store','CDN-Cache-Control':'no-store','Content-Type':'image/png'}});
@@ -207,11 +214,13 @@ try{
     'Gallery must resolve streamUrl then load GET through same Edge');
   assert(!gatewayCalls.some(x=>x.path.includes('/storage/')),'raw Storage route used');
   pass('EDGE_PROXY_BROWSER_POST_AND_BINARY_GET',{transport:'synthetic_authorized_gateway'});
-  mediaScenario='revoked';
-  await page.reload({waitUntil:'domcontentloaded'});
-  await page.locator('.gallery-card .missing-image').first().waitFor({state:'visible',timeout:10000});
-  assert(await page.locator('.gallery-card img').count()===0,'revoked media still rendered');
-  pass('GALLERY_REVOKED_BINARY_FAIL_CLOSED');
+  for(const scenario of ['revoked','historical','private','missing','forbidden','unavailable','legacy-gallery']){
+    mediaScenario=scenario;
+    await page.reload({waitUntil:'domcontentloaded'});
+    await page.locator('.gallery-card .missing-image').first().waitFor({state:'visible',timeout:10000});
+    assert(await page.locator('.gallery-card img').count()===0,scenario+' media still rendered');
+  }
+  pass('GALLERY_REVOKED_HISTORICAL_PRIVATE_MISSING_403_404_503_NO_LEGACY_FALLBACK');
   mediaScenario='no-fixture';
   const locales=['en','fr','it','de','es-ES','ja','zh-CN','pt-BR'];
   await page.setViewportSize({width:320,height:760});
