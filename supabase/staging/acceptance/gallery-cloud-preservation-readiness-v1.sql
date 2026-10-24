@@ -74,6 +74,21 @@ begin
  or (preflight->>'graphComplete')::boolean is distinct from false
  or (preflight->>'unpublishKeepPrivateAuthorized')::boolean is distinct from false
  then raise exception 'HISTORY_OR_CLOUD_PERMISSION_INCORRECT: %',cloud::text;end if;
+ -- DB-only negative fixture: an immutable historical media reference is
+ -- still present, but its registry checksum has become invalid. The owner
+ -- manifest MUST reject a preservation-safe interpretation without altering
+ -- any Gallery visibility or asserting real Storage corruption.
+ update public.media_assets set checksum_sha256=repeat('z',64) where media_id=mid1;
+ preflight:=public.community_gallery_retirement_preflight_v1(a,wid);
+ cloud:=preflight->'cloudPreservation';
+ manifest:=cloud->'databaseManifest';
+ if (manifest->>'invalidOrNonOwnedMediaCount')::bigint<>1
+ or (manifest->>'structuralIntegrityObserved')::boolean is distinct from false
+ or (cloud->>'privateSaveAuthorized')::boolean is distinct from false
+ or (cloud->>'restoreAuthorized')::boolean is distinct from false
+ or (preflight->>'graphComplete')::boolean is distinct from false
+ then raise exception 'INVALID_HISTORICAL_MEDIA_NOT_FAIL_CLOSED: %',cloud::text;end if;
+
  deny:=false;
  begin
    perform public.community_gallery_retirement_preflight_v1(b,wid);
