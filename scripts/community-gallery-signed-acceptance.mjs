@@ -21,7 +21,7 @@ export function validateLiveConfig(env) {
   const required = [
     'DREAMWISH_SUPABASE_URL', 'DREAMWISH_SUPABASE_PUBLISHABLE_KEY',
     'DREAMWISH_GALLERY_E2E_APPROVAL', 'DREAMWISH_GALLERY_BACKEND_SHA',
-    'DREAMWISH_GALLERY_SUBJECT_ID',
+    'DREAMWISH_GALLERY_SUBJECT_ID', 'DREAMWISH_GALLERY_DB_MIGRATION', 'DREAMWISH_GALLERY_EDGE_VERSIONS',
     ...actors.flatMap((actor) => [
       'DREAMWISH_GALLERY_' + actor + '_EMAIL',
       'DREAMWISH_GALLERY_' + actor + '_PASSWORD',
@@ -41,6 +41,9 @@ export function validateLiveConfig(env) {
     if (!UUID.test(env['DREAMWISH_GALLERY_' + actor + '_ACCOUNT_ID']))
       throw new Error('APPROVED_ACTOR_ID_REQUIRED_' + actor);
   }
+  if (!/^20\d{12}$/.test(env.DREAMWISH_GALLERY_DB_MIGRATION)) throw new Error('DB_MIGRATION_ATTESTATION_REQUIRED');
+  if (!/^community-media:v\d+;community-public-media:v\d+;community-query:v\d+;community-command:v\d+$/.test(env.DREAMWISH_GALLERY_EDGE_VERSIONS))
+    throw new Error('EDGE_VERSIONS_ATTESTATION_REQUIRED');
   const ids = actors.map((actor) => env['DREAMWISH_GALLERY_' + actor + '_ACCOUNT_ID'].toLowerCase());
   if (new Set(ids).size !== 3) throw new Error('ACTOR_ACCOUNT_COLLISION');
   if (env.CI === 'true' && !(env.GITHUB_REF || '').startsWith('refs/heads/integration/'))
@@ -95,7 +98,7 @@ export async function runSignedGallery(env, transport = fetch, sleep = (ms) => n
     kind: 'REAL_SIGNED_STAGING_ONLY',
     backendSha: BACKEND_SHA,
     runnerSha: /^[a-f0-9]{40}$/.test(env.GITHUB_SHA || '') ? env.GITHUB_SHA : 'LOCAL',
-    edgeVersions: 'operator-must-verify-current-deployment',
+    deployedVersions: {source: 'OPERATOR_ATTESTED_NOT_RUNTIME_VERIFIED', dbMigration: env.DREAMWISH_GALLERY_DB_MIGRATION, edge: env.DREAMWISH_GALLERY_EDGE_VERSIONS},
     actorScope: 'APPROVED_DISPOSABLE_A_B_M',
     mediaSha256: sha256(PNG_BYTES),
     mediaByteSize: PNG_BYTES.length,
@@ -189,6 +192,8 @@ export async function runSignedGallery(env, transport = fetch, sleep = (ms) => n
           !/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.png$/i.test(storageKey))
         throw new Error('UNEXPECTED_DISPOSABLE_STORAGE_KEY');
       prepared.push({storageKey, bound:false});
+      if (!evidence.disposableStorageKeyDigests) evidence.disposableStorageKeyDigests = [];
+      evidence.disposableStorageKeyDigests.push(sha256(storageKey));
       const signedUrl = assertSignedUploadUrl(preparedBody?.signedUpload?.signedUrl, a.user.id);
       const form = new FormData();
       form.append('cacheControl', '0');
@@ -201,6 +206,10 @@ export async function runSignedGallery(env, transport = fetch, sleep = (ms) => n
       safeEvent(evidence.events, name + '_signed_put', 'PASS', {httpStatus:put.status});
       const finalized = requireStatus(await media(a, 'galleryFinalize', {storageKey}), 200, name + '_finalize');
       const mediaId = ensureUuid(finalized?.data?.mediaId, 'FINALIZED_MEDIA_ID_MISSING');
+      if (finalized?.data?.state !== 'ready' || finalized?.data?.moderationState !== 'clear' ||
+          Number(finalized?.data?.byteSize) !== PNG_BYTES.length ||
+          String(finalized?.data?.checksumSha256).toLowerCase() !== evidence.mediaSha256)
+        throw new Error('FINALIZED_READY_CLEAR_DIGEST_NOT_VERIFIED');
       requireStatus(await media(a, 'galleryStatus', {storageKey}), 200, name + '_owner_status');
       uploaded.push({storageKey, mediaId});
     }
@@ -248,8 +257,10 @@ export async function runSignedGallery(env, transport = fetch, sleep = (ms) => n
     }
     requireStatus(await call(paths.publicMedia,{mediaId:uploaded[0].mediaId},null),
       404,'historical_public_denial');
-    requireStatus(await media(a,'galleryReadBytes',{mediaId:uploaded[0].mediaId}),
-      200,'historical_owner_read_metadata_only_forbidden_expected');
+    const historicalOwner = await binary(paths.media, {action:'galleryReadBytes',mediaId:uploaded[0].mediaId}, a);
+    if (historicalOwner.status !== 200) throw statusError(historicalOwner, 'historical_owner_binary');
+    assertBinary(historicalOwner.bytes,expected);
+    safeEvent(evidence.events,'historical_owner_binary_sha256','PASS',{httpStatus:200,bytes:historicalOwner.bytes.length});
     const preflight = requireStatus(await query(a,'galleryRetirementPreflight',{workId}),
       200,'owner_cloud_readonly_preflight');
     if (preflight?.data?.operationAuthorized === true ||
