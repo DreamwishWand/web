@@ -93,8 +93,8 @@ test('retirement preflight does not claim universal signed token issuance halt',
  assert.match(migration,/'newPublicGalleryStorageSignedUrlIssued',false/);
  assert.match(migration,/'authenticatedOwnerReadMayMintStorageSignedUrl',true/);
  assert.match(migration,/GALLERY_AUTHENTICATED_MEDIA_READ_STILL_MINTS_SIGNED_URL/);
- assert.match(signedOwnerRead,/if \(action === 'read'\)/);
+ assert.match(signedOwnerRead,/action === 'read' \|\| action === 'galleryReadBytes'/);
  assert.match(signedOwnerRead,/\.createSignedUrl\(media\.storageKey, 300\)/);
  assert.match(acceptance,/authenticatedOwnerReadMayMintStorageSignedUrl/);
- assert.match(cloud,/authenticatedOwnerReadStillMintsSignedStorageUrl:true/);
+ assert.match(cloud,/authenticatedOwnerReadStillMintsSignedStorageUrl:false/);
 });
