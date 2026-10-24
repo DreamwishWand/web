@@ -24,6 +24,8 @@ Within **that Environment Variables**, set:
 - `DREAMWISH_GALLERY_E2E_APPROVAL=APPROVED_DISPOSABLE_GALLERY_STAGING_ONLY` **only after** separate explicit scoped media/auth operator authorization;
 - `DREAMWISH_GALLERY_BACKEND_SHA=7ed57b73368a8ae5cfb4d3e7cb576c647577dfd8` **only if** this exact target is reviewed and deployed;
 - `DREAMWISH_GALLERY_SUBJECT_ID` = one pre-reviewed verified Switch v1.25.0/schema624 Floating Island UUID appropriate to Gallery kind `outdoor`;
+- `DREAMWISH_GALLERY_DB_MIGRATION` = operator-verified latest applied Staging DB migration version (14 digits; e.g. `20261025002200`, not an unverified guess);
+- `DREAMWISH_GALLERY_EDGE_VERSIONS` = operator-verified exact `community-media:vN;community-public-media:vN;community-query:vN;community-command:vN`, current example `community-media:v16;community-public-media:v6;community-query:v14;community-command:v30`. Harness labels these attestations, not independent deployment proof;
 - `DREAMWISH_GALLERY_A_ACCOUNT_ID`, `DREAMWISH_GALLERY_B_ACCOUNT_ID`, `DREAMWISH_GALLERY_M_ACCOUNT_ID` = three distinct approved **disposable** Wand account UUIDs, never real user accounts;
 - `DREAMWISH_GALLERY_M_MODERATOR_APPROVED=true` only after independently checking that M has correct moderator membership. Harness also checks the real moderated queue read-only role gate with `limit:0`; it discards the response.
 
