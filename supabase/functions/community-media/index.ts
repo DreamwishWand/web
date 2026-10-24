@@ -136,12 +136,13 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
 
     const action = body.action;
 
-    if (action === 'prepare') {
+    if (action === 'prepare' || action === 'galleryPrepare') {
       const mimeType = String(body.mimeType ?? '');
       const byteSize = Number(body.byteSize ?? 0);
       const ext = EXTENSIONS[mimeType];
       if (!ext) return reply({ ok: false, error: 'Unsupported MIME type' }, 400);
-      if (!Number.isFinite(byteSize) || byteSize <= 0 || byteSize > MAX_BYTES) {
+      if (!Number.isSafeInteger(byteSize) || byteSize <= 0 ||
+        byteSize > (action === 'galleryPrepare' ? 20 * 1024 * 1024 : MAX_BYTES)) {
         return reply({ ok: false, error: 'Invalid image size' }, 400);
       }
 
@@ -178,29 +179,55 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       }
 
       const storageKey = `${subject}/${crypto.randomUUID()}.${ext}`;
+      if (action === 'galleryPrepare') {
+        // Create journal FIRST. A failed journal must NEVER leave an
+        // untracked valid 2-hour upload token.
+        const { error: intentError } = await ctx.supabaseAdmin.rpc('community_gallery_media_intent_open_v1', {
+          p_auth_subject: subject, p_storage_key: storageKey,
+          p_mime_type: mimeType, p_expected_bytes: byteSize
+        });
+        if (intentError) {
+          const reason=String(intentError.message??'');
+          const quotaCode=/^(?:GALLERY_UPLOAD_(?:OUTSTANDING_COUNT_EXCEEDED|RESERVED_BYTES_EXCEEDED)|GALLERY_GLOBAL_(?:BACKLOG_COUNT_EXCEEDED|RESERVED_BYTES_EXCEEDED|CLEANUP_STALLED))/.exec(reason)?.[0];
+          return reply({ok:false,error:quotaCode??'GALLERY_UPLOAD_INTENT_FAILED'},quotaCode?429:400);
+        }
+      }
       const { data, error } = await ctx.supabaseAdmin.storage
         .from(BUCKET)
         .createSignedUploadUrl(storageKey);
 
       if (error || !data) {
-        return reply({ ok: false, error: 'UPLOAD_PREPARE_FAILED', message: error?.message }, 400);
+        if (action === 'galleryPrepare') {
+          // Keep the aborted intent for the unattended Retention Worker.
+          const { error: abortError } = await ctx.supabaseAdmin.rpc(
+            'community_gallery_media_intent_cancel_v1',
+            {p_auth_subject:subject,p_storage_key:storageKey}
+          );
+          if (abortError) return reply({ok:false,error:'GALLERY_UPLOAD_PREPARE_ABORT_REQUIRES_RETRY'},503);
+        }
+        return reply({ ok: false, error: 'UPLOAD_PREPARE_FAILED' }, 400);
       }
-
       return reply({
         ok: true,
         action,
         storageKey,
-        maxBytes: MAX_BYTES,
+        maxBytes: action === 'galleryPrepare' ? 20 * 1024 * 1024 : MAX_BYTES,
         signedUpload: data
       });
     }
 
-    if (action === 'finalize') {
+    if (action === 'finalize' || action === 'galleryFinalize') {
       const storageKey = String(body.storageKey ?? '');
       if (!storageKey.startsWith(`${subject}/`) || storageKey.includes('..')) {
         return reply({ ok: false, error: 'Invalid storage key' }, 403);
       }
 
+      if (action === 'galleryFinalize') {
+        const { error: preflightError } = await ctx.supabaseAdmin.rpc('community_gallery_media_intent_probe_v1', {
+          p_auth_subject: subject, p_storage_key: storageKey
+        });
+        if (preflightError) return reply({ ok: false, error: 'GALLERY_UPLOAD_NOT_ACTIVE' }, 409);
+      }
       const { data: blob, error: downloadError } = await ctx.supabaseAdmin.storage
         .from(BUCKET)
         .download(storageKey);
@@ -245,6 +272,18 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         return reply({ ok: false, error: 'MEDIA_REGISTER_FAILED', message: error.message }, 400);
       }
 
+      if (action === 'galleryFinalize') {
+        const { data: verified, error: verifiedError } = await ctx.supabaseAdmin.rpc(
+          'community_gallery_media_intent_complete_v1', {
+            p_auth_subject: subject,p_storage_key: storageKey,p_media_id: data?.mediaId
+          }
+        );
+        if (verifiedError || !verified) {
+          return reply({ok:false,error:'GALLERY_UPLOAD_FINALIZE_CONFLICT'},409);
+        }
+        return reply({ok:true,action,data:verified});
+      }
+
       return reply({
         ok: true,
         action,
@@ -257,6 +296,46 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
           checksumSha256: checksum
         }
       });
+    }
+
+    if (action === 'galleryStatus' || action === 'galleryCapacity') {
+      const storageKey = action === 'galleryStatus' ? String(body.storageKey ?? '') : null;
+      if (action === 'galleryStatus' &&
+         (!storageKey?.startsWith(subject + '/') ||
+          !/^[0-9a-f-]{36}[/][0-9a-f-]{36}[.](?:jpg|png|webp)$/.test(storageKey))) {
+        return reply({ok:false,error:'GALLERY_UPLOAD_KEY_INVALID'},400);
+      }
+      const {data,error} = await ctx.supabaseAdmin.rpc(
+        'community_gallery_media_owner_status_v1',{
+          p_auth_subject:subject,p_storage_key:storageKey
+        });
+      if(error) return reply({ok:false,
+        error:error.message?.includes('GALLERY_UPLOAD_FORBIDDEN')
+          ? 'GALLERY_UPLOAD_FORBIDDEN' : 'GALLERY_OWNER_STATUS_UNAVAILABLE'},403);
+      return reply({ok:true,action,data});
+    }
+
+    if (action === 'galleryAbort' || action === 'galleryCleanup') {
+      const storageKey = typeof body.storageKey === 'string' ? body.storageKey : '';
+      if (!/^[0-9a-f-]{36}[/][0-9a-f-]{36}[.](?:jpg|png|webp)$/.test(storageKey) ||
+          !storageKey.startsWith(subject + '/')) {
+        return reply({ok:false,error:'GALLERY_UPLOAD_KEY_INVALID'},400);
+      }
+      if (action === 'galleryAbort') {
+        const {data,error} = await ctx.supabaseAdmin.rpc('community_gallery_media_intent_cancel_v1',{
+          p_auth_subject:subject,p_storage_key:storageKey
+        });
+        if (error) return reply({ok:false,error:'GALLERY_UPLOAD_CANCEL_FORBIDDEN'},409);
+        return reply({ok:true,action,data});
+      }
+      // The existing Community Retention Worker owns physical deletion;
+      // owner action is an idempotent queue/retry request only.
+      const {data,error} = await ctx.supabaseAdmin.rpc(
+        'community_gallery_media_intent_enqueue_cleanup_v1',{
+          p_auth_subject:subject,p_storage_key:storageKey
+        });
+      if (error) return reply({ok:false,error:'GALLERY_UPLOAD_CLEANUP_NOT_DUE'},409);
+      return reply({ok:true,action,data});
     }
 
     if (action === 'dreamsnapJudgeRead') {
