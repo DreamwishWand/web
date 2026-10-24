@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
   STAGING_URL, BACKEND_SHA, PNG_BYTES, sha256, validateLiveConfig,
-  assertBinary, assertSignedUploadUrl, runSignedGallery
+  assertBinary, assertSignedUploadUrl, verifySubjectCatalog, runSignedGallery
 } from '../scripts/community-gallery-signed-acceptance.mjs';
 
 const actorId = {
@@ -79,4 +79,25 @@ test('never ship privileged / destructive or credential-printing code paths', as
   assert.match(source,/galleryRetirementPreflight/);
   assert.match(source,/galleryAbort/);
   assert.match(source,/SIGNED_GALLERY_E2E_FAILED/);
+});
+
+
+test('real deployed verified subjects contract enforces Switch 1.25.0/624 and verified state',()=>{
+  const subject='dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+  const row={subjectId:subject,galleryKind:'outdoor',verificationState:'verified',
+    platform:'switch',gameVersion:'1.25.0',buildId:'52BD625D9B4E0053',profileSchema:624};
+  const catalog={contract:'ddv.gallery-verified-subject-public-lookup@1',subjects:[row]};
+  assert.equal(verifySubjectCatalog(catalog,subject),subject);
+  assert.throws(()=>verifySubjectCatalog({...catalog,subjects:[]},subject),/NOT_VERIFIED/);
+  assert.throws(()=>verifySubjectCatalog({...catalog,subjects:[{...row,profileSchema:626}]},subject),/NOT_VERIFIED/);
+  assert.throws(()=>verifySubjectCatalog({...catalog,subjects:[{...row,platform:'steam'}]},subject),/NOT_VERIFIED/);
+  assert.throws(()=>verifySubjectCatalog({...catalog,contract:'wrong'},subject),/CATALOG_CONTRACT/);
+});
+test('moderator authorization uses invalid-filter no-row probe not case listing',async()=>{
+  const {readFileSync}=await import('node:fs');
+  const source=readFileSync(new URL('../scripts/community-gallery-signed-acceptance.mjs',import.meta.url),'utf8');
+  assert.match(source,/qr_probe_invalid_state_no_rows/);
+  assert.match(source,/ADMIN_OPERATION_FAILED/);
+  assert.match(source,/NONMODERATOR_ROLE_PROOF_CONTRACT_MISMATCH/);
+  assert.doesNotMatch(source,/payload:\{limit:0\}/);
 });
