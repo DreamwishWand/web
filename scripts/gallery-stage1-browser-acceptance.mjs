@@ -457,7 +457,26 @@ try{
   await page.locator('.owner-media-read [role=alert]').waitFor({state:'visible',timeout:10000});
   assert(await page.locator('.owner-media-read img').count()===0,'checksum mismatch still displayed');
   pass('SYNTHETIC_OWNER_SHA_MISMATCH_FAIL_CLOSED_AND_RETRY');
-  // Clear synthetic session before proceeding; no user token in DOM or URL.
+  // Capacity admission remains disabled. Verify the actual browser module maps
+  // server HTTP429 codes; do NOT simulate any real upload/Storage mutation.
+  const quota=await page.evaluate(async()=>{
+    const {parseGalleryCapacityError}=await import('/src/lib/community/gallery-owner-media.js');
+    const codes=['GALLERY_UPLOAD_OUTSTANDING_COUNT_EXCEEDED',
+      'GALLERY_UPLOAD_RESERVED_BYTES_EXCEEDED',
+      'GALLERY_GLOBAL_BACKLOG_COUNT_EXCEEDED',
+      'GALLERY_GLOBAL_RESERVED_BYTES_EXCEEDED',
+      'GALLERY_GLOBAL_CLEANUP_STALLED'];
+    return codes.map(code=>({
+      code, parsed:parseGalleryCapacityError({status:429,code,retryAfterSeconds:45}),
+      noRetry:parseGalleryCapacityError({status:429,code}),
+      denied:parseGalleryCapacityError({status:403,code})
+    }));
+  });
+  assert(quota.length===5&&quota.every(x=>x.parsed?.code===x.code&&
+    x.parsed.retryAfterSeconds===45&&x.noRetry?.retryAfterSeconds===null&&x.denied===null),
+    'account/global capacity 429 browser contract failed');
+  pass('SYNTHETIC_ACCOUNT_GLOBAL_CAPACITY_429_NO_INVENTED_RETRY');
+    // Clear synthetic session before proceeding; no user token in DOM or URL.
   await page.evaluate(()=>sessionStorage.removeItem('dreamwishwand-community-session-v1'));
   ownerScenario='off';
     report.consoleErrors=report.consoleErrors.filter(x=>!x.includes('Failed to load resource'));
