@@ -2,7 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const sql=read('supabase/migrations/20261025002800_gallery_v4_actual_scoped_atomic_enrollment_r14.sql');
+const sql=[
+  'supabase/migrations/20261025002800_gallery_v4_actual_scoped_atomic_enrollment_r14.sql',
+  'supabase/migrations/20261025002810_gallery_v4_scoped_atomic_lock_r14.sql',
+  'supabase/migrations/20261025002820_gallery_v4_actual_writer_enrollment_r14.sql'
+].map(read).join('\n');
 const command=read('supabase/functions/community-command/index.ts');
 const workflow=read('.github/workflows/comm-clean-bootstrap-acceptance.yml');
 test('actual public community_publish_gallery_v4 is redefined by additive source, not test-only outer wrapper',()=>{
@@ -48,7 +52,7 @@ test('Edge only retries actual Gallery publish with fresh auth and fresh SQL tra
 });
 test('local isolated actual-Writer race is executed at 116 unique migrations',()=>{
   assert.match(workflow,/assert len\(fs\)==116/);
-  assert.match(workflow,/MIGRATION_LEDGER_NOT_116/);
+  assert.match(workflow,/MIGRATION_LEDGER_NOT_118/);
   assert.match(workflow,/comm-r14-actual-gallery-v4-two-session\.py/);
   assert.match(workflow,/supabase\/migrations\/20261025002800_gallery_v4_actual_scoped_atomic_enrollment_r14\.sql/);
   const real=read('tests/comm-r14-actual-gallery-v4-two-session.py');
