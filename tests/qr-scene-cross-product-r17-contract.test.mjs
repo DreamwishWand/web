@@ -200,7 +200,7 @@ test('QR-SCN-R11-03 known reference writers all participate in Gallery lock with
  const expected=['gallery_revision_presets','preset_artifacts','preset_revision_publications'];
  for(const relation of expected)assert.match(fence,new RegExp('on public\\.'+relation+'\\b','i'));
  const source=read('supabase/migrations/20261025002350_gallery_known_writer_scene_parent_bootstrap_v1.sql');
- assert.match(source,/'SCENE_ALL_WRITER_LOCK_PROTOCOL_UNVERIFIED'/);
+ assert.match(source,/'GALLERY_ALL_WRITER_LOCK_PROTOCOL_UNVERIFIED'/);
  const testCode=read('tests/qr-scene-r8-fullschema-graph-counterexample.py');
  for(const code of [
   'R9_CALLER_PIN_HISTORICAL_EDGE_STALE_REJECTED',
