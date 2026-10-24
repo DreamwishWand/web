@@ -378,7 +378,7 @@ try{
   // Integrated #123->#126->#129 owner-only dependency coverage is diagnostic.
   const coveragePanel=page.locator('.gallery-dependency-readiness');
   await coveragePanel.waitFor({state:'visible',timeout:10000});
-  assert(await coveragePanel.locator('dt').count()===12,'expected source + 6 preset/native + relation/missing/blocked/mismatch/fingerprint rows');
+  assert(await coveragePanel.locator('dt').count()===13,'expected source + 6 preset/native + relation/missing/blocked/mismatch/fingerprint rows');
   assert(await coveragePanel.getAttribute('data-read-only')==='true','coverage was marked actionable');
   assert(await coveragePanel.getAttribute('data-owner-mismatch')==='false','fixture owner mismatch wrongly marked');
   assert(!(await coveragePanel.innerText()).includes('a'.repeat(64)),'fingerprint leaked into DOM');
