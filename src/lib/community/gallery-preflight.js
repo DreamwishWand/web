@@ -95,7 +95,8 @@ export function parseGalleryCloudPreservation(value,currentRevisionId){
  */
 const coverageKinds=['scene','biome','floating_island','tom_furniture','tom_clothing','native_listing'];
 const coverageValues=new Set(['VERIFIED','VERIFIED_EMPTY','REGISTRY_MISSING','SEMANTICS_UNKNOWN','VERSION_UNSUPPORTED']);
-const relationValues=/^[A-Z][A-Z0-9_]{0,99}$/;
+// SQL source emits 03_COMM_CLOUD_PRESERVATION_PREFLIGHT for media_and_cover.
+const relationValues=/^[A-Z0-9][A-Z0-9_]{0,99}$/;
 const dependencyFields=[
  'dependencyCoverageContract','dependencyCoverageClassification','dependencyRelationCoverage',
  'dependencyMissingSources','dependencyBlockedReasons','dependencyGraphFingerprintSha256',
