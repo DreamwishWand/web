@@ -116,7 +116,5 @@ test('Scene Revision owner preflight is read-only and cannot unlock R6 lifecycle
   assert.match(edge, /if \(action === 'revisionReadiness'\)/);
   assert.match(edge, /community_scene_revision_readiness_v1/);
   assert.match(edge, /SCENE_REVISION_READINESS_FORBIDDEN_OR_UNAVAILABLE/);
-  assert.doesNotMatch(block.split('$scene_readiness
-});
-)[1], /\b(insert into|update public\.|delete from public\.)/i);
+  assert.doesNotMatch(block.split('$scene_readiness$')[1], /\b(insert into|update public\.|delete from public\.)/i);
 });
