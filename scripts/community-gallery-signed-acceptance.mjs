@@ -42,7 +42,7 @@ export function validateLiveConfig(env) {
       throw new Error('APPROVED_ACTOR_ID_REQUIRED_' + actor);
   }
   if (!/^20\d{12}$/.test(env.DREAMWISH_GALLERY_DB_MIGRATION)) throw new Error('DB_MIGRATION_ATTESTATION_REQUIRED');
-  if (!/^community-media:v\d+;community-public-media:v\d+;community-query:v\d+;community-command:v\d+$/.test(env.DREAMWISH_GALLERY_EDGE_VERSIONS))
+  if (!/^community-media:v\d+;community-public-media:v\d+;community-query:v\d+;community-command:v\d+;community-retention:v\d+$/.test(env.DREAMWISH_GALLERY_EDGE_VERSIONS))
     throw new Error('EDGE_VERSIONS_ATTESTATION_REQUIRED');
   const ids = actors.map((actor) => env['DREAMWISH_GALLERY_' + actor + '_ACCOUNT_ID'].toLowerCase());
   if (new Set(ids).size !== 3) throw new Error('ACTOR_ACCOUNT_COLLISION');
