@@ -81,7 +81,8 @@ export async function prepareSceneRevisionOfflineIntent(args: SceneRevisionArtif
     'SCENE_CURRENT_PRESET_REVISION_STALE_OR_MISMATCHED',
     'SCENE_PAIRED_GALLERY_WORK_ID_MISMATCH',
     'SCENE_PAIRED_GALLERY_CURRENT_REVISION_STALE',
-    'SCENE_PUBLIC_GALLERY_WITHOUT_OWNER_ASSOCIATION'
+    'SCENE_PUBLIC_GALLERY_WITHOUT_OWNER_ASSOCIATION',
+    'SCENE_PUBLIC_OWNER_CREATOR_MISMATCH'
   ].includes(x));
   if (hardIdentityMismatch) reject('WEP_SCENE_REVISION_PAIRED_GALLERY_IDENTITY_STALE');
   if (!Array.isArray(capture?.selectionIds) || capture.selectionIds.length === 0 ||
@@ -137,6 +138,9 @@ export async function prepareSceneRevisionOfflineIntent(args: SceneRevisionArtif
       buildId: SWITCH_V125_BID, profileSchema:624 as const }),
     identity: Object.freeze({
       presetArtifactId: current.presetArtifactId,
+      observedPublicCreatorProfileId: current.creatorProfileId,
+      observedOwnerCreatorProfileId: readiness.ownerCreatorProfileId,
+      expectedCreatorProfileId: null, // owner @1 omits this Writer authority
       presetWorkId: current.workId,
       currentPresetRevisionId: current.presetRevisionId,
       currentPresetWorkRevisionId: current.workRevisionId,
