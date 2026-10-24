@@ -114,6 +114,48 @@ jobs:
           FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
           WHERE n.nspname IN ('public','private') GROUP BY n.nspname ORDER BY n.nspname;
           SQL
+      - name: Prove two additive source-gap migrations can be re-applied on same local schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          db_container=$(docker ps --format '{{.Names}}' | grep '^supabase_db_' | head -1)
+          test -n "$db_container"
+          for file in \
+            supabase/migrations/20260930115500_provider_identity_cleanup_parent_bootstrap_v1.sql \
+            supabase/migrations/20261025002350_gallery_known_writer_scene_parent_bootstrap_v1.sql; do
+            for attempt in 1 2; do
+              docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < "$file"
+            done
+          done
+          echo 'TWO_ADDITIVE_SOURCE_GAP_MIGRATIONS_SAME_SCHEMA_REAPPLY_PASS' | tee /tmp/comm-parent-reapply.log
+      - name: Seed LOCAL disposable actors and run existing negative Gallery SQL fixtures
+        shell: bash
+        run: |
+          set -uo pipefail
+          db_container=$(docker ps --format '{{.Names}}' | grep '^supabase_db_' | head -1)
+          test -n "$db_container" || exit 1
+          docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/staging/acceptance/local-clean-bootstrap-synthetic-seed-v1.sql > /tmp/comm-synthetic-seed.log 2>&1 || { cat /tmp/comm-synthetic-seed.log; exit 1; }
+          echo 'ISOLATED_SYNTHETIC_ACTORS_INSERTED_ONLY_IN_DISPOSABLE_LOCAL_DB'
+          fail=0
+          for fixture in \
+            gallery-owner-media-invalid-orphan-v1.sql \
+            gallery-global-backpressure-v1.sql \
+            gallery-capacity-effective-throughput-v1.sql \
+            gallery-finalized-retention-capacity-v1.sql \
+            gallery-public-cover-only-guard-v1.sql \
+            gallery-retirement-gateway-preflight-v1.sql \
+            gallery-cloud-preservation-readiness-v1.sql \
+            gallery-origin-reconciliation-v1.sql; do
+            name="${fixture%.sql}"
+            if docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < "supabase/staging/acceptance/$fixture" > "/tmp/comm-accept-${name}.log" 2>&1; then
+              echo "LOCAL_ROLLBACK_PASS:$fixture"
+            else
+              echo "LOCAL_ROLLBACK_FAIL:$fixture"
+              tail -n 12 "/tmp/comm-accept-${name}.log"
+              fail=1
+            fi
+          done
+          exit "$fail"
       - name: Record bounded acceptance limitations without pretending actor E2E
         if: always()
         shell: bash
@@ -122,7 +164,7 @@ jobs:
             echo 'Source candidate based on PR #129 SHA 02750fcbcfd3f94fc12b39c8adf5757fa24a5646 with two source-only parent migrations and ten RPC semicolon corrections. PR #129 unchanged.'
             echo 'Isolated disposable local Supabase container; no Staging/Production changes.'
             echo 'Authenticated Owner A/B/Moderator, signed HTTP bytes, CDN replay: NOT_EXECUTED (no disposable actor credentials).'
-            echo 'Existing actor/verified-subject SQL fixtures: NOT_EXECUTED without seeded disposable fixtures. Legacy staging-only provider identity RPCs and Scene Preset vertical behaviors NOT reproduced.'
+            echo 'Synthetic local Actor/Subject SQL fixtures are NOT signed JWT accounts/verified game subjects, no HTTP or Storage bytes; legacy staging-only provider identity RPCs and Scene Preset vertical behaviors NOT reproduced.'
             echo 'Trigger/capacity/negative migration structural proofs are not live race proof.'
             echo 'No physical Storage deletion, Shared Cron #33 or Cloud Entitlement promotion.'
           } | tee /tmp/comm-bootstrap-limitations.log
@@ -134,6 +176,9 @@ jobs:
             /tmp/comm-bootstrap-start.log
             /tmp/comm-bootstrap-reset.log
             /tmp/comm-bootstrap-acceptance.log
+            /tmp/comm-parent-reapply.log
+            /tmp/comm-synthetic-seed.log
+            /tmp/comm-accept-*.log
             /tmp/comm-bootstrap-limitations.log
           if-no-files-found: warn
           retention-days: 14
