@@ -9,6 +9,11 @@ declare
  wa uuid := gen_random_uuid();
  r uuid := gen_random_uuid();
 begin
+ -- A local metadata-only bucket is required by the read-only origin RPC.
+ -- No origin object, Storage.remove, uploads or remote buckets are used.
+ insert into storage.buckets(id,name,public)
+ values('community-media-staging','community-media-staging',false)
+ on conflict (id) do nothing;
  insert into public.wand_accounts(account_id) values (a),(b);
  insert into public.auth_identities(account_id,provider,provider_subject,last_verified_at)
  values(a,'supabase',gen_random_uuid()::text,now()),
