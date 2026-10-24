@@ -54,3 +54,12 @@ This is **not** real signed Owner A / non-owner B / Moderator M Staging, byte-eq
 ## 6. Release status
 
 The original R17 remains 30 nodes PASS0 / PARTIAL12 / BLOCKED18. Seven seeding plus Privacy/Legal/Ops gates remain blocked. No positive Gallery Delete/Unpublish/Keep Private/Restore, physical Storage cleanup, Finalized 72h TTL, Scene Owner public writer, DDV Native Writer or Apply, no Production/Staging write, no Draft merge.
+
+
+## 7. Direct-reader and client retry corrections (source-only)
+
+To avoid service-role bypass of Search RLS and leaked QA/DreamSnaps publications, the source migration also explicitly filters suppressed owners in ten legacy read projections: Gallery detail nested comments; Q&A search, answer author comments and question redirects; DreamSnaps Gallery detail/search, score results, judge candidates, judge media; and both DreamSnaps branches of the existing public Media v2 storage-key issuer. Every change preserves original current/competition eligibility and only adds the owner-suppression negative fence. The Gallery Photo binary gateway still consults the canonical discoverability predicate; previously signed external bearer tokens remain outside immediate revocation.
+
+The staging HTTP client `deleteWandAccount` now invokes global sign-out only when the Edge returns `ok=true`, `stage='privacy_suppressed_cleanup_pending'`, and `fullDeletionComplete=false`. A failed/unconfirmed request retains the session for authenticated retry. This is not a provider account purge or proof that an old bearer was revoked.
+
+CI/source evidence after the final changed HEAD is required before labeling these supplemental filters PASS. No real Staging/Production mutations are authorized.
