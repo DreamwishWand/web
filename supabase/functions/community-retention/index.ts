@@ -160,8 +160,18 @@ export default {
     // Reuse the SAME pg_cron #33 -> Vault token -> retention_cleanup worker.
     // Orphan work is bounded and claimed with a DB lease. Storage remove and
     // DB completion deliberately live on opposite sides of an idempotent retry.
-    let galleryOrphans: {claimed:number;completed:number;failed:number;workerFailure?:string} = {claimed:0,completed:0,failed:0};
+    let galleryOrphans: {claimed:number;completed:number;failed:number;cleanupBlocked?:string;workerFailure?:string} = {claimed:0,completed:0,failed:0};
     try {
+      // Existing Gallery orphan claim is still SQL-testable, but Storage.remove
+      // MUST NOT execute before an authorized disposable Actor/Origin acceptance.
+      // Fail closed without consuming leases or running unrelated account jobs.
+      const {data:cleanupGate,error:cleanupGateError}=await ctx.supabaseAdmin.rpc(
+        'community_gallery_physical_cleanup_gate_v1'
+      );
+      if(cleanupGateError) throw cleanupGateError;
+      if(cleanupGate?.physicalDeleteAuthorized!==true) {
+        galleryOrphans.cleanupBlocked=String(cleanupGate?.reason??'GALLERY_PHYSICAL_CLEANUP_NOT_ACCEPTED');
+      } else {
       const galleryLockToken = crypto.randomUUID();
       const {data: galleryClaim,error:galleryClaimError} = await ctx.supabaseAdmin.rpc(
         'community_claim_gallery_media_orphans_v1',
@@ -203,6 +213,7 @@ export default {
           }
         }
       }
+      }
     } catch(error){
       galleryOrphans.workerFailure='GALLERY_ORPHAN_CLAIM_FAILED';
     }
@@ -215,6 +226,14 @@ export default {
       galleryOrphans.workerFailure='GALLERY_CAPACITY_TELEMETRY_FAILED';
     }
 
+    // Existing Cron run emits aggregate operator-alert status without issuing
+    // new network notifications or exposing owner IDs / signed Media tokens.
+    const {data:galleryAdmissionAlert,error:galleryAdmissionAlertError} =
+      await ctx.supabaseAdmin.rpc('community_gallery_global_capacity_alert_v1');
+    if(galleryAdmissionAlertError) {
+      galleryOrphans.workerFailure='GALLERY_GLOBAL_ALERT_UNAVAILABLE';
+    }
+
     return reply({
       ok: true,
       claimed: jobs.length,
@@ -223,6 +242,7 @@ export default {
       ddvBindingTombstonesPurged: Number(ddvBindingPurge?.purged ?? 0),
       galleryOrphans,
       galleryCapacityMetrics:galleryCapacityError ? null : galleryCapacityMetrics,
+      galleryAdmissionAlert:galleryAdmissionAlertError ? null : galleryAdmissionAlert,
       results
     }, galleryOrphans.workerFailure ? 503 : 200);
   })

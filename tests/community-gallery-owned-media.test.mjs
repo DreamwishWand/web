@@ -154,3 +154,33 @@ test('Gallery prepare serializes quota 10 intents / 200 MiB and protects existin
  assert.match(fixture,/HELD_ORPHAN_CLAIMED/);
  assert.match(fixture,/rollback;\s*$/);
 });
+
+test('global Gallery backpressure serializes all owner Prepare and suppresses stalled queues',()=>{
+ const sql=fs.readFileSync(new URL('../supabase/migrations/20261025000300_gallery_global_backpressure_v1.sql',import.meta.url),'utf8');
+ const fixture=fs.readFileSync(new URL('../supabase/staging/acceptance/gallery-global-backpressure-v1.sql',import.meta.url),'utf8');
+ const edge=fs.readFileSync(new URL('../supabase/functions/community-media/index.ts',import.meta.url),'utf8');
+ assert.match(sql,/global_unbound_intent_ceiling integer/);
+ assert.match(sql,/global_reserved_byte_ceiling bigint/);
+ assert.match(sql,/global_oldest_due_max_hours integer/);
+ assert.match(sql,/from private\.gallery_media_capacity_policy_v1[\s\S]*?for update/);
+ assert.match(sql,/from public\.wand_accounts where account_id=v_account for update/);
+ assert.match(sql,/GALLERY_GLOBAL_BACKLOG_COUNT_EXCEEDED/);
+ assert.match(sql,/GALLERY_GLOBAL_RESERVED_BYTES_EXCEEDED/);
+ assert.match(sql,/GALLERY_GLOBAL_CLEANUP_STALLED/);
+ assert.match(sql,/community_gallery_global_capacity_alert_v1/);
+ assert.match(edge,/GALLERY_GLOBAL_/);
+ assert.match(fixture,/GLOBAL_21ST_ADMISSION_ACCEPTED/);
+ assert.match(fixture,/OLD_GLOBAL_CLEANUP_BYPASSED/);
+ assert.match(fixture,/CAPACITY_RECOVERY_STUCK/);
+});
+test('unsanctioned physical Gallery object removal cannot be launched by hourly Cron',()=>{
+ const sql=fs.readFileSync(new URL('../supabase/migrations/20261025000400_gallery_physical_delete_failclosed_v1.sql',import.meta.url),'utf8');
+ const worker=fs.readFileSync(new URL('../supabase/functions/community-retention/index.ts',import.meta.url),'utf8');
+ assert.match(sql,/physical_orphan_cleanup_accepted=false/);
+ assert.match(sql,/physicalDeleteAuthorized',false/);
+ assert.match(worker,/community_gallery_physical_cleanup_gate_v1/);
+ assert.match(worker,/if\(cleanupGate\?\.physicalDeleteAuthorized!==true\)/);
+ assert.match(worker,/community_gallery_global_capacity_alert_v1/);
+ assert.match(worker,/cleanupBlocked/);
+ assert.match(worker,/GALLERY_GLOBAL_ALERT_UNAVAILABLE/);
+});
