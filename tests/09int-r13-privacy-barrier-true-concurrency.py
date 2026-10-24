@@ -182,7 +182,7 @@ def after_suppression(c,g,owner,staff_auth,case):
     assert one(c,"select count(*) from public.community_works where work_id in (%s,%s) and lifecycle_state='published' and visibility='public'",
         (g["galleryWork"],g["presetWork"]))[0]==2,"must preserve cloud guard and historical works"
     fail_with(c,"select public.community_get_gallery_photo_public_v1(%s)",(g["galleryWork"],),
-              "Gallery Work is not publicly accessible")
+              "Creator Profile is not publicly accessible")
     fail_with(c,"select public.community_get_scene_preset_public_v1(%s)",(g["presetWork"],),
               "Scene Preset is not publicly accessible")
     fail_with(c,"select public.community_get_public_media_storage_v1(%s)",(g["oldMedia"],),
