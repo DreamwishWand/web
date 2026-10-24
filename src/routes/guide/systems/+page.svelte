@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { base } from '$app/paths';
-  import { page } from '$app/stores';
+  import { afterNavigate } from '$app/navigation';
   import { locale } from '$lib/i18n/runtime.js';
   import { systemsCopy } from '$lib/guide/systems-copy.js';
   import {
@@ -19,7 +19,9 @@
   let articleId = '';
   let version = '1.25.0';
 
-  $: articleId = $page.url.searchParams.get('article') || '';
+  afterNavigate(({ to }) => {
+    articleId = to?.url?.searchParams.get('article') || '';
+  });
   $: copy = systemsCopy($locale);
   $: categories = systemsCategoryCounts(manifest);
   $: activeCategory = categories.find((c: any) => c.id === categoryId) ?? null;
@@ -43,6 +45,7 @@
     const group = url.searchParams.get('group') || '';
     categoryId = categories.some((c: any) => c.id === category) ? category : '';
     groupId = categories.find((c: any) => c.id === categoryId)?.groups.some((g: any) => g.id === group) ? group : '';
+    articleId = url.searchParams.get('article') || '';
     version = url.searchParams.get('version') || '1.25.0';
     void refresh();
   });
