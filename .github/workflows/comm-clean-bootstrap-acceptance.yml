@@ -14,6 +14,7 @@ on:
       - 'supabase/staging/acceptance/local-clean-bootstrap-preset-generic-owner-lifecycle-deny-v1.sql'
       - 'supabase/staging/acceptance/local-clean-bootstrap-scene-revision-readiness-v1.sql'
       - 'supabase/staging/acceptance/local-clean-bootstrap-scene-paired-update-v1.sql'
+      - 'supabase/staging/acceptance/local-clean-bootstrap-account-privacy-suppression-v1.sql'
       - '.github/workflows/comm-clean-bootstrap-acceptance.yml'
 
 permissions:
@@ -39,7 +40,7 @@ jobs:
           from pathlib import Path
           import re
           fs=sorted(Path('supabase/migrations').glob('*.sql'))
-          assert len(fs)==113, f'expected 113 candidate SQL files (111 base +2), got {len(fs)}'
+          assert len(fs)==114, f'expected 114 source SQL files (113 prior + privacy barrier), got {len(fs)}'
           vs=[f.name.split('_',1)[0] for f in fs]
           assert all(re.fullmatch(r'\d{12}(?:\d{2})?',v) for v in vs)
           assert len(vs)==len(set(vs)), 'migration version collision'
@@ -48,7 +49,7 @@ jobs:
                          ('20261025002300','gallery_capacity_effective_cleanup_diagnostics_v1'),
                          ('20261025002400','gallery_known_reference_writer_fence_v1')]:
               assert sum(f.name==v+'_'+name+'.sql' for f in fs)==1
-          print('SOURCE_CANDIDATE_113_MIGRATIONS_UNIQUE_AND_ORDERED_PASS')
+          print('SOURCE_CANDIDATE_114_MIGRATIONS_UNIQUE_AND_ORDERED_PASS')
           PY
       - name: Source-Candidate migration static regression
         shell: bash
@@ -88,7 +89,7 @@ jobs:
           DECLARE v int;
           BEGIN
             SELECT count(*) INTO v FROM supabase_migrations.schema_migrations;
-            IF v<>113 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_113: %',v;END IF;
+            IF v<>114 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_114: %',v;END IF;
             IF to_regclass('public.gallery_photo_revision_fields') IS NULL OR
                to_regclass('public.community_media_upload_intents') IS NULL OR
                to_regclass('public.gallery_verified_subjects') IS NULL OR
@@ -118,7 +119,7 @@ jobs:
             IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid='public.gallery_photo_revision_fields'::regclass)
              OR NOT (SELECT relrowsecurity FROM pg_class WHERE oid='public.community_media_upload_intents'::regclass)
             THEN RAISE EXCEPTION 'RLS_NOT_ENABLED';END IF;
-            RAISE NOTICE 'LOCAL_SOURCE_CANDIDATE_113_LEDGER_FUNCTION_TRIGGER_RLS_ACL_PHYSICAL_FAILCLOSED_PASS';
+            RAISE NOTICE 'LOCAL_SOURCE_CANDIDATE_114_LEDGER_FUNCTION_TRIGGER_RLS_ACL_PHYSICAL_FAILCLOSED_PASS';
           END $checks$;
           SELECT extname FROM pg_extension ORDER BY extname;
           SELECT n.nspname,COUNT(*) FILTER (WHERE p.prosecdef) AS security_definer_count
@@ -133,12 +134,13 @@ jobs:
           test -n "$db_container"
           for file in \
             supabase/migrations/20260930115500_provider_identity_cleanup_parent_bootstrap_v1.sql \
-            supabase/migrations/20261025002350_gallery_known_writer_scene_parent_bootstrap_v1.sql; do
+            supabase/migrations/20261025002350_gallery_known_writer_scene_parent_bootstrap_v1.sql \
+            supabase/migrations/20261025002600_account_privacy_suppression_barrier_v1.sql; do
             for attempt in 1 2; do
               docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < "$file"
             done
           done
-          echo 'TWO_ADDITIVE_SOURCE_GAP_MIGRATIONS_SAME_SCHEMA_REAPPLY_PASS' | tee /tmp/comm-parent-reapply.log
+          echo 'THREE_ADDITIVE_SOURCE_MIGRATIONS_SAME_SCHEMA_REAPPLY_PASS' | tee /tmp/comm-parent-reapply.log
       - name: Seed LOCAL disposable actors and run existing negative Gallery SQL fixtures
         shell: bash
         run: |
@@ -155,6 +157,7 @@ jobs:
             local-clean-bootstrap-preset-generic-owner-lifecycle-deny-v1.sql \
             local-clean-bootstrap-scene-revision-readiness-v1.sql \
             local-clean-bootstrap-scene-paired-update-v1.sql \
+            local-clean-bootstrap-account-privacy-suppression-v1.sql \
             gallery-owner-media-invalid-orphan-v1.sql \
             gallery-global-backpressure-v1.sql \
             gallery-capacity-effective-throughput-v1.sql \
