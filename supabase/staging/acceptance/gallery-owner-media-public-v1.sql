@@ -4,7 +4,7 @@ begin;
 do $$
 declare
  v_auth uuid;v_other uuid;v_owner uuid;v_creator uuid;v_subject uuid;
- v_key text;v_key2 text;v_media uuid:=gen_random_uuid();
+ v_key text;v_key2 text;v_fresh text;v_media uuid:=gen_random_uuid();
  v_response jsonb;v_public jsonb;v_update jsonb;v_work uuid;
  v_row bigint;v_error boolean;v_nonce text:=gen_random_uuid()::text;
  v_account_count int;
@@ -57,8 +57,11 @@ begin
    if position('GALLERY_UPLOAD_ABORTED' in sqlerrm)>0 then v_error:=true;else raise;end if;
  end;
  if not v_error then raise exception 'GENERIC_FINALIZE_BYPASSED_ABORT';end if;
+ v_fresh:=v_auth::text||'/'||gen_random_uuid()||'.png';
+ perform public.community_gallery_media_intent_open_v1(v_auth,v_fresh,'image/png',128);
+ perform public.community_gallery_media_intent_cancel_v1(v_auth,v_fresh);
  v_error:=false;
- begin perform public.community_gallery_media_intent_enqueue_cleanup_v1(v_auth,v_key);
+ begin perform public.community_gallery_media_intent_enqueue_cleanup_v1(v_auth,v_fresh);
  exception when others then
    if position('GALLERY_UPLOAD_CLEANUP_NOT_DUE' in sqlerrm)>0 then v_error:=true;else raise;end if;
  end;
