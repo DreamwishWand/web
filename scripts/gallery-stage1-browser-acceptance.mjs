@@ -98,7 +98,34 @@ await page.route('https://gallery-lookup-browser.invalid/**',async route=>{
         cloudPrivateStorageVerified:false,cloudOwnerRestoreVerified:false,
         previousSignedUrlsRevoked:false,cdnAndBrowserPurgeProven:false
       };
-      if(cloudScenario!=='legacy')data.cloudPreservation=nested;
+      if(cloudScenario!=='legacy'){
+        data.cloudPreservation=nested;
+        Object.assign(data,{
+          dependencyCoverageContract:'ddv.gallery-cross-product-coverage@1',
+          dependencyCoverageClassification:{scene:'SEMANTICS_UNKNOWN',biome:'SEMANTICS_UNKNOWN',
+            floating_island:'SEMANTICS_UNKNOWN',tom_furniture:'SEMANTICS_UNKNOWN',
+            tom_clothing:'SEMANTICS_UNKNOWN',native_listing:'REGISTRY_MISSING'},
+          dependencyRelationCoverage:{gallery_work_revisions:'VERIFIED',
+            gallery_revision_presets:'VERIFIED_EMPTY',
+            preset_artifacts_associated_gallery_work_id:'REGISTRY_MISSING',
+            media_and_cover:'03_COMM_CLOUD_PRESERVATION_PREFLIGHT',
+            creator_owner:'VERIFIED'},
+          dependencyMissingSources:['NATIVE_IN_GAME_LISTING_REGISTRY_NOT_DEPLOYED'],
+          dependencyBlockedReasons:['GALLERY_DEPENDENCY_GRAPH_INCOMPLETE'],
+          dependencyGraphFingerprintSha256:'a'.repeat(64),
+          dependencySnapshotNotAtomicMutationFence:true,
+          dependencySnapshotRowVersion:data.rowVersion,
+          dependencySourceVersionState:'VERIFIED',
+          dependencyOwnerMismatchEdgeCount:0,dependencyCreatorMismatchEdgeCount:0
+        });
+      }
+      if(cloudScenario==='dependency-mismatch'){
+        data.dependencyOwnerMismatchEdgeCount=2;
+        data.dependencyCreatorMismatchEdgeCount=1;
+      }
+      if(cloudScenario==='dependency-stale')data.dependencySnapshotRowVersion=99;
+      if(cloudScenario==='dependency-bad-version')data.dependencyCoverageContract='ddv.gallery-cross-product-coverage@999';
+      if(cloudScenario==='dependency-missing')delete data.dependencyMissingSources;
       return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,data})});
     }
     return route.fulfill({status:400,contentType:'application/json',body:'{"error":"Fixture query unsupported"}'});
@@ -348,7 +375,16 @@ try{
     'Cloud readiness accidentally enabled an owner mutation');
   await overflow(page,'cloud-readiness-320');
   pass('SYNTHETIC_CLOUD_NESTED_WORK_HISTORY_MEDIA_READONLY_320');
-  const retryCloud=page.locator('.gallery-retirement-preflight button').last();
+  // Integrated #123->#126->#129 owner-only dependency coverage is diagnostic.
+  const coveragePanel=page.locator('.gallery-dependency-readiness');
+  await coveragePanel.waitFor({state:'visible',timeout:10000});
+  assert(await coveragePanel.locator('dt').count()===12,'expected source + 6 preset/native + relation/missing/blocked/mismatch/fingerprint rows');
+  assert(await coveragePanel.getAttribute('data-read-only')==='true','coverage was marked actionable');
+  assert(await coveragePanel.getAttribute('data-owner-mismatch')==='false','fixture owner mismatch wrongly marked');
+  assert(!(await coveragePanel.innerText()).includes('a'.repeat(64)),'fingerprint leaked into DOM');
+  assert(await page.locator('.owner-panel button[disabled]').count()>=2,'graph readiness enabled a mutation');
+  pass('SYNTHETIC_INTEGRATED_DEPENDENCY_GRAPH_DIAGNOSTIC_ONLY');
+    const retryCloud=page.locator('.gallery-retirement-preflight button').last();
   cloudScenario='malformed';
   await retryCloud.click();
   await page.locator('.gallery-retirement-preflight [role=alert]').waitFor({state:'visible',timeout:10000});
@@ -372,6 +408,23 @@ try{
   await retryCloud.click();
   await cloudPanel.locator('dl').waitFor({state:'visible',timeout:10000});
   pass('SYNTHETIC_CLOUD_MALFORMED_LEGACY_INCONSISTENT_AND_RETRY');
+  cloudScenario='dependency-mismatch';
+  await retryCloud.click();
+  await coveragePanel.waitFor({state:'visible',timeout:10000});
+  assert(await coveragePanel.getAttribute('data-owner-mismatch')==='true','owner mismatch not signaled');
+  assert(await coveragePanel.getAttribute('data-creator-mismatch')==='true','creator mismatch not signaled');
+  assert(await page.locator('.owner-panel button[disabled]').count()>=2,'unsafe action enabled on owner mismatch');
+  for(const bad of ['dependency-stale','dependency-bad-version','dependency-missing']){
+    cloudScenario=bad;
+    await retryCloud.click();
+    await page.locator('.gallery-retirement-preflight [role=alert]').waitFor({state:'visible',timeout:10000});
+    assert(await coveragePanel.count()===0,bad+' was shown despite invalid snapshot');
+  }
+  cloudScenario='valid';
+  await retryCloud.focus();
+  await page.keyboard.press('Enter');
+  await coveragePanel.waitFor({state:'visible',timeout:10000});
+  pass('SYNTHETIC_INTEGRATED_OWNER_CREATOR_MISMATCH_ROWVERSION_CONTRACT_FAIL_CLOSED');
     const ownerButton=page.locator('.owner-panel .blocked-actions button:not([disabled])').first();
   await page.evaluate(()=>{
     window.__ownerRevocations=[];
