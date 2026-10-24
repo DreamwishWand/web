@@ -66,7 +66,7 @@ test('noninteger, negative and inconsistent counters do not silently coerce to z
 test('Retention Edge consumes the exact classifier; malformed RPC telemetry fails closed and is not echoed',()=>{
   const worker=fs.readFileSync(new URL('../supabase/functions/community-retention/index.ts',import.meta.url),'utf8');
   assert.match(worker,/import \{ classifyGalleryOriginIntegrity \} from '\.\.\/_shared\/gallery-origin-integrity\.mjs';/);
-  assert.match(worker,/classifyGalleryOriginIntegrity\(galleryOriginError \? null : galleryOriginReconciliation\)/);
+  assert.match(worker,/classifyGalleryOriginIntegrity\(\s*galleryOriginError \? null : galleryOriginReconciliation\s*\)/);
   assert.match(worker,/GALLERY_ORIGIN_RECONCILIATION_INVALID/);
   assert.match(worker,/galleryOriginIntegrity==='unknown'\s*\? null : galleryOriginReconciliation/);
   assert.doesNotMatch(worker,/Number\(galleryOriginReconciliation\.originUntrackedObjectCount \?\? 0\)/);
