@@ -55,6 +55,9 @@
     const request=++managementRequest;
     management=work;ownerDetail=null;managementError='';showManagement=true;ownerBusy=true;
     preflight=null;preflightError='';preflightBusy=false;
+    // The server's owner-only preflight is authoritative. Do not gate it on
+    // legacy Gallery Detail's optional isOwner projection.
+    void loadPreflight(String(work.workId),request);
     stagedTitle=String(work.title??'');stagedDescription='';ownerMediaUrls=[];showEditPreview=false;
     try{
       const result:any=await client?.query('gallery',{workId:work.workId});
@@ -69,12 +72,11 @@
           if(request===managementRequest)ownerMediaUrls=[...ownerMediaUrls,media.streamUrl];
         }catch{ /* leave public media unavailable rather than bypassing authorization */ }
       }
-      if(ownerDetail?.isOwner && request===managementRequest)void loadPreflight(String(work.workId),request);
     }catch(e){if(request===managementRequest)managementError=e instanceof Error?e.message:String(e)}
     finally{if(request===managementRequest)ownerBusy=false}
   }
   async function loadPreflight(workId:string,request=managementRequest){
-    if(!client?.session||!ownerDetail?.isOwner||management?.workId!==workId)return;
+    if(!client?.session||management?.workId!==workId)return;
     preflightBusy=true;preflightError='';preflight=null;
     try{
       const result:any=await client.query('galleryRetirementPreflight',{workId});
@@ -180,7 +182,7 @@
         {/if}
         <p>{t('galleryv1.uploadNotReady',{},$locale)} <code>{GALLERY_OWNER_MUTATION_BLOCKER}</code></p>
         <button type="button" disabled aria-disabled="true">{t('galleryv1.publishUpdate',{},$locale)}</button>
-        {#if ownerDetail?.isOwner}
+        {#if signedIn}
           <section class="gallery-retirement-preflight" aria-label={t('galleryv1.retirementPreflight',{},$locale)}>
             <h3>{t('galleryv1.retirementPreflight',{},$locale)}</h3>
             <p>{t('galleryv1.preflightReadOnly',{},$locale)}</p>
