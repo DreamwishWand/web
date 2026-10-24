@@ -4,6 +4,7 @@
   import { goto } from '$app/navigation';
   import { locale, ct as t } from '$lib/i18n/community.js';
   import { createCommunityBrowserClient } from '$lib/community/browser-client';
+  import { parseGalleryCapacityError } from '$lib/community/gallery-owner-media.js';
   import PhotoPreview from '$lib/gallery/PhotoPreview.svelte';
   import VerifiedSubjectPicker from '$lib/gallery/VerifiedSubjectPicker.svelte';
   import { isSelectableSubject, subjectDisplayIdentity } from '$lib/gallery/verified-subjects.js';
@@ -17,6 +18,7 @@
   let signedIn = false;
   let busy = false;
   let error = '';
+  let capacityBlock:any=null;
   let creatorProfileId = '';
   let creatorLabel = '';
   let email = '', password = '', handle = '', displayName = '';
@@ -47,9 +49,15 @@
   $: kindLabel = kind === 'outdoor' ? t('gallery.kind.outdoor',{},$locale) : kind === 'indoor' ? t('gallery.kind.indoor',{},$locale) : kind === 'tom_furniture' ? t('gallery.kind.tomFurniture',{},$locale) : t('gallery.kind.tomClothing',{},$locale);
 
   async function run<T>(fn: () => Promise<T>): Promise<T | null> {
-    busy = true; error = '';
+    busy = true; error = ''; capacityBlock=null;
     try { return await fn(); }
-    catch (cause) { error = cause instanceof Error ? cause.message : String(cause); return null; }
+    catch (cause) {
+      const block=parseGalleryCapacityError(cause);
+      capacityBlock=block;
+      error=block?t('galleryv1.capacityRetryServer',{},$locale):
+        cause instanceof Error?cause.message:String(cause);
+      return null;
+    }
     finally { busy = false; }
   }
   async function signIn() {
@@ -178,6 +186,23 @@
         <input type="file" accept="image/jpeg,image/png,image/webp" multiple on:change={chooseFiles}/>
       </label>
       <p>{t('galleryv1.imagesHelp',{},$locale)} · {t('galleryv1.mediaCount',{count:images.length},$locale)}</p>
+      <p class="capacity-note" role="note">{t('galleryv1.capacityIdle',{},$locale)}</p>
+      {#if capacityBlock}
+        <div class="capacity-block" role="alert">
+          <p>{capacityBlock.code==='GALLERY_UPLOAD_OUTSTANDING_COUNT_EXCEEDED'?t('galleryv1.capacityAccountCount',{},$locale):
+            capacityBlock.code==='GALLERY_UPLOAD_RESERVED_BYTES_EXCEEDED'?t('galleryv1.capacityAccountBytes',{},$locale):
+            capacityBlock.code==='GALLERY_GLOBAL_BACKLOG_COUNT_EXCEEDED'?t('galleryv1.capacityGlobalCount',{},$locale):
+            capacityBlock.code==='GALLERY_GLOBAL_RESERVED_BYTES_EXCEEDED'?t('galleryv1.capacityGlobalBytes',{},$locale):
+            t('galleryv1.capacityCleanupStalled',{},$locale)}</p>
+          <p>{t('galleryv1.capacityRetryServer',{},$locale)}</p>
+          {#if capacityBlock.retryAfterSeconds!==null}
+            <p>{t('galleryv1.retryAfterServerSeconds',{count:capacityBlock.retryAfterSeconds},$locale)}</p>
+          {:else if capacityBlock.resetAt}
+            <p>{t('galleryv1.retryAtServer',{date:capacityBlock.resetAt},$locale)}</p>
+          {/if}
+          <p>{t('galleryv1.capacityCleanupPending',{},$locale)}</p>
+        </div>
+      {/if}
       <div class="gallery-media-order">
         {#each images as image,i (image.id)}
           <div class="media-row">
@@ -227,6 +252,9 @@
 </section>
 
 <style>
+ .capacity-block,.capacity-note{overflow-wrap:anywhere;max-width:100%}
+ .capacity-block{padding:12px;border:1px solid var(--border);border-radius:12px}
+
   .temporary-upload-notice{border:1px solid var(--border);border-radius:12px;padding:14px;display:grid;gap:8px;background:var(--surface-raised);min-width:0}
   .temporary-upload-notice h3,.temporary-upload-notice p{margin:0}
   .temporary-upload-notice button{justify-self:start}
