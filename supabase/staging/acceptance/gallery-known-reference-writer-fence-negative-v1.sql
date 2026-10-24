@@ -1,5 +1,5 @@
 -- 09 INT Issue #119 shared Gallery Work lock participation, LIVE STAGING, rollback only.
--- Requires migration 20261025002200_gallery_known_reference_writer_fence_v1.sql.
+-- Requires migration 20261025002400_gallery_known_reference_writer_fence_v1.sql.
 -- No positive retirement, permanent Work change, or Storage mutation.
 BEGIN;
 DO $accept$
