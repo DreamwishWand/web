@@ -1,0 +1,6 @@
+04 QR / #130 / 2026-10-24 anonymous live-browser configuration probe.
+Evidence-only marker for existing workflow community-public-browser-acceptance.yml.
+Parent commit exact main 71e568c9b576c54f8d100fae2ae883c835de7602.
+No application or tests changed. DO NOT MERGE THIS BRANCH.
+Does NOT constitute signed A/B/Moderator, Media upload or Gallery Photo E2E acceptance.
+Do NOT place credentials or signed URLs here.
