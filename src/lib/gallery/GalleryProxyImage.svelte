@@ -1,6 +1,5 @@
 <script lang="ts">
   import { locale, ct as t } from '$lib/i18n/community.js';
-  import { classifyGalleryMediaFailure } from '$lib/community/public-media.js';
   export let media: {streamUrl:string;mimeType:string;width:number|null;height:number|null}|null=null;
   export let alt='';
   let failed=false;
