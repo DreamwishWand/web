@@ -188,7 +188,7 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         });
         if (intentError) {
           const reason=String(intentError.message??'');
-          const quotaCode=/^GALLERY_UPLOAD_(?:OUTSTANDING_COUNT_EXCEEDED|RESERVED_BYTES_EXCEEDED)/.exec(reason)?.[0];
+          const quotaCode=/^(?:GALLERY_UPLOAD_(?:OUTSTANDING_COUNT_EXCEEDED|RESERVED_BYTES_EXCEEDED)|GALLERY_GLOBAL_(?:BACKLOG_COUNT_EXCEEDED|RESERVED_BYTES_EXCEEDED|CLEANUP_STALLED))/.exec(reason)?.[0];
           return reply({ok:false,error:quotaCode??'GALLERY_UPLOAD_INTENT_FAILED'},quotaCode?429:400);
         }
       }
