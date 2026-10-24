@@ -12,6 +12,8 @@ on:
       - 'tests/guide-systems-v17-private-consumer.test.mjs'
       - 'tests/fixtures/guide-systems-v17-private-consumer.mjs'
       - 'scripts/audit-guide-v17-private-corpus.mjs'
+      - 'scripts/verify-guide-public-static-build.mjs'
+      - 'docs/guide/v17-private-consumer-compatibility-20261024.md'
       - 'src/routes/guide/**'
       - 'static/ddv/guide/**'
       - 'src/lib/i18n/**'
