@@ -34,6 +34,9 @@ export type GalleryOwnerMediaErrorV1 =
   | 'GALLERY_UPLOAD_PREPARE_ABORT_REQUIRES_RETRY'
   | 'GALLERY_UPLOAD_OUTSTANDING_COUNT_EXCEEDED'
   | 'GALLERY_UPLOAD_RESERVED_BYTES_EXCEEDED'
+  | 'GALLERY_GLOBAL_BACKLOG_COUNT_EXCEEDED'
+  | 'GALLERY_GLOBAL_RESERVED_BYTES_EXCEEDED'
+  | 'GALLERY_GLOBAL_CLEANUP_STALLED'
   | 'GALLERY_UPLOAD_FORBIDDEN'|'GALLERY_OWNER_STATUS_UNAVAILABLE'
   | 'GALLERY_MEDIA_STORAGE_OBJECT_UNAVAILABLE'
   | 'GALLERY_MEDIA_NOT_READY_OR_NOT_OWNED'|'GALLERY_MEDIA_SELECTION_INVALID'
@@ -173,5 +176,11 @@ export const GALLERY_OWNER_RETENTION_SAFETY_V1=Object.freeze({
   durableRevisionExemptsTemporaryQuota:true,
   currentPhysicalRemovalOnlyAfterOwnerAbortOrExpiredPending:true,
   signedOwnerStorageDeletionAccepted:false,
+  globalBackpressureEnabled:true,
+  provisionalGlobalActiveOrUncleanedIntentCeiling:100,
+  provisionalGlobalReservedBytesCeiling:2000*1024*1024,
+  provisionalMaxOldestDueAgeHours:6,
+  physicalOrphanCleanupAccepted:false,
+  workerPhysicalRemovalFailClosed:true,
   uiShowActive72HourCountdown:false
 } as const);
