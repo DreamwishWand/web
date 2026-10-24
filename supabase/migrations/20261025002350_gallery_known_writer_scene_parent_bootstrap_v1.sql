@@ -529,6 +529,8 @@ declare
   v_referenced_unknown integer:=0;
   v_current_gallery_matches integer:=0;
   v_ref_hash text;
+  v_scoped_edges text[];
+  v_scoped_edge_sha256 text;
   v_blocked jsonb;
 begin
   v_owner:=private.resolve_active_account(p_auth_subject);
@@ -619,6 +621,23 @@ begin
       select 1 from public.gallery_works g where g.work_id=cwr.work_id
     );
 
+  -- A versioned Scene-scoped history digest for future caller authorization.
+  -- This owner-only read is NONATOMIC and cannot enable any positive writer.
+  select coalesce(array_agg(e.edge order by e.edge),array[]::text[])
+    into v_scoped_edges
+  from (
+    select distinct gp.gallery_revision_id::text||'/'||
+      gp.preset_revision_id::text as edge
+    from public.gallery_revision_presets gp
+    join public.preset_revisions pr
+      on pr.preset_revision_id=gp.preset_revision_id
+    where pr.preset_artifact_id=v_artifact.preset_artifact_id
+  ) e;
+  v_scoped_edge_sha256:=encode(extensions.digest(convert_to(
+    'scene-historical-edges-v1|'||v_artifact.preset_artifact_id::text||
+    '|'||coalesce(v_artifact.associated_gallery_work_id::text,'')||
+    '|'||array_to_string(v_scoped_edges,'|'),'UTF8'),'sha256'),'hex');
+
   -- Stable fingerprint is useful for human comparison, but does NOT
   -- replace transaction locks or under-lock recomputation.
   v_ref_hash:=encode(extensions.digest(
@@ -670,6 +689,9 @@ begin
     'crossOwnerOrUnresolvedGalleryCount',v_cross_owner+v_referenced_unknown,
     'dependencyFingerprintSha256',v_ref_hash,
     'dependencyFingerprintIsAtomicFence',false,
+    'historicalEdgeSetScope','scene-historical-edges-v1',
+    'historicalEdgeSetSha256',v_scoped_edge_sha256,
+    'historicalEdgeSetIsAtomicFence',false,
     'graphComplete',false,
     'saveRevisionAuthorized',false,
     'pairedGalleryPublishAuthorized',false,
@@ -704,7 +726,8 @@ create or replace function private.scene_save_revision_paired_candidate_v1(
   p_title text,
   p_description text,
   p_metadata jsonb,
-  p_idempotency_key text
+  p_idempotency_key text,
+  p_expected_historical_edge_set_sha256 text
 ) returns jsonb language plpgsql
 set search_path=pg_catalog,public,private,extensions
 as $paired_scene_candidate$
@@ -748,7 +771,9 @@ begin
       'expectedGalleryVersion',p_expected_gallery_work_version,
       'blob',p_artifact_blob_id,'media',to_jsonb(p_media_ids),
       'cover',p_cover_media_id,'title',p_title,'description',p_description,
-      'metadata',coalesce(p_metadata,'{}'::jsonb))::text,'UTF8'),'sha256'),'hex');
+      'metadata',coalesce(p_metadata,'{}'::jsonb),
+      'historicalEdgePin',p_expected_historical_edge_set_sha256)::text,
+      'UTF8'),'sha256'),'hex');
   select request_hash,response into v_existing_hash,v_response
   from public.idempotency_keys
   where account_id=v_account and idempotency_key=p_idempotency_key;
@@ -762,6 +787,8 @@ begin
     or p_expected_preset_work_version is null
     or p_expected_gallery_work_version is null
     or p_artifact_blob_id is null
+    or p_expected_historical_edge_set_sha256 is null
+    or p_expected_historical_edge_set_sha256 !~ '^[0-9a-f]{64}$'
     or p_preset_artifact_id is null
     or p_title is null or length(btrim(p_title)) not between 1 and 160
   then raise exception 'SCENE_REVISION_REQUIRED_FIELDS';end if;
@@ -856,6 +883,16 @@ begin
   if v_backlinks_locked is distinct from v_backlinks_before then
     raise exception 'SCENE_REVISION_BACKLINK_SNAPSHOT_CHANGED';
   end if;
+
+  -- Caller-pinned scoped history: a committed same-Gallery edge can change
+  -- without incrementing either Work's rowVersion. Recheck AFTER locks.
+  -- This is not an ALL-WRITER or all-product dependency graph seal.
+  if encode(extensions.digest(convert_to(
+      'scene-historical-edges-v1|'||v_artifact.preset_artifact_id::text||
+      '|'||v_assoc::text||'|'||array_to_string(v_backlinks_locked,'|'),
+      'UTF8'),'sha256'),'hex')
+      is distinct from p_expected_historical_edge_set_sha256
+  then raise exception 'SCENE_REVISION_CALLER_EDGE_FINGERPRINT_STALE';end if;
 
   -- No Gallery Work may be added, removed or redirected under locked check.
   select coalesce(array_agg(distinct wr.work_id order by wr.work_id),
@@ -1011,5 +1048,5 @@ $paired_scene_candidate$;
 
 -- NO Edge, authenticated/anon or service role can invoke this candidate.
 revoke all on function private.scene_save_revision_paired_candidate_v1(
-  uuid,uuid,uuid,bigint,bigint,uuid,uuid[],uuid,text,text,jsonb,text)
+  uuid,uuid,uuid,bigint,bigint,uuid,uuid[],uuid,text,text,jsonb,text,text)
 from public,anon,authenticated,service_role;
