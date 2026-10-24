@@ -84,3 +84,17 @@ test('all source-only sensitive QA, DreamSnaps and media projections apply suppr
   assert.match(sql, /previousBearerUrlsRevoked',false/);
   assert.doesNotMatch(sql, /GALLERY_CLOUD_PRIVATE_PRESERVATION_09_INT_REQUIRED.*(disable|remove)/i);
 });
+
+
+test('client retains a session on failed or indeterminate privacy suppression', () => {
+  const client = read('src/lib/community/staging-http-client.ts');
+  const begin = client.indexOf('async deleteWandAccount(');
+  const end = client.indexOf('async searchPublicWorks(', begin);
+  assert.ok(begin >= 0 && end > begin);
+  const method = client.slice(begin,end);
+  assert.match(method, /result\.stage !== 'privacy_suppressed_cleanup_pending'/);
+  assert.match(method, /result\.fullDeletionComplete !== false/);
+  assert.match(method, /return result/);
+  assert.ok(method.indexOf('return result') < method.indexOf("scope=global"),
+    'invalid privacy suppression must not perform global logout');
+});
