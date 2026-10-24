@@ -4,13 +4,13 @@
 begin;
 do $$
 declare
- a uuid;b uuid;account_id uuid;creator_id uuid;subject_id uuid;
+ a uuid;b uuid;v_account uuid;v_creator uuid;v_subject uuid;
  mid1 uuid:=gen_random_uuid();mid2 uuid:=gen_random_uuid();wid uuid;
  initial jsonb;updated jsonb;preflight jsonb;manifest jsonb;cloud jsonb;
  deny boolean:=false;nonce text:=gen_random_uuid()::text;
 begin
  select ai.provider_subject::uuid,w.account_id,c.creator_profile_id
- into a,account_id,creator_id
+ into a,v_account,v_creator
  from public.wand_accounts w
  join public.auth_identities ai on ai.account_id=w.account_id
   and ai.provider='supabase' and ai.identity_state='active'
@@ -21,22 +21,22 @@ begin
  from public.wand_accounts w
  join public.auth_identities ai on ai.account_id=w.account_id
   and ai.provider='supabase' and ai.identity_state='active'
- where w.status='active' and w.account_id<>account_id limit 1;
+ where w.status='active' and w.account_id<>v_account limit 1;
  if a is null or b is null then raise exception 'SIGNED_OWNER_DB_FIXTURE_ACTORS_MISSING';end if;
- select subject_id into subject_id from public.gallery_verified_subjects
- where subject_type='floating_island' and verification_state='verified'
+ select s.subject_id into v_subject from public.gallery_verified_subjects s
+ where s.subject_type='floating_island' and s.verification_state='verified'
  order by canonical_target_id limit 1;
- if subject_id is null then raise exception 'REVIEWED_GALLERY_SUBJECT_MISSING';end if;
+ if v_subject is null then raise exception 'REVIEWED_GALLERY_SUBJECT_MISSING';end if;
  insert into public.community_entities(entity_id,entity_type)
  values(mid1,'media_asset'),(mid2,'media_asset');
  insert into public.media_assets(media_id,owner_account_id,storage_key,mime_type,
  byte_size,width,height,checksum_sha256,processing_state,moderation_state)
- values(mid1,account_id,'rollback/'||mid1||'.png','image/png',128,20,20,
+ values(mid1,v_account,'rollback/'||mid1||'.png','image/png',128,20,20,
   repeat('a',64),'ready','clear'),
-       (mid2,account_id,'rollback/'||mid2||'.png','image/png',128,20,20,
+       (mid2,v_account,'rollback/'||mid2||'.png','image/png',128,20,20,
   repeat('b',64),'ready','clear');
  initial:=public.community_publish_gallery_photo_v1(
- a,creator_id,null,null,'outdoor',subject_id,'Cloud audit rev 1',null,
+ a,v_creator,null,null,'outdoor',v_subject,'Cloud audit rev 1',null,
  array[mid1],mid1,true,'gallery-cloud-readiness-1:'||nonce);
  wid:=(initial->>'workId')::uuid;
  preflight:=public.community_gallery_retirement_preflight_v1(a,wid);
@@ -56,8 +56,8 @@ begin
  or (manifest->>'structuralIntegrityObserved')::boolean is distinct from true
  then raise exception 'INITIAL_CLOUD_AUDIT_INCORRECT: %',cloud::text;end if;
  updated:=public.community_publish_gallery_photo_v1(
- a,creator_id,wid,(initial->>'rowVersion')::bigint,
- 'outdoor',subject_id,'Cloud audit rev 2',null,array[mid2],mid2,true,
+ a,v_creator,wid,(initial->>'rowVersion')::bigint,
+ 'outdoor',v_subject,'Cloud audit rev 2',null,array[mid2],mid2,true,
  'gallery-cloud-readiness-2:'||nonce);
  preflight:=public.community_gallery_retirement_preflight_v1(a,wid);
  cloud:=preflight->'cloudPreservation';
