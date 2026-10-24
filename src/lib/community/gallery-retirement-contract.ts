@@ -88,7 +88,7 @@ export type GalleryRetirementPreflightV1=Readonly<{
   linkedPresetRevisionCount:number;
   associatedPresetArtifactCount:number;
   newPublicGalleryStorageSignedUrlIssued:false;
-  authenticatedOwnerReadMayMintStorageSignedUrl:true;
+  authenticatedOwnerReadMayMintStorageSignedUrl:false;
   galleryNewTransport:'per_request_authorized_edge_proxy';
   historicallyIssuedStorageSignedUrlMaxSeconds:300;
   previousSignedUrlsRevoked:false;
