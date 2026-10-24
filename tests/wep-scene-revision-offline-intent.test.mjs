@@ -79,6 +79,10 @@ test('v1.25.0 Scene artifact proof hashes exact WEP JSON bytes without upload or
     'atomicRevisionWriterAuthorized','pairedGalleryPublishAuthorized',
     'saveRevisionAuthorized','productApplyAuthorized']) assert.equal(proof[key],false,key);
   assert.equal(proof.identity.dependencyFingerprintIsAtomicFence,false);
+  assert.equal(proof.identity.observedPublicCreatorProfileId,U.creator);
+  assert.equal(proof.identity.observedOwnerCreatorProfileId,null);
+  assert.equal(proof.identity.expectedCreatorProfileId,null);
+  assert.ok(proof.blockedReasons.includes('SCENE_OWNER_CREATOR_CROSSREAD_UNAVAILABLE'));
   assert.equal(proof.identity.observedPairedGalleryWorkRowVersion,13);
   assert.equal(proof.identity.observedPairedGalleryCurrentWorkRevisionId,U.gr);
   assert.equal(proof.identity.observedHistoricalEdgeSetScope,'scene-historical-edges-v1');
@@ -225,4 +229,12 @@ test('Scope/version are diagnostics only; missing or unrecognized scope cannot m
     assert.equal(p.saveRevisionAuthorized,false);
     assert.ok(p.blockedReasons.some(x=>x.includes('UNAVAILABLE')||x.includes('UNSUPPORTED')));
   }
+});
+
+test('Creator mismatch on an owner-derived future Readiness hint is rejected before revision proof',async()=>{
+  const otherOwner=parseSceneOwnerReadiness({...rawOwner,creatorProfileId:U.work},U.pa);
+  await assert.rejects(
+    prepareSceneRevisionOfflineIntent({...args,readiness:otherOwner}),
+    /WEP_SCENE_REVISION_PAIRED_GALLERY_IDENTITY_STALE/
+  );
 });
