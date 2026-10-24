@@ -122,8 +122,8 @@ begin
 
   v_info:=public.community_get_scene_preset_public_v1(v_preset_work);
   if (v_info->>'presetRevisionId')::uuid is distinct from v_preset_revision
-    or (v_info->>'galleryWorkId')::uuid is distinct from (v_gallery->>'workId')::uuid
-    or (v_info->>'galleryWorkRevisionId')::uuid is distinct from (v_gallery->>'revisionId')::uuid
+    or (v_info->>'galleryWorkId')::uuid is distinct from v_gallery_work
+    or (v_info->>'galleryWorkRevisionId')::uuid is distinct from v_gallery_revision
     or v_info->'mediaIds' <> jsonb_build_array(v_media)
     or (v_info->>'coverMediaId')::uuid is distinct from v_media
     or v_info->>'title' is distinct from 'Paired Scene'
