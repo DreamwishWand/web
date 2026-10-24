@@ -1,4 +1,5 @@
 import { withSupabase } from 'npm:@supabase/server';
+import { classifyGalleryOriginIntegrity } from '../_shared/gallery-origin-integrity.mjs';
 
 type RetentionJob = {
   retentionJobId: string;
@@ -244,12 +245,15 @@ export default {
     if(galleryOriginError || !galleryOriginReconciliation) {
       galleryOrphans.workerFailure='GALLERY_ORIGIN_RECONCILIATION_UNAVAILABLE';
     }
-    const galleryOriginIntegrity =
-      galleryOriginError || !galleryOriginReconciliation ? 'unknown' :
-      Number(galleryOriginReconciliation.originUntrackedObjectCount ?? 0)>0 ||
-      Number(galleryOriginReconciliation.registeredOriginSizeMismatchCount ?? 0)>0 ||
-      Number(galleryOriginReconciliation.finalizedReadyMissingOriginCount ?? 0)>0
-        ? 'critical' : 'normal';
+    const galleryOriginIntegrity = classifyGalleryOriginIntegrity(
+      galleryOriginError ? null : galleryOriginReconciliation
+    );
+    if (!galleryOriginError && galleryOriginReconciliation &&
+        galleryOriginIntegrity === 'unknown') {
+      // A malformed/partial operator RPC is not a healthy Storage inventory.
+      // Return 503 so the existing operator channel can alert on lost proof.
+      galleryOrphans.workerFailure='GALLERY_ORIGIN_RECONCILIATION_INVALID';
+    }
 
     return reply({
       ok: true,
@@ -260,7 +264,7 @@ export default {
       galleryOrphans,
       galleryCapacityMetrics:galleryCapacityError ? null : galleryCapacityMetrics,
       galleryAdmissionAlert:galleryAdmissionAlertError ? null : galleryAdmissionAlert,
-      galleryOriginReconciliation:galleryOriginError ? null : galleryOriginReconciliation,
+      galleryOriginReconciliation:galleryOriginIntegrity==='unknown' ? null : galleryOriginReconciliation,
       galleryOriginIntegrity,
       results
     }, galleryOrphans.workerFailure ? 503 : 200);
