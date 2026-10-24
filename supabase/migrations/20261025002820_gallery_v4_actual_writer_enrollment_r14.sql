@@ -256,4 +256,4 @@ begin
   where account_id=v_account_id and idempotency_key=p_idempotency_key;
   return v_response;
 end;
-$;
+$$;
