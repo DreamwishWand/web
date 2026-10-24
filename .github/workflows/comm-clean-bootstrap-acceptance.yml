@@ -191,6 +191,15 @@ jobs:
           python3 -m pip install --quiet 'psycopg[binary]>=3.2,<4'
           python3 tests/qr-r14-qa-tip-public-behavior.py | tee /tmp/qr-r14-qa-source.log
           grep -F QR_R14_QA_TIP_BEHAVIOR_SOURCE_PASS /tmp/qr-r14-qa-source.log
+      - name: 04 QR R14 independent DreamSnaps active embargo, judge pool and media source behavior
+        env:
+          DDVRE_QR_R14_LOCAL: CONFIRMED
+          DATABASE_URL: ''
+          SUPABASE_DB_URL: ''
+        run: |
+          set -euo pipefail
+          python3 tests/qr-r14-dreamsnap-privacy-behavior.py | tee /tmp/qr-r14-dreamsnap-source.log
+          grep -F QR_R14_DREAMSNAP_JUDGE_MEDIA_BEHAVIOR_SOURCE_PASS /tmp/qr-r14-dreamsnap-source.log
       - name: Independent two-Postgres-backend account-privacy concurrency (LOCAL ONLY)
         shell: bash
         env:
