@@ -6,9 +6,9 @@
  * Source identity is supplied independently of untrusted artifact metadata.
  * A client claim of ownership / READY media is never server authority.
  */
-import { buildPublishEnvelope } from './scene-preset-runtime';
-import { sha256Hex } from './preset-community-bridge';
-import type { ScenePublicCurrentRead, SceneOwnerReadiness } from './scene-revision-gallery-consumer';
+import { buildPublishEnvelope } from './scene-preset-runtime.ts';
+import { sha256Hex } from './preset-community-bridge.ts';
+import type { ScenePublicCurrentRead, SceneOwnerReadiness } from './scene-revision-gallery-consumer.ts';
 import { SCENE_REVISION_WRITE_BLOCKERS } from './scene-revision-gallery-consumer';
 
 const SWITCH_V125_BID = '52BD625D9B4E0053';
