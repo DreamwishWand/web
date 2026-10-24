@@ -75,6 +75,12 @@ test('v1.25.0 Scene artifact proof hashes exact WEP JSON bytes without upload or
     'atomicRevisionWriterAuthorized','pairedGalleryPublishAuthorized',
     'saveRevisionAuthorized','productApplyAuthorized']) assert.equal(proof[key],false,key);
   assert.equal(proof.identity.dependencyFingerprintIsAtomicFence,false);
+  assert.equal(proof.identity.expectedGalleryWorkRowVersion,null);
+  assert.equal(proof.identity.expectedHistoricalEdgeSetSha256,null);
+  assert.equal(proof.identity.historicalEdgePinAvailable,false);
+  assert.equal(proof.identity.historicalEdgePinIsAtomicFence,false);
+  assert.ok(proof.blockedReasons.includes('SCENE_CALLER_HISTORICAL_EDGE_PIN_NOT_AVAILABLE'));
+  assert.ok(proof.blockedReasons.includes('SCENE_GALLERY_EXPECTED_ROWVERSION_NOT_AVAILABLE'));
   assert.equal(proof.capture.requiredSubGridDescendantsValidated,false);
   assert.equal(proof.capture.captureRuntimeVerified,false);
 });
