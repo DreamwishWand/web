@@ -1,7 +1,6 @@
--- #116 / #119 integrated 03 COMM owner-only preflight projection after 09 INT #123.
--- No new public Gallery RPC or Preset model. All operations stay false.
--- Materialized path: 09 INT read-only graph -> owner-validated Community preflight.
--- This additive migration is intentionally later than 20261025002000.
+-- 03 COMM #116 on 09 INT #119: additive owner-only graph observability.
+-- Later than reviewed 20261025002000 coverage migration. Zero write capability.
+-- Fingerprint is NOT an atomic transaction fence.
 CREATE OR REPLACE FUNCTION public.community_gallery_retirement_preflight_v1(p_auth_subject uuid, p_gallery_work_id uuid)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -32,44 +31,13 @@ begin
   'moderationState',v_work.moderation_state,
   'graphComplete',coalesce((v_dep->>'graphComplete')::boolean,false),
   'dependencyCoverage',v_coverage,
-  -- 09 INT service-only authoritative graph observability: safe owner diagnostics.
-  -- A fingerprint is not a lock, atomic mutation fence, or publish permission.
   'dependencyCoverageContract',v_dep->>'coverageContract',
   'dependencyCoverageClassification',coalesce(v_dep->'coverageClassification','{}'::jsonb),
   'dependencyRelationCoverage',coalesce(v_dep->'relationCoverage','{}'::jsonb),
   'dependencyMissingSources',coalesce(v_dep->'missingDependencySources','[]'::jsonb),
   'dependencyBlockedReasons',coalesce(v_dep->'blockedRetirementReasons','[]'::jsonb),
   'dependencyGraphFingerprintSha256',case
-    when coalesce(v_dep->>'graphFingerprintSha256','') ~ '^[0-9a-f]{64}
-  'linkedPresetRevisionCount',jsonb_array_length(coalesce(v_dep->'linkedPresetRevisionReferences','[]'::jsonb)),
-  'associatedPresetArtifactCount',jsonb_array_length(coalesce(v_dep->'associatedPresetArtifacts','[]'::jsonb)),
-  'newPublicGalleryStorageSignedUrlIssued',false,
-  'authenticatedOwnerReadMayMintStorageSignedUrl',false,
-  'galleryNewTransport','per_request_authorized_edge_proxy',
-  'historicallyIssuedStorageSignedUrlMaxSeconds',300,
-  'previousSignedUrlsRevoked',false,
-  'cdnAndBrowserPurgeProven',false,
-  'cloudEntitlementVerified',false,
-  'cloudPrivateStorageVerified',false,
-  'cloudOwnerRestoreVerified',false,
-  'operationAuthorized',false,
-  'deleteAuthorized',false,
-  'unpublishKeepPrivateAuthorized',false,
-  'retryEligible',false,
-  'blockedReasons',jsonb_build_array(
-    'GALLERY_DEPENDENCY_GRAPH_INCOMPLETE',
-    'GALLERY_PREVIOUS_SIGNED_URL_REPLAY_UNPROVEN',
-    'GALLERY_CDN_BROWSER_CACHE_REVOCATION_UNPROVEN',
-    'GALLERY_CLOUD_ENTITLEMENT_UNVERIFIED',
-    'GALLERY_PRIVATE_DURABILITY_UNVERIFIED')
- );
-end $function$
-;
-revoke all on function public.community_gallery_retirement_preflight_v1(uuid,uuid)
- from public,anon,authenticated;
-grant execute on function public.community_gallery_retirement_preflight_v1(uuid,uuid)
- to service_role;
-
+    when coalesce(v_dep->>'graphFingerprintSha256','') ~ '^[0-9a-f]{64}$'
     then v_dep->>'graphFingerprintSha256' else null end,
   'dependencySnapshotNotAtomicMutationFence',true,
   'dependencySnapshotRowVersion',v_work.row_version,
