@@ -3,7 +3,7 @@
 113-migration local Supabase database. Strictly NO remote/staging/production DSN.
 No HTTP/Storage bytes, signed role, native save-writing or positive Gallery retirement.
 """
-import json, os, sys, time, uuid, threading
+import json, os, sys, time, uuid, threading, hashlib
 from urllib.parse import urlsplit
 import psycopg
 
@@ -24,6 +24,17 @@ def local_dsn():
     assert p.hostname in ("127.0.0.1","localhost") and p.port==54322 and p.path=="/postgres", "REMOTE_DSN_REJECTED"
     assert p.username=="postgres", "DB_OWNER_LOCAL_ONLY"
     return url
+
+def historical_edge_hash(c,g):
+    """Exact R9 local fixture historical edge digest; NOT a globally complete graph."""
+    edges=one(c,"""select coalesce(array_agg(e.edge order by e.edge),array[]::text[])
+      from (select distinct gp.gallery_revision_id::text||'/'||
+        gp.preset_revision_id::text as edge
+      from public.gallery_revision_presets gp
+      join public.preset_revisions pr on pr.preset_revision_id=gp.preset_revision_id
+      where pr.preset_artifact_id=%s) e""",(g["artifact"],))[0]
+    raw="scene-historical-edges-v1|"+str(g["artifact"])+"|"+str(g["galleryWork"])+"|"+"|".join(edges)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 def fixture(c):
     ownerrow=one(c,"""select ai.provider_subject::uuid,c.owner_account_id,c.creator_profile_id
@@ -104,6 +115,7 @@ def fixture(c):
         c.execute("ROLLBACK")
         raise
     g["auth"]=auth
+    g["expectedHistoricalEdgeSha256"]=historical_edge_hash(c,g)
     return g
 
 def snapshot(c,g):
@@ -123,13 +135,14 @@ def snapshot(c,g):
         where r.work_id=%s""",(g["galleryWork"],))[0],
     }
 
-def invoke(c,g):
+def invoke(c,g,expected_edge_sha256=None):
     return one(c,"""select private.scene_save_revision_paired_candidate_v1(
-      %s,%s,%s,%s,%s,%s,%s::uuid[],%s,%s,%s,%s::jsonb,%s)""",
+      %s,%s,%s,%s,%s,%s,%s::uuid[],%s,%s,%s,%s::jsonb,%s,%s)""",
       (g["auth"],g["artifact"],g["presetRev"],g["presetVersion"],g["galleryVersion"],
        g["newBlob"],[g["oldMedia"],g["newMedia"]],g["newMedia"],
        "R8 Linked Scene V2","R8 disposable regression",
-       json.dumps({"r8":"isolated-full-schema"}),"r8-paired-"+str(g["artifact"])))[0]
+       json.dumps({"r8":"isolated-full-schema"}),"r8-paired-"+str(g["artifact"]),
+       expected_edge_sha256 or g["expectedHistoricalEdgeSha256"])))[0]
 
 def concurrent(url,g):
     with psycopg.connect(url,autocommit=True) as a, psycopg.connect(url,autocommit=True) as b:
@@ -139,7 +152,7 @@ def concurrent(url,g):
         before=snapshot(a,g)
         assert before["presetRevisions"]==1
         # Full migration: no external Edge role may invoke candidate.
-        sig="private.scene_save_revision_paired_candidate_v1(uuid,uuid,uuid,bigint,bigint,uuid,uuid[],uuid,text,text,jsonb,text)"
+        sig="private.scene_save_revision_paired_candidate_v1(uuid,uuid,uuid,bigint,bigint,uuid,uuid[],uuid,text,text,jsonb,text,text)"
         for role in ("anon","authenticated","service_role"):
             assert one(a,"select has_function_privilege(%s,%s,'EXECUTE')",(role,sig))[0] is False
         started=threading.Event()
@@ -260,22 +273,44 @@ def stale_historical_graph_counterexample(url,g):
         assert one(c,"select row_version from public.community_works where work_id=%s",(g["galleryWork"],))[0]==original_gallery_version
         assert one(c,"select row_version from public.community_works where work_id=%s",(g["presetWork"],))[0]==original_preset_version
         baseline=snapshot(c,g)
+        # Old request graph pin is now stale, although both Work rowVersions
+        # and the current PresetRevision are unchanged.
         c.execute("BEGIN")
         try:
-            candidate_response=invoke(c,g)
-            assert candidate_response and candidate_response.get("presetRevisionId"),candidate_response
-            # No graph fingerprint pin was passed; candidate accepts a stale
-            # rowVersion when only SAME Gallery Work gains an extra ref edge.
-            print(json.dumps({"case":"R8_HISTORICAL_SAME_GALLERY_EDGE_GRAPH_PIN_NEGATIVE",
-              "originalLinkedEdges":original_edges,"preInvokeLinkedEdges":injected_edge_count,"inTransactionLinkedEdges":edges(c),
-              "galleryRowVersionUnchanged":True,"sourceCandidateAcceptedChangedHistoricalGraph":True,
-              "allWriterHistoricalFingerprintClosed":False,
-              "sourceOwnerOnlyCandidate":True,"positiveRetirementAuthorized":False}))
+            try:
+                invoke(c,g)
+                raise AssertionError("R9_STALE_GRAPH_PIN_UNEXPECTED_SUCCESS")
+            except psycopg.Error as error:
+                assert "SCENE_REVISION_CALLER_EDGE_FINGERPRINT_STALE" in str(error),str(error)
+                print(json.dumps({"case":"R9_CALLER_PIN_HISTORICAL_EDGE_STALE_REJECTED",
+                    "originalLinkedEdges":original_edges,
+                    "preInvokeLinkedEdges":injected_edge_count,
+                    "bothWorkRowVersionsUnchanged":True,
+                    "sourceIsIsolatedCandidateFork":True,
+                    "positiveRetirementAuthorized":False}))
+        finally:
+            c.execute("ROLLBACK")
+        assert snapshot(c,g)==baseline,"R9_STALE_FAILURE_PARTIAL_MUTATION"
+        # Freshly authorized graph pin may proceed, but the fixture transaction
+        # MUST rollback: no production publication or durable media.
+        fresh_pin=historical_edge_hash(c,g)
+        assert fresh_pin!=g["expectedHistoricalEdgeSha256"]
+        c.execute("BEGIN")
+        try:
+            response=invoke(c,g,expected_edge_sha256=fresh_pin)
+            assert response and response.get("presetRevisionId"),response
+            assert edges(c)==injected_edge_count+1
+            print(json.dumps({"case":"R9_FRESH_CALLER_PIN_PAIRED_SCENE_TRANSACTION_CANDIDATE",
+                "freshCallerAuthorizedHistoricalEdges":True,
+                "provisionalAndLockedEdgesCompared":True,
+                "publicOrSignedRpcEnabled":False}))
         finally:
             c.execute("ROLLBACK")
         assert snapshot(c,g)==baseline
-        print(json.dumps({"case":"R8_HISTORICAL_GRAPH_NEGATIVE_ROLLBACK",
-            "candidateWriteRolledBack":True,"positiveRetirementAuthorized":False}))
+        print(json.dumps({"result":"R9_ISOLATED_SCENE_CALLER_PIN_CANDIDATE_PASS",
+            "allWriterGraphRegistryComplete":False,
+            "stagingSignedRolesOrMediaAccepted":False,
+            "retirementAuthorized":False}))
 
 
 def main():
