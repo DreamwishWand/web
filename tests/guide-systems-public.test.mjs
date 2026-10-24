@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { SYSTEM_CATEGORIES, REVIEWED_EN_PAGES, PAGE_INDEX, SYSTEMS_SOURCE } from '../src/lib/guide/systems-catalog.js';
+import { SYSTEM_CATEGORIES, APPROVED_SYSTEM_PAGES, PAGE_INDEX, SYSTEMS_SOURCE } from '../src/lib/guide/systems-catalog.js';
+import { REVIEWED_EN_PAGES, REVIEWED_EN_PAGE_INDEX } from './fixtures/guide-systems-reviewed-en.js';
 import { SYSTEMS_UI_COPY } from '../src/lib/guide/systems-copy.js';
 import {
   SYSTEMS_LOCALES, SYSTEMS_PUBLIC_SCHEMA, validateSystemsPublicManifest,
@@ -11,8 +12,10 @@ import {
 
 const target={platform:'Nintendo Switch',gameVersion:'1.25.0',buildID:'52BD625D9B4E0053',saveSchema:624};
 const empty={schema:SYSTEMS_PUBLIC_SCHEMA,target,articles:[]};
+const syntheticPageIndex = new Map(['DREAMSNAPS','PHOTO_MODE'].map(id => [id, {...REVIEWED_EN_PAGE_INDEX.get(id),approved:true}]));
+const acceptSynthetic = payload => validateSystemsPublicManifest(payload, syntheticPageIndex);
 const mock=(id='DREAMSNAPS')=>{
-  const source=PAGE_INDEX.get(id);
+  const source=REVIEWED_EN_PAGE_INDEX.get(id);
   return {id,categoryId:source.categoryId,groupId:source.groupId,primaryMechanicKey:source.mechanicKey,
     publicationStatus:'PUBLISHED',publicationApproved:true,rightsApproved:true,currentVersionReviewed:true,
     allEightLocalesReviewed:true,sourceEnglishGuidanceSha256:source.sourceHash,
@@ -35,7 +38,27 @@ test('Owner taxonomy stays ordered 7 categories/21 groups; reviewed EN article d
   assert.deepEqual(SYSTEM_CATEGORIES.map(x=>REVIEWED_EN_PAGES.filter(p=>p.categoryId===x.id).length),[7,6,5,8,10,4,5]);
   assert.equal(new Set(REVIEWED_EN_PAGES.map(x=>x.id)).size,45);
   assert.equal(SYSTEMS_SOURCE.publicApprovedCount,0);
+  assert.equal(APPROVED_SYSTEM_PAGES.length,0);
+  assert.equal(PAGE_INDEX.size,0);
 });
+
+test('Production JS/catalog contains no unpublished EN title, source hash or primary page identifier',()=>{
+  const shipping = readFileSync('src/lib/guide/systems-catalog.js','utf8') +
+    readFileSync('src/lib/guide/systems-public.js','utf8') +
+    readFileSync('static/ddv/guide/v1.25/systems-public.json','utf8');
+  for(const record of REVIEWED_EN_PAGES) {
+    assert.equal(shipping.includes(record.sourceHash), false, record.id + ' unpublished source hash exposed');
+    assert.equal(shipping.includes('"' + record.id + '"'), false, record.id + ' unpublished identifier exposed');
+    assert.equal(shipping.includes(record.titleEN), false, record.id + ' unpublished title exposed');
+  }
+});
+test('Forged approval booleans and matching source hashes cannot bypass compiled 0-page allowlist',()=>{
+ const forged={...empty,articles:[mock('DREAMSNAPS')]};
+ assert.throws(()=>validateSystemsPublicManifest(forged), /Invalid published article envelope/);
+ assert.equal(canonicalSystemHref('DREAMSNAPS'),null);
+ assert.equal(publishedSystemById({articles:[forged.articles[0]]},'DREAMSNAPS'),null);
+});
+
 test('Every UI locale has structural copy while article content cannot fall back to unreviewed translations',()=>{
   for(const locale of SYSTEMS_LOCALES){
     for(const key of Object.keys(SYSTEMS_UI_COPY.en))assert.equal(typeof SYSTEMS_UI_COPY[locale][key],'string',locale+' '+key);
@@ -50,10 +73,12 @@ test('Production runtime and public manifest contain zero unapproved source arti
   assert.equal(systemsCategoryCounts(published).reduce((sum,c)=>sum+c.count,0),0);
 });
 test('Strict positive synthetic preview is an 8-reviewed-rights-approved source-matching publication, not an automatic EN promotion',()=>{
-  const approved=validateSystemsPublicManifest({...empty,articles:[mock()]});
+  const synthetic={...empty,articles:[mock()]};
+  assert.throws(()=>validateSystemsPublicManifest(synthetic), /Invalid published article envelope/);
+  const approved=acceptSynthetic(synthetic);
   assert.equal(approved.articles.length,1);
-  assert.equal(publishedSystemById(approved,'DREAMSNAPS')?.id,'DREAMSNAPS');
-  assert.equal(canonicalSystemHref('DREAMSNAPS','/web'),'/web/guide/systems/?article=DREAMSNAPS');
+  assert.equal(publishedSystemById(approved,'DREAMSNAPS','1.25.0',syntheticPageIndex)?.id,'DREAMSNAPS');
+  assert.equal(canonicalSystemHref('DREAMSNAPS','/web',syntheticPageIndex),'/web/guide/systems/?article=DREAMSNAPS');
   assert.equal(canonicalSystemHref('UNVERIFIED'),null);
   assert.deepEqual(browsePublishedSystems(approved,{query:'dreamsnaps',locale:'ja'}).map(x=>x.id),['DREAMSNAPS']);
   assert.deepEqual(browsePublishedSystems(approved,{query:'写真と',locale:'en'}).map(x=>x.id),['DREAMSNAPS']);
@@ -61,7 +86,7 @@ test('Strict positive synthetic preview is an 8-reviewed-rights-approved source-
   assert.deepEqual(browsePublishedSystems(approved,{categoryId:'basics-progression-settings'}),[]);
   assert.deepEqual(browsePublishedSystems(approved,{groupId:'photos-dreamsnaps'}).map(x=>x.id),['DREAMSNAPS']);
   assert.deepEqual(browsePublishedSystems(approved,{version:'1.25.3'}),[]);
-  assert.equal(publishedSystemById(approved,'DREAMSNAPS','1.25.3'),null);
+  assert.equal(publishedSystemById(approved,'DREAMSNAPS','1.25.3',syntheticPageIndex),null);
   assert.deepEqual(relatedPublishedSystems(approved,approved.articles[0]),[]);
 });
 test('Fail closed on wrong build/schema, incomplete translations, missing rights, mismatch, forged reviewed ID, duplicate and unknown record',()=>{
@@ -80,7 +105,7 @@ test('Fail closed on wrong build/schema, incomplete translations, missing rights
     {...empty,articles:[{...mock(),relatedArticleIds:['FAKE']}]},
     {...empty,articles:[{...mock(),relatedArticleIds:['DREAMSNAPS','DREAMSNAPS']}]}
   ];
-  for(const bad of bads)assert.throws(()=>validateSystemsPublicManifest(bad),TypeError);
+  for(const bad of bads)assert.throws(()=>acceptSynthetic(bad),TypeError);
 });
 test('Public loader rejects HTTP failures and unsupported payload versions',async()=>{
   await assert.rejects(()=>loadPublishedSystems('',async()=>({ok:false,status:403})),/could not be loaded/);
