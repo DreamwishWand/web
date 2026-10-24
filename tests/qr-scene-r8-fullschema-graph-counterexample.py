@@ -132,7 +132,7 @@ def snapshot(c,g):
       "presetWorkRevisions":one(c,"select count(*) from public.community_work_revisions where work_id=%s",(g["presetWork"],))[0],
       "search":one(c,"select count(*) from public.search_documents where work_id in (%s,%s)",(g["presetWork"],g["galleryWork"]))[0],
       "outbox":one(c,"select count(*) from public.outbox_events where aggregate_id in (%s,%s)",(g["presetWork"],g["galleryWork"]))[0],
-      "idem":one(c,"select count(*) from public.idempotency_keys where idempotency_key=%s",("r8-paired-"+str(g["artifact"]),))[0],
+      "idem":one(c,"select count(*) from public.idempotency_keys where idempotency_key=%s",("r11-paired-"+str(g["artifact"]),))[0],
       "mediaLinks":one(c,"""select count(*) from public.work_revision_media wrm
         join public.community_work_revisions r on r.revision_id=wrm.work_revision_id
         where r.work_id=%s""",(g["galleryWork"],))[0],
