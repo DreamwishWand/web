@@ -215,3 +215,15 @@ test('Invalid history hash/version, unsupported scope, forged atomic flags all f
   assert.ok(scope.blockedReasons.includes('SCENE_HISTORICAL_EDGE_SET_SCOPE_UNSUPPORTED'));
   assert.ok(scope.blockedReasons.includes('SCENE_HISTORICAL_EDGE_SET_SCOPE_OR_SHA_UNAVAILABLE'));
 });
+
+test('Authenticated owner Readiness @1 does not expose Creator ID; public Creator alone cannot authorize future writer',()=>{
+  const currentRead=parseScenePublicCurrent(current,ID.work);
+  const o=parseSceneOwnerReadiness(owner,ID.preset);
+  assert.equal(o.ownerCreatorProfileId,null);
+  assert.ok(diagnoseSceneRevisionPairing(currentRead,o).blockedReasons.includes('SCENE_OWNER_CREATOR_CROSSREAD_UNAVAILABLE'));
+  const simulatedFuture=parseSceneOwnerReadiness({...owner,creatorProfileId:ID.creator},ID.preset);
+  assert.equal(simulatedFuture.ownerCreatorProfileId,ID.creator);
+  const foreign=parseSceneOwnerReadiness({...owner,creatorProfileId:ID.work},ID.preset);
+  assert.ok(diagnoseSceneRevisionPairing(currentRead,foreign).blockedReasons.includes('SCENE_PUBLIC_OWNER_CREATOR_MISMATCH'));
+  assert.throws(()=>parseSceneOwnerReadiness({...owner,creatorProfileId:'invalid'},ID.preset),/WEP_SCENE_OWNER_CREATOR_IDENTITY_INVALID/);
+});
