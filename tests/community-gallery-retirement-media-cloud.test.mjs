@@ -86,13 +86,17 @@ test('owner retirement preflight consumes 09 INT graph and never enables prematu
  assert.match(cloud,/blockedOperations:\['delete','unpublishKeepPrivate','restorePrivate','republishPrivate'\]/);
 });
 
-test('retirement preflight does not claim universal signed token issuance halt',()=>{
+test('historical owner signed-URL state is superseded by current Gallery-only no-issuer gate',()=>{
  const migration=read('supabase/migrations/20261024235800_community_gallery_retirement_other_token_issuers_v1.sql');
+ const currentPreflight=read('supabase/migrations/20261025001000_gallery_cloud_preservation_readiness_v1.sql');
  const signedOwnerRead=read('supabase/functions/community-media/index.ts');
  const acceptance=read('supabase/staging/acceptance/gallery-retirement-gateway-preflight-v1.sql');
  assert.match(migration,/'newPublicGalleryStorageSignedUrlIssued',false/);
+ // Historical migration truth only: a later migration closed this Gallery path.
  assert.match(migration,/'authenticatedOwnerReadMayMintStorageSignedUrl',true/);
  assert.match(migration,/GALLERY_AUTHENTICATED_MEDIA_READ_STILL_MINTS_SIGNED_URL/);
+ assert.match(currentPreflight,/'authenticatedOwnerReadMayMintStorageSignedUrl',false/);
+ assert.match(cloud,/authenticatedOwnerReadMayCreateNewSignedUrl:false/);
  assert.match(signedOwnerRead,/action === 'read' \|\| action === 'galleryReadBytes'/);
  assert.match(signedOwnerRead,/\.createSignedUrl\(media\.storageKey, 300\)/);
  assert.match(acceptance,/authenticatedOwnerReadMayMintStorageSignedUrl/);
