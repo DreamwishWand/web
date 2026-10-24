@@ -128,9 +128,44 @@ export const GALLERY_RETIREMENT_OWNER_PREFLIGHT_V1=Object.freeze({
   privateRestoreVerified:false,
   graphComplete:false,
   priorStorageTokensRevoked:false,
-  authenticatedOwnerReadStillMintsSignedStorageUrl:true,
+  authenticatedOwnerReadStillMintsSignedStorageUrl:false,
+  historicalStorageURLsMayStillBeRedeemed:true,
   listDetailNewTokensRevokedOnlyOnFutureRetirement:false,
   supportedOperations:['retirementPreflight'],
   blockedOperations:['delete','unpublishKeepPrivate','restorePrivate','republishPrivate'],
   nativeWriterAuthorized:false
+} as const);
+
+/** #116: authenticated owner Gallery media never mints bearer Storage URL.
+ * Caller must POST {action:'galleryReadBytes',mediaId} with the same valid
+ * current Owner JWT to read immutable or current Gallery photo bytes.
+ * Other non-Gallery and DreamSnaps media keep legacy signed URL reader.
+ */
+export type GalleryOwnerBinaryReadV1=Readonly<{
+ ok:true;action:'read';
+ media:Readonly<{
+   mediaId:string;
+   transport:'authenticated_edge_binary_post';
+   readAction:'galleryReadBytes';
+   requiresOwnerBearer:true;
+   rawStorageSignedUrlIssued:false;
+   mimeType:'image/jpeg'|'image/png'|'image/webp';
+   byteSize:number;width:number;height:number;checksumSha256:string;
+ }>;
+}>;
+export const GALLERY_OWNER_CLOUD_RETIREMENT_BOUNDARY_V1=Object.freeze({
+  ownerReadIssuer:'jwt_authenticated_binary_post',
+  galleryOwnerStorageSignedUrlIssuerEnabled:false,
+  nonGalleryLegacySignedUrlIssuerPreserved:true,
+  oldStorageBearerTokensImmediatelyRevoked:false,
+  distributedCDNCachePurged:false,
+  cloudEntitlementVerified:false,
+  cloudPrivateRevisionPersistenceVerified:false,
+  cloudOwnerOnlyACLVerified:false,
+  cloudPrivateRestoreVerified:false,
+  crossProductDependencyGraphComplete:false,
+  deleteAuthorized:false,
+  unpublishKeepPrivateAuthorized:false,
+  restorePrivateAuthorized:false,
+  republishPrivateAuthorized:false
 } as const);
