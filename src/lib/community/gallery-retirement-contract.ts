@@ -146,6 +146,18 @@ export type GalleryRetirementPreflightV1=Readonly<{
   moderationState:string;
   graphComplete:boolean;
   dependencyCoverage:Readonly<Record<string,string>>;
+  // 09 INT service-only snapshot; owner diagnostics, never a retire permission.
+  dependencyCoverageContract:string|null;
+  dependencyCoverageClassification:Readonly<Record<string,string>>;
+  dependencyRelationCoverage:Readonly<Record<string,string>>;
+  dependencyMissingSources:readonly string[];
+  dependencyBlockedReasons:readonly string[];
+  dependencyGraphFingerprintSha256:string|null;
+  dependencySnapshotNotAtomicMutationFence:true;
+  dependencySnapshotRowVersion:number;
+  dependencySourceVersionState:string|null;
+  dependencyOwnerMismatchEdgeCount:number;
+  dependencyCreatorMismatchEdgeCount:number;
   linkedPresetRevisionCount:number;
   associatedPresetArtifactCount:number;
   newPublicGalleryStorageSignedUrlIssued:false;
