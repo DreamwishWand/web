@@ -21,6 +21,9 @@ declare
   v_denied boolean:=false;
   v_tag text:=gen_random_uuid()::text;
   v_second_blob uuid:=gen_random_uuid();
+  v_third_blob uuid:=gen_random_uuid();
+  v_other_auth uuid;
+  v_revision_count integer;
   v_second_media uuid:=gen_random_uuid();
   v_preset_ver bigint;
   v_gallery_ver bigint;
@@ -41,6 +44,10 @@ begin
   if v_auth is null or v_subject is null then
     raise exception 'LOCAL_LINKED_SCENE_INPUT_MISSING';
   end if;
+  select ai.provider_subject::uuid into v_other_auth
+  from public.auth_identities ai
+  where ai.provider='supabase' and ai.provider_subject<>v_auth::text limit 1;
+  if v_other_auth is null then raise exception 'PAIRED_NONOWNER_LOCAL_ACTOR_MISSING';end if;
   update public.creator_profiles
   set profile_visibility='public',moderation_state='clear'
   where creator_profile_id=v_creator;
@@ -244,6 +251,22 @@ begin
   end;
   if not v_denied then raise exception 'PAIRED_SCENE_REUSED_KEY_CHANGED_BODY_ALLOWED';end if;
 
+  -- A second account must never be able to update someone else's paired Scene.
+  v_denied:=false;
+  begin
+    perform private.scene_save_revision_paired_candidate_v1(
+      v_other_auth,v_preset_id,(v_paired_result->>'presetRevisionId')::uuid,
+      (select row_version from public.community_works where work_id=v_preset_work),
+      (select row_version from public.community_works where work_id=v_gallery_work),
+      v_second_blob,array[v_media,v_second_media],v_second_media,
+      'Foreign','Foreign', '{}'::jsonb,'other:'||v_tag);
+  exception when others then
+    get stacked diagnostics v_stage_error=message_text;
+    if v_stage_error='SCENE_REVISION_PAIRED_RELATION_REQUIRED'
+    then v_denied:=true;else raise;end if;
+  end;
+  if not v_denied then raise exception 'PAIRED_SCENE_NONOWNER_WRITE_ALLOWED';end if;
+
   v_denied:=false;
   begin
     perform private.scene_save_revision_paired_candidate_v1(
@@ -257,6 +280,13 @@ begin
   end;
   if not v_denied then raise exception 'PAIRED_SCENE_STALE_VERSION_ALLOWED';end if;
 
+  insert into public.artifact_blobs(
+    blob_id,owner_account_id,storage_key,schema_version,content_type,
+    byte_size,checksum_sha256
+  ) values(v_third_blob,v_owner,'published/'||v_owner::text||'/'||v_tag||'-third.json',
+           1,'application/json',512,repeat('c',64));
+  select count(*) into v_revision_count from public.preset_revisions
+    where preset_artifact_id=v_preset_id;
   -- A rejected physical reference never alters previous immutable revisions.
   v_denied:=false;
   begin
@@ -264,18 +294,40 @@ begin
       v_auth,v_preset_id,(v_paired_result->>'presetRevisionId')::uuid,
       (select row_version from public.community_works where work_id=v_preset_work),
       (select row_version from public.community_works where work_id=v_gallery_work),
-      v_blob,array[v_media,v_second_media],gen_random_uuid(),
+      v_third_blob,array[v_media,v_second_media],gen_random_uuid(),
       'Bad cover','Failure', '{}'::jsonb,'bad-cover:'||v_tag);
   exception when others then
     get stacked diagnostics v_stage_error=message_text;
-    if v_stage_error='SCENE_REVISION_BLOB_INVALID_OR_REUSED' or
-       v_stage_error='SCENE_REVISION_MEDIA_COUNT_COVER_OR_UNIQUENESS_INVALID'
+    if v_stage_error='SCENE_REVISION_MEDIA_COUNT_COVER_OR_UNIQUENESS_INVALID'
     then v_denied:=true; else raise;end if;
   end;
   if not v_denied then raise exception 'PAIRED_SCENE_BAD_COVER_ALLOWED';end if;
   if exists (select 1 from public.idempotency_keys
     where account_id=v_owner and idempotency_key='bad-cover:'||v_tag)
   then raise exception 'PAIRED_SCENE_FAILED_RETRY_COMMITTED';end if;
+  -- Unknown Media fails after all critical revision version checks, with no
+  -- provisional idempotency or partial Work/Revision mutations.
+  v_denied:=false;
+  begin
+    perform private.scene_save_revision_paired_candidate_v1(
+      v_auth,v_preset_id,(v_paired_result->>'presetRevisionId')::uuid,
+      (select row_version from public.community_works where work_id=v_preset_work),
+      (select row_version from public.community_works where work_id=v_gallery_work),
+      v_third_blob,array[v_media,gen_random_uuid()],v_media,
+      'Invalid media','Failure', '{}'::jsonb,'bad-media:'||v_tag);
+  exception when others then
+    get stacked diagnostics v_stage_error=message_text;
+    if v_stage_error='SCENE_REVISION_MEDIA_NOT_OWNER_READY_CLEAR'
+    then v_denied:=true;else raise;end if;
+  end;
+  if not v_denied then raise exception 'PAIRED_SCENE_UNKNOWN_MEDIA_ALLOWED';end if;
+  if exists (select 1 from public.idempotency_keys
+    where account_id=v_owner and idempotency_key in ('bad-media:'||v_tag,'other:'||v_tag))
+    or (select count(*) from public.preset_revisions
+        where preset_artifact_id=v_preset_id)<>v_revision_count
+  then raise exception 'PAIRED_SCENE_FAILED_UPDATE_SIDE_EFFECT';end if;
+  raise notice 'LOCAL_SCENE_PAIRED_NONOWNER_STALE_MEDIA_ROLLBACK_PASS';
+
   raise notice 'LOCAL_SCENE_PAIRED_UPDATE_MEDIA_HISTORICAL_COVER_IDEMPOTENCY_ROLLBACK_PASS';
 
   update public.media_assets set moderation_state='restricted' where media_id=v_media;
