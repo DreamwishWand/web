@@ -19,11 +19,30 @@ const page=await context.newPage();
 let subjectScenario='verified';
 let mediaScenario='no-fixture';
 let ownerScenario='off';
+let cloudScenario='valid';
 const ownerId='55555555-5555-4555-8555-555555555555';
 const ownerWorkId='66666666-6666-4666-8666-666666666666';
 const ownerPng=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==','base64');
 const ownerSha=createHash('sha256').update(ownerPng).digest('hex');
 const ownerReadCalls=[];
+function cloudFixture(){
+ return {
+  contract:'ddv.gallery-cloud-preservation-readiness@1',
+  entitlement:{source:'not_configured',state:'unverified',verified:false,active:false,providerEvidencePresent:false},
+  ownerAccountResolved:true,creatorOwnershipAndModerationValid:true,
+  databaseManifest:{workRowFound:true,currentRevisionId:ownerId,currentRevisionPresent:true,
+    currentRevisionSealed:true,revisionRowCount:2,historicalRevisionRowCount:1,sealedRevisionRowCount:2,
+    coverReferenceCount:2,coverWithoutCompositionCount:0,mediaReferenceCount:4,
+    distinctMediaCount:2,invalidOrNonOwnedMediaCount:0,structuralIntegrityObserved:true},
+  storageObjectByteReadbackVerified:false,cloudPrivateStorageAclVerified:false,
+  cloudBackupAndRestoreVerified:false,cloudEntitlementVerified:false,
+  dependencyGraphCoverageVerified:false,signedUrlAndCacheRevocationProven:false,
+  privateSaveAuthorized:false,privateDetailAuthorized:false,restoreAuthorized:false,
+  republishAuthorized:false,blockedReasons:['GALLERY_CLOUD_ENTITLEMENT_SOURCE_NOT_CONFIGURED',
+    'GALLERY_CLOUD_BACKUP_RESTORE_NOT_ACCEPTED','GALLERY_DEPENDENCY_GRAPH_INCOMPLETE']
+ };
+}
+
 const gatewayId='33333333-3333-4333-8333-333333333333';
 const gatewayUrl='https://gallery-lookup-browser.invalid/functions/v1/community-public-media?mediaId='+gatewayId;
 const gatewayCalls=[];
@@ -62,13 +81,26 @@ await page.route('https://gallery-lookup-browser.invalid/**',async route=>{
       return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,data:{
         workId:ownerWorkId,isOwner:true,title:'Private owner test',mediaIds:[ownerId],
         description:'Fixture owner Work',creator:{displayName:'Test creator'}}})});
-    if(body.query==='galleryRetirementPreflight')
-      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,data:{
+    if(body.query==='galleryRetirementPreflight'){
+      if(cloudScenario==='forbidden')return route.fulfill({status:403,contentType:'application/json',
+        body:'{"ok":false,"error":"FORBIDDEN"}'});
+      const nested=cloudFixture();
+      if(cloudScenario==='malformed')nested.contract='ddv.gallery-cloud-preservation-readiness@999';
+      if(cloudScenario==='inconsistent'){
+        nested.databaseManifest.coverWithoutCompositionCount=1;
+        nested.databaseManifest.invalidOrNonOwnedMediaCount=1;
+        nested.databaseManifest.structuralIntegrityObserved=false;
+      }
+      const data={
         contract:'ddv.gallery-public-retirement-preflight@1',workId:ownerWorkId,
         rowVersion:1,revisionId:ownerId,ownerEligible:true,graphComplete:false,dependencyCoverage:{},
         blockedReasons:['GALLERY_DEPENDENCY_GRAPH_INCOMPLETE'],cloudEntitlementVerified:false,
-        cloudPrivateStorageVerified:false,previousSignedUrlsRevoked:false,cdnAndBrowserPurgeProven:false
-      }})});
+        cloudPrivateStorageVerified:false,cloudOwnerRestoreVerified:false,
+        previousSignedUrlsRevoked:false,cdnAndBrowserPurgeProven:false
+      };
+      if(cloudScenario!=='legacy')data.cloudPreservation=nested;
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,data})});
+    }
     return route.fulfill({status:400,contentType:'application/json',body:'{"error":"Fixture query unsupported"}'});
   }
   if(url.pathname.endsWith('/functions/v1/community-media')&&ownerScenario!=='off'){
@@ -301,7 +333,40 @@ try{
   await page.locator('.my-card .overflow-menu summary').first().click();
   await page.locator('.my-card .overflow-menu button').nth(1).click();
   await page.locator('.gallery-retirement-preflight').waitFor({state:'visible',timeout:10000});
-  const ownerButton=page.locator('.owner-panel .blocked-actions button:not([disabled])').first();
+  await page.locator('.cloud-preservation-readiness dl').waitFor({state:'visible',timeout:10000});
+  const cloudPanel=page.locator('.cloud-preservation-readiness');
+  assert(await cloudPanel.locator('dt').count()===11,'cloud diagnostic dimensions missing');
+  assert(await cloudPanel.locator('dd').count()===11,'cloud diagnostic states missing');
+  const cloudText=await cloudPanel.innerText();
+  assert(!cloudText.includes(ownerId)&&!cloudText.includes(ownerWorkId),
+    'Owner revision or work identifiers should not be exposed in Cloud status');
+  assert(!cloudText.includes('GALLERY_CLOUD_')&&!cloudText.includes('storageKey'),
+    'internal SQL/storage codes exposed');
+  assert(await cloudPanel.locator('button:not([disabled])').count()===0,
+    'Cloud diagnostic accidentally added an enabled mutation');
+  assert(await page.locator('.owner-panel button[disabled]').count()>=2,
+    'Cloud readiness accidentally enabled an owner mutation');
+  await overflow(page,'cloud-readiness-320');
+  pass('SYNTHETIC_CLOUD_NESTED_WORK_HISTORY_MEDIA_READONLY_320');
+  const retryCloud=page.locator('.gallery-retirement-preflight button').last();
+  cloudScenario='malformed';
+  await retryCloud.click();
+  await page.locator('.gallery-retirement-preflight [role=alert]').waitFor({state:'visible',timeout:10000});
+  assert(await page.locator('.cloud-preservation-readiness').count()===0,
+    'unsupported Cloud contract was displayed');
+  cloudScenario='legacy';
+  await retryCloud.click();
+  await page.locator('.gallery-retirement-preflight [role=status]').filter({hasText:/./}).last().waitFor({state:'visible',timeout:10000});
+  assert(await page.locator('.cloud-preservation-readiness').count()===0,
+    'legacy response invented nested Cloud verification');
+  cloudScenario='inconsistent';
+  await retryCloud.click();
+  await page.locator('.cloud-preservation-readiness [role=alert]').waitFor({state:'visible',timeout:10000});
+  cloudScenario='valid';
+  await retryCloud.click();
+  await cloudPanel.locator('dl').waitFor({state:'visible',timeout:10000});
+  pass('SYNTHETIC_CLOUD_MALFORMED_LEGACY_INCONSISTENT_AND_RETRY');
+    const ownerButton=page.locator('.owner-panel .blocked-actions button:not([disabled])').first();
   await page.evaluate(()=>{
     window.__ownerRevocations=[];
     const original=URL.revokeObjectURL.bind(URL);
