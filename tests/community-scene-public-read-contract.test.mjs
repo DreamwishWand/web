@@ -24,7 +24,7 @@ test('Scene public read is a strictly guarded current-Revision, read-only functi
   assert.match(sql, /gp\.gallery_revision_id=v_gallery\.current_published_revision_id/);
   assert.match(sql, /gp\.preset_revision_id=v_preset_revision\.preset_revision_id/);
   assert.match(sql, /v_blob\.blob_id is null/);
-  assert.match(sql, /v_blob\.purged_at is null/);
+  assert.match(sql, /blob_id=v_preset_revision\.artifact_blob_id and purged_at is null/);
   assert.match(sql, /m\.processing_state<>'ready'/);
   assert.match(sql, /m\.moderation_state<>'clear'/);
   assert.match(sql, /'mediaIds',v_media_ids/);
