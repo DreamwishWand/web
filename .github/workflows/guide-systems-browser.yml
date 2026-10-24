@@ -1,0 +1,69 @@
+name: Guide Systems seven-category browser acceptance
+
+on:
+  push:
+    branches: ['dev/web-guide-systems-*']
+    paths:
+      - '.github/workflows/guide-systems-browser.yml'
+      - 'scripts/guide-systems-browser-acceptance.mjs'
+      - 'src/lib/guide/**'
+      - 'src/routes/guide/**'
+      - 'static/ddv/guide/**'
+      - 'src/lib/i18n/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: guide-systems-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unsigned-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install
+        run: |
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: CJK font
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+          fc-cache -f
+      - name: Resolve Chrome
+        id: chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "path=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+      - name: Start local Vite web
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4178 > /tmp/guide-vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:4178/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/guide-vite.log
+          exit 1
+      - name: Chrome Guide Systems synthetic/public-gated checks
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          GUIDE_BASE_URL: http://127.0.0.1:4178
+        run: node scripts/guide-systems-browser-acceptance.mjs
+      - name: Preserve evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: guide-systems-browser-evidence
+          path: .artifacts/guide-systems-browser/
+          if-no-files-found: error
