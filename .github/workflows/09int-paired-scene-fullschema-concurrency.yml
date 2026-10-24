@@ -33,13 +33,10 @@ jobs:
           from pathlib import Path
           p=Path('supabase/config.toml')
           s=p.read_text()
-          assert 'project_id' in s
-          s=s.replace('project_id = "dreamwishwand"', 'project_id = "ddvre_09int_r8_ephemeral_local"')
-          if 'ddvre_09int_r8_ephemeral_local' not in s:
-              import re
-              s=re.sub(r'^project_id\s*=\s*".*?"', 'project_id = "ddvre_09int_r8_ephemeral_local"', s, count=1,flags=re.M)
-          assert 'ddvre_09int_r8_ephemeral_local' in s
-          p.write_text(s)
+          # The canonical config intentionally omits project_id, so prepend a
+          # unique local-only identifier exactly as the 03 COMM clean-bootstrap gate does.
+          assert not any(line.strip().startswith('project_id =') for line in s.splitlines())
+          p.write_text('project_id = "ddvre_09int_r8_ephemeral_local"\n'+s)
           migrations=list(Path('supabase/migrations').glob('*.sql'))
           assert len(migrations)==113,(len(migrations),'EXPECTED_PR134_SOURCE113')
           PY
