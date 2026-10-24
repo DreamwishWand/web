@@ -1,4 +1,4 @@
-import { CATEGORY_INDEX, PAGE_INDEX, REVIEWED_EN_PAGES, SYSTEM_CATEGORIES, SYSTEMS_SOURCE } from './systems-catalog.js';
+import { CATEGORY_INDEX, PAGE_INDEX, SYSTEM_CATEGORIES, SYSTEMS_SOURCE } from './systems-catalog.js';
 
 export const SYSTEMS_PUBLIC_SCHEMA = 'ddv.guide.systems-public@1';
 export const SYSTEMS_PUBLIC_PATH = 'ddv/guide/v1.25/systems-public.json';
@@ -8,18 +8,18 @@ const validString = (value, max = 2000) => typeof value === 'string' && value.tr
 const validTextList = value => Array.isArray(value) && value.length <= 40 && value.every(x => validString(x, 2400));
 const unique = arr => new Set(arr).size === arr.length;
 
-export function validateSystemsPublicManifest(payload) {
+export function validateSystemsPublicManifest(payload, approvedPages = PAGE_INDEX) {
   if (!isRecord(payload) || payload.schema !== SYSTEMS_PUBLIC_SCHEMA) throw new TypeError('Unknown Systems publication schema.');
   const target = payload.target;
   if (!isRecord(target) || target.platform !== SYSTEMS_SOURCE.platform || target.gameVersion !== SYSTEMS_SOURCE.gameVersion ||
       target.buildID !== SYSTEMS_SOURCE.buildID || target.saveSchema !== SYSTEMS_SOURCE.schema)
     throw new TypeError('Unsupported Systems platform/version/build/schema.');
-  if (!Array.isArray(payload.articles) || payload.articles.length > REVIEWED_EN_PAGES.length) throw new TypeError('Invalid published article envelope.');
+  if (!Array.isArray(payload.articles) || payload.articles.length > approvedPages.size) throw new TypeError('Invalid published article envelope.');
   if (!unique(payload.articles.map(x => x?.id))) throw new TypeError('Duplicate published article identity.');
   const articles = payload.articles.map(article => {
     if (!isRecord(article)) throw new TypeError('Malformed published article.');
-    const source = PAGE_INDEX.get(article.id);
-    if (!source || !source.reviewedEN || !source.sourceHash || article.sourceEnglishGuidanceSha256 !== source.sourceHash)
+    const source = approvedPages.get(article.id);
+    if (!source || source.approved !== true || source.reviewedEN !== true || source.version !== SYSTEMS_SOURCE.gameVersion || !source.sourceHash || article.sourceEnglishGuidanceSha256 !== source.sourceHash)
       throw new TypeError('Article has no verified reviewed-English source identity.');
     if (article.publicationStatus !== 'PUBLISHED' || article.publicationApproved !== true ||
         article.rightsApproved !== true || article.currentVersionReviewed !== true ||
@@ -37,7 +37,7 @@ export function validateSystemsPublicManifest(payload) {
         !validString(article.confidence,80) || !Array.isArray(article.dlcContext) ||
         article.dlcContext.length > 10 || !article.dlcContext.every(x => validString(x,120)) ||
         !Array.isArray(article.relatedArticleIds) || article.relatedArticleIds.length > 24 ||
-        !unique(article.relatedArticleIds) || !article.relatedArticleIds.every(x => typeof x === 'string' && PAGE_INDEX.has(x)))
+        !unique(article.relatedArticleIds) || !article.relatedArticleIds.every(x => typeof x === 'string' && approvedPages.has(x)))
       throw new TypeError('Article provenance/context/relations invalid.');
     // Derived metadata, not the raw authoring object: prevents public UI from accidentally
     // rendering extra unapproved text or arbitrary owner-supplied URLs.
@@ -70,8 +70,8 @@ export function systemLabel(entry, locale = 'en') {
   // JA/EN category/group wording is Owner APPROVED. Other UI languages see explicit EN fallback.
   return locale === 'ja' ? entry.ja : entry.en;
 }
-export function canonicalSystemHref(id, basePath = '') {
-  if (!PAGE_INDEX.has(id)) return null;
+export function canonicalSystemHref(id, basePath = '', approvedPages = PAGE_INDEX) {
+  if (!approvedPages.has(id)) return null;
   return String(basePath).replace(/\/$/, '') + '/guide/systems/?article=' + encodeURIComponent(id);
 }
 function normalized(value) { return String(value ?? '').normalize('NFKC').toLocaleLowerCase().trim().replace(/\s+/g,' '); }
@@ -96,8 +96,8 @@ export function browsePublishedSystems(manifest, {locale='en', query='', categor
     return candidates.some(candidate => normalized(candidate).includes(q));
   });
 }
-export function publishedSystemById(manifest, id, version='1.25.0') {
-  if (version !== SYSTEMS_SOURCE.gameVersion || !PAGE_INDEX.has(id)) return null;
+export function publishedSystemById(manifest, id, version='1.25.0', approvedPages = PAGE_INDEX) {
+  if (version !== SYSTEMS_SOURCE.gameVersion || !approvedPages.has(id)) return null;
   return manifest?.articles?.find(article => article.id === id) ?? null;
 }
 export function relatedPublishedSystems(manifest, article) {
