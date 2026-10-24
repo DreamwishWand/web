@@ -9,7 +9,8 @@ declare
   v_creator uuid;
   v_subject uuid;
   v_media uuid:=gen_random_uuid();
-  v_gallery jsonb;
+  v_gallery_work uuid:=gen_random_uuid();
+  v_gallery_revision uuid:=gen_random_uuid();
   v_preset_id uuid:=gen_random_uuid();
   v_preset_work uuid:=gen_random_uuid();
   v_preset_revision uuid:=gen_random_uuid();
@@ -45,11 +46,35 @@ begin
     v_media,v_owner,'ci-only/linked-scene-'||v_tag||'.png','image/png',
     128,20,20,repeat('f',64),'ready','clear'
   );
-  v_gallery:=public.community_publish_gallery_photo_v1(
-    v_auth,v_creator,null,null,'outdoor',v_subject,
-    'CI Linked Scene Gallery',null,
-    array[v_media],v_media,true,'scene-linked-gallery:'||v_tag
+  -- Build an UNSEALED Gallery revision. A published Gallery's immutable
+  -- revision cannot accept a new gallery_revision_presets link afterward.
+  -- All composition rows must exist before promotion to current published.
+  insert into public.community_entities(entity_id,entity_type)
+  values(v_gallery_work,'community_work');
+  insert into public.community_works(
+    work_id,owner_account_id,creator_profile_id,work_type,
+    visibility,moderation_state
+  ) values(v_gallery_work,v_owner,v_creator,'gallery','public','clear');
+  insert into public.gallery_works(work_id,gallery_kind)
+  values(v_gallery_work,'outdoor');
+  insert into public.gallery_work_settings(work_id,comments_enabled)
+  values(v_gallery_work,true);
+  insert into public.gallery_photo_subjects(
+    work_id,subject_id,owner_account_id,creator_profile_id
+  ) values(v_gallery_work,v_subject,v_owner,v_creator);
+  insert into public.community_work_revisions(
+    revision_id,work_id,revision_number,created_by_account_id,shared_metadata
+  ) values(
+    v_gallery_revision,v_gallery_work,1,v_owner,
+    jsonb_build_object('origin','synthetic-gallery-photo-read-v1')
   );
+  insert into public.gallery_work_revisions(revision_id,title,description,metadata)
+  values(v_gallery_revision,'CI Linked Scene Gallery',null,'{"photoOnly":true}'::jsonb);
+  insert into public.work_revision_media(work_revision_id,media_id,ordinal,role)
+  values(v_gallery_revision,v_media,0,'gallery');
+  insert into public.gallery_photo_revision_fields(
+    revision_id,subject_id,cover_media_id,originality_attested
+  ) values(v_gallery_revision,v_subject,v_media,true);
 
   insert into public.community_entities(entity_id,entity_type)
   values(v_preset_work,'community_work'),(v_preset_id,'preset_artifact');
@@ -62,7 +87,7 @@ begin
     community_work_id,preset_type,associated_gallery_work_id
   ) values(
     v_preset_id,v_owner,v_creator,v_preset_work,'scene',
-    (v_gallery->>'workId')::uuid
+    v_gallery_work
   );
   insert into public.artifact_blobs(
     blob_id,owner_account_id,storage_key,schema_version,content_type,
@@ -85,7 +110,11 @@ begin
   insert into public.preset_revision_publications(work_revision_id,preset_revision_id)
   values(v_work_revision,v_preset_revision);
   insert into public.gallery_revision_presets(gallery_revision_id,preset_revision_id)
-  values((v_gallery->>'revisionId')::uuid,v_preset_revision);
+  values(v_gallery_revision,v_preset_revision);
+  update public.community_works
+  set current_published_revision_id=v_gallery_revision,
+      lifecycle_state='published',published_at=now()
+  where work_id=v_gallery_work;
   update public.community_works
   set current_published_revision_id=v_work_revision,
       lifecycle_state='published',published_at=now()
