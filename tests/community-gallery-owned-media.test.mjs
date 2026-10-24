@@ -179,7 +179,8 @@ test('unsanctioned physical Gallery object removal cannot be launched by hourly 
  assert.match(sql,/physical_orphan_cleanup_accepted=false/);
  assert.match(sql,/physicalDeleteAuthorized',false/);
  assert.match(worker,/community_gallery_physical_cleanup_gate_v1/);
- assert.match(worker,/if\(cleanupGate\?\.physicalDeleteAuthorized!==true\)/);
+ assert.match(worker,/classifyGalleryPhysicalCleanupGate\(cleanupGate\)/);
+ assert.match(worker,/else if\(galleryPhysicalCleanupGateState!==\'authorized\'\)/);
  assert.match(worker,/community_gallery_global_capacity_alert_v1/);
  assert.match(worker,/cleanupBlocked/);
  assert.match(worker,/GALLERY_GLOBAL_ALERT_UNAVAILABLE/);

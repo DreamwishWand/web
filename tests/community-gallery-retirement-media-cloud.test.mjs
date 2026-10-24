@@ -30,7 +30,7 @@ test('new media resolver responses cannot cache bearer signed URLs',()=>{
   assert.match(media,/'Pragma': 'no-cache'/);
   assert.doesNotMatch(media,/'Cache-Control': 'public, max-age=60'/);
   // NO fabricated assertion that an already-issued Storage URL disappears.
-  assert.match(media,/createSignedUrl\(String\(media.storageKey\), 300\)/);
+  assert.match(media,/createSignedUrl\(String\(media.storageKey\),\s*300\)/);
   assert.match(cloud,/previouslyIssuedUrlsRevoked:false/);
   assert.match(cloud,/oldUrlReplayTested:false/);
   assert.match(cloud,/deletionAuthorized:false/);
@@ -42,4 +42,91 @@ test('staged retirement remains fail closed until actual URL and dependency proo
   assert.match(negative,/graphComplete',false/);
   assert.match(negative,/retirementAuthorized',false/);
   assert.match(negative,/issuedSignedUrlRevocationProven',false/);
+});
+
+test('current Gallery revision media requires the public Edge proxy, historical media is denied',()=>{
+ const migration=read('supabase/migrations/20261024235500_community_gallery_retirement_gateway_preflight_v1.sql');
+ assert.match(migration,/community_gallery_media_gateway_v1/);
+ assert.match(migration,/private\.is_discoverable_work\(w\.work_id\)/);
+ assert.match(migration,/w\.current_published_revision_id=r\.revision_id/);
+ assert.match(migration,/galleryManaged',true,'publiclyAccessible',false/);
+ assert.match(migration,/grant execute on function public\.community_gallery_media_gateway_v1\(uuid\)\s+to service_role/);
+ assert.match(media,/rpc\(\s*'community_gallery_media_gateway_v1'/);
+ assert.match(media,/gallery\.galleryManaged === true/);
+ assert.match(media,/if \(gallery\.publiclyAccessible !== true\)/);
+ assert.match(media,/\.download\(String\(gallery\.storageKey\)\)/);
+ assert.match(media,/blob\.size !== Number\(gallery\.byteSize\)/);
+ assert.match(media,/'CDN-Cache-Control':'no-store'/);
+ assert.match(media,/'Surrogate-Control':'no-store'/);
+ assert.match(media,/'X-Content-Type-Options':'nosniff'/);
+ assert.match(media,/rawStorageSignedUrlIssued:false/);
+ assert.match(media,/transport:'edge_proxy'/);
+ assert.match(cloud,/previouslyIssuedUrlsRevoked:false/);
+});
+test('owner retirement preflight consumes 09 INT graph and never enables premature PRIVATE',()=>{
+ const migration=read('supabase/migrations/20261024235500_community_gallery_retirement_gateway_preflight_v1.sql');
+ const authorized=read('supabase/functions/community-query/index.ts');
+ const acceptance=read('supabase/staging/acceptance/gallery-retirement-gateway-preflight-v1.sql');
+ assert.match(migration,/private\.gallery_photo_dependency_snapshot_v1\(p_gallery_work_id\)/);
+ assert.match(migration,/private\.resolve_active_account\(p_auth_subject\)/);
+ assert.match(migration,/GALLERY_RETIREMENT_NOT_OWNER/);
+ assert.match(migration,/'graphComplete',coalesce\(\(v_dep->>'graphComplete'\)::boolean,false\)/);
+ assert.match(migration,/'operationAuthorized',false/);
+ assert.match(migration,/'deleteAuthorized',false/);
+ assert.match(migration,/'unpublishKeepPrivateAuthorized',false/);
+ assert.match(migration,/'cdnAndBrowserPurgeProven',false/);
+ assert.match(migration,/'cloudEntitlementVerified',false/);
+ assert.match(authorized,/galleryRetirementPreflight: 'community_gallery_retirement_preflight_v1'/);
+ assert.match(authorized,/case 'galleryRetirementPreflight'/);
+ assert.match(authorized,/community_authorize_session/);
+ assert.match(acceptance,/HISTORICAL_GALLERY_IMAGE_STILL_TOKENABLE/);
+ assert.match(acceptance,/PREMATURE_PRIVATE_TRANSITION_ACCEPTED/);
+ assert.match(acceptance,/NONOWNER_PREFLIGHT_SUCCEEDED/);
+ assert.match(acceptance,/rollback;\s*$/);
+ assert.match(cloud,/blockedOperations:\['delete','unpublishKeepPrivate','restorePrivate','republishPrivate'\]/);
+});
+
+test('historical owner signed-URL state is superseded by current Gallery-only no-issuer gate',()=>{
+ const migration=read('supabase/migrations/20261024235800_community_gallery_retirement_other_token_issuers_v1.sql');
+ const currentPreflight=read('supabase/migrations/20261025001000_gallery_cloud_preservation_readiness_v1.sql');
+ const signedOwnerRead=read('supabase/functions/community-media/index.ts');
+ const acceptance=read('supabase/staging/acceptance/gallery-retirement-gateway-preflight-v1.sql');
+ assert.match(migration,/'newPublicGalleryStorageSignedUrlIssued',false/);
+ // Historical migration truth only: a later migration closed this Gallery path.
+ assert.match(migration,/'authenticatedOwnerReadMayMintStorageSignedUrl',true/);
+ assert.match(migration,/GALLERY_AUTHENTICATED_MEDIA_READ_STILL_MINTS_SIGNED_URL/);
+ assert.match(currentPreflight,/'authenticatedOwnerReadMayMintStorageSignedUrl',false/);
+ assert.match(cloud,/authenticatedOwnerReadMayCreateNewSignedUrl:false/);
+ assert.match(signedOwnerRead,/action === 'read' \|\| action === 'galleryReadBytes'/);
+ assert.match(signedOwnerRead,/\.createSignedUrl\(media\.storageKey, 300\)/);
+ assert.match(acceptance,/authenticatedOwnerReadMayMintStorageSignedUrl/);
+ assert.match(cloud,/authenticatedOwnerReadStillMintsSignedStorageUrl:false/);
+});
+
+test('owner Gallery binary reader protects pending and historical media',()=>{
+ const gate=read('supabase/migrations/20261025000500_gallery_owner_read_no_signed_url_v1.sql');
+ const revised=read('supabase/migrations/20261025000600_gallery_owner_read_issuer_closed_preflight_v1.sql');
+ const edge=read('supabase/functions/community-media/index.ts');
+ const fixture=read('supabase/staging/acceptance/gallery-owner-binary-read-v1.sql');
+ assert.ok(gate.includes('community_gallery_owner_media_read_v1'));
+ assert.ok(gate.includes('private.resolve_active_account(p_auth_subject)'));
+ assert.ok(gate.includes('gallery_photo_subjects'));
+ assert.ok(gate.includes("'signedStorageUrlIssued',false"));
+ assert.ok(edge.includes("action === 'galleryReadBytes'"));
+ assert.ok(edge.includes("community_gallery_owner_media_read_v1"));
+ assert.ok(edge.includes("crypto.subtle.digest('SHA-256',bytes)"));
+ assert.ok(revised.includes("'authenticatedOwnerReadMayMintStorageSignedUrl',false"));
+ assert.ok(fixture.includes('HISTORICAL_OWNER_PROXY_DENIED'));
+ assert.ok(fixture.includes('NONOWNER_STORAGE_KEY_LEAK'));
+ assert.ok(cloud.includes('galleryOwnerStorageSignedUrlIssuerEnabled:false'));
+ assert.ok(cloud.includes('cloudEntitlementVerified:false'));
+});
+
+test('immutable Gallery cover Media cannot fall into legacy raw signed-URL issuer',()=>{
+ const migration=read('supabase/migrations/20261025000800_gallery_owner_historical_cover_issuer_guard_v1.sql');
+ assert.ok(migration.includes('gallery_photo_revision_fields'));
+ assert.ok(migration.includes('where f.cover_media_id=p_media_id'));
+ assert.ok(migration.includes('v_gallery:=v_gallery or v_photo_bound or v_cover_bound'));
+ assert.ok(migration.includes('or not (v_valid_intent or v_photo_bound or v_cover_bound)'));
+ assert.ok(migration.includes("'galleryManaged',true,'ownerAuthorized',false"));
 });

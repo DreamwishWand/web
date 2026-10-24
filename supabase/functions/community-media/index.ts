@@ -237,7 +237,13 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       }
 
       if (blob.size <= 0 || blob.size > MAX_BYTES) {
-        await ctx.supabaseAdmin.storage.from(BUCKET).remove([storageKey]);
+        // #124: physical deletion of ANY Gallery upload origin remains
+        // disabled until distributed Storage race/hold acceptance.
+        // The journal/retention worker owns eventual Gallery cleanup.
+        // Preserve legacy non-Gallery validation cleanup behavior.
+        if (action !== 'galleryFinalize') {
+          await ctx.supabaseAdmin.storage.from(BUCKET).remove([storageKey]);
+        }
         return reply({ ok: false, error: 'INVALID_FILE_SIZE' }, 400);
       }
 
@@ -247,7 +253,13 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       try {
         detected = detectImage(bytes);
       } catch (error) {
-        await ctx.supabaseAdmin.storage.from(BUCKET).remove([storageKey]);
+        // #124: physical deletion of ANY Gallery upload origin remains
+        // disabled until distributed Storage race/hold acceptance.
+        // The journal/retention worker owns eventual Gallery cleanup.
+        // Preserve legacy non-Gallery validation cleanup behavior.
+        if (action !== 'galleryFinalize') {
+          await ctx.supabaseAdmin.storage.from(BUCKET).remove([storageKey]);
+        }
         return reply({
           ok: false,
           error: 'INVALID_IMAGE',
@@ -370,8 +382,56 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       });
     }
 
-    if (action === 'read') {
+    if (action === 'read' || action === 'galleryReadBytes') {
       const mediaId = String(body.mediaId ?? '');
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(mediaId)) {
+        return reply({ok:false,error:'MEDIA_ID_INVALID'},400);
+      }
+      // Authoritative service RPC recognizes Gallery-owned media by upload
+      // journal OR any immutable Gallery Photo WorkRevision. Never allow a
+      // historical Gallery photo to fall through to the raw signed issuer.
+      const {data:gallery,error:galleryError}=await ctx.supabaseAdmin.rpc(
+        'community_gallery_owner_media_read_v1',
+        {p_auth_subject:subject,p_media_id:mediaId}
+      );
+      if (galleryError || !gallery || typeof gallery.galleryManaged!=='boolean')
+        return reply({ok:false,error:'GALLERY_OWNER_READ_AUTHORITY_UNAVAILABLE'},503);
+      if (gallery.galleryManaged===true) {
+        if(gallery.ownerAuthorized!==true)
+          return reply({ok:false,error:'GALLERY_OWNER_MEDIA_FORBIDDEN'},403);
+        if (action==='read')
+          return reply({ok:true,action,media:{
+            mediaId,transport:'authenticated_edge_binary_post',
+            readAction:'galleryReadBytes',requiresOwnerBearer:true,
+            rawStorageSignedUrlIssued:false,
+            mimeType:gallery.mimeType,byteSize:gallery.byteSize,
+            width:gallery.width,height:gallery.height,
+            checksumSha256:gallery.checksumSha256
+          }});
+        const {data:blob,error:downloadError}=await ctx.supabaseAdmin.storage
+          .from(BUCKET).download(String(gallery.storageKey));
+        if(downloadError || !blob)
+          return reply({ok:false,error:'GALLERY_OWNER_MEDIA_BYTES_UNAVAILABLE'},404);
+        if(blob.size!==Number(gallery.byteSize))
+          return reply({ok:false,error:'GALLERY_OWNER_MEDIA_SIZE_MISMATCH'},409);
+        // Owner route does not trust resurrected storage keys or overwritten
+        // blobs; detect byte-content replacement before streaming.
+        const bytes=await blob.arrayBuffer();
+        const sha=hex(await crypto.subtle.digest('SHA-256',bytes));
+        if(sha.toLowerCase()!==String(gallery.checksumSha256??'').toLowerCase())
+          return reply({ok:false,error:'GALLERY_OWNER_MEDIA_CHECKSUM_MISMATCH'},409);
+        return new Response(bytes,{status:200,headers:{
+          ...corsHeaders,'Content-Type':String(gallery.mimeType),
+          'Content-Length':String(blob.size),
+          'Cache-Control':'private, no-store, max-age=0',
+          'CDN-Cache-Control':'no-store',
+          'Surrogate-Control':'no-store',
+          'X-Content-Type-Options':'nosniff'
+        }});
+      }
+      if(action==='galleryReadBytes')
+        return reply({ok:false,error:'MEDIA_NOT_GALLERY'},403);
+
       const { data: media, error: mediaError } = await ctx.supabaseAdmin.rpc(
         'community_get_media_storage_key',
         { p_auth_subject: subject, p_media_id: mediaId }
