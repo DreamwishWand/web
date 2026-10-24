@@ -92,6 +92,20 @@ function statusError(result, label) {
 function safeEvent(log, name, status, extra = {}) {
   log.push({case: name, status, ...extra});
 }
+export function verifySubjectCatalog(result, subjectId) {
+  if (result?.contract !== 'ddv.gallery-verified-subject-public-lookup@1' ||
+      !Array.isArray(result.subjects))
+    throw new Error('VERIFIED_SUBJECT_CATALOG_CONTRACT_MISMATCH');
+  const subject = result.subjects.find(v => v?.subjectId === subjectId);
+  if (!subject || subject.galleryKind !== 'outdoor' ||
+      subject.verificationState !== 'verified' ||
+      subject.platform !== 'switch' ||
+      subject.gameVersion !== '1.25.0' ||
+      subject.buildId !== '52BD625D9B4E0053' ||
+      subject.profileSchema !== 624)
+    throw new Error('APPROVED_SWITCH_1250_SUBJECT_NOT_VERIFIED');
+  return subjectId;
+}
 export async function runSignedGallery(env, transport = fetch, sleep = (ms) => new Promise((r) => setTimeout(r, ms))) {
   const cfg = validateLiveConfig(env); // MUST preflight all scopes before network
   const evidence = {
@@ -166,20 +180,26 @@ export async function runSignedGallery(env, transport = fetch, sleep = (ms) => n
       if (item.label === 'A') ensureUuid(me?.data?.creatorProfileId, 'OWNER_CREATOR_PROFILE_MISSING');
     }
     const [a, b, m] = active;
-    // Role entitlement proof via existing moderator-authorized read-only RPC;
-    // limit zero, response is intentionally discarded to avoid leaking other cases.
-    const role = await call('/functions/v1/community-admin',
-      {operation:'listModerationCases',payload:{limit:0}}, m);
-    requireStatus(role, 200, 'moderator_role_read_only');
+    // No user-case data may be returned. In this deployed SQL contract the
+    // moderator role check precedes p_state validation. Invalid p_state makes
+    // authorized M return 400 ADMIN_OPERATION_FAILED, non-staff B return 403
+    // FORBIDDEN, and neither branch performs the SELECT of moderation cases.
+    const roleProbe = {operation:'listModerationCases',
+      payload:{state:'qr_probe_invalid_state_no_rows',limit:1}};
+    const role = await call('/functions/v1/community-admin',roleProbe,m);
+    requireStatus(role, 400, 'moderator_role_verified_without_case_read');
+    if (role.data?.error !== 'ADMIN_OPERATION_FAILED' ||
+        !String(role.data?.message??'').includes('Unsupported moderation-case state'))
+      throw new Error('MODERATOR_ROLE_PROOF_CONTRACT_MISMATCH');
+    const notStaff = await call('/functions/v1/community-admin',roleProbe,b);
+    requireStatus(notStaff, 403, 'nonmoderator_role_denied_without_case_read');
+    if (notStaff.data?.error !== 'FORBIDDEN')
+      throw new Error('NONMODERATOR_ROLE_PROOF_CONTRACT_MISMATCH');
     const subjects = requireStatus(await call(paths.publicQuery, {
       rpc: 'community_list_verified_gallery_subjects_v1',
       payload: {p_gallery_kind:'outdoor', p_limit:100}
     }, null), 200, 'verified_subjects');
-    const rows = Array.isArray(subjects) ? subjects :
-      Array.isArray(subjects?.data) ? subjects.data :
-      Array.isArray(subjects?.items) ? subjects.items : [];
-    if (!rows.some((row) => (row.subjectId || row.subject_id) === cfg.subjectId))
-      throw new Error('APPROVED_SUBJECT_NOT_VERIFIED');
+    verifySubjectCatalog(subjects,cfg.subjectId);
     const identity = requireStatus(await query(a, 'me'), 200, 'owner_profile_for_publish');
     const creatorProfileId = ensureUuid(identity?.data?.creatorProfileId, 'CREATOR_PROFILE_MISSING');
     const uploaded = [];
