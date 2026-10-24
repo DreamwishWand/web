@@ -91,3 +91,56 @@ test('real runner source-pinning was updated to the inspected synchronized backe
  assert.match(source,/DISPOSABLE_SCOPE_NOT_APPROVED/);
  assert.doesNotMatch(source,/service_role['"]|\.storage\.from\(.+\)\.remove\(/);
 });
+
+
+test('latest 03 COMM origin integrity classification is typed and fail-closed; worker emits 503 on UNKNOWN',async()=>{
+ const {classifyGalleryOriginIntegrity: classify}=await import('../supabase/functions/_shared/gallery-origin-integrity.mjs');
+ const normal={contract:'ddv.gallery-storage-reconciliation@1',bucketChecked:true,safeToAutoDelete:false,
+  originObjectCount:2,originJournaledObjectCount:0,originRegisteredObjectCount:2,originUntrackedObjectCount:0,
+  originMetadataRecordedBytes:135,originMetadataSizeUnknownCount:0,untrackedOriginBytes:0,
+  journaledUnregisteredObjectCount:0,registeredWithoutGalleryIntentCount:2,
+  registeredOriginSizeMismatchCount:0,finalizedReadyMissingOriginCount:0,abortedOriginWaitingRemovalCount:0};
+ assert.equal(classify(normal),'normal');
+ assert.equal(classify({...normal,originUntrackedObjectCount:1}),'critical');
+ assert.equal(classify({...normal,originMetadataSizeUnknownCount:1}),'unknown');
+ assert.equal(classify({...normal,originObjectCount:null}),'unknown');
+ assert.equal(classify({...normal,registeredOriginSizeMismatchCount:'0'}),'unknown');
+ assert.equal(classify({...normal,contract:'old'}),'unknown');
+ const worker=read('supabase/functions/community-retention/index.ts');
+ assert.match(worker,/classifyGalleryOriginIntegrity\(/);
+ assert.match(worker,/galleryOrphans\.workerFailure='GALLERY_ORIGIN_RECONCILIATION_INVALID'/);
+ assert.match(worker,/galleryOriginIntegrity==='unknown' \? null : galleryOriginReconciliation/);
+ assert.match(worker,/galleryOrphans\.workerFailure \? 503 : 200/);
+ assert.doesNotMatch(worker,/Number\(galleryOriginReconciliation\.originUntrackedObjectCount \?\? 0\)/);
+});
+test('latest physical multi-proof cleanup gate requires every independent proof before leasing or Storage remove',async()=>{
+ const {classifyGalleryPhysicalCleanupGate: classify}=await import('../supabase/functions/_shared/gallery-physical-cleanup-gate.mjs');
+ const disabled={physicalDeleteAuthorized:false,conditional72hEnabled:false,
+  signedActorPhysicalAbsenceProven:false,externalStorageRaceCertified:false,cloudDependencyGraphComplete:false};
+ assert.equal(classify(disabled),'disabled');
+ assert.equal(classify({...disabled,physicalDeleteAuthorized:true}),'invalid');
+ assert.equal(classify({...disabled,physicalDeleteAuthorized:true,signedActorPhysicalAbsenceProven:true,
+  externalStorageRaceCertified:true,cloudDependencyGraphComplete:false}),'invalid');
+ assert.equal(classify({...disabled,physicalDeleteAuthorized:'true'}),'invalid');
+ assert.equal(classify({...disabled,physicalDeleteAuthorized:true,signedActorPhysicalAbsenceProven:true,
+  externalStorageRaceCertified:true,cloudDependencyGraphComplete:true}),'authorized');
+ const worker=read('supabase/functions/community-retention/index.ts');
+ const classification=worker.indexOf('classifyGalleryPhysicalCleanupGate(cleanupGate)');
+ const invalid=worker.indexOf("if(galleryPhysicalCleanupGateState==='invalid')",classification);
+ const disallowed=worker.indexOf("else if(galleryPhysicalCleanupGateState!=='authorized')",invalid);
+ const claim=worker.indexOf("'community_claim_gallery_media_orphans_v1'",disallowed);
+ const remove=worker.indexOf('.remove([key])',claim);
+ assert.ok(classification>0 && invalid>classification && disallowed>invalid && claim>disallowed && remove>claim);
+ assert.match(worker,/GALLERY_PHYSICAL_STORAGE_DELETE_E2E_NOT_ACCEPTED/);
+ assert.match(worker,/GALLERY_PHYSICAL_CLEANUP_GATE_INVALID/);
+});
+test('signed runner remains isolated from Retention worker and authenticates normally on latest backend',()=>{
+ const runner=read('scripts/community-gallery-signed-acceptance.mjs');
+ assert.match(runner,/grantType|grant_type=password/);
+ assert.match(runner,/galleryPrepare/);
+ assert.match(runner,/galleryFinalize/);
+ assert.match(runner,/galleryReadBytes/);
+ assert.match(runner,/galleryRetirementPreflight/);
+ assert.doesNotMatch(runner,/community-retention|x-community-worker-token|physicalDeleteAuthorized:true|service_role/i);
+ assert.equal(BACKEND_SHA,'02750fcbcfd3f94fc12b39c8adf5757fa24a5646');
+});
