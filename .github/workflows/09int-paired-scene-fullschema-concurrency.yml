@@ -1,8 +1,8 @@
-name: 09 INT R8 full-source Paired Scene true concurrency (isolated)
+name: 09 INT R9 caller-pinned Scene graph candidate (isolated)
 on:
   push:
     branches:
-      - validation/09int-r8-current-source-graph-pin-20261024
+      - validation/09int-r9-scene-caller-graph-pin-20261024
 
 permissions:
   contents: read
@@ -55,7 +55,7 @@ jobs:
           test -n "$db_container"
           docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/staging/acceptance/local-clean-bootstrap-synthetic-seed-v1.sql > /tmp/r8-seed.log 2>&1 || { tail -n 60 /tmp/r8-seed.log; exit 1; }
           echo 'ONLY_EPHEMERAL_SYNTHETIC_ACCOUNT_SEEDED'
-      - name: Prove true two-session contention using 03 COMM paired Scene RPC itself
+      - name: Prove two-session lock contention and caller stale historical edge rejection with LOCAL-ONLY candidate fork
         env:
           DDVRE_R8_ISOLATED_LOCAL: CONFIRMED
           DDVRE_R8_POSTGRES_DSN: postgresql://postgres:postgres@127.0.0.1:54322/postgres
@@ -63,7 +63,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: 09int-r8-paired-scene-isolated-source-evidence
+          name: 09int-r9-scene-graph-pin-local-candidate-evidence
           path: |
             /tmp/r8-supabase-start.log
             /tmp/r8-seed.log
