@@ -35,7 +35,10 @@ export const GALLERY_VERIFIED_SUBJECT_PUBLIC_LOOKUP_V1=Object.freeze({
   mustNotInferOwnershipOrImport:true
 } as const);
 
-/** Media retirement is NOT immediate when Supabase Storage signed URLs already exist.
+/** Gallery Owner Media Read uses fresh JWT-gated Edge binary bytes without
+ * minting a new raw Storage bearer URL. This DOES NOT revoke older-issued
+ * 300-second Storage URLs, CDN/browser copies, in-flight or downloaded bytes.
+ * Non-Gallery/DreamSnaps retain their separate legacy signed URL path.
  * See docs/community/gallery-retirement-media-cloud-20261024.md.
  */
 export const GALLERY_MEDIA_RETIREMENT_V1=Object.freeze({
@@ -53,7 +56,7 @@ export const GALLERY_MEDIA_RETIREMENT_V1=Object.freeze({
   cloudPrivateTransitionAuthorized:false,
   signedChromeAcceptance:'CONFIGURATION_BLOCKED',
   publicVisibilityCannotGuaranteeImmediateErase:true,
-  authenticatedOwnerReadMayCreateNewSignedUrl:true
+  authenticatedOwnerReadMayCreateNewSignedUrl:false
 } as const);
 
 /** The existing public-media Edge now routes Gallery photo revisions through
