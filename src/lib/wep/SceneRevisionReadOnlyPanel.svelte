@@ -24,10 +24,11 @@
   let signing = false;
   let selectedKey = '';
   let ownerBridge: any = null;
-  $: if (!connected || bridge !== ownerBridge) {
+  $: if (bridge !== ownerBridge) {
     ownerBridge = bridge;
     owner = null;
   }
+  $: if (!connected && owner !== null) owner = null;
   $: copy = sceneRevisionCopy($locale);
   $: diagnosis = owner ? diagnoseSceneRevisionPairing(current, owner) : null;
   $: selectionKey = workId + '/' + presetArtifactId;
