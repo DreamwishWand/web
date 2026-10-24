@@ -251,6 +251,15 @@ def main():
               from public.community_works where work_id=%s""",(newgallery,g["galleryWork"]))
             execute(c,"insert into public.gallery_works(work_id,gallery_kind) values(%s,'outdoor')",(newgallery,))
             execute(c,"insert into public.gallery_work_settings(work_id,comments_enabled) values(%s,true)",(newgallery,))
+            # R11 shared fixture does not create SearchDocuments until its
+            # later paired Scene positive test. Seed exactly two independently
+            # discoverable projection rows for the R13 suppression test.
+            for work in (g["galleryWork"],g["presetWork"]):
+                execute(c,"""insert into public.search_documents(
+                   entity_id,work_id,work_type,creator_profile_id,title,text_content,published_at,updated_at)
+                   select work_id,work_id,work_type,creator_profile_id,
+                     'R13 indexed local fixture','synthetic only',now(),now()
+                   from public.community_works where work_id=%s""",(work,))
             c.execute("COMMIT")
         except:
             c.execute("ROLLBACK")
