@@ -57,7 +57,7 @@ with psycopg.connect(DSN,autocommit=True,connect_timeout=4) as c:
         tip_before=one(c,"select public.community_get_tip_public_v1(%s)",(tip,))
         assert tip_before is not None and str(tip) in json.dumps(tip_before)
         one(c,"select public.community_save_entity(%s,%s)",(asub,tip))
-        assert one(c,"select count(*) from public.saves where account_id=%s and entity_id=%s",(a,tip))>=1
+        assert one(c,"select count(*) from public.saved_items where account_id=%s and target_entity_id=%s",(a,tip))>=1
 
         for subj in (asub,bsub):
             c.execute("insert into auth.users(id) values(%s) on conflict(id) do nothing",(subj,))
@@ -82,7 +82,7 @@ with psycopg.connect(DSN,autocommit=True,connect_timeout=4) as c:
         assert one(c,"select count(*) from public.community_search_questions_v1(%s,null,false,20) where question_id=%s",(question_title,q))==0
         assert denied(c,"select public.community_get_question_public_v1(%s)",(q,))
         assert one(c,"select lifecycle_state from public.community_works where work_id=%s",(q,))=="published"
-        assert one(c,"select count(*) from public.saves where account_id=%s and entity_id=%s",(a,tip))>=1
+        assert one(c,"select count(*) from public.saved_items where account_id=%s and target_entity_id=%s",(a,tip))>=1
         assert one(c,"select count(*) from public.search_documents where work_id in (%s,%s)",(q,tip))==0
         print(json.dumps({"marker":"QR_R14_QA_TIP_BEHAVIOR_SOURCE_PASS",
           "questionDetailBefore":True,"answerBefore":True,"tipBefore":True,
