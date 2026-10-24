@@ -23,8 +23,27 @@
   let showEditPreview=false;
   let preflight:any=null,preflightBusy=false,preflightError='';
   let managementRequest=0;
+  let preflightGeneration=0;
+  let preflightSessionToken='';
 
-  onMount(()=>{signedIn=Boolean(client?.session);if(signedIn)void load();});
+  onMount(()=>{
+    signedIn=Boolean(client?.session);
+    if(signedIn)void load();
+    const check=()=>{
+      if(preflightSessionToken && (!client?.session ||
+        client.session.accessToken!==preflightSessionToken || client.session.expiresAt<=Date.now())){
+        ++preflightGeneration;preflight=null;preflightBusy=false;preflightError='';
+        preflightSessionToken='';showEditPreview=false;
+      }
+    };
+    const interval=setInterval(check,1000);
+    window.addEventListener('focus',check);
+    return ()=>{clearInterval(interval);window.removeEventListener('focus',check)};
+  });
+  $: if(!showManagement && preflightSessionToken){
+    ++preflightGeneration;preflight=null;preflightBusy=false;preflightError='';
+    preflightSessionToken='';showEditPreview=false;
+  }
   async function run<T>(f:()=>Promise<T>):Promise<T|null>{
     busy=true;error='';
     try{return await f()}catch(e){error=e instanceof Error?e.message:String(e);return null}
@@ -53,6 +72,7 @@
   }
   async function manage(work:any){
     const request=++managementRequest;
+    ++preflightGeneration;preflightSessionToken='';
     management=work;ownerDetail=null;managementError='';showManagement=true;ownerBusy=true;
     preflight=null;preflightError='';preflightBusy=false;
     // The server's owner-only preflight is authoritative. Do not gate it on
@@ -70,15 +90,25 @@
     finally{if(request===managementRequest)ownerBusy=false}
   }
   async function loadPreflight(workId:string,request=managementRequest){
-    if(!client?.session||management?.workId!==workId)return;
+    const session=client?.session;
+    if(!session||session.expiresAt<=Date.now()||management?.workId!==workId||!showManagement){
+      preflight=null;preflightError='';preflightBusy=false;return;
+    }
+    const generation=++preflightGeneration;
+    const accessToken=session.accessToken;
+    preflightSessionToken=accessToken;
+    const current=()=>request===managementRequest&&generation===preflightGeneration&&
+      showManagement&&management?.workId===workId&&client?.session?.accessToken===accessToken&&
+      (client?.session?.expiresAt??0)>Date.now();
     preflightBusy=true;preflightError='';preflight=null;
     try{
-      const result:any=await client.query('galleryRetirementPreflight',{workId});
-      if(request!==managementRequest)return;
+      const result:any=await client!.query('galleryRetirementPreflight',{workId});
+      if(!current())return;
       preflight=parseGalleryRetirementPreflight(result?.data,workId);
-    }catch(e){
-      if(request===managementRequest)preflightError=e instanceof Error?e.message:String(e);
-    }finally{if(request===managementRequest)preflightBusy=false}
+    }catch{
+      // Server and SQL internal errors are never rendered into HTML.
+      if(current())preflightError='GALLERY_PREFLIGHT_UNAVAILABLE';
+    }finally{if(current())preflightBusy=false}
   }
   async function setComments(){
     if(!client?.session||!management?.workId)return;
@@ -187,16 +217,40 @@
             <h3>{t('galleryv1.retirementPreflight',{},$locale)}</h3>
             <p>{t('galleryv1.preflightReadOnly',{},$locale)}</p>
             {#if preflightBusy}<p role="status">{t('galleryv1.loading',{},$locale)}</p>
-            {:else if preflightError}<p role="alert">{t('galleryv1.preflightUnavailable',{},$locale)} <code>{preflightError}</code></p>
+            {:else if preflightError}<p role="alert">{t('galleryv1.cloudPreflightError',{},$locale)}</p>
             {:else if preflight}
-              <p>{t('galleryv1.currentRevision',{},$locale)}: <code>{preflight.revisionId??'—'}</code> · {t('galleryv1.rowVersion',{},$locale)}: {preflight.rowVersion}</p>
+              <p role="status" class="cloud-preservation-summary">{t('galleryv1.cloudReadOnlySummary',{},$locale)}</p>
               <p>{t('galleryv1.graphState',{},$locale)}: {preflight.graphComplete?t('galleryv1.complete',{},$locale):t('galleryv1.incomplete',{},$locale)}</p>
-              <p>{t('galleryv1.cloudState',{},$locale)}: {preflight.cloudEntitlementVerified?t('galleryv1.verified',{},$locale):t('galleryv1.unverified',{},$locale)}</p>
-              <p>{t('galleryv1.mediaLinkState',{},$locale)}: {preflight.previousSignedUrlsRevoked&&preflight.cdnAndBrowserPurgeProven?t('galleryv1.verified',{},$locale):t('galleryv1.unverified',{},$locale)}</p>
-              {#if preflight.blockedReasons.length}
-                <p>{t('galleryv1.disabledReasons',{},$locale)}</p>
-                <ul>{#each preflight.blockedReasons as reason}<li><code>{reason}</code></li>{/each}</ul>
+              {#if preflight.cloudPreservation}
+                {@const cp=preflight.cloudPreservation}
+                <div class="cloud-preservation-readiness" aria-label={t('galleryv1.cloudReadinessTitle',{},$locale)}>
+                  <h4>{t('galleryv1.cloudReadinessTitle',{},$locale)}</h4>
+                  <p>{t('galleryv1.cloudManifestExplanation',{},$locale)}</p>
+                  <dl class="cloud-readiness-grid">
+                    <div><dt>{t('galleryv1.cloudWorkStructure',{},$locale)}</dt><dd>{t(cp.status.workStructureObserved?'galleryv1.cloudObserved':'galleryv1.cloudNotVerified',{},$locale)}</dd></div>
+                    <div><dt>{t('galleryv1.cloudRevisionHistory',{},$locale)}</dt><dd>{t(cp.status.revisionHistoryObserved?'galleryv1.cloudObserved':'galleryv1.cloudNotVerified',{},$locale)} ({cp.databaseManifest.historicalRevisionRowCount})</dd></div>
+                    <div><dt>{t('galleryv1.cloudCoverReferences',{},$locale)}</dt><dd>{t(cp.status.coverReferencesObserved?'galleryv1.cloudObserved':'galleryv1.cloudNotVerified',{},$locale)}</dd></div>
+                    <div><dt>{t('galleryv1.cloudMediaOwnership',{},$locale)}</dt><dd>{t(cp.status.mediaOwnershipObserved?'galleryv1.cloudObserved':'galleryv1.cloudNotVerified',{},$locale)}</dd></div>
+                    <div><dt>{t('galleryv1.cloudOwnerCreator',{},$locale)}</dt><dd>{t(cp.status.ownerCreatorObserved?'galleryv1.cloudObserved':'galleryv1.cloudNotVerified',{},$locale)}</dd></div>
+                    <div><dt>{t('galleryv1.cloudEntitlement',{},$locale)}</dt><dd>{t(cp.entitlement.source==='not_configured'?'galleryv1.cloudNotConfigured':'galleryv1.cloudNotVerified',{},$locale)}</dd></div>
+                    <div><dt>{t('galleryv1.cloudStorageReadback',{},$locale)}</dt><dd>{t(cp.status.storageBytesVerified?'galleryv1.cloudEvidenceObserved':'galleryv1.cloudNotVerified',{},$locale)}</dd></div>
+                    <div><dt>{t('galleryv1.cloudPrivateAccess',{},$locale)}</dt><dd>{t(cp.status.privateAclVerified?'galleryv1.cloudEvidenceObserved':'galleryv1.cloudNotVerified',{},$locale)}</dd></div>
+                    <div><dt>{t('galleryv1.cloudBackupRestore',{},$locale)}</dt><dd>{t(cp.status.backupRestoreVerified?'galleryv1.cloudEvidenceObserved':'galleryv1.cloudNotVerified',{},$locale)}</dd></div>
+                    <div><dt>{t('galleryv1.cloudDependentWorks',{},$locale)}</dt><dd>{t(cp.status.dependencyGraphVerified && preflight.graphComplete?'galleryv1.cloudEvidenceObserved':'galleryv1.cloudNotVerified',{},$locale)}</dd></div>
+                    <div><dt>{t('galleryv1.cloudPreviousLinks',{},$locale)}</dt><dd>{t(cp.signedUrlAndCacheRevocationProven && preflight.previousSignedUrlsRevoked && preflight.cdnAndBrowserPurgeProven?'galleryv1.cloudEvidenceObserved':'galleryv1.cloudNotVerified',{},$locale)}</dd></div>
+                  </dl>
+                  <p class="cloud-unavailable-reasons">{t('galleryv1.cloudUnavailableReasons',{},$locale)}</p>
+                  {#if cp.databaseManifest.coverWithoutCompositionCount>0 || cp.databaseManifest.invalidOrNonOwnedMediaCount>0 ||
+                    !cp.databaseManifest.structuralIntegrityObserved}
+                    <p role="alert">{t('galleryv1.cloudManifestProblems',{},$locale)}</p>
+                  {/if}
+                  <p class="cloud-private-disabled">{t('galleryv1.cloudActionsDisabled',{},$locale)}</p>
+                </div>
+              {:else}
+                <p role="status">{t('galleryv1.cloudLegacyUnavailable',{},$locale)}</p>
               {/if}
+            {:else}
+              <p role="status">{t('galleryv1.cloudPreflightEmpty',{},$locale)}</p>
             {/if}
             <button type="button" disabled={preflightBusy} on:click={()=>loadPreflight(String(management.workId))}>{t('galleryv1.retry',{},$locale)}</button>
           </section>
@@ -222,6 +276,15 @@ input:not([type=checkbox]),select{min-height:44px;min-width:0;padding:10px;borde
 .my-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));gap:14px}
 .my-card{min-height:140px;min-width:0;display:flex;justify-content:space-between;align-items:start;gap:10px;padding:18px;border:1px solid var(--border);border-radius:20px;background:var(--surface)}
 .my-card a{display:grid;gap:10px;min-width:0;overflow-wrap:anywhere;color:var(--ink)}.my-card small{color:var(--ink-muted)}
-.owner-panel{display:grid;gap:12px}.blocked-actions{display:grid;gap:12px;padding:14px;border:1px solid var(--border);border-radius:15px;overflow-wrap:anywhere}
+.owner-panel{display:grid;gap:12px}
+.cloud-preservation-readiness{display:grid;gap:10px;min-width:0}
+.cloud-preservation-readiness h4{margin:0}
+.cloud-readiness-grid{display:grid;gap:8px;min-width:0;margin:0}
+.cloud-readiness-grid>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;border-bottom:1px solid var(--border);padding:6px 0;min-width:0}
+.cloud-readiness-grid dt,.cloud-readiness-grid dd{margin:0;overflow-wrap:anywhere}
+.cloud-readiness-grid dd{color:var(--ink-soft);text-align:end}
+.cloud-unavailable-reasons,.cloud-private-disabled,.cloud-preservation-summary{overflow-wrap:anywhere}
+@media(max-width:360px){.cloud-readiness-grid>div{grid-template-columns:1fr;gap:4px}.cloud-readiness-grid dd{text-align:start}}
+.blocked-actions{display:grid;gap:12px;padding:14px;border:1px solid var(--border);border-radius:15px;overflow-wrap:anywhere}
 .comment-control{display:flex;align-items:center;gap:10px}.blocked-actions label{display:grid;gap:6px}.blocked-actions input,.blocked-actions textarea{width:100%;min-width:0;padding:10px;border:1px solid var(--border);border-radius:12px;background:var(--surface-raised);color:var(--ink)}.blocked-actions textarea{min-height:100px;resize:vertical}.notice{padding:15px;background:var(--surface)}
 </style>
