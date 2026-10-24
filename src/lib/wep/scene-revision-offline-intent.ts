@@ -6,7 +6,11 @@
  * Source identity is supplied independently of untrusted artifact metadata.
  * A client claim of ownership / READY media is never server authority.
  */
-import { buildPublishEnvelope } from './scene-preset-runtime.ts';
+import { buildPublishEnvelope, validatePublishablePreset } from './scene-preset-runtime.ts';
+import {
+  captureScenePreset, dependencyClosure, normalizeDocument,
+  type EditorDocument, type CaptureSceneOptions
+} from './scene-capture-runtime.ts';
 import { sha256Hex } from './preset-community-bridge.ts';
 import type { ScenePublicCurrentRead, SceneOwnerReadiness } from './scene-revision-gallery-consumer.ts';
 import { SCENE_REVISION_WRITE_BLOCKERS } from './scene-revision-gallery-consumer.ts';
@@ -96,6 +100,21 @@ export async function prepareSceneRevisionOfflineIntent(args: SceneRevisionArtif
       artifact.requirements.fenceTopology !== capture.includeFences) {
     reject('WEP_SCENE_REVISION_ARTIFACT_NETWORK_SCOPE_MISMATCH');
   }
+  // The publication schema permits a network field to be null even when the
+  // requirements claim that it was captured. Do not accept that silent omission.
+  if (!record(artifact.networks) ||
+      (capture.includeRoads
+        ? !record(artifact.networks.roads)
+        : artifact.networks.roads != null) ||
+      (capture.includeFences
+        ? !record(artifact.networks.fences)
+        : artifact.networks.fences != null)) {
+    reject('WEP_SCENE_REVISION_REQUIRED_NETWORK_MISSING_OR_UNEXPECTED');
+  }
+  if (!Array.isArray(artifact.objects) ||
+      artifact.objects.length < capture.selectionIds.length) {
+    reject('WEP_SCENE_REVISION_OBJECT_CAPTURE_COUNT_MISMATCH');
+  }
   const bytes = new TextEncoder().encode(proof.envelope.json);
   if (bytes.byteLength !== proof.envelope.byteSize || bytes.byteLength === 0) {
     reject('WEP_SCENE_REVISION_ARTIFACT_BYTE_SIZE_MISMATCH');
@@ -125,7 +144,10 @@ export async function prepareSceneRevisionOfflineIntent(args: SceneRevisionArtif
     }),
     capture: Object.freeze({
       selectedObjectCount: capture.selectionIds.length,
-      requiredSubGridDescendantsValidated: true,
+      // Manual callers can assert closure but cannot prove source traversal.
+      requiredSubGridDescendantsClaimed: true,
+      requiredSubGridDescendantsValidated: false,
+      captureRuntimeVerified: false,
       includeRoads: capture.includeRoads,
       includeFences: capture.includeFences
     }),
@@ -146,5 +168,80 @@ export async function prepareSceneRevisionOfflineIntent(args: SceneRevisionArtif
       'SCENE_BACKEND_ALL_WRITER_R7_NOT_ACCEPTED',
       'SCENE_SIGNED_STAGING_E2E_NOT_ACCEPTED'
     ])
+  });
+}
+
+
+export interface CapturedSceneRevisionOfflineProposal {
+  current: ScenePublicCurrentRead;
+  readiness: SceneOwnerReadiness;
+  source: SceneRevisionOfflineSource;
+  document: EditorDocument;
+  captureOptions: CaptureSceneOptions;
+}
+
+/**
+ * End-to-end *read-only* capture-to-intent adapter. Unlike a supplied artifact
+ * and claimed closure flag, this executes the existing WEP capture/validator,
+ * traverses the actual dependency graph and refuses partial Road/Fence output.
+ * Still neither authorizes Cloud revisions nor writes the DDV save.
+ */
+export async function prepareCapturedSceneRevisionOfflineIntent(
+  args: CapturedSceneRevisionOfflineProposal
+) {
+  const { source, document, captureOptions } = args;
+  // Refuse unsafe versions BEFORE entering the Editor capture pipeline.
+  if (!source || source.platform !== 'switch' ||
+      source.gameVersion !== '1.25.0' || source.buildId !== SWITCH_V125_BID ||
+      source.profileSchema !== 624 || source.sourceExternallyVerified !== true) {
+    reject('WEP_SCENE_REVISION_SOURCE_NOT_APPROVED_V125');
+  }
+  if (!document || document.target?.platform !== 'switch' ||
+      document.target.gameVersion !== '1.25.0') {
+    reject('WEP_SCENE_REVISION_EDITOR_SOURCE_MISMATCH');
+  }
+  if (!Array.isArray(captureOptions?.selectionIds) ||
+      captureOptions.selectionIds.length === 0 ||
+      captureOptions.selectionIds.some(x => typeof x !== 'string' || !x.trim()) ||
+      new Set(captureOptions.selectionIds).size !== captureOptions.selectionIds.length) {
+    reject('WEP_SCENE_REVISION_CAPTURE_SCOPE_INVALID');
+  }
+  const captured = captureScenePreset(
+    document,
+    captureOptions,
+    validatePublishablePreset
+  );
+  if (!captured.captureReady || !captured.publicationReady) {
+    reject('WEP_SCENE_REVISION_CAPTURE_OR_PUBLICATION_BLOCKED');
+  }
+  const selectedWithDescendants = dependencyClosure(
+    normalizeDocument(document), captureOptions.selectionIds
+  );
+  if (!Array.isArray(captured.artifact.objects) ||
+      selectedWithDescendants.length !== captured.artifact.objects.length ||
+      !captured.classifications.every(x => x.status === 'portable')) {
+    reject('WEP_SCENE_REVISION_CAPTURE_CLOSURE_MISMATCH');
+  }
+  const proof = await prepareSceneRevisionOfflineIntent({
+    current: args.current,
+    readiness: args.readiness,
+    source,
+    artifact: captured.artifact,
+    capture: {
+      selectionIds: captureOptions.selectionIds,
+      hasRequiredSubGridDescendants: true,
+      includeRoads: captureOptions.includeRoads === true,
+      includeFences: captureOptions.includeFences === true
+    }
+  });
+  return Object.freeze({
+    ...proof,
+    capture: Object.freeze({
+      ...proof.capture,
+      requiredSubGridDescendantsValidated: true as const,
+      captureRuntimeVerified: true as const,
+      closureObjectCount: selectedWithDescendants.length,
+      captureRegion: Object.freeze({ ...captured.region })
+    })
   });
 }
