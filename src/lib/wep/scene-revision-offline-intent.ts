@@ -9,7 +9,7 @@
 import { buildPublishEnvelope } from './scene-preset-runtime.ts';
 import { sha256Hex } from './preset-community-bridge.ts';
 import type { ScenePublicCurrentRead, SceneOwnerReadiness } from './scene-revision-gallery-consumer.ts';
-import { SCENE_REVISION_WRITE_BLOCKERS } from './scene-revision-gallery-consumer';
+import { SCENE_REVISION_WRITE_BLOCKERS } from './scene-revision-gallery-consumer.ts';
 
 const SWITCH_V125_BID = '52BD625D9B4E0053';
 
