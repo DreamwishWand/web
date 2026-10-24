@@ -2,7 +2,8 @@
   import { onMount } from 'svelte';
   import { base } from '$app/paths';
   import { locale, ct as t } from '$lib/i18n/community.js';
-  import { createCommunityBrowserClient, callPublicCommunityRpc, getPublicCommunityMedia } from '$lib/community/browser-client';
+  import { createCommunityBrowserClient, callPublicCommunityRpc, getGalleryPublicMedia } from '$lib/community/browser-client';
+  import GalleryProxyImage from '$lib/gallery/GalleryProxyImage.svelte';
   import { categoryFor, workUrl } from '$lib/gallery/stage1.js';
 
   export let family: 'decorations' | 'tom';
@@ -11,7 +12,8 @@
   let filter = 'all';
   let busy = false, error = '';
   let results: any[] = [];
-  let coverUrls: Record<string,string> = {};
+  let coverUrls: Record<string,any> = {};
+  let browseRequest=0;
   $: options = family === 'decorations' ? ['all','outdoor','indoor'] : ['all','tom_furniture','tom_clothing'];
   $: visible = results.filter((work)=> {
     const kind=String(work.facets?.galleryKind ?? '');
@@ -21,11 +23,16 @@
 
   async function browse() {
     if (!client) return;
+    const request=++browseRequest;
+    coverUrls={};
+    results=[];
     busy=true;error='';
     try {
       // Search index is Community-owned; cover preview currently requires an
       // additional allowlisted public detail + media read (no privileged data).
-      results=await client.searchPublicWorks({query:query.trim()||null,workType:'gallery',limit:50});
+      const found=await client.searchPublicWorks({query:query.trim()||null,workType:'gallery',limit:50});
+      if(request!==browseRequest)return;
+      results=found;
       for(const work of results.filter((x:any)=>categoryFor(String(x.facets?.galleryKind ?? ''))===family).slice(0,16)){
         const id=String(work.work_id);
         if(coverUrls[id])continue;
@@ -33,13 +40,13 @@
           const detail:any=await callPublicCommunityRpc('community_get_gallery_public_v1',{p_work_id:id});
           const first=detail?.mediaIds?.[0];
           if(first) {
-            const media=await getPublicCommunityMedia(String(first));
-            coverUrls={...coverUrls,[id]:media.signedUrl};
+            const media=await getGalleryPublicMedia(String(first));
+            if(request===browseRequest)coverUrls={...coverUrls,[id]:media};
           }
         }catch { /* no invented public media access */ }
       }
-    }catch(e){error=e instanceof Error?e.message:String(e);}
-    finally{busy=false;}
+    }catch(e){if(request===browseRequest)error=e instanceof Error?e.message:String(e);}
+    finally{if(request===browseRequest)busy=false;}
   }
 </script>
 
@@ -70,7 +77,7 @@
       {#each visible as work (work.work_id)}
         <a class="gallery-card" href={workUrl(base,work.work_id)}>
           {#if coverUrls[String(work.work_id)]}
-            <img src={coverUrls[String(work.work_id)]} alt={t('galleryv1.coverAlt',{},$locale)} loading="lazy" />
+            <GalleryProxyImage media={coverUrls[String(work.work_id)]} alt={t('galleryv1.coverAlt',{},$locale)} />
           {:else}<div class="missing-image">{t('gallery.media.placeholder',{},$locale)}</div>{/if}
           <div class="card-text"><strong>{work.title}</strong><small>{work.facets?.galleryKind ?? ''}</small></div>
         </a>
