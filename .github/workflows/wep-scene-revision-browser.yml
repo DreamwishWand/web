@@ -1,0 +1,52 @@
+name: WEP Scene Revision read-only browser acceptance
+
+on:
+  push:
+    branches: ['wep/scene-revision-gallery-consumer-20261024']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scene-readonly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Resolve Chrome
+        id: chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$BIN"
+          echo "path=$BIN" >> "$GITHUB_OUTPUT"
+      - name: Start isolated synthetic browser
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4189 > /tmp/wep-scene-vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:4189/presets/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/wep-scene-vite.log
+          exit 1
+      - name: Synthetic current Scene and Gallery cover browser
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          WEP_SCENE_BASE_URL: http://127.0.0.1:4189
+        run: node scripts/wep-scene-revision-readonly-browser.mjs
+      - name: Upload synthetic browser result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wep-scene-revision-browser-synthetic
+          path: .artifacts/wep-scene-revision-browser
+          if-no-files-found: error
