@@ -755,7 +755,10 @@ test('self-service account deletion Edge is JWT-bound, session-bound and explici
   assert.match(account, /ctx\.userClaims\?\.id/);
   assert.match(account, /ctx\.jwtClaims\?\.session_id/);
   assert.match(account, /body\.confirmation !== 'DELETE'/);
-  assert.match(account, /community_tombstone_account/);
+  assert.match(account, /community_request_privacy_suppression_v1/);
+  assert.match(account, /privacy_suppressed_cleanup_pending/);
+  assert.match(account, /fullDeletionComplete: false/);
+  assert.doesNotMatch(account, /community_tombstone_account/);
   assert.match(account, /p_session_id: sessionId/);
   assert.match(account, /RECENT_AUTH_REQUIRED/);
   assert.doesNotMatch(account, /payload\.actorAccountId|payload\.actor_account_id/);

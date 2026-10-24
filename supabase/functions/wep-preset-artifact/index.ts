@@ -326,6 +326,25 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
     return reply({ ok: true, action, data: { ...data, storageKey: publishedStorageKey, schemaVersion: validated.schemaVersion, presetType: validated.presetType, contentType: CONTENT_TYPE, byteSize: validated.blob.size, checksumSha256: validated.checksumSha256 } });
   }
 
+  // Read-only Owner preflight for updating an EXISTING Scene Preset.
+  // Always fails closed; this does not upload, publish, mutate Work/Media,
+  // generate URLs, or authorize use of the R6 candidate lock protocol.
+  if (action === 'revisionReadiness') {
+    const presetArtifactId = body.presetArtifactId;
+    if (typeof presetArtifactId !== 'string' ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(presetArtifactId)) {
+      return reply({ ok: false, error: 'INVALID_PRESET_ARTIFACT_ID' }, 400);
+    }
+    const { data, error } = await ctx.supabaseAdmin.rpc('community_scene_revision_readiness_v1', {
+      p_auth_subject: subject,
+      p_preset_artifact_id: presetArtifactId
+    });
+    if (error || !data) {
+      return reply({ ok: false, error: 'SCENE_REVISION_READINESS_FORBIDDEN_OR_UNAVAILABLE' }, 403);
+    }
+    return reply({ ok: true, action, readiness: data });
+  }
+
   if (action === 'resolveWork') {
     const workId = String(body.workId ?? '');
     if (!workId) return reply({ ok: false, error: 'WORK_ID_REQUIRED' }, 400);

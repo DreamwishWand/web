@@ -1,0 +1,274 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+
+const root = process.cwd();
+const sql = readFileSync(
+  join(root, 'supabase/migrations/20261025002350_gallery_known_writer_scene_parent_bootstrap_v1.sql'),
+  'utf8'
+);
+const publicQuery = readFileSync(
+  join(root, 'supabase/functions/community-public-query/index.ts'),
+  'utf8'
+);
+
+test('Scene public read is a strictly guarded current-Revision, read-only function', () => {
+  assert.match(sql, /create or replace function public\.community_get_scene_preset_public_v1\s*\(\s*p_work_id uuid/i);
+  assert.match(sql, /stable\s+security definer/i);
+  assert.match(sql, /private\.is_discoverable_work\(p_work_id\)/);
+  assert.match(sql, /private\.is_discoverable_work\(v_preset\.associated_gallery_work_id\)/);
+  assert.match(sql, /v_preset\.associated_gallery_work_id is not null/);
+  assert.match(sql, /pr\.preset_artifact_id=v_preset\.preset_artifact_id/);
+  assert.match(sql, /pp\.work_revision_id=v_work\.current_published_revision_id/);
+  assert.match(sql, /gp\.gallery_revision_id=v_gallery\.current_published_revision_id/);
+  assert.match(sql, /gp\.preset_revision_id=v_preset_revision\.preset_revision_id/);
+  assert.match(sql, /v_blob\.blob_id is null/);
+  assert.match(sql, /blob_id=v_preset_revision\.artifact_blob_id and purged_at is null/);
+  assert.match(sql, /m\.processing_state<>'ready'/);
+  assert.match(sql, /m\.moderation_state<>'clear'/);
+  assert.match(sql, /m\.purged_at is not null/);
+  assert.match(sql, /m\.purged_at is null/);
+  assert.match(sql, /'mediaIds',v_media_ids/);
+  assert.match(sql, /'coverMediaId',v_cover/);
+  const projection = sql.split('return jsonb_build_object(').at(-1).split('end\n$scene_read$')[0];
+  assert.doesNotMatch(projection, /'storageKey'|'rawUrl'|'signedUrl'|'blobId'/);
+  assert.match(sql, /revoke all on function public\.community_get_scene_preset_public_v1\(uuid\)[\s\S]*from public,anon,authenticated/i);
+  assert.match(sql, /grant execute on function public\.community_get_scene_preset_public_v1\(uuid\)[\s\S]*to service_role/i);
+});
+
+test('public Edge allows only validated UUID and no-store Scene current projection', () => {
+  assert.match(publicQuery, /'community_get_scene_preset_public_v1'/);
+  assert.match(
+    publicQuery,
+    /rpc === 'community_get_scene_preset_public_v1'[^\n]*\? 'p_work_id'/
+  );
+  assert.match(publicQuery, /UUID_RE\.test\(value\)/);
+  assert.match(publicQuery, /const noStore = rpc === 'community_get_scene_preset_public_v1'/);
+  assert.match(publicQuery, /Cache-Control': noStore \? 'private, no-store'/);
+});
+
+test('unsafe legacy Scene lifecycle writers are NOT restored', () => {
+  const migrationDirectory = join(root, 'supabase/migrations');
+  const combined = readdirSync(migrationDirectory)
+    .filter((file) => file.endsWith('.sql'))
+    .map((file) => readFileSync(join(migrationDirectory, file), 'utf8'))
+    .join('\n');
+  assert.doesNotMatch(
+    combined,
+    /create\s+(?:or\s+replace\s+)?function\s+public\.community_(?:unpublish|delete)_scene_preset_v1\s*\(/i
+  );
+  assert.doesNotMatch(
+    combined,
+    /create\s+(?:or\s+replace\s+)?function\s+public\.community_(?:prepare|finalize)_unattached_media_discard_v1\s*\(/i
+  );
+});
+
+
+test('three owner RPCs fail-closed on every Preset Work until all-writer graph contract', () => {
+  const parts = sql.split(/create or replace function public\.(community_change_work_visibility|community_unpublish_work|community_delete_work)\s*\(/i);
+  for (const name of [
+    'community_change_work_visibility',
+    'community_unpublish_work',
+    'community_delete_work'
+  ]) {
+    const index = parts.findIndex((part) => part.toLowerCase() === name);
+    assert.ok(index >= 0, 'owner RPC missing: ' + name);
+    const fn = parts[index + 1].split(/\n\$\$;/)[0];
+    assert.match(fn, /if v_work\.work_type='preset' then\s+raise exception 'PRESET_OWNER_LIFECYCLE_GLOBAL_WRITER_CONTRACT_REQUIRED'/);
+    assert.ok(
+      fn.indexOf('PRESET_OWNER_LIFECYCLE_GLOBAL_WRITER_CONTRACT_REQUIRED') <
+      fn.indexOf('insert into public.idempotency_keys'),
+      'owner gate must precede idempotency and mutation: ' + name
+    );
+    assert.match(fn, /v_work\.owner_account_id<>v_account_id/);
+    assert.match(fn, /v_work\.row_version<>p_expected_version/);
+  }
+  // These are NOT the emergency moderation / privacy erasure RPCs.
+  const ownerGateTail = sql.split('-- 03 COMM #119 R5 fail-closed OWNER-ONLY gap containment.')[1];
+  assert.doesNotMatch(ownerGateTail, /create or replace function public\.community_(moderate_work|tombstone_account)\s*\(/);
+});
+
+
+test('Scene Revision owner preflight is read-only and cannot unlock R6 lifecycle', () => {
+  const edge = readFileSync(
+    join(root, 'supabase/functions/wep-preset-artifact/index.ts'), 'utf8'
+  );
+  const block = sql.split(
+    /create or replace function public\.community_scene_revision_readiness_v1\s*\(/i
+  )[1];
+  assert.ok(block, 'Scene revision readiness not installed');
+  assert.match(block, /stable\s+security definer/i);
+  assert.match(block, /private\.resolve_active_account\(p_auth_subject\)/);
+  assert.match(block, /owner_account_id=v_owner/);
+  assert.match(block, /join public\.preset_revisions pr/);
+  assert.match(block, /join public\.community_work_revisions cwr/);
+  assert.match(block, /associated_gallery_work_id/);
+  assert.match(block, /'graphComplete',false/);
+  assert.match(block, /'saveRevisionAuthorized',false/);
+  assert.match(block, /'pairedGalleryPublishAuthorized',false/);
+  assert.match(block, /'unpublishAuthorized',false/);
+  assert.match(block, /'deleteAuthorized',false/);
+  assert.match(block, /'restoreAuthorized',false/);
+  assert.match(block, /'dependencyFingerprintIsAtomicFence',false/);
+  assert.match(sql, /revoke all on function public\.community_scene_revision_readiness_v1\(uuid,uuid\)[\s\S]*?from public,anon,authenticated/i);
+  assert.match(sql, /grant execute on function public\.community_scene_revision_readiness_v1\(uuid,uuid\)[\s\S]*?to service_role/i);
+  assert.match(edge, /if \(action === 'revisionReadiness'\)/);
+  assert.match(edge, /community_scene_revision_readiness_v1/);
+  assert.match(edge, /SCENE_REVISION_READINESS_FORBIDDEN_OR_UNAVAILABLE/);
+  assert.doesNotMatch(block.split('$scene_readiness$')[1], /\b(insert into|update public\.|delete from public\.)/i);
+});
+
+
+test('paired Scene Save Revision candidate is inert outside database owner and covers atomic publication', () => {
+  const sig = /create or replace function private\.scene_save_revision_paired_candidate_v1\s*\(/i;
+  assert.match(sql, sig);
+  const body = sql.split(sig)[1].split('$paired_scene_candidate$')[1];
+  assert.ok(body, 'candidate body unavailable');
+  assert.match(sql, /revoke all on function private\.scene_save_revision_paired_candidate_v1\([\s\S]*?\)\s+from public,anon,authenticated,service_role/i);
+  assert.doesNotMatch(sql, /grant execute on function private\.scene_save_revision_paired_candidate_v1/i);
+  const needles = [
+    'private.resolve_active_account(p_auth_subject)',
+    'p_expected_preset_revision_id',
+    'p_expected_gallery_work_version',
+    'p_expected_preset_work_version',
+    "preset_type='scene'",
+    'associated_gallery_work_id',
+    'from public.gallery_revision_presets',
+    'from public.preset_artifacts',
+    'from public.community_works',
+    'for update',
+    'for share',
+    'p_media_ids',
+    'p_cover_media_id',
+    'p_artifact_blob_id',
+    'community_work_revisions',
+    'preset_revision_publications',
+    'gallery_revision_presets',
+    'gallery_photo_revision_fields',
+    'work_revision_media',
+    'search_documents',
+    'outbox_events',
+    'idempotency_keys',
+    'SCENE_REVISION_ROW_VERSION_CONFLICT',
+    'SCENE_REVISION_CURRENT_LINK_STALE',
+    'SCENE_REVISION_MEDIA_NOT_OWNER_READY_CLEAR',
+    'SCENE_REVISION_BLOB_INVALID_OR_REUSED'
+  ];
+  for (const term of needles) assert.ok(body.includes(term), 'candidate missing '+term);
+  assert.doesNotMatch(body, /\bstorage\.remove\b|\bcreateSignedUrl\b|\bhttp_post\b/i);
+  // Existing authenticated Edge MUST NOT expose candidate function by name.
+  const edge = readFileSync(join(root,'supabase/functions/wep-preset-artifact/index.ts'),'utf8');
+  assert.doesNotMatch(edge, /scene_save_revision_paired_candidate_v1/i);
+  assert.doesNotMatch(edge, /action === 'saveRevision'|action === 'pairedPublish'/i);
+});
+
+test('paired candidate rechecks exact historical Gallery Revision edges after ordered locks', () => {
+  const body = sql.split('create or replace function private.scene_save_revision_paired_candidate_v1(')[1]
+    ?.split('$paired_scene_candidate$')[1];
+  assert.ok(body, 'Scene paired candidate missing');
+  const pre = body.indexOf('into v_backlinks_before');
+  const workLock = body.indexOf('where work_id=v_assoc for update;');
+  const post = body.indexOf('into v_backlinks_locked');
+  const reject = body.indexOf('SCENE_REVISION_BACKLINK_SNAPSHOT_CHANGED');
+  const mutation = body.indexOf('insert into public.idempotency_keys');
+  assert.ok(
+    pre >= 0 && workLock > pre && post > workLock &&
+    reject > post && mutation > reject,
+    'revision edges must be snapshotted before locks, rechecked after locks and before mutation'
+  );
+  assert.equal(
+    body.split("gp.gallery_revision_id::text||'/'||").length - 1, 2,
+    'both snapshots must key by GalleryRevision AND PresetRevision, not just GalleryWork ID'
+  );
+  assert.ok(body.includes('v_backlinks_locked is distinct from v_backlinks_before'));
+});
+
+test('owner diagnostic Scene history pin is advisory and paired candidate requires a caller-pinned digest', () => {
+  const readiness = sql.split('create or replace function public.community_scene_revision_readiness_v1(')[1]
+    ?.split('$scene_readiness$')[1];
+  const candidate = sql.split('create or replace function private.scene_save_revision_paired_candidate_v1(')[1]
+    ?.split('$paired_scene_candidate$')[1];
+  assert.ok(readiness && candidate);
+  for (const term of [
+    "'historicalEdgeSetScope','scene-historical-edges-v1'",
+    "'historicalEdgeSetSha256',v_scoped_edge_sha256",
+    "'historicalEdgeSetIsAtomicFence',false",
+    "'dependencyFingerprintIsAtomicFence',false",
+    "'saveRevisionAuthorized',false"
+  ]) assert.ok(readiness.includes(term), 'readiness must retain scoped advisory only: ' + term);
+  assert.ok(sql.includes('p_expected_historical_edge_set_sha256 text'));
+  assert.ok(candidate.includes("'historicalEdgePin',p_expected_historical_edge_set_sha256"));
+  assert.ok(candidate.includes("p_expected_historical_edge_set_sha256 !~ '^[0-9a-f]{64}$'"));
+  const lock = candidate.indexOf('where work_id=v_assoc for update;');
+  const read = candidate.indexOf('into v_backlinks_locked');
+  const callerPin = candidate.indexOf('SCENE_REVISION_CALLER_EDGE_FINGERPRINT_STALE');
+  const mutation = candidate.indexOf('insert into public.idempotency_keys');
+  assert.ok(lock >= 0 && read > lock && callerPin > read && mutation > callerPin);
+  assert.ok(candidate.includes("'scene-historical-edges-v1|'||v_artifact.preset_artifact_id::text"));
+  assert.ok(candidate.includes("array_to_string(v_backlinks_locked,'|')"));
+  assert.match(sql, /revoke all on function private\.scene_save_revision_paired_candidate_v1\([\s\S]*?\)\s+from public,anon,authenticated,service_role/i);
+  assert.doesNotMatch(sql, /grant execute on function private\.scene_save_revision_paired_candidate_v1/i);
+});
+
+test('paired Gallery version hints are owner-scoped, nullable and non-atomic in Scene readiness', () => {
+  const readiness = sql.split('create or replace function public.community_scene_revision_readiness_v1(')[1]
+    ?.split('$scene_readiness$')[1];
+  assert.ok(readiness);
+  const ownedLookup = readiness.indexOf('select * into v_owned_gallery from public.community_works');
+  const diagnostic = readiness.indexOf("'pairedGalleryWorkId',v_owned_gallery.work_id");
+  assert.ok(ownedLookup >= 0 && diagnostic > ownedLookup);
+  for (const guard of [
+    'v_artifact.associated_gallery_work_id is not null',
+    'v_cross_owner=0 and v_referenced_unknown=0',
+    'cardinality(v_all_ids)=1',
+    'v_all_ids[1]=v_artifact.associated_gallery_work_id',
+    'owner_account_id=v_owner',
+    'creator_profile_id=v_artifact.creator_profile_id',
+    "work_type='gallery'"
+  ]) assert.ok(readiness.includes(guard), 'owner/graph guard absent: ' + guard);
+  for (const hint of [
+    "'pairedGalleryWorkId',v_owned_gallery.work_id",
+    "'pairedGalleryWorkRowVersion',v_owned_gallery.row_version",
+    "'pairedGalleryCurrentWorkRevisionId'",
+    "'pairedGallerySnapshotIsAtomicFence',false",
+    "'graphComplete',false",
+    "'saveRevisionAuthorized',false"
+  ]) assert.ok(readiness.includes(hint), 'readiness hint/gate absent: ' + hint);
+  assert.ok(readiness.indexOf('v_owned_gallery.work_id') > ownedLookup);
+  assert.doesNotMatch(readiness, /'storageKey'|'signedUrl'|'rawUrl'/);
+});
+
+test('inert paired Scene owner command pins Gallery identity/current revision and registered Blob manifest', () => {
+  const signature = sql.split('create or replace function private.scene_save_revision_paired_candidate_v1(')[1]
+    ?.split(') returns jsonb language plpgsql')[0];
+  const body = sql.split('create or replace function private.scene_save_revision_paired_candidate_v1(')[1]
+    ?.split('$paired_scene_candidate$')[1];
+  assert.ok(signature && body, 'private owner-only candidate must remain present');
+  for (const input of [
+    'p_expected_gallery_work_id uuid',
+    'p_expected_gallery_current_work_revision_id uuid',
+    'p_expected_creator_profile_id uuid',
+    'p_expected_artifact_checksum_sha256 text',
+    'p_expected_artifact_byte_size bigint'
+  ]) assert.ok(signature.includes(input), 'required expected snapshot field absent: '+input);
+  const locked = body.indexOf('where work_id=v_assoc for update;');
+  const galleryCurrent = body.indexOf('SCENE_REVISION_GALLERY_CURRENT_REVISION_STALE');
+  const blobRecord = body.indexOf('from public.artifact_blobs where blob_id=p_artifact_blob_id;');
+  const blobPin = body.indexOf('SCENE_REVISION_REGISTERED_BLOB_EXPECTATION_STALE');
+  const mutation = body.indexOf('insert into public.idempotency_keys');
+  assert.ok(locked > 0 && galleryCurrent > locked && blobRecord > galleryCurrent &&
+    blobPin > blobRecord && mutation > blobPin, 'pin must be checked on DB rows before mutation');
+  for (const part of [
+    "'expectedGalleryWork',p_expected_gallery_work_id",
+    "'expectedGalleryCurrentRevision',p_expected_gallery_current_work_revision_id",
+    "'expectedCreator',p_expected_creator_profile_id",
+    "'expectedArtifactSha256',p_expected_artifact_checksum_sha256",
+    "'expectedArtifactBytes',p_expected_artifact_byte_size",
+    "'artifactChecksumSha256',lower(v_blob.checksum_sha256)",
+    "'artifactByteSize',v_blob.byte_size",
+    "'previousGalleryWorkRevisionId',p_expected_gallery_current_work_revision_id"
+  ]) assert.ok(body.includes(part), 'idempotency/response field absent: '+part);
+  assert.match(sql, /revoke all on function private\.scene_save_revision_paired_candidate_v1\(\s*uuid,uuid,uuid,bigint,bigint,uuid,uuid\[\],uuid,text,text,jsonb,text,text,uuid,uuid,uuid,text,bigint\)\s*from public,anon,authenticated,service_role/i);
+  assert.doesNotMatch(sql, /grant execute on function private\.scene_save_revision_paired_candidate_v1/i);
+});

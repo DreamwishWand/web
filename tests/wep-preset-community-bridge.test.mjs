@@ -556,3 +556,54 @@ test('Road topology survives the product-shaped Community reuse vertical and App
     true
   );
 });
+
+
+test('Owner Scene revision readiness remains diagnostic, not a writer authorization', async () => {
+  const presetArtifactId = '41234567-89ab-4def-8abc-1234567890ab';
+  let requested = 0;
+  const blocked = {
+    contract: 'ddv.scene-revision-readiness@1',
+    presetArtifactId,
+    graphComplete: false,
+    dependencyFingerprintIsAtomicFence: false,
+    saveRevisionAuthorized: false,
+    pairedGalleryPublishAuthorized: false,
+    unpublishAuthorized: false,
+    deleteAuthorized: false,
+    restoreAuthorized: false,
+    knownGalleryReferenceCount: 1,
+    blockedReasons: ['GALLERY_ALL_WRITER_LOCK_PROTOCOL_UNVERIFIED']
+  };
+  const { bridge } = makeHarness({
+    community: {
+      async preset(action, payload) {
+        requested++;
+        assert.equal(action, 'revisionReadiness');
+        assert.equal(payload.presetArtifactId, presetArtifactId);
+        return { ok: true, readiness: blocked };
+      }
+    }
+  });
+  assert.deepEqual(
+    await bridge.inspectSceneRevisionReadiness(presetArtifactId),
+    blocked
+  );
+  assert.equal(requested, 1);
+  await assert.rejects(
+    bridge.inspectSceneRevisionReadiness('INVALID'),
+    /WEP_SCENE_REVISION_READINESS_ID_INVALID/
+  );
+  assert.equal(requested, 1);
+
+  const invalid = makeHarness({
+    community: {
+      async preset() {
+        return { ok: true, readiness: { ...blocked, saveRevisionAuthorized: true } };
+      }
+    }
+  });
+  await assert.rejects(
+    invalid.bridge.inspectSceneRevisionReadiness(presetArtifactId),
+    /WEP_SCENE_REVISION_READINESS_UNSUPPORTED_POSITIVE/
+  );
+});
