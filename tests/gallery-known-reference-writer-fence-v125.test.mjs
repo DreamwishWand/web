@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const sql=read('supabase/migrations/20261025002200_gallery_known_reference_writer_fence_v1.sql');
+const sql=read('supabase/migrations/20261025002400_gallery_known_reference_writer_fence_v1.sql');
 const acceptance=read('supabase/staging/acceptance/gallery-known-reference-writer-fence-negative-v1.sql');
 test('one shared Work row lock is acquired for three existing reverse-reference insert/bind paths',()=>{
  assert.match(sql,/create or replace function private\.gallery_known_reference_writer_fence_v1\(\)/);
