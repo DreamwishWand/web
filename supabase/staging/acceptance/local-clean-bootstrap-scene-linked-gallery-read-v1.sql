@@ -17,6 +17,7 @@ declare
   v_work_revision uuid:=gen_random_uuid();
   v_blob uuid:=gen_random_uuid();
   v_info jsonb;
+  v_readiness jsonb;
   v_denied boolean:=false;
   v_tag text:=gen_random_uuid()::text;
 begin
@@ -130,6 +131,18 @@ begin
     or v_info ? 'storageKey' then
     raise exception 'LINKED_SCENE_MEDIA_COVER_CURRENT_PROJECTION_FAILED';
   end if;
+
+
+  v_readiness:=public.community_scene_revision_readiness_v1(v_auth,v_preset_id);
+  if v_readiness->>'knownGalleryReferenceCount'<>'1'
+    or v_readiness->>'knownHistoricalGalleryCount'<>'1'
+    or v_readiness->>'hasAssociatedGallery'<>'true'
+    or v_readiness->>'currentPresetRevisionId'<>v_preset_revision::text
+    or v_readiness->>'graphComplete'<>'false'
+    or v_readiness->>'pairedGalleryPublishAuthorized'<>'false'
+    or v_readiness->>'saveRevisionAuthorized'<>'false'
+    or v_readiness->>'crossOwnerOrUnresolvedGalleryCount'<>'0'
+  then raise exception 'SCENE_LINKED_READINESS_MUST_STAY_FAILCLOSED';end if;
 
   update public.media_assets set moderation_state='restricted' where media_id=v_media;
   v_denied:=false;
