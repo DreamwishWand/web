@@ -238,3 +238,37 @@ test('paired Gallery version hints are owner-scoped, nullable and non-atomic in 
   assert.ok(readiness.indexOf('v_owned_gallery.work_id') > ownedLookup);
   assert.doesNotMatch(readiness, /'storageKey'|'signedUrl'|'rawUrl'/);
 });
+
+test('inert paired Scene owner command pins Gallery identity/current revision and registered Blob manifest', () => {
+  const signature = sql.split('create or replace function private.scene_save_revision_paired_candidate_v1(')[1]
+    ?.split(') returns jsonb language plpgsql')[0];
+  const body = sql.split('create or replace function private.scene_save_revision_paired_candidate_v1(')[1]
+    ?.split('$paired_scene_candidate$')[1];
+  assert.ok(signature && body, 'private owner-only candidate must remain present');
+  for (const input of [
+    'p_expected_gallery_work_id uuid',
+    'p_expected_gallery_current_work_revision_id uuid',
+    'p_expected_creator_profile_id uuid',
+    'p_expected_artifact_checksum_sha256 text',
+    'p_expected_artifact_byte_size bigint'
+  ]) assert.ok(signature.includes(input), 'required expected snapshot field absent: '+input);
+  const locked = body.indexOf('where work_id=v_assoc for update;');
+  const galleryCurrent = body.indexOf('SCENE_REVISION_GALLERY_CURRENT_REVISION_STALE');
+  const blobRecord = body.indexOf('from public.artifact_blobs where blob_id=p_artifact_blob_id;');
+  const blobPin = body.indexOf('SCENE_REVISION_REGISTERED_BLOB_EXPECTATION_STALE');
+  const mutation = body.indexOf('insert into public.idempotency_keys');
+  assert.ok(locked > 0 && galleryCurrent > locked && blobRecord > galleryCurrent &&
+    blobPin > blobRecord && mutation > blobPin, 'pin must be checked on DB rows before mutation');
+  for (const part of [
+    "'expectedGalleryWork',p_expected_gallery_work_id",
+    "'expectedGalleryCurrentRevision',p_expected_gallery_current_work_revision_id",
+    "'expectedCreator',p_expected_creator_profile_id",
+    "'expectedArtifactSha256',p_expected_artifact_checksum_sha256",
+    "'expectedArtifactBytes',p_expected_artifact_byte_size",
+    "'artifactChecksumSha256',lower(v_blob.checksum_sha256)",
+    "'artifactByteSize',v_blob.byte_size",
+    "'previousGalleryWorkRevisionId',p_expected_gallery_current_work_revision_id"
+  ]) assert.ok(body.includes(part), 'idempotency/response field absent: '+part);
+  assert.match(sql, /revoke all on function private\.scene_save_revision_paired_candidate_v1\(\s*uuid,uuid,uuid,bigint,bigint,uuid,uuid\[\],uuid,text,text,jsonb,text,text,uuid,uuid,uuid,text,bigint\)\s*from public,anon,authenticated,service_role/i);
+  assert.doesNotMatch(sql, /grant execute on function private\.scene_save_revision_paired_candidate_v1/i);
+});
