@@ -162,6 +162,18 @@
       <h2>{t('galleryv1.images',{},$locale)}</h2>
       <label>{t('galleryv1.title',{},$locale)}<input bind:value={title} maxlength="240" required /></label>
       <label>{t('galleryv1.description',{},$locale)}<textarea bind:value={description} maxlength="20000"></textarea></label>
+      <aside class="temporary-upload-notice" role="note" aria-label={t('galleryv1.temporaryHeading',{},$locale)}>
+        <h3>{t('galleryv1.temporaryHeading',{},$locale)}</h3>
+        <p>{t('galleryv1.temporaryNotice',{},$locale)}</p>
+        <p>{t('galleryv1.uploadInactive',{},$locale)}</p>
+        <p>{t('galleryv1.discardPending',{},$locale)}</p>
+        <p>{t('galleryv1.expiredReupload',{},$locale)}</p>
+        <p>{t('galleryv1.publishRetry',{},$locale)}</p>
+        <button type="button" disabled aria-disabled="true" title={t('galleryv1.ownerDiscardUnavailable',{},$locale)}>
+          {t('galleryv1.ownerDiscard',{},$locale)}
+        </button>
+        <p>{t('galleryv1.ownerDiscardUnavailable',{},$locale)}</p>
+      </aside>
       <label>{t('galleryv1.chooseFiles',{},$locale)}
         <input type="file" accept="image/jpeg,image/png,image/webp" multiple on:change={chooseFiles}/>
       </label>
@@ -200,6 +212,8 @@
       {/if}
       <p class="notice" role="status">{t('galleryv1.uploadNotReady',{},$locale)} <code>{GALLERY_PUBLICATION_BLOCKER}</code></p>
       <p>{t('galleryv1.technicalBlockDetail',{},$locale)}</p>
+      <p>{t('galleryv1.temporaryNotice',{},$locale)}</p>
+      <p>{t('galleryv1.publishRetry',{},$locale)}</p>
       <button type="button" disabled aria-disabled="true" title={t('galleryv1.uploadNotReady',{},$locale)}>{t('galleryv1.publishWork',{},$locale)}</button>
     </div>
   {/if}
@@ -213,6 +227,10 @@
 </section>
 
 <style>
+  .temporary-upload-notice{border:1px solid var(--border);border-radius:12px;padding:14px;display:grid;gap:8px;background:var(--surface-raised);min-width:0}
+  .temporary-upload-notice h3,.temporary-upload-notice p{margin:0}
+  .temporary-upload-notice button{justify-self:start}
+
   .gallery-composer{width:min(1080px,calc(100% - 32px));margin:0 auto;padding:26px 0 64px;min-width:0}
   header h1{font-family:Georgia,serif;font-size:clamp(30px,5vw,46px);margin:20px 0 8px}header p{color:var(--ink-soft);line-height:1.6}
   .steps,.step-actions{display:flex;flex-wrap:wrap;gap:10px;margin:22px 0}.steps button{flex:1;min-width:min(100%,170px);text-align:center}.steps button.active{border-color:var(--gold)}
