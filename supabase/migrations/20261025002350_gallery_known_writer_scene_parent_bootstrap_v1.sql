@@ -518,6 +518,7 @@ declare
   v_owner uuid;
   v_artifact public.preset_artifacts%rowtype;
   v_work public.community_works%rowtype;
+  v_owned_gallery public.community_works%rowtype;
   v_revision_count integer:=0;
   v_latest_revision integer:=0;
   v_current_preset_revision uuid;
@@ -621,6 +622,22 @@ begin
       select 1 from public.gallery_works g where g.work_id=cwr.work_id
     );
 
+  -- Owner-scoped paired Gallery version hints, deliberately NONATOMIC.
+  -- Never expose a foreign or unresolved associated Gallery Work ID/version.
+  -- Even a valid owner snapshot MUST be re-read under the global writer locks
+  -- before any future Save Revision or paired publication command.
+  if v_artifact.associated_gallery_work_id is not null
+    and v_cross_owner=0 and v_referenced_unknown=0
+    and cardinality(v_all_ids)=1
+    and v_all_ids[1]=v_artifact.associated_gallery_work_id
+  then
+    select * into v_owned_gallery from public.community_works
+    where work_id=v_artifact.associated_gallery_work_id
+      and owner_account_id=v_owner
+      and creator_profile_id=v_artifact.creator_profile_id
+      and work_type='gallery';
+  end if;
+
   -- A versioned Scene-scoped history digest for future caller authorization.
   -- This owner-only read is NONATOMIC and cannot enable any positive writer.
   select coalesce(array_agg(e.edge order by e.edge),array[]::text[])
@@ -684,6 +701,11 @@ begin
     'latestRevisionNumber',v_latest_revision,
     'currentArtifactAvailable',v_current_blob.blob_id is not null,
     'hasAssociatedGallery',v_artifact.associated_gallery_work_id is not null,
+    'pairedGalleryWorkId',v_owned_gallery.work_id,
+    'pairedGalleryWorkRowVersion',v_owned_gallery.row_version,
+    'pairedGalleryCurrentWorkRevisionId',
+      v_owned_gallery.current_published_revision_id,
+    'pairedGallerySnapshotIsAtomicFence',false,
     'knownHistoricalGalleryCount',cardinality(v_link_ids),
     'knownGalleryReferenceCount',cardinality(v_all_ids),
     'crossOwnerOrUnresolvedGalleryCount',v_cross_owner+v_referenced_unknown,
