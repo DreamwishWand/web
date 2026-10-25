@@ -1,0 +1,22 @@
+name: 09 INT R17 Post-Owner closure readiness and URL issuer census
+on:
+  push:
+    branches:
+      - validation/09int-r17-postowner-closure-readiness-and-issuer-census-20261026
+permissions:
+  contents: read
+jobs:
+  r17-postowner-closure-source-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Independent old-writer closure readiness and issuer source-only census
+        run: node --test tests/09int-r17-postowner-closure-readiness-and-issuer-census.test.mjs
+      - name: Not a real signed or post-fix DB acceptance
+        run: echo 'Actual new-owner Writer two-backend replay remains BLOCKED until Owner source correction; no Staging, no merge, no release promotion.'
