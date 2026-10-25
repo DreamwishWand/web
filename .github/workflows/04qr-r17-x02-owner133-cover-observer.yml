@@ -1,0 +1,81 @@
+name: 04 QR R17-X02 Source133 independent Photo Cover observer acceptance
+on:
+  push:
+    branches:
+      - validation/04qr-r17-owner133-cover-ordinal-independent-20261026
+    paths:
+      - 'tests/qr-r17-x02-owner133-cover-ordinal-independent.py'
+      - '.github/workflows/04qr-r17-x02-owner133-cover-observer.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-source133-cover-observer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      DDVRE_QR_R17_X02_LOCAL: CONFIRMED
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install PostgreSQL client
+        run: python -m pip install --disable-pip-version-check 'psycopg[binary]>=3,<4'
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Verify immutable Source133 Owner and 133 unique migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD | tee /tmp/qr-r17-x02-head.txt
+          git merge-base --is-ancestor f3918b18c546087202d5118e741547b42fa55b28 HEAD
+          test -z "$(git diff --name-only f3918b18c546087202d5118e741547b42fa55b28 HEAD -- supabase/migrations supabase/functions)"
+          python3 - <<'PY'
+          from pathlib import Path
+          from collections import Counter
+          p=list(Path('supabase/migrations').glob('*.sql'))
+          assert len(p)==133, len(p)
+          assert max(Counter(x.name.split('_',1)[0] for x in p).values())==1
+          assert any(x.name.startswith('20261025002970_') for x in p)
+          c=Path('supabase/config.toml')
+          body=c.read_text()
+          assert not any(s.strip().startswith('project_id =') for s in body.splitlines())
+          c.write_text('project_id = "ddvre_qr_r17_x02_source133"'+chr(10)+body)
+          print('QR_R17_X02_FROZEN_SOURCE133_NO_SQL_EDGE_CHANGE')
+          PY
+      - name: Start clean isolated full Source133 database
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 1500s supabase start > /tmp/qr-r17-x02-bootstrap.log 2>&1 || {
+            grep -Ein -B 3 -A 8 'error|failed|sqlstate' /tmp/qr-r17-x02-bootstrap.log | tail -n 100 || true
+            tail -n 50 /tmp/qr-r17-x02-bootstrap.log || true
+            exit 1
+          }
+          echo QR_R17_X02_SOURCE133_133_MIGRATIONS_APPLIED
+      - name: Independently verify actual SQL Cover order privacy actor and zero side-effects
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -u tests/qr-r17-x02-owner133-cover-ordinal-independent.py | tee /tmp/qr-r17-x02-cases.jsonl
+          grep -q 'QR_R17_X02_SOURCE133_INDEPENDENT_POSTFIX_COVER_OBSERVER_PASS' /tmp/qr-r17-x02-cases.jsonl
+          echo QR_SOURCE_ONLY_NO_SIGNED_STAGE_OR_STORAGE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qr-r17-x02-source133-independent-postfix
+          path: |
+            /tmp/qr-r17-x02-head.txt
+            /tmp/qr-r17-x02-bootstrap.log
+            /tmp/qr-r17-x02-cases.jsonl
+          if-no-files-found: warn
+          retention-days: 10
+      - name: Destroy disposable local database
+        if: always()
+        run: supabase stop --no-backup || true
