@@ -73,6 +73,8 @@ test('Source124 server scoped SHA preserved exactly; only owner summary returned
  assert.equal(observation.productApplyAuthorized,false);
  assert.ok(observation.blockedReasons.includes('R15_GALLERY_SCOPED_GRAPH_NOT_GLOBAL'));
  assert.equal('expectedGraph' in observation,false);
+ assert.equal('observedAccountId' in observation,false);
+ assert.equal('observedAuthSubject' in observation,false);
  assert.equal('storageKey' in observation,false);
  assert.equal(JSON.stringify(raw),before);
 });
@@ -121,7 +123,9 @@ test('Current/historical revision and Media/Cover mirror must agree and missing 
    s=>s.expectedGraph.graph.workRevisions=[],
    s=>s.expectedGraph.graph.presetRevisions=[],
    s=>s.mediaReferences[0].work_revision_id=I.presetWorkRev,
-   s=>s.coverReferences[0].cover_media_id=I.presetWorkRev
+   s=>s.coverReferences[0].cover_media_id=I.presetWorkRev,
+   s=>{s.coverReferences=[];s.expectedGraph.graph.coverReferences=[]},
+   s=>{s.mediaReferences=[];s.expectedGraph.graph.mediaReferences=[]}
  ]){
   const s=server();change(s);assert.throws(()=>parse(s),/WEP_R15_/);
  }
