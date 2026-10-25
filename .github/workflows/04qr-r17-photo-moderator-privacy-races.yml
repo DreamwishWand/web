@@ -1,0 +1,77 @@
+name: 04 QR R17 Photo Moderator and Phase1 Privacy real PostgreSQL races
+on:
+  push:
+    branches:
+      - validation/04qr-r17-owner131-independent-20261026
+    paths:
+      - 'tests/qr-r17-photo-moderator-privacy-races.py'
+      - '.github/workflows/04qr-r17-photo-moderator-privacy-races.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source131-moderator-privacy-races:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      DDVRE_QR_R17_ISOLATED_LOCAL: CONFIRMED
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check 'psycopg[binary]>=3,<4'
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Pin immutable Owner Source131 and isolated local 131 migration ledger
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$(git rev-parse HEAD)" > /tmp/qr-r17-race-head.txt
+          git merge-base --is-ancestor 83395094d5780ef0c9894d41a50b099823d55dad HEAD
+          test -z "$(git diff --name-only 83395094d5780ef0c9894d41a50b099823d55dad HEAD -- supabase/migrations supabase/functions)"
+          python3 - <<'PY'
+          from pathlib import Path
+          from collections import Counter
+          p=list(Path('supabase/migrations').glob('*.sql'))
+          assert len(p)==131, len(p)
+          assert max(Counter(x.name.split('_',1)[0] for x in p).values())==1
+          c=Path('supabase/config.toml')
+          t=c.read_text()
+          assert not any(x.strip().startswith('project_id =') for x in t.splitlines())
+          c.write_text('project_id = "ddvre_qr_r17_mod_priv_races"\n'+t)
+          PY
+          echo QA_R17_PINNED_SOURCE131_NO_WRITER_CHANGES
+      - name: Apply full clean Source131 in disposable local PostgreSQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 1500s supabase start > /tmp/qr-r17-races-bootstrap.log 2>&1 || {
+            grep -Ein -B 2 -A 5 'error|failed|sqlstate' /tmp/qr-r17-races-bootstrap.log | tail -n 80 || true
+            tail -n 35 /tmp/qr-r17-races-bootstrap.log || true
+            exit 1
+          }
+      - name: Run only new real two-backend Moderator/Privacy race cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -u tests/qr-r17-photo-moderator-privacy-races.py | tee /tmp/qr-r17-races.jsonl
+          grep -q 'QR_R17_ACTUAL_SOURCE131_MODERATOR_PRIVACY_RACES_PASS' /tmp/qr-r17-races.jsonl
+          echo QA_SOURCE_ONLY_NOT_SIGNED_STAGING
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qr-r17-photo-moderator-privacy-races
+          path: |
+            /tmp/qr-r17-race-head.txt
+            /tmp/qr-r17-races-bootstrap.log
+            /tmp/qr-r17-races.jsonl
+          if-no-files-found: warn
+          retention-days: 10
+      - name: Tear down disposable PostgreSQL, no backup
+        if: always()
+        run: supabase stop --no-backup || true
