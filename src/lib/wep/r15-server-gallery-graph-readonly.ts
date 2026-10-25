@@ -59,10 +59,12 @@ export interface R15ScopedGraphObservation {
   blockedReasons:readonly string[];
 }
 export function parseR15ServerGalleryGraph(rawInput:unknown,expected:R15GraphExpectation):R15ScopedGraphObservation {
-  if(!rec(rawInput)||rawInput.schemaVersion!==WEP_R15_SCHEMA||
-      rawInput.registryVersion!==WEP_R15_REGISTRY)fail('WEP_R15_SCHEMA_OR_REGISTRY_UNSUPPORTED');
-  if(rawInput.authoritative!==true||rawInput.graphComplete!==false||
-      typeof rawInput.expectedGraphSha256!=='string'||!SHA.test(rawInput.expectedGraphSha256)) {
+  if(!rec(rawInput))fail('WEP_R15_SCHEMA_OR_REGISTRY_UNSUPPORTED');
+  const raw=rawInput as Record<string,any>;
+  if(raw.schemaVersion!==WEP_R15_SCHEMA||
+      raw.registryVersion!==WEP_R15_REGISTRY)fail('WEP_R15_SCHEMA_OR_REGISTRY_UNSUPPORTED');
+  if(raw.authoritative!==true||raw.graphComplete!==false||
+      typeof raw.expectedGraphSha256!=='string'||!SHA.test(raw.expectedGraphSha256)) {
     fail('WEP_R15_AUTHORITY_OR_SHA_INVALID');
   }
   if(!rec(expected)||!uuid(expected.galleryWorkId)||!uuid(expected.presetArtifactId)||
@@ -72,7 +74,7 @@ export function parseR15ServerGalleryGraph(rawInput:unknown,expected:R15GraphExp
   const wanted=unique(expected.requestedPresetRevisionIds,'REQUESTED');
   if(expected.authSubject!==undefined&&!uuid(expected.authSubject) ||
       expected.accountId!==undefined&&!uuid(expected.accountId))fail('WEP_R15_SESSION_ID_INVALID');
-  const root=rawInput.expectedGraph, graph=rec(root)?root.graph:null;
+  const root=raw.expectedGraph, graph=rec(root)?root.graph:null;
   if(!rec(root)||!rec(graph)||root.registryVersion!==WEP_R15_REGISTRY||
       !uuid(root.accountId)||!uuid(root.authSubject)||root.ownerActive!==true||
       root.identityActive!==true||root.galleryWorkId!==expected.galleryWorkId)
@@ -83,9 +85,9 @@ export function parseR15ServerGalleryGraph(rawInput:unknown,expected:R15GraphExp
   const requested=unique(root.requestedPresetRevisionIds,'GRAPH_REQUESTED');
   if(requested.length!==wanted.length||requested.some((x,i)=>x!==wanted[i]))
     fail('WEP_R15_REQUESTED_REVISIONS_STALE');
-  const artifacts=unique(rawInput.expectedArtifactIds,'ARTIFACT_IDS');
-  const presets=unique(rawInput.expectedPresetWorkIds,'PRESET_WORK_IDS');
-  const galleries=unique(rawInput.expectedGalleryWorkIds,'GALLERY_WORK_IDS');
+  const artifacts=unique(raw.expectedArtifactIds,'ARTIFACT_IDS');
+  const presets=unique(raw.expectedPresetWorkIds,'PRESET_WORK_IDS');
+  const galleries=unique(raw.expectedGalleryWorkIds,'GALLERY_WORK_IDS');
   const arrays:[string,readonly string[]][]=[
     ['artifactIds',artifacts],['presetWorkIds',presets],['galleryWorkIds',galleries]];
   for(const [key,list] of arrays){
@@ -103,7 +105,7 @@ export function parseR15ServerGalleryGraph(rawInput:unknown,expected:R15GraphExp
       graph.artifacts[0].owner_account_id!==root.accountId||
       graph.artifacts[0].creator_profile_id!==expected.creatorProfileId)
     fail('WEP_R15_UNKNOWN_FACET_OR_OWNER_CREATOR');
-  const states=rawInput.expectedWorkStates;
+  const states=raw.expectedWorkStates;
   if(!Array.isArray(states)||!Array.isArray(graph.works)||
       states.length!==graph.works.length)fail('WEP_R15_WORK_STATES_MISSING');
   const workMap=new Map<string,Record<string,any>>();
@@ -175,19 +177,19 @@ export function parseR15ServerGalleryGraph(rawInput:unknown,expected:R15GraphExp
     presetRevs.add(row.preset_revision_id);
   }
   const referencedMedia=new Map<string,Set<string>>();
-  for(const row of rawInput.mediaReferences){
+  for(const row of raw.mediaReferences){
     if(!galleries.includes(workRevs.get(row.work_revision_id)??''))
       fail('WEP_R15_UNKNOWN_MEDIA_REVISION');
     const set=referencedMedia.get(row.work_revision_id)??new Set<string>();
     if(set.has(row.media_id))fail('WEP_R15_DUPLICATE_MEDIA_REFERENCE');
     set.add(row.media_id);referencedMedia.set(row.work_revision_id,set);
   }
-  for(const row of rawInput.coverReferences){
+  for(const row of raw.coverReferences){
     if(!galleries.includes(workRevs.get(row.revision_id)??'')||
         !referencedMedia.get(row.revision_id)?.has(row.cover_media_id))
       fail('WEP_R15_COVER_NOT_IN_REVISION_MEDIA');
   }
-  for(const row of rawInput.historicalPresetLinks){
+  for(const row of raw.historicalPresetLinks){
     if(!galleries.includes(workRevs.get(row.gallery_revision_id)??'')||
         !presetRevs.has(row.preset_revision_id))
       fail('WEP_R15_UNRESOLVED_HISTORICAL_LINK');
@@ -196,7 +198,7 @@ export function parseR15ServerGalleryGraph(rawInput:unknown,expected:R15GraphExp
       !workRevs.has(p.current_published_revision_id) ||
       !presetRevs.has(expected.currentPresetRevisionId))
     fail('WEP_R15_CURRENT_REVISION_ROSTER_MISSING');
-  if(!rawInput.historicalPresetLinks.some((x:any)=>x.gallery_revision_id===expected.currentGalleryRevisionId&&
+  if(!raw.historicalPresetLinks.some((x:any)=>x.gallery_revision_id===expected.currentGalleryRevisionId&&
       x.preset_revision_id===expected.currentPresetRevisionId))
     fail('WEP_R15_CURRENT_HISTORICAL_LINK_MISMATCH');
   const blocked=[
@@ -210,7 +212,7 @@ export function parseR15ServerGalleryGraph(rawInput:unknown,expected:R15GraphExp
     blocked.push('R15_CLIENT_SESSION_CROSS_ATTESTATION_UNAVAILABLE');
   return Object.freeze({
     schemaVersion:1,registryVersion:WEP_R15_REGISTRY,
-    expectedGraphSha256:rawInput.expectedGraphSha256,
+    expectedGraphSha256:raw.expectedGraphSha256,
     observedGalleryWorkId:g.work_id,observedAccountId:root.accountId,
     observedAuthSubject:root.authSubject,
     observedCreatorProfileId:expected.creatorProfileId,
@@ -218,9 +220,9 @@ export function parseR15ServerGalleryGraph(rawInput:unknown,expected:R15GraphExp
     observedGalleryCurrentRevisionId:g.current_published_revision_id,
     observedPresetRowVersion:p.row_version,
     observedPresetCurrentRevisionId:p.current_published_revision_id,
-    historicalPresetLinkCount:rawInput.historicalPresetLinks.length,
-    mediaReferenceCount:rawInput.mediaReferences.length,
-    coverReferenceCount:rawInput.coverReferences.length,
+    historicalPresetLinkCount:raw.historicalPresetLinks.length,
+    mediaReferenceCount:raw.mediaReferences.length,
+    coverReferenceCount:raw.coverReferences.length,
     requestedPresetRevisionIds:Object.freeze([...requested]),
     expectedArtifactIds:Object.freeze([...artifacts]),
     expectedPresetWorkIds:Object.freeze([...presets]),
