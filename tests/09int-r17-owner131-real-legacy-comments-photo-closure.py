@@ -29,8 +29,11 @@ with psycopg.connect(dsn,autocommit=True) as c:
       c.execute("insert into public.gallery_work_settings(work_id,comments_enabled) values(%s,true)",(w,))
       c.execute("insert into public.community_work_revisions(revision_id,work_id,revision_number,created_by_account_id) values(%s,%s,1,%s)",(revs[w],w,owner))
       c.execute("insert into public.gallery_work_revisions(revision_id,title) values(%s,'R17 photo previous')",(revs[w],))
-      c.execute("""update public.community_works set lifecycle_state='published',
-        current_published_revision_id=%s,published_at=now() where work_id=%s""",(revs[w],w))
+      # Seal direct-only Gallery now; historical Galleries are sealed AFTER
+      # their immutable gallery_revision_presets fixtures are created.
+      if w==g_direct:
+        c.execute("""update public.community_works set lifecycle_state='published',
+          current_published_revision_id=%s,published_at=now() where work_id=%s""",(revs[w],w))
       c.execute("""insert into public.search_documents(
         entity_id,work_id,work_type,creator_profile_id,title,text_content,tags,facets,published_at,updated_at)
         values(%s,%s,'gallery',%s,'R17 photo previous','',array[]::text[],
@@ -56,6 +59,9 @@ with psycopg.connect(dsn,autocommit=True) as c:
     c.execute("insert into public.preset_revision_publications(work_revision_id,preset_revision_id) values(%s,%s)",(preset_work_rev,preset_rev))
     for w in [g_history,g_both]:
       c.execute("insert into public.gallery_revision_presets(gallery_revision_id,preset_revision_id) values(%s,%s)",(revs[w],preset_rev))
+    for w in (g_history,g_both):
+      c.execute("""update public.community_works set lifecycle_state='published',
+        current_published_revision_id=%s,published_at=now() where work_id=%s""",(revs[w],w))
     c.execute("""update public.community_works set lifecycle_state='published',current_published_revision_id=%s,
       published_at=now() where work_id=%s""",(preset_work_rev,preset_work))
     # DreamSnaps under13: test actual v2 branch rather than replacing or disabling it.
