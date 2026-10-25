@@ -43,8 +43,8 @@ test('Photo actual writer locks Account then Gallery before advisory, denies dir
  assert.match(photo,/community_publish_gallery_v4/);
  assert.doesNotMatch(photo,/delete from public/);
 });
-test('R17 actual two-session negatives and DreamSnaps under13 are wired into 131 migration isolated bootstrap',()=>{
- assert.match(workflow,/assert len\(fs\)==131/);
+test('R17 actual two-session negatives and DreamSnaps under13 are wired into 132 migration isolated bootstrap',()=>{
+ assert.match(workflow,/assert len\(fs\)==132/);
  assert.match(workflow,/MIGRATION_LEDGER_NOT_131/);
  assert.match(workflow,/comm-r17-photo-legacy-comments-two-session\.py/);
  for(const marker of ['R17_PHOTO_','R17_LEGACY_GALLERY_COMMENTS_',
