@@ -38,6 +38,7 @@ test('R15 UI stays owner-only, clears graph on actor bridge/session change, drop
  assert.match(text,/graphSessionEpoch/);
  assert.match(text,/window\.setInterval\(checkActor, 750\)/);
  assert.match(text,/ownerSessionSubject/);
+ assert.match(text,/requestedBridge\?\.getAuthenticatedSubjectId\?\.\(\) === requestedSubject/);
  assert.match(text,/now !== ownerSessionSubject/);
  assert.match(text,/window\.clearInterval\(timer\)/);
  assert.match(text,/getAuthenticatedSubjectId/);
