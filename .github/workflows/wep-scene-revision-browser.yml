@@ -2,7 +2,7 @@ name: WEP Scene Revision read-only browser acceptance
 
 on:
   push:
-    branches: ['wep/scene-revision-gallery-consumer-20261024']
+    branches: ['wep/scene-revision-gallery-consumer-20261024', 'wep/r15-server-gallery-graph-readonly-20261026']
   workflow_dispatch:
 
 permissions:
