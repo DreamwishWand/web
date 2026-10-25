@@ -25,6 +25,8 @@ on:
       - 'supabase/migrations/20261025002930_r17_legacy_gallery_comments_v2_dreamsnaps_preserved.sql'
       - 'supabase/migrations/20261025002940_r17_gallery_photo_direct_history_guard.sql'
       - 'supabase/migrations/20261025002950_r17_gallery_comments_registry_denial.sql'
+      - 'supabase/migrations/20261025002960_gallery_photo_media_readonly_preflight_r17.sql'
+      - 'tests/community-r17-photo-media-preflight-contract.test.mjs'
       - 'supabase/migrations/20261025002890_community_writer_registry_r16.sql'
       - 'supabase/migrations/20261025002900_gallery_comments_atomic_r16.sql'
       - 'supabase/migrations/20261025002910_gallery_comments_atomic_r16_acl.sql'
@@ -63,7 +65,7 @@ jobs:
           from pathlib import Path
           import re
           fs=sorted(Path('supabase/migrations').glob('*.sql'))
-          assert len(fs)==131, f'expected 131 source SQL files (115 prior + 4 R14 scoped Gallery-v4/ACL), got {len(fs)}'
+          assert len(fs)==132, f'expected 132 source SQL files, got {len(fs)}'
           vs=[f.name.split('_',1)[0] for f in fs]
           assert all(re.fullmatch(r'\d{12}(?:\d{2})?',v) for v in vs)
           assert len(vs)==len(set(vs)), 'migration version collision'
@@ -72,7 +74,7 @@ jobs:
                          ('20261025002300','gallery_capacity_effective_cleanup_diagnostics_v1'),
                          ('20261025002400','gallery_known_reference_writer_fence_v1')]:
               assert sum(f.name==v+'_'+name+'.sql' for f in fs)==1
-          print('SOURCE_CANDIDATE_131_MIGRATIONS_UNIQUE_AND_ORDERED_PASS')
+          print('SOURCE_CANDIDATE_132_MIGRATIONS_UNIQUE_AND_ORDERED_PASS')
           PY
       - name: Source-Candidate migration static regression
         shell: bash
@@ -112,13 +114,18 @@ jobs:
           DECLARE v int;
           BEGIN
             SELECT count(*) INTO v FROM supabase_migrations.schema_migrations;
-            IF v<>131 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_131: %',v;END IF;
+            IF v<>132 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_132: %',v;END IF;
             IF (select enrollment_state from private.community_writer_routes_r16 where writer_key='gallery-comments-legacy')<>'FAIL_CLOSED'
             THEN RAISE EXCEPTION 'R17_LEGACY_REGISTRY_NOT_CLOSED';END IF;
             IF to_regprocedure('public.community_set_gallery_comments_enabled_v1(uuid,uuid,boolean)') IS NULL
                OR to_regprocedure('public.community_set_gallery_comments_enabled_v2(uuid,uuid,boolean)') IS NULL
                OR to_regprocedure('public.community_publish_gallery_photo_v1(uuid,uuid,uuid,bigint,text,uuid,text,text,uuid[],uuid,boolean,text)') IS NULL
             THEN RAISE EXCEPTION 'R17_GALLERY_LEGACY_PHOTO_GUARDS_MISSING';END IF;
+            IF to_regprocedure('public.community_gallery_photo_media_preflight_r17(uuid,uuid)') IS NULL
+            THEN RAISE EXCEPTION 'R17_PHOTO_MEDIA_PREFLIGHT_MISSING';END IF;
+            IF has_function_privilege('anon','public.community_gallery_photo_media_preflight_r17(uuid,uuid)','EXECUTE')
+              OR has_function_privilege('authenticated','public.community_gallery_photo_media_preflight_r17(uuid,uuid)','EXECUTE')
+            THEN RAISE EXCEPTION 'R17_PHOTO_MEDIA_PREFLIGHT_ACL_EXPOSED';END IF;
             IF to_regclass('private.community_writer_reference_registry_r16') IS NULL
               OR to_regclass('private.community_writer_routes_r16') IS NULL
               OR to_regprocedure('public.community_set_gallery_comments_enabled_atomic_r16(uuid,uuid,bigint,uuid,boolean,text)') IS NULL
@@ -168,7 +175,7 @@ jobs:
             IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid='public.gallery_photo_revision_fields'::regclass)
              OR NOT (SELECT relrowsecurity FROM pg_class WHERE oid='public.community_media_upload_intents'::regclass)
             THEN RAISE EXCEPTION 'RLS_NOT_ENABLED';END IF;
-            RAISE NOTICE 'LOCAL_SOURCE_CANDIDATE_131_LEDGER_FUNCTION_TRIGGER_RLS_ACL_PHYSICAL_FAILCLOSED_PASS';
+            RAISE NOTICE 'LOCAL_SOURCE_CANDIDATE_132_LEDGER_FUNCTION_TRIGGER_RLS_ACL_PHYSICAL_FAILCLOSED_PASS';
           END $checks$;
           SELECT extname FROM pg_extension ORDER BY extname;
           SELECT n.nspname,COUNT(*) FILTER (WHERE p.prosecdef) AS security_definer_count
@@ -201,7 +208,8 @@ jobs:
             supabase/migrations/20261025002920_r17_legacy_gallery_comments_v1_closed.sql \
             supabase/migrations/20261025002930_r17_legacy_gallery_comments_v2_dreamsnaps_preserved.sql \
             supabase/migrations/20261025002940_r17_gallery_photo_direct_history_guard.sql \
-            supabase/migrations/20261025002950_r17_gallery_comments_registry_denial.sql; do
+            supabase/migrations/20261025002950_r17_gallery_comments_registry_denial.sql \
+            supabase/migrations/20261025002960_gallery_photo_media_readonly_preflight_r17.sql; do
             for attempt in 1 2; do
               docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < "$file"
             done
