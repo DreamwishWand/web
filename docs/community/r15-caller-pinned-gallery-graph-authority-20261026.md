@@ -1,6 +1,6 @@
 # DDVRE — 03 COMM R15 Caller-Pinned Actual Gallery Writer (Source Candidate)
 
-Status: **DRAFT / DO_NOT_MERGE / DO_NOT_DEPLOY**. Owner PR #134 (parent #129). Existing 119 migrations (including R12 privacy, R13 retired-identity, and R14 actual source lock enrollment) are not rewritten. Added R15 migration: `20261025002840_gallery_caller_pinned_graph_r15.sql` (total 120).
+Status: **DRAFT / DO_NOT_MERGE / DO_NOT_DEPLOY**. Owner PR #134 (parent #129). Existing 119 migrations (including R12 privacy, R13 retired-identity, and R14 actual source lock enrollment) are not rewritten. Added five parser-safe R15 migrations: 02840 canonical snapshot, 02850 preflight, 02860 actual pinned Writer, 02870 legacy v4 Guard, 02880 ACL. Total **124** source migrations.
 
 Scope: verified native reference **Nintendo Switch DDV v1.25.0**, BID `52BD625D9B4E0053`, save schema 624. No native writer is enabled. Switch v1.25.3 schema626 and Steam native writers remain OFF.
 
