@@ -1,0 +1,840 @@
+{
+  "registryVersion": "ddv.writer-callsite-census@r16",
+  "origin": {
+    "ownerRepo": "DreamwishWand/web",
+    "branch": "verification/comm-clean-bootstrap-20261024",
+    "sourceHead": "0e7296483f422bdc56920d44c0b038fe545424ab",
+    "scope": "literal RPC calls and commandToRpc route mappings in 16 Edge Functions; dynamic/invoked SQL and external native/storage calls not proven complete"
+  },
+  "sourceOnly": true,
+  "globalGraphComplete": false,
+  "positiveAuthorizationsUnchanged": true,
+  "edgeSources": [
+    {
+      "edge": "community-account",
+      "literalRpcCount": 1,
+      "commandCount": 0,
+      "error": null
+    },
+    {
+      "edge": "community-admin",
+      "literalRpcCount": 1,
+      "commandCount": 0,
+      "error": null
+    },
+    {
+      "edge": "community-auth",
+      "literalRpcCount": 4,
+      "commandCount": 0,
+      "error": null
+    },
+    {
+      "edge": "community-command",
+      "literalRpcCount": 3,
+      "commandCount": 48,
+      "error": null
+    },
+    {
+      "edge": "community-email-resend",
+      "literalRpcCount": 1,
+      "commandCount": 0,
+      "error": null
+    },
+    {
+      "edge": "community-media",
+      "literalRpcCount": 12,
+      "commandCount": 0,
+      "error": null
+    },
+    {
+      "edge": "community-ops-email",
+      "literalRpcCount": 5,
+      "commandCount": 0,
+      "error": null
+    },
+    {
+      "edge": "community-ops-escalation",
+      "literalRpcCount": 5,
+      "commandCount": 0,
+      "error": null
+    },
+    {
+      "edge": "community-public-media",
+      "literalRpcCount": 2,
+      "commandCount": 0,
+      "error": null
+    },
+    {
+      "edge": "community-public-query",
+      "literalRpcCount": 0,
+      "commandCount": 0,
+      "error": null
+    },
+    {
+      "edge": "community-query",
+      "literalRpcCount": 1,
+      "commandCount": 0,
+      "error": null
+    },
+    {
+      "edge": "community-retention",
+      "literalRpcCount": 12,
+      "commandCount": 0,
+      "error": null
+    },
+    {
+      "edge": "community-wep-retention-e2e",
+      "literalRpcCount": 0,
+      "commandCount": 0,
+      "error": null
+    },
+    {
+      "edge": "wep-preset-artifact",
+      "literalRpcCount": 5,
+      "commandCount": 0,
+      "error": null
+    },
+    {
+      "edge": "wep-preset-flow-e2e",
+      "literalRpcCount": 0,
+      "commandCount": 0,
+      "error": null
+    },
+    {
+      "edge": "wep-preset-retention",
+      "literalRpcCount": 3,
+      "commandCount": 0,
+      "error": null
+    }
+  ],
+  "callSites": [
+    {
+      "callSite": "community-account:rpc:community_request_privacy_suppression_v1",
+      "edge": "community-account",
+      "rpc": "community_request_privacy_suppression_v1",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "SAFETY_INDEPENDENT_PHASE1"
+    },
+    {
+      "callSite": "community-admin:rpc:community_authorize_session",
+      "edge": "community-admin",
+      "rpc": "community_authorize_session",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-auth:rpc:community_claim_provider_cleanup_jobs",
+      "edge": "community-auth",
+      "rpc": "community_claim_provider_cleanup_jobs",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-auth:rpc:community_complete_provider_cleanup",
+      "edge": "community-auth",
+      "rpc": "community_complete_provider_cleanup",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-auth:rpc:community_fail_provider_cleanup",
+      "edge": "community-auth",
+      "rpc": "community_fail_provider_cleanup",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-auth:rpc:community_verify_worker_token",
+      "edge": "community-auth",
+      "rpc": "community_verify_worker_token",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:addAnswer",
+      "edge": "community-command",
+      "rpc": "community_add_answer_v1",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:addComment",
+      "edge": "community-command",
+      "rpc": "community_add_comment_v3",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:addDreamsnapBrowseReaction",
+      "edge": "community-command",
+      "rpc": "community_dreamsnap_add_browse_reaction_v1",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:addDreamsnapSpecialPick",
+      "edge": "community-command",
+      "rpc": "community_dreamsnap_special_pick_v1",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:addReaction",
+      "edge": "community-command",
+      "rpc": "community_add_reaction",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:askQuestion",
+      "edge": "community-command",
+      "rpc": "community_ask_question_v1",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:associateDdvIdentity",
+      "edge": "community-command",
+      "rpc": "community_associate_ddv_identity_v1",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:castDreamsnapVote",
+      "edge": "community-command",
+      "rpc": "community_dreamsnap_cast_formal_vote_v1",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:changeVisibility",
+      "edge": "community-command",
+      "rpc": "community_change_work_visibility",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:createDdvProfileWorkspace",
+      "edge": "community-command",
+      "rpc": "community_create_ddv_profile_workspace_v1",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:createGalleryDraft",
+      "edge": "community-command",
+      "rpc": "community_create_gallery_draft",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:createGalleryWork",
+      "edge": "community-command",
+      "rpc": "community_create_gallery_work_v1",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:createTip",
+      "edge": "community-command",
+      "rpc": "community_create_tip_v1",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:deleteDdvProfileWorkspace",
+      "edge": "community-command",
+      "rpc": "community_delete_ddv_profile_workspace_v1",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:deleteGalleryPhoto",
+      "edge": "community-command",
+      "rpc": "community_delete_gallery_photo_v1",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:deleteWork",
+      "edge": "community-command",
+      "rpc": "community_delete_work",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "FAIL_CLOSED_GALLERY_POSITIVE"
+    },
+    {
+      "callSite": "community-command:command:ensureAccountCreator",
+      "edge": "community-command",
+      "rpc": "community_ensure_account_creator",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:followCreator",
+      "edge": "community-command",
+      "rpc": "community_follow_creator",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:joinDreamsnapEvent",
+      "edge": "community-command",
+      "rpc": "community_dreamsnap_join_event_v1",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:moderateWork",
+      "edge": "community-command",
+      "rpc": "community_moderate_entity_v5",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "SAFETY_INDEPENDENT_RESTRICT_REMOVE"
+    },
+    {
+      "callSite": "community-command:command:preflightGalleryGraph",
+      "edge": "community-command",
+      "rpc": "community_gallery_graph_preflight_r15",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "READ_ONLY_SCOPED_R15"
+    },
+    {
+      "callSite": "community-command:command:publishDreamsnapGallery",
+      "edge": "community-command",
+      "rpc": "community_dreamsnap_publish_gallery_v1",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:publishGallery",
+      "edge": "community-command",
+      "rpc": "community_publish_gallery_pinned_r15",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "SINGLE_SCENE_SCOPED_ENROLLED_R15"
+    },
+    {
+      "callSite": "community-command:command:publishGalleryPhoto",
+      "edge": "community-command",
+      "rpc": "community_publish_gallery_photo_v1",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "UNENROLLED_PHOTO_MEDIA_COVER"
+    },
+    {
+      "callSite": "community-command:command:registerDreamsnapWork",
+      "edge": "community-command",
+      "rpc": "community_register_dreamsnap_work_v1",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:removeGalleryComment",
+      "edge": "community-command",
+      "rpc": "community_gallery_author_remove_comment_v2",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:removeOutdatedQa",
+      "edge": "community-command",
+      "rpc": "community_remove_outdated_qa_v1",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:removeReaction",
+      "edge": "community-command",
+      "rpc": "community_remove_reaction",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:replaceDreamsnapEntryRevision",
+      "edge": "community-command",
+      "rpc": "community_dreamsnap_replace_entry_revision_v1",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:reportEntity",
+      "edge": "community-command",
+      "rpc": "community_report_entity",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:resolveQuestion",
+      "edge": "community-command",
+      "rpc": "community_resolve_question_v1",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:retryDeadLetter",
+      "edge": "community-command",
+      "rpc": "community_retry_dead_letter_outbox",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:revokeSessions",
+      "edge": "community-command",
+      "rpc": "community_revoke_wand_sessions",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:saveEntity",
+      "edge": "community-command",
+      "rpc": "community_save_entity",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:setAnswerUtility",
+      "edge": "community-command",
+      "rpc": "community_set_answer_utility_v1",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:setDreamsnapOfficialResultPublication",
+      "edge": "community-command",
+      "rpc": "community_dreamsnap_set_official_result_publication_v1",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:setGalleryCommentsAtomicR16",
+      "edge": "community-command",
+      "rpc": "community_set_gallery_comments_enabled_atomic_r16",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "METADATA_ONLY_SCOPED_CANDIDATE_R16"
+    },
+    {
+      "callSite": "community-command:command:setGalleryCommentsEnabled",
+      "edge": "community-command",
+      "rpc": "community_set_gallery_comments_enabled_v2",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "LEGACY_UNENROLLED"
+    },
+    {
+      "callSite": "community-command:command:setQaFreshness",
+      "edge": "community-command",
+      "rpc": "community_set_qa_freshness_v1",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:setSameHere",
+      "edge": "community-command",
+      "rpc": "community_set_same_here_v1",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:unfollowCreator",
+      "edge": "community-command",
+      "rpc": "community_unfollow_creator",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:unlinkDdvIdentity",
+      "edge": "community-command",
+      "rpc": "community_unlink_ddv_identity_v1",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:unpublishWork",
+      "edge": "community-command",
+      "rpc": "community_unpublish_work",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "FAIL_CLOSED_GALLERY_POSITIVE"
+    },
+    {
+      "callSite": "community-command:command:unsaveEntity",
+      "edge": "community-command",
+      "rpc": "community_unsave_entity",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:updateCreatorProfile",
+      "edge": "community-command",
+      "rpc": "community_update_creator_profile",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:updateDdvProfileWorkspace",
+      "edge": "community-command",
+      "rpc": "community_update_ddv_profile_workspace_v1",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:updateDreamsnapWork",
+      "edge": "community-command",
+      "rpc": "community_dreamsnap_update_work_revision_v1",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:command:withdrawDuplicateQuestion",
+      "edge": "community-command",
+      "rpc": "community_withdraw_duplicate_question_v1",
+      "classification": "SOURCE_COMMAND_ROUTE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:rpc:community_authorize_session",
+      "edge": "community-command",
+      "rpc": "community_authorize_session",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:rpc:community_consume_action_rate_limit",
+      "edge": "community-command",
+      "rpc": "community_consume_action_rate_limit",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-command:rpc:community_gallery_photo_owned_media_manifest_v1",
+      "edge": "community-command",
+      "rpc": "community_gallery_photo_owned_media_manifest_v1",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-email-resend:rpc:community_verify_worker_token",
+      "edge": "community-email-resend",
+      "rpc": "community_verify_worker_token",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-media:rpc:community_authorize_session",
+      "edge": "community-media",
+      "rpc": "community_authorize_session",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-media:rpc:community_consume_action_rate_limit",
+      "edge": "community-media",
+      "rpc": "community_consume_action_rate_limit",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-media:rpc:community_gallery_media_intent_cancel_v1",
+      "edge": "community-media",
+      "rpc": "community_gallery_media_intent_cancel_v1",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-media:rpc:community_gallery_media_intent_complete_v1",
+      "edge": "community-media",
+      "rpc": "community_gallery_media_intent_complete_v1",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-media:rpc:community_gallery_media_intent_enqueue_cleanup_v1",
+      "edge": "community-media",
+      "rpc": "community_gallery_media_intent_enqueue_cleanup_v1",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-media:rpc:community_gallery_media_intent_open_v1",
+      "edge": "community-media",
+      "rpc": "community_gallery_media_intent_open_v1",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-media:rpc:community_gallery_media_intent_probe_v1",
+      "edge": "community-media",
+      "rpc": "community_gallery_media_intent_probe_v1",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-media:rpc:community_gallery_media_owner_status_v1",
+      "edge": "community-media",
+      "rpc": "community_gallery_media_owner_status_v1",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-media:rpc:community_gallery_owner_media_read_v1",
+      "edge": "community-media",
+      "rpc": "community_gallery_owner_media_read_v1",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-media:rpc:community_get_dreamsnap_judge_media_storage_v1",
+      "edge": "community-media",
+      "rpc": "community_get_dreamsnap_judge_media_storage_v1",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-media:rpc:community_get_media_storage_key",
+      "edge": "community-media",
+      "rpc": "community_get_media_storage_key",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-media:rpc:community_register_validated_media",
+      "edge": "community-media",
+      "rpc": "community_register_validated_media",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-ops-email:rpc:community_claim_operations_escalations",
+      "edge": "community-ops-email",
+      "rpc": "community_claim_operations_escalations",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-ops-email:rpc:community_complete_operations_escalation",
+      "edge": "community-ops-email",
+      "rpc": "community_complete_operations_escalation",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-ops-email:rpc:community_fail_operations_escalation",
+      "edge": "community-ops-email",
+      "rpc": "community_fail_operations_escalation",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-ops-email:rpc:community_get_operations_escalation_destination",
+      "edge": "community-ops-email",
+      "rpc": "community_get_operations_escalation_destination",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-ops-email:rpc:community_verify_worker_token",
+      "edge": "community-ops-email",
+      "rpc": "community_verify_worker_token",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-ops-escalation:rpc:community_claim_operations_escalations",
+      "edge": "community-ops-escalation",
+      "rpc": "community_claim_operations_escalations",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-ops-escalation:rpc:community_complete_operations_escalation",
+      "edge": "community-ops-escalation",
+      "rpc": "community_complete_operations_escalation",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-ops-escalation:rpc:community_fail_operations_escalation",
+      "edge": "community-ops-escalation",
+      "rpc": "community_fail_operations_escalation",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-ops-escalation:rpc:community_get_operations_escalation_destination",
+      "edge": "community-ops-escalation",
+      "rpc": "community_get_operations_escalation_destination",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-ops-escalation:rpc:community_verify_worker_token",
+      "edge": "community-ops-escalation",
+      "rpc": "community_verify_worker_token",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-public-media:rpc:community_gallery_media_gateway_v1",
+      "edge": "community-public-media",
+      "rpc": "community_gallery_media_gateway_v1",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-public-media:rpc:community_get_public_media_storage_v2",
+      "edge": "community-public-media",
+      "rpc": "community_get_public_media_storage_v2",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-query:rpc:community_authorize_session",
+      "edge": "community-query",
+      "rpc": "community_authorize_session",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-retention:rpc:community_claim_account_retention_jobs",
+      "edge": "community-retention",
+      "rpc": "community_claim_account_retention_jobs",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-retention:rpc:community_claim_gallery_media_orphans_v1",
+      "edge": "community-retention",
+      "rpc": "community_claim_gallery_media_orphans_v1",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-retention:rpc:community_complete_account_retention_job",
+      "edge": "community-retention",
+      "rpc": "community_complete_account_retention_job",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-retention:rpc:community_complete_gallery_media_orphan_v1",
+      "edge": "community-retention",
+      "rpc": "community_complete_gallery_media_orphan_v1",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-retention:rpc:community_fail_account_retention_job",
+      "edge": "community-retention",
+      "rpc": "community_fail_account_retention_job",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-retention:rpc:community_fail_gallery_media_orphan_v1",
+      "edge": "community-retention",
+      "rpc": "community_fail_gallery_media_orphan_v1",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-retention:rpc:community_gallery_global_capacity_alert_v1",
+      "edge": "community-retention",
+      "rpc": "community_gallery_global_capacity_alert_v1",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-retention:rpc:community_gallery_media_capacity_ops_v1",
+      "edge": "community-retention",
+      "rpc": "community_gallery_media_capacity_ops_v1",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-retention:rpc:community_gallery_physical_cleanup_gate_v1",
+      "edge": "community-retention",
+      "rpc": "community_gallery_physical_cleanup_gate_v1",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-retention:rpc:community_gallery_storage_reconciliation_v1",
+      "edge": "community-retention",
+      "rpc": "community_gallery_storage_reconciliation_v1",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-retention:rpc:community_purge_expired_ddv_binding_tombstones",
+      "edge": "community-retention",
+      "rpc": "community_purge_expired_ddv_binding_tombstones",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "community-retention:rpc:community_verify_worker_token",
+      "edge": "community-retention",
+      "rpc": "community_verify_worker_token",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "wep-preset-artifact:rpc:community_authorize_session",
+      "edge": "wep-preset-artifact",
+      "rpc": "community_authorize_session",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "wep-preset-artifact:rpc:community_consume_action_rate_limit",
+      "edge": "wep-preset-artifact",
+      "rpc": "community_consume_action_rate_limit",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "wep-preset-artifact:rpc:community_publish_preset_envelope",
+      "edge": "wep-preset-artifact",
+      "rpc": "community_publish_preset_envelope",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "UNENROLLED_GENERIC_PRESET"
+    },
+    {
+      "callSite": "wep-preset-artifact:rpc:community_scene_revision_readiness_v1",
+      "edge": "wep-preset-artifact",
+      "rpc": "community_scene_revision_readiness_v1",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "READ_ONLY_PRIVATE_INERT"
+    },
+    {
+      "callSite": "wep-preset-artifact:rpc:wep_get_accessible_preset_blob",
+      "edge": "wep-preset-artifact",
+      "rpc": "wep_get_accessible_preset_blob",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "wep-preset-retention:rpc:community_finalize_artifact_blob_purge",
+      "edge": "wep-preset-retention",
+      "rpc": "community_finalize_artifact_blob_purge",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "wep-preset-retention:rpc:community_verify_worker_token",
+      "edge": "wep-preset-retention",
+      "rpc": "community_verify_worker_token",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    },
+    {
+      "callSite": "wep-preset-retention:rpc:wep_get_claimed_retention_artifact_blobs",
+      "edge": "wep-preset-retention",
+      "rpc": "wep_get_claimed_retention_artifact_blobs",
+      "classification": "SOURCE_CALLSITE_OBSERVED",
+      "enrollment": "NOT_GLOBALLY_ENROLLED"
+    }
+  ],
+  "unknownCoverage": [
+    "Supabase Storage PUT/finalize binary calls not all represented by literal RPC",
+    "Dynamic RPC names hidden in helpers",
+    "Native/In-Game reference semantics",
+    "Cloud restore issuer and signed URL revocation",
+    "SQL trigger-mediated owner graph beyond catalogued patterns"
+  ]
+}
