@@ -143,3 +143,26 @@ test('R16 non-transient failure never retries',async()=>{
   assert.equal(result.attempts,1);
   assert.equal(result.body.ok,false);
 });
+
+test('R16 wall-clock budget fails closed without the fourth or second request',async()=>{
+  const result=await runScenario({maxTimeExceeded:true,outcomes:[
+    {data:null,error:{code:'55P03',message:'lock not available'}},
+    {data:{published:true},error:null}
+  ]});
+  assert.equal(result.attempts,1);
+  assert.equal(result.authorizations,1);
+  assert.equal(result.body.ok,false);
+});
+
+for(const message of ['GALLERY_WORK_FORBIDDEN','GALLERY_CREATOR_FORBIDDEN','does not own requested work','not active']) {
+  test('R16 owner/creator or retired identity semantic denial is never retried: '+message,async()=>{
+    const result=await runScenario({outcomes:[
+      {data:null,error:{code:'P0001',message}},
+      {data:{published:true},error:null}
+    ]});
+    assert.equal(result.attempts,1);
+    assert.equal(result.status,403);
+    assert.equal(result.body.error,'FORBIDDEN');
+  });
+}
+
