@@ -145,7 +145,7 @@ with psycopg.connect(DSN,autocommit=True) as c:
     with c.transaction():
         c.execute("insert into public.community_entities(entity_id,entity_type) values(%s,'community_work')",(ds_work,))
         c.execute("""insert into public.community_works(work_id,owner_account_id,creator_profile_id,work_type,visibility,moderation_state)
-            values(%s,%s,%s,'dreamsnap','public','clear')""",(ds_work,owner,creator))
+            values(%s,%s,%s,'dreamsnap','private','clear')""",(ds_work,owner,creator))
         c.execute("""insert into public.dreamsnap_challenges(challenge_id,challenge_key,title,lifecycle_state,
             submission_opens_at,submission_closes_at,judging_opens_at,judging_closes_at,results_at,closes_at,
             formal_vote_allowance,special_pick_allowance,minimum_real_eligible_entries,is_synthetic)
@@ -165,7 +165,7 @@ with psycopg.connect(DSN,autocommit=True) as c:
         c.execute("""insert into public.dreamsnap_gallery_publications(
             work_id,entry_id,revision_id,publication_state,comments_enabled)
             values(%s,%s,%s,'published',true)""",(ds_work,ds_entry,ds_revision))
-        c.execute("""update public.community_works set lifecycle_state='published',
+        c.execute("""update public.community_works set lifecycle_state='published',visibility='public',
             current_published_revision_id=%s,published_at=now() where work_id=%s""",(ds_revision,ds_work))
     for value in [False,True]:
         result=one(c,"select public.community_set_gallery_comments_enabled_v2(%s,%s,%s)",(auth,ds_work,value))
