@@ -148,10 +148,10 @@ with psycopg.connect(DSN,autocommit=True) as c:
             values(%s,%s,%s,'dreamsnap','private','clear')""",(ds_work,owner,creator))
         c.execute("""insert into public.dreamsnap_challenges(challenge_id,challenge_key,title,lifecycle_state,
             submission_opens_at,submission_closes_at,judging_opens_at,judging_closes_at,results_at,closes_at,
-            formal_vote_allowance,special_pick_allowance,minimum_real_eligible_entries,is_synthetic)
+            formal_vote_allowance,special_pick_allowance,minimum_real_eligible_entries,minimum_real_eligible_creators,is_synthetic)
             values(%s,%s,'QR R17 normal','results',now()-interval '7 days',now()-interval '6 days',
             now()-interval '5 days',now()-interval '4 days',now()-interval '3 days',now()+interval '1 day',
-            5,0,1,true)""",(challenge,"qr17-"+u().hex[:14]))
+            5,0,1,1,true)""",(challenge,"qr17-"+u().hex[:14]))
         c.execute("""insert into public.dreamsnap_works(work_id,challenge_id,workspace_relationship_kind,managed_under13)
             values(%s,%s,'self',false)""",(ds_work,challenge))
         c.execute("""insert into public.community_work_revisions(revision_id,work_id,revision_number,created_by_account_id)
