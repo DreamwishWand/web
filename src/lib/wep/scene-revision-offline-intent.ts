@@ -14,6 +14,7 @@ import {
 import { sha256Hex } from './preset-community-bridge.ts';
 import type { ScenePublicCurrentRead, SceneOwnerReadiness } from './scene-revision-gallery-consumer.ts';
 import { SCENE_REVISION_WRITE_BLOCKERS, diagnoseSceneRevisionPairing } from './scene-revision-gallery-consumer.ts';
+import type { R15ScopedGraphObservation } from './r15-server-gallery-graph-readonly.ts';
 
 const SWITCH_V125_BID = '52BD625D9B4E0053';
 
@@ -30,6 +31,7 @@ export interface SceneRevisionArtifactProposal {
   readiness: SceneOwnerReadiness;
   source: SceneRevisionOfflineSource;
   artifact: unknown;
+  scopedGalleryGraph?: R15ScopedGraphObservation | null;
   capture: {
     selectionIds: string[];
     includeRoads: boolean;
@@ -85,6 +87,25 @@ export async function prepareSceneRevisionOfflineIntent(args: SceneRevisionArtif
     'SCENE_PUBLIC_OWNER_CREATOR_MISMATCH'
   ].includes(x));
   if (hardIdentityMismatch) reject('WEP_SCENE_REVISION_PAIRED_GALLERY_IDENTITY_STALE');
+  const scopedGraph = args.scopedGalleryGraph ?? null;
+  if(scopedGraph && (
+      scopedGraph.registryVersion !== 'gallery-scene-scoped@r15' ||
+      scopedGraph.schemaVersion !== 1 || scopedGraph.authoritative !== true ||
+      scopedGraph.graphComplete !== false ||
+      scopedGraph.observedGalleryWorkId !== current.galleryWorkId ||
+      scopedGraph.observedGalleryCurrentRevisionId !== current.galleryWorkRevisionId ||
+      scopedGraph.observedPresetCurrentRevisionId !== current.workRevisionId ||
+      scopedGraph.observedPresetRowVersion !== readiness.workRowVersion ||
+      scopedGraph.observedGalleryRowVersion !== readiness.pairedGalleryWorkRowVersion ||
+      scopedGraph.observedCreatorProfileId !== current.creatorProfileId ||
+      scopedGraph.expectedArtifactIds.length !== 1 ||
+      scopedGraph.expectedArtifactIds[0] !== current.presetArtifactId ||
+      !scopedGraph.expectedPresetWorkIds.includes(current.workId) ||
+      !scopedGraph.requestedPresetRevisionIds.includes(current.presetRevisionId) ||
+      !/^[0-9a-f]{64}$/.test(scopedGraph.expectedGraphSha256)
+  )) {
+    reject('WEP_R15_SCOPED_GRAPH_STALE_OR_MISMATCHED');
+  }
   if (!Array.isArray(capture?.selectionIds) || capture.selectionIds.length === 0 ||
       capture.selectionIds.some(id => typeof id !== 'string' || id.length === 0) ||
       new Set(capture.selectionIds).size !== capture.selectionIds.length ||
@@ -156,6 +177,14 @@ export async function prepareSceneRevisionOfflineIntent(args: SceneRevisionArtif
       observedHistoricalEdgeSetScope: readiness.historicalEdgeSetScope,
       observedHistoricalEdgeSetSha256: readiness.historicalEdgeSetSha256,
       observedHistoricalEdgeSetIsAtomicFence: false as const,
+      // Four DISTINCT digests/receipts; only the offline Artifact JSON hash is
+      // computed locally. PostgreSQL canonical graph SHA is NEVER recomputed.
+      observedScopedSceneHistoricalEdgeSha256: readiness.historicalEdgeSetSha256,
+      observedServerGalleryScopedGraphSha256: scopedGraph?.expectedGraphSha256 ?? null,
+      observedServerGalleryGraphRegistryVersion: scopedGraph?.registryVersion ?? null,
+      fullGlobalAllWriterGraphSha256: null,
+      actualStorageBlobReceipt: null,
+      serverGalleryScopeIsGlobalAuthority: false as const,
       // The current owner readiness fingerprint is NOT the 03 COMM R9
       // historical-edge SHA input. No trusted Gallery rowVersion/edge graph
       // seal is available from the accepted read-only consumer.
@@ -197,6 +226,10 @@ export async function prepareSceneRevisionOfflineIntent(args: SceneRevisionArtif
       'SCENE_CALLER_HISTORICAL_EDGE_PIN_NOT_AVAILABLE',
       'SCENE_GALLERY_EXPECTED_ROWVERSION_NOT_AVAILABLE',
       'SCENE_SIGNED_STAGING_E2E_NOT_ACCEPTED',
+      'R15_FULL_GLOBAL_ALL_WRITER_GRAPH_NOT_ISSUED',
+      'R15_REAL_STORAGE_BLOB_RECEIPT_NOT_ISSUED',
+      ...(scopedGraph ? ['R15_GALLERY_SCOPE_ONLY_NOT_SCENE_SAVE_AUTHORITY'] :
+        ['R15_SERVER_GALLERY_GRAPH_PREFLIGHT_MISSING']),
       ...diagnostic.blockedReasons
     ])
   });
@@ -207,6 +240,7 @@ export interface CapturedSceneRevisionOfflineProposal {
   current: ScenePublicCurrentRead;
   readiness: SceneOwnerReadiness;
   source: SceneRevisionOfflineSource;
+  scopedGalleryGraph?: R15ScopedGraphObservation | null;
   document: EditorDocument;
   captureOptions: CaptureSceneOptions;
 }
@@ -256,6 +290,7 @@ export async function prepareCapturedSceneRevisionOfflineIntent(
   const proof = await prepareSceneRevisionOfflineIntent({
     current: args.current,
     readiness: args.readiness,
+    scopedGalleryGraph: args.scopedGalleryGraph,
     source,
     artifact: captured.artifact,
     capture: {
