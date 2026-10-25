@@ -113,6 +113,10 @@ export function parseR15ServerGalleryGraph(rawInput:unknown,expected:R15GraphExp
     const state=states[i],nested=graph.works[i];
     if(!rec(state)||!rec(nested)||!uuid(state.work_id)||
        state.work_id!==nested.work_id||state.row_version!==nested.row_version||
+       state.owner_account_id!==nested.owner_account_id||
+       state.creator_profile_id!==nested.creator_profile_id||
+       state.work_type!==nested.work_type||
+       state.current_published_revision_id!==nested.current_published_revision_id||
        !Number.isSafeInteger(state.row_version)||state.row_version<0||
        !uuid(state.owner_account_id)||state.owner_account_id!==root.accountId||
        state.creator_profile_id!==expected.creatorProfileId||
