@@ -3,6 +3,10 @@ on:
   push:
     branches:
       - validation/04qr-r15-source119-stale-graph-20261026
+  pull_request:
+    paths:
+      - 'tests/qr-r15-source119-stale-caller-negative.py'
+      - '.github/workflows/04qr-r15-source119-stale-caller-negative.yml'
 
 permissions:
   contents: read
