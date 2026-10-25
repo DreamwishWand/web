@@ -1,0 +1,62 @@
+name: 09 INT R16 actual Owner124 new Artifact roster and unsupported Facet closure
+on:
+  push:
+    branches:
+      - validation/09int-r16-owner124-roster-growth-20261026
+permissions:
+  contents: read
+jobs:
+  source124-two-backend-new-roster-unsupported-kind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check 'psycopg[binary]>=3,<4'
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Pin exact 124 Source migrations to local-only DB
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('supabase/config.toml')
+          s=p.read_text()
+          assert not any(x.strip().startswith('project_id =') for x in s.splitlines())
+          assert len(list(Path('supabase/migrations').glob('*.sql')))==124
+          p.write_text('project_id = "ddvre_09int_r16_roster_growth"\n'+s)
+          PY
+          echo 'NO Supabase link, remote credentials, staging or production access'
+      - name: Rebuild actual Owner Source124 on disposable local PostgreSQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 1500s supabase start > /tmp/r16-new-roster-bootstrap.log 2>&1 || {
+            grep -Ein -B 3 -A 8 'error|failed|sqlstate|migration' /tmp/r16-new-roster-bootstrap.log | tail -n 120 || true
+            tail -n 45 /tmp/r16-new-roster-bootstrap.log || true
+            exit 1
+          }
+      - name: Actual Owner pinned API two-backend roster growth and unknown Biome denial
+        env:
+          DDVRE_R16_ISOLATED_LOCAL: CONFIRMED
+        run: python -u tests/09int-r16-source124-roster-growth-unknown-facet.py | tee /tmp/r16-new-roster-result.jsonl
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r16-new-roster-and-facet-negative-source-evidence
+          path: |
+            /tmp/r16-new-roster-bootstrap.log
+            /tmp/r16-new-roster-result.jsonl
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Discard ephemeral DB
+        if: always()
+        run: supabase stop --no-backup || true
