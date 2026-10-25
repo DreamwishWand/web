@@ -245,6 +245,7 @@ with psycopg.connect(DSN,autocommit=True) as c:
     print(json.dumps({"case":"QR_R17_PRIVACY_SUPPRESSION_DENIES_NEW_PHOTO_AND_ATOMIC_COMMENTS",
                       "fullErasureAccepted":False}))
 print(json.dumps({"result":"QR_R17_INDEPENDENT_POSTFIX_SOURCE_BOUNDARY_PASS",
-                  "source":"local-ephemeral-full-130-migrations",
+                  "source":"local-ephemeral-full-131-migrations",
+                  "ownerFrozenHead":"83395094d5780ef0c9894d41a50b099823d55dad",
                   "normalSignedJwt":False,"realStorageBytes":False,
                   "releaseAuthority":False,"globalGraphComplete":False}))
