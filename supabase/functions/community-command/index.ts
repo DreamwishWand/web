@@ -38,6 +38,7 @@ const commandToRpc = {
   removeReaction: 'community_remove_reaction',
   addComment: 'community_add_comment_v3',
   setGalleryCommentsEnabled: 'community_set_gallery_comments_enabled_v2',
+  setGalleryCommentsAtomicR16: 'community_set_gallery_comments_enabled_atomic_r16',
   removeGalleryComment: 'community_gallery_author_remove_comment_v2',
   askQuestion: 'community_ask_question_v1',
   addAnswer: 'community_add_answer_v1',
@@ -88,6 +89,7 @@ const commandToRateBucket: Partial<Record<CommandName, string>> = {
   removeReaction: 'reaction',
   addComment: 'comment',
   setGalleryCommentsEnabled: 'gallery_write',
+  setGalleryCommentsAtomicR16: 'gallery_write',
   removeGalleryComment: 'gallery_write',
   askQuestion: 'qa_write',
   addAnswer: 'qa_write',
@@ -405,6 +407,19 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         params.p_work_id = payload.workId;
         params.p_enabled = payload.enabled;
         break;
+      case 'setGalleryCommentsAtomicR16':
+        if (typeof payload.workId !== 'string' || !Number.isSafeInteger(payload.expectedVersion) ||
+            typeof payload.expectedCurrentRevisionId !== 'string' ||
+            typeof payload.enabled !== 'boolean' ||
+            typeof payload.idempotencyKey !== 'string' || payload.idempotencyKey.length===0) {
+          return reply({ok:false,error:'R16_METADATA_PIN_REQUIRED'},409);
+        }
+        params.p_work_id = payload.workId;
+        params.p_expected_version = payload.expectedVersion;
+        params.p_expected_current_revision_id = payload.expectedCurrentRevisionId;
+        params.p_enabled = payload.enabled;
+        params.p_idempotency_key = payload.idempotencyKey;
+        break;
       case 'removeGalleryComment':
         params.p_work_id = payload.workId;
         params.p_comment_id = payload.commentId;
@@ -585,7 +600,7 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
     // Reauthorization checks the real JWT subject, current Identity, session
     // cutoff and Privacy barrier before EVERY attempt; semantic stale
     // owner/version/idempotency errors are terminal, not retryable.
-    const maxAttempts = command === 'publishGallery' ? 3 : 1;
+    const maxAttempts = (command === 'publishGallery' || command === 'setGalleryCommentsAtomicR16') ? 3 : 1;
     const retryStartedAt = Date.now();
     let data: unknown = null;
     let error: {code?: string; message: string} | null = null;
@@ -613,7 +628,9 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
     if (error) {
       const staleGraph = error.message.includes('R15_STALE_GRAPH_TERMINAL') ||
         error.message.includes('R15_PINNED_GRAPH_REQUIRED') ||
-        error.message.includes('R15_IDEMPOTENCY_REQUEST_CONFLICT');
+        error.message.includes('R15_IDEMPOTENCY_REQUEST_CONFLICT') ||
+        error.message.includes('R16_STALE_WORK_TERMINAL') ||
+        error.message.includes('R16_IDEMPOTENCY_CONFLICT');
       const conflict =
         error.message.includes('Row version conflict') ||
         error.message.includes('GALLERY_ROW_VERSION_CONFLICT') ||
