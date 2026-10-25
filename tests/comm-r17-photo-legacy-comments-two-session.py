@@ -7,7 +7,7 @@ u=uuid.uuid4
 def one(c,q,args=()):return c.execute(q,args).fetchone()[0]
 owner,auth,creator,subject=u(),u(),u(),u()
 g_direct,g_history,g_both=(u() for _ in range(3))
-preset_work,artifact_direct,artifact_history,artifact_both=u(),u(),u(),u()
+preset_work,preset_work_direct,preset_work_both,artifact_direct,artifact_history,artifact_both=(u() for _ in range(6))
 preset_rev,preset_work_rev,blob=(u() for _ in range(3))
 revs={g_direct:u(),g_history:u(),g_both:u()}
 dreamsnap_work,challenge,ds_rev,entry=(u() for _ in range(4))
@@ -16,11 +16,11 @@ with psycopg.connect(dsn,autocommit=True) as c:
     c.execute("insert into public.wand_accounts(account_id) values(%s)",(owner,))
     c.execute("""insert into public.auth_identities(account_id,provider,provider_subject,last_verified_at,identity_state)
       values(%s,'supabase',%s,clock_timestamp(),'active')""",(owner,str(auth)))
-    entities=[(creator,'creator_profile')]+[(w,'community_work') for w in (g_direct,g_history,g_both,preset_work,dreamsnap_work)]+[(a,'preset_artifact') for a in (artifact_direct,artifact_history,artifact_both)]
+    entities=[(creator,'creator_profile')]+[(w,'community_work') for w in (g_direct,g_history,g_both,preset_work,preset_work_direct,preset_work_both,dreamsnap_work)]+[(a,'preset_artifact') for a in (artifact_direct,artifact_history,artifact_both)]
     for key,typ in entities:c.execute("insert into public.community_entities(entity_id,entity_type) values(%s,%s)",(key,typ))
     c.execute("""insert into public.creator_profiles(creator_profile_id,owner_account_id,handle,display_name)
       values(%s,%s,%s,'R17 owner')""",(creator,owner,'isolated_r17_'+u().hex[:12]))
-    for w,kind in [(g_direct,'gallery'),(g_history,'gallery'),(g_both,'gallery'),(preset_work,'preset'),(dreamsnap_work,'dreamsnap')]:
+    for w,kind in [(g_direct,'gallery'),(g_history,'gallery'),(g_both,'gallery'),(preset_work,'preset'),(preset_work_direct,'preset'),(preset_work_both,'preset'),(dreamsnap_work,'dreamsnap')]:
       c.execute("""insert into public.community_works(work_id,owner_account_id,creator_profile_id,work_type,visibility,moderation_state)
         values(%s,%s,%s,%s,%s,'clear')""",(w,owner,creator,kind,'private' if kind=='dreamsnap' else 'public'))
     for w in revs:
@@ -43,10 +43,10 @@ with psycopg.connect(dsn,autocommit=True) as c:
       blob_id,owner_account_id,storage_key,schema_version,content_type,byte_size,checksum_sha256)
       values(%s,%s,%s,1,'application/json',100,%s)""",(blob,owner,'local/r17/'+str(blob),'a'*64))
     c.execute("insert into public.community_work_revisions(revision_id,work_id,revision_number,created_by_account_id) values(%s,%s,1,%s)",(preset_work_rev,preset_work,owner))
-    for ar,related in [(artifact_direct,g_direct),(artifact_history,None),(artifact_both,g_both)]:
+    for ar,related,pw in [(artifact_direct,g_direct,preset_work_direct),(artifact_history,None,preset_work),(artifact_both,g_both,preset_work_both)]:
       c.execute("""insert into public.preset_artifacts(
         preset_artifact_id,owner_account_id,creator_profile_id,community_work_id,preset_type,associated_gallery_work_id)
-        values(%s,%s,%s,%s,'scene',%s)""",(ar,owner,creator,preset_work,related))
+        values(%s,%s,%s,%s,'scene',%s)""",(ar,owner,creator,pw,related))
     c.execute("""insert into public.preset_revisions(
       preset_revision_id,preset_artifact_id,revision_number,artifact_blob_id,metadata,created_by_account_id)
       values(%s,%s,1,%s,'{}'::jsonb,%s)""",(preset_rev,artifact_history,blob,owner))
