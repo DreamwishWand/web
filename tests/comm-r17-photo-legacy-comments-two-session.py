@@ -10,14 +10,15 @@ g_direct,g_history,g_both=(u() for _ in range(3))
 preset_work,preset_work_direct,preset_work_both,artifact_direct,artifact_history,artifact_both=(u() for _ in range(6))
 preset_rev,preset_work_rev,blob=(u() for _ in range(3))
 revs={g_direct:u(),g_history:u(),g_both:u()}
-gallery_media=u()
+gallery_media,gallery_media_ordinal,gallery_media_noncover=(u() for _ in range(3))
+subject_mismatch=u()
 dreamsnap_work,challenge,ds_rev,entry=(u() for _ in range(4))
 with psycopg.connect(dsn,autocommit=True) as c:
   with c.transaction():
     c.execute("insert into public.wand_accounts(account_id) values(%s)",(owner,))
     c.execute("""insert into public.auth_identities(account_id,provider,provider_subject,last_verified_at,identity_state)
       values(%s,'supabase',%s,clock_timestamp(),'active')""",(owner,str(auth)))
-    entities=[(creator,'creator_profile'),(gallery_media,'media_asset')]+[(w,'community_work') for w in (g_direct,g_history,g_both,preset_work,preset_work_direct,preset_work_both,dreamsnap_work)]+[(a,'preset_artifact') for a in (artifact_direct,artifact_history,artifact_both)]
+    entities=[(creator,'creator_profile')]+[(m,'media_asset') for m in (gallery_media,gallery_media_ordinal,gallery_media_noncover)]+[(w,'community_work') for w in (g_direct,g_history,g_both,preset_work,preset_work_direct,preset_work_both,dreamsnap_work)]+[(a,'preset_artifact') for a in (artifact_direct,artifact_history,artifact_both)]
     for key,typ in entities:c.execute("insert into public.community_entities(entity_id,entity_type) values(%s,%s)",(key,typ))
     c.execute("""insert into public.creator_profiles(creator_profile_id,owner_account_id,handle,display_name)
       values(%s,%s,%s,'R17 owner')""",(creator,owner,'isolated_r17_'+u().hex[:12]))
@@ -37,6 +38,10 @@ with psycopg.connect(dsn,autocommit=True) as c:
       subject_id,gallery_kind,subject_type,canonical_target_id,platform,game_version,build_id,profile_schema,evidence_ref,verification_state)
       values(%s,'outdoor','biome',%s,'switch','1.25.0','52BD625D9B4E0053',624,'r17-synthetic-local-test','verified')""",
       (subject,'r17-synthetic-'+u().hex[:14]))
+    c.execute("""insert into public.gallery_verified_subjects(
+      subject_id,gallery_kind,subject_type,canonical_target_id,platform,game_version,build_id,profile_schema,evidence_ref,verification_state)
+      values(%s,'outdoor','biome',%s,'switch','1.25.0','52BD625D9B4E0053',624,'r17-ordinal-mismatch-local','verified')""",
+      (subject_mismatch,'r17-ordinal-'+u().hex[:14]))
     for w in revs:
       c.execute("""insert into public.gallery_photo_subjects(work_id,subject_id,owner_account_id,creator_profile_id)
         values(%s,%s,%s,%s)""",(w,subject,owner,creator))
@@ -45,11 +50,25 @@ with psycopg.connect(dsn,autocommit=True) as c:
       checksum_sha256,processing_state,moderation_state)
       values(%s,%s,%s,'image/png',100,10,10,%s,'ready','clear')""",
       (gallery_media,owner,'local/r17/photo-media/'+gallery_media.hex,'a'*64))
+    for media_id in (gallery_media_ordinal,gallery_media_noncover):
+      c.execute("""insert into public.media_assets(
+        media_id,owner_account_id,storage_key,mime_type,byte_size,width,height,
+        checksum_sha256,processing_state,moderation_state)
+        values(%s,%s,%s,'image/png',100,10,10,%s,'ready','clear')""",
+        (media_id,owner,'local/r17/photo-media/'+media_id.hex,'b'*64))
     c.execute("""insert into public.work_revision_media(work_revision_id,media_id,ordinal,role)
       values(%s,%s,0,'gallery')""",(revs[g_direct],gallery_media))
+    c.execute("""insert into public.work_revision_media(work_revision_id,media_id,ordinal,role)
+      values(%s,%s,0,'gallery'),(%s,%s,1,'gallery')""",
+      (revs[g_history],gallery_media_noncover,revs[g_history],gallery_media_ordinal))
     c.execute("""insert into public.gallery_photo_revision_fields(
       revision_id,subject_id,cover_media_id,originality_attested)
       values(%s,%s,%s,true)""",(revs[g_direct],subject,gallery_media))
+    c.execute("""insert into public.gallery_photo_revision_fields(
+      revision_id,subject_id,cover_media_id,originality_attested)
+      values(%s,%s,%s,true),(%s,%s,%s,true)""",
+      (revs[g_history],subject,gallery_media_ordinal,
+       revs[g_both],subject_mismatch,gallery_media))
     c.execute("""insert into public.artifact_blobs(
       blob_id,owner_account_id,storage_key,schema_version,content_type,byte_size,checksum_sha256)
       values(%s,%s,%s,1,'application/json',100,%s)""",(blob,owner,'local/r17/'+str(blob),'a'*64))
@@ -187,6 +206,26 @@ with psycopg.connect(dsn,autocommit=True) as probe:
       assert cover['coverInRevisionMedia'] is True
       assert cover['coverFirst'] is True
       assert cover['subjectMatches'] is True
+      assert observed['knownDependencyCounts']['coverSubjectOrReferenceMismatch']==0
+      assert 'MEDIA_COVER_METADATA_INCONSISTENT' not in observed['blockedReasons']
+    if w==g_history:
+      assert observed['knownDependencyCounts']['mediaReferences']==2
+      assert observed['knownDependencyCounts']['coverSubjectOrReferenceMismatch']==1
+      cover=observed['coverReferences'][0]
+      assert cover['coverMediaId']==str(gallery_media_ordinal)
+      assert cover['subjectMatches'] is True
+      assert cover['coverInRevisionMedia'] is True
+      assert cover['coverFirst'] is False
+      assert 'MEDIA_COVER_METADATA_INCONSISTENT' in observed['blockedReasons']
+      print(json.dumps({'case':'R17_X02_HISTORICAL_LINK_COVER_ORDINAL_1_BLOCKED'}))
+    if w==g_both:
+      assert observed['knownDependencyCounts']['coverSubjectOrReferenceMismatch']==1
+      cover=observed['coverReferences'][0]
+      assert cover['subjectMatches'] is False
+      assert cover['coverInRevisionMedia'] is False
+      assert cover['coverFirst'] is False
+      assert 'MEDIA_COVER_METADATA_INCONSISTENT' in observed['blockedReasons']
+      print(json.dumps({'case':'R17_X02_COVER_ABSENT_AND_SUBJECT_MISMATCH_BLOCKED'}))
 
     assert observed['graphComplete'] is False
     assert observed['mutationAuthorized'] is False
