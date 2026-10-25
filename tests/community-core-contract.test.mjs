@@ -241,7 +241,7 @@ test('Community Edge adapters trust the verified Supabase user ID, never a clien
 test('active Gallery command path is media-backed v4 and the old media-less RPC is revoked', () => {
   const source = read('supabase/functions/community-command/index.ts');
   const preset = read('supabase/migrations/20260930035240_community_core_v0_preset_bridge.sql');
-  assert.match(source, /publishGallery: 'community_publish_gallery_v4'/);
+  assert.match(source, /publishGallery: 'community_publish_gallery_pinned_r15'/);
   assert.match(source, /mediaIds required/);
   assert.match(source, /p_preset_revision_ids/);
   assert.match(preset, /revoke execute on function public\.community_publish_gallery_v2/i);
