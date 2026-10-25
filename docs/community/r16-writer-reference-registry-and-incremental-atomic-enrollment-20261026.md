@@ -1,0 +1,59 @@
+# DDVRE — 03 COMM R16 / Full Writer–Reference Registry and Bounded Metadata Enrollment
+
+**Status:** SOURCE CANDIDATE / DRAFT / DO_NOT_MERGE / DO_NOT_DEPLOY. Existing 03 COMM PR #134, child of PR #129. R12/13/14/15 Source 124 migrations preserved without rebuilding. Verified native boundary: **Nintendo Switch DDV v1.25.0, BID 52BD625D9B4E0053, schema 624**; Switch v1.25.3/schema626 and Steam Native Writer OFF. R17 unchanged (30 Product Tree nodes: PASS0/PARTIAL12/BLOCKED18).
+
+## Authoritative inspection and coverage
+- Relational registry: `private.community_writer_reference_registry_r16` (29 observed or explicitly unknown relationship families) and `private.community_writer_routes_r16` (18 Writer families), seeded additively in `20261025002890_community_writer_registry_r16.sql`. **RLS enabled; anon/authenticated permissions revoked.** Not a public feature/permission table or dynamic Native graph authority.
+- Edge source census: `docs/community/r16-edge-rpc-callsite-census-20261026.json` records **103 direct/command call sites** from the 16 existing `supabase/functions` Edge entrypoints, including non-writer reads and operators. This is a source-observed census, NOT proof that all dynamic SQL triggers, Supabase Storage, provider callbacks, Cloud or native references have been discovered.
+- Reference row schema: `edge_key` (unique identity); `source_relation`, `target_relation`, `identity_contract`, `owner_contract`, `time_scope` (CURRENT/HISTORICAL/BOTH/UNKNOWN), `direction`, `mutation_owner`, `lock_scope`, `version_contract`, `privacy_visibility`, `enrollment_state`, `evidence_class` (CONFIRMED/HIGH CONFIDENCE/HYPOTHESIS/UNKNOWN). Every UNKNOWN remains explicit. A row `SOURCE_SCOPED_ENROLLED` means this edge is understood **only within its documented Writer and version scope**, not an all-writer grant.
+- Writer row schema: `writer_key`, `source_rpc`, `edge_call_site`, `enrollment_state`, `lock_scope`, `graph_registry`, `optimistic_contract`, `retry_contract`, `limitation`.
+- Cross-product ownership is by `wand_accounts` and `creator_profiles`. Works are `community_works` with current pointer to immutable `community_work_revisions`. Preset facets share `preset_artifacts` / `preset_revisions` but native meanings outside proven Scene remain UNKNOWN. Gallery historical edges through `gallery_revision_presets` and `preset_revision_publications` can affect another Work without updating its rowVersion. Media is `media_assets` + `work_revision_media` + `gallery_photo_revision_fields`; READY metadata does **not** prove remote downloaded bytes. Private/Cloud Restore, native In-Game Preset/ToM data, unknown version references are UNKNOWN, not invented graph edges.
+
+### Writer Coverage Matrix
+| Writer / reference family | Source R16 state | Limits |
+| --- | --- | --- |
+| Gallery pinned publication (one known Scene / no Preset) | SOURCE_SCOPED_ENROLLED (inherited R15) | Server SHA256 graphPin; same-key replay; not general graph |
+| Legacy Gallery v4 with linked Scene | FAIL_CLOSED (inherited R15) | Cannot bypass caller Graph pin |
+| NEW Gallery comments metadata (`community_set_gallery_comments_enabled_atomic_r16`) | SOURCE_SCOPED_CANDIDATE | No Photo subject and no associated/current/historical Preset refs; gallery PUBLIC/PUBLISHED/CLEAR; no revisions/media refs created |
+| Existing Gallery comments v2 / DreamSnaps settings | SOURCE_PRESENT_UNENROLLED | Legacy route unchanged; not a global lock contract |
+| Gallery Photo Publish/Delete, Cover / Media | SOURCE_PRESENT_UNENROLLED / POSITIVE_DELETE_OFF | `community_publish_gallery_photo_v1` calls old Gallery v4 after its own advisory lock; global Account-first ordering and byte/subject/cover/issuer graph unproven |
+| Media upload Prepare / PUT / Finalize / Intent Complete | SOURCE_PRESENT_UNENROLLED | Storage size/info and SQL READY alone insufficient to prove binary SHA, signed URL lifetime and no duplicated issuers |
+| Media Cancel / negative cleanup | SAFETY_INDEPENDENT | Does not authorize positive physical cleanup |
+| Generic Preset Envelope / Biome / Floating Island / ToM Furniture / ToM Clothing | SOURCE_PRESENT_UNENROLLED / UNKNOWN NATIVE | `community_publish_preset_envelope` not globally graph-enrolled; no DDV save entitlement semantics |
+| Scene Revision paired Writer | PRIVATE_INERT | Blob SHA/bytes, Portable Scene JSON, SubGrid, Roads/Fences, signed media E2E missing |
+| Q&A / Tips / Guide | SOURCE_PRESENT_UNENROLLED / UNKNOWN curated | Distinct publish/moderation contracts; Guide curated not Q&A |
+| DreamSnaps Competition / Entry / Results / Archive | SOURCE_PRESENT_UNENROLLED | Separate challenge phase, voting, media privacy, moderation |
+| Account Privacy Phase1, Emergency Moderator Restrict/Remove | SAFETY_INDEPENDENT | Do not block on deferred Cloud/Storage cleanup |
+| Gallery Positive Unpublish/Delete/Cloud Private/Restore, deferred physical cleanup/72h | FAIL_CLOSED | No reference registry completion or real CDN revocation |
+| Native/In-Game Preset and DDV World Apply | UNKNOWN / OFF | Platform and game-version strict |
+
+### Canonical all-writer atomic protocol (CONTRACT, not all-source-enrolled)
+1. Verify *signed current* actor/session, active identity, non-retired account and unsuppressed Privacy cutoff. Resolve Owner and Creator without relying on client claims.
+2. Construct versioned provisional **old + proposed new** Current/History reference roster; unsupported, multi-Artifact or unknown ingress fails closed. A registry table row alone grants nothing.
+3. Acquire Account Root first. Current **implemented R14/R15 Scene** uses Account `FOR SHARE` → Artifact UUID ascending `NOWAIT FOR UPDATE` → PresetWork UUID ascending → GalleryWork UUID ascending. Phase1 Account suppression takes `FOR UPDATE` independently.
+4. MediaAsset UUID ascending, upload intent and Cloud/Storage locks are a **proposed later extension**, not confirmed or taken by today's Writer; lock types/order must be independently proved for actual Source and all issuers before enrollment.
+5. Under held locks recompute roster/digest (PostgreSQL `jsonb::text` canonical, typed UUID ascending, explicit nulls, version-domain `gallery-scene-scoped@r15`); validate expected Work rowVersions/current revisions, Owner+Creator, current Identity/Privacy and immutable historical edges. New edge discovered after lock discovery triggers WHOLE rollback + fresh sorted acquisition, never append a late lock out of order.
+6. Distinguish **completed same key/same payload/same pin** replay from a new stale key. Return committed idempotent response after live Actor/Privacy authorization. A new request with stale SHA => TERMINAL STALE_GRAPH. Do not silently repin.
+7. For transient `40P01`, `55P03`, `40001`: bounded fresh complete PostgreSQL RPC transactions; Edge reauthorizes JWT/session before every attempt, preserves *original* expectedGraphSha256/WorkVersion/revision/idempotency. No savepoint or in-transaction replay. Immutable Revision, Work current, Search, Outbox and Idempotency commit atomically.
+
+### R16 metadata-only incremental enrollment
+R16 adds `public.community_set_gallery_comments_enabled_atomic_r16(auth_subject,work_id,expected_version,expected_current_revision_id,enabled,idempotency_key)` and service-role-only ACL (additive SQL 02900/02910). Edge adds new separately named command `setGalleryCommentsAtomicR16` rather than replacing the existing v2 route. Existing comments v2 is **not** promoted and must be reviewed before any real deployment.
+
+The new call checks live actor/Account `FOR SHARE`, committed same-key replay, target **gallery** Work `FOR UPDATE NOWAIT`, PUBLIC+PUBLISHED+CLEAR, exact `row_version` and `current_published_revision_id`. It **denies Photo subject or any direct/historical Preset associated with that Gallery**, i.e. never becomes a hidden Scene/Photo writer. After CAS it uses nonblocking advisory lock, rechecks actor and idempotency, then updates only `gallery_work_settings`, `search_documents`, Work `updated_at`/rowVersion, `audit_events`, and `idempotency_keys` atomically. No Media, Current/History edge, Preset/Blob, Storage or native mutation. Its bounded Edge retries are scoped to same original version/current revision/key; terminal version or same-key-different-payload never retried. A whole-transaction failure leaves no settings/search/audit/idempotency partial effects.
+
+### R16 local acceptance and independent return
+- `tests/comm-r16-gallery-metadata-two-session.py`: actual new Source RPC, synthetic isolated account, two **different PostgreSQL connections**, held Account and GalleryWork lock => SQLSTATE `55P03` and rollback; fresh optimistic CAS succeeds; settings/Search/Audit/Idempotency exactly once; WorkVersion advances; committed same-key replay stable; stale version and changed same-key intent terminal. No Photo/Scene/Cloud writer expanded.
+- `tests/community-r16-writer-reference-registry-contract.test.mjs`: registry states, Edge pin/Retry, ACL and workflow static gates.
+- `.github/workflows/comm-clean-bootstrap-acceptance.yml`: **127 additive source migrations**, isolated clean empty local DB then reset/replay, source reapplications, registry row counts, RLS/ACL, 16 existing rollback fixtures, independently retained R12/R13/R14/R15 and new R16 metadata test. Only **exact final HEAD completed SUCCESS** counts; no remote staging or production writes.
+
+#### 09 INT R17 independent new-source targets
+Repin current Owner HEAD and independently verify `community_set_gallery_comments_enabled_atomic_r16` root/target lock order under true 2 connections (Account FOR UPDATE, GalleryWork FOR UPDATE), rollback on SQLSTATE55P03, stale expectedCurrentRevision and rowVersion, same-key committed replay versus new key conflict, no Artifact/Media/Photo references mutation. Independently examine **legacy Gallery Photo v1 advisory-before-v4 Account ordering** and Media/cover issuer reference graph without enabling it. Do not repeat R15 H0/H1 tests or fold validation branch into Owner.
+#### 04 QR signed acceptance (not executed)
+True signed Owner A / Nonowner B / Moderator M fresh/revoked/retired/Privacy-suppressed JWT, Account and Gallery lock races, stale CAS, 40P01/40001 Edge auto retry fault injection, old signed Photo/Media CDN bearer t0/t60/t300/post expiry and actual Storage bytes SHA+size, subject provenance, Cloud/private/restore rights. Configuration blocked until protected Staging/operator credentials and provider parity. R17 release count remains unchanged.
+#### 02 WEP read-only DTO
+Continue to consume the **already existing R15** `preflightGalleryGraph` result `{schemaVersion:1,registryVersion:'gallery-scene-scoped@r15',expectedGraphSha256,expectedGraph,expectedWorkStates,expectedArtifactIds,expectedPresetWorkIds,expectedGalleryWorkIds,historicalPresetLinks,mediaReferences,coverReferences,graphComplete:false}`. Preserve DB-provided SHA, do not recompute JSONB hash, silently refresh a stale pin or use metadata-only R16 writer as permission to apply Scene/Media/Native state.
+
+## Explicit fail-closed and next task
+`graphComplete=false`, `retirementAuthorized=false`, `saveRevisionAuthorized=false`, `pairedGalleryPublishAuthorized=false`. Gallery positive Delete/Unpublish/Cloud Private/Restore OFF. Physical Cleanup/72h TTL OFF. DDV native persistent Writer/Product Apply OFF. Existing PR134 DRAFT / DO_NOT_MERGE / DO_NOT_DEPLOY.
+
+**Next bounded Owner implementation:** enumerate exact Gallery Photo v1 Subject/Media/Cover current+historical and every Storage URL issuer, prove downloaded bytes vs SQL metadata and all cross-Gallery reuse, implement **read-only** registry-aware Photo Preflight; only then propose an Actual Photo Writer enrollment with Account→sorted Work→Media locks, caller pin and independent signed/tested retry. Leave positive Photo/Scene Paired Writer disabled pending evidence.
