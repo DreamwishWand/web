@@ -1,0 +1,65 @@
+name: 09 INT R17 Owner132 actual Photo Media Cover preflight independent SQL
+on:
+  push:
+    branches:
+      - validation/09int-r17-owner132-photo-media-preflight-independent-20261026
+permissions:
+  contents: read
+jobs:
+  actual-sql-new-readonly-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check 'psycopg[binary]>=3,<4'
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Pin 132 unchanged Owner source migrations in isolated local project
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('supabase/config.toml')
+          s=p.read_text()
+          assert not any(l.strip().startswith('project_id =') for l in s.splitlines())
+          assert len(list(Path('supabase/migrations').glob('*.sql')))==132
+          p.write_text('project_id = "ddvre_09int_r17_photo_readonly"\n'+s)
+          PY
+      - name: Apply actual Owner132 migrations to disposable empty Supabase
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 1500s supabase start >/tmp/09int-r17-owner132-bootstrap.log 2>&1 || {
+            grep -Ein -B 3 -A 6 'error|failed|sqlstate|migration' /tmp/09int-r17-owner132-bootstrap.log | tail -n 90 || true
+            tail -n 30 /tmp/09int-r17-owner132-bootstrap.log || true
+            exit 1
+          }
+      - name: Independent two-session real new read-only Preflight and owner-only ACL
+        env:
+          DDVRE_09INT_LOCAL_ISOLATED: YES
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -u tests/09int-r17-owner132-photo-media-readonly-preflight.py | tee /tmp/09int-r17-owner132-preflight.jsonl
+          grep -F '09INT_R17_OWNER132_NEW_READONLY_PREFLIGHT_ACTUAL_SQL_ACCEPTED_WITH_COVER_ORDER_GAP' /tmp/09int-r17-owner132-preflight.jsonl
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: 09int-r17-owner132-readonly-preflight-evidence
+          path: |
+            /tmp/09int-r17-owner132-bootstrap.log
+            /tmp/09int-r17-owner132-preflight.jsonl
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Destroy isolated local project
+        if: always()
+        run: supabase stop --no-backup || true
