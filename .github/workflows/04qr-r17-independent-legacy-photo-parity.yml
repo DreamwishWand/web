@@ -1,0 +1,84 @@
+name: 04 QR R17 independent post-fix actual PostgreSQL Legacy/Photo/Privacy
+
+on:
+  push:
+    branches:
+      - validation/04qr-r17-owner131-independent-20261026
+    paths:
+      - '.github/workflows/04qr-r17-independent-legacy-photo-parity.yml'
+      - 'tests/qr-r17-independent-legacy-photo-boundary.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  independent-r17-local-pg:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      DDVRE_QR_R17_ISOLATED_LOCAL: CONFIRMED
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install local PostgreSQL client
+        run: python -m pip install --disable-pip-version-check 'psycopg[binary]>=3,<4'
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Prove isolated 130-migration source and unique versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD | tee /tmp/qr-r17-tested-head.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          from collections import Counter
+          files=list(Path('supabase/migrations').glob('*.sql'))
+          assert len(files)==131, f'R17_SOURCE_MIGRATION_COUNT_MISMATCH: {len(files)}'
+          versions=[f.name.split('_',1)[0] for f in files]
+          assert max(Counter(versions).values())==1
+          assert all(any(f.name.startswith(s+'_') for f in files) for s in
+            ('20261025002920','20261025002930','20261025002940'))
+          config=Path('supabase/config.toml')
+          source=config.read_text()
+          assert not any(x.strip().startswith('project_id =') for x in source.splitlines())
+          config.write_text('project_id = "ddvre_qr_r17_isolated_postfix"'+chr(10)+source)
+          print('QR_R17_FROZEN_131_MIGRATION_SOURCE_SCOPE_PASS')
+          PY
+          echo 'No supabase link, no remote credentials, no shared Cron'
+      - name: Apply complete source migrations to empty disposable local Supabase
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 1600s supabase start > /tmp/qr-r17-bootstrap.log 2>&1 || {
+            grep -Ein -B 3 -A 8 'error|failed|sqlstate|migration' /tmp/qr-r17-bootstrap.log | tail -n 100 || true
+            tail -n 50 /tmp/qr-r17-bootstrap.log || true
+            exit 1
+          }
+          echo 'QR_R17_LOCAL_131_MIGRATIONS_APPLIED'
+      - name: Execute only new independent actual PostgreSQL R17 cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -u tests/qr-r17-independent-legacy-photo-boundary.py | tee /tmp/qr-r17-cases.jsonl
+          grep -q 'QR_R17_INDEPENDENT_POSTFIX_SOURCE_BOUNDARY_PASS' /tmp/qr-r17-cases.jsonl
+          echo 'Real isolated SQL only; no normal signed actor or external Storage'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qr-r17-independent-postfix-source-acceptance
+          path: |
+            /tmp/qr-r17-tested-head.txt
+            /tmp/qr-r17-bootstrap.log
+            /tmp/qr-r17-cases.jsonl
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Destroy disposable local Supabase
+        if: always()
+        run: supabase stop --no-backup || true
