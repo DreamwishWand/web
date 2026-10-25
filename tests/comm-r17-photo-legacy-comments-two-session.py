@@ -10,13 +10,14 @@ g_direct,g_history,g_both=(u() for _ in range(3))
 preset_work,preset_work_direct,preset_work_both,artifact_direct,artifact_history,artifact_both=(u() for _ in range(6))
 preset_rev,preset_work_rev,blob=(u() for _ in range(3))
 revs={g_direct:u(),g_history:u(),g_both:u()}
+gallery_media=u()
 dreamsnap_work,challenge,ds_rev,entry=(u() for _ in range(4))
 with psycopg.connect(dsn,autocommit=True) as c:
   with c.transaction():
     c.execute("insert into public.wand_accounts(account_id) values(%s)",(owner,))
     c.execute("""insert into public.auth_identities(account_id,provider,provider_subject,last_verified_at,identity_state)
       values(%s,'supabase',%s,clock_timestamp(),'active')""",(owner,str(auth)))
-    entities=[(creator,'creator_profile')]+[(w,'community_work') for w in (g_direct,g_history,g_both,preset_work,preset_work_direct,preset_work_both,dreamsnap_work)]+[(a,'preset_artifact') for a in (artifact_direct,artifact_history,artifact_both)]
+    entities=[(creator,'creator_profile'),(gallery_media,'media_asset')]+[(w,'community_work') for w in (g_direct,g_history,g_both,preset_work,preset_work_direct,preset_work_both,dreamsnap_work)]+[(a,'preset_artifact') for a in (artifact_direct,artifact_history,artifact_both)]
     for key,typ in entities:c.execute("insert into public.community_entities(entity_id,entity_type) values(%s,%s)",(key,typ))
     c.execute("""insert into public.creator_profiles(creator_profile_id,owner_account_id,handle,display_name)
       values(%s,%s,%s,'R17 owner')""",(creator,owner,'isolated_r17_'+u().hex[:12]))
@@ -39,6 +40,16 @@ with psycopg.connect(dsn,autocommit=True) as c:
     for w in revs:
       c.execute("""insert into public.gallery_photo_subjects(work_id,subject_id,owner_account_id,creator_profile_id)
         values(%s,%s,%s,%s)""",(w,subject,owner,creator))
+    c.execute("""insert into public.media_assets(
+      media_id,owner_account_id,storage_key,mime_type,byte_size,width,height,
+      checksum_sha256,processing_state,moderation_state)
+      values(%s,%s,%s,'image/png',100,10,10,%s,'ready','clear')""",
+      (gallery_media,owner,'local/r17/photo-media/'+gallery_media.hex,'a'*64))
+    c.execute("""insert into public.work_revision_media(work_revision_id,media_id,ordinal,role)
+      values(%s,%s,0,'gallery')""",(revs[g_direct],gallery_media))
+    c.execute("""insert into public.gallery_photo_revision_fields(
+      revision_id,subject_id,cover_media_id,originality_attested)
+      values(%s,%s,%s,true)""",(revs[g_direct],subject,gallery_media))
     c.execute("""insert into public.artifact_blobs(
       blob_id,owner_account_id,storage_key,schema_version,content_type,byte_size,checksum_sha256)
       values(%s,%s,%s,1,'application/json',100,%s)""",(blob,owner,'local/r17/'+str(blob),'a'*64))
@@ -162,6 +173,21 @@ with psycopg.connect(dsn,autocommit=True) as probe:
     assert observed['knownDependencyCounts']['directPresetArtifacts']==direct_count
     assert observed['knownDependencyCounts']['historicalGalleryRevisionPresets']==historical_count
     assert observed['workRevisions'] and isinstance(observed['mediaReferences'],list)
+    if w==g_direct:
+      assert observed['knownDependencyCounts']['mediaReferences']==1
+      assert len(observed['mediaReferences'])==1
+      media=observed['mediaReferences'][0]
+      assert media['mediaId']==str(gallery_media)
+      assert media['metadataReady'] is True
+      assert media['declaredSha256']=='a'*64
+      assert media['declaredByteSize']==100
+      assert len(observed['coverReferences'])==1
+      cover=observed['coverReferences'][0]
+      assert cover['coverMediaId']==str(gallery_media)
+      assert cover['coverInRevisionMedia'] is True
+      assert cover['coverFirst'] is True
+      assert cover['subjectMatches'] is True
+
     assert observed['graphComplete'] is False
     assert observed['mutationAuthorized'] is False
     assert observed['actualStorageBytesVerified'] is False
