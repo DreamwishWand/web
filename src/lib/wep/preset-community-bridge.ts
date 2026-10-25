@@ -483,6 +483,33 @@ export function createPresetCommunityBridge({
     return readiness;
   }
 
+  /**
+   * Existing 03 COMM signed Owner Command: metadata preflight ONLY.
+   * The returned SHA must not be recomputed, rewritten or used by any WEP
+   * publish/save transport. No automatic caller-pin refresh after stale state.
+   */
+  async function inspectGalleryGraphPreflight(
+    galleryWorkId: string,
+    presetRevisionIds: string[]
+  ) {
+    const valid = (id: unknown) => typeof id === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+    assert(valid(galleryWorkId) &&
+      Array.isArray(presetRevisionIds) &&
+      presetRevisionIds.length > 0 &&
+      presetRevisionIds.length <= 1 &&
+      presetRevisionIds.every(valid) &&
+      new Set(presetRevisionIds).size === presetRevisionIds.length,
+      'WEP_R15_PREFLIGHT_REQUEST_INVALID');
+    const response = await community.command('preflightGalleryGraph', {
+      workId: galleryWorkId,
+      presetRevisionIds: [...presetRevisionIds]
+    });
+    assert(response?.ok === true && isObject(response.data),
+      'WEP_R15_SIGNED_PREFLIGHT_UNAVAILABLE');
+    return response.data;
+  }
+
   return Object.freeze({
     publishScene,
     discover,
@@ -494,7 +521,8 @@ export function createPresetCommunityBridge({
     loadDiscoveredWork,
     saveDiscoveredWork,
     preflightPreset,
-    inspectSceneRevisionReadiness
+    inspectSceneRevisionReadiness,
+    inspectGalleryGraphPreflight
   });
 }
 
