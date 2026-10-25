@@ -52,13 +52,13 @@ test('Edge only retries actual Gallery publish with fresh auth and fresh SQL tra
   assert.doesNotMatch(command,/savepoint.*publishGallery/i);
 });
 test('local isolated actual-Writer race is executed at 116 unique migrations',()=>{
-  assert.match(workflow,/assert len\(fs\)==119/);
-  assert.match(workflow,/MIGRATION_LEDGER_NOT_119/);
+  assert.match(workflow,/assert len\(fs\)==120/);
+  assert.match(workflow,/MIGRATION_LEDGER_NOT_120/);
   assert.match(workflow,/comm-r14-actual-gallery-v4-two-session\.py/);
   assert.match(workflow,/supabase\/migrations\/20261025002800_gallery_v4_actual_scoped_atomic_enrollment_r14\.sql/);
   const real=read('tests/comm-r14-actual-gallery-v4-two-session.py');
   assert.match(real,/select public\.community_publish_gallery_v4\(/);
   assert.match(real,/ACTUAL_GALLERY_V4_BYPASSED/);
   assert.match(real,/03COMM_R14_ACTUAL_GALLERY_V4_TWO_BACKEND_SOURCE_PASS/);
-  assert.match(real,/callerGraphFingerprintChecked":False/);
+  assert.match(real,/callerGraphFingerprintChecked":True/);
 });
