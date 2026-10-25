@@ -1,0 +1,83 @@
+name: 04 QR R15 Source120 pinned graph independent regressions
+on:
+  push:
+    branches:
+      - validation/04qr-r15-source120-graph-pin-20261026
+  pull_request:
+    paths:
+      - 'tests/qr-r15-owner120-independent-pinned-graph.py'
+      - '.github/workflows/04qr-r15-owner120-independent-pinned-graph.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qr-r15-fixed-graph-independent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install two-session PostgreSQL driver
+        run: python -m pip install --disable-pip-version-check 'psycopg[binary]>=3,<4'
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Pin local-only independent Supabase project
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('supabase/config.toml')
+          s=p.read_text()
+          # The canonical config intentionally omits project_id, so prepend a
+          # unique local-only identifier exactly as the 03 COMM clean-bootstrap gate does.
+          assert not any(line.strip().startswith('project_id =') for line in s.splitlines())
+          p.write_text('project_id = "ddvre_04qr_r15_graph_pinned"\n'+s)
+          migrations=list(Path('supabase/migrations').glob('*.sql'))
+          assert len(migrations)==120,(len(migrations),'EXPECTED_OWNER_R15_PINNED_SOURCE120')
+          PY
+          echo 'NO supabase link, NO remote secrets, NO Staging/Production access'
+      - name: Start isolated owner PR134 Supabase Postgres and apply 119 Source migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 1500s supabase start > /tmp/r8-supabase-start.log 2>&1 || {
+            echo 'R15_OWNER_SOURCE_BOOTSTRAP_FAILED_EXACT_PIN'
+            grep -Ein -B 3 -A 7 'error|failed|SQLSTATE|syntax|migration' /tmp/r8-supabase-start.log | tail -n 100 || true
+            tail -n 30 /tmp/r8-supabase-start.log || true
+            exit 1
+          }
+          echo 'LOCAL_SUPABASE_120_OWNER_SOURCE_MIGRATIONS_APPLIED'
+      - name: Seed synthetic local account and minimal reference corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          db_container=$(docker ps --format '{{.Names}}' | grep '^supabase_db_' | head -1)
+          test -n "$db_container"
+          docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/staging/acceptance/local-clean-bootstrap-synthetic-seed-v1.sql > /tmp/r8-seed.log 2>&1 || { tail -n 60 /tmp/r8-seed.log; exit 1; }
+          echo 'ONLY_EPHEMERAL_SYNTHETIC_ACCOUNT_SEEDED'
+      - name: 04 QR independent actual Source120 stale/fresh pinned caller graph acceptance
+        env:
+          DDVRE_QR_R15_FIXED_LOCAL: CONFIRMED
+          DDVRE_R8_POSTGRES_DSN: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: python -u tests/qr-r15-owner120-independent-pinned-graph.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: 04qr-r15-fixed-caller-source120-evidence
+          path: |
+            /tmp/r8-supabase-start.log
+            /tmp/r8-seed.log
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Discard only the ephemeral local DB, no backup
+        if: always()
+        run: supabase stop --no-backup || true
