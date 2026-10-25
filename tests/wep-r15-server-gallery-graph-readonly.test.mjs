@@ -29,7 +29,11 @@ function server(){
   presetWorkIds:[I.presetWork],galleryWorkIds:[I.gallery],
   artifacts:[{preset_artifact_id:I.artifact,preset_type:'scene',
     community_work_id:I.presetWork,owner_account_id:I.account,creator_profile_id:I.creator}],
-  works,presetPublications:[{work_revision_id:I.presetWorkRev,preset_revision_id:I.presetRev}],
+  works,
+  workRevisions:[{revision_id:I.presetWorkRev,work_id:I.presetWork},
+    {revision_id:I.galleryRev,work_id:I.gallery}],
+  presetRevisions:[{preset_revision_id:I.presetRev,preset_artifact_id:I.artifact}],
+  presetPublications:[{work_revision_id:I.presetWorkRev,preset_revision_id:I.presetRev}],
   historicalPresetLinks:[{gallery_revision_id:I.galleryRev,preset_revision_id:I.presetRev}],
   mediaReferences:[{work_revision_id:I.galleryRev,media_id:I.media,ordinal:0,role:'gallery'}],
   coverReferences:[{revision_id:I.galleryRev,cover_media_id:I.media}]
@@ -113,7 +117,11 @@ test('Current/historical revision and Media/Cover mirror must agree and missing 
    s=>s.historicalPresetLinks[0].gallery_revision_id=I.presetWork,
    s=>s.mediaReferences[0].media_id=I.presetWork,
    s=>s.coverReferences[0].cover_media_id=I.presetRev,
-   s=>delete s.coverReferences
+   s=>delete s.coverReferences,
+   s=>s.expectedGraph.graph.workRevisions=[],
+   s=>s.expectedGraph.graph.presetRevisions=[],
+   s=>s.mediaReferences[0].work_revision_id=I.presetWorkRev,
+   s=>s.coverReferences[0].cover_media_id=I.presetWorkRev
  ]){
   const s=server();change(s);assert.throws(()=>parse(s),/WEP_R15_/);
  }
