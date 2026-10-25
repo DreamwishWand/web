@@ -51,9 +51,6 @@ with psycopg.connect(DSN, autocommit=True) as seed:
             seed.execute("""insert into public.community_work_revisions(revision_id,work_id,revision_number,created_by_account_id)
                 values(%s,%s,1,%s)""",(rev,work,owner))
             seed.execute("insert into public.gallery_work_revisions(revision_id,title) values(%s,'QA synthetic')",(rev,))
-            seed.execute("""update public.community_works
-                set lifecycle_state='published',current_published_revision_id=%s,published_at=now()
-                where work_id=%s""",(rev,work))
             seed.execute("""insert into public.search_documents(
                 entity_id,work_id,work_type,creator_profile_id,title,text_content,tags,facets,published_at,updated_at)
                 values(%s,%s,'gallery',%s,'QA synthetic','',array[]::text[],
@@ -81,12 +78,24 @@ with psycopg.connect(DSN, autocommit=True) as seed:
             (preset_work_rev,pre_work_history,owner))
         seed.execute("""insert into public.preset_revision_publications(work_revision_id,preset_revision_id)
             values(%s,%s)""",(preset_work_rev,preset_revision))
-        for label in ["historical","both"]:
-            seed.execute("""insert into public.gallery_revision_presets(gallery_revision_id,preset_revision_id)
-                values(%s,%s)""",(galleries[label][1],preset_revision))
         seed.execute("""update public.community_works set lifecycle_state='published',
             current_published_revision_id=%s,published_at=now() where work_id=%s""",
             (preset_work_rev,pre_work_history))
+        for label in ["historical","both"]:
+            seed.execute("""insert into public.gallery_revision_presets(gallery_revision_id,preset_revision_id)
+                values(%s,%s)""",(galleries[label][1],preset_revision))
+            work=galleries[label][0]
+            new_current=u()
+            seed.execute("""insert into public.community_work_revisions(
+                revision_id,work_id,revision_number,created_by_account_id)
+                values(%s,%s,2,%s)""",(new_current,work,owner))
+            seed.execute("""insert into public.gallery_work_revisions(revision_id,title)
+                values(%s,'QR current after historic Scene reference')""",(new_current,))
+            galleries[label]=(work,new_current)
+        for label,(work,current_rev) in galleries.items():
+            seed.execute("""update public.community_works
+                set lifecycle_state='published',current_published_revision_id=%s,published_at=now()
+                where work_id=%s""",(current_rev,work))
     for name in ["direct","historical","both"]:
         w,r=galleries[name]
         d=one(seed,"select count(*) from public.preset_artifacts where associated_gallery_work_id=%s",(w,))
