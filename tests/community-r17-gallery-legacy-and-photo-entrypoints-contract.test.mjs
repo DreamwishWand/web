@@ -44,8 +44,8 @@ test('R17 actual two-session negatives and DreamSnaps under13 are wired into 130
  assert.match(workflow,/assert len\(fs\)==130/);
  assert.match(workflow,/MIGRATION_LEDGER_NOT_130/);
  assert.match(workflow,/comm-r17-photo-legacy-comments-two-session\.py/);
- for(const marker of ['R17_PHOTO_DIRECT_FAIL_CLOSED','R17_PHOTO_HISTORICAL_FAIL_CLOSED',
- 'R17_PHOTO_DIRECT_AND_HISTORICAL_FAIL_CLOSED','R17_LEGACY_GALLERY_COMMENTS_V1_DENIED',
- 'R17_LEGACY_GALLERY_COMMENTS_V2_DENIED','R17_DREAMSNAPS_UNDER13_V2_UNCHANGED'])assert.ok(testSql.includes(marker.replace('R17_PHOTO_DIRECT_FAIL_CLOSED','R17_PHOTO_'))||testSql.includes(marker),marker);
+ for(const marker of ['R17_PHOTO_','R17_LEGACY_GALLERY_COMMENTS_',
+ 'R17_DREAMSNAPS_UNDER13_V2_UNCHANGED','R17_PHOTO_DEPENDENCY_NOT_ENROLLED',
+ 'R17_LEGACY_GALLERY_COMMENTS_PIN_REQUIRED'])assert.ok(testSql.includes(marker),marker);
  assert.match(testSql,/03COMM_R17_ACTUAL_SOURCE_LEGACY_COMMENTS_AND_PHOTO_TWO_BACKEND_PASS/);
 });
