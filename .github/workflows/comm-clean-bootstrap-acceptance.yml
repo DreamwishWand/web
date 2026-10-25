@@ -20,6 +20,10 @@ on:
       - 'tests/comm-r14-actual-gallery-v4-two-session.py'
       - 'tests/comm-r15-pinned-gallery-two-session.py'
       - 'supabase/migrations/20261025002840_gallery_caller_pinned_graph_r15.sql'
+      - 'supabase/migrations/20261025002850_gallery_r15_signed_preflight.sql'
+      - 'supabase/migrations/20261025002860_gallery_r15_actual_pinned_writer.sql'
+      - 'supabase/migrations/20261025002870_gallery_r15_legacy_v4_guard.sql'
+      - 'supabase/migrations/20261025002880_gallery_r15_rpc_acl.sql'
       - 'supabase/migrations/20261025002800_gallery_v4_actual_scoped_atomic_enrollment_r14.sql'
       - 'supabase/migrations/20261025002810_gallery_v4_scoped_atomic_lock_r14.sql'
       - 'supabase/migrations/20261025002820_gallery_v4_actual_writer_enrollment_r14.sql'
@@ -50,7 +54,7 @@ jobs:
           from pathlib import Path
           import re
           fs=sorted(Path('supabase/migrations').glob('*.sql'))
-          assert len(fs)==120, f'expected 120 source SQL files (115 prior + 4 R14 scoped Gallery-v4/ACL), got {len(fs)}'
+          assert len(fs)==124, f'expected 124 source SQL files (115 prior + 4 R14 scoped Gallery-v4/ACL), got {len(fs)}'
           vs=[f.name.split('_',1)[0] for f in fs]
           assert all(re.fullmatch(r'\d{12}(?:\d{2})?',v) for v in vs)
           assert len(vs)==len(set(vs)), 'migration version collision'
@@ -59,7 +63,7 @@ jobs:
                          ('20261025002300','gallery_capacity_effective_cleanup_diagnostics_v1'),
                          ('20261025002400','gallery_known_reference_writer_fence_v1')]:
               assert sum(f.name==v+'_'+name+'.sql' for f in fs)==1
-          print('SOURCE_CANDIDATE_120_MIGRATIONS_UNIQUE_AND_ORDERED_PASS')
+          print('SOURCE_CANDIDATE_124_MIGRATIONS_UNIQUE_AND_ORDERED_PASS')
           PY
       - name: Source-Candidate migration static regression
         shell: bash
@@ -99,7 +103,7 @@ jobs:
           DECLARE v int;
           BEGIN
             SELECT count(*) INTO v FROM supabase_migrations.schema_migrations;
-            IF v<>120 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_120: %',v;END IF;
+            IF v<>124 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_124: %',v;END IF;
             IF to_regprocedure('public.community_gallery_graph_preflight_r15(uuid,uuid,uuid[])') IS NULL
                OR to_regprocedure('public.community_publish_gallery_pinned_r15(uuid,uuid,bigint,text,text,uuid[],uuid[],bigint[],bigint[],text,text,text)') IS NULL
             THEN RAISE EXCEPTION 'R15_PINNED_WRITER_MISSING';END IF;
@@ -137,7 +141,7 @@ jobs:
             IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid='public.gallery_photo_revision_fields'::regclass)
              OR NOT (SELECT relrowsecurity FROM pg_class WHERE oid='public.community_media_upload_intents'::regclass)
             THEN RAISE EXCEPTION 'RLS_NOT_ENABLED';END IF;
-            RAISE NOTICE 'LOCAL_SOURCE_CANDIDATE_120_LEDGER_FUNCTION_TRIGGER_RLS_ACL_PHYSICAL_FAILCLOSED_PASS';
+            RAISE NOTICE 'LOCAL_SOURCE_CANDIDATE_124_LEDGER_FUNCTION_TRIGGER_RLS_ACL_PHYSICAL_FAILCLOSED_PASS';
           END $checks$;
           SELECT extname FROM pg_extension ORDER BY extname;
           SELECT n.nspname,COUNT(*) FILTER (WHERE p.prosecdef) AS security_definer_count
@@ -159,12 +163,16 @@ jobs:
             supabase/migrations/20261025002810_gallery_v4_scoped_atomic_lock_r14.sql \
             supabase/migrations/20261025002820_gallery_v4_actual_writer_enrollment_r14.sql \
             supabase/migrations/20261025002830_gallery_v4_private_helper_acl_r14.sql \
-            supabase/migrations/20261025002840_gallery_caller_pinned_graph_r15.sql; do
+            supabase/migrations/20261025002840_gallery_caller_pinned_graph_r15.sql \
+            supabase/migrations/20261025002850_gallery_r15_signed_preflight.sql \
+            supabase/migrations/20261025002860_gallery_r15_actual_pinned_writer.sql \
+            supabase/migrations/20261025002870_gallery_r15_legacy_v4_guard.sql \
+            supabase/migrations/20261025002880_gallery_r15_rpc_acl.sql; do
             for attempt in 1 2; do
               docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < "$file"
             done
           done
-          echo 'NINE_ADDITIVE_SOURCE_MIGRATIONS_SAME_SCHEMA_REAPPLY_PASS' | tee /tmp/comm-parent-reapply.log
+          echo 'THIRTEEN_ADDITIVE_SOURCE_MIGRATIONS_SAME_SCHEMA_REAPPLY_PASS' | tee /tmp/comm-parent-reapply.log
       - name: Seed LOCAL disposable actors and run existing negative Gallery SQL fixtures
         shell: bash
         run: |
