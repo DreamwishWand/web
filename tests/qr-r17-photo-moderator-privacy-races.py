@@ -101,8 +101,8 @@ with psycopg.connect(DSN,autocommit=True) as a, psycopg.connect(DSN,autocommit=T
     assert one(m,"select count(*) from public.search_documents where work_id=%s",(work_mod,))==0
     a.execute("rollback")
     changed=work_state(b,work_mod,owner,"qr17-mod-photo-denied")
-    assert changed[:4]==initial[:4],(initial,changed)
-    assert changed[5]=="restricted",changed
+    assert changed[0]==initial[0] and changed[2]==initial[2] and changed[3]==initial[3],(initial,changed)
+    assert changed[1]==initial[1]+1 and changed[4]>initial[4] and changed[5]=="restricted",(initial,changed)
     deny(b,lambda:photo(b,work_mod,changed[4],media_mod,"qr17-mod-photo-retry","Blocked after emergency restrict"),
         ["GALLERY_WORK_NOT_PUBLIC_EDITABLE"])
     assert work_state(b,work_mod,owner,"qr17-mod-photo-denied")==changed
