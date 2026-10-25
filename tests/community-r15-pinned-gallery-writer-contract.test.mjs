@@ -41,7 +41,7 @@ test('R15 preflight and pinned Writer remain service-role-only, Edge never refre
  assert.match(edge,/preflightGalleryGraph: 'community_gallery_graph_preflight_r15'/);
  assert.match(edge,/publishGallery: 'community_publish_gallery_pinned_r15'/);
  assert.match(edge,/params\.p_expected_graph_sha256 = pin.expectedGraphSha256/);
- assert.match(edge,/error: staleGraph \? 'STALE_GRAPH'/);
+ assert.match(edge,/unenrolledGraphWriter \? 'UNENROLLED_GRAPH_WRITER' : staleGraph \? 'STALE_GRAPH'/);
  assert.match(edge,/\['40P01','55P03','40001'\]/);
 });
 test('R15 real two-connection negative, fresh, replay, historical lock are gated in bootstrap',()=>{
