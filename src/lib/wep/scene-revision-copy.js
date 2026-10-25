@@ -47,12 +47,25 @@ const DIAGNOSTIC = {
 const DIAGNOSTIC_KEYS = ['pairedGalleryOwner','pairedGalleryRowVersion','pairedGalleryCurrentRevision',
   'historicalScope','historicalEdgeSha','graphFence','notAtomic','comparison',
   'currentMediaCount','unknown','diagnosticsOnly'];
+const R15_KEYS=['r15Inspect','r15Loading','r15Title','r15Registry','r15Sha',
+  'r15Historical','r15Media','r15Covers','r15ScopeWarning'];
+const R15_ROWS={
+  en:['Inspect owner Gallery graph','Reading scoped graph…','Server-issued Gallery graph (owner only)','Registry','Server SHA-256','Historical preset links','Media references','Cover references','Scoped Scene graph only. Not a global writer authorization; Save Revision remains unavailable.'],
+  ja:['所有者Gallery Graphを確認','限定Graphを読取中…','サーバー発行Gallery Graph（所有者のみ）','Registry','サーバーSHA-256','過去のPreset参照','Media参照','Cover参照','既知Sceneの限定Graphです。全Writer権限ではありません。Save Revisionは無効です。'],
+  de:['Owner-Gallery-Graph prüfen','Begrenzten Graph laden…','Server-Gallery-Graph (nur Besitzer)','Register','Server-SHA-256','Historische Preset-Verknüpfungen','Medienverweise','Coververweise','Nur Scene-Teilgraph; keine globale Schreibfreigabe. Revision speichern bleibt gesperrt.'],
+  fr:['Vérifier le graphe Gallery propriétaire','Lecture du graphe limité…','Graphe Gallery serveur (propriétaire)','Registre','SHA-256 serveur','Liens Preset historiques','Références média','Références couverture','Graphe Scene limité : aucune autorisation globale. Enregistrement de révision bloqué.'],
+  it:['Verifica grafo Gallery proprietario','Lettura grafo limitato…','Grafo Gallery del server (proprietario)','Registro','SHA-256 server','Link Preset storici','Riferimenti media','Riferimenti copertina','Solo grafo Scene limitato; nessun permesso globale. Revisione bloccata.'],
+  'es-ES':['Inspeccionar grafo Gallery del propietario','Leyendo grafo limitado…','Grafo Gallery del servidor (propietario)','Registro','SHA-256 servidor','Vínculos Preset históricos','Referencias de medios','Referencias de portada','Solo grafo Scene limitado; no autoriza escritura global. Guardar revisión bloqueado.'],
+  'pt-BR':['Inspecionar grafo Gallery do proprietário','Lendo grafo limitado…','Grafo Gallery emitido pelo servidor (proprietário)','Registro','SHA-256 servidor','Links históricos Preset','Referências de mídia','Referências de capa','Somente grafo Scene limitado, sem autorização global. Salvar revisão bloqueado.'],
+  'zh-CN':['检查所有者 Gallery 关系图','正在读取限定关系图…','服务器签发 Gallery 关系图（仅所有者）','注册版本','服务器 SHA-256','历史 Preset 关联','媒体引用','封面引用','仅限 Scene 的局部关系图，不能授权全局写入。保存修订仍被禁用。']
+};
 export const SCENE_REVISION_COPY_LOCALES = Object.freeze(Object.keys(ROWS));
 export function sceneRevisionCopy(locale) {
   const values = ROWS[locale] ?? ROWS.en;
   const diagnostic = DIAGNOSTIC[locale] ?? DIAGNOSTIC.en;
   return Object.fromEntries([
     ...KEYS.map((key,i)=>[key,values[i]]),
-    ...DIAGNOSTIC_KEYS.map((key,i)=>[key,diagnostic[i]])
+    ...DIAGNOSTIC_KEYS.map((key,i)=>[key,diagnostic[i]]),
+    ...R15_KEYS.map((key,i)=>[key,(R15_ROWS[locale] ?? R15_ROWS.en)[i]])
   ]);
 }
