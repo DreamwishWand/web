@@ -19,7 +19,7 @@ const defaultPayload = {
   graphPin:{registryVersion:'gallery-scene-scoped@r15',expectedGraphSha256:graphSha}
 };
 
-async function runScenario({outcomes, payload=defaultPayload, failReauth=false, command='publishGallery', maxTimeExceeded=false}) {
+async function runScenario({outcomes, payload=defaultPayload, failReauth=false, failInitialAuth=false, command='publishGallery', maxTimeExceeded=false}) {
   const events = [];
   let attempts=0, authorizations=0, rateChecks=0;
   const client={
@@ -27,10 +27,10 @@ async function runScenario({outcomes, payload=defaultPayload, failReauth=false, 
       events.push({name,params:structuredClone(params)});
       if(name==='community_authorize_session'){
         authorizations++;
-        return {data:{},error:failReauth&&authorizations>=2?{message:'revoked'}:null};
+        return {data:{},error:(failInitialAuth&&authorizations===1)||(failReauth&&authorizations>=2)?{message:'revoked'}:null};
       }
       if(name==='community_consume_action_rate_limit'){rateChecks++;return {data:{allowed:true},error:null};}
-      if(name==='community_publish_gallery_pinned_r15'){
+      if(name==='community_publish_gallery_pinned_r15'||name==='community_moderate_entity_v5'){
         const outcome=outcomes[attempts++]??{error:{code:'XX999',message:'unexpected extra attempt'}};
         return outcome;
       }
@@ -166,3 +166,31 @@ for(const message of ['GALLERY_WORK_FORBIDDEN','GALLERY_CREATOR_FORBIDDEN','does
   });
 }
 
+
+test('R16 privacy-suppressed or retired session denied before any positive Gallery RPC',async()=>{
+  const result=await runScenario({
+    failInitialAuth:true,
+    outcomes:[{data:{published:true},error:null}]
+  });
+  assert.equal(result.status,401);
+  assert.equal(result.body.error,'SESSION_REVOKED_OR_INVALID');
+  assert.equal(result.attempts,0);
+  assert.equal(result.authorizations,1);
+  assert.equal(result.rateChecks,0);
+});
+
+test('R16 emergency moderator command remains outside Gallery-specific retry and pin gate',async()=>{
+  const result=await runScenario({
+    command:'moderateWork',
+    payload:{caseId:'00000000-0000-4000-8000-000000000444',
+      action:'restrict',reason:'synthetic QA scope'},
+    outcomes:[{data:{moderationState:'restricted'},error:null}]
+  });
+  assert.equal(result.status,200);
+  assert.equal(result.body.ok,true);
+  assert.equal(result.attempts,1);
+  assert.equal(result.authorizations,1);
+  assert.equal(result.events.filter(x=>x.name==='community_moderate_entity_v5').length,1);
+  assert.equal(result.events.filter(x=>x.name==='community_publish_gallery_pinned_r15').length,0);
+  assert.equal(result.events.find(x=>x.name==='community_moderate_entity_v5').params.p_action,'restrict');
+});
