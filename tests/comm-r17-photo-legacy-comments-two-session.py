@@ -63,9 +63,9 @@ with psycopg.connect(dsn,autocommit=True) as c:
     c.execute("""insert into public.dreamsnap_challenges(
       challenge_id,challenge_key,title,lifecycle_state,
       submission_opens_at,submission_closes_at,judging_opens_at,judging_closes_at,results_at,closes_at,
-      formal_vote_allowance,special_pick_allowance,minimum_real_eligible_entries,is_synthetic)
+      formal_vote_allowance,special_pick_allowance,minimum_real_eligible_entries,minimum_real_eligible_creators,is_synthetic)
       values(%s,%s,'R17 under13','results',now()-interval '6 days',now()-interval '5 days',
-      now()-interval '4 days',now()-interval '3 days',now()-interval '2 days',now()+interval '1 day',5,0,1,true)""",
+      now()-interval '4 days',now()-interval '3 days',now()-interval '2 days',now()+interval '1 day',5,0,1,1,true)""",
       (challenge,'r17-'+u().hex[:14]))
     c.execute("""insert into public.dreamsnap_works(
       work_id,challenge_id,workspace_relationship_kind,managed_under13)
