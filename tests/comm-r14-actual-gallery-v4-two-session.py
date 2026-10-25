@@ -11,12 +11,17 @@ def one(c,q,args=()):
     return c.execute(q,args).fetchone()[0]
 def execsql(c,q,args=()):
     return c.execute(q,args)
+r14_pins={}
 def gallery_rpc(c,g,key="r14-source",expected=None):
-    return one(c,"""select public.community_publish_gallery_v4(
-      %s,%s,%s,%s,%s,%s::uuid[],%s::uuid[],%s::bigint[],%s::bigint[],%s,%s)""",
+    if key not in r14_pins:
+        response=one(c,"select public.community_gallery_graph_preflight_r15(%s,%s,%s::uuid[])",
+                     (g["auth"],g["target"],[g["presetRev"]]))
+        r14_pins[key]=response["expectedGraphSha256"]
+    return one(c,"""select public.community_publish_gallery_pinned_r15(
+      %s,%s,%s,%s,%s,%s::uuid[],%s::uuid[],%s::bigint[],%s::bigint[],%s,%s,%s)""",
       (g["auth"],g["target"],g["version"] if expected is None else expected,
        "R14 Source Actual Gallery","atomic source integration",
-       [g["media"]],[g["presetRev"]],[],[],None,key))
+       [g["media"]],[g["presetRev"]],[],[],None,key,r14_pins[key]))
 
 with psycopg.connect(dsn,autocommit=True,connect_timeout=4) as c:
     # R12 phase1 intentionally commits suppression of its own fixture Owner.
@@ -178,5 +183,5 @@ with psycopg.connect(dsn,autocommit=True) as c:
       "suppressionCommitted":True,"galleryHistoryPreserved":True}))
 print(json.dumps({"result":"03COMM_R14_ACTUAL_GALLERY_V4_TWO_BACKEND_SOURCE_PASS",
   "actualOwnerSQLModified":True,"validationWrapperUsed":False,
-  "galleryNoGlobalGraphComplete":True,"callerGraphFingerprintChecked":False,
+  "galleryNoGlobalGraphComplete":True,"callerGraphFingerprintChecked":True,
   "signedJWTTested":False,"productionAllWriterAccepted":False}))
