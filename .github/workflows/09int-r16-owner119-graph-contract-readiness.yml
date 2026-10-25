@@ -1,0 +1,68 @@
+name: 09 INT R16 Source119 graph contract readiness - BLOCKED not PASS
+on:
+  push:
+    branches:
+      - validation/09int-r16-owner119-graph-contract-readiness-20261026
+permissions:
+  contents: read
+jobs:
+  owner119-actual-rpc-contract-negative-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check 'psycopg[binary]>=3,<4'
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Pin 119 migrations and ephemeral-only local Supabase
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('supabase/config.toml')
+          s=p.read_text()
+          assert not any(l.strip().startswith('project_id =') for l in s.splitlines())
+          assert len(list(Path('supabase/migrations').glob('*.sql')))==119
+          p.write_text('project_id = "ddvre_09int_r16_readiness"\n'+s)
+          PY
+          echo 'NO staging/prod link or credentials'
+      - name: Bootstrap original Owner119 actual SQL in isolated database
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 1500s supabase start > /tmp/r16-start.log 2>&1 || {
+            grep -Ein -B 3 -A 7 'error|failed|sqlstate|migration' /tmp/r16-start.log | tail -n 90 || true
+            tail -n 35 /tmp/r16-start.log || true
+            exit 1
+          }
+      - name: Inspect actual pg_proc and real Edge dispatch, DO NOT mutate
+        env:
+          DDVRE_R16_ISOLATED_LOCAL: CONFIRMED
+          DDVRE_R16_POSTGRES_DSN: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -u tests/09int-r16-source119-caller-graph-readiness.py | tee /tmp/r16-contract.jsonl
+          grep -F '"r16CallerGraphAcceptance": "BLOCKED_OWNER_API_NOT_IMPLEMENTED"' /tmp/r16-contract.jsonl
+          echo 'NO R16 POSITIVE TEST EXECUTED'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r16-source119-readiness-blocked-not-pass
+          path: |
+            /tmp/r16-start.log
+            /tmp/r16-contract.jsonl
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Discard disposable local database
+        if: always()
+        run: supabase stop --no-backup || true
