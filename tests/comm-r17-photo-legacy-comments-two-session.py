@@ -151,5 +151,30 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
   result=one(b,"select public.community_set_gallery_comments_enabled_v2(%s,%s,false)",(auth,dreamsnap_work))
   assert result['commentsEnabled'] is False and one(b,"select comments_enabled from public.dreamsnap_gallery_publications where work_id=%s",(dreamsnap_work,)) is False
   print(json.dumps({'case':'R17_DREAMSNAPS_UNDER13_V2_UNCHANGED','enabledTrueDenied':True,'enabledFalseSucceeds':True}))
+with psycopg.connect(dsn,autocommit=True) as probe:
+  for w,direct_count,historical_count in [
+    (g_direct,1,0),(g_history,0,1),(g_both,1,1)
+  ]:
+    before=state(probe,w)
+    observed=one(probe,"select public.community_gallery_photo_media_preflight_r17(%s,%s)",(auth,w))
+    assert observed['contract']=='ddv.gallery-photo-media-readonly@r17'
+    assert observed['workId']==str(w)
+    assert observed['knownDependencyCounts']['directPresetArtifacts']==direct_count
+    assert observed['knownDependencyCounts']['historicalGalleryRevisionPresets']==historical_count
+    assert observed['workRevisions'] and isinstance(observed['mediaReferences'],list)
+    assert observed['graphComplete'] is False
+    assert observed['mutationAuthorized'] is False
+    assert observed['actualStorageBytesVerified'] is False
+    assert observed['metadataSha256IsStorageProof'] is False
+    assert observed['retirementAuthorized'] is False
+    assert observed['snapshotNotAtomicMutationFence'] is True
+    assert 'PHOTO_SCENE_DEPENDENCY_NOT_ENROLLED' in observed['blockedReasons']
+    assert 'storageKey' not in json.dumps(observed)
+    assert state(probe,w)==before
+    print(json.dumps({'case':'R17_PHOTO_MEDIA_READONLY_'+str(direct_count)+'_'+str(historical_count),
+      'direct':direct_count,'historical':historical_count,'noMutation':True}))
+  expect(probe,lambda:one(probe,"select public.community_gallery_photo_media_preflight_r17(%s,%s)",(auth,preset_work)),
+    'R17_PHOTO_PREFLIGHT_FORBIDDEN')
+  print(json.dumps({'case':'R17_PHOTO_MEDIA_NONPHOTO_DENIED'}))
 print(json.dumps({'result':'03COMM_R17_ACTUAL_SOURCE_LEGACY_COMMENTS_AND_PHOTO_TWO_BACKEND_PASS',
   'signedStagingJWT':False,'storageBytes':False,'nativeWriter':False}))
