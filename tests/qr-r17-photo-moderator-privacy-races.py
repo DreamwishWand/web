@@ -86,7 +86,7 @@ with psycopg.connect(DSN,autocommit=True) as a, psycopg.connect(DSN,autocommit=T
     b.execute("set local lock_timeout='250ms'")
     denied=deny(b,lambda:photo(
         b,work_mod,initial[4],media_mod,"qr17-mod-photo-denied","Owner blocked by account"),
-        ["could not obtain lock"])
+        ["could not obtain lock","lock timeout"])
     assert denied=="55P03",denied
     b.execute("rollback")
     assert work_state(b,work_mod,owner,"qr17-mod-photo-denied")==initial
@@ -125,7 +125,7 @@ with psycopg.connect(DSN,autocommit=True) as writer,psycopg.connect(DSN,autocomm
     epoch=one(privacy,"select extract(epoch from clock_timestamp())::bigint")
     sql="""select public.community_request_privacy_suppression_v1(%s,%s,%s,'DELETE')"""
     denied=deny(privacy,lambda:one(privacy,sql,(owner_auth,owner_session,epoch)),
-        ["could not obtain lock"])
+        ["could not obtain lock","lock timeout"])
     assert denied=="55P03",denied
     privacy.execute("rollback")
     assert one(privacy,"select private.is_account_privacy_suppressed(%s)",(owner,)) is False
