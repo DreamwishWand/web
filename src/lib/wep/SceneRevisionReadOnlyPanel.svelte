@@ -9,6 +9,7 @@
     type SceneOwnerReadiness
   } from './scene-revision-gallery-consumer';
   import { sceneRevisionCopy } from './scene-revision-copy.js';
+  import { parseR15ServerGalleryGraph, type R15ScopedGraphObservation } from './r15-server-gallery-graph-readonly';
 
   export let workId = '';
   export let presetArtifactId = '';
@@ -19,6 +20,10 @@
   let owner: SceneOwnerReadiness | null = null;
   let coverUrl = '';
   let coverError = '';
+  let graph: R15ScopedGraphObservation | null = null;
+  let graphError = '';
+  let graphLoading = false;
+  let graphSessionEpoch = 0;
   let error = '';
   let loading = false;
   let signing = false;
@@ -27,8 +32,19 @@
   $: if (bridge !== ownerBridge) {
     ownerBridge = bridge;
     owner = null;
+    graph = null;
+    graphError = '';
+    graphSessionEpoch += 1;
   }
-  $: if (!connected && owner !== null) owner = null;
+  $: if (!connected) {
+    if (owner !== null || graph !== null) {
+      owner = null;
+      graph = null;
+      graphError = '';
+    }
+    // Connection must not reuse an old authorization epoch.
+    if (graphLoading) graphSessionEpoch += 1;
+  }
   $: copy = sceneRevisionCopy($locale);
   $: diagnosis = owner ? diagnoseSceneRevisionPairing(current, owner) : null;
   $: selectionKey = workId + '/' + presetArtifactId;
@@ -36,6 +52,9 @@
     selectedKey = selectionKey;
     current = null;
     owner = null;
+    graph = null;
+    graphError = '';
+    graphSessionEpoch += 1;
     coverUrl = '';
     coverError = '';
     error = '';
@@ -82,6 +101,9 @@
     loading = true;
     error = '';
     owner = null;
+    graph = null;
+    graphError = '';
+    graphSessionEpoch += 1;
     const requested = selectionKey;
     const requestedBridge = bridge;
     try {
@@ -93,6 +115,70 @@
       }
     } finally {
       loading = false;
+    }
+  }
+
+  /**
+   * Never transport caller graph SHA to any Writer; only signed Owner
+   * command preflightGalleryGraph and sanitized local metadata diagnostics.
+   * The request is bound to the currently selected authenticated bridge.
+   */
+  async function inspectGalleryGraph() {
+    if (!connected || !presetArtifactId || graphLoading ||
+        typeof bridge?.inspectGalleryGraphPreflight !== 'function') return;
+    graph = null;
+    graphError = '';
+    graphLoading = true;
+    const epoch = ++graphSessionEpoch;
+    const actorBridge = bridge;
+    const requested = selectionKey;
+    try {
+      const ownerRead = owner ?? await reader().readOwner(presetArtifactId);
+      if (epoch !== graphSessionEpoch || actorBridge !== bridge || !connected ||
+          requested !== selectionKey) return;
+      if (!ownerRead.hasAssociatedGallery || !ownerRead.pairedGalleryWorkId ||
+          !ownerRead.currentPresetRevisionId) {
+        throw new Error('WEP_R15_GALLERY_OR_CURRENT_PRESET_UNAVAILABLE');
+      }
+      const publicRead = current ?? await reader().readCurrent(ownerRead.presetWorkId);
+      if (epoch !== graphSessionEpoch || actorBridge !== bridge || !connected ||
+          requested !== selectionKey) return;
+      const pairing = diagnoseSceneRevisionPairing(publicRead, ownerRead);
+      if (pairing.blockedReasons.some(reason =>
+        /MISMATCH|STALE|CONFLICT|UNAVAILABLE|UNSUPPORTED/.test(reason) &&
+        !['SCENE_OWNER_CREATOR_CROSSREAD_UNAVAILABLE'].includes(reason))) {
+        throw new Error('WEP_R15_OWNER_PUBLIC_PAIRING_STALE');
+      }
+      const raw = await actorBridge.inspectGalleryGraphPreflight(
+        ownerRead.pairedGalleryWorkId, [ownerRead.currentPresetRevisionId]
+      );
+      if (epoch !== graphSessionEpoch || actorBridge !== bridge || !connected ||
+          requested !== selectionKey) return;
+      const parsed = parseR15ServerGalleryGraph(raw, {
+        galleryWorkId: ownerRead.pairedGalleryWorkId,
+        presetArtifactId: ownerRead.presetArtifactId,
+        presetWorkId: ownerRead.presetWorkId,
+        creatorProfileId: publicRead.creatorProfileId,
+        currentPresetRevisionId: ownerRead.currentPresetRevisionId,
+        currentGalleryRevisionId: ownerRead.pairedGalleryCurrentWorkRevisionId ??
+          publicRead.galleryWorkRevisionId ?? '',
+        requestedPresetRevisionIds: [ownerRead.currentPresetRevisionId]
+      });
+      if (parsed.observedGalleryRowVersion !== ownerRead.pairedGalleryWorkRowVersion ||
+          parsed.observedPresetRowVersion !== ownerRead.workRowVersion) {
+        throw new Error('WEP_R15_STALE_OWNER_ROW_VERSION');
+      }
+      if (epoch === graphSessionEpoch && actorBridge === bridge && connected &&
+          requested === selectionKey) {
+        owner = ownerRead;
+        current = publicRead;
+        graph = parsed;
+      }
+    } catch (e) {
+      if (epoch === graphSessionEpoch && actorBridge === bridge && connected &&
+          requested === selectionKey) graphError = e instanceof Error ? e.message : String(e);
+    } finally {
+      graphLoading = false;
     }
   }
 
@@ -126,11 +212,35 @@
         {/if}
         {#if presetArtifactId}
           <button type="button" disabled={loading || !connected} on:click={inspectOwner}>{copy.ownerInspect}</button>
+          <button type="button" data-wep-r15-inspect disabled={loading || graphLoading || !connected || !bridge?.inspectGalleryGraphPreflight}
+            on:click={inspectGalleryGraph}>{copy.r15Inspect}</button>
         {/if}
       </div>
     </div>
     {#if loading}<p role="status">{copy.loading}</p>{/if}
     {#if error}<p role="alert"><code>{error}</code></p>{/if}
+    {#if graphLoading}<p role="status">{copy.r15Loading}</p>{/if}
+    {#if graphError}<p role="alert" data-wep-r15-error><code>{graphError}</code></p>{/if}
+    {#if graph}
+      <div data-wep-r15-owner-graph role="status" aria-live="polite">
+        <h3>{copy.r15Title}</h3>
+        <dl>
+          <div><dt>{copy.r15Registry}</dt><dd><code>{graph.registryVersion}</code></dd></div>
+          <div><dt>{copy.r15Sha}</dt><dd><code>{graph.expectedGraphSha256}</code></dd></div>
+          <div><dt>{copy.pairedGalleryRowVersion}</dt><dd>{graph.observedGalleryRowVersion}</dd></div>
+          <div><dt>{copy.pairedGalleryCurrentRevision}</dt><dd><code>{graph.observedGalleryCurrentRevisionId}</code></dd></div>
+          <div><dt>{copy.r15Historical}</dt><dd>{graph.historicalPresetLinkCount}</dd></div>
+          <div><dt>{copy.r15Media}</dt><dd>{graph.mediaReferenceCount}</dd></div>
+          <div><dt>{copy.r15Covers}</dt><dd>{graph.coverReferenceCount}</dd></div>
+        </dl>
+        <p>{copy.r15ScopeWarning}</p>
+        <div class="blockers">
+          {#each graph.blockedReasons as reason}
+            <code>{reason}</code>
+          {/each}
+        </div>
+      </div>
+    {/if}
     {#if current}
       <h3>{current.title}</h3>
       <dl>
