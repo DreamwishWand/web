@@ -346,7 +346,8 @@ $$;
     array_to_string(coalesce(p_featured_item_ids,array[]::bigint[]),','),
     coalesce(p_moodboard_snapshot_ref,''),p_expected_graph_sha256
   ),'sha256'),'hex');
-  perform pg_advisory_xact_lock(hashtextextended(v_account_id::text || ':' || p_idempotency_key,0));
+  -- Committed replay requires no advisory lock before R14 Artifact/Work locks.
+  -- New writes use original graph-before-advisory order.
   select request_hash,response into v_existing_hash,v_response
     from public.idempotency_keys
     where account_id=v_account_id and idempotency_key=p_idempotency_key;
