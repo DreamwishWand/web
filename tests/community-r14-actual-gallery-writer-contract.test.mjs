@@ -44,7 +44,7 @@ test('scoped R14 graph revalidation orders actual locks and fences unsupported k
   assert.match(sql,/coverReferences/);
 });
 test('Edge only retries actual Gallery publish with fresh auth and fresh SQL transaction',()=>{
-  assert.match(command,/const maxAttempts = command === 'publishGallery' \? 3 : 1/);
+  assert.match(command,/const maxAttempts = \(command === 'publishGallery' \|\| command === 'setGalleryCommentsAtomicR16'\) \? 3 : 1/);
   assert.match(command,/community_authorize_session',authorizationParams/);
   assert.match(command,/\['40P01','55P03','40001'\]/);
   assert.match(command,/R14_GRAPH_CHANGED_RETRY_WHOLE_TRANSACTION/);
