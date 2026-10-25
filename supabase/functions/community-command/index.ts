@@ -291,7 +291,7 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         params.p_idempotency_key = payload.idempotencyKey;
         // An explicit server-issued R15 preflight pin is mandatory.
         // Never refresh a caller SHA during transient whole-transaction retry.
-        const pin = payload.graphPin;
+        const pin = payload.graphPin as Record<string, unknown> | undefined;
         if (!pin || typeof pin !== 'object' || Array.isArray(pin) ||
             pin.registryVersion !== 'gallery-scene-scoped@r15' ||
             typeof pin.expectedGraphSha256 !== 'string' ||
