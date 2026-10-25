@@ -135,16 +135,18 @@
     graphSessionEpoch += 1;
     const requested = selectionKey;
     const requestedBridge = bridge;
+    const requestedSubject = requestedBridge?.getAuthenticatedSubjectId?.() ?? null;
     try {
+      if (!requestedSubject) throw new Error('WEP_R15_AUTHENTICATED_SUBJECT_UNAVAILABLE');
       const found = await reader().readOwner(presetArtifactId);
-      if (requested === selectionKey && connected && bridge === requestedBridge) {
-        const subject = requestedBridge?.getAuthenticatedSubjectId?.() ?? null;
-        if (!subject) throw new Error('WEP_R15_AUTHENTICATED_SUBJECT_UNAVAILABLE');
-        ownerSessionSubject = subject;
+      if (requested === selectionKey && connected && bridge === requestedBridge &&
+          requestedBridge?.getAuthenticatedSubjectId?.() === requestedSubject) {
+        ownerSessionSubject = requestedSubject;
         owner = found;
       }
     } catch (e) {
-      if (requested === selectionKey && connected && bridge === requestedBridge) {
+      if (requested === selectionKey && connected && bridge === requestedBridge &&
+          requestedBridge?.getAuthenticatedSubjectId?.() === requestedSubject) {
         error = e instanceof Error ? e.message : String(e);
       }
     } finally {
