@@ -34,8 +34,6 @@ export interface R15ScopedGraphObservation {
   registryVersion:typeof WEP_R15_REGISTRY;
   expectedGraphSha256:string;
   observedGalleryWorkId:string;
-  observedAccountId:string;
-  observedAuthSubject:string;
   observedCreatorProfileId:string;
   observedGalleryRowVersion:number;
   observedGalleryCurrentRevisionId:string;
@@ -202,6 +200,14 @@ export function parseR15ServerGalleryGraph(rawInput:unknown,expected:R15GraphExp
       !workRevs.has(p!.current_published_revision_id) ||
       !presetRevs.has(expected.currentPresetRevisionId))
     fail('WEP_R15_CURRENT_REVISION_ROSTER_MISSING');
+  // For a paired Scene Gallery PHOTO current revision, require a current
+  // Media member and cover member. Historical-only media cannot substitute.
+  if(!referencedMedia.get(expected.currentGalleryRevisionId)?.size ||
+      !raw.coverReferences.some((x:any)=>
+        x.revision_id===expected.currentGalleryRevisionId &&
+        referencedMedia.get(expected.currentGalleryRevisionId)?.has(x.cover_media_id))) {
+    fail('WEP_R15_CURRENT_MEDIA_OR_COVER_UNAVAILABLE');
+  }
   if(!raw.historicalPresetLinks.some((x:any)=>x.gallery_revision_id===expected.currentGalleryRevisionId&&
       x.preset_revision_id===expected.currentPresetRevisionId))
     fail('WEP_R15_CURRENT_HISTORICAL_LINK_MISMATCH');
@@ -217,8 +223,7 @@ export function parseR15ServerGalleryGraph(rawInput:unknown,expected:R15GraphExp
   return Object.freeze({
     schemaVersion:1,registryVersion:WEP_R15_REGISTRY,
     expectedGraphSha256:raw.expectedGraphSha256,
-    observedGalleryWorkId:g!.work_id,observedAccountId:root.accountId,
-    observedAuthSubject:root.authSubject,
+    observedGalleryWorkId:g!.work_id,
     observedCreatorProfileId:expected.creatorProfileId,
     observedGalleryRowVersion:g!.row_version,
     observedGalleryCurrentRevisionId:g!.current_published_revision_id,
