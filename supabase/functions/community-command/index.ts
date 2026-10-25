@@ -626,6 +626,9 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       await new Promise(resolve => setTimeout(resolve,30+Math.floor(Math.random()*65)));
     }
     if (error) {
+      const unenrolledGraphWriter =
+        error.message.includes('R17_LEGACY_GALLERY_COMMENTS_PIN_REQUIRED') ||
+        error.message.includes('R17_PHOTO_DEPENDENCY_NOT_ENROLLED');
       const staleGraph = error.message.includes('R15_STALE_GRAPH_TERMINAL') ||
         error.message.includes('R15_PINNED_GRAPH_REQUIRED') ||
         error.message.includes('R15_IDEMPOTENCY_REQUEST_CONFLICT') ||
@@ -666,7 +669,7 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       return reply(
         {
           ok: false,
-          error: staleGraph ? 'STALE_GRAPH' : galleryErrorCode ?? (recentAuth
+          error: unenrolledGraphWriter ? 'UNENROLLED_GRAPH_WRITER' : staleGraph ? 'STALE_GRAPH' : galleryErrorCode ?? (recentAuth
             ? 'RECENT_AUTH_REQUIRED'
             : conflict
               ? 'CONFLICT'
@@ -675,7 +678,7 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
                 : 'COMMAND_FAILED'),
           message: error.message
         },
-        (staleGraph || conflict) ? 409 : forbidden ? 403 : 400
+        (unenrolledGraphWriter || staleGraph || conflict) ? 409 : forbidden ? 403 : 400
       );
     }
 
