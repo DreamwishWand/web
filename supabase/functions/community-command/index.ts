@@ -17,7 +17,8 @@ const commandToRpc = {
   updateCreatorProfile: 'community_update_creator_profile',
   createGalleryDraft: 'community_create_gallery_draft',
   createGalleryWork: 'community_create_gallery_work_v1',
-  publishGallery: 'community_publish_gallery_v4',
+  preflightGalleryGraph: 'community_gallery_graph_preflight_r15',
+  publishGallery: 'community_publish_gallery_pinned_r15',
   publishGalleryPhoto: 'community_publish_gallery_photo_v1',
   deleteGalleryPhoto: 'community_delete_gallery_photo_v1',
   registerDreamsnapWork: 'community_register_dreamsnap_work_v1',
@@ -267,6 +268,13 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         params.p_gallery_kind = payload.galleryKind;
         params.p_idempotency_key = payload.idempotencyKey;
         break;
+      case 'preflightGalleryGraph':
+        if (typeof payload.workId !== 'string' || !Array.isArray(payload.presetRevisionIds)) {
+          return reply({ok:false,error:'R15_PREFLIGHT_REQUEST_INVALID'},400);
+        }
+        params.p_work_id = payload.workId;
+        params.p_preset_revision_ids = payload.presetRevisionIds;
+        break;
       case 'publishGallery':
         if (!Array.isArray(payload.mediaIds) || payload.mediaIds.length === 0) {
           return reply({ ok: false, error: 'mediaIds required' }, 400);
@@ -281,6 +289,16 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         params.p_featured_item_ids = Array.isArray(payload.featuredItemIds) ? payload.featuredItemIds : [];
         params.p_moodboard_snapshot_ref = payload.moodboardSnapshotRef ?? null;
         params.p_idempotency_key = payload.idempotencyKey;
+        // An explicit server-issued R15 preflight pin is mandatory.
+        // Never refresh a caller SHA during transient whole-transaction retry.
+        const pin = payload.graphPin;
+        if (!pin || typeof pin !== 'object' || Array.isArray(pin) ||
+            pin.registryVersion !== 'gallery-scene-scoped@r15' ||
+            typeof pin.expectedGraphSha256 !== 'string' ||
+            !/^[0-9a-f]{64}$/.test(pin.expectedGraphSha256)) {
+          return reply({ok:false,error:'R15_EXPECTED_GRAPH_PIN_REQUIRED'},409);
+        }
+        params.p_expected_graph_sha256 = pin.expectedGraphSha256;
         break;
       case 'publishGalleryPhoto':
         if (payload.workId != null && (typeof payload.workId !== 'string' || payload.workId.length===0)) {
@@ -593,6 +611,9 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       await new Promise(resolve => setTimeout(resolve,30+Math.floor(Math.random()*65)));
     }
     if (error) {
+      const staleGraph = error.message.includes('R15_STALE_GRAPH_TERMINAL') ||
+        error.message.includes('R15_PINNED_GRAPH_REQUIRED') ||
+        error.message.includes('R15_IDEMPOTENCY_REQUEST_CONFLICT');
       const conflict =
         error.message.includes('Row version conflict') ||
         error.message.includes('GALLERY_ROW_VERSION_CONFLICT') ||
@@ -628,7 +649,7 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       return reply(
         {
           ok: false,
-          error: galleryErrorCode ?? (recentAuth
+          error: staleGraph ? 'STALE_GRAPH' : galleryErrorCode ?? (recentAuth
             ? 'RECENT_AUTH_REQUIRED'
             : conflict
               ? 'CONFLICT'
@@ -637,7 +658,7 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
                 : 'COMMAND_FAILED'),
           message: error.message
         },
-        conflict ? 409 : forbidden ? 403 : 400
+        (staleGraph || conflict) ? 409 : forbidden ? 403 : 400
       );
     }
 
