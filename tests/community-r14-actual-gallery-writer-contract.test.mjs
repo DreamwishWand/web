@@ -57,7 +57,7 @@ test('local isolated actual-Writer race is executed at 116 unique migrations',()
   assert.match(workflow,/comm-r14-actual-gallery-v4-two-session\.py/);
   assert.match(workflow,/supabase\/migrations\/20261025002800_gallery_v4_actual_scoped_atomic_enrollment_r14\.sql/);
   const real=read('tests/comm-r14-actual-gallery-v4-two-session.py');
-  assert.match(real,/select public\.community_publish_gallery_v4\(/);
+  assert.match(real,/select public\.community_publish_gallery_pinned_r15\(/);
   assert.match(real,/ACTUAL_GALLERY_V4_BYPASSED/);
   assert.match(real,/03COMM_R14_ACTUAL_GALLERY_V4_TWO_BACKEND_SOURCE_PASS/);
   assert.match(real,/callerGraphFingerprintChecked":True/);
