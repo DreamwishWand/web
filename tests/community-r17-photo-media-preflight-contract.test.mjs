@@ -44,3 +44,18 @@ test('local bootstrap requires exactly 133 ordered migrations and verifies R17 r
   assert.match(workflow,/R17_PHOTO_MEDIA_PREFLIGHT_ACL_EXPOSED/);
   assert.match(workflow,/20261025002960_gallery_photo_media_readonly_preflight_r17\.sql/);
 });
+
+test('R17-X02 additive cover-ordinal guard agrees with coverFirst on current and historical revisions',()=>{
+ const fix=r('supabase/migrations/20261025002970_r17_photo_cover_ordinal_consistency.sql');
+ assert.match(fix,/create or replace function public\.community_gallery_photo_media_preflight_r17\(/);
+ const coverFirst=fix.indexOf("'coverFirst',exists(");
+ const mismatch=fix.indexOf("count(*) filter(where f.subject_id is distinct");
+ const source=fix.indexOf("into v_covers,v_cover_mismatch_count");
+ assert.ok(coverFirst>=0&&mismatch>coverFirst&&source>mismatch);
+ assert.match(fix.slice(mismatch,source),/and rm\.ordinal=0\)\)/);
+ assert.match(fix,/MEDIA_COVER_METADATA_INCONSISTENT/);
+ assert.doesNotMatch(fix,/\b(?:insert into|update public\.|delete from|createSignedUrl|createSignedUploadUrl)\b/i);
+ assert.match(fix,/revoke all on function public\.community_gallery_photo_media_preflight_r17\(uuid,uuid\)/);
+ assert.match(fix,/grant execute on function public\.community_gallery_photo_media_preflight_r17\(uuid,uuid\)\s+to service_role/);
+ assert.match(workflow,/20261025002970_r17_photo_cover_ordinal_consistency\.sql/);
+});
