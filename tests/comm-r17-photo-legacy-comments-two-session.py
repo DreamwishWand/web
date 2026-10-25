@@ -22,7 +22,7 @@ with psycopg.connect(dsn,autocommit=True) as c:
       values(%s,%s,%s,'R17 owner')""",(creator,owner,'isolated_r17_'+u().hex[:12]))
     for w,kind in [(g_direct,'gallery'),(g_history,'gallery'),(g_both,'gallery'),(preset_work,'preset'),(dreamsnap_work,'dreamsnap')]:
       c.execute("""insert into public.community_works(work_id,owner_account_id,creator_profile_id,work_type,visibility,moderation_state)
-        values(%s,%s,%s,%s,'public','clear')""",(w,owner,creator,kind))
+        values(%s,%s,%s,%s,%s,'clear')""",(w,owner,creator,kind,'private' if kind=='dreamsnap' else 'public'))
     for w in revs:
       c.execute("insert into public.gallery_works(work_id,gallery_kind) values(%s,'outdoor')",(w,))
       c.execute("insert into public.gallery_work_settings(work_id,comments_enabled) values(%s,true)",(w,))
@@ -81,7 +81,7 @@ with psycopg.connect(dsn,autocommit=True) as c:
       work_id,entry_id,revision_id,publication_state,comments_enabled)
       values(%s,%s,%s,'published',false)""",(dreamsnap_work,entry,ds_rev))
     c.execute("""update public.community_works set lifecycle_state='published',
-      current_published_revision_id=%s,published_at=now() where work_id=%s""",(ds_rev,dreamsnap_work))
+      current_published_revision_id=%s,published_at=now(),visibility='public' where work_id=%s""",(ds_rev,dreamsnap_work))
   versions={w:one(c,"select row_version from public.community_works where work_id=%s",(w,)) for w in revs}
   assert one(c,"select count(*) from public.gallery_revision_presets gp join public.community_work_revisions r on r.revision_id=gp.gallery_revision_id where r.work_id=%s",(g_direct,))==0
   assert one(c,"select count(*) from public.preset_artifacts where associated_gallery_work_id=%s",(g_history,))==0
