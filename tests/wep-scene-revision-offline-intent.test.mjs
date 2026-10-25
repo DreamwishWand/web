@@ -238,3 +238,45 @@ test('Creator mismatch on an owner-derived future Readiness hint is rejected bef
     /WEP_SCENE_REVISION_PAIRED_GALLERY_IDENTITY_STALE/
   );
 });
+
+test('R15 server Gallery SHA is kept exactly as an observed scoped digest; never replaces other proofs',async()=>{
+  const scoped={
+    schemaVersion:1,registryVersion:'gallery-scene-scoped@r15',expectedGraphSha256:'d'.repeat(64),
+    observedGalleryWorkId:U.gallery,
+    observedGalleryCurrentRevisionId:U.gr,
+    observedPresetCurrentRevisionId:U.wr,
+    observedPresetRowVersion:readiness.workRowVersion,
+    observedGalleryRowVersion:readiness.pairedGalleryWorkRowVersion,
+    observedCreatorProfileId:U.creator,
+    expectedArtifactIds:[U.pa],expectedPresetWorkIds:[U.work],
+    requestedPresetRevisionIds:[U.rev],
+    authoritative:true,graphComplete:false
+  };
+  const before=JSON.stringify(artifact);
+  const intent=await prepareSceneRevisionOfflineIntent({...args,scopedGalleryGraph:scoped});
+  assert.equal(intent.identity.observedScopedSceneHistoricalEdgeSha256,'c'.repeat(64));
+  assert.equal(intent.identity.observedServerGalleryScopedGraphSha256,'d'.repeat(64));
+  assert.equal(intent.identity.observedServerGalleryGraphRegistryVersion,'gallery-scene-scoped@r15');
+  assert.equal(intent.identity.fullGlobalAllWriterGraphSha256,null);
+  assert.equal(intent.identity.actualStorageBlobReceipt,null);
+  assert.equal(intent.identity.serverGalleryScopeIsGlobalAuthority,false);
+  assert.equal(intent.identity.expectedHistoricalEdgeSetSha256,null);
+  assert.ok(intent.blockedReasons.includes('R15_FULL_GLOBAL_ALL_WRITER_GRAPH_NOT_ISSUED'));
+  assert.equal(intent.saveRevisionAuthorized,false);
+  assert.equal(intent.productApplyAuthorized,false);
+  assert.equal(JSON.stringify(artifact),before);
+  for(const wrong of [
+    {...scoped,expectedGraphSha256:'bad'},
+    {...scoped,registryVersion:'gallery-scene-scoped@r16'},
+    {...scoped,observedGalleryRowVersion:999},
+    {...scoped,observedGalleryCurrentRevisionId:U.wr},
+    {...scoped,observedCreatorProfileId:U.work},
+    {...scoped,graphComplete:true}
+  ]){
+    await assert.rejects(prepareSceneRevisionOfflineIntent({...args,scopedGalleryGraph:wrong}),
+      /WEP_R15_SCOPED_GRAPH_STALE_OR_MISMATCHED/);
+  }
+  const missing=await prepareSceneRevisionOfflineIntent(args);
+  assert.equal(missing.identity.observedServerGalleryScopedGraphSha256,null);
+  assert.ok(missing.blockedReasons.includes('R15_SERVER_GALLERY_GRAPH_PREFLIGHT_MISSING'));
+});
