@@ -1,0 +1,26 @@
+# DDVRE — 09 INT R16 additional actual Source124 roster expansion / unsupported Facet acceptance
+
+Date: 2026-10-26 JST. Existing 09 INT, NOT R18. Owner 03 COMM PR134 EXACT HEAD `41fbbaf6aba8326fe9935955879218f8b9c35a91`, 124 source SQL migrations, DRAFT DO_NOT_MERGE. This HEAD differs from independently accepted R16 code pin `59270c14c5615e706c6b2d08207df96b3d937f9d` only by one Owner documentation-line change; no source SQL/Edge change. Prior R16 Source124 H0→A historical Gallery commit→B stale H0 reject→fresh H1 accept→identical completed replay CI40233423837/40233695170 retained and NOT rerun; R11–R15 existing concurrency not reimplemented.
+
+Independent branch `validation/09int-r16-owner124-roster-growth-20261026`, code/workflow HEAD `02581d6cb45bf03c21052b2871c495cdacb17de8`, isolated GitHub Actions [40234436174](https://github.com/DreamwishWand/web/actions/runs/40234436174) COMPLETED SUCCESS. Actual 124 migrations from empty local Supabase PostgreSQL; only synthetic disposable local owner/identity, Work, Media metadata and Artifacts. Real owner Source `public.community_gallery_graph_preflight_r15` and `public.community_publish_gallery_pinned_r15` invoked directly; no Python validation writer or Source SQL override.
+
+## Two newly independent cases
+
+G05-A — Roster growth by newly associated second Scene Artifact: SQL backend B obtains valid pinned preflight H0 for one Scene PresetArtifact; separate PostgreSQL backend A INSERTs a second independent, correctly owned Scene Artifact and PresetWork associated with B's target Gallery Work and commits. Target B Work rowVersion remains unchanged. A newly issued real preflight with original requested Scene revision fails `R14_MULTI_ARTIFACT_GRAPH_NOT_ENROLLED`. A NEW actual Source pinned publish with old H0 also fails `R14_MULTI_ARTIFACT_GRAPH_NOT_ENROLLED`, with identical pre-attempt B WorkRevision/SearchDocument/OutboxEvent/Idempotency/current pointer/rowVersion state. This is controlled synthetic new-Artifact graph growth, not an enabled owner cross-product API for adding the association and not a concurrent lock-held Writer acceptance.
+
+G05-B — Unsupported Biome Facet: create separate Gallery Work associated with one independent correctly owned Biome PresetArtifact/Revision. Real `community_gallery_graph_preflight_r15` denies `R15_UNENROLLED_PRESET_OR_CREATOR`. Real pinned writer invoked with syntactically valid SHA also fails closed under R14 type registry or R15 owner graph, no Gallery Revision/Search/Outbox/Idempotency/current pointer/rowVersion changes. The Biome work itself remains synthetic and NOT registered for Gallery positive source writer authority.
+
+Exact console markers:
+- `R16_NEW_ASSOCIATED_SCENE_ARTIFACT_ROSTER_GROWTH` with independent PG backend and zero Gallery effects.
+- `R16_BIOME_PRESET_FACET_FAIL_CLOSED` with both actual Source preflight/writer denied.
+- `09INT_R16_OWNER124_ROSTER_GROWTH_AND_UNSUPPORTED_FACET_SOURCE_PASS`.
+
+## Current Owner coverage delta
+
+These tests increase CONFIRMED **FAIL_CLOSED** evidence for multi-Scene-Artifact graph expansion and Biome in **Source124**. They do NOT expand SOURCE_SCOPED_ENROLLED positive scope beyond one known Scene. Gallery no-Preset and existing known one-Scene pinned Writer remain SOURCE_SCOPED_ENROLLED. Three historical reference fences previously source-scoped only. SOURCE_FULLY_ENROLLED remains NONE. Mixed Biome/Floating Island/ToM furniture/ToM clothing, Media/Cover/Cloud/native current+history Registry and issuer completeness UNKNOWN; actual positive operations OFF. Scene paired revision/cover is INERT; Gallery Photo and native/InGame writers UNENROLLED. Generic positive Preset lifecycle, Gallery Delete/Unpublish/Retirement, Cloud Private/Restore FAIL_CLOSED. Account Phase1 Privacy and emergency Moderation restrict/remove SAFETY_INDEPENDENT, not general full graph enrollment.
+
+## Owner / QA return
+
+03 COMM: next prove complete five-facet + historical Work/Media/Cover/Cloud/native reference roster with registration/version rules, deterministic all-owner lock enrollment, valid GraphSHA across every changed dependency and genuine bounded new RPC retry with original caller pin; preserve current fail-closed and privacy/moderator safety. 09 INT should next independently verify changed Source contract's real injection of transient 40P01/40001, actor/Privacy liveness and new graph roster only when owner source change arrives. 04 QR owns normal signed Owner A/Nonowner B/Moderator M Staging, actual Media/Storage bytes SHA, old bearer t0/t60/t300/post expiry CDN, and actual Edge retry/Moderation acceptance. No signed JWT/CDN/media byte/staging evidence from this run.
+
+`graphComplete=false`, `retirementAuthorized=false`, `saveRevisionAuthorized=false`, `pairedGalleryPublishAuthorized=false`; native DDV persistent writer/Product Apply, physical cleanup/finalized72h, positive Gallery retirement/delete/unpublish and Cloud Private/Restore all OFF. Verified reference Nintendo Switch DDV v1.25.0 BID 52BD625D9B4E0053 schema624; Switch v1.25.3 schema626 and Steam native Writers OFF. R17 PASS0/PARTIAL12/BLOCKED18 unchanged, seven seed/Privacy Legal Ops launch gates blocked; no R18 and all drafts DO_NOT_MERGE/DEPLOY.
