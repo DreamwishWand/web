@@ -1,0 +1,66 @@
+name: 09 INT R17 Actual Owner130 Legacy Comments / Photo repaired RPC independent acceptance
+on:
+  push:
+    branches:
+      - validation/09int-r17-owner130-real-legacy-photo-closure-20261026
+permissions:
+  contents: read
+jobs:
+  r17-owner130-two-postgres-backend-real-postfix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check 'psycopg[binary]>=3,<4'
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Pin exact 130 original Owner migrations; local-only no production access
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('supabase/config.toml')
+          s=p.read_text()
+          assert not any(x.strip().startswith('project_id =') for x in s.splitlines())
+          assert len(list(Path('supabase/migrations').glob('*.sql')))==130
+          p.write_text('project_id = "ddvre_09int_r17_postowner_real"\n'+s)
+          PY
+          echo 'No remote link, no signed Staging, no real Storage bytes'
+      - name: Empty isolated local Supabase real Owner130 SQL migration bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 1500s supabase start > /tmp/09int-r17-postowner-start.log 2>&1 || {
+            grep -Ein -B 2 -A 5 'error|failed|sqlstate|migration' /tmp/09int-r17-postowner-start.log | tail -n 120 || true
+            tail -n 50 /tmp/09int-r17-postowner-start.log || true
+            exit 1
+          }
+      - name: Distinct two-backend real repaired SQL RPC boundary acceptance
+        env:
+          DDVRE_R17_INDEPENDENT_LOCAL: CONFIRMED
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -u tests/09int-r17-owner130-real-legacy-comments-photo-closure.py | tee /tmp/09int-r17-postowner-result.jsonl
+          grep -F '09INT_R17_POST_OWNER130_ACTUAL_TWO_BACKEND_LEGACY_AND_PHOTO_CLOSURE_PASS' /tmp/09int-r17-postowner-result.jsonl
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r17-independent-postowner130-two-session-evidence
+          path: |
+            /tmp/09int-r17-postowner-start.log
+            /tmp/09int-r17-postowner-result.jsonl
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Destroy ephemeral database
+        if: always()
+        run: supabase stop --no-backup || true
