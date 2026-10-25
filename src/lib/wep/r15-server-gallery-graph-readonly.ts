@@ -155,6 +155,47 @@ export function parseR15ServerGalleryGraph(rawInput:unknown,expected:R15GraphExp
         fail('WEP_R15_'+key.toUpperCase()+'_INVALID');
     }
   }
+  // Explicit reference closure from the Source124 R14 graph. No historical
+  // media binary or signed URLs are read; refuse dangling/foreign edges.
+  if(!Array.isArray(graph.workRevisions)||!Array.isArray(graph.presetRevisions))
+    fail('WEP_R15_IMMUTABLE_REVISION_ROSTER_MISSING');
+  const workRevs=new Map<string,string>();
+  for(const row of graph.workRevisions){
+    if(!rec(row)||!uuid(row.revision_id)||!uuid(row.work_id)||
+        !workMap.has(row.work_id)||workRevs.has(row.revision_id))
+      fail('WEP_R15_UNKNOWN_HISTORICAL_WORK_REVISION');
+    workRevs.set(row.revision_id,row.work_id);
+  }
+  const presetRevs=new Set<string>();
+  for(const row of graph.presetRevisions){
+    if(!rec(row)||!uuid(row.preset_revision_id)||
+        row.preset_artifact_id!==expected.presetArtifactId||
+        presetRevs.has(row.preset_revision_id))
+      fail('WEP_R15_UNKNOWN_HISTORICAL_PRESET_REVISION');
+    presetRevs.add(row.preset_revision_id);
+  }
+  const referencedMedia=new Map<string,Set<string>>();
+  for(const row of rawInput.mediaReferences){
+    if(!galleries.includes(workRevs.get(row.work_revision_id)??''))
+      fail('WEP_R15_UNKNOWN_MEDIA_REVISION');
+    const set=referencedMedia.get(row.work_revision_id)??new Set<string>();
+    if(set.has(row.media_id))fail('WEP_R15_DUPLICATE_MEDIA_REFERENCE');
+    set.add(row.media_id);referencedMedia.set(row.work_revision_id,set);
+  }
+  for(const row of rawInput.coverReferences){
+    if(!galleries.includes(workRevs.get(row.revision_id)??'')||
+        !referencedMedia.get(row.revision_id)?.has(row.cover_media_id))
+      fail('WEP_R15_COVER_NOT_IN_REVISION_MEDIA');
+  }
+  for(const row of rawInput.historicalPresetLinks){
+    if(!galleries.includes(workRevs.get(row.gallery_revision_id)??'')||
+        !presetRevs.has(row.preset_revision_id))
+      fail('WEP_R15_UNRESOLVED_HISTORICAL_LINK');
+  }
+  if(!workRevs.has(expected.currentGalleryRevisionId)||
+      !workRevs.has(p.current_published_revision_id) ||
+      !presetRevs.has(expected.currentPresetRevisionId))
+    fail('WEP_R15_CURRENT_REVISION_ROSTER_MISSING');
   if(!rawInput.historicalPresetLinks.some((x:any)=>x.gallery_revision_id===expected.currentGalleryRevisionId&&
       x.preset_revision_id===expected.currentPresetRevisionId))
     fail('WEP_R15_CURRENT_HISTORICAL_LINK_MISMATCH');
