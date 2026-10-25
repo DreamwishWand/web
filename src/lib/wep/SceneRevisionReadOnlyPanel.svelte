@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { locale } from '$lib/i18n/runtime.js';
   import { callPublicCommunityRpc, getPublicCommunityMedia } from '$lib/community/browser-client';
   import { readCommunityBrowserConfig } from '$lib/community/runtime-config';
@@ -24,6 +25,7 @@
   let graphError = '';
   let graphLoading = false;
   let graphSessionEpoch = 0;
+  let ownerSessionSubject: string | null = null;
   let error = '';
   let loading = false;
   let signing = false;
@@ -32,6 +34,7 @@
   $: if (bridge !== ownerBridge) {
     ownerBridge = bridge;
     owner = null;
+    ownerSessionSubject = null;
     graph = null;
     graphError = '';
     graphSessionEpoch += 1;
@@ -45,6 +48,31 @@
     // Connection must not reuse an old authorization epoch.
     if (graphLoading) graphSessionEpoch += 1;
   }
+  // CommunityLabClient may refresh/switch its session without creating a new
+  // bridge object. Previously fetched private diagnostics must not persist.
+  onMount(() => {
+    const checkActor = () => {
+      if (!owner && !graph) return;
+      const now = connected ? bridge?.getAuthenticatedSubjectId?.() ?? null : null;
+      if (!ownerSessionSubject || now !== ownerSessionSubject) {
+        owner = null;
+        graph = null;
+        ownerSessionSubject = null;
+        graphError = '';
+        graphSessionEpoch += 1;
+      }
+    };
+    const timer = window.setInterval(checkActor, 750);
+    window.addEventListener('focus', checkActor);
+    window.addEventListener('pageshow', checkActor);
+    document.addEventListener('visibilitychange', checkActor);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', checkActor);
+      window.removeEventListener('pageshow', checkActor);
+      document.removeEventListener('visibilitychange', checkActor);
+    };
+  });
   $: copy = sceneRevisionCopy($locale);
   $: diagnosis = owner ? diagnoseSceneRevisionPairing(current, owner) : null;
   $: selectionKey = workId + '/' + presetArtifactId;
@@ -52,6 +80,7 @@
     selectedKey = selectionKey;
     current = null;
     owner = null;
+    ownerSessionSubject = null;
     graph = null;
     graphError = '';
     graphSessionEpoch += 1;
@@ -108,7 +137,12 @@
     const requestedBridge = bridge;
     try {
       const found = await reader().readOwner(presetArtifactId);
-      if (requested === selectionKey && connected && bridge === requestedBridge) owner = found;
+      if (requested === selectionKey && connected && bridge === requestedBridge) {
+        const subject = requestedBridge?.getAuthenticatedSubjectId?.() ?? null;
+        if (!subject) throw new Error('WEP_R15_AUTHENTICATED_SUBJECT_UNAVAILABLE');
+        ownerSessionSubject = subject;
+        owner = found;
+      }
     } catch (e) {
       if (requested === selectionKey && connected && bridge === requestedBridge) {
         error = e instanceof Error ? e.message : String(e);
@@ -177,6 +211,7 @@
       if (epoch === graphSessionEpoch && actorBridge === bridge &&
           actorBridge?.getAuthenticatedSubjectId?.() === actorSubject && connected &&
           requested === selectionKey) {
+        ownerSessionSubject = actorSubject;
         owner = ownerRead;
         current = publicRead;
         graph = parsed;
