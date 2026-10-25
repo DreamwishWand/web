@@ -131,17 +131,21 @@
     graphLoading = true;
     const epoch = ++graphSessionEpoch;
     const actorBridge = bridge;
+    const actorSubject = actorBridge?.getAuthenticatedSubjectId?.() ?? null;
     const requested = selectionKey;
     try {
+      if (!actorSubject) throw new Error('WEP_R15_AUTHENTICATED_SUBJECT_UNAVAILABLE');
       const ownerRead = owner ?? await reader().readOwner(presetArtifactId);
-      if (epoch !== graphSessionEpoch || actorBridge !== bridge || !connected ||
+      if (epoch !== graphSessionEpoch || actorBridge !== bridge ||
+          actorBridge?.getAuthenticatedSubjectId?.() !== actorSubject || !connected ||
           requested !== selectionKey) return;
       if (!ownerRead.hasAssociatedGallery || !ownerRead.pairedGalleryWorkId ||
           !ownerRead.currentPresetRevisionId) {
         throw new Error('WEP_R15_GALLERY_OR_CURRENT_PRESET_UNAVAILABLE');
       }
       const publicRead = current ?? await reader().readCurrent(ownerRead.presetWorkId);
-      if (epoch !== graphSessionEpoch || actorBridge !== bridge || !connected ||
+      if (epoch !== graphSessionEpoch || actorBridge !== bridge ||
+          actorBridge?.getAuthenticatedSubjectId?.() !== actorSubject || !connected ||
           requested !== selectionKey) return;
       const pairing = diagnoseSceneRevisionPairing(publicRead, ownerRead);
       if (pairing.blockedReasons.some(reason =>
@@ -152,7 +156,8 @@
       const raw = await actorBridge.inspectGalleryGraphPreflight(
         ownerRead.pairedGalleryWorkId, [ownerRead.currentPresetRevisionId]
       );
-      if (epoch !== graphSessionEpoch || actorBridge !== bridge || !connected ||
+      if (epoch !== graphSessionEpoch || actorBridge !== bridge ||
+          actorBridge?.getAuthenticatedSubjectId?.() !== actorSubject || !connected ||
           requested !== selectionKey) return;
       const parsed = parseR15ServerGalleryGraph(raw, {
         galleryWorkId: ownerRead.pairedGalleryWorkId,
@@ -162,20 +167,23 @@
         currentPresetRevisionId: ownerRead.currentPresetRevisionId,
         currentGalleryRevisionId: ownerRead.pairedGalleryCurrentWorkRevisionId ??
           publicRead.galleryWorkRevisionId ?? '',
-        requestedPresetRevisionIds: [ownerRead.currentPresetRevisionId]
+        requestedPresetRevisionIds: [ownerRead.currentPresetRevisionId],
+        authSubject: actorSubject
       });
       if (parsed.observedGalleryRowVersion !== ownerRead.pairedGalleryWorkRowVersion ||
           parsed.observedPresetRowVersion !== ownerRead.workRowVersion) {
         throw new Error('WEP_R15_STALE_OWNER_ROW_VERSION');
       }
-      if (epoch === graphSessionEpoch && actorBridge === bridge && connected &&
+      if (epoch === graphSessionEpoch && actorBridge === bridge &&
+          actorBridge?.getAuthenticatedSubjectId?.() === actorSubject && connected &&
           requested === selectionKey) {
         owner = ownerRead;
         current = publicRead;
         graph = parsed;
       }
     } catch (e) {
-      if (epoch === graphSessionEpoch && actorBridge === bridge && connected &&
+      if (epoch === graphSessionEpoch && actorBridge === bridge &&
+          actorBridge?.getAuthenticatedSubjectId?.() === actorSubject && connected &&
           requested === selectionKey) graphError = e instanceof Error ? e.message : String(e);
     } finally {
       graphLoading = false;
