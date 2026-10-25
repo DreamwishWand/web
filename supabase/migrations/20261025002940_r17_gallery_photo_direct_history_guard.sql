@@ -1,4 +1,4 @@
--- Additive R17 real Photo Writer override. No Photo+Scene positive enrollment.
+-- R17 additive Photo actual writer override based on the latest source 20261023223600 (null-version/implicit seal preserved).
 create or replace function public.community_publish_gallery_photo_v1(
   p_auth_subject uuid, p_creator_profile_id uuid, p_work_id uuid,
   p_expected_version bigint, p_gallery_kind text, p_subject_id uuid,
@@ -28,8 +28,7 @@ declare
   v_index integer:=0;
 begin
   v_account:=private.resolve_active_account(p_auth_subject);
-  -- Account root precedes the pre-existing advisory key (Photo v1 old order
-  -- was advisory -> target Work -> nested Gallery-v4 Account).
+  -- Account root before advisory and target Gallery Work lock.
   if v_account is null then raise exception 'R17_PHOTO_ACTOR_INVALID';end if;
   perform 1 from public.wand_accounts
     where account_id=v_account and status='active' and deleted_at is null
@@ -37,16 +36,12 @@ begin
   if not found or private.resolve_active_account(p_auth_subject) is distinct from v_account
   then raise exception 'R17_PHOTO_IDENTITY_PRIVACY_INVALID';end if;
   if p_work_id is not null then
-    -- Lock the Gallery first. Both known ingress writers take the same
-    -- GalleryWork FOR UPDATE in their reference-fence triggers.
     perform 1 from public.community_works
       where work_id=p_work_id and work_type='gallery'
         and owner_account_id=v_account
         and creator_profile_id=p_creator_profile_id
       for update nowait;
     if not found then raise exception 'R17_PHOTO_WORK_OWNER_INVALID';end if;
-    -- Direct-only, historical-only and combined Scene dependency all deny.
-    -- The target Work lock serializes their actual insert/move triggers.
     if exists(select 1 from public.preset_artifacts
                 where associated_gallery_work_id=p_work_id)
       or exists(select 1 from public.gallery_revision_presets gp
@@ -156,7 +151,7 @@ begin
         or v_work.owner_account_id<>v_account or v_work.creator_profile_id<>p_creator_profile_id then
       raise exception 'GALLERY_WORK_FORBIDDEN';
     end if;
-    if v_work.row_version<>p_expected_version then
+    if p_expected_version is null or v_work.row_version<>p_expected_version then
       raise exception 'GALLERY_ROW_VERSION_CONFLICT';
     end if;
     if v_work.lifecycle_state<>'published' or v_work.visibility<>'public'
@@ -169,8 +164,8 @@ begin
       or v_bound.owner_account_id<>v_account
       or not exists(select 1 from public.gallery_works g where g.work_id=v_work_id and g.gallery_kind=p_gallery_kind)
     then raise exception 'GALLERY_SUBJECT_OR_CREATOR_IMMUTABLE'; end if;
-    -- Recheck the complete registered dependency subset immediately before
-    -- mutation, while the Gallery row (and reference-fence ingress) is locked.
+    -- Revalidate direct plus historical dependency under the Gallery row
+    -- lock immediately before changing any Revision/Search/Outbox.
     if exists(select 1 from public.preset_artifacts
               where associated_gallery_work_id=v_work_id)
       or exists(select 1 from public.gallery_revision_presets gp
@@ -183,9 +178,9 @@ begin
       from public.community_work_revisions where work_id=v_work_id;
     v_revision:=gen_random_uuid();
     insert into public.community_work_revisions(
-      revision_id,work_id,revision_number,created_by_account_id,shared_metadata,sealed_at
+      revision_id,work_id,revision_number,created_by_account_id,shared_metadata
     ) values(v_revision,v_work_id,v_n,v_account,
-      jsonb_build_object('origin','gallery-photo-v1','verifiedSubjectId',p_subject_id),now());
+      jsonb_build_object('origin','gallery-photo-v1','verifiedSubjectId',p_subject_id));
     insert into public.gallery_work_revisions(revision_id,title,description,metadata)
     values(v_revision,btrim(p_title),p_description,jsonb_build_object('photoOnly',true));
     foreach v_media in array v_media_order loop
@@ -193,6 +188,7 @@ begin
       values(v_revision,v_media,v_index,'gallery');
       v_index:=v_index+1;
     end loop;
+    -- Existing seal_current_work_revision trigger seals atomically on pointer promotion.
     update public.community_works set current_published_revision_id=v_revision,
       updated_at=now() where work_id=v_work_id returning * into v_work;
     insert into public.search_documents(
