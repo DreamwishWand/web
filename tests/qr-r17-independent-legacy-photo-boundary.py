@@ -59,25 +59,26 @@ with psycopg.connect(DSN, autocommit=True) as seed:
                 values(%s,%s,'gallery',%s,'QA synthetic','',array[]::text[],
                 '{"galleryKind":"outdoor","commentsEnabled":true}'::jsonb,now(),now())""",(work,work,creator))
             galleries[label]=(work,rev)
-        preset_work,scene_direct,scene_history,scene_both,blob,preset_revision,preset_work_rev=(u() for _ in range(7))
-        for entity,kind in [(preset_work,"community_work"),(scene_direct,"preset_artifact"),
+        pre_work_history,pre_work_direct,pre_work_both,scene_direct,scene_history,scene_both,blob,preset_revision,preset_work_rev=(u() for _ in range(9))
+        for entity,kind in [(pre_work_history,"community_work"),(pre_work_direct,"community_work"),(pre_work_both,"community_work"),(scene_direct,"preset_artifact"),
                             (scene_history,"preset_artifact"),(scene_both,"preset_artifact")]:
             seed.execute("insert into public.community_entities(entity_id,entity_type) values(%s,%s)",(entity,kind))
-        seed.execute("""insert into public.community_works(work_id,owner_account_id,creator_profile_id,work_type,visibility,moderation_state)
-            values(%s,%s,%s,'preset','public','clear')""",(preset_work,owner,creator))
+        for preset_work in [pre_work_history,pre_work_direct,pre_work_both]:
+            seed.execute("""insert into public.community_works(work_id,owner_account_id,creator_profile_id,work_type,visibility,moderation_state)
+                values(%s,%s,%s,'preset','public','clear')""",(preset_work,owner,creator))
         seed.execute("""insert into public.artifact_blobs(
             blob_id,owner_account_id,storage_key,schema_version,content_type,byte_size,checksum_sha256)
             values(%s,%s,%s,1,'application/json',128,%s)""",(blob,owner,"qr17/"+token+".json","b"*64))
-        for artifact,direct in [(scene_direct,galleries["direct"][0]),(scene_history,None),(scene_both,galleries["both"][0])]:
+        for artifact,direct,work_ref in [(scene_direct,galleries["direct"][0],pre_work_direct),(scene_history,None,pre_work_history),(scene_both,galleries["both"][0],pre_work_both)]:
             seed.execute("""insert into public.preset_artifacts(
                 preset_artifact_id,owner_account_id,creator_profile_id,community_work_id,preset_type,associated_gallery_work_id)
-                values(%s,%s,%s,%s,'scene',%s)""",(artifact,owner,creator,preset_work,direct))
+                values(%s,%s,%s,%s,'scene',%s)""",(artifact,owner,creator,work_ref,direct))
         seed.execute("""insert into public.preset_revisions(
             preset_revision_id,preset_artifact_id,revision_number,artifact_blob_id,metadata,created_by_account_id)
             values(%s,%s,1,%s,'{}'::jsonb,%s)""",(preset_revision,scene_history,blob,owner))
         seed.execute("""insert into public.community_work_revisions(
             revision_id,work_id,revision_number,created_by_account_id) values(%s,%s,1,%s)""",
-            (preset_work_rev,preset_work,owner))
+            (preset_work_rev,pre_work_history,owner))
         seed.execute("""insert into public.preset_revision_publications(work_revision_id,preset_revision_id)
             values(%s,%s)""",(preset_work_rev,preset_revision))
         for label in ["historical","both"]:
@@ -85,7 +86,7 @@ with psycopg.connect(DSN, autocommit=True) as seed:
                 values(%s,%s)""",(galleries[label][1],preset_revision))
         seed.execute("""update public.community_works set lifecycle_state='published',
             current_published_revision_id=%s,published_at=now() where work_id=%s""",
-            (preset_work_rev,preset_work))
+            (preset_work_rev,pre_work_history))
     for name in ["direct","historical","both"]:
         w,r=galleries[name]
         d=one(seed,"select count(*) from public.preset_artifacts where associated_gallery_work_id=%s",(w,))
