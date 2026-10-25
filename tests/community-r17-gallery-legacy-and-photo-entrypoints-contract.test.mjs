@@ -22,6 +22,9 @@ test('legacy direct v1 Gallery always terminal-denied and v2 Gallery not delegat
  assert.match(v2,/p_enabled:=case when v_managed then false else p_enabled end/);
  assert.match(v2,/update public\.dreamsnap_gallery_publications/);
  assert.match(edge,/setGalleryCommentsEnabled: 'community_set_gallery_comments_enabled_v2'/);
+ assert.match(edge,/R17_LEGACY_GALLERY_COMMENTS_PIN_REQUIRED/);
+ assert.match(edge,/R17_PHOTO_DEPENDENCY_NOT_ENROLLED/);
+ assert.match(edge,/UNENROLLED_GRAPH_WRITER/);
  assert.match(edge,/setGalleryCommentsAtomicR16: 'community_set_gallery_comments_enabled_atomic_r16'/);
 });
 test('Photo actual writer locks Account then Gallery before advisory, denies direct+historic before any revision insert',()=>{
