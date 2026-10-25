@@ -2,7 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const sql=read('supabase/migrations/20261025002840_gallery_caller_pinned_graph_r15.sql');
+const sql=[
+ 'supabase/migrations/20261025002840_gallery_caller_pinned_graph_r15.sql',
+ 'supabase/migrations/20261025002850_gallery_r15_signed_preflight.sql',
+ 'supabase/migrations/20261025002860_gallery_r15_actual_pinned_writer.sql',
+ 'supabase/migrations/20261025002870_gallery_r15_legacy_v4_guard.sql',
+ 'supabase/migrations/20261025002880_gallery_r15_rpc_acl.sql'
+].map(read).join('\n');
 const edge=read('supabase/functions/community-command/index.ts');
 const workflow=read('.github/workflows/comm-clean-bootstrap-acceptance.yml');
 const race=read('tests/comm-r15-pinned-gallery-two-session.py');
@@ -39,8 +45,8 @@ test('R15 preflight and pinned Writer remain service-role-only, Edge never refre
  assert.match(edge,/\['40P01','55P03','40001'\]/);
 });
 test('R15 real two-connection negative, fresh, replay, historical lock are gated in bootstrap',()=>{
- assert.match(workflow,/len\(fs\)==120/);
- assert.match(workflow,/MIGRATION_LEDGER_NOT_120/);
+ assert.match(workflow,/len\(fs\)==124/);
+ assert.match(workflow,/MIGRATION_LEDGER_NOT_124/);
  assert.match(workflow,/comm-r15-pinned-gallery-two-session\.py/);
  assert.match(race,/R15_STALE_CALLER_GRAPH_ACCEPTED/);
  assert.match(race,/R15_HISTORICAL_GALLERY_WORK_LOCK_BYPASSED/);
