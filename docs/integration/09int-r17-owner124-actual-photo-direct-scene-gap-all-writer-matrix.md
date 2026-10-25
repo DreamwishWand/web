@@ -1,0 +1,74 @@
+# DDVRE — 09 INT / R17 Actual Owner124 All-Writer Registry, Photo direct-Scene edge and Retry review
+
+2026-10-26 JST. R17 here is 09 INT work phase only; Release R17 and R18 are NOT changed. All Drafts DO_NOT_MERGE / DO_NOT_DEPLOY.
+
+## Exact Owner source / regression boundary
+
+03 COMM Draft PR #134 Owner pin `41fbbaf6aba8326fe9935955879218f8b9c35a91`, 124 original source migrations, CI40233605417 and disposable empty PostgreSQL bootstrap40233605389 SUCCESS. This pin is the accepted single-known-Scene R16 Source, not a newly arrived global Writer/Registry. Existing independent R11–R16 historical Reference Trigger, held lock, H0 stale/H1 fresh/Replay, Multi-Artifact and Biome fail-closed tests are NOT reimplemented.
+
+**NEW independent actual-source two-Postgres-session evidence**: validation branch `validation/09int-r17-actual-photo-direct-scene-link-20261026`, code/workflow HEAD `7c2dce933f19764b81b4227a5ad9efc3992a5bb8`, exact isolated GitHub Actions [40237805017](https://github.com/DreamwishWand/web/actions/runs/40237805017) COMPLETED SUCCESS. Test `tests/09int-r17-actual-photo-direct-artifact-edge.py` constructs synthetic owner/creator, v1.25.0 Switch verified subject, READY/CLEAR metadata-only media, actually publishes Gallery Photo using real `community_publish_gallery_photo_v1`, creates separate legitimate Scene PresetWork/Artifact/Revision with `associated_gallery_work_id` referencing that published photo Gallery, while gallery_revision_presets remains empty. PostgreSQL session A holds ONLY that Scene Artifact row `FOR UPDATE`. Distinct session B invokes REAL `community_publish_gallery_photo_v1` existing-photo update using original Work rowVersion and commits a new Gallery WorkRevision/Outbox/Idempotency and current pointer **without waiting for the held Scene Artifact**. Marker `R17_ACTUAL_GALLERY_PHOTO_DIRECT_ASSOCIATION_BYPASS_REPRODUCED`, source class NEGATIVE_COUNTEREXAMPLE_NOT_RELEASE_PASS. No user media bytes, signed JWT, remote Staging or Production writes. This proves dependency writer participation is INCOMPLETE; it is not proof of cross-owner authorization bypass, nor confirmation every practical UI publishes this rare direct-only linked combination.
+
+### Root cause in actual source
+
+- `supabase/migrations/20261023223000_community_gallery_photo_lifecycle_v1.sql`, actual `public.community_publish_gallery_photo_v1`, existing-photo branch: checks `gallery_revision_presets` joined with historical Gallery WorkRevisions before mutating; **omits `preset_artifacts.associated_gallery_work_id`**. It obtains an outer account/key **advisory lock before** nested or current Writer's Account-first lock protocol, and on existing work obtains Gallery `community_works FOR UPDATE` without sorted linked Artifact/Preset locks or expectedGraphSha256.
+- In the same migration, `community_delete_gallery_photo_v1` explicitly tests **both** direct `preset_artifacts.associated_gallery_work_id` AND `gallery_revision_presets`, so the update vs delete dependency check is asymmetric.
+- `community-command.publishGalleryPhoto` targets dedicated `community_publish_gallery_photo_v1`, not pinned `community_publish_gallery_pinned_r15`. It additionally checks Media storage object metadata in Edge, but that does NOT enroll the missing direct Scene graph.
+- `community-command.publishGallery` alone gets max 3 bounded 40P01/55P03/40001 fresh RPC transactions plus reauthorization, unlike `publishGalleryPhoto` (maxAttempts=1), so an ordinary Photo retry is not automatically part of the pinned Scene protocol.
+- `private.gallery_v4_scoped_graph_r14` independently discovers the direct `associated_gallery_work_id` edge, proving its semantic relevance to the canonical known-Scene Graph even with no historical GalleryRevisionPreset records.
+
+This is **NEW Conflicting Edge R17-X01**; Source Photo update actual-caller Graph semantics must fail closed or be enrolled before any wider positive lifecycle enablement.
+
+## All-Writer and reference Source Call Site matrix
+
+| Source writer / family | Entry point(s), actual source | 09 INT evidence class | Registry dependency and blocker |
+|---|---|---|---|
+| Gallery with no Preset / one known Scene | `community_publish_gallery_pinned_r15`, `community_gallery_graph_preflight_r15`, legacy `community_publish_gallery_v4` | SOURCE_SCOPED_ENROLLED (R16 existing) | DB `gallery-scene-scoped@r15` server SHA, Account then sorted Artifact→PresetWork→GalleryWork; `graphComplete=false` |
+| Photo Gallery new, update | `community_publish_gallery_photo_v1` via `community-command.publishGalleryPhoto` | **UNENROLLED / confirmed direct Scene conflict** | Direct associated Artifact/Revision + historical Gallery links, Creator, Owner, Media/Cover, Work RowVersion/current pointer; Photo update tests only historical link |
+| Photo Gallery positive delete | `community_delete_gallery_photo_v1` delegates `community_delete_work` | FAIL_CLOSED for referenced Gallery; not globally enrolled | Checks direct + historical refs; no signed Cloud preservation/retirement authorization |
+| Paired Scene Revision / Cover | `private.scene_save_revision_paired_candidate_v1` | UNENROLLED / PRIVATE INERT | Signed ArtifactBlob bytes, JSON/subgrid/road-fence validation, Creator, paired Cover and complete historical linked Work set |
+| Generic Preset owner lifecycle (five types) | `community_change_work_visibility`, `community_unpublish_work`, `community_delete_work` | FAIL_CLOSED on `work_type='preset'` | Scene, Biome, Floating Island, ToM Furniture, ToM Clothing; no positive cross-work lifecycle authority |
+| Gallery known reference fences | GalleryRevisionPreset INSERT, PresetRevisionPublication INSERT, PresetArtifact Gallery association UPDATE | SOURCE_SCOPED_ENROLLED only (R11 known triggers) | Not complete universal reference Writer registry |
+| Gallery Media and owner/public media | `community_gallery_media_intent_open_v1`, `...complete_v1`, media owner/gateway RPC, `community-media`/public media Edge | UNKNOWN as full graph writer, narrow existing Media metadata checks | Real Storage bytes/checksum, historical Cover/media refs, issued bearer and CDN, cross-work retention |
+| Cloud Private/Restore/Retirement | `community_gallery_retirement_preflight_v1`, `gallery_cloud_preservation_snapshot_v1` | FAIL_CLOSED, read-only readiness | Cloud entitlement, old/new current/historical references, legal/retention, capacity, real restore proof missing |
+| Native/In-Game Preset / DDV World Editor Apply | WEP offline/readiness, registered game identity | UNENROLLED / OFF | No supported persistent Writer; Switch v1.25.0 BID52BD625D9B4E0053 schema624 only |
+| Moderation / Account Suppression | `community_moderate_entity_v5`, `community_request_privacy_suppression_v1` | SAFETY_INDEPENDENT (prior scoped Source tests) | Preserve immediate public read suppression and emergency Restrict liveness, no general Graph writer promotion |
+| DreamSnaps Gallery and other participation | `community_dreamsnap_publish_gallery_v1`, DreamSnap entry/result RPCs, Q&A | UNKNOWN as cross-product graph writer | Distinct producer/consumer edges; do not conflate independent Privacy verification with all-Writer enrollment |
+
+SOURCE_FULLY_ENROLLED **zero**. All five facets not registered into one complete old/new current/historical Graph; unclassified edges remain UNKNOWN, not an implicit all-good default.
+
+## Actual Edge Retry and Actor boundary (source review only)
+
+At pinned Owner124 `supabase/functions/community-command/index.ts`: `commandToRpc.publishGallery = community_publish_gallery_pinned_r15`, `preflightGalleryGraph = community_gallery_graph_preflight_r15`, `publishGalleryPhoto = community_publish_gallery_photo_v1`. `maxAttempts = command === 'publishGallery' ? 3 : 1`. Transient recognition is SQLSTATE `40P01`, `55P03`, `40001`, or `R14_GRAPH_CHANGED_RETRY_WHOLE_TRANSACTION`/`R14_ARTIFACT_ROSTER_CHANGED_RETRY_WHOLE_TRANSACTION`. Every retry makes a fresh PostgreSQL RPC and re-calls `community_authorize_session`; 1.7s wall budget. The submitted SHA from `payload.graphPin.expectedGraphSha256` is added to RPC arguments once before loop, never refreshed. Terminal `R15_STALE_GRAPH_TERMINAL`, altered completed idem hash and non-active actor are nontransient. R16 verified SQL transactional rollback, but actual running HTTP Edge fault-injected 40P01/40001 and current Actor/Moderator in-flight liveness remain **NOT_EXECUTED**. Do NOT call static source inspection “actual Edge retry PASS”; no modified Edge implementation arrived after R16.
+
+## 03 COMM P0 repairs
+
+1. At minimum, **fail closed immediately** for Photo update whenever either `preset_artifacts.associated_gallery_work_id=p_work_id` OR any historical `gallery_revision_presets` edge exists, BEFORE new Gallery Revision/Search/Outbox/idempotency. Retain direct + historical check for Photo delete, verify no other Gallery Photo/create/republish bypass.
+2. For future supported Photo-with-Scene workflows, use the **same** globally versioned Account/Creator/Artifact/Work/Media/Cover complete historical roster; initial Account root then sorted Artifact/PresetWork/GalleryWork locks; under-lock Actor/Creator/Privacy and Original Caller Pin, no advisory-first inversion. Any unknown facet/edge/Cloud/native must stay read-only or fail closed.
+3. Enroll the new actual Photo Writer, Scene paired Revision, Media/Cover issuer, Cloud reference, Gallery lifecycle, other preset types and moderator/erasure safety independently, one source change and test at a time. Never infer positive release from a Photo Gallery schema table existing.
+4. Add independently injectable, bounded fresh full-transaction 40P01/55P03/40001 Edge acceptance with actual session/Privacy reauthorization; ensure completed immutable replay and terminal stale remain distinct. Preserve emergency Moderation and Phase1 Privacy liveness.
+5. Keep Cloud entitlement, physical cleanup/72h TTL and native DDV persistent writer hard OFF until real service, legal and native version evidence.
+
+## 02 WEP exact Read-only Preflight consumer handoff
+
+Source contract: authenticated Edge command `preflightGalleryGraph` → service-only `public.community_gallery_graph_preflight_r15(authSubject, galleryWorkId, requestedPresetRevisionIds)`. Successful response contains:
+- `schemaVersion: 1`
+- `registryVersion: "gallery-scene-scoped@r15"` (strict exact match; NOT a global registry)
+- `expectedGraphSha256`: **server-issued** lowercase SHA256 of PostgreSQL `jsonb` UTF-8 canonical `private.gallery_r15_canonical_snapshot`; NEVER derive/normalize SHA in JavaScript; forward original opaque digest unchanged
+- `expectedGraph`: `registryVersion`, `accountId`, `authSubject`, `ownerActive`, `identityActive`, `galleryWorkId`, `requestedPresetRevisionIds`, `graph`
+- `expectedWorkStates`: full scoped `community_works` rows for included current/historical PresetWorks and GalleryWorks (includes `row_version`, `current_published_revision_id`, ownership/Creator/Privacy); `expectedArtifactIds`, `expectedPresetWorkIds`, `expectedGalleryWorkIds`
+- `historicalPresetLinks`, `mediaReferences`, `coverReferences`: scoped known Scene graph projections, not complete all-Writer Media/Cloud/native references
+- `authoritative:true` is **scoped DB authority only**, while `graphComplete:false` explicitly forbids global promotion.
+For `publishGallery`, Edge request must supply `graphPin:{registryVersion:"gallery-scene-scoped@r15",expectedGraphSha256:<verbatim from preflight>}` plus original matching `expectedVersion` Gallery target Work row version, `workId`, original requested `presetRevisionIds`, valid owned `mediaIds`, immutable `idempotencyKey`. On `STALE_GRAPH`/409 terminal, force **user-reviewed new preflight/intent**; do not silently replace token or apply an old offline draft. Reject unknown registry, missing Owner/Creator, any unfamiliar/extra Artifact/Facet, mismatched current Work revision, missing/unsafe Media/Cover, unsupported Native save schema and privacy or moderator holds. 02 WEP remains offline/read-only Scene consumer; no native commit/Cloud Publish is authorized.
+
+## 04 QR new negative/positive cases
+
+QR-R17-PH01 **NEW Source negative**: real linked Photo Work with direct `associated_gallery_work_id` Scene Artifact but no historical GalleryRevisionPreset, hold Artifact in DB backend A → Source `community_publish_gallery_photo_v1` update B MUST either `PHOTO_DEPENDENCY_GRAPH_NOT_ENROLLED` terminal or serialize under globally approved Graph locks, never commit bypass. Independent 09 INT Source124 current behavior **FAIL_REPRODUCED** in CI40237805017; QA must own independent release-blocker regression upon 03 COMM fix. Check Photo created and media metadata/cover stable; zero partial Search/Outbox/Idempotency on rejection.
+QR-R17-PH02 positive supported new Photo-only (no Artifact/History/Cloud uncertainty), actor/verified subject, Ready/Clear object SHA, immutable Cover and idempotent exactly-once; signed media and CDN claims separate from local synthetic SQL.
+QR-R17-PH03 direct vs historical reference graph changes under held Work and Artifact, mixed Work/Creator ownership and unauthorized identity, stale current revision without rowVersion, known/unknown Facet, Cloud preservation, and legacy endpoint must fail closed.
+QR-R17-RETRY01 inject `55P03`, `40P01`, `40001` into **actual running Edge** SQL transport; count distinct full RPC attempts ≤3 and bounded 1.7s, reauthorization after each, preserve original Graph pin across retries. Idempotent replay same committed result; stale terminal not retried. Do not use a JavaScript loop mock to claim signed Staging.
+QR-R17-PRIVACY01 concurrently Phase1 privacy suppression or retiring Actor and Moderator emergency restrict while Photo/Gallery source Writer in-flight; fail new positive operation without blocking urgent public-read suppression or emergency staff action. Real signed normal Owner A/nonowner B/Moderator M, signed previous CDN URL t0/t60/t300/post and Storage binary require separately configured protected Staging Issue130.
+QR-R17-WRITER01 each new Registry Facet/Media/Cloud/native reference Writer must independently show old/new/historical Graph current pointer/rowVersions/owner/Creator lock and abort behavior; no blanket “five facets PASS”.
+
+## Version and safety
+
+Nintendo Switch DDV v1.25.0 BID `52BD625D9B4E0053` schema624 verified. Switch v1.25.3 schema626 read-only; Steam Native writer OFF. All positive unsafe Gallery retirement/delete/unpublish, Cloud Private/Restore, physical Media cleanup/Finalized 72h, and native DDV persistent Writer/Product Apply OFF. `graphComplete=false`, `retirementAuthorized=false`, `saveRevisionAuthorized=false`, `pairedGalleryPublishAuthorized=false`. Release R17 Product30 PASS0/PARTIAL12/BLOCKED18 and seven seed/Privacy Legal Ops gates unchanged. No R18.
