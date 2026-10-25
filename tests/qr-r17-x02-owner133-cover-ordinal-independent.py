@@ -44,12 +44,14 @@ def fingerprint(db,work,owner):
 with psycopg.connect(DSN,autocommit=True) as a,psycopg.connect(DSN,autocommit=True) as b:
     assert one(a,"select count(*) from supabase_migrations.schema_migrations")==133
     assert one(a,"select pg_backend_pid()")!=one(b,"select pg_backend_pid()")
-    owner,actor,other,other_actor,creator,subject,other_subject,m1,m2,m3=(U() for _ in range(10))
+    owner,actor,other,other_actor,retired_actor,creator,subject,other_subject,m1,m2,m3=(U() for _ in range(11))
     with a.transaction():
         for account,auth in [(owner,actor),(other,other_actor)]:
             a.execute("insert into public.wand_accounts(account_id) values(%s)",(account,))
             a.execute("""insert into public.auth_identities(account_id,provider,provider_subject,last_verified_at,identity_state)
                values(%s,'supabase',%s,clock_timestamp(),'active')""",(account,str(auth)))
+        a.execute("""insert into public.auth_identities(account_id,provider,provider_subject,last_verified_at,identity_state)
+          values(%s,'supabase',%s,clock_timestamp(),'retired')""",(owner,str(retired_actor)))
         a.execute("insert into public.community_entities(entity_id,entity_type) values(%s,'creator_profile')",(creator,))
         a.execute("""insert into public.creator_profiles(creator_profile_id,owner_account_id,handle,display_name)
           values(%s,%s,%s,'R17 X02 cover observer QA')""",(creator,owner,"qr17_x02_"+U().hex[:14]))
@@ -148,18 +150,13 @@ with psycopg.connect(DSN,autocommit=True) as a,psycopg.connect(DSN,autocommit=Tr
     print(json.dumps({"case":"QR_R17_X02_NONOWNER_AND_DIRECT_SQL_ACL",
        "nonownerDenied":True,"anonAuthenticatedDenied":True,"serviceOnly":True}))
 
-    # Revoke the owner identity in an uncommitted transaction. Test rollback
-    # restores it; no real Auth provider account/session altered.
-    a.execute("begin")
-    a.execute("""update public.auth_identities set identity_state='retired'
-       where provider='supabase' and provider_subject=%s""",(str(actor),))
-    denied=rejected(lambda:observe(b,actor,good))
+    # Retired provider identity is an isolated fixture, never the real Owner actor.
+    denied=rejected(lambda:observe(b,retired_actor,good))
     assert denied[0] is not None,denied
-    a.execute("rollback")
     assert fingerprint(a,good,owner)==baseline
     assert observe(b,actor,good)["knownDependencyCounts"]["coverSubjectOrReferenceMismatch"]==0
     print(json.dumps({"case":"QR_R17_X02_RETIRED_IDENTITY_DENIED",
-       "retiredTestRolledBack":True,"stateUnchanged":True}))
+       "retiredIdentityIsSynthetic":True,"stateUnchanged":True}))
 
     # Phase1 privacy is source-local real SQL (not physical erasure).
     session=U()
