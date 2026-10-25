@@ -125,14 +125,14 @@ export function parseR15ServerGalleryGraph(rawInput:unknown,expected:R15GraphExp
     fail('WEP_R15_MISSING_LINKED_WORK_STATE');
   const g=workMap.get(expected.galleryWorkId),p=workMap.get(expected.presetWorkId);
   if(!g||!p||g.work_type!=='gallery'||p.work_type!=='preset'||
-      g.current_published_revision_id!==expected.currentGalleryRevisionId||
-      p.current_published_revision_id==null)
+      g!.current_published_revision_id!==expected.currentGalleryRevisionId||
+      p!.current_published_revision_id==null)
     fail('WEP_R15_CURRENT_GALLERY_REVISION_STALE');
   // PresetRevision is immutable and distinct from Preset WorkRevision:
   // correlate via the historical/current publication rows, not equality.
   const publications=graph.presetPublications;
   if(!Array.isArray(publications)||!publications.some(x=>rec(x)&&
-      x.work_revision_id===p.current_published_revision_id&&
+      x.work_revision_id===p!.current_published_revision_id&&
       x.preset_revision_id===expected.currentPresetRevisionId))
     fail('WEP_R15_CURRENT_PRESET_REVISION_STALE');
   const pairs:[string,string][]=[
@@ -141,7 +141,7 @@ export function parseR15ServerGalleryGraph(rawInput:unknown,expected:R15GraphExp
     ['coverReferences','revision_id']
   ];
   for(const [key,revisionKey] of pairs){
-    const outer=rawInput[key],inner=graph[key];
+    const outer=raw[key],inner=graph[key];
     if(!Array.isArray(outer)||!Array.isArray(inner)||outer.length!==inner.length)
       fail('WEP_R15_'+key.toUpperCase()+'_MISSING');
     for(let i=0;i<outer.length;i++){
@@ -195,7 +195,7 @@ export function parseR15ServerGalleryGraph(rawInput:unknown,expected:R15GraphExp
       fail('WEP_R15_UNRESOLVED_HISTORICAL_LINK');
   }
   if(!workRevs.has(expected.currentGalleryRevisionId)||
-      !workRevs.has(p.current_published_revision_id) ||
+      !workRevs.has(p!.current_published_revision_id) ||
       !presetRevs.has(expected.currentPresetRevisionId))
     fail('WEP_R15_CURRENT_REVISION_ROSTER_MISSING');
   if(!raw.historicalPresetLinks.some((x:any)=>x.gallery_revision_id===expected.currentGalleryRevisionId&&
@@ -213,13 +213,13 @@ export function parseR15ServerGalleryGraph(rawInput:unknown,expected:R15GraphExp
   return Object.freeze({
     schemaVersion:1,registryVersion:WEP_R15_REGISTRY,
     expectedGraphSha256:raw.expectedGraphSha256,
-    observedGalleryWorkId:g.work_id,observedAccountId:root.accountId,
+    observedGalleryWorkId:g!.work_id,observedAccountId:root.accountId,
     observedAuthSubject:root.authSubject,
     observedCreatorProfileId:expected.creatorProfileId,
-    observedGalleryRowVersion:g.row_version,
-    observedGalleryCurrentRevisionId:g.current_published_revision_id,
-    observedPresetRowVersion:p.row_version,
-    observedPresetCurrentRevisionId:p.current_published_revision_id,
+    observedGalleryRowVersion:g!.row_version,
+    observedGalleryCurrentRevisionId:g!.current_published_revision_id,
+    observedPresetRowVersion:p!.row_version,
+    observedPresetCurrentRevisionId:p!.current_published_revision_id,
     historicalPresetLinkCount:raw.historicalPresetLinks.length,
     mediaReferenceCount:raw.mediaReferences.length,
     coverReferenceCount:raw.coverReferences.length,
