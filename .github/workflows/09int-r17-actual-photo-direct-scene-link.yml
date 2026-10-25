@@ -1,0 +1,67 @@
+name: 09 INT R17 actual Photo Writer versus held direct Scene Artifact reference
+on:
+  push:
+    branches:
+      - validation/09int-r17-actual-photo-direct-scene-link-20261026
+permissions:
+  contents: read
+jobs:
+  r17-real-photo-direct-scene-cross-writer-counterexample:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check 'psycopg[binary]>=3,<4'
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Freeze exact Owner124 Source in disposable local project
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('supabase/config.toml')
+          s=p.read_text()
+          assert not any(x.strip().startswith('project_id =') for x in s.splitlines())
+          assert len(list(Path('supabase/migrations').glob('*.sql')))==124
+          p.write_text('project_id = "ddvre_09int_r17_photo_crosswriter"\n'+s)
+          PY
+          echo 'No Supabase project link, no Staging or Production credentials'
+      - name: Build real Source124 database from EMPTY local instance
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 1500s supabase start > /tmp/r17-photo-bootstrap.log 2>&1 || {
+            grep -Ein -B 3 -A 7 'error|failed|sqlstate|migration' /tmp/r17-photo-bootstrap.log | tail -n 120 || true
+            tail -n 40 /tmp/r17-photo-bootstrap.log || true
+            exit 1
+          }
+      - name: Probe REAL Photo Writer against held Scene Artifact in another DB session
+        env:
+          DDVRE_R17_ISOLATED_LOCAL: CONFIRMED
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -u tests/09int-r17-actual-photo-direct-artifact-edge.py | tee /tmp/r17-photo-result.jsonl
+          grep -E 'R17_(ACTUAL_GALLERY_PHOTO_DIRECT_ASSOCIATION_BYPASS_REPRODUCED|GALLERY_PHOTO_DIRECT_ASSOCIATION_FAIL_CLOSED)' /tmp/r17-photo-result.jsonl
+          echo 'This workflow is a safety-gap diagnosis, NOT positive writer acceptance'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r17-real-photo-direct-scene-reference-evidence
+          path: |
+            /tmp/r17-photo-bootstrap.log
+            /tmp/r17-photo-result.jsonl
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Destroy ephemeral test database
+        if: always()
+        run: supabase stop --no-backup || true
