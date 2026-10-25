@@ -7,6 +7,7 @@ export interface PresetCommunityEdgeResult<T = unknown> {
 }
 
 export interface PresetCommunityTransport {
+  readonly session?: { readonly userId: string } | null;
   preset<T = unknown>(
     action: string,
     payload?: Record<string, unknown>
@@ -510,7 +511,14 @@ export function createPresetCommunityBridge({
     return response.data;
   }
 
+  function getAuthenticatedSubjectId(): string | null {
+    const value = community.session?.userId;
+    return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+      ? value : null;
+  }
+
   return Object.freeze({
+    getAuthenticatedSubjectId,
     publishScene,
     discover,
     resolveDiscoveredWork,
