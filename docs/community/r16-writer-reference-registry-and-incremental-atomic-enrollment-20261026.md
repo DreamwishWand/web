@@ -14,7 +14,7 @@
 | --- | --- | --- |
 | Gallery pinned publication (one known Scene / no Preset) | SOURCE_SCOPED_ENROLLED (inherited R15) | Server SHA256 graphPin; same-key replay; not general graph |
 | Legacy Gallery v4 with linked Scene | FAIL_CLOSED (inherited R15) | Cannot bypass caller Graph pin |
-| NEW Gallery comments metadata (`community_set_gallery_comments_enabled_atomic_r16`) | SOURCE_SCOPED_CANDIDATE | No Photo subject and no associated/current/historical Preset refs; gallery PUBLIC/PUBLISHED/CLEAR; no revisions/media refs created |
+| NEW Gallery comments metadata (`community_set_gallery_comments_enabled_atomic_r16`) | SOURCE_SCOPED_ENROLLED (local Source only) | No Photo subject and no associated/current/historical Preset refs; gallery PUBLIC/PUBLISHED/CLEAR; no revisions/media refs created |
 | Existing Gallery comments v2 / DreamSnaps settings | SOURCE_PRESENT_UNENROLLED | Legacy route unchanged; not a global lock contract |
 | Gallery Photo Publish/Delete, Cover / Media | SOURCE_PRESENT_UNENROLLED / POSITIVE_DELETE_OFF | `community_publish_gallery_photo_v1` calls old Gallery v4 after its own advisory lock; global Account-first ordering and byte/subject/cover/issuer graph unproven |
 | Media upload Prepare / PUT / Finalize / Intent Complete | SOURCE_PRESENT_UNENROLLED | Storage size/info and SQL READY alone insufficient to prove binary SHA, signed URL lifetime and no duplicated issuers |
