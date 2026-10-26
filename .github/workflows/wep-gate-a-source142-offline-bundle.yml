@@ -1,0 +1,51 @@
+name: WEP Source142 Operator Gate A Offline Stop Bundle
+
+on:
+  push:
+    branches: ['wep/gate-a-source142-stop-bundle-20261026']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-gate-a:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.1.4
+      - name: Type-check the actual three candidate TypeScript handlers
+        run: |
+          deno check --node-modules-dir=auto \
+            operator/gate-a/wep-source142-stop-candidate/supabase/functions/wep-preset-artifact/index.ts \
+            operator/gate-a/wep-source142-stop-candidate/supabase/functions/wep-scene-preset-product/index.ts \
+            operator/gate-a/wep-source142-stop-candidate/supabase/functions/wep-preset-retention/index.ts
+      - name: Independent actual TypeScript handler deny-all, actor and side-effect sentinel
+        run: node --test tests/wep-gate-a-source142-stop-bundle.test.mjs
+      - name: Existing repository contract suite
+        run: npm test
+      - name: Svelte Type and accessibility checks
+        run: npm run check
+      - name: Build existing web app without changing app source
+        env:
+          BASE_PATH: /web
+        run: npm run build
+      - name: Build deterministic offline Gate A ustar candidate
+        run: node scripts/gate-a/build-wep-source142-stop-bundle.mjs
+      - name: Verify exact content hash and archive entries
+        run: |
+          cd dist/wep-gate-a-source142-stop
+          sha256sum -c SHA256SUMS
+          tar -tf wep-gate-a-source142-stop-candidate.tar
+          cat BUILD_PROVENANCE.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wep-source142-operator-gate-a-offline-stop-candidate
+          path: dist/wep-gate-a-source142-stop/
+          if-no-files-found: error
