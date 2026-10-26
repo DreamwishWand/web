@@ -1,0 +1,78 @@
+name: 04 QR R18-work independent Source134 Preset Reservation real PostgreSQL
+on:
+  push:
+    branches:
+      - validation/04qr-r18work-comm134-reservation-independent-20261026
+    paths:
+      - tests/qr-r18work-independent-preset-reservation-historical-pg.py
+      - .github/workflows/04qr-r18work-source134-preset-reservation-pg.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source134-reservation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      DDVRE_QR_R18WORK_ISOLATED_LOCAL: CONFIRMED
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check 'psycopg[binary]>=3,<4'
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Verify exact frozen Owner and 134 unique SQL migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 1e900d1ed18785cc3fc43e78a000b36124fc6a46 HEAD
+          test -z "$(git diff --name-only 1e900d1ed18785cc3fc43e78a000b36124fc6a46 HEAD -- supabase/migrations supabase/functions)"
+          git rev-parse HEAD | tee /tmp/qr-r18work-source134-head.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          from collections import Counter
+          migration=list(Path('supabase/migrations').glob('*.sql'))
+          assert len(migration)==134,len(migration)
+          assert max(Counter(p.name.split('_',1)[0] for p in migration).values())==1
+          assert any(p.name.startswith('20261025002980_') for p in migration)
+          p=Path('supabase/config.toml')
+          body=p.read_text()
+          assert not any(s.strip().startswith('project_id =') for s in body.splitlines())
+          p.write_text('project_id = "ddvre_qr_r18work_local_reservation"'+chr(10)+body)
+          PY
+      - name: Apply full clean Source134 SQL to disposable local Supabase
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 1550s supabase start > /tmp/qr-r18work-source134-bootstrap.log 2>&1 || {
+            grep -Ein -B 4 -A 7 'error|failed|sqlstate' /tmp/qr-r18work-source134-bootstrap.log | tail -n 100 || true
+            tail -n 45 /tmp/qr-r18work-source134-bootstrap.log || true
+            exit 1
+          }
+          echo QR_R18WORK_SOURCE134_CLEAN_SQL_APPLIED
+      - name: Run only new historical/current Preset reference and actor safety cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -u tests/qr-r18work-independent-preset-reservation-historical-pg.py | tee /tmp/qr-r18work-source134-cases.jsonl
+          grep -q QR_R18WORK_SOURCE134_INDEPENDENT_PRESET_STORAGE_PG_SAFETY_PASS /tmp/qr-r18work-source134-cases.jsonl
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qr-r18work-source134-preset-reservation-historical
+          path: |
+            /tmp/qr-r18work-source134-head.txt
+            /tmp/qr-r18work-source134-bootstrap.log
+            /tmp/qr-r18work-source134-cases.jsonl
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Destroy disposable SQL instance
+        if: always()
+        run: supabase stop --no-backup || true
