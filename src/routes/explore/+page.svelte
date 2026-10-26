@@ -26,6 +26,7 @@
 
   const DECORATION_FAMILIES=DECORATE_ITEM_FAMILIES;
   const LIMIT=120;
+  let verifiedCapability:object|null=null;
   let runtimeIndex:any=null, rawRows:any[]=[], loading=true, error='', query='', family='', universe='', selectedBoardId='', status='';
   let moodboards:any=createEmptyMoodboardDocument();
   let placementBinding:any=null;
@@ -44,8 +45,8 @@
   $: universes=runtimeIndex?.u ?? [];
   $: boards=moodboards.boards ?? [];
   $: selectedPlacement=selectedItem ? placementFor(selectedItem) : null;
-  $: collectionReferenceLink=selectedItem && runtimeIndex ? resolveSharedItemLink({
-    index:runtimeIndex,records:allRecords,itemId:selectedItem.itemId,identityKind:'DDV_ITEM_ID',
+  $: collectionReferenceLink=selectedItem && verifiedCapability ? resolveSharedItemLink({
+    capability:verifiedCapability,itemId:selectedItem.itemId,identityKind:'DDV_ITEM_ID',
     from:'decorate',to:'collection',sourceRecord:selectedItem,basePath:base
   }) : null;
 
@@ -56,12 +57,12 @@
         loadCollectionRuntime(base),
         createSwitchWorldReadAdapter({basePath:base}).catch(()=>null)
       ]);
-      runtimeIndex=loaded.index; rawRows=loaded.rows; placementBinding=binding;
+      runtimeIndex=loaded.index; rawRows=loaded.rows; verifiedCapability=loaded.capability; placementBinding=binding;
       const incoming=new URL(window.location.href);
       if(incoming.searchParams.has('item')){
         const decoded=loaded.rows.map((row:any)=>decodeCollectionRecord(loaded.index,row,$locale));
         const reference=resolveSharedItemInboundLink({
-          url:incoming,index:loaded.index,records:decoded,basePath:base
+          url:incoming,capability:loaded.capability,basePath:base
         });
         if(reference.status==='linked'){
           selectedItem=decoded.find((row:any)=>row.itemId===reference.identity.itemId)??null;
