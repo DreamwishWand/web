@@ -7,8 +7,8 @@ import {resolve} from 'node:path';
 const root=process.cwd();
 const read=p=>readFileSync(resolve(root,p),'utf8');
 const led=JSON.parse(read('tests/fixtures/qr-a5-stage116-ledger-readonly-20261026.json'));
-const names=readdirSync(resolve(root,'supabase/migrations')).filter(x=>/^\d{14}_.+\.sql$/.test(x));
-const source=names.map(x=>({version:x.slice(0,14),name:x.slice(15,-4)}));
+const names=readdirSync(resolve(root,'supabase/migrations')).filter(x=>/^\d{12,14}_.+\.sql$/.test(x));
+const source=names.map(x=>{const m=x.match(/^(\d{12,14})_(.+)\.sql$/);return{version:m[1],name:m[2]};});
 const stage=led.migrations;
 function counts(){
  const sk=new Set(stage.map(x=>x.name)),src=new Set(source.map(x=>x.name));
