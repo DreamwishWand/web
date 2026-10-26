@@ -30,7 +30,8 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
        from pg_proc p join pg_namespace n on n.oid=p.pronamespace
        where n.nspname='public' and p.proname=%s
     """,(name,)).fetchall()
-   assert rows, name+' function signature missing'
+   if not rows:
+    continue
    for oid,definer,signature in rows:
     assert definer is True
     for role in ('anon','authenticated','service_role'):
@@ -60,6 +61,37 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
     where gate_key='verified_preset_publication'""").fetchone()
   assert gate==(False,False)
   assert con.execute('select count(*) from private.preset_storage_commit_scope_r18').fetchone()[0]==0
+ # Fresh Source136 bootstrap does not include these historically deployed Scene Product functions.
+ # Prove the exact Owner migration's name-wide REVOKE with synthetic legacy definitions.
+ from pathlib import Path
+ source=Path('supabase/migrations/20261025003000_r18_scene_product_publisher_source_closure.sql').read_text()
+ start=source.index('do $r18_scene$')
+ end=source.index('end;$r18_scene$;',start)+len('end;$r18_scene$;')
+ actual_revoker=source[start:end]
+ assert 'service_role' in actual_revoker and all(n in actual_revoker for n in functions)
+ a.execute('begin')
+ try:
+  for n in functions:
+   a.execute(f"""create function public.{n}(p_auth_subject uuid)
+     returns jsonb language sql security definer as
+     $$ select '{}'::jsonb $$""")
+   a.execute(f"grant execute on function public.{n}(uuid) to service_role,anon,authenticated")
+   oid=a.execute("""select p.oid from pg_proc p join pg_namespace n on p.pronamespace=n.oid
+        where n.nspname='public' and p.proname=%s""",(n,)).fetchone()[0]
+   assert a.execute("select has_function_privilege('service_role',%s,'EXECUTE')",(oid,)).fetchone()[0]
+  a.execute(actual_revoker)
+  for n in functions:
+   oid=a.execute("""select p.oid from pg_proc p join pg_namespace n on p.pronamespace=n.oid
+        where n.nspname='public' and p.proname=%s""",(n,)).fetchone()[0]
+   for role in ('anon','authenticated','service_role'):
+    assert a.execute("select has_function_privilege(%s,%s,'EXECUTE')",(role,oid)).fetchone()[0] is False
+ finally:
+  a.execute('rollback')
+ assert b.execute("""select count(*) from pg_proc p join pg_namespace n on p.pronamespace=n.oid
+    where n.nspname='public' and p.proname=any(%s)""",(functions,)).fetchone()[0]==0
+ print(json.dumps({'case':'09INT_R18_SOURCE136_ACTUAL_PG_LEGACY_RPC_SYNTHETIC_REVOKE_ROLLBACK_PASS',
+  'exactOwnerSQLApplied':True,'freshSourceLegacyFunctionsAbsent':True,
+  'deployedStagingOldFunctionsNotModified':True}))
  print(json.dumps({'case':'09INT_R18_SOURCE136_ACTUAL_TWO_POSTGRES_BACKENDS_SCENE_RPC_DENIAL_AND_SEPARATE_WRITER_REGISTRY_PASS',
   'actualPostgreSQL':True,'signedJWT':False,'actualProvider':False,
   'source135PositiveCommitEnabled':False,'newSource136Deployed':False,
