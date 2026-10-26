@@ -80,7 +80,9 @@ with psycopg.connect(DSN,autocommit=True) as ownerdb, psycopg.connect(DSN,autoco
     assert counters(ownerdb)==initial,'synthetic commit escaped rollback'
     assert scalar(ownerdb,"select enabled from private.preset_storage_release_gate_r18 where gate_key='verified_preset_publication'") is False
     assert scalar(ownerdb,"select count(*) from private.preset_storage_integrity_incidents_r18 where reservation_id=%s",(qid,))==1
+    ownerdb.execute('begin')
     failcode(ownerdb,reserve_sql,quarantined_args,'R18_PRESET_UNRESOLVED_INTEGRITY_INCIDENT_TERMINAL')
     assert scalar(ownerdb,reserve_sql,untouched_args)['reservationId']==str(uid)
+    ownerdb.execute('rollback')
     print('QR_SOURCE138_INDEPENDENT_2PG_RACE_QUARANTINE_SCOPED_COMMIT_ROLLBACK_ACCEPTED')
     print('SOURCE_ONLY_SYNTHETIC_ATTESTATION_ROLLED_BACK; ACTUAL_SIGNED_PROVIDER_NOT_EXECUTED')
