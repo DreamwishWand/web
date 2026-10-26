@@ -33,7 +33,7 @@
   $: visible = filtered.slice(0, displayLimit);
   $: itemSelection = collectionReferenceSelection(records, itemId, version);
   $: decorateLink = runtimeIndex && itemSelection.status === 'found' ? resolveSharedItemLink({
-    index:runtimeIndex, records, itemId:itemSelection.item.itemId, from:'collection',to:'decorate',
+    index:runtimeIndex, records, itemId:itemSelection.item.itemId, identityKind:'DDV_ITEM_ID', from:'collection',to:'decorate',
     sourceRecord:itemSelection.item, basePath:base,
     requestedTarget:{platform:'Nintendo Switch',gameVersion:version,buildID:runtimeIndex.t.buildID}
   }) : null;
