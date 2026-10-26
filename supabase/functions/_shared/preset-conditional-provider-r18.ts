@@ -154,3 +154,52 @@ export async function inspectConditionalPromotion(
     downloadedSize: published.bytes.byteLength
   };
 }
+
+export type CommittedObjectExpectation = {
+  publishedKey: string;
+  objectVersion: string;
+  etag: string;
+  checksumSha256: string;
+  byteSize: number;
+};
+export type CommittedObjectObservation = {
+  state: 'RECONCILIATION_CAPABILITY_BLOCKED' | 'POST_COMMIT_MISSING' |
+    'POST_COMMIT_VERSION_DRIFT' | 'PUBLISHED_OBJECT_OBSERVED_UNATTESTED';
+  evidenceClass: ProviderEvidenceClass;
+  providerOriginAttested: false;
+  publicationAuthorized: false;
+  physicalCleanupAuthorized: false;
+};
+
+/** Read-only postcommit detection; incident reporting remains a separate
+ * fenced, signed-actor Source137 RPC. No automatic unpublish or physical delete.
+ */
+export async function inspectPostCommitObject(
+  provider: ImmutableCopyProvider,
+  expected: CommittedObjectExpectation
+): Promise<CommittedObjectObservation> {
+  const common = {providerOriginAttested:false,publicationAuthorized:false,
+    physicalCleanupAuthorized:false} as const;
+  if (!provider.capabilities?.immutableVersionRead || !expected.objectVersion ||
+      !expected.etag || !/^[0-9a-f]{64}$/.test(expected.checksumSha256) ||
+      !Number.isSafeInteger(expected.byteSize) || expected.byteSize<=0) {
+    return {...common,state:'RECONCILIATION_CAPABILITY_BLOCKED',
+      evidenceClass:'PROVIDER_CAPABILITY_UNPROVEN'};
+  }
+  let obj: ImmutableObject | null;
+  try {
+    obj = await provider.readVersion(expected.publishedKey,expected.objectVersion);
+  } catch {
+    return {...common,state:'POST_COMMIT_MISSING',evidenceClass:'PROVIDER_OBJECT_QUARANTINED'};
+  }
+  if (!obj) return {...common,state:'POST_COMMIT_MISSING',
+    evidenceClass:'PROVIDER_OBJECT_QUARANTINED'};
+  if (obj.version!==expected.objectVersion || obj.etag!==expected.etag ||
+      obj.bytes.byteLength!==expected.byteSize ||
+      await sha256(obj.bytes)!==expected.checksumSha256) {
+    return {...common,state:'POST_COMMIT_VERSION_DRIFT',
+      evidenceClass:'PROVIDER_OBJECT_QUARANTINED'};
+  }
+  return {...common,state:'PUBLISHED_OBJECT_OBSERVED_UNATTESTED',
+    evidenceClass:'LOCAL_PROVIDER_OBJECT_OBSERVED_UNATTESTED'};
+}
