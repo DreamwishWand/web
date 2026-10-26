@@ -17,12 +17,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: \${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Pin A4 WEP source candidates and isolate no staging credentials
         run: |
           set -euo pipefail
           test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN"
-          test "$(git rev-parse HEAD)" = "\${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
           P=operator/gate-a/wep-source142-stop-candidate/supabase/functions
           test "$(git hash-object $P/wep-preset-artifact/index.ts)" = "631abd4cfb462ce6774b79042a55e580041063d8"
           test "$(git hash-object $P/wep-scene-preset-product/index.ts)" = "4b667fa26408053b75b91575e59443f0375905ae"
