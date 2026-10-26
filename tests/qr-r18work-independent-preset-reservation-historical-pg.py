@@ -32,7 +32,7 @@ def state(db, owner, work, key):
 
 with psycopg.connect(DSN,autocommit=True) as seed:
     assert val(seed,'select count(*) from supabase_migrations.schema_migrations')==134
-    a,asub,b,bsub,creator,creator_alternate,creator_b,work,artifact,blob=(U() for _ in range(10))
+    a,asub,b,bsub,creator,creator_b,work,artifact,blob=(U() for _ in range(9))
     key='qr18-'+U().hex
     staging='staging/'+str(a)+'/'+str(U())+'.json'
     published=''
@@ -41,7 +41,7 @@ with psycopg.connect(DSN,autocommit=True) as seed:
             seed.execute('insert into public.wand_accounts(account_id) values(%s)',(account,))
             seed.execute("""insert into public.auth_identities(account_id,provider,provider_subject,last_verified_at,identity_state)
               values(%s,'supabase',%s,clock_timestamp(),'active')""",(account,str(subject)))
-        for profile,account in [(creator,a),(creator_alternate,a),(creator_b,b)]:
+        for profile,account in [(creator,a),(creator_b,b)]:
             seed.execute("insert into public.community_entities(entity_id,entity_type) values(%s,'creator_profile')",(profile,))
             seed.execute("""insert into public.creator_profiles(
               creator_profile_id,owner_account_id,handle,display_name)
@@ -68,13 +68,13 @@ with psycopg.connect(DSN,autocommit=True) as aconn,psycopg.connect(DSN,autocommi
     assert initial['stateVersion']==snap['stateVersion']
     assert initial['checksumSha256']==snap['checksumSha256']
     assert val(bconn,'select count(*) from private.preset_storage_reservations_r18')==1
-    expect_denial(bconn,lambda:reserve(bconn,profile=creator_alternate),
+    expect_denial(bconn,lambda:reserve(bconn,stage='staging/'+str(a)+'/'+str(U())+'.json'),
                   ['R18_PRESET_RESERVATION_IDEMPOTENCY_CONFLICT'])
     expect_denial(bconn,lambda:reserve(bconn,subject=bsub,profile=creator,stage=staging),
                   ['R18_PRESET_RESERVATION_CREATOR_FORBIDDEN','R18_PRESET_STAGING_KEY_FORBIDDEN'])
     assert val(bconn,'select count(*) from private.preset_storage_reservations_r18')==1
     print(json.dumps({'case':'QR_R18_RESERVATION_SAME_KEY_CREATOR_CONFLICT_NONOWNER',
-      'replaySameId':True,'wrongCreatorDenied':True,'nonownerDenied':True,
+      'replaySameId':True,'changedStagingIdempotencyConflict':True,'nonownerDenied':True,
       'physicalProviderBytesVerified':False}))
 
     with aconn.transaction():
