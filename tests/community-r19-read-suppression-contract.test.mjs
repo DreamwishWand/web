@@ -46,3 +46,22 @@ test('Source139 operator/readiness/cleanup are version-and-lease-fenced and neve
  assert.doesNotMatch(sql,/incident_state='RESOLVED'/);
  assert.doesNotMatch(sql,/storage\.remove\(|storage\.copy\(/);
 });
+
+test('Source139 Gallery media both public proxy and owner read fail closed before signed fallback and bytes',()=>{
+ const publicMedia=readFileSync(new URL('../supabase/functions/community-public-media/index.ts',import.meta.url),'utf8');
+ const ownerMedia=readFileSync(new URL('../supabase/functions/community-media/index.ts',import.meta.url),'utf8');
+ assert.match(sql,/create or replace function public\.community_preset_storage_assert_media_not_quarantined_r19/);
+ assert.match(sql,/private\.preset_storage_media_quarantined_r19/);
+ assert.match(sql,/from public\.work_revision_media rm/);
+ assert.match(sql,/'R19_PRESET_PROVIDER_GALLERY_MEDIA_READ_SUPPRESSED'/);
+ assert.match(sql,/preset_storage_media_asset_read_barrier_r19/);
+ for(const src of [publicMedia,ownerMedia]){
+   const guard=src.indexOf("'community_preset_storage_assert_media_not_quarantined_r19'");
+   assert.ok(guard>0);
+   const fall=src.indexOf("'community_gallery_media_gateway_v1'")>=0?
+       src.indexOf("'community_gallery_media_gateway_v1'"):
+       src.indexOf("'community_gallery_owner_media_read_v1'");
+   assert.ok(fall>guard,'guard must precede legacy Gallery gateway / raw signed fallback');
+   assert.match(src,/MEDIA_INTEGRITY_AUTHORITY_UNAVAILABLE_OR_QUARANTINED/);
+ }
+});
