@@ -8,9 +8,11 @@ function body(name){
  const i=migration.indexOf('create or replace function '+name+'(');
  assert.ok(i>=0,name);
  const tail=migration.slice(i);
- const end=tail.indexOf('end;$r18$;');
- assert.ok(end>=0);
- return tail.slice(0,end+11);
+ const pl=tail.indexOf('end;$r18$;');
+ const sql=tail.indexOf(');$r18$;');
+ const ends=[{at:pl,size:11},{at:sql,size:9}].filter(x=>x.at>=0).sort((a,b)=>a.at-b.at);
+ assert.ok(ends.length>0);
+ return tail.slice(0,ends[0].at+ends[0].size);
 }
 test('Source138 all-fence incident helper checks entire reservation and blocks terminal, never resolves',()=>{
  const f=body('private.preset_storage_assert_no_integrity_incident_r18');
