@@ -1,0 +1,44 @@
+name: 04 QR WEB192 Postfix and INT194 Independent Acceptance
+on:
+  pull_request:
+    paths:
+      - 'tests/qr-collection192-postfix-independent-readonly.test.mjs'
+      - 'tests/qr-int194-postfix-independent-verified-loader-boundary.test.mjs'
+      - '.github/workflows/qr-postfix192-int194-independent.yml'
+      - 'docs/qa/qr-postfix192-int194-independent-acceptance-20261026.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-postfix-collection-int:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Pin exact repaired WEB192 and INT194 source trust contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$DATABASE_URL"
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$(git hash-object src/lib/collection/runtime.js)" = "20ebef36c569a4615a2cb288d5a8391d6283f798"
+          test "$(git hash-object src/lib/collection/reference-navigation.js)" = "1e14fabd49f331ea39ad4a2ac12ff35e2d920671"
+          test "$(git hash-object src/lib/collection/shared-item-reference.js)" = "52a2aac3c5cf7396ba2b45e69fce4fbdde1fe4d0"
+          test "$(git hash-object src/routes/explore/+page.svelte)" = "68f6d72ed69493e77ad839b1be23b763c2c83296"
+          test "$(git hash-object src/routes/collection/+page.svelte)" = "0b64de5a6d09d5acfd55c119f1ed3c94176ddec8"
+          test "$(git hash-object static/ddv/collection/v1.25/index.json)" = "51e72eb055ef150df060ebeb86bd3dc79bc3cb2c"
+      - name: Install isolated toolchain without browser or network service auth
+        run: npm ci --no-audit --no-fund
+      - name: Independent WEB trust, retry race and INT exported resolver/caller provenance witness
+        run: node --test tests/qr-collection192-postfix-independent-readonly.test.mjs tests/qr-int194-postfix-independent-verified-loader-boundary.test.mjs
+      - name: Scoped verdict not real Chrome or signed provider
+        run: echo 'QR_POSTFIX192_WEB_LOADER_ACCEPTED__INT194_CONSUMER_CANONICAL_BUT_RAW_EXPORTED_HELPER_UNVERIFIED_INPUT_WITNESS'
