@@ -55,10 +55,14 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
  first=one(a,report,issueArgs)
  assert first['state']=='QUARANTINED_PENDING_OPERATOR'
  b.execute('begin')
+ b.execute("""update private.preset_storage_release_gate_r18 set
+   enabled=true,provider_precondition_accepted=true,
+   operator_evidence_ref='SOURCE138_CONCURRENT_ROLLBACK_NEVER_PROVIDER'
+   where gate_key='verified_preset_publication'""")
  b.execute("set local lock_timeout='150ms'")
  try:
-  one(b,'select reservation_id from private.preset_storage_reservations_r18 where reservation_id=%s for update',(rid,))
-  raise AssertionError('INCIDENT_REPORTER_NOT_SERIALIZED')
+  one(b,commit,(actor,rid,token))
+  raise AssertionError('COMMIT_DID_NOT_WAIT_FOR_INCIDENT_REPORTER')
  except psycopg.Error as e:assert e.sqlstate=='55P03',e.sqlstate
  b.execute('rollback')
  a.execute('commit')
