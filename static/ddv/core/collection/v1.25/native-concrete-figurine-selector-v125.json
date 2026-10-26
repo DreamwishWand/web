@@ -46,7 +46,7 @@
     "metadataVtable": {
       "tableFileOffset": "0x1A28370",
       "start": 90769,
-      "count": 58
+      "count": 42
     },
     "icollectionItem": {
       "interfaceTypeDefIndex": 10722,
@@ -389,5 +389,13 @@
     "communityPublishingAuthorized": false,
     "schema626SemanticsTransferred": false,
     "steamSemanticsTransferred": false
+  },
+  "metadataProvenanceCorrection": {
+    "originalRomfsMethodCount": 58,
+    "originalRomfsVtableCount": 42,
+    "provenance": "TYPEDEFINITION_COUNT_FIELDS_REPLAYED_FROM_ORIGINAL_ROMFS_07e919",
+    "rawOriginalReplayIndependentlyAuditedByOwner": true,
+    "oldD548RawFileOrigin": "UNKNOWN",
+    "notRuntimeEligibility": true
   }
 }
