@@ -142,8 +142,8 @@ jobs:
               OR to_regclass('private.community_writer_routes_r16') IS NULL
               OR to_regprocedure('public.community_set_gallery_comments_enabled_atomic_r16(uuid,uuid,bigint,uuid,boolean,text)') IS NULL
             THEN RAISE EXCEPTION 'R16_REGISTRY_OR_WRITER_MISSING';END IF;
-            IF (SELECT COUNT(*) FROM private.community_writer_reference_registry_r16)<>32
-              OR (SELECT COUNT(*) FROM private.community_writer_routes_r16)<>21
+            IF (SELECT COUNT(*) FROM private.community_writer_reference_registry_r16)<>34
+              OR (SELECT COUNT(*) FROM private.community_writer_routes_r16)<>23
             THEN RAISE EXCEPTION 'R16_REGISTRY_COUNT_MISMATCH';END IF;
             IF has_function_privilege('anon','public.community_set_gallery_comments_enabled_atomic_r16(uuid,uuid,bigint,uuid,boolean,text)','EXECUTE')
               OR has_function_privilege('authenticated','public.community_set_gallery_comments_enabled_atomic_r16(uuid,uuid,bigint,uuid,boolean,text)','EXECUTE')
