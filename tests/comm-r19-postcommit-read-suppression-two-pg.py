@@ -95,6 +95,20 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
  b.execute('commit')
  assert count(a,'private.preset_storage_work_read_suppressions_r19','where reservation_id=%s',(rid,))==2
  assert count(a,'public.search_documents','where work_id in (%s,%s)',(work,gallery))==0
+ # Real anon Data API database role cannot see quarantined metadata/revision/media,
+ # even though a privileged service-role direct table query bypasses RLS.
+ a.execute('begin')
+ a.execute('set local role anon')
+ for t,cond,arg in [
+  ('public.community_works','where work_id in (%s,%s)',(work,gallery)),
+  ('public.search_documents','where work_id in (%s,%s)',(work,gallery)),
+  ('public.preset_artifacts','where preset_artifact_id=%s',(preset,)),
+  ('public.gallery_revision_presets','where gallery_revision_id=%s',(galrev,)),
+  ('public.work_revision_media','where work_revision_id=%s',(galrev,)),
+  ('public.media_assets','where media_id=%s',(media,))
+ ]:
+  assert count(a,t,cond,arg)==0,(t,cond)
+ a.execute('rollback')
  assert one(a,'select private.preset_storage_work_quarantined_r19(%s)',(work,))
  assert one(a,'select private.preset_storage_work_quarantined_r19(%s)',(gallery,))
  assert one(a,'select private.preset_storage_media_quarantined_r19(%s)',(media,))
