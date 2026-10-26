@@ -286,12 +286,13 @@ jobs:
           python3 tests/comm-r15-pinned-gallery-two-session.py 2>&1 | tee /tmp/comm-r15-pinned-gallery-two-session.log
           python3 tests/comm-r16-gallery-metadata-two-session.py 2>&1 | tee /tmp/comm-r16-gallery-metadata-two-session.log
           python3 tests/comm-r17-photo-legacy-comments-two-session.py 2>&1 | tee /tmp/comm-r17-photo-legacy-comments-two-session.log
+            /tmp/comm-r18-preset-reservation.log
       - name: R18-work actual two-session Preset reservation and cleanup no-write acceptance (LOCAL ONLY)
         shell: bash
         run: |
           set -euo pipefail
           export DDVRE_PRIVACY_ISOLATED_LOCAL=CONFIRMED
-          python3 tests/comm-r18-preset-reservation-two-session.py
+          python3 tests/comm-r18-preset-reservation-two-session.py | tee /tmp/comm-r18-preset-reservation.log
       - name: Record bounded acceptance limitations without pretending actor E2E
         if: always()
         shell: bash
