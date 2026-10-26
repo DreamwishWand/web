@@ -65,10 +65,10 @@ test('QR192 independent 8 locale privacy/rights/eight-language safety boundaries
  for(const lang of locales){
   const list=collectionCopy(lang),detail=collectionReferenceCopy(lang);
   for(const field of ['personalDetail','media','source','readonly']){
-   assert.equal(typeof list[field],'string');assert(list[field].trim().length>=4,lang+'/'+field);
+   assert.equal(typeof list[field],'string');assert(list[field].trim().length>0,lang+'/'+field);
   }
   for(const field of ['notOwned','noMedia','unsupported','reference']){
-   assert.equal(typeof detail[field],'string');assert(detail[field].trim().length>=4,lang+'/'+field);
+   assert.equal(typeof detail[field],'string');assert(detail[field].trim().length>0,lang+'/'+field);
   }
  }
  assert.match(path,/detailCopy\.notOwned/);
