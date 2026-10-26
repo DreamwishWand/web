@@ -52,8 +52,8 @@ test('read-time denial is independent of eventual Gallery Cloud cleanup', () => 
 });
 
 test('source-only runner covers exact new ledger and local rollback evidence', () => {
-  assert.match(workflow,/assert len\(fs\)==138/);
-  assert.match(workflow,/MIGRATION_LEDGER_NOT_138/);
+  assert.match(workflow,/assert len\(fs\)==139/);
+  assert.match(workflow,/MIGRATION_LEDGER_NOT_139/);
   assert.match(workflow,/local-clean-bootstrap-account-privacy-suppression-v1\.sql/);
   assert.match(workflow,/supabase\/migrations\/20261025002600_account_privacy_suppression_barrier_v1\.sql/);
 });
