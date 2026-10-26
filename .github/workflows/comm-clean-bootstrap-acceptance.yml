@@ -322,6 +322,7 @@ jobs:
             /tmp/comm-r15-pinned-gallery-two-session.log
             /tmp/comm-r16-gallery-metadata-two-session.log
             /tmp/comm-r17-photo-legacy-comments-two-session.log
+            /tmp/comm-r18-preset-reservation.log
           if-no-files-found: warn
           retention-days: 14
       - name: Stop and discard only disposable local stack
