@@ -110,3 +110,33 @@ export function resolvePublishedGuideItemLink(options={}) {
   return path?Object.freeze({schema:ITEM_REFERENCE_LINK_SCHEMA,status:'linked',reason:null,
     identity:{kind:'DDV_ITEM_ID',itemId:id,...ITEM_REFERENCE_TARGET},href:path}):fail('INVALID_BASE_PATH');
 }
+
+/**
+ * Canonical cross-product inbound link for Explore. A duplicate or foreign
+ * query key is never interpreted by URLSearchParams.get's first-value rule.
+ * The record source must be supplied by the already checked Collection loader.
+ * @param {any} options
+ */
+export function resolveSharedItemInboundLink(options={}) {
+  const {url,index,records,basePath=''}=options;
+  const params=url?.searchParams;
+  if(!params || typeof params.getAll!=='function' || typeof params.entries!=='function') {
+    return fail('INVALID_ITEM_QUERY');
+  }
+  const counts=new Map();
+  const allowed=new Set(['item','version','buildID']);
+  for(const [key] of params.entries()){
+    if(!allowed.has(key)) return fail('UNKNOWN_ITEM_QUERY_PARAMETER');
+    counts.set(key,(counts.get(key)||0)+1);
+    if(counts.get(key)>1) return fail('DUPLICATE_ITEM_QUERY_PARAMETER');
+  }
+  if(counts.get('item')!==1) return fail('INVALID_ITEM_QUERY');
+  const version=params.get('version') ?? ITEM_REFERENCE_TARGET.gameVersion;
+  const buildID=params.get('buildID') ?? ITEM_REFERENCE_TARGET.buildID;
+  if(version!==ITEM_REFERENCE_TARGET.gameVersion || buildID!==ITEM_REFERENCE_TARGET.buildID) {
+    return fail('UNSUPPORTED_SOURCE_BUILD');
+  }
+  return resolveSharedItemLink({index,records,itemId:params.get('item'),
+    identityKind:'DDV_ITEM_ID',from:'collection',to:'decorate',basePath,
+    requestedTarget:{...ITEM_REFERENCE_TARGET,gameVersion:version,buildID}});
+}
