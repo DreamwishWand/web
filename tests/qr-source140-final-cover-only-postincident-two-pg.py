@@ -98,7 +98,7 @@ with psycopg.connect(DSN, autocommit=True) as left, psycopg.connect(DSN, autocom
               readback_at=now(),readback_byte_size=100,readback_sha256=%s
           where reservation_id=%s
         """,('b'*64,rid))
-        one(left,"""
+        receipt = one(left,"""
           select private.preset_storage_commit_candidate_r18(
             %s,%s,2,%s,1,'QR140 synthetic artifact',null,'public','{}'::jsonb)
         """,(actor,rid,uuid.UUID(lease['leaseToken'])))
@@ -115,6 +115,41 @@ with psycopg.connect(DSN, autocommit=True) as left, psycopg.connect(DSN, autocom
           values(%s,1,(select committed_blob_id from private.preset_storage_reservations_r18
              where reservation_id=%s),%s)
         """,(direct_preset,rid,owner))
+        # DISTINCT historical Gallery link (not the direct associated gallery):
+        # its past revision references the Preset, while its current revision
+        # intentionally does not. Neither historical relation may be lost.
+        historical_gallery, historical_revision, current_revision = newid(),newid(),newid()
+        left.execute("insert into public.community_entities(entity_id,entity_type) values(%s,'community_work')",(historical_gallery,))
+        left.execute("""
+            insert into public.community_works(work_id,owner_account_id,creator_profile_id,work_type,visibility)
+            values(%s,%s,%s,'gallery','public')
+        """,(historical_gallery,owner,creator))
+        left.execute("insert into public.gallery_works(work_id,gallery_kind) values(%s,'outdoor')",(historical_gallery,))
+        for revision,num,title in [
+            (historical_revision,1,'QR140 previous Gallery revision with Preset'),
+            (current_revision,2,'QR140 current unrelated Gallery revision')]:
+            left.execute("""
+                insert into public.community_work_revisions(revision_id,work_id,revision_number,created_by_account_id)
+                values(%s,%s,%s,%s)
+            """,(revision,historical_gallery,num,owner))
+            left.execute("""
+                insert into public.gallery_work_revisions(revision_id,title,description)
+                values(%s,%s,'QR140 historical relationship')
+            """,(revision,title))
+        left.execute("""
+            insert into public.gallery_revision_presets(gallery_revision_id,preset_revision_id)
+            values(%s,%s)
+        """,(historical_revision,uuid.UUID(receipt['presetRevisionId'])))
+        left.execute("""
+            update public.community_works
+            set lifecycle_state='published',current_published_revision_id=%s,published_at=now()
+            where work_id=%s
+        """,(current_revision,historical_gallery))
+        left.execute("""
+            insert into public.search_documents(entity_id,work_id,work_type,creator_profile_id,title,published_at)
+            values(%s,%s,'gallery',%s,'QR140 previous published relationship',now())
+        """,(historical_gallery,historical_gallery,creator))
+
         left.execute("""
           update private.preset_storage_release_gate_r18
           set enabled=false,provider_precondition_accepted=false,operator_evidence_ref=null
@@ -132,6 +167,7 @@ with psycopg.connect(DSN, autocommit=True) as left, psycopg.connect(DSN, autocom
     assert one(right,'select private.preset_storage_media_quarantined_r19(%s)',(cover_current,)) is False
     assert one(right,'select private.preset_storage_media_quarantined_r19(%s)',(cover_history,)) is False
     assert one(right,'select private.preset_storage_media_quarantined_r19(%s)',(unrelated,)) is False
+    assert one(right,'select private.preset_storage_work_quarantined_r19(%s)',(historical_gallery,)) is False
     assert not one(right,"select has_function_privilege('anon','public.community_gallery_media_gateway_v1(uuid)','execute')")
     assert one(right,"select has_function_privilege('service_role','public.community_gallery_media_gateway_v1(uuid)','execute')")
     right.execute('begin')
@@ -143,6 +179,8 @@ with psycopg.connect(DSN, autocommit=True) as left, psycopg.connect(DSN, autocom
     assert report['publicationAuthorized'] is False
     right.execute('commit')
     assert one(left,'select private.preset_storage_work_quarantined_r19(%s)',(gallery,)) is True
+    assert one(left,'select private.preset_storage_work_quarantined_r19(%s)',(historical_gallery,)) is True
+    assert one(left,'select count(*) from public.search_documents where work_id=%s',(historical_gallery,)) == 0
     assert one(left,'select private.preset_storage_media_quarantined_r19(%s)',(cover_history,)) is True
     assert one(left,'select private.preset_storage_media_quarantined_r19(%s)',(cover_current,)) is True
     assert one(left,'select private.preset_storage_media_quarantined_r19(%s)',(unrelated,)) is False
@@ -166,6 +204,7 @@ with psycopg.connect(DSN, autocommit=True) as left, psycopg.connect(DSN, autocom
       'unrelatedBeforeAndAfter':'unaffected',
       'postincidentCurrentAndCoverOnly':'both_denied',
       'historicalMediaMembershipAbsent':True,
+      'directAndHistoricalSeparateGalleryLinksSuppressed':True,
       'incidentDurable':True,
       'realProviderUsed':False,
       'signedJwtUsed':False,
