@@ -65,3 +65,11 @@ test('Source139 Gallery media both public proxy and owner read fail closed befor
    assert.match(src,/MEDIA_INTEGRITY_AUTHORITY_UNAVAILABLE_OR_QUARANTINED/);
  }
 });
+
+test('Source139 preserves Source R12 privacy suppression in Gallery detail comment projection',()=>{
+ const gallery=sql.slice(sql.indexOf('create or replace function public.community_get_gallery_public_v1('),
+   sql.indexOf('create or replace function public.community_get_gallery_v1('));
+ assert.match(gallery,/not private\.is_account_privacy_suppressed\(c\.author_account_id\)/);
+ assert.match(gallery,/c\.moderation_state='clear'/);
+ assert.match(gallery,/v_work\.moderation_state|'clear'/);
+});
