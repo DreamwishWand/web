@@ -45,12 +45,46 @@ try{
  ok('UNKNOWN_NONDECORATE_WRONG_VERSION_AND_BUILD_FAIL_CLOSED');
  await page.goto(root+'/collection/?item='+id,{waitUntil:'domcontentloaded'});
  await eventually(async()=>await page.locator('.cross-product-reference-link').count()===1);
- await page.locator('#site-locale').selectOption('ja');
+ const localeCodes=['en','fr','it','de','es-ES','ja','zh-CN','pt-BR'];
  await page.setViewportSize({width:320,height:820});
+ for(const locale of localeCodes){
+  await page.locator('#site-locale').selectOption(locale);
+  await eventually(async()=>await page.locator('html').getAttribute('lang')===locale);
+  check(await page.locator('.item-detail-grid code').first().textContent()===id,'ItemID drift in '+locale);
+  check(await page.locator('.cross-product-reference-link').getAttribute('href')==='/explore/?item='+id,'Link drift in '+locale);
+  check(await page.locator('.item-detail a[href^="/guide/"]').count()===0,'Private Guide link in '+locale);
+  const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
+  check(overflow<=2,'320px horizontal overflow in '+locale+': '+overflow);
+ }
+ ok('EIGHT_LOCALES_320PX_IDENTICAL_ITEMID_NO_PRIVATE_GUIDE');
+ const glyphs=await page.evaluate(()=>{
+  const c=document.createElement('canvas');c.width=96;c.height=96;
+  const ctx=c.getContext('2d',{willReadFrequently:true});
+  const hash=character=>{
+   ctx.clearRect(0,0,96,96);
+   ctx.font='60px system-ui';ctx.textBaseline='top';ctx.fillStyle='#000';
+   ctx.fillText(character,8,6);
+   const bytes=ctx.getImageData(0,0,96,96).data;
+   let h=2166136261,painted=false;
+   for(let i=0;i<bytes.length;i++){
+    if(i%4===3&&bytes[i]>0)painted=true;
+    h=Math.imul(h^bytes[i],16777619);
+   }
+   return painted?(h>>>0):null;
+  };
+  const tofu=hash('\u0378');
+  const probes={'ja':'日本語','zh-CN':'简体中文'};
+  return Object.entries(probes).map(([locale,characters])=>({
+   locale,
+   checked:characters,
+   valid:Array.from(characters).every(ch=>hash(ch)!==null&&hash(ch)!==tofu)
+  }));
+ });
+ check(glyphs.every(x=>x.valid),'CJK browser glyph missing: '+JSON.stringify(glyphs));
+ report.cjkGlyphs=glyphs;
+ ok('CHROME_JAPANESE_CHINESE_GLYPHS_RENDERED_NOT_TOFU');
+ await page.locator('#site-locale').selectOption('ja');
  await eventually(async()=>await page.locator('html').getAttribute('lang')==='ja');
- check((await page.locator('.cross-product-reference-link').innerText()).includes('Decorate'),'Japanese navigation copy absent');
- const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
- check(overflow<=2,'320px horizontal overflow');
  ok('JA_320PX_SOURCE_LINK_ACCESSIBLE');
  report.consoleErrors=report.consoleErrors.filter(s=>!s.includes('Failed to load resource'));
  check(report.pageErrors.length===0,'Browser page errors: '+report.pageErrors.join(' / '));
