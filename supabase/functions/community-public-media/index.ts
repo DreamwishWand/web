@@ -37,6 +37,14 @@ const publicFetch = withSupabase({ auth: 'none' }, async (req, ctx) => {
   }
   if (!MEDIA_ID_RE.test(mediaId)) return reply({ok:false,error:'Valid mediaId required'},400);
 
+  // Source139 canonical quarantine: evaluate historical Gallery/Scene-linked
+  // references BEFORE gateway classification or legacy raw-signed fallback.
+  const {error:integrityError}=await ctx.supabaseAdmin.rpc(
+    'community_preset_storage_assert_media_not_quarantined_r19',
+    {p_media_id:mediaId}
+  );
+  if(integrityError)return reply({ok:false,error:'MEDIA_INTEGRITY_AUTHORITY_UNAVAILABLE_OR_QUARANTINED'},503);
+
   // The existing public issuer must consult the Gallery *historical* revision
   // boundary BEFORE its legacy Dreamsnap signed-URL fallback. Any Gallery photo
   // (current or historical) can never receive another raw Storage token here.
