@@ -24,7 +24,10 @@ try{
  await eventually(async()=>await page.locator('.collection-card').count()===120);
  assert(await page.locator('.view-switch button[aria-pressed="true"]').count()===1,'Missing active default view');
  assert((await page.locator('.view-switch button[aria-pressed="true"]').textContent()).includes('Category'),'Category not default');
- ok('CATALOG_12552_CATEGORY_DEFAULT_AND_120_WINDOW');
+ assert(await page.locator('.load-more button').count()===1,'No way to browse beyond the first 120 records');
+ await page.locator('.load-more button').click();
+ await eventually(async()=>await page.locator('.collection-card').count()===240);
+ ok('CATALOG_12552_CATEGORY_DEFAULT_PROGRESSIVE_120_TO_240');
 
  const first=page.locator('.collection-card').first();
  const href=await first.getAttribute('href');
