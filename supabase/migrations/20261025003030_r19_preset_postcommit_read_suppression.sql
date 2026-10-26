@@ -124,12 +124,15 @@ create trigger preset_storage_search_reinsert_guard_r19
  before insert or update on public.search_documents for each row
  execute function private.preset_storage_search_reinsert_guard_r19();
 
+drop policy if exists preset_storage_work_incident_read_barrier_r19 on public.community_works;
 create policy preset_storage_work_incident_read_barrier_r19
  on public.community_works as restrictive for select to anon,authenticated
  using (not private.preset_storage_work_quarantined_r19(work_id));
+drop policy if exists preset_storage_search_incident_read_barrier_r19 on public.search_documents;
 create policy preset_storage_search_incident_read_barrier_r19
  on public.search_documents as restrictive for select to anon,authenticated
  using (not private.preset_storage_work_quarantined_r19(work_id));
+drop policy if exists preset_storage_artifact_incident_read_barrier_r19 on public.preset_artifacts;
 create policy preset_storage_artifact_incident_read_barrier_r19
  on public.preset_artifacts as restrictive for select to anon,authenticated
  using (not private.preset_storage_work_quarantined_r19(community_work_id));
