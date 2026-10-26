@@ -49,6 +49,28 @@ test('WEB192 final shard colliding against first shard causes reject before any 
  await assert.rejects(loadCollectionRuntime('',probe.fetch),/trusted SHA-256 mismatch/);
  assert.deepEqual(probe.calls,['index.json']);
 });
+test('WEB192 independent terminal duplicate reject even after deliberately re-pinning a self-consistent poisoned Index root in isolated module',async()=>{
+ const initial=JSON.parse(indexRaw.toString('utf8'));
+ const last=initial.shards.at(-1),repacked=JSON.parse(bytes(last.file).toString('utf8'));
+ const first=JSON.parse(bytes(initial.shards[0].file).toString('utf8')).r[0][0];
+ repacked.r.at(-1)[0]=first;
+ const shardRaw=Buffer.from(JSON.stringify(repacked));
+ const changed={...initial,shards:initial.shards.map(s=>s.file===last.file?{...s,sha256:sha(shardRaw),bytes:shardRaw.length}:s)};
+ const tamperedIndex=Buffer.from(JSON.stringify(changed));
+ const runtime=readFileSync('src/lib/collection/runtime.js','utf8');
+ const pinned=runtime.replace(/(export const COLLECTION_RUNTIME_INDEX_SHA256 = ')[a-f0-9]{64}(';)/,
+  '$1'+sha(tamperedIndex)+'$2');
+ assert.notEqual(pinned,runtime);
+ const cloned=await import('data:text/javascript;base64,'+Buffer.from(pinned).toString('base64'));
+ const probe=fixtures({indexData:tamperedIndex,shardEdit:{name:last.file,data:shardRaw}});
+ await assert.rejects(cloned.loadCollectionRuntime('',probe.fetch),/duplicate or invalid ItemID/);
+ assert.equal(probe.calls.length,19,'reached last checked shard with trusted synthetic Index anchor');
+ console.log('QR_WEB192_POSTFIX_DUPLICATE_REFUSED_AFTER_SYNTHETIC_TRUSTED_INDEX_REPIN',JSON.stringify({
+  indexReanchoredOnlyInEphemeralTestModule:true,all18ShardsLoaded:true,
+  modifiedShardSelfConsistentHashAndByteSize:true,globalDuplicateRejected:true
+ }));
+});
+
 test('WEB192 actual reload function late success/failure cannot resurrect earlier retry generation',async()=>{
  const page=readFileSync('src/routes/collection/+page.svelte','utf8');
  const body=page.match(/  async function reload\(\): Promise<void> \{[\s\S]*?\n  \}\n  onMount/);
