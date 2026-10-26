@@ -72,7 +72,7 @@ jobs:
           from pathlib import Path
           import re
           fs=sorted(Path('supabase/migrations').glob('*.sql'))
-          assert len(fs)==135, f'expected 132 source SQL files, got {len(fs)}'
+          assert len(fs)==136, f'expected 132 source SQL files, got {len(fs)}'
           vs=[f.name.split('_',1)[0] for f in fs]
           assert all(re.fullmatch(r'\d{12}(?:\d{2})?',v) for v in vs)
           assert len(vs)==len(set(vs)), 'migration version collision'
@@ -81,11 +81,12 @@ jobs:
                          ('20261025002300','gallery_capacity_effective_cleanup_diagnostics_v1'),
                          ('20261025002400','gallery_known_reference_writer_fence_v1')]:
               assert sum(f.name==v+'_'+name+'.sql' for f in fs)==1
-          print('SOURCE_CANDIDATE_135_MIGRATIONS_UNIQUE_AND_ORDERED_PASS')
+          print('SOURCE_CANDIDATE_136_MIGRATIONS_UNIQUE_AND_ORDERED_PASS')
           PY
       - name: Source-Candidate migration static regression
         shell: bash
         run: node --test tests/community-gallery-stacked-migration-order.test.mjs
+          node --test tests/community-r18-scene-product-source-closure.test.mjs
       - uses: supabase/setup-cli@v1
         with:
           version: 2.81.3
@@ -121,7 +122,7 @@ jobs:
           DECLARE v int;
           BEGIN
             SELECT count(*) INTO v FROM supabase_migrations.schema_migrations;
-            IF v<>135 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_135: %',v;END IF;
+            IF v<>136 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_136: %',v;END IF;
             IF (select enrollment_state from private.community_writer_routes_r16 where writer_key='gallery-comments-legacy')<>'FAIL_CLOSED'
             THEN RAISE EXCEPTION 'R17_LEGACY_REGISTRY_NOT_CLOSED';END IF;
             IF to_regprocedure('public.community_set_gallery_comments_enabled_v1(uuid,uuid,boolean)') IS NULL
@@ -235,12 +236,13 @@ jobs:
             supabase/migrations/20261025002960_gallery_photo_media_readonly_preflight_r17.sql \
             supabase/migrations/20261025002970_r17_photo_cover_ordinal_consistency.sql \
             supabase/migrations/20261025002980_r18_preset_storage_reservation_failclosed.sql \
-            supabase/migrations/20261025002990_r18_preset_promotion_fencing_candidate.sql; do
+            supabase/migrations/20261025002990_r18_preset_promotion_fencing_candidate.sql \
+             supabase/migrations/20261025003000_r18_scene_product_publisher_source_closure.sql; do
             for attempt in 1 2; do
               docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < "$file"
             done
           done
-          echo 'TWENTY_FOUR_ADDITIVE_SOURCE_MIGRATIONS_SAME_SCHEMA_REAPPLY_PASS' | tee /tmp/comm-parent-reapply.log
+          echo 'TWENTY_FIVE_ADDITIVE_SOURCE_MIGRATIONS_SAME_SCHEMA_REAPPLY_PASS' | tee /tmp/comm-parent-reapply.log
       - name: Seed LOCAL disposable actors and run existing negative Gallery SQL fixtures
         shell: bash
         run: |
@@ -305,6 +307,7 @@ jobs:
           export DDVRE_PRIVACY_ISOLATED_LOCAL=CONFIRMED
           python3 tests/comm-r18-preset-reservation-two-session.py | tee /tmp/comm-r18-preset-reservation.log
           python3 tests/comm-r18-promotion-fence-two-session.py | tee /tmp/comm-r18-promotion-fence.log
+          python3 tests/comm-r18-scene-publisher-acl-postgres.py | tee /tmp/comm-r18-scene-product-issuer.log
       - name: Record bounded acceptance limitations without pretending actor E2E
         if: always()
         shell: bash
@@ -337,6 +340,7 @@ jobs:
             /tmp/comm-r17-photo-legacy-comments-two-session.log
             /tmp/comm-r18-preset-reservation.log
             /tmp/comm-r18-promotion-fence.log
+            /tmp/comm-r18-scene-product-issuer.log
           if-no-files-found: warn
           retention-days: 14
       - name: Stop and discard only disposable local stack
