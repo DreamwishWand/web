@@ -35,7 +35,9 @@ with psycopg.connect(dsn,autocommit=True) as reader,psycopg.connect(dsn,autocomm
   reader.execute("update private.preset_storage_release_gate_r18 set enabled=true,provider_precondition_accepted=true,operator_evidence_ref='INT141_SYNTHETIC_NOT_PROVIDER' where gate_key='verified_preset_publication'")
   reader.execute("update private.preset_storage_reservations_r18 set reservation_state='VERIFIED_PUBLISHED_OBJECT',verification_evidence_state='PROVIDER_ATTESTED',readback_at=now(),readback_byte_size=100,readback_sha256=%s where reservation_id=%s",('b'*64,rid))
   committed=one(reader,"select private.preset_storage_commit_candidate_r18(%s,%s,2,%s,1,'Media issuer test',null,'public','{}'::jsonb)",(actor,rid,token))
-  subject=one(reader,"select subject_id from public.gallery_verified_subjects where verification_state='verified' order by subject_id limit 1")
+  # Disposable verification fixture only: no canonical game subject was inferred.
+  subject=uid()
+  reader.execute("insert into public.gallery_verified_subjects(subject_id,gallery_kind,subject_type,canonical_target_id,platform,game_version,build_id,profile_schema,evidence_ref,verification_state) values(%s,'outdoor','floating_island',%s,'switch','1.25.0','52BD625D9B4E0053',624,'INT141_LOCAL_SYNTHETIC_NO_GAME_EVIDENCE','verified')",(subject,'INT141-'+str(subject)))
   for work in (affected,control):
    reader.execute("insert into public.community_entities(entity_id,entity_type) values(%s,'community_work')",(work,))
    reader.execute("insert into public.community_works(work_id,owner_account_id,creator_profile_id,work_type,visibility) values(%s,%s,%s,'gallery','public')",(work,owner,creator))
