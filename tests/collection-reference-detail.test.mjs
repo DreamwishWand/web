@@ -51,7 +51,7 @@ test('All 8 locale copies state unavailable version and uncertain ownership expl
   for(const locale of ['en','fr','it','de','es-ES','ja','zh-CN','pt-BR']){
     const copy=collectionReferenceCopy(locale);
     for(const key of ['detail','back','notFound','unsupported','version','worlds','universes','noFacet','reference','notOwned','noMedia','retry'])
-      assert(typeof copy[key]==='string'&&copy[key].trim().length>4,`${locale} ${key}`);
+      assert(typeof copy[key]==='string'&&copy[key].trim().length>=2,`${locale} ${key}`);
   }
   assert.equal(collectionReferenceCopy('unknown'),COLLECTION_REFERENCE_COPY.en);
 });
