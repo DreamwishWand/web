@@ -387,6 +387,15 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(mediaId)) {
         return reply({ok:false,error:'MEDIA_ID_INVALID'},400);
       }
+      // Source139 historical Preset/Gallery integrity barrier precedes
+      // owner binary read and legacy signed-URL fallback.
+      const {error:integrityError}=await ctx.supabaseAdmin.rpc(
+        'community_preset_storage_assert_media_not_quarantined_r19',
+        {p_media_id:mediaId}
+      );
+      if(integrityError)
+        return reply({ok:false,error:'MEDIA_INTEGRITY_AUTHORITY_UNAVAILABLE_OR_QUARANTINED'},503);
+
       // Authoritative service RPC recognizes Gallery-owned media by upload
       // journal OR any immutable Gallery Photo WorkRevision. Never allow a
       // historical Gallery photo to fall through to the raw signed issuer.
