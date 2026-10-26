@@ -48,3 +48,28 @@ Operator prerequisites:
 On parity mismatch, stale Owner/Creator, unknown replay outcome, missing provider bytes, SHA mismatch, unregistered Writer family, historical/current reference unknown or old bearer unverified: **fail closed**, preserve source object and SQL evidence, freeze unsafe mutations, stop signed run. Approved ops owns PITR or corrective forward migration; no inferred deletion authority from a read-only preflight. Zero automated physical removals while reservation committed/pending/unknown.
 
 Release remains Product Tree R17 **PASS 0 / PARTIAL 12 / BLOCKED 18**, seven seed gates/Guide Human QA0/315/Rights0/45/Privacy Legal Ops Issues138/139 blocked. `graphComplete=false`, `retirementAuthorized=false`, `saveRevisionAuthorized=false`, `pairedGalleryPublishAuthorized=false`; SOURCE_FULLY_ENROLLED=0. Every Draft DO_NOT_MERGE/DO_NOT_DEPLOY. No formal Release R18 until genuine signed Provider E2E, cross-system DB/Storage reconciliation, moderation/privacy and legal gates accepted.
+
+
+## 04 QR final exact-pin source QA evidence / Staging Edge inventory (2026-10-26)
+
+Frozen Source134 Owner = cb86ac1ba4601d57dbaeb6a0c3e5c59e61d0749b. Owner CI40250228079 and clean bootstrap40250228046/40250223188 SUCCESS. Independent QA isolated **real local PostgreSQL** CI40250532648 SUCCESS (134 migrations): same-key replay, alternate staging-key conflict, foreign account/creator denial, 2 seeded current and historical Preset references with cleanup DENIED, reservation row lock 55P03, direct published Blob/old Publisher rejected, service-only ACL and zero unexpected Work/Revision/Outbox mutations.
+
+Independent actual Source134 **Preset artifact Edge TypeScript with MOCK Storage/RPC** eleven cases: normal owned staged Scene SHA256/length derived from mocked Blob, deterministic published key/response validation, no actor spoofing, invalid staging bytes, foreign account, Privacy/Creator/Idempotency injected RPC denial, publish 409 BEFORE copy, discard always denies without physical removal, recovery state-only with stale CAS rejection, missing/retired session. **Source134 Retention Edge actual TypeScript with MOCK Worker RPC** three cases: authenticated worker 409 before blob claim, Storage.remove or finalizer; invalid/missing token 401, malformed request 400, nonPOST 405. Latest ordinary CI40252527369 SUCCESS (1050 total, 1038 PASS / 0 FAIL / 12 inherited SKIP), QA-only code, no Owner SQL/Edge changes. No real Storage Provider bytes/GET, no signed JWT actor/worker, no DB+Provider atomicity.
+
+Fresh READ-ONLY Stage was still historical116 managed migrations, max20261024043436, old Preset Publisher RPC present; new Source134 Reserve/Recover/Cleanup RPC and private reservation table+published-registration trigger ABSENT. Actual deployed Edge executable contents MUST BE FINGERPRINTED and separately approved, NOT inferred from version labels or Source assumptions:
+
+| Staging Edge slug | Version | verify_jwt | Operator parity significance |
+| --- | ---: | --- | --- |
+| wep-preset-artifact | 14 | true | Source134 publication/reservation handler parity missing |
+| wep-preset-retention | 6 | false | Worker-token-gated; exact deployed physical delete behavior UNVERIFIED |
+| wep-preset-flow-e2e | 9 | true | Audit all extra preset entrypoints |
+| wep-retention-e2e | 4 | false | Audit worker token/purge callers |
+| community-wep-retention-e2e | 5 | true | Audit additional Community cleanup callers |
+| wep-scene-preset-product | 1 | true | Scene/Preset consumer, no native Writer authorization |
+| community-command | 30 | true | Source R12/R15/R16 RPC parity absent |
+| community-query | 14 | true | Source R17 Photo Preflight absent |
+| community-retention | 12 | false | Separate global cleanup; do not conflate with preset purge |
+
+Operator signed-provider acceptance must prove EVERY source/Edge/worker entrypoint's failclosed semantic parity with reviewed 134 SQL migrations and provider historical116 lineage; no blind 18-file append, migration history rewrites, remote DB reset, deploy or object manipulation absent explicit #130 approval. Require encrypted backup/PITR, safe forward/recovery, legally held refs, and normal disposable Owner A, Nonowner B, Moderator M with genuine JWT; service_role never impersonates a normal actor. Controlled parallel prepare/PUT/copy/discard/failed compensation/replay and reservation recovery must verify independently downloaded Provider object bytes, length and SHA256; preserve all current/historical refs and deny all unauthorized physical deletion. Separate old signed bearer t=0/60/300/post-expiry and CDN warm/cold (preissued token fixture). Unknown provider outcome must preserve object for reconciliation rather than delete.
+
+Provider signed A/B/M/Storage GET byte integrity, CDN old bearer and real concurrent SQL+Object Storage race remain CONFIGURATION_BLOCKED / NOT_EXECUTED. Release stays R17 30 PASS0/PARTIAL12/BLOCKED18; no formal R18; all Drafts DO_NOT_MERGE/DO_NOT_DEPLOY and positive Preset publication/physical cleanup, Gallery retirement/Cloud, Scene paired Save/Native Apply OFF.
