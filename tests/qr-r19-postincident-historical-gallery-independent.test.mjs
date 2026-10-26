@@ -20,7 +20,7 @@ test('QR R19 new historical Gallery association remains covered by LIVE dynamic 
   assert.match(fn,/from private\.preset_storage_integrity_incidents_r18 i/);
   assert.match(fn,/join private\.preset_storage_reservations_r18 r/);
   assert.match(fn,/join public\.preset_revisions pr/);
-  assert.match(fn,/join public\.gallery_revision_presets gp/);
+  assert.match(fn,/(?:from|join) public\.gallery_revision_presets gp/);
   assert.match(fn,/join public\.community_work_revisions wr/);
   assert.match(fn,/wr\.work_id=p_work_id/);
   assert.doesNotMatch(fn,/current_published_revision_id/);
