@@ -35,6 +35,11 @@ try{
  for(const path of [
   '/explore/?item=9999999999',
   '/explore/?item=10000002',
+  '/explore/?item=00'+id,
+  '/explore/?item='+id+'&item='+id,
+  '/explore/?item='+id+'&unexpected=1',
+  '/explore/?item='+id+'&version=1.25.0&version=1.25.0',
+  '/explore/?item='+id+'&buildID=52BD625D9B4E0053&buildID=52BD625D9B4E0053',
   '/explore/?item='+id+'&version=1.25.3',
   '/explore/?item='+id+'&buildID=BAD'
  ]){
@@ -42,7 +47,7 @@ try{
   await eventually(async()=>await page.locator('.status').count()>0&&await page.locator('.grid').count()===1);
   check(await page.locator('.quick-review[role="dialog"]').count()===0,'Unsafe Explore detail opened '+path);
  }
- ok('UNKNOWN_NONDECORATE_WRONG_VERSION_AND_BUILD_FAIL_CLOSED');
+ ok('INVALID_DUPLICATE_FOREIGN_VERSION_BUILD_QUERY_FAIL_CLOSED');
  await page.goto(root+'/collection/?item='+id,{waitUntil:'domcontentloaded'});
  await eventually(async()=>await page.locator('.cross-product-reference-link').count()===1);
  const localeCodes=['en','fr','it','de','es-ES','ja','zh-CN','pt-BR'];
