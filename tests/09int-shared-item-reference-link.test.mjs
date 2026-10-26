@@ -14,7 +14,7 @@ const records=shard.r.map(row=>decodeCollectionRecord(index,row,'ja'));
 const item=records.find(r=>DECORATE_ITEM_FAMILIES.includes(r.family));
 const other=records.find(r=>r.itemId!==item.itemId);
 assert.ok(item && other);
-const options={index,records,itemId:item.itemId,from:'collection',to:'decorate'};
+const options={index,records,itemId:item.itemId,identityKind:'DDV_ITEM_ID',from:'collection',to:'decorate'};
 const negative=(reason,overrides={})=>{
  const result=resolveSharedItemLink({...options,...overrides});
  assert.equal(result.status,'unavailable');assert.equal(result.href,null);assert.equal(result.reason,reason);
@@ -55,6 +55,13 @@ test('different builds/manifest, unsupported versions and retired/unavailable re
  negative('ITEM_UNAVAILABLE',{lifecycle:'UNAVAILABLE'});
  negative('ITEM_LIFECYCLE_UNKNOWN',{lifecycle:'UNKNOWN'});
  assert.equal(resolveSharedItemLink({...options,lifecycle:'REFERENCE_ONLY'}).status,'linked');
+});
+test('even numerically colliding IDs from Room/ToM/Gallery/Preset require explicit DDV_ITEM_ID kind',()=>{
+ negative('UNSUPPORTED_IDENTITY_KIND',{identityKind:'DESIGN_ID'});
+ negative('UNSUPPORTED_IDENTITY_KIND',{identityKind:'ROOM_LOCAL_ID'});
+ negative('UNSUPPORTED_IDENTITY_KIND',{identityKind:'GALLERY_VERIFIED_SUBJECT'});
+ negative('UNSUPPORTED_IDENTITY_KIND',{identityKind:'PRESET_OBJECT_ID'});
+ negative('UNSUPPORTED_IDENTITY_KIND',{identityKind:undefined});
 });
 test('room, touch-of-magic Design.Id, Gallery verified subject, Preset UUID never coerce to numeric ItemID',()=>{
  for(const itemId of ['house:1/floor:0/room:2','Design.Id=123','gallery-subject-123','preset-object-123','0123','18446744073709551615']){
