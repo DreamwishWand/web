@@ -107,7 +107,16 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
   ('public.work_revision_media','where work_revision_id=%s',(galrev,)),
   ('public.media_assets','where media_id=%s',(media,))
  ]:
-  assert count(a,t,cond,arg)==0,(t,cond)
+  a.execute('savepoint r19_anon_read')
+  try:
+   assert count(a,t,cond,arg)==0,(t,cond)
+  except psycopg.errors.InsufficientPrivilege as e:
+   # The Source may also deny the table SELECT grant entirely; do not
+   # re-grant visibility merely to exercise restrictive RLS.
+   a.execute('rollback to savepoint r19_anon_read')
+   assert e.sqlstate=='42501'
+  else:
+   a.execute('release savepoint r19_anon_read')
  a.execute('rollback')
  assert one(a,'select private.preset_storage_work_quarantined_r19(%s)',(work,))
  assert one(a,'select private.preset_storage_work_quarantined_r19(%s)',(gallery,))
