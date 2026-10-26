@@ -1,0 +1,35 @@
+name: 04 QR PR195 Activity ByGameplayTag Independent Source Delta
+on:
+  pull_request:
+    paths:
+      - 'tests/qr-pr195-activity-selector-independent.test.mjs'
+      - 'docs/qa/qr-pr195-activity-selector-independent-20261027.md'
+      - '.github/workflows/qr-pr195-activity-selector-independent.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  activity-new-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin exact Owner new source and definition-source commit (no original binary in Git)
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+          test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$DATABASE_URL"
+          test "$(git hash-object static/ddv/core/collection/v1.25/native-activity-by-gameplay-tag-v125.json)" = '04d4ac0af42bbf5b2f860993777339a321c2dae8'
+          test "$(git hash-object static/ddv/core/collection/v1.25/collection-definition-source-compact-v125.json)" = '7622ff51f6e48315893d7b75f08e51c248d09f2e'
+      - name: Five new definition/caveat/count/FailClosed tests only
+        run: node --test tests/qr-pr195-activity-selector-independent.test.mjs
+      - name: No promotion of raw protobuf or personal membership
+        run: echo 'QR200_ACTIVITY_NATIVE_ORIGINAL_LOCAL_ONLY__ITEM_RAW_PROTOBUF_NEED_SOURCE__NO_PERSONAL_COLLECTION'
