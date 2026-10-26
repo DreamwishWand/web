@@ -22,6 +22,7 @@ set search_path=pg_catalog,public,private as $r19$
  );$r19$;
 revoke all on function private.preset_storage_work_quarantined_r19(uuid)
  from public,anon,authenticated,service_role;
+grant execute on function private.preset_storage_work_quarantined_r19(uuid) to anon,authenticated;
 
 create or replace function private.preset_storage_blob_quarantined_r19(
  p_blob_id uuid
@@ -70,6 +71,7 @@ set search_path=pg_catalog,public,private as $r19$
  );$r19$;
 revoke all on function private.preset_storage_media_quarantined_r19(uuid)
  from public,anon,authenticated,service_role;
+grant execute on function private.preset_storage_media_quarantined_r19(uuid) to anon,authenticated;
 create or replace function public.community_preset_storage_assert_media_not_quarantined_r19(
  p_media_id uuid
 ) returns boolean language plpgsql stable security definer
