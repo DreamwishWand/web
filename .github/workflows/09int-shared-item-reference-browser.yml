@@ -1,0 +1,73 @@
+name: 09 INT Collection Decorate Item Reference Chrome
+on:
+  pull_request:
+    paths:
+      - 'src/lib/collection/shared-item-reference.js'
+      - 'src/lib/collection/shared-item-link-copy.js'
+      - 'src/routes/collection/+page.svelte'
+      - 'src/routes/explore/+page.svelte'
+      - 'scripts/09int-shared-item-reference-browser.mjs'
+      - '.github/workflows/09int-shared-item-reference-browser.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  item-links:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Ensure bounded Japanese and Chinese font support
+        shell: bash
+        run: |
+          set -euo pipefail
+          have_cjk() {
+            test -n "$(fc-list ':lang=ja' family)" && test -n "$(fc-list ':lang=zh-cn' family)"
+          }
+          if ! have_cjk; then
+            timeout --signal=TERM --kill-after=10s 150s bash -c '
+              set -euo pipefail
+              sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=25 -o Acquire::https::Timeout=25 update -qq
+              sudo env DEBIAN_FRONTEND=noninteractive apt-get -y -o Acquire::Retries=1 -o Acquire::http::Timeout=25 -o Acquire::https::Timeout=25 install --no-install-recommends fonts-ipafont-gothic fonts-wqy-microhei
+            '
+            fc-cache -f
+          fi
+          for lang in ja zh-cn; do
+            test -n "$(fc-list ":lang=$lang" family)" || { echo "::error::Missing CJK font coverage for $lang"; exit 1; }
+            echo "$lang font: $(fc-match -f '%{family}\n' ":lang=$lang" | head -n 1)"
+          done
+      - name: Resolve Chrome executable
+        id: chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "path=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+      - name: Run source-only local dev server
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4176 >/tmp/09int-vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:4176/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/09int-vite.log
+          exit 1
+      - name: Real Chrome bidirectional same ItemID only
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          COLLECTION_BASE_URL: http://127.0.0.1:4176
+        run: node scripts/09int-shared-item-reference-browser.mjs
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 09int-item-reference-browser
+          path: .artifacts/09int-item-reference
+          if-no-files-found: warn
