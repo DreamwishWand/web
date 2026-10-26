@@ -23,7 +23,7 @@ test('Current verified derived JSON explicitly refuses original metadata/source 
 
 test('Original-byte replay is a separately scoped offline source ledger, not an online attestation input',async()=>{
  const r=originalReplay;
- assert.equal(r.scope.buildId,identity.buildId);
+ assert.equal(r.scope.bid,identity.buildId);
  assert.equal(r.source.originalExeFsMain.bytes,96002294);
  assert.equal(r.source.originalRomFsMetadata.bytes,36538728);
  assert.equal(r.source.il2cppDumperCs.bytes,59624529);
