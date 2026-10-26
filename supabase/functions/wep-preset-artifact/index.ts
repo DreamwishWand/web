@@ -267,6 +267,10 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       byteSize:checked.blob.size,checksumSha256:checked.checksumSha256
     });
     const requestHash = hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload)));
+    const finalDigest = hex(await crypto.subtle.digest(
+      'SHA-256', new TextEncoder().encode(`${accountId}:${idempotencyKey}`)
+    ));
+    const publishedStorageKey = `published/${accountId}/${finalDigest}.json`;
     const { data, error } = await ctx.supabaseAdmin.rpc('community_preset_storage_reserve_r18', {
       p_auth_subject:subject,
       p_creator_profile_id:creatorProfileId,
@@ -278,7 +282,7 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       p_schema_version:checked.schemaVersion,
       p_preset_type:checked.presetType
     });
-    if (error || !data) {
+    if (error || !data || data.publishedStorageKey !== publishedStorageKey) {
       return reply({ok:false,error:'PRESET_RESERVATION_DENIED',message:error?.message},409);
     }
     return reply({ok:true,action,reservation:data,publicationAuthorized:false,cleanupAuthorized:false});
