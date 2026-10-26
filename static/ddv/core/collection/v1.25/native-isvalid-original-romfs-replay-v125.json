@@ -1,0 +1,235 @@
+{
+  "schema": "ddv.collection-native-original-romfs-replay-v125@1",
+  "classification": "OWNER_ORIGINAL_BYTES_REPLAYED_INDEPENDENT_QR_PENDING_NOT_RUNTIME_ATTESTATION",
+  "scope": {
+    "platform": "Nintendo Switch",
+    "version": "1.25.0",
+    "bid": "52BD625D9B4E0053",
+    "profileSchema": 624
+  },
+  "source": {
+    "originalExeFsMain": {
+      "driveFileId": "1oZ4V2BdNSH62n7KFruNbgvGsw5eRs1Z8",
+      "origin": "DDV/v1.25.0/ExeFS/main",
+      "bytes": 96002294,
+      "sha256": "3258d5e05aded708c06017b8763fa37bfb696385a2ab29dd8a182d3938cbc0e0",
+      "header": "NSO0",
+      "bidPrefix": "52BD625D9B4E0053"
+    },
+    "originalRomFsMetadata": {
+      "driveFileId": "1-Ptq2xCjQh1Fc_tHn1DeekiqiVTFc0v1",
+      "origin": "DDV/v1.25.0/RomFS/Data/Managed/Metadata/global-metadata.dat",
+      "bytes": 36538728,
+      "sha256": "07e919f07f7be2df883b7292bd3c699f670b4c1e8ff496ef7747447f5baa9f7c",
+      "magic": "0xFAB11BAF",
+      "version": 31
+    },
+    "il2cppDumperCs": {
+      "driveFileId": "13nyviL_uZ9w-Op_9VhJsdpe0Ho4l2cdj",
+      "origin": "DDV/Switch v1.25.0/Il2CppDumper/dump.cs",
+      "bytes": 59624529,
+      "sha256": "a94ae73d522f160d21255b195b4d834bf5c79db59ddbd8cdfc32e54c6e0671f0"
+    },
+    "originalResearchPack": {
+      "name": "DDV_v1.25.0_ResearchPack.zip",
+      "ledgerSha256": "23b12171f1aba5773608ab137fdf8de7a91543608ea0c43da63d9a87bb20d515",
+      "ledgerBytes": 451642176,
+      "rawWholeArchiveRecheckedThisPass": false
+    },
+    "historicalMethodSpecMetadata": {
+      "sourceFileId": null,
+      "sourcePath": null,
+      "rawFileBytesAvailable": false,
+      "claimedSha256": "d5487eb7c2341d8fd245d4815cc55eae0c64f0822f4a55fa495fc0afcd1c2b08",
+      "status": "NEED_SOURCE",
+      "equivalenceToOriginalRomfsProven": false
+    }
+  },
+  "nativeSegmentReplay": {
+    "compressedNsoSectionsDecompressedDirectlyFromOriginal": true,
+    "text": {
+      "vmRva": "0x0",
+      "bytes": 152803164
+    },
+    "rodata": {
+      "vmRva": "0x91ba000",
+      "bytes": 26278856
+    },
+    "data": {
+      "vmRva": "0xaaca000",
+      "bytes": 13050248
+    }
+  },
+  "metadataTables": {
+    "methodDefinitions": {
+      "fileOffset": "0x830594",
+      "entrySize": 36
+    },
+    "typeDefinitions": {
+      "fileOffset": "0x1c2eb78",
+      "entrySize": 88
+    },
+    "vtableMethods": {
+      "fileOffset": "0x1a28370",
+      "entrySize": 4
+    },
+    "interfaceOffsets": {
+      "fileOffset": "0x1bc0bd0",
+      "entrySize": 8
+    }
+  },
+  "methodDefinition": {
+    "index": 103729,
+    "fileOffset": "0xbc0078",
+    "name": "TryGetItemData",
+    "declaringTypeDefIndex": 10610,
+    "rawEntrySha256": "dbf400373db4baca048b0cf37d08b9691282086077466d9f26a52c16ac962195"
+  },
+  "methodSpecs": [
+    {
+      "index": 98945,
+      "nsoRva": "0x96e68a8",
+      "rawHex": "31950100ffffffff6a870000",
+      "methodDefinitionIndex": 103729,
+      "classIndex": -1,
+      "methodInstantiationIndex": 34666,
+      "encodedUsageRva": "0xb1efbe0",
+      "encodedUsageHex": "030503c000000000",
+      "genericInstTableRva": "0xac683e0",
+      "genericInstStructRva": "0xac1fa80",
+      "typeArgPointerRva": "0xb2fcec8",
+      "argTypeDefIndex": 10722,
+      "argTypeName": "ICollectionItem"
+    },
+    {
+      "index": 98963,
+      "nsoRva": "0x96e6980",
+      "rawHex": "31950100fffffffffd810000",
+      "methodDefinitionIndex": 103729,
+      "classIndex": -1,
+      "methodInstantiationIndex": 33277,
+      "encodedUsageRva": "0xb1efc70",
+      "encodedUsageHex": "270503c000000000",
+      "genericInstTableRva": "0xac65878",
+      "genericInstStructRva": "0xac1a3b0",
+      "typeArgPointerRva": "0xb300398",
+      "argTypeDefIndex": 10720,
+      "argTypeName": "IItemIsVariationOf"
+    }
+  ],
+  "interfaceMethodSlots": [
+    {
+      "typeDefIndex": 10722,
+      "name": "ICollectionItem",
+      "byvalTypeIndex": 64932,
+      "methodStart": 104327,
+      "methodNames": [
+        "get_Item",
+        "get_CanBeCollected",
+        "get_CollectionVisibility"
+      ],
+      "canBeCollectedInterfaceSlot": 1
+    },
+    {
+      "typeDefIndex": 10720,
+      "name": "IItemIsVariationOf",
+      "byvalTypeIndex": 65831,
+      "methodStart": 104324,
+      "methodNames": [
+        "get_IsVariationOf",
+        "get_IsVariationOfItem"
+      ],
+      "isVariationOfInterfaceSlot": 0
+    }
+  ],
+  "concreteReplays": [
+    {
+      "name": "PetItemData",
+      "typeDefIndex": 9619,
+      "interfaceOffsetsStart": 20458,
+      "interfaceOffsetsCount": 14,
+      "interfaceOffsetsSha256": "d7729f14fc338f32a9bcecb9e9ab747e366c6585fe8b28d8db2cec225f51e96a",
+      "vtableStart": 95043,
+      "vtableCount": 37,
+      "collectionInterfaceOffset": 26,
+      "collectionGetterVtableSlot": 27,
+      "getCanBeCollectedMethodDefIndex": 92433,
+      "encodedVtableMethod": "0x6002d223",
+      "getterRva": "0x4835f20",
+      "getter8BytesHex": "20008052c0035fd6",
+      "getter8BytesSha256": "5103ba3de080c52a046485f800433848701faa49ab8f60241a80987ca249d7ac",
+      "variationInterfaceAbsent": true
+    },
+    {
+      "name": "FigurineItemData",
+      "typeDefIndex": 9314,
+      "interfaceOffsetsStart": 19274,
+      "interfaceOffsetsCount": 15,
+      "interfaceOffsetsSha256": "03d2899ffb6d98855086d1f37835f105b61cc867ba9629b0cae7680783d9ea40",
+      "vtableStart": 90769,
+      "vtableCount": 42,
+      "methodCount": 58,
+      "collectionInterfaceOffset": 32,
+      "collectionGetterVtableSlot": 33,
+      "getCanBeCollectedMethodDefIndex": 87368,
+      "encodedVtableMethod": "0x6002aa91",
+      "getterRva": "0x4685d50",
+      "getter8BytesHex": "20008052c0035fd6",
+      "getter8BytesSha256": "5103ba3de080c52a046485f800433848701faa49ab8f60241a80987ca249d7ac",
+      "variationInterfaceAbsent": true
+    }
+  ],
+  "boundedIsValidNativeChecks": [
+    {
+      "method": "IsValidItemForCollection",
+      "rva": "0x4bfa300",
+      "bytes": 832,
+      "sha256": "7b86791e0fa80577a3358dc9cf5d00f9c6c9bdc8e1a10ba2acc8a51c325f559d"
+    },
+    {
+      "instruction": "first generic lookup BL",
+      "rva": "0x4bfa454",
+      "opcodesLE": "9b20ae97"
+    },
+    {
+      "instruction": "second generic lookup BL",
+      "rva": "0x4bfa574",
+      "opcodesLE": "5320ae97"
+    },
+    {
+      "instruction": "Item.Invalid.ItemID zero init",
+      "rva": "0x4c521b4",
+      "opcodesLE": "1f0100b9"
+    },
+    {
+      "instruction": "variation integer equality compare",
+      "rva": "0x4bfa620",
+      "opcodesLE": "7f02086b"
+    }
+  ],
+  "scopeLimits": {
+    "thisArtifactIsDerivedOfflineRecord": true,
+    "thisArtifactShaOnlyCannotAttestOriginalBytes": true,
+    "notABrowserOriginalMetadataVerificationCapability": true,
+    "historicalD548RawSource": "NEED_SOURCE",
+    "previousD548SemanticClaimsOriginalAuthenticated": false,
+    "original07eLimitedMethodSpecsByteReplay": true,
+    "fullNativeCodeRegistrationMethodPointerMap": false,
+    "wholeModuleCallerDiscovery": false,
+    "realOwnerConsentedSaveReplay": false,
+    "runtimeTryGetItemDataReplayed": false,
+    "selectorPredicateOwnerReported": 92,
+    "selectorPredicateQRAcceptedAgainstOriginal": false,
+    "selectorPredicateUnknown": 164,
+    "finalMembershipKnown": false,
+    "denominator": null,
+    "owned": "UNKNOWN",
+    "collected": "UNKNOWN",
+    "missing": "UNKNOWN",
+    "nativeWriterAuthorized": false,
+    "personalMetricsAuthorized": false,
+    "presetApplyAuthorized": false,
+    "communityPublishingAuthorized": false,
+    "steamOrSchema626Transferred": false
+  }
+}
