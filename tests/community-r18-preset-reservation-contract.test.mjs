@@ -49,3 +49,14 @@ test('134 source migrations and real two-backend concurrency fixture wired in bo
  'R18_PUBLISHED_AND_STAGING_CLEANUP_DENIED','R18_FAILED_PUBLISH_RECOVERY_STALE_REJECTION',
  'R18_PRIVACY_BARRIER_INDEPENDENT']) assert.ok(py.includes(s),s);
 });
+
+test('Physical Preset Retention worker independently fails closed while Phase1 remains available',()=>{
+  const worker=r('supabase/functions/wep-preset-retention/index.ts');
+  assert.match(worker,/community_verify_worker_token/);
+  assert.match(worker,/R18_PRESET_PHYSICAL_RETENTION_CLEANUP_NOT_ENROLLED/);
+  assert.match(worker,/privacySuppressionIndependent:true/);
+  assert.doesNotMatch(worker,/\.remove\(/);
+  assert.doesNotMatch(worker,/community_finalize_artifact_blob_purge/);
+  const accountPrivacy=r('supabase/migrations/20261025002600_account_privacy_suppression_barrier_v1.sql');
+  assert.match(accountPrivacy,/community_request_privacy_suppression_v1/);
+});
