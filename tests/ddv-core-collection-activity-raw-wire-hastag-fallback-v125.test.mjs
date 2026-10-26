@@ -94,7 +94,7 @@ test('HasTag fallback is specifically IHasSet.get_SetItem -> ItemDatabase.TryGet
 });
 
 test('Both exact original sealed Crop and Ingredient concrete types lack IHasSet, so raw absence is a static typed-negative only',()=>{
- const concrete=evidence.originalNativeHasTag.concreteTypeInterface;
+ const concrete=evidence.concreteTypeInterface;
  assert.equal(concrete.IHasSet.typeDefIndex,10630);
  for(const t of ['CropItemData','IngredientItemData']){
   assert.equal(concrete[t].interfaceOffsetEntries,19);
@@ -102,7 +102,7 @@ test('Both exact original sealed Crop and Ingredient concrete types lack IHasSet
   assert.equal(concrete[t].hasIHasSet,false);
   assert.equal(concrete[t].sealedInSameBuildDump,true);
  }
- const m=evidence.originalNativeHasTag.predicateResultMatrix;
+ const m=evidence.predicateResultMatrix;
  assert.equal(m.exactSourceCropIngredientConcrete.directTagFalse,'FALSE_STATIC_NATIVE_INPUT_NO_IHASSET');
  assert.equal(m.exactSourceCropIngredientConcrete.runtimeItemDbInstanceAndCollectionSets,'UNKNOWN');
  assert.equal(m.generalIHasTags.runtimeIHasSetReturnedSetOrItemDbUnknown,'UNKNOWN');
