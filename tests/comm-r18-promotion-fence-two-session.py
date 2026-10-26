@@ -79,6 +79,10 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
             assert result['presetArtifactId'] and result['workId'] and result['presetRevisionId']
             assert one(a,"select count(*) from public.community_works where owner_account_id=%s",(owner,))==before+1
             assert one(a,"select reservation_state from private.preset_storage_reservations_r18 where reservation_id=%s",(rid,))=='COMMITTED_PRESET_PUBLICATION'
+            replay=one(a,"select private.preset_storage_commit_candidate_r18(%s,%s,5,%s,2,'fenced','test','public','{}'::jsonb)",(actor,rid,token2))
+            assert replay==result
+            assert one(a,"select count(*) from public.artifact_blobs where storage_key=%s",(r['publishedStorageKey'],))==1
+            assert one(a,"select count(*) from public.outbox_events where aggregate_id=%s",(uuid.UUID(result['workId']),))==1
             print(json.dumps({'case':'R18_LOCAL_ONLY_SYNTHETIC_ATOMIC_PRESET_SQL_CANDIDATE_ROLLBACK','transactionalShape':True,'realProviderVerified':False}))
         finally:
             pass
