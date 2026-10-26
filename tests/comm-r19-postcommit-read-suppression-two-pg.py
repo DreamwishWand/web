@@ -56,6 +56,23 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
   a.execute("""insert into public.gallery_work_revisions(revision_id,title,description)
    values(%s,'R19 gallery','R19 prior preset')""",(galrev,))
   a.execute("insert into public.gallery_revision_presets(gallery_revision_id,preset_revision_id) values(%s,%s)",(galrev,rev))
+  direct_gallery=u(); unrelated_gallery=u()
+  for extra,kind in [(direct_gallery,'direct'),(unrelated_gallery,'unrelated')]:
+   a.execute("insert into public.community_entities(entity_id,entity_type) values(%s,'community_work')",(extra,))
+   a.execute("""insert into public.community_works(work_id,owner_account_id,creator_profile_id,work_type,visibility)
+    values(%s,%s,%s,'gallery','public')""",(extra,owner,creator))
+   a.execute("insert into public.gallery_works(work_id,gallery_kind) values(%s,'outdoor')",(extra,))
+   er=u()
+   a.execute("""insert into public.community_work_revisions(revision_id,work_id,revision_number,created_by_account_id)
+    values(%s,%s,1,%s)""",(er,extra,owner))
+   a.execute("insert into public.gallery_work_revisions(revision_id,title,description) values(%s,%s,'Reader graph')",(er,'R19 '+kind))
+   a.execute("""update public.community_works set lifecycle_state='published',
+    current_published_revision_id=%s,published_at=now() where work_id=%s""",(er,extra))
+   a.execute("""insert into public.search_documents(entity_id,work_id,work_type,creator_profile_id,title,published_at)
+    values(%s,%s,'gallery',%s,%s,now())""",(extra,extra,creator,'R19 '+kind))
+  a.execute("update public.preset_artifacts set associated_gallery_work_id=%s where preset_artifact_id=%s",(direct_gallery,preset))
+  for target in [work,gallery,direct_gallery,unrelated_gallery,preset]:
+   a.execute("insert into public.saved_items(account_id,target_entity_id) values(%s,%s)",(owner,target))
   media=u()
   a.execute("insert into public.community_entities(entity_id,entity_type) values(%s,'media_asset')",(media,))
   a.execute("""insert into public.media_assets(media_id,owner_account_id,storage_key,mime_type,byte_size,checksum_sha256,processing_state)
@@ -78,6 +95,10 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
  assert one(b,'select public.community_get_preset(%s,%s)',(actor,preset))['presetArtifactId']==str(preset)
  assert one(b,'select public.wep_get_accessible_preset_blob(%s,%s,null)',(actor,preset))['presetArtifactId']==str(preset)
  assert one(b,'select public.community_get_gallery_public_v1(%s)',(gallery,))['workId']==str(gallery)
+ assert one(b,'select public.community_get_work(%s,%s)',(actor,direct_gallery))['workId']==str(direct_gallery)
+ assert len(one(b,'select public.community_get_saved(%s,50)',(actor,)))==5
+ assert len(one(b,'select public.community_get_my_gallery_v1(%s,50)',(actor,))['myWorks'])==3
+ assert one(b,'select public.community_gallery_media_gateway_v1(%s)',(media,))['galleryManaged'] is False
  # Database snapshot visibility across 2 real backends: reporter writes under lock,
  # the reader after report must deny even if Work, Gallery and Blob remain committed.
  report="""select public.community_preset_storage_report_integrity_r18(%s,%s,3,1,
@@ -93,8 +114,8 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
  except psycopg.Error as ex:assert ex.sqlstate=='55P03'
  a.execute('rollback')
  b.execute('commit')
- assert count(a,'private.preset_storage_work_read_suppressions_r19','where reservation_id=%s',(rid,))==2
- assert count(a,'public.search_documents','where work_id in (%s,%s)',(work,gallery))==0
+ assert count(a,'private.preset_storage_work_read_suppressions_r19','where reservation_id=%s',(rid,))==3
+ assert count(a,'public.search_documents','where work_id in (%s,%s,%s)',(work,gallery,direct_gallery))==0
  # Real anon Data API database role cannot see quarantined metadata/revision/media,
  # even though a privileged service-role direct table query bypasses RLS.
  a.execute('begin')
@@ -121,6 +142,13 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
  assert one(a,'select private.preset_storage_work_quarantined_r19(%s)',(work,))
  assert one(a,'select private.preset_storage_work_quarantined_r19(%s)',(gallery,))
  assert one(a,'select private.preset_storage_media_quarantined_r19(%s)',(media,))
+ assert one(a,'select private.preset_storage_work_quarantined_r19(%s)',(direct_gallery,))
+ assert not one(a,'select private.preset_storage_work_quarantined_r19(%s)',(unrelated_gallery,))
+ assert one(a,'select public.community_get_work(%s,%s)',(actor,unrelated_gallery))['workId']==str(unrelated_gallery)
+ assert [x['targetEntityId'] for x in one(a,'select public.community_get_saved(%s,50)',(actor,))]==[str(unrelated_gallery)]
+ owner_listing=one(a,'select public.community_get_my_gallery_v1(%s,50)',(actor,))
+ assert [x['workId'] for x in owner_listing['myWorks']]==[str(unrelated_gallery)]
+ assert [x['targetEntityId'] for x in owner_listing['saved']]==[str(unrelated_gallery)]
  assert one(a,"select private.preset_storage_blob_quarantined_r19(committed_blob_id) from private.preset_storage_reservations_r18 where reservation_id=%s",(rid,))
  a.execute('begin')
  for query,args in [
@@ -128,8 +156,14 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
   ('select public.wep_get_accessible_preset_blob(%s,%s,null)',(actor,preset)),
   ('select public.wep_get_accessible_preset_blob(%s,null,%s)',(actor,rev)),
   ('select public.community_get_gallery_public_v1(%s)',(gallery,)),
-  ('select public.community_get_gallery_v1(%s,%s)',(actor,gallery))
+  ('select public.community_get_gallery_v1(%s,%s)',(actor,gallery)),
+  ('select public.community_get_work(%s,%s)',(actor,work)),
+  ('select public.community_get_work(%s,%s)',(actor,gallery)),
+  ('select public.community_get_work(%s,%s)',(actor,direct_gallery)),
+  ('select public.community_get_gallery_public_v1(%s)',(direct_gallery,))
  ]:denial(a,query,args,'R19_PRESET_PROVIDER_INTEGRITY_READ_SUPPRESSED')
+ denial(a,'select public.community_gallery_media_gateway_v1(%s)',(media,),
+   'R19_PRESET_PROVIDER_GALLERY_MEDIA_READ_SUPPRESSED')
  denial(a,'select public.community_preset_storage_assert_media_not_quarantined_r19(%s)',
    (media,),'R19_PRESET_PROVIDER_GALLERY_MEDIA_READ_SUPPRESSED')
  denial(a,"""insert into public.search_documents(entity_id,work_id,work_type,creator_profile_id,title,published_at)
@@ -158,6 +192,8 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
  print(json.dumps({'case':'R19_POSTCOMMIT_READ_SUPPRESSION_2PG_LOCAL_SYNTHETIC_ONLY',
   'twoRealPostgresBackends':True,'preIncidentReadAccepted':True,
   'afterIncidentPresetBlobGalleryReadsDenied':True,'searchRevokedAndReinsertionDenied':True,
-  'priorGalleryRevisionProtected':True,'incidentHistoryPreserved':True,
+  'priorGalleryRevisionProtected':True,'directGalleryLinkSuppressed':True,
+  'authenticatedListsFiltered':True,'gatewaySqlDenies':True,
+  'unrelatedGalleryPreserved':True,'incidentHistoryPreserved':True,
   'cleanupClaimAndPhysicalDeleteOff':True,'operatorResolutionOff':True,
   'realProviderUsed':False,'signedJwtUsed':False,'disposableSyntheticDatabaseOnly':True}))

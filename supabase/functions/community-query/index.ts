@@ -127,6 +127,9 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
 
     const { data, error } = await ctx.supabaseAdmin.rpc(rpc, params);
     if (error) {
+      if (error.message.includes('R19_PRESET_PROVIDER_INTEGRITY_READ_SUPPRESSED')) {
+        return response({ok:false,error:'PROVIDER_INTEGRITY_READ_SUPPRESSED'},409);
+      }
       const forbidden =
         error.message.includes('not accessible') ||
         error.message.includes('not active') ||

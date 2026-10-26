@@ -133,6 +133,11 @@ const publicFetch = withSupabase({ auth: 'none' }, async (req, ctx) => {
       : {};
 
   if (!ALLOWED.has(rpc)) return reply({ error: 'Unsupported public query' }, 400);
+  // Stage-only Scene SQL has no proven canonical guarded definition. Keep
+  // this issuer disabled (including previously published metadata/blob URLs).
+  if (rpc === 'community_get_scene_preset_public_v1') {
+    return reply({ error: 'SCENE_PUBLIC_READER_COMPATIBILITY_UNVERIFIED' }, 503, true);
+  }
 
   const params =
     rpc === 'community_list_verified_gallery_subjects_v1'
