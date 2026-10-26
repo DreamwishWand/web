@@ -76,8 +76,10 @@ with psycopg.connect(dsn,autocommit=True) as reads, psycopg.connect(dsn,autocomm
  assert report["publicationAuthorized"] is False
  assert get(actor,affected_media)["storageKey"]==storage(affected_media)
  reporter.execute("commit")
+ reads.execute("reset role")
  assert one(reads,"select private.preset_storage_media_quarantined_r19(%s)",(affected_media,)) is True
  assert one(reads,"select private.preset_storage_media_quarantined_r19(%s)",(good_media,)) is False
+ reads.execute("set role service_role")
  reads.execute("begin")
  denial(reads,"select public.community_get_media_storage_key(%s,%s)",(actor,affected_media),"R19_PRESET_PROVIDER_GALLERY_MEDIA_READ_SUPPRESSED")
  denial(reads,"select public.community_get_media_storage_key(%s,%s)",(outsider_subject,affected_media),"Media is not accessible")
