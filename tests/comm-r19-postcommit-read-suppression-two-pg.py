@@ -70,7 +70,19 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
     current_published_revision_id=%s,published_at=now() where work_id=%s""",(er,extra))
    a.execute("""insert into public.search_documents(entity_id,work_id,work_type,creator_profile_id,title,published_at)
     values(%s,%s,'gallery',%s,%s,now())""",(extra,extra,creator,'R19 '+kind))
-  a.execute("update public.preset_artifacts set associated_gallery_work_id=%s where preset_artifact_id=%s",(direct_gallery,preset))
+  # Synthetic legacy direct-only association: create the edge BEFORE its first
+  # revision, without disabling the immutable PresetArtifact identity trigger.
+  # The shared local Blob intentionally models a historical reference graph,
+  # NOT a valid Provider attestation or positive Writer API.
+  direct_artifact=u()
+  a.execute("insert into public.community_entities(entity_id,entity_type) values(%s,'preset_artifact')",(direct_artifact,))
+  a.execute("""insert into public.preset_artifacts(preset_artifact_id,owner_account_id,
+    creator_profile_id,associated_gallery_work_id,preset_type)
+    values(%s,%s,%s,%s,'scene')""",(direct_artifact,owner,creator,direct_gallery))
+  a.execute("""insert into public.preset_revisions(preset_artifact_id,revision_number,
+    artifact_blob_id,created_by_account_id) values(%s,1,
+    (select committed_blob_id from private.preset_storage_reservations_r18 where reservation_id=%s),%s)""",
+    (direct_artifact,rid,owner))
   for target in [work,gallery,direct_gallery,unrelated_gallery,preset]:
    a.execute("insert into public.saved_items(account_id,target_entity_id) values(%s,%s)",(owner,target))
   media=u()
