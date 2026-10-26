@@ -6,7 +6,7 @@
   import { exploreCopy } from '$lib/explore/copy.js';
   import { collectionFamilyLabel } from '$lib/collection/copy.js';
   import { collectionFacetLabel, decodeCollectionRecord, filterCollectionRecords, loadCollectionRuntime } from '$lib/collection/runtime.js';
-  import {DECORATE_ITEM_FAMILIES,resolveSharedItemLink} from '$lib/collection/shared-item-reference.js';
+  import {DECORATE_ITEM_FAMILIES,resolveSharedItemLink,resolveSharedItemInboundLink} from '$lib/collection/shared-item-reference.js';
   import {itemReferenceLinkCopy} from '$lib/collection/shared-item-link-copy.js';
   import {
     MOODBOARD_BACKUP_KEY,
@@ -60,11 +60,8 @@
       const incoming=new URL(window.location.href);
       if(incoming.searchParams.has('item')){
         const decoded=loaded.rows.map((row:any)=>decodeCollectionRecord(loaded.index,row,$locale));
-        const reference=resolveSharedItemLink({index:loaded.index,records:decoded,
-          itemId:incoming.searchParams.get('item'),identityKind:'DDV_ITEM_ID',from:'collection',to:'decorate',basePath:base,
-          requestedTarget:{platform:'Nintendo Switch',
-            gameVersion:incoming.searchParams.get('version')||loaded.index.t.gameVersion,
-            buildID:incoming.searchParams.get('buildID')||loaded.index.t.buildID}
+        const reference=resolveSharedItemInboundLink({
+          url:incoming,index:loaded.index,records:decoded,basePath:base
         });
         if(reference.status==='linked'){
           selectedItem=decoded.find((row:any)=>row.itemId===reference.identity.itemId)??null;
