@@ -1,5 +1,5 @@
 import { withSupabase } from 'npm:@supabase/server';
-import { corsHeaders } from '../_shared/cors.ts';
+import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
 function reply(body: unknown, status: number) {
   return Response.json(body, { status, headers: { ...corsHeaders, 'Cache-Control': 'private, no-store' } });
