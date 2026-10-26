@@ -1,0 +1,50 @@
+name: 04 QR direct service SQL Media authority isolated two PG
+on:
+  pull_request:
+    paths:
+      - 'tests/qr-direct-media-sql-authority-two-pg.py'
+      - '.github/workflows/qr-direct-media-sql-authority-two-pg.yml'
+      - 'supabase/migrations/20261025003050_r19_direct_media_sql_authority.sql'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-direct-sql-two-pg:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Enforce isolated local PostgreSQL and no remote credentials
+        run: |
+          set -euo pipefail
+          test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$DATABASE_URL"
+          printf 'project_id = "ddvre_qr_direct_media_sql_20261026"\n' | cat - supabase/config.toml > /tmp/qr-direct-config
+          mv /tmp/qr-direct-config supabase/config.toml
+      - name: Compile independent direct SQL acceptance fixture
+        run: python3 -m py_compile tests/qr-direct-media-sql-authority-two-pg.py
+      - name: Bootstrap exact local source schema only
+        run: |
+          set -euo pipefail
+          timeout 1500s supabase start --debug
+          timeout 900s supabase db reset --no-seed
+      - name: Seed local disposable Owner A and nonOwner B
+        run: |
+          set -euo pipefail
+          db_id="$(docker ps --filter 'name=supabase_db_' --format '{{.ID}}' | head -1)"
+          test -n "$db_id"
+          docker exec -i "$db_id" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/staging/acceptance/local-clean-bootstrap-synthetic-seed-v1.sql
+      - name: Validate direct SECURITY DEFINER service-role and Owner historical/current after committed Incident
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'psycopg[binary]>=3.2,<4'
+          python3 tests/qr-direct-media-sql-authority-two-pg.py
+      - name: Destroy local database
+        if: always()
+        run: supabase stop --no-backup || true
