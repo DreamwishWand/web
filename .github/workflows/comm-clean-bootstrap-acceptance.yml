@@ -316,6 +316,7 @@ jobs:
           python3 tests/comm-r18-scene-publisher-acl-postgres.py | tee /tmp/comm-r18-scene-product-issuer.log
           python3 tests/comm-r18-provider-integrity-two-session.py | tee /tmp/comm-r18-provider-integrity.log
           python3 tests/comm-r18-incident-commit-veto-two-session.py | tee /tmp/comm-r18-incident-commit-veto.log
+          python3 tests/09int-r18-source138-inverse-commit-reporter-2pg-independent.py | tee /tmp/09int-r18-source138-inverse-2pg.log
       - name: Record bounded acceptance limitations without pretending actor E2E
         if: always()
         shell: bash
