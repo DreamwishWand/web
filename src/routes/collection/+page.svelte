@@ -21,12 +21,13 @@
   let version = COLLECTION_SUPPORTED_VERSION;
   let itemId = '';
   const DISPLAY_LIMIT = 120;
+  let displayLimit = DISPLAY_LIMIT;
 
   $: copy = collectionCopy($locale);
   $: detailCopy = collectionReferenceCopy($locale);
   $: records = runtimeIndex ? rawRows.map((row) => decodeCollectionRecord(runtimeIndex, row, $locale)) : [];
   $: filtered = filterCollectionRecords(records, { query, family, world, universe }).sort((a: any, b: any) => a.label.localeCompare(b.label, $locale));
-  $: visible = filtered.slice(0, DISPLAY_LIMIT);
+  $: visible = filtered.slice(0, displayLimit);
   $: itemSelection = collectionReferenceSelection(records, itemId, version);
   $: workspaceState = {view,query,family,world,universe,version};
   $: returnHref = collectionWorkspaceHref(base,workspaceState);
@@ -36,6 +37,7 @@
 
   function applyUrl(url: URL): void {
     const state = collectionWorkspaceState(url);
+    displayLimit = DISPLAY_LIMIT;
     view = state.view; query = state.query; family = state.family;
     world = state.world; universe = state.universe;
     version = state.version; itemId = state.itemId;
@@ -58,6 +60,7 @@
   });
 
   function setView(next: ViewMode): void {
+    displayLimit = DISPLAY_LIMIT;
     view = next;
     if (next !== 'category') family = '';
     if (next !== 'world') world = '';
@@ -144,13 +147,13 @@
         <button class:active={view === 'world'} aria-pressed={view === 'world'} type="button" on:click={() => setView('world')}>{copy.world}</button>
         <button class:active={view === 'universe'} aria-pressed={view === 'universe'} type="button" on:click={() => setView('universe')}>{copy.universe}</button>
       </div>
-      <label class="search"><span>{copy.search}</span><input type="search" bind:value={query} /></label>
+      <label class="search"><span>{copy.search}</span><input type="search" bind:value={query} on:input={() => displayLimit = DISPLAY_LIMIT} /></label>
       {#if view === 'category'}
-        <label><span>{copy.category}</span><select bind:value={family}><option value="">{copy.all}</option>{#each families as value}<option value={value}>{familyLabel(value)}</option>{/each}</select></label>
+        <label><span>{copy.category}</span><select bind:value={family} on:change={() => displayLimit = DISPLAY_LIMIT}><option value="">{copy.all}</option>{#each families as value}<option value={value}>{familyLabel(value)}</option>{/each}</select></label>
       {:else if view === 'world'}
-        <label><span>{copy.world}</span><select bind:value={world}><option value="">{copy.all}</option>{#each worlds as value}<option value={value}>{worldLabel(value)}</option>{/each}</select></label>
+        <label><span>{copy.world}</span><select bind:value={world} on:change={() => displayLimit = DISPLAY_LIMIT}><option value="">{copy.all}</option>{#each worlds as value}<option value={value}>{worldLabel(value)}</option>{/each}</select></label>
       {:else}
-        <label><span>{copy.universe}</span><select bind:value={universe}><option value="">{copy.all}</option>{#each universes as value}<option value={value}>{universeLabel(value)}</option>{/each}</select></label>
+        <label><span>{copy.universe}</span><select bind:value={universe} on:change={() => displayLimit = DISPLAY_LIMIT}><option value="">{copy.all}</option>{#each universes as value}<option value={value}>{universeLabel(value)}</option>{/each}</select></label>
       {/if}
     </div>
 
@@ -179,7 +182,7 @@
           </a>
         {/each}
       </div>
-      {#if filtered.length > DISPLAY_LIMIT}<p class="more-note">{copy.more}</p>{/if}
+      {#if filtered.length > visible.length}<div class="load-more"><button type="button" on:click={() => displayLimit += DISPLAY_LIMIT}>{detailCopy.showMore}</button><p class="more-note">{copy.more}</p></div>{/if}
     {:else}
       <div class="empty"><span aria-hidden="true">✧</span><strong>{copy.empty}</strong></div>
     {/if}
@@ -190,5 +193,5 @@
 
 <style>
   .collection-page{padding-block:64px 96px;min-height:72vh}.collection-heading{display:flex;justify-content:space-between;align-items:end;gap:28px}.collection-heading h1{font-family:Georgia,serif;font-size:clamp(42px,6vw,68px);font-weight:500;letter-spacing:-.055em;margin:12px 0}.source-badge{border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:14px 16px;display:grid;gap:5px;min-width:220px}.source-badge strong{font-size:11px;color:var(--gold)}.source-badge span{font-size:10px;color:var(--ink-muted)}.boundary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:28px 0 16px}.boundary{border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:14px;display:grid;gap:6px}.boundary strong{font-size:11px}.boundary span{font-size:10px;line-height:1.6;color:var(--ink-muted)}.status{padding:18px;border:1px solid var(--border);border-radius:16px;background:var(--surface);color:var(--ink-soft)}.status.error{display:grid;gap:8px;color:var(--decor-accent)}.status code{font-size:9px;overflow-wrap:anywhere;color:var(--ink-muted)}.collection-controls{display:grid;grid-template-columns:auto minmax(260px,1fr) minmax(190px,260px);gap:12px;align-items:end;border:1px solid var(--border);background:var(--surface);border-radius:18px;padding:14px}.view-switch{display:flex;gap:5px;padding:4px;border:1px solid var(--border);border-radius:11px;background:var(--page-2)}.view-switch button{border:1px solid transparent;background:transparent;color:var(--ink-soft);border-radius:8px;padding:9px 11px;font-size:10px;font-weight:800}.view-switch button.active{background:var(--surface-raised);border-color:var(--border);color:var(--gold)}label{display:grid;gap:6px;font-size:9px;font-weight:800;color:var(--ink-muted);letter-spacing:.04em}input,select{width:100%;box-sizing:border-box;background:var(--surface-raised);color:var(--ink);border:1px solid var(--border);border-radius:10px;padding:10px 11px}.result-summary{display:flex;justify-content:space-between;gap:16px;align-items:center;margin:18px 2px 10px}.result-summary strong{font-size:12px}.result-summary span{font-size:10px;color:var(--ink-muted)}.collection-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.collection-card{min-width:0;border:1px solid var(--border);background:var(--surface);border-radius:15px;padding:13px;display:flex;gap:12px;align-items:flex-start}.family-icon{width:42px;height:42px;flex:none;border-radius:12px;display:grid;place-items:center;background:var(--surface-raised);color:var(--gold);font-family:Georgia,serif;font-size:14px}.card-copy{min-width:0;flex:1}.family{display:block;font-size:8px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.collection-card h2{font-family:Georgia,serif;font-weight:500;font-size:16px;line-height:1.25;margin:5px 0 8px;overflow-wrap:anywhere}.facets{display:flex;flex-wrap:wrap;gap:4px;min-height:18px}.facets span{border:1px solid var(--border);border-radius:999px;padding:3px 6px;font-size:7px;color:var(--ink-muted)}.card-meta{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:10px}.card-meta span{font-size:8px;color:var(--help-accent)}.card-meta code{font-size:7px;color:var(--ink-muted);white-space:nowrap}.more-note{text-align:center;color:var(--ink-muted);font-size:10px;margin:18px}.empty{min-height:320px;display:grid;place-items:center;align-content:center;text-align:center;color:var(--ink-muted);gap:8px}.empty span{font-size:40px;color:var(--gold)}@media(max-width:1050px){.collection-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.collection-controls{grid-template-columns:1fr 1fr}.view-switch{grid-column:1/-1;width:max-content}.collection-heading{align-items:flex-start;flex-direction:column}}@media(max-width:760px){.collection-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.boundary-grid,.collection-controls{grid-template-columns:1fr}.view-switch{width:100%;overflow:auto}}@media(max-width:480px){.collection-page{padding-block:44px 70px}.collection-grid{grid-template-columns:1fr}.source-badge{min-width:0;width:100%;box-sizing:border-box}}
-  .version-control{display:flex;align-items:center;gap:12px;margin:16px 0;flex-wrap:wrap}.version-control label{font-size:12px}.version-control select{max-width:300px}.retry-button{width:max-content;padding:9px 13px;border:1px solid var(--border);border-radius:8px;background:var(--surface-raised);color:var(--ink);cursor:pointer}.back-link{display:inline-block;color:var(--gold);margin:8px 0 18px}.item-detail{max-width:920px;border:1px solid var(--border);border-radius:16px;background:var(--surface);padding:clamp(15px,3vw,30px);overflow-wrap:anywhere}.item-detail h2{font:500 clamp(25px,4vw,40px) Georgia,serif;margin:9px 0 23px}.item-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.item-detail-grid>div{padding:13px;border-radius:10px;background:var(--surface-raised);min-width:0}.item-detail-grid dt{font-size:12px;color:var(--ink-muted);margin-bottom:7px}.item-detail-grid dd{font-size:14px;margin:0;overflow-wrap:anywhere}.detail-facet{display:inline-block;margin-right:8px;margin-bottom:6px}.detail-boundary{font-size:13px;color:var(--ink-soft);line-height:1.7;border-left:2px solid var(--border);padding-left:12px;margin:18px 0}.collection-card{color:var(--ink);text-decoration:none;cursor:pointer}.collection-card:hover,.collection-card:focus-visible{border-color:var(--gold);background:var(--surface-raised)}.collection-page a:focus-visible,.collection-page button:focus-visible,.collection-page select:focus-visible,.collection-page input:focus-visible{outline:3px solid var(--focus-ring);outline-offset:2px}@media(max-width:480px){.item-detail-grid{grid-template-columns:1fr}.version-control select{max-width:100%}}
+  .load-more{text-align:center;margin:18px 0}.load-more button{border:1px solid var(--border);border-radius:10px;padding:12px 22px;color:var(--ink);background:var(--surface-raised);cursor:pointer}.load-more button:hover{border-color:var(--gold)}.version-control{display:flex;align-items:center;gap:12px;margin:16px 0;flex-wrap:wrap}.version-control label{font-size:12px}.version-control select{max-width:300px}.retry-button{width:max-content;padding:9px 13px;border:1px solid var(--border);border-radius:8px;background:var(--surface-raised);color:var(--ink);cursor:pointer}.back-link{display:inline-block;color:var(--gold);margin:8px 0 18px}.item-detail{max-width:920px;border:1px solid var(--border);border-radius:16px;background:var(--surface);padding:clamp(15px,3vw,30px);overflow-wrap:anywhere}.item-detail h2{font:500 clamp(25px,4vw,40px) Georgia,serif;margin:9px 0 23px}.item-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.item-detail-grid>div{padding:13px;border-radius:10px;background:var(--surface-raised);min-width:0}.item-detail-grid dt{font-size:12px;color:var(--ink-muted);margin-bottom:7px}.item-detail-grid dd{font-size:14px;margin:0;overflow-wrap:anywhere}.detail-facet{display:inline-block;margin-right:8px;margin-bottom:6px}.detail-boundary{font-size:13px;color:var(--ink-soft);line-height:1.7;border-left:2px solid var(--border);padding-left:12px;margin:18px 0}.collection-card{color:var(--ink);text-decoration:none;cursor:pointer}.collection-card:hover,.collection-card:focus-visible{border-color:var(--gold);background:var(--surface-raised)}.collection-page a:focus-visible,.collection-page button:focus-visible,.collection-page select:focus-visible,.collection-page input:focus-visible{outline:3px solid var(--focus-ring);outline-offset:2px}@media(max-width:480px){.item-detail-grid{grid-template-columns:1fr}.version-control select{max-width:100%}}
 </style>
