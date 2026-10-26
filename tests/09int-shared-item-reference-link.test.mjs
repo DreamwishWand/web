@@ -89,7 +89,7 @@ test('validated items cannot be given mismatched identity, facets, build or life
  negative('SOURCE_IDENTITY_CONFLICT',{sourceRecord:other});
  negative('TARGET_IDENTITY_CONFLICT',{targetRecord:{...item,worlds:['not-same']}});
  negative('TARGET_IDENTITY_CONFLICT',{targetRecord:{...item,universes:['not-same']}});
- negative('TARGET_IDENTITY_CONFLICT',{targetRecord:{...item,family:'Buildings'}});
+ negative('TARGET_IDENTITY_CONFLICT',{targetRecord:{...item,family:'NOT_A_REAL_FAMILY'}});
  negative('UNSUPPORTED_SOURCE_BUILD',{requestedTarget:{...ITEM_REFERENCE_TARGET,gameVersion:'1.25.3',buildID:'9A239D3DB569756D'}});
  negative('UNSUPPORTED_SOURCE_BUILD',{requestedTarget:{...ITEM_REFERENCE_TARGET,platform:'Steam'}});
  negative('UNSUPPORTED_SOURCE_BUILD',{requestedTarget:{...ITEM_REFERENCE_TARGET,buildID:'unknown'}});
