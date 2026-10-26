@@ -463,6 +463,89 @@ begin
 end
 $$;
 
+
+-- Authorized preflight is NOT a resolution, not a provider attestation,
+-- and must never modify the immutable Incident history.
+create or replace function public.community_preset_storage_resolution_readiness_r19(
+ p_auth_subject uuid,p_reservation_id uuid,p_expected_version bigint,p_expected_fence bigint
+) returns jsonb language plpgsql security definer
+set search_path=pg_catalog,public,private as $r19$
+declare v_owner uuid;v_res private.preset_storage_reservations_r18%rowtype;
+ v_count bigint;v_old_count bigint;
+begin
+ v_owner:=private.resolve_active_account(p_auth_subject);
+ perform 1 from public.wand_accounts a
+  where a.account_id=v_owner and a.status='active' and a.deleted_at is null for share;
+ if not found or private.is_account_privacy_suppressed(v_owner)
+  then raise exception 'R19_PRESET_RESOLUTION_ACTOR_INACTIVE';end if;
+ select * into v_res from private.preset_storage_reservations_r18 r
+  where r.reservation_id=p_reservation_id and r.owner_account_id=v_owner for update;
+ if v_res.reservation_id is null then raise exception 'R19_PRESET_RESOLUTION_NOT_OWNED';end if;
+ if v_res.state_version<>p_expected_version or v_res.lease_fence<>p_expected_fence
+  then raise exception 'R19_PRESET_RESOLUTION_STALE_VERSION_OR_FENCE';end if;
+ if not exists(select 1 from public.creator_profiles c
+   where c.creator_profile_id=v_res.creator_profile_id and c.owner_account_id=v_owner
+   and c.moderation_state='clear')
+ then raise exception 'R19_PRESET_RESOLUTION_CREATOR_NOT_CLEAR';end if;
+ select count(*),count(*) filter(where observed_lease_fence<>v_res.lease_fence)
+  into v_count,v_old_count
+  from private.preset_storage_integrity_incidents_r18
+  where reservation_id=v_res.reservation_id and incident_state='QUARANTINED_PENDING_OPERATOR';
+ return jsonb_build_object('contract','ddv.provider-resolution-preflight@r19-work',
+  'reservationId',v_res.reservation_id,'stateVersion',v_res.state_version,
+  'leaseFence',v_res.lease_fence,'unresolvedIncidentCount',v_count,
+  'historicalFenceIncidentCount',v_old_count,'operatorApprovalRequired',true,
+  'independentProviderVersionAndBytesRequired',true,
+  'currentHistoricalCloudLegalReferencesProven',false,
+  'versionFencedResolutionAuthorized',false,'publicationAuthorized',false,
+  'physicalCleanupAuthorized',false,'incidentHistoryImmutable',true);
+end;$r19$;
+revoke all on function public.community_preset_storage_resolution_readiness_r19(uuid,uuid,bigint,bigint)
+ from public,anon,authenticated,service_role;
+grant execute on function public.community_preset_storage_resolution_readiness_r19(uuid,uuid,bigint,bigint)
+ to service_role;
+
+create or replace function public.community_preset_storage_cleanup_inventory_r19(
+ p_auth_subject uuid,p_storage_key text
+) returns jsonb language plpgsql security definer
+set search_path=pg_catalog,public,private as $r19$
+declare v_owner uuid;v_res private.preset_storage_reservations_r18%rowtype;
+ v_presets bigint;v_galleries bigint;v_incidents bigint;
+begin
+ v_owner:=private.resolve_active_account(p_auth_subject);
+ perform 1 from public.wand_accounts a
+  where a.account_id=v_owner and a.status='active' and a.deleted_at is null for share;
+ if not found or private.is_account_privacy_suppressed(v_owner)
+ then raise exception 'R19_PRESET_CLEANUP_OWNER_INACTIVE';end if;
+ select * into v_res from private.preset_storage_reservations_r18 r
+  where r.owner_account_id=v_owner
+    and (r.published_storage_key=p_storage_key or r.source_staging_key=p_storage_key)
+  for update;
+ if v_res.reservation_id is null then
+  raise exception 'R19_PRESET_CLEANUP_KEY_UNOWNED_OR_UNKNOWN';end if;
+ select count(*) into v_incidents from private.preset_storage_integrity_incidents_r18 i
+  where i.reservation_id=v_res.reservation_id and i.incident_state='QUARANTINED_PENDING_OPERATOR';
+ select count(*) into v_presets from public.preset_revisions pr
+  where pr.artifact_blob_id=v_res.committed_blob_id;
+ select count(*) into v_galleries from public.gallery_revision_presets gp
+  join public.preset_revisions pr on pr.preset_revision_id=gp.preset_revision_id
+  where pr.artifact_blob_id=v_res.committed_blob_id;
+ return jsonb_build_object('contract','ddv.preset-cleanup-reference-inventory@r19-work',
+  'reservationId',v_res.reservation_id,'stateVersion',v_res.state_version,
+  'leaseFence',v_res.lease_fence,'unresolvedIncidentCount',v_incidents,
+  'historicalPresetReferenceCount',v_presets,'historicalGalleryReferenceCount',v_galleries,
+  'sceneIndependentReferenceGraphProven',false,
+  'cloudAndLinkedProfileReferenceGraphProven',false,
+  'legalHoldAndModeratorClearanceProven',false,
+  'previouslyIssuedBearerAndCdnRevocationProven',false,
+  'allCurrentHistoricalAndCloudReferencesProven',false,
+  'cleanupClaimAuthorized',false,'physicalDeleteAuthorized',false);
+end;$r19$;
+revoke all on function public.community_preset_storage_cleanup_inventory_r19(uuid,text)
+ from public,anon,authenticated,service_role;
+grant execute on function public.community_preset_storage_cleanup_inventory_r19(uuid,text)
+ to service_role;
+
 -- Source-only gate remains closed. Supabase Storage signed bearer already
 -- issued before quarantine cannot be revoked with this SQL alone.
 do $r19_failclosed$
