@@ -56,6 +56,12 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
   a.execute("""insert into public.gallery_work_revisions(revision_id,title,description)
    values(%s,'R19 gallery','R19 prior preset')""",(galrev,))
   a.execute("insert into public.gallery_revision_presets(gallery_revision_id,preset_revision_id) values(%s,%s)",(galrev,rev))
+  media=u()
+  a.execute("insert into public.community_entities(entity_id,entity_type) values(%s,'media_asset')",(media,))
+  a.execute("""insert into public.media_assets(media_id,owner_account_id,storage_key,mime_type,byte_size,checksum_sha256,processing_state)
+    values(%s,%s,%s,'image/png',100,%s,'ready')""",(media,owner,f'{actor}/{u()}.png','e'*64))
+  a.execute("""insert into public.work_revision_media(work_revision_id,media_id,ordinal,role)
+    values(%s,%s,0,'gallery')""",(galrev,media))
   a.execute("""update public.community_works set
     lifecycle_state='published',current_published_revision_id=%s,published_at=now()
     where work_id=%s""",(galrev,gallery))
@@ -68,6 +74,7 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
  assert one(b,'select count(*) from public.search_documents where work_id in (%s,%s)',(work,gallery))==2
  assert not one(b,'select private.preset_storage_work_quarantined_r19(%s)',(work,))
  assert not one(b,'select private.preset_storage_work_quarantined_r19(%s)',(gallery,))
+ assert one(b,'select public.community_preset_storage_assert_media_not_quarantined_r19(%s)',(media,)) is True
  assert one(b,'select public.community_get_preset(%s,%s)',(actor,preset))['presetArtifactId']==str(preset)
  assert one(b,'select public.wep_get_accessible_preset_blob(%s,%s,null)',(actor,preset))['presetArtifactId']==str(preset)
  assert one(b,'select public.community_get_gallery_public_v1(%s)',(gallery,))['workId']==str(gallery)
@@ -90,6 +97,7 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
  assert count(a,'public.search_documents','where work_id in (%s,%s)',(work,gallery))==0
  assert one(a,'select private.preset_storage_work_quarantined_r19(%s)',(work,))
  assert one(a,'select private.preset_storage_work_quarantined_r19(%s)',(gallery,))
+ assert one(a,'select private.preset_storage_media_quarantined_r19(%s)',(media,))
  assert one(a,"select private.preset_storage_blob_quarantined_r19(committed_blob_id) from private.preset_storage_reservations_r18 where reservation_id=%s",(rid,))
  a.execute('begin')
  for query,args in [
@@ -97,7 +105,8 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
   ('select public.wep_get_accessible_preset_blob(%s,%s,null)',(actor,preset)),
   ('select public.wep_get_accessible_preset_blob(%s,null,%s)',(actor,rev)),
   ('select public.community_get_gallery_public_v1(%s)',(gallery,)),
-  ('select public.community_get_gallery_v1(%s,%s)',(actor,gallery))
+  ('select public.community_get_gallery_v1(%s,%s)',(actor,gallery)),
+  ('select public.community_preset_storage_assert_media_not_quarantined_r19(%s)',(media,))
  ]:denial(a,query,args,'R19_PRESET_PROVIDER_INTEGRITY_READ_SUPPRESSED')
  denial(a,"""insert into public.search_documents(entity_id,work_id,work_type,creator_profile_id,title,published_at)
   values(%s,%s,'gallery',%s,'forbidden',now()) returning entity_id""",(gallery,gallery,creator),
