@@ -6,6 +6,7 @@ Existing Source138/139/140 authenticated-reader fixtures are NOT rerun.
 import json
 import os
 import uuid
+from pathlib import Path
 import psycopg
 
 assert os.getenv('DDVRE_PRIVACY_ISOLATED_LOCAL') == 'CONFIRMED'
@@ -154,6 +155,49 @@ with psycopg.connect(DSN, autocommit=True) as left, psycopg.connect(DSN, autocom
     left.execute('rollback')
     assert one(left,'select count(*) from private.preset_storage_integrity_incidents_r18 where reservation_id=%s',(rid,)) == 1
     assert one(left,"select enabled from private.preset_storage_release_gate_r18 where gate_key='verified_preset_publication'") is False
+    # Verify compatibility behavior independently without installing or
+    # describing any real Stage-only Scene definition. The temporary local
+    # function and grants are created and revoked within one ROLLBACK.
+    owner_sql = Path('supabase/migrations/20261025003040_r19_reader_history_graph_gap_closure.sql').read_text()
+    scene_conditional = owner_sql[owner_sql.rfind('do $r19
+      'case':'QR_SOURCE140_FINAL_COVER_ONLY_AND_POSTINCIDENT_GATEWAY_TWO_PG',
+      'normalCurrentMediaBeforeIncident':'public',
+      'historicalCoverOnlyBeforeIncident':'galleryManaged_nonpublic_noStorageKey',
+      'unrelatedBeforeAndAfter':'unaffected',
+      'postincidentCurrentAndCoverOnly':'both_denied',
+      'historicalMediaMembershipAbsent':True,
+      'incidentDurable':True,
+      'realProviderUsed':False,
+      'signedJwtUsed':False,
+      'stagingTouched':False,
+      'positiveReleaseGateOff':True,
+      'syntheticStageOnlySqlGrantVetoLocal':True,
+      'sourceScenePublicEdgeFailclosedBeforeRPC':True
+    }))
+):]
+    assert "to_regprocedure('public.community_get_scene_preset_public_v1(uuid)')" in scene_conditional
+    assert "revoke execute on function public.community_get_scene_preset_public_v1(uuid)" in scene_conditional
+    public_edge = Path('supabase/functions/community-public-query/index.ts').read_text()
+    closed = public_edge.index("if (rpc === 'community_get_scene_preset_public_v1')")
+    first_admin_rpc = public_edge.index('ctx.supabaseAdmin.rpc(rpc, params)')
+    assert closed < first_admin_rpc
+    assert "SCENE_PUBLIC_READER_COMPATIBILITY_UNVERIFIED' }, 503, true" in public_edge
+    left.execute('begin')
+    left.execute("""
+        create function public.community_get_scene_preset_public_v1(p_id uuid)
+        returns jsonb language sql security definer as $qr140$ select '{}'::jsonb $qr140$
+    """)
+    left.execute("""
+        grant execute on function public.community_get_scene_preset_public_v1(uuid)
+        to public,anon,authenticated,service_role
+    """)
+    assert one(left,"select has_function_privilege('service_role','public.community_get_scene_preset_public_v1(uuid)','execute')")
+    left.execute(scene_conditional)
+    for role in ['service_role','anon','authenticated']:
+        assert not one(left,"select has_function_privilege(%s,'public.community_get_scene_preset_public_v1(uuid)','execute')",(role,))
+    left.execute('rollback')
+    assert one(left,"select to_regprocedure('public.community_get_scene_preset_public_v1(uuid)')") is None
+
     print(json.dumps({
       'case':'QR_SOURCE140_FINAL_COVER_ONLY_AND_POSTINCIDENT_GATEWAY_TWO_PG',
       'normalCurrentMediaBeforeIncident':'public',
