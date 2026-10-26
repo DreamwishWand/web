@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {mkdtemp,mkdir,open,readFile,unlink,rm} from 'node:fs/promises';
+import {mkdtemp,mkdir,open,readFile,writeFile,unlink,rm} from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import vm from 'node:vm';
@@ -52,7 +52,7 @@ test('Source137 real local filesystem O_EXCL creates exactly one immutable winne
  const temp=await mkdtemp(path.join(os.tmpdir(),'ddvre-provider-'));
  try{
   await mkdir(path.dirname(path.join(temp,...sk.split('/'))),{recursive:true});
-  await (await open(path.join(temp,...sk.split('/')),'wx')).writeFile(bytes);
+  await writeFile(path.join(temp,...sk.split('/')),bytes,{flag:'wx'});
   const provider=new ExclusiveFilesystemProvider(temp);
   const fence={reservationId:'same-reservation',ownerAccountId:account,creatorProfileId:'creator',
    idempotencyKey:'same-idempotency',requestHash:'d'.repeat(64),leaseToken:'lease',
