@@ -38,7 +38,7 @@ test('SOURCE139 SNAPSHOT ONLY: Owner My Gallery and Saved projections use pre-in
  assert.doesNotMatch(source139,/create or replace function public\.community_get_saved\s*\(/i);
 });
 test('SOURCE139 SNAPSHOT ONLY: currently tested suppression graph and unknown direct historical linkage remain distinct',()=>{
- assert.match(source139,/join public\.gallery_revision_presets gp/);
+ assert.match(source139,/from public\.gallery_revision_presets gp/);
  assert.match(source139,/after insert on private\.preset_storage_integrity_incidents_r18/);
  assert.match(source139,/R19_PRESET_PROVIDER_INTEGRITY_SEARCH_SUPPRESSED/);
  assert.match(oldPrivacy,/private\.is_discoverable_work\(d\.work_id\)/);
