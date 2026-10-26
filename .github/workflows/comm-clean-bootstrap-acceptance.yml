@@ -69,7 +69,7 @@ jobs:
           from pathlib import Path
           import re
           fs=sorted(Path('supabase/migrations').glob('*.sql'))
-          assert len(fs)==134, f'expected 132 source SQL files, got {len(fs)}'
+          assert len(fs)==135, f'expected 132 source SQL files, got {len(fs)}'
           vs=[f.name.split('_',1)[0] for f in fs]
           assert all(re.fullmatch(r'\d{12}(?:\d{2})?',v) for v in vs)
           assert len(vs)==len(set(vs)), 'migration version collision'
@@ -78,7 +78,7 @@ jobs:
                          ('20261025002300','gallery_capacity_effective_cleanup_diagnostics_v1'),
                          ('20261025002400','gallery_known_reference_writer_fence_v1')]:
               assert sum(f.name==v+'_'+name+'.sql' for f in fs)==1
-          print('SOURCE_CANDIDATE_134_MIGRATIONS_UNIQUE_AND_ORDERED_PASS')
+          print('SOURCE_CANDIDATE_135_MIGRATIONS_UNIQUE_AND_ORDERED_PASS')
           PY
       - name: Source-Candidate migration static regression
         shell: bash
@@ -118,7 +118,7 @@ jobs:
           DECLARE v int;
           BEGIN
             SELECT count(*) INTO v FROM supabase_migrations.schema_migrations;
-            IF v<>134 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_134: %',v;END IF;
+            IF v<>135 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_135: %',v;END IF;
             IF (select enrollment_state from private.community_writer_routes_r16 where writer_key='gallery-comments-legacy')<>'FAIL_CLOSED'
             THEN RAISE EXCEPTION 'R17_LEGACY_REGISTRY_NOT_CLOSED';END IF;
             IF to_regprocedure('public.community_set_gallery_comments_enabled_v1(uuid,uuid,boolean)') IS NULL
@@ -142,8 +142,8 @@ jobs:
               OR to_regclass('private.community_writer_routes_r16') IS NULL
               OR to_regprocedure('public.community_set_gallery_comments_enabled_atomic_r16(uuid,uuid,bigint,uuid,boolean,text)') IS NULL
             THEN RAISE EXCEPTION 'R16_REGISTRY_OR_WRITER_MISSING';END IF;
-            IF (SELECT COUNT(*) FROM private.community_writer_reference_registry_r16)<>32
-              OR (SELECT COUNT(*) FROM private.community_writer_routes_r16)<>21
+            IF (SELECT COUNT(*) FROM private.community_writer_reference_registry_r16)<>34
+              OR (SELECT COUNT(*) FROM private.community_writer_routes_r16)<>23
             THEN RAISE EXCEPTION 'R16_REGISTRY_COUNT_MISMATCH';END IF;
             IF has_function_privilege('anon','public.community_set_gallery_comments_enabled_atomic_r16(uuid,uuid,bigint,uuid,boolean,text)','EXECUTE')
               OR has_function_privilege('authenticated','public.community_set_gallery_comments_enabled_atomic_r16(uuid,uuid,bigint,uuid,boolean,text)','EXECUTE')
@@ -187,7 +187,7 @@ jobs:
             IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid='public.gallery_photo_revision_fields'::regclass)
              OR NOT (SELECT relrowsecurity FROM pg_class WHERE oid='public.community_media_upload_intents'::regclass)
             THEN RAISE EXCEPTION 'RLS_NOT_ENABLED';END IF;
-            RAISE NOTICE 'LOCAL_SOURCE_CANDIDATE_134_LEDGER_FUNCTION_TRIGGER_RLS_ACL_PHYSICAL_FAILCLOSED_PASS';
+            RAISE NOTICE 'LOCAL_SOURCE_CANDIDATE_135_LEDGER_FUNCTION_TRIGGER_RLS_ACL_PHYSICAL_FAILCLOSED_PASS';
           END $checks$;
           SELECT extname FROM pg_extension ORDER BY extname;
           SELECT n.nspname,COUNT(*) FILTER (WHERE p.prosecdef) AS security_definer_count
@@ -291,7 +291,8 @@ jobs:
         run: |
           set -euo pipefail
           export DDVRE_PRIVACY_ISOLATED_LOCAL=CONFIRMED
-          python3 tests/comm-r18-preset-reservation-two-session.py | tee /tmp/comm-r18-preset-reservation.log
+          python3 tests/comm-r18-preset-reservation-two-session.py
+          python3 tests/09int-r18-source135-promotion-fence-two-pg-independent.py | tee /tmp/comm-r18-preset-reservation.log
       - name: Record bounded acceptance limitations without pretending actor E2E
         if: always()
         shell: bash
