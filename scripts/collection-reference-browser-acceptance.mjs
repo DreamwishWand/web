@@ -76,11 +76,14 @@ try{
  await eventually(async()=>await page.locator('.collection-card').count()>0);
  await page.locator('.collection-card').first().click();
  await eventually(async()=>await page.locator('.item-detail').count()===1);
- await page.setViewportSize({width:320,height:820});
  const locales=['en','fr','it','de','es-ES','ja','zh-CN','pt-BR'];
  for(const locale of locales){
+   // Desktop locale control is hidden by the responsive mobile shell. Switch on desktop,
+   // then verify each 320px localized rendering with the mobile shell visible.
+   await page.setViewportSize({width:1280,height:900});
    await page.locator('#site-locale').selectOption(locale);
    await eventually(async()=>await page.locator('html').getAttribute('lang')===locale);
+   await page.setViewportSize({width:320,height:820});
    assert(await page.locator('.item-detail h2').textContent().then(x=>Boolean(x?.trim())),'Localized Item name missing '+locale);
    assert(await page.locator('.detail-boundary').count()===2,'Missing rights or ownership note '+locale);
    await reflow(page);
