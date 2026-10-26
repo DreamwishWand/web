@@ -1,0 +1,57 @@
+name: 04 QR Source138 independent incident-veto PostgreSQL
+
+on:
+  pull_request:
+    paths:
+      - 'tests/qr-r18-source138-*.py'
+      - 'tests/qr-r18-source138-*.mjs'
+      - 'supabase/migrations/20261025003020_r18_preset_integrity_incident_commit_veto.sql'
+      - '.github/workflows/qr-r18-source138-incident-veto.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  actual-isolated-two-pg:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
+      DATABASE_URL: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Independent final-SQL-definition source gate
+        run: node --test tests/qr-r18-source138-effective-sql-veto-independent.test.mjs
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Assert local only with no remote credentials
+        run: |
+          set -euo pipefail
+          test -z "$SUPABASE_ACCESS_TOKEN"
+          test -z "$DATABASE_URL"
+          test "$DDVRE_PRIVACY_ISOLATED_LOCAL" = CONFIRMED
+          printf 'project_id = "ddvre_qr_r18_source138_isolated"\n' | cat - supabase/config.toml > /tmp/qr138-config.toml
+          mv /tmp/qr138-config.toml supabase/config.toml
+          supabase --version
+          docker version
+      - name: Build fresh disposable local 138-schema Supabase
+        run: |
+          set -euo pipefail
+          timeout 1500s supabase start --debug
+          timeout 900s supabase db reset --no-seed
+      - name: New scoped independent real two-PostgreSQL connection QA
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'psycopg[binary]>=3.2,<4'
+          python3 tests/qr-r18-source138-integrity-scoped-commit-two-pg.py
+      - name: Stop and discard ephemeral Supabase only
+        if: always()
+        run: supabase stop --no-backup || true
