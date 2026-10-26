@@ -59,7 +59,7 @@ export async function verifyCollectionDefinitionSourceV125(rawBytes) {
     }
     for(const filter of row[5]){
       if(!Array.isArray(filter)||filter.length!==3||typeof filter[0]!=='string'||
-         !object(filter[1])||![0,1].includes(filter[2]))
+         !(object(filter[1])||(filter[0]==='CharacterUniverse'&&Number.isSafeInteger(filter[1])&&filter[1]>0))||![0,1].includes(filter[2]))
         return stopped('COLLECTION_TYPE_SELECTOR_MALFORMED');
       stats.typed++;selectors.add(filter[0]);
     }
