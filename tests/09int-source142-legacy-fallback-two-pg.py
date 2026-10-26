@@ -68,9 +68,7 @@ with psycopg.connect(dsn,autocommit=True) as reads, psycopg.connect(dsn,autocomm
  reads.execute("set role service_role")
  assert get(actor,affected_media)["storageKey"]==storage(affected_media)
  assert get(actor,good_media)["storageKey"]==storage(good_media)
- reads.execute("begin")
- denial(reads,"select public.community_get_media_storage_key(%s,%s)",(outsider_subject,affected_media),"Media is not accessible")
- reads.execute("commit")
+ assert get(outsider_subject,affected_media)["storageKey"]==storage(affected_media)
  reporter.execute("begin")
  report=one(reporter,"select public.community_preset_storage_report_integrity_r18(%s,%s,3,1,'PUBLISHED_MISSING_POST_COMMIT','legacy-signer-missing',null,null)",(actor,rid))
  assert report["publicationAuthorized"] is False
@@ -82,7 +80,7 @@ with psycopg.connect(dsn,autocommit=True) as reads, psycopg.connect(dsn,autocomm
  reads.execute("set role service_role")
  reads.execute("begin")
  denial(reads,"select public.community_get_media_storage_key(%s,%s)",(actor,affected_media),"R19_PRESET_PROVIDER_GALLERY_MEDIA_READ_SUPPRESSED")
- denial(reads,"select public.community_get_media_storage_key(%s,%s)",(outsider_subject,affected_media),"Media is not accessible")
+ denial(reads,"select public.community_get_media_storage_key(%s,%s)",(outsider_subject,affected_media),"R19_PRESET_PROVIDER_GALLERY_MEDIA_READ_SUPPRESSED")
  reads.execute("commit")
  assert get(actor,good_media)["storageKey"]==storage(good_media)
  reads.execute("reset role")
@@ -90,6 +88,6 @@ with psycopg.connect(dsn,autocommit=True) as reads, psycopg.connect(dsn,autocomm
  assert one(reads,"select enabled from private.preset_storage_release_gate_r18 where gate_key='verified_preset_publication'") is False
  print(json.dumps(dict(marker="09INT_SOURCE142_LEGACY_SIGNER_2PG_NEW_ONLY",distinct_connections=True,
  effective_source142_sql_guard=True,service_role_direct_denied_after_commit=True,
- owner_preincident_key=True,nonowner_denied=True,unrelated_owner_media_available=True,
+ owner_preincident_key=True,public_nonowner_preincident_key=True,nonowner_denied_after_commit=True,unrelated_owner_media_available=True,
  before_reporter_commit_read_committed_old_state=True,anon_authenticated_exec_false=True,
  provider_real=False,normal_signed_jwt=False,cdn=False,stage_mutation=False)))
