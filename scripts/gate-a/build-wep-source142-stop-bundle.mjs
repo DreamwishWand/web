@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const candidateRoot = join(repoRoot, 'operator/gate-a/wep-source142-stop-candidate');
 const sourceRoot = join(candidateRoot, 'supabase/functions');
 const output = join(repoRoot, 'dist/wep-gate-a-source142-stop');
