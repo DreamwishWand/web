@@ -58,6 +58,32 @@ end;$r19$;
 revoke all on function private.preset_storage_assert_blob_readable_r19(uuid)
  from public,anon,authenticated,service_role;
 
+create or replace function private.preset_storage_media_quarantined_r19(
+ p_media_id uuid
+) returns boolean language sql stable security definer
+set search_path=pg_catalog,public,private as $r19$
+ select exists(
+  select 1 from public.work_revision_media rm
+  join public.community_work_revisions wr on wr.revision_id=rm.work_revision_id
+  where rm.media_id=p_media_id
+    and private.preset_storage_work_quarantined_r19(wr.work_id)
+ );$r19$;
+revoke all on function private.preset_storage_media_quarantined_r19(uuid)
+ from public,anon,authenticated,service_role;
+create or replace function public.community_preset_storage_assert_media_not_quarantined_r19(
+ p_media_id uuid
+) returns boolean language plpgsql stable security definer
+set search_path=pg_catalog,public,private as $r19$
+begin
+ if p_media_id is null or private.preset_storage_media_quarantined_r19(p_media_id)
+ then raise exception 'R19_PRESET_PROVIDER_GALLERY_MEDIA_READ_SUPPRESSED';end if;
+ return true;
+end;$r19$;
+revoke all on function public.community_preset_storage_assert_media_not_quarantined_r19(uuid)
+ from public,anon,authenticated,service_role;
+grant execute on function public.community_preset_storage_assert_media_not_quarantined_r19(uuid)
+ to service_role;
+
 create table if not exists private.preset_storage_work_read_suppressions_r19(
  reservation_id uuid not null references private.preset_storage_reservations_r18(reservation_id),
  work_id uuid not null references public.community_works(work_id),
@@ -133,6 +159,25 @@ create policy preset_storage_search_incident_read_barrier_r19
  on public.search_documents as restrictive for select to anon,authenticated
  using (not private.preset_storage_work_quarantined_r19(work_id));
 drop policy if exists preset_storage_artifact_incident_read_barrier_r19 on public.preset_artifacts;
+drop policy if exists preset_storage_gallery_revision_link_read_barrier_r19 on public.gallery_revision_presets;
+create policy preset_storage_gallery_revision_link_read_barrier_r19
+ on public.gallery_revision_presets as restrictive for select to anon,authenticated
+ using (not private.preset_storage_work_quarantined_r19((
+  select wr.work_id from public.community_work_revisions wr
+  where wr.revision_id=gallery_revision_id
+ )));
+drop policy if exists preset_storage_work_media_link_read_barrier_r19 on public.work_revision_media;
+create policy preset_storage_work_media_link_read_barrier_r19
+ on public.work_revision_media as restrictive for select to anon,authenticated
+ using (not private.preset_storage_work_quarantined_r19((
+  select wr.work_id from public.community_work_revisions wr
+  where wr.revision_id=work_revision_id
+ )));
+drop policy if exists preset_storage_media_asset_read_barrier_r19 on public.media_assets;
+create policy preset_storage_media_asset_read_barrier_r19
+ on public.media_assets as restrictive for select to anon,authenticated
+ using (not private.preset_storage_media_quarantined_r19(media_id));
+
 create policy preset_storage_artifact_incident_read_barrier_r19
  on public.preset_artifacts as restrictive for select to anon,authenticated
  using (not private.preset_storage_work_quarantined_r19(community_work_id));
