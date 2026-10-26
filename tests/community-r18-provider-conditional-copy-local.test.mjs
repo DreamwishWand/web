@@ -11,7 +11,7 @@ const transpiled = ts.transpileModule(source,{
 }).outputText;
 const exports={};
 vm.runInNewContext(transpiled,{exports,crypto:webcrypto,Uint8Array,Promise},{filename:'conditional-provider-source.js'});
-const {inspectConditionalPromotion}=exports;
+const {inspectConditionalPromotion,inspectPostCommitObject}=exports;
 const owner='11111111-1111-4111-8111-111111111111';
 const staging='staging/'+owner+'/22222222-2222-4222-8222-222222222222.json';
 const published='published/'+owner+'/'+'f'.repeat(64)+'.json';
@@ -130,4 +130,32 @@ test('Source137 independent helper does not call legacy Generic/Scene APIs, clea
   'preset_storage_commit_candidate_r18','community_publish_preset_envelope']){
   assert.equal(source.includes(forbidden),false,forbidden);
  }
+});
+
+test('Source137 postcommit missing object is quarantined, not compensating physical remove',async()=>{
+ const h=await harness();
+ const first=await h.run();
+ assert.equal(first.state,'COPY_OBSERVED_UNATTESTED');
+ const expectation={publishedKey:published,objectVersion:first.objectVersion,etag:first.objectETag,
+  checksumSha256:h.f.checksumSha256,byteSize:h.f.byteSize};
+ assert.equal((await inspectPostCommitObject(h.provider,expectation)).state,
+  'PUBLISHED_OBJECT_OBSERVED_UNATTESTED');
+ h.provider.objects.delete(published); // injected external provider loss, not the writer
+ const failure=await inspectPostCommitObject(h.provider,expectation);
+ assert.equal(failure.state,'POST_COMMIT_MISSING');
+ assert.equal(failure.providerOriginAttested,false);
+ assert.equal(failure.physicalCleanupAuthorized,false);
+ assert.equal(h.provider.calls.removes,0);
+});
+
+test('Source137 postcommit version drift is quarantined and lacks automatic repair authority',async()=>{
+ const h=await harness();
+ const first=await h.run();
+ h.provider.objects.set(published,{bytes,version:'foreign-version',etag:'foreign-etag'});
+ const r=await inspectPostCommitObject(h.provider,{publishedKey:published,
+  objectVersion:first.objectVersion,etag:first.objectETag,
+  checksumSha256:h.f.checksumSha256,byteSize:h.f.byteSize});
+ assert.equal(r.state,'POST_COMMIT_MISSING');
+ assert.equal(r.providerOriginAttested,false);
+ assert.equal(r.publicationAuthorized,false);
 });
