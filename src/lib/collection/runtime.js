@@ -3,6 +3,18 @@ export const COLLECTION_RECORD_SCHEMA = 'wand.collection.records@1';
 export const COLLECTION_RUNTIME_PATH = 'ddv/collection/v1.25';
 export const COLLECTION_RUNTIME_INDEX_SHA256 = 'a74f6df131e114c66759bc3f463266e3b68fea629ac6a360062423ce6fc133c9';
 
+const verifiedCollectionReferenceItems = new WeakMap();
+
+export function isVerifiedCollectionReferenceCapability(capability) {
+  return capability !== null && typeof capability === 'object' &&
+    verifiedCollectionReferenceItems.has(capability);
+}
+
+export function verifiedCollectionReferenceItem(capability, itemId) {
+  if (!isVerifiedCollectionReferenceCapability(capability)) return null;
+  return verifiedCollectionReferenceItems.get(capability).get(itemId) ?? null;
+}
+
 const LOCALE_INDEX = Object.freeze({ en:0, fr:1, it:2, de:3, 'es-ES':4, ja:5, 'zh-CN':6, 'pt-BR':7 });
 
 function cleanOfficialLabel(value) {
@@ -128,5 +140,18 @@ export async function loadCollectionRuntime(basePath = '', fetchImpl = globalThi
     rows.push(...payload.r);
   }
   if (rows.length !== index.n || seenItemIds.size !== index.n) throw new Error('Collection runtime ItemID/count integrity mismatch.');
-  return { index, rows };
+  const canonicalItems = new Map();
+  for (const row of rows) {
+    const item = decodeCollectionRecord(index, row, 'en');
+    canonicalItems.set(item.itemId, Object.freeze({
+      itemId: item.itemId,
+      family: item.family,
+      worlds: Object.freeze([...item.worlds]),
+      universes: Object.freeze([...item.universes]),
+      expansions: Object.freeze([...item.expansions])
+    }));
+  }
+  const capability = Object.freeze(Object.create(null));
+  verifiedCollectionReferenceItems.set(capability, canonicalItems);
+  return { index, rows, capability };
 }
