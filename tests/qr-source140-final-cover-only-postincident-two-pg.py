@@ -205,11 +205,15 @@ with psycopg.connect(DSN, autocommit=True) as left, psycopg.connect(DSN, autocom
     first_admin_rpc = public_edge.index('ctx.supabaseAdmin.rpc(rpc, params)')
     assert closed < first_admin_rpc
     assert "SCENE_PUBLIC_READER_COMPATIBILITY_UNVERIFIED' }, 503, true" in public_edge
+    original_scene_signature = one(left,"select to_regprocedure('public.community_get_scene_preset_public_v1(uuid)')")
     left.execute('begin')
-    left.execute("""
-        create function public.community_get_scene_preset_public_v1(p_id uuid)
-        returns jsonb language sql security definer as $qr140$ select '{}'::jsonb $qr140$
-    """)
+    if original_scene_signature is None:
+        left.execute("""
+            create function public.community_get_scene_preset_public_v1(p_id uuid)
+            returns jsonb language sql security definer as $qr140$ select '{}'::jsonb $qr140$
+        """)
+    # The local DB can already contain this signature. Re-grant within a
+    # rollback-only transaction to exercise actual conditional revoke.
     left.execute("""
         grant execute on function public.community_get_scene_preset_public_v1(uuid)
         to public,anon,authenticated,service_role
@@ -219,7 +223,7 @@ with psycopg.connect(DSN, autocommit=True) as left, psycopg.connect(DSN, autocom
     for role in ['service_role','anon','authenticated']:
         assert not one(left,"select has_function_privilege(%s,'public.community_get_scene_preset_public_v1(uuid)','execute')",(role,))
     left.execute('rollback')
-    assert one(left,"select to_regprocedure('public.community_get_scene_preset_public_v1(uuid)')") is None
+    assert (one(left,"select to_regprocedure('public.community_get_scene_preset_public_v1(uuid)')") is None) == (original_scene_signature is None)
 
     print(json.dumps({
       'case':'QR_SOURCE140_FINAL_COVER_ONLY_AND_POSTINCIDENT_GATEWAY_TWO_PG',
