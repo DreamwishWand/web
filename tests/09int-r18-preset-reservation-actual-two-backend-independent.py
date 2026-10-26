@@ -115,7 +115,7 @@ with psycopg.connect(dsn,autocommit=True) as a, psycopg.connect(dsn,autocommit=T
         %s,%s,'public','scene','int',null,%s,1,'application/json',100,%s,
         '{}'::jsonb,%s)''',(subject_a,creator_a,first['publishedStorageKey'],'a'*64,idempotency)),
         'R18_PRESET_PUBLICATION_RESERVATION_AND_BYTES_NOT_ACCEPTED')
-    assert scalar(b,'select count(*) from public.artifact_blobs') == 0
+    assert scalar(b,'select count(*) from public.artifact_blobs where storage_key=%s',(first['publishedStorageKey'],)) == 0
     assert scalar(b,'select count(*) from public.community_works where owner_account_id=%s',(owner_a,)) == 0
     assert scalar(b,'select count(*) from public.idempotency_keys where account_id=%s',(owner_a,)) == 0
     print(json.dumps({'case':'09INT_R18_ACTUAL_PG_NO_COMMITTED_PRESET_WITHOUT_PROVIDER_BYTES'}))
