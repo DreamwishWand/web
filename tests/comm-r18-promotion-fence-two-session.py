@@ -63,7 +63,8 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
       (actor,rid,token2)),'R18_PRESET_PUBLICATION_RELEASE_GATE_CLOSED')
     assert one(a,"select count(*) from public.artifact_blobs where storage_key=%s",(r['publishedStorageKey'],))==0
     assert one(a,"select count(*) from public.idempotency_keys where idempotency_key=%s",('fenced-'+str(rid),))==0
-    with a.transaction():
+    a.execute('begin')
+    try:
         a.execute("""update private.preset_storage_release_gate_r18 set
           enabled=true,provider_precondition_accepted=true,
           operator_evidence_ref='ISOLATED_LOCAL_SYNTHETIC_NOT_PROVIDER' where gate_key='verified_preset_publication'""")
@@ -80,7 +81,9 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
             assert one(a,"select reservation_state from private.preset_storage_reservations_r18 where reservation_id=%s",(rid,))=='COMMITTED_PRESET_PUBLICATION'
             print(json.dumps({'case':'R18_LOCAL_ONLY_SYNTHETIC_ATOMIC_PRESET_SQL_CANDIDATE_ROLLBACK','transactionalShape':True,'realProviderVerified':False}))
         finally:
-            a.execute('rollback')
+            pass
+    finally:
+        a.execute('rollback')
     assert one(b,"select enabled from private.preset_storage_release_gate_r18 where gate_key='verified_preset_publication'") is False
     assert one(b,"select count(*) from public.artifact_blobs where storage_key=%s",(r['publishedStorageKey'],))==0
     assert one(b,"select reservation_state from private.preset_storage_reservations_r18 where reservation_id=%s",(rid,))=='VERIFICATION_REQUIRED'
