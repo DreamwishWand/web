@@ -27,6 +27,8 @@ jobs:
           test -z "$DATABASE_URL"
           printf 'project_id = "ddvre_qr140_final_cover_20261026"\n' | cat - supabase/config.toml > /tmp/qr140-final-config
           mv /tmp/qr140-final-config supabase/config.toml
+      - name: Validate isolated Python fixture syntax before database provisioning
+        run: python3 -m py_compile tests/qr-source140-final-cover-only-postincident-two-pg.py
       - name: Fresh isolated Source140 140-migration local PostgreSQL
         run: |
           set -euo pipefail
