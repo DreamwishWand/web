@@ -1,0 +1,77 @@
+{
+  "schema": "ddv.collection-protobuf-item-input-field7-scope@1",
+  "scope": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "buildId": "52BD625D9B4E0053",
+    "profileSchema": 624
+  },
+  "source": {
+    "canonicalPackageSha256": "6bc68479f75f621a6c5582bcf071b34e97886f2362c6dc26fe536fc026dee0c2",
+    "losslessGzipSha256": "df78c309a8023667c92426e3b929ed3e51aadf10d943835a3673cefa585f8048",
+    "sameBuildDumpCsSha256": "a94ae73d522f160d21255b195b4d834bf5c79db59ddbd8cdfc32e54c6e0671f0"
+  },
+  "auditedDefinitionCount": 17413,
+  "explicitCanBeCollectedParameterCount": 0,
+  "explicitIsVariationOf": {
+    "count": 305,
+    "fieldNumber": 7,
+    "wireType": 0,
+    "field7VarintExactMatchCount": 305,
+    "nonzeroExistingParentCount": 305,
+    "concreteTypes": {
+      "FenceAndRoadItemData": 240,
+      "LandscapingItemData": 48,
+      "EphemeralItemData": 17
+    },
+    "confirmedExamples": [
+      {
+        "itemId": 40700002,
+        "parentItemId": 40700000,
+        "concreteType": "FenceAndRoadItemData"
+      },
+      {
+        "itemId": 40200007,
+        "parentItemId": 40200003,
+        "concreteType": "LandscapingItemData"
+      },
+      {
+        "itemId": 31300004,
+        "parentItemId": 31300003,
+        "concreteType": "EphemeralItemData"
+      }
+    ]
+  },
+  "evidence": {
+    "protobufField7ExplicitValues": "CONFIRMED_SAME_BUILD_STATIC",
+    "concreteTypeIItemIsVariationOfInterface": "UNKNOWN",
+    "nativeVirtualGetterMapping": "UNKNOWN",
+    "protobufAbsentFieldDefault": "UNKNOWN",
+    "nativeCanBeCollectedGetterValues": "UNKNOWN",
+    "nativeSelectorPredicateSixFamilies": "UNKNOWN",
+    "nativeFinalMembership": "UNKNOWN"
+  },
+  "remainingNativeSelectors": {
+    "Furniture": 63,
+    "Clothing": 61,
+    "Crafting": 28,
+    "BoardGameFigurine": 16,
+    "ActivityItem": 12,
+    "Pet": 2,
+    "total": 182
+  },
+  "safety": {
+    "sourceValuesOnly": true,
+    "absenceOfFieldDoesNotProveInterfaceAbsence": true,
+    "absenceOfCanBeCollectedDoesNotProveBoolean": true,
+    "finalMembershipKnown": false,
+    "denominator": null,
+    "owned": "UNKNOWN",
+    "collected": "UNKNOWN",
+    "nativeEligibility": "UNKNOWN",
+    "personalMetricsAuthorized": false,
+    "nativeWriterAuthorized": false,
+    "publicConsumerAuthorized": false
+  },
+  "blocker": "Same-build concrete type interface/vtable targets and native virtual getters/defaults are required; neither 305 parent values nor 0 explicit CanBeCollected values authorize final item validity or selector membership."
+}
