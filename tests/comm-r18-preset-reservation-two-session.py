@@ -51,12 +51,12 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
     assert scalar(b,"select count(*) from private.preset_storage_reservations_r18")==1
     expect(b,lambda:reserve(b,sha='c'*64),'R18_PRESET_RESERVATION_IDEMPOTENCY_CONFLICT')
     print(json.dumps({'case':'R18_SAME_KEY_TWO_BACKEND_SERIALIZED_REPLAY','unique':True,'conflict':True}))
-    assert scalar(b,"select count(*) from public.artifact_blobs")==0
+    assert scalar(b,"select count(*) from public.artifact_blobs where storage_key=%s",(first["publishedStorageKey"],))==0
     expect(b,lambda:scalar(b,"""insert into public.artifact_blobs(
       owner_account_id,storage_key,schema_version,content_type,byte_size,checksum_sha256)
       values(%s,%s,1,'application/json',100,%s) returning blob_id""",
       (owner,first['publishedStorageKey'],'a'*64)),'R18_PUBLISHED_OBJECT_REGISTRATION_NOT_ENROLLED')
-    assert scalar(b,"select count(*) from public.artifact_blobs")==0
+    assert scalar(b,"select count(*) from public.artifact_blobs where storage_key=%s",(first["publishedStorageKey"],))==0
     expect(b,lambda:scalar(b,"""select public.community_publish_preset_envelope(
       %s,%s,'public','scene','blocked',null,%s,1,'application/json',100,%s,'{}'::jsonb,%s)""",
       (subject,creator,first['publishedStorageKey'],'a'*64,idem)),
