@@ -33,6 +33,13 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
        (actor,rid,u(),'b'*64)),'R18_PRESET_STALE_FENCE_OR_LEASE')
     fail(b,lambda:one(b,"select public.community_preset_storage_report_readback_r18(%s,%s,2,%s,2,100,%s)",
        (actor,rid,token,'b'*64)),'R18_PRESET_STALE_FENCE_OR_LEASE')
+    a.execute("update private.preset_storage_reservations_r18 set lease_expires_at=now()-interval '1 second' where reservation_id=%s",(rid,))
+    fail(b,lambda:one(b,"select public.community_preset_storage_report_readback_r18(%s,%s,2,%s,1,100,%s)",
+      (actor,rid,token,'b'*64)),'R18_PRESET_STALE_FENCE_OR_LEASE')
+    fail(b,lambda:one(b,"select public.community_preset_storage_claim_promotion_r18(%s,%s,2)",
+      (actor,rid)),'R18_PRESET_PROMOTION_NOT_CLAIMABLE')
+    a.execute("update private.preset_storage_reservations_r18 set lease_expires_at=now()+interval '90 seconds' where reservation_id=%s",(rid,))
+    print(json.dumps({'case':'R18_LEASE_EXPIRED_OLD_TOKEN_AND_RECLAIM_DENIED'}))
     a.execute('begin')
     a.execute("select reservation_id from private.preset_storage_reservations_r18 where reservation_id=%s for update",(rid,))
     b.execute('begin')
