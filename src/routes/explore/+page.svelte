@@ -45,7 +45,7 @@
   $: boards=moodboards.boards ?? [];
   $: selectedPlacement=selectedItem ? placementFor(selectedItem) : null;
   $: collectionReferenceLink=selectedItem && runtimeIndex ? resolveSharedItemLink({
-    index:runtimeIndex,records:allRecords,itemId:selectedItem.itemId,
+    index:runtimeIndex,records:allRecords,itemId:selectedItem.itemId,identityKind:'DDV_ITEM_ID',
     from:'decorate',to:'collection',sourceRecord:selectedItem,basePath:base
   }) : null;
 
@@ -61,7 +61,7 @@
       if(incoming.searchParams.has('item')){
         const decoded=loaded.rows.map((row:any)=>decodeCollectionRecord(loaded.index,row,$locale));
         const reference=resolveSharedItemLink({index:loaded.index,records:decoded,
-          itemId:incoming.searchParams.get('item'),from:'collection',to:'decorate',basePath:base,
+          itemId:incoming.searchParams.get('item'),identityKind:'DDV_ITEM_ID',from:'collection',to:'decorate',basePath:base,
           requestedTarget:{platform:'Nintendo Switch',
             gameVersion:incoming.searchParams.get('version')||loaded.index.t.gameVersion,
             buildID:incoming.searchParams.get('buildID')||loaded.index.t.buildID}
