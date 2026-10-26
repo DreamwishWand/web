@@ -5,7 +5,7 @@ import { decodeCollectionRecord } from '../src/lib/collection/runtime.js';
 import {collectionReferenceSelection} from '../src/lib/collection/reference-navigation.js';
 import {
   ITEM_REFERENCE_LINK_SCHEMA,ITEM_REFERENCE_TARGET,DECORATE_ITEM_FAMILIES,
-  resolveSharedItemLink,resolveRelatedItemLink,resolvePublishedGuideItemLink
+  resolveSharedItemLink,resolveSharedItemInboundLink,resolveRelatedItemLink,resolvePublishedGuideItemLink
 } from '../src/lib/collection/shared-item-reference.js';
 
 const index=JSON.parse(readFileSync(new URL('../static/ddv/collection/v1.25/index.json',import.meta.url),'utf8'));
@@ -112,4 +112,28 @@ test('Guide PRIVATE drafts, missing registry, unpublished, duplicate/mismatched 
  // This positive test is an explicitly injected hypothetical approved registry,
  // NOT a representation of currently published Guide data (public approved count=0).
  assert.equal(resolvePublishedGuideItemLink({...common,approvedRelations:[edge],publishedPages:[page]}).href,page.href);
+});
+
+test('post-QR193 compatibility: Explore inbound rejects duplicate/noncanonical query without first-match fallback',()=>{
+ const good=(query)=>resolveSharedItemInboundLink({
+   url:new URL('https://wand.invalid/explore/'+query),
+   index,records,basePath:''
+ });
+ assert.equal(good('?item='+item.itemId).status,'linked');
+ assert.equal(good('?item='+item.itemId+'&version=1.25.0&buildID=52BD625D9B4E0053').status,'linked');
+ for(const query of [
+   '?item='+item.itemId+'&item=abc',
+   '?item='+item.itemId+'&item='+item.itemId,
+   '?item='+item.itemId+'&view=???',
+   '?item='+item.itemId+'&version=1.25.0&version=1.25.3',
+   '?item='+item.itemId+'&buildID=52BD625D9B4E0053&buildID=WRONG',
+   '?item=0'+item.itemId,
+   '?item=',
+   '?item='+item.itemId+'&item%00=wrong'
+ ]) {
+   const result=good(query);
+   assert.equal(result.href,null,query);
+ }
+ assert.equal(good('?item='+item.itemId+'&version=1.25.3').reason,'UNSUPPORTED_SOURCE_BUILD');
+ assert.equal(good('?item='+item.itemId+'&buildID=wrong').reason,'UNSUPPORTED_SOURCE_BUILD');
 });
