@@ -116,8 +116,8 @@ test('QR195-FIX-05 a purported post-source-original verified object stays non-au
 
 test('QR195-FIX-06 checked-in replay report is pinned data, never a self-sufficient proof of live source bytes',()=>{
  const src=readFileSync(base+'native-isvalid-original-romfs-replay-v125.json');
- const digest=createHash('sha256').update(src).digest('hex');
- assert.equal(digest,'e8349a420852568b72bda03544e8a64f8180c21ed59b53751d80b9a7711dc5fa');
+ const gitBlob=createHash('sha1').update(`blob ${src.length}\0`).update(src).digest('hex');
+ assert.equal(gitBlob,'797df86edca77e4ef0b472fa6b6ba67f82b9d742');
  assert.equal(original.classification,'OWNER_ORIGINAL_BYTES_REPLAYED_INDEPENDENT_QR_PENDING_NOT_RUNTIME_ATTESTATION');
  assert.equal(original.scopeLimits.notABrowserOriginalMetadataVerificationCapability,true);
  assert.equal(original.scopeLimits.fullNativeCodeRegistrationMethodPointerMap,false);
