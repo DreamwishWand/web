@@ -1,0 +1,45 @@
+name: 09 INT Source140 Direct Historical Reader Delta Two PG (LOCAL)
+on:
+  pull_request:
+    paths:
+      - 'tests/09int-source140-direct-historical-reader-2pg.py'
+      - '.github/workflows/09int-source140-reader-2pg.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source140-delta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enforce only frozen Source140 140-migration local baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l)" -eq 140
+          test -f supabase/migrations/20261025003040_r19_reader_history_graph_gap_closure.sql
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Start isolated disposable local DB from Source140
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'project_id = "int140_histreader_ephemeral_20261026"\n' | cat - supabase/config.toml > /tmp/int140-config.toml
+          mv /tmp/int140-config.toml supabase/config.toml
+          timeout 1500s supabase start > /tmp/int140-start.log 2>&1 || { tail -n 100 /tmp/int140-start.log; exit 1; }
+      - name: Independent Source140 historical/direct two backend SQL
+        env:
+          DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'psycopg[binary]>=3.2,<4'
+          python3 tests/09int-source140-direct-historical-reader-2pg.py | tee /tmp/int140-result.log
+      - name: Dispose ephemeral DB
+        if: always()
+        run: supabase stop --no-backup || true
