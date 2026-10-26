@@ -397,63 +397,7 @@ select jsonb_build_object(
 revoke all on function private.preset_storage_reservation_snapshot_r18(private.preset_storage_reservations_r18)
   from public,anon,authenticated,service_role;
 
-create or replace function public.community_preset_storage_reserve_r18(
-  p_auth_subject uuid,p_creator_profile_id uuid,p_source_staging_key text,
-  p_idempotency_key text,p_request_hash text,p_byte_size bigint,
-  p_checksum_sha256 text,p_schema_version integer,p_preset_type text
-) returns jsonb language plpgsql security definer
-set search_path=pg_catalog,public,private,extensions as $r18$
-declare v_owner uuid; v_account public.wand_accounts%rowtype;
-  v_row private.preset_storage_reservations_r18%rowtype;
-  v_final_key text;v_hash text;
-begin
-  v_owner:=private.resolve_active_account(p_auth_subject);
-  select * into v_account from public.wand_accounts a
-    where a.account_id=v_owner and a.status='active' and a.deleted_at is null
-    for share;
-  if v_account.account_id is null or private.is_account_privacy_suppressed(v_owner)
-    then raise exception 'R18_PRESET_RESERVATION_ACTOR_INACTIVE';end if;
-  if not exists(select 1 from public.creator_profiles c
-      where c.creator_profile_id=p_creator_profile_id
-        and c.owner_account_id=v_owner and c.moderation_state='clear')
-    then raise exception 'R18_PRESET_RESERVATION_CREATOR_FORBIDDEN';end if;
-  if p_idempotency_key is null or length(btrim(p_idempotency_key)) not between 1 and 160
-    or p_request_hash !~ '^[0-9a-f]{64}$'
-    or p_checksum_sha256 !~ '^[0-9a-f]{64}$'
-    or p_byte_size not between 1 and 26214400
-    or p_schema_version<=0 or p_preset_type<>'scene'
-  then raise exception 'R18_PRESET_RESERVATION_METADATA_INVALID';end if;
-  if p_source_staging_key is null
-    or left(p_source_staging_key,length('staging/'||v_owner::text||'/'))
-       <> 'staging/'||v_owner::text||'/'
-    or p_source_staging_key !~ '^staging/[0-9a-f-]{36}/[0-9a-f-]{36}\.json$'
-  then raise exception 'R18_PRESET_STAGING_KEY_FORBIDDEN';end if;
-  v_final_key:='published/'||v_owner::text||'/'||
-    encode(extensions.digest(convert_to(v_owner::text||':'||p_idempotency_key,'UTF8'),'sha256'),'hex')||'.json';
-  v_hash:=encode(extensions.digest(convert_to(
-    concat_ws('|','preset-reservation-r18',p_creator_profile_id::text,
-      p_source_staging_key,p_idempotency_key,p_request_hash,p_byte_size::text,
-      lower(p_checksum_sha256),p_schema_version::text,p_preset_type),
-    'UTF8'),'sha256'),'hex');
-  insert into private.preset_storage_reservations_r18(
-    owner_account_id,creator_profile_id,auth_subject,idempotency_key,request_hash,
-    source_staging_key,published_storage_key,byte_size,checksum_sha256,
-    content_type,schema_version,preset_type)
-  values(v_owner,p_creator_profile_id,p_auth_subject,p_idempotency_key,v_hash,
-    p_source_staging_key,v_final_key,p_byte_size,lower(p_checksum_sha256),
-    'application/json',p_schema_version,p_preset_type)
-  on conflict(owner_account_id,idempotency_key) do nothing;
-  select * into v_row from private.preset_storage_reservations_r18
-    where owner_account_id=v_owner and idempotency_key=p_idempotency_key for update;
-  if v_row.reservation_id is null then
-    raise exception 'R18_PRESET_RESERVATION_UNAVAILABLE';
-  end if;
-  if v_row.request_hash<>v_hash or v_row.published_storage_key<>v_final_key
-    then raise exception 'R18_PRESET_RESERVATION_IDEMPOTENCY_CONFLICT';end if;
-  if v_row.reservation_state='COMMITTED_PRESET_PUBLICATION' then
-    raise exception 'R18_PRESET_RESERVATION_COMMIT_NOT_ENROLLED';end if;
-  return private.preset_storage_reservation_snapshot_r18(v_row);
-end;$r18$;
+
 
 create or replace function public.community_preset_storage_cleanup_preflight_r18(
   p_auth_subject uuid,p_storage_key text
