@@ -1,0 +1,50 @@
+name: 04 QR Source140 final historical cover plus incident actual 2PG
+on:
+  pull_request:
+    paths:
+      - 'tests/qr-source140-final-cover-only-postincident-two-pg.py'
+      - '.github/workflows/qr-source140-final-cover-only-postincident-two-pg.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  local-two-pg-cover-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Enforce no remote Provider or Staging credentials
+        run: |
+          set -euo pipefail
+          test -z "$SUPABASE_ACCESS_TOKEN"
+          test -z "$DATABASE_URL"
+          printf 'project_id = "ddvre_qr140_final_cover_20261026"\n' | cat - supabase/config.toml > /tmp/qr140-final-config
+          mv /tmp/qr140-final-config supabase/config.toml
+      - name: Validate isolated Python fixture syntax before database provisioning
+        run: python3 -m py_compile tests/qr-source140-final-cover-only-postincident-two-pg.py
+      - name: Fresh isolated Source140 140-migration local PostgreSQL
+        run: |
+          set -euo pipefail
+          timeout 1500s supabase start --debug
+          timeout 900s supabase db reset --no-seed
+      - name: Seed only disposable local account and Gallery verified subject
+        run: |
+          set -euo pipefail
+          container_id="$(docker ps --filter 'name=supabase_db_' --format '{{.ID}}' | head -1)"
+          test -n "$container_id"
+          docker exec -i "$container_id" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/staging/acceptance/local-clean-bootstrap-synthetic-seed-v1.sql
+      - name: NEW independent cover-only historical and incident read regression, two PG backends
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'psycopg[binary]>=3.2,<4'
+          python3 tests/qr-source140-final-cover-only-postincident-two-pg.py
+      - name: Stop and discard local environment
+        if: always()
+        run: supabase stop --no-backup || true
