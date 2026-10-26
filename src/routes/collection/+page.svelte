@@ -20,6 +20,8 @@
   let universe = '';
   let version = COLLECTION_SUPPORTED_VERSION;
   let itemId = '';
+  let invalidUrl = false;
+  let loadSequence = 0;
   const DISPLAY_LIMIT = 120;
   let displayLimit = DISPLAY_LIMIT;
 
@@ -41,18 +43,23 @@
     view = state.view; query = state.query; family = state.family;
     world = state.world; universe = state.universe;
     version = state.version; itemId = state.itemId;
+    invalidUrl = state.invalid;
   }
   afterNavigate(({to}) => { if (to?.url) applyUrl(to.url); });
   async function reload(): Promise<void> {
+    const request = ++loadSequence;
+    runtimeIndex = null; rawRows = [];
     loading = true; error = '';
     try {
       const loaded = await loadCollectionRuntime(base);
+      if (request !== loadSequence) return;
       runtimeIndex = loaded.index;
       rawRows = loaded.rows;
     } catch {
+      if (request !== loadSequence) return;
       runtimeIndex = null; rawRows = [];
       error = 'REFERENCE_FETCH_OR_INTEGRITY_REJECTED';
-    } finally { loading = false; }
+    } finally { if (request === loadSequence) loading = false; }
   }
   onMount(() => {
     applyUrl(new URL(window.location.href));
@@ -120,7 +127,9 @@
         <option value="1.25.3">Nintendo Switch 1.25.3 — unverified</option>
       </select>
     </div>
-    {#if version !== COLLECTION_SUPPORTED_VERSION}
+    {#if invalidUrl}
+      <div class="status error" role="alert" data-collection-state="invalid-url">{detailCopy.notFound}<a class="back-link" href={collectionWorkspaceHref(base)}>{detailCopy.back}</a></div>
+    {:else if version !== COLLECTION_SUPPORTED_VERSION}
       <div class="status unsupported" role="status" data-collection-state="unsupported-version">{detailCopy.unsupported}</div>
     {:else if itemId}
       <a class="back-link" href={returnHref}>{detailCopy.back}</a>
