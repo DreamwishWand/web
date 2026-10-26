@@ -25,8 +25,12 @@ with psycopg.connect(dsn, autocommit=True) as reads, psycopg.connect(dsn, autoco
     assert one(reads, 'select pg_backend_pid()') != one(reporter, 'select pg_backend_pid()')
     assert one(reads, "select enabled from private.preset_storage_release_gate_r18 where gate_key='verified_preset_publication'") is False
     owner, actor, creator = fresh(), fresh(), fresh()
+    moderator_account, moderator_subject = fresh(), fresh()
     with reads.transaction():
         reads.execute('insert into public.wand_accounts(account_id) values(%s)', (owner,))
+        reads.execute('insert into public.wand_accounts(account_id) values(%s)', (moderator_account,))
+        reads.execute("insert into public.auth_identities(account_id,provider,provider_subject,last_verified_at,identity_state) values(%s,'supabase',%s,now(),'active')", (moderator_account,str(moderator_subject)))
+        reads.execute("insert into public.account_roles(account_id,role) values(%s,'moderator')",(moderator_account,))
         reads.execute("insert into public.auth_identities(account_id,provider,provider_subject,last_verified_at,identity_state) values(%s,'supabase',%s,now(),'active')", (owner, str(actor)))
         reads.execute("insert into public.community_entities(entity_id,entity_type) values(%s,'creator_profile')", (creator,))
         reads.execute("insert into public.creator_profiles(creator_profile_id,owner_account_id,handle,display_name) values(%s,%s,%s,'INT140 independent reader')", (creator, owner, 'i140_'+fresh().hex[:18]))
@@ -72,7 +76,9 @@ with psycopg.connect(dsn, autocommit=True) as reads, psycopg.connect(dsn, autoco
     def visibility():
         return {str(w): one(reads,'select private.preset_storage_work_quarantined_r19(%s)',(w,)) for w in [direct,historical,unrelated]}
     assert not any(visibility().values())
+    assert one(reads,'select private.is_staff(%s)',(moderator_account,)) is True
     assert one(reads,'select public.community_get_work(%s,%s)',(actor,direct))['workId']==str(direct)
+    assert one(reads,'select public.community_get_work(%s,%s)',(moderator_subject,direct))['workId']==str(direct)
     assert len(one(reads,'select public.community_get_my_gallery_v1(%s,50)',(actor,))['myWorks'])==3
     pre_key = one(reads,'select public.community_get_public_media_storage_v2(%s)',(image,))['storageKey']
     assert pre_key
@@ -94,6 +100,7 @@ with psycopg.connect(dsn, autocommit=True) as reads, psycopg.connect(dsn, autoco
     reads.execute('begin')
     for w in [direct,historical,original_work]:
         must_reject(reads,'select public.community_get_work(%s,%s)',(actor,w),'R19_PRESET_PROVIDER_INTEGRITY_READ_SUPPRESSED')
+        must_reject(reads,'select public.community_get_work(%s,%s)',(moderator_subject,w),'R19_PRESET_PROVIDER_INTEGRITY_READ_SUPPRESSED')
     must_reject(reads,'select public.community_gallery_media_gateway_v1(%s)',(image,),'R19_PRESET_PROVIDER_GALLERY_MEDIA_READ_SUPPRESSED')
     must_reject(reads,'select public.community_preset_storage_assert_media_not_quarantined_r19(%s)',(image,),'R19_PRESET_PROVIDER_GALLERY_MEDIA_READ_SUPPRESSED')
     must_reject(reads,"insert into public.search_documents(entity_id,work_id,work_type,creator_profile_id,title,published_at) values(%s,%s,'gallery',%s,'stale',now()) returning entity_id",(direct,direct,creator),'R19_PRESET_PROVIDER_INTEGRITY_SEARCH_SUPPRESSED')
@@ -101,11 +108,25 @@ with psycopg.connect(dsn, autocommit=True) as reads, psycopg.connect(dsn, autoco
     must_reject(reads,'select public.community_preset_storage_resolution_readiness_r19(%s,%s,2,1)',(actor,rid),'R19_PRESET_RESOLUTION_STALE_VERSION_OR_FENCE')
     reads.execute('rollback')
     assert one(reads,'select public.community_get_public_media_storage_v2(%s)',(image,))['storageKey']==pre_key
+    reads.execute('begin')
+    reads.execute("update public.auth_identities set identity_state='retired',retired_at=now() where account_id=%s",(owner,))
+    must_reject(reads,'select public.community_get_my_gallery_v1(%s,50)',(actor,),'Active AuthIdentity not found')
+    reads.execute('rollback')
+    reads.execute('begin')
+    reads.execute('insert into private.account_privacy_suppressions(account_id) values(%s)',(owner,))
+    must_reject(reads,'select public.community_get_my_gallery_v1(%s,50)',(actor,),'ACCOUNT_PRIVACY_SUPPRESSED')
+    assert one(reads,'select private.is_discoverable_work(%s)',(unrelated,)) is False
+    reads.execute('rollback')
+    assert one(reads,'select private.is_discoverable_work(%s)',(unrelated,)) is True
+    assert one(reads,'select public.community_get_work(%s,%s)',(moderator_subject,unrelated))['workId']==str(unrelated)
+    for dbrole in ['anon','authenticated']:
+        assert one(reads,"select has_function_privilege(%s,'public.community_get_work(uuid,uuid)','EXECUTE')",(dbrole,)) is False
     assert one(reads,"select enabled from private.preset_storage_release_gate_r18 where gate_key='verified_preset_publication'") is False
     assert one(reads,'select count(*) from private.preset_storage_integrity_incidents_r18 where reservation_id=%s',(rid,))==1
     print(json.dumps(dict(marker='09INT_SOURCE140_DIRECT_HISTORICAL_READ_SQL_2PG',
           distinct_pg_backends=True, current_direct_and_past_revision_suppressed=True,
           owner_lists_filtered=True, unaffected_gallery_preserved=True,
           sql_media_gateway_denied=True, direct_legacy_public_media_key_remains_accessible=True,
+          local_moderator_override_blocked=True, retired_identity_and_privacy_barriers_preserved=True,
           in_flight_read_committed_snapshot=True, incident_immutable=True,
           true_provider=False, normal_jwt=False, cdn=False, staging_writes=False)))
