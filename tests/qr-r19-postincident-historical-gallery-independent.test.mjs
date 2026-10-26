@@ -17,26 +17,26 @@ function sqlFunction(name) {
 
 test('QR R19 new historical Gallery association remains covered by LIVE dynamic quarantine, not trigger-only snapshot',()=>{
   const fn=sqlFunction('private.preset_storage_work_quarantined_r19');
-  assert.match(fn,/from private\\.preset_storage_integrity_incidents_r18 i/);
-  assert.match(fn,/join private\\.preset_storage_reservations_r18 r/);
-  assert.match(fn,/join public\\.preset_revisions pr/);
-  assert.match(fn,/join public\\.gallery_revision_presets gp/);
-  assert.match(fn,/join public\\.community_work_revisions wr/);
-  assert.match(fn,/wr\\.work_id=p_work_id/);
+  assert.match(fn,/from private\.preset_storage_integrity_incidents_r18 i/);
+  assert.match(fn,/join private\.preset_storage_reservations_r18 r/);
+  assert.match(fn,/join public\.preset_revisions pr/);
+  assert.match(fn,/join public\.gallery_revision_presets gp/);
+  assert.match(fn,/join public\.community_work_revisions wr/);
+  assert.match(fn,/wr\.work_id=p_work_id/);
   assert.doesNotMatch(fn,/current_published_revision_id/);
   assert.match(fn,/QUARANTINED_PENDING_OPERATOR/);
 });
 
 test('QR R19 changed read/signed gateway SQL denies work and actual immutable Blob, not just search index',()=>{
  const edge=sqlFunction('public.wep_get_accessible_preset_blob');
- assert.match(edge,/perform private\\.preset_storage_assert_blob_readable_r19\\(v_blob.blob_id\\)/);
+ assert.match(edge,/perform private\.preset_storage_assert_blob_readable_r19\(v_blob.blob_id\)/);
  for (const name of ['public.community_get_preset','public.community_get_gallery_public_v1','public.community_get_gallery_v1']) {
   const fn=sqlFunction(name);
-  assert.match(fn,/perform private\\.preset_storage_assert_work_readable_r19\\(v_work.work_id\\)/,name);
+  assert.match(fn,/perform private\.preset_storage_assert_work_readable_r19\(v_work.work_id\)/,name);
  }
  const search=sqlFunction('private.preset_storage_search_reinsert_guard_r19');
- assert.match(search,/private\\.preset_storage_work_quarantined_r19\\(new.work_id\\)/);
- assert.match(source,/before insert or update on public\\.search_documents/);
+ assert.match(search,/private\.preset_storage_work_quarantined_r19\(new.work_id\)/);
+ assert.match(source,/before insert or update on public\.search_documents/);
 });
 
 test('QR R19 quarantine remains stable across three named RLS restrictive public reads and includes prior-fence incidents',()=>{
@@ -44,8 +44,8 @@ test('QR R19 quarantine remains stable across three named RLS restrictive public
     const pattern=new RegExp('on public\\.'+table+' as restrictive for select to anon,authenticated','i');
     assert.match(source,pattern);
   }
-  assert.doesNotMatch(sqlFunction('private.preset_storage_blob_quarantined_r19'),/observed_lease_fence\\s*=/);
-  assert.match(source138,/perform private\\.preset_storage_assert_no_integrity_incident_r18\\(v_res.reservation_id\\)/);
+  assert.doesNotMatch(sqlFunction('private.preset_storage_blob_quarantined_r19'),/observed_lease_fence\s*=/);
+  assert.match(source138,/perform private\.preset_storage_assert_no_integrity_incident_r18\(v_res.reservation_id\)/);
 });
 
 test('QR R19 administrative readiness is a terminal non-resolution and cleanup inventory cannot authorize remove',()=>{
@@ -59,5 +59,5 @@ test('QR R19 administrative readiness is a terminal non-resolution and cleanup i
  assert.match(source,/'cloudAndLinkedProfileReferenceGraphProven',false/);
  assert.match(source,/'previouslyIssuedBearerAndCdnRevocationProven',false/);
  assert.doesNotMatch(source,/incident_state='RESOLVED'/);
- assert.doesNotMatch(source,/storage\\.remove\\(|storage\\.copy\\(/);
+ assert.doesNotMatch(source,/storage\.remove\(|storage\.copy\(/);
 });
