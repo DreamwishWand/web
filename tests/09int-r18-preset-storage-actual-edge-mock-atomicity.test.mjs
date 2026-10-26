@@ -13,7 +13,7 @@ const compiled = ts.transpileModule(source.replace(/^import[^\n]+\n/gm, ''), {
 const account = '00000000-0000-4000-8000-000000000001';
 const other = '00000000-0000-4000-8000-000000000002';
 const subject = '00000000-0000-4000-8000-000000000003';
-const stage = 'staging/' + account + '/upload.json';
+const stage = 'staging/' + account + '/00000000-0000-4000-8000-000000000099.json';
 const artifact = {
   schema: 'dreamwish-wand-preset', artifactVersion: 1, type: 'scene',
   originPolicy: 'capture-region-top-left', bounds: {w: 1, h: 1},
