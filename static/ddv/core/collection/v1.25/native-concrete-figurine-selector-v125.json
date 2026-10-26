@@ -1,0 +1,393 @@
+{
+  "schema": "ddv.collection-native-figurine-predicate-v125@1",
+  "classification": "CONFIRMED_SAME_BUILD_STATIC_PREDICATE_ONLY",
+  "scope": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "bid": "52BD625D9B4E0053",
+    "saveSchema": 624
+  },
+  "originalSource": {
+    "nso": {
+      "sha256": "3258d5e05aded708c06017b8763fa37bfb696385a2ab29dd8a182d3938cbc0e0",
+      "bytes": 96002294
+    },
+    "dumpCs": {
+      "sha256": "a94ae73d522f160d21255b195b4d834bf5c79db59ddbd8cdfc32e54c6e0671f0",
+      "bytes": 59624529
+    },
+    "originalRomfsMetadata": {
+      "sha256": "07e919f07f7be2df883b7292bd3c699f670b4c1e8ff496ef7747447f5baa9f7c",
+      "version": 31,
+      "bytes": 36538728
+    },
+    "historicalMethodSpecMetadata": {
+      "claimedSha256": "d5487eb7c2341d8fd245d4815cc55eae0c64f0822f4a55fa495fc0afcd1c2b08",
+      "provenance": "UNKNOWN_NOT_EQUATED_OR_REUSED"
+    },
+    "canonicalZip": {
+      "sha256": "6bc68479f75f621a6c5582bcf071b34e97886f2362c6dc26fe536fc026dee0c2"
+    }
+  },
+  "concrete": {
+    "name": "Definitions.Items.FigurineItemData",
+    "typeDefIndex": 9314,
+    "metadataTypeDef": {
+      "tableRvaOrOffset": "file+0x1C2EB78",
+      "strideBytes": 88,
+      "typeEntrySha256": "d43cdf72b2c6b32b739560f3fd10201abf983b325ca02d50922e4f985cb900dc"
+    },
+    "metadataInterfaceOffsets": {
+      "tableFileOffset": "0x1BC0BD0",
+      "start": 19274,
+      "count": 15,
+      "entriesSha256": "03d2899ffb6d98855086d1f37835f105b61cc867ba9629b0cae7680783d9ea40"
+    },
+    "metadataVtable": {
+      "tableFileOffset": "0x1A28370",
+      "start": 90769,
+      "count": 58
+    },
+    "icollectionItem": {
+      "interfaceTypeDefIndex": 10722,
+      "interfaceTypeIndex": "0xFDA4",
+      "interfaceOffsetEntryIndex": 11,
+      "interfaceOffsetSlot": 32,
+      "interfaceMethodSlot": 1,
+      "concreteVtableSlot": 33,
+      "encodedMethodRef": "0x6002AA91",
+      "encodedVtableEntrySha256": "505cb7f7022751c33991a8d01bd26278586fbbdd607166e07c3625d7a51d8dd8",
+      "getterRva": "0x4685D50",
+      "getterSize": 8,
+      "getterCodeHex": "20008052c0035fd6",
+      "getterCodeSha256": "5103ba3de080c52a046485f800433848701faa49ab8f60241a80987ca249d7ac",
+      "nativeMeaning": "CONSTANT_TRUE"
+    },
+    "iItemIsVariationOf": {
+      "interfaceTypeDefIndex": 10720,
+      "interfaceTypeIndex": "0x10127",
+      "presentInConcreteInterfaceOffsetTable": false
+    },
+    "tags": {
+      "protobufFieldNumber": 13,
+      "rawWireType": 2,
+      "packedRepeatedInt32": true,
+      "instanceFieldOffset": "0x70",
+      "getterRva": "0x4682110",
+      "getterSize": 8,
+      "getterCodeHex": "003840f9c0035fd6",
+      "getterCodeSha256": "36cc23bb70bc1c1b59cc307e6204dbafdeee922c2168929d194e21890ad85195"
+    }
+  },
+  "selectorNative": {
+    "collectionItemTypeOneofFieldNumber": 9,
+    "collectionItemTypeOneofCase": 9,
+    "selectorConcreteName": "CollectionBoardGameFigurine",
+    "selectorTypeDefIndex": 10357,
+    "selectorUniverseFieldNumber": 1,
+    "selectorUniverseOneofCase": 1,
+    "selectorOneofObjectOffset": "0x18",
+    "selectorOneofTagOffset": "0x20",
+    "selectorBoxedIntValueOffset": "0x10",
+    "nativeSelectorGetterRva": "0x4BF0CF0",
+    "nativeSelectorGetterSize": 80,
+    "nativeSelectorGetterSha256": "f39c9d76781922f461533e028e8918200d102c53a3d03305c66cfeea7bf37905",
+    "method": "CollectionGroup.<>c__DisplayClass46_0.<_GetItemsFromType>b__18(FigurineItemData)",
+    "nativeLambdaRva": "0x4C007A0",
+    "nativeLambdaSize": 288,
+    "nativeLambdaSha256": "c8ba88b1136efb1acbd74483b29d589af3b9d9d97a8544cf6920bf331472dcbc",
+    "instructionEvidence": [
+      {
+        "rva": "0x4C007F4",
+        "operation": "LDR X19,[FigurineItemData,#0x70] // Tags"
+      },
+      {
+        "rva": "0x4C0081C",
+        "operation": "LDR W8,[CollectionItemType,#0x28]"
+      },
+      {
+        "rva": "0x4C00820",
+        "operation": "CMP W8,#9 // BoardGameFigurine"
+      },
+      {
+        "rva": "0x4C00844",
+        "operation": "LDR W8,[CollectionBoardGameFigurine,#0x20]"
+      },
+      {
+        "rva": "0x4C00848",
+        "operation": "CMP W8,#1 // Universe case"
+      },
+      {
+        "rva": "0x4C00874",
+        "operation": "LDR W8,[boxed int,#0x10]"
+      },
+      {
+        "rva": "0x4C00898",
+        "operation": "BL 0x39349D0 // RepeatedField<T>.Contains"
+      },
+      {
+        "rva": "0x4C008A0",
+        "operation": "AND W0,W0,#1"
+      }
+    ],
+    "nativePredicateForSixteenSelectors": "FigurineItemData.Tags.Contains(CollectionBoardGameFigurine.Universe)"
+  },
+  "canonicalInputAudit": {
+    "concreteFigurineItems": 35,
+    "rawProtobufPackedField13MatchedNamedTags": 35,
+    "sourceMatchTotal": 35,
+    "distinctSourceMatchedItemIds": 35,
+    "sourceRowsCompactSha256": "ce598ff6578f4cba179faa7a39cb6bf265a0db1a273d45cf05ca8d7a54589fc9",
+    "additionalFullFieldAudit": "local-only and non-authoritative"
+  },
+  "selectorOccurrences": [
+    {
+      "definitionId": 2120000206,
+      "selector": "BoardGameFigurine",
+      "selectorOneof": "Universe=1",
+      "universe": 2000500002,
+      "ignore": false,
+      "sourceMatchItemIds": [
+        180000013,
+        180000014,
+        180000024
+      ],
+      "sourceMatchCount": 3
+    },
+    {
+      "definitionId": 2120000207,
+      "selector": "BoardGameFigurine",
+      "selectorOneof": "Universe=1",
+      "universe": 2000500016,
+      "ignore": false,
+      "sourceMatchItemIds": [
+        180000022,
+        180000023
+      ],
+      "sourceMatchCount": 2
+    },
+    {
+      "definitionId": 2120000208,
+      "selector": "BoardGameFigurine",
+      "selectorOneof": "Universe=1",
+      "universe": 2000500005,
+      "ignore": false,
+      "sourceMatchItemIds": [
+        180000008,
+        180000009,
+        180000010,
+        180000020
+      ],
+      "sourceMatchCount": 4
+    },
+    {
+      "definitionId": 2120000209,
+      "selector": "BoardGameFigurine",
+      "selectorOneof": "Universe=1",
+      "universe": 2000500021,
+      "ignore": false,
+      "sourceMatchItemIds": [
+        180000019
+      ],
+      "sourceMatchCount": 1
+    },
+    {
+      "definitionId": 2120000210,
+      "selector": "BoardGameFigurine",
+      "selectorOneof": "Universe=1",
+      "universe": 2000500010,
+      "ignore": false,
+      "sourceMatchItemIds": [
+        180000005,
+        180000006,
+        180000007,
+        180000012,
+        180000018
+      ],
+      "sourceMatchCount": 5
+    },
+    {
+      "definitionId": 2120000211,
+      "selector": "BoardGameFigurine",
+      "selectorOneof": "Universe=1",
+      "universe": 2000500001,
+      "ignore": false,
+      "sourceMatchItemIds": [
+        180000000,
+        180000001,
+        180000002,
+        180000003,
+        180000011,
+        180000032,
+        180000033
+      ],
+      "sourceMatchCount": 7
+    },
+    {
+      "definitionId": 2120000212,
+      "selector": "BoardGameFigurine",
+      "selectorOneof": "Universe=1",
+      "universe": 2000500009,
+      "ignore": false,
+      "sourceMatchItemIds": [
+        180000021
+      ],
+      "sourceMatchCount": 1
+    },
+    {
+      "definitionId": 2120000213,
+      "selector": "BoardGameFigurine",
+      "selectorOneof": "Universe=1",
+      "universe": 2000500019,
+      "ignore": false,
+      "sourceMatchItemIds": [
+        180000004
+      ],
+      "sourceMatchCount": 1
+    },
+    {
+      "definitionId": 2120000214,
+      "selector": "BoardGameFigurine",
+      "selectorOneof": "Universe=1",
+      "universe": 2000500008,
+      "ignore": false,
+      "sourceMatchItemIds": [
+        180000017,
+        180000025
+      ],
+      "sourceMatchCount": 2
+    },
+    {
+      "definitionId": 2120000215,
+      "selector": "BoardGameFigurine",
+      "selectorOneof": "Universe=1",
+      "universe": 2000500006,
+      "ignore": false,
+      "sourceMatchItemIds": [
+        180000015
+      ],
+      "sourceMatchCount": 1
+    },
+    {
+      "definitionId": 2120000216,
+      "selector": "BoardGameFigurine",
+      "selectorOneof": "Universe=1",
+      "universe": 2000500013,
+      "ignore": false,
+      "sourceMatchItemIds": [
+        180000016,
+        180000029
+      ],
+      "sourceMatchCount": 2
+    },
+    {
+      "definitionId": 2120000217,
+      "selector": "BoardGameFigurine",
+      "selectorOneof": "Universe=1",
+      "universe": 2000500003,
+      "ignore": false,
+      "sourceMatchItemIds": [
+        180000026
+      ],
+      "sourceMatchCount": 1
+    },
+    {
+      "definitionId": 2120000218,
+      "selector": "BoardGameFigurine",
+      "selectorOneof": "Universe=1",
+      "universe": 2000500004,
+      "ignore": false,
+      "sourceMatchItemIds": [
+        180000027
+      ],
+      "sourceMatchCount": 1
+    },
+    {
+      "definitionId": 2120000219,
+      "selector": "BoardGameFigurine",
+      "selectorOneof": "Universe=1",
+      "universe": 2000500014,
+      "ignore": false,
+      "sourceMatchItemIds": [
+        180000028
+      ],
+      "sourceMatchCount": 1
+    },
+    {
+      "definitionId": 2120000238,
+      "selector": "BoardGameFigurine",
+      "selectorOneof": "Universe=1",
+      "universe": 2000500012,
+      "ignore": false,
+      "sourceMatchItemIds": [
+        180000030,
+        180000031
+      ],
+      "sourceMatchCount": 2
+    },
+    {
+      "definitionId": 2120000252,
+      "selector": "BoardGameFigurine",
+      "selectorOneof": "Universe=1",
+      "universe": 2000500048,
+      "ignore": false,
+      "sourceMatchItemIds": [
+        180000035
+      ],
+      "sourceMatchCount": 1
+    }
+  ],
+  "exemplars": [
+    {
+      "itemId": 180000000,
+      "name": "Mickey!Mickey",
+      "rawPackedTags": [
+        2000500001,
+        2001200029
+      ],
+      "positiveSelectorId": 2120000211,
+      "negativeSelectorId": 2120000206
+    },
+    {
+      "itemId": 180000004,
+      "name": "SwordInStone!Merlin",
+      "rawPackedTags": [
+        2000500019,
+        2001200029,
+        2001200070
+      ],
+      "positiveSelectorId": 2120000213,
+      "negativeSelectorId": 2120000211
+    }
+  ],
+  "coverage": {
+    "priorPredicateConfirmed": 76,
+    "newConfirmed": 16,
+    "updatedPredicateConfirmed": 92,
+    "total": 256,
+    "remainingUnknown": 164,
+    "unknownFamilyCounts": {
+      "Furniture": 63,
+      "Clothing": 61,
+      "Crafting": 28,
+      "ActivityItem": 12,
+      "BoardGameFigurine": 0
+    }
+  },
+  "safety": {
+    "predicateStageOnly": true,
+    "runtimeRegistryLookupConfirmed": false,
+    "finalMembershipKnown": false,
+    "denominator": null,
+    "owned": "UNKNOWN",
+    "collected": "UNKNOWN",
+    "missing": "UNKNOWN",
+    "personalCollectionMetricsAuthorized": false,
+    "premiumEntitlementInferenceAuthorized": false,
+    "nativeWriterAuthorized": false,
+    "presetApplyAuthorized": false,
+    "communityPublishingAuthorized": false,
+    "schema626SemanticsTransferred": false,
+    "steamSemanticsTransferred": false
+  }
+}
