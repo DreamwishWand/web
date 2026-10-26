@@ -146,6 +146,8 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
  assert inventory['historicalGalleryReferenceCount']>=1
  assert inventory['physicalDeleteAuthorized'] is False and inventory['cleanupClaimAuthorized'] is False
  assert inventory['allCurrentHistoricalAndCloudReferencesProven'] is False
+ denial(a,'delete from private.preset_storage_work_read_suppressions_r19 where reservation_id=%s returning work_id',
+   (rid,),'R19_PRESET_READ_SUPPRESSION_AUDIT_IMMUTABLE')
  a.execute('commit')
  for role in ['anon','authenticated']:
   assert not one(b,"select has_function_privilege(%s,'public.community_preset_storage_resolution_readiness_r19(uuid,uuid,bigint,bigint)','EXECUTE')",(role,))
