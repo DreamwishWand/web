@@ -15,7 +15,7 @@ const webPresets = read('src/lib/wep/preset-community-bridge.ts');
 const publicMedia = read('supabase/functions/community-public-media/index.ts');
 
 function body(source, name) {
-  const escaped = name.replace(/[.*+?^$()|[\]{}]/g, '\\$&');
+  const escaped = name.replaceAll('.', '\\.');
   const start = new RegExp('create or replace function\\s+' + escaped + '\\s*\\(', 'i').exec(source);
   assert.ok(start, 'Missing frozen function: ' + name);
   const rest = source.slice(start.index);
