@@ -48,8 +48,8 @@ test('R16 Edge uses fresh Session retries with same pinned revision/version and 
  assert.match(edge,/\['40P01','55P03','40001'\]/);
 });
 test('R16 exact local source runner checks registry/ACL and true two-backend lock, CAS and replay',()=>{
- assert.match(work,/assert len\(fs\)==141/);
- assert.match(work,/MIGRATION_LEDGER_NOT_141/);
+ assert.match(work,/assert len\(fs\)==142/);
+ assert.match(work,/MIGRATION_LEDGER_NOT_142/);
  assert.match(work,/R16_REGISTRY_COUNT_MISMATCH/);
  assert.match(work,/R16_REGISTRY_ACL_EXPOSED/);
  assert.match(work,/comm-r16-gallery-metadata-two-session\.py/);
