@@ -46,7 +46,7 @@ test('Original native call proves typed GetAllByType then Item ID projection wit
  assert.equal(n.projector.lambdaRva,'0x4BFF5E0');
  assert.equal(n.projector.lambdaSha256,'5433bbdfc30142a02d0719dcdf2b3773eceffb4ec3580aba91741b28463c2d48');
  assert.equal(n.projector.noPredicateWhereInFlowerCase,true);
- assert.equal(n.projector.sharedEnumerableSelectMethodRva,'0x3752680');
+ assert.equal(n.projector.sharedEnumerableSelectRva,'0x3752680');
 });
 test('Flower original TypeDef ICollectionItem vtable and !IsMissionItem native getter, no variation',()=>{
  const x=e.concrete;
