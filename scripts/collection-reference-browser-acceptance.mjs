@@ -75,6 +75,36 @@ try{
  assert(await page.locator('.collection-card').count()===0,'Unverified game version showed catalog rows');
  ok('UNSUPPORTED_SWITCH_1253_DENIED');
 
+ await page.goto(base+'/collection/?item='+expectedId,{waitUntil:'domcontentloaded'});
+ await eventually(async()=>await page.locator('.item-detail').count()===1);
+ for(const suffix of [
+   '&item=abc&view=???&world=WRONG',
+   '&view=world&family=Furniture',
+   '&item='+expectedId,
+   '&view=wrong'
+ ]) {
+   await page.goto(base+'/collection/?item='+expectedId+suffix,{waitUntil:'domcontentloaded'});
+   await eventually(async()=>await page.locator('[data-collection-state="invalid-url"]').count()===1);
+   assert(await page.locator('.item-detail').count()===0,'Invalid URL retained stale Detail');
+   assert(await page.locator('.collection-card').count()===0,'Invalid URL exposed browse records');
+ }
+ ok('QR193_URL_AMBIGUITY_CONFLICT_AND_STALE_DETAIL_DENIED');
+
+ await page.route('**/ddv/collection/v1.25/index.json',async route=>{
+   const source=await route.fetch();
+   const original=await source.json();
+   original.f[0]='FORGED_CATEGORY';
+   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(original)});
+ });
+ await page.goto(base+'/collection/?item='+expectedId,{waitUntil:'domcontentloaded'});
+ await eventually(async()=>await page.locator('.status.error[role="alert"]').count()===1);
+ assert(await page.locator('.item-detail').count()===0,'Tampered trusted Index opened stale Detail');
+ await page.unroute('**/ddv/collection/v1.25/index.json');
+ await page.locator('.retry-button').click();
+ await eventually(async()=>await page.locator('.item-detail').count()===1);
+ assert(await page.locator('.item-detail dd code').first().textContent()===expectedId,'Retry restored wrong ItemID');
+ ok('QR193_TAMPERED_INDEX_DENIED_AND_RETRY_CANONICAL_DETAIL');
+
  await page.goto(base+'/collection/',{waitUntil:'domcontentloaded'});
  await eventually(async()=>await page.locator('.collection-card').count()>0);
  await page.locator('.collection-card').first().click();
