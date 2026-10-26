@@ -18,7 +18,7 @@ alter table private.preset_storage_reservations_r18
 alter table private.preset_storage_reservations_r18
   add constraint preset_storage_reservations_r18_evidence_ck
   check(verification_evidence_state in
-    ('NOT_ATTESTED','EDGE_READBACK_UNATTESTED','PROVIDER_ATTESTATION_REQUIRED'));
+    ('NOT_ATTESTED','EDGE_READBACK_UNATTESTED','PROVIDER_ATTESTED'));
 create index if not exists preset_storage_lease_expiry_r18
   on private.preset_storage_reservations_r18(lease_expires_at)
   where lease_token is not null;
@@ -196,13 +196,22 @@ begin
   select * into v_res from private.preset_storage_reservations_r18
     where reservation_id=p_reservation_id and owner_account_id=v_owner for update;
   if v_res.reservation_id is null then raise exception 'R18_PRESET_RESERVATION_FORBIDDEN';end if;
+  if v_res.reservation_state='COMMITTED_PRESET_PUBLICATION' then
+    select i.response into v_response from public.idempotency_keys i
+      where i.account_id=v_owner and i.idempotency_key=v_res.idempotency_key
+        and i.request_hash=v_res.request_hash
+        and i.completed_at is not null;
+    if v_res.committed_blob_id is null or v_response is null
+      then raise exception 'R18_PRESET_COMMITTED_REPLAY_NOT_PROVABLE';end if;
+    return v_response;
+  end if;
   if v_res.state_version<>p_expected_version
    or v_res.lease_token is distinct from p_lease_token
    or v_res.lease_fence<>p_lease_fence
    or v_res.lease_expires_at<=clock_timestamp()
     then raise exception 'R18_PRESET_STALE_FENCE_OR_LEASE';end if;
   if v_res.reservation_state<>'VERIFIED_PUBLISHED_OBJECT'
-    or v_res.verification_evidence_state<>'PROVIDER_ATTESTATION_REQUIRED'
+    or v_res.verification_evidence_state<>'PROVIDER_ATTESTED'
     or v_res.readback_at is null
     or v_res.readback_sha256<>v_res.checksum_sha256
     or v_res.readback_byte_size<>v_res.byte_size
