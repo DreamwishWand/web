@@ -87,6 +87,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
           node --test tests/community-gallery-stacked-migration-order.test.mjs
           node --test tests/community-r18-scene-product-source-closure.test.mjs
       - uses: supabase/setup-cli@v1
