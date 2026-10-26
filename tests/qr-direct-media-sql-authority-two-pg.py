@@ -129,6 +129,12 @@ with psycopg.connect(DSN, autocommit=True) as a, psycopg.connect(DSN, autocommit
     direct_owner = "select public.community_gallery_owner_media_read_v1(%s,%s)"
     assert one(b, "select has_function_privilege('service_role','public.community_get_public_media_storage_v2(uuid)','execute')")
     assert one(b, "select has_function_privilege('service_role','public.community_gallery_owner_media_read_v1(uuid,uuid)','execute')")
+    assert one(b, "select to_regprocedure('private.community_gallery_owner_media_read_unfenced_r19(uuid,uuid)') is not null") is True
+    for role in ("service_role", "anon", "authenticated"):
+        assert not one(b, """
+            select has_function_privilege(%s,
+                'private.community_gallery_owner_media_read_unfenced_r19(uuid,uuid)','execute')
+        """, (role,))
     for role in ("anon", "authenticated"):
         assert not one(b, """
             select has_function_privilege(%s,'public.community_get_public_media_storage_v2(uuid)','execute')
@@ -168,6 +174,11 @@ with psycopg.connect(DSN, autocommit=True) as a, psycopg.connect(DSN, autocommit
         "directOwnerCurrentPostgres": guarded(a, None, direct_owner, (actor,current_media)),
     }
     violations = [name for name, outcome in results.items() if not no_key(outcome)]
+    expected_denial = "R19_PRESET_PROVIDER_GALLERY_MEDIA_READ_SUPPRESSED"
+    for name, outcome in results.items():
+        assert outcome["denied"] and expected_denial in outcome["message"], (
+            "QR_DIRECT_SQL_POSTINCIDENT_WRONG_DENIAL", name, outcome.get("state")
+        )
     print(json.dumps({
         "case": "QR_DIRECT_MEDIA_SQL_SOURCE140_DIFFERENTIAL_2PG",
         "sourceHead": os.getenv("GITHUB_SHA", "local"),
