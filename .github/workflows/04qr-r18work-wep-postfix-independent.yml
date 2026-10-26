@@ -1,0 +1,38 @@
+name: 04 QR R18-work WEP post-fix independent race handler verification
+on:
+  push:
+    branches:
+      - validation/04qr-r18work-wep-fixed-66dc-independent-20261026
+    paths:
+      - tests/qr-r18work-wep66dc-postfix-independent.test.mjs
+      - .github/workflows/04qr-r18work-wep-postfix-independent.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  actual-wep-source-mock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.1.4
+      - name: Confirm WEP exact source and clean QA-only addition
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 66dc71ee828d965af04685844508d000261263a5 HEAD
+          test -z "$(git diff --name-only 66dc71ee828d965af04685844508d000261263a5 HEAD -- supabase/functions supabase/migrations)"
+          git rev-parse HEAD
+      - name: Deno parse and type check actual WEP Edge
+        run: deno check --node-modules-dir=auto supabase/functions/wep-preset-artifact/index.ts
+      - name: Install verified dependencies
+        run: npm ci
+      - name: Run only NEW independent fixed WEP Source mock races
+        run: node --test tests/qr-r18work-wep66dc-postfix-independent.test.mjs
