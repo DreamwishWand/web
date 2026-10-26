@@ -57,7 +57,7 @@
   afterNavigate(({to}) => { if (to?.url) applyUrl(to.url); });
   async function reload(): Promise<void> {
     const request = ++loadSequence;
-    runtimeIndex = null; verifiedCapability = null; rawRows = [];
+    runtimeIndex = null; rawRows = []; verifiedCapability = null;
     loading = true; error = '';
     try {
       const loaded = await loadCollectionRuntime(base);
@@ -67,7 +67,7 @@
       rawRows = loaded.rows;
     } catch {
       if (request !== loadSequence) return;
-      runtimeIndex = null; verifiedCapability = null; rawRows = [];
+      runtimeIndex = null; rawRows = []; verifiedCapability = null;
       error = 'REFERENCE_FETCH_OR_INTEGRITY_REJECTED';
     } finally { if (request === loadSequence) loading = false; }
   }
