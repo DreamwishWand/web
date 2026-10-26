@@ -7,6 +7,19 @@ const MAX_BYTES = 25 * 1024 * 1024;
 const CONTENT_TYPE = 'application/json';
 const ALLOWED_TYPES = new Set(['scene','biome','floating_island','tom_furniture','tom_clothing']);
 
+/** No physical deletion without a future Owner-issued reservation/permit. */
+function classifyOwnerDiscardKey(storageKey: string, accountId: string):
+  'staging' | 'published' | 'invalid' {
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuid.test(accountId) || !/^[a-zA-Z0-9/._-]+$/.test(storageKey)) return 'invalid';
+  const parts = storageKey.split('/');
+  if (parts.length !== 3 || parts[1] !== accountId || !parts[2].endsWith('.json')) return 'invalid';
+  const stem = parts[2].slice(0,-5);
+  if (parts[0] === 'staging' && uuid.test(stem)) return 'staging';
+  if (parts[0] === 'published' && /^[0-9a-f]{64}$/.test(stem)) return 'published';
+  return 'invalid';
+}
+
 function reply(body: unknown, status = 200) {
   return Response.json(body, {
     status,
@@ -281,7 +294,6 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       }
     }
 
-    let promotedNewObject = false;
     if (source === 'staging') {
       const { error: copyError } = await ctx.supabaseAdmin.storage.from(BUCKET).copy(storageKey, publishedStorageKey);
       if (copyError) {
@@ -293,8 +305,6 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         } catch {
           return reply({ ok: false, error: 'ARTIFACT_PROMOTE_FAILED', message: copyError.message }, 400);
         }
-      } else {
-        promotedNewObject = true;
       }
     }
 
@@ -314,15 +324,14 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       p_idempotency_key: idempotencyKey
     });
     if (error) {
-      if (promotedNewObject) {
-        await ctx.supabaseAdmin.storage.from(BUCKET).remove([publishedStorageKey]);
-      }
+      // Storage.copy is outside the DB transaction. Never unlink a possibly
+      // shared or concurrently committed deterministic published key.
+      // Future Owner cleanup must reconcile orphan Storage after DB authority.
       return reply({ ok: false, error: 'PRESET_PUBLISH_FAILED', message: error.message }, 400);
     }
 
-    if (source === 'staging') {
-      await ctx.supabaseAdmin.storage.from(BUCKET).remove([storageKey]);
-    }
+    // Staging unlink also races concurrent Publish validation/copy.
+    // Keep bytes intact until a fenced Storage reservation contract exists.
     return reply({ ok: true, action, data: { ...data, storageKey: publishedStorageKey, schemaVersion: validated.schemaVersion, presetType: validated.presetType, contentType: CONTENT_TYPE, byteSize: validated.blob.size, checksumSha256: validated.checksumSha256 } });
   }
 
@@ -427,18 +436,18 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
   }
 
   if (action === 'discard') {
-    const storageKey = String(body.storageKey ?? '');
-    const ownedPrefix = storageKey.startsWith(`staging/${accountId}/`) || storageKey.startsWith(`published/${accountId}/`);
-    if (!ownedPrefix || storageKey.includes('..') || !storageKey.endsWith('.json')) {
+    const storageKey = typeof body.storageKey === 'string' ? body.storageKey : '';
+    const scope = classifyOwnerDiscardKey(storageKey, accountId);
+    if (scope === 'invalid') {
       return reply({ ok: false, error: 'INVALID_STORAGE_KEY' }, 403);
     }
-    const { data: registered, error: lookupError } = await ctx.supabaseAdmin
-      .from('artifact_blobs').select('blob_id').eq('storage_key', storageKey).maybeSingle();
-    if (lookupError) return reply({ ok: false, error: 'DISCARD_LOOKUP_FAILED', message: lookupError.message }, 400);
-    if (registered) return reply({ ok: false, error: 'REGISTERED_ARTIFACT_CANNOT_BE_DISCARDED' }, 409);
-    const { error } = await ctx.supabaseAdmin.storage.from(BUCKET).remove([storageKey]);
-    if (error) return reply({ ok: false, error: 'DISCARD_FAILED', message: error.message }, 400);
-    return reply({ ok: true, action, storageKey });
+    if (scope === 'published') {
+      // Unregistered or registered cannot be distinguished safely while a
+      // concurrent Publish spans Storage.copy and PostgreSQL commit.
+      return reply({ ok: false, error: 'PUBLISHED_ARTIFACT_PHYSICAL_DISCARD_UNAUTHORIZED' }, 409);
+    }
+    // No lock/lease fences a staging key against in-flight upload or Publish.
+    return reply({ ok: false, error: 'STAGING_ARTIFACT_DISCARD_REQUIRES_RESERVATION' }, 409);
   }
 
   return reply({ ok: false, error: 'Unsupported action' }, 400);
