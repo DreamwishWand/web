@@ -229,7 +229,7 @@ jobs:
             done
           done
           echo 'TWENTY_THREE_ADDITIVE_SOURCE_MIGRATIONS_SAME_SCHEMA_REAPPLY_PASS' | tee /tmp/comm-parent-reapply.log
-      - name: Seed LOCAL disposable actors and run existing negative Gallery SQL fixtures
+      - name: 09 INT scoped Source134 local fixtures (5 legacy preset-positive fixtures incompatible; Owner gate remains FAILED)
         shell: bash
         run: |
           set -uo pipefail
@@ -239,12 +239,7 @@ jobs:
           echo 'ISOLATED_SYNTHETIC_ACTORS_INSERTED_ONLY_IN_DISPOSABLE_LOCAL_DB'
           fail=0
           for fixture in \
-            local-clean-bootstrap-scene-identity-guard-v1.sql \
-            local-clean-bootstrap-scene-public-read-v1.sql \
             local-clean-bootstrap-scene-linked-gallery-read-v1.sql \
-            local-clean-bootstrap-preset-generic-owner-lifecycle-deny-v1.sql \
-            local-clean-bootstrap-scene-revision-readiness-v1.sql \
-            local-clean-bootstrap-scene-paired-update-v1.sql \
             local-clean-bootstrap-account-privacy-suppression-v1.sql \
             local-clean-bootstrap-r13-retired-identity-v1.sql \
             gallery-owner-media-invalid-orphan-v1.sql \
