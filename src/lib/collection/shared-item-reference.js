@@ -41,8 +41,9 @@ function safePath(base,suffix) {
 /** Reference-only. Uses existing 08 WEB/01D-derived decoded Collection item records. */
 /** @param {any} options */
 export function resolveSharedItemLink(options={}) {
-  const {index,records,itemId,from,to,basePath='',requestedTarget=ITEM_REFERENCE_TARGET,
+  const {index,records,itemId,identityKind,from,to,basePath='',requestedTarget=ITEM_REFERENCE_TARGET,
     sourceRecord=null,targetRecord=null,lifecycle=null}=options;
+  if(identityKind!=='DDV_ITEM_ID') return fail('UNSUPPORTED_IDENTITY_KIND');
   if(!surfaces.has(from)||!surfaces.has(to)||from===to) return fail('UNSUPPORTED_SURFACE');
   if(!sourceGood(index,requestedTarget)) return fail('UNSUPPORTED_SOURCE_BUILD');
   const id=numericId(itemId);
@@ -85,7 +86,7 @@ export function resolveRelatedItemLink(options={}) {
     e.authority===relation.authority && e.platform===relation.platform &&
     e.gameVersion===relation.gameVersion && e.buildID===relation.buildID) : [];
   if(verified.length!==1) return fail('UNVERIFIED_RELATED_IDENTITY');
-  return resolveSharedItemLink({index,records,itemId:relation.targetItemId,from:'decorate',to:'collection',requestedTarget,basePath});
+  return resolveSharedItemLink({index,records,itemId:relation.targetItemId,identityKind:'DDV_ITEM_ID',from:'decorate',to:'collection',requestedTarget,basePath});
 }
 /** No Guide relationships/pages have reached public approval. Caller must provide both reviewed registries. */
 /** @param {any} options */
