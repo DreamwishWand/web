@@ -1,0 +1,31 @@
+name: 04 QR Source139 scoped postincident source QA
+
+on:
+  pull_request:
+    paths:
+      - 'tests/qr-r19-postincident-historical-gallery-independent.test.mjs'
+      - 'supabase/migrations/20261025003030_r19_preset_postcommit_read_suppression.sql'
+      - '.github/workflows/qr-r19-postincident-source-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-source-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Assert source-only and no provider credentials
+        run: |
+          test -z "$SUPABASE_ACCESS_TOKEN"
+          test -z "$DATABASE_URL"
+      - name: Independent NEW Source139 source-only boundary
+        run: node --test tests/qr-r19-postincident-historical-gallery-independent.test.mjs
