@@ -12,6 +12,7 @@
 
   type ViewMode = 'category' | 'world' | 'universe';
   let runtimeIndex: any = null;
+  let verifiedCapability: object | null = null;
   let rawRows: any[] = [];
   let loading = true;
   let error = '';
@@ -34,8 +35,8 @@
   $: filtered = filterCollectionRecords(records, { query, family, world, universe }).sort((a: any, b: any) => a.label.localeCompare(b.label, $locale));
   $: visible = filtered.slice(0, displayLimit);
   $: itemSelection = collectionReferenceSelection(records, itemId, version);
-  $: decorateLink = !invalidUrl && runtimeIndex && itemSelection.status === 'found' ? resolveSharedItemLink({
-    index:runtimeIndex, records, itemId:itemSelection.item.itemId, identityKind:'DDV_ITEM_ID',from:'collection',to:'decorate',
+  $: decorateLink = !invalidUrl && verifiedCapability && itemSelection.status === 'found' ? resolveSharedItemLink({
+    capability:verifiedCapability, itemId:itemSelection.item.itemId, identityKind:'DDV_ITEM_ID',from:'collection',to:'decorate',
     sourceRecord:itemSelection.item, basePath:base,
     requestedTarget:{platform:'Nintendo Switch',gameVersion:version,buildID:runtimeIndex.t.buildID}
   }) : null;
@@ -56,16 +57,17 @@
   afterNavigate(({to}) => { if (to?.url) applyUrl(to.url); });
   async function reload(): Promise<void> {
     const request = ++loadSequence;
-    runtimeIndex = null; rawRows = [];
+    runtimeIndex = null; verifiedCapability = null; rawRows = [];
     loading = true; error = '';
     try {
       const loaded = await loadCollectionRuntime(base);
       if (request !== loadSequence) return;
       runtimeIndex = loaded.index;
+      verifiedCapability = loaded.capability;
       rawRows = loaded.rows;
     } catch {
       if (request !== loadSequence) return;
-      runtimeIndex = null; rawRows = [];
+      runtimeIndex = null; verifiedCapability = null; rawRows = [];
       error = 'REFERENCE_FETCH_OR_INTEGRITY_REJECTED';
     } finally { if (request === loadSequence) loading = false; }
   }
