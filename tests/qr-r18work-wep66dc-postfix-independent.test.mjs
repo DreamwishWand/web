@@ -45,7 +45,7 @@ function harness(){
     from:()=>{throw Error('Unexpected committed Blob SQL lookup')},
     rpc:async(name,args)=>{
       events.rpc.push(name);
-      if(name==='community_authorize_session')return{data:{accountId:account},error:null};
+      if(name==='community_authorize_session')return{data:{accountId:args.p_auth_subject===other?'77777777-7777-4777-8777-777777777777':account},error:null};
       if(name==='community_publish_preset_envelope'){
         const result=publicationGate?await publicationGate(args):null;
         if(result?.error)return{error:result.error};
