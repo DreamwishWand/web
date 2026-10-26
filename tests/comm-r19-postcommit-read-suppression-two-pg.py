@@ -119,9 +119,10 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
   ('select public.wep_get_accessible_preset_blob(%s,%s,null)',(actor,preset)),
   ('select public.wep_get_accessible_preset_blob(%s,null,%s)',(actor,rev)),
   ('select public.community_get_gallery_public_v1(%s)',(gallery,)),
-  ('select public.community_get_gallery_v1(%s,%s)',(actor,gallery)),
-  ('select public.community_preset_storage_assert_media_not_quarantined_r19(%s)',(media,))
+  ('select public.community_get_gallery_v1(%s,%s)',(actor,gallery))
  ]:denial(a,query,args,'R19_PRESET_PROVIDER_INTEGRITY_READ_SUPPRESSED')
+ denial(a,'select public.community_preset_storage_assert_media_not_quarantined_r19(%s)',
+   (media,),'R19_PRESET_PROVIDER_GALLERY_MEDIA_READ_SUPPRESSED')
  denial(a,"""insert into public.search_documents(entity_id,work_id,work_type,creator_profile_id,title,published_at)
   values(%s,%s,'gallery',%s,'forbidden',now()) returning entity_id""",(gallery,gallery,creator),
   'R19_PRESET_PROVIDER_INTEGRITY_SEARCH_SUPPRESSED')
