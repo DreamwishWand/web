@@ -1,0 +1,44 @@
+name: 09 INT Source139 Reader-Incident Actual Two PostgreSQL (LOCAL ONLY)
+on:
+  push:
+    branches:
+      - validation/09int-source139-read-race-2pg-20261026
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-local-pg:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify frozen accepted Owner Source139 SQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l)" -eq 139
+          test -f supabase/migrations/20261025003030_r19_preset_postcommit_read_suppression.sql
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Create temporary fully local Supabase test project
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'project_id = "int_r19_reader_race_ephemeral_20261026"\n' | cat - supabase/config.toml > /tmp/int-config.toml
+          mv /tmp/int-config.toml supabase/config.toml
+          timeout 1500s supabase start > /tmp/09int-r19-dbstart.log 2>&1 || { tail -n 70 /tmp/09int-r19-dbstart.log; exit 1; }
+      - name: Actual two-backend isolated Reader-vs-Incident test
+        shell: bash
+        env:
+          DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'psycopg[binary]>=3.2,<4'
+          python3 tests/09int-r19-actual-read-race-2pg-independent.py | tee /tmp/09int-r19-independent.log
+      - name: Stop disposable stack
+        if: always()
+        run: supabase stop --no-backup || true
