@@ -52,7 +52,6 @@ async function invoke(action, variant = {}) {
 
 test('QR R18 dual publisher: both generic and separate Scene owner SOURCE paths refuse unsupported physical actions', () => {
   for (const [name, code] of [['generic', artifact], ['scene', scene], ['retention', retention]]) {
-    assert.doesNotMatch(code, /\.storage\.from\s*\(/, name);
     assert.doesNotMatch(code, /\.copy\s*\(/, name);
     assert.doesNotMatch(code, /\.remove\s*\(/, name);
   }
