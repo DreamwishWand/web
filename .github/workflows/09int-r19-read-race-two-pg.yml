@@ -3,6 +3,10 @@ on:
   push:
     branches:
       - validation/09int-source139-read-race-2pg-20261026
+  pull_request:
+    paths:
+      - 'tests/09int-r19-actual-read-race-2pg-independent.py'
+      - '.github/workflows/09int-r19-read-race-two-pg.yml'
   workflow_dispatch:
 permissions:
   contents: read
