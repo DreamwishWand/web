@@ -1,0 +1,45 @@
+name: 04 QR Independent WEP PR189 Gate A4 Offline Candidate
+on:
+  pull_request:
+    paths:
+      - 'tests/qr-a4-wep189-independent-handler-stop.test.mjs'
+      - '.github/workflows/qr-a4-wep189-independent-offline.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qr-independent-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Pin A4 WEP source candidates and isolate no staging credentials
+        run: |
+          set -euo pipefail
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN"
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+          P=operator/gate-a/wep-source142-stop-candidate/supabase/functions
+          test "$(git hash-object $P/wep-preset-artifact/index.ts)" = "631abd4cfb462ce6774b79042a55e580041063d8"
+          test "$(git hash-object $P/wep-scene-preset-product/index.ts)" = "4b667fa26408053b75b91575e59443f0375905ae"
+          test "$(git hash-object $P/wep-preset-retention/index.ts)" = "2002d24e585156ce9db6cc4dc78af6d323febd32"
+          test "$(git hash-object supabase/migrations/20261025003060_r19_legacy_media_signer_authority.sql)" = "b7563d68348f27591a20a98760534fa7d399b160"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Independent actual TS handler VM deny-all with fake actor and exploding Storage
+        run: node --test tests/qr-a4-wep189-independent-handler-stop.test.mjs
+      - name: Independently reproduce exact candidate archive and SHA256SUMS
+        run: |
+          set -euo pipefail
+          node scripts/gate-a/build-wep-source142-stop-bundle.mjs | tee /tmp/qr-a4-builder.log
+          cd dist/wep-gate-a-source142-stop
+          sha256sum -c SHA256SUMS
+          tar -tf wep-gate-a-source142-stop-candidate.tar
+          echo 'QR_A4_SOURCE_CANDIDATE_ONLY_PASS__DEPLOYED_BUNDLE_SHA_UNKNOWN'
