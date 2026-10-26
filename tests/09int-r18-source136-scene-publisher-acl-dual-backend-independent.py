@@ -74,7 +74,7 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
   for n in functions:
    a.execute(f"""create function public.{n}(p_auth_subject uuid)
      returns jsonb language sql security definer as
-     $$ select '{}'::jsonb $$""")
+     $ select '{{}}'::jsonb $""")
    a.execute(f"grant execute on function public.{n}(uuid) to service_role,anon,authenticated")
    oid=a.execute("""select p.oid from pg_proc p join pg_namespace n on p.pronamespace=n.oid
         where n.nspname='public' and p.proname=%s""",(n,)).fetchone()[0]
