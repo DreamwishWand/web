@@ -1,0 +1,42 @@
+name: 04 QR Source140 scoped authenticated readers actual independent PG
+on:
+  pull_request:
+    paths:
+      - 'tests/qr-r19-source140-auth-reader-scoped-denial-two-pg.py'
+      - '.github/workflows/qr-r19-source140-auth-reader-scoped-denial.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-two-pg-new-gap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Reject remote credentials and isolate instance
+        run: |
+          set -euo pipefail
+          test -z "$SUPABASE_ACCESS_TOKEN"
+          test -z "$DATABASE_URL"
+          printf 'project_id = "ddvre_qr140_auth_closure_local_20261026"\n' | cat - supabase/config.toml >/tmp/qr139-config
+          mv /tmp/qr139-config supabase/config.toml
+      - name: Disposable clean Source139 database
+        run: |
+          set -euo pipefail
+          timeout 1500s supabase start --debug
+          timeout 900s supabase db reset --no-seed
+      - name: New isolated two PostgreSQL backend negative fixture only
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'psycopg[binary]>=3.2,<4'
+          python3 tests/qr-r19-source140-auth-reader-scoped-denial-two-pg.py
+      - name: Destroy disposable local DB
+        if: always()
+        run: supabase stop --no-backup || true
