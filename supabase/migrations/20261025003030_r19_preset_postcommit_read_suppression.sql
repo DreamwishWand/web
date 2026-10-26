@@ -558,13 +558,19 @@ create or replace function public.community_preset_storage_cleanup_inventory_r19
 ) returns jsonb language plpgsql security definer
 set search_path=pg_catalog,public,private as $r19$
 declare v_owner uuid;v_res private.preset_storage_reservations_r18%rowtype;
- v_presets bigint;v_galleries bigint;v_incidents bigint;
+ v_presets bigint;v_galleries bigint;v_incidents bigint;v_key_match_count bigint;
 begin
  v_owner:=private.resolve_active_account(p_auth_subject);
  perform 1 from public.wand_accounts a
   where a.account_id=v_owner and a.status='active' and a.deleted_at is null for share;
  if not found or private.is_account_privacy_suppressed(v_owner)
  then raise exception 'R19_PRESET_CLEANUP_OWNER_INACTIVE';end if;
+ select count(*) into v_key_match_count
+  from private.preset_storage_reservations_r18 r
+  where r.owner_account_id=v_owner
+    and (r.published_storage_key=p_storage_key or r.source_staging_key=p_storage_key);
+ if v_key_match_count<>1 then
+  raise exception 'R19_PRESET_CLEANUP_KEY_UNKNOWN_OR_AMBIGUOUS';end if;
  select * into v_res from private.preset_storage_reservations_r18 r
   where r.owner_account_id=v_owner
     and (r.published_storage_key=p_storage_key or r.source_staging_key=p_storage_key)
