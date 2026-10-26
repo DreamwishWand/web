@@ -89,6 +89,11 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
   a.execute("insert into public.community_entities(entity_id,entity_type) values(%s,'media_asset')",(media,))
   a.execute("""insert into public.media_assets(media_id,owner_account_id,storage_key,mime_type,byte_size,checksum_sha256,processing_state)
     values(%s,%s,%s,'image/png',100,%s,'ready')""",(media,owner,f'{actor}/{u()}.png','e'*64))
+  # Unrelated ordinary owner media is deliberately not connected to incident graph.
+  normal_media=u()
+  a.execute("insert into public.community_entities(entity_id,entity_type) values(%s,'media_asset')",(normal_media,))
+  a.execute("""insert into public.media_assets(media_id,owner_account_id,storage_key,mime_type,byte_size,checksum_sha256,processing_state)
+    values(%s,%s,%s,'image/png',100,%s,'ready')""",(normal_media,owner,f'{actor}/{u()}.png','e'*64))
   a.execute("""insert into public.work_revision_media(work_revision_id,media_id,ordinal,role)
     values(%s,%s,0,'gallery')""",(galrev,media))
   a.execute("""update public.community_works set
@@ -109,6 +114,23 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
  assert one(b,'select public.community_get_gallery_public_v1(%s)',(gallery,))['workId']==str(gallery)
  # Source141 direct privileged SQL must preserve normal published Gallery media.
  assert one(b,'select public.community_get_public_media_storage_v2(%s)',(media,))['mediaId']==str(media)
+ # Source142: original active Owner signer and ordinary non-linked media remain positive.
+ signer=lambda mid:one(b,'select public.community_get_media_storage_key(%s,%s)',(actor,mid))
+ assert signer(media)['mediaId']==str(media)
+ assert signer(normal_media)['mediaId']==str(normal_media)
+ for role in ['anon','authenticated']:
+  assert one(b,"select has_function_privilege(%s,'public.community_get_media_storage_key(uuid,uuid)','EXECUTE')",(role,)) is False
+ assert one(b,"select has_function_privilege('service_role','public.community_get_media_storage_key(uuid,uuid)','EXECUTE')") is True
+ # Valid second actor/account must not inherit the private unrelated Owner asset.
+ nonowner,nonactor=u(),u()
+ with b.transaction():
+  b.execute('insert into public.wand_accounts(account_id) values(%s)',(nonowner,))
+  b.execute("""insert into public.auth_identities(account_id,provider,provider_subject,last_verified_at,identity_state)
+    values(%s,'supabase',%s,now(),'active')""",(nonowner,str(nonactor)))
+ b.execute('begin')
+ denial(b,'select public.community_get_media_storage_key(%s,%s)',(nonactor,normal_media),'Media is not accessible')
+ b.execute('rollback')
+
  assert one(b,"select to_regprocedure('private.community_gallery_owner_media_read_unfenced_r19(uuid,uuid)') is not null") is True
  assert one(b,"select has_function_privilege('service_role','private.community_gallery_owner_media_read_unfenced_r19(uuid,uuid)','EXECUTE')") is False
  assert one(b,'select public.community_get_work(%s,%s)',(actor,direct_gallery))['workId']==str(direct_gallery)
@@ -122,6 +144,10 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
  b.execute('begin')
  incident=one(b,report,(actor,rid))
  assert incident['publicationAuthorized'] is False
+ # Reporter is UNCOMMITTED on another real PostgreSQL backend: authorized direct Owner
+ # SQL cannot see that pending Incident until COMMIT (READ COMMITTED).
+ assert one(a,'select public.community_get_media_storage_key(%s,%s)',(actor,media))['mediaId']==str(media)
+
  a.execute('begin')
  a.execute("set local lock_timeout='150ms'")
  try:
@@ -180,6 +206,12 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
  ]:denial(a,query,args,'R19_PRESET_PROVIDER_INTEGRITY_READ_SUPPRESSED')
  denial(a,'select public.community_gallery_media_gateway_v1(%s)',(media,),
    'R19_PRESET_PROVIDER_GALLERY_MEDIA_READ_SUPPRESSED')
+ # Source142: independent legacy signer must not return an impacted Storage Key.
+ denial(a,'select public.community_get_media_storage_key(%s,%s)',(actor,media),
+   'R19_PRESET_PROVIDER_GALLERY_MEDIA_READ_SUPPRESSED')
+ assert one(a,'select public.community_get_media_storage_key(%s,%s)',(actor,normal_media))['mediaId']==str(normal_media)
+ denial(a,'select public.community_get_media_storage_key(%s,%s)',(actor,media),
+   'R19_PRESET_PROVIDER_GALLERY_MEDIA_READ_SUPPRESSED')
  # Source141 only: the two distinct direct service-role SQL media issuers
  # must deny before exposing Storage keys, independent of Edge guards.
  denial(a,'select public.community_get_public_media_storage_v2(%s)',(media,),
@@ -191,6 +223,8 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
  denial(a,'select public.community_get_public_media_storage_v2(%s)',(media,),
    'R19_PRESET_PROVIDER_GALLERY_MEDIA_READ_SUPPRESSED')
  denial(a,'select public.community_gallery_owner_media_read_v1(%s,%s)',(actor,media),
+   'R19_PRESET_PROVIDER_GALLERY_MEDIA_READ_SUPPRESSED')
+ denial(a,'select public.community_get_media_storage_key(%s,%s)',(actor,media),
    'R19_PRESET_PROVIDER_GALLERY_MEDIA_READ_SUPPRESSED')
  a.execute('rollback to savepoint r19_direct_service')
  denial(a,'select public.community_preset_storage_assert_media_not_quarantined_r19(%s)',
