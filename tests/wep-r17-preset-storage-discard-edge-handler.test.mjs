@@ -177,6 +177,29 @@ test('Same deterministic key concurrent retry and completed replay cannot remove
  assert.ok(env.objects.has(key));
  assert.deepEqual(env.calls.remove,[]);
 });
+test('Real Edge handler: two same-key publishers overlap before DB commit; one cannot delete successful bytes',async()=>{
+  const env=mkCtx();
+  let finishFirst;
+  const gate=new Promise(resolve=>{finishFirst=resolve});
+  let firstAtRpc;
+  const firstEntered=new Promise(resolve=>{firstAtRpc=resolve});
+  env.holdPublishUntil(async()=>{firstAtRpc();await gate});
+  const a=invoke(env,'publish',pub(stagingA));
+  await firstEntered;
+  const key=await published();
+  assert.ok(env.objects.has(key));
+  assert.equal(env.registered.size,0);
+  const b=await invoke(env,'publish',pub(stagingB));
+  assert.equal(b.status,200);
+  assert.equal(env.registered.size,1);
+  finishFirst();
+  const result=await a;
+  assert.equal(result.status,200);
+  assert.equal(result.data.data.presetArtifactId,b.data.data.presetArtifactId);
+  assert.ok(env.objects.has(key));
+  assert.deepEqual(env.calls.remove,[]);
+});
+
 test('Post-copy SQL failure preserves published object for deferred authority-driven cleanup',async()=>{
  const env=mkCtx();env.setRpcError('synthetic transactional rollback');
  const r=await invoke(env,'publish',pub());
