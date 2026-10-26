@@ -1,0 +1,45 @@
+name: 09 INT Source142 Legacy Media Signer Independent 2PG
+on:
+  pull_request:
+    paths:
+      - 'tests/09int-source142-legacy-fallback-two-pg.py'
+      - '.github/workflows/09int-source142-legacy-signer-2pg.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  direct-legacy-fallback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+    steps:
+      - uses: actions/checkout@v4
+      - name: Exact additive Source142 SQL only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l)" -eq 142
+          test -f supabase/migrations/20261025003060_r19_legacy_media_signer_authority.sql
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Start strictly local disposable database
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'project_id = "int142_legacy_signer_ephemeral"\n' | cat - supabase/config.toml >/tmp/int142-config.toml
+          mv /tmp/int142-config.toml supabase/config.toml
+          timeout 1500s supabase start > /tmp/int142-start.log 2>&1 || { tail -n 100 /tmp/int142-start.log; exit 1; }
+      - name: New-only direct Legacy fallback two-backend read and incident
+        env:
+          DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'psycopg[binary]>=3.2,<4'
+          python3 tests/09int-source142-legacy-fallback-two-pg.py | tee /tmp/int142-evidence.log
+      - name: Dispose local stack
+        if: always()
+        run: supabase stop --no-backup || true
