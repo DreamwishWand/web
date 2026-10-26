@@ -1,0 +1,36 @@
+name: 04 QR PR195 Post-Provenance-Fix Independent Source Acceptance
+on:
+  pull_request:
+    paths:
+      - 'tests/qr-pr195-post-provenance-fix-independent.test.mjs'
+      - 'docs/qa/qr-pr195-post-provenance-fix-independent-20261027.md'
+      - '.github/workflows/qr-pr195-post-provenance-independent.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  new-only-trust-boundary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin exact repaired Owner implementation and offline source-only original replay report
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN"
+          test "$(git hash-object src/lib/ddv/core/collection/native-isvalid-registry-v125.js)" = 'a7f90f9a453875a057bbd195664c02243ab578a9'
+          test "$(git hash-object static/ddv/core/collection/v1.25/native-isvalid-original-romfs-replay-v125.json)" = '797df86edca77e4ef0b472fa6b6ba67f82b9d742'
+          test "$(git hash-object static/ddv/core/collection/v1.25/native-isvalid-registry-methodidentity-v125.json)" = '849895a849a43fd4f69b7e8c154580f677763e83'
+      - name: Six new scoped trust-boundary tests only (no original binary in repo)
+        run: node --test tests/qr-pr195-post-provenance-fix-independent.test.mjs
+      - name: Scope verdict
+        run: echo "QR195_POSTFIX_TRUST_BOUNDARY_SOURCE_ONLY_PASS_ORIGINAL_BYTES_INDEPENDENT_LOCAL_REPLAY_SEPARATE"
