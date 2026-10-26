@@ -107,6 +107,10 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
  assert one(b,'select public.community_get_preset(%s,%s)',(actor,preset))['presetArtifactId']==str(preset)
  assert one(b,'select public.wep_get_accessible_preset_blob(%s,%s,null)',(actor,preset))['presetArtifactId']==str(preset)
  assert one(b,'select public.community_get_gallery_public_v1(%s)',(gallery,))['workId']==str(gallery)
+ # Source141 direct privileged SQL must preserve normal published Gallery media.
+ assert one(b,'select public.community_get_public_media_storage_v2(%s)',(media,))['mediaId']==str(media)
+ assert one(b,"select to_regprocedure('private.community_gallery_owner_media_read_unfenced_r19(uuid,uuid)') is not null") is True
+ assert one(b,"select has_function_privilege('service_role','private.community_gallery_owner_media_read_unfenced_r19(uuid,uuid)','EXECUTE')") is False
  assert one(b,'select public.community_get_work(%s,%s)',(actor,direct_gallery))['workId']==str(direct_gallery)
  assert len(one(b,'select public.community_get_saved(%s,50)',(actor,)))==5
  assert len(one(b,'select public.community_get_my_gallery_v1(%s,50)',(actor,))['myWorks'])==3
@@ -176,6 +180,19 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
  ]:denial(a,query,args,'R19_PRESET_PROVIDER_INTEGRITY_READ_SUPPRESSED')
  denial(a,'select public.community_gallery_media_gateway_v1(%s)',(media,),
    'R19_PRESET_PROVIDER_GALLERY_MEDIA_READ_SUPPRESSED')
+ # Source141 only: the two distinct direct service-role SQL media issuers
+ # must deny before exposing Storage keys, independent of Edge guards.
+ denial(a,'select public.community_get_public_media_storage_v2(%s)',(media,),
+   'R19_PRESET_PROVIDER_GALLERY_MEDIA_READ_SUPPRESSED')
+ denial(a,'select public.community_gallery_owner_media_read_v1(%s,%s)',(actor,media),
+   'R19_PRESET_PROVIDER_GALLERY_MEDIA_READ_SUPPRESSED')
+ a.execute('savepoint r19_direct_service')
+ a.execute('set local role service_role')
+ denial(a,'select public.community_get_public_media_storage_v2(%s)',(media,),
+   'R19_PRESET_PROVIDER_GALLERY_MEDIA_READ_SUPPRESSED')
+ denial(a,'select public.community_gallery_owner_media_read_v1(%s,%s)',(actor,media),
+   'R19_PRESET_PROVIDER_GALLERY_MEDIA_READ_SUPPRESSED')
+ a.execute('rollback to savepoint r19_direct_service')
  denial(a,'select public.community_preset_storage_assert_media_not_quarantined_r19(%s)',
    (media,),'R19_PRESET_PROVIDER_GALLERY_MEDIA_READ_SUPPRESSED')
  denial(a,"""insert into public.search_documents(entity_id,work_id,work_type,creator_profile_id,title,published_at)
