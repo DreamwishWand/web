@@ -6,17 +6,22 @@ const raw=readFileSync('static/ddv/core/collection/v1.25/native-isvalid-registry
 const id={platform:'switch',gameVersion:'1.25.0',buildId:'52BD625D9B4E0053',profileSchema:624};
 const verify=()=>verifyNativeIsValidRegistryEvidenceV125(raw,id);
 const probe=(cap,itemId)=>inspectNativeIsValidRegistryBoundaryV125({verifiedSource:cap,identity:id,itemId});
-test('Same-build NSO + dump + v31 metadata + MethodSpec are pinned by exact source SHA',async()=>{
- const cap=await verify();assert.equal(cap.status,'STATIC_ISVALID_REGISTRY_SEMANTICS_VERIFIED');
- assert.equal(cap.sourceSha256,NATIVE_ISVALID_REGISTRY_SOURCE_SHA256_V125);assert.equal(cap.finalNativeMembershipAuthorized,false);
+test('Historical MethodSpec report SHA authenticates JSON only, not the original RomFS metadata',async()=>{
+ const cap=await verify();assert.equal(cap.status,'STATIC_ISVALID_REGISTRY_REPORT_INTEGRITY_ONLY');
+ assert.equal(cap.sourceSha256,NATIVE_ISVALID_REGISTRY_SOURCE_SHA256_V125);
+ assert.equal(cap.reportIntegrity,'SHA256_VERIFIED');assert.equal(cap.evidenceTier,'DERIVED_JSON_ONLY');
+ assert.equal(cap.originalMetadataAttested,false);assert.equal(cap.originalMethodSpecAttestedByVerifier,false);
+ assert.equal(cap.metadataDigestRelationship,'DIFFERENT_UNRECONCILED_SOURCES');
+ assert.notEqual(cap.historicalMetadataSha256,cap.originalRomfsMetadataSha256);
+ assert.equal(cap.finalNativeMembershipAuthorized,false);
 });
-test('First methodref resolves ICollectionItem get_CanBeCollected, not a guessed visibility/entitlement method',()=>{
+test('Historical report records first MethodSpec as ICollectionItem get_CanBeCollected (not new original attestation)',()=>{
  const src=JSON.parse(raw);assert.equal(src.methodIdentity.first.genericArgument.genericArgTypeDefIndex,10722);
  assert.equal(src.methodIdentity.first.genericArgument.methodSpecIndex,98945);
  assert.equal(src.methodIdentity.first.virtualInterfaceMethod,'Definitions.Items.ICollectionItem.get_CanBeCollected');
  assert.equal(src.methodIdentity.first.virtualSlot,1);
 });
-test('Second MethodSpec and virtual interface resolve IItemIsVariationOf.get_IsVariationOf',()=>{
+test('Historical report records second MethodSpec and virtual signature without runtime promotion',()=>{
  const src=JSON.parse(raw);assert.equal(src.methodIdentity.second.genericArgument.genericArgTypeDefIndex,10720);
  assert.equal(src.methodIdentity.second.genericArgument.methodSpecIndex,98963);
  assert.equal(src.methodIdentity.second.virtualInterfaceMethod,'Definitions.Items.IItemIsVariationOf.get_IsVariationOf');
@@ -32,7 +37,7 @@ test('Failure and optional-variation branch values are exact, not inferred runti
  assert.equal(f.firstLookupMissing,false);assert.equal(f.firstCanBeCollectedFalse,false);
  assert.equal(f.firstCanBeCollectedTrueAndSecondInterfaceMissing,true);
 });
-test('Whole 153MB native text direct BL scan finds one validity caller and four upstream GetNewGroup paths',()=>{
+test('Historical report lists native BL caller sites; no independent raw NSO rescan implied',()=>{
  const c=JSON.parse(raw).directNativeCallers;
  assert.deepEqual(c.IsValidItemForCollection,['0x4f70fc8']);
  assert.deepEqual(c.GetNewGroup,['0x4f71da8','0x5c346e0','0x5c355d8','0x5c6a48c','0x5f9e78c']);
@@ -50,7 +55,7 @@ test('Unverified Caller-supplied bool/variation state cannot turn into native tr
 test('Tamper and fabricated capability fail closed',async()=>{
  const changed=Buffer.from(raw);changed[240]^=1;
  assert.equal((await verifyNativeIsValidRegistryEvidenceV125(changed,id)).code,'SOURCE_SHA256_MISMATCH');
- assert.equal(probe({status:'STATIC_ISVALID_REGISTRY_SEMANTICS_VERIFIED'},10000098).code,'VERIFIED_SOURCE_CAPABILITY_REQUIRED');
+ assert.equal(probe({status:'STATIC_ISVALID_REGISTRY_REPORT_INTEGRITY_ONLY',originalMetadataAttested:true,sourceHandle:'attested://fake'},10000098).code,'VERIFIED_SOURCE_CAPABILITY_REQUIRED');
 });
 test('Nonpositive or non-integer IDs fail closed',async()=>{
  const v=await verify();for(const itemId of [0,-1,NaN,Infinity,'10000098',1.5])assert.equal(probe(v,itemId).code,'INVALID_ITEM_ID');
