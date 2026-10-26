@@ -85,7 +85,9 @@ jobs:
           PY
       - name: Source-Candidate migration static regression
         shell: bash
-        run: node --test tests/community-gallery-stacked-migration-order.test.mjs
+        run: |
+          set -euo pipefail
+          node --test tests/community-gallery-stacked-migration-order.test.mjs
           node --test tests/community-r18-scene-product-source-closure.test.mjs
       - uses: supabase/setup-cli@v1
         with:
@@ -237,7 +239,7 @@ jobs:
             supabase/migrations/20261025002970_r17_photo_cover_ordinal_consistency.sql \
             supabase/migrations/20261025002980_r18_preset_storage_reservation_failclosed.sql \
             supabase/migrations/20261025002990_r18_preset_promotion_fencing_candidate.sql \
-             supabase/migrations/20261025003000_r18_scene_product_publisher_source_closure.sql; do
+            supabase/migrations/20261025003000_r18_scene_product_publisher_source_closure.sql; do
             for attempt in 1 2; do
               docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < "$file"
             done
