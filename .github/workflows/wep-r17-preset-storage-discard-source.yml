@@ -1,0 +1,34 @@
+name: WEP R17 Preset Storage Discard Source Safety
+
+on:
+  push:
+    branches: ['wep/r17-preset-storage-discard-failclosed-20261026']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  edge-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.1.4
+      - name: Parse and type check actual WEP Preset Artifact Edge
+        run: deno check --node-modules-dir=auto supabase/functions/wep-preset-artifact/index.ts
+      - name: Actual Edge handler with synthetic Storage and RPC
+        run: node --test tests/wep-r17-preset-storage-discard-edge-handler.test.mjs
+      - name: Full repository Node contract suite
+        run: npm test
+      - name: Svelte and shared type checks
+        run: npm run check
+      - name: Static build
+        env:
+          BASE_PATH: /web
+        run: npm run build
