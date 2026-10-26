@@ -70,7 +70,7 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
           operator_evidence_ref='ISOLATED_LOCAL_SYNTHETIC_NOT_PROVIDER' where gate_key='verified_preset_publication'""")
         a.execute("""update private.preset_storage_reservations_r18 set
           reservation_state='VERIFIED_PUBLISHED_OBJECT',
-          verification_evidence_state='PROVIDER_ATTESTATION_REQUIRED'
+          verification_evidence_state='PROVIDER_ATTESTED'
           where reservation_id=%s""",(rid,))
         before=one(a,"select count(*) from public.community_works where owner_account_id=%s",(owner,))
         try:
