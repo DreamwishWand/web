@@ -35,6 +35,10 @@ function safePath(base,suffix) {
 /** Reference-only. Uses existing 08 WEB/01D-derived decoded Collection item records. */
 /** @param {any} options */
 export function resolveSharedItemLink(options={}) {
+  if(!options || typeof options!=='object' ||
+    'index' in options || 'records' in options || 'verified' in options) {
+    return fail('UNVERIFIED_SOURCE_DATASET');
+  }
   const {capability,itemId,identityKind,from,to,basePath='',requestedTarget=ITEM_REFERENCE_TARGET,
     sourceRecord=null,targetRecord=null,lifecycle=null}=options;
   if(identityKind!=='DDV_ITEM_ID') return fail('UNSUPPORTED_IDENTITY_KIND');
@@ -80,6 +84,10 @@ export function resolvePublishedGuideItemLink() {
  * @param {any} options
  */
 export function resolveSharedItemInboundLink(options={}) {
+  if(!options || typeof options!=='object' ||
+    'index' in options || 'records' in options || 'verified' in options) {
+    return fail('UNVERIFIED_SOURCE_DATASET');
+  }
   const {url,capability,basePath=''}=options;
   const params=url?.searchParams;
   if(!params || typeof params.getAll!=='function' || typeof params.entries!=='function') {
