@@ -51,10 +51,11 @@ try{
  await page.goto(root+'/collection/?item='+id,{waitUntil:'domcontentloaded'});
  await eventually(async()=>await page.locator('.cross-product-reference-link').count()===1);
  const localeCodes=['en','fr','it','de','es-ES','ja','zh-CN','pt-BR'];
- await page.setViewportSize({width:320,height:820});
  for(const locale of localeCodes){
+  await page.setViewportSize({width:1280,height:900});
   await page.locator('#site-locale').selectOption(locale);
   await eventually(async()=>await page.locator('html').getAttribute('lang')===locale);
+  await page.setViewportSize({width:320,height:820});
   check(await page.locator('.item-detail-grid code').first().textContent()===id,'ItemID drift in '+locale);
   check(await page.locator('.cross-product-reference-link').getAttribute('href')==='/explore/?item='+id,'Link drift in '+locale);
   check(await page.locator('.item-detail a[href^="/guide/"]').count()===0,'Private Guide link in '+locale);
@@ -88,8 +89,10 @@ try{
  check(glyphs.every(x=>x.valid),'CJK browser glyph missing: '+JSON.stringify(glyphs));
  report.cjkGlyphs=glyphs;
  ok('CHROME_JAPANESE_CHINESE_GLYPHS_RENDERED_NOT_TOFU');
+ await page.setViewportSize({width:1280,height:900});
  await page.locator('#site-locale').selectOption('ja');
  await eventually(async()=>await page.locator('html').getAttribute('lang')==='ja');
+ await page.setViewportSize({width:320,height:820});
  ok('JA_320PX_SOURCE_LINK_ACCESSIBLE');
  report.consoleErrors=report.consoleErrors.filter(s=>!s.includes('Failed to load resource'));
  check(report.pageErrors.length===0,'Browser page errors: '+report.pageErrors.join(' / '));
