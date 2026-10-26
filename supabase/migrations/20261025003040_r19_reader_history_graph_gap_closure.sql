@@ -248,7 +248,7 @@ revoke all on function private.preset_storage_media_quarantined_r19(uuid)
 create or replace function public.community_gallery_media_gateway_v1(
   p_media_id uuid
 ) returns jsonb language plpgsql stable security definer
-set search_path=pg_catalog,public,private as $
+set search_path=pg_catalog,public,private as $gallery140$
 declare v_gallery_managed boolean:=false;
  v_media jsonb;
 begin
@@ -297,7 +297,7 @@ begin
     return jsonb_build_object('galleryManaged',true,'publiclyAccessible',false);
  end if;
  return v_media||jsonb_build_object('galleryManaged',true,'publiclyAccessible',true);
-end $;
+end $gallery140$;
 
 revoke all on function public.community_get_work(uuid,uuid)
  from public,anon,authenticated,service_role;
