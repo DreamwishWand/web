@@ -225,10 +225,30 @@ begin
 end
 $$;
 
+-- Cover-only historical Gallery media is also a reference: it may be
+-- omitted from work_revision_media, but must still be incident-suppressed.
+create or replace function private.preset_storage_media_quarantined_r19(
+ p_media_id uuid
+) returns boolean language sql stable security definer
+set search_path=pg_catalog,public,private as $r19$
+ select exists(
+  select 1 from public.work_revision_media rm
+  join public.community_work_revisions wr on wr.revision_id=rm.work_revision_id
+  where rm.media_id=p_media_id
+    and private.preset_storage_work_quarantined_r19(wr.work_id)
+ ) or exists(
+  select 1 from public.gallery_photo_revision_fields f
+  join public.community_work_revisions wr on wr.revision_id=f.revision_id
+  where f.cover_media_id=p_media_id
+    and private.preset_storage_work_quarantined_r19(wr.work_id)
+ );$r19$;
+revoke all on function private.preset_storage_media_quarantined_r19(uuid)
+ from public,anon,authenticated,service_role;
+
 create or replace function public.community_gallery_media_gateway_v1(
   p_media_id uuid
 ) returns jsonb language plpgsql stable security definer
-set search_path=pg_catalog,public,private as $$
+set search_path=pg_catalog,public,private as $
 declare v_gallery_managed boolean:=false;
  v_media jsonb;
 begin
@@ -241,7 +261,16 @@ begin
   join public.community_work_revisions r on r.revision_id=rm.work_revision_id
   join public.gallery_photo_subjects g on g.work_id=r.work_id
   where rm.media_id=p_media_id
- ) into v_gallery_managed;
+ ) OR EXISTS(
+   -- A cover is an authoritative Gallery revision reference even when
+   -- the WorkRevision Media membership is absent/inconsistent. It is
+   -- never permission to stream unless the positive membership test
+   -- below independently succeeds.
+   SELECT 1 FROM public.gallery_photo_revision_fields f
+   JOIN public.community_work_revisions r ON r.revision_id=f.revision_id
+   JOIN public.gallery_photo_subjects g ON g.work_id=r.work_id
+   WHERE f.cover_media_id=p_media_id
+ ) INTO v_gallery_managed;
  if not v_gallery_managed then
    return jsonb_build_object('galleryManaged',false,'publiclyAccessible',false);
  end if;
@@ -268,7 +297,7 @@ begin
     return jsonb_build_object('galleryManaged',true,'publiclyAccessible',false);
  end if;
  return v_media||jsonb_build_object('galleryManaged',true,'publiclyAccessible',true);
-end $$;
+end $;
 
 revoke all on function public.community_get_work(uuid,uuid)
  from public,anon,authenticated,service_role;

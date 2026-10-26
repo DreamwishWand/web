@@ -26,6 +26,10 @@ test('Source140 direct SQL Media gateway denies before any storage key projectio
   const b=sql.slice(sql.indexOf('create or replace function public.community_gallery_media_gateway_v1('));
   assert.ok(b.indexOf('perform public.community_preset_storage_assert_media_not_quarantined_r19(p_media_id)')
     < b.indexOf("'storageKey',m.storage_key"));
+  assert.match(sql,/from public\.gallery_photo_revision_fields f/);
+  assert.match(sql,/f\.cover_media_id=p_media_id/);
+  assert.match(sql,/not private\.preset_storage_work_quarantined_r19/);
+  assert.match(sql,/v_gallery_managed[\s\S]*?or exists\(/i);
   assert.match(sql,/grant execute on function public\.community_gallery_media_gateway_v1\(uuid\) to service_role/);
 });
 test('Stage-only Scene reader defaults to closed at Edge, and conditional SQL EXECUTE revocation requires operator sequencing',()=>{
