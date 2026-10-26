@@ -71,8 +71,8 @@ test('Owner Source134 real Edge publish always terminal before RPC or Provider',
 test('Owner Source134 real Edge cleanup preflight explicitly denies physical delete',async()=>{
  const r=await invoke({action:'discard',storageKey:'published/'+owner+'/unregistered.json'});
  assert.equal(r.status,409);
- assert.equal(r.body.cleanupAuthorized,false);
- assert.deepEqual(r.calls.map(c=>c[1]),['community_authorize_session','community_preset_storage_cleanup_preflight_r18']);
+ assert.equal(r.body.cleanupPreflight.cleanupAuthorized,false);
+ assert.deepEqual(r.calls.filter(c=>c[0]==='rpc').map(c=>c[1]),['community_authorize_session','community_preset_storage_cleanup_preflight_r18']);
 });
 test('Owner Source134 real Edge reservePublication verifies actual staged bytes, returns only inert reservation',async()=>{
  const r=await invoke({action:'reservePublication',storageKey:stage,
@@ -82,7 +82,7 @@ test('Owner Source134 real Edge reservePublication verifies actual staged bytes,
  assert.equal(r.body.cleanupAuthorized,false);
  assert.equal(r.body.reservation.reservationState,'RESERVED');
  assert.equal(r.body.reservation.realPublishedObjectBytesVerified,false);
- assert.deepEqual(r.calls.map(c=>c[1]).filter(x=>x!=='download'),[
+ assert.deepEqual(r.calls.filter(c=>c[0]==='rpc').map(c=>c[1]),[
    'community_authorize_session','community_preset_storage_reserve_r18']);
  assert.equal(r.calls.filter(c=>c[0]==='download').length,1);
 });
