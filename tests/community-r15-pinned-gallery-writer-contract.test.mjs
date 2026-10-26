@@ -45,8 +45,8 @@ test('R15 preflight and pinned Writer remain service-role-only, Edge never refre
  assert.match(edge,/\['40P01','55P03','40001'\]/);
 });
 test('R15 real two-connection negative, fresh, replay, historical lock are gated in bootstrap',()=>{
- assert.match(workflow,/len\(fs\)==139/);
- assert.match(workflow,/MIGRATION_LEDGER_NOT_139/);
+ assert.match(workflow,/len\(fs\)==140/);
+ assert.match(workflow,/MIGRATION_LEDGER_NOT_140/);
  assert.match(workflow,/comm-r15-pinned-gallery-two-session\.py/);
  assert.match(race,/R15_STALE_CALLER_GRAPH_ACCEPTED/);
  assert.match(race,/R15_HISTORICAL_GALLERY_WORK_LOCK_BYPASSED/);
