@@ -410,6 +410,7 @@ begin
       where c.target_entity_id=p_work_id
         and c.lifecycle_state<>'deleted'
         and c.moderation_state='clear'
+        and not private.is_account_privacy_suppressed(c.author_account_id)
     ),'[]'::jsonb)
   ) into v_result
   from public.gallery_works g
