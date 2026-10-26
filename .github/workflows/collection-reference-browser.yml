@@ -8,6 +8,7 @@ on:
       - 'src/lib/collection/**'
       - 'src/routes/collection/**'
       - 'tests/collection-reference-detail.test.mjs'
+      - 'docs/collection/reference-detail-readonly-acceptance-20261026.md'
       - 'scripts/collection-reference-browser-acceptance.mjs'
       - '.github/workflows/collection-reference-browser.yml'
   pull_request:
@@ -15,6 +16,7 @@ on:
       - 'src/lib/collection/**'
       - 'src/routes/collection/**'
       - 'tests/collection-reference-detail.test.mjs'
+      - 'docs/collection/reference-detail-readonly-acceptance-20261026.md'
       - 'scripts/collection-reference-browser-acceptance.mjs'
       - '.github/workflows/collection-reference-browser.yml'
   workflow_dispatch:
