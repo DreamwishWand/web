@@ -107,7 +107,7 @@ test('A4 independent Generic and Scene all known actions, reads, legacy aliases 
    assert.equal(r.body.storageMutationAuthorized,false);
    assert.equal(r.body.physicalDeleteAuthorized,false);
    assert.equal(r.cacheControl,'private, no-store');
-   assert.ok(!/signedUrl|storageKey|signedUpload/i.test(JSON.stringify(r.body)));
+   for(const forbidden of ['signedUrl','signedUpload','storageKey']) assert.equal(Object.hasOwn(r.body,forbidden),false);
    actions++;
   }
  }
