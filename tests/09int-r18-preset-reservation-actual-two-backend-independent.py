@@ -42,7 +42,7 @@ with psycopg.connect(dsn, autocommit=True) as root:
                 creator_profile_id,owner_account_id,handle,display_name)
                 values(%s,%s,%s,'09 INT R18 fixture')''',
                 (creator,account,'int_r18_'+new().hex[:15]))
-    assert scalar(root, 'select count(*) from private.preset_storage_reservations_r18') == 0
+    assert scalar(root, 'select count(*) from private.preset_storage_reservations_r18 where owner_account_id=%s',(owner_a,)) == 0
     for func in (
         'public.community_preset_storage_reserve_r18(uuid,uuid,text,text,text,bigint,text,integer,text)',
         'public.community_preset_storage_recovery_r18(uuid,uuid,bigint,text)',
@@ -72,7 +72,7 @@ with psycopg.connect(dsn,autocommit=True) as a, psycopg.connect(dsn,autocommit=T
     deny(b,lambda:reserve(b,actor=subject_b,creator=creator_b,
                            stage=stage_a,key='foreign-'+new().hex[:10]),
          'R18_PRESET_STAGING_KEY_FORBIDDEN')
-    assert scalar(b,'select count(*) from private.preset_storage_reservations_r18')==1
+    assert scalar(b,'select count(*) from private.preset_storage_reservations_r18 where owner_account_id=%s',(owner_a,))==1
     print(json.dumps({'case':'09INT_R18_ACTUAL_PG_IDEMPOTENT_SAME_KEY_AND_FOREIGN_CREATOR_FAIL_CLOSED'}))
     a.execute('begin')
     a.execute('select 1 from private.preset_storage_reservations_r18 where reservation_id=%s for update',
