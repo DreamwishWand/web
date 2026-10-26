@@ -6,7 +6,7 @@ const edge=readFileSync(new URL('../supabase/functions/wep-preset-artifact/index
 test('Source139 private work quarantine expands across current and historical Preset and Gallery-linked revisions',()=>{
  assert.match(sql,/join public\.preset_revisions pr on pr\.artifact_blob_id=r\.committed_blob_id/);
  assert.match(sql,/pa\.community_work_id=p_work_id/);
- assert.match(sql,/join public\.gallery_revision_presets gp/);
+ assert.match(sql,/from public\.gallery_revision_presets gp/);
  assert.match(sql,/wr\.work_id=p_work_id/);
  assert.doesNotMatch(sql.slice(0,2500),/current_published_revision_id/);
 });
