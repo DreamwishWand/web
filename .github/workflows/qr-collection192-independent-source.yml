@@ -1,0 +1,39 @@
+name: 04 QR Collection192 Independent Source-only Integrity
+on:
+  pull_request:
+    paths:
+      - 'tests/qr-collection192-independent-manifest-tamper.test.mjs'
+      - 'tests/qr-collection192-independent-navigation-safety.test.mjs'
+      - '.github/workflows/qr-collection192-independent-source.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-collection192:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Pin PR192 reference files and disallow account/network credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN"
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$(git hash-object src/lib/collection/reference-navigation.js)" = "912718244a1055d1b1b295b41b638d6911fdd6c4"
+          test "$(git hash-object src/lib/collection/runtime.js)" = "13d46bb37e09f121d9768ad7bf683ff1913a5f86"
+          test "$(git hash-object static/ddv/collection/v1.25/index.json)" = "51e72eb055ef150df060ebeb86bd3dc79bc3cb2c"
+          test "$(git hash-object src/routes/collection/+page.svelte)" = "b42571555e118a63c1ef918c7d13a2ac9425ab69"
+      - name: Independently verify all 18 shard bytes/sha and source-only fault injections
+        run: node --test tests/qr-collection192-independent-manifest-tamper.test.mjs tests/qr-collection192-independent-navigation-safety.test.mjs
+      - name: Record strict scoped decision
+        run: echo 'QR_COLLECTION192_SOURCE_INTEGRITY_BASELINE_PASS__UNPINNED_INDEX_DUPLICATE_ID_NONCANONICAL_URL_WITNESSES_REQUIRE_REPAIR'
