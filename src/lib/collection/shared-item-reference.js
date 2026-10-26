@@ -39,10 +39,10 @@ function safePath(base,suffix) {
   return base.replace(/\/$/,'')+suffix;
 }
 /** Reference-only. Uses existing 08 WEB/01D-derived decoded Collection item records. */
-export function resolveSharedItemLink({
-  index,records,itemId,from,to,basePath='',requestedTarget=ITEM_REFERENCE_TARGET,
-  sourceRecord=null,targetRecord=null,lifecycle=null
-}={}) {
+/** @param {any} options */
+export function resolveSharedItemLink(options={}) {
+  const {index,records,itemId,from,to,basePath='',requestedTarget=ITEM_REFERENCE_TARGET,
+    sourceRecord=null,targetRecord=null,lifecycle=null}=options;
   if(!surfaces.has(from)||!surfaces.has(to)||from===to) return fail('UNSUPPORTED_SURFACE');
   if(!sourceGood(index,requestedTarget)) return fail('UNSUPPORTED_SOURCE_BUILD');
   const id=numericId(itemId);
@@ -61,7 +61,9 @@ export function resolveSharedItemLink({
     href:path+'?item='+String(id)});
 }
 /** 01D Tag/Set IDs must be explicitly evidenced; family/world matching is not a relation. */
-export function resolveRelatedItemLink({index,records,sourceItemId,relation,requestedTarget=ITEM_REFERENCE_TARGET,basePath=''}={}) {
+/** @param {any} options */
+export function resolveRelatedItemLink(options={}) {
+  const {index,records,sourceItemId,relation,requestedTarget=ITEM_REFERENCE_TARGET,basePath=''}=options;
   const id=numericId(sourceItemId);
   if(id===null) return fail('INVALID_ITEM_ID');
   if(!relation || !['TAG','SET'].includes(relation.kind) ||
@@ -77,7 +79,9 @@ export function resolveRelatedItemLink({index,records,sourceItemId,relation,requ
   return resolveSharedItemLink({index,records,itemId:relation.targetItemId,from:'decorate',to:'collection',requestedTarget,basePath});
 }
 /** No Guide relationships/pages have reached public approval. Caller must provide both reviewed registries. */
-export function resolvePublishedGuideItemLink({index,records,itemId,approvedRelations=[],publishedPages=[],requestedTarget=ITEM_REFERENCE_TARGET,basePath=''}={}) {
+/** @param {any} options */
+export function resolvePublishedGuideItemLink(options={}) {
+  const {index,records,itemId,approvedRelations=[],publishedPages=[],requestedTarget=ITEM_REFERENCE_TARGET,basePath=''}=options;
   if(!sourceGood(index,requestedTarget)) return fail('UNSUPPORTED_SOURCE_BUILD');
   const id=numericId(itemId);
   if(id===null || !unique(records,id).item) return fail('UNKNOWN_ITEM_ID');
