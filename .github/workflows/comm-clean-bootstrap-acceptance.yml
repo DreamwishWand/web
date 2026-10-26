@@ -245,7 +245,7 @@ jobs:
             supabase/migrations/20261025003000_r18_scene_product_publisher_source_closure.sql \
             supabase/migrations/20261025003010_r18_preset_provider_integrity_quarantine.sql \
             supabase/migrations/20261025003020_r18_preset_integrity_incident_commit_veto.sql \
-            supabase/migrations/20261025003030_r19_preset_postcommit_read_suppression.sql \\
+            supabase/migrations/20261025003030_r19_preset_postcommit_read_suppression.sql \
             supabase/migrations/20261025003040_r19_reader_history_graph_gap_closure.sql; do
             for attempt in 1 2; do
               docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < "$file"
