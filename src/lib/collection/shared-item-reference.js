@@ -63,7 +63,7 @@ export function resolveSharedItemLink(options={}) {
 /** 01D Tag/Set IDs must be explicitly evidenced; family/world matching is not a relation. */
 /** @param {any} options */
 export function resolveRelatedItemLink(options={}) {
-  const {index,records,sourceItemId,relation,requestedTarget=ITEM_REFERENCE_TARGET,basePath=''}=options;
+  const {index,records,sourceItemId,relation,reviewedRelations=[],requestedTarget=ITEM_REFERENCE_TARGET,basePath=''}=options;
   const id=numericId(sourceItemId);
   if(id===null) return fail('INVALID_ITEM_ID');
   if(!relation || !['TAG','SET'].includes(relation.kind) ||
@@ -76,6 +76,15 @@ export function resolveRelatedItemLink(options={}) {
     relation.buildID!==ITEM_REFERENCE_TARGET.buildID ||
     !/^[a-f0-9]{64}$/.test(relation.evidenceSha256||'')) return fail('UNVERIFIED_RELATED_IDENTITY');
   if(!unique(records,id).item) return fail('UNKNOWN_SOURCE_ITEM');
+  // An alleged relation alone is not evidence. It must also be an exact
+  // member of a separately integrity-checked 01D relationship registry.
+  const verified=Array.isArray(reviewedRelations) ? reviewedRelations.filter(e=>
+    e.kind===relation.kind && e.sourceItemId===relation.sourceItemId &&
+    e.targetItemId===relation.targetItemId && e.relationId===relation.relationId &&
+    e.evidenceSha256===relation.evidenceSha256 &&
+    e.authority===relation.authority && e.platform===relation.platform &&
+    e.gameVersion===relation.gameVersion && e.buildID===relation.buildID) : [];
+  if(verified.length!==1) return fail('UNVERIFIED_RELATED_IDENTITY');
   return resolveSharedItemLink({index,records,itemId:relation.targetItemId,from:'decorate',to:'collection',requestedTarget,basePath});
 }
 /** No Guide relationships/pages have reached public approval. Caller must provide both reviewed registries. */
