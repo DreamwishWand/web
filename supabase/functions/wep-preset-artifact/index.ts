@@ -16,14 +16,17 @@ const ALLOWED_TYPES = new Set(['scene','biome','floating_island','tom_furniture'
  */
 function classifyOwnerDiscardKey(storageKey: string, accountId: string):
   'staging' | 'published' | 'invalid' {
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(accountId)) {
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuid.test(accountId) || !/^[a-zA-Z0-9/._-]+$/.test(storageKey)) return 'invalid';
+  const parts = storageKey.split('/');
+  if (parts.length !== 3 || parts[1] !== accountId || !parts[2].endsWith('.json')) {
     return 'invalid';
   }
-  if (/[^a-zA-Z0-9/._-]/.test(storageKey) || storageKey.includes('..') ||
-      storageKey.includes('\\') || storageKey.startsWith('/') || storageKey.includes('//')) {
-    return 'invalid';
-  }
-  const staging = new RegExp('^staging/' + accountId + '/[0-9a-fA-F-]{36}\\.json
+  const stem = parts[2].slice(0, -5);
+  if (parts[0] === 'staging' && uuid.test(stem)) return 'staging';
+  if (parts[0] === 'published' && /^[0-9a-f]{64}$/.test(stem)) return 'published';
+  return 'invalid';
+}
 
 function reply(body: unknown, status = 200) {
   return Response.json(body, {
