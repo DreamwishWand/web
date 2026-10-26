@@ -89,6 +89,17 @@ async function sha256Hex(bytes) {
   return Array.from(new Uint8Array(digest), (value) => value.toString(16).padStart(2, '0')).join('');
 }
 
+export function assertUniqueCollectionItemIDs(rows, seen = new Set()) {
+  for (const row of rows) {
+    const itemId = Array.isArray(row) && row.length === 8 ? row[0] : null;
+    if (!Number.isSafeInteger(itemId) || itemId < 0 || seen.has(itemId)) {
+      throw new Error('Collection duplicate or invalid ItemID.');
+    }
+    seen.add(itemId);
+  }
+  return seen;
+}
+
 export async function loadCollectionRuntime(basePath = '', fetchImpl = globalThis.fetch) {
   if (typeof fetchImpl !== 'function') throw new TypeError('Collection runtime requires fetch.');
   const root = `${basePath}/${COLLECTION_RUNTIME_PATH}`.replace(/\/+/g, '/');
@@ -113,13 +124,7 @@ export async function loadCollectionRuntime(basePath = '', fetchImpl = globalThi
     if (payload.s !== COLLECTION_RECORD_SCHEMA || payload.offset !== shard.offset || payload.count !== shard.count || !Array.isArray(payload.r) || payload.r.length !== shard.count) {
       throw new Error(`Collection shard contract mismatch: ${shard.file}.`);
     }
-    for (const row of payload.r) {
-      const itemId = Array.isArray(row) && row.length === 8 ? row[0] : null;
-      if (!Number.isSafeInteger(itemId) || itemId < 0 || seenItemIds.has(itemId)) {
-        throw new Error(`Collection duplicate or invalid ItemID in ${shard.file}.`);
-      }
-      seenItemIds.add(itemId);
-    }
+    assertUniqueCollectionItemIDs(payload.r, seenItemIds);
     rows.push(...payload.r);
   }
   if (rows.length !== index.n || seenItemIds.size !== index.n) throw new Error('Collection runtime ItemID/count integrity mismatch.');
