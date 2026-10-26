@@ -28,6 +28,9 @@ on:
       - 'supabase/migrations/20261025002960_gallery_photo_media_readonly_preflight_r17.sql'
       - 'supabase/migrations/20261025002970_r17_photo_cover_ordinal_consistency.sql'
       - 'supabase/migrations/20261025002980_r18_preset_storage_reservation_failclosed.sql'
+      - 'supabase/migrations/20261025002990_r18_preset_promotion_fencing_candidate.sql'
+      - 'tests/comm-r18-promotion-fence-two-session.py'
+      - 'tests/community-r18-promotion-fence-contract.test.mjs'
       - 'tests/comm-r18-preset-reservation-two-session.py'
       - 'tests/community-r18-preset-reservation-contract.test.mjs'
       - 'tests/community-r17-photo-media-preflight-contract.test.mjs'
@@ -69,7 +72,7 @@ jobs:
           from pathlib import Path
           import re
           fs=sorted(Path('supabase/migrations').glob('*.sql'))
-          assert len(fs)==134, f'expected 132 source SQL files, got {len(fs)}'
+          assert len(fs)==135, f'expected 132 source SQL files, got {len(fs)}'
           vs=[f.name.split('_',1)[0] for f in fs]
           assert all(re.fullmatch(r'\d{12}(?:\d{2})?',v) for v in vs)
           assert len(vs)==len(set(vs)), 'migration version collision'
@@ -78,7 +81,7 @@ jobs:
                          ('20261025002300','gallery_capacity_effective_cleanup_diagnostics_v1'),
                          ('20261025002400','gallery_known_reference_writer_fence_v1')]:
               assert sum(f.name==v+'_'+name+'.sql' for f in fs)==1
-          print('SOURCE_CANDIDATE_134_MIGRATIONS_UNIQUE_AND_ORDERED_PASS')
+          print('SOURCE_CANDIDATE_135_MIGRATIONS_UNIQUE_AND_ORDERED_PASS')
           PY
       - name: Source-Candidate migration static regression
         shell: bash
@@ -118,7 +121,7 @@ jobs:
           DECLARE v int;
           BEGIN
             SELECT count(*) INTO v FROM supabase_migrations.schema_migrations;
-            IF v<>134 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_134: %',v;END IF;
+            IF v<>135 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_135: %',v;END IF;
             IF (select enrollment_state from private.community_writer_routes_r16 where writer_key='gallery-comments-legacy')<>'FAIL_CLOSED'
             THEN RAISE EXCEPTION 'R17_LEGACY_REGISTRY_NOT_CLOSED';END IF;
             IF to_regprocedure('public.community_set_gallery_comments_enabled_v1(uuid,uuid,boolean)') IS NULL
@@ -133,6 +136,14 @@ jobs:
             IF has_function_privilege('authenticated','public.community_preset_storage_reserve_r18(uuid,uuid,text,text,text,bigint,text,integer,text)','EXECUTE')
               OR has_table_privilege('authenticated','private.preset_storage_reservations_r18','SELECT')
             THEN RAISE EXCEPTION 'R18_PRESET_RESERVATION_ACL_EXPOSED';END IF;
+            IF to_regprocedure('public.community_preset_storage_claim_promotion_r18(uuid,uuid,bigint)') IS NULL
+              OR to_regprocedure('public.community_preset_storage_report_readback_r18(uuid,uuid,bigint,uuid,bigint,bigint,text)') IS NULL
+              OR to_regprocedure('private.preset_storage_commit_candidate_r18(uuid,uuid,bigint,uuid,bigint,text,text,text,jsonb)') IS NULL
+              OR to_regclass('private.preset_storage_release_gate_r18') IS NULL
+            THEN RAISE EXCEPTION 'R18_PROMOTION_FENCING_CANDIDATE_MISSING';END IF;
+            IF has_function_privilege('service_role','private.preset_storage_commit_candidate_r18(uuid,uuid,bigint,uuid,bigint,text,text,text,jsonb)','EXECUTE')
+              OR exists(select 1 from private.preset_storage_release_gate_r18 where enabled or provider_precondition_accepted)
+            THEN RAISE EXCEPTION 'R18_PRESET_POSITIVE_COMMIT_UNEXPECTEDLY_ENABLED';END IF;
             IF to_regprocedure('public.community_gallery_photo_media_preflight_r17(uuid,uuid)') IS NULL
             THEN RAISE EXCEPTION 'R17_PHOTO_MEDIA_PREFLIGHT_MISSING';END IF;
             IF has_function_privilege('anon','public.community_gallery_photo_media_preflight_r17(uuid,uuid)','EXECUTE')
@@ -142,8 +153,8 @@ jobs:
               OR to_regclass('private.community_writer_routes_r16') IS NULL
               OR to_regprocedure('public.community_set_gallery_comments_enabled_atomic_r16(uuid,uuid,bigint,uuid,boolean,text)') IS NULL
             THEN RAISE EXCEPTION 'R16_REGISTRY_OR_WRITER_MISSING';END IF;
-            IF (SELECT COUNT(*) FROM private.community_writer_reference_registry_r16)<>32
-              OR (SELECT COUNT(*) FROM private.community_writer_routes_r16)<>21
+            IF (SELECT COUNT(*) FROM private.community_writer_reference_registry_r16)<>34
+              OR (SELECT COUNT(*) FROM private.community_writer_routes_r16)<>23
             THEN RAISE EXCEPTION 'R16_REGISTRY_COUNT_MISMATCH';END IF;
             IF has_function_privilege('anon','public.community_set_gallery_comments_enabled_atomic_r16(uuid,uuid,bigint,uuid,boolean,text)','EXECUTE')
               OR has_function_privilege('authenticated','public.community_set_gallery_comments_enabled_atomic_r16(uuid,uuid,bigint,uuid,boolean,text)','EXECUTE')
@@ -187,7 +198,7 @@ jobs:
             IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid='public.gallery_photo_revision_fields'::regclass)
              OR NOT (SELECT relrowsecurity FROM pg_class WHERE oid='public.community_media_upload_intents'::regclass)
             THEN RAISE EXCEPTION 'RLS_NOT_ENABLED';END IF;
-            RAISE NOTICE 'LOCAL_SOURCE_CANDIDATE_134_LEDGER_FUNCTION_TRIGGER_RLS_ACL_PHYSICAL_FAILCLOSED_PASS';
+            RAISE NOTICE 'LOCAL_SOURCE_CANDIDATE_135_LEDGER_FUNCTION_TRIGGER_RLS_ACL_PHYSICAL_FAILCLOSED_PASS';
           END $checks$;
           SELECT extname FROM pg_extension ORDER BY extname;
           SELECT n.nspname,COUNT(*) FILTER (WHERE p.prosecdef) AS security_definer_count
@@ -223,12 +234,13 @@ jobs:
             supabase/migrations/20261025002950_r17_gallery_comments_registry_denial.sql \
             supabase/migrations/20261025002960_gallery_photo_media_readonly_preflight_r17.sql \
             supabase/migrations/20261025002970_r17_photo_cover_ordinal_consistency.sql \
-            supabase/migrations/20261025002980_r18_preset_storage_reservation_failclosed.sql; do
+            supabase/migrations/20261025002980_r18_preset_storage_reservation_failclosed.sql \
+            supabase/migrations/20261025002990_r18_preset_promotion_fencing_candidate.sql; do
             for attempt in 1 2; do
               docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < "$file"
             done
           done
-          echo 'TWENTY_THREE_ADDITIVE_SOURCE_MIGRATIONS_SAME_SCHEMA_REAPPLY_PASS' | tee /tmp/comm-parent-reapply.log
+          echo 'TWENTY_FOUR_ADDITIVE_SOURCE_MIGRATIONS_SAME_SCHEMA_REAPPLY_PASS' | tee /tmp/comm-parent-reapply.log
       - name: Seed LOCAL disposable actors and run existing negative Gallery SQL fixtures
         shell: bash
         run: |
@@ -292,6 +304,7 @@ jobs:
           set -euo pipefail
           export DDVRE_PRIVACY_ISOLATED_LOCAL=CONFIRMED
           python3 tests/comm-r18-preset-reservation-two-session.py | tee /tmp/comm-r18-preset-reservation.log
+          python3 tests/comm-r18-promotion-fence-two-session.py | tee /tmp/comm-r18-promotion-fence.log
       - name: Record bounded acceptance limitations without pretending actor E2E
         if: always()
         shell: bash
@@ -323,6 +336,7 @@ jobs:
             /tmp/comm-r16-gallery-metadata-two-session.log
             /tmp/comm-r17-photo-legacy-comments-two-session.log
             /tmp/comm-r18-preset-reservation.log
+            /tmp/comm-r18-promotion-fence.log
           if-no-files-found: warn
           retention-days: 14
       - name: Stop and discard only disposable local stack
