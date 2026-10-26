@@ -50,7 +50,7 @@ test('All 8 locale copies state unavailable version and uncertain ownership expl
   assert.equal(Object.keys(COLLECTION_REFERENCE_COPY).length,8);
   for(const locale of ['en','fr','it','de','es-ES','ja','zh-CN','pt-BR']){
     const copy=collectionReferenceCopy(locale);
-    for(const key of ['detail','back','notFound','unsupported','version','worlds','universes','noFacet','reference','notOwned','noMedia','retry'])
+    for(const key of ['showMore','detail','back','notFound','unsupported','version','worlds','universes','noFacet','reference','notOwned','noMedia','retry'])
       assert(typeof copy[key]==='string'&&copy[key].trim().length>=2,`${locale} ${key}`);
   }
   assert.equal(collectionReferenceCopy('unknown'),COLLECTION_REFERENCE_COPY.en);
@@ -60,7 +60,7 @@ test('Collection route is non-mutating, stays in one workspace and has explicit 
   for(const marker of ['data-collection-state="item-detail"','data-collection-state="unknown-item"',
     'data-collection-state="unsupported-version"','on:click={reload}',
     'aria-pressed={view ===','collectionWorkspaceHref','itemSelection.item.itemId',
-    'detailCopy.notOwned','detailCopy.noMedia'])
+    'detailCopy.notOwned','detailCopy.noMedia','displayLimit += DISPLAY_LIMIT'])
     assert(source.includes(marker),marker);
   for(const forbidden of ['save_writer','apply_preset','uploadBytes','galleryPublish','service_role'])
     assert(!source.includes(forbidden),forbidden);
