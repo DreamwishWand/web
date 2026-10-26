@@ -1,0 +1,50 @@
+name: 09 INT R18 Source137 Independent Quarantine Commit Veto Check
+
+on:
+  pull_request:
+    paths:
+      - 'tests/09int-r18-source137-integrity-incident-commit-veto-two-pg.py'
+      - '.github/workflows/09int-r18-source137-provider-quarantine.yml'
+      - 'supabase/migrations/20261025003010_r18_preset_provider_integrity_quarantine.sql'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source137-provider-integrity:
+    name: Actual disposable two-backend PG incident/commit fence (NOT Provider)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pin exact Source137 SQL and exclude remote Supabase
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          test -f supabase/migrations/20261025003010_r18_preset_provider_integrity_quarantine.sql
+          ! grep -q "source137_deployed_production" supabase/config.toml
+          printf 'project_id = "ddvre_09int_source137_disposable_only"\n' | cat - supabase/config.toml > /tmp/09int137-supabase.toml
+          mv /tmp/09int137-supabase.toml supabase/config.toml
+          echo 'LOCAL_ONLY_NO_SUPABASE_LINK_NO_REMOTE_CREDENTIALS'
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Start disposable local Supabase and apply original 137 Source migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 1500s supabase start 2>&1 | tee /tmp/09int137-start.log
+          echo 'LOCAL_137_MIGRATIONS_APPLIED'
+      - name: Run new independent integrity incident vs private synthetic gated Commit transaction
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --user 'psycopg[binary]>=3.2,<4'
+          python3 tests/09int-r18-source137-integrity-incident-commit-veto-two-pg.py | tee /tmp/09int137-results.log
+          grep -F '09INT_R18_SOURCE137_QUARANTINE_DOES_NOT_VETO_SYNTHETIC_POSITIVE_COMMIT_SQL' /tmp/09int137-results.log
+          echo 'NOTE: synthetic false attestation and private Release Gate used only inside a ROLLBACK transaction; no real Provider or signed JWT'
