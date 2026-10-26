@@ -53,9 +53,9 @@ test('WEP actual Edge may download and hash Staging and Published but cannot cop
  assert.doesNotMatch(edge,/preset_storage_commit_candidate_r18/);
 });
 test('Source135 two-backend fencing and rollback-only SQL candidate are wired',()=>{
- assert.match(workflow,/assert len\(fs\)==140/);
- assert.match(workflow,/IF v<>140 THEN/);
- assert.match(workflow,/TWENTY_NINE_ADDITIVE_SOURCE_MIGRATIONS/);
+ assert.match(workflow,/assert len\(fs\)==141/);
+ assert.match(workflow,/IF v<>141 THEN/);
+ assert.match(workflow,/THIRTY_ADDITIVE_SOURCE_MIGRATIONS/);
  assert.match(workflow,/comm-r18-promotion-fence-two-session\.py/);
  assert.match(workflow,/R18_PRESET_POSITIVE_COMMIT_UNEXPECTEDLY_ENABLED/);
  for(const s of ['R18_TWO_BACKEND_LEASE_FENCING_AND_READBACK',
