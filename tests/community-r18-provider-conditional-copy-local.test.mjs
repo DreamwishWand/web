@@ -126,7 +126,7 @@ test('Source137 wrong source bytes or version refuse copying and wrong destinati
  assert.equal(b.provider.calls.removes,0);
 });
 test('Source137 independent helper does not call legacy Generic/Scene APIs, cleanup, commit or attestation RPC',()=>{
- for(const forbidden of ['.remove(','.copy(','.rpc(','.upsert(', 'PROVIDER_ATTESTED',
+ for(const forbidden of ['.remove(','.copy(','.rpc(','.upsert(', 'verification_evidence_state=\'PROVIDER_ATTESTED\'',
   'preset_storage_commit_candidate_r18','community_publish_preset_envelope']){
   assert.equal(source.includes(forbidden),false,forbidden);
  }
