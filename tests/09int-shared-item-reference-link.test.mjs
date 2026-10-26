@@ -72,12 +72,17 @@ test('World/Universe and name are facets, never implicit Tag or Set related edge
   gameVersion:ITEM_REFERENCE_TARGET.gameVersion,buildID:ITEM_REFERENCE_TARGET.buildID,
   evidenceSha256:'a'.repeat(64)}});
  assert.equal(fabricated.href,null);
- assert.equal(resolveRelatedItemLink({index,records,sourceItemId:item.itemId,relation:{
-  kind:'TAG',sourceItemId:item.itemId,targetItemId:other.itemId,relationId:9,
+ const reviewed={kind:'TAG',sourceItemId:item.itemId,targetItemId:other.itemId,relationId:9,
   authority:'01D_VERIFIED_ITEM_RELATION',platform:ITEM_REFERENCE_TARGET.platform,
   gameVersion:ITEM_REFERENCE_TARGET.gameVersion,buildID:ITEM_REFERENCE_TARGET.buildID,
-  evidenceSha256:'a'.repeat(64)
- }}).status,'linked');
+  evidenceSha256:'a'.repeat(64)};
+ assert.equal(resolveRelatedItemLink({index,records,sourceItemId:item.itemId,relation:reviewed}).href,null);
+ // Synthetic positive represents a hypothetical separately SHA-checked 01D
+ // relation registry, not a public current Related Items list.
+ assert.equal(resolveRelatedItemLink({index,records,sourceItemId:item.itemId,relation:reviewed,
+  reviewedRelations:[reviewed]}).status,'linked');
+ assert.equal(resolveRelatedItemLink({index,records,sourceItemId:item.itemId,relation:reviewed,
+  reviewedRelations:[reviewed,reviewed]}).href,null);
 });
 test('Guide PRIVATE drafts, missing registry, unpublished, duplicate/mismatched relationship and unsafe external path deny',()=>{
  const common={index,records,itemId:item.itemId};
