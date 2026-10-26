@@ -197,23 +197,7 @@ with psycopg.connect(DSN, autocommit=True) as left, psycopg.connect(DSN, autocom
     # describing any real Stage-only Scene definition. The temporary local
     # function and grants are created and revoked within one ROLLBACK.
     owner_sql = Path('supabase/migrations/20261025003040_r19_reader_history_graph_gap_closure.sql').read_text()
-    scene_conditional = owner_sql[owner_sql.rfind('do $r19
-      'case':'QR_SOURCE140_FINAL_COVER_ONLY_AND_POSTINCIDENT_GATEWAY_TWO_PG',
-      'normalCurrentMediaBeforeIncident':'public',
-      'historicalCoverOnlyBeforeIncident':'galleryManaged_nonpublic_noStorageKey',
-      'unrelatedBeforeAndAfter':'unaffected',
-      'postincidentCurrentAndCoverOnly':'both_denied',
-      'historicalMediaMembershipAbsent':True,
-      'directAndHistoricalSeparateGalleryLinksSuppressed':True,
-      'incidentDurable':True,
-      'realProviderUsed':False,
-      'signedJwtUsed':False,
-      'stagingTouched':False,
-      'positiveReleaseGateOff':True,
-      'syntheticStageOnlySqlGrantVetoLocal':True,
-      'sourceScenePublicEdgeFailclosedBeforeRPC':True
-    }))
-):]
+    scene_conditional = owner_sql[owner_sql.rfind('do $r19$'):]
     assert "to_regprocedure('public.community_get_scene_preset_public_v1(uuid)')" in scene_conditional
     assert "revoke execute on function public.community_get_scene_preset_public_v1(uuid)" in scene_conditional
     public_edge = Path('supabase/functions/community-public-query/index.ts').read_text()
