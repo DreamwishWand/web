@@ -51,7 +51,6 @@ with psycopg.connect(dsn, autocommit=True) as reads, psycopg.connect(dsn, autoco
             revisions[label]=current
             reads.execute("insert into public.community_work_revisions(revision_id,work_id,revision_number,created_by_account_id) values(%s,%s,2,%s)", (current,work,owner))
             reads.execute("insert into public.gallery_work_revisions(revision_id,title) values(%s,%s)", (current,'INT140 '+label))
-            reads.execute("update public.community_works set lifecycle_state='published',current_published_revision_id=%s,published_at=now() where work_id=%s", (current,work))
             reads.execute("insert into public.search_documents(entity_id,work_id,work_type,creator_profile_id,title,published_at) values(%s,%s,'gallery',%s,%s,now())", (work,work,creator,'INT140 '+label))
             reads.execute("insert into public.saved_items(account_id,target_entity_id) values(%s,%s)", (owner,work))
         older=fresh()
@@ -67,6 +66,8 @@ with psycopg.connect(dsn, autocommit=True) as reads, psycopg.connect(dsn, autoco
         reads.execute("insert into public.community_entities(entity_id,entity_type) values(%s,'media_asset')", (image,))
         reads.execute("insert into public.media_assets(media_id,owner_account_id,storage_key,mime_type,byte_size,width,height,checksum_sha256,processing_state,moderation_state) values(%s,%s,%s,'image/png',100,20,20,%s,'ready','clear')", (image,owner,f'{actor}/{fresh()}.png','e'*64))
         reads.execute("insert into public.work_revision_media(work_revision_id,media_id,ordinal,role) values(%s,%s,0,'gallery')", (revisions['direct'],image))
+        for w, label in [(direct,'direct'),(historical,'history'),(unrelated,'control')]:
+            reads.execute("update public.community_works set lifecycle_state='published',current_published_revision_id=%s,published_at=now() where work_id=%s", (revisions[label],w))
         reads.execute("update private.preset_storage_release_gate_r18 set enabled=false,provider_precondition_accepted=false,operator_evidence_ref=null where gate_key='verified_preset_publication'")
     def visibility():
         return {str(w): one(reads,'select private.preset_storage_work_quarantined_r19(%s)',(w,)) for w in [direct,historical,unrelated]}
