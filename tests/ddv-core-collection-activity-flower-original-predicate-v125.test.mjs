@@ -1,0 +1,91 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const e=JSON.parse(readFileSync('static/ddv/core/collection/v1.25/native-activity-flower-original-predicate-v125.json','utf8'));
+const source=JSON.parse(readFileSync('static/ddv/core/collection/v1.25/collection-definition-source-compact-v125.json','utf8'));
+function readVar(b,p){let v=0,k=0;while(true){assert.ok(p<b.length);let x=b[p++];v+=(x&127)*2**k;if(x<128)return [v,p];k+=7;assert.ok(k<56);}}
+function fields(hex){let b=Buffer.from(hex,'hex'),out=[],p=0;while(p<b.length){let key;[key,p]=readVar(b,p);let wt=key&7,n=key>>>3,v;if(wt===0)[v,p]=readVar(b,p);else if(wt===2){let l;[l,p]=readVar(b,p);assert.ok(p+l<=b.length);v=b.subarray(p,p+l);p+=l;}else throw Error('unsupported wire type');out.push({n,wt,v});}return out;}
+const only=(a,n)=>{let v=a.filter(z=>z.n===n);assert.equal(v.length,1);return v[0];};
+test('Flower source is pinned to exact original Switch1250; does not equate historical d548',()=>{
+ assert.deepEqual(e.scope,{platform:'Nintendo Switch',version:'1.25.0',buildId:'52BD625D9B4E0053',saveSchema:624});
+ assert.equal(e.originalSources.nso.sha256,'3258d5e05aded708c06017b8763fa37bfb696385a2ab29dd8a182d3938cbc0e0');
+ assert.equal(e.originalSources.metadata.sha256,'07e919f07f7be2df883b7292bd3c699f670b4c1e8ff496ef7747447f5baa9f7c');
+ assert.equal(e.originalSources.metadata.version,31);
+ assert.equal(e.originalSources.losslessItemDb.sha256,'df78c309a8023667c92426e3b929ed3e51aadf10d943835a3673cefa585f8048');
+ assert.equal(e.originalSources.supportTables.sha256,'537cfcf14beca1e76496d4f9c5b60bd7e31d385a16fd69e63083df6978fdf4b9');
+ assert.equal(e.originalSources.historicalUntracedMetadata.sourceStatus,'NEED_SOURCE_NOT_EQUATED');
+ assert.notEqual(e.originalSources.metadata.sha256,e.originalSources.historicalUntracedMetadata.sha256);
+});
+test('Original Flower definition wire holds explicit empty oneof case3, not absent case or ByGameplayTag',()=>{
+ const s=e.selector;
+ assert.equal(s.definitionId,2120000083);
+ assert.equal(s.definitionRawBytes,118);
+ assert.equal(s.definitionRawSha256,'7878e7a0ab0ea4d571bfe472c2405078cb1ac4c8cc546803054fc9d3bd3fbd73');
+ assert.equal(s.outerCase,6);assert.equal(s.innerCase,3);
+ const g=only(fields(s.wire.groupField9),9), t=only(fields(s.wire.byTypeField2),2);
+ assert.equal(g.v.toString('hex'),s.wire.byTypeField2);
+ assert.equal(t.v.toString('hex'),s.wire.activityField6);
+ assert.equal(only(fields(s.wire.activityField6),6).v.toString('hex'),s.wire.flowerField3);
+ const f=only(fields(s.wire.flowerField3),3);
+ assert.equal(f.wt,2);assert.equal(f.v.length,0);
+ assert.equal(s.byTypeIgnore.fieldPresent,false);assert.equal(s.byTypeIgnore.protobufDefault,false);assert.equal(s.byItemGroupPresent,false);
+ const r=source.records.find(x=>x[0]===s.definitionId);
+ assert.ok(r);assert.deepEqual(r[5].filter(x=>x[0]==='ActivityItem'),[['ActivityItem',{Flower:{}},0]]);
+});
+test('Original native call proves typed GetAllByType then Item ID projection without Flower-specific Where',()=>{
+ const n=e.originalNative;assert.equal(n.getItemsFromTypeRva,'0x4BFAA70');
+ assert.equal(n.outerCaseCheck.rva,'0x4BFCACC');assert.equal(n.innerFlowerCaseCheck.rva,'0x4BFDA08');
+ assert.equal(n.getAllByType.originalNsoGenericUsageRva,'0xB1EF4D0');
+ assert.equal(n.getAllByType.encodedUsage,'0xC003033F');
+ assert.equal(n.getAllByType.methodSpecIndex,98719);
+ assert.equal(n.getAllByType.methodSpecRawHex,'29950100ffffffff6f210000');
+ assert.equal(n.getAllByType.methodDefIndex,103721);
+ assert.equal(n.getAllByType.methodInstantiationIndex,8559);
+ assert.equal(n.getAllByType.genericTypeDefIndex,9472);
+ assert.equal(n.getAllByType.itemTypeArgument,3);
+ assert.equal(n.projector.lambdaRva,'0x4BFF5E0');
+ assert.equal(n.projector.lambdaSha256,'5433bbdfc30142a02d0719dcdf2b3773eceffb4ec3580aba91741b28463c2d48');
+ assert.equal(n.projector.noPredicateWhereInFlowerCase,true);
+ assert.equal(n.projector.sharedEnumerableSelectMethodRva,'0x3752680');
+});
+test('Flower original TypeDef ICollectionItem vtable and !IsMissionItem native getter, no variation',()=>{
+ const x=e.concrete;
+ assert.equal(x.typeDefIndex,9472);
+ assert.equal(x.interfaceOffsetsCount,20);
+ assert.equal(x.interfaceOffsetSha256,'b9401b40f57a564bdce7b61db6d925d04d36dc9d5c983a5053327143034542dc');
+ assert.equal(x.icollectionItemByvalTypeIndex,64932);
+ assert.equal(x.interfaceOffset+x.interfaceGetterSlot,x.concreteVtableSlot);
+ assert.equal(x.encodedVtableMethod,'0x6002C115');
+ assert.equal(x.canBeCollectedMethodDefIndex,90250);
+ assert.equal(x.variationInterfaceAbsent,true);
+ assert.equal(x.nativeCanBeCollected.rva,'0x4786C20');
+ assert.equal(x.nativeCanBeCollected.instructionBytes,'087041391f010071e0179f1ac0035fd6');
+ assert.equal(x.nativeCanBeCollected.sha256,'a06501e8fd86c2861c80b160974f4c417ed4c67628322122d1fd21a10fd3f529');
+ assert.equal(x.nativeCanBeCollected.expression,'!IsMissionItem');
+ assert.equal(x.missionProtobufField,10);
+});
+test('Raw Flower protobuf source distinguishes absent mission false and explicit mission true; neither is live Collection',()=>{
+ const z=e.rawTypedFlowerSource;assert.equal(z.auditedOriginalProtobufRows,117);
+ assert.equal(z.missionAbsentDefaultFalse,94);assert.equal(z.missionPresentTrue,23);
+ assert.equal(z.typedGetterTrueSourceRows,94);assert.equal(z.typedGetterFalseSourceRows,23);
+ const a=new Map(z.examples.map(x=>[x.id,x]));
+ assert.equal(a.get(30800054).payloadSha256,'1e1a9b54404436094fef1154151a053b1835cc40651c8651338c82aa6b9e1773');
+ assert.equal(a.get(30800054).missionField10Present,false);
+ assert.equal(a.get(30800054).canBeCollectedTypedStatic,true);
+ assert.equal(only(fields(a.get(30800054).idField1WireHex),1).v,30800054);
+ assert.equal(a.get(30800098).payloadSha256,'09b88b993008f7496c9d7cdb32273a9e34c331438061b742f4e0ec7b77586cd6');
+ assert.equal(only(fields(a.get(30800098).missionField10WireHex),10).v,1);
+ assert.equal(a.get(30800098).canBeCollectedTypedStatic,false);
+ assert.equal(only(fields(a.get(30800098).idField1WireHex),1).v,30800098);
+ assert.equal(z.theseAreNotRuntimeItemDatabaseRecords,true);
+});
+test('Only Flower promoted; Mineral subtype16 and six other Activity occurrences remain unknown and safety holds',()=>{
+ assert.equal(e.selectionAudit.length,8);
+ assert.equal(e.selectionAudit.filter(x=>x.state==='OWNER_CONFIRMED_STATIC_PREDICATE').length,1);
+ const mineral=e.selectionAudit.find(x=>x.id===2120000084);
+ assert.equal(mineral.state,'UNKNOWN');assert.match(mineral.blocker,/subtype value16/);
+ assert.deepEqual(e.coverage,{previousConfirmed:96,closedNow:1,nowConfirmed:97,total:256,remainingUnknown:159,unknownFamilies:{ActivityItem:7,Crafting:28,Clothing:61,Furniture:63}});
+ const s=e.safety;assert.equal(s.finalMembershipKnown,false);assert.equal(s.denominator,null);
+ for(const k of ['runtimeItemDatabaseVerified','personalCollectionMetricsAuthorized','entitlementsAuthorized','nativeWriterAuthorized','presetApplyAuthorized','communityPublisherAuthorized','steamOrSchema626Transferred','independentQRNewClosure'])assert.equal(s[k],false,k);
+ for(const k of ['owned','collected','missing'])assert.equal(s[k],'UNKNOWN');
+});
