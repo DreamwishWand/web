@@ -305,6 +305,68 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
     return reply({ok:true,action,reservation:data,publicationAuthorized:false,cleanupAuthorized:false});
   }
 
+  if (action === 'inspectPublishedObject') {
+    const reservationId = String(body.reservationId ?? '');
+    const expectedVersion = Number(body.expectedVersion);
+    if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(reservationId) ||
+        !Number.isSafeInteger(expectedVersion) || expectedVersion <= 0) {
+      return reply({ok:false,error:'PRESET_INSPECTION_INPUT_INVALID'},400);
+    }
+    const {data:lease,error:claimError}=await ctx.supabaseAdmin.rpc(
+      'community_preset_storage_claim_promotion_r18',{
+        p_auth_subject:subject,p_reservation_id:reservationId,p_expected_version:expectedVersion
+      });
+    if(claimError || !lease || lease.providerCopyAuthorized !== false) {
+      return reply({ok:false,error:'PRESET_INSPECTION_LEASE_DENIED',message:claimError?.message},409);
+    }
+    const sourceKey=String(lease.sourceStagingKey ?? '');
+    const publishedKey=String(lease.publishedStorageKey ?? '');
+    const fenceVersion=Number(lease.stateVersion);
+    const token=String(lease.leaseToken ?? '');
+    const fence=Number(lease.leaseFence);
+    if(!sourceKey || !publishedKey || !token || !Number.isSafeInteger(fenceVersion) ||
+       !Number.isSafeInteger(fence) || fence <= 0) {
+      return reply({ok:false,error:'PRESET_INSPECTION_LEASE_INVALID'},409);
+    }
+    let sourceBytes;
+    let publishedBytes;
+    try {
+      sourceBytes=await validatedStoredArtifact(ctx,accountId,sourceKey,'staging');
+      publishedBytes=await validatedStoredArtifact(ctx,accountId,publishedKey,'published');
+    } catch (err) {
+      return reply({
+        ok:false,error:'PRESET_PROVIDER_READBACK_UNAVAILABLE',
+        message:err instanceof Error ? err.message : 'Object unavailable',
+        publicationAuthorized:false,cleanupAuthorized:false,
+        recovery:'REFRESH_AND_RECONCILE_RESERVATION_NO_PHYSICAL_COMPENSATION'
+      },409);
+    }
+    const expectedHash=String(lease.checksumSha256 ?? '');
+    const expectedBytes=Number(lease.byteSize);
+    if(sourceBytes.checksumSha256 !== expectedHash || sourceBytes.blob.size !== expectedBytes) {
+      return reply({
+        ok:false,error:'PRESET_STAGING_BYTES_CHANGED_AFTER_RESERVATION',
+        publicationAuthorized:false,cleanupAuthorized:false,
+        recovery:'REFRESH_AND_RECONCILE_RESERVATION_NO_PHYSICAL_COMPENSATION'
+      },409);
+    }
+    const {data:inspection,error:inspectError}=await ctx.supabaseAdmin.rpc(
+      'community_preset_storage_report_readback_r18',{
+        p_auth_subject:subject,p_reservation_id:reservationId,
+        p_expected_version:fenceVersion,p_lease_token:token,p_lease_fence:fence,
+        p_downloaded_byte_size:publishedBytes.blob.size,
+        p_downloaded_sha256:publishedBytes.checksumSha256
+      });
+    if(inspectError || !inspection) {
+      return reply({ok:false,error:'PRESET_READBACK_FENCE_REJECTED',
+        message:inspectError?.message,publicationAuthorized:false,cleanupAuthorized:false},409);
+    }
+    return reply({ok:inspection.readbackMatches === true,action,inspection,
+      publicationAuthorized:false,cleanupAuthorized:false,
+      realProviderAccepted:false,verificationAttested:false},
+      inspection.readbackMatches === true ? 200 : 409);
+  }
+
   if (action === 'publish') {
     return reply({
       ok:false,error:'R18_PRESET_PUBLICATION_RESERVATION_AND_BYTES_NOT_ACCEPTED',
