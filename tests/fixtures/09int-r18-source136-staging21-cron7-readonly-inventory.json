@@ -1,0 +1,242 @@
+{
+  "asOf": "2026-10-26",
+  "projectRef": "ptpdoxhrqopvczpclcij",
+  "evidence": "Connected read-only Supabase list_edge_functions, pg_catalog, cron.job; no service_role user act or storage mutation",
+  "ownerSourcePin": "aba2b9e98eebcb445e034215af87ed6c4c2199f5",
+  "sourceMigrationCount": 136,
+  "stagingMigrationCount": 116,
+  "stageR18FenceClaimPresent": false,
+  "stageR18ReleaseGatePresent": false,
+  "stageOldSceneServiceRpcCallable": 3,
+  "edges": [
+    {
+      "slug": "community-command",
+      "version": 30,
+      "sha256": "05434b71f095728b6754cdc85307e95402890674a6da666732ee87ba1466931f",
+      "classification": "OTHER_SQL_WRITER",
+      "providerStatus": "ACTIVE"
+    },
+    {
+      "slug": "community-query",
+      "version": 14,
+      "sha256": "0bac6fe65dea784592c02c15f0746577b9b768b19bf6203856ee4e744a35e5a3",
+      "classification": "READ_GATEWAY",
+      "providerStatus": "ACTIVE"
+    },
+    {
+      "slug": "community-media",
+      "version": 16,
+      "sha256": "ccfe49b85e5ec9e2d463be76d12cdb43059029b4714b17ad23d81d89d5216845",
+      "classification": "GALLERY_MEDIA_OTHER_BUCKET",
+      "providerStatus": "ACTIVE"
+    },
+    {
+      "slug": "community-auth-e2e",
+      "version": 9,
+      "sha256": "e4ae6bac0cfac9be9cfb91e56cabadb7b3afa08b7b31e9df42b51346f5eb63c7",
+      "classification": "E2E_UNRELATED",
+      "providerStatus": "ACTIVE"
+    },
+    {
+      "slug": "community-e2e-once",
+      "version": 7,
+      "sha256": "b25a648aee32b18e135f9e47d8e79a8b46f358d77015874207abbd4dd2f3af2d",
+      "classification": "E2E_UNRELATED",
+      "providerStatus": "ACTIVE"
+    },
+    {
+      "slug": "community-auth",
+      "version": 4,
+      "sha256": "901e4c38ab428a023cc85b053f723da29e477225a6eef1ac065a8c77164b1a09",
+      "classification": "AUTH_WORKER",
+      "providerStatus": "ACTIVE"
+    },
+    {
+      "slug": "community-admin",
+      "version": 16,
+      "sha256": "cf8e3490584250d611c7c58b41e1f4c052f5106f59aa72682e2b7e103717dbde",
+      "classification": "OTHER_SQL_WRITER",
+      "providerStatus": "ACTIVE"
+    },
+    {
+      "slug": "community-account",
+      "version": 3,
+      "sha256": "9526cce01292fbf7d14e09111a18f32e0b3100527d64751df03cf0653acd9690",
+      "classification": "ACCOUNT_LIFECYCLE",
+      "providerStatus": "ACTIVE"
+    },
+    {
+      "slug": "community-retention",
+      "version": 12,
+      "sha256": "2e0235b40060cf3d5462e4505905fbd28d7b62e24e2d408b2ca982327e29413c",
+      "classification": "GALLERY_MEDIA_OTHER_BUCKET",
+      "providerStatus": "ACTIVE"
+    },
+    {
+      "slug": "community-ops-escalation",
+      "version": 3,
+      "sha256": "463c1e173b61cb462ad6523122f91e4259309fb53103a99c734cad985a5f889f",
+      "classification": "OPS_WORKER",
+      "providerStatus": "ACTIVE"
+    },
+    {
+      "slug": "community-ops-email",
+      "version": 5,
+      "sha256": "02f3227169513d08a1ebf0a08822a55876efda93687df9d5ae693398ac2b65de",
+      "classification": "OPS_EMAIL",
+      "providerStatus": "ACTIVE"
+    },
+    {
+      "slug": "wep-preset-artifact",
+      "version": 14,
+      "sha256": "fe7b0fa1f7c1c0bfec79f45da53b6d37bf43b430859f1ab6c0be410fbe57dfaa",
+      "classification": "WEP_STORAGE_COPY_AND_REMOVE",
+      "providerStatus": "ACTIVE"
+    },
+    {
+      "slug": "wep-preset-retention",
+      "version": 6,
+      "sha256": "675b3a2213ad3233e875f9120cb89151ff3b360fc33b4a282616725b5bed6f7e",
+      "classification": "WEP_STORAGE_PHYSICAL_REMOVE_WORKER",
+      "providerStatus": "ACTIVE"
+    },
+    {
+      "slug": "community-email-resend",
+      "version": 4,
+      "sha256": "61138a14c664b47c6ca89dc271eaf0957b027c9bd965f3565e85ed982cbdabe8",
+      "classification": "EMAIL",
+      "providerStatus": "ACTIVE"
+    },
+    {
+      "slug": "community-wep-retention-e2e",
+      "version": 5,
+      "sha256": "bbb2e0e9e695553b3162e1f7fd1bdea41fb02a8de782afb2a9140a7ed5f5206d",
+      "classification": "E2E_DISABLED_410",
+      "providerStatus": "ACTIVE"
+    },
+    {
+      "slug": "wep-retention-e2e",
+      "version": 4,
+      "sha256": "88ce72510999d925ec9ea67df6e53d9a55637a6a588e212e2a1b4d507eba0102",
+      "classification": "E2E_DISABLED_410",
+      "providerStatus": "ACTIVE"
+    },
+    {
+      "slug": "wep-preset-flow-e2e",
+      "version": 9,
+      "sha256": "ef6118477cf0fcfebb9347cf0760c7ca80d7f145f2ee32539532e4735c85b8da",
+      "classification": "E2E_DISABLED_410",
+      "providerStatus": "ACTIVE"
+    },
+    {
+      "slug": "community-auth-acceptance",
+      "version": 7,
+      "sha256": "f9c7189a345f3d213738dc54b10ec013742cd648c4a68297ae904796087b7d0d",
+      "classification": "AUTH_ACCEPTANCE",
+      "providerStatus": "ACTIVE"
+    },
+    {
+      "slug": "community-public-media",
+      "version": 6,
+      "sha256": "376f40f919154195cd460501ba661af9f15bf9ac29cae099702af320b042bb39",
+      "classification": "GALLERY_MEDIA_OTHER_BUCKET",
+      "providerStatus": "ACTIVE"
+    },
+    {
+      "slug": "community-public-query",
+      "version": 7,
+      "sha256": "baa7fb67eca0351617ba5afae85f0243bd435845d96a69d75ba1ae26e3040652",
+      "classification": "READ_GATEWAY",
+      "providerStatus": "ACTIVE"
+    },
+    {
+      "slug": "wep-scene-preset-product",
+      "version": 1,
+      "sha256": "6f04d6cfdae3aea99d78b1b12f0e37575c11afb04cf7584b89fda936df690045",
+      "classification": "WEP_STORAGE_COPY_AND_REMOVE",
+      "providerStatus": "ACTIVE"
+    }
+  ],
+  "cron": [
+    {
+      "jobid": 1,
+      "name": "community-outbox-every-minute",
+      "schedule": "* * * * *",
+      "functionName": "public.community_process_outbox_batch(100)",
+      "active": true,
+      "classification": "DB_OUTBOX",
+      "unresolved": "SQL_METADATA_WRITER"
+    },
+    {
+      "jobid": 31,
+      "name": "community-operations-alerts-every-minute",
+      "schedule": "* * * * *",
+      "functionName": "private.community_refresh_operations_alerts()",
+      "active": true,
+      "classification": "OPS_ALERT",
+      "unresolved": "NOT_DIRECT_WEP_STORAGE"
+    },
+    {
+      "jobid": 32,
+      "name": "community-provider-cleanup-every-minute",
+      "schedule": "* * * * *",
+      "functionName": "private.community_invoke_provider_cleanup_worker()",
+      "active": true,
+      "classification": "VAULT_HTTP_WORKER",
+      "unresolved": "TARGET_FROM_VAULT_UNVERIFIED"
+    },
+    {
+      "jobid": 33,
+      "name": "community-retention-hourly",
+      "schedule": "17 * * * *",
+      "functionName": "private.community_invoke_retention_worker()",
+      "active": true,
+      "classification": "VAULT_HTTP_WORKER",
+      "unresolved": "TARGET_FROM_VAULT_UNVERIFIED_GALLERY_ACCOUNT_RETENTION"
+    },
+    {
+      "jobid": 34,
+      "name": "community-retention-alerts-every-minute",
+      "schedule": "* * * * *",
+      "functionName": "private.community_refresh_retention_operations_alerts()",
+      "active": true,
+      "classification": "OPS_ALERT",
+      "unresolved": "NOT_DIRECT_WEP_STORAGE"
+    },
+    {
+      "jobid": 37,
+      "name": "community-operations-escalation-alerts-every-minute",
+      "schedule": "* * * * *",
+      "functionName": "private.community_refresh_operations_escalation_alerts()",
+      "active": true,
+      "classification": "OPS_ALERT",
+      "unresolved": "NOT_DIRECT_WEP_STORAGE"
+    },
+    {
+      "jobid": 38,
+      "name": "community-operations-escalation-every-minute",
+      "schedule": "* * * * *",
+      "functionName": "private.community_invoke_operations_escalation_worker()",
+      "active": true,
+      "classification": "VAULT_HTTP_WORKER",
+      "unresolved": "TARGET_FROM_VAULT_UNVERIFIED"
+    }
+  ],
+  "physicalSourceContract": {
+    "sharedBucket": "wand-preset-artifacts-staging",
+    "sceneBeforeSqlCopy": true,
+    "sceneSqlFailureCompensatesPublishedRemove": true,
+    "artifactBeforeSqlCopy": true,
+    "artifactPublishedAndStagingDiscard": true,
+    "retentionTokenClaimBeforePublishedRemove": true,
+    "sceneNewSourceCopyDisabled": true,
+    "oldSceneServiceRpcRevokeInSource136": true
+  },
+  "unknown": [
+    "VAULT target mapping and worker dispatch to v6",
+    "serverless Edge in-flight requests during traffic drain",
+    "conditional immutable physical provider copy and versioned ETag",
+    "historical/Cloud/legal refs across physical Worker claim",
+    "normal signed A/B/M and CDN exposure; operator #130"
+  ]
+}
