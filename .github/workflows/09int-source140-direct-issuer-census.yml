@@ -1,0 +1,19 @@
+name: 09 INT Source140 Direct Media Issuer Census (SOURCE ONLY)
+on:
+  pull_request:
+    paths:
+      - 'tests/09int-source140-direct-issuer-authority-census.test.mjs'
+      - '.github/workflows/09int-source140-direct-issuer-census.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-census:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Three direct issuer Source140 static census only
+        run: node --test tests/09int-source140-direct-issuer-authority-census.test.mjs
