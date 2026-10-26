@@ -1,0 +1,37 @@
+name: 04 QR PR195 Native Metadata Provenance Independent Audit
+on:
+  pull_request:
+    paths:
+      - 'tests/qr-pr195-native-metadata-provenance-independent.test.mjs'
+      - 'docs/qa/qr-pr195-native-metadata-provenance-matrix-20261027.md'
+      - '.github/workflows/qr-pr195-native-metadata-provenance-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  metadata-provenance-report-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Read-only checked-in derived reports, no original game binary asserted
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+          test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$DATABASE_URL"
+          test "$(git hash-object static/ddv/core/collection/v1.25/native-concrete-pet-selector-v125.json)" = "67f9d60e5353cd65f672ffba34d8839ba055def1"
+          test "$(git hash-object static/ddv/core/collection/v1.25/native-isvalid-registry-methodidentity-v125.json)" = "849895a849a43fd4f69b7e8c154580f677763e83"
+          test "$(git hash-object src/lib/ddv/core/collection/native-isvalid-registry-v125.js)" = "bb5d3e39a5ef06cc11f0aadba54811fdf5cbb1d7"
+      - name: Four independent new provenance and trust-promotion witnesses
+        run: node --test tests/qr-pr195-native-metadata-provenance-independent.test.mjs
+      - name: Do not promote JSON self-attestation to source metadata
+        run: echo 'QR195_PROVENANCE_RED_AND_ORIGINAL_METADATA_NEED_SOURCE__PERSONAL_METRICS_FAIL_CLOSED'
