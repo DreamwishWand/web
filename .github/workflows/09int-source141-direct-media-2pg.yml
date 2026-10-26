@@ -1,0 +1,45 @@
+name: 09 INT Source141 Direct Media SQL Issuers Independent Two PG
+on:
+  pull_request:
+    paths:
+      - 'tests/09int-source141-direct-issuer-two-pg.py'
+      - '.github/workflows/09int-source141-direct-media-2pg.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  local-direct-media:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pin Source141 migration count and direct issuer SQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l)" -eq 141
+          test -f supabase/migrations/20261025003050_r19_direct_media_sql_issuer_authority.sql
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Start disposable isolated database
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'project_id = "int141_directissuer_ephemeral_20261026"\n' | cat - supabase/config.toml >/tmp/int141-config.toml
+          mv /tmp/int141-config.toml supabase/config.toml
+          timeout 1500s supabase start >/tmp/int141-start.log 2>&1 || { tail -n 90 /tmp/int141-start.log; exit 1; }
+      - name: Run new-only direct public owner legacy issuer SQL race
+        shell: bash
+        env:
+          DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'psycopg[binary]>=3.2,<4'
+          python3 tests/09int-source141-direct-issuer-two-pg.py | tee /tmp/int141-direct-issuer.log
+      - name: Destroy disposable stack
+        if: always()
+        run: supabase stop --no-backup || true
