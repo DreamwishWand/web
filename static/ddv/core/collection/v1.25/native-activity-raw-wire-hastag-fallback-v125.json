@@ -1,0 +1,384 @@
+{
+  "schema": "ddv.collection-activity-raw-protobuf-hastag-fallback-v125@1",
+  "classification": "OWNER_RAW_SOURCE_AND_ORIGINAL_NATIVE_STATIC_ONLY_QR_DELTA_PENDING",
+  "scope": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "bid": "52BD625D9B4E0053",
+    "saveSchema": 624
+  },
+  "source": {
+    "losslessItemDb": {
+      "driveId": "1_iMow5gXJTmgbogw1y7S8vTQp-Bj2vI8",
+      "filename": "DDV_GAME_DATABASE_LOSSLESS_v1.25.0.json.gz",
+      "bytes": 5090928,
+      "sha256": "df78c309a8023667c92426e3b929ed3e51aadf10d943835a3673cefa585f8048",
+      "rawFetchedRehashed": true,
+      "uncompressedBytes": 29992206,
+      "uncompressedSha256": "81d3743fa9620b9e17fa702f7341426cc3d9600c100146b23902cc29c53bbae1"
+    },
+    "supportTables": {
+      "driveId": "1Ee5tySw_XinkIXvLTSkDfFUMlTjJPtJJ",
+      "filename": "DDV_GAME_SUPPORT_TABLES_v1.25.0.json.gz",
+      "bytes": 168583,
+      "sha256": "537cfcf14beca1e76496d4f9c5b60bd7e31d385a16fd69e63083df6978fdf4b9",
+      "rawFetchedRehashed": true,
+      "uncompressedBytes": 748439,
+      "uncompressedSha256": "638904e8c3fb9ea62c382b7f00208c877a5a862436a2a55077f19c1fd6ebb2ac"
+    },
+    "originalCollectionSetJson": {
+      "filename": "CollectionSet.json",
+      "sourceManifestExpectedBytes": 45171,
+      "sourceManifestExpectedSha256": "e4887dc5729b8660caadc0d8f875a199a331973ccfeb97c740542a27ac44cc87",
+      "rawOriginalWholeFilePresentInSupportTables": false,
+      "sourceManifestRowCount": 293,
+      "preservedIndividualRawProtobufPayloads": 293,
+      "classification": "ORIGINAL_WHOLE_FILE_ONLY_MANIFEST_ATTESTED; ROW_WIRE_RAW_BYTES_REPLAYED"
+    },
+    "originalExeFsMain": {
+      "bytes": 96002294,
+      "sha256": "3258d5e05aded708c06017b8763fa37bfb696385a2ab29dd8a182d3938cbc0e0"
+    },
+    "originalGlobalMetadata": {
+      "bytes": 36538728,
+      "version": 31,
+      "sha256": "07e919f07f7be2df883b7292bd3c699f670b4c1e8ff496ef7747447f5baa9f7c"
+    },
+    "originalDumpCs": {
+      "bytes": 59624529,
+      "sha256": "a94ae73d522f160d21255b195b4d834bf5c79db59ddbd8cdfc32e54c6e0671f0"
+    },
+    "historicalMetadataD548": {
+      "rawFileProvenance": "NEED_SOURCE",
+      "equatedToOriginal": false
+    }
+  },
+  "definitionWire": {
+    "rowSource": "Support Tables tables.CollectionSet[] rawPayloadBase64",
+    "recordCount": 293,
+    "selectorPath": "CollectionSet.Groups(field9) -> CollectionsByType(field2) -> ActivityItem(field6) -> ByGameplayTag(field8)",
+    "records": [
+      {
+        "definitionId": 2120000015,
+        "tag": 2001200013,
+        "rawBytes": 141,
+        "rawSha256": "e4cdbf3168bdc2e2e5d1e2b1748573385923d49040670f9ac0e640b1a1d7180d",
+        "groupField9WireHex": "4a1c0a100801120cd2a1b30eb8a2b30effa2b30e12083206408dc79fba07",
+        "rawSelectorFieldPath": [
+          9,
+          2,
+          6,
+          8
+        ],
+        "outerActivityItemOneofField": 6,
+        "innerByGameplayTagField": 8,
+        "byGameplayTagValue": 2001200013,
+        "collectionsByTypeIgnore": {
+          "fieldPresent": false,
+          "effectiveDefault": false
+        },
+        "collectionsByItemIgnore": {
+          "fieldPresent": true,
+          "effective": true
+        },
+        "sourceRowDataClass": "RAW_ORIGINAL_SUPPORT_TABLES_PAYLOAD_VERIFIED"
+      },
+      {
+        "definitionId": 2120000016,
+        "tag": 2001200014,
+        "rawBytes": 150,
+        "rawSha256": "6957d61b64499e2efdaee8c341a82a1cc9bf51ea33017ce20528eb610c4f5410",
+        "groupField9WireHex": "4a240a1808011214faa1b30eb7a2b30ea899ea0efb99ea0e849aea0e12083206408ec79fba07",
+        "rawSelectorFieldPath": [
+          9,
+          2,
+          6,
+          8
+        ],
+        "outerActivityItemOneofField": 6,
+        "innerByGameplayTagField": 8,
+        "byGameplayTagValue": 2001200014,
+        "collectionsByTypeIgnore": {
+          "fieldPresent": false,
+          "effectiveDefault": false
+        },
+        "collectionsByItemIgnore": {
+          "fieldPresent": true,
+          "effective": true
+        },
+        "sourceRowDataClass": "RAW_ORIGINAL_SUPPORT_TABLES_PAYLOAD_VERIFIED"
+      },
+      {
+        "definitionId": 2120000017,
+        "tag": 2001200011,
+        "rawBytes": 145,
+        "rawSha256": "9d375bc303bc73af2635cb4d5c56c94038bd158764682e9024d3a1f8633eef90",
+        "groupField9WireHex": "4a220a161214faa1b30ee1a2b30edfa2b30ee0a2b30e99a3b30e12083206408bc79fba07",
+        "rawSelectorFieldPath": [
+          9,
+          2,
+          6,
+          8
+        ],
+        "outerActivityItemOneofField": 6,
+        "innerByGameplayTagField": 8,
+        "byGameplayTagValue": 2001200011,
+        "collectionsByTypeIgnore": {
+          "fieldPresent": false,
+          "effectiveDefault": false
+        },
+        "collectionsByItemIgnore": {
+          "fieldPresent": false,
+          "effective": false
+        },
+        "sourceRowDataClass": "RAW_ORIGINAL_SUPPORT_TABLES_PAYLOAD_VERIFIED"
+      },
+      {
+        "definitionId": 2120000018,
+        "tag": 2001200012,
+        "rawBytes": 118,
+        "rawSha256": "865c88363e4d63fb89854b46714235ef56c7e0c5614af3792f2156d66f887fb6",
+        "groupField9WireHex": "4a0a12083206408cc79fba07",
+        "rawSelectorFieldPath": [
+          9,
+          2,
+          6,
+          8
+        ],
+        "outerActivityItemOneofField": 6,
+        "innerByGameplayTagField": 8,
+        "byGameplayTagValue": 2001200012,
+        "collectionsByTypeIgnore": {
+          "fieldPresent": false,
+          "effectiveDefault": false
+        },
+        "collectionsByItemIgnore": {
+          "present": false
+        },
+        "sourceRowDataClass": "RAW_ORIGINAL_SUPPORT_TABLES_PAYLOAD_VERIFIED"
+      }
+    ],
+    "ignoreFieldInterpretation": "CollectionsByType Ignore absent => default false. CollectionsByItem Ignore separate; true for first two and must not be overwritten."
+  },
+  "representativeItemWire": {
+    "rowSource": "Lossless Item DB items[].rawPayloadBase64",
+    "records": [
+      {
+        "itemId": 30200001,
+        "concrete": "CropItemData",
+        "rawBytes": 243,
+        "rawSha256": "9f9b24ad7ec2fc56149887d1b0824de24128cca6101f374ffd4f4b04bbb099cc",
+        "tagsField": 30,
+        "tagsFieldWireHex": "f2010f8dc79fba0799c79fba079cc79fba07",
+        "rawTags": [
+          2001200013,
+          2001200025,
+          2001200028
+        ],
+        "missionField": 20,
+        "missionFieldPresent": false,
+        "missionProtobufDefault": false,
+        "canBeCollectedStaticValue": true,
+        "sourceOnly": true
+      },
+      {
+        "itemId": 30200086,
+        "concrete": "CropItemData",
+        "rawBytes": 231,
+        "rawSha256": "91defe661de8d1ea77c614d507d4df44a2706e32aa797a907e22848f15ceb5a8",
+        "tagsField": 30,
+        "tagsFieldWireHex": "f2010a8bc79fba079cc79fba07",
+        "rawTags": [
+          2001200011,
+          2001200028
+        ],
+        "missionField": 20,
+        "missionFieldPresent": false,
+        "missionProtobufDefault": false,
+        "canBeCollectedStaticValue": true,
+        "sourceOnly": true
+      },
+      {
+        "itemId": 31100072,
+        "concrete": "IngredientItemData",
+        "rawBytes": 249,
+        "rawSha256": "c038762b0862ecd999e2e55988f401c0b739863645288814879809961485e2da",
+        "tagsField": 13,
+        "tagsFieldWireHex": "6a0f8fc79fba078ec79fba079cc79fba07",
+        "rawTags": [
+          2001200015,
+          2001200014,
+          2001200028
+        ],
+        "missionField": 11,
+        "missionFieldPresent": false,
+        "missionProtobufDefault": false,
+        "canBeCollectedStaticValue": true,
+        "sourceOnly": true
+      },
+      {
+        "itemId": 30200003,
+        "concrete": "CropItemData",
+        "rawBytes": 224,
+        "rawSha256": "c3f096e10a8ee659e6870d5d5b7e2de96d1cdcf65742ccef1dfb271acc7ad77a",
+        "tagsField": 30,
+        "tagsFieldWireHex": "f2010a8cc79fba079cc79fba07",
+        "rawTags": [
+          2001200012,
+          2001200028
+        ],
+        "missionField": 20,
+        "missionFieldPresent": false,
+        "missionProtobufDefault": false,
+        "canBeCollectedStaticValue": true,
+        "sourceOnly": true
+      }
+    ],
+    "missionValueInterpretation": "field absent on all four, protobuf bool default false; NOT a serialized false value",
+    "staticGetterExpression": "!IsMissionItem"
+  },
+  "originalNativeHasTag": {
+    "method": "Definitions.Items.ItemDataTagExtensions.HasTag(IHasTags, Item)",
+    "rva": "0x4CC92D0",
+    "bytes": 680,
+    "sha256": "8da02b30c4d1fa6c0cb133663892e7df9e58f3d1f9278dfdb363004c3f80f3c1",
+    "directTagsGetterMethod": "IHasTags.get_Tags",
+    "directTagsPresenceAndContains": {
+      "falseWhenNoCandidate": true,
+      "falseWhenGetterNull": true,
+      "containsCallRva": "0x4CC93F8",
+      "containsTargetRva": "0x39349D0",
+      "trueBranchRva": "0x4CC9400"
+    },
+    "fallbackWhenContainsFalse": {
+      "branchRva": "0x4CC93FC",
+      "jumpWhenFalseRva": "0x4CC9408",
+      "interfaceCastRva": "0x4CC9414",
+      "castHelperRva": "0xB581C0",
+      "castInterfaceTypeDef": 10630,
+      "castInterfaceType": "IHasSet",
+      "castInterfaceByvalTypeIndex": 65697,
+      "castUsageRva": "0xB138460",
+      "castEncodedUsage": "0x20020143",
+      "castReturnsNullWhenNotAssignable": true,
+      "returnFalseWhenNoIHasSetRva": "0x4CC9418",
+      "interfaceMethod": "IHasSet.get_SetItem",
+      "interfaceMethodDefinitionIndex": 104096,
+      "interfaceSlot": 0,
+      "queryItemId": "IHasSet.get_SetItem() returned Item ID (not selector Tag ID)",
+      "itemDatabaseTypeDef": 10610,
+      "itemDatabaseCallRva": "0x4CC952C",
+      "genericTryGetItemDataRva": "0x37826C0",
+      "genericMethodSpecIndex": 98993,
+      "genericMethodSpecRva": "0x96E6AE8",
+      "genericMethodSpecRaw": "31950100ffffffff35230000",
+      "genericInstantiationIndex": 9013,
+      "genericConcreteTypeDef": 9664,
+      "genericConcreteTypeName": "SetItemData",
+      "genericEncodedUsageRva": "0xB1EFD60",
+      "genericEncodedUsage": "0xC0030563",
+      "lookupFalseRva": "0x4CC9530",
+      "setDataNullBranchRva": "0x4CC9538",
+      "setTagsBackingFieldOffset": "0x40",
+      "setTagsProtoField": 6,
+      "setTagsNullBranchRva": "0x4CC9540",
+      "fallbackRepeatedContainsRva": "0x4CC9550",
+      "fallbackTrueBranchRva": "0x4CC9554",
+      "falseReturnRva": "0x4CC9558",
+      "trueReturnRva": "0x4CC9400"
+    }
+  },
+  "concreteTypeInterface": {
+    "IHasSet": {
+      "typeDefIndex": 10630,
+      "byvalTypeIndex": 65697
+    },
+    "IHasTags": {
+      "typeDefIndex": 10627,
+      "byvalTypeIndex": 65701
+    },
+    "CropItemData": {
+      "typeDefIndex": 9050,
+      "interfaceOffsetEntries": 19,
+      "hasIHasTags": true,
+      "hasIHasSet": false,
+      "sealedInSameBuildDump": true
+    },
+    "IngredientItemData": {
+      "typeDefIndex": 9674,
+      "interfaceOffsetEntries": 19,
+      "hasIHasTags": true,
+      "hasIHasSet": false,
+      "sealedInSameBuildDump": true
+    }
+  },
+  "predicateResultMatrix": {
+    "generalIHasTags": {
+      "directTagTrue": "TRUE",
+      "directTagFalseAndNoIHasSet": "FALSE",
+      "directTagFalseAndIHasSetAndValidSetWithTag": "TRUE",
+      "directTagFalseAndIHasSetButSetLookupMissingOrTagAbsent": "FALSE",
+      "runtimeIHasSetReturnedSetOrItemDbUnknown": "UNKNOWN"
+    },
+    "exactSourceCropIngredientConcrete": {
+      "directTagTrue": "TRUE_STATIC_NATIVE_INPUT",
+      "directTagFalse": "FALSE_STATIC_NATIVE_INPUT_NO_IHASSET",
+      "runtimeItemDbInstanceAndCollectionSets": "UNKNOWN"
+    }
+  },
+  "directSourceExamples": {
+    "blueberry": {
+      "itemId": 30200001,
+      "fruitTag": "TRUE_STATIC_TYPED",
+      "spiceTag": "FALSE_STATIC_TYPED"
+    },
+    "oregano": {
+      "itemId": 30200086,
+      "spiceTag": "TRUE_STATIC_TYPED",
+      "fruitTag": "FALSE_STATIC_TYPED"
+    },
+    "wildEggs": {
+      "itemId": 31100072,
+      "vegetableTag": "TRUE_STATIC_TYPED",
+      "fruitTag": "FALSE_STATIC_TYPED"
+    },
+    "rice": {
+      "itemId": 30200003,
+      "grainTag": "TRUE_STATIC_TYPED",
+      "fruitTag": "FALSE_STATIC_TYPED"
+    }
+  },
+  "coverage": {
+    "priorNativeSelectorPredicateClosed": 96,
+    "additionalSelectorClosures": 0,
+    "confirmedStaticSelectorCount": 96,
+    "total": 256,
+    "remainingUnknown": 160,
+    "unknownByFamily": {
+      "ActivityItem": 8,
+      "Crafting": 28,
+      "Furniture": 63,
+      "Clothing": 61
+    }
+  },
+  "safety": {
+    "independentQR200NewRawAndFallbackAcceptance": false,
+    "unknownFinalNativeMembership": true,
+    "denominator": null,
+    "owned": "UNKNOWN",
+    "collected": "UNKNOWN",
+    "missing": "UNKNOWN",
+    "personalCollectionMetricsAuthorized": false,
+    "nativeWriterAuthorized": false,
+    "presetApplyAuthorized": false,
+    "communityPublishingAuthorized": false,
+    "entitlementInferenceAuthorized": false,
+    "crossPlatformSemanticTransferAuthorized": false
+  },
+  "needSource": [
+    "Original complete CollectionSet.json 45171-byte file for full whole-file SHA comparison (not needed for preserved per-entry protobuf wire validation)",
+    "Independent 04 QR new-only original GZ wire and Native HasTag fallback replay",
+    "Owner-consented current Switch 1.25.0 schema624 real Save and game ItemDatabase runtime for final membership",
+    "Historical untraced d5487eb7 metadata raw source (separate existing provenance hold)"
+  ]
+}
