@@ -35,14 +35,15 @@ with psycopg.connect(dsn,autocommit=True) as reader,psycopg.connect(dsn,autocomm
   reader.execute("update private.preset_storage_release_gate_r18 set enabled=true,provider_precondition_accepted=true,operator_evidence_ref='INT141_SYNTHETIC_NOT_PROVIDER' where gate_key='verified_preset_publication'")
   reader.execute("update private.preset_storage_reservations_r18 set reservation_state='VERIFIED_PUBLISHED_OBJECT',verification_evidence_state='PROVIDER_ATTESTED',readback_at=now(),readback_byte_size=100,readback_sha256=%s where reservation_id=%s",('b'*64,rid))
   committed=one(reader,"select private.preset_storage_commit_candidate_r18(%s,%s,2,%s,1,'Media issuer test',null,'public','{}'::jsonb)",(actor,rid,token))
+  subject=one(reader,"select subject_id from public.gallery_verified_subjects where verification_state='verified' order by subject_id limit 1")
   for work in (affected,control):
    reader.execute("insert into public.community_entities(entity_id,entity_type) values(%s,'community_work')",(work,))
    reader.execute("insert into public.community_works(work_id,owner_account_id,creator_profile_id,work_type,visibility) values(%s,%s,%s,'gallery','public')",(work,owner,creator))
    reader.execute("insert into public.gallery_works(work_id,gallery_kind) values(%s,'outdoor')",(work,))
+   reader.execute("insert into public.gallery_photo_subjects(work_id,subject_id,owner_account_id,creator_profile_id) values(%s,%s,%s,%s)",(work,subject,owner,creator))
   for mid in (media,unaffected):
    reader.execute("insert into public.community_entities(entity_id,entity_type) values(%s,'media_asset')",(mid,))
    reader.execute("insert into public.media_assets(media_id,owner_account_id,storage_key,mime_type,byte_size,width,height,checksum_sha256,processing_state,moderation_state) values(%s,%s,%s,'image/png',100,20,20,%s,'ready','clear')",(mid,owner,key(mid),'e'*64))
-   reader.execute("insert into public.community_media_upload_intents(storage_key,owner_account_id,auth_subject,mime_type,expected_bytes,state,media_id,finalized_at) values(%s,%s,%s,'image/png',100,'finalized',%s,now())",(key(mid),owner,actor,mid))
   for work,mid in ((affected,media),(control,unaffected)):
    revision=uid()
    reader.execute("insert into public.community_work_revisions(revision_id,work_id,revision_number,created_by_account_id) values(%s,%s,1,%s)",(revision,work,owner))
