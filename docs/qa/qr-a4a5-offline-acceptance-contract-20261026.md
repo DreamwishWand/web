@@ -1,0 +1,41 @@
+# 04 QR — Source142 Gate A4–A5 offline acceptance contract
+
+Date: 2026-10-26. Existing 04 QR stream. This is an incremental acceptance instrument, not a replacement for QR188 or Operator PR167/171. DRAFT / DO_NOT_MERGE / DO_NOT_DEPLOY. Gate A0–A7 remain NO-GO.
+
+## Scope and pinned identities
+
+Owner Source142 functional HEAD 0b90e6681507a20c5cfa637752fb6c5a575c5d06, current docs-only Source142 HEAD daeca51eb6c838d9042322a2f3f67fe744e9d01f; 03040/03050/03060 SQL Git Blob SHAs respectively 12ec679135ec00033e94760446dcff86ed70884d, 755c45a5edfe0d8cdab4b4320ecdfa02443183fe, b7563d68348f27591a20a98760534fa7d399b160. Existing Source142 owner/QR185/INT187 local PG acceptance not rerun.
+
+WEP standalone transition candidate PR189 exact initial HEAD caf85a4ed46166fbdcb5ee5d9ccd44f36dfd2b2e; isolated route Git Blobs Generic 631abd4cfb462ce6774b79042a55e580041063d8; Scene 4b667fa26408053b75b91575e59443f0375905ae; Retention 2002d24e585156ce9db6cc4dc78af6d323febd32. Candidate is not permanent Source142 handler replacement. Independent QR PR190 branches from this WEP HEAD and adds actual independently mocked TypeScript route exercise; WEP's own test and accepted QR163 etc not rerun. Its offline deterministic GNU ustar manifest and SHA256SUMS are NOT deployed Supabase Edge SHA256 nor per-replica deployed bundle readback. Re-pin candidate if source Git Blob changes.
+
+Source142 baseline generic product Handler is not completely inert: its prepare generates signed upload and read generates signed 300-second URL despite lack of Copy/Remove; source-only A4 baseline expected-negative is newly reproduced separately. WEP PR189 is the candidate to verify, not those original product files.
+
+## A4 independent acceptance tiers (never confuse)
+
+A4-0 candidate exact Source Commit and 3 Git Blobs, independent WEP PR189 vs QR PR190; offline only.
+A4-1 actual TypeScript transpiled Handler, all Generic prepare/reserve/recover/inspect/publish/revisionReadiness/resolveWork/read/discard, Scene publish/read/unpublish/delete/compensate/retry/legacy aliases, Worker claim/retry/cleanup, unauthorized Actor/foreign Creator/path, sign/copy/remove. Reject all access to Storage, positive writer/lease/signing SQL. Synthetic Actor and worker token only, not real JWT. Separate deterministic archive SHA256SUMS build/readback; offline source only.
+A4-2 offline archive content and SHA256 measured on artifact bytes, compare to WEP 3 source hashes and manifest; DO NOT equate Git blob SHA1, raw file SHA256, tar SHA256, actual deployed full JS dependency SHA and per-replica SHA.
+A4-3 protectively deployed target complete full Edge+Worker bundle SHA/real route/replica readback, after human approved quiesce/drain. UNKNOWN/NOT_EXECUTED.
+A4-4 21 Edge/7 Cron, Community Media/Public Query/Legacy SQL direct service_role Caller/Vault/Queue/webhooks/other Cloud readers/physical Worker/Compensation, old valid signed CDN. NOT CLOSED by WEP three-route candidate.
+A4-5 External Global Barrier and Zero Unaccounted Copy/SQL/compensating Remove/worker retry plus negative Stage acceptance. NOT EXECUTED.
+
+## A5 runnable offline preflight units
+
+L0 Nonprefix migration ledger: readonly exact 116 Stage Version+Name entries are stored in tests/fixtures/qr-a5-stage116-ledger-readonly-20261026.json. Test tests/qr-a4a5-offline-nonprefix-contract.test.mjs checks the actual 142 SQL file names, exact 23 Version+Name, 107 common unique names, five Stage-only, 35 Source-only, four duplicated Stage names. This is a ledger proof, NEVER an automatic +26/+35 migrations script.
+L1 Group dependency review before any SQL: existing Stage-only Storage bucket and pg_net semantics; alternate Scene Product and unattached media discard; old four Generic/Scene positive RPCs and OID-bound privileged callers; new R18 Reservation/Release Gate + immutable published Blob/WEP fences; Source139–142 postincident Reader and Media SQL direct issuer barriers; RLS/ACL/Trigger and Privacy/Retired identity and Moderator. Record per-object SQL DDL, grants, trigger order, indexes, retention/Cloud current/history references, explicit approved dependency DAG.
+L2 A5 negative catalog snapshots: scripts/qa/qr-a5-protected-clone-readonly-catalog.sql captures only metadata/function hashes and privileges under read-only repeatable-read transaction. scripts/qa/qr-a5-compare-protected-clone-catalogs.mjs consumes two restricted-before/after clone snapshot JSON files, enumerates function identity ACL/SECURITY DEFINER/RLS policy/trigger deltas and flags exposed old Generic/Scene/Stage-only Reader signatures and missing R18/R19 private tables. It never authorizes migration and always outputs gateA5Approved:false.
+P3 Operator-protected Historical116 clone: requires explicit human approval and consistent actual Stage116 data snapshot; protect real Work/Media/Preset/Gallery/Scene/Cloud references, 5 Stage-only migration semantics and four duplicate-name anomalies. Execute only reviewed transitional SQL on protected clone, preserve data and verify old/after catalog negative and RLS/Trigger/SQL access. Empty Source142 clean bootstrap and Source142 local two-PG negative tests do NOT establish historical116 compatibility.
+P4 PITR/bytes/legal: independently verify DB PITR checkpoint/restore, actual archived Storage object bytes and metadata restoration, legal holds Issue139, historical keys and pending compensating Copy/SQL/Remove, old signed URLs/CDN. DB PITR alone does not restore deleted Storage object bytes. Supabase S3 Versioning not supported; no automatic version-constrained recovery.
+P5 Operator-only approved cutover: Human approval -> Global ingress/Cron/Worker/direct Caller Quiesce -> Durably zero in-flight Copy/SQL/Remove/retry/claim -> safe Edge/Worker deploy and independently read back complete runtime SHA/replicas -> reviewed historical116-to-142 tailored semantic SQL/ACL/RLS/Trigger -> Stage Negative Acceptance -> limited safe read/privacy reopening. NEVER SQL EXECUTE revoke before old Scene Product v1 Copy-before-SQL deployment stopped, Drained, safely replaced. No positive Publish or physical cleanup.
+
+## Execute without live connection
+
+Node 22, npm ci, then run node --test tests/qr-a4a5-offline-nonprefix-contract.test.mjs tests/qr-a4-generic-source-signer-counterexample.test.mjs . Offline tests use source tree and frozen non-sensitive ledger only; no Supabase credentials. QR PR190 uses the new WEP candidate's actual transpiled TypeScript and forbids direct Storage/positive SQL with mock. WEP and QR candidate hashes must be checked separately from actual delivered runtime bundle hash.
+
+Only on a human-authorized protected offline clone, run psql -X -v ON_ERROR_STOP=1 -f scripts/qa/qr-a5-protected-clone-readonly-catalog.sql on BEFORE and AFTER databases (never live Staging) and capture the single result JSON within the restricted evidence environment, then run node scripts/qa/qr-a5-compare-protected-clone-catalogs.mjs before.json after.json . Do not commit full function definitions, keys, JWT, raw Storage bytes, private data or secret bearer URLs to this repository. Without the protected clone inputs, no A5 pass is possible.
+
+## Abort/rollback and safety decision
+
+If old active Generic14/Scene1/Retention6 alias persists, issuer hidden, new admissions/in-flight Copy or SQL or compensating Remove/worker claim unaccounted, source Blob/archive/bundle/per-replica SHA mismatches, Stage-only Scene schema drift, ACL/RLS/trigger downgrade, no PITR+actual independently restored Storage bytes, pending legal hold, any preissued CDN access risk, then ABORT/HOLD external barrier. Never revert to destructive old Publisher bundles or delete an ambiguous object as compensation. Preserve original actual object bytes, Work metadata, incident proof and legal holds.
+
+Gate B real signed Owner/NonOwner/Moderator Provider immutable no-overwrite independent byteSHA256+size and old signed URL/CDN remains separately CAPABILITY_BLOCKED/NOT_EXECUTED. Gate C physical Cleanup separately NOT_AUTHORIZED. Staging SQL/ACL/Auth/Edge/Storage not modified. Human #130 Gate A NO-GO/NOT_APPROVED/NOT_EXECUTED. Release R17 ProductTree30 PASS0/PARTIAL12/BLOCKED18; SOURCE_FULLY_ENROLLED=0; all Draft DO_NOT_MERGE/DEPLOY; no formal Release R18/R19.
