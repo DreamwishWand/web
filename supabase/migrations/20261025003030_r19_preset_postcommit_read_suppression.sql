@@ -98,6 +98,20 @@ create table if not exists private.preset_storage_work_read_suppressions_r19(
 alter table private.preset_storage_work_read_suppressions_r19 enable row level security;
 revoke all on private.preset_storage_work_read_suppressions_r19 from public,anon,authenticated,service_role;
 
+create or replace function private.preset_storage_suppression_immutable_r19()
+returns trigger language plpgsql security invoker
+set search_path=pg_catalog,public,private as $r19$
+begin
+ raise exception 'R19_PRESET_READ_SUPPRESSION_AUDIT_IMMUTABLE';
+end;$r19$;
+revoke all on function private.preset_storage_suppression_immutable_r19()
+ from public,anon,authenticated,service_role;
+drop trigger if exists preset_storage_work_suppressions_immutable_r19
+ on private.preset_storage_work_read_suppressions_r19;
+create trigger preset_storage_work_suppressions_immutable_r19
+ before update or delete on private.preset_storage_work_read_suppressions_r19
+ for each row execute function private.preset_storage_suppression_immutable_r19();
+
 create or replace function private.preset_storage_incident_suppress_reads_r19()
 returns trigger language plpgsql security definer
 set search_path=pg_catalog,public,private as $r19$
