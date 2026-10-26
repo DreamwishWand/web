@@ -1,0 +1,37 @@
+name: 04 QR PR195 Activity Post-Source Cross-Contract Delta
+on:
+  pull_request:
+    paths:
+      - 'docs/qa/qr-pr195-activity-post-source-independent-20261027.md'
+      - 'tests/qr-pr195-activity-postsource-crosscontract-independent.test.mjs'
+      - '.github/workflows/qr-pr195-activity-post-source-independent.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-crosscontract-new-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin Owner source report & historical selector witnesses, not private raw game data
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN"
+          test "$(git hash-object static/ddv/core/collection/v1.25/native-activity-raw-wire-hastag-fallback-v125.json)" = '457df3a0f0349166957a68621b81578ff43f9354'
+          test "$(git hash-object static/ddv/core/collection/v1.25/native-activity-by-gameplay-tag-v125.json)" = '04d4ac0af42bbf5b2f860993777339a321c2dae8'
+          test "$(git hash-object static/ddv/core/collection/v1.25/collection-definition-source-compact-v125.json)" = '7622ff51f6e48315893d7b75f08e51c248d09f2e'
+      - name: Three independent NEW-ONLY cross-contract tests
+        run: node --test tests/qr-pr195-activity-postsource-crosscontract-independent.test.mjs
+      - name: Explicit source confidence boundary
+        run: echo 'QR201 ORIGINAL PRIVATE GZ/NATIVE BYTE REPLAY LOCAL ONLY; CI SOURCE-PROJECTION GUARD NOT RAW-SOURCE ATTESTATION; NO RUNTIME COLLECTION OR WRITER'
