@@ -1,0 +1,341 @@
+{
+  "schema": "ddv.collection-meal-getter-ingredient-subselector-v125@1",
+  "classification": "OWNER_ORIGINAL_SAME_BUILD_STATIC_MEANING_QR_INDEPENDENT_PENDING",
+  "scope": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "bid": "52BD625D9B4E0053",
+    "saveSchema": 624
+  },
+  "sources": {
+    "originalNso": {
+      "bytes": 96002294,
+      "sha256": "3258d5e05aded708c06017b8763fa37bfb696385a2ab29dd8a182d3938cbc0e0",
+      "fileId": "1oZ4V2BdNSH62n7KFruNbgvGsw5eRs1Z8"
+    },
+    "originalMetadata": {
+      "bytes": 36538728,
+      "version": 31,
+      "sha256": "07e919f07f7be2df883b7292bd3c699f670b4c1e8ff496ef7747447f5baa9f7c",
+      "fileId": "1-Ptq2xCjQh1Fc_tHn1DeekiqiVTFc0v1"
+    },
+    "sameBuildDump": {
+      "bytes": 59624529,
+      "sha256": "a94ae73d522f160d21255b195b4d834bf5c79db59ddbd8cdfc32e54c6e0671f0",
+      "fileId": "13nyviL_uZ9w-Op_9VhJsdpe0Ho4l2cdj"
+    },
+    "losslessItemDB": {
+      "bytes": 5090928,
+      "sha256": "df78c309a8023667c92426e3b929ed3e51aadf10d943835a3673cefa585f8048",
+      "fileId": "1_iMow5gXJTmgbogw1y7S8vTQp-Bj2vI8"
+    },
+    "supportTables": {
+      "bytes": 168583,
+      "sha256": "537cfcf14beca1e76496d4f9c5b60bd7e31d385a16fd69e63083df6978fdf4b9",
+      "fileId": "1Ee5tySw_XinkIXvLTSkDfFUMlTjJPtJJ"
+    },
+    "historicalD548": {
+      "rawSource": "NEED_SOURCE",
+      "equatedToOriginal": false
+    }
+  },
+  "mealGetterClosure": {
+    "doesNotReplaceAcceptedMealWhere": true,
+    "selectorIDs": [
+      2120000022,
+      2120000032,
+      2120000111
+    ],
+    "concreteType": "MealItemData",
+    "typeDef": 9672,
+    "icollectionItemVirtualSlot": 38,
+    "variationInterfaceAbsent": true,
+    "getter": {
+      "rva": "0x487E110",
+      "bytes": 400,
+      "sha256": "913fbf182330f29304f52dd8fe5a7278776cad6ab3afc1d64bf046c8bf94ff30",
+      "missionRead": {
+        "rva": "0x487E164",
+        "arm64": "ldrb w8,[x19,#0x58]",
+        "protobufField": 12
+      },
+      "missionBranch": {
+        "rva": "0x487E168",
+        "instruction": "cbz w8,0x487E184"
+      },
+      "missionTrueFalseReturn": {
+        "rva": "0x487E16C",
+        "instruction": "mov w0,wzr"
+      },
+      "nonMissionIDLoad": {
+        "rva": "0x487E194",
+        "instruction": "ldr w19,[x19,#0x18]",
+        "protobufField": 1
+      },
+      "staticTypeUsage": {
+        "slotRva": "0xB13BB18",
+        "encodedOriginal": "0x2002287b",
+        "classInitialization": {
+          "rva": "0x487E1AC",
+          "instanceStaticPointerRva": "0x487E1C8",
+          "memberOffset": "0x14",
+          "runtimeTypeInitCheckAt": "0x487E1CC"
+        }
+      },
+      "comparatorRead": {
+        "rva": "0x487E1E0",
+        "instruction": "ldr w8,[x21,#0x14]"
+      },
+      "compare": {
+        "rva": "0x487E1E4",
+        "instruction": "cmp w19,w8"
+      },
+      "result": {
+        "rva": "0x487E1E8",
+        "instruction": "cset w0,ne"
+      }
+    },
+    "cctor": {
+      "method": "MealItemData..cctor()",
+      "rva": "0x4881250",
+      "bytes": 1104,
+      "sha256": "7cad2e9c735d8a55cd73e877a967b04b197de30c8db6bf452926c08f080a0f76",
+      "sharedMealTypeInfoUsageRva": "0xB13BB18",
+      "firstStaticField": {
+        "symbol": "MealItemData.MealQuestType",
+        "offset": "0x10",
+        "value": 2001500005,
+        "constantLoadAt": "0x48814EC",
+        "storeAt": "0x4881500"
+      },
+      "secondStaticField": {
+        "symbol": "MealItemData.RubbishItem",
+        "offset": "0x14",
+        "value": 30300494,
+        "lowerHalfAt": "0x4881504",
+        "upperHalfAt": "0x4881508",
+        "storeAt": "0x4881510",
+        "construct": "mov w9,#0x594e; movk w9,#0x1ce,lsl#16; str w9,[x8,#0x14]"
+      },
+      "runtimeInitializationMayFail": false
+    },
+    "exactStaticGetterExpression": "!meal.IsMissionItem && meal.ID != MealItemData.RubbishItem",
+    "resolvedRubbishItemId": 30300494,
+    "originalTypedRubbish": {
+      "itemId": 30300494,
+      "name": "GenericSlop",
+      "concreteType": "MealItemData",
+      "rawPayloadSha256": "387b04bcbe4eeb638e5fe1492d0d589cffc101b68d279f19ce1a895051f83a6a",
+      "missionField12Present": false,
+      "missionDefaultFalse": true,
+      "mealType": 2001500005,
+      "getterStatic": false
+    },
+    "rawSourceCounts": {
+      "totalMealItemData": 578,
+      "missionTrue": 92,
+      "nonMission": 486,
+      "nonMissionRubbishId": 1,
+      "getterStaticTrue": 485,
+      "getterStaticFalse": 93,
+      "notRuntimeMembership": true
+    },
+    "examples": [
+      {
+        "id": 30300001,
+        "name": "ApplePie",
+        "mealType": 2001500000,
+        "selectorOnly": 2120000022,
+        "missionDefault": false,
+        "getterStatic": true,
+        "sourceRawSha256": "4a085acfc408494687c69368c6ec6214660dd1454616d7f991fcfdd3fa6078c8"
+      },
+      {
+        "id": 30300010,
+        "name": "FishTaco",
+        "mealType": 2001500001,
+        "selectorOnly": 2120000032,
+        "missionDefault": false,
+        "getterStatic": true,
+        "sourceRawSha256": "7bccc353cbb9a08fd93d59b7d80158b7e2cd2db649864e8b9333dba79d0cff9b"
+      },
+      {
+        "id": 30300009,
+        "name": "PotatoLeekSoup",
+        "mealType": 2001500003,
+        "selectorOnly": 2120000111,
+        "missionDefault": false,
+        "getterStatic": true,
+        "sourceRawSha256": "4ae2c801e3163621d220ae80e8a5ebdcee006be5bb6006865604dc6b23e969c7"
+      },
+      {
+        "id": 30300119,
+        "name": "MissionRockSoup",
+        "mealType": 2001500005,
+        "selectorOnly": null,
+        "missionField12Present": true,
+        "missionField12Wire": "6001",
+        "getterStatic": false,
+        "sourceRawSha256": "4e3fcc75d4b973f1726ee3ddcd5c06fc75ef75ebee6503d74c28c3b6372feb04"
+      },
+      {
+        "id": 30300494,
+        "name": "GenericSlop",
+        "mealType": 2001500005,
+        "selectorOnly": null,
+        "missionDefault": false,
+        "getterStatic": false,
+        "sourceRawSha256": "387b04bcbe4eeb638e5fe1492d0d589cffc101b68d279f19ce1a895051f83a6a"
+      }
+    ],
+    "limits": [
+      "This static getter result is conditional on exact original typed protobuf inputs and successful ordinary IL2CPP class initialization; it is not a runtime ItemDatabase entry nor whole collection membership.",
+      "Previously accepted three Meal selector Where predicates remain unchanged, and common IsValidItemForCollection plus Group composition are separate."
+    ]
+  },
+  "ingredientNewSelector": {
+    "definitionId": 2120000023,
+    "name": "IngredientsSeafood",
+    "outerOneof": "ActivityItem",
+    "outerCase": 6,
+    "innerOneof": "Ingredient",
+    "innerCase": 5,
+    "rawDefinition": {
+      "bytes": 137,
+      "sha256": "eefeb1cb3fbe31899d82829fd7bc92d49584e4bbf44c121e64c4b394729c5a30",
+      "groupField9Wire": "4a120a06120488a3b30e1208320628c1e1abba07",
+      "byTypeField2Wire": "1208320628c1e1abba07",
+      "activityField6Wire": "320628c1e1abba07",
+      "ingredientField5Wire": "28c1e1abba07",
+      "ingredientSelectorValue": 2001400001,
+      "byTypeIgnoreFieldPresent": false,
+      "byTypeIgnoreDefault": false,
+      "byItemSeparateExplicitId": 30200200
+    },
+    "native": {
+      "getItemsFromTypeRva": "0x4BFAA70",
+      "branchRva": "0x4BFDB0C",
+      "innerCase5CmpAt": "0x4BFDB0C",
+      "genericCallRva": "0x4BFDB40",
+      "getAllByTypeNativeRva": "0x37811C0",
+      "itemTypeArgument": 3,
+      "genericUsageRva": "0xB1EF538",
+      "genericEncoded": "0xC0030359",
+      "methodSpecIndex": 98732,
+      "methodSpecRva": "0x96E5EAC",
+      "methodSpecRawHex": "29950100ffffffffc7210000",
+      "methodDefIndex": 103721,
+      "methodInstIndex": 8647,
+      "concreteTypeDef": 9674,
+      "lambda": "CollectionGroup.<>c__DisplayClass46_0.<_GetItemsFromType>b__10(IngredientItemData)",
+      "lambdaRva": "0x4C004B0",
+      "lambdaBytes": 224,
+      "lambdaSha256": "3606e397fb2d5d0ca19a12fe3006fb3d4e45844ddec3c0a937617b6d4254e312",
+      "outerCase6CmpRva": "0x4C004FC",
+      "innerCase5CmpRva": "0x4C00524",
+      "itemCookingTypeLoadRva": "0x4C004D0",
+      "selectorCookingTypeLoadRva": "0x4C00550",
+      "compareRva": "0x4C00554",
+      "trueEqRva": "0x4C00560",
+      "whereCallRva": "0x4BFDB7C",
+      "whereNativeRva": "0x3756AE0",
+      "sharedSelectNativeRva": "0x3752680",
+      "exactSelectorExpression": "GetAllByType<IngredientItemData>(ItemType3).Where(i => i.CookingIngredientType == selector.Activity.Ingredient).Select(i => i.ID)",
+      "commonIsValidSeparate": true
+    },
+    "concrete": {
+      "name": "IngredientItemData",
+      "typeDefIndex": 9674,
+      "icollectionInterfaceOffset": 37,
+      "icollectionGetterSlot": 38,
+      "getCanBeCollectedRva": "0x48869F0",
+      "getCanBeCollectedCodeHex": "087041391f010071e0179f1ac0035fd6",
+      "getterExpression": "!IsMissionItem",
+      "isMissionProtobufField": 11,
+      "cookingIngredientTypeProtobufField": 8,
+      "cookingIngredientTypeBackingOffset": "0x50",
+      "variationInterfaceAbsent": true
+    },
+    "originalIngredientTypedSource": {
+      "totalRecords": 196,
+      "directCookingTypeValue2001400001": 3,
+      "examples": [
+        {
+          "id": 31100030,
+          "name": "Clam",
+          "bytes": 199,
+          "rawSha256": "1c6f984c3e1a8b4ddca933632a3e0becfa0825534063d1085cb22c0bbbe12eef",
+          "field8Wire": "40c1e1abba07",
+          "missionField11Absent": true,
+          "predicateMatch": true,
+          "staticGetter": true
+        },
+        {
+          "id": 31100031,
+          "name": "Oyster",
+          "bytes": 206,
+          "rawSha256": "811c143caecce07b09bc5ae5adbdce18cf38808b1950e658547e9820ab75fd95",
+          "field8Wire": "40c1e1abba07",
+          "missionField11Absent": true,
+          "predicateMatch": true,
+          "staticGetter": true
+        },
+        {
+          "id": 31100032,
+          "name": "Scallop",
+          "bytes": 208,
+          "rawSha256": "bf8d86bef0b70cc2ba14b9465d3e790c054081191cae87ea4a29138794135569",
+          "field8Wire": "40c1e1abba07",
+          "missionField11Absent": true,
+          "predicateMatch": true,
+          "staticGetter": true
+        },
+        {
+          "id": 31100000,
+          "name": "Product!Egg",
+          "bytes": 217,
+          "rawSha256": "964a4cf2795ab42a0422a773395c333c5d75103297a4e3345d7e828893d1277f",
+          "field8Wire": "40c6e1abba07",
+          "missionField11Absent": true,
+          "predicateMatch": false,
+          "staticGetter": true
+        }
+      ],
+      "sourceRowsNotNativeCollectionDenominator": true
+    },
+    "independentQrPending": true
+  },
+  "coverage": {
+    "previousSelectorsStatic": 100,
+    "newSelectorStatic": 1,
+    "currentSelectorsStatic": 101,
+    "totalSelectors": 256,
+    "remainingUnknown": 155,
+    "unresolvedByFamily": {
+      "ActivityItem": 3,
+      "Crafting": 28,
+      "Clothing": 61,
+      "Furniture": 63
+    },
+    "remainingActivityTypes": [
+      "Fish",
+      "Mineral subtype16",
+      "CraftingMaterial"
+    ]
+  },
+  "safety": {
+    "runtimeEligibility": "UNKNOWN",
+    "finalMembershipKnown": false,
+    "ownerStatus": "UNKNOWN",
+    "collectedStatus": "UNKNOWN",
+    "missingStatus": "UNKNOWN",
+    "denominator": null,
+    "personalPercentageEnabled": false,
+    "nativeWriterEnabled": false,
+    "presetApplyEnabled": false,
+    "communityPublishingEnabled": false,
+    "entitlementEditingEnabled": false,
+    "switch1253OrSteamTransferred": false,
+    "independentQrAccepted": false
+  }
+}
