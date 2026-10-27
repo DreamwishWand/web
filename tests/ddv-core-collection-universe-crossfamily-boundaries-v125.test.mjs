@@ -38,6 +38,18 @@ test('Original metadata CType 9204/9078 original interfaces preserve separate co
  assert.equal(c.getterExpression,'!IsHidden');
  assert.equal(c.getterOpcode16,'08e042391f010071e0179f1ac0035fd6');
  assert.equal(f.secondaryNativeStringCompareHelperRva,'0x6253A20');
+ const index=f.getterIndexOfTrace;
+ assert.equal(index.originalDumpCsSignature,'System.String.IndexOf(string value,int startIndex,int count,StringComparison comparisonType)');
+ assert.equal(index.stringComparisonEnum,'System.StringComparison.Ordinal');
+ assert.equal(index.enumNumericValue,4);
+ assert.equal(index.argumentStartIndex,0);
+ assert.equal(index.argumentCount,'Name.Length');
+ assert.equal(index.firstStringReferenceRva,'0xB2676A8');
+ assert.equal(index.secondStringReferenceRva,'0xB25DE48');
+ assert.equal(index.firstLiteralContents,'UNKNOWN_ORIGINAL_STRING_LITERAL_PROVENANCE');
+ assert.equal(index.secondLiteralContents,'UNKNOWN_ORIGINAL_STRING_LITERAL_PROVENANCE');
+ assert.equal(index.safePositiveEligibility,false);
+ assert.match(index.fullGetterConditional,/Name null follows a separate exception-helper branch/);
  assert.equal(f.positiveGetter,'UNKNOWN');
 });
 test('Full original source row audit does not imply Universe membership or positive furniture getter',()=>{
