@@ -1,0 +1,37 @@
+name: "04 QR Frozen Owner PR195 Final153 Original-Source New-Only Independent"
+on:
+  pull_request:
+    paths:
+      - "docs/qa/qr-pr195-final153-independent-original-source-20261027.md"
+      - "static/ddv/qa/qr-pr195-final153-original-independent-v125.json"
+      - "tests/qr-pr195-final153-independent-original-source-v125.test.mjs"
+      - ".github/workflows/qr-pr195-final153-original-independent.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  static-evidence-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: ""
+      SUPABASE_ACCESS_TOKEN: ""
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Restrict frozen Owner evidence and access
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN"
+          test "$(git hash-object static/ddv/core/collection/v1.25/native-activity-fish-nolocation-original-v125.json)" = b73706bde4cd5c74861dbb2264af629003a10181
+          test "$(git hash-object static/ddv/core/collection/v1.25/native-crafting-recipe-type-28-original-v125.json)" = 48a86eb591abbb8b62f0c1e9970aa59692e89dd2
+      - name: Run new-only per-Family static evidence/RED contracts
+        run: node --test tests/qr-pr195-final153-independent-original-source-v125.test.mjs
+      - name: Original-source limitations
+        run: echo "Private original 5 game source files independently rehashed/replayed OFFLINE ONLY by QR. This CI cannot independently replay proprietary originals. Crafting MethodSpec original RED remains RED. No runtime, writer, publishing, entitlement or schema626 promotion."
