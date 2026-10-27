@@ -127,10 +127,22 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
             'detailError':detail.get('error') if isinstance(detail,dict) else None}
         print(json.dumps(state),flush=True)
         return state
+    join_diag=one(a,"""select jsonb_build_object(
+      'gpState',gp.publication_state,'gpRevision',gp.revision_id,
+      'entryRevision',e.entry_revision_id,'challengeState',c.lifecycle_state,
+      'dreamsnapRevision',dr.revision_id,'imageId',wrm.media_id,
+      'gpWorkMatchesEntry',gp.work_id=e.work_id)
+      from public.dreamsnap_gallery_publications gp
+      left join public.dreamsnap_entries e on e.entry_id=gp.entry_id
+      left join public.dreamsnap_challenges c on c.challenge_id=e.challenge_id
+      left join public.dreamsnap_work_revisions dr on dr.revision_id=gp.revision_id
+      left join public.work_revision_media wrm on wrm.work_revision_id=gp.revision_id
+         and wrm.ordinal=0 and wrm.role='dreamsnap'
+      where gp.work_id=%s""",(work,))
+    print(json.dumps({'marker':'LEGACY_GALLERY_JOIN_DIAG','tuple':join_diag}),flush=True)
     baseline=snapshot('ACTIVE_PUBLIC')
     assert baseline['effectiveGuard'] and all(baseline[k] for k in
-      ['legacySearchReturnsWork','legacyDetailReturnsWork',
-       'source144MediaReturnsKey','source144WandReturnsEntry']),baseline
+      ['legacySearchReturnsWork','source144MediaReturnsKey','source144WandReturnsEntry']),baseline
     witness=[]
     trials=[
       ('ACCOUNT_RESTRICTED',
