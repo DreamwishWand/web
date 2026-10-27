@@ -21,7 +21,7 @@ const context=await browser.newContext({viewport:{width:1280,height:850}});
 const page=await context.newPage();
 page.on('pageerror',e=>report.pageErrors.push(String(e)));
 page.on('console',m=>{if(m.type()==='error')report.consoleErrors.push(m.text())});
-await page.route('http://127.0.0.1:4799/**',async route=>{
+await page.route('https://qr222-synthetic.invalid/**',async route=>{
  const u=new URL(route.request().url());
  report.requests.push(u.pathname);
  const headers={'access-control-allow-origin':'*','access-control-allow-methods':'POST,GET,OPTIONS',
