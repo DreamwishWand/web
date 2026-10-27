@@ -1,0 +1,191 @@
+{
+  "schema": "ddv.qr.pr195.mineral-original-source-independent@1",
+  "classification": "PASS_STATIC_ORIGINAL_SOURCE_ONLY",
+  "platform": "Nintendo Switch",
+  "gameVersion": "1.25.0",
+  "buildID": "52BD625D9B4E0053",
+  "saveSchema": 624,
+  "ownerFrozenHead": "5ed6b31dc1ce44943baee67362e65575effaf6ab",
+  "historicalQr205Head": "e9672f1005db4a5df52af7bfba8ddabd8ac23a2d",
+  "independentPrivateReplay": {
+    "scriptSha256": "ec781dd13d85b817ff260438e0e0424af1b266fe68ff55b6a394872d252b594a",
+    "resultSha256": "b2cb0754a81e38f63e220e252289f48712643e9fe64ee5d71365bec22aa62671",
+    "sourceBytesAccessibleAtAudit": true,
+    "sources": {
+      "main": {
+        "driveId": "1oZ4V2BdNSH62n7KFruNbgvGsw5eRs1Z8",
+        "bytes": 96002294,
+        "sha256": "3258d5e05aded708c06017b8763fa37bfb696385a2ab29dd8a182d3938cbc0e0"
+      },
+      "metadata": {
+        "driveId": "1-Ptq2xCjQh1Fc_tHn1DeekiqiVTFc0v1",
+        "bytes": 36538728,
+        "sha256": "07e919f07f7be2df883b7292bd3c699f670b4c1e8ff496ef7747447f5baa9f7c"
+      },
+      "dump": {
+        "driveId": "13nyviL_uZ9w-Op_9VhJsdpe0Ho4l2cdj",
+        "bytes": 59624529,
+        "sha256": "a94ae73d522f160d21255b195b4d834bf5c79db59ddbd8cdfc32e54c6e0671f0"
+      },
+      "itemDB": {
+        "driveId": "1_iMow5gXJTmgbogw1y7S8vTQp-Bj2vI8",
+        "bytes": 5090928,
+        "sha256": "df78c309a8023667c92426e3b929ed3e51aadf10d943835a3673cefa585f8048"
+      },
+      "support": {
+        "driveId": "1Ee5tySw_XinkIXvLTSkDfFUMlTjJPtJJ",
+        "bytes": 168583,
+        "providerMime": "application/json",
+        "contentMagic": "1f8b",
+        "sha256": "537cfcf14beca1e76496d4f9c5b60bd7e31d385a16fd69e63083df6978fdf4b9"
+      }
+    }
+  },
+  "native": {
+    "nsoSectionsUnpacked": [
+      152803164,
+      26278856,
+      13050248
+    ],
+    "mineralCase": {
+      "rva": "0x4BFDE68",
+      "bytes": 252,
+      "sha256": "4703f8dcee3487eb05203cab1182fe8be1f3e844c32596897a56d1357b462eee",
+      "nativeInstructions": {
+        "cmpCase7": "0x71001d1f",
+        "itemType3": "0x52800061",
+        "subtype16": "0x52800208",
+        "storeSubtypeToSp24": "0xb9001be8",
+        "blTarget": "0x37816f0"
+      }
+    },
+    "generic": {
+      "usage": "0xc00303af",
+      "methodSpecIndex": 98775,
+      "raw12ByteHex": "2a950100ffffffff49870000",
+      "methodDefIndex": 103722,
+      "methodName": "GetAllByType",
+      "instantiationIndex": 34633,
+      "instantiationRva": "0xAC1F870",
+      "typePointerRvas": [
+        "0xB313598",
+        "0xB2CCFD8"
+      ],
+      "typeDefIndices": [
+        9063,
+        10400
+      ],
+      "typeArgCount": 2
+    },
+    "projection": {
+      "rva": "0x4BFF7C0",
+      "bytes": 160,
+      "sha256": "091f6df3a1790b1a787ced9caa5cf709cd21ae08b3f9f57155398d0736408b8e",
+      "idReadRva": "0x4BFF7E8",
+      "idOffset": 24,
+      "selectCallTarget": "0x3752680",
+      "noMineralSpecificWhere": true
+    },
+    "concrete": {
+      "typeDefIndex": 9063,
+      "typeName": "MineralItemData",
+      "typeDefSha256": "1bc0bba3688460e826bd497c173771f27df38eee141c323444a449cde16a5d40",
+      "interfaceOffsetsStart": 18342,
+      "interfaceOffsetsCount": 18,
+      "interfaceOffsetSha256": "5cf1e5dd3ffd6a275fc1ccea7b2c77a88b453500e3421234e71b4e4b586ec992",
+      "icollectionInterfaceType": 64932,
+      "icollectionOffset": 33,
+      "virtualGetterSlot": 1,
+      "concreteGetterVtableSlot": 34,
+      "vtableEntry": "0x60028bb9",
+      "getterMethodDefIndex": 83420,
+      "variationInterfacePresent": false,
+      "getCanBeCollected": {
+        "rva": "0x451B400",
+        "bytes": 16,
+        "sha256": "9173b888b01aea203e357cfeda024f06898a1824ae272ffcf5c2389d294bbd4c",
+        "actualOriginalInstructionHex": "088041391f010071e0179f1ac0035fd6",
+        "expression": "!IsMissionItem",
+        "boolOffset": 96,
+        "protobufField": 11
+      }
+    }
+  },
+  "originalProto": {
+    "definitionId": 2120000084,
+    "full114BytesSha256": "55be403d62d4b9ac75ed7a0a339b085b55c6b6c3fe23b188908851efba814e19",
+    "fieldPath": "Group9 -> CollectionsByType2 -> ActivityItem6 -> Mineral7 explicit empty",
+    "byTypeIgnorePresent": false,
+    "separateByItem": {
+      "ignore": true,
+      "itemIds": [
+        31600040
+      ]
+    },
+    "mineralItemData": {
+      "fullRawRowsVerified": 53,
+      "itemType": 3,
+      "subtype": 16,
+      "missionField11": {
+        "absent": 53,
+        "explicitFalse": 0,
+        "explicitTrue": 0
+      }
+    },
+    "representatives": {
+      "31600002": {
+        "name": "Diamond",
+        "rawBytes": 243,
+        "sha256": "0ca66672c579aa627fba3778df8e117248e406a4b7ea0d66259158e73fb15dc1"
+      },
+      "31600040": {
+        "name": "Onyx_Shiny",
+        "rawBytes": 254,
+        "sha256": "da8207b0bbaceff6077a701e391a173ba828121c147cae8e30a74a4c3be07d13"
+      },
+      "31600082": {
+        "name": "HoneyAgate",
+        "rawBytes": 273,
+        "sha256": "9a1e4e1f467378b5efb2242bd2c905867096234f9254f2854238cecff7f2f928"
+      }
+    },
+    "typeNegative": {
+      "itemId": 31700000,
+      "typeName": "ActivityItemData",
+      "itemType": 3,
+      "subtype": 17,
+      "sha256": "50dd483949b61c6c1bf7e8848db9a9b8d991d00818341f5000a3e9017332c74a",
+      "finalMembership": "UNKNOWN"
+    }
+  },
+  "coverage": {
+    "previousIndependent": 101,
+    "newlyAccepted": 1,
+    "nowIndependent": 102,
+    "totalNativeSelectors": 256,
+    "remainingUnknown": 154,
+    "remainingFamilies": {
+      "ActivityItem": 2,
+      "Crafting": 28,
+      "Clothing": 61,
+      "Furniture": 63
+    }
+  },
+  "safety": {
+    "runtimeNativeEligibility": "UNKNOWN",
+    "runtimeItemDatabase": "UNKNOWN",
+    "runtimeCollectionSets": "UNKNOWN",
+    "personalOwned": "UNKNOWN",
+    "personalCollected": "UNKNOWN",
+    "personalMissing": "UNKNOWN",
+    "denominator": null,
+    "collectionPercentEnabled": false,
+    "nativeSaveWriterEnabled": false,
+    "presetApplyEnabled": false,
+    "communityPublisherEnabled": false,
+    "entitlementEditingEnabled": false,
+    "switch1253Schema626Promotion": false,
+    "steamPromotion": false
+  },
+  "ciScope": "committed non-proprietary hash/evidence attestation only; original binaries not stored or replayed in GitHub CI; actual original-byte re-derivation performed locally in independent QR."
+}
