@@ -82,6 +82,6 @@ test('Crossfamily original ID uniqueness, zero new native closures and strict fa
  assert.deepEqual(c.remaining,{Clothing:61,Furniture:63});assert.equal(c.independentAccepted,103);
  const s=e.safety;assert.equal(s.universePredicateClosed,false);assert.equal(s.universeSelectorsAdded,0);
  assert.equal(s.denominator,null);assert.equal(s.finalMembershipKnown,false);
- for(const k of ['personalMetrics','nativeWriter','presetApply','communityPublishing','entitlementEditing','steamOr626Transfer'])assert.equal(s[k],false,k);
+ for(const k of ['personalMetrics','nativeWriter','presetApply','communityPublishing','entitlementEditing','switch1253OrSteamTransferred'])assert.equal(s[k],false,k);
  for(const k of ['owned','collected','missing'])assert.equal(s[k],'UNKNOWN');
 });
