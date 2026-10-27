@@ -90,6 +90,7 @@ try{
  ok('OLD_GALLERY_DREAMSNAPS_WORK_ID_NO_MEDIA_OR_REDIRECT');
 
  for(const locale of ['en','fr','it','de','es-ES','ja','zh-CN','pt-BR']){
+  await page.setViewportSize({width:1280,height:850});
   await page.goto(origin+'/dreamsnaps/community/?work=55555555-5555-4555-8555-555555555555',{waitUntil:'domcontentloaded'});
   await eventually(async()=>await page.locator('[data-dreamsnap-work-state="authority-pending"]').count()===1);
   await page.waitForTimeout(300);
