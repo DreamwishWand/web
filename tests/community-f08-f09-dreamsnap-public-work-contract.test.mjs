@@ -26,6 +26,11 @@ test('F08 all THREE original OR branches preserved; DreamSnaps gallery and Entry
  assert.match(patched,/wrm\.role='dreamsnap' and wrm\.ordinal=0/);
  assert.match(patched,/gp\.publication_state='published'/);
  assert.match(patched,/m\.processing_state='ready'/);
+ // The effective Source141/142 function has a FIRST-STATEMENT Incident veto.
+ // Never replace it with a historical unguarded Source44500 body.
+ assert.match(patched,/begin\s+--[^\n]*\n\s+--[^\n]*\n\s+perform public\.community_preset_storage_assert_media_not_quarantined_r19\(p_media_id\);/);
+ assert.ok(patched.indexOf('perform public.community_preset_storage_assert_media_not_quarantined_r19') < patched.indexOf('select jsonb_build_object'));
+
  assert.match(patched,/raise exception 'Public media is not accessible'/);
 });
 test('F09 public WAND results use the same effective Work guard, revision equality, real owner media/phase and creator while official numeric gate still NULL',()=>{
