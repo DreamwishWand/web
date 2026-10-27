@@ -180,7 +180,9 @@
   "communityAuthority": {
     "edge": {
       "path": "supabase/functions/community-public-query/index.ts",
-      "blob": "232c71ec6b7b275a1f2652ffacd3de976f178810"
+      "blob": "c0d34aae0ab2db87f10ec32c74c3d1f11da371c1",
+      "previousSource146Blob": "232c71ec6b7b275a1f2652ffacd3de976f178810",
+      "edgeOnlyAmendment": "QR235 pre-dispatch sensitive invalid parameters 400 private, no-store, no behavioral changes to SQL/UI/signer"
     },
     "source141To146": [
       {
@@ -208,7 +210,8 @@
         "blob": "278bb69e990fc62956d28ee9563c9ecbc53b9f03"
       }
     ],
-    "allSupabasePathsUnchanged": true
+    "allSupabasePathsUnchanged": false,
+    "onlyChangedSupabasePath": "supabase/functions/community-public-query/index.ts"
   },
   "gates": {
     "publicDreamsnapPositiveDetail": false,
@@ -222,5 +225,5 @@
     "signedActors": false,
     "independentCombinedQR": false
   },
-  "caveat": "Accepted Source146 Edge pre-sanitizer generic 400 currently public,max-age30; sensitive dispatched success and post-RPC failure private,no-store. Not demonstrated private data leak or authorized CDN/bearer revocation."
+  "caveat": "QR235 original HEAD e57aa6b7241bb4efff03c968cd82fb135bb7c504 remains immutable historic pre-dispatch 400 RED. On current Owner Edge the allowlisted sensitive RPC classification runs before parameter sanitation; prior generic unknown RPC and invalid JSON errors unchanged. Old signed CDN URLs not revoked."
 }
