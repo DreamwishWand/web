@@ -161,7 +161,7 @@
         "firstLiteralContents": "UNKNOWN_ORIGINAL_STRING_LITERAL_PROVENANCE",
         "secondLiteralContents": "UNKNOWN_ORIGINAL_STRING_LITERAL_PROVENANCE",
         "originalArmSemantics": "Name.IndexOf(firstLiteral,0,Name.Length,Ordinal)<0 && Name.IndexOf(secondLiteral,0,Name.Length,Ordinal)<0",
-        "fullGetterConditional": "!IsHidden && Name != null && first IndexOf < 0 && second IndexOf < 0",
+        "fullGetterConditional": "For non-null Name and successful ordinary string-reference initialization: !IsHidden && first IndexOf < 0 && second IndexOf < 0; Name null follows a separate exception-helper branch, not a verified false return",
         "runtimeInitializationOfLiteralReferences": "UNKNOWN",
         "safePositiveEligibility": false
       }
