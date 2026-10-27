@@ -1,0 +1,78 @@
+name: 04 QR Source146 independent anon two-PG post-fix
+on:
+  push:
+    branches: ['qr/source146-generic-search-postfix-20261027']
+  pull_request:
+    branches: ['fix/03comm-generic-public-search-work-liveness-20261027']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source:
+    name: Immutable Source141-146 / RLS source audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: git merge-base --is-ancestor 5ddf4d23689643340c8d547e47b58f211e03291e HEAD
+      - run: node --test tests/qr-source146-generic-search-independent-source.test.mjs
+  full146-real-anon:
+    name: Full146 isolated local two real PG / anon & Question
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+      DDVRE_PRIVACY_ISOLATED_LOCAL: 'CONFIRMED'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Assert exact isolated full146 and no linked remote project
+        run: |
+          set -euo pipefail
+          test -z "$SUPABASE_ACCESS_TOKEN"
+          test -z "$DATABASE_URL"
+          git merge-base --is-ancestor 5ddf4d23689643340c8d547e47b58f211e03291e HEAD
+          printf 'project_id = "ddvre_qr230_full146_independent_disposable"\n' | cat - supabase/config.toml > /tmp/qr230-config.toml
+          mv /tmp/qr230-config.toml supabase/config.toml
+          test "$(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l)" -eq 146
+          echo QR230_NO_STAGE_NO_JWT_NO_STORAGE_NO_PROVIDER_NO_CDN
+      - name: Bootstrap actual disposable full146 Supabase/PostgreSQL
+        run: |
+          set -euo pipefail
+          timeout 1500s supabase start > /tmp/qr230-bootstrap.log 2>&1 || {
+            tail -160 /tmp/qr230-bootstrap.log
+            exit 1
+          }
+          echo QR230_FULL146_LOCAL_SCHEMA_PASS
+      - name: Actual independent two PG, anonymous RLS/catalog and canonical index lifecycle
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'psycopg[binary]>=3.2,<4'
+          python3 tests/qr-source146-generic-search-independent-two-pg.py | tee /tmp/qr230-anon.log
+          grep -q QR230_INDEPENDENT_SOURCE146_ACTUAL_TWO_PG_ANON_POSTFIX_PASS /tmp/qr230-anon.log
+          grep -q SOURCE146_R21_LIVE_CATALOG_PASS /tmp/qr230-anon.log
+          grep -q CANONICAL_QUESTION_PUBLIC /tmp/qr230-anon.log
+          grep -q CANONICAL_INDEX_LIFECYCLE /tmp/qr230-anon.log
+      - if: failure()
+        run: tail -140 /tmp/qr230-bootstrap.log || true
+      - name: Synthetic SQL output evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr230-source146-independent-local
+          path: |
+            /tmp/qr230-anon.log
+            /tmp/qr230-bootstrap.log
+          if-no-files-found: warn
