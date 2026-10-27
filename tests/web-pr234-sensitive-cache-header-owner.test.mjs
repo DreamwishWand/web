@@ -6,8 +6,8 @@ import ts from 'typescript';
 // Execute the actual Edge fetch/reply/sanitizer body, with only its two Deno
 // imports substituted by a local in-process fake. No Stage/PG/CDN or network.
 const edge=readFileSync('supabase/functions/community-public-query/index.ts','utf8');
-const source=edge.replace(/^import\\s+\\{[^\\n]+\\}\\s+from\\s+['"][^'"]+['"];?\\s*$/gm,'');
-assert(!/^import\\s/m.test(source),'Unexpected imports: local Edge fixture must be reviewed');
+const source=edge.replace(/^import\s+\{[^\n]+\}\s+from\s+['"][^'"]+['"];?\s*$/gm,'');
+assert(!/^import\s/m.test(source),'Unexpected imports: local Edge fixture must be reviewed');
 const js=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
 const shim=`
 const corsHeaders={'Access-Control-Allow-Origin':'*'};
