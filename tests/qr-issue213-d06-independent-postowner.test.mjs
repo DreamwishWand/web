@@ -89,3 +89,26 @@ test('F07: owner-private result read stays wired, 143 cannot imply real signed E
  assert.match(v.command,/params\.p_expected_version = payload\.expectedVersion/);
  assert.match(v.sql,/publicProjectionAuthorized',false/);
 });
+
+test('F08 RESIDUAL SOURCE RED: public-media frozen-entry third OR lacks Work published/public checks after Source143',()=>{
+ const legacy = read('supabase/migrations/20261003044500_community_dreamsnaps_projection_v1.sql');
+ const mediaEdge = read('supabase/functions/community-public-media/index.ts');
+ const marker='create or replace function public.community_get_public_media_storage_v2(';
+ const start=legacy.indexOf(marker);
+ const body=legacy.slice(start,legacy.indexOf('$$;',start)+3);
+ const third=body.slice(body.indexOf('join public.community_works w on w.work_id=e.work_id'));
+ assert.ok(start>=0 && third.includes("and w.moderation_state='clear'"),'frozen-entry source witness missing');
+ assert.doesNotMatch(third,/and w.lifecycle_state='published'/);
+ assert.doesNotMatch(third,/and w.visibility='public'/);
+ assert.match(mediaEdge,/community_get_public_media_storage_v2/);
+ assert.doesNotMatch(v.sql,/create or replace function public.community_get_public_media_storage_v2/);
+ // This test PASS is proof of a remaining static exposure condition, NOT a protected-media PASS.
+});
+test('F09 RESIDUAL SOURCE RED: Wand Results list source lacks explicit Work publish/visibility gate',()=>{
+ const start=v.results.indexOf('create or replace function public.community_get_dreamsnap_results_public_v1(');
+ const body=v.results.slice(start,v.results.indexOf('$$;',start)+3);
+ const wand=body.slice(body.indexOf('into v_wand'),body.indexOf('into v_official'));
+ assert.ok(wand.includes("w.moderation_state='clear'"),'expected upstream existing condition not found');
+ assert.doesNotMatch(wand,/w.lifecycle_state='published'/);
+ assert.doesNotMatch(wand,/w.visibility='public'/);
+});
