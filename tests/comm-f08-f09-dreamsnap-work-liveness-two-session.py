@@ -102,8 +102,8 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
     # read and rollback within a savepoint. No real objects are modified.
     a.execute('begin')
     scenario(a,'PRIVATE_RETAINED_WORK',"update public.community_works set visibility='private' where work_id=%s",(work,))
-    scenario(a,'UNPUBLISHED_RETAINED_WORK',"update public.community_works set lifecycle_state='unpublished' where work_id=%s",(work,))
-    scenario(a,'DELETED_RETAINED_WORK',"update public.community_works set lifecycle_state='deleted' where work_id=%s",(work,))
+    scenario(a,'UNPUBLISHED_RETAINED_WORK',"update public.community_works set lifecycle_state='unpublished',visibility='private' where work_id=%s",(work,))
+    scenario(a,'DELETED_RETAINED_WORK',"update public.community_works set lifecycle_state='deleted',visibility='private' where work_id=%s",(work,))
     scenario(a,'RESTRICTED_WORK',"update public.community_works set moderation_state='restricted' where work_id=%s",(work,))
     scenario(a,'CREATOR_PRIVATE',"update public.creator_profiles set profile_visibility='private' where creator_profile_id=%s",(creator,))
     scenario(a,'CREATOR_MODERATED',"update public.creator_profiles set moderation_state='restricted' where creator_profile_id=%s",(creator,))
