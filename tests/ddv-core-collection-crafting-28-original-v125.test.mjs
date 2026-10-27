@@ -14,13 +14,13 @@ test('Original pinned source provenance and version scope are strict',()=>{
  assert.equal(ev.sourceSha256.supportGz,'537cfcf14beca1e76496d4f9c5b60bd7e31d385a16fd69e63083df6978fdf4b9');
  assert.equal(ev.historicalUntracedD548,'NEED_SOURCE_NOT_EQUATED');
 });
-test('Original method spec 98710/Where RecipeType/eight distinct proto values exactly one shared predicate',()=>{
- const n=ev.native;assert.equal(n.outerCraftingCase,5);assert.equal(n.innerRecipeTypeCase,2);
- const g=n.getAllByType;assert.equal(g.itemType,12);assert.equal(g.methodSpecIndex,98710);assert.equal(g.typeDef,9715);
- assert.equal(g.methodSpecRva,'0x96E5DA4');
- assert.equal(g.sourceEncodedUsage,'0xC003032D');
+test('Original Crafting outer8 / RecipeType case2 uses generic2 MethodSpec98762 (not Critter98710)',()=>{
+ const n=ev.native;assert.equal(n.outerCraftingCase,8);assert.equal(n.innerRecipeTypeCase,2);
+ const g=n.getAllByType;assert.equal(g.itemType,205);assert.equal(g.subtype,3);assert.equal(g.methodSpecIndex,98762);assert.equal(g.typeDef,9715);assert.equal(g.secondTypeDef,10402);
+ assert.equal(g.methodSpecRva,'0x96E6014');
+ assert.equal(g.sourceEncodedUsage,'0xC0030395');assert.equal(g.usageRva,'0xB1EF628');
  const spec=Buffer.from(g.methodSpecHex,'hex');assert.equal(spec.length,12);
- assert.equal(spec.readUInt32LE(0),103721);assert.equal(spec.readInt32LE(4),-1);assert.equal(spec.readUInt32LE(8),8335);
+ assert.equal(spec.readUInt32LE(0),103722);assert.equal(spec.readInt32LE(4),-1);assert.equal(spec.readUInt32LE(8),34620);
  assert.equal(n.predicate.lambdaRva,'0x4C009E0');
  assert.equal(n.predicate.first36BytesSha256,'d211d013e5a5afa619ff492d1e52f92293a30d5ae3acfd1424d8101c9c191ed6');
  assert.equal(n.predicate.recipeFieldOffset,'0x50');assert.equal(n.predicate.selectorCapturedOffset,'0x10');
@@ -80,4 +80,68 @@ test('Owner 103+28 static 131, QR acceptance and runtime/writer remain independe
  assert.equal(s.qrAccepted,false);assert.equal(s.sourceOnly,true);
  assert.equal(s.denominator,null);assert.equal(s.runtimeItemDatabase,'UNKNOWN');assert.equal(s.owned,'UNKNOWN');assert.equal(s.missing,'UNKNOWN');assert.equal(s.collected,'UNKNOWN');
  for(const k of ['nativeWriter','apply','publishing','entitlementEditing','steamOr626'])assert.equal(s[k],false);
+});
+
+test('original-bound method usage + ADRP/LDR + BL target are a single direct Crafting callsite, not an unrelated MethodSpec',()=>{
+ const g=ev.native.getAllByType;
+ assert.equal(g.usageAdrpRva,'0x4BFD0E0');
+ assert.equal(g.usageLdrRva,'0x4BFD0E8');
+ assert.equal(g.itemTypeMovRva,'0x4BFD0E4');
+ assert.equal(g.subtypeMovRva,'0x4BFD0EC');
+ assert.equal(g.subtypeStackStoreRva,'0x4BFD0F4');
+ assert.equal(g.callRva,'0x4BFD0F8');
+ assert.equal(g.rva,'0x37816F0');
+ assert.equal(g.genericInstantiationRecordRva,'0xAC1F7A0');
+ assert.equal(g.genericArgPointerListRva,'0xB100278');
+ assert.equal(g.typePointerRva,'0xB2E1E88');
+ assert.equal(g.secondTypePointerRva,'0xB2CCF58');
+ assert.equal(g.nativeCallSliceSha256,'ceec4dd83d4056294fa57424ffaf8c4deaa91ef06d3ecb3e23c348e45ae34cbe');
+ assert.equal(g.branchOuterCaseRva,'0x4BFD140');
+ assert.equal(g.branchInnerCase2Rva,'0x4BFD3D0');
+ assert.equal(g.initialEnumerationToListCallRva,'0x4BFD104');
+ assert.equal(g.initialListHeldIn,'x21 at 0x4BFD114');
+ assert.match(ev.native.expression,/ItemType205, subtype3/);
+});
+
+test('negative provenance: old BL Critter MethodSpec98710 must never be accepted as recipe',()=>{
+ const bad=ev.native.historicalRed;
+ assert.equal(bad.legacyOuterCase,5);
+ assert.equal(bad.legacyCallRva,'0x4BFC974');
+ assert.equal(bad.legacyUsageRva,'0xB1EF488');
+ assert.equal(bad.legacyUsage,'0xC003032D');
+ assert.equal(bad.legacyMethodSpecIndex,98710);
+ assert.equal(bad.legacyInstantiationIndex,8335);
+ assert.equal(bad.legacyTrueTypeDef,9630);
+ assert.equal(bad.legacyTrueTypeName,'CritterItemData');
+ assert.equal(bad.legacyItemType12,12);
+ assert.equal(bad.legacyOpcodeSliceSha256,'42c12871749ab6e5faf112e50924e6186b45bfed86678f908cd1c5c035a55940');
+ assert.notEqual(bad.legacyMethodSpecIndex,ev.native.getAllByType.methodSpecIndex);
+ assert.notEqual(bad.legacyCallRva,ev.native.getAllByType.callRva);
+ assert.notEqual(bad.legacyTrueTypeDef,ev.native.getAllByType.typeDef);
+ assert.notEqual(bad.legacyOuterCase,ev.native.outerCraftingCase);
+});
+
+test('negative provenance: one-generic MethodSpec98709 for CraftingRecipeItemData is not a proved Crafting callsite',()=>{
+ const bad=ev.native.historicalRed,g=ev.native.getAllByType;
+ assert.equal(bad.otherMethodSpecIndex,98709);
+ assert.equal(bad.otherInstantiationIndex,8326);
+ assert.equal(bad.otherTypeDef,g.typeDef);
+ assert.equal(bad.otherMethodSpecHex,'29950100ffffffff86200000');
+ assert.equal(g.methodDefIndex,103722);
+ assert.equal(g.methodSpecIndex,98762);
+ assert.equal(g.secondTypeDef,10402);
+});
+
+test('original RecipeType equality and Result projector remain separate from null exceptional path and downstream IsValid',()=>{
+ assert.equal(ev.native.predicate.whereCallSiteRva,'0x4BFD438');
+ assert.equal(ev.native.predicate.whereTargetRva,'0x3756AE0');
+ assert.equal(ev.native.resultMapping.lambdaRva,'0x4BFF330');
+ assert.equal(ev.native.resultMapping.selectedFromRecipeTypeCase2At,'0x4BFD4E8');
+ assert.equal(ev.native.resultMapping.sharedSelectEntryRva,'0x4BFD86C');
+ assert.match(ev.native.resultMapping.nullResult,/0x4BFF350/);
+ assert.match(ev.native.resultMapping.nullRuntimeMeaning,/UNKNOWN_NEED_RUNTIME/);
+ assert.equal(ev.native.commonIsValidSeparate,true);
+ assert.equal(ev.correction20261027.selectorOccurrences,28);
+ assert.equal(ev.correction20261027.uniqueCollectionDefinitions,25);
+ assert.equal(ev.safety.denominator,null);
 });
