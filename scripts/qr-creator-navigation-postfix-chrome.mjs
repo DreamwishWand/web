@@ -96,6 +96,7 @@ try{
  // New page for locale cases avoids conflating SvelteKit route lifecycle
  // with the intentionally denied Community DreamSnaps Work Detail.
  for(const locale of ['en','fr','it','de','es-ES','ja','zh-CN','pt-BR']){
+   await page.setViewportSize({width:1280,height:850});
    await visit('/qa/?tip='+id.tip);
    await until(async()=>await page.locator('article.detail h2').innerText()==='QR TIP ONE');
    await page.waitForTimeout(650);
