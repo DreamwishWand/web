@@ -34,7 +34,8 @@ await page.route('http://127.0.0.1:4799/**',async route=>{
 const outDir='.artifacts/creator-typed-work-browser';
 await mkdir(outDir,{recursive:true});
 try{
- await page.goto(origin+'/creator/?id='+creatorId,{waitUntil:'domcontentloaded'});
+ const initial=await page.goto(origin+'/creator/?id='+creatorId,{waitUntil:'domcontentloaded'});
+ assert(initial?.status()===200,'Creator HTTP '+initial?.status()+': '+(await page.locator('body').innerText()).slice(0,400));
  await eventually(async()=>await page.locator('[data-typed-work-route]').count()===types.length);
  assert(await page.locator('[data-typed-work-route="gallery"]').count()===1,'gallery typed route missing');
  assert(await page.locator('[data-typed-work-route="tip"]').count()===1,'tip typed route missing');
