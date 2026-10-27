@@ -22,8 +22,8 @@ page.on('console',message=>{if(message.type()==='error')report.consoleErrors.pus
 try{
  await page.goto(base+'/collection/',{waitUntil:'domcontentloaded'});
  await eventually(async()=>await page.locator('.collection-card').count()===120);
- assert(await page.locator('.view-switch button[aria-pressed="true"]').count()===1,'Missing active default view');
- assert((await page.locator('.view-switch button[aria-pressed="true"]').textContent()).includes('Category'),'Category not default');
+ assert(await page.locator('.view-switch').count()===0,'Permanent World/Universe modes must not exist');
+ assert(await page.locator('.collection-controls select').count()===3,'Category/Universe/Expansion contextual facets missing');
  assert(await page.locator('.load-more button').count()===1,'No way to browse beyond the first 120 records');
  await page.locator('.load-more button').click();
  await eventually(async()=>await page.locator('.collection-card').count()===240);
@@ -44,25 +44,32 @@ try{
 
  await page.locator('.back-link').click();
  await eventually(async()=>await page.locator('.collection-card').count()===120);
- await page.locator('.view-switch button').nth(1).click();
- assert((await page.locator('.view-switch button[aria-pressed="true"]').textContent()).includes('World'),'World alternate lens missing');
- await page.locator('.collection-controls select').selectOption({index:1});
+ await page.locator('.collection-controls select').nth(1).selectOption('Mickey');
+ await eventually(async()=>await page.locator('.collection-card').count()>0);
+ await page.locator('.collection-controls select').nth(2).selectOption('BaseGame');
  await eventually(async()=>await page.locator('.collection-card').count()>0);
  const lensHref=await page.locator('.collection-card').first().getAttribute('href');
- assert(lensHref?.includes('view=world')&&lensHref?.includes('world='),'World selection absent from detail link');
+ assert(lensHref?.includes('universe=Mickey')&&lensHref?.includes('expansion=BaseGame'),'Universe/Expansion facet absent from detail link');
  await page.locator('.collection-card').first().click();
  await eventually(async()=>await page.locator('[data-collection-state="item-detail"]').count()===1);
  await page.locator('.back-link').click();
- await eventually(async()=>await page.locator('.view-switch button[aria-pressed="true"]').textContent().then(t=>t.includes('World')));
- assert((await page.locator('.collection-controls select').inputValue())!=='','World filter not restored');
- ok('SINGLE_WORKSPACE_WORLD_FACET_ROUND_TRIP');
+ await eventually(async()=>await page.locator('.collection-card').count()>0);
+ assert((await page.locator('.collection-controls select').nth(1).inputValue())==='Mickey','Universe filter not restored');
+ assert((await page.locator('.collection-controls select').nth(2).inputValue())==='BaseGame','Expansion filter not restored');
+ ok('CATEGORY_FIRST_UNIVERSE_EXPANSION_FACET_ROUND_TRIP');
 
- await page.locator('.view-switch button').nth(2).click();
- assert((await page.locator('.view-switch button[aria-pressed="true"]').textContent()).includes('Universe'),'Universe alternate lens missing');
  await page.locator('.search input').fill('___NO_SUCH_NAMED_ITEM____');
  await eventually(async()=>await page.locator('.empty').count()===1);
- ok('UNIVERSE_FILTER_AND_EMPTY_SEARCH');
+ ok('CONTEXTUAL_FILTER_AND_EMPTY_SEARCH');
  await page.locator('.search input').fill('');
+
+ for (const legacy of ['?view=world&world=IsDreamlightValley&item='+expectedId,
+                        '?view=universe&universe=Mickey&item='+expectedId]) {
+   await page.goto(base+'/collection/'+legacy,{waitUntil:'domcontentloaded'});
+   await eventually(async()=>await page.locator('[data-collection-state="invalid-url"]').count()===1);
+   assert(await page.locator('.item-detail').count()===0,'Legacy view mode exposed Detail');
+ }
+ ok('LEGACY_WORLD_UNIVERSE_VIEWMODE_DENIED');
 
  await page.goto(base+'/collection/?item=9999999999999',{waitUntil:'domcontentloaded'});
  await eventually(async()=>await page.locator('[data-collection-state="unknown-item"]').count()===1);
