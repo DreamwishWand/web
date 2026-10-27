@@ -26,7 +26,14 @@ def visible(c,label=''):
     assert one(c,"select private.dreamsnap_public_official_result(%s)",(entry,)) is None
 def hidden(c,label=''):
     denies(c)
-    assert rows(c)==[],(label,rows(c))
+    try:
+        with c.transaction():
+            got=rows(c)
+        assert got==[],(label,got)
+    except psycopg.Error as e:
+        # For an UNRELEASED challenge, the public Results endpoint correctly
+        # rejects the entire request instead of returning an empty list.
+        assert label=='CHALLENGE_EARLY' and 'DreamSnaps Results are not publicly accessible' in str(e),(label,str(e))
 def scenario(c,name,sql,args=(),denied=True):
     c.execute('savepoint f08case')
     try:
