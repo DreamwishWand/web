@@ -1,0 +1,198 @@
+{
+  "schema": "ddv.qr.final153.original-source-frozen-owner-64913@1",
+  "classification": "FISH_PASS_CRAFTING_RED_CLOTHING_PASS_FURNITURE_PASS",
+  "frozenOwnerHead": "64913f8d63f90dc9ada1200a1249aff373217420",
+  "ownerCI": {
+    "id": 40458207678,
+    "status": "SUCCESS"
+  },
+  "priorQA": {
+    "pr": 207,
+    "head": "6c673abea159bbf01a0c4be0a975e7798807246b",
+    "independentAccepted": 103
+  },
+  "scope": {
+    "platform": "Nintendo Switch",
+    "version": "1.25.0",
+    "bid": "52BD625D9B4E0053",
+    "saveSchema": 624
+  },
+  "originalOnlyLocalReplay": {
+    "scriptSha256": "1e8cb8fbac5fafe0fe758afd152d7f963214ff2e39c5193bc730d11bc6c3b97d",
+    "resultSha256": "ae8b49b2aba4a277c982daa5e92faa751c46bc6ab480fb8104761b2ad79c9d24",
+    "privateBytesCommitted": false,
+    "privateOriginalReplayInGitHubCI": false
+  },
+  "originalFiles": {
+    "main": {
+      "bytes": 96002294,
+      "sha256": "3258d5e05aded708c06017b8763fa37bfb696385a2ab29dd8a182d3938cbc0e0"
+    },
+    "metadata": {
+      "bytes": 36538728,
+      "sha256": "07e919f07f7be2df883b7292bd3c699f670b4c1e8ff496ef7747447f5baa9f7c"
+    },
+    "dump": {
+      "bytes": 59624529,
+      "sha256": "a94ae73d522f160d21255b195b4d834bf5c79db59ddbd8cdfc32e54c6e0671f0"
+    },
+    "itemDb": {
+      "bytes": 5090928,
+      "sha256": "df78c309a8023667c92426e3b929ed3e51aadf10d943835a3673cefa585f8048"
+    },
+    "support": {
+      "bytes": 168583,
+      "sha256": "537cfcf14beca1e76496d4f9c5b60bd7e31d385a16fd69e63083df6978fdf4b9"
+    }
+  },
+  "family": {
+    "Fish": {
+      "verdict": "PASS_STATIC",
+      "assigned": 1,
+      "pass": 1,
+      "red": 0,
+      "originalDefinition": {
+        "id": 2120000020,
+        "bytes": 140,
+        "sha256": "c3f2d3c00714f9b4d29d8eec4affc88c10818b8c5a18722ca1df55f14dbd430d",
+        "useLocationPresent": false,
+        "useLocationDefault": false,
+        "separateByItemIgnoreID": 31000006
+      },
+      "native": {
+        "armRva": "0x4BFDC38",
+        "armBytes": 220,
+        "armSha256": "6bbbedf65e22ef92cee12cf54b2a38a77039c58c19c76deb662ee55da25a660e",
+        "methodSpec": 98717,
+        "typeDef": 9613,
+        "concrete": "FishItemData",
+        "projectorRva": "0x4BFF540",
+        "projectorBytes": 160,
+        "projectorSha256": "2aa718b4011d73d58db3dbdf0f4bd36e8f68265bb402f8f40b396d4f5b1f7901",
+        "getAllTarget": "0x37811C0",
+        "select": "0x3752680",
+        "toList": "0x37566C0",
+        "fishLocationBranchSelected": false
+      },
+      "originalTypedRowsShaVerified": 96
+    },
+    "Crafting": {
+      "verdict": "RED",
+      "assigned": 28,
+      "pass": 0,
+      "red": 28,
+      "originalSelectorProtobufShaVerified": 28,
+      "originalRecipeItemsShaVerified": 1206,
+      "sourceRecipeResultMissing": 0,
+      "nativeLambdaSha256": {
+        "recipeCompare36": "d211d013e5a5afa619ff492d1e52f92293a30d5ae3acfd1424d8101c9c191ed6",
+        "resultProjector36": "b0c036d6800e0f1d66a82fcb12b29559287c1ca2259c68f19ef57305213ecdbb"
+      },
+      "minimalRed": {
+        "ownerMethodSpec": 98710,
+        "ownerTypeDefClaim": 9715,
+        "originalMethodSpec98710": "29950100ffffffff8f200000",
+        "original98710GenericInst": 8335,
+        "original98710ActualTypeDef": 9630,
+        "original98710ActualType": "CritterItemData",
+        "actualRecipeMethodSpec": 98709,
+        "actualRecipeMethodSpecHex": "29950100ffffffff86200000",
+        "actualRecipeGenericInst": 8326,
+        "actualRecipeTypeDef": 9715,
+        "actualRecipeTypeName": "CraftingRecipeItemData",
+        "originalNativeCallSite": "0x4BFC974",
+        "originalNativeADRP": "0x4BFC968",
+        "originalNativeLDR": "0x4BFC970",
+        "actualUsageRva": "0xB1EF488",
+        "actualUsage": "0xC003032D",
+        "target": "0x37811C0"
+      },
+      "mustRebindOwnerNativePath": true
+    },
+    "Clothing": {
+      "verdict": "PASS_STATIC",
+      "assigned": 61,
+      "pass": 61,
+      "red": 0,
+      "outerCase": 4,
+      "universeCase": 2,
+      "methodSpec": 98706,
+      "concreteTypeDef": 9204,
+      "itemType": 5,
+      "dispatchSha256": "7551d994d4c45abf9e8e326039fb7f95c4d9d531fdc9a1d0ad7312011cf04879",
+      "loopSha256": "12f103e308a4ad510a07b6b2c5915614f7290d9a4a6fe3507d6faf47a9afe421",
+      "predicateSha256": "01caaa3222c63ba1133d30dab067cc9f2603e3c526a90276567663688d8a2f4a",
+      "originalItemDataShaVerified": 1900,
+      "sourceSetRefsResolved": 1900,
+      "sourceWithoutSet": 0,
+      "zeroSourceSelectorIds": [
+        2120000162,
+        2120000367
+      ]
+    },
+    "Furniture": {
+      "verdict": "PASS_STATIC",
+      "assigned": 63,
+      "pass": 63,
+      "red": 0,
+      "outerCase": 3,
+      "universeCase": 2,
+      "methodSpec": 98722,
+      "concreteTypeDef": 9078,
+      "itemType": 4,
+      "dispatchSha256": "1b0b1c6fe76a297647196461e9be5b309efb5a60b5ec9d5b08fadb89f62855a8",
+      "loopSha256": "019e0062485b40f6e595a0cfec2c9afb30f435a091ffaa7111ead64af9886f05",
+      "predicateSha256": "5ce574f9820589dd9e41688a2d8df7e644ab058a1d3b5158cc37a0e971a6cfaa",
+      "originalItemDataShaVerified": 4949,
+      "sourceSetRefsResolved": 4004,
+      "sourceWithoutSet": 945,
+      "zeroSourceSelectorIds": [
+        2120000248,
+        2120000254,
+        2120000368
+      ]
+    }
+  },
+  "sharedUniverse": {
+    "methodSpecSetLookup": 98899,
+    "typeDefSetItemData": 9664,
+    "setTagsProtobufField": 6,
+    "concreteSetItemIDField": 8,
+    "getItemDataTarget": "0x3782230",
+    "containsTarget": "0x39349D0",
+    "appendTarget": "0x2306960",
+    "nullSet": "SKIP",
+    "sourceSetRawRowsShaVerified": 711,
+    "sourceCollectionDefinitionRawRowsShaVerified": 293,
+    "allUniverseOccurrenceProtobufShaVerified": 124,
+    "sourceJoinNeverRuntimeDenominator": true
+  },
+  "coverage": {
+    "prior": 103,
+    "newFish": 1,
+    "newClothing": 61,
+    "newFurniture": 63,
+    "newCrafting": 0,
+    "independentAccepted": 228,
+    "total": 256,
+    "unacceptedCrafting": 28
+  },
+  "safety": {
+    "runtimeItemDatabase": "UNKNOWN",
+    "runtimeCollectionSets": "UNKNOWN",
+    "groupMembership": "UNKNOWN",
+    "personalOwned": "UNKNOWN",
+    "personalCollected": "UNKNOWN",
+    "personalMissing": "UNKNOWN",
+    "denominator": null,
+    "percentEnabled": false,
+    "nativeWriterEnabled": false,
+    "presetApplyEnabled": false,
+    "communityPublisherEnabled": false,
+    "entitlementEditingEnabled": false,
+    "steamMeaningTransfer": false,
+    "schema626MeaningTransfer": false,
+    "publicLaunchAllowed": false
+  },
+  "releaseState": "NO_GO_DRAFT_DO_NOT_MERGE_DO_NOT_DEPLOY"
+}
