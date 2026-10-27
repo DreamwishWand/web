@@ -29,7 +29,7 @@
       "instantiationIndex": 34620,
       "typeDef": 9715,
       "typeName": "CraftingRecipeItemData",
-      "typePointerRva": "0xB2CCFD8",
+      "typePointerRva": "0xB2E1E88",
       "sourceEncodedUsage": "0xC0030395",
       "usageRva": "0xB1EF628",
       "subtype": 3,
@@ -50,7 +50,11 @@
       "initialEnumerationToListCallRva": "0x4BFD104",
       "initialEnumerationToListTarget": "0x37566C0",
       "initialListHeldIn": "x21 at 0x4BFD114",
-      "sourceClassification": "all 1206 original raw CraftingRecipeItemData records are ItemType205/subtype3; no runtime enumeration guarantee"
+      "sourceClassification": "all 1206 original raw CraftingRecipeItemData records are ItemType205/subtype3; no runtime enumeration guarantee",
+      "secondTypePointerRva": "0xB2CCF58",
+      "genericInstantiationRecordRva": "0xAC1F7A0",
+      "genericArgPointerListRva": "0xB100278",
+      "originalTypePointerRvasConfirmed": true
     },
     "predicate": {
       "lambdaRva": "0x4C009E0",
