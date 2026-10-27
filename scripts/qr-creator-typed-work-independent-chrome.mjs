@@ -73,13 +73,19 @@ try{
  else (report.findings??=[]).push('SOURCE/CHROME RED: invalid same-route Work ID failed to clear prior selected detail');
 
  for(const locale of ['en','fr','it','de','es-ES','ja','zh-CN','pt-BR']){
+   report.observations.push('LOCALE_START_'+locale);
    await visit('/dreamsnaps/community/?work='+id.dreamsnap);
+   report.observations.push('LOCALE_HTTP_'+locale);
    await until(async()=>page.locator('[data-dreamsnap-work-state="authority-pending"]').count()===1);
+   report.observations.push('LOCALE_GATED_'+locale);
    // Wait for client hydration to restore stored locale before selecting.
    await page.locator('#site-locale').waitFor({state:'visible',timeout:15000});
+   report.observations.push('LOCALE_SELECT_VISIBLE_'+locale);
    await page.waitForTimeout(750);
    await page.locator('#site-locale').selectOption(locale);
+   report.observations.push('LOCALE_SELECTED_'+locale);
    await until(async()=>await page.locator('html').getAttribute('lang')===locale,18000);
+   report.observations.push('LOCALE_LANG_MATCH_'+locale);
    const dims=await page.evaluate(()=>({client:document.documentElement.clientWidth,scroll:document.documentElement.scrollWidth}));
    assert(dims.scroll<=dims.client+2,'320px horizontal overflow '+locale+' '+JSON.stringify(dims));
    (report.locales??=[]).push(locale);
