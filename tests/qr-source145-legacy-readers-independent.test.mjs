@@ -19,7 +19,7 @@ test('effective Search/Detail share Source144 work gate and correlated media tup
  const body=source('20261027000020_legacy_dreamsnap_gallery_public_reader_liveness.sql').toLowerCase();
  assert.equal([...body.matchAll(/^create or replace function public[.]/gm)].length,2);
  assert.equal(body.split('private.dreamsnap_public_work_accessible_r20(').length-1,3);
- assert.equal(body.split('security definer').length-1,2);
+ assert.equal([...body.matchAll(/^security definer$/gm)].length,2);
  for(const token of ['cr.work_id=v_work.work_id','m.owner_account_id=v_work.owner_account_id','e.account_id=v_work.owner_account_id','gp.work_id=e.work_id','cp.owner_account_id=w.owner_account_id','dr.caption','m.purged_at is null']){
   assert(body.includes(token),'Missing '+token);
  }
