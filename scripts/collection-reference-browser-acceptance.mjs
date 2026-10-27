@@ -146,6 +146,9 @@ try{
    for(const entry of [{url:'/dreamsnaps/',root:'.dreamsnaps-map',count:5},{url:'/help/',root:'.help-children',count:4}]){
      await page.setViewportSize({width:1280,height:900});
      await page.goto(base+entry.url,{waitUntil:'domcontentloaded'});
+     await eventually(async()=>await page.locator(entry.root+' a').count()===entry.count);
+     // Wait for root onMount restoreLocalePreference before changing manual locale.
+     await page.waitForTimeout(500);
      await page.locator('#site-locale').selectOption(locale);
      await eventually(async()=>await page.locator('html').getAttribute('lang')===locale);
      await page.setViewportSize({width:320,height:820});
