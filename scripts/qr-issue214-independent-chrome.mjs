@@ -44,9 +44,12 @@ try{
   for(const x of [{url:'/dreamsnaps/',nav:'.dreamsnaps-map a',expected:5},{url:'/help/',nav:'.help-children a',expected:4}]){
    await page.setViewportSize({width:1280,height:900});
    await page.goto(base+x.url,{waitUntil:'domcontentloaded'});
+   await page.locator(x.nav).first().waitFor({state:'visible',timeout:15000});
+   // Hydration restores the saved locale after SSR. Wait before writing a new value.
+   await page.waitForTimeout(650);
    await wait('#site-locale');
    await page.locator('#site-locale').selectOption(locale);
-   await page.waitForFunction(l=>document.documentElement.lang===l,locale,{timeout:15000});
+   await page.waitForFunction(l=>document.documentElement.lang===l,locale,{timeout:18000});
    await page.setViewportSize({width:320,height:820});
    assert(await page.locator(x.nav).count()===x.expected,locale+x.url+' CHILD_COUNT');
    await reflow();
