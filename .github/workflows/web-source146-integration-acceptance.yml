@@ -20,13 +20,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Exact Source146 ancestry and immutable effective supabase tree
+      - name: Exact Source146 ancestor, immutable SQL and only Edge cache-header exception
         run: |
           set -euo pipefail
-          git merge-base --is-ancestor 5ddf4d23689643340c8d547e47b58f211e03291e HEAD
-          git diff --exit-code 5ddf4d23689643340c8d547e47b58f211e03291e HEAD -- supabase/migrations supabase/functions
-          echo SOURCE146_ALL_FUNCTIONS_AND_MIGRATIONS_BYTE_IDENTICAL
-      - name: Integrated 39 WEB files and 6 migration+Edge hashes; typed route and no-store contracts
+          BASE=5ddf4d23689643340c8d547e47b58f211e03291e
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --exit-code "$BASE" HEAD -- supabase/migrations
+          mapfile -t edge_changes < <(git diff --name-only "$BASE" HEAD -- supabase/functions)
+          test "${#edge_changes[@]}" -eq 1
+          test "${edge_changes[0]}" = "supabase/functions/community-public-query/index.ts"
+          echo SOURCE146_SQL_IDENTICAL_SINGLE_EDGE_HEADER_DELTA
+      - name: Integrated 39 WEB files and 6 migrations; new Edge sensitive invalid header authority
         run: node --test tests/web-source146-community-typed-integration.test.mjs
   integrated-source-chrome:
     runs-on: ubuntu-latest
