@@ -1,0 +1,59 @@
+name: 04 QR Issue219 F08 F09 Independent Effective PostgreSQL Acceptance
+on:
+  pull_request:
+    paths:
+      - 'tests/qr-issue219-independent-effective-source.test.mjs'
+      - 'tests/qr-issue219-f08f09-independent-two-backend.py'
+      - 'docs/qa/qr-issue219-f08f09-post-owner-independent-20261027.md'
+      - '.github/workflows/qr-issue219-f08f09-independent.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: New-only pinned effective Source144 guard, Source141 incident and Source143 consent
+        run: node --test tests/qr-issue219-independent-effective-source.test.mjs
+  independent-real-two-pg:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+      DDVRE_PRIVACY_ISOLATED_LOCAL: 'CONFIRMED'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Prove offline separate local service container only
+        run: |
+          set -euo pipefail
+          test -z "$SUPABASE_ACCESS_TOKEN"
+          test -z "$DATABASE_URL"
+          printf 'project_id = "ddvre_qr219_independent_ephemeral"\n' | cat - supabase/config.toml > /tmp/qr219.toml
+          mv /tmp/qr219.toml supabase/config.toml
+          echo 'QR219_NO_SUPABASE_LINK_REMOTE_ACCESS_DEPLOY_OR_SIGNED_BEARERS'
+      - name: Start disposable Supabase and full Source144 from empty
+        run: |
+          set -euo pipefail
+          timeout 1500s supabase start > /tmp/qr219-start.log 2>&1 || { tail -180 /tmp/qr219-start.log; exit 1; }
+          echo QR219_ISOLATED_FULL_144_MIGRATIONS_APPLIED
+      - name: Two distinct PG backend service_role direct SQL and committed state transitions
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'psycopg[binary]>=3.2,<4'
+          python3 tests/qr-issue219-f08f09-independent-two-backend.py | tee /tmp/qr219-real-pg.log
+          grep -q QR219_INDEPENDENT_TWO_REAL_PG_F08_F09_SERVICE_ROLE_WORK_LIVENESS_PASS /tmp/qr219-real-pg.log
+      - name: Label runtime boundary
+        run: echo 'SOURCE_LOCAL_POSTGRES_ONLY - NO REAL SIGNED A/B/M, CLOUD CDN OR PROVIDER OR STAGING'
