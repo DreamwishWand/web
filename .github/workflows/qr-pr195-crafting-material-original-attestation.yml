@@ -1,0 +1,36 @@
+name: 04 QR PR195 CraftingMaterial Original-Source Attestation QA (new-only)
+on:
+  pull_request:
+    paths:
+      - 'docs/qa/qr-pr195-crafting-material-original-source-independent-20261027.md'
+      - 'static/ddv/qa/qr-pr195-crafting-material-original-independent-v125.json'
+      - 'tests/qr-pr195-crafting-material-original-source-independent.test.mjs'
+      - '.github/workflows/qr-pr195-crafting-material-original-attestation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  new-only-static-attestation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin exact owner evidence blob with no provider privileges
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN"
+          test "$(git hash-object static/ddv/core/collection/v1.25/native-activity-crafting-material-original-v125.json)" = '7a0424cd43796f54c47585f3803729d9017a1bb0'
+      - name: Seven CraftingMaterial original-source new-only evidence/safety contracts
+        run: node --test tests/qr-pr195-crafting-material-original-source-independent.test.mjs
+      - name: Explicit CI limit
+        run: echo 'Original NSO/metadata/DB raw bytes independently rehashed and replayed privately in 04 QR, NOT stored or replayed in GitHub CI. This workflow checks bounded attestations and controls only.'
