@@ -3,6 +3,9 @@ on:
   push:
     branches:
       - qr/creator-typed-work-independent-20261027
+  pull_request:
+    branches:
+      - web/creator-typed-work-route-failclosed-20261027
   workflow_dispatch:
 permissions:
   contents: read
