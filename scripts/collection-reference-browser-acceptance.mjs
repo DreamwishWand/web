@@ -22,8 +22,8 @@ page.on('console',message=>{if(message.type()==='error')report.consoleErrors.pus
 try{
  await page.goto(base+'/collection/',{waitUntil:'domcontentloaded'});
  await eventually(async()=>await page.locator('.collection-card').count()===120);
- assert(await page.locator('.view-switch button[aria-pressed="true"]').count()===1,'Missing active default view');
- assert((await page.locator('.view-switch button[aria-pressed="true"]').textContent()).includes('Category'),'Category not default');
+ assert(await page.locator('.view-switch').count()===0,'Permanent World/Universe modes must not exist');
+ assert(await page.locator('.collection-controls select').count()===3,'Category/Universe/Expansion contextual facets missing');
  assert(await page.locator('.load-more button').count()===1,'No way to browse beyond the first 120 records');
  await page.locator('.load-more button').click();
  await eventually(async()=>await page.locator('.collection-card').count()===240);
@@ -44,25 +44,32 @@ try{
 
  await page.locator('.back-link').click();
  await eventually(async()=>await page.locator('.collection-card').count()===120);
- await page.locator('.view-switch button').nth(1).click();
- assert((await page.locator('.view-switch button[aria-pressed="true"]').textContent()).includes('World'),'World alternate lens missing');
- await page.locator('.collection-controls select').selectOption({index:1});
+ await page.locator('.collection-controls select').nth(1).selectOption('Mickey');
+ await eventually(async()=>await page.locator('.collection-card').count()>0);
+ await page.locator('.collection-controls select').nth(2).selectOption('BaseGame');
  await eventually(async()=>await page.locator('.collection-card').count()>0);
  const lensHref=await page.locator('.collection-card').first().getAttribute('href');
- assert(lensHref?.includes('view=world')&&lensHref?.includes('world='),'World selection absent from detail link');
+ assert(lensHref?.includes('universe=Mickey')&&lensHref?.includes('expansion=BaseGame'),'Universe/Expansion facet absent from detail link');
  await page.locator('.collection-card').first().click();
  await eventually(async()=>await page.locator('[data-collection-state="item-detail"]').count()===1);
  await page.locator('.back-link').click();
- await eventually(async()=>await page.locator('.view-switch button[aria-pressed="true"]').textContent().then(t=>t.includes('World')));
- assert((await page.locator('.collection-controls select').inputValue())!=='','World filter not restored');
- ok('SINGLE_WORKSPACE_WORLD_FACET_ROUND_TRIP');
+ await eventually(async()=>await page.locator('.collection-card').count()>0);
+ assert((await page.locator('.collection-controls select').nth(1).inputValue())==='Mickey','Universe filter not restored');
+ assert((await page.locator('.collection-controls select').nth(2).inputValue())==='BaseGame','Expansion filter not restored');
+ ok('CATEGORY_FIRST_UNIVERSE_EXPANSION_FACET_ROUND_TRIP');
 
- await page.locator('.view-switch button').nth(2).click();
- assert((await page.locator('.view-switch button[aria-pressed="true"]').textContent()).includes('Universe'),'Universe alternate lens missing');
  await page.locator('.search input').fill('___NO_SUCH_NAMED_ITEM____');
  await eventually(async()=>await page.locator('.empty').count()===1);
- ok('UNIVERSE_FILTER_AND_EMPTY_SEARCH');
+ ok('CONTEXTUAL_FILTER_AND_EMPTY_SEARCH');
  await page.locator('.search input').fill('');
+
+ for (const legacy of ['?view=world&world=IsDreamlightValley&item='+expectedId,
+                        '?view=universe&universe=Mickey&item='+expectedId]) {
+   await page.goto(base+'/collection/'+legacy,{waitUntil:'domcontentloaded'});
+   await eventually(async()=>await page.locator('[data-collection-state="invalid-url"]').count()===1);
+   assert(await page.locator('.item-detail').count()===0,'Legacy view mode exposed Detail');
+ }
+ ok('LEGACY_WORLD_UNIVERSE_VIEWMODE_DENIED');
 
  await page.goto(base+'/collection/?item=9999999999999',{waitUntil:'domcontentloaded'});
  await eventually(async()=>await page.locator('[data-collection-state="unknown-item"]').count()===1);
@@ -132,6 +139,41 @@ try{
  await page.locator('.retry-button').click();
  await eventually(async()=>await page.locator('.collection-card').count()===120);
  ok('FETCH_INTEGRITY_FAILURE_AND_RETRY_RECOVERY');
+ 
+ // QR212 owner navigation: no public server assumption; verify safe route shells,
+ // 8 locales, 320px reflow, keyboard and embargo-safe old URLs in real Chrome.
+ for(const locale of ['en','fr','it','de','es-ES','ja','zh-CN','pt-BR']){
+   for(const entry of [{url:'/dreamsnaps/',root:'.dreamsnaps-map',count:5},{url:'/help/',root:'.help-children',count:4}]){
+     await page.setViewportSize({width:1280,height:900});
+     await page.goto(base+entry.url,{waitUntil:'domcontentloaded'});
+     await eventually(async()=>await page.locator(entry.root+' a').count()===entry.count);
+     // Wait for root onMount restoreLocalePreference before changing manual locale.
+     await page.waitForTimeout(500);
+     await page.locator('#site-locale').selectOption(locale);
+     await eventually(async()=>await page.locator('html').getAttribute('lang')===locale);
+     await page.setViewportSize({width:320,height:820});
+     assert(await page.locator(entry.root+' a').count()===entry.count,'Canonical root child count '+locale+entry.url);
+     await reflow(page);
+   }
+ }
+ ok('QR212_DREAMSNAPS_HELP_ROOTS_EIGHT_LOCALES_320PX');
+
+ await page.setViewportSize({width:1280,height:900});
+ await page.goto(base+'/dreamsnaps/',{waitUntil:'domcontentloaded'});
+ const firstDreamsnaps=page.locator('.dreamsnaps-map a').first();
+ await firstDreamsnaps.focus();
+ await page.keyboard.press('Enter');
+ await eventually(async()=>new URL(page.url()).pathname.endsWith('/dreamsnaps/community/'));
+ assert(await page.locator('[data-community-dreamsnaps="fail-closed"]').count()===1,'Community DreamSnaps phase gate missing');
+ assert(await page.locator('img').count()===0,'Unverified public DreamSnaps images leaked');
+ ok('QR212_COMMUNITY_DREAMSNAPS_KEYBOARD_SAFE_ENTRY');
+
+ await page.goto(base+'/gallery/dreamsnaps/?work=00000000-0000-0000-0000-000000000001',{waitUntil:'domcontentloaded'});
+ await eventually(async()=>await page.locator('[data-legacy-dreamsnaps="fail-closed"]').count()===1);
+ assert(await page.locator('img').count()===0,'Legacy Gallery DreamSnaps work media exposed');
+ assert(!(await page.content()).includes('community_search_gallery_dreamsnaps_public_v1'),'Legacy public RPC visible');
+ ok('QR212_OLD_GALLERY_DREAMSNAPS_URL_FAIL_CLOSED');
+
  report.consoleErrors=report.consoleErrors.filter(x=>!x.includes('Failed to load resource'));
  assert(report.pageErrors.length===0,'Page errors '+report.pageErrors.join(' | '));
  assert(report.consoleErrors.length===0,'Console errors '+report.consoleErrors.join(' | '));

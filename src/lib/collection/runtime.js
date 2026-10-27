@@ -73,13 +73,14 @@ export function decodeCollectionRecord(index, row, locale = 'en') {
   };
 }
 
-export function filterCollectionRecords(records, { query = '', family = '', world = '', universe = '' } = {}) {
+export function filterCollectionRecords(records, { query = '', family = '', world = '', universe = '', expansion = '' } = {}) {
   const q = String(query).trim().toLocaleLowerCase();
   return records.filter((record) =>
     (!q || record.searchText.includes(q) || String(record.itemId).includes(q)) &&
     (!family || record.family === family) &&
     (!world || record.worlds.includes(world)) &&
-    (!universe || record.universes.includes(universe))
+    (!universe || record.universes.includes(universe)) &&
+    (!expansion || record.expansions.includes(expansion))
   );
 }
 

@@ -1,9 +1,10 @@
 // Read-only navigation over the existing canonical Collection record projection.
 // This does not infer save ownership, entitlement, quantity, or discovered state.
 export const COLLECTION_SUPPORTED_VERSION = '1.25.0';
-const SUPPORTED_VIEWS = Object.freeze(['category','world','universe']);
 const VALID_ID = /^(0|[1-9][0-9]{0,15})$/;
-const ALLOWED_PARAMS = new Set(['view','q','family','world','universe','version','item']);
+// Owner Stage1: one Category-first workspace; Universe and Expansion are
+// contextual facets, NOT permanent independent ViewModes.
+const ALLOWED_PARAMS = new Set(['q','family','universe','expansion','version','item']);
 export function isCanonicalCollectionItemID(value) {
   return typeof value === 'string' && VALID_ID.test(value) && Number.isSafeInteger(Number(value));
 }
@@ -23,38 +24,44 @@ export function collectionWorkspaceState(url) {
     if (!ALLOWED_PARAMS.has(key) || seen.has(key)) invalid = true;
     seen.add(key);
   }
-  const view = params.get('view') ?? 'category';
   const query = params.get('q') ?? '';
   const family = params.get('family') ?? '';
-  const world = params.get('world') ?? '';
   const universe = params.get('universe') ?? '';
+  const expansion = params.get('expansion') ?? '';
   const version = params.get('version') ?? COLLECTION_SUPPORTED_VERSION;
   const itemId = params.get('item') ?? '';
-  if (!SUPPORTED_VIEWS.includes(view) || query.length > 256 ||
-      family.length > 100 || world.length > 100 || universe.length > 100 ||
+  if (query.length > 256 || family.length > 100 || universe.length > 100 ||
+      expansion.length > 100 ||
+      (params.has('q') && !query) ||
+      (params.has('family') && !family) ||
+      (params.has('universe') && !universe) ||
+      (params.has('expansion') && !expansion) ||
       (params.has('version') && !version) ||
-      (params.has('item') && !isCanonicalCollectionItemID(itemId)) ||
-      (params.has('family') && (view !== 'category' || !family)) ||
-      (params.has('world') && (view !== 'world' || !world)) ||
-      (params.has('universe') && (view !== 'universe' || !universe)) ||
-      (params.has('q') && !query)) invalid = true;
+      (params.has('item') && !isCanonicalCollectionItemID(itemId))) invalid = true;
   return invalid
-    ? {invalid:true,view:'category',query:'',family:'',world:'',universe:'',version:COLLECTION_SUPPORTED_VERSION,itemId:''}
-    : {invalid:false,view,query,family,world,universe,version,itemId};
+    ? {invalid:true,view:'category',query:'',family:'',world:'',universe:'',expansion:'',version:COLLECTION_SUPPORTED_VERSION,itemId:''}
+    : {invalid:false,view:'category',query,family,world:'',universe,expansion,version,itemId};
 }
 export function collectionWorkspaceHref(basePath = '', state = {}, itemId = null) {
+  if (state.view && state.view !== 'category') {
+    throw new TypeError('Unsupported permanent Collection ViewMode.');
+  }
   const params = new URLSearchParams();
-  const view = SUPPORTED_VIEWS.includes(state.view) ? state.view : 'category';
-  if (view !== 'category') params.set('view',view);
-  if (typeof state.query === 'string' && state.query) params.set('q',state.query.slice(0,256));
-  if (view === 'category' && typeof state.family === 'string' && state.family) params.set('family',state.family);
-  if (view === 'world' && typeof state.world === 'string' && state.world) params.set('world',state.world);
-  if (view === 'universe' && typeof state.universe === 'string' && state.universe) params.set('universe',state.universe);
+  for (const [key,max] of [['query',256],['family',100],['universe',100],['expansion',100]]) {
+    const value = state[key];
+    if (value !== undefined && value !== '' && (typeof value !== 'string' || value.length > max)) {
+      throw new TypeError('Invalid Collection facet: '+key);
+    }
+  }
+  if (state.query) params.set('q',state.query);
+  if (state.family) params.set('family',state.family);
+  if (state.universe) params.set('universe',state.universe);
+  if (state.expansion) params.set('expansion',state.expansion);
   if (state.version && state.version !== COLLECTION_SUPPORTED_VERSION) params.set('version',state.version);
   if (itemId !== null) {
     if (!Number.isSafeInteger(itemId) || itemId < 0) throw new TypeError('Invalid Collection ItemID.');
     params.set('item',String(itemId));
   }
   const q = params.toString();
-  return String(basePath).replace(/\/$/,'') + '/collection/' + (q ? '?' + q : '');
+  return String(basePath).replace(/[/]$/,'') + '/collection/' + (q ? '?' + q : '');
 }

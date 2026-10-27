@@ -1,9 +1,11 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import { locale, ct as t } from '$lib/i18n/community.js';
+  import { dreamsnapPrivacyCopy } from '$lib/dreamsnaps/privacy-copy.js';
 </script>
 
 <nav class="tabs" aria-label={t('dreamsnaps.nav.label', {}, $locale)}>
+  <a href={`${base}/dreamsnaps/community/`}>{dreamsnapPrivacyCopy($locale).community}</a>
   <a href={`${base}/dreamsnaps/submit/`}>{t('dreamsnaps.tab.submit', {}, $locale)}</a>
   <a href={`${base}/dreamsnaps/judge/`}>{t('dreamsnaps.tab.judge', {}, $locale)}</a>
   <a href={`${base}/dreamsnaps/results/`}>{t('dreamsnaps.tab.results', {}, $locale)}</a>

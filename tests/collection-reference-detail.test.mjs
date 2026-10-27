@@ -33,17 +33,20 @@ test('Unsupported target version and invalid/nonexistent ItemIDs fail closed',()
   assert.equal(collectionReferenceSelection(records,'').status,'browse');
   assert.equal(COLLECTION_SUPPORTED_VERSION,'1.25.0');
 });
-test('Collection deep links retain existing workspace browse lens and search across Item Detail/back',()=>{
-  const state={view:'world',world:'IsDreamlightValley',query:'椅子',version:'1.25.0'};
+test('Category-first Collection deep links retain Universe/Expansion contextual facets',()=>{
+  const state={family:'Furniture',universe:'Mickey',expansion:'BaseGame',query:'椅子',version:'1.25.0'};
   const path=collectionWorkspaceHref('/wand',state,123);
-  assert.equal(path,'/wand/collection/?view=world&q=%E6%A4%85%E5%AD%90&world=IsDreamlightValley&item=123');
+  assert.equal(path,'/wand/collection/?q=%E6%A4%85%E5%AD%90&family=Furniture&universe=Mickey&expansion=BaseGame&item=123');
   const parsed=collectionWorkspaceState(new URL(path,'https://wand.invalid'));
-  assert.equal(parsed.itemId,'123');assert.equal(parsed.view,'world');assert.equal(parsed.query,'椅子');
-  assert.equal(parsed.world,'IsDreamlightValley');
+  assert.equal(parsed.itemId,'123');assert.equal(parsed.view,'category');assert.equal(parsed.query,'椅子');
+  assert.equal(parsed.family,'Furniture');assert.equal(parsed.universe,'Mickey');assert.equal(parsed.expansion,'BaseGame');
   const back=collectionWorkspaceHref('/wand',parsed);
   assert(!back.includes('item='));
-  assert.equal(collectionWorkspaceState(new URL(back,'https://wand.invalid')).view,'world');
-  assert.equal(collectionWorkspaceHref('',{view:'unknown'},null),'/collection/');
+  assert.equal(collectionWorkspaceState(new URL(back,'https://wand.invalid')).universe,'Mickey');
+  for(const legacy of ['?view=world&world=IsDreamlightValley&item=123','?view=universe&universe=Mickey&item=123']) {
+    assert.equal(collectionWorkspaceState(new URL('/collection/'+legacy,'https://wand.invalid')).invalid,true);
+  }
+  assert.throws(()=>collectionWorkspaceHref('',{view:'world'},null),/Unsupported permanent/);
   assert.throws(()=>collectionWorkspaceHref('',{},-5),/Invalid Collection ItemID/);
 });
 test('All 8 locale copies state unavailable version and uncertain ownership explicitly',()=>{
@@ -59,7 +62,7 @@ test('Collection route is non-mutating, stays in one workspace and has explicit 
   const source=readFileSync('src/routes/collection/+page.svelte','utf8');
   for(const marker of ['data-collection-state="item-detail"','data-collection-state="unknown-item"',
     'data-collection-state="unsupported-version"','on:click={reload}',
-    'aria-pressed={view ===','collectionWorkspaceHref','itemSelection.item.itemId',
+    'stage1Copy.expansion','collectionWorkspaceHref','itemSelection.item.itemId',
     'detailCopy.notOwned','detailCopy.noMedia','displayLimit += DISPLAY_LIMIT'])
     assert(source.includes(marker),marker);
   for(const forbidden of ['save_writer','apply_preset','uploadBytes','galleryPublish','service_role'])

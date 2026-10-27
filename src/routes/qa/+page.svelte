@@ -9,14 +9,21 @@
   const client = createCommunityBrowserClient();
   let mode: 'questions' | 'tips' = 'questions';
   let query = '';
-  let unansweredOnly = false;
   let rows: any[] = [];
   let selected: any = null;
   let selectedKind: 'question' | 'tip' | null = null;
   let busy = false;
   let error = '';
 
-  onMount(() => { const params = new URLSearchParams(window.location.search); const questionId = params.get('question'); const tipId = params.get('tip'); void search(); if (questionId) void open(questionId, 'question'); else if (tipId) void open(tipId, 'tip'); });
+  onMount(() => { const params = new URLSearchParams(window.location.search);
+    if (params.getAll('type').length <= 1 && ['questions','tips'].includes(params.get('type') ?? 'questions')) {
+      mode = params.get('type') === 'tips' ? 'tips' : 'questions';
+    }
+    const questionId = params.getAll('question').length === 1 ? params.get('question') : null;
+    const tipId = params.getAll('tip').length === 1 ? params.get('tip') : null;
+    if (questionId && tipId) { selected=null; return; }
+    void search(); if (questionId) void open(questionId, 'question'); else if (tipId) void open(tipId, 'tip');
+  });
 
   async function search() {
     if (!client) return;
@@ -26,7 +33,7 @@
         rows = await callPublicCommunityRpc<any[]>('community_search_questions_v1', {
           p_query: query.trim() || null,
           p_context_tags: null,
-          p_unanswered_only: unansweredOnly,
+          p_unanswered_only: false, // All only until server resolution/answer-count contract accepted
           p_limit: 30
         });
       } else {
@@ -72,7 +79,7 @@
     <div class="notice">{t('community.configUnavailable', {}, $locale)}</div>
   {:else}
     {#if error}<p class="error" role="alert">{t('shared.form.error', { message: error }, $locale)}</p>{/if}
-    <QaBrowse bind:mode bind:query bind:unansweredOnly {rows} {busy} onSearch={search} onSelect={open} />
+    <QaBrowse bind:mode bind:query {rows} {busy} onSearch={search} onSelect={open} />
 
     {#if selected && selectedKind === 'question'}
       <article class="detail">
