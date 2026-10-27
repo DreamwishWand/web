@@ -1,0 +1,62 @@
+name: QR Creator navigation post-fix independent Source Chrome
+on:
+  push:
+    branches: ['qr/creator-navigation-postfix-20261027']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: git merge-base --is-ancestor 99ed88fc717cf18bb4127695f16d6949e7609463 HEAD
+      - run: node --test tests/qr-creator-navigation-postfix-independent.test.mjs
+  independent-chrome:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Browser provenance
+        id: chrome
+        run: |
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          echo "bin=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+          "$CHROME_BIN" --version
+          fc-match :lang=ja | head -1 || true
+      - name: Isolated synthetic source UI
+        env:
+          VITE_SUPABASE_URL: https://qr226-synthetic.invalid
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_QR226_SYNTHETIC_ONLY
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4179 >/tmp/qr226-vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4179/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr226-vite.log
+          exit 1
+      - name: Independent actual Chrome no signed Actor
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.bin }}
+          QR226_BASE_URL: http://127.0.0.1:4179
+        run: node scripts/qr-creator-navigation-postfix-chrome.mjs
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr-creator-navigation-postfix-chrome
+          path: .artifacts/qr-creator-navigation-postfix/
+          if-no-files-found: warn
+      - if: failure()
+        run: cat /tmp/qr226-vite.log || true
