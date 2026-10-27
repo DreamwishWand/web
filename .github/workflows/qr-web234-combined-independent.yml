@@ -1,0 +1,87 @@
+name: 04 QR WEB234 + Source146 new-only integrated acceptance
+on:
+  push:
+    branches: ['qr/source146-web234-integrated-newonly-20261028']
+  pull_request:
+    branches: ['web/integrated-source146-typed-routes-20261028']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  combined-source-edge:
+    name: Integrated Source146 / actual local Edge HTTP cache differential
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact immutable merged authority
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor d5ffe6fc3bd60e085414926bca7aa52c2ed9324e HEAD
+          test -z "$SUPABASE_ACCESS_TOKEN"
+          test -z "$DATABASE_URL"
+          git diff --exit-code 5ddf4d23689643340c8d547e47b58f211e03291e HEAD -- supabase/functions supabase/migrations
+          echo QR_COMBINED_BACKEND_BYTE_IDENTICAL_NO_LOCAL_PG_REEXEC_REQUIRED
+      - run: npm ci --no-audit --no-fund
+      - name: Independent combined Source146+typed provenance/route authorization
+        run: node --test tests/qr-web234-combined-authority-source.test.mjs
+      - name: Execute real integrated Edge response control path with isolated in-process RPC
+        run: node --test tests/qr-web234-combined-edge-http.test.mjs
+  combined-chrome:
+    name: Independent Chrome Creator-to-QA-to-gated-DreamSnaps seam
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    env:
+      VITE_SUPABASE_URL: https://qr222-synthetic.invalid
+      VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_QR235_FAKE_NO_SECRET
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Resolve actual local Chrome
+        id: chrome
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "bin=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+      - name: Start disposable local UI (no account or external API)
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4185 > /tmp/qr235-vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4185/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr235-vite.log
+          exit 1
+      - name: One combined cross-product route integration scenario
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.bin }}
+          QR_COMBINED_BASE_URL: http://127.0.0.1:4185
+        run: node scripts/qr-web234-combined-cross-surface-chrome.mjs
+      - name: Synthetic evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr235-web234-source146-merged-synthetic-browser
+          path: .artifacts/qr-web234-integration/
+          if-no-files-found: warn
+      - name: Diagnostics
+        if: failure()
+        run: cat /tmp/qr235-vite.log || true
