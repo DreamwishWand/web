@@ -78,7 +78,8 @@ test('Saved links require typed accessible Work and old Gallery/Q&A direct links
   const qa=read('src/routes/qa/+page.svelte');
   assert(gallery.includes("parseTypedWorkQuery(to.url.search,'work')"));
   assert(gallery.includes('data-gallery-state="invalid-work-url"'));
-  assert(qa.includes('parseTypedWorkQuery(params,typedParam)'));
+  assert(qa.includes('parseTypedWorkQuery(params, kind)'));
+  assert(qa.includes('afterNavigate'));
   assert(qa.includes('data-qa-state="invalid-work-url"'));
   assert(gallery.includes("community_get_gallery_public_v1"));
   assert(qa.includes("community_get_tip_public_v1"));
