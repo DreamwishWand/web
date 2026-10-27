@@ -14,6 +14,8 @@ const queryToRpc = {
   myQaActivity: 'community_get_my_qa_activity_v1',
   dreamsnapJudge: 'community_get_dreamsnap_judge_v1',
   myDreamsnaps: 'community_get_my_dreamsnaps_v1',
+  dreamsnapOfficialAccountConsent: 'community_dreamsnap_get_account_official_result_consent_r20',
+
   saved: 'community_get_saved',
   notifications: 'community_get_notifications',
   preset: 'community_get_preset',
@@ -80,6 +82,7 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
     switch (query) {
       case 'me':
       case 'ddvProfileWorkspaces':
+      case 'dreamsnapOfficialAccountConsent':
         break;
       case 'work':
         params.p_work_id = payload.workId;
