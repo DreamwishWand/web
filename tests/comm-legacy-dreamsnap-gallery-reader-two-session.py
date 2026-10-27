@@ -155,7 +155,8 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
       'rows':detailed_sql_join}),flush=True)
     baseline=snapshot('ACTIVE_PUBLIC')
     assert baseline['effectiveGuard'] and all(baseline[k] for k in
-      ['legacySearchReturnsWork','source144MediaReturnsKey','source144WandReturnsEntry']),baseline
+      ['legacySearchReturnsWork','legacyDetailReturnsWork',
+       'source144MediaReturnsKey','source144WandReturnsEntry']),baseline
     witness=[]
     trials=[
       ('ACCOUNT_RESTRICTED',
@@ -188,6 +189,51 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
         finally:
             with a.transaction():a.execute(restore,rargs)
         assert snapshot(label+'_RESTORED')['effectiveGuard'] is True
+    # Additional metadata-only negative cases. Account/Work itself may remain
+    # PUBLIC (e.g. an unpublished Gallery publication while the entered image
+    # is still authorized independently by Source144 Entry Media OR).
+    other=[
+      ('CREATOR_PRIVATE',
+       "update public.creator_profiles set profile_visibility='private' where creator_profile_id=%s",
+       (creator,),
+       "update public.creator_profiles set profile_visibility='public' where creator_profile_id=%s",
+       (creator,)),
+      ('CREATOR_MODERATION',
+       "update public.creator_profiles set moderation_state='restricted' where creator_profile_id=%s",
+       (creator,),
+       "update public.creator_profiles set moderation_state='clear' where creator_profile_id=%s",
+       (creator,)),
+      ('MEDIA_MODERATION',
+       "update public.media_assets set moderation_state='restricted' where media_id=%s",
+       (media,),
+       "update public.media_assets set moderation_state='clear' where media_id=%s",
+       (media,)),
+      ('ENTRY_INELIGIBLE',
+       "update public.dreamsnap_entries set eligibility_state='ineligible' where entry_id=%s",
+       (entry,),
+       "update public.dreamsnap_entries set eligibility_state='eligible' where entry_id=%s",
+       (entry,)),
+      ('GALLERY_PUBLICATION_UNPUBLISHED',
+       "update public.dreamsnap_gallery_publications set publication_state='unpublished' where work_id=%s",
+       (work,),
+       "update public.dreamsnap_gallery_publications set publication_state='published' where work_id=%s",
+       (work,)),
+      ('CHALLENGE_EARLY',
+       "update public.dreamsnap_challenges set lifecycle_state='judging_open' where challenge_id=%s",
+       (challenge,),
+       "update public.dreamsnap_challenges set lifecycle_state='results' where challenge_id=%s",
+       (challenge,)),
+    ]
+    for label,change,args,restore,rargs in other:
+        with a.transaction():a.execute(change,args)
+        try:
+            z=snapshot(label)
+            assert not z['legacySearchReturnsWork'] and not z['legacyDetailReturnsWork'],z
+            print(json.dumps({'marker':'LEGACY_GALLERY_SOURCE145_METADATA_NEGATIVE','case':label}),flush=True)
+        finally:
+            with a.transaction():a.execute(restore,rargs)
+        assert snapshot(label+'_RESTORED')['legacyDetailReturnsWork'] is True
+
     leaked=[z for z in witness if z['legacySearchReturnsWork'] or z['legacyDetailReturnsWork']]
     print(json.dumps({'marker':'LEGACY_GALLERY_SOURCE145_POSTFIX_COMPARISON',
       'exposureCount':len(leaked),'exposureCases':[z['case'] for z in leaked],
