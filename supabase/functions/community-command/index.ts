@@ -29,6 +29,7 @@ const commandToRpc = {
   addDreamsnapBrowseReaction: 'community_dreamsnap_add_browse_reaction_v1',
   addDreamsnapSpecialPick: 'community_dreamsnap_special_pick_v1',
   setDreamsnapOfficialResultPublication: 'community_dreamsnap_set_official_result_publication_v1',
+  setDreamsnapOfficialAccountConsent: 'community_dreamsnap_set_account_official_result_consent_r20',
   publishDreamsnapGallery: 'community_dreamsnap_publish_gallery_v1',
   saveEntity: 'community_save_entity',
   unsaveEntity: 'community_unsave_entity',
@@ -80,6 +81,7 @@ const commandToRateBucket: Partial<Record<CommandName, string>> = {
   addDreamsnapBrowseReaction: 'dreamsnap_signal',
   addDreamsnapSpecialPick: 'dreamsnap_signal',
   setDreamsnapOfficialResultPublication: 'dreamsnap_write',
+  setDreamsnapOfficialAccountConsent: 'dreamsnap_write',
   publishDreamsnapGallery: 'dreamsnap_write',
   saveEntity: 'save',
   unsaveEntity: 'save',
@@ -177,6 +179,11 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
 
     const command = body.command as CommandName;
     const payload = body.payload ?? {};
+    // D06: legacy Entry/field publishing must never be routed even to a
+    // service-role DB function. A separate Account-global CAS is the only writer.
+    if (command === 'setDreamsnapOfficialResultPublication') {
+      return reply({ok:false,error:'D06_LEGACY_PER_ENTRY_OFFICIAL_RESULT_PUBLICATION_DISABLED'},409);
+    }
     const rpc = commandToRpc[command];
 
     const authorizationRpc =
@@ -376,9 +383,25 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         params.p_entry_id = payload.entryId;
         break;
       case 'setDreamsnapOfficialResultPublication':
-        params.p_entry_id = payload.entryId;
-        params.p_public_fields = Array.isArray(payload.publicFields) ? payload.publicFields : [];
+        return reply({ok:false,error:'D06_LEGACY_PER_ENTRY_OFFICIAL_RESULT_PUBLICATION_DISABLED'},409);
+      case 'setDreamsnapOfficialAccountConsent': {
+        if (typeof payload.enabled !== 'boolean' ||
+            !Number.isSafeInteger(payload.expectedVersion) ||
+            Number(payload.expectedVersion)<0 ||
+            (payload.enabled === true && payload.acknowledgedScope !== true)) {
+          return reply({ok:false,error:'D06_ACCOUNT_CONSENT_REQUEST_INVALID'},400);
+        }
+        params.p_enabled = payload.enabled;
+        params.p_expected_version = payload.expectedVersion;
+        params.p_acknowledged_scope = payload.acknowledgedScope === true;
+        params.p_issued_at_epoch = issuedAt;
+        // SQL checks the actual session record rather than JWT age on ON.
+        params.p_session_id = /^[0-9a-f]{8}-[0-9a-f-]{27,36}$/i.test(sessionId) ? sessionId : null;
+        if (payload.enabled === true && !params.p_session_id) {
+          return reply({ok:false,error:'D06_RECENT_SESSION_REQUIRED'},401);
+        }
         break;
+      }
       case 'publishDreamsnapGallery':
         params.p_entry_id = payload.entryId;
         params.p_comments_enabled = payload.commentsEnabled !== false;
@@ -633,7 +656,8 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         error.message.includes('R15_PINNED_GRAPH_REQUIRED') ||
         error.message.includes('R15_IDEMPOTENCY_REQUEST_CONFLICT') ||
         error.message.includes('R16_STALE_WORK_TERMINAL') ||
-        error.message.includes('R16_IDEMPOTENCY_CONFLICT');
+        error.message.includes('R16_IDEMPOTENCY_CONFLICT') ||
+        error.message.includes('D06_STALE_ACCOUNT_CONSENT');
       const conflict =
         error.message.includes('Row version conflict') ||
         error.message.includes('GALLERY_ROW_VERSION_CONFLICT') ||
@@ -659,7 +683,10 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         error.message.includes('role required') ||
         error.message.includes('Self-judging') ||
         error.message.includes('Self Special Pick') ||
-        error.message.includes('DREAMSNAP_REAL_ENTRY_FLOOR_NOT_MET');
+        error.message.includes('DREAMSNAP_REAL_ENTRY_FLOOR_NOT_MET') ||
+        error.message.includes('D06_ACCOUNT_UNAVAILABLE') ||
+        error.message.includes('Recent authentication required') ||
+        error.message.includes('Session-bound recent authentication required');
 
       const galleryErrorCode =
         (command === 'publishGalleryPhoto' || command === 'deleteGalleryPhoto')
