@@ -151,6 +151,9 @@ as $$
 declare
   v_result jsonb;
 begin
+  -- Preserve Source141/142 direct SQL issuer Incident suppression BEFORE any
+  -- media lookup or signer-visible key. This call is mandatory and fail-closed.
+  perform public.community_preset_storage_assert_media_not_quarantined_r19(p_media_id);
   select jsonb_build_object(
     'mediaId',m.media_id,
     'storageKey',m.storage_key,
