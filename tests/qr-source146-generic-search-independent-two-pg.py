@@ -134,12 +134,16 @@ with psycopg.connect(DSN, autocommit=True) as writer, psycopg.connect(DSN, autoc
     """).fetchall()
     anon_select=[row for row in all_policies if row[3] in ('SELECT','ALL')
        and ('anon' in row[2] or 'public' in row[2])]
-    assert len(anon_select)==1 and anon_select[0][0]=='search_documents_public_read' and anon_select[0][1]=='PERMISSIVE', ("UNEXPECTED_ANON_OR_POLICY",anon_select)
-    assert "generic_public_search_work_accessible_r21" in anon_select[0][4]
+    permissive=[row for row in anon_select if row[1]=='PERMISSIVE']
+    restrictive=[row for row in anon_select if row[1]=='RESTRICTIVE']
+    assert len(permissive)==1 and permissive[0][0]=='search_documents_public_read', ("UNEXPECTED_ANON_PERMISSIVE_OR_POLICY",anon_select)
+    assert "generic_public_search_work_accessible_r21" in permissive[0][4]
+    assert all(row[1] in ('PERMISSIVE','RESTRICTIVE') for row in anon_select)
+    assert any("preset_storage" in row[0] for row in restrictive), ("INHERITED_R19_RESTRICTIVE_POLICY_MISSING",restrictive)
     emit({"securityAudit":"SOURCE146_R21_LIVE_CATALOG_PASS",
       "helperSecurityDefiner":catalog[0],"searchPath":catalog[1],
       "anonExecute":catalog[2],"authenticatedExecute":catalog[3],
-      "serviceExecute":catalog[4],"effectiveAnonReadPolicies":[row[0] for row in anon_select]})
+      "serviceExecute":catalog[4],"effectiveAnonPermissivePolicies":[row[0] for row in permissive],"inheritedAnonRestrictivePolicies":[row[0] for row in restrictive]})
     emit({"source": "full146", "anonCanExecute": True,
           "functionSecurityDefiner": False, "rlsPolicy": policy[0],
           "rlsExpression": policy[2], "backendCount": 2,
