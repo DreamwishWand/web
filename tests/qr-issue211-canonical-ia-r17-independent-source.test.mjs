@@ -12,7 +12,7 @@ const fixture = JSON.parse(readFileSync(resolve(root,'tests/fixtures/qr-issue211
 const file = p => readFileSync(resolve(root,p),'utf8');
 const sourcePaths = Object.keys(fixture.liveSourceBlobs);
 const content = Object.fromEntries(sourcePaths.map(p => [p,file(p)]));
-const blob = s => {const b=Buffer.from(s);return createHash('sha1').update(Buffer.from('blob '+b.length+'\\0')).update(b).digest('hex');};
+const blob = s => {const b=Buffer.from(s);return createHash('sha1').update('blob '+b.length).update(Buffer.from([0])).update(b).digest('hex');};
 const one = p => content[p];
 const has = (p,fragment) => assert.ok(one(p).includes(fragment),p+' missed '+fragment);
 test('historical R17 remains 30 unique rows / 23 product jobs + 7 shared infrastructure / 0 PASS 12 PARTIAL 18 BLOCKED',()=>{
