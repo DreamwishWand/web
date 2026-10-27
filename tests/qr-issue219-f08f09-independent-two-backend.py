@@ -102,9 +102,9 @@ with psycopg.connect(DSN,autocommit=True) as writer, psycopg.connect(DSN,autocom
     cases=[
       ("PRIVATE_WORK","update public.community_works set visibility='private' where work_id=%s",(work,),
         "update public.community_works set visibility='public' where work_id=%s",(work,),False),
-      ("UNPUBLISHED_WORK","update public.community_works set lifecycle_state='unpublished' where work_id=%s",(work,),
+      ("UNPUBLISHED_WORK","update public.community_works set lifecycle_state='unpublished',visibility='private' where work_id=%s",(work,),
         "update public.community_works set lifecycle_state='published' where work_id=%s",(work,),False),
-      ("DELETED_WORK","update public.community_works set lifecycle_state='deleted' where work_id=%s",(work,),
+      ("DELETED_WORK","update public.community_works set lifecycle_state='deleted',visibility='private' where work_id=%s",(work,),
         "update public.community_works set lifecycle_state='published' where work_id=%s",(work,),False),
       ("RESTRICTED_WORK","update public.community_works set moderation_state='restricted' where work_id=%s",(work,),
         "update public.community_works set moderation_state='clear' where work_id=%s",(work,),False),
