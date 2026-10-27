@@ -51,10 +51,15 @@ jobs:
       - name: Vite server failure diagnostic
         if: failure()
         run: cat /tmp/creator-typed-work-vite.log || true
+      - name: Q&A same-route navigation, stale RPC, mobile/locale Chrome
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.bin }}
+          CREATOR_TEST_BASE_URL: http://127.0.0.1:4175
+        run: node scripts/qa-spa-typed-work-owner-browser.mjs
       - name: Artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: web-creator-typed-work-chrome
-          path: .artifacts/creator-typed-work-browser/
+          path: |\n            .artifacts/creator-typed-work-browser/\n            .artifacts/qa-spa-owner/
           if-no-files-found: error
