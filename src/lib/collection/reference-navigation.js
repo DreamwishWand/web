@@ -63,5 +63,5 @@ export function collectionWorkspaceHref(basePath = '', state = {}, itemId = null
     params.set('item',String(itemId));
   }
   const q = params.toString();
-  return String(basePath).replace(/\\/$/,'') + '/collection/' + (q ? '?' + q : '');
+  return String(basePath).replace(/[/]$/,'') + '/collection/' + (q ? '?' + q : '');
 }
