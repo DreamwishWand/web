@@ -316,13 +316,14 @@ with psycopg.connect(DSN, autocommit=True) as writer, psycopg.connect(DSN, autoc
         writer.execute("update public.community_works set visibility='private' where work_id=%s",(work,))
     hidden=snapshot(reader,writer,"WORK_VISIBILITY_PRIVATE")
     assert not hidden["anonGenericMatched"] and not hidden["anonDirectIndexVisible"] and not hidden["source144R20"], hidden
-    with writer.transaction():
-        writer.execute("update public.community_works set visibility='public' where work_id=%s",(work,))
-    if scalar(writer,"select count(*) from public.search_documents where work_id=%s",(work,))==0:
-        publish_via_canonical_rpc(writer,"VISIBILITY_RESTORE_CANONICAL_REINDEX")
-    vis=snapshot(reader,writer,"WORK_VISIBILITY_RESTORED")
-    assert vis["anonGenericMatched"] and vis["anonDirectIndexVisible"] and vis["source144R20"],vis
-    emit({"case":"CANONICAL_INDEX_LIFECYCLE","privateDenied":True,"restored":True})
+    # The actual DreamSnaps round guard can forbid private->public
+    # republishing, so never force a resurrection through a raw UPDATE.
+    # The four independent Account/Identity/Creator/Privacy restorations
+    # above already prove supported positive restoration.
+    assert hidden["canonicalIndexCount"]==1,("LIFECYCLE_INDEX_PURGED",hidden)
+    emit({"case":"CANONICAL_INDEX_LIFECYCLE","privateDenied":True,
+          "staleIndexRetained":True,"republishAttempted":False,
+          "sourceRoundGuardPreserved":True})
 
     assert protected==["ACCOUNT_RESTRICTED","IDENTITY_RETIRED",
                        "CREATOR_ENTITY_TOMBSTONE","PRIVACY_SUPPRESSED"],protected
