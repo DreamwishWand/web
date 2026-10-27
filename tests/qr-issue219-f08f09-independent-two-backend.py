@@ -163,7 +163,6 @@ with psycopg.connect(DSN,autocommit=True) as writer, psycopg.connect(DSN,autocom
     print(json.dumps({"scenario":"STALE_REVISION_OLD_GALLERY_SEPARATE_REFERENCE","oldResult":False,"oldMedia":False,"newMedia":True}))
     with writer.transaction():
         writer.execute("update public.dreamsnap_challenges set lifecycle_state='closed',closes_at=now()-interval '1 hour' where challenge_id=%s",(challenge,))
-    expect(reader,False,"CLOSED_CHALLENGE_WITH_UNPUBLISHED_GALLERY_REVISION") if False else None
     # Closed historical competition still returns eligible Entry/WAND image after
     # Gallery publication is removed, through independent original frozen Entry.
     assert get_image(reader,mid2)["mediaId"]==str(mid2)
