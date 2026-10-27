@@ -1,0 +1,37 @@
+name: 04 QR PR195 Meal New-Only Independent Guard
+on:
+  pull_request:
+    paths:
+      - 'tests/qr-pr195-meal-newonly-independent.test.mjs'
+      - 'docs/qa/qr-pr195-meal-newonly-original-acceptance-20261027.md'
+      - '.github/workflows/qr-pr195-meal-newonly-independent.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  meal-newonly:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin new Owner Meal evidence and accepted baseline Flower reports
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN"
+          test "$(git hash-object static/ddv/core/collection/v1.25/native-activity-meal-original-predicate-v125.json)" = 'd7a65dc4e6525e2efad6a82d65cc0589e1c66717'
+          test "$(git hash-object static/ddv/core/collection/v1.25/native-activity-flower-original-predicate-v125.json)" = '8d726747ac06d4cb96b4805e9205dc1870a5f644'
+          test "$(git hash-object static/ddv/core/collection/v1.25/collection-definition-source-compact-v125.json)" = '7622ff51f6e48315893d7b75f08e51c248d09f2e'
+      - name: Four independent Meal new-only cross-contract cases
+        run: node --test tests/qr-pr195-meal-newonly-independent.test.mjs
+      - name: Provenance boundary
+        run: echo 'Private actual original NSO metadata and protobuf were independently verified LOCALLY; CI runs contracts only; runtime/personal/native writers UNKNOWN/OFF'
