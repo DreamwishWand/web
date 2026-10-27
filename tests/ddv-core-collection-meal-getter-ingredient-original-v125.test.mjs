@@ -59,7 +59,7 @@ test('Ingredient exact original row encodes Activity case6, Ingredient case5, en
  assert.equal(field(typ,1).length,0);
  assert.equal(d.byTypeIgnoreDefault,false);
  assert.equal(d.byItemSeparateExplicitId,30200200);
- const byItem=one(g,1).v;assert.equal(one(one(byItem,2).v,1).v,30200200);
+ const byItem=one(g,1).v;const packed=one(byItem,2).v;const [explicitId,end]=varint(packed,0);assert.equal(explicitId,30200200);assert.equal(end,packed.length);
  const s=compact.find(z=>z[0]===2120000023);assert.ok(s);
  assert.deepEqual(s[5].filter(t=>t[0]==='ActivityItem'),[['ActivityItem',{Ingredient:2001400001},0]]);
 });
