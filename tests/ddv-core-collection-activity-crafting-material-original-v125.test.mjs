@@ -1,0 +1,95 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const e=JSON.parse(readFileSync('static/ddv/core/collection/v1.25/native-activity-crafting-material-original-v125.json','utf8'));
+const compact=JSON.parse(readFileSync('static/ddv/core/collection/v1.25/collection-definition-source-compact-v125.json','utf8')).records;
+function vint(b,p){let v=0,s=0;while(true){assert.ok(p<b.length,'truncated varint');const z=b[p++];v+=(z&127)*2**s;if(z<128)return [v,p];s+=7;assert.ok(s<56);}}
+function wire(b){let p=0,a=[];while(p<b.length){let tag;[tag,p]=vint(b,p);const f=tag>>3,t=tag&7;let v;if(t===0)[v,p]=vint(b,p);else if(t===2){let n;[n,p]=vint(b,p);assert.ok(p+n<=b.length);v=b.subarray(p,p+n);p+=n;}else throw Error('wire '+t);a.push({f,t,v});}return a;}
+const all=(b,f)=>wire(b).filter(x=>x.f===f);
+const one=(b,f)=>{const z=all(b,f);assert.equal(z.length,1,'field '+f);return z[0];};
+test('CraftingMaterial evidence pins original Switch BID624 and rejects untraced d548 provenance',()=>{
+ assert.deepEqual(e.scope,{platform:'Nintendo Switch',gameVersion:'1.25.0',buildId:'52BD625D9B4E0053',saveSchema:624});
+ const s=e.sourceProvenance;
+ assert.equal(s.main.sha256,'3258d5e05aded708c06017b8763fa37bfb696385a2ab29dd8a182d3938cbc0e0');
+ assert.equal(s.originalMetadata.sha256,'07e919f07f7be2df883b7292bd3c699f670b4c1e8ff496ef7747447f5baa9f7c');
+ assert.equal(s.sameBuildDump.sha256,'a94ae73d522f160d21255b195b4d834bf5c79db59ddbd8cdfc32e54c6e0671f0');
+ assert.equal(s.losslessItemDb.sha256,'df78c309a8023667c92426e3b929ed3e51aadf10d943835a3673cefa585f8048');
+ assert.equal(s.supportTables.sha256,'537cfcf14beca1e76496d4f9c5b60bd7e31d385a16fd69e63083df6978fdf4b9');
+ assert.equal(s.historicalUntracedMetadata.source,'NEED_SOURCE');
+ assert.equal(s.historicalUntracedMetadata.equatedToOriginal,false);
+});
+test('CraftingMaterial original protobuf identifies empty case6 only; separate ignored Crafting recipe and ByItem entries never collapse',()=>{
+ const d=e.definition;
+ assert.equal(d.id,2120000096);assert.equal(d.fullRawBytes,313);
+ assert.equal(d.fullRawSha256,'0d29ce51cd9970208831abd746e9371187bf78875d1dbdcd54c96b95b380443c');
+ const byType=Buffer.from(d.byTypeSelectedWireHex,'hex');
+ const inner=one(byType,6).v;
+ assert.equal(one(inner,6).t,2);assert.equal(one(inner,6).v.length,0);
+ assert.equal(all(byType,1).length,0);
+ assert.equal(d.byTypeSelectedIgnore.defaultValue,false);
+ assert.equal(d.separateByTypeIgnoredRecipe.ignore,true);
+ assert.equal(d.separateByTypeIgnoredRecipe.recipeType,2001100001);
+ assert.deepEqual(d.separateByItemPositiveIds,[31700015,31700021]);
+ assert.deepEqual(d.separateByItemIgnoredExample,{id:31700039,present:true,ignore:true});
+ const c=compact.find(x=>x[0]===d.id);assert.ok(c);
+ assert.deepEqual(c[5].filter(x=>x[0]==='ActivityItem'),[['ActivityItem',{CraftingMaterial:{}},0]]);
+});
+test('CraftingMaterial original MethodSpec98757 has TWO type args ActivityItemData and ActivityItemType, subtype17 not Mineral16',()=>{
+ const n=e.native,g=n.typedGetAll;
+ assert.equal(e.selectionComparison.fish.status,'UNKNOWN_NOT_PROMOTED');
+ assert.equal(e.selectionComparison.craftingMaterial.status,'OWNER_CONFIRMED_STATIC_PREDICATE');
+ assert.equal(n.outerCase6TestRva,'0x4BFCAF4');assert.equal(n.boundedArm.bytes,256);
+ assert.equal(n.boundedArm.sha256,'9b4fa9773591d2fea136fad19a2e8a6d8e0520fb9331658152e92a405364c6b3');
+ assert.equal(g.callSite,'0x4BFCB34');assert.equal(g.callTarget,'0x37816F0');
+ assert.equal(g.genericUsage,'0xC003038B');
+ assert.equal((Number.parseInt(g.genericUsage,16)&0xffffff)>>>1,g.methodSpecIndex);
+ const b=Buffer.from(g.methodSpecRawHex,'hex');assert.equal(b.length,12);
+ assert.equal(b.readUInt32LE(0),103722);assert.equal(b.readInt32LE(4),-1);assert.equal(b.readUInt32LE(8),34615);
+ assert.equal(g.methodSpecIndex,98757);
+ assert.deepEqual(g.genericArgs.map(x=>x.typeDefIndex),[9044,10400]);
+ assert.equal(g.subtypeConstant17Rva,'0x4BFCB28');assert.equal(g.subtypeStackStoreRva,'0x4BFCB30');
+ assert.equal(g.genericArgCount,2);
+});
+test('Native selector projects ActivityItemData ID, calls Select and ToList, no CraftingMaterial Where; IsValid separate',()=>{
+ const n=e.native,p=n.projection;
+ assert.equal(p.lambdaRva,'0x4BFF290');assert.equal(p.lambdaBytes,160);
+ assert.equal(p.lambdaSha256,'13dc42cb2d2242ee3031b247f8b210cf46e9f045fc2a7d6db00351cfb14eed7b');
+ assert.equal(p.idFieldReadRva,'0x4BFF2B8');assert.equal(p.idBackingOffset,'0x18');
+ assert.equal(p.selectCallSiteRva,'0x4BFD874');assert.equal(p.selectTargetRva,'0x3752680');
+ assert.equal(p.toListCallSiteRva,'0x4BFD880');assert.equal(p.toListTargetRva,'0x37566C0');
+ assert.equal(p.hasSpecificWhere,false);assert.equal(n.commonIsValidSeparate,true);
+ assert.equal(n.typedGetAll.itemTypeConstant3Rva,'0x4BFCB2C');
+ assert.match(n.exactSelectorStageExpression,/ActivityItemType=17/);
+});
+test('ActivityItemData original interfaces prove ICollectionItem vtable32 get_CanBeCollected !IsMissionItem, not variation',()=>{
+ const c=e.concrete,ic=c.icollectionItem,gt=c.getCanBeCollected;
+ assert.equal(c.typeDefIndex,9044);
+ assert.equal(c.metadataTypeDef88Sha256,'34d34ee450e18d546a9f1d2a12935da7ec4ae71d6f573b3ee1e1bfe84585797b');
+ assert.equal(c.interfaceOffsetTable.startIndex,18220);assert.equal(c.interfaceOffsetTable.count,16);
+ assert.equal(c.interfaceOffsetTable.sha256,'9d4ba5bb84fe4fc8d74b75f382d63c3872a914583cd834d6f083af9aa6e0c1e4');
+ assert.equal(ic.typeIndex,64932);assert.equal(ic.offset+ic.methodSlot,32);
+ assert.equal(ic.vtableMethodEncoded,'0x60028809');assert.equal(ic.methodDefIndex,82948);
+ assert.equal(c.variation.typeIndex,65831);assert.equal(c.variation.implemented,false);
+ assert.equal(gt.rva,'0x44EFE70');assert.equal(gt.instructionBytes,'084041391f010071e0179f1ac0035fd6');
+ assert.equal(gt.sha256,'e37d5869e849938f2d6eecdde5f518bb0cdecd450eb9d97a7a9d1f4d6d7d1957');
+ assert.equal(gt.expression,'!IsMissionItem');assert.equal(gt.boolBackingOffset,'0x50');
+ assert.deepEqual(c.protobuf,{itemIdField:1,missionField:8,missionAbsentDefault:false});
+});
+test('Original typed source has subtype17 132/mission4; typed negative subtype0 and positive-selector/negative-getter are distinct',()=>{
+ const s=e.sourceAudit;
+ assert.equal(s.originalActivityItemDataRowsShaVerified,166);
+ assert.deepEqual(s.typedSubtype17,{count:132,missionField8AbsentDefaultFalse:128,missionField8ExplicitTrue:4,staticGetterTrueInputs:128,staticGetterFalseInputs:4});
+ assert.deepEqual(s.typedSubtype0,{count:34,missionField8AbsentDefaultFalse:32,missionField8ExplicitTrue:2,excludedByNativeSubtype17:true});
+ const xs=new Map(s.representativeExamples.map(x=>[x.itemId,x]));
+ assert.equal(xs.get(31700000).staticSubtypeMatch,true);assert.equal(xs.get(31700000).staticGetter,true);
+ assert.equal(xs.get(31700023).missionField8WireHex,'4001');assert.equal(xs.get(31700023).staticGetter,false);
+ assert.equal(xs.get(30000031).sourceSubtype,0);assert.equal(xs.get(30000031).staticSubtypeMatch,false);
+ assert.equal(xs.get(31700039).separateByItemIgnore,true);assert.equal(xs.get(31700039).finalMembership,'UNKNOWN');
+ for(const x of s.representativeExamples)assert.match(x.rawPayloadSha256,/^[a-f0-9]{64}$/);
+ assert.equal(s.sourceOnly,true);
+ assert.deepEqual(e.coverage,{previousOwnerStatic:102,newStaticSelectors:1,currentOwnerStatic:103,total:256,remainingUnknown:153,unresolvedFamilyCounts:{ActivityItem:1,Crafting:28,Clothing:61,Furniture:63},remainingActivitySelector:'Fish'});
+ const f=e.safety;assert.equal(f.qr205MineralVerdict,'PARTIAL_NEED_SOURCE');assert.equal(f.independentQrAccepted,false);
+ assert.equal(f.finalMembershipKnown,false);assert.equal(f.denominator,null);assert.equal(f.runtimeEligibility,'UNKNOWN');
+ for(const k of ['personalMetricsEnabled','nativeSaveWriterEnabled','presetApplyEnabled','communityPublishingEnabled','entitlementEditingEnabled','steamAndSchema626MeaningTransferred'])assert.equal(f[k],false);
+ for(const k of ['owned','collected','missing'])assert.equal(f[k],'UNKNOWN');
+});
