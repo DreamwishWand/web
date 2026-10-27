@@ -75,10 +75,14 @@ try{
  for(const locale of ['en','fr','it','de','es-ES','ja','zh-CN','pt-BR']){
    await visit('/dreamsnaps/community/?work='+id.dreamsnap);
    await until(async()=>page.locator('[data-dreamsnap-work-state="authority-pending"]').count()===1);
+   // Wait for client hydration to restore stored locale before selecting.
+   await page.locator('#site-locale').waitFor({state:'visible',timeout:15000});
+   await page.waitForTimeout(750);
    await page.locator('#site-locale').selectOption(locale);
-   await until(async()=>await page.locator('html').getAttribute('lang')===locale);
+   await until(async()=>await page.locator('html').getAttribute('lang')===locale,18000);
    const dims=await page.evaluate(()=>({client:document.documentElement.clientWidth,scroll:document.documentElement.scrollWidth}));
    assert(dims.scroll<=dims.client+2,'320px horizontal overflow '+locale+' '+JSON.stringify(dims));
+   (report.locales??=[]).push(locale);
  }
  report.observations.push('8 locales at 320px, gated detail no-media PASS');
  assert(report.errors.length===0,'page errors '+report.errors.join(';'));
