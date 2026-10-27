@@ -64,12 +64,13 @@ try{
  await samePageClick(origin+'/qa/?question='+id.question);
  const after=report.rpc.filter(x=>x==='community_get_question_public_v1').length;
  const title=await page.locator('article.detail h2').allInnerTexts();
- assert(after>before && title.includes('QR QUESTION TWO'),
-   'SOURCE/CHROME RED: same /qa/ navigation kept stale Tip; question RPC delta='+ (after-before)+' title='+JSON.stringify(title));
- report.observations.push('Same-route Tip -> Question correct ID + detail PASS');
+ if(after>before && title.includes('QR QUESTION TWO'))
+   report.observations.push('Same-route Tip -> Question correct ID + detail PASS');
+ else (report.findings??=[]).push('SOURCE/CHROME RED: same /qa/ navigation kept stale Tip; question RPC delta='+ (after-before)+' title='+JSON.stringify(title));
  await samePageClick(origin+'/qa/?tip=invalid');
- assert(await page.locator('[data-qa-state="invalid-work-url"]').count()===1,'invalid same-route Work ID failed to clear previous detail');
- report.observations.push('Same-route invalid query cleared detail PASS');
+ if(await page.locator('[data-qa-state="invalid-work-url"]').count()===1)
+   report.observations.push('Same-route invalid query cleared detail PASS');
+ else (report.findings??=[]).push('SOURCE/CHROME RED: invalid same-route Work ID failed to clear prior selected detail');
 
  for(const locale of ['en','fr','it','de','es-ES','ja','zh-CN','pt-BR']){
    await visit('/dreamsnaps/community/?work='+id.dreamsnap);
@@ -82,6 +83,7 @@ try{
  report.observations.push('8 locales at 320px, gated detail no-media PASS');
  assert(report.errors.length===0,'page errors '+report.errors.join(';'));
  assert(report.consoleErrors.length===0,'console errors '+report.consoleErrors.join(';'));
+ assert(!(report.findings?.length),'independent Work route failures: '+JSON.stringify(report.findings));
  report.outcome='PASS';
 }catch(error){report.outcome='RED';report.failure=String(error)}finally{
  await mkdir('.artifacts/qr-creator-typed-work',{recursive:true});
