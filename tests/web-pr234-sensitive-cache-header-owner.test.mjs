@@ -70,8 +70,8 @@ test('existing sensitive 200 and post-RPC denied 400/404 cache contract stays pr
      assert.equal(response.status,kind==='ok'?200:kind==='denied'?404:400,rpc+'/'+kind);
      assert.equal(response.headers.get('Cache-Control'),PRIVATE,rpc+'/'+kind);
      assert.equal(dispatch,1,rpc+'/'+kind);
-     const payload=await response.json();
-     assert.deepEqual(payload,kind==='ok'?{synthetic:'result'}:{error:kind==='denied'?'NOT_FOUND':'PUBLIC_QUERY_FAILED'});
+     const responseBody=await response.json();
+     assert.deepEqual(responseBody,kind==='ok'?{synthetic:'result'}:{error:kind==='denied'?'NOT_FOUND':'PUBLIC_QUERY_FAILED'});
      count++;
    }
  }
