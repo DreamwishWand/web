@@ -1,0 +1,57 @@
+name: WEB Creator typed Work source-only Chrome
+on:
+  push:
+    branches:
+      - 'web/creator-typed-work-route-*'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: web-typed-work-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  real-chrome:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Installed Chrome provenance
+        id: chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "bin=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+          "$CHROME_BIN" --version
+          fc-match :lang=ja | head -n 1 || true
+      - name: Start disposable source-only site
+        env:
+          VITE_SUPABASE_URL: http://127.0.0.1:4799
+          VITE_SUPABASE_PUBLISHABLE_KEY: QR222_SYNTHETIC_ONLY_NOT_A_KEY
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4175 >/tmp/creator-typed-work-vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4175/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/creator-typed-work-vite.log
+          exit 1
+      - name: Actual Chrome with local synthetic public API interceptions
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.bin }}
+          CREATOR_TEST_BASE_URL: http://127.0.0.1:4175
+        run: node scripts/creator-typed-work-browser-acceptance.mjs
+      - name: Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-creator-typed-work-chrome
+          path: .artifacts/creator-typed-work-browser/
+          if-no-files-found: error
