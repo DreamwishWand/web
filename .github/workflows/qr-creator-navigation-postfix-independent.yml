@@ -2,6 +2,8 @@ name: QR Creator navigation post-fix independent Source Chrome
 on:
   push:
     branches: ['qr/creator-navigation-postfix-20261027']
+  pull_request:
+    branches: ['web/creator-typed-work-route-failclosed-20261027']
   workflow_dispatch:
 permissions:
   contents: read
