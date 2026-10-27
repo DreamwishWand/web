@@ -330,6 +330,7 @@ jobs:
           export DDVRE_PRIVACY_ISOLATED_LOCAL=CONFIRMED
           python3 tests/comm-d06-account-global-consent-two-session.py | tee /tmp/comm-d06-two-session.log
           python3 tests/comm-f08-f09-dreamsnap-work-liveness-two-session.py | tee /tmp/comm-f08f09-two-session.log
+          python3 tests/comm-legacy-dreamsnap-gallery-reader-two-session.py | tee /tmp/comm-legacy-ds-reader-two-session.log
           python3 tests/comm-r18-preset-reservation-two-session.py | tee /tmp/comm-r18-preset-reservation.log
           python3 tests/comm-r18-promotion-fence-two-session.py | tee /tmp/comm-r18-promotion-fence.log
           python3 tests/comm-r18-scene-publisher-acl-postgres.py | tee /tmp/comm-r18-scene-product-issuer.log
@@ -360,6 +361,7 @@ jobs:
             /tmp/comm-d06-reapply.log
             /tmp/comm-d06-two-session.log
             /tmp/comm-f08f09-two-session.log
+            /tmp/comm-legacy-ds-reader-two-session.log
             /tmp/comm-f08f09-reapply.log
             /tmp/comm-synthetic-seed.log
             /tmp/comm-accept-*.log
