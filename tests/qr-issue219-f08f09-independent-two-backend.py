@@ -57,8 +57,8 @@ with psycopg.connect(DSN,autocommit=True) as writer, psycopg.connect(DSN,autocom
           challenge_id,challenge_key,title,lifecycle_state,submission_opens_at,submission_closes_at,
           judging_opens_at,judging_closes_at,results_at,closes_at,formal_vote_allowance,
           special_pick_allowance,minimum_real_eligible_entries,minimum_real_eligible_creators,is_synthetic)
-          values(%s,%s,'QR219 independent challenge','closed',now()-interval '8 hours',now()-interval '7 hours',
-          now()-interval '6 hours',now()-interval '5 hours',now()-interval '4 hours',now()-interval '1 hour',2,1,1,1,false)""",(challenge,"qr219_"+new().hex[:19]))
+          values(%s,%s,'QR219 independent challenge','results',now()-interval '8 hours',now()-interval '7 hours',
+          now()-interval '6 hours',now()-interval '5 hours',now()-interval '4 hours',now()+interval '1 hour',2,1,1,1,false)""",(challenge,"qr219_"+new().hex[:19]))
         writer.execute("""insert into public.community_works(work_id,owner_account_id,creator_profile_id,work_type,lifecycle_state,visibility)
           values(%s,%s,%s,'dreamsnap','draft','private')""",(work,account,creator))
         writer.execute("insert into public.community_work_revisions(revision_id,work_id,revision_number,created_by_account_id) values(%s,%s,1,%s)",(revision,work,account))
@@ -161,6 +161,14 @@ with psycopg.connect(DSN,autocommit=True) as writer, psycopg.connect(DSN,autocom
     media_rejects(reader,media)
     assert get_image(reader,mid2)["mediaId"]==str(mid2)
     print(json.dumps({"scenario":"STALE_REVISION_OLD_GALLERY_SEPARATE_REFERENCE","oldResult":False,"oldMedia":False,"newMedia":True}))
+    with writer.transaction():
+        writer.execute("update public.dreamsnap_challenges set lifecycle_state='closed',closes_at=now()-interval '1 hour' where challenge_id=%s",(challenge,))
+    expect(reader,False,"CLOSED_CHALLENGE_WITH_UNPUBLISHED_GALLERY_REVISION") if False else None
+    # Closed historical competition still returns eligible Entry/WAND image after
+    # Gallery publication is removed, through independent original frozen Entry.
+    assert get_image(reader,mid2)["mediaId"]==str(mid2)
+    assert get_results(reader)["wandResults"]==[]
+    print(json.dumps({"scenario":"CLOSED_PHASE_FROZEN_ENTRY_IMAGE_WITH_OLD_RESULT_REVISION_DENIED"}))
     # At least ONE committed state transition is independently read by the
     # SECOND actual service_role backend after commit, not merely local
     # uncommitted predicates. Do not attempt to republish a withdrawn Work:
