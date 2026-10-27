@@ -117,7 +117,9 @@
         "storeAt": "0x4881510",
         "construct": "mov w9,#0x594e; movk w9,#0x1ce,lsl#16; str w9,[x8,#0x14]"
       },
-      "runtimeInitializationMayFail": false
+      "runtimeInitializationMayFail": "UNKNOWN",
+      "runtimeInitializationObserved": false,
+      "runtimeInitializationResult": "UNKNOWN"
     },
     "exactStaticGetterExpression": "!meal.IsMissionItem && meal.ID != MealItemData.RubbishItem",
     "resolvedRubbishItemId": 30300494,
