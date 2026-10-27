@@ -32,7 +32,7 @@ jobs:
           fc-match :lang=ja | head -n 1 || true
       - name: Start disposable source-only site
         env:
-          VITE_SUPABASE_URL: http://127.0.0.1:4799
+          VITE_SUPABASE_URL: https://qr222-synthetic.invalid
           VITE_SUPABASE_PUBLISHABLE_KEY: QR222_SYNTHETIC_ONLY_NOT_A_KEY
         run: |
           set -euo pipefail
