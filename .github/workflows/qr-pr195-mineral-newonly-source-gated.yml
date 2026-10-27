@@ -1,0 +1,36 @@
+name: 04 QR PR195 Mineral Published Projection Only (Original Source Gated)
+on:
+  pull_request:
+    paths:
+      - 'docs/qa/qr-pr195-mineral-newonly-source-gated-20261027.md'
+      - 'tests/qr-pr195-activity-mineral-newonly-source-gated.test.mjs'
+      - '.github/workflows/qr-pr195-mineral-newonly-source-gated.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mineral-newonly:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: \${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact PR HEAD and retained Owner projection blobs (NOT original NSO)
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "\${{ github.event.pull_request.head.sha || github.sha }}"
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN"
+          test "$(git hash-object static/ddv/core/collection/v1.25/native-activity-mineral-original-predicate-v125.json)" = 'cff621bc97fa1e63f23de9c92909b1228acc5021'
+          test "$(git hash-object static/ddv/core/collection/v1.25/collection-definition-source-compact-v125.json)" = '7622ff51f6e48315893d7b75f08e51c248d09f2e'
+      - name: Six new-only independently decoded projection and fail-closed tests
+        run: node --test tests/qr-pr195-activity-mineral-newonly-source-gated.test.mjs
+      - name: Evidence limitation
+        run: echo 'This CI has NO original Switch NSO/metadata/dump.cs/ItemDB/Support bytes. PARTIAL/NEED_SOURCE; not independent Native/protobuf original-source PASS. Runtime and all writers OFF.'
