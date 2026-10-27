@@ -41,8 +41,8 @@ test('Edge does not invoke copy/remove or new positive publication/discard while
  assert.doesNotMatch(edge,/\.copy\(|\.remove\(/);
 });
 test('139 source migrations and real two-backend concurrency fixture wired in bootstrap',()=>{
- assert.match(workflow,/assert len\(fs\)==142/);
- assert.match(workflow,/IF v<>142 THEN/);
+ assert.match(workflow,/assert len\(fs\)==143/);
+ assert.match(workflow,/IF v<>143 THEN/);
  assert.match(workflow,/THIRTY_ONE_ADDITIVE_SOURCE_MIGRATIONS/);
  assert.match(workflow,/tests\/comm-r18-preset-reservation-two-session\.py/);
  for(const s of ['R18_SAME_KEY_TWO_BACKEND_SERIALIZED_REPLAY','R18_REGISTRATION_AND_LEGACY_ENVELOPE_DENIED',
