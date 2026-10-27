@@ -61,5 +61,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: web-creator-typed-work-chrome
-          path: |\n            .artifacts/creator-typed-work-browser/\n            .artifacts/qa-spa-owner/
+          path: |
+            .artifacts/creator-typed-work-browser/
+            .artifacts/qa-spa-owner/
           if-no-files-found: error
