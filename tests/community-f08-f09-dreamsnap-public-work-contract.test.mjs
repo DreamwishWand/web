@@ -37,7 +37,7 @@ test('F09 public WAND results use the same effective Work guard, revision equali
  assert.match(r,/dr\.integrity_state='eligible'/);
  assert.match(r,/e\.managed_under13=false/);
  assert.match(r,/cp\.profile_visibility='public'/);
- assert.match(r,/c\.is_synthetic=false/); // defined in Challenge lookup
+ assert.match(r,/and is_synthetic=false/); // defined in Challenge lookup
  assert.match(consent,/create or replace function private\.dreamsnap_public_official_result/);
  const priv=fn(consent,'private.dreamsnap_public_official_result');
  assert.match(priv,/return null;[\s\S]*return null;/);
