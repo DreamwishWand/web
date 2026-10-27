@@ -9,15 +9,16 @@ const upper=id.toUpperCase();
 const read=path=>readFileSync(path,'utf8');
 
 test('typed Work resolver uses only explicit Gallery/Question/Tip/DreamSnaps routes',()=>{
-  const expected={gallery:'/gallery/?work=',question:'/qa/?question=',tip:'/qa/?tip=',dreamsnap:'/dreamsnaps/community/?work='};
+  const expected={gallery:'/gallery/?work=',question:'/qa/?question=',tip:'/qa/?tip=',dreamsnap:'/dreamsnaps/'};
   for(const [type,suffix] of Object.entries(expected)) {
     const resolved=resolveTypedWorkRoute('/wand/',type,upper);
-    assert.equal(resolved.href,'/wand'+suffix+id);
+    assert.equal(resolved.href,'/wand'+suffix+(type==='dreamsnap'?'':id));
     assert.equal(resolved.workType,type);
     assert.equal(resolved.status,type==='dreamsnap'?'gated':'ready');
   }
   assert.equal(resolveTypedWorkRoute('','dreamsnap',id).availability,'pending-public-detail-authority');
-  assert.equal(resolveTypedWorkRoute('','dreamsnap',id).href,'/dreamsnaps/community/?work='+id);
+  assert.equal(resolveTypedWorkRoute('','dreamsnap',id).href,'/dreamsnaps/');
+  assert(!resolveTypedWorkRoute('','dreamsnap',id).href.includes(id));
 });
 test('unknown type, invalid UUID, hidden/retired Work never falls back to Tip or Gallery',()=>{
   const types=['','DREAMSNAP','preset','shop','unknown','__proto__',null,undefined,0];
