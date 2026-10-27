@@ -9,12 +9,12 @@ assert(!/^import\s/m.test(clean),'unexpected import in exact integrated Edge; te
 const transpiled=ts.transpileModule(clean,{compilerOptions:{
   module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022
 }}).outputText;
-const harness=\`
+const harness=`
 const corsHeaders={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'*'};
 const withSupabase=(_options,callback)=>req=>callback(req,{
   supabaseAdmin:{rpc:(name,params)=>globalThis.__qr235LocalRpc(name,params)}
 });
-\`;
+`;
 const mock=await import('data:text/javascript;base64,'+
  Buffer.from(harness+transpiled).toString('base64'));
 const request=(rpc,payload,options={})=>new Request('https://isolated.local.invalid/community-public-query',{
