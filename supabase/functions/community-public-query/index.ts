@@ -139,6 +139,16 @@ const publicFetch = withSupabase({ auth: 'none' }, async (req, ctx) => {
     return reply({ error: 'SCENE_PUBLIC_READER_COMPATIBILITY_UNVERIFIED' }, 503, true);
   }
 
+  // D06: new responses must not cache official Result projections by default.
+  // Previously issued URLs/CDN objects cannot be retroactively revoked.
+  const noStore = rpc === 'community_get_scene_preset_public_v1' ||
+    rpc === 'community_get_dreamsnap_results_public_v1' ||
+    rpc === 'community_get_gallery_dreamsnap_public_v1' ||
+    rpc === 'community_search_gallery_dreamsnaps_public_v1' ||
+    rpc === 'community_list_dreamsnap_result_rounds_public_v1' ||
+    rpc === 'community_get_gallery_photo_public_v1' ||
+    rpc === 'community_list_verified_gallery_subjects_v1';
+
   const params =
     rpc === 'community_list_verified_gallery_subjects_v1'
       ? sanitizeVerifiedGallerySubjects(payload)
@@ -152,17 +162,8 @@ const publicFetch = withSupabase({ auth: 'none' }, async (req, ctx) => {
             ? sanitizeDreamsnapGallerySearch(payload)
             : singleUuidPayload(rpc, payload);
 
-  if (params === null) return reply({ error: 'Invalid public query parameters' }, 400);
+  if (params === null) return reply({ error: 'Invalid public query parameters' }, 400, noStore);
 
-  // D06: new responses must not cache official Result projections by default.
-  // Previously issued URLs/CDN objects cannot be retroactively revoked.
-  const noStore = rpc === 'community_get_scene_preset_public_v1' ||
-    rpc === 'community_get_dreamsnap_results_public_v1' ||
-    rpc === 'community_get_gallery_dreamsnap_public_v1' ||
-    rpc === 'community_search_gallery_dreamsnaps_public_v1' ||
-    rpc === 'community_list_dreamsnap_result_rounds_public_v1' ||
-    rpc === 'community_get_gallery_photo_public_v1' ||
-    rpc === 'community_list_verified_gallery_subjects_v1';
   const { data, error } = await ctx.supabaseAdmin.rpc(rpc, params);
   if (error) {
     const notFound =

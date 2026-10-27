@@ -3,13 +3,15 @@
   import { locale, ct as t } from '$lib/i18n/community.js';
   import { createCommunityBrowserClient } from '$lib/community/browser-client';
   import DreamsnapsTabs from '$lib/community/DreamsnapsTabs.svelte';
+  import { dreamsnapPrivacyCopy } from '$lib/dreamsnaps/privacy-copy.js';
 
   const client = createCommunityBrowserClient();
   let email = '', password = '';
   let entries: any[] = [];
   let mediaUrls: Record<string,string> = {};
-  let selectedFields: Record<string,string[]> = {};
+  // No per-entry/per-field public-result consent: backend Account-global authority is pending.
   let busy = false, error = '', status = '';
+  $: privacyCopy = dreamsnapPrivacyCopy($locale);
 
   onMount(() => { if (client?.session) void load(); });
 
@@ -33,7 +35,6 @@
     entries = result?.data ?? [];
     mediaUrls = {};
     for (const entry of entries) {
-      selectedFields[String(entry.entryId)] = [...(entry.officialPublicFields ?? [])];
       const mediaId = String(entry.mediaId ?? '');
       if (!mediaId) continue;
       const signed: any = await run(() => client.media('read', { mediaId }));
@@ -42,27 +43,6 @@
     }
   }
 
-  function toggleField(entryId: string, field: string, checked: boolean) {
-    const current = new Set(selectedFields[entryId] ?? []);
-    if (checked) current.add(field); else current.delete(field);
-    selectedFields[entryId] = [...current];
-  }
-
-  async function saveOfficialSharing(entryId: string) {
-    if (!client?.session) return;
-    const ok = await run(() => client.command('setDreamsnapOfficialResultPublication', {
-      entryId, publicFields: selectedFields[entryId] ?? []
-    }));
-    if (ok) { status = t('dreamsnaps.my.privacySaved', {}, $locale); await load(); }
-  }
-
-  async function publishGallery(entryId: string, commentsEnabled: boolean) {
-    if (!client?.session) return;
-    const ok = await run(() => client.command('publishDreamsnapGallery', {
-      entryId, commentsEnabled
-    }));
-    if (ok) { status = t('dreamsnaps.my.galleryPublished', {}, $locale); await load(); }
-  }
 </script>
 
 <svelte:head><title>{t('dreamsnaps.tab.my', {}, $locale)} | Dreamwish Wand</title></svelte:head>
@@ -108,25 +88,16 @@
                 {#if entry.officialResult.rank != null}<span>{t('dreamsnaps.official.rank', {}, $locale)}: {entry.officialResult.rank}</span>{/if}
                 {#if entry.officialResult.moonstones != null}<span>{t('dreamsnaps.official.moonstones', {}, $locale)}: {entry.officialResult.moonstones}</span>{/if}
                 {#if entry.officialResult.pixelDust != null}<span>{t('dreamsnaps.official.pixelDust', {}, $locale)}: {entry.officialResult.pixelDust}</span>{/if}
-                <fieldset>
-                  <legend>{t('dreamsnaps.my.shareOfficial', {}, $locale)}</legend>
-                  {#each ['score','rank','moonstones','pixel_dust'] as field}
-                    <label class="check"><input type="checkbox"
-                      checked={(selectedFields[entry.entryId] ?? []).includes(field)}
-                      on:change={(event) => toggleField(String(entry.entryId), field, (event.currentTarget as HTMLInputElement).checked)} />
-                      <span>{field === 'pixel_dust' ? t('dreamsnaps.official.pixelDust', {}, $locale) : t(`dreamsnaps.official.${field}`, {}, $locale)}</span>
-                    </label>
-                  {/each}
-                </fieldset>
-                <button type="button" on:click={() => saveOfficialSharing(String(entry.entryId))}>{t('dreamsnaps.my.savePrivacy', {}, $locale)}</button>
+                <p class="notice" role="status" data-dreamsnaps-disclosure="private-until-account-authority">{privacyCopy.privateDefault}</p>
+                <p class="detail-boundary">{privacyCopy.accountWidePending}</p>
               </section>
             {/if}
 
-            {#if ['results','closed'].includes(entry.challengeState)}
+            {#if entry.galleryState}
               <section>
                 <h3>{t('dreamsnaps.my.gallery', {}, $locale)}</h3>
-                <p>{entry.galleryState ?? t('dreamsnaps.my.notPublished', {}, $locale)}</p>
-                <button type="button" on:click={() => publishGallery(String(entry.entryId), true)}>{t('dreamsnaps.my.publishGallery', {}, $locale)}</button>
+                <p>{entry.galleryState}</p>
+                <p class="detail-boundary">{privacyCopy.publicWorkPending}</p>
               </section>
             {/if}
           </div>

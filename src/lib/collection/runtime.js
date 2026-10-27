@@ -1,6 +1,7 @@
 export const COLLECTION_RUNTIME_SCHEMA = 'wand.collection.runtime@1';
 export const COLLECTION_RECORD_SCHEMA = 'wand.collection.records@1';
 export const COLLECTION_RUNTIME_PATH = 'ddv/collection/v1.25';
+export const COLLECTION_RUNTIME_INDEX_SHA256 = 'a74f6df131e114c66759bc3f463266e3b68fea629ac6a360062423ce6fc133c9';
 
 const LOCALE_INDEX = Object.freeze({ en:0, fr:1, it:2, de:3, 'es-ES':4, ja:5, 'zh-CN':6, 'pt-BR':7 });
 
@@ -72,13 +73,14 @@ export function decodeCollectionRecord(index, row, locale = 'en') {
   };
 }
 
-export function filterCollectionRecords(records, { query = '', family = '', world = '', universe = '' } = {}) {
+export function filterCollectionRecords(records, { query = '', family = '', world = '', universe = '', expansion = '' } = {}) {
   const q = String(query).trim().toLocaleLowerCase();
   return records.filter((record) =>
     (!q || record.searchText.includes(q) || String(record.itemId).includes(q)) &&
     (!family || record.family === family) &&
     (!world || record.worlds.includes(world)) &&
-    (!universe || record.universes.includes(universe))
+    (!universe || record.universes.includes(universe)) &&
+    (!expansion || record.expansions.includes(expansion))
   );
 }
 
@@ -88,14 +90,30 @@ async function sha256Hex(bytes) {
   return Array.from(new Uint8Array(digest), (value) => value.toString(16).padStart(2, '0')).join('');
 }
 
+export function assertUniqueCollectionItemIDs(rows, seen = new Set()) {
+  for (const row of rows) {
+    const itemId = Array.isArray(row) && row.length === 8 ? row[0] : null;
+    if (!Number.isSafeInteger(itemId) || itemId < 0 || seen.has(itemId)) {
+      throw new Error('Collection duplicate or invalid ItemID.');
+    }
+    seen.add(itemId);
+  }
+  return seen;
+}
+
 export async function loadCollectionRuntime(basePath = '', fetchImpl = globalThis.fetch) {
   if (typeof fetchImpl !== 'function') throw new TypeError('Collection runtime requires fetch.');
   const root = `${basePath}/${COLLECTION_RUNTIME_PATH}`.replace(/\/+/g, '/');
   const indexResponse = await fetchImpl(`${root}/index.json`);
   if (!indexResponse.ok) throw new Error(`Collection index request failed (${indexResponse.status}).`);
-  const index = validateCollectionRuntimeIndex(await indexResponse.json());
+  const indexBytes = await indexResponse.arrayBuffer();
+  if (await sha256Hex(indexBytes) !== COLLECTION_RUNTIME_INDEX_SHA256) {
+    throw new Error('Collection index trusted SHA-256 mismatch.');
+  }
+  const index = validateCollectionRuntimeIndex(JSON.parse(new TextDecoder().decode(indexBytes)));
 
   const rows = [];
+  const seenItemIds = new Set();
   for (const shard of index.shards) {
     const response = await fetchImpl(`${root}/${shard.file}`);
     if (!response.ok) throw new Error(`Collection shard request failed: ${shard.file} (${response.status}).`);
@@ -107,8 +125,9 @@ export async function loadCollectionRuntime(basePath = '', fetchImpl = globalThi
     if (payload.s !== COLLECTION_RECORD_SCHEMA || payload.offset !== shard.offset || payload.count !== shard.count || !Array.isArray(payload.r) || payload.r.length !== shard.count) {
       throw new Error(`Collection shard contract mismatch: ${shard.file}.`);
     }
+    assertUniqueCollectionItemIDs(payload.r, seenItemIds);
     rows.push(...payload.r);
   }
-  if (rows.length !== index.n) throw new Error(`Collection runtime loaded ${rows.length} records; expected ${index.n}.`);
+  if (rows.length !== index.n || seenItemIds.size !== index.n) throw new Error('Collection runtime ItemID/count integrity mismatch.');
   return { index, rows };
 }

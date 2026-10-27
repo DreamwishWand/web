@@ -1,0 +1,229 @@
+{
+  "contract": "08web.source146-community-web222.integrated-owner@1",
+  "asOf": "2026-10-28",
+  "classification": "OWNER_SOURCE_PARITY_CANDIDATE_NOT_INDEPENDENT_QR",
+  "baseline": {
+    "mergeBase": "52166f81c107de66dbfab8a6c16aaecc33b21ee0",
+    "communityPR": 230,
+    "communityHead": "5ddf4d23689643340c8d547e47b58f211e03291e",
+    "communityQR": 231,
+    "communityQRHead": "db37201348bc26d7f252a7dbcc4154a1dcde5221",
+    "webPR": 222,
+    "webHead": "99ed88fc717cf18bb4127695f16d6949e7609463",
+    "webQR": 226,
+    "webQRHead": "8f872fab2a39a5a00d3d122ecb942a4ab3152298",
+    "integrationPR": 234,
+    "initialIntegrationHead": "a354a17a086712e9ad772eb0bf0ce1b4ff70d455"
+  },
+  "strategy": "39 selected WEB UI+source/Chrome checks byte-identical to PR222, over Source146 parent; no unrelated WEB WEP/Core, migration or Edge overlays",
+  "overlay": {
+    "count": 39,
+    "files": [
+      {
+        "path": ".github/workflows/collection-reference-browser.yml",
+        "blob": "57d0d811e519ec62ca8c8ee6145554a93ed31dc5"
+      },
+      {
+        "path": ".github/workflows/qr212-owner-ux-browser.yml",
+        "blob": "0fae04eee466dfa7ef75d2b1c50c77a8a6c69ffb"
+      },
+      {
+        "path": ".github/workflows/web-creator-typed-work-chrome.yml",
+        "blob": "51c80e5ce482baf23ca6c645a8441596ef5d8137"
+      },
+      {
+        "path": "docs/collection/reference-detail-readonly-acceptance-20261026.md",
+        "blob": "c7af5d39f4a975cb27355c3c202e66d0434f2ed1"
+      },
+      {
+        "path": "docs/web/creator-dreamsnaps-typed-work-route-20261027.md",
+        "blob": "7dc1f5d138ccce419cfad14ffc6f4ce72a447e6d"
+      },
+      {
+        "path": "docs/web/qr212-owner-ux-source-repair-20261027.md",
+        "blob": "51c00914e3227e16745f6dce7884316c9ba7d0e2"
+      },
+      {
+        "path": "scripts/collection-reference-browser-acceptance.mjs",
+        "blob": "337ec8d38e6287a1e2cc7e46dc890182f6ec2c08"
+      },
+      {
+        "path": "scripts/creator-typed-work-browser-acceptance.mjs",
+        "blob": "c26a74fb5510c1ca09034e8d56c20b9ce67747f3"
+      },
+      {
+        "path": "scripts/qa-spa-typed-work-owner-browser.mjs",
+        "blob": "d75c93f1288d904634c08dc8a92c775dec3d7a98"
+      },
+      {
+        "path": "src/lib/collection/copy.js",
+        "blob": "38eb558d3c3b48dd0b88539016246095578ccae9"
+      },
+      {
+        "path": "src/lib/collection/reference-navigation.js",
+        "blob": "864bc2bf6712e0d7562d2470cece154fe598268d"
+      },
+      {
+        "path": "src/lib/collection/runtime.js",
+        "blob": "1e94d904970fb72e05695de65fcf7290f78e6f93"
+      },
+      {
+        "path": "src/lib/collection/stage1-copy.js",
+        "blob": "3a2c323bef17905c974ab85998f22060a6335e55"
+      },
+      {
+        "path": "src/lib/community/DreamsnapsTabs.svelte",
+        "blob": "36e1612a2054e6d56caf0a4bb5a257014ad8cf9b"
+      },
+      {
+        "path": "src/lib/community/help-stage1-copy.js",
+        "blob": "f9945790624b0a257cb4bd3f18438a3489626f8b"
+      },
+      {
+        "path": "src/lib/community/QaBrowse.svelte",
+        "blob": "6d33891262902b3acd733d77b3f5f79bcb4ee6ea"
+      },
+      {
+        "path": "src/lib/community/typed-work-route.js",
+        "blob": "72f57ecc0dfc6b262d84b3e45233eab22e6551e2"
+      },
+      {
+        "path": "src/lib/dreamsnaps/privacy-copy.js",
+        "blob": "9b4917e87fc0d4a454ef9e53711682e468e4448f"
+      },
+      {
+        "path": "src/routes/collection/+page.svelte",
+        "blob": "f12da595535ef0f4bff7388ff24a2d0aaa70ffa3"
+      },
+      {
+        "path": "src/routes/creator/+page.svelte",
+        "blob": "21ea34e430f6e202d83ed0dd3baa5424fa99dad2"
+      },
+      {
+        "path": "src/routes/dreamsnaps/+page.svelte",
+        "blob": "4292389b70b5d5c798f9a20572798b34efba40a2"
+      },
+      {
+        "path": "src/routes/dreamsnaps/community/+page.svelte",
+        "blob": "e089a687e4452c72d5f8dae12889774531c892ea"
+      },
+      {
+        "path": "src/routes/dreamsnaps/my/+page.svelte",
+        "blob": "5b6dc560ec648888e14c78d065a60cf651ba1372"
+      },
+      {
+        "path": "src/routes/gallery/+page.svelte",
+        "blob": "63cccdd95b87de0fc86d5dc19b482232ec8748c1"
+      },
+      {
+        "path": "src/routes/gallery/dreamsnaps/+page.svelte",
+        "blob": "4d5c362ce1bf669a5dcad4b49076de755e6f02d2"
+      },
+      {
+        "path": "src/routes/gallery/my/+page.svelte",
+        "blob": "5f40bb3c5db5e3d8285b22a06f979caa6ef59df9"
+      },
+      {
+        "path": "src/routes/guide/+page.svelte",
+        "blob": "b2cf82e98f9ceeb5c021e38649a0bd4ca31d156d"
+      },
+      {
+        "path": "src/routes/help/+page.svelte",
+        "blob": "02829781dbff2cba282fbbb044703e3e1d347290"
+      },
+      {
+        "path": "src/routes/help/issues/+page.svelte",
+        "blob": "9c1fa0a5ca9c24baa7cab7b69c1ae275632c6b6c"
+      },
+      {
+        "path": "src/routes/help/my/+page.svelte",
+        "blob": "686f46acf1f56f32370dfeb6cb87fc8739c3f26d"
+      },
+      {
+        "path": "src/routes/help/questions/+page.svelte",
+        "blob": "f42702d218a7dd51c2c2e7aa045ae015cbe61b4a"
+      },
+      {
+        "path": "src/routes/help/tips/+page.svelte",
+        "blob": "461edcfb08ac78569a833f6c0faf4ee2974549a2"
+      },
+      {
+        "path": "src/routes/qa/+page.svelte",
+        "blob": "dea2c19bef132caa04cdf8bdb2a36a8f287a7107"
+      },
+      {
+        "path": "tests/collection-failclosed-qr193-regression.test.mjs",
+        "blob": "5074c773d990dde92c2dfe3099f0cc63687a2c4d"
+      },
+      {
+        "path": "tests/collection-reference-detail.test.mjs",
+        "blob": "2664d8be8a8418f96c8af76b5ffd5cb146ec01e4"
+      },
+      {
+        "path": "tests/community-dreamsnaps-vertical.test.mjs",
+        "blob": "06ffc48ed0904ebe6447cdcb3c8ad5bda63041de"
+      },
+      {
+        "path": "tests/creator-typed-work-route-failclosed.test.mjs",
+        "blob": "25029434c7a12d4313229c1f75a8fe845f9627a6"
+      },
+      {
+        "path": "tests/qa-spa-typed-work-route-owner-regression.test.mjs",
+        "blob": "f931698a5f69a9d8dca336c6cf7cb9ca41d1ff23"
+      },
+      {
+        "path": "tests/qr212-owner-ux-source-repair.test.mjs",
+        "blob": "628c9812ae185921edd0eaf21242eddb89284731"
+      }
+    ]
+  },
+  "communityAuthority": {
+    "edge": {
+      "path": "supabase/functions/community-public-query/index.ts",
+      "blob": "c0d34aae0ab2db87f10ec32c74c3d1f11da371c1",
+      "previousSource146Blob": "232c71ec6b7b275a1f2652ffacd3de976f178810",
+      "edgeOnlyAmendment": "QR235 pre-dispatch sensitive invalid parameters 400 private, no-store, no behavioral changes to SQL/UI/signer"
+    },
+    "source141To146": [
+      {
+        "path": "supabase/migrations/20261025003050_r19_direct_media_sql_issuer_authority.sql",
+        "blob": "755c45a5edfe0d8cdab4b4320ecdfa02443183fe"
+      },
+      {
+        "path": "supabase/migrations/20261025003060_r19_legacy_media_signer_authority.sql",
+        "blob": "b7563d68348f27591a20a98760534fa7d399b160"
+      },
+      {
+        "path": "supabase/migrations/20261027000000_d06_dreamsnaps_account_global_official_consent.sql",
+        "blob": "5364449011a06d1b53dff92c4d16bc47305766aa"
+      },
+      {
+        "path": "supabase/migrations/20261027000010_f08_f09_dreamsnap_public_work_liveness.sql",
+        "blob": "64fe31ac0424b0032553c51a9aca7f10d79f6d36"
+      },
+      {
+        "path": "supabase/migrations/20261027000020_legacy_dreamsnap_gallery_public_reader_liveness.sql",
+        "blob": "b1fc4990a057f810aeb4b1a12a602a68c9b0330f"
+      },
+      {
+        "path": "supabase/migrations/20261027000030_generic_public_search_work_liveness_source146.sql",
+        "blob": "278bb69e990fc62956d28ee9563c9ecbc53b9f03"
+      }
+    ],
+    "allSupabasePathsUnchanged": false,
+    "onlyChangedSupabasePath": "supabase/functions/community-public-query/index.ts"
+  },
+  "gates": {
+    "publicDreamsnapPositiveDetail": false,
+    "publicMediaSigner": false,
+    "savedShareE2E": false,
+    "cloud": false,
+    "nativeWriter": false,
+    "physicalCleanup": false,
+    "stageDeploy": false,
+    "migrationDeploy": false,
+    "signedActors": false,
+    "independentCombinedQR": false
+  },
+  "caveat": "QR235 original HEAD e57aa6b7241bb4efff03c968cd82fb135bb7c504 remains immutable historic pre-dispatch 400 RED. On current Owner Edge the allowlisted sensitive RPC classification runs before parameter sanitation; prior generic unknown RPC and invalid JSON errors unchanged. Old signed CDN URLs not revoked."
+}

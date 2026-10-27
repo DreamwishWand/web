@@ -1,0 +1,37 @@
+name: WEB PR234 QR235 sensitive public RPC Edge HTTP header acceptance
+on:
+  push:
+    branches:
+      - 'web/integrated-source146-typed-routes-*'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: web234-qr235-sensitive-edge-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  edge-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact Source146 ancestry, SQL immutability, only one Edge delta
+        run: |
+          set -euo pipefail
+          BASE=5ddf4d23689643340c8d547e47b58f211e03291e
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --exit-code "$BASE" HEAD -- supabase/migrations
+          mapfile -t changed < <(git diff --name-only "$BASE" HEAD -- supabase/functions)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = 'supabase/functions/community-public-query/index.ts'
+          echo WEB234_QR235_SQL_IMMUTABLE_ONE_EDGE_DELTA
+      - run: npm ci --no-audit --no-fund
+      - name: Live in-process Edge HTTP 400 sensitive/no-store, 200/404/400, 503 and generic
+        run: node --test tests/web-pr234-sensitive-cache-header-owner.test.mjs
+      - name: Source141–146 blob/parity, accepted WEB routes unchanged
+        run: node --test tests/web-source146-community-typed-integration.test.mjs
