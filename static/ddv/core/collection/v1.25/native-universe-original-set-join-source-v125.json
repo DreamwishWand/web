@@ -1,0 +1,103 @@
+{
+  "schema": "ddv.collection-universe-original-set-join-source-v125@1",
+  "classification": "ORIGINAL_SOURCE_REPLAYED__NATIVE_UNIVERSE_EQUIVALENCE_NOT_PROVEN",
+  "scope": {
+    "platform": "Nintendo Switch",
+    "version": "1.25.0",
+    "bid": "52BD625D9B4E0053",
+    "saveSchema": 624
+  },
+  "rawSource": {
+    "supportGzipSha256": "537cfcf14beca1e76496d4f9c5b60bd7e31d385a16fd69e63083df6978fdf4b9",
+    "losslessGzipSha256": "df78c309a8023667c92426e3b929ed3e51aadf10d943835a3673cefa585f8048",
+    "originalIndividualSetProtobufShaVerified": 711,
+    "originalClothingProtobufShaVerified": 1900,
+    "originalFurnitureProtobufShaVerified": 4949
+  },
+  "setSource": {
+    "total": 711,
+    "uniqueSetIDs": 711,
+    "setWithExactlyOneUniverseTag": 709,
+    "setWithoutUniverseTag": 2,
+    "setWithMultipleUniverseTags": 0,
+    "sourceOnly": true
+  },
+  "joinAudit": {
+    "clothing": {
+      "typedItems": 1900,
+      "setItemIDPresent": 1900,
+      "refersToValidOriginalSet": 1900,
+      "setWithUniverseTag": 1900,
+      "distinctSourceSetIDs": 217,
+      "missingRef": 0,
+      "sourceCandidatePairs": 1900
+    },
+    "furniture": {
+      "typedItems": 4949,
+      "setItemIDPresent": 4004,
+      "setItemIDAbsent": 945,
+      "refersToValidOriginalSet": 4004,
+      "setWithUniverseTag": 4004,
+      "distinctSourceSetIDs": 315,
+      "missingRef": 0,
+      "sourceCandidatePairs": 4004
+    },
+    "exampleClothing": {
+      "itemId": 50700002,
+      "itemRawSha256": "74cfdbe15072b218cf9254a354a7f8d042903b3430225f224cec856f9ef53e53",
+      "setItemID": 2040100006,
+      "setRawSha256": "707fee08c644cddaac5eaea858334953d20b4dafdf625c9ad5500758c73fb5e0",
+      "setUniverseTag": 2000500001,
+      "matchingCollectionDefinition": 2120000025
+    },
+    "exampleFurniture": {
+      "itemId": 40000047,
+      "itemRawSha256": "b11d383c1ab18a6ebf1d9ea754d7ce0008dde3b6cfc2133324e61e3e24a98820",
+      "setItemID": 2040000009,
+      "setRawSha256": "4556eee7a0e66fd2b433266cf2ba9a04ba1293d3432ccb168ab19efe09d211a3",
+      "setUniverseTag": 2000500001,
+      "matchingCollectionDefinition": 2120000024
+    },
+    "negativeSourceCrossUniverse": {
+      "universeTag": 2000500002,
+      "setId": 2040000000,
+      "setRawSha256": "bdb812c0a027e8e46417b195f022b788c7173443f27e8ee77411bc798f4c5ec7",
+      "matchingDefinitionClothing": 2120000040,
+      "matchingDefinitionFurniture": 2120000042,
+      "notMatchingUniverse2000500001InRawSetTags": true,
+      "notNativeCollectionNegative": true
+    }
+  },
+  "nativeBoundary": {
+    "clothingSelectorRva": "0x4BFB8B0",
+    "furnitureSelectorRva": "0x4BFBDAC",
+    "IHasSetAndGetSetItemNativeJoin": "UNPROVEN_FOR_UNIVERSE_CASE_2",
+    "UniverseValueMappedToSetTagsViaNative": "NEED_ORIGINAL_CALLCHAIN",
+    "possibleRuntimeAvailability": "UNKNOWN",
+    "doNotReplaceOriginalUnknownWithSourceJoin": true
+  },
+  "coverage": {
+    "ownerBefore": 132,
+    "newSelectorsClosed": 0,
+    "ownerAfter": 132,
+    "unclosed": {
+      "Clothing": 61,
+      "Furniture": 63
+    },
+    "independentAcceptedLastKnown": 103
+  },
+  "safety": {
+    "finalMembershipKnown": false,
+    "denominator": null,
+    "owned": "UNKNOWN",
+    "collected": "UNKNOWN",
+    "missing": "UNKNOWN",
+    "personalMetrics": false,
+    "writer": false,
+    "apply": false,
+    "communityPublishing": false,
+    "entitlementEditing": false,
+    "steamOr626Transfer": false,
+    "allPrDraft": true
+  }
+}
