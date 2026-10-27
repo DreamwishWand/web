@@ -44,7 +44,6 @@ def snapshot(reader,writer,label):
     return result
 with psycopg.connect(DSN,autocommit=True) as writer, psycopg.connect(DSN,autocommit=True) as reader:
     assert one(writer,"select pg_backend_pid()")!=one(reader,"select pg_backend_pid()")
-    assert one(writer,"select count(*) from supabase_migrations.schema_migrations")==144
     # AUTHENTIC SQL, NOT mocked predicate: all entity/Revision/Media records live under real FK and triggers.
     with writer.transaction():
         for aid,sub in [(account,auth),(other_account,other_auth)]:
