@@ -1,0 +1,87 @@
+name: QR Source145 Legacy Gallery independent real two PG
+on:
+  push:
+    branches: ['qr/source145-legacy-gallery-reader-postfix-20261027']
+  pull_request:
+    branches: ['fix/03comm-legacy-dreamsnap-gallery-readers-20261027']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: git merge-base --is-ancestor f9e9a4d3dc6f92a16c8ecbc6be4cb73faf808d75 HEAD
+      - run: node --test tests/qr-source145-legacy-readers-independent.test.mjs
+  real-local-postgres:
+    name: ${{ matrix.schema }} separate real two PG
+    strategy:
+      fail-fast: false
+      matrix:
+        schema: ['PRE144','POST145']
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+      DDVRE_PRIVACY_ISOLATED_LOCAL: 'CONFIRMED'
+      QR225_SCHEMA: ${{ matrix.schema }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Offline isolated local source preparation
+        run: |
+          set -euo pipefail
+          test -z "$SUPABASE_ACCESS_TOKEN"
+          test -z "$DATABASE_URL"
+          printf 'project_id = "ddvre_qr225_${{ matrix.schema }}_isolated"\n' | cat - supabase/config.toml > /tmp/qr225-config.toml
+          mv /tmp/qr225-config.toml supabase/config.toml
+          if test "$QR225_SCHEMA" = PRE144; then
+            rm supabase/migrations/20261027000020_legacy_dreamsnap_gallery_public_reader_liveness.sql
+          fi
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          count=len(list(Path('supabase/migrations').glob('*.sql')))
+          expected=144 if os.getenv('QR225_SCHEMA')=='PRE144' else 145
+          assert count==expected,(count,expected)
+          print('QR225_EXACT_LOCAL_MIGRATION_COUNT',count)
+          PY
+          echo NO_LINK_NO_STAGE_NO_SIGNED_ACTOR_NO_STORAGE_NO_PROVIDER
+      - name: Disposable local Supabase full schema
+        run: |
+          set -euo pipefail
+          timeout 1500s supabase start > /tmp/qr225-start.log 2>&1 || { tail -140 /tmp/qr225-start.log; exit 1; }
+          echo QR225_LOCAL_SCHEMA_REPLAY_SUCCESS
+      - name: Independent actual PG accepted legacy Search+Detail and Source144 comparative matrix
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'psycopg[binary]>=3.2,<4'
+          python3 tests/qr-source145-legacy-readers-independent-two-pg.py | tee /tmp/qr225-local.log
+          if test "$QR225_SCHEMA" = PRE144; then
+            grep -q QR225_INDEPENDENT_PRE144_SEARCH_CEX_CONFIRMED_LOCAL_PG /tmp/qr225-local.log
+          else
+            grep -q QR225_INDEPENDENT_SOURCE145_POSTFIX_TWO_PG_PASS /tmp/qr225-local.log
+          fi
+      - if: failure()
+        run: tail -140 /tmp/qr225-start.log || true
+      - name: Evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr225-${{ matrix.schema }}-evidence
+          path: |
+            /tmp/qr225-local.log
+            /tmp/qr225-start.log
+          if-no-files-found: warn
