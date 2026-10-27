@@ -47,7 +47,7 @@ export function resolveTypedWorkRoute(basePath, workType, workId, source = null)
 // Strict entry parser shared by typed Work destinations. Invalid/ambiguous
 // Deep Links MUST NOT trigger public RPCs, media signing, or redirect fallback.
 export function parseTypedWorkQuery(search, expectedParam='work') {
-  if (!['work','question','tip'].includes(expectedParam)) return {status:'invalid',workId:null};
+  if (!['work','question','tip','id'].includes(expectedParam)) return {status:'invalid',workId:null};
   let params;
   try {params = search instanceof URLSearchParams ? search : new URLSearchParams(search);}
   catch {return {status:'invalid',workId:null};}
