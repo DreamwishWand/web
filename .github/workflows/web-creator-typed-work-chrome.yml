@@ -48,6 +48,9 @@ jobs:
           CHROME_BIN: ${{ steps.chrome.outputs.bin }}
           CREATOR_TEST_BASE_URL: http://127.0.0.1:4175
         run: node scripts/creator-typed-work-browser-acceptance.mjs
+      - name: Vite server failure diagnostic
+        if: failure()
+        run: cat /tmp/creator-typed-work-vite.log || true
       - name: Artifact
         if: always()
         uses: actions/upload-artifact@v4
