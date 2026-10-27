@@ -382,8 +382,6 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         params.p_challenge_id = payload.challengeId;
         params.p_entry_id = payload.entryId;
         break;
-      case 'setDreamsnapOfficialResultPublication':
-        return reply({ok:false,error:'D06_LEGACY_PER_ENTRY_OFFICIAL_RESULT_PUBLICATION_DISABLED'},409);
       case 'setDreamsnapOfficialAccountConsent': {
         if (typeof payload.enabled !== 'boolean' ||
             !Number.isSafeInteger(payload.expectedVersion) ||
