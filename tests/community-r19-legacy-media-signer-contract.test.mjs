@@ -29,8 +29,8 @@ test('Source142 does not alter Source140 history/cover or Source141 two guarded 
  assert.match(cover,/f\.cover_media_id=p_media_id/);
  assert.doesNotMatch(delta,/storage\.copy\(|storage\.remove\(|physicalDeleteAuthorized=true|provider_precondition_accepted=true/i);
  const ci=source('.github/workflows/comm-clean-bootstrap-acceptance.yml');
- assert.match(ci,/len\(fs\)==144/);
- assert.match(ci,/MIGRATION_LEDGER_NOT_144/);
+ assert.match(ci,/len\(fs\)==145/);
+ assert.match(ci,/MIGRATION_LEDGER_NOT_145/);
  assert.match(ci,/THIRTY_ONE_ADDITIVE_SOURCE_MIGRATIONS/);
  assert.match(ci,/20261025003060_r19_legacy_media_signer_authority\.sql/);
 });

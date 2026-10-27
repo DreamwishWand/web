@@ -34,8 +34,8 @@ test('Source140 Cover-only, old source migration and all remote physical/positiv
  assert.match(prior,/f\.cover_media_id=p_media_id/);
  assert.doesNotMatch(sql,/storage\.copy\(|storage\.remove\(|physicalDeleteAuthorized=true|provider_precondition_accepted=true|incident_state='RESOLVED'/i);
  const flow=read('.github/workflows/comm-clean-bootstrap-acceptance.yml');
- assert.match(flow,/len\(fs\)==144/);
- assert.match(flow,/MIGRATION_LEDGER_NOT_144/);
+ assert.match(flow,/len\(fs\)==145/);
+ assert.match(flow,/MIGRATION_LEDGER_NOT_145/);
  assert.match(flow,/20261025003050_r19_direct_media_sql_issuer_authority\.sql/);
  assert.match(flow,/THIRTY_ONE_ADDITIVE_SOURCE_MIGRATIONS/);
 });
