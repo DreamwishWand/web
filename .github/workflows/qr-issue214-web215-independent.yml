@@ -1,0 +1,65 @@
+name: 04 QR WEB215 Owner-IA independent Source and Chrome gate
+on:
+  pull_request:
+    paths:
+      - 'tests/qr-issue214-web215-independent-postowner.test.mjs'
+      - 'scripts/qr-issue214-independent-chrome.mjs'
+      - 'docs/qa/qr-issue214-web215-independent-postowner-20261027.md'
+      - '.github/workflows/qr-issue214-web215-independent.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/qr-issue214-web215-independent-postowner.test.mjs
+  independent-actual-chrome:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Chrome binary and CJK font presence
+        id: chrome
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "path=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+          "$CHROME_BIN" --version
+          fc-match :lang=ja | head -n 1
+      - name: Start local code-head Svelte source application, NO signed backend
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4177 >/tmp/qr214-web.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4177/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          tail -100 /tmp/qr214-web.log
+          exit 1
+      - name: Independent original-shard 8-language 320px Chrome/keyboard/URL negative
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          QR214_BASE_URL: http://127.0.0.1:4177
+        run: node scripts/qr-issue214-independent-chrome.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qr214-independent-local-chrome
+          path: .artifacts/qr214-independent
+          if-no-files-found: warn
