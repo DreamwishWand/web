@@ -413,5 +413,94 @@
     "recipeSourceRecords": 1206,
     "originalRecipeResultField6AllPresent": true,
     "wholeOriginalCollectionSetJson": "MANIFEST_ONLY_NOT_REHASHED"
+  },
+  "originalCraftingRecipeRawExamples": [
+    {
+      "recipeType": 2001100000,
+      "recipeItemID": 2050300000,
+      "resultItemID": 40001082,
+      "recipeRawSHA256": "9c82bd3f373e080eb99fc0ef08d15b413885de15b39bbad64b523c9e529218b4",
+      "resultItemConcreteType": "FurnitureItemData",
+      "typedRecipeResultField6Present": true,
+      "resultNestedItemIdField1Present": true,
+      "staticResultMappingOnly": true
+    },
+    {
+      "recipeType": 2001100001,
+      "recipeItemID": 2050300004,
+      "resultItemID": 31700009,
+      "recipeRawSHA256": "04470de490e6d4ba09b3d513791279bf1a59987e9ff34b2dda96a5bbaad32d7e",
+      "resultItemConcreteType": "ActivityItemData",
+      "typedRecipeResultField6Present": true,
+      "resultNestedItemIdField1Present": true,
+      "staticResultMappingOnly": true
+    },
+    {
+      "recipeType": 2001100002,
+      "recipeItemID": 2050300134,
+      "resultItemID": 40700007,
+      "recipeRawSHA256": "91db5801dcb5ef6d6e9672defc918b5a2f70ef46339990017c395d51fcc71daf",
+      "resultItemConcreteType": "FenceAndRoadItemData",
+      "typedRecipeResultField6Present": true,
+      "resultNestedItemIdField1Present": true,
+      "staticResultMappingOnly": true
+    },
+    {
+      "recipeType": 2001100003,
+      "recipeItemID": 2050300108,
+      "resultItemID": 31200111,
+      "recipeRawSHA256": "fca6098eb7cd5bbbdfa1382a970d6ecfe6ed3fb1cfd42fd9263509b0c6dd1b3f",
+      "resultItemConcreteType": "RequestItemData",
+      "typedRecipeResultField6Present": true,
+      "resultNestedItemIdField1Present": true,
+      "staticResultMappingOnly": true
+    },
+    {
+      "recipeType": 2001100005,
+      "recipeItemID": 2050300523,
+      "resultItemID": 40800001,
+      "recipeRawSHA256": "6f9092dc77d355ce6137f482903dd735a6a524e5ae079b220c0b03b5104cfcd6",
+      "resultItemConcreteType": "FurnitureAncientMachineItemData",
+      "typedRecipeResultField6Present": true,
+      "resultNestedItemIdField1Present": true,
+      "staticResultMappingOnly": true
+    },
+    {
+      "recipeType": 2001100006,
+      "recipeItemID": 2050300532,
+      "resultItemID": 40100053,
+      "recipeRawSHA256": "2cda310976e57604c91879820dd0c0c43c422bdca2972441db9df40ae90f108a",
+      "resultItemConcreteType": "FenceAndRoadItemData",
+      "typedRecipeResultField6Present": true,
+      "resultNestedItemIdField1Present": true,
+      "staticResultMappingOnly": true
+    },
+    {
+      "recipeType": 2001100007,
+      "recipeItemID": 2050300535,
+      "resultItemID": 40002129,
+      "recipeRawSHA256": "831016f25884d4459193be812ac5348edc4d4a89e3dd980d5e9269ed6dccbfb9",
+      "resultItemConcreteType": "FurnitureItemData",
+      "typedRecipeResultField6Present": true,
+      "resultNestedItemIdField1Present": true,
+      "staticResultMappingOnly": true
+    },
+    {
+      "recipeType": 2001100008,
+      "recipeItemID": 2050300548,
+      "resultItemID": 40002116,
+      "recipeRawSHA256": "23e586cff8a7c865e44948dcfb3433ecfc79bfd372b9b85ea7e11a4c85879228",
+      "resultItemConcreteType": "FurnitureItemData",
+      "typedRecipeResultField6Present": true,
+      "resultNestedItemIdField1Present": true,
+      "staticResultMappingOnly": true
+    }
+  ],
+  "originalItemDbTypedInputs": {
+    "totalCraftingRecipeItemData": 1206,
+    "resultField6AndNestedItemIDPresent": 1206,
+    "lookupSourceResultItemIDPresent": 1206,
+    "valuesWithDefinitions": 8,
+    "notRuntimeItemDatabase": true
   }
 }
