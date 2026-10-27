@@ -8,7 +8,7 @@ Existing 01D Owner **Draft** [PR195](https://github.com/DreamwishWand/web/pull/1
 
 ## Independently reproduced original raw provenance
 
-The independent local new-only [Python script](../../../../../../) is a reproducible static byte-level analysis using the ORIGINAL files in private working container and **does not read the Owner evidence JSON** nor import prior QR tests.
+The independent local new-only local Python script `qr204_meal_getter_ingredient_newonly_original.py` is a reproducible static byte-level analysis using the ORIGINAL files in private working container and **does not read the Owner evidence JSON** nor import prior QR tests.
 
 - Original Nintendo Switch DDV **1.25.0 BID `52BD625D9B4E0053` schema624** ExeFS NSO0 main: **96,002,294B SHA256 `3258d5e05aded708c06017b8763fa37bfb696385a2ab29dd8a182d3938cbc0e0`**.
 - Same-build RomFS IL2CPP `global-metadata.dat` FAB11BAF / metadata v31: **36,538,728B SHA `07e919f07f7be2df883b7292bd3c699f670b4c1e8ff496ef7747447f5baa9f7c`**.
