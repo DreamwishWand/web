@@ -1,0 +1,325 @@
+{
+  "schema": "ddv.collection-crafting-recipe-type-28-original-v125@1",
+  "scope": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "bid": "52BD625D9B4E0053",
+    "saveSchema": 624
+  },
+  "status": "OWNER_STATIC_PREDICATE_PENDING_PER_ROW_HASH_AND_TEST",
+  "sourceSha256": {
+    "main": "3258d5e05aded708c06017b8763fa37bfb696385a2ab29dd8a182d3938cbc0e0",
+    "metadataV31": "07e919f07f7be2df883b7292bd3c699f670b4c1e8ff496ef7747447f5baa9f7c",
+    "dumpCs": "a94ae73d522f160d21255b195b4d834bf5c79db59ddbd8cdfc32e54c6e0671f0",
+    "losslessGz": "df78c309a8023667c92426e3b929ed3e51aadf10d943835a3673cefa585f8048",
+    "supportGz": "537cfcf14beca1e76496d4f9c5b60bd7e31d385a16fd69e63083df6978fdf4b9"
+  },
+  "native": {
+    "outerCraftingCase": 5,
+    "innerRecipeTypeCase": 2,
+    "branch": "0x4BFC918/0x4BFD3D0",
+    "getAllByType": {
+      "callRva": "0x4BFC974",
+      "rva": "0x37811C0",
+      "itemType": 12,
+      "methodSpecIndex": 98710,
+      "methodSpecRva": "0x96E5DA4",
+      "methodSpecHex": "29950100ffffffff8f200000",
+      "methodDefIndex": 103721,
+      "instantiationIndex": 8335,
+      "typeDef": 9715,
+      "typeName": "CraftingRecipeItemData",
+      "typePointerRva": "0xB2BA078",
+      "sourceEncodedUsage": "0xC003032D",
+      "usageRva": "0xB1EF488"
+    },
+    "predicate": {
+      "lambdaRva": "0x4C009E0",
+      "first36BytesSha256": "d211d013e5a5afa619ff492d1e52f92293a30d5ae3acfd1424d8101c9c191ed6",
+      "recipeFieldOffset": "0x50",
+      "selectorCapturedOffset": "0x10",
+      "comparison": "RecipeItemData.RecipeType == selector.Crafting.RecipeType",
+      "whereCallSiteRva": "0x4BFD438"
+    },
+    "resultMapping": {
+      "lambdaRva": "0x4BFF330",
+      "first36BytesSha256": "b0c036d6800e0f1d66a82fcb12b29559287c1ca2259c68f19ef57305213ecdbb",
+      "resultPointerOffset": "0x40",
+      "resultItemIdOffset": "0x18",
+      "selectCallRva": "0x4BFD874",
+      "toListCallRva": "0x4BFD880",
+      "meaning": "return CraftingRecipeItemData.Result.ItemID, not recipe item ID"
+    },
+    "protobuf": {
+      "CollectionItemTypeCrafting": 8,
+      "CollectionCraftingRecipeType": 2,
+      "CraftingRecipeItemDataRecipeType": 8,
+      "CraftingRecipeItemDataResult": 6,
+      "ResultInstanceItemID": 1
+    },
+    "concrete": {
+      "typeDef": 9715,
+      "type": "CraftingRecipeItemData",
+      "implementsICollectionItem": false,
+      "variationInterfaceUnproven": "NOT_USED_ON_RECIPE_DATA",
+      "resultItemCanBeCollected": "UNKNOWN_BY_RETURNED_CONCRETE_ITEM_TYPE"
+    },
+    "expression": "GetAllByType<CraftingRecipeItemData>(ItemType12).Where(recipe => recipe.RecipeType == selector.RecipeType).Select(recipe => recipe.Result.ItemID).ToList()",
+    "commonIsValidSeparate": true
+  },
+  "selectors": [
+    {
+      "definitionId": 2120000024,
+      "definitionName": "SetItemFurnitureMickey",
+      "recipeType": 2001100008,
+      "byTypeIgnore": true,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    },
+    {
+      "definitionId": 2120000042,
+      "definitionName": "SetItemFurnitureBeautyAndBeast",
+      "recipeType": 2001100008,
+      "byTypeIgnore": true,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    },
+    {
+      "definitionId": 2120000060,
+      "definitionName": "SetItemFurnitureRalph",
+      "recipeType": 2001100008,
+      "byTypeIgnore": true,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    },
+    {
+      "definitionId": 2120000061,
+      "definitionName": "SetItemFurnitureRatatouille",
+      "recipeType": 2001100008,
+      "byTypeIgnore": true,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    },
+    {
+      "definitionId": 2120000063,
+      "definitionName": "SetItemFurnitureMonsterInc",
+      "recipeType": 2001100008,
+      "byTypeIgnore": true,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    },
+    {
+      "definitionId": 2120000064,
+      "definitionName": "SetItemFurnitureFrozen",
+      "recipeType": 2001100008,
+      "byTypeIgnore": true,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    },
+    {
+      "definitionId": 2120000096,
+      "definitionName": "ForagingCrafting",
+      "recipeType": 2001100001,
+      "byTypeIgnore": true,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    },
+    {
+      "definitionId": 2120000101,
+      "definitionName": "SetItemFurnitureLittleMermaid",
+      "recipeType": 2001100008,
+      "byTypeIgnore": true,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    },
+    {
+      "definitionId": 2120000102,
+      "definitionName": "SetItemFurnitureSwordStone",
+      "recipeType": 2001100008,
+      "byTypeIgnore": true,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    },
+    {
+      "definitionId": 2120000104,
+      "definitionName": "SetItemFurnitureTangled",
+      "recipeType": 2001100008,
+      "byTypeIgnore": true,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    },
+    {
+      "definitionId": 2120000117,
+      "definitionName": "CraftingRefinedMaterials",
+      "recipeType": 2001100001,
+      "byTypeIgnore": false,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    },
+    {
+      "definitionId": 2120000119,
+      "definitionName": "CraftingEnchantment",
+      "recipeType": 2001100003,
+      "byTypeIgnore": false,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    },
+    {
+      "definitionId": 2120000120,
+      "definitionName": "CraftingFurnitures",
+      "recipeType": 2001100000,
+      "byTypeIgnore": false,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    },
+    {
+      "definitionId": 2120000121,
+      "definitionName": "CraftingFencesPaving",
+      "recipeType": 2001100002,
+      "byTypeIgnore": false,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    },
+    {
+      "definitionId": 2120000121,
+      "definitionName": "CraftingFencesPaving",
+      "recipeType": 2001100006,
+      "byTypeIgnore": false,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    },
+    {
+      "definitionId": 2120000124,
+      "definitionName": "SetItemFurnitureAncientCiv",
+      "recipeType": 2001100007,
+      "byTypeIgnore": true,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    },
+    {
+      "definitionId": 2120000129,
+      "definitionName": "SetItemFurnitureCars",
+      "recipeType": 2001100008,
+      "byTypeIgnore": true,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    },
+    {
+      "definitionId": 2120000139,
+      "definitionName": "SetItemFurnitureHercules",
+      "recipeType": 2001100008,
+      "byTypeIgnore": true,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    },
+    {
+      "definitionId": 2120000145,
+      "definitionName": "SetItemFurnitureEncanto",
+      "recipeType": 2001100008,
+      "byTypeIgnore": true,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    },
+    {
+      "definitionId": 2120000159,
+      "definitionName": "SetItemFurnitureInsideOut",
+      "recipeType": 2001100008,
+      "byTypeIgnore": true,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    },
+    {
+      "definitionId": 2120000183,
+      "definitionName": "SetItemFunitureAladdin",
+      "recipeType": 2001100008,
+      "byTypeIgnore": true,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    },
+    {
+      "definitionId": 2120000186,
+      "definitionName": "SetItemFurnitureBrave",
+      "recipeType": 2001100008,
+      "byTypeIgnore": true,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    },
+    {
+      "definitionId": 2120000202,
+      "definitionName": "Expansion01!TimeBendingAncientMachines",
+      "recipeType": 2001100005,
+      "byTypeIgnore": false,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    },
+    {
+      "definitionId": 2120000205,
+      "definitionName": "Expansion01!TimeBendingFurniture",
+      "recipeType": 2001100007,
+      "byTypeIgnore": false,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    },
+    {
+      "definitionId": 2120000205,
+      "definitionName": "Expansion01!TimeBendingFurniture",
+      "recipeType": 2001100006,
+      "byTypeIgnore": false,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    },
+    {
+      "definitionId": 2120000205,
+      "definitionName": "Expansion01!TimeBendingFurniture",
+      "recipeType": 2001100008,
+      "byTypeIgnore": false,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    },
+    {
+      "definitionId": 2120000312,
+      "definitionName": "SetItemFurnitureABugsLife",
+      "recipeType": 2001100008,
+      "byTypeIgnore": true,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    },
+    {
+      "definitionId": 2120000339,
+      "definitionName": "SetItemFurnitureBlackCauldron",
+      "recipeType": 2001100008,
+      "byTypeIgnore": true,
+      "rawSha256": "NEED_ROW_HASH_ATTACH",
+      "source": "original retained Support Tables row"
+    }
+  ],
+  "sourceRecipeCount": 1206,
+  "sourceResultMissingCount": 0,
+  "coverage": {
+    "previousOwnerStatic": 103,
+    "newStaticSelectors": 28,
+    "proposedOwnerStatic": 131,
+    "remainingUnknown": 125,
+    "unresolved": {
+      "ActivityItem": 1,
+      "Crafting": 0,
+      "Clothing": 61,
+      "Furniture": 63
+    }
+  },
+  "safety": {
+    "qrAccepted": false,
+    "sourceOnly": true,
+    "denominator": null,
+    "owned": "UNKNOWN",
+    "collected": "UNKNOWN",
+    "missing": "UNKNOWN",
+    "runtimeItemDatabase": "UNKNOWN",
+    "nativeWriter": false,
+    "apply": false,
+    "publishing": false,
+    "entitlementEditing": false,
+    "steamOr626": false
+  },
+  "historicalUntracedD548": "NEED_SOURCE_NOT_EQUATED"
+}
