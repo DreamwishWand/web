@@ -5,6 +5,8 @@
   import { createCommunityBrowserClient, callPublicCommunityRpc } from '$lib/community/browser-client';
   import QaBrowse from '$lib/community/QaBrowse.svelte';
   import QaAnswerList from '$lib/community/QaAnswerList.svelte';
+  import { parseTypedWorkQuery } from '$lib/community/typed-work-route.js';
+  import { dreamsnapPrivacyCopy } from '$lib/dreamsnaps/privacy-copy.js';
 
   const client = createCommunityBrowserClient();
   let mode: 'questions' | 'tips' = 'questions';
@@ -13,16 +15,24 @@
   let selected: any = null;
   let selectedKind: 'question' | 'tip' | null = null;
   let busy = false;
-  let error = '';
+  let error = '', invalidDetailUrl = false;
 
   onMount(() => { const params = new URLSearchParams(window.location.search);
     if (params.getAll('type').length <= 1 && ['questions','tips'].includes(params.get('type') ?? 'questions')) {
       mode = params.get('type') === 'tips' ? 'tips' : 'questions';
     }
-    const questionId = params.getAll('question').length === 1 ? params.get('question') : null;
-    const tipId = params.getAll('tip').length === 1 ? params.get('tip') : null;
-    if (questionId && tipId) { selected=null; return; }
-    void search(); if (questionId) void open(questionId, 'question'); else if (tipId) void open(tipId, 'tip');
+    const typedParam = params.has('question') && !params.has('tip') ? 'question' :
+      params.has('tip') && !params.has('question') ? 'tip' : null;
+    if (params.has('question') || params.has('tip')) {
+      const parsed = typedParam ? parseTypedWorkQuery(params,typedParam) : {status:'invalid',workId:null};
+      if (parsed.status !== 'valid') {invalidDetailUrl=true; selected=null; rows=[]; return;}
+      void search(); void open(parsed.workId!,typedParam as 'question'|'tip'); return;
+    }
+    if ([...params.keys()].some(key=>key!=='type') || params.getAll('type').length>1 ||
+        (params.has('type') && !['questions','tips'].includes(params.get('type')??''))) {
+      invalidDetailUrl=true; selected=null; rows=[]; return;
+    }
+    void search();
   });
 
   async function search() {
@@ -79,6 +89,9 @@
     <div class="notice">{t('community.configUnavailable', {}, $locale)}</div>
   {:else}
     {#if error}<p class="error" role="alert">{t('shared.form.error', { message: error }, $locale)}</p>{/if}
+    {#if invalidDetailUrl}
+      <p role="alert" class="notice" data-qa-state="invalid-work-url">{dreamsnapPrivacyCopy($locale).legacyUnavailable}</p>
+    {:else}
     <QaBrowse bind:mode bind:query {rows} {busy} onSearch={search} onSelect={open} />
 
     {#if selected && selectedKind === 'question'}
@@ -102,6 +115,7 @@
         <p class="meta">{selected.platform ?? ''} {selected.gameVersion ?? ''} · {selected.freshness}</p>
         <p>{selected.body}</p>
       </article>
+    {/if}
     {/if}
   {/if}
 </section>
