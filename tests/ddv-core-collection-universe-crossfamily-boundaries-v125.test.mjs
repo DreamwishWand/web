@@ -79,7 +79,7 @@ test('Crossfamily original ID uniqueness, zero new native closures and strict fa
  assert.equal(id.originalItems,17413);assert.equal(id.uniqueItemIDs,17413);assert.equal(id.duplicateItemIDs,0);
  assert.equal(id.originalDefinitions,293);assert.equal(id.uniqueDefinitionIDs,293);assert.equal(id.duplicateDefinitionIDs,0);
  const c=e.coverage;assert.equal(c.ownerStaticBefore,132);assert.equal(c.closedNow,0);assert.equal(c.ownerStaticAfter,132);
- assert.deepEqual(c.remaining,{Clothing:61,Furniture:63});assert.equal(c.lastIndependentlyAccepted,103);
+ assert.deepEqual(c.remaining,{Clothing:61,Furniture:63});assert.equal(c.independentAccepted,103);
  const s=e.safety;assert.equal(s.universePredicateClosed,false);assert.equal(s.universeSelectorsAdded,0);
  assert.equal(s.denominator,null);assert.equal(s.finalMembershipKnown,false);
  for(const k of ['personalMetrics','nativeSaveWriter','presetApply','communityPublishing','entitlementEditing','steamOr626Transfer'])assert.equal(s[k],false,k);
