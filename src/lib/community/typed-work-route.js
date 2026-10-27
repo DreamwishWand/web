@@ -34,7 +34,7 @@ export function resolveTypedWorkRoute(basePath, workType, workId, source = null)
   if (!id || typeof workType !== 'string' || !Object.hasOwn(TYPES,workType) ||
       sourceCannotBePublic(source)) return {status:'unavailable',href:null,workType:null};
   const entry = TYPES[workType];
-  const root = String(basePath ?? '').replace(/\/$/,'');
+  const root = String(basePath ?? '').replace(/[/]$/,'');
   return {
     status:workType === 'dreamsnap' ? 'gated' : 'ready',
     href:root+entry.path+'?'+entry.param+'='+encodeURIComponent(id),
