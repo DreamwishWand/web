@@ -46,7 +46,8 @@ test('Source141–146 migration git blobs exactly backend accepted; Source146 no
 
 test('Source146 integrated Edge is newer accepted no-store authority; allowlist & sanitizer preserved',()=>{
   const edgePath=manifest.communityAuthority.edge.path,edge=read(edgePath);
-  assert.equal(gitBlob(edgePath),'232c71ec6b7b275a1f2652ffacd3de976f178810');
+  assert.equal(gitBlob(edgePath),manifest.communityAuthority.edge.blob);
+  assert.equal(manifest.communityAuthority.edge.previousSource146Blob,'232c71ec6b7b275a1f2652ffacd3de976f178810');
   const noStore=edge.slice(edge.indexOf('const noStore ='),edge.indexOf('const { data, error }'));
   assert(noStore.includes('community_get_dreamsnap_results_public_v1'));
   assert(noStore.includes('community_get_gallery_dreamsnap_public_v1'));
@@ -61,8 +62,10 @@ test('Source146 integrated Edge is newer accepted no-store authority; allowlist 
   for(const name of ['sanitizeSearchQuestions','sanitizeDreamsnapGallerySearch','singleUuidPayload',
     "if (!ALLOWED.has(rpc))","SCENE_PUBLIC_READER_COMPATIBILITY_UNVERIFIED"])
     assert(edge.includes(name),name);
-  assert(edge.indexOf('if (params === null)')<edge.indexOf('const noStore ='),
-    'accepted source pre-dispatch error behavior changed; re-review required');
+  assert(edge.indexOf("if (!ALLOWED.has(rpc))")<edge.indexOf('const noStore ='));
+  assert(edge.indexOf('const noStore =')<edge.indexOf('const params ='));
+  assert(edge.indexOf('const params =')<edge.indexOf('if (params === null)'));
+  assert(edge.includes("if (params === null) return reply({ error: 'Invalid public query parameters' }, 400, noStore);"));
 });
 
 test('WEB222 WorkID type routes & Community DreamSnaps no-ID fail-closed survive integration',()=>{
