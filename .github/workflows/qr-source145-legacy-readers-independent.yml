@@ -2,6 +2,8 @@ name: QR Source145 Legacy Gallery independent real two PG
 on:
   push:
     branches: ['qr/source145-legacy-gallery-reader-postfix-20261027']
+  pull_request:
+    branches: ['fix/03comm-legacy-dreamsnap-gallery-readers-20261027']
   workflow_dispatch:
 permissions:
   contents: read
