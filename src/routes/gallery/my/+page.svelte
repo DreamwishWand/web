@@ -3,6 +3,8 @@
   import { base } from '$app/paths';
   import { locale, ct as t } from '$lib/i18n/community.js';
   import { createCommunityBrowserClient } from '$lib/community/browser-client';
+  import { resolveTypedWorkRoute } from '$lib/community/typed-work-route.js';
+  import { dreamsnapPrivacyCopy } from '$lib/dreamsnaps/privacy-copy.js';
 
   const client = createCommunityBrowserClient();
   let signedIn = false, busy = false, error = '';
@@ -29,6 +31,16 @@
     if (!client?.session) return;
     const result: any = await run(() => client.query('myGallery', { limit: 100 }));
     if (result?.data) data = result.data;
+  }
+
+  function savedRoute(saved: any) {
+    if (saved?.accessible !== true) return null;
+    // My Gallery Saved is not a universal Work type authority. Use typed
+    // metadata where available; only known galleryKind proves Gallery type.
+    const type = saved.work?.workType ?? saved.work?.work_type ??
+      (saved.work?.galleryKind ? 'gallery' : null);
+    const resolved = resolveTypedWorkRoute(base,type,String(saved.targetEntityId ?? ''),saved.work);
+    return resolved.href;
   }
 
   async function unsave(id: string) {
@@ -63,7 +75,13 @@
         <h2>{t('gallery.my.saved', {}, $locale)}</h2>
         {#each data.saved ?? [] as saved}
           <div class="saved">
-            <a class="row" aria-disabled={!saved.accessible} href={saved.accessible ? `${base}/gallery/?work=${saved.targetEntityId}` : undefined}><strong>{saved.work?.title ?? saved.targetEntityId}</strong></a>
+            {#if savedRoute(saved)}
+              <a class="row" href={savedRoute(saved)} data-saved-typed-work="available">
+                <strong>{saved.work?.workType === 'dreamsnap' || saved.work?.work_type === 'dreamsnap' ? dreamsnapPrivacyCopy($locale).community : (saved.work?.title ?? t('gallery.my.saved', {}, $locale))}</strong>
+              </a>
+            {:else}
+              <div class="row" data-saved-typed-work="unavailable" role="status"><strong>{dreamsnapPrivacyCopy($locale).legacyUnavailable}</strong></div>
+            {/if}
             <button type="button" on:click={() => unsave(String(saved.targetEntityId))}>{t('gallery.my.unsave', {}, $locale)}</button>
           </div>
         {:else}<p>{t('gallery.my.emptySaved', {}, $locale)}</p>{/each}

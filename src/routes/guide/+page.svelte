@@ -3,24 +3,23 @@
   import { base } from '$app/paths';
   import { locale, formatDate, formatNumber } from '$lib/i18n/runtime.js';
   import { guideCopy } from '$lib/guide/copy.js';
-  import { filterGuideViews, guideEventView, guideIssueView, guideQuestView, guideStarPathView, guideSystemView, loadGuideRuntime, cleanGuideText } from '$lib/guide/runtime.js';
+  import { filterGuideViews, guideEventView, guideQuestView, guideStarPathView, guideSystemView, loadGuideRuntime, cleanGuideText } from '$lib/guide/runtime.js';
 
-  type Section='quests'|'starPaths'|'events'|'systems'|'issues';
+  type Section='quests'|'starPaths'|'events'|'systems';
   let runtime:any=null, loading=true, error='', section:Section='quests', query='', selectedKey:string|null=null;
   const LIMIT=160;
   $: copy=guideCopy($locale);
   $: views=runtime ? section==='quests' ? runtime.records.quests.map((x:any)=>guideQuestView(x,$locale))
     : section==='starPaths' ? runtime.records.starPaths.map((x:any)=>guideStarPathView(x,$locale))
     : section==='events' ? runtime.records.events.map((x:any)=>guideEventView(x,$locale))
-    : section==='systems' ? runtime.records.systems.map((x:any)=>guideSystemView(x,$locale))
-    : runtime.records.issues.map((x:any)=>guideIssueView(x,$locale)) : [];
+    : runtime.records.systems.map((x:any)=>guideSystemView(x,$locale)) : [];
   $: filtered=filterGuideViews(views,query);
   $: visible=filtered.slice(0,LIMIT);
   $: selected=views.find((x:any)=>x.key===selectedKey) ?? visible[0] ?? null;
 
   onMount(async()=>{try{runtime=await loadGuideRuntime(base);}catch(cause){error=cause instanceof Error?cause.message:String(cause);}finally{loading=false;}});
   function chooseSection(next:Section){section=next;query='';selectedKey=null;}
-  function sectionLabel(value:Section){return value==='quests'?copy.quests:value==='starPaths'?copy.starPaths:value==='events'?copy.events:value==='systems'?copy.systems:copy.issues;}
+  function sectionLabel(value:Section){return value==='quests'?copy.quests:value==='starPaths'?copy.starPaths:value==='events'?copy.events:copy.systems;}
   function safeDate(value:any){if(!value)return '';try{return formatDate(value,{year:'numeric',month:'short',day:'numeric'},$locale);}catch{return '';}}
   function dutyLabel(duty:any){const label=cleanGuideText(duty?.label);return label && !/^Liveops\./.test(label) ? label : '';}
 </script>
@@ -37,7 +36,7 @@
   {:else if error}<div class="status error" role="alert"><strong>{copy.failed}</strong><code>{error}</code></div>
   {:else}
     <nav class="guide-tabs" aria-label="Guide sections">
-      {#each ['quests','starPaths','events','systems','issues'] as key}
+      {#each ['quests','starPaths','events','systems'] as key}
         <button type="button" class:active={section===key} on:click={()=>chooseSection(key as Section)}>{sectionLabel(key as Section)}</button>
       {/each}
     </nav>
@@ -53,8 +52,7 @@
               {#if section==='quests'}{item.status} · {item.objectives} {copy.objectives}
               {:else if section==='starPaths'}{item.status}
               {:else if section==='events'}{item.accessibility}
-              {:else if section==='systems'}{item.priority}
-              {:else}{item.section}
+              {:else}{item.priority}
               {/if}
             </span>
           </button>
@@ -77,13 +75,11 @@
             {#if selected.guidance}<p class="body-copy">{selected.guidance}</p>{/if}
             <h3>{copy.occurrences}</h3><div class="stack">{#each selected.occurrences as occurrence}<div class="row"><span>{safeDate(occurrence.start)} → {safeDate(occurrence.end)}</span><strong>{occurrence.accessibility}</strong></div>{/each}</div>
             {#if selected.historicalGap}<p class="detail-note">{copy.historical}: {cleanGuideText(selected.historicalGap)}</p>{/if}
-          {:else if section==='systems'}
+          {:else}
             <p class="body-copy">{selected.summary}</p>{#if selected.availability}<p class="detail-note">{selected.availability}</p>{/if}
             {#if selected.actions.length}<h3>{copy.actions}</h3><ul>{#each selected.actions as line}<li>{line}</li>{/each}</ul>{/if}
             {#if selected.mechanics.length}<h3>{copy.mechanics}</h3><ul>{#each selected.mechanics as line}<li>{line}</li>{/each}</ul>{/if}
             {#if selected.warnings.length}<h3>{copy.warnings}</h3><ul>{#each selected.warnings as line}<li>{line}</li>{/each}</ul>{/if}
-          {:else}
-            <dl><div><dt>{copy.confidence}</dt><dd>{selected.confidence}</dd></div><div><dt>{copy.details}</dt><dd>{selected.section}</dd></div></dl>
           {/if}
         {:else}<div class="empty large"><strong>{copy.select}</strong></div>{/if}
       </article>

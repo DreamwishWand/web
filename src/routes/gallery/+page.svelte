@@ -1,19 +1,32 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { afterNavigate } from '$app/navigation';
   import { base } from '$app/paths';
   import { locale, ct as t } from '$lib/i18n/community.js';
   import { createCommunityBrowserClient, callPublicCommunityRpc } from '$lib/community/browser-client';
   import GalleryBrowse from '$lib/community/GalleryBrowse.svelte';
   import GalleryDetail from '$lib/community/GalleryDetail.svelte';
+  import { parseTypedWorkQuery } from '$lib/community/typed-work-route.js';
+  import { dreamsnapPrivacyCopy } from '$lib/dreamsnaps/privacy-copy.js';
 
   const client = createCommunityBrowserClient();
   let query = '';
   let works: any[] = [];
   let selected: any = null;
   let busy = false;
-  let error = '';
-
-  onMount(() => { const workId = new URLSearchParams(window.location.search).get('work'); void browse(); if (workId) void openWork(workId); });
+  let error = '', invalidWorkUrl = false;
+  let routeVersion = 0;
+  afterNavigate(({to}) => {
+    if (!to?.url) return;
+    ++routeVersion;
+    selected = null;
+    error = '';
+    invalidWorkUrl = false;
+    if (!to.url.search) { void browse(); return; }
+    const parsed = parseTypedWorkQuery(to.url.search,'work');
+    if (parsed.status !== 'valid') { invalidWorkUrl = true; works = []; return; }
+    void browse();
+    void openWork(parsed.workId!,routeVersion);
+  });
 
   async function browse() {
     if (!client) return;
@@ -29,12 +42,13 @@
     } finally { busy = false; }
   }
 
-  async function openWork(workId: string) {
+  async function openWork(workId: string, expectedVersion = routeVersion) {
     busy = true; error = '';
     try {
-      selected = await callPublicCommunityRpc('community_get_gallery_public_v1', {
+      const detail = await callPublicCommunityRpc('community_get_gallery_public_v1', {
         p_work_id: workId
       });
+      if (expectedVersion === routeVersion && !invalidWorkUrl) selected = detail;
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
     } finally { busy = false; }
@@ -48,7 +62,6 @@
   <h1>{t('gallery.title', {}, $locale)}</h1>
   <p class="page-intro">{t('gallery.intro', {}, $locale)}</p>
   <p class="route-links">
-    <a class="inline-link" href={`${base}/gallery/dreamsnaps/`}>{t('dreamsnaps.gallery.title', {}, $locale)}</a>
     <a class="inline-link" href={`${base}/gallery/publish/`}>{t('gallery.tab.publish', {}, $locale)}</a>
     <a class="inline-link" href={`${base}/gallery/my/`}>{t('gallery.tab.my', {}, $locale)}</a>
   </p>
@@ -57,8 +70,10 @@
     <div class="notice">{t('community.configUnavailable', {}, $locale)}</div>
   {:else}
     {#if error}<p class="form-error" role="alert">{t('shared.form.error', { message: error }, $locale)}</p>{/if}
+    {#if invalidWorkUrl}<p class="notice" role="alert" data-gallery-state="invalid-work-url">{dreamsnapPrivacyCopy($locale).legacyUnavailable}</p>{:else}
     <GalleryBrowse bind:query {works} {busy} onSearch={browse} onSelect={openWork} />
     {#if selected}<GalleryDetail work={selected} onClose={() => (selected = null)} />{/if}
+    {/if}
   {/if}
 </section>
 
