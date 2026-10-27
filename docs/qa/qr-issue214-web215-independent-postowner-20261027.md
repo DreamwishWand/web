@@ -1,0 +1,36 @@
+# 04 QR / Issue #214 — Post-Owner-Fix WEB215 independent IA Source+Chrome acceptance
+2026-10-27 JST. **NEW-ONLY / DRAFT / NO MERGE OR DEPLOY / R17 UNCHANGED.**
+
+## Frozen and distinct Owner vs QA authority
+Owner WEB stacked Draft PR215 HEAD **`ca46279f5da996f335ab011b627a4f5b5ba99235`**, exact inherited Collection PR192 HEAD **`d509c3f5d9b80f97a0ffabc8888f50541b994549`**. Owner normal CI #40474948327 SUCCESS (924 PASS, 12 inherited SKIP), actual source-backed full CJK Chrome #40474948324 SUCCESS 14/14. New isolated 04 QR source test and independently-authored actual local Chrome with 8 launch locales/320px keyboard are separate evidence. Historical 04 QR PR212 HEAD `f05e4bd0876b87b19edb764c3e743bb107f7c6e4` remains main RED, not rerun or overridden. QR QA changes only tests, browser script, report and isolated workflow, no WEB product code changes.
+Relevant SSoT: latest 06F Gallery, 06G Final My/Community/Results, 06H CHC, 06C Systems, Collection Stage1 Category-first Owner, Issue #211/#213/#214 and 04 QR Handoff.
+
+## Independent source deltas (limited, not whole user job completion)
+- **D06 / DS-MY**: new `src/routes/dreamsnaps/my/+page.svelte` no `setDreamsnapOfficialResultPublication`, per-entry/field pickers or `publishDreamsnapGallery`; owner-private `entry.officialResult` still displayed under signed My path. Public ON control intentionally absent: companion 03 COMM Issue213 PR216 Account-global backend has to pass separately and real signed roles/phase/image/rights. Correct Source **FAIL_CLOSED**; NOT user-facing global consent end-to-end PASS. No authentic Account/session test.
+- **D07 / COL-WORK**: `viewMode` three permanent root buttons gone; Category-first with contextual Universe + Expansion facets, World still metadata/detail. `collectionWorkspaceState` accepts only q/family/universe/expansion/version/item, rejects `view=world`, `view=universe`, legacy world= and duplicate/unknown/conflicting ItemIDs. Independent SHA256 original `static/ddv/collection/v1.25/index.json`: `a74f6df131e114c66759bc3f463266e3b68fea629ac6a360062423ce6fc133c9`, denominator 12,552 records, 18 shards, Nintendo Switch v1.25.0 BID52BD625D9B4E0053 exact; no personal Owned/Missing state, 1.25.3/schema626/Steam Unsupported, Source integrity/local Chrome separate from true owner save.
+- **D01 / Guide/CHC Issues**: /guide section only Quests/StarPaths/Events/Systems. New /help/issues/ exists but is explicitly inert with no public private report exposure; normalized current-value Issue browse/detail/report E2E **BLOCKED**. Guide old link redirect/canonical historical external SEO not accepted. Source page metadata may still mention Issues, a cosmetic SEO-content follow-up; do not equate it with visible nav or leak.
+- **D02 / CHC Questions**: All/Unresolved/Solved and nested No Answers UI visible; non-All choices intentionally DISABLED because actual answer-count/status contract not verified. No `unansweredOnly` invented unresolved equivalence. Unanswered primary job remains **BLOCKED FUNCTIONAL E2E**; Source failclosed PASS only.
+- **D03 / Gallery DreamSnaps**: old `/gallery/dreamsnaps/?work=...` returns static failclosed notice and parent DreamSnaps link only; NO public RPC/media/Creator/rank leak. New `/dreamsnaps/community/` likewise inert until phase-aware signed public eligible reader. Gallery main removed old DreamSnaps link but generic gallery root not same 06F three-card Owner Gallery implementation; Draft PR105 separate and unmerged. Historical deep-link **compatible content/access not accepted**: safe denial exists, not content redirect parity/SEO. Old previously issued CDN bearers unaffected.
+- **D04**: DreamSnaps root exactly 1–3–1 five UI jobs Community DreamSnaps/Submit/Judge/Results/My and five child tabs. Real current/expired official challenge phase, judged images, fairness and results unavailable; public discovery inert.
+- **D09 / CHC**: /help exactly 4 children Questions/Tips/Issues/My, 3+1 geometry; Questions/Tips/My reuse /qa. Cross-type search explicitly disabled; Issue normalized authority and reporter private management absent. No claim completed positive CHC loop.
+- **D08** remains separate Guide PR133 published-source/human reviewed and rights/8locale gate; not silently integrated with WEB215.
+- **D10** all cross-product Work/Creator/Saved/legacy photo ID alias, old external links/index/SEO/role permissions and CDN remain 09 INT independent. No safe redirect claim from presence of an inert 200 route.
+
+## Independent matrix
+| Class | Scenarios | State |
+|---|---|---|
+| SOURCE | New-only exact HEAD independent tests: D01/02/03/04/06/07/09/Collection Index | Candidate PASS (await CI) |
+| CHROME local source | New-only headless actual Chrome old URL/source-only, 8 locales 320px keyboard/overflow, Owner original shard index, invalid mode and 1.25.3 | Candidate PASS (await CI) |
+| SIGNED ACTOR | Disposable authorized OwnerA/nonownerB/moderator, Account global ON/OFF, late linked Profile, old direct SQL | CONFIGURATION_BLOCKED / NOT_EXECUTED |
+| REAL PROVIDER/PHASE | Actual DDV official Challenge history, storage signed Bearer/CDN t0/t60/t300/post-expiry, migration Stage116, indexed public Work, competition age/moderation | NOT_EXECUTED / HUMAN GATE |
+| HUMAN CONTENT | 8 human reviewed Guide/CHC/Gallery/DS seed and rights/legal/privacy/ops | BLOCKED |
+| Native | owner-consented Switch v1.25.0 real Save ItemDatabase & Collection denominator; Road/Fence real persistence | NEED_RUNTIME |
+
+### Independent test code
+- `tests/qr-issue214-web215-independent-postowner.test.mjs`: source tests read exact original checked-in 12,552/18 Index bytes SHA256 and targeted negative state transitions, 8 locales, backend unapproved controls absent.
+- `scripts/qr-issue214-independent-chrome.mjs`: **actual Chrome** source consumer, new-only 8 locale routes / 320px reflow / keyboard ItemID / legacy DS inert / invalid world / schema626 denial, no signed data. Not a copy of Owner script; separate assertions.
+- `.github/workflows/qr-issue214-web215-independent.yml`: isolated Source and actual Chrome gates (expected no signed/private env), with evidence artifact. Failures must be reported as RED, not force reclassification.
+- **Important nuance:** Chrome controls use installed local browser and checked-in source corpus. A successful runner cannot assert authorized Live staging / privacy controls / rights/competition correctness. Owner PR215 CJK Chrome and QA independent are distinct.
+
+## Actions / Release
+08 WEB: retain fail-closed gates until 03 COMM PR216 and 09 INT post-fix graph independently accepted; full CHC Issues, nested Questions resolution, positive Community DreamSnaps and Gallery three-card Owner PR105 only when safe. 09 INT: historical entity links/aliases/Work ownership/phase/legacy URL, no unauthorized redirects; 03 COMM: Source143 Account-global OFF private authority and signed public-index/Signer/Media suppression. 04 QR: next genuine signed Actor+CDN+true phased Work tests only after operator human approval and safe roles/config, no real migration. R17 historically 30 PASS0/PARTIAL12/BLOCKED18 unchanged, DS-MY/DS-COM/CHC-Q/CHC-I/COL-WORK **not** promoted. Gate A0–A7 HUMAN NO-GO, B D HOLD/CAPABILITY_BLOCKED, Cleanup C NOT_AUTHORIZED, Native Writer/Apply OFF. All PR DRAFT DO_NOT_MERGE DO_NOT_DEPLOY.
