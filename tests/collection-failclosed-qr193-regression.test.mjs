@@ -75,16 +75,17 @@ test('QR193 RED-3 reversed: malicious, ambiguous and contradictory URL entrance 
     assert.equal(state.invalid,true,q);
     assert.equal(state.itemId,'',q);
   }
-  const valid=urlState('?view=world&world=IsDreamlightValley&q=%E6%A4%85%E5%AD%90&item=507');
+  const valid=urlState('?family=Furniture&universe=Mickey&expansion=BaseGame&q=%E6%A4%85%E5%AD%90&item=507');
   assert.equal(valid.invalid,false);
   assert.equal(valid.itemId,'507');
   const returned=collectionWorkspaceHref('',valid);
   assert.equal(urlState(new URL(returned,'https://wand.invalid').search).invalid,false);
-  assert.equal(urlState(new URL(returned,'https://wand.invalid').search).view,'world');
+  assert.equal(urlState(new URL(returned,'https://wand.invalid').search).view,'category');
+  assert.equal(urlState(new URL(returned,'https://wand.invalid').search).expansion,'BaseGame');
 });
 test('Stale detail failures are suppressed by route invalid-URL branch and generation-guarded Retry',()=>{
   const page=readFileSync('src/routes/collection/+page.svelte','utf8');
-  for(const token of ['invalidUrl = state.invalid','{#if invalidUrl}','data-collection-state="invalid-url"',
+  for(const token of ['invalidUrl = state.invalid','{#if invalidUrl || invalidFacet}','data-collection-state="invalid-url"',
     'const request = ++loadSequence','runtimeIndex = null; rawRows = []',
     'if (request !== loadSequence) return','if (request === loadSequence) loading = false',
     'afterNavigate(({to}) => { if (to?.url) applyUrl(to.url); }'])
