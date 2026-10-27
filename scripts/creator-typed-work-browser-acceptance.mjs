@@ -41,7 +41,7 @@ try{
  assert(await page.locator('[data-typed-work-route="tip"]').count()===1,'tip typed route missing');
  assert(await page.locator('[data-typed-work-route="question"]').count()===1,'question typed route missing');
  assert(await page.locator('[data-typed-work-route="dreamsnap-gated"]').count()===1,'dreamsnap gated route missing');
- for(const [type,expected] of [['gallery','/gallery/?work=2222'],['tip','/qa/?tip=3333'],['question','/qa/?question=4444'],['dreamsnap-gated','/dreamsnaps/community/?work=5555']]) {
+ for(const [type,expected] of [['gallery','/gallery/?work=2222'],['tip','/qa/?tip=3333'],['question','/qa/?question=4444'],['dreamsnap-gated','/dreamsnaps/']]) {
    const href=await page.locator('[data-typed-work-route="'+type+'"]').getAttribute('href');
    assert(href.includes(expected),type+' incorrect '+href);
  }
@@ -56,10 +56,14 @@ try{
  await first.focus();
  assert(await first.evaluate(el=>el===document.activeElement),'gated Work unreachable by keyboard');
  await page.keyboard.press('Enter');
- await eventually(async()=>await page.locator('[data-dreamsnap-work-state="authority-pending"]').count()===1);
- assert(!(await page.content()).includes('SECRET_NEVER_RENDER'),'Community Work pending page leaks model data');
- assert(!report.requests.some(x=>/media|signer|storage|dreamsnap/i.test(x)),'Gated detail performed unauthorized media request');
- ok('CREATOR_DREAMSNAP_KEYBOARD_TYPED_DETAIL_PUBLIC_AUTHORITY_PENDING_NO_MEDIA');
+ await eventually(async()=>await page.locator('.dreamsnaps-map').count()===1);
+ assert(!new URL(page.url()).searchParams.has('work'),'Unaccepted Creator deep link conveyed WorkID');
+ await page.locator('.dreamsnaps-map a').first().focus();
+ await page.keyboard.press('Enter');
+ await eventually(async()=>await page.locator('[data-dreamsnap-work-state="discovery-gated"]').count()===1);
+ assert(!(await page.content()).includes('SECRET_NEVER_RENDER'),'Community Work gated page leaks model data');
+ assert(!report.requests.some(x=>/media|signer|storage|dreamsnap/i.test(x)),'Gated landing performed unauthorized media request');
+ ok('CREATOR_DREAMSNAP_KEYBOARD_SAFE_LANDING_NO_WORK_ID_OR_MEDIA');
 
  const before=report.requests.length;
  for(const q of ['?work=55555555-5555-4555-8555-555555555555&work=55555555-5555-4555-8555-555555555555',
