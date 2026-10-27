@@ -2,7 +2,7 @@
 """04 QR independent post-owner F08/F09. Two ACTUAL disposable PostgreSQL backends; no remote auth, JWT, provider."""
 import json, os, uuid, psycopg
 assert os.getenv("DDVRE_PRIVACY_ISOLATED_LOCAL") == "CONFIRMED"
-assert os.getenv("DATABASE_URL") is None and os.getenv("SUPABASE_ACCESS_TOKEN","") == ""
+assert os.getenv("DATABASE_URL") in (None,"") and os.getenv("SUPABASE_ACCESS_TOKEN","") == ""
 DSN="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
 new=uuid.uuid4
 account,auth,creator,work,revision,media,entry,challenge=tuple(new() for _ in range(8))
