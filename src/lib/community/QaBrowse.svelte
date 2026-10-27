@@ -46,6 +46,7 @@
 
 <style>
   .tabs,.search{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.tabs{margin:20px 0}.tabs button,.search button{min-height:40px;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--ink);padding:8px 13px}.tabs button.active{border-color:var(--gold);color:var(--gold)}.grow{flex:1}.search input[type="text"],.search .grow input{width:100%;min-height:42px;border:1px solid var(--border);border-radius:11px;background:var(--surface);color:var(--ink);padding:9px 11px}.check{display:flex;gap:6px;align-items:center;font-size:12px}.list{display:grid;gap:10px;margin-top:16px}.list button{text-align:left;padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--surface);color:var(--ink);display:grid;gap:6px}.list span{color:var(--ink-muted);font-size:12px}
+.resolution-filter{display:flex;gap:8px;flex-wrap:wrap;align-items:center;border:1px solid var(--border);border-radius:12px;padding:9px}.resolution-filter legend{font-size:12px}.resolution-filter label{display:flex;gap:4px;align-items:center;font-size:12px}.nested-no-answers{border:0;opacity:.65}.resolution-filter small{flex-basis:100%;color:var(--ink-muted)}
 </style>
 
-<style>.resolution-filter{display:flex;gap:8px;flex-wrap:wrap;align-items:center;border:1px solid var(--border);border-radius:12px;padding:9px}.resolution-filter legend{font-size:12px}.resolution-filter label{display:flex;gap:4px;align-items:center;font-size:12px}.nested-no-answers{border:0;opacity:.65}.resolution-filter small{flex-basis:100%;color:var(--ink-muted)}</style>
+
