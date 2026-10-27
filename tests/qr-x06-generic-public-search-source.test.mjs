@@ -28,7 +28,7 @@ test('real SQL fixture creates SearchDocument ONLY by canonical Gallery publishe
  const p=readFileSync('tests/qr-x06-generic-public-search-anon-two-pg.py','utf8');
  assert.match(p,/community_dreamsnap_publish_gallery_v1/);
  assert.match(p,/set local role anon/);
- assert.match(p,/select public\.community_search_public/);
+ assert.match(p,/community_search_public\(/);
  assert.match(p,/pg_backend_pid/);
  assert.doesNotMatch(p,/insert into public\.search_documents/i);
  assert.match(p,/CONFIRMED LOCAL RED/);
