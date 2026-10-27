@@ -1,0 +1,50 @@
+name: 04 QR post-QR235 sensitive RPC cache independent reacceptance
+on:
+  push:
+    branches: ['qr/post-qr235-sensitive-cache-independent-20261028']
+  pull_request:
+    branches: ['web/integrated-source146-typed-routes-20261028']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-edge-delta-and-live-http:
+    name: Independent exact Owner Edge delta and local HTTP header evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Assert no remote configuration and pinned fixed Owner ancestry
+        run: |
+          set -euo pipefail
+          test -z "$SUPABASE_ACCESS_TOKEN"
+          test -z "$DATABASE_URL"
+          git merge-base --is-ancestor b907a86d67887bf841179f23824e5b26085520c3 HEAD
+          test "$(git diff --name-only d5ffe6fc3bd60e085414926bca7aa52c2ed9324e b907a86d67887bf841179f23824e5b26085520c3 -- supabase)" = "supabase/functions/community-public-query/index.ts"
+          test -z "$(git diff --name-only d5ffe6fc3bd60e085414926bca7aa52c2ed9324e HEAD -- supabase/migrations)"
+          echo QR_POST235_NO_STAGE_NO_REMOTE_DB_ONLY_OWNER_EDGE_CHANGED
+      - run: npm ci --no-audit --no-fund
+      - name: Execute actual integrated Edge dispatcher and response headers under isolation
+        run: |
+          set -euo pipefail
+          node --test tests/qr-post235-sensitive-cache-reacceptance.test.mjs | tee /tmp/qr-post235-http.log
+          grep -q QR_POST235_INDEPENDENT_SENSITIVE_PREDISPATCH_400_PASS /tmp/qr-post235-http.log
+          grep -q QR_POST235_POST_RPC_200_400_404_LIMITED_REGRESSION_PASS /tmp/qr-post235-http.log
+          grep -q QR_POST235_EDGE_GENERIC_NON_SENSITIVE_AND_SCENE_PARITY_PASS /tmp/qr-post235-http.log
+          grep -q QR_POST235_MIGRATIONS_AND_TYPED_CONSUMERS_UNCHANGED /tmp/qr-post235-http.log
+      - name: Synthetic non-personal HTTP output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr-post235-independent-http-local
+          path: /tmp/qr-post235-http.log
+          if-no-files-found: warn
