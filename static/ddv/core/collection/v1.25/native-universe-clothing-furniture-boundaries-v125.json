@@ -145,6 +145,25 @@
         "id": 40300001,
         "rawSha256": "6cdb9ffb57710b2adc7e57fff87855bd0962465c49b61b3b8fef248f2a4738f3",
         "staticGetter": false
+      },
+      "getterIndexOfTrace": {
+        "originalNativeCallerGetterRva": "0x45435D0",
+        "stringHelperRva": "0x6253A20",
+        "originalDumpCsSignature": "System.String.IndexOf(string value,int startIndex,int count,StringComparison comparisonType)",
+        "stringComparisonEnum": "System.StringComparison.Ordinal",
+        "enumNumericValue": 4,
+        "firstCall": "0x4543658",
+        "secondCall": "0x4543684",
+        "argumentStartIndex": 0,
+        "argumentCount": "Name.Length",
+        "firstStringReferenceRva": "0xB2676A8",
+        "secondStringReferenceRva": "0xB25DE48",
+        "firstLiteralContents": "UNKNOWN_ORIGINAL_STRING_LITERAL_PROVENANCE",
+        "secondLiteralContents": "UNKNOWN_ORIGINAL_STRING_LITERAL_PROVENANCE",
+        "originalArmSemantics": "Name.IndexOf(firstLiteral,0,Name.Length,Ordinal)<0 && Name.IndexOf(secondLiteral,0,Name.Length,Ordinal)<0",
+        "fullGetterConditional": "!IsHidden && Name != null && first IndexOf < 0 && second IndexOf < 0",
+        "runtimeInitializationOfLiteralReferences": "UNKNOWN",
+        "safePositiveEligibility": false
       }
     }
   ],
