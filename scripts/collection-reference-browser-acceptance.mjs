@@ -139,6 +139,38 @@ try{
  await page.locator('.retry-button').click();
  await eventually(async()=>await page.locator('.collection-card').count()===120);
  ok('FETCH_INTEGRITY_FAILURE_AND_RETRY_RECOVERY');
+ 
+ // QR212 owner navigation: no public server assumption; verify safe route shells,
+ // 8 locales, 320px reflow, keyboard and embargo-safe old URLs in real Chrome.
+ for(const locale of ['en','fr','it','de','es-ES','ja','zh-CN','pt-BR']){
+   for(const entry of [{url:'/dreamsnaps/',root:'.dreamsnaps-map',count:5},{url:'/help/',root:'.help-children',count:4}]){
+     await page.setViewportSize({width:1280,height:900});
+     await page.goto(base+entry.url,{waitUntil:'domcontentloaded'});
+     await page.locator('#site-locale').selectOption(locale);
+     await eventually(async()=>await page.locator('html').getAttribute('lang')===locale);
+     await page.setViewportSize({width:320,height:820});
+     assert(await page.locator(entry.root+' a').count()===entry.count,'Canonical root child count '+locale+entry.url);
+     await reflow(page);
+   }
+ }
+ ok('QR212_DREAMSNAPS_HELP_ROOTS_EIGHT_LOCALES_320PX');
+
+ await page.setViewportSize({width:1280,height:900});
+ await page.goto(base+'/dreamsnaps/',{waitUntil:'domcontentloaded'});
+ const firstDreamsnaps=page.locator('.dreamsnaps-map a').first();
+ await firstDreamsnaps.focus();
+ await page.keyboard.press('Enter');
+ await eventually(async()=>new URL(page.url()).pathname.endsWith('/dreamsnaps/community/'));
+ assert(await page.locator('[data-community-dreamsnaps="fail-closed"]').count()===1,'Community DreamSnaps phase gate missing');
+ assert(await page.locator('img').count()===0,'Unverified public DreamSnaps images leaked');
+ ok('QR212_COMMUNITY_DREAMSNAPS_KEYBOARD_SAFE_ENTRY');
+
+ await page.goto(base+'/gallery/dreamsnaps/?work=00000000-0000-0000-0000-000000000001',{waitUntil:'domcontentloaded'});
+ await eventually(async()=>await page.locator('[data-legacy-dreamsnaps="fail-closed"]').count()===1);
+ assert(await page.locator('img').count()===0,'Legacy Gallery DreamSnaps work media exposed');
+ assert(!(await page.content()).includes('community_search_gallery_dreamsnaps_public_v1'),'Legacy public RPC visible');
+ ok('QR212_OLD_GALLERY_DREAMSNAPS_URL_FAIL_CLOSED');
+
  report.consoleErrors=report.consoleErrors.filter(x=>!x.includes('Failed to load resource'));
  assert(report.pageErrors.length===0,'Page errors '+report.pageErrors.join(' | '));
  assert(report.consoleErrors.length===0,'Console errors '+report.consoleErrors.join(' | '));
