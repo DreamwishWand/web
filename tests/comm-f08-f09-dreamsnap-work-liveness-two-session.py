@@ -11,7 +11,9 @@ def media_read(c,m=media):
 def rows(c):
     return one(c,"select public.community_get_dreamsnap_results_public_v1(%s)",(challenge,))['wandResults']
 def denies(c,m=media):
-    try:media_read(c,m)
+    try:
+        with c.transaction():
+            media_read(c,m)
     except psycopg.Error as e:
         assert 'Public media is not accessible' in str(e),(e.sqlstate,str(e))
         return
