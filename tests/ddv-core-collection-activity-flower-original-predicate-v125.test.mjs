@@ -43,8 +43,8 @@ test('Original native call proves typed GetAllByType then Item ID projection wit
  assert.equal(n.getAllByType.methodInstantiationIndex,8559);
  assert.equal(n.getAllByType.genericTypeDefIndex,9472);
  assert.equal(n.getAllByType.itemTypeArgument,3);
- assert.equal(n.projector.lambdaRva,'0x4BFF5E0');
- assert.equal(n.projector.lambdaSha256,'5433bbdfc30142a02d0719dcdf2b3773eceffb4ec3580aba91741b28463c2d48');
+ assert.equal(n.projector.rva,'0x4BFF5E0');
+ assert.equal(n.projector.sha256,'5433bbdfc30142a02d0719dcdf2b3773eceffb4ec3580aba91741b28463c2d48');
  assert.equal(n.projector.noPredicateWhereInFlowerCase,true);
  assert.equal(n.projector.sharedEnumerableSelectRva,'0x3752680');
 });
@@ -52,7 +52,7 @@ test('Flower original TypeDef ICollectionItem vtable and !IsMissionItem native g
  const x=e.concrete;
  assert.equal(x.typeDefIndex,9472);
  assert.equal(x.interfaceOffsetsCount,20);
- assert.equal(x.interfaceOffsetSha256,'b9401b40f57a564bdce7b61db6d925d04d36dc9d5c983a5053327143034542dc');
+ assert.equal(x.interfaceOffsetsSha256,'b9401b40f57a564bdce7b61db6d925d04d36dc9d5c983a5053327143034542dc');
  assert.equal(x.icollectionItemByvalTypeIndex,64932);
  assert.equal(x.interfaceOffset+x.interfaceGetterSlot,x.concreteVtableSlot);
  assert.equal(x.encodedVtableMethod,'0x6002C115');
