@@ -25,7 +25,7 @@ test('Original method spec 98710/Where RecipeType/eight distinct proto values ex
  assert.equal(n.predicate.first36BytesSha256,'d211d013e5a5afa619ff492d1e52f92293a30d5ae3acfd1424d8101c9c191ed6');
  assert.equal(n.predicate.recipeFieldOffset,'0x50');assert.equal(n.predicate.selectorCapturedOffset,'0x10');
  assert.equal(n.predicate.whereCallSiteRva,'0x4BFD438');
- assert.equal(ev.protobuf.CollectionCraftingRecipeType,2);assert.equal(ev.protobuf.CraftingRecipeItemDataRecipeType,8);
+ assert.equal(ev.native.protobuf.CollectionCraftingRecipeType,2);assert.equal(ev.native.protobuf.CraftingRecipeItemDataRecipeType,8);
 });
 test('All 28 distinct selector occurrences, not just 25 definition IDs, each original full row hash, typed oneof wire and Ignore',()=>{
  assert.equal(ev.selectors.length,28);
@@ -51,7 +51,7 @@ test('Original Results projection is ItemID from ResultInstance, not CraftingRec
  assert.equal(n.resultMapping.lambdaRva,'0x4BFF330');assert.equal(n.resultMapping.first36BytesSha256,'b0c036d6800e0f1d66a82fcb12b29559287c1ca2259c68f19ef57305213ecdbb');
  assert.equal(n.resultMapping.resultPointerOffset,'0x40');
  assert.equal(n.resultMapping.resultItemIdOffset,'0x18');
- assert.equal(ev.protobuf.CraftingRecipeItemDataResult,6);assert.equal(ev.protobuf.ResultInstanceItemID,1);
+ assert.equal(ev.native.protobuf.CraftingRecipeItemDataResult,6);assert.equal(ev.native.protobuf.ResultInstanceItemID,1);
  assert.equal(n.concrete.implementsICollectionItem,false);assert.equal(n.commonIsValidSeparate,true);
  assert.equal(ev.originalCraftingRecipeRawExamples.length,8);
  const types=new Set(ev.originalCraftingRecipeRawExamples.map(x=>x.recipeType));
@@ -77,7 +77,7 @@ test('Owner 103+28 static 131, QR acceptance and runtime/writer remain independe
  assert.equal(ev.coverage.newStaticSelectors,28);
  assert.equal(ev.coverage.proposedOwnerStatic,131);
  assert.deepEqual(ev.coverage.unresolved,{ActivityItem:1,Clothing:61,Furniture:63,Crafting:0});
- assert.equal(s.qrAccepted,false);
- assert.equal(s.denominator,null);assert.equal(s.runtimeItemDatabase,'UNKNOWN');
- for(const k of ['nativeWriterAuthorized','presetApplyAuthorized','communityPublishingAuthorized','entitlementEditingAuthorized','personalMetricsAuthorized','steamOrSchema626Transferred'])assert.equal(s[k],false);
+ assert.equal(s.qrAccepted,false);assert.equal(s.sourceOnly,true);
+ assert.equal(s.denominator,null);assert.equal(s.runtimeItemDatabase,'UNKNOWN');assert.equal(s.owned,'UNKNOWN');assert.equal(s.missing,'UNKNOWN');assert.equal(s.collected,'UNKNOWN');
+ for(const k of ['nativeWriter','apply','publishing','entitlementEditing','steamOr626'])assert.equal(s[k],false);
 });
