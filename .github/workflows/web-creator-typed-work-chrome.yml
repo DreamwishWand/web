@@ -33,7 +33,7 @@ jobs:
       - name: Start disposable source-only site
         env:
           VITE_SUPABASE_URL: https://qr222-synthetic.invalid
-          VITE_SUPABASE_PUBLISHABLE_KEY: QR222_SYNTHETIC_ONLY_NOT_A_KEY
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_QR222_FAKE_TEST_ONLY_NO_SECRET
         run: |
           set -euo pipefail
           npm run dev -- --host 127.0.0.1 --port 4175 >/tmp/creator-typed-work-vite.log 2>&1 &
