@@ -72,7 +72,7 @@ jobs:
           from pathlib import Path
           import re
           fs=sorted(Path('supabase/migrations').glob('*.sql'))
-          assert len(fs)==145, f'expected 145 source SQL files, got {len(fs)}'
+          assert len(fs)==146, f'expected 146 source SQL files, got {len(fs)}'
           vs=[f.name.split('_',1)[0] for f in fs]
           assert all(re.fullmatch(r'\d{12}(?:\d{2})?',v) for v in vs)
           assert len(vs)==len(set(vs)), 'migration version collision'
@@ -96,6 +96,7 @@ jobs:
           node --test tests/community-d06-account-global-official-consent-contract.test.mjs
           node --test tests/community-f08-f09-dreamsnap-public-work-contract.test.mjs
           node --test tests/community-legacy-dreamsnap-gallery-reader-authority.test.mjs
+          node --test tests/community-r21-generic-public-search-work-liveness.test.mjs
           node --test tests/community-r18-provider-conditional-copy-local.test.mjs
       - uses: supabase/setup-cli@v1
         with:
@@ -132,7 +133,7 @@ jobs:
           DECLARE v int;
           BEGIN
             SELECT count(*) INTO v FROM supabase_migrations.schema_migrations;
-            IF v<>145 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_145: %',v;END IF;
+            IF v<>146 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_146: %',v;END IF;
             IF (select enrollment_state from private.community_writer_routes_r16 where writer_key='gallery-comments-legacy')<>'FAIL_CLOSED'
             THEN RAISE EXCEPTION 'R17_LEGACY_REGISTRY_NOT_CLOSED';END IF;
             IF to_regprocedure('public.community_set_gallery_comments_enabled_v1(uuid,uuid,boolean)') IS NULL
@@ -336,6 +337,7 @@ jobs:
           python3 tests/comm-d06-account-global-consent-two-session.py | tee /tmp/comm-d06-two-session.log
           python3 tests/comm-f08-f09-dreamsnap-work-liveness-two-session.py | tee /tmp/comm-f08f09-two-session.log
           python3 tests/comm-legacy-dreamsnap-gallery-reader-two-session.py | tee /tmp/comm-legacy-ds-reader-two-session.log
+          python3 tests/comm-generic-public-search-source146-two-session.py | tee /tmp/comm-source146-generic-search-two-session.log
           python3 tests/comm-r18-preset-reservation-two-session.py | tee /tmp/comm-r18-preset-reservation.log
           python3 tests/comm-r18-promotion-fence-two-session.py | tee /tmp/comm-r18-promotion-fence.log
           python3 tests/comm-r18-scene-publisher-acl-postgres.py | tee /tmp/comm-r18-scene-product-issuer.log
@@ -367,6 +369,7 @@ jobs:
             /tmp/comm-d06-two-session.log
             /tmp/comm-f08f09-two-session.log
             /tmp/comm-legacy-ds-reader-two-session.log
+            /tmp/comm-source146-generic-search-two-session.log
             /tmp/comm-legacy-gallery-reapply.log
             /tmp/comm-f08f09-reapply.log
             /tmp/comm-synthetic-seed.log
