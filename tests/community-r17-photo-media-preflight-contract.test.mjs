@@ -38,8 +38,8 @@ test('R17 photo preflight is only exposed via authenticated user query and canno
   assert.doesNotMatch(edge,/createSignedUrl|createSignedUploadUrl/);
 });
 test('local bootstrap requires exactly 139 ordered migrations and verifies R17 read-only service ACL',()=>{
-  assert.match(workflow,/assert len\(fs\)==145/);
-  assert.match(workflow,/IF v<>145 THEN/);
+  assert.match(workflow,/assert len\(fs\)==146/);
+  assert.match(workflow,/IF v<>146 THEN/);
   assert.match(workflow,/R17_PHOTO_MEDIA_PREFLIGHT_MISSING/);
   assert.match(workflow,/R17_PHOTO_MEDIA_PREFLIGHT_ACL_EXPOSED/);
   assert.match(workflow,/20261025002960_gallery_photo_media_readonly_preflight_r17\.sql/);
