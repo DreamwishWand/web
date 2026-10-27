@@ -6,7 +6,7 @@ const TYPES = Object.freeze({
   gallery: Object.freeze({path:'/gallery/',param:'work',availability:'existing-public-consumer'}),
   question: Object.freeze({path:'/qa/',param:'question',availability:'existing-public-consumer'}),
   tip: Object.freeze({path:'/qa/',param:'tip',availability:'existing-public-consumer'}),
-  dreamsnap: Object.freeze({path:'/dreamsnaps/community/',param:'work',availability:'pending-public-detail-authority'})
+  dreamsnap: Object.freeze({path:'/dreamsnaps/',param:null,availability:'pending-public-detail-authority'})
 });
 
 export function canonicalWorkId(value) {
@@ -37,7 +37,9 @@ export function resolveTypedWorkRoute(basePath, workType, workId, source = null)
   const root = String(basePath ?? '').replace(/[/]$/,'');
   return {
     status:workType === 'dreamsnap' ? 'gated' : 'ready',
-    href:root+entry.path+'?'+entry.param+'='+encodeURIComponent(id),
+    // In-game DreamSnaps Public Work Detail is NOT authorized. Never embed a
+    // WorkID in an invented public deep link before independent signed approval.
+    href:workType === 'dreamsnap' ? root+entry.path : root+entry.path+'?'+entry.param+'='+encodeURIComponent(id),
     workType,
     // The "ready" status identifies a preexisting route ONLY, not Work visibility.
     availability:entry.availability
