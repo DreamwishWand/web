@@ -78,7 +78,6 @@ with psycopg.connect(DSN,autocommit=True) as writer, psycopg.connect(DSN,autocom
     reader.execute("set role service_role")
     assert one(reader,"select current_user")=="service_role"
     assert one(reader,"select has_function_privilege(current_user,'public.community_get_public_media_storage_v2(uuid)','EXECUTE')") is True
-    assert one(reader,"select private.dreamsnap_public_official_result(%s)",(entry,)) is None if False else True
     expect(reader,True,"PUBLIC_CLOSED_PHASE_GLOBAL_OFF_NO_IMAGE_SUPPRESSION")
     assert one(writer,"select count(*) from private.dreamsnap_official_result_account_consent_r20 where account_id=%s",(account,))==0
     def update_case(label,apply_sql,apply_args,restore_sql,restore_args,early=False):
