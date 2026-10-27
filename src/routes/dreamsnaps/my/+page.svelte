@@ -99,7 +99,8 @@
                 <p>{entry.galleryState}</p>
                 <p class="detail-boundary">{privacyCopy.publicWorkPending}</p>
               </section>
-            {/if}          </div>
+            {/if}
+          </div>
         </article>
       {:else}
         <p>{t('dreamsnaps.my.empty', {}, $locale)}</p>
