@@ -140,6 +140,19 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
          and wrm.ordinal=0 and wrm.role='dreamsnap'
       where gp.work_id=%s""",(work,))
     print(json.dumps({'marker':'LEGACY_GALLERY_JOIN_DIAG','tuple':join_diag}),flush=True)
+    detailed_sql_join=one(a,"""select count(*)
+      from public.dreamsnap_gallery_publications gp
+      join public.dreamsnap_entries e on e.entry_id=gp.entry_id
+      join public.dreamsnap_challenges c on c.challenge_id=e.challenge_id
+      join public.dreamsnap_work_revisions dr on dr.revision_id=gp.revision_id
+      join public.work_revision_media wrm on wrm.work_revision_id=gp.revision_id
+        and wrm.ordinal=0 and wrm.role='dreamsnap'
+      where gp.work_id=%s and gp.publication_state='published'
+        and c.lifecycle_state in ('results','closed')
+        and c.is_synthetic=false and e.entry_state='entered'
+        and e.eligibility_state='eligible'""",(work,))
+    print(json.dumps({'marker':'LEGACY_DETAIL_SQL_JOIN_COUNT_AS_POSTGRES',
+      'rows':detailed_sql_join}),flush=True)
     baseline=snapshot('ACTIVE_PUBLIC')
     assert baseline['effectiveGuard'] and all(baseline[k] for k in
       ['legacySearchReturnsWork','source144MediaReturnsKey','source144WandReturnsEntry']),baseline
@@ -176,7 +189,11 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
             with a.transaction():a.execute(restore,rargs)
         assert snapshot(label+'_RESTORED')['effectiveGuard'] is True
     leaked=[z for z in witness if z['legacySearchReturnsWork'] or z['legacyDetailReturnsWork']]
-    print(json.dumps({'marker':'LEGACY_GALLERY_144_SQL_REPRODUCTION',
-      'evidence':len(leaked),'cases':[z['case'] for z in leaked],
-      'liveStage':False,'jwt':False,'realMedia':False,'newMigration':False}),flush=True)
-    assert leaked, 'LEGACY_GALLERY_READER_NOT_REPRODUCED_IN_ISOLATED_ACTUAL_PG'
+    print(json.dumps({'marker':'LEGACY_GALLERY_SOURCE145_POSTFIX_COMPARISON',
+      'exposureCount':len(leaked),'exposureCases':[z['case'] for z in leaked],
+      'baselineSearchPositive':baseline['legacySearchReturnsWork'],
+      'baselineDetailPositive':baseline['legacyDetailReturnsWork'],
+      'liveStage':False,'jwt':False,'realMedia':False,'oldCdnBearerRevoked':False}),flush=True)
+    assert not leaked,('LEGACY_GALLERY_SOURCE145_PUBLIC_READER_LEAK',leaked)
+    print(json.dumps({'marker':'LEGACY_GALLERY_SOURCE145_REAL_TWO_PG_NEGATIVE_PASS',
+      'effectiveGuard':True,'source144Source141Regression':True}),flush=True)
