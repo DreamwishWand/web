@@ -1,0 +1,91 @@
+name: WEB Source146 + typed WEB integrated Owner acceptance
+on:
+  push:
+    branches:
+      - 'web/integrated-source146-typed-routes-*'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: web146-integration-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  integrated-source-lineage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact Source146 ancestry and immutable effective supabase tree
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 5ddf4d23689643340c8d547e47b58f211e03291e HEAD
+          git diff --exit-code 5ddf4d23689643340c8d547e47b58f211e03291e HEAD -- supabase/migrations supabase/functions
+          echo SOURCE146_ALL_FUNCTIONS_AND_MIGRATIONS_BYTE_IDENTICAL
+      - name: Integrated 39 WEB files and 6 migration+Edge hashes; typed route and no-store contracts
+        run: node --test tests/web-source146-community-typed-integration.test.mjs
+  integrated-source-chrome:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Real Chrome provenance
+        id: chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          fc-match :lang=ja | head -n 1 || true
+          echo "bin=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+      - name: Start source-only local Vite + synthetic fake HTTPS config
+        env:
+          VITE_SUPABASE_URL: https://qr222-synthetic.invalid
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_WEB146_FAKE_TEST_ONLY_NO_SECRET
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4175 >/tmp/web-source146-vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4175/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/web-source146-vite.log
+          exit 1
+      - name: WEB222 Creator/Work safety / eight locales / 320px / keyboard
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.bin }}
+          CREATOR_TEST_BASE_URL: http://127.0.0.1:4175
+        run: node scripts/creator-typed-work-browser-acceptance.mjs
+      - name: Q&A in-app SPA Tip and Question race / Back / Forward / invalid
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.bin }}
+          CREATOR_TEST_BASE_URL: http://127.0.0.1:4175
+        run: node scripts/qa-spa-typed-work-owner-browser.mjs
+      - name: Source-only Collection v1.25.0 catalog and hostile URL / 8 locales 320px
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.bin }}
+          COLLECTION_BASE_URL: http://127.0.0.1:4175
+        run: node scripts/collection-reference-browser-acceptance.mjs
+      - name: Upload acceptance reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-source146-integrated-owner-browser
+          if-no-files-found: warn
+          path: |
+            .artifacts/creator-typed-work-browser/
+            .artifacts/qa-spa-owner/
+            .artifacts/collection-browser/
+      - name: Failure diagnostics
+        if: failure()
+        run: cat /tmp/web-source146-vite.log || true
