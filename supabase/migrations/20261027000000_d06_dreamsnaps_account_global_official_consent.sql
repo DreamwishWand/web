@@ -74,6 +74,11 @@ begin
     v_account_id:=private.resolve_active_account(p_auth_subject);
   end if;
 
+  -- Serialize all ON/OFF toggles for a Wand Account, not by Entry/Workspace.
+  perform 1 from public.wand_accounts
+  where account_id=v_account_id for update;
+  if not found then raise exception 'D06_ACCOUNT_UNAVAILABLE'; end if;
+
   -- Phase1 Privacy Suppression is independently authoritative. An older
   -- enabled preference is not a license to restore disclosure while held.
   if p_enabled and exists(
@@ -82,11 +87,6 @@ begin
   ) then
     raise exception 'D06_ACCOUNT_PRIVACY_SUPPRESSED';
   end if;
-
-  -- Serialize all ON/OFF toggles for a Wand Account, not by Entry/Workspace.
-  perform 1 from public.wand_accounts
-  where account_id=v_account_id for update;
-  if not found then raise exception 'D06_ACCOUNT_UNAVAILABLE'; end if;
 
   select * into v_current
   from private.dreamsnap_official_result_account_consent_r20
