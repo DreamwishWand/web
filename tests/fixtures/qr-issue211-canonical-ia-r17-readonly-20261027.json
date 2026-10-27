@@ -1,0 +1,370 @@
+{
+  "schema": "ddvre.qr.ia-r17-independent-source-witness@1",
+  "date": "2026-10-27",
+  "ownerIssue": 211,
+  "identity": {
+    "repo": "DreamwishWand/web",
+    "mainExactHead": "71e568c9b576c54f8d100fae2ae883c835de7602",
+    "canonicalIA": "1b4wMu7eARvvemO0cj2jne9hQTAwihhHagEajiDPhIGs",
+    "r17": "1BtZqe6oZ9vlf0IXJjmt7HVmBTlXR2jK1epr0b9fr07k",
+    "ownerCrosswalk": "1kSoSX3kTPl2rsH4zlCK0pVmZFCanKrEpdryLp5d1LDM",
+    "latestGuideDraft133": "9e40ed8b8e352939ec5c94ceaa2bde0fc75d4d12",
+    "latestCollectionDraft192": "d509c3f5d9b80f97a0ffabc8888f50541b994549",
+    "galleryDraft105": "cd11f5c1f30da9cd224b09efd3e605ee21a1fbd0"
+  },
+  "historicalR17": [
+    {
+      "id": "DEC-EXP",
+      "verdict": "PARTIAL"
+    },
+    {
+      "id": "DEC-MOOD",
+      "verdict": "PARTIAL"
+    },
+    {
+      "id": "DEC-WEP",
+      "verdict": "PARTIAL"
+    },
+    {
+      "id": "COL-WORK",
+      "verdict": "PARTIAL"
+    },
+    {
+      "id": "GDE-QUEST",
+      "verdict": "PARTIAL"
+    },
+    {
+      "id": "GDE-STAR",
+      "verdict": "PARTIAL"
+    },
+    {
+      "id": "GDE-EVENT",
+      "verdict": "PARTIAL"
+    },
+    {
+      "id": "GDE-SYS",
+      "verdict": "BLOCKED"
+    },
+    {
+      "id": "PRE-DISC",
+      "verdict": "BLOCKED"
+    },
+    {
+      "id": "PRE-LIB",
+      "verdict": "PARTIAL"
+    },
+    {
+      "id": "PRE-ING",
+      "verdict": "BLOCKED"
+    },
+    {
+      "id": "GAL-DEC",
+      "verdict": "BLOCKED"
+    },
+    {
+      "id": "GAL-TOM",
+      "verdict": "BLOCKED"
+    },
+    {
+      "id": "GAL-MY",
+      "verdict": "BLOCKED"
+    },
+    {
+      "id": "DS-COM",
+      "verdict": "BLOCKED"
+    },
+    {
+      "id": "DS-SUB",
+      "verdict": "BLOCKED"
+    },
+    {
+      "id": "DS-JUDGE",
+      "verdict": "BLOCKED"
+    },
+    {
+      "id": "DS-RES",
+      "verdict": "BLOCKED"
+    },
+    {
+      "id": "DS-MY",
+      "verdict": "BLOCKED"
+    },
+    {
+      "id": "CHC-Q",
+      "verdict": "BLOCKED"
+    },
+    {
+      "id": "CHC-T",
+      "verdict": "BLOCKED"
+    },
+    {
+      "id": "CHC-I",
+      "verdict": "PARTIAL"
+    },
+    {
+      "id": "CHC-MY",
+      "verdict": "BLOCKED"
+    },
+    {
+      "id": "COMM-ID",
+      "verdict": "PARTIAL"
+    },
+    {
+      "id": "COMM-PUB",
+      "verdict": "PARTIAL"
+    },
+    {
+      "id": "COMM-SOC",
+      "verdict": "BLOCKED"
+    },
+    {
+      "id": "COMM-MOD",
+      "verdict": "BLOCKED"
+    },
+    {
+      "id": "COMM-QA",
+      "verdict": "PARTIAL"
+    },
+    {
+      "id": "COMM-DS",
+      "verdict": "BLOCKED"
+    },
+    {
+      "id": "COMM-OPS",
+      "verdict": "BLOCKED"
+    }
+  ],
+  "proposalD": [
+    {
+      "id": "D01",
+      "classification": "OWNER_SUPERSESSION_AND_CONFIRMED_SOURCE_CONFLICT",
+      "r17": [
+        "CHC-I",
+        "COMM-QA",
+        "COMM-MOD"
+      ]
+    },
+    {
+      "id": "D02",
+      "classification": "OWNER_FILTER_SUPERSESSION_AND_E2E_PRECISION_GAP",
+      "r17": [
+        "CHC-Q"
+      ]
+    },
+    {
+      "id": "D03",
+      "classification": "OWNER_SUPERSESSION_AND_ACTIVE_LEGACY_GALLERY_ROUTE",
+      "r17": [
+        "DS-COM"
+      ]
+    },
+    {
+      "id": "D04",
+      "classification": "ONE_TO_MANY_AND_CURRENT_MAIN_HOME_CONFLICT",
+      "r17": [
+        "DS-SUB",
+        "DS-JUDGE",
+        "DS-RES",
+        "DS-COM"
+      ]
+    },
+    {
+      "id": "D05",
+      "classification": "ONE_TO_MANY_AND_REAL_PHASE_CATALOG_GAP",
+      "r17": [
+        "DS-RES",
+        "DS-COM"
+      ]
+    },
+    {
+      "id": "D06",
+      "classification": "OWNER_GLOBAL_CONSENT_CONFLICT_WITH_MAIN_PER_ENTRY_PER_FIELD",
+      "r17": [
+        "DS-MY",
+        "COMM-DS"
+      ]
+    },
+    {
+      "id": "D07",
+      "classification": "OWNER_CATEGORY_FIRST_SUPERSESSION_AND_MAIN_PLUS_DRAFT_MODE_SWITCH_CONFLICT",
+      "r17": [
+        "COL-WORK"
+      ]
+    },
+    {
+      "id": "D08",
+      "classification": "OWNER_TAXONOMY_APPROVED_BUT_R17_OWNER_STATUS_STALE",
+      "r17": [
+        "GDE-SYS"
+      ]
+    },
+    {
+      "id": "D09",
+      "classification": "CHC_PARTICIPATION_LABEL_OWNER_SUPERSESSION_NOT_NEW_CORE",
+      "r17": [
+        "CHC-Q",
+        "CHC-T",
+        "CHC-I",
+        "CHC-MY",
+        "COMM-QA"
+      ]
+    },
+    {
+      "id": "D10",
+      "classification": "CROSS_PRODUCT_LINK_AUTH_PRIVACY_UNTESTED",
+      "r17": [
+        "DS-COM",
+        "CHC-I",
+        "GAL-MY",
+        "COMM-SOC",
+        "COMM-MOD"
+      ]
+    }
+  ],
+  "subcases": [
+    {
+      "id": "IA-01",
+      "r17": [
+        "GDE-SYS",
+        "CHC-I"
+      ],
+      "sourceOnly": true,
+      "chrome": "NOT_EXECUTED",
+      "signedActor": "CONFIGURATION_BLOCKED",
+      "realRuntime": "NOT_EXECUTED",
+      "privacyE2E": "NOT_EXECUTED",
+      "contentAcceptance": "NOT_ACCEPTED"
+    },
+    {
+      "id": "IA-02",
+      "r17": [
+        "CHC-Q"
+      ],
+      "sourceOnly": true,
+      "chrome": "NOT_EXECUTED",
+      "signedActor": "CONFIGURATION_BLOCKED",
+      "realRuntime": "NOT_EXECUTED",
+      "privacyE2E": "NOT_EXECUTED",
+      "contentAcceptance": "NOT_ACCEPTED"
+    },
+    {
+      "id": "IA-03",
+      "r17": [
+        "DS-COM"
+      ],
+      "sourceOnly": true,
+      "chrome": "NOT_EXECUTED",
+      "signedActor": "CONFIGURATION_BLOCKED",
+      "realRuntime": "NOT_EXECUTED",
+      "privacyE2E": "NOT_EXECUTED",
+      "contentAcceptance": "NOT_ACCEPTED"
+    },
+    {
+      "id": "IA-04",
+      "r17": [
+        "DS-SUB",
+        "DS-JUDGE",
+        "DS-RES",
+        "DS-COM"
+      ],
+      "sourceOnly": true,
+      "chrome": "NOT_EXECUTED",
+      "signedActor": "CONFIGURATION_BLOCKED",
+      "realRuntime": "NOT_EXECUTED",
+      "privacyE2E": "NOT_EXECUTED",
+      "contentAcceptance": "NOT_ACCEPTED"
+    },
+    {
+      "id": "IA-05",
+      "r17": [
+        "DS-RES",
+        "DS-COM"
+      ],
+      "sourceOnly": true,
+      "chrome": "NOT_EXECUTED",
+      "signedActor": "CONFIGURATION_BLOCKED",
+      "realRuntime": "NOT_EXECUTED",
+      "privacyE2E": "NOT_EXECUTED",
+      "contentAcceptance": "NOT_ACCEPTED"
+    },
+    {
+      "id": "IA-06",
+      "r17": [
+        "DS-MY",
+        "COMM-DS"
+      ],
+      "sourceOnly": true,
+      "chrome": "NOT_EXECUTED",
+      "signedActor": "CONFIGURATION_BLOCKED",
+      "realRuntime": "NOT_EXECUTED",
+      "privacyE2E": "NOT_EXECUTED",
+      "contentAcceptance": "NOT_ACCEPTED"
+    },
+    {
+      "id": "IA-07",
+      "r17": [
+        "COL-WORK"
+      ],
+      "sourceOnly": true,
+      "chrome": "NOT_EXECUTED",
+      "signedActor": "CONFIGURATION_BLOCKED",
+      "realRuntime": "NOT_EXECUTED",
+      "privacyE2E": "NOT_EXECUTED",
+      "contentAcceptance": "NOT_ACCEPTED"
+    },
+    {
+      "id": "IA-08",
+      "r17": [
+        "GDE-SYS"
+      ],
+      "sourceOnly": true,
+      "chrome": "NOT_EXECUTED",
+      "signedActor": "CONFIGURATION_BLOCKED",
+      "realRuntime": "NOT_EXECUTED",
+      "privacyE2E": "NOT_EXECUTED",
+      "contentAcceptance": "NOT_ACCEPTED"
+    },
+    {
+      "id": "IA-09",
+      "r17": [
+        "COMM-ID",
+        "COMM-PUB",
+        "COMM-SOC",
+        "COMM-MOD",
+        "COMM-QA",
+        "COMM-DS",
+        "COMM-OPS"
+      ],
+      "sourceOnly": true,
+      "chrome": "NOT_EXECUTED",
+      "signedActor": "CONFIGURATION_BLOCKED",
+      "realRuntime": "NOT_EXECUTED",
+      "privacyE2E": "NOT_EXECUTED",
+      "contentAcceptance": "NOT_ACCEPTED"
+    }
+  ],
+  "liveSourceBlobs": {
+    "src/routes/guide/+page.svelte": "f4f7adc819036a91677b4bec1629ce04c0f04dfc",
+    "src/routes/qa/+page.svelte": "6296acc77437f98d8a61e5b68f0ed8713c8b8a3f",
+    "src/lib/community/QaBrowse.svelte": "4aa495c24990e3a7ab55ee779aae56b45dd6127b",
+    "src/routes/gallery/+page.svelte": "9001fc17554398f2563b1068932c06540d59c79b",
+    "src/routes/gallery/dreamsnaps/+page.svelte": "292de37e24d748898940b57c392c5a68270bd0b2",
+    "src/lib/community/DreamsnapsTabs.svelte": "757d7194a1e08bef5a23251c60aaa99c37b43ecd",
+    "src/routes/dreamsnaps/+page.svelte": "4c635a557b2ee5e0bc37c531bba3724679226a41",
+    "src/routes/dreamsnaps/my/+page.svelte": "2ae9826509c0dd9cfbb95b7242bd87bb94f1ad29",
+    "src/routes/dreamsnaps/submit/+page.svelte": "29e34bde7d9d195c066fec050603af0ba919568e",
+    "src/routes/dreamsnaps/judge/+page.svelte": "78901cda868cb774813dc5c09237cfaac98d3617",
+    "src/routes/dreamsnaps/results/+page.svelte": "47ef8d8688346b4fec6f8ee3a258c9e1cd17291e",
+    "src/routes/collection/+page.svelte": "19db3ab1da1a6bdb74420e49a21c4a8305ea5510"
+  },
+  "status": {
+    "crosswalkCardinality": "PASS_SOURCE",
+    "ownerTransitionClassification": "PARTIAL_SOURCE",
+    "currentMainParity": "RED_SOURCE_MISMATCH",
+    "signedReleaseAcceptance": false,
+    "release": "NO_GO",
+    "draft": true,
+    "doNotMerge": true,
+    "doNotDeploy": true
+  }
+}
