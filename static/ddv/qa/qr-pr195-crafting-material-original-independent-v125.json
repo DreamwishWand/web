@@ -1,0 +1,194 @@
+{
+  "schema": "ddv.qr.pr195.craftingmaterial.original-independent@1",
+  "classification": "PASS_STATIC_ORIGINAL_SOURCE_ONLY",
+  "platform": "Nintendo Switch",
+  "version": "1.25.0",
+  "bid": "52BD625D9B4E0053",
+  "saveSchema": 624,
+  "frozenOwnerHead": "6c531a6f09c94eae79f4e5b960d0feb28ce57863",
+  "historicalMineralQr206Head": "498047c8688453aa0be9b5944af6b3a8f7cb70b7",
+  "historicalQr205Partial": true,
+  "localOriginalReplay": {
+    "scriptSha256": "51f8907ae78b869833d80aa09764da567a5d5d489c241fbc5684d2b3468fb0c5",
+    "resultSha256": "19464b96529af45ff3035d4caa6ece3df89305135776738c30125177e5353ccd",
+    "note": "original raw files downloaded via authenticated Drive and privately independently hashed and decoded in QA work environment, not in GitHub CI",
+    "sources": {
+      "main": {
+        "bytes": 96002294,
+        "sha256": "3258d5e05aded708c06017b8763fa37bfb696385a2ab29dd8a182d3938cbc0e0"
+      },
+      "metadata": {
+        "bytes": 36538728,
+        "sha256": "07e919f07f7be2df883b7292bd3c699f670b4c1e8ff496ef7747447f5baa9f7c"
+      },
+      "dump": {
+        "bytes": 59624529,
+        "sha256": "a94ae73d522f160d21255b195b4d834bf5c79db59ddbd8cdfc32e54c6e0671f0"
+      },
+      "losslessDB": {
+        "bytes": 5090928,
+        "sha256": "df78c309a8023667c92426e3b929ed3e51aadf10d943835a3673cefa585f8048"
+      },
+      "supportTables": {
+        "bytes": 168583,
+        "sha256": "537cfcf14beca1e76496d4f9c5b60bd7e31d385a16fd69e63083df6978fdf4b9",
+        "mimeFromDrive": "application/json",
+        "actualMagic": "1f8b"
+      }
+    }
+  },
+  "native": {
+    "case": 6,
+    "branchRva": "0x4BFCAF0",
+    "caseTestRva": "0x4BFCAF4",
+    "branchBytes": 256,
+    "branchSha256": "9b4fa9773591d2fea136fad19a2e8a6d8e0520fb9331658152e92a405364c6b3",
+    "itemType": 3,
+    "subtype": 17,
+    "materialCallSite": "0x4BFCB34",
+    "materialCallTarget": "0x37816F0",
+    "methodSpec": {
+      "index": 98757,
+      "usage": "0xC003038B",
+      "raw12": "2a950100ffffffff37870000",
+      "methodDef": 103722,
+      "name": "GetAllByType",
+      "instantiationIndex": 34615,
+      "instantiationRva": "0xAC1F750",
+      "argCount": 2,
+      "typeDefIndices": [
+        9044,
+        10400
+      ],
+      "argumentPointerRvas": [
+        "0xB2CCFB8",
+        "0xB2CCFD8"
+      ]
+    },
+    "projection": {
+      "rva": "0x4BFF290",
+      "bytes": 160,
+      "sha256": "13dc42cb2d2242ee3031b247f8b210cf46e9f045fc2a7d6db00351cfb14eed7b",
+      "idBackingOffset": 24,
+      "selectTarget": "0x3752680",
+      "toListTarget": "0x37566C0",
+      "craftingSpecificWhere": false,
+      "commonIsValidSeparate": true
+    },
+    "concrete": {
+      "typeDef9044Sha256": "34d34ee450e18d546a9f1d2a12935da7ec4ae71d6f573b3ee1e1bfe84585797b",
+      "interfaceOffsetStart": 18220,
+      "interfaceOffsetCount": 16,
+      "interfaceOffsetSha256": "9d4ba5bb84fe4fc8d74b75f382d63c3872a914583cd834d6f083af9aa6e0c1e4",
+      "icollectionItemType": 64932,
+      "offset": 31,
+      "methodSlot": 1,
+      "vtableGetterSlot": 32,
+      "vtableEncoded": "0x60028809",
+      "getterMethodDef": 82948,
+      "variationImplemented": false,
+      "getCanBeCollected": {
+        "rva": "0x44EFE70",
+        "bytes": 16,
+        "sha256": "e37d5869e849938f2d6eecdde5f518bb0cdecd450eb9d97a7a9d1f4d6d7d1957",
+        "predicate": "!IsMissionItem",
+        "backingOffset": 80,
+        "protobufField": 8
+      }
+    }
+  },
+  "originalProtobuf": {
+    "collectionDefinitionId": 2120000096,
+    "fullBytes": 313,
+    "sha256": "0d29ce51cd9970208831abd746e9371187bf78875d1dbdcd54c96b95b380443c",
+    "selectedByType": {
+      "outerCase": 6,
+      "innerCase": 6,
+      "innerExplicitEmpty": true,
+      "ignorePresent": false
+    },
+    "separateByItem": {
+      "included": [
+        31700015,
+        31700021
+      ],
+      "ignoreExample": 31700039,
+      "ignoreCount": 40
+    },
+    "separateByTypeCraftingRecipe": {
+      "ignore": true,
+      "craftingOuterWireField": 8,
+      "recipeType": 2001100001
+    },
+    "activitySource": {
+      "typeName": "ActivityItemData",
+      "total": 166,
+      "subtype17": {
+        "count": 132,
+        "missionField8Absent": 128,
+        "missionField8ExplicitTrue": 4,
+        "explicitFalse": 0
+      },
+      "subtype0": {
+        "count": 34,
+        "missionField8Absent": 32,
+        "missionField8ExplicitTrue": 2,
+        "explicitFalse": 0
+      }
+    },
+    "samples": {
+      "30000031": {
+        "role": "negative-subtype0-even-when-nonmission",
+        "rawSha256": "d07a2003d954bd8e38236b39152f63634b6ee9aac1030b381d20740dfa723de9"
+      },
+      "31700000": {
+        "role": "positive-subtype17-and-getter",
+        "rawSha256": "50dd483949b61c6c1bf7e8848db9a9b8d991d00818341f5000a3e9017332c74a"
+      },
+      "31700015": {
+        "role": "positive-subtype17-getter-and-separate-byitem-include",
+        "rawSha256": "d65424678f5806e100656fe6e9b51a296a2745fc8fec1d08af7c0fc7f421f1e4"
+      },
+      "31700023": {
+        "role": "positive-subtype17-negative-getter-mission-true",
+        "missionField8Wire": "4001",
+        "rawSha256": "d722511b5added662e96dc4b46fa214ca66fd792465cdf2462a8d0d424b8db69"
+      },
+      "31700039": {
+        "role": "positive-subtype17-getter-but-separate-byitem-ignore",
+        "rawSha256": "dcfd07c64b4806abdc9aff38b828509faf52128d23004011fc3ceb725c909400",
+        "finalMembership": "UNKNOWN"
+      }
+    }
+  },
+  "coverage": {
+    "beforeIndependent": 102,
+    "acceptedThisOne": 1,
+    "afterIndependent": 103,
+    "total": 256,
+    "remainingUnknown": 153,
+    "remainingFamilies": {
+      "Fish": 1,
+      "Crafting": 28,
+      "Clothing": 61,
+      "Furniture": 63
+    }
+  },
+  "failClosed": {
+    "runtimeItemDatabase": "UNKNOWN",
+    "runtimeCollectionSets": "UNKNOWN",
+    "runtimeCollectionMembership": "UNKNOWN",
+    "personalOwned": "UNKNOWN",
+    "personalCollected": "UNKNOWN",
+    "personalMissing": "UNKNOWN",
+    "denominator": null,
+    "personalPercentEnabled": false,
+    "nativeWriterEnabled": false,
+    "presetApplyEnabled": false,
+    "communityPublisherEnabled": false,
+    "entitlementEditEnabled": false,
+    "steamPromotion": false,
+    "schema626Promotion": false
+  },
+  "ci": "CI verifies QA recorded evidence contract only; no original game binary is committed to GitHub and no original-byte replay is claimed within CI."
+}
