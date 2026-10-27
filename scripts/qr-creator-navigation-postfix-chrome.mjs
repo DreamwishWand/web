@@ -6,6 +6,7 @@ import {chromium} from 'playwright-core';
 const origin=(process.env.QR226_BASE_URL||'http://127.0.0.1:4179').replace(/\/$/,'');
 const id={creator:'11111111-1111-4111-8111-111111111111',
  tip:'33333333-3333-4333-8333-333333333333',
+ slow:'66666666-6666-4666-8666-666666666666',
  question:'44444444-4444-4444-8444-444444444444',
  dreamsnap:'55555555-5555-4555-8555-555555555555'};
 const report={owner:'99ed88fc717cf18bb4127695f16d6949e7609463',
@@ -26,7 +27,11 @@ page.route('https://qr226-synthetic.invalid/**',async route=>{
  report.rpc.push(String(rpc));
  let data=[];
  if(rpc==='community_get_creator_public_v1')data={handle:'qr',displayName:'QR Creator'};
- if(rpc==='community_get_tip_public_v1')data={tipId:id.tip,title:'QR TIP ONE',body:'QR Tip detail',contextTags:[]};
+ if(rpc==='community_get_tip_public_v1'){
+   const tid=body.payload?.p_tip_id;
+   if(tid===id.slow)await new Promise(resolve=>setTimeout(resolve,1250));
+   data={tipId:tid,title:tid===id.slow?'QR SLOW TIP':'QR TIP ONE',body:'QR Tip detail',contextTags:[]};
+ }
  if(rpc==='community_get_question_public_v1')data={questionId:id.question,title:'QR QUESTION TWO',body:'QR Question detail',contextTags:[],answers:[]};
  if(url.pathname.endsWith('community_search_public'))
    data=[{work_id:id.dreamsnap,work_type:'dreamsnap',title:'CONFIDENTIAL_DREAMSNAP_TITLE',text_content:'CONFIDENTIAL_DREAMSNAP_TEXT'},
@@ -92,6 +97,17 @@ try{
  assert(report.rpc.filter(x=>x==='community_get_question_public_v1'||x==='community_get_tip_public_v1').length===beforeBad,
    'Invalid/duplicate query invoked Detail RPC');
  report.observations.push('Duplicate/mixed/unknown query fail-closed after SPA PASS');
+ // An in-flight older Tip RPC is not an authority to replace a later
+ // Question route (real Chrome with delayed synthetic HTTP response).
+ await samePageClick(origin+'/qa/?tip='+id.slow);
+ await until(async()=>report.rpc.filter(x=>x==='community_get_tip_public_v1').length>0);
+ await samePageClick(origin+'/qa/?question='+id.question);
+ await until(async()=>await page.locator('article.detail h2').innerText()==='QR QUESTION TWO');
+ await page.waitForTimeout(1550);
+ assert((await page.locator('article.detail h2').innerText())==='QR QUESTION TWO',
+   'stale Tip response overwrote a newer Question route');
+ report.observations.push('Delayed older Tip response cannot overwrite newer Question PASS');
+
 
  // New page for locale cases avoids conflating SvelteKit route lifecycle
  // with the intentionally denied Community DreamSnaps Work Detail.
