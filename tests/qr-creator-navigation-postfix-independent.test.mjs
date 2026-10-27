@@ -36,7 +36,7 @@ test('QR A QA and Creator/legacy guards preserve no-ID DreamSnaps Public Detail 
   dreamsnap=src('src/routes/dreamsnaps/community/+page.svelte');
  assert.match(s,/community_get_question_public_v1/);
  assert.match(s,/community_get_tip_public_v1/);
- assert.match(s,/query\('question'/);
+ assert(s.includes("query<any>('question'"),'authenticated Question read retained');
  assert.match(creator,/dreamsnap-gated/);
  assert.match(creator,/resolveTypedWorkRoute/);
  assert.match(dreamsnap,/authority-pending/);
