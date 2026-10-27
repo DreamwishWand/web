@@ -1,0 +1,75 @@
+name: 04 QR X06 Generic Public Search real local anon two PG
+on:
+  push:
+    branches: ['qr/generic-public-search-x06-local-20261027']
+  pull_request:
+    branches: ['fix/03comm-legacy-dreamsnap-gallery-readers-20261027']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source:
+    name: Pinned Source145 / canonical index contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: git merge-base --is-ancestor f9e9a4d3dc6f92a16c8ecbc6be4cb73faf808d75 HEAD
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/qr-x06-generic-public-search-source.test.mjs
+  actual-anon-two-pg:
+    name: Full145 disposable Local PG / anon / independent backends
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+      DDVRE_PRIVACY_ISOLATED_LOCAL: 'CONFIRMED'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Assert offline 145-migration source, no linked staging
+        run: |
+          set -euo pipefail
+          test -z "$SUPABASE_ACCESS_TOKEN"
+          test -z "$DATABASE_URL"
+          git merge-base --is-ancestor f9e9a4d3dc6f92a16c8ecbc6be4cb73faf808d75 HEAD
+          printf 'project_id = "ddvre_qr228_x06_disposable_isolated"\n' | cat - supabase/config.toml > /tmp/qr228-local-config.toml
+          mv /tmp/qr228-local-config.toml supabase/config.toml
+          test "$(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l)" -eq 145
+          echo QR228_NO_LINK_NO_STAGE_NO_SIGNED_ACTOR_NO_STORAGE_PROVIDER
+      - name: Full145 isolated disposable local schema bootstrap
+        run: |
+          set -euo pipefail
+          timeout 1500s supabase start > /tmp/qr228-start.log 2>&1 || {
+            tail -120 /tmp/qr228-start.log
+            exit 1
+          }
+          echo QR228_FULL145_LOCAL_BOOTSTRAP_SUCCESS
+      - name: Real PostgreSQL two backends / actual anon SECURITY INVOKER
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'psycopg[binary]>=3.2,<4'
+          python3 tests/qr-x06-generic-public-search-anon-two-pg.py | tee /tmp/qr228-real-anon.log
+          grep -q QR228_X06_REAL_TWO_PG_ANON_SQL_VERDICT /tmp/qr228-real-anon.log
+      - if: failure()
+        run: tail -120 /tmp/qr228-start.log || true
+      - name: Source/PG evidence (synthetic identifiers only)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr228-x06-local-evidence
+          path: |
+            /tmp/qr228-real-anon.log
+            /tmp/qr228-start.log
+          if-no-files-found: warn
