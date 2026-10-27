@@ -6,7 +6,7 @@
     "bid": "52BD625D9B4E0053",
     "saveSchema": 624
   },
-  "status": "OWNER_STATIC_NATIVE_SELECTOR_COMPLETED_ORIGINAL_ROW_SHA_AND_WIRE_PINNED_QR_PENDING",
+  "status": "OWNER_SAME_BUILD_ORIGINAL_CRAFTING_CALLSITE_CORRECTED__INDEPENDENT_QR208_RETEST_REQUIRED",
   "sourceSha256": {
     "main": "3258d5e05aded708c06017b8763fa37bfb696385a2ab29dd8a182d3938cbc0e0",
     "metadataV31": "07e919f07f7be2df883b7292bd3c699f670b4c1e8ff496ef7747447f5baa9f7c",
@@ -15,23 +15,42 @@
     "supportGz": "537cfcf14beca1e76496d4f9c5b60bd7e31d385a16fd69e63083df6978fdf4b9"
   },
   "native": {
-    "outerCraftingCase": 5,
+    "outerCraftingCase": 8,
     "innerRecipeTypeCase": 2,
-    "branch": "0x4BFC918/0x4BFD3D0",
+    "branch": "Crafting outer field/case8 at 0x4BFD140; RecipeType inner case2 comparison at 0x4BFD3D0; actual item enumeration call at 0x4BFD0F8, not former Critter branch 0x4BFC974",
     "getAllByType": {
-      "callRva": "0x4BFC974",
-      "rva": "0x37811C0",
-      "itemType": 12,
-      "methodSpecIndex": 98710,
-      "methodSpecRva": "0x96E5DA4",
-      "methodSpecHex": "29950100ffffffff8f200000",
-      "methodDefIndex": 103721,
-      "instantiationIndex": 8335,
+      "callRva": "0x4BFD0F8",
+      "rva": "0x37816F0",
+      "itemType": 205,
+      "methodSpecIndex": 98762,
+      "methodSpecRva": "0x96E6014",
+      "methodSpecHex": "2a950100ffffffff3c870000",
+      "methodDefIndex": 103722,
+      "instantiationIndex": 34620,
       "typeDef": 9715,
       "typeName": "CraftingRecipeItemData",
-      "typePointerRva": "0xB2BA078",
-      "sourceEncodedUsage": "0xC003032D",
-      "usageRva": "0xB1EF488"
+      "typePointerRva": "0xB2CCFD8",
+      "sourceEncodedUsage": "0xC0030395",
+      "usageRva": "0xB1EF628",
+      "subtype": 3,
+      "secondTypeDef": 10402,
+      "secondTypeName": "ActivityDataItemType",
+      "usageAdrpRva": "0x4BFD0E0",
+      "usageLdrRva": "0x4BFD0E8",
+      "itemTypeMovRva": "0x4BFD0E4",
+      "subtypeMovRva": "0x4BFD0EC",
+      "subtypeStackStoreRva": "0x4BFD0F4",
+      "nativeCallSliceStart": "0x4BFD0D0",
+      "nativeCallSliceEndExclusive": "0x4BFD10C",
+      "nativeCallSliceSha256": "ceec4dd83d4056294fa57424ffaf8c4deaa91ef06d3ecb3e23c348e45ae34cbe",
+      "branchOuterCaseRva": "0x4BFD140",
+      "branchOuterCase8OpcodeSha256": "3c989a5576c249ddfda216ea4fc97d31e4c8937926a9d2820e59223fd92a786b",
+      "branchInnerCase2Rva": "0x4BFD3D0",
+      "branchInnerCase2OpcodeSha256": "0bebc977cf0761b5ab7c09531f5460d200d69c142a0075f02051bceb7edb8887",
+      "initialEnumerationToListCallRva": "0x4BFD104",
+      "initialEnumerationToListTarget": "0x37566C0",
+      "initialListHeldIn": "x21 at 0x4BFD114",
+      "sourceClassification": "all 1206 original raw CraftingRecipeItemData records are ItemType205/subtype3; no runtime enumeration guarantee"
     },
     "predicate": {
       "lambdaRva": "0x4C009E0",
@@ -39,7 +58,9 @@
       "recipeFieldOffset": "0x50",
       "selectorCapturedOffset": "0x10",
       "comparison": "RecipeItemData.RecipeType == selector.Crafting.RecipeType",
-      "whereCallSiteRva": "0x4BFD438"
+      "whereCallSiteRva": "0x4BFD438",
+      "whereTargetRva": "0x3756AE0",
+      "nativeWherePredicateEndExclusive": "0x4C00A04"
     },
     "resultMapping": {
       "lambdaRva": "0x4BFF330",
@@ -48,7 +69,11 @@
       "resultItemIdOffset": "0x18",
       "selectCallRva": "0x4BFD874",
       "toListCallRva": "0x4BFD880",
-      "meaning": "return CraftingRecipeItemData.Result.ItemID, not recipe item ID"
+      "meaning": "return CraftingRecipeItemData.Result.ItemID, not recipe item ID",
+      "selectedFromRecipeTypeCase2At": "0x4BFD4E8",
+      "sharedSelectEntryRva": "0x4BFD86C",
+      "nullResult": "original projector 0x4BFF330: cbz recipe and cbz recipe.Result -> BL 0xAFB960 exceptional helper at 0x4BFF350; not a valid returned ItemID",
+      "nullRuntimeMeaning": "UNKNOWN_NEED_RUNTIME_FOR_OBSERVABLE_DATA__NATIVE_EXCEPTION_BRANCH_CONFIRMED"
     },
     "protobuf": {
       "CollectionItemTypeCrafting": 8,
@@ -65,8 +90,32 @@
       "resultItemCanBeCollected": "UNKNOWN_BY_RETURNED_CONCRETE_ITEM_TYPE",
       "nativeResultMapping": "RecipeType native Where uses CraftingRecipeItemData, result projector b__34 uses ResultInstance.ItemID, not recipe ItemID."
     },
-    "expression": "GetAllByType<CraftingRecipeItemData>(ItemType12).Where(recipe => recipe.RecipeType == selector.RecipeType).Select(recipe => recipe.Result.ItemID).ToList()",
-    "commonIsValidSeparate": true
+    "expression": "GetAllByType<CraftingRecipeItemData, ActivityDataItemType>(ItemType205, subtype3).Where(recipe => recipe.RecipeType == selector.RecipeType).Select(recipe => recipe.Result.ItemID).ToList()",
+    "commonIsValidSeparate": true,
+    "historicalRed": {
+      "classification": "SUPERSEDED_WRONG_CRITTER_BRANCH__QR208_RED_CONFIRMED",
+      "legacyOuterCase": 5,
+      "legacyCallRva": "0x4BFC974",
+      "legacyAdrpRva": "0x4BFC968",
+      "legacyLdrRva": "0x4BFC970",
+      "legacyUsageRva": "0xB1EF488",
+      "legacyUsage": "0xC003032D",
+      "legacyMethodSpecIndex": 98710,
+      "legacyMethodSpecHex": "29950100ffffffff8f200000",
+      "legacyInstantiationIndex": 8335,
+      "legacyTrueTypeDef": 9630,
+      "legacyTrueTypeName": "CritterItemData",
+      "legacyItemType12": 12,
+      "legacyCallTarget": "0x37811C0",
+      "legacyOpcodeSlice": "0x4BFC918..0x4BFC9B4",
+      "legacyOpcodeSliceSha256": "42c12871749ab6e5faf112e50924e6186b45bfed86678f908cd1c5c035a55940",
+      "otherMethodSpecIndex": 98709,
+      "otherMethodSpecHex": "29950100ffffffff86200000",
+      "otherInstantiationIndex": 8326,
+      "otherTypeDef": 9715,
+      "otherTypeName": "CraftingRecipeItemData",
+      "otherWarning": "Correct class at one-generic MethodSpec98709 does not prove usage in Collection Crafting branch and MUST NOT replace 98762"
+    }
   },
   "selectors": [
     {
@@ -502,5 +551,19 @@
     "lookupSourceResultItemIDPresent": 1206,
     "valuesWithDefinitions": 8,
     "notRuntimeItemDatabase": true
+  },
+  "correction20261027": {
+    "qrRedPr": 208,
+    "qrFrozenOwnerHead": "64913f8d63f90dc9ada1200a1249aff373217420",
+    "classification": "OWNER_CORRECTION_PENDING_INDEPENDENT_QR",
+    "sourceItemType": 205,
+    "sourceSubtype": 3,
+    "sourceRowsValidated": 1206,
+    "selectorOccurrences": 28,
+    "uniqueCollectionDefinitions": 25,
+    "originalInputSource": "five original Switch1.25.0 SHA-pinned sources; no version promotion",
+    "oldRedRemovedFromAuthority": true,
+    "finalMembershipKnown": false,
+    "denominator": null
   }
 }
