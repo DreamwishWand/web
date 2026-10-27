@@ -1,0 +1,281 @@
+{
+  "schema": "ddv.collection-activity-mineral-native-v125@1",
+  "classification": "OWNER_SAME_BUILD_ORIGINAL_STATIC_PREDICATE_ONLY_QR_PENDING",
+  "scope": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "bid": "52BD625D9B4E0053",
+    "saveSchema": 624
+  },
+  "sources": {
+    "exeFsMain": {
+      "bytes": 96002294,
+      "sha256": "3258d5e05aded708c06017b8763fa37bfb696385a2ab29dd8a182d3938cbc0e0"
+    },
+    "originalMetadata": {
+      "bytes": 36538728,
+      "version": 31,
+      "sha256": "07e919f07f7be2df883b7292bd3c699f670b4c1e8ff496ef7747447f5baa9f7c"
+    },
+    "dumpCs": {
+      "bytes": 59624529,
+      "sha256": "a94ae73d522f160d21255b195b4d834bf5c79db59ddbd8cdfc32e54c6e0671f0"
+    },
+    "losslessItemDbGzip": {
+      "bytes": 5090928,
+      "sha256": "df78c309a8023667c92426e3b929ed3e51aadf10d943835a3673cefa585f8048"
+    },
+    "supportTablesGzip": {
+      "bytes": 168583,
+      "sha256": "537cfcf14beca1e76496d4f9c5b60bd7e31d385a16fd69e63083df6978fdf4b9"
+    },
+    "historicalD548": {
+      "rawOriginalSource": "NEED_SOURCE",
+      "equatedToOriginal": false
+    }
+  },
+  "selectionComparison": [
+    {
+      "definitionId": 2120000020,
+      "activityCase": 4,
+      "name": "Fish",
+      "branchRva": "0x4BFD8A0",
+      "genericMethodSpec": 98766,
+      "concreteGenericTypeDef": 9692,
+      "reason": "Original Fish branch uses FishingDataItemData (ActivityData ItemType205, subtype1) and an additional FishingData predicate/result mapping; result cannot be treated as FishItemData native membership",
+      "state": "UNKNOWN"
+    },
+    {
+      "definitionId": 2120000084,
+      "activityCase": 7,
+      "name": "Mineral",
+      "branchRva": "0x4BFDE68",
+      "genericMethodSpec": 98775,
+      "concreteGenericTypeDef": 9063,
+      "reason": "Same-build native branch/protobuf/interface/getter all independently grounded",
+      "state": "OWNER_CONFIRMED_STATIC_PREDICATE"
+    },
+    {
+      "definitionId": 2120000096,
+      "activityCase": 6,
+      "name": "CraftingMaterial",
+      "branchRva": "0x4BFCAF4",
+      "genericMethodSpec": 98757,
+      "concreteGenericTypeDef": 9044,
+      "reason": "Distinct subtype17 and ActivityItemData typed path; postpone separate raw/protobuf review",
+      "state": "UNKNOWN"
+    }
+  ],
+  "definition": {
+    "id": 2120000084,
+    "name": "Minerals",
+    "originalRawPayloadBytes": 114,
+    "originalRawPayloadSha256": "55be403d62d4b9ac75ed7a0a339b085b55c6b6c3fe23b188908851efba814e19",
+    "groupField9WireHex": "4a100a0808011204a8db880f120432023a00",
+    "outerOneof": "ActivityItem",
+    "outerField": 6,
+    "outerCase": 6,
+    "innerOneof": "Mineral",
+    "innerField": 7,
+    "innerCase": 7,
+    "innerIsExplicitEmptyMessage": true,
+    "byTypeIgnore": {
+      "fieldPresent": false,
+      "protobufDefault": false
+    },
+    "distinctByItem": {
+      "ignoreFieldPresent": true,
+      "ignore": true,
+      "itemIDs": [
+        31600040
+      ]
+    },
+    "fieldPath": "CollectionSet.Groups field9 -> CollectionsByType field2 -> ActivityItem field6 -> Mineral field7"
+  },
+  "native": {
+    "_getItemsFromTypeRva": "0x4BFAA70",
+    "mineralArm": {
+      "startRva": "0x4BFDE68",
+      "endExclusiveRva": "0x4BFDF64",
+      "bytes": 252,
+      "sha256": "4703f8dcee3487eb05203cab1182fe8be1f3e844c32596897a56d1357b462eee",
+      "innerCaseCmpRva": "0x4BFDE68",
+      "instruction": "cmp w8,#7",
+      "itemTypeArgument": {
+        "rva": "0x4BFDEA0",
+        "register": "w1",
+        "value": 3
+      },
+      "subtypeArgument": {
+        "rva": "0x4BFDE9C",
+        "register": "w8",
+        "storedRva": "0x4BFDEA4",
+        "stackArgument": "[sp,#0x18]",
+        "value": 16,
+        "name": "ActivityItemType.Mineral"
+      },
+      "call": {
+        "rva": "0x4BFDEA8",
+        "nativeTarget": "0x37816F0",
+        "method": "ItemDatabase.GetAllByType<ItemDataType,SubItemEnumType>(ItemType,SubItemEnumType)"
+      }
+    },
+    "generic": {
+      "usageRva": "0xB1EF690",
+      "encodedUsage": "0xC00303AF",
+      "methodSpecIndex": 98775,
+      "methodSpecRva": "0x96E60B0",
+      "methodSpecHex": "2a950100ffffffff49870000",
+      "methodDefIndex": 103722,
+      "methodDefName": "GetAllByType",
+      "methodDefDeclaringType": 10610,
+      "instantiationIndex": 34633,
+      "originalNsoInstTableBase": "0xAC24890",
+      "originalNsoInstTableEntryRva": "0xAC682D8",
+      "originalInstRva": "0xAC1F870",
+      "genericArgTypes": [
+        {
+          "position": 0,
+          "name": "MineralItemData",
+          "typeDefIndex": 9063,
+          "originalTypePointerRva": "0xB313598"
+        },
+        {
+          "position": 1,
+          "name": "ActivityItemType",
+          "typeDefIndex": 10400,
+          "originalTypePointerRva": "0xB2CCFD8"
+        }
+      ],
+      "notFlowerGeneric": true
+    },
+    "projector": {
+      "symbol": "CollectionGroup.<>c.<_GetItemsFromType>b__46_14(MineralItemData)",
+      "rva": "0x4BFF7C0",
+      "bytes": 160,
+      "sha256": "091f6df3a1790b1a787ced9caa5cf709cd21ae08b3f9f57155398d0736408b8e",
+      "idReadRva": "0x4BFF7E8",
+      "idFieldOffset": "0x18",
+      "selectCallRva": "0x4BFD874",
+      "selectTarget": "0x3752680",
+      "hasMineralWhere": false
+    },
+    "selectorStageExpression": "ItemDatabase.GetAllByType<MineralItemData,ActivityItemType>(ItemType=3, ActivityItemType.Mineral=16).Select(mineral => mineral.ID)",
+    "separateCommonIsValidGate": true
+  },
+  "concrete": {
+    "typeName": "MineralItemData",
+    "typeDefIndex": 9063,
+    "typeDefRecordBytes": 88,
+    "typeDefRecordSha256": "1bc0bba3688460e826bd497c173771f27df38eee141c323444a449cde16a5d40",
+    "interfaceOffsetsStart": 18342,
+    "interfaceOffsetsCount": 18,
+    "interfaceOffsetRecordSha256": "5cf1e5dd3ffd6a275fc1ccea7b2c77a88b453500e3421234e71b4e4b586ec992",
+    "icollectionInterfaceTypeIndex": 64932,
+    "icollectionOffset": 33,
+    "icollectionGetterVirtualSlot": 1,
+    "icollectionConcreteVtableSlot": 34,
+    "originalVtableEncodedMethod": "0x60028BB9",
+    "methodDefIndex": 83420,
+    "methodDefName": "get_CanBeCollected",
+    "variationInterfaceTypeIndex": 65831,
+    "variationImplemented": false,
+    "getCanBeCollected": {
+      "rva": "0x451B400",
+      "bytes": 16,
+      "instructionHex": "088041391f010071e0179f1ac0035fd6",
+      "sha256": "9173b888b01aea203e357cfeda024f06898a1824ae272ffcf5c2389d294bbd4c",
+      "expression": "!IsMissionItem",
+      "instanceBoolOffset": "0x60"
+    },
+    "protobuf": {
+      "itemIdField": 1,
+      "missionFlagField": 11,
+      "missionDefault": false
+    }
+  },
+  "originalTypedMineralSource": {
+    "source": "Lossless Item DB MineralItemData original rawPayloadBase64 individually SHA256 verified; source-only",
+    "recordsChecked": 53,
+    "itemType": 3,
+    "subtype": 16,
+    "missionField11Absent": 53,
+    "missionField11ExplicitTrue": 0,
+    "typedGetterStaticTrue": 53,
+    "notRuntimeEnumeratorOutput": true,
+    "examples": [
+      {
+        "itemId": 31600002,
+        "name": "Diamond",
+        "rawPayloadBytes": 243,
+        "rawPayloadSha256": "0ca66672c579aa627fba3778df8e117248e406a4b7ea0d66259158e73fb15dc1",
+        "missionField11Present": false,
+        "missionByDefault": false,
+        "staticSelector": "TYPED_SOURCE_POSITIVE",
+        "staticGetter": true
+      },
+      {
+        "itemId": 31600040,
+        "name": "Onyx_Shiny",
+        "rawPayloadBytes": 254,
+        "rawPayloadSha256": "da8207b0bbaceff6077a701e391a173ba828121c147cae8e30a74a4c3be07d13",
+        "missionField11Present": false,
+        "staticSelector": "TYPED_SOURCE_POSITIVE",
+        "byItemIgnoreSeparately": true,
+        "finalGroupMembership": "UNKNOWN",
+        "staticGetter": true
+      },
+      {
+        "itemId": 31600082,
+        "name": "Mini01!HoneyAgate",
+        "rawPayloadBytes": 273,
+        "rawPayloadSha256": "9a1e4e1f467378b5efb2242bd2c905867096234f9254f2854238cecff7f2f928",
+        "missionField11Present": false,
+        "staticSelector": "TYPED_SOURCE_POSITIVE",
+        "staticGetter": true
+      }
+    ],
+    "negativeOtherSubtype": {
+      "itemId": 31700000,
+      "name": "Refinement!Brick",
+      "type": "ActivityItemData",
+      "itemType": 3,
+      "subtype": 17,
+      "rawPayloadSha256": "50dd483949b61c6c1bf7e8848db9a9b8d991d00818341f5000a3e9017332c74a",
+      "staticMineralTypedSelector": "NEGATIVE_DISTINCT_SOURCE_SUBTYPE",
+      "nativeCollectionMembership": "UNKNOWN"
+    },
+    "unknowns": [
+      "No same-concrete MineralItemData Mission=true raw source exemplar; inferred bool false conditional from original native getter, not manufactured",
+      "Mineral typed GetAllByType runtime ItemDatabase result set unobserved; the 53 Source row count is not live enumeration nor collection denominator"
+    ]
+  },
+  "coverage": {
+    "previous": 101,
+    "newStaticSelectorClosed": 1,
+    "now": 102,
+    "total": 256,
+    "remainingUnknown": 154,
+    "byFamily": {
+      "ActivityItem": 2,
+      "Crafting": 28,
+      "Clothing": 61,
+      "Furniture": 63
+    }
+  },
+  "safety": {
+    "independentQrAccepted": false,
+    "realDeviceRuntimeEvidence": false,
+    "finalMembershipKnown": false,
+    "denominator": null,
+    "owned": "UNKNOWN",
+    "collected": "UNKNOWN",
+    "missing": "UNKNOWN",
+    "personalCollectionMetricsEnabled": false,
+    "nativeSaveWriterEnabled": false,
+    "presetApplyEnabled": false,
+    "communityPublishingEnabled": false,
+    "entitlementEditEnabled": false,
+    "switch1253OrSteamTransferred": false
+  }
+}
