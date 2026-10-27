@@ -1,0 +1,69 @@
+name: QR Creator typed Work independent source and Chrome
+on:
+  push:
+    branches:
+      - qr/creator-typed-work-independent-20261027
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact Owner provenance
+        run: |
+          git merge-base --is-ancestor d54b982a28046c441c7f2030c90f2a387c77f82b HEAD
+          git diff --name-only d54b982a28046c441c7f2030c90f2a387c77f82b HEAD
+      - name: Independent source acceptance (expected RED if in-page QA route still stale)
+        run: node --test tests/qr-creator-typed-work-independent.test.mjs
+  independent-real-chrome:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Chrome provenance
+        id: chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          echo "bin=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+          "$CHROME_BIN" --version
+          fc-match :lang=ja | head -n 1 || true
+      - name: Disposable static source UI
+        env:
+          VITE_SUPABASE_URL: https://qr223-synthetic.invalid
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_QR223_SYNTHETIC_ONLY
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4179 >/tmp/qr223-vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4179/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr223-vite.log
+          exit 1
+      - name: Independent browser acceptance, no real Actor/Media
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.bin }}
+          QR222_BASE_URL: http://127.0.0.1:4179
+        run: node scripts/qr-creator-typed-work-independent-chrome.mjs
+      - name: Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qr-creator-typed-work-independent-chrome
+          path: .artifacts/qr-creator-typed-work/
+          if-no-files-found: warn
+      - name: Diagnostic
+        if: failure()
+        run: cat /tmp/qr223-vite.log || true
