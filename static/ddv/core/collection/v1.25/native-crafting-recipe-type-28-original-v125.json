@@ -6,7 +6,7 @@
     "bid": "52BD625D9B4E0053",
     "saveSchema": 624
   },
-  "status": "OWNER_STATIC_PREDICATE_PENDING_PER_ROW_HASH_AND_TEST",
+  "status": "OWNER_STATIC_NATIVE_SELECTOR_COMPLETED_ORIGINAL_ROW_SHA_AND_WIRE_PINNED_QR_PENDING",
   "sourceSha256": {
     "main": "3258d5e05aded708c06017b8763fa37bfb696385a2ab29dd8a182d3938cbc0e0",
     "metadataV31": "07e919f07f7be2df883b7292bd3c699f670b4c1e8ff496ef7747447f5baa9f7c",
@@ -62,7 +62,8 @@
       "type": "CraftingRecipeItemData",
       "implementsICollectionItem": false,
       "variationInterfaceUnproven": "NOT_USED_ON_RECIPE_DATA",
-      "resultItemCanBeCollected": "UNKNOWN_BY_RETURNED_CONCRETE_ITEM_TYPE"
+      "resultItemCanBeCollected": "UNKNOWN_BY_RETURNED_CONCRETE_ITEM_TYPE",
+      "nativeResultMapping": "RecipeType native Where uses CraftingRecipeItemData, result projector b__34 uses ResultInstance.ItemID, not recipe ItemID."
     },
     "expression": "GetAllByType<CraftingRecipeItemData>(ItemType12).Where(recipe => recipe.RecipeType == selector.RecipeType).Select(recipe => recipe.Result.ItemID).ToList()",
     "commonIsValidSeparate": true
@@ -73,224 +74,308 @@
       "definitionName": "SetItemFurnitureMickey",
       "recipeType": 2001100008,
       "byTypeIgnore": true,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "6beac25675cfd57e875a48a0b4a7a308c9b5b8d22193b1999056d943f86c36dc",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 182,
+      "fullOriginalRecordSHA256": "6beac25675cfd57e875a48a0b4a7a308c9b5b8d22193b1999056d943f86c36dc",
+      "craftingByTypeBoundedWireHex": "0801420610e8b999ba07"
     },
     {
       "definitionId": 2120000042,
       "definitionName": "SetItemFurnitureBeautyAndBeast",
       "recipeType": 2001100008,
       "byTypeIgnore": true,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "aee8987ce588c9736b185413ae0e02950e60de1ef3ca8a28bc69be909a9c12ae",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 166,
+      "fullOriginalRecordSHA256": "aee8987ce588c9736b185413ae0e02950e60de1ef3ca8a28bc69be909a9c12ae",
+      "craftingByTypeBoundedWireHex": "0801420610e8b999ba07"
     },
     {
       "definitionId": 2120000060,
       "definitionName": "SetItemFurnitureRalph",
       "recipeType": 2001100008,
       "byTypeIgnore": true,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "34c223b9cbd66e29c7b4855694bddb6b92f239b1e10f43a0b81eea6c64009319",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 148,
+      "fullOriginalRecordSHA256": "34c223b9cbd66e29c7b4855694bddb6b92f239b1e10f43a0b81eea6c64009319",
+      "craftingByTypeBoundedWireHex": "0801420610e8b999ba07"
     },
     {
       "definitionId": 2120000061,
       "definitionName": "SetItemFurnitureRatatouille",
       "recipeType": 2001100008,
       "byTypeIgnore": true,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "96ae93f7985d0e2cc851e15aab096bfdafda958092b9241284494b8c94952188",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 160,
+      "fullOriginalRecordSHA256": "96ae93f7985d0e2cc851e15aab096bfdafda958092b9241284494b8c94952188",
+      "craftingByTypeBoundedWireHex": "0801420610e8b999ba07"
     },
     {
       "definitionId": 2120000063,
       "definitionName": "SetItemFurnitureMonsterInc",
       "recipeType": 2001100008,
       "byTypeIgnore": true,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "2b38f771fe0ed302ae70cdae7277b621e23e505b3b80262188958754908aabe0",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 158,
+      "fullOriginalRecordSHA256": "2b38f771fe0ed302ae70cdae7277b621e23e505b3b80262188958754908aabe0",
+      "craftingByTypeBoundedWireHex": "0801420610e8b999ba07"
     },
     {
       "definitionId": 2120000064,
       "definitionName": "SetItemFurnitureFrozen",
       "recipeType": 2001100008,
       "byTypeIgnore": true,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "c8dd56dd53b29ffcd10bbac43f02ae0b52f9e82c4a955550f2e177f4aaadf305",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 150,
+      "fullOriginalRecordSHA256": "c8dd56dd53b29ffcd10bbac43f02ae0b52f9e82c4a955550f2e177f4aaadf305",
+      "craftingByTypeBoundedWireHex": "0801420610e8b999ba07"
     },
     {
       "definitionId": 2120000096,
       "definitionName": "ForagingCrafting",
       "recipeType": 2001100001,
       "byTypeIgnore": true,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "0d29ce51cd9970208831abd746e9371187bf78875d1dbdcd54c96b95b380443c",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 313,
+      "fullOriginalRecordSHA256": "0d29ce51cd9970208831abd746e9371187bf78875d1dbdcd54c96b95b380443c",
+      "craftingByTypeBoundedWireHex": "0801420610e1b999ba07"
     },
     {
       "definitionId": 2120000101,
       "definitionName": "SetItemFurnitureLittleMermaid",
       "recipeType": 2001100008,
       "byTypeIgnore": true,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "76bdd8e5985dada1c4fc76d765cefcb1c3a16fc9db0803dfbfc1b2dc758cb502",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 164,
+      "fullOriginalRecordSHA256": "76bdd8e5985dada1c4fc76d765cefcb1c3a16fc9db0803dfbfc1b2dc758cb502",
+      "craftingByTypeBoundedWireHex": "0801420610e8b999ba07"
     },
     {
       "definitionId": 2120000102,
       "definitionName": "SetItemFurnitureSwordStone",
       "recipeType": 2001100008,
       "byTypeIgnore": true,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "341369df81d4d9b954d8ff03444484d97e428be38ea6ea5914cd6fdfa5ee9e9f",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 156,
+      "fullOriginalRecordSHA256": "341369df81d4d9b954d8ff03444484d97e428be38ea6ea5914cd6fdfa5ee9e9f",
+      "craftingByTypeBoundedWireHex": "0801420610e8b999ba07"
     },
     {
       "definitionId": 2120000104,
       "definitionName": "SetItemFurnitureTangled",
       "recipeType": 2001100008,
       "byTypeIgnore": true,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "0c52fc8ff20d31cc870bec0b2d9929ca12d353f2329ed71d875bf0228d07a88a",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 152,
+      "fullOriginalRecordSHA256": "0c52fc8ff20d31cc870bec0b2d9929ca12d353f2329ed71d875bf0228d07a88a",
+      "craftingByTypeBoundedWireHex": "0801420610e8b999ba07"
     },
     {
       "definitionId": 2120000117,
       "definitionName": "CraftingRefinedMaterials",
       "recipeType": 2001100001,
       "byTypeIgnore": false,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "5ebb6cfb4ef8027a38f7d36618949b589e25104d2aff957ec20301feec310f35",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 174,
+      "fullOriginalRecordSHA256": "5ebb6cfb4ef8027a38f7d36618949b589e25104d2aff957ec20301feec310f35",
+      "craftingByTypeBoundedWireHex": "420610e1b999ba07"
     },
     {
       "definitionId": 2120000119,
       "definitionName": "CraftingEnchantment",
       "recipeType": 2001100003,
       "byTypeIgnore": false,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "851a2b09a4fc4baa59db8a9cc24d794c639ac52f224dc75766ded82f8abcbb27",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 132,
+      "fullOriginalRecordSHA256": "851a2b09a4fc4baa59db8a9cc24d794c639ac52f224dc75766ded82f8abcbb27",
+      "craftingByTypeBoundedWireHex": "420610e3b999ba07"
     },
     {
       "definitionId": 2120000120,
       "definitionName": "CraftingFurnitures",
       "recipeType": 2001100000,
       "byTypeIgnore": false,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "de5099e58eab4e72b0ff9766b2c1391acfd4201ada1f36c4385274ba3ee5720e",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 150,
+      "fullOriginalRecordSHA256": "de5099e58eab4e72b0ff9766b2c1391acfd4201ada1f36c4385274ba3ee5720e",
+      "craftingByTypeBoundedWireHex": "420610e0b999ba07"
     },
     {
       "definitionId": 2120000121,
       "definitionName": "CraftingFencesPaving",
       "recipeType": 2001100002,
       "byTypeIgnore": false,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "aab004e038b4877a5a41ff26b37c9fef19467afa4ab600357e93e7e47a0e1feb",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 153,
+      "fullOriginalRecordSHA256": "aab004e038b4877a5a41ff26b37c9fef19467afa4ab600357e93e7e47a0e1feb",
+      "craftingByTypeBoundedWireHex": "420610e2b999ba07"
     },
     {
       "definitionId": 2120000121,
       "definitionName": "CraftingFencesPaving",
       "recipeType": 2001100006,
       "byTypeIgnore": false,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "aab004e038b4877a5a41ff26b37c9fef19467afa4ab600357e93e7e47a0e1feb",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 153,
+      "fullOriginalRecordSHA256": "aab004e038b4877a5a41ff26b37c9fef19467afa4ab600357e93e7e47a0e1feb",
+      "craftingByTypeBoundedWireHex": "420610e6b999ba07"
     },
     {
       "definitionId": 2120000124,
       "definitionName": "SetItemFurnitureAncientCiv",
       "recipeType": 2001100007,
       "byTypeIgnore": true,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "69f6670642436fa3f25ccf180bb762ec9093e00624ba7ae2325695aed18b3162",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 188,
+      "fullOriginalRecordSHA256": "69f6670642436fa3f25ccf180bb762ec9093e00624ba7ae2325695aed18b3162",
+      "craftingByTypeBoundedWireHex": "0801420610e7b999ba07"
     },
     {
       "definitionId": 2120000129,
       "definitionName": "SetItemFurnitureCars",
       "recipeType": 2001100008,
       "byTypeIgnore": true,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "1c8d57b69ee03373019c7046262643856b082e38aaf86d9c00f63c7714066a35",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 146,
+      "fullOriginalRecordSHA256": "1c8d57b69ee03373019c7046262643856b082e38aaf86d9c00f63c7714066a35",
+      "craftingByTypeBoundedWireHex": "0801420610e8b999ba07"
     },
     {
       "definitionId": 2120000139,
       "definitionName": "SetItemFurnitureHercules",
       "recipeType": 2001100008,
       "byTypeIgnore": true,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "07eb56ff21972593e35eb34820f46ff8dfc573f89304b427efe165d2473a88b5",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 154,
+      "fullOriginalRecordSHA256": "07eb56ff21972593e35eb34820f46ff8dfc573f89304b427efe165d2473a88b5",
+      "craftingByTypeBoundedWireHex": "0801420610e8b999ba07"
     },
     {
       "definitionId": 2120000145,
       "definitionName": "SetItemFurnitureEncanto",
       "recipeType": 2001100008,
       "byTypeIgnore": true,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "b8e5945d0e19d1b35c4ed2a50b8fe991fabe9b4eb5681eaf1d578ba1f10ab478",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 152,
+      "fullOriginalRecordSHA256": "b8e5945d0e19d1b35c4ed2a50b8fe991fabe9b4eb5681eaf1d578ba1f10ab478",
+      "craftingByTypeBoundedWireHex": "0801420610e8b999ba07"
     },
     {
       "definitionId": 2120000159,
       "definitionName": "SetItemFurnitureInsideOut",
       "recipeType": 2001100008,
       "byTypeIgnore": true,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "9d7ae5079dc0d905b8935a7f6e40fdb5a21c0ea55ea5f57cffffee61cb3889e5",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 156,
+      "fullOriginalRecordSHA256": "9d7ae5079dc0d905b8935a7f6e40fdb5a21c0ea55ea5f57cffffee61cb3889e5",
+      "craftingByTypeBoundedWireHex": "0801420610e8b999ba07"
     },
     {
       "definitionId": 2120000183,
       "definitionName": "SetItemFunitureAladdin",
       "recipeType": 2001100008,
       "byTypeIgnore": true,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "e6920ed14cd6a380477b635d8fec5d367e43fbaf0de667c4960cdd5b8d1d1354",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 150,
+      "fullOriginalRecordSHA256": "e6920ed14cd6a380477b635d8fec5d367e43fbaf0de667c4960cdd5b8d1d1354",
+      "craftingByTypeBoundedWireHex": "0801420610e8b999ba07"
     },
     {
       "definitionId": 2120000186,
       "definitionName": "SetItemFurnitureBrave",
       "recipeType": 2001100008,
       "byTypeIgnore": true,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "74328e86d5599990423163395b5bf83eb7892166d1311f59e772ea49f37104be",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 148,
+      "fullOriginalRecordSHA256": "74328e86d5599990423163395b5bf83eb7892166d1311f59e772ea49f37104be",
+      "craftingByTypeBoundedWireHex": "0801420610e8b999ba07"
     },
     {
       "definitionId": 2120000202,
       "definitionName": "Expansion01!TimeBendingAncientMachines",
       "recipeType": 2001100005,
       "byTypeIgnore": false,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "1aa08bcb0dd080af9dc7175892aeaf827147e9b8812fb6722069265cc9eb3458",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 170,
+      "fullOriginalRecordSHA256": "1aa08bcb0dd080af9dc7175892aeaf827147e9b8812fb6722069265cc9eb3458",
+      "craftingByTypeBoundedWireHex": "420610e5b999ba07"
     },
     {
       "definitionId": 2120000205,
       "definitionName": "Expansion01!TimeBendingFurniture",
       "recipeType": 2001100007,
       "byTypeIgnore": false,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "351becf7ef0396e2f931fffd399440b736090e950310fac7909bf73d0e5c848a",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 178,
+      "fullOriginalRecordSHA256": "351becf7ef0396e2f931fffd399440b736090e950310fac7909bf73d0e5c848a",
+      "craftingByTypeBoundedWireHex": "420610e7b999ba07"
     },
     {
       "definitionId": 2120000205,
       "definitionName": "Expansion01!TimeBendingFurniture",
       "recipeType": 2001100006,
       "byTypeIgnore": false,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "351becf7ef0396e2f931fffd399440b736090e950310fac7909bf73d0e5c848a",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 178,
+      "fullOriginalRecordSHA256": "351becf7ef0396e2f931fffd399440b736090e950310fac7909bf73d0e5c848a",
+      "craftingByTypeBoundedWireHex": "420610e6b999ba07"
     },
     {
       "definitionId": 2120000205,
       "definitionName": "Expansion01!TimeBendingFurniture",
       "recipeType": 2001100008,
       "byTypeIgnore": false,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "351becf7ef0396e2f931fffd399440b736090e950310fac7909bf73d0e5c848a",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 178,
+      "fullOriginalRecordSHA256": "351becf7ef0396e2f931fffd399440b736090e950310fac7909bf73d0e5c848a",
+      "craftingByTypeBoundedWireHex": "420610e8b999ba07"
     },
     {
       "definitionId": 2120000312,
       "definitionName": "SetItemFurnitureABugsLife",
       "recipeType": 2001100008,
       "byTypeIgnore": true,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "f1e3b2134d971e10d95c737119389a946d216a6862b23aa5ea37e7296b4410a2",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 156,
+      "fullOriginalRecordSHA256": "f1e3b2134d971e10d95c737119389a946d216a6862b23aa5ea37e7296b4410a2",
+      "craftingByTypeBoundedWireHex": "0801420610e8b999ba07"
     },
     {
       "definitionId": 2120000339,
       "definitionName": "SetItemFurnitureBlackCauldron",
       "recipeType": 2001100008,
       "byTypeIgnore": true,
-      "rawSha256": "NEED_ROW_HASH_ATTACH",
-      "source": "original retained Support Tables row"
+      "rawSha256": "66febbdefe2ed9284c132d2ca0db41a08b5ad0a5f197e27f66a95f988f512b3a",
+      "source": "original retained Support Tables row",
+      "fullOriginalRecordBytes": 164,
+      "fullOriginalRecordSHA256": "66febbdefe2ed9284c132d2ca0db41a08b5ad0a5f197e27f66a95f988f512b3a",
+      "craftingByTypeBoundedWireHex": "0801420610e8b999ba07"
     }
   ],
   "sourceRecipeCount": 1206,
@@ -321,5 +406,12 @@
     "entitlementEditing": false,
     "steamOr626": false
   },
-  "historicalUntracedD548": "NEED_SOURCE_NOT_EQUATED"
+  "historicalUntracedD548": "NEED_SOURCE_NOT_EQUATED",
+  "provenance": {
+    "rawSourceLocallyRehashed": true,
+    "rawSourceNotCommitted": true,
+    "recipeSourceRecords": 1206,
+    "originalRecipeResultField6AllPresent": true,
+    "wholeOriginalCollectionSetJson": "MANIFEST_ONLY_NOT_REHASHED"
+  }
 }
