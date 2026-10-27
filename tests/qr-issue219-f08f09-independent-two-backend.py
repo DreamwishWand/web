@@ -34,7 +34,8 @@ def expect(c,visible,label,except_phase=False):
     else:
         media_rejects(c)
         if except_phase:
-            try: get_results(c)
+            try:
+                with c.transaction():get_results(c)
             except psycopg.Error as ex:
                 assert "DreamSnaps Results are not publicly accessible" in str(ex),(label,ex)
             else:raise AssertionError(label+" EARLY_CHALLENGE_RESULTS_ALLOWED")
@@ -81,11 +82,23 @@ with psycopg.connect(DSN,autocommit=True) as writer, psycopg.connect(DSN,autocom
     expect(reader,True,"PUBLIC_CLOSED_PHASE_GLOBAL_OFF_NO_IMAGE_SUPPRESSION")
     assert one(writer,"select count(*) from private.dreamsnap_official_result_account_consent_r20 where account_id=%s",(account,))==0
     def update_case(label,apply_sql,apply_args,restore_sql,restore_args,early=False):
-        with writer.transaction():writer.execute(apply_sql,apply_args)
-        try:expect(reader,False,label,early)
+        # Real function/ACL checked as service_role against ACTUAL mutated SQL
+        # inside an isolated real PG transaction. A second backend proves the
+        # precommit version is still public; rollback preserves publication
+        # invariant enforced by guard_dreamsnap_work_publication() trigger.
+        # Never fake an illegal PRIVATE->PUBLISHED restore by disabling triggers.
+        writer.execute('begin')
+        writer.execute('savepoint qr219_case')
+        try:
+            writer.execute(apply_sql,apply_args)
+            writer.execute('set local role service_role')
+            expect(writer,False,label,early)
+            expect(reader,True,label+'_SECOND_BACKEND_UNCOMMITTED_NOT_VISIBLE')
         finally:
-            with writer.transaction():writer.execute(restore_sql,restore_args)
-        expect(reader,True,label+"_RESTORED_AFTER_COMMIT")
+            writer.execute('rollback to savepoint qr219_case')
+            writer.execute('release savepoint qr219_case')
+            writer.execute('rollback')
+        expect(reader,True,label+"_PUBLIC_PRESERVED")
     cases=[
       ("PRIVATE_WORK","update public.community_works set visibility='private' where work_id=%s",(work,),
         "update public.community_works set visibility='public' where work_id=%s",(work,),False),
@@ -148,4 +161,11 @@ with psycopg.connect(DSN,autocommit=True) as writer, psycopg.connect(DSN,autocom
     media_rejects(reader,media)
     assert get_image(reader,mid2)["mediaId"]==str(mid2)
     print(json.dumps({"scenario":"STALE_REVISION_OLD_GALLERY_SEPARATE_REFERENCE","oldResult":False,"oldMedia":False,"newMedia":True}))
+    # At least ONE committed state transition is independently read by the
+    # SECOND actual service_role backend after commit, not merely local
+    # uncommitted predicates. Do not attempt to republish a withdrawn Work:
+    # guard_dreamsnap_work_publication() prohibits it by design.
+    with writer.transaction():
+        writer.execute("update public.community_works set visibility='private' where work_id=%s",(work,))
+    expect(reader,False,"COMMITTED_PRIVATE_WORK_OTHER_BACKEND_DENIED")
     print(json.dumps({"marker":"QR219_INDEPENDENT_TWO_REAL_PG_F08_F09_SERVICE_ROLE_WORK_LIVENESS_PASS","sourceOnly":True,"remoteStorage":False,"signedActor":False,"stagingTouched":False}))
