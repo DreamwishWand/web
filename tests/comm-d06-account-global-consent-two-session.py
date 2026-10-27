@@ -24,6 +24,11 @@ with psycopg.connect(dsn,autocommit=True) as setup:
             setup.execute("""insert into public.auth_identities(
                 account_id,provider,provider_subject,last_verified_at,identity_state)
                 values(%s,'supabase',%s,clock_timestamp(),'active')""",(account,str(sub)))
+    # Two existing DDV Profiles (self + managed) share ONE account preference.
+    setup.execute("""insert into public.ddv_profile_workspaces(
+      account_id,relationship_kind,slot_index) values
+      (%s,'self',1),(%s,'parent_guardian_managed',2)""",(owner,owner))
+    assert one(setup,"select count(*) from public.ddv_profile_workspaces where account_id=%s",(owner,))==2
     assert read(setup,subject)['enabled'] is False and read(setup,subject)['rowVersion']==0
     assert read(setup,other_subject)['enabled'] is False
     assert one(setup,"select private.dreamsnap_public_official_result(%s)",(u(),)) is None
@@ -52,6 +57,12 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
     b.execute('rollback')
     a.execute('commit')
     assert read(b,subject)['rowVersion']==1
+    # Future Profile inherits the SAME OFF state; no workspace-specific opt-in.
+    b.execute("""insert into public.ddv_profile_workspaces(
+      account_id,relationship_kind,slot_index) values (%s,'self',3)""",(owner,))
+    assert one(b,"select count(*) from public.ddv_profile_workspaces where account_id=%s",(owner,))==3
+    assert one(b,"select count(*) from private.dreamsnap_official_result_account_consent_r20 where account_id=%s",(owner,))==1
+    assert read(b,subject)['enabled'] is False and read(b,subject)['rowVersion']==1
     denied(b,lambda:setflag(b,subject,0,False),'D06_STALE_ACCOUNT_CONSENT')
     stable=setflag(b,subject,1,False)
     assert stable['rowVersion']==1 and stable['enabled'] is False
