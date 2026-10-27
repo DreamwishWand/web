@@ -524,6 +524,14 @@ export class CommunityLabClient {
       false
     );
 
+    // Denied or indeterminate privacy requests must keep the signed session
+    // available for fresh recent-auth retry. A success means PUBLIC SUPPRESSION
+    // is committed, not that physical/provider account erasure is complete.
+    if (!result.ok || result.stage !== 'privacy_suppressed_cleanup_pending' ||
+        result.fullDeletionComplete !== false) {
+      return result;
+    }
+
     try {
       await fetch(`${this.config.supabaseUrl}/auth/v1/logout?scope=global`, {
         method: 'POST',

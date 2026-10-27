@@ -241,7 +241,7 @@ test('Community Edge adapters trust the verified Supabase user ID, never a clien
 test('active Gallery command path is media-backed v4 and the old media-less RPC is revoked', () => {
   const source = read('supabase/functions/community-command/index.ts');
   const preset = read('supabase/migrations/20260930035240_community_core_v0_preset_bridge.sql');
-  assert.match(source, /publishGallery: 'community_publish_gallery_v4'/);
+  assert.match(source, /publishGallery: 'community_publish_gallery_pinned_r15'/);
   assert.match(source, /mediaIds required/);
   assert.match(source, /p_preset_revision_ids/);
   assert.match(preset, /revoke execute on function public\.community_publish_gallery_v2/i);
@@ -722,9 +722,10 @@ test('Community Ops console is internal, admin-only in intent, and omits secrets
   assert.doesNotMatch(header, /community-ops/i);
 });
 
-test('Community command session authorization is single-source and uses verified jwtClaims', () => {
+test('Community command authorizes initial verified JWT and reauthorizes bounded fresh Gallery retries', () => {
   const command = read('supabase/functions/community-command/index.ts');
-  assert.equal((command.match(/community_authorize_session/g) ?? []).length, 1);
+  assert.equal((command.match(/community_authorize_session/g) ?? []).length, 2);
+  assert.match(command, /if \(attempt > 0\)[\s\S]*community_authorize_session/);
   assert.equal((command.match(/const issuedAt/g) ?? []).length, 1);
   assert.doesNotMatch(command, /function jwtIssuedAt/);
   assert.match(command, /ctx\.jwtClaims\?\.iat/);
@@ -755,7 +756,10 @@ test('self-service account deletion Edge is JWT-bound, session-bound and explici
   assert.match(account, /ctx\.userClaims\?\.id/);
   assert.match(account, /ctx\.jwtClaims\?\.session_id/);
   assert.match(account, /body\.confirmation !== 'DELETE'/);
-  assert.match(account, /community_tombstone_account/);
+  assert.match(account, /community_request_privacy_suppression_v1/);
+  assert.match(account, /privacy_suppressed_cleanup_pending/);
+  assert.match(account, /fullDeletionComplete: false/);
+  assert.doesNotMatch(account, /community_tombstone_account/);
   assert.match(account, /p_session_id: sessionId/);
   assert.match(account, /RECENT_AUTH_REQUIRED/);
   assert.doesNotMatch(account, /payload\.actorAccountId|payload\.actor_account_id/);

@@ -240,90 +240,157 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
     return reply({ ok: true, action, storageKey, contentType: CONTENT_TYPE, maxBytes: MAX_BYTES, signedUpload: data });
   }
 
-  if (action === 'publish') {
+  if (action === 'reservePublication') {
     const storageKey = String(body.storageKey ?? '');
     const creatorProfileId = String(body.creatorProfileId ?? '');
+    const idempotencyKey = String(body.idempotencyKey ?? '').trim();
     const visibility = String(body.visibility ?? 'private');
     const title = String(body.title ?? '').trim();
-    const description = body.description == null ? null : String(body.description);
-    const idempotencyKey = String(body.idempotencyKey ?? '').trim();
+    const description = body.description == null ? '' : String(body.description);
     const metadata = body.metadata && typeof body.metadata === 'object' && !Array.isArray(body.metadata) ? body.metadata : {};
-    if (!creatorProfileId || !title || !idempotencyKey) {
-      return reply({ ok: false, error: 'PUBLISH_METADATA_REQUIRED' }, 400);
+    if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(creatorProfileId) ||
+        !idempotencyKey || idempotencyKey.length > 160 || !title) {
+      return reply({ ok: false, error: 'PRESET_RESERVATION_INPUT_INVALID' }, 400);
     }
-
-    const finalDigest = hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${accountId}:${idempotencyKey}`)));
-    const publishedStorageKey = `published/${accountId}/${finalDigest}.json`;
-
-    let validated;
-    let source: 'staging' | 'published' = 'staging';
+    if (visibility !== 'private' && visibility !== 'public' && visibility !== 'unlisted') {
+      return reply({ ok: false, error: 'PRESET_RESERVATION_VISIBILITY_INVALID' }, 400);
+    }
+    let checked;
     try {
-      validated = await validatedStoredArtifact(ctx, accountId, storageKey, 'staging');
-    } catch (stagingError) {
-      try {
-        validated = await validatedStoredArtifact(ctx, accountId, publishedStorageKey, 'published');
-        source = 'published';
-      } catch (publishedError) {
-        const stagingMessage =
-          stagingError instanceof Error ? stagingError.message : 'ARTIFACT_VALIDATE_FAILED';
-        const publishedMessage =
-          publishedError instanceof Error ? publishedError.message : 'ARTIFACT_VALIDATE_FAILED';
-        return reply(
-          {
-            ok: false,
-            error:
-              publishedMessage === 'UPLOAD_NOT_FOUND'
-                ? stagingMessage
-                : publishedMessage
-          },
-          400
-        );
-      }
+      checked = await validatedStoredArtifact(ctx, accountId, storageKey, 'staging');
+    } catch (e) {
+      return reply({ ok: false, error: 'PRESET_RESERVATION_STAGING_NOT_VERIFIED' }, 409);
     }
-
-    let promotedNewObject = false;
-    if (source === 'staging') {
-      const { error: copyError } = await ctx.supabaseAdmin.storage.from(BUCKET).copy(storageKey, publishedStorageKey);
-      if (copyError) {
-        try {
-          const existing = await validatedStoredArtifact(ctx, accountId, publishedStorageKey, 'published');
-          if (existing.checksumSha256 !== validated.checksumSha256) {
-            return reply({ ok: false, error: 'PUBLISHED_KEY_CONFLICT' }, 409);
-          }
-        } catch {
-          return reply({ ok: false, error: 'ARTIFACT_PROMOTE_FAILED', message: copyError.message }, 400);
-        }
-      } else {
-        promotedNewObject = true;
-      }
-    }
-
-    const { data, error } = await ctx.supabaseAdmin.rpc('community_publish_preset_envelope', {
-      p_auth_subject: subject,
-      p_creator_profile_id: creatorProfileId,
-      p_visibility: visibility,
-      p_preset_type: validated.presetType,
-      p_title: title,
-      p_description: description,
-      p_artifact_storage_key: publishedStorageKey,
-      p_schema_version: validated.schemaVersion,
-      p_content_type: CONTENT_TYPE,
-      p_byte_size: validated.blob.size,
-      p_checksum_sha256: validated.checksumSha256,
-      p_metadata: metadata,
-      p_idempotency_key: idempotencyKey
+    const payload = JSON.stringify({
+      creatorProfileId,visibility,title,description,metadata,
+      schemaVersion:checked.schemaVersion,presetType:checked.presetType,
+      byteSize:checked.blob.size,checksumSha256:checked.checksumSha256
     });
-    if (error) {
-      if (promotedNewObject) {
-        await ctx.supabaseAdmin.storage.from(BUCKET).remove([publishedStorageKey]);
-      }
-      return reply({ ok: false, error: 'PRESET_PUBLISH_FAILED', message: error.message }, 400);
+    const requestHash = hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload)));
+    const finalDigest = hex(await crypto.subtle.digest(
+      'SHA-256', new TextEncoder().encode(`${accountId}:${idempotencyKey}`)
+    ));
+    const publishedStorageKey = `published/${accountId}/${finalDigest}.json`;
+    const { data, error } = await ctx.supabaseAdmin.rpc('community_preset_storage_reserve_r18', {
+      p_auth_subject:subject,
+      p_creator_profile_id:creatorProfileId,
+      p_source_staging_key:storageKey,
+      p_idempotency_key:idempotencyKey,
+      p_request_hash:requestHash,
+      p_byte_size:checked.blob.size,
+      p_checksum_sha256:checked.checksumSha256,
+      p_schema_version:checked.schemaVersion,
+      p_preset_type:checked.presetType
+    });
+    if (error || !data || data.publishedStorageKey !== publishedStorageKey) {
+      return reply({ok:false,error:'PRESET_RESERVATION_DENIED',message:error?.message},409);
     }
+    return reply({ok:true,action,reservation:data,publicationAuthorized:false,cleanupAuthorized:false});
+  }
 
-    if (source === 'staging') {
-      await ctx.supabaseAdmin.storage.from(BUCKET).remove([storageKey]);
+  if (action === 'recoverPublication') {
+    const reservationId = String(body.reservationId ?? '');
+    const expectedVersion = Number(body.expectedVersion);
+    const failureCode = String(body.failureCode ?? '');
+    if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(reservationId) ||
+        !Number.isSafeInteger(expectedVersion) || expectedVersion<=0 ||
+        !/^[A-Z0-9_]{1,80}$/.test(failureCode)) {
+      return reply({ok:false,error:'PRESET_RECOVERY_INPUT_INVALID'},400);
     }
-    return reply({ ok: true, action, data: { ...data, storageKey: publishedStorageKey, schemaVersion: validated.schemaVersion, presetType: validated.presetType, contentType: CONTENT_TYPE, byteSize: validated.blob.size, checksumSha256: validated.checksumSha256 } });
+    const {data,error} = await ctx.supabaseAdmin.rpc('community_preset_storage_recovery_r18',{
+      p_auth_subject:subject,p_reservation_id:reservationId,
+      p_expected_version:expectedVersion,p_failure_code:failureCode
+    });
+    if (error || !data) return reply({ok:false,error:'PRESET_RECOVERY_DENIED',message:error?.message},409);
+    return reply({ok:true,action,reservation:data,publicationAuthorized:false,cleanupAuthorized:false});
+  }
+
+  if (action === 'inspectPublishedObject') {
+    const reservationId = String(body.reservationId ?? '');
+    const expectedVersion = Number(body.expectedVersion);
+    if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(reservationId) ||
+        !Number.isSafeInteger(expectedVersion) || expectedVersion <= 0) {
+      return reply({ok:false,error:'PRESET_INSPECTION_INPUT_INVALID'},400);
+    }
+    const {data:lease,error:claimError}=await ctx.supabaseAdmin.rpc(
+      'community_preset_storage_claim_promotion_r18',{
+        p_auth_subject:subject,p_reservation_id:reservationId,p_expected_version:expectedVersion
+      });
+    if(claimError || !lease || lease.providerCopyAuthorized !== false) {
+      return reply({ok:false,error:'PRESET_INSPECTION_LEASE_DENIED',message:claimError?.message},409);
+    }
+    const sourceKey=String(lease.sourceStagingKey ?? '');
+    const publishedKey=String(lease.publishedStorageKey ?? '');
+    const fenceVersion=Number(lease.stateVersion);
+    const token=String(lease.leaseToken ?? '');
+    const fence=Number(lease.leaseFence);
+    if(!sourceKey || !publishedKey || !token || !Number.isSafeInteger(fenceVersion) ||
+       !Number.isSafeInteger(fence) || fence <= 0) {
+      return reply({ok:false,error:'PRESET_INSPECTION_LEASE_INVALID'},409);
+    }
+    let sourceBytes;
+    let publishedBytes;
+    try {
+      sourceBytes=await validatedStoredArtifact(ctx,accountId,sourceKey,'staging');
+      publishedBytes=await validatedStoredArtifact(ctx,accountId,publishedKey,'published');
+    } catch (err) {
+      return reply({
+        ok:false,error:'PRESET_PROVIDER_READBACK_UNAVAILABLE',
+        message:err instanceof Error ? err.message : 'Object unavailable',
+        publicationAuthorized:false,cleanupAuthorized:false,
+        recovery:'REFRESH_AND_RECONCILE_RESERVATION_NO_PHYSICAL_COMPENSATION'
+      },409);
+    }
+    const expectedHash=String(lease.checksumSha256 ?? '');
+    const expectedBytes=Number(lease.byteSize);
+    if(sourceBytes.checksumSha256 !== expectedHash || sourceBytes.blob.size !== expectedBytes) {
+      return reply({
+        ok:false,error:'PRESET_STAGING_BYTES_CHANGED_AFTER_RESERVATION',
+        publicationAuthorized:false,cleanupAuthorized:false,
+        recovery:'REFRESH_AND_RECONCILE_RESERVATION_NO_PHYSICAL_COMPENSATION'
+      },409);
+    }
+    const {data:inspection,error:inspectError}=await ctx.supabaseAdmin.rpc(
+      'community_preset_storage_report_readback_r18',{
+        p_auth_subject:subject,p_reservation_id:reservationId,
+        p_expected_version:fenceVersion,p_lease_token:token,p_lease_fence:fence,
+        p_downloaded_byte_size:publishedBytes.blob.size,
+        p_downloaded_sha256:publishedBytes.checksumSha256
+      });
+    if(inspectError || !inspection) {
+      return reply({ok:false,error:'PRESET_READBACK_FENCE_REJECTED',
+        message:inspectError?.message,publicationAuthorized:false,cleanupAuthorized:false},409);
+    }
+    return reply({ok:inspection.readbackMatches === true,action,inspection,
+      publicationAuthorized:false,cleanupAuthorized:false,
+      realProviderAccepted:false,verificationAttested:false},
+      inspection.readbackMatches === true ? 200 : 409);
+  }
+
+  if (action === 'publish') {
+    return reply({
+      ok:false,error:'R18_PRESET_PUBLICATION_RESERVATION_AND_BYTES_NOT_ACCEPTED',
+      publicationAuthorized:false,cleanupAuthorized:false
+    },409);
+  }
+
+  // Read-only Owner preflight for updating an EXISTING Scene Preset.
+  // Always fails closed; this does not upload, publish, mutate Work/Media,
+  // generate URLs, or authorize use of the R6 candidate lock protocol.
+  if (action === 'revisionReadiness') {
+    const presetArtifactId = body.presetArtifactId;
+    if (typeof presetArtifactId !== 'string' ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(presetArtifactId)) {
+      return reply({ ok: false, error: 'INVALID_PRESET_ARTIFACT_ID' }, 400);
+    }
+    const { data, error } = await ctx.supabaseAdmin.rpc('community_scene_revision_readiness_v1', {
+      p_auth_subject: subject,
+      p_preset_artifact_id: presetArtifactId
+    });
+    if (error || !data) {
+      return reply({ ok: false, error: 'SCENE_REVISION_READINESS_FORBIDDEN_OR_UNAVAILABLE' }, 403);
+    }
+    return reply({ ok: true, action, readiness: data });
   }
 
   if (action === 'resolveWork') {
@@ -408,18 +475,15 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
   }
 
   if (action === 'discard') {
-    const storageKey = String(body.storageKey ?? '');
-    const ownedPrefix = storageKey.startsWith(`staging/${accountId}/`) || storageKey.startsWith(`published/${accountId}/`);
-    if (!ownedPrefix || storageKey.includes('..') || !storageKey.endsWith('.json')) {
-      return reply({ ok: false, error: 'INVALID_STORAGE_KEY' }, 403);
-    }
-    const { data: registered, error: lookupError } = await ctx.supabaseAdmin
-      .from('artifact_blobs').select('blob_id').eq('storage_key', storageKey).maybeSingle();
-    if (lookupError) return reply({ ok: false, error: 'DISCARD_LOOKUP_FAILED', message: lookupError.message }, 400);
-    if (registered) return reply({ ok: false, error: 'REGISTERED_ARTIFACT_CANNOT_BE_DISCARDED' }, 409);
-    const { error } = await ctx.supabaseAdmin.storage.from(BUCKET).remove([storageKey]);
-    if (error) return reply({ ok: false, error: 'DISCARD_FAILED', message: error.message }, 400);
-    return reply({ ok: true, action, storageKey });
+    const storageKey=String(body.storageKey ?? '');
+    const {data,error}=await ctx.supabaseAdmin.rpc('community_preset_storage_cleanup_preflight_r18',{
+      p_auth_subject:subject,p_storage_key:storageKey
+    });
+    if(error || !data) return reply({ok:false,error:'PRESET_STORAGE_DISCARD_FORBIDDEN',message:error?.message},403);
+    return reply({
+      ok:false,action,error:'PRESET_STORAGE_CLEANUP_NOT_AUTHORIZED',
+      cleanupPreflight:data
+    },409);
   }
 
   return reply({ ok: false, error: 'Unsupported action' }, 400);

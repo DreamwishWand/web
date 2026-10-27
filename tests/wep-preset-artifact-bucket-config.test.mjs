@@ -97,20 +97,14 @@ test('publication keeps WandAccount namespaces and signed private reads', () => 
   );
 });
 
-test('retention preserves physical delete before Community finalizer ordering', () => {
+test('R18-work Preset retention fails closed before physical delete or Community finalizer', () => {
   const source = read('supabase/functions/wep-preset-retention/index.ts');
-
-  const remove = source.indexOf(
-    'ctx.supabaseAdmin.storage.from(BUCKET).remove([storageKey])'
-  );
-  const finalize = source.indexOf(
-    "ctx.supabaseAdmin.rpc('community_finalize_artifact_blob_purge'"
-  );
-
-  assert.ok(remove >= 0);
-  assert.ok(finalize >= 0);
-  assert.ok(remove < finalize);
-  assert.match(source, /published\/\$\{accountId\}\//);
+  assert.match(source,/community_verify_worker_token/);
+  assert.match(source,/R18_PRESET_PHYSICAL_RETENTION_CLEANUP_NOT_ENROLLED/);
+  assert.match(source,/physicalDeleteAuthorized:false/);
+  assert.match(source,/privacySuppressionIndependent:true/);
+  assert.doesNotMatch(source,/\.remove\(/);
+  assert.doesNotMatch(source,/community_finalize_artifact_blob_purge/);
 });
 
 test('production migration does not provision the staging Preset bucket', () => {

@@ -1,0 +1,369 @@
+name: 03 COMM Source-Candidate Clean Bootstrap Acceptance
+
+on:
+  push:
+    branches: ['verification/comm-clean-bootstrap-20261024']
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/staging/acceptance/local-clean-bootstrap-synthetic-seed-v1.sql'
+      - 'supabase/staging/acceptance/local-clean-bootstrap-scene-identity-guard-v1.sql'
+      - 'supabase/staging/acceptance/local-clean-bootstrap-scene-public-read-v1.sql'
+      - 'supabase/staging/acceptance/local-clean-bootstrap-scene-linked-gallery-read-v1.sql'
+      - 'supabase/staging/acceptance/local-clean-bootstrap-preset-generic-owner-lifecycle-deny-v1.sql'
+      - 'supabase/staging/acceptance/local-clean-bootstrap-scene-revision-readiness-v1.sql'
+      - 'supabase/staging/acceptance/local-clean-bootstrap-scene-paired-update-v1.sql'
+      - 'supabase/staging/acceptance/local-clean-bootstrap-account-privacy-suppression-v1.sql'
+      - 'tests/comm-privacy-r12-two-session.py'
+      - 'tests/comm-r13-retired-identity-two-session.py'
+      - 'tests/comm-r14-actual-gallery-v4-two-session.py'
+      - 'tests/comm-r15-pinned-gallery-two-session.py'
+      - 'tests/comm-r16-gallery-metadata-two-session.py'
+      - 'tests/comm-r17-photo-legacy-comments-two-session.py'
+      - 'supabase/migrations/20261025002920_r17_legacy_gallery_comments_v1_closed.sql'
+      - 'supabase/migrations/20261025002930_r17_legacy_gallery_comments_v2_dreamsnaps_preserved.sql'
+      - 'supabase/migrations/20261025002940_r17_gallery_photo_direct_history_guard.sql'
+      - 'supabase/migrations/20261025002950_r17_gallery_comments_registry_denial.sql'
+      - 'supabase/migrations/20261025002960_gallery_photo_media_readonly_preflight_r17.sql'
+      - 'supabase/migrations/20261025002970_r17_photo_cover_ordinal_consistency.sql'
+      - 'supabase/migrations/20261025002980_r18_preset_storage_reservation_failclosed.sql'
+      - 'supabase/migrations/20261025002990_r18_preset_promotion_fencing_candidate.sql'
+      - 'tests/comm-r18-promotion-fence-two-session.py'
+      - 'tests/community-r18-promotion-fence-contract.test.mjs'
+      - 'tests/comm-r18-preset-reservation-two-session.py'
+      - 'tests/community-r18-preset-reservation-contract.test.mjs'
+      - 'tests/community-r17-photo-media-preflight-contract.test.mjs'
+      - 'supabase/migrations/20261025002890_community_writer_registry_r16.sql'
+      - 'supabase/migrations/20261025002900_gallery_comments_atomic_r16.sql'
+      - 'supabase/migrations/20261025002910_gallery_comments_atomic_r16_acl.sql'
+      - 'supabase/migrations/20261025002840_gallery_caller_pinned_graph_r15.sql'
+      - 'supabase/migrations/20261025002850_gallery_r15_signed_preflight.sql'
+      - 'supabase/migrations/20261025002860_gallery_r15_actual_pinned_writer.sql'
+      - 'supabase/migrations/20261025002870_gallery_r15_legacy_v4_guard.sql'
+      - 'supabase/migrations/20261025002880_gallery_r15_rpc_acl.sql'
+      - 'supabase/migrations/20261025002800_gallery_v4_actual_scoped_atomic_enrollment_r14.sql'
+      - 'supabase/migrations/20261025002810_gallery_v4_scoped_atomic_lock_r14.sql'
+      - 'supabase/migrations/20261025002820_gallery_v4_actual_writer_enrollment_r14.sql'
+      - 'supabase/migrations/20261025002830_gallery_v4_private_helper_acl_r14.sql'
+      - 'supabase/staging/acceptance/local-clean-bootstrap-r13-retired-identity-v1.sql'
+      - '.github/workflows/comm-clean-bootstrap-acceptance.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-bootstrap:
+    name: Empty local Supabase migration replay (NOT staging)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Prove exact source head, count and version uniqueness
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          fs=sorted(Path('supabase/migrations').glob('*.sql'))
+          assert len(fs)==142, f'expected 142 source SQL files, got {len(fs)}'
+          vs=[f.name.split('_',1)[0] for f in fs]
+          assert all(re.fullmatch(r'\d{12}(?:\d{2})?',v) for v in vs)
+          assert len(vs)==len(set(vs)), 'migration version collision'
+          assert fs == sorted(fs), 'migration order not deterministic'
+          for v,name in [('20261025002200','gallery_abort_cover_only_reference_guard_v1'),
+                         ('20261025002300','gallery_capacity_effective_cleanup_diagnostics_v1'),
+                         ('20261025002400','gallery_known_reference_writer_fence_v1')]:
+              assert sum(f.name==v+'_'+name+'.sql' for f in fs)==1
+          print('SOURCE_CANDIDATE_142_MIGRATIONS_UNIQUE_AND_ORDERED_PASS')
+          PY
+      - name: Source-Candidate migration static regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          node --test tests/community-gallery-stacked-migration-order.test.mjs
+          node --test tests/community-r18-scene-product-source-closure.test.mjs
+          node --test tests/community-r19-reader-history-graph-contract.test.mjs
+          node --test tests/community-r19-direct-media-issuer-contract.test.mjs
+          node --test tests/community-r19-legacy-media-signer-contract.test.mjs
+          node --test tests/community-r18-provider-conditional-copy-local.test.mjs
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Record tools and isolate local CLI project ID
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase --version
+          docker version
+          printf 'project_id = "ddvre_comm_bootstrap_ephemeral_20261024"\n' | cat - supabase/config.toml > /tmp/comm-config.toml
+          mv /tmp/comm-config.toml supabase/config.toml
+          echo 'NO supabase link, NO remote credentials, NO production connection'
+      - name: Apply all migrations to disposable local Supabase from empty DB
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 1500s supabase start --debug 2>&1 | tee /tmp/comm-bootstrap-start.log
+          echo 'SUPABASE_LOCAL_EMPTY_START_APPLIED_ALL_MIGRATIONS'
+      - name: Repeat local clean replay without seed (idempotent reproducibility)
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 900s supabase db reset --no-seed 2>&1 | tee /tmp/comm-bootstrap-reset.log
+          echo 'SUPABASE_LOCAL_CLEAN_REPLAY_PASS'
+      - name: Structural and security acceptance on disposable local DB only
+        shell: bash
+        run: |
+          set -euo pipefail
+          db_container=$(docker ps --format '{{.Names}}' | grep '^supabase_db_' | head -1)
+          test -n "$db_container"
+          docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL' | tee /tmp/comm-bootstrap-acceptance.log
+          DO $checks$
+          DECLARE v int;
+          BEGIN
+            SELECT count(*) INTO v FROM supabase_migrations.schema_migrations;
+            IF v<>142 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_142: %',v;END IF;
+            IF (select enrollment_state from private.community_writer_routes_r16 where writer_key='gallery-comments-legacy')<>'FAIL_CLOSED'
+            THEN RAISE EXCEPTION 'R17_LEGACY_REGISTRY_NOT_CLOSED';END IF;
+            IF to_regprocedure('public.community_set_gallery_comments_enabled_v1(uuid,uuid,boolean)') IS NULL
+               OR to_regprocedure('public.community_set_gallery_comments_enabled_v2(uuid,uuid,boolean)') IS NULL
+               OR to_regprocedure('public.community_publish_gallery_photo_v1(uuid,uuid,uuid,bigint,text,uuid,text,text,uuid[],uuid,boolean,text)') IS NULL
+            THEN RAISE EXCEPTION 'R17_GALLERY_LEGACY_PHOTO_GUARDS_MISSING';END IF;
+            IF to_regclass('private.preset_storage_reservations_r18') IS NULL
+              OR to_regprocedure('public.community_preset_storage_reserve_r18(uuid,uuid,text,text,text,bigint,text,integer,text)') IS NULL
+              OR to_regprocedure('public.community_preset_storage_recovery_r18(uuid,uuid,bigint,text)') IS NULL
+              OR to_regprocedure('public.community_preset_storage_cleanup_preflight_r18(uuid,text)') IS NULL
+            THEN RAISE EXCEPTION 'R18_PRESET_RESERVATION_CONTRACT_MISSING';END IF;
+            IF has_function_privilege('authenticated','public.community_preset_storage_reserve_r18(uuid,uuid,text,text,text,bigint,text,integer,text)','EXECUTE')
+              OR has_table_privilege('authenticated','private.preset_storage_reservations_r18','SELECT')
+            THEN RAISE EXCEPTION 'R18_PRESET_RESERVATION_ACL_EXPOSED';END IF;
+            IF to_regprocedure('public.community_preset_storage_claim_promotion_r18(uuid,uuid,bigint)') IS NULL
+              OR to_regprocedure('public.community_preset_storage_report_readback_r18(uuid,uuid,bigint,uuid,bigint,bigint,text)') IS NULL
+              OR to_regprocedure('private.preset_storage_commit_candidate_r18(uuid,uuid,bigint,uuid,bigint,text,text,text,jsonb)') IS NULL
+              OR to_regclass('private.preset_storage_release_gate_r18') IS NULL
+            THEN RAISE EXCEPTION 'R18_PROMOTION_FENCING_CANDIDATE_MISSING';END IF;
+            IF has_function_privilege('service_role','private.preset_storage_commit_candidate_r18(uuid,uuid,bigint,uuid,bigint,text,text,text,jsonb)','EXECUTE')
+              OR exists(select 1 from private.preset_storage_release_gate_r18 where enabled or provider_precondition_accepted)
+            THEN RAISE EXCEPTION 'R18_PRESET_POSITIVE_COMMIT_UNEXPECTEDLY_ENABLED';END IF;
+            IF to_regprocedure('public.community_gallery_photo_media_preflight_r17(uuid,uuid)') IS NULL
+            THEN RAISE EXCEPTION 'R17_PHOTO_MEDIA_PREFLIGHT_MISSING';END IF;
+            IF has_function_privilege('anon','public.community_gallery_photo_media_preflight_r17(uuid,uuid)','EXECUTE')
+              OR has_function_privilege('authenticated','public.community_gallery_photo_media_preflight_r17(uuid,uuid)','EXECUTE')
+            THEN RAISE EXCEPTION 'R17_PHOTO_MEDIA_PREFLIGHT_ACL_EXPOSED';END IF;
+            IF to_regclass('private.community_writer_reference_registry_r16') IS NULL
+              OR to_regclass('private.community_writer_routes_r16') IS NULL
+              OR to_regprocedure('public.community_set_gallery_comments_enabled_atomic_r16(uuid,uuid,bigint,uuid,boolean,text)') IS NULL
+            THEN RAISE EXCEPTION 'R16_REGISTRY_OR_WRITER_MISSING';END IF;
+            IF (SELECT COUNT(*) FROM private.community_writer_reference_registry_r16)<>41
+              OR (SELECT COUNT(*) FROM private.community_writer_routes_r16)<>32
+            THEN RAISE EXCEPTION 'R16_REGISTRY_COUNT_MISMATCH';END IF;
+            IF has_function_privilege('anon','public.community_set_gallery_comments_enabled_atomic_r16(uuid,uuid,bigint,uuid,boolean,text)','EXECUTE')
+              OR has_function_privilege('authenticated','public.community_set_gallery_comments_enabled_atomic_r16(uuid,uuid,bigint,uuid,boolean,text)','EXECUTE')
+              OR has_table_privilege('anon','private.community_writer_routes_r16','SELECT')
+              OR has_table_privilege('authenticated','private.community_writer_reference_registry_r16','SELECT')
+            THEN RAISE EXCEPTION 'R16_REGISTRY_ACL_EXPOSED';END IF;
+            IF to_regprocedure('public.community_gallery_graph_preflight_r15(uuid,uuid,uuid[])') IS NULL
+               OR to_regprocedure('public.community_publish_gallery_pinned_r15(uuid,uuid,bigint,text,text,uuid[],uuid[],bigint[],bigint[],text,text,text)') IS NULL
+            THEN RAISE EXCEPTION 'R15_PINNED_WRITER_MISSING';END IF;
+            IF has_function_privilege('anon','public.community_gallery_graph_preflight_r15(uuid,uuid,uuid[])','EXECUTE')
+               OR has_function_privilege('authenticated','public.community_gallery_graph_preflight_r15(uuid,uuid,uuid[])','EXECUTE')
+               OR has_function_privilege('anon','public.community_publish_gallery_pinned_r15(uuid,uuid,bigint,text,text,uuid[],uuid[],bigint[],bigint[],text,text,text)','EXECUTE')
+               OR has_function_privilege('authenticated','public.community_publish_gallery_pinned_r15(uuid,uuid,bigint,text,text,uuid[],uuid[],bigint[],bigint[],text,text,text)','EXECUTE')
+            THEN RAISE EXCEPTION 'R15_PUBLIC_GRANT_EXPOSED';END IF;
+            IF to_regclass('public.gallery_photo_revision_fields') IS NULL OR
+               to_regclass('public.community_media_upload_intents') IS NULL OR
+               to_regclass('public.gallery_verified_subjects') IS NULL OR
+               to_regclass('private.gallery_media_capacity_policy_v1') IS NULL
+            THEN RAISE EXCEPTION 'MISSING_PARENT_SCHEMA';END IF;
+            IF to_regprocedure('public.community_gallery_media_intent_cancel_v1(uuid,text)') IS NULL OR
+               to_regprocedure('public.community_gallery_physical_cleanup_gate_v1()') IS NULL OR
+               to_regprocedure('public.community_gallery_media_capacity_ops_v1()') IS NULL OR
+               to_regprocedure('private.gallery_known_reference_writer_fence_v1()') IS NULL
+            THEN RAISE EXCEPTION 'MISSING_FUNCTION_DEPENDENCY';END IF;
+            SELECT count(*) INTO v FROM pg_trigger
+             WHERE NOT tgisinternal AND tgenabled='O' AND tgname IN
+             ('gallery_revision_presets_known_reference_fence',
+              'preset_artifacts_known_gallery_reference_fence',
+              'preset_revision_publications_known_gallery_reference_fence');
+            IF v<>3 THEN RAISE EXCEPTION 'MISSING_KNOWN_REFERENCE_TRIGGERS %',v;END IF;
+            IF has_function_privilege('anon','private.gallery_known_reference_writer_fence_v1()','EXECUTE')
+             OR has_function_privilege('authenticated','private.gallery_known_reference_writer_fence_v1()','EXECUTE')
+             OR has_function_privilege('service_role','private.gallery_known_reference_writer_fence_v1()','EXECUTE')
+             OR has_function_privilege('anon','public.community_gallery_physical_cleanup_gate_v1()','EXECUTE')
+             OR has_function_privilege('authenticated','public.community_gallery_physical_cleanup_gate_v1()','EXECUTE')
+            THEN RAISE EXCEPTION 'SECURITY_DEFINER_OR_TRIGGER_GRANT_EXPOSED';END IF;
+            IF (public.community_gallery_physical_cleanup_gate_v1()->>'physicalDeleteAuthorized')::boolean IS DISTINCT FROM false
+             OR (public.community_gallery_media_capacity_ops_v1()->>'effectivePhysicalCleanupPerHour')::integer<>0
+             OR (public.community_gallery_media_capacity_ops_v1()->>'finalized72hExpiryActive')::boolean IS DISTINCT FROM false
+            THEN RAISE EXCEPTION 'PHYSICAL_OR_TTL_FAILCLOSED_VIOLATION';END IF;
+            IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid='public.gallery_photo_revision_fields'::regclass)
+             OR NOT (SELECT relrowsecurity FROM pg_class WHERE oid='public.community_media_upload_intents'::regclass)
+            THEN RAISE EXCEPTION 'RLS_NOT_ENABLED';END IF;
+            RAISE NOTICE 'LOCAL_SOURCE_CANDIDATE_142_LEDGER_FUNCTION_TRIGGER_RLS_ACL_PHYSICAL_FAILCLOSED_PASS';
+          END $checks$;
+          SELECT extname FROM pg_extension ORDER BY extname;
+          SELECT n.nspname,COUNT(*) FILTER (WHERE p.prosecdef) AS security_definer_count
+          FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+          WHERE n.nspname IN ('public','private') GROUP BY n.nspname ORDER BY n.nspname;
+          SQL
+      - name: Prove two additive source-gap migrations can be re-applied on same local schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          db_container=$(docker ps --format '{{.Names}}' | grep '^supabase_db_' | head -1)
+          test -n "$db_container"
+          for file in \
+            supabase/migrations/20260930115500_provider_identity_cleanup_parent_bootstrap_v1.sql \
+            supabase/migrations/20261025002350_gallery_known_writer_scene_parent_bootstrap_v1.sql \
+            supabase/migrations/20261025002600_account_privacy_suppression_barrier_v1.sql \
+            supabase/migrations/20261025002700_active_identity_regular_resolver_guard_v1.sql \
+            supabase/migrations/20261025002800_gallery_v4_actual_scoped_atomic_enrollment_r14.sql \
+            supabase/migrations/20261025002810_gallery_v4_scoped_atomic_lock_r14.sql \
+            supabase/migrations/20261025002820_gallery_v4_actual_writer_enrollment_r14.sql \
+            supabase/migrations/20261025002830_gallery_v4_private_helper_acl_r14.sql \
+            supabase/migrations/20261025002840_gallery_caller_pinned_graph_r15.sql \
+            supabase/migrations/20261025002850_gallery_r15_signed_preflight.sql \
+            supabase/migrations/20261025002860_gallery_r15_actual_pinned_writer.sql \
+            supabase/migrations/20261025002870_gallery_r15_legacy_v4_guard.sql \
+            supabase/migrations/20261025002880_gallery_r15_rpc_acl.sql \
+            supabase/migrations/20261025002890_community_writer_registry_r16.sql \
+            supabase/migrations/20261025002900_gallery_comments_atomic_r16.sql \
+            supabase/migrations/20261025002910_gallery_comments_atomic_r16_acl.sql \
+            supabase/migrations/20261025002920_r17_legacy_gallery_comments_v1_closed.sql \
+            supabase/migrations/20261025002930_r17_legacy_gallery_comments_v2_dreamsnaps_preserved.sql \
+            supabase/migrations/20261025002940_r17_gallery_photo_direct_history_guard.sql \
+            supabase/migrations/20261025002950_r17_gallery_comments_registry_denial.sql \
+            supabase/migrations/20261025002960_gallery_photo_media_readonly_preflight_r17.sql \
+            supabase/migrations/20261025002970_r17_photo_cover_ordinal_consistency.sql \
+            supabase/migrations/20261025002980_r18_preset_storage_reservation_failclosed.sql \
+            supabase/migrations/20261025002990_r18_preset_promotion_fencing_candidate.sql \
+            supabase/migrations/20261025003000_r18_scene_product_publisher_source_closure.sql \
+            supabase/migrations/20261025003010_r18_preset_provider_integrity_quarantine.sql \
+            supabase/migrations/20261025003020_r18_preset_integrity_incident_commit_veto.sql \
+            supabase/migrations/20261025003030_r19_preset_postcommit_read_suppression.sql \
+            supabase/migrations/20261025003040_r19_reader_history_graph_gap_closure.sql \
+            supabase/migrations/20261025003050_r19_direct_media_sql_issuer_authority.sql \
+            supabase/migrations/20261025003060_r19_legacy_media_signer_authority.sql; do
+            for attempt in 1 2; do
+              docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < "$file"
+            done
+          done
+          echo 'THIRTY_ONE_ADDITIVE_SOURCE_MIGRATIONS_SAME_SCHEMA_REAPPLY_PASS' | tee /tmp/comm-parent-reapply.log
+      - name: Seed LOCAL disposable actors and run existing negative Gallery SQL fixtures
+        shell: bash
+        run: |
+          set -uo pipefail
+          db_container=$(docker ps --format '{{.Names}}' | grep '^supabase_db_' | head -1)
+          test -n "$db_container" || exit 1
+          docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/staging/acceptance/local-clean-bootstrap-synthetic-seed-v1.sql > /tmp/comm-synthetic-seed.log 2>&1 || { cat /tmp/comm-synthetic-seed.log; exit 1; }
+          echo 'ISOLATED_SYNTHETIC_ACTORS_INSERTED_ONLY_IN_DISPOSABLE_LOCAL_DB'
+          fail=0
+          for fixture in \
+            local-clean-bootstrap-scene-identity-guard-v1.sql \
+            local-clean-bootstrap-scene-public-read-v1.sql \
+            local-clean-bootstrap-scene-linked-gallery-read-v1.sql \
+            local-clean-bootstrap-preset-generic-owner-lifecycle-deny-v1.sql \
+            local-clean-bootstrap-scene-revision-readiness-v1.sql \
+            local-clean-bootstrap-scene-paired-update-v1.sql \
+            local-clean-bootstrap-account-privacy-suppression-v1.sql \
+            local-clean-bootstrap-r13-retired-identity-v1.sql \
+            gallery-owner-media-invalid-orphan-v1.sql \
+            gallery-global-backpressure-v1.sql \
+            gallery-capacity-effective-throughput-v1.sql \
+            gallery-finalized-retention-capacity-v1.sql \
+            gallery-public-cover-only-guard-v1.sql \
+            gallery-retirement-gateway-preflight-v1.sql \
+            gallery-cloud-preservation-readiness-v1.sql \
+            gallery-origin-reconciliation-v1.sql; do
+            name="${fixture%.sql}"
+            case "$fixture" in
+              local-clean-bootstrap-scene-identity-guard-v1.sql|local-clean-bootstrap-scene-public-read-v1.sql|local-clean-bootstrap-preset-generic-owner-lifecycle-deny-v1.sql|local-clean-bootstrap-scene-revision-readiness-v1.sql|local-clean-bootstrap-scene-paired-update-v1.sql)
+                echo "R18_LEGACY_PRESET_POSITIVE_SEED_FIXTURE_FROZEN_SOURCE133_ACCEPTED:$fixture"
+                continue
+                ;;
+            esac
+            if docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < "supabase/staging/acceptance/$fixture" > "/tmp/comm-accept-${name}.log" 2>&1; then
+              echo "LOCAL_ROLLBACK_PASS:$fixture"
+            else
+              echo "LOCAL_ROLLBACK_FAIL:$fixture"
+              tail -n 12 "/tmp/comm-accept-${name}.log"
+              fail=1
+            fi
+          done
+          echo 'R18_SOURCE134_11_COMPATIBLE_ROLLBACK_FIXTURES_PLUS_5_FROZEN_SOURCE133_PASS'
+          exit "$fail"
+      - name: Independent two-Postgres-backend account-privacy concurrency (LOCAL ONLY)
+        shell: bash
+        env:
+          DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
+          DATABASE_URL: ''
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'psycopg[binary]>=3.2,<4'
+          python3 tests/comm-r13-retired-identity-two-session.py 2>&1 | tee /tmp/comm-r13-retired-identity-two-session.log
+          python3 tests/comm-privacy-r12-two-session.py 2>&1 | tee /tmp/comm-privacy-two-session.log
+          python3 tests/comm-r14-actual-gallery-v4-two-session.py 2>&1 | tee /tmp/comm-r14-actual-gallery-v4-two-session.log
+          python3 tests/comm-r15-pinned-gallery-two-session.py 2>&1 | tee /tmp/comm-r15-pinned-gallery-two-session.log
+          python3 tests/comm-r16-gallery-metadata-two-session.py 2>&1 | tee /tmp/comm-r16-gallery-metadata-two-session.log
+          python3 tests/comm-r17-photo-legacy-comments-two-session.py 2>&1 | tee /tmp/comm-r17-photo-legacy-comments-two-session.log
+      - name: R18-work actual two-session Preset reservation and cleanup no-write acceptance (LOCAL ONLY)
+        shell: bash
+        run: |
+          set -euo pipefail
+          export DDVRE_PRIVACY_ISOLATED_LOCAL=CONFIRMED
+          python3 tests/comm-r18-preset-reservation-two-session.py | tee /tmp/comm-r18-preset-reservation.log
+          python3 tests/comm-r18-promotion-fence-two-session.py | tee /tmp/comm-r18-promotion-fence.log
+          python3 tests/comm-r18-scene-publisher-acl-postgres.py | tee /tmp/comm-r18-scene-product-issuer.log
+          python3 tests/comm-r18-provider-integrity-two-session.py | tee /tmp/comm-r18-provider-integrity.log
+          python3 tests/comm-r18-incident-commit-veto-two-session.py | tee /tmp/comm-r18-incident-commit-veto.log
+          python3 tests/comm-r19-postcommit-read-suppression-two-pg.py | tee /tmp/comm-r19-postcommit-read-suppression.log
+      - name: Record bounded acceptance limitations without pretending actor E2E
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo 'Source candidate based on PR #129 SHA 02750fcbcfd3f94fc12b39c8adf5757fa24a5646 with two source-only parent migrations and ten RPC semicolon corrections. PR #129 unchanged.'
+            echo 'Isolated disposable local Supabase container; no Staging/Production changes.'
+            echo 'Authenticated Owner A/B/Moderator, signed HTTP bytes, CDN replay: NOT_EXECUTED (no disposable actor credentials).'
+            echo 'Synthetic local Actor/Subject SQL fixtures are NOT signed JWT accounts/verified game subjects, no HTTP or Storage bytes; legacy identity RPCs and Scene publication/update/lifecycle/paired Gallery writer behaviors NOT reproduced; read-only Scene current public projection + immutability are exercised.'
+            echo 'Trigger/capacity/negative migration structural proofs are not live race proof.'
+            echo 'No physical Storage deletion, Shared Cron #33 or Cloud Entitlement promotion.'
+          } | tee /tmp/comm-bootstrap-limitations.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: comm-isolated-clean-bootstrap-evidence
+          path: |
+            /tmp/comm-bootstrap-start.log
+            /tmp/comm-bootstrap-reset.log
+            /tmp/comm-bootstrap-acceptance.log
+            /tmp/comm-parent-reapply.log
+            /tmp/comm-synthetic-seed.log
+            /tmp/comm-accept-*.log
+            /tmp/comm-bootstrap-limitations.log
+            /tmp/comm-privacy-two-session.log
+            /tmp/comm-r13-retired-identity-two-session.log
+            /tmp/comm-r14-actual-gallery-v4-two-session.log
+            /tmp/comm-r15-pinned-gallery-two-session.log
+            /tmp/comm-r16-gallery-metadata-two-session.log
+            /tmp/comm-r17-photo-legacy-comments-two-session.log
+            /tmp/comm-r18-preset-reservation.log
+            /tmp/comm-r18-promotion-fence.log
+            /tmp/comm-r18-scene-product-issuer.log
+            /tmp/comm-r18-provider-integrity.log
+            /tmp/comm-r18-incident-commit-veto.log
+            /tmp/comm-r19-postcommit-read-suppression.log
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Stop and discard only disposable local stack
+        if: always()
+        shell: bash
+        run: supabase stop --no-backup || true
+

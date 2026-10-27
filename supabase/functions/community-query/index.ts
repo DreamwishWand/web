@@ -8,6 +8,7 @@ const queryToRpc = {
   work: 'community_get_work',
   gallery: 'community_get_gallery_v1',
   galleryRetirementPreflight: 'community_gallery_retirement_preflight_v1',
+  galleryPhotoMediaPreflight: 'community_gallery_photo_media_preflight_r17',
   myGallery: 'community_get_my_gallery_v1',
   question: 'community_get_question_v1',
   myQaActivity: 'community_get_my_qa_activity_v1',
@@ -86,6 +87,13 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       case 'gallery':
         params.p_work_id = payload.workId;
         break;
+      case 'galleryPhotoMediaPreflight':
+        if (typeof payload.workId !== 'string' ||
+            !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(payload.workId)) {
+          return response({ok:false,error:'INVALID_WORK_ID'},400);
+        }
+        params.p_gallery_work_id=payload.workId;
+        break;
       case 'galleryRetirementPreflight':
         if (typeof payload.workId !== 'string' ||
             !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(payload.workId)) {
@@ -119,11 +127,15 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
 
     const { data, error } = await ctx.supabaseAdmin.rpc(rpc, params);
     if (error) {
+      if (error.message.includes('R19_PRESET_PROVIDER_INTEGRITY_READ_SUPPRESSED')) {
+        return response({ok:false,error:'PROVIDER_INTEGRITY_READ_SUPPRESSED'},409);
+      }
       const forbidden =
         error.message.includes('not accessible') ||
         error.message.includes('not active') ||
         error.message.includes('role required') ||
-        error.message.includes('GALLERY_RETIREMENT_NOT_OWNER');
+        error.message.includes('GALLERY_RETIREMENT_NOT_OWNER') ||
+        error.message.includes('R17_PHOTO_PREFLIGHT_FORBIDDEN');
       return response(
         {
           ok: false,

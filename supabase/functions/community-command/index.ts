@@ -17,7 +17,8 @@ const commandToRpc = {
   updateCreatorProfile: 'community_update_creator_profile',
   createGalleryDraft: 'community_create_gallery_draft',
   createGalleryWork: 'community_create_gallery_work_v1',
-  publishGallery: 'community_publish_gallery_v4',
+  preflightGalleryGraph: 'community_gallery_graph_preflight_r15',
+  publishGallery: 'community_publish_gallery_pinned_r15',
   publishGalleryPhoto: 'community_publish_gallery_photo_v1',
   deleteGalleryPhoto: 'community_delete_gallery_photo_v1',
   registerDreamsnapWork: 'community_register_dreamsnap_work_v1',
@@ -37,6 +38,7 @@ const commandToRpc = {
   removeReaction: 'community_remove_reaction',
   addComment: 'community_add_comment_v3',
   setGalleryCommentsEnabled: 'community_set_gallery_comments_enabled_v2',
+  setGalleryCommentsAtomicR16: 'community_set_gallery_comments_enabled_atomic_r16',
   removeGalleryComment: 'community_gallery_author_remove_comment_v2',
   askQuestion: 'community_ask_question_v1',
   addAnswer: 'community_add_answer_v1',
@@ -87,6 +89,7 @@ const commandToRateBucket: Partial<Record<CommandName, string>> = {
   removeReaction: 'reaction',
   addComment: 'comment',
   setGalleryCommentsEnabled: 'gallery_write',
+  setGalleryCommentsAtomicR16: 'gallery_write',
   removeGalleryComment: 'gallery_write',
   askQuestion: 'qa_write',
   addAnswer: 'qa_write',
@@ -267,6 +270,13 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         params.p_gallery_kind = payload.galleryKind;
         params.p_idempotency_key = payload.idempotencyKey;
         break;
+      case 'preflightGalleryGraph':
+        if (typeof payload.workId !== 'string' || !Array.isArray(payload.presetRevisionIds)) {
+          return reply({ok:false,error:'R15_PREFLIGHT_REQUEST_INVALID'},400);
+        }
+        params.p_work_id = payload.workId;
+        params.p_preset_revision_ids = payload.presetRevisionIds;
+        break;
       case 'publishGallery':
         if (!Array.isArray(payload.mediaIds) || payload.mediaIds.length === 0) {
           return reply({ ok: false, error: 'mediaIds required' }, 400);
@@ -281,6 +291,16 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         params.p_featured_item_ids = Array.isArray(payload.featuredItemIds) ? payload.featuredItemIds : [];
         params.p_moodboard_snapshot_ref = payload.moodboardSnapshotRef ?? null;
         params.p_idempotency_key = payload.idempotencyKey;
+        // An explicit server-issued R15 preflight pin is mandatory.
+        // Never refresh a caller SHA during transient whole-transaction retry.
+        const pin = payload.graphPin as Record<string, unknown> | undefined;
+        if (!pin || typeof pin !== 'object' || Array.isArray(pin) ||
+            pin.registryVersion !== 'gallery-scene-scoped@r15' ||
+            typeof pin.expectedGraphSha256 !== 'string' ||
+            !/^[0-9a-f]{64}$/.test(pin.expectedGraphSha256)) {
+          return reply({ok:false,error:'R15_EXPECTED_GRAPH_PIN_REQUIRED'},409);
+        }
+        params.p_expected_graph_sha256 = pin.expectedGraphSha256;
         break;
       case 'publishGalleryPhoto':
         if (payload.workId != null && (typeof payload.workId !== 'string' || payload.workId.length===0)) {
@@ -386,6 +406,19 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       case 'setGalleryCommentsEnabled':
         params.p_work_id = payload.workId;
         params.p_enabled = payload.enabled;
+        break;
+      case 'setGalleryCommentsAtomicR16':
+        if (typeof payload.workId !== 'string' || !Number.isSafeInteger(payload.expectedVersion) ||
+            typeof payload.expectedCurrentRevisionId !== 'string' ||
+            typeof payload.enabled !== 'boolean' ||
+            typeof payload.idempotencyKey !== 'string' || payload.idempotencyKey.length===0) {
+          return reply({ok:false,error:'R16_METADATA_PIN_REQUIRED'},409);
+        }
+        params.p_work_id = payload.workId;
+        params.p_expected_version = payload.expectedVersion;
+        params.p_expected_current_revision_id = payload.expectedCurrentRevisionId;
+        params.p_enabled = payload.enabled;
+        params.p_idempotency_key = payload.idempotencyKey;
         break;
       case 'removeGalleryComment':
         params.p_work_id = payload.workId;
@@ -562,8 +595,45 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       }
     }
 
-    const { data, error } = await ctx.supabaseAdmin.rpc(rpc, params);
+    // R14 SOURCE-SCOPED actual Gallery v4 writer only. Every separate RPC is
+    // a NEW PostgreSQL transaction, never a statement/savepoint replay.
+    // Reauthorization checks the real JWT subject, current Identity, session
+    // cutoff and Privacy barrier before EVERY attempt; semantic stale
+    // owner/version/idempotency errors are terminal, not retryable.
+    const maxAttempts = (command === 'publishGallery' || command === 'setGalleryCommentsAtomicR16') ? 3 : 1;
+    const retryStartedAt = Date.now();
+    let data: unknown = null;
+    let error: {code?: string; message: string} | null = null;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      if (attempt > 0) {
+        const {error: reauthError} = await ctx.supabaseAdmin.rpc(
+          'community_authorize_session',authorizationParams
+        );
+        if (reauthError) return reply({ok:false,error:'SESSION_REVOKED_OR_PRIVACY_SUPPRESSED'},401);
+      }
+      const outcome = await ctx.supabaseAdmin.rpc(rpc,params);
+      data=outcome.data;
+      error=outcome.error;
+      if (!error) break;
+      const transient =
+        ['40P01','55P03','40001'].includes(String(error.code ?? '')) ||
+        error.message.includes('R14_GRAPH_CHANGED_RETRY_WHOLE_TRANSACTION') ||
+        error.message.includes('R14_ARTIFACT_ROSTER_CHANGED_RETRY_WHOLE_TRANSACTION');
+      if (!transient || attempt+1>=maxAttempts ||
+          Date.now()-retryStartedAt>1700) break;
+      // Bounded jitter is safe only because the DB mutation RPC itself
+      // rolls back ALL revisions/Search/Outbox/idempotency on an error.
+      await new Promise(resolve => setTimeout(resolve,30+Math.floor(Math.random()*65)));
+    }
     if (error) {
+      const unenrolledGraphWriter =
+        error.message.includes('R17_LEGACY_GALLERY_COMMENTS_PIN_REQUIRED') ||
+        error.message.includes('R17_PHOTO_DEPENDENCY_NOT_ENROLLED');
+      const staleGraph = error.message.includes('R15_STALE_GRAPH_TERMINAL') ||
+        error.message.includes('R15_PINNED_GRAPH_REQUIRED') ||
+        error.message.includes('R15_IDEMPOTENCY_REQUEST_CONFLICT') ||
+        error.message.includes('R16_STALE_WORK_TERMINAL') ||
+        error.message.includes('R16_IDEMPOTENCY_CONFLICT');
       const conflict =
         error.message.includes('Row version conflict') ||
         error.message.includes('GALLERY_ROW_VERSION_CONFLICT') ||
@@ -599,7 +669,7 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       return reply(
         {
           ok: false,
-          error: galleryErrorCode ?? (recentAuth
+          error: unenrolledGraphWriter ? 'UNENROLLED_GRAPH_WRITER' : staleGraph ? 'STALE_GRAPH' : galleryErrorCode ?? (recentAuth
             ? 'RECENT_AUTH_REQUIRED'
             : conflict
               ? 'CONFLICT'
@@ -608,7 +678,7 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
                 : 'COMMAND_FAILED'),
           message: error.message
         },
-        conflict ? 409 : forbidden ? 403 : 400
+        (unenrolledGraphWriter || staleGraph || conflict) ? 409 : forbidden ? 403 : 400
       );
     }
 
