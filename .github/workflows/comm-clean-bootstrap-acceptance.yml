@@ -72,7 +72,7 @@ jobs:
           from pathlib import Path
           import re
           fs=sorted(Path('supabase/migrations').glob('*.sql'))
-          assert len(fs)==142, f'expected 142 source SQL files, got {len(fs)}'
+          assert len(fs)==143, f'expected 143 source SQL files, got {len(fs)}'
           vs=[f.name.split('_',1)[0] for f in fs]
           assert all(re.fullmatch(r'\d{12}(?:\d{2})?',v) for v in vs)
           assert len(vs)==len(set(vs)), 'migration version collision'
@@ -81,7 +81,7 @@ jobs:
                          ('20261025002300','gallery_capacity_effective_cleanup_diagnostics_v1'),
                          ('20261025002400','gallery_known_reference_writer_fence_v1')]:
               assert sum(f.name==v+'_'+name+'.sql' for f in fs)==1
-          print('SOURCE_CANDIDATE_142_MIGRATIONS_UNIQUE_AND_ORDERED_PASS')
+          print('SOURCE_CANDIDATE_143_D06_MIGRATIONS_UNIQUE_AND_ORDERED_PASS')
           PY
       - name: Source-Candidate migration static regression
         shell: bash
@@ -93,6 +93,7 @@ jobs:
           node --test tests/community-r19-reader-history-graph-contract.test.mjs
           node --test tests/community-r19-direct-media-issuer-contract.test.mjs
           node --test tests/community-r19-legacy-media-signer-contract.test.mjs
+          node --test tests/community-d06-account-global-official-consent-contract.test.mjs
           node --test tests/community-r18-provider-conditional-copy-local.test.mjs
       - uses: supabase/setup-cli@v1
         with:
@@ -129,7 +130,7 @@ jobs:
           DECLARE v int;
           BEGIN
             SELECT count(*) INTO v FROM supabase_migrations.schema_migrations;
-            IF v<>142 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_142: %',v;END IF;
+            IF v<>143 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_143: %',v;END IF;
             IF (select enrollment_state from private.community_writer_routes_r16 where writer_key='gallery-comments-legacy')<>'FAIL_CLOSED'
             THEN RAISE EXCEPTION 'R17_LEGACY_REGISTRY_NOT_CLOSED';END IF;
             IF to_regprocedure('public.community_set_gallery_comments_enabled_v1(uuid,uuid,boolean)') IS NULL
@@ -206,7 +207,7 @@ jobs:
             IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid='public.gallery_photo_revision_fields'::regclass)
              OR NOT (SELECT relrowsecurity FROM pg_class WHERE oid='public.community_media_upload_intents'::regclass)
             THEN RAISE EXCEPTION 'RLS_NOT_ENABLED';END IF;
-            RAISE NOTICE 'LOCAL_SOURCE_CANDIDATE_142_LEDGER_FUNCTION_TRIGGER_RLS_ACL_PHYSICAL_FAILCLOSED_PASS';
+            RAISE NOTICE 'LOCAL_SOURCE_CANDIDATE_143_D06_LEDGER_FUNCTION_TRIGGER_RLS_ACL_PHYSICAL_FAILCLOSED_PASS';
           END $checks$;
           SELECT extname FROM pg_extension ORDER BY extname;
           SELECT n.nspname,COUNT(*) FILTER (WHERE p.prosecdef) AS security_definer_count
@@ -256,6 +257,10 @@ jobs:
             done
           done
           echo 'THIRTY_ONE_ADDITIVE_SOURCE_MIGRATIONS_SAME_SCHEMA_REAPPLY_PASS' | tee /tmp/comm-parent-reapply.log
+          for attempt in 1 2; do
+            docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/migrations/20261027000000_d06_dreamsnaps_account_global_official_consent.sql
+          done
+          echo 'D06_ACCOUNT_GLOBAL_SOURCE143_SAME_SCHEMA_REAPPLY_PASS' | tee /tmp/comm-d06-reapply.log
       - name: Seed LOCAL disposable actors and run existing negative Gallery SQL fixtures
         shell: bash
         run: |
@@ -318,6 +323,7 @@ jobs:
         run: |
           set -euo pipefail
           export DDVRE_PRIVACY_ISOLATED_LOCAL=CONFIRMED
+          python3 tests/comm-d06-account-global-consent-two-session.py | tee /tmp/comm-d06-two-session.log
           python3 tests/comm-r18-preset-reservation-two-session.py | tee /tmp/comm-r18-preset-reservation.log
           python3 tests/comm-r18-promotion-fence-two-session.py | tee /tmp/comm-r18-promotion-fence.log
           python3 tests/comm-r18-scene-publisher-acl-postgres.py | tee /tmp/comm-r18-scene-product-issuer.log
@@ -345,6 +351,8 @@ jobs:
             /tmp/comm-bootstrap-reset.log
             /tmp/comm-bootstrap-acceptance.log
             /tmp/comm-parent-reapply.log
+            /tmp/comm-d06-reapply.log
+            /tmp/comm-d06-two-session.log
             /tmp/comm-synthetic-seed.log
             /tmp/comm-accept-*.log
             /tmp/comm-bootstrap-limitations.log
