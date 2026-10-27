@@ -1,0 +1,37 @@
+name: "04 QR Crafting28 Post-RED Original-Source Independent"
+on:
+  pull_request:
+    paths:
+      - "docs/qa/qr-pr195-crafting28-postred-independent-original-20261027.md"
+      - "static/ddv/qa/qr-pr195-crafting28-postred-independent-v125.json"
+      - "tests/qr-pr195-crafting28-postred-independent-v125.test.mjs"
+      - ".github/workflows/qr-pr195-crafting28-postred-independent.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  postred-original-source-qa-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: ""
+      SUPABASE_ACCESS_TOKEN: ""
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Confirm exact Owner correction blob, private boundaries, expected QA SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN"
+          test "$(git hash-object static/ddv/core/collection/v1.25/native-crafting-recipe-type-28-original-v125.json)" = "877d06e19cd783423995f578105de17af5558ac7"
+          test ! -e main.bin && test ! -e global-metadata.dat
+      - name: Independent newly scoped native + original-derived protobuf contract tests
+        run: node --test tests/qr-pr195-crafting28-postred-independent-v125.test.mjs
+      - name: Provenance limitation
+        run: echo "This workflow checks recorded independent local SHA/Native/protobuf evidence and Owner-frozen repair; it does NOT replay private originals. STATIC selectors only; Runtime CollectionSets/personal metrics and all writers remain OFF."
