@@ -1,0 +1,51 @@
+name: QR CTRL44 Independent WEB267 Strict v2 Standalone
+on:
+  push:
+    branches: ['qr/ctrl44-web267-independent-20261029']
+  pull_request:
+    branches: ['web/x05-source153-owner-consumer-v2-20261028']
+permissions:
+  contents: read
+jobs:
+  web267-independent-source-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Frozen WEB254 parent and exactly FOUR Owner267 new paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=bbbe92526795b1412eac27f02b1aa54c59efc1cb
+          OWNER=0402229e6eb481d865082b3b59f11dc65359ec1a
+          git merge-base --is-ancestor "$BASE" "$OWNER"
+          git merge-base --is-ancestor "$OWNER" HEAD
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN"
+          test -z "$(git diff --name-only "$OWNER" HEAD -- src supabase)"
+          python3 - <<'PY'
+          import subprocess
+          b='bbbe92526795b1412eac27f02b1aa54c59efc1cb'
+          o='0402229e6eb481d865082b3b59f11dc65359ec1a'
+          diff=set(subprocess.check_output(['git','diff','--name-only',b,o],text=True).splitlines())
+          want={'.github/workflows/web-x05-source153-consumer-v2.yml',
+                'docs/web/x05-source153-authoritative-owner-consumer-v2-20261028.md',
+                'src/lib/dreamsnaps/source153-owner-consumer-v2.js',
+                'tests/dreamsnaps-source153-owner-consumer-v2.test.mjs'}
+          assert diff==want,(diff^want)
+          print('QR44_WEB267_EXACT_FOUR_NEW_ONLY_PATHS_AND_PARENT_PASS')
+          PY
+          test "$(git hash-object src/lib/dreamsnaps/source153-owner-consumer-v2.js)" = f981b7596711b47bceb2fa79a2191e79e8f1b459
+          test "$(git hash-object tests/dreamsnaps-source153-owner-consumer-v2.test.mjs)" = 808b9bf35e8d9a43ae5a7cede914b718e4434f77
+          node --test tests/qr-ctrl44-web267-independent.test.mjs
+      - run: npm ci --no-audit --no-fund
+      - run: npm run check
+      - run: npm run build
