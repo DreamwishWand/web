@@ -134,6 +134,17 @@ def verify(files):
                     selectors.append((row["id"],int(collection["Crafting"]["RecipeType"]),
                                       bool(collection.get("Ignore",False))))
     check(len(selectors)==28 and len({s[0] for s in selectors})==25,"WRONG_28_RECIPE_SELECTORS")
+    expected_manifest=Path(__file__).resolve().parents[2] / (
+        "static/ddv/core/collection/v1.25/native-crafting-recipe-type-28-original-v125.json")
+    index=json.loads(expected_manifest.read_text(encoding="utf-8"))
+    compare_expected=sorted((int(x["definitionId"]),int(x["recipeType"]),bool(x["byTypeIgnore"]))
+                            for x in index["selectors"])
+    check(sorted(selectors)==compare_expected,"ORIGINAL_28_NOT_EQUAL_FROZEN_MACHINE_ROSTER")
+    by_id={r["id"]:r for r in records}
+    for x in index["selectors"]:
+        row=by_id[x["definitionId"]]
+        check(row["rawPayloadSha256"]==x["fullOriginalRecordSHA256"],
+              "ORIGINAL_DEFINITION_HASH_DISAGREEMENT_"+str(row["id"]))
     items=[x for x in db["items"] if x.get("concreteItemDataType")=="CraftingRecipeItemData"]
     check(len(items)==1206,"WRONG_1206_RECIPE_ITEMS")
     for row in items:
