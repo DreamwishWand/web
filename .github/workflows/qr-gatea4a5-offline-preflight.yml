@@ -1,0 +1,43 @@
+name: 04 QR Gate A4-A5 Offline Nonprefix Preflight
+on:
+  pull_request:
+    paths:
+      - 'tests/qr-a4a5-offline-nonprefix-contract.test.mjs'
+      - 'tests/qr-a4-generic-source-signer-counterexample.test.mjs'
+      - 'tests/fixtures/qr-a5-stage116-ledger-readonly-20261026.json'
+      - 'docs/qa/qr-a4a5-offline-acceptance-contract-20261026.md'
+      - '.github/workflows/qr-gatea4a5-offline-preflight.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Pin exact candidate-independent Source142 and safety boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN"
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$(git hash-object supabase/migrations/20261025003060_r19_legacy_media_signer_authority.sql)" = "b7563d68348f27591a20a98760534fa7d399b160"
+          test "$(git hash-object supabase/migrations/20261025003050_r19_direct_media_sql_issuer_authority.sql)" = "755c45a5edfe0d8cdab4b4320ecdfa02443183fe"
+          test "$(git hash-object supabase/migrations/20261025003040_r19_reader_history_graph_gap_closure.sql)" = "12ec679135ec00033e94760446dcff86ed70884d"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install frozen JS toolchain
+        run: npm ci
+      - name: Reproduce only new A4 baseline signer negative and A5 exact ledger nonprefix witness
+        run: |
+          set -euo pipefail
+          node --test tests/qr-a4a5-offline-nonprefix-contract.test.mjs tests/qr-a4-generic-source-signer-counterexample.test.mjs
+          echo 'QR_GATEA4A5_OFFLINE_CONTRACT_PASS__BRIDGE_AND_HISTORICAL_CLONE_NOT_ACCEPTED'

@@ -1,0 +1,477 @@
+{
+  "contract": "ddvre.qr.a5-stage116-ledger-snapshot@1",
+  "capturedDate": "2026-10-26",
+  "source": "READ_ONLY Supabase list_migrations / dreamwish-wand-staging ptpdoxhrqopvczpclcij",
+  "containsSensitiveData": false,
+  "containsRowData": false,
+  "stageProjectRef": "ptpdoxhrqopvczpclcij",
+  "stageManagedCount": 116,
+  "stageLastVersion": "20261024043436",
+  "observedReadOnly": true,
+  "migrations": [
+    {
+      "version": "20260930024846",
+      "name": "community_core_v0"
+    },
+    {
+      "version": "20260930024950",
+      "name": "community_core_v0_advisor_hardening"
+    },
+    {
+      "version": "20260930025108",
+      "name": "community_core_v0_query_boundary"
+    },
+    {
+      "version": "20260930025609",
+      "name": "community_core_v0_server_rpc"
+    },
+    {
+      "version": "20260930025714",
+      "name": "community_core_v0_rpc_pgcrypto_path"
+    },
+    {
+      "version": "20260930025853",
+      "name": "community_core_v0_notifications"
+    },
+    {
+      "version": "20260930025927",
+      "name": "community_core_v0_notification_fanout_fix"
+    },
+    {
+      "version": "20260930030022",
+      "name": "community_core_v0_notification_counter_fix"
+    },
+    {
+      "version": "20260930031538",
+      "name": "community_core_v0_query_rpc"
+    },
+    {
+      "version": "20260930031905",
+      "name": "community_core_v0_outbox_cron"
+    },
+    {
+      "version": "20260930032030",
+      "name": "community_core_v0_staging_media_bucket"
+    },
+    {
+      "version": "20260930032141",
+      "name": "community_core_v0_media_publish_v2"
+    },
+    {
+      "version": "20260930032221",
+      "name": "community_core_v0_media_query"
+    },
+    {
+      "version": "20260930032725",
+      "name": "community_core_v0_revision_sealing"
+    },
+    {
+      "version": "20260930032933",
+      "name": "community_core_v0_preset_bridge"
+    },
+    {
+      "version": "20260930033214",
+      "name": "community_staging_pg_net"
+    },
+    {
+      "version": "20260930034107",
+      "name": "community_staging_remove_pg_net"
+    },
+    {
+      "version": "20260930034217",
+      "name": "community_core_v0_author_lifecycle"
+    },
+    {
+      "version": "20260930034447",
+      "name": "community_core_v0_outbox_resilience"
+    },
+    {
+      "version": "20260930035004",
+      "name": "community_core_v0_remove_legacy_publish_rpcs"
+    },
+    {
+      "version": "20260930042340",
+      "name": "community_core_v0_creator_profile_update"
+    },
+    {
+      "version": "20260930043911",
+      "name": "community_core_v0_interaction_removals"
+    },
+    {
+      "version": "20260930051010",
+      "name": "community_core_v0_dead_letter_operations"
+    },
+    {
+      "version": "20260930062348",
+      "name": "community_core_v0_account_recovery"
+    },
+    {
+      "version": "20260930062555",
+      "name": "community_core_v0_account_recovery_indexes"
+    },
+    {
+      "version": "20260930064020",
+      "name": "community_core_v0_session_cutoff"
+    },
+    {
+      "version": "20260930070127",
+      "name": "community_core_v0_account_tombstone"
+    },
+    {
+      "version": "20260930070309",
+      "name": "community_core_v0_account_tombstone_generated_handle_fix"
+    },
+    {
+      "version": "20260930070335",
+      "name": "community_core_v0_account_tombstone_generated_handle_fix"
+    },
+    {
+      "version": "20260930070539",
+      "name": "community_core_v0_provider_cleanup_queue"
+    },
+    {
+      "version": "20260930070602",
+      "name": "community_core_v0_provider_cleanup_queue"
+    },
+    {
+      "version": "20260930070632",
+      "name": "community_core_v0_account_tombstone_provider_job"
+    },
+    {
+      "version": "20260930071410",
+      "name": "community_core_v0_provider_cleanup_worker_queue"
+    },
+    {
+      "version": "20260930072609",
+      "name": "community_core_v0_admin_operations"
+    },
+    {
+      "version": "20260930073139",
+      "name": "community_core_v0_session_bound_recent_auth"
+    },
+    {
+      "version": "20260930093437",
+      "name": "community_core_v0_support_recovery_verification"
+    },
+    {
+      "version": "20260930094644",
+      "name": "community_core_v0_retention_policy"
+    },
+    {
+      "version": "20260930095135",
+      "name": "community_core_v0_retention_redaction_bypass"
+    },
+    {
+      "version": "20260930095258",
+      "name": "community_core_v0_retention_operational_redaction"
+    },
+    {
+      "version": "20260930095834",
+      "name": "community_core_v0_retention_scheduler"
+    },
+    {
+      "version": "20260930100023",
+      "name": "community_core_v0_retention_operations"
+    },
+    {
+      "version": "20260930100831",
+      "name": "community_core_v0_artifact_retention_finalize"
+    },
+    {
+      "version": "20260930104856",
+      "name": "community_core_v0_external_operations_escalation"
+    },
+    {
+      "version": "20260930105934",
+      "name": "community_core_v0_external_operations_escalation_ops"
+    },
+    {
+      "version": "20260930112155",
+      "name": "community_core_v0_operator_email_channel"
+    },
+    {
+      "version": "20260930112416",
+      "name": "community_core_v0_operator_email_worker"
+    },
+    {
+      "version": "20260930113435",
+      "name": "community_core_v0_recent_auth_launch_defaults"
+    },
+    {
+      "version": "20260930114310",
+      "name": "community_core_v0_public_search"
+    },
+    {
+      "version": "20260930115623",
+      "name": "community_core_v0_fk_index_hardening"
+    },
+    {
+      "version": "20260930120042",
+      "name": "community_core_v0_moderation_operations"
+    },
+    {
+      "version": "20260930122716",
+      "name": "community_core_v0_action_rate_limits"
+    },
+    {
+      "version": "20260930123148",
+      "name": "community_core_v0_action_rate_limit_fk_index"
+    },
+    {
+      "version": "20260930124055",
+      "name": "wep_preset_artifact_storage_v0"
+    },
+    {
+      "version": "20260930124357",
+      "name": "wep_preset_artifact_access_v0"
+    },
+    {
+      "version": "20260930125310",
+      "name": "wep_preset_retention_claim_v0"
+    },
+    {
+      "version": "20261001112736",
+      "name": "community_retention_tiered_operational_scrub"
+    },
+    {
+      "version": "20261001115028",
+      "name": "community_retention_content_purge_7d"
+    },
+    {
+      "version": "20261001122209",
+      "name": "community_retention_operational_90d_single_stage"
+    },
+    {
+      "version": "20261001221620",
+      "name": "community_linked_ddv_profile_lifecycle_v1"
+    },
+    {
+      "version": "20261001232814",
+      "name": "community_ddv_profile_workspace_v1"
+    },
+    {
+      "version": "20261001233225",
+      "name": "community_ddv_profile_workspace_lifecycle_v2"
+    },
+    {
+      "version": "20261001233707",
+      "name": "community_ddv_profile_workspace_fk_index_v3"
+    },
+    {
+      "version": "20261001234029",
+      "name": "community_ddv_profile_workspace_lifecycle_v2"
+    },
+    {
+      "version": "20261001234035",
+      "name": "community_ddv_profile_workspace_fk_index_v3"
+    },
+    {
+      "version": "20261001234524",
+      "name": "community_ddv_profile_workspace_decommission_legacy_link_v4"
+    },
+    {
+      "version": "20261002003039",
+      "name": "community_ddv_profile_workspace_delete_reauth_rate_v5"
+    },
+    {
+      "version": "20261003040352",
+      "name": "community_gallery_qa_vertical_schema_v1"
+    },
+    {
+      "version": "20261003040356",
+      "name": "community_gallery_golden_vertical_v1"
+    },
+    {
+      "version": "20261003040400",
+      "name": "community_qa_golden_vertical_v1"
+    },
+    {
+      "version": "20261003041024",
+      "name": "community_gallery_qa_public_read_hardening_v1"
+    },
+    {
+      "version": "20261003041217",
+      "name": "community_gallery_qa_moderation_projection_v1"
+    },
+    {
+      "version": "20261003041538",
+      "name": "community_gallery_qa_revision_sealing_fix_v1"
+    },
+    {
+      "version": "20261003041708",
+      "name": "community_gallery_qa_trigger_sealing_alignment_v1"
+    },
+    {
+      "version": "20261003042021",
+      "name": "community_gallery_qa_public_projection_v1"
+    },
+    {
+      "version": "20261003042301",
+      "name": "community_comment_answer_moderation_v1"
+    },
+    {
+      "version": "20261003044503",
+      "name": "community_qa_viewer_context_v1"
+    },
+    {
+      "version": "20261003045220",
+      "name": "community_public_gallery_media_v1"
+    },
+    {
+      "version": "20261003053455",
+      "name": "community_public_query_edge_boundary_v1"
+    },
+    {
+      "version": "20261003063440",
+      "name": "community_dreamsnaps_schema_v1"
+    },
+    {
+      "version": "20261003063917",
+      "name": "community_dreamsnaps_commands_v1"
+    },
+    {
+      "version": "20261003064616",
+      "name": "community_dreamsnaps_projection_v1"
+    },
+    {
+      "version": "20261003073445",
+      "name": "community_dreamsnaps_native_revision_fix_v1"
+    },
+    {
+      "version": "20261003074322",
+      "name": "community_dreamsnaps_integrity_pool_v1"
+    },
+    {
+      "version": "20261003074659",
+      "name": "community_dreamsnaps_ingame_result_provenance_v1"
+    },
+    {
+      "version": "20261003075819",
+      "name": "community_dreamsnaps_fk_indexes_v1"
+    },
+    {
+      "version": "20261007135856",
+      "name": "scene_preset_product_vertical_v1"
+    },
+    {
+      "version": "20261007201915",
+      "name": "scene_preset_unattached_media_discard_v1"
+    },
+    {
+      "version": "20261023133358",
+      "name": "community_gallery_photo_lifecycle_v1"
+    },
+    {
+      "version": "20261023133612",
+      "name": "community_gallery_photo_revision_seal_order_v1"
+    },
+    {
+      "version": "20261023133643",
+      "name": "community_gallery_photo_existing_seal_trigger_v1"
+    },
+    {
+      "version": "20261023133947",
+      "name": "community_gallery_photo_null_version_guard_v1"
+    },
+    {
+      "version": "20261023134408",
+      "name": "community_gallery_photo_fk_indexes_v1"
+    },
+    {
+      "version": "20261023135223",
+      "name": "community_gallery_subject_exact_identity_v1"
+    },
+    {
+      "version": "20261023205739",
+      "name": "gallery_retirement_negative_gate_v1"
+    },
+    {
+      "version": "20261023211943",
+      "name": "community_gallery_verified_subject_public_lookup_v1"
+    },
+    {
+      "version": "20261023224114",
+      "name": "community_gallery_owner_upload_intent_v1"
+    },
+    {
+      "version": "20261023224334",
+      "name": "community_gallery_upload_intent_finalize_guard_v1"
+    },
+    {
+      "version": "20261023230827",
+      "name": "community_gallery_orphan_retention_worker_v1"
+    },
+    {
+      "version": "20261023234046",
+      "name": "community_gallery_retirement_gateway_preflight_v1"
+    },
+    {
+      "version": "20261023234356",
+      "name": "community_gallery_retirement_other_token_issuers_v1"
+    },
+    {
+      "version": "20261024000802",
+      "name": "community_gallery_immutable_finalize_capacity_v1"
+    },
+    {
+      "version": "20261024000806",
+      "name": "community_gallery_account_hold_cleanup_guard_v1"
+    },
+    {
+      "version": "20261024000859",
+      "name": "community_gallery_capacity_ops_metrics_v1"
+    },
+    {
+      "version": "20261024003400",
+      "name": "gallery_global_backpressure_v1"
+    },
+    {
+      "version": "20261024003403",
+      "name": "gallery_physical_delete_failclosed_v1"
+    },
+    {
+      "version": "20261024003702",
+      "name": "gallery_owner_read_no_signed_url_v1"
+    },
+    {
+      "version": "20261024003840",
+      "name": "gallery_owner_read_issuer_closed_preflight_v1"
+    },
+    {
+      "version": "20261024005141",
+      "name": "gallery_storage_origin_reconciliation_v1"
+    },
+    {
+      "version": "20261024005259",
+      "name": "gallery_owner_historical_cover_issuer_guard_v1"
+    },
+    {
+      "version": "20261024010220",
+      "name": "gallery_public_historical_cover_issuer_guard_v1"
+    },
+    {
+      "version": "20261024013421",
+      "name": "gallery_cloud_preservation_readiness_v1"
+    },
+    {
+      "version": "20261024020515",
+      "name": "gallery_dependency_coverage_readonly_v1"
+    },
+    {
+      "version": "20261024034159",
+      "name": "gallery_owner_preflight_dependency_coverage_projection_v1"
+    },
+    {
+      "version": "20261024043307",
+      "name": "gallery_abort_cover_only_reference_guard_v1"
+    },
+    {
+      "version": "20261024043424",
+      "name": "gallery_capacity_effective_cleanup_diagnostics_v1"
+    },
+    {
+      "version": "20261024043436",
+      "name": "gallery_known_reference_writer_fence_v1"
+    }
+  ]
+}
