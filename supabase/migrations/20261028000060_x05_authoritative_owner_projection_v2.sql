@@ -14,6 +14,8 @@ declare
   v_work public.community_works%rowtype;
   v_control private.dreamsnap_x05_work_control_v1%rowtype;
   v_dw public.dreamsnap_works%rowtype;
+  v_stage private.dreamsnap_post_event_staged_v1%rowtype;
+  v_creator_id uuid;
   v_media public.media_assets%rowtype;
   v_entry uuid;
   v_last_grant private.dreamsnap_x05_consent_events_v1%rowtype;
@@ -53,17 +55,17 @@ begin
        p_expected_authorization_epoch is distinct from v_control.authorization_epoch)
   then raise exception 'X05_V2_STALE_VERSION_OR_EPOCH'; end if;
 
-  if not exists(
-    select 1 from public.wand_accounts a
-    join public.auth_identities ai on ai.account_id=a.account_id
-    join public.creator_profiles cp on cp.owner_account_id=a.account_id
+  -- verified_db_subject_v1 already locks active Account and Identity.
+  -- Lock the linked Creator/Entity too so a moderation transition cannot
+  -- invalidate the assertion between this check and the projection.
+  select cp.creator_profile_id into v_creator_id
+    from public.creator_profiles cp
     join public.community_entities ce on ce.entity_id=cp.creator_profile_id
-    where a.account_id=v_account and a.status='active' and a.deleted_at is null
-      and ai.provider='supabase' and ai.provider_subject=v_subject::text
-      and ai.identity_state='active' and ai.retired_at is null
-      and cp.creator_profile_id=v_work.creator_profile_id
-      and cp.moderation_state='clear' and ce.deleted_at is null
-  ) or private.is_account_privacy_suppressed(v_account)
+    where cp.creator_profile_id=v_work.creator_profile_id
+      and cp.owner_account_id=v_account and cp.moderation_state='clear'
+      and ce.deleted_at is null
+    for share of cp,ce;
+  if not found or private.is_account_privacy_suppressed(v_account)
   then raise exception 'X05_V2_ACTOR_CREATOR_PRIVACY_DENIED'; end if;
 
   select * into v_dw from public.dreamsnap_works dw
@@ -110,17 +112,18 @@ begin
   elsif v_control.work_kind='PostEventCreation' then
     if exists(select 1 from public.dreamsnap_entries e where e.work_id=p_work_id)
        or exists(select 1 from public.dreamsnap_gallery_publications gp where gp.work_id=p_work_id)
-       or not exists(select 1 from private.dreamsnap_post_event_staged_v1 st
-          where st.work_id=p_work_id and st.creator_profile_id=v_work.creator_profile_id
-            and st.challenge_id=v_control.challenge_id
-            and st.immutable_photo_revision_id=v_control.frozen_photo_revision_id
-            and st.media_id=v_control.frozen_media_id
-            and st.concept_revision_id=v_control.concept_revision_id
-            and st.publication_state='staged'
-            and st.official_voting_authority='unknown'
-            and st.wand_voting_authority='unknown'
-            and st.rights_provenance='unknown')
     then raise exception 'X05_V2_POSTEVENT_STAGED_INVALID'; end if;
+    select * into v_stage from private.dreamsnap_post_event_staged_v1 st
+    where st.work_id=p_work_id and st.creator_profile_id=v_work.creator_profile_id
+      and st.challenge_id=v_control.challenge_id
+      and st.immutable_photo_revision_id=v_control.frozen_photo_revision_id
+      and st.media_id=v_control.frozen_media_id
+      and st.concept_revision_id=v_control.concept_revision_id
+      and st.publication_state='staged'
+      and st.official_voting_authority='unknown'
+      and st.wand_voting_authority='unknown'
+      and st.rights_provenance='unknown' for share;
+    if not found then raise exception 'X05_V2_POSTEVENT_STAGED_INVALID'; end if;
   else raise exception 'X05_V2_KIND_INVALID'; end if;
 
   -- Last *GRANT* event, not current Work CAS version after withdraw/delete.
