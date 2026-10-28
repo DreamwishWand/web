@@ -1,0 +1,109 @@
+name: QR CTRL39 INT258 Independent FULL151 Cross-Product
+on:
+  push:
+    branches: ['qr/ctrl39-int258-newonly-20261028']
+  pull_request:
+    branches: ['int/x05-source151-web254-combined-20261028']
+permissions:
+  contents: read
+jobs:
+  independent-source-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Independently attest two frozen parents and 19 WEB + three integration-only delta
+        run: |
+          set -euo pipefail
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN"
+          SOURCE=9c96de3e1f003c160beffc0395dfbe35314dff3d
+          WEB=bbbe92526795b1412eac27f02b1aa54c59efc1cb
+          OWNER=0efb76c1e1b865ef57c1d74d2fdfa5bdd54ad2e9
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git merge-base --is-ancestor "$WEB" HEAD
+          git merge-base --is-ancestor "$OWNER" HEAD
+          test -z "$(git diff --name-only "$OWNER" HEAD -- src supabase)"
+          test -z "$(git diff --name-only "$SOURCE" HEAD -- supabase)"
+          python3 - <<'PY'
+          import subprocess
+          base='9c96de3e1f003c160beffc0395dfbe35314dff3d'
+          owner='0efb76c1e1b865ef57c1d74d2fdfa5bdd54ad2e9'
+          web='bbbe92526795b1412eac27f02b1aa54c59efc1cb'
+          files=subprocess.check_output(['git','diff','--name-only',base,owner],text=True).splitlines()
+          three={'.github/workflows/int-x05-source151-web254-combined.yml',
+           'tests/int-x05-source151-web254-combined.test.mjs',
+           'tests/int-x05-source151-web254-withdraw-two-pg.py'}
+          assert len(files)==22,(len(files),files)
+          assert three.issubset(files)
+          inherited=set(files)-three
+          assert len(inherited)==19,len(inherited)
+          for path in inherited:
+           assert subprocess.check_output(['git','rev-parse',owner+':'+path]).strip()==subprocess.check_output(
+            ['git','rev-parse',web+':'+path]).strip(),path
+          print('QR_INT258_FROZEN_19_WEB_BLOBS_PLUS_3_INTEGRATION_ONLY_PASS')
+          PY
+          test "$(git hash-object supabase/migrations/20261028000040_x05_private_pregrant_policy_receipt_v1.sql)" = 451735e05b6a18c826851a51000909c40c42bb9f
+          test "$(git hash-object supabase/functions/community-dreamsnap-owner/index.ts)" = 1a05cdc540a45fe1b1656d64a151d1c1ca28c8be
+          node --test tests/qr-ctrl39-int258-independent.test.mjs
+      - run: npm ci --no-audit --no-fund
+      - run: npm run check
+      - run: npm run build
+  independent-full151-two-pg-adapter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pre-validate independently authored fixture and exact frozen combined SQL
+        run: |
+          set -euo pipefail
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN"
+          git merge-base --is-ancestor 0efb76c1e1b865ef57c1d74d2fdfa5bdd54ad2e9 HEAD
+          test -z "$(git diff --name-only 0efb76c1e1b865ef57c1d74d2fdfa5bdd54ad2e9 HEAD -- src supabase)"
+          python3 -m py_compile tests/qr-ctrl39-int258-two-pg.py
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Disposable genuine FULL151 PostgreSQL no live endpoint
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_qrctrl39_int258_disposable"\n' | cat - supabase/config.toml > /tmp/qr-int258-config.toml
+          mv /tmp/qr-int258-config.toml supabase/config.toml
+          timeout 1500s supabase start -x edge-runtime --debug >/tmp/qr-int258-start.log 2>&1 || { tail -120 /tmp/qr-int258-start.log; exit 1; }
+      - run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Fresh independent PG pregrant->synthetic consent->OwnerRead->Withdraw and WEB Adapter
+        run: |
+          set -euo pipefail
+          python3 tests/qr-ctrl39-int258-two-pg.py 2>&1 | tee /tmp/qr-int258.log
+          grep -q QR_INT258_REAL_FULL151_PG_TO_WEB_FAILCLOSED_READY /tmp/qr-int258.log
+          QR_CTRL39_PG_TO_WEB_JSON=/tmp/qr-ctrl39-int258-real-pg-adapter.json node --test tests/qr-ctrl39-int258-independent.test.mjs
+          echo QR_INT258_INDEPENDENT_FULL151_TO_WEB_FAILCLOSED_PASS
+      - name: Synthetic only record
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr-ctrl39-int258-synthetic-full151
+          path: /tmp/qr-int258.log
+          if-no-files-found: warn
+      - name: Failure diagnostics only
+        if: failure()
+        run: tail -90 /tmp/qr-int258-start.log || true
