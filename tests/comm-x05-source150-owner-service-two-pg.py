@@ -160,7 +160,7 @@ with psycopg.connect(DSN,autocommit=True) as a,psycopg.connect(DSN,autocommit=Tr
         a.execute("savepoint retired")
         try:
             a.execute("update public.auth_identities set identity_state='retired' where account_id=%s",(account,))
-            assert_denied(read(b,auth,post),"RETIRED_IDENTITY")
+            assert_denied(read(a,auth,post),"RETIRED_IDENTITY")
         finally:
             a.execute("rollback to savepoint retired")
             a.execute("release savepoint retired")
@@ -168,7 +168,7 @@ with psycopg.connect(DSN,autocommit=True) as a,psycopg.connect(DSN,autocommit=Tr
         a.execute("savepoint privacy")
         try:
             a.execute("insert into private.account_privacy_suppressions(account_id,next_cleanup_at) values(%s,now())",(account,))
-            assert_denied(read(b,auth,post),"PRIVACY_SUPPRESSION")
+            assert_denied(read(a,auth,post),"PRIVACY_SUPPRESSION")
         finally:
             a.execute("rollback to savepoint privacy")
             a.execute("release savepoint privacy")
@@ -205,7 +205,7 @@ with psycopg.connect(DSN,autocommit=True) as a,psycopg.connect(DSN,autocommit=Tr
         try:
             a.execute("""insert into private.account_retention_holds(account_id,hold_type,reason,created_by_account_id)
                          values(%s,'legal','synthetic test only',%s)""",(account,account))
-            hold=read(b,auth,post)
+            hold=read(a,auth,post)
             assert hold[0]=="ok" and hold[1]["erasure"]["state"]=="LEGAL_HOLD",hold
             assert not hold[1]["erasure"]["physicalPurgeVerified"]
         finally:
