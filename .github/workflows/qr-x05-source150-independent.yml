@@ -31,6 +31,7 @@ jobs:
           test "$(git hash-object supabase/migrations/20261028000030_x05_authenticated_owner_service_v1.sql)" = 85e9de1874ca489133fd39be522f57ee1cfac6ab
           test -z "$(git diff --name-only 4117d98666a3c3c2ae5891c043e9a83756f92fdc HEAD -- supabase src)"
           node --test tests/qr-x05-source150-independent.test.mjs
+          python3 -m py_compile tests/qr-x05-source150-two-pg-independent.py
       - uses: supabase/setup-cli@v1
         with:
           version: 2.81.3
