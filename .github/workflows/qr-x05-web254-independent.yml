@@ -1,0 +1,30 @@
+name: QR WEB254 Independent Source151 Pregrant Adapter
+on:
+  push:
+    branches: ['qr/x05-web254-independent-20261028']
+  pull_request:
+    branches: ['web/x05-source151-private-pregrant-adapter-20261028']
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact Owner pin and protected Source unchanged
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor bbbe92526795b1412eac27f02b1aa54c59efc1cb HEAD
+          test -z "$(git diff --name-only bbbe92526795b1412eac27f02b1aa54c59efc1cb HEAD -- src supabase)"
+          test -z "$(git diff --name-only c80b48336fa6b0f5de9afd24b452387116f283f4 bbbe92526795b1412eac27f02b1aa54c59efc1cb -- supabase)"
+          node --test tests/qr-x05-web254-independent.test.mjs
+      - run: npm ci --no-audit --no-fund
+      - run: npm run check
+      - run: npm run build
