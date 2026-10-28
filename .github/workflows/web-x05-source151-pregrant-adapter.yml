@@ -1,0 +1,49 @@
+name: WEB X05 Source151 pregrant contract NEW ONLY (NO HTTP)
+on:
+  push:
+    branches:
+      - 'web/x05-source151-private-pregrant-adapter-*'
+  pull_request:
+    paths:
+      - 'src/lib/dreamsnaps/source151-private-pregrant-adapter.js'
+      - 'tests/dreamsnaps-source151-private-pregrant-adapter.test.mjs'
+      - 'docs/web/x05-source151-private-pregrant-adapter-20261028.md'
+      - '.github/workflows/web-x05-source151-pregrant-adapter.yml'
+permissions:
+  contents: read
+concurrency:
+  group: web-x05-source151-pregrant-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  new-only-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Source151 strictly synthetic pregrant and negative-only Node tests
+        run: node --test tests/dreamsnaps-source151-private-pregrant-adapter.test.mjs
+      - name: Source static Svelte check
+        run: npm run check
+      - name: Static build - UI unchanged
+        run: npm run build
+      - name: Preserve WEB252 accepted paths and exact four-file allowlist
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=c80b48336fa6b0f5de9afd24b452387116f283f4
+          git cat-file -e "$BASE^{commit}"
+          git diff --exit-code "$BASE" HEAD -- supabase/ src/routes/ src/lib/community/ src/lib/dreamsnaps/owner-management.js src/lib/dreamsnaps/private-owner-consumer-contract.js src/lib/dreamsnaps/source150-owner-service-adapter.js scripts/dreamsnaps-owner-browser-acceptance.mjs tests/dreamsnaps-source150-owner-service-adapter.test.mjs tests/dreamsnaps-private-owner-consumer-contract.test.mjs tests/dreamsnaps-owner-management-private.test.mjs
+          git diff --name-only "$BASE" HEAD > /tmp/source151-web-new-only
+          cat /tmp/source151-web-new-only
+          while IFS= read -r p; do
+            case "$p" in
+              src/lib/dreamsnaps/source151-private-pregrant-adapter.js|tests/dreamsnaps-source151-private-pregrant-adapter.test.mjs|docs/web/x05-source151-private-pregrant-adapter-20261028.md|.github/workflows/web-x05-source151-pregrant-adapter.yml) ;;
+              *) echo "UNEXPECTED CHANGE: $p" >&2; exit 1 ;;
+            esac
+          done < /tmp/source151-web-new-only
