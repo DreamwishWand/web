@@ -93,15 +93,15 @@ test('cannot infer verified JWT, Account binding, legitimate Media, official pha
     {originalImageImmutable:false},{grantRecorded:true},
     {publicActivationAllowed:true},{officialChallengePhaseVerified:true},
     {expectedRowVersion:1},{expectedAuthorizationEpoch:2},
-    {photoMediaId:entry},{photoMediaId:'no-media'},
-    {photoRevisionId:media},{creatorProfileId:'x'},{challengeId:'x'},
+    {photoMediaId:'no-media'},
+    {photoRevisionId:'not-a-uuid'},{creatorProfileId:'x'},{challengeId:'x'},
     {workId:entry},{photoMediaId:null},{accountId:account},
     {ownerAccountId:account},{bearer:'FAKE'},{storageKey:'bucket/secret'},
     {signedUrl:'https://example.invalid/image'},
     {erasure:{state:'MEDIA_PURGED',physicalPurgeVerified:true,publicDisabled:true}},
     {erasure:{state:'NOT_REQUESTED',physicalPurgeVerified:true,publicDisabled:true}}
   ])reject({...data(),...patch});
-  // Even a correct-looking signed-JWT claim in HTTP fixture cannot activate.
+  // A wrong but syntactically valid MediaID cannot be independently proven by the browser.\n  const forgedMedia=read({...data(),photoMediaId:entry});\n  assert.equal(forgedMedia.status,'NEED_POLICY_ARTIFACT');\n  assert.equal(forgedMedia.ownerReadVerified,false);\n  assert.equal(forgedMedia.snapshot,null);\n  // Even a correct-looking signed-JWT claim in HTTP fixture cannot activate.
   assert.equal(inspectSource151PregrantHttpFixture(http(),context).ownerReadVerified,false);
 });
 
