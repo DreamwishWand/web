@@ -183,7 +183,8 @@ with psycopg.connect(DSN,autocommit=True) as A,psycopg.connect(DSN,autocommit=Tr
   assert one(A,"select count(*) from public.outbox_events where aggregate_id=%s",(work,))==outbox+1
   no(action(B,sub,work,1,1,"withdraw"),"stale withdraw CAS")
   no(read(C,U(),work),"foreign owner read")
-  assert one(A,"select count(*) from private.dreamsnap_x05_consent_events_v1 where work_id=%s",(work,))==1
+  assert one(A,"select count(*) from private.dreamsnap_x05_consent_events_v1 where work_id=%s and action='grant'",(work,))==1
+  assert one(A,"select count(*) from private.dreamsnap_x05_consent_events_v1 where work_id=%s and action='withdraw'",(work,))==1
   snapshots[label]["owner"]=yes(read(B,sub,work),"real postwithdraw OwnerRead")
   # All actual SQL responses recorded, not fabricated WEB envelopes.
  with open("/tmp/qr-ctrl41-full152-db-to-web.json","w",encoding="utf-8") as f:
