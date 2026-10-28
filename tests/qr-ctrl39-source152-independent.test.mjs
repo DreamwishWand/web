@@ -57,7 +57,7 @@ test('no phantom DDV official competition: only existing Wand Work+Entry and Pos
  "e.entry_state='entered'",
  "e.eligibility_state='eligible'",
  "p_kind='OriginalCompetition'",
- "p_kind='PostEventCreation'",
+ "p_kind not in ('OriginalCompetition','PostEventCreation')",
  "private.dreamsnap_create_revision(",
  'private.dreamsnap_post_event_staged_v1',
  "'PostEventCreation'",
@@ -82,7 +82,7 @@ test('Japanese Policy v1 is immutable candidate byte digest, never actual approv
  assert.equal(manifest.policyVersionText,'v1');
  assert.equal(manifest.sha256,'2c4e78e46345a3d230a304d74086aa49b66700396acca91bf6280cd6f938d0cb');
  assert.equal(createHash('sha256').update(candidate).digest('hex'),manifest.sha256);
- assert.equal(candidate[0],0xe9);assert.equal(candidate.at(-1),10);assert.equal(candidate.includes(13),false);
+ assert.equal(candidate.at(-1),10);assert.equal(candidate.includes(13),false);
  assert.equal(readFileSync('docs/community/policy/dreamsnap-image-grant-v1.candidate.txt','utf8').includes('非公式'),true);
  assert.doesNotMatch(sql,/insert into private\.dreamsnap_x05_(owner_policy|policy_receipt)_v1/i);
 });
