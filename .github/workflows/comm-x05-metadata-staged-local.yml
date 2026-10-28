@@ -1,0 +1,53 @@
+name: 03 COMM X05 metadata-only synthetic PostgreSQL delta
+
+on:
+  push:
+    branches:
+      - fix/03comm-x05-shared-metadata-staged-20261028
+  pull_request:
+    paths:
+      - 'supabase/migrations/20261028000000_x05_shared_dreamsnap_metadata_staged_v1.sql'
+      - 'tests/sql/comm-x05-metadata-staged-synthetic.sql'
+      - 'tests/comm-x05-metadata-staged.test.mjs'
+      - 'docs/community/x05-shared-dreamsnaps-public-work-metadata-staged-v1.md'
+      - '.github/workflows/comm-x05-metadata-staged-local.yml'
+  workflow_dispatch:
+
+jobs:
+  source-local-synthetic:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: x05_synthetic
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d x05_synthetic"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: New-only static assertions
+        run: node --test tests/comm-x05-metadata-staged.test.mjs
+      - name: PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+      - name: Disposable synthetic PostgreSQL new-migration fixture
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 5432 -U postgres -d x05_synthetic \
+            -f tests/sql/comm-x05-metadata-staged-synthetic.sql
+      - name: Scope marker
+        run: |
+          echo 'COMM_X05_SOURCE_LOCAL_STUBBED_POSTGRES_ONLY'
+          echo 'NOT Source141-146 replay; NOT signed Stage/phase/rights/CDN'

@@ -1,0 +1,86 @@
+name: 03 COMM X05 post-QR239 repaired Source148 full148 owner PostgreSQL
+on:
+  push:
+    branches: ['fix/03comm-x05-shared-metadata-staged-20261028']
+  pull_request:
+    branches: ['fix/03comm-x05-shared-metadata-staged-20261028']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  full148-newonly-isolated-pg:
+    name: COMM Source148 actual complete two-backend PostgreSQL (no Source144/145 stubs)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+      DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Owner immutable Source147 + corrected Source148 exact Blobs, zero legacy mutations
+        run: |
+          set -euo pipefail
+          test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$DATABASE_URL"
+          git merge-base --is-ancestor 23a12dac9cbe11898ecc167977f71e4f6a090636 HEAD
+          test "$(git hash-object supabase/migrations/20261028000010_x05_post_event_staged_liveness_immutable_guard.sql)" = f6438fe596ed2eaca88bdb034173431f6bd511aa
+          test "$(git hash-object supabase/migrations/20261028000000_x05_shared_dreamsnap_metadata_staged_v1.sql)" = 5c2b1b85b07821d7e60a84de40d933d59c4cc19d
+          test -z "$(git diff --name-only b907a86d67887bf841179f23824e5b26085520c3 HEAD -- supabase/migrations/202609* supabase/migrations/202610250* supabase/migrations/202610270*)"
+          test -z "$(git diff --name-only b907a86d67887bf841179f23824e5b26085520c3 HEAD -- supabase/functions src)"
+          python3 - <<'PY'
+          from pathlib import Path
+          files=sorted(Path("supabase/migrations").glob("*.sql"))
+          assert len(files)==148,len(files)
+          version=[p.name.split("_")[0] for p in files]
+          assert len(version)==len(set(version))
+          assert files[-2].name=="20261028000000_x05_shared_dreamsnap_metadata_staged_v1.sql"
+          assert files[-1].name=="20261028000010_x05_post_event_staged_liveness_immutable_guard.sql"
+          edge=Path("supabase/functions/community-public-query/index.ts").read_text()
+          assert "dreamsnap_shared_public_work_metadata_v1" not in edge
+          assert "dreamsnap_post_event_staged_v1" not in edge
+          for f in Path("supabase/functions").rglob("*.ts"):
+              assert "dreamsnap_shared_public_work_metadata_v1" not in f.read_text(), f
+          for f in Path("src").rglob("*.svelte"):
+              assert "dreamsnap_shared_public_work_metadata_v1" not in f.read_text(), f
+          print("COMM148_ALL_148_MIGRATION_ORDER_UNROUTED_SOURCE_PIN_PASS")
+          PY
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Unique isolated disposable Supabase local project
+        run: |
+          set -euo pipefail
+          docker version
+          printf 'project_id = "ddvre_comm148_owner_ephemeral_20261028"\n' | cat - supabase/config.toml > /tmp/comm148-config.toml
+          mv /tmp/comm148-config.toml supabase/config.toml
+          echo COMM148_NO_REMOTE_LINK_OR_STAGE
+      - name: Clean full 148 actual migration from empty disposable PostgreSQL
+        run: |
+          set -euo pipefail
+          timeout 1500s supabase start --debug > /tmp/comm148-start.log 2>&1 || { tail -160 /tmp/comm148-start.log; exit 1; }
+          echo COMM148_CLEAN_FULL_148_MIGRATIONS_SUCCESS
+      - name: psycopg for separate live writer/reader PG backends
+        run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Owner NEW ONLY X05 true 148-schema two-PG acceptance
+        run: |
+          set -euo pipefail
+          python3 tests/comm-x05-source148-fullschema-owner-two-pg.py 2>&1 | tee /tmp/comm148-independence.log
+          grep -q COMM148_OWNER_FIVE_QR239_COUNTEREXAMPLES_CLOSED_PASS /tmp/comm148-independence.log
+      - name: Preserve untrusted disposable error proof (no personal data)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: comm-source148-full148-local-synthetic-proof
+          path: |
+            /tmp/comm148-independence.log
+          if-no-files-found: warn
+      - name: Display local bootstrap errors only if failed
+        if: failure()
+        run: tail -140 /tmp/comm148-start.log || true

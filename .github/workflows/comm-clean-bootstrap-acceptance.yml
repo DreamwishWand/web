@@ -72,7 +72,7 @@ jobs:
           from pathlib import Path
           import re
           fs=sorted(Path('supabase/migrations').glob('*.sql'))
-          assert len(fs)==146, f'expected 146 source SQL files, got {len(fs)}'
+          assert len(fs)==148, f'expected 148 source SQL files, got {len(fs)}'
           vs=[f.name.split('_',1)[0] for f in fs]
           assert all(re.fullmatch(r'\d{12}(?:\d{2})?',v) for v in vs)
           assert len(vs)==len(set(vs)), 'migration version collision'
@@ -133,7 +133,7 @@ jobs:
           DECLARE v int;
           BEGIN
             SELECT count(*) INTO v FROM supabase_migrations.schema_migrations;
-            IF v<>146 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_146: %',v;END IF;
+            IF v<>148 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_148: %',v;END IF;
             IF (select enrollment_state from private.community_writer_routes_r16 where writer_key='gallery-comments-legacy')<>'FAIL_CLOSED'
             THEN RAISE EXCEPTION 'R17_LEGACY_REGISTRY_NOT_CLOSED';END IF;
             IF to_regprocedure('public.community_set_gallery_comments_enabled_v1(uuid,uuid,boolean)') IS NULL
