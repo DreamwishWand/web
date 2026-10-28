@@ -1,3 +1,4 @@
+import {previewNativeGroupCompositionV125} from './native-group-composition-v125.js';
 const codec = 'ddv.collection-definition-source-compact@1';
 const sourceDigest = 'c01deb5c6d3859c4fc6e3ff5e18b825838c7a3a3d172f236a5251b76173752bb';
 const itemDbDigest = 'df78c309a8023667c92426e3b929ed3e51aadf10d943835a3673cefa585f8048';
@@ -124,5 +125,94 @@ export function bindCollectionProfileDefinitionsV125({verifiedSource,profile,sou
     owned:null,available:null,unlocked:null,
     versionFence:'SWITCH_1.25.0_BID_'+bid+'_SCHEMA_624',
     requiredEvidence:Object.freeze(['trusted current ItemDB ItemID resolution (full 17413 ID index)','native-equivalent typed selector/Ignore evaluation','consented real owner save and source bytes','independent QR personal metric acceptance'])
+  });
+}
+
+/**
+ * A one-Group operand plan, grounded in the SHA-verified ORIGINAL CollectionDefinition.
+ * This is NOT a runtime GetItemsInGroup result, native ItemDatabase query, or CollectionSets membership.
+ * The zero sentinel is preserved instead of silently treated as an ItemID or removed.
+ */
+export function planCollectionDefinitionGroupV125({verifiedSource,identity,collectionDefinitionId}={}) {
+  if(identity?.platform!=='switch'||identity?.gameVersion!=='1.25.0'||
+     identity?.buildId!==bid||identity?.profileSchema!==624)
+    return stopped('COLLECTION_OPERAND_EXACT_BUILD_REQUIRED');
+  const pack=object(verifiedSource)?verifiedSources.get(verifiedSource):null;
+  if(!pack)return stopped('COLLECTION_OPERAND_VERIFIED_DEFINITIONS_REQUIRED');
+  if(!positive(collectionDefinitionId))return stopped('COLLECTION_OPERAND_DEFINITION_ID_INVALID');
+  const row=pack.records.find(x=>x[0]===collectionDefinitionId);
+  if(!row)return stopped('COLLECTION_OPERAND_DEFINITION_UNKNOWN');
+  const category=expected.find(x=>x[0]===row[1]);
+  if(!category)return stopped('COLLECTION_OPERAND_CATEGORY_UNKNOWN');
+  const typed=Object.freeze(row[5].map(([family,arg,ignore],slot)=>{
+    const argument=JSON.parse(JSON.stringify(arg));
+    if(object(argument))Object.freeze(argument);
+    return Object.freeze({
+      slot,selectorKey:collectionDefinitionId+':0:'+slot,family,argument,ignore:ignore===1,
+      itemIds:'UNKNOWN',evidence:'ORIGINAL_COLLECTION_DEFINITION_SELECTOR_ARGUMENT_ONLY'
+    });
+  }));
+  const explicit=Object.freeze(row[4].map(([ignore,itemIds],slot)=>Object.freeze({
+    slot,ignore:ignore===1,itemIds:Object.freeze([...itemIds]),
+    containsZeroSentinel:itemIds.includes(0),
+    evidence:'ORIGINAL_COLLECTION_DEFINITION_BYITEM_ONLY'
+  })));
+  return Object.freeze({
+    status:'SOURCE_GROUP_OPERAND_PLAN_ONLY',platform:'switch',gameVersion:'1.25.0',buildId:bid,profileSchema:624,
+    collectionDefinitionId,definitionName:row[3],definitionRawSha256:row[2],
+    definitionManifestSha256:sourceDigest,categoryId:'CollectionSubMenu_'+category[1],groupIndex:0,groupCount:1,
+    typedSelectors:typed,explicitItemFilters:explicit,
+    hasUnresolvedZeroSentinel:explicit.some(x=>x.containsZeroSentinel),
+    typedNativeResultsKnown:false,groupNativeResultsKnown:false,finalMembershipKnown:false,
+    denominator:null,owned:'UNKNOWN',collected:'UNKNOWN',missing:'UNKNOWN',
+    personalCollectionMetricsAuthorized:false,nativeWriterAuthorized:false
+  });
+}
+
+/**
+ * Bind ALL selector occurrence slots for ONE original definition to the already existing native
+ * union/except PREVIEW. Caller-provided lists remain UNTRUSTED; no source-only preview becomes
+ * a native or user-specific final membership. Missing slots, unsupported sentinel and aliases BLOCK.
+ */
+export function previewCollectionDefinitionGroupV125({
+  verifiedSource,verifiedGroup,identity,collectionDefinitionId,typedSelectorInputs,includeIgnored=false
+}={}) {
+  const plan=planCollectionDefinitionGroupV125({verifiedSource,identity,collectionDefinitionId});
+  if(plan.status!=='SOURCE_GROUP_OPERAND_PLAN_ONLY')return plan;
+  if(plan.hasUnresolvedZeroSentinel)return stopped('COLLECTION_ZERO_SENTINEL_NATIVE_MEANING_UNRESOLVED');
+  if(!Array.isArray(typedSelectorInputs)||typedSelectorInputs.length!==plan.typedSelectors.length)
+    return stopped('COLLECTION_SELECTOR_SLOT_COVERAGE_INCOMPLETE');
+  if(typeof includeIgnored!=='boolean')return stopped('COLLECTION_PREVIEW_INCLUDE_IGNORED_INVALID');
+  const slots=new Map();
+  for(const x of typedSelectorInputs) {
+    if(!object(x)||!Number.isInteger(x.slot)||slots.has(x.slot)||
+       !Array.isArray(x.itemIds)||x.predicateCoverage!=='CALLER_SUPPLIED_UNVERIFIED'||
+       typeof x.family!=='string'||Object.hasOwn(x,'ignore'))
+      return stopped('COLLECTION_SELECTOR_INPUT_UNTRUSTED_OR_MALFORMED');
+    const original=plan.typedSelectors[x.slot];
+    if(!original||x.family!==original.family)return stopped('COLLECTION_SELECTOR_SLOT_OR_FAMILY_MISMATCH');
+    slots.set(x.slot,x);
+  }
+  if(slots.size!==plan.typedSelectors.length)return stopped('COLLECTION_SELECTOR_SLOT_COVERAGE_INCOMPLETE');
+  const typed=plan.typedSelectors.map(x=>({
+    family:x.family,ignore:x.ignore,itemIds:slots.get(x.slot).itemIds,
+    predicateCoverage:'CALLER_SUPPLIED_UNVERIFIED'
+  }));
+  const explicit=plan.explicitItemFilters.map(x=>({ignore:x.ignore,itemIds:x.itemIds}));
+  const group=previewNativeGroupCompositionV125({
+    verifiedSource:verifiedGroup,identity,typedSelectorResults:typed,explicitItemFilters:explicit,includeIgnored
+  });
+  if(group.status!=='UNTRUSTED_PREDICATE_COMPOSITION_PREVIEW_ONLY')
+    return stopped(group.code||'COLLECTION_GROUP_PREVIEW_UNAVAILABLE');
+  return Object.freeze({
+    status:'SOURCE_DEFINITION_NATIVE_ORDER_PREVIEW_UNTRUSTED',
+    collectionDefinitionId:plan.collectionDefinitionId,categoryId:plan.categoryId,groupIndex:0,
+    definitionRawSha256:plan.definitionRawSha256,definitionManifestSha256:sourceDigest,
+    selectorSlotsBound:typed.length,sourceExplicitFilters:explicit.length,includeIgnored,
+    untrustedPreviewItemIds:group.resultItemIds,
+    nativeGroupOrderingVerified:true,typedNativeResultsKnown:false,
+    runtimeItemDatabaseKnown:false,finalMembershipKnown:false,
+    denominator:null,owned:'UNKNOWN',collected:'UNKNOWN',missing:'UNKNOWN',
+    personalCollectionMetricsAuthorized:false,nativeWriterAuthorized:false
   });
 }
