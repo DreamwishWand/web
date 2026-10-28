@@ -1,0 +1,1398 @@
+{
+  "evidenceKind": "LIVE_STAGE_MANAGEMENT_LEDGER_METADATA_ONLY",
+  "captureDateJST": "2026-10-29",
+  "stageProjectAlias": "dreamwish-wand-staging",
+  "stageCount": 116,
+  "sourceOwnerHead": "b24eec2cb4dae4ab30824636670c520d7c6eea40",
+  "sourceCount": 153,
+  "importantLimitations": [
+    "Stage management ledger gives version+name, NOT historical applied SQL body, SQL checksums, current object definition parity, real protected Stage clone or Storage bytes.",
+    "Stage-only migrations are NOT in the Source153 tree; source-only missing migrations need semantic dependency reconciliation. Never auto apply 37 scripts."
+  ],
+  "stageLedger": [
+    {
+      "version": "20260930024846",
+      "name": "community_core_v0"
+    },
+    {
+      "version": "20260930024950",
+      "name": "community_core_v0_advisor_hardening"
+    },
+    {
+      "version": "20260930025108",
+      "name": "community_core_v0_query_boundary"
+    },
+    {
+      "version": "20260930025609",
+      "name": "community_core_v0_server_rpc"
+    },
+    {
+      "version": "20260930025714",
+      "name": "community_core_v0_rpc_pgcrypto_path"
+    },
+    {
+      "version": "20260930025853",
+      "name": "community_core_v0_notifications"
+    },
+    {
+      "version": "20260930025927",
+      "name": "community_core_v0_notification_fanout_fix"
+    },
+    {
+      "version": "20260930030022",
+      "name": "community_core_v0_notification_counter_fix"
+    },
+    {
+      "version": "20260930031538",
+      "name": "community_core_v0_query_rpc"
+    },
+    {
+      "version": "20260930031905",
+      "name": "community_core_v0_outbox_cron"
+    },
+    {
+      "version": "20260930032030",
+      "name": "community_core_v0_staging_media_bucket"
+    },
+    {
+      "version": "20260930032141",
+      "name": "community_core_v0_media_publish_v2"
+    },
+    {
+      "version": "20260930032221",
+      "name": "community_core_v0_media_query"
+    },
+    {
+      "version": "20260930032725",
+      "name": "community_core_v0_revision_sealing"
+    },
+    {
+      "version": "20260930032933",
+      "name": "community_core_v0_preset_bridge"
+    },
+    {
+      "version": "20260930033214",
+      "name": "community_staging_pg_net"
+    },
+    {
+      "version": "20260930034107",
+      "name": "community_staging_remove_pg_net"
+    },
+    {
+      "version": "20260930034217",
+      "name": "community_core_v0_author_lifecycle"
+    },
+    {
+      "version": "20260930034447",
+      "name": "community_core_v0_outbox_resilience"
+    },
+    {
+      "version": "20260930035004",
+      "name": "community_core_v0_remove_legacy_publish_rpcs"
+    },
+    {
+      "version": "20260930042340",
+      "name": "community_core_v0_creator_profile_update"
+    },
+    {
+      "version": "20260930043911",
+      "name": "community_core_v0_interaction_removals"
+    },
+    {
+      "version": "20260930051010",
+      "name": "community_core_v0_dead_letter_operations"
+    },
+    {
+      "version": "20260930062348",
+      "name": "community_core_v0_account_recovery"
+    },
+    {
+      "version": "20260930062555",
+      "name": "community_core_v0_account_recovery_indexes"
+    },
+    {
+      "version": "20260930064020",
+      "name": "community_core_v0_session_cutoff"
+    },
+    {
+      "version": "20260930070127",
+      "name": "community_core_v0_account_tombstone"
+    },
+    {
+      "version": "20260930070309",
+      "name": "community_core_v0_account_tombstone_generated_handle_fix"
+    },
+    {
+      "version": "20260930070335",
+      "name": "community_core_v0_account_tombstone_generated_handle_fix"
+    },
+    {
+      "version": "20260930070539",
+      "name": "community_core_v0_provider_cleanup_queue"
+    },
+    {
+      "version": "20260930070602",
+      "name": "community_core_v0_provider_cleanup_queue"
+    },
+    {
+      "version": "20260930070632",
+      "name": "community_core_v0_account_tombstone_provider_job"
+    },
+    {
+      "version": "20260930071410",
+      "name": "community_core_v0_provider_cleanup_worker_queue"
+    },
+    {
+      "version": "20260930072609",
+      "name": "community_core_v0_admin_operations"
+    },
+    {
+      "version": "20260930073139",
+      "name": "community_core_v0_session_bound_recent_auth"
+    },
+    {
+      "version": "20260930093437",
+      "name": "community_core_v0_support_recovery_verification"
+    },
+    {
+      "version": "20260930094644",
+      "name": "community_core_v0_retention_policy"
+    },
+    {
+      "version": "20260930095135",
+      "name": "community_core_v0_retention_redaction_bypass"
+    },
+    {
+      "version": "20260930095258",
+      "name": "community_core_v0_retention_operational_redaction"
+    },
+    {
+      "version": "20260930095834",
+      "name": "community_core_v0_retention_scheduler"
+    },
+    {
+      "version": "20260930100023",
+      "name": "community_core_v0_retention_operations"
+    },
+    {
+      "version": "20260930100831",
+      "name": "community_core_v0_artifact_retention_finalize"
+    },
+    {
+      "version": "20260930104856",
+      "name": "community_core_v0_external_operations_escalation"
+    },
+    {
+      "version": "20260930105934",
+      "name": "community_core_v0_external_operations_escalation_ops"
+    },
+    {
+      "version": "20260930112155",
+      "name": "community_core_v0_operator_email_channel"
+    },
+    {
+      "version": "20260930112416",
+      "name": "community_core_v0_operator_email_worker"
+    },
+    {
+      "version": "20260930113435",
+      "name": "community_core_v0_recent_auth_launch_defaults"
+    },
+    {
+      "version": "20260930114310",
+      "name": "community_core_v0_public_search"
+    },
+    {
+      "version": "20260930115623",
+      "name": "community_core_v0_fk_index_hardening"
+    },
+    {
+      "version": "20260930120042",
+      "name": "community_core_v0_moderation_operations"
+    },
+    {
+      "version": "20260930122716",
+      "name": "community_core_v0_action_rate_limits"
+    },
+    {
+      "version": "20260930123148",
+      "name": "community_core_v0_action_rate_limit_fk_index"
+    },
+    {
+      "version": "20260930124055",
+      "name": "wep_preset_artifact_storage_v0"
+    },
+    {
+      "version": "20260930124357",
+      "name": "wep_preset_artifact_access_v0"
+    },
+    {
+      "version": "20260930125310",
+      "name": "wep_preset_retention_claim_v0"
+    },
+    {
+      "version": "20261001112736",
+      "name": "community_retention_tiered_operational_scrub"
+    },
+    {
+      "version": "20261001115028",
+      "name": "community_retention_content_purge_7d"
+    },
+    {
+      "version": "20261001122209",
+      "name": "community_retention_operational_90d_single_stage"
+    },
+    {
+      "version": "20261001221620",
+      "name": "community_linked_ddv_profile_lifecycle_v1"
+    },
+    {
+      "version": "20261001232814",
+      "name": "community_ddv_profile_workspace_v1"
+    },
+    {
+      "version": "20261001233225",
+      "name": "community_ddv_profile_workspace_lifecycle_v2"
+    },
+    {
+      "version": "20261001233707",
+      "name": "community_ddv_profile_workspace_fk_index_v3"
+    },
+    {
+      "version": "20261001234029",
+      "name": "community_ddv_profile_workspace_lifecycle_v2"
+    },
+    {
+      "version": "20261001234035",
+      "name": "community_ddv_profile_workspace_fk_index_v3"
+    },
+    {
+      "version": "20261001234524",
+      "name": "community_ddv_profile_workspace_decommission_legacy_link_v4"
+    },
+    {
+      "version": "20261002003039",
+      "name": "community_ddv_profile_workspace_delete_reauth_rate_v5"
+    },
+    {
+      "version": "20261003040352",
+      "name": "community_gallery_qa_vertical_schema_v1"
+    },
+    {
+      "version": "20261003040356",
+      "name": "community_gallery_golden_vertical_v1"
+    },
+    {
+      "version": "20261003040400",
+      "name": "community_qa_golden_vertical_v1"
+    },
+    {
+      "version": "20261003041024",
+      "name": "community_gallery_qa_public_read_hardening_v1"
+    },
+    {
+      "version": "20261003041217",
+      "name": "community_gallery_qa_moderation_projection_v1"
+    },
+    {
+      "version": "20261003041538",
+      "name": "community_gallery_qa_revision_sealing_fix_v1"
+    },
+    {
+      "version": "20261003041708",
+      "name": "community_gallery_qa_trigger_sealing_alignment_v1"
+    },
+    {
+      "version": "20261003042021",
+      "name": "community_gallery_qa_public_projection_v1"
+    },
+    {
+      "version": "20261003042301",
+      "name": "community_comment_answer_moderation_v1"
+    },
+    {
+      "version": "20261003044503",
+      "name": "community_qa_viewer_context_v1"
+    },
+    {
+      "version": "20261003045220",
+      "name": "community_public_gallery_media_v1"
+    },
+    {
+      "version": "20261003053455",
+      "name": "community_public_query_edge_boundary_v1"
+    },
+    {
+      "version": "20261003063440",
+      "name": "community_dreamsnaps_schema_v1"
+    },
+    {
+      "version": "20261003063917",
+      "name": "community_dreamsnaps_commands_v1"
+    },
+    {
+      "version": "20261003064616",
+      "name": "community_dreamsnaps_projection_v1"
+    },
+    {
+      "version": "20261003073445",
+      "name": "community_dreamsnaps_native_revision_fix_v1"
+    },
+    {
+      "version": "20261003074322",
+      "name": "community_dreamsnaps_integrity_pool_v1"
+    },
+    {
+      "version": "20261003074659",
+      "name": "community_dreamsnaps_ingame_result_provenance_v1"
+    },
+    {
+      "version": "20261003075819",
+      "name": "community_dreamsnaps_fk_indexes_v1"
+    },
+    {
+      "version": "20261007135856",
+      "name": "scene_preset_product_vertical_v1"
+    },
+    {
+      "version": "20261007201915",
+      "name": "scene_preset_unattached_media_discard_v1"
+    },
+    {
+      "version": "20261023133358",
+      "name": "community_gallery_photo_lifecycle_v1"
+    },
+    {
+      "version": "20261023133612",
+      "name": "community_gallery_photo_revision_seal_order_v1"
+    },
+    {
+      "version": "20261023133643",
+      "name": "community_gallery_photo_existing_seal_trigger_v1"
+    },
+    {
+      "version": "20261023133947",
+      "name": "community_gallery_photo_null_version_guard_v1"
+    },
+    {
+      "version": "20261023134408",
+      "name": "community_gallery_photo_fk_indexes_v1"
+    },
+    {
+      "version": "20261023135223",
+      "name": "community_gallery_subject_exact_identity_v1"
+    },
+    {
+      "version": "20261023205739",
+      "name": "gallery_retirement_negative_gate_v1"
+    },
+    {
+      "version": "20261023211943",
+      "name": "community_gallery_verified_subject_public_lookup_v1"
+    },
+    {
+      "version": "20261023224114",
+      "name": "community_gallery_owner_upload_intent_v1"
+    },
+    {
+      "version": "20261023224334",
+      "name": "community_gallery_upload_intent_finalize_guard_v1"
+    },
+    {
+      "version": "20261023230827",
+      "name": "community_gallery_orphan_retention_worker_v1"
+    },
+    {
+      "version": "20261023234046",
+      "name": "community_gallery_retirement_gateway_preflight_v1"
+    },
+    {
+      "version": "20261023234356",
+      "name": "community_gallery_retirement_other_token_issuers_v1"
+    },
+    {
+      "version": "20261024000802",
+      "name": "community_gallery_immutable_finalize_capacity_v1"
+    },
+    {
+      "version": "20261024000806",
+      "name": "community_gallery_account_hold_cleanup_guard_v1"
+    },
+    {
+      "version": "20261024000859",
+      "name": "community_gallery_capacity_ops_metrics_v1"
+    },
+    {
+      "version": "20261024003400",
+      "name": "gallery_global_backpressure_v1"
+    },
+    {
+      "version": "20261024003403",
+      "name": "gallery_physical_delete_failclosed_v1"
+    },
+    {
+      "version": "20261024003702",
+      "name": "gallery_owner_read_no_signed_url_v1"
+    },
+    {
+      "version": "20261024003840",
+      "name": "gallery_owner_read_issuer_closed_preflight_v1"
+    },
+    {
+      "version": "20261024005141",
+      "name": "gallery_storage_origin_reconciliation_v1"
+    },
+    {
+      "version": "20261024005259",
+      "name": "gallery_owner_historical_cover_issuer_guard_v1"
+    },
+    {
+      "version": "20261024010220",
+      "name": "gallery_public_historical_cover_issuer_guard_v1"
+    },
+    {
+      "version": "20261024013421",
+      "name": "gallery_cloud_preservation_readiness_v1"
+    },
+    {
+      "version": "20261024020515",
+      "name": "gallery_dependency_coverage_readonly_v1"
+    },
+    {
+      "version": "20261024034159",
+      "name": "gallery_owner_preflight_dependency_coverage_projection_v1"
+    },
+    {
+      "version": "20261024043307",
+      "name": "gallery_abort_cover_only_reference_guard_v1"
+    },
+    {
+      "version": "20261024043424",
+      "name": "gallery_capacity_effective_cleanup_diagnostics_v1"
+    },
+    {
+      "version": "20261024043436",
+      "name": "gallery_known_reference_writer_fence_v1"
+    }
+  ],
+  "sourceGitTree": [
+    {
+      "version": "202609300001",
+      "name": "community_core_v0",
+      "blob": "4be2e65544110035f1846d91ecd8fa3c1c5f5fc7",
+      "path": "supabase/migrations/202609300001_community_core_v0.sql"
+    },
+    {
+      "version": "20260930024950",
+      "name": "community_core_v0_advisor_hardening",
+      "blob": "723d7d159a1aa2c9366155479d2ab083fb3a78db",
+      "path": "supabase/migrations/20260930024950_community_core_v0_advisor_hardening.sql"
+    },
+    {
+      "version": "20260930025040",
+      "name": "community_core_v0_query_boundary",
+      "blob": "a86c22d02e3c7331c28a9b064df57fc35b669db2",
+      "path": "supabase/migrations/20260930025040_community_core_v0_query_boundary.sql"
+    },
+    {
+      "version": "20260930025132",
+      "name": "community_core_v0_server_rpc",
+      "blob": "d7991c2c20b7ace6613d6a9cd6493b8c3af0f6ba",
+      "path": "supabase/migrations/20260930025132_community_core_v0_server_rpc.sql"
+    },
+    {
+      "version": "20260930025210",
+      "name": "community_core_v0_rpc_pgcrypto_path",
+      "blob": "97c9259f96bb2854c1c5ece0081da4cecfcb0080",
+      "path": "supabase/migrations/20260930025210_community_core_v0_rpc_pgcrypto_path.sql"
+    },
+    {
+      "version": "20260930025920",
+      "name": "community_core_v0_notifications",
+      "blob": "4c62f16cbb61963afe52dfbd34aa4a48d2dc69f9",
+      "path": "supabase/migrations/20260930025920_community_core_v0_notifications.sql"
+    },
+    {
+      "version": "20260930030035",
+      "name": "community_core_v0_notification_fanout_fix",
+      "blob": "e8c439412724acd24fc057eed24ce0e8e711dae2",
+      "path": "supabase/migrations/20260930030035_community_core_v0_notification_fanout_fix.sql"
+    },
+    {
+      "version": "20260930030220",
+      "name": "community_core_v0_notification_counter_fix",
+      "blob": "1ad8fa92049e1802cd6fda6414b1e50845f3563a",
+      "path": "supabase/migrations/20260930030220_community_core_v0_notification_counter_fix.sql"
+    },
+    {
+      "version": "20260930031310",
+      "name": "community_core_v0_query_rpc",
+      "blob": "349d4b6126f6728ed121c819723b9bc9b679f844",
+      "path": "supabase/migrations/20260930031310_community_core_v0_query_rpc.sql"
+    },
+    {
+      "version": "20260930032010",
+      "name": "community_core_v0_outbox_cron",
+      "blob": "67cae30567414397a1f005d739fb87a479fa29a4",
+      "path": "supabase/migrations/20260930032010_community_core_v0_outbox_cron.sql"
+    },
+    {
+      "version": "20260930033110",
+      "name": "community_core_v0_media_publish_v2",
+      "blob": "6ea89f15153b1b8a19fdd6ca83fa73b0ca548988",
+      "path": "supabase/migrations/20260930033110_community_core_v0_media_publish_v2.sql"
+    },
+    {
+      "version": "20260930033415",
+      "name": "community_core_v0_media_query",
+      "blob": "e6b71f2a33dea587ce43ebf5e6a3f265ff95f53b",
+      "path": "supabase/migrations/20260930033415_community_core_v0_media_query.sql"
+    },
+    {
+      "version": "20260930034330",
+      "name": "community_core_v0_revision_sealing",
+      "blob": "c08ed3a7d8f863fc82909daa4b5126f17002f297",
+      "path": "supabase/migrations/20260930034330_community_core_v0_revision_sealing.sql"
+    },
+    {
+      "version": "20260930035240",
+      "name": "community_core_v0_preset_bridge",
+      "blob": "3608f2145d6d38a7ef6185513fee9ad3a82d844c",
+      "path": "supabase/migrations/20260930035240_community_core_v0_preset_bridge.sql"
+    },
+    {
+      "version": "20260930041000",
+      "name": "community_core_v0_author_lifecycle",
+      "blob": "40300db65c9e3aa29c16ec1288f36251988ce33d",
+      "path": "supabase/migrations/20260930041000_community_core_v0_author_lifecycle.sql"
+    },
+    {
+      "version": "20260930041800",
+      "name": "community_core_v0_outbox_resilience",
+      "blob": "a842c7b4b9b48e0f4afde0f0c7edcf4d08a7566e",
+      "path": "supabase/migrations/20260930041800_community_core_v0_outbox_resilience.sql"
+    },
+    {
+      "version": "20260930043000",
+      "name": "community_core_v0_remove_legacy_publish_rpcs",
+      "blob": "2185af01a08a379c5955f058d8b886fdbeea8cf6",
+      "path": "supabase/migrations/20260930043000_community_core_v0_remove_legacy_publish_rpcs.sql"
+    },
+    {
+      "version": "20260930044500",
+      "name": "community_core_v0_creator_profile_update",
+      "blob": "80d6eecb22cb91c3d462c75c55634897150a17f4",
+      "path": "supabase/migrations/20260930044500_community_core_v0_creator_profile_update.sql"
+    },
+    {
+      "version": "20260930050000",
+      "name": "community_core_v0_interaction_removals",
+      "blob": "94000414343db85b428fda4281d396e6b37fe923",
+      "path": "supabase/migrations/20260930050000_community_core_v0_interaction_removals.sql"
+    },
+    {
+      "version": "20260930051500",
+      "name": "community_core_v0_dead_letter_operations",
+      "blob": "dd9aff88293046345000acb98c3b37915d8149db",
+      "path": "supabase/migrations/20260930051500_community_core_v0_dead_letter_operations.sql"
+    },
+    {
+      "version": "20260930063000",
+      "name": "community_core_v0_account_recovery",
+      "blob": "74f300a44621ffb7248775aec6424455462fe47c",
+      "path": "supabase/migrations/20260930063000_community_core_v0_account_recovery.sql"
+    },
+    {
+      "version": "20260930064000",
+      "name": "community_core_v0_account_recovery_indexes",
+      "blob": "9c5155bf12abb205cb26dea85cf160ab08f48298",
+      "path": "supabase/migrations/20260930064000_community_core_v0_account_recovery_indexes.sql"
+    },
+    {
+      "version": "20260930070000",
+      "name": "community_core_v0_session_cutoff",
+      "blob": "283d779400f20812d2a5bd5e4c11dc5f5614f0e2",
+      "path": "supabase/migrations/20260930070000_community_core_v0_session_cutoff.sql"
+    },
+    {
+      "version": "20260930073000",
+      "name": "community_core_v0_account_tombstone",
+      "blob": "ac9984ec2e2aeee58ce2d5cd2f6c9959f2f02251",
+      "path": "supabase/migrations/20260930073000_community_core_v0_account_tombstone.sql"
+    },
+    {
+      "version": "20260930073200",
+      "name": "community_core_v0_account_tombstone_generated_handle_fix",
+      "blob": "f8c0f30e6994110b1adebcfa397a674131d3810c",
+      "path": "supabase/migrations/20260930073200_community_core_v0_account_tombstone_generated_handle_fix.sql"
+    },
+    {
+      "version": "20260930074000",
+      "name": "community_core_v0_provider_cleanup_queue",
+      "blob": "c08c19b64f719cd6a63d9f30378339599b194afb",
+      "path": "supabase/migrations/20260930074000_community_core_v0_provider_cleanup_queue.sql"
+    },
+    {
+      "version": "20260930074200",
+      "name": "community_core_v0_account_tombstone_provider_job",
+      "blob": "2a1a77530d4e68fdd80923e6aba968911a68b86c",
+      "path": "supabase/migrations/20260930074200_community_core_v0_account_tombstone_provider_job.sql"
+    },
+    {
+      "version": "20260930074500",
+      "name": "community_core_v0_provider_cleanup_worker_queue",
+      "blob": "ed647b74e2df7c506de4ffb24705d00eb71ae965",
+      "path": "supabase/migrations/20260930074500_community_core_v0_provider_cleanup_worker_queue.sql"
+    },
+    {
+      "version": "20260930075000",
+      "name": "community_core_v0_admin_operations",
+      "blob": "5e6ba477c1e14ab842b0e2b87a4c3c15a918e50e",
+      "path": "supabase/migrations/20260930075000_community_core_v0_admin_operations.sql"
+    },
+    {
+      "version": "20260930075500",
+      "name": "community_core_v0_session_bound_recent_auth",
+      "blob": "eab89eb8a1872ab1e63e276e7a5ba4cd7df6a163",
+      "path": "supabase/migrations/20260930075500_community_core_v0_session_bound_recent_auth.sql"
+    },
+    {
+      "version": "20260930080000",
+      "name": "community_core_v0_provider_cleanup_scheduler_auth",
+      "blob": "5f97e8f2db847f70d0cf50c63ad064b1357fdbd5",
+      "path": "supabase/migrations/20260930080000_community_core_v0_provider_cleanup_scheduler_auth.sql"
+    },
+    {
+      "version": "20260930080500",
+      "name": "community_core_v0_provider_cleanup_scheduler_setup",
+      "blob": "bfefec90c37cdc89e059d20ea9ac769eda81b426",
+      "path": "supabase/migrations/20260930080500_community_core_v0_provider_cleanup_scheduler_setup.sql"
+    },
+    {
+      "version": "20260930081000",
+      "name": "community_core_v0_operations_alerts",
+      "blob": "1e2bd1955cc148a1e6e72b7cd7bd745356351aa6",
+      "path": "supabase/migrations/20260930081000_community_core_v0_operations_alerts.sql"
+    },
+    {
+      "version": "20260930081500",
+      "name": "community_core_v0_safe_identity_bootstrap",
+      "blob": "5162163e266ac6ef89dcab526c22f05c2a1ec02a",
+      "path": "supabase/migrations/20260930081500_community_core_v0_safe_identity_bootstrap.sql"
+    },
+    {
+      "version": "20260930081600",
+      "name": "community_core_v0_support_recovery_verification",
+      "blob": "a10bffbfb6891fe7eee747af0cc43b01ab8a5d90",
+      "path": "supabase/migrations/20260930081600_community_core_v0_support_recovery_verification.sql"
+    },
+    {
+      "version": "20260930082000",
+      "name": "community_core_v0_retention_policy",
+      "blob": "c56c115be66c7c9bf7c6a1121b28ce5916f231b4",
+      "path": "supabase/migrations/20260930082000_community_core_v0_retention_policy.sql"
+    },
+    {
+      "version": "20260930082100",
+      "name": "community_core_v0_retention_redaction_bypass",
+      "blob": "86cb3ad6e0b8d9949cfd17eaa5f22952a628d4ae",
+      "path": "supabase/migrations/20260930082100_community_core_v0_retention_redaction_bypass.sql"
+    },
+    {
+      "version": "20260930082200",
+      "name": "community_core_v0_retention_operational_redaction",
+      "blob": "b5cc18f73f80ea1cc3b0dc6f32876d1c59e7d19e",
+      "path": "supabase/migrations/20260930082200_community_core_v0_retention_operational_redaction.sql"
+    },
+    {
+      "version": "20260930082300",
+      "name": "community_core_v0_retention_scheduler",
+      "blob": "25b5d3e10c8a37f879f42d4aafcf65446f4e1563",
+      "path": "supabase/migrations/20260930082300_community_core_v0_retention_scheduler.sql"
+    },
+    {
+      "version": "20260930082400",
+      "name": "community_core_v0_retention_operations",
+      "blob": "95251a5a25e0847385e709685e7976b3e2ce5c0c",
+      "path": "supabase/migrations/20260930082400_community_core_v0_retention_operations.sql"
+    },
+    {
+      "version": "20260930082500",
+      "name": "community_core_v0_artifact_retention_finalize",
+      "blob": "24c64349b338143a9ecd5559b914112caaf176c5",
+      "path": "supabase/migrations/20260930082500_community_core_v0_artifact_retention_finalize.sql"
+    },
+    {
+      "version": "20260930104856",
+      "name": "community_core_v0_external_operations_escalation",
+      "blob": "1150e85a78556675abcc0cacc9d1a55384b8930f",
+      "path": "supabase/migrations/20260930104856_community_core_v0_external_operations_escalation.sql"
+    },
+    {
+      "version": "20260930105934",
+      "name": "community_core_v0_external_operations_escalation_ops",
+      "blob": "250be10834dc4b17ce38de5897917ba68e7309b8",
+      "path": "supabase/migrations/20260930105934_community_core_v0_external_operations_escalation_ops.sql"
+    },
+    {
+      "version": "20260930112155",
+      "name": "community_core_v0_operator_email_channel",
+      "blob": "c3f10ff15391e7a3dc3f7aff8dfb67239ebf4a52",
+      "path": "supabase/migrations/20260930112155_community_core_v0_operator_email_channel.sql"
+    },
+    {
+      "version": "20260930112416",
+      "name": "community_core_v0_operator_email_worker",
+      "blob": "3415b36fb7ae176f1c9be3ffd5420adff8f44595",
+      "path": "supabase/migrations/20260930112416_community_core_v0_operator_email_worker.sql"
+    },
+    {
+      "version": "20260930113435",
+      "name": "community_core_v0_recent_auth_launch_defaults",
+      "blob": "59c8fed16b9c091cacd3cb29dc849e6fceadd51d",
+      "path": "supabase/migrations/20260930113435_community_core_v0_recent_auth_launch_defaults.sql"
+    },
+    {
+      "version": "20260930114310",
+      "name": "community_core_v0_public_search",
+      "blob": "70ab98552244ddad7501237a83b836a8308514a1",
+      "path": "supabase/migrations/20260930114310_community_core_v0_public_search.sql"
+    },
+    {
+      "version": "20260930115500",
+      "name": "provider_identity_cleanup_parent_bootstrap_v1",
+      "blob": "81d253c81f6c956ce7ec8d99c0bdb16ecdba5471",
+      "path": "supabase/migrations/20260930115500_provider_identity_cleanup_parent_bootstrap_v1.sql"
+    },
+    {
+      "version": "20260930115623",
+      "name": "community_core_v0_fk_index_hardening",
+      "blob": "13461368407ed6bd367b6091689e80663db0e71c",
+      "path": "supabase/migrations/20260930115623_community_core_v0_fk_index_hardening.sql"
+    },
+    {
+      "version": "20260930120042",
+      "name": "community_core_v0_moderation_operations",
+      "blob": "9cf5d1e7c0da23fcfe050b9a7bb5fa1afb1816cf",
+      "path": "supabase/migrations/20260930120042_community_core_v0_moderation_operations.sql"
+    },
+    {
+      "version": "20260930122716",
+      "name": "community_core_v0_action_rate_limits",
+      "blob": "610343b6f834bf1076bce05ba94f1a9751ca3937",
+      "path": "supabase/migrations/20260930122716_community_core_v0_action_rate_limits.sql"
+    },
+    {
+      "version": "20260930123148",
+      "name": "community_core_v0_action_rate_limit_fk_index",
+      "blob": "c003f95c41524fcbc32718d49c047640604d4f20",
+      "path": "supabase/migrations/20260930123148_community_core_v0_action_rate_limit_fk_index.sql"
+    },
+    {
+      "version": "20260930124055",
+      "name": "wep_preset_artifact_storage_v0",
+      "blob": "099d7d4f6a653b1268596ab9a12d470e8b6760a2",
+      "path": "supabase/migrations/20260930124055_wep_preset_artifact_storage_v0.sql"
+    },
+    {
+      "version": "20260930124357",
+      "name": "wep_preset_artifact_access_v0",
+      "blob": "90886028859a7943d1dbf1095dcae58b39105221",
+      "path": "supabase/migrations/20260930124357_wep_preset_artifact_access_v0.sql"
+    },
+    {
+      "version": "20260930125310",
+      "name": "wep_preset_retention_claim_v0",
+      "blob": "1a3d244661f5dd0536cf672d66c663cd98a179aa",
+      "path": "supabase/migrations/20260930125310_wep_preset_retention_claim_v0.sql"
+    },
+    {
+      "version": "20261001112736",
+      "name": "community_retention_tiered_operational_scrub",
+      "blob": "476f012b4a7eaece633b5eeb8929a649fe6919de",
+      "path": "supabase/migrations/20261001112736_community_retention_tiered_operational_scrub.sql"
+    },
+    {
+      "version": "20261001115028",
+      "name": "community_retention_content_purge_7d",
+      "blob": "8ab248f56ea628c6ac5499df75d7f68e2b8876ee",
+      "path": "supabase/migrations/20261001115028_community_retention_content_purge_7d.sql"
+    },
+    {
+      "version": "20261001122209",
+      "name": "community_retention_operational_90d_single_stage",
+      "blob": "f1752b34cbd2dbd8b8db8af9f682d8fbf5ca9f00",
+      "path": "supabase/migrations/20261001122209_community_retention_operational_90d_single_stage.sql"
+    },
+    {
+      "version": "20261001221620",
+      "name": "community_linked_ddv_profile_lifecycle_v1",
+      "blob": "406b8db13e2f2d3cef803342ab7e811a9e9b6401",
+      "path": "supabase/migrations/20261001221620_community_linked_ddv_profile_lifecycle_v1.sql"
+    },
+    {
+      "version": "20261001232814",
+      "name": "community_ddv_profile_workspace_v1",
+      "blob": "b9441c74a11cea20193b3c6bc800b9e6f3a82d7c",
+      "path": "supabase/migrations/20261001232814_community_ddv_profile_workspace_v1.sql"
+    },
+    {
+      "version": "20261001233225",
+      "name": "community_ddv_profile_workspace_lifecycle_v2",
+      "blob": "35ce5162485e969e6e112663b21db16edd04b17b",
+      "path": "supabase/migrations/20261001233225_community_ddv_profile_workspace_lifecycle_v2.sql"
+    },
+    {
+      "version": "20261001233707",
+      "name": "community_ddv_profile_workspace_fk_index_v3",
+      "blob": "4d94c4fc36e2822bd189f8848960c2b57ebf8a02",
+      "path": "supabase/migrations/20261001233707_community_ddv_profile_workspace_fk_index_v3.sql"
+    },
+    {
+      "version": "20261001234524",
+      "name": "community_ddv_profile_workspace_decommission_legacy_link_v4",
+      "blob": "caaede2c1b074a91c8dfef2490d520ee1893796e",
+      "path": "supabase/migrations/20261001234524_community_ddv_profile_workspace_decommission_legacy_link_v4.sql"
+    },
+    {
+      "version": "20261002003039",
+      "name": "community_ddv_profile_workspace_delete_reauth_rate_v5",
+      "blob": "063ef2c4939a852e13f665b1c5a8e679909c6860",
+      "path": "supabase/migrations/20261002003039_community_ddv_profile_workspace_delete_reauth_rate_v5.sql"
+    },
+    {
+      "version": "20261003040000",
+      "name": "community_gallery_qa_vertical_schema_v1",
+      "blob": "ef0cce6ecf4e3a6f78f2df7f4771926c777ad31d",
+      "path": "supabase/migrations/20261003040000_community_gallery_qa_vertical_schema_v1.sql"
+    },
+    {
+      "version": "20261003040500",
+      "name": "community_gallery_golden_vertical_v1",
+      "blob": "78f2a68fc429acdb39cf74c267ddeb18eac6442a",
+      "path": "supabase/migrations/20261003040500_community_gallery_golden_vertical_v1.sql"
+    },
+    {
+      "version": "20261003041000",
+      "name": "community_qa_golden_vertical_v1",
+      "blob": "de2dd9bc0bd0efbb071253552a84f1c8842e10ce",
+      "path": "supabase/migrations/20261003041000_community_qa_golden_vertical_v1.sql"
+    },
+    {
+      "version": "20261003042000",
+      "name": "community_gallery_qa_public_read_hardening_v1",
+      "blob": "202e067005fbfab11d3499fb9a4c53fb969ff72c",
+      "path": "supabase/migrations/20261003042000_community_gallery_qa_public_read_hardening_v1.sql"
+    },
+    {
+      "version": "20261003042500",
+      "name": "community_gallery_qa_moderation_projection_v1",
+      "blob": "8acd277ae6a9e17c39539f25ac257fc395bbe56e",
+      "path": "supabase/migrations/20261003042500_community_gallery_qa_moderation_projection_v1.sql"
+    },
+    {
+      "version": "20261003042600",
+      "name": "community_comment_answer_moderation_v1",
+      "blob": "136bb23d60e94bbdcabaeeaf595e07449991ad70",
+      "path": "supabase/migrations/20261003042600_community_comment_answer_moderation_v1.sql"
+    },
+    {
+      "version": "20261003043000",
+      "name": "community_gallery_qa_revision_sealing_fix_v1",
+      "blob": "e1e7d657befb04260f894fd041d5d2f1176d1912",
+      "path": "supabase/migrations/20261003043000_community_gallery_qa_revision_sealing_fix_v1.sql"
+    },
+    {
+      "version": "20261003043500",
+      "name": "community_gallery_qa_trigger_sealing_alignment_v1",
+      "blob": "ea31bc16423bb2810b4b356e26d51e7a3f2d8972",
+      "path": "supabase/migrations/20261003043500_community_gallery_qa_trigger_sealing_alignment_v1.sql"
+    },
+    {
+      "version": "20261003043600",
+      "name": "community_qa_viewer_context_v1",
+      "blob": "b791b6a2833728c7c4d78ed7c19badd1baa48105",
+      "path": "supabase/migrations/20261003043600_community_qa_viewer_context_v1.sql"
+    },
+    {
+      "version": "20261003044000",
+      "name": "community_gallery_qa_public_projection_v1",
+      "blob": "f6b9b7b62c630de13eda092f48e0bddad035b1d5",
+      "path": "supabase/migrations/20261003044000_community_gallery_qa_public_projection_v1.sql"
+    },
+    {
+      "version": "20261003044100",
+      "name": "community_public_gallery_media_v1",
+      "blob": "0ac9ac8a007ba5f10507cd34104baa1379e965a0",
+      "path": "supabase/migrations/20261003044100_community_public_gallery_media_v1.sql"
+    },
+    {
+      "version": "20261003044200",
+      "name": "community_public_query_edge_boundary_v1",
+      "blob": "462f44f86db9f91ce17a90293529bb54014e2926",
+      "path": "supabase/migrations/20261003044200_community_public_query_edge_boundary_v1.sql"
+    },
+    {
+      "version": "20261003044300",
+      "name": "community_dreamsnaps_schema_v1",
+      "blob": "dd87e962c66c9e7e6ea16f9fdfcc98d3aaa08e8e",
+      "path": "supabase/migrations/20261003044300_community_dreamsnaps_schema_v1.sql"
+    },
+    {
+      "version": "20261003044400",
+      "name": "community_dreamsnaps_commands_v1",
+      "blob": "ced7f16ea1abfeeeb1af264b5406ba723899d17e",
+      "path": "supabase/migrations/20261003044400_community_dreamsnaps_commands_v1.sql"
+    },
+    {
+      "version": "20261003044500",
+      "name": "community_dreamsnaps_projection_v1",
+      "blob": "f67b2e741564b71ddcd0aed7bf8a6452b7dd3256",
+      "path": "supabase/migrations/20261003044500_community_dreamsnaps_projection_v1.sql"
+    },
+    {
+      "version": "20261003044600",
+      "name": "community_dreamsnaps_native_revision_fix_v1",
+      "blob": "e9489cfad4d85d4ef654ac6010c5a2dc955c34fb",
+      "path": "supabase/migrations/20261003044600_community_dreamsnaps_native_revision_fix_v1.sql"
+    },
+    {
+      "version": "20261003044700",
+      "name": "community_dreamsnaps_integrity_pool_v1",
+      "blob": "e31c3c4d752194044a24f7cae598f54952be6301",
+      "path": "supabase/migrations/20261003044700_community_dreamsnaps_integrity_pool_v1.sql"
+    },
+    {
+      "version": "20261003044800",
+      "name": "community_dreamsnaps_ingame_result_provenance_v1",
+      "blob": "6eaaf077f642778d0dca6e00cf92eb2ed7ffe885",
+      "path": "supabase/migrations/20261003044800_community_dreamsnaps_ingame_result_provenance_v1.sql"
+    },
+    {
+      "version": "20261003044900",
+      "name": "community_dreamsnaps_fk_indexes_v1",
+      "blob": "86d63a3168a4b1f730f7cd75082602cc53eea041",
+      "path": "supabase/migrations/20261003044900_community_dreamsnaps_fk_indexes_v1.sql"
+    },
+    {
+      "version": "20261023223000",
+      "name": "community_gallery_photo_lifecycle_v1",
+      "blob": "5849a5081f1b3f864f429665300cc8fae93929a4",
+      "path": "supabase/migrations/20261023223000_community_gallery_photo_lifecycle_v1.sql"
+    },
+    {
+      "version": "20261023223200",
+      "name": "community_gallery_photo_revision_seal_order_v1",
+      "blob": "09e00494f2bd5ac7c3cbbf2cc688e150d6f35335",
+      "path": "supabase/migrations/20261023223200_community_gallery_photo_revision_seal_order_v1.sql"
+    },
+    {
+      "version": "20261023223400",
+      "name": "community_gallery_photo_existing_seal_trigger_v1",
+      "blob": "a5db85398f69b470961c3a1bcf8470b3bda2287a",
+      "path": "supabase/migrations/20261023223400_community_gallery_photo_existing_seal_trigger_v1.sql"
+    },
+    {
+      "version": "20261023223600",
+      "name": "community_gallery_photo_null_version_guard_v1",
+      "blob": "b07855c662874d54f13433c3942d78f031f088b6",
+      "path": "supabase/migrations/20261023223600_community_gallery_photo_null_version_guard_v1.sql"
+    },
+    {
+      "version": "20261023223800",
+      "name": "community_gallery_photo_fk_indexes_v1",
+      "blob": "ef0b0ec808fecf4d3256a598d94770400da0e9af",
+      "path": "supabase/migrations/20261023223800_community_gallery_photo_fk_indexes_v1.sql"
+    },
+    {
+      "version": "20261023224000",
+      "name": "community_gallery_subject_exact_identity_v1",
+      "blob": "033b0a3d149d4044be0e3e6579534dec3b679d49",
+      "path": "supabase/migrations/20261023224000_community_gallery_subject_exact_identity_v1.sql"
+    },
+    {
+      "version": "20261024201000",
+      "name": "gallery_retirement_negative_gate_v1",
+      "blob": "b838655b9a49240176855f12f10a70d9403335e2",
+      "path": "supabase/migrations/20261024201000_gallery_retirement_negative_gate_v1.sql"
+    },
+    {
+      "version": "20261024222000",
+      "name": "community_gallery_verified_subject_public_lookup_v1",
+      "blob": "60a48e80ed80fe62b9a04a676aee0bbc747b11e4",
+      "path": "supabase/migrations/20261024222000_community_gallery_verified_subject_public_lookup_v1.sql"
+    },
+    {
+      "version": "20261024234000",
+      "name": "community_gallery_owner_upload_intent_v1",
+      "blob": "cffa25dff9fe82a20559a0cb8fe3cc8a7bb8f7ac",
+      "path": "supabase/migrations/20261024234000_community_gallery_owner_upload_intent_v1.sql"
+    },
+    {
+      "version": "20261024234300",
+      "name": "community_gallery_upload_intent_finalize_guard_v1",
+      "blob": "8984f403bd44733a668d75629420e51b29805507",
+      "path": "supabase/migrations/20261024234300_community_gallery_upload_intent_finalize_guard_v1.sql"
+    },
+    {
+      "version": "20261024235000",
+      "name": "community_gallery_orphan_retention_worker_v1",
+      "blob": "cc39877c7990bbc559fb8cb4976ee824068daf33",
+      "path": "supabase/migrations/20261024235000_community_gallery_orphan_retention_worker_v1.sql"
+    },
+    {
+      "version": "20261024235500",
+      "name": "community_gallery_retirement_gateway_preflight_v1",
+      "blob": "3c9ababd2d18fc3086ee09ede23ea07f9507b9d7",
+      "path": "supabase/migrations/20261024235500_community_gallery_retirement_gateway_preflight_v1.sql"
+    },
+    {
+      "version": "20261024235800",
+      "name": "community_gallery_retirement_other_token_issuers_v1",
+      "blob": "5313eb412cb95ea650a931f8cdc124b468a6c072",
+      "path": "supabase/migrations/20261024235800_community_gallery_retirement_other_token_issuers_v1.sql"
+    },
+    {
+      "version": "20261024235900",
+      "name": "community_gallery_immutable_finalize_capacity_v1",
+      "blob": "14d78dda02e13f0c3ebd558c595fc5ba1a60c2fe",
+      "path": "supabase/migrations/20261024235900_community_gallery_immutable_finalize_capacity_v1.sql"
+    },
+    {
+      "version": "20261025000100",
+      "name": "community_gallery_account_hold_cleanup_guard_v1",
+      "blob": "800a041b43689cf7ad2c413fe33cd40852b38234",
+      "path": "supabase/migrations/20261025000100_community_gallery_account_hold_cleanup_guard_v1.sql"
+    },
+    {
+      "version": "20261025000200",
+      "name": "community_gallery_capacity_ops_metrics_v1",
+      "blob": "1a03efb19ab80e6a5025be3938515309d6dd0329",
+      "path": "supabase/migrations/20261025000200_community_gallery_capacity_ops_metrics_v1.sql"
+    },
+    {
+      "version": "20261025000300",
+      "name": "gallery_global_backpressure_v1",
+      "blob": "176b7c28cd363c8308c302c2f1c1b7f1eac01504",
+      "path": "supabase/migrations/20261025000300_gallery_global_backpressure_v1.sql"
+    },
+    {
+      "version": "20261025000400",
+      "name": "gallery_physical_delete_failclosed_v1",
+      "blob": "b48d039484188d60adf731d0163529806c71a103",
+      "path": "supabase/migrations/20261025000400_gallery_physical_delete_failclosed_v1.sql"
+    },
+    {
+      "version": "20261025000500",
+      "name": "gallery_owner_read_no_signed_url_v1",
+      "blob": "a882ff3812a483302e1930dd1c02be7c98120363",
+      "path": "supabase/migrations/20261025000500_gallery_owner_read_no_signed_url_v1.sql"
+    },
+    {
+      "version": "20261025000600",
+      "name": "gallery_owner_read_issuer_closed_preflight_v1",
+      "blob": "1cbad1948c1950e28697e3e5cff08750a6e8ef27",
+      "path": "supabase/migrations/20261025000600_gallery_owner_read_issuer_closed_preflight_v1.sql"
+    },
+    {
+      "version": "20261025000700",
+      "name": "gallery_storage_origin_reconciliation_v1",
+      "blob": "58f6c1be20ba818a838353795f87345827575f02",
+      "path": "supabase/migrations/20261025000700_gallery_storage_origin_reconciliation_v1.sql"
+    },
+    {
+      "version": "20261025000800",
+      "name": "gallery_owner_historical_cover_issuer_guard_v1",
+      "blob": "4b38d2c1954936286790f75103337dd09c51b9c1",
+      "path": "supabase/migrations/20261025000800_gallery_owner_historical_cover_issuer_guard_v1.sql"
+    },
+    {
+      "version": "20261025000900",
+      "name": "gallery_public_historical_cover_issuer_guard_v1",
+      "blob": "ebe28e38dd0b9ab13925827f22aa1a4dccc524c2",
+      "path": "supabase/migrations/20261025000900_gallery_public_historical_cover_issuer_guard_v1.sql"
+    },
+    {
+      "version": "20261025001000",
+      "name": "gallery_cloud_preservation_readiness_v1",
+      "blob": "78bd9ada177b3d0ec22f4be7e5335a2f1398ab74",
+      "path": "supabase/migrations/20261025001000_gallery_cloud_preservation_readiness_v1.sql"
+    },
+    {
+      "version": "20261025002000",
+      "name": "gallery_dependency_coverage_readonly_v1",
+      "blob": "001897b15b6197fad7e86587664eaee2e7486c45",
+      "path": "supabase/migrations/20261025002000_gallery_dependency_coverage_readonly_v1.sql"
+    },
+    {
+      "version": "20261025002100",
+      "name": "gallery_owner_preflight_dependency_coverage_projection_v1",
+      "blob": "e09a851b6d2811f5d3ddb80ed737c8b1795cbaac",
+      "path": "supabase/migrations/20261025002100_gallery_owner_preflight_dependency_coverage_projection_v1.sql"
+    },
+    {
+      "version": "20261025002200",
+      "name": "gallery_abort_cover_only_reference_guard_v1",
+      "blob": "bb46b52f83ed60b22531dd8a77d1583cfc79177f",
+      "path": "supabase/migrations/20261025002200_gallery_abort_cover_only_reference_guard_v1.sql"
+    },
+    {
+      "version": "20261025002300",
+      "name": "gallery_capacity_effective_cleanup_diagnostics_v1",
+      "blob": "1f564aded50581e6b90728b37d31b471087eb0ed",
+      "path": "supabase/migrations/20261025002300_gallery_capacity_effective_cleanup_diagnostics_v1.sql"
+    },
+    {
+      "version": "20261025002350",
+      "name": "gallery_known_writer_scene_parent_bootstrap_v1",
+      "blob": "c13fb959540a324390ea85a175caf810a75443a7",
+      "path": "supabase/migrations/20261025002350_gallery_known_writer_scene_parent_bootstrap_v1.sql"
+    },
+    {
+      "version": "20261025002400",
+      "name": "gallery_known_reference_writer_fence_v1",
+      "blob": "e9c102916e2159223c1651d418a1ec9953d6fa78",
+      "path": "supabase/migrations/20261025002400_gallery_known_reference_writer_fence_v1.sql"
+    },
+    {
+      "version": "20261025002600",
+      "name": "account_privacy_suppression_barrier_v1",
+      "blob": "df0f0d640c0af381cd75a25e7d8c01a5520f730b",
+      "path": "supabase/migrations/20261025002600_account_privacy_suppression_barrier_v1.sql"
+    },
+    {
+      "version": "20261025002700",
+      "name": "active_identity_regular_resolver_guard_v1",
+      "blob": "268da447ec27d14c10f058711ee3e96ba451c893",
+      "path": "supabase/migrations/20261025002700_active_identity_regular_resolver_guard_v1.sql"
+    },
+    {
+      "version": "20261025002800",
+      "name": "gallery_v4_actual_scoped_atomic_enrollment_r14",
+      "blob": "68a6e5830ff4062bd6c744cfcf55e712fce6872b",
+      "path": "supabase/migrations/20261025002800_gallery_v4_actual_scoped_atomic_enrollment_r14.sql"
+    },
+    {
+      "version": "20261025002810",
+      "name": "gallery_v4_scoped_atomic_lock_r14",
+      "blob": "1b386e6641f3a502fc519aa6e31b5799c05fdcbf",
+      "path": "supabase/migrations/20261025002810_gallery_v4_scoped_atomic_lock_r14.sql"
+    },
+    {
+      "version": "20261025002820",
+      "name": "gallery_v4_actual_writer_enrollment_r14",
+      "blob": "c3daa494ef6c1813e9814a050d54dfc886408c22",
+      "path": "supabase/migrations/20261025002820_gallery_v4_actual_writer_enrollment_r14.sql"
+    },
+    {
+      "version": "20261025002830",
+      "name": "gallery_v4_private_helper_acl_r14",
+      "blob": "83b975f70d100217013f29ca6b37372198ac0e6d",
+      "path": "supabase/migrations/20261025002830_gallery_v4_private_helper_acl_r14.sql"
+    },
+    {
+      "version": "20261025002840",
+      "name": "gallery_caller_pinned_graph_r15",
+      "blob": "59e4edd41b4cbb6f294f3cd98ccd3519918eb160",
+      "path": "supabase/migrations/20261025002840_gallery_caller_pinned_graph_r15.sql"
+    },
+    {
+      "version": "20261025002850",
+      "name": "gallery_r15_signed_preflight",
+      "blob": "c42a7a2c33ebda26686f819ec8fe0e9db3b15127",
+      "path": "supabase/migrations/20261025002850_gallery_r15_signed_preflight.sql"
+    },
+    {
+      "version": "20261025002860",
+      "name": "gallery_r15_actual_pinned_writer",
+      "blob": "fba4507065390a4ba4e7f6a27223e43ceced670c",
+      "path": "supabase/migrations/20261025002860_gallery_r15_actual_pinned_writer.sql"
+    },
+    {
+      "version": "20261025002870",
+      "name": "gallery_r15_legacy_v4_guard",
+      "blob": "7a73585656ed5352f6357037a1927dd62a78c063",
+      "path": "supabase/migrations/20261025002870_gallery_r15_legacy_v4_guard.sql"
+    },
+    {
+      "version": "20261025002880",
+      "name": "gallery_r15_rpc_acl",
+      "blob": "9ee59508def1729327d6d8df26f13907f1f2eb45",
+      "path": "supabase/migrations/20261025002880_gallery_r15_rpc_acl.sql"
+    },
+    {
+      "version": "20261025002890",
+      "name": "community_writer_registry_r16",
+      "blob": "164d5d30a6b115a79e7e89119f4a91d16af46381",
+      "path": "supabase/migrations/20261025002890_community_writer_registry_r16.sql"
+    },
+    {
+      "version": "20261025002900",
+      "name": "gallery_comments_atomic_r16",
+      "blob": "1a1cb423b0396d5857fe0d6ae947a2f7d6c3e887",
+      "path": "supabase/migrations/20261025002900_gallery_comments_atomic_r16.sql"
+    },
+    {
+      "version": "20261025002910",
+      "name": "gallery_comments_atomic_r16_acl",
+      "blob": "23b2b1c97342c66489238a78cd60da58da7db64d",
+      "path": "supabase/migrations/20261025002910_gallery_comments_atomic_r16_acl.sql"
+    },
+    {
+      "version": "20261025002920",
+      "name": "r17_legacy_gallery_comments_v1_closed",
+      "blob": "922c80ad56480b9d113830569f19b969e32908a3",
+      "path": "supabase/migrations/20261025002920_r17_legacy_gallery_comments_v1_closed.sql"
+    },
+    {
+      "version": "20261025002930",
+      "name": "r17_legacy_gallery_comments_v2_dreamsnaps_preserved",
+      "blob": "f194cf6cac310910a38bd4e74e44f83bdb0df9b4",
+      "path": "supabase/migrations/20261025002930_r17_legacy_gallery_comments_v2_dreamsnaps_preserved.sql"
+    },
+    {
+      "version": "20261025002940",
+      "name": "r17_gallery_photo_direct_history_guard",
+      "blob": "5cc833a822b1490ea944234c1894e78653f53d90",
+      "path": "supabase/migrations/20261025002940_r17_gallery_photo_direct_history_guard.sql"
+    },
+    {
+      "version": "20261025002950",
+      "name": "r17_gallery_comments_registry_denial",
+      "blob": "6cc663f5501ed871643f96dfb78d210975596236",
+      "path": "supabase/migrations/20261025002950_r17_gallery_comments_registry_denial.sql"
+    },
+    {
+      "version": "20261025002960",
+      "name": "gallery_photo_media_readonly_preflight_r17",
+      "blob": "b957dfc8dce48aded9aa5ed2b0e0dcbcb9297373",
+      "path": "supabase/migrations/20261025002960_gallery_photo_media_readonly_preflight_r17.sql"
+    },
+    {
+      "version": "20261025002970",
+      "name": "r17_photo_cover_ordinal_consistency",
+      "blob": "e5b57d2c0ba146fbef9758ea39fd2fd71e4b5a52",
+      "path": "supabase/migrations/20261025002970_r17_photo_cover_ordinal_consistency.sql"
+    },
+    {
+      "version": "20261025002980",
+      "name": "r18_preset_storage_reservation_failclosed",
+      "blob": "58756e5e540ff3a44ab5d28deea2f15dac325f33",
+      "path": "supabase/migrations/20261025002980_r18_preset_storage_reservation_failclosed.sql"
+    },
+    {
+      "version": "20261025002990",
+      "name": "r18_preset_promotion_fencing_candidate",
+      "blob": "c5703c802ca43af73924fb88273fbb5fb14ea0f6",
+      "path": "supabase/migrations/20261025002990_r18_preset_promotion_fencing_candidate.sql"
+    },
+    {
+      "version": "20261025003000",
+      "name": "r18_scene_product_publisher_source_closure",
+      "blob": "d4858f783e1196944a8f086712df365703b66d9f",
+      "path": "supabase/migrations/20261025003000_r18_scene_product_publisher_source_closure.sql"
+    },
+    {
+      "version": "20261025003010",
+      "name": "r18_preset_provider_integrity_quarantine",
+      "blob": "aa168e42889a0de2c8a311e35e90f598a4f6381f",
+      "path": "supabase/migrations/20261025003010_r18_preset_provider_integrity_quarantine.sql"
+    },
+    {
+      "version": "20261025003020",
+      "name": "r18_preset_integrity_incident_commit_veto",
+      "blob": "e377c4c6981ed5bc5482af4f375c811f03d8adce",
+      "path": "supabase/migrations/20261025003020_r18_preset_integrity_incident_commit_veto.sql"
+    },
+    {
+      "version": "20261025003030",
+      "name": "r19_preset_postcommit_read_suppression",
+      "blob": "8fb14325136a77a91978bf55cc72cf18c79dca24",
+      "path": "supabase/migrations/20261025003030_r19_preset_postcommit_read_suppression.sql"
+    },
+    {
+      "version": "20261025003040",
+      "name": "r19_reader_history_graph_gap_closure",
+      "blob": "12ec679135ec00033e94760446dcff86ed70884d",
+      "path": "supabase/migrations/20261025003040_r19_reader_history_graph_gap_closure.sql"
+    },
+    {
+      "version": "20261025003050",
+      "name": "r19_direct_media_sql_issuer_authority",
+      "blob": "755c45a5edfe0d8cdab4b4320ecdfa02443183fe",
+      "path": "supabase/migrations/20261025003050_r19_direct_media_sql_issuer_authority.sql"
+    },
+    {
+      "version": "20261025003060",
+      "name": "r19_legacy_media_signer_authority",
+      "blob": "b7563d68348f27591a20a98760534fa7d399b160",
+      "path": "supabase/migrations/20261025003060_r19_legacy_media_signer_authority.sql"
+    },
+    {
+      "version": "20261027000000",
+      "name": "d06_dreamsnaps_account_global_official_consent",
+      "blob": "5364449011a06d1b53dff92c4d16bc47305766aa",
+      "path": "supabase/migrations/20261027000000_d06_dreamsnaps_account_global_official_consent.sql"
+    },
+    {
+      "version": "20261027000010",
+      "name": "f08_f09_dreamsnap_public_work_liveness",
+      "blob": "64fe31ac0424b0032553c51a9aca7f10d79f6d36",
+      "path": "supabase/migrations/20261027000010_f08_f09_dreamsnap_public_work_liveness.sql"
+    },
+    {
+      "version": "20261027000020",
+      "name": "legacy_dreamsnap_gallery_public_reader_liveness",
+      "blob": "b1fc4990a057f810aeb4b1a12a602a68c9b0330f",
+      "path": "supabase/migrations/20261027000020_legacy_dreamsnap_gallery_public_reader_liveness.sql"
+    },
+    {
+      "version": "20261027000030",
+      "name": "generic_public_search_work_liveness_source146",
+      "blob": "278bb69e990fc62956d28ee9563c9ecbc53b9f03",
+      "path": "supabase/migrations/20261027000030_generic_public_search_work_liveness_source146.sql"
+    },
+    {
+      "version": "20261028000000",
+      "name": "x05_shared_dreamsnap_metadata_staged_v1",
+      "blob": "5c2b1b85b07821d7e60a84de40d933d59c4cc19d",
+      "path": "supabase/migrations/20261028000000_x05_shared_dreamsnap_metadata_staged_v1.sql"
+    },
+    {
+      "version": "20261028000010",
+      "name": "x05_post_event_staged_liveness_immutable_guard",
+      "blob": "f6438fe596ed2eaca88bdb034173431f6bd511aa",
+      "path": "supabase/migrations/20261028000010_x05_post_event_staged_liveness_immutable_guard.sql"
+    },
+    {
+      "version": "20261028000020",
+      "name": "x05_nonpublic_consent_phase_revoke_controls",
+      "blob": "0d0c4e85a1fc1d0e2e3ba06aade8d55f305e1fd0",
+      "path": "supabase/migrations/20261028000020_x05_nonpublic_consent_phase_revoke_controls.sql"
+    },
+    {
+      "version": "20261028000030",
+      "name": "x05_authenticated_owner_service_v1",
+      "blob": "85e9de1874ca489133fd39be522f57ee1cfac6ab",
+      "path": "supabase/migrations/20261028000030_x05_authenticated_owner_service_v1.sql"
+    },
+    {
+      "version": "20261028000040",
+      "name": "x05_private_pregrant_policy_receipt_v1",
+      "blob": "451735e05b6a18c826851a51000909c40c42bb9f",
+      "path": "supabase/migrations/20261028000040_x05_private_pregrant_policy_receipt_v1.sql"
+    },
+    {
+      "version": "20261028000050",
+      "name": "x05_first_work_media_bootstrap_v1",
+      "blob": "cd297f48111afbb315651c6cb7e911afb1bcc03d",
+      "path": "supabase/migrations/20261028000050_x05_first_work_media_bootstrap_v1.sql"
+    },
+    {
+      "version": "20261028000060",
+      "name": "x05_authoritative_owner_projection_v2",
+      "blob": "356cc10138cd351674fde8dd943acc968e26fbbc",
+      "path": "supabase/migrations/20261028000060_x05_authoritative_owner_projection_v2.sql"
+    }
+  ]
+}
