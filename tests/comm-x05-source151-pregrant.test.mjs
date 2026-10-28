@@ -34,7 +34,7 @@ test('Original and PostEvent frozen photo/Entry + eligibility checks are disjoin
  assert.match(sql,/e\.entry_revision_id=v_photo\.revision_id/);
  assert.match(sql,/st\.immutable_photo_revision_id=v_photo\.revision_id/);
  assert.match(sql,/st\.official_voting_authority='unknown'/);
- assert.match(sql,/v_photo\.integrity_state/);
+ assert.match(sql,/integrity_state='eligible'/);
 });
 test('policy receipt sealed, exact SHA256 and active registry, never seeded',()=>{
  assert.match(sql,/create table private\.dreamsnap_x05_policy_receipt_v1/);
