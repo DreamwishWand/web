@@ -6,7 +6,7 @@ const sql=read('supabase/migrations/20261028000040_x05_private_pregrant_policy_r
 const edge=read('supabase/functions/community-dreamsnap-owner/index.ts');
 test('additive Source151 only; prior Source150 immutable',()=>{
  const files=readdirSync(new URL('../supabase/migrations/',import.meta.url)).filter(x=>x.endsWith('.sql')).sort();
- assert.equal(files.length,152);
+ assert.equal(files.length,153);
  assert.ok(files.includes('20261028000040_x05_private_pregrant_policy_receipt_v1.sql'));
  assert.doesNotMatch(sql,/create or replace function public\.community_dreamsnap_x05_owner_(?:read|action)_v1/);
  assert.doesNotMatch(sql,/create (?:or replace )?function private\.dreamsnap_x05_record_creator_grant_v1/);

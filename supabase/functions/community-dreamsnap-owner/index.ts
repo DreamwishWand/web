@@ -24,6 +24,18 @@ function uuid(v:unknown):v is string {return typeof v==='string'&&UUID.test(v)&&
 function safeVersion(v:unknown,min=1):v is number{return Number.isSafeInteger(v)&&Number(v)>=min;}
 export function parseOwnerRequest(v:unknown):{rpc:string;payload:Obj}|null {
   if(!object(v))return null;
+  if(v.operation==='authority'){
+    if(!exact(v,['operation','workId','expectedRowVersion','expectedAuthorizationEpoch'])||
+      !uuid(v.workId) ||
+      (v.expectedRowVersion!==undefined&&!safeVersion(v.expectedRowVersion,1))||
+      (v.expectedAuthorizationEpoch!==undefined&&!safeVersion(v.expectedAuthorizationEpoch,1)))
+      return null;
+    return {rpc:'community_dreamsnap_x05_owner_authority_v2',payload:{
+      p_work_id:v.workId,
+      p_expected_row_version:v.expectedRowVersion??null,
+      p_expected_authorization_epoch:v.expectedAuthorizationEpoch??null
+    }};
+  }
   if(v.operation==='register'){
     if(!exact(v,['operation','kind','challengeId','photoMediaId','caption','idempotencyKey',
       'explicitWandCompetitionEntry'])||
@@ -133,6 +145,46 @@ const handler=withSupabase({auth:'user'},async (req,ctx)=>{
   if(!object(result))return reply({ok:false,error:'OWNER_RESPONSE_UNAVAILABLE'},503);
   if(request.rpc.endsWith('_action_v1')&&result.publicActivationAllowed!==false)
     return reply({ok:false,error:'PUBLIC_ACTIVATION_GUARD'},503);
+  if(request.rpc.endsWith('_owner_authority_v2')){
+    const work=object(result.work)?result.work:null;
+    const a=object(result.authority)?result.authority:null;
+    const g=object(result.grant)?result.grant:null;
+    const d=object(result.deletion)?result.deletion:null;
+    const x=object(result.externalEvidence)?result.externalEvidence:null;
+    const cap=object(result.capabilities)?result.capabilities:null;
+    if(result.contractVersion!=='wand.dreamsnaps.owner-authority-projection@1'||
+      result.consumerTarget!=='wand.dreamsnaps.private-owner-consumer@2'||
+      !work||!a||!g||!d||!x||!cap||
+      work.workId!==body.workId||!uuid(work.photoRevisionId)||
+      !uuid(work.photoMediaId)||!uuid(g.mediaId)||
+      g.mediaId!==work.photoMediaId||g.photoRevisionId!==work.photoRevisionId||
+      a.authenticatedAccountBound!==true||a.ownerAuthorized!==true||
+      a.workPhotoBindingVerified!==true||a.mediaOwnershipVerified!==true||
+      !safeVersion(a.rowVersion)||!safeVersion(a.authorizationEpoch)||
+      (body.expectedRowVersion!==undefined&&body.expectedRowVersion!==a.rowVersion)||
+      (body.expectedAuthorizationEpoch!==undefined&&body.expectedAuthorizationEpoch!==a.authorizationEpoch)||
+      !['OriginalCompetition','PostEventCreation'].includes(String(work.kind))||
+      (work.kind==='PostEventCreation'&&('entryId' in work||'frozenEntryRevisionId' in work))||
+      (work.kind==='OriginalCompetition'&&(!uuid(work.entryId)||work.frozenEntryRevisionId!==work.photoRevisionId))||
+      g.explicitGrantAccepted!==true||g.creatorSelfCaptureDeclared!==true||
+      g.consentRecorded!==true||!safeVersion(g.lastGrantConsentRevision)||
+      typeof g.policyVersionText!=='string'||typeof g.policyDigest!=='string'||!DIGEST.test(g.policyDigest)||
+      !['UNVERIFIED','APPROVED_CANONICAL_RECEIPT'].includes(String(g.scopeStatus))||
+      (g.scopeStatus==='UNVERIFIED'&&(g.policyReceiptVerified!==false||
+        'scopeId' in g||'approvedPurposeIds' in g))||
+      g.publicUsageAuthorized!==false||
+      d.globalPurgeScopeComplete!==false||
+      d.cloudCdnIssuedBearerStatus!=='UNKNOWN'||
+      x.signedRuntimeSessionVerified!==false||
+      x.storageProviderObjectVerified!==false||
+      x.cloudCdnPhysicalPurgeVerified!==false||
+      x.officialChallengePhaseVerified!==false||
+      x.publicActivationAllowed!==false||
+      Object.values(cap).some(value=>value!==false))
+       return reply({ok:false,error:'AUTHORITY_PROJECTION_UNSUPPORTED'},503);
+    return reply({ok:true,operation:'authority',
+      contractVersion:'wand.dreamsnaps.owner-authority-projection@1',data:result});
+  }
   if(request.rpc.endsWith('_register_initial_work_v1')){
     if(result.publicActivationAllowed!==false ||
        result.requiresPolicyGrant!==true||
