@@ -1,0 +1,100 @@
+name: QR CTRL49 Stage116 to Source153 Independent Pre-Operator Rehearsal
+on:
+  push:
+    branches: ['qr/ctrl49-stage116-source153-migration-preflight-20261029']
+  pull_request:
+    branches: ['feature/03comm-x05-source153-owner-authority-projection-20261028']
+permissions:
+  contents: read
+jobs:
+  independently-classify-real-stage-ledger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Immutable Source153 Owner ancestry and no SQL/Edge/WEB changes
+        run: |
+          set -euo pipefail
+          SOURCE=b24eec2cb4dae4ab30824636670c520d7c6eea40
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN"
+          test -z "$(git diff --name-only "$SOURCE" HEAD -- supabase src)"
+          test "$(git hash-object supabase/migrations/20261027000000_d06_dreamsnaps_account_global_official_consent.sql)" = 5364449011a06d1b53dff92c4d16bc47305766aa
+          test "$(git hash-object supabase/migrations/20261027000030_generic_public_search_work_liveness_source146.sql)" = 278bb69e990fc62956d28ee9563c9ecbc53b9f03
+      - name: Independently prove exact 116 ledger classes + 153 Git SQL blobs and Source143-153 risk assertions
+        run: |
+          set -euo pipefail
+          python3 tests/qr-ctrl49-stage116-source153-ledger-preflight.py > /tmp/qr49-ledger.json
+          grep -q QR_CTRL49_STAGE116_SOURCE153_REAL_LEDGER_CLASSIFICATION_AND_FROZEN_11_SQL_STATIC_PASS /tmp/qr49-ledger.json
+          grep -q '"safeAutomaticApplyAllowed": false' /tmp/qr49-ledger.json
+          grep -q '"actualStage116ProtectedClone": "NOT_AVAILABLE"' /tmp/qr49-ledger.json
+          echo QR49_LEDGER_ONLY_PREFLIGHT_PASS_STAGE_APPLY_BLOCKED
+      - name: Preserve migration classification without Stage data
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr49-stage116-ledger-readonly-classification
+          path: /tmp/qr49-ledger.json
+          if-no-files-found: error
+  independently-rehearse-partial-stage116-objects:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DDVRE_QR49_SYNTHETIC_ONLY: CONFIRMED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      PGPASSWORD: postgres
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verifiably isolated synthetic PG, not Staging or Protected Clone
+        run: |
+          set -euo pipefail
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN"
+          test "$DDVRE_QR49_SYNTHETIC_ONLY" = CONFIRMED
+          git merge-base --is-ancestor b24eec2cb4dae4ab30824636670c520d7c6eea40 HEAD
+          test -z "$(git diff --name-only b24eec2cb4dae4ab30824636670c520d7c6eea40 HEAD -- supabase src)"
+          python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+          python3 -m py_compile tests/qr-ctrl49-stage116-143-146-partial-synthetic-pg.py
+      - name: Actual Source143 and Source146 SQL on synthetic partial Stage116 RLS+consent objects, rollback and replay
+        run: |
+          set -euo pipefail
+          python3 tests/qr-ctrl49-stage116-143-146-partial-synthetic-pg.py 2>&1 | tee /tmp/qr49-partial-pg.log
+          for s in QR49_SYNTHETIC_143_146_FORCED_TRANSACTION_ROLLBACK_OLD_POLICY_AND_FLAGS_RESTORED_PASS QR49_SYNTHETIC_OR_POLICY_SHADOW_LEAK_GUARD_REJECTS_EXTRA_PERMISSIVE_POLICY_PASS QR49_SYNTHETIC_SOURCE143_OFF_BACKFILL_OLD_SETTER_DISABLED_AND_SOURCE146_RLS_BOUNDARY_PASS QR49_SYNTHETIC_SOURCE143_146_SECOND_APPLY_REPLAY_IDEMPOTENT_PASS QR49_SYNTHETIC_PARTIAL_STAGE116_OBJECT_RECONSTRUCTION_ONLY_NO_REAL_STAGE_CLONE; do
+            grep -q "$s" /tmp/qr49-partial-pg.log
+          done
+          echo QR49_PARTIAL_SYNTHETIC_PG_PASS_NOT_STAGE116_REAL_CLONE
+      - name: Synthetic-only test markers
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr49-partial-source143-146-synthetic-pg
+          path: /tmp/qr49-partial-pg.log
+          if-no-files-found: warn
