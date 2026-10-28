@@ -76,7 +76,7 @@ assert "check (publication_state = 'staged')" in texts[4]
 assert 'create trigger x05_post_event_stage_guard' in texts[4]
 assert 'create or replace function private.dreamsnap_post_event_stage_validate_v1' in texts[5]
 assert 'create table private.dreamsnap_x05_consent_events_v1' in texts[6]
-assert "return false" in texts[6].lower()
+assert 'as $ select false $;' in texts[6].lower()
 assert 'alter function public.validate_current_published_revision() security definer' in texts[7]
 assert 'create trigger dreamsnap_x05_policy_activation_receipt_gate' in texts[8]
 assert 'create or replace function public.community_dreamsnap_x05_register_initial_work_v1' in texts[9]
