@@ -1,0 +1,127 @@
+name: QR CTRL44 Independent INT268 FULL153 Real 3PG to WEB267
+on:
+  push:
+    branches: ['qr/ctrl44-int268-full153-independent-20261029']
+  pull_request:
+    branches: ['int/x05-source153-webv2-full153-20261029']
+permissions:
+  contents: read
+jobs:
+  independent-owner-lineage-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prove exact Owner268 tree, 3 ancestor commits, Source153 baseline 25+4+3 blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=b24eec2cb4dae4ab30824636670c520d7c6eea40
+          INT263=b9bb5f4eed24f751c6b5e607095fd40e9a62b0e5
+          WEB267=0402229e6eb481d865082b3b59f11dc65359ec1a
+          OWNER=75053147f7457f6ed1c3765ffdb726fd4978abf6
+          for ancestor in "$SOURCE" "$INT263" "$WEB267"; do git merge-base --is-ancestor "$ancestor" "$OWNER"; done
+          git merge-base --is-ancestor "$OWNER" HEAD
+          test "$(git rev-parse "$OWNER^{tree}")" = 9d80ae92778b21a4248785a6ce05e5c4d7f3c522
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN"
+          test -z "$(git diff --name-only "$OWNER" HEAD -- supabase src)"
+          test -z "$(git diff --name-only "$SOURCE" "$OWNER" -- supabase/)"
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+          s='b24eec2cb4dae4ab30824636670c520d7c6eea40'
+          inherited_owner='b9bb5f4eed24f751c6b5e607095fd40e9a62b0e5'
+          web='0402229e6eb481d865082b3b59f11dc65359ec1a'
+          target='75053147f7457f6ed1c3765ffdb726fd4978abf6'
+          changed=set(subprocess.check_output(['git','diff','--name-only',s,target],text=True).splitlines())
+          new={'.github/workflows/int-x05-source153-webv2-full153.yml',
+             'tests/int-x05-source153-webv2-full153-three-pg.py',
+             'tests/int-x05-source153-webv2-full153.test.mjs'}
+          from_web={'.github/workflows/web-x05-source153-consumer-v2.yml',
+             'docs/web/x05-source153-authoritative-owner-consumer-v2-20261028.md',
+             'src/lib/dreamsnaps/source153-owner-consumer-v2.js',
+             'tests/dreamsnaps-source153-owner-consumer-v2.test.mjs'}
+          assert len(changed)==32,(len(changed),changed)
+          assert new.issubset(changed) and from_web.issubset(changed)
+          other=changed-new-from_web
+          assert len(other)==25,(len(other),other)
+          for p in other:
+            a=subprocess.check_output(['git','rev-parse',target+':'+p]).strip()
+            b=subprocess.check_output(['git','rev-parse',inherited_owner+':'+p]).strip()
+            assert a==b,('INHERITED_INT263_BLOB_CHANGED',p)
+          for p in from_web:
+            a=subprocess.check_output(['git','rev-parse',target+':'+p]).strip()
+            b=subprocess.check_output(['git','rev-parse',web+':'+p]).strip()
+            assert a==b,('WEB267_BLOB_CHANGED',p)
+          mig=sorted(x.name for x in Path('supabase/migrations').glob('*.sql'))
+          assert len(mig)==153,len(mig)
+          assert len(set(x.split('_')[0] for x in mig))==153
+          assert mig[-1]=='20261028000060_x05_authoritative_owner_projection_v2.sql'
+          print('QR44_INT268_ACTUAL_THREE_ANCESTORS_25_4_3_AND_FULL153_BLOBS_PASS')
+          PY
+          test "$(git hash-object supabase/migrations/20261028000060_x05_authoritative_owner_projection_v2.sql)" = 356cc10138cd351674fde8dd943acc968e26fbbc
+          test "$(git hash-object supabase/functions/community-dreamsnap-owner/index.ts)" = 38f6830b88eb37dc612cbc11901812a90b406146
+          test "$(git hash-object src/lib/dreamsnaps/source153-owner-consumer-v2.js)" = f981b7596711b47bceb2fa79a2191e79e8f1b459
+          node --test tests/qr-ctrl44-int268-full153-db-to-web-independent.test.mjs
+      - run: npm ci --no-audit --no-fund
+      - run: npm run check
+      - run: npm run build
+  independent-full153-three-real-postgresql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Frozen owner code and local-only PG fixture
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 75053147f7457f6ed1c3765ffdb726fd4978abf6 HEAD
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN"
+          test -z "$(git diff --name-only 75053147f7457f6ed1c3765ffdb726fd4978abf6 HEAD -- supabase src)"
+          python3 -m py_compile tests/qr-ctrl44-int268-full153-independent-three-pg.py
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Disposable actual FULL153 migrations without Edge, Stage or Provider
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_qrctrl44_int268_full153"\n' | cat - supabase/config.toml > /tmp/qr44-config.toml
+          mv /tmp/qr44-config.toml supabase/config.toml
+          timeout 1500s supabase start -x edge-runtime --debug >/tmp/qr44-bootstrap.log 2>&1 || { tail -120 /tmp/qr44-bootstrap.log; exit 1; }
+      - run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Independent Source152 register → Source151 pregrant → synthetic Policy → Source150 CAS/read/withdraw → Source153 authority
+        run: |
+          set -euo pipefail
+          python3 tests/qr-ctrl44-int268-full153-independent-three-pg.py 2>&1 | tee /tmp/qr44-pg.log
+          grep -q QR44_FULL153_REAL_PG_TO_WEB267_BRIDGE_READY /tmp/qr44-pg.log
+          QR44_REAL_FULL153_BRIDGE=/tmp/qr44-int268-real-source153-web267.json node --test tests/qr-ctrl44-int268-full153-db-to-web-independent.test.mjs
+          echo QR44_INDEPENDENT_REAL_FULL153_DB_TO_WEB267_CANDIDATE_ONLY_PASS
+      - name: Synthetic test log only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr44-int268-full153-independent-local-only
+          path: /tmp/qr44-pg.log
+          if-no-files-found: warn
+      - name: Bootstrap diagnostics if failed
+        if: failure()
+        run: tail -130 /tmp/qr44-bootstrap.log || true
