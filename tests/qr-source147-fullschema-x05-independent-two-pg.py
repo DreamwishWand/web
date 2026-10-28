@@ -176,18 +176,25 @@ with psycopg.connect(DSN,autocommit=True) as a,psycopg.connect(DSN,autocommit=Tr
     # second un-staged Work, not a fake Source144/145 function.
     def reset_stage_for_trial(): 
         a.execute("delete from private.dreamsnap_post_event_staged_v1 where work_id=%s",(work_p2,))
+    true_source147_violation=[]
+    parent_denied=[]
     def trial(name,sql,args,should_reject=True):
         with a.transaction():
             a.execute("SAVEPOINT qr147_parent")
             try:
                 reset_stage_for_trial()
-                a.execute(sql,args)
+                try:
+                    a.execute(sql,args)
+                except psycopg.Error as e:
+                    parent_denied.append(name)
+                    emit(case="PREEXISTING_PARENT_CONSTRAINT_DENY",name=name,sqlstate=e.sqlstate)
+                    return  # Does NOT establish Source147 trigger acceptance.
                 val=denied(a,"""insert into private.dreamsnap_post_event_staged_v1(
                   work_id,challenge_id,creator_profile_id,immutable_photo_revision_id,media_id,concept_revision_id)
                   values(%s,%s,%s,%s,%s,%s)""",stage_tuple(work_p2,rev_p2,media_p2))
                 emit(case="SOURCE147_PARENT_NEGATIVE",name=name,rejected=val["denied"],sqlstate=val.get("sqlstate"))
                 if should_reject and not val["denied"]:
-                    raise AssertionError(("SOURCE147_STAGE_ACCEPTS_INVALID_PARENT",name))
+                    true_source147_violation.append(name)
             finally:
                 a.execute("ROLLBACK TO SAVEPOINT qr147_parent")
                 a.execute("RELEASE SAVEPOINT qr147_parent")
@@ -232,4 +239,8 @@ with psycopg.connect(DSN,autocommit=True) as a,psycopg.connect(DSN,autocommit=Tr
                 a.execute("ROLLBACK TO SAVEPOINT qr147_original")
                 a.execute("RELEASE SAVEPOINT qr147_original")
     assert metadata(a,work_original) is not None
+    emit(marker="QR147_PARENT_GUARD_CLASSIFICATION",parentOnlyDenied=parent_denied,source147StageAcceptedInvalid=true_source147_violation)
+    if true_source147_violation:
+        emit(marker="QR147_CONFIRMED_LOCAL_SOURCE147_STAGING_LIVENESS_RED",violations=true_source147_violation)
+        raise AssertionError(("SOURCE147_STAGING_FAILED_TO_REJECT_INVALID_ACCOUNT_OR_PRIVACY",true_source147_violation))
     emit(marker="QR147_REAL_FULL147_INDEPENDENT_METADATA_STAGE_ACCEPTANCE_PASS",schema="FULL_147",signedRuntime=False)
