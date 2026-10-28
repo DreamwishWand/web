@@ -1,28 +1,40 @@
-# 04 QR — Source147 X05 new-only independent Source + full-schema actual PostgreSQL
+# 04 QR — X05 Source147 NEW_ONLY real full147 independent acceptance (2026-10-28)
 
-**Status:** `PENDING_INDEPENDENT_FULL147_RUN`, no claim of PASS until dedicated real-SQL fixture completes. **Owner** 03 COMM [Draft PR238](https://github.com/DreamwishWand/web/pull/238), HEAD `23a12dac9cbe11898ecc167977f71e4f6a090636`, exact base [08 WEB PR234](https://github.com/DreamwishWand/web/pull/234) `b907a86d67887bf841179f23824e5b26085520c3`. **Source147** sole new migration `supabase/migrations/20261028000000_x05_shared_dreamsnap_metadata_staged_v1.sql`, Git Blob `5c2b1b85b07821d7e60a84de40d933d59c4cc19d`, contract `wand.dreamsnaps.public-work-detail-metadata@1`.
+**FINAL DECISION: `CONFIRMED LOCAL RED` — STAGED provenance liveness (4) + immutable-photo/Media rebinding (1), despite true full-schema Original Reader/source ACL positive PASS. Not a live Stage/privacy disclosure.** Direct Owner [03 COMM Draft PR238](https://github.com/DreamwishWand/web/pull/238) exact HEAD `23a12dac9cbe11898ecc167977f71e4f6a090636`, immutable base [08 WEB PR234](https://github.com/DreamwishWand/web/pull/234) `b907a86d67887bf841179f23824e5b26085520c3`. Source147 SQL only new Migration `supabase/migrations/20261028000000_x05_shared_dreamsnap_metadata_staged_v1.sql` Git blob `5c2b1b85b07821d7e60a84de40d933d59c4cc19d`. Contract `wand.dreamsnaps.public-work-detail-metadata@1`.
 
-## Owner vs independent source evidence
-- Owner synthetic PostgreSQL [CI40608205520](https://github.com/DreamwishWand/web/actions/runs/40608205520) SUCCESS with **Source144/145 stub functions**; not sufficient to accept actual private SQL Reader integration.
-- Owner clean full147 migration [CI40608205497](https://github.com/DreamwishWand/web/actions/runs/40608205497) SUCCESS; verifies bootstrap, not X05 full-schema behavioral fixture.
-- Owner ordinary [CI40608205585](https://github.com/DreamwishWand/web/actions/runs/40608205585) SUCCESS.
-- This new distinct independent 04 QR branch runs a clean `supabase start` full147 PostgreSQL with no Source144/145 stub, then opens **two distinct actual pg_backend_pid writer and reader** connections; SQL via actual `private.dreamsnap_shared_public_work_metadata_v1`, real `public.community_get_gallery_dreamsnap_public_v1` Source145, real Source144 `private.dreamsnap_public_work_accessible_r20`, real stage trigger, catalog ACL.
-- No full historical Source141–146 tests recreated. Legacy Blob/DB version/Edge/frontend provenance is verified without changing any Owner SQL/Edge/UI. No staged public Edge/routing, signer or newly allowed media capability.
+## Evidence strata — do NOT conflate Stub and full Schema
 
-## Independently scoped acceptance matrix (PENDING)
-| New147 check | Expected | Result |
+- 03 COMM owner [Synthetic PG CI #40608205520](https://github.com/DreamwishWand/web/actions/runs/40608205520) SUCCESS, *has stubs replacing actual Source144/145*. Owner normal [CI40608205585](https://github.com/DreamwishWand/web/actions/runs/40608205585) SUCCESS. Owner full 147 clean bootstrap [CI40608205497](https://github.com/DreamwishWand/web/actions/runs/40608205497) SUCCESS. No Owner runtime fixture overrides this independent source RED.
+- **Distinct 04 QR Draft [PR239](https://github.com/DreamwishWand/web/pull/239)** new-only Python integration fixture against actual local empty Supabase CLI2.81.3 **all147 Migrated** PostgreSQL, no Source144/145 Stub or test-only Function replacement, two real pg_backend_pid separate Writer/Reader, real PostgreSQL CHECK/FK/trigger/ACL and actual Source144 r20 + Source145 public original Detail. No historical QR231/236 or Source141–146 full suites replayed. All data synthetic/disposable and no linked remote. New only: test script, independent GH Action, this report.
+- Independent full147 dedicated [push CI40611367108](https://github.com/DreamwishWand/web/actions/runs/40611367108) **COMPLETED FAILURE as intended real regression gate**; PR dedicated [CI40611373019](https://github.com/DreamwishWand/web/actions/runs/40611373019) **COMPLETED FAILURE**. Independent normal PR [CI40611373054](https://github.com/DreamwishWand/web/actions/runs/40611373054) **COMPLETED SUCCESS**. The 5 new Source147 semantic failures are not a harness failure: first fixture source-only permission-name check failed on private Schema resolution, fixed using pre-resolved OIDs; subsequent existing parent-table CHECK rejection now independently separated instead of mislabeled Source147 evidence. Last true full-schema log marker `QR147_CONFIRMED_LOCAL_SOURCE147_STAGING_LIVENESS_RED` with exact five-case list. Final QA docs-only HEAD/CI must be checked independently after documentation commit.
+
+## Acceptance matrix — only NEW Source147 behavior
+
+| Scope | Classification | Independent full147 evidence |
 | --- | --- | --- |
-| Exact Source147 SQL Blob/ledger/absence of new public calls | only one new forward-only SQL, private unrouted | PENDING |
-| Actual full147 PostgreSQL clean start and two backends | no simplified historic reader stub | PENDING |
-| Genuine original positive metadata | legacy Source145 and Source144 r20 positive, frozen Entry/Revision, no signer/social/official results | PENDING |
-| Two different STAGED PostEvent WorkIDs for same Account+Challenge | no EntryID, hard unknown and staged | PENDING |
-| Wrong Work/Creator/Challenge/Photo/Media/Concept, READY and minor validation | reject invalid inserts/updates | PENDING |
-| embargo/private/revision/Account/Identity/Creator/Privacy incident | NULL or deny | PENDING |
-| Publication/rank/vote/rights override | hard rejection | PENDING |
-| anon/authenticated/service_role EXECUTE/DML | none | PENDING |
-| concurrency/immutability/work deletion | stay bounded, report uncovered independently | PENDING/NEED_RUNTIME |
-| Signed actor/Stage/Origin/CDN/Provider/official voting+rights | out of scope | NEED_RUNTIME / NEED_SOURCE |
+| Exact Owner HEAD/SQL Blob, 147 ledger, no new Edge/Frontend/Signer | **PASS / SOURCE** | pins + no new public reader wiring; unchanged historic migrations |
+| Actual all147 clean Supabase migration + **two real PG sessions** | **PASS / REAL LOCAL** | Writer PID297, Reader PID298 on final test-code push; no stub |
+| New private Table/Function ACL | **PASS / REAL LOCAL** | anon, authenticated, service_role have no new Function EXECUTE or Stage Table SELECT/INSERT/UPDATE/DELETE |
+| Actual Source144 + Source145 OriginalCompetition Metadata Reader | **PASS / REAL LOCAL** | Genuine legacy Reader positive; Source147 projection `kind=OriginalCompetition`, frozen EntryID/EntryRevision=PublishedRevision, mediaId as reference only, rank NULL; media/social/official/edit/delete false |
+| Submission/judging embargo, private Creator/Work, restricted Account, suppressed Privacy, ineligible Entry | **PASS / REAL LOCAL READER NEGATIVE** | all Original Reader `NULL`, correct retained legitimate positive after rollback |
+| Two separate PostEvent Works same owner+Challenge, **no competition Entry** | **PASS / REAL LOCAL** | 2 STAGED, 0 Entry, PostEvent Reader `NULL` |
+| Explicit STAGED→PUBLISHED, forged official vote / WAND vote / Rights, cross-Work Media/Photo/Concept, wrong Creator/Challenge | **PASS / REAL LOCAL CHECK/TRIGGER NEGATIVE** | 9 actual denied update cases |
+| Photo/Media READY, moderation, purged, Challenge judging state on **new Stage insert** | **PASS / REAL LOCAL** | Source147 Stage trigger throws SQLSTATE P0001; parent constraints independently reject under13/invalid revision/Work not private |
+| **Account RESTRICTED**: Stage insert on valid private Work | **CONFIRMED LOCAL RED** | Owner account modified to restricted, new valid STAGED Insert **ACCEPTED** after full Stage trigger |
+| **AuthIdentity RETIRED**: Stage insert | **CONFIRMED LOCAL RED** | Final provider identity set retired, Stage Insert **ACCEPTED** |
+| **Privacy suppression**: Stage insert | **CONFIRMED LOCAL RED** | Real `private.account_privacy_suppressions` row inserted, Stage Insert **ACCEPTED** |
+| **Creator community entity tombstone**: Stage insert | **CONFIRMED LOCAL RED** | Real `community_entities.deleted_at` set, Stage Insert **ACCEPTED** |
+| **Immutable photo/media rebinding** on existing Stage | **CONFIRMED LOCAL RED** | Add *second legitimate eligible photo revision* and READY same-account media for SAME Work, update staged `immutable_photo_revision_id` + `media_id` → **ACCEPTED**, contradicts immutability promise |
+| Work parent deletion → Stage references | **PASS / REAL LOCAL** | Deleting DreamSnap Work parent cascades Stage row count to 0 |
+| Concurrent CAS writer / phase rights attestation / signed JWT Origin CDN Storage | **PARTIAL / NEED_CONTRACT / NEED_RUNTIME** | no accepted public PostEvent writer/phase/rights; do **not** call CAS/rank/signer accepted |
+| Incident-first media issuer & preissued URL/CDN | **NEED_RUNTIME, NO POSITIVE** | existing signer not modified; no remote operations, no old bearer revocation claim |
 
-**Fail-open detection** will emit exact SQLSTATE/failing case and classify `CONFIRMED LOCAL RED`. No speculative product Source changes in QR branch; minimal Owner fix request on issue121/PR238 if reproduced. Even a full SQL PASS cannot promote live JWT/rights/provenance or PostEvent positive publication.
+## Exact minimal Owner corrections — 03 COMM only, new forward-only Source147 follow-up
 
-**Safety**: no linked Supabase, no real Staging deploy, signed JWT, CDN/issued 300s media URL, remote Provider or Storage, Cloud, native Writer/Apply, real personal data, physical cleanup. Operator Gate A0–A7 HUMAN NO-GO, B D HOLD, C NOT_AUTHORIZED. Release R17 30 PASS0/PARTIAL12/BLOCKED18+seven human blockers and public launch NO-GO. **DRAFT / DO_NOT_MERGE / DO_NOT_DEPLOY**.
+**A. Stage liveness, 4 cases:** in the new `private.dreamsnap_post_event_stage_validate_v1()` *staging-specific* predicate (NOT Source144 r20 directly, because staged Work intentionally has `visibility='private'`), tie `w.owner_account_id` to active/nondeleted `public.wand_accounts`, active current `public.auth_identities`, live Creator entity and privacy suppression barrier `private.account_privacy_suppressions`. Preserve necessary private Draft STAGED states, existing structural READY/owner/Role/Ordinal/Challenge/nonminor constraints and Source143 numeric OFF. Ensure failure maps to fixed `X05_POST_EVENT_STAGING_PROVENANCE_UNVERIFIED` and no extra grants. Assert all four denied on both INSERT and any relevant UPDATE; don't retrofit Source141–146 SQL or publish public APIs.
+
+**B. Immutable image snapshot:** reject modification of `OLD.immutable_photo_revision_id` and `OLD.media_id` for an already STAGED Work, even when alternate PhotoRevision/Media is otherwise valid and same owner/Work; preserve genuine `concept_revision_id` semantics only when separately proven and version/CAS accepted. Do not unlock public publication via `row_version`. Hard CHECK `publication_state='staged'` and Voting/Rights `unknown` remain intact.
+
+Independent new-only post-Owner QA must pin a NEW owner SQL Blob/HEAD and check these five concrete full147 negative replays. No 03 COMM source patch was made in QR branch. No remote Stage or real personal accounts involved, no privacy or media leak alleged.
+
+**UNCHANGED SAFETY GATES:** Operator A0–A7 HUMAN NO-GO, B D HOLD/CAPABILITY_BLOCKED, physical C NOT_AUTHORIZED; no Signed JWT, Storage/Provider, 300s old Media URL/CDN, Cloud, Native DDV Writer/Apply, Stage Deploy, Main Merge or physical cleanup. All Draft DO_NOT_MERGE / DO_NOT_DEPLOY; X05 positive published Work Detail STILL DISABLED, graphComplete=false, R17 Product Tree PASS0/PARTIAL12/BLOCKED18 plus seven human gates, public launch NO-GO.
