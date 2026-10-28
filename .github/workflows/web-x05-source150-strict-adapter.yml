@@ -1,0 +1,49 @@
+name: WEB X05 Source150 strict adapter NEW ONLY (NO HTTP)
+on:
+  push:
+    branches:
+      - 'web/x05-source150-strict-service-adapter-*'
+  pull_request:
+    paths:
+      - 'src/lib/dreamsnaps/source150-owner-service-adapter.js'
+      - 'tests/dreamsnaps-source150-owner-service-adapter.test.mjs'
+      - 'docs/web/x05-source150-strict-service-adapter-20261028.md'
+      - '.github/workflows/web-x05-source150-strict-adapter.yml'
+permissions:
+  contents: read
+concurrency:
+  group: web-x05-source150-adapter-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Source150 strict adapter synthetic envelope and negative-only source
+        run: node --test tests/dreamsnaps-source150-owner-service-adapter.test.mjs
+      - name: Source static Svelte check
+        run: npm run check
+      - name: Production build (no UI changed)
+        run: npm run build
+      - name: Prove accepted WEB248 parent and earlier UI/source byte parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=e2e965c113fd2fc651b81a21e82b90f1c26d1090
+          git cat-file -e "$BASE^{commit}"
+          git diff --exit-code "$BASE" HEAD -- supabase/ src/routes/ src/lib/community/ src/lib/dreamsnaps/owner-management.js src/lib/dreamsnaps/private-owner-consumer-contract.js scripts/dreamsnaps-owner-browser-acceptance.mjs tests/dreamsnaps-private-owner-consumer-contract.test.mjs tests/dreamsnaps-owner-management-private.test.mjs
+          git diff --name-only "$BASE" HEAD > /tmp/x05-source150-changes
+          cat /tmp/x05-source150-changes
+          while IFS= read -r p; do
+            case "$p" in
+              src/lib/dreamsnaps/source150-owner-service-adapter.js|tests/dreamsnaps-source150-owner-service-adapter.test.mjs|docs/web/x05-source150-strict-service-adapter-20261028.md|.github/workflows/web-x05-source150-strict-adapter.yml) ;;
+              *) echo "UNEXPECTED CHANGE: $p" >&2; exit 1 ;;
+            esac
+          done < /tmp/x05-source150-changes
