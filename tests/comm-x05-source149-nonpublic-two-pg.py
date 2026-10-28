@@ -23,18 +23,22 @@ def log(marker,**d): print(json.dumps(dict(marker=marker,**d),sort_keys=True,def
 with psycopg.connect(DSN,autocommit=True) as a,psycopg.connect(DSN,autocommit=True) as b:
     assert one(a,"select count(*) from supabase_migrations.schema_migrations")==149
     assert one(a,"select pg_backend_pid()")!=one(b,"select pg_backend_pid()")
+    fn_signatures=("private.dreamsnap_x05_record_creator_grant_v1(uuid,uuid,uuid,uuid,text,text,bigint)",
+                   "private.dreamsnap_x05_owner_transition_v1(uuid,uuid,bigint,text,uuid)",
+                   "private.dreamsnap_x05_schedule_preflight_v1(timestamptz,timestamptz)",
+                   "private.dreamsnap_x05_control_live_v1(uuid)",
+                   "private.dreamsnap_x05_public_activation_v1(uuid)")
+    fn_oids={reg:one(a,"select %s::regprocedure::oid",(reg,)) for reg in fn_signatures}
+    table_names=("private.dreamsnap_x05_work_control_v1","private.dreamsnap_x05_consent_events_v1","private.dreamsnap_x05_purge_tracking_v1")
+    table_oids={tb:one(a,"select %s::regclass::oid",(tb,)) for tb in table_names}
     for role in ("anon","authenticated","service_role"):
         with b.transaction():
             b.execute("set local role "+role)
-            for reg in ("private.dreamsnap_x05_record_creator_grant_v1(uuid,uuid,uuid,uuid,text,text,bigint)",
-                        "private.dreamsnap_x05_owner_transition_v1(uuid,uuid,bigint,text,uuid)",
-                        "private.dreamsnap_x05_schedule_preflight_v1(timestamptz,timestamptz)",
-                        "private.dreamsnap_x05_control_live_v1(uuid)",
-                        "private.dreamsnap_x05_public_activation_v1(uuid)"):
-                assert not one(b,"select has_function_privilege(current_user,%s::regprocedure,'EXECUTE')",(reg,))
-            for tb in ("private.dreamsnap_x05_work_control_v1","private.dreamsnap_x05_consent_events_v1","private.dreamsnap_x05_purge_tracking_v1"):
+            for reg,oid in fn_oids.items():
+                assert not one(b,"select has_function_privilege(current_user,%s::oid,'EXECUTE')",(oid,)),reg
+            for tb,oid in table_oids.items():
                 for action in ("SELECT","INSERT","UPDATE","DELETE"):
-                    assert not one(b,"select has_table_privilege(current_user,%s::regclass,%s)",(tb,action))
+                    assert not one(b,"select has_table_privilege(current_user,%s::oid,%s)",(oid,action)),(tb,action)
     assert one(a,"select count(*) from pg_proc where proname like 'dreamsnap_x05_%' and pronamespace='public'::regnamespace")==0
     log("COMM149_NONPUBLIC_ROLE_ACL_SOURCE_PASS")
 
