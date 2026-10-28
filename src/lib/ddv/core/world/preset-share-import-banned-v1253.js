@@ -15,7 +15,7 @@ const HARD_FLAGS=Object.freeze({persistentWriteAuthorized:false,WORLD_PERSISTENT
 function sourceMatch(v){return !!v&&v.platform===PRESET_BANNED_BUILD.platform&&v.gameVersion===PRESET_BANNED_BUILD.gameVersion&&v.buildIdentity===PRESET_BANNED_BUILD.buildIdentity&&v.profileSchemaVersion===PRESET_BANNED_BUILD.profileSchemaVersion;}
 function response(status,code,family,key,reason){return Object.freeze({
   contract:PRESET_BANNED_SEMANTICS_CONTRACT,status,code,family,reasonCode:reason,
-  displayLocalizationKey:key,remoteRejection:status==='BANNED',
+  displayLocalizationKey:key,remoteRejection:null,
   canBypassServerPolicy:false,canImportWithoutExistingValidation:false,
   mayEnterExistingValidatedFlow:status==='UPSTREAM_SUCCESS_ONLY',...HARD_FLAGS
 });}
@@ -24,7 +24,7 @@ export function classifyPresetShareImportResultV1253({source,family,code}={}){
   if(!Object.values(PRESET_RESULT_FAMILIES).includes(family))return response('UNKNOWN_RESULT_FAMILY',code??null,family??null,null,'PRESET_RESULT_FAMILY_UNSUPPORTED');
   if(!Number.isInteger(code))return response('UNKNOWN_RESULT',code??null,family,null,'PRESET_RESULT_CODE_INVALID');
   const bannedCode=family===PRESET_RESULT_FAMILIES.SHARE?14:17;
-  if(code===bannedCode)return response('BANNED',code,family,PRESET_BANNED_LOCALIZATION_KEY,'SERVER_REJECTED_BANNED');
+  if(code===bannedCode)return response('BANNED',code,family,PRESET_BANNED_LOCALIZATION_KEY,'BANNED_DENIED_ORIGIN_UNVERIFIED');
   if(code===0)return response('UPSTREAM_SUCCESS_ONLY',0,family,null,'EXISTING_VALIDATION_STILL_REQUIRED');
   // Other errors, including unknown future numbers, must not be collapsed into success.
   return response('REJECTED_OR_UNRECOGNIZED',code,family,null,'UPSTREAM_RESULT_NOT_SUCCESS');
