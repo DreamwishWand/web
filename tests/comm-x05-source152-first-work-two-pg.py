@@ -69,28 +69,28 @@ with psycopg.connect(DSN,autocommit=True) as a,psycopg.connect(DSN,autocommit=Tr
      values(%s,%s,%s,'image/png',1024,1280,720,%s,'ready','clear')""",
      (media,account,"comm152/disposable/"+str(media),"a"*64))
  log("COMM152_ROLE_POLICY_UNSEEDED_AND_MEDIA_READY_FIXTURE_PASS")
- deny(reg(b,subject,"PostEventCreation",post,media_p,"safe-152-001",False,role="anon"),"anon")
- deny(reg(b,subject,"PostEventCreation",post,media_p,"safe-152-001",False,role="service_role"),"admin")
- deny(reg(b,u(),"PostEventCreation",post,media_p,"safe-152-001",False),"wrong user")
- deny(reg(b,subject,"PostEventCreation",post,media_p,"safe-152-001",False,missing_session=True),"session")
- deny(reg(b,subject,"PostEventCreation",post,media_p,"safe-152-001",True),"postevent entry")
- deny(reg(b,subject,"OriginalCompetition",post,media_p,"safe-152-001",True),"wrong phase")
- deny(reg(b,subject,"OriginalCompetition",live,media_o,"safe-152-001",False),"missing explicit entry")
+ deny(reg(b,subject,"PostEventCreation",post,media_p,"safe-152-negative-001",False,role="anon"),"anon")
+ deny(reg(b,subject,"PostEventCreation",post,media_p,"safe-152-negative-001",False,role="service_role"),"admin")
+ deny(reg(b,u(),"PostEventCreation",post,media_p,"safe-152-negative-001",False),"wrong user")
+ deny(reg(b,subject,"PostEventCreation",post,media_p,"safe-152-negative-001",False,missing_session=True),"session")
+ deny(reg(b,subject,"PostEventCreation",post,media_p,"safe-152-negative-001",True),"postevent entry")
+ deny(reg(b,subject,"OriginalCompetition",post,media_p,"safe-152-negative-001",True),"wrong phase")
+ deny(reg(b,subject,"OriginalCompetition",live,media_o,"safe-152-negative-001",False),"missing explicit entry")
  with a.transaction():
   a.execute("savepoint media_denied")
   a.execute("update public.media_assets set processing_state='quarantined' where media_id=%s",(media_p,))
-  deny(reg(a,subject,"PostEventCreation",post,media_p,"safe-152-001",False),"unready media")
+  deny(reg(a,subject,"PostEventCreation",post,media_p,"safe-152-negative-001",False),"unready media")
   a.execute("rollback to savepoint media_denied");a.execute("release savepoint media_denied")
  with a.transaction():
   a.execute("savepoint creator_denied")
   a.execute("update public.creator_profiles set moderation_state='restricted' where creator_profile_id=%s",(creator,))
-  deny(reg(a,subject,"PostEventCreation",post,media_p,"safe-152-001",False),"Creator moderation")
+  deny(reg(a,subject,"PostEventCreation",post,media_p,"safe-152-negative-001",False),"Creator moderation")
   a.execute("rollback to savepoint creator_denied");a.execute("release savepoint creator_denied")
  log("COMM152_AUTH_MEDIA_MODERATION_ENTRY_NEGATIVES_PASS")
  with psycopg.connect(DSN,autocommit=True) as c:
   with ThreadPoolExecutor(max_workers=2) as pool:
-   f=pool.submit(reg,b,subject,"PostEventCreation",post,media_p,"safe-152-race-a",False)
-   g=pool.submit(reg,c,subject,"PostEventCreation",post,media_p,"safe-152-race-b",False)
+   f=pool.submit(reg,b,subject,"PostEventCreation",post,media_p,"safe-152-race-aaa",False)
+   g=pool.submit(reg,c,subject,"PostEventCreation",post,media_p,"safe-152-race-bbb",False)
    race=[f.result(),g.result()]
  assert sum(x[0]=="ok" for x in race)==1,race
  assert sum(x[0]=="denied" for x in race)==1,race
@@ -107,7 +107,7 @@ with psycopg.connect(DSN,autocommit=True) as a,psycopg.connect(DSN,autocommit=Tr
  assert pr[1]["photoRevisionId"]==registered["photoRevisionId"]
  assert pr[1]["photoMediaId"]==str(media_p)
  assert one(a,"select count(*) from private.dreamsnap_x05_consent_events_v1")==0
- deny(reg(b,subject,"PostEventCreation",post,media_p,"safe-152-diffkey",False),"duplicate image registration")
+ deny(reg(b,subject,"PostEventCreation",post,media_p,"safe-152-different-key",False),"duplicate image registration")
  log("COMM152_TWO_PG_POSTEVENT_STAGED_ORPHAN_FREE_PREGRANT_PASS")
  orig=reg(b,subject,"OriginalCompetition",live,media_o,"safe-152-original-001",True)
  assert orig[0]=="ok",orig
