@@ -91,3 +91,20 @@ test('combined DTO consumers remain inert with no signed JWT, real registration,
     assert.equal(calls,0);
   }finally{globalThis.fetch=previous;}
 });
+
+if (process.env.INT_X05_PG_BRIDGE_JSON) {
+  test('actual disposable FULL151 PG withdrawal envelope reaches WEB252 adapter and fails closed on absent authority',()=>{
+    const bridge=JSON.parse(fs.readFileSync(process.env.INT_X05_PG_BRIDGE_JSON,'utf8'));
+    assert.equal(bridge.envelope.data.rowVersion,2);
+    assert.equal(bridge.envelope.data.authorizationEpoch,2);
+    assert.equal(bridge.envelope.data.imageGrant.consentRevision,1);
+    assert.equal(bridge.envelope.data.imageGrant.state,'withdrawn');
+    assert.equal(bridge.envelope.data.erasure.state,'PUBLIC_DISABLED');
+    const value=adaptSource150OwnerEnvelope(bridge.envelope,{workId:bridge.workId,requestGeneration:5,latestGeneration:5});
+    assert.equal(value.status,'NEED_BACKEND_PROJECTION');
+    assert.equal(value.snapshot,null);
+    assert.equal(value.ownerReadVerified,false);
+    assert.equal(value.actionsEnabled,false);
+    assert.ok(value.missingAuthority.length>0);
+  });
+}

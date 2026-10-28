@@ -99,6 +99,13 @@ jobs:
           python3 tests/comm-x05-source151-pregrant-two-pg.py 2>&1 | tee /tmp/int151-pg.log
           grep -q COMM151_SOURCE_LOCAL_COMPLETE /tmp/int151-pg.log
           echo INT_X05_COMBINED_FULL151_PG_SOURCE_PASS
+      - name: New-only combined PG withdrawal and actual SQL envelope into frontend Adapter fail-closed
+        run: |
+          set -euo pipefail
+          python3 tests/int-x05-source151-web254-withdraw-two-pg.py 2>&1 | tee /tmp/int151-withdraw.log
+          grep -q INT_X05_COMBINED_SYNTHETIC_PG_WITHDRAW_CAS_AND_READ_PASS /tmp/int151-withdraw.log
+          INT_X05_PG_BRIDGE_JSON=/tmp/int-x05-source151-web254-pg-bridge.json node --test tests/int-x05-source151-web254-combined.test.mjs
+          echo INT_X05_COMBINED_FULL151_PG_TO_WEB_FAILCLOSED_PASS
       - name: Keep strictly local synthetic evidence
         if: always()
         uses: actions/upload-artifact@v4
