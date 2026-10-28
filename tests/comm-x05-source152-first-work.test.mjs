@@ -46,6 +46,12 @@ test('duplicate Work and idempotency do not create second Entity/Entry or Outbox
  assert.match(sql,/public\.idempotency_keys/);
  assert.match(sql,/X05_ORIGINAL_ENTRY_NOT_FROZEN/);
 });
+test('PostEvent initial response is normalized before persistent idem replay, QR260 TRUE RED',()=>{
+ assert.match(sql,/v_response:=jsonb_strip_nulls\(jsonb_build_object\(/);
+ assert.match(sql,/return v_previous.response;/);
+ assert.match(sql,/return v_response;/);
+ assert.doesNotMatch(sql,/return jsonb_strip_nulls\(v_response\);/);
+});
 test('UTF-8 canonical candidate Policy SHA256 exact and NEVER activation',()=>{
  assert.equal(manifest.status,'CANDIDATE_POLICY_ARTIFACT');
  assert.equal(manifest.policyVersionText,'v1');
