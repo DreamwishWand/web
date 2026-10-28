@@ -23,7 +23,12 @@ def case(db,subject,sql,args=(),role="authenticated",expired=False,epoch=None,mi
         db.execute("select set_config('request.jwt.claim.role',%s,true)",(role,))
         if epoch is not None:
             db.execute("select set_config('request.jwt.claim.iat',%s,true)",(str(epoch),))
-        try: return ("ok",one(db,sql,args))
+        try:
+            # An expected PostgreSQL RAISE must abort only an inner SAVEPOINT,
+            # never poison the outer synthetic transaction or role setup.
+            with db.transaction():
+                value=one(db,sql,args)
+            return ("ok",value)
         except psycopg.Error as e:
             return ("blocked",e.sqlstate,str(e).split("\n")[0][:200])
 def assert_denied(result,name):
