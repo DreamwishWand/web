@@ -55,9 +55,14 @@ with psycopg.connect(DB,autocommit=True) as a,psycopg.connect(DB,autocommit=True
        submission_opens_at,submission_closes_at,judging_opens_at,judging_closes_at,results_at,closes_at,
        formal_vote_allowance,special_pick_allowance,minimum_real_eligible_entries,minimum_real_eligible_creators,is_synthetic)
        values(%s,%s,'QR152 synthetic',%s,
-       now()-interval '10 days',now()-interval '9 days',now()-interval '8 days',
-       now()-interval '7 days',now()-interval '6 days',now()+interval '10 days',2,1,1,1,false)""",
-      (ch,'qr152_'+U().hex[:16],phase))
+       case when %s='submission_open' then now()-interval '2 hours' else now()-interval '8 days' end,
+       case when %s='submission_open' then now()+interval '1 day' else now()-interval '7 days' end,
+       case when %s='submission_open' then now()+interval '2 days' else now()-interval '6 days' end,
+       case when %s='submission_open' then now()+interval '3 days' else now()-interval '5 days' end,
+       case when %s='submission_open' then now()+interval '4 days' else now()-interval '4 days' end,
+       case when %s='submission_open' then now()+interval '5 days' else now()+interval '2 days' end,
+       2,1,1,1,false)""",
+      (ch,'qr152_'+U().hex[:16],phase,phase,phase,phase,phase,phase,phase))
   for media in [media_original,media_post,media_other]:
    a.execute("insert into public.community_entities(entity_id,entity_type) values(%s,'media_asset')",(media,))
    a.execute("""insert into public.media_assets(media_id,owner_account_id,storage_key,mime_type,byte_size,
