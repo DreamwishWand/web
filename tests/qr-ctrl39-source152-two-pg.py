@@ -119,7 +119,13 @@ with psycopg.connect(DB,autocommit=True) as a,psycopg.connect(DB,autocommit=True
  # Replay using exact original-winning idempotency key must return exact committed result.
  winner_key='qr152-race-alpha-001' if attempts[0][0]=='ok' else 'qr152-race-bravo-001'
  again=invoke(b,subject,'PostEventCreation',challenge_post,media_post,winner_key)
- assert again==('ok',post),(again,post)
+ # Record but defer actual output contract RED so the remaining independent
+ # OriginalCompetition / rollback cases also execute against the fixed Owner.
+ response_shape_match=(again==('ok',post))
+ if not response_shape_match:
+  note('QR152_TRUE_RED_POSTEVENT_REPLAY_EXTRA_ENTRY_NULL',
+       firstHasEntryId=('entryId' in post),replayHasEntryId=('entryId' in again[1]),
+       replayValue=again[1].get('entryId'))
  deny(invoke(b,subject,'PostEventCreation',challenge_post,media_other,winner_key),'key reused with changed media')
  before=count("select count(*) from public.community_works where owner_account_id=%s and work_type='dreamsnap'",(account,))
  original=invoke(b,subject,'OriginalCompetition',challenge_original,media_original,'qr152-original-entry-001',True)
@@ -132,4 +138,6 @@ with psycopg.connect(DB,autocommit=True) as a,psycopg.connect(DB,autocommit=True
  assert count('select count(*) from private.dreamsnap_post_event_staged_v1 where work_id=%s',(ow,))==0
  assert count("select count(*) from public.community_works where owner_account_id=%s and work_type='dreamsnap'",(account,))==before+1
  note('QR152_TWO_PG_ATOMIC_ORIGINAL_POSTEVENT_RACE_IDEMPOTENCY_ROLLBACK_PASS',pids=[val(a,'select pg_backend_pid()'),val(b,'select pg_backend_pid()')])
+ if not response_shape_match:
+  raise AssertionError('OWNER_TRUE_RED: identical PostEvent replay returns entryId:null, initial omitted entryId; response contract not idempotent')
  note('QR152_INDEPENDENT_FULL152_LOCAL_COMPLETE',migrations=152,verifiedUpload=False,approvedPolicy=False,signedJWT=False)
