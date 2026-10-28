@@ -61,3 +61,10 @@ test('Edge only private no-store and user-jwt double verification; public activa
  assert.match(edge,/PUBLIC_ACTIVATION_GUARD/);
  assert.doesNotMatch(edge,/createSignedUrl|storage\.from|community-public-media/);
 });
+
+test('Source150 safely validates deferred Work revision under authenticated owner, without raw table SELECT grants',()=>{
+ assert.match(sql,/alter function public\.validate_current_published_revision\(\) security definer/);
+ assert.match(sql,/alter function public\.validate_current_published_revision\(\)[\s\S]*set search_path=pg_catalog,public,private/);
+ assert.doesNotMatch(sql,/grant select on public\.community_work_revisions/i);
+ assert.doesNotMatch(sql,/create or replace function public\.validate_current_published_revision/);
+});
