@@ -1,0 +1,70 @@
+name: 03 COMM X05 Source152 NEW-ONLY first Work two-PG
+on:
+  push:
+    branches: ['feature/03comm-x05-source152-first-work-20261028']
+  pull_request:
+    branches: ['feature/03comm-x05-source151-pregrant-bootstrap-20261028']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source152-newonly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Confirm accepted Source151 ancestor, immutable SQL and no Public routing
+        run: |
+          set -euo pipefail
+          test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$DATABASE_URL"
+          git merge-base --is-ancestor 9c96de3e1f003c160beffc0395dfbe35314dff3d HEAD
+          test "$(git hash-object supabase/migrations/20261028000040_x05_private_pregrant_policy_receipt_v1.sql)" = 451735e05b6a18c826851a51000909c40c42bb9f
+          test -z "$(git diff --name-only 9c96de3e1f003c160beffc0395dfbe35314dff3d HEAD -- supabase/migrations/202609* supabase/migrations/202610030* supabase/migrations/202610232* supabase/migrations/202610242* supabase/migrations/202610250* supabase/migrations/202610270* supabase/migrations/20261028000000* supabase/migrations/20261028000010* supabase/migrations/20261028000020* supabase/migrations/20261028000030* supabase/migrations/20261028000040*)"
+          test -z "$(git diff --name-only 9c96de3e1f003c160beffc0395dfbe35314dff3d HEAD -- supabase/functions/community-public-query supabase/functions/community-public-media supabase/functions/community-command src)"
+          python3 - <<'PY'
+          from pathlib import Path
+          names=sorted(p.name for p in Path('supabase/migrations').glob('*.sql'))
+          assert len(names)==152,len(names)
+          assert len({n.split('_')[0] for n in names})==152
+          assert names[-1]=='20261028000050_x05_first_work_media_bootstrap_v1.sql'
+          print('COMM152_SOURCE151_IMMUTABLE_NEWONLY_PASS')
+          PY
+          node --test tests/comm-x05-source152-first-work.test.mjs
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Clean full152 disposable PostgreSQL (Edge runtime excluded)
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_comm152_first_work_disposable"\n' | cat - supabase/config.toml > /tmp/comm152-config.toml
+          mv /tmp/comm152-config.toml supabase/config.toml
+          timeout 1500s supabase start -x edge-runtime --debug >/tmp/comm152-start.log 2>&1 || { tail -130 /tmp/comm152-start.log; exit 1; }
+          echo COMM152_CLEAN_FULL152_SCHEMA_PASS
+      - name: Isolated PostgreSQL client
+        run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: New-only first Work PostEvent/Original / two PG race
+        run: |
+          set -euo pipefail
+          python3 tests/comm-x05-source152-first-work-two-pg.py 2>&1 | tee /tmp/comm152-new-only.log
+          grep -q COMM152_SOURCE_LOCAL_COMPLETE /tmp/comm152-new-only.log
+      - name: Save synthetic local-only evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: comm152-newonly-first-work-synthetic
+          path: /tmp/comm152-new-only.log
+          if-no-files-found: warn
+      - name: Local setup diagnostics
+        if: failure()
+        run: tail -100 /tmp/comm152-start.log || true
