@@ -102,6 +102,12 @@ with psycopg.connect(DSN,autocommit=True) as a,psycopg.connect(DSN,autocommit=Tr
  assert registered["storageValidatedBySource152"] is False
  assert one(a,"select count(*) from private.dreamsnap_post_event_staged_v1 where work_id=%s",(w,))==1
  assert one(a,"select count(*) from public.dreamsnap_entries where work_id=%s",(w,))==0
+ # Source152 QR260 TRUE RED regression: initial and same-key replay MUST be byte-equivalent JSON shapes.
+ winning_key="safe-152-race-aaa" if race[0][0]=="ok" else "safe-152-race-bbb"
+ replay=reg(b,subject,"PostEventCreation",post,media_p,winning_key,False)
+ assert replay[0]=="ok" and replay[1]==registered,(replay,registered)
+ assert "entryId" not in replay[1] and "entryId" not in registered
+ log("COMM152_TRUE_RED_POSTEVENT_IDENTICAL_REPLAY_NORMALIZED_PASS")
  pr=pre(b,subject,w)
  assert pr[0]=="ok" and pr[1]["state"]=="NEED_POLICY_ARTIFACT",pr
  assert pr[1]["photoRevisionId"]==registered["photoRevisionId"]
