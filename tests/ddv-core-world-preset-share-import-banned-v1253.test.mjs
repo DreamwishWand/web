@@ -10,7 +10,7 @@ const classify=(family,code,source=src)=>classifyPresetShareImportResultV1253({s
 const hard=x=>{for(const k of ['persistentWriteAuthorized','WORLD_PERSISTENT_WRITE_V125','PERSISTENT_WRITE','productApplyAuthorized','directSourceReplacementAuthorized','nativeWriterAuthorized'])assert.equal(x[k],false,k);};
 test('Switch v1.25.3 explicit share 14 and import 17 are non-bypassable Banned',()=>{
  for(const [family,code] of [[PRESET_RESULT_FAMILIES.SHARE,14],[PRESET_RESULT_FAMILIES.IMPORT,17]]){
-  const x=classify(family,code);assert.equal(x.status,'BANNED');assert.equal(x.reasonCode,'SERVER_REJECTED_BANNED');assert.equal(x.displayLocalizationKey,PRESET_BANNED_LOCALIZATION_KEY);assert.equal(x.remoteRejection,true);assert.equal(x.mayEnterExistingValidatedFlow,false);hard(x);
+  const x=classify(family,code);assert.equal(x.status,'BANNED');assert.equal(x.reasonCode,'BANNED_DENIED_ORIGIN_UNVERIFIED');assert.equal(x.displayLocalizationKey,PRESET_BANNED_LOCALIZATION_KEY);assert.equal(x.remoteRejection,null);assert.equal(x.mayEnterExistingValidatedFlow,false);hard(x);
  }
 });
 test('success only hands over to existing validated workflow; unknown response fails closed',()=>{
