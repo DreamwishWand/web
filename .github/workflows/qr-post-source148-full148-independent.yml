@@ -30,7 +30,9 @@ jobs:
           test "$(git hash-object supabase/migrations/20261028000010_x05_post_event_staged_liveness_immutable_guard.sql)" = f6438fe596ed2eaca88bdb034173431f6bd511aa
           test "$(git hash-object supabase/migrations/20261028000000_x05_shared_dreamsnap_metadata_staged_v1.sql)" = 5c2b1b85b07821d7e60a84de40d933d59c4cc19d
           test -z "$(git diff --name-only 23a12dac9cbe11898ecc167977f71e4f6a090636 HEAD -- supabase/functions src)"
-          test -z "$(git diff --name-only 23a12dac9cbe11898ecc167977f71e4f6a090636 HEAD -- supabase/migrations/202609* supabase/migrations/202610250* supabase/migrations/202610270* supabase/migrations/20261028000000*)"
+          # Exhaustive SQL ancestry: prior 147 source files must remain byte-identical.
+          test "$(git diff --name-only 23a12dac9cbe11898ecc167977f71e4f6a090636 8d678b53275204fa964cfdbe3de74a61fee8cad0 -- supabase/migrations)" = "supabase/migrations/20261028000010_x05_post_event_staged_liveness_immutable_guard.sql"
+          test -z "$(git diff --name-only 8d678b53275204fa964cfdbe3de74a61fee8cad0 HEAD -- supabase/migrations supabase/functions src)"
           python3 - <<'PY'
           from pathlib import Path
           paths=sorted(Path('supabase/migrations').glob('*.sql'))
