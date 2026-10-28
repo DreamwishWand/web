@@ -13,7 +13,7 @@ const original=[
 const migration='supabase/migrations/20261027000030_generic_public_search_work_liveness_source146.sql';
 const sql=readFileSync(migration,'utf8');
 test('Source146 adds exactly one forward-only migration; protected predecessor bytes unchanged',()=>{
- assert.equal(readdirSync('supabase/migrations').filter(n=>n.endsWith('.sql')).length,150);
+ assert.equal(readdirSync('supabase/migrations').filter(n=>n.endsWith('.sql')).length,151);
   assert.ok(readdirSync('supabase/migrations').includes('20261028000000_x05_shared_dreamsnap_metadata_staged_v1.sql'));
   assert.ok(readdirSync('supabase/migrations').includes('20261028000020_x05_nonpublic_consent_phase_revoke_controls.sql'));
  for(const [p,sha] of original)assert.equal(execFileSync('git',['hash-object',p],{encoding:'utf8'}).trim(),sha,p);

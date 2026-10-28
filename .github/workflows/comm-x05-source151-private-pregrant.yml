@@ -1,0 +1,71 @@
+name: 03 COMM X05 Source151 NEW-ONLY pregrant two-PG
+on:
+  push:
+    branches: ['feature/03comm-x05-source151-pregrant-bootstrap-20261028']
+  pull_request:
+    branches: ['feature/03comm-x05-private-owner-service-20261028']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source151-newonly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Source150 pinned / Source151 additive only
+        run: |
+          set -euo pipefail
+          test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$DATABASE_URL"
+          git merge-base --is-ancestor 4117d98666a3c3c2ae5891c043e9a83756f92fdc HEAD
+          test "$(git hash-object supabase/migrations/20261028000030_x05_authenticated_owner_service_v1.sql)" = 85e9de1874ca489133fd39be522f57ee1cfac6ab
+          test -z "$(git diff --name-only 4117d98666a3c3c2ae5891c043e9a83756f92fdc HEAD -- supabase/migrations/202609* supabase/migrations/202610030* supabase/migrations/202610232* supabase/migrations/202610242* supabase/migrations/202610250* supabase/migrations/202610270* supabase/migrations/20261028000000* supabase/migrations/20261028000010* supabase/migrations/20261028000020* supabase/migrations/20261028000030*)"
+          test -z "$(git diff --name-only 4117d98666a3c3c2ae5891c043e9a83756f92fdc HEAD -- supabase/functions/community-public-query supabase/functions/community-public-media supabase/functions/community-command src)"
+          python3 - <<'PY'
+          from pathlib import Path
+          names=sorted(p.name for p in Path('supabase/migrations').glob('*.sql'))
+          assert len(names)==151,len(names)
+          assert len(set(n.split('_')[0] for n in names))==151
+          assert names[-1]=='20261028000040_x05_private_pregrant_policy_receipt_v1.sql'
+          print('COMM151_SOURCE150_PIN_AND_ADDITIVE_ONLY_PASS')
+          PY
+          node --test tests/comm-x05-source151-pregrant.test.mjs
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Clean full151 disposable local PostgreSQL (no Edge runtime or Stage)
+        run: |
+          set -euo pipefail
+          docker version
+          printf 'project_id = "ddvre_comm151_pregrant_disposable"\n' | cat - supabase/config.toml > /tmp/comm151-config.toml
+          mv /tmp/comm151-config.toml supabase/config.toml
+          timeout 1500s supabase start -x edge-runtime --debug >/tmp/comm151-start.log 2>&1 || { tail -125 /tmp/comm151-start.log; exit 1; }
+          echo COMM151_CLEAN_FULL151_SCHEMA_PASS
+      - name: Local PG client pinned
+        run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: NEW-ONLY Source151 synthetic JWT + Policy receipt + real two PG bootstrap tests
+        run: |
+          set -euo pipefail
+          python3 tests/comm-x05-source151-pregrant-two-pg.py 2>&1 | tee /tmp/comm151-new-only.log
+          grep -q COMM151_SOURCE_LOCAL_COMPLETE /tmp/comm151-new-only.log
+      - name: Keep synthetic test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: comm151-newonly-local-synthetic-evidence
+          path: /tmp/comm151-new-only.log
+          if-no-files-found: warn
+      - name: Local setup failures
+        if: failure()
+        run: tail -110 /tmp/comm151-start.log || true
