@@ -1,0 +1,52 @@
+name: 04 QR 01B PR114 new-only Native Banned source contract
+on:
+  push:
+    branches: ['qr/pr114-v1253-native-banned-independent-20261028']
+  pull_request:
+    branches: ['dev/core-world-v1253-preset-banned-furniture-40600547-20261024']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-newonly:
+    name: 04 QR independent Switch1253 Banned adapter/quest guard (PRIVATE ELF LOCAL ONLY)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      DDVRE_ORIGINAL_ELF_ON_GITHUB_CI: 'false'
+      DDVRE_NATIVE_WRITER_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact Owner fix SHA and no Owner code mutation in new QR branch
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 4951ec5bafad1e681100a499d130061b692ff2f1 HEAD
+          test "$(git hash-object src/lib/ddv/core/world/preset-share-import-banned-v1253.js)" = adb0ee0bc6702bde89302d7441d76e3ed8f3aab1
+          test -z "$(git diff --name-only 4951ec5bafad1e681100a499d130061b692ff2f1 HEAD -- src/ supabase/ static/ddv/core/)"
+          echo QR_PR114_EXACT_OWNER_POST_BANNED_FIX_SOURCE_PIN_PASS
+      - name: Five independent focused fail-closed Native consumer/source checks
+        run: |
+          set -euo pipefail
+          node --test tests/qr-pr114-native-banned-newonly-independent.test.mjs | tee /tmp/qr-pr114-banned-source.log
+          grep -q QR_PR114_BANNED_14_17_SEPARATE_PRODUCER_FAIL_CLOSED_PASS /tmp/qr-pr114-banned-source.log
+          grep -q QR_PR114_NO_FALSE_SERVER_ORIGIN_OR_WRITER_PERMISSION_PASS /tmp/qr-pr114-banned-source.log
+          grep -q QR_PR114_GENERIC_GRID_NOT_QUEST_PLACEMENT_PASS /tmp/qr-pr114-banned-source.log
+      - name: Private original ELF is intentionally never copied to GitHub runner
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/qr/independent-pr114-switch1253-banned-elf.py
+          test "$DDVRE_ORIGINAL_ELF_ON_GITHUB_CI" = false
+          test "$DDVRE_NATIVE_WRITER_ENABLED" = false
+          echo QR_PR114_ORIGINAL_ELF_INDEPENDENT_LOCAL_PROOF_SEPARATE_FROM_CI
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qr-pr114-source-only-independent
+          path: /tmp/qr-pr114-banned-source.log
+          if-no-files-found: warn
