@@ -1,0 +1,31 @@
+name: QR WEB248 Private Consumer Independent Source Mock
+on:
+  push:
+    branches: ['qr/x05-web248-consumer-independent-20261028']
+  pull_request:
+    branches: ['web/x05-private-owner-consumer-contract-20261028']
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact Owner ref and no Owner source modifications
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor e2e965c113fd2fc651b81a21e82b90f1c26d1090 HEAD
+          test -z "$(git diff --name-only e2e965c113fd2fc651b81a21e82b90f1c26d1090 HEAD -- src supabase)"
+          test -z "$(git diff --name-only 50a8bd4812df2c9caff04d0a26b58d28042943ab HEAD -- src/routes supabase)"
+      - name: Independent consumer mock and negative cases
+        run: node --test tests/qr-x05-web248-consumer-independent.test.mjs
+      - run: npm ci --no-audit --no-fund
+      - run: npm run check
+      - run: npm run build
