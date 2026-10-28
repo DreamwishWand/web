@@ -50,7 +50,7 @@ jobs:
           docker version
           printf 'project_id = "ddvre_comm150_owner_service_disposable"\n' | cat - supabase/config.toml > /tmp/comm150-config.toml
           mv /tmp/comm150-config.toml supabase/config.toml
-          timeout 1500s supabase start --debug >/tmp/comm150-start.log 2>&1 || { tail -140 /tmp/comm150-start.log; exit 1; }
+          timeout 1500s supabase start -x edge-runtime --debug >/tmp/comm150-start.log 2>&1 || { tail -140 /tmp/comm150-start.log; exit 1; }
           echo COMM150_CLEAN_FULL150_SCHEMA_PASS
       - name: Install isolated two-session PostgreSQL client
         run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
