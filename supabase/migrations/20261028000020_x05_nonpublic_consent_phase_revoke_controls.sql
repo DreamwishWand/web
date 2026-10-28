@@ -76,8 +76,8 @@ begin
   end if;
   v_state:=case
     when p_asof < p_official_submission_week_start then 'upcoming'
-    when p_asof < p_official_submission_week_start+interval '7 days' then 'submission'
-    when p_asof < p_official_submission_week_start+interval '14 days' then 'voting'
+    when p_asof < p_official_submission_week_start+interval '168 hours' then 'submission'
+    when p_asof < p_official_submission_week_start+interval '336 hours' then 'voting'
     else 'scheduled_post_voting'
   end;
   return jsonb_build_object('scheduleState',v_state,'positivePublicAllowed',false,
