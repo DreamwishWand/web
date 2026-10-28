@@ -194,6 +194,7 @@ with psycopg.connect(DSN,autocommit=True) as a,psycopg.connect(DSN,autocommit=Tr
     after=read(b,auth,original)
     assert after[0]=="ok" and after[1]["erasure"]["state"]=="PUBLIC_DISABLED",after
     assert after[1]["rowVersion"]==2 and after[1]["authorizationEpoch"]==2
+    assert after[1]["imageGrant"]["consentRevision"]==1  # revoke changes CAS, not grant receipt
     assert_denied(action(b,auth,original,1,1,"withdraw"),"REPLAY")
     assert_denied(action(b,auth,original,2,2,"grant",photo_original,media_original,"v1","b"*64,True,True),"REGRANT_TERMINAL")
     log("COMM150_WRAPPED_CAS_TWO_PG_REVOKE_REPLAY_PRIVATE_READ_PASS")
@@ -203,6 +204,8 @@ with psycopg.connect(DSN,autocommit=True) as a,psycopg.connect(DSN,autocommit=Tr
     assert deleted[1]["owner"]["erasure"]["state"]=="MEDIA_PURGE_PENDING"
     assert deleted[1]["owner"]["erasure"]["physicalPurgeVerified"] is False
     assert deleted[1]["owner"]["erasure"]["providerStatus"]=="requested"
+    assert deleted[1]["owner"]["rowVersion"]==2
+    assert deleted[1]["owner"]["imageGrant"]["consentRevision"]==1
     assert one(a,"select verified_at from private.dreamsnap_x05_purge_tracking_v1 where work_id=%s",(post,)) is None
     # A genuine preexisting legal hold, not a fabricated media-purged status.
     with a.transaction():
