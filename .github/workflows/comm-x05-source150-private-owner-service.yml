@@ -2,6 +2,8 @@ name: 03 COMM X05 Source150 NEW-ONLY private owner service two-PG
 on:
   push:
     branches: ['feature/03comm-x05-private-owner-service-20261028']
+  pull_request:
+    branches: ['feature/03comm-x05-nonpublic-owner-controls-20261028']
   workflow_dispatch:
 permissions:
   contents: read
