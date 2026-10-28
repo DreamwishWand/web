@@ -196,6 +196,8 @@ with psycopg.connect(DSN,autocommit=True) as a,psycopg.connect(DSN,autocommit=Tr
                 emit(case="SOURCE147_PARENT_NEGATIVE",name=name,rejected=val["denied"],sqlstate=val.get("sqlstate"))
                 if should_reject and not val["denied"]:
                     true_source147_violation.append(name)
+                if should_reject and val["denied"]:
+                    stage_guard_confirmed.append(name)
             finally:
                 a.execute("ROLLBACK TO SAVEPOINT comm148_parent")
                 a.execute("RELEASE SAVEPOINT comm148_parent")
