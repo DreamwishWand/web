@@ -27,9 +27,12 @@ export function parseOwnerRequest(v:unknown):{rpc:string;payload:Obj}|null {
     'photoRevisionId','photoMediaId','policyVersionText','policyDigest',
     'selfCaptureDeclared','explicitGrantAccepted','conceptRevisionId']))return null;
   if(!uuid(v.workId))return null;
-  if(v.operation==='read'){
+  if(v.operation==='read'||v.operation==='pregrant'){
     return exact(v,['operation','workId'])
-      ? {rpc:'community_dreamsnap_x05_owner_read_v1',payload:{p_work_id:v.workId}}
+      ? {rpc:v.operation==='pregrant'
+          ? 'community_dreamsnap_x05_pregrant_read_v1'
+          : 'community_dreamsnap_x05_owner_read_v1',
+         payload:{p_work_id:v.workId}}
       : null;
   }
   if(v.operation!=='action'||typeof v.action!=='string'||!ACTIONS.has(v.action))return null;
@@ -112,7 +115,13 @@ const handler=withSupabase({auth:'user'},async (req,ctx)=>{
   if(!object(result))return reply({ok:false,error:'OWNER_RESPONSE_UNAVAILABLE'},503);
   if(request.rpc.endsWith('_action_v1')&&result.publicActivationAllowed!==false)
     return reply({ok:false,error:'PUBLIC_ACTIVATION_GUARD'},503);
-  if(request.rpc.endsWith('_read_v1')&&result.contractVersion!=='wand.dreamsnaps.owner-management-service@1')
+  if(request.rpc.endsWith('_pregrant_read_v1')){
+    if(result.contractVersion!=='wand.dreamsnaps.pregrant-service@1'||
+       result.grantRecorded!==false||result.publicActivationAllowed!==false||
+       !['NEED_POLICY_ARTIFACT','PREGRANT_READY'].includes(String(result.state))||
+       (result.state==='PREGRANT_READY')!== (result.grantAvailable===true))
+       return reply({ok:false,error:'PREGRANT_VERSION_UNSUPPORTED'},503);
+  } else if(request.rpc.endsWith('_read_v1')&&result.contractVersion!=='wand.dreamsnaps.owner-management-service@1')
     return reply({ok:false,error:'OWNER_VERSION_UNSUPPORTED'},503);
   return reply({ok:true,operation:body.operation,
     contractVersion:'wand.dreamsnaps.owner-management-service@1',
