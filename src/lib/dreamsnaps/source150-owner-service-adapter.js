@@ -182,7 +182,7 @@ export function adaptSource150OwnerEnvelope(envelope,context) {
   });
 }
 
-// This accepts only local response-shaped fixtures. NO fetch(), bearer, RPC
+// This accepts only local response-shaped fixtures. NO network, bearer, RPC
 // or endpoint is included. Success needs private,no-store headers even in a
 // test fixture; no old public cache allowance can be inherited.
 export function classifySource150OwnerHttpFixture(response,context) {
