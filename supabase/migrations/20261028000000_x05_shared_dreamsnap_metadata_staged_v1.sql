@@ -28,6 +28,61 @@ create table private.dreamsnap_post_event_staged_v1 (
 );
 create index x05_post_event_staged_challenge_idx
   on private.dreamsnap_post_event_staged_v1(challenge_id,work_id);
+-- This trigger validates the structural reference tuple before even staging.
+-- It cannot establish official DDV phase/rights; those stay hard UNKNOWN.
+create or replace function private.dreamsnap_post_event_stage_validate_v1()
+returns trigger language plpgsql security definer
+set search_path=pg_catalog,public,private
+as $guard$
+begin
+  if not exists (
+    select 1
+    from public.community_works w
+    join public.dreamsnap_works dw on dw.work_id=w.work_id
+    join public.creator_profiles cp on cp.creator_profile_id=w.creator_profile_id
+       and cp.owner_account_id=w.owner_account_id
+    join public.dreamsnap_challenges c on c.challenge_id=dw.challenge_id
+    join public.community_work_revisions image_revision
+       on image_revision.revision_id=new.immutable_photo_revision_id
+       and image_revision.work_id=w.work_id
+    join public.dreamsnap_work_revisions dr
+       on dr.revision_id=image_revision.revision_id
+       and dr.challenge_id=c.challenge_id
+       and dr.integrity_state='eligible'
+    join public.work_revision_media wrm
+       on wrm.work_revision_id=image_revision.revision_id
+       and wrm.media_id=new.media_id
+       and wrm.role='dreamsnap' and wrm.ordinal=0
+    join public.media_assets m on m.media_id=wrm.media_id
+       and m.owner_account_id=w.owner_account_id
+       and m.processing_state='ready'
+       and m.moderation_state='clear' and m.purged_at is null
+    join public.community_work_revisions concept_revision
+       on concept_revision.revision_id=new.concept_revision_id
+       and concept_revision.work_id=w.work_id
+    where w.work_id=new.work_id
+      and w.work_type='dreamsnap'
+      and w.creator_profile_id=new.creator_profile_id
+      and dw.challenge_id=new.challenge_id
+      and dw.managed_under13=false
+      and w.visibility='private'
+      and w.lifecycle_state in ('draft','published')
+      and w.current_published_revision_id=new.concept_revision_id
+      and c.is_synthetic=false
+      and c.lifecycle_state in ('results','closed')
+      and not exists (select 1 from public.dreamsnap_entries e
+        where e.work_id=w.work_id)
+      and not exists (select 1 from public.dreamsnap_gallery_publications gp
+        where gp.work_id=w.work_id)
+  ) then raise exception 'X05_POST_EVENT_STAGING_PROVENANCE_UNVERIFIED'; end if;
+  return new;
+end
+$guard$;
+revoke all on function private.dreamsnap_post_event_stage_validate_v1()
+  from public,anon,authenticated,service_role;
+create trigger x05_post_event_stage_guard before insert or update
+on private.dreamsnap_post_event_staged_v1
+for each row execute function private.dreamsnap_post_event_stage_validate_v1();
 revoke all on private.dreamsnap_post_event_staged_v1
   from public,anon,authenticated,service_role;
 comment on table private.dreamsnap_post_event_staged_v1 is
