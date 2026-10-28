@@ -1,0 +1,71 @@
+name: 03 COMM X05 Source150 NEW-ONLY private owner service two-PG
+on:
+  push:
+    branches: ['feature/03comm-x05-private-owner-service-20261028']
+  pull_request:
+    branches: ['feature/03comm-x05-nonpublic-owner-controls-20261028']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source150-newonly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin Source149 ancestry and no public/media/old SQL mutations
+        run: |
+          set -euo pipefail
+          test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$DATABASE_URL"
+          git merge-base --is-ancestor 2abbb2b14dfe0f876cef92e8c3b9e18d8d9e50cd HEAD
+          test "$(git hash-object supabase/migrations/20261028000020_x05_nonpublic_consent_phase_revoke_controls.sql)" = 0d0c4e85a1fc1d0e2e3ba06aade8d55f305e1fd0
+          test -z "$(git diff --name-only 2abbb2b14dfe0f876cef92e8c3b9e18d8d9e50cd HEAD -- supabase/migrations/202609* supabase/migrations/202610030* supabase/migrations/202610232* supabase/migrations/202610242* supabase/migrations/202610250* supabase/migrations/202610270* supabase/migrations/20261028000000* supabase/migrations/20261028000010* supabase/migrations/20261028000020*)"
+          test -z "$(git diff --name-only 2abbb2b14dfe0f876cef92e8c3b9e18d8d9e50cd HEAD -- supabase/functions/community-public-query supabase/functions/community-public-media supabase/functions/community-command src)"
+          python3 - <<'PY'
+          from pathlib import Path
+          names=sorted(p.name for p in Path('supabase/migrations').glob('*.sql'))
+          assert len(names)==150,len(names)
+          assert len(set(n.split('_')[0] for n in names))==150
+          assert names[-1]=='20261028000030_x05_authenticated_owner_service_v1.sql'
+          print('COMM150_ONLY_ADDITIVE_PRIVATE_OWNER_SERVICE_SOURCE_PIN_PASS')
+          PY
+          node --test tests/comm-x05-source150-owner-service.test.mjs
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Ephemeral real local full150 Supabase, never linked to Stage
+        run: |
+          set -euo pipefail
+          docker version
+          printf 'project_id = "ddvre_comm150_owner_service_disposable"\n' | cat - supabase/config.toml > /tmp/comm150-config.toml
+          mv /tmp/comm150-config.toml supabase/config.toml
+          timeout 1500s supabase start -x edge-runtime --debug >/tmp/comm150-start.log 2>&1 || { tail -140 /tmp/comm150-start.log; exit 1; }
+          echo COMM150_CLEAN_FULL150_SCHEMA_PASS
+      - name: Install isolated two-session PostgreSQL client
+        run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: NEW-ONLY Source150 real local two-backend JWT claims simulation and authority tests
+        run: |
+          set -euo pipefail
+          python3 tests/comm-x05-source150-owner-service-two-pg.py 2>&1 | tee /tmp/comm150-new-only.log
+          grep -q COMM150_SOURCE_LOCAL_COMPLETE /tmp/comm150-new-only.log
+      - name: Store isolated synthetic Source150 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: comm150-newonly-local-synthetic-source
+          path: /tmp/comm150-new-only.log
+          if-no-files-found: warn
+      - name: Bounded local setup failure
+        if: failure()
+        run: tail -120 /tmp/comm150-start.log || true
