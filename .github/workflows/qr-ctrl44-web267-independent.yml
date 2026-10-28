@@ -3,7 +3,7 @@ on:
   push:
     branches: ['qr/ctrl44-web267-independent-20261029']
   pull_request:
-    branches: ['web/x05-source153-owner-consumer-v2-20261029']
+    branches: ['web/x05-source153-owner-consumer-v2-20261028']
 permissions:
   contents: read
 jobs:
