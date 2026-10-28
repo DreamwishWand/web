@@ -38,8 +38,8 @@ test('official weekly schedule is deterministic but never real Challenge authori
   assert.match(code,/at time zone 'UTC'/);
   assert.match(code,/extract\(isodow from v_start\)<>3/);
   assert.match(code,/extract\(hour from v_start\)<>13/);
-  assert.match(code,/interval '7 days'/);
-  assert.match(code,/interval '14 days'/);
+  assert.match(code,/interval '168 hours'/);
+  assert.match(code,/interval '336 hours'/);
   assert.match(code,/OFFICIAL_WEEKLY_SCHEDULE_ONLY/);
   assert.match(code,/'officialServerPhaseVerified',false/);
   assert.match(code,/'verifiedChallengeId',false/);
