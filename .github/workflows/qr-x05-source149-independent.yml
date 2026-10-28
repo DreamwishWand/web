@@ -1,0 +1,58 @@
+name: QR Source149 Independent Full149 Two-PG
+on:
+  push:
+    branches: ['qr/x05-source149-independent-20261028']
+  pull_request:
+    branches: ['feature/03comm-x05-nonpublic-owner-controls-20261028']
+permissions:
+  contents: read
+jobs:
+  independent-source149:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+      DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact independent QA parent and isolated migration
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 2abbb2b14dfe0f876cef92e8c3b9e18d8d9e50cd HEAD
+          test "$(git hash-object supabase/migrations/20261028000020_x05_nonpublic_consent_phase_revoke_controls.sql)" = 0d0c4e85a1fc1d0e2e3ba06aade8d55f305e1fd0
+          test -z "$(git diff --name-only 2abbb2b14dfe0f876cef92e8c3b9e18d8d9e50cd HEAD -- supabase src)"
+          node --test tests/qr-x05-source149-independent.test.mjs
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Disposable isolated full149 DB migration
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_qr149_disposable"\n' | cat - supabase/config.toml > /tmp/qr149-config.toml
+          mv /tmp/qr149-config.toml supabase/config.toml
+          timeout 1500s supabase start --debug >/tmp/qr149-start.log 2>&1 || { tail -150 /tmp/qr149-start.log; exit 1; }
+      - name: Install isolated local PG client
+        run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Independent actual 2-PG authority and race negative
+        run: |
+          set -euo pipefail
+          python3 tests/qr-x05-source149-two-pg-independent.py 2>&1 | tee /tmp/qr149-independent.log
+          grep -q QR149_INDEPENDENT_FULL149_SOURCE_LOCAL_DONE /tmp/qr149-independent.log
+      - name: Isolated local trace only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr149-independent-synthetic
+          path: /tmp/qr149-independent.log
+          if-no-files-found: warn
+      - name: Debug isolated migration bootstrap
+        if: failure()
+        run: tail -120 /tmp/qr149-start.log || true
