@@ -97,7 +97,7 @@ with psycopg.connect(DSN,autocommit=True) as db,psycopg.connect(DSN,autocommit=T
             for oid in table_oids:
                 for privilege in ('SELECT','INSERT','UPDATE','DELETE'):
                     assert val(peer,'select has_table_privilege(current_user,%s::oid,%s)',(oid,privilege)) is False
-    assert val(db,"select count(*) from pg_proc where pronamespace='public'::regnamespace and proname like 'dreamsnap_x05_%'")==0
+    assert val(db,"select count(*) from pg_proc where pronamespace='public'::regnamespace and proname like 'dreamsnap_x05_%%'")==0
     proof('QR149_REAL_PRIVATE_ACL_NO_EXTERNAL_CALLER_PASS')
 
     anchor='2026-10-14 13:00:00+00'
@@ -149,9 +149,9 @@ with psycopg.connect(DSN,autocommit=True) as db,psycopg.connect(DSN,autocommit=T
     proof('QR149_TWO_REAL_BACKENDS_WITHDRAW_VERSUS_GRANT_CAS_SERIALIZABLE_PASS',winner=winner)
 
     assert val(db,'select private.dreamsnap_public_work_accessible_r20(%s)',(orig[0],)) is True
-    before=val(db,"select count(*) from public.outbox_events where aggregate_id=%s and event_type like 'dreamsnap.x05_nonpublic_%'",(orig[0],))
+    before=val(db,"select count(*) from public.outbox_events where aggregate_id=%s and event_type like 'dreamsnap.x05_nonpublic_%%'",(orig[0],))
     assert denied(db,transition_sql,(auth,orig[0],1,'unknown-operation',None))
-    assert val(db,"select count(*) from public.outbox_events where aggregate_id=%s and event_type like 'dreamsnap.x05_nonpublic_%'",(orig[0],))==before
+    assert val(db,"select count(*) from public.outbox_events where aggregate_id=%s and event_type like 'dreamsnap.x05_nonpublic_%%'",(orig[0],))==before
     assert val(db,'select row_version from private.dreamsnap_x05_work_control_v1 where work_id=%s',(orig[0],))==1
     withdrawn=val(db,transition_sql,(auth,orig[0],1,'withdraw',None))
     assert withdrawn['state']=='withdrawn'
