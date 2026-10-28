@@ -116,8 +116,16 @@ with psycopg.connect(DSN,autocommit=True) as db,psycopg.connect(DSN,autocommit=T
  assert counts(work)==before
  assert counts(staged_work)[:3]==(0,0,0)
  for kw in [{'role':'anon'},{'role':'service_role'},{'anonymous':True},
-    {'missing_session':True},{'foreign_sub':True},{'revoked':True}]:
+    {'missing_session':True},{'foreign_sub':True}]:
   denied(pre(peer,sub,work,**kw),'AUTH_PREGRANT_'+str(kw))
+ with db.transaction():
+  db.execute('savepoint qr151_session_cutoff')
+  try:
+   db.execute("update public.auth_identities set sessions_valid_after=clock_timestamp()-interval '1 hour' where account_id=%s",(account,))
+   denied(pre(db,sub,work,revoked=True),'JWT_ISSUED_BEFORE_SESSION_CUTOFF')
+  finally:
+   db.execute('rollback to savepoint qr151_session_cutoff')
+   db.execute('release savepoint qr151_session_cutoff')
  denied(pre(peer,U(),work),'FOREIGN_SUBJECT')
  for typ in ['retired','privacy','moderation','under13']:
   with db.transaction():
