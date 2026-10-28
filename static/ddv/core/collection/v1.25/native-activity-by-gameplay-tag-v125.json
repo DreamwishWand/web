@@ -1,0 +1,278 @@
+{
+  "schema": "ddv.collection-native-activity-by-gameplay-tag-v125@1",
+  "classification": "OWNER_ORIGINAL_BYTES_PREDICATE_ONLY_INDEPENDENT_QR_PENDING",
+  "scope": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "bid": "52BD625D9B4E0053",
+    "profileSchema": 624
+  },
+  "originalSource": {
+    "originalExeFsMain": {
+      "fileId": "1oZ4V2BdNSH62n7KFruNbgvGsw5eRs1Z8",
+      "bytes": 96002294,
+      "sha256": "3258d5e05aded708c06017b8763fa37bfb696385a2ab29dd8a182d3938cbc0e0"
+    },
+    "originalRomFsGlobalMetadata": {
+      "fileId": "1-Ptq2xCjQh1Fc_tHn1DeekiqiVTFc0v1",
+      "bytes": 36538728,
+      "version": 31,
+      "magic": "0xFAB11BAF",
+      "sha256": "07e919f07f7be2df883b7292bd3c699f670b4c1e8ff496ef7747447f5baa9f7c"
+    },
+    "originalDumpCs": {
+      "fileId": "13nyviL_uZ9w-Op_9VhJsdpe0Ho4l2cdj",
+      "bytes": 59624529,
+      "sha256": "a94ae73d522f160d21255b195b4d834bf5c79db59ddbd8cdfc32e54c6e0671f0"
+    },
+    "historicalUntracedMetadata": {
+      "claimedSha256": "d5487eb7c2341d8fd245d4815cc55eae0c64f0822f4a55fa495fc0afcd1c2b08",
+      "provenance": "NEED_SOURCE_NOT_EQUATED"
+    }
+  },
+  "compareScope": {
+    "comparedFamily": "Crafting",
+    "craftingRecipeItemDataTypeDef": 9715,
+    "craftingRecipeHasICollectionItem": false,
+    "craftingSelectorOneofCases": [
+      "MaterialBasic",
+      "RecipeType"
+    ],
+    "decision": "NOT_PROMOTED_BECAUSE_OUTPUT_ITEM_LOOKUP_AND_RESULT_TYPE_OWNERSHIP_REQUIRE_SEPARATE_REPLAY"
+  },
+  "native": {
+    "outerSelector": {
+      "type": "CollectionItemType",
+      "protobufField": 6,
+      "case": 6
+    },
+    "innerSelector": {
+      "type": "CollectionActivity",
+      "typeDefIndex": 10348,
+      "protobufField": 8,
+      "case": 8,
+      "property": "ByGameplayTag",
+      "getterRva": "0x4BE6B30",
+      "getterSize": 80,
+      "getterSha256": "8164f74488484033987b2f7c78bf75c7a1d02ac0ec78c7b12226decb77796923"
+    },
+    "dispatch": {
+      "function": "CollectionGroup._GetItemsFromType",
+      "rva": "0x4BFAA70",
+      "innerCase8CompareRva": "0x4BFDF90"
+    },
+    "lambda": {
+      "function": "CollectionGroup.<>c__DisplayClass46_0.<_GetItemsFromType>b__16(IHasTags)",
+      "rva": "0x4C00680",
+      "size": 288,
+      "sha256": "283754ced925c3c116a54704d2093269ccb0348a5c4d4b8abab724865e0007e5",
+      "guards": [
+        [
+          "0x4C006F4",
+          "CollectionItemType.case == 6"
+        ],
+        [
+          "0x4C0071C",
+          "CollectionActivity.case == 8"
+        ],
+        [
+          "0x4C00748",
+          "load boxed TagItem ID"
+        ],
+        [
+          "0x4C00790",
+          "tail-call 0x4CC92D0 HasTag"
+        ]
+      ]
+    },
+    "helper": {
+      "method": "Definitions.Items.ItemDataExtensions.HasTag(IHasTags, Item)",
+      "rva": "0x4CC92D0",
+      "size": 680,
+      "sha256": "8da02b30c4d1fa6c0cb133663892e7df9e58f3d1f9278dfdb363004c3f80f3c1",
+      "directContainsCall": "0x4CC93F8",
+      "directContainsCallee": "0x39349D0",
+      "fallbackToItemDatabaseRva": "0x4CC9414",
+      "containsAdditionalFallback": true
+    },
+    "predicate": "ItemDataExtensions.HasTag(candidateIHasTags, Item(selector.ByGameplayTag))",
+    "importantCaveat": "Direct raw Tags.Contains is sufficient to witness a positive call outcome, but a negative raw Tags lookup does not prove a final negative because HasTag may fall back to ItemDatabase-associated tag items."
+  },
+  "concreteItemData": [
+    {
+      "name": "CropItemData",
+      "typeDefIndex": 9050,
+      "metadataTypeEntrySha256": "848e4831b4265f36c5d53f0142d188781b3e927b0593366ac30a5beb0b5a0322",
+      "interfaceOffsetTableSha256": "561d90ae13f851679f83a6b0e92c23c7420a4d8abbe2a621f69e5a672ff75c4c",
+      "icollectionItemTypeIndex": 64932,
+      "icollectionItemOffset": 37,
+      "icollectionItemMethodSlot": 1,
+      "icollectionItemVtableSlot": 38,
+      "icollectionGetterEncodedMethod": "0x60028969",
+      "icollectionGetterMethodDef": 83124,
+      "variationInterfaceAbsent": true,
+      "ihasTagsInterfaceTypeIndex": 65701,
+      "ihasTagsInterfaceOffset": 31,
+      "ihasTagsGetterSlot": 32,
+      "ihasTagsGetterMethodDef": 83098,
+      "tagsProtobufField": 30,
+      "tagsBackingOffset": "0x70",
+      "tagsGetterRva": "0x44FAAB0",
+      "tagsGetterBytes": "003840f9c0035fd6",
+      "tagsGetterSha256": "36cc23bb70bc1c1b59cc307e6204dbafdeee922c2168929d194e21890ad85195",
+      "isMissionItemProtobufField": 20,
+      "isMissionItemBackingOffset": "0x64",
+      "defaultValue": false,
+      "canBeCollectedGetterRva": "0x44FEFD0",
+      "canBeCollectedGetterBytes": "089041391f010071e0179f1ac0035fd6",
+      "canBeCollectedGetterSha256": "fc7a5e499ea57d5fc9835e05ce6e438f1dbc141f0e7e14c5f67942c53fe96d22",
+      "canBeCollectedExpression": "!IsMissionItem"
+    },
+    {
+      "name": "IngredientItemData",
+      "typeDefIndex": 9674,
+      "metadataTypeEntrySha256": "9a19451687ebd523ab81c46cbc6eb409c3b169aaa8fde94f3c85b76ba8815cc9",
+      "interfaceOffsetTableSha256": "528e5d1fc80fd9fea5d3951b538ec01c52c25638e663d60568ab52017ce7d497",
+      "icollectionItemTypeIndex": 64932,
+      "icollectionItemOffset": 37,
+      "icollectionItemMethodSlot": 1,
+      "icollectionItemVtableSlot": 38,
+      "icollectionGetterEncodedMethod": "0x6002d9bd",
+      "icollectionGetterMethodDef": 93406,
+      "variationInterfaceAbsent": true,
+      "ihasTagsInterfaceTypeIndex": 65701,
+      "ihasTagsInterfaceOffset": 31,
+      "ihasTagsGetterSlot": 32,
+      "ihasTagsGetterMethodDef": 93382,
+      "tagsProtobufField": 13,
+      "tagsBackingOffset": "0x68",
+      "tagsGetterRva": "0x4882D70",
+      "tagsGetterBytes": "003440f9c0035fd6",
+      "tagsGetterSha256": "f637e07b3820a82a5634a0174c92391b8ec5194fafa5b124fa3a73d3007ae512",
+      "isMissionItemProtobufField": 11,
+      "isMissionItemBackingOffset": "0x5c",
+      "defaultValue": false,
+      "canBeCollectedGetterRva": "0x48869F0",
+      "canBeCollectedGetterBytes": "087041391f010071e0179f1ac0035fd6",
+      "canBeCollectedGetterSha256": "a06501e8fd86c2861c80b160974f4c417ed4c67628322122d1fd21a10fd3f529",
+      "canBeCollectedExpression": "!IsMissionItem"
+    }
+  ],
+  "selectorOccurrences": [
+    {
+      "definitionId": 2120000015,
+      "byGameplayTag": 2001200013,
+      "sourceDirectMatchCount": 41,
+      "sourceTypes": {
+        "CropItemData": 41
+      },
+      "representativePositive": 30200001,
+      "representativeNegativeDirectTagOnly": 30200086,
+      "outerFamily": "ActivityItem",
+      "outerOneofCase": 6,
+      "innerOneofCase": 8,
+      "ignore": false,
+      "predicateStatus": "CONFIRMED_SAME_BUILD_NATIVE_PREDICATE_ONLY",
+      "sourceMatchType": "DIRECT_RAW_TAG_PATH_ONLY"
+    },
+    {
+      "definitionId": 2120000016,
+      "byGameplayTag": 2001200014,
+      "sourceDirectMatchCount": 39,
+      "sourceTypes": {
+        "CropItemData": 37,
+        "IngredientItemData": 2
+      },
+      "representativePositive": 31100072,
+      "representativeNegativeDirectTagOnly": 30200001,
+      "outerFamily": "ActivityItem",
+      "outerOneofCase": 6,
+      "innerOneofCase": 8,
+      "ignore": false,
+      "predicateStatus": "CONFIRMED_SAME_BUILD_NATIVE_PREDICATE_ONLY",
+      "sourceMatchType": "DIRECT_RAW_TAG_PATH_ONLY"
+    },
+    {
+      "definitionId": 2120000017,
+      "byGameplayTag": 2001200011,
+      "sourceDirectMatchCount": 23,
+      "sourceTypes": {
+        "CropItemData": 23
+      },
+      "representativePositive": 30200086,
+      "representativeNegativeDirectTagOnly": 30200001,
+      "outerFamily": "ActivityItem",
+      "outerOneofCase": 6,
+      "innerOneofCase": 8,
+      "ignore": false,
+      "predicateStatus": "CONFIRMED_SAME_BUILD_NATIVE_PREDICATE_ONLY",
+      "sourceMatchType": "DIRECT_RAW_TAG_PATH_ONLY"
+    },
+    {
+      "definitionId": 2120000018,
+      "byGameplayTag": 2001200012,
+      "sourceDirectMatchCount": 12,
+      "sourceTypes": {
+        "CropItemData": 12
+      },
+      "representativePositive": 30200003,
+      "representativeNegativeDirectTagOnly": 30200086,
+      "outerFamily": "ActivityItem",
+      "outerOneofCase": 6,
+      "innerOneofCase": 8,
+      "ignore": false,
+      "predicateStatus": "CONFIRMED_SAME_BUILD_NATIVE_PREDICATE_ONLY",
+      "sourceMatchType": "DIRECT_RAW_TAG_PATH_ONLY"
+    }
+  ],
+  "rawInputAudit": {
+    "source": "Existing lossless v1.25.0 Game DB rawPayloadBase64 decoded independently for CropItemData and IngredientItemData",
+    "rowsChecked": 348,
+    "positiveDirectTagCandidateOccurrences": 115,
+    "tagFieldAndIsMissionDefaultMatch": true,
+    "allDirectPositiveCandidatesMissionFalse": true,
+    "positiveTypeBreakdown": {
+      "CropItemData": 113,
+      "IngredientItemData": 2
+    },
+    "perCaseSum": 115,
+    "sourceOnlyNotRuntimeDenominator": true,
+    "negativeExemplarsAreOnlyAbsenceInRawTags": true
+  },
+  "coverage": {
+    "priorConfirmedPredicateOnly": 92,
+    "newConfirmedPredicateOnly": 4,
+    "updatedConfirmedPredicateOnly": 96,
+    "totalSelectorOccurrences": 256,
+    "remainingUnknown": 160,
+    "unknownFamilyCounts": {
+      "Furniture": 63,
+      "Clothing": 61,
+      "Crafting": 28,
+      "ActivityItem": 8
+    }
+  },
+  "safety": {
+    "predicateOnly": true,
+    "independentQrAcceptance": false,
+    "runtimeEligibility": "UNKNOWN",
+    "finalMembershipKnown": false,
+    "denominator": null,
+    "owned": "UNKNOWN",
+    "missing": "UNKNOWN",
+    "collected": "UNKNOWN",
+    "personalMetricsAuthorized": false,
+    "nativeSaveWriterAuthorized": false,
+    "presetApplyAuthorized": false,
+    "communityPublishingAuthorized": false,
+    "entitlementInferenceAuthorized": false,
+    "steamOrSchema626Transferred": false,
+    "rawTagAbsenceIsFinalNegative": false
+  },
+  "needSource": [
+    "Actual same-build runtime ItemDatabase/CollectionSets and owner-consented schema624 save for true final membership",
+    "Independent 04 QR source-byte replay for this new ActivityItem selector delta",
+    "Historical d5487eb7 metadata original path/bytes/extraction chain (does not block original 07e-only bounded replay)",
+    "Other 8 ActivityItem oneof selector cases not analyzed in this batch"
+  ]
+}
