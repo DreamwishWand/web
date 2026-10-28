@@ -46,16 +46,16 @@
     "oldCritterConcreteTypeDef": 9630,
     "oldCritterCallSite": "0x4BFC974"
   },
-  "rawOriginalAvailability": "NEED_ORIGINAL_INDEPENDENT_FIVE_FILE_REPLAY; no source binaries available in this conversation/connected Drive",
+  "rawOriginalAvailability": "PRIVATE_ORIGINAL_5_OF_5_SHA_VERIFIED__QA_FIXED_SCRIPT_EXECUTED_PASS",
   "evidence": {
-    "staticReconciliation": "SOURCE_ONLY",
-    "independentOriginalNativeExecution": "NOT_RUN",
-    "originalRecipeRecords1206": "HISTORICAL_ATTESTATION_ONLY",
-    "originalSelectors28": "HISTORICAL_ATTESTATION_PLUS_REPO_STATIC",
-    "independentNewSelectorPass": 0,
-    "newSelectorPartial": 28,
+    "staticReconciliation": "SOURCE_ONLY_PASS_AND_SEPARATE_PRIVATE_ORIGINAL_REPLAY_PASS",
+    "independentOriginalNativeExecution": "EXECUTED_LOCAL_04QR_FIXED_SCRIPT_GIT_BLOB_161d94cb78875084f0ad72a8f9488ae800eb9348",
+    "originalRecipeRecords1206": "INDEPENDENT_PRIVATE_RAW_1206_OF_1206_PASS",
+    "originalSelectors28": "INDEPENDENT_PRIVATE_RAW_28_OF_28_IN_25_DEFINITIONS_PASS",
+    "independentNewSelectorPass": 28,
+    "newSelectorPartial": 0,
     "newSelectorRed": 0,
-    "totalIndependentAccepted": 228,
+    "totalIndependentAccepted": 256,
     "totalAssigned": 256,
     "runtimeCollection": "UNKNOWN",
     "denominator": null,
@@ -63,7 +63,8 @@
     "collected": "UNKNOWN",
     "missing": "UNKNOWN",
     "nativeWriter": false,
-    "steam626Transfer": false
+    "steam626Transfer": false,
+    "verifiedVersionScope": "NINTENDO_SWITCH_V1250_NATIVE_SELECTOR_STAGE_STATIC_256_OF_256_ACCEPTED"
   },
   "selectors": [
     {
@@ -72,7 +73,7 @@
       "byTypeIgnore": true,
       "originalDefinitionSHA256": "6beac25675cfd57e875a48a0b4a7a308c9b5b8d22193b1999056d943f86c36dc",
       "sourceWireHex": "0801420610e8b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     },
     {
       "definitionId": 2120000042,
@@ -80,7 +81,7 @@
       "byTypeIgnore": true,
       "originalDefinitionSHA256": "aee8987ce588c9736b185413ae0e02950e60de1ef3ca8a28bc69be909a9c12ae",
       "sourceWireHex": "0801420610e8b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     },
     {
       "definitionId": 2120000060,
@@ -88,7 +89,7 @@
       "byTypeIgnore": true,
       "originalDefinitionSHA256": "34c223b9cbd66e29c7b4855694bddb6b92f239b1e10f43a0b81eea6c64009319",
       "sourceWireHex": "0801420610e8b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     },
     {
       "definitionId": 2120000061,
@@ -96,7 +97,7 @@
       "byTypeIgnore": true,
       "originalDefinitionSHA256": "96ae93f7985d0e2cc851e15aab096bfdafda958092b9241284494b8c94952188",
       "sourceWireHex": "0801420610e8b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     },
     {
       "definitionId": 2120000063,
@@ -104,7 +105,7 @@
       "byTypeIgnore": true,
       "originalDefinitionSHA256": "2b38f771fe0ed302ae70cdae7277b621e23e505b3b80262188958754908aabe0",
       "sourceWireHex": "0801420610e8b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     },
     {
       "definitionId": 2120000064,
@@ -112,7 +113,7 @@
       "byTypeIgnore": true,
       "originalDefinitionSHA256": "c8dd56dd53b29ffcd10bbac43f02ae0b52f9e82c4a955550f2e177f4aaadf305",
       "sourceWireHex": "0801420610e8b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     },
     {
       "definitionId": 2120000096,
@@ -120,7 +121,7 @@
       "byTypeIgnore": true,
       "originalDefinitionSHA256": "0d29ce51cd9970208831abd746e9371187bf78875d1dbdcd54c96b95b380443c",
       "sourceWireHex": "0801420610e1b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     },
     {
       "definitionId": 2120000101,
@@ -128,7 +129,7 @@
       "byTypeIgnore": true,
       "originalDefinitionSHA256": "76bdd8e5985dada1c4fc76d765cefcb1c3a16fc9db0803dfbfc1b2dc758cb502",
       "sourceWireHex": "0801420610e8b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     },
     {
       "definitionId": 2120000102,
@@ -136,7 +137,7 @@
       "byTypeIgnore": true,
       "originalDefinitionSHA256": "341369df81d4d9b954d8ff03444484d97e428be38ea6ea5914cd6fdfa5ee9e9f",
       "sourceWireHex": "0801420610e8b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     },
     {
       "definitionId": 2120000104,
@@ -144,7 +145,7 @@
       "byTypeIgnore": true,
       "originalDefinitionSHA256": "0c52fc8ff20d31cc870bec0b2d9929ca12d353f2329ed71d875bf0228d07a88a",
       "sourceWireHex": "0801420610e8b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     },
     {
       "definitionId": 2120000117,
@@ -152,7 +153,7 @@
       "byTypeIgnore": false,
       "originalDefinitionSHA256": "5ebb6cfb4ef8027a38f7d36618949b589e25104d2aff957ec20301feec310f35",
       "sourceWireHex": "420610e1b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     },
     {
       "definitionId": 2120000119,
@@ -160,7 +161,7 @@
       "byTypeIgnore": false,
       "originalDefinitionSHA256": "851a2b09a4fc4baa59db8a9cc24d794c639ac52f224dc75766ded82f8abcbb27",
       "sourceWireHex": "420610e3b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     },
     {
       "definitionId": 2120000120,
@@ -168,7 +169,7 @@
       "byTypeIgnore": false,
       "originalDefinitionSHA256": "de5099e58eab4e72b0ff9766b2c1391acfd4201ada1f36c4385274ba3ee5720e",
       "sourceWireHex": "420610e0b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     },
     {
       "definitionId": 2120000121,
@@ -176,7 +177,7 @@
       "byTypeIgnore": false,
       "originalDefinitionSHA256": "aab004e038b4877a5a41ff26b37c9fef19467afa4ab600357e93e7e47a0e1feb",
       "sourceWireHex": "420610e2b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     },
     {
       "definitionId": 2120000121,
@@ -184,7 +185,7 @@
       "byTypeIgnore": false,
       "originalDefinitionSHA256": "aab004e038b4877a5a41ff26b37c9fef19467afa4ab600357e93e7e47a0e1feb",
       "sourceWireHex": "420610e6b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     },
     {
       "definitionId": 2120000124,
@@ -192,7 +193,7 @@
       "byTypeIgnore": true,
       "originalDefinitionSHA256": "69f6670642436fa3f25ccf180bb762ec9093e00624ba7ae2325695aed18b3162",
       "sourceWireHex": "0801420610e7b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     },
     {
       "definitionId": 2120000129,
@@ -200,7 +201,7 @@
       "byTypeIgnore": true,
       "originalDefinitionSHA256": "1c8d57b69ee03373019c7046262643856b082e38aaf86d9c00f63c7714066a35",
       "sourceWireHex": "0801420610e8b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     },
     {
       "definitionId": 2120000139,
@@ -208,7 +209,7 @@
       "byTypeIgnore": true,
       "originalDefinitionSHA256": "07eb56ff21972593e35eb34820f46ff8dfc573f89304b427efe165d2473a88b5",
       "sourceWireHex": "0801420610e8b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     },
     {
       "definitionId": 2120000145,
@@ -216,7 +217,7 @@
       "byTypeIgnore": true,
       "originalDefinitionSHA256": "b8e5945d0e19d1b35c4ed2a50b8fe991fabe9b4eb5681eaf1d578ba1f10ab478",
       "sourceWireHex": "0801420610e8b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     },
     {
       "definitionId": 2120000159,
@@ -224,7 +225,7 @@
       "byTypeIgnore": true,
       "originalDefinitionSHA256": "9d7ae5079dc0d905b8935a7f6e40fdb5a21c0ea55ea5f57cffffee61cb3889e5",
       "sourceWireHex": "0801420610e8b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     },
     {
       "definitionId": 2120000183,
@@ -232,7 +233,7 @@
       "byTypeIgnore": true,
       "originalDefinitionSHA256": "e6920ed14cd6a380477b635d8fec5d367e43fbaf0de667c4960cdd5b8d1d1354",
       "sourceWireHex": "0801420610e8b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     },
     {
       "definitionId": 2120000186,
@@ -240,7 +241,7 @@
       "byTypeIgnore": true,
       "originalDefinitionSHA256": "74328e86d5599990423163395b5bf83eb7892166d1311f59e772ea49f37104be",
       "sourceWireHex": "0801420610e8b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     },
     {
       "definitionId": 2120000202,
@@ -248,7 +249,7 @@
       "byTypeIgnore": false,
       "originalDefinitionSHA256": "1aa08bcb0dd080af9dc7175892aeaf827147e9b8812fb6722069265cc9eb3458",
       "sourceWireHex": "420610e5b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     },
     {
       "definitionId": 2120000205,
@@ -256,7 +257,7 @@
       "byTypeIgnore": false,
       "originalDefinitionSHA256": "351becf7ef0396e2f931fffd399440b736090e950310fac7909bf73d0e5c848a",
       "sourceWireHex": "420610e7b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     },
     {
       "definitionId": 2120000205,
@@ -264,7 +265,7 @@
       "byTypeIgnore": false,
       "originalDefinitionSHA256": "351becf7ef0396e2f931fffd399440b736090e950310fac7909bf73d0e5c848a",
       "sourceWireHex": "420610e6b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     },
     {
       "definitionId": 2120000205,
@@ -272,7 +273,7 @@
       "byTypeIgnore": false,
       "originalDefinitionSHA256": "351becf7ef0396e2f931fffd399440b736090e950310fac7909bf73d0e5c848a",
       "sourceWireHex": "420610e8b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     },
     {
       "definitionId": 2120000312,
@@ -280,7 +281,7 @@
       "byTypeIgnore": true,
       "originalDefinitionSHA256": "f1e3b2134d971e10d95c737119389a946d216a6862b23aa5ea37e7296b4410a2",
       "sourceWireHex": "0801420610e8b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     },
     {
       "definitionId": 2120000339,
@@ -288,7 +289,25 @@
       "byTypeIgnore": true,
       "originalDefinitionSHA256": "66febbdefe2ed9284c132d2ca0db41a08b5ad0a5f197e27f66a95f988f512b3a",
       "sourceWireHex": "0801420610e8b999ba07",
-      "classification": "PARTIAL_NEED_ORIGINAL_NATIVE_RAW_REPLAY"
+      "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_PASS"
     }
-  ]
+  ],
+  "offlineOriginal": {
+    "classification": "INDEPENDENT_ORIGINAL_NATIVE_STATIC_CRAFTING28_PASS",
+    "execution": "04QR_LOCAL_PRIVATE_ORIGINAL_BYTES_ONLY",
+    "scriptOriginalQaHead": "380328297ac870cfe648e14f9d47a25c7020d909",
+    "scriptPath": "scripts/qr/reaccept-crafting28-switch1250-original.py",
+    "scriptGitBlob": "161d94cb78875084f0ad72a8f9488ae800eb9348",
+    "scriptModifiedForExecution": false,
+    "sourceSha256Match": "5_OF_5",
+    "originalSourceRowCount": 293,
+    "originalDefinitionShaVerified": 25,
+    "selectorOccurrencesVerified": 28,
+    "originalCraftingItemRecordsShaVerified": 1206,
+    "stdoutMarker": "QR_CRAFT28_INDEPENDENT_ORIGINAL_RAW_NATIVE_28_PASS",
+    "stdoutLogSha256": "bb51db6c9508857fca765bd94aaf43ffd7c3f0a756c729ee4795b4dd49eed2c5",
+    "originalBytesCommitted": false,
+    "ownerSelectorMirror": "LOCAL_ONLY_EXTRACTED_28_ROWS_FROM_FROZEN_OWNER_GIT_BLOB_877d06e19cd783423995f578105de17af5558ac7",
+    "provenance": "Local isolated 5-file SHA direct. Owner selector-only mirror (no game raw bytes) reconciled with 25 original Definition SHA and 28 raw selector tuples. GitHub Actions remain source-only."
+  }
 }
