@@ -39,7 +39,7 @@ with psycopg.connect(DSN,autocommit=True) as a,psycopg.connect(DSN,autocommit=Tr
             for tb,oid in table_oids.items():
                 for action in ("SELECT","INSERT","UPDATE","DELETE"):
                     assert not one(b,"select has_table_privilege(current_user,%s::oid,%s)",(oid,action)),(tb,action)
-    assert one(a,"select count(*) from pg_proc where proname like 'dreamsnap_x05_%' and pronamespace='public'::regnamespace")==0
+    assert one(a,"select count(*) from pg_proc where proname ~ '^dreamsnap_x05_' and pronamespace='public'::regnamespace")==0
     log("COMM149_NONPUBLIC_ROLE_ACL_SOURCE_PASS")
 
     cases=[
@@ -205,7 +205,7 @@ with psycopg.connect(DSN,autocommit=True) as a,psycopg.connect(DSN,autocommit=Tr
     assert one(a,"select withdrawn_at is not null from private.dreamsnap_x05_work_control_v1 where work_id=%s",(post,)) is True
     assert fail(a,transition,(auth,post,5,"preflight",None))
     assert fail(a,transition,(auth,post,5,"concept",rev_concept))
-    assert one(a,"select count(*) from public.outbox_events where aggregate_id in (%s,%s) and event_type like 'dreamsnap.x05_nonpublic_%'",(original,post))==4
+    assert one(a,"select count(*) from public.outbox_events where aggregate_id in (%s,%s) and event_type ~ '^dreamsnap[.]x05_nonpublic_'",(original,post))==4
     for work in (original,post):
         assert one(a,"select public_activation_allowed from private.dreamsnap_x05_work_control_v1 where work_id=%s",(work,)) is False
     log("COMM149_ATOMIC_WITHDRAW_DELETE_OUTBOX_PURGE_REQUEST_NO_PROVIDER_CLAIM_PASS")
