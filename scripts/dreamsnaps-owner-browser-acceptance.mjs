@@ -6,6 +6,7 @@ const uuid='11111111-1111-4111-8111-111111111111';
 const report={scope:'LOCAL_SYNTHETIC_PRIVATE_OWNER_NO_BACKEND',checks:[],forbiddenRequests:[],pageErrors:[],consoleErrors:[],result:'IN_PROGRESS'};
 const assert=(v,m)=>{if(!v)throw Error(m)};
 const check=x=>report.checks.push(x);
+const state=async (p,kind)=>p.locator('[data-owner-state="'+kind+'"]').waitFor({state:'visible',timeout:15000});
 const browser=await chromium.launch({executablePath:process.env.CHROME_BIN,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
 await mkdir('.artifacts/dreamsnaps-owner-browser',{recursive:true});
 try {
@@ -13,11 +14,13 @@ try {
   const anon=await unauth.newPage();
   anon.on('pageerror',e=>report.pageErrors.push(String(e)));
   await anon.goto(base+'/dreamsnaps/my/manage/',{waitUntil:'domcontentloaded'});
+  await state(anon,'authentication-required');
   assert(await anon.locator('[data-owner-state="authentication-required"]').count()===1,'anonymous page must require sign-in');
   assert(await anon.locator('[data-owner-state="local-draft"]').count()===0,'anonymous draft leaked');
   check('ANONYMOUS_AUTH_REQUIRED_NO_OWNER_DRAFT');
   for(const bad of ['?entry='+uuid,'?work=nope','?work='+uuid+'&work='+uuid,'?work='+uuid+'&media='+uuid,'?work='+uuid+'&revision='+uuid,'?work='+uuid+'&creator='+uuid]){
     await anon.goto(base+'/dreamsnaps/my/manage/'+bad,{waitUntil:'domcontentloaded'});
+    await state(anon,'invalid-url');
     assert(await anon.locator('[data-owner-state="invalid-url"]').count()===1,'invalid route unexpectedly accepted '+bad);
     assert(await anon.locator('img').count()===0,'invalid route renders image');
   }
@@ -39,6 +42,7 @@ try {
     await route.fulfill({status:403,body:'NO_BACKEND_ALLOWED'});
   });
   await page.goto(base+'/dreamsnaps/my/manage/',{waitUntil:'domcontentloaded'});
+  await state(page,'local-draft');
   assert(await page.locator('[data-owner-state="local-draft"]').count()===1,'fake signed actor preview absent');
   assert(await page.locator('[data-owner-action]:not([disabled])').count()===0,'owner operation enabled without backend');
   assert(await page.locator('img').count()===0,'owner route renders image');
@@ -53,17 +57,21 @@ try {
   check('OWNER_LOCAL_TYPED_PREVIEW_NO_PERSISTENCE');
 
   await page.goto(base+'/dreamsnaps/my/manage/?work='+uuid,{waitUntil:'domcontentloaded'});
+  await state(page,'backend-unavailable');
   assert(await page.locator('[data-owner-state="backend-unavailable"]').count()===1,'valid Work must remain backend gated');
   assert(await page.locator('#ds-concept').count()===0,'WorkID cannot fake owner edit');
   await page.goto(base+'/dreamsnaps/my/manage/?work='+uuid+'&work='+uuid,{waitUntil:'domcontentloaded'});
+  await state(page,'invalid-url');
   assert(await page.locator('[data-owner-state="invalid-url"]').count()===1,'duplicate Work ID accepted after SPA navigation');
   await page.goBack({waitUntil:'domcontentloaded'});
+  await state(page,'backend-unavailable');
   assert(await page.locator('[data-owner-state="backend-unavailable"]').count()===1,'back navigation stale Work body');
   check('WORK_ID_AUTHORITY_PENDING_STALE_NAVIGATION');
 
   for(const locale of ['en','fr','it','de','es-ES','ja','zh-CN','pt-BR']){
     await page.goto(base+'/dreamsnaps/my/manage/',{waitUntil:'domcontentloaded'});
     await page.locator('#site-locale').selectOption(locale);
+    await page.waitForFunction(lang=>document.documentElement.lang===lang,locale);
     assert(await page.locator('html').getAttribute('lang')===locale,'locale html lang '+locale);
     await page.setViewportSize({width:320,height:760});
     const dim=await page.evaluate(()=>({width:document.documentElement.clientWidth,scroll:document.documentElement.scrollWidth}));
