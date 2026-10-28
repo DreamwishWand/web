@@ -54,7 +54,7 @@ test('WEP actual Edge may download and hash Staging and Published but cannot cop
 });
 test('Source135 two-backend fencing and rollback-only SQL candidate are wired',()=>{
  assert.match(workflow,/assert len\(fs\)==147/);
- assert.match(workflow,/IF v<>146 THEN/);
+ assert.match(workflow,/IF v<>147 THEN/);
  assert.match(workflow,/THIRTY_ONE_ADDITIVE_SOURCE_MIGRATIONS/);
  assert.match(workflow,/comm-r18-promotion-fence-two-session\.py/);
  assert.match(workflow,/R18_PRESET_POSITIVE_COMMIT_UNEXPECTEDLY_ENABLED/);
