@@ -58,6 +58,11 @@ with psycopg.connect(DSN,autocommit=True) as a,psycopg.connect(DSN,autocommit=Tr
  assert scalar(a,'select prosecdef from pg_proc where oid=%s',(trigger,)) is True
  config=scalar(a,'select proconfig from pg_proc where oid=%s',(trigger,))
  assert 'search_path=pg_catalog, public, private' in config or 'search_path=pg_catalog,public,private' in config,config
+ def_body=scalar(a,'select pg_get_functiondef(%s::oid)',(trigger,))
+ compact=''.join(def_body.lower().split())
+ assert 'r.sealed_atisnotnull' in compact, 'missing legacy sealed-revision guard'
+ assert 'r.work_id=new.work_id' in compact, 'missing same-Work guard'
+ assert 'publishedworkrequirescurrent_published_revision_id' in compact, 'missing published-state guard'
  for role in ('anon','authenticated','service_role'):
   assert not scalar(a,"select has_function_privilege(%s,%s::oid,'EXECUTE')",(role,trigger))
   # Shared revision SELECT may be inherited through prior RLS-enabled public
