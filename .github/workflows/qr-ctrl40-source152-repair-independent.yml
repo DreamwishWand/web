@@ -1,0 +1,73 @@
+name: QR CTRL40 Source152 Post-TRUE-RED Independent FULL152
+on:
+  push:
+    branches: ['qr/ctrl40-source152-repair-20261028']
+  pull_request:
+    branches: ['feature/03comm-x05-source152-first-work-20261028']
+permissions:
+  contents: read
+jobs:
+  source152-repair-newonly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Frozen repair, only three Owner changed paths; source and syntax
+        run: |
+          set -euo pipefail
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN"
+          PRE=15b3cfa8325a4389d8ab157e95f58c5c3a23fb6a
+          OWNER=96f92a00e8a0c34983026b602c39557f651f8c47
+          git merge-base --is-ancestor "$PRE" "$OWNER"
+          git merge-base --is-ancestor "$OWNER" HEAD
+          test -z "$(git diff --name-only "$OWNER" HEAD -- supabase src)"
+          test "$(git hash-object supabase/migrations/20261028000050_x05_first_work_media_bootstrap_v1.sql)" = cd297f48111afbb315651c6cb7e911afb1bcc03d
+          python3 - <<'PY'
+          import subprocess
+          before='15b3cfa8325a4389d8ab157e95f58c5c3a23fb6a'
+          after='96f92a00e8a0c34983026b602c39557f651f8c47'
+          got=set(subprocess.check_output(['git','diff','--name-only',before,after],text=True).splitlines())
+          exact={'supabase/migrations/20261028000050_x05_first_work_media_bootstrap_v1.sql',
+            'tests/comm-x05-source152-first-work-two-pg.py',
+            'tests/comm-x05-source152-first-work.test.mjs'}
+          assert got==exact,got
+          print('QR_CTRL40_FROZEN_PATCH_ONLY_THREE_OWNER_PATHS_PASS')
+          PY
+          python3 -m py_compile tests/qr-ctrl40-source152-repair-two-pg.py
+          node --test tests/qr-ctrl40-source152-repair-independent.test.mjs
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Disposable full152 DB (not Stage, no Edge runtime)
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_qrctrl40_source152_repair"\n' | cat - supabase/config.toml > /tmp/qrctrl40-conf.toml
+          mv /tmp/qrctrl40-conf.toml supabase/config.toml
+          timeout 1500s supabase start -x edge-runtime --debug >/tmp/qrctrl40-start.log 2>&1 || { tail -140 /tmp/qrctrl40-start.log; exit 1; }
+      - run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Real two-backend source152 normalized first/replay/persisted Original/duplicate/race
+        run: |
+          set -euo pipefail
+          python3 tests/qr-ctrl40-source152-repair-two-pg.py 2>&1 | tee /tmp/qrctrl40-local.log
+          grep -q QR_CTRL40_INDEPENDENT_POST_TRUE_RED_FULL152_COMPLETE /tmp/qrctrl40-local.log
+      - name: Synthetic acceptance receipt only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr-ctrl40-source152-repair-independent-synthetic
+          path: /tmp/qrctrl40-local.log
+          if-no-files-found: warn
+      - name: Bootstrap diagnostics only on failure
+        if: failure()
+        run: tail -110 /tmp/qrctrl40-start.log || true
