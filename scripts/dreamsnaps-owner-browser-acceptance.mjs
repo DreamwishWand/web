@@ -70,8 +70,9 @@ try {
 
   for(const locale of ['en','fr','it','de','es-ES','ja','zh-CN','pt-BR']){
     await page.goto(base+'/dreamsnaps/my/manage/',{waitUntil:'domcontentloaded'});
+    await state(page,'local-draft'); // Wait for hydration and locale preference initialization.
     await page.locator('#site-locale').selectOption(locale);
-    await page.waitForFunction(lang=>document.documentElement.lang===lang,locale);
+    await page.waitForFunction(lang=>document.documentElement.lang===lang,locale,{timeout:10000});
     assert(await page.locator('html').getAttribute('lang')===locale,'locale html lang '+locale);
     await page.setViewportSize({width:320,height:760});
     const dim=await page.evaluate(()=>({width:document.documentElement.clientWidth,scroll:document.documentElement.scrollWidth}));
