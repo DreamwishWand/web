@@ -293,3 +293,18 @@ comment on function public.community_dreamsnap_x05_owner_read_v1(uuid) is
  'Authenticated actor-scoped NONPUBLIC owner projection. Only verified Supabase JWT auth.uid; no AccountID/SubjectID input. Not a Public Detail/Media API.';
 comment on function public.community_dreamsnap_x05_owner_action_v1(uuid,bigint,bigint,text,uuid,uuid,text,text,boolean,boolean,uuid) is
  'Authenticated least-privilege CAS wrapper to Source149 nonpublic private functions. No service_role or unsigned subject delegate; no Public Publisher/Signer/Storage.';
+
+
+-- Source150 cross-role trigger compatibility. The existing *deferred*
+-- community_works validation trigger is SECURITY INVOKER and its read-only
+-- sealed-revision existence check fails with insufficient SELECT when a
+-- properly scoped authenticated JWT caller withdraws a Work. Do not grant
+-- raw community_work_revisions SELECT to authenticated or service_role.
+-- Preserve the historic trigger body (and full deferrable timing) unchanged.
+-- As a narrow SECURITY DEFINER validation, it can read the sealed flag under
+-- its established owner while still rejecting mismatched/unsealed revisions.
+alter function public.validate_current_published_revision() security definer;
+alter function public.validate_current_published_revision()
+  set search_path=pg_catalog,public,private;
+revoke all on function public.validate_current_published_revision()
+  from public,anon,authenticated,service_role;
