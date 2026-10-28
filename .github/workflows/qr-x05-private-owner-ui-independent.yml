@@ -1,0 +1,78 @@
+name: QR X05 Private Owner UI Independent Source Chrome
+on:
+  push:
+    branches: ['qr/x05-private-owner-ui-independent-20261028']
+  pull_request:
+    branches: ['web/x05-private-dreamsnaps-owner-management-20261028']
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact Owner SHA and zero protected Owner changes
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 50a8bd4812df2c9caff04d0a26b58d28042943ab HEAD
+          test -z "$(git diff --name-only 50a8bd4812df2c9caff04d0a26b58d28042943ab HEAD -- src supabase)"
+      - name: Independent typed private and rights negative tests
+        run: node --test tests/qr-x05-owner-ui-independent.test.mjs
+      - run: npm ci --no-audit --no-fund
+      - run: npm run check
+      - run: npm run build
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Find real Chrome
+        id: chrome
+        run: |
+          set -euo pipefail
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$BIN"
+          echo "bin=$BIN" >> "$GITHUB_OUTPUT"
+          "$BIN" --version
+      - name: Synthetic private local UI only
+        env:
+          VITE_SUPABASE_URL: https://x05-synthetic.invalid
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_QR_ONLY_NO_SECRET
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4176 >/tmp/qr-x05-ui-vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4176/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr-x05-ui-vite.log
+          exit 1
+      - name: Independent real Chrome 8-locales / SPA / global external request watcher
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.bin }}
+          QR_X05_BASE_URL: http://127.0.0.1:4176
+        run: node scripts/qr-x05-owner-ui-browser-independent.mjs
+      - name: Browser QA trace
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr-x05-private-ui-chrome
+          path: .artifacts/qr-x05-owner-ui/
+          if-no-files-found: error
+      - name: Vite error diagnostic
+        if: failure()
+        run: cat /tmp/qr-x05-ui-vite.log || true
