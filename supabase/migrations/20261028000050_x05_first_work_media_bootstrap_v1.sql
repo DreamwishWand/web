@@ -142,7 +142,7 @@ begin
  end if;
  -- PostEvent remains source-staged. Original Entry is Wand competition Entry
  -- and does not prove the actual official DDV contest phase or entitlement.
- v_response:=jsonb_build_object(
+ v_response:=jsonb_strip_nulls(jsonb_build_object(
    'workId',v_work,'kind',p_kind,
    'challengeId',p_challenge_id,'photoRevisionId',v_revision,
    'photoMediaId',p_media_id,'entryId',v_entry,
@@ -150,12 +150,12 @@ begin
    'officialChallengePhaseVerified',false,
    'storageValidatedBySource152',false,
    'requiresPolicyGrant',true,
-   'nextOperation','pregrant');
+   'nextOperation','pregrant'));
  insert into public.idempotency_keys(
    account_id,idempotency_key,command_name,request_hash,response,completed_at)
    values(v_account,'x05:'||p_idempotency_key,
      'x05_initial_register_v1',v_request_hash,v_response,clock_timestamp());
- return jsonb_strip_nulls(v_response);
+ return v_response;
 end
 $register$;
 revoke all on function public.community_dreamsnap_x05_register_initial_work_v1(
