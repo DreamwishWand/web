@@ -105,7 +105,7 @@ def snapshot(reader, writer, label):
 
 with psycopg.connect(DSN, autocommit=True) as writer, psycopg.connect(DSN, autocommit=True) as reader:
     assert scalar(writer, "select pg_backend_pid()") != scalar(reader, "select pg_backend_pid()")
-    assert scalar(writer, "select count(*) from supabase_migrations.schema_migrations") == 146
+    assert scalar(writer, "select count(*) from supabase_migrations.schema_migrations") == 147
     security = writer.execute("""
         select p.prosecdef, has_function_privilege('anon',p.oid,'EXECUTE')
         from pg_proc p where p.oid =
