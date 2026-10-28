@@ -1,0 +1,82 @@
+name: WEB X05 private owner management acceptance
+on:
+  push:
+    branches:
+      - 'web/x05-private-dreamsnaps-owner-management-*'
+  pull_request:
+    paths:
+      - 'src/lib/dreamsnaps/owner-management*'
+      - 'src/routes/dreamsnaps/my/**'
+      - 'tests/dreamsnaps-owner-management-private.test.mjs'
+      - 'scripts/dreamsnaps-owner-browser-acceptance.mjs'
+      - '.github/workflows/web-x05-owner-management.yml'
+permissions:
+  contents: read
+concurrency:
+  group: web-x05-owner-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: node --test tests/dreamsnaps-owner-management-private.test.mjs
+      - run: npm run check
+      - run: npm run build
+      - name: Protected public/Community code stays unchanged relative to PR234
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code b907a86d67887bf841179f23824e5b26085520c3 HEAD -- supabase/ src/routes/dreamsnaps/community/ src/routes/creator/ src/lib/community/typed-work-route.js src/routes/dreamsnaps/my/+page.svelte
+  chrome:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Find actual installed Chrome
+        id: chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "bin=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+          "$CHROME_BIN" --version
+      - name: Serve disposable UI with synthetic config only
+        env:
+          VITE_SUPABASE_URL: https://x05-synthetic.invalid
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_X05_FAKE_TEST_ONLY_NO_SECRET
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4175 >/tmp/x05-owner-vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4175/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/x05-owner-vite.log
+          exit 1
+      - name: Real Chrome anonymous and mock session, eight languages, 320px
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.bin }}
+          OWNER_TEST_BASE_URL: http://127.0.0.1:4175
+        run: node scripts/dreamsnaps-owner-browser-acceptance.mjs
+      - name: Vite diagnostic
+        if: failure()
+        run: cat /tmp/x05-owner-vite.log || true
+      - name: Browser results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-x05-private-owner-browser
+          path: .artifacts/dreamsnaps-owner-browser/
+          if-no-files-found: error
