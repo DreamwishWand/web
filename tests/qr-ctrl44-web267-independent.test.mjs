@@ -34,13 +34,13 @@ test('exact source v2 contract identity frozen + no web source mutations and zer
 });
 test('independent malformed wrapper/context/actor injection leaves no stale Owner snapshot',()=>{
  for(const envelope of [
-  null,[],{},wrapper(),{...wrapper(),operation:'read'},{...wrapper(),contractVersion:'wand.dreamsnaps.owner-management-service@1'},
+  null,[],{},{...wrapper(),operation:'read'},{...wrapper(),contractVersion:'wand.dreamsnaps.owner-management-service@1'},
   {...wrapper(),data:{...data(),contractVersion:'wand.dreamsnaps.owner-authority-projection@2'}},
   {...wrapper(),data:{...data(),consumerTarget:'wand.dreamsnaps.private-owner-consumer@1'}},
   {...wrapper(),userAccountId:otherWork},{...wrapper(),ownerAuthorized:true},
   {...wrapper(),data:{...data(),signedUrl:'https://not-authority.invalid'}},
   {...wrapper(),data:{...data(),work:{...data().work,ownerAccountId:otherWork}}}
- ])if(envelope!==wrapper())close(decode(envelope,context()),'SOURCE_CONTRACT_REJECTED');
+ ])close(decode(envelope,context()),'SOURCE_CONTRACT_REJECTED');
  for(const c of [
   {...context(),accountId:otherWork},{...context(),actorAccountId:otherWork},
   {...context(),requestGeneration:-1},{...context(),requestGeneration:1.5},
