@@ -26,7 +26,7 @@ const valid=()=>({
     retired:false,privacySuppressed:false,moderationAllowed:true,photoBindingVerified:true,
     mediaOwnershipVerified:true,rowVersion:8,authorizationEpoch:12},
   grant:{state:'accepted',policyIdentifier:'02.0-creator-photo-terms-v7',
-    consentEventVersion:4,workId,mediaId,creatorSelfCaptureDeclared:true,
+    consentEventVersion:4,workId,mediaId:media,creatorSelfCaptureDeclared:true,
     explicitGrantAccepted:true,scopes:['cdn','display','store','thumbnail']},
   deletion:{controlState:'consented',publicDisabled:false,purgeState:'not_requested',
     providerVerificationAccepted:false,purgeScopeComplete:false,legalHold:false}
