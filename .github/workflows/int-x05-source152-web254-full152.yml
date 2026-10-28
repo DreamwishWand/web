@@ -1,0 +1,120 @@
+name: 09 INT X05 Source152 + WEB254 isolated FULL152 (PUBLIC OFF)
+on:
+  push:
+    branches: ['int/x05-source152-web254-full152-20261028']
+  pull_request:
+    branches: ['feature/03comm-x05-source152-first-work-20261028']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: int-x05-full152-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  combined-full152-source-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Frozen Source152+INT258 ancestry, 152 schema, Edge and WEB immutable source pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$DATABASE_URL"
+          SOURCE=96f92a00e8a0c34983026b602c39557f651f8c47
+          INT151=0efb76c1e1b865ef57c1d74d2fdfa5bdd54ad2e9
+          WEB254=bbbe92526795b1412eac27f02b1aa54c59efc1cb
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git merge-base --is-ancestor "$INT151" HEAD
+          git merge-base --is-ancestor "$WEB254" HEAD
+          test -z "$(git diff --name-only "$SOURCE" HEAD -- supabase/)"
+          test "$(git hash-object supabase/migrations/20261028000030_x05_authenticated_owner_service_v1.sql)" = 85e9de1874ca489133fd39be522f57ee1cfac6ab
+          test "$(git hash-object supabase/migrations/20261028000040_x05_private_pregrant_policy_receipt_v1.sql)" = 451735e05b6a18c826851a51000909c40c42bb9f
+          test "$(git hash-object supabase/migrations/20261028000050_x05_first_work_media_bootstrap_v1.sql)" = cd297f48111afbb315651c6cb7e911afb1bcc03d
+          test "$(git hash-object supabase/functions/community-dreamsnap-owner/index.ts)" = 5539382678250ebdc563ca9a36b574d6a9bb5df0
+          test "$(git hash-object src/lib/dreamsnaps/source150-owner-service-adapter.js)" = e7f15f866e9383af291a234e57cc84a160cee167
+          test "$(git hash-object src/lib/dreamsnaps/source151-private-pregrant-adapter.js)" = 274655aef0cf1c37e85be1649295d6d31a1dc02c
+          python3 - <<'PY'
+          from pathlib import Path
+          names=sorted(x.name for x in Path('supabase/migrations').glob('*.sql'))
+          assert len(names)==152,len(names)
+          assert len({n.split('_')[0] for n in names})==152
+          assert names[-1]=='20261028000050_x05_first_work_media_bootstrap_v1.sql'
+          print('INT152_FULL152_SOURCE152_EDGE_AND_SQL_PINS_PASS')
+          PY
+      - name: Combined new-only typed registration consumer negative checks, Svelte and static frontend
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          node --test tests/int-x05-source152-web254-full152.test.mjs
+          npm run check
+          npm run build
+          echo INT152_COMBINED_SOURCE_FRONTEND_BUILD_PASS
+  combined-full152-two-pg:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: No older Source SQL or Source152 registration fixture altered by integration
+        run: |
+          set -euo pipefail
+          test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$DATABASE_URL"
+          git merge-base --is-ancestor 96f92a00e8a0c34983026b602c39557f651f8c47 HEAD
+          git merge-base --is-ancestor 0efb76c1e1b865ef57c1d74d2fdfa5bdd54ad2e9 HEAD
+          test -z "$(git diff --name-only 96f92a00e8a0c34983026b602c39557f651f8c47 HEAD -- supabase/ tests/comm-x05-source152-first-work-two-pg.py tests/comm-x05-source152-first-work.test.mjs)"
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Disposable full152 clean PostgreSQL only, NO Edge/Stage
+        run: |
+          set -euo pipefail
+          docker version
+          printf 'project_id = "ddvre_int_x05_source152_disposable"\n' | cat - supabase/config.toml > /tmp/int152-config.toml
+          mv /tmp/int152-config.toml supabase/config.toml
+          timeout 1500s supabase start -x edge-runtime --debug >/tmp/int152-start.log 2>&1 || { tail -120 /tmp/int152-start.log; exit 1; }
+          echo INT152_COMBINED_FULL152_DISPOSABLE_BOOTSTRAP_PASS
+      - name: Isolated synthetic PostgreSQL client
+        run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: NEW cross-branch actual 3 PG Register both kinds -> PreGrant -> synthetic Policy -> Grant race -> Withdraw
+        run: |
+          set -euo pipefail
+          python3 tests/int-x05-source152-web254-full152-two-pg.py 2>&1 | tee /tmp/int152-combined.log
+          grep -q INT152_COMBINED_REGISTER_PREGRANT_GRANT_WITHDRAW_TWO_PG_PASS /tmp/int152-combined.log
+          grep -q INT152_COMBINED_POSTEVENT_REGISTER_RACE_REPLAY_ENTRY_ABSENT_PASS /tmp/int152-combined.log
+          echo INT152_COMBINED_FULL152_REGISTER_SOURCE_LOCAL_PASS
+      - name: Actual disposable DB snapshot -> strict WEB252/254 fail-closed
+        run: |
+          set -euo pipefail
+          INT_X05_FULL152_PG_BRIDGE=/tmp/int-x05-source152-full152-web-bridge.json node --test tests/int-x05-source152-web254-full152.test.mjs
+          echo INT152_COMBINED_FULL152_PG_TO_WEB_FAILCLOSED_PASS
+      - name: Archive bounded synthetic-only test markers
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: int-x05-full152-registered-source-local-synthetic-only
+          path: /tmp/int152-combined.log
+          if-no-files-found: warn
+      - name: Startup failure details
+        if: failure()
+        run: tail -100 /tmp/int152-start.log || true
