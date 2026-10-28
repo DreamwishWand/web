@@ -167,21 +167,27 @@ with psycopg.connect(DSN,autocommit=True) as A,psycopg.connect(DSN,autocommit=Tr
     raise RuntimeError('rollback_hold')
   except RuntimeError:pass
  emit('QR43_LOCAL_HOLD_IS_NOT_GLOBAL_PROVIDER_CDN_PROOF_PASS')
- # Unapproved registry (no receipt), then fake receipt with incorrect digest even if active.
+ # Attempt to activate a Policy with a false-hash "receipt": prior Source151
+ # activation guard MUST reject it before Source153 can ever claim a scope.
  with A.transaction():
   try:
    with A.transaction():
-    A.execute("update private.dreamsnap_x05_owner_policy_v1 set is_active=true where policy_version='v1'")
     A.execute("""insert into private.dreamsnap_x05_policy_receipt_v1(policy_version,canonical_text,approval_reference,approved_at)
-     values('v1',%s,'QR43 SYNTHETIC - DELIBERATELY WRONG DIGEST',now())""",(policy+' mismatched',))
-    bad=success(authority(A,sub,pw),'active policy invalid receipt')
+      values('v1',%s,'QR43 WRONG DIGEST - NOT APPROVED',now())""",(policy+' mismatched',))
+    try:
+     with A.transaction():
+      A.execute("update private.dreamsnap_x05_owner_policy_v1 set is_active=true where policy_version='v1'")
+    except psycopg.Error as ex:
+     assert 'X05_POLICY_ARTIFACT_REQUIRED_OR_DIGEST_MISMATCH' in str(ex),str(ex)
+    else:raise AssertionError('INVALID_POLICY_ACTIVATION_UNEXPECTEDLY_ACCEPTED')
+    bad=success(authority(A,sub,pw),'inactive mismatched receipt')
     assert bad['grant']['scopeStatus']=='UNVERIFIED'
     assert bad['grant']['policyReceiptVerified'] is False
     assert 'scopeId' not in bad['grant'] and 'approvedPurposeIds' not in bad['grant']
     raise RuntimeError('rollback_fake_receipt')
-  except RuntimeError:pass
+  except RuntimeError as ex:assert str(ex)=='rollback_fake_receipt'
  assert scalar(A,'select count(*) from private.dreamsnap_x05_policy_receipt_v1')==0
- assert scalar(A,'select is_active from private.dreamsnap_x05_owner_policy_v1 where policy_version=\'v1\'') is False
+ assert scalar(A,"select is_active from private.dreamsnap_x05_owner_policy_v1 where policy_version='v1'") is False
  emit('QR43_ACTIVE_BUT_INCORRECT_POLICY_RECEIPT_NO_SCOPE_PASS')
  # Withdraw: CAS and last GRANT consentRevision are distinct from current control version.
  with A.transaction():
