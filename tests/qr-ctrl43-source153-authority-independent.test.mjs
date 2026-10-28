@@ -16,7 +16,7 @@ test('fixed ADDITIVE Source153 SQL/Edge blobs, 153 migration inventory and immut
 });
 test('RPC must derive identity, creator and exact per-Work revision/media and lock all',()=>{
  for(const s of ['private.dreamsnap_x05_verified_db_subject_v1()','private.resolve_active_account(v_subject)',
- 'w.owner_account_id is distinct from v_account','v_control.creator_profile_id is distinct from v_work.creator_profile_id',
+ 'v_work.owner_account_id is distinct from v_account','v_control.creator_profile_id is distinct from v_work.creator_profile_id',
  'private.is_account_privacy_suppressed(v_account)','for share of cp,ce',
  'wrm.work_revision_id=r.revision_id','r.work_id=p_work_id','wrm.media_id=v_control.frozen_media_id',
  'm.owner_account_id=v_account','v_control.frozen_photo_revision_id',
