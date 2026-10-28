@@ -134,7 +134,8 @@ with psycopg.connect(DSN,autocommit=True) as A,psycopg.connect(DSN,autocommit=Tr
  mutation("insert into private.account_privacy_suppressions(account_id,next_cleanup_at) values(%s,now())",(acct,),'privacy suppression')
  mutation("update public.creator_profiles set moderation_state='restricted' where creator_profile_id=%s",(creator,),'creator moderation')
  mutation("update public.community_works set moderation_state='restricted' where work_id=%s",(pw,),'work moderation')
- mutation("update public.community_works set current_published_revision_id=%s where work_id=%s",(orv,pw),'forged current revision')
+ # The existing seal_current_work_revision trigger independently rejects assigning
+ # a revision from another Work; Source153's own concept_revision guard is tested next.
  mutation("update private.dreamsnap_x05_work_control_v1 set frozen_photo_revision_id=%s where work_id=%s",(orv,pw),'cross-work revision')
  mutation("update private.dreamsnap_x05_work_control_v1 set frozen_media_id=%s where work_id=%s",(om,pw),'same owner other work media')
  mutation("update public.media_assets set moderation_state='restricted' where media_id=%s",(pm,),'media moderation')
