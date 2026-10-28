@@ -64,6 +64,8 @@ export function decodeOwnerManagementProjection(data, context) {
       !uuid(context.workId) || !uuid(context.actorAccountId) ||
       !nonnegativeSafe(context.generation) ||
       context.generation !== context.latestGeneration ||
+      !positiveSafe(context.expectedRowVersion) ||
+      !positiveSafe(context.expectedAuthorizationEpoch) ||
       data.contractVersion !== OWNER_MANAGEMENT_CONTRACT ||
       data.ownerAuthorized !== true ||
       data.accountState !== 'active' ||
@@ -81,6 +83,8 @@ export function decodeOwnerManagementProjection(data, context) {
       !uuid(data.conceptRevisionId) ||
       !positiveSafe(data.rowVersion) ||
       !positiveSafe(data.authorizationEpoch) ||
+      data.rowVersion !== context.expectedRowVersion ||
+      data.authorizationEpoch !== context.expectedAuthorizationEpoch ||
       typeof data.concept !== 'string' ||
       data.concept.length > 2000) return null;
 
