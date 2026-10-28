@@ -30,6 +30,8 @@ test('rights consent uses fixed narrow scopes and versioned CAS',()=>{
   assert.match(code,/array\['cdn','display','store','thumbnail'\]/);
   assert.match(code,/grant_policy_version text/);
   assert.match(code,/creator_self_capture_declared boolean/);
+  assert.match(code,/p_creator_self_capture_declared is distinct from true/);
+  assert.match(code,/p_explicit_grant_accepted is distinct from true/);
   assert.match(code,/X05_GRANT_CAS_OR_IMMUTABLE_MISMATCH/);
   assert.match(code,/X05_ROW_VERSION_CONFLICT/);
   assert.match(code,/create table private\.dreamsnap_x05_consent_events_v1/);
