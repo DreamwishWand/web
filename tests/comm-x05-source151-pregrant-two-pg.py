@@ -130,7 +130,7 @@ with psycopg.connect(DSN,autocommit=True) as a,psycopg.connect(DSN,autocommit=Tr
         a.execute("release savepoint identity_negative")
     with a.transaction():
         a.execute("savepoint media_negative")
-        a.execute("update public.media_assets set moderation_state='blocked' where media_id=%s",(media_post,))
+        a.execute("update public.media_assets set processing_state='quarantined' where media_id=%s",(media_post,))
         deny(pre(a,auth,post),"BLOCKED_MEDIA")
         a.execute("rollback to savepoint media_negative")
         a.execute("release savepoint media_negative")
