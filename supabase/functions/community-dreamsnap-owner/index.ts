@@ -168,7 +168,7 @@ const handler=withSupabase({auth:'user'},async (req,ctx)=>{
       (work.kind==='OriginalCompetition'&&(!uuid(work.entryId)||work.frozenEntryRevisionId!==work.photoRevisionId))||
       g.explicitGrantAccepted!==true||g.creatorSelfCaptureDeclared!==true||
       g.consentRecorded!==true||!safeVersion(g.lastGrantConsentRevision)||
-      typeof g.policyVersionText!=='string'||!DIGEST.test(g.policyDigest)||
+      typeof g.policyVersionText!=='string'||typeof g.policyDigest!=='string'||!DIGEST.test(g.policyDigest)||
       !['UNVERIFIED','APPROVED_CANONICAL_RECEIPT'].includes(String(g.scopeStatus))||
       (g.scopeStatus==='UNVERIFIED'&&(g.policyReceiptVerified!==false||
         'scopeId' in g||'approvedPurposeIds' in g))||
