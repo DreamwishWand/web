@@ -96,8 +96,15 @@ const handler=withSupabase({auth:'user'},async (req,ctx)=>{
     });
   }catch{return reply({ok:false,error:'OWNER_BACKEND_UNAVAILABLE'},503);}
   if(!response.ok){
-    // Never echo internal SQL, policy digest, Work details or existence.
-    const conflict=response.status===409;
+    // PostgREST maps PL/pgSQL RAISE EXCEPTION (P0001) to HTTP 400. Only
+    // explicitly allowlisted CAS tags become HTTP 409, with no SQL details.
+    const failure=await response.json().catch(()=>null);
+    const tag=object(failure)&&typeof failure.message==='string'?failure.message:'';
+    const conflict=response.status===409 ||
+      tag.includes('X05_STALE_EPOCH_OR_REVISION') ||
+      tag.includes('X05_ROW_VERSION_CONFLICT') ||
+      tag.includes('X05_GRANT_CAS_OR_IMMUTABLE_MISMATCH') ||
+      tag.includes('X05_TERMINAL_WITHDRAWN');
     return reply({ok:false,error:conflict?'VERSION_CONFLICT':'OWNER_REQUEST_DENIED'},
       conflict?409:response.status===401?401:403);
   }
