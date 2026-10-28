@@ -68,7 +68,7 @@ test('no phantom DDV official competition: only existing Wand Work+Entry and Pos
 test('same media+challenge/key xact lock, rollback and replay safe idempotency',()=>{
  for(const q of [
  'pg_advisory_xact_lock(',
- "'x05media:'","'x05request:'",
+ "':x05media:'","':x05request:'",
  "'x05:'||p_idempotency_key",
  "'X05_IDEMPOTENCY_KEY_REUSED'",
  "'X05_DUPLICATE_MEDIA_WORK'",
