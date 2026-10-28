@@ -16,7 +16,7 @@ const photo = '55555555-5555-4555-8555-555555555555';
 const media = '66666666-6666-4666-8666-666666666666';
 const conceptRevision = '77777777-7777-4777-8777-777777777777';
 const entry = '88888888-8888-4888-8888-888888888888';
-const context = {workId:id,actorAccountId:actor,generation:7,latestGeneration:7};
+const context = {workId:id,actorAccountId:actor,generation:7,latestGeneration:7,expectedRowVersion:4,expectedAuthorizationEpoch:2};
 const ready = {contractVersion:OWNER_MANAGEMENT_CONTRACT,ownerAuthorized:true,accountState:'active',
   identityState:'active',privacySuppressed:false,retired:false,moderationAllowed:true,
   ownerAccountId:actor,creatorProfileId:creator,workId:id,kind:'PostEventCreation',
@@ -88,6 +88,9 @@ test('future owner-only decoder insists on typed provenance, same actor, same re
   ])assert.equal(decodeOwnerManagementProjection(mutate(ready,bad),context),null,JSON.stringify(bad));
   for(const badContext of [
     {...context,generation:6},
+    {...context,expectedRowVersion:5},
+    {...context,expectedAuthorizationEpoch:3},
+    {...context,expectedRowVersion:0},
     {...context,latestGeneration:8},
     {...context,actorAccountId:creator},
     {...context,workId:entry}
