@@ -107,13 +107,13 @@ with psycopg.connect(DSN,autocommit=True) as a, psycopg.connect(DSN,autocommit=T
  # A failed request must leave no Work or idem key.
  prior_count=get(a,"select count(*) from public.community_works where owner_account_id=%s and work_type='dreamsnap'",(account,))
  with ThreadPoolExecutor(max_workers=2) as pool:
-  fa=pool.submit(register,a,sub,'PostEventCreation',post_challenge,rollback_media,'qr40-race-a-001')
-  fb=pool.submit(register,b,sub,'PostEventCreation',post_challenge,rollback_media,'qr40-race-b-001')
+  fa=pool.submit(register,a,sub,'PostEventCreation',post_challenge,rollback_media,'qr40-race-alpha-001')
+  fb=pool.submit(register,b,sub,'PostEventCreation',post_challenge,rollback_media,'qr40-race-bravo-001')
   race=[fa.result(),fb.result()]
  assert sum(item[0]=='ok' for item in race)==1,race
  assert sum(item[0]=='denied' for item in race)==1,race
  winner=race[0] if race[0][0]=='ok' else race[1]
- winner_key='qr40-race-a-001' if race[0][0]=='ok' else 'qr40-race-b-001'
+ winner_key='qr40-race-alpha-001' if race[0][0]=='ok' else 'qr40-race-bravo-001'
  assert 'entryId' not in winner[1]
  assert register(b,sub,'PostEventCreation',post_challenge,rollback_media,winner_key)==winner
  check_persisted(a,account,winner_key,winner[1])
@@ -121,7 +121,7 @@ with psycopg.connect(DSN,autocommit=True) as a, psycopg.connect(DSN,autocommit=T
  assert get(a,'select count(*) from public.dreamsnap_entries where work_id=%s',(winner[1]['workId'],))==0
  assert get(a,'select visibility::text from public.community_works where work_id=%s',(winner[1]['workId'],))=='private'
  assert get(a,'select count(*) from public.idempotency_keys where account_id=%s and idempotency_key in (%s,%s)',
-       (account,'x05:qr40-race-a-001','x05:qr40-race-b-001'))==1
+       (account,'x05:qr40-race-alpha-001','x05:qr40-race-bravo-001'))==1
  assert get(a,'select count(*) from private.dreamsnap_x05_consent_events_v1')==0
  marker('QR_CTRL40_TWO_PG_DUPLICATE_RACE_ATOMICITY_REPLAY_NO_CONSENT_PASS',
         pids=[get(a,'select pg_backend_pid()'),get(b,'select pg_backend_pid()')])
