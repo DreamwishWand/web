@@ -127,18 +127,21 @@ with psycopg.connect(DSN,autocommit=True) as db,psycopg.connect(DSN,autocommit=T
    db.execute('rollback to savepoint qr151_session_cutoff')
    db.execute('release savepoint qr151_session_cutoff')
  denied(pre(peer,U(),work),'FOREIGN_SUBJECT')
- for typ in ['retired','privacy','moderation','under13']:
+ for typ in ['retired','privacy','moderation']:
   with db.transaction():
    db.execute('savepoint qr151_negative')
    try:
     if typ=='retired':db.execute("update public.auth_identities set identity_state='retired' where account_id=%s",(account,))
     elif typ=='privacy':db.execute('insert into private.account_privacy_suppressions(account_id,next_cleanup_at) values(%s,now())',(account,))
     elif typ=='moderation':db.execute("update public.community_works set moderation_state='restricted' where work_id=%s",(work,))
-    else:db.execute("update public.dreamsnap_works set managed_under13=true where work_id=%s",(work,))
+    else:raise AssertionError('Unexpected negative fixture type')
     denied(pre(db,sub,work),typ)
    finally:
     db.execute('rollback to savepoint qr151_negative')
     db.execute('release savepoint qr151_negative')
+ # A self-managed Work cannot be turned into a managed minor Work by mutating
+ # only its boolean: the base schema disallows that invalid relation.
+ assert rejects_sql(db,"update public.dreamsnap_works set managed_under13=true where work_id=%s",(work,))
  assert counts(work)==before
  event('QR151_REAL_ORIGINAL_POSTEVENT_OWNED_PREGRANT_READ_ONLY_AND_DENIAL_PASS')
 
