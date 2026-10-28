@@ -1,0 +1,111 @@
+name: 09 INT X05 Source151 + WEB254 combined SOURCE/LOCAL (PUBLIC OFF)
+on:
+  push:
+    branches:
+      - 'int/x05-source151-web254-combined-20261028'
+  pull_request:
+    branches:
+      - 'feature/03comm-x05-source151-pregrant-bootstrap-20261028'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: int-x05-source151-web254-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  combined-source-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify both frozen parents and isolated combined tree, migrations and Edge bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$DATABASE_URL"
+          SOURCE=9c96de3e1f003c160beffc0395dfbe35314dff3d
+          WEB=bbbe92526795b1412eac27f02b1aa54c59efc1cb
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git merge-base --is-ancestor "$WEB" HEAD
+          test -z "$(git diff --name-only "$SOURCE" HEAD -- supabase/)"
+          test "$(git hash-object supabase/migrations/20261028000040_x05_private_pregrant_policy_receipt_v1.sql)" = 451735e05b6a18c826851a51000909c40c42bb9f
+          test "$(git hash-object supabase/migrations/20261028000030_x05_authenticated_owner_service_v1.sql)" = 85e9de1874ca489133fd39be522f57ee1cfac6ab
+          test "$(git hash-object supabase/functions/community-dreamsnap-owner/index.ts)" = 1a05cdc540a45fe1b1656d64a151d1c1ca28c8be
+          test "$(git hash-object src/lib/dreamsnaps/source150-owner-service-adapter.js)" = e7f15f866e9383af291a234e57cc84a160cee167
+          test "$(git hash-object src/lib/dreamsnaps/source151-private-pregrant-adapter.js)" = 274655aef0cf1c37e85be1649295d6d31a1dc02c
+          python3 - <<'PY'
+          from pathlib import Path
+          names=sorted(p.name for p in Path('supabase/migrations').glob('*.sql'))
+          assert len(names)==151, len(names)
+          assert len({n.split('_')[0] for n in names})==151
+          assert names[-1]=='20261028000040_x05_private_pregrant_policy_receipt_v1.sql'
+          print('INT_X05_COMBINED_FULL151_SCHEMA_PINS_PASS')
+          PY
+      - name: NPM install, combined cross-source tests, typed Owner mocks and static build
+        run: |
+          npm ci --no-audit --no-fund
+          node --test tests/int-x05-source151-web254-combined.test.mjs tests/dreamsnaps-owner-management-private.test.mjs tests/dreamsnaps-private-owner-consumer-contract.test.mjs tests/dreamsnaps-source150-owner-service-adapter.test.mjs tests/dreamsnaps-source151-private-pregrant-adapter.test.mjs
+          npm run check
+          npm run build
+          echo INT_X05_COMBINED_SOURCE_WEB_BUILD_PASS
+  combined-full151-disposable-pg:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exactly frozen Source151 files, no Stage credentials
+        run: |
+          set -euo pipefail
+          test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$DATABASE_URL"
+          test -z "$(git diff --name-only 9c96de3e1f003c160beffc0395dfbe35314dff3d HEAD -- supabase/ tests/comm-x05-source151-pregrant-two-pg.py tests/comm-x05-source151-pregrant.test.mjs)"
+          node --test tests/comm-x05-source151-pregrant.test.mjs
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Clean disposable FULL151 schema (NO Edge, Stage, Provider or Storage)
+        run: |
+          set -euo pipefail
+          docker version
+          printf 'project_id = "ddvre_int_x05_combined_disposable"\n' | cat - supabase/config.toml > /tmp/int151-config.toml
+          mv /tmp/int151-config.toml supabase/config.toml
+          timeout 1500s supabase start -x edge-runtime --debug >/tmp/int151-start.log 2>&1 || { tail -125 /tmp/int151-start.log; exit 1; }
+          echo INT_X05_COMBINED_FULL151_BOOTSTRAP_PASS
+      - name: Python PostgreSQL client
+        run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Synthetic-only PreGrant -> local approved-fixture policy -> first CAS(0,0) -> Owner Read -> revocation
+        run: |
+          set -euo pipefail
+          python3 tests/comm-x05-source151-pregrant-two-pg.py 2>&1 | tee /tmp/int151-pg.log
+          grep -q COMM151_SOURCE_LOCAL_COMPLETE /tmp/int151-pg.log
+          echo INT_X05_COMBINED_FULL151_PG_SOURCE_PASS
+      - name: Keep strictly local synthetic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: int-x05-combined-full151-synthetic-only
+          path: /tmp/int151-pg.log
+          if-no-files-found: warn
+      - name: Failure detail
+        if: failure()
+        run: tail -100 /tmp/int151-start.log || true
