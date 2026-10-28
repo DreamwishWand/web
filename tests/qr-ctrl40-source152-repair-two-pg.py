@@ -103,6 +103,20 @@ with psycopg.connect(DSN,autocommit=True) as a, psycopg.connect(DSN,autocommit=T
  check_persisted(b,account,original_key,original)
  denied(register(a,sub,'OriginalCompetition',original_challenge,original_media,original_key,True,caption='different'),'original mutated payload')
  marker('QR_CTRL40_ORIGINAL_FROZEN_ENTRY_REPLAY_AND_PERSISTED_JSON_PASS')
+ # Force a post-insertion transaction abort to prove Work + idempotency + outbox
+ # do not survive rollback, before using this third Media in the parallel race.
+ rollback_key='qr40-forced-rollback-001'
+ try:
+  with a.transaction():
+   pending=register(a,sub,'PostEventCreation',post_challenge,rollback_media,rollback_key)
+   assert pending[0]=='ok',pending
+   raise RuntimeError('INDEPENDENT_ROLLBACK_ONLY')
+ except RuntimeError as error:
+  assert str(error)=='INDEPENDENT_ROLLBACK_ONLY'
+ assert get(b,'select count(*) from public.idempotency_keys where account_id=%s and idempotency_key=%s',
+            (account,'x05:'+rollback_key))==0
+ assert get(b,"select count(*) from public.work_revision_media wrm join public.community_work_revisions r on r.revision_id=wrm.work_revision_id join public.community_works w on w.work_id=r.work_id where wrm.media_id=%s and w.owner_account_id=%s",(rollback_media,account))==0
+ marker('QR_CTRL40_REAL_POSTINSERT_WORK_IDEMPOTENCY_ROLLBACK_PASS')
  # Independent 2 real PostgreSQL backends racing different idempotency keys for a third Media.
  # A failed request must leave no Work or idem key.
  prior_count=get(a,"select count(*) from public.community_works where owner_account_id=%s and work_type='dreamsnap'",(account,))
