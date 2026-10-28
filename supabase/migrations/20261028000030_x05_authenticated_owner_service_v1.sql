@@ -85,6 +85,7 @@ declare
   v_entry uuid;
   v_concept text;
   v_policy_ordinal bigint;
+  v_consent_revision bigint;
   v_erasure text;
   v_public_disabled boolean;
   v_purged boolean;
@@ -161,6 +162,10 @@ begin
   if v_ctl.grant_policy_version ~ '^v[1-9][0-9]{0,6}$' then
     v_policy_ordinal:=substring(v_ctl.grant_policy_version from 2)::bigint;
   end if;
+  select max(e.event_version) into v_consent_revision
+    from private.dreamsnap_x05_consent_events_v1 e
+    where e.work_id=p_work_id and e.action='grant';
+  if v_consent_revision is null then raise exception 'X05_CONSENT_RECEIPT_UNAVAILABLE'; end if;
   select coalesce(g.description,'') into v_concept
     from public.gallery_work_revisions g
     where g.revision_id=v_ctl.concept_revision_id;
@@ -188,7 +193,7 @@ begin
       'policyVersionText',v_ctl.grant_policy_version,
       'policyVersionOrdinal',v_policy_ordinal,
       'policyDigest',v_ctl.grant_policy_digest,
-      'consentRevision',v_ctl.row_version,
+      'consentRevision',v_consent_revision,
       'workId',p_work_id,
       'state',case when v_ctl.withdrawn_at is null then 'accepted' else 'withdrawn' end),
     'erasure',jsonb_build_object(
