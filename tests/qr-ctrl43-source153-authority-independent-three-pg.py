@@ -23,7 +23,7 @@ def authority(c,sub,work,rv=None,epoch=None,role='authenticated',anonymous=False
     val=scalar(c,'select public.community_dreamsnap_x05_owner_authority_v2(%s,%s,%s)',(work,rv,epoch))
    return ('ok',val)
   except psycopg.Error as ex:return ('denied',ex.sqlstate,str(ex).split('\n')[0][:180])
-def success(r,k):assert r[0]=='ok',(k,r);return r[1]
+def success(r,k='positive authorisation'):assert r[0]=='ok',(k,r);return r[1]
 def denied(r,k):assert r[0]=='denied',(k,r)
 def bounded(projection,entry=False):
  assert projection['contractVersion']=='wand.dreamsnaps.owner-authority-projection@1'
