@@ -1,0 +1,30 @@
+{
+  "status": "CANDIDATE_POLICY_ARTIFACT",
+  "policyVersionText": "v1",
+  "scopeId": "wand.dreamsnaps.creator-photo-grant@1",
+  "canonicalFile": "docs/community/policy/dreamsnap-image-grant-v1.candidate.txt",
+  "encoding": "UTF-8",
+  "bom": false,
+  "lineEnding": "LF",
+  "trailingNewline": true,
+  "sha256": "2c4e78e46345a3d230a304d74086aa49b66700396acca91bf6280cd6f938d0cb",
+  "workBinding": [
+    "workId",
+    "photoRevisionId",
+    "mediaId",
+    "creatorProfileId"
+  ],
+  "purposes": [
+    "store",
+    "display_after_separate_publish",
+    "thumbnail",
+    "cdn_after_separate_publish",
+    "moderation"
+  ],
+  "origin": "06 PRODUCT P01-P03 design direction; new user-facing text candidate, not owner-approved verbatim",
+  "approved": false,
+  "approvedAt": null,
+  "approvalReference": null,
+  "activateRegistry": false,
+  "notes": "Do not insert into private.dreamsnap_x05_owner_policy_v1 or private.dreamsnap_x05_policy_receipt_v1 until exact content and evidence receive actual Owner approval. Exact canonical bytes are standalone .txt only."
+}
