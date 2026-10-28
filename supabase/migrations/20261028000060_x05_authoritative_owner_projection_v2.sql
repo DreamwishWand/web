@@ -78,8 +78,9 @@ begin
 
   -- Frozen Work-specific revision is the only permitted Media binding:
   -- owning another READY Media belonging to another Work is insufficient.
-  if not exists(
-    select 1 from public.community_work_revisions r
+  -- Lock the exact frozen revision, media edge and owned Media in one
+  -- statement; don't validate a different Work's owned READY Media.
+  select m.* into v_media from public.community_work_revisions r
     join public.dreamsnap_work_revisions dr on dr.revision_id=r.revision_id
     join public.work_revision_media wrm on wrm.work_revision_id=r.revision_id
       and wrm.ordinal=0 and wrm.role='dreamsnap'
@@ -90,10 +91,8 @@ begin
       and dr.no_external_edits_attested
       and wrm.media_id=v_control.frozen_media_id
       and m.owner_account_id=v_account and m.moderation_state='clear'
-  ) then raise exception 'X05_V2_WORK_PHOTO_MEDIA_MISMATCH'; end if;
-  select * into v_media from public.media_assets m
-    where m.media_id=v_control.frozen_media_id and m.owner_account_id=v_account for share;
-  if not found then raise exception 'X05_V2_MEDIA_OWNER_DENIED'; end if;
+    for share of r,dr,wrm,m;
+  if not found then raise exception 'X05_V2_WORK_PHOTO_MEDIA_MISMATCH'; end if;
 
   -- Provider integrity incidents are independent of this owner grant.
   if private.preset_storage_work_quarantined_r19(p_work_id)
