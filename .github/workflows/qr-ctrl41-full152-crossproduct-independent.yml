@@ -1,0 +1,116 @@
+name: QR CTRL41 Independent Source152 x WEB254 FULL152 Cross-Product
+on:
+  push:
+    branches: ['qr/ctrl41-full152-web254-independent-20261028']
+  pull_request:
+    branches: ['int/x05-source152-web254-full152-20261028']
+permissions:
+  contents: read
+jobs:
+  independent-ancestry-web-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Independently pin frozen 2-parent lineage, 22 original blobs, 3 new integration paths and FULL152
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN"
+          SOURCE=96f92a00e8a0c34983026b602c39557f651f8c47
+          INT=0efb76c1e1b865ef57c1d74d2fdfa5bdd54ad2e9
+          OWNER=b9bb5f4eed24f751c6b5e607095fd40e9a62b0e5
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git merge-base --is-ancestor "$INT" HEAD
+          git merge-base --is-ancestor "$OWNER" HEAD
+          test -z "$(git diff --name-only "$OWNER" HEAD -- supabase/ src/)"
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+          src='96f92a00e8a0c34983026b602c39557f651f8c47'
+          old='0efb76c1e1b865ef57c1d74d2fdfa5bdd54ad2e9'
+          combined='b9bb5f4eed24f751c6b5e607095fd40e9a62b0e5'
+          diff=set(subprocess.check_output(['git','diff','--name-only',src,combined],text=True).splitlines())
+          fresh={'.github/workflows/int-x05-source152-web254-full152.yml',
+            'tests/int-x05-source152-web254-full152.test.mjs',
+            'tests/int-x05-source152-web254-full152-two-pg.py'}
+          assert len(diff)==25,len(diff)
+          assert fresh.issubset(diff)
+          inherited=diff-fresh
+          assert len(inherited)==22,len(inherited)
+          for p in inherited:
+            a=subprocess.check_output(['git','rev-parse',combined+':'+p]).strip()
+            b=subprocess.check_output(['git','rev-parse',old+':'+p]).strip()
+            assert a==b,p
+          names=sorted(p.name for p in Path('supabase/migrations').glob('*.sql'))
+          assert len(names)==152,len(names)
+          assert len({s.split('_')[0] for s in names})==152
+          assert names[-1]=='20261028000050_x05_first_work_media_bootstrap_v1.sql'
+          assert not subprocess.check_output(['git','diff','--name-only',src,combined,'--','supabase/']).strip()
+          print('QR41_INDEPENDENT_TWO_PARENTS_22_BLOBS_3_NEW_FULL152_PASS')
+          PY
+          test "$(git hash-object supabase/migrations/20261028000050_x05_first_work_media_bootstrap_v1.sql)" = cd297f48111afbb315651c6cb7e911afb1bcc03d
+          test "$(git hash-object supabase/functions/community-dreamsnap-owner/index.ts)" = 5539382678250ebdc563ca9a36b574d6a9bb5df0
+          node --test tests/qr-ctrl41-full152-crossproduct-web-independent.test.mjs
+      - run: npm ci --no-audit --no-fund
+      - run: npm run check
+      - run: npm run build
+  independent-full152-three-pg-sql-to-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Frozen combined source and new independent PG fixture only
+        run: |
+          set -euo pipefail
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN"
+          git merge-base --is-ancestor b9bb5f4eed24f751c6b5e607095fd40e9a62b0e5 HEAD
+          test -z "$(git diff --name-only b9bb5f4eed24f751c6b5e607095fd40e9a62b0e5 HEAD -- supabase/ src/)"
+          python3 -m py_compile tests/qr-ctrl41-full152-crossproduct-three-pg.py
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Disposable real FULL152 schema with NO Edge/Stage/Provider
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_qrctrl41_combined_disposable"\n' | cat - supabase/config.toml > /tmp/qr41-config.toml
+          mv /tmp/qr41-config.toml supabase/config.toml
+          timeout 1500s supabase start -x edge-runtime --debug >/tmp/qr41-start.log 2>&1 || { tail -140 /tmp/qr41-start.log; exit 1; }
+      - run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Independently trace 3PG Register PreGrant test-only Policy Grant CAS OwnerRead Withdraw to WEB
+        run: |
+          set -euo pipefail
+          python3 tests/qr-ctrl41-full152-crossproduct-three-pg.py 2>&1 | tee /tmp/qr41-pg.log
+          grep -q QR41_INDEPENDENT_FULL152_REGISTER_PREGRANT_CAS_WITHDRAW_DB_BRIDGE_PASS /tmp/qr41-pg.log
+          QR_CTRL41_REAL_PG_BRIDGE=/tmp/qr-ctrl41-full152-db-to-web.json node --test tests/qr-ctrl41-full152-crossproduct-web-independent.test.mjs
+          echo QR41_INDEPENDENT_FULL152_REAL_PG_TO_WEB_FAILCLOSED_PASS
+      - name: Synthetic local-only evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr-ctrl41-full152-independent-local-synthetic
+          path: /tmp/qr41-pg.log
+          if-no-files-found: warn
+      - name: Local bootstrap diagnostics
+        if: failure()
+        run: tail -120 /tmp/qr41-start.log || true
