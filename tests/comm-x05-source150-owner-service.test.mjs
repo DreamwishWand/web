@@ -68,3 +68,10 @@ test('Source150 safely validates deferred Work revision under authenticated owne
  assert.doesNotMatch(sql,/grant select on public\.community_work_revisions/i);
  assert.doesNotMatch(sql,/create or replace function public\.validate_current_published_revision/);
 });
+
+test('consentRevision is last grant event, not Work rowVersion that also advances on withdraw and Concept',()=>{
+ assert.match(sql,/select max\(e\.event_version\) into v_consent_revision/);
+ assert.match(sql,/e\.action='grant'/);
+ assert.match(sql,/'consentRevision',v_consent_revision/);
+ assert.doesNotMatch(sql,/'consentRevision',v_ctl\.row_version/);
+});
