@@ -24,16 +24,16 @@ def denied(db,sql,args=()):
         return {"denied":False}
 def metadata(db,work):
     return one(db,"select private.dreamsnap_shared_public_work_metadata_v1(%s)",(work,))
-def rolecheck(db,role,expect):
+def rolecheck(db,role,expect,fn_oids,table_oid):
     with db.transaction():
         db.execute("set local role "+role)
         outcome={}
-        for fn in ["private.dreamsnap_shared_public_work_metadata_v1(uuid)","private.dreamsnap_post_event_stage_validate_v1()"]:
-            outcome[fn]=one(db,"select has_function_privilege(current_user,%s,'EXECUTE')",(fn,))
-        outcome["insert"]=one(db,"select has_table_privilege(current_user,'private.dreamsnap_post_event_staged_v1','INSERT')")
-        outcome["update"]=one(db,"select has_table_privilege(current_user,'private.dreamsnap_post_event_staged_v1','UPDATE')")
-        outcome["delete"]=one(db,"select has_table_privilege(current_user,'private.dreamsnap_post_event_staged_v1','DELETE')")
-        outcome["select"]=one(db,"select has_table_privilege(current_user,'private.dreamsnap_post_event_staged_v1','SELECT')")
+        for fn, oid in fn_oids.items():
+            outcome[fn]=one(db,"select has_function_privilege(current_user,%s::oid,'EXECUTE')",(oid,))
+        outcome["insert"]=one(db,"select has_table_privilege(current_user,%s::oid,'INSERT')",(table_oid,))
+        outcome["update"]=one(db,"select has_table_privilege(current_user,%s::oid,'UPDATE')",(table_oid,))
+        outcome["delete"]=one(db,"select has_table_privilege(current_user,%s::oid,'DELETE')",(table_oid,))
+        outcome["select"]=one(db,"select has_table_privilege(current_user,%s::oid,'SELECT')",(table_oid,))
         assert not any(outcome.values()),(role,outcome)
         emit(case="ACTUAL_ROLE_CATALOG_DENY",role=role,results=outcome,readerBackend=one(db,"select pg_backend_pid()"))
         # Avoid invoking protected private RPC even if a role lacks private schema USAGE:
@@ -54,7 +54,13 @@ with psycopg.connect(DSN,autocommit=True) as a,psycopg.connect(DSN,autocommit=Tr
     # Single source150? This acceptance pins new private objects and original real existing Source144+145.
     assert one(a,"select proname from pg_proc where oid='public.community_get_gallery_dreamsnap_public_v1(uuid)'::regprocedure")=="community_get_gallery_dreamsnap_public_v1"
     assert one(a,"select proname from pg_proc where oid='private.dreamsnap_public_work_accessible_r20(uuid)'::regprocedure")=="dreamsnap_public_work_accessible_r20"
-    for role in ("anon","authenticated","service_role"): rolecheck(b,role,False)
+    fn_oids={
+      name:one(a,"select %s::regprocedure::oid",(name,)) for name in
+      ("private.dreamsnap_shared_public_work_metadata_v1(uuid)",
+       "private.dreamsnap_post_event_stage_validate_v1()")
+    }
+    table_oid=one(a,"select 'private.dreamsnap_post_event_staged_v1'::regclass::oid")
+    for role in ("anon","authenticated","service_role"): rolecheck(b,role,False,fn_oids,table_oid)
     emit(marker="QR147_REAL_FULL147_2PG_CATALOG_PRIVATE_ACL_PASS",migrations=147,writerPid=backendA,readerPid=backendB)
 
     account,auth,creator,challenge=[u() for _ in range(4)]
