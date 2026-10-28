@@ -69,7 +69,8 @@ export function assessStage116A0A2(e, ops, privacy) {
 
   const a2 = e?.a2 ?? {};
   need(a2.backupMechanism === 'VERIFIED_OFFSITE_LOGICAL_DB'
-    || a2.backupMechanism === 'MANAGED_DAILY_DB', 'A2_DB_BACKUP_MECHANISM');
+    || (ops?.staging?.planObserved !== 'free' && a2.backupMechanism === 'MANAGED_DAILY_DB'),
+    'A2_DB_BACKUP_MECHANISM_FREE_REQUIRES_OFFSITE_LOGICAL');
   // A branch with only migration-created schema is NOT the protected Stage116 restored clone.
   need(a2.isolatedRestoreTargetRef !== ops?.staging?.projectRef
     && nonempty(a2.isolatedRestoreTargetRef) && a2.targetContainsRestoredStageData === true,
@@ -90,7 +91,7 @@ export function assessStage116A0A2(e, ops, privacy) {
     && a2.independentReviewerId === a0.independentReviewerId, 'A2_INDEPENDENT_REVIEWER');
 
   // Reject raw secrets or user content in repository/CI evidence. Receipts are digests ONLY.
-  const prohibited = /(?:secret|password|access.?token|refresh.?token|decrypted|signed.?url|raw.?bytes|user.?row|private.?key|provider.?subject)/i;
+  const prohibited = /(?:secret|password|access.?token|refresh.?token|decrypted|signed.?url|raw.?bytes|user.?row|private.?key|provider.?subject|credential|cookie|raw.?payload|raw.?sql|file.?contents|api.?key)/i;
   const walk = (v, key = '') => {
     if (prohibited.test(key)) errors.push('SENSITIVE_FIELD:' + key);
     if (Array.isArray(v)) { v.forEach((x) => walk(x, key)); return; }
@@ -147,6 +148,7 @@ function selfTest(ops, privacy) {
     (x) => { x.a2.storageLegalHoldsAndVersionsAccounted = false; },
     (x) => { x.a2.independentReviewerId = 'SYNTHETIC-OTHER'; },
     (x) => { x.a2.backupMechanism = 'DATALESS_SCHEMA_BRANCH'; },
+    (x) => { x.a2.backupMechanism = 'MANAGED_DAILY_DB'; },
     (x) => { x.a2.dbRpoHours = 30; },
     (x) => { x.a2PassClaim = true; },
     (x) => { x.credentials = { password: 'SYNTHETIC-NO-REAL-SECRET' }; }
@@ -156,7 +158,7 @@ function selfTest(ops, privacy) {
     assert.equal(v.readyForOperatorReview, false, 'fail-closed negative fixture ' + i);
     assert.equal(v.a2Accepted, false, 'negative fixture must never issue PASS ' + i);
   }
-  console.log('STAGE116_A0_A2_SOURCE_ONLY_SYNTHETIC_16_NEGATIVES_PASS; A2 remains NEED_OPERATOR');
+  console.log('STAGE116_A0_A2_SOURCE_ONLY_SYNTHETIC_17_NEGATIVES_PASS; A2 remains NEED_OPERATOR');
 }
 
 const invoked = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname);
