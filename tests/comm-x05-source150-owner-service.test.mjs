@@ -7,7 +7,7 @@ const edge=read('supabase/functions/community-dreamsnap-owner/index.ts');
 const config=read('supabase/config.toml');
 test('Source150 additive after immutable Source149; no historic writer or public media mutation',()=>{
  const names=readdirSync(new URL('../supabase/migrations/',import.meta.url)).filter(n=>n.endsWith('.sql')).sort();
- assert.equal(names.length,151);
+ assert.equal(names.length,152);
  assert.ok(names.includes('20261028000030_x05_authenticated_owner_service_v1.sql'));
  assert.match(sql,/'publicActivationAllowed',false/);
  assert.doesNotMatch(sql,/create (?:or replace )?function public\.community_get_public_media_storage/);

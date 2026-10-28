@@ -1,0 +1,70 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync,readdirSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
+const sql=read('supabase/migrations/20261028000050_x05_first_work_media_bootstrap_v1.sql');
+const edge=read('supabase/functions/community-dreamsnap-owner/index.ts');
+const canonicalFile='docs/community/policy/dreamsnap-image-grant-v1.candidate.txt';
+const policy=read(canonicalFile);
+const manifest=JSON.parse(read('docs/community/policy/dreamsnap-image-grant-v1.candidate.json'));
+test('Source152 additive 152nd migration, never rewrite accepted Source151 and public routes',()=>{
+ const names=readdirSync(new URL('../supabase/migrations/',import.meta.url)).filter(n=>n.endsWith('.sql')).sort();
+ assert.equal(names.length,152);
+ assert.equal(names.at(-1),'20261028000050_x05_first_work_media_bootstrap_v1.sql');
+ assert.doesNotMatch(sql,/create or replace function public\.community_dreamsnap_x05_(?:pregrant_read|owner_read|owner_action)_v1/);
+ assert.doesNotMatch(sql,/create or replace function public\.community_register_validated_media/);
+});
+test('trusted subject no identity payload and authenticated only narrow first-work registration',()=>{
+ assert.match(sql,/private\.dreamsnap_x05_verified_db_subject_v1\(\)/);
+ assert.match(sql,/private\.resolve_active_account\(v_subject\)/);
+ assert.match(sql,/grant execute on function public\.community_dreamsnap_x05_register_initial_work_v1\([\s\S]*\) to authenticated/);
+ assert.match(sql,/revoke all on function public\.community_dreamsnap_x05_register_initial_work_v1\([\s\S]*from public,anon,authenticated,service_role/);
+ assert.doesNotMatch(sql,/p_auth_subject uuid|p_owner_account_id uuid|p_storage_key text/);
+ assert.match(edge,/v\.operation==='register'/);
+ assert.match(edge,/community_dreamsnap_x05_register_initial_work_v1/);
+ assert.match(edge,/REGISTER_RESPONSE_UNAVAILABLE/);
+ assert.doesNotMatch(edge,/(?:v|body|request)\.subjectId|(?:v|body|request)\.ownerAccountId/);
+});
+test('reuse existing Work, PhotoRevision, Media and Entry models; stage no Entry',()=>{
+ assert.match(sql,/public\.community_register_dreamsnap_work_v1\(/);
+ assert.match(sql,/public\.community_dreamsnap_join_event_v1\(/);
+ assert.match(sql,/private\.dreamsnap_create_revision\(/);
+ assert.match(sql,/private\.dreamsnap_post_event_staged_v1/);
+ assert.match(sql,/v_challenge\.lifecycle_state<>'submission_open'/);
+ assert.match(sql,/v_challenge\.lifecycle_state not in \('results','closed'\)/);
+ assert.match(sql,/p_explicit_wand_entry is distinct from true/);
+ assert.match(sql,/v_media\.processing_state<>'ready'/);
+ assert.match(sql,/'publicActivationAllowed',false/);
+ assert.match(sql,/'officialChallengePhaseVerified',false/);
+ assert.match(sql,/'storageValidatedBySource152',false/);
+});
+test('duplicate Work and idempotency do not create second Entity/Entry or Outbox',()=>{
+ assert.match(sql,/pg_advisory_xact_lock/);
+ assert.match(sql,/X05_DUPLICATE_MEDIA_WORK/);
+ assert.match(sql,/X05_IDEMPOTENCY_KEY_REUSED/);
+ assert.match(sql,/public\.idempotency_keys/);
+ assert.match(sql,/X05_ORIGINAL_ENTRY_NOT_FROZEN/);
+});
+test('PostEvent initial response is normalized before persistent idem replay, QR260 TRUE RED',()=>{
+ assert.match(sql,/v_response:=jsonb_strip_nulls\(jsonb_build_object\(/);
+ assert.match(sql,/return v_previous.response;/);
+ assert.match(sql,/return v_response;/);
+ assert.doesNotMatch(sql,/return jsonb_strip_nulls\(v_response\);/);
+});
+test('UTF-8 canonical candidate Policy SHA256 exact and NEVER activation',()=>{
+ assert.equal(manifest.status,'CANDIDATE_POLICY_ARTIFACT');
+ assert.equal(manifest.policyVersionText,'v1');
+ assert.equal(manifest.approved,false);
+ assert.equal(manifest.activateRegistry,false);
+ assert.equal(manifest.canonicalFile,canonicalFile);
+ assert.equal(manifest.sha256,createHash('sha256').update(Buffer.from(policy,'utf8')).digest('hex'));
+ assert.equal(manifest.sha256,'2c4e78e46345a3d230a304d74086aa49b66700396acca91bf6280cd6f938d0cb');
+ assert.equal(policy.endsWith('\n'),true);
+ assert.equal(policy.includes('\r'),false);
+ assert.ok(policy.includes('非公式'));
+ assert.ok(policy.includes('非独占的・撤回可能'));
+ assert.ok(policy.includes('所有権・著作権はDreamwish Wandに譲渡しません'));
+ assert.ok(policy.includes('物理削除を検証するまで削除完了と表示しません'));
+ assert.doesNotMatch(sql,/insert into private\.dreamsnap_x05_owner_policy_v1|insert into private\.dreamsnap_x05_policy_receipt_v1/);
+});
