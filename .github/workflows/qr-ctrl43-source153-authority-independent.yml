@@ -1,0 +1,119 @@
+name: QR CTRL43 Source153 Authority Independent FULL153
+on:
+  push:
+    branches: ['qr/ctrl43-source153-authority-independent-20261028']
+  pull_request:
+    branches: ['feature/03comm-x05-source153-owner-authority-projection-20261028']
+permissions:
+  contents: read
+jobs:
+  source153-frozen-provenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Independently check exact 11 new-only Owner paths, past 152 SQL and Edge provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=96f92a00e8a0c34983026b602c39557f651f8c47
+          OWNER=b24eec2cb4dae4ab30824636670c520d7c6eea40
+          git merge-base --is-ancestor "$SRC" "$OWNER"
+          git merge-base --is-ancestor "$OWNER" HEAD
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN"
+          test -z "$(git diff --name-only "$OWNER" HEAD -- supabase/ src/)"
+          python3 - <<'PY'
+          import subprocess
+          old='96f92a00e8a0c34983026b602c39557f651f8c47'
+          now='b24eec2cb4dae4ab30824636670c520d7c6eea40'
+          changed=set(subprocess.check_output(['git','diff','--name-only',old,now],text=True).splitlines())
+          expected={
+            '.github/workflows/comm-x05-source153-owner-authority.yml',
+            'docs/community/x05-source153-owner-authority-projection-20261028.md',
+            'supabase/functions/community-dreamsnap-owner/index.ts',
+            'supabase/migrations/20261028000060_x05_authoritative_owner_projection_v2.sql',
+            'tests/comm-x05-source149-nonpublic.test.mjs',
+            'tests/comm-x05-source150-owner-service.test.mjs',
+            'tests/comm-x05-source151-pregrant.test.mjs',
+            'tests/comm-x05-source152-first-work.test.mjs',
+            'tests/comm-x05-source153-owner-authority-two-pg.py',
+            'tests/comm-x05-source153-owner-authority.test.mjs',
+            'tests/community-r21-generic-public-search-work-liveness.test.mjs'}
+          assert changed==expected,(changed^expected)
+          migpath='supabase/migrations/20261028000060_x05_authoritative_owner_projection_v2.sql'
+          migration=set(subprocess.check_output(['git','diff','--name-only',old,now,'--','supabase/migrations'],text=True).splitlines())
+          assert migration=={migpath},migration
+          for file in [
+            'tests/comm-x05-source149-nonpublic.test.mjs',
+            'tests/comm-x05-source150-owner-service.test.mjs',
+            'tests/comm-x05-source151-pregrant.test.mjs',
+            'tests/comm-x05-source152-first-work.test.mjs',
+            'tests/community-r21-generic-public-search-work-liveness.test.mjs']:
+            before=subprocess.check_output(['git','show',old+':'+file],text=True)
+            after=subprocess.check_output(['git','show',now+':'+file],text=True)
+            candidate=before.replace('names.length,152','names.length,153').replace('files.length,152','files.length,153')
+            candidate=candidate.replace("assert.equal(names.at(-1),'20261028000050_x05_first_work_media_bootstrap_v1.sql');","assert.ok(names.includes('20261028000050_x05_first_work_media_bootstrap_v1.sql'));")
+            candidate=candidate.replace('readdirSync(\'supabase/migrations\').filter(n=>n.endsWith(\'.sql\')).length,152','readdirSync(\'supabase/migrations\').filter(n=>n.endsWith(\'.sql\')).length,153')
+            assert after==candidate,file
+          print('QR43_EXACT_11_NEW_ONLY_SOURCE153_AND_PREVIOUS_152_IMMUTABLE_PASS')
+          PY
+          test "$(git hash-object supabase/migrations/20261028000060_x05_authoritative_owner_projection_v2.sql)" = 356cc10138cd351674fde8dd943acc968e26fbbc
+          test "$(git hash-object supabase/functions/community-dreamsnap-owner/index.ts)" = 38f6830b88eb37dc612cbc11901812a90b406146
+          node --test tests/qr-ctrl43-source153-authority-independent.test.mjs
+      - run: npm ci --no-audit --no-fund
+      - run: npm run check
+      - run: npm run build
+  independent-full153-three-postgresql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Enforce frozen Source153 owner and independent fixture-only provenance
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor b24eec2cb4dae4ab30824636670c520d7c6eea40 HEAD
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN"
+          python3 -m py_compile tests/qr-ctrl43-source153-authority-independent-three-pg.py
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Disposable FULL153 local DB without Edge or Stage
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_qrctrl43_source153_disposable"\n' | cat - supabase/config.toml > /tmp/qr43-config.toml
+          mv /tmp/qr43-config.toml supabase/config.toml
+          timeout 1500s supabase start -x edge-runtime --debug >/tmp/qr43-start.log 2>&1 || { tail -130 /tmp/qr43-start.log; exit 1; }
+      - name: Install independent PG client
+        run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Execute independent real FULL153 3-PG Subject Work Photo Media Grant Policy CAS Retention
+        run: |
+          set -euo pipefail
+          python3 tests/qr-ctrl43-source153-authority-independent-three-pg.py 2>&1 | tee /tmp/qr43-pg-evidence.log
+          grep -q QR43_INDEPENDENT_FULL153_SOURCE153_ONLY_DONE /tmp/qr43-pg-evidence.log
+      - name: Preserve synthetic local evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr43-source153-independent-local-synthetic
+          path: /tmp/qr43-pg-evidence.log
+          if-no-files-found: warn
+      - name: Diagnostics on failure only
+        if: failure()
+        run: tail -120 /tmp/qr43-start.log || true
