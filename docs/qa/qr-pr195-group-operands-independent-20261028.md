@@ -1,6 +1,6 @@
 # 04 QR — PR195 Group Operand independent SOURCE acceptance (2026-10-28)
 
-**Disposition: SOURCE-ONLY QA; final pass requires the exact QA HEAD test runs and CI readback.**
+**Disposition: INDEPENDENT_SOURCE_GROUP_OPERAND_PLAN_UNTRUSTED_PREVIEW_STATIC_PASS (source-only; no runtime or personal metrics).**
 **DRAFT / DO_NOT_MERGE / DO_NOT_DEPLOY / Public Release NO-GO.**
 
 ## Frozen scope
@@ -39,8 +39,8 @@ The only positive result is `SOURCE_DEFINITION_NATIVE_ORDER_PREVIEW_UNTRUSTED`. 
 
 - Independent source-verified exact original-manifest **observations** are listed above; these observations are not an original Nintendo Switch runtime replay.
 - Owner ordinary CI at frozen SHA: [run 40637351084](https://github.com/DreamwishWand/web/actions/runs/40637351084) completed SUCCESS. This is Owner CI, not independent QA acceptance.
-- Independent test run / dedicated source CI / ordinary CI: **PENDING exact QA HEAD readback**.
-- Decision ceiling, if both CI run clean: `INDEPENDENT_SOURCE_GROUP_OPERAND_PLAN_UNTRUSTED_PREVIEW_STATIC_PASS`. Otherwise `PARTIAL` or `RED` with exact counterexample and return to 01D.
+- Independent tested QA code HEAD **`75ff90c93024056ac2764fbd4d3bafd1547f9f1f`**: 7 tests PASS / 0 FAIL / 0 SKIP (direct independent node script under GitHub Actions), including 292 x two-mode synthetic group preview references. [Dedicated PR CI 40644848924](https://github.com/DreamwishWand/web/actions/runs/40644848924) **COMPLETED SUCCESS**; [ordinary PR CI 40644848897](https://github.com/DreamwishWand/web/actions/runs/40644848897) **COMPLETED SUCCESS**; dedicated branch push CI 40644827534 **COMPLETED SUCCESS**. No private binary or save ran in CI. This report-only follow-up commit does not change QA code, Owner implementation, source manifest or dedicated workflow.
+- **Independent verdict: `INDEPENDENT_SOURCE_GROUP_OPERAND_PLAN_UNTRUSTED_PREVIEW_STATIC_PASS`**. There is no reproduced Owner RED within the declared source-only two-API contract. Existing original-source selector256/256 independent acceptance remains PR241 without replay.
 - Runtime ItemDatabase, GetItemsInGroup, CollectionSets, unmodified consented Owner Save, Owned/Collected/Missing, denominator and achievement %: **UNKNOWN / OFF**. IsValid/variation and sentinel live semantics remain runtime work.
 - Native Writer, Preset Apply, Community Publisher, entitlement edits and cross-version/Steam semantic transfer remain **OFF**. Gate A0-A7 & launch **NO-GO**.
 
