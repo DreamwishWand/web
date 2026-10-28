@@ -119,7 +119,7 @@ with psycopg.connect(DSN,autocommit=True) as a,psycopg.connect(DSN,autocommit=Tr
   ('BAD_MEDIA',(auth,work,0,0,'grant',photo,U(),'v1',d,True,True)),
   ('BAD_PHOTO',(auth,work,0,0,'grant',U(),media,'v1',d,True,True))
  ]:mustfail(mutate(b,*args),why)
- for kw in [{'role':'anon'},{'role':'service_role'},{'anonymous':True},
+ # Explicit session revocation cutoff makes historical-issued JWT replay fail closed.\n a.execute("update public.auth_identities set sessions_valid_after=clock_timestamp()-interval '60 seconds' where account_id=%s",(account,))\n for kw in [{'role':'anon'},{'role':'service_role'},{'anonymous':True},
             {'missing_session':True},{'bad_sub':True},{'expired':True}]:
   mustfail(read(b,auth,work,**kw),'AUTH '+str(kw))
  assert scalar(a,'select count(*) from private.dreamsnap_x05_work_control_v1 where work_id=%s',(work,))==0
