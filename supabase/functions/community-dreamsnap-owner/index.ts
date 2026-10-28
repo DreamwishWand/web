@@ -23,7 +23,25 @@ function exact(v:Obj,allow:string[]):boolean{return Object.keys(v).every(k=>allo
 function uuid(v:unknown):v is string {return typeof v==='string'&&UUID.test(v)&&v!=='00000000-0000-0000-0000-000000000000';}
 function safeVersion(v:unknown,min=1):v is number{return Number.isSafeInteger(v)&&Number(v)>=min;}
 export function parseOwnerRequest(v:unknown):{rpc:string;payload:Obj}|null {
-  if(!object(v)||!exact(v,['operation','workId','expectedRowVersion','expectedAuthorizationEpoch','action',
+  if(!object(v))return null;
+  if(v.operation==='register'){
+    if(!exact(v,['operation','kind','challengeId','photoMediaId','caption','idempotencyKey',
+      'explicitWandCompetitionEntry'])||
+      !['OriginalCompetition','PostEventCreation'].includes(String(v.kind))||
+      !uuid(v.challengeId)||!uuid(v.photoMediaId)||
+      typeof v.idempotencyKey!=='string'||
+      !/^[a-zA-Z0-9:_-]{16,120}$/.test(v.idempotencyKey)||
+      (v.caption!==undefined&&(typeof v.caption!=='string'||v.caption.length>2000))||
+      (v.kind==='OriginalCompetition'&&v.explicitWandCompetitionEntry!==true)||
+      (v.kind==='PostEventCreation'&&v.explicitWandCompetitionEntry!==false)
+    )return null;
+    return {rpc:'community_dreamsnap_x05_register_initial_work_v1',payload:{
+      p_kind:v.kind,p_challenge_id:v.challengeId,p_media_id:v.photoMediaId,
+      p_caption:v.caption??null,p_idempotency_key:v.idempotencyKey,
+      p_explicit_wand_entry:v.explicitWandCompetitionEntry
+    }};
+  }
+  if(!exact(v,['operation','workId','expectedRowVersion','expectedAuthorizationEpoch','action',
     'photoRevisionId','photoMediaId','policyVersionText','policyDigest',
     'selfCaptureDeclared','explicitGrantAccepted','conceptRevisionId']))return null;
   if(!uuid(v.workId))return null;
@@ -115,7 +133,17 @@ const handler=withSupabase({auth:'user'},async (req,ctx)=>{
   if(!object(result))return reply({ok:false,error:'OWNER_RESPONSE_UNAVAILABLE'},503);
   if(request.rpc.endsWith('_action_v1')&&result.publicActivationAllowed!==false)
     return reply({ok:false,error:'PUBLIC_ACTIVATION_GUARD'},503);
-  if(request.rpc.endsWith('_pregrant_read_v1')){
+  if(request.rpc.endsWith('_register_initial_work_v1')){
+    if(result.publicActivationAllowed!==false ||
+       result.requiresPolicyGrant!==true||
+       result.officialChallengePhaseVerified!==false||
+       result.storageValidatedBySource152!==false||
+       !uuid(result.workId)||!uuid(result.photoRevisionId)||!uuid(result.photoMediaId)||
+       !['OriginalCompetition','PostEventCreation'].includes(String(result.kind))||
+       (result.kind==='OriginalCompetition')!==uuid(result.entryId)||
+       (result.kind==='PostEventCreation'&&result.entryId!==undefined)
+    )return reply({ok:false,error:'REGISTER_RESPONSE_UNAVAILABLE'},503);
+  } else if(request.rpc.endsWith('_pregrant_read_v1')){
     if(result.contractVersion!=='wand.dreamsnaps.pregrant-service@1'||
        result.grantRecorded!==false||result.publicActivationAllowed!==false||
        !['NEED_POLICY_ARTIFACT','PREGRANT_READY'].includes(String(result.state))||
