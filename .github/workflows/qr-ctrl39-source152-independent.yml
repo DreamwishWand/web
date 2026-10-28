@@ -1,0 +1,61 @@
+name: QR CTRL39 Source152 Independent FULL152 New-Only 2PG
+on:
+  push:
+    branches: ['qr/ctrl39-source152-newonly-20261028']
+  pull_request:
+    branches: ['feature/03comm-x05-source152-first-work-20261028']
+permissions:
+  contents: read
+jobs:
+  source152-newonly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Frozen Owner exact SHA, new-only source, Python syntax and policy source tests
+        run: |
+          set -euo pipefail
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN"
+          git merge-base --is-ancestor 15b3cfa8325a4389d8ab157e95f58c5c3a23fb6a HEAD
+          test "$(git hash-object supabase/migrations/20261028000050_x05_first_work_media_bootstrap_v1.sql)" = 256b46e7d768b1e517c82e80d118248c86e70624
+          test "$(git hash-object supabase/functions/community-dreamsnap-owner/index.ts)" = 5539382678250ebdc563ca9a36b574d6a9bb5df0
+          test -z "$(git diff --name-only 15b3cfa8325a4389d8ab157e95f58c5c3a23fb6a HEAD -- src supabase)"
+          python3 -m py_compile tests/qr-ctrl39-source152-two-pg.py
+          node --test tests/qr-ctrl39-source152-independent.test.mjs
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Bootstrap isolated genuine FULL152 PostgreSQL
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_qrctrl39_source152_disposable"\n' | cat - supabase/config.toml > /tmp/qr152-config.toml
+          mv /tmp/qr152-config.toml supabase/config.toml
+          timeout 1500s supabase start -x edge-runtime --debug >/tmp/qr152-start.log 2>&1 || { tail -120 /tmp/qr152-start.log; exit 1; }
+      - name: Python PG adapter
+        run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Independent work+media registration two genuine backends/atomicity/replay
+        run: |
+          set -euo pipefail
+          python3 tests/qr-ctrl39-source152-two-pg.py 2>&1 | tee /tmp/qr152-full.log
+          grep -q QR152_INDEPENDENT_FULL152_LOCAL_COMPLETE /tmp/qr152-full.log
+      - name: Local synthetic receipt only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr-ctrl39-source152-independent-synthetic
+          path: /tmp/qr152-full.log
+          if-no-files-found: warn
+      - name: Bootstrap failure diagnostics only
+        if: failure()
+        run: tail -90 /tmp/qr152-start.log || true
