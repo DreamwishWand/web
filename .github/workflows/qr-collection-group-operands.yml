@@ -1,0 +1,29 @@
+name: QR Collection Group Operand Source-Only
+
+on:
+  push:
+    branches:
+      - qr/pr195-group-operands-independent-20261028
+  pull_request:
+    branches:
+      - core/collection-save-backed-readonly-20261026
+    paths:
+      - 'tests/qr-pr195-group-operands-independent-v125.test.mjs'
+      - '.github/workflows/qr-collection-group-operands.yml'
+      - 'docs/qa/qr-pr195-group-operands-independent-20261028.md'
+
+permissions:
+  contents: read
+
+jobs:
+  independent-source-only:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout tested exact QA commit
+        uses: actions/checkout@v4
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run independent definition/selector/group negative tests
+        run: node --test tests/qr-pr195-group-operands-independent-v125.test.mjs
