@@ -133,7 +133,7 @@ with psycopg.connect(DSN,autocommit=True) as db,psycopg.connect(DSN,autocommit=T
    try:
     if typ=='retired':db.execute("update public.auth_identities set identity_state='retired' where account_id=%s",(account,))
     elif typ=='privacy':db.execute('insert into private.account_privacy_suppressions(account_id,next_cleanup_at) values(%s,now())',(account,))
-    elif typ=='moderation':db.execute("update public.community_works set moderation_state='hidden' where work_id=%s",(work,))
+    elif typ=='moderation':db.execute("update public.community_works set moderation_state='restricted' where work_id=%s",(work,))
     else:db.execute("update public.dreamsnap_works set managed_under13=true where work_id=%s",(work,))
     denied(pre(db,sub,work),typ)
    finally:
