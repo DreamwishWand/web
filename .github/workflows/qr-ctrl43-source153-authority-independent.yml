@@ -61,7 +61,7 @@ jobs:
             before=subprocess.check_output(['git','show',old+':'+file],text=True)
             after=subprocess.check_output(['git','show',now+':'+file],text=True)
             candidate=before.replace('names.length,152','names.length,153').replace('files.length,152','files.length,153')
-            candidate=candidate.replace("names.at(-1),'20261028000050_x05_first_work_media_bootstrap_v1.sql'","names.includes('20261028000050_x05_first_work_media_bootstrap_v1.sql')")
+            candidate=candidate.replace("assert.equal(names.at(-1),'20261028000050_x05_first_work_media_bootstrap_v1.sql');","assert.ok(names.includes('20261028000050_x05_first_work_media_bootstrap_v1.sql'));")
             candidate=candidate.replace('readdirSync(\'supabase/migrations\').filter(n=>n.endsWith(\'.sql\')).length,152','readdirSync(\'supabase/migrations\').filter(n=>n.endsWith(\'.sql\')).length,153')
             assert after==candidate,file
           print('QR43_EXACT_11_NEW_ONLY_SOURCE153_AND_PREVIOUS_152_IMMUTABLE_PASS')
