@@ -119,7 +119,7 @@ with psycopg.connect(DSN,autocommit=True) as a,psycopg.connect(DSN,autocommit=Tr
  neg("update public.creator_profiles set moderation_state='restricted' where creator_profile_id=%s",(creator,),"moderation")
  neg("update private.dreamsnap_x05_work_control_v1 set frozen_media_id=%s where work_id=%s",(media_o,post),"same Account different Work Media")
  neg("update private.dreamsnap_x05_work_control_v1 set frozen_photo_revision_id=%s where work_id=%s",(photo_o,post),"other Work revision")
- neg("update private.dreamsnap_post_event_staged_v1 set publication_state='staged',concept_revision_id=%s where work_id=%s",(photo_o,post),"revision mismatch")
+ neg("update private.dreamsnap_x05_work_control_v1 set concept_revision_id=%s where work_id=%s",(photo_o,post),"current revision mismatch")
  log("COMM153_PRIVACY_RETIRE_MEDIA_REVISIONS_CAS_NEGATIVES_PASS")
  # Real local retention hold row; not proof of any external Provider hold.
  with a.transaction():
