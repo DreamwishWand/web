@@ -23,7 +23,7 @@ def log(marker,**d): print(json.dumps(dict(marker=marker,**d),sort_keys=True,def
 with psycopg.connect(DSN,autocommit=True) as a,psycopg.connect(DSN,autocommit=True) as b:
     assert one(a,"select count(*) from supabase_migrations.schema_migrations")==149
     assert one(a,"select pg_backend_pid()")!=one(b,"select pg_backend_pid()")
-    fn_signatures=("private.dreamsnap_x05_record_creator_grant_v1(uuid,uuid,uuid,uuid,text,text,bigint)",
+    fn_signatures=("private.dreamsnap_x05_record_creator_grant_v1(uuid,uuid,uuid,uuid,text,text,bigint,boolean,boolean)",
                    "private.dreamsnap_x05_owner_transition_v1(uuid,uuid,bigint,text,uuid)",
                    "private.dreamsnap_x05_schedule_preflight_v1(timestamptz,timestamptz)",
                    "private.dreamsnap_x05_control_live_v1(uuid)",
@@ -112,13 +112,17 @@ with psycopg.connect(DSN,autocommit=True) as a,psycopg.connect(DSN,autocommit=Tr
                      values(%s,%s,%s,%s,%s,%s)""",(post,challenge,creator,photo_post,media_post,photo_post))
 
     digest="b"*64
-    grant="select private.dreamsnap_x05_record_creator_grant_v1(%s,%s,%s,%s,%s,%s,%s)"
+    grant="select private.dreamsnap_x05_record_creator_grant_v1(%s,%s,%s,%s,%s,%s,%s,true,true)"
+    deny_self_capture="select private.dreamsnap_x05_record_creator_grant_v1(%s,%s,%s,%s,%s,%s,%s,false,true)"
+    deny_grant="select private.dreamsnap_x05_record_creator_grant_v1(%s,%s,%s,%s,%s,%s,%s,true,false)"
     transition="select private.dreamsnap_x05_owner_transition_v1(%s,%s,%s,%s,%s)"
     assert fail(a,grant,(u(),post,photo_post,media_post,"owner-v1",digest,0))
     assert fail(a,grant,(auth,post,photo_post,media_original,"owner-v1",digest,0))
     assert fail(a,grant,(auth,post,photo_original,media_post,"owner-v1",digest,0))
     assert fail(a,grant,(auth,original,photo_original,media_post,"owner-v1",digest,0))
     assert fail(a,grant,(auth,post,photo_post,media_post,"owner-v1","unknown",0))
+    assert fail(a,deny_self_capture,(auth,post,photo_post,media_post,"owner-v1",digest,0))
+    assert fail(a,deny_grant,(auth,post,photo_post,media_post,"owner-v1",digest,0))
     for name,sql,args in [
       ("RETIRED_IDENTITY","update public.auth_identities set identity_state='retired' where account_id=%s",(account,)),
       ("ACCOUNT_RESTRICTED","update public.wand_accounts set status='restricted' where account_id=%s",(account,)),
