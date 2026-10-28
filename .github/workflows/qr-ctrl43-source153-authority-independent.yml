@@ -60,7 +60,10 @@ jobs:
             'tests/community-r21-generic-public-search-work-liveness.test.mjs']:
             before=subprocess.check_output(['git','show',old+':'+file],text=True)
             after=subprocess.check_output(['git','show',now+':'+file],text=True)
-            assert after==before.replace('names.length,152','names.length,153').replace('files.length,152','files.length,153').replace('assert.equal(migrations.length,152)','assert.equal(migrations.length,153)'),file
+            candidate=before.replace('names.length,152','names.length,153').replace('files.length,152','files.length,153')
+            candidate=candidate.replace("names.at(-1),'20261028000050_x05_first_work_media_bootstrap_v1.sql'","names.includes('20261028000050_x05_first_work_media_bootstrap_v1.sql')")
+            candidate=candidate.replace('readdirSync(\'supabase/migrations\').filter(n=>n.endsWith(\'.sql\')).length,152','readdirSync(\'supabase/migrations\').filter(n=>n.endsWith(\'.sql\')).length,153')
+            assert after==candidate,file
           print('QR43_EXACT_11_NEW_ONLY_SOURCE153_AND_PREVIOUS_152_IMMUTABLE_PASS')
           PY
           test "$(git hash-object supabase/migrations/20261028000060_x05_authoritative_owner_projection_v2.sql)" = 356cc10138cd351674fde8dd943acc968e26fbbc
