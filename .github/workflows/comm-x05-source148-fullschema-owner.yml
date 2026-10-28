@@ -1,4 +1,4 @@
-name: 03 COMM X05 post-COMM239 repaired Source148 full148 owner PostgreSQL
+name: 03 COMM X05 post-QR239 repaired Source148 full148 owner PostgreSQL
 on:
   push:
     branches: ['fix/03comm-x05-shared-metadata-staged-20261028']
@@ -49,7 +49,7 @@ jobs:
               assert "dreamsnap_shared_public_work_metadata_v1" not in f.read_text(), f
           for f in Path("src").rglob("*.svelte"):
               assert "dreamsnap_shared_public_work_metadata_v1" not in f.read_text(), f
-          print("COMM148_ALL_147_MIGRATION_ORDER_UNROUTED_SOURCE_PIN_PASS")
+          print("COMM148_ALL_148_MIGRATION_ORDER_UNROUTED_SOURCE_PIN_PASS")
           PY
       - uses: supabase/setup-cli@v1
         with:
@@ -61,23 +61,23 @@ jobs:
           printf 'project_id = "ddvre_comm148_owner_ephemeral_20261028"\n' | cat - supabase/config.toml > /tmp/comm148-config.toml
           mv /tmp/comm148-config.toml supabase/config.toml
           echo COMM148_NO_REMOTE_LINK_OR_STAGE
-      - name: Clean full 147 actual migration from empty disposable PostgreSQL
+      - name: Clean full 148 actual migration from empty disposable PostgreSQL
         run: |
           set -euo pipefail
           timeout 1500s supabase start --debug > /tmp/comm148-start.log 2>&1 || { tail -160 /tmp/comm148-start.log; exit 1; }
-          echo COMM148_CLEAN_FULL_147_MIGRATIONS_SUCCESS
+          echo COMM148_CLEAN_FULL_148_MIGRATIONS_SUCCESS
       - name: psycopg for separate live writer/reader PG backends
         run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
       - name: Owner NEW ONLY X05 true 148-schema two-PG acceptance
         run: |
           set -euo pipefail
           python3 tests/comm-x05-source148-fullschema-owner-two-pg.py 2>&1 | tee /tmp/comm148-independence.log
-          grep -q COMM148_OWNER_FIVE_COMM239_COUNTEREXAMPLES_CLOSED_PASS /tmp/comm148-independence.log
+          grep -q COMM148_OWNER_FIVE_QR239_COUNTEREXAMPLES_CLOSED_PASS /tmp/comm148-independence.log
       - name: Preserve untrusted disposable error proof (no personal data)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: qr-source147-full148-local-synthetic-proof
+          name: comm-source148-full148-local-synthetic-proof
           path: |
             /tmp/comm148-independence.log
           if-no-files-found: warn
