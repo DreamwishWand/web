@@ -9,7 +9,7 @@ test('Source150 additive after immutable Source149; no historic writer or public
  const names=readdirSync(new URL('../supabase/migrations/',import.meta.url)).filter(n=>n.endsWith('.sql')).sort();
  assert.equal(names.length,150);
  assert.equal(names.at(-1),'20261028000030_x05_authenticated_owner_service_v1.sql');
- assert.match(sql,/public_activation_allowed/gi); // bounded to Source149 comments not a new writer
+ assert.match(sql,/'publicActivationAllowed',false/);
  assert.doesNotMatch(sql,/create (?:or replace )?function public\.community_get_public_media_storage/);
 });
 test('no caller-provided subject or account in private owner API',()=>{
