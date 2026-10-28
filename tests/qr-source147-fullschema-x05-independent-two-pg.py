@@ -239,6 +239,47 @@ with psycopg.connect(DSN,autocommit=True) as a,psycopg.connect(DSN,autocommit=Tr
                 a.execute("ROLLBACK TO SAVEPOINT qr147_original")
                 a.execute("RELEASE SAVEPOINT qr147_original")
     assert metadata(a,work_original) is not None
+    # New Source147 contract explicitly calls the PHOTO revision immutable.
+    # A valid second photograph of the SAME Work must not be re-bound to a
+    # previously STAGED snapshot by a privileged concurrent updater.
+    alternate_photo,alternate_media=u(),u()
+    with a.transaction():
+        a.execute("insert into public.community_entities(entity_id,entity_type) values(%s,'media_asset')",(alternate_media,))
+        a.execute("""insert into public.community_work_revisions(
+          revision_id,work_id,revision_number,created_by_account_id)
+          values(%s,%s,2,%s)""",(alternate_photo,work_p1,account))
+        a.execute("""insert into public.dreamsnap_work_revisions(
+          revision_id,challenge_id,game_screenshot_attested,
+          no_external_edits_attested,integrity_state,caption)
+          values(%s,%s,true,true,'eligible','QR147 alternate local eligible photograph')""",(alternate_photo,challenge))
+        a.execute("""insert into public.media_assets(
+          media_id,owner_account_id,storage_key,mime_type,byte_size,width,height,
+          checksum_sha256,processing_state,moderation_state)
+          values(%s,%s,%s,'image/png',1235,1280,720,%s,'ready','clear')""",
+          (alternate_media,account,"qr147/local/alternate/"+str(alternate_media),"b"*64))
+        a.execute("""insert into public.work_revision_media(work_revision_id,media_id,ordinal,role)
+          values(%s,%s,0,'dreamsnap')""",(alternate_photo,alternate_media))
+    image_replace=denied(a,"""update private.dreamsnap_post_event_staged_v1
+      set immutable_photo_revision_id=%s,media_id=%s where work_id=%s""",
+      (alternate_photo,alternate_media,work_p1))
+    emit(case="QR147_IMMUTABLE_PHOTO_REBIND",refused=image_replace["denied"],
+         sqlstate=image_replace.get("sqlstate"),sameWork=True,alternateRevisionEligible=True)
+    if not image_replace["denied"]:
+        true_source147_violation.append("STAGED_IMMUTABLE_PHOTO_MEDIA_REBIND")
+    # Probe dependent Work deletion without enabling any published writer.
+    with a.transaction():
+        a.execute("SAVEPOINT qr147_delete")
+        try:
+            try:
+                a.execute("delete from public.dreamsnap_works where work_id=%s",(work_p2,))
+                remaining=one(a,"select count(*) from private.dreamsnap_post_event_staged_v1 where work_id=%s",(work_p2,))
+                assert remaining==0,("STAGED_DANGLING_AFTER_PARENT_DELETE",remaining)
+                emit(case="QR147_POSTEVENT_WORK_PARENT_DELETE_CASCADE",stageRows=remaining)
+            except psycopg.Error as e:
+                emit(case="QR147_POSTEVENT_WORK_PARENT_DELETE_PREEXISTING_DENY",sqlstate=e.sqlstate)
+        finally:
+            a.execute("ROLLBACK TO SAVEPOINT qr147_delete")
+            a.execute("RELEASE SAVEPOINT qr147_delete")
     emit(marker="QR147_PARENT_GUARD_CLASSIFICATION",parentOnlyDenied=parent_denied,source147StageAcceptedInvalid=true_source147_violation)
     if true_source147_violation:
         emit(marker="QR147_CONFIRMED_LOCAL_SOURCE147_STAGING_LIVENESS_RED",violations=true_source147_violation)
