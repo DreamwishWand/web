@@ -262,7 +262,7 @@ with psycopg.connect(DSN,autocommit=True) as a,psycopg.connect(DSN,autocommit=Tr
            "SOURCE148_VALID_SAME_WORK_PHOTO_MEDIA_MUTABLE",name,proof)
         assert "X05_POST_EVENT_IMMUTABLE_PHOTO_MEDIA_REBIND" in proof["message"],(
            "SOURCE148_INCORRECT_REBIND_ERROR",name,proof)
-    assert one(a,"select (immutable_photo_revision_id,media_id) from private.dreamsnap_post_event_staged_v1 where work_id=%s",(work_p1,))==(rev_p1,media_p1)
+    assert a.execute("select immutable_photo_revision_id,media_id from private.dreamsnap_post_event_staged_v1 where work_id=%s",(work_p1,)).fetchone()==(rev_p1,media_p1)
     emit(marker="QR148_OLD_IMMUTABLE_PHOTO_MEDIA_RED_CLOSED",
          sameWorkEligibleRevision=True,validReadyMedia=True,
          probes=["BOTH","PHOTO_ONLY","MEDIA_ONLY"],allDenied=True)
