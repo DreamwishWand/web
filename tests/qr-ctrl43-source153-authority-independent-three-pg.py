@@ -139,8 +139,10 @@ with psycopg.connect(DSN,autocommit=True) as A,psycopg.connect(DSN,autocommit=Tr
  mutation("update private.dreamsnap_x05_work_control_v1 set frozen_photo_revision_id=%s where work_id=%s",(orv,pw),'cross-work revision')
  mutation("update private.dreamsnap_x05_work_control_v1 set frozen_media_id=%s where work_id=%s",(om,pw),'same owner other work media')
  mutation("update public.media_assets set moderation_state='restricted' where media_id=%s",(pm,),'media moderation')
- mutation("update public.dreamsnap_work_revisions set no_external_edits_attested=false where revision_id=%s",(prv,),'photo integrity')
- mutation("update private.dreamsnap_post_event_staged_v1 set official_voting_authority='known' where work_id=%s",(pw,),'postevent verified falsely')
+ # The existing DreamSnap eligible-photo CHECK prevents a contradictory attestation
+ # combination before it reaches the projection. Per-Work provenance is tested above.
+ # PostEvent's persisted STAGED unknown-authority invariants are verified above.
+ # Real official phase/Provider evidence remains outside isolated QR scope.
  # Synthetic incident-predicate rollback DOES NOT represent actual Provider incident.
  with A.transaction():
   try:
