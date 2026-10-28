@@ -1,0 +1,51 @@
+name: WEB X05 Source153 Owner Consumer v2 NEW ONLY
+on:
+  push:
+    branches:
+      - 'web/x05-source153-owner-consumer-v2-*'
+  pull_request:
+    paths:
+      - 'src/lib/dreamsnaps/source153-owner-consumer-v2.js'
+      - 'tests/dreamsnaps-source153-owner-consumer-v2.test.mjs'
+      - 'docs/web/x05-source153-authoritative-owner-consumer-v2-20261028.md'
+      - '.github/workflows/web-x05-source153-consumer-v2.yml'
+permissions:
+  contents: read
+concurrency:
+  group: web-source153-consumer-v2-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  strict-decoder:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Source153 strict v2 decoder negative tests (synthetic JSON, NO network)
+        run: node --test tests/dreamsnaps-source153-owner-consumer-v2.test.mjs
+      - name: Preserve Svelte types
+        run: npm run check
+      - name: Static build without Owner activation
+        run: npm run build
+      - name: WEB254 frozen parity, SQL/Edge/UI untouched, exactly four new files
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=bbbe92526795b1412eac27f02b1aa54c59efc1cb
+          git cat-file -e "$BASE^{commit}"
+          git diff --exit-code "$BASE" HEAD -- supabase/ src/routes/ src/lib/community/ src/lib/dreamsnaps/owner-management.js src/lib/dreamsnaps/private-owner-consumer-contract.js src/lib/dreamsnaps/source150-owner-service-adapter.js src/lib/dreamsnaps/source151-private-pregrant-adapter.js tests/dreamsnaps-source150-owner-service-adapter.test.mjs tests/dreamsnaps-source151-private-pregrant-adapter.test.mjs
+          git diff --name-only "$BASE" HEAD > /tmp/v2-changed
+          cat /tmp/v2-changed
+          count=$(wc -l < /tmp/v2-changed)
+          test "$count" -eq 4
+          while IFS= read -r p; do
+            case "$p" in
+              src/lib/dreamsnaps/source153-owner-consumer-v2.js|tests/dreamsnaps-source153-owner-consumer-v2.test.mjs|docs/web/x05-source153-authoritative-owner-consumer-v2-20261028.md|.github/workflows/web-x05-source153-consumer-v2.yml) ;;
+              *) echo "UNEXPECTED CHANGE: $p" >&2; exit 1 ;;
+            esac
+          done < /tmp/v2-changed
