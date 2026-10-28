@@ -142,8 +142,8 @@ export function inspectSource151PregrantHttpFixture(response,context) {
 
   const h=response.headers;
   const val=k=>object(h) && typeof h[k]==='string' ? h[k].toLowerCase() : '';
-  if (!/(?:^|[,\\s])private(?:[,\\s]|$)/i.test(val('cache-control')) ||
-      !/(?:^|[,\\s])no-store(?:[,\\s]|$)/i.test(val('cache-control')) ||
+  const cc=val('cache-control').split(',').map(v=>v.trim());
+  if (!cc.includes('private') || !cc.includes('no-store') ||
       val('cdn-cache-control') !== 'no-store' ||
       val('surrogate-control') !== 'no-store' ||
       !val('vary').split(',').some(v=>v.trim()==='authorization'))
