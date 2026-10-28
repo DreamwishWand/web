@@ -127,7 +127,8 @@ from public,anon,authenticated,service_role;
 -- All mutable control calls lock the actual Work first for concurrent withdraw/CAS.
 create or replace function private.dreamsnap_x05_record_creator_grant_v1(
   p_auth_subject uuid, p_work_id uuid, p_photo_revision_id uuid, p_media_id uuid,
-  p_policy_version text, p_policy_digest text, p_expected_version bigint
+  p_policy_version text, p_policy_digest text, p_expected_version bigint,
+  p_creator_self_capture_declared boolean, p_explicit_grant_accepted boolean
 ) returns jsonb language plpgsql security definer
 set search_path=pg_catalog,public,private as $grant$
 declare
@@ -144,7 +145,9 @@ begin
   if p_work_id is null or p_photo_revision_id is null or p_media_id is null
      or coalesce(char_length(p_policy_version),0) not between 1 and 80
      or p_policy_digest is null or p_policy_digest !~ '^[0-9a-f]{64}$'
-     or p_expected_version is null or p_expected_version<0 then
+     or p_expected_version is null or p_expected_version<0
+     or p_creator_self_capture_declared is distinct from true
+     or p_explicit_grant_accepted is distinct from true then
     raise exception 'X05_INVALID_GRANT';
   end if;
   select * into v_work from public.community_works
@@ -208,7 +211,7 @@ begin
       frozen_photo_revision_id,frozen_media_id,concept_revision_id,
       grant_policy_version,grant_policy_digest,creator_self_capture_declared
     ) values(p_work_id,v_account,v_work.creator_profile_id,v_dw.challenge_id,v_kind,
-      p_photo_revision_id,p_media_id,v_concept,p_policy_version,p_policy_digest,true);
+      p_photo_revision_id,p_media_id,v_concept,p_policy_version,p_policy_digest,p_creator_self_capture_declared);
   else
     if p_expected_version<>v_old.row_version
        or v_old.control_state in ('withdrawn','delete_requested')
@@ -231,7 +234,7 @@ begin
     'publicActivationAllowed',false,'consentRecorded',true);
 end
 $grant$;
-revoke all on function private.dreamsnap_x05_record_creator_grant_v1(uuid,uuid,uuid,uuid,text,text,bigint)
+revoke all on function private.dreamsnap_x05_record_creator_grant_v1(uuid,uuid,uuid,uuid,text,text,bigint,boolean,boolean)
 from public,anon,authenticated,service_role;
 
 create or replace function private.dreamsnap_x05_owner_transition_v1(
