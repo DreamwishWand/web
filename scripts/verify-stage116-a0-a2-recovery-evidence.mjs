@@ -19,12 +19,41 @@ export const REQUIRED_A2 = Object.freeze([
 ]);
 
 const sha = (x) => typeof x === 'string' && /^sha256:[a-f0-9]{64}$/.test(x);
-const nonempty = (x) => typeof x === 'string' && x.trim().length >= 3 && x.length <= 160;
-const isClean = (x) => x && typeof x === 'object' && !Array.isArray(x);
+const safeId = (x) => typeof x === 'string' && /^[A-Za-z0-9][A-Za-z0-9_.:-]{2,127}$/.test(x);
+const isClean = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
+const boundedNumber = (x, max) =>
+  typeof x === 'number' && Number.isFinite(x) && x >= 0 && x <= max;
+// Metadata only. Reject EVERY unknown key at every object boundary, without logging its value.
+const ROOT_FIELDS = ['schema', 'stageProjectRef', 'managedMigrationCount', 'sourceTarget',
+  'snapshotPlan', 'sourceOnly', 'a0', 'a1', 'a2'];
+const A0_FIELDS = ['ticketId', 'operatorId', 'independentReviewerId',
+  'scopedApprovalReceipt', 'onlyStaging116', 'isolatedRestoreOnly', 'noStageMutationInPreflight'];
+const A1_FIELDS = ['receipts', 'unknownProviderCleanupWorkerResolved',
+  'allSevenCronAndPendingPgNetReconciled', 'writtenStageOnlyMigrationEffectsPreserved'];
+const A2_FIELDS = ['backupMechanism', 'isolatedRestoreTargetRef', 'targetContainsRestoredStageData',
+  'originalStorageBytesCopied', 'storageOutsideRollbackDomain',
+  'storagePrivateToRecoveryOperators', 'storageRestoredIndependently',
+  'dbAndStorageHashesComparedAfterRestore', 'deletionLedgerOutsideRollbackDomain',
+  'deletionLedgerReplayedBeforePromotion', 'restoredSessionsRevalidated',
+  'storageLegalHoldsAndVersionsAccounted', 'dbRpoHours', 'storageRpoHours',
+  'drillRtoHours', 'receipts', 'independentReviewerAttestation', 'independentReviewerId'];
 
 export function assessStage116A0A2(e, ops, privacy) {
   const errors = [];
   const need = (ok, id) => { if (!ok) errors.push(id); };
+  const exactFields = (value, permitted, boundary) => {
+    if (!isClean(value)) { errors.push('EVIDENCE_SHAPE_' + boundary); return; }
+    const allow = new Set(permitted);
+    for (const key of Object.keys(value)) {
+      if (!allow.has(key)) errors.push('EVIDENCE_UNEXPECTED_FIELD_' + boundary);
+    }
+  };
+  exactFields(e, ROOT_FIELDS, 'ROOT');
+  exactFields(e?.a0, A0_FIELDS, 'A0');
+  exactFields(e?.a1, A1_FIELDS, 'A1');
+  exactFields(e?.a1?.receipts, REQUIRED_A1, 'A1_RECEIPTS');
+  exactFields(e?.a2, A2_FIELDS, 'A2');
+  exactFields(e?.a2?.receipts, REQUIRED_A2, 'A2_RECEIPTS');
   const dbPolicy = ops?.backupPolicy?.database;
   const storePolicy = ops?.backupPolicy?.storageObjects;
   const restorePolicy = ops?.backupPolicy?.restore;
@@ -41,9 +70,12 @@ export function assessStage116A0A2(e, ops, privacy) {
     && restorePolicy?.deletionLedgerReconciliationRequired === true, 'CANONICAL_QUARANTINE');
   need(privacy?.recoveryDeletionLedger?.mustBeOutsidePrimaryRollbackDomain === true,
     'CANONICAL_DELETION_LEDGER');
-  need(dbPolicy?.maximumRpoHours <= 24 && storePolicy?.maximumRpoHours <= 24
-    && restorePolicy?.targetRtoHours <= 4 && contract?.databaseRpoHoursMax <= 24
-    && contract?.storageRpoHoursMax <= 24 && contract?.rtoHoursTarget <= 4,
+  need(boundedNumber(dbPolicy?.maximumRpoHours, 24)
+    && boundedNumber(storePolicy?.maximumRpoHours, 24)
+    && boundedNumber(restorePolicy?.targetRtoHours, 4)
+    && boundedNumber(contract?.databaseRpoHoursMax, 24)
+    && boundedNumber(contract?.storageRpoHoursMax, 24)
+    && boundedNumber(contract?.rtoHoursTarget, 4),
     'CANONICAL_RPO_RTO');
 
   need(e?.schema === 'dreamwishwand-stage116-a0-a2-evidence@1', 'EVIDENCE_SCHEMA');
@@ -51,10 +83,10 @@ export function assessStage116A0A2(e, ops, privacy) {
   need(e?.managedMigrationCount === 116, 'STAGE116_LEDGER');
   need(e?.sourceTarget === 'Source153', 'FROZEN_SOURCE_TARGET');
   need(e?.snapshotPlan === 'OFFSITE_LOGICAL_DB_AND_ORIGINAL_STORAGE', 'DB_AND_STORAGE_REQUIRED');
-  need(e?.sourceOnly === true && e?.a2PassClaim !== true, 'NO_RUNTIME_PASS_CLAIM');
+  need(e?.sourceOnly === true, 'NO_RUNTIME_PASS_CLAIM');
 
   const a0 = e?.a0 ?? {};
-  need(nonempty(a0.ticketId) && nonempty(a0.operatorId) && nonempty(a0.independentReviewerId)
+  need(safeId(a0.ticketId) && safeId(a0.operatorId) && safeId(a0.independentReviewerId)
     && a0.operatorId !== a0.independentReviewerId, 'A0_DISTINCT_NAMED_REVIEW');
   need(sha(a0.scopedApprovalReceipt) && a0.onlyStaging116 === true
     && a0.isolatedRestoreOnly === true && a0.noStageMutationInPreflight === true,
@@ -73,7 +105,7 @@ export function assessStage116A0A2(e, ops, privacy) {
     'A2_DB_BACKUP_MECHANISM_FREE_REQUIRES_OFFSITE_LOGICAL');
   // A branch with only migration-created schema is NOT the protected Stage116 restored clone.
   need(a2.isolatedRestoreTargetRef !== ops?.staging?.projectRef
-    && nonempty(a2.isolatedRestoreTargetRef) && a2.targetContainsRestoredStageData === true,
+    && safeId(a2.isolatedRestoreTargetRef) && a2.targetContainsRestoredStageData === true,
     'A2_REAL_ISOLATED_DATA_RESTORE_NOT_BRANCH_ONLY');
   need(a2.originalStorageBytesCopied === true && a2.storageOutsideRollbackDomain === true
     && a2.storagePrivateToRecoveryOperators === true && a2.storageRestoredIndependently === true,
@@ -83,21 +115,17 @@ export function assessStage116A0A2(e, ops, privacy) {
     && a2.deletionLedgerReplayedBeforePromotion === true
     && a2.restoredSessionsRevalidated === true, 'A2_DELETION_AND_SESSION_RECONCILIATION');
   need(a2.storageLegalHoldsAndVersionsAccounted === true, 'A2_STORAGE_VERSIONS_HOLDS');
-  need(a2.dbRpoHours >= 0 && a2.dbRpoHours <= 24
-    && a2.storageRpoHours >= 0 && a2.storageRpoHours <= 24
-    && a2.drillRtoHours >= 0 && a2.drillRtoHours <= 4, 'A2_RPO_RTO_OBSERVED');
+  need(boundedNumber(a2.dbRpoHours, 24)
+    && boundedNumber(a2.storageRpoHours, 24)
+    && boundedNumber(a2.drillRtoHours, 4), 'A2_RPO_RTO_OBSERVED');
   for (const id of REQUIRED_A2) need(sha(a2.receipts?.[id]), 'A2_' + id);
   need(sha(a2.independentReviewerAttestation)
     && a2.independentReviewerId === a0.independentReviewerId, 'A2_INDEPENDENT_REVIEWER');
 
-  // Reject raw secrets or user content in repository/CI evidence. Receipts are digests ONLY.
-  const prohibited = /(?:secret|password|access.?token|refresh.?token|decrypted|signed.?url|raw.?bytes|user.?row|private.?key|provider.?subject|credential|cookie|raw.?payload|raw.?sql|file.?contents|api.?key)/i;
-  const walk = (v, key = '') => {
-    if (prohibited.test(key)) errors.push('SENSITIVE_FIELD:' + key);
-    if (Array.isArray(v)) { v.forEach((x) => walk(x, key)); return; }
-    if (isClean(v)) { Object.entries(v).forEach(([k, x]) => walk(x, k)); }
-  };
-  walk(e);
+  // All permitted evidence values above have fixed enums, typed booleans/numbers,
+  // bounded identifiers or opaque SHA-256 receipts. Never echo input data in errors.
+  // An A2 result/approval state is output-only; arbitrary notes or nested payloads
+  // cannot enter through this closed schema.
   // This checks only local JSON consistency, not archive authenticity or an actual restore.
   return { readyForOperatorReview: errors.length === 0,
     a2Accepted: false, status: 'NEED_OPERATOR / NEED_RUNTIME', errors };
@@ -109,7 +137,7 @@ function synthetic() {
   return {
     schema: 'dreamwishwand-stage116-a0-a2-evidence@1', stageProjectRef: 'ptpdoxhrqopvczpclcij',
     managedMigrationCount: 116, sourceTarget: 'Source153',
-    snapshotPlan: 'OFFSITE_LOGICAL_DB_AND_ORIGINAL_STORAGE', sourceOnly: true, a2PassClaim: false,
+    snapshotPlan: 'OFFSITE_LOGICAL_DB_AND_ORIGINAL_STORAGE', sourceOnly: true,
     a0: { ticketId: 'SYNTHETIC-TICKET', operatorId: 'SYNTHETIC-OP',
       independentReviewerId: 'SYNTHETIC-QR', scopedApprovalReceipt: h,
       onlyStaging116: true, isolatedRestoreOnly: true, noStageMutationInPreflight: true },
@@ -151,14 +179,47 @@ function selfTest(ops, privacy) {
     (x) => { x.a2.backupMechanism = 'MANAGED_DAILY_DB'; },
     (x) => { x.a2.dbRpoHours = 30; },
     (x) => { x.a2PassClaim = true; },
-    (x) => { x.credentials = { password: 'SYNTHETIC-NO-REAL-SECRET' }; }
+    (x) => { x.credentials = { password: 'SYNTHETIC-NO-REAL-SECRET' }; },
+    (x) => { x.a2.dbRpoHours = null; },
+    (x) => { x.a2.dbRpoHours = '12'; },
+    (x) => { x.a2.dbRpoHours = true; },
+    (x) => { delete x.a2.dbRpoHours; },
+    (x) => { x.a2.dbRpoHours = NaN; },
+    (x) => { x.a2.dbRpoHours = Infinity; },
+    (x) => { x.a2.storageRpoHours = null; },
+    (x) => { x.a2.storageRpoHours = '12'; },
+    (x) => { x.a2.storageRpoHours = true; },
+    (x) => { delete x.a2.storageRpoHours; },
+    (x) => { x.a2.storageRpoHours = NaN; },
+    (x) => { x.a2.storageRpoHours = Infinity; },
+    (x) => { x.a2.drillRtoHours = null; },
+    (x) => { x.a2.drillRtoHours = '12'; },
+    (x) => { x.a2.drillRtoHours = true; },
+    (x) => { delete x.a2.drillRtoHours; },
+    (x) => { x.a2.drillRtoHours = NaN; },
+    (x) => { x.a2.drillRtoHours = Infinity; },
+    (x) => { x.evidenceNotes = 'raw synthetic notes: user@example.test; Bearer abc'; },
+    (x) => { x.a2Accepted = true; },
+    (x) => { x.a0.notes = { nested: 'not evidence' }; },
+    (x) => { x.a1.other = true; },
+    (x) => { x.a2.unexpected = { nested: ['value'] }; },
+    (x) => { x.a1.receipts.extra = 'sha256:' + 'b'.repeat(64); },
+    (x) => { x.a2.receipts.extra = 'sha256:' + 'b'.repeat(64); },
+    (x) => { x.a1.receipts = []; },
+    (x) => { x.a0.operatorId = 'user@example.test'; },
+    (x) => { x.a2.isolatedRestoreTargetRef = 'https://example.test/raw'; },
+    (x) => { x.a0.ticketId = 'X'.repeat(129); },
+    (x) => { x.a0.operatorId = { handle: 'SYNTHETIC-OP' }; },
+    (x) => { x.a2.independentReviewerId = true; },
+    (x) => { x.a2.receipts.dbBackup = { sha: 'a'.repeat(64) }; },
+    (x) => { x.a2.storageOutsideRollbackDomain = 'true'; }
   ];
   for (const [i, mutation] of mutants.entries()) {
     const v = run(mutation);
     assert.equal(v.readyForOperatorReview, false, 'fail-closed negative fixture ' + i);
     assert.equal(v.a2Accepted, false, 'negative fixture must never issue PASS ' + i);
   }
-  console.log('STAGE116_A0_A2_SOURCE_ONLY_SYNTHETIC_17_NEGATIVES_PASS; A2 remains NEED_OPERATOR');
+  console.log(`STAGE116_A0_A2_SOURCE_ONLY_SYNTHETIC_${mutants.length}_NEGATIVES_PASS; A2 remains NEED_OPERATOR`);
 }
 
 const invoked = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname);
@@ -173,9 +234,17 @@ if (invoked) {
       console.error('NEED_OPERATOR: supply metadata-only --evidence JSON; no live Stage data read');
       process.exitCode = 1;
     } else {
-      const out = assessStage116A0A2(JSON.parse(fs.readFileSync(f, 'utf8')), ops, privacy);
-      console.log(JSON.stringify(out, null, 2));
-      if (!out.readyForOperatorReview) process.exitCode = 1;
+      // Size-limit before parsing; avoid JSON syntax errors echoing private contents.
+      try {
+        if (fs.statSync(f).size > 32768) throw new Error('OVERSIZE');
+        const evidence = JSON.parse(fs.readFileSync(f, 'utf8'));
+        const out = assessStage116A0A2(evidence, ops, privacy);
+        console.log(JSON.stringify(out, null, 2));
+        if (!out.readyForOperatorReview) process.exitCode = 1;
+      } catch {
+        console.error('INVALID_METADATA_EVIDENCE');
+        process.exitCode = 1;
+      }
     }
   }
 }
