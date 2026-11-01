@@ -46,7 +46,7 @@ await page.route('**/*',async route=>{
   const input=route.request().postDataJSON()??{};
   const rpc=String(input.rpc??url.pathname.split('/').pop()),params=input.payload??input;
   calls.push({rpc,params,path:url.pathname});
-  const gate=holds.find(g=>g.rpc===rpc&&g.match(params));
+  const gate=holds.find(g=>g.seen===0&&g.rpc===rpc&&g.match(params));
   if(gate){
     gate.seen++;
     const outcome=await gate.awaited;
