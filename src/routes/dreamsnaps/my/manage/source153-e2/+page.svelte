@@ -46,7 +46,7 @@
   $: extra=recheckCopy[$locale]??recheckCopy.en;
   let route:{status:string;workId:string|null}={status:'invalid',workId:null};
   let email='',password='',token='',status='AUTH_REQUIRED';
-  let view:any=null,working=false,canInspect=false;
+  let view:any=null,working=false,canInspect=false,canFreshRead=false;
   let loginEpoch=0,loginAborter:AbortController|null=null;
   const ownerController=createOwnerReadRevalidation({
     // The existing PR290 adapter and unchanged WEB267 decoder own HTTP validation.
@@ -56,6 +56,7 @@
       status=next.status;
       working=next.working;
       canInspect=next.canInspect;
+      canFreshRead=next.canFreshRead;
     }
   });
   function clearSession(){
@@ -63,7 +64,7 @@
     loginAborter?.abort();loginAborter=null;
     ownerController.invalidate('SESSION_CHANGED');
     token='';email='';password='';
-    view=null;status='AUTH_REQUIRED';working=false;canInspect=false;
+    view=null;status='AUTH_REQUIRED';working=false;canInspect=false;canFreshRead=false;
   }
   afterNavigate(({to})=>{
     clearSession();
@@ -129,7 +130,7 @@
     {#if token}
       <button type="button" on:click={clearSession} data-e2-logout>{extra[2]}</button>
       {#if status==='REFRESH_REQUIRED'}
-        <button type="button" on:click={freshRead} disabled={working || !canInspect}
+        <button type="button" on:click={freshRead} disabled={working || !canFreshRead}
           data-e2-fresh-read>{extra[1]}</button>
       {/if}
     {/if}
