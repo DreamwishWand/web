@@ -100,3 +100,60 @@ the existing local signed adapter. Browser tests are NOT proof of push
 revoke or production availability. Classify unavailable browser cases
 PARTIAL. 04 QR independently reviews only the child delta; 09 INT
 changes shared integration only if new accepted evidence requires it.
+
+
+## 2026-11-02 QR291 TRUE RED / explicit-Fresh CAS repair (same PR291)
+
+04 QR independently reproduced a new contract failure on Owner HEAD
+`3849e5ea2ed1dffe0de8e3bdc958f798431f6eca`: a verified Source candidate
+CAS2/2 → `REFRESH_REQUIRED` cleared `lastCas`, and either normal Inspect
+or Focus/Visible/Online/PageShow retried without CAS and reprojected a
+candidate without the required user Fresh action. This was a **source-only
+CAS UX invariant breach**, not a server-authorization bypass.
+
+**Superseding invariant:** `needsExplicitFresh` is a sticky, private
+controller latch set both on decoder `REFRESH_REQUIRED` and observed local
+`CAS_CONFLICT`. While latched, state must remain
+`REFRESH_REQUIRED/view:null/canInspect:false/canFreshRead:ready`, even when
+locally hidden, offline, blurred, page-hidden, or subsequently resumed.
+Normal Inspect and *all* Focus/Visible/Online/PageShow events must cause
+**ZERO new HTTP requests**, with no implicit CAS omission. Last same-Work CAS
+is retained in the closure, not silently discarded. Only deliberate user
+selection of the separate keyboard-accessible
+**Start a fresh read** button calls `revalidate({fresh:true})`; after
+checking that Work and signed session are ready, this clears the latch
+and previous CAS and performs exactly one new strict Source153 signed
+HTTP read. If the server rejects the fresh read, no source candidate
+is rendered, capabilities remain OFF. Work navigation, actor/session
+replacement and logout discard the old latch, last CAS, bearer and
+candidate, never reuse prior actor authority.
+
+New regressions assert independently for each resume trigger: after
+CAS2/2 rejection, ordinary Inspect + all four lifecycle resume events
+do not read; subsequent explicit Fresh alone sends rowVersion/authEpoch
+undefined. Separate tests cover local CAS_CONFLICT, fresh denial, route/
+session/logout reset, delayed response cancellation and DEV-only disabled
+Inspect vs enabled Fresh CTA.
+
+**Important signed HTTP limitation:** The unchanged WEB267 decoder
+classifies source HTTP409/412 and source-DTO CAS mismatch as
+`REFRESH_REQUIRED`, but HTTP403 is `BACKEND_UNAVAILABLE`.
+The established Source153 Edge may return 403 for stale expected CAS;
+there is no server-confirmed error subtype in the unchanged strict
+adapter enabling the browser to treat every 403 as a CAS refusal.
+Therefore the new sticky-latch proof is **controller-source level**
+for `REFRESH_REQUIRED`/`CAS_CONFLICT`, not a claim that every
+production/source HTTP403 activates the Fresh UI. Such 403s still
+fail-closed and preserve prior same-Work CAS for future reads. Do not
+weaken decoder, invent 409, or relabel 403. Genuine signed Chrome in
+the dedicated local workflow continues to cover existing **new-only
+lifecycle events** and is not a new CAS-to-focus signed rejection proof.
+
+The original Source153 SQL/Edge, strict WEB267 decoder, PR290 genuine
+signed adapter, PR245 Owner view, and all production OFF flags remain
+immutable. Dedicated Source/Node and normal CI plus local genuine
+GoTrue ES256 Chrome must be verified at a fixed final repair SHA.
+04 QR must independently inspect only the updated PR291 8-path
+child delta and this exact sticky gate, not previously accepted
+PR288 E2 or PR290 9+11 suites. Until independent PASS,
+Owner Browser remains PARTIAL and NO-GO.
