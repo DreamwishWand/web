@@ -1,0 +1,75 @@
+name: INT WEP275 + WEB276 Switch1253 read-only merged UX
+on:
+  push:
+    branches: ['integration/09int-wep275-web276-save-readonly-20261101']
+  pull_request:
+    paths:
+      - 'src/routes/editor/world/+page.svelte'
+      - 'src/lib/wep/world-save-source.ts'
+      - 'tests/wep-world-readonly626.test.mjs'
+      - 'src/lib/wep/save626-diagnostics-copy.js'
+      - 'tests/wep-save626-diagnostic-ux.test.mjs'
+      - 'scripts/web-save626-diagnostic-browser.mjs'
+      - 'docs/web/switch1253-save-readonly-ux-delta-20261101.md'
+      - 'docs/wep/world-editor-localization-inventory-20261002.json'
+      - '.github/workflows/web-switch1253-readonly-diagnostic.yml'
+permissions:
+  contents: read
+concurrency:
+  group: int-wep-web-save626-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  new-only-source-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Focused read-only scope and locale tests
+        run: node --test tests/wep-save626-diagnostic-ux.test.mjs tests/wep-world-readonly626.test.mjs
+      - name: Svelte types
+        run: npm run check
+      - name: Static build
+        run: npm run build
+      - name: Exact nine-file integration delta including narrow WEP Area UNKNOWN correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=fb6a9a92590e2cacbf356fbee2bc6fe2627c1805
+          git cat-file -e "$BASE^{commit}"
+          git diff --exit-code "$BASE" HEAD -- src/lib/ddv/core/save/ src/lib/collection/ src/routes/collection/ src/routes/gallery/ src/routes/guide/ supabase/ src/lib/wep/world-readonly-copy.js src/lib/dreamsnaps/
+          test "$(git hash-object src/lib/wep/world-save-source.ts)" = "0c141525efc1dd5ae646501e7420e872d5a52c77"
+          test "$(git hash-object tests/wep-world-readonly626.test.mjs)" = "9049753772aac5bbc819b7c7e748ba17147ebb3b"
+          git diff --name-only "$BASE" HEAD > /tmp/wep626-delta
+          test "$(wc -l < /tmp/wep626-delta)" -eq 9
+          while IFS= read -r p; do
+            case "$p" in
+              src/routes/editor/world/+page.svelte|src/lib/wep/save626-diagnostics-copy.js|tests/wep-save626-diagnostic-ux.test.mjs|scripts/web-save626-diagnostic-browser.mjs|docs/web/switch1253-save-readonly-ux-delta-20261101.md|docs/wep/world-editor-localization-inventory-20261002.json|src/lib/wep/world-save-source.ts|tests/wep-world-readonly626.test.mjs|.github/workflows/web-switch1253-readonly-diagnostic.yml) ;;
+              *) echo "UNEXPECTED PATH: $p" >&2; exit 1 ;;
+            esac
+          done < /tmp/wep626-delta
+      - name: Browser dependency
+        run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Find Chrome and start isolated local Web
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          npm run dev -- --host 127.0.0.1 --port 4179 > /tmp/web-save626-diagnostic.log 2>&1 &
+          for n in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4179/editor/world/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          echo 'LOCAL_BROWSER_SERVER_NOT_READY' >&2
+          exit 1
+      - name: Merged 626 WEP structural + WEB privacy synthetic Chrome, both sets, 8 locales
+        run: |
+          node scripts/wep-schema626-readonly-browser-acceptance.mjs
+          node scripts/web-save626-diagnostic-browser.mjs
