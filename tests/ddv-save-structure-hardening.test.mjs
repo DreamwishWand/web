@@ -67,3 +67,23 @@ test('generic GridObject geometry never proves Road/Fence topology', () => {
   assert.ok(result.entries.some(x => x.feature === 'road-fence' && x.path.endsWith('.FenceMode')));
   assert.ok(result.entries.every(x => x.feature !== 'road-fence' || x.path.includes('.FenceMode') || x.path.includes('.Road') || x.path.includes('.Fence')));
 });
+
+
+test('Grid key collisions cannot create false schema paths', () => {
+  const a = fixture(624), b = fixture(626);
+  a.World.GridCollection = { Grids: { ItemID: { Objects: { '01': { State: null } } } } };
+  b.World.GridCollection = { Grids: { X: { Objects: { '02': { State: null } } } } };
+  a.World.FloatingIslands = { ItemID: { Grid: { NextGridObjectID: 3 } } };
+  b.World.FloatingIslands = { X: { Grid: { NextGridObjectID: 4 } } };
+  const result = compareObservedSaveStructure(a, b, ids);
+  assert.equal(result.complete, true);
+  const paths = result.entries.map(e => e.path);
+  assert.ok(paths.some(p => p.includes('.Grids.*.Objects.*.State')));
+  assert.ok(paths.some(p => p.includes('.FloatingIslands.*.Grid.NextGridObjectID')));
+  assert.ok(!paths.some(p => p.includes('.Grids.ItemID') || p.includes('.Grids.X') ||
+    p.includes('.FloatingIslands.ItemID') || p.includes('.FloatingIslands.X')));
+  assert.ok(result.entries.every(e => !e.path.includes('.Grids.ItemID') &&
+    !e.path.includes('.FloatingIslands.ItemID')));
+  assert.equal(result.acceptance.write, 'NOT_AUTHORIZED');
+  assert.equal(result.acceptance.productApply, false);
+});
