@@ -1,0 +1,89 @@
+name: WEB real Owner read-only product boundary OFF (NEW ONLY)
+on:
+  push:
+    branches: ['web/owner-product-readonly-off-*']
+  pull_request:
+    paths:
+      - 'src/lib/dreamsnaps/owner-product-readonly.js'
+      - 'src/routes/dreamsnaps/my/manage/+page.svelte'
+      - 'tests/web-owner-product-readonly.test.mjs'
+      - 'scripts/web-owner-product-off-chrome.mjs'
+      - 'docs/web/owner-product-readonly-boundary-20261102.md'
+      - '.github/workflows/web-owner-product-readonly-off.yml'
+permissions:
+  contents: read
+concurrency:
+  group: web-owner-product-off-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-and-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Real Owner OFF source and session boundary
+        run: node --test tests/web-owner-product-readonly.test.mjs
+      - name: Svelte and TS checks
+        run: npm run check
+      - name: Production build with Owner disabled
+        run: npm run build
+      - name: Guard frozen accepted PR291 and backend/decoder parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=67534b86e8eb00649019d4cfdc2ab0d60ffe1935
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --exit-code "$BASE" HEAD -- supabase/ src/lib/community/ src/lib/dreamsnaps/source153-owner-consumer-v2.js src/lib/dreamsnaps/source153-owner-browser-e2.js src/lib/dreamsnaps/owner-read-revalidation.js src/lib/dreamsnaps/owner-management.js src/lib/dreamsnaps/owner-management-copy.js
+          test "$(git hash-object src/lib/dreamsnaps/source153-owner-consumer-v2.js)" = f981b7596711b47bceb2fa79a2191e79e8f1b459
+          test "$(git hash-object src/lib/dreamsnaps/source153-owner-browser-e2.js)" = 7468f9550e3e196d28b84c246ff529d2c5daa66e
+          test "$(git hash-object src/lib/dreamsnaps/owner-read-revalidation.js)" = "$(git rev-parse "$BASE:src/lib/dreamsnaps/owner-read-revalidation.js")"
+          test "$(git hash-object src/lib/community/staging-http-client.ts)" = 463a29428e8f0ec7733f526a1ca240667d4bc77f
+          test "$(git hash-object src/lib/community/browser-client.ts)" = 27716c4e89dcb01aacbf75ea63173f64328c2b93
+          git diff --name-only "$BASE" HEAD > /tmp/owner-product-diff
+          test "$(wc -l < /tmp/owner-product-diff)" -eq 6
+          while IFS= read -r p; do
+            case "$p" in
+              src/lib/dreamsnaps/owner-product-readonly.js|src/routes/dreamsnaps/my/manage/+page.svelte|tests/web-owner-product-readonly.test.mjs|scripts/web-owner-product-off-chrome.mjs|docs/web/owner-product-readonly-boundary-20261102.md|.github/workflows/web-owner-product-readonly-off.yml) ;;
+              *) echo UNEXPECTED_OWNER_PRODUCT_CHANGE >&2; exit 1 ;;
+            esac
+          done < /tmp/owner-product-diff
+  real-route-browser-off:
+    needs: source-and-build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      VITE_SUPABASE_URL: https://auth.example.test
+      VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_fixture_nonproduction
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Browser provenance
+        shell: bash
+        run: |
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Real Owner /manage path, OFF browser with no backend traffic
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4175 >/tmp/web-owner-prod-vite.log 2>&1 &
+          PID=$!
+          trap 'kill "$PID" 2>/dev/null || true; rm -f /tmp/web-owner-prod-vite.log' EXIT
+          for i in $(seq 1 60); do
+            if curl -fsS -o /dev/null http://127.0.0.1:4175/dreamsnaps/my/manage/; then break; fi
+            sleep 1
+          done
+          node scripts/web-owner-product-off-chrome.mjs
+          echo WEB_OWNER_REAL_PRODUCT_ROUTE_OFF_BROWSER_PASS
