@@ -58,6 +58,8 @@ const readHeaders = headers => {
  *  No automatic token refresh/401 replay: shared Community Client currently
  *  keeps #validSession/#refresh private and lacks coordinated sign-out events.
  */
+/** @param {{client?:any,endpoint?:string,appOrigin?:string,
+ * sourceOrigin?:string,fetchImpl?:(input:RequestInfo|URL,init?:RequestInit)=>Promise<Response>}} options */
 export function createOwnerProductReadOnlyAdapter({
   client,endpoint,appOrigin,sourceOrigin,fetchImpl=fetch
 }={}) {
