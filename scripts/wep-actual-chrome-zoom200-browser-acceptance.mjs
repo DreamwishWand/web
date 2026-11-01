@@ -127,8 +127,19 @@ try {
   });
   assert.ok(Math.abs(location.world.x-2.5)<0.05 && Math.abs(location.world.y-2.5)<0.05,
     'Actual 2x coordinate mapping failed '+JSON.stringify(location));
+  report.pointer = {
+    location,
+    beforeHit: await page.evaluate(({x,y}) => {
+      const hit=document.elementFromPoint(x,y);
+      return {tag:hit?.tagName ?? null, objectId:hit?.closest('[data-editor-object]')?.getAttribute('data-editor-object-id') ?? null};
+    },location.client)
+  };
   await page.mouse.click(location.client.x,location.client.y);
-  await assert.equal(await page.locator('g.selected[data-editor-object]').count(),1);
+  report.pointer.afterHit = await page.locator('g.selected[data-editor-object]').count();
+  report.pointer.focused = await page.evaluate(() => document.activeElement?.getAttribute('data-editor-object-id') ?? null);
+  await page.screenshot({path:join(artifactDir,'native-200-pointer-diagnostic.png'),fullPage:true});
+  assert.equal(report.pointer.afterHit,1,
+    'Pointer at target CSS client center must select SVG object: '+JSON.stringify(report.pointer));
   assert.ok(await chair.getAttribute('class')?.then(v=>v?.includes('selected')) || await chair.evaluate(el=>el.classList.contains('selected')));
   pass('NATIVE_ZOOM_POINTER_TO_SVG_WORLD_COORDINATES_AND_SELECTION',{location});
 
