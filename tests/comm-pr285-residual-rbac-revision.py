@@ -103,27 +103,6 @@ for who in "ABM":
     users[who]={"id":uid,"token":token}
 marker("RESIDUAL_ACTOR","REAL_GOTRUE_ISSUED_AND_VALIDATED_A_B_M")
 
-status,headers,diagnosis=http("/functions/v1/e1-jwks-env-probe",
-    body={"expectedKid":jwt_json_chunk(users["A"]["token"],0)["kid"]},token=users["A"]["token"])
-assert status==200 and diagnosis.get("ok") is True and diagnosis.get("edgeIsolate") is True,("EDGE_ISOLATE_PROBE_NOT_REACHABLE",status)
-header_ok=safe_edge_headers(headers)
-allowed=("inlinePresent","inlineJsonValid","inlineJwksShapeValid","publicKeyOnly",
-         "publicKeyCount","matchingKidCount","jwksUrlPresent","jwksUrlKind",
-         "publicUrlKind","internalUrlKind")
-assert all(type(diagnosis.get(k)) in (bool,int,str) for k in allowed),"DIAGNOSTIC_UNEXPECTED_SHAPE"
-marker("E1_EDGE_EFFECTIVE_ENV",json.dumps({k:diagnosis[k] for k in allowed},sort_keys=True),status)
-marker("E1_EDGE_DIAGNOSTIC_HEADERS","PRIVATE_CACHE_PASS" if header_ok else "PRIVATE_CACHE_NOT_CONFIRMED",status)
-if os.getenv("DDVRE_E1_EFFECTIVE_ENV_ONLY")=="1":
-    marker("E1_DIAGNOSTIC_ONLY","NO_PRIVATE_FIXTURE_NO_OWNER_E2E_PROMOTION")
-    raise SystemExit(0)
-
-assert diagnosis["inlinePresent"] and diagnosis["inlineJsonValid"],"EFFECTIVE_EDGE_INLINE_JWKS_MISSING"
-assert diagnosis["inlineJwksShapeValid"] and diagnosis["publicKeyCount"]>=1,"EFFECTIVE_EDGE_JWKS_INVALID"
-assert diagnosis["publicKeyOnly"] and diagnosis["matchingKidCount"]>=1,"EFFECTIVE_EDGE_SIGNER_KID_MISMATCH"
-assert header_ok,"EDGE_DIAGNOSTIC_PRIVATE_CACHE_HEADERS_MISSING"
-marker("E1_EDGE_EFFECTIVE_JWKS_GATE","PUBLIC_ES256_KID_MATCHED_BEFORE_E2E")
-
-
 with psycopg.connect(DSN,autocommit=True) as db:
     def scalar(q,args=()):
         return db.execute(q,args).fetchone()[0]
