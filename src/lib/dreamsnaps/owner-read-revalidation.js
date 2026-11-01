@@ -12,7 +12,7 @@ const resumptions = new Set(['VISIBLE','FOCUS','ONLINE','PAGESHOW']);
 const viewStatus='SOURCE153_SCHEMA_CANDIDATE_ONLY';
 const closed = (status='AUTH_REQUIRED') => Object.freeze({
   status, view:null, sourceCandidateOnly:false, working:false,
-  canInspect:false, ownerReadVerified:false, actionsEnabled:false,
+  canInspect:false, canFreshRead:false, ownerReadVerified:false, actionsEnabled:false,
   liveBackendEnabled:false, snapshot:null
 });
 const sourceSafe = r => r?.status===viewStatus &&
@@ -46,12 +46,14 @@ export function createOwnerReadRevalidation({read,onChange=()=>{}}={}) {
   if(typeof read!=='function'||typeof onChange!=='function')throw Error('INVALID_OWNER_REVALIDATION_ADAPTER');
   let workId=null, bearer=null, anonKey=null, generation=0, active=null;
   let visible=true, online=true, focused=true, disposed=false;
-  let lastCas=null, state=closed();
+  let lastCas=null, needsExplicitFresh=false, state=closed();
   const publish=(status,view=null,working=false)=>{
     const allowed=Boolean(workId&&bearer&&anonKey&&!disposed);
     state=Object.freeze({
-      ...closed(status),view,sourceCandidateOnly:!!view,working,
-      canInspect:allowed && visible && online && focused && !working
+      ...closed(needsExplicitFresh?'REFRESH_REQUIRED':status),
+      view:needsExplicitFresh?null:view,sourceCandidateOnly:!!view && !needsExplicitFresh,working,
+      canInspect:allowed && visible && online && focused && !working && !needsExplicitFresh,
+      canFreshRead:allowed && visible && online && focused && !working && needsExplicitFresh
     });
     onChange(state);
     return state;
@@ -68,9 +70,14 @@ export function createOwnerReadRevalidation({read,onChange=()=>{}}={}) {
   };
   const ready=()=>!disposed&&!!workId&&!!bearer&&!!anonKey&&visible&&online&&focused;
   const revalidate=async({fresh=false}={})=>{
-    if(!ready())return publish(!bearer?'AUTH_REQUIRED':'REVALIDATION_REQUIRED');
+    if(needsExplicitFresh && !fresh)return publish('REFRESH_REQUIRED');
+    if(!ready())return publish(needsExplicitFresh?'REFRESH_REQUIRED':(!bearer?'AUTH_REQUIRED':'REVALIDATION_REQUIRED'));
     if(active)return state;
-    if(fresh)lastCas=null;
+    if(fresh){
+      // Only the caller's explicit fresh-read action may unlock a CAS refusal.
+      needsExplicitFresh=false;
+      lastCas=null;
+    }
     cancel();
     const requestGeneration=generation,controller=new AbortController();
     active=controller;
@@ -94,8 +101,9 @@ export function createOwnerReadRevalidation({read,onChange=()=>{}}={}) {
         ['REFRESH_REQUIRED','BACKEND_UNAVAILABLE','UNSAFE_CACHE_POLICY',
          'SOURCE_CONTRACT_REJECTED','STALE_RESPONSE','AUTH_UNAVAILABLE'].includes(result.status)
         ? result.status : 'SOURCE_CONTRACT_REJECTED';
-      // Never auto-bypass a server CAS refusal; only explicit fresh refresh.
-      if(status==='REFRESH_REQUIRED')lastCas=null;
+      // Keep prior CAS and the sticky latch until an explicit Fresh action.
+      // Ordinary Inspect and all lifecycle resumes are prohibited meanwhile.
+      if(status==='REFRESH_REQUIRED')needsExplicitFresh=true;
       return publish(status);
     }
     const view=sanitized(result);
@@ -107,6 +115,7 @@ export function createOwnerReadRevalidation({read,onChange=()=>{}}={}) {
     const changed=workId!==normalized;
     if(changed){
       workId=normalized;
+      needsExplicitFresh=false;
       // Drop the old signed session BEFORE publishing canInspect. Never leave
       // a stale enabled read control on the newly selected Work.
       bearer=null;
@@ -116,6 +125,7 @@ export function createOwnerReadRevalidation({read,onChange=()=>{}}={}) {
     return state;
   };
   const replaceSession=(token,key)=>{
+    needsExplicitFresh=false;
     clear('AUTH_REQUIRED',false);
     bearer=typeof token==='string'&&token?token:null;
     anonKey=typeof key==='string'&&key?key:null;
@@ -124,13 +134,17 @@ export function createOwnerReadRevalidation({read,onChange=()=>{}}={}) {
   const invalidate=(reason)=>{
     if(!invalidations.has(reason))return state;
     if(reason==='WORK_CHANGED'||reason==='ACCOUNT_CHANGED'||reason==='SESSION_CHANGED'||reason==='LOGOUT'){
+      needsExplicitFresh=false;
       bearer=null;anonKey=null;
       return clear('AUTH_REQUIRED',false);
     }
     if(reason==='HIDDEN')visible=false;
     if(reason==='BLUR')focused=false;
     if(reason==='OFFLINE')online=false;
-    if(reason==='CAS_CONFLICT')return clear('REFRESH_REQUIRED',false);
+    if(reason==='CAS_CONFLICT'){
+      needsExplicitFresh=true;
+      return clear('REFRESH_REQUIRED');
+    }
     return clear('REVALIDATION_REQUIRED');
   };
   const resume=reason=>{
@@ -139,12 +153,14 @@ export function createOwnerReadRevalidation({read,onChange=()=>{}}={}) {
     if(reason==='FOCUS')focused=true;
     if(reason==='ONLINE')online=true;
     // PAGESHOW must not assert visibility/focus/online status on its own.
+    // A CAS refusal survives every resume. No implicit fresh/HTTP is allowed.
+    if(needsExplicitFresh)return Promise.resolve(clear('REFRESH_REQUIRED'));
     clear('REVALIDATION_REQUIRED');
     return ready()?revalidate():Promise.resolve(state);
   };
   const dispose=()=>{
     if(disposed)return;
-    disposed=true;bearer=null;anonKey=null;workId=null;
+    disposed=true;needsExplicitFresh=false;bearer=null;anonKey=null;workId=null;
     clear('AUTH_REQUIRED',false);
   };
   return Object.freeze({
