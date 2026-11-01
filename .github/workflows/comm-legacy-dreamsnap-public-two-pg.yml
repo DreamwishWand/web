@@ -2,6 +2,8 @@ name: 03 COMM Legacy DreamSnaps Public Reader Two PG
 on:
   push:
     branches: ['test/03comm-legacy-dreamsnap-public-reader-20261101','feature/03comm-legacy-dreamsnap-public-reader-fix-20261101']
+  pull_request:
+    branches: ['feature/03comm-x05-source153-owner-authority-projection-20261028']
   workflow_dispatch:
 permissions:
   contents: read
