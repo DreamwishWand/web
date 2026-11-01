@@ -4,7 +4,7 @@ Source144/F08/F09 fixture shape reused, but only two legacy RPCs and
 R20 predicate exercised. No real JWT, user Media, Storage or external endpoints.
 Mode REPRO=1 detects actual static hypothesis. REPRO=0 tests candidate closure.
 """
-import json,os,uuid,psycopg
+import json,os,uuid,hashlib,psycopg
 assert os.getenv("DDVRE_PRIVACY_ISOLATED_LOCAL")=="CONFIRMED"
 assert not os.getenv("DATABASE_URL") and not os.getenv("SUPABASE_ACCESS_TOKEN")
 dsn='postgresql://postgres:postgres@127.0.0.1:54322/postgres'
@@ -91,6 +91,15 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
           values(%s,%s,%s,1,100)""",(entry,challenge,rev))
     assert one(a,"select count(*) from supabase_migrations.schema_migrations")==153
     assert one(a,"select pg_backend_pid()")!=one(b,"select pg_backend_pid()")
+    rawsearch=one(a,"select pg_get_functiondef('public.community_search_gallery_dreamsnaps_public_v1(text,integer)'::regprocedure)")
+    rawdetail=one(a,"select pg_get_functiondef('public.community_get_gallery_dreamsnap_public_v1(uuid)'::regprocedure)")
+    print(json.dumps({'marker':'LEGACY_DB_FINAL_DEFINITIONS',
+      'searchSha256':hashlib.sha256(rawsearch.encode()).hexdigest(),
+      'detailSha256':hashlib.sha256(rawdetail.encode()).hexdigest(),
+      'searchReferencesR20': 'dreamsnap_public_work_accessible_r20' in rawsearch,
+      'detailReferencesR20': 'dreamsnap_public_work_accessible_r20' in rawdetail,
+      'searchSecurityDefiner': 'SECURITY DEFINER' in rawsearch.upper(),
+      'detailSecurityDefiner': 'SECURITY DEFINER' in rawdetail.upper()}),flush=True)
     baseline=reads(b)
     assert baseline['search'] and baseline['detail'],baseline
     assert one(a,"select count(*) from private.dreamsnap_official_result_account_consent_r20 where account_id=%s",(account,))==0
@@ -116,13 +125,20 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
             select w.lifecycle_state,w.visibility,w.moderation_state,
                    a.status,ai.identity_state,cp.profile_visibility,
                    gp.publication_state,ce.deleted_at is not null,
-                   private.is_account_privacy_suppressed(w.owner_account_id)
+                   private.is_account_privacy_suppressed(w.owner_account_id),
+                   cp.moderation_state,e.entry_state,e.eligibility_state,
+                   e.managed_under13,m.processing_state,m.moderation_state,
+                   w.current_published_revision_id=gp.revision_id,
+                   e.entry_revision_id=gp.revision_id
             from public.community_works w
             join public.wand_accounts a on a.account_id=w.owner_account_id
             join public.auth_identities ai on ai.account_id=a.account_id
             join public.creator_profiles cp on cp.creator_profile_id=w.creator_profile_id
             join public.community_entities ce on ce.entity_id=cp.creator_profile_id
             join public.dreamsnap_gallery_publications gp on gp.work_id=w.work_id
+            join public.dreamsnap_entries e on e.entry_id=gp.entry_id
+            join public.work_revision_media wrm on wrm.work_revision_id=gp.revision_id and wrm.role='dreamsnap' and wrm.ordinal=0
+            join public.media_assets m on m.media_id=wrm.media_id
             where w.work_id=%s limit 1
           """,(work,)).fetchone()
           assert state is not None,(label,'missing Work state')
@@ -140,7 +156,12 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
             'effectiveWorkModeration':state[2], 'effectiveAccountStatus':state[3],
             'effectiveIdentityState':state[4], 'effectiveCreatorVisibility':state[5],
             'effectivePublicationState':state[6],
-            'creatorEntityDeleted':state[7],'effectivePrivacySuppression':state[8]}),flush=True)
+            'creatorEntityDeleted':state[7],'effectivePrivacySuppression':state[8],
+            'creatorModeration':state[9], 'entryState':state[10],
+            'entryEligibility':state[11],'entryUnder13':state[12],
+            'mediaProcessing':state[13],'mediaModeration':state[14],
+            'workCurrentRevisionEqualsGallery':state[15],
+            'entryRevisionEqualsGallery':state[16]}),flush=True)
         finally:
           a.execute('rollback to savepoint legacy_probe')
           a.execute('release savepoint legacy_probe')
