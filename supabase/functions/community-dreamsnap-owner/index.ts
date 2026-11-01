@@ -208,8 +208,24 @@ const handler=withSupabase({auth:'user'},async (req,ctx)=>{
     data:result});
 });
 export default {
-  fetch(req:Request) {
+  async fetch(req:Request) {
     if(req.method==='OPTIONS')return new Response('ok',{headers:{...corsHeaders,'Cache-Control':'private, no-store'}});
-    return handler(req);
+    const response=await handler(req);
+    // withSupabase rejects missing credentials before the Owner handler runs.
+    // Preserve its status, body, CORS, and auth decision; harden only its 401.
+    if(response.status!==401||!response.headers.has('x-supabase-server-error'))
+      return response;
+    const headers=new Headers(response.headers);
+    headers.set('Cache-Control','private, no-store, max-age=0');
+    headers.set('CDN-Cache-Control','no-store');
+    headers.set('Surrogate-Control','no-store');
+    headers.set('Pragma','no-cache');
+    const vary=new Set((headers.get('Vary')??'').split(',').map(x=>x.trim()).filter(Boolean));
+    vary.add('Authorization');
+    vary.add('Origin');
+    headers.set('Vary',[...vary].join(', '));
+    return new Response(response.body,{
+      status:response.status,statusText:response.statusText,headers
+    });
   }
 };

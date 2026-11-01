@@ -1,0 +1,98 @@
+name: COMM Source153 SDK early 401 cache-only fix
+on:
+  pull_request:
+    branches:
+      - qa/03comm-pr285-residual-rbac-revision-20261101
+permissions:
+  contents: read
+jobs:
+  sdk-401-no-store:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      DDVRE_E1_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate exact independent accepted PR286 ancestor and source-only 401 boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=595802b013f15dedf5ec94d70e6bbe7ce21a8243
+          git merge-base --is-ancestor "$BASE" HEAD
+          test "$(git hash-object supabase/migrations/20261028000060_x05_authoritative_owner_projection_v2.sql)" = 356cc10138cd351674fde8dd943acc968e26fbbc
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 153
+          test -z "$(git diff --name-only "$BASE" HEAD -- supabase/migrations src package.json package-lock.json)"
+          test "$(git diff --name-only "$BASE" HEAD -- supabase/functions | wc -l)" -eq 1
+          test "$(git diff --name-only "$BASE" HEAD -- supabase/functions)" = supabase/functions/community-dreamsnap-owner/index.ts
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID"
+          python3 -m py_compile tests/comm-source153-sdk-401-response-headers.py
+          node --input-type=module - <<'JS'
+          import {execFileSync} from 'node:child_process';
+          const old=execFileSync('git',['show','595802b013f15dedf5ec94d70e6bbe7ce21a8243:supabase/functions/community-dreamsnap-owner/index.ts'],{encoding:'utf8'});
+          const now=execFileSync('cat',['supabase/functions/community-dreamsnap-owner/index.ts'],{encoding:'utf8'});
+          const oldPrefix=old.slice(0,old.lastIndexOf('export default {'));
+          const newPrefix=now.slice(0,now.lastIndexOf('export default {'));
+          if(oldPrefix!==newPrefix)throw Error('OWNER_AUTH_OR_HANDLER_CHANGED');
+          if(!now.includes("response.status!==401||!response.headers.has('x-supabase-server-error')"))throw Error('SDK401_SCOPE_CHANGED');
+          if(!now.includes("return new Response(response.body"))throw Error('RESPONSE_SEMANTICS_UNVERIFIED');
+          console.log('COMM_SDK401_NO_AUTH_LOGIC_CHANGES');
+          JS
+          echo COMM_SDK401_SOURCE_SCOPE_OK
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+      - name: Generate ephemeral local ES256 GoTrue key
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\n[auth]\nsigning_keys_path = "./signing_keys.json"\n' >> supabase/config.toml
+          printf '[]\n' > supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes >/tmp/comm-sdk401-keygen-private.log 2>&1
+          python3 - <<'PY'
+          import json
+          keys=json.load(open('supabase/signing_keys.json'))
+          assert isinstance(keys,list) and any(k.get('kty')=='EC' and k.get('crv')=='P-256' and k.get('kid') and k.get('d') for k in keys)
+          print('COMM_SDK401_LOCAL_REAL_ES256_READY')
+          PY
+      - name: Boot disposable FULL153 without external Provider or real data
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_comm_sdk401_disposable_only"\n' | cat - supabase/config.toml > /tmp/comm-sdk401-config.toml
+          mv /tmp/comm-sdk401-config.toml supabase/config.toml
+          timeout 1800s supabase start >/tmp/comm-sdk401-boot.log 2>&1 || { echo COMM_SDK401_ISOLATED_BOOT_FAILED; exit 1; }
+          echo COMM_SDK401_ISOLATED_FULL153_BOOT_PASS
+      - name: Install local-only DB driver
+        run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Only NEW genuine ES256 SDK 401 cache and unchanged authenticated guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/comm-source153-sdk-401-response-headers.py 2>&1 | tee /tmp/comm-sdk401-sanitized.log
+          grep -q '"case": "SDK401_BOUNDARY_TARGETED_PASS"' /tmp/comm-sdk401-sanitized.log
+          echo COMM_SDK401_EARLY_ERROR_HEADERS_TARGETED_PASS
+      - name: Tear down disposable isolated stack with no backup
+        if: always()
+        shell: bash
+        run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f supabase/signing_keys.json /tmp/comm-sdk401-keygen-private.log /tmp/comm-sdk401-boot.log
+          echo COMM_SDK401_ISOLATED_TEARDOWN_ATTEMPTED
+      - name: Upload sanitized case-only markers for one day
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: comm-sdk401-no-secrets
+          path: /tmp/comm-sdk401-sanitized.log
+          if-no-files-found: ignore
+          retention-days: 1
