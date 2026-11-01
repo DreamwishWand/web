@@ -25,7 +25,11 @@ try:
       capture_output=True,text=True,env=env,timeout=180)
     # Never forward console output, request bodies, private IDs or credentials
     # from a failing browser process into Actions logs.
-    assert browser.returncode==0,"LOCAL_SIGNED_CHROMIUM_TEST_FAILED"
+    if browser.returncode != 0:
+        import re
+        matches=re.findall(r'WEB_X05_BROWSER_DIAGNOSTIC_[A-Z0-9_]+',browser.stderr)
+        print(matches[-1] if matches else 'WEB_X05_BROWSER_DIAGNOSTIC_NO_STAGE',flush=True)
+        raise AssertionError('LOCAL_SIGNED_CHROMIUM_TEST_FAILED')
     assert "WEB_X05_GENUINE_GOTRUE_ES256_BROWSER_9_OF_9_PASS" in browser.stdout,\
         "SIGNED_CHROME_PASS_MARKER_NOT_FOUND"
     marker("WEB_X05_GENUINE_GOTRUE_ES256_CHROMIUM","BROWSER_9_OF_9_PASS_LOCAL_TEST_ONLY")
