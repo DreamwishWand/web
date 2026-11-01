@@ -132,7 +132,8 @@ test('new-only signed browser keeps prior source CAS and rejects stale owner/ses
  assert.ok(chrome.includes("route.fetch()"));
  assert.ok(chrome.includes('PROJECTION_MUST_BE_POPULATED_DURING_DOM_AUDIT'));
  assert.ok(chrome.includes('JWT_IN_LIVE_DOM'));
- assert.ok(fixture.includes('PARTIAL_NOT_RUN_NO_ISOLATED_REVERSIBLE_STATE_FIXTURE'));
+ assert.ok(fixture.includes('insert into private.account_privacy_suppressions(account_id)'));
+ assert.ok(fixture.includes('len(counts)==11'));
  assert.ok(!chrome.includes('route.fulfill({status:200'));
  assert.ok(!page.includes('localStorage'));
 });
