@@ -80,12 +80,13 @@
   });
   async function signIn(){
     if(!localOnly || !anonKey)return;
+    const pendingEmail=email,pendingPassword=password;
     clearSession();
     status='CHECKING_SESSION';working=true;
     const generation=loginEpoch,controller=new AbortController();
     loginAborter=controller;
     const result=await loginDisposableGoTrue({
-      fetchImpl:fetch,email,password,anonKey,signal:controller.signal
+      fetchImpl:fetch,email:pendingEmail,password:pendingPassword,anonKey,signal:controller.signal
     });
     password='';email='';
     if(generation!==loginEpoch || controller.signal.aborted)return;
