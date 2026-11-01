@@ -12,6 +12,8 @@ const COPY = Object.freeze({
     village: 'Village records',
     area: 'Area records',
     grids: 'Grid records',
+    gridObjects: 'Grid object dictionary entries (not validated placements)',
+    subgrid: 'SubGrid structure and placement semantics remain unverified.',
     boundary: 'Native Area/Grid placement semantics are not verified for v1.25.3. Canvas, drafting, candidates, exporting edited saves and Apply are disabled.',
     retry: 'Verify the Switch extraction source and exact ExeFS BID, then choose the file again.'
   },
