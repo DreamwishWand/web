@@ -60,6 +60,26 @@ jobs:
           python3 tests/qr-e1-source153-genuine-signed-disposable.py 2>&1 | tee /tmp/e1-local-only-sanitized.log
           grep -q '"case": "E1_SOURCE153_GENUINE_SIGNED_R1_R2"' /tmp/e1-local-only-sanitized.log
           echo E1_SOURCE153_REAL_GOTRUE_JWT_EDGE_POSTGREST_RLS_TARGETED_PASS
+      - name: Sanitized local Edge diagnostic on signed test failure
+        if: failure()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import re,subprocess
+          names=subprocess.check_output(["docker","ps","--format","{{.Names}}"],text=True).splitlines()
+          for name in names:
+              if "edge" not in name.lower():continue
+              proc=subprocess.run(["docker","logs","--tail","120",name],
+                  capture_output=True,text=True)
+              candidates=[x for x in (proc.stderr+"\n"+proc.stdout).splitlines()
+                  if re.search(r'error|exception|module|npm|failed|uncaught',x,re.I)]
+              for line in candidates[-22:]:
+                  line=re.sub(r'Bearer\s+\S+','Bearer [REDACTED]',line,flags=re.I)
+                  line=re.sub(r'(?<!\w)[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+(?!\w)','[JWT_REDACTED]',line)
+                  line=re.sub(r'[\w.+-]+@[\w.-]+','[EMAIL]',line)
+                  line=re.sub(r'[0-9a-f]{8}-[0-9a-f-]{27,36}','[UUID]',line,flags=re.I)
+                  print("E1_EDGE_DIAG",line[:250])
+          PY
       - name: Stop and remove disposable local Supabase storage
         if: always()
         shell: bash
