@@ -47,7 +47,7 @@ source+='''
         if mutate is None:
             completed=subprocess.run(command,env=env,capture_output=True,text=True,timeout=120)
             diagnostic=next((line for line in completed.stdout.splitlines()
-                if line.startswith("WEB_E2_SAFE_DIAGNOSTIC_"+label+"_LINE_")),"SAFE_LINE_UNKNOWN")
+                if line.startswith("CASELINE "+label+" ")),"LINE_UNKNOWN")
             assert completed.returncode==0,("BROWSER_CASE_FAILED",label,completed.returncode,diagnostic)
             assert "WEB_NEGATIVE_SIGNED_BROWSER_"+label+"_PASS_LOCAL_ONLY" in completed.stdout, ("MISSING_BROWSER_MARKER",label)
         else:
@@ -61,7 +61,7 @@ source+='''
                 proc.stdin.flush()
                 out,err=proc.communicate(timeout=120)
                 diagnostic=next((line for line in out.splitlines()
-                    if line.startswith("WEB_E2_SAFE_DIAGNOSTIC_"+label+"_LINE_")),"SAFE_LINE_UNKNOWN")
+                    if line.startswith("CASELINE "+label+" ")),"LINE_UNKNOWN")
                 assert proc.returncode==0,("BROWSER_CASE_FAILED",label,proc.returncode,diagnostic)
                 assert "WEB_NEGATIVE_SIGNED_BROWSER_"+label+"_PASS_LOCAL_ONLY" in out, ("MISSING_BROWSER_MARKER",label)
             finally:
