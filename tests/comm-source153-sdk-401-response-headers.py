@@ -69,6 +69,12 @@ with psycopg.connect("postgresql://postgres:postgres@127.0.0.1:54322/postgres",a
     target=uuid.uuid4()
     st,h,j=http("/functions/v1/community-dreamsnap-owner",
                 body={"operation":"pregrant","workId":str(target)})
+    marker("SDK401_EARLY_RESPONSE_SHAPE",
+           json.dumps({"status":st,"sdkHeader":bool(headers_lower(h).get("x-supabase-server-error")),
+                       "privateHeaders":private_headers(h),
+                       "sdkSource":isinstance(j,dict) and j.get("source")=="@supabase/server",
+                       "errorCode":(j.get("code") if isinstance(j,dict) and j.get("code") in (
+                           "MISSING_CREDENTIALS","INVALID_CREDENTIALS","AUTH_ERROR","MISSING_AUTHORIZATION_HEADER") else "other_or_missing")},sort_keys=True),st)
     assert st==401 and bool(headers_lower(h).get("x-supabase-server-error"))
     assert private_headers(h),"SDK_EARLY_401_MISSING_STRICT_PRIVATE_CACHE_HEADERS"
     assert isinstance(j,dict) and (j.get("source")=="@supabase/server" or "code" in j)
