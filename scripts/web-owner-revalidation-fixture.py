@@ -70,6 +70,17 @@ source+='''
             diagnostic=next((line for line in out.splitlines() if line.startswith("WEB403_CASELINE ")), "LINE_UNKNOWN")
             assert proc.returncode==0,("SIGNED_403_BROWSER_FAILED",proc.returncode,diagnostic)
             assert "WEB_OWNER_403_RECOVERY_SIGNED_CHROMIUM_NEW_ONLY_PASS_LOCAL" in out, ("MISSING_NEW_BROWSER_MARKER",)
+            http_status={}
+            for key in ("STALE_CAS","EXPLICIT_FRESH","REVOKED_READ","REVOKED_FRESH"):
+                line=next((v for v in out.splitlines() if v.startswith("WEB403_HTTP_"+key+"=")),None)
+                assert line is not None, ("MISSING_STATUS_ONLY",key)
+                http_status[key]=int(line.rsplit("=",1)[1])
+            assert http_status["STALE_CAS"]==403 and http_status["EXPLICIT_FRESH"]==200
+            assert http_status["REVOKED_READ"] in (401,403,404)
+            assert http_status["REVOKED_FRESH"] in (401,403,404)
+            print("WEB403_HTTP_STATUS_ONLY stale={} fresh={} revokedRead={} revokedFresh={}".format(
+                http_status["STALE_CAS"],http_status["EXPLICIT_FRESH"],
+                http_status["REVOKED_READ"],http_status["REVOKED_FRESH"]))
         finally:
             if proc.poll() is None:
                 proc.kill()
