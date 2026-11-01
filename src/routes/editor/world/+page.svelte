@@ -2343,11 +2343,10 @@
           } : null,
           sourceEvidence: sourceProvenanceConfirmed ? WEP_WORLD_READONLY_626_PROVENANCE : null
         });
-        // Schema626 has no backup/edit/Apply consumer. Avoid retaining a
-        // redundant raw byte copy or a potentially identifying source name.
-        originalSaveBackup = opened.compatibility.readOnly
-          ? null
-          : createOriginalSaveBackup({ bytes, sourceName: file.name });
+        originalSaveBackup = createOriginalSaveBackup({
+          bytes,
+          sourceName: file.name
+        });
         if (opened.compatibility.routesAuthorized && opened.saveIdentity.sourcePlatform === 'switch') {
           buildingV110Binding ??=
             await createSwitchV125BuildingBinding({
