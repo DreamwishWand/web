@@ -143,7 +143,16 @@ with psycopg.connect(DSN,autocommit=True) as db:
             token=users[who]["token"] if who else None)
     for work,kind,revision,media in ((original,"OriginalCompetition",po,mo),(post,"PostEventCreation",pp,mp)):
         status,headers,result=pregrant("A",work)
-        assert status==200,("SIGNED_OWNER_EDGE_PREGRANT_FAILED",status)
+        if status!=200:
+            direct_status,_,direct=http("/rest/v1/rpc/community_dreamsnap_x05_pregrant_read_v1",
+                body={"p_work_id":str(work)},token=users["A"]["token"])
+            # No raw SQL message, JWT or object ids are written to logs.
+            marker("R1-EDGE-DIAG","EDGE_OWNER_PREGRANT_NOT_ACCEPTED",status)
+            marker("R1-POSTGREST-DIAG","SIGNED_OWNER_DIRECT_PREGRANT_HTTP",direct_status)
+            edge_code=result.get("error","") if isinstance(result,dict) else ""
+            if isinstance(edge_code,str) and edge_code.replace("_","").isalnum() and len(edge_code)<=50:
+                marker("R1-EDGE-ERROR","SANITIZED_CODE_"+edge_code)
+            raise AssertionError(("SIGNED_OWNER_EDGE_PREGRANT_FAILED",status,direct_status))
         assert safe_private(headers),("MISSING_EDGE_NO_STORE",status)
         assert result.get("ok") is True and result.get("operation")=="pregrant"
         v=result["data"]
