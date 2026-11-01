@@ -130,7 +130,12 @@ jobs:
           f.write_text(source)
           f.chmod(0o600)
           PY
-          python3 /tmp/ddvre-web-x05-test-only.py >/tmp/web-x05-signed-private.log 2>&1 || { echo WEB_X05_SIGNED_CHROMIUM_FAILED; exit 1; }
+          if ! python3 /tmp/ddvre-web-x05-test-only.py >/tmp/web-x05-signed-private.log 2>&1; then
+            grep -E 'WEB_X05_BROWSER_DIAGNOSTIC_[A-Z0-9_]+' /tmp/web-x05-signed-private.log | tail -n 1 || true
+            grep -E '"case": "E2-[A-Z0-9-]+"' /tmp/web-x05-signed-private.log | tail -n 2 || true
+            echo WEB_X05_SIGNED_CHROMIUM_FAILED
+            exit 1
+          fi
           grep -q 'WEB_X05_GENUINE_GOTRUE_ES256_CHROMIUM' /tmp/web-x05-signed-private.log
           echo WEB_X05_GENUINE_GOTRUE_ES256_BROWSER_9_OF_9_PASS
       - name: Stop/discard local GoTrue stack and private temp data
