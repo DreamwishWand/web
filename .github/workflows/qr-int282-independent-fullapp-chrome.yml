@@ -1,0 +1,61 @@
+name: 04 QR independent PR282 real Chromium local full-app acceptance
+on:
+  push:
+    branches: ['qa/04qr-int282-independent-chrome-20261101']
+  pull_request:
+    paths:
+      - 'scripts/qr-int282-independent-fullapp-chrome.mjs'
+      - '.github/workflows/qr-int282-independent-fullapp-chrome.yml'
+permissions:
+  contents: read
+jobs:
+  isolated-independent-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact immutable PR282 source is ancestor
+        shell: bash
+        run: |
+          set -euo pipefail
+          OWNER=36f08eba1ef5c0cd865e74bdd3e183ff028f6858
+          git merge-base --is-ancestor "$OWNER" HEAD
+          git diff --quiet "$OWNER" HEAD -- src/ supabase/ tests/ package.json package-lock.json
+          test "$(git rev-parse HEAD:src/routes/gallery/+page.svelte)" = "$(git rev-parse "$OWNER":src/routes/gallery/+page.svelte)"
+          test "$(git rev-parse HEAD:src/routes/creator/+page.svelte)" = "$(git rev-parse "$OWNER":src/routes/creator/+page.svelte)"
+      - run: npm ci --no-audit --no-fund
+      - name: Svelte check and production static build
+        run: |
+          npm run check
+          npm run build
+      - name: Install standalone Chrome automation client
+        run: |
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          "$CHROME_BIN" --version
+      - name: Boot the exact owner app locally with synthetic public endpoint only
+        env:
+          VITE_SUPABASE_URL: https://qr-independent-282.invalid
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_QR_INDEPENDENT_FAKE_NO_SECRET
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4198 >/tmp/qr-int282-4198.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4198/gallery/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr-int282-4198.log >&2
+          exit 1
+      - name: Independently authored real-Chrome Gallery Creator Q&A route privacy regression
+        run: node scripts/qr-int282-independent-fullapp-chrome.mjs
+      - name: Local test-only log on failure
+        if: failure()
+        run: tail -n 100 /tmp/qr-int282-4198.log || true
