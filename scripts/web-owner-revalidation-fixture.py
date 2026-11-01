@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Reuse the already accepted E2 signed fixture *bootstrap*; only new acceptance
-is signed Chromium browser OwnerAuthority UI. No live Provider, Stage or real
+is genuine signed Chromium CAS403 recovery without prior suite replay. No live Provider, Stage or real
 Owner actors. Zero JWTs, emails, passwords and ID values are printed.
 """
 import os
@@ -46,9 +46,35 @@ source+='''
                     if resp.status==200: break
             except Exception: time.sleep(1)
         else: raise AssertionError("LOCAL_WAND_SERVER_TIMEOUT")
-        subprocess.run(["node","scripts/web-owner-revalidation-chrome.mjs"],
-            check=True,env=env,timeout=240)
-        marker("WEB_OWNER_REVALIDATION_NEW_ONLY","REAL_ES256_BROWSER_REVALIDATION_SOURCE_ONLY_NO_PUBLIC_ACTIVATION")
+        # New-only two-phase runner handshake. Browser never controls SQL:
+        # only the test runner issues a genuine signed Owner withdrawal.
+        proc=subprocess.Popen(["node","scripts/web-owner-revalidation-chrome.mjs"],
+            env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,text=True,bufsize=1)
+        try:
+            ready=proc.stdout.readline().strip()
+            assert ready=="WEB403_READY_WITH_CAS1",("SIGNED_403_CAS1_SYNC_FAILED",)
+            st,h,r=owner("A","action",original,action="withdraw",
+                expectedRowVersion=1,expectedAuthorizationEpoch=1)
+            assert st==200 and safe_edge_headers(h) and r.get("ok") is True, ("SIGNED_WITHDRAW_FAILED",st)
+            assert scalar("select row_version from private.dreamsnap_x05_work_control_v1 where work_id=%s",(original,))==2
+            assert scalar("select authorization_epoch from private.dreamsnap_x05_work_control_v1 where work_id=%s",(original,))==2
+            proc.stdin.write("WITHDRAW_DONE\\n");proc.stdin.flush()
+            ready=proc.stdout.readline().strip()
+            assert ready=="WEB403_REVOKE_READY",("SIGNED_403_FRESH_SYNC_FAILED",ready[:40])
+            with db.transaction():
+                db.execute("update public.auth_identities set identity_state='retired' where account_id=%s",(account["A"],))
+            assert scalar("select identity_state::text from public.auth_identities where account_id=%s",(account["A"],))=="retired"
+            proc.stdin.write("REVOKE_DONE\\n");proc.stdin.flush()
+            out,err=proc.communicate(timeout=180)
+            diagnostic=next((line for line in out.splitlines() if line.startswith("WEB403_CASELINE ")), "LINE_UNKNOWN")
+            assert proc.returncode==0,("SIGNED_403_BROWSER_FAILED",proc.returncode,diagnostic)
+            assert "WEB_OWNER_403_RECOVERY_SIGNED_CHROMIUM_NEW_ONLY_PASS_LOCAL" in out, ("MISSING_NEW_BROWSER_MARKER",)
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+                proc.communicate()
+        marker("WEB_OWNER_403_RECOVERY_NEW_ONLY","SIGNED_CAS403_THEN_MANUAL_FRESH_WITHDRAWN_THEN_REVOKED_DENIED")
     finally:
         child.terminate()
         try:child.wait(timeout=10)
