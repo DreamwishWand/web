@@ -9,6 +9,7 @@ const ownersPath='/functions/v1/community-dreamsnap-owner';
 const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN,
  args:['--no-sandbox','--disable-dev-shm-usage']});
 let checks=0, pageErrors=[], observed=[], urls=[];
+let phase='BOOT';
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 try {
  const context=await browser.newContext({viewport:{width:1280,height:820}});
@@ -22,6 +23,7 @@ try {
    const u=new URL(r.url());
    if(u.pathname===ownersPath)observed.push(r.status());
  });
+ phase='INITIAL_ANON';
  const initial=await page.goto(url+'/dreamsnaps/my/manage/?work='+v.original,{waitUntil:'domcontentloaded'});
  assert.equal(initial?.status(),200);
  const section=page.locator('[data-local-owner-browser="isolated-only"]');
@@ -35,6 +37,7 @@ try {
    await page.locator('#test-owner-password').fill(v.users[actor].password);
    await page.locator('[data-local-owner-browser] button[type=submit]').click();
  };
+ phase='OWNER_A_LOGIN';
  await signIn('A');
  await page.locator('[data-local-owner-state="source-candidate-only"]').waitFor({state:'visible',timeout:18000});
  assert.equal(await page.locator('[data-local-owner-kind="OriginalCompetition"]').count(),1);
@@ -51,6 +54,7 @@ try {
    await page.locator('[data-local-spa-probe]').last().click();
    await page.waitForURL(full);
  };
+ phase='POST_EVENT_SPA';
  await spa('?work='+v.post);
  await page.locator('[data-local-owner-entry="post-event-no-entry"]').waitFor({state:'visible',timeout:18000});
  assert.equal(await page.locator('[data-local-owner-kind="PostEventCreation"]').count(),1);
@@ -60,6 +64,7 @@ try {
  await page.locator('[data-local-owner-entry="post-event-no-entry"]').waitFor({state:'visible'});
  checks++; // Original Entry distinct from PostEvent without Entry, SPA back/forward
 
+ phase='INVALID_QUERY';
  const beforeInvalid=observed.length;
  for(const qs of ['?work=bad','?work='+v.original+'&work='+v.original,
        '?work='+v.original+'&tip='+v.original]){
@@ -72,6 +77,7 @@ try {
 
  await spa('?work='+v.original);
  await page.locator('[data-local-owner-entry="frozen-entry-present"]').waitFor({state:'visible'});
+ phase='LOCALES_320';
  for(const loc of ['en','fr','it','de','es-ES','ja','zh-CN','pt-BR']){
    await page.locator('#site-locale').selectOption(loc);
    await page.waitForFunction(l=>document.documentElement.lang===l,loc);
@@ -86,6 +92,7 @@ try {
  assert.equal(await focus.evaluate(el=>document.activeElement===el),true);
  checks++; // eight locales, mobile, keyboard/A11Y
 
+ phase='REDACTION';
  const visible=await page.locator('[data-local-owner-browser]').innerText();
  const pageText=await page.locator('body').innerText();
  const locationString=page.url();
@@ -108,6 +115,7 @@ try {
 
  await page.locator('[data-local-owner-browser] .actions button').last().click();
  await page.locator('#test-owner-email').waitFor({state:'visible'});
+ phase='NON_OWNER_B';
  await signIn('B');
  await page.locator('[data-local-owner-state="unavailable"]').waitFor({state:'visible',timeout:18000});
  assert.equal(await page.locator('[data-local-owner-state="source-candidate-only"]').count(),0);
@@ -115,14 +123,19 @@ try {
  checks++; // actual ES256 nonowner B denial
 
  await page.locator('[data-local-owner-browser] .actions button').last().click();
+ phase='MODERATOR_M';
  await signIn('M');
  await page.locator('[data-local-owner-state="unavailable"]').waitFor({state:'visible',timeout:18000});
  assert.ok([401,403,404].includes(observed.at(-1)));
  checks++; // registered Moderator M not Owner
 
+ phase='PAGE_ERRORS';
  assert.deepEqual(pageErrors,[]);
  checks++; // no JS exceptions
  await context.close();
+} catch(e) {
+ console.error('WEB_X05_BROWSER_DIAGNOSTIC_'+phase+'_'+(e?.name??'UNKNOWN'));
+ throw Error('REDACTED_CHROMIUM_FAILURE');
 } finally {await browser.close();}
 assert.equal(checks,9);
 console.log('WEB_X05_GENUINE_GOTRUE_ES256_BROWSER_9_OF_9_PASS');
