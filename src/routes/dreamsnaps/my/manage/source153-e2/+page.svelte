@@ -1,4 +1,5 @@
 <script lang="ts">
+  import {onMount} from 'svelte';
   import {afterNavigate} from '$app/navigation';
   import {locale} from '$lib/i18n/runtime.js';
   import {parseOwnerWorkRoute} from '$lib/dreamsnaps/owner-management.js';
@@ -6,15 +7,19 @@
     loginDisposableGoTrue,readIsolatedSource153Owner,
     SOURCE153_BROWSER_E2_PRODUCTION_ENABLED
   } from '$lib/dreamsnaps/source153-owner-browser-e2.js';
+  import {
+    createOwnerReadRevalidation,attachOwnerReadBrowserLifecycle,
+    OWNER_REVALIDATION_PRODUCTION_ENABLED
+  } from '$lib/dreamsnaps/owner-read-revalidation.js';
   import {SOURCE153_OWNER_V2_LIVE_ENABLED} from '$lib/dreamsnaps/source153-owner-consumer-v2.js';
   import {OWNER_MANAGEMENT_ENABLED} from '$lib/dreamsnaps/owner-management.js';
 
-  // A disposable local fixture opt-in, excluded from production builds.
-  const localOnly = import.meta.env.DEV &&
-    import.meta.env.VITE_DDVRE_E2_OWNER_READONLY === 'LOCAL_DISPOSABLE_ONLY' &&
-    !SOURCE153_BROWSER_E2_PRODUCTION_ENABLED &&
+  // Disposable LOCAL ONLY. Nothing in this controller activates Owner rights.
+  const localOnly=import.meta.env.DEV &&
+    import.meta.env.VITE_DDVRE_E2_OWNER_READONLY==='LOCAL_DISPOSABLE_ONLY' &&
+    !SOURCE153_BROWSER_E2_PRODUCTION_ENABLED && !OWNER_REVALIDATION_PRODUCTION_ENABLED &&
     !SOURCE153_OWNER_V2_LIVE_ENABLED && !OWNER_MANAGEMENT_ENABLED;
-  const anonKey=localOnly ? String(import.meta.env.VITE_DDVRE_E2_LOCAL_ANON_KEY??'') : '';
+  const anonKey=localOnly?String(import.meta.env.VITE_DDVRE_E2_LOCAL_ANON_KEY??''):'';
   const copy: Record<string,string[]> = {
     en:['Isolated Owner read-only inspection','Test-only signed local session','Inspect this Work','Source-shaped candidate only, not verified Owner authority','Unavailable; do not publish or apply'],
     fr:['Inspection privée isolée','Session locale signée de test','Inspecter cette œuvre','Données candidates uniquement, sans autorisation confirmée','Indisponible, ne pas publier'],
@@ -25,59 +30,90 @@
     'zh-CN':['隔离Owner只读检查','本地签名测试会话','检查作品','仅供检查的Source候选，非已验证Owner授权','不可用，不得发布'],
     'pt-BR':['Inspeção privada isolada','Sessão local assinada de teste','Inspecionar trabalho','Somente candidato de fonte, não autorização verificada','Indisponível, não publicar']
   };
-  $: labels = copy[$locale] ?? copy.en;
-  let route: {status:string;workId:string|null} = {status:'invalid',workId:null};
+
+
+  $: labels=copy[$locale]??copy.en;
+  const recheckCopy:Record<string,string[]> = {
+    en:['Recheck current Work','Start a fresh read','Clear test session','Source candidate requires a fresh signed read; no Owner rights are enabled'],
+    fr:['Revérifier cette œuvre','Relire sans ancien CAS','Effacer la session de test','Une nouvelle lecture signée est requise, sans droits Owner'],
+    it:['Verifica di nuovo','Nuova lettura','Cancella sessione','Serve una nuova lettura firmata, senza diritti Owner'],
+    de:['Werk erneut prüfen','Neue Leseanfrage','Testsitzung löschen','Neue signierte Abfrage erforderlich, keine Owner-Rechte'],
+    'es-ES':['Volver a comprobar','Nueva lectura','Borrar sesión de prueba','Se requiere una nueva lectura firmada, sin derechos Owner'],
+    ja:['このWorkを再確認','新しい読取りを開始','検証セッションを消去','再び実署名読取りが必要です。Owner権限は有効ではありません'],
+    'zh-CN':['重新检查作品','发起新读取','清除测试会话','需要新的签名读取，不授予Owner权限'],
+    'pt-BR':['Verificar novamente','Nova leitura','Limpar sessão de teste','É necessária nova leitura assinada, sem direitos Owner']
+  };
+  const accessRecoveryCopy:Record<string,string> = {
+    en:'The signed server could not confirm access. This is not identified as a CAS conflict. A fresh read checks authorization again; no access is granted locally.',
+    fr:'Le serveur signé n’a pas confirmé l’accès. Aucun conflit CAS n’est établi. Une nouvelle lecture vérifie à nouveau l’autorisation.',
+    it:'Il server firmato non ha confermato l’accesso. Non è un conflitto CAS accertato. Una nuova lettura verifica ancora l’autorizzazione.',
+    de:'Der signierte Server konnte den Zugriff nicht bestätigen. Ein CAS-Konflikt ist nicht nachgewiesen. Eine neue Abfrage prüft die Berechtigung erneut.',
+    'es-ES':'El servidor firmado no confirmó el acceso. No se ha establecido un conflicto CAS. Una nueva lectura comprueba de nuevo la autorización.',
+    ja:'署名済みサーバーでアクセスを確認できませんでした。CAS競合とは断定できません。新しい読取りでもサーバー側で認可を再確認します。',
+    'zh-CN':'签名服务器未确认访问权限，不能断定为CAS冲突。重新读取时仍须由服务器验证授权。',
+    'pt-BR':'O servidor assinado não confirmou o acesso. Não há confirmação de conflito CAS. Uma nova leitura verifica novamente a autorização.'
+  };
+  $: accessRecoveryHint=accessRecoveryCopy[$locale]??accessRecoveryCopy.en;
+  $: extra=recheckCopy[$locale]??recheckCopy.en;
+  let route:{status:string;workId:string|null}={status:'invalid',workId:null};
   let email='',password='',token='',status='AUTH_REQUIRED';
-  let view:any=null,working=false,epoch=0,aborter:AbortController|null=null;
-  function clear(statusText='AUTH_REQUIRED') {
-    ++epoch;
-    aborter?.abort();
-    aborter=null;
-    view=null;status=statusText;working=false;
+  let view:any=null,working=false,canInspect=false,canFreshRead=false;
+  let loginEpoch=0,loginAborter:AbortController|null=null;
+  const ownerController=createOwnerReadRevalidation({
+    // The existing PR290 adapter and unchanged WEB267 decoder own HTTP validation.
+    read:(params:any)=>readIsolatedSource153Owner({fetchImpl:fetch,...params}),
+    onChange:(next:any)=>{
+      view=next.view;
+      status=next.status;
+      working=next.working;
+      canInspect=next.canInspect;
+      canFreshRead=next.canFreshRead;
+    }
+  });
+  function clearSession(){
+    ++loginEpoch;
+    loginAborter?.abort();loginAborter=null;
+    ownerController.invalidate('SESSION_CHANGED');
+    token='';email='';password='';
+    view=null;status='AUTH_REQUIRED';working=false;canInspect=false;canFreshRead=false;
   }
   afterNavigate(({to})=>{
-    clear();
-    token='';email='';password='';
+    clearSession();
     route=parseOwnerWorkRoute(to?.url?.search??'');
+    ownerController.routeChanged(route.workId);
+  });
+  onMount(()=>{
+    if(!localOnly)return;
+    const unsubscribe=attachOwnerReadBrowserLifecycle(ownerController,{
+      documentRef:document,windowRef:window
+    });
+    if(!navigator.onLine)ownerController.invalidate('OFFLINE');
+    return ()=>{unsubscribe();clearSession();ownerController.dispose();};
   });
   async function signIn(){
     if(!localOnly || !anonKey)return;
-    clear('CHECKING_SESSION');
-    token='';
-    const sequence=epoch;
-    const controller=new AbortController();
-    aborter=controller;working=true;
+    const pendingEmail=email,pendingPassword=password;
+    clearSession();
+    status='CHECKING_SESSION';working=true;
+    const generation=loginEpoch,controller=new AbortController();
+    loginAborter=controller;
     const result=await loginDisposableGoTrue({
-      fetchImpl:fetch,email,password,anonKey,signal:controller.signal
+      fetchImpl:fetch,email:pendingEmail,password:pendingPassword,anonKey,signal:controller.signal
     });
     password='';email='';
-    if(sequence!==epoch || controller.signal.aborted)return;
+    if(generation!==loginEpoch || controller.signal.aborted)return;
     token=result.token??'';
-    status=result.status;
+    if(token)ownerController.replaceSession(token,anonKey);
+    else status=result.status;
     working=false;
   }
   async function inspect(){
     if(!localOnly || !token || route.status!=='authority-pending' || !route.workId)return;
-    // Carry only the last displayed source CAS, never caller-supplied authority.
-    // A changed server Work must reject this prior observation on re-inspection.
-    const previousRowVersion=view?.sourceCandidateOnly ? view.rowVersion : undefined;
-    const previousAuthorizationEpoch=view?.sourceCandidateOnly ? view.authorizationEpoch : undefined;
-    clear('READING_SOURCE');
-    const sequence=epoch;
-    const controller=new AbortController();
-    aborter=controller;working=true;
-    // Work ID is a locator only. Source153 binds GoTrue subject on the server.
-    const result=await readIsolatedSource153Owner({
-      fetchImpl:fetch,token,anonKey,workId:route.workId,
-      requestGeneration:sequence,latestGeneration:sequence,
-      expectedRowVersion:previousRowVersion,
-      expectedAuthorizationEpoch:previousAuthorizationEpoch,
-      signal:controller.signal
-    });
-    if(sequence!==epoch || controller.signal.aborted)return;
-    view=result.sourceCandidateOnly ? result:null;
-    status=result.status;
-    working=false;
+    await ownerController.revalidate();
+  }
+  async function freshRead(){
+    if(!localOnly || !token || route.status!=='authority-pending' || !route.workId)return;
+    await ownerController.revalidate({fresh:true});
   }
 </script>
 
@@ -96,9 +132,21 @@
       <input id="e2-password" type="password" autocomplete="off" bind:value={password}/>
       <button type="submit" disabled={working && !token}>{labels[1]}</button>
     </form>
-    <button type="button" on:click={inspect} disabled={working || !token}
-       data-e2-inspect>{labels[2]}</button>
+    <button type="button" on:click={inspect} disabled={working || !token || !canInspect}
+       data-e2-inspect>{extra[0]}</button>
     <p role="status" aria-live="polite" data-e2-status>{status}</p>
+    {#if status==='REVALIDATION_REQUIRED' || status==='REFRESH_REQUIRED'}
+      <p role="status" data-e2-revalidation-hint>{extra[3]}</p>
+    {:else if status==='BACKEND_UNAVAILABLE' && canFreshRead}
+      <p role="status" data-e2-neutral-recovery>{accessRecoveryHint}</p>
+    {/if}
+    {#if token}
+      <button type="button" on:click={clearSession} data-e2-logout>{extra[2]}</button>
+      {#if canFreshRead && (status==='REFRESH_REQUIRED' || status==='BACKEND_UNAVAILABLE')}
+        <button type="button" on:click={freshRead} disabled={working || !canFreshRead}
+          data-e2-fresh-read>{extra[1]}</button>
+      {/if}
+    {/if}
     {#if view}
       <dl data-e2-projection="candidate-only">
         <dt>Work kind</dt><dd data-e2-kind>{view.kind}</dd>
