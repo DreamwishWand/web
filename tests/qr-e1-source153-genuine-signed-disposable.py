@@ -59,10 +59,25 @@ def http(path, method="POST", body=None, token=None, key=None):
 def safe_private(h):
     return h.get("Cache-Control","").find("no-store")>=0 and h.get("CDN-Cache-Control","").lower()=="no-store"
 
-def jwt_payload(tok):
+def jwt_json_chunk(tok, index):
     chunks=tok.split(".")
     assert len(chunks)==3,"ISSUER_JWT_FORMAT"
-    return json.loads(base64.urlsafe_b64decode(chunks[1]+"="*(-len(chunks[1])%4)))
+    return json.loads(base64.urlsafe_b64decode(chunks[index]+"="*(-len(chunks[index])%4)))
+
+def jwt_payload(tok):
+    return jwt_json_chunk(tok,1)
+
+def safe_edge_headers(h):
+    vary={s.strip().lower() for s in h.get("Vary","").split(",")}
+    return (safe_private(h)
+        and h.get("Surrogate-Control","").lower()=="no-store"
+        and {"authorization","origin"}.issubset(vary))
+
+status,_,jwks=http("/auth/v1/.well-known/jwks.json",method="GET")
+assert status==200 and isinstance(jwks.get("keys"),list),"LOCAL_GOTRUE_JWKS_ENDPOINT_NOT_READY"
+public_keys=jwks["keys"]
+assert public_keys and all("d" not in k for k in public_keys),"JWKS_PUBLIC_KEY_ONLY_GUARD"
+marker("E1-JWKS","LOCAL_GOTRUE_PUBLIC_JWKS_AVAILABLE",status)
 
 prefix="wand-e1-"+secrets.token_hex(6)
 users={}
@@ -79,8 +94,12 @@ for who in "ABM":
     assert status==200 and "access_token" in login,("GENUINE_PASSWORD_LOGIN_FAILED",status)
     token=login["access_token"]
     claims=jwt_payload(token)
+    header=jwt_json_chunk(token,0)
+    assert header.get("alg")=="ES256" and isinstance(header.get("kid"),str),"GOTRUE_NOT_ES256_SIGNED"
+    assert any(k.get("kid")==header["kid"] and k.get("kty")=="EC" and k.get("crv")=="P-256" for k in public_keys),"ES256_KID_NOT_DISCOVERABLE"
     assert claims["sub"]==str(uid) and claims["role"]=="authenticated" and claims.get("session_id")
     assert claims.get("iss") and claims.get("aud") and claims.get("iat") and claims.get("exp")
+    assert claims["exp"]>time.time() and claims["iat"]<=time.time()+60,"TOKEN_LIFETIME_INVALID"
     status,_,profile=http("/auth/v1/user",method="GET",token=token)
     assert status==200 and profile.get("id")==str(uid),("GOTRUE_TOKEN_AUTHENTICITY_FAILED",status)
     users[who]={"id":uid,"token":token}
@@ -144,16 +163,34 @@ with psycopg.connect(DSN,autocommit=True) as db:
         status,headers,result=http("/rest/v1/rpc/community_dreamsnap_x05_pregrant_read_v1",
             body={"p_work_id":str(work)},token=users[who]["token"] if who else None)
         return status,headers,({"ok":True,"operation":"pregrant","data":result} if status==200 else result)
-    edge_status,edge_headers,edge_result=http(path,body={"operation":"pregrant","workId":str(original)},
-        token=users["A"]["token"])
-    if edge_status==200:
-        assert safe_private(edge_headers) and edge_result.get("ok") is True
-        marker("R1-EDGE","SIGNED_EDGE_PREGRANT_AND_NO_STORE_PASS",edge_status)
-    else:
-        code=edge_result.get("code","") if isinstance(edge_result,dict) else ""
-        if isinstance(code,str) and code.replace("_","").isalnum() and len(code)<=60:
-            marker("R1-EDGE-CODE","SANITIZED_"+code)
-        marker("R1-EDGE","EDGE_RUNTIME_SEPARATE_NOT_ACCEPTED",edge_status)
+    for work,kind in ((original,"OriginalCompetition"),(post,"PostEventCreation")):
+        edge_status,edge_headers,edge_result=http(path,body={"operation":"pregrant","workId":str(work)},
+            token=users["A"]["token"])
+        if edge_status!=200:
+            code=edge_result.get("code","") if isinstance(edge_result,dict) else ""
+            if isinstance(code,str) and code.replace("_","").isalnum() and len(code)<=60:
+                marker("R1-EDGE-CODE","SANITIZED_"+code)
+            marker("R1-EDGE","ES256_EDGE_OWNER_NOT_ACCEPTED",edge_status)
+            raise AssertionError(("REAL_ES256_EDGE_OWNER_FAILED",edge_status))
+        assert safe_edge_headers(edge_headers),"EDGE_PRIVATE_CACHE_HEADER_MISSING"
+        assert edge_result.get("ok") is True and edge_result.get("operation")=="pregrant"
+        ed=edge_result.get("data")
+        assert isinstance(ed,dict) and ed.get("kind")==kind and ed.get("state")=="NEED_POLICY_ARTIFACT"
+        assert ed.get("ownerAuthorized") is True and ed.get("publicActivationAllowed") is False
+        assert "storageKey" not in json.dumps(edge_result) and "signedUrl" not in json.dumps(edge_result)
+        marker("R1-EDGE-O" if kind=="OriginalCompetition" else "R1-EDGE-P",
+               "REAL_ES256_EDGE_OWNER_PREGRANT_NO_STORE_PASS",edge_status)
+    for who in ("B","M",None):
+        st,hd,r=http(path,body={"operation":"pregrant","workId":str(original)},
+            token=users[who]["token"] if who else None)
+        assert st in (401,403,404),"EDGE_FOREIGN_PRIVATE_ALLOWED"
+        assert safe_edge_headers(hd),"EDGE_DENIAL_CACHE_HEADERS_MISSING"
+        assert str(original) not in json.dumps(r) and str(mo) not in json.dumps(r),"EDGE_DENIAL_IDENTIFIER_LEAK"
+        marker("R1-EDGE-DENY-"+(who or "ANON"),"SIGNED_EDGE_PRIVATE_DENY_NO_STORE_PASS",st)
+    st,hd,r=http(path,body={"operation":"authority","workId":str(original)},token=users["A"]["token"])
+    assert st in (401,403,404,409) and safe_edge_headers(hd),"EDGE_UNGRANTED_AUTHORITY_DENIAL_FAILED"
+    assert str(mo) not in json.dumps(r),"EDGE_UNGRANTED_MEDIA_LEAK"
+    marker("R1-EDGE-NO-GRANT","SIGNED_EDGE_AUTHORITY_UNGRANTED_DENIED",st)
     for work,kind,revision,media in ((original,"OriginalCompetition",po,mo),(post,"PostEventCreation",pp,mp)):
         status,headers,result=pregrant("A",work)
         assert status==200,("SIGNED_DIRECT_PREGRANT_FAILED",status)
@@ -246,4 +283,4 @@ for who in "ABM":
     # are destroyed by the job teardown regardless.
     with contextlib.suppress(Exception):
         http("/auth/v1/admin/users/"+str(users[who]["id"]),method="DELETE",token=admin,key=admin)
-marker("E1_SOURCE153_GENUINE_SIGNED_R1_R2_POSTGREST","TARGETED_REAL_ISSUER_RLS_PASS_EDGE_SEPARATE")
+marker("E1_SOURCE153_GENUINE_SIGNED_R1_R2_POSTGREST","TARGETED_REAL_ES256_EDGE_POSTGREST_PASS")
