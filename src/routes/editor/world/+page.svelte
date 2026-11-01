@@ -5897,7 +5897,9 @@
             <div><dt>{readonly626Copy.village}</dt><dd>{worldSource.structuralDiagnostics?.villageCount ?? '—'}</dd></div>
             <div><dt>{readonly626Copy.area}</dt><dd>{worldSource.structuralDiagnostics?.areaRecordCount ?? '—'}</dd></div>
             <div><dt>{readonly626Copy.grids}</dt><dd>{worldSource.structuralDiagnostics?.gridRecordCount ?? '—'}</dd></div>
+            <div data-wep-626-gridobject-entries><dt>{readonly626Copy.gridObjects}</dt><dd>{worldSource.structuralDiagnostics?.gridObjectEntryCount ?? '—'}</dd></div>
           </dl>
+          <p data-wep-626-subgrid-unknown>{readonly626Copy.subgrid}</p>
           {#each worldSource.structuralDiagnostics?.notes ?? [] as note}
             <p><code>{note}</code></p>
           {/each}

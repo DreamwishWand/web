@@ -47,9 +47,11 @@ test('synthetic exact Switch schema626 packaged source: structural read only, no
     villageCount: 1,
     areaRecordCount: 1,
     gridRecordCount: 1,
+    gridObjectEntryCount: 1,
     notes: [
       'WEP_SCHEMA626_WORLD_STRUCTURE_ONLY',
       'WEP_SCHEMA626_AREA_GRID_NATIVE_SEMANTICS_UNVERIFIED',
+      'WEP_SCHEMA626_GRIDOBJECT_ENTRIES_ONLY_SUBGRID_UNVERIFIED',
       'WEP_SCHEMA626_EDITOR_DRAFT_AND_WRITER_DISABLED'
     ]
   });
@@ -71,6 +73,17 @@ for (const [name, options, reason] of negative) {
     await assert.rejects(() => openWorldSaveBytes(raw, options), reason);
   });
 }
+test('GridObject structural counts stop at unknown on missing Objects; no Grid or SubGrid promotion', async () => {
+  const missing = structuredClone(profile626);
+  delete missing.World.GridCollection.Grids['7'].Objects;
+  const opened = await openWorldSaveBytes(makeSyntheticP1gProfile(missing), accepted);
+  assert.equal(opened.structuralDiagnostics.gridObjectEntryCount, null);
+  assert.deepEqual(opened.areas, []);
+  assert.equal(opened.compatibility.routesAuthorized, false);
+  assert.equal(opened.compatibility.persistentWriteAuthorized, false);
+  assert.equal(opened.compatibility.productApplyAuthorized, false);
+});
+
 test('schema626 plain JSON is not promoted to real packaged-source read acceptance', async () => {
   const bytes = new TextEncoder().encode(JSON.stringify(profile626));
   await assert.rejects(() => openWorldSaveBytes(bytes, accepted), /PACKAGED_SOURCE_REQUIRED/);
@@ -95,6 +108,8 @@ test('malformed required root and malformed packaged bytes fail closed', async (
 test('UI never opens a schema626 v125 session or displays editing actions', () => {
   const page = readFileSync(new URL('../src/routes/editor/world/+page.svelte', import.meta.url), 'utf8');
   assert.match(page, /data-wep-626-readonly/);
+  assert.match(page, /data-wep-626-gridobject-entries/);
+  assert.match(page, /data-wep-626-subgrid-unknown/);
   assert.match(page, /worldSource\.compatibility\.readOnly/);
   assert.match(page, /!worldSource\.compatibility\?\.routesAuthorized/);
   assert.match(page, /WEP_WORLD_626_RECOVERY_NOT_AUTHORIZED/);
@@ -107,8 +122,33 @@ test('eight language copies present and no source save is embedded in test', asy
   const { WORLD_READONLY_COPY_LOCALES, worldReadonlyCopy } = await import('../src/lib/wep/world-readonly-copy.js');
   assert.deepEqual([...WORLD_READONLY_COPY_LOCALES].sort(), ['de', 'en', 'es-ES', 'fr', 'it', 'ja', 'pt-BR', 'zh-CN'].sort());
   for (const id of WORLD_READONLY_COPY_LOCALES) {
-    for (const key of ['build','proof','proofHint','viewing','editing','source','unsupported','diagnostic','village','area','grids','boundary','retry']) {
+    for (const key of ['build','proof','proofHint','viewing','editing','source','unsupported','diagnostic','village','area','grids','gridObjects','subgrid','boundary','retry']) {
       assert.ok(worldReadonlyCopy(id)[key]?.length > 2, id + ':' + key);
     }
   }
+});
+
+
+test('Area entries fail closed to UNKNOWN when any Village Areas map is absent or malformed', async () => {
+  const cases = [
+    [{}, null],
+    [{ Areas: null }, null],
+    [{ Areas: [] }, null],
+    [null, null],
+    [{ Areas: {} }, 0],
+    [{ Areas: { '1': {} } }, 1]
+  ];
+  for (const [village, expected] of cases) {
+    const sample = structuredClone(profile626);
+    sample.World.Villages = [village];
+    const opened = await openWorldSaveBytes(makeSyntheticP1gProfile(sample), accepted);
+    assert.equal(opened.structuralDiagnostics.areaRecordCount, expected);
+    assert.equal(opened.compatibility.readOnly, true);
+    assert.equal(opened.compatibility.persistentWriteAuthorized, false);
+  }
+  const mixed = structuredClone(profile626);
+  mixed.World.Villages.push({ Areas: null });
+  const opened = await openWorldSaveBytes(makeSyntheticP1gProfile(mixed), accepted);
+  assert.equal(opened.structuralDiagnostics.villageCount, 2);
+  assert.equal(opened.structuralDiagnostics.areaRecordCount, null);
 });

@@ -12,6 +12,8 @@ const COPY = Object.freeze({
     village: 'Village records',
     area: 'Area records',
     grids: 'Grid records',
+    gridObjects: 'Grid object dictionary entries (not validated placements)',
+    subgrid: 'SubGrid structure and placement semantics remain unverified.',
     boundary: 'Native Area/Grid placement semantics are not verified for v1.25.3. Canvas, drafting, candidates, exporting edited saves and Apply are disabled.',
     retry: 'Verify the Switch extraction source and exact ExeFS BID, then choose the file again.'
   },
@@ -27,6 +29,8 @@ const COPY = Object.freeze({
     village: 'Villageレコード',
     area: 'Areaレコード',
     grids: 'Gridレコード',
+    gridObjects: 'GridObject辞書エントリ（配置の検証ではありません）',
+    subgrid: 'SubGridの構造と配置意味論は未検証です。',
     boundary: 'v1.25.3の配置意味論は未検証です。Canvas、ドラフト、変更候補、編集済みセーブの出力、Applyは無効です。',
     retry: 'Switchの抽出元とExeFSのBIDを確認してから、再度ファイルを選択してください。'
   },
@@ -42,6 +46,8 @@ const COPY = Object.freeze({
     village: 'Dorfdatensätze',
     area: 'Gebietsdatensätze',
     grids: 'Rasterdatensätze',
+    gridObjects: 'GridObject-Wörterbucheinträge (keine bestätigten Platzierungen)',
+    subgrid: 'SubGrid-Struktur und Platzierungssemantik bleiben ungeprüft.',
     boundary: 'Platzierungssemantik in v1.25.3 nicht verifiziert. Canvas, Bearbeitung, Export und Anwenden sind deaktiviert.',
     retry: 'Switch-Herkunft und ExeFS-BID prüfen und Datei erneut wählen.'
   },
@@ -57,6 +63,8 @@ const COPY = Object.freeze({
     village: 'Enregistrements de villages',
     area: 'Enregistrements de zones',
     grids: 'Enregistrements de grilles',
+    gridObjects: 'Entrées GridObject (placements non validés)',
+    subgrid: 'La structure SubGrid et le placement restent non vérifiés.',
     boundary: 'Placement v1.25.3 non validé. Canvas, brouillons, export modifié et application désactivés.',
     retry: 'Vérifiez la source Switch et le BID ExeFS, puis sélectionnez à nouveau le fichier.'
   },
@@ -72,6 +80,8 @@ const COPY = Object.freeze({
     village: 'Record villaggi',
     area: 'Record aree',
     grids: 'Record griglie',
+    gridObjects: 'Voci GridObject (non posizionamenti verificati)',
+    subgrid: 'Struttura SubGrid e posizionamento non verificati.',
     boundary: 'Semantica del posizionamento v1.25.3 non verificata. Canvas, bozze, export modificato e Apply disabilitati.',
     retry: 'Verifica origine Switch e BID ExeFS, poi seleziona di nuovo il file.'
   },
@@ -87,6 +97,8 @@ const COPY = Object.freeze({
     village: 'Registros de aldeas',
     area: 'Registros de áreas',
     grids: 'Registros de cuadrículas',
+    gridObjects: 'Entradas GridObject (no son posiciones verificadas)',
+    subgrid: 'La estructura SubGrid y su colocación no están verificadas.',
     boundary: 'Colocación de v1.25.3 sin verificar. Canvas, borradores, exportación editada y Apply desactivados.',
     retry: 'Verifica el origen Switch y el BID de ExeFS y vuelve a elegir el archivo.'
   },
@@ -102,6 +114,8 @@ const COPY = Object.freeze({
     village: 'Registros de vilas',
     area: 'Registros de áreas',
     grids: 'Registros de grades',
+    gridObjects: 'Entradas GridObject (não são posições verificadas)',
+    subgrid: 'Estrutura e posicionamento SubGrid não verificados.',
     boundary: 'Posicionamento v1.25.3 não verificado. Canvas, rascunhos, exportação editada e Apply desativados.',
     retry: 'Verifique a origem Switch e o BID ExeFS e selecione o arquivo novamente.'
   },
@@ -117,6 +131,8 @@ const COPY = Object.freeze({
     village: '村庄记录',
     area: '区域记录',
     grids: '网格记录',
+    gridObjects: 'GridObject 字典条目（非已验证摆放）',
+    subgrid: 'SubGrid 结构与摆放语义尚未验证。',
     boundary: 'v1.25.3 的放置语义未经验证。画布、草稿、修改导出和应用均已禁用。',
     retry: '核实 Switch 来源与 ExeFS BID 后重新选择文件。'
   }

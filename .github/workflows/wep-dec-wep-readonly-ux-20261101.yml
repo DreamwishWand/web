@@ -1,0 +1,33 @@
+name: WEP DEC-WEP v1.25.3 read-only UX scoped owner CI
+
+on:
+  push:
+    branches: ['wep/readonly-626-ux-20261101']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dec-wep-readonly:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: New-only 626 structural, 624 save gate, canvas and authoring boundaries
+        run: |
+          node --test \
+            tests/wep-world-readonly626.test.mjs \
+            tests/wep-world-save-source.test.mjs \
+            tests/wep-canvas-runtime.test.mjs \
+            tests/wep-roadfence-authoring-contract.test.mjs \
+            tests/wep-world-editor-localization-inventory.test.mjs
+      - name: Svelte and TypeScript
+        run: npm run check
+      - name: Build
+        env:
+          BASE_PATH: /web
+        run: npm run build

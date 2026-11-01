@@ -65,7 +65,7 @@ export interface OpenWorldSaveResult {
   areas: WorldAreaRoute[];
   floatingIslands: WorldFloatingIslandRoute[];
   floatingIslandDiagnostics: WorldFloatingIslandDiagnostic[];
-  structuralDiagnostics: { villageCount: number | null; areaRecordCount: number | null; gridRecordCount: number | null; notes: string[] } | null;
+  structuralDiagnostics: { villageCount: number | null; areaRecordCount: number | null; gridRecordCount: number | null; gridObjectEntryCount: number | null; notes: string[] } | null;
   compatibility: {
     readContract: string;
     gameVersion: string;
@@ -324,18 +324,26 @@ function inspect626WorldStructure(profile: Record<string, any>) {
   const villages = world?.Villages;
   const grids = asRecord(asRecord(world?.GridCollection)?.Grids);
   const areaRecordCount = Array.isArray(villages)
-    ? villages.reduce((sum: number, village: unknown) => {
+    ? villages.reduce<number | null>((total, village) => {
         const areas = asRecord(asRecord(village)?.Areas);
-        return sum + (areas ? Object.keys(areas).length : 0);
+        return total === null || !areas ? null : total + Object.keys(areas).length;
       }, 0)
     : null;
   return {
     villageCount: Array.isArray(villages) ? villages.length : null,
     areaRecordCount,
     gridRecordCount: grids ? Object.keys(grids).length : null,
+    // Structural dictionary entries only: no native placement or SubGrid inference.
+    gridObjectEntryCount: grids
+      ? Object.values(grids).reduce<number | null>((total, value) => {
+          const entries = asRecord(asRecord(value)?.Objects);
+          return total === null || !entries ? null : total + Object.keys(entries).length;
+        }, 0)
+      : null,
     notes: [
       'WEP_SCHEMA626_WORLD_STRUCTURE_ONLY',
       'WEP_SCHEMA626_AREA_GRID_NATIVE_SEMANTICS_UNVERIFIED',
+      'WEP_SCHEMA626_GRIDOBJECT_ENTRIES_ONLY_SUBGRID_UNVERIFIED',
       'WEP_SCHEMA626_EDITOR_DRAFT_AND_WRITER_DISABLED'
     ]
   };

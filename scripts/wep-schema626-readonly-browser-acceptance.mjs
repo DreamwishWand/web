@@ -64,6 +64,21 @@ try {
   assert.equal(createHash('sha256').update(source626).digest('hex'),sourceHash);
   pass('SOURCE_BYTES_IMMUTABLE_SYNTHETIC');
 
+  // An effective 640 CSS-pixel layout viewport approximates 200% browser
+  // zoom at a 1280-pixel display. This is not a browser-menu zoom assertion.
+  await page.setViewportSize({width:640,height:960});
+  await page.waitForTimeout(150);
+  const zoomLayout = await page.evaluate(() => ({
+    viewport: window.innerWidth,
+    width: document.documentElement.scrollWidth
+  }));
+  assert.ok(zoomLayout.width <= zoomLayout.viewport + 2, JSON.stringify(zoomLayout));
+  assert.equal(await panel.isVisible(), true);
+  assert.equal(await page.locator('.editor-shell').count(), 0);
+  await page.keyboard.press('Tab');
+  const keyboardFocus = await page.evaluate(() => document.activeElement?.tagName ?? null);
+  assert.notEqual(keyboardFocus, 'BODY');
+  pass('EFFECTIVE_200_PERCENT_ZOOM_LAYOUT_READONLY_KEYBOARD');
   await page.setViewportSize({width:320,height:740});
   await page.waitForTimeout(150);
   const metrics=await page.evaluate(()=>({viewport:window.innerWidth,width:document.documentElement.scrollWidth}));
