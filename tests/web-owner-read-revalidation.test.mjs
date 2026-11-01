@@ -152,6 +152,141 @@ test('invalidation on local policy, stale CAS and service denial is fail-closed'
  unsafe.dispose();
 });
 
+
+test('QR291 TRUE RED repair: REFRESH_REQUIRED latch forbids generic Inspect and every lifecycle resume until explicit Fresh',async()=>{
+ for(const trigger of ['FOCUS','VISIBLE','ONLINE','PAGESHOW']){
+  const calls=[];
+  const core=start(async x=>{
+   calls.push({row:x.expectedRowVersion,epoch:x.expectedAuthorizationEpoch});
+   return calls.length===2 ? {status:'REFRESH_REQUIRED'} :
+     candidate({rowVersion:calls.length===1?2:3,authorizationEpoch:calls.length===1?2:3});
+  });
+  await core.revalidate();               // signed source candidate CAS2/2
+  core.invalidate('WITHDRAWAL');
+  await core.revalidate();               // server refuses stale CAS2/2
+  assert.equal(calls.length,2);
+  assert.deepEqual(calls[1],{row:2,epoch:2});
+  assert.equal(core.getState().status,'REFRESH_REQUIRED');
+  assert.equal(core.getState().view,null);
+  assert.equal(core.getState().canInspect,false);
+  assert.equal(core.getState().canFreshRead,true);
+  await core.resume(trigger);           // NO HTTP
+  assert.equal(core.getState().status,'REFRESH_REQUIRED',trigger);
+  assert.equal(core.getState().view,null,trigger);
+  await core.revalidate();              // generic Inspect also NO HTTP
+  assert.equal(calls.length,2,trigger);
+  assert.equal(core.getState().status,'REFRESH_REQUIRED');
+  for(const localEvent of ['HIDDEN','BLUR','OFFLINE','PAGEHIDE','POLICY_CHANGED']){
+   core.invalidate(localEvent);
+   assert.equal(core.getState().status,'REFRESH_REQUIRED');
+   assert.equal(core.getState().view,null);
+   assert.equal(core.getState().canInspect,false);
+  }
+  for(const resumeEvent of ['VISIBLE','FOCUS','ONLINE','PAGESHOW']){
+   await core.resume(resumeEvent);
+   assert.equal(core.getState().status,'REFRESH_REQUIRED');
+   assert.equal(core.getState().view,null);
+  }
+  await tick();
+  assert.equal(calls.length,2,'AUTOMATIC_CAS_BYPASS');
+  await core.revalidate({fresh:true}); // explicit user Fresh, signed reauth
+  assert.equal(calls.length,3);
+  assert.deepEqual(calls[2],{row:undefined,epoch:undefined});
+  assert.equal(core.getState().status,'SOURCE153_SCHEMA_CANDIDATE_ONLY');
+  assert.equal(core.getState().view.rowVersion,3);
+  assert.equal(core.getState().canInspect,true);
+  assert.equal(core.getState().canFreshRead,false);
+  core.dispose();
+ }
+});
+
+test('CAS_CONFLICT sticky latch survives resume and normal Inspect; only explicit Fresh resets it',async()=>{
+ const calls=[];
+ const core=start(async x=>{calls.push(x);return candidate({rowVersion:4,authorizationEpoch:4});});
+ await core.revalidate();
+ core.invalidate('CAS_CONFLICT');
+ assert.equal(core.getState().status,'REFRESH_REQUIRED');
+ assert.equal(core.getState().view,null);
+ for(const why of ['FOCUS','VISIBLE','ONLINE','PAGESHOW']){
+  await core.resume(why);
+  await core.revalidate();
+ }
+ assert.equal(calls.length,1);
+ assert.equal(core.getState().canInspect,false);
+ assert.equal(core.getState().canFreshRead,true);
+ await core.revalidate({fresh:true});
+ assert.equal(calls.length,2);
+ assert.equal(calls[1].expectedRowVersion,undefined);
+ assert.equal(calls[1].expectedAuthorizationEpoch,undefined);
+ core.dispose();
+});
+
+test('Fresh read still rejects denied backend and cannot promote an Owner snapshot',async()=>{
+ let calls=0;
+ const core=start(async()=>{
+  calls++;
+  if(calls===1)return candidate({rowVersion:5,authorizationEpoch:5});
+  if(calls===2)return {status:'REFRESH_REQUIRED'};
+  return {status:'BACKEND_UNAVAILABLE'};
+ });
+ await core.revalidate();
+ core.invalidate('WITHDRAWAL');
+ await core.revalidate();
+ assert.equal(core.getState().status,'REFRESH_REQUIRED');
+ await core.revalidate({fresh:true});
+ assert.equal(calls,3);
+ assert.equal(core.getState().view,null);
+ assert.equal(core.getState().snapshot,null);
+ assert.equal(core.getState().ownerReadVerified,false);
+ assert.equal(core.getState().actionsEnabled,false);
+ assert.equal(core.getState().liveBackendEnabled,false);
+ core.dispose();
+});
+
+test('CAS latch drops only with new Work, different Session or logout; old late HTTP cannot restore it',async()=>{
+ for(const reset of ['WORK','SESSION','LOGOUT']){
+  const calls=[];
+  const core=start(async x=>{
+   calls.push(x);
+   if(calls.length===1)return candidate({rowVersion:7,authorizationEpoch:7});
+   if(calls.length===2)return {status:'REFRESH_REQUIRED'};
+   return candidate();
+  });
+  await core.revalidate();
+  core.invalidate('WITHDRAWAL');
+  await core.revalidate();
+  assert.equal(core.getState().status,'REFRESH_REQUIRED');
+  if(reset==='WORK')core.routeChanged(other);
+  if(reset==='SESSION')core.replaceSession('new-signed-token','new-anon-key');
+  if(reset==='LOGOUT')core.invalidate('LOGOUT');
+  assert.notEqual(core.getState().status,'REFRESH_REQUIRED');
+  assert.equal(core.getState().view,null);
+  assert.equal(core.getState().canFreshRead,false);
+  if(reset==='WORK'||reset==='LOGOUT')assert.equal(core.getState().canInspect,false);
+  if(reset==='SESSION')assert.equal(core.getState().canInspect,true);
+  core.dispose();
+ }
+ let release;
+ const core=start(()=>new Promise(resolve=>{release=resolve;}));
+ const pending=core.revalidate();
+ core.invalidate('CAS_CONFLICT');
+ release(candidate({rowVersion:10,authorizationEpoch:10}));
+ await pending;
+ assert.equal(core.getState().status,'REFRESH_REQUIRED');
+ assert.equal(core.getState().view,null);
+ assert.equal(core.getState().canInspect,false);
+ core.dispose();
+});
+
+test('DEV-only Fresh button is separately enabled, but ordinary Inspect stays disabled under CAS latch',()=>{
+ const page=readFileSync(new URL('../src/routes/dreamsnaps/my/manage/source153-e2/+page.svelte',import.meta.url),'utf8');
+ assert.ok(page.includes('disabled={working || !token || !canInspect}'));
+ assert.ok(page.includes('disabled={working || !canFreshRead}'));
+ assert.ok(page.includes("ownerController.revalidate({fresh:true})"));
+ assert.ok(page.includes("status==='REFRESH_REQUIRED'"));
+ assert.ok(!page.includes('OWNER_REVALIDATION_PRODUCTION_ENABLED=true'));
+});
+
 test('local browser event adapter removes listeners and lifecycle stays unprivileged',async()=>{
  class Target {
   constructor(){this.handlers=new Map();}
