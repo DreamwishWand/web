@@ -287,6 +287,85 @@ test('DEV-only Fresh button is separately enabled, but ordinary Inspect stays di
  assert.ok(!page.includes('OWNER_REVALIDATION_PRODUCTION_ENABLED=true'));
 });
 
+
+test('actual HTTP403 decoder BACKEND_UNAVAILABLE after prior CAS holds neutral manual-recovery; never retries on resume',async()=>{
+ const requests=[];
+ const core=start(async q=>{
+  requests.push({row:q.expectedRowVersion,epoch:q.expectedAuthorizationEpoch});
+  if(requests.length===1)return candidate({rowVersion:1,authorizationEpoch:1});
+  if(requests.length===2)return {status:'BACKEND_UNAVAILABLE'};
+  return candidate({rowVersion:2,authorizationEpoch:2,grantState:'withdrawn',publicDisabled:true});
+ });
+ await core.revalidate();
+ assert.deepEqual(requests[0],{row:undefined,epoch:undefined});
+ await core.revalidate();
+ assert.deepEqual(requests[1],{row:1,epoch:1});
+ assert.equal(core.getState().status,'BACKEND_UNAVAILABLE');
+ assert.equal(core.getState().view,null);
+ assert.equal(core.getState().canInspect,false);
+ assert.equal(core.getState().canFreshRead,true);
+ await core.revalidate(); // normal Inspect
+ for(const trigger of ['FOCUS','VISIBLE','ONLINE','PAGESHOW']){
+  await core.resume(trigger);
+  assert.equal(core.getState().status,'BACKEND_UNAVAILABLE');
+  assert.equal(core.getState().view,null);
+ }
+ core.invalidate('BLUR');
+ await core.resume('FOCUS');
+ core.invalidate('HIDDEN');
+ await core.resume('VISIBLE');
+ assert.equal(requests.length,2,'AMBIGUOUS_DENIAL_AUTO_RETRY');
+ await core.revalidate({fresh:true});
+ assert.deepEqual(requests[2],{row:undefined,epoch:undefined});
+ assert.equal(core.getState().view.grantState,'withdrawn');
+ assert.equal(core.getState().view.publicDisabled,true);
+ assert.equal(core.getState().ownerReadVerified,false);
+ assert.equal(core.getState().actionsEnabled,false);
+ core.dispose();
+});
+
+test('ambiguous 403 is NOT CAS conflict; revoked identity remains denied after explicit Fresh',async()=>{
+ const calls=[];
+ const core=start(async q=>{
+  calls.push(q);
+  return calls.length===1?candidate({rowVersion:1,authorizationEpoch:1}):
+    {status:'BACKEND_UNAVAILABLE'};
+ });
+ await core.revalidate();
+ await core.revalidate();
+ assert.equal(core.getState().status,'BACKEND_UNAVAILABLE');
+ assert.equal(core.getState().canFreshRead,true);
+ await core.revalidate({fresh:true}); // genuine backend may deny 401/403 again
+ assert.equal(calls.length,3);
+ assert.equal(calls[2].expectedRowVersion,undefined);
+ assert.equal(core.getState().view,null);
+ assert.equal(core.getState().status,'BACKEND_UNAVAILABLE');
+ assert.equal(core.getState().canInspect,false);
+ assert.equal(core.getState().snapshot,null);
+ assert.equal(core.getState().actionsEnabled,false);
+ await core.resume('FOCUS');
+ await core.revalidate();
+ assert.equal(calls.length,3,'REVOKED_ACTOR_NO_AUTO_RETRY');
+ core.invalidate('LOGOUT');
+ assert.equal(core.getState().canFreshRead,false);
+ assert.equal(core.getState().view,null);
+ core.dispose();
+});
+
+test('ambiguous backend denial without accepted CAS cannot imply CAS recovery authority',async()=>{
+ let count=0;
+ const core=start(async()=>{count++;return {status:'BACKEND_UNAVAILABLE'};});
+ await core.revalidate();
+ assert.equal(core.getState().canFreshRead,false);
+ assert.equal(core.getState().view,null);
+ assert.equal(core.getState().status,'BACKEND_UNAVAILABLE');
+ core.dispose();
+ const page=readFileSync(new URL('../src/routes/dreamsnaps/my/manage/source153-e2/+page.svelte',import.meta.url),'utf8');
+ assert.ok(page.includes("data-e2-neutral-recovery"));
+ assert.ok(page.includes("canFreshRead && (status==='REFRESH_REQUIRED' || status==='BACKEND_UNAVAILABLE')"));
+ for(const locale of ['en','fr','it','de',"'es-ES'",'ja',"'zh-CN'", "'pt-BR'"])
+  assert.ok(page.includes(locale),'LOCALIZATION_MISSING');
+});
 test('local browser event adapter removes listeners and lifecycle stays unprivileged',async()=>{
  class Target {
   constructor(){this.handlers=new Map();}
