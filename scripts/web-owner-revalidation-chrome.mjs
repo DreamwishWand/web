@@ -1,90 +1,115 @@
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright-core';
 
-// New ONLY: simulated browser lifecycle events + genuine disposable signed
-// Source153 revalidation. Accepted PR290 old 9+11 matrices are NOT rerun.
+// NEW-ONLY signed Owner 403 ambiguity and explicit Fresh. Genuine local
+// GoTrue + Source153 HTTP; runner-only Python controls the signed withdrawal.
+// Does not repeat the previously accepted 9+11 or PR291 lifecycle matrices.
 const id=process.env;
-const needed=['CHROME_BIN','E2_ORIGINAL_WORK_ID','E2_OWNER_EMAIL','E2_OWNER_PASSWORD'];
-if(id.DDVRE_E2_LOCAL_DISPOSABLE!=='APPROVED' || needed.some(k=>!id[k]))
-  throw Error('DISPOSABLE_REVALIDATION_FIXTURE_REQUIRED');
+if(id.DDVRE_E2_LOCAL_DISPOSABLE!=='APPROVED' ||
+   ['CHROME_BIN','E2_ORIGINAL_WORK_ID','E2_OWNER_EMAIL','E2_OWNER_PASSWORD'].some(k=>!id[k]))
+  throw Error('DISPOSABLE_SIGNED_403_FIXTURE_REQUIRED');
 const browser=await chromium.launch({executablePath:id.CHROME_BIN,headless:true,
   args:['--no-sandbox','--disable-dev-shm-usage']});
 const origin='http://127.0.0.1:4175';
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-const eventually=async(fn)=>{
-  for(let i=0;i<180;i++){if(await fn())return;await wait(75);}
-  throw Error('REVALIDATION_OBSERVATION_TIMEOUT');
+const eventually=async(check)=>{
+  for(let i=0;i<160;i++){if(await check())return;await wait(75);}
+  throw Error('SIGNED_403_RECOVERY_OBSERVATION_TIMEOUT');
 };
-let hits=0,failures=[];
-try{
- const ctx=await browser.newContext({viewport:{width:1280,height:850}});
- const page=await ctx.newPage();
+const handshake=async(marker)=>{
+  process.stdout.write(marker+'\n');
+  await new Promise((resolve,reject)=>{
+    const timeout=setTimeout(()=>reject(Error('SIGNED_403_FIXTURE_HANDSHAKE_TIMEOUT')),45000);
+    process.stdin.once('data',()=>{clearTimeout(timeout);resolve();});
+  });
+};
+const statuses=[],failures=[];
+let requests=0;
+try {
+ const context=await browser.newContext({viewport:{width:1280,height:800}});
+ const page=await context.newPage();
  page.on('pageerror',()=>failures.push('PAGE_ERROR'));
- page.on('response',r=>{
-   if(r.url().includes('/__source153_e2/functions/v1/community-dreamsnap-owner') &&
-       r.status()===200)hits++;
- });
- const res=await page.goto(origin+'/dreamsnaps/my/manage/source153-e2/?work='+id.E2_ORIGINAL_WORK_ID,{waitUntil:'domcontentloaded'});
+ const authority='/__source153_e2/functions/v1/community-dreamsnap-owner';
+ page.on('request',r=>{if(r.url().includes(authority))requests++;});
+ page.on('response',r=>{if(r.url().includes(authority))statuses.push(r.status());});
+ const res=await page.goto(origin+'/dreamsnaps/my/manage/source153-e2/?work='+id.E2_ORIGINAL_WORK_ID,
+  {waitUntil:'domcontentloaded'});
  assert.equal(res?.status(),200);
- await page.locator('#e2-email').waitFor();
  await page.locator('#e2-email').fill(id.E2_OWNER_EMAIL);
  await page.locator('#e2-password').fill(id.E2_OWNER_PASSWORD);
  await page.locator('[data-e2-login] button').click();
  await eventually(async()=>await page.locator('[data-e2-status]').innerText()==='SIGNED_LOCAL_SESSION_CANDIDATE');
+
  await page.locator('[data-e2-inspect]').click();
  await eventually(async()=>await page.locator('[data-e2-projection]').count()===1);
- assert.ok(hits>=1,'INITIAL_REAL_OWNER_HTTP_MISSING');
+ assert.equal(await page.locator('[data-e2-status]').innerText(),'SOURCE153_SCHEMA_CANDIDATE_ONLY');
+ assert.deepEqual(statuses,[200]);
+ assert.equal(requests,1);
+ assert.equal(await page.locator('[data-e2-grant]').innerText(),'recorded');
 
- // Passive unchanged source view is NOT falsely claimed as push-revoked.
- await wait(150);
- assert.equal(await page.locator('[data-e2-projection]').count(),1);
- assert.equal(hits,1);
-
- await page.evaluate(()=>window.dispatchEvent(new Event('offline')));
- await eventually(async()=>await page.locator('[data-e2-projection]').count()===0);
- assert.equal(await page.locator('[data-e2-status]').innerText(),'REVALIDATION_REQUIRED');
+ await handshake('WEB403_READY_WITH_CAS1');
+ // Python executes ACTUAL signed Owner A Withdrawal, CAS1/1 -> CAS2/2.
+ await page.locator('[data-e2-inspect]').click();
+ await eventually(async()=>await page.locator('[data-e2-status]').innerText()==='BACKEND_UNAVAILABLE');
+ assert.equal(await page.locator('[data-e2-projection]').count(),0);
+ assert.equal(statuses[1],403,'REAL_STALE_CAS_HTTP403_REQUIRED');
+ assert.equal(requests,2);
  assert.equal(await page.locator('[data-e2-inspect]').isDisabled(),true);
+ assert.equal(await page.locator('[data-e2-neutral-recovery]').count(),1);
+ assert.equal(await page.locator('[data-e2-fresh-read]').isEnabled(),true);
+ assert.equal(await page.locator('[data-e2-status]').innerText(),'BACKEND_UNAVAILABLE');
 
- await page.evaluate(()=>window.dispatchEvent(new Event('online')));
- await eventually(async()=>await page.locator('[data-e2-projection]').count()===1);
- assert.ok(hits>=2,'ONLINE_SIGNED_REREAD_MISSING');
-
- // Simulated page visibility/focus events; not OS/browser physical activity.
+ // Lifecycle events MUST NOT silently retry the stale CAS nor invoke
+ // a fresh request. Simulated browser events, not physical OS visibility.
  await page.evaluate(()=>{
-   Object.defineProperty(document,'visibilityState',{configurable:true,get:()=> 'hidden'});
-   document.dispatchEvent(new Event('visibilitychange'));
+  window.dispatchEvent(new Event('blur'));
+  Object.defineProperty(document,'visibilityState',{configurable:true,get:()=> 'hidden'});
+  document.dispatchEvent(new Event('visibilitychange'));
+  window.dispatchEvent(new Event('offline'));
+  Object.defineProperty(document,'visibilityState',{configurable:true,get:()=> 'visible'});
+  document.dispatchEvent(new Event('visibilitychange'));
+  window.dispatchEvent(new Event('online'));
+  window.dispatchEvent(new Event('focus'));
+  window.dispatchEvent(new Event('pageshow'));
  });
- await eventually(async()=>await page.locator('[data-e2-projection]').count()===0);
- await page.evaluate(()=>{
-   Object.defineProperty(document,'visibilityState',{configurable:true,get:()=> 'visible'});
-   document.dispatchEvent(new Event('visibilitychange'));
- });
- await eventually(async()=>await page.locator('[data-e2-projection]').count()===1);
- assert.ok(hits>=3,'VISIBLE_SIGNED_REREAD_MISSING');
+ await wait(450);
+ assert.equal(requests,2,'UNAUTHORIZED_AUTOMATIC_403_RETRY');
+ assert.equal(await page.locator('[data-e2-status]').innerText(),'BACKEND_UNAVAILABLE');
+ assert.equal(await page.locator('[data-e2-projection]').count(),0);
 
- await page.evaluate(()=>window.dispatchEvent(new Event('blur')));
- await eventually(async()=>await page.locator('[data-e2-projection]').count()===0);
- await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
- await eventually(async()=>await page.locator('[data-e2-projection]').count()===1);
- assert.ok(hits>=4,'FOCUS_SIGNED_REREAD_MISSING');
-
- const html=await page.locator('body').innerText();
- assert.ok(!html.includes(id.E2_OWNER_EMAIL),'EMAIL_IN_DOM');
- assert.ok(!html.includes(id.E2_ORIGINAL_WORK_ID),'WORK_LOCATOR_IN_DOM');
- for(const word of ['access_token','refresh_token','storageKey','signedUrl']){
-   assert.ok(!html.includes(word),'SENSITIVE_SOURCE_FIELD_IN_DOM');
- }
- assert.equal(await page.locator('[data-owner-actions="disabled"]').count(),1);
- await page.locator('[data-e2-logout]').focus();
+ await page.locator('[data-e2-fresh-read]').focus();
  await page.keyboard.press('Enter');
- await eventually(async()=>await page.locator('[data-e2-projection]').count()===0);
- assert.equal((await page.locator('[data-e2-inspect]').isDisabled()),true);
- assert.equal(await page.locator('[data-e2-status]').innerText(),'AUTH_REQUIRED');
+ await eventually(async()=>await page.locator('[data-e2-projection]').count()===1);
+ assert.equal(statuses[2],200,'SIGNED_CAS_OMITTED_FRESH_OWNER_HTTP200_REQUIRED');
+ assert.equal(requests,3,'EXPLICIT_FRESH_MUST_SEND_ONE_REQUEST');
+ assert.equal(await page.locator('[data-e2-grant]').innerText(),'withdrawn');
+ assert.equal(await page.locator('[data-e2-public-disabled]').innerText(),'true');
+ assert.equal(await page.locator('[data-e2-inspect]').isEnabled(),true);
+ assert.equal(await page.locator('[data-owner-actions="disabled"]').count(),1);
+
+ await handshake('WEB403_REVOKE_READY');
+ // Python retires the SAME actor after successful withdrawn source-only read.
+ await page.locator('[data-e2-inspect]').click();
+ await eventually(async()=>await page.locator('[data-e2-status]').innerText()==='BACKEND_UNAVAILABLE');
+ assert.equal(await page.locator('[data-e2-projection]').count(),0);
+ assert.ok([401,403,404].includes(statuses[3]),'ACTOR_REVOKED_READ_DENIAL_REQUIRED');
+ assert.equal(await page.locator('[data-e2-fresh-read]').count(),1);
+ await page.locator('[data-e2-fresh-read]').focus();
+ await page.keyboard.press('Enter');
+ await eventually(async()=>requests>=5);
+ await eventually(async()=>await page.locator('[data-e2-status]').innerText()==='BACKEND_UNAVAILABLE');
+ assert.ok([401,403,404].includes(statuses[4]),'ACTOR_REVOKED_FRESH_DENIAL_REQUIRED');
+ assert.equal(await page.locator('[data-e2-projection]').count(),0);
+ assert.equal(await page.locator('[data-e2-inspect]').isDisabled(),true);
+ assert.equal(await page.locator('[data-owner-actions="disabled"]').count(),1);
+ const html=await page.locator('body').innerText();
+ for(const secret of [id.E2_OWNER_EMAIL,id.E2_ORIGINAL_WORK_ID,'access_token','storageKey','signedUrl'])
+   assert.ok(!html.includes(secret),'SENSITIVE_FIELD_IN_DOM');
  assert.deepEqual(failures,[]);
- await ctx.close();
- console.log('OWNER_REVALIDATION_SIGNED_CHROME_NEW_LIFECYCLE_PASS_LOCAL_ONLY');
-}catch(error){
- const line=String(error?.stack??'').match(/web-owner-revalidation-chrome\.mjs:(\d+):/)?.[1]??'UNKNOWN';
- console.log('REVALIDATION_CHROME_CASELINE '+line); // no secret/errors/HTTP bodies
- throw error;
+ await context.close();
+ console.log('WEB_OWNER_403_RECOVERY_SIGNED_CHROMIUM_NEW_ONLY_PASS_LOCAL');
+}catch(err){
+ const line=String(err?.stack??'').match(/web-owner-revalidation-chrome\.mjs:(\d+):/)?.[1]??'UNKNOWN';
+ console.log('WEB403_CASELINE '+line);
+ throw err;
 }finally{await browser.close();}
