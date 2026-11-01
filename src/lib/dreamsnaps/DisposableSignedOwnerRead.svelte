@@ -15,6 +15,7 @@
   let origin: string | null = null;
   let email='', password='', token='';
   let generation=0, pending=false, loginPending=false;
+  let authStatus='NOT_STARTED', decoderStatus='NOT_STARTED';
   let route: {status:string; workId:string|null}={status:'draft',workId:null};
   let view: any=null;
   let readStatus='unavailable';
@@ -27,6 +28,7 @@
     route=parseOwnerWorkRoute(to?.url?.search??'');
     view=null;
     readStatus='unavailable';
+    decoderStatus='NOT_STARTED';
     pending=false;
     if(token && origin && route.workId && route.status==='authority-pending')
       void refresh(current);
@@ -38,10 +40,12 @@
     view=null;
     readStatus='unavailable';
     loginPending=true;
+    authStatus='STARTED';
     let accessToken: string | null = null;
     try {
       accessToken=await disposableGoTrueLogin({
-        origin,publishableKey:localApiKey,email,password
+        origin,publishableKey:localApiKey,email,password,
+        onStatus:(value:string)=>{authStatus=value}
       });
     } finally {
       password='';
@@ -56,6 +60,7 @@
     ++generation;
     token=''; password='';email='';
     view=null;pending=false;readStatus='unavailable';
+    authStatus='NOT_STARTED';decoderStatus='NOT_STARTED';
   }
 
   async function refresh(expectedGeneration=++generation) {
@@ -76,13 +81,15 @@
     pending=false;
     // Strict WEB267 result is ONLY a schema candidate, never a verified owner.
     view=result.safeView??null;
+    decoderStatus=result.status;
     readStatus=view ? 'candidate' : 'unavailable';
   }
 </script>
 
 {#if DISPOSABLE_SIGNED_OWNER_BROWSER_ENABLED && origin}
   <section class="local-test" data-local-owner-browser="isolated-only"
-    data-owner-actions-enabled="false" aria-labelledby="local-owner-heading">
+    data-owner-actions-enabled="false" data-local-auth-status={authStatus}
+    data-local-decoder-status={decoderStatus} aria-labelledby="local-owner-heading">
     <h2 id="local-owner-heading">{copy.heading}</h2>
     <p class="muted">{copy.intro}</p>
     {#if !token}
