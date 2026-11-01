@@ -22,7 +22,7 @@
 
   afterNavigate(({to})=>{
     origin=typeof window === 'undefined'
-      ? null : localOwnerTestOrigin(localUrl.replace(/\\/$/,'')+'/',window.location.hostname);
+      ? null : localOwnerTestOrigin((localUrl.endsWith('/') ? localUrl : localUrl+'/'),window.location.hostname);
     const current=++generation;
     route=parseOwnerWorkRoute(to?.url?.search??'');
     view=null;
@@ -69,7 +69,8 @@
     const result=await readDisposableSignedOwner({
       origin,publishableKey:localApiKey,
       accessToken:token,workId,requestGeneration:current,latestGeneration:current,
-      getLatestGeneration:()=>generation
+      getLatestGeneration:()=>generation,
+      expectedRowVersion:undefined,expectedAuthorizationEpoch:undefined
     });
     if(current!==generation || route.workId!==workId)return;
     pending=false;
