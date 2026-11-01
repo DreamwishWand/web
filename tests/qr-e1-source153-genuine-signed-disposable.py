@@ -179,44 +179,50 @@ with psycopg.connect(DSN,autocommit=True) as db:
         status,_,r=http(path,body={"operation":"authority","workId":str(original)},token=users[who]["token"])
         assert status in (401,403,404),("UNGRANTED_AUTHORITY_ACCEPTED",who,status)
     marker("R1-06","AUTHORITY_DENIED_NO_REGISTERED_POLICY_OR_GRANT")
-    # Mutate only disposable fixture; every negative is rolled back before the next.
-    tests=[
-      ("R2-01","update public.wand_accounts set status='restricted' where account_id=%s",(account["A"],)),
-      ("R2-02","update public.auth_identities set identity_state='retired' where account_id=%s",(account["A"],)),
-      ("R2-02-IAT","update public.auth_identities set sessions_valid_after=now()+interval '5 minutes' where account_id=%s",(account["A"],)),
-      ("R2-03","insert into private.account_privacy_suppressions(account_id,next_cleanup_at) values(%s,now())",(account["A"],)),
-      ("R2-04","update public.creator_profiles set moderation_state='restricted' where creator_profile_id=%s",(creator,)),
-      ("R2-05","update public.community_works set lifecycle_state='deleted' where work_id=%s",(post,))
-    ]
-    for case,sql,args in tests:
+    # IMPORTANT: HTTP uses independent DB connections. Commit each synthetic
+    # negative BEFORE the signed request. An uncommitted row lock would either
+    # be invisible or block auth's FOR SHARE lookup, falsely mimicking denial.
+    def negative(case, sql, args, restore, restore_args, work=post):
         try:
             with db.transaction():
-                with db.transaction():
-                    db.execute(sql,args)
-                    status,_,r=pregrant("A",post)
-                    assert status in (401,403,404),("NEGATIVE_READER_UNEXPECTED_ALLOW",case,status)
-                    marker(case,"Genuine_signed_private_read_denied",status)
-                    raise RuntimeError("E1_ROLLBACK")
-        except RuntimeError as e:
-            if str(e)!="E1_ROLLBACK":raise
+                db.execute(sql,args)
         except psycopg.Error:
-            marker(case,"FIXTURE_REJECTED_NOT_READER_PASS")
-    for case,sql,args in [
-      ("R2-06","update public.work_revision_media set media_id=%s where work_revision_id=%s",(mo,pp)),
-      ("R2-07","update public.community_works set current_published_revision_id=%s where work_id=%s",(po,post))
-    ]:
+            marker(case,"FIXTURE_REJECTED_NOT_A_READER_PASS")
+            return
         try:
+            status,_,r=pregrant("A",work)
+            assert status in (401,403,404),("NEGATIVE_READER_UNEXPECTED_ALLOW",case,status)
+            assert "storageKey" not in json.dumps(r)
+            marker(case,"GENUINE_SIGNED_PRIVATE_READ_DENIED",status)
+        finally:
             with db.transaction():
-                with db.transaction():
-                    db.execute(sql,args)
-                    status,_,_=pregrant("A",post)
-                    assert status in (401,403,404),("MISMATCH_GRANTED",case,status)
-                    marker(case,"Genuine_signed_wrong_revision_denied",status)
-                    raise RuntimeError("E1_ROLLBACK")
-        except RuntimeError as e:
-            if str(e)!="E1_ROLLBACK":raise
-        except psycopg.Error:
-            marker(case,"FIXTURE_REJECTED_NOT_READER_PASS")
+                db.execute(restore,restore_args)
+    negative("R2-01",
+        "update public.wand_accounts set status='restricted' where account_id=%s",(account["A"],),
+        "update public.wand_accounts set status='active' where account_id=%s",(account["A"],))
+    negative("R2-02",
+        "update public.auth_identities set identity_state='retired' where account_id=%s",(account["A"],),
+        "update public.auth_identities set identity_state='active',retired_at=null where account_id=%s",(account["A"],))
+    negative("R2-02-IAT",
+        "update public.auth_identities set sessions_valid_after=now()+interval '5 minutes' where account_id=%s",(account["A"],),
+        "update public.auth_identities set sessions_valid_after='epoch'::timestamptz where account_id=%s",(account["A"],))
+    negative("R2-03",
+        "insert into private.account_privacy_suppressions(account_id,next_cleanup_at) values(%s,now())",(account["A"],),
+        "delete from private.account_privacy_suppressions where account_id=%s",(account["A"],))
+    negative("R2-04",
+        "update public.creator_profiles set moderation_state='restricted' where creator_profile_id=%s",(creator,),
+        "update public.creator_profiles set moderation_state='clear' where creator_profile_id=%s",(creator,))
+    negative("R2-06",
+        "update public.work_revision_media set media_id=%s where work_revision_id=%s",(mo,pp),
+        "update public.work_revision_media set media_id=%s where work_revision_id=%s",(mp,pp))
+    negative("R2-07",
+        "update public.community_works set current_published_revision_id=%s where work_id=%s",(po,post),
+        "update public.community_works set current_published_revision_id=%s where work_id=%s",(pp,post))
+    # Deletion can be terminal under the source contract; run it LAST and
+    # mark a rejected fixture as untested rather than calling it reader PASS.
+    negative("R2-05",
+        "update public.community_works set lifecycle_state='deleted' where work_id=%s",(post,),
+        "update public.community_works set lifecycle_state='published' where work_id=%s",(post,))
     assert scalar("select count(*) from private.dreamsnap_x05_owner_policy_v1")==0
     assert scalar("select count(*) from private.dreamsnap_x05_work_control_v1")==0
     assert scalar("select count(*) from private.dreamsnap_x05_consent_events_v1")==0
