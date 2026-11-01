@@ -16,6 +16,8 @@ concurrency:
   cancel-in-progress: true
 jobs:
   gallery-recipient-source-and-browser:
+    # Isolated five-file scope applies only to the original WEB281 branch; the combined integration has its own same-app workflow.
+    if: github.event_name == 'push' || startsWith(github.head_ref, 'web/gallery-recipient-stale-guard-web222-child-')
     runs-on: ubuntu-latest
     timeout-minutes: 18
     steps:
