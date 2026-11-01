@@ -118,7 +118,7 @@ jobs:
           python3 - <<'PY'
           import re
           s=open('/tmp/e1-local-bootstrap.log',encoding='utf-8',errors='replace').read()
-          versions=sorted(set(re.findall(r'@supabase/server/(\\d+\\.\\d+\\.\\d+)',s)))
+          versions=sorted(set(re.findall(r'@supabase/server/(\d+\.\d+\.\d+)',s)))
           print('E1_ACTUAL_RESOLVED_SUPABASE_SERVER_VERSION',','.join(versions) if versions else 'NOT_EMITTED_BY_CLI')
           PY
       - name: Install isolated PG client
