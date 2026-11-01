@@ -10,6 +10,8 @@
   import { disposableOwnerReadCopy } from '$lib/dreamsnaps/disposable-owner-read-copy.js';
 
   const config=getCommunityBrowserConfig();
+  // Disposable runner-local public anon key; never a user credential or production issuer.
+  const localApiKey=String(import.meta.env.VITE_DDVRE_DISPOSABLE_ANON_KEY??'');
   let origin: string | null = null;
   let email='', password='', token='';
   let generation=0, pending=false, loginPending=false;
@@ -39,7 +41,7 @@
     let accessToken: string | null = null;
     try {
       accessToken=await disposableGoTrueLogin({
-        origin,publishableKey:config.publishableKey,email,password
+        origin,publishableKey:localApiKey,email,password
       });
     } finally {
       password='';
@@ -65,7 +67,7 @@
     view=null;
     readStatus='unavailable';
     const result=await readDisposableSignedOwner({
-      origin,publishableKey:config.publishableKey,
+      origin,publishableKey:localApiKey,
       accessToken:token,workId,requestGeneration:current,latestGeneration:current,
       getLatestGeneration:()=>generation
     });
