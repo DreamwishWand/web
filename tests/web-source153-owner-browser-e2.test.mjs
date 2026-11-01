@@ -69,7 +69,7 @@ test('wrong UUID, absent local signed session and invalid action envelope reject
  assert.equal((await readIsolatedSource153Owner(args)).status,'SOURCE_CONTRACT_REJECTED');
  assert.equal((await readIsolatedSource153Owner({...args,workId,token:''})).status,'SOURCE_CONTRACT_REJECTED');
  assert.equal((await readIsolatedSource153Owner({...args,workId,token:''})).status,'SOURCE_CONTRACT_REJECTED');
- assert.equal((await readIsolatedSource153Owner({...args,workId,requestGeneration:2})).status,'SOURCE_CONTRACT_REJECTED');
+ assert.equal((await readIsolatedSource153Owner({...args,workId,requestGeneration:2})).status,'STALE_RESPONSE');
  assert.equal(calls,0);
  const d=await readIsolatedSource153Owner({...args,workId,requestGeneration:2,latestGeneration:3});
  assert.equal(d.status,'STALE_RESPONSE');
