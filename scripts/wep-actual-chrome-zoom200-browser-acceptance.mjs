@@ -187,9 +187,13 @@ try {
 
   const review=toolbar.getByRole('button',{name:'Review Save Prep'});
   await review.click();
-  assert.equal(await page.locator('[data-wep-verified-export]').count(),0,
-    'synthetic local editor must not reveal real DDV save export');
-  report.review = 'LOCAL_REVIEW_SAVE_PREP_ONLY; VERIFIED_SAVE_REVIEW_NOT_AUTHORIZED_FOR_SYNTHETIC';
+  assert.equal(await page.locator('[data-wep-verified-export]').count(),1,
+    'Review Changes panel should remain visible for explanation');
+  assert.equal(await page.locator('[data-wep-verified-export]')
+    .getByRole('button',{name:'Review Changes'}).isDisabled(),true,
+    'synthetic local editor must not enable real DDV save review');
+  assert.equal(await page.locator('.verified-export-success').count(),0);
+  report.review = 'LOCAL_REVIEW_SAVE_PREP_ONLY; VERIFIED_SAVE_REVIEW_DISABLED_FOR_SYNTHETIC';
   pass('NATIVE_ZOOM_LOCAL_REVIEW_NO_DDV_WRITER');
   await page.screenshot({path:join(artifactDir,'native-200-synthetic-editor.png'),fullPage:true});
 
