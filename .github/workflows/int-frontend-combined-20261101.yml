@@ -1,0 +1,79 @@
+name: INT accepted WEP275 + WEB281 combined app acceptance
+on:
+  push:
+    branches: ['integration/09int-int277-web281-front-20261101']
+  pull_request:
+    paths: ['.github/workflows/int-frontend-combined-20261101.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-and-synthetic-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Exact two-parent ancestry and source byte parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          INT=3ae205852d9ba20178d09c3ef79c5bffbef350ce
+          WEB=98468da3b5994119019788b62df15c5011662fda
+          git merge-base --is-ancestor "$INT" HEAD
+          git merge-base --is-ancestor "$WEB" HEAD
+          git diff --quiet "$WEB" HEAD -- src/routes/creator/ src/routes/qa/ src/routes/gallery/ src/routes/dreamsnaps/ src/routes/collection/ src/routes/guide/ src/routes/help/ src/lib/community/ src/lib/collection/ src/lib/dreamsnaps/
+          git diff --quiet "$INT" HEAD -- src/routes/editor/ src/lib/wep/ tests/wep-save626-diagnostic-ux.test.mjs tests/wep-world-readonly626.test.mjs
+          test "$(git rev-parse HEAD:src/routes/gallery/+page.svelte)" = "$(git rev-parse "$WEB":src/routes/gallery/+page.svelte)"
+          test "$(git rev-parse HEAD:src/routes/editor/world/+page.svelte)" = "$(git rev-parse "$INT":src/routes/editor/world/+page.svelte)"
+          test "$(git rev-parse HEAD:src/lib/wep/world-save-source.ts)" = "0c141525efc1dd5ae646501e7420e872d5a52c77"
+      - name: Focused Gallery and WEP/WEB Node source regressions
+        run: |
+          node --test tests/web-gallery-recipient-stale-guard.test.mjs tests/wep-save626-diagnostic-ux.test.mjs tests/wep-world-readonly626.test.mjs tests/creator-typed-work-route-failclosed.test.mjs tests/qa-spa-typed-work-route-owner-regression.test.mjs
+      - name: Svelte check and production build on same combined tree
+        run: |
+          npm run check
+          npm run build
+      - name: Playwright client and installed Chrome
+        run: |
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          "$CHROME_BIN" --version
+      - name: Start synthetic local app on WEB and WEP ports
+        shell: bash
+        run: |
+          set -euo pipefail
+          VITE_SUPABASE_URL=https://qr222-synthetic.invalid VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_QR222_FAKE_TEST_ONLY_NO_SECRET npm run dev -- --host 127.0.0.1 --port 4175 >/tmp/int-frontend-4175.log 2>&1 &
+          npm run dev -- --host 127.0.0.1 --port 4179 >/tmp/int-frontend-4179.log 2>&1 &
+          for port in 4175 4179; do
+            ready=0
+            for i in $(seq 1 60); do
+              if curl -fsS "http://127.0.0.1:$port/editor/world/" >/dev/null; then ready=1; break; fi
+              sleep 1
+            done
+            test "$ready" -eq 1 || { cat "/tmp/int-frontend-$port.log" >&2; exit 1; }
+          done
+      - name: Same-tree Creator Gallery Q&A and 626 WEP/WEB Chrome tests
+        env:
+          CREATOR_TEST_BASE_URL: http://127.0.0.1:4175
+          GALLERY_RECEIVER_BASE_URL: http://127.0.0.1:4175
+          WEP_READONLY626_BASE_URL: http://127.0.0.1:4179
+          WEB_SAVE626_URL: http://127.0.0.1:4179
+        run: |
+          node scripts/creator-typed-work-browser-acceptance.mjs
+          node scripts/qa-spa-typed-work-owner-browser.mjs
+          node scripts/web-gallery-recipient-stale-guard-chrome.mjs
+          node scripts/wep-schema626-readonly-browser-acceptance.mjs
+          node scripts/web-save626-diagnostic-browser.mjs
+      - name: Local-only synthetic logs on failure
+        if: failure()
+        run: |
+          tail -n 100 /tmp/int-frontend-4175.log || true
+          tail -n 100 /tmp/int-frontend-4179.log || true
