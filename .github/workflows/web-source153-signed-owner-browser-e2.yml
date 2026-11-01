@@ -1,0 +1,125 @@
+name: WEB Source153 isolated signed Owner browser E2 (NEW ONLY)
+on:
+  push:
+    branches: ['web/source153-gotrue-owner-browser-readonly-*']
+  pull_request:
+    paths:
+      - 'src/lib/dreamsnaps/source153-owner-browser-e2.js'
+      - 'src/routes/dreamsnaps/my/manage/source153-e2/+page.svelte'
+      - 'tests/web-source153-owner-browser-e2.test.mjs'
+      - 'scripts/web-source153-signed-owner-chrome.mjs'
+      - 'scripts/web-source153-signed-browser-fixture.py'
+      - 'docs/web/source153-signed-browser-owner-readonly-e2-20261101.md'
+      - '.github/workflows/web-source153-signed-owner-browser-e2.yml'
+permissions:
+  contents: read
+concurrency:
+  group: web-source153-signed-e2-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Focused new-only Source153 Owner browser boundary
+        run: node --test tests/web-source153-owner-browser-e2.test.mjs
+      - name: Svelte check
+        run: npm run check
+      - name: Production build (test-only UI remains OFF)
+        run: npm run build
+      - name: Exact accepted PR288 parent and seven-path-only QA guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=1755d2f37f08bb93604d1839245f8565cf603916
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --exit-code "$BASE" HEAD -- supabase/ src/lib/dreamsnaps/source153-owner-consumer-v2.js src/lib/dreamsnaps/owner-management.js src/routes/dreamsnaps/my/manage/+page.svelte src/lib/community/ src/routes/creator/ src/routes/qa/ src/routes/gallery/
+          test "$(git hash-object src/lib/dreamsnaps/source153-owner-consumer-v2.js)" = f981b7596711b47bceb2fa79a2191e79e8f1b459
+          test "$(git hash-object src/lib/dreamsnaps/owner-management.js)" = baca9c6a5dce744536f6cf5cbd99c07e115f8544
+          git diff --name-only "$BASE" HEAD > /tmp/web-source153-e2-new-only
+          test "$(wc -l < /tmp/web-source153-e2-new-only)" -eq 7
+          while IFS= read -r p; do
+            case "$p" in
+              src/lib/dreamsnaps/source153-owner-browser-e2.js|src/routes/dreamsnaps/my/manage/source153-e2/+page.svelte|tests/web-source153-owner-browser-e2.test.mjs|scripts/web-source153-signed-owner-chrome.mjs|scripts/web-source153-signed-browser-fixture.py|docs/web/source153-signed-browser-owner-readonly-e2-20261101.md|.github/workflows/web-source153-signed-owner-browser-e2.yml) ;;
+              *) echo "UNEXPECTED_DELTA_PATH" >&2; exit 1;;
+            esac
+          done < /tmp/web-source153-e2-new-only
+  real-local-es256-chromium:
+    needs: source-build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+      - name: Generate runner-private GoTrue ES256 signer (no artifacts)
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\n[auth]\nsigning_keys_path = "./signing_keys.json"\n' >> supabase/config.toml
+          printf '[]\n' > supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes >/tmp/web-e2-keygen-private.log 2>&1
+          python3 - <<'PY'
+          import json
+          keys=json.load(open('supabase/signing_keys.json'))
+          assert any(k.get('kty')=='EC' and k.get('crv')=='P-256' and k.get('kid') and k.get('d') for k in keys)
+          print('WEB_E2_PRIVATE_ES256_SIGNER_GENERATED')
+          PY
+      - name: Boot disposable FULL153 only (no Stage, Provider or Cloud)
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_web_owner_e2_disposable_only"\n' | cat - supabase/config.toml >/tmp/web-e2-config.tmp
+          mv /tmp/web-e2-config.tmp supabase/config.toml
+          timeout 1800s supabase start >/tmp/web-e2-private-boot.log 2>&1 || { echo WEB_E2_DISPOSABLE_BOOT_FAILED; exit 1; }
+          echo WEB_E2_DISPOSABLE_FULL153_BOOT_SUCCESS
+      - name: Install local PostgreSQL driver
+        run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Actual Chrome installed-system provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: New-only signed local browser using accepted E2 setup fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/web-source153-signed-browser-fixture.py > /tmp/web-e2-private-test-outcome.log 2>&1 || {
+            sed -E 's/([A-Za-z0-9_-]{24,})/[REDACTED]/g' /tmp/web-e2-private-test-outcome.log | tail -n 30
+            exit 1
+          }
+          grep -q 'WEB_SOURCE153_REAL_ES256_BROWSER_9_OF_9_PASS_LOCAL_ONLY' /tmp/web-e2-private-test-outcome.log
+          grep -q '"case": "WEB_E2_OWNER_SIGNED_CHROME"' /tmp/web-e2-private-test-outcome.log
+          echo WEB_SOURCE153_REAL_ES256_BROWSER_NINE_CHECKS_PASS_SANITIZED
+      - name: Stop ephemeral stack and erase local signer and scratch
+        if: always()
+        shell: bash
+        run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f supabase/signing_keys.json /tmp/web-e2-private-boot.log /tmp/web-e2-keygen-private.log /tmp/web-e2-config.tmp /tmp/web-e2-private-test-outcome.log
+          echo WEB_E2_EPHEMERAL_TEARDOWN_ATTEMPTED
