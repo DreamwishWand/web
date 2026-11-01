@@ -229,7 +229,7 @@ with psycopg.connect(DSN,autocommit=True) as db:
     for work,photo,media,kind in works:
         st,h,r=grant("A",work,photo,media)
         assert st==200 and safe_edge_headers(h) and r.get("ok") is True,(kind,"GRANT_FAILED",st,r.get("error"))
-        d=r["data"]
+        d=r["data"]["result"]
         assert d["rowVersion"]==1 and d["publicActivationAllowed"] is False
         assert scalar("select row_version from private.dreamsnap_x05_work_control_v1 where work_id=%s",(work,))==1
         assert scalar("select authorization_epoch from private.dreamsnap_x05_work_control_v1 where work_id=%s",(work,))==1
