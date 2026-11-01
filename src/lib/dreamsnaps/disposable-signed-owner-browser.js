@@ -70,7 +70,7 @@ function headersObject(headers) {
   return o;
 }
 
-export async function disposableGoTrueLogin({origin,publishableKey,email,password,onStatus=()=>{},fetchImpl=fetch}) {
+export async function disposableGoTrueLogin({origin,publishableKey,email,password,onStatus=(_status)=>{},fetchImpl=fetch}) {
   if (!DISPOSABLE_SIGNED_OWNER_BROWSER_ENABLED || !origin ||
       !localOwnerTestOrigin(origin+'/',location.hostname) ||
       typeof publishableKey !== 'string' || publishableKey.length<20 ||
