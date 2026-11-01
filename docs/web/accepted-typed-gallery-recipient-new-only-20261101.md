@@ -1,0 +1,28 @@
+# 08 WEB / Accepted Typed Work Recipient — Gallery minimal new-only correction (2026-11-01)
+
+**Existing 08 WEB / UI Foundation**; not a new core product, not a rewrite of WEB215/222/280 or 09 INT.
+
+## Preconditions and exact lineage
+
+- 09 INT Current Handoff and Issue119 comment6553950395 independently examined main HEAD `71e568c9b576c54f8d100fae2ae883c835de7602`, WEB215 `ca46279f5da996f335ab011b627a4f5b5ba99235`, WEB222 `99ed88fc717cf18bb4127695f16d6949e7609463`, WEB280 `df0f9c2b91b930487cf6eae513ec2f9084ee9dfe`, WEP275 `78611aca1aec6570e6e1fa37307f2f4dd662a325`, integrated INT277 `3ae205852d9ba20178d09c3ef79c5bffbef350ce`. WEP275→INT277 graph is synchronized, WEB215 ancestor of WEB222, main→INT277 and main→WEB222 changed-path sets disjoint, WEB280 three product source blobs identical to WEB222 and **must not additionally merge**. No final WEB222+INT277 combined executable tree is available yet.
+- Main-based WEB280 exact Source new-only QR19/19 PASS; independent Browser PARTIAL. Earlier WEB222/QR226 author and independent Chrome/Q&A SPA source accepted. Do not replay those old suites, replace 01A/WEP275/INT277, upgrade Source153 or enable native/Community protected writer.
+- **This proposed narrow owner child is based directly on frozen WEB222 HEAD**, not its original PR; WEB222 itself remains untouched and independent acceptance retained. The eventual authoritative integration plan is main → WEP275 → INT277 → WEB222-derived safe frontend, with this child patch applied at that last frontend step after authorized composition and new CI. No main merge/force-push/deploy. 09 INT must produce final branch lineage and combined independent QA; this isolated child Owner CI is not combined full-app acceptance.
+
+## Exact new-only problem/source patch
+
+Existing WEB222 `src/routes/gallery/+page.svelte` original Git Blob `63cccdd95b87de0fc86d5dc19b482232ec8748c1`:
+- accepts `?work` only through already accepted `parseTypedWorkQuery`; does not need a new parser;
+- routeVersion fences only successful selected Detail, not search list/error/finally; a late browse or failed Detail may overwrite navigation state;
+- Gallery browse click `onSelect={openWork}` reaches `openWork(workId)` without canonicalWorkId validation;
+- even successful Gallery RPC can return wrong Work identity or an unexpected typed Work before GalleryDetail receives Media ID/signing candidates; client must fail closed, server remains public authority.
+
+Minimal owner delta is **only one existing production file** `src/routes/gallery/+page.svelte`. Use existing accepted `canonicalWorkId`, `resolveTypedWorkRoute`, and `parseTypedWorkQuery`. Separate routeVersion, browseVersion, detailVersion; immediately clear old works/selected/query/error/busy on navigation, invalidate prior requests; record requested query before awaiting. Browse list only take recognized Gallery Work candidates with valid canonical UUID and permitted source metadata, filtered before rendering title/text. Filter cannot itself prove publication or actual rights; server still authoritative. Click/detailed receiver canonicalizes local UUID, rejects missing or NIL before any detail RPC, accepts only strict matching returned `workId` and `workType` if supplied. Source mismatch fails to show GalleryDetail and thus cannot trigger media signer. Failed requests use machine-only error, never copy raw backend error containing user information to UI. Stale success/error/finally unable to affect newer route or search. A new browse/search request can run while old detail is pending, but route/source generation fences prevent stale cross-route state.
+
+Already accepted Q&A strict Tip/Question same-route SPA parse/generations remain byte-identical, including no-answers vs unresolved. Creator WEB222/WEB280 accepted three source blobs remain byte-identical and DreamSnaps link root is no-ID gated, no signer or original competition caption disclosure. WEB215 preserves Guide Issues→CHC, Community DreamSnaps 1–3–1, Account-wide Official in-game results default OFF, Collection Category-first contextual Universe/Expansion and legacy Gallery DreamSnaps inert. Existing v1.25.0 static Collection does not prove schema626 personal state. Protected positive Work Detail/Creator identity, actual signed phase, old issued CDN bearer, Provider/Storage, Cloud and native persistent Writer/Apply are not tested or enabled.
+
+## Test scope and limitations
+
+- New Node test on changed Gallery source and existing accepted parser, source clone of other screens unaffected; malformed/duplicate/mixed `work` query, wrong typed UUID, null/retired row, list/detail stale generation fences.
+- New actual local Chrome **synthetic only**: typed valid Gallery → click via keyboard; filtered wrong-type/hidden/missing UUID list rows; mixed/duplicate/foreign query no read; SPA Back/Forward; slow old detail, late browse/error, cross-type/mismatched Detail rejected; existing Q&A `tip`/ `question` destinations and back; eight locales, 320px and alert role; pageErrors/consoleErrors no errors; no Media Signer/Provider/Cloud. No official actor auth/media or real DDV phase, no non-synthetic private user data.
+- Dedicated workflow Node/check/build + synthetic Chrome, diff limited to Gallery Svelte, new Node, new Chrome, this doc and new workflow; WEB215/222/280 accepted source unchanged. Combined WEP275+INT277+WEB222 UI, 8-language and signed full E2E independent review remains **09 INT + 04 QR next step**, not automatically met by this child branch.
+- Only request 04 QR new-only when final new Owner HEAD+CI passes. Explicit DRAFT, DO_NOT_MERGE, DO_NOT_DEPLOY, Public NO-GO; R17 historical 30 PASS0/PARTIAL12/BLOCKED18 and seven shared governance/seed gates unchanged.
