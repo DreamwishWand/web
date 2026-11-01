@@ -53,7 +53,7 @@
       // Search is a list of candidates, not proof that every row is a Gallery Work.
       works = Array.isArray(candidates) ? candidates.filter(work =>
         resolveTypedWorkRoute(base,work?.work_type ?? work?.workType,
-          work?.work_id ?? work?.workId,work).status === 'ready' &&
+          work?.work_id ?? work?.workId,work as any).status === 'ready' &&
         (work?.work_type ?? work?.workType) === 'gallery' &&
         canonicalWorkId(work?.work_id) !== null
       ) : [];
