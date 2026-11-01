@@ -36,6 +36,7 @@ test('production gates and established Owner/WEB267 source stay OFF',()=>{
  assert.ok(page.includes("readIsolatedSource153Owner"));
  assert.ok(page.includes("clearSession"));
  assert.ok(page.includes('aria-live="polite"'));
+ assert.ok(page.includes('disabled={working || !token || !canInspect}'));
  assert.ok(!page.includes('localStorage'));
 });
 
