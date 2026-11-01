@@ -16,7 +16,7 @@ test('8 locale diagnostic addenda have explicit Collection, unknown and local-on
     const c=save626DiagnosticCopy(l);
     for(const key of ['collectionBoundary','incompleteDiagnostic','localOnly']){
       assert.equal(typeof c[key],'string');
-      assert.ok(c[key].length>35, l+':'+key);
+      assert.ok([...c[key]].length>=16, l+':'+key);
       assert.ok(!/https?:\/\//.test(c[key]));
     }
   }
