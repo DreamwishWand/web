@@ -247,8 +247,18 @@ try{
   for(const code of locales){
     await page.setViewportSize({width:1280,height:820});
     await goto('/gallery/');
+    await page.locator('#site-locale').waitFor();
+    await pause(300); // Let the async onMount preference restore complete after full navigation.
     await page.locator('#site-locale').selectOption(code);
-    await wait(async()=>await page.locator('html').getAttribute('data-locale')===code,'locale-'+code);
+    await pause(100);
+    const langState=await page.evaluate(()=>({
+      html:document.documentElement.dataset.locale,
+      lang:document.documentElement.lang,
+      selected:document.querySelector('#site-locale')?.value,
+      stored:localStorage.getItem('dreamwishwand-locale-manual-v1')
+    }));
+    console.log('04QR_LOCALE_DIAGNOSTIC',JSON.stringify({code,...langState}));
+    assert.equal(langState.html,code,'selected launch locale must be applied: '+JSON.stringify(langState));
     await page.setViewportSize({width:320,height:760});
     for(const path of paths){
       await goto(path);
