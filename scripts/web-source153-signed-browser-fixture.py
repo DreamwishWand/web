@@ -35,7 +35,7 @@ source+='''
         env["E2_"+key+"_EMAIL"]=users[who]["email"]
         env["E2_"+key+"_PASSWORD"]=users[who]["password"]
     child=subprocess.Popen(
-        ["npm","run","dev","--","--host","127.0.0.1","--port","4175"],
+        ["npm","run","dev","--","--config","scripts/vite-source153-e2.config.mjs","--host","127.0.0.1","--port","4175"],
         stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,env=env)
     try:
         for _ in range(80):
