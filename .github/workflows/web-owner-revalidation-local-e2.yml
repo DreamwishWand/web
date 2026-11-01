@@ -7,6 +7,7 @@ on:
       - 'src/lib/dreamsnaps/owner-read-revalidation.js'
       - 'src/routes/dreamsnaps/my/manage/source153-e2/+page.svelte'
       - 'tests/web-owner-read-revalidation.test.mjs'
+      - 'tests/web-source153-owner-browser-e2.test.mjs'
       - 'scripts/web-owner-revalidation-chrome.mjs'
       - 'scripts/web-owner-revalidation-fixture.py'
       - 'docs/web/owner-read-revalidation-invalidation-contract-20261102.md'
@@ -34,7 +35,7 @@ jobs:
         run: npm run check
       - name: Production build with Owner flags OFF
         run: npm run build
-      - name: Strict frozen PR290 ancestry, seven paths, and protected source parity
+      - name: Strict frozen PR290 ancestry, eight paths, and protected source parity
         shell: bash
         run: |
           set -euo pipefail
@@ -45,10 +46,10 @@ jobs:
           test "$(git hash-object src/lib/dreamsnaps/source153-owner-browser-e2.js)" = 7468f9550e3e196d28b84c246ff529d2c5daa66e
           test "$(git hash-object src/lib/dreamsnaps/owner-management.js)" = baca9c6a5dce744536f6cf5cbd99c07e115f8544
           git diff --name-only "$BASE" HEAD > /tmp/owner-read-revalidation-paths
-          test "$(wc -l < /tmp/owner-read-revalidation-paths)" -eq 7
+          test "$(wc -l < /tmp/owner-read-revalidation-paths)" -eq 8
           while IFS= read -r p; do
             case "$p" in
-              src/lib/dreamsnaps/owner-read-revalidation.js|src/routes/dreamsnaps/my/manage/source153-e2/+page.svelte|tests/web-owner-read-revalidation.test.mjs|scripts/web-owner-revalidation-chrome.mjs|scripts/web-owner-revalidation-fixture.py|docs/web/owner-read-revalidation-invalidation-contract-20261102.md|.github/workflows/web-owner-revalidation-local-e2.yml) ;;
+              src/lib/dreamsnaps/owner-read-revalidation.js|src/routes/dreamsnaps/my/manage/source153-e2/+page.svelte|tests/web-owner-read-revalidation.test.mjs|tests/web-source153-owner-browser-e2.test.mjs|scripts/web-owner-revalidation-chrome.mjs|scripts/web-owner-revalidation-fixture.py|docs/web/owner-read-revalidation-invalidation-contract-20261102.md|.github/workflows/web-owner-revalidation-local-e2.yml) ;;
               *) echo UNEXPECTED_REVALIDATION_DELTA >&2; exit 1 ;;
             esac
           done < /tmp/owner-read-revalidation-paths
