@@ -6,6 +6,13 @@
   import { createCommunityBrowserClient } from '$lib/community/browser-client';
   import { dreamsnapOwnerCopy } from '$lib/dreamsnaps/owner-management-copy.js';
   import {
+    OWNER_PRODUCT_READONLY_ENABLED, OWNER_PRODUCT_MANAGED_INGRESS_ACCEPTED,
+    ownerProductSignedSessionCandidate, createOwnerProductReadOnlyAdapter
+  } from '$lib/dreamsnaps/owner-product-readonly.js';
+  import {
+    createOwnerReadRevalidation, attachOwnerReadBrowserLifecycle
+  } from '$lib/dreamsnaps/owner-read-revalidation.js';
+  import {
     OWNER_MANAGEMENT_ENABLED, OWNER_BACKEND_CAPABILITIES,
     parseOwnerWorkRoute, validateOwnerDraft
   } from '$lib/dreamsnaps/owner-management.js';
@@ -17,18 +24,93 @@
   let challengeId = '';
   let concept = '';
   let preview: ReturnType<typeof validateOwnerDraft> | null = null;
+  let ownerSource: ReturnType<typeof createOwnerReadRevalidation> | null = null;
+  let ownerSourceStatus = 'BACKEND_UNAVAILABLE';
+  let ownerSourceView: any = null;
+  let ownerSourceInspect = false;
+  let ownerSourceFresh = false;
+  const productReadAvailable=OWNER_PRODUCT_READONLY_ENABLED &&
+    OWNER_PRODUCT_MANAGED_INGRESS_ACCEPTED;
+  const readCopy: Record<string,{inspect:string;fresh:string;hint:string}> = {
+    en:{inspect:'Check this Work',fresh:'Start a fresh read',hint:'Signed read-only source information, not verified Owner access'},
+    fr:{inspect:'Vérifier cette œuvre',fresh:'Commencer une nouvelle lecture',hint:'Données de source signées, pas un droit de gestion vérifié'},
+    it:{inspect:'Verifica questa opera',fresh:'Avvia una nuova lettura',hint:'Informazioni firmate di sola lettura, non autorizzazione verificata'},
+    de:{inspect:'Werk prüfen',fresh:'Neue Leseanfrage starten',hint:'Signierte Quelldaten, keine bestätigten Besitzerrechte'},
+    'es-ES':{inspect:'Comprobar esta obra',fresh:'Iniciar nueva lectura',hint:'Información firmada de solo lectura, sin derechos verificados'},
+    ja:{inspect:'この作品を再確認',fresh:'新しい読取りを開始',hint:'署名付きSource候補のみ。Owner権限の確認・付与ではありません'},
+    'zh-CN':{inspect:'检查该作品',fresh:'开始新读取',hint:'仅签名来源数据，不表示已验证拥有者权限'},
+    'pt-BR':{inspect:'Verificar esta obra',fresh:'Iniciar nova leitura',hint:'Dados de origem assinados, sem direitos verificados'}
+  };
+  $: ownerReadCopy=readCopy[$locale]??readCopy.en;
 
   $: copy = dreamsnapOwnerCopy($locale);
   $: canPreview = signedIn && route.status === 'draft' && !OWNER_MANAGEMENT_ENABLED;
   // No backend consumer, Work-ID lookup, media signer, optimistic mutation or upload
   // is permitted until the authenticated Owner backend passes independent QA.
-  onMount(() => { signedIn = Boolean(client?.session); });
+  onMount(() => {
+    signedIn=Boolean(client?.session);
+    if(!productReadAvailable || !client)return;
+    // This section cannot activate without a separately accepted managed
+    // auth/ingress contract; the public flags remain false.
+    const gateway=createOwnerProductReadOnlyAdapter({
+      client,
+      endpoint:import.meta.env.VITE_OWNER_MANAGED_READ_ENDPOINT,
+      appOrigin:window.location.origin,
+      sourceOrigin:client.config.supabaseUrl,
+      fetchImpl:fetch
+    });
+    ownerSource=createOwnerReadRevalidation({
+      read:gateway.read,
+      onChange:state=>{
+        ownerSourceStatus=state.status;
+        ownerSourceView=state.view;
+        ownerSourceInspect=state.canInspect;
+        ownerSourceFresh=state.canFreshRead;
+      }
+    });
+    const detach=attachOwnerReadBrowserLifecycle(ownerSource,{
+      documentRef:document,windowRef:window
+    });
+    const syncSignedSession=()=>{
+      const candidate=ownerProductSignedSessionCandidate(client);
+      if(!candidate){
+        ownerSource?.invalidate('SESSION_CHANGED');
+        ownerSourceView=null;
+      }
+    };
+    window.addEventListener('focus',syncSignedSession);
+    window.addEventListener('pageshow',syncSignedSession);
+    if(route.status==='authority-pending'){
+      ownerSource.routeChanged(route.workId);
+      const candidate=ownerProductSignedSessionCandidate(client);
+      if(candidate)ownerSource.replaceSession(candidate.token,candidate.anonKey);
+    }
+    return ()=>{
+      detach();
+      window.removeEventListener('focus',syncSignedSession);
+      window.removeEventListener('pageshow',syncSignedSession);
+      ownerSource?.dispose();
+      ownerSource=null;
+    };
+  });
   afterNavigate(({to}) => {
     route = parseOwnerWorkRoute(to?.url?.search ?? '');
+    ownerSourceView=null;
+    ownerSource?.routeChanged(route.workId);
+    // Never carry an old signed session or displayed candidate across Work.
+    if(productReadAvailable && route.status==='authority-pending'){
+      const candidate=ownerProductSignedSessionCandidate(client);
+      if(candidate)ownerSource?.replaceSession(candidate.token,candidate.anonKey);
+    }
     preview = null; // no stale local preview when the SPA route changes.
     challengeId = ''; concept = '';
   });
 
+  async function inspectOwnerSource(fresh=false){
+    if(!productReadAvailable || !client || route.status!=='authority-pending' ||
+       !ownerSource || !ownerProductSignedSessionCandidate(client))return;
+    await ownerSource.revalidate({fresh});
+  }
   function showPreview() {
     if (!canPreview) return;
     preview = validateOwnerDraft({ kind, challengeId, concept });
@@ -53,6 +135,27 @@
     </p>
   {:else if route.status === 'authority-pending'}
     <p class="notice" role="status" data-owner-state="backend-unavailable">{copy.ownerPending}</p>
+    {#if productReadAvailable}
+      <section class="panel" data-owner-product-read="source-only">
+        <p role="status" aria-live="polite" data-owner-product-status>{ownerSourceStatus}</p>
+        <p class="hint">{ownerReadCopy.hint}</p>
+        <button type="button" on:click={() => inspectOwnerSource(false)}
+          disabled={!ownerSourceInspect} data-owner-product-inspect>{ownerReadCopy.inspect}</button>
+        {#if ownerSourceFresh}
+          <button type="button" on:click={() => inspectOwnerSource(true)}
+            disabled={!ownerSourceFresh} data-owner-product-fresh>{ownerReadCopy.fresh}</button>
+        {/if}
+        {#if ownerSourceView}
+          <dl data-owner-product-projection="candidate-only">
+            <dt>Work kind</dt><dd>{ownerSourceView.kind}</dd>
+            <dt>Grant state</dt><dd>{ownerSourceView.grantState}</dd>
+            <dt>Public disabled</dt><dd>{String(ownerSourceView.publicDisabled)}</dd>
+          </dl>
+        {/if}
+      </section>
+    {:else}
+      <p class="hint" role="status" data-owner-product-read="disabled">{copy.ownerPending}</p>
+    {/if}
   {:else}
     <section class="panel" data-owner-state="local-draft">
       <h2>{copy.preview}</h2>
