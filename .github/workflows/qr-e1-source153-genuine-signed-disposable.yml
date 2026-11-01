@@ -1,0 +1,77 @@
+name: QR E1 Genuine Signed Source153 Disposable No Provider
+on:
+  push:
+    branches:
+      - qa/ctrl-e1-source153-real-signed-disposable-20261101
+permissions:
+  contents: read
+jobs:
+  signed-source153-r1-r2-disposable:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      DDVRE_E1_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify frozen FULL153 product source and zero production edits
+        shell: bash
+        run: |
+          set -euo pipefail
+          OWNER=67300f2e3841d4e4161a9caf24a4d3058b3da330
+          git merge-base --is-ancestor "$OWNER" HEAD
+          test -z "$(git diff --name-only "$OWNER" HEAD -- src supabase package.json package-lock.json)"
+          test "$(git hash-object supabase/migrations/20261028000060_x05_authoritative_owner_projection_v2.sql)" = 356cc10138cd351674fde8dd943acc968e26fbbc
+          test "$(git hash-object supabase/functions/community-dreamsnap-owner/index.ts)" = 38f6830b88eb37dc612cbc11901812a90b406146
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 153
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID"
+          python3 -m py_compile tests/qr-e1-source153-genuine-signed-disposable.py
+          echo E1_FULL153_FROZEN_QA_ONLY_NO_REMOTE_CONFIG_PASS
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Boot clean, isolated local FULL153 GoTrue PostgREST Edge, no Stage keys
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_e1_real_signed_disposable_only"\n' | cat - supabase/config.toml > /tmp/e1-local-config.toml
+          mv /tmp/e1-local-config.toml supabase/config.toml
+          timeout 1800s supabase start --debug > /tmp/e1-local-bootstrap.log 2>&1 || {
+            echo E1_LOCAL_BOOT_FAILED
+            grep -E 'error|Error|failed|Failed|health|timeout' /tmp/e1-local-bootstrap.log | tail -35 | cut -c1-180 || true
+            exit 1
+          }
+          echo E1_CLEAN_DISPOSABLE_GOTRUE_EDGE_PG_BOOT_PASS
+      - name: Install isolated PG client
+        run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Execute ONLY real signed A B M + anonymous R1/R2 private HTTP and RLS
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/qr-e1-source153-genuine-signed-disposable.py 2>&1 | tee /tmp/e1-local-only-sanitized.log
+          grep -q '"case": "E1_SOURCE153_GENUINE_SIGNED_R1_R2"' /tmp/e1-local-only-sanitized.log
+          echo E1_SOURCE153_REAL_GOTRUE_JWT_EDGE_POSTGREST_RLS_TARGETED_PASS
+      - name: Stop and remove disposable local Supabase storage
+        if: always()
+        shell: bash
+        run: |
+          supabase stop --no-backup > /dev/null 2>&1 || true
+          rm -f /tmp/e1-local-config.toml /tmp/e1-local-bootstrap.log
+          echo E1_DISPOSABLE_RUNNER_TEARDOWN_ATTEMPTED
+      - name: Upload sanitized case markers only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr-e1-source153-signed-no-secrets-local-cases
+          path: /tmp/e1-local-only-sanitized.log
+          if-no-files-found: ignore
+          retention-days: 1
