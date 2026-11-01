@@ -15,7 +15,7 @@
     !SOURCE153_BROWSER_E2_PRODUCTION_ENABLED &&
     !SOURCE153_OWNER_V2_LIVE_ENABLED && !OWNER_MANAGEMENT_ENABLED;
   const anonKey=localOnly ? String(import.meta.env.VITE_DDVRE_E2_LOCAL_ANON_KEY??'') : '';
-  const copy = {
+  const copy: Record<string,string[]> = {
     en:['Isolated Owner read-only inspection','Test-only signed local session','Inspect this Work','Source-shaped candidate only, not verified Owner authority','Unavailable; do not publish or apply'],
     fr:['Inspection privée isolée','Session locale signée de test','Inspecter cette œuvre','Données candidates uniquement, sans autorisation confirmée','Indisponible, ne pas publier'],
     it:['Ispezione privata isolata','Sessione locale firmata di prova','Esamina opera','Solo dati candidati, non autorizzazione verificata','Non disponibile, non pubblicare'],
@@ -26,7 +26,7 @@
     'pt-BR':['Inspeção privada isolada','Sessão local assinada de teste','Inspecionar trabalho','Somente candidato de fonte, não autorização verificada','Indisponível, não publicar']
   };
   $: labels = copy[$locale] ?? copy.en;
-  let route = {status:'invalid',workId:null};
+  let route: {status:string;workId:string|null} = {status:'invalid',workId:null};
   let email='',password='',token='',status='AUTH_REQUIRED';
   let view:any=null,working=false,epoch=0,aborter:AbortController|null=null;
   function clear(statusText='AUTH_REQUIRED') {
@@ -43,6 +43,7 @@
   async function signIn(){
     if(!localOnly || !anonKey)return;
     clear('CHECKING_SESSION');
+    token='';
     const sequence=epoch;
     const controller=new AbortController();
     aborter=controller;working=true;
