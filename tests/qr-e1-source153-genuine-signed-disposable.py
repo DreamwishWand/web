@@ -119,6 +119,12 @@ if os.getenv("DDVRE_E1_EFFECTIVE_ENV_ONLY")=="1":
     marker("E1_DIAGNOSTIC_ONLY","NO_PRIVATE_FIXTURE_NO_OWNER_E2E_PROMOTION")
     raise SystemExit(0)
 
+assert diagnosis["inlinePresent"] and diagnosis["inlineJsonValid"],"EFFECTIVE_EDGE_INLINE_JWKS_MISSING"
+assert diagnosis["inlineJwksShapeValid"] and diagnosis["publicKeyCount"]>=1,"EFFECTIVE_EDGE_JWKS_INVALID"
+assert diagnosis["publicKeyOnly"] and diagnosis["matchingKidCount"]>=1,"EFFECTIVE_EDGE_SIGNER_KID_MISMATCH"
+assert header_ok,"EDGE_DIAGNOSTIC_PRIVATE_CACHE_HEADERS_MISSING"
+marker("E1_EDGE_EFFECTIVE_JWKS_GATE","PUBLIC_ES256_KID_MATCHED_BEFORE_E2E")
+
 
 with psycopg.connect(DSN,autocommit=True) as db:
     def scalar(q,args=()):
