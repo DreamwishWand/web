@@ -66,6 +66,7 @@
     const result=await readIsolatedSource153Owner({
       fetchImpl:fetch,token,anonKey,workId:route.workId,
       requestGeneration:sequence,latestGeneration:sequence,
+      expectedRowVersion:undefined,expectedAuthorizationEpoch:undefined,
       signal:controller.signal
     });
     if(sequence!==epoch || controller.signal.aborted)return;
