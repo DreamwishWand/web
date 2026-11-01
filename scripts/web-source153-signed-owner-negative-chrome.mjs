@@ -189,7 +189,7 @@ try {
   // Only this test file's first line number is emitted; no error message,
   // values, HTTP body, credentials, stack, DOM or actor identifiers.
   const stack=String(error?.stack??'');
-  const matched=stack.match(/web-source153-signed-owner-negative-chrome\\.mjs:(\\d+):/);
+  const matched=stack.match(/web-source153-signed-owner-negative-chrome\.mjs:(\d+):/);
   console.log('WEB_E2_SAFE_DIAGNOSTIC_'+scenario+'_LINE_'+(matched?.[1]??'UNKNOWN'));
   throw error;
 } finally {await browser.close();}
