@@ -1,0 +1,54 @@
+name: 03 COMM Legacy DreamSnaps Public Reader Two PG
+on:
+  push:
+    branches: ['test/03comm-legacy-dreamsnap-public-reader-20261101','feature/03comm-legacy-dreamsnap-public-reader-fix-20261101']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  legacy-readers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
+      LEGACY_EXPECT_EXPOSURE: '1'
+      SUPABASE_ACCESS_TOKEN: ''
+      DATABASE_URL: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Check frozen Source153 and only diagnostic SQL work
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor b24eec2cb4dae4ab30824636670c520d7c6eea40 HEAD
+          test -z "$(git diff --name-only b24eec2cb4dae4ab30824636670c520d7c6eea40 HEAD -- supabase/migrations)"
+          test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$DATABASE_URL"
+      - name: Clean disposable full153 Postgres (no Edge)
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_comm_legacy_public_disposable"\n' | cat - supabase/config.toml > /tmp/comm-legacy-config.toml
+          mv /tmp/comm-legacy-config.toml supabase/config.toml
+          timeout 1500s supabase start -x edge-runtime --debug >/tmp/comm-legacy-start.log 2>&1 || { tail -130 /tmp/comm-legacy-start.log; exit 1; }
+      - name: Install isolated pg client
+        run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Actual legacy Search/Detail vs Source144 R20 under account suppression
+        run: |
+          set -euo pipefail
+          python3 tests/comm-legacy-dreamsnap-public-reader-two-pg.py 2>&1 | tee /tmp/comm-legacy-two-pg.log
+          grep -q LEGACY_ACTUAL_SQL_TRUE_RED_REPRODUCED /tmp/comm-legacy-two-pg.log
+      - name: Fixture evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: comm-legacy-public-source153-two-pg
+          path: /tmp/comm-legacy-two-pg.log
+          if-no-files-found: warn
+      - name: Diagnostics
+        if: failure()
+        run: tail -100 /tmp/comm-legacy-start.log || true
