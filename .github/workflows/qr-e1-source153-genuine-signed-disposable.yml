@@ -130,6 +130,21 @@ jobs:
           python3 tests/qr-e1-source153-genuine-signed-disposable.py 2>&1 | tee /tmp/e1-local-only-sanitized.log
           grep -q '"case": "E1_SOURCE153_GENUINE_SIGNED_R1_R2_POSTGREST"' /tmp/e1-local-only-sanitized.log
           echo E1_GENUINE_ES256_EDGE_POSTGREST_RLS_VERIFIED
+      - name: Identify resolved Edge SDK semver without exposing modules or secrets
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import re,subprocess
+          names=subprocess.check_output(["docker","ps","--format","{{.Names}}"],text=True).splitlines()
+          resolved=set()
+          for name in names:
+              if "edge" not in name.lower():continue
+              p=subprocess.run(["docker","logs","--tail","800",name],capture_output=True,text=True)
+              for s in (p.stdout,p.stderr):
+                  resolved.update(re.findall(r'@supabase/server/(\d+\.\d+\.\d+)',s))
+          print("E1_ACTUAL_EDGE_SUPABASE_SERVER_SEMVER",",".join(sorted(resolved)) if resolved else "NOT_VISIBLE_IN_LOG")
+          PY
       - name: Sanitized local Edge diagnostic on signed test failure
         if: failure()
         shell: bash
