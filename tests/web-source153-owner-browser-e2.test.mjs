@@ -113,3 +113,26 @@ test('real HTTP projection through unchanged WEB267 strict decoder fails closed 
  });
  assert.equal(bad.status,'UNSAFE_CACHE_POLICY');
 });
+
+
+test('new-only signed browser keeps prior source CAS and rejects stale owner/session navigation',()=>{
+ const page=text('src/routes/dreamsnaps/my/manage/source153-e2/+page.svelte');
+ const chrome=text('scripts/web-source153-signed-owner-negative-chrome.mjs');
+ const fixture=text('scripts/web-source153-signed-owner-negative-fixture.py');
+ assert.ok(page.includes('expectedRowVersion:view.rowVersion'));
+ assert.ok(page.includes('expectedAuthorizationEpoch:view.authorizationEpoch'));
+ assert.ok(page.includes('...previousCas'));
+ assert.ok(page.includes('disabled={working && !token}'));
+ assert.ok(page.includes("password='';email=''"));
+ for(const token of ['DOM_A11Y','IDENTITY','ACCOUNT','CREATOR','CAS','WITHDRAWN',
+   'POLICY','RACE_WORK','RACE_SESSION','RACE_HISTORY']){
+   assert.ok(chrome.includes("'"+token+"'"));
+   assert.ok(fixture.includes('"'+token+'"'));
+ }
+ assert.ok(chrome.includes("route.fetch()"));
+ assert.ok(chrome.includes('PROJECTION_MUST_BE_POPULATED_DURING_DOM_AUDIT'));
+ assert.ok(chrome.includes('JWT_IN_LIVE_DOM'));
+ assert.ok(fixture.includes('PARTIAL_NOT_RUN_NO_ISOLATED_REVERSIBLE_STATE_FIXTURE'));
+ assert.ok(!chrome.includes('route.fulfill({status:200'));
+ assert.ok(!page.includes('localStorage'));
+});
