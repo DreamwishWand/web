@@ -71,8 +71,9 @@ test('wrong UUID, absent local signed session and invalid action envelope reject
  assert.equal((await readIsolatedSource153Owner({...args,workId,token:'token'})).status,'SOURCE_CONTRACT_REJECTED');
  assert.equal((await readIsolatedSource153Owner({...args,workId,requestGeneration:2})).status,'SOURCE_CONTRACT_REJECTED');
  assert.equal(calls,0);
- const d=await readIsolatedSource153Owner({...args,workId,requestGeneration:2,latestGeneration:2});
- assert.equal(d.status,'SOURCE_CONTRACT_REJECTED');
+ const d=await readIsolatedSource153Owner({...args,workId,requestGeneration:2,latestGeneration:3});
+ assert.equal(d.status,'STALE_RESPONSE');
+ assert.equal(calls,0);
 });
 
 test('GoTrue test browser login requires local user lookup, returns token only in memory',async()=>{
