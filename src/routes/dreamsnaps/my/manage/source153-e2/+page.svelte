@@ -30,7 +30,7 @@
     'zh-CN':['隔离Owner只读检查','本地签名测试会话','检查作品','仅供检查的Source候选，非已验证Owner授权','不可用，不得发布'],
     'pt-BR':['Inspeção privada isolada','Sessão local assinada de teste','Inspecionar trabalho','Somente candidato de fonte, não autorização verificada','Indisponível, não publicar']
   };
-  $: labels = copy[$locale] ?? copy.en;
+
 
   $: labels=copy[$locale]??copy.en;
   const recheckCopy:Record<string,string[]> = {
@@ -50,8 +50,8 @@
   let loginEpoch=0,loginAborter:AbortController|null=null;
   const ownerController=createOwnerReadRevalidation({
     // The existing PR290 adapter and unchanged WEB267 decoder own HTTP validation.
-    read:params=>readIsolatedSource153Owner({fetchImpl:fetch,...params}),
-    onChange:next=>{
+    read:(params:any)=>readIsolatedSource153Owner({fetchImpl:fetch,...params}),
+    onChange:(next:any)=>{
       view=next.view;
       status=next.status;
       working=next.working;
