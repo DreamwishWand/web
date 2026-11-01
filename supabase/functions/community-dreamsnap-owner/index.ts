@@ -208,7 +208,7 @@ const handler=withSupabase({auth:'user'},async (req,ctx)=>{
     data:result});
 });
 export default {
-  fetch(req:Request) {
+  async fetch(req:Request) {
     if(req.method==='OPTIONS')return new Response('ok',{headers:{...corsHeaders,'Cache-Control':'private, no-store'}});
     const response=await handler(req);
     // withSupabase rejects missing credentials before the Owner handler runs.
