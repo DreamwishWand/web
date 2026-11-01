@@ -1,0 +1,68 @@
+name: WEB Switch1253 read-only diagnostic UX NEW ONLY
+on:
+  push:
+    branches: ['web/switch1253-save-readonly-diagnostic-ux-*']
+  pull_request:
+    paths:
+      - 'src/routes/editor/world/+page.svelte'
+      - 'src/lib/wep/save626-diagnostics-copy.js'
+      - 'tests/wep-save626-diagnostic-ux.test.mjs'
+      - 'scripts/web-save626-diagnostic-browser.mjs'
+      - 'docs/web/switch1253-save-readonly-ux-delta-20261101.md'
+      - '.github/workflows/web-switch1253-readonly-diagnostic.yml'
+permissions:
+  contents: read
+concurrency:
+  group: web-switch1253-readonly-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  new-only-source-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Focused read-only scope and locale tests
+        run: node --test tests/wep-save626-diagnostic-ux.test.mjs
+      - name: Svelte types
+        run: npm run check
+      - name: Static build
+        run: npm run build
+      - name: Exact six-file allowlist; native Save, Collection, Gallery, Guide and Community unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=71e568c9b576c54f8d100fae2ae883c835de7602
+          git cat-file -e "$BASE^{commit}"
+          git diff --exit-code "$BASE" HEAD -- src/lib/ddv/core/save/ src/lib/collection/ src/routes/collection/ src/routes/gallery/ src/routes/guide/ supabase/ src/lib/wep/world-save-source.ts src/lib/wep/world-readonly-copy.js src/lib/dreamsnaps/
+          git diff --name-only "$BASE" HEAD > /tmp/wep626-delta
+          test "$(wc -l < /tmp/wep626-delta)" -eq 6
+          while IFS= read -r p; do
+            case "$p" in
+              src/routes/editor/world/+page.svelte|src/lib/wep/save626-diagnostics-copy.js|tests/wep-save626-diagnostic-ux.test.mjs|scripts/web-save626-diagnostic-browser.mjs|docs/web/switch1253-save-readonly-ux-delta-20261101.md|.github/workflows/web-switch1253-readonly-diagnostic.yml) ;;
+              *) echo "UNEXPECTED PATH: $p" >&2; exit 1 ;;
+            esac
+          done < /tmp/wep626-delta
+      - name: Browser dependency
+        run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Find Chrome and start isolated local Web
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          npm run dev -- --host 127.0.0.1 --port 4179 > /tmp/web-save626-diagnostic.log 2>&1 &
+          for n in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4179/editor/world/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          echo 'LOCAL_BROWSER_SERVER_NOT_READY' >&2
+          exit 1
+      - name: New-only synthetic Chrome 8-locale, 320px, a11y and no personal data transfer
+        run: node scripts/web-save626-diagnostic-browser.mjs
