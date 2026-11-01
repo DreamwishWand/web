@@ -107,6 +107,10 @@ try {
    assert.ok(!html.includes(secret),'SENSITIVE_FIELD_IN_DOM');
  assert.deepEqual(failures,[]);
  await context.close();
+ console.log('WEB403_HTTP_STALE_CAS='+statuses[1]);
+ console.log('WEB403_HTTP_EXPLICIT_FRESH='+statuses[2]);
+ console.log('WEB403_HTTP_REVOKED_READ='+statuses[3]);
+ console.log('WEB403_HTTP_REVOKED_FRESH='+statuses[4]);
  console.log('WEB_OWNER_403_RECOVERY_SIGNED_CHROMIUM_NEW_ONLY_PASS_LOCAL');
 }catch(err){
  const line=String(err?.stack??'').match(/web-owner-revalidation-chrome\.mjs:(\d+):/)?.[1]??'UNKNOWN';
