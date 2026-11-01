@@ -112,6 +112,20 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
           a.execute(sql,args)
           source144=one(a,"select private.dreamsnap_public_work_accessible_r20(%s)",(work,))
           actual=reads(a)
+          state=a.execute("""
+            select w.lifecycle_state,w.visibility,w.moderation_state,
+                   a.status,ai.identity_state,cp.profile_visibility,
+                   gp.publication_state,ce.deleted_at is not null,
+                   private.is_account_privacy_suppressed(w.owner_account_id)
+            from public.community_works w
+            join public.wand_accounts a on a.account_id=w.owner_account_id
+            join public.auth_identities ai on ai.account_id=a.account_id
+            join public.creator_profiles cp on cp.creator_profile_id=w.creator_profile_id
+            join public.community_entities ce on ce.entity_id=cp.creator_profile_id
+            join public.dreamsnap_gallery_publications gp on gp.work_id=w.work_id
+            where w.work_id=%s limit 1
+          """,(work,)).fetchone()
+          assert state is not None,(label,'missing Work state')
           assert source144 is False,(label,'Source144 R20 unexpectedly true',actual)
           if mode:
             if actual['search'] or actual['detail']: exposed+=1
@@ -121,7 +135,12 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
             'legacySearchReturnedWork':actual['search'],'legacyDetailReturnedWork':actual['detail'],
             'mediaIdReturned':actual['mediaId'] is not None,
             'creatorIdReturned':actual['creatorId'] is not None,
-            'captionReturned':actual['caption'] is not None}),flush=True)
+            'captionReturned':actual['caption'] is not None,
+            'effectiveWorkLifecycle':state[0],'effectiveWorkVisibility':state[1],
+            'effectiveWorkModeration':state[2], 'effectiveAccountStatus':state[3],
+            'effectiveIdentityState':state[4], 'effectiveCreatorVisibility':state[5],
+            'effectivePublicationState':state[6],
+            'creatorEntityDeleted':state[7],'effectivePrivacySuppression':state[8]}),flush=True)
         finally:
           a.execute('rollback to savepoint legacy_probe')
           a.execute('release savepoint legacy_probe')
@@ -129,7 +148,7 @@ with psycopg.connect(dsn,autocommit=True) as a,psycopg.connect(dsn,autocommit=Tr
       assert exposed>=1,('NO_TRUE_RED',exposed)
       print(json.dumps({'marker':'LEGACY_ACTUAL_SQL_TRUE_RED_REPRODUCED','scenariosWithExposure':exposed}),flush=True)
     else:
-      print(json.dumps({'marker':'LEGACY_ACTUAL_SQL_POST_FIX_AUTHORIZATION_PASS','scenariosWithExposure':exposed}),flush=True)
+      print(json.dumps({'marker':'LEGACY_EXISTING_EFFECTIVE_GUARDS_NO_TRUE_RED','scenariosWithExposure':exposed}),flush=True)
     assert reads(b)==baseline,'Valid PUBLIC Work drift after rollbacks'
     print(json.dumps({'marker':'LEGACY_2PG_VALID_PUBLIC_WORK_PRESERVED','migrations':153,
       'realProvider':False,'signedJwt':False}),flush=True)
