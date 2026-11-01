@@ -1,0 +1,142 @@
+name: WEB X05 disposable signed Owner browser NEW ONLY
+on:
+  push:
+    branches: ['web/x05-source153-disposable-signed-browser-*']
+  pull_request:
+    paths:
+      - 'src/lib/dreamsnaps/disposable-signed-owner-browser.js'
+      - 'src/lib/dreamsnaps/disposable-owner-read-copy.js'
+      - 'src/lib/dreamsnaps/DisposableSignedOwnerRead.svelte'
+      - 'src/routes/dreamsnaps/my/manage/+page.svelte'
+      - 'tests/web-x05-disposable-signed-owner-browser.test.mjs'
+      - 'scripts/web-x05-local-signed-owner-browser.mjs'
+      - 'tests/web-x05-local-signed-browser-hook.py'
+      - 'docs/web/x05-disposable-genuine-signed-owner-browser-20261101.md'
+      - '.github/workflows/web-x05-disposable-signed-owner-browser.yml'
+permissions:
+  contents: read
+concurrency:
+  group: web-x05-dev-signed-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  dev-only-contract-and-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0, persist-credentials: false }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - run: npm ci --no-audit --no-fund
+      - name: Exact PR288 frozen source and nine new-only allowlisted paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=1755d2f37f08bb93604d1839245f8565cf603916
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --exit-code "$BASE" HEAD -- supabase/ src/lib/dreamsnaps/source153-owner-consumer-v2.js src/lib/dreamsnaps/owner-management.js src/lib/dreamsnaps/owner-management-copy.js src/lib/community/ src/routes/creator/ src/routes/qa/ src/routes/gallery/ src/lib/collection/ src/lib/wep/ package.json package-lock.json
+          test "$(git hash-object src/lib/dreamsnaps/source153-owner-consumer-v2.js)" = f981b7596711b47bceb2fa79a2191e79e8f1b459
+          test "$(git hash-object src/lib/dreamsnaps/owner-management.js)" = baca9c6a5dce744536f6cf5cbd99c07e115f8544
+          test "$(git hash-object supabase/functions/community-dreamsnap-owner/index.ts)" = 35bba2421aabe78ad5830762c33433247fa370bd
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 153
+          git diff --name-only "$BASE" HEAD > /tmp/web-owner-new-only
+          test "$(wc -l < /tmp/web-owner-new-only)" -eq 9
+          while IFS= read -r p; do
+            case "$p" in
+              src/lib/dreamsnaps/disposable-signed-owner-browser.js|src/lib/dreamsnaps/disposable-owner-read-copy.js|src/lib/dreamsnaps/DisposableSignedOwnerRead.svelte|src/routes/dreamsnaps/my/manage/+page.svelte|tests/web-x05-disposable-signed-owner-browser.test.mjs|scripts/web-x05-local-signed-owner-browser.mjs|tests/web-x05-local-signed-browser-hook.py|docs/web/x05-disposable-genuine-signed-owner-browser-20261101.md|.github/workflows/web-x05-disposable-signed-owner-browser.yml) ;;
+              *) echo "UNEXPECTED_SOURCE_PATH" >&2; exit 1 ;;
+            esac
+          done < /tmp/web-owner-new-only
+      - name: New-only localhost, redaction, eight-locale and flag tests
+        run: node --test tests/web-x05-disposable-signed-owner-browser.test.mjs
+      - name: Check Svelte/Types
+        run: npm run check
+      - name: Production build with all experimental gates absent
+        run: npm run build
+  genuine-es256-chromium:
+    needs: dev-only-contract-and-build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0, persist-credentials: false }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - uses: supabase/setup-cli@v1
+        with: { version: '2.109.0' }
+      - name: Create disposable real GoTrue ES256 signing key (not remote)
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\n[auth]\nsigning_keys_path = "./signing_keys.json"\n' >> supabase/config.toml
+          printf '[]\n' > supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes >/tmp/x05-keygen.log 2>&1
+          python3 - <<'PY'
+          import json
+          k=json.load(open('supabase/signing_keys.json'))
+          assert any(x.get('kty')=='EC' and x.get('crv')=='P-256' and x.get('d') for x in k)
+          print('WEB_X05_DISPOSABLE_GOTRUE_ES256_READY')
+          PY
+      - name: Boot isolated FULL153 GoTrue/Edge/DB for NEW browser test
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_web_x05_signed_browser_disposable_only"\n' | cat - supabase/config.toml > /tmp/web-x05-config
+          mv /tmp/web-x05-config supabase/config.toml
+          timeout 1800s supabase start >/tmp/web-x05-supabase-boot.log 2>&1 || { echo WEB_X05_LOCAL_FULL153_BOOT_FAILED; exit 1; }
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 153
+          echo WEB_X05_LOCAL_FULL153_BOOT_PASS
+      - run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Start disposable-only browser with local GoTrue anon API key
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          export VITE_DDVRE_LOCAL_SIGNED_OWNER_BROWSER=true
+          export VITE_DDVRE_DISPOSABLE_GOTRUE_URL=http://127.0.0.1:54321
+          export VITE_DDVRE_DISPOSABLE_ANON_KEY="$(supabase status -o env | sed -n 's/^ANON_KEY=//p' | tr -d '\"\047')"
+          test "${#VITE_DDVRE_DISPOSABLE_ANON_KEY}" -gt 50
+          unset VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY
+          npm run dev -- --host 127.0.0.1 --port 4175 > /tmp/web-x05-vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS 'http://127.0.0.1:4175/dreamsnaps/my/manage/' > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          echo WEB_X05_LOCAL_CHROME_SERVER_NOT_READY >&2;exit 1
+      - name: Run NEW Chromium bridge against genuine signed synthetic A/B/M local fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          source=Path('tests/comm-e2-source153-signed-positive.py').read_text()
+          old='users[who]={"id":uid,"token":token}'
+          assert source.count(old)==1
+          source=source.replace(old,'users[who]={"id":uid,"token":token,"email":email,"password":password}')
+          needle='marker("E2-P05","WEB267_UNCHANGED_STRICT_DECODER_ACTUAL_HTTP_SOURCE_ONLY_PASS")'
+          assert source.count(needle)==1
+          source=source.replace(needle,needle+"\n    exec(Path('tests/web-x05-local-signed-browser-hook.py').read_text())\n    raise SystemExit(0)")
+          f=Path('/tmp/ddvre-web-x05-test-only.py')
+          f.write_text(source)
+          f.chmod(0o600)
+          PY
+          python3 /tmp/ddvre-web-x05-test-only.py >/tmp/web-x05-signed-private.log 2>&1 || { echo WEB_X05_SIGNED_CHROMIUM_FAILED; exit 1; }
+          grep -q 'WEB_X05_GENUINE_GOTRUE_ES256_CHROMIUM' /tmp/web-x05-signed-private.log
+          echo WEB_X05_GENUINE_GOTRUE_ES256_BROWSER_9_OF_9_PASS
+      - name: Stop/discard local GoTrue stack and private temp data
+        if: always()
+        shell: bash
+        run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f supabase/signing_keys.json /tmp/web-x05-signed-private.log /tmp/ddvre-web-x05-test-only.py /tmp/web-x05-keygen.log /tmp/web-x05-supabase-boot.log /tmp/web-x05-vite.log
+          echo WEB_X05_LOCAL_STOP_ATTEMPTED_NOT_PHYSICAL_PURGE_PROOF
