@@ -95,7 +95,7 @@
       <input id="e2-email" type="email" autocomplete="off" bind:value={email}/>
       <label for="e2-password">Synthetic password</label>
       <input id="e2-password" type="password" autocomplete="off" bind:value={password}/>
-      <button type="submit" disabled={working}>{labels[1]}</button>
+      <button type="submit" disabled={working && !token}>{labels[1]}</button>
     </form>
     <button type="button" on:click={inspect} disabled={working || !token}
        data-e2-inspect>{labels[2]}</button>
