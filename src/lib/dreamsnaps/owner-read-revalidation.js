@@ -106,11 +106,11 @@ export function createOwnerReadRevalidation({read,onChange=()=>{}}={}) {
     const changed=workId!==normalized;
     if(changed){
       workId=normalized;
-      clear(normalized?'AUTH_REQUIRED':'INVALID_WORK',false);
-      // The old session is not carried across Work navigation in this local
-      // harness; the production authenticated session owner is not implied.
+      // Drop the old signed session BEFORE publishing canInspect. Never leave
+      // a stale enabled read control on the newly selected Work.
       bearer=null;
       anonKey=null;
+      clear(normalized?'AUTH_REQUIRED':'INVALID_WORK',false);
     }
     return state;
   };
