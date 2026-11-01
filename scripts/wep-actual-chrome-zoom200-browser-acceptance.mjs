@@ -119,6 +119,9 @@ try {
   const chair=page.locator(nameSel('Editable Chair')).first();
   const svg=page.locator('.world-canvas');
   await chair.waitFor();
+  // At genuine 2x zoom the document becomes taller. Screen-coordinate
+  // pointer tests must first bring the SVG cell inside the visual viewport.
+  await chair.scrollIntoViewIfNeeded();
   const location=await chair.evaluate(node=>{
     const rect=node.querySelector('.object-cell').getBoundingClientRect();
     const p={x:rect.left+rect.width/2,y:rect.top+rect.height/2};
@@ -127,6 +130,10 @@ try {
   });
   assert.ok(Math.abs(location.world.x-2.5)<0.05 && Math.abs(location.world.y-2.5)<0.05,
     'Actual 2x coordinate mapping failed '+JSON.stringify(location));
+  const visibleViewport = await page.evaluate(() => ({width:innerWidth,height:innerHeight}));
+  assert.ok(location.client.y >= 0 && location.client.y < visibleViewport.height &&
+    location.client.x >= 0 && location.client.x < visibleViewport.width,
+    'Off-viewport pointer must not masquerade as editor RED: '+JSON.stringify({location,visibleViewport}));
   report.pointer = {
     location,
     beforeHit: await page.evaluate(({x,y}) => {
