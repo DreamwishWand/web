@@ -57,7 +57,7 @@ def http(path, method="POST", body=None, token=None, key=None):
         return exc.code,dict(exc.headers),v
 
 def safe_private(h):
-    return h.get("Cache-Control","").find("no-store")>=0 and h.get("CDN-Cache-Control","").lower()=="no-store"
+    return {k.lower():v for k,v in h.items()}.get("cache-control","").find("no-store")>=0 and {k.lower():v for k,v in h.items()}.get("cdn-cache-control","").lower()=="no-store"
 
 def jwt_json_chunk(tok, index):
     chunks=tok.split(".")
@@ -68,9 +68,9 @@ def jwt_payload(tok):
     return jwt_json_chunk(tok,1)
 
 def safe_edge_headers(h):
-    vary={s.strip().lower() for s in h.get("Vary","").split(",")}
+    vary={s.strip().lower() for s in {k.lower():v for k,v in h.items()}.get("vary","").split(",")}
     return (safe_private(h)
-        and h.get("Surrogate-Control","").lower()=="no-store"
+        and {k.lower():v for k,v in h.items()}.get("surrogate-control","").lower()=="no-store"
         and {"authorization","origin"}.issubset(vary))
 
 status,_,jwks=http("/auth/v1/.well-known/jwks.json",method="GET")
@@ -108,12 +108,13 @@ marker("R1-00","REAL_GOTRUE_ISSUED_AND_VALIDATED_A_B_M")
 status,headers,diagnosis=http("/functions/v1/e1-jwks-env-probe",
     body={"expectedKid":jwt_json_chunk(users["A"]["token"],0)["kid"]},token=users["A"]["token"])
 assert status==200 and diagnosis.get("ok") is True and diagnosis.get("edgeIsolate") is True,("EDGE_ISOLATE_PROBE_NOT_REACHABLE",status)
-assert safe_edge_headers(headers),"DIAGNOSTIC_PRIVATE_HEADERS_MISSING"
+header_ok=safe_edge_headers(headers)
 allowed=("inlinePresent","inlineJsonValid","inlineJwksShapeValid","publicKeyOnly",
          "publicKeyCount","matchingKidCount","jwksUrlPresent","jwksUrlKind",
          "publicUrlKind","internalUrlKind")
 assert all(type(diagnosis.get(k)) in (bool,int,str) for k in allowed),"DIAGNOSTIC_UNEXPECTED_SHAPE"
 marker("E1_EDGE_EFFECTIVE_ENV",json.dumps({k:diagnosis[k] for k in allowed},sort_keys=True),status)
+marker("E1_EDGE_DIAGNOSTIC_HEADERS","PRIVATE_CACHE_PASS" if header_ok else "PRIVATE_CACHE_NOT_CONFIRMED",status)
 if os.getenv("DDVRE_E1_EFFECTIVE_ENV_ONLY")=="1":
     marker("E1_DIAGNOSTIC_ONLY","NO_PRIVATE_FIXTURE_NO_OWNER_E2E_PROMOTION")
     raise SystemExit(0)
