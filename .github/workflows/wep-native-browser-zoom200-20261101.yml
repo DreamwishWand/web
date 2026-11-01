@@ -1,0 +1,45 @@
+name: WEP actual Chromium tab zoom 200 percent acceptance
+on:
+  push:
+    branches: ['wep/native-browser-zoom200-20261101']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  zoom200-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Install Chromium capable of native headless MV3 extensions
+        run: |
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install chromium
+      - name: Start local synthetic-only World Editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4187 > /tmp/wep-native-zoom200-vite.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4187/editor/world/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/wep-native-zoom200-vite.log
+          exit 1
+      - name: Assert extension chrome.tabs.setZoom and getZoom actual 2.0
+        env:
+          WEP_NATIVE_ZOOM_BASE_URL: http://127.0.0.1:4187/editor/world/
+        run: node scripts/wep-actual-chrome-zoom200-browser-acceptance.mjs
+      - name: Upload screenshot and zoom readback evidence, even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wep-actual-chrome-tab-zoom200
+          path: .artifacts/wep-actual-zoom200/
+          if-no-files-found: error
