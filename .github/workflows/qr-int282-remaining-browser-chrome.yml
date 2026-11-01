@@ -1,0 +1,67 @@
+name: 04 QR independent PR282 remaining Chrome browser acceptance
+on:
+  push:
+    branches: ['qa/04qr-int282-remaining-browser-20261101']
+  pull_request:
+    paths:
+      - 'scripts/qr-int282-remaining-browser-chrome.mjs'
+      - '.github/workflows/qr-int282-remaining-browser-chrome.yml'
+permissions:
+  contents: read
+jobs:
+  independent-remaining-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify immutable Owner PR282 and accepted QA PR283 ancestry and no production changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          OWNER=36f08eba1ef5c0cd865e74bdd3e183ff028f6858
+          PARENT=a1f4cb601dd78b43579a53fef194ca24580b4835
+          git merge-base --is-ancestor "$OWNER" HEAD
+          git merge-base --is-ancestor "$PARENT" HEAD
+          git diff --quiet "$PARENT" HEAD -- src/ supabase/ tests/ package.json package-lock.json
+          test "$(git rev-parse HEAD:src/routes/gallery/+page.svelte)" = "$(git rev-parse "$OWNER":src/routes/gallery/+page.svelte)"
+          test "$(git rev-parse HEAD:src/routes/qa/+page.svelte)" = "$(git rev-parse "$OWNER":src/routes/qa/+page.svelte)"
+          test "$(git rev-parse HEAD:src/routes/creator/+page.svelte)" = "$(git rev-parse "$OWNER":src/routes/creator/+page.svelte)"
+          actual="$(git diff --name-only "$PARENT" HEAD | sort)"
+          expected="$(printf '%s\n' '.github/workflows/qr-int282-remaining-browser-chrome.yml' 'scripts/qr-int282-remaining-browser-chrome.mjs' | sort)"
+          test "$actual" = "$expected"
+      - run: npm ci --no-audit --no-fund
+      - name: Run Svelte check and production build
+        run: |
+          npm run check
+          npm run build
+      - name: Find actual Chrome and independent Playwright client
+        run: |
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          "$CHROME_BIN" --version
+      - name: Boot immutable Wand application on localhost with synthetic API
+        env:
+          VITE_SUPABASE_URL: https://qr-independent-282.invalid
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_QR_INDEPENDENT_FAKE_NO_SECRET
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4202 >/tmp/qr-remaining-4202.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4202/gallery/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr-remaining-4202.log >&2
+          exit 1
+      - name: Run independent remaining-case browser acceptance, not original seven
+        run: node scripts/qr-int282-remaining-browser-chrome.mjs
+      - name: Record bounded local development-server log on failure
+        if: failure()
+        run: tail -n 80 /tmp/qr-remaining-4202.log || true
