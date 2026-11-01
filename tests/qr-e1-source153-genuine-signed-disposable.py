@@ -105,6 +105,20 @@ for who in "ABM":
     users[who]={"id":uid,"token":token}
 marker("R1-00","REAL_GOTRUE_ISSUED_AND_VALIDATED_A_B_M")
 
+status,headers,diagnosis=http("/functions/v1/e1-jwks-env-probe",
+    body={"expectedKid":jwt_json_chunk(users["A"]["token"],0)["kid"]},token=users["A"]["token"])
+assert status==200 and diagnosis.get("ok") is True and diagnosis.get("edgeIsolate") is True,("EDGE_ISOLATE_PROBE_NOT_REACHABLE",status)
+assert safe_edge_headers(headers),"DIAGNOSTIC_PRIVATE_HEADERS_MISSING"
+allowed=("inlinePresent","inlineJsonValid","inlineJwksShapeValid","publicKeyOnly",
+         "publicKeyCount","matchingKidCount","jwksUrlPresent","jwksUrlKind",
+         "publicUrlKind","internalUrlKind")
+assert all(type(diagnosis.get(k)) in (bool,int,str) for k in allowed),"DIAGNOSTIC_UNEXPECTED_SHAPE"
+marker("E1_EDGE_EFFECTIVE_ENV",json.dumps({k:diagnosis[k] for k in allowed},sort_keys=True),status)
+if os.getenv("DDVRE_E1_EFFECTIVE_ENV_ONLY")=="1":
+    marker("E1_DIAGNOSTIC_ONLY","NO_PRIVATE_FIXTURE_NO_OWNER_E2E_PROMOTION")
+    raise SystemExit(0)
+
+
 with psycopg.connect(DSN,autocommit=True) as db:
     def scalar(q,args=()):
         return db.execute(q,args).fetchone()[0]
