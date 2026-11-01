@@ -52,6 +52,18 @@ jobs:
           assert isinstance(keys,list) and any(x.get('kty')=='EC' and x.get('crv')=='P-256' and x.get('kid') and x.get('d') for x in keys)
           print('COMM_RESIDUAL_EPHEMERAL_REAL_ES256_KEY_READY')
           PY
+      - name: Create throwaway JWT-protected gateway-vs-handler control function
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p supabase/functions/comm-anon-gateway-probe
+          cat > supabase/functions/comm-anon-gateway-probe/index.ts <<'TS'
+          Deno.serve((_req) => Response.json({ok:true}, {
+            headers: {'X-DDVRE-Handler-Reached':'true','Cache-Control':'private, no-store'}
+          }));
+          TS
+          printf '\n[functions.comm-anon-gateway-probe]\nverify_jwt = true\n' >> supabase/config.toml
+          echo COMM_ANON_GATEWAY_CONTROL_VERIFY_JWT_TRUE
       - name: Start isolated FULL153 GoTrue and registered role test substrate
         shell: bash
         run: |
@@ -78,6 +90,7 @@ jobs:
         shell: bash
         run: |
           supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -rf supabase/functions/comm-anon-gateway-probe
           rm -f /tmp/comm-residual-private-keygen.log /tmp/comm-residual-boot.log supabase/signing_keys.json
           echo COMM_RESIDUAL_DISPOSABLE_TEARDOWN_ATTEMPTED
       - name: Upload case markers only with one-day retention
