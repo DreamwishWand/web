@@ -59,7 +59,7 @@ test('large arrays hit the bound and never claim complete comparison', () => {
 
 
 test('generic GridObject geometry never proves Road/Fence topology', () => {
-  const a = specimen(624), b = specimen(626);
+  const a = fixture(624), b = fixture(626);
   a.World.GridCollection = { Grids: { 'grid-a': { Objects: { 'object-a': { ItemID: 42, X: 1, Y: 2, State: { FenceMode: { Style: 0 } } } } } } };
   b.World.GridCollection = { Grids: { 'grid-a': { Objects: { 'object-b': { ItemID: 88, X: 3, Y: 4, State: { FenceMode: { Style: 1 } } } } } } };
   const result = compareObservedSaveStructure(a, b, ids);
