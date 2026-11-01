@@ -21,6 +21,7 @@ const works=[
   {work_id:ids.slow,work_type:'gallery',visibility:'private',title:'SECRET_PRIVATE'}
 ];
 const records=[],pageErrors=[],consoleErrors=[];
+let slowBrowseOnce=false;
 const browser=await chromium.launch({executablePath:process.env.CHROME_BIN,headless:true,
  args:['--no-sandbox','--disable-dev-shm-usage']});
 let count=0, slowBrowse=false, slowDetail=false, oldBrowseError=false, wrongDetail=false;
@@ -36,7 +37,7 @@ try {
   page.on('console',m=>{if(m.type()==='error')consoleErrors.push(m.text());});
   await page.route('https://qr222-synthetic.invalid/**',async route=>{
     const req=route.request(),u=new URL(req.url()),payload=req.method()==='POST'?req.postDataJSON()??{}:{};
-    const rpc=payload.rpc??u.pathname, p=payload.payload??{};
+    const rpc=payload.rpc??u.pathname, p=payload.payload??payload;
     const headers={
       'content-type':'application/json','access-control-allow-origin':'*',
       'access-control-allow-methods':'GET,POST,OPTIONS',
@@ -45,14 +46,14 @@ try {
     if(req.method()==='OPTIONS'){await route.fulfill({status:204,headers,body:''});return;}
     records.push({rpc:String(rpc),payload:p});
     if(u.pathname.endsWith('/community_search_public')){
-      if(slowBrowse && p.query==null)await pause(1450);
-      if(oldBrowseError && p.query==='LATE_ERROR'){
+      if(slowBrowse && slowBrowseOnce && p.p_query==null){slowBrowseOnce=false;await pause(1450);}
+      if(oldBrowseError && p.p_query==='LATE_ERROR'){
         await pause(1100);
         await route.fulfill({status:503,headers,body:'{"message":"Synthetic old browse failure"}'});
         return;
       }
       await route.fulfill({status:200,headers,
-        body:JSON.stringify(p.query==='FAST'?[
+        body:JSON.stringify(p.p_query==='FAST'?[
           {work_id:ids.b,work_type:'gallery',title:'Fast Query B',text_content:'Current'}
         ]:works)});
       return;
@@ -145,6 +146,7 @@ try {
   count++; // Slow old detail does not overwrite newer navigation
 
   slowBrowse=true;
+  slowBrowseOnce=true;
   await spa('/gallery/?work='+ids.a);
   await spa('/gallery/?work='+ids.b);
   await eventually(async()=>JSON.stringify(await title())==='["Gallery Detail B"]');
