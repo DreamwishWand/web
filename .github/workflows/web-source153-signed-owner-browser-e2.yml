@@ -9,6 +9,8 @@ on:
       - 'tests/web-source153-owner-browser-e2.test.mjs'
       - 'scripts/web-source153-signed-owner-chrome.mjs'
       - 'scripts/web-source153-signed-browser-fixture.py'
+      - 'scripts/web-source153-signed-owner-negative-chrome.mjs'
+      - 'scripts/web-source153-signed-owner-negative-fixture.py'
       - 'scripts/vite-source153-e2.config.mjs'
       - 'docs/web/source153-signed-browser-owner-readonly-e2-20261101.md'
       - '.github/workflows/web-source153-signed-owner-browser-e2.yml'
@@ -35,7 +37,7 @@ jobs:
         run: npm run check
       - name: Production build (test-only UI remains OFF)
         run: npm run build
-      - name: Exact accepted PR288 parent and eight-path-only QA guard
+      - name: Exact accepted PR288 parent and ten-path-only QA guard
         shell: bash
         run: |
           set -euo pipefail
@@ -45,10 +47,10 @@ jobs:
           test "$(git hash-object src/lib/dreamsnaps/source153-owner-consumer-v2.js)" = f981b7596711b47bceb2fa79a2191e79e8f1b459
           test "$(git hash-object src/lib/dreamsnaps/owner-management.js)" = baca9c6a5dce744536f6cf5cbd99c07e115f8544
           git diff --name-only "$BASE" HEAD > /tmp/web-source153-e2-new-only
-          test "$(wc -l < /tmp/web-source153-e2-new-only)" -eq 8
+          test "$(wc -l < /tmp/web-source153-e2-new-only)" -eq 10
           while IFS= read -r p; do
             case "$p" in
-              src/lib/dreamsnaps/source153-owner-browser-e2.js|src/routes/dreamsnaps/my/manage/source153-e2/+page.svelte|tests/web-source153-owner-browser-e2.test.mjs|scripts/web-source153-signed-owner-chrome.mjs|scripts/web-source153-signed-browser-fixture.py|scripts/vite-source153-e2.config.mjs|docs/web/source153-signed-browser-owner-readonly-e2-20261101.md|.github/workflows/web-source153-signed-owner-browser-e2.yml) ;;
+              src/lib/dreamsnaps/source153-owner-browser-e2.js|src/routes/dreamsnaps/my/manage/source153-e2/+page.svelte|tests/web-source153-owner-browser-e2.test.mjs|scripts/web-source153-signed-owner-chrome.mjs|scripts/web-source153-signed-browser-fixture.py|scripts/vite-source153-e2.config.mjs|scripts/web-source153-signed-owner-negative-chrome.mjs|scripts/web-source153-signed-owner-negative-fixture.py|docs/web/source153-signed-browser-owner-readonly-e2-20261101.md|.github/workflows/web-source153-signed-owner-browser-e2.yml) ;;
               *) echo "UNEXPECTED_DELTA_PATH" >&2; exit 1;;
             esac
           done < /tmp/web-source153-e2-new-only
@@ -106,17 +108,17 @@ jobs:
           test -n "$CHROME_BIN"
           "$CHROME_BIN" --version
           echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
-      - name: New-only signed local browser using accepted E2 setup fixture
+      - name: New-only signed NEGATIVE local browser using accepted E2 setup fixture
         shell: bash
         run: |
           set -euo pipefail
-          python3 scripts/web-source153-signed-browser-fixture.py > /tmp/web-e2-private-test-outcome.log 2>&1 || {
+          python3 scripts/web-source153-signed-owner-negative-fixture.py > /tmp/web-e2-private-test-outcome.log 2>&1 || {
             sed -E 's/([A-Za-z0-9_-]{24,})/[REDACTED]/g' /tmp/web-e2-private-test-outcome.log | tail -n 30
             exit 1
           }
-          grep -q 'WEB_SOURCE153_REAL_ES256_BROWSER_9_OF_9_PASS_LOCAL_ONLY' /tmp/web-e2-private-test-outcome.log
-          grep -q '"case": "WEB_E2_OWNER_SIGNED_CHROME"' /tmp/web-e2-private-test-outcome.log
-          echo WEB_SOURCE153_REAL_ES256_BROWSER_NINE_CHECKS_PASS_SANITIZED
+          grep -q 'WEB_E2_NEGATIVE_SIGNED_CHROME' /tmp/web-e2-private-test-outcome.log
+          grep -q '"case": "WEB_E2_NEGATIVE_SIGNED_CHROME"' /tmp/web-e2-private-test-outcome.log
+          echo WEB_E2_NEGATIVE_SIGNED_CHROME_NEW_ONLY_TEN_TARGETED_PASS_PRIVACY_PARTIAL
       - name: Stop ephemeral stack and erase local signer and scratch
         if: always()
         shell: bash
