@@ -57,6 +57,20 @@ jobs:
           with open('supabase/signing_keys.json', encoding='utf-8') as f:
               keys=json.load(f)
           assert isinstance(keys,list) and any(k.get('kty')=='EC' and k.get('d') and k.get('kid') for k in keys), 'NO_REAL_ASYMMETRIC_SIGNING_KEY'
+          # Local-only @supabase/server auth:user requires a verifiable public JWKS.
+          # Export PUBLIC JWK components ONLY; never pass private d to Edge.
+          public=[]
+          for k in keys:
+              if k.get('kty')=='EC' and k.get('crv')=='P-256':
+                  item={name:k[name] for name in ('kty','kid','crv','x','y','alg','use') if name in k}
+                  assert all(name in item for name in ('kty','kid','crv','x','y')),'PUBLIC_JWK_FIELDS_MISSING'
+                  public.append(item)
+          assert public,'ES256_PUBLIC_JWKS_EMPTY'
+          import os
+          os.makedirs('supabase/functions',exist_ok=True)
+          with open('supabase/functions/.env','w',encoding='utf-8') as env:
+              env.write('SUPABASE_JWKS='+json.dumps({'keys':public},separators=(',',':'))+'\\n')
+          print('E1_LOCAL_EDGE_PUBLIC_JWKS_CONFIGURED_NO_PRIVATE_MATERIAL')
           print('E1_EPHEMERAL_GOTRUE_ES256_PRIVATE_KEY_PRESENT_ONLY_IN_RUNNER')
           PY
       - name: Boot clean, isolated local FULL153 GoTrue PostgREST Edge, no Stage keys
@@ -105,7 +119,7 @@ jobs:
         shell: bash
         run: |
           supabase stop --no-backup > /dev/null 2>&1 || true
-          rm -f /tmp/e1-local-config.toml /tmp/e1-local-bootstrap.log /tmp/e1-keygen-private.log supabase/signing_keys.json
+          rm -f /tmp/e1-local-config.toml /tmp/e1-local-bootstrap.log /tmp/e1-keygen-private.log supabase/signing_keys.json supabase/functions/.env
           echo E1_DISPOSABLE_RUNNER_TEARDOWN_ATTEMPTED
       - name: Upload sanitized case markers only
         if: always()
