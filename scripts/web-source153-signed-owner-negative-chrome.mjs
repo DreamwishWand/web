@@ -185,4 +185,11 @@ try {
   assert.deepEqual(errors,[],'UNHANDLED_BROWSER_ERROR');
   console.log('WEB_NEGATIVE_SIGNED_BROWSER_'+scenario+'_PASS_LOCAL_ONLY');
   await ctx.close();
+} catch(error) {
+  // Only this test file's first line number is emitted; no error message,
+  // values, HTTP body, credentials, stack, DOM or actor identifiers.
+  const stack=String(error?.stack??'');
+  const matched=stack.match(/web-source153-signed-owner-negative-chrome\\.mjs:(\\d+):/);
+  console.log('WEB_E2_SAFE_DIAGNOSTIC_'+scenario+'_LINE_'+(matched?.[1]??'UNKNOWN'));
+  throw error;
 } finally {await browser.close();}
