@@ -5,6 +5,8 @@
   import { locale } from '$lib/i18n/runtime.js';
   import { createCommunityBrowserClient } from '$lib/community/browser-client';
   import { dreamsnapOwnerCopy } from '$lib/dreamsnaps/owner-management-copy.js';
+  import DisposableSignedOwnerRead from '$lib/dreamsnaps/DisposableSignedOwnerRead.svelte';
+  import { DISPOSABLE_SIGNED_OWNER_BROWSER_ENABLED } from '$lib/dreamsnaps/disposable-signed-owner-browser.js';
   import {
     OWNER_MANAGEMENT_ENABLED, OWNER_BACKEND_CAPABILITIES,
     parseOwnerWorkRoute, validateOwnerDraft
@@ -76,6 +78,10 @@
       {/if}
       <p class="hint">{copy.imageRule}</p>
     </section>
+  {/if}
+
+  {#if DISPOSABLE_SIGNED_OWNER_BROWSER_ENABLED}
+    <DisposableSignedOwnerRead />
   {/if}
 
   <section class="panel" aria-labelledby="ds-rights">
