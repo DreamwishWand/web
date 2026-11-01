@@ -1,0 +1,80 @@
+name: WEB Creator typed Work main backport NEW ONLY
+on:
+  push:
+    branches: ['web/creator-typed-work-main-backport-*']
+  pull_request:
+    paths:
+      - 'src/routes/creator/+page.svelte'
+      - 'src/lib/community/typed-work-route.js'
+      - 'src/lib/dreamsnaps/privacy-copy.js'
+      - 'tests/web-creator-typed-main-backport.test.mjs'
+      - 'scripts/web-creator-main-backport-chrome.mjs'
+      - 'docs/web/creator-typed-work-main-backport-20261101.md'
+      - '.github/workflows/web-creator-typed-main-backport.yml'
+permissions:
+  contents: read
+concurrency:
+  group: web-creator-main-backport-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  new-only-source-chrome:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: New-only type and embargo regression
+        run: node --test tests/web-creator-typed-main-backport.test.mjs
+      - name: Svelte types
+        run: npm run check
+      - name: Production build
+        run: npm run build
+      - name: Frozen main-based seven-file allowlist and exact accepted WEB222 source blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=71e568c9b576c54f8d100fae2ae883c835de7602
+          git cat-file -e "$BASE^{commit}"
+          git diff --exit-code "$BASE" HEAD -- src/lib/ddv/core/ src/lib/collection/ src/routes/collection/ src/routes/gallery/ src/routes/guide/ src/routes/qa/ src/lib/dreamsnaps/source153-owner-consumer-v2.js supabase/ src/lib/wep/ src/routes/editor/
+          test "$(git hash-object src/routes/creator/+page.svelte)" = 21ea34e430f6e202d83ed0dd3baa5424fa99dad2
+          test "$(git hash-object src/lib/community/typed-work-route.js)" = 72f57ecc0dfc6b262d84b3e45233eab22e6551e2
+          test "$(git hash-object src/lib/dreamsnaps/privacy-copy.js)" = 9b4917e87fc0d4a454ef9e53711682e468e4448f
+          git diff --name-only "$BASE" HEAD > /tmp/creator-delta
+          test "$(wc -l < /tmp/creator-delta)" -eq 7
+          while IFS= read -r path; do
+            case "$path" in
+              src/routes/creator/+page.svelte|src/lib/community/typed-work-route.js|src/lib/dreamsnaps/privacy-copy.js|tests/web-creator-typed-main-backport.test.mjs|scripts/web-creator-main-backport-chrome.mjs|docs/web/creator-typed-work-main-backport-20261101.md|.github/workflows/web-creator-typed-main-backport.yml) ;;
+              *) echo "UNEXPECTED CHANGE $path"; exit 1;;
+            esac
+          done < /tmp/creator-delta
+      - name: Install browser harness
+        run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Start isolated local UI with synthetic-only public endpoint
+        env:
+          VITE_SUPABASE_URL: https://qr222-synthetic.invalid
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_QR222_FAKE_TEST_ONLY_NO_SECRET
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          npm run dev -- --host 127.0.0.1 --port 4175 > /tmp/web-creator-main.log 2>&1 &
+          for n in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4175/creator/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          tail -n 40 /tmp/web-creator-main.log
+          exit 1
+      - name: Synthetic Chrome type, 8-locale, keyboard and no-Signer acceptance
+        env:
+          WEB_CREATOR_BASE_URL: http://127.0.0.1:4175
+        run: node scripts/web-creator-main-backport-chrome.mjs
+      - name: Browser server error diagnostic
+        if: failure()
+        run: tail -n 120 /tmp/web-creator-main.log || true
