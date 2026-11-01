@@ -49,7 +49,7 @@ try {
       if(slowBrowse && slowBrowseOnce && p.p_query==null){slowBrowseOnce=false;await pause(1450);}
       if(oldBrowseError && p.p_query==='LATE_ERROR'){
         await pause(1100);
-        await route.fulfill({status:503,headers,body:'{"message":"Synthetic old browse failure"}'});
+        await route.fulfill({status:200,headers,body:'{"unexpected":"not-an-array"}'});
         return;
       }
       await route.fulfill({status:200,headers,
