@@ -73,7 +73,7 @@ function headersObject(headers) {
 export async function disposableGoTrueLogin({origin,publishableKey,email,password,fetchImpl=fetch}) {
   if (!DISPOSABLE_SIGNED_OWNER_BROWSER_ENABLED || !origin ||
       !localOwnerTestOrigin(origin+'/',location.hostname) ||
-      typeof publishableKey !== 'string' || !publishableKey.startsWith('sb_publishable_') ||
+      typeof publishableKey !== 'string' || publishableKey.length<20 ||
       typeof email !== 'string' || typeof password !== 'string' ||
       !email.endsWith('@example.invalid')) return null;
   try {
@@ -105,7 +105,7 @@ export async function readDisposableSignedOwner({
 }) {
   if (!DISPOSABLE_SIGNED_OWNER_BROWSER_ENABLED ||
       !localOwnerTestOrigin(origin+'/',location.hostname) ||
-      typeof publishableKey!=='string' || !publishableKey.startsWith('sb_publishable_') ||
+      typeof publishableKey!=='string' || publishableKey.length<20 ||
       typeof accessToken!=='string' || accessToken.length<50 ||
       !canonicalWorkId(workId) ||
       !Number.isSafeInteger(requestGeneration) || requestGeneration<0 ||
