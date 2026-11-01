@@ -100,7 +100,7 @@ export async function disposableGoTrueLogin({origin,publishableKey,email,passwor
 
 export async function readDisposableSignedOwner({
   origin,publishableKey,accessToken,workId,requestGeneration,
-  latestGeneration,expectedRowVersion,expectedAuthorizationEpoch,
+  latestGeneration,getLatestGeneration,expectedRowVersion,expectedAuthorizationEpoch,
   fetchImpl=fetch
 }) {
   if (!DISPOSABLE_SIGNED_OWNER_BROWSER_ENABLED ||
@@ -114,7 +114,7 @@ export async function readDisposableSignedOwner({
   const context={workId:canonicalWorkId(workId),requestGeneration,latestGeneration};
   if(expectedRowVersion!==undefined)context.expectedRowVersion=expectedRowVersion;
   if(expectedAuthorizationEpoch!==undefined)context.expectedAuthorizationEpoch=expectedAuthorizationEpoch;
-  if(requestGeneration!==latestGeneration)return failure('STALE_RESPONSE');
+  if(requestGeneration!==latestGeneration || (getLatestGeneration && getLatestGeneration()!==requestGeneration))return failure('STALE_RESPONSE');
   const request={operation:'authority',workId:context.workId};
   if(expectedRowVersion!==undefined)request.expectedRowVersion=expectedRowVersion;
   if(expectedAuthorizationEpoch!==undefined)request.expectedAuthorizationEpoch=expectedAuthorizationEpoch;
@@ -129,9 +129,10 @@ export async function readDisposableSignedOwner({
       },
       body:JSON.stringify(request)
     });
-    if(requestGeneration!==latestGeneration)return failure('STALE_RESPONSE');
+    if(requestGeneration!==latestGeneration || (getLatestGeneration && getLatestGeneration()!==requestGeneration))return failure('STALE_RESPONSE');
     let body=null;
     try { body=await r.json(); } catch { return failure('BACKEND_UNAVAILABLE'); }
+    if(getLatestGeneration && getLatestGeneration()!==requestGeneration)return failure('STALE_RESPONSE');
     const classified=classifySource153OwnerHttpFixture({
       status:r.status,headers:headersObject(r.headers),body
     },context);
