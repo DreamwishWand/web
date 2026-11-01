@@ -157,3 +157,53 @@ GoTrue ES256 Chrome must be verified at a fixed final repair SHA.
 child delta and this exact sticky gate, not previously accepted
 PR288 E2 or PR290 9+11 suites. Until independent PASS,
 Owner Browser remains PARTIAL and NO-GO.
+
+
+## 2026-11-02 — Signed Source153 HTTP403 ambiguity / manual recovery (new-only)
+
+Accepted predecessor PR291 HEAD `f985216756a019572c66fa5b4086dd7eb169c14b`
+had a distinct recovery gap: Source153 stale expected rowVersion/authorizationEpoch
+can return **actual HTTP403**. The immutable WEB267 decoder classifies HTTP403
+as `BACKEND_UNAVAILABLE`, not `REFRESH_REQUIRED`. The source candidate
+was cleared but same-Work stale CAS survived and Focus/Inspect could create
+further rejected 403 reads. Importantly **HTTP403 is not proof of CAS conflict**:
+retired Identity, restricted Account, privacy and other authorization denials
+can also use 401/403.
+
+The OFF-only controller now preserves the last accepted same-Work CAS,
+latches neutral `BACKEND_UNAVAILABLE` when the server's strict adapter returns
+`BACKEND_UNAVAILABLE` after a prior CAS (or after explicit Fresh denial),
+suppresses normal Inspect and all automatic resume HTTP retries and exposes
+**only a user-initiated fresh signed authorization read** when Work, in-memory
+signed session, focus, online and visibility are eligible. A separate
+`canFreshRead` gate permits keyboard/Enter activation of
+`revalidate({fresh:true})` with no old CAS; all HTTP still passes actual
+GoTrue→Source153 OwnerAuthority and immutable strict WEB267 cache/DTO checks.
+An authorized Owner can inspect latest source-only withdrawn/public-disabled
+state if newly authorized; a retired or restricted actor's Fresh remains
+denied, no candidate/Owner rights. A 403 remains labeled
+`BACKEND_UNAVAILABLE` and a neutral eight-language explanation explicitly
+declines to infer CAS. No raw Account/Work/Media, token or signed URL in DOM.
+
+`REFRESH_REQUIRED` and local CAS_CONFLICT remain sticky under their
+**previously independently accepted** rule, not rewritten here. Unknown
+`BACKEND_UNAVAILABLE` without any prior accepted source CAS is not
+automatically treated as a CAS recovery or proof of authentication.
+After a Fresh denial, no automatic loop on Focus/Visibility/Online/PageShow.
+Work/Session/logout clear old credentials/CAS/latch; late responses remain
+generation and abort fenced.
+
+New isolated signed verification should distinguish (1) actual stale-CAS
+HTTP403, immutable WEB267 BACKEND_UNAVAILABLE, candidate clearance and
+zero automatic retries; (2) explicit user Fresh with one CAS-omitted
+new signed Owner Authority HTTP200 showing `withdrawn/publicDisabled`;
+(3) genuine server-side retirement of signed Owner actor then fresh
+denials and zero visible Owner candidate. Only test-local signed withdrawal,
+disposable DB and JS browser; no backend SQL/Edge or decoder modifications.
+The accepted PR288, PR290 9+11 and PR291 preexisting lifecycle matrices
+must not be re-labeled as new coverage.
+
+Production Owner, rights, Provider/CDN/Cloud/Signer/Stage116/native
+Writer/Apply are still OFF; testing a localhost transparent Vite relay
+is not production CORS/Ingress proof and no passive remote revocation
+notification is implemented. New only 04 QR independent review is required.
