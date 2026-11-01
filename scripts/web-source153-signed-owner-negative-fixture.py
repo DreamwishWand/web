@@ -55,7 +55,7 @@ source+='''
                 ready=proc.stdout.readline().strip()
                 assert ready=="WEB_NEG_CAS_READY",("CAS_HANDSHAKE_FAILED",label)
                 mutate()
-                proc.stdin.write("GO\\\\n")
+                proc.stdin.write("GO\\n")
                 proc.stdin.flush()
                 out,err=proc.communicate(timeout=120)
                 assert proc.returncode==0,("BROWSER_CASE_FAILED",label,proc.returncode)
