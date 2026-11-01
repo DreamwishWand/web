@@ -19,7 +19,7 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "d3fff4bb7ca934c4165648d1743c52e6a1a9f00d",
+    "src/routes/editor/world/+page.svelte": "f267c082d8f91f649b132f7963990aea3655951c",
     "src/lib/wep/world-editor-primary-job.ts": "25aba45c6004c020400a249c848c3bc2281fd4a0",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "711609eb100a0809a5e9a5b274f83dd9319e3645",
@@ -27,7 +27,8 @@
     "src/lib/wep/WorldEditorStage1DecoratePanel.svelte": "7bfb2981870f803c9e3adfc9e99192211325124a",
     "src/lib/wep/world-editor-stage1-copy.js": "9dace4b7538c04a8c650f691739d0bda22f38329",
     "src/lib/wep/room-finish-copy.js": "f75c54053bafa416842ca17938895b20d7f47f9b",
-    "src/lib/wep/world-readonly-copy.js": "536a040dbfab81142528e7f0da1d08b765bc774b"
+    "src/lib/wep/world-readonly-copy.js": "536a040dbfab81142528e7f0da1d08b765bc774b",
+    "src/lib/wep/save626-diagnostics-copy.js": "e2a33b025d6eb1fc4e634ac13db77773d391d56c"
   },
   "ownership": {
     "wepOwned": [
@@ -37,7 +38,8 @@
       "src/lib/wep/WorldEditorStage1DecoratePanel.svelte",
       "src/lib/wep/world-editor-stage1-copy.js",
       "src/lib/wep/room-finish-copy.js",
-      "src/lib/wep/world-readonly-copy.js"
+      "src/lib/wep/world-readonly-copy.js",
+      "src/lib/wep/save626-diagnostics-copy.js"
     ],
     "sharedWebRenderedOnWorldEditor": [
       "src/lib/SiteHeader.svelte",
@@ -1561,5 +1563,23 @@
     "localeResources": "src/lib/i18n/messages/world-editor/<locale>.js",
     "adapter": "src/lib/wep/world-editor-i18n.ts",
     "machineIdentityInvariant": true
+  },
+  "supplementaryReadOnlyLocaleEvidence": {
+    "date": "2026-11-01",
+    "source": "src/lib/wep/save626-diagnostics-copy.js",
+    "status": "EIGHT_LOCALES_BOUND_SOURCE_AND_BROWSER_QA_PENDING",
+    "scope": "Switch 1.25.3 read-only 626 incomplete diagnostic, Collection no owned and local-only Save; no native writer"
+  },
+  "integrationReadOnly626": {
+    "scope": "PR275 structural entry count/SubGrid unknown + PR276 missing totals/Collection boundary/local-only/privacy-state",
+    "sourceHeads": [
+      "fb6a9a92590e2cacbf356fbee2bc6fe2627c1805",
+      "a5215db48490e6d741b36434c7985100d1c66baf"
+    ],
+    "coreVersionGate": "01A matchProfileReadContract exact Switch1253 BID/schema626 reused",
+    "coreWriterAuthorization": false,
+    "personalCollectionSemantics": "UNKNOWN",
+    "nativeGridObjectPlacement": "UNKNOWN",
+    "newIntegrationBrowser": "PENDING_INDEPENDENT"
   }
 }
