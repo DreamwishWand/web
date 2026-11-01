@@ -113,7 +113,8 @@ export function observeProfileShape(profile, { maxNodes = 400000, maxPaths = 150
         // All unknown/dynamic map keys (including player names/IDs) collapse to '*'.
         // Only the canonical DDV schema allowlist can be emitted verbatim.
         const parentKey = path.slice(path.lastIndexOf('.') + 1);
-        const safe = !DYNAMIC_MAP_FIELDS.has(parentKey) && KEYS.has(name) ? name : '*';
+        const safe = path === '$.World' && name === 'DecorationPresets' ? name
+          : (!DYNAMIC_MAP_FIELDS.has(parentKey) && KEYS.has(name) ? name : '*');
         if (!enqueue({ value: child, path: `${path}.${safe}`, depth: depth + 1 })) break;
       }
     }
@@ -132,6 +133,8 @@ function categorize(path) {
     if (CATEGORIES.ownership.some(k => path.includes(`.${k}`))) return 'ownership';
   }
   if (path.startsWith('$.World.')) {
+    // DDV-native DecorationPresets are in-save game objects, not Wand Presets.
+    if (path.startsWith('$.World.DecorationPresets[]')) return 'ddv-native-preset';
     if (CATEGORIES['floating-island-playerhouse'].some(k => path.includes(`.${k}`))) return 'floating-island-playerhouse';
     if (CATEGORIES['road-fence'].some(k => path.includes(`.${k}`))) return 'road-fence';
     if (CATEGORIES['world-object'].some(k => path.includes(`.${k}`))) return 'world-object';
