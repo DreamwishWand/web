@@ -11,7 +11,7 @@ jobs:
     timeout-minutes: 45
     env:
       DDVRE_E1_LOCAL_DISPOSABLE: APPROVED
-      DDVRE_E1_EFFECTIVE_ENV_ONLY: '1'
+      DDVRE_E1_EFFECTIVE_ENV_ONLY: '0'
       DATABASE_URL: ''
       SUPABASE_ACCESS_TOKEN: ''
       SUPABASE_PROJECT_ID: ''
@@ -39,7 +39,7 @@ jobs:
           echo E1_FULL153_FROZEN_QA_ONLY_NO_REMOTE_CONFIG_PASS
       - uses: supabase/setup-cli@v1
         with:
-          version: 2.81.3
+          version: 2.109.0
       - name: Create ephemeral real asymmetric GoTrue signing keys in runner only
         shell: bash
         run: |
@@ -58,20 +58,8 @@ jobs:
           with open('supabase/signing_keys.json', encoding='utf-8') as f:
               keys=json.load(f)
           assert isinstance(keys,list) and any(k.get('kty')=='EC' and k.get('d') and k.get('kid') for k in keys), 'NO_REAL_ASYMMETRIC_SIGNING_KEY'
-          # Local-only @supabase/server auth:user requires a verifiable public JWKS.
-          # Export PUBLIC JWK components ONLY; never pass private d to Edge.
-          public=[]
-          for k in keys:
-              if k.get('kty')=='EC' and k.get('crv')=='P-256':
-                  item={name:k[name] for name in ('kty','kid','crv','x','y','alg','use') if name in k}
-                  assert all(name in item for name in ('kty','kid','crv','x','y')),'PUBLIC_JWK_FIELDS_MISSING'
-                  public.append(item)
-          assert public,'ES256_PUBLIC_JWKS_EMPTY'
-          import os
-          os.makedirs('supabase/functions',exist_ok=True)
-          with open('supabase/functions/.env','w',encoding='utf-8') as env:
-              env.write('SUPABASE_JWKS='+json.dumps({'keys':public},separators=(',',':')))
-          print('E1_LOCAL_EDGE_PUBLIC_JWKS_CONFIGURED_NO_PRIVATE_MATERIAL')
+          # CLI >=2.109 injects public JWKS into the Edge isolate natively.
+          # Deliberately do NOT create a reserved SUPABASE_JWKS .env override.
           print('E1_EPHEMERAL_GOTRUE_ES256_PRIVATE_KEY_PRESENT_ONLY_IN_RUNNER')
           PY
       - name: Generate local-only JWT-protected Edge isolate env probe (no product edit)
@@ -127,15 +115,21 @@ jobs:
             exit 1
           }
           echo E1_CLEAN_DISPOSABLE_GOTRUE_EDGE_PG_BOOT_PASS
+          python3 - <<'PY'
+          import re
+          s=open('/tmp/e1-local-bootstrap.log',encoding='utf-8',errors='replace').read()
+          versions=sorted(set(re.findall(r'@supabase/server/(\\d+\\.\\d+\\.\\d+)',s)))
+          print('E1_ACTUAL_RESOLVED_SUPABASE_SERVER_VERSION',','.join(versions) if versions else 'NOT_EMITTED_BY_CLI')
+          PY
       - name: Install isolated PG client
         run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
-      - name: Diagnose actual Edge Isolate effective env with GoTrue-signed A JWT only
+      - name: Run genuine ES256 Owner and non-owner Edge to PostgREST RLS after effective JWKS proof
         shell: bash
         run: |
           set -euo pipefail
           python3 tests/qr-e1-source153-genuine-signed-disposable.py 2>&1 | tee /tmp/e1-local-only-sanitized.log
-          grep -q '"case": "E1_EDGE_EFFECTIVE_ENV"' /tmp/e1-local-only-sanitized.log
-          echo E1_EDGE_ENV_DIAGNOSTIC_ONLY_NO_E2E_CLAIM
+          grep -q '"case": "E1_SOURCE153_GENUINE_SIGNED_R1_R2_POSTGREST"' /tmp/e1-local-only-sanitized.log
+          echo E1_GENUINE_ES256_EDGE_POSTGREST_RLS_VERIFIED
       - name: Sanitized local Edge diagnostic on signed test failure
         if: failure()
         shell: bash
