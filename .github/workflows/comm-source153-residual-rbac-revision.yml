@@ -1,0 +1,90 @@
+name: COMM Source153 Residual Registered Moderator and Stale Revision
+on:
+  push:
+    branches:
+      - qa/03comm-pr285-residual-rbac-revision-20261101
+permissions:
+  contents: read
+jobs:
+  residual-isolated:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      DDVRE_E1_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact accepted PR285 parent and no product source changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=666523faebffbae5cdc0fc52d3345eb6075e6ebe
+          git merge-base --is-ancestor "$BASE" HEAD
+          test -z "$(git diff --name-only "$BASE" HEAD -- src supabase package.json package-lock.json)"
+          test "$(git hash-object supabase/migrations/20261028000060_x05_authoritative_owner_projection_v2.sql)" = 356cc10138cd351674fde8dd943acc968e26fbbc
+          test "$(git hash-object supabase/functions/community-dreamsnap-owner/index.ts)" = 38f6830b88eb37dc612cbc11901812a90b406146
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 153
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID"
+          python3 -m py_compile tests/comm-pr285-residual-rbac-revision.py
+          echo COMM_RESIDUAL_IMMUTABLE_PARENT_AND_SOURCE_PASS
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+      - name: Generate ephemeral GoTrue ES256 key only on disposable runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\n[auth]\nsigning_keys_path = "./signing_keys.json"\n' >> supabase/config.toml
+          printf '[]\n' > supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes >/tmp/comm-residual-private-keygen.log 2>&1
+          python3 - <<'PY'
+          import json
+          keys=json.load(open('supabase/signing_keys.json'))
+          assert isinstance(keys,list) and any(x.get('kty')=='EC' and x.get('crv')=='P-256' and x.get('kid') and x.get('d') for x in keys)
+          print('COMM_RESIDUAL_EPHEMERAL_REAL_ES256_KEY_READY')
+          PY
+      - name: Start isolated FULL153 GoTrue and registered role test substrate
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_comm_residual_disposable_only"\n' | cat - supabase/config.toml > /tmp/comm-residual-config.toml
+          mv /tmp/comm-residual-config.toml supabase/config.toml
+          timeout 1800s supabase start >/tmp/comm-residual-boot.log 2>&1 || {
+            echo COMM_RESIDUAL_LOCAL_BOOT_FAILED
+            exit 1
+          }
+          echo COMM_RESIDUAL_CLEAN_LOCAL_FULL153_READY
+      - name: Install isolated local PG client
+        run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Execute ONLY new real signed Moderator RBAC and stale revision probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/comm-pr285-residual-rbac-revision.py 2>&1 | tee /tmp/comm-residual-cases.log
+          grep -q '"case": "RESIDUAL_FINISH"' /tmp/comm-residual-cases.log
+          grep -q '"case": "MOD_WRITE_POSITIVE"' /tmp/comm-residual-cases.log
+          echo COMM_RESIDUAL_NEW_ONLY_SIGNED_RUNTIME_PASS
+      - name: Remove temporary local Supabase and keys without backup
+        if: always()
+        shell: bash
+        run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f /tmp/comm-residual-private-keygen.log /tmp/comm-residual-boot.log supabase/signing_keys.json
+          echo COMM_RESIDUAL_DISPOSABLE_TEARDOWN_ATTEMPTED
+      - name: Upload case markers only with one-day retention
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: comm-source153-residual-cases-no-secrets
+          path: /tmp/comm-residual-cases.log
+          if-no-files-found: ignore
+          retention-days: 1
