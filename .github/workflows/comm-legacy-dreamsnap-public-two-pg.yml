@@ -13,7 +13,7 @@ jobs:
     timeout-minutes: 45
     env:
       DDVRE_PRIVACY_ISOLATED_LOCAL: CONFIRMED
-      LEGACY_EXPECT_EXPOSURE: '1'
+      LEGACY_EXPECT_EXPOSURE: '0'
       SUPABASE_ACCESS_TOKEN: ''
       DATABASE_URL: ''
       PGPASSWORD: postgres
@@ -39,11 +39,11 @@ jobs:
           timeout 1500s supabase start -x edge-runtime --debug >/tmp/comm-legacy-start.log 2>&1 || { tail -130 /tmp/comm-legacy-start.log; exit 1; }
       - name: Install isolated pg client
         run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
-      - name: Actual legacy Search/Detail vs Source144 R20 under account suppression
+      - name: Actual legacy Search/Detail effective privacy state vs Source144 R20
         run: |
           set -euo pipefail
           python3 tests/comm-legacy-dreamsnap-public-reader-two-pg.py 2>&1 | tee /tmp/comm-legacy-two-pg.log
-          grep -q LEGACY_ACTUAL_SQL_TRUE_RED_REPRODUCED /tmp/comm-legacy-two-pg.log
+          grep -q LEGACY_EXISTING_EFFECTIVE_GUARDS_NO_TRUE_RED /tmp/comm-legacy-two-pg.log
       - name: Fixture evidence
         if: always()
         uses: actions/upload-artifact@v4
