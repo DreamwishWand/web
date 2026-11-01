@@ -99,6 +99,21 @@ source+='''
             "update public.creator_profiles set moderation_state='clear' where creator_profile_id=%s",
             (creator,))
 
+        # Privacy-only suppression: the existing FULL153 R12 private barrier
+        # is reversible here without retiring Identity or restricting Account.
+        with db.transaction():
+            db.execute("insert into private.account_privacy_suppressions(account_id) values(%s)",(account["A"],))
+        try:
+            assert scalar("select private.is_account_privacy_suppressed(%s)",(account["A"],)) is True
+            assert scalar("select status::text from public.wand_accounts where account_id=%s",(account["A"],))=="active"
+            assert scalar("select identity_state::text from public.auth_identities where account_id=%s",(account["A"],))=="active"
+            assert scalar("select moderation_state::text from public.creator_profiles where creator_profile_id=%s",(creator,))=="clear"
+            run_case("PRIVACY")
+        finally:
+            with db.transaction():
+                db.execute("delete from private.account_privacy_suppressions where account_id=%s",(account["A"],))
+        assert scalar("select private.is_account_privacy_suppressed(%s)",(account["A"],)) is False
+
         def withdraw_after_browser_positive():
             st,h,r=owner("A","action",original,action="withdraw",
                expectedRowVersion=1,expectedAuthorizationEpoch=1)
@@ -113,13 +128,8 @@ source+='''
         for variant in ("RACE_WORK","RACE_SESSION","RACE_HISTORY"):
             run_case(variant)
 
-        # Privacy suppression requires a DISTINCT state mutation. A full DELETE
-        # tombstone also retires AuthIdentity, and is NOT a valid privacy-only test.
-        # Keep browser privacy case PARTIAL until an isolated reversible fixture
-        # can be proven; do not fabricate privacy acceptance from actor revocation.
-        marker("WEB_E2_NEG_PRIVACY","PARTIAL_NOT_RUN_NO_ISOLATED_REVERSIBLE_STATE_FIXTURE")
-        assert len(counts)==10 and "PRIVACY" not in counts
-        marker("WEB_E2_NEGATIVE_SIGNED_CHROME","TEN_TARGETED_CASES_PASS_PRIVACY_PARTIAL_NO_PRODUCTION_ACTIVATION")
+        assert len(counts)==11 and "PRIVACY" in counts
+        marker("WEB_E2_NEGATIVE_SIGNED_CHROME","ELEVEN_TARGETED_CASES_PASS_NO_PRODUCTION_ACTIVATION")
     finally:
         child.terminate()
         try:child.wait(timeout=10)
