@@ -39,6 +39,26 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: 2.81.3
+      - name: Create ephemeral real asymmetric GoTrue signing keys in runner only
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat >> supabase/config.toml <<'EOF'
+          [auth]
+          signing_keys_path = "./signing_keys.json"
+          EOF
+          printf '[]\n' > supabase/signing_keys.json
+          if ! supabase gen signing-key --algorithm ES256 --yes > /tmp/e1-keygen-private.log 2>&1; then
+            echo E1_CLI_ASYMMETRIC_SIGNING_KEY_GENERATION_FAILED
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json
+          with open('supabase/signing_keys.json', encoding='utf-8') as f:
+              keys=json.load(f)
+          assert isinstance(keys,list) and any(k.get('kty')=='EC' and k.get('d') and k.get('kid') for k in keys), 'NO_REAL_ASYMMETRIC_SIGNING_KEY'
+          print('E1_EPHEMERAL_GOTRUE_ES256_PRIVATE_KEY_PRESENT_ONLY_IN_RUNNER')
+          PY
       - name: Boot clean, isolated local FULL153 GoTrue PostgREST Edge, no Stage keys
         shell: bash
         run: |
@@ -59,7 +79,7 @@ jobs:
           set -euo pipefail
           python3 tests/qr-e1-source153-genuine-signed-disposable.py 2>&1 | tee /tmp/e1-local-only-sanitized.log
           grep -q '"case": "E1_SOURCE153_GENUINE_SIGNED_R1_R2_POSTGREST"' /tmp/e1-local-only-sanitized.log
-          echo E1_SOURCE153_REAL_GOTRUE_JWT_POSTGREST_RLS_TARGETED_PASS_EDGE_NOT_YET_ACCEPTED
+          echo E1_SOURCE153_REAL_GOTRUE_ES256_EDGE_AND_POSTGREST_RLS_TARGETED_PASS
       - name: Sanitized local Edge diagnostic on signed test failure
         if: failure()
         shell: bash
@@ -85,7 +105,7 @@ jobs:
         shell: bash
         run: |
           supabase stop --no-backup > /dev/null 2>&1 || true
-          rm -f /tmp/e1-local-config.toml /tmp/e1-local-bootstrap.log
+          rm -f /tmp/e1-local-config.toml /tmp/e1-local-bootstrap.log /tmp/e1-keygen-private.log supabase/signing_keys.json
           echo E1_DISPOSABLE_RUNNER_TEARDOWN_ATTEMPTED
       - name: Upload sanitized case markers only
         if: always()
