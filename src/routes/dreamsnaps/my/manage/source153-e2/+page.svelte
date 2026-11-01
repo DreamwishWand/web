@@ -120,7 +120,7 @@
       <input id="e2-password" type="password" autocomplete="off" bind:value={password}/>
       <button type="submit" disabled={working && !token}>{labels[1]}</button>
     </form>
-    <button type="button" on:click={inspect} disabled={working || !token}
+    <button type="button" on:click={inspect} disabled={working || !token || !canInspect}
        data-e2-inspect>{extra[0]}</button>
     <p role="status" aria-live="polite" data-e2-status>{status}</p>
     {#if status==='REVALIDATION_REQUIRED' || status==='REFRESH_REQUIRED'}
