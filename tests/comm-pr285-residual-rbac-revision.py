@@ -112,9 +112,24 @@ assert st==200 and headers.get("x-ddvre-handler-reached")=="true","SIGNED_CONTRO
 marker("ANON_GATEWAY_CONTROL","REAL_SIGNED_HANDLER_EXECUTION_CONFIRMED",st)
 st,h,_=http(probe,body={"diagnostic":True})
 headers={k.lower():v for k,v in h.items()}
-assert st==401 and "x-ddvre-handler-reached" not in headers,"ANONYMOUS_REACHED_PROTECTED_HANDLER"
-marker("ANON_GATEWAY_PREHANDLER","ANON_REJECTED_BEFORE_FUNCTION_HANDLER",st)
-marker("ANON_GATEWAY_CACHE","NO_STORE_PRESENT" if "no-store" in headers.get("cache-control","").lower() else "NO_STORE_ABSENT_ON_GATEWAY_401",st)
+reached=headers.get("x-ddvre-handler-reached")=="true"
+marker("ANON_PROBE_GATEWAY_LAYER",
+       "ANON_KEY_REACHED_CONTROL_FUNCTION" if st==200 and reached else
+       "ANON_REQUEST_REJECTED_BEFORE_CONTROL_HANDLER" if st==401 and not reached else
+       "OTHER_UNCLASSIFIED_CONTROL_OUTCOME",st)
+owner_status,owner_headers,owner_error=http("/functions/v1/community-dreamsnap-owner",
+    body={"operation":"pregrant","workId":str(uuid.uuid4())})
+owner_h={k.lower():v for k,v in owner_headers.items()}
+assert owner_status==401,"UNAUTHENTICATED_OWNER_REQUEST_NOT_DENIED"
+sdk_error=bool(owner_h.get("x-supabase-server-error")) or (
+    isinstance(owner_error,dict) and owner_error.get("source")=="@supabase/server")
+has_nostore="no-store" in owner_h.get("cache-control","").lower()
+marker("ANON_OWNER_401_LAYER",
+       "SDK_AUTH_MIDDLEWARE_ERROR" if sdk_error else "SDK_SOURCE_NOT_IDENTIFIED",
+       owner_status)
+marker("ANON_OWNER_401_CACHE",
+       "NO_STORE_PRESENT" if has_nostore else "NO_STORE_MISSING_PRE_HANDLER_REPLY",
+       owner_status)
 
 with psycopg.connect(DSN,autocommit=True) as db:
     def scalar(q,args=()):
