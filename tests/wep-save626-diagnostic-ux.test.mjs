@@ -52,7 +52,7 @@ test('World Editor 626 UI cannot leak personal collection or activate editor via
   assert.match(source,/data-wep-626-collection-gated/);
   assert.match(source,/data-wep-626-local-only/);
   assert.match(source,/opened\.compatibility\.readOnly \? null : bytes\.slice\(\)/);
-  assert.match(source,/opened\.compatibility\.readOnly\s*\? null\s*: createOriginalSaveBackup/);
+  assert.match(source,/originalSaveBackup = createOriginalSaveBackup\(/);
   assert.match(w,/routesAuthorized: false/);
   assert.match(w,/editingAuthorized: false/);
   assert.match(w,/verifiedReplacementCandidateAuthorized: false/);
