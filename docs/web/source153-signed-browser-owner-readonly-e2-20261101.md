@@ -16,3 +16,52 @@ R17 Product Tree30 historical PASS0/PARTIAL12/BLOCKED18 plus 7 shared rights/see
 
 ## Intermediate genuine Browser RED (retained evidence)
 First signed local Browser attempt used cross-origin real Source153 HTTP and produced `UNSAFE_CACHE_POLICY` because browser JavaScript cannot read non-CORS-exposed CDN/Surrogate headers; actual GoTrue/Edge positive E2-P04/P05 executed. This was a **browser integration true rejection**, not a decoder defect: do not disable private/cache/vary verification. Final revision uses a disposable-only same-origin Vite proxy to relay unchanged real Edge headers to strict WEB267. Retest before claiming Browser PASS.
+
+
+## PR290 continuation — NEW-ONLY signed browser negative acceptance (2026-11-01 JST)
+
+The original fixed PR290 9 grouped signed Chromium cases and PR288 signed
+Source/WEB267 acceptance are inherited, NOT re-executed by the negative job.
+This continuation changes only the existing dev-only page, browser Node guard,
+test workflow and this document and adds two disposable-only scripts, increasing
+the frozen PR288-relative changed-path allowlist from 8 to 10. No Source153
+migration, Edge implementation, WEB267 decoder, old @1 management or
+production feature flag is modified.
+
+The new positive-then-negative browser reinspection carries only the last
+displayed source-shaped rowVersion and authorizationEpoch into its next read.
+A server-side CAS change must deny that prior expectation. Changing the local
+session while a read is in flight aborts the old HTTP and invalidates its
+request generation. Neither source candidate nor CAS is a public Owner right.
+
+The negative fixture imports the accepted E2 positive bootstrap only, before
+the old source-level negative suite. After disposable signed synthetic Grant
+for both Works, the NEW browser cases require:
+
+- actual local GoTrue ES256 and Source153 HTTP200; populated candidate DOM
+  redaction, cleared synthetic credentials, keyboard Tab/Enter and ARIA;
+- reversible Identity retired, Account restricted and Creator restricted,
+  each followed by denied new signed browser HTTP read;
+- signed withdrawal after the browser has seen CAS 1/1, with stale CAS refused;
+  subsequent signed HTTP200 Owner read shows grant withdrawn,
+  publicDisabled=true and Owner actions disabled;
+- local Policy inactive -> real HTTP200 UNVERIFIED without authorized scope;
+- deliberately delayed real Source153 HTTP after Work change, session change,
+  or browser Back/Forward, never restoring the old candidate.
+
+The test-only same-origin proxy preserves actual Source153 private
+Cache-Control, CDN-Cache-Control, Surrogate-Control and Vary headers. It is not
+production CORS proof. Chromium response bodies, JWT, tokens, Account/Media IDs,
+StorageKey, SQL, and raw browser DOM are not logged or uploaded.
+
+PRIVACY remains explicitly PARTIAL: no independently grounded reversible
+privacy-only state mutation. Full account tombstone/DELETE also retires
+AuthIdentity and would confound the root cause, so it is not misreported as
+a privacy-only browser PASS. The separate PRIVACY case is present but not run,
+and is not included in the ten new targeted cases. Live Policy approval,
+real-user Consent, production issuer/Ingress/CDN/Provider, public Signer and
+global revocation continue to require separate authorization/evidence.
+
+New CI conclusions and immutable HEAD must be verified after completion;
+source-only changes do not constitute a PASS. Production flags OFF,
+DRAFT / DO_NOT_MERGE / DO_NOT_DEPLOY, PUBLIC RELEASE NO-GO.
