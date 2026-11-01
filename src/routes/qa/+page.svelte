@@ -1,61 +1,131 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { afterNavigate } from '$app/navigation';
   import { base } from '$app/paths';
   import { locale, ct as t } from '$lib/i18n/community.js';
   import { createCommunityBrowserClient, callPublicCommunityRpc } from '$lib/community/browser-client';
   import QaBrowse from '$lib/community/QaBrowse.svelte';
   import QaAnswerList from '$lib/community/QaAnswerList.svelte';
+  import { parseTypedWorkQuery } from '$lib/community/typed-work-route.js';
+  import { dreamsnapPrivacyCopy } from '$lib/dreamsnaps/privacy-copy.js';
 
   const client = createCommunityBrowserClient();
   let mode: 'questions' | 'tips' = 'questions';
   let query = '';
-  let unansweredOnly = false;
   let rows: any[] = [];
   let selected: any = null;
   let selectedKind: 'question' | 'tip' | null = null;
   let busy = false;
-  let error = '';
+  let error = '', invalidDetailUrl = false;
+  let browseBusy = false, detailBusy = false;
+  let routeGeneration = 0, searchGeneration = 0, detailGeneration = 0;
+  $: busy = browseBusy || detailBusy;
 
-  onMount(() => { const params = new URLSearchParams(window.location.search); const questionId = params.get('question'); const tipId = params.get('tip'); void search(); if (questionId) void open(questionId, 'question'); else if (tipId) void open(tipId, 'tip'); });
+  // The /qa/ component is reused for client-side query-string navigation.
+  // Clear the prior Work synchronously, before beginning any new public read.
+  afterNavigate(({ to }) => {
+    if (!to?.url) return;
+    const generation = ++routeGeneration;
+    ++searchGeneration;
+    ++detailGeneration;
+    selected = null;
+    selectedKind = null;
+    rows = [];
+    error = '';
+    query = '';
+    invalidDetailUrl = false;
+    browseBusy = false;
+    detailBusy = false;
 
-  async function search() {
-    if (!client) return;
-    busy = true; error = '';
-    try {
-      if (mode === 'questions') {
-        rows = await callPublicCommunityRpc<any[]>('community_search_questions_v1', {
-          p_query: query.trim() || null,
-          p_context_tags: null,
-          p_unanswered_only: unansweredOnly,
-          p_limit: 30
-        });
-      } else {
-        rows = await client.searchPublicWorks({
-          query: query.trim() || null,
-          workType: 'tip',
-          limit: 30
-        });
+    const params = to.url.searchParams;
+    const hasQuestion = params.has('question');
+    const hasTip = params.has('tip');
+    if (hasQuestion || hasTip) {
+      const kind: 'question' | 'tip' | null =
+        hasQuestion === hasTip ? null : hasQuestion ? 'question' : 'tip';
+      const parsed = kind
+        ? parseTypedWorkQuery(params, kind)
+        : { status: 'invalid', workId: null };
+      if (parsed.status !== 'valid' || !kind || !parsed.workId) {
+        invalidDetailUrl = true;
+        return;
       }
+      mode = kind === 'question' ? 'questions' : 'tips';
+      void search(generation);
+      void open(parsed.workId, kind, generation);
+      return;
+    }
+
+    if ([...params.keys()].some(key => key !== 'type') ||
+        params.getAll('type').length > 1 ||
+        (params.has('type') && !['questions', 'tips'].includes(params.get('type') ?? ''))) {
+      invalidDetailUrl = true;
+      return;
+    }
+    mode = params.get('type') === 'tips' ? 'tips' : 'questions';
+    void search(generation);
+  });
+
+  async function search(expectedRoute = routeGeneration) {
+    if (!client || invalidDetailUrl) return;
+    const generation = ++searchGeneration;
+    const requestedMode = mode;
+    const requestedQuery = query.trim();
+    browseBusy = true;
+    error = '';
+    try {
+      const result = requestedMode === 'questions'
+        ? await callPublicCommunityRpc<any[]>('community_search_questions_v1', {
+            p_query: requestedQuery || null,
+            p_context_tags: null,
+            p_unanswered_only: false, // All only until server resolution/answer-count contract accepted
+            p_limit: 30
+          })
+        : await client.searchPublicWorks({
+            query: requestedQuery || null,
+            workType: 'tip',
+            limit: 30
+          });
+      if (expectedRoute === routeGeneration && generation === searchGeneration && !invalidDetailUrl)
+        rows = result;
     } catch (cause) {
-      error = cause instanceof Error ? cause.message : String(cause);
-    } finally { busy = false; }
+      if (expectedRoute === routeGeneration && generation === searchGeneration && !invalidDetailUrl)
+        error = cause instanceof Error ? cause.message : String(cause);
+    } finally {
+      if (expectedRoute === routeGeneration && generation === searchGeneration)
+        browseBusy = false;
+    }
   }
 
-  async function open(id: string, kind: 'question' | 'tip') {
-    busy = true; error = ''; selectedKind = kind;
+  async function open(id: string, kind: 'question' | 'tip', expectedRoute = routeGeneration) {
+    const parsed = parseTypedWorkQuery(new URLSearchParams([[kind, id]]), kind);
+    const generation = ++detailGeneration;
+    selected = null;
+    selectedKind = null;
+    if (parsed.status !== 'valid' || !parsed.workId || invalidDetailUrl) return;
+    detailBusy = true;
+    error = '';
     try {
-      if (kind === 'question') {
-        selected = client?.session
-          ? (await client.query<any>('question', { questionId: id })).data
-          : await callPublicCommunityRpc('community_get_question_public_v1', { p_question_id: id });
-      } else {
-        selected = await callPublicCommunityRpc('community_get_tip_public_v1', { p_tip_id: id });
+      const result = kind === 'question'
+        ? client?.session
+          ? (await client.query<any>('question', { questionId: parsed.workId })).data
+          : await callPublicCommunityRpc('community_get_question_public_v1', { p_question_id: parsed.workId })
+        : await callPublicCommunityRpc('community_get_tip_public_v1', { p_tip_id: parsed.workId });
+      if (expectedRoute === routeGeneration && generation === detailGeneration && !invalidDetailUrl) {
+        selected = result ?? null;
+        selectedKind = result ? kind : null;
       }
     } catch (cause) {
-      error = cause instanceof Error ? cause.message : String(cause);
-      selected = null;
-    } finally { busy = false; }
+      if (expectedRoute === routeGeneration && generation === detailGeneration && !invalidDetailUrl) {
+        error = cause instanceof Error ? cause.message : String(cause);
+        selected = null;
+        selectedKind = null;
+      }
+    } finally {
+      if (expectedRoute === routeGeneration && generation === detailGeneration)
+        detailBusy = false;
+    }
   }
+
 </script>
 
 <svelte:head><title>{t('qa.title', {}, $locale)} | Dreamwish Wand</title></svelte:head>
@@ -72,7 +142,10 @@
     <div class="notice">{t('community.configUnavailable', {}, $locale)}</div>
   {:else}
     {#if error}<p class="error" role="alert">{t('shared.form.error', { message: error }, $locale)}</p>{/if}
-    <QaBrowse bind:mode bind:query bind:unansweredOnly {rows} {busy} onSearch={search} onSelect={open} />
+    {#if invalidDetailUrl}
+      <p role="alert" class="notice" data-qa-state="invalid-work-url">{dreamsnapPrivacyCopy($locale).legacyUnavailable}</p>
+    {:else}
+    <QaBrowse bind:mode bind:query {rows} {busy} onSearch={search} onSelect={open} />
 
     {#if selected && selectedKind === 'question'}
       <article class="detail">
@@ -95,6 +168,7 @@
         <p class="meta">{selected.platform ?? ''} {selected.gameVersion ?? ''} · {selected.freshness}</p>
         <p>{selected.body}</p>
       </article>
+    {/if}
     {/if}
   {/if}
 </section>

@@ -1,0 +1,74 @@
+name: Collection reference Item Detail Chrome acceptance
+
+on:
+  push:
+    branches:
+      - 'web/collection-reference-detail-readonly-*'
+    paths:
+      - 'src/lib/collection/**'
+      - 'src/routes/collection/**'
+      - 'tests/collection-reference-detail.test.mjs'
+      - 'docs/collection/reference-detail-readonly-acceptance-20261026.md'
+      - 'scripts/collection-reference-browser-acceptance.mjs'
+      - '.github/workflows/collection-reference-browser.yml'
+  pull_request:
+    paths:
+      - 'src/lib/collection/**'
+      - 'src/routes/collection/**'
+      - 'tests/collection-reference-detail.test.mjs'
+      - 'docs/collection/reference-detail-readonly-acceptance-20261026.md'
+      - 'scripts/collection-reference-browser-acceptance.mjs'
+      - '.github/workflows/collection-reference-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  collection-source-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Install CJK fonts
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+          fc-cache -f
+      - name: Resolve Chrome
+        id: chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "path=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+          "$CHROME_BIN" --version
+      - name: Start source-only Collection UI
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4175 > /tmp/collection-vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:4175/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/collection-vite.log
+          exit 1
+      - name: Real Chrome source-only Collection acceptance
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          COLLECTION_BASE_URL: http://127.0.0.1:4175
+        run: node scripts/collection-reference-browser-acceptance.mjs
+      - name: Upload Chrome evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collection-reference-browser-evidence
+          path: .artifacts/collection-browser/
+          if-no-files-found: error

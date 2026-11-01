@@ -1,0 +1,67 @@
+name: QR212 Owner UX source-only Chrome smoke
+
+on:
+  push:
+    branches:
+      - 'web/qr212-owner-ux-source-failclosed-*'
+    paths:
+      - 'src/routes/**'
+      - 'src/lib/collection/**'
+      - 'src/lib/dreamsnaps/**'
+      - 'src/lib/community/**'
+      - 'scripts/collection-reference-browser-acceptance.mjs'
+      - '.github/workflows/qr212-owner-ux-browser.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: qr212-owner-chrome-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  owner-ux-chrome:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Browser and font provenance
+        id: chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "path=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+          "$CHROME_BIN" --version
+          fc-match :lang=ja | head -n 1 || true
+          echo 'SOURCE_ONLY_BROWSER_SMOKE_CJK_FONT_FIDELITY_NOT_ATTESTED'
+      - name: Start static source consumer
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4175 >/tmp/qr212-vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4175/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr212-vite.log
+          exit 1
+      - name: Source-only real Chrome route/locale/keyboard test
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          COLLECTION_BASE_URL: http://127.0.0.1:4175
+        run: node scripts/collection-reference-browser-acceptance.mjs
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr212-owner-ux-chrome-source-only
+          path: .artifacts/collection-browser/
+          if-no-files-found: error
