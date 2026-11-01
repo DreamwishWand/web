@@ -207,3 +207,21 @@ Production Owner, rights, Provider/CDN/Cloud/Signer/Stage116/native
 Writer/Apply are still OFF; testing a localhost transparent Vite relay
 is not production CORS/Ingress proof and no passive remote revocation
 notification is implemented. New only 04 QR independent review is required.
+
+### Signed HTTP status-only attestation
+
+The new-only Chromium case asserts actual Source153 HTTP **403** on the
+formerly displayed Work CAS1/1 after an isolated signed Withdrawal advances
+Work Control to rowVersion2/authorizationEpoch2. The unchanged strict
+WEB267 decoder returns `BACKEND_UNAVAILABLE`; normal Inspect and all
+local Focus/Visibility/Online/PageShow resumes must send zero HTTP requests.
+Explicit keyboard Fresh omits old CAS; real server HTTP **200** returns
+only sanitized Source `withdrawn/publicDisabled=true` when the signed
+Owner is still authorized. The runner then retires that Owner's Identity,
+requires both stale-CAS ordinary read and subsequent explicit Fresh to be
+denied, and rejects any new candidate/action display. Current status-only
+log markers `WEB403_HTTP_STATUS_ONLY` contain only four HTTP codes,
+not identifiers, response bodies, credentials or headers. The actual
+retired-actor code is reported from the runner, never presumed in advance.
+Acceptance is scoped to synthetic disposable FULL153, not production
+Gateway, client actor ID trust, or passive instant revocation.
