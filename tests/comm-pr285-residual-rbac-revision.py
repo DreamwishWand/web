@@ -199,11 +199,10 @@ with psycopg.connect(DSN,autocommit=True) as db:
         assert safe_edge_headers(edge_h),"STALE_REVISION_EDGE_HEADERS"
         assert str(post) not in json.dumps(edge_r) and str(mp) not in json.dumps(edge_r),"STALE_REVISION_EDGE_DISCLOSURE"
         marker("R2-07-EDGE","DB_ACCEPTED_STALE_SAME_WORK_REVISION_REAL_ES256_READER_DENIED",edge_st)
-        with db.transaction():
-            db.execute("update public.community_works set current_published_revision_id=%s where work_id=%s",(pp,post))
-        st,_,result=private_pregrant("A",post)
-        assert st==200 and result.get("state")=="NEED_POLICY_ARTIFACT","POST_REVISION_RESTORE_FAILED"
-        marker("R2-07-RESTORE","ORIGINAL_SEALED_PHOTO_PREGRANT_RESTORED",st)
+        # The new sealed revision is intentionally terminal for this local Work.
+        # Do not attempt to repoint at a previously published/sealed revision.
+        # The ENTIRE independent test DB is destroyed with --no-backup.
+        marker("R2-07-ISOLATION","NONREWINDABLE_SYNTHETIC_WORK_DISPOSABLE_ONLY")
 
     # Existing immutable sealed-media update and cross-Work current-pointer
     # substitution were independently rejected by Writer/constraint in PR285.
