@@ -60,10 +60,8 @@
     if(!localOnly || !token || route.status!=='authority-pending' || !route.workId)return;
     // Carry only the last displayed source CAS, never caller-supplied authority.
     // A changed server Work must reject this prior observation on re-inspection.
-    const previousCas=view?.sourceCandidateOnly ? {
-      expectedRowVersion:view.rowVersion,
-      expectedAuthorizationEpoch:view.authorizationEpoch
-    } : {};
+    const previousRowVersion=view?.sourceCandidateOnly ? view.rowVersion : undefined;
+    const previousAuthorizationEpoch=view?.sourceCandidateOnly ? view.authorizationEpoch : undefined;
     clear('READING_SOURCE');
     const sequence=epoch;
     const controller=new AbortController();
@@ -72,7 +70,8 @@
     const result=await readIsolatedSource153Owner({
       fetchImpl:fetch,token,anonKey,workId:route.workId,
       requestGeneration:sequence,latestGeneration:sequence,
-      ...previousCas,
+      expectedRowVersion:previousRowVersion,
+      expectedAuthorizationEpoch:previousAuthorizationEpoch,
       signal:controller.signal
     });
     if(sequence!==epoch || controller.signal.aborted)return;
