@@ -63,8 +63,12 @@ try {
   assert.equal(await fileInput.evaluate(node=>document.activeElement===node),true);
   assert.equal(await readonly.getAttribute('role'),'status');
   assert.equal(await page.locator('[data-wep-626-incomplete]').getAttribute('role'),'alert');
-  assert.equal(await readonly.locator('dt').count(),3);
-  assert.equal(await readonly.locator('dd').count(),3);
+  // WEP275 adds the fourth structural dictionary-entry diagnostic, not a placement count.
+  assert.equal(await readonly.locator('dt').count(),4);
+  assert.equal(await readonly.locator('dd').count(),4);
+  assert.equal(await readonly.locator('[data-wep-626-gridobject-entries]').count(),1);
+  assert.equal((await readonly.locator('[data-wep-626-gridobject-entries] dd').innerText()).trim(),'—');
+  assert.equal(await readonly.locator('[data-wep-626-subgrid-unknown]').count(),1);
   pass(); // focus and screen-reader semantics
 
   const docText=await page.locator('body').innerText();
