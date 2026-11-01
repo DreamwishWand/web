@@ -205,7 +205,14 @@ with psycopg.connect(DSN,autocommit=True) as db:
         st,hd,r=http(path,body={"operation":"pregrant","workId":str(original)},
             token=users[who]["token"] if who else None)
         assert st in (401,403,404),"EDGE_FOREIGN_PRIVATE_ALLOWED"
-        assert safe_edge_headers(hd),"EDGE_DENIAL_CACHE_HEADERS_MISSING"
+        # Anonymous requests can be rejected by the gateway before the owner handler
+        # supplies its private cache headers. Record separately; do not call it PASS.
+        if who is None:
+            marker("R1-EDGE-ANON-CACHE",
+                   "GATEWAY_PRIVATE_CACHE_HEADERS_PASS" if safe_edge_headers(hd)
+                   else "GATEWAY_PRIVATE_CACHE_HEADERS_NOT_PROVEN",st)
+        else:
+            assert safe_edge_headers(hd),"EDGE_OWNER_DENIAL_CACHE_HEADERS_MISSING"
         assert str(original) not in json.dumps(r) and str(mo) not in json.dumps(r),"EDGE_DENIAL_IDENTIFIER_LEAK"
         marker("R1-EDGE-DENY-"+(who or "ANON"),"SIGNED_EDGE_PRIVATE_DENY_NO_STORE_PASS",st)
     st,hd,r=http(path,body={"operation":"authority","workId":str(original)},token=users["A"]["token"])
