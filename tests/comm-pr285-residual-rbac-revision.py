@@ -103,6 +103,19 @@ for who in "ABM":
     users[who]={"id":uid,"token":token}
 marker("RESIDUAL_ACTOR","REAL_GOTRUE_ISSUED_AND_VALIDATED_A_B_M")
 
+# A throwaway function with a unique handler-only response header proves
+# whether anonymous 401 is produced before the Edge user handler executes.
+probe="/functions/v1/comm-anon-gateway-probe"
+st,h,_=http(probe,body={"diagnostic":True},token=users["M"]["token"])
+headers={k.lower():v for k,v in h.items()}
+assert st==200 and headers.get("x-ddvre-handler-reached")=="true","SIGNED_CONTROL_HANDLER_NOT_REACHED"
+marker("ANON_GATEWAY_CONTROL","REAL_SIGNED_HANDLER_EXECUTION_CONFIRMED",st)
+st,h,_=http(probe,body={"diagnostic":True})
+headers={k.lower():v for k,v in h.items()}
+assert st==401 and "x-ddvre-handler-reached" not in headers,"ANONYMOUS_REACHED_PROTECTED_HANDLER"
+marker("ANON_GATEWAY_PREHANDLER","ANON_REJECTED_BEFORE_FUNCTION_HANDLER",st)
+marker("ANON_GATEWAY_CACHE","NO_STORE_PRESENT" if "no-store" in headers.get("cache-control","").lower() else "NO_STORE_ABSENT_ON_GATEWAY_401",st)
+
 with psycopg.connect(DSN,autocommit=True) as db:
     def scalar(q,args=()):
         return db.execute(q,args).fetchone()[0]
