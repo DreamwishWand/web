@@ -33,7 +33,7 @@ const KEYS = new Set([
 
 // These native dictionaries are keyed by user/item/object IDs. Even keys that happen
 // to equal allowlisted schema field names must never be treated as fields.
-const DYNAMIC_MAP_FIELDS = new Set(['Inventory', 'Objects', 'GridObjects', 'GroupsCollectionItems']);
+const DYNAMIC_MAP_FIELDS = new Set(['Inventory', 'Objects', 'GridObjects', 'GroupsCollectionItems', 'Grids', 'FloatingIslands']);
 
 const CATEGORIES = Object.freeze({
   'serialized-root': ['$.GameInfo', '$.Player', '$.World'],
