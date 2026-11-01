@@ -100,7 +100,9 @@ test('official in-game results remain separate and private-by-default', () => {
   assert.ok(projection.includes('private.dreamsnap_public_official_result'));
   assert.ok(projection.includes("'wandResults'"));
   assert.ok(projection.includes("'inGameResults'"));
-  assert.ok(my.includes('setDreamsnapOfficialResultPublication'));
+  assert.ok(my.includes('data-dreamsnaps-disclosure="private-until-account-authority"'));
+  assert.ok(!my.includes('setDreamsnapOfficialResultPublication'));
+  // Existing legacy SQL/Edge callable is not Account-global authority; UI must never invoke it.
   assert.ok(results.includes("dreamsnaps.results.wand"));
   assert.ok(results.includes("dreamsnaps.results.ingame"));
 });
@@ -113,10 +115,11 @@ test('post-Results Gallery projection is explicit and managed-under-13 comments 
   assert.match(schema, /c\.lifecycle_state in \('results','closed'\)/);
   assert.match(fix, /v_comments:=case when v_entry\.managed_under13 then false/);
   assert.match(fix, /if v_managed and p_enabled then/);
-  assert.ok(gallery.includes('community_search_gallery_dreamsnaps_public_v1'));
-  assert.ok(gallery.includes('community_get_gallery_dreamsnap_public_v1'));
-  assert.ok(gallery.includes("addComment"));
-  assert.ok(gallery.includes("reportEntity"));
+  assert.ok(gallery.includes('data-legacy-dreamsnaps="fail-closed"'));
+  assert.ok(!gallery.includes('community_search_gallery_dreamsnaps_public_v1'));
+  assert.ok(!gallery.includes('community_get_gallery_dreamsnap_public_v1'));
+  assert.ok(!gallery.includes('getPublicCommunityMedia'));
+  // Social and moderation remain backend-controlled; an obsolete frontend route must not bypass phase gating.
 });
 
 test('DreamSnaps Edge boundaries expose only the intended signed and public operations', () => {

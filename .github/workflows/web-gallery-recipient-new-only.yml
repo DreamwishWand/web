@@ -1,0 +1,76 @@
+name: WEB Gallery recipient accepted-stack NEW ONLY
+on:
+  push:
+    branches: ['web/gallery-recipient-stale-guard-web222-child-*']
+  pull_request:
+    paths:
+      - 'src/routes/gallery/+page.svelte'
+      - 'tests/web-gallery-recipient-stale-guard.test.mjs'
+      - 'scripts/web-gallery-recipient-stale-guard-chrome.mjs'
+      - 'docs/web/accepted-typed-gallery-recipient-new-only-20261101.md'
+      - '.github/workflows/web-gallery-recipient-new-only.yml'
+permissions:
+  contents: read
+concurrency:
+  group: web-gallery-recipient-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  gallery-recipient-source-and-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: NEW ONLY Source/ID and SPA version fence
+        run: node --test tests/web-gallery-recipient-stale-guard.test.mjs
+      - name: Svelte types
+        run: npm run check
+      - name: Build
+        run: npm run build
+      - name: Exact WEB222 frozen parent and FIVE-only changed-path guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=99ed88fc717cf18bb4127695f16d6949e7609463
+          git cat-file -e "$BASE^{commit}"
+          git diff --exit-code "$BASE" HEAD -- src/routes/creator/ src/routes/qa/ src/lib/community/typed-work-route.js src/lib/dreamsnaps/privacy-copy.js src/routes/dreamsnaps/ src/routes/gallery/dreamsnaps/ src/routes/gallery/my/ src/lib/collection/ src/routes/collection/ src/routes/guide/ src/lib/ddv/core/ supabase/
+          git diff --name-only "$BASE" HEAD > /tmp/web-gallery-recipient-delta
+          cat /tmp/web-gallery-recipient-delta
+          test "$(wc -l < /tmp/web-gallery-recipient-delta)" -eq 5
+          while IFS= read -r p; do
+            case "$p" in
+              src/routes/gallery/+page.svelte|tests/web-gallery-recipient-stale-guard.test.mjs|scripts/web-gallery-recipient-stale-guard-chrome.mjs|docs/web/accepted-typed-gallery-recipient-new-only-20261101.md|.github/workflows/web-gallery-recipient-new-only.yml) ;;
+              *) echo "UNEXPECTED_PATH $p" >&2; exit 1 ;;
+            esac
+          done < /tmp/web-gallery-recipient-delta
+      - name: Install Playwright client for system Chrome
+        run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Start synthetic-only local Wand
+        env:
+          VITE_SUPABASE_URL: https://qr222-synthetic.invalid
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_QR222_FAKE_TEST_ONLY_NO_SECRET
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          npm run dev -- --host 127.0.0.1 --port 4175 > /tmp/gallery-recipient.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4175/gallery/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/gallery-recipient.log >&2
+          exit 1
+      - name: Actual Chrome synthetic Gallery recipient SPA & Q&A alias regression
+        env:
+          GALLERY_RECEIVER_BASE_URL: http://127.0.0.1:4175
+        run: node scripts/web-gallery-recipient-stale-guard-chrome.mjs
+      - name: Local app logs only on failure
+        if: failure()
+        run: tail -n 100 /tmp/gallery-recipient.log || true
