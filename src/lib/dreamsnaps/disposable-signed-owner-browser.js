@@ -70,32 +70,33 @@ function headersObject(headers) {
   return o;
 }
 
-export async function disposableGoTrueLogin({origin,publishableKey,email,password,fetchImpl=fetch}) {
+export async function disposableGoTrueLogin({origin,publishableKey,email,password,onStatus=()=>{},fetchImpl=fetch}) {
   if (!DISPOSABLE_SIGNED_OWNER_BROWSER_ENABLED || !origin ||
       !localOwnerTestOrigin(origin+'/',location.hostname) ||
       typeof publishableKey !== 'string' || publishableKey.length<20 ||
       typeof email !== 'string' || typeof password !== 'string' ||
-      !email.endsWith('@example.invalid')) return null;
+      !email.endsWith('@example.invalid')) { onStatus('LOCAL_CONFIG_REJECTED'); return null; }
   try {
     const r=await fetchImpl(origin+'/auth/v1/token?grant_type=password',{
       method:'POST',cache:'no-store',
       headers:{apikey:publishableKey,accept:'application/json','content-type':'application/json'},
       body:JSON.stringify({email,password})
     });
-    if(!r.ok) return null;
+    if(!r.ok) { onStatus('GOTRUE_TOKEN_DENIED'); return null; }
     const data=await r.json();
     const token=data?.access_token;
-    if(typeof token!=='string' || token.length<50) return null;
+    if(typeof token!=='string' || token.length<50) { onStatus('GOTRUE_TOKEN_MISSING'); return null; }
     // GoTrue validates the issued token. The browser never trusts decoded
     // AccountID or user claims as OwnerAuthority.
     const verify=await fetchImpl(origin+'/auth/v1/user',{
       method:'GET',cache:'no-store',
       headers:{apikey:publishableKey,authorization:'Bearer '+token}
     });
-    if(!verify.ok) return null;
+    if(!verify.ok) { onStatus('GOTRUE_VERIFY_DENIED'); return null; }
     const user=await verify.json();
-    return typeof user?.id==='string' ? token : null;
-  } catch { return null; }
+    if(typeof user?.id==='string') { onStatus('GOTRUE_VERIFIED'); return token; }
+    onStatus('GOTRUE_USER_MISSING'); return null;
+  } catch { onStatus('GOTRUE_TRANSPORT_ERROR'); return null; }
 }
 
 export async function readDisposableSignedOwner({
