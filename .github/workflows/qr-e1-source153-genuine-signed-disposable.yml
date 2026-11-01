@@ -11,6 +11,7 @@ jobs:
     timeout-minutes: 45
     env:
       DDVRE_E1_LOCAL_DISPOSABLE: APPROVED
+      DDVRE_E1_EFFECTIVE_ENV_ONLY: '1'
       DATABASE_URL: ''
       SUPABASE_ACCESS_TOKEN: ''
       SUPABASE_PROJECT_ID: ''
@@ -73,6 +74,47 @@ jobs:
           print('E1_LOCAL_EDGE_PUBLIC_JWKS_CONFIGURED_NO_PRIVATE_MATERIAL')
           print('E1_EPHEMERAL_GOTRUE_ES256_PRIVATE_KEY_PRESENT_ONLY_IN_RUNNER')
           PY
+      - name: Generate local-only JWT-protected Edge isolate env probe (no product edit)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p supabase/functions/e1-jwks-env-probe
+          cat > supabase/functions/e1-jwks-env-probe/index.ts <<'TS'
+          // Disposable same-Edge-container isolate probe. No state changes.
+          Deno.serve(async (req) => {
+            if (req.method !== 'POST') return Response.json({ok:false},{status:405});
+            const raw=Deno.env.get('SUPABASE_JWKS');
+            const url=Deno.env.get('SUPABASE_JWKS_URL');
+            const publicUrl=Deno.env.get('SUPABASE_PUBLIC_URL');
+            const internalUrl=Deno.env.get('SUPABASE_URL');
+            let parsed:any=null, syntax=false;
+            if(raw) { try { parsed=JSON.parse(raw); syntax=true; } catch {} }
+            const keys=Array.isArray(parsed)?parsed:Array.isArray(parsed?.keys)?parsed.keys:[];
+            const expected=String((await req.json().catch(()=>null))?.expectedKid??'');
+            const hostKind=(value:string|undefined) => {
+              if(!value) return 'missing';
+              try {
+                const u=new URL(value);
+                if(u.protocol==='https:') return 'https';
+                if(u.protocol==='http:' && (u.hostname==='localhost'||u.hostname.endsWith('.localhost')||
+                   u.hostname==='[::1]'||/^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(u.hostname))) return 'loopback_http';
+                return u.protocol==='http:'?'non_loopback_http':'other_scheme';
+              } catch { return 'invalid'; }
+            };
+            const noPrivate=keys.every((k:any)=>k && typeof k==='object' && !('d' in k));
+            const exactKid=keys.filter((k:any)=>k && k.kid===expected && k.kty==='EC' && k.crv==='P-256').length;
+            return Response.json({
+              ok:true,edgeIsolate:true,inlinePresent:Boolean(raw),inlineJsonValid:syntax,
+              inlineJwksShapeValid:syntax && keys.length>0,publicKeyOnly:noPrivate,
+              publicKeyCount:keys.length,matchingKidCount:exactKid,
+              jwksUrlPresent:Boolean(url),jwksUrlKind:hostKind(url),
+              publicUrlKind:hostKind(publicUrl),internalUrlKind:hostKind(internalUrl)
+            },{headers:{'Cache-Control':'private, no-store','CDN-Cache-Control':'no-store',
+                 'Surrogate-Control':'no-store','Vary':'Authorization, Origin'}});
+          });
+          TS
+          printf '\n[functions.e1-jwks-env-probe]\nverify_jwt = true\n' >> supabase/config.toml
+          echo E1_LOCAL_PROBE_VERIFY_JWT_TRUE_READY
       - name: Boot clean, isolated local FULL153 GoTrue PostgREST Edge, no Stage keys
         shell: bash
         run: |
@@ -87,13 +129,13 @@ jobs:
           echo E1_CLEAN_DISPOSABLE_GOTRUE_EDGE_PG_BOOT_PASS
       - name: Install isolated PG client
         run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
-      - name: Execute ONLY real signed A B M + anonymous R1/R2 private HTTP and RLS
+      - name: Diagnose actual Edge Isolate effective env with GoTrue-signed A JWT only
         shell: bash
         run: |
           set -euo pipefail
           python3 tests/qr-e1-source153-genuine-signed-disposable.py 2>&1 | tee /tmp/e1-local-only-sanitized.log
-          grep -q '"case": "E1_SOURCE153_GENUINE_SIGNED_R1_R2_POSTGREST"' /tmp/e1-local-only-sanitized.log
-          echo E1_SOURCE153_REAL_GOTRUE_ES256_EDGE_AND_POSTGREST_RLS_TARGETED_PASS
+          grep -q '"case": "E1_EDGE_EFFECTIVE_ENV"' /tmp/e1-local-only-sanitized.log
+          echo E1_EDGE_ENV_DIAGNOSTIC_ONLY_NO_E2E_CLAIM
       - name: Sanitized local Edge diagnostic on signed test failure
         if: failure()
         shell: bash
@@ -119,6 +161,7 @@ jobs:
         shell: bash
         run: |
           supabase stop --no-backup > /dev/null 2>&1 || true
+          rm -rf supabase/functions/e1-jwks-env-probe
           rm -f /tmp/e1-local-config.toml /tmp/e1-local-bootstrap.log /tmp/e1-keygen-private.log supabase/signing_keys.json supabase/functions/.env
           echo E1_DISPOSABLE_RUNNER_TEARDOWN_ATTEMPTED
       - name: Upload sanitized case markers only
