@@ -1,0 +1,26 @@
+# 08 WEB — Switch v1.25.3/schema626 Save read-only diagnostic UX (2026-11-01)
+
+Existing 08 WEB/UI Foundation workstream. Isolated Draft, no overwrite of accepted Collection PR192, Guide PR133, Gallery PR105, Source153 Consumer PR267, or 01A/01E native/save source contracts.
+
+## Current preexisting Web evidence
+- Existing `src/lib/wep/world-save-source.ts` recognizes encrypted P1G packaged schema626 and requires independently declared Switch source/storage platform, externally verified Switch v1.25.3 BID `9A239D3DB569756D`, `WEP_WORLD_READONLY_626_PROVENANCE`, and current 01A `evaluateProfile626ReadOnlyCompatibility` with `EXACT_ACCEPTED`. This is an operator-provenance assertion, **not** cryptographic derivation of BID from a save. `LastSaveDeviceInfo` can reflect cross-save and is not BID/host-storage proof. Wrong BID, unsupported version, unknown source/platform or Steam schema626 fail closed.
+- Existing Editor World `/editor/world/` displays only World Village/Area/Grid counts on 626, with Canvas/draft/modified export/Apply disabled and eight locale text. The existing WEP schema626 local synthetic Browser suite is previously accepted; not reimplemented here.
+- Existing Collection PR192 is **source catalog specifically Switch v1.25.0 BID `52BD625D9B4E0053`**. The 12,552 Item static index/18 shards does NOT establish schema626 personal Owned/Collected, discovered state, variations, availability, denominators, native update compatibility. No static Collection reversion, no shared v1.25.3 catalog promotion.
+- 01E PR274 exact latest Owner `808c28e3ae10dd020bbea655eb47df40c6c0e54a` independent 04 QR new-only 8/8 Source PASS, is value-free observed JSON-kind structural diff, not per-item semantics or an automated acceptance for personal Collection/native writer. v1250 schema624 vs v1253 schema626 161 allowlisted paths: 159 same JSON kind, 2 optional native DecorationPreset sample differences; 0 both-present mismatches. No current Web implementation consumes this source-only comparator as UI evidence.
+- Existing 08 WEB PR267 and cross-product INT268/QR269/270 already accepted source/local scope only, untouched.
+
+## Minimal *new* correction
+The prior 626 World UI rendered absent `Villages` or `GridCollection.Grids` counts as `—` under a positive read-only heading; a reader could misinterpret missing diagnostics as zero / validated World or Collection. The new alert presents **incomplete diagnostic** explicitly whenever any count is `null`; it does not change the accepted 01A save read, invalidate intact saved files, silently infer schema/model safety or invent Item/Inventory numbers. Normal valid observed counts still displayed unchanged.
+
+The read-only 626 panel now explicitly states: *v1.25.0 Collection catalog is not verified as v1.25.3 personal ownership or collected counts*, and source-local no-upload/no-publication guarantee. The three supplementary notices have eight locale translations using `save626DiagnosticCopy`, with a live `role=status` parent and incomplete `role=alert`. No navigational link to unauthorized Collection Item Detail or user-specific state.
+
+On 626 read-only success, the editor no longer creates a redundant raw Save backup, clones source bytes to its editing buffer, or retains a potentially identifying file name/fingerprint. It retains an in-memory profile for the existing local structural reader only. No writes, upload, browser storage of save content, API, telemetry, URL or Community publication were added. Existing v1.25.0 WEP editing/plan path is byte-unchanged apart from the scoped conditional.
+
+## New evidence and acceptance scope
+- `tests/wep-save626-diagnostic-ux.test.mjs`: eight locale completeness, exact 01A Read registry mismatch/unknown rejection and frozen Switch1250 catalog constraint, 626 writer/Apply flags OFF, and source-only scoped page guard.
+- `scripts/web-save626-diagnostic-browser.mjs`: independent *synthetic*, local Chrome test of incomplete 626 packaged read and localized alert, 8 locales/320px, desktop Editor Canvas remains absent, keyboard focus/ARIA, synthetic private marker and quantity never in rendered content/URL/storage/outgoing requests/console, BID mismatch revokes prior diagnostic, unreadable file fail closed. No real confidential Save is used in GitHub CI.
+- No 01E comparator's real paired save content, dynamic map keys, Inventory values, provider/owner account IDs or raw Save SHA are committed; no 624/626 runtime evidence is reaccepted. R17 ProductTree30 PASS0/PARTIAL12/BLOCKED18, 7 Seed/Privacy/Legal/Ops shared gates unchanged.
+- Pending: actual 626 personal item semantics/native Collection proofs owned by 01D/01E, reader+catalog integration downstream. v1.25.3 Writer/Apply/World place edits OFF, Steam 626 runtime pending, supported per build only. Do not claim full release acceptance. DRAFT DO_NOT_MERGE DO_NOT_DEPLOY.
+
+## Integration and QA
+This bounded UI delta can be independently 04 QR browser/source re-checked only for modified and newly added paths, not a repeat of QR for PR192/274/267 or the existing WEP 626 suite. 09 INT receives no new Owner source authority or cross-product native writer; v1.25.3 Collection remains blocked from v1.25.0 catalog.
