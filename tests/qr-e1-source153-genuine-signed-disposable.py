@@ -206,8 +206,9 @@ with psycopg.connect(DSN,autocommit=True) as db:
             assert "storageKey" not in json.dumps(r)
             marker(case,"GENUINE_SIGNED_PRIVATE_READ_DENIED",status)
         finally:
-            with db.transaction():
-                db.execute(restore,restore_args)
+            if restore is not None:
+                with db.transaction():
+                    db.execute(restore,restore_args)
     negative("R2-01",
         "update public.wand_accounts set status='restricted' where account_id=%s",(account["A"],),
         "update public.wand_accounts set status='active' where account_id=%s",(account["A"],))
@@ -233,11 +234,11 @@ with psycopg.connect(DSN,autocommit=True) as db:
     # mark a rejected fixture as untested rather than calling it reader PASS.
     negative("R2-05",
         "update public.community_works set lifecycle_state='deleted' where work_id=%s",(post,),
-        "update public.community_works set lifecycle_state='published' where work_id=%s",(post,))
+        None,None)
     assert scalar("select count(*) from private.dreamsnap_x05_owner_policy_v1")==0
     assert scalar("select count(*) from private.dreamsnap_x05_work_control_v1")==0
     assert scalar("select count(*) from private.dreamsnap_x05_consent_events_v1")==0
-    status,_,j=pregrant("A",post)
+    status,_,j=pregrant("A",original)
     assert status==200 and j["data"]["state"]=="NEED_POLICY_ARTIFACT"
     marker("E1-CLEANUP","DISPOSABLE_FIXTURE_NO_POLICY_NO_CONSENT_RESTORED")
 for who in "ABM":
