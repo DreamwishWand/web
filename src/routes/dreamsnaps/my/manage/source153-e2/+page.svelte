@@ -43,6 +43,17 @@
     'zh-CN':['重新检查作品','发起新读取','清除测试会话','需要新的签名读取，不授予Owner权限'],
     'pt-BR':['Verificar novamente','Nova leitura','Limpar sessão de teste','É necessária nova leitura assinada, sem direitos Owner']
   };
+  const accessRecoveryCopy:Record<string,string> = {
+    en:'The signed server could not confirm access. This is not identified as a CAS conflict. A fresh read checks authorization again; no access is granted locally.',
+    fr:'Le serveur signé n’a pas confirmé l’accès. Aucun conflit CAS n’est établi. Une nouvelle lecture vérifie à nouveau l’autorisation.',
+    it:'Il server firmato non ha confermato l’accesso. Non è un conflitto CAS accertato. Una nuova lettura verifica ancora l’autorizzazione.',
+    de:'Der signierte Server konnte den Zugriff nicht bestätigen. Ein CAS-Konflikt ist nicht nachgewiesen. Eine neue Abfrage prüft die Berechtigung erneut.',
+    'es-ES':'El servidor firmado no confirmó el acceso. No se ha establecido un conflicto CAS. Una nueva lectura comprueba de nuevo la autorización.',
+    ja:'署名済みサーバーでアクセスを確認できませんでした。CAS競合とは断定できません。新しい読取りでもサーバー側で認可を再確認します。',
+    'zh-CN':'签名服务器未确认访问权限，不能断定为CAS冲突。重新读取时仍须由服务器验证授权。',
+    'pt-BR':'O servidor assinado não confirmou o acesso. Não há confirmação de conflito CAS. Uma nova leitura verifica novamente a autorização.'
+  };
+  $: accessRecoveryHint=accessRecoveryCopy[$locale]??accessRecoveryCopy.en;
   $: extra=recheckCopy[$locale]??recheckCopy.en;
   let route:{status:string;workId:string|null}={status:'invalid',workId:null};
   let email='',password='',token='',status='AUTH_REQUIRED';
@@ -126,10 +137,12 @@
     <p role="status" aria-live="polite" data-e2-status>{status}</p>
     {#if status==='REVALIDATION_REQUIRED' || status==='REFRESH_REQUIRED'}
       <p role="status" data-e2-revalidation-hint>{extra[3]}</p>
+    {:else if status==='BACKEND_UNAVAILABLE' && canFreshRead}
+      <p role="status" data-e2-neutral-recovery>{accessRecoveryHint}</p>
     {/if}
     {#if token}
       <button type="button" on:click={clearSession} data-e2-logout>{extra[2]}</button>
-      {#if status==='REFRESH_REQUIRED'}
+      {#if canFreshRead && (status==='REFRESH_REQUIRED' || status==='BACKEND_UNAVAILABLE')}
         <button type="button" on:click={freshRead} disabled={working || !canFreshRead}
           data-e2-fresh-read>{extra[1]}</button>
       {/if}
