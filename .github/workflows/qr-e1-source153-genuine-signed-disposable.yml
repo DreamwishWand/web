@@ -58,8 +58,8 @@ jobs:
         run: |
           set -euo pipefail
           python3 tests/qr-e1-source153-genuine-signed-disposable.py 2>&1 | tee /tmp/e1-local-only-sanitized.log
-          grep -q '"case": "E1_SOURCE153_GENUINE_SIGNED_R1_R2"' /tmp/e1-local-only-sanitized.log
-          echo E1_SOURCE153_REAL_GOTRUE_JWT_EDGE_POSTGREST_RLS_TARGETED_PASS
+          grep -q '"case": "E1_SOURCE153_GENUINE_SIGNED_R1_R2_POSTGREST"' /tmp/e1-local-only-sanitized.log
+          echo E1_SOURCE153_REAL_GOTRUE_JWT_POSTGREST_RLS_TARGETED_PASS_EDGE_NOT_YET_ACCEPTED
       - name: Sanitized local Edge diagnostic on signed test failure
         if: failure()
         shell: bash
