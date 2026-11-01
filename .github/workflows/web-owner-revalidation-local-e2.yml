@@ -107,7 +107,7 @@ jobs:
           test -n "$CHROME_BIN"
           "$CHROME_BIN" --version
           echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
-      - name: New-only signed NEGATIVE local browser using accepted E2 setup fixture
+      - name: New-only signed 403 manual recovery and revoked actor using disposable E2 setup
         shell: bash
         run: |
           set -euo pipefail
@@ -115,9 +115,9 @@ jobs:
             sed -E 's/([A-Za-z0-9_-]{24,})/[REDACTED]/g' /tmp/web-e2-private-test-outcome.log | tail -n 30
             exit 1
           }
-          grep -q 'OWNER_REVALIDATION_SIGNED_CHROME_NEW_LIFECYCLE_PASS_LOCAL_ONLY' /tmp/web-e2-private-test-outcome.log
-          grep -q '"case": "WEB_OWNER_REVALIDATION_NEW_ONLY"' /tmp/web-e2-private-test-outcome.log
-          echo OWNER_REVALIDATION_SIGNED_CHROME_NEW_LIFECYCLE_PASS_LOCAL_ONLY
+          grep -q 'WEB_OWNER_403_RECOVERY_NEW_ONLY' /tmp/web-e2-private-test-outcome.log
+          grep -q '"case": "WEB_OWNER_403_RECOVERY_NEW_ONLY"' /tmp/web-e2-private-test-outcome.log
+          echo WEB_OWNER_403_SIGNED_RECOVERY_NEW_ONLY_PASS_LOCAL
       - name: Stop ephemeral stack and erase local signer and scratch
         if: always()
         shell: bash
