@@ -39,7 +39,14 @@ try {
  };
  phase='OWNER_A_LOGIN';
  await signIn('A');
- await page.locator('[data-local-owner-state="source-candidate-only"]').waitFor({state:'visible',timeout:18000});
+ try {
+   await page.locator('[data-local-owner-state="source-candidate-only"]').waitFor({state:'visible',timeout:18000});
+ } catch {
+   const a=await section.getAttribute('data-local-auth-status')??'UNKNOWN';
+   const d=await section.getAttribute('data-local-decoder-status')??'UNKNOWN';
+   phase='OWNER_A_LOGIN_'+a.replace(/[^A-Z0-9_]/g,'')+'_'+d.replace(/[^A-Z0-9_]/g,'');
+   throw Error('REDACTED_OWNER_A_BROWSER_CANDIDATE_NOT_PRESENT');
+ }
  assert.equal(await page.locator('[data-local-owner-kind="OriginalCompetition"]').count(),1);
  assert.equal(await page.locator('[data-local-owner-entry="frozen-entry-present"]').count(),1);
  assert.equal(observed.at(-1),200);
