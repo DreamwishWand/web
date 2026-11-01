@@ -40,7 +40,8 @@ const CATEGORIES = Object.freeze({
   'ownership': ['ListInventories', 'Inventory', 'CompatibleItemType', 'Amount', 'Marker'],
   'collection': ['CollectionSets', 'CollectionDefinitionID', 'GroupData', 'GroupIndex', 'GroupsCollectionItems'],
   'world-grid': ['Grid', 'Grids', 'GridCollection', 'Objects', 'GridObjects', 'Areas', 'Area', 'AreaID', 'GridIDs', 'SubGrid', 'SubGrids', 'NextGridObjectID', 'TessellationFactor'],
-  'road-fence': ['Road', 'Roads', 'Fence', 'Fences', 'FenceMode', 'ItemID', 'State', 'X', 'Y', 'Orientation'],
+  'road-fence': ['Road', 'Roads', 'Fence', 'Fences', 'FenceMode'],
+  'world-object': ['ItemID', 'State', 'X', 'Y', 'Orientation'],
   'floating-island-playerhouse': ['FloatingIslands', 'PlayerHouses', 'HouseData', 'PlayerHouseIndex', 'SceneItemId']
 });
 
@@ -133,6 +134,7 @@ function categorize(path) {
   if (path.startsWith('$.World.')) {
     if (CATEGORIES['floating-island-playerhouse'].some(k => path.includes(`.${k}`))) return 'floating-island-playerhouse';
     if (CATEGORIES['road-fence'].some(k => path.includes(`.${k}`))) return 'road-fence';
+    if (CATEGORIES['world-object'].some(k => path.includes(`.${k}`))) return 'world-object';
     if (CATEGORIES['world-grid'].some(k => path.includes(`.${k}`))) return 'world-grid';
   }
   return null; // unknown noncanonical path is not emitted
