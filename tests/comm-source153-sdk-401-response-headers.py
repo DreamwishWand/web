@@ -36,7 +36,10 @@ def http(path,method="POST",body=None,token=None,key=None):
         headers=headers,method=method)
     try:
         with urllib.request.urlopen(req,timeout=25) as r:
-            return r.status,dict(r.headers),json.loads(r.read(10000) or b"null")
+            raw=r.read(10000)
+            try:out=json.loads(raw or b"null")
+            except Exception:out={}
+            return r.status,dict(r.headers),out
     except urllib.error.HTTPError as ex:
         raw=ex.read(10000)
         try:data=json.loads(raw)
