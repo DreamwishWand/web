@@ -50,7 +50,7 @@
     const result=await loginDisposableGoTrue({
       fetchImpl:fetch,email,password,anonKey,signal:controller.signal
     });
-    password='';
+    password='';email='';
     if(sequence!==epoch || controller.signal.aborted)return;
     token=result.token??'';
     status=result.status;
