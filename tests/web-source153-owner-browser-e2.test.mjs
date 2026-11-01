@@ -119,9 +119,9 @@ test('new-only signed browser keeps prior source CAS and rejects stale owner/ses
  const page=text('src/routes/dreamsnaps/my/manage/source153-e2/+page.svelte');
  const chrome=text('scripts/web-source153-signed-owner-negative-chrome.mjs');
  const fixture=text('scripts/web-source153-signed-owner-negative-fixture.py');
- assert.ok(page.includes('expectedRowVersion:view.rowVersion'));
- assert.ok(page.includes('expectedAuthorizationEpoch:view.authorizationEpoch'));
- assert.ok(page.includes('...previousCas'));
+ assert.ok(page.includes('expectedRowVersion:previousRowVersion'));
+ assert.ok(page.includes('expectedAuthorizationEpoch:previousAuthorizationEpoch'));
+ assert.ok(page.includes('view?.sourceCandidateOnly ? view.rowVersion : undefined'));
  assert.ok(page.includes('disabled={working && !token}'));
  assert.ok(page.includes("password='';email=''"));
  for(const token of ['DOM_A11Y','IDENTITY','ACCOUNT','CREATOR','CAS','WITHDRAWN',
