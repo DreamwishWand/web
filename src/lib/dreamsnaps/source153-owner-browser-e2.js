@@ -7,9 +7,12 @@ import {
 // Dev-only, loopback-only read probe. Never reclassifies the fixed @2
 // decoder's SOURCE_SCHEMA_CANDIDATE as an authorized Owner snapshot.
 export const SOURCE153_BROWSER_E2_PRODUCTION_ENABLED = false;
-const LOCAL = 'http://127.0.0.1:54321';
-const OWNER = LOCAL + '/functions/v1/community-dreamsnap-owner';
-const AUTH = LOCAL + '/auth/v1';
+const LOCAL = 'http://127.0.0.1:4175';
+// Dedicated dev-only same-origin transparent local proxy; not deployed.
+// Real Edge cache headers remain intact and browser-readable.
+const SOURCE = LOCAL + '/__source153_e2';
+const OWNER = SOURCE + '/functions/v1/community-dreamsnap-owner';
+const AUTH = SOURCE + '/auth/v1';
 const fail = (status='BACKEND_UNAVAILABLE') => Object.freeze({
   status, kind:null, entryState:null, grantState:null, policyScope:null,
   publicDisabled:null, rowVersion:null, authorizationEpoch:null,
