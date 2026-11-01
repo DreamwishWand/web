@@ -1,7 +1,6 @@
 <script lang="ts">
   import { afterNavigate } from '$app/navigation';
   import { locale } from '$lib/i18n/runtime.js';
-  import { getCommunityBrowserConfig } from '$lib/community/browser-client';
   import { parseOwnerWorkRoute } from '$lib/dreamsnaps/owner-management.js';
   import {
     DISPOSABLE_SIGNED_OWNER_BROWSER_ENABLED,
@@ -9,7 +8,8 @@
   } from '$lib/dreamsnaps/disposable-signed-owner-browser.js';
   import { disposableOwnerReadCopy } from '$lib/dreamsnaps/disposable-owner-read-copy.js';
 
-  const config=getCommunityBrowserConfig();
+  // No product CommunityClient is created for this local disposable test.
+  const localUrl=String(import.meta.env.VITE_DDVRE_DISPOSABLE_GOTRUE_URL??'');
   // Disposable runner-local public anon key; never a user credential or production issuer.
   const localApiKey=String(import.meta.env.VITE_DDVRE_DISPOSABLE_ANON_KEY??'');
   let origin: string | null = null;
@@ -21,8 +21,8 @@
   $: copy=disposableOwnerReadCopy($locale);
 
   afterNavigate(({to})=>{
-    origin=typeof window === 'undefined' || !config
-      ? null : localOwnerTestOrigin(config.supabaseUrl+'/',window.location.hostname);
+    origin=typeof window === 'undefined'
+      ? null : localOwnerTestOrigin(localUrl.replace(/\\/$/,'')+'/',window.location.hostname);
     const current=++generation;
     route=parseOwnerWorkRoute(to?.url?.search??'');
     view=null;
@@ -33,7 +33,7 @@
   });
 
   async function login() {
-    if(!DISPOSABLE_SIGNED_OWNER_BROWSER_ENABLED || !origin || !config || loginPending) return;
+    if(!DISPOSABLE_SIGNED_OWNER_BROWSER_ENABLED || !origin || !localApiKey || loginPending) return;
     const current=++generation;
     view=null;
     readStatus='unavailable';
@@ -59,7 +59,7 @@
   }
 
   async function refresh(expectedGeneration=++generation) {
-    if(!DISPOSABLE_SIGNED_OWNER_BROWSER_ENABLED || !origin || !config ||
+    if(!DISPOSABLE_SIGNED_OWNER_BROWSER_ENABLED || !origin || !localApiKey ||
        !token || !route.workId || route.status!=='authority-pending')return;
     const workId=route.workId;
     const current=expectedGeneration;
