@@ -46,11 +46,11 @@ export function createOwnerReadRevalidation({read,onChange=()=>{}}={}) {
   if(typeof read!=='function'||typeof onChange!=='function')throw Error('INVALID_OWNER_REVALIDATION_ADAPTER');
   let workId=null, bearer=null, anonKey=null, generation=0, active=null;
   let visible=true, online=true, focused=true, disposed=false;
-  let lastCas=null, needsExplicitFresh=false, state=closed();
+  let lastCas=null, needsExplicitFresh=false, recoveryStatus='REFRESH_REQUIRED', state=closed();
   const publish=(status,view=null,working=false)=>{
     const allowed=Boolean(workId&&bearer&&anonKey&&!disposed);
     state=Object.freeze({
-      ...closed(needsExplicitFresh?'REFRESH_REQUIRED':status),
+      ...closed(needsExplicitFresh?recoveryStatus:status),
       view:needsExplicitFresh?null:view,sourceCandidateOnly:!!view && !needsExplicitFresh,working,
       canInspect:allowed && visible && online && focused && !working && !needsExplicitFresh,
       canFreshRead:allowed && visible && online && focused && !working && needsExplicitFresh
@@ -70,12 +70,13 @@ export function createOwnerReadRevalidation({read,onChange=()=>{}}={}) {
   };
   const ready=()=>!disposed&&!!workId&&!!bearer&&!!anonKey&&visible&&online&&focused;
   const revalidate=async({fresh=false}={})=>{
-    if(needsExplicitFresh && !fresh)return publish('REFRESH_REQUIRED');
-    if(!ready())return publish(needsExplicitFresh?'REFRESH_REQUIRED':(!bearer?'AUTH_REQUIRED':'REVALIDATION_REQUIRED'));
+    if(needsExplicitFresh && !fresh)return publish(recoveryStatus);
+    if(!ready())return publish(needsExplicitFresh?recoveryStatus:(!bearer?'AUTH_REQUIRED':'REVALIDATION_REQUIRED'));
     if(active)return state;
     if(fresh){
       // Only the caller's explicit fresh-read action may unlock a CAS refusal.
       needsExplicitFresh=false;
+      recoveryStatus='REFRESH_REQUIRED';
       lastCas=null;
     }
     cancel();
@@ -103,7 +104,16 @@ export function createOwnerReadRevalidation({read,onChange=()=>{}}={}) {
         ? result.status : 'SOURCE_CONTRACT_REJECTED';
       // Keep prior CAS and the sticky latch until an explicit Fresh action.
       // Ordinary Inspect and all lifecycle resumes are prohibited meanwhile.
-      if(status==='REFRESH_REQUIRED')needsExplicitFresh=true;
+      if(status==='REFRESH_REQUIRED'){
+        needsExplicitFresh=true;
+        recoveryStatus='REFRESH_REQUIRED';
+      }else if(status==='BACKEND_UNAVAILABLE' && (lastCas!==null || fresh)){
+        // Ambiguous denial (e.g. genuine stale-CAS HTTP403) is NOT a CAS verdict.
+        // A prior accepted CAS permits explicit new signed authorization only.
+        // Fresh denial also blocks automatic lifecycle replay.
+        needsExplicitFresh=true;
+        recoveryStatus='BACKEND_UNAVAILABLE';
+      }
       return publish(status);
     }
     const view=sanitized(result);
@@ -116,6 +126,7 @@ export function createOwnerReadRevalidation({read,onChange=()=>{}}={}) {
     if(changed){
       workId=normalized;
       needsExplicitFresh=false;
+      recoveryStatus='REFRESH_REQUIRED';
       // Drop the old signed session BEFORE publishing canInspect. Never leave
       // a stale enabled read control on the newly selected Work.
       bearer=null;
@@ -126,6 +137,7 @@ export function createOwnerReadRevalidation({read,onChange=()=>{}}={}) {
   };
   const replaceSession=(token,key)=>{
     needsExplicitFresh=false;
+    recoveryStatus='REFRESH_REQUIRED';
     clear('AUTH_REQUIRED',false);
     bearer=typeof token==='string'&&token?token:null;
     anonKey=typeof key==='string'&&key?key:null;
@@ -135,6 +147,7 @@ export function createOwnerReadRevalidation({read,onChange=()=>{}}={}) {
     if(!invalidations.has(reason))return state;
     if(reason==='WORK_CHANGED'||reason==='ACCOUNT_CHANGED'||reason==='SESSION_CHANGED'||reason==='LOGOUT'){
       needsExplicitFresh=false;
+      recoveryStatus='REFRESH_REQUIRED';
       bearer=null;anonKey=null;
       return clear('AUTH_REQUIRED',false);
     }
@@ -143,6 +156,7 @@ export function createOwnerReadRevalidation({read,onChange=()=>{}}={}) {
     if(reason==='OFFLINE')online=false;
     if(reason==='CAS_CONFLICT'){
       needsExplicitFresh=true;
+      recoveryStatus='REFRESH_REQUIRED';
       return clear('REFRESH_REQUIRED');
     }
     return clear('REVALIDATION_REQUIRED');
@@ -154,7 +168,7 @@ export function createOwnerReadRevalidation({read,onChange=()=>{}}={}) {
     if(reason==='ONLINE')online=true;
     // PAGESHOW must not assert visibility/focus/online status on its own.
     // A CAS refusal survives every resume. No implicit fresh/HTTP is allowed.
-    if(needsExplicitFresh)return Promise.resolve(clear('REFRESH_REQUIRED'));
+    if(needsExplicitFresh)return Promise.resolve(clear(recoveryStatus));
     clear('REVALIDATION_REQUIRED');
     return ready()?revalidate():Promise.resolve(state);
   };
