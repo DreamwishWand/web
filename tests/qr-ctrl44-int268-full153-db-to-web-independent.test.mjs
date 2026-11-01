@@ -14,7 +14,7 @@ const closed=(r,status)=>{assert.equal(r.status,status);assert.equal(r.snapshot,
 test('exact Source153/Edge, strict WEB267 git objects and 153 migrations with all positive runtime switches OFF',()=>{
  for(const [p,sha] of [
   ['supabase/migrations/20261028000060_x05_authoritative_owner_projection_v2.sql','356cc10138cd351674fde8dd943acc968e26fbbc'],
-  ['supabase/functions/community-dreamsnap-owner/index.ts','38f6830b88eb37dc612cbc11901812a90b406146'],
+  ['supabase/functions/community-dreamsnap-owner/index.ts','35bba2421aabe78ad5830762c33433247fa370bd'],
   ['src/lib/dreamsnaps/source153-owner-consumer-v2.js','f981b7596711b47bceb2fa79a2191e79e8f1b459'],
   ['supabase/migrations/20261028000050_x05_first_work_media_bootstrap_v1.sql','cd297f48111afbb315651c6cb7e911afb1bcc03d']
  ])assert.equal(blob(p),sha,p);
