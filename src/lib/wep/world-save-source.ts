@@ -324,9 +324,9 @@ function inspect626WorldStructure(profile: Record<string, any>) {
   const villages = world?.Villages;
   const grids = asRecord(asRecord(world?.GridCollection)?.Grids);
   const areaRecordCount = Array.isArray(villages)
-    ? villages.reduce((sum: number, village: unknown) => {
+    ? villages.reduce<number | null>((total, village) => {
         const areas = asRecord(asRecord(village)?.Areas);
-        return sum + (areas ? Object.keys(areas).length : 0);
+        return total === null || !areas ? null : total + Object.keys(areas).length;
       }, 0)
     : null;
   return {
