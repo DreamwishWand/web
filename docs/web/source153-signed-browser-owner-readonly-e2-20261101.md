@@ -65,3 +65,15 @@ global revocation continue to require separate authorization/evidence.
 New CI conclusions and immutable HEAD must be verified after completion;
 source-only changes do not constitute a PASS. Production flags OFF,
 DRAFT / DO_NOT_MERGE / DO_NOT_DEPLOY, PUBLIC RELEASE NO-GO.
+
+## 2026-11-01 privacy-only source fixture correction
+
+The earlier PARTIAL note was superseded as a source fixture design: FULL153
+R12 has an isolated `private.account_privacy_suppressions(account_id)` row
+and `private.is_account_privacy_suppressed(account_id)` predicate. The new
+signed Chromium suite now inserts one disposable synthetic account row only,
+asserts Account status, Identity state and Creator moderation remain active,
+checks fresh OwnerAuthority HTTP denial and no candidate projection, then
+removes that disposable row. It does NOT invoke D3 DELETE/tombstone or claim
+physical erasure. Eleven targeted new browser cases are the expected suite;
+**PASS requires exact-HEAD signed CI and independent QR**, not this source plan.
