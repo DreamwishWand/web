@@ -127,3 +127,28 @@ test('eight language copies present and no source save is embedded in test', asy
     }
   }
 });
+
+
+test('Area entries fail closed to UNKNOWN when any Village Areas map is absent or malformed', async () => {
+  const cases = [
+    [{}, null],
+    [{ Areas: null }, null],
+    [{ Areas: [] }, null],
+    [null, null],
+    [{ Areas: {} }, 0],
+    [{ Areas: { '1': {} } }, 1]
+  ];
+  for (const [village, expected] of cases) {
+    const sample = structuredClone(profile626);
+    sample.World.Villages = [village];
+    const opened = await openWorldSaveBytes(makeSyntheticP1gProfile(sample), accepted);
+    assert.equal(opened.structuralDiagnostics.areaRecordCount, expected);
+    assert.equal(opened.compatibility.readOnly, true);
+    assert.equal(opened.compatibility.persistentWriteAuthorized, false);
+  }
+  const mixed = structuredClone(profile626);
+  mixed.World.Villages.push({ Areas: null });
+  const opened = await openWorldSaveBytes(makeSyntheticP1gProfile(mixed), accepted);
+  assert.equal(opened.structuralDiagnostics.villageCount, 2);
+  assert.equal(opened.structuralDiagnostics.areaRecordCount, null);
+});
