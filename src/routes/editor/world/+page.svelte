@@ -26,6 +26,7 @@
   } from '$lib/wep/canvas-runtime';
   import { openWorldSaveBytes, WEP_WORLD_READONLY_626_PROVENANCE } from '$lib/wep/world-save-source';
   import { worldReadonlyCopy } from '$lib/wep/world-readonly-copy.js';
+  import { save626DiagnosticCopy } from '$lib/wep/save626-diagnostics-copy.js';
   import {
     createOriginalSaveBackup
   } from '$lib/wep/local-save-backup';
@@ -286,6 +287,7 @@
   $: objectCount = editorDocument?.objects?.length ?? 0;
   $: stage1Copy = worldEditorStage1Copy($locale);
   $: readonly626Copy = worldReadonlyCopy($locale);
+  $: readonly626DiagCopy = save626DiagnosticCopy($locale);
   $: roomFinishUi = roomFinishCopy($locale);
   $: roomFinishContextActive =
     editorDocument?.target?.kind === 'PLAYER_HOUSE_ROOM';
@@ -2367,9 +2369,9 @@
         canvasFocusEditorId = '';
         layerState = null;
         worldSource = opened;
-        worldSourceBytes = bytes.slice();
-        sourceFingerprint = fingerprint;
-        fileName = file.name;
+        worldSourceBytes = opened.compatibility.readOnly ? null : bytes.slice();
+        sourceFingerprint = opened.compatibility.readOnly ? '' : fingerprint;
+        fileName = opened.compatibility.readOnly ? '' : file.name;
         query = '';
         selectedOnly = false;
         presetTitle = '';
@@ -5892,7 +5894,14 @@
           <h3>{readonly626Copy.viewing} · v{worldSource.compatibility.gameVersion} / schema {worldSource.profileSchemaVersion}</h3>
           <p><strong>{readonly626Copy.editing}</strong></p>
           <p>{readonly626Copy.boundary}</p>
+          <p data-wep-626-collection-gated>{readonly626DiagCopy.collectionBoundary}</p>
+          <p data-wep-626-local-only>{readonly626DiagCopy.localOnly}</p>
           <h4>{readonly626Copy.diagnostic}</h4>
+          {#if worldSource.structuralDiagnostics?.villageCount == null ||
+            worldSource.structuralDiagnostics?.areaRecordCount == null ||
+            worldSource.structuralDiagnostics?.gridRecordCount == null}
+            <p role="alert" data-wep-626-incomplete>{readonly626DiagCopy.incompleteDiagnostic}</p>
+          {/if}
           <dl>
             <div><dt>{readonly626Copy.village}</dt><dd>{worldSource.structuralDiagnostics?.villageCount ?? '—'}</dd></div>
             <div><dt>{readonly626Copy.area}</dt><dd>{worldSource.structuralDiagnostics?.areaRecordCount ?? '—'}</dd></div>

@@ -19,7 +19,7 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "5077d9f826265b3fe1fb02caf963c8e29b391717",
+    "src/routes/editor/world/+page.svelte": "20fd32356d7163d2dd00934dc4a7b7f306d2f9ef",
     "src/lib/wep/world-editor-primary-job.ts": "25aba45c6004c020400a249c848c3bc2281fd4a0",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "711609eb100a0809a5e9a5b274f83dd9319e3645",
@@ -27,7 +27,8 @@
     "src/lib/wep/WorldEditorStage1DecoratePanel.svelte": "7bfb2981870f803c9e3adfc9e99192211325124a",
     "src/lib/wep/world-editor-stage1-copy.js": "9dace4b7538c04a8c650f691739d0bda22f38329",
     "src/lib/wep/room-finish-copy.js": "f75c54053bafa416842ca17938895b20d7f47f9b",
-    "src/lib/wep/world-readonly-copy.js": "2e2ac0522836e06b2d53f9465ffe4ba6d2a93d14"
+    "src/lib/wep/world-readonly-copy.js": "2e2ac0522836e06b2d53f9465ffe4ba6d2a93d14",
+    "src/lib/wep/save626-diagnostics-copy.js": "e2a33b025d6eb1fc4e634ac13db77773d391d56c"
   },
   "ownership": {
     "wepOwned": [
@@ -37,7 +38,8 @@
       "src/lib/wep/WorldEditorStage1DecoratePanel.svelte",
       "src/lib/wep/world-editor-stage1-copy.js",
       "src/lib/wep/room-finish-copy.js",
-      "src/lib/wep/world-readonly-copy.js"
+      "src/lib/wep/world-readonly-copy.js",
+      "src/lib/wep/save626-diagnostics-copy.js"
     ],
     "sharedWebRenderedOnWorldEditor": [
       "src/lib/SiteHeader.svelte",
@@ -1552,5 +1554,11 @@
     "localeResources": "src/lib/i18n/messages/world-editor/<locale>.js",
     "adapter": "src/lib/wep/world-editor-i18n.ts",
     "machineIdentityInvariant": true
+  },
+  "supplementaryReadOnlyLocaleEvidence": {
+    "date": "2026-11-01",
+    "source": "src/lib/wep/save626-diagnostics-copy.js",
+    "status": "EIGHT_LOCALES_BOUND_SOURCE_AND_BROWSER_QA_PENDING",
+    "scope": "Switch 1.25.3 read-only 626 incomplete diagnostic, Collection no owned and local-only Save; no native writer"
   }
 }
