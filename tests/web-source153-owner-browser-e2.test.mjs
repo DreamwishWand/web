@@ -16,7 +16,7 @@ test('all three production live/action flags remain strictly OFF',()=>{
  assert.equal(OWNER_MANAGEMENT_ENABLED,false);
  const page=text('src/routes/dreamsnaps/my/manage/source153-e2/+page.svelte');
  assert.ok(page.includes('import.meta.env.DEV'));
- assert.ok(page.includes("VITE_DDVRE_E2_OWNER_READONLY === 'LOCAL_DISPOSABLE_ONLY'"));
+ assert.ok(/VITE_DDVRE_E2_OWNER_READONLY\\s*===\\s*'LOCAL_DISPOSABLE_ONLY'/.test(page));
  assert.ok(page.includes('if(!localOnly || !token'));
  assert.ok(page.includes('afterNavigate'));
  assert.ok(page.includes("token='';email='';password=''"));
@@ -119,9 +119,11 @@ test('new-only signed browser keeps prior source CAS and rejects stale owner/ses
  const page=text('src/routes/dreamsnaps/my/manage/source153-e2/+page.svelte');
  const chrome=text('scripts/web-source153-signed-owner-negative-chrome.mjs');
  const fixture=text('scripts/web-source153-signed-owner-negative-fixture.py');
- assert.ok(page.includes('expectedRowVersion:previousRowVersion'));
- assert.ok(page.includes('expectedAuthorizationEpoch:previousAuthorizationEpoch'));
- assert.ok(page.includes('view?.sourceCandidateOnly ? view.rowVersion : undefined'));
+ const controller=text('src/lib/dreamsnaps/owner-read-revalidation.js');
+ assert.ok(page.includes('createOwnerReadRevalidation'));
+ assert.ok(controller.includes('expectedRowVersion:previousCas?.rowVersion'));
+ assert.ok(controller.includes('expectedAuthorizationEpoch:previousCas?.authorizationEpoch'));
+ assert.ok(controller.includes('lastCas=Object.freeze({rowVersion:view.rowVersion'));
  assert.ok(page.includes('disabled={working && !token}'));
  assert.ok(page.includes("password='';email=''"));
  for(const token of ['DOM_A11Y','IDENTITY','ACCOUNT','CREATOR','CAS','WITHDRAWN',
