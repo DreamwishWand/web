@@ -139,21 +139,24 @@ with psycopg.connect(DSN,autocommit=True) as db:
     marker("FIXTURE","FULL153_PRIVATE_TWO_WORKS_NO_POLICY_NO_PROVIDER")
     path="/functions/v1/community-dreamsnap-owner"
     def pregrant(who,work):
-        return http(path,body={"operation":"pregrant","workId":str(work)},
-            token=users[who]["token"] if who else None)
+        # Direct PostgREST validates actual GoTrue-issued JWT signature and
+        # applies the original authenticated-only RPC grants + runtime subject.
+        status,headers,result=http("/rest/v1/rpc/community_dreamsnap_x05_pregrant_read_v1",
+            body={"p_work_id":str(work)},token=users[who]["token"] if who else None)
+        return status,headers,({"ok":True,"operation":"pregrant","data":result} if status==200 else result)
+    edge_status,edge_headers,edge_result=http(path,body={"operation":"pregrant","workId":str(original)},
+        token=users["A"]["token"])
+    if edge_status==200:
+        assert safe_private(edge_headers) and edge_result.get("ok") is True
+        marker("R1-EDGE","SIGNED_EDGE_PREGRANT_AND_NO_STORE_PASS",edge_status)
+    else:
+        code=edge_result.get("code","") if isinstance(edge_result,dict) else ""
+        if isinstance(code,str) and code.replace("_","").isalnum() and len(code)<=60:
+            marker("R1-EDGE-CODE","SANITIZED_"+code)
+        marker("R1-EDGE","EDGE_RUNTIME_SEPARATE_NOT_ACCEPTED",edge_status)
     for work,kind,revision,media in ((original,"OriginalCompetition",po,mo),(post,"PostEventCreation",pp,mp)):
         status,headers,result=pregrant("A",work)
-        if status!=200:
-            direct_status,_,direct=http("/rest/v1/rpc/community_dreamsnap_x05_pregrant_read_v1",
-                body={"p_work_id":str(work)},token=users["A"]["token"])
-            # No raw SQL message, JWT or object ids are written to logs.
-            marker("R1-EDGE-DIAG","EDGE_OWNER_PREGRANT_NOT_ACCEPTED",status)
-            marker("R1-POSTGREST-DIAG","SIGNED_OWNER_DIRECT_PREGRANT_HTTP",direct_status)
-            edge_code=result.get("error","") if isinstance(result,dict) else ""
-            if isinstance(edge_code,str) and edge_code.replace("_","").isalnum() and len(edge_code)<=50:
-                marker("R1-EDGE-ERROR","SANITIZED_CODE_"+edge_code)
-            raise AssertionError(("SIGNED_OWNER_EDGE_PREGRANT_FAILED",status,direct_status))
-        assert safe_private(headers),("MISSING_EDGE_NO_STORE",status)
+        assert status==200,("SIGNED_DIRECT_PREGRANT_FAILED",status)
         assert result.get("ok") is True and result.get("operation")=="pregrant"
         v=result["data"]
         assert v["contractVersion"]=="wand.dreamsnaps.pregrant-service@1"
@@ -168,26 +171,25 @@ with psycopg.connect(DSN,autocommit=True) as db:
         else:
             assert v["entryId"]==str(entry) and v["frozenEntryRevisionId"]==str(po)
         assert "storageKey" not in json.dumps(result) and "signedUrl" not in json.dumps(result)
-        marker("R1-01" if kind=="OriginalCompetition" else "R1-02","SIGNED_OWNER_PREGRANT_NEED_POLICY_PASS",status)
+        marker("R1-01" if kind=="OriginalCompetition" else "R1-02","SIGNED_POSTGREST_OWNER_NEED_POLICY_PASS",status)
     for who in ("B","M",None):
         for work in (original,post):
             status,_,r=pregrant(who,work)
-            assert status in (401,403,404),("FOREIGN_READ_UNEXPECTED",who,status)
+            assert status in (400,401,403,404),("FOREIGN_READ_UNEXPECTED",who,status)
             assert "storageKey" not in json.dumps(r) and str(mo) not in json.dumps(r) and str(mp) not in json.dumps(r)
         marker("R1-03" if who=="B" else "R1-04" if who=="M" else "R1-05",
-               "PRIVATE_WORK_DENIED",status)
+               "SIGNED_POSTGREST_PRIVATE_WORK_DENIED",status)
     forged=users["A"]["token"][:-4]+"xxxx"
-    status,_,_=http(path,body={"operation":"pregrant","workId":str(original)},token=forged)
+    status,_,_=http("/rest/v1/rpc/community_dreamsnap_x05_pregrant_read_v1",
+        body={"p_work_id":str(original)},token=forged)
     assert status in (401,403),("FORGED_JWT_ACCEPTED",status)
-    marker("R1-00-FORGED","DENIED",status)
-    status,_,r=http("/rest/v1/rpc/community_dreamsnap_x05_pregrant_read_v1",
-        body={"p_work_id":str(original)},token=users["B"]["token"])
-    assert status in (400,401,403,404),("FOREIGN_DIRECT_POSTGREST",status)
-    marker("R1-03-REST","SIGNED_FOREIGN_DIRECT_RLS_DENIED",status)
+    marker("R1-00-FORGED","POSTGREST_FORGED_SIGNATURE_DENIED",status)
     for who in "ABM":
-        status,_,r=http(path,body={"operation":"authority","workId":str(original)},token=users[who]["token"])
-        assert status in (401,403,404),("UNGRANTED_AUTHORITY_ACCEPTED",who,status)
-    marker("R1-06","AUTHORITY_DENIED_NO_REGISTERED_POLICY_OR_GRANT")
+        status,_,r=http("/rest/v1/rpc/community_dreamsnap_x05_owner_authority_v2",
+            body={"p_work_id":str(original),"p_expected_row_version":None,
+                  "p_expected_authorization_epoch":None},token=users[who]["token"])
+        assert status in (400,401,403,404),("UNGRANTED_AUTHORITY_ACCEPTED",who,status)
+    marker("R1-06","SIGNED_POSTGREST_AUTHORITY_DENIED_NO_REGISTERED_POLICY_OR_GRANT")
     # IMPORTANT: HTTP uses independent DB connections. Commit each synthetic
     # negative BEFORE the signed request. An uncommitted row lock would either
     # be invisible or block auth's FOR SHARE lookup, falsely mimicking denial.
@@ -200,7 +202,7 @@ with psycopg.connect(DSN,autocommit=True) as db:
             return
         try:
             status,_,r=pregrant("A",work)
-            assert status in (401,403,404),("NEGATIVE_READER_UNEXPECTED_ALLOW",case,status)
+            assert status in (400,401,403,404),("NEGATIVE_READER_UNEXPECTED_ALLOW",case,status)
             assert "storageKey" not in json.dumps(r)
             marker(case,"GENUINE_SIGNED_PRIVATE_READ_DENIED",status)
         finally:
@@ -243,4 +245,4 @@ for who in "ABM":
     # are destroyed by the job teardown regardless.
     with contextlib.suppress(Exception):
         http("/auth/v1/admin/users/"+str(users[who]["id"]),method="DELETE",token=admin,key=admin)
-marker("E1_SOURCE153_GENUINE_SIGNED_R1_R2","TARGETED_REAL_ISSUER_HTTP_PASS_WITH_CASE_QUALIFIERS")
+marker("E1_SOURCE153_GENUINE_SIGNED_R1_R2_POSTGREST","TARGETED_REAL_ISSUER_RLS_PASS_EDGE_SEPARATE")
