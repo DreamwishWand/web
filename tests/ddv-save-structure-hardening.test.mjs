@@ -56,3 +56,14 @@ test('large arrays hit the bound and never claim complete comparison', () => {
   assert.equal(result.complete, false);
   assert.ok(result.entries.every(e => e.observation === 'INCOMPLETE_NO_VERDICT'));
 });
+
+
+test('generic GridObject geometry never proves Road/Fence topology', () => {
+  const a = specimen(624), b = specimen(626);
+  a.World.GridCollection = { Grids: { 'grid-a': { Objects: { 'object-a': { ItemID: 42, X: 1, Y: 2, State: { FenceMode: { Style: 0 } } } } } } };
+  b.World.GridCollection = { Grids: { 'grid-a': { Objects: { 'object-b': { ItemID: 88, X: 3, Y: 4, State: { FenceMode: { Style: 1 } } } } } } };
+  const result = compareObservedSaveStructure(a, b, ids);
+  assert.ok(result.entries.some(x => x.feature === 'world-object' && x.path.endsWith('.ItemID')));
+  assert.ok(result.entries.some(x => x.feature === 'road-fence' && x.path.endsWith('.FenceMode')));
+  assert.ok(result.entries.every(x => x.feature !== 'road-fence' || x.path.includes('.FenceMode') || x.path.includes('.Road') || x.path.includes('.Fence')));
+});
