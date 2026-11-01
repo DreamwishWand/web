@@ -9,6 +9,7 @@ on:
       - 'tests/wep-save626-diagnostic-ux.test.mjs'
       - 'scripts/web-save626-diagnostic-browser.mjs'
       - 'docs/web/switch1253-save-readonly-ux-delta-20261101.md'
+      - 'docs/wep/world-editor-localization-inventory-20261002.json'
       - '.github/workflows/web-switch1253-readonly-diagnostic.yml'
 permissions:
   contents: read
@@ -33,7 +34,7 @@ jobs:
         run: npm run check
       - name: Static build
         run: npm run build
-      - name: Exact six-file allowlist; native Save, Collection, Gallery, Guide and Community unchanged
+      - name: Exact seven-file allowlist; native Save, Collection, Gallery, Guide and Community unchanged
         shell: bash
         run: |
           set -euo pipefail
@@ -41,10 +42,10 @@ jobs:
           git cat-file -e "$BASE^{commit}"
           git diff --exit-code "$BASE" HEAD -- src/lib/ddv/core/save/ src/lib/collection/ src/routes/collection/ src/routes/gallery/ src/routes/guide/ supabase/ src/lib/wep/world-save-source.ts src/lib/wep/world-readonly-copy.js src/lib/dreamsnaps/
           git diff --name-only "$BASE" HEAD > /tmp/wep626-delta
-          test "$(wc -l < /tmp/wep626-delta)" -eq 6
+          test "$(wc -l < /tmp/wep626-delta)" -eq 7
           while IFS= read -r p; do
             case "$p" in
-              src/routes/editor/world/+page.svelte|src/lib/wep/save626-diagnostics-copy.js|tests/wep-save626-diagnostic-ux.test.mjs|scripts/web-save626-diagnostic-browser.mjs|docs/web/switch1253-save-readonly-ux-delta-20261101.md|.github/workflows/web-switch1253-readonly-diagnostic.yml) ;;
+              src/routes/editor/world/+page.svelte|src/lib/wep/save626-diagnostics-copy.js|tests/wep-save626-diagnostic-ux.test.mjs|scripts/web-save626-diagnostic-browser.mjs|docs/web/switch1253-save-readonly-ux-delta-20261101.md|docs/wep/world-editor-localization-inventory-20261002.json|.github/workflows/web-switch1253-readonly-diagnostic.yml) ;;
               *) echo "UNEXPECTED PATH: $p" >&2; exit 1 ;;
             esac
           done < /tmp/wep626-delta
