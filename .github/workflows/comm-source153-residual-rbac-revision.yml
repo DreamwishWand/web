@@ -3,6 +3,9 @@ on:
   push:
     branches:
       - qa/03comm-pr285-residual-rbac-revision-20261101
+  pull_request:
+    branches:
+      - qa/ctrl-e1-source153-real-signed-disposable-20261101
 permissions:
   contents: read
 jobs:
