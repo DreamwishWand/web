@@ -69,7 +69,7 @@ jobs:
           import os
           os.makedirs('supabase/functions',exist_ok=True)
           with open('supabase/functions/.env','w',encoding='utf-8') as env:
-              env.write('SUPABASE_JWKS='+json.dumps({'keys':public},separators=(',',':'))+'\\n')
+              env.write('SUPABASE_JWKS='+json.dumps({'keys':public},separators=(',',':')))
           print('E1_LOCAL_EDGE_PUBLIC_JWKS_CONFIGURED_NO_PRIVATE_MATERIAL')
           print('E1_EPHEMERAL_GOTRUE_ES256_PRIVATE_KEY_PRESENT_ONLY_IN_RUNNER')
           PY
