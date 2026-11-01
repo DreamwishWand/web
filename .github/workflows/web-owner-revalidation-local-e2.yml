@@ -117,15 +117,7 @@ jobs:
           }
           grep -q 'WEB_OWNER_403_RECOVERY_NEW_ONLY' /tmp/web-e2-private-test-outcome.log
           grep -q '"case": "WEB_OWNER_403_RECOVERY_NEW_ONLY"' /tmp/web-e2-private-test-outcome.log
-          grep -E '^WEB403_HTTP_STATUS_ONLY stale=[0-9]{3} fresh=[0-9]{3} revokedRead=[0-9]{3} revokedFresh=[0-9]{3}
-      - name: Stop ephemeral stack and erase local signer and scratch
-        if: always()
-        shell: bash
-        run: |
-          supabase stop --no-backup >/dev/null 2>&1 || true
-          rm -f supabase/signing_keys.json /tmp/web-e2-private-boot.log /tmp/web-e2-keygen-private.log /tmp/web-e2-config.tmp /tmp/web-e2-private-test-outcome.log
-          echo WEB_E2_EPHEMERAL_TEARDOWN_ATTEMPTED
- /tmp/web-e2-private-test-outcome.log
+          grep -E '^WEB403_HTTP_STATUS_ONLY stale=[0-9]{3} fresh=[0-9]{3} revokedRead=[0-9]{3} revokedFresh=[0-9]{3}$' /tmp/web-e2-private-test-outcome.log
           echo WEB_OWNER_403_SIGNED_RECOVERY_NEW_ONLY_PASS_LOCAL
       - name: Stop ephemeral stack and erase local signer and scratch
         if: always()
