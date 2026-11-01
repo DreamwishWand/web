@@ -41,6 +41,7 @@ const sanitized = r => Object.freeze({
  *  Caller must provide the existing strict Source153 adapter as read.
  *  Never expose the JWT, actor AccountID, Work locator, or raw HTTP DTO in state.
  */
+/** @param {{read:(args:any)=>Promise<any>, onChange?:(state:any)=>void}} adapter */
 export function createOwnerReadRevalidation({read,onChange=()=>{}}={}) {
   if(typeof read!=='function'||typeof onChange!=='function')throw Error('INVALID_OWNER_REVALIDATION_ADAPTER');
   let workId=null, bearer=null, anonKey=null, generation=0, active=null;
