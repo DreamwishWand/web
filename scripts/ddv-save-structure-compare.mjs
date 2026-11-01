@@ -31,6 +31,10 @@ const KEYS = new Set([
   'SceneItemId', 'HouseData', 'PlayerHouseIndex'
 ]);
 
+// These native dictionaries are keyed by user/item/object IDs. Even keys that happen
+// to equal allowlisted schema field names must never be treated as fields.
+const DYNAMIC_MAP_FIELDS = new Set(['Inventory', 'Objects', 'GridObjects', 'GroupsCollectionItems']);
+
 const CATEGORIES = Object.freeze({
   'serialized-root': ['$.GameInfo', '$.Player', '$.World'],
   'ownership': ['ListInventories', 'Inventory', 'CompatibleItemType', 'Amount', 'Marker'],
@@ -49,10 +53,18 @@ function kind(v) {
   return typeof v;
 }
 
+function asVersion(value) {
+  if (typeof value === 'number' && Number.isSafeInteger(value)) return value;
+  if (typeof value === 'string' && /^(?:0|[1-9]\d*)$/.test(value)) {
+    const n = Number(value);
+    return Number.isSafeInteger(n) ? n : null;
+  }
+  return null;
+}
+
 function assertValidProfile(v, expectedVersion) {
   if (!isObj(v) || !isObj(v.GameInfo) || !isObj(v.Player) || !isObj(v.World) ||
-      Number(v.GameInfo.Version) !== expectedVersion ||
-      !Number.isSafeInteger(Number(v.GameInfo.Version))) {
+      asVersion(v.GameInfo.Version) !== expectedVersion) {
     throw new Error('PROFILE_IDENTITY_OR_ROOT_INVALID');
   }
 }
@@ -71,6 +83,11 @@ export function observeProfileShape(profile, { maxNodes = 400000, maxPaths = 150
   ];
   let visited = 0;
   let truncated = false;
+  const enqueue = (entry) => {
+    if (visited + stack.length >= maxNodes) { truncated = true; return false; }
+    stack.push(entry);
+    return true;
+  };
   const add = (path, value) => {
     const type = kind(value);
     if (!paths.has(path)) {
@@ -87,13 +104,16 @@ export function observeProfileShape(profile, { maxNodes = 400000, maxPaths = 150
     if (path === '$.GameInfo') { add(path, value); continue; } // no save metadata values
     add(path, value);
     if (Array.isArray(value)) {
-      for (const child of value) stack.push({ value: child, path: `${path}[]`, depth: depth + 1 });
+      for (const child of value) {
+        if (!enqueue({ value: child, path: `${path}[]`, depth: depth + 1 })) break;
+      }
     } else if (isObj(value)) {
       for (const [name, child] of Object.entries(value)) {
         // All unknown/dynamic map keys (including player names/IDs) collapse to '*'.
         // Only the canonical DDV schema allowlist can be emitted verbatim.
-        const safe = KEYS.has(name) ? name : '*';
-        stack.push({ value: child, path: `${path}.${safe}`, depth: depth + 1 });
+        const parentKey = path.slice(path.lastIndexOf('.') + 1);
+        const safe = !DYNAMIC_MAP_FIELDS.has(parentKey) && KEYS.has(name) ? name : '*';
+        if (!enqueue({ value: child, path: `${path}.${safe}`, depth: depth + 1 })) break;
       }
     }
   }
@@ -168,10 +188,19 @@ function parseArgs(argv) {
   return flags;
 }
 
+function readPrivateProfile(filename) {
+  try { return JSON.parse(readFileSync(filename, 'utf8')); }
+  catch {
+    // V8 JSON.parse and Node fs errors may include fragments of personal source
+    // bytes or a private local path. Never propagate their messages.
+    throw new Error('PROFILE_INPUT_UNREADABLE_OR_INVALID');
+  }
+}
+
 export function cli(argv) {
   const args = parseArgs(argv);
-  const left = JSON.parse(readFileSync(args.get('left'), 'utf8'));
-  const right = JSON.parse(readFileSync(args.get('right'), 'utf8'));
+  const left = readPrivateProfile(args.get('left'));
+  const right = readPrivateProfile(args.get('right'));
   return compareObservedSaveStructure(left, right, {
     platform: args.get('platform'), leftBuild: args.get('left-build'), rightBuild: args.get('right-build')
   });
@@ -179,5 +208,5 @@ export function cli(argv) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try { process.stdout.write(`${JSON.stringify(cli(process.argv.slice(2)), null, 2)}\n`); }
-  catch (e) { process.stderr.write(`01E structural comparison rejected: ${e.message}\n`); process.exitCode = 1; }
+  catch { process.stderr.write('01E structural comparison rejected: PRIVATE_INPUT_OR_VALIDATION_ERROR\n'); process.exitCode = 1; }
 }
