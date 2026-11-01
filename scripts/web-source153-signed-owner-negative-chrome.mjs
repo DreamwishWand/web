@@ -89,6 +89,8 @@ try {
 
   if(scenario==='DOM_A11Y'){
     await navigate(id.E2_ORIGINAL_WORK_ID);
+    // SSR shell is present before afterNavigate has hydrated the Work form.
+    await page.locator('#e2-email').waitFor();
     assert.equal(await page.getByLabel('Synthetic email').count(),1);
     assert.equal(await page.getByLabel('Synthetic password').count(),1);
     await page.keyboard.press('Tab');
