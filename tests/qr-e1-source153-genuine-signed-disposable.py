@@ -270,6 +270,13 @@ with psycopg.connect(DSN,autocommit=True) as db:
             assert status in (400,401,403,404),("NEGATIVE_READER_UNEXPECTED_ALLOW",case,status)
             assert "storageKey" not in json.dumps(r)
             marker(case,"GENUINE_SIGNED_PRIVATE_READ_DENIED",status)
+            # This is new-only genuine-signed Edge revocation evidence.
+            edge_status,edge_headers,edge_error=http(path,
+                body={"operation":"pregrant","workId":str(work)},token=users["A"]["token"])
+            assert edge_status in (401,403,404),("REVOKED_EDGE_OWNER_ALLOWED",case,edge_status)
+            assert safe_edge_headers(edge_headers),("REVOKED_EDGE_CACHE_NOT_PRIVATE",case,edge_status)
+            assert str(work) not in json.dumps(edge_error) and str(mo) not in json.dumps(edge_error) and str(mp) not in json.dumps(edge_error),("REVOKED_EDGE_WORK_MEDIA_LEAK",case)
+            marker(case+"-EDGE","REAL_ES256_EDGE_REVOKED_PRIVATE_READ_DENIED",edge_status)
         finally:
             if restore is not None:
                 with db.transaction():
