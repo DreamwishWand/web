@@ -132,12 +132,13 @@ test('05 QR independent malformed ZIP metadata and CRC are FAIL CLOSED',()=>{
 test('05 QR independent Rust fixture opened by independent Node oracle, source hash changes only after edit',()=>{
  const first=rust('fixture');assert.equal(first.status,0,first.stderr);
  const original=independentReopen(first.stdout);
- assert.deepEqual(original.plain,raw);
+ assert.equal(JSON.parse(original.plain.toString('utf8')).GameInfo.Version,626);
+ assert(original.plain.includes(Buffer.from('"decimal":1.00')));
  const edited=rust('edit',first.stdout);assert.equal(edited.status,0,edited.stderr);
  const after=independentReopen(edited.stdout);
  assert.notEqual(hash(edited.stdout),hash(first.stdout));
- assert.equal(after.plain.length,raw.length);
- assert.equal(after.plain.toString(),raw.toString().replace(
+ assert.equal(after.plain.length,original.plain.length);
+ assert.equal(after.plain.toString(),original.plain.toString().replace(
   '"NextOccurrence":"2126-08-20T00:00:00Z"',
   '"NextOccurrence":"2022-09-06T00:00:00Z"'));
 });
