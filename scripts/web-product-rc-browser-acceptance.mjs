@@ -44,7 +44,10 @@ try {
   assert.equal(await page.locator('.back').evaluate(n=>n===document.activeElement),true);
   record('ROUTE_LEDGER_KEYBOARD_JA_320',{core:6,help:1});
 
+  // Desktop toolbar owns the visible locale selector; then verify English at 320px.
+  await page.setViewportSize({width:1280,height:820});
   await page.locator('#site-locale').selectOption('en');
+  await page.setViewportSize({width:320,height:812});
   await page.waitForFunction(()=>document.querySelector('[data-rc-owner-off]')?.textContent?.includes('publishing'));
   assert.match(await page.locator('h1').innerText(),/Availability/);
   await fit();
