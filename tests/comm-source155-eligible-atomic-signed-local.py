@@ -230,6 +230,9 @@ assert runner.count(insert_anchor)==1
 patch="final_marker='    marker(\"SOURCE153_SERVER_ENFORCED_SIGNED_SESSION_PASS\",\\n      \"REAL_SIGNED_EDGE_SQL_NOT_TEMP_GATE_NOT_MANAGED_RUNTIME\")'\n"
 patch+="assert src.count(final_marker)==1\n"
 patch+="src=src.replace(final_marker,final_marker+'\\n'+"+repr(global_case)+",1)\n"
+patch+="extra="+"(users[\"A\"][\"id\"],))==2"+"\\n"
+patch+="assert src.count(extra)==1, 'SOURCE155_TERMINAL_COUNT_ANCHOR_CHANGED'\\n"
+patch+="src=src.replace(extra,extra.replace('==2','==3'),1)\\n"
 runner=runner.replace(insert_anchor,patch+insert_anchor,1)
 
 try:
