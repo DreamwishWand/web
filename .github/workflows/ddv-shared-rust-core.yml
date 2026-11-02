@@ -26,6 +26,15 @@ jobs:
         run: node crates/ddv-save-core/scripts/js-p1g-cross-codec-oracle.mjs
       - name: Bidirectional actual Wand JS Codec and Rust synthetic P1G interop
         run: node crates/ddv-save-core/scripts/wand-js-p1g-interop.mjs
+      - name: Checkout exact Timekeeper JS Codec oracle (read-only)
+        uses: actions/checkout@v4
+        with:
+          repository: 0xmorarin/Dreamlight-Timekeeper
+          ref: 393222e7832461ef5fea847b6fff475fedc45017
+          path: .timekeeper-codec-fixed
+          persist-credentials: false
+      - name: Bidirectional exact Timekeeper JS Codec and Rust synthetic P1G interop
+        run: node crates/ddv-save-core/scripts/wand-js-p1g-interop.mjs --timekeeper
       - name: WASM target compile (NOT browser runtime)
         run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --lib
       - name: Research-only boundary
