@@ -1,0 +1,92 @@
+name: WEB Owner shared Auth consumer OFF (NEW ONLY)
+on:
+  push:
+    branches: ['web/owner-shared-auth-consumer-off-*']
+  pull_request:
+    paths:
+      - 'src/lib/dreamsnaps/owner-shared-auth-consumer.js'
+      - 'src/routes/dreamsnaps/my/manage/+page.svelte'
+      - 'tests/web-owner-shared-auth-consumer.test.mjs'
+      - 'tests/web-owner-product-readonly.test.mjs'
+      - 'scripts/web-owner-shared-auth-consumer-chrome.mjs'
+      - 'docs/web/owner-shared-auth-consumer-off-20261102.md'
+      - '.github/workflows/web-owner-shared-auth-consumer-off.yml'
+permissions:
+  contents: read
+concurrency:
+  group: web-shared-auth-off-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  new-source-and-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: New-only real Owner shared Session contract
+        run: node --test tests/web-owner-shared-auth-consumer.test.mjs
+      - name: Svelte / TS check
+        run: npm run check
+      - name: Production OFF build
+        run: npm run build
+      - name: Strict new-only source guard and immutable shared Auth / WEB267 / Controller
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=a079b5ede3a33791ebf91bc0dcdd8390e4c756d3
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --exit-code "$BASE" HEAD -- supabase/ src/lib/community/ src/lib/dreamsnaps/source153-owner-consumer-v2.js src/lib/dreamsnaps/source153-owner-browser-e2.js src/lib/dreamsnaps/owner-read-revalidation.js src/lib/dreamsnaps/owner-product-readonly.js src/lib/dreamsnaps/owner-management.js src/lib/dreamsnaps/owner-management-copy.js
+          test "$(git hash-object src/lib/community/staging-http-client.ts)" = e2b54e896e184f4ea2a3b7c02b635e32bfd30d92
+          test "$(git hash-object src/lib/dreamsnaps/source153-owner-consumer-v2.js)" = f981b7596711b47bceb2fa79a2191e79e8f1b459
+          test "$(git hash-object src/lib/dreamsnaps/owner-read-revalidation.js)" = bbf3e99883cb438629f732f5c09534a86a48abc1
+          test "$(git hash-object src/lib/dreamsnaps/owner-product-readonly.js)" = 5dcc3e565284011e64a87749b4887743fb0bd6d2
+          grep -q 'OWNER_PRODUCT_READONLY_ENABLED = false' src/lib/dreamsnaps/owner-product-readonly.js
+          grep -q 'OWNER_PRODUCT_MANAGED_INGRESS_ACCEPTED = false' src/lib/dreamsnaps/owner-product-readonly.js
+          git diff --name-only "$BASE" HEAD > /tmp/web-owner-consumer-diff
+          test "$(wc -l < /tmp/web-owner-consumer-diff)" -eq 7
+          while IFS= read -r p; do
+            case "$p" in
+              src/lib/dreamsnaps/owner-shared-auth-consumer.js|src/routes/dreamsnaps/my/manage/+page.svelte|tests/web-owner-shared-auth-consumer.test.mjs|tests/web-owner-product-readonly.test.mjs|scripts/web-owner-shared-auth-consumer-chrome.mjs|docs/web/owner-shared-auth-consumer-off-20261102.md|.github/workflows/web-owner-shared-auth-consumer-off.yml) ;;
+              *) echo UNEXPECTED_OWNER_AUTH_CONSUMER_PATH >&2; exit 1 ;;
+            esac
+          done < /tmp/web-owner-consumer-diff
+  real-owner-route-off-chrome:
+    needs: new-source-and-build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      VITE_SUPABASE_URL: https://auth.example.invalid
+      VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_dev_fixture
+      VITE_OWNER_MANAGED_READ_ENDPOINT: https://auth.example.invalid/functions/v1/community-dreamsnap-owner
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Native Chrome provenance
+        shell: bash
+        run: |
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Real Owner route, synthetic Community sign-in/out, zero Owner HTTP
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4175 >/tmp/web-shared-owner-vite.log 2>&1 &
+          PID=$!
+          trap 'kill "$PID" 2>/dev/null || true; rm -f /tmp/web-shared-owner-vite.log' EXIT
+          for i in $(seq 1 60); do
+            if curl -fsS -o /dev/null http://127.0.0.1:4175/dreamsnaps/my/manage/; then break; fi
+            sleep 1
+          done
+          node scripts/web-owner-shared-auth-consumer-chrome.mjs
+          echo WEB_OWNER_SHARED_AUTH_CONSUMER_OFF_BROWSER_PASS
