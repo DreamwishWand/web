@@ -49,7 +49,8 @@ test('all owner paths preserve four signed private headers; no Media/Preset publ
   assert.match(src,/Authorization, Origin/);
  }
  assert.match(media,/rawStorageSignedUrlIssued:false/);
- assert.match(preset,/saveRevisionAuthorized:false|SAVE_REVISION|saveRevisionAuthorized/);
+ assert.match(preset,/revisionReadiness/);
+ assert.match(preset,/community_scene_revision_readiness_v1/);
 });
 
 test('composite CI proves clean install, no-seed reset and genuine signed both writer orders',()=>{
