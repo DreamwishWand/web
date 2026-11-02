@@ -14,6 +14,8 @@ const hex=(x)=>createHash('sha256').update(x).digest('hex');
 function required(name){const v=process.env[name];if(!v)throw Error('REQUIRED_ENV_MISSING:'+name);return v;}
 function fromHex(s){if(!/^[a-f0-9]{64}$/i.test(s))throw Error('INVALID_KEY_OR_SHA_SHAPE');return Buffer.from(s,'hex');}
 const expectedHash=required('DDV_EXPECTED_P1G_SHA256').toLowerCase();
+const expectedJsonHash=required('DDV_EXPECTED_JSON_SHA256').toLowerCase();
+assert.match(expectedJsonHash,/^[a-f0-9]{64}$/,'EXPECTED_DECODED_SHA_SHAPE_INVALID');
 const inputPath=required('DDV_PRIVATE_P1G_PATH');
 const original=readFileSync(inputPath);
 assert(original.length>0&&original.length<=maxBytes);
@@ -85,6 +87,7 @@ function editText(raw,idx,id,oneof,oldUtc,newUtc){
  return updated;
 }
 const prior=independentOpen(original);
+assert.equal(hex(prior.plain),expectedJsonHash,'DECODED_SOURCE_SHA_MISMATCH');
 const opened=await wand.loadProfile(new Uint8Array(original));
 assert.equal(Buffer.from(opened.jsonText,'utf8').equals(prior.plain),true);
 const idx=Number(required('DDV_W1_SAVED_INDEX'));
@@ -94,11 +97,17 @@ const oneof=required('DDV_W1_ONEOF');
 assert(['ItemSpawning','WildCropsSpawningInVillage','FlowerSpawningInVillage','FishSpawningInVillage'].includes(oneof));
 const old=required('DDV_W1_OLD_UTC'),next=required('DDV_W1_NEW_UTC');
 const after=editText(opened.jsonText,idx,id,oneof,old,next);
+// Negative CAS: wrong EventID/oneof/old token must never yield an output candidate.
+assert.throws(()=>editText(opened.jsonText,idx,id+1,oneof,old,next),/W1_EVENT_ID_CAS_FAILED/);
+assert.throws(()=>editText(opened.jsonText,idx,id,'__wrong_oneof__',old,next),/W1_ONEOF_CAS_FAILED/);
+assert.throws(()=>editText(opened.jsonText,idx,id,oneof,old+'__stale__',next),/W1_TIMESTAMP_CAS_FAILED/);
+const expectedEdited=Buffer.from(after,'utf8');
+assert.notEqual(hex(expectedEdited),expectedJsonHash,'EDITED_JSON_SHA_UNCHANGED');
 const noop=Buffer.from(await wand.createEncodedProfile(opened.jsonText,opened.metadata));
 const changed=Buffer.from(await wand.createEncodedProfile(after,opened.metadata));
 const no=independentOpen(noop),ed=independentOpen(changed);
 assert(no.plain.equals(prior.plain));
-assert(ed.plain.equals(Buffer.from(after,'utf8')));
+assert(ed.plain.equals(expectedEdited));
 assert(isDeepStrictEqual(no.meta,prior.meta));
 assert(isDeepStrictEqual(ed.meta,prior.meta));
 assert.equal(hex(readFileSync(inputPath)),expectedHash,'ORIGINAL_MUTATED');
@@ -106,12 +115,25 @@ assert.equal(hex(readFileSync(inputPath)),expectedHash,'ORIGINAL_MUTATED');
 assert.equal((await wand.loadProfile(new Uint8Array(noop))).jsonText,opened.jsonText);
 assert.equal((await wand.loadProfile(new Uint8Array(changed))).jsonText,after);
 let timekeeper='NOT_RUN';
+let tk=null;
 if(process.env.DDV_TIMEKEEPER_CODEC_MODULE){
  const module=await import(pathToFileURL(process.env.DDV_TIMEKEEPER_CODEC_MODULE).href);
- const tk=module.p1gPackagedProfileCodec;
+ tk=module.p1gPackagedProfileCodec;
+ assert(tk&&typeof tk.loadProfile==='function'&&typeof tk.createEncodedProfile==='function','TIMEKEEPER_CODEC_INVALID');
+ const tkOriginal=await tk.loadProfile(new Uint8Array(original));
+ assert.equal(tkOriginal.jsonText,opened.jsonText,'TIMEKEEPER_ORIGINAL_SOURCE_DIFFERENT');
+ const tkNoop=Buffer.from(await tk.createEncodedProfile(tkOriginal.jsonText,tkOriginal.metadata));
+ const tkEdit=Buffer.from(await tk.createEncodedProfile(after,tkOriginal.metadata));
+ for(const [cipher,expectedPlain] of [[tkNoop,prior.plain],[tkEdit,expectedEdited]]){
+  const independent=independentOpen(cipher);
+  assert(independent.plain.equals(expectedPlain),'TIMEKEEPER_ENCODE_INDEPENDENT_REOPEN_MISMATCH');
+  assert(isDeepStrictEqual(independent.meta,prior.meta),'TIMEKEEPER_ZIP_METADATA_MISMATCH');
+  assert.equal((await wand.loadProfile(new Uint8Array(cipher))).jsonText,expectedPlain.toString('utf8'),'WAND_REOPEN_TIMEKEEPER_MISMATCH');
+  assert.equal((await tk.loadProfile(new Uint8Array(cipher))).jsonText,expectedPlain.toString('utf8'),'TIMEKEEPER_SELF_REOPEN_MISMATCH');
+ }
  assert.equal((await tk.loadProfile(new Uint8Array(noop))).jsonText,opened.jsonText);
  assert.equal((await tk.loadProfile(new Uint8Array(changed))).jsonText,after);
- timekeeper='PASS';
+ timekeeper='PASS_ENCODE_AND_CROSS_REOPEN';
 }
 let rust='NOT_RUN';
 if(process.env.DDV_REQUIRE_RUST==='1'){
@@ -127,11 +149,18 @@ if(process.env.DDV_REQUIRE_RUST==='1'){
   assert(result.stdout&&result.stdout.length>0);
  }
  assert.equal(independentOpen(results[0].stdout).plain.equals(prior.plain),true);
- assert.equal(independentOpen(results[1].stdout).plain.equals(Buffer.from(after,'utf8')),true);
- rust='PASS';
+ assert.equal(independentOpen(results[1].stdout).plain.equals(expectedEdited),true);
+ for(const [result,expectedPlain] of [[results[0],prior.plain],[results[1],expectedEdited]]){
+  const independent=independentOpen(result.stdout);
+  assert(isDeepStrictEqual(independent.meta,prior.meta),'RUST_ZIP_METADATA_MISMATCH');
+  assert.equal((await wand.loadProfile(new Uint8Array(result.stdout))).jsonText,expectedPlain.toString('utf8'),'WAND_REOPEN_RUST_MISMATCH');
+  if(tk)assert.equal((await tk.loadProfile(new Uint8Array(result.stdout))).jsonText,expectedPlain.toString('utf8'),'TIMEKEEPER_REOPEN_RUST_MISMATCH');
+ }
+ rust='PASS_ENCODE_AND_CROSS_REOPEN';
 }
 console.log(JSON.stringify({
- source_sha_verified:true,original_unchanged:true,zip_metadata_supported:true,
+ source_sha_verified:true,decoded_sha_verified:true,original_unchanged:true,zip_metadata_supported:true,
+ w1_identity_old_utc_negative_cas:'PASS',session_revision_cas:'NOT_RUN',
  no_op:{wand_js_codec_reopen:'PASS',independent_node_crypto_zlib_reopen:'PASS',
   decoded_lexical_equal:true,metadata_equal:true},
  one_field:{wand_js_codec_reopen:'PASS',independent_node_crypto_zlib_reopen:'PASS',
