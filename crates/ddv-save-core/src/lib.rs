@@ -397,3 +397,27 @@ fn decode_string(raw:&str)->EngineResult<String>{
 
 #[cfg(target_arch = "wasm32")]
 pub mod wasm_probe;
+
+/// Sparse byte-span query. Full strict validation runs before any index is returned;
+/// the caller must still verify semantic identity using Wand domain validators.
+/// A small requested pointer set does not imply a partial-document validity check.
+pub fn index_selected_tokens(source: &[u8], pointers: &[String]) -> EngineResult<Vec<SpanHit>> {
+    if pointers.len() > 512 { return Err("INDEX_WATCH_SET_TOO_LARGE"); }
+    let watch: HashSet<String> = pointers.iter().cloned().collect();
+    if watch.len() != pointers.len() { return Err("INDEX_DUPLICATE_WATCH"); }
+    let text = std::str::from_utf8(source).map_err(|_|"JSON_INVALID_UTF8")?;
+    let mut parser = Parser::new(text,&watch);
+    let found = parser.parse()?;
+    let mut result=Vec::with_capacity(found.len());
+    for pointer in pointers {
+        if let Some(field)=found.get(pointer) {
+            result.push(SpanHit {
+                pointer:pointer.clone(),span:field.span.clone(),
+                value:field.raw.clone()
+            });
+        }
+    }
+    Ok(result)
+}
+pub mod session;
+
