@@ -59,8 +59,17 @@ let denied=0;
 for(const extraField of ['extra','comment']){
  const atypical={...opened.metadata,zip:{...opened.metadata.zip,
   profileEntry:{...opened.metadata.zip.profileEntry,[extraField]:new Uint8Array([7,9,11])}}};
- const zipWithUnknown=await wand.createEncodedProfile(src,atypical);
- assert.notEqual(rust('inspect',Buffer.from(zipWithUnknown)).status,0,'unsupported ZIP '+extraField);
+ try{
+  const zipWithUnknown=await wand.createEncodedProfile(src,atypical);
+  // Wand JS legacy may encode source metadata that Rust deliberately refuses.
+  assert.notEqual(rust('inspect',Buffer.from(zipWithUnknown)).status,0,
+   'unsupported ZIP '+extraField);
+ }catch(error){
+  // Timekeeper JS has a stricter pre-rebuild source-envelope gate. A denial
+  // by THAT codec is the correct fail-closed result, not a missing parity.
+  assert(isTimekeeper&&String(error).includes('ZIP_SOURCE_ENVELOPE_REBUILD_UNVERIFIED'),
+   'unrecognized codec failure for '+extraField+': '+String(error));
+ }
  denied++;
 }
 assert.notEqual(rust('inspect',Buffer.from(generated.output).subarray(1)).status,0);
