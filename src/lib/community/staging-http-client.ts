@@ -17,7 +17,10 @@ export interface EdgeResult<T = unknown> {
   [key: string]: unknown;
 }
 
-const SESSION_KEY = 'dreamwishwand-community-session-v1';
+// Legacy v1 records have no verified origin. Never import them into v2.
+const LEGACY_SESSION_KEY = 'dreamwishwand-community-session-v1';
+const SESSION_KEY_PREFIX = 'dreamwishwand-community-session-v2:';
+
 const RECOVERY_KEY = 'dreamwishwand-community-recovery-pkce-v1';
 const RECOVERY_MAX_AGE_MS = 60 * 60 * 1000;
 export const COMMUNITY_PASSWORD_MIN_LENGTH = 15;
@@ -190,36 +193,72 @@ function toSession(body: any): CommunitySession {
   };
 }
 
-function saveSession(session: CommunitySession | null): void {
+/** A stable, non-secret routing identifier. Exact config comparison below is the
+ * security boundary; the 128-bit digest is NOT an authorization credential. */
+function configScope(config: CommunityLabConfig): string {
+  const input = JSON.stringify([config.supabaseUrl, config.publishableKey]);
+  let a = 0x811c9dc5, b = 0x9e3779b9, c = 0x85ebca6b, d = 0xc2b2ae35;
+  for (let i = 0; i < input.length; i++) {
+    const n = input.charCodeAt(i);
+    a = Math.imul(a ^ n, 0x01000193) >>> 0;
+    b = Math.imul(b ^ n, 0x5bd1e995) >>> 0;
+    c = Math.imul(c ^ n, 0x27d4eb2d) >>> 0;
+    d = Math.imul(d ^ n, 0x165667b1) >>> 0;
+  }
+  return 'cfg2-' + [a,b,c,d].map(n => n.toString(16).padStart(8,'0')).join('');
+}
+function sessionKey(scope: string): string {
+  return SESSION_KEY_PREFIX + scope;
+}
+function saveSession(s: SharedAuth, session: CommunitySession | null): void {
   if (typeof sessionStorage === 'undefined') return;
-
+  // No raw key, URL or credential appears in the storage key.
+  const key = sessionKey(s.scope);
   if (session) {
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    sessionStorage.setItem(key, JSON.stringify({
+      version: 2, config: s.config, session
+    }));
   } else {
-    sessionStorage.removeItem(SESSION_KEY);
+    sessionStorage.removeItem(key);
   }
 }
-
-function loadSession(): CommunitySession | null {
+function loadSession(config: CommunityLabConfig, scope: string): CommunitySession | null {
   if (typeof sessionStorage === 'undefined') return null;
-
-  const raw = sessionStorage.getItem(SESSION_KEY);
-  if (!raw) return null;
-
+  let raw: string | null;
+  const key = sessionKey(scope);
   try {
-    const parsed = JSON.parse(raw) as CommunitySession;
-    if (
-      typeof parsed.accessToken !== 'string' ||
-      typeof parsed.refreshToken !== 'string' ||
-      typeof parsed.userId !== 'string' ||
-      typeof parsed.expiresAt !== 'number'
-    ) {
-      return null;
-    }
-    return parsed;
+    // The legacy blob cannot be attributed to a particular URL + publishable
+    // key. Delete it, require reauthentication, and never guess migration.
+    sessionStorage.removeItem(LEGACY_SESSION_KEY);
+    raw = sessionStorage.getItem(key);
   } catch {
-    return null;
+    return null; // Storage blocked: no credential is imported.
   }
+  if (!raw) return null;
+  try {
+    const envelope = JSON.parse(raw) as {
+      version?: number;
+      config?: CommunityLabConfig;
+      session?: CommunitySession;
+    };
+    // This *exact* comparison also prevents cross-configuration import if
+    // two routing digests ever collide.
+    if (envelope?.version === 2 &&
+        envelope.config?.supabaseUrl !== config.supabaseUrl) return null;
+    if (envelope?.version === 2 &&
+        envelope.config?.publishableKey !== config.publishableKey) return null;
+    const parsed = envelope?.version === 2 ? envelope.session : null;
+    if (parsed &&
+        typeof parsed.accessToken === 'string' && parsed.accessToken.length > 0 &&
+        typeof parsed.refreshToken === 'string' && parsed.refreshToken.length > 0 &&
+        typeof parsed.userId === 'string' && parsed.userId.length > 0 &&
+        (parsed.email === null || typeof parsed.email === 'string') &&
+        typeof parsed.expiresAt === 'number' && Number.isFinite(parsed.expiresAt)) {
+      return { ...parsed };
+    }
+  } catch { /* Corrupt JSON is never a session. */ }
+  try { sessionStorage.removeItem(key); } catch { /* Fail closed. */ }
+  return null;
 }
 
 
@@ -231,13 +270,14 @@ export type CommunitySessionEvent = Readonly<{
 type SessionListener = (event: CommunitySessionEvent) => void;
 interface SharedAuth {
   scope: string;
+  config: CommunityLabConfig;
   session: CommunitySession | null;
   generation: number;
   logoutEpoch: number;
   refreshFlight: Promise<CommunitySession> | null;
   listeners: Set<SessionListener>;
 }
-const AUTH_NOTICE_KEY='dreamwishwand-community-logout-notice-v1';
+const AUTH_NOTICE_KEY='dreamwishwand-community-logout-notice-v2';
 const authByConfig=new Map<string,SharedAuth>();
 let storageListenerRegistered=false;
 function announce(s:SharedAuth,kind:CommunitySessionEvent['kind']):void{
@@ -262,7 +302,7 @@ function commitSession(s:SharedAuth,next:CommunitySession|null,
   s.generation++;
   if(!next)s.logoutEpoch++;
   s.session=next?{...next}:null;
-  saveSession(s.session);
+  saveSession(s,s.session);
   announce(s,kind);
   if(broadcast)invalidateOtherTabs(s.scope);
 }
@@ -270,7 +310,8 @@ function sharedAuth(config:CommunityLabConfig):SharedAuth{
   const key=JSON.stringify([config.supabaseUrl,config.publishableKey]);
   let s=authByConfig.get(key);
   if(!s){
-    s={scope:config.supabaseUrl,session:loadSession(),
+    const scope=configScope(config);
+    s={scope,config,session:loadSession(config,scope),
       generation:0,logoutEpoch:0,refreshFlight:null,listeners:new Set()};
     authByConfig.set(key,s);
   }
