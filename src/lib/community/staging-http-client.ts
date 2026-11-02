@@ -255,6 +255,10 @@ function invalidateOtherTabs(scope:string):void{
 }
 function commitSession(s:SharedAuth,next:CommunitySession|null,
  kind:CommunitySessionEvent['kind'],broadcast=false):void{
+  // A new Account or a logout detaches the old rotating refresh flight.
+  // The old HTTP result is still fenced by generation and cannot publish.
+  if(!next || (s.session && next.userId!==s.session.userId))
+    s.refreshFlight=null;
   s.generation++;
   if(!next)s.logoutEpoch++;
   s.session=next?{...next}:null;
