@@ -10,7 +10,7 @@ import {OWNER_REVALIDATION_PRODUCTION_ENABLED} from '../src/lib/dreamsnaps/owner
 import {OWNER_MANAGEMENT_ENABLED} from '../src/lib/dreamsnaps/owner-management.js';
 
 const txt=path=>readFileSync(path,'utf8');
-const route=txt('src/routes/dreamsnaps/my/manage/source153-shared-e2/+page.svelte');
+const route=txt('src/routes/disposable-owner-signed-bridge/+page.svelte');
 const chrome=txt('scripts/web-shared-auth-signed-bridge-chrome.mjs');
 const fixture=txt('scripts/web-shared-auth-signed-bridge-fixture.py');
 
