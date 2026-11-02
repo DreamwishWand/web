@@ -222,3 +222,13 @@ fn caller_cannot_whitelist_unknown_nested_state_or_unwitnessed_w1() {
     ).unwrap_err(),"GUARDED_FIELD_NOT_SEMANTICALLY_KNOWN");
     assert_eq!(s.revision(),0);
 }
+
+#[test]
+fn oversized_and_unsupported_source_are_denied_without_graph_trust() {
+    let oversized=vec![b' '; ddv_save_core::integrity::MAX_GUARDED_SOURCE_BYTES+1];
+    assert_eq!(audit_grid_container_source(&oversized,&graph("ChestA")).unwrap_err(),
+        "SOURCE_GRAPH_AUDIT_UNSUPPORTED_SIZE");
+    let incomplete=br#"{"GameInfo":{"Version":626},"Player":{"ContainerInventories":{}},"World":{"GridCollection":{"Grids":[]}}}"#;
+    assert_eq!(audit_grid_container_source(incomplete,&graph("ChestA")).unwrap_err(),
+        "SOURCE_GRID_SHAPE_UNKNOWN");
+}
