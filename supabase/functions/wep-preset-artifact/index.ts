@@ -10,7 +10,7 @@ const ALLOWED_TYPES = new Set(['scene','biome','floating_island','tom_furniture'
 function reply(body: unknown, status = 200) {
   return Response.json(body, {
     status,
-    headers: { ...corsHeaders, 'Cache-Control': 'private, no-store' }
+    headers: { ...corsHeaders, 'Cache-Control': 'private, no-store', 'CDN-Cache-Control': 'no-store', 'Surrogate-Control': 'no-store', 'Vary': 'Authorization, Origin' }
   });
 }
 
