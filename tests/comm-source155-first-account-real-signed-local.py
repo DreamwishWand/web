@@ -208,6 +208,24 @@ with psycopg.connect(DSN,autocommit=True) as db:
     assert counts(db,A["id"])==1
     assert scalar("select count(*) from public.wand_accounts")==before_account
     marker("B10-RETIRED-IDENTITY","VALID_GOTRUE_SIGNED_RETIRED_WAND_IDENTITY_DENIED_NO_NEW_ACCOUNT",denied)
+    # Unlike same-token retries, these are TWO independent real GoTrue
+    # Sessions concurrently racing to create the FIRST Wand Identity.
+    D=create_actor("D");actors["D"]=D
+    d0,_=login(D);d1,_=login(D)
+    assert jwt(d0,1)["session_id"]!=jwt(d1,1)["session_id"]
+    assert counts(db,D["id"])==0
+    first_handle="d_"+secrets.token_hex(7)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        both=list(pool.map(lambda t:bootstrap(t,first_handle),[d0,d1]))
+    assert all(result[0]==200 for result in both)
+    first_ids=[ids(result[1]) for result in both]
+    assert first_ids[0]==first_ids[1],"TWO_GOTRUE_SESSIONS_CREATED_TWO_OWNERS"
+    assert counts(db,D["id"])==1
+    d_account,d_creator=first_ids[0]
+    assert scalar("select count(*) from public.creator_profiles where owner_account_id=%s",(d_account,))==1
+    assert scalar("select count(*) from public.outbox_events where aggregate_type='creator_profile' and aggregate_id=%s",(d_creator,))==1
+    marker("B11-TWO-SESSION-FIRST-RACE","TWO_REAL_GOTRUE_SESSIONS_FIRST_ENROLL_ONE_IDENTITY_ACCOUNT_CREATOR",200)
+
 
 
     for who in actors:
