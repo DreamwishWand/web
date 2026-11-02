@@ -1,0 +1,120 @@
+name: WEB disposable shared-Auth genuine-signed browser bridge
+on:
+  push:
+    branches: ['web/disposable-shared-auth-signed-bridge-*']
+  pull_request:
+    paths:
+      - 'src/routes/disposable-owner-signed-bridge/+page.svelte'
+      - 'scripts/web-shared-auth-signed-bridge-chrome.mjs'
+      - 'scripts/web-shared-auth-signed-bridge-fixture.py'
+      - 'tests/web-shared-auth-signed-bridge.test.mjs'
+      - 'docs/web/disposable-shared-owner-signed-bridge-20261102.md'
+      - '.github/workflows/web-shared-auth-signed-bridge-local.yml'
+permissions:
+  contents: read
+jobs:
+  focused-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: node --test tests/web-shared-auth-signed-bridge.test.mjs
+      - run: npm run check && npm run build
+      - name: Fixed accepted PR299, frozen source & OFF flags
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=6bfa01b3d11bdf50678fa90e54f4771cea5104fa
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --exit-code "$BASE" HEAD -- supabase/ src/lib/community/ src/lib/dreamsnaps/ src/routes/dreamsnaps/my/ src/routes/dreamsnaps/community/ src/routes/creator/ src/routes/qa/ src/routes/gallery/
+          test "$(git hash-object src/lib/community/staging-http-client.ts)" = 593b47818fe31356568e0ac688bc4ae8ef375225
+          test "$(git hash-object src/lib/dreamsnaps/source153-owner-consumer-v2.js)" = f981b7596711b47bceb2fa79a2191e79e8f1b459
+          test "$(git hash-object src/lib/dreamsnaps/source153-owner-browser-e2.js)" = 7468f9550e3e196d28b84c246ff529d2c5daa66e
+          test "$(git hash-object src/lib/dreamsnaps/owner-read-revalidation.js)" = bbf3e99883cb438629f732f5c09534a86a48abc1
+          test "$(git hash-object src/lib/dreamsnaps/owner-shared-auth-consumer.js)" = ee9c59229615831808bc805c970630af24ce9158
+          test "$(git hash-object src/lib/dreamsnaps/owner-product-readonly.js)" = 5dcc3e565284011e64a87749b4887743fb0bd6d2
+          test "$(git hash-object src/lib/community/browser-client.ts)" = 27716c4e89dcb01aacbf75ea63173f64328c2b93
+          git diff --name-only "$BASE" HEAD > /tmp/bridge-diff
+          test "$(wc -l < /tmp/bridge-diff)" -eq 6
+          while IFS= read -r path; do
+            case "$path" in
+              src/routes/disposable-owner-signed-bridge/+page.svelte|scripts/web-shared-auth-signed-bridge-chrome.mjs|scripts/web-shared-auth-signed-bridge-fixture.py|tests/web-shared-auth-signed-bridge.test.mjs|docs/web/disposable-shared-owner-signed-bridge-20261102.md|.github/workflows/web-shared-auth-signed-bridge-local.yml) ;;
+              *) echo UNEXPECTED_BRIDGE_DELTA >&2; exit 1 ;;
+            esac
+          done < /tmp/bridge-diff
+          for val in 'OWNER_MANAGEMENT_ENABLED = false' 'SOURCE153_OWNER_V2_LIVE_ENABLED = false' 'SOURCE153_BROWSER_E2_PRODUCTION_ENABLED = false' 'OWNER_REVALIDATION_PRODUCTION_ENABLED = false' 'OWNER_PRODUCT_READONLY_ENABLED = false' 'OWNER_PRODUCT_MANAGED_INGRESS_ACCEPTED = false'; do
+            grep -RFq "$val" src/lib/dreamsnaps/
+          done
+          echo WEB_SHARED_BRIDGE_FROZEN_SOURCE_GUARD_PASS
+  real-local-es256-chromium:
+    needs: focused-source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+      - name: Ephemeral signed ES256 local setup
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\n[auth]\nsigning_keys_path = "./signing_keys.json"\n' >> supabase/config.toml
+          printf '[]\n' > supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes >/tmp/bridge-keygen.log 2>&1
+          python3 - <<'PY'
+          import json
+          keys=json.load(open('supabase/signing_keys.json'))
+          assert any(k.get('kty')=='EC' and k.get('crv')=='P-256' and k.get('kid') and k.get('d') for k in keys)
+          print('WEB_BRIDGE_DISPOSABLE_ES256_SIGNER_READY')
+          PY
+          printf 'project_id = "ddvre_web_shared_signed_bridge_disposable"\n' | cat - supabase/config.toml >/tmp/bridge-config
+          mv /tmp/bridge-config supabase/config.toml
+          timeout 1800s supabase start >/tmp/bridge-private-boot.log 2>&1 || { echo WEB_BRIDGE_DISPOSABLE_BOOT_FAILED; exit 1; }
+      - run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Detect actual system Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Actual local signed Owner Shared Auth Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/web-shared-auth-signed-bridge-fixture.py >/tmp/bridge-result.log 2>&1 || {
+            echo WEB_SHARED_SIGNED_BRIDGE_FAILED
+            sed -E 's/([A-Za-z0-9_-]{24,})/[REDACTED]/g' /tmp/bridge-result.log | tail -n 18
+            exit 1
+          }
+          grep -q 'WEB_SHARED_SIGNED_BRIDGE_ACTUAL_LOCAL_ES256_BROWSER_PASS' /tmp/bridge-result.log
+          echo WEB_SHARED_SIGNED_BRIDGE_ACTUAL_ES256_CHROME_PASS_LOCAL
+      - name: Erase ephemeral stack, signer and logs
+        if: always()
+        shell: bash
+        run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f supabase/signing_keys.json /tmp/bridge-keygen.log /tmp/bridge-private-boot.log /tmp/bridge-result.log /tmp/bridge-config
+          echo WEB_BRIDGE_LOCAL_TEARDOWN_ATTEMPTED
