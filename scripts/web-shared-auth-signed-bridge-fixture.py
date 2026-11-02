@@ -63,9 +63,10 @@ source+='''
                 # script location only, sufficient for scoped fixture repair.
                 import re
                 details=browser.stderr.read()
-                kind=next((m.group(1) for s in details.splitlines()
-                    if (m:=re.search(r'\\b(AssertionError|TimeoutError|Error|TypeError|SyntaxError)\\b',s))),"UNKNOWN")
-                locations=re.findall(r'web-shared-auth-signed-bridge-chrome\\.mjs:(\\d+)',details)
+                kind=next((name for name in
+                    ("AssertionError","TimeoutError","TypeError","SyntaxError","Error")
+                    if name in details),"UNKNOWN")
+                locations=re.findall(r'web-shared-auth-signed-bridge-chrome[.]mjs:([0-9]+)',details)
                 raise AssertionError(("SIGNED_BRIDGE_FIRST_PHASE_FAILED",kind,
                     locations[-1] if locations else "UNKNOWN"))
             # Signed Source153 write is performed ONLY inside this accepted
