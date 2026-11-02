@@ -67,6 +67,27 @@ cases=r'''
     assert scalar("select sessions_valid_after from public.auth_identities where provider='supabase' and provider_subject=%s",
         (str(users["A"]["id"]),))==old_global_cutoff
     marker("R02-LOCAL-A1-REVOKE","REAL_SOURCE153_A1_401_A2_200_B_M_403_CUTOFF_UNCHANGED",401)
+    # Direct authenticated PostgREST SQL RPC must NOT bypass Edge verification.
+    # The forward-only migration extends the ORIGINAL private Source150 verifier
+    # inside the same authenticated SQL transaction.
+    for rpc,args in (
+      ("community_dreamsnap_x05_owner_authority_v2",{
+         "p_work_id":str(post),"p_expected_row_version":1,
+         "p_expected_authorization_epoch":1}),
+      ("community_dreamsnap_x05_owner_read_v1",{"p_work_id":str(post)}),
+    ):
+      st,_,result=http("/rest/v1/rpc/"+rpc,body=args,token=a1)
+      assert st in (400,401,403),"REVOKED_DIRECT_RPC_BYPASS"
+      assert str(post) not in json.dumps(result),"DIRECT_RPC_PRIVATE_LEAK"
+      st2,_,_=http("/rest/v1/rpc/"+rpc,body=args,token=a2)
+      assert st2==200,"SIBLING_A2_DIRECT_RPC_DENIED"
+    # Authenticated callers cannot write revocations or forge service RPC
+    # subject/session parameters outside the authenticated Edge.
+    assert not scalar("select has_table_privilege('authenticated','private.wand_verified_session_revocations_v1','INSERT')")
+    assert not scalar("select has_function_privilege('authenticated',"
+      "'public.community_revoke_signed_session_v1(uuid,bigint,uuid,text)','EXECUTE')")
+    marker("R02B-DIRECT-RPC-GUARD","REVOKED_A1_DENIED_A2_ALLOWED_BOTH_SQL_READ_PATHS")
+
 
     # Same original JWT can at most repeat its terminal revoke, not re-register.
     st,r=e2_http(a1,{"operation":"session-revoke","scope":"local"})
@@ -95,6 +116,13 @@ cases=r'''
     assert auth_read(a1)==401 and auth_read(a2)==401
     assert auth_read(users["B"]["token"])==403 and auth_read(users["M"]["token"])==403
     marker("R06-GLOBAL-A-REVOKE","REAL_SOURCE153_A1_A2_401_B_M_SESSION_PRESERVED",401)
+    for tok in (a1,a2):
+      dst,_,dresponse=http("/rest/v1/rpc/community_dreamsnap_x05_owner_authority_v2",
+        body={"p_work_id":str(post),"p_expected_row_version":1,
+              "p_expected_authorization_epoch":1},token=tok)
+      assert dst in (400,401,403) and str(post) not in json.dumps(dresponse), "GLOBAL_DIRECT_RPC_BYPASS"
+    marker("R06B-GLOBAL-DIRECT-RPC","A1_A2_POSTGREST_DENIED_NO_BYPASS")
+
     cutoff=scalar("select sessions_valid_after from public.auth_identities where provider='supabase' and provider_subject=%s",
        (str(users["A"]["id"]),))
     assert cutoff>old_global_cutoff
@@ -112,6 +140,12 @@ cases=r'''
     assert auth_read(a3)==200
     assert auth_read(a1)==401 and auth_read(a2)==401
     marker("R08-A3-POSTCUTOFF","NEW_GOTRUE_SESSION_REAL_SOURCE153_200_OLD_401",200)
+    dst,_,_=http("/rest/v1/rpc/community_dreamsnap_x05_owner_authority_v2",
+        body={"p_work_id":str(post),"p_expected_row_version":1,
+          "p_expected_authorization_epoch":1},token=a3)
+    assert dst==200, "NEW_A3_DIRECT_RPC_REGRESSION"
+    marker("R08B-NEW-A3-DIRECT-RPC","NEW_VERIFIED_SESSION_SQL_AUTHORITY_200",dst)
+
 
     # A genuine old signed JWT for a GoTrue-REMOVED session must be denied;
     # no Wand self-registration path exists. GoTrue's provider behavior is
