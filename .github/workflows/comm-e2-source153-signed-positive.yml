@@ -1,8 +1,8 @@
-name: COMM Source153 REAL Server Session Revocation ES256 Disposable
+name: COMM Source154 Signed Session Two-Postgres Concurrency Acceptance
 on:
   pull_request:
     branches:
-      - fix/03comm-pr286-sdk-early-401-private-cache-20261101
+      - comm/source153-server-enforced-session-lineage-isolated-20261102
 permissions:
   contents: read
 jobs:
@@ -23,11 +23,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Strict isolated PR288 lineage and exactly 12 source and rebaselined-test paths
+      - name: Strict isolated accepted PR308 source and exact three new-only test paths
         shell: bash
         run: |
           set -euo pipefail
-          BASE=1755d2f37f08bb93604d1839245f8565cf603916
+          BASE=719da738700b8c16ac1d8115fe5ff60b7620d828
           git merge-base --is-ancestor "$BASE" HEAD
           test -z "$(git diff --name-only "$BASE" HEAD -- src package.json package-lock.json)"
           test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 154
@@ -38,12 +38,13 @@ jobs:
           test "$(git hash-object docs/community/policy/dreamsnap-image-grant-v1.candidate.json)" = e416bb7671226a669cfa81729ca0ed14f47bc049
           test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID"
           python3 -m py_compile tests/comm-e2-source153-signed-positive.py tests/comm-source153-server-session-signed-e2.py
+          python3 -m py_compile tests/comm-source154-signed-session-concurrency-local.py
           git diff --name-only "$BASE" HEAD > /tmp/source153-session-diff-paths
-          test "$(wc -l </tmp/source153-session-diff-paths)" -eq 12
-          for p in supabase/migrations/20261102000000_community_source153_signed_session_lineage_v2.sql supabase/functions/community-dreamsnap-owner/index.ts tests/comm-source153-server-session-signed-e2.py docs/community/source153-verified-session-enforcement-v2-20261102.md .github/workflows/comm-e2-source153-signed-positive.yml tests/comm-x05-source149-nonpublic.test.mjs tests/comm-x05-source150-owner-service.test.mjs tests/comm-x05-source151-pregrant.test.mjs tests/comm-x05-source152-first-work.test.mjs tests/comm-x05-source153-owner-authority.test.mjs tests/community-r21-generic-public-search-work-liveness.test.mjs tests/qr-ctrl44-int268-full153-db-to-web-independent.test.mjs; do
+          test "$(wc -l </tmp/source153-session-diff-paths)" -eq 3
+          for p in tests/comm-source154-signed-session-concurrency-local.py docs/community/source154-signed-session-concurrency-acceptance-20261102.md .github/workflows/comm-e2-source153-signed-positive.yml; do
             grep -Fxq "$p" /tmp/source153-session-diff-paths
           done
-          echo SOURCE153_SESSION_EXACT_PR288_PARENT_TWELVE_FILE_GUARD
+          echo SOURCE154_CONCURRENCY_PR308_SOURCE_FROZEN_THREE_PATH_GUARD
       - uses: supabase/setup-cli@v1
         with:
           version: 2.109.0
@@ -70,13 +71,13 @@ jobs:
           echo E2_DISPOSABLE_FULL153_BOOT_SUCCESS
       - name: Install isolated local PostgreSQL driver
         run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
-      - name: Execute signed A1 A2 Local Global Source153 actual HTTP 401 200
+      - name: Execute genuine signed Source154 two PG lock interleavings and direct Writer negative
         shell: bash
         run: |
           set -euo pipefail
-          python3 tests/comm-source153-server-session-signed-e2.py 2>&1 | tee /tmp/session-sanitized-markers.log
-          grep -q '"case": "SOURCE153_SERVER_ENFORCED_SIGNED_SESSION_PASS"' /tmp/session-sanitized-markers.log
-          echo SOURCE153_REAL_ES256_SERVER_SESSION_TARGETED_TEST_ONLY_PASS
+          python3 tests/comm-source154-signed-session-concurrency-local.py 2>&1 | tee /tmp/session-sanitized-markers.log
+          grep -q '"case": "SOURCE154_REAL_SIGNED_CONCURRENCY_TEST_ONLY_PASS"' /tmp/session-sanitized-markers.log
+          echo SOURCE154_REAL_ES256_TWO_PG_CONCURRENCY_TARGETED_TEST_ONLY_PASS
       - name: Stop disposable stack and remove synthetic credentials
         if: always()
         shell: bash
