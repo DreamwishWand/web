@@ -46,7 +46,7 @@ source+='''
                 raise AssertionError("DISPOSABLE_VITE_SERVER_FAILED")
             try:
                 with urllib.request.urlopen(
-                    "http://127.0.0.1:4175/dreamsnaps/my/manage/source153-shared-e2/",
+                    "http://127.0.0.1:4175/disposable-owner-signed-bridge/",
                     timeout=2) as response:
                     if response.status==200:break
             except Exception:time.sleep(1)
