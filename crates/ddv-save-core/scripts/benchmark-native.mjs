@@ -31,12 +31,13 @@ try{
  if(before.equals(out)||!editedStr.includes('"NextOccurrence":"2022-09-06T00:00:00Z"')||
     out.length!==before.length)throw Error('BAD_RUST_BENCH_RESULT');
  const match=/Maximum resident set size \(kbytes\):\s*(\d+)/.exec(time.stderr);
- const wall=/Elapsed \(wall clock\) time[^:]*:\s*(\S+)/.exec(time.stderr);
+ const elapsedLine=time.stderr.split('\n').find(line=>line.includes('Elapsed (wall clock) time'));
+ const wall=elapsedLine?.split('): ').at(-1)?.trim()||null;
  console.log(JSON.stringify({type:'RUST_NATIVE_SYNTHETIC_ONLY',
   fixtureBytes:fixture.bytes,fixtureMB:fixture.sizeMB,fixtureMiB:fixture.sizeMiB,
   gridObjects:fixture.gridObjects,entropy,
   deflateRawBytes:deflateBytes,deflateRatio:Number((deflateBytes/fixture.bytes).toFixed(6)),
   nativeObservedMaxRssKiB:match?Number(match[1]):null,
-  wallClock:wall?.[1]||null,nativeExit:time.status,wasmBrowserMeasured:false,
+  wallClock:wall,nativeExit:time.status,wasmBrowserMeasured:false,
   productP1gMeasured:false}));
 } finally {rmSync(work,{recursive:true,force:true});}
