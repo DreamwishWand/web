@@ -1,0 +1,138 @@
+name: WEB isolated Source154 genuine-signed browser negatives
+on:
+  push:
+    branches: ['web/source154-signed-browser-negatives-*']
+  pull_request:
+    paths:
+      - 'scripts/web-source154-signed-browser-chrome.mjs'
+      - 'scripts/web-source154-signed-browser-fixture.py'
+      - 'tests/web-source154-signed-browser-negatives.test.mjs'
+      - '.github/workflows/web-source154-signed-browser-local.yml'
+      - 'docs/web/source154-signed-browser-negative-preflight-20261102.md'
+permissions:
+  contents: read
+jobs:
+  frozen-web-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: node --test tests/web-source154-signed-browser-negatives.test.mjs
+      - run: node --check scripts/web-source154-signed-browser-chrome.mjs
+      - run: python3 -m py_compile scripts/web-source154-signed-browser-fixture.py
+      - run: npm run check && npm run build
+      - name: Exact PR305 ancestry, five TEST-only paths and all Owner flags OFF
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=e3d4ed562239edae2f8101069a0b71ff61ec34f7
+          git merge-base --is-ancestor "$BASE" HEAD
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          git diff --exit-code "$BASE" HEAD -- supabase/ src/lib/ src/routes/
+          git diff --name-only "$BASE" HEAD > /tmp/source154-web-paths
+          test "$(wc -l </tmp/source154-web-paths)" -eq 5
+          while IFS= read -r path; do
+            case "$path" in
+              scripts/web-source154-signed-browser-chrome.mjs|scripts/web-source154-signed-browser-fixture.py|tests/web-source154-signed-browser-negatives.test.mjs|.github/workflows/web-source154-signed-browser-local.yml|docs/web/source154-signed-browser-negative-preflight-20261102.md) ;;
+              *) echo WEB154_UNEXPECTED_PRODUCTION_DIFF; exit 1 ;;
+            esac
+          done </tmp/source154-web-paths
+          test "$(git hash-object src/lib/community/staging-http-client.ts)" = 593b47818fe31356568e0ac688bc4ae8ef375225
+          test "$(git hash-object src/lib/dreamsnaps/source153-owner-consumer-v2.js)" = f981b7596711b47bceb2fa79a2191e79e8f1b459
+          test "$(git hash-object src/lib/dreamsnaps/owner-read-revalidation.js)" = bbf3e99883cb438629f732f5c09534a86a48abc1
+          test "$(git hash-object src/lib/dreamsnaps/owner-shared-auth-consumer.js)" = ee9c59229615831808bc805c970630af24ce9158
+          test "$(git hash-object src/routes/disposable-owner-signed-bridge/+page.svelte)" = a86ae06f655daf431ae21c9a3609578c9dc93719
+          for val in 'OWNER_MANAGEMENT_ENABLED = false' 'SOURCE153_OWNER_V2_LIVE_ENABLED = false' 'SOURCE153_BROWSER_E2_PRODUCTION_ENABLED = false' 'OWNER_REVALIDATION_PRODUCTION_ENABLED = false' 'OWNER_PRODUCT_READONLY_ENABLED = false' 'OWNER_PRODUCT_MANAGED_INGRESS_ACCEPTED = false'; do
+            grep -RFq "$val" src/lib/dreamsnaps/
+          done
+          echo WEB154_FROZEN_PRODUCTION_SOURCE_AND_FIVE_PATHS_PASS
+  actual-gotrue-source154-chromium:
+    needs: frozen-web-source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_PROJECT_ID: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+      - name: Temporarily overlay EXACT reviewed PR308 Source154 SQL+Edge, never commit them
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=e3d4ed562239edae2f8101069a0b71ff61ec34f7
+          SOURCE=719da738700b8c16ac1d8115fe5ff60b7620d828
+          git merge-base --is-ancestor "$BASE" HEAD
+          git fetch --no-tags --depth=1 origin "$SOURCE"
+          SQL=supabase/migrations/20261102000000_community_source153_signed_session_lineage_v2.sql
+          EDGE=supabase/functions/community-dreamsnap-owner/index.ts
+          test ! -e "$SQL"
+          git show "$SOURCE:$SQL" > "$SQL"
+          git show "$SOURCE:$EDGE" > "$EDGE"
+          test "$(git hash-object "$SQL")" = 680cb043934a1c0a0e75bd59ba22ce6828a8eedc
+          test "$(git hash-object "$EDGE")" = f1ddabefdcbf1afe543e587ce95c95d4fefe1072
+          test "$(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l)" -eq 154
+          echo WEB154_EXACT_REVIEWED_SERVER_OVERLAY_DISPOSABLE_ONLY
+      - name: Ephemeral genuine ES256 GoTrue signer and FULL154 isolated DB
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\n[auth]\nsigning_keys_path = "./signing_keys.json"\n' >> supabase/config.toml
+          printf '[]\n' > supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes >/tmp/web154-keygen.log 2>&1
+          python3 - <<'PY'
+          import json
+          keys=json.load(open('supabase/signing_keys.json'))
+          assert any(k.get('kty')=='EC' and k.get('crv')=='P-256' and k.get('kid') and k.get('d') for k in keys)
+          print('WEB154_EPHEMERAL_GENUINE_ES256_SIGNER_READY')
+          PY
+          printf 'project_id = "ddvre_web_source154_browser_disposable"\n' | cat - supabase/config.toml >/tmp/web154-config
+          mv /tmp/web154-config supabase/config.toml
+          timeout 1800s supabase start >/tmp/web154-private-boot.log 2>&1 || { echo WEB154_DISPOSABLE_FULL154_BOOT_FAILED; exit 1; }
+      - run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Require actual Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Real Source154 GoTrue ES256 HTTP in actual Chrome (no mocked Owner)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/web-source154-signed-browser-fixture.py > /tmp/web154-result.log 2>&1 || {
+            echo WEB154_GENUINE_BROWSER_REVIEW_REQUIRED
+            sed -E 's/([A-Za-z0-9_-]{24,})/[REDACTED]/g' /tmp/web154-result.log | tail -n 16
+            exit 1
+          }
+          grep -q WEB154_ACTUAL_ES256_LOCAL_CHROME_NEGATIVE_PASS /tmp/web154-result.log
+          echo WEB154_GENUINE_SIGNED_LOCAL_CHROMIUM_NEGATIVES_PASS
+      - name: Destroy disposable local stack and signer (best effort)
+        if: always()
+        shell: bash
+        run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f supabase/signing_keys.json /tmp/web154-keygen.log /tmp/web154-private-boot.log /tmp/web154-result.log /tmp/web154-config
+          echo WEB154_DISPOSABLE_STACK_TEARDOWN_ATTEMPTED
