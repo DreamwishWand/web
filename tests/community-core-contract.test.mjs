@@ -350,7 +350,7 @@ test('internal Community Lab uses browser-safe Auth and Edge credentials only', 
   assert.match(client, /sessionStorage/);
   assert.match(client, /grant_type=password/);
   assert.match(client, /grant_type=refresh_token/);
-  assert.match(client, /authorization: `Bearer \${session\.accessToken}`/);
+  assert.match(client, /authorization:\s*(?:`Bearer \${session\.accessToken}`|'Bearer '\s*\+\s*session\.accessToken)/);
   assert.match(client, /apikey: this\.config\.publishableKey/);
   assert.match(client, /community-command/);
   assert.match(client, /community-query/);
@@ -579,11 +579,19 @@ test('browser session UX separates local sign-out from global revoke plus Wand c
 
   assert.match(client, /logout\?scope=local/);
   assert.match(client, /logout\?scope=global/);
-  assert.match(client, /this\.command\('revokeSessions', \{\}\)/);
-
-  const globalIndex = client.indexOf('/auth/v1/logout?scope=global');
-  const cutoffIndex = client.indexOf("this.command('revokeSessions', {})");
-  assert.ok(globalIndex >= 0 && cutoffIndex > globalIndex);
+  // Shared Auth must invalidate the session before starting global sign-out.
+  // Its captured-signed cutoff request is not allowed to re-open a session.
+  const revoke = client.slice(
+    client.indexOf('async revokeAllSessions(): Promise<EdgeResult> {'),
+    client.indexOf('async command<T = unknown>(')
+  );
+  assert.match(revoke, /commitSession\(this\.#auth,null,'logged-out',true\)/);
+  assert.match(revoke, /command:'revokeSessions'/);
+  assert.match(revoke, /authorization:'Bearer '\+current\.accessToken/);
+  const invalidateIndex = revoke.indexOf("commitSession(this.#auth,null,'logged-out',true)");
+  const globalIndex = revoke.indexOf('/auth/v1/logout?scope=global');
+  const cutoffIndex = revoke.indexOf("command:'revokeSessions'");
+  assert.ok(invalidateIndex >= 0 && globalIndex > invalidateIndex && cutoffIndex > globalIndex);
 
   assert.match(page, /Revoke all sessions/);
   assert.match(page, /Auth global revoke \+ Wand cutoff/);
