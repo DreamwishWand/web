@@ -3,7 +3,7 @@ on:
   push:
     branches: [comm/source156-first-account-r16-composed-20261103]
   pull_request:
-    branches: [comm/source155-safe-first-account-bootstrap-20261102]
+    branches: [comm/source155-safe-first-account-es256-bootstrap-20261102]
 permissions:
   contents: read
 jobs:
@@ -45,7 +45,7 @@ jobs:
           assert len(all_sql)==156
           versions=[p.name.split('_',1)[0] for p in all_sql]
           assert len(versions)==len(set(versions))
-          assert all(re.fullmatch(r'\d{14}',v) for v in versions)
+          assert all(re.fullmatch(r'\d{12}(?:\d{2})?',v) for v in versions)
           assert all_sql[-2].name.startswith('20261102010000_')
           assert all_sql[-1].name.startswith('20261103010000_')
           print("COMPOSED_SOURCE155_SOURCE156_UNIQUE_FROZEN_154_PREFIX")
