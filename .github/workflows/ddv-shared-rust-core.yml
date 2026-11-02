@@ -24,6 +24,8 @@ jobs:
         run: node crates/ddv-save-core/scripts/js-oracle.mjs
       - name: Independent Node AES-ECB/ZIP/Deflate/CRC oracle (synthetic ONLY)
         run: node crates/ddv-save-core/scripts/js-p1g-cross-codec-oracle.mjs
+      - name: Bidirectional actual Wand JS Codec and Rust synthetic P1G interop
+        run: node crates/ddv-save-core/scripts/wand-js-p1g-interop.mjs
       - name: WASM target compile (NOT browser runtime)
         run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --lib
       - name: Research-only boundary
