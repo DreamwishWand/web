@@ -29,3 +29,28 @@ jobs:
           grep -Fq "encode_copy: false, persistent_replace: false" crates/ddv-save-core/src/lib.rs
           echo "EVIDENCE=SYNTHETIC_NATIVE_AND_WASM_COMPILE_ONLY"
           echo "NOT_ACCEPTED=P1G_AES_ZIP_BROWSER_WASM_100_TO_200_MB_RELEASE"
+
+  native-large-synthetic-probe:
+    name: "Rust native synthetic JSON size ${{ matrix.mb }} MB (NOT WASM/browser)"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { mb: 16, grid: 1000, entropy: low }
+          - { mb: 64, grid: 10000, entropy: mixed }
+          - { mb: 100, grid: 25000, entropy: high }
+          - { mb: 200, grid: 50000, entropy: mixed }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile native research-only example
+        run: cargo build --manifest-path crates/ddv-save-core/Cargo.toml --example patch_json
+      - name: Generate exact decimal MB fixture, patch and sample child RSS
+        run: |
+          node crates/ddv-save-core/scripts/benchmark-native.mjs \
+            ${{ matrix.mb }} mb ${{ matrix.grid }} ${{ matrix.entropy }}
+      - name: Explicit measurement scope
+        run: |
+          echo "NATIVE_ONLY=YES; 200MB=200000000 bytes; not 200MiB"
+          echo "BROWSER_WASM_PEAK=UNVERIFIED; P1G_EDITED_EXPORT=UNVERIFIED"
