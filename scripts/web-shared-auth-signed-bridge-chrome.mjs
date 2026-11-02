@@ -10,7 +10,7 @@ const required=['CHROME_BIN','E2_OWNER_EMAIL','E2_OWNER_PASSWORD',
 if(env.DDVRE_E2_LOCAL_DISPOSABLE!=='APPROVED'||
   required.some(k=>!env[k]))throw Error('SIGNED_BRIDGE_DISPOSABLE_ONLY');
 const ORIGIN='http://127.0.0.1:4175';
-const ROUTE='/dreamsnaps/my/manage/source153-shared-e2/?work=';
+const ROUTE='/disposable-owner-signed-bridge/?work=';
 const ownerPath='/__source153_e2/functions/v1/community-dreamsnap-owner';
 const browser=await chromium.launch({executablePath:env.CHROME_BIN,headless:true,
   args:['--no-sandbox','--disable-dev-shm-usage']});
