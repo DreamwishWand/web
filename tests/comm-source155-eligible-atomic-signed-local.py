@@ -23,9 +23,13 @@ fixture=r'''
         values(%s,%s,%s,'image/png',1024,128,128,%s,'ready','clear')""",
         (good_media,account["A"],media_key,'b'*64))
       db.execute("""insert into public.community_media_upload_intents(
-        storage_key,owner_account_id,auth_subject,mime_type,expected_bytes,state,media_id)
-        values(%s,%s,%s,'image/png',1024,'finalized',%s)""",
-        (media_key,account["A"],users["A"]["id"],good_media))
+        storage_key,owner_account_id,auth_subject,mime_type,expected_bytes)
+        values(%s,%s,%s,'image/png',1024)""",
+        (media_key,account["A"],users["A"]["id"]))
+      # Do not forge the immutable finalize journal: use the actual DB
+      # transition which assigns finalized_at and validates stored Media.
+      db.execute("select public.community_gallery_media_intent_complete_v1(%s,%s,%s)",
+        (users["A"]["id"],media_key,good_media))
       db.execute("""insert into public.community_works(
         work_id,owner_account_id,creator_profile_id,work_type,visibility)
         values(%s,%s,%s,'preset','private')""",(good_work,account["A"],creator))
