@@ -4362,6 +4362,11 @@
           {#if marqueeArmed}
             <small data-wep-marquee-hint class="selection-scope-note">{worldEditorMarqueeCopy($locale).hint}</small>
           {/if}
+          {#if selection.length > 1 && !marqueeArmed}
+            <small data-wep-multi-move-hint class="selection-scope-note">
+              {worldEditorMarqueeCopy($locale).moveHint}
+            </small>
+          {/if}
           <span role="status" aria-live="polite" data-wep-multi-move-status class="selection-scope-note">
             {moveDragFeedback}
           </span>
