@@ -4,6 +4,12 @@ on:
     paths:
       - 'crates/ddv-save-core/**'
       - '.github/workflows/ddv-shared-rust-core.yml'
+  push:
+    branches:
+      - 'research/01a-source-closure-opaque-qa-20261102'
+    paths:
+      - 'crates/ddv-save-core/**'
+      - '.github/workflows/ddv-shared-rust-core.yml'
   workflow_dispatch:
 permissions:
   contents: read
