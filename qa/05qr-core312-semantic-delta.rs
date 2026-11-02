@@ -10,7 +10,7 @@ fn raw()->Vec<u8>{
  br#"{"GameInfo":{"Version":626},"Player":{"ContainerInventories":{"A":{"Items":[]}},"CollectionSets":{"1":false}},"World":{"GridCollection":{"Grids":{"5":{"Objects":{"7":{"ID":7,"ItemID":5,"Container":"A","State":{"unknownNested":{"escaped":"\u00e9","n":1.00},"x":1}}}}}},"RecurringEvents":{"0":{"ItemSpawning":{"RecurringEventItemID":2010000021,"NextOccurrence":"2126-08-20T00:00:00Z"}}}},"Unknown":{"payload":"keep"}}"#.to_vec()
 }
 fn graph()->ReferenceIndex{
- let grid=id(Domain::Grid,"grid:5:obj:7"),chest=id(Domain::ContainerInventory,"chest:A");
+ let grid=id(Domain::Grid,"grid:5:obj:7");let chest=id(Domain::ContainerInventory,"chest:A");
  ReferenceIndex{nodes:BTreeSet::from([grid.clone(),chest.clone(),
   id(Domain::CollectionSet,"set:1"),id(Domain::RecurringEvent,"event:2010000021")]),
   edges:vec![ReferenceEdge{from:grid,to:chest}]}
@@ -39,7 +39,7 @@ fn qr_source_scan_does_not_accept_declared_chest_edge_omission(){
  assert_eq!(s.source_sha256(),sha256(&raw()));
 }
 #[test]
-fn qr_nested_unknown_deletion_and mixed-domain batch_rejected_atomically(){
+fn qr_nested_unknown_deletion_and_mixed_domain_batch_rejected_atomically(){
  let mut s=open();let sha=s.source_sha256();
  let drop=command(Domain::Grid,"grid:5:obj:7",
   "/World/GridCollection/Grids/5/Objects/7/State",
