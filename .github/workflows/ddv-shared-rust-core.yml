@@ -1,0 +1,31 @@
+name: 01A Shared Rust Save Core (research-only)
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/**'
+      - '.github/workflows/ddv-shared-rust-core.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-and-portable-wasm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust toolchain
+        run: |
+          rustc --version
+          cargo --version
+          rustup target add wasm32-unknown-unknown
+      - name: Cargo native synthetic span/CAS test
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --all-targets --verbose
+      - name: Independent JS oracle (test-only decoded JSON)
+        run: node crates/ddv-save-core/scripts/js-oracle.mjs
+      - name: WASM target compile (NOT browser runtime)
+        run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --lib
+      - name: Research-only boundary
+        run: |
+          grep -Fq "encode_copy: false, persistent_replace: false" crates/ddv-save-core/src/lib.rs
+          echo "EVIDENCE=SYNTHETIC_NATIVE_AND_WASM_COMPILE_ONLY"
+          echo "NOT_ACCEPTED=P1G_AES_ZIP_BROWSER_WASM_100_TO_200_MB_RELEASE"
