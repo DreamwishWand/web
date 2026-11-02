@@ -226,7 +226,13 @@ impl<'a> Parser<'a> {
    }
    Some(b'"')=>{
     kind=TokenKind::String;
-    decoded=Some(self.string()?);
+    if self.watch.contains(path) {
+      decoded=Some(self.string()?);
+    } else {
+      // Validate all escape grammar WITHOUT allocating full unrelated strings.
+      // A 200 MB synthetic/unknown-field string must not become another 200 MB String.
+      self.skip_string()?;
+    }
    }
    Some(b't')=>self.literal("true")?,
    Some(b'f')=>self.literal("false")?,
@@ -285,6 +291,27 @@ impl<'a> Parser<'a> {
   }
   Ok(())
  }
+ fn skip_string(&mut self)->EngineResult<()> {
+  if self.peek()!=Some(b'"'){return Err("JSON_EXPECTED_STRING");}
+  self.cursor+=1;let begin=self.cursor;
+  loop {
+    match self.peek() {
+      Some(b'"') => {
+        let raw=&self.source[begin..self.cursor];
+        self.cursor+=1;
+        return validate_string(raw);
+      }
+      Some(b'\\') => {
+        self.cursor+=1;
+        if self.peek().is_none(){return Err("JSON_BAD_ESCAPE");}
+        self.cursor+=1;
+      }
+      Some(0..=31)=>return Err("JSON_CONTROL_CHARACTER"),
+      Some(_)=>self.cursor+=1,
+      None=>return Err("JSON_UNTERMINATED_STRING")
+    }
+  }
+ }
  fn string(&mut self)->EngineResult<String>{
   if self.peek()!=Some(b'"'){return Err("JSON_EXPECTED_STRING");}
   self.cursor+=1;let begin=self.cursor;
@@ -319,6 +346,27 @@ fn hex4(chars:&mut impl Iterator<Item=char>)->EngineResult<u32>{
   n=n*16+chars.next().and_then(|c|c.to_digit(16)).ok_or("JSON_BAD_UNICODE_ESCAPE")?;
  }
  Ok(n)
+}
+fn validate_string(raw:&str)->EngineResult<()>{
+ let mut chars=raw.chars();
+ while let Some(c)=chars.next(){
+  if c!='\\'{continue;}
+  match chars.next().ok_or("JSON_BAD_ESCAPE")? {
+   '"'|'\\'|'/'|'b'|'f'|'n'|'r'|'t'=>{},
+   'u'=>{
+     let hi=hex4(&mut chars)?;
+     if (0xD800..=0xDBFF).contains(&hi) {
+       if chars.next()!=Some('\\')||chars.next()!=Some('u'){return Err("JSON_BAD_SURROGATE");}
+       let lo=hex4(&mut chars)?;
+       if !(0xDC00..=0xDFFF).contains(&lo){return Err("JSON_BAD_SURROGATE");}
+     } else if (0xDC00..=0xDFFF).contains(&hi) {
+       return Err("JSON_BAD_SURROGATE");
+     }
+   }
+   _=>return Err("JSON_BAD_ESCAPE")
+  }
+ }
+ Ok(())
 }
 fn decode_string(raw:&str)->EngineResult<String>{
  let mut out=String::new();let mut chars=raw.chars();
