@@ -76,9 +76,12 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re
-          fs=sorted(Path('supabase/migrations').glob('*.sql'))
-          assert len(fs)==156, f'expected 156 source SQL files after frozen 154 prefix, got {len(fs)}'
-          vs=[f.name.split('_',1)[0] for f in fs]
+          all_files=sorted(Path('supabase/migrations').glob('*.sql'))
+          fs=all_files[:148]
+          assert len(fs)==148, 'historical Source148 prefix is incomplete'
+          assert fs[-1].name=='20261028000010_x05_post_event_staged_liveness_immutable_guard.sql'
+          assert len(all_files)==156, f'expected 156 source SQL files after frozen 154 prefix, got {len(all_files)}'
+          vs=[f.name.split('_',1)[0] for f in all_files]
           assert all(re.fullmatch(r'\d{12}(?:\d{2})?',v) for v in vs)
           assert len(vs)==len(set(vs)), 'migration version collision'
           assert fs == sorted(fs), 'migration order not deterministic'
@@ -137,6 +140,9 @@ jobs:
           DO $checks$
           DECLARE v int;
           BEGIN
+            SELECT count(*) INTO v FROM supabase_migrations.schema_migrations
+              WHERE version<='20261028000010';
+            IF v<>148 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_148: %',v;END IF;
             SELECT count(*) INTO v FROM supabase_migrations.schema_migrations;
             IF v<>156 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_156: %',v;END IF;
             IF to_regprocedure('public.community_ensure_account_creator_signed_v1(uuid,bigint,uuid,text,text)') IS NULL
