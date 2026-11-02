@@ -45,6 +45,27 @@ impl ReferenceIndex {
         self.edges.iter().filter(|e|&e.from==from).cloned().collect()
     }
 }
+/// Core-scanned exact path evidence; explicitly NOT an exhaustive cross-domain graph.
+#[derive(Clone,Debug,PartialEq,Eq)]
+pub struct SourcePathWitness {
+ pub identity:LogicalIdentity,
+ pub exact_pointer:String,
+ pub lexical_token_sha256:[u8;32],
+ pub observed_token_bytes:usize,
+ pub source_revision:u64,
+}
+#[derive(Clone,Debug,PartialEq,Eq)]
+pub struct SourceDerivedReferenceAudit {
+ pub original_decoded_sha256:[u8;32],
+ pub inspected_snapshot_sha256:[u8;32],
+ pub revision:u64,
+ pub index_generation:u64,
+ pub witnessed:Vec<SourcePathWitness>,
+ pub all_requested_paths_observed:bool,
+ pub cross_domain_reference_closure_complete:bool,
+ pub domain_reference_semantics_verified:bool,
+ pub usable_for_product_writer:bool,
+}
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub enum BackingKind {OwnedMemory}
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
@@ -154,6 +175,43 @@ impl SaveSession {
         if !self.references.nodes.contains(identity){return Err("UNKNOWN_REFERENCE_IDENTITY");}
         self.references.check()?;
         Ok(self.references.outbound(identity))
+    }
+    /// Strictly derive the presence and raw hashes of specific current-source
+    /// locations. Caller-provided edges do not imply complete semantic closure.
+    /// Every call re-evaluates staged bytes for current Revision; no stale
+    /// pre-transaction witness can become a positive Writer capability.
+    pub fn inspect_source_reference_paths(
+        &self,required:&[(LogicalIdentity,String)]
+    )->EngineResult<SourceDerivedReferenceAudit>{
+        if required.is_empty()||required.len()>256{return Err("SOURCE_REFERENCE_SCOPE_INVALID");}
+        let mut seen=BTreeSet::new();
+        let mut ptrs=Vec::with_capacity(required.len());
+        for (_,path) in required {
+            if !path.starts_with('/')||path.len()>1024||path.contains("//")||
+               !seen.insert(path.clone()) {return Err("SOURCE_REFERENCE_POINTER_INVALID");}
+            ptrs.push(path.clone());
+        }
+        let current=self.materialize()?;
+        let tokens=index_selected_tokens(&current,&ptrs)?;
+        if tokens.len()!=required.len(){return Err("SOURCE_REFERENCE_PATH_MISSING");}
+        let map:BTreeMap<String,SpanHit>=tokens.into_iter().map(|x|(x.pointer.clone(),x)).collect();
+        let mut witnessed=Vec::with_capacity(required.len());
+        for (identity,path) in required {
+            let token=map.get(path).ok_or("SOURCE_REFERENCE_PATH_MISSING")?;
+            witnessed.push(SourcePathWitness {
+                identity:identity.clone(),exact_pointer:path.clone(),
+                lexical_token_sha256:sha256(token.value.as_bytes()),
+                observed_token_bytes:token.value.len(),source_revision:self.revision
+            });
+        }
+        Ok(SourceDerivedReferenceAudit {
+            original_decoded_sha256:self.source_sha,
+            inspected_snapshot_sha256:sha256(&current),
+            revision:self.revision,index_generation:self.index_generation,witnessed,
+            all_requested_paths_observed:true,
+            cross_domain_reference_closure_complete:false,
+            domain_reference_semantics_verified:false,usable_for_product_writer:false
+        })
     }
     /// Read-focused index is rebuilt after each edit, not cached against an old revision.
     pub fn query_paged(&mut self,pointers:&[String],cursor:usize,limit:usize)
