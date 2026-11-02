@@ -94,6 +94,28 @@ async function runAt(page,level){
  assert.equal(await page.locator('[data-wep-marquee-preview]').count(),0);
  assert.deepEqual(await selected(page),['lamp']);
  pass('ZOOM_'+level+'_ESC_CANCEL_NO_DRAFT');
+ // Cancellation by the UA / touch/pen signal must discard the preview.
+ await drag(page,{x:0.4,y:0.6},{x:12.3,y:4.3});
+ await page.locator('[data-wep-marquee-canvas]').evaluate(svg=>
+   svg.dispatchEvent(new PointerEvent('pointercancel',{bubbles:true,pointerId:1})));
+ await page.mouse.up();
+ assert.equal(await page.locator('[data-wep-marquee-preview]').count(),0);
+ assert.deepEqual(await selected(page),['lamp']);
+ pass('ZOOM_'+level+'_POINTER_CANCEL_NO_SELECTION_CHANGE');
+ // Releasing outside the exact canvas/Area must abort instead of clipping.
+ const svg=page.locator('[data-wep-marquee-canvas]');
+ await svg.scrollIntoViewIfNeeded();
+ const start=await screen(page,{x:0.4,y:0.6});
+ await page.mouse.move(start.x,start.y);
+ await page.mouse.down();
+ const center=await screen(page,{x:12.3,y:4.3});
+ await page.mouse.move(center.x,center.y,{steps:7});
+ assert.equal(await page.locator('[data-wep-marquee-preview]').count(),1);
+ await page.mouse.move(2,2,{steps:5});
+ await page.mouse.up();
+ assert.equal(await page.locator('[data-wep-marquee-preview]').count(),0);
+ assert.deepEqual(await selected(page),['lamp']);
+ pass('ZOOM_'+level+'_OUT_OF_AREA_RELEASE_ABORT');
  // Exact user-visible search filters candidate selection.
  await page.locator('[data-wep-search-input]').fill('lamp');
  await (await drag(page,{x:0.4,y:0.6},{x:12.3,y:4.3}))();
@@ -125,6 +147,10 @@ async function runAt(page,level){
  await page.locator('.toolbar-actions').getByRole('button',{name:'Redo',exact:true}).click();
  await (await cell(page,'Editable Chair',3,2)).waitFor();
  pass('ZOOM_'+level+'_EXPLICIT_DRAFT_MUTATION_UNDO_REDO');
+ await page.locator('#site-locale').selectOption('ja');
+ await page.getByRole('button',{name:'矩形範囲選択'}).waitFor();
+ await page.locator('#site-locale').selectOption('en');
+ pass('ZOOM_'+level+'_SHARED_LOCALE_UI_JA');
  await page.screenshot({path:join(artifacts,'marquee-'+level+'.png'),fullPage:true});
 }
 const temp=await mkdtemp(join(tmpdir(),'wep-marquee-'));
@@ -146,6 +172,17 @@ try{
  assert.equal(report.metrics200.outerWidth,1280);
  assert.equal(report.metrics200.visualScale,1);
  await runAt(page,200);
+ // Responsive width is a separate acceptance, not a surrogate for browser zoom.
+ await switchZoom(sw,baseUrl,1);
+ await page.setViewportSize({width:320,height:740});
+ const responsive=await page.evaluate(()=>({
+   innerWidth,scrollWidth:document.documentElement.scrollWidth
+ }));
+ assert.ok(responsive.scrollWidth<=responsive.innerWidth+2,JSON.stringify(responsive));
+ assert.equal(await page.locator('[data-wep-marquee-toggle]').count(),1);
+ pass('MOBILE_320_NEW_MARQUEE_AFFORDANCE_NO_HORIZONTAL_OVERFLOW');
+ await page.setViewportSize({width:1280,height:960});
+ await switchZoom(sw,baseUrl,2);
  // The same native zoomed tab must not let schema626 into canvas/draft.
  await page.goto(baseUrl,{waitUntil:'networkidle'});
  await page.locator('.platform-select select').selectOption('switch');
