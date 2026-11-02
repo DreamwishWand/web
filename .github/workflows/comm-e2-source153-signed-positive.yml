@@ -1,4 +1,4 @@
-name: COMM E2 Genuine Signed Positive Source153 to WEB267 (Disposable)
+name: COMM N05 Genuine GoTrue Logout Replay on Proven E2 Workflow (TEST ONLY)
 on:
   pull_request:
     branches:
@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
 jobs:
-  e2-signed-source153-to-web267:
+  n05-genuine-replay-pr288-fixture:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -23,11 +23,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Enforce PR287 fixed parent, frozen product and test-only candidate
+      - name: Enforce PR288 immutable fixture and exact test-only diff
         shell: bash
         run: |
           set -euo pipefail
-          BASE=0c3aa44fdba97c6ac07df6b3e4a43e78a6ba3dd7
+          BASE=1755d2f37f08bb93604d1839245f8565cf603916
           git merge-base --is-ancestor "$BASE" HEAD
           test -z "$(git diff --name-only "$BASE" HEAD -- src supabase package.json package-lock.json)"
           test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 153
@@ -37,8 +37,11 @@ jobs:
           test "$(git hash-object docs/community/policy/dreamsnap-image-grant-v1.candidate.txt)" = d9a26a2159e2a671ba6a213bf259df42aaaeb61f
           test "$(git hash-object docs/community/policy/dreamsnap-image-grant-v1.candidate.json)" = e416bb7671226a669cfa81729ca0ed14f47bc049
           test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID"
-          python3 -m py_compile tests/comm-e2-source153-signed-positive.py
-          echo E2_FIXED_PR287_QA_ONLY_FROZEN153_AND_WEB267
+          python3 -m py_compile tests/comm-e2-source153-signed-positive.py tests/comm-n05-genuine-signed-logout-replay.py
+          git diff --exit-code "$BASE" HEAD -- tests/comm-e2-source153-signed-positive.py
+          test "$(git diff --name-only "$BASE" HEAD | wc -l)" -eq 4
+          test "$(git diff --name-only "$BASE" HEAD | grep -c '^[.]github/workflows/comm-e2-source153-signed-positive[.]yml
+          echo N05_FROZEN_PR288_ACCEPTED_E2_FIXTURE
       - uses: supabase/setup-cli@v1
         with:
           version: 2.109.0
@@ -65,25 +68,17 @@ jobs:
           echo E2_DISPOSABLE_FULL153_BOOT_SUCCESS
       - name: Install isolated local PostgreSQL driver
         run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
-      - name: Execute NEW E2 genuine GoTrue ES256 Policy Grant OwnerAuthority and WEB267
+      - name: Execute N05 signed logout replay using existing E2 positive fixture
         shell: bash
         run: |
           set -euo pipefail
-          python3 tests/comm-e2-source153-signed-positive.py 2>&1 | tee /tmp/e2-sanitized-markers.log
-          grep -q '"case": "E2_TARGETED_SIGNED_SOURCE153_TO_WEB267_PASS"' /tmp/e2-sanitized-markers.log
-          echo E2_REAL_ES256_QA_ONLY_TARGETED_PASS
+          python3 tests/comm-n05-genuine-signed-logout-replay.py 2>&1 | tee /tmp/n05-sanitized-markers.log
+          grep -q '"case": "N05_N07_SIGNED_REPLAY_SUITE_PASS"' /tmp/n05-sanitized-markers.log
+          echo N05_ES256_REPLAY_DISPOSABLE_ONLY_PASS
       - name: Stop disposable stack and remove synthetic credentials
         if: always()
         shell: bash
         run: |
           supabase stop --no-backup >/dev/null 2>&1 || true
-          rm -f supabase/signing_keys.json /tmp/e2-private-boot.log /tmp/e2-keygen-private.log /tmp/e2-config.tmp
+          rm -f supabase/signing_keys.json /tmp/e2-private-boot.log /tmp/e2-keygen-private.log /tmp/e2-config.tmp /tmp/n05-sanitized-markers.log
           echo E2_LOCAL_TEARDOWN_ATTEMPTED_NOT_REMOTE_PURGE
-      - name: Publish sanitized outcome markers for one day only
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: comm-e2-genuine-signed-synthetic-only
-          path: /tmp/e2-sanitized-markers.log
-          if-no-files-found: ignore
-          retention-days: 1
