@@ -39,7 +39,10 @@ jobs:
           test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID"
           python3 -m py_compile tests/comm-e2-source153-signed-positive.py tests/comm-n05-genuine-signed-logout-replay.py
           git diff --exit-code "$BASE" HEAD -- tests/comm-e2-source153-signed-positive.py
-          test -z "$(git diff --name-only \"$BASE\" HEAD | grep -v -E '^(tests/comm-n05-genuine-signed-logout-replay[.]py|docs/community/n05-genuine-signed-logout-replay-20261102[.]md|[.]github/workflows/comm-n05-genuine-signed-logout-replay[.]yml)
+          test "$(git diff --name-only "$BASE" HEAD | wc -l)" -eq 3
+          test "$(git diff --name-only "$BASE" HEAD | grep -c '^[.]github/workflows/comm-n05-genuine-signed-logout-replay[.]yml$')" -eq 1
+          test "$(git diff --name-only "$BASE" HEAD | grep -c '^docs/community/n05-genuine-signed-logout-replay-20261102[.]md$')" -eq 1
+          test "$(git diff --name-only "$BASE" HEAD | grep -c '^tests/comm-n05-genuine-signed-logout-replay[.]py$')" -eq 1
           echo N05_FIXED_PR288_QA_ONLY_FROZEN153_AND_WEB267
       - uses: supabase/setup-cli@v1
         with:
