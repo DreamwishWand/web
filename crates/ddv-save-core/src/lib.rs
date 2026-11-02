@@ -422,3 +422,16 @@ pub fn index_selected_tokens(source: &[u8], pointers: &[String]) -> EngineResult
 pub mod session;
 pub mod p1g;
 
+
+
+/// Strictly validate and decode one JSON string token. The caller retains the
+/// original lexical form separately for byte-exact CAS; decoded equality alone
+/// never substitutes for the raw token witness.
+pub fn strict_decode_json_string_token(raw:&str)->EngineResult<String>{
+ validate_json(raw.as_bytes())?;
+ if raw.len()<2||!raw.starts_with('"')||!raw.ends_with('"'){
+  return Err("JSON_STRING_TOKEN_REQUIRED");
+ }
+ decode_string(&raw[1..raw.len()-1])
+}
+pub mod w1_evidence;
