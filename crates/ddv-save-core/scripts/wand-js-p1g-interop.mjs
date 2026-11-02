@@ -5,9 +5,14 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-import {p1gPackagedProfileCodec as wand} from '../../../src/lib/ddv/core/save/p1g-packaged-profile-codec.js';
+import {p1gPackagedProfileCodec as defaultWand} from '../../../src/lib/ddv/core/save/p1g-packaged-profile-codec.js';
 const crate=fileURLToPath(new URL('../',import.meta.url));
-const existingSource=fileURLToPath(new URL('../../../src/lib/ddv/core/save/p1g-packaged-profile-codec.js',import.meta.url));
+const isTimekeeper=process.argv.includes('--timekeeper');
+const modulePath=new URL(isTimekeeper ?
+ '../../../.timekeeper-codec-fixed/src/core/p1g-packaged-profile-codec.mjs' :
+ '../../../src/lib/ddv/core/save/p1g-packaged-profile-codec.js',import.meta.url);
+const wand=isTimekeeper?(await import(modulePath.href)).p1gPackagedProfileCodec:defaultWand;
+const existingSource=fileURLToPath(modulePath);
 const source=readFileSync(existingSource,'utf8');
 const match=source.match(/const KEY_BYTES = hexToBytes\('([0-9a-fA-F]{64})'\)/);
 assert(match,'existing JS Codec key location changed; NEVER guess secret');
@@ -52,6 +57,6 @@ for(const extraField of ['extra','comment']){
 }
 assert.notEqual(rust('inspect',Buffer.from(generated.output).subarray(1)).status,0);
 denied++;
-console.log(JSON.stringify({contract:'ACTUAL_WAND_JS_CODEC_RUST_P1G_SYNTHETIC_INTEROP',
+console.log(JSON.stringify({contract:isTimekeeper ? 'ACTUAL_TIMEKEEPER_JS_CODEC_RUST_P1G_SYNTHETIC_INTEROP' : 'ACTUAL_WAND_JS_CODEC_RUST_P1G_SYNTHETIC_INTEROP',
  rustCreatesJsReads:true,jsCreatesRustReads:true,exactDecodedLexicalParity:true,
  unknownZipMetadataDenied:denied,productWriterAuthority:false}));
