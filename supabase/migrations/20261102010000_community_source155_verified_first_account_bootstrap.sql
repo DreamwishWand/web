@@ -20,6 +20,7 @@ declare
   v_result jsonb;
   v_account uuid;
   v_creator uuid;
+  v_existing_creator uuid;
 begin
   if p_auth_subject is null or p_session_id is null
      or p_issued_at_epoch is null or p_issued_at_epoch<=0
@@ -73,6 +74,16 @@ begin
     );
   end if;
 
+  -- New users have no trusted age/guardian attestation at this boundary.
+  -- The initial Creator MUST be private; public visibility is a separate
+  -- moderated/consented product journey, never a bootstrap side effect.
+  select c.creator_profile_id into v_existing_creator
+    from public.creator_profiles c
+    join public.auth_identities i on i.account_id=c.owner_account_id
+   where i.provider='supabase'
+     and i.provider_subject=p_auth_subject::text
+     and i.identity_state='active';
+
   -- Existing source creates Account + AuthIdentity + Creator + outbox as
   -- ONE transaction, with unique(provider,subject), unique(owner_account)
   -- and identity advisory locking. Replays return SAME Account/Creator IDs.
@@ -81,6 +92,11 @@ begin
   );
   v_account:=(v_result->>'accountId')::uuid;
   v_creator:=(v_result->>'creatorProfileId')::uuid;
+  if v_existing_creator is null then
+    update public.creator_profiles
+      set profile_visibility='private'
+      where creator_profile_id=v_creator and owner_account_id=v_account;
+  end if;
 
   -- Critical post-bootstrap check: do not turn first-login into a special
   -- bypass around the normal verified-session gate.
