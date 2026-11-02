@@ -108,7 +108,16 @@ try{
  const j1=jwtPayload(first.token),j2=jwtPayload(second.token);
  assert.equal(j1.sub,j2.sub);assert.notEqual(j1.session_id,j2.session_id);
  assert.ok(j1.exp>Date.now()/1000+30&&j2.exp>Date.now()/1000+30);
- await doInspect(a1);await eventually(()=>hasView(a1));
+ try{
+  await doInspect(a1);await eventually(()=>hasView(a1));
+ }catch{
+  const s=await httpStatus(a1);
+  const safe=['BACKEND_UNAVAILABLE','AUTH_REQUIRED','AUTH_UNAVAILABLE',
+   'SOURCE_CONTRACT_REJECTED','UNSAFE_CACHE_POLICY','REVALIDATION_REQUIRED',
+   'REFRESH_REQUIRED','SIGNED_LOCAL_SESSION_CANDIDATE','READING_SOURCE'];
+  const suffix=safe.includes(s)?s:'OTHER';
+  throw Error('WEB154_INITIAL_A1_PROJECTION_'+suffix+'_HTTP_'+String(responses.at(-1)??0));
+ }
  await doInspect(a2);await eventually(()=>hasView(a2));
  assert.equal(await httpStatus(a1),'SOURCE153_SCHEMA_CANDIDATE_ONLY');
  assert.equal(await httpStatus(a2),'SOURCE153_SCHEMA_CANDIDATE_ONLY');
