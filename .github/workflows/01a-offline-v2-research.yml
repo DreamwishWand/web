@@ -1,0 +1,36 @@
+name: 01A Offline P1G V2 Research Slice (no real save in CI)
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/src/p1g.rs'
+      - 'crates/ddv-save-core/tests/p1g_noop_offline_research.rs'
+      - 'crates/ddv-save-core/examples/p1g_offline_private_probe.rs'
+      - 'crates/ddv-save-core/scripts/offline-real-save-v2.mjs'
+      - '.github/workflows/01a-offline-v2-research.yml'
+  push:
+    branches:
+      - 'research/01a-real-save-offline-v2-20261103'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  scoped-research:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Record exact source commit
+        run: git rev-parse HEAD
+      - name: Bounded synthetic Rust no-op tests
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test p1g_noop_offline_research
+      - name: Compile private-input research harness without private data
+        run: cargo build --manifest-path crates/ddv-save-core/Cargo.toml --example p1g_offline_private_probe
+      - name: Node local verification harness syntax check
+        run: node --check crates/ddv-save-core/scripts/offline-real-save-v2.mjs
+      - name: Safety flag still denies product writes
+        run: |
+          grep -Fq 'product_encode_copy_authorized:false,persistent_replace_authorized:false' crates/ddv-save-core/src/p1g.rs
+          echo 'TEST_ONLY=synthetic_noop_and_local_harness_build'
+          echo 'PRIVATE_SAVE_IN_CI=NO'
+          echo 'PRODUCT_WRITER=OFF'
+          echo 'REAL_SAVE_RUST_REOPEN=REQUIRES_SEPARATE_PRIVATE_LOCAL_EXECUTION'
