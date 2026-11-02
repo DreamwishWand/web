@@ -19,7 +19,7 @@ const eventually=async fn=>{for(let i=0;i<120;i++){if(await fn())return;await sl
 const errors=[],responses=[];
 const privateHeaders=['cache-control','cdn-cache-control','surrogate-control','vary'];
 const httpStatus=async(page)=>page.locator('[data-bridge-status]').innerText();
-const hasView=async(page)=>page.locator('[data-bridge-projection]').count()===1;
+const hasView=async(page)=>(await page.locator('[data-bridge-projection]').count())===1;
 const doInspect=async page=>page.locator('[data-bridge-inspect]').click();
 const signedSession=async page=>page.evaluate(()=>{
  const keys=Object.keys(sessionStorage).filter(k=>k.startsWith('dreamwishwand-community-session-v2:'));
