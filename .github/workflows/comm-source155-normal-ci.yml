@@ -27,7 +27,7 @@ jobs:
           set -euo pipefail
           git merge-base --is-ancestor 3a331d4f1fc35d43857554ed7483034a7c4de109 HEAD
           test -z "$(git diff --name-only 3a331d4f1fc35d43857554ed7483034a7c4de109 HEAD -- src package.json package-lock.json)"
-          test "$(git diff --name-only 3a331d4f1fc35d43857554ed7483034a7c4de109 HEAD -- supabase/migrations | wc -l)" -eq 1
+          test -z "$(git diff --name-only 3a331d4f1fc35d43857554ed7483034a7c4de109 HEAD -- supabase/migrations)"
           echo SOURCE155_NEW_ONLY_NO_PRODUCT_SOURCE_DELTA
       - run: npm ci
       - run: npm run check
