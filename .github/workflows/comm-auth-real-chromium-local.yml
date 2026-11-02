@@ -7,6 +7,12 @@ on:
     paths:
       - 'tests/community-auth-real-chromium-local.mjs'
       - '.github/workflows/comm-auth-real-chromium-local.yml'
+  pull_request:
+    branches:
+      - comm/shared-signed-session-singleflight-20261102
+    paths:
+      - 'tests/community-auth-real-chromium-local.mjs'
+      - '.github/workflows/comm-auth-real-chromium-local.yml'
   workflow_dispatch:
 
 permissions:
@@ -19,6 +25,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -45,6 +53,5 @@ jobs:
       - name: Preserve frozen PR294 source HEAD guard
         shell: bash
         run: |
-          test "$(git rev-parse HEAD^)" = "a06ae028fdc129a53aa5e1a9083889786f177c50"
-          git show aaa61d8885c99d669b2ab2ebae64d9d05f100e36:src/lib/community/staging-http-client.ts | sha256sum
-          sha256sum src/lib/community/staging-http-client.ts
+          git diff --exit-code aaa61d8885c99d669b2ab2ebae64d9d05f100e36 -- src/lib/community/staging-http-client.ts
+          git diff --exit-code aaa61d8885c99d669b2ab2ebae64d9d05f100e36 -- tests/community-shared-signed-session.test.mjs
