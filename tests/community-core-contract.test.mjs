@@ -626,8 +626,8 @@ test('recovery state is short-lived while Auth session tokens remain tab-scoped'
   const client = read('src/lib/community/staging-http-client.ts');
   assert.match(client, /RECOVERY_MAX_AGE_MS = 60 \* 60 \* 1000/);
   assert.match(client, /localStorage\.setItem\(\s*RECOVERY_KEY/);
-  assert.match(client, /sessionStorage\\.setItem\\(key, JSON\\.stringify/);
-  assert.match(client, /sessionKey\\(s\\.scope\\)/);
+  assert.match(client, /sessionStorage\.setItem\(key, JSON\.stringify/);
+  assert.match(client, /sessionKey\(s\.scope\)/);
   assert.match(client, /LEGACY_SESSION_KEY/);
   assert.doesNotMatch(client, /localStorage\.setItem\(SESSION_KEY/);
 });
