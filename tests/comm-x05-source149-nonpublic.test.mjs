@@ -5,7 +5,8 @@ const read = p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const code=read('supabase/migrations/20261028000020_x05_nonpublic_consent_phase_revoke_controls.sql');
 test('Source149 is exactly additive after frozen Source147/148',()=>{
   const names=readdirSync(new URL('../supabase/migrations/',import.meta.url)).filter(x=>x.endsWith('.sql')).sort();
-  assert.equal(names.length,153);
+  assert.equal(names.length,154);
+  assert.ok(names.includes('20261102000000_community_source153_signed_session_lineage_v2.sql'));
   assert.ok(names.includes('20261028000020_x05_nonpublic_consent_phase_revoke_controls.sql'));
 });
 test('private only - no new positive/public/Edge grants or signers',()=>{

@@ -104,13 +104,28 @@ const handler=withSupabase({auth:'user'},async (req,ctx)=>{
     return reply({ok:false,error:'AUTH_REQUIRED'},401);
   const bearer=req.headers.get('authorization')??'';
   if(!/^Bearer [A-Za-z0-9._-]+$/i.test(bearer))return reply({ok:false,error:'AUTH_REQUIRED'},401);
-  // A server-verified actor, not request JSON, selects the auth subject.
-  const {error:sessionError}=await ctx.supabaseAdmin.rpc('community_authorize_session',{
-    p_auth_subject:subject,p_issued_at_epoch:iat,p_max_age_seconds:null
+  // The JWT's signed subject + session_id are supplied by withSupabase's
+  // trusted verifier. A caller-supplied session_id is never accepted.
+  const body=await req.json().catch(()=>null);
+  if(object(body)&&body.operation==='session-revoke'){
+    if(!exact(body,['operation','scope'])||
+      (body.scope!=='local'&&body.scope!=='global'))
+      return reply({ok:false,error:'INVALID_REVOKE_REQUEST'},400);
+    const {data,error}=await ctx.supabaseAdmin.rpc('community_revoke_signed_session_v1',{
+      p_auth_subject:subject,p_issued_at_epoch:iat,p_session_id:session,p_scope:body.scope
+    });
+    if(error||!object(data)||!['revoked','already-revoked'].includes(String(data.state))||
+      data.scope!==body.scope)
+      return reply({ok:false,error:'SESSION_REVOKE_UNCONFIRMED'},401);
+    // DB commit is the authority. GoTrue signOut is a SEPARATE call.
+    return reply({ok:true,operation:'session-revoke',state:data.state,scope:body.scope});
+  }
+  const assertLiveSession=()=>ctx.supabaseAdmin.rpc('community_authorize_signed_session_v2',{
+    p_auth_subject:subject,p_issued_at_epoch:iat,p_session_id:session
   });
+  const {error:sessionError}=await assertLiveSession();
   if(sessionError)return reply({ok:false,error:'SESSION_REVOKED_OR_INVALID'},401);
 
-  const body=await req.json().catch(()=>null);
   const request=parseOwnerRequest(body);
   if(!request)return reply({ok:false,error:'INVALID_OWNER_REQUEST'},400);
   const url=Deno.env.get('SUPABASE_URL')??'';
@@ -143,6 +158,13 @@ const handler=withSupabase({auth:'user'},async (req,ctx)=>{
   }
   const result=await response.json().catch(()=>null);
   if(!object(result))return reply({ok:false,error:'OWNER_RESPONSE_UNAVAILABLE'},503);
+  // Reject late revocation before releasing a PRIVATE read projection.
+  // Writer check-then-commit linearizability is NOT claimed; product writers
+  // remain OFF until DB-atomic per-action session authorization is proven.
+  if(['authority','read','pregrant'].includes(String(body.operation))){
+    const {error:lateRevoked}=await assertLiveSession();
+    if(lateRevoked)return reply({ok:false,error:'SESSION_REVOKED_OR_INVALID'},401);
+  }
   if(request.rpc.endsWith('_action_v1')&&result.publicActivationAllowed!==false)
     return reply({ok:false,error:'PUBLIC_ACTIVATION_GUARD'},503);
   if(request.rpc.endsWith('_owner_authority_v2')){
