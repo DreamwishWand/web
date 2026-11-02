@@ -45,7 +45,8 @@ fn two_patches_keep_ranges_disjoint_and_unselected_values() {
         change(1,"FlowerSpawningInVillage","2127-08-20T00:00:00Z")];
     let out=patch_json_string_tokens(&s,sha256(&s),626,&edits).unwrap();
     assert_eq!(out.changed.len(),2);
-    assert!(out.bytes.len()!=s.len());
+    assert_ne!(out.bytes,s);
+    // Two intentionally equal-length UTC strings need not change total length.
     let result=std::str::from_utf8(&out.bytes).unwrap();
     assert_eq!(result.matches("2022-09-06T00:00:00Z").count(),1);
     assert_eq!(result.matches("2127-08-20T00:00:00Z").count(),1);
