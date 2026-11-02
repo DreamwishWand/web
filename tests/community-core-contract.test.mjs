@@ -591,7 +591,7 @@ test('browser session UX separates local sign-out from global revoke plus Wand c
   const invalidateIndex = revoke.indexOf("commitSession(this.#auth,null,'logged-out',true)");
   const globalIndex = revoke.indexOf('/auth/v1/logout?scope=global');
   const cutoffIndex = revoke.indexOf("command:'revokeSessions'");
-  assert.ok(invalidateIndex >= 0 && globalIndex > invalidateIndex && cutoffIndex > globalIndex);
+  assert.ok(invalidateIndex >= 0 && cutoffIndex > invalidateIndex && globalIndex > cutoffIndex);
 
   assert.match(page, /Revoke all sessions/);
   assert.match(page, /Auth global revoke \+ Wand cutoff/);
