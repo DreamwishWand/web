@@ -783,7 +783,7 @@ test('self-service deletion client globally signs out only after Wand tombstone 
   const globalLogoutIndex = block.indexOf('/auth/v1/logout?scope=global');
 
   assert.ok(tombstoneIndex >= 0 && globalLogoutIndex > tombstoneIndex);
-  assert.match(block, /saveSession\(null\)/);
+  assert.match(block, /commitSession\(this\.#auth,null,'logged-out',true\)/);
 });
 
 test('account deletion acceptance route is internal and describes current deletion retention', () => {
