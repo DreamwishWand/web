@@ -83,8 +83,12 @@ test('Scene stub never treats anonymous or revoked identity as safe, and neither
 test('new Source136 clean-bootstrap includes independent Scene-issuer SQL fixture and does not enable positive Provider Copy',()=>{
  const workflow=read('.github/workflows/comm-clean-bootstrap-acceptance.yml');
  const pg=read('tests/comm-r18-scene-publisher-acl-postgres.py');
- assert.match(workflow,/assert len\(fs\)==148/);
- assert.match(workflow,/IF v<>148 THEN/);
+ assert.ok(workflow.includes("HISTORIC_SOURCE148_PREFIX_DRIFT"));
+  assert.ok(workflow.includes("assert len(old)==153 and len(fs)==154"));
+  assert.match(workflow,/SOURCE154_NOT_THE_SINGLE_NEW_FINAL_MIGRATION/);
+ assert.ok(workflow.includes("IF v<>148 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_148"));
+  assert.match(workflow,/IF v<>154 THEN RAISE EXCEPTION 'SOURCE154_LEDGER_COUNT_NOT_154/);
+  assert.match(workflow,/supabase db reset --no-seed/);
  assert.match(workflow,/THIRTY_ONE_ADDITIVE_SOURCE_MIGRATIONS/);
  assert.match(workflow,/comm-r18-scene-publisher-acl-postgres\.py/);
  assert.match(pg,/03COMM_R18_SCENE_SOURCE_ISSUER_ACL_ROLLBACK_ACCEPTED/);
