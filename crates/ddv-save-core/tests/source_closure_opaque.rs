@@ -33,7 +33,7 @@ fn source() -> Vec<u8> {
         "ID":3,"X":4,"ItemID":10,
         "State":{"Storage":{"ContainerInventoryID":"ChestA"},
                  "Mystery":{"nested":{"escaped":"é","number":1.0,"flags":[true,false]}}}
-       }}}}}},
+       }}}}},
        "RecurringEvents":{"0":{"ItemSpawning":{
         "RecurringEventItemID":2010000021,
         "NextOccurrence":"2126-08-20T00:00:00Z",
