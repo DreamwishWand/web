@@ -394,3 +394,6 @@ fn decode_string(raw:&str)->EngineResult<String>{
  }
  Ok(out)
 }
+
+#[cfg(target_arch = "wasm32")]
+pub mod wasm_probe;
