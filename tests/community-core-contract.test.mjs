@@ -565,11 +565,15 @@ test('authenticated Community Edge adapters enforce Wand session cutoff with one
 
   const command = read('supabase/functions/community-command/index.ts');
   assert.match(command, /ctx\.jwtClaims\?\.iat/);
-  assert.match(command, /community_authorize_identity_bootstrap/);
+  assert.match(command, /community_ensure_account_creator_signed_v1/);
+  const signed=read('supabase/migrations/20261102010000_community_source155_verified_first_account_bootstrap.sql');
+  assert.match(signed, /community_authorize_identity_bootstrap/);
+  assert.match(signed, /community_authorize_signed_session_v2/);
+  assert.match(signed, /auth.sessions/);
   assert.match(command, /community_authorize_session/);
-  assert.match(command, /command === 'ensureAccountCreator'/);
+  assert.match(command, /command !== 'ensureAccountCreator'/);
   assert.match(command, /if \(command !== 'ensureAccountCreator'\)/);
-  assert.match(command, /authorizationParams\.p_max_age_seconds = null/);
+  assert.match(command, /p_max_age_seconds: null/);
   assert.match(command, /SESSION_REVOKED_OR_INVALID/);
 });
 
@@ -922,11 +926,15 @@ test('first-time identity bootstrap is explicit and fail-closed for retired or r
 test('Community command uses bootstrap authorization only for ensureAccountCreator', () => {
   const command = read('supabase/functions/community-command/index.ts');
 
-  assert.match(command, /command === 'ensureAccountCreator'/);
-  assert.match(command, /community_authorize_identity_bootstrap/);
+  assert.match(command, /command !== 'ensureAccountCreator'/);
+  assert.match(command, /community_ensure_account_creator_signed_v1/);
+  const signed=read('supabase/migrations/20261102010000_community_source155_verified_first_account_bootstrap.sql');
+  assert.match(signed, /community_authorize_identity_bootstrap/);
+  assert.match(signed, /community_authorize_signed_session_v2/);
+  assert.match(signed, /auth.sessions/);
   assert.match(command, /community_authorize_session/);
   assert.match(command, /if \(command !== 'ensureAccountCreator'\)/);
-  assert.match(command, /authorizationParams\.p_max_age_seconds = null/);
+  assert.match(command, /p_max_age_seconds: null/);
 });
 
 test('safe bootstrap keeps privileged RPCs service-only', () => {
