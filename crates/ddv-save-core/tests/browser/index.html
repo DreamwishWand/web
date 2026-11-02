@@ -1,0 +1,19 @@
+<!doctype html><html lang="en"><meta charset="utf-8">
+<title>Wand shared Rust Core research only</title><body>
+<p>This is a local synthetic decoded-JSON WASM Worker probe, not the Timekeeper product.</p>
+<script type="module">
+let lagMax=0,heartbeats=0,last=performance.now();
+setInterval(()=>{const now=performance.now();lagMax=Math.max(lagMax,now-last-25);last=now;heartbeats++;},25);
+window.probeResult=null;
+window.probeStart=()=>{
+ const worker=new Worker('./probe-worker.mjs',{type:'module'});
+ const timer=setTimeout(()=>{worker.terminate();window.probeResult={ok:false,error:'WORKER_TIMEOUT'};},180000);
+ worker.onmessage=e=>{clearTimeout(timer);worker.terminate();window.probeResult={
+  ...e.data,mainThreadHeartbeatCount:heartbeats,maxObservedMainThreadLagMs:lagMax,
+  mainJsHeapBytes:typeof performance.memory?.usedJSHeapSize==='number'?
+    performance.memory.usedJSHeapSize:null
+ };};
+ worker.onerror=e=>{clearTimeout(timer);worker.terminate();window.probeResult={ok:false,error:e.message};};
+ worker.postMessage({run:true});
+};
+</script></body></html>
