@@ -43,6 +43,10 @@ test('local bridge and browser fixture cannot be mistaken for managed ingress',(
   assert.ok(fixture.includes('tests/comm-e2-source153-signed-positive.py'));
   assert.ok(fixture.includes('https://wand-disposable-e2.invalid'));
   assert.ok(fixture.includes('scripts/vite-source153-e2.config.mjs'));
+  assert.ok(fixture.includes('sb_publishable_disposable_local_bridge_only'));
+  assert.ok(fixture.includes('E2_REAL_LOCAL_ANON_PUBLIC_KEY'));
+  assert.ok(chrome.includes("headers.get('apikey')===fakeKey"));
+  assert.ok(chrome.includes("headers.set('apikey',localAnon)"));
   assert.ok(chrome.includes('page.addInitScript'));
   assert.ok(chrome.includes("virtual:'https://wand-disposable-e2.invalid'"));
   for(const value of ['cache-control','cdn-cache-control','surrogate-control','vary'])
