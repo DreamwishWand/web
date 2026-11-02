@@ -2,10 +2,11 @@ name: 03 COMM Source-Candidate Clean Bootstrap Acceptance
 
 on:
   push:
-    branches: ['verification/comm-clean-bootstrap-20261024']
+    branches: ['verification/comm-clean-bootstrap-20261024','test/comm308-clean-bootstrap-source154-versioned-20261102']
   workflow_dispatch:
   pull_request:
     paths:
+      - '.github/workflows/comm-clean-bootstrap-acceptance.yml'
       - 'supabase/migrations/**'
       - 'supabase/staging/acceptance/local-clean-bootstrap-synthetic-seed-v1.sql'
       - 'supabase/staging/acceptance/local-clean-bootstrap-scene-identity-guard-v1.sql'
@@ -62,7 +63,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
       - name: Prove exact source head, count and version uniqueness
         shell: bash
         run: |
@@ -72,7 +73,19 @@ jobs:
           from pathlib import Path
           import re
           fs=sorted(Path('supabase/migrations').glob('*.sql'))
-          assert len(fs)==148, f'expected 148 source SQL files, got {len(fs)}'
+          import subprocess
+          baseline='1755d2f37f08bb93604d1839245f8565cf603916'
+          old=[Path(p).name for p in subprocess.check_output(
+              ['git','ls-tree','-r','--name-only',baseline,'--','supabase/migrations'],
+              text=True).splitlines() if p.endswith('.sql')]
+          assert len(old)==153 and len(fs)==154, 'SOURCE154_MIGRATION_COUNT_BASELINE_MISMATCH'
+          assert [p.name for p in fs[:148]]==old[:148], 'HISTORIC_SOURCE148_PREFIX_DRIFT'
+          assert [p.name for p in fs[:153]]==old, 'SOURCE149_153_PREDECESSOR_DRIFT'
+          last='20261102000000_community_source153_signed_session_lineage_v2.sql'
+          assert fs[-1].name==last, 'SOURCE154_NOT_THE_SINGLE_NEW_FINAL_MIGRATION'
+          assert subprocess.check_output(
+            ['git','diff','--name-only',baseline,'HEAD','--','supabase/migrations'],
+            text=True).strip()=='supabase/migrations/'+last, 'HISTORIC_SOURCE_MIGRATION_MUTATED'
           vs=[f.name.split('_',1)[0] for f in fs]
           assert all(re.fullmatch(r'\d{12}(?:\d{2})?',v) for v in vs)
           assert len(vs)==len(set(vs)), 'migration version collision'
@@ -81,7 +94,7 @@ jobs:
                          ('20261025002300','gallery_capacity_effective_cleanup_diagnostics_v1'),
                          ('20261025002400','gallery_known_reference_writer_fence_v1')]:
               assert sum(f.name==v+'_'+name+'.sql' for f in fs)==1
-          print('SOURCE_CANDIDATE_143_D06_MIGRATIONS_UNIQUE_AND_ORDERED_PASS')
+          print('SOURCE148_FROZEN_148_PREFIX_AND_SOURCE154_154_VERSIONED_ADD_ONLY_PASS')
           PY
       - name: Source-Candidate migration static regression
         shell: bash
@@ -133,7 +146,21 @@ jobs:
           DECLARE v int;
           BEGIN
             SELECT count(*) INTO v FROM supabase_migrations.schema_migrations;
-            IF v<>148 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_148: %',v;END IF;
+            IF v<>154 THEN RAISE EXCEPTION 'SOURCE154_LEDGER_COUNT_NOT_154: %',v;END IF;
+            SELECT count(*) INTO v FROM supabase_migrations.schema_migrations
+               WHERE version < '20261028000020';
+            IF v<>148 THEN RAISE EXCEPTION 'SOURCE148_HISTORIC_PREFIX_NOT_148: %',v;END IF;
+            IF (SELECT count(*) FROM supabase_migrations.schema_migrations
+              WHERE version IN ('20261028000020','20261028000030','20261028000040',
+                '20261028000050','20261028000060','20261102000000'))<>6
+            THEN RAISE EXCEPTION 'SOURCE149_154_LEDGER_SUFFIX_INCOMPLETE';END IF;
+            IF to_regclass('private.wand_verified_session_revocations_v1') IS NULL
+               OR to_regprocedure('public.community_authorize_signed_session_v2(uuid,bigint,uuid)') IS NULL
+               OR to_regprocedure('public.community_revoke_signed_session_v1(uuid,bigint,uuid,text)') IS NULL
+            THEN RAISE EXCEPTION 'SOURCE154_SESSION_SCHEMA_MISSING';END IF;
+            IF has_table_privilege('authenticated','private.wand_verified_session_revocations_v1','INSERT')
+               OR has_function_privilege('authenticated','public.community_revoke_signed_session_v1(uuid,bigint,uuid,text)','EXECUTE')
+            THEN RAISE EXCEPTION 'SOURCE154_SESSION_PRIVILEGE_EXPOSED';END IF;
             IF (select enrollment_state from private.community_writer_routes_r16 where writer_key='gallery-comments-legacy')<>'FAIL_CLOSED'
             THEN RAISE EXCEPTION 'R17_LEGACY_REGISTRY_NOT_CLOSED';END IF;
             IF to_regprocedure('public.community_set_gallery_comments_enabled_v1(uuid,uuid,boolean)') IS NULL
@@ -210,7 +237,7 @@ jobs:
             IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid='public.gallery_photo_revision_fields'::regclass)
              OR NOT (SELECT relrowsecurity FROM pg_class WHERE oid='public.community_media_upload_intents'::regclass)
             THEN RAISE EXCEPTION 'RLS_NOT_ENABLED';END IF;
-            RAISE NOTICE 'LOCAL_SOURCE_CANDIDATE_143_D06_LEDGER_FUNCTION_TRIGGER_RLS_ACL_PHYSICAL_FAILCLOSED_PASS';
+            RAISE NOTICE 'SOURCE154_FULL_REPLAY_SOURCE148_PREFIX_LEGACY_RLS_ACL_AND_SESSION_GATE_PASS';
           END $checks$;
           SELECT extname FROM pg_extension ORDER BY extname;
           SELECT n.nspname,COUNT(*) FILTER (WHERE p.prosecdef) AS security_definer_count
