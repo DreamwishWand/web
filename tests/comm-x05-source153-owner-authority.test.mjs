@@ -7,8 +7,8 @@ const edge=read('supabase/functions/community-dreamsnap-owner/index.ts');
 test('Source153 additive only; no Source149-152 replacement or Public writer',()=>{
  const files=readdirSync(new URL('../supabase/migrations/',import.meta.url)).filter(x=>x.endsWith('.sql')).sort();
  assert.equal(files.length,156);
- assert.equal(files.at(-3),'20261028000060_x05_authoritative_owner_projection_v2.sql');
- assert.equal(files.at(-2),'20261102000000_community_source153_signed_session_lineage_v2.sql');
+ assert.equal(files.at(-4),'20261028000060_x05_authoritative_owner_projection_v2.sql');
+ assert.equal(files.at(-3),'20261102000000_community_source153_signed_session_lineage_v2.sql');
  assert.equal(files.at(-2),'20261102010000_community_source155_verified_first_account_bootstrap.sql');
  assert.equal(files.at(-1),'20261103010000_community_source156_signed_gallery_r16_atomic_writer.sql');
  assert.doesNotMatch(sql,/create or replace function public\.community_dreamsnap_x05_(?:owner_read_v1|owner_action_v1|pregrant_read_v1|register_initial_work_v1)\s*\(/);
