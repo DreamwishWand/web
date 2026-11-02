@@ -84,9 +84,9 @@ test('new Source136 clean-bootstrap includes independent Scene-issuer SQL fixtur
  const workflow=read('.github/workflows/comm-clean-bootstrap-acceptance.yml');
  const pg=read('tests/comm-r18-scene-publisher-acl-postgres.py');
  assert.match(workflow,/assert \[p\.name for p in fs\[:148\]\]==old\[:148\]/);
-  assert.match(workflow,/assert len\(old\)==153 and len\(fs\)==154/);
+  assert.ok(workflow.includes("assert len(old)==153 and len(fs)==154"));
   assert.match(workflow,/SOURCE154_NOT_THE_SINGLE_NEW_FINAL_MIGRATION/);
- assert.match(workflow,/IF v<>148 THEN RAISE EXCEPTION 'SOURCE148_HISTORIC_PREFIX_NOT_148/);
+ assert.ok(workflow.includes("IF v<>148 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_148"));
   assert.match(workflow,/IF v<>154 THEN RAISE EXCEPTION 'SOURCE154_LEDGER_COUNT_NOT_154/);
   assert.match(workflow,/supabase db reset --no-seed/);
  assert.match(workflow,/THIRTY_ONE_ADDITIVE_SOURCE_MIGRATIONS/);
