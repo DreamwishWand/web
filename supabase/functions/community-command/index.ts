@@ -13,7 +13,7 @@ function resolveMediaBucketForGallery(): string {
 type JsonObject = Record<string, unknown>;
 
 const commandToRpc = {
-  ensureAccountCreator: 'community_ensure_account_creator',
+  ensureAccountCreator: 'community_ensure_account_creator_signed_v1',
   updateCreatorProfile: 'community_update_creator_profile',
   createGalleryDraft: 'community_create_gallery_draft',
   createGalleryWork: 'community_create_gallery_work_v1',
@@ -150,7 +150,7 @@ async function deriveDdvIdentityDigest(playerId: string): Promise<string> {
 function reply(body: unknown, status = 200) {
   return Response.json(body, {
     status,
-    headers: { ...corsHeaders, 'Cache-Control': 'private, no-store' }
+    headers: { ...corsHeaders, 'Cache-Control': 'private, no-store, max-age=0', 'CDN-Cache-Control': 'no-store', 'Surrogate-Control': 'no-store', 'Vary': 'Authorization, Origin' }
   });
 }
 
@@ -186,45 +186,30 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
     }
     const rpc = commandToRpc[command];
 
-    // Source154 verified GoTrue Session + immutable terminal tombstone is the
-    // shared server authority, not the older account-global cutoff alone.
-    // Product writers require independent DB-atomic acceptance.
-    const {error: signedSessionError} = await ctx.supabaseAdmin.rpc(
-      'community_authorize_signed_session_v2',{
-        p_auth_subject: subject, p_issued_at_epoch: issuedAt,
-        p_session_id: String(ctx.jwtClaims?.session_id ?? '')
-      });
-    if (signedSessionError) return reply({ok:false,error:'SESSION_REVOKED_OR_INVALID'},401);
-    const authorizationRpc =
-      command === 'ensureAccountCreator'
-        ? 'community_authorize_identity_bootstrap'
-        : 'community_authorize_session';
-
-    const authorizationParams: JsonObject = {
-      p_auth_subject: subject,
-      p_issued_at_epoch: issuedAt
-    };
-
+    // First Account needs a special ONE-TRANSACTION verified GoTrue bootstrap.
+    // It MUST NOT bypass Source154 on any existing/other command. The SQL
+    // bootstrap RPC checks the SAME tombstone and ends by enforcing v2.
     if (command !== 'ensureAccountCreator') {
-      authorizationParams.p_max_age_seconds = null;
+      const {error: signedSessionError} = await ctx.supabaseAdmin.rpc(
+        'community_authorize_signed_session_v2',{
+          p_auth_subject: subject, p_issued_at_epoch: issuedAt,
+          p_session_id: sessionId
+        });
+      if (signedSessionError) return reply({ok:false,error:'SESSION_REVOKED_OR_INVALID'},401);
+
+      const {error: sessionError} = await ctx.supabaseAdmin.rpc(
+        'community_authorize_session',{
+          p_auth_subject: subject, p_issued_at_epoch: issuedAt,
+          p_max_age_seconds: null
+        });
+      if (sessionError) return reply({ok:false,error:'SESSION_REVOKED_OR_INVALID'},401);
+    } else if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sessionId)) {
+      return reply({ok:false,error:'SIGNED_BOOTSTRAP_SESSION_REQUIRED'},401);
     }
-
-    const { error: sessionError } = await ctx.supabaseAdmin.rpc(
-      authorizationRpc,
-      authorizationParams
-    );
-
-    if (sessionError) {
-      return reply(
-        {
-          ok: false,
-          error: 'SESSION_REVOKED_OR_INVALID',
-          message: sessionError.message
-        },
-        401
-      );
-    }
-
+    const authorizationParams: JsonObject = {
+      p_auth_subject: subject, p_issued_at_epoch: issuedAt,
+      p_max_age_seconds: null
+    };
     const rateBucket = commandToRateBucket[command];
     if (rateBucket) {
       const { data: rate, error: rateError } = await ctx.supabaseAdmin.rpc(
@@ -264,8 +249,17 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
 
     switch (command) {
       case 'ensureAccountCreator':
+        if (typeof payload.handle !== 'string' ||
+            !/^[A-Za-z0-9][A-Za-z0-9._-]{2,39}$/.test(payload.handle) ||
+            typeof payload.displayName !== 'string' ||
+            payload.displayName.trim().length === 0 ||
+            payload.displayName.length > 80) {
+          return reply({ok:false,error:'SIGNED_BOOTSTRAP_PROFILE_INVALID'},400);
+        }
         params.p_handle = payload.handle;
         params.p_display_name = payload.displayName;
+        params.p_issued_at_epoch = issuedAt;
+        params.p_session_id = sessionId;
         break;
       case 'updateCreatorProfile':
         params.p_expected_version = payload.expectedVersion;
@@ -654,6 +648,11 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       // Bounded jitter is safe only because the DB mutation RPC itself
       // rolls back ALL revisions/Search/Outbox/idempotency on an error.
       await new Promise(resolve => setTimeout(resolve,30+Math.floor(Math.random()*65)));
+    }
+    if (error && command === 'ensureAccountCreator') {
+      // No SQL existence, cleanup, policy or Session data in 401 body.
+      const profileInvalid = error.message.includes('SIGNED_BOOTSTRAP_PROFILE_INVALID');
+      return reply({ok:false,error:profileInvalid?'SIGNED_BOOTSTRAP_PROFILE_INVALID':'SIGNED_BOOTSTRAP_DENIED'},profileInvalid?400:401);
     }
     if (error) {
       const unenrolledGraphWriter =
