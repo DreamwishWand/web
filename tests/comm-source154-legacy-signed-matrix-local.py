@@ -81,6 +81,28 @@ added=r'''
     assert not bypass,"REAL_SIGNED_REVOKED_SESSION_PRIVATE_LEGACY_ROUTE_BYPASS"
 '''
 src=src.replace(needle,needle+"\n"+added,1)
+# R04 is the existing genuine GoTrue refresh probe; reuse its minted token
+# rather than consuming/rotating the original refresh token twice.
+refresh_needle='    marker("R04-REFRESH-A1","REFRESH_CANNOT_RESTORE_REVOKED_SESSION",st)'
+assert src.count(refresh_needle)==1,"FROZEN_REAL_GOTRUE_REFRESH_MARKER_CHANGED"
+refreshed=r'''
+    if st==200:
+      assert jwt_payload(t)["session_id"]==jwt_payload(a1)["session_id"]
+      for q in ("me","myDreamsnaps"):
+        endpoint={"query":q,"payload":({} if q=="me" else {"limit":10})}
+        active,_,_=http("/functions/v1/community-query",body=endpoint,token=a2)
+        refreshed_status,_,_=http("/functions/v1/community-query",body=endpoint,token=t)
+        assert active==200 and refreshed_status==401,"REFRESHED_A1_RESTORED_LEGACY_QUERY_PRIVILEGE"
+        marker("L-REFRESHED-"+q,"A2_200_A1_REFRESHED_401",refreshed_status)
+      count_before=scalar("select count(*) from public.ddv_profile_workspaces where account_id=%s",(account["A"],))
+      refreshed_write,_,_=http("/functions/v1/community-command",body={
+        "command":"createDdvProfileWorkspace","payload":{"relationshipKind":"self"}},token=t)
+      assert refreshed_write==401 and scalar("select count(*) from public.ddv_profile_workspaces where account_id=%s",(account["A"],))==count_before,"REFRESHED_A1_LEGACY_WRITER_MUTATED"
+      marker("L-REFRESHED-WRITER","A1_REFRESHED_401_WORKSPACE_UNCHANGED",refreshed_write)
+    else:
+      marker("L-REFRESHED-NOT-ISSUED","GOTRUE_REFRESH_DENIED_NO_ROTATED_TOKEN_"+str(st))
+'''
+src=src.replace(refresh_needle,refresh_needle+"\n"+refreshed,1)
 try:exec(compile(src,str(p),"exec"),{"__name__":"__main__"})
 except BaseException as e:
     print("SOURCE154_LEGACY_SIGNED_MATRIX_FAILURE "+type(e).__name__,flush=True)

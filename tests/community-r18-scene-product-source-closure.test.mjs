@@ -17,11 +17,13 @@ async function run(action,cfg={}){
  const env={__edge:null,Response,corsHeaders:{},
   withSupabase:(_opts,handler)=>req=>handler(req,{
    userClaims:cfg.noActor?{}:{id:'actor'},
-   jwtClaims:{iat:1761436800},
+   jwtClaims:{iat:1761436800,session_id:'99999999-9999-4999-8999-999999999999'},
    supabaseAdmin:{
     get storage(){throw Error('STORAGE_ACCESSED_BY_SOURCE_STUB')},
     rpc:async(name,args)=>{
      calls.push({name,args});
+     if(name==='community_authorize_signed_session_v2')return cfg.revokedSigned?
+       {data:null,error:{message:'terminal'}}:{data:{authorized:true},error:null};
      if(name!=='community_authorize_session')throw Error('UNAUTHORIZED_MUTATION_RPC:'+name);
      return cfg.revoked?{data:null,error:{message:'revoked'}}:
        {data:{accountId:'owner'},error:null};
@@ -60,8 +62,10 @@ test('actual Scene product source stub rejects all positive lifecycle/storage pa
   assert.equal(h.body.providerCopyAuthorized,false);
   assert.equal(h.body.verificationAttested,false);
   assert.equal(h.body.operatorRolloutRequired,true);
-  assert.equal(h.calls.length,1);
-  assert.equal(h.calls[0].name,'community_authorize_session');
+  assert.equal(h.calls.length,2);
+  assert.equal(h.calls[0].name,'community_authorize_signed_session_v2');
+  assert.equal(h.calls[0].args.p_session_id,'99999999-9999-4999-8999-999999999999');
+  assert.equal(h.calls[1].name,'community_authorize_session');
   assert.equal(h.body.error,['discard','compensate','cleanup'].includes(action)
     ?'R18_SCENE_PRODUCT_STORAGE_CLEANUP_NOT_AUTHORIZED'
     :'R18_SCENE_PRODUCT_WRITER_NOT_ENROLLED');
@@ -89,4 +93,11 @@ test('new Source136 clean-bootstrap includes independent Scene-issuer SQL fixtur
  assert.match(workflow,/comm-r18-scene-publisher-acl-postgres\.py/);
  assert.match(pg,/03COMM_R18_SCENE_SOURCE_ISSUER_ACL_ROLLBACK_ACCEPTED/);
  assert.match(pg,/has_function_privilege/);
+});
+
+test('Scene product signed Session tombstone rejects before existing account guard',async()=>{
+ const h=await run('publish',{revokedSigned:true});
+ assert.equal(h.status,401);
+ assert.equal(h.body.error,'SESSION_REVOKED_OR_INVALID');
+ assert.deepEqual(h.calls.map(x=>x.name),['community_authorize_signed_session_v2']);
 });
