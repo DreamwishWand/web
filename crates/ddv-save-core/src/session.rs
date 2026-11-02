@@ -422,7 +422,7 @@ fn verify_research_guarded_field_scope(
                         w.expected_raw_json==event_id);
                     let oneof_witness=cmd.read_set.iter().any(|w|
                         w.pointer==format!("{base}/OneofVariant") &&
-                        w.expected_raw_json=="\\\"W1\\\"");
+                        w.expected_raw_json=="\"W1\"");
                     id_witness && oneof_witness
                 }
             },
