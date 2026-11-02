@@ -141,7 +141,7 @@ pub fn inspect_w1_source_research(
  // from matching a registry digest. 02 TIME supplies that trusted contract.
  Ok(W1StructuralWitness {
   roots:P1gSourceIdentity {
-   encrypted_p1g_sha256,decoded_json_sha256,registry_sha256:sha256(registry_bytes),
+   encrypted_p1g_sha256:encrypted_source_sha256,decoded_json_sha256,registry_sha256:sha256(registry_bytes),
    platform:"Nintendo Switch".to_owned(),build_identity_kind:"SwitchBid".to_owned(),
    build_id:externally_selected_build_id.to_owned(),schema:626
   },
