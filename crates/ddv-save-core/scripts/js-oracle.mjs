@@ -1,0 +1,30 @@
+// Independent JS semantic and lexical oracle. Rust is the engine under test.
+// Run only on fully synthetic decoded JSON. Does not edit P1G or actual saves.
+import {spawnSync} from 'node:child_process';
+import assert from 'node:assert/strict';
+import {fileURLToPath} from 'node:url';
+const root=fileURLToPath(new URL('../',import.meta.url));
+const pointer='/World/RecurringEvents/0/ItemSpawning/NextOccurrence';
+const old='2126-08-20T00:00:00Z',next='2022-09-06T00:00:00Z';
+const sample=' { "GameInfo": {"Version":626}, "World":{"RecurringEvents":{"0":{"ItemSpawning":{"RecurringEventItemID":2010000021,"NextOccurrence":"'+old+'","LastOccurrence":"'+old+'"}}}}, "Unknown":{"escaped":"\\u00e9", "big":"9007199254740993", "decimal":1.00, "array":[true,null,{"same":"'+old+'"}]} } ';
+const input=Buffer.from(sample,'utf8');
+const result=spawnSync('cargo',['run','--quiet','--manifest-path',root+'/Cargo.toml','--example','patch_json','--',pointer,old,next,'626'],{input,maxBuffer:1024*1024,encoding:null});
+assert.equal(result.status,0,String(result.stderr));
+const output=Buffer.from(result.stdout);
+assert(!output.equals(input));
+const original=JSON.parse(input.toString('utf8'));
+const edited=JSON.parse(output.toString('utf8'));
+const expected=structuredClone(original);
+expected.World.RecurringEvents['0'].ItemSpawning.NextOccurrence=next;
+assert.deepEqual(edited,expected);
+assert.equal(edited.World.RecurringEvents['0'].ItemSpawning.LastOccurrence,old);
+assert.deepEqual(edited.Unknown,original.Unknown);
+const quoteOld='"'+old+'"',quoteNew='"'+next+'"';
+const src=input.toString('utf8'),out=output.toString('utf8');
+const start=src.indexOf(quoteOld);assert(start>=0);
+const lexical=src.slice(0,start)+quoteNew+src.slice(start+quoteOld.length);
+assert.equal(out,lexical,'every unrelated original JSON byte must survive');
+assert(out.includes('"decimal":1.00')&&out.includes('"escaped":"\\u00e9"'));
+assert.equal(src.split(quoteOld).length-1,3);
+assert.equal(out.split(quoteOld).length-1,2);
+console.log('JS_ORACLE_PARITY_SYNTHETIC_ONLY PASS 1/1; independent JS semantics and raw-splice parity');
