@@ -155,3 +155,36 @@ fn independent_new_head_mixed_domains_stale_revision_and_undo_redo_rewitness(){
  assert_eq!(s.source_sha256(),sha);
  assert_eq!(s.export_verified_copy().unwrap_err(),"PRODUCT_P1G_ENCODE_COPY_NOT_AUTHORIZED");
 }
+
+
+#[test]
+fn independent_counterexample_nested_unknown_state_drop_is_not_a_product_write(){
+ let before=json();let sha=sha256(&before);
+ let obj=LogicalIdentity{domain:Domain::Grid,key:"grid:5:object:3".into()};
+ let graph=ReferenceIndex{nodes:BTreeSet::from([obj.clone()]),edges:vec![]};
+ let mut session=SaveSession::open_decoded_research(98,before,626,graph.clone()).unwrap();
+ let cmd=SemanticCommand{
+  domain:Domain::Grid,identity:obj,kind:CommandKind::ReplaceKnownSubtree,
+  pointer:"/World/GridCollection/Grids/5/Objects/3/State".into(),
+  expected_old_json:r#"{"Unseen":"KEEP"}"#.into(),
+  new_json:r#"{"Different":1}"#.into(),read_set:vec![]
+ };
+ // At frozen HEAD 1909dd5 generic research subtree rewrite is allowed but
+ // no semantic owner has established that Unknown was safe to remove.
+ let staged=session.stage_command(TransactionPlan{
+  session_id:98,expected_revision:0,expected_source_sha256:sha,
+  commands:vec![cmd],postconditions:vec![],post_references:graph
+ });
+ assert!(staged.is_ok(),"if frozen HEAD grows a semantic guard, reassess this exact test");
+ assert_eq!(session.revision(),1);
+ let page=session.query_paged(
+  &["/World/GridCollection/Grids/5/Objects/3/State".to_owned()],0,1).unwrap();
+ assert_eq!(page[0].preview_json,r#"{"Different":1}"#);
+ let receipt=session.validate_transaction().unwrap();
+ assert!(!receipt.semantic_domain_guards_accepted);
+ assert!(!receipt.encode_copy_authorized);
+ assert!(!receipt.persistent_replace_authorized);
+ assert_eq!(session.export_verified_copy().unwrap_err(),
+  "PRODUCT_P1G_ENCODE_COPY_NOT_AUTHORIZED");
+ assert_eq!(session.source_sha256(),sha);
+}
