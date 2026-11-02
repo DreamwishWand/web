@@ -1,0 +1,30 @@
+name: 05 QR Core329 Offline V2 Three-Codec Synthetic Harness
+on:
+  pull_request:
+    paths:
+      - 'qa/05qr-core329-private-v2-harness-synthetic.test.mjs'
+      - '.github/workflows/qa-core329-v2-harness.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-v2-synthetic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Pin product Core and private harness exact source to PR329
+        run: git diff --quiet 4c8cf5568ad767c5712dbe948fc6d9dc4dbbac76 HEAD -- crates/ddv-save-core/src crates/ddv-save-core/scripts crates/ddv-save-core/examples crates/ddv-save-core/tests
+      - uses: actions/checkout@v4
+        with:
+          repository: 0xmorarin/Dreamlight-Timekeeper
+          ref: 393222e7832461ef5fea847b6fff475fedc45017
+          path: .timekeeper-codec-fixed
+          persist-credentials: false
+      - name: Independently test original private-local V2 harness with SYNTHETIC ONLY P1G
+        run: node --test qa/05qr-core329-private-v2-harness-synthetic.test.mjs
+      - name: Strict evidence boundary
+        run: echo 'REAL_SAVE_IN_CI=NO; REAL_SAVE_V2=UNVERIFIED; DEVICE=UNVERIFIED; PRODUCT_WRITER=OFF'
