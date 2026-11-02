@@ -1,0 +1,100 @@
+name: COMM Source155 Eligible Signed Media Preset and Atomic Gallery Writer
+on:
+  push:
+    branches:
+      - comm/source154-media-preset-atomic-writer-candidate-20261102
+  pull_request:
+    branches:
+      - comm/source154-legacy-edges-server-gate-repair-20261102
+permissions:
+  contents: read
+jobs:
+  source155-isolated-genuine-session:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Strict isolated source candidate and syntax guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=3a331d4f1fc35d43857554ed7483034a7c4de109
+          git merge-base --is-ancestor "$BASE" HEAD
+          test "$(find supabase/migrations -type f -name '*.sql' | wc -l)" -eq 154
+          test "$(git hash-object supabase/migrations/20261102000000_community_source153_signed_session_lineage_v2.sql)" = 680cb043934a1c0a0e75bd59ba22ce6828a8eedc
+          test "$(git diff --name-only "$BASE" HEAD -- src package.json package-lock.json supabase/config.toml)" = ""
+          python3 -m py_compile tests/comm-source155-eligible-atomic-signed-local.py
+          python3 -m py_compile tests/comm-source154-legacy-signed-matrix-local.py
+          echo SOURCE155_ISOLATED_FROZEN154_AND_PYTHON_PARSE_PASS
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+      - name: Generate ephemeral local GoTrue ES256 signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\n[auth]\nsigning_keys_path = "./signing_keys.json"\n' >> supabase/config.toml
+          printf '[]\n' > supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes >/tmp/s155-signer.log 2>&1
+          python3 - <<'PY'
+          import json
+          keys=json.load(open('supabase/signing_keys.json'))
+          assert any(x.get('kty')=='EC' and x.get('crv')=='P-256' and x.get('d') for x in keys)
+          print('SOURCE155_LOCAL_REAL_ES256')
+          PY
+      - name: Boot disposable FULL154 with explicit isolated-only bucket names
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_source155_disposable_only"\n' | cat - supabase/config.toml >/tmp/s155-config.tmp
+          mv /tmp/s155-config.tmp supabase/config.toml
+          printf 'COMMUNITY_MEDIA_BUCKET=ddvre-source155-local-media\nWEP_PRESET_ARTIFACT_BUCKET=ddvre-source155-local-preset\n' > supabase/functions/.env
+          timeout 1800s supabase start >/tmp/s155-boot.log 2>&1 || {
+            echo SOURCE155_LOCAL_DISPOSABLE_BOOT_FAILED
+            tail -n 60 /tmp/s155-boot.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'
+            exit 1
+          }
+          echo SOURCE155_DISPOSABLE_FULL154_BOOT_SUCCESS
+      - name: Install isolated local PostgreSQL test driver
+        run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Apply candidate-only SQL overlay to disposable database
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import psycopg
+          from pathlib import Path
+          sql=Path('supabase/candidates/20261102000010_source155_atomic_legacy_writer_draft.sql').read_text()
+          with psycopg.connect('postgresql://postgres:postgres@127.0.0.1:54322/postgres') as c:
+            c.execute(sql)
+          print('SOURCE155_CANDIDATE_OVERLAY_LOCAL_ONLY_APPLIED')
+          PY
+      - name: Run genuine signed owner positives and atomic revocation races
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/comm-source155-eligible-atomic-signed-local.py | tee /tmp/s155-sanitized.log
+          grep -q '"case": "S155-ELIGIBLE-MEDIA"' /tmp/s155-sanitized.log
+          grep -q '"case": "S155-ELIGIBLE-PRESET"' /tmp/s155-sanitized.log
+          grep -q '"case": "S155-LOCAL-REVOKER-FIRST"' /tmp/s155-sanitized.log
+          grep -q '"case": "S155-LOCAL-WRITER-FIRST"' /tmp/s155-sanitized.log
+          grep -q '"case": "S155-GLOBAL-REVOKER-FIRST"' /tmp/s155-sanitized.log
+          echo SOURCE155_GENUINE_SIGNED_ELIGIBLE_ATOMIC_CANDIDATE_PASS
+      - name: Tear down disposable stack and erase temporary signer
+        if: always()
+        shell: bash
+        run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f supabase/signing_keys.json supabase/functions/.env /tmp/s155-signer.log /tmp/s155-config.tmp /tmp/s155-boot.log /tmp/s155-sanitized.log
+          echo SOURCE155_LOCAL_TEARDOWN_ATTEMPTED

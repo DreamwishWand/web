@@ -39,7 +39,9 @@ test('R16 incremental Writer is metadata-only, account-first and no optimistic s
  assert.match(acl,/grant execute on function public\.community_set_gallery_comments_enabled_atomic_r16.*to service_role/s);
 });
 test('R16 Edge uses fresh Session retries with same pinned revision/version and R15 unaffected',()=>{
- assert.match(edge,/setGalleryCommentsAtomicR16: 'community_set_gallery_comments_enabled_atomic_r16'/);
+ assert.match(edge,/setGalleryCommentsAtomicR16: 'community_set_gallery_comments_enabled_atomic_signed_v1'/);
+ assert.match(edge,/params\.p_session_id = sessionId/);
+ assert.match(edge,/params\.p_issued_at_epoch = issuedAt/);
  assert.match(edge,/params\.p_expected_current_revision_id = payload.expectedCurrentRevisionId/);
  assert.match(edge,/params\.p_expected_version = payload.expectedVersion/);
  assert.match(edge,/command === 'setGalleryCommentsAtomicR16'\) \? 3 : 1/);

@@ -39,7 +39,7 @@ const commandToRpc = {
   removeReaction: 'community_remove_reaction',
   addComment: 'community_add_comment_v3',
   setGalleryCommentsEnabled: 'community_set_gallery_comments_enabled_v2',
-  setGalleryCommentsAtomicR16: 'community_set_gallery_comments_enabled_atomic_r16',
+  setGalleryCommentsAtomicR16: 'community_set_gallery_comments_enabled_atomic_signed_v1',
   removeGalleryComment: 'community_gallery_author_remove_comment_v2',
   askQuestion: 'community_ask_question_v1',
   addAnswer: 'community_add_answer_v1',
@@ -150,7 +150,7 @@ async function deriveDdvIdentityDigest(playerId: string): Promise<string> {
 function reply(body: unknown, status = 200) {
   return Response.json(body, {
     status,
-    headers: { ...corsHeaders, 'Cache-Control': 'private, no-store' }
+    headers: { ...corsHeaders, 'Cache-Control': 'private, no-store', 'CDN-Cache-Control': 'no-store', 'Surrogate-Control': 'no-store', 'Vary': 'Authorization, Origin' }
   });
 }
 
@@ -162,6 +162,7 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
 
     const issuedAt = Number(ctx.jwtClaims?.iat ?? 0);
     const sessionId = String(ctx.jwtClaims?.session_id ?? '');
+    if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(sessionId)) return reply({ok:false,error:'SESSION_REVOKED_OR_INVALID'},401);
     if (!Number.isInteger(issuedAt) || issuedAt <= 0) {
       return reply({ ok: false, error: 'JWT issued-at claim missing' }, 401);
     }
@@ -444,6 +445,8 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
             typeof payload.idempotencyKey !== 'string' || payload.idempotencyKey.length===0) {
           return reply({ok:false,error:'R16_METADATA_PIN_REQUIRED'},409);
         }
+        params.p_issued_at_epoch = issuedAt;
+        params.p_session_id = sessionId;
         params.p_work_id = payload.workId;
         params.p_expected_version = payload.expectedVersion;
         params.p_expected_current_revision_id = payload.expectedCurrentRevisionId;
