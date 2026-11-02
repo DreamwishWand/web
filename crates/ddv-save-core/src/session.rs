@@ -241,6 +241,29 @@ impl SaveSession {
                 revision:self.revision
             })).collect())
     }
+    /// Additive, research-only guarded staging. Refuses unknown native reference shapes,
+    /// missing asserted Grid->Container edges, structural addition/deletion, and loss of
+    /// any opaque token subtree. Never changes Product Writer authorization.
+    /// The accepted source graph scope is deliberately NOT a complete DDV native graph.
+    pub fn stage_command_source_guarded(
+        &mut self, plan: TransactionPlan, allowed_scalar_leaf_paths: &[String]
+    ) -> EngineResult<ChangeSet> {
+        if plan.session_id != self.session_id { return Err("STALE_SESSION"); }
+        if plan.expected_revision != self.revision { return Err("STALE_REVISION"); }
+        if plan.expected_source_sha256 != self.source_sha { return Err("SOURCE_SHA_CAS_FAILED"); }
+        if plan.commands.is_empty() || plan.commands.len() > MAX_COMMANDS {
+            return Err("TX_COMMAND_COUNT");
+        }
+        let before = self.materialize()?;
+        crate::integrity::audit_grid_container_source(&before, &self.references)?;
+        let after = apply_batch(&before, &plan.commands)?;
+        crate::integrity::verify_opaque_preservation(
+            &before, &after, &plan.commands, allowed_scalar_leaf_paths)?;
+        crate::integrity::audit_grid_container_source(&after, &plan.post_references)?;
+        // Existing exact CAS, read sets, postconditions, schema and atomic commit
+        // are checked AGAIN by the original staging implementation.
+        self.stage_command(plan)
+    }
     pub fn stage_command(&mut self,plan:TransactionPlan)->EngineResult<ChangeSet>{
         if plan.session_id!=self.session_id{return Err("STALE_SESSION");}
         if plan.expected_revision!=self.revision{return Err("STALE_REVISION");}
