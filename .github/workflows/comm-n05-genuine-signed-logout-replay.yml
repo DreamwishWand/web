@@ -1,6 +1,10 @@
 name: COMM N05-N07 Genuine Signed Logout JWT Replay (Disposable)
 on:
+  push:
+    branches:
+      - test/comm-gotrue-logout-jwt-replay-20261102
   pull_request:
+
     branches:
       - qa/03comm-e2-genuine-signed-positive-20261101
 permissions:
