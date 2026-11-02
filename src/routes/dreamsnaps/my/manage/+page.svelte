@@ -5,9 +5,10 @@
   import { locale } from '$lib/i18n/runtime.js';
   import { createCommunityBrowserClient } from '$lib/community/browser-client';
   import { dreamsnapOwnerCopy } from '$lib/dreamsnaps/owner-management-copy.js';
+  import { createOwnerSharedAuthConsumer } from '$lib/dreamsnaps/owner-shared-auth-consumer.js';
   import {
     OWNER_PRODUCT_READONLY_ENABLED, OWNER_PRODUCT_MANAGED_INGRESS_ACCEPTED,
-    ownerProductSignedSessionCandidate, createOwnerProductReadOnlyAdapter
+    createOwnerProductReadOnlyAdapter
   } from '$lib/dreamsnaps/owner-product-readonly.js';
   import {
     createOwnerReadRevalidation, attachOwnerReadBrowserLifecycle
@@ -25,21 +26,22 @@
   let concept = '';
   let preview: ReturnType<typeof validateOwnerDraft> | null = null;
   let ownerSource: ReturnType<typeof createOwnerReadRevalidation> | null = null;
+  let sharedAuthConsumer: ReturnType<typeof createOwnerSharedAuthConsumer> | null = null;
   let ownerSourceStatus = 'BACKEND_UNAVAILABLE';
   let ownerSourceView: any = null;
   let ownerSourceInspect = false;
   let ownerSourceFresh = false;
   const productReadAvailable=OWNER_PRODUCT_READONLY_ENABLED &&
     OWNER_PRODUCT_MANAGED_INGRESS_ACCEPTED;
-  const readCopy: Record<string,{inspect:string;fresh:string;hint:string}> = {
-    en:{inspect:'Check this Work',fresh:'Start a fresh read',hint:'Signed read-only source information, not verified Owner access'},
-    fr:{inspect:'Vérifier cette œuvre',fresh:'Commencer une nouvelle lecture',hint:'Données de source signées, pas un droit de gestion vérifié'},
-    it:{inspect:'Verifica questa opera',fresh:'Avvia una nuova lettura',hint:'Informazioni firmate di sola lettura, non autorizzazione verificata'},
-    de:{inspect:'Werk prüfen',fresh:'Neue Leseanfrage starten',hint:'Signierte Quelldaten, keine bestätigten Besitzerrechte'},
-    'es-ES':{inspect:'Comprobar esta obra',fresh:'Iniciar nueva lectura',hint:'Información firmada de solo lectura, sin derechos verificados'},
-    ja:{inspect:'この作品を再確認',fresh:'新しい読取りを開始',hint:'署名付きSource候補のみ。Owner権限の確認・付与ではありません'},
-    'zh-CN':{inspect:'检查该作品',fresh:'开始新读取',hint:'仅签名来源数据，不表示已验证拥有者权限'},
-    'pt-BR':{inspect:'Verificar esta obra',fresh:'Iniciar nova leitura',hint:'Dados de origem assinados, sem direitos verificados'}
+  const readCopy: Record<string,{inspect:string;fresh:string;hint:string;signInAgain:string}> = {
+    en:{inspect:'Check this Work',fresh:'Start a fresh read',hint:'Signed read-only source information, not verified Owner access',signInAgain:'For security, reload or reopening requires a new sign-in. Saved sessions are not restored.'},
+    fr:{inspect:'Vérifier cette œuvre',fresh:'Commencer une nouvelle lecture',hint:'Données de source signées, pas un droit de gestion vérifié',signInAgain:'Pour votre sécurité, reconnectez-vous après chaque réouverture ou actualisation.'},
+    it:{inspect:'Verifica questa opera',fresh:'Avvia una nuova lettura',hint:'Informazioni firmate di sola lettura, non autorizzazione verificata',signInAgain:'Per sicurezza, accedi di nuovo dopo ogni riapertura o aggiornamento.'},
+    de:{inspect:'Werk prüfen',fresh:'Neue Leseanfrage starten',hint:'Signierte Quelldaten, keine bestätigten Besitzerrechte',signInAgain:'Aus Sicherheitsgründen nach jedem Neuladen oder Öffnen erneut anmelden.'},
+    'es-ES':{inspect:'Comprobar esta obra',fresh:'Iniciar nueva lectura',hint:'Información firmada de solo lectura, sin derechos verificados',signInAgain:'Por seguridad, vuelve a iniciar sesión al reabrir o actualizar la página.'},
+    ja:{inspect:'この作品を再確認',fresh:'新しい読取りを開始',hint:'署名付きSource候補のみ。Owner権限の確認・付与ではありません',signInAgain:'安全のため、ページの再読込みや再オープン後は再ログインが必要です。'},
+    'zh-CN':{inspect:'检查该作品',fresh:'开始新读取',hint:'仅签名来源数据，不表示已验证拥有者权限',signInAgain:'出于安全考虑，重新打开或刷新页面后需要重新登录。'},
+    'pt-BR':{inspect:'Verificar esta obra',fresh:'Iniciar nova leitura',hint:'Dados de origem assinados, sem direitos verificados',signInAgain:'Por segurança, faça login novamente após reabrir ou atualizar a página.'}
   };
   $: ownerReadCopy=readCopy[$locale]??readCopy.en;
 
@@ -49,46 +51,49 @@
   // is permitted until the authenticated Owner backend passes independent QA.
   onMount(() => {
     signedIn=Boolean(client?.session);
-    if(!productReadAvailable || !client)return;
-    // This section cannot activate without a separately accepted managed
-    // auth/ingress contract; the public flags remain false.
-    const gateway=createOwnerProductReadOnlyAdapter({
-      client,
-      endpoint:import.meta.env.VITE_OWNER_MANAGED_READ_ENDPOINT,
-      appOrigin:window.location.origin,
-      sourceOrigin:client.config.supabaseUrl,
-      fetchImpl:fetch
-    });
-    ownerSource=createOwnerReadRevalidation({
-      read:gateway.read,
-      onChange:state=>{
-        ownerSourceStatus=state.status;
-        ownerSourceView=state.view;
-        ownerSourceInspect=state.canInspect;
-        ownerSourceFresh=state.canFreshRead;
-      }
-    });
-    const detach=attachOwnerReadBrowserLifecycle(ownerSource,{
-      documentRef:document,windowRef:window
-    });
-    const syncSignedSession=()=>{
-      const candidate=ownerProductSignedSessionCandidate(client);
-      if(!candidate){
-        ownerSource?.invalidate('SESSION_CHANGED');
-        ownerSourceView=null;
-      }
-    };
-    window.addEventListener('focus',syncSignedSession);
-    window.addEventListener('pageshow',syncSignedSession);
-    if(route.status==='authority-pending'){
-      ownerSource.routeChanged(route.workId);
-      const candidate=ownerProductSignedSessionCandidate(client);
-      if(candidate)ownerSource.replaceSession(candidate.token,candidate.anonKey);
+    if(productReadAvailable && client){
+      const gateway=createOwnerProductReadOnlyAdapter({
+        client,
+        endpoint:import.meta.env.VITE_OWNER_MANAGED_READ_ENDPOINT,
+        appOrigin:window.location.origin,
+        sourceOrigin:client.config.supabaseUrl,
+        fetchImpl:fetch
+      });
+      ownerSource=createOwnerReadRevalidation({
+        read:gateway.read,
+        onChange:state=>{
+          ownerSourceStatus=state.status;
+          ownerSourceView=state.view;
+          ownerSourceInspect=state.canInspect;
+          ownerSourceFresh=state.canFreshRead;
+        }
+      });
     }
+    // One shared Community auth coordinator, even while Owner read is OFF.
+    // Events never include the token; no owner HTTP happens in OFF mode.
+    sharedAuthConsumer=createOwnerSharedAuthConsumer({
+      client,controller:ownerSource,enabled:productReadAvailable,
+      onSessionChange:value=>{
+        signedIn=value;
+        if(!value)ownerSourceView=null;
+      }
+    });
+    sharedAuthConsumer.attach();
+    sharedAuthConsumer.routeChanged(route.workId);
+
+    // Invalidation MUST precede focus/pageshow resume of the controller.
+    const checkLocal=()=>sharedAuthConsumer?.inspectLocalSession();
+    window.addEventListener('focus',checkLocal);
+    window.addEventListener('pageshow',checkLocal);
+    const detach=ownerSource
+      ? attachOwnerReadBrowserLifecycle(ownerSource,{documentRef:document,windowRef:window})
+      : ()=>{};
     return ()=>{
+      window.removeEventListener('focus',checkLocal);
+      window.removeEventListener('pageshow',checkLocal);
       detach();
-      window.removeEventListener('focus',syncSignedSession);
-      window.removeEventListener('pageshow',syncSignedSession);
+      sharedAuthConsumer?.dispose();
+      sharedAuthConsumer=null;
       ownerSource?.dispose();
       ownerSource=null;
     };
@@ -96,20 +101,16 @@
   afterNavigate(({to}) => {
     route = parseOwnerWorkRoute(to?.url?.search ?? '');
     ownerSourceView=null;
-    ownerSource?.routeChanged(route.workId);
-    // Never carry an old signed session or displayed candidate across Work.
-    if(productReadAvailable && route.status==='authority-pending'){
-      const candidate=ownerProductSignedSessionCandidate(client);
-      if(candidate)ownerSource?.replaceSession(candidate.token,candidate.anonKey);
-    }
+    sharedAuthConsumer?.routeChanged(route.workId);
     preview = null; // no stale local preview when the SPA route changes.
     challengeId = ''; concept = '';
   });
 
   async function inspectOwnerSource(fresh=false){
     if(!productReadAvailable || !client || route.status!=='authority-pending' ||
-       !ownerSource || !ownerProductSignedSessionCandidate(client))return;
-    await ownerSource.revalidate({fresh});
+       !ownerSource || !sharedAuthConsumer)return;
+    // Shared getValidSignedSession({signal}) + subscribeSession(), no local refresh.
+    await sharedAuthConsumer.inspect({fresh});
   }
   function showPreview() {
     if (!canPreview) return;
@@ -133,6 +134,7 @@
     <p class="notice" role="status" data-owner-state="authentication-required">
       {copy.signIn} <a href={`${base}/dreamsnaps/my/`}>My DreamSnaps</a>
     </p>
+    <p class="hint" data-owner-session-relogin>{ownerReadCopy.signInAgain}</p>
   {:else if route.status === 'authority-pending'}
     <p class="notice" role="status" data-owner-state="backend-unavailable">{copy.ownerPending}</p>
     {#if productReadAvailable}
@@ -140,7 +142,7 @@
         <p role="status" aria-live="polite" data-owner-product-status>{ownerSourceStatus}</p>
         <p class="hint">{ownerReadCopy.hint}</p>
         <button type="button" on:click={() => inspectOwnerSource(false)}
-          disabled={!ownerSourceInspect} data-owner-product-inspect>{ownerReadCopy.inspect}</button>
+          disabled={!signedIn || ownerSourceStatus==='READING_SOURCE' || ownerSourceFresh} data-owner-product-inspect>{ownerReadCopy.inspect}</button>
         {#if ownerSourceFresh}
           <button type="button" on:click={() => inspectOwnerSource(true)}
             disabled={!ownerSourceFresh} data-owner-product-fresh>{ownerReadCopy.fresh}</button>
