@@ -60,6 +60,10 @@ source+='''
             import re
             permitted=("AssertionError","TimeoutError","TypeError","SyntaxError","Error")
             category=next((x for x in permitted if x in chrome.stderr),"UNKNOWN")
+            # Whitelisted categorical status/HTTP, never token, URL or work ID.
+            diagnostic=re.search(
+              r'WEB154_INITIAL_A1_PROJECTION_(?:BACKEND_UNAVAILABLE|AUTH_REQUIRED|AUTH_UNAVAILABLE|SOURCE_CONTRACT_REJECTED|UNSAFE_CACHE_POLICY|REVALIDATION_REQUIRED|REFRESH_REQUIRED|SIGNED_LOCAL_SESSION_CANDIDATE|READING_SOURCE|OTHER)_HTTP_[0-9]{1,3}',chrome.stderr)
+            if diagnostic:category=diagnostic.group(0)
             script_lines=re.findall(r'web-source154-signed-browser-chrome[.]mjs:([0-9]+)',chrome.stderr)
             raise AssertionError(("SOURCE154_CHROME_FAILED",category,
                 script_lines[-1] if script_lines else "UNKNOWN"))
