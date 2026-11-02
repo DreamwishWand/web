@@ -131,9 +131,9 @@ cutoff_cases=r"""
     # Set native Source cutoff ahead of token iat second: no synthetic JWT
     # claim GUC, no source changes, and no provider session assumptions.
     with db.transaction():
-        db.execute("""update public.auth_identities
-          set sessions_valid_after=date_trunc('second',clock_timestamp())+interval '1 second'
-          where provider='supabase' and provider_subject=%s and identity_state='active'""",
+        db.execute("update public.auth_identities set sessions_valid_after="
+          "date_trunc('second',clock_timestamp())+interval '1 second' "
+          "where provider='supabase' and provider_subject=%s and identity_state='active'",
           (str(users["A"]["id"]),))
     cut,h,body=signed_read(old_a)
     assert cut in (401,403,404),"N06_SERVER_CUTOFF_DID_NOT_BLOCK_OWNER_READ"
