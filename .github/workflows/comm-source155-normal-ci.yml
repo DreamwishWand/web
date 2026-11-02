@@ -1,0 +1,37 @@
+name: COMM Source155 Normal Static and Node Regression
+on:
+  push:
+    branches:
+      - comm/source154-media-preset-atomic-writer-candidate-20261102
+  pull_request:
+    branches:
+      - comm/source154-legacy-edges-server-gate-repair-20261102
+permissions:
+  contents: read
+jobs:
+  source155-normal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Confirm exact isolated parent and no production edits
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 3a331d4f1fc35d43857554ed7483034a7c4de109 HEAD
+          test -z "$(git diff --name-only 3a331d4f1fc35d43857554ed7483034a7c4de109 HEAD -- src package.json package-lock.json)"
+          test "$(git diff --name-only 3a331d4f1fc35d43857554ed7483034a7c4de109 HEAD -- supabase/migrations | wc -l)" -eq 1
+          echo SOURCE155_NEW_ONLY_NO_PRODUCT_SOURCE_DELTA
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build
+      - run: npm test
+      - name: Keep release gates off
+        run: echo "SOURCE155_DRAFT_OFF_NO_STAGING_NO_PROVIDER_NO_NATIVE_NO_DEPLOY"
