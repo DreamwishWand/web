@@ -222,6 +222,83 @@ function loadSession(): CommunitySession | null {
   }
 }
 
+
+export type CommunitySessionEvent = Readonly<{
+  kind: 'signed-in'|'refreshed'|'account-changed'|'logged-out'|'session-invalidated';
+  generation: number;
+  logoutEpoch: number;
+}>;
+type SessionListener = (event: CommunitySessionEvent) => void;
+interface SharedAuth {
+  scope: string;
+  session: CommunitySession | null;
+  generation: number;
+  logoutEpoch: number;
+  refreshFlight: Promise<CommunitySession> | null;
+  listeners: Set<SessionListener>;
+}
+const AUTH_NOTICE_KEY='dreamwishwand-community-logout-notice-v1';
+const authByConfig=new Map<string,SharedAuth>();
+let storageListenerRegistered=false;
+function announce(s:SharedAuth,kind:CommunitySessionEvent['kind']):void{
+  const event=Object.freeze({kind,generation:s.generation,logoutEpoch:s.logoutEpoch});
+  for(const cb of [...s.listeners]){try{cb(event);}catch{/* Auth observers cannot break state. */}}
+}
+function invalidateOtherTabs(scope:string):void{
+  if(typeof localStorage==='undefined')return;
+  try{
+    // No token, AccountID, email, password, session or refresh secret here.
+    localStorage.setItem(AUTH_NOTICE_KEY,JSON.stringify({
+      kind:'logout',scope,nonce:crypto.randomUUID()
+    }));
+  }catch{/* A browser may disallow localStorage; this tab still fails closed. */}
+}
+function commitSession(s:SharedAuth,next:CommunitySession|null,
+ kind:CommunitySessionEvent['kind'],broadcast=false):void{
+  s.generation++;
+  if(!next)s.logoutEpoch++;
+  s.session=next?{...next}:null;
+  saveSession(s.session);
+  announce(s,kind);
+  if(broadcast)invalidateOtherTabs(s.scope);
+}
+function sharedAuth(config:CommunityLabConfig):SharedAuth{
+  const key=JSON.stringify([config.supabaseUrl,config.publishableKey]);
+  let s=authByConfig.get(key);
+  if(!s){
+    s={scope:config.supabaseUrl,session:loadSession(),
+      generation:0,logoutEpoch:0,refreshFlight:null,listeners:new Set()};
+    authByConfig.set(key,s);
+  }
+  if(!storageListenerRegistered && typeof window!=='undefined'){
+    storageListenerRegistered=true;
+    window.addEventListener('storage',(event:StorageEvent)=>{
+      if(event.key!==AUTH_NOTICE_KEY||!event.newValue)return;
+      let message:any;
+      try{message=JSON.parse(event.newValue);}catch{return;}
+      if(message?.kind!=='logout'||typeof message.scope!=='string')return;
+      for(const state of authByConfig.values())
+        if(state.scope===message.scope)
+          commitSession(state,null,'session-invalidated');
+    });
+  }
+  return s;
+}
+function assertUnchanged(s:SharedAuth,generation:number,epoch:number):void{
+  if(s.generation!==generation||s.logoutEpoch!==epoch||!s.session)
+    throw new Error('SESSION_STALE_OR_LOGGED_OUT');
+}
+async function waitWithAbort<T>(promise:Promise<T>,signal?:AbortSignal):Promise<T>{
+  if(!signal)return promise;
+  if(signal.aborted)throw new Error('SESSION_REQUEST_ABORTED');
+  return new Promise<T>((resolve,reject)=>{
+    const cancel=()=>{cleanup();reject(new Error('SESSION_REQUEST_ABORTED'));};
+    const cleanup=()=>signal.removeEventListener('abort',cancel);
+    signal.addEventListener('abort',cancel,{once:true});
+    promise.then(v=>{cleanup();resolve(v);},e=>{cleanup();reject(e);});
+  });
+}
+
 export class CommunityLabClient {
   readonly config: CommunityLabConfig;
 
@@ -233,16 +310,55 @@ export class CommunityLabClient {
       publishableKey: state.publishableKey
     };
   }
-  #session: CommunitySession | null;
+  #auth: SharedAuth;
 
   constructor(config: CommunityLabConfig) {
     this.config = assertConfig(config);
-    this.#session = loadSession();
+    this.#auth = sharedAuth(this.config);
   }
 
   get session(): CommunitySession | null {
-    return this.#session ? { ...this.#session } : null;
+    return this.#auth.session ? { ...this.#auth.session } : null;
   }
+
+  /** Tokenless same-tab events; remote tabs receive invalidation only. */
+  subscribeSession(callback:SessionListener):()=>void{
+    this.#auth.listeners.add(callback);
+    return ()=>{this.#auth.listeners.delete(callback);};
+  }
+
+  /** Credential candidate, never server-side Owner authorization proof. */
+  async getValidSignedSession({signal}:{signal?:AbortSignal}={}):Promise<CommunitySession>{
+    const shared=this.#auth;
+    if(signal?.aborted)throw new Error('SESSION_REQUEST_ABORTED');
+    if(!shared.session)throw new Error('Sign in before calling Community APIs.');
+    const epoch=shared.logoutEpoch;
+    const session=shared.session.expiresAt-Date.now()<60000
+      ? await waitWithAbort(this.#refresh(),signal)
+      : {...shared.session};
+    if(shared.logoutEpoch!==epoch||!shared.session||
+       shared.session.accessToken!==session.accessToken)
+      throw new Error('SESSION_STALE_OR_LOGGED_OUT');
+    if(signal?.aborted)throw new Error('SESSION_REQUEST_ABORTED');
+    return {...session};
+  }
+
+  #startLogin():{generation:number;epoch:number;previous:string|null}{
+    const previous=this.#auth.session?.userId??null;
+    commitSession(this.#auth,null,'session-invalidated',Boolean(previous));
+    return {generation:this.#auth.generation,epoch:this.#auth.logoutEpoch,previous};
+  }
+  #acceptLogin(session:CommunitySession,intent:{
+    generation:number;epoch:number;previous:string|null
+  }):CommunitySession{
+    if(this.#auth.generation!==intent.generation||
+       this.#auth.logoutEpoch!==intent.epoch)
+      throw new Error('SESSION_STALE_OR_LOGGED_OUT');
+    commitSession(this.#auth,session,intent.previous&&intent.previous!==session.userId
+      ?'account-changed':'signed-in');
+    return {...session};
+  }
+
 
   async requestPasswordRecovery(email: string, redirectTo: string): Promise<void> {
     const verifier = createPkceVerifier();
@@ -302,6 +418,7 @@ export class CommunityLabClient {
       throw new Error('Password-recovery flow belongs to a different Auth configuration.');
     }
 
+    const intent=this.#startLogin();
     const response = await fetch(
       `${this.config.supabaseUrl}/auth/v1/token?grant_type=pkce`,
       {
@@ -318,9 +435,7 @@ export class CommunityLabClient {
     );
 
     try {
-      this.#session = toSession(await parseResponse(response));
-      saveSession(this.#session);
-      return this.session!;
+      return this.#acceptLogin(toSession(await parseResponse(response)),intent);
     } finally {
       localStorage.removeItem(RECOVERY_KEY);
     }
@@ -414,6 +529,7 @@ export class CommunityLabClient {
   }
 
   async signInWithPassword(email: string, password: string): Promise<CommunitySession> {
+    const intent=this.#startLogin();
     const response = await fetch(
       `${this.config.supabaseUrl}/auth/v1/token?grant_type=password`,
       {
@@ -426,53 +542,32 @@ export class CommunityLabClient {
       }
     );
 
-    this.#session = toSession(await parseResponse(response));
-    saveSession(this.#session);
-    return this.session!;
+    return this.#acceptLogin(toSession(await parseResponse(response)),intent);
   }
 
   async signOut(): Promise<void> {
-    const current = this.#session;
-
-    try {
-      if (current) {
-        await fetch(`${this.config.supabaseUrl}/auth/v1/logout?scope=local`, {
-          method: 'POST',
-          headers: {
-            apikey: this.config.publishableKey,
-            authorization: `Bearer ${current.accessToken}`
-          }
-        });
-      }
-    } finally {
-      this.#session = null;
-      saveSession(null);
-    }
+    const current=this.session;
+    commitSession(this.#auth,null,'logged-out',true);
+    if(current)await fetch(this.config.supabaseUrl+'/auth/v1/logout?scope=local',{
+      method:'POST',headers:{apikey:this.config.publishableKey,
+        authorization:'Bearer '+current.accessToken}
+    });
   }
 
   async revokeAllSessions(): Promise<EdgeResult> {
-    const current = await this.#validSession();
-
-    const providerResponse = await fetch(
-      `${this.config.supabaseUrl}/auth/v1/logout?scope=global`,
-      {
-        method: 'POST',
-        headers: {
-          apikey: this.config.publishableKey,
-          authorization: `Bearer ${current.accessToken}`
-        }
-      }
-    );
-
-    await parseResponse(providerResponse);
-
-    try {
-      const result = await this.command('revokeSessions', {});
-      return result;
-    } finally {
-      this.#session = null;
-      saveSession(null);
-    }
+    const current=await this.#validSession();
+    commitSession(this.#auth,null,'logged-out',true);
+    const response=await fetch(this.config.supabaseUrl+'/auth/v1/logout?scope=global',{
+      method:'POST',headers:{apikey:this.config.publishableKey,
+        authorization:'Bearer '+current.accessToken}
+    });
+    await parseResponse(response);
+    const commandResponse=await fetch(this.config.supabaseUrl+'/functions/v1/community-command',{
+      method:'POST',headers:{apikey:this.config.publishableKey,
+        authorization:'Bearer '+current.accessToken,'content-type':'application/json'},
+      body:JSON.stringify({command:'revokeSessions',payload:{}})
+    });
+    return parseResponse(commandResponse) as Promise<EdgeResult>;
   }
 
   async command<T = unknown>(
@@ -486,7 +581,7 @@ export class CommunityLabClient {
     query: string,
     payload: Record<string, unknown> = {}
   ): Promise<EdgeResult<T>> {
-    return this.#edge<EdgeResult<T>>('community-query', { query, payload });
+    return this.#edge<EdgeResult<T>>('community-query', { query, payload }, true);
   }
 
   async media<T = unknown>(
@@ -532,6 +627,7 @@ export class CommunityLabClient {
       return result;
     }
 
+    commitSession(this.#auth,null,'logged-out',true);
     try {
       await fetch(`${this.config.supabaseUrl}/auth/v1/logout?scope=global`, {
         method: 'POST',
@@ -541,8 +637,7 @@ export class CommunityLabClient {
         }
       });
     } finally {
-      this.#session = null;
-      saveSession(null);
+      // State was invalidated before the network could resolve.
     }
 
     return result;
@@ -634,62 +729,57 @@ export class CommunityLabClient {
     return { mediaId, finalize, read };
   }
 
-  async #refresh(): Promise<CommunitySession> {
-    if (!this.#session?.refreshToken) {
-      throw new Error('No refresh token is available. Sign in again.');
-    }
-
-    const response = await fetch(
-      `${this.config.supabaseUrl}/auth/v1/token?grant_type=refresh_token`,
-      {
-        method: 'POST',
-        headers: {
-          apikey: this.config.publishableKey,
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify({ refresh_token: this.#session.refreshToken })
+  async #refresh():Promise<CommunitySession>{
+    const shared=this.#auth;
+    if(shared.refreshFlight)return shared.refreshFlight;
+    const old=shared.session;
+    if(!old?.refreshToken)throw new Error('No refresh token is available. Sign in again.');
+    const generation=shared.generation,epoch=shared.logoutEpoch;
+    const flight=(async()=>{
+      try{
+        const response=await fetch(this.config.supabaseUrl+'/auth/v1/token?grant_type=refresh_token',{
+          method:'POST',headers:{apikey:this.config.publishableKey,'content-type':'application/json'},
+          body:JSON.stringify({refresh_token:old.refreshToken})
+        });
+        const updated=toSession(await parseResponse(response));
+        assertUnchanged(shared,generation,epoch);
+        if(updated.userId!==old.userId)throw new Error('SESSION_REFRESH_SUBJECT_CHANGED');
+        commitSession(shared,updated,'refreshed');
+        return {...updated};
+      }catch(error){
+        if(shared.generation===generation&&shared.logoutEpoch===epoch)
+          commitSession(shared,null,'session-invalidated',true);
+        throw error;
       }
-    );
-
-    this.#session = toSession(await parseResponse(response));
-    saveSession(this.#session);
-    return this.#session;
+    })();
+    shared.refreshFlight=flight;
+    try{return await flight;}
+    finally{if(shared.refreshFlight===flight)shared.refreshFlight=null;}
   }
 
-  async #validSession(): Promise<CommunitySession> {
-    if (!this.#session) {
-      throw new Error('Sign in before calling Community APIs.');
-    }
-
-    if (this.#session.expiresAt - Date.now() < 60_000) {
-      return this.#refresh();
-    }
-
-    return this.#session;
+  async #validSession():Promise<CommunitySession>{
+    return this.getValidSignedSession();
   }
 
-  async #edge<T>(slug: string, body: unknown, retry = true): Promise<T> {
-    const session = await this.#validSession();
-
-    const response = await fetch(`${this.config.supabaseUrl}/functions/v1/${slug}`, {
-      method: 'POST',
-      headers: {
-        apikey: this.config.publishableKey,
-        authorization: `Bearer ${session.accessToken}`,
-        'content-type': 'application/json'
-      },
-      body: JSON.stringify(body)
+  async #edge<T>(slug:string,body:unknown,retry=false):Promise<T>{
+    const session=await this.#validSession();
+    const shared=this.#auth,generation=shared.generation,epoch=shared.logoutEpoch;
+    const response=await fetch(this.config.supabaseUrl+'/functions/v1/'+slug,{
+      method:'POST',headers:{apikey:this.config.publishableKey,
+        authorization:'Bearer '+session.accessToken,'content-type':'application/json'},
+      body:JSON.stringify(body)
     });
-
-    if (response.status === 401 && retry) {
+    assertUnchanged(shared,generation,epoch);
+    // Never blindly replay a possibly committed non-idempotent Writer.
+    if(response.status===401&&retry&&slug==='community-query'){
       await this.#refresh();
-      return this.#edge<T>(slug, body, false);
+      return this.#edge<T>(slug,body,false);
     }
-
-    return parseResponse(response) as Promise<T>;
+    const result=await parseResponse(response) as T;
+    assertUnchanged(shared,generation,epoch);
+    return result;
   }
 }
-
 
 export { CommunityLabClient as CommunityClient };
 export type CommunityClientConfig = CommunityLabConfig;
