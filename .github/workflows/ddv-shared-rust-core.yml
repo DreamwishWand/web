@@ -45,7 +45,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Compile native research-only example
-        run: cargo build --manifest-path crates/ddv-save-core/Cargo.toml --example patch_json
+        run: cargo build --manifest-path crates/ddv-save-core/Cargo.toml --release --example patch_json
       - name: Generate exact decimal MB fixture, patch and sample child RSS
         run: |
           node crates/ddv-save-core/scripts/benchmark-native.mjs \
