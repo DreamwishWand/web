@@ -26,6 +26,14 @@ function rust(mode,bytes){
 const generated=rust('fixture');
 assert.equal(generated.status,0,generated.error);
 const opened=await wand.loadProfile(new Uint8Array(generated.output));
+if(isTimekeeper){
+ const auditModule=new URL('../../../.timekeeper-codec-fixed/src/core/p1g-envelope-audit.mjs',import.meta.url);
+ const {auditP1gEnvelope}=await import(auditModule.href);
+ const checked=auditP1gEnvelope({format:'packaged',metadata:opened.metadata});
+ assert.equal(checked.repackageShapeObserved,true,
+  JSON.stringify({findings:checked.findings,localObserved:checked.localHeaderObserved,
+   localParity:checked.localHeaderFieldsMatchCentral,lengths:checked.lengths}));
+}
 const src=opened.jsonText;
 assert.equal(JSON.parse(src).GameInfo.Version,626);
 const old='"NextOccurrence":"2126-08-20T00:00:00Z"';
