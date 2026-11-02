@@ -1,0 +1,37 @@
+name: 01A Unified SaveSession 256-512MB decoded JSON stress (NOT P1G)
+on:
+  push:
+    branches: [research/01a-shared-rust-save-core-20261102]
+    paths:
+      - 'crates/ddv-save-core/tests/unified_session_stress.rs'
+      - '.github/workflows/ddv-shared-rust-stress.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-decoded-json-stress:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { size: 256, test: decoded_256_decimal_mb_full_strict_scan_one_session_and_paged_projection }
+          - { size: 512, test: decoded_512_decimal_mb_rejects_current_research_parser_limit_without_writer_promotion }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Exact source and target metadata
+        run: |
+          git rev-parse HEAD
+          rustc --version
+          cargo --version
+          echo 'SCOPE=SYNTHETIC_DECODED_JSON_ONLY; no WASM Worker or P1G'
+      - name: Build and run one opt-in stress case
+        run: |
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml \
+            --test unified_session_stress '${{ matrix.test }}' \
+            -- --ignored --test-threads=1 --nocapture
+      - name: Evidence boundary
+        run: |
+          echo '256MB decimal scan + 512MB current-bound denial do not grant product Writer'
+          echo 'NOT_ACCEPTED=P1G_AES_ZIP_CRC_DEFLATE|ENCODE_COPY|RUNTIME_TESTED|MAX_DEVICE_SIZE'
