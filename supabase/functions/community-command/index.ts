@@ -203,8 +203,16 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
           p_max_age_seconds: null
         });
       if (sessionError) return reply({ok:false,error:'SESSION_REVOKED_OR_INVALID'},401);
-    } else if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sessionId)) {
-      return reply({ok:false,error:'SIGNED_BOOTSTRAP_SESSION_REQUIRED'},401);
+    } else {
+      // Signed anonymous GoTrue sessions are NOT eligible for Wand identity
+      // onboarding. Do not treat the authenticated role alone as age proof.
+      if (ctx.jwtClaims?.role !== 'authenticated' ||
+          ctx.jwtClaims?.is_anonymous === true) {
+        return reply({ok:false,error:'SIGNED_BOOTSTRAP_AUTHENTICATED_USER_REQUIRED'},401);
+      }
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sessionId)) {
+        return reply({ok:false,error:'SIGNED_BOOTSTRAP_SESSION_REQUIRED'},401);
+      }
     }
     const authorizationParams: JsonObject = {
       p_auth_subject: subject, p_issued_at_epoch: issuedAt,
