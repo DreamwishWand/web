@@ -24,6 +24,8 @@ fn saved_oneof_has_separate_raw_string_and_decoded_utc_cas(){
  assert_ne!(proof.roots.decoded_json_sha256,proof.roots.encrypted_p1g_sha256);
  assert_ne!(proof.roots.registry_sha256,proof.roots.encrypted_p1g_sha256);
  assert!(proof.registry_digest_matched);
+ assert!(proof.roots.external_build_selection_only);
+ assert!(!proof.roots.build_cryptographically_bound_to_save);
  assert!(!proof.registry_event_semantics_verified);
  assert!(!proof.required_reference_closure_complete);
  assert!(!proof.encode_copy_authorized);
