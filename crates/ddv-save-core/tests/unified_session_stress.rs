@@ -19,7 +19,7 @@ fn fixture(bytes:usize)->Vec<u8>{
 fn decoded_256_decimal_mb_full_strict_scan_one_session_and_paged_projection(){
  let bytes=fixture(256_000_000);
  let hash=sha256(&bytes);
- let s=SaveSession::open_decoded_research(256,bytes,626,ReferenceIndex::default()).unwrap();
+ let mut s=SaveSession::open_decoded_research(256,bytes,626,ReferenceIndex::default()).unwrap();
  assert_eq!(s.original_len(),256_000_000);
  assert_eq!(s.source_sha256(),hash);
  // No full UI JSON projection; one bounded identity/token result.
