@@ -157,6 +157,7 @@ impl SaveSession {
             return Err("SAVE_SCHEMA_MISMATCH");
         }
         refs.check()?;
+        crate::semantic_safety::verify_observed_chest_edges(&decoded_json,&refs)?;
         let hash=sha256(&decoded_json);
         Ok(Self {
             session_id,source:Arc::from(decoded_json),source_sha:hash,schema,
@@ -266,7 +267,9 @@ impl SaveSession {
             touched.insert(cmd.identity.clone());
         }
         let before=self.materialize()?;
+        crate::semantic_safety::verify_observed_chest_edges(&before,&self.references)?;
         let after=apply_batch(&before,&plan.commands)?;
+        crate::semantic_safety::verify_observed_chest_edges(&after,&plan.post_references)?;
         // Schema and all JSON fields are revalidated; no semantic domain rules
         // are fabricated here. Existing Wand validators own that missing gate.
         validate_json(&after)?;
@@ -322,6 +325,7 @@ impl SaveSession {
         let before=self.materialize()?;
         let after=apply_batch(&before,&entry.commands)?;
         validate_json(&after)?;
+        crate::semantic_safety::verify_observed_chest_edges(&after,&entry.after)?;
         if after==before{return Err("REDO_NO_OP");}
         let next=self.revision.checked_add(1).ok_or("REVISION_OVERFLOW")?;
         let next_generation=self.index_generation.checked_add(1).ok_or("INDEX_GENERATION_OVERFLOW")?;
@@ -337,6 +341,7 @@ impl SaveSession {
         let current=self.materialize()?;
         validate_json(&current)?;
         self.references.check()?;
+        crate::semantic_safety::verify_observed_chest_edges(&current,&self.references)?;
         if sha256(&self.source)!=self.source_sha{return Err("ORIGINAL_CHANGED");}
         Ok(ValidationReceipt{
             session_id:self.session_id,revision:self.revision,
@@ -405,6 +410,7 @@ fn apply_batch(before:&[u8],commands:&[SemanticCommand])->EngineResult<Vec<u8>>{
                 if cmd.new_json.len()>MAX_DECODED_JSON_BYTES/2{
                     return Err("STRUCTURAL_SUBTREE_TOO_LARGE");
                 }
+                crate::semantic_safety::reject_structural_loss(&hit.value,&cmd.new_json)?;
             }
         }
         if cmd.new_json==hit.value{return Err("NO_OP_DENIED");}
