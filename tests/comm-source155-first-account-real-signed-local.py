@@ -127,7 +127,14 @@ with psycopg.connect(DSN,autocommit=True) as db:
         assert ba!=account and bc!=creator
         assert scalar("select owner_account_id from public.creator_profiles where creator_profile_id=%s",(bc,))==ba
         assert scalar("select count(*) from public.account_roles where account_id=%s",(ba,))==0
-    marker("B03-B-M-SEPARATION","SIGNED_FOREIGN_BODY_SUBJECT_SESSION_IGNORED_NO_PRIVILEGE_GRANT",200)
+        if who=="M":
+            with db.transaction():
+                db.execute("insert into public.account_roles(account_id,role) values(%s,'moderator')",(ba,))
+            again,signed_m=bootstrap(t,"forged_"+secrets.token_hex(5),
+                extra={"authSubject":str(A["id"]),"sessionId":jwt(a0,1)["session_id"],"admin":True})
+            assert again==200 and ids(signed_m)==(ba,bc)
+            assert scalar("select count(*) from public.account_roles where account_id=%s and role='admin'",(ba,))==0
+    marker("B03-B-M-SEPARATION","SIGNED_B_AND_ACTUAL_MODERATOR_M_FOREIGN_SUBJECT_IGNORED_NO_ADMIN_GRANT",200)
 
     # Provider-registered but signed A1 and live A2 (different Session IDs).
     a1,refresh1=login(A)
