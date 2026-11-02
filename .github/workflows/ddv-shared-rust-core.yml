@@ -4,6 +4,12 @@ on:
     paths:
       - 'crates/ddv-save-core/**'
       - '.github/workflows/ddv-shared-rust-core.yml'
+  push:
+    branches:
+      - 'research/01a-source-closure-opaque-qa-20261102'
+    paths:
+      - 'crates/ddv-save-core/**'
+      - '.github/workflows/ddv-shared-rust-core.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -22,6 +28,8 @@ jobs:
         run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --all-targets --verbose
       - name: Independent JS oracle (test-only decoded JSON)
         run: node crates/ddv-save-core/scripts/js-oracle.mjs
+      - name: Independent JS source/opaque oracle (synthetic ONLY)
+        run: node crates/ddv-save-core/scripts/js-source-closure-oracle.mjs
       - name: Independent Node AES-ECB/ZIP/Deflate/CRC oracle (synthetic ONLY)
         run: node crates/ddv-save-core/scripts/js-p1g-cross-codec-oracle.mjs
       - name: WASM target compile (NOT browser runtime)

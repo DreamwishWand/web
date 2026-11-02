@@ -420,6 +420,7 @@ pub fn index_selected_tokens(source: &[u8], pointers: &[String]) -> EngineResult
     Ok(result)
 }
 pub mod session;
+pub mod integrity;
 pub mod p1g;
 
 

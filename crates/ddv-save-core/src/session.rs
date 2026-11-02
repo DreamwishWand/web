@@ -241,6 +241,32 @@ impl SaveSession {
                 revision:self.revision
             })).collect())
     }
+    /// Additive, research-only guarded staging. Refuses unknown native reference shapes,
+    /// missing asserted Grid->Container edges, structural addition/deletion, and loss of
+    /// any opaque token subtree. Never changes Product Writer authorization.
+    /// The accepted source graph scope is deliberately NOT a complete DDV native graph.
+    pub fn stage_command_source_guarded(
+        &mut self, plan: TransactionPlan, allowed_scalar_leaf_paths: &[String]
+    ) -> EngineResult<ChangeSet> {
+        if plan.session_id != self.session_id { return Err("STALE_SESSION"); }
+        if plan.expected_revision != self.revision { return Err("STALE_REVISION"); }
+        if plan.expected_source_sha256 != self.source_sha { return Err("SOURCE_SHA_CAS_FAILED"); }
+        if plan.commands.is_empty() || plan.commands.len() > MAX_COMMANDS {
+            return Err("TX_COMMAND_COUNT");
+        }
+        let before = self.materialize()?;
+        crate::integrity::audit_grid_container_source(&before, &self.references)?;
+        let after = apply_batch(&before, &plan.commands)?;
+        // A caller-provided leaf list is not an authorization policy. Unknown
+        // paths cannot be laundered into the mutable set by naming them.
+        verify_research_guarded_field_scope(&plan.commands, allowed_scalar_leaf_paths)?;
+        crate::integrity::verify_opaque_preservation(
+            &before, &after, &plan.commands, allowed_scalar_leaf_paths)?;
+        crate::integrity::audit_grid_container_source(&after, &plan.post_references)?;
+        // Existing exact CAS, read sets, postconditions, schema and atomic commit
+        // are checked AGAIN by the original staging implementation.
+        self.stage_command(plan)
+    }
     pub fn stage_command(&mut self,plan:TransactionPlan)->EngineResult<ChangeSet>{
         if plan.session_id!=self.session_id{return Err("STALE_SESSION");}
         if plan.expected_revision!=self.revision{return Err("STALE_REVISION");}
@@ -360,6 +386,51 @@ impl SaveSession {
         }
         Ok(bytes)
     }
+}
+/// Narrow known-field whitelist for synthetic research only. Native gameplay semantics,
+/// event ownership, entitlement and cross-domain closure remain unverified, so passing
+/// this cannot authorize an encoded copy or any product write.
+fn verify_research_guarded_field_scope(
+    commands: &[SemanticCommand], leaves: &[String]
+) -> EngineResult<()> {
+    for leaf in leaves {
+        let matches:Vec<&SemanticCommand> = commands.iter().filter(|cmd|
+            leaf == &cmd.pointer || leaf.starts_with(&(cmd.pointer.clone() + "/"))
+        ).collect();
+        if matches.len() != 1 { return Err("GUARDED_MUTATION_COMMAND_SCOPE"); }
+        let cmd=matches[0];
+        let segments:Vec<&str>=cmd.pointer.split('/').skip(1).collect();
+        let recognized=match cmd.domain {
+            Domain::Grid =>
+                segments.len()==6 && segments[0]=="World" &&
+                segments[1]=="GridCollection" && segments[2]=="Grids" &&
+                segments[4]=="Objects" &&
+                cmd.identity.key==format!("grid:{}:object:{}",segments[3],segments[5]) &&
+                matches!(leaf.strip_prefix(&(cmd.pointer.clone()+"/")),
+                    Some("X"|"Y"|"Orientation"|"State/Storage/ContainerInventoryID")),
+            Domain::RecurringEvent => {
+                let Some(base)=cmd.pointer.strip_suffix("/NextOccurrence") else {
+                    return Err("GUARDED_FIELD_NOT_SEMANTICALLY_KNOWN");
+                };
+                if leaf != &cmd.pointer || cmd.kind!=CommandKind::ReplaceStringToken ||
+                    !base.starts_with("/World/RecurringEvents/") ||
+                    !base.ends_with("/ItemSpawning") { false }
+                else {
+                    let event_id=cmd.identity.key.strip_prefix("event:").unwrap_or("");
+                    let id_witness=cmd.read_set.iter().any(|w|
+                        w.pointer==format!("{base}/RecurringEventItemID") &&
+                        w.expected_raw_json==event_id);
+                    let oneof_witness=cmd.read_set.iter().any(|w|
+                        w.pointer==format!("{base}/OneofVariant") &&
+                        w.expected_raw_json=="\"W1\"");
+                    id_witness && oneof_witness
+                }
+            },
+            _ => false
+        };
+        if !recognized { return Err("GUARDED_FIELD_NOT_SEMANTICALLY_KNOWN"); }
+    }
+    Ok(())
 }
 fn apply_batch(before:&[u8],commands:&[SemanticCommand])->EngineResult<Vec<u8>>{
     if commands.is_empty()||commands.len()>MAX_COMMANDS{return Err("TX_COMMAND_COUNT");}
