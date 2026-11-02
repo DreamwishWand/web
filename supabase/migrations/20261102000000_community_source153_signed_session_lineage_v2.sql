@@ -110,3 +110,54 @@ grant execute on function public.community_authorize_signed_session_v2(uuid,bigi
   to service_role;
 grant execute on function public.community_revoke_signed_session_v1(uuid,bigint,uuid,text)
   to service_role;
+
+-- Close the direct PostgREST bypass: existing authenticated Source149–153
+-- SQL writers/readers all call this *private* verifier inside their transaction.
+-- Historical Source150 migration remains frozen; only this forward migration
+-- rebinds the private verifier, preserving original for-share Account locks.
+create or replace function private.dreamsnap_x05_verified_db_subject_v1()
+returns uuid language plpgsql volatile security definer
+set search_path=pg_catalog,auth,public,private as $verified$
+declare
+  v_subject uuid;
+  v_iat bigint;
+  v_role text;
+  v_claims jsonb;
+  v_identity record;
+begin
+  v_claims:=auth.jwt();
+  v_role:=v_claims->>'role';
+  if v_role is distinct from 'authenticated'
+     or coalesce(v_claims->>'is_anonymous','false')='true'
+     or v_claims->>'sub' is null
+     or v_claims->>'sub' !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+     or v_claims->>'session_id' is null
+     or v_claims->>'session_id' !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+     or v_claims->>'iat' is null
+     or v_claims->>'iat' !~ '^[0-9]{9,12}$'
+  then raise exception 'X05_VERIFIED_SUBJECT_REQUIRED'; end if;
+  v_subject:=(v_claims->>'sub')::uuid;
+  v_iat:=(v_claims->>'iat')::bigint;
+  if auth.uid() is distinct from v_subject
+     or to_timestamp(v_iat)>clock_timestamp()+interval '30 seconds'
+  then raise exception 'X05_VERIFIED_SUBJECT_REQUIRED'; end if;
+  select a.account_id,i.sessions_valid_after
+    into v_identity
+  from public.auth_identities i
+  join public.wand_accounts a on a.account_id=i.account_id
+  where i.provider='supabase' and i.provider_subject=v_subject::text
+    and i.identity_state='active' and i.retired_at is null
+    and a.status='active' and a.deleted_at is null
+    and not private.is_account_privacy_suppressed(a.account_id)
+  for share of i,a;
+  if not found or to_timestamp(v_iat)<v_identity.sessions_valid_after then
+    raise exception 'X05_IDENTITY_SESSION_DENIED'; end if;
+  -- Preserve original Account/Identity/Privacy/iat checks with row SHARE locks.
+  -- This call executes INSIDE the SAME SQL transaction for direct PostgREST
+  -- Owner read and writer RPCs, not just through the Source153 Edge.
+  perform public.community_authorize_signed_session_v2(
+    v_subject,v_iat,(v_claims->>'session_id')::uuid
+  );
+  return v_subject;
+end
+$verified$;
