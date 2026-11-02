@@ -25,7 +25,7 @@ test('legacy direct v1 Gallery always terminal-denied and v2 Gallery not delegat
  assert.match(edge,/R17_LEGACY_GALLERY_COMMENTS_PIN_REQUIRED/);
  assert.match(edge,/R17_PHOTO_DEPENDENCY_NOT_ENROLLED/);
  assert.match(edge,/UNENROLLED_GRAPH_WRITER/);
- assert.match(edge,/setGalleryCommentsAtomicR16: 'community_set_gallery_comments_enabled_atomic_r16'/);
+ assert.match(edge,/setGalleryCommentsAtomicR16: 'community_set_gallery_comments_enabled_atomic_signed_v1'/);
 });
 test('Photo actual writer locks Account then Gallery before advisory, denies direct+historic before any revision insert',()=>{
  const account=photo.indexOf('from public.wand_accounts');
