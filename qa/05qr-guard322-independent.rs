@@ -9,14 +9,16 @@ use ddv_save_core::session::{
 use std::collections::BTreeSet;
 fn id(domain:Domain,key:&str)->LogicalIdentity{LogicalIdentity{domain,key:key.into()}}
 fn graph()->ReferenceIndex{
- let a=id(Domain::Grid,"grid:7:object:2"),b=id(Domain::ContainerInventory,"container:ChestX");
+ let a=id(Domain::Grid,"grid:7:object:2");let b=id(Domain::ContainerInventory,"container:ChestX");
  ReferenceIndex{nodes:BTreeSet::from([a.clone(),b.clone()]),edges:vec![ReferenceEdge{from:a,to:b}]}
 }
 const GRID:&str="/World/GridCollection/Grids/7/Objects/2";
 const OLD:&str=r#"{"ID":2,"X":1,"State":{"Storage":{"ContainerInventoryID":"ChestX"},"Private":{"deep":{"escaped":"\u00e9","integer":1.00}}}}"#;
 fn source()->Vec<u8>{
- format!(r#"{{"GameInfo":{{"Version":626}},"Player":{{"ContainerInventories":{{"ChestX":{{"Items":[]}}}}}},"World":{{"GridCollection":{{"Grids":{{"7":{{"Objects":{{"2":{OLD}}}}}}}}}}}},"Unknown":{{"opaque":true}}}}"#).into_bytes()
+ r#"{"GameInfo":{"Version":626},"Player":{"ContainerInventories":{"ChestX":{"Items":[]}}},"World":{"GridCollection":{"Grids":{"7":{"Objects":{"2":__OLD__}}}}},"Unknown":{"opaque":true}}"#
+  .replace("__OLD__",OLD).into_bytes()
 }
+
 fn command(old:&str,new:&str)->SemanticCommand{
  SemanticCommand{domain:Domain::Grid,identity:id(Domain::Grid,"grid:7:object:2"),
  kind:CommandKind::ReplaceKnownSubtree,pointer:GRID.into(),
