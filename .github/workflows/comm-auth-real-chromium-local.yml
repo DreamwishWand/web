@@ -4,14 +4,18 @@ on:
   push:
     branches:
       - test/comm-auth-real-chromium-local-20261102
+      - test/comm-cross-tab-revocation-contract-20261102
     paths:
       - 'tests/community-auth-real-chromium-local.mjs'
+      - 'docs/community/cross-tab-logout-authoritative-revalidation-contract-20261102.md'
       - '.github/workflows/comm-auth-real-chromium-local.yml'
   pull_request:
     branches:
       - comm/shared-signed-session-singleflight-20261102
+      - test/comm-auth-real-chromium-local-20261102
     paths:
       - 'tests/community-auth-real-chromium-local.mjs'
+      - 'docs/community/cross-tab-logout-authoritative-revalidation-contract-20261102.md'
       - '.github/workflows/comm-auth-real-chromium-local.yml'
   workflow_dispatch:
 
