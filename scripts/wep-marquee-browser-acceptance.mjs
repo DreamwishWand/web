@@ -147,10 +147,14 @@ async function runAt(page,level){
  await page.locator('.toolbar-actions').getByRole('button',{name:'Redo',exact:true}).click();
  await (await cell(page,'Editable Chair',3,2)).waitFor();
  pass('ZOOM_'+level+'_EXPLICIT_DRAFT_MUTATION_UNDO_REDO');
- await page.locator('#site-locale').selectOption('ja');
- await page.getByRole('button',{name:'矩形範囲選択'}).waitFor();
- await page.locator('#site-locale').selectOption('en');
- pass('ZOOM_'+level+'_SHARED_LOCALE_UI_JA');
+ if(level===100){
+   await page.locator('#site-locale').selectOption('ja');
+   await page.getByRole('button',{name:'矩形範囲選択'}).waitFor();
+   await page.locator('#site-locale').selectOption('en');
+   pass('ZOOM_100_SHARED_LOCALE_UI_JA');
+ }
+ // At true zoom 200 the shared SiteHeader locale picker is collapsed by
+ // responsive rules; do not bypass it with a hidden select or claim menu UX.
  await page.screenshot({path:join(artifacts,'marquee-'+level+'.png'),fullPage:true});
 }
 const temp=await mkdtemp(join(tmpdir(),'wep-marquee-'));
