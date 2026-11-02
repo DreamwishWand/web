@@ -7,6 +7,7 @@ on:
       - 'src/lib/dreamsnaps/owner-shared-auth-consumer.js'
       - 'src/routes/dreamsnaps/my/manage/+page.svelte'
       - 'tests/web-owner-shared-auth-consumer.test.mjs'
+      - 'tests/web-owner-product-readonly.test.mjs'
       - 'scripts/web-owner-shared-auth-consumer-chrome.mjs'
       - 'docs/web/owner-shared-auth-consumer-off-20261102.md'
       - '.github/workflows/web-owner-shared-auth-consumer-off.yml'
@@ -47,10 +48,10 @@ jobs:
           grep -q 'OWNER_PRODUCT_READONLY_ENABLED = false' src/lib/dreamsnaps/owner-product-readonly.js
           grep -q 'OWNER_PRODUCT_MANAGED_INGRESS_ACCEPTED = false' src/lib/dreamsnaps/owner-product-readonly.js
           git diff --name-only "$BASE" HEAD > /tmp/web-owner-consumer-diff
-          test "$(wc -l < /tmp/web-owner-consumer-diff)" -eq 6
+          test "$(wc -l < /tmp/web-owner-consumer-diff)" -eq 7
           while IFS= read -r p; do
             case "$p" in
-              src/lib/dreamsnaps/owner-shared-auth-consumer.js|src/routes/dreamsnaps/my/manage/+page.svelte|tests/web-owner-shared-auth-consumer.test.mjs|scripts/web-owner-shared-auth-consumer-chrome.mjs|docs/web/owner-shared-auth-consumer-off-20261102.md|.github/workflows/web-owner-shared-auth-consumer-off.yml) ;;
+              src/lib/dreamsnaps/owner-shared-auth-consumer.js|src/routes/dreamsnaps/my/manage/+page.svelte|tests/web-owner-shared-auth-consumer.test.mjs|tests/web-owner-product-readonly.test.mjs|scripts/web-owner-shared-auth-consumer-chrome.mjs|docs/web/owner-shared-auth-consumer-off-20261102.md|.github/workflows/web-owner-shared-auth-consumer-off.yml) ;;
               *) echo UNEXPECTED_OWNER_AUTH_CONSUMER_PATH >&2; exit 1 ;;
             esac
           done < /tmp/web-owner-consumer-diff
