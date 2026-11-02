@@ -30,6 +30,13 @@ try{
  const editedStr=out.toString('utf8');
  if(before.equals(out)||!editedStr.includes('"NextOccurrence":"2022-09-06T00:00:00Z"')||
     out.length!==before.length)throw Error('BAD_RUST_BENCH_RESULT');
+ const js=spawnSync('/usr/bin/time',['-v',process.execPath,'--max-old-space-size=2048',
+   base+'/scripts/js-full-tree-reference.mjs',input],{encoding:'utf8',
+   maxBuffer:1024*1024,timeout:600000});
+ const jsStats=js.status===0?JSON.parse(js.stdout.trim()):null;
+ const jsRss=/Maximum resident set size \\(kbytes\\):\\s*(\\d+)/.exec(js.stderr);
+ const jsElapsed=js.stderr.split('\\n').find(line=>line.includes('Elapsed (wall clock) time'))
+   ?.split('): ').at(-1)?.trim()||null;
  const match=/Maximum resident set size \(kbytes\):\s*(\d+)/.exec(time.stderr);
  const elapsedLine=time.stderr.split('\n').find(line=>line.includes('Elapsed (wall clock) time'));
  const wall=elapsedLine?.split('): ').at(-1)?.trim()||null;
@@ -38,6 +45,9 @@ try{
   gridObjects:fixture.gridObjects,entropy,
   deflateRawBytes:deflateBytes,deflateRatio:Number((deflateBytes/fixture.bytes).toFixed(6)),
   nativeObservedMaxRssKiB:match?Number(match[1]):null,
+  jsFullTreeStatus:js.status===0?'PASS':'BLOCKED',
+  jsFullTreeMaxRssKiB:jsRss?Number(jsRss[1]):null,
+  jsFullTreeElapsed:jsElapsed,jsFullTree:jsStats,
   wallClock:wall,nativeExit:time.status,wasmBrowserMeasured:false,
   productP1gMeasured:false}));
 } finally {rmSync(work,{recursive:true,force:true});}
