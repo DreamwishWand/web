@@ -1,0 +1,41 @@
+name: 01A Post-PR322 Focused Semantic Gate (research-only)
+on:
+  pull_request:
+    paths:
+      - 'qa/01a-post322-semantic-gate.rs'
+      - 'docs/01A_POST_PR322_PRODUCT_GATE_20261103.md'
+      - '.github/workflows/01a-post322-focused-gate.yml'
+  push:
+    branches:
+      - 'research/01a-post322-semantic-gates-20261103'
+    paths:
+      - 'qa/01a-post322-semantic-gate.rs'
+      - 'docs/01A_POST_PR322_PRODUCT_GATE_20261103.md'
+      - '.github/workflows/01a-post322-focused-gate.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  scoped-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Source bound and branch identity
+        run: |
+          git rev-parse HEAD
+          test -s crates/ddv-save-core/src/integrity.rs
+          test -s crates/ddv-save-core/src/session.rs
+          test -s qa/01a-post322-semantic-gate.rs
+      - name: Focused synthetic Rust regressions only
+        run: |
+          cp qa/01a-post322-semantic-gate.rs crates/ddv-save-core/tests/post322_semantic_gate.rs
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test post322_semantic_gate --verbose
+      - name: Independent prior Source oracle (bounded)
+        run: node crates/ddv-save-core/scripts/js-source-closure-oracle.mjs
+      - name: Explicit evidence boundary
+        run: |
+          grep -Fq 'cross_domain_reference_closure_complete: false' crates/ddv-save-core/src/integrity.rs
+          echo 'EVIDENCE=BOUNDED_SYNTHETIC_ONLY'
+          echo 'PRODUCT_WRITER=OFF'
+          echo 'NOT_TESTED=REAL_SAVE,ZIP_METADATA_CLASSES,PRODUCT_WASM,DEVICE,256MB,200MB_BENCH'
