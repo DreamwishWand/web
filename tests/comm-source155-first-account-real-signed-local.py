@@ -196,6 +196,19 @@ with psycopg.connect(DSN,autocommit=True) as db:
     st,b=bootstrap(a3,"fresh_"+secrets.token_hex(5))
     assert st==200 and ids(b)==(account,creator)
     marker("B09-GLOBAL-NEW-SESSION","GLOBAL_OLD401_POSTCUTOFF_FRESH_A3_200_OWNER_SAME",st)
+    # An existing retired identity MUST NEVER be silently re-enrolled as a
+    # new Account, even when GoTrue still has a genuine signed session.
+    before_account=scalar("select count(*) from public.wand_accounts")
+    with db.transaction():
+        db.execute("""update public.auth_identities
+          set identity_state='retired',retired_at=clock_timestamp()
+          where provider='supabase' and provider_subject=%s""",(str(A["id"]),))
+    denied,denied_body=bootstrap(a3,"ret_"+secrets.token_hex(5))
+    assert denied==401 and denied_body.get("ok") is False
+    assert counts(db,A["id"])==1
+    assert scalar("select count(*) from public.wand_accounts")==before_account
+    marker("B10-RETIRED-IDENTITY","VALID_GOTRUE_SIGNED_RETIRED_WAND_IDENTITY_DENIED_NO_NEW_ACCOUNT",denied)
+
 
     for who in actors:
         try:http("/auth/v1/admin/users/"+str(actors[who]["id"]),
