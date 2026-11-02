@@ -250,60 +250,20 @@ function saveSession(s: SharedAuth, session: CommunitySession | null): boolean {
     return false;
   }
 }
-function loadSession(config: CommunityLabConfig, scope: string): CommunitySession | null {
-  if (typeof sessionStorage === 'undefined') return null;
-  // A fault marker forbids importing even a correctly scoped but now stale
-  // credential. If this guard cannot be read, refuse stored credentials.
-  if (typeof localStorage === 'undefined') return null;
-  try {
-    if (localStorage.getItem(quarantineKey(scope)) !== null) return null;
-    // A blocked cross-tab revocation marker cannot support safe hydration.
-    const noticeProbe = QUARANTINE_KEY_PREFIX + 'probe:' + scope;
-    localStorage.setItem(noticeProbe, '1');
-    localStorage.removeItem(noticeProbe);
-  } catch { return null; }
-  let raw: string | null;
-  const key = sessionKey(scope);
-  try {
-    // The legacy blob cannot be attributed to a particular URL + publishable
-    // key. Delete it, require reauthentication, and never guess migration.
-    sessionStorage.removeItem(LEGACY_SESSION_KEY);
-    // Read-side writeability probe: an all-write-denied Storage must not
-    // rehydrate a credential while its removal cannot be persisted.
-    const probe = SESSION_KEY_PREFIX + 'probe:' + scope;
-    sessionStorage.setItem(probe, '1');
-    sessionStorage.removeItem(probe);
-    raw = sessionStorage.getItem(key);
-  } catch {
-    return null; // Storage blocked: no credential is imported.
-  }
-  if (!raw) return null;
-  try {
-    const envelope = JSON.parse(raw) as {
-      version?: number;
-      config?: CommunityLabConfig;
-      session?: CommunitySession;
-    };
-    // This *exact* comparison also prevents cross-configuration import if
-    // two routing digests ever collide.
-    if (envelope?.version === 2 &&
-        envelope.config?.supabaseUrl !== config.supabaseUrl) return null;
-    if (envelope?.version === 2 &&
-        envelope.config?.publishableKey !== config.publishableKey) return null;
-    const parsed = envelope?.version === 2 ? envelope.session : null;
-    if (parsed &&
-        typeof parsed.accessToken === 'string' && parsed.accessToken.length > 0 &&
-        typeof parsed.refreshToken === 'string' && parsed.refreshToken.length > 0 &&
-        typeof parsed.userId === 'string' && parsed.userId.length > 0 &&
-        (parsed.email === null || typeof parsed.email === 'string') &&
-        typeof parsed.expiresAt === 'number' && Number.isFinite(parsed.expiresAt)) {
-      return { ...parsed };
-    }
-  } catch { /* Corrupt JSON is never a session. */ }
-  try { sessionStorage.removeItem(key); } catch { /* Fail closed. */ }
+function loadSession(_config: CommunityLabConfig, _scope: string): CommunitySession | null {
+  // NEVER rehydrate a credential snapshot at a module/page cold start.
+  // If every storage write was denied during Logout, no client-only marker
+  // can prove that a persisted v2 snapshot survived validly. Even if storage
+  // subsequently recovers or the JWT has not expired, provenance is UNKNOWN.
+  // Only a NEW interactive Auth response may populate in-memory SharedAuth.
+  // Keep v2 bytes inert rather than destructively guessing provenance; the
+  // next successful interactive sign-in overwrites the scoped snapshot.
+  // Legacy unscoped v1 has no attribution; continue best-effort cleanup.
+  try { if (typeof sessionStorage !== 'undefined')
+    sessionStorage.removeItem(LEGACY_SESSION_KEY); }
+  catch { /* Cold start remains unsigned, including blocked Storage. */ }
   return null;
 }
-
 
 export type CommunitySessionEvent = Readonly<{
   kind: 'signed-in'|'refreshed'|'account-changed'|'logged-out'|'session-invalidated';
