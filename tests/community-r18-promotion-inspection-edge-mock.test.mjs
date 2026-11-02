@@ -33,6 +33,7 @@ async function harness(cfg={}){
  };
  const admin={storage:{from:()=>storage},rpc:async(name,args)=>{
   calls.rpc.push({name,args:structuredClone(args)});
+  if(name==='community_authorize_signed_session_v2')return cfg.revokedSigned?{data:null,error:{message:'revoked'}}:{data:{authorized:true},error:null};
   if(name==='community_authorize_session')return{data:{accountId:owner},error:null};
   if(name==='community_preset_storage_claim_promotion_r18')return cfg.badClaim?
     {data:null,error:{message:'STALE'}}:
@@ -50,7 +51,7 @@ async function harness(cfg={}){
  const env={__edge:null,Response,Blob,TextEncoder,TextDecoder,crypto:webcrypto,
   corsHeaders:{},resolveRuntimeWepPresetArtifactBucket:()=> 'isolated',
   withSupabase:(_opts,handler)=>req=>handler(req,{
-    userClaims:{id:actor},jwtClaims:{iat:1761436800},supabaseAdmin:admin
+    userClaims:{id:actor},jwtClaims:{iat:1761436800,session_id:'99999999-9999-4999-8999-999999999999'},supabaseAdmin:admin
   })};
  vm.runInNewContext(transpiled,env,{filename:'source135-edge-inspect.js'});
  const response=await env.__edge.fetch({method:'POST',json:async()=>({
@@ -60,6 +61,8 @@ async function harness(cfg={}){
  return {status:response.status,body:await response.json(),calls,sha};
 }
 const noMutation=h=>{
+ assert.equal(h.calls.rpc[0]?.name,'community_authorize_signed_session_v2');
+ assert.equal(h.calls.rpc[0]?.args?.p_session_id,'99999999-9999-4999-8999-999999999999');
  assert.deepEqual(h.calls.copy,[]);
  assert.deepEqual(h.calls.remove,[]);
  assert.equal(h.calls.rpc.some(x=>x.name.includes('commit_candidate')),false);
@@ -108,4 +111,13 @@ test('source135 actual Edge CAS rejects stale claim and stale readback without p
   assert.equal(h.body.error,cfg.badClaim?'PRESET_INSPECTION_LEASE_DENIED':'PRESET_READBACK_FENCE_REJECTED');
   noMutation(h);
  }
+});
+
+test('Source154 signed Session tombstone denies Preset bytes before any storage or mutation',async()=>{
+ const h=await harness({revokedSigned:true});
+ assert.equal(h.status,401);
+ assert.equal(h.body.error,'SESSION_REVOKED_OR_INVALID');
+ assert.deepEqual(h.calls.rpc.map(x=>x.name),['community_authorize_signed_session_v2']);
+ assert.deepEqual(h.calls.download,[]);
+ noMutation(h);
 });
