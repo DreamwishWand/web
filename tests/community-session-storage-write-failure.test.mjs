@@ -283,3 +283,107 @@ test('new: stale writer 401 still not retried when Storage remove fails',async()
   await assert.rejects(a.command('write',{}),/401/);
   assert.equal(writerCalls,1);assert.equal(refreshCalls,0);
 });
+
+
+test('P0 TRUE RED: recovered Storage must NEVER cold-restore A after all logout writes failed',async()=>{
+  start();
+  const {CommunityLabClient}=await freshClientModule();
+  const cfg=config('red-recovery');
+  const a=await provisionSignedClient(CommunityLabClient,cfg,'A');
+  const observer=new CommunityLabClient(cfg),events=[];
+  observer.subscribeSession(e=>events.push(e));
+  const key='dreamwishwand-community-session-v2:'+scope(cfg);
+  const persistedA=sessions.get(key);
+  assert.ok(persistedA.includes('TEST_JWT_A_old'));
+
+  // Exactly the independent QR source-logic reproduction:
+  // 1) A persisted; 2) all credential and notice writes blocked;
+  // 3) Logout invalidates in memory but cannot durably persist revocation.
+  faults.remove=true;faults.set=true;faults.localSet=true;
+  let provider=0;
+  globalThis.fetch=async url=>{
+    if(String(url).includes('/auth/v1/logout'))provider++;
+    return response(200,{});
+  };
+  await a.signOut();
+  assert.equal(a.session,null);
+  assert.equal(observer.session,null);
+  assert.equal(provider,1);
+  assert.equal(sessions.get(key),persistedA);
+  assert.equal(locals.has(quarantineKey(cfg)),false);
+  assert.equal(locals.has(noticeKey),false);
+  assert.equal(events.at(-1).kind,'session-invalidated');
+
+  // 4) Cold module while writes remain denied.
+  const {CommunityLabClient:Denied}=await freshClientModule();
+  const denied=new Denied(cfg);
+  assert.equal(denied.session,null);
+  await assert.rejects(denied.getValidSignedSession(),/Sign in before/);
+
+  // 5) ALL storage writes recover; old signed A JSON is still physically there.
+  faults.remove=false;faults.set=false;faults.localSet=false;
+  const {CommunityLabClient:Recovered}=await freshClientModule();
+  const cold=new Recovered(cfg),sameConfig=new Recovered(cfg);
+  assert.equal(sessions.get(key),persistedA);
+  assert.equal(cold.session,null);
+  assert.equal(sameConfig.session,null);
+  let outbound=0;
+  globalThis.fetch=async()=>{outbound++;throw Error('UNEXPECTED_COLD_AUTH_OUTBOUND');};
+  await assert.rejects(cold.getValidSignedSession(),/Sign in before/);
+  await assert.rejects(cold.query('read',{}),/Sign in before/);
+  await assert.rejects(cold.command('write',{}),/Sign in before/);
+  assert.equal(outbound,0); // no bearer forwarded to any endpoint
+
+  // 6) Explicit fresh interactive B sign-in is the only way back.
+  let freshLogin=0,seenBearer=null;
+  globalThis.fetch=async(url,options={})=>{
+    if(String(url).includes('grant_type=password')){
+      freshLogin++;
+      return response(200,cred('B','fresh'));
+    }
+    if(String(url).includes('community-query')){
+      seenBearer=options.headers?.authorization;
+      return response(200,{ok:true});
+    }
+    return response(200,{});
+  };
+  await cold.signInWithPassword('B','interactive');
+  assert.equal(freshLogin,1);
+  assert.equal(cold.session.userId,'B');
+  assert.equal(sameConfig.session.userId,'B');
+  assert.equal(JSON.parse(sessions.get(key)).session.userId,'B');
+  await cold.query('read',{});
+  assert.equal(seenBearer,'Bearer TEST_JWT_B_fresh');
+  assert.ok(!JSON.stringify(events).includes('TEST_JWT_A_old'));
+  const {CommunityLabClient:LaterCold}=await freshClientModule();
+  assert.equal(new LaterCold(cfg).session,null); // no automatic rehydration even of B
+  noSecretNotifications(events);
+});
+
+test('cold start refuses old v1 and all scoped v2 snapshots, regardless of expiry or notice delivery',async()=>{
+  start();
+  const {CommunityLabClient}=await freshClientModule();
+  const ca=config('prior-a','sb_publishable_A'),cb=config('prior-b','sb_publishable_B');
+  putSession({config:ca},'A',3600);
+  putSession({config:cb},'B',3600);
+  sessions.set('dreamwishwand-community-session-v1',JSON.stringify({
+    accessToken:'TEST_JWT_UNBOUND',refreshToken:'TEST_REFRESH_SECRET_UNBOUND',
+    userId:'legacy',expiresAt:Date.now()+3600000,email:null
+  }));
+  const a=new CommunityLabClient(ca),b=new CommunityLabClient(cb);
+  assert.equal(a.session,null);assert.equal(b.session,null);
+  assert.equal(sessions.has('dreamwishwand-community-session-v1'),false);
+  assert.ok(sessions.get('dreamwishwand-community-session-v2:'+scope(ca)).includes('TEST_JWT_A_old'));
+  let calls=0;globalThis.fetch=async()=>{calls++;throw Error('UNEXPECTED_CALL');};
+  await assert.rejects(a.getValidSignedSession(),/Sign in before/);
+  await assert.rejects(b.getValidSignedSession(),/Sign in before/);
+  assert.equal(calls,0);
+  for(const cb of handlers){
+    cb({key:'dreamwishwand-community-logout-notice-v1',newValue:JSON.stringify({
+      kind:'logout',scope:ca.supabaseUrl,nonce:'legacy'
+    })});
+    cb({key:noticeKey,newValue:JSON.stringify({kind:'logout',scope:scope(ca),nonce:'v2'})});
+  }
+  assert.equal(a.session,null);assert.equal(b.session,null);
+  noSecretNotifications([]);
+});
