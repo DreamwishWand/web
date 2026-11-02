@@ -150,6 +150,10 @@ fn source_reference_rebound_rechecks_post_graph_and_mixed_domain_read_sets() {
         &old_event,new_event);
     event.kind=CommandKind::ReplaceStringToken;
     event.read_set.push(ReadWitness {
+        pointer:"/World/RecurringEvents/0/ItemSpawning/RecurringEventItemID".into(),
+        expected_raw_json:"2010000021".into()
+    });
+    event.read_set.push(ReadWitness {
         pointer:"/World/RecurringEvents/0/ItemSpawning/OneofVariant".into(),
         expected_raw_json:"\"W1\"".into()
     });
@@ -194,5 +198,27 @@ fn unknown_reference_shape_missing_target_and_stale_cas_refused() {
     tx.expected_source_sha256=[1;32];
     assert_eq!(s.stage_command_source_guarded(tx,&[format!("{GRID_PATH}/X")]).unwrap_err(),
         "SOURCE_SHA_CAS_FAILED");
+    assert_eq!(s.revision(),0);
+}
+
+#[test]
+fn caller_cannot_whitelist_unknown_nested_state_or_unwitnessed_w1() {
+    let g=graph("ChestA"); let raw=source();
+    let mut s=open(g.clone());
+    let old=span(&raw,GRID_PATH);
+    let changed=old.replace("\"escaped\":\"é\"","\"escaped\":\"replaced\"");
+    assert_ne!(old,changed);
+    assert_eq!(s.stage_command_source_guarded(
+        plan(&s,vec![command(Domain::Grid,"grid:5:object:3",GRID_PATH,&old,&changed)],g.clone()),
+        &[format!("{GRID_PATH}/State/Mystery/nested/escaped")]
+    ).unwrap_err(),"GUARDED_FIELD_NOT_SEMANTICALLY_KNOWN");
+    assert_eq!(s.revision(),0);
+    let old_event=span(&raw,EVENT_PATH);
+    let mut w1=command(Domain::RecurringEvent,"event:2010000021",EVENT_PATH,
+        &old_event,"\"2022-09-06T00:00:00Z\"");
+    w1.kind=CommandKind::ReplaceStringToken;
+    assert_eq!(s.stage_command_source_guarded(
+        plan(&s,vec![w1],g),&[EVENT_PATH.into()]
+    ).unwrap_err(),"GUARDED_FIELD_NOT_SEMANTICALLY_KNOWN");
     assert_eq!(s.revision(),0);
 }
