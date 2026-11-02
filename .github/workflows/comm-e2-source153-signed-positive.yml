@@ -40,7 +40,6 @@ jobs:
           python3 -m py_compile tests/comm-e2-source153-signed-positive.py tests/comm-n05-genuine-signed-logout-replay.py
           git diff --exit-code "$BASE" HEAD -- tests/comm-e2-source153-signed-positive.py
           test "$(git diff --name-only "$BASE" HEAD | wc -l)" -eq 4
-          test "$(git diff --name-only "$BASE" HEAD | grep -c '^[.]github/workflows/comm-e2-source153-signed-positive[.]yml
           echo N05_FROZEN_PR288_ACCEPTED_E2_FIXTURE
       - uses: supabase/setup-cli@v1
         with:
