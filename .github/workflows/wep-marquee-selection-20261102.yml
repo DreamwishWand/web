@@ -1,0 +1,63 @@
+name: WEP local marquee scoped source and synthetic browser
+
+on:
+  push:
+    branches: ['wep/local-marquee-selection-20261102']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  marquee-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Narrow marquee selection tests
+        run: node --test tests/wep-marquee-selection.test.mjs tests/wep-world-editor-localization-inventory.test.mjs
+      - name: TypeScript and Svelte
+        run: npm run check
+      - name: Static build
+        env:
+          BASE_PATH: /web
+        run: npm run build
+  marquee-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Install managed full Chromium with MV3 zoom API
+        run: |
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install chromium
+      - name: Start isolated local Editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4192 >/tmp/wep-marquee-vite.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4192/editor/world/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/wep-marquee-vite.log
+          exit 1
+      - name: Only new local marquee browser scenarios 100% and native 200%
+        env:
+          WEP_MARQUEE_BASE_URL: http://127.0.0.1:4192/editor/world/
+        run: node scripts/wep-marquee-browser-acceptance.mjs
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wep-marquee-100-and-native-200
+          path: .artifacts/wep-marquee-browser/
+          if-no-files-found: error
