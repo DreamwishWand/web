@@ -183,3 +183,22 @@ test('actual route explicitly uses shared Consumer, stable UX 8 locales, no auth
  for(const banned of ['loginDisposableGoTrue','signInWithPassword','refresh_token','actorAccountId'])
   assert.ok(!page.includes(banned),banned);
 });
+
+test('combined repaired Auth never cold imports signed A from persisted v2 bytes',()=>{
+ const auth=readFileSync(new URL('../src/lib/community/staging-http-client.ts',import.meta.url),'utf8');
+ const load=auth.match(/function loadSession\(_config: CommunityLabConfig, _scope: string\): CommunitySession \| null \{([\s\S]*?)\n\}/)?.[1];
+ assert.ok(load,'MISSING_COLD_SESSION_ENTRY');
+ assert.match(load,/return null;/);
+ assert.doesNotMatch(load,/sessionStorage\.getItem/);
+ assert.ok(auth.includes("throw new Error('SESSION_STORAGE_WRITE_FAILED')"));
+ assert.ok(auth.includes("subscribeSession(callback:SessionListener)"));
+ assert.ok(auth.includes("async getValidSignedSession"));
+ const product=readFileSync(new URL('../src/routes/dreamsnaps/my/manage/+page.svelte',import.meta.url),'utf8');
+ assert.ok(product.includes('data-owner-session-relogin'));
+ assert.ok(product.includes('ownerReadCopy.signInAgain'));
+ for(const [loc,phrase] of Object.entries({
+  en:'reload or reopening',ja:'再ログイン',
+  'fr':'reconnectez-vous','it':'accedi di nuovo','de':'erneut anmelden',
+  'es-ES':'vuelve a iniciar','zh-CN':'重新登录','pt-BR':'login novamente'
+ }))assert.ok(product.includes(phrase),'RELOGIN_LOCALE_'+loc);
+});
