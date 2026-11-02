@@ -68,9 +68,13 @@ source+='''
                 # script location only, sufficient for scoped fixture repair.
                 import re
                 details=browser.stderr.read()
-                kind=next((name for name in
-                    ("AssertionError","TimeoutError","TypeError","SyntaxError","Error")
-                    if name in details),"UNKNOWN")
+                diagnostic=re.search(
+                    r'WEB_BRIDGE_LOGIN_PHASE_[A-Z_]+_FORM_[0-9]_STATUS_[A-Z_]+',
+                    details)
+                kind=diagnostic.group(0) if diagnostic else next(
+                    (name for name in
+                     ("AssertionError","TimeoutError","TypeError","SyntaxError","Error")
+                     if name in details),"UNKNOWN")
                 locations=re.findall(r'web-shared-auth-signed-bridge-chrome[.]mjs:([0-9]+)',details)
                 raise AssertionError(("SIGNED_BRIDGE_FIRST_PHASE_FAILED",kind,
                     locations[-1] if locations else "UNKNOWN"))
