@@ -57,6 +57,6 @@ export const WAND_RC_TARGET = Object.freeze({
   writer:'OFF',
   ownerConsumer:'OFF',
   managedIngress:'I01-I14_NOT_ACCEPTED',
-  communitySource:'Source156_QR_PENDING',
+  communitySource:'Source156_INDEPENDENT_TARGETED_PASS_MANAGED_OFF',
   referenceVersion:'Nintendo Switch 1.25.0 (reference-only); other versions require independent validation'
 });
