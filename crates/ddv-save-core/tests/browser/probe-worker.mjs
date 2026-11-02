@@ -24,7 +24,7 @@ self.onmessage=async({data})=>{
    return {ptr,len:arr.length};
   });
   const began=performance.now();
-  const outputPtr=ex.ddv_probe_patch(sourcePtr,sourceLen,slots[0].ptr,626,
+  const outputPtr=ex.ddv_probe_patch(sourcePtr,sourceLen,slots[0].ptr,626n,
    slots[1].ptr,slots[1].len,slots[2].ptr,slots[2].len,slots[3].ptr,slots[3].len);
   if(!outputPtr)throw Error('WASM_COPY_DENIED_CODE_'+ex.ddv_probe_error_code());
   const outputLen=ex.ddv_probe_output_len();
