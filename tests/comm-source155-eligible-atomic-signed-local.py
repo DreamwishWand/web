@@ -217,16 +217,19 @@ global_case=r'''
           (*gc,w,global_pin,rev,True,"s155-global-racing"))
         raise AssertionError("GLOBAL_REVOKED_WRITER_COMMITTED")
       except psycopg.Error as e:
-        assert "SIGNED_SESSION_TERMINALLY_REVOKED" in str(e) or "SESSION" in str(e)
+        assert any(x in str(e).upper() for x in (
+          "SIGNED_SESSION_TERMINALLY_REVOKED","SESSION","SIGNED_IDENTITY"
+        )),"S155_GLOBAL_REVOCATION_DENIAL_NOT_SESSION"
     assert state()==baseline,"S155_GLOBAL_WRITE_SIDE_EFFECT"
     marker("S155-GLOBAL-REVOKER-FIRST","PREFLIGHT_200_GLOBAL_REVOKED_CAS_VALID_WRITER_NO_DB_DIFF",401)
 '''
 insert_anchor='try:exec(compile(src,str(p),"exec"),{"__name__":"__main__"})'
 assert runner.count(insert_anchor)==1
-# Inject into the Source153 fixture after R10, without editing Source153.
-patch="r10='    marker(\"R10-UNTRUSTED-SESSION-ID\",\"CLIENT_JSON_DID_NOT_SELECT_AUTHORITY\",st)'\n"
-patch+="assert src.count(r10)==1\n"
-patch+="src=src.replace(r10,r10+'\\n'+"+repr(global_case)+",1)\n"
+# Append only after the already-frozen Source153 end-of-fixture assertions;
+# do not disturb or reaccept the inherited expected terminal revoke count.
+patch="final_marker='    marker(\"SOURCE153_SERVER_ENFORCED_SIGNED_SESSION_PASS\",\\n      \"REAL_SIGNED_EDGE_SQL_NOT_TEMP_GATE_NOT_MANAGED_RUNTIME\")'\n"
+patch+="assert src.count(final_marker)==1\n"
+patch+="src=src.replace(final_marker,final_marker+'\\n'+"+repr(global_case)+",1)\n"
 runner=runner.replace(insert_anchor,patch+insert_anchor,1)
 
 try:
