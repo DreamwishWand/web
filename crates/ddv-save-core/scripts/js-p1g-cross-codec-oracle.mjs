@@ -72,7 +72,10 @@ function rejectsArchive(transform){
 rejectsArchive(zip=>zip.writeUInt16LE(1,zip.length-22+20)); // comment length without comment
 rejectsArchive(zip=>zip.writeUInt16LE(8,6)); // data descriptor flag
 rejectsArchive(zip=>zip.writeUInt16LE(1,28)); // local extra
-rejectsArchive(zip=>zip[37]^=1); // compressed data corruption
+rejectsArchive(zip=>{ // CRC mismatch, even with internally matching local/central headers
+ const off=zip.readUInt32LE(zip.length-22+16),crc=zip.readUInt32LE(14)^1;
+ zip.writeUInt32LE(crc,14);zip.writeUInt32LE(crc,off+16);
+});
 const wrong=Buffer.from(before);wrong[0]^=0xff;
 assert.notEqual(rust('inspect',wrong).exit,0);
 denied++;
