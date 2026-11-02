@@ -23,7 +23,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Strict P0a signed RED parent and exact eight incremental source/doc/CI paths
+      - name: Strict P0a signed RED parent and exact ten incremental source/test/doc/CI paths
         shell: bash
         run: |
           set -euo pipefail
@@ -40,11 +40,11 @@ jobs:
           python3 -m py_compile tests/comm-e2-source153-signed-positive.py tests/comm-source153-server-session-signed-e2.py
           python3 -m py_compile tests/comm-source154-legacy-signed-matrix-local.py
           git diff --name-only "$BASE" HEAD > /tmp/source153-session-diff-paths
-          test "$(wc -l </tmp/source153-session-diff-paths)" -eq 8
-          for p in supabase/functions/community-query/index.ts supabase/functions/community-command/index.ts supabase/functions/community-media/index.ts supabase/functions/community-admin/index.ts supabase/functions/wep-preset-artifact/index.ts supabase/functions/wep-scene-preset-product/index.ts docs/community/source154-legacy-edge-verified-session-repair-20261102.md .github/workflows/comm-e2-source154-legacy-edge-repair.yml; do
+          test "$(wc -l </tmp/source153-session-diff-paths)" -eq 10
+          for p in supabase/functions/community-query/index.ts supabase/functions/community-command/index.ts supabase/functions/community-media/index.ts supabase/functions/community-admin/index.ts supabase/functions/wep-preset-artifact/index.ts supabase/functions/wep-scene-preset-product/index.ts tests/community-r18-promotion-inspection-edge-mock.test.mjs tests/community-r18-scene-product-source-closure.test.mjs docs/community/source154-legacy-edge-verified-session-repair-20261102.md .github/workflows/comm-e2-source154-legacy-edge-repair.yml; do
             grep -Fxq "$p" /tmp/source153-session-diff-paths
           done
-          echo SOURCE154_LEGACY_EDGE_REPAIR_EIGHT_PATH_GUARD
+          echo SOURCE154_LEGACY_EDGE_REPAIR_TEN_PATH_GUARD
       - uses: supabase/setup-cli@v1
         with:
           version: 2.109.0
