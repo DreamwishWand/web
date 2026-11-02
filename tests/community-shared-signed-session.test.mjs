@@ -177,3 +177,45 @@ test('global revoke invalidates immediately and signs Wand cutoff before provide
   assert.equal((await result).ok,true);
   assert.deepEqual(calls,['wand','provider']);
 });
+
+test('expired session uses one refresh; network failure invalidates without exposing token',async()=>{
+  const [a,b]=setup('A',-10);let rotated=0;
+  globalThis.fetch=async url=>{
+    if(String(url).includes('refresh_token')){rotated++;return http(200,cred('A','expired-refresh'));}
+    return http(200,{});
+  };
+  assert.equal((await a.getValidSignedSession()).accessToken,'TEST_JWT_A_expired-refresh');
+  assert.equal(rotated,1);
+  const [c,d]=setup('A',-10);
+  globalThis.fetch=async url=>{
+    if(String(url).includes('refresh_token'))throw new Error('SYNTHETIC_NETWORK_FAILURE');
+    return http(200,{});
+  };
+  await assert.rejects(c.getValidSignedSession(),/SYNTHETIC_NETWORK_FAILURE/);
+  assert.equal(c.session,null);assert.equal(d.session,null);
+});
+test('old A refresh flight is detached when login switches to near-expired B',async()=>{
+  const [a,b]=setup('A',10);
+  const old=defer(),events=[];
+  b.subscribeSession(e=>events.push(e));
+  let refresh=0;
+  globalThis.fetch=async(url,options)=>{
+    if(String(url).includes('grant_type=refresh_token')){
+      refresh++;
+      return refresh===1?old.promise:http(200,cred('B','new-refresh'));
+    }
+    if(String(url).includes('grant_type=password'))
+      return http(200,cred('B','new-login',10));
+    return http(200,{});
+  };
+  const stale=a.getValidSignedSession();
+  await Promise.resolve();
+  const login=await b.signInWithPassword('B','synthetic');
+  assert.equal(login.userId,'B');
+  assert.equal((await b.getValidSignedSession()).userId,'B');
+  old.resolve(http(200,cred('A','late-refresh')));
+  await assert.rejects(stale,/SESSION_STALE_OR_LOGGED_OUT/);
+  assert.equal(refresh,2);
+  assert.equal(a.session.userId,'B');
+  assert.ok(events.some(e=>e.kind==='account-changed'));
+});
