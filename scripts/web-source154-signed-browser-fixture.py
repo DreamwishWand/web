@@ -34,7 +34,7 @@ source+='''
     env["VITE_SUPABASE_URL"]="https://wand-disposable-e2.invalid"
     env["VITE_SUPABASE_PUBLISHABLE_KEY"]="sb_publishable_disposable_local_bridge_only"
     env["E2_REAL_LOCAL_ANON_PUBLIC_KEY"]=anon
-    env["E2_POST_WORK_ID"]=str(post)
+    env["E2_POST_WORK_ID"]=str(original)  # accepted PR301 original Work; env key is test-only
     for who,name in [("A","OWNER"),("B","B")]:
         env["E2_"+name+"_EMAIL"]=users[who]["email"]
         env["E2_"+name+"_PASSWORD"]=users[who]["password"]
