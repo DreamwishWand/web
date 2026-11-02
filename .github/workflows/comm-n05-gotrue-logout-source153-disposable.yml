@@ -42,10 +42,11 @@ jobs:
           test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID"
           python3 -m py_compile tests/comm-e2-source153-signed-positive.py tests/comm-n05-genuine-signed-logout-replay.py
           git diff --exit-code "$BASE" HEAD -- tests/comm-e2-source153-signed-positive.py
-          test "$(git diff --name-only "$BASE" HEAD | wc -l)" -eq 4
-          test "$(git diff --name-only "$BASE" HEAD | grep -c '^[.]github/workflows/comm-e2-source153-signed-positive[.]yml
-          test "$(git diff --name-only "$BASE" HEAD | grep -c '^docs/community/n05-genuine-signed-logout-replay-20261102[.]md$')" -eq 1
-          test "$(git diff --name-only "$BASE" HEAD | grep -c '^tests/comm-n05-genuine-signed-logout-replay[.]py$')" -eq 1
+          git diff --name-only "$BASE" HEAD > /tmp/n05-fixed-paths
+          test "$(wc -l </tmp/n05-fixed-paths)" -eq 4
+          for p in .github/workflows/comm-e2-source153-signed-positive.yml .github/workflows/comm-n05-gotrue-logout-source153-disposable.yml docs/community/n05-genuine-signed-logout-replay-20261102.md tests/comm-n05-genuine-signed-logout-replay.py; do
+            grep -Fxq "$p" /tmp/n05-fixed-paths
+          done
           echo N05_FIXED_PR288_QA_ONLY_FROZEN153_AND_WEB267
       - uses: supabase/setup-cli@v1
         with:
@@ -85,5 +86,5 @@ jobs:
         shell: bash
         run: |
           supabase stop --no-backup >/dev/null 2>&1 || true
-          rm -f supabase/signing_keys.json /tmp/e2-private-boot.log /tmp/e2-keygen-private.log /tmp/e2-config.tmp /tmp/n05-sanitized-markers.log /tmp/n05-unexpected-paths
+          rm -f supabase/signing_keys.json /tmp/e2-private-boot.log /tmp/e2-keygen-private.log /tmp/e2-config.tmp /tmp/n05-sanitized-markers.log /tmp/n05-unexpected-paths /tmp/n05-fixed-paths
           echo N05_DISPOSABLE_LOCAL_TEARDOWN_ATTEMPTED
