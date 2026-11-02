@@ -1,0 +1,29 @@
+name: 05 QR Independent Wand Unified SaveSession Negative Contract
+on:
+  pull_request:
+    paths:
+      - 'qa/05qr-unified-session-independent.rs'
+      - '.github/workflows/qa-unified-session-negative.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-rust-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Source pin and independent synthetic-only test fixture
+        run: |
+          git rev-parse HEAD
+          rustc --version
+          test -s qa/05qr-unified-session-independent.rs
+      - name: Compile independent QR fixture without changing product crate
+        run: |
+          cp qa/05qr-unified-session-independent.rs crates/ddv-save-core/tests/qa_05qr_independent.rs
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test qa_05qr_independent -- --nocapture
+      - name: Explicit permission boundary
+        run: |
+          echo 'RESEARCH_ONLY=decoded JSON synthetic Session; caller-asserted reference graph'
+          echo 'NO_CODEC=No P1G AES/ZIP/Deflate/CRC/Encode/Reopen'
+          echo 'SEMANTIC_DOMAINS=unverified; writerAuthorityChanged=false; no publication'
