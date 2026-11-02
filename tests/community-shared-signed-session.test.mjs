@@ -66,7 +66,8 @@ async function setup(user='A',seconds=20){
     publishableKey:'sb_publishable_test'};
   KEY=storageKey(config);
   const a=new CommunityLabClient(config),b=new CommunityLabClient(config);
-  await signInFixture(a,user,seconds);
+  // Auth endpoint only issues positive TTLs; 1s remains inside the <60s refresh window.
+  await signInFixture(a,user,Math.max(1,seconds));
   return [a,b];
 }
 function cred(user,serial,seconds=3600){
@@ -209,7 +210,7 @@ test('global revoke invalidates immediately and signs Wand cutoff before provide
   assert.deepEqual(calls,['wand','provider']);
 });
 
-test('expired session uses one refresh; network failure invalidates without exposing token',async()=>{
+test('near-expired session uses one refresh; network failure invalidates without exposing token',async()=>{
   const [a,b]=await setup('A',-10);let rotated=0;
   globalThis.fetch=async url=>{
     if(String(url).includes('refresh_token')){rotated++;return http(200,cred('A','expired-refresh'));}
