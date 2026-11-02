@@ -401,7 +401,8 @@ export function createEditorSession(
           after: EditorDocument;
         }) => string[])
       | null = null,
-    validationOverride: ValidationResult | null = null
+    validationOverride: ValidationResult | null = null,
+    strictValidation = false
   ) => {
     const before = clone(document);
     const beforeSelection = [...selection];
@@ -422,7 +423,7 @@ export function createEditorSession(
       'WEP_VALIDATION_OVERRIDE_INVALID'
     );
 
-    if (!validation.ok && !allowInvalidDraft) {
+    if (!validation.ok && (strictValidation || !allowInvalidDraft)) {
       return {
         applied: false,
         draftBlocked: true,
@@ -736,16 +737,144 @@ export function createEditorSession(
       return [...selection];
     },
 
+    /** Non-mutating, strict preflight for pointer-driven local moves only.
+     * Existing loose Draft commands keep their accepted historical behavior.
+     * This is NOT a native save writer authorization. */
+    previewStrictMove(
+      ids: string[] | null | undefined,
+      dx: number,
+      dy: number,
+      areaBounds: Rect
+    ) {
+      const chosen = ensureSelection(ids?.length ? ids : [...selection]);
+      const deltaX = int(dx, 'WEP_MOVE_DX_INVALID');
+      const deltaY = int(dy, 'WEP_MOVE_DY_INVALID');
+      const area = normalizeRect(areaBounds);
+      const issue = (code: string) => ({
+        ok: false,
+        code,
+        validation: { ok: false, issues: [{ code, severity: 'BLOCK' }] }
+      });
+      if (!deltaX && !deltaY) return issue('WEP_MULTI_DRAG_ZERO_DELTA');
+      if (!Number.isInteger(area.x) || !Number.isInteger(area.y) ||
+          !Number.isInteger(area.w) || !Number.isInteger(area.h)) {
+        return issue('WEP_MULTI_DRAG_AREA_GRID_BOUNDS_UNPROVEN');
+      }
+      const selectedIds = new Set(chosen);
+      const documentRoot = document.target?.rootGridId;
+      const chosenObjects = document.objects.filter(object => selectedIds.has(object.editorId));
+      if (chosenObjects.length !== chosen.length) return issue('WEP_MULTI_DRAG_SELECTION_CHANGED');
+      for (const object of chosenObjects) {
+        if (object.layer !== 'furniture' || object.editability !== 'editable' ||
+            (Array.isArray(object.metadata?.reasons) && object.metadata.reasons.length) ||
+            object.metadata?.worldClass === 'FenceAndRoadItemData' ||
+            object.metadata?.storageCapability?.status === 'SUPPORTED_NONEMPTY' ||
+            object.dependencyIds.length) {
+          return issue('WEP_MULTI_DRAG_OBJECT_UNSUPPORTED_OR_PROTECTED');
+        }
+        // Object-origin grid must match the active root; ambiguous SubGrid
+        // ancestry is fail-closed rather than inferred from coordinates.
+        const source = object.source as any;
+        const originGridIds = [
+          object.metadata?.rootGridId, object.metadata?.gridId,
+          object.metadata?.gridID, source?.rootGridId,
+          source?.gridId, source?.gridID
+        ].filter(value => value !== undefined && value !== null);
+        if (document.target?.platform !== 'synthetic' &&
+            (documentRoot === undefined || documentRoot === null)) {
+          return issue('WEP_MULTI_DRAG_ACTIVE_GRID_UNPROVEN');
+        }
+        if (originGridIds.some(value =>
+          documentRoot === undefined || documentRoot === null ||
+          String(value) !== String(documentRoot))) {
+          return issue('WEP_MULTI_DRAG_CROSS_GRID_OR_SUBGRID');
+        }
+        if ([
+          object.metadata?.subGridId, object.metadata?.subGridDataPath,
+          object.metadata?.parentGridId, source?.subGridId,
+          source?.subGridDataPath, source?.parentGridId
+        ].some(value => value !== undefined && value !== null && value !== '')) {
+          return issue('WEP_MULTI_DRAG_SUBGRID_UNPROVEN');
+        }
+      }
+      const candidate = clone(document);
+      candidate.objects = candidate.objects.map(object =>
+        selectedIds.has(object.editorId)
+          ? geometryAdapter?.translate
+            ? geometryAdapter.translate(clone(object), deltaX, deltaY)
+            : defaultTranslate(object, deltaX, deltaY)
+          : object
+      );
+      const occupancy = new Map<string, string>();
+      for (const object of candidate.objects) {
+        const isMoved = selectedIds.has(object.editorId);
+        for (const cell of occupiedCells(object)) {
+          // Only moved furniture is constrained to the active Area's proved
+          // grid bounds. A nonmoving object outside bounds is not modified.
+          if (isMoved && (cell.x < area.x || cell.y < area.y ||
+              cell.x >= area.x + area.w || cell.y >= area.y + area.h)) {
+            return issue('WEP_MULTI_DRAG_OUT_OF_AREA_BOUNDS');
+          }
+          const key = cell.x + ':' + cell.y;
+          const occupying = occupancy.get(key);
+          if (occupying && (isMoved || selectedIds.has(occupying))) {
+            return issue('WEP_MULTI_DRAG_COLLISION');
+          }
+          // Preserve identity for nonmoving overlapped legacy content.
+          if (!occupying) occupancy.set(key, object.editorId);
+        }
+      }
+      const validation = validate(candidate, {
+        kind: 'MOVE',
+        ids: chosen,
+        result: { ids: chosen, dx: deltaX, dy: deltaY }
+      }, document);
+      if (!validation.ok) return {
+        ok: false,
+        code: String(validation.issues?.[0]?.code ?? 'WEP_MULTI_DRAG_NATIVE_VALIDATION_FAILED'),
+        validation
+      };
+      return {
+        ok: true,
+        ids: chosen,
+        dx: deltaX,
+        dy: deltaY,
+        positions: chosenObjects.map(object => ({
+          editorId: object.editorId,
+          x: candidate.objects.find(value => value.editorId === object.editorId)!.x,
+          y: candidate.objects.find(value => value.editorId === object.editorId)!.y
+        })),
+        validation: { ...validation, persistentWriteAuthorized: false }
+      };
+    },
+
     move(
       ids: string[] | null | undefined,
       dx: number,
-      dy: number
+      dy: number,
+      { strict = false, areaBounds = null }: {
+        strict?: boolean;
+        areaBounds?: Rect | null;
+      } = {}
     ) {
       const chosen = ensureSelection(
         ids?.length ? ids : [...selection]
       );
       const deltaX = int(dx, 'WEP_MOVE_DX_INVALID');
       const deltaY = int(dy, 'WEP_MOVE_DY_INVALID');
+      if (strict) {
+        assert(areaBounds !== null, 'WEP_MULTI_DRAG_BOUNDS_REQUIRED');
+        const preflight = this.previewStrictMove(chosen, deltaX, deltaY, areaBounds);
+        if (!preflight.ok) {
+          return {
+            applied: false,
+            draftBlocked: true,
+            kind: 'MOVE',
+            validation: preflight.validation,
+            result: { ids: chosen, dx: deltaX, dy: deltaY }
+          };
+        }
+      }
 
       return commit(
         'MOVE',
@@ -769,7 +898,10 @@ export function createEditorSession(
             dy: deltaY
           };
         },
-        { ids: chosen }
+        { ids: chosen },
+        null,
+        null,
+        strict
       );
     },
 
