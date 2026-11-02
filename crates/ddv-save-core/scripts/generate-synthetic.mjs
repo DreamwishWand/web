@@ -10,7 +10,7 @@ if(!file||!Number.isSafeInteger(size)||size<1||size>200||
 const exactSize=size*(unit==='mb'?1000000:1048576);
 const path='/World/RecurringEvents/0/ItemSpawning/NextOccurrence';
 const header='{"GameInfo":{"Version":626},"World":{"RecurringEvents":{"0":{"ItemSpawning":{"RecurringEventItemID":2010000021,"NextOccurrence":"2126-08-20T00:00:00Z"}}},"GridCollection":{"Objects":[';
-const mid=']},"Unknown":{"Survive":{"unicode":"\\u00e9","unknownNumberText":"9007199254740993"},"Padding":"';
+const mid=']}},"Unknown":{"Survive":{"unicode":"\\u00e9","unknownNumberText":"9007199254740993"},"Padding":"';
 const tail='"}}';
 const fd=openSync(file,'w');const h=createHash('sha256');let total=0;
 function write(value){
