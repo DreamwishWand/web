@@ -186,7 +186,7 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
     }
     const rpc = commandToRpc[command];
 
-    const authorizationRpc =
+    // Source154 verified GoTrue Session + immutable terminal tombstone is the\n    // shared server authority, not the older account-global cutoff alone.\n    // Product writers require independent DB-atomic acceptance.\n    const {error: signedSessionError} = await ctx.supabaseAdmin.rpc(\n      'community_authorize_signed_session_v2',{\n        p_auth_subject: subject, p_issued_at_epoch: issuedAt,\n        p_session_id: String(ctx.jwtClaims?.session_id ?? '')\n      });\n    if (signedSessionError) return reply({ok:false,error:'SESSION_REVOKED_OR_INVALID'},401);\n    const authorizationRpc =
       command === 'ensureAccountCreator'
         ? 'community_authorize_identity_bootstrap'
         : 'community_authorize_session';
