@@ -33,15 +33,15 @@
   let ownerSourceFresh = false;
   const productReadAvailable=OWNER_PRODUCT_READONLY_ENABLED &&
     OWNER_PRODUCT_MANAGED_INGRESS_ACCEPTED;
-  const readCopy: Record<string,{inspect:string;fresh:string;hint:string}> = {
-    en:{inspect:'Check this Work',fresh:'Start a fresh read',hint:'Signed read-only source information, not verified Owner access'},
-    fr:{inspect:'Vérifier cette œuvre',fresh:'Commencer une nouvelle lecture',hint:'Données de source signées, pas un droit de gestion vérifié'},
-    it:{inspect:'Verifica questa opera',fresh:'Avvia una nuova lettura',hint:'Informazioni firmate di sola lettura, non autorizzazione verificata'},
-    de:{inspect:'Werk prüfen',fresh:'Neue Leseanfrage starten',hint:'Signierte Quelldaten, keine bestätigten Besitzerrechte'},
-    'es-ES':{inspect:'Comprobar esta obra',fresh:'Iniciar nueva lectura',hint:'Información firmada de solo lectura, sin derechos verificados'},
-    ja:{inspect:'この作品を再確認',fresh:'新しい読取りを開始',hint:'署名付きSource候補のみ。Owner権限の確認・付与ではありません'},
-    'zh-CN':{inspect:'检查该作品',fresh:'开始新读取',hint:'仅签名来源数据，不表示已验证拥有者权限'},
-    'pt-BR':{inspect:'Verificar esta obra',fresh:'Iniciar nova leitura',hint:'Dados de origem assinados, sem direitos verificados'}
+  const readCopy: Record<string,{inspect:string;fresh:string;hint:string;signInAgain:string}> = {
+    en:{inspect:'Check this Work',fresh:'Start a fresh read',hint:'Signed read-only source information, not verified Owner access',signInAgain:'For security, reload or reopening requires a new sign-in. Saved sessions are not restored.'},
+    fr:{inspect:'Vérifier cette œuvre',fresh:'Commencer une nouvelle lecture',hint:'Données de source signées, pas un droit de gestion vérifié',signInAgain:'Pour votre sécurité, reconnectez-vous après chaque réouverture ou actualisation.'},
+    it:{inspect:'Verifica questa opera',fresh:'Avvia una nuova lettura',hint:'Informazioni firmate di sola lettura, non autorizzazione verificata',signInAgain:'Per sicurezza, accedi di nuovo dopo ogni riapertura o aggiornamento.'},
+    de:{inspect:'Werk prüfen',fresh:'Neue Leseanfrage starten',hint:'Signierte Quelldaten, keine bestätigten Besitzerrechte',signInAgain:'Aus Sicherheitsgründen nach jedem Neuladen oder Öffnen erneut anmelden.'},
+    'es-ES':{inspect:'Comprobar esta obra',fresh:'Iniciar nueva lectura',hint:'Información firmada de solo lectura, sin derechos verificados',signInAgain:'Por seguridad, vuelve a iniciar sesión al reabrir o actualizar la página.'},
+    ja:{inspect:'この作品を再確認',fresh:'新しい読取りを開始',hint:'署名付きSource候補のみ。Owner権限の確認・付与ではありません',signInAgain:'安全のため、ページの再読込みや再オープン後は再ログインが必要です。'},
+    'zh-CN':{inspect:'检查该作品',fresh:'开始新读取',hint:'仅签名来源数据，不表示已验证拥有者权限',signInAgain:'出于安全考虑，重新打开或刷新页面后需要重新登录。'},
+    'pt-BR':{inspect:'Verificar esta obra',fresh:'Iniciar nova leitura',hint:'Dados de origem assinados, sem direitos verificados',signInAgain:'Por segurança, faça login novamente após reabrir ou atualizar a página.'}
   };
   $: ownerReadCopy=readCopy[$locale]??readCopy.en;
 
@@ -134,6 +134,7 @@
     <p class="notice" role="status" data-owner-state="authentication-required">
       {copy.signIn} <a href={`${base}/dreamsnaps/my/`}>My DreamSnaps</a>
     </p>
+    <p class="hint" data-owner-session-relogin>{ownerReadCopy.signInAgain}</p>
   {:else if route.status === 'authority-pending'}
     <p class="notice" role="status" data-owner-state="backend-unavailable">{copy.ownerPending}</p>
     {#if productReadAvailable}
