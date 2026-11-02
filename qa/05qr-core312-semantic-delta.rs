@@ -71,7 +71,7 @@ fn qr_unknown_nested_scalar_mutation_is_still_allowed_in_research_not_writer(){
 }
 #[test]
 fn qr_mixed_domains_revisions_undo_redo_source_hash_same(){
- let mut s=open(),commands=vec![
+ let mut s=open();let commands=vec![
   command(Domain::CollectionSet,"set:1","/Player/CollectionSets/1",
    "false","true",CommandKind::ReplaceKnownSubtree),
   command(Domain::Grid,"grid:5:obj:7","/World/GridCollection/Grids/5/Objects/7/State/x",
