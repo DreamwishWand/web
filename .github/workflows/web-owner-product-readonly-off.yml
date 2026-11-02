@@ -33,26 +33,37 @@ jobs:
         run: npm run check
       - name: Production build with Owner disabled
         run: npm run build
-      - name: Guard frozen accepted PR291 and backend/decoder parity
+      - name: Guard accepted PR297 backend/decoder/Auth and OFF parity
         shell: bash
         run: |
           set -euo pipefail
-          BASE=67534b86e8eb00649019d4cfdc2ab0d60ffe1935
+          BASE=4743a0b46f88a3797432cd5738da499221f8e055
           git merge-base --is-ancestor "$BASE" HEAD
-          git diff --exit-code "$BASE" HEAD -- supabase/ src/lib/community/ src/lib/dreamsnaps/source153-owner-consumer-v2.js src/lib/dreamsnaps/source153-owner-browser-e2.js src/lib/dreamsnaps/owner-read-revalidation.js src/lib/dreamsnaps/owner-management.js src/lib/dreamsnaps/owner-management-copy.js
+          # The repaired Auth + Owner OFF consumer at PR297 is the new accepted
+          # ancestor. Preserve every product/authority implementation byte.
+          git diff --exit-code "$BASE" HEAD -- supabase/ src/lib/community/ src/lib/dreamsnaps/ src/routes/dreamsnaps/community/ src/routes/creator/ src/routes/dreamsnaps/my/+page.svelte src/routes/dreamsnaps/my/manage/+page.svelte
+          test "$(git hash-object src/lib/community/staging-http-client.ts)" = 593b47818fe31356568e0ac688bc4ae8ef375225
           test "$(git hash-object src/lib/dreamsnaps/source153-owner-consumer-v2.js)" = f981b7596711b47bceb2fa79a2191e79e8f1b459
           test "$(git hash-object src/lib/dreamsnaps/source153-owner-browser-e2.js)" = 7468f9550e3e196d28b84c246ff529d2c5daa66e
-          test "$(git hash-object src/lib/dreamsnaps/owner-read-revalidation.js)" = "$(git rev-parse "$BASE:src/lib/dreamsnaps/owner-read-revalidation.js")"
-          test "$(git hash-object src/lib/community/staging-http-client.ts)" = 463a29428e8f0ec7733f526a1ca240667d4bc77f
+          test "$(git hash-object src/lib/dreamsnaps/owner-read-revalidation.js)" = bbf3e99883cb438629f732f5c09534a86a48abc1
+          test "$(git hash-object src/lib/dreamsnaps/owner-product-readonly.js)" = 5dcc3e565284011e64a87749b4887743fb0bd6d2
           test "$(git hash-object src/lib/community/browser-client.ts)" = 27716c4e89dcb01aacbf75ea63173f64328c2b93
-          git diff --name-only "$BASE" HEAD > /tmp/owner-product-diff
-          test "$(wc -l < /tmp/owner-product-diff)" -eq 6
+          grep -q 'OWNER_MANAGEMENT_ENABLED = false' src/lib/dreamsnaps/owner-management.js
+          grep -q 'SOURCE153_OWNER_V2_LIVE_ENABLED = false' src/lib/dreamsnaps/source153-owner-consumer-v2.js
+          grep -q 'SOURCE153_BROWSER_E2_PRODUCTION_ENABLED = false' src/lib/dreamsnaps/source153-owner-browser-e2.js
+          grep -q 'OWNER_REVALIDATION_PRODUCTION_ENABLED = false' src/lib/dreamsnaps/owner-read-revalidation.js
+          grep -q 'OWNER_PRODUCT_READONLY_ENABLED = false' src/lib/dreamsnaps/owner-product-readonly.js
+          grep -q 'OWNER_PRODUCT_MANAGED_INGRESS_ACCEPTED = false' src/lib/dreamsnaps/owner-product-readonly.js
+          # Only this test fixture and the two workflow guards may change.
+          git diff --name-only "$BASE" HEAD > /tmp/owner-guard-maintenance-diff
+          test "$(wc -l < /tmp/owner-guard-maintenance-diff)" -eq 3
           while IFS= read -r p; do
             case "$p" in
-              src/lib/dreamsnaps/owner-product-readonly.js|src/routes/dreamsnaps/my/manage/+page.svelte|tests/web-owner-product-readonly.test.mjs|scripts/web-owner-product-off-chrome.mjs|docs/web/owner-product-readonly-boundary-20261102.md|.github/workflows/web-owner-product-readonly-off.yml) ;;
-              *) echo UNEXPECTED_OWNER_PRODUCT_CHANGE >&2; exit 1 ;;
+              .github/workflows/web-x05-owner-management.yml|.github/workflows/web-owner-product-readonly-off.yml|scripts/dreamsnaps-owner-browser-acceptance.mjs) ;;
+              *) echo UNEXPECTED_GUARD_MAINTENANCE_CHANGE >&2; exit 1 ;;
             esac
-          done < /tmp/owner-product-diff
+          done < /tmp/owner-guard-maintenance-diff
+          echo PR297_ACCEPTED_OFF_GUARD_RECONCILED
   real-route-browser-off:
     needs: source-and-build
     runs-on: ubuntu-24.04
