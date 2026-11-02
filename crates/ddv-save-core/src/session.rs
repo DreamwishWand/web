@@ -67,6 +67,7 @@ pub struct TransactionPlan {
     pub expected_revision:u64,
     pub expected_source_sha256:[u8;32],
     pub commands:Vec<SemanticCommand>,
+    pub postconditions:Vec<ReadWitness>,
     /// Research-only graph supplied by the EXISTING Wand semantic owners;
     /// MUST NOT be received from untrusted UI or used for product authorization.
     pub post_references:ReferenceIndex,
@@ -119,6 +120,8 @@ pub struct SaveSession {
     history:Vec<Committed>,
     redo:Vec<Committed>,
     references:ReferenceIndex,
+    lazy_index:BTreeMap<String,SpanHit>,
+    cached_generation:u64,
 }
 impl SaveSession {
     pub fn open_decoded_research(
@@ -137,7 +140,8 @@ impl SaveSession {
         Ok(Self {
             session_id,source:Arc::from(decoded_json),source_sha:hash,schema,
             backing:BackingKind::OwnedMemory,revision:0,index_generation:0,
-            history:Vec::new(),redo:Vec::new(),references:refs
+            history:Vec::new(),redo:Vec::new(),references:refs,
+            lazy_index:BTreeMap::new(),cached_generation:0
         })
     }
     pub fn session_id(&self)->u64{self.session_id}
@@ -152,20 +156,32 @@ impl SaveSession {
         Ok(self.references.outbound(identity))
     }
     /// Read-focused index is rebuilt after each edit, not cached against an old revision.
-    pub fn query_paged(&self,pointers:&[String],cursor:usize,limit:usize)
+    pub fn query_paged(&mut self,pointers:&[String],cursor:usize,limit:usize)
         ->EngineResult<Vec<Projection>>{
         if limit==0||limit>MAX_PAGE{return Err("QUERY_PAGE_LIMIT");}
         if pointers.len()>512{return Err("QUERY_WATCH_TOO_LARGE");}
-        let content=self.materialize()?;
-        let rows=index_selected_tokens(&content,pointers)?;
-        Ok(rows.into_iter().skip(cursor).take(limit).map(|hit|Projection {
-            pointer:hit.pointer,
-            preview_json: if hit.value.len()>MAX_PROJECTION_BYTES {
-                String::from("[OPAQUE_TOO_LARGE]")
-            } else { hit.value },
-            byte_span:(hit.span.start,hit.span.end),
-            revision:self.revision
-        }).collect())
+        if self.cached_generation!=self.index_generation {
+            self.lazy_index.clear();
+            self.cached_generation=self.index_generation;
+        }
+        let missing:Vec<String>=pointers.iter()
+            .filter(|p|!self.lazy_index.contains_key(*p)).cloned().collect();
+        if !missing.is_empty() {
+            let content=self.materialize()?;
+            let hits=index_selected_tokens(&content,&missing)?;
+            for hit in hits {
+                self.lazy_index.insert(hit.pointer.clone(),hit);
+            }
+        }
+        Ok(pointers.iter().skip(cursor).take(limit)
+            .filter_map(|pointer|self.lazy_index.get(pointer).map(|hit|Projection {
+                pointer:hit.pointer.clone(),
+                preview_json: if hit.value.len()>MAX_PROJECTION_BYTES {
+                    String::from("[OPAQUE_TOO_LARGE]")
+                } else {hit.value.clone()},
+                byte_span:(hit.span.start,hit.span.end),
+                revision:self.revision
+            })).collect())
     }
     pub fn stage_command(&mut self,plan:TransactionPlan)->EngineResult<ChangeSet>{
         if plan.session_id!=self.session_id{return Err("STALE_SESSION");}
@@ -196,12 +212,23 @@ impl SaveSession {
         // Schema and all JSON fields are revalidated; no semantic domain rules
         // are fabricated here. Existing Wand validators own that missing gate.
         validate_json(&after)?;
+        if plan.postconditions.len()>512{return Err("POSTCONDITION_LIMIT");}
+        let post_paths:Vec<String>=plan.postconditions.iter().map(|p|p.pointer.clone()).collect();
+        let post_hits=index_selected_tokens(&after,&post_paths)?;
+        let post_map:BTreeMap<String,String>=post_hits.into_iter()
+            .map(|x|(x.pointer,x.value)).collect();
+        for witness in &plan.postconditions {
+            if post_map.get(&witness.pointer)!=Some(&witness.expected_raw_json){
+                return Err("POSTCONDITION_FAILED");
+            }
+        }
         let schema=index_selected_tokens(&after,&["/GameInfo/Version".into()])?;
         if schema.first().map(|s|s.value.parse::<u64>().ok())!=Some(Some(self.schema)){
             return Err("SAVE_SCHEMA_DRIFT");
         }
         if after==before{return Err("TX_NO_OP");}
         let next=self.revision.checked_add(1).ok_or("REVISION_OVERFLOW")?;
+        let next_generation=self.index_generation.checked_add(1).ok_or("INDEX_GENERATION_OVERFLOW")?;
         let change=ChangeSet{
             from_revision:self.revision,to_revision:next,
             affected:touched.into_iter().collect(),
@@ -216,17 +243,18 @@ impl SaveSession {
         self.references=plan.post_references;
         self.redo.clear();
         self.revision=next;
-        self.index_generation=self.index_generation.checked_add(1).ok_or("INDEX_GENERATION_OVERFLOW")?;
+        self.index_generation=next_generation;
         Ok(change)
     }
     pub fn undo(&mut self,expected_revision:u64)->EngineResult<ChangeSet>{
         if expected_revision!=self.revision{return Err("STALE_REVISION");}
-        let entry=self.history.pop().ok_or("UNDO_EMPTY")?;
         let next=self.revision.checked_add(1).ok_or("REVISION_OVERFLOW")?;
+        let next_generation=self.index_generation.checked_add(1).ok_or("INDEX_GENERATION_OVERFLOW")?;
+        let entry=self.history.pop().ok_or("UNDO_EMPTY")?;
         self.references=entry.before.clone();
         self.redo.push(entry.clone());
         self.revision=next;
-        self.index_generation=self.index_generation.checked_add(1).ok_or("INDEX_GENERATION_OVERFLOW")?;
+        self.index_generation=next_generation;
         Ok(ChangeSet{from_revision:next-1,to_revision:next,
             affected:entry.change.affected,changed_paths:entry.change.changed_paths})
     }
@@ -238,11 +266,12 @@ impl SaveSession {
         validate_json(&after)?;
         if after==before{return Err("REDO_NO_OP");}
         let next=self.revision.checked_add(1).ok_or("REVISION_OVERFLOW")?;
+        let next_generation=self.index_generation.checked_add(1).ok_or("INDEX_GENERATION_OVERFLOW")?;
         self.redo.pop();
         self.references=entry.after.clone();
         self.history.push(entry.clone());
         self.revision=next;
-        self.index_generation=self.index_generation.checked_add(1).ok_or("INDEX_GENERATION_OVERFLOW")?;
+        self.index_generation=next_generation;
         Ok(ChangeSet{from_revision:next-1,to_revision:next,
             affected:entry.change.affected,changed_paths:entry.change.changed_paths})
     }
