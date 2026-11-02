@@ -6,7 +6,7 @@ import {chromium} from 'playwright-core';
 // to disposable Vite loopback proxy. No managed ingress/CORS claim.
 const env=process.env;
 const required=['CHROME_BIN','E2_OWNER_EMAIL','E2_OWNER_PASSWORD',
-  'E2_B_EMAIL','E2_B_PASSWORD','E2_ORIGINAL_WORK_ID','E2_POST_WORK_ID'];
+  'E2_B_EMAIL','E2_B_PASSWORD','E2_ORIGINAL_WORK_ID','E2_POST_WORK_ID','E2_REAL_LOCAL_ANON_PUBLIC_KEY'];
 if(env.DDVRE_E2_LOCAL_DISPOSABLE!=='APPROVED'||
   required.some(k=>!env[k]))throw Error('SIGNED_BRIDGE_DISPOSABLE_ONLY');
 const ORIGIN='http://127.0.0.1:4175';
@@ -44,16 +44,28 @@ try{
   });
   // No Vite HTTPS exemption in product source; the shim exists ONLY here.
   // Scoped to this fake HTTPS origin and leaves all other requests untouched.
-  await page.addInitScript(({virtual,loopback})=>{
+  await page.addInitScript(({virtual,loopback,localAnon,fakeKey})=>{
     const original=window.fetch.bind(window);
     window.fetch=(input,init)=>{
       const raw=typeof input==='string'?input:input?.url;
-      if(typeof raw==='string' && raw.startsWith(virtual+'/')){
-        return original(loopback+raw.slice(virtual.length),init);
-      }
-      return original(input,init);
+      const virtualRequest=typeof raw==='string'&&raw.startsWith(virtual+'/');
+      const ownerLocalRequest=typeof raw==='string'&&
+        raw.startsWith(loopback+'/functions/v1/community-dreamsnap-owner');
+      if(!virtualRequest&&!ownerLocalRequest)return original(input,init);
+      const target=virtualRequest?loopback+raw.slice(virtual.length):input;
+      const headers=new Headers(init?.headers??{});
+      // Public key syntax stays strict in the actual product SharedClient.
+      // In this browser fixture ONLY, map synthetic sb_publishable_ key to
+      // genuine disposable FULL153 local legacy ANON_KEY for real GoTrue/Edge.
+      if(headers.get('apikey')===fakeKey)headers.set('apikey',localAnon);
+      return original(target,{...init,headers});
     };
-  },{virtual:'https://wand-disposable-e2.invalid',loopback:ORIGIN+'/__source153_e2'});
+  },{
+    virtual:'https://wand-disposable-e2.invalid',
+    loopback:ORIGIN+'/__source153_e2',
+    localAnon:env.E2_REAL_LOCAL_ANON_PUBLIC_KEY,
+    fakeKey:'sb_publishable_disposable_local_bridge_only'
+  });
 
   await page.goto(ORIGIN+ROUTE+'bad-id',{waitUntil:'domcontentloaded'});
   await eventually(async()=>await page.locator('[data-bridge-invalid]').count()===1);
