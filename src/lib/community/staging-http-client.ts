@@ -210,26 +210,65 @@ function configScope(config: CommunityLabConfig): string {
 function sessionKey(scope: string): string {
   return SESSION_KEY_PREFIX + scope;
 }
-function saveSession(s: SharedAuth, session: CommunitySession | null): void {
-  if (typeof sessionStorage === 'undefined') return;
-  // No raw key, URL or credential appears in the storage key.
+const QUARANTINE_KEY_PREFIX = 'dreamwishwand-community-session-quarantine-v1:';
+function quarantineKey(scope: string): string {
+  return QUARANTINE_KEY_PREFIX + scope;
+}
+
+/** Never propagate a Storage DOMException through a partially committed state.
+ * A write error rejects positive auth transitions; stale durable credentials
+ * are cleared when possible and otherwise quarantined by a tokenless marker. */
+function saveSession(s: SharedAuth, session: CommunitySession | null): boolean {
+  if (typeof sessionStorage === 'undefined') return session === null;
   const key = sessionKey(s.scope);
-  if (session) {
-    sessionStorage.setItem(key, JSON.stringify({
-      version: 2, config: s.config, session
-    }));
-  } else {
-    sessionStorage.removeItem(key);
+  try {
+    if (session) {
+      sessionStorage.setItem(key, JSON.stringify({
+        version: 2, config: s.config, session
+      }));
+      // A previous write fault may have quarantined a stale snapshot.
+      // Keep positive auth disabled if that revocation marker cannot clear.
+      if (typeof localStorage !== 'undefined')
+        localStorage.removeItem(quarantineKey(s.scope));
+    } else {
+      sessionStorage.removeItem(key);
+    }
+    return true;
+  } catch {
+    // Best-effort destruction, followed by an explicit durable tokenless
+    // quarantine if the credential snapshot could not be removed.
+    try {
+      sessionStorage.removeItem(key);
+    } catch {
+      try { sessionStorage.setItem(key, 'null'); }
+      catch { /* Both writes denied: retain only memory-side fail-closed state. */ }
+    }
+    try {
+      if (typeof localStorage !== 'undefined')
+        localStorage.setItem(quarantineKey(s.scope), '1');
+    } catch { /* No persistent revocation guarantee when all stores reject writes. */ }
+    return false;
   }
 }
 function loadSession(config: CommunityLabConfig, scope: string): CommunitySession | null {
   if (typeof sessionStorage === 'undefined') return null;
+  // A fault marker forbids importing even a correctly scoped but now stale
+  // credential. If this guard cannot be read, refuse stored credentials.
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    if (localStorage.getItem(quarantineKey(scope)) !== null) return null;
+  } catch { return null; }
   let raw: string | null;
   const key = sessionKey(scope);
   try {
     // The legacy blob cannot be attributed to a particular URL + publishable
     // key. Delete it, require reauthentication, and never guess migration.
     sessionStorage.removeItem(LEGACY_SESSION_KEY);
+    // Read-side writeability probe: an all-write-denied Storage must not
+    // rehydrate a credential while its removal cannot be persisted.
+    const probe = SESSION_KEY_PREFIX + 'probe:' + scope;
+    sessionStorage.setItem(probe, '1');
+    sessionStorage.removeItem(probe);
     raw = sessionStorage.getItem(key);
   } catch {
     return null; // Storage blocked: no credential is imported.
@@ -301,10 +340,15 @@ function commitSession(s:SharedAuth,next:CommunitySession|null,
     s.refreshFlight=null;
   s.generation++;
   if(!next)s.logoutEpoch++;
-  s.session=next?{...next}:null;
-  saveSession(s,s.session);
-  announce(s,kind);
-  if(broadcast)invalidateOtherTabs(s.scope);
+  // Persist before installing a positive session. On any write failure the
+  // only valid in-memory outcome is an invalidated session with a new epoch.
+  const persisted=saveSession(s,next);
+  const accepted=persisted?next:null;
+  s.session=accepted?{...accepted}:null;
+  if(!accepted && next)s.logoutEpoch++;
+  announce(s,persisted?kind:'session-invalidated');
+  if(broadcast||!persisted)invalidateOtherTabs(s.scope);
+  if(!persisted&&next)throw new Error('SESSION_STORAGE_WRITE_FAILED');
 }
 function sharedAuth(config:CommunityLabConfig):SharedAuth{
   const key=JSON.stringify([config.supabaseUrl,config.publishableKey]);
