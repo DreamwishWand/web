@@ -162,3 +162,18 @@ test('other tab receives only logout invalidation, never tokens',()=>{
   assert.ok(!payload.includes('TEST_JWT'));
   assert.ok(!payload.includes('TEST_REFRESH_SECRET'));
 });
+
+test('global revoke invalidates immediately and signs Wand cutoff before provider logout',async()=>{
+  const [a,b]=setup('A',3600), held=defer(),calls=[];
+  globalThis.fetch=async url=>{
+    if(String(url).includes('community-command')){calls.push('wand');return held.promise;}
+    if(String(url).includes('logout?scope=global')){calls.push('provider');return http(200,{});}
+    return http(200,{});
+  };
+  const result=a.revokeAllSessions();
+  await Promise.resolve();await Promise.resolve();await Promise.resolve();
+  assert.equal(b.session,null);
+  held.resolve(http(200,{ok:true}));
+  assert.equal((await result).ok,true);
+  assert.deepEqual(calls,['wand','provider']);
+});
