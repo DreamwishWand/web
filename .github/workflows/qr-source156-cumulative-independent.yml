@@ -1,0 +1,85 @@
+name: QR independent Source156 same-CAS and signed-body failclosed negatives
+on:
+  push:
+    branches: ['qa/source156-cumulative-independent-negatives-20261103']
+  pull_request:
+    branches: ['comm/source156-first-account-r16-composed-20261103']
+permissions:
+  contents: read
+jobs:
+  independent-source156-negatives:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_PROJECT_ID: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Freeze exact PR327 source and QR two file test-only scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=75a944ff644547badc7dc11e4293a1a166a87490
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD | sort > /tmp/qa156-changes
+          printf '%s\n' .github/workflows/qr-source156-cumulative-independent.yml tests/qr-source156-cumulative-new-negatives-local.py | sort > /tmp/qa156-expected
+          diff -u /tmp/qa156-expected /tmp/qa156-changes
+          test "$(git hash-object supabase/migrations/20261103010000_community_source156_signed_gallery_r16_atomic_writer.sql)" = 3000d66c193b996e4ece785deaf5180955ec3bc6
+          test "$(git hash-object supabase/functions/community-command/index.ts)" = c910dd851eeb3266594c152501425828fd3d9759
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 156
+          test -z "$(git diff --name-only "$BASE" HEAD -- src supabase)"
+          python3 -m py_compile tests/qr-source156-cumulative-new-negatives-local.py
+          echo QR156_FROZEN_SOURCE_BLOBS_TWO_QA_ONLY_PATHS_PASS
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+      - name: Generate disposable genuine GoTrue ES256 signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\n[auth]\nsigning_keys_path = "./signing_keys.json"\n' >> supabase/config.toml
+          printf '[]\n' > supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes >/tmp/qr156-signer.log 2>&1
+          python3 - <<'PY'
+          import json
+          keys=json.load(open('supabase/signing_keys.json'))
+          assert any(k.get('kty')=='EC' and k.get('crv')=='P-256' and k.get('kid') and k.get('d') for k in keys)
+          print('QR156_GENUINE_GOTRUE_ES256_SIGNER_READY')
+          PY
+      - name: Boot and reset FULL156 clean DB in isolated local stack
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_qr156_independent_disposable"\n' | cat - supabase/config.toml > /tmp/qr156-config
+          mv /tmp/qr156-config supabase/config.toml
+          printf 'COMMUNITY_MEDIA_BUCKET=ddvre-qr156-local-media\nWEP_PRESET_ARTIFACT_BUCKET=ddvre-qr156-local-preset\n' > supabase/functions/.env
+          timeout 1800s supabase start > /tmp/qr156-start.log 2>&1 || { echo QR156_LOCAL_BOOT_FAILED; exit 1; }
+          timeout 900s supabase db reset --no-seed > /tmp/qr156-reset.log 2>&1 || { echo QR156_LOCAL_RESET_FAILED; exit 1; }
+          echo QR156_FRESH_FULL156_CLEAN_RESET_PASS
+      - run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Independent scoped signed R16 negative probes on genuine full156
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/qr-source156-cumulative-new-negatives-local.py > /tmp/qr156-markers.log 2>&1 || {
+            echo QR156_INDEPENDENT_NEGATIVE_FAILURE
+            grep -E '^(QR156_|SOURCE156_|Traceback|AssertionError)' /tmp/qr156-markers.log | tail -n 20 || true
+            exit 1
+          }
+          for label in QR156-Q01-REVOKED-CURRENT-CAS QR156-Q02-FOREIGN-CLAIMS QR156-Q03-STILL-CAS QR156-Q04-DIRECT-ACL QR156-Q05-UNREGISTERED-SESSION QR156_REAL_SIGNED_NEW_ONLY_NEGATIVES_PASS; do
+            grep -q "$label" /tmp/qr156-markers.log
+          done
+          echo QR156_INDEPENDENT_TRUE_ES256_CURRENT_CAS_ACL_NEGATIVES_PASS
+      - name: Teardown local disposable database and signer
+        if: always()
+        shell: bash
+        run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f supabase/signing_keys.json supabase/functions/.env /tmp/qr156-*
+          echo QR156_DISPOSABLE_TEARDOWN_ATTEMPTED
