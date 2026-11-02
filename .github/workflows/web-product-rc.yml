@@ -1,0 +1,86 @@
+name: WEB six-core Product RC scoped acceptance
+on:
+  push:
+    branches: ['web/product-rc-six-core-help-*']
+  pull_request:
+    paths:
+      - 'src/lib/product-home/rc-manifest.js'
+      - 'src/routes/rc-status/**'
+      - 'src/routes/+page.svelte'
+      - 'tests/web-product-rc-route-safety.test.mjs'
+      - 'scripts/web-product-rc-browser-acceptance.mjs'
+      - '.github/workflows/web-product-rc.yml'
+permissions:
+  contents: read
+jobs:
+  source-and-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: New-only RC route and safety checks
+        run: node --test tests/web-product-rc-route-safety.test.mjs
+      - name: Check Svelte and static build
+        run: npm run check && npm run build
+      - name: Exact static destinations and preserved Owner OFF state
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f build/index.html
+          test -f build/rc-status/index.html
+          test -f build/help/index.html
+          for d in decorate collection guide presets gallery dreamsnaps; do test -f "build/$d/index.html"; done
+          for f in 'OWNER_MANAGEMENT_ENABLED = false' 'SOURCE153_OWNER_V2_LIVE_ENABLED = false' 'SOURCE153_BROWSER_E2_PRODUCTION_ENABLED = false' 'OWNER_REVALIDATION_PRODUCTION_ENABLED = false' 'OWNER_PRODUCT_READONLY_ENABLED = false' 'OWNER_PRODUCT_MANAGED_INGRESS_ACCEPTED = false'; do
+            grep -RFq "$f" src/lib/dreamsnaps/
+          done
+          git diff --exit-code 4dfb556db1d6d1b05c357ab3db943d0d8e64fe3d HEAD -- supabase/ src/lib/community/ src/lib/dreamsnaps/ src/lib/wep/
+          echo WEB_RC_PROTECTED_AUTH_SOURCE_OFF_PASS
+  actual-chromium:
+    needs: source-and-build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Resolve real Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Start isolated local Vite
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4176 >/tmp/web-rc-vite.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4176/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/web-rc-vite.log
+          exit 1
+      - name: Actual Chrome 320px/200%, JA/EN, no-leak negatives
+        env:
+          WEB_RC_BASE_URL: http://127.0.0.1:4176
+        run: node scripts/web-product-rc-browser-acceptance.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: web-six-core-rc-chrome
+          path: .artifacts/web-rc/
+          if-no-files-found: warn
