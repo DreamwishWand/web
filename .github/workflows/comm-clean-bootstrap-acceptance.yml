@@ -80,6 +80,13 @@ jobs:
               text=True).splitlines() if p.endswith('.sql')]
           assert len(old)==153 and len(fs)==154, 'SOURCE154_MIGRATION_COUNT_BASELINE_MISMATCH'
           assert [p.name for p in fs[:148]]==old[:148], 'HISTORIC_SOURCE148_PREFIX_DRIFT'
+          all_current=fs
+          fs=[p for p in all_current if p.name.split('_',1)[0]<'20261028000020']
+          # Historic scoped assertion is intentionally retained for frozen
+          # R12-R19 test contracts, NOT applied to the full Source154 list.
+          assert len(fs)==148, 'HISTORIC_SOURCE148_COUNT_CHANGED'
+          assert [p.name for p in fs]==old[:148], 'HISTORIC_SOURCE148_ORDER_CHANGED'
+          fs=all_current
           assert [p.name for p in fs[:153]]==old, 'SOURCE149_153_PREDECESSOR_DRIFT'
           last='20261102000000_community_source153_signed_session_lineage_v2.sql'
           assert fs[-1].name==last, 'SOURCE154_NOT_THE_SINGLE_NEW_FINAL_MIGRATION'
@@ -149,7 +156,7 @@ jobs:
             IF v<>154 THEN RAISE EXCEPTION 'SOURCE154_LEDGER_COUNT_NOT_154: %',v;END IF;
             SELECT count(*) INTO v FROM supabase_migrations.schema_migrations
                WHERE version < '20261028000020';
-            IF v<>148 THEN RAISE EXCEPTION 'SOURCE148_HISTORIC_PREFIX_NOT_148: %',v;END IF;
+            IF v<>148 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_148: %',v;END IF;
             IF (SELECT count(*) FROM supabase_migrations.schema_migrations
               WHERE version IN ('20261028000020','20261028000030','20261028000040',
                 '20261028000050','20261028000060','20261102000000'))<>6
