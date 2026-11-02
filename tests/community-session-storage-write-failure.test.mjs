@@ -53,6 +53,16 @@ function putSession(client,id='A',seconds=3600){
     userId:id,email:null,expiresAt:Date.now()+seconds*1000
   }}));
 }
+// Signed in through the real module API; raw v2 Storage injection is not
+// an authentication fixture under the cold-start fail-closed contract.
+async function provisionSignedClient(Client,cfg,id='A',seconds=3600){
+  const client=new Client(cfg);
+  const previous=globalThis.fetch;
+  globalThis.fetch=async()=>response(200,cred(id,'old',seconds));
+  try { await client.signInWithPassword(id,'synthetic-fixture'); }
+  finally { globalThis.fetch=previous; }
+  return client;
+}
 function scope(config){
   const input=JSON.stringify([config.supabaseUrl,config.publishableKey]);
   let a=0x811c9dc5,b=0x9e3779b9,c=0x85ebca6b,d=0xc2b2ae35;
@@ -98,8 +108,7 @@ test('new: failed refresh setItem does not publish a rotated credential',async()
   start();
   const {CommunityLabClient}=await freshClientModule();
   const cfg=config('refresh');
-  putSession({config:cfg},'A',5);
-  const a=new CommunityLabClient(cfg),events=[];
+  const a=await provisionSignedClient(CommunityLabClient,cfg,'A',5),events=[];
   a.subscribeSession(e=>events.push(e));
   faults.set=true;
   globalThis.fetch=async()=>response(200,cred('A','rotated'));
@@ -115,8 +124,7 @@ test('new: logout removeItem denial uses null tombstone, still notifies and call
   start();
   const {CommunityLabClient}=await freshClientModule();
   const cfg=config('logout');
-  putSession({config:cfg},'A');
-  const a=new CommunityLabClient(cfg),events=[];
+  const a=await provisionSignedClient(CommunityLabClient,cfg,'A'),events=[];
   a.subscribeSession(e=>events.push(e));
   let providerCalls=0;
   globalThis.fetch=async url=>{if(String(url).includes('/logout'))providerCalls++;return response(200,{});};
@@ -126,7 +134,7 @@ test('new: logout removeItem denial uses null tombstone, still notifies and call
   assert.equal(a.session,null);
   assert.equal(sessions.get('dreamwishwand-community-session-v2:'+scope(cfg)),'null');
   assert.equal(events.at(-1).kind,'session-invalidated');
-  assert.equal(events.at(-1).logoutEpoch,1);
+  assert.ok(events.at(-1).logoutEpoch>=2);
   assert.equal(locals.get(quarantineKey(cfg)),'1');
   assert.ok(locals.has(noticeKey));
   faults.remove=false;
@@ -139,8 +147,7 @@ test('new: failed remove AND tombstone overwrite quarantines stale persisted cre
   start();
   const {CommunityLabClient}=await freshClientModule();
   const cfg=config('stale');
-  putSession({config:cfg},'A');
-  const a=new CommunityLabClient(cfg),events=[];
+  const a=await provisionSignedClient(CommunityLabClient,cfg,'A'),events=[];
   a.subscribeSession(e=>events.push(e));
   faults.remove=true;faults.set=true;
   globalThis.fetch=async()=>response(200,{});
@@ -164,8 +171,7 @@ test('new: sign-in A to B with remove and set failures cannot revive A or accept
   start();
   const {CommunityLabClient}=await freshClientModule();
   const cfg=config('switch');
-  putSession({config:cfg},'A');
-  const a=new CommunityLabClient(cfg),events=[];
+  const a=await provisionSignedClient(CommunityLabClient,cfg,'A'),events=[];
   a.subscribeSession(e=>events.push(e));
   faults.set=true;faults.remove=true;
   globalThis.fetch=async()=>response(200,cred('B','login'));
@@ -182,8 +188,7 @@ test('new: late refresh after throwing logout cannot reinstall old token',async(
   start();
   const {CommunityLabClient}=await freshClientModule();
   const cfg=config('late');
-  putSession({config:cfg},'A',4);
-  const a=new CommunityLabClient(cfg),b=new CommunityLabClient(cfg);
+  const a=await provisionSignedClient(CommunityLabClient,cfg,'A',4),b=new CommunityLabClient(cfg);
   const held=defer(),events=[];
   b.subscribeSession(e=>events.push(e));
   globalThis.fetch=async url=>String(url).includes('refresh_token')?held.promise:response(200,{});
@@ -203,9 +208,8 @@ test('new: A storage write failure does not invalidate cross-config B',async()=>
   start();
   const {CommunityLabClient}=await freshClientModule();
   const ca=config('A','sb_publishable_A'),cb=config('B','sb_publishable_B');
-  putSession({config:ca},'A');
-  putSession({config:cb},'B');
-  const a=new CommunityLabClient(ca),b=new CommunityLabClient(cb),seen=[];
+  const a=await provisionSignedClient(CommunityLabClient,ca,'A');
+  const b=await provisionSignedClient(CommunityLabClient,cb,'B'),seen=[];
   b.subscribeSession(x=>seen.push(x));
   faults.remove=true;faults.set=true;
   globalThis.fetch=async()=>response(200,{});
@@ -224,8 +228,7 @@ test('new: storage and localStorage all reject writes; in-memory logout still no
   start();
   const {CommunityLabClient}=await freshClientModule();
   const cfg=config('all-denied');
-  putSession({config:cfg},'A');
-  const a=new CommunityLabClient(cfg),events=[];
+  const a=await provisionSignedClient(CommunityLabClient,cfg,'A'),events=[];
   a.subscribeSession(x=>events.push(x));
   faults.remove=true;faults.set=true;faults.localSet=true;
   globalThis.fetch=async()=>response(200,{});
@@ -246,8 +249,7 @@ test('new: new sign-in after storage recovery overwrites stale snapshot and clea
   start();
   const {CommunityLabClient}=await freshClientModule();
   const cfg=config('recover');
-  putSession({config:cfg},'A');
-  const a=new CommunityLabClient(cfg),events=[];
+  const a=await provisionSignedClient(CommunityLabClient,cfg,'A'),events=[];
   a.subscribeSession(x=>events.push(x));
   faults.remove=true;faults.set=true;
   globalThis.fetch=async()=>response(200,{});
@@ -260,7 +262,9 @@ test('new: new sign-in after storage recovery overwrites stale snapshot and clea
   assert.equal(locals.has(quarantineKey(cfg)),false);
   assert.equal(JSON.parse(sessions.get('dreamwishwand-community-session-v2:'+scope(cfg))).session.userId,'B');
   const {CommunityLabClient:Reload}=await freshClientModule();
-  assert.equal(new Reload(cfg).session.userId,'B');
+  const cold=new Reload(cfg);
+  assert.equal(cold.session,null); // even a freshly persisted B never auto-hydrates
+  await assert.rejects(cold.getValidSignedSession(),/Sign in before/);
   noSecretNotifications(events);
 });
 
@@ -268,8 +272,7 @@ test('new: stale writer 401 still not retried when Storage remove fails',async()
   start();
   const {CommunityLabClient}=await freshClientModule();
   const cfg=config('writer');
-  putSession({config:cfg},'A');
-  const a=new CommunityLabClient(cfg);
+  const a=await provisionSignedClient(CommunityLabClient,cfg,'A');
   let writerCalls=0,refreshCalls=0;
   globalThis.fetch=async url=>{
     if(String(url).includes('community-command')){writerCalls++;return response(401,{error:'no'});}
