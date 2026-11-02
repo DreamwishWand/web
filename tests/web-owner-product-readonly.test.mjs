@@ -84,7 +84,8 @@ test('real /dreamsnaps/my/manage/ screen uses existing Community client and neve
  assert.ok(page.includes('attachOwnerReadBrowserLifecycle'));
  assert.ok(page.includes('data-owner-product-read="disabled"'));
  assert.ok(page.includes('data-owner-product-projection="candidate-only"'));
- assert.ok(page.includes('ownerSource?.routeChanged(route.workId)'));
+ assert.ok(page.includes('sharedAuthConsumer?.routeChanged(route.workId)'));
+ assert.ok(page.includes('createOwnerSharedAuthConsumer'));
  assert.ok(page.includes('data-owner-preview="local-only"'));
  assert.ok(page.includes('data-owner-capabilities="all-disabled"'));
  for(const forbidden of ['loginDisposableGoTrue','VITE_DDVRE_E2_LOCAL_ANON_KEY',
