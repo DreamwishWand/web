@@ -35,7 +35,10 @@ added=r'''
     for name,edge,body in legacy_probes:
       def call(tok):
         state,headers,payload=http("/functions/v1/"+edge,body=body,token=tok)
-        assert "no-store" in {k.lower():v for k,v in headers.items()}.get("cache-control","").lower()
+        # Cache headers are independently reported, never hide route results.
+        # Missing headers are a second issue, not reason to stop the matrix.
+        private_header="no-store" in {k.lower():v for k,v in headers.items()}.get("cache-control","").lower()
+        if not private_header:marker("L-HEADER-"+edge,"PRIVATE_NO_STORE_MISSING",state)
         return state,payload
       active,ar=call(a2)
       revoked,rr=call(a1)
