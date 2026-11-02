@@ -1,0 +1,39 @@
+name: COMM Shared Signed Session Lifecycle QA
+on:
+  pull_request:
+    branches:
+      - web/owner-product-readonly-off-20261102
+permissions:
+  contents: read
+jobs:
+  session-source-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Frozen product and new shared Auth-only delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=d32b664efd6473d6a320a789909355b0a8ce1002
+          git merge-base --is-ancestor "$BASE" HEAD
+          test "$(git diff --name-only "$BASE" HEAD | wc -l)" -eq 4
+          test -z "$(git diff --name-only "$BASE" HEAD -- supabase/migrations supabase/functions src/lib/dreamsnaps src/routes package.json package-lock.json)"
+          test "$(git hash-object src/lib/dreamsnaps/source153-owner-consumer-v2.js)" = f981b7596711b47bceb2fa79a2191e79e8f1b459
+          test "$(git hash-object src/lib/community/browser-client.ts)" = 27716c4e89dcb01aacbf75ea63173f64328c2b93
+          test -z "$(git diff --name-only "$BASE" HEAD -- docs/community/policy)"
+          echo COMM_SIGNED_SESSION_SHARED_ONLY_SOURCE_FROZEN
+      - run: npm ci
+      - name: Deterministic session race and logout invariants
+        run: node --test tests/community-shared-signed-session.test.mjs
+      - name: Type check and production build without enabling Auth consumers
+        run: |
+          npm run check
+          npm run build
