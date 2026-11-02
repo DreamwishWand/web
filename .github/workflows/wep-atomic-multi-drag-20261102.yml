@@ -1,0 +1,56 @@
+name: WEP strict atomic multi-object local drag 100% and real zoom200
+on:
+  push:
+    branches: ['wep/local-atomic-multi-drag-20261102']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Strict atomic local MOVE + i18n inventory tests
+        run: node --test tests/wep-atomic-multi-drag.test.mjs tests/wep-marquee-selection.test.mjs tests/wep-world-editor-localization-inventory.test.mjs
+      - name: Svelte + TypeScript
+        run: npm run check
+      - name: Static build
+        run: npm run build
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Install full Chromium for native tab zoom API
+        run: |
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install chromium
+      - name: Start isolated synthetic World Editor
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4193 > /tmp/wep-atomic-move.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4193/editor/world/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/wep-atomic-move.log
+          exit 1
+      - name: New-only pointer move browser acceptance
+        env:
+          WEP_ATOMIC_MOVE_BASE_URL: http://127.0.0.1:4193/editor/world/
+        run: node scripts/wep-atomic-multi-drag-browser-acceptance.mjs
+      - name: Upload scoped browser report and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wep-atomic-move-native-100-200
+          path: .artifacts/wep-atomic-multi-move/
+          if-no-files-found: error
