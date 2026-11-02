@@ -10,13 +10,7 @@ p=Path("tests/comm-source154-legacy-signed-matrix-local.py")
 runner=p.read_text()
 source_hook="src=p.read_text()"
 assert runner.count(source_hook)==1
-runner=runner.replace(source_hook,source_hook+'''
-# Source155 is an isolated forward migration. Do not edit frozen Source153.
-assert src.count('migration_assert.replace("==153","==154")')==1
-src=src.replace('migration_assert.replace("==153","==154")',
-                'migration_assert.replace("==153","==155")',1)
-''',1)
-
+# Existing FULL154 Source153 fixture remains byte-identical: SQL overlay is separate.\n
 fixture=r'''
     # Fully owned local metadata: no Storage upload and no URL issue.
     good_media,good_preset,good_work=RANDOM(),RANDOM(),RANDOM()
@@ -58,6 +52,12 @@ fixture=r'''
 '''
 assert runner.count("    legacy_probes=[")==1
 runner=runner.replace("    legacy_probes=[",fixture+"\n    legacy_probes=[",1)
+# Record local SQLSTATE and primary SQL exception only, not IDs, JWTs or secrets.
+runner=runner.replace('try:exec(compile(src,str(p),"exec"),{"__name__":"__main__"})',
+'''src=src.replace('print("SOURCE153_SIGNED_SESSION_TEST_FAILED "+type(exc).__name__,flush=True)',
+'print("SOURCE153_SIGNED_SESSION_TEST_FAILED "+type(exc).__name__+" SQLSTATE="+str(getattr(exc,"sqlstate",None))+" PRIMARY="+str(getattr(getattr(exc,"diag",None),"message_primary",""))[:80],flush=True)')
+try:exec(compile(src,str(p),"exec"),{"__name__":"__main__"})''',1)
+
 assert runner.count('"mediaId":str(mp)')==1
 runner=runner.replace('"mediaId":str(mp)','"mediaId":str(good_media)',1)
 assert runner.count('"presetArtifactId":str(uuid.uuid4())')==1
