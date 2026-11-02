@@ -264,6 +264,47 @@ try{
     assert.equal(evidence.commands,1);
   });
 
+  await scenario('late held Refresh after Logout cannot restore old Account A',async ctx=>{
+    const a=await open(ctx);
+    await a.evaluate(async()=>{
+      window.__testHarness.ttl=1;
+      await window.client.signInWithPassword('A','synthetic');
+      window.__testHarness.refreshHold=true;
+      window.late=window.client.getValidSignedSession().then(
+        ()=>({ok:true}),error=>({ok:false,message:error.message}));
+    });
+    await a.waitForFunction(()=>window.__testHarness.releaseRefresh!==null);
+    const evidence=await a.evaluate(async()=>{
+      await window.client.signOut();
+      window.__testHarness.releaseRefresh();
+      const result=await window.late;
+      return {result,actor:window.client.session,refreshes:window.__testHarness.refreshCount};
+    });
+    assert.equal(evidence.result.ok,false);
+    assert.match(evidence.result.message,/SESSION_STALE_OR_LOGGED_OUT/);
+    assert.equal(evidence.actor,null);
+    assert.equal(evidence.refreshes,1);
+  });
+
+  await scenario('LOST NOTICE: other live tab remains signed until reload (documented limit)',async ctx=>{
+    const a=await open(ctx),b=await open(ctx);
+    await a.evaluate(async()=>await window.client.signInWithPassword('A','synthetic'));
+    await b.evaluate(async()=>await window.client.signInWithPassword('A','synthetic'));
+    await a.evaluate(async()=>{
+      window.__testHarness.blockNotice=true;
+      await window.client.signOut();
+    });
+    assert.equal(await a.evaluate(()=>window.client.session),null);
+    // Browser LocalStorage Broadcast is best effort, not server revocation.
+    // No event was delivered, so a separate already-live tab still has A.
+    assert.equal(await b.evaluate(()=>window.client.session?.userId),'A');
+    assert.equal(await b.evaluate(()=>window.__testHarness.nativeEvents.filter(x=>
+      x.key==='dreamwishwand-community-logout-notice-v2').length),0);
+    await b.reload();await moduleLoad(b);
+    assert.equal(await b.evaluate(()=>window.client.session),null);
+    console.log('LIMITATION LOCAL_STORAGE_NOTICE_WRITE_DENIED remote live tab stays A until reload');
+  });
+
   console.log('RESULT REAL_CHROMIUM_SYNTHETIC_HTTP '+passed+'/'+names.length+' PASS');
 }finally{
   await browser.close();
