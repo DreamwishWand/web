@@ -108,6 +108,28 @@ async function runLocal(page,factor){
  assert.equal(await (await object(page,'Chair',2,2)).count(),1);
  assert.equal(await toolbar.getByRole('button',{name:'Undo',exact:true}).isDisabled(),true);
  pass('ZOOM'+factor+'_POINTERCANCEL_FAIL_CLOSED');
+ // Pointer capture must not turn a release outside the current Area into a commit.
+ const out=await move(page,{x:2.5,y:2.5},{x:-4,y:0});
+ assert.equal(await page.locator('[data-wep-multi-move-preview]').count(),0);
+ await out();
+ assert.equal(await (await object(page,'Chair',2,2)).count(),1);
+ assert.equal(await toolbar.getByRole('button',{name:'Undo',exact:true}).isDisabled(),true);
+ pass('ZOOM'+factor+'_OUT_OF_AREA_RELEASE_NO_HISTORY');
+ // New synthetic session replaces the previous active session during a gesture.
+ const beforeReset=await move(page,{x:2.5,y:2.5},{x:1,y:0});
+ await page.locator('[data-wep-multi-move-preview]').waitFor();
+ await page.locator('.load-panel input[type=file]').setInputFiles({
+   name:'new-session-synthetic.json',mimeType:'application/json',
+   buffer:Buffer.from(JSON.stringify(draft))
+ });
+ await page.getByText('Synthetic draft authoring',{exact:true}).waitFor();
+ await beforeReset();
+ assert.equal(await (await object(page,'Chair',2,2)).count(),1);
+ assert.equal(await toolbar.getByRole('button',{name:'Undo',exact:true}).isDisabled(),true);
+ pass('ZOOM'+factor+'_SESSION_REPLACED_DURING_DRAG_NO_HISTORY');
+ // Restore selected set after session replacement for legacy tool checks.
+ await (await object(page,'Chair',2,2)).click();
+ await (await object(page,'Lamp',6,2)).click({modifiers:['Control']});
  // Existing modifier click and marquee are not consumed by move dragging.
  await page.locator('[data-wep-marquee-toggle]').click();
  assert.equal(await page.locator('[data-wep-marquee-toggle]').getAttribute('aria-pressed'),'true');
