@@ -30,7 +30,7 @@ test('RC manifest refers only to actual static SvelteKit routes and cannot confe
   assert.equal(WAND_RC_TARGET.writer,'OFF');
   assert.equal(WAND_RC_TARGET.release,'PUBLIC_NO_GO');
   assert.equal(WAND_RC_TARGET.managedIngress,'I01-I14_NOT_ACCEPTED');
-  assert.equal(WAND_RC_TARGET.communitySource,'Source156_QR_PENDING');
+  assert.equal(WAND_RC_TARGET.communitySource,'Source156_INDEPENDENT_TARGETED_PASS_MANAGED_OFF');
   assert.ok(WAND_RC_RESTRICTED_OPERATIONS.every(x=>x.status==='OFF'));
   assert.equal(all.some(x=>x.href.includes('https:')),false);
 });
