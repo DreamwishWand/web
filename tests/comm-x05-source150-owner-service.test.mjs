@@ -7,7 +7,8 @@ const edge=read('supabase/functions/community-dreamsnap-owner/index.ts');
 const config=read('supabase/config.toml');
 test('Source150 additive after immutable Source149; no historic writer or public media mutation',()=>{
  const names=readdirSync(new URL('../supabase/migrations/',import.meta.url)).filter(n=>n.endsWith('.sql')).sort();
- assert.equal(names.length,153);
+ assert.equal(names.length,154);
+ assert.ok(names.includes('20261102000000_community_source153_signed_session_lineage_v2.sql'));
  assert.ok(names.includes('20261028000030_x05_authenticated_owner_service_v1.sql'));
  assert.match(sql,/'publicActivationAllowed',false/);
  assert.doesNotMatch(sql,/create (?:or replace )?function public\.community_get_public_media_storage/);
@@ -20,7 +21,8 @@ test('no caller-provided subject or account in private owner API',()=>{
  assert.doesNotMatch(sql,/p_auth_subject uuid/);
  assert.doesNotMatch(edge,/(?:body|request|payload)\.accountId|(?:body|request|payload)\.subjectId/);
  assert.match(edge,/withSupabase\(\{auth:'user'\}/);
- assert.match(edge,/community_authorize_session/);
+ assert.match(edge,/community_authorize_signed_session_v2/);
+ assert.match(edge,/p_session_id:session/);
 });
 test('private Source149 remains not callable by anon/authenticated/service_role',()=>{
  assert.match(sql,/revoke all on function private\.dreamsnap_x05_verified_db_subject_v1\(\)[\s\S]*from public,anon,authenticated,service_role/);
