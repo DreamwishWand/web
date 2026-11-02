@@ -52,14 +52,22 @@ function fixture(config, user='A', seconds=3600){
   }};
 }
 let id=0;
-function setup(user='A',seconds=20){
+// Historical lifecycle tests now provision an AUTHENTIC interactive session.
+// Inserting v2 JSON into Storage is intentionally no longer a login path.
+async function signInFixture(client,user='A',seconds=3600){
+  const previous=globalThis.fetch;
+  globalThis.fetch=async()=>http(200,cred(user,'old',seconds));
+  try { await client.signInWithPassword(user,'synthetic-fixture'); }
+  finally { globalThis.fetch=previous; }
+}
+async function setup(user='A',seconds=20){
   memory.clear();local.clear();id++;
   const config={supabaseUrl:'https://community-test-'+id+'.invalid',
     publishableKey:'sb_publishable_test'};
   KEY=storageKey(config);
-  const s=cred(user,'old',seconds);
-  memory.set(KEY,JSON.stringify(fixture(config,user,seconds)));
-  return [new CommunityLabClient(config),new CommunityLabClient(config)];
+  const a=new CommunityLabClient(config),b=new CommunityLabClient(config);
+  await signInFixture(a,user,seconds);
+  return [a,b];
 }
 function cred(user,serial,seconds=3600){
   return {access_token:'TEST_JWT_'+user+'_'+serial,
@@ -75,7 +83,7 @@ function defer(){
   return {promise,resolve,reject};
 }
 test('one rotating refresh for simultaneous clients; aborted waiter does not cancel shared flight',async()=>{
-  const [a,b]=setup();let refreshCount=0;
+  const [a,b]=await setup();let refreshCount=0;
   const events=[],off=b.subscribeSession(x=>events.push(x));
   const held=defer();
   globalThis.fetch=async url=>{
@@ -99,7 +107,7 @@ test('one rotating refresh for simultaneous clients; aborted waiter does not can
   off();
 });
 test('logout instantly cancels inflight refresh and never restores old session',async()=>{
-  const [a,b]=setup();const held=defer(),out=defer();
+  const [a,b]=await setup();const held=defer(),out=defer();
   globalThis.fetch=async url=>{
     if(String(url).includes('refresh_token'))return held.promise;
     if(String(url).includes('/logout'))return out.promise;
@@ -117,7 +125,7 @@ test('logout instantly cancels inflight refresh and never restores old session',
   assert.ok(!JSON.stringify([...local.values()]).includes('TEST_REFRESH_SECRET'));
 });
 test('delayed old login cannot overwrite newer Account B session',async()=>{
-  const [a,b]=setup('A',3600);
+  const [a,b]=await setup('A',3600);
   const old=defer();
   globalThis.fetch=async(url,options)=>{
     if(String(url).includes('grant_type=password')){
@@ -135,7 +143,7 @@ test('delayed old login cannot overwrite newer Account B session',async()=>{
   assert.equal(JSON.parse(memory.get(KEY)).session.userId,'B');
 });
 test('invalid rotation invalidates all clients and emits only tokenless events',async()=>{
-  const [a,b]=setup();const events=[];
+  const [a,b]=await setup();const events=[];
   b.subscribeSession(e=>events.push(e));
   let calls=0;
   globalThis.fetch=async url=>{
@@ -148,7 +156,7 @@ test('invalid rotation invalidates all clients and emits only tokenless events',
   assert.equal(JSON.stringify(events).includes('TEST_REFRESH_SECRET'),false);
 });
 test('401 on non-idempotent writer is not automatically replayed',async()=>{
-  const [a]=setup('A',3600);let writers=0,refreshes=0;
+  const [a]=await setup('A',3600);let writers=0,refreshes=0;
   globalThis.fetch=async url=>{
     if(String(url).includes('refresh_token')){refreshes++;return http(200,cred('A','new'));}
     if(String(url).includes('community-command')){writers++;return http(401,{error:'unauthorized'});}
@@ -158,7 +166,7 @@ test('401 on non-idempotent writer is not automatically replayed',async()=>{
   assert.equal(writers,1);assert.equal(refreshes,0);
 });
 test('read-oriented query retries 401 only once; old HTTP response rejected after logout',async()=>{
-  const [a]=setup('A',3600);let queries=0,refreshes=0;
+  const [a]=await setup('A',3600);let queries=0,refreshes=0;
   globalThis.fetch=async url=>{
     if(String(url).includes('refresh_token')){refreshes++;return http(200,cred('A','new'));}
     if(String(url).includes('community-query')){queries++;return http(queries===1?401:200,queries===1?{error:'expired'}:{ok:true});}
@@ -176,8 +184,8 @@ test('read-oriented query retries 401 only once; old HTTP response rejected afte
   held.resolve(http(200,{ok:true,private:true}));
   await assert.rejects(pending,/SESSION_STALE_OR_LOGGED_OUT/);
 });
-test('other tab receives only logout invalidation, never tokens',()=>{
-  const [a,b]=setup('A',3600);assert.equal(a.session.userId,'A');
+test('other tab receives only logout invalidation, never tokens',async()=>{
+  const [a,b]=await setup('A',3600);assert.equal(a.session.userId,'A');
   const payload=JSON.stringify({scope:configScope(a.config),kind:'logout',nonce:'one'});
   for(const cb of handlers)cb({key:NOTICE_KEY,newValue:payload});
   assert.equal(a.session,null);assert.equal(b.session,null);
@@ -187,7 +195,7 @@ test('other tab receives only logout invalidation, never tokens',()=>{
 });
 
 test('global revoke invalidates immediately and signs Wand cutoff before provider logout',async()=>{
-  const [a,b]=setup('A',3600), held=defer(),calls=[];
+  const [a,b]=await setup('A',3600), held=defer(),calls=[];
   globalThis.fetch=async url=>{
     if(String(url).includes('community-command')){calls.push('wand');return held.promise;}
     if(String(url).includes('logout?scope=global')){calls.push('provider');return http(200,{});}
@@ -202,14 +210,14 @@ test('global revoke invalidates immediately and signs Wand cutoff before provide
 });
 
 test('expired session uses one refresh; network failure invalidates without exposing token',async()=>{
-  const [a,b]=setup('A',-10);let rotated=0;
+  const [a,b]=await setup('A',-10);let rotated=0;
   globalThis.fetch=async url=>{
     if(String(url).includes('refresh_token')){rotated++;return http(200,cred('A','expired-refresh'));}
     return http(200,{});
   };
   assert.equal((await a.getValidSignedSession()).accessToken,'TEST_JWT_A_expired-refresh');
   assert.equal(rotated,1);
-  const [c,d]=setup('A',-10);
+  const [c,d]=await setup('A',-10);
   globalThis.fetch=async url=>{
     if(String(url).includes('refresh_token'))throw new Error('SYNTHETIC_NETWORK_FAILURE');
     return http(200,{});
@@ -218,7 +226,7 @@ test('expired session uses one refresh; network failure invalidates without expo
   assert.equal(c.session,null);assert.equal(d.session,null);
 });
 test('old A refresh flight is detached when login switches to near-expired B',async()=>{
-  const [a,b]=setup('A',10);
+  const [a,b]=await setup('A',10);
   const old=defer(),events=[];
   b.subscribeSession(e=>events.push(e));
   let refresh=0;
@@ -326,7 +334,8 @@ test('config isolate: malformed v2, forged config envelope and blocked storage f
   memory.set(storageKey(cb),'{broken-json');
   const b=new CommunityLabClient(cb);
   assert.equal(b.session,null);
-  assert.equal(memory.has(storageKey(cb)),false);
+  // Untrusted cold snapshots are deliberately inert, not destructively parsed.
+  assert.equal(memory.has(storageKey(cb)),true);
   assert.equal(memory.has(storageKey(ca)),true);
   const cc=config('-forged');
   memory.set(storageKey(cc),JSON.stringify(fixture(ca,'A')));
@@ -345,10 +354,10 @@ test('config isolate: malformed v2, forged config envelope and blocked storage f
 test('config isolate: simultaneous A/B refresh and A logout do not cancel B rotation',async()=>{
   memory.clear();local.clear();
   const ca=config('-raceA','sb_publishable_race_A'),cb=config('-raceB','sb_publishable_race_B');
-  memory.set(storageKey(ca),JSON.stringify(fixture(ca,'A',10)));
-  memory.set(storageKey(cb),JSON.stringify(fixture(cb,'B',10)));
   const a=new CommunityLabClient(ca),a2=new CommunityLabClient(ca);
   const b=new CommunityLabClient(cb),b2=new CommunityLabClient(cb);
+  await signInFixture(a,'A',10);
+  await signInFixture(b,'B',10);
   const pendingA=defer(),pendingB=defer();
   let ac=0,bc=0;
   globalThis.fetch=async(url,options)=>{
@@ -376,14 +385,14 @@ test('config isolate: simultaneous A/B refresh and A logout do not cancel B rota
   assert.equal(memory.has(storageKey(ca)),false);
 });
 
-test('config isolate: notification rejects legacy/bad scopes, matches only same config',()=>{
+test('config isolate: notification rejects legacy/bad scopes, matches only same config',async()=>{
   memory.clear();local.clear();
   const ca=config('-notA','sb_publishable_alpha');
   const cb={supabaseUrl:ca.supabaseUrl,publishableKey:'sb_publishable_beta'};
-  memory.set(storageKey(ca),JSON.stringify(fixture(ca,'A')));
-  memory.set(storageKey(cb),JSON.stringify(fixture(cb,'B')));
   const a=new CommunityLabClient(ca),a2=new CommunityLabClient(ca);
   const b=new CommunityLabClient(cb);
+  await signInFixture(a,'A');
+  await signInFixture(b,'B');
   const old=JSON.stringify({kind:'logout',scope:ca.supabaseUrl,nonce:'old'});
   for(const cb of handlers)cb({key:'dreamwishwand-community-logout-notice-v1',newValue:old});
   assert.equal(a.session.userId,'A');assert.equal(b.session.userId,'B');
