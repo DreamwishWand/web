@@ -62,6 +62,25 @@ assert(afterText.includes('"LastOccurrence":"2126-08-20T00:00:00Z"'));
 assert.equal(rust('inspect',actual.out).out.toString('utf8'),afterText);
 assert.equal(createHash('sha256').update(before).digest('hex'),
  createHash('sha256').update(first.out).digest('hex'));
+// Known fixed-width DOS/header attributes can be preserved without
+// inventing unsupported ZIP extras/comments or changing the original.
+const augmented=Buffer.from(origin.zip);
+const centralOffset=augmented.readUInt32LE(augmented.length-22+16);
+augmented.writeUInt16LE(0x4521,10);augmented.writeUInt16LE(0x4521,centralOffset+12);
+augmented.writeUInt16LE(0x5124,12);augmented.writeUInt16LE(0x5124,centralOffset+14);
+augmented.writeUInt16LE(0x0314,centralOffset+4);
+augmented.writeUInt32LE(0x12345678,centralOffset+38);
+const fromAugmented=rust('edit',enc(augmented));
+assert.equal(fromAugmented.exit,0,fromAugmented.err);
+const preserved=jsOpen(fromAugmented.out);
+const editedCentral=preserved.zip.readUInt32LE(preserved.zip.length-22+16);
+assert.equal(preserved.zip.readUInt16LE(10),0x4521);
+assert.equal(preserved.zip.readUInt16LE(editedCentral+12),0x4521);
+assert.equal(preserved.zip.readUInt16LE(12),0x5124);
+assert.equal(preserved.zip.readUInt16LE(editedCentral+14),0x5124);
+assert.equal(preserved.zip.readUInt16LE(editedCentral+4),0x0314);
+assert.equal(preserved.zip.readUInt32LE(editedCentral+38),0x12345678);
+assert.equal(preserved.plain.toString('utf8'),afterText);
 let denied=0;
 function rejectsArchive(transform){
  const zip=Buffer.from(origin.zip);transform(zip);
