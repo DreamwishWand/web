@@ -11,13 +11,14 @@ const headers=()=>({'cache-control':'private, no-store, max-age=0','cdn-cache-co
 const ctx=(workId,n=42)=>({workId,requestGeneration:n,latestGeneration:42});
 const wrap=data=>({ok:true,operation:'authority',contractVersion:SOURCE,data});
 const closed=(r,status)=>{assert.equal(r.status,status);assert.equal(r.snapshot,null);assert.equal(r.ownerReadVerified,false);assert.equal(r.actionsEnabled,false);assert.equal(r.liveBackendEnabled,false);assert.equal(r.autoRetry,false);assert.equal(r.clearPriorSnapshot,true)};
-test('exact Source153/Edge, strict WEB267 git objects and 153 migrations with all positive runtime switches OFF',()=>{
+test('exact frozen Source153 SQL, new Source154 signed Edge, strict WEB267 and flags with all positive runtime switches OFF',()=>{
  for(const [p,sha] of [
   ['supabase/migrations/20261028000060_x05_authoritative_owner_projection_v2.sql','356cc10138cd351674fde8dd943acc968e26fbbc'],
-  ['supabase/functions/community-dreamsnap-owner/index.ts','35bba2421aabe78ad5830762c33433247fa370bd'],
+  ['supabase/functions/community-dreamsnap-owner/index.ts','f1ddabefdcbf1afe543e587ce95c95d4fefe1072'],
   ['src/lib/dreamsnaps/source153-owner-consumer-v2.js','f981b7596711b47bceb2fa79a2191e79e8f1b459'],
   ['supabase/migrations/20261028000050_x05_first_work_media_bootstrap_v1.sql','cd297f48111afbb315651c6cb7e911afb1bcc03d']
  ])assert.equal(blob(p),sha,p);
+ assert.equal(readFileSync('supabase/migrations/20261102000000_community_source153_signed_session_lineage_v2.sql','utf8').includes('community_authorize_signed_session_v2'),true);
  assert.equal(SOURCE,'wand.dreamsnaps.owner-authority-projection@1');
  assert.equal(TARGET,'wand.dreamsnaps.private-owner-consumer@2');
  assert.equal(SOURCE153_OWNER_V2_LIVE_ENABLED,false);
