@@ -76,10 +76,12 @@ async function makePage(context){
   const original=window.fetch.bind(window);
   window.fetch=(input,init)=>{
    const raw=typeof input==='string'?input:input?.url;
-   if(typeof raw!=='string'||!raw.startsWith(virtual+'/'))return original(input,init);
+   const inVirtual=typeof raw==='string'&&raw.startsWith(virtual+'/');
+   const localOwner=typeof raw==='string'&&raw.startsWith(loopback+'/functions/v1/community-dreamsnap-owner');
+   if(!inVirtual&&!localOwner)return original(input,init);
    const h=new Headers(init?.headers??{});
    if(h.get('apikey')===fake)h.set('apikey',anon);
-   return original(loopback+raw.slice(virtual.length),{...init,headers:h});
+   return original(inVirtual?loopback+raw.slice(virtual.length):input,{...init,headers:h});
   };
  },{virtual,loopback:ORIGIN+'/__source153_e2',anon:env.E2_REAL_LOCAL_ANON_PUBLIC_KEY,
    fake:'sb_publishable_disposable_local_bridge_only'});
