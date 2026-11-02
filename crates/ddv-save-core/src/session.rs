@@ -309,6 +309,11 @@ fn apply_batch(before:&[u8],commands:&[SemanticCommand])->EngineResult<Vec<u8>>{
     for cmd in commands {
         if !cmd.pointer.starts_with('/')||cmd.pointer.len()>1024||
            cmd.pointer.contains("//") {return Err("INVALID_WRITE_POINTER");}
+        // Preserve the accepted Wand Transaction Foundation /GameInfo identity veto.
+        // Schema equality by itself does not permit edits to owner/build metadata.
+        if cmd.pointer=="/GameInfo"||cmd.pointer.starts_with("/GameInfo/") {
+            return Err("IDENTITY_METADATA_WRITE_FORBIDDEN");
+        }
         watched.insert(cmd.pointer.clone());
         for read in &cmd.read_set {
             if !read.pointer.starts_with('/')||read.pointer.len()>1024{
