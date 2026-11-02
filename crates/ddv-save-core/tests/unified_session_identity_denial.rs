@@ -18,7 +18,7 @@ fn plan(s:&SaveSession,pointer:&str,old:&str,new:&str)->TransactionPlan{
      pointer:pointer.into(),expected_old_json:old.into(),new_json:new.into(),
      read_set:vec![],
    }],
-   post_references:graph,
+   postconditions:vec![],post_references:graph,
  }
 }
 fn open()->SaveSession{
