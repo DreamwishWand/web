@@ -1,0 +1,38 @@
+name: 05 QR Core312 Actual JS Codec and Semantic Delta
+on:
+  pull_request:
+    paths:
+      - 'qa/05qr-actual-js-codec-interop.test.mjs'
+      - 'qa/05qr-core312-semantic-delta.rs'
+      - '.github/workflows/qa-core312-interop.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-core312:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Verify exact Rust source frozen at c6b152
+        run: |
+          git diff --quiet c6b152512d3bc901fd1474dbcfcb07253ae1b347 HEAD -- crates/ddv-save-core/src crates/ddv-save-core/tests crates/ddv-save-core/scripts crates/ddv-save-core/examples
+          rustc --version
+      - name: Checkout exact existing Timekeeper JS Codec only
+        uses: actions/checkout@v4
+        with:
+          repository: 0xmorarin/Dreamlight-Timekeeper
+          ref: 393222e7832461ef5fea847b6fff475fedc45017
+          path: .timekeeper-codec-fixed
+          persist-credentials: false
+      - name: Independent direct actual Wand and Timekeeper JS Codec interoperability
+        run: node --test qa/05qr-actual-js-codec-interop.test.mjs
+      - name: Independent Chest and nested Unknown semantic negatives
+        run: |
+          cp qa/05qr-core312-semantic-delta.rs crates/ddv-save-core/tests/qa_05qr_core312_semantic.rs
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test qa_05qr_core312_semantic -- --nocapture
+      - name: Explicit research only scope
+        run: echo 'NO_REAL_SAVE=1; NO_WRITER=1; NO_GAME_IMAGE_RELEASE=1'
