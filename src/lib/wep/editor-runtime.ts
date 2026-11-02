@@ -774,14 +774,26 @@ export function createEditorSession(
         }
         // Object-origin grid must match the active root; ambiguous SubGrid
         // ancestry is fail-closed rather than inferred from coordinates.
-        const sourceGrid = object.metadata?.rootGridId ??
-          object.metadata?.gridId ?? (object.source as any)?.gridId;
-        if (sourceGrid !== undefined && sourceGrid !== null &&
-            (documentRoot === undefined || String(sourceGrid) !== String(documentRoot))) {
+        const source = object.source as any;
+        const originGridIds = [
+          object.metadata?.rootGridId, object.metadata?.gridId,
+          object.metadata?.gridID, source?.rootGridId,
+          source?.gridId, source?.gridID
+        ].filter(value => value !== undefined && value !== null);
+        if (document.target?.platform !== 'synthetic' &&
+            (documentRoot === undefined || documentRoot === null)) {
+          return issue('WEP_MULTI_DRAG_ACTIVE_GRID_UNPROVEN');
+        }
+        if (originGridIds.some(value =>
+          documentRoot === undefined || documentRoot === null ||
+          String(value) !== String(documentRoot))) {
           return issue('WEP_MULTI_DRAG_CROSS_GRID_OR_SUBGRID');
         }
-        if (object.metadata?.subGridId !== undefined &&
-            object.metadata?.subGridId !== null) {
+        if ([
+          object.metadata?.subGridId, object.metadata?.subGridDataPath,
+          object.metadata?.parentGridId, source?.subGridId,
+          source?.subGridDataPath, source?.parentGridId
+        ].some(value => value !== undefined && value !== null && value !== '')) {
           return issue('WEP_MULTI_DRAG_SUBGRID_UNPROVEN');
         }
       }
