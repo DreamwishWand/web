@@ -237,6 +237,8 @@ test('new: storage and localStorage all reject writes; in-memory logout still no
   // This case is not claimed to prevent stale snapshot rehydration if storage
   // later recovers with no tokenless quarantine marker.
   assert.ok(sessions.get('dreamwishwand-community-session-v2:'+scope(cfg)).includes('TEST_JWT_A_old'));
+  const {CommunityLabClient:BlockedReload}=await freshClientModule();
+  assert.equal(new BlockedReload(cfg).session,null);
   noSecretNotifications(events);
 });
 
