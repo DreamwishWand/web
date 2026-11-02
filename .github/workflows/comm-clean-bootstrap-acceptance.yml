@@ -108,7 +108,7 @@ jobs:
           node --test tests/community-r18-provider-conditional-copy-local.test.mjs
       - uses: supabase/setup-cli@v1
         with:
-          version: 2.81.3
+          version: 2.109.0
       - name: Record tools and isolate local CLI project ID
         shell: bash
         run: |
