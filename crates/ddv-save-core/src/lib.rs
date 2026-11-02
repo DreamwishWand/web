@@ -56,7 +56,8 @@ pub fn match_explicit_build(platform: &str, build_kind: &str, build_id: &str,
 }
 pub fn validate_json(bytes: &[u8]) -> EngineResult<()> {
     let source = std::str::from_utf8(bytes).map_err(|_|"JSON_INVALID_UTF8")?;
-    let mut parser = Parser::new(source, &HashSet::new());
+    let watch = HashSet::new();
+    let mut parser = Parser::new(source, &watch);
     parser.parse().map(|_| ())
 }
 pub fn patch_json_string_tokens(
