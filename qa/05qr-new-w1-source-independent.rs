@@ -104,3 +104,54 @@ fn independent_source_paths_witness_absent_links_and_revision_never_native_closu
  assert_eq!(s.source_sha256(),sha256(&source));
  assert_eq!(s.export_verified_copy().unwrap_err(),"PRODUCT_P1G_ENCODE_COPY_NOT_AUTHORIZED");
 }
+
+
+#[test]
+fn independent_new_head_mixed_domains_stale_revision_and_undo_redo_rewitness(){
+ use ddv_save_core::session::{ReferenceEdge,ReadWitness};
+ let before=json();let sha=sha256(&before);
+ let grid=LogicalIdentity{domain:Domain::Grid,key:"obj:3".into()};
+ let chest=LogicalIdentity{domain:Domain::ContainerInventory,key:"chest:A".into()};
+ let ev=LogicalIdentity{domain:Domain::RecurringEvent,key:"event:2010000021".into()};
+ let nodes=BTreeSet::from([grid.clone(),chest.clone(),ev.clone()]);
+ let graph=ReferenceIndex{nodes,edges:vec![ReferenceEdge{from:grid.clone(),to:chest.clone()}]};
+ let mut s=SaveSession::open_decoded_research(212,before,626,graph.clone()).unwrap();
+ let commands=vec![
+  SemanticCommand{domain:Domain::Grid,identity:grid,kind:CommandKind::ReplaceStringToken,
+   pointer:"/World/GridCollection/Grids/5/Objects/3/State/Unseen".into(),
+   expected_old_json:r#""KEEP""#.into(),new_json:r#""STILL_KEEP""#.into(),read_set:vec![]},
+  SemanticCommand{domain:Domain::ContainerInventory,identity:chest,kind:CommandKind::ReplaceKnownSubtree,
+   pointer:"/Player/ContainerInventories/A/Items".into(),
+   expected_old_json:"[]".into(),new_json:r#"[{"ItemID":123}]"#.into(),read_set:vec![]},
+  SemanticCommand{domain:Domain::RecurringEvent,identity:ev,kind:CommandKind::ReplaceStringToken,
+   pointer:"/World/RecurringEvents/0/ItemSpawning/NextOccurrence".into(),
+   expected_old_json:r#""2126-08-20T00:00:00Z""#.into(),
+   new_json:r#""2022-09-06T00:00:00Z""#.into(),read_set:vec![]}
+ ];
+ let postconditions=commands.iter().map(|c|ReadWitness{
+  pointer:c.pointer.clone(),expected_raw_json:c.new_json.clone()}).collect();
+ let plan=TransactionPlan{session_id:212,expected_revision:0,expected_source_sha256:sha,
+    commands,postconditions,post_references:graph};
+ let stale=plan.clone();
+ let first=s.stage_command(plan).unwrap();
+ assert_eq!(first.changed_paths.len(),3);
+ assert_eq!(s.revision(),1);
+ assert_eq!(s.stage_command(stale).unwrap_err(),"STALE_REVISION");
+ let probe=vec![(
+  LogicalIdentity{domain:Domain::RecurringEvent,key:"event:2010000021".into()},
+  "/World/RecurringEvents/0/ItemSpawning/NextOccurrence".to_owned())];
+ let current=s.inspect_source_reference_paths(&probe).unwrap();
+ assert_eq!(current.revision,1);
+ assert!(!current.cross_domain_reference_closure_complete);
+ assert!(!s.validate_transaction().unwrap().encode_copy_authorized);
+ s.undo(1).unwrap();
+ let reverted=s.inspect_source_reference_paths(&probe).unwrap();
+ assert_eq!(reverted.revision,2);
+ assert_ne!(reverted.inspected_snapshot_sha256,current.inspected_snapshot_sha256);
+ s.redo(2).unwrap();
+ let restored=s.inspect_source_reference_paths(&probe).unwrap();
+ assert_eq!(restored.revision,3);
+ assert_eq!(restored.inspected_snapshot_sha256,current.inspected_snapshot_sha256);
+ assert_eq!(s.source_sha256(),sha);
+ assert_eq!(s.export_verified_copy().unwrap_err(),"PRODUCT_P1G_ENCODE_COPY_NOT_AUTHORIZED");
+}
