@@ -23,7 +23,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Strict isolated PR288 lineage and exactly five source test files
+      - name: Strict isolated PR288 lineage and exactly 12 source and rebaselined-test paths
         shell: bash
         run: |
           set -euo pipefail
@@ -39,11 +39,11 @@ jobs:
           test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID"
           python3 -m py_compile tests/comm-e2-source153-signed-positive.py tests/comm-source153-server-session-signed-e2.py
           git diff --name-only "$BASE" HEAD > /tmp/source153-session-diff-paths
-          test "$(wc -l </tmp/source153-session-diff-paths)" -eq 5
-          for p in supabase/migrations/20261102000000_community_source153_signed_session_lineage_v2.sql supabase/functions/community-dreamsnap-owner/index.ts tests/comm-source153-server-session-signed-e2.py docs/community/source153-verified-session-enforcement-v2-20261102.md .github/workflows/comm-e2-source153-signed-positive.yml; do
+          test "$(wc -l </tmp/source153-session-diff-paths)" -eq 12
+          for p in supabase/migrations/20261102000000_community_source153_signed_session_lineage_v2.sql supabase/functions/community-dreamsnap-owner/index.ts tests/comm-source153-server-session-signed-e2.py docs/community/source153-verified-session-enforcement-v2-20261102.md .github/workflows/comm-e2-source153-signed-positive.yml tests/comm-x05-source149-nonpublic.test.mjs tests/comm-x05-source150-owner-service.test.mjs tests/comm-x05-source151-pregrant.test.mjs tests/comm-x05-source152-first-work.test.mjs tests/comm-x05-source153-owner-authority.test.mjs tests/community-r21-generic-public-search-work-liveness.test.mjs tests/qr-ctrl44-int268-full153-db-to-web-independent.test.mjs; do
             grep -Fxq "$p" /tmp/source153-session-diff-paths
           done
-          echo SOURCE153_SESSION_EXACT_PR288_PARENT_FIVE_FILE_GUARD
+          echo SOURCE153_SESSION_EXACT_PR288_PARENT_TWELVE_FILE_GUARD
       - uses: supabase/setup-cli@v1
         with:
           version: 2.109.0
