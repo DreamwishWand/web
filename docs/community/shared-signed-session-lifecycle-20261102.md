@@ -9,3 +9,5 @@ subscribeSession(handler) returns an unsubscribe and emits tokenless {kind,gener
 Only Community query's read-oriented API retries a 401 one time after a successful same-lineage single-flight refresh. Community command/admin/media/finalize/preset/account writers never automatically replay. Existing password recovery PKCE, sign-up, password change and browser factory signatures stay stable. Local auth state is a candidate until verified by backend; never enable PR #292 or Source153 Owner actions without separate managed ingress and operator acceptance.
 
 QA is deterministic synthetic held HTTP (refresh, login, logout, rotation, 401, multiple Client objects, cross-tab tokenless event), not a real managed GoTrue/Provider/Stage116 acceptance. Independent 04 QR new-only is required. DRAFT / DO_NOT_MERGE / DO_NOT_DEPLOY.
+
+Global revoke immediately evicts the shared Session before either network operation, then attempts the still-signed Wand session cutoff before GoTrue global logout. A cutoff network error still allows the provider logout attempt; neither operation can restore credentials. The cutoff request never goes through an automatic 401 Writer replay.
