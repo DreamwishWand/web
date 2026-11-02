@@ -1,0 +1,28 @@
+name: 05 QR Independent PR322 Source and Opaque Closure
+on:
+  pull_request:
+    paths:
+      - 'qa/05qr-guard322-independent.rs'
+      - '.github/workflows/qa-guard322-source-closure.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  guard322-independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Guarantee source pin to PR322 not mutable PR312 merge
+        run: |
+          git diff --quiet 8ef6d111ba904e20590d6444abf422b1c1a14a33 HEAD -- crates/ddv-save-core/src crates/ddv-save-core/tests
+          rustc --version
+      - name: Run only new independent source closure negatives
+        run: |
+          cp qa/05qr-guard322-independent.rs crates/ddv-save-core/tests/qa_05qr_guard322.rs
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test qa_05qr_guard322 -- --nocapture
+      - name: Scope
+        run: echo '2MiB guard research only; full Native closure false; product Writer false'
