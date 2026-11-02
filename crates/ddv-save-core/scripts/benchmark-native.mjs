@@ -18,7 +18,7 @@ try{
  let deflateBytes=0;
  const deflate=createReadStream(input).pipe(createDeflateRaw({level:6}));
  for await(const chunk of deflate)deflateBytes+=chunk.length;
- const exe=base+'/target/debug/examples/patch_json';
+ const exe=base+'/target/release/examples/patch_json';
  const time=spawnSync('/usr/bin/time',['-v',exe,
  '/World/RecurringEvents/0/ItemSpawning/NextOccurrence',
  '2126-08-20T00:00:00Z','2022-09-06T00:00:00Z','626'],{
