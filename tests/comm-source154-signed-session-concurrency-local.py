@@ -13,7 +13,7 @@ p=Path("tests/comm-source153-server-session-signed-e2.py")
 src=p.read_text()
 local='    st,r=e2_http(a1,{"operation":"session-revoke","scope":"local"})'
 glob='    st,r=e2_http(a2,{"operation":"session-revoke","scope":"global"})'
-assert src.count(local)==1 and src.count(glob)==1
+assert src.count(local)==2 and src.count(glob)==2
 shared=r'''
     import threading
     # Real two-DB-connection lock interleaving, not fake TEMP model.
