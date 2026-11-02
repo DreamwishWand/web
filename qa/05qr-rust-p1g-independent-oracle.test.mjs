@@ -7,7 +7,7 @@ import {createCipheriv,createDecipheriv,createHash} from 'node:crypto';
 import {deflateRawSync,inflateRawSync} from 'node:zlib';
 import {fileURLToPath} from 'node:url';
 const root=fileURLToPath(new URL('../',import.meta.url));
-const manifest=root+'Cargo.toml';
+const manifest=root+'crates/ddv-save-core/Cargo.toml';
 const key=Buffer.alloc(32,0x42);
 const raw=Buffer.from('{"GameInfo":{"Version":626},"World":{"RecurringEvents":{"0":{"ItemSpawning":{"RecurringEventItemID":2010000021,"NextOccurrence":"2126-08-20T00:00:00Z","LastOccurrence":"2126-08-20T00:00:00Z"}}}},"Unknown":{"alpha":"\\u00e9","decimal":1.00,"deep":{"child":{"str":"KEEP"}}}}');
 const hash=x=>createHash('sha256').update(x).digest('hex');
