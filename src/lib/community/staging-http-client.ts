@@ -257,6 +257,10 @@ function loadSession(config: CommunityLabConfig, scope: string): CommunitySessio
   if (typeof localStorage === 'undefined') return null;
   try {
     if (localStorage.getItem(quarantineKey(scope)) !== null) return null;
+    // A blocked cross-tab revocation marker cannot support safe hydration.
+    const noticeProbe = QUARANTINE_KEY_PREFIX + 'probe:' + scope;
+    localStorage.setItem(noticeProbe, '1');
+    localStorage.removeItem(noticeProbe);
   } catch { return null; }
   let raw: string | null;
   const key = sessionKey(scope);
