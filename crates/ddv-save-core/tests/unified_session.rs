@@ -119,7 +119,7 @@ fn one_session_multi_domain_commit_undo_redo_and_source_unchanged(){
  assert_eq!(s.source_sha256(),expected_sha);
 }
 #[test]
-fn subtree_array_insertion_deletion_and_opaque_outside_preserved(){
+fn subtree_array_insertion_but_unproven_deletion_denied_and_opaque_preserved(){
  let mut s=open();
  let add=command(Domain::ListInventory,"slot:0",CommandKind::ReplaceKnownSubtree,
  "/Player/ListInventories/0",r#"[{"ItemID":1,"Quantity":1}]"#,
@@ -129,14 +129,16 @@ fn subtree_array_insertion_deletion_and_opaque_outside_preserved(){
  "/Player/ListInventories/0",
  r#"[{"ItemID":1,"Quantity":1},{"ItemID":9,"State":{"Deep":true}}]"#,
  r#"[{"ItemID":9,"State":{"Deep":true}}]"#);
- s.stage_command(plan(&s,vec![remove],graph())).unwrap();
+ assert_eq!(s.stage_command(plan(&s,vec![remove],graph())).unwrap_err(),
+  "STRUCTURAL_ARRAY_REMOVAL_UNVERIFIED");
  let projection=s.query_paged(&[
  "/Player/ListInventories/0".into(),"/Unknown".into()
  ],0,8).unwrap();
- assert_eq!(projection[0].preview_json,r#"[{"ItemID":9,"State":{"Deep":true}}]"#);
+ assert_eq!(projection[0].preview_json,
+  r#"[{"ItemID":1,"Quantity":1},{"ItemID":9,"State":{"Deep":true}}]"#);
  assert!(projection[1].preview_json.contains(r#""decimal":1.00"#));
  assert!(projection[1].preview_json.contains(r#""payload":"\u00e9""#));
- assert_eq!(s.validate_transaction().unwrap().transaction_count,2);
+ assert_eq!(s.validate_transaction().unwrap().transaction_count,1);
 }
 #[test]
 fn stale_session_sha_revision_and_failed_mixed_transaction_do_not_mutate_history(){
