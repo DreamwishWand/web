@@ -1,0 +1,50 @@
+name: COMM Local Real Chromium Auth (Test Only)
+
+on:
+  push:
+    branches:
+      - test/comm-auth-real-chromium-local-20261102
+    paths:
+      - 'tests/community-auth-real-chromium-local.mjs'
+      - '.github/workflows/comm-auth-real-chromium-local.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  local-real-browser:
+    name: Actual Chromium / synthetic HTTP only
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install repository TypeScript and test-only browser harness
+        run: |
+          npm ci
+          npm install --no-save --ignore-scripts --no-audit playwright-core@1.56.1
+      - name: Verify actual Chrome executable is installed
+        shell: bash
+        run: |
+          if command -v google-chrome; then
+            echo "CHROMIUM_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+            google-chrome --version
+          elif command -v chromium; then
+            echo "CHROMIUM_PATH=$(command -v chromium)" >> "$GITHUB_ENV"
+            chromium --version
+          else
+            echo "No browser binary; REAL_BROWSER_UNKNOWN" >&2
+            exit 1
+          fi
+      - name: Execute real two-tab Chromium / fake HTTP only
+        run: node tests/community-auth-real-chromium-local.mjs
+      - name: Preserve frozen PR294 source HEAD guard
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD^)" = "a06ae028fdc129a53aa5e1a9083889786f177c50"
+          git show aaa61d8885c99d669b2ab2ebae64d9d05f100e36:src/lib/community/staging-http-client.ts | sha256sum
+          sha256sum src/lib/community/staging-http-client.ts
