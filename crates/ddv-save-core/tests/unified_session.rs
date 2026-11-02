@@ -50,7 +50,9 @@ fn command(domain:Domain,identity:&str,kind:CommandKind,
 }
 fn plan(s:&SaveSession,commands:Vec<SemanticCommand>,post:ReferenceIndex)->TransactionPlan{
  TransactionPlan{session_id:s.session_id(),expected_revision:s.revision(),
- expected_source_sha256:s.source_sha256(),commands,post_references:post}
+ expected_source_sha256:s.source_sha256(),postconditions:commands.iter().map(|c|ReadWitness{
+ pointer:c.pointer.clone(),expected_raw_json:c.new_json.clone()}).collect(),
+ commands,post_references:post}
 }
 fn open()->SaveSession {
  SaveSession::open_decoded_research(7,source(),626,graph()).unwrap()
@@ -207,4 +209,27 @@ fn independent_session_index_lifecycle_and_undo_discard_redo_on_new_change(){
  s.stage_command(plan(&s,vec![command],graph())).unwrap();
  assert_eq!(s.redo(s.revision()).unwrap_err(),"REDO_EMPTY");
  assert_eq!(s.revision(),3);
+}
+
+#[test]
+fn explicit_postcondition_mismatch_rejects_batch_and_preserves_revision(){
+ let mut s=open();
+ let mut p=plan(&s,batch(),graph());
+ p.postconditions[2].expected_raw_json=r#"[]"#.into();
+ assert_eq!(s.stage_command(p).unwrap_err(),"POSTCONDITION_FAILED");
+ assert_eq!(s.revision(),0);
+ assert_eq!(s.index_generation(),0);
+}
+#[test]
+fn cached_span_index_invalidated_on_atomic_change_and_undo(){
+ let mut s=open();
+ let pointer="/Player/CollectionSets/1".to_owned();
+ assert_eq!(s.query_paged(&[pointer.clone()],0,1).unwrap()[0].preview_json,"false");
+ assert_eq!(s.query_paged(&[pointer.clone()],0,1).unwrap()[0].preview_json,"false");
+ let edit=command(Domain::CollectionSet,"set:1",CommandKind::ReplaceKnownSubtree,
+ "/Player/CollectionSets/1","false","true");
+ s.stage_command(plan(&s,vec![edit],graph())).unwrap();
+ assert_eq!(s.query_paged(&[pointer.clone()],0,1).unwrap()[0].preview_json,"true");
+ s.undo(1).unwrap();
+ assert_eq!(s.query_paged(&[pointer],0,1).unwrap()[0].preview_json,"false");
 }
