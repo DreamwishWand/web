@@ -30,7 +30,12 @@ source+='''
     # contract. The test's browser-only fetch shim maps THIS virtual URL
     # to the accepted Vite loopback proxy, NOT a production BFF.
     env["VITE_SUPABASE_URL"]="https://wand-disposable-e2.invalid"
-    env["VITE_SUPABASE_PUBLISHABLE_KEY"]=anon
+    # Shared CommunityClient strictly requires sb_publishable_ format.
+    # The current FULL153 legacy local ANON_KEY is valid for real GoTrue,
+    # but incompatible with CommunityClient assertConfig. Chrome's isolated
+    # request shim translates this disposable public alias to local anon.
+    env["VITE_SUPABASE_PUBLISHABLE_KEY"]="sb_publishable_disposable_local_bridge_only"
+    env["E2_REAL_LOCAL_ANON_PUBLIC_KEY"]=anon
     env["E2_ORIGINAL_WORK_ID"]=str(original)
     env["E2_POST_WORK_ID"]=str(post)
     for who,key in [("A","OWNER"),("B","B"),("M","M")]:
