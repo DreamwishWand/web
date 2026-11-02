@@ -208,7 +208,16 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
 
   const issuedAt = Number(ctx.jwtClaims?.iat ?? 0);
   if (!Number.isInteger(issuedAt) || issuedAt <= 0) return reply({ ok: false, error: 'JWT issued-at claim missing' }, 401);
-  // Source154 verified GoTrue Session + immutable terminal tombstone is the\n  // shared server authority, not the older account-global cutoff alone.\n  // Product writers require independent DB-atomic acceptance.\n  const {error: signedSessionError} = await ctx.supabaseAdmin.rpc(\n    'community_authorize_signed_session_v2',{\n      p_auth_subject: subject, p_issued_at_epoch: issuedAt,\n      p_session_id: String(ctx.jwtClaims?.session_id ?? '')\n    });\n  if (signedSessionError) return reply({ok:false,error:'SESSION_REVOKED_OR_INVALID'},401);\n  const { data: sessionAuthorization, error: sessionError } = await ctx.supabaseAdmin.rpc('community_authorize_session', {
+  // Source154 verified GoTrue Session + immutable terminal tombstone is the
+  // shared server authority, not the older account-global cutoff alone.
+  // Product writers require independent DB-atomic acceptance.
+  const {error: signedSessionError} = await ctx.supabaseAdmin.rpc(
+    'community_authorize_signed_session_v2',{
+      p_auth_subject: subject, p_issued_at_epoch: issuedAt,
+      p_session_id: String(ctx.jwtClaims?.session_id ?? '')
+    });
+  if (signedSessionError) return reply({ok:false,error:'SESSION_REVOKED_OR_INVALID'},401);
+  const { data: sessionAuthorization, error: sessionError } = await ctx.supabaseAdmin.rpc('community_authorize_session', {
     p_auth_subject: subject,
     p_issued_at_epoch: issuedAt,
     p_max_age_seconds: null
