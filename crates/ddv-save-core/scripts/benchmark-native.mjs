@@ -34,8 +34,8 @@ try{
    base+'/scripts/js-full-tree-reference.mjs',input],{encoding:'utf8',
    maxBuffer:1024*1024,timeout:600000});
  const jsStats=js.status===0?JSON.parse(js.stdout.trim()):null;
- const jsRss=/Maximum resident set size \\(kbytes\\):\\s*(\\d+)/.exec(js.stderr);
- const jsElapsed=js.stderr.split('\\n').find(line=>line.includes('Elapsed (wall clock) time'))
+ const jsRss=/Maximum resident set size \(kbytes\):\s*(\d+)/.exec(js.stderr);
+ const jsElapsed=js.stderr.split('\n').find(line=>line.includes('Elapsed (wall clock) time'))
    ?.split('): ').at(-1)?.trim()||null;
  const match=/Maximum resident set size \(kbytes\):\s*(\d+)/.exec(time.stderr);
  const elapsedLine=time.stderr.split('\n').find(line=>line.includes('Elapsed (wall clock) time'));
