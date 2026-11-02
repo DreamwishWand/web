@@ -23,7 +23,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Strict frozen PR316 parent and exact five Source155 new-only paths
+      - name: Strict frozen PR316 parent and exact twelve Source155 new-only paths
         shell: bash
         run: |
           set -euo pipefail
@@ -40,11 +40,11 @@ jobs:
           python3 -m py_compile tests/comm-e2-source153-signed-positive.py tests/comm-source153-server-session-signed-e2.py
           python3 -m py_compile tests/comm-source155-first-account-real-signed-local.py
           git diff --name-only "$BASE" HEAD > /tmp/source153-session-diff-paths
-          test "$(wc -l </tmp/source153-session-diff-paths)" -eq 5
-          for p in supabase/migrations/20261102010000_community_source155_verified_first_account_bootstrap.sql supabase/functions/community-command/index.ts tests/comm-source155-first-account-real-signed-local.py docs/community/source155-safe-first-account-bootstrap-20261102.md .github/workflows/comm-e2-source155-first-account-signed.yml; do
+          test "$(wc -l </tmp/source153-session-diff-paths)" -eq 12
+          for p in supabase/migrations/20261102010000_community_source155_verified_first_account_bootstrap.sql supabase/functions/community-command/index.ts tests/comm-source155-first-account-real-signed-local.py docs/community/source155-safe-first-account-bootstrap-20261102.md tests/comm-x05-source149-nonpublic.test.mjs tests/comm-x05-source150-owner-service.test.mjs tests/comm-x05-source151-pregrant.test.mjs tests/comm-x05-source152-first-work.test.mjs tests/comm-x05-source153-owner-authority.test.mjs tests/community-r21-generic-public-search-work-liveness.test.mjs tests/community-core-contract.test.mjs .github/workflows/comm-e2-source155-first-account-signed.yml; do
             grep -Fxq "$p" /tmp/source153-session-diff-paths
           done
-          echo SOURCE155_FIRST_ACCOUNT_PR316_FROZEN_FIVE_PATH_GUARD
+          echo SOURCE155_FIRST_ACCOUNT_PR316_FROZEN_TWELVE_PATH_GUARD
       - uses: supabase/setup-cli@v1
         with:
           version: 2.109.0
