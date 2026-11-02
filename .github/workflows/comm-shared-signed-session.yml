@@ -24,7 +24,7 @@ jobs:
           set -euo pipefail
           BASE=d32b664efd6473d6a320a789909355b0a8ce1002
           git merge-base --is-ancestor "$BASE" HEAD
-          test "$(git diff --name-only "$BASE" HEAD | wc -l)" -eq 5
+          test "$(git diff --name-only "$BASE" HEAD | wc -l)" -eq 6
           test -z "$(git diff --name-only "$BASE" HEAD -- supabase/migrations supabase/functions src/lib/dreamsnaps src/routes package.json package-lock.json)"
           test "$(git hash-object src/lib/dreamsnaps/source153-owner-consumer-v2.js)" = f981b7596711b47bceb2fa79a2191e79e8f1b459
           test "$(git hash-object src/lib/community/browser-client.ts)" = 27716c4e89dcb01aacbf75ea63173f64328c2b93
