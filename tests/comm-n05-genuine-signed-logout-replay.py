@@ -40,6 +40,7 @@ signed_cases=r"""
             "expectedRowVersion":version,"expectedAuthorizationEpoch":epoch},token=token)
 
     def private_receipt(case,token,expected_success=None):
+        assert jwt_payload(token)['exp']>time.time(),'N05_JWT_EXPIRED_DURING_REPLAY'
         st,h,body=signed_read(token)
         assert st in (200,401,403,404,409), "N05_UNEXPECTED_SOURCE_HTTP"
         assert safe_edge_headers(h), "N05_SOURCE153_PRIVATE_CACHE_MISSING"
