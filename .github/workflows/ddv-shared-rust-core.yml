@@ -54,3 +54,44 @@ jobs:
         run: |
           echo "NATIVE_ONLY=YES; 200MB=200000000 bytes; not 200MiB"
           echo "BROWSER_WASM_PEAK=UNVERIFIED; P1G_EDITED_EXPORT=UNVERIFIED"
+
+  browser-wasm-synthetic-probe:
+    name: "Actual Chromium synthetic WASM ${{ matrix.mb }} MB (NOT P1G)"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { mb: 16, grid: 1000, entropy: low }
+          - { mb: 64, grid: 10000, entropy: mixed }
+          - { mb: 100, grid: 25000, entropy: high }
+          - { mb: 200, grid: 50000, entropy: mixed }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build research-only WASM cdylib
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo build --manifest-path crates/ddv-save-core/Cargo.toml \
+            --target wasm32-unknown-unknown --release --lib
+          test -s crates/ddv-save-core/target/wasm32-unknown-unknown/release/ddv_save_core.wasm
+          cp crates/ddv-save-core/target/wasm32-unknown-unknown/release/ddv_save_core.wasm \
+            crates/ddv-save-core/tests/browser/ddv_save_core.wasm
+      - name: Generate a bounded exact-size purely synthetic JSON source
+        run: |
+          node crates/ddv-save-core/scripts/generate-synthetic.mjs \
+            crates/ddv-save-core/tests/browser/fixture.json \
+            ${{ matrix.mb }} mb ${{ matrix.grid }} ${{ matrix.entropy }}
+      - name: Install Chromium and process RSS observer
+        run: |
+          python3 -m pip install --user playwright==1.56.0 psutil==7.0.0
+          python3 -m playwright install --with-deps chromium
+      - name: Actual Chromium module Worker WASM slice and responsiveness sample
+        run: python3 crates/ddv-save-core/scripts/browser-benchmark.py ${{ matrix.mb }}
+      - name: Benchmark does not authorize game save writing
+        run: |
+          echo "SCOPE=DECODED_SYNTHETIC_JSON_ONLY; no AES/ZIP, no edited P1G"
+          echo "WASM browser benchmark; native size/memory results are separate"
