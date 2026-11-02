@@ -305,6 +305,74 @@ try{
     console.log('LIMITATION LOCAL_STORAGE_NOTICE_WRITE_DENIED remote live tab stays A until reload');
   });
 
+  await scenario('NEGATIVE notice loss plus focus/pageshow/online/visibility cannot prove remote revocation',async ctx=>{
+    const sender=await open(ctx),peer=await open(ctx);
+    await sender.evaluate(async()=>window.client.signInWithPassword('A','synthetic'));
+    await peer.evaluate(async()=>window.client.signInWithPassword('A','synthetic'));
+    await sender.evaluate(async()=>{
+      window.__testHarness.blockNotice=true;
+      await window.client.signOut();
+    });
+    const start=await peer.evaluate(()=>window.__testHarness.calls.length);
+    await peer.bringToFront();
+    // Programmatically dispatched DOM lifecycle events are NOT a real
+    // browser-resume/server-authority acceptance, even in real Chromium.
+    await peer.evaluate(()=>{
+      window.dispatchEvent(new Event('focus'));
+      document.dispatchEvent(new Event('visibilitychange'));
+      window.dispatchEvent(new Event('online'));
+      window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}));
+    });
+    const result=await peer.evaluate(()=>({
+      actor:window.client.session?.userId,
+      requests:window.__testHarness.calls.length,
+      notices:window.__testHarness.nativeEvents.filter(x=>
+        x.key==='dreamwishwand-community-logout-notice-v2').length
+    }));
+    assert.equal(result.actor,'A');
+    assert.equal(result.requests,start); // no independent server check happened
+    assert.equal(result.notices,0);
+    await peer.reload();await moduleLoad(peer);
+    assert.equal(await peer.evaluate(()=>window.client.session),null);
+    console.log('NEGATIVE LIFECYCLE_EVENTS_NOT_SERVER_REVOCATION local candidate A remained until cold reload');
+  });
+
+  await scenario('EXPERIMENT test-only BroadcastChannel delivers tokenless notice if Storage notice denied',async ctx=>{
+    const sender=await open(ctx),peer=await open(ctx);
+    await sender.evaluate(async()=>window.client.signInWithPassword('A','synthetic'));
+    await peer.evaluate(async()=>window.client.signInWithPassword('A','synthetic'));
+    await peer.evaluate(()=>{
+      // This receiver is strictly TEST HARNESS code; production PR294
+      // does not install a BroadcastChannel listener.
+      window.__testBroadcastReceived=[];
+      window.__testBC=new BroadcastChannel('wand-test-only-revocation-v1');
+      window.__testBC.onmessage=event=>{
+        window.__testBroadcastReceived.push(event.data);
+        if(event.data?.kind==='logout' &&
+           event.data?.scope==='opaque-scope-test-only')
+          void window.client.signOut();
+      };
+    });
+    await sender.evaluate(async()=>{
+      window.__testHarness.blockNotice=true;
+      await window.client.signOut();
+      const channel=new BroadcastChannel('wand-test-only-revocation-v1');
+      channel.postMessage({kind:'logout',scope:'opaque-scope-test-only',nonce:'synthetic'});
+      channel.close();
+    });
+    await peer.waitForFunction(()=>window.client.session===null);
+    const observation=await peer.evaluate(()=>({
+      messages:window.__testBroadcastReceived,
+      nativeNotices:window.__testHarness.nativeEvents.filter(x=>
+        x.key==='dreamwishwand-community-logout-notice-v2').length
+    }));
+    assert.equal(observation.messages.length,1);
+    assert.equal(observation.nativeNotices,0);
+    assert.ok(!/LOCAL_A_ACCESS|LOCAL_A_REFRESH|sb_publishable|@example/.test(
+      JSON.stringify(observation.messages)));
+    console.log('EXPERIMENT BROADCASTCHANNEL_HARNESS_ONLY fallback works in active Chrome tabs, not production integrated');
+  });
+
   console.log('RESULT REAL_CHROMIUM_SYNTHETIC_HTTP '+passed+'/'+names.length+' PASS');
 }finally{
   await browser.close();
