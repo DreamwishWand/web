@@ -28,7 +28,7 @@ type QueryName = keyof typeof queryToRpc;
 function response(body: unknown, status = 200) {
   return Response.json(body, {
     status,
-    headers: { ...corsHeaders, 'Cache-Control': 'private, no-store' }
+    headers: { ...corsHeaders, 'Cache-Control': 'private, no-store, max-age=0', 'CDN-Cache-Control': 'no-store', 'Surrogate-Control': 'no-store', 'Vary': 'Authorization, Origin' }
   });
 }
 

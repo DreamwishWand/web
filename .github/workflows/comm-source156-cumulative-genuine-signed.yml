@@ -1,0 +1,131 @@
+name: COMM Source156 Cumulative Genuine Signed + Clean Reset
+on:
+  push:
+    branches: [comm/source156-first-account-r16-composed-20261103]
+  pull_request:
+    branches: [comm/source155-safe-first-account-es256-bootstrap-20261102]
+permissions:
+  contents: read
+jobs:
+  cumulative-source156:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Guard frozen 154 prefix, verified Source155 and sole Source156 successor
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=3a331d4f1fc35d43857554ed7483034a7c4de109
+          FIRST=ff8ec5b232003b5ce11bac5e840caf475443757d
+          git merge-base --is-ancestor "$BASE" HEAD
+          git merge-base --is-ancestor "$FIRST" HEAD
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 156
+          test "$(git hash-object supabase/migrations/20261102000000_community_source153_signed_session_lineage_v2.sql)" = 680cb043934a1c0a0e75bd59ba22ce6828a8eedc
+          test "$(git hash-object supabase/migrations/20261102010000_community_source155_verified_first_account_bootstrap.sql)" = 115f2c0f7224984acd8830cfc606af8c6a1bf3af
+          git diff --name-only "$BASE" HEAD -- supabase/migrations | sort > /tmp/source156-actual
+          printf '%s\n' supabase/migrations/20261102010000_community_source155_verified_first_account_bootstrap.sql supabase/migrations/20261103010000_community_source156_signed_gallery_r16_atomic_writer.sql | sort > /tmp/source156-expected
+          diff -u /tmp/source156-expected /tmp/source156-actual
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          all_sql=sorted(Path('supabase/migrations').glob('*.sql'))
+          assert len(all_sql)==156
+          versions=[p.name.split('_',1)[0] for p in all_sql]
+          assert len(versions)==len(set(versions))
+          assert all(re.fullmatch(r'\d{12}(?:\d{2})?',v) for v in versions)
+          assert all_sql[-2].name.startswith('20261102010000_')
+          assert all_sql[-1].name.startswith('20261103010000_')
+          print("COMPOSED_SOURCE155_SOURCE156_UNIQUE_FROZEN_154_PREFIX")
+          PY
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID"
+          python3 -m py_compile tests/comm-source156-cumulative-gotrue-local.py tests/comm-source156-eligible-atomic-real-signed-local.py
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+      - name: Make disposable GoTrue ES256 signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\n[auth]\nsigning_keys_path = "./signing_keys.json"\n' >> supabase/config.toml
+          printf '[]\n' > supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes > /tmp/s156-sign.log 2>&1
+          python3 - <<'PY'
+          import json
+          keys=json.load(open('supabase/signing_keys.json'))
+          assert any(k.get('kty')=='EC' and k.get('crv')=='P-256' and k.get('kid') and k.get('d') for k in keys)
+          print('COMPOSED_GENUINE_LOCAL_GOTRUE_ES256')
+          PY
+      - name: Empty FULL156 clean install and reset with explicit disposable bucket variables
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_source156_composite_disposable_only"\n' | cat - supabase/config.toml >/tmp/s156-config
+          mv /tmp/s156-config supabase/config.toml
+          printf 'COMMUNITY_MEDIA_BUCKET=ddvre-source156-media-local\nWEP_PRESET_ARTIFACT_BUCKET=ddvre-source156-preset-local\n' > supabase/functions/.env
+          timeout 1800s supabase start > /tmp/s156-start.log 2>&1 || {
+            echo SOURCE156_LOCAL_START_FAILED
+            tail -n 55 /tmp/s156-start.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'
+            exit 1
+          }
+          echo SOURCE156_FULL_CLEAN_INSTALL_156
+          timeout 900s supabase db reset --no-seed >/tmp/s156-reset.log 2>&1 || {
+            echo SOURCE156_RESET_FAILED
+            tail -n 55 /tmp/s156-reset.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'
+            exit 1
+          }
+          echo SOURCE156_FULL_CLEAN_RESET_156
+      - run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Verify actual ledger and final SQL RPC privilege state
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import psycopg
+          with psycopg.connect('postgresql://postgres:postgres@127.0.0.1:54322/postgres') as db:
+            one=lambda q: db.execute(q).fetchone()[0]
+            assert one('select count(*) from supabase_migrations.schema_migrations')==156
+            assert one("select has_function_privilege('service_role','public.community_ensure_account_creator_signed_v1(uuid,bigint,uuid,text,text)','EXECUTE')")
+            assert one("select has_function_privilege('service_role','public.community_set_gallery_comments_enabled_atomic_signed_v1(uuid,bigint,uuid,uuid,bigint,uuid,boolean,text)','EXECUTE')")
+            assert not one("select has_function_privilege('service_role','public.community_set_gallery_comments_enabled_atomic_r16(uuid,uuid,bigint,uuid,boolean,text)','EXECUTE')")
+            assert not one("select has_function_privilege('authenticated','public.community_set_gallery_comments_enabled_atomic_signed_v1(uuid,bigint,uuid,uuid,bigint,uuid,boolean,text)','EXECUTE')")
+            assert not one("select has_function_privilege('service_role','private.community_legacy_signed_writer_guard_v1(uuid,bigint,uuid)','EXECUTE')")
+            print('COMPOSED_SOURCE156_DB_LEDGER_156_PRIVILEGES_FAIL_CLOSED')
+          PY
+      - name: Prove new A0 private Creator to A2 eligible Media/Preset to R16 writer and PR314 legacy negatives
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/comm-source156-cumulative-gotrue-local.py | tee /tmp/s156-cumulative.log
+          grep -q '"case": "C04-SAME-ACCOUNT-MEDIA-PRESET"' /tmp/s156-cumulative.log
+          grep -q '"case": "C05-SAME-ACCOUNT-SIGNED-R16"' /tmp/s156-cumulative.log
+          grep -q '"case": "C03-C08-SAME-ACCOUNT-REVOCATION"' /tmp/s156-cumulative.log
+          grep -q '"case": "SOURCE155_SAFE_FIRST_ACCOUNT_REAL_ES256_PASS"' /tmp/s156-cumulative.log
+          echo COMPOSED_SOURCE156_GENUINE_SAME_ACCOUNT_VERTICAL_PASS
+      - name: Prove both actual PostgreSQL lock orders and global signed session revocation on FULL156
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/comm-source156-eligible-atomic-real-signed-local.py | tee /tmp/s156-atomic.log
+          grep -q '"case": "S155-LOCAL-REVOKER-FIRST"' /tmp/s156-atomic.log
+          grep -q '"case": "S155-LOCAL-WRITER-FIRST"' /tmp/s156-atomic.log
+          grep -q '"case": "S155-GLOBAL-REVOKER-FIRST"' /tmp/s156-atomic.log
+          echo COMPOSED_SOURCE156_TWO_POSTGRES_LOCK_ORDER_GLOBAL_PASS
+      - name: Cleanup disposable local database and signer
+        if: always()
+        shell: bash
+        run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f supabase/functions/.env supabase/signing_keys.json /tmp/s156-sign.log /tmp/s156-config /tmp/s156-start.log /tmp/s156-reset.log /tmp/s156-cumulative.log /tmp/s156-atomic.log /tmp/source156-actual /tmp/source156-expected
+          echo COMPOSED_SOURCE156_LOCAL_TEARDOWN_ATTEMPTED
