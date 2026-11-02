@@ -40,8 +40,14 @@ added=r'''
         private_header="no-store" in {k.lower():v for k,v in headers.items()}.get("cache-control","").lower()
         if not private_header:marker("L-HEADER-"+edge,"PRIVATE_NO_STORE_MISSING",state)
         return state,payload
+      baseline_workspace=scalar("select count(*) from public.ddv_profile_workspaces where account_id=%s",(account["A"],)) if name=="command-workspace-writer" else None
       active,ar=call(a2)
+      after_active_workspace=scalar("select count(*) from public.ddv_profile_workspaces where account_id=%s",(account["A"],)) if name=="command-workspace-writer" else None
       revoked,rr=call(a1)
+      after_revoked_workspace=scalar("select count(*) from public.ddv_profile_workspaces where account_id=%s",(account["A"],)) if name=="command-workspace-writer" else None
+      if name=="command-workspace-writer":
+        marker("L-WRITER-DB","A2_INSERTED_"+str(after_active_workspace==baseline_workspace+1)+
+          "_REVOKED_A1_INSERTED_"+str(after_revoked_workspace==after_active_workspace+1))
       foreign_b,br=call(users["B"]["token"])
       foreign_m,mr=call(users["M"]["token"])
       active_private=active==200 and isinstance(ar,dict) and ar.get("ok") is True
