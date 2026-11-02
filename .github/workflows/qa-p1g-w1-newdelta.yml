@@ -1,0 +1,31 @@
+name: 05 QR Rust P1G and W1 Source Witness Independent Delta
+on:
+  pull_request:
+    paths:
+      - 'qa/05qr-rust-p1g-independent-oracle.test.mjs'
+      - 'qa/05qr-new-w1-source-independent.rs'
+      - '.github/workflows/qa-p1g-w1-newdelta.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-new-p1g-w1:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pin reviewed Rust HEAD lineage
+        run: |
+          git rev-parse HEAD
+          rustc --version
+          node --version
+      - name: Independent JS-created P1G and JS independent Reopen (not self-reopen)
+        run: node --test qa/05qr-rust-p1g-independent-oracle.test.mjs
+      - name: Independently audit W1 and Source-derived Reference Witness
+        run: |
+          cp qa/05qr-new-w1-source-independent.rs crates/ddv-save-core/tests/qa_05qr_new_w1_source.rs
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test qa_05qr_new_w1_source -- --nocapture
+      - name: Scope boundary
+        run: |
+          echo 'SYNTHETIC AES key, P1G exact single-profile only, no real save or product writer'
+          echo 'END USER ENCODE_COPY=false; persistent_replace=false; native_reference_closure=false'
