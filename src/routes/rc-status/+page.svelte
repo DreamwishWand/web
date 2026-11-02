@@ -41,7 +41,7 @@
       <section class="product" data-rc-product={product.id}>
         <header>
           <h2><a href={base + product.href}>{product.name}</a></h2>
-          {#if product.participationSurface}<small>{ja ? '共通参加面・Core製品ではありません' : 'Participation surface · not a seventh Core product'}</small>{/if}
+          {#if product.id === 'help'}<small>{ja ? '共通参加面・Core製品ではありません' : 'Participation surface · not a seventh Core product'}</small>{/if}
         </header>
         <ul>
           {#each product.jobs as item}
