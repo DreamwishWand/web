@@ -50,6 +50,10 @@ fn run()->Result<(),&'static str>{
   return Err("ENCRYPTED_SOURCE_CAS_OR_SIZE_FAILED");
  }
  let decoded=decode_p1g_research(&source,&key,MAX_JSON)?;
+ let expected_json_sha=parse_hash(&required("DDV_EXPECTED_JSON_SHA256")?)?;
+ if decoded.decoded_json_sha256!=expected_json_sha{
+  return Err("DECODED_SOURCE_SHA_CAS_FAILED");
+ }
  let schema=index_selected_tokens(&decoded.json,&["/GameInfo/Version".into()])?;
  if schema.first().map(|s|s.value.as_str())!=Some("626"){return Err("SAVE_SCHEMA_MISMATCH");}
  let mut stdout=io::stdout();
