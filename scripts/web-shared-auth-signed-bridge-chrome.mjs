@@ -14,7 +14,7 @@ const ROUTE='/disposable-owner-signed-bridge/?work=';
 const ownerPath='/__source153_e2/functions/v1/community-dreamsnap-owner';
 const browser=await chromium.launch({executablePath:env.CHROME_BIN,headless:true,
   args:['--no-sandbox','--disable-dev-shm-usage']});
-const errors=[],ownerResponses=[],ownerHeaders=[];
+const errors=[],ownerResponses=[],ownerHeaders=[],expectedHttpConsoleDenials=[];
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const eventually=async(fn)=>{
   for(let i=0;i<140;i++){if(await fn())return;await sleep(100);}
@@ -32,7 +32,20 @@ try{
   context=await browser.newContext({viewport:{width:1280,height:800}});
   page=await context.newPage();
   page.on('pageerror',()=>errors.push('PAGE_ERROR'));
-  page.on('console',m=>{if(m.type()==='error')errors.push('CONSOLE_ERROR');});
+  page.on('console',m=>{
+    if(m.type()!=='error')return;
+    const text=m.text();
+    const match=text.match(/^Failed to load resource: the server responded with a status of (401|403|404)\b/);
+    const origin=m.location()?.url??'';
+    // Chrome reports intentionally denied Source153 HTTP as console error.
+    // It is not a JS exception. Require the very same signed Owner endpoint
+    // and HTTP status to have been observed; every other console error fails.
+    if(match && (!origin||origin.includes(ownerPath))){
+      expectedHttpConsoleDenials.push(Number(match[1]));
+      return;
+    }
+    errors.push('CONSOLE_ERROR');
+  });
   page.on('response',async r=>{
     if(r.url().includes(ownerPath)){
       ownerResponses.push(r.status());
@@ -177,6 +190,8 @@ try{
     assert.ok(!dom.includes(secret),'PRIVATE_OWNER_DOM_LEAK');
   assert.ok(!/eyJ[A-Za-z0-9_-]{15,}\.eyJ[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{10,}/.test(dom));
   assert.equal(await page.locator('[data-bridge-capabilities="all-disabled"]').count(),1);
+  assert.ok(expectedHttpConsoleDenials.every(s=>ownerResponses.includes(s)),
+    'UNMATCHED_BROWSER_HTTP_CONSOLE_DENIAL');
   assert.deepEqual(errors,[]);
   console.log('WEB_SHARED_SIGNED_BRIDGE_LOCAL_BROWSER_PASS');
   console.log('WEB_SHARED_SIGNED_BRIDGE_CACHE_FOUR_VISIBLE_STRIP_REJECTED');
