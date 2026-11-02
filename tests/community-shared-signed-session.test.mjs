@@ -344,7 +344,7 @@ test('config isolate: malformed v2, forged config envelope and blocked storage f
 
 test('config isolate: simultaneous A/B refresh and A logout do not cancel B rotation',async()=>{
   memory.clear();local.clear();
-  const ca=config('-raceA'),cb=config('-raceB');
+  const ca=config('-raceA','sb_publishable_race_A'),cb=config('-raceB','sb_publishable_race_B');
   memory.set(storageKey(ca),JSON.stringify(fixture(ca,'A',10)));
   memory.set(storageKey(cb),JSON.stringify(fixture(cb,'B',10)));
   const a=new CommunityLabClient(ca),a2=new CommunityLabClient(ca);
