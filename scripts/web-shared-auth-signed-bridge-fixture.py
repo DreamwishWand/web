@@ -57,7 +57,17 @@ source+='''
             stderr=subprocess.PIPE,text=True,bufsize=1)
         try:
             ready=browser.stdout.readline().strip()
-            assert ready=="BRIDGE_CAS_READY",("SIGNED_BRIDGE_FIRST_PHASE_FAILED",ready[:60])
+            if ready!="BRIDGE_CAS_READY":
+                # Never leak raw browser stderr (it may contain ephemeral URLs,
+                # user IDs or credentials). Report the exception type and
+                # script location only, sufficient for scoped fixture repair.
+                import re
+                details=browser.stderr.read()
+                kind=next((m.group(1) for s in details.splitlines()
+                    if (m:=re.search(r'\\b(AssertionError|TimeoutError|Error|TypeError|SyntaxError)\\b',s))),"UNKNOWN")
+                locations=re.findall(r'web-shared-auth-signed-bridge-chrome\\.mjs:(\\d+)',details)
+                raise AssertionError(("SIGNED_BRIDGE_FIRST_PHASE_FAILED",kind,
+                    locations[-1] if locations else "UNKNOWN"))
             # Signed Source153 write is performed ONLY inside this accepted
             # existing disposable fixture, never via the Owner browser.
             st,h,r=owner("A","action",original,action="withdraw",
