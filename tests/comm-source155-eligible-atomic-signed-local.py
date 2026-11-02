@@ -200,13 +200,16 @@ runner=runner.replace(refresh_anchor,refresh_anchor+refreshed_cases,1)
 global_case=r'''
     # Real new A3 was live after R08. Global revoke after preflight, then
     # correct-current-CAS Writer must not mutate anything.
-    assert auth_read(a3)==200
+    a3status=auth_read(a3)
+    marker("S155-GLOBAL-A3-PREFLIGHT","ACTIVE_POSTCUTOFF",a3status)
+    assert a3status==200,"S155_GLOBAL_A3_INACTIVE"
     global_pin=scalar("select row_version from public.community_works where work_id=%s",(w,))
     gc=signed_claims(a3)
     db.execute("select public.community_authorize_signed_session_v2(%s,%s,%s)",gc)
     baseline=state()
     status,result=e2_http(a3,{"operation":"session-revoke","scope":"global"})
-    assert status==200 and result.get("state")=="revoked"
+    marker("S155-GLOBAL-REVOKE-HTTP","STATE_"+str(result.get("state","MISSING")),status)
+    assert status==200 and result.get("state")=="revoked","S155_GLOBAL_REVOKE_EDGE_FAILED"
     with psycopg.connect(DSN,autocommit=True) as conn:
       try:
         conn.execute("""select public.community_set_gallery_comments_enabled_atomic_signed_v1(
@@ -215,7 +218,7 @@ global_case=r'''
         raise AssertionError("GLOBAL_REVOKED_WRITER_COMMITTED")
       except psycopg.Error as e:
         assert "SIGNED_SESSION_TERMINALLY_REVOKED" in str(e) or "SESSION" in str(e)
-    assert state()==baseline
+    assert state()==baseline,"S155_GLOBAL_WRITE_SIDE_EFFECT"
     marker("S155-GLOBAL-REVOKER-FIRST","PREFLIGHT_200_GLOBAL_REVOKED_CAS_VALID_WRITER_NO_DB_DIFF",401)
 '''
 insert_anchor='try:exec(compile(src,str(p),"exec"),{"__name__":"__main__"})'
