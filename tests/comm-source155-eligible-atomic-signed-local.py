@@ -17,7 +17,7 @@ src=src.replace('migration_assert.replace("==153","==154")',
                 'migration_assert.replace("==153","==155")',1)
 ''',1)
 
-fixture=r"""
+fixture=r'''
     # Fully owned local metadata: no Storage upload and no URL issue.
     good_media,good_preset,good_work=RANDOM(),RANDOM(),RANDOM()
     good_blob,good_pr,good_wr=RANDOM(),RANDOM(),RANDOM()
@@ -55,7 +55,7 @@ fixture=r"""
       ("MEDIA","community-media",{"action":"read","mediaId":str(good_media)}),
       ("PRESET","wep-preset-artifact",{"action":"revisionReadiness","presetArtifactId":str(good_preset)})
     )
-"""
+'''
 assert runner.count("    legacy_probes=[")==1
 runner=runner.replace("    legacy_probes=[",fixture+"\n    legacy_probes=[",1)
 assert runner.count('"mediaId":str(mp)')==1
@@ -63,7 +63,7 @@ runner=runner.replace('"mediaId":str(mp)','"mediaId":str(good_media)',1)
 assert runner.count('"presetArtifactId":str(uuid.uuid4())')==1
 runner=runner.replace('"presetArtifactId":str(uuid.uuid4())','"presetArtifactId":str(good_preset)',1)
 
-cases=r"""
+cases=r'''
     for name,edge,body in good_routes:
       def probe(token):
         st,h,d=http("/functions/v1/"+edge,body=body,token=token)
@@ -176,7 +176,7 @@ cases=r"""
       assert denied!=200 and safe_edge_headers(headers)
     assert state()==after
     marker("S155-REAL-SIGNED-HTTP","A2_200_IDEMPOTENT_B_M_ANON_DENIED_FOUR_HEADERS",200)
-"""
+'''
 anchor="    # Direct authenticated PostgREST must be assessed separately from the"
 assert runner.count(anchor)==1
 runner=runner.replace(anchor,cases+"\n"+anchor,1)
@@ -192,7 +192,7 @@ refreshed_cases=r"""      for name,edge,body in good_routes:
 """
 runner=runner.replace(refresh_anchor,refresh_anchor+refreshed_cases,1)
 
-global_case=r"""
+global_case=r'''
     # Real new A3 was live after R08. Global revoke after preflight, then
     # correct-current-CAS Writer must not mutate anything.
     assert auth_read(a3)==200
@@ -212,7 +212,7 @@ global_case=r"""
         assert "SIGNED_SESSION_TERMINALLY_REVOKED" in str(e) or "SESSION" in str(e)
     assert state()==baseline
     marker("S155-GLOBAL-REVOKER-FIRST","PREFLIGHT_200_GLOBAL_REVOKED_CAS_VALID_WRITER_NO_DB_DIFF",401)
-"""
+'''
 insert_anchor='try:exec(compile(src,str(p),"exec"),{"__name__":"__main__"})'
 assert runner.count(insert_anchor)==1
 # Inject into the Source153 fixture after R10, without editing Source153.
