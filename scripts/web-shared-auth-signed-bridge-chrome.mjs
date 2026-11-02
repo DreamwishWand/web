@@ -86,11 +86,25 @@ try{
   await page.goto(ORIGIN+ROUTE+env.E2_ORIGINAL_WORK_ID,{waitUntil:'domcontentloaded'});
   await eventually(async()=>await page.locator('[data-bridge-login]').count()===1);
   assert.equal(await page.locator('[data-disposable-owner-bridge]').getAttribute('data-owner-actions'),'disabled');
+  let loginNumber=0;
   const login=async(email,password)=>{
-    await page.locator('#bridge-email').fill(email);
-    await page.locator('#bridge-pass').fill(password);
-    await page.locator('[data-bridge-login] button').click();
-    await eventually(async()=>await page.locator('[data-bridge-logout]').isEnabled());
+    const phase=++loginNumber===1?'A_INITIAL':loginNumber===2?'B_SWITCH':'A_RELOGIN';
+    try{
+      await page.locator('#bridge-email').fill(email);
+      await page.locator('#bridge-pass').fill(password);
+      await page.locator('[data-bridge-login] button').click();
+      await eventually(async()=>await page.locator('[data-bridge-logout]').isEnabled());
+    }catch{
+      // Diagnostics are status/type only. Never print ephemeral identity,
+      // JWT, passwords, account/work locator or raw HTML/network body.
+      const available=await page.locator('[data-bridge-login]').count();
+      const raw=await page.locator('[data-bridge-status]').allInnerTexts();
+      const status=['AUTH_REQUIRED','SIGNED_LOCAL_SESSION_CANDIDATE',
+        'REVALIDATION_REQUIRED','BACKEND_UNAVAILABLE','SOURCE_CONTRACT_REJECTED',
+        'CHECKING_SESSION'].includes(raw[0])?raw[0]:'OTHER';
+      throw Error('WEB_BRIDGE_LOGIN_PHASE_'+phase+
+        '_FORM_'+String(available)+'_STATUS_'+status);
+    }
   };
   const status=async()=>await page.locator('[data-bridge-status]').innerText();
   const inspect=async()=>{await page.locator('[data-bridge-inspect]').click();};
