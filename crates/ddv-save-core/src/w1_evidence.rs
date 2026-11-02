@@ -13,6 +13,9 @@ pub struct P1gSourceIdentity {
  pub build_identity_kind:String,
  pub build_id:String,
  pub schema:u64,
+ /// The BID and platform are externally selected, not extracted from P1G.
+ pub external_build_selection_only:bool,
+ pub build_cryptographically_bound_to_save:bool,
 }
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub enum W1Kind {ItemSpawning,WildCropsSpawningInVillage,FlowerSpawningInVillage,FishSpawningInVillage}
@@ -143,7 +146,8 @@ pub fn inspect_w1_source_research(
   roots:P1gSourceIdentity {
    encrypted_p1g_sha256:encrypted_source_sha256,decoded_json_sha256,registry_sha256:sha256(registry_bytes),
    platform:"Nintendo Switch".to_owned(),build_identity_kind:"SwitchBid".to_owned(),
-   build_id:externally_selected_build_id.to_owned(),schema:626
+   build_id:externally_selected_build_id.to_owned(),schema:626,
+   external_build_selection_only:true,build_cryptographically_bound_to_save:false
   },
   identity,row_pointer:row,next_occurrence_pointer:date_path,event_id_pointer:id_path,
   raw_old_timestamp_json:raw_old,decoded_old_timestamp_utc:decoded,
