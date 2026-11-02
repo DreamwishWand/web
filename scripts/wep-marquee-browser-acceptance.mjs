@@ -24,7 +24,11 @@ const editor={
   ]
 };
 const schema626={GameInfo:{Version:626,InitialVersion:518,LastSaveDeviceInfo:{deviceType:'DeviceType_Windows'}},
-  Player:{},World:{Villages:[{Areas:{'7':{GridIDs:[10],Unlocked:true}}}],GridCollection:{Grids:{'10':{ID:10,Objects:{'42':{State:{Opaque:true}}}}}}}}};
+  Player:{},World:{
+    Villages:[{Areas:{'7':{GridIDs:[10],Unlocked:true}}}],
+    GridCollection:{Grids:{'10':{ID:10,Objects:{'42':{State:{Opaque:true}}}}}}
+  }
+};
 const selected=async page=>page.locator('g.selected[data-editor-object]').evaluateAll(ns=>ns.map(n=>n.getAttribute('data-editor-object-id')).sort());
 const cell=async(page,name,x,y)=>page.locator('g[data-editor-object][aria-label^="'+name+' at '+x+', '+y+'"]').first();
 async function screen(page,world){
