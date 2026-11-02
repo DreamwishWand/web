@@ -69,7 +69,7 @@ fn unknown_array_append_and_shrink_are_rejected_without_revision_change() {
     let append=old.replace("\"X\":4","\"X\":5").replace("[1,2]","[1,2,3]");
     denied_without_side_effects(&old,&append,"GUARDED_OPAQUE_BYTES_CHANGED");
     let shrink=old.replace("\"X\":4","\"X\":5").replace("[1,2]","[1]");
-    denied_without_side_effects(&old,&shrink,"STRUCTURAL_ARRAY_REMOVAL_UNVERIFIED");
+    denied_without_side_effects(&old,&shrink,"GUARDED_OPAQUE_BYTES_CHANGED");
 }
 #[test]
 fn unknown_new_reference_key_is_rejected_even_with_existing_target() {
@@ -78,7 +78,7 @@ fn unknown_new_reference_key_is_rejected_even_with_existing_target() {
         "\"shadow\":\"KEEP\"",
         "\"shadow\":\"KEEP\",\"ContainerInventoryID\":\"ChestA\""
     );
-    denied_without_side_effects(&old,&new,"GUARDED_OBJECT_KEYS_CHANGED");
+    denied_without_side_effects(&old,&new,"GUARDED_OPAQUE_BYTES_CHANGED");
 }
 #[test]
 fn known_source_edge_still_cannot_confer_product_capability() {
