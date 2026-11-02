@@ -73,7 +73,7 @@ rejectsArchive(zip=>zip.writeUInt16LE(1,zip.length-22+20)); // comment length wi
 rejectsArchive(zip=>zip.writeUInt16LE(8,6)); // data descriptor flag
 rejectsArchive(zip=>zip.writeUInt16LE(1,28)); // local extra
 rejectsArchive(zip=>{ // CRC mismatch, even with internally matching local/central headers
- const off=zip.readUInt32LE(zip.length-22+16),crc=zip.readUInt32LE(14)^1;
+ const off=zip.readUInt32LE(zip.length-22+16),crc=(zip.readUInt32LE(14)^1)>>>0;
  zip.writeUInt32LE(crc,14);zip.writeUInt32LE(crc,off+16);
 });
 const wrong=Buffer.from(before);wrong[0]^=0xff;
