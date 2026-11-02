@@ -55,3 +55,36 @@ fn missing_reference_scope_and_duplicate_paths_fail_closed(){
  let same=request()[0].clone();
  assert_eq!(s.inspect_source_reference_paths(&[same.clone(),same]).unwrap_err(),"SOURCE_REFERENCE_POINTER_INVALID");
 }
+
+#[test]
+fn source_reference_witness_is_invalidated_and_rederived_after_stage_and_undo(){
+ use std::collections::BTreeSet;
+ let raw_json=raw();
+ let node=id(Domain::CollectionSet,"collection:1");
+ let graph=ReferenceIndex{nodes:BTreeSet::from([node.clone()]),edges:vec![]};
+ let mut s=SaveSession::open_decoded_research(33,raw_json.clone(),626,graph.clone()).unwrap();
+ let scope=vec![(node.clone(),"/Player/CollectionSets/1".to_owned())];
+ let original=s.inspect_source_reference_paths(&scope).unwrap();
+ assert_eq!(original.revision,0);
+ let cmd=SemanticCommand{
+  domain:Domain::CollectionSet,identity:node,
+  kind:CommandKind::ReplaceKnownSubtree,pointer:scope[0].1.clone(),
+  expected_old_json:"true".into(),new_json:"false".into(),read_set:vec![]
+ };
+ s.stage_command(TransactionPlan {
+  session_id:33,expected_revision:0,expected_source_sha256:sha256(&raw_json),
+  commands:vec![cmd],postconditions:vec![],post_references:graph
+ }).unwrap();
+ let edited=s.inspect_source_reference_paths(&scope).unwrap();
+ assert_eq!(edited.revision,1);
+ assert_ne!(edited.inspected_snapshot_sha256,original.inspected_snapshot_sha256);
+ assert_ne!(edited.witnessed[0].lexical_token_sha256,original.witnessed[0].lexical_token_sha256);
+ assert_eq!(edited.original_decoded_sha256,original.original_decoded_sha256);
+ assert!(!edited.cross_domain_reference_closure_complete);
+ s.undo(1).unwrap();
+ let reverted=s.inspect_source_reference_paths(&scope).unwrap();
+ assert_eq!(reverted.revision,2);
+ assert_eq!(reverted.inspected_snapshot_sha256,original.inspected_snapshot_sha256);
+ assert_eq!(reverted.witnessed[0].lexical_token_sha256,original.witnessed[0].lexical_token_sha256);
+ assert!(!reverted.usable_for_product_writer);
+}
