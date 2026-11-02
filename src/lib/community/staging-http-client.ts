@@ -556,18 +556,28 @@ export class CommunityLabClient {
 
   async revokeAllSessions(): Promise<EdgeResult> {
     const current=await this.#validSession();
+    // Invalidate every in-tab caller BEFORE any remote cutoff or logout awaits.
     commitSession(this.#auth,null,'logged-out',true);
-    const response=await fetch(this.config.supabaseUrl+'/auth/v1/logout?scope=global',{
+    // Wand cutoff needs a still-valid captured signed access JWT, so request
+    // it BEFORE the provider's global logout can invalidate that credential.
+    // Attempt global logout even when Wand cutoff fails; do not restore login.
+    let cutoff:Response|null=null;
+    let cutoffFailure:unknown=null;
+    try{
+      cutoff=await fetch(this.config.supabaseUrl+'/functions/v1/community-command',{
+        method:'POST',headers:{apikey:this.config.publishableKey,
+          authorization:'Bearer '+current.accessToken,'content-type':'application/json'},
+        body:JSON.stringify({command:'revokeSessions',payload:{}})
+      });
+    }catch(error){cutoffFailure=error;}
+    const global=await fetch(this.config.supabaseUrl+'/auth/v1/logout?scope=global',{
       method:'POST',headers:{apikey:this.config.publishableKey,
         authorization:'Bearer '+current.accessToken}
     });
-    await parseResponse(response);
-    const commandResponse=await fetch(this.config.supabaseUrl+'/functions/v1/community-command',{
-      method:'POST',headers:{apikey:this.config.publishableKey,
-        authorization:'Bearer '+current.accessToken,'content-type':'application/json'},
-      body:JSON.stringify({command:'revokeSessions',payload:{}})
-    });
-    return parseResponse(commandResponse) as Promise<EdgeResult>;
+    await parseResponse(global);
+    if(cutoffFailure)throw cutoffFailure;
+    if(!cutoff)throw new Error('WAND_SESSION_CUTOFF_UNAVAILABLE');
+    return parseResponse(cutoff) as Promise<EdgeResult>;
   }
 
   async command<T = unknown>(
