@@ -19,7 +19,7 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "81c41bc2fb68e86f732437ff99d3764807aa93d7",
+    "src/routes/editor/world/+page.svelte": "93529826f0b6c1011f44ebbb95eb736c605b6dd7",
     "src/lib/wep/world-editor-primary-job.ts": "25aba45c6004c020400a249c848c3bc2281fd4a0",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "711609eb100a0809a5e9a5b274f83dd9319e3645",
@@ -28,7 +28,7 @@
     "src/lib/wep/world-editor-stage1-copy.js": "9dace4b7538c04a8c650f691739d0bda22f38329",
     "src/lib/wep/room-finish-copy.js": "f75c54053bafa416842ca17938895b20d7f47f9b",
     "src/lib/wep/world-readonly-copy.js": "536a040dbfab81142528e7f0da1d08b765bc774b",
-    "src/lib/wep/world-editor-marquee-copy.js": "1393841cd8c9da678a126866d3f278c54fcbfa10"
+    "src/lib/wep/world-editor-marquee-copy.js": "a1ec61d15ef79066b4c1a0124940b8c955ee2d1a"
   },
   "ownership": {
     "wepOwned": [
@@ -84,7 +84,8 @@
       "errors/status/live-region presentation wrappers",
       "Decorate Stage 1 Moodboard handoff, pending placement, recovery, alignment/distribution, and precise-coordinate presentation",
       "Room Finish surface, scope, owned-picker, preview, review, verified-export and recovery presentation",
-      "local marquee opt-in tool, modifier help and screen reader status across eight shared Web locales"
+      "local marquee opt-in tool, modifier help and screen reader status across eight shared Web locales",
+      "safe local multi-object drag snap/preview/rejection/cancel messages all 8 shared locales"
     ],
     "neverTranslate": [
       "Core/WEP machine reason code",
@@ -247,6 +248,20 @@
           "Rectangle selection: {count} editable objects",
           "Rectangle selection cancelled",
           "Rectangle selection updated: {count} selected"
+        ]
+      },
+      {
+        "surface": "Local selected furniture atomic drag",
+        "source": [
+          "src/routes/editor/world/+page.svelte",
+          "src/lib/wep/world-editor-marquee-copy.js"
+        ],
+        "strings": [
+          "moveHint",
+          "movePreview",
+          "moveRejected",
+          "moveCancelled",
+          "moveApplied"
         ]
       }
     ],
@@ -1577,6 +1592,12 @@
       "writerAuthorization": false,
       "source": "src/lib/wep/world-editor-marquee-copy.js",
       "failClosed": "protected/UNKNOWN progression + road/fence not marquee-selectable; no draft on pointer"
+    },
+    "atomicMove20261102": {
+      "scope": "local selected furniture drag with strict previewStrictMove and one session.move strict commit",
+      "launchLocales": 8,
+      "writesNative": false,
+      "writerAuthorization": false
     }
   },
   "presentationBinding": {
