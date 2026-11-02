@@ -5,13 +5,9 @@ use ddv_save_core::session::{SaveSession,Domain,ReferenceIndex,ReferenceEdge,Log
 use std::collections::BTreeSet;
 fn id(domain:Domain,s:&str)->LogicalIdentity{LogicalIdentity{domain,key:s.into()}}
 fn fixture()->Vec<u8>{
- br#"{"GameInfo":{"Version":626},"Player":{"CollectionSets":{"1":false},
- "ContainerInventories":{"A":{"Items":[]}}},
- "World":{"GridCollection":{"Grids":{"5":{"Objects":{"7":{
- "ID":7,"ItemID":1,"Container":"A","State":{"opaque":"KEEP","state":1}}}}}}},
- "RecurringEvents":{"0":{"ItemSpawning":{"NextOccurrence":"2126-08-20T00:00:00Z"}}}},
- "Unknown":{"e":"\u00e9","n":1.00}}"#.to_vec()
+ br#"{"GameInfo":{"Version":626},"Player":{"CollectionSets":{"1":false},"ContainerInventories":{"A":{"Items":[]}}},"World":{"GridCollection":{"Grids":{"5":{"Objects":{"7":{"ID":7,"ItemID":1,"Container":"A","State":{"opaque":"KEEP","state":1}}}}}},"RecurringEvents":{"0":{"ItemSpawning":{"NextOccurrence":"2126-08-20T00:00:00Z"}}}},"Unknown":{"e":"\u00e9","n":1.00}}"#.to_vec()
 }
+
 fn graph()->ReferenceIndex{
  let grid=id(Domain::Grid,"grid:5:obj:7");
  let chest=id(Domain::ContainerInventory,"chest:A");
