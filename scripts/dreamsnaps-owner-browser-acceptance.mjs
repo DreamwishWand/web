@@ -27,21 +27,33 @@ try {
   check('INVALID_DUPLICATE_MIXED_ID_NO_MEDIA');
 
   const context=await browser.newContext({viewport:{width:1280,height:850}});
-  await context.addInitScript(()=>{
-    sessionStorage.setItem('dreamwishwand-community-session-v1',JSON.stringify({
-      accessToken:'FAKE_LOCAL_ONLY',refreshToken:'FAKE_LOCAL_ONLY',
-      userId:'22222222-2222-4222-8222-222222222222',
-      email:null,expiresAt:Date.now()+600000
-    }));
-  });
+  // The accepted shared Auth must not hydrate legacy or v2 Storage on reload.
   const page=await context.newPage();
   page.on('pageerror',e=>report.pageErrors.push(String(e)));
   page.on('console',m=>{if(m.type()==='error')report.consoleErrors.push(m.text())});
   await page.route('https://x05-synthetic.invalid/**',async route=>{
-    report.forbiddenRequests.push(route.request().url());
-    await route.fulfill({status:403,body:'NO_BACKEND_ALLOWED'});
+    const request=route.request(),url=request.url();
+    if(request.method()==='OPTIONS') return route.fulfill({status:204,headers:{
+      'access-control-allow-origin':'*',
+      'access-control-allow-methods':'GET,POST',
+      'access-control-allow-headers':'apikey,authorization,content-type'}});
+    if(url.includes('/auth/v1/token?grant_type=password')) return route.fulfill({
+      status:200,headers:{'access-control-allow-origin':'*','content-type':'application/json'},
+      body:JSON.stringify({access_token:'synthetic-x05-session',refresh_token:'synthetic-x05-refresh',
+        expires_in:3600,user:{id:'22222222-2222-4222-8222-222222222222',
+        email:'A@example.invalid'}})});
+    if(url.includes('/auth/v1/logout')) return route.fulfill({
+      status:204,headers:{'access-control-allow-origin':'*'}});
+    report.forbiddenRequests.push(url);
+    await route.fulfill({status:403,headers:{'access-control-allow-origin':'*'},body:'NO_BACKEND_ALLOWED'});
+  });
+  const signIn=()=>page.evaluate(async()=>{
+    const {createCommunityBrowserClient}=await import('/src/lib/community/browser-client.ts');
+    await createCommunityBrowserClient().signInWithPassword('A@example.invalid','synthetic-only');
   });
   await page.goto(base+'/dreamsnaps/my/manage/',{waitUntil:'domcontentloaded'});
+  await state(page,'authentication-required');
+  await signIn();
   await state(page,'local-draft');
   assert(await page.locator('[data-owner-state="local-draft"]').count()===1,'fake signed actor preview absent');
   assert(await page.locator('[data-owner-action]:not([disabled])').count()===0,'owner operation enabled without backend');
@@ -57,6 +69,9 @@ try {
   check('OWNER_LOCAL_TYPED_PREVIEW_NO_PERSISTENCE');
 
   await page.goto(base+'/dreamsnaps/my/manage/?work='+uuid,{waitUntil:'domcontentloaded'});
+  // Cold navigation deliberately invalidates saved credentials; sign-in again.
+  await state(page,'authentication-required');
+  await signIn();
   await state(page,'backend-unavailable');
   assert(await page.locator('[data-owner-state="backend-unavailable"]').count()===1,'valid Work must remain backend gated');
   assert(await page.locator('#ds-concept').count()===0,'WorkID cannot fake owner edit');
@@ -64,13 +79,15 @@ try {
   await state(page,'invalid-url');
   assert(await page.locator('[data-owner-state="invalid-url"]').count()===1,'duplicate Work ID accepted after SPA navigation');
   await page.goBack({waitUntil:'domcontentloaded'});
-  await state(page,'backend-unavailable');
-  assert(await page.locator('[data-owner-state="backend-unavailable"]').count()===1,'back navigation stale Work body');
+  await state(page,'authentication-required');
+  assert(await page.locator('[data-owner-product-projection]').count()===0,'back navigation leaked stale Work projection');
   check('WORK_ID_AUTHORITY_PENDING_STALE_NAVIGATION');
 
+  await page.goto(base+'/dreamsnaps/my/manage/',{waitUntil:'domcontentloaded'});
+  await state(page,'authentication-required');
+  await signIn();
+  await state(page,'local-draft');
   for(const locale of ['en','fr','it','de','es-ES','ja','zh-CN','pt-BR']){
-    await page.goto(base+'/dreamsnaps/my/manage/',{waitUntil:'domcontentloaded'});
-    await state(page,'local-draft'); // Wait for hydration and locale preference initialization.
     await page.locator('#site-locale').selectOption(locale);
     await page.waitForFunction(lang=>document.documentElement.lang===lang,locale,{timeout:10000});
     assert(await page.locator('html').getAttribute('lang')===locale,'locale html lang '+locale);

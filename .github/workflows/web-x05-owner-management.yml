@@ -30,11 +30,37 @@ jobs:
       - run: node --test tests/dreamsnaps-owner-management-private.test.mjs
       - run: npm run check
       - run: npm run build
-      - name: Protected public/Community code stays unchanged relative to PR234
+      - name: Protected Owner/Community code stays immutable after QR-accepted PR297
         shell: bash
         run: |
           set -euo pipefail
-          git diff --exit-code b907a86d67887bf841179f23824e5b26085520c3 HEAD -- supabase/ src/routes/dreamsnaps/community/ src/routes/creator/ src/lib/community/typed-work-route.js src/routes/dreamsnaps/my/+page.svelte
+          BASE=4743a0b46f88a3797432cd5738da499221f8e055
+          git merge-base --is-ancestor "$BASE" HEAD
+          # The repaired Auth + Owner OFF consumer at PR297 is the new accepted
+          # ancestor. Preserve every product/authority implementation byte.
+          git diff --exit-code "$BASE" HEAD -- supabase/ src/lib/community/ src/lib/dreamsnaps/ src/routes/dreamsnaps/community/ src/routes/creator/ src/routes/dreamsnaps/my/+page.svelte src/routes/dreamsnaps/my/manage/+page.svelte
+          test "$(git hash-object src/lib/community/staging-http-client.ts)" = 593b47818fe31356568e0ac688bc4ae8ef375225
+          test "$(git hash-object src/lib/dreamsnaps/source153-owner-consumer-v2.js)" = f981b7596711b47bceb2fa79a2191e79e8f1b459
+          test "$(git hash-object src/lib/dreamsnaps/source153-owner-browser-e2.js)" = 7468f9550e3e196d28b84c246ff529d2c5daa66e
+          test "$(git hash-object src/lib/dreamsnaps/owner-read-revalidation.js)" = bbf3e99883cb438629f732f5c09534a86a48abc1
+          test "$(git hash-object src/lib/dreamsnaps/owner-product-readonly.js)" = 5dcc3e565284011e64a87749b4887743fb0bd6d2
+          test "$(git hash-object src/lib/community/browser-client.ts)" = 27716c4e89dcb01aacbf75ea63173f64328c2b93
+          grep -q 'OWNER_MANAGEMENT_ENABLED = false' src/lib/dreamsnaps/owner-management.js
+          grep -q 'SOURCE153_OWNER_V2_LIVE_ENABLED = false' src/lib/dreamsnaps/source153-owner-consumer-v2.js
+          grep -q 'SOURCE153_BROWSER_E2_PRODUCTION_ENABLED = false' src/lib/dreamsnaps/source153-owner-browser-e2.js
+          grep -q 'OWNER_REVALIDATION_PRODUCTION_ENABLED = false' src/lib/dreamsnaps/owner-read-revalidation.js
+          grep -q 'OWNER_PRODUCT_READONLY_ENABLED = false' src/lib/dreamsnaps/owner-product-readonly.js
+          grep -q 'OWNER_PRODUCT_MANAGED_INGRESS_ACCEPTED = false' src/lib/dreamsnaps/owner-product-readonly.js
+          # Only this test fixture and the two workflow guards may change.
+          git diff --name-only "$BASE" HEAD > /tmp/owner-guard-maintenance-diff
+          test "$(wc -l < /tmp/owner-guard-maintenance-diff)" -eq 3
+          while IFS= read -r p; do
+            case "$p" in
+              .github/workflows/web-x05-owner-management.yml|.github/workflows/web-owner-product-readonly-off.yml|scripts/dreamsnaps-owner-browser-acceptance.mjs) ;;
+              *) echo UNEXPECTED_GUARD_MAINTENANCE_CHANGE >&2; exit 1 ;;
+            esac
+          done < /tmp/owner-guard-maintenance-diff
+          echo PR297_ACCEPTED_OFF_GUARD_RECONCILED
   chrome:
     runs-on: ubuntu-latest
     timeout-minutes: 12
