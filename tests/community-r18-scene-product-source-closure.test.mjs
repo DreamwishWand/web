@@ -88,7 +88,7 @@ test('new Source136 clean-bootstrap includes independent Scene-issuer SQL fixtur
  const workflow=read('.github/workflows/comm-clean-bootstrap-acceptance.yml');
  const pg=read('tests/comm-r18-scene-publisher-acl-postgres.py');
  assert.match(workflow,/assert len\(fs\)==156/);
- assert.match(workflow,/IF v<>148 THEN/);
+ assert.match(workflow,/IF v<>156 THEN/);
  assert.match(workflow,/THIRTY_ONE_ADDITIVE_SOURCE_MIGRATIONS/);
  assert.match(workflow,/comm-r18-scene-publisher-acl-postgres\.py/);
  assert.match(pg,/03COMM_R18_SCENE_SOURCE_ISSUER_ACL_ROLLBACK_ACCEPTED/);
