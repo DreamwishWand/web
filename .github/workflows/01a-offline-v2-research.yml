@@ -16,7 +16,7 @@ permissions:
 jobs:
   scoped-research:
     runs-on: ubuntu-24.04
-    timeout-minutes: 12
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: Record exact source commit
@@ -34,3 +34,37 @@ jobs:
           echo 'PRIVATE_SAVE_IN_CI=NO'
           echo 'PRODUCT_WRITER=OFF'
           echo 'REAL_SAVE_RUST_REOPEN=REQUIRES_SEPARATE_PRIVATE_LOCAL_EXECUTION'
+      - name: Checkout immutable Timekeeper JS Codec source (no private saves)
+        uses: actions/checkout@v4
+        with:
+          repository: 0xmorarin/Dreamlight-Timekeeper
+          ref: 393222e7832461ef5fea847b6fff475fedc45017
+          path: .timekeeper-codec-fixed
+          persist-credentials: false
+      - name: Build immutable private-offline Rust probe (NO real save in Actions)
+        run: cargo build --release --manifest-path crates/ddv-save-core/Cargo.toml --example p1g_offline_private_probe
+      - name: Assemble SOURCE-ONLY private executor package
+        run: |
+          test -x crates/ddv-save-core/target/release/examples/p1g_offline_private_probe
+          test -f src/lib/ddv/core/save/p1g-packaged-profile-codec.js
+          test -f .timekeeper-codec-fixed/src/core/p1g-packaged-profile-codec.mjs
+          tar -czf offline-codecs-329-source-only.tar.gz \
+            src/lib/ddv/core/save/p1g-packaged-profile-codec.js \
+            src/lib/ddv/core/save/safe-edit-session.js \
+            src/lib/ddv/core/save/versioning.js \
+            .timekeeper-codec-fixed/src/core/p1g-packaged-profile-codec.mjs \
+            .timekeeper-codec-fixed/src/core/p1g-envelope-audit.mjs \
+            .timekeeper-codec-fixed/src/core/safe-edit-session.mjs \
+            .timekeeper-codec-fixed/src/core/versioning.mjs \
+            crates/ddv-save-core/scripts/offline-real-save-v2.mjs \
+            crates/ddv-save-core/target/release/examples/p1g_offline_private_probe \
+            package.json
+          sha256sum offline-codecs-329-source-only.tar.gz
+          echo "SOURCE_ONLY_ARTIFACT=YES PRIVATE_SAVE_IN_CI=NO"
+      - name: Upload short-retention canonical source and compiled research probe
+        uses: actions/upload-artifact@v4
+        with:
+          name: 01a-pr329-private-offline-executor-source-only
+          path: offline-codecs-329-source-only.tar.gz
+          retention-days: 1
+          if-no-files-found: error
