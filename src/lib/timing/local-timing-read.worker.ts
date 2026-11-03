@@ -15,8 +15,14 @@ const core = createTimingWorkerReadCore({
   loadRegistry: async () => {
     // Only an immutable worker-authored path is accepted; caller cannot
     // substitute registry JSON or direct us to a remote provider.
-    const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
-    const url = new URL(base + WAND_TIMING_REGISTRY_PATH.replace(/^\//, ''), self.location.origin);
+    // Vite's import.meta.env.BASE_URL can be '/' even when SvelteKit's
+    // adapter-static site is mounted under /web/. Derive the Pages prefix
+    // from THIS trusted Worker script URL, never from caller input.
+    const workerPath = self.location.pathname;
+    const assetBoundary = workerPath.indexOf('/_app/');
+    const fallbackBase = import.meta.env.BASE_URL.replace(/\/$/, '');
+    const prefix = assetBoundary >= 0 ? workerPath.slice(0, assetBoundary) : fallbackBase;
+    const url = new URL(prefix + WAND_TIMING_REGISTRY_PATH, self.location.origin);
     if (url.origin !== self.location.origin) throw Error('READ_REGISTRY_ORIGIN_DENIED');
     const response = await fetch(url, {
       method: 'GET', credentials: 'omit', mode: 'same-origin',
