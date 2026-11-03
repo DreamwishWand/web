@@ -1,0 +1,43 @@
+name: 04 QR PR340 repaired two REDs new-only independent source QA
+on:
+  push:
+    branches: [qa/pr340-repaired-freshness-schema-20261103]
+  pull_request:
+    branches: [dbk/rc-content-gates-20261103]
+permissions:
+  contents: read
+jobs:
+  qr340:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Freeze repaired DBK source exactly and only two QA paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=e3acd815afbee0020cfad5bd15bf97ee4900b2ea
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git diff --name-only "$SOURCE" HEAD | sort >/tmp/qr340-actual
+          printf '%s\n' .github/workflows/qr-pr340-repaired-independent.yml tests/qr-pr340-repaired-content-independent.test.mjs | sort >/tmp/qr340-expected
+          diff -u /tmp/qr340-expected /tmp/qr340-actual
+          test -z "$(git diff --name-only "$SOURCE" HEAD -- scripts src supabase docs)"
+          test "$(git hash-object scripts/dbk-rc-seed-contract.mjs)" = 2b581ff3e6973ac58199a2eb40eb54f964012194
+          test "$(git hash-object docs/knowledge/rc-job-content-delta-20261103.json)" = 58b15b93d07afbbe174989541ce479e5ce9be665
+          echo QR340_FIXED_SOURCE_AND_TWO_QA_FILES_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Independently execute repaired negatives, positive and zero public
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/qr-pr340-repaired-content-independent.test.mjs | tee /tmp/qr340-repaired.log
+          grep -q QR_DBK_UNKNOWN_FRESHNESS_FAILCLOSED_PASS /tmp/qr340-repaired.log
+          grep -q QR_DBK_SCHEMA_624_VS_626_AND_UNKNOWN_FAILCLOSED_PASS /tmp/qr340-repaired.log
+          grep -q QR_DBK_REAL_CONTENT_ZERO_PUBLIC_UNCHANGED_PASS /tmp/qr340-repaired.log
+          echo QR340_TWO_PRIOR_REDS_CLOSED_BY_INDEPENDENT_SOURCE_ONLY_QA
