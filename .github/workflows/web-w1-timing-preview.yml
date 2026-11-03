@@ -1,0 +1,95 @@
+name: WEB W1 Timing preview UI actual Chromium (synthetic only)
+on:
+  push:
+    branches:
+      - 'web/w1-timing-preview-main-*'
+  pull_request:
+    paths:
+      - 'src/lib/timing/timing-ui-copy.js'
+      - 'src/lib/timing/TimingEditPreview.svelte'
+      - 'src/routes/editor/timing/+page.svelte'
+      - 'tests/web-timing-preview-main.test.mjs'
+      - 'scripts/web-w1-timing-preview-browser.mjs'
+      - '.github/workflows/web-w1-timing-preview.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Pin current main and exact UI-only scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=4f5ade36e6006d37ea5e8cc90f5c982e640e6e32
+          git merge-base --is-ancestor "$BASE" HEAD
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          git diff --name-only "$BASE" HEAD > /tmp/web-w1-changes
+          test "$(wc -l </tmp/web-w1-changes)" -eq 6
+          while IFS= read -r path; do
+            case "$path" in
+              src/lib/timing/timing-ui-copy.js|src/lib/timing/TimingEditPreview.svelte|src/routes/editor/timing/+page.svelte|tests/web-timing-preview-main.test.mjs|scripts/web-w1-timing-preview-browser.mjs|.github/workflows/web-w1-timing-preview.yml) ;;
+              *) echo "UNEXPECTED_CHANGE:$path"; exit 1 ;;
+            esac
+          done </tmp/web-w1-changes
+          git diff --exit-code "$BASE" HEAD -- supabase src/lib/wep src/lib/community src/lib/dreamsnaps src/lib/collection src/lib/timing/recurring-readonly.mjs
+          echo WEB_W1_MAIN_ONLY_NO_WRITER_SCOPE_PASS
+      - name: Eight locale and preview hard OFF tests
+        run: node --test tests/web-timing-preview-main.test.mjs
+      - name: Main Svelte check and static build
+        env:
+          BASE_PATH: /web
+        run: npm run check && npm run build
+      - name: Built Timing route exists
+        run: test -f build/editor/timing/index.html
+  browser:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Resolve installed real Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Launch local-only Vite without real save
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4187 >/tmp/web-w1-preview-vite.log 2>&1 &
+          for i in $(seq 1 65); do
+            if curl -fsS http://127.0.0.1:4187/editor/timing/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/web-w1-preview-vite.log
+          exit 1
+      - name: Real Chromium encrypted SYNTHETIC P1G UI E2E
+        env:
+          WEB_TIMING_PREVIEW_URL: http://127.0.0.1:4187
+        run: node scripts/web-w1-timing-preview-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: web-w1-preview-synthetic-ui-only
+          path: .artifacts/web-w1-timing-preview/
+          if-no-files-found: warn
