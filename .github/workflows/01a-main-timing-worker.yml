@@ -1,0 +1,70 @@
+name: 01A Main Local P1G Worker READ (synthetic only)
+on:
+  pull_request:
+    paths:
+      - 'src/lib/timing/local-worker-read-core.mjs'
+      - 'src/lib/timing/local-timing-read.worker.ts'
+      - 'src/lib/timing/local-timing-worker-client.ts'
+      - 'src/routes/editor/timing/+page.svelte'
+      - 'tests/timing-local-worker-read.test.mjs'
+      - 'scripts/01a-main-timing-worker-browser.mjs'
+      - '.github/workflows/01a-main-timing-worker.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  local-worker-read:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Node scoped Cursor/Session/replay negatives
+        run: node --test tests/timing-local-worker-read.test.mjs
+      - name: Svelte types and static Worker bundling
+        env:
+          BASE_PATH: /web
+        run: |
+          npm run check
+          npm run build
+          test -f build/editor/timing/index.html
+          echo PRIVATE_SAVE_IN_CI=NO
+          echo PRODUCT_WRITER=OFF
+          echo PRODUCT_RUST_WORKER_ACCEPTED=NO
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Resolve system Chrome
+        id: chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "path=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+      - name: Start Vite local test instance
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4179 > /tmp/01a-worker-vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:4179/editor/timing/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/01a-worker-vite.log
+          exit 1
+      - name: Chromium P1G→Worker→ItemID and 100/200MiB characterization
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          WAND_TIMING_BROWSER_URL: http://127.0.0.1:4179
+        run: node scripts/01a-main-timing-worker-browser.mjs
+      - name: Publish synthetic-only report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 01a-main-timing-worker-synthetic
+          path: .artifacts/01a-main-timing-worker/report.json
+          if-no-files-found: ignore
