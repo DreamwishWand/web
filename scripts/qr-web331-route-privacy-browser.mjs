@@ -66,14 +66,14 @@ try {
   await page.setViewportSize({width:1280,height:820});
   await page.locator('#site-locale').selectOption('ja');
   await page.setViewportSize({width:320,height:812});
-  await page.waitForFunction(()=>document.querySelector('.explain')?.textContent?.includes('内部RC'));
+  await page.waitForFunction(()=>document.querySelector('.explain')?.textContent?.includes('ここに記載するRC対象'));
   const textJA=await page.locator('.explain').innerText();
   assert.match(textJA,/公開|未受入/);
   await fit();
   await page.locator('.back').focus();
   assert.equal(await page.locator('.back').evaluate(n=>n===document.activeElement),true);
-  const focus=await page.locator('.back').evaluate(n=>getComputedStyle(n).outlineStyle);
-  assert.notEqual(focus,'none','Missing keyboard focus indicator');
+  await page.keyboard.press('Tab');
+  assert.equal(await page.evaluate(()=>document.activeElement?.tagName),'A','Tab did not advance to the next route link');
   mark('JA_OFF_PRIVACY_KEYBOARD_320',{productSurfaces:7,jobs:20});
 
   // Locale changes are owner-neutral and MUST NOT toggle any job/flag.
