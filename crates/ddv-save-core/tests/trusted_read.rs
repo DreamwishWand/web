@@ -1,11 +1,10 @@
 //! W-CORE-004 isolated, synthetic-only trusted READ lease and memory cases.
 use ddv_save_core::{sha256, trusted_read::TrustedReadBoundary};
-const ENTROPY:[u8;32]=[0x94;32];
 fn small()->Vec<u8>{
  br#"{"GameInfo":{"Version":626},"Player":{},"World":{"RecurringEvents":[{"ItemSpawning":{"RecurringEventItemID":2010000021,"NextOccurrence":"2126-08-20T00:00:00Z","UnknownNested":{"keep":true}}},{"FlowerSpawningInVillage":{"RecurringEventItemID":2010500008,"NextOccurrence":"2022-09-06T00:00:00Z"}}]},"opaque":{"e":"\u00e9","number":1.00}}"#.to_vec()
 }
 fn host()->TrustedReadBoundary{
- TrustedReadBoundary::new_for_trusted_host_research(ENTROPY).unwrap()
+ TrustedReadBoundary::new_core_generated_research().unwrap()
 }
 #[test]
 fn core_mints_scope_epoch_revision_and_single_use_cursors(){
@@ -55,6 +54,25 @@ fn forged_ui_ticket_capability_hash_revision_or_id_cannot_advance_cursor(){
  let second=core.query_page(&ticket,Some(&cursor),1).unwrap();
  assert!(second.complete);
 }
+
+#[test]
+fn new_core_instances_generate_distinct_hmac_session_and_cursor(){
+ let b=small();
+ let mut a=host();let mut c=host();
+ let at=a.open_decoded_research(b.clone()).unwrap();
+ let ct=c.open_decoded_research(b).unwrap();
+ // A fresh Core CSPRNG must not reproduce the same lease/cursor from an
+ // identical source even when each independent instance starts at epoch 1.
+ assert_ne!(at.session_id,ct.session_id);
+ assert_eq!(at.source_epoch,1);
+ assert_eq!(ct.source_epoch,1);
+ let ap=a.query_page(&at,None,1).unwrap();
+ let cp=c.query_page(&ct,None,1).unwrap();
+ assert_ne!(ap.next_cursor,cp.next_cursor);
+ assert_eq!(c.query_page(&ct,ap.next_cursor.as_deref(),1).err(),
+  Some("READ_CURSOR_REPLAY_OR_SCOPE_MISMATCH"));
+}
+
 #[test]
 fn navigation_a_to_b_closes_prior_ticket_and_cursor_without_data_leak(){
  let mut core=host();
@@ -85,8 +103,7 @@ fn corrupted_b_open_revokes_a_even_if_b_validation_fails(){
  assert_eq!(fresh.source_epoch,3);
 }
 #[test]
-fn close_revokes_and_zero_entropy_denied(){
- assert_eq!(TrustedReadBoundary::new_for_trusted_host_research([0;32]).err(),Some("READ_CORE_ENTROPY_REQUIRED"));
+fn close_revokes_old_core_ticket_and_cursor(){
  let mut core=host();let ticket=core.open_decoded_research(small()).unwrap();
  core.close(&ticket).unwrap();
  assert_eq!(core.close(&ticket).err(),Some("READ_UNTRUSTED_OR_STALE_TICKET"));
