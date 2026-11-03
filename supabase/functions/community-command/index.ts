@@ -214,6 +214,15 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         return reply({ok:false,error:'SIGNED_BOOTSTRAP_SESSION_REQUIRED'},401);
       }
     }
+    // W-COMM-006: R17 v2 still permits subject-only DreamSnaps writes.
+    // The historical Gallery branch fails closed in SQL, but DreamSnaps does not.
+    // This unaccepted Legacy Writer must not reach service-role RPC until an
+    // independently tested same-transaction signed-session/CAS successor exists.
+    // Run this AFTER signed v2 validation so revoked sessions still return 401.
+    if (command === 'setGalleryCommentsEnabled') {
+      return reply({ok:false,error:'R17_LEGACY_COMMENTS_WRITER_NOT_ENROLLED'},409);
+    }
+
     const authorizationParams: JsonObject = {
       p_auth_subject: subject, p_issued_at_epoch: issuedAt,
       p_max_age_seconds: null
@@ -434,10 +443,6 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         params.p_parent_comment_id = payload.parentCommentId ?? null;
         params.p_body = payload.body;
         params.p_idempotency_key = payload.idempotencyKey;
-        break;
-      case 'setGalleryCommentsEnabled':
-        params.p_work_id = payload.workId;
-        params.p_enabled = payload.enabled;
         break;
       case 'setGalleryCommentsAtomicR16':
         if (typeof payload.workId !== 'string' || !Number.isSafeInteger(payload.expectedVersion) ||

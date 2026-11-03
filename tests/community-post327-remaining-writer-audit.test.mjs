@@ -24,7 +24,7 @@ const notes=load('docs/community/post327-remaining-writer-route-audit-20261103.m
 test('fix Source155 and Source156 at independently accepted PR327 SQL/Edge blobs',()=>{
  assert.equal(gitBlob(source155),'115f2c0f7224984acd8830cfc606af8c6a1bf3af');
  assert.equal(gitBlob(source156),'3000d66c193b996e4ece785deaf5180955ec3bc6');
- assert.equal(gitBlob(edge),'c910dd851eeb3266594c152501425828fd3d9759');
+ assert.equal(gitBlob(edge),'1ecce2d18a0f92dbaafd0b3ed9d8824c88e8c754'); // W-COMM-006 Edge-only delta
  assert.match(source156,/for share;/);
  assert.match(source156,/community_authorize_signed_session_v2/);
  assert.match(source156,/revoke all on function public\.community_set_gallery_comments_enabled_atomic_r16/);
@@ -88,4 +88,16 @@ test('physical media issuer, Preset and Scene publisher NOT accepted as R16',()=
  assert.match(owner,/DB commit is the authority/);
  assert.match(notes,/MANAGED_PENDING/);
  assert.match(notes,/INDEPENDENT_TARGETED_PASS/);
+});
+test('W-COMM-006: legacy DreamSnaps comments Edge is OFF after signed v2 and before service-role RPC',()=>{
+ const signed=edge.indexOf("'community_authorize_signed_session_v2'");
+ const guard=edge.indexOf("if (command === 'setGalleryCommentsEnabled') {");
+ const rate=edge.indexOf('const rateBucket = commandToRateBucket[command]');
+ const dbWrite=edge.indexOf('ctx.supabaseAdmin.rpc(rpc,params)');
+ assert.ok(signed>=0 && signed<guard && guard<rate && rate<dbWrite,
+   'Legacy gate must preserve signed revoke 401 and avoid rate/DB mutation');
+ assert.match(edge,/R17_LEGACY_COMMENTS_WRITER_NOT_ENROLLED'\},409/);
+ assert.match(edge,/setGalleryCommentsAtomicR16: 'community_set_gallery_comments_enabled_atomic_signed_v1'/);
+ assert.match(r17v2,/update public\.dreamsnap_gallery_publications/);
+ assert.doesNotMatch(r17v2,/community_authorize_signed_session_v2/);
 });
