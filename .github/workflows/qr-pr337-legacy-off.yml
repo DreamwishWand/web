@@ -33,9 +33,10 @@ jobs:
           test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 156
           test "$(git hash-object supabase/migrations/20261102000000_community_source153_signed_session_lineage_v2.sql)" = 680cb043934a1c0a0e75bd59ba22ce6828a8eedc
           test "$(git hash-object supabase/migrations/20261102010000_community_source155_verified_first_account_bootstrap.sql)" = 115f2c0f7224984acd8830cfc606af8c6a1bf3af
-          git diff --name-only "$BASE" HEAD -- supabase/migrations | sort > /tmp/source156-actual
-          printf '%s\n' supabase/migrations/20261102010000_community_source155_verified_first_account_bootstrap.sql supabase/migrations/20261103010000_community_source156_signed_gallery_r16_atomic_writer.sql | sort > /tmp/source156-expected
-          diff -u /tmp/source156-expected /tmp/source156-actual
+          # Branch based on PR333 already CONTAINS Source155/156. It must
+          # not pretend this QA-only child adds two inherited migrations.
+          test -z "$(git diff --name-only "$BASE" HEAD -- supabase/migrations)"
+          echo QR337_FROZEN_INHERITED_SOURCE155_SOURCE156_NO_SQL_DELTA
           python3 - <<'PY'
           from pathlib import Path
           import re
