@@ -1,0 +1,69 @@
+name: TEST main WEP local strict group Move
+on:
+  push:
+    branches: ['int/main-wep-strict-qa350-*']
+  pull_request:
+    paths:
+      - 'src/lib/wep/editor-runtime.ts'
+      - 'src/lib/wep/marquee-selection.ts'
+      - 'src/lib/wep/world-editor-marquee-copy.js'
+      - 'src/routes/editor/world/+page.svelte'
+      - 'tests/wep-atomic-multi-drag.test.mjs'
+      - 'tests/wep-strict-grid-provenance-negatives.test.mjs'
+      - 'tests/wep-keyboard-strict-local.test.mjs'
+      - 'scripts/wep-keyboard-strict-browser.mjs'
+      - '.github/workflows/int-main-wep-local.yml'
+permissions:
+  contents: read
+jobs:
+  verify-local:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Source-verified local multi-selection and strict group Move negatives
+        run: node --test tests/wep-atomic-multi-drag.test.mjs tests/wep-strict-grid-provenance-negatives.test.mjs tests/wep-keyboard-strict-local.test.mjs
+      - run: npm run check && npm run build
+      - name: No production changes and Save Writer strictly OFF
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f build/editor/world/index.html
+          test -f build/editor/timing/index.html
+          for p in help/questions help/tips help/issues help/my; do test -f "build/$p/index.html"; done
+          git diff --exit-code f44c9bb231de712ea35f570781d6a6fa87f01c73 HEAD -- supabase/ src/lib/community/ src/lib/dreamsnaps/ src/lib/ddv/ src/lib/wep/world-save-source.ts
+          grep -Fq "writer:'OFF'" src/lib/product-home/rc-manifest.js
+          grep -Fq "release:'PUBLIC_NO_GO'" src/lib/product-home/rc-manifest.js
+          echo INT_WEP_LOCAL_ONLY_AND_SAVE_WRITER_OFF_PASS
+  actual-chromium:
+    needs: verify-local
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright@1.55.0
+      - run: npx playwright install chromium
+      - name: Start isolated Vite
+        shell: bash
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4195 >/tmp/int-wep-test.log 2>&1 &
+          for i in $(seq 1 70); do if curl -fsS http://127.0.0.1:4195/editor/world/ >/dev/null; then exit 0; fi; sleep 1; done
+          cat /tmp/int-wep-test.log
+          exit 1
+      - name: Actual native tab Chromium 100/200 group Move undo and Road collision
+        env:
+          WEP_KEYBOARD_RC_BASE_URL: http://127.0.0.1:4195/editor/world/
+        run: node scripts/wep-keyboard-strict-browser.mjs
