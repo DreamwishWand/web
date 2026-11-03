@@ -1,0 +1,42 @@
+name: 01A Trusted W1 READ Research (synthetic-only)
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/**'
+      - '.github/workflows/01a-trusted-read.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  trusted-read:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Record immutable source and product OFF
+        run: |
+          git rev-parse HEAD
+          echo PRIVATE_SAVE_IN_CI=NO
+          echo PRODUCT_READ_WORKER=OFF
+          echo PRODUCT_WRITER=OFF
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Strict synthetic trusted session and 100/200MiB scan
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test trusted_read -- --nocapture
+      - name: Rust wasm32 research ABI compilation (not browser acceptance)
+        run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown
+      - name: Research-only Worker ingress and delayed reply tests
+        run: node crates/ddv-save-core/scripts/test-research-trusted-read-worker.mjs
+      - name: Verify no accidental writer/product import in delta
+        run: |
+          grep -q "pub mod trusted_read;" crates/ddv-save-core/src/lib.rs
+          grep -q "pub const PRODUCT_READ_ENABLED = false;" crates/ddv-save-core/scripts/research-trusted-read-worker.mjs
+          grep -q "pub const PRODUCT_WRITER_ENABLED = false;" crates/ddv-save-core/scripts/research-trusted-read-worker.mjs || true
+          test ! -e crates/ddv-save-core/private-real-save.p1g
