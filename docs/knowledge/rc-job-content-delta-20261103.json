@@ -1,0 +1,546 @@
+{
+  "schema": "wand.dbk.rc-job-content-delta@1",
+  "date": "2026-11-03",
+  "classification": "SOURCE_ONLY_INTERNAL_RC_NOT_PUBLIC_APPROVAL",
+  "articleMetadataContract": "wand.dbk.rc-content-metadata@1",
+  "articleEvidence": {
+    "reviewedEnglish": 45,
+    "categories": 7,
+    "mechanics": 106,
+    "nonEnglishHumanSigned": 0,
+    "nonEnglishHumanRequired": 315,
+    "rightsSigned": 0,
+    "publicApproved": 0,
+    "p0Claims": {
+      "staticConfirmed": 22,
+      "highConfidence": 32,
+      "unknown": 2
+    },
+    "linkedSource": "07 DBK Current Handoff / 2026-11-03 metadata delta"
+  },
+  "localeSet": [
+    "en",
+    "de",
+    "es-ES",
+    "fr",
+    "it",
+    "ja",
+    "pt-BR",
+    "zh-CN"
+  ],
+  "sourceVersionBaseline": {
+    "platform": "Nintendo Switch",
+    "fullVersion": "1.25.0",
+    "bid": "52BD625D9B4E0053",
+    "schema": 624,
+    "evidenceLevel": "STATIC_SOURCE_ONLY"
+  },
+  "evidenceRegistry": {
+    "D24": "Guide Systems metadata-only V1/V24, private source not in repo",
+    "V7": "Immutable Guide/Collection seed manifests",
+    "IA": "Canonical Product IA + 06 PRODUCT 30-job overlay",
+    "CHC193": "193 normalized CHC Issues; source is incomplete for current total",
+    "COMM": "Verified real public seed snapshots NOT PROVIDED"
+  },
+  "releaseDecision": "PUBLIC_PREVIEW_NO_GO; ORIGINAL_GAME_MEDIA_OFF; PUBLISHED_GUIDE_ALLOWLIST_EMPTY",
+  "jobs": [
+    {
+      "jobId": "DEC-EXP",
+      "contentKind": "CANONICAL_GAME_DB_CONTENT",
+      "freshnessClass": "VERSION_SCOPED",
+      "sourceVersion": {
+        "platform": "Nintendo Switch",
+        "fullVersion": "1.25.0",
+        "bid": "52BD625D9B4E0053",
+        "schema": 624,
+        "evidenceLevel": "STATIC_SOURCE_ONLY"
+      },
+      "platform": "Nintendo Switch",
+      "dlc": null,
+      "localeReviewed": [],
+      "rightsDecision": null,
+      "updatedAtActual": null,
+      "verifiedAt": null,
+      "expiresAt": null,
+      "moderationDecision": null,
+      "correctionState": null,
+      "independentQaAccepted": false,
+      "releaseEligible": false,
+      "publicIndexEligible": false,
+      "nonpublicRcReuse": true,
+      "evidenceRef": "D24",
+      "blockers": [
+        "RIGHTS_OR_SOURCE_OR_RUNTIME_UNVERIFIED"
+      ]
+    },
+    {
+      "jobId": "COL-WORK",
+      "contentKind": "CANONICAL_GAME_DB_CONTENT",
+      "freshnessClass": "VERSION_SCOPED",
+      "sourceVersion": {
+        "platform": "Nintendo Switch",
+        "fullVersion": "1.25.0",
+        "bid": "52BD625D9B4E0053",
+        "schema": 624,
+        "evidenceLevel": "STATIC_SOURCE_ONLY"
+      },
+      "platform": "Nintendo Switch",
+      "dlc": null,
+      "localeReviewed": [],
+      "rightsDecision": null,
+      "updatedAtActual": null,
+      "verifiedAt": null,
+      "expiresAt": null,
+      "moderationDecision": null,
+      "correctionState": null,
+      "independentQaAccepted": false,
+      "releaseEligible": false,
+      "publicIndexEligible": false,
+      "nonpublicRcReuse": true,
+      "evidenceRef": "V7",
+      "blockers": [
+        "RIGHTS_OR_SOURCE_OR_RUNTIME_UNVERIFIED"
+      ]
+    },
+    {
+      "jobId": "GDE-QUEST",
+      "contentKind": "CURATED_GUIDE_CONTENT",
+      "freshnessClass": "VERSION_SCOPED",
+      "sourceVersion": {
+        "platform": "Nintendo Switch",
+        "fullVersion": "1.25.0",
+        "bid": "52BD625D9B4E0053",
+        "schema": 624,
+        "evidenceLevel": "STATIC_SOURCE_ONLY"
+      },
+      "platform": "Nintendo Switch",
+      "dlc": null,
+      "localeReviewed": [],
+      "rightsDecision": null,
+      "updatedAtActual": null,
+      "verifiedAt": null,
+      "expiresAt": null,
+      "moderationDecision": null,
+      "correctionState": null,
+      "independentQaAccepted": false,
+      "releaseEligible": false,
+      "publicIndexEligible": false,
+      "nonpublicRcReuse": true,
+      "evidenceRef": "V7",
+      "blockers": [
+        "RIGHTS_OR_SOURCE_OR_RUNTIME_UNVERIFIED"
+      ]
+    },
+    {
+      "jobId": "GDE-STAR",
+      "contentKind": "OFFICIAL_CURRENT_DDV_DATA",
+      "freshnessClass": "LIVE_24H",
+      "sourceVersion": {
+        "platform": "Nintendo Switch",
+        "fullVersion": "1.25.0",
+        "bid": "52BD625D9B4E0053",
+        "schema": 624,
+        "evidenceLevel": "STATIC_SOURCE_ONLY"
+      },
+      "platform": "Nintendo Switch",
+      "dlc": null,
+      "localeReviewed": [],
+      "rightsDecision": null,
+      "updatedAtActual": null,
+      "verifiedAt": null,
+      "expiresAt": null,
+      "moderationDecision": null,
+      "correctionState": null,
+      "independentQaAccepted": false,
+      "releaseEligible": false,
+      "publicIndexEligible": false,
+      "nonpublicRcReuse": true,
+      "evidenceRef": "V7",
+      "blockers": [
+        "RIGHTS_OR_SOURCE_OR_RUNTIME_UNVERIFIED"
+      ]
+    },
+    {
+      "jobId": "GDE-EVENT",
+      "contentKind": "OFFICIAL_CURRENT_DDV_DATA",
+      "freshnessClass": "LIVE_24H",
+      "sourceVersion": {
+        "platform": "Nintendo Switch",
+        "fullVersion": "1.25.0",
+        "bid": "52BD625D9B4E0053",
+        "schema": 624,
+        "evidenceLevel": "STATIC_SOURCE_ONLY"
+      },
+      "platform": "Nintendo Switch",
+      "dlc": null,
+      "localeReviewed": [],
+      "rightsDecision": null,
+      "updatedAtActual": null,
+      "verifiedAt": null,
+      "expiresAt": null,
+      "moderationDecision": null,
+      "correctionState": null,
+      "independentQaAccepted": false,
+      "releaseEligible": false,
+      "publicIndexEligible": false,
+      "nonpublicRcReuse": true,
+      "evidenceRef": "V7",
+      "blockers": [
+        "RIGHTS_OR_SOURCE_OR_RUNTIME_UNVERIFIED"
+      ]
+    },
+    {
+      "jobId": "GDE-SYS",
+      "contentKind": "CURATED_GUIDE_CONTENT",
+      "freshnessClass": "VERSION_SCOPED",
+      "sourceVersion": {
+        "platform": "Nintendo Switch",
+        "fullVersion": "1.25.0",
+        "bid": "52BD625D9B4E0053",
+        "schema": 624,
+        "evidenceLevel": "STATIC_SOURCE_ONLY"
+      },
+      "platform": "Nintendo Switch",
+      "dlc": null,
+      "localeReviewed": [
+        "en"
+      ],
+      "rightsDecision": null,
+      "updatedAtActual": null,
+      "verifiedAt": null,
+      "expiresAt": null,
+      "moderationDecision": null,
+      "correctionState": null,
+      "independentQaAccepted": false,
+      "releaseEligible": false,
+      "publicIndexEligible": false,
+      "nonpublicRcReuse": true,
+      "evidenceRef": "D24",
+      "blockers": [
+        "H-EDITORIAL",
+        "H-RIGHTS",
+        "H-NATIVE",
+        "H-VERSION"
+      ]
+    },
+    {
+      "jobId": "PRE-DISC",
+      "contentKind": "WAND_PRESET",
+      "freshnessClass": "UGC_SIGNED",
+      "sourceVersion": null,
+      "platform": null,
+      "dlc": null,
+      "localeReviewed": [],
+      "rightsDecision": null,
+      "updatedAtActual": null,
+      "verifiedAt": null,
+      "expiresAt": null,
+      "moderationDecision": null,
+      "correctionState": null,
+      "independentQaAccepted": false,
+      "releaseEligible": false,
+      "publicIndexEligible": false,
+      "nonpublicRcReuse": false,
+      "evidenceRef": "COMM",
+      "blockers": [
+        "RIGHTS_OR_SOURCE_OR_RUNTIME_UNVERIFIED"
+      ]
+    },
+    {
+      "jobId": "PRE-ING",
+      "contentKind": "OFFICIAL_CURRENT_DDV_DATA",
+      "freshnessClass": "LIVE_24H",
+      "sourceVersion": {
+        "platform": "Nintendo Switch",
+        "fullVersion": "1.25.0",
+        "bid": "52BD625D9B4E0053",
+        "schema": 624,
+        "evidenceLevel": "STATIC_SOURCE_ONLY"
+      },
+      "platform": "Nintendo Switch",
+      "dlc": null,
+      "localeReviewed": [],
+      "rightsDecision": null,
+      "updatedAtActual": null,
+      "verifiedAt": null,
+      "expiresAt": null,
+      "moderationDecision": null,
+      "correctionState": null,
+      "independentQaAccepted": false,
+      "releaseEligible": false,
+      "publicIndexEligible": false,
+      "nonpublicRcReuse": true,
+      "evidenceRef": "V7",
+      "blockers": [
+        "RIGHTS_OR_SOURCE_OR_RUNTIME_UNVERIFIED"
+      ]
+    },
+    {
+      "jobId": "GAL-DEC",
+      "contentKind": "COMMUNITY_CREATED_WORK",
+      "freshnessClass": "UGC_SIGNED",
+      "sourceVersion": null,
+      "platform": null,
+      "dlc": null,
+      "localeReviewed": [],
+      "rightsDecision": null,
+      "updatedAtActual": null,
+      "verifiedAt": null,
+      "expiresAt": null,
+      "moderationDecision": null,
+      "correctionState": null,
+      "independentQaAccepted": false,
+      "releaseEligible": false,
+      "publicIndexEligible": false,
+      "nonpublicRcReuse": false,
+      "evidenceRef": "COMM",
+      "blockers": [
+        "RIGHTS_OR_SOURCE_OR_RUNTIME_UNVERIFIED"
+      ]
+    },
+    {
+      "jobId": "GAL-TOM",
+      "contentKind": "COMMUNITY_CREATED_WORK",
+      "freshnessClass": "UGC_SIGNED",
+      "sourceVersion": null,
+      "platform": null,
+      "dlc": null,
+      "localeReviewed": [],
+      "rightsDecision": null,
+      "updatedAtActual": null,
+      "verifiedAt": null,
+      "expiresAt": null,
+      "moderationDecision": null,
+      "correctionState": null,
+      "independentQaAccepted": false,
+      "releaseEligible": false,
+      "publicIndexEligible": false,
+      "nonpublicRcReuse": false,
+      "evidenceRef": "COMM",
+      "blockers": [
+        "RIGHTS_OR_SOURCE_OR_RUNTIME_UNVERIFIED"
+      ]
+    },
+    {
+      "jobId": "DS-RES",
+      "contentKind": "DREAMSNAPS_ROUND_RESULT",
+      "freshnessClass": "ROUND_PHASE",
+      "sourceVersion": null,
+      "platform": null,
+      "dlc": null,
+      "localeReviewed": [],
+      "rightsDecision": null,
+      "updatedAtActual": null,
+      "verifiedAt": null,
+      "expiresAt": null,
+      "moderationDecision": null,
+      "correctionState": null,
+      "independentQaAccepted": false,
+      "releaseEligible": false,
+      "publicIndexEligible": false,
+      "nonpublicRcReuse": false,
+      "evidenceRef": "COMM",
+      "blockers": [
+        "RIGHTS_OR_SOURCE_OR_RUNTIME_UNVERIFIED"
+      ]
+    },
+    {
+      "jobId": "CHC-Q",
+      "contentKind": "QA_QUESTION",
+      "freshnessClass": "UGC_SIGNED",
+      "sourceVersion": null,
+      "platform": null,
+      "dlc": null,
+      "localeReviewed": [],
+      "rightsDecision": null,
+      "updatedAtActual": null,
+      "verifiedAt": null,
+      "expiresAt": null,
+      "moderationDecision": null,
+      "correctionState": null,
+      "independentQaAccepted": false,
+      "releaseEligible": false,
+      "publicIndexEligible": false,
+      "nonpublicRcReuse": false,
+      "evidenceRef": "COMM",
+      "blockers": [
+        "RIGHTS_OR_SOURCE_OR_RUNTIME_UNVERIFIED"
+      ]
+    },
+    {
+      "jobId": "CHC-T",
+      "contentKind": "TIP",
+      "freshnessClass": "UGC_SIGNED",
+      "sourceVersion": null,
+      "platform": null,
+      "dlc": null,
+      "localeReviewed": [],
+      "rightsDecision": null,
+      "updatedAtActual": null,
+      "verifiedAt": null,
+      "expiresAt": null,
+      "moderationDecision": null,
+      "correctionState": null,
+      "independentQaAccepted": false,
+      "releaseEligible": false,
+      "publicIndexEligible": false,
+      "nonpublicRcReuse": false,
+      "evidenceRef": "COMM",
+      "blockers": [
+        "RIGHTS_OR_SOURCE_OR_RUNTIME_UNVERIFIED"
+      ]
+    },
+    {
+      "jobId": "CHC-I",
+      "contentKind": "ISSUE",
+      "freshnessClass": "VERSION_SCOPED",
+      "sourceVersion": {
+        "platform": "Nintendo Switch",
+        "fullVersion": "1.25.0",
+        "bid": "52BD625D9B4E0053",
+        "schema": 624,
+        "evidenceLevel": "STATIC_SOURCE_ONLY"
+      },
+      "platform": "Nintendo Switch",
+      "dlc": null,
+      "localeReviewed": [],
+      "rightsDecision": null,
+      "updatedAtActual": null,
+      "verifiedAt": null,
+      "expiresAt": null,
+      "moderationDecision": null,
+      "correctionState": null,
+      "independentQaAccepted": false,
+      "releaseEligible": false,
+      "publicIndexEligible": false,
+      "nonpublicRcReuse": true,
+      "evidenceRef": "CHC193",
+      "blockers": [
+        "H-CHC",
+        "H-VERSION",
+        "H-RIGHTS"
+      ]
+    }
+  ],
+  "seedGates": [
+    {
+      "id": "SEED-DECORATE",
+      "publicAcceptance": "BLOCKED",
+      "internalRc": "METADATA_ONLY_OR_ISOLATED",
+      "source": "DDV_WAND_CONTENT_SEEDING_ACCEPTANCE_CURRENT",
+      "verifiedProductionSnapshot": false
+    },
+    {
+      "id": "SEED-COLLECTION",
+      "publicAcceptance": "BLOCKED",
+      "internalRc": "METADATA_ONLY_OR_ISOLATED",
+      "source": "DDV_WAND_CONTENT_SEEDING_ACCEPTANCE_CURRENT",
+      "verifiedProductionSnapshot": false
+    },
+    {
+      "id": "SEED-GUIDE",
+      "publicAcceptance": "BLOCKED",
+      "internalRc": "METADATA_ONLY_OR_ISOLATED",
+      "source": "DDV_WAND_CONTENT_SEEDING_ACCEPTANCE_CURRENT",
+      "verifiedProductionSnapshot": false
+    },
+    {
+      "id": "SEED-PRESETS",
+      "publicAcceptance": "BLOCKED",
+      "internalRc": "METADATA_ONLY_OR_ISOLATED",
+      "source": "DDV_WAND_CONTENT_SEEDING_ACCEPTANCE_CURRENT",
+      "verifiedProductionSnapshot": false
+    },
+    {
+      "id": "SEED-GALLERY",
+      "publicAcceptance": "BLOCKED",
+      "internalRc": "METADATA_ONLY_OR_ISOLATED",
+      "source": "DDV_WAND_CONTENT_SEEDING_ACCEPTANCE_CURRENT",
+      "verifiedProductionSnapshot": false
+    },
+    {
+      "id": "SEED-DREAMSNAPS",
+      "publicAcceptance": "BLOCKED",
+      "internalRc": "METADATA_ONLY_OR_ISOLATED",
+      "source": "DDV_WAND_CONTENT_SEEDING_ACCEPTANCE_CURRENT",
+      "verifiedProductionSnapshot": false
+    },
+    {
+      "id": "SEED-QA",
+      "publicAcceptance": "BLOCKED",
+      "internalRc": "METADATA_ONLY_OR_ISOLATED",
+      "source": "DDV_WAND_CONTENT_SEEDING_ACCEPTANCE_CURRENT",
+      "verifiedProductionSnapshot": false
+    }
+  ],
+  "consumerRules": {
+    "guideRoots": [
+      "Quests",
+      "Star Paths",
+      "Events",
+      "Systems"
+    ],
+    "communityHelpChildren": [
+      "Questions",
+      "Tips",
+      "Issues",
+      "My Activity"
+    ],
+    "crossProductSearchGroups": [
+      "Questions",
+      "Tips",
+      "Issues"
+    ],
+    "unanswered": "Questions filter, not fifth child",
+    "separateCuratedAndUserContributions": true,
+    "metadataOnlyPublicArticleBodyCount": 0,
+    "prohibitPublicIndexForUnapproved": true,
+    "prohibitUnreviewedEnglishFallback": true,
+    "prohibitTestFixtureCounts": true,
+    "reportWorkflow": "Issue report / occurrence remains PRIVATE to owner/moderator until separately normalized and approved; does not auto-create public canonical Issue",
+    "correctionWorkflow": "Revision draft -> evidence/source/version/locale review -> rights/moderation recheck -> independently accepted publish; previous public version removed from discoverability when invalidated",
+    "staleVersion": "NEEDS_RECHECK; current-answer eligibility false",
+    "liveOfficialSnapshot": "verifiedAt <=24 hours at release sign-off, expiresAt not passed, source authority verified",
+    "emptyStates": {
+      "public": "NO_VERIFIED_RESULTS with Ask/Tip/Report or source-specific CTA; no synthetic entries",
+      "personal": "onboarding CTA is allowed; never implied seeded public activity"
+    }
+  },
+  "humanGates": [
+    {
+      "id": "H-EDITORIAL",
+      "state": "HUMAN_GATE",
+      "need": "Named per-article/locale reviewers; 9 priority articles, 63 review-ready locale tasks; 315 full nonEN signed decisions outstanding"
+    },
+    {
+      "id": "H-RIGHTS",
+      "state": "HUMAN_GATE",
+      "need": "Rights Officer decisions 0/45 curated pages plus any game media/third-party creator grant"
+    },
+    {
+      "id": "H-NATIVE",
+      "state": "HUMAN_GATE",
+      "need": "Scrooge Catalog CL02/CL03 controlled same-build real gameplay; no unauthorized purchase"
+    },
+    {
+      "id": "H-VERSION",
+      "state": "HUMAN_GATE",
+      "need": "Switch 1.25.3 and Steam per-article version/DLC applicability independent acceptance 0/45"
+    },
+    {
+      "id": "H-CHC",
+      "state": "HUMAN_GATE",
+      "need": "193 classified Issues: 0 public-approved; staff moderation/canonical normalization/rights and source coverage"
+    },
+    {
+      "id": "H-COMMUNITY",
+      "state": "HUMAN_GATE",
+      "need": "Real attributable Works/Presets/Q-A-Tips/DreamSnaps, creator rights, moderation/report/retention and signed public discovery/first24"
+    },
+    {
+      "id": "H-OPS",
+      "state": "HUMAN_GATE",
+      "need": "Owner/Privacy/Ops decision Issue138 empty legacy anonymous-reader folder, historical access UNKNOWN; no ACL mutation"
+    }
+  ]
+}
