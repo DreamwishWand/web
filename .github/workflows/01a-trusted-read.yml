@@ -37,6 +37,6 @@ jobs:
       - name: Verify no accidental writer/product import in delta
         run: |
           grep -q "pub mod trusted_read;" crates/ddv-save-core/src/lib.rs
-          grep -q "pub const PRODUCT_READ_ENABLED = false;" crates/ddv-save-core/scripts/research-trusted-read-worker.mjs
-          grep -q "pub const PRODUCT_WRITER_ENABLED = false;" crates/ddv-save-core/scripts/research-trusted-read-worker.mjs || true
+          grep -q "export const PRODUCT_READ_ENABLED = false;" crates/ddv-save-core/scripts/research-trusted-read-worker.mjs
+          grep -q "export const PRODUCT_WRITER_ENABLED = false;" crates/ddv-save-core/scripts/research-trusted-read-worker.mjs
           test ! -e crates/ddv-save-core/private-real-save.p1g
