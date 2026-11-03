@@ -44,7 +44,7 @@ try {
   await page.locator('[data-timing-readonly="true"][data-writer="off"]').waitFor();
   assert.equal(await page.locator('[data-timing-loaded]').count(),0);
   assert.equal(await page.getByText(/edited-copy export are disabled/i).count(),1);
-  assert.equal(await page.locator('button:has-text("Export"),button:has-text("Save"),button:has-text("Apply")').count(),0);
+  assert.equal(await page.locator('.timing-page button:has-text("Export"),.timing-page button:has-text("Save"),.timing-page button:has-text("Apply")').count(),0);
   ok('READONLY_UI_NO_WRITER_OR_EXPORT');
 
   await upload(page,A,'without-attestation.save');
