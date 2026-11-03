@@ -61,6 +61,12 @@ try {
   }
   assert.match(await page.locator('[data-rc-owner-off]').innerText(),/OFF/);
   assert.match(await page.locator('[data-rc-version]').innerText(),/1\.25\.0/);
+  // Browser context locale does not override an app-owned stored/default locale.
+  // Select JA explicitly through the real toolbar before JA-copy assertions.
+  await page.setViewportSize({width:1280,height:820});
+  await page.locator('#site-locale').selectOption('ja');
+  await page.setViewportSize({width:320,height:812});
+  await page.waitForFunction(()=>document.querySelector('.explain')?.textContent?.includes('内部RC'));
   const textJA=await page.locator('.explain').innerText();
   assert.match(textJA,/公開|未受入/);
   await fit();
