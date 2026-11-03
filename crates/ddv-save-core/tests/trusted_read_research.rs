@@ -2,7 +2,7 @@
 use ddv_save_core::{sha256,index_direct_children,DirectIndexKind};
 use ddv_save_core::p1g::encode_synthetic_fixture;
 use ddv_save_core::trusted_read::{
- TrustedReadCore,PageQuery,W1CommandIntent,READ_ONLY,
+ TrustedReadCore,PageQuery,W1CommandIntent,SourceReadCondition,READ_ONLY,
 };
 use ddv_save_core::w1_evidence::W1Kind;
 const BID:&str="9A239D3DB569756D";
@@ -131,7 +131,7 @@ fn w1_intended_id_pointer_old_raw_and_revision_cas(){
   expected_registry_sha256:m.roots.registry_sha256,
   expected_external_bid:BID,schema:626,event_id,saved_index,oneof,
   pointer:"/World/RecurringEvents/0/ItemSpawning/NextOccurrence",
-  expected_old_raw_json:raw,expected_old_utc:OLD,proposed_utc:NEW
+  expected_old_raw_json:raw,expected_old_utc:OLD,proposed_utc:NEW,source_read_set:Vec::new()
  };
  let yes=core.preflight_w1(make(2010000021,0,W1Kind::ItemSpawning,
    "\"2126-08-20T00:00:00Z\"",0)).unwrap();
@@ -148,5 +148,26 @@ fn w1_intended_id_pointer_old_raw_and_revision_cas(){
    "\"2126-08-20T00:00:00Z\"",0)).unwrap_err(),"W1_INTENT_POINTER_MISMATCH");
  assert_eq!(core.preflight_w1(make(2010000021,0,W1Kind::ItemSpawning,
    "\"2126-08-20T00:00:00Z\"",1)).unwrap_err(),"READ_STALE_REVISION");
+ let mut with_reference=make(2010000021,0,W1Kind::ItemSpawning,
+   "\"2126-08-20T00:00:00Z\"",0);
+ with_reference.source_read_set.push(SourceReadCondition{
+   pointer:"/World/RecurringEvents/0/ItemSpawning/RecurringEventItemID".to_owned(),
+   expected_raw_token_sha256:sha256(b"2010000021")
+ });
+ assert!(core.preflight_w1(with_reference).unwrap().source_read_set_cas_matched);
+ let mut forged=make(2010000021,0,W1Kind::ItemSpawning,
+   "\"2126-08-20T00:00:00Z\"",0);
+ forged.source_read_set.push(SourceReadCondition{
+   pointer:"/World/RecurringEvents/0/ItemSpawning/RecurringEventItemID".to_owned(),
+   expected_raw_token_sha256:[0;32]
+ });
+ assert_eq!(core.preflight_w1(forged).unwrap_err(),"W1_READ_SET_CAS_FAILED");
+ let mut absent=make(2010000021,0,W1Kind::ItemSpawning,
+   "\"2126-08-20T00:00:00Z\"",0);
+ absent.source_read_set.push(SourceReadCondition{
+   pointer:"/World/UnknownUnmaterializedReference".to_owned(),
+   expected_raw_token_sha256:[0;32]
+ });
+ assert_eq!(core.preflight_w1(absent).unwrap_err(),"W1_REQUIRED_SOURCE_REFERENCE_MISSING");
  assert_eq!(core.export_p1g_copy().unwrap_err(),"PRODUCT_ENCODE_COPY_NOT_AUTHORIZED");
 }
