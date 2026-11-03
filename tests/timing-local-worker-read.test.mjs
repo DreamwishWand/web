@@ -20,9 +20,10 @@ const fake = (overrides={}) => createTimingWorkerReadCore({
   openSave:async()=>goodOpened(),
   project:()=>({writerAuthorized:false,encodeCopyAuthorized:false,
     savedContainerCount:2,unsupportedContainerCount:0,rows}),
-  filter:filterRecurringEventsReadonly,...overrides
+  filter:filterRecurringEventsReadonly,
+  loadRegistry:async()=>({source:'synthetic'}),...overrides
 });
-const bid={buildId:SWITCH_1253_BID,sourceConfirmed:true,registry:{source:'synthetic'}};
+const bid={buildId:SWITCH_1253_BID,sourceConfirmed:true};
 const open=(core,file=sample())=>core.open({...bid,file});
 
 test('Worker mints source-bound read lease and only returns projected rows',async()=>{
@@ -116,4 +117,18 @@ test('unsupported schema or any writer-like authority in decoded source denied',
  const writer=fake({project:()=>({writerAuthorized:true,encodeCopyAuthorized:false,rows})});
  await assert.rejects(open(writer),/READ_W1_PROJECTION_DENIED/);
  assert.equal(TIMING_WORKER_WRITER_ENABLED,false);
+});
+
+test('registry is Worker-owned; failed loading revokes prior Session before decoding B',async()=>{
+ let source={origin:'trusted-worker'};
+ const core=fake({loadRegistry:async()=>source});
+ const a=await open(core);
+ assert.equal(a.writerAuthorized,false);
+ source=null;
+ await assert.rejects(core.open({...bid,file:sample(),
+   registry:{source:'untrusted-ui',events:[{id:1}]}}),/READ_REGISTRY_MISSING/);
+ assert.equal(core.status().active,false);
+ await assert.rejects(core.query({limit:1}),/READ_SESSION_NOT_OPEN/);
+ const second=fake({loadRegistry:async()=>{throw Error('READ_REGISTRY_UNAVAILABLE')}});
+ await assert.rejects(open(second),/READ_REGISTRY_UNAVAILABLE/);
 });
