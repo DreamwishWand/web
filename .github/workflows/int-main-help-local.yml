@@ -68,7 +68,7 @@ jobs:
           for i in $(seq 1 70); do if curl -fsS http://127.0.0.1:4177/help/ >/dev/null; then exit 0; fi; sleep 1; done
           cat /tmp/int-main-help-vite.log
           exit 1
-      - name: Actual Help local Chrome: JA/EN/320px/200pct/a11y/no Provider
+      - name: "Actual Help local Chrome: JA/EN/320px/200pct/a11y/no Provider"
         env:
           WEB_HELP_BASE_URL: http://127.0.0.1:4177
         run: node scripts/web-help-local-chrome.mjs
