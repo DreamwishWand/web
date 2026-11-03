@@ -1,0 +1,80 @@
+name: 03 COMM R15 Genuine Signed SQL Race Probe (Disposable)
+on:
+  push:
+    branches: [comm/w-comm-006-r15-publish-signed-gap-probe-20261103]
+permissions:
+  contents: read
+jobs:
+  r15-signed-probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Immutable accepted Source155/156/157 and isolated source probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 157
+          test "$(git hash-object supabase/migrations/20261102010000_community_source155_verified_first_account_bootstrap.sql)" = 115f2c0f7224984acd8830cfc606af8c6a1bf3af
+          test "$(git hash-object supabase/migrations/20261103010000_community_source156_signed_gallery_r16_atomic_writer.sql)" = 3000d66c193b996e4ece785deaf5180955ec3bc6
+          test "$(git hash-object supabase/migrations/20261103020000_community_source157_legacy_comments_v2_service_execute_off.sql)" = b9c44a501189857dff9fc6446dea21717d58b785
+          test "$(git hash-object supabase/functions/community-command/index.ts)" = c910dd851eeb3266594c152501425828fd3d9759
+          python3 -m py_compile tests/comm-r15-real-signed-revoked-sql-gap-disposable.py
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID"
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+      - name: Create genuine local-only ES256 GoTrue signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\n[auth]\nsigning_keys_path = "./signing_keys.json"\n' >> supabase/config.toml
+          printf '[]\n' > supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes >/tmp/comm-r15-signer.log 2>&1
+      - name: Reset exact FULL157 disposable local database
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_r15_signed_probe_disposable_20261103"\n' | cat - supabase/config.toml > /tmp/comm-r15-config
+          mv /tmp/comm-r15-config supabase/config.toml
+          printf 'COMMUNITY_MEDIA_BUCKET=ddvre-r15-local-media\nWEP_PRESET_ARTIFACT_BUCKET=ddvre-r15-local-preset\n' > supabase/functions/.env
+          timeout 1800s supabase start >/tmp/comm-r15-start.log 2>&1 || {
+            echo R15_LOCAL_START_FAIL
+            tail -n 25 /tmp/comm-r15-start.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'
+            exit 1
+          }
+          timeout 900s supabase db reset --no-seed >/tmp/comm-r15-reset.log 2>&1 || {
+            echo R15_LOCAL_RESET_FAIL
+            tail -n 25 /tmp/comm-r15-reset.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'
+            exit 1
+          }
+          echo R15_DISPOSABLE_FULL157_RESET_PASS
+      - run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Run real signed local R15 eligible positive then revoked-before-RPC SQL test
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/comm-r15-real-signed-revoked-sql-gap-disposable.py | tee /tmp/comm-r15-probe.log
+          grep -q '"case": "R15_LIVE_A2_ELIGIBLE_POSITIVE"' /tmp/comm-r15-probe.log
+          grep -q '"case": "R15_AFTER_GENUINE_SIGNED_A1_REVOKE"' /tmp/comm-r15-probe.log
+          grep -q '"case": "R15_DISPOSABLE_SIGNED_SQL_PROBE_COMPLETE"' /tmp/comm-r15-probe.log
+          echo R15_LOCAL_SIGNED_REACHABILITY_PROBE_COMPLETED_NOT_RELEASE_QA
+      - name: Dispose local signer, SQL DB, and ephemeral logs
+        if: always()
+        shell: bash
+        run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f supabase/functions/.env supabase/signing_keys.json /tmp/comm-r15-config /tmp/comm-r15-start.log /tmp/comm-r15-reset.log /tmp/comm-r15-probe.log /tmp/comm-r15-signer.log
+          echo R15_LOCAL_PROBE_CLEANUP_ATTEMPTED
