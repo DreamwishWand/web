@@ -17,6 +17,10 @@ const oldOrNewUtc=value=>{
  if(d<1||d>max)throw Error('W1_PREVIEW_UTC_INVALID');
  return value;
 };
+/** @param {Record<string,any>} row
+ *  @param {string} nextUtc
+ *  @param {{sourceSha256:string,registrySha256:string,externalBid:string,
+ *          sourceSchema:number,sourceRevision?:number}} identity */
 export function previewNextOccurrenceUiOnly(row,nextUtc,{
  sourceSha256,registrySha256,externalBid,sourceSchema,sourceRevision=0
 }={}){
