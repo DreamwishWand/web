@@ -40,6 +40,7 @@ try {
   });
   page.on('pageerror',e=>errors.push(String(e)));
   await page.goto(origin+'/editor/timing/',{waitUntil:'domcontentloaded'});
+  await page.waitForFunction(()=>document.querySelector('#timing-file')?.disabled===false,{timeout:15000});
   assert.equal(await page.locator('[data-timing-readonly="true"][data-writer="off"]').count(),1);
   assert.match(await page.locator('[data-timing-expanded-limit]').innerText(),/128.*200|200.*128/);
   assert.match(await page.locator('[data-timing-2126]').innerText(),/2126/);
