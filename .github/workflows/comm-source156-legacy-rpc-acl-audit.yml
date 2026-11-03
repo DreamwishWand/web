@@ -34,7 +34,7 @@ jobs:
           test "$(git hash-object supabase/functions/community-command/index.ts)" = c910dd851eeb3266594c152501425828fd3d9759
           test "$(git hash-object supabase/migrations/20261103020000_community_source157_legacy_comments_v2_service_execute_off.sql)" = b9c44a501189857dff9fc6446dea21717d58b785
           test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID"
-          python3 -m py_compile tests/comm-source156-legacy-rpc-acl-disposable-local.py
+          python3 -m py_compile tests/comm-source156-legacy-rpc-acl-disposable-local.py tests/comm-source157-legacy-v2-gotrue-two-pg-local.py
           node --test tests/community-post327-remaining-writer-audit.test.mjs
       - uses: supabase/setup-cli@v1
         with:
@@ -74,10 +74,21 @@ jobs:
           grep -q '"case": "LEGACY_V2_DIRECT_SQL_RANDOM_NONEXISTENT_ACTOR"' /tmp/legacy-acl.log
           grep -q '"case": "SOURCE157_ROLLBACK_DRY_RUN"' /tmp/legacy-acl.log
           echo LOCAL_FULL157_LEGACY_V2_EXECUTE_OFF_AND_ROLLBACK_DRILL_OWNER_PASS_ONLY
+      - name: Genuine ES256 GoTrue + two PostgreSQL backend revoked/live ACL no-write permutations
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/comm-source157-legacy-v2-gotrue-two-pg-local.py | tee /tmp/source157-signed-two-pg.log
+          grep -q '"case": "SOURCE157_WRITER_FIRST_THEN_REVOKE"' /tmp/source157-signed-two-pg.log
+          grep -q '"case": "SOURCE157_REVOKER_FIRST_THEN_WRITER"' /tmp/source157-signed-two-pg.log
+          grep -q '"case": "SOURCE157_REAL_REFRESHED_OLD_SESSION"' /tmp/source157-signed-two-pg.log
+          grep -q '"case": "SOURCE157_SERVICE_RPC_PARALLEL_REPLAY"' /tmp/source157-signed-two-pg.log
+          grep -q '"case": "SOURCE157_GOTRUE_SIGNED_LOCAL_TARGETED_ACL_PASS"' /tmp/source157-signed-two-pg.log
+          echo SOURCE157_GENUINE_SIGNED_LOCAL_WRITER_OFF_NOT_NEW_WRITER_QA
       - name: Cleanup private local signer, logs and disposable DB
         if: always()
         shell: bash
         run: |
           supabase stop --no-backup >/dev/null 2>&1 || true
-          rm -f supabase/functions/.env supabase/signing_keys.json /tmp/legacy-config /tmp/legacy-start.log /tmp/legacy-reset.log /tmp/legacy-acl.log /tmp/comm-legacy-signer.log
+          rm -f supabase/functions/.env supabase/signing_keys.json /tmp/legacy-config /tmp/legacy-start.log /tmp/legacy-reset.log /tmp/legacy-acl.log /tmp/source157-signed-two-pg.log /tmp/comm-legacy-signer.log
           echo LOCAL_DISPOSABLE_LEGACY_CLEANUP_ATTEMPTED
