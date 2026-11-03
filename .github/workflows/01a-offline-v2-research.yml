@@ -53,6 +53,7 @@ jobs:
           persist-credentials: false
       - name: Test changed private-local verifier with independent QA fixture only
         run: |
+          mkdir -p qa
           cp .qa332-synthetic-fixed/qa/05qr-core329-private-v2-harness-synthetic.test.mjs qa/05qr-core329-private-v2-harness-synthetic.test.mjs
           node --test qa/05qr-core329-private-v2-harness-synthetic.test.mjs
           echo 'INDEPENDENT_SYNTHETIC_ORACLE_REUSED=YES PRIVATE_SAVE_IN_CI=NO'
