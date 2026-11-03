@@ -1,0 +1,74 @@
+name: TEST main Help local routes acceptance
+on:
+  push:
+    branches: ['int/main-help-local-qa349-*']
+  pull_request:
+    paths:
+      - 'src/routes/help/**'
+      - 'src/routes/+page.svelte'
+      - 'src/lib/community/help-*.js'
+      - 'src/lib/community/HelpLocalChild.svelte'
+      - 'tests/web-help-local-rc.test.mjs'
+      - 'scripts/web-help-local-chrome.mjs'
+      - '.github/workflows/int-main-help-local.yml'
+permissions:
+  contents: read
+jobs:
+  source-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: node --test tests/web-help-local-rc.test.mjs
+      - run: npm run check && npm run build
+      - name: Ensure all Help children and frozen security/source invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          for path in help help/questions help/tips help/issues help/my editor/timing rc-status; do
+            test -f "build/$path/index.html"
+          done
+          git diff --exit-code 866c5c558776e84631df5b7872e9e9e322bd2400 HEAD -- supabase/ src/lib/dreamsnaps/ src/lib/wep/ src/lib/ddv/ src/routes/editor/
+          grep -Fq "writer:'OFF'" src/lib/product-home/rc-manifest.js
+          grep -Fq "release:'PUBLIC_NO_GO'" src/lib/product-home/rc-manifest.js
+          grep -Fq "managedIngress:'I01-I14_NOT_ACCEPTED'" src/lib/product-home/rc-manifest.js
+          echo INT_HELP_MAIN_OFF_SOURCE_PASS
+  chromium:
+    needs: source-build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 19
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Resolve actual Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Loopback isolated test Vite
+        shell: bash
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4177 >/tmp/int-main-help-vite.log 2>&1 &
+          for i in $(seq 1 70); do if curl -fsS http://127.0.0.1:4177/help/ >/dev/null; then exit 0; fi; sleep 1; done
+          cat /tmp/int-main-help-vite.log
+          exit 1
+      - name: Actual Help local Chrome: JA/EN/320px/200pct/a11y/no Provider
+        env:
+          WEB_HELP_BASE_URL: http://127.0.0.1:4177
+        run: node scripts/web-help-local-chrome.mjs
