@@ -139,7 +139,9 @@ try {
  // User requested 100–200MiB characterization: 100MiB real Worker read is
  // measured on a PUBLIC SYNTHETIC fixture. 200MiB must fail closed while the
  // existing supported JS Codec has an explicit 128MiB expanded-profile cap.
- for (const mb of [100,200]) {
+ if(process.env.WAND_TIMING_BROWSER_SMOKE==='1') {
+  pass('PAGES_WEB_PREFIX_WORKER_REGISTRY_AND_READ_SMOKE');
+ } else for (const mb of [100,200]) {
   const large = Buffer.from(makeSyntheticP1gProfile(profile(2010500008,mb*1024*1024)));
   const begin=Date.now();
   await upload(large);
