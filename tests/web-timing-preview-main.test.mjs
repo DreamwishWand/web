@@ -38,8 +38,9 @@ test('isolated preview renders old/new/reason but cannot export, write, mutate o
   const p=read('src/lib/timing/TimingEditPreview.svelte');
   for(const marker of ['data-w1-preview="unaccepted"','data-writer="off"','data-timing-old="true"','data-timing-new="true"','data-w1-write-authority="off"','data-timing-backup-off="true"','data-timing-export-off="true"','data-timing-apply-off="true"','type="button" disabled','type="text" maxlength="48"','maxLength'])
     if(marker!=='maxLength') assert.ok(p.includes(marker),marker);
-  for(const forbidden of ['openWorldSaveBytes','localStorage','FileReader','indexedDB','fetch(','.postMessage(','new Blob(','URL.createObjectURL','setYear(2126)','nextOccurrence ='])
+  for(const forbidden of ['openWorldSaveBytes','localStorage','FileReader','indexedDB','fetch(','.postMessage(','new Blob(','URL.createObjectURL','setYear(2126)' ])
     assert.ok(!p.includes(forbidden),forbidden);
+  assert.doesNotMatch(p,/row\\.nextOccurrence\\s*=(?!=)/,'preview must not assign to source date');
 });
 test('Worker PR361 contract is not imported into main before independent 05 QR',()=>{
   const p=read('src/routes/editor/timing/+page.svelte');
