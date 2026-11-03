@@ -1,0 +1,63 @@
+name: 04 QR new-only WEB331 actual Chrome route/privacy acceptance
+on:
+  pull_request:
+    branches: ['web/product-rc-six-core-help-20261103']
+permissions:
+  contents: read
+jobs:
+  qr-web331:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact WEB331 SHA, immutable product files, only two QA paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=8e70078334e39d5170f23d25ec77051ddf9149fd
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD | sort > /tmp/qr331-files
+          printf '%s\n' .github/workflows/qr-web331-route-privacy.yml scripts/qr-web331-route-privacy-browser.mjs | sort > /tmp/qr331-expected
+          diff -u /tmp/qr331-expected /tmp/qr331-files
+          test -z "$(git diff --name-only "$BASE" HEAD -- src supabase)"
+          test "$(git hash-object src/lib/product-home/rc-manifest.js)" = bd59bfee7120db69f48deeebd9309e6dc4a16508
+          test "$(git hash-object src/routes/rc-status/+page.svelte)" = 8e96fb920f208e144837eab4342e1ba5d25ed8f2
+          test "$(git hash-object src/routes/+page.svelte)" = 267c3267fc7a07ec9a6fb21103f566de67ae871a
+          test "$(git hash-object scripts/web-product-rc-browser-acceptance.mjs)" = ef5bd8ffafb40a698aa0d67e022a6ad89309c965
+          echo QR331_EXACT_SOURCE_BLOBS_TWO_QA_FILES_PASS
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Get real Chrome executable
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Boot isolated local SvelteKit
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4177 > /tmp/qr-web331-vite.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4177/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr-web331-vite.log
+          exit 1
+      - name: Independently exercise real Chromium seven surfaces all 20 job destinations and privacy
+        env:
+          WEB_QR331_URL: http://127.0.0.1:4177
+        run: node scripts/qr-web331-route-privacy-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qr331-independent-actual-chromium
+          path: .artifacts/qr-web331/
+          if-no-files-found: warn
