@@ -113,3 +113,34 @@ fn bounded_subtree_and_empty_index_are_core_owned(){
  let page=s.query_page(request(88,h,None,1)).unwrap();
  assert!(page.complete);assert_eq!(page.total_w1_rows,0);assert!(page.rows.is_empty());
 }
+
+#[test]
+fn synthetic_p1g_source_and_decoded_sha_are_separate_fail_closed_gates(){
+ use ddv_save_core::p1g::encode_synthetic_fixture;
+ let json=source();
+ let json_hash=sha256(&json);
+ let key=[0x42_u8;32];
+ for method in [0_u16,8_u16] {
+  let ciphertext=encode_synthetic_fixture(&json,&key,method).unwrap();
+  let cipher_hash=sha256(&ciphertext);
+  let mut s=W1ReadIndex::open_p1g_research(
+   93,&ciphertext,&key,cipher_hash,json_hash,BID,[0x43;32]
+  ).unwrap();
+  let p=s.query_page(request(93,json_hash,None,1)).unwrap();
+  assert_eq!(p.encrypted_p1g_sha256,Some(cipher_hash));
+  assert_eq!(p.decoded_json_sha256,json_hash);
+  assert!(!p.product_read_worker_accepted && !p.product_writer_authorized);
+  assert_eq!(W1ReadIndex::open_p1g_research(
+    93,&ciphertext,&key,[0;32],json_hash,BID,[0x43;32]
+   ).err(),Some("READ_ENCRYPTED_SOURCE_SHA_CAS_FAILED"));
+  assert_eq!(W1ReadIndex::open_p1g_research(
+    93,&ciphertext,&key,cipher_hash,[0;32],BID,[0x43;32]
+   ).err(),Some("READ_P1G_DECODED_SHA_CAS_FAILED"));
+  assert!(W1ReadIndex::open_p1g_research(
+    93,&ciphertext,&[0;32],cipher_hash,json_hash,BID,[0x43;32]
+   ).is_err());
+  assert_eq!(W1ReadIndex::open_p1g_research(
+    93,&ciphertext,&key,cipher_hash,json_hash,"UNVERIFIED",[0x43;32]
+   ).err(),Some("READ_EXTERNAL_BID_UNSUPPORTED"));
+ }
+}
