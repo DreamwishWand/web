@@ -2,7 +2,7 @@
 use ddv_save_core::{sha256,index_direct_children,DirectIndexKind};
 use ddv_save_core::p1g::encode_synthetic_fixture;
 use ddv_save_core::trusted_read::{
- TrustedReadCore,PageQuery,W1CommandIntent,SourceReadCondition,READ_ONLY,
+ TrustedReadCore,PageQuery,W1CommandIntent,W1PreflightReceipt,SourceReadCondition,READ_ONLY,
 };
 use ddv_save_core::w1_evidence::W1Kind;
 const BID:&str="9A239D3DB569756D";
@@ -170,4 +170,22 @@ fn w1_intended_id_pointer_old_raw_and_revision_cas(){
  });
  assert_eq!(core.preflight_w1(absent).unwrap_err(),"W1_REQUIRED_SOURCE_REFERENCE_MISSING");
  assert_eq!(core.export_p1g_copy().unwrap_err(),"PRODUCT_ENCODE_COPY_NOT_AUTHORIZED");
+}
+
+#[test]
+fn forged_positive_capability_never_stages_or_exports(){
+ let mut core=open(JSON);let m=core.receipt().unwrap();
+ assert!(!m.capabilities.encode_copy&&!m.capabilities.apply&&
+         !m.capabilities.persistent_replace&&!m.capabilities.original_overwrite);
+ // A UI can counterfeit public struct fields; stage is always Core-denied.
+ let forged=W1PreflightReceipt{
+  exact_source_and_revision_cas:true,event_identity_and_old_raw_cas:true,
+  source_read_set_cas_matched:true,required_registry_semantics_verified:true,
+  complete_operation_references_verified:true,native_consumer_semantics_verified:true,
+  transaction_stage_authorized:true,encode_copy_authorized:true
+ };
+ assert_eq!(core.stage_w1_transaction(&forged).unwrap_err(),
+   "W1_OPERATION_REFERENCE_AND_NATIVE_CAPABILITY_NOT_ACCEPTED");
+ assert_eq!(core.export_p1g_copy().unwrap_err(),"PRODUCT_ENCODE_COPY_NOT_AUTHORIZED");
+ core.original_unchanged().unwrap();
 }
