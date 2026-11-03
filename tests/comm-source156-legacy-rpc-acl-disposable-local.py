@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Disposable FULL156 non-R16 effective EXECUTE / direct SQL reachability inventory.
+"""Disposable FULL157 non-R16 effective EXECUTE / direct SQL reachability inventory.
 
 SOURCE_ONLY audit becomes LOCAL_DB_ACL evidence only when the dedicated
 workflow succeeds on the pinned FULL156 schema. No managed/remote DB, real user,
@@ -48,7 +48,7 @@ with psycopg.connect(DSN, autocommit=True) as db:
     count = db.execute(
         "select count(*) from supabase_migrations.schema_migrations"
     ).fetchone()[0]
-    assert count == 156, "NOT_DISPOSABLE_EXACT_FULL156"
+    assert count == 157, "NOT_DISPOSABLE_EXACT_FULL157"
 
     for name in names:
         functions = db.execute("""
@@ -103,11 +103,14 @@ with psycopg.connect(DSN, autocommit=True) as db:
     v2 = one("community_set_gallery_comments_enabled_v2")
     assert v2["security_definer"], "V2_WRITER_CONTRACT_CHANGED"
     assert not v2["contains_signed_v2"], "V2_RISK_DISAPPEARED_RECHECK_QA"
+    assert v2["execute"] == {
+        "anon": False, "authenticated": False, "service_role": False
+    }, "SOURCE157_LEGACY_V2_DIRECT_EXECUTE_STILL_ENABLED"
     direct = {}
     # A randomized unregistered subject/work cannot yield a successful
     # business mutation. It distinguishes SQL permission denial from reaching
     # the SECURITY DEFINER body. All calls run inside rollback-only scope.
-    for actor in ("anon", "authenticated"):
+    for actor in ("anon", "authenticated", "service_role"):
         try:
             with db.transaction():
                 db.execute("set local role " + actor)
@@ -118,17 +121,38 @@ with psycopg.connect(DSN, autocommit=True) as db:
             direct[actor] = "UNEXPECTED_SUCCESS"
         except psycopg.Error as exc:
             direct[actor] = str(exc.sqlstate or "UNKNOWN")
-    assert all(x != "UNEXPECTED_SUCCESS" for x in direct.values())
+    assert all(x == "42501" for x in direct.values()), "LEGACY_V2_SQL_NOT_ACL_DENIED"
+    # Reversibility is proved in a disposable uncommitted PostgreSQL
+    # transaction only; production must NEVER auto-GRANT the retired RPC.
+    db.execute("begin")
+    try:
+        db.execute("grant execute on function public.community_set_gallery_comments_enabled_v2(uuid,uuid,boolean) to service_role")
+        assert db.execute(
+            "select has_function_privilege('service_role',"
+            "'public.community_set_gallery_comments_enabled_v2(uuid,uuid,boolean)',"
+            "'EXECUTE')"
+        ).fetchone()[0], "ROLLBACK_DRY_RUN_GRANT_MISSING"
+    finally:
+        db.execute("rollback")
+    assert not db.execute(
+        "select has_function_privilege('service_role',"
+        "'public.community_set_gallery_comments_enabled_v2(uuid,uuid,boolean)',"
+        "'EXECUTE')"
+    ).fetchone()[0], "ROLLBACK_DRY_RUN_LEAKED_GRANT"
+    print(json.dumps({"case": "SOURCE157_ROLLBACK_DRY_RUN",
+                      "temporary_grant_in_rolled_back_transaction": True,
+                      "effective_service_role_execute_after_rollback": False},
+                     sort_keys=True), flush=True)
     print(json.dumps({
         "case": "LEGACY_V2_DIRECT_SQL_RANDOM_NONEXISTENT_ACTOR",
         "sqlstate_by_role": direct, "unauthorized_persisted_mutation": "NOT_TESTED",
     }, sort_keys=True), flush=True)
     print(json.dumps({
-        "case": "FULL156_LEGACY_ACL_INVENTORY_COMPLETE",
+        "case": "FULL157_LEGACY_ACL_INVENTORY_COMPLETE",
         "catalog_rpcs": len(audited), "command_mappings": len(commands),
         "legacy_v2": v2["execute"],
         "legacy_v2_definer": v2["security_definer"],
         "direct_sql_probe": direct,
-        "classification": "LOCAL_DB_ACL_ONLY_NOT_SIGNED_SESSION_RACE",
+        "classification": "SOURCE157_LOCAL_DB_ACL_ONLY_NOT_SIGNED_SESSION_RACE",
         "product_writer_enabled": False,
     }, sort_keys=True), flush=True)
