@@ -184,6 +184,13 @@ impl W1ReadIndex {
   Self::open_decoded_inner(session_id,decoded.json,expected_json_sha,
    private_cursor_key,Some(expected_p1g_sha),external_bid)
  }
+ /// Internal-only epoch binding; no public UI or caller can choose it.
+ /// READ research has no mutations, so revision remains zero.
+ pub(crate) fn bind_trusted_epoch(&mut self,epoch:u64)->EngineResult<()>{
+  if self.closed||self.started||epoch==0{return Err("READ_INVALID_EPOCH_BIND");}
+  self.index_generation=epoch;
+  Ok(())
+ }
  pub fn row_count(&self)->usize{self.rows.len()}
  /// Core-retained bytes exclude the decoded full document after OPEN.
  pub fn retained_w1_bytes(&self)->usize{self.w1_snapshot.len()}
