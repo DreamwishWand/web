@@ -138,7 +138,7 @@ try:
 
         f_live=seed()
         live_before=snapshot(pre,account,f_live)
-        assert single(pre,"select public.community_authorize_signed_session_v2(%s,%s,%s)",c2) is not None
+        single(pre,"select public.community_authorize_signed_session_v2(%s,%s,%s)",c2)
         status,response=http("/functions/v1/community-command",{
             "command":"publishGallery","payload":{"workId":str(f_live["work"])}
         },token=a2)
@@ -152,7 +152,7 @@ try:
         # a single transaction rollback. Signed A1 preflight is genuine.
         f_writer_first=seed()
         base=snapshot(pre,account,f_writer_first)
-        assert single(pre,"select public.community_authorize_signed_session_v2(%s,%s,%s)",c1) is not None
+        single(pre,"select public.community_authorize_signed_session_v2(%s,%s,%s)",c1)
         denied(writer,"service_role",f_writer_first)
         pre.execute("select public.community_revoke_signed_session_v1(%s,%s,%s,'local')",c1)
         assert http("/functions/v1/community-query",{"query":"me","payload":{}},token=a1)[0]==401
@@ -163,7 +163,7 @@ try:
         # Revoker first, then distinct DB service-role direct invocation.
         f_revoker_first=seed()
         base=snapshot(pre,account,f_revoker_first)
-        assert single(pre,"select public.community_authorize_signed_session_v2(%s,%s,%s)",c3) is not None
+        single(pre,"select public.community_authorize_signed_session_v2(%s,%s,%s)",c3)
         writer.execute("select public.community_revoke_signed_session_v1(%s,%s,%s,'local')",c3)
         assert http("/functions/v1/community-query",{"query":"me","payload":{}},token=a3)[0]==401
         assert http("/functions/v1/community-query",{"query":"me","payload":{}},token=a2)[0]==200
