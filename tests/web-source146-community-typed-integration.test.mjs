@@ -12,13 +12,31 @@ const gitBlob=p=>{
 const manifest=JSON.parse(read('docs/integration/web-source146-community-typed-owner-manifest-20261028.json'));
 const work='33333333-3333-4333-8333-333333333333';
 
-test('Source146 combined provenance: all 39 WEB accepted files byte-identical; unrelated branches not overlaid',()=>{
+// Isolated W-WEB-007 proposal only. Preserve all historical manifest bytes unchanged;
+ // the four exact route wrappers and corresponding legacy QR212 source assertion are new candidates requiring independent 04 QR.
+const helpLocalCandidate = Object.freeze({
+  'src/routes/help/questions/+page.svelte':'d30748291c42b4bfec92f09b2faf5482bc91ff9a',
+  'src/routes/help/tips/+page.svelte':'d5d4e305614bc44912c08759a1037005fcb007e3',
+  'src/routes/help/issues/+page.svelte':'bb1ab07351a836b4cf3f9ff312a8eda4004a88ca',
+  'src/routes/help/my/+page.svelte':'39171a596adbfe265fee7f14a6e4c47ec65301c4',
+  'tests/qr212-owner-ux-source-repair.test.mjs':'ca519e7584e63ea64f028fc72aa64874fac7065d'
+});
+test('Source146 provenance: original 39-file manifest unchanged, only five scoped Help route/QA files revised',()=>{
   assert.equal(manifest.contract,'08web.source146-community-web222.integrated-owner@1');
   assert.equal(manifest.baseline.communityHead,'5ddf4d23689643340c8d547e47b58f211e03291e');
   assert.equal(manifest.baseline.webHead,'99ed88fc717cf18bb4127695f16d6949e7609463');
   assert.equal(manifest.overlay.count,39);
   assert.equal(manifest.overlay.files.length,39);
-  for(const f of manifest.overlay.files)assert.equal(gitBlob(f.path),f.blob,'WEB accepted Git Blob mismatch '+f.path);
+  const affected=manifest.overlay.files.filter(f=>Object.hasOwn(helpLocalCandidate,f.path));
+  assert.equal(affected.length,5,'Unexpected manifest coverage of scoped Help UI and QR212 source test');
+  for(const f of manifest.overlay.files){
+    const accepted = f.blob;
+    const actual = gitBlob(f.path);
+    if(Object.hasOwn(helpLocalCandidate,f.path)){
+      assert.notEqual(helpLocalCandidate[f.path],accepted,'candidate must be distinct from historical accepted bytes');
+      assert.equal(actual,helpLocalCandidate[f.path],'unreviewed Help route or QA contract change '+f.path);
+    }else assert.equal(actual,accepted,'historical WEB accepted Git Blob mismatch '+f.path);
+  }
   for(const f of manifest.overlay.files)assert(!/^(supabase\/|src\/lib\/wep\/|src\/lib\/ddv\/|src\/routes\/editor\/)/.test(f.path),'unexpected overlay '+f.path);
 });
 

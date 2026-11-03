@@ -61,7 +61,15 @@ test('D01 D03 D04 D09: four Guide roots, five DreamSnaps jobs 1-3-1, no Gallery 
   for(const route of ['/help/questions/','/help/tips/','/help/issues/','/help/my/'])assert(help.includes(route));
   assert(help.includes('class="personal"'));
   assert(!help.includes('community_search_issues_public'));
-  assert(read('src/routes/help/issues/+page.svelte').includes('copy.issuesPending'));
+  // Historical bare Issue notice was replaced by an isolated local shell.
+  // Its canonical Issue surface remains OFF: no positive public Issue RPC or Owner link.
+  assert(read('src/routes/help/issues/+page.svelte').includes('<HelpLocalChild kind="issues" />'));
+  const localHelp = read('src/lib/community/HelpLocalChild.svelte');
+  assert(localHelp.includes('data-help-empty-state="unverified"'));
+  assert(localHelp.includes('data-help-status={job?.status ?? \'OFF\'}'));
+  assert(localHelp.includes('data-help-no-auth="true"'));
+  assert(!localHelp.includes('community_search_issues_public'));
+  assert(!localHelp.includes('/qa/my/'));
 });
 test('D02: do not conflate Unresolved (answered or unanswered) with zero answers',()=>{
   assert(!qaBrowse.includes('bind:checked={unansweredOnly}'));
