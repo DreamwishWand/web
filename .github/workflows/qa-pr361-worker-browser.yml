@@ -1,0 +1,114 @@
+name: 05 QR PR361 frozen Worker READ independent Chromium
+on:
+  push:
+    branches: [qa/05qr-pr361-worker-browser-20261103]
+  pull_request:
+    paths:
+      - 'scripts/05qr-pr361-independent-chromium.mjs'
+      - '.github/workflows/qa-pr361-worker-browser.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  dev-real-chromium:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Fixed PR361 source only with QA-only changes
+        run: |
+          test "$(git merge-base 90c69118863cf7bab7ba6abb98d392b2bcac14d0 HEAD)" = "90c69118863cf7bab7ba6abb98d392b2bcac14d0"
+          git diff --quiet 90c69118863cf7bab7ba6abb98d392b2bcac14d0 HEAD -- src/ tests/ scripts/01a-main-timing-worker-browser.mjs scripts/01a-pages-base-static-server.mjs
+          echo PR361_SOURCE=90c69118863cf7bab7ba6abb98d392b2bcac14d0
+          echo ACTUAL_PRIVATE_SAVE_IN_CI=NO
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Resolve independent local Chrome
+        id: chrome
+        shell: bash
+        run: |
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "path=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+      - name: Serve real Vite dev instance
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4207 > /tmp/05qr361-vite.log 2>&1 &
+          for i in $(seq 1 70); do
+            if curl --fail --silent http://127.0.0.1:4207/editor/timing/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/05qr361-vite.log
+          exit 1
+      - name: Independent Chromium encrypted P1G Worker and 100/200MiB
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          QR361_BASE_URL: http://127.0.0.1:4207
+          QR361_MODE: dev
+          QR361_LARGE: '1'
+        run: node scripts/05qr-pr361-independent-chromium.mjs
+      - name: Product boundary
+        if: always()
+        run: |
+          echo 'PRODUCT_RUST_WASM_WORKER=NOT_ACCEPTED'
+          echo 'REAL_SAVE_BROWSER_E2E=NOT_RUN'
+          echo 'WRITER=OFF'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-pr361-dev-synthetic-only
+          path: .artifacts/05qr-pr361/dev.json
+          if-no-files-found: ignore
+  pages-prefix-real-chromium:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Build exact /web static Pages equivalent
+        env:
+          BASE_PATH: /web
+        run: |
+          npm run check
+          npm run build
+          test -f build/editor/timing/index.html
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Resolve system Chrome
+        id: chrome
+        run: |
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "path=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+      - name: Serve static build through /web prefix
+        run: |
+          node scripts/01a-pages-base-static-server.mjs > /tmp/05qr361-pages.log 2>&1 &
+          for i in $(seq 1 55); do
+            if curl --fail --silent http://127.0.0.1:4181/web/editor/timing/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/05qr361-pages.log
+          exit 1
+      - name: Independent actual Chromium pages module Worker + pinned Registry
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          QR361_BASE_URL: http://127.0.0.1:4181/web
+          QR361_MODE: pages-web
+          QR361_LARGE: '0'
+        run: node scripts/05qr-pr361-independent-chromium.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-pr361-pages-synthetic-only
+          path: .artifacts/05qr-pr361/pages-web.json
+          if-no-files-found: ignore
