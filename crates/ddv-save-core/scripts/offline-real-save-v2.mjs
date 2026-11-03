@@ -138,11 +138,17 @@ if(process.env.DDV_TIMEKEEPER_CODEC_MODULE){
 let rust='NOT_RUN';
 if(process.env.DDV_REQUIRE_RUST==='1'){
  const rustEnv={...process.env,DDV_PRIVATE_CODEC_KEY_HEX:keyMatch[1]};
- const run=(mode)=>spawnSync('cargo',['run','--quiet','--manifest-path',
-  fileURLToPath(new URL('../Cargo.toml',import.meta.url)),
-  '--example','p1g_offline_private_probe','--',mode],{
-  input:original,encoding:null,env:rustEnv,maxBuffer:maxBytes,
- });
+ // A fixed-head release-built research binary is also accepted for a
+ // private offline executor without cargo. It must come from the pinned
+ // source-only CI artifact; NEVER ship an actual save into CI to run it.
+ const privateBinary=process.env.DDV_RUST_PROBE_BINARY;
+ const run=(mode)=>privateBinary
+  ? spawnSync(privateBinary,[mode],{input:original,encoding:null,env:rustEnv,maxBuffer:maxBytes})
+  : spawnSync('cargo',['run','--quiet','--manifest-path',
+      fileURLToPath(new URL('../Cargo.toml',import.meta.url)),
+      '--example','p1g_offline_private_probe','--',mode],{
+      input:original,encoding:null,env:rustEnv,maxBuffer:maxBytes
+    });
  const results=['noop','edit'].map(run);
  for(const result of results){
   assert.equal(result.status,0,'RUST_OFFLINE_PROBE_FAILED');
