@@ -8,6 +8,8 @@ on:
       - 'src/lib/community/help-local-copy.js'
       - 'src/routes/help/**'
       - 'tests/web-help-local-rc.test.mjs'
+      - 'tests/qr212-owner-ux-source-repair.test.mjs'
+      - 'tests/web-source146-community-typed-integration.test.mjs'
       - 'scripts/web-help-local-chrome.mjs'
       - '.github/workflows/web-help-local.yml'
 permissions:
@@ -26,7 +28,7 @@ jobs:
           node-version: '22'
       - run: npm ci --no-audit --no-fund
       - name: Eight locale / no remote Help Owner source
-        run: node --test tests/web-help-local-rc.test.mjs
+        run: node --test tests/web-help-local-rc.test.mjs tests/qr212-owner-ux-source-repair.test.mjs tests/web-source146-community-typed-integration.test.mjs
       - name: Svelte and static route build
         run: npm run check && npm run build
       - name: Preserve frozen PR331 and all six Owner OFF flags
@@ -38,10 +40,10 @@ jobs:
           test "$(git merge-base "$BASE" HEAD)" = "$BASE"
           git diff --exit-code "$BASE" HEAD -- supabase/ src/lib/dreamsnaps/ src/lib/wep/ src/routes/qa/ src/routes/dreamsnaps/ src/routes/gallery/
           git diff --name-only "$BASE" HEAD >/tmp/web-help-local-diff
-          test "$(wc -l </tmp/web-help-local-diff)" -eq 9
+          test "$(wc -l </tmp/web-help-local-diff)" -eq 11
           while IFS= read -r path; do
             case "$path" in
-              src/lib/community/HelpLocalChild.svelte|src/lib/community/help-local-copy.js|src/routes/help/questions/+page.svelte|src/routes/help/tips/+page.svelte|src/routes/help/issues/+page.svelte|src/routes/help/my/+page.svelte|tests/web-help-local-rc.test.mjs|scripts/web-help-local-chrome.mjs|.github/workflows/web-help-local.yml) ;;
+              src/lib/community/HelpLocalChild.svelte|src/lib/community/help-local-copy.js|src/routes/help/questions/+page.svelte|src/routes/help/tips/+page.svelte|src/routes/help/issues/+page.svelte|src/routes/help/my/+page.svelte|tests/web-help-local-rc.test.mjs|tests/qr212-owner-ux-source-repair.test.mjs|tests/web-source146-community-typed-integration.test.mjs|scripts/web-help-local-chrome.mjs|.github/workflows/web-help-local.yml) ;;
               *) echo UNEXPECTED_SOURCE_CHANGE:"$path"; exit 1 ;;
             esac
           done </tmp/web-help-local-diff
