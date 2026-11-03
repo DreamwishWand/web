@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { base } from '$app/paths';
   import { locale } from '$lib/i18n/runtime.js';
   import { timingUxCopy } from '$lib/timing/timing-ui-copy.js';
@@ -13,6 +14,8 @@
   let userSourceConfirmed = false;
   let fileName = '';
   let busy = false;
+  let clientReady = false;
+  onMount(() => { clientReady = true; return () => { clientReady = false; ++openToken; }; });
   let error = '';
   let summary: any = null;
   let rows: any[] = [];
@@ -45,7 +48,7 @@
     summary = null;
     query = '';
     selectedKey = '';
-    if (!file) return;
+    if (!file || !clientReady) return;
     if (!userSourceConfirmed || sourceBuild.trim().toUpperCase() !== WAND_TIMING_SWITCH_BID) {
       error = 'SOURCE_BUILD_ATTESTATION_REQUIRED';
       return;
@@ -104,7 +107,8 @@
     <label class="attest"><input type="checkbox" bind:checked={userSourceConfirmed}
       on:change={invalidateAttestation}/><span>{copy.attest}</span></label>
     <label for="timing-file">{copy.file}</label>
-    <input id="timing-file" type="file" accept=".save,.p1g,application/octet-stream" on:change={importLocal} />
+    <input id="timing-file" type="file" accept=".save,.p1g,application/octet-stream"
+      disabled={!clientReady || busy} on:change={importLocal} />
     {#if busy}<p role="status">{copy.loading}</p>{/if}
     {#if error}<p role="alert" class="error" data-timing-error={error}>
       {error === 'SOURCE_ATTESTATION_CHANGED' ? copy.sourceChanged : copy.error}
