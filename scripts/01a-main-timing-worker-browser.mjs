@@ -81,6 +81,35 @@ try {
  assert.equal(await page.locator('[data-timing-loaded="true"] .event').count(),1);
  assert.match(await page.locator('[data-timing-loaded="true"] .event').innerText(),/ItemID 31700014/);
  pass('ITEMID_SEARCH_IN_WORKER');
+
+ // A -> B on the very same Worker must replace both the source-bound lease
+ // and every visible A row. Reopening is read-only and does not mutate A.
+ const changed = profile(2010500008);
+ changed.World.RecurringEvents['155'].ItemSpawning.NextOccurrence='2024-01-01T00:00:00Z';
+ const newP1g=Buffer.from(makeSyntheticP1gProfile(changed));
+ const newHash=createHash('sha256').update(newP1g).digest('hex');
+ await upload(newP1g);
+ await page.waitForFunction(() => document.querySelector('[data-timing-loaded="true"]')?.textContent?.includes('2024-01-01T00:00:00Z'),null,{timeout:20000});
+ assert.equal(await page.locator('[data-timing-loaded="true"] .event').count(),2);
+ assert.ok(!(await page.locator('[data-timing-loaded="true"]').innerText()).includes('2126-08-20T00:00:00Z'));
+ assert.equal(createHash('sha256').update(newP1g).digest('hex'),newHash);
+ assert.equal(createHash('sha256').update(p1g).digest('hex'),hash);
+ pass('A_TO_B_BROWSER_WORKER_OLD_ROW_REVOKED');
+
+ // 73 bounded W1 records must be paginated 64 + 9, not transferred as
+ // an unbounded profile or a caller-forged Total/Complete value.
+ const many=profile(2010500008);
+ many.World.RecurringEvents=Object.fromEntries(Array.from({length:73},(_,i)=>[
+  String(i),{ItemSpawning:{RecurringEventItemID:2010000021,
+   NextOccurrence:'2026-11-03T00:00:00Z'}}
+ ]));
+ await upload(Buffer.from(makeSyntheticP1gProfile(many)));
+ await page.waitForFunction(() => document.querySelectorAll('[data-timing-loaded="true"] .event').length===64,null,{timeout:20000});
+ assert.equal(await page.locator('[data-timing-more]').count(),1);
+ await page.locator('[data-timing-more]').click();
+ await page.waitForFunction(() => document.querySelectorAll('[data-timing-loaded="true"] .event').length===73,null,{timeout:20000});
+ assert.equal(await page.locator('[data-timing-more]').count(),0);
+ pass('W1_BROWSER_PAGE_64_PLUS_9_SOURCE_ROWS');
  assert.equal(createHash('sha256').update(p1g).digest('hex'),hash);
  assert.deepEqual(network,[]);
  pass('SOURCE_UNCHANGED_AND_NO_NETWORK_WRITE',{sourceHash:hash});
