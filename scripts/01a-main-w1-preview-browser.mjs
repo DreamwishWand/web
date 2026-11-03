@@ -42,7 +42,19 @@ try{
  await page.locator('.attest input').check();
  await page.locator('#timing-file').setInputFiles({
   name:'synthetic.p1g',mimeType:'application/octet-stream',buffer:p1g});
- await page.locator('[data-timing-loaded="true"] .event').waitFor({timeout:20000});
+ try {
+  await Promise.race([
+   page.locator('[data-timing-loaded="true"] .event').waitFor({timeout:20000}),
+   page.locator('.timing-page [role="alert"]').waitFor({timeout:20000}).then(async()=>{
+    throw Error('READ_BROWSER_ALERT:'+await page.locator('.timing-page [role="alert"]').innerText());
+   })
+  ]);
+ } catch(err) {
+  throw Error('W1_BROWSER_DIAG:'+JSON.stringify({
+   cause:String(err),ui:(await page.locator('.timing-page').innerText()).slice(0,1700),
+   pageErrors:report.errors,sourceP1gBytes:p1g.length
+  }));
+ }
  report.checks.push('BROWSER_LOCAL_PACKAGED_P1G_READER');
  await page.locator('[data-w1-preview-select]').click();
  await page.locator('#w1-new-utc').fill('2026-11-03T00:00:00Z');
