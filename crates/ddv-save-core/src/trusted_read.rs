@@ -33,11 +33,13 @@ fn derive(host_entropy:&[u8;32],epoch:u64,tag:&[u8])->[u8;32]{
  sha256(&data)
 }
 impl TrustedReadBoundary {
- /// The host must authenticate/extract platform and BID *outside* the save
- /// and mint fresh entropy via secure worker-local cryptography. As an offline
- /// research ctor this CANNOT prove either host fact; never export to UI.
- pub fn new_for_trusted_host_research(host_entropy:[u8;32])->EngineResult<Self>{
-  if host_entropy==[0;32]{return Err("READ_CORE_ENTROPY_REQUIRED");}
+ /// Entropy originates in Core via OS CSPRNG or wasm Worker Web Crypto,
+ /// never from UI. A failed CSPRNG prevents opening a session.
+ /// Build provenance and WASM/Worker isolation remain separate product gates.
+ pub fn new_core_generated_research()->EngineResult<Self>{
+  let mut host_entropy=[0_u8;32];
+  getrandom::getrandom(&mut host_entropy).map_err(|_|"READ_CORE_CSPRNG_UNAVAILABLE")?;
+  if host_entropy==[0;32]{return Err("READ_CORE_CSPRNG_UNAVAILABLE");}
   Ok(Self{host_entropy,epoch:0,active:None})
  }
  fn revoke(&mut self)->EngineResult<()>{
