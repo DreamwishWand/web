@@ -20,6 +20,7 @@
   let searchToken = 0;
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
   let reader: Worker | null = null;
+  let workerReady = false;
   let messageId = 0;
   let pending = new Map<number, { resolve: (value: any) => void; reject: (reason: Error) => void }>();
   $: japanese = $locale === 'ja';
@@ -30,6 +31,10 @@
     current.addEventListener('message', (event: MessageEvent) => {
       const payload = event.data;
       if (!payload || !Number.isSafeInteger(payload.id)) return;
+      if (payload.id === 0 && payload.ready === true && payload.writerAuthorized === false) {
+        workerReady = true;
+        return;
+      }
       const callback = pending.get(payload.id);
       if (!callback) return;
       pending.delete(payload.id);
@@ -37,6 +42,8 @@
       else callback.reject(Error(typeof payload.error === 'string' ? payload.error : 'READ_WORKER_REJECTED'));
     });
     current.addEventListener('error', () => {
+      workerReady = false;
+      error = 'READ_WORKER_UNAVAILABLE';
       for (const callback of pending.values()) callback.reject(Error('READ_WORKER_UNAVAILABLE'));
       pending.clear();
     });
@@ -48,11 +55,12 @@
       pending.clear();
       current.terminate();
       reader = null;
+      workerReady = false;
     };
   });
 
   function request(type: string, params: Record<string, unknown> = {}): Promise<any> {
-    if (!reader) return Promise.reject(Error('READ_WORKER_UNAVAILABLE'));
+    if (!reader || !workerReady) return Promise.reject(Error('READ_WORKER_UNAVAILABLE'));
     const id = ++messageId;
     return new Promise((resolve, reject) => {
       pending.set(id, { resolve, reject });
@@ -137,7 +145,7 @@
   <meta name="description" content="Local-only DDV Switch v1.25.3 recurring event and ItemID search. No save editing, upload or writer." />
 </svelte:head>
 
-<section class="container timing-page" data-timing-readonly="true" data-worker-readonly="true" data-writer="off">
+<section class="container timing-page" data-timing-readonly="true" data-worker-readonly="true" data-worker-ready={workerReady} data-writer="off">
   <a href={base + '/editor/'}>{japanese ? '← Editorに戻る' : '← Back to Editor'}</a>
   <h1>{japanese ? '日時・スポーンの検索' : 'Timing & Spawn Inspector'}</h1>
   <p>{japanese ? 'Dreamlight Timekeeperのイベント定義をWandで再利用した、ローカル読取り専用画面です。' : 'Local read-only preview using the frozen Dreamlight Timekeeper event registry.'}</p>
@@ -153,7 +161,7 @@
       ? 'Switchの対象バージョン・BIDをゲーム側で確認した（セーブ自体にBIDは含まれません）'
       : 'I verified the target Switch game build externally (the save does not contain its BID).'}</span></label>
     <label for="timing-file">{japanese ? 'ローカルセーブを選択' : 'Choose a local save'}</label>
-    <input id="timing-file" type="file" accept=".save,.p1g,application/octet-stream" on:change={importLocal}/>
+    <input id="timing-file" type="file" accept=".save,.p1g,application/octet-stream" disabled={!workerReady || busy} on:change={importLocal}/>
     {#if busy}<p role="status">{japanese ? 'ローカルで読込み中…' : 'Reading locally…'}</p>{/if}
     {#if error}<p role="alert" class="error">{japanese ? '読込みできませんでした。BID・形式・バージョンを確認してください。' : 'Could not read the save. Check the build, file format and version.'} <code>{error}</code></p>{/if}
   </div>
