@@ -1,0 +1,74 @@
+name: 04 QR PR364 Source158 independent genuine signed R15 OFF
+on:
+  push:
+    branches: [qa/pr364-source158-r15-independent-20261103]
+  pull_request:
+    branches: [comm/w-comm-006-source158-r15-pinned-off-20261103]
+permissions:
+  contents: read
+jobs:
+  qr158:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Freeze exact source158 and two QA-only paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=c52881ba0ac193c23a7256904e2221a05850e151
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git diff --name-only "$SOURCE" HEAD | sort >/tmp/qr158-actual
+          printf '%s\n' .github/workflows/qr-pr364-source158-independent.yml tests/qr-pr364-r15-independent.py | sort >/tmp/qr158-expected
+          diff -u /tmp/qr158-expected /tmp/qr158-actual
+          test -z "$(git diff --name-only "$SOURCE" HEAD -- supabase src static)"
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 158
+          test "$(git hash-object supabase/migrations/20261102010000_community_source155_verified_first_account_bootstrap.sql)" = 115f2c0f7224984acd8830cfc606af8c6a1bf3af
+          test "$(git hash-object supabase/migrations/20261103010000_community_source156_signed_gallery_r16_atomic_writer.sql)" = 3000d66c193b996e4ece785deaf5180955ec3bc6
+          test "$(git hash-object supabase/migrations/20261103020000_community_source157_legacy_comments_v2_service_execute_off.sql)" = b9c44a501189857dff9fc6446dea21717d58b785
+          test "$(git hash-object supabase/migrations/20261103030000_community_source158_r15_gallery_pinned_service_execute_off.sql)" = 033920ee79a3dd07b32854f0bbfb3b225167f3e2
+          test "$(git hash-object supabase/functions/community-command/index.ts)" = 688c3f694091a22ad2b7e246d4975bcd06acbfae
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID"
+          python3 -m py_compile tests/qr-pr364-r15-independent.py
+          echo QR364_EXACT_SOURCE_AND_QA_ONLY_PASS
+      - uses: supabase/setup-cli@v1
+        with: {version: 2.109.0}
+      - name: Genuine disposable GoTrue ES256 issuer
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\n[auth]\nsigning_keys_path = "./signing_keys.json"\n' >> supabase/config.toml
+          printf '[]\n' > supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes >/tmp/qr158-signer.log 2>&1
+      - name: Local FULL158 migrations plus clean reset
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_qr158_independent_disposable_20261103"\n' | cat - supabase/config.toml >/tmp/qr158-conf
+          mv /tmp/qr158-conf supabase/config.toml
+          printf 'COMMUNITY_MEDIA_BUCKET=ddvre-qr158-media-local\nWEP_PRESET_ARTIFACT_BUCKET=ddvre-qr158-preset-local\n' > supabase/functions/.env
+          timeout 1800s supabase start >/tmp/qr158-start.log 2>&1 || { echo QR158_START_FAILED; tail -n 30 /tmp/qr158-start.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'; exit 1; }
+          timeout 900s supabase db reset --no-seed >/tmp/qr158-reset.log 2>&1 || { echo QR158_RESET_FAILED; tail -n 30 /tmp/qr158-reset.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'; exit 1; }
+          echo QR158_FULL158_DISPOSABLE_RESET_PASS
+      - run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Independent ES256 HTTP409/401, R15 three-role 42501, two PG and rollback
+        run: python3 tests/qr-pr364-r15-independent.py
+      - name: Dispose isolated environment, credentials and logs
+        if: always()
+        shell: bash
+        run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f supabase/functions/.env supabase/signing_keys.json /tmp/qr158-conf /tmp/qr158-signer.log /tmp/qr158-start.log /tmp/qr158-reset.log
+          echo QR158_EPHEMERAL_CLEANUP_ATTEMPTED
