@@ -436,3 +436,4 @@ pub fn strict_decode_json_string_token(raw:&str)->EngineResult<String>{
  decode_string(&raw[1..raw.len()-1])
 }
 pub mod w1_evidence;
+pub mod read_only_index;
