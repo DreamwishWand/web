@@ -1,0 +1,50 @@
+name: 04 QR PR342 new-only synthetic Editor native-tab zoom QA
+on:
+  pull_request:
+    branches: ['wep/strict-keyboard-group-move-20261103']
+permissions:
+  contents: read
+jobs:
+  qr342:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Freeze source and two QA-only files
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=cf5415df2a9085c9f132492a4af36dbd61494de5
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD | sort >/tmp/qr342-actual
+          printf '%s\n' .github/workflows/qr-pr342-keyboard.yml scripts/qr-pr342-keyboard-browser.mjs | sort >/tmp/qr342-expected
+          diff -u /tmp/qr342-expected /tmp/qr342-actual
+          test -z "$(git diff --name-only "$BASE" HEAD -- src supabase)"
+          echo QR342_NEW_ONLY_TWO_QA_FILES_SOURCE_FROZEN_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Independently execute new-route synthetic source negatives only
+        run: node --test tests/wep-keyboard-strict-local.test.mjs
+      - name: Install actual browser and native tab zoom support
+        run: |
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install chromium
+      - name: Boot isolated local World Editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4195 >/tmp/qr342-vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4195/editor/world/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr342-vite.log
+          exit 1
+      - name: Independent keyboard and toolbar atomic Chrome 100/200
+        env: {WEP_KEYBOARD_RC_BASE_URL: 'http://127.0.0.1:4195/editor/world/'}
+        run: node scripts/qr-pr342-keyboard-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: qr342-new-only-native-zoom, path: .artifacts/qr-pr342-keyboard-strict/, if-no-files-found: warn}
