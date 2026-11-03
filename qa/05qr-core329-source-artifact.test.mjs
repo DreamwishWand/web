@@ -32,7 +32,7 @@ test('QR329 source-only CI bundles whitelisted code/binary but no personal sourc
  assert.equal(tar.match(/\S+\.(?:js|mjs)\b/g)?.length,8);
  assert(tar.includes('crates/ddv-save-core/target/release/examples/p1g_offline_private_probe'));
  assert(tar.includes('package.json'));
- assert(!/\.p1g\b|\.zip\b|\.json\b|prod\.keys|DDV_PRIVATE_P1G_PATH|\.env|user-save/i.test(tar));
+ assert(!/\.p1g\b|\.zip\b|\.json\b|prod\.keys|DDV_PRIVATE_P1G_PATH|\.env|user-save/i.test(tar.replace('package.json','')));
  assert(wf.includes('retention-days: 1'));
  assert(!/DDV_PRIVATE_P1G_PATH:|DDV_PRIVATE_CODEC_KEY_HEX:/.test(wf));
 });
