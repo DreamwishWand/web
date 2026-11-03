@@ -99,10 +99,11 @@ test('A-to-B during asynchronous decode or close refuses late A read result',asy
    return goodOpened();
  }});
  const pending=core.open({...bid,file:sample()});
+ const denied=assert.rejects(pending,/READ_OPEN_REVOKED/);
  const fresh=await open(core);
  assert.equal(fresh.writerAuthorized,false);
  release();
- await assert.rejects(pending,/READ_OPEN_REVOKED/);
+ await denied;
  assert.equal((await core.query({limit:1})).rows.length,1);
  core.close();
  await assert.rejects(core.query({limit:1}),/READ_SESSION_NOT_OPEN/);
