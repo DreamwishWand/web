@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { base } from '$app/paths';
   import { locale } from '$lib/i18n/runtime.js';
-  import { WAND_TIMING_SWITCH_BID, WAND_TIMING_REGISTRY_PATH } from '$lib/timing/recurring-readonly.mjs';
+  import { WAND_TIMING_SWITCH_BID } from '$lib/timing/recurring-readonly.mjs';
   import { createTimingLocalReadWorker } from '$lib/timing/local-timing-worker-client';
 
   let sourceBuild = '';
@@ -112,14 +112,13 @@
     }
     busy = true;
     try {
-      const registryResponse = await fetch(base + WAND_TIMING_REGISTRY_PATH, { cache: 'force-cache' });
-      if (!registryResponse.ok) throw Error('REGISTRY_UNAVAILABLE');
-      const registry = await registryResponse.json();
+      // The Worker loads its pinned same-origin registry itself. No UI-origin
+      // event definitions, source SHA, Session ID or capability are trusted.
       if (token !== openToken) return;
       // A File is cloned to the Worker without reading its bytes in the UI.
       const result = await request('OPEN_FILE', {
         file, buildId: sourceBuild.trim().toUpperCase(),
-        sourceConfirmed: true, registry
+        sourceConfirmed: true
       });
       if (token !== openToken) return;
       if (result?.sourceSchema !== 626 ||
