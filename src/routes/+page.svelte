@@ -51,4 +51,18 @@
       variant="horizontal"
     />
   </div>
+
+  <aside class="test-availability" data-test-site-availability>
+    <strong>{$locale === 'ja' ? 'テストサイトの開発状況' : 'Test-site development status'}</strong>
+    <p>{$locale === 'ja' ? '利用できる機能・未実装の機能・対応バージョンを確認できます。未受入のセーブ編集や公開機能は無効です。' : 'See available features, unsupported operations and versions. Unaccepted save editing and publishing stay disabled.'}</p>
+    <a href={base + '/rc-status/'}>{$locale === 'ja' ? '現在の機能一覧を確認' : 'View current feature availability'}</a>
+  </aside>
 </ResponsiveFrame>
+<style>
+  .test-availability { margin: 24px 0; border: 1px solid var(--border); background: var(--surface); border-radius: 14px; padding: 18px 22px; }
+  .test-availability strong { font-size: 16px; }
+  .test-availability p { font-size: 13px; line-height: 1.65; color: var(--ink-soft); }
+  .test-availability a { font-weight: 700; color: var(--gold); }
+  .test-availability a:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
+</style>
+
