@@ -55,6 +55,7 @@ jobs:
           test -f build/editor/index.html
           test -f build/editor/items/index.html
           test -f build/editor/world/index.html
+          test -f build/editor/timing/index.html
           test -f build/explore/index.html
           test -f build/decorate/index.html
           test -f build/discover/index.html
