@@ -85,7 +85,7 @@ def state(conn):
     return conn.execute("""select
         (select count(*) from public.dreamsnap_gallery_publications),
         (select count(*) from public.search_documents),
-        (select count(*) from public.audit_events),
+        (select count(*) from public.audit_events where action_type='gallery.comments_enabled'),
         (select count(*) from public.ddv_profile_workspaces),
         (select count(*) from public.idempotency_keys)
     """).fetchone()
