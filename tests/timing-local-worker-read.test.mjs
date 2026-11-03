@@ -90,16 +90,18 @@ test('forged/overflow Cursor and disallowed limits rejected without advancing pa
  assert.equal(second.rows[0].mapKey,'156');
 });
 test('A-to-B during asynchronous decode or close refuses late A read result',async()=>{
- let release;
+ let release, notifyEntered;
  const gate=new Promise(resolve=>{release=resolve;});
+ const entered=new Promise(resolve=>{notifyEntered=resolve;});
  let calls=0;
- const core=fake({openSave:async(...args)=>{
+ const core=fake({openSave:async()=>{
    ++calls;
-   if(calls===1) await gate;
+   if(calls===1) { notifyEntered(); await gate; }
    return goodOpened();
  }});
  const pending=core.open({...bid,file:sample()});
  const denied=assert.rejects(pending,/READ_OPEN_REVOKED/);
+ await entered; // Ensure A, not B, owns the artificially stalled decode.
  const fresh=await open(core);
  assert.equal(fresh.writerAuthorized,false);
  release();
