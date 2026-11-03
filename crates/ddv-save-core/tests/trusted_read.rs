@@ -110,7 +110,7 @@ fn two_root_sha_p1g_research_wrapper_is_fail_closed(){
  assert_eq!(core.open_p1g_research(&cipher,&key,[0;32],json_sha).err(),Some("READ_ENCRYPTED_SOURCE_SHA_CAS_FAILED"));
 }
 #[test]
-fn 100_and_200_mib_full_strict_source_scan_without_retaining_full_document(){
+fn synthetic_100_and_200_mib_full_strict_source_scan_without_retaining_full_document(){
  for mb in [100usize,200usize] {
   let n=mb*1024*1024;
   let prefix=br#"{"GameInfo":{"Version":626},"Player":{},"World":{"RecurringEvents":[{"ItemSpawning":{"RecurringEventItemID":2010000021,"NextOccurrence":"2126-08-20T00:00:00Z"}}]},"UnknownHuge":"#;
