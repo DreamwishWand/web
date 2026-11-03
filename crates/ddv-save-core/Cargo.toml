@@ -12,7 +12,8 @@ aes = "=0.8.4"
 flate2 = { version = "=1.0.35", default-features = false, features = ["rust_backend"] }
 crc32fast = "=1.4.2"
 serde_json = "=1.0.145" # only small, strict-validated selected subtrees; never entire profile
-getrandom = { version = "=0.2.16", features = ["js"] } # Core-only CSPRNG session/cursors; wasm32 requires JS WebCrypto
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+getrandom = "=0.2.16" # Native Core CSPRNG; raw WASM has no JS import until accepted Worker bridge
 
 [lib]
 path = "src/lib.rs"
