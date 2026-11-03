@@ -2,12 +2,14 @@
 export const LAUNCH_LOCALES = Object.freeze(["en","de","es-ES","fr","it","ja","pt-BR","zh-CN"]);
 export const HELP_CHILDREN = Object.freeze(["Questions","Tips","Issues","My Activity"]);
 const goodTime = s => typeof s === "string" && Number.isFinite(Date.parse(s));
+const KNOWN_FRESHNESS_CLASSES = new Set(["VERSION_SCOPED","LIVE_24H","ROUND_PHASE","UGC_SIGNED"]);
 export function releaseEligible(row, ctx = {}) {
   if (!row || row.releaseEligible !== true || row.rightsDecision !== "APPROVED" ||
       row.moderationDecision !== "CLEAR" || row.correctionState !== "CURRENT" ||
       row.independentQaAccepted !== true || row.sourceIdentityVerified !== true ||
       row.visibility !== "PUBLIC" || row.syntheticTestFixture === true || row.embargoed === true ||
       row.contentKind === "PRIVATE_ISSUE_REPORT") return false;
+  if (!KNOWN_FRESHNESS_CLASSES.has(row.freshnessClass)) return false;
   if (!goodTime(row.updatedAtActual)) return false;
   if (!LAUNCH_LOCALES.includes(ctx.locale) || !Array.isArray(row.localeReviewed) ||
       !row.localeReviewed.includes(ctx.locale)) return false;
@@ -17,7 +19,10 @@ export function releaseEligible(row, ctx = {}) {
     if (!row.sourceVersion || !ctx.sourceVersion ||
         row.sourceVersion.platform !== ctx.sourceVersion.platform ||
         row.sourceVersion.fullVersion !== ctx.sourceVersion.fullVersion ||
-        row.sourceVersion.bid !== ctx.sourceVersion.bid) return false;
+        row.sourceVersion.bid !== ctx.sourceVersion.bid ||
+        !Number.isSafeInteger(row.sourceVersion.schema) ||
+        !Number.isSafeInteger(ctx.sourceVersion.schema) ||
+        row.sourceVersion.schema !== ctx.sourceVersion.schema) return false;
   }
   if (row.freshnessClass === "LIVE_24H") {
     if (!goodTime(row.verifiedAt) || !goodTime(row.expiresAt) || !goodTime(ctx.asOf)) return false;
