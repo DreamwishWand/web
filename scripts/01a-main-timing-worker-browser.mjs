@@ -56,7 +56,11 @@ try {
   name:'synthetic-profile.p1g',mimeType:'application/octet-stream',buffer
  });
  await upload(p1g);
- await page.locator('[data-timing-loaded="true"] .event').first().waitFor({timeout:30000});
+ await Promise.race([
+  page.locator('[data-timing-loaded="true"] .event').first().waitFor({timeout:15000}),
+  page.locator('.timing-page [role="alert"]').first().waitFor({timeout:15000})
+   .then(async()=>{throw Error('READ_BROWSER_ALERT:'+await page.locator('.timing-page [role="alert"]').first().innerText()+':PAGE_ERRORS:'+errors.join('|'));})
+ ]);
  assert.equal(await page.locator('[data-timing-loaded="true"] .event').count(),2);
  assert.ok(page.workers().length>=1,'Read must run off UI thread in a module Worker');
  assert.match(await page.locator('[data-timing-loaded="true"]').innerText(),/EventID: 2010000021/);
