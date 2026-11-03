@@ -24,6 +24,12 @@
       </p>
       <span>World Editorを開く →</span>
     </a>
+    <a class="feature-tile" href={base + '/editor/timing/'}>
+      <span class="tile-emoji" aria-hidden="true">◷</span>
+      <h2>Timing &amp; Spawn Inspector</h2>
+      <p>Timekeeperの508件のイベント定義を利用した実セーブの読取り専用検索（v1.25.3）。日時の書込みはOFFです。</p>
+      <span>日時・イベントを調べる →</span>
+    </a>
   </div>
 
   <div class="notice">
