@@ -39,7 +39,7 @@ try{
   await eventually(async()=>await page.locator('.home-product-grid .visual-card').count()===6);
   const coreHrefs=await page.locator('.home-product-grid .visual-card').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('href')));
   for(const path of ['/decorate/','/collection/','/guide/','/presets/','/gallery/','/dreamsnaps/'])assert(coreHrefs.some(href=>href?.endsWith(path)),`Home missing ${path}`);
-  assert((await page.locator('.home-qa-entry .visual-card').getAttribute('href'))?.endsWith('/qa/'),'Home Q&A participation link missing');
+  assert((await page.locator('.home-qa-entry .visual-card').getAttribute('href'))?.endsWith('/help/'),'Home Community Help Center participation link missing');
   assert(await page.locator('.hero').count()===0,'Home still contains marketing hero');
   assert(await page.locator('.main-nav').count()===0,'Shared header still contains duplicate Product navigation row');
   assert(await page.locator('.app-home-action').first().isVisible(),'Explicit Home affordance missing');
