@@ -50,17 +50,27 @@ try {
  page.on('console',msg=>{if(msg.type()==='error')errors.push(msg.text());});
  await page.goto(base+'/editor/timing/',{waitUntil:'domcontentloaded'});
  assert.equal(await page.locator('[data-worker-readonly="true"][data-writer="off"]').count(),1);
+ await page.locator('[data-worker-ready="true"]').waitFor({timeout:20000});
  await page.locator('#timing-bid').fill(bid);
  await page.locator('.attest input').check();
  const upload = async buffer => page.locator('#timing-file').setInputFiles({
   name:'synthetic-profile.p1g',mimeType:'application/octet-stream',buffer
  });
  await upload(p1g);
- await Promise.race([
-  page.locator('[data-timing-loaded="true"] .event').first().waitFor({timeout:15000}),
-  page.locator('.timing-page [role="alert"]').first().waitFor({timeout:15000})
-   .then(async()=>{throw Error('READ_BROWSER_ALERT:'+await page.locator('.timing-page [role="alert"]').first().innerText()+':PAGE_ERRORS:'+errors.join('|'));})
- ]);
+ try {
+  await Promise.race([
+   page.locator('[data-timing-loaded="true"] .event').first().waitFor({timeout:20000}),
+   page.locator('.timing-page [role="alert"]').first().waitFor({timeout:20000})
+    .then(async()=>{throw Error('READ_BROWSER_ALERT:'+await page.locator('.timing-page [role="alert"]').first().innerText()+':PAGE_ERRORS:'+errors.join('|'));})
+  ]);
+ } catch (err) {
+  const ui=await page.locator('.timing-page').innerText().catch(()=>null);
+  throw Error('READ_BROWSER_DIAG:'+JSON.stringify({
+    root:String(err),ui:ui?.slice(0,1200),workers:page.workers().length,
+    pageErrors:errors,network,ready:await page.locator('[data-worker-ready]').getAttribute('data-worker-ready'),
+    busy:await page.locator('.import-panel').innerText()
+  }));
+ }
  assert.equal(await page.locator('[data-timing-loaded="true"] .event').count(),2);
  assert.ok(page.workers().length>=1,'Read must run off UI thread in a module Worker');
  assert.match(await page.locator('[data-timing-loaded="true"]').innerText(),/EventID: 2010000021/);
