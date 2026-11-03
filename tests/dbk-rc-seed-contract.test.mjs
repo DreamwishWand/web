@@ -6,7 +6,7 @@ const d=JSON.parse(readFileSync(new URL("../docs/knowledge/rc-job-content-delta-
 const ver=d.sourceVersionBaseline;
 const good={jobId:"GDE-SYS",contentKind:"CURATED_GUIDE_CONTENT",releaseEligible:true,rightsDecision:"APPROVED",moderationDecision:"CLEAR",correctionState:"CURRENT",independentQaAccepted:true,sourceIdentityVerified:true,visibility:"PUBLIC",localeReviewed:["ja"],sourceVersion:ver,freshnessClass:"VERSION_SCOPED"};
 const ctx={locale:"ja",sourceVersion:ver,asOf:"2026-11-03T12:00:00Z"};
-test("15 canonical RC consumer rows and 7 release gates remain unpromoted",()=>{
+test("14 canonical RC consumer rows and 7 release gates remain unpromoted",()=>{
  assert.equal(d.jobs.length,14); assert.equal(new Set(d.jobs.map(x=>x.jobId)).size,14);
  assert.equal(d.seedGates.length,7);
  assert.ok(d.jobs.every(x=>x.releaseEligible===false && x.publicIndexEligible===false && x.updatedAtActual===null && x.rightsDecision===null));
