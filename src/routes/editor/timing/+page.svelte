@@ -1,6 +1,8 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import { locale } from '$lib/i18n/runtime.js';
+  import { timingUxCopy } from '$lib/timing/timing-ui-copy.js';
+  import TimingEditPreview from '$lib/timing/TimingEditPreview.svelte';
   import { openWorldSaveBytes, WEP_WORLD_READONLY_626_PROVENANCE } from '$lib/wep/world-save-source';
   import {
     WAND_TIMING_SWITCH_BID, WAND_TIMING_REGISTRY_PATH,
@@ -16,9 +18,23 @@
   let rows: any[] = [];
   let query = '';
   let openToken = 0;
-  $: japanese = $locale === 'ja';
+  let selectedKey = '';
+  $: copy = timingUxCopy($locale);
   $: filtered = filterRecurringEventsReadonly(rows,query);
   $: visible = filtered.slice(0,150);
+  $: selectedRow = visible.find((row: any) => row.mapKey + ':' + row.oneof === selectedKey) ?? null;
+
+  function invalidateAttestation() {
+    const hadSource = summary !== null || busy;
+    ++openToken;
+    busy = false;
+    fileName = '';
+    rows = [];
+    summary = null;
+    query = '';
+    selectedKey = '';
+    error = hadSource ? 'SOURCE_ATTESTATION_CHANGED' : '';
+  }
 
   async function importLocal(event: Event) {
     const file = (event.currentTarget as HTMLInputElement).files?.[0];
@@ -28,6 +44,7 @@
     rows = [];
     summary = null;
     query = '';
+    selectedKey = '';
     if (!file) return;
     if (!userSourceConfirmed || sourceBuild.trim().toUpperCase() !== WAND_TIMING_SWITCH_BID) {
       error = 'SOURCE_BUILD_ATTESTATION_REQUIRED';
@@ -67,56 +84,68 @@
 </script>
 
 <svelte:head>
-  <title>{japanese ? '日時・スポーン検索' : 'Timing & Spawn Inspector'} | Dreamwish Wand</title>
-  <meta name="description" content="Local-only DDV Switch v1.25.3 recurring event and ItemID search. No save editing, upload or writer." />
+  <title>{copy.title} | Dreamwish Wand</title>
+  <meta name="description" content="Local-only Switch v1.25.3 schema626 recurring EventID/ItemID inspection and disabled edit preview. No save upload or editing." />
 </svelte:head>
 
-<section class="container timing-page" data-timing-readonly="true" data-writer="off">
-  <a href={base + '/editor/'}>{japanese ? '← Editorに戻る' : '← Back to Editor'}</a>
-  <h1>{japanese ? '日時・スポーンの検索' : 'Timing & Spawn Inspector'}</h1>
-  <p>{japanese ? 'Dreamlight Timekeeperのイベント定義をWandで再利用した、ローカル読取り専用画面です。' : 'Local read-only preview using the frozen Dreamlight Timekeeper event registry.'}</p>
-  <p class="warning" role="status">{japanese
-    ? 'セーブの書込み、日時の変更、編集コピーの出力は無効です。ファイルはWandのサーバーへ送信されません。'
-    : 'Editing, time changes and edited-copy export are disabled. The selected save is not uploaded to Wand servers.'}</p>
+<section class="container timing-page" data-timing-readonly="true" data-writer="off" data-expanded-limit-mib="128">
+  <a href={base + '/editor/'}>{copy.back}</a>
+  <h1>{copy.title}</h1>
+  <p>{copy.intro}</p>
+  <p class="warning" role="status" data-w1-writer-off="true">{copy.warning}</p>
+  <p class="warning" data-timing-expanded-limit="128">{copy.limit}</p>
+  <p class="warning" data-timing-2126="preserve">{copy.future}</p>
 
   <div class="import-panel">
-    <p>{japanese ? '対象: Nintendo Switch DDV v1.25.3 / schema626' : 'Target: Nintendo Switch DDV v1.25.3 / schema626'}</p>
-    <label for="timing-bid">{japanese ? '外部で確認したBuild ID' : 'Externally verified Build ID'}</label>
-    <input id="timing-bid" type="text" bind:value={sourceBuild} placeholder={WAND_TIMING_SWITCH_BID} spellcheck="false" autocomplete="off"/>
-    <label class="attest"><input type="checkbox" bind:checked={userSourceConfirmed}/><span>{japanese
-      ? 'Switchの対象バージョン・BIDをゲーム側で確認した（セーブ自体にBIDは含まれません）'
-      : 'I verified the target Switch game build externally (the save does not contain its BID).'}</span></label>
-    <label for="timing-file">{japanese ? 'ローカルセーブを選択' : 'Choose a local save'}</label>
-    <input id="timing-file" type="file" accept=".save,.p1g,application/octet-stream" on:change={importLocal}/>
-    {#if busy}<p role="status">{japanese ? 'ローカルで読込み中…' : 'Reading locally…'}</p>{/if}
-    {#if error}<p role="alert" class="error">{japanese ? '読込みできませんでした。BID・形式・バージョンを確認してください。' : 'Could not read the save. Check the build, file format and version.'} <code>{error}</code></p>{/if}
+    <p>{copy.target}</p>
+    <label for="timing-bid">{copy.bid}</label>
+    <input id="timing-bid" type="text" bind:value={sourceBuild} on:input={invalidateAttestation}
+      placeholder={WAND_TIMING_SWITCH_BID} spellcheck="false" autocomplete="off" />
+    <label class="attest"><input type="checkbox" bind:checked={userSourceConfirmed}
+      on:change={invalidateAttestation}/><span>{copy.attest}</span></label>
+    <label for="timing-file">{copy.file}</label>
+    <input id="timing-file" type="file" accept=".save,.p1g,application/octet-stream" on:change={importLocal} />
+    {#if busy}<p role="status">{copy.loading}</p>{/if}
+    {#if error}<p role="alert" class="error" data-timing-error={error}>
+      {error === 'SOURCE_ATTESTATION_CHANGED' ? copy.sourceChanged : copy.error}
+    </p>{/if}
   </div>
 
   {#if summary}
     <div class="results" data-timing-loaded="true">
       <h2>{fileName}</h2>
-      <p>{japanese ? '保存済みイベント' : 'Saved event containers'}: {summary.savedContainerCount} · {japanese ? '日時フィールド' : 'Timestamp rows'}: {rows.length} · {japanese ? '未対応の構造' : 'Unsupported containers'}: {summary.unsupportedContainerCount}</p>
-      <label for="timing-search">{japanese ? 'EventID・ItemID・名前・日時で検索' : 'Search EventID, ItemID, name or timestamp'}</label>
-      <input id="timing-search" type="search" bind:value={query}/>
-      <p role="status">{filtered.length} {japanese ? '件（先頭150件を表示）' : 'matches (up to 150 shown)'}</p>
+      <p>{copy.saved}: {summary.savedContainerCount} · {copy.found}: {filtered.length} · {copy.unsupported}: {summary.unsupportedContainerCount}</p>
+      <label for="timing-search">{copy.search}</label>
+      <input id="timing-search" type="search" bind:value={query} />
+      <p role="status">{copy.showing}: {visible.length} / {filtered.length}</p>
+      {#if filtered.length > 150}<p class="warning" data-timing-page-limited="true">{copy.cursor}</p>{/if}
+      {#if !visible.length}<p role="status" data-timing-no-results="true">{copy.none}</p>{/if}
       <div class="result-list">
         {#each visible as row (row.mapKey + ':' + row.oneof)}
           <article class="event" data-event-id={row.eventId ?? 'unknown'}>
             <h3>{row.name}</h3>
-            <p>EventID: {row.eventId ?? 'unknown'} · {japanese ? '保存キー' : 'Save key'}: {row.mapKey} · {row.oneof}</p>
-            <p>{japanese ? '次回' : 'Next'}: <code>{row.nextOccurrence ?? 'unknown'}</code></p>
-            <p>{japanese ? '前回' : 'Last'}: <code>{row.lastOccurrence ?? 'unknown'}</code> · {japanese ? '静的分類' : 'Static policy'}: {row.policy}</p>
-            {#if row.ambiguous || !row.registryKnown}<p class="warning">{japanese ? '定義またはoneof構造は未確認。書込み不可。' : 'Unverified registry or oneof shape. Write disabled.'}</p>{/if}
+            <p>EventID: {row.eventId ?? copy.unknown} · {copy.key}: {row.mapKey} · {row.oneof}</p>
+            <p>{copy.next}: <code>{row.nextOccurrence ?? copy.unknown}</code></p>
+            <p>{copy.last}: <code>{row.lastOccurrence ?? copy.unknown}</code> · {copy.policy}: {row.policy}</p>
+            {#if row.ambiguous || !row.registryKnown}<p class="warning">{copy.unverified}</p>{/if}
             {#if row.items.length}
-              <ul aria-label={japanese ? '関連アイテム' : 'Linked items'}>
+              <ul aria-label={copy.items}>
                 {#each row.items as item (item.linkIndex)}
-                  <li>ItemID {item.itemId} — {japanese ? (item.ja || item.en || '名称未確認') : (item.en || 'Name unavailable')}</li>
+                  <li>ItemID {item.itemId} — {$locale === 'ja' ? (item.ja || item.en || copy.unknown) : (item.en || item.ja || copy.unknown)}</li>
                 {/each}
               </ul>
             {/if}
+            <button type="button" class="inspect" data-timing-inspect={row.mapKey}
+              aria-pressed={selectedKey === row.mapKey + ':' + row.oneof}
+              on:click={() => selectedKey = row.mapKey + ':' + row.oneof}>{copy.choose}</button>
           </article>
         {/each}
       </div>
+      {#if selectedRow}
+        {#key selectedKey}
+          <TimingEditPreview row={selectedRow} onClose={() => selectedKey = ''} />
+        {/key}
+      {/if}
     </div>
   {/if}
 </section>
@@ -140,4 +169,8 @@
  .event p{margin:6px 0;font-size:13px}
  .event ul{margin:9px 0 0;padding-left:22px;font-size:13px;line-height:1.8}
  code{overflow-wrap:anywhere}
+ .inspect{border:1px solid var(--border);background:var(--surface-raised);color:var(--ink);border-radius:10px;min-height:44px;padding:9px 14px;cursor:pointer}
+ .inspect[aria-pressed="true"]{outline:2px solid var(--gold)}
+ .inspect:focus-visible{outline:3px solid var(--focus-ring);outline-offset:3px}
+ .warning{overflow-wrap:anywhere}
 </style>
