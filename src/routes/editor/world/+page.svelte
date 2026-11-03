@@ -3476,10 +3476,41 @@
 
     try {
       let result: any;
-      if (operation === 'up') result = session.move(null, 0, -1);
-      if (operation === 'down') result = session.move(null, 0, 1);
-      if (operation === 'left') result = session.move(null, -1, 0);
-      if (operation === 'right') result = session.move(null, 1, 0);
+      const keyboardMove: Record<string, { dx: number; dy: number }> = {
+        up: { dx: 0, dy: -1 },
+        down: { dx: 0, dy: 1 },
+        left: { dx: -1, dy: 0 },
+        right: { dx: 1, dy: 0 }
+      };
+      const delta = keyboardMove[operation];
+      if (delta && selection.length >= 2) {
+        // Keyboard/button group-move must use the SAME strict preflight and
+        // single atomic MOVE as pointer group-move. Historical single-object
+        // Draft commands remain unchanged; this never enables Save Writer.
+        const ids = session.getSelection();
+        if (JSON.stringify(ids) !== JSON.stringify(selection)) {
+          moveDragFeedback = worldEditorMarqueeCopy($locale).moveRejected +
+            ' WEP_MULTI_DRAG_SELECTION_CHANGED';
+          return;
+        }
+        const preflight = session.previewStrictMove(
+          ids, delta.dx, delta.dy, areaBounds
+        );
+        if (!preflight.ok) {
+          moveDragFeedback = worldEditorMarqueeCopy($locale).moveRejected +
+            ' ' + preflight.code;
+          return; // no document/selection/Undo/Redo/recovery mutation
+        }
+        result = session.move(ids, delta.dx, delta.dy, {
+          strict: true,
+          areaBounds
+        });
+        moveDragFeedback = result?.applied && !result.draftBlocked
+          ? worldEditorMarqueeCopy($locale).moveApplied.replace('{count}', String(ids.length))
+          : worldEditorMarqueeCopy($locale).moveRejected;
+      } else if (delta) {
+        result = session.move(null, delta.dx, delta.dy);
+      }
       if (operation === 'rotate') result = session.rotateCardinal(null, 1);
       if (operation === 'duplicate') result = session.duplicate(null);
       if (operation === 'delete') result = session.remove(null);
