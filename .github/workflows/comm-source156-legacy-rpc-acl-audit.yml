@@ -1,0 +1,81 @@
+name: COMM Legacy Non-R16 RPC Effective ACL Disposable Audit
+on:
+  push:
+    branches: [comm/w-comm-006-legacy-rpc-acl-disposable-audit-20261103]
+  pull_request:
+    branches: [comm/post327-remaining-writer-audit-20261103]
+permissions:
+  contents: read
+jobs:
+  legacy-acl:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact inherited Source155/156 and isolated SQL audit-only delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 156
+          test "$(git hash-object supabase/migrations/20261102010000_community_source155_verified_first_account_bootstrap.sql)" = 115f2c0f7224984acd8830cfc606af8c6a1bf3af
+          test "$(git hash-object supabase/migrations/20261103010000_community_source156_signed_gallery_r16_atomic_writer.sql)" = 3000d66c193b996e4ece785deaf5180955ec3bc6
+          test "$(git hash-object supabase/functions/community-command/index.ts)" = c910dd851eeb3266594c152501425828fd3d9759
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID"
+          python3 -m py_compile tests/comm-source156-legacy-rpc-acl-disposable-local.py
+          node --test tests/community-post327-remaining-writer-audit.test.mjs
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+      - name: Local-only genuine GoTrue ES256 signer (no external provider)
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\n[auth]\nsigning_keys_path = "./signing_keys.json"\n' >> supabase/config.toml
+          printf '[]\n' > supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes >/tmp/comm-legacy-signer.log 2>&1
+      - name: Disposable exact FULL156 install and clean reset
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_legacy_acl_disposable_only"\n' | cat - supabase/config.toml >/tmp/legacy-config
+          mv /tmp/legacy-config supabase/config.toml
+          printf 'COMMUNITY_MEDIA_BUCKET=ddvre-legacy-media-local\nWEP_PRESET_ARTIFACT_BUCKET=ddvre-legacy-preset-local\n' > supabase/functions/.env
+          timeout 1800s supabase start >/tmp/legacy-start.log 2>&1 || {
+            echo LEGACY_DISPOSABLE_START_FAIL
+            tail -n 30 /tmp/legacy-start.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'
+            exit 1
+          }
+          timeout 900s supabase db reset --no-seed >/tmp/legacy-reset.log 2>&1 || {
+            echo LEGACY_DISPOSABLE_RESET_FAIL
+            tail -n 30 /tmp/legacy-reset.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'
+            exit 1
+          }
+          echo LOCAL_FULL156_RESET_COMPLETED
+      - run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Enumerate every Command RPC EXECUTE including direct anon/auth/service and Legacy v2 SQLSTATE
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/comm-source156-legacy-rpc-acl-disposable-local.py | tee /tmp/legacy-acl.log
+          grep -q '"case": "FULL156_LEGACY_ACL_INVENTORY_COMPLETE"' /tmp/legacy-acl.log
+          grep -q '"case": "LEGACY_V2_DIRECT_SQL_RANDOM_NONEXISTENT_ACTOR"' /tmp/legacy-acl.log
+          echo LOCAL_FULL156_LEGACY_ACL_CATALOG_COMPLETED_NOT_QA_ACCEPTED
+      - name: Cleanup private local signer, logs and disposable DB
+        if: always()
+        shell: bash
+        run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f supabase/functions/.env supabase/signing_keys.json /tmp/legacy-config /tmp/legacy-start.log /tmp/legacy-reset.log /tmp/legacy-acl.log /tmp/comm-legacy-signer.log
+          echo LOCAL_DISPOSABLE_LEGACY_CLEANUP_ATTEMPTED
