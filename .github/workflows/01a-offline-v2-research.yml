@@ -6,6 +6,7 @@ on:
       - 'crates/ddv-save-core/tests/p1g_noop_offline_research.rs'
       - 'crates/ddv-save-core/examples/p1g_offline_private_probe.rs'
       - 'crates/ddv-save-core/scripts/offline-real-save-v2.mjs'
+      - 'crates/ddv-save-core/docs/01A_REAL_SAVE_V2_INDEPENDENT_QR_HANDOFF_20261103.md'
       - '.github/workflows/01a-offline-v2-research.yml'
   push:
     branches:
@@ -43,6 +44,19 @@ jobs:
           persist-credentials: false
       - name: Build immutable private-offline Rust probe (NO real save in Actions)
         run: cargo build --release --manifest-path crates/ddv-save-core/Cargo.toml --example p1g_offline_private_probe
+      - name: Reuse pinned independent QR332 synthetic oracle on changed ZIP verifier
+        uses: actions/checkout@v4
+        with:
+          repository: DreamwishWand/web
+          ref: 6467065e98ace6e5972bfd7096208b632dd076f0
+          path: .qa332-synthetic-fixed
+          persist-credentials: false
+      - name: Test changed private-local verifier with independent QA fixture only
+        run: |
+          cp .qa332-synthetic-fixed/qa/05qr-core329-private-v2-harness-synthetic.test.mjs qa/05qr-core329-private-v2-harness-synthetic.test.mjs
+          node --test qa/05qr-core329-private-v2-harness-synthetic.test.mjs
+          echo 'INDEPENDENT_SYNTHETIC_ORACLE_REUSED=YES PRIVATE_SAVE_IN_CI=NO'
+
       - name: Assemble SOURCE-ONLY private executor package
         run: |
           test -x crates/ddv-save-core/target/release/examples/p1g_offline_private_probe
