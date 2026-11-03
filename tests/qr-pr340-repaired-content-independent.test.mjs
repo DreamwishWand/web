@@ -33,7 +33,7 @@ test('new-only RED1: unknown freshness classes fail closed, never inferred everg
   assert.equal(releaseEligible(good,ctx),true,'synthetic approved control must be eligible');
   const adversarial=['UNKNOWN_FUTURE_CLASS','EVERGREEN','',null,undefined,42];
   for(const freshnessClass of adversarial)deniedBoth({...good,freshnessClass});
-  console.log('QR_D B K_UNKNOWN_FRESHNESS_FAILCLOSED_PASS'.replaceAll(' ',''));
+  console.log('QR_DBK_UNKNOWN_FRESHNESS_FAILCLOSED_PASS');
 });
 
 test('new-only RED2: mismatched and missing exact schema reject even matching Platform+Version+BID',()=>{
