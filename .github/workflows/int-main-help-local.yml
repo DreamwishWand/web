@@ -35,7 +35,8 @@ jobs:
           for path in help help/questions help/tips help/issues help/my editor/timing rc-status; do
             test -f "build/$path/index.html"
           done
-          git diff --exit-code 866c5c558776e84631df5b7872e9e9e322bd2400 HEAD -- supabase/ src/lib/dreamsnaps/ src/lib/wep/ src/lib/ddv/ src/routes/editor/
+          BASE="$(git merge-base HEAD origin/main)"
+          git diff --exit-code "$BASE" HEAD -- supabase/ src/lib/dreamsnaps/ src/lib/wep/ src/lib/ddv/ src/routes/editor/
           grep -Fq "writer:'OFF'" src/lib/product-home/rc-manifest.js
           grep -Fq "release:'PUBLIC_NO_GO'" src/lib/product-home/rc-manifest.js
           grep -Fq "managedIngress:'I01-I14_NOT_ACCEPTED'" src/lib/product-home/rc-manifest.js
@@ -68,7 +69,7 @@ jobs:
           for i in $(seq 1 70); do if curl -fsS http://127.0.0.1:4177/help/ >/dev/null; then exit 0; fi; sleep 1; done
           cat /tmp/int-main-help-vite.log
           exit 1
-      - name: Actual Help local Chrome: JA/EN/320px/200pct/a11y/no Provider
+      - name: "Actual Help local Chrome: JA/EN/320px/200pct/a11y/no Provider"
         env:
           WEB_HELP_BASE_URL: http://127.0.0.1:4177
         run: node scripts/web-help-local-chrome.mjs
