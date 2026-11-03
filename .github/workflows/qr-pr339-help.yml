@@ -1,0 +1,53 @@
+name: 04 QR PR339 new-only Help Center local OFF child Chrome
+on:
+  pull_request:
+    branches: ['web/help-local-empty-states-20261103']
+permissions:
+  contents: read
+jobs:
+  qr339:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Freeze PR339 source and only QA file diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=eafc3f739c785c39da6990ab25526adb04b207ab
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD | sort >/tmp/qr339-actual
+          printf '%s\n' .github/workflows/qr-pr339-help.yml scripts/qr-pr339-help-browser.mjs | sort >/tmp/qr339-expected
+          diff -u /tmp/qr339-expected /tmp/qr339-actual
+          test -z "$(git diff --name-only "$BASE" HEAD -- src supabase)"
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 153
+          echo QR339_NEW_ONLY_TWO_QA_FILES_SOURCE_FROZEN_PASS
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Get actual Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Start local dev
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4178 >/tmp/qr339-vite.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4178/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr339-vite.log
+          exit 1
+      - name: Independent real Chromium JA EN 320 zoom200 Help children
+        env: {WEB_QR339_URL: 'http://127.0.0.1:4178'}
+        run: node scripts/qr-pr339-help-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: qr-pr339-help-browser, path: .artifacts/qr-pr339/, if-no-files-found: warn}
