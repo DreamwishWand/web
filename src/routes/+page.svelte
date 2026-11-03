@@ -2,12 +2,14 @@
   import { base } from '$app/paths';
   import { locale } from '$lib/i18n/runtime.js';
   import { homeCopy } from '$lib/product-home/copy.js';
+  import { helpStage1Copy } from '$lib/community/help-stage1-copy.js';
   import { HOME_STAGE1_CONSUMER } from '$lib/ui/consumer-fixtures.js';
   import ResponsiveFrame from '$lib/ui/ResponsiveFrame.svelte';
   import GroupedCardGrid from '$lib/ui/GroupedCardGrid.svelte';
   import VisualCard from '$lib/ui/VisualCard.svelte';
 
   $: copy = homeCopy($locale);
+  $: helpCopy = helpStage1Copy($locale);
   function titleFor(id: string): string {
     if (id === 'decorate') return copy.decorate;
     if (id === 'collection') return copy.collection;
@@ -28,7 +30,7 @@
 
 <svelte:head>
   <title>Dreamwish Wand — Home</title>
-  <meta name="description" content="Dreamwish Wand product hub for Disney Dreamlight Valley decorating, collection, guides, presets, Gallery, DreamSnaps and Q&A." />
+  <meta name="description" content="Dreamwish Wand product hub for Disney Dreamlight Valley decorating, collection, guides, presets, Gallery, DreamSnaps and Community Help Center." />
 </svelte:head>
 
 <ResponsiveFrame className="home-dashboard">
@@ -44,9 +46,9 @@
 
   <div class="home-qa-entry">
     <VisualCard
-      href={base + HOME_STAGE1_CONSUMER.qa.href}
-      title={copy.qa}
-      description={copy.qaDetail}
+      href={base + '/help/'}
+      title={helpCopy.title}
+      description={$locale === 'ja' ? '質問・ヒント・問題・自分のアクティビティ。未受入の公開・Owner操作はOFF。' : 'Questions, Tips, Issues and My Activity. Unaccepted publishing and Owner operations remain OFF.'}
       icon={HOME_STAGE1_CONSUMER.qa.icon}
       variant="horizontal"
     />
