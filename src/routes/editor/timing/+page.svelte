@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { base } from '$app/paths';
   import { locale } from '$lib/i18n/runtime.js';
   import { openWorldSaveBytes, WEP_WORLD_READONLY_626_PROVENANCE } from '$lib/wep/world-save-source';
@@ -8,6 +9,8 @@
   } from '$lib/timing/recurring-readonly.mjs';
   import { previewNextOccurrenceUiOnly } from '$lib/timing/w1-nextoccurrence-preview.mjs';
 
+  let uiReady = false;
+  onMount(() => { uiReady = true; });
   let sourceBuild = '';
   let userSourceConfirmed = false;
   let fileName = '';
@@ -125,7 +128,7 @@
   <meta name="description" content="Local-only DDV Switch v1.25.3 recurring event and ItemID search. No save editing, upload or writer." />
 </svelte:head>
 
-<section class="container timing-page" data-timing-readonly="true" data-writer="off">
+<section class="container timing-page" data-timing-readonly="true" data-w1-ui-ready={uiReady} data-writer="off">
   <a href={base + '/editor/'}>{japanese ? '← Editorに戻る' : '← Back to Editor'}</a>
   <h1>{japanese ? '日時・スポーンの検索' : 'Timing & Spawn Inspector'}</h1>
   <p>{japanese ? 'Dreamlight Timekeeperのイベント定義をWandで再利用した、ローカル読取り専用画面です。' : 'Local read-only preview using the frozen Dreamlight Timekeeper event registry.'}</p>
@@ -141,7 +144,7 @@
       ? 'Switchの対象バージョン・BIDをゲーム側で確認した（セーブ自体にBIDは含まれません）'
       : 'I verified the target Switch game build externally (the save does not contain its BID).'}</span></label>
     <label for="timing-file">{japanese ? 'ローカルセーブを選択' : 'Choose a local save'}</label>
-    <input id="timing-file" type="file" accept=".save,.p1g,application/octet-stream" on:change={importLocal}/>
+    <input id="timing-file" type="file" accept=".save,.p1g,application/octet-stream" disabled={!uiReady || busy} on:change={importLocal}/>
     {#if busy}<p role="status">{japanese ? 'ローカルで読込み中…' : 'Reading locally…'}</p>{/if}
     {#if error}<p role="alert" class="error">{japanese ? '読込みできませんでした。BID・形式・バージョンを確認してください。' : 'Could not read the save. Check the build, file format and version.'} <code>{error}</code></p>{/if}
   </div>
