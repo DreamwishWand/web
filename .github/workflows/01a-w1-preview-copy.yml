@@ -1,0 +1,41 @@
+name: 01A W1 CAS Preview & Synthetic Copy (Writer OFF)
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/src/trusted_read.rs'
+      - 'crates/ddv-save-core/tests/w1_preview_copy_reopen.rs'
+      - '.github/workflows/01a-w1-preview-copy.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  w1-preview-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Exact immutable source
+        run: |
+          git rev-parse HEAD
+          echo PRIVATE_SAVE_IN_CI=NO
+          echo PRODUCT_WRITER=OFF
+          echo NATIVE_V3=UNVERIFIED
+      - name: Targeted Rust W1 Preview and independent synthetic P1G reopen
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test w1_preview_copy_reopen -- --nocapture
+      - name: Independent original READ proof still holds
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test trusted_read_research
+      - name: Raw WASM 0-import regression, no getrandom-js dependency
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo build --release --target wasm32-unknown-unknown --manifest-path crates/ddv-save-core/Cargo.toml --lib
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const buf=fs.readFileSync('crates/ddv-save-core/target/wasm32-unknown-unknown/release/ddv_save_core.wasm');
+          const imports=WebAssembly.Module.imports(new WebAssembly.Module(buf));
+          console.log('RAW_WASM_IMPORTS='+imports.length);
+          if(imports.length!==0)process.exit(1);
+          NODE
+      - name: Confirm capability remains denied
+        run: |
+          grep -Fq 'Err("PRODUCT_ENCODE_COPY_NOT_AUTHORIZED")' crates/ddv-save-core/src/trusted_read.rs
+          grep -Fq 'Err("W1_OPERATION_REFERENCE_AND_NATIVE_CAPABILITY_NOT_ACCEPTED")' crates/ddv-save-core/src/trusted_read.rs
