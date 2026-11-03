@@ -2,6 +2,8 @@ name: 03 COMM R15 Genuine Signed SQL Race Probe (Disposable)
 on:
   push:
     branches: [comm/w-comm-006-r15-publish-signed-gap-probe-20261103]
+  pull_request:
+    branches: [comm/w-comm-006-source157-legacy-comments-acl-off-20261103]
 permissions:
   contents: read
 jobs:
