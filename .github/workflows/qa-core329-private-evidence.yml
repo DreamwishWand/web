@@ -1,0 +1,24 @@
+name: 05 QR CORE329 two-file V2 private executor evidence
+on:
+  pull_request:
+    paths:
+      - 'qa/05qr-core329-source-artifact.test.mjs'
+      - '.github/workflows/qa-core329-private-evidence.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  scoped-private-boundary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Guarantee no CORE source change in independent QA
+        run: git diff --quiet 9c2945a6ac41e584a49394bd1b39865c6d68daeb HEAD -- crates/ddv-save-core .github/workflows/01a-offline-v2-research.yml
+      - name: Independent source-only archive allowlist and V2 optional-comparator guards
+        run: node --test qa/05qr-core329-source-artifact.test.mjs
+      - name: Do not falsely promote real-save author run to independent CI
+        run: echo 'INDEPENDENT_PRIVATE_REAL_SAVE_NOT_RUN; V2_MECHANICS_SYNTHETIC_ONLY; WRITER=OFF'
