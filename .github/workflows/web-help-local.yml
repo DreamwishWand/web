@@ -1,0 +1,92 @@
+name: WEB local Help Center empty-state acceptance
+on:
+  push:
+    branches: ['web/help-local-empty-states-*']
+  pull_request:
+    paths:
+      - 'src/lib/community/HelpLocalChild.svelte'
+      - 'src/lib/community/help-local-copy.js'
+      - 'src/routes/help/**'
+      - 'tests/web-help-local-rc.test.mjs'
+      - 'scripts/web-help-local-chrome.mjs'
+      - '.github/workflows/web-help-local.yml'
+permissions:
+  contents: read
+jobs:
+  safe-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Eight locale / no remote Help Owner source
+        run: node --test tests/web-help-local-rc.test.mjs
+      - name: Svelte and static route build
+        run: npm run check && npm run build
+      - name: Preserve frozen PR331 and all six Owner OFF flags
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=8e70078334e39d5170f23d25ec77051ddf9149fd
+          git merge-base --is-ancestor "$BASE" HEAD
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          git diff --exit-code "$BASE" HEAD -- supabase/ src/lib/dreamsnaps/ src/lib/wep/ src/routes/qa/ src/routes/dreamsnaps/ src/routes/gallery/
+          git diff --name-only "$BASE" HEAD >/tmp/web-help-local-diff
+          test "$(wc -l </tmp/web-help-local-diff)" -eq 9
+          while IFS= read -r path; do
+            case "$path" in
+              src/lib/community/HelpLocalChild.svelte|src/lib/community/help-local-copy.js|src/routes/help/questions/+page.svelte|src/routes/help/tips/+page.svelte|src/routes/help/issues/+page.svelte|src/routes/help/my/+page.svelte|tests/web-help-local-rc.test.mjs|scripts/web-help-local-chrome.mjs|.github/workflows/web-help-local.yml) ;;
+              *) echo UNEXPECTED_SOURCE_CHANGE:"$path"; exit 1 ;;
+            esac
+          done </tmp/web-help-local-diff
+          for flag in 'OWNER_MANAGEMENT_ENABLED = false' 'SOURCE153_OWNER_V2_LIVE_ENABLED = false' 'SOURCE153_BROWSER_E2_PRODUCTION_ENABLED = false' 'OWNER_REVALIDATION_PRODUCTION_ENABLED = false' 'OWNER_PRODUCT_READONLY_ENABLED = false' 'OWNER_PRODUCT_MANAGED_INGRESS_ACCEPTED = false'; do
+            grep -RFq "$flag" src/lib/dreamsnaps/
+          done
+          for child in questions tips issues my; do test -f "build/help/$child/index.html"; done
+          echo WEB_HELP_PR331_FROZEN_OWNER_OFF_STATIC_PASS
+  actual-chromium:
+    needs: safe-source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Resolve actual Chrome
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Launch isolated local Vite
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4177 >/tmp/web-help-local-vite.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4177/help/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/web-help-local-vite.log
+          exit 1
+      - name: JA/EN 320px 200% keyboard private no-leak real Chromium
+        env:
+          WEB_HELP_BASE_URL: http://127.0.0.1:4177
+        run: node scripts/web-help-local-chrome.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: web-help-local-evidence
+          path: .artifacts/web-help-local/
+          if-no-files-found: warn
