@@ -89,5 +89,17 @@ const bounded=createResearchReadIngress(badCore);
 await bounded.dispatch({type:'OPEN_LOCAL',bytes:new Uint8Array([1])});
 v=await bounded.dispatch({type:'QUERY_W1_PAGE',cursor:null,limit:1});
 assert.equal(v.reason,'WORKER_CORE_PAGE_DENIED');
+
+const inconsistentCore={
+ async openLocalTrusted(){return {session_id:7,index_generation:1,revision:0,
+   product_read_worker_accepted:false,product_writer_authorized:false};},
+ async queryIndexedPage(){return {...fakePage(),complete:true,next_cursor:null};},
+ async close(){}
+};
+const inconsistent=createResearchReadIngress(inconsistentCore);
+await inconsistent.dispatch({type:'OPEN_LOCAL',bytes:new Uint8Array([1])});
+v=await inconsistent.dispatch({type:'QUERY_W1_PAGE',cursor:null,limit:1});
+assert.equal(v.reason,'WORKER_CORE_PAGE_DENIED');
+
 console.log('READ_WORKER_RESEARCH_ONLY_SYNTHETIC_PASS=1');
 console.log('PRODUCT_READ_WORKER=OFF PRODUCT_WRITER=OFF PRIVATE_SAVE_IN_CI=NO');
