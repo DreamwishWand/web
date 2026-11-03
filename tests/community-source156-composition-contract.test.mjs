@@ -66,6 +66,6 @@ test('composite CI proves clean install, no-seed reset and genuine signed both w
  assert.match(workflow,/COMPOSED_SOURCE156_TWO_POSTGRES_LOCK_ORDER_GLOBAL_PASS/);
  assert.match(legacy,/assert len\(fs\)==148/);
  assert.match(legacy,/MIGRATION_LEDGER_NOT_148/);
- assert.match(legacy,/MIGRATION_LEDGER_NOT_156/);
+ assert.match(legacy,/MIGRATION_LEDGER_NOT_157/);
  assert.match(legacy,/SOURCE156_POST_LEGACY_REPLAY_UNBOUND_R16_CLOSED/);
 });
