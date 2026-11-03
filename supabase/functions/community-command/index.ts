@@ -214,6 +214,15 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         return reply({ok:false,error:'SIGNED_BOOTSTRAP_SESSION_REQUIRED'},401);
       }
     }
+    // Source158: genuine post-revocation service-role R15 SQL commit was
+    // reproduced on disposable FULL157 after a *separate* signed preflight.
+    // Keep disabled until a same-transaction signed R15 writer is accepted.
+    // Use a string Set check to avoid narrowing the command union: the
+    // legacy parsing/mapping remains source-visible but is never reachable.
+    if (new Set<string>(['publishGallery']).has(command)) {
+      return reply({ok:false,error:'R15_GALLERY_PUBLISH_WRITER_NOT_ENROLLED'},409);
+    }
+
     const authorizationParams: JsonObject = {
       p_auth_subject: subject, p_issued_at_epoch: issuedAt,
       p_max_age_seconds: null
