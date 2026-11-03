@@ -66,7 +66,7 @@
         <section><h2>{copy.source}</h2><p>Nintendo Switch · DDV v1.25.0</p></section>
       </div>
       <p class="media-note">{copy.rights}</p>
-      {#if outcome?.canExplore}
+      {#if outcome && 'canExplore' in outcome && outcome.canExplore}
         <p><a href={base + '/explore/'}>{copy.explore}</a></p>
       {/if}
     {/if}
