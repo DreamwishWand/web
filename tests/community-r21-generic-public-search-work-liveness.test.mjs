@@ -13,10 +13,11 @@ const original=[
 const migration='supabase/migrations/20261027000030_generic_public_search_work_liveness_source146.sql';
 const sql=readFileSync(migration,'utf8');
 test('Source146 adds exactly one forward-only migration; protected predecessor bytes unchanged',()=>{
- assert.equal(readdirSync('supabase/migrations').filter(n=>n.endsWith('.sql')).length,156);
+ assert.equal(readdirSync('supabase/migrations').filter(n=>n.endsWith('.sql')).length,157);
  assert.ok(readdirSync('supabase/migrations').includes('20261102000000_community_source153_signed_session_lineage_v2.sql'));
  assert.ok(readdirSync('supabase/migrations').includes('20261102010000_community_source155_verified_first_account_bootstrap.sql'));
   assert.ok(readdirSync('supabase/migrations').includes('20261103010000_community_source156_signed_gallery_r16_atomic_writer.sql'));
+ assert.ok(readdirSync('supabase/migrations').includes('20261103020000_community_source157_legacy_comments_v2_service_execute_off.sql'));
   assert.ok(readdirSync('supabase/migrations').includes('20261028000000_x05_shared_dreamsnap_metadata_staged_v1.sql'));
   assert.ok(readdirSync('supabase/migrations').includes('20261028000020_x05_nonpublic_consent_phase_revoke_controls.sql'));
  for(const [p,sha] of original)assert.equal(execFileSync('git',['hash-object',p],{encoding:'utf8'}).trim(),sha,p);
