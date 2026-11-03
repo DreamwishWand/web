@@ -34,9 +34,8 @@ export function createTimingWorkerReadCore({
 
   let epoch = 0;
   let state = null;
-  let queryBusy = false;
 
-  const revoke = () => { epoch += 1; state = null; queryBusy = false; };
+  const revoke = () => { epoch += 1; state = null; };
   async function open({ file, buildId, sourceConfirmed, registry }) {
     // Revocation precedes all await points, including a malformed B source.
     revoke();
@@ -90,7 +89,7 @@ export function createTimingWorkerReadCore({
       rows: projected.rows, savedContainerCount: projected.savedContainerCount,
       unsupportedContainerCount: projected.unsupportedContainerCount,
       searchScope: null, pendingCursor: null, nextOffset: 0, finished: false,
-      queryGeneration: 0
+      queryGeneration: 0, queryBusy: false
     };
     return {
       sessionId, revision: 0, indexGeneration: generation,
@@ -109,7 +108,7 @@ export function createTimingWorkerReadCore({
       fail('READ_QUERY_BOUNDS');
     const s = state;
     if (!s) fail('READ_SESSION_NOT_OPEN');
-    if (queryBusy) fail('READ_QUERY_CONCURRENT_DENIED');
+    if (s.queryBusy) fail('READ_QUERY_CONCURRENT_DENIED');
     // Reserve the cursor before async signing to defeat concurrent reuse.
     if (cursor === null) {
       s.searchScope = q;
@@ -124,7 +123,7 @@ export function createTimingWorkerReadCore({
     if (s.finished) fail('READ_CURSOR_EXHAUSTED');
     s.pendingCursor = null; // consumed, even if an unrelated concurrent query arrives
     const ownQueryGen = s.queryGeneration;
-    queryBusy = true;
+    s.queryBusy = true;
     try {
       const results = filter(s.rows, q);
       const offset = s.nextOffset;
@@ -156,7 +155,7 @@ export function createTimingWorkerReadCore({
         productRustWorkerAccepted: false, writerAuthorized: false
       };
     } finally {
-      queryBusy = false;
+      s.queryBusy = false;
     }
   }
 
