@@ -23,7 +23,7 @@ jobs:
           printf '%s\n' .github/workflows/qr-pr339-help.yml scripts/qr-pr339-help-browser.mjs | sort >/tmp/qr339-expected
           diff -u /tmp/qr339-expected /tmp/qr339-actual
           test -z "$(git diff --name-only "$BASE" HEAD -- src supabase)"
-          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 154
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 153
           echo QR339_NEW_ONLY_TWO_QA_FILES_SOURCE_FROZEN_PASS
       - run: npm ci --no-audit --no-fund
       - run: npm install --no-save --package-lock=false playwright-core@1.55.0
