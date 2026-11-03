@@ -26,17 +26,18 @@ function fail(code) { throw Error(code); }
  * vertical slice while PR348 native Rust/raw WASM bridge is independently gated.
  */
 export function createTimingWorkerReadCore({
-  openSave, project, filter, cryptoRef = globalThis.crypto
+  openSave, project, filter, loadRegistry, cryptoRef = globalThis.crypto
 }) {
   if (typeof openSave !== 'function' || typeof project !== 'function' ||
-      typeof filter !== 'function' || !cryptoRef?.subtle || !cryptoRef?.getRandomValues)
+      typeof filter !== 'function' || typeof loadRegistry !== 'function' ||
+      !cryptoRef?.subtle || !cryptoRef?.getRandomValues)
     throw Error('READ_TRUSTED_WORKER_CRYPTO_UNAVAILABLE');
 
   let epoch = 0;
   let state = null;
 
   const revoke = () => { epoch += 1; state = null; };
-  async function open({ file, buildId, sourceConfirmed, registry }) {
+  async function open({ file, buildId, sourceConfirmed }) {
     // Revocation precedes all await points, including a malformed B source.
     revoke();
     const generation = epoch;
@@ -45,6 +46,10 @@ export function createTimingWorkerReadCore({
     // Explicit external attestation, not a cryptographic BID recovered from P1G.
     if (sourceConfirmed !== true || buildId !== SWITCH_1253_BID)
       fail('READ_EXTERNAL_BUILD_REQUIRED');
+    // Registry comes from the fixed Worker-owned same-origin asset loader,
+    // never from caller-provided metadata or a user-supplied Registry object.
+    const registry = await loadRegistry();
+    if (generation !== epoch) fail('READ_OPEN_REVOKED');
     if (!record(registry)) fail('READ_REGISTRY_MISSING');
     // Only the Worker can mint a new Session/HMAC key, never a UI-supplied ID.
     const nonce = new Uint8Array(16);
