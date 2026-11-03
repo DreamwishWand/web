@@ -21,6 +21,12 @@ const fit=async(label)=>{
   assert.ok(widths.scroll<=widths.client+2,label+' horizontal overflow '+JSON.stringify(widths));
 };
 try{
+  // Locale preference is explicit: browser ja-JP does not guarantee the app selects JA on initial hydration.
+  await page.setViewportSize({width:1280,height:850});
+  await page.goto(origin+'/help/questions/',{waitUntil:'domcontentloaded'});
+  await page.locator('#site-locale').selectOption('ja');
+  await page.waitForFunction(()=>document.querySelector('.help-heading h1')?.textContent?.trim()==='質問');
+  await page.setViewportSize({width:320,height:850});
   const kinds=['questions','tips','issues','my'];
   const titles={questions:'質問',tips:'ヒント',issues:'問題',my:'アクティビティ'};
   for(const kind of kinds) {
