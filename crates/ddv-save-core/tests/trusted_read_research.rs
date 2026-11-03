@@ -67,7 +67,7 @@ fn cursor_replay_and_query_scope_are_denied(){
  assert_eq!(core.query_indexed_page(gen).unwrap_err(),"READ_STALE_GENERATION");
  let mut filter=query(&m.session_id,None,1);filter.filter="all";
  assert_eq!(core.query_indexed_page(filter).unwrap_err(),"READ_QUERY_NOT_INDEXED");
- let mut big=query(&m.session_id,None,201);
+ let big=query(&m.session_id,None,201);
  assert_eq!(core.query_indexed_page(big).unwrap_err(),"READ_PAGE_LIMIT");
  core.close();
  assert_eq!(core.query_indexed_page(query(&m.session_id,None,1)).unwrap_err(),
@@ -123,7 +123,7 @@ fn object_map_indices_preserved_and_ambiguous_aliases_denied(){
 #[test]
 fn w1_intended_id_pointer_old_raw_and_revision_cas(){
  let core=open(JSON);let m=core.receipt().unwrap();
- let make=|event_id,saved_index,oneof:W1Kind,raw:&str,rev:u64|
+ let make=|event_id,saved_index,oneof:W1Kind,raw:&'static str,rev:u64|
  W1CommandIntent{
   session_id:&m.session_id,expected_revision:rev,expected_generation:m.generation,
   expected_encrypted_sha256:m.roots.encrypted_source_sha256,
