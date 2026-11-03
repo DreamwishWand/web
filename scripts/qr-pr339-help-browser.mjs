@@ -21,15 +21,23 @@ try {
   }
   check("EIGHT_LOCALES_NONEMPTY_OFF_COPY");
   for(const language of ["ja","en"]){
+    if(language==="en"){
+      // Set the app locale while staying on the last (My Activity) screen,
+      // then navigate. Svelte's app-level locale may rehydrate on route load.
+      await page.setViewportSize({width:1280,height:800});
+      await page.locator("#site-locale").selectOption("en");
+      console.log("QR339_EN_PRE_NAV",await page.locator("#site-locale").inputValue(),await page.locator(".help-heading h1").innerText());
+    }
     for(const kind of ["questions","tips","issues","my"]){
       await page.setViewportSize({width:1280,height:800});
       await page.goto(origin+"/help/"+kind+"/",{waitUntil:"domcontentloaded"});
-      await page.locator("#site-locale").selectOption(language);
-      if(language==="en"){
-        const expected={questions:"Questions",tips:"Tips",issues:"Issues",my:"My Activity"}[kind];
-        await page.waitForFunction((title)=>document.querySelector(".help-heading h1")?.textContent?.trim()===title,expected);
-      }else{
+      if(language==="ja"){
+        await page.locator("#site-locale").selectOption("ja");
         await page.waitForFunction(()=>document.querySelector(".help-heading h1")?.textContent?.trim().length>0);
+      }else{
+        const expected={questions:"Questions",tips:"Tips",issues:"Issues",my:"My Activity"}[kind];
+        console.log("QR339_EN_POST_NAV",kind,await page.locator("#site-locale").inputValue(),await page.locator(".help-heading h1").innerText());
+        await page.waitForFunction((title)=>document.querySelector(".help-heading h1")?.textContent?.trim()===title,expected,{timeout:12000});
       }
       await page.setViewportSize({width:320,height:800});
       const p=page.locator('[data-help-child="'+kind+'"][data-help-local-only="true"]');
