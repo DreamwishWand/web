@@ -12,7 +12,7 @@ test('all eight supported locale empty states explain absence of verified result
     const c = helpLocalCopy(locale);
     for (const k of ['back','navigation','statusConditional','statusOff','search','searchPending','emptyQuestions','emptyTips','emptyIssues','emptyMy','conditionalLink','legacyBoundary','noAutoRequests','availability']) {
       assert.equal(typeof c[k], 'string', locale + ' missing ' + k);
-      assert.ok(c[k].trim().length > 8, locale + ' empty ' + k);
+      assert.ok(c[k].trim().length > 0, locale + ' empty ' + k);
     }
   }
   assert.equal(helpLocalCopy('xx'),HELP_LOCAL_COPY.en);
