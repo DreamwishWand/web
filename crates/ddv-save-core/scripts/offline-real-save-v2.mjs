@@ -28,40 +28,63 @@ const key=fromHex(keyMatch[1]);
 // Independently re-open the supported one-entry ZIP32 envelope.
 // Never silently normalize extras, comments, descriptor or ZIP64.
 function independentOpen(ciphertext){
+ // Independent exact supported ZIP32 profile verifier. Never infer
+ // local/central header parity from successfully decompressing the entry.
  const dec=createDecipheriv('aes-256-ecb',key,null);
  const zip=Buffer.concat([dec.update(ciphertext),dec.final()]);
+ assert(zip.length>=105,'ZIP_TOO_SHORT');
  const end=zip.length-22;
- assert.equal(zip.readUInt32LE(0),0x04034b50);
- assert.equal(zip.readUInt32LE(end),0x06054b50);
- assert.equal(zip.readUInt16LE(end+8),1);
- assert.equal(zip.readUInt16LE(end+10),1);
- assert.equal(zip.readUInt16LE(end+20),0);
- const central=zip.readUInt32LE(end+16),size=zip.readUInt32LE(end+12);
- assert.equal(central+size,end);
- assert.equal(zip.readUInt32LE(central),0x02014b50);
- assert.equal(zip.readUInt16LE(6),0);
- assert.equal(zip.readUInt16LE(central+8),0);
- assert.equal(zip.readUInt16LE(8),8);
- assert.equal(zip.readUInt16LE(central+10),8);
- assert.equal(zip.readUInt16LE(26),7);
- assert.equal(zip.readUInt16LE(28),0);
- assert.equal(zip.readUInt16LE(central+28),7);
- assert.equal(zip.readUInt16LE(central+30),0);
- assert.equal(zip.readUInt16LE(central+32),0);
- assert.equal(zip.subarray(30,37).toString(),'profile');
- assert.equal(zip.subarray(central+46,central+53).toString(),'profile');
+ const r16=i=>zip.readUInt16LE(i),r32=i=>zip.readUInt32LE(i);
+ assert.equal(r32(0),0x04034b50,'ZIP_LOCAL_SIGNATURE');
+ assert.equal(r32(end),0x06054b50,'ZIP_EOCD_SIGNATURE');
+ assert.equal(r16(end+4),0,'ZIP_EOCD_DISK');
+ assert.equal(r16(end+6),0,'ZIP_EOCD_CENTRAL_DISK');
+ assert.equal(r16(end+8),1,'ZIP_EOCD_ENTRIES_DISK');
+ assert.equal(r16(end+10),1,'ZIP_EOCD_ENTRIES_TOTAL');
+ assert.equal(r16(end+20),0,'ZIP_ARCHIVE_COMMENT_DENIED');
+ const central=r32(end+16),centralSize=r32(end+12);
+ assert.equal(centralSize,46+7,'ZIP_CENTRAL_SIZE_DENIED');
+ assert.equal(central+centralSize,end,'ZIP_CENTRAL_BOUNDS');
+ assert.equal(r32(central),0x02014b50,'ZIP_CENTRAL_SIGNATURE');
+ assert.equal(r32(central+42),0,'ZIP_LOCAL_OFFSET');
+ assert.equal(r16(central+34),0,'ZIP_CENTRAL_DISK_START');
+ assert.equal(r16(26),7,'ZIP_LOCAL_NAME_LENGTH');
+ assert.equal(r16(28),0,'ZIP_LOCAL_EXTRA_DENIED');
+ assert.equal(r16(central+28),7,'ZIP_CENTRAL_NAME_LENGTH');
+ assert.equal(r16(central+30),0,'ZIP_CENTRAL_EXTRA_DENIED');
+ assert.equal(r16(central+32),0,'ZIP_FILE_COMMENT_DENIED');
+ assert.equal(zip.subarray(30,37).toString('ascii'),'profile','ZIP_LOCAL_NAME');
+ assert.equal(zip.subarray(central+46,central+53).toString('ascii'),'profile','ZIP_CENTRAL_NAME');
+ assert.equal(r16(4),r16(central+6),'ZIP_EXTRACT_VERSION_PARITY');
+ assert.equal(r16(6),r16(central+8),'ZIP_FLAGS_PARITY');
+ assert.equal(r16(8),r16(central+10),'ZIP_METHOD_PARITY');
+ assert.equal(r16(10),r16(central+12),'ZIP_TIME_PARITY');
+ assert.equal(r16(12),r16(central+14),'ZIP_DATE_PARITY');
+ assert.equal(r32(14),r32(central+16),'ZIP_CRC_PARITY');
+ assert.equal(r32(18),r32(central+20),'ZIP_COMPRESSED_SIZE_PARITY');
+ assert.equal(r32(22),r32(central+24),'ZIP_EXPANDED_SIZE_PARITY');
+ assert.equal(r16(6),0,'ZIP_FLAGS_UNSUPPORTED');
+ assert.equal(r16(8),8,'ZIP_METHOD_UNSUPPORTED');
+ assert.notEqual(r32(18),0xffffffff,'ZIP64_COMPRESSED_UNSUPPORTED');
+ assert.notEqual(r32(22),0xffffffff,'ZIP64_EXPANDED_UNSUPPORTED');
  const bytes=zip.subarray(37,central);
- assert.equal(bytes.length,zip.readUInt32LE(18));
- assert.equal(zip.readUInt32LE(central+20),bytes.length);
+ assert.equal(bytes.length,r32(18),'ZIP_COMPRESSED_BOUNDS');
  const plain=inflateRawSync(bytes);
- assert.equal(plain.length,zip.readUInt32LE(22));
- assert.equal(plain.length,zip.readUInt32LE(central+24));
+ assert.equal(plain.length,r32(22),'ZIP_EXPANDED_SIZE_MISMATCH');
  let crc=0xffffffff;
  for(const v of plain){crc^=v;for(let i=0;i<8;i++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);}
  crc=(crc^0xffffffff)>>>0;
- assert.equal(crc,zip.readUInt32LE(14));
- assert.equal(crc,zip.readUInt32LE(central+16));
- return {plain,meta:{method:8,flags:0,localExtra:0,centralExtra:0,comment:0,version:zip.readUInt16LE(4),time:zip.readUInt16LE(10),date:zip.readUInt16LE(12),made:zip.readUInt16LE(central+4),internal:zip.readUInt16LE(central+36),external:zip.readUInt32LE(central+38)}};
+ assert.equal(crc,r32(14),'ZIP_CRC_MISMATCH');
+ return {plain,meta:{
+   filename:'profile',method:r16(8),flags:r16(6),
+   extractVersion:r16(4),madeByVersion:r16(central+4),
+   dosTime:r16(10),dosDate:r16(12),
+   localExtraLen:r16(28),centralExtraLen:r16(central+30),
+   fileCommentLen:r16(central+32),archiveCommentLen:r16(end+20),
+   diskStart:r16(central+34),internalAttr:r16(central+36),
+   externalAttr:r32(central+38),localHeaderOffset:r32(central+42),
+   entryCount:r16(end+10)
+ },crc};
 }
 function editText(raw,idx,id,oneof,oldUtc,newUtc){
  const sourceObj=JSON.parse(raw);
@@ -115,6 +138,7 @@ assert.equal(hex(readFileSync(inputPath)),expectedHash,'ORIGINAL_MUTATED');
 assert.equal((await wand.loadProfile(new Uint8Array(noop))).jsonText,opened.jsonText);
 assert.equal((await wand.loadProfile(new Uint8Array(changed))).jsonText,after);
 let timekeeper='NOT_RUN';
+let tkHashes=[null,null];
 let tk=null;
 if(process.env.DDV_TIMEKEEPER_CODEC_MODULE){
  const module=await import(pathToFileURL(process.env.DDV_TIMEKEEPER_CODEC_MODULE).href);
@@ -124,6 +148,7 @@ if(process.env.DDV_TIMEKEEPER_CODEC_MODULE){
  assert.equal(tkOriginal.jsonText,opened.jsonText,'TIMEKEEPER_ORIGINAL_SOURCE_DIFFERENT');
  const tkNoop=Buffer.from(await tk.createEncodedProfile(tkOriginal.jsonText,tkOriginal.metadata));
  const tkEdit=Buffer.from(await tk.createEncodedProfile(after,tkOriginal.metadata));
+ tkHashes=[hex(tkNoop),hex(tkEdit)];
  for(const [cipher,expectedPlain] of [[tkNoop,prior.plain],[tkEdit,expectedEdited]]){
   const independent=independentOpen(cipher);
   assert(independent.plain.equals(expectedPlain),'TIMEKEEPER_ENCODE_INDEPENDENT_REOPEN_MISMATCH');
@@ -136,6 +161,7 @@ if(process.env.DDV_TIMEKEEPER_CODEC_MODULE){
  timekeeper='PASS_ENCODE_AND_CROSS_REOPEN';
 }
 let rust='NOT_RUN';
+let rustHashes=[null,null];
 if(process.env.DDV_REQUIRE_RUST==='1'){
  const rustEnv={...process.env,DDV_PRIVATE_CODEC_KEY_HEX:keyMatch[1]};
  // A fixed-head release-built research binary is also accepted for a
@@ -150,6 +176,7 @@ if(process.env.DDV_REQUIRE_RUST==='1'){
       input:original,encoding:null,env:rustEnv,maxBuffer:maxBytes
     });
  const results=['noop','edit'].map(run);
+ rustHashes=results.map(r=>r.status===0&&r.stdout?hex(r.stdout):null);
  for(const result of results){
   assert.equal(result.status,0,'RUST_OFFLINE_PROBE_FAILED');
   assert(result.stdout&&result.stdout.length>0);
@@ -172,5 +199,13 @@ console.log(JSON.stringify({
  one_field:{wand_js_codec_reopen:'PASS',independent_node_crypto_zlib_reopen:'PASS',
   exact_one_token_delta:true,metadata_equal:true},
  timekeeper_js_codec_reopen:timekeeper,rust_reopen:rust,
+ source_ciphertext_sha256:expectedHash,source_json_sha256:expectedJsonHash,
+ edited_json_sha256:hex(expectedEdited),
+ outputs:{
+  wand_noop_sha256:hex(noop),wand_w1_sha256:hex(changed),
+  timekeeper_noop_sha256:tkHashes[0],timekeeper_w1_sha256:tkHashes[1],
+  rust_noop_sha256:rustHashes[0],rust_w1_sha256:rustHashes[1]
+ },
+ zip_header_local_central_parity:'PASS',crc_independent_reopen:'PASS',
  product_encode_copy_authorized:false,persistent_replace_authorized:false
 }));
