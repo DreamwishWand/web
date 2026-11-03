@@ -68,10 +68,10 @@ jobs:
         run: |
           set -euo pipefail
           git rev-parse HEAD
-          # Prefix 154 from accepted PR316 is immutable; only Source155 and Source156 additive.
+          # Prefix 154 is immutable; Source155+156 are frozen and Source157 is the sole new successor.
           git merge-base --is-ancestor 3a331d4f1fc35d43857554ed7483034a7c4de109 HEAD
           git diff --name-only 3a331d4f1fc35d43857554ed7483034a7c4de109 HEAD -- supabase/migrations | sort > /tmp/source156-new-migrations
-          printf '%s\n' supabase/migrations/20261102010000_community_source155_verified_first_account_bootstrap.sql supabase/migrations/20261103010000_community_source156_signed_gallery_r16_atomic_writer.sql | sort > /tmp/source156-expected-migrations
+          printf '%s\n' supabase/migrations/20261102010000_community_source155_verified_first_account_bootstrap.sql supabase/migrations/20261103010000_community_source156_signed_gallery_r16_atomic_writer.sql supabase/migrations/20261103020000_community_source157_legacy_comments_v2_service_execute_off.sql | sort > /tmp/source156-expected-migrations
           diff -u /tmp/source156-expected-migrations /tmp/source156-new-migrations
           python3 - <<'PY'
           from pathlib import Path
@@ -80,7 +80,7 @@ jobs:
           fs=all_files[:148]
           assert len(fs)==148, 'historical Source148 prefix is incomplete'
           assert fs[-1].name=='20261028000010_x05_post_event_staged_liveness_immutable_guard.sql'
-          assert len(all_files)==156, f'expected 156 source SQL files after frozen 154 prefix, got {len(all_files)}'
+          assert len(all_files)==157, f'expected 157 source SQL files after frozen 154/155/156, got {len(all_files)}'
           vs=[f.name.split('_',1)[0] for f in all_files]
           assert all(re.fullmatch(r'\d{12}(?:\d{2})?',v) for v in vs)
           assert len(vs)==len(set(vs)), 'migration version collision'
@@ -144,7 +144,7 @@ jobs:
               WHERE version<='20261028000010';
             IF v<>148 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_148: %',v;END IF;
             SELECT count(*) INTO v FROM supabase_migrations.schema_migrations;
-            IF v<>156 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_156: %',v;END IF;
+            IF v<>157 THEN RAISE EXCEPTION 'MIGRATION_LEDGER_NOT_157: %',v;END IF;
             IF to_regprocedure('public.community_ensure_account_creator_signed_v1(uuid,bigint,uuid,text,text)') IS NULL
               OR to_regprocedure('public.community_set_gallery_comments_enabled_atomic_signed_v1(uuid,bigint,uuid,uuid,bigint,uuid,boolean,text)') IS NULL
             THEN RAISE EXCEPTION 'SOURCE155_156_SIGNED_RPC_MISSING';END IF;
@@ -152,6 +152,10 @@ jobs:
               OR has_function_privilege('authenticated','public.community_set_gallery_comments_enabled_atomic_signed_v1(uuid,bigint,uuid,uuid,bigint,uuid,boolean,text)','EXECUTE')
               OR NOT has_function_privilege('service_role','public.community_set_gallery_comments_enabled_atomic_signed_v1(uuid,bigint,uuid,uuid,bigint,uuid,boolean,text)','EXECUTE')
             THEN RAISE EXCEPTION 'SOURCE156_SIGNED_WRITER_ACL_BYPASS';END IF;
+            IF has_function_privilege('service_role','public.community_set_gallery_comments_enabled_v2(uuid,uuid,boolean)','EXECUTE')
+              OR has_function_privilege('anon','public.community_set_gallery_comments_enabled_v2(uuid,uuid,boolean)','EXECUTE')
+              OR has_function_privilege('authenticated','public.community_set_gallery_comments_enabled_v2(uuid,uuid,boolean)','EXECUTE')
+            THEN RAISE EXCEPTION 'SOURCE157_LEGACY_V2_EXECUTE_NOT_CLOSED';END IF;
             IF (select enrollment_state from private.community_writer_routes_r16 where writer_key='gallery-comments-legacy')<>'FAIL_CLOSED'
             THEN RAISE EXCEPTION 'R17_LEGACY_REGISTRY_NOT_CLOSED';END IF;
             IF to_regprocedure('public.community_set_gallery_comments_enabled_v1(uuid,uuid,boolean)') IS NULL
@@ -295,6 +299,9 @@ jobs:
           docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/migrations/20261103010000_community_source156_signed_gallery_r16_atomic_writer.sql
           docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres -Atc "SELECT NOT has_function_privilege('service_role','public.community_set_gallery_comments_enabled_atomic_r16(uuid,uuid,bigint,uuid,boolean,text)','EXECUTE')" | grep -qx 't'
           echo SOURCE156_POST_LEGACY_REPLAY_UNBOUND_R16_CLOSED
+          docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/migrations/20261103020000_community_source157_legacy_comments_v2_service_execute_off.sql
+          docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres -Atc "SELECT NOT has_function_privilege('service_role','public.community_set_gallery_comments_enabled_v2(uuid,uuid,boolean)','EXECUTE')" | grep -qx 't'
+          echo SOURCE157_POST_LEGACY_REPLAY_V2_SERVICE_WRITER_OFF
       - name: Seed LOCAL disposable actors and run existing negative Gallery SQL fixtures
         shell: bash
         run: |
