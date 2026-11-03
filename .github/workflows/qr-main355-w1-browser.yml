@@ -1,0 +1,54 @@
+name: 04 QR main355 new-only W1 actual Chromium
+on:
+  push:
+    branches: [qa/main355-w1-timing-browser-20261103]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  qr355:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Freeze merged main source and QA-only two paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=866c5c558776e84631df5b7872e9e9e322bd2400
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git diff --name-only "$SOURCE" HEAD | sort >/tmp/qr355-actual
+          printf '%s\n' .github/workflows/qr-main355-w1-browser.yml scripts/qr-main355-w1-browser.mjs | sort >/tmp/qr355-expected
+          diff -u /tmp/qr355-expected /tmp/qr355-actual
+          test -z "$(git diff --name-only "$SOURCE" HEAD -- src supabase static)"
+          test "$(git hash-object src/routes/editor/timing/+page.svelte)" = 7b12e58430e7b43303500c8711ffd4b70e10e914
+          test "$(git hash-object src/lib/timing/recurring-readonly.mjs)" = 219c3a7cfceeff40bec43d328d7e5d33e7a0c016
+          echo QR_MAIN355_TWO_QA_FILES_SOURCE_FROZEN
+      - run: npm ci --no-audit --no-fund
+      - name: QA install true Chromium (no managed browser or private file)
+        run: |
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install chromium
+      - name: Launch local main W1 route
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4197 >/tmp/qr355-vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4197/editor/timing/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          tail -n 40 /tmp/qr355-vite.log
+          exit 1
+      - name: Independent actual Chromium local file synthetic save cases
+        run: node scripts/qr-main355-w1-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qr-main355-w1-local-browser
+          path: .artifacts/qr-main355-w1/report.json
+          if-no-files-found: warn
