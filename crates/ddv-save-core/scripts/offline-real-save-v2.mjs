@@ -120,10 +120,19 @@ const oneof=required('DDV_W1_ONEOF');
 assert(['ItemSpawning','WildCropsSpawningInVillage','FlowerSpawningInVillage','FishSpawningInVillage'].includes(oneof));
 const old=required('DDV_W1_OLD_UTC'),next=required('DDV_W1_NEW_UTC');
 const after=editText(opened.jsonText,idx,id,oneof,old,next);
-// Negative CAS: wrong EventID/oneof/old token must never yield an output candidate.
-assert.throws(()=>editText(opened.jsonText,idx,id+1,oneof,old,next),/W1_EVENT_ID_CAS_FAILED/);
-assert.throws(()=>editText(opened.jsonText,idx,id,'__wrong_oneof__',old,next),/W1_ONEOF_CAS_FAILED/);
-assert.throws(()=>editText(opened.jsonText,idx,id,oneof,old+'__stale__',next),/W1_TIMESTAMP_CAS_FAILED/);
+// Record only stable denial codes, never failed inputs or source data.
+// This is a local JS CAS negative matrix, NOT Core Session/Revision CAS.
+const localCasNegatives=[
+ {name:'wrongEventId',expectedCode:'W1_EVENT_ID_CAS_FAILED',
+  attempt:()=>editText(opened.jsonText,idx,id+1,oneof,old,next)},
+ {name:'wrongOneof',expectedCode:'W1_ONEOF_CAS_FAILED',
+  attempt:()=>editText(opened.jsonText,idx,id,'__wrong_oneof__',old,next)},
+ {name:'staleOldUtc',expectedCode:'W1_TIMESTAMP_CAS_FAILED',
+  attempt:()=>editText(opened.jsonText,idx,id,oneof,old+'__stale__',next)}
+].map(({name,expectedCode,attempt})=>{
+ assert.throws(attempt,new RegExp(expectedCode));
+ return {name,result:'DENIED',reasonCode:expectedCode,editedOutputBytes:0};
+});
 const expectedEdited=Buffer.from(after,'utf8');
 assert.notEqual(hex(expectedEdited),expectedJsonHash,'EDITED_JSON_SHA_UNCHANGED');
 const noop=Buffer.from(await wand.createEncodedProfile(opened.jsonText,opened.metadata));
@@ -192,7 +201,18 @@ if(process.env.DDV_REQUIRE_RUST==='1'){
  rust='PASS_ENCODE_AND_CROSS_REOPEN';
 }
 console.log(JSON.stringify({
+ contract:'dreamwish.ddv.v2-local-redacted-receipt@1',
+ evidence:'LOCAL_RESEARCH_EXECUTION_ONLY_NOT_INDEPENDENT_QR_ACCEPTANCE',
  source_sha_verified:true,decoded_sha_verified:true,original_unchanged:true,zip_metadata_supported:true,
+ w1:{
+  eventId:id,savedIndex:idx,oneof,
+  changedPointer:'/World/RecurringEvents/'+String(idx)+'/'+oneof+'/NextOccurrence',
+  oldUtcSha256:hex(Buffer.from(old,'utf8')),
+  newUtcSha256:hex(Buffer.from(next,'utf8')),
+  rawOldCas:'PASS',decodedOldUtcCas:'PASS'
+ },
+ negativeCases:localCasNegatives,
+ registry_sha_verified:'NOT_RUN',full_w1_reference_closure:'NOT_VERIFIED',
  w1_identity_old_utc_negative_cas:'PASS',session_revision_cas:'NOT_RUN',
  no_op:{wand_js_codec_reopen:'PASS',independent_node_crypto_zlib_reopen:'PASS',
   decoded_lexical_equal:true,metadata_equal:true},
