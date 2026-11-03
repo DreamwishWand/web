@@ -5,6 +5,9 @@
   import { collectionFamilyLabel } from '$lib/collection/copy.js';
   import { collectionFacetLabel, loadCollectionRuntime } from '$lib/collection/runtime.js';
   import { resolveSharedCatalogEntity, sharedEntityLabels } from '$lib/entity/shared-catalog-detail.mjs';
+  import { addCatalogEntityToMoodboard } from '$lib/entity/entity-moodboard-action.mjs';
+  import { moodboardCopy } from '$lib/moodboards/copy.js';
+  import { MOODBOARD_STORAGE_KEY, MOODBOARD_BACKUP_KEY, createEmptyMoodboardDocument, parseMoodboardDocument, serializeMoodboardDocument } from '$lib/moodboards/store.js';
 
   export let primaryId: string;
   export let localeCode: string;
@@ -12,6 +15,11 @@
   let rows: any[] = [];
   let loading = true;
   let failure = false;
+  let moodboardDocument: any = createEmptyMoodboardDocument();
+  let selectedBoardId = '';
+  let moodboardStatus = '';
+  $: moodCopy = moodboardCopy(localeCode);
+  $: availableBoards = moodboardDocument.boards ?? [];
   $: copy = sharedEntityLabels(localeCode);
   $: outcome = index ? resolveSharedCatalogEntity(index, rows, primaryId, localeCode) : null;
   $: item = outcome?.status === 'FOUND' ? outcome.item : null;
@@ -19,7 +27,30 @@
   $: worldNames = item && index ? item.worlds.map((x: string) => collectionFacetLabel(index,'world',x,localeCode)).filter(Boolean) : [];
   $: universeNames = item && index ? item.universes.map((x: string) => collectionFacetLabel(index,'universe',x,localeCode)).filter(Boolean) : [];
 
+  function saveToMoodboard() {
+    if (!outcome || outcome.status !== 'FOUND' || !('canExplore' in outcome) || !outcome.canExplore || !selectedBoardId) return;
+    try {
+      // Always reload the latest local state before writing, including changes made on another Wand tab.
+      const current = localStorage.getItem(MOODBOARD_STORAGE_KEY);
+      const document = current ? parseMoodboardDocument(current) : createEmptyMoodboardDocument();
+      const result = addCatalogEntityToMoodboard(document, selectedBoardId, outcome);
+      if (current) localStorage.setItem(MOODBOARD_BACKUP_KEY, current);
+      localStorage.setItem(MOODBOARD_STORAGE_KEY, serializeMoodboardDocument(result.document));
+      moodboardDocument = result.document;
+      moodboardStatus = moodCopy.saved;
+    } catch {
+      moodboardStatus = moodCopy.invalid;
+    }
+  }
+
   onMount(async () => {
+    try {
+      const stored = localStorage.getItem(MOODBOARD_STORAGE_KEY);
+      moodboardDocument = stored ? parseMoodboardDocument(stored) : createEmptyMoodboardDocument();
+      selectedBoardId = moodboardDocument.boards[0]?.id ?? '';
+    } catch {
+      moodboardStatus = moodCopy.invalid;
+    }
     try {
       const result = await loadCollectionRuntime(base);
       index = result.index;
@@ -67,6 +98,24 @@
       </div>
       <p class="media-note">{copy.rights}</p>
       {#if outcome && 'canExplore' in outcome && outcome.canExplore}
+        <section class="moodboard-action" data-shared-detail-moodboard-action="local-only">
+          <h2>{moodCopy.boards}</h2>
+          {#if availableBoards.length}
+            <label for="shared-entity-board">{moodCopy.choose}</label>
+            <select id="shared-entity-board" bind:value={selectedBoardId}>
+              {#each availableBoards as board (board.id)}
+                <option value={board.id}>{board.title}</option>
+              {/each}
+            </select>
+            <button type="button" on:click={saveToMoodboard} disabled={!selectedBoardId}>{moodCopy.add}</button>
+          {:else}
+            <p><a href={base + '/moodboards/'}>{moodCopy.newBoard}</a></p>
+          {/if}
+          {#if moodboardStatus}<p role="status" aria-live="polite">{moodboardStatus}</p>{/if}
+          <p><a href={base + '/moodboards/'}>{moodCopy.title}</a></p>
+        </section>
+      {/if}
+      {#if outcome && 'canExplore' in outcome && outcome.canExplore}
         <p><a href={base + '/explore/'}>{copy.explore}</a></p>
       {/if}
     {/if}
@@ -84,5 +133,13 @@
  h2{font-size:13px;color:var(--ink-soft)}
  .entity-grid p{font-size:16px;overflow-wrap:anywhere}
  .media-note{margin:20px 0;color:var(--ink-muted);font-size:13px}
+ .moodboard-action{border:1px solid var(--border);background:var(--surface);border-radius:14px;padding:18px;margin:20px 0;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+ .moodboard-action h2{width:100%;margin:0;font-size:17px}
+ .moodboard-action label{font-size:13px}
+ .moodboard-action select,.moodboard-action button{font:inherit;padding:8px 12px;background:var(--surface-raised);color:var(--ink);border:1px solid var(--border);border-radius:8px}
+ .moodboard-action button{font-weight:700;cursor:pointer}
+ .moodboard-action p{width:100%;margin:2px 0;font-size:13px}
+ .moodboard-action a{color:var(--gold)}
+ .moodboard-action :is(select,button,a):focus-visible{outline:3px solid var(--gold);outline-offset:3px}
  @media(max-width:620px){.entity-grid{grid-template-columns:1fr}}
 </style>
