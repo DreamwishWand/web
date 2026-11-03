@@ -63,13 +63,16 @@ fn source_registry_sha_version_bids_and_full_source_errors_refuse_before_exposur
  for s in [
   r#"{"GameInfo":{"Version":626},"World":{"RecurringEvents":[]},"Other":{"a":1,"a":2}}"#,
   r#"{"GameInfo":{"Version":626},"World":{"RecurringEvents":[]},"Other":"\uD800"}"#,
-  r#"{"GameInfo":{"Version":626},"World":{"RecurringEvents":[]},"Other":true} junk"#,
-  r#"{"GameInfo":{"Version":624},"World":{"RecurringEvents":[]}}"#
+  r#"{"GameInfo":{"Version":626},"World":{"RecurringEvents":[]},"Other":true} junk"#
  ] {
-  let p=p1g(s);
-  assert!(TrustedReadCore::open_p1g_readonly(p.clone(),&KEY,sha256(&p),sha256(s.as_bytes()),
-   REGISTRY,sha256(REGISTRY),BID,626,1024*1024).is_err());
+  // The synthetic P1G generator correctly rejects invalid JSON first;
+  // independently test the same strict full-source scanner directly.
+  assert!(index_direct_children(s.as_bytes(),"/World/RecurringEvents").is_err());
  }
+ let schema=r#"{"GameInfo":{"Version":624},"World":{"RecurringEvents":[]}}"#;
+ let p=p1g(schema);
+ assert!(TrustedReadCore::open_p1g_readonly(p.clone(),&KEY,sha256(&p),sha256(schema.as_bytes()),
+  REGISTRY,sha256(REGISTRY),BID,626,1024*1024).is_err());
 }
 #[test]
 fn direct_index_and_complete_are_w1_only_never_full_domains(){
