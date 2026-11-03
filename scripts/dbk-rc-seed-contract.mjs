@@ -8,6 +8,7 @@ export function releaseEligible(row, ctx = {}) {
       row.independentQaAccepted !== true || row.sourceIdentityVerified !== true ||
       row.visibility !== "PUBLIC" || row.syntheticTestFixture === true || row.embargoed === true ||
       row.contentKind === "PRIVATE_ISSUE_REPORT") return false;
+  if (!goodTime(row.updatedAtActual)) return false;
   if (!LAUNCH_LOCALES.includes(ctx.locale) || !Array.isArray(row.localeReviewed) ||
       !row.localeReviewed.includes(ctx.locale)) return false;
   if (row.dlcRequired && row.dlcVerified !== true) return false;
@@ -28,7 +29,7 @@ export function releaseEligible(row, ctx = {}) {
   return true;
 }
 export function publicSearchEntries(rows, context) {
-  return rows.filter(row => releaseEligible(row, context)).map(row => ({
+  return rows.filter(row => row.publicIndexEligible === true && releaseEligible(row, context)).map(row => ({
     jobId: row.jobId, contentKind: row.contentKind,
     canonicalEntityId: row.canonicalEntityId ?? null,
     sourceVersion: row.sourceVersion ?? null
