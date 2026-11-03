@@ -1,0 +1,36 @@
+name: 05 QR PR341 W1 Indexed Read independent new-only
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/tests/qa_05qr_pr341_w1_read.rs'
+      - '.github/workflows/qa-pr341-w1-read-index.yml'
+  push:
+    branches:
+      - 'qa/05qr-pr341-w1-read-index-20261103'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  scoped-source-read:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Fixed source and no product diff
+        run: |
+          test "$(git merge-base 0ebf4efe53df82a947873cf8163b4a7949af4cf4 HEAD)" = 0ebf4efe53df82a947873cf8163b4a7949af4cf4
+          git diff --quiet 0ebf4efe53df82a947873cf8163b4a7949af4cf4 HEAD -- crates/ddv-save-core/src/ src/lib/ddv/core/save/
+          echo 'SOURCE_PR341=0ebf4efe53df82a947873cf8163b4a7949af4cf4'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Independently verify HMAC, source scope, ZIP and bounds
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test qa_05qr_pr341_w1_read -- --nocapture
+      - name: Research-only evidence boundary
+        run: |
+          echo 'PRIVATE_SAVE_IN_CI=NO'
+          echo 'PRODUCTION_WASM_WORKER=NOT_ACCEPTED'
+          echo 'FULL_11_DOMAIN_INDEX=NOT_VERIFIED'
+          echo 'PRODUCT_READ_FLAG=OFF'
+          echo 'PRODUCT_WRITER=OFF'
