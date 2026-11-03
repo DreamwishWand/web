@@ -53,7 +53,7 @@
       const projected = projectRecurringEventsReadonly(opened.profile,registry);
       if (token !== openToken) return;
       summary = projected;
-      rows = projected.rows;
+      rows = [...projected.rows];
       fileName = file.name;
     } catch {
       if (token !== openToken) return;
