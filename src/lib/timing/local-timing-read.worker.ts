@@ -3,6 +3,7 @@
 // is forwarded to the UI or network.
 import { openWorldSaveBytes } from '$lib/wep/world-save-source';
 import {
+  WAND_TIMING_REGISTRY_PATH,
   projectRecurringEventsReadonly, filterRecurringEventsReadonly
 } from './recurring-readonly.mjs';
 import { createTimingWorkerReadCore } from './local-worker-read-core.mjs';
@@ -10,7 +11,23 @@ import { createTimingWorkerReadCore } from './local-worker-read-core.mjs';
 const core = createTimingWorkerReadCore({
   openSave: openWorldSaveBytes,
   project: projectRecurringEventsReadonly,
-  filter: filterRecurringEventsReadonly
+  filter: filterRecurringEventsReadonly,
+  loadRegistry: async () => {
+    // Only an immutable worker-authored path is accepted; caller cannot
+    // substitute registry JSON or direct us to a remote provider.
+    const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+    const url = new URL(base + WAND_TIMING_REGISTRY_PATH.replace(/^\//, ''), self.location.origin);
+    if (url.origin !== self.location.origin) throw Error('READ_REGISTRY_ORIGIN_DENIED');
+    const response = await fetch(url, {
+      method: 'GET', credentials: 'omit', mode: 'same-origin',
+      redirect: 'error', cache: 'force-cache'
+    });
+    if (!response.ok || Number(response.headers.get('content-length') || 0) > 512 * 1024)
+      throw Error('READ_REGISTRY_UNAVAILABLE');
+    const json = await response.text();
+    if (json.length > 512 * 1024) throw Error('READ_REGISTRY_BOUNDS');
+    try { return JSON.parse(json); } catch { throw Error('READ_REGISTRY_INVALID'); }
+  }
 });
 const own = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -29,13 +46,13 @@ self.addEventListener('message', (event: MessageEvent) => {
     try {
       if (message.type === 'OPEN_FILE') {
         // New open invalidates A before any async B operation or validation.
-        if (!allowed(message, ['id', 'type', 'file', 'buildId', 'sourceConfirmed', 'registry'])) {
+        if (!allowed(message, ['id', 'type', 'file', 'buildId', 'sourceConfirmed'])) {
           core.close();
           throw Error('READ_FORGED_OPEN_REQUEST');
         }
         const result = await core.open({
           file: message.file, buildId: message.buildId,
-          sourceConfirmed: message.sourceConfirmed, registry: message.registry
+          sourceConfirmed: message.sourceConfirmed
         });
         self.postMessage({ id, ok: true, result });
       } else if (message.type === 'QUERY') {
