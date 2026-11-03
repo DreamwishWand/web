@@ -37,6 +37,7 @@ try{
  page.on('pageerror',e=>report.errors.push(String(e)));
  page.on('console',msg=>{if(msg.type()==='error')report.errors.push(msg.text());});
  await page.goto(root+'/editor/timing/',{waitUntil:'domcontentloaded'});
+ await page.locator('[data-w1-ui-ready="true"]').waitFor({timeout:15000});
  assert.equal(await page.locator('[data-writer="off"]').count(),1);
  await page.locator('#timing-bid').fill(bid);
  await page.locator('.attest input').check();
