@@ -1,7 +1,7 @@
 {
   "schema": "dreamwish-wand-world-editor-localization-inventory@1",
   "status": "COMPLETE_FOR_PINNED_SOURCES",
-  "generatedAt": "2026-11-02",
+  "generatedAt": "2026-11-03",
   "target": {
     "product": "Decorate / World Editor",
     "platform": "Nintendo Switch",
@@ -19,7 +19,7 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "93529826f0b6c1011f44ebbb95eb736c605b6dd7",
+    "src/routes/editor/world/+page.svelte": "f44f906e1419abb73ab41fafa2ccc38f4661231a",
     "src/lib/wep/world-editor-primary-job.ts": "25aba45c6004c020400a249c848c3bc2281fd4a0",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "711609eb100a0809a5e9a5b274f83dd9319e3645",
@@ -1597,6 +1597,13 @@
       "scope": "local selected furniture drag with strict previewStrictMove and one session.move strict commit",
       "launchLocales": 8,
       "writesNative": false,
+      "writerAuthorization": false
+    },
+    "keyboardGroupMove20261103": {
+      "scope": "Keyboard and explicit Move-button multi-furniture commands reuse strict non-mutating previewStrictMove and exactly one session.move strict commit",
+      "launchLocales": 8,
+      "statusCopy": "existing world-editor-marquee-copy.js",
+      "source": "src/routes/editor/world/+page.svelte",
       "writerAuthorization": false
     }
   },
