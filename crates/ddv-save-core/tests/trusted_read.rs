@@ -121,7 +121,9 @@ fn synthetic_100_and_200_mib_full_strict_source_scan_without_retaining_full_docu
   bytes.extend_from_slice(br#""}"#);
   let expected_size=bytes.len();
   let mut core=host();
+  let start=std::time::Instant::now();
   let t=core.open_decoded_research(bytes).unwrap();
+  let open_millis=start.elapsed().as_millis();
   assert_eq!(core.total_validated_source_bytes(),expected_size);
   assert!(core.retained_index_bytes()<1024);
   let p=core.query_page(&t,None,64).unwrap();
@@ -129,8 +131,12 @@ fn synthetic_100_and_200_mib_full_strict_source_scan_without_retaining_full_docu
   assert!(p.complete);
   assert!(!p.full_domain_reference_closure_complete);
   assert!(!p.product_read_worker_accepted);
-  println!("SYNTHETIC_W1_OPEN_FULL_VALIDATED_MIB={} RETAINED_SUBTREE_BYTES={} PRODUCT_WRITER=OFF",
-   mb,core.retained_index_bytes());
+  let peak_rss_kib=std::fs::read_to_string("/proc/self/status").ok()
+   .and_then(|s|s.lines().find(|line|line.starts_with("VmHWM:"))
+    .and_then(|line|line.split_whitespace().nth(1))
+    .and_then(|number|number.parse::<u64>().ok()));
+  println!("SYNTHETIC_W1_OPEN_FULL_VALIDATED_MIB={} OPEN_MS={} PROCESS_PEAK_RSS_KIB={:?} RETAINED_SUBTREE_BYTES={} PRODUCT_WRITER=OFF",
+   mb,open_millis,peak_rss_kib,core.retained_index_bytes());
   core.close(&t).unwrap();
  }
 }
