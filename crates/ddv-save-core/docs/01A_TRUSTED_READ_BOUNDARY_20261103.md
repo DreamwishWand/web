@@ -1,0 +1,32 @@
+# 01A CORE / Trusted READ boundary — W-CORE-004 (2026-11-03)
+
+**Draft research, DO_NOT_MERGE / DO_NOT_DEPLOY.** The implementation belongs to Wand Rust Core; the Timekeeper WEB bridge is a prospective consumer, not the authority or a second Save Engine. `product_read_worker_accepted=false`, `product_writer_authorized=false`, `encode_copy_authorized=false`, product Apply/persistence OFF throughout.
+
+## Target & fixed evidence
+
+- Platform **Nintendo Switch**, game **DDV v1.25.3**, external BID **9A239D3DB569756D**, save **schema 626**. The external BID is independently observed from build provenance and **cannot be inferred** from `GameInfo.Version`, source SHA or `LastSaveDeviceInfo`.
+- Source ancestry for this branch: PR #341 fixed Rust HEAD `0ebf4efe53df82a947873cf8163b4a7949af4cf4`, based on research PR #312 `c6b152512d3bc901fd1474dbcfcb07253ae1b347`. 05 QR **W-QR-021** remains a separate fixed-head review of PR341, not inherited acceptance of this branch.
+- Private genuine V2 **Codec-mechanics-only** evidence reused (not rerun): PR #329 `c3b2e43c76b7c47e6251b93a807ebe45b6d1e347`, independent 05 QR PR #343 fixed QA `3cf1172e1958897a151a59d9cbabafc0a17054ad`; real Switch schema626 P1G Rust / WandJS / TimekeeperJS no-op and one W1 edit (six outputs) independently reopened, CRC/ZIP/byte-diff/old-value CAS, restricted supported ZIP32 Deflate8, 13 genuine Rust negative refusals. This is NOT approval of general Writer, Session transaction, native spawn, or Rust Worker.
+
+## Implemented code (read only)
+
+1. **Full document first:** `W1ReadIndex::open_*` verifies the entire decoded JSON with the strict Wand scanner (UTF-8, grammar, duplicate names, number safety, nesting and schema). The only `serde_json::Value` is a **bounded <=2MiB RecurringEvents subtree**, never 100–200MiB of game data. Unknown material outside W1 is still syntactically validated, then discarded for this scoped read view. Full 11-domain native reference/ownership closure is **NOT** claimed.
+2. **Bounded/lazy:** after initial full read validation, the in-memory full decoded source is dropped. The Core retains a <=2MiB byte-identical W1 subtree and observed per-row source EventID/index/oneof. Each 64-row-or-smaller page re-scans only that subtree and verifies actual lexical event ID/UTC against the index. Nothing from client-supplied `total`, `Complete`, edges or invented Cursor becomes authority. `SourceSha256` (encrypted) and `DecodedJsonSha256` remain different receipts; decoded-only research cannot claim original P1G identity.
+3. **Core-owned lease:** `TrustedReadBoundary` derives a distinct nonzero session ID and HMAC Cursor secret for each incrementing epoch from **trusted-host-provided private cryptographic entropy**. It issues read-only `ReadTicket` (session, revision 0, indexGeneration=epoch, decoded SHA); the ticket is only a stale-response guard, NOT an authorization token. Mismatched/replayed source/Session/Revision/IndexGeneration/forged capability rejects. Opening B revokes A **before** checking B, including B parse failure. Close/navigation invalidates session and cursor. Because runtime entropy is supplied by a not-yet-implemented trusted host, this is a **research security contract**, not a deployed/accepted secret-issuer guarantee.
+4. **WASM/Worker boundary proposal:** `research-trusted-read-worker.mjs` is **uninstalled** and not imported by app routes or production Worker. Strict `OPEN_LOCAL`, `QUERY_W1_PAGE`, `CLOSE` are the only accepted research messages. An injected prospective trusted Core is the only source of Session/Row count/Complete/Cursor; Worker refuses extra metadata, caller capability/identity assertions, oversized messages (64 rows, 64KiB per row, 2MiB page), inconsistent Count/Complete, late A→B response and every write/export/undo/apply command. The Node test uses a **MOCK Core**, NOT a real Rust↔JS/WASM executable parity test.
+5. **No Native mutation:** neither Rust module issues a semantic `stageCommand` nor a typed Writer Capability, `encodeCopy`, persistent replace or game device access.
+
+## Source/negative/performance acceptance rules
+
+- Synthetic positive: valid W1 index with source-derived total, exact EventID and NextOccurrence, correct page order/completion; strict stored/deflated synthetic P1G separate source/decoded SHA.
+- Synthetic negative: stale source SHA, 0 entropy, fabricated ticket/session/capability/epoch/revision/index generation, cursor replay/scope, unsupported oneof, duplicate key/invalid Unicode outside W1, oversized W1, exhausted/closed session, failed B invalidating A, cross-tab delayed Worker response, oversized row/page, fake `Complete`, any Writer/Apply.
+- Target **100 and 200 MiB expanded decoded JSON**: synthetic unknown opaque string outside W1. CI measures strict open duration, Linux process VmHWM peak RSS, and **Core-retained W1 subtree bytes** after releasing the decoded original; these numbers are native synthetic only, not Chrome/WASM heap, streaming AES/ZIP, OPFS, or native game acceptance.
+- Separate native test, wasm32 compilation and Node mock ingress CI at the *new fixed HEAD*. Never rerun PR #329/#343 genuine private encrypted save nor upload original, key, decoded contents or edited P1G to GitHub/CI.
+
+## Residual gates / next work
+
+**Independent 05 QR:** PR341 exact old snapshot is W-QR-021 and must be assessed independently; this branch requires a **new-only** differential scoped review (optimized W1 subtree source and Core lease/Worker message tests) on its own new HEAD and CI. Negative suites show research contracts only.
+
+**Wand Core + WEB:** Build real Rust/WASM `openLocal/queryIndexedPage/verifyIndexedPage/close` adapters with Worker-owned cryptographic entropy, authenticated external build selection and Core-only source SHA/Registry/Session/Revision/IndexGeneration. The mock ingress must not be wired as a product Worker until exact-head signed binary provenance, real browser A→B/replay/heap/low-memory and row scope independent acceptance.
+
+**All-domain:** 11 Domain source-derived Identity/Reference/Dependency producer-consumer enumeration, unknown-state and full document read/write closure, overflow memory/streaming IO and malicious Unsupported ZIP remain unresolved for product, especially writer. User's 2126 timestamp is intentional; never normalize automatically. Separate Native V3 W1 event scheduling/LastOccurrence/Reschedule/Area semantics, operation-specific V4 if still necessary. Public/Writer flags OFF and RC != public launch.
