@@ -9,8 +9,7 @@ const BID:&str="9A239D3DB569756D";
 const OLD:&str="2126-08-20T00:00:00Z";
 const NEW:&str="2022-09-06T00:00:00Z";
 const REGISTRY:&[u8]=b"trusted-synthetic-registry-test-only-do-not-use-as-real-508";
-const JSON:&str=r#"{"GameInfo":{"Version":626},"World":{"RecurringEvents":[{"ItemSpawning":{"RecurringEventItemID":2010000021,"NextOccurrence":"2126-08-20T00:00:00Z"}},{"FlowerSpawningInVillage":{"RecurringEventItemID":2010000022,"NextOccurrence":"2026-11-03T00:00:00Z"}},{"UnknownFutureW2":{"RecurringEventItemID":987654,"ExtraState":{"unknown":{"keep":"exact"}}}}]}}"
-#;
+const JSON:&str=r#"{"GameInfo":{"Version":626},"World":{"RecurringEvents":[{"ItemSpawning":{"RecurringEventItemID":2010000021,"NextOccurrence":"2126-08-20T00:00:00Z"}},{"FlowerSpawningInVillage":{"RecurringEventItemID":2010000022,"NextOccurrence":"2026-11-03T00:00:00Z"}},{"UnknownFutureW2":{"RecurringEventItemID":987654,"ExtraState":{"unknown":{"keep":"exact"}}}}]}}"#;
 fn encrypted(src:&str)->Vec<u8>{
  encode_synthetic_fixture(src.as_bytes(),&[4u8;32],8).unwrap()
 }
@@ -93,10 +92,9 @@ fn source_registry_build_and_index_spoof_are_denied(){
  assert_eq!(wrong(bad_p1g.clone(),sha256(&bad_p1g),sha256(bad.as_bytes()),
    sha256(REGISTRY),BID).err().unwrap(),"DIRECT_INDEX_PARENT_MISSING_OR_WRONG_TYPE");
  let duplicate=r#"{"GameInfo":{"Version":626},"World":{"RecurringEvents":[],"RecurringEvents":[]}}"#;
- let d=encrypted; // use source grammar to reject duplicate keys before any READ.
+ // Existing strict parser rejects duplicate object keys before any READ.
  assert_eq!(ddv_save_core::validate_json(duplicate.as_bytes()).unwrap_err(),
    "JSON_DUPLICATE_KEY");
- let _=d;
 }
 #[test]
 fn oversized_record_is_denied_not_silently_omitted(){
