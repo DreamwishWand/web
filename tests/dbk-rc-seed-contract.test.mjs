@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { releaseEligible, publicSearchEntries, publicEmptyState, LAUNCH_LOCALES, HELP_CHILDREN } from "../scripts/dbk-rc-seed-contract.mjs";
 const d=JSON.parse(readFileSync(new URL("../docs/knowledge/rc-job-content-delta-20261103.json",import.meta.url),"utf8"));
 const ver=d.sourceVersionBaseline;
-const good={jobId:"GDE-SYS",contentKind:"CURATED_GUIDE_CONTENT",releaseEligible:true,rightsDecision:"APPROVED",moderationDecision:"CLEAR",correctionState:"CURRENT",independentQaAccepted:true,sourceIdentityVerified:true,visibility:"PUBLIC",localeReviewed:["ja"],sourceVersion:ver,freshnessClass:"VERSION_SCOPED"};
+const good={jobId:"GDE-SYS",contentKind:"CURATED_GUIDE_CONTENT",releaseEligible:true,publicIndexEligible:true,updatedAtActual:"2026-11-03T09:30:00Z",rightsDecision:"APPROVED",moderationDecision:"CLEAR",correctionState:"CURRENT",independentQaAccepted:true,sourceIdentityVerified:true,visibility:"PUBLIC",localeReviewed:["ja"],sourceVersion:ver,freshnessClass:"VERSION_SCOPED"};
 const ctx={locale:"ja",sourceVersion:ver,asOf:"2026-11-03T12:00:00Z"};
 test("14 canonical RC consumer rows and 7 release gates remain unpromoted",()=>{
  assert.equal(d.jobs.length,14); assert.equal(new Set(d.jobs.map(x=>x.jobId)).size,14);
@@ -24,6 +24,7 @@ test("all eight locales fail closed on source-only seed",()=>{
 test("synthetic approved row proves strict conditional gates",()=>{
  assert.equal(releaseEligible(good,ctx),true);
  assert.equal(releaseEligible({...good,rightsDecision:null},ctx),false);
+ assert.equal(releaseEligible({...good,updatedAtActual:null},ctx),false);
  assert.equal(releaseEligible({...good,moderationDecision:"HOLD"},ctx),false);
  assert.equal(releaseEligible({...good,correctionState:"PENDING"},ctx),false);
  assert.equal(releaseEligible({...good,localeReviewed:["en"]},ctx),false);
@@ -42,5 +43,6 @@ test("stale, missing, expired official snapshots fail closed",()=>{
 });
 test("public adapter never carries body/private source/media or unpublished search entries",()=>{
  const items=[good,{...good,jobId:"CHC-I",contentKind:"PRIVATE_ISSUE_REPORT"},{...good,jobId:"GAL-DEC",rightsDecision:null}];
- const output=publicSearchEntries(items,ctx);assert.equal(output.length,1);assert.deepEqual(Object.keys(output[0]).sort(),["canonicalEntityId","contentKind","jobId","sourceVersion"].sort());
+ const output=publicSearchEntries(items,ctx);assert.equal(output.length,1);
+ assert.equal(publicSearchEntries([{...good,publicIndexEligible:false}],ctx).length,0);assert.deepEqual(Object.keys(output[0]).sort(),["canonicalEntityId","contentKind","jobId","sourceVersion"].sort());
 });
