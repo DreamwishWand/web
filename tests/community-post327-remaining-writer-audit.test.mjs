@@ -24,7 +24,7 @@ const notes=load('docs/community/post327-remaining-writer-route-audit-20261103.m
 test('fix Source155 and Source156 at independently accepted PR327 SQL/Edge blobs',()=>{
  assert.equal(gitBlob(source155),'115f2c0f7224984acd8830cfc606af8c6a1bf3af');
  assert.equal(gitBlob(source156),'3000d66c193b996e4ece785deaf5180955ec3bc6');
- assert.equal(gitBlob(edge),'c910dd851eeb3266594c152501425828fd3d9759');
+ assert.equal(gitBlob(edge),'688c3f694091a22ad2b7e246d4975bcd06acbfae');
  assert.match(source156,/for share;/);
  assert.match(source156,/community_authorize_signed_session_v2/);
  assert.match(source156,/revoke all on function public\.community_set_gallery_comments_enabled_atomic_r16/);
@@ -88,4 +88,17 @@ test('physical media issuer, Preset and Scene publisher NOT accepted as R16',()=
  assert.match(owner,/DB commit is the authority/);
  assert.match(notes,/MANAGED_PENDING/);
  assert.match(notes,/INDEPENDENT_TARGETED_PASS/);
+});
+const source158=load('supabase/migrations/20261103030000_community_source158_r15_gallery_pinned_service_execute_off.sql');
+test('Source158 R15 Gallery publication OFF after signed preflight without widening R16',()=>{
+  const guard=edge.indexOf("new Set<string>(['publishGallery']).has(command)");
+  const signed=edge.indexOf("'community_authorize_signed_session_v2'",edge.indexOf("if (command !== 'ensureAccountCreator')"));
+  const rate=edge.indexOf('const rateBucket = commandToRateBucket[command]');
+  assert.ok(signed>=0 && guard>signed && rate>guard,'R15 legacy block order');
+  assert.match(edge,/R15_GALLERY_PUBLISH_WRITER_NOT_ENROLLED/);
+  assert.match(source158,/revoke all on function public\.community_publish_gallery_pinned_r15/);
+  assert.match(source158,/from public,anon,authenticated,service_role/);
+  assert.match(source158,/SOURCE158_UNVERIFIED_R15_PINNED_WRITER_EXECUTE_STILL_ON/);
+  assert.doesNotMatch(source158,/grant execute on function public\.community_publish_gallery_pinned_r15/i);
+  assert.match(edge,/setGalleryCommentsAtomicR16: 'community_set_gallery_comments_enabled_atomic_signed_v1'/);
 });
