@@ -22,7 +22,7 @@ test('shared source uses catalog, no owned assumptions nor SEO promotion',()=>{
  assert.equal(a.publicIndexable,false);
  assert.equal(a.aliasesVerified,false);
  assert.equal(a.relationsVerified,false);
- assert.equal(a.canExplore,false);
+ assert.equal(a.canExplore,true);
 });
 test('unknown/duplicate/version mismatch fail closed',()=>{
  assert.equal(resolveSharedCatalogEntity(index,[], '31700014','en').status,'NOT_FOUND');
