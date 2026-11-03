@@ -1,0 +1,69 @@
+name: 04 QR PR353 Source157 independent signed local ACL
+on:
+  push:
+    branches: [qa/pr353-source157-legacy-sql-20261103]
+  pull_request:
+    branches: [comm/w-comm-006-source157-legacy-comments-acl-off-20261103]
+permissions:
+  contents: read
+jobs:
+  qr157:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Strict QA-only delta and frozen Source155/156/157 ACL
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=c4e83becbb7d029f1ff393b7a2d5ba6278d75970
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git diff --name-only "$SOURCE" HEAD | sort > /tmp/qr157-actual
+          printf '%s\n' .github/workflows/qr-pr353-source157-independent.yml tests/qr-pr353-source157-independent.py | sort >/tmp/qr157-expected
+          diff -u /tmp/qr157-expected /tmp/qr157-actual
+          test -z "$(git diff --name-only "$SOURCE" HEAD -- supabase src)"
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 157
+          test "$(git hash-object supabase/migrations/20261102010000_community_source155_verified_first_account_bootstrap.sql)" = 115f2c0f7224984acd8830cfc606af8c6a1bf3af
+          test "$(git hash-object supabase/migrations/20261103010000_community_source156_signed_gallery_r16_atomic_writer.sql)" = 3000d66c193b996e4ece785deaf5180955ec3bc6
+          test "$(git hash-object supabase/migrations/20261103020000_community_source157_legacy_comments_v2_service_execute_off.sql)" = b9c44a501189857dff9fc6446dea21717d58b785
+          python3 -m py_compile tests/qr-pr353-source157-independent.py
+          echo QR_SOURCE157_TWO_QA_FILES_FROZEN_SQL
+      - uses: supabase/setup-cli@v1
+        with: {version: 2.109.0}
+      - name: Create isolated true ES256 GoTrue signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\n[auth]\nsigning_keys_path = "./signing_keys.json"\n' >> supabase/config.toml
+          printf '[]\n' > supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes >/tmp/qr157-signer.log 2>&1
+      - name: Build isolated FULL157 and reset migration ledger
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_qr157_independent_disposable_only"\n' | cat - supabase/config.toml >/tmp/qr157-conf
+          mv /tmp/qr157-conf supabase/config.toml
+          printf 'COMMUNITY_MEDIA_BUCKET=ddvre-qr157-media-local\nWEP_PRESET_ARTIFACT_BUCKET=ddvre-qr157-preset-local\n' > supabase/functions/.env
+          timeout 1800s supabase start > /tmp/qr157-start.log 2>&1 || { tail -n 25 /tmp/qr157-start.log; exit 1; }
+          timeout 900s supabase db reset --no-seed > /tmp/qr157-reset.log 2>&1 || { tail -n 25 /tmp/qr157-reset.log; exit 1; }
+          echo QR_SOURCE157_FULL_RESET_COMPLETED
+      - name: Install independent PostgreSQL driver
+        run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Independently verify 42501, actual signed revocation and rollback
+        run: python3 tests/qr-pr353-source157-independent.py
+      - name: Dispose local identity keys and database
+        if: always()
+        shell: bash
+        run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f supabase/functions/.env supabase/signing_keys.json /tmp/qr157-signer.log /tmp/qr157-conf /tmp/qr157-start.log /tmp/qr157-reset.log
+          echo QA_SOURCE157_EPHEMERAL_CLEANUP_ATTEMPTED
