@@ -1,0 +1,40 @@
+name: 05 QR PR348 fixed-source Trusted READ native and raw WASM ABI
+on:
+  push:
+    branches: [qa/05qr-pr348-trusted-read-delta-20261103]
+  pull_request:
+    paths:
+      - '.github/workflows/qa-pr348-trusted-read.yml'
+      - 'crates/ddv-save-core/tests/qa_05qr_pr348_trusted_read.rs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-native-and-abi:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Pinned source and zero product diff
+        run: |
+          git diff --quiet 52e6bf44eb8617e13c2210b13bc39c67c1f3e1d7 HEAD -- crates/ddv-save-core/src crates/ddv-save-core/Cargo.toml src/lib/ddv
+          echo PR348_SOURCE_HEAD=52e6bf44eb8617e13c2210b13bc39c67c1f3e1d7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: New-only independent Rust session/index/security negatives
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test qa_05qr_pr348_trusted_read -- --nocapture
+      - name: Raw WASM ABI independent import gate
+        run: |
+          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --release --lib
+          node -e "const fs=require('fs');const bytes=fs.readFileSync('crates/ddv-save-core/target/wasm32-unknown-unknown/release/ddv_save_core.wasm');const imp=WebAssembly.Module.imports(new WebAssembly.Module(bytes));console.log(JSON.stringify({imports:imp}));if(imp.some(x=>x.module.includes('__wbindgen')||x.name.includes('__wbindgen')))process.exit(1)"
+      - name: Product trust boundary
+        run: |
+          echo REAL_BROWSER_TRUSTED_READ_WORKER=NOT_RUN
+          echo REAL_BROWSER_200MIB_WORKER=NOT_RUN
+          echo PRIVATE_SAVE_IN_CI=NO
+          echo PRODUCT_READ_WORKER=OFF
+          echo PRODUCT_WRITER=OFF
