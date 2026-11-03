@@ -1,0 +1,29 @@
+name: 01A W1 Read Index Research (synthetic only)
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/**'
+      - '.github/workflows/01a-w1-read-index.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  scoped-w1-read:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Fixed source identity (no real save)
+        run: |
+          git rev-parse HEAD
+          echo PRIVATE_SAVE_IN_CI=NO
+          echo PRODUCT_W1_READ_WORKER=OFF
+          echo PRODUCT_WRITER=OFF
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Targeted W1 source index and cursor negatives
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test read_only_index -- --nocapture
+      - name: Compile shared Rust for native research
+        run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml
