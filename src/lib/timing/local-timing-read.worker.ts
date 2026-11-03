@@ -57,3 +57,6 @@ self.addEventListener('message', (event: MessageEvent) => {
     }
   })();
 });
+
+// Worker bootstrap handshake prevents UI file input before module imports finish.
+self.postMessage({ id: 0, ready: true, writerAuthorized: false });
