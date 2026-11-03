@@ -172,7 +172,9 @@ try {
  evidence.error=String(error?.stack||error);
 } finally {
  await mkdir('.artifacts/01a-main-timing-worker',{recursive:true});
- await writeFile('.artifacts/01a-main-timing-worker/report.json',JSON.stringify(evidence,null,2));
+ await writeFile('.artifacts/01a-main-timing-worker/'+
+  (process.env.WAND_TIMING_BROWSER_SMOKE==='1'?'pages-web-prefix.json':'report.json'),
+  JSON.stringify(evidence,null,2));
  await browser.close();
 }
 if(evidence.result!=='PASS') throw Error(evidence.error||'TIMING_WORKER_BROWSER_FAILED');
