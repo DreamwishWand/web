@@ -55,7 +55,13 @@ export function createResearchReadIngress(core) {
   }
   let generation = 0;
   let lease = null;
-  const retire = () => {generation++; const old = lease; lease = null; return old;};
+  let observedRows = 0;
+  let expectedTotal = null;
+  const retire = () => {
+    generation++; const old = lease; lease = null;
+    observedRows = 0; expectedTotal = null;
+    return old;
+  };
   async function dispatch(message) {
     if (!plain(message) || typeof message.type !== 'string') {
       return deny('WORKER_MESSAGE_INVALID');
@@ -109,7 +115,19 @@ export function createResearchReadIngress(core) {
           const page = await core.queryIndexedPage(ownedLease, message.cursor, message.limit);
           // Never egress A's late page after B open, CLOSE, or navigation.
           if (current !== generation || lease !== ownedLease) return deny('WORKER_STALE_QUERY_REPLY');
-          return Object.freeze({ ok: true, page: validatedPage(page),
+          const checked = validatedPage(page);
+          const total = checked.total_w1_rows;
+          const nextCount = observedRows + checked.rows.length;
+          if (checked.rows.length > message.limit || nextCount > total ||
+              (expectedTotal !== null && total !== expectedTotal) ||
+              checked.complete !== (nextCount === total) ||
+              (!checked.complete && checked.rows.length === 0)) {
+            throw Error('CORE_READ_INCONSISTENT_COMPLETION');
+          }
+          // Successful validation is the only transport-level advance;
+          // completeness is still NOT a proof of a genuine Rust source index.
+          observedRows = nextCount; expectedTotal = total;
+          return Object.freeze({ ok: true, page: checked,
             productReadAccepted: false, productWriterAuthorized: false });
         } catch {
           return deny('WORKER_CORE_PAGE_DENIED');
