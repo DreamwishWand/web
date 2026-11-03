@@ -154,7 +154,9 @@ try{
  assert.equal(await page.locator('[data-timing-loaded]').count(),0);
  await page.locator('.attest input').check();
  await upload(p1g(make('2026-01-01T00:00:00Z',624)));
- await page.getByText(/READ_SAVE_OR_REGISTRY_REJECTED/).waitFor({timeout:35000});
+ await page.locator('.timing-page [role="alert"] code').waitFor({timeout:35000});
+ const schemaError=await page.locator('.timing-page [role="alert"] code').innerText();
+ assert.match(schemaError,/^READ_[A-Z0-9_]+$/,'schema624 must be explicitly refused by worker');
  assert.equal(await page.locator('[data-timing-loaded]').count(),0);
  await upload(Buffer.alloc(64,0));
  await page.getByText(/READ_SAVE_OR_REGISTRY_REJECTED/).waitFor({timeout:35000});
