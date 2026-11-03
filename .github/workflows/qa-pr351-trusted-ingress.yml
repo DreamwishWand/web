@@ -1,0 +1,49 @@
+name: 05 QR PR351 trusted ingress and raw WASM regression
+on:
+  push:
+    branches: [qa/05qr-pr351-trusted-ingress-20261103]
+  pull_request:
+    paths:
+      - '.github/workflows/qa-pr351-trusted-ingress.yml'
+      - 'crates/ddv-save-core/scripts/qa-pr351-trusted-worker-newdelta.test.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-worker-mock:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Fixed source isolation
+        run: |
+          git diff --quiet 0f9443bd593f1087201825091f30d7fb7a0da4b5 HEAD -- crates/ddv-save-core/src crates/ddv-save-core/Cargo.toml src/lib/ddv
+          echo PR351_SOURCE_HEAD=0f9443bd593f1087201825091f30d7fb7a0da4b5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: A-B async race forged Complete and message boundary negatives
+        run: node --test crates/ddv-save-core/scripts/qa-pr351-trusted-worker-newdelta.test.mjs
+      - name: Explicit source-only acceptance ceiling
+        run: |
+          echo 'INJECTED_CORE=MOCK_NOT_REAL_RUST_WASM'
+          echo 'ACTUAL_PRODUCT_WORKER_CHROME_200MIB=NOT_RUN'
+          echo 'PRIVATE_SAVE_IN_CI=NO'
+          echo 'PRODUCT_READ_WORKER=OFF; PRODUCT_WRITER=OFF'
+  raw-wasm-abi:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Actual raw WASM import ABI compatibility (failing input must FAIL this job)
+        run: |
+          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --release --lib
+          node -e "const fs=require('fs');const buf=fs.readFileSync('crates/ddv-save-core/target/wasm32-unknown-unknown/release/ddv_save_core.wasm');const imp=WebAssembly.Module.imports(new WebAssembly.Module(buf));console.log(JSON.stringify({abiImports:imp}));if(imp.some(x=>x.module.includes('__wbindgen')||x.name.includes('__wbindgen')))throw Error('RAW_WASM_LEGACY_ABI_REGRESSION_NOT_ACCEPTED')"
