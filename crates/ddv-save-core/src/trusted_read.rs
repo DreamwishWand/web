@@ -360,3 +360,50 @@ fn valid_utc_exact(s:&str)->bool{
  let mdays=match m {4|6|9|11=>30,2=>if year%4==0&&(year%100!=0||year%400==0){29}else{28},_=>31};
  day>=1&&day<=mdays
 }
+
+#[cfg(test)]
+mod core_owned_cursor_tests {
+ use super::*;
+ use crate::p1g::encode_synthetic_fixture;
+ fn session()->TrustedReadCore{
+  let json=b"{\"GameInfo\":{\"Version\":626},\"World\":{\"RecurringEvents\":[{\"ItemSpawning\":{\"RecurringEventItemID\":123,\"NextOccurrence\":\"2126-08-20T00:00:00Z\"}},{\"ItemSpawning\":{\"RecurringEventItemID\":124,\"NextOccurrence\":\"2126-08-20T00:00:00Z\"}}]}}";
+  let p=encode_synthetic_fixture(json,&[6u8;32],8).unwrap();
+  TrustedReadCore::open_p1g_readonly(p.clone(),&[6u8;32],sha256(&p),sha256(json),
+      b"synthetic-registry",sha256(b"synthetic-registry"),
+      "9A239D3DB569756D",626,1024*1024).unwrap()
+ }
+ fn q<'a>(s:&'a str,cursor:Option<&'a str>)->PageQuery<'a>{
+   PageQuery{session_id:s,revision:0,generation:0,domain:"RecurringEvents",
+      sort:"savedIndex",filter:"",limit:1,cursor}
+ }
+ #[test]
+ fn expired_cursor_is_consumed_and_cannot_be_replayed(){
+   let mut core=session();let s=core.session_id.clone();
+   let token=core.query_indexed_page(q(&s,None)).unwrap().next_cursor.unwrap();
+   core.cursors.get_mut(&token).unwrap().expires=Instant::now()-Duration::from_secs(1);
+   assert_eq!(core.query_indexed_page(q(&s,Some(&token))).unwrap_err(),"READ_CURSOR_EXPIRED");
+   assert_eq!(core.query_indexed_page(q(&s,Some(&token))).unwrap_err(),"READ_CURSOR_UNKNOWN_OR_REPLAY");
+ }
+ #[test]
+ fn foreign_session_token_and_revision_generation_change_are_denied(){
+   let mut left=session();let mut right=session();
+   assert_ne!(left.session_id,right.session_id);
+   let sid=left.session_id.clone();let rhs=right.session_id.clone();
+   let token=left.query_indexed_page(q(&sid,None)).unwrap().next_cursor.unwrap();
+   assert_eq!(right.query_indexed_page(q(&rhs,Some(&token))).unwrap_err(),
+      "READ_CURSOR_UNKNOWN_OR_REPLAY");
+   left.revision=1;left.generation=1;
+   let mut v=q(&sid,Some(&token));v.revision=1;v.generation=1;
+   assert_eq!(left.query_indexed_page(v).unwrap_err(),"READ_CURSOR_STALE");
+ }
+ #[test]
+ fn cursor_supply_is_core_random_and_not_ui_selected(){
+   let mut core=session();let sid=core.session_id.clone();
+   assert_eq!(core.query_indexed_page(q(&sid,Some("00"))).unwrap_err(),
+      "READ_CURSOR_UNKNOWN_OR_REPLAY");
+   let one=core.query_indexed_page(q(&sid,None)).unwrap().next_cursor.unwrap();
+   let two=core.query_indexed_page(q(&sid,None)).unwrap().next_cursor.unwrap();
+   assert_ne!(one,two);
+   assert_eq!(one.len(),64);
+ }
+}
