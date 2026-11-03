@@ -121,12 +121,22 @@ pub struct TrustedReadCore {
  rows:Vec<DirectChildSpan>,cursors:HashMap<String,CursorGrant>,
  closed:bool,
 }
+#[cfg(not(target_arch="wasm32"))]
 fn random_hex(bytes:usize)->EngineResult<String>{
  let mut input=vec![0u8;bytes];
  getrandom::getrandom(&mut input).map_err(|_|"CORE_CSPRNG_UNAVAILABLE")?;
  let mut out=String::with_capacity(bytes*2);
  for b in input{use std::fmt::Write;write!(&mut out,"{b:02x}").map_err(|_|"CORE_TOKEN_FORMAT")?;}
  Ok(out)
+}
+#[cfg(target_arch="wasm32")]
+fn random_hex(_bytes:usize)->EngineResult<String>{
+ // The existing v0.1 raw WASM ABI has no WebCrypto import/bindings.
+ // Native getrandom(js) would introduce __wbindgen_externref imports and
+ // break the accepted raw Chromium module. Product Worker must provide an
+ // independently accepted authenticated WebCrypto bridge BEFORE issuing
+ // sessions or cursors. Until then reject rather than mint weak tokens.
+ Err("CORE_WASM_CSPRNG_BRIDGE_NOT_ACCEPTED")
 }
 fn query_scope(session_id:&str,roots:&ReadRoots,revision:u64,generation:u64,
                domain:&str,sort:&str,filter:&str,limit:usize)->[u8;32]{
