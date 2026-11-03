@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""R15 Gallery real issuer session + disposable eligible-work SERVICE_ROLE reachability.
+"""Source158 R15 Gallery real issuer + disposable EXECUTE OFF verification.
 
 This is a scoped AUTHORIZATION PROBE, not a release acceptance. It deliberately
 stages an authorized service_role SQL writer *after a separately committed
@@ -82,11 +82,11 @@ try:
     creator=uuid.UUID(data["creatorProfileId"])
     with closing(psycopg.connect(DSN,autocommit=True)) as pre,\
          closing(psycopg.connect(DSN,autocommit=True)) as writer:
-        assert scalar(pre,"select count(*) from supabase_migrations.schema_migrations")==157
+        assert scalar(pre,"select count(*) from supabase_migrations.schema_migrations")==158
         assert scalar(pre,"select pg_backend_pid()")!=scalar(writer,"select pg_backend_pid()")
-        assert scalar(pre,"select has_function_privilege('service_role',"
+        assert not scalar(pre,"select has_function_privilege('service_role',"
             "'public.community_publish_gallery_pinned_r15(uuid,uuid,bigint,text,text,uuid[],uuid[],bigint[],bigint[],text,text,text)',"
-            "'EXECUTE')"),"R15_SERVICE_ROLE_ROUTE_NOT_EFFECTIVE"
+            "'EXECUTE')"),"SOURCE158_R15_SERVICE_ROLE_GRANT_STILL_ON"
         assert not scalar(pre,"select has_function_privilege('authenticated',"
             "'public.community_publish_gallery_pinned_r15(uuid,uuid,bigint,text,text,uuid[],uuid[],bigint[],bigint[],text,text,text)',"
             "'EXECUTE')"),"R15_UNEXPECTED_AUTHENTICATED_GRANT"
@@ -128,19 +128,19 @@ try:
             except psycopg.Error as ex:
                 return "REJECTED",str(ex.sqlstate or "UNKNOWN")
 
-        # Positive control: actual live GoTrue A2 is separately authorized,
-        # staged eligible Work returns valid R15 commit and exactly-one side effects.
+        # Live real ES256 Session: previously positive R15 must be OFF.
         live=seed_g()
         scalar(pre,"select public.community_authorize_signed_session_v2(%s,%s,%s)",c2)
         live_before=snapshot(live)
+        status,response=req("/functions/v1/community-command",{
+            "command":"publishGallery","payload":{"workId":str(live["work"])}
+        },token=a2)
+        assert status==409 and response.get("error")=="R15_GALLERY_PUBLISH_WRITER_NOT_ENROLLED"
         outcome,res=publish(live,writer)
-        assert outcome=="COMMITTED",("R15_ELIGIBLE_POSITIVE_NOT_ESTABLISHED",res)
-        live_after=snapshot(live)
-        assert live_after[2]==live_before[2]+1 and live_after[3]==live_before[3]+1
-        assert live_after[4]==live_before[4]+1 and live_after[5]==live_before[5]+1
-        mark("R15_LIVE_A2_ELIGIBLE_POSITIVE",{
-            "signedA2":True,"published":True,"revisionSearchOutboxIdemExactlyOnce":True})
-
+        assert outcome=="REJECTED" and res=="42501",(outcome,res)
+        assert snapshot(live)==live_before
+        mark("SOURCE158_R15_LIVE_A2_EDGE409_SQL42501_NO_DIFF",{
+          "signedA2":True,"oldServiceRoleExecOff":True,"dbUnchanged":True})
         # Revoker-first: A1 passed the *separate* Edge-equivalent genuine signed
         # v2 verification. Then terminal Source154 revocation commits before
         # R15 service RPC invocation in an independent PostgreSQL backend.
@@ -155,30 +155,35 @@ try:
             raise AssertionError("REVOKED_A1_SIGNED_DB_AUTH_ACCEPTED")
         except psycopg.Error:
             pass
+        status,response=req("/functions/v1/community-command",{
+            "command":"publishGallery","payload":{"workId":str(revoked["work"])}
+        },token=a1)
+        assert status==401,"REVOKED_A1_MUST_401"
         result,detail=publish(revoked,writer)
-        after=snapshot(revoked)
-        changed=after!=base
-        mark("R15_AFTER_GENUINE_SIGNED_A1_REVOKE",{
-            "separateTransactions":True,"serviceRoleExecEnabled":True,
-            "signedA1EdgeWouldReject401":True,
-            "directR15Result":result,"workRevisionSearchOutboxIdemMutated":changed,
-            "sqlStateIfDenied":detail if result=="REJECTED" else None})
-        if result=="COMMITTED":
-            assert after[2]==base[2]+1 and after[3]==base[3]+1
-            assert after[4]==base[4]+1 and after[5]==base[5]+1
-            mark("R15_SCOPE_LOCAL_REVOKED_PRECHECK_SQL_COMMIT_CONFIRMED",{
-               "classification":"DISPOSABLE_SQL_SEPARATE_PRECHECK_TRUE_RED",
-               "directPublicClientExploitProved":False,
-               "actualInFlightEdgeHttpRaceProved":False,
-               "eligibleSyntheticGallery":True})
-        else:
-            assert not changed,("R15_REJECTED_BUT_MUTATED_DB",after,base)
-            mark("R15_SCOPE_LOCAL_REVOKED_DIRECT_SQL_DENIED",{
-                "classification":"LOCAL_DENY_OBSERVED","actualInFlightEdgeHttpRaceProved":False})
-        mark("R15_DISPOSABLE_SIGNED_SQL_PROBE_COMPLETE",{
+        assert result=="REJECTED" and detail=="42501",(result,detail)
+        assert snapshot(revoked)==base,"REVOKED_SQL_WROTE_DB"
+        mark("SOURCE158_R15_REVOKED_A1_EDGE401_SQL42501_NO_DIFF",{
+          "revokerFirst":True,"twoPg":True,"signedA1Original401":True,
+          "liveSiblingA2":True,"dbUnchanged":True})
+        # A reversible GRANT exercise exists ONLY in a rolled-back local
+        # transaction. Never regrant an unsafe public or real service role.
+        pre.execute("begin")
+        try:
+            pre.execute("grant execute on function public.community_publish_gallery_pinned_r15("
+                "uuid,uuid,bigint,text,text,uuid[],uuid[],bigint[],bigint[],text,text,text) to service_role")
+            assert scalar(pre,"select has_function_privilege('service_role',"
+              "'public.community_publish_gallery_pinned_r15(uuid,uuid,bigint,text,text,uuid[],uuid[],bigint[],bigint[],text,text,text)',"
+              "'EXECUTE')")
+        finally:
+            pre.execute("rollback")
+        assert not scalar(pre,"select has_function_privilege('service_role',"
+          "'public.community_publish_gallery_pinned_r15(uuid,uuid,bigint,text,text,uuid[],uuid[],bigint[],bigint[],text,text,text)',"
+          "'EXECUTE')"),"R15_GRANT_LEAKED_AFTER_ROLLBACK"
+        mark("SOURCE158_R15_TEMP_GRANT_ROLLBACK_OFF",{"serviceRoleExec":False})
+        mark("SOURCE158_R15_DISPOSABLE_SIGNED_OFF_COMPLETE",{
             "source157Unchanged":True,"publicWriterEnabled":False,
             "providerUsed":False,"signedIssuerReal":True,
-            "result":"SOURCE_REACHABILITY_PROBE_NOT_INDEPENDENT_QA"})
+            "result":"OWNER_LOCAL_SIGNED_SQL_OFF_NOT_INDEPENDENT_QA"})
 finally:
     if actor is not None:
         try:req("/auth/v1/admin/users/"+str(actor),method="DELETE",service=True)
