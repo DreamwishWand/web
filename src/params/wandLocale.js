@@ -1,1 +1,1 @@
-export function match(param) {return ['en','fr','it','de','es-ES','ja','zh-CN','pt-BR'].includes(param);}\n
+export function match(param) {return ['en','fr','it','de','es-ES','ja','zh-CN','pt-BR'].includes(param);}
