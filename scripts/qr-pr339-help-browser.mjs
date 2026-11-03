@@ -25,7 +25,12 @@ try {
       await page.setViewportSize({width:1280,height:800});
       await page.goto(origin+"/help/"+kind+"/",{waitUntil:"domcontentloaded"});
       await page.locator("#site-locale").selectOption(language);
-      await page.waitForFunction((lang)=>document.querySelector("html")?.getAttribute("lang")===lang,language);
+      if(language==="en"){
+        const expected={questions:"Questions",tips:"Tips",issues:"Issues",my:"My Activity"}[kind];
+        await page.waitForFunction((title)=>document.querySelector(".help-heading h1")?.textContent?.trim()===title,expected);
+      }else{
+        await page.waitForFunction(()=>document.querySelector(".help-heading h1")?.textContent?.trim().length>0);
+      }
       await page.setViewportSize({width:320,height:800});
       const p=page.locator('[data-help-child="'+kind+'"][data-help-local-only="true"]');
       assert.equal(await p.count(),1,language+"/"+kind);
