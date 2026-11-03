@@ -20,7 +20,7 @@ fn q<'a>(session:&'a str,cursor:Option<&'a str>,limit:usize)->PageQuery<'a>{
 #[test]
 fn core_minted_fresh_session_and_single_use_scope_cannot_cross_open(){
  let mut a=open(JSON);let mut b=open(JSON);
- let am=a.receipt().unwrap(),bm=b.receipt().unwrap();
+ let am=a.receipt().unwrap();let bm=b.receipt().unwrap();
  assert_ne!(am.session_id,bm.session_id);
  assert_eq!(am.roots.encrypted_source_sha256,bm.roots.encrypted_source_sha256);
  assert!(!am.roots.external_bid_cryptographically_bound);
