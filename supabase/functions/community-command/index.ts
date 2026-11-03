@@ -444,10 +444,6 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
         params.p_body = payload.body;
         params.p_idempotency_key = payload.idempotencyKey;
         break;
-      case 'setGalleryCommentsEnabled':
-        params.p_work_id = payload.workId;
-        params.p_enabled = payload.enabled;
-        break;
       case 'setGalleryCommentsAtomicR16':
         if (typeof payload.workId !== 'string' || !Number.isSafeInteger(payload.expectedVersion) ||
             typeof payload.expectedCurrentRevisionId !== 'string' ||
