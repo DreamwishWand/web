@@ -86,6 +86,10 @@ struct CursorGrant {
  offset:usize,query_sha:[u8;32],
  revision:u64,generation:u64,expires:Instant,
 }
+#[derive(Clone,Debug,PartialEq,Eq)]
+pub struct SourceReadCondition {
+ pub pointer:String,pub expected_raw_token_sha256:[u8;32],
+}
 pub struct W1CommandIntent<'a>{
  pub session_id:&'a str,pub expected_revision:u64,pub expected_generation:u64,
  pub expected_encrypted_sha256:[u8;32],pub expected_decoded_sha256:[u8;32],
@@ -93,11 +97,15 @@ pub struct W1CommandIntent<'a>{
  pub schema:u64,pub event_id:u64,pub saved_index:usize,pub oneof:W1Kind,
  pub pointer:&'a str,pub expected_old_raw_json:&'a str,
  pub expected_old_utc:&'a str,pub proposed_utc:&'a str,
+ /// Caller-specified witnesses are re-read by Core. Existence does NOT
+ /// establish Native semantics or exhaustive reference dependency closure.
+ pub source_read_set:Vec<SourceReadCondition>,
 }
 #[derive(Clone,Debug,PartialEq,Eq)]
 pub struct W1PreflightReceipt {
  pub exact_source_and_revision_cas:bool,
  pub event_identity_and_old_raw_cas:bool,
+ pub source_read_set_cas_matched:bool,
  pub required_registry_semantics_verified:bool,
  pub complete_operation_references_verified:bool,
  pub native_consumer_semantics_verified:bool,
@@ -325,9 +333,31 @@ impl TrustedReadCore {
   if decoded!=q.expected_old_utc{return Err("W1_OLD_UTC_CAS_FAILED");}
   if q.proposed_utc==decoded{return Err("W1_NO_OP_DENIED");}
   if !valid_utc_exact(q.proposed_utc){return Err("W1_NEW_UTC_INVALID");}
+  if q.source_read_set.len()>128{return Err("W1_READ_SET_TOO_LARGE");}
+  let mut unique=HashSet::new();
+  let mut pointers=Vec::with_capacity(q.source_read_set.len());
+  for condition in &q.source_read_set {
+    if !condition.pointer.starts_with('/')||condition.pointer.len()>1024||
+       condition.pointer.contains("//")||!unique.insert(condition.pointer.clone()){
+       return Err("W1_READ_SET_POINTER_INVALID");
+    }
+    pointers.push(condition.pointer.clone());
+  }
+  if !pointers.is_empty(){
+    let observed=index_selected_tokens(&self.decoded,&pointers)?;
+    if observed.len()!=pointers.len(){return Err("W1_REQUIRED_SOURCE_REFERENCE_MISSING");}
+    for condition in &q.source_read_set {
+      let hit=observed.iter().find(|r|r.pointer==condition.pointer)
+        .ok_or("W1_REQUIRED_SOURCE_REFERENCE_MISSING")?;
+      if sha256(hit.value.as_bytes())!=condition.expected_raw_token_sha256{
+        return Err("W1_READ_SET_CAS_FAILED");
+      }
+    }
+  }
   self.original_unchanged()?;
   Ok(W1PreflightReceipt{
     exact_source_and_revision_cas:true,event_identity_and_old_raw_cas:true,
+    source_read_set_cas_matched:true,
     required_registry_semantics_verified:false,
     complete_operation_references_verified:false,
     native_consumer_semantics_verified:false,
