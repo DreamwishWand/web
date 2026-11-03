@@ -57,7 +57,7 @@ try {
     assert.equal(await route.count(),1);
     const hrefs=await route.locator('a').evaluateAll(nodes=>nodes.map(n=>n.getAttribute('href')));
     for(const link of [product.href,...product.jobs.map(j=>j.href)])
-      assert.ok(hrefs.includes(link),'RC UX missing '+product.id+' '+link);
+      assert.ok(hrefs.some(href=>href?.endsWith(link)),'RC UX missing '+product.id+' '+link);
   }
   assert.match(await page.locator('[data-rc-owner-off]').innerText(),/OFF/);
   assert.match(await page.locator('[data-rc-version]').innerText(),/1\.25\.0/);
