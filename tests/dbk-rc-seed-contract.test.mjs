@@ -46,3 +46,19 @@ test("public adapter never carries body/private source/media or unpublished sear
  const output=publicSearchEntries(items,ctx);assert.equal(output.length,1);
  assert.equal(publicSearchEntries([{...good,publicIndexEligible:false}],ctx).length,0);assert.deepEqual(Object.keys(output[0]).sort(),["canonicalEntityId","contentKind","jobId","sourceVersion"].sort());
 });
+
+test("unknown freshnessClass is denied rather than treated as unscoped publication",()=>{
+ assert.equal(releaseEligible(good,ctx),true); // synthetic positive control, not authorization
+ for(const freshnessClass of ["UNKNOWN_FUTURE_CLASS","",null,undefined]){
+  assert.equal(releaseEligible({...good,freshnessClass},ctx),false,String(freshnessClass));
+ }
+});
+test("exact schema is mandatory alongside Platform, full Version and BID",()=>{
+ assert.equal(releaseEligible(good,ctx),true);
+ assert.equal(releaseEligible({...good,sourceVersion:{...ver,schema:626}},ctx),false);
+ assert.equal(releaseEligible({...good,sourceVersion:{...ver,schema:null}},ctx),false);
+ assert.equal(releaseEligible({...good,sourceVersion:{...ver,schema:undefined}},ctx),false);
+ assert.equal(releaseEligible(good,{...ctx,sourceVersion:{...ver,schema:null}}),false);
+ assert.equal(releaseEligible(good,{...ctx,sourceVersion:{...ver,schema:undefined}}),false);
+ assert.equal(releaseEligible(good,{...ctx,sourceVersion:{...ver,schema:626}}),false);
+});
