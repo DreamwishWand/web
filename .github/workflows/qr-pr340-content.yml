@@ -1,0 +1,28 @@
+name: 04 QR PR340 new-only RC metadata fail-closed adversarial
+on:
+  pull_request:
+    branches: ['dbk/rc-content-gates-20261103']
+permissions:
+  contents: read
+jobs:
+  qr340:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Freeze exact product source and metadata-only QA delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=9b406bab3624e311db99f69b7ce98680ee648219
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD | sort >/tmp/qr340-actual
+          printf '%s\n' .github/workflows/qr-pr340-content.yml tests/qr-pr340-content-failclosed.test.mjs | sort >/tmp/qr340-expected
+          diff -u /tmp/qr340-expected /tmp/qr340-actual
+          test -z "$(git diff --name-only "$BASE" HEAD -- src scripts/dbk-rc-seed-contract.mjs docs/knowledge supabase)"
+          echo QR340_QA_FROZEN_CONTENT_SOURCE_TWO_FILES_PASS
+      - name: Run independent adversarial source-only metadata tests
+        run: node --test tests/qr-pr340-content-failclosed.test.mjs
