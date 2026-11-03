@@ -8,6 +8,7 @@ on:
       - 'src/routes/editor/timing/+page.svelte'
       - 'tests/timing-local-worker-read.test.mjs'
       - 'scripts/01a-main-timing-worker-browser.mjs'
+      - 'scripts/01a-pages-base-static-server.mjs'
       - '.github/workflows/01a-main-timing-worker.yml'
   workflow_dispatch:
 permissions:
@@ -60,6 +61,23 @@ jobs:
         env:
           CHROME_BIN: ${{ steps.chrome.outputs.path }}
           WAND_TIMING_BROWSER_URL: http://127.0.0.1:4179
+        run: node scripts/01a-main-timing-worker-browser.mjs
+      - name: Serve Pages-style /web static build (no deploy)
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/01a-pages-base-static-server.mjs > /tmp/01a-pages-preview.log 2>&1 &
+          for i in $(seq 1 45); do
+            if curl --fail --silent http://127.0.0.1:4181/web/editor/timing/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/01a-pages-preview.log
+          exit 1
+      - name: Built Pages /web Worker + immutable Registry Chrome smoke
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          WAND_TIMING_BROWSER_URL: http://127.0.0.1:4181/web
+          WAND_TIMING_BROWSER_SMOKE: '1'
         run: node scripts/01a-main-timing-worker-browser.mjs
       - name: Publish synthetic-only report
         if: always()
