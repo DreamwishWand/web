@@ -112,6 +112,32 @@ pub struct W1PreflightReceipt {
  pub transaction_stage_authorized:bool,
  pub encode_copy_authorized:bool,
 }
+/// Proof-producing, read-only PREVIEW. Not a staged transaction,
+/// verified backup artifact or authorized edited-copy.
+#[derive(Clone,Debug,PartialEq,Eq)]
+pub struct W1ExactDiffPreview {
+ pub source_cipher_sha256:[u8;32],
+ pub source_decoded_sha256:[u8;32],
+ pub registry_sha256:[u8;32],
+ pub source_revision:u64,
+ pub index_generation:u64,
+ pub proposed_revision:u64,
+ pub pointer:String,
+ pub event_id:u64,
+ pub saved_index:usize,
+ pub old_utc:String,
+ pub new_utc:String,
+ pub old_decoded_bytes:usize,
+ pub proposed_decoded_bytes:usize,
+ pub proposed_decoded_sha256:[u8;32],
+ pub exact_changed_pointers:Vec<String>,
+ pub source_and_reference_cas_matched:bool,
+ pub full_operation_reference_closure_verified:bool,
+ pub original_first_backup_written:bool,
+ pub atomic_changeset_committed:bool,
+ pub encode_copy_authorized:bool,
+ pub persistent_replace_authorized:bool,
+}
 /// Owns immutable backing; no user-provided cursor or capability can grant
 /// access without matching Core-internal state and one random token.
 pub struct TrustedReadCore {
@@ -373,6 +399,56 @@ impl TrustedReadCore {
     native_consumer_semantics_verified:false,
     transaction_stage_authorized:false,encode_copy_authorized:false
   })
+ }
+ /// Strict preflight and full-document token-only exact-diff proof
+ /// without mutating a SaveSession or issuing any product Writer capability.
+ /// A bounded full-document copy is necessary in this research implementation.
+ pub fn preview_w1_exact_diff(&self,q:W1CommandIntent<'_>)->EngineResult<W1ExactDiffPreview>{
+   let pointer=q.pointer.to_owned();
+   let old_utc=q.expected_old_utc.to_owned();
+   let new_utc=q.proposed_utc.to_owned();
+   let event_id=q.event_id;
+   let saved_index=q.saved_index;
+   let expected_revision=q.expected_revision;
+   let expected_generation=q.expected_generation;
+   let checked=self.preflight_w1(q)?;
+   if !checked.exact_source_and_revision_cas||
+      !checked.event_identity_and_old_raw_cas||
+      !checked.source_read_set_cas_matched{
+      return Err("W1_PREVIEW_CAS_INCOMPLETE");
+   }
+   if self.decoded.len()>128*1024*1024{
+      return Err("W1_PREVIEW_COPY_BUDGET_EXCEEDED");
+   }
+   let change=crate::TokenChange{
+      pointer:pointer.clone(),expected_old_string:old_utc.clone(),
+      replacement_string:new_utc.clone()
+   };
+   let patched=crate::patch_json_string_tokens(
+      &self.decoded,self.roots.decoded_json_sha256,self.roots.schema,&[change]
+   )?;
+   if patched.changed.len()!=1||patched.changed[0].pointer!=pointer{
+      return Err("W1_PREVIEW_UNEXPECTED_DIFF");
+   }
+   self.original_unchanged()?;
+   Ok(W1ExactDiffPreview{
+      source_cipher_sha256:self.roots.encrypted_source_sha256,
+      source_decoded_sha256:self.roots.decoded_json_sha256,
+      registry_sha256:self.roots.registry_sha256,
+      source_revision:expected_revision,index_generation:expected_generation,
+      proposed_revision:expected_revision.checked_add(1)
+         .ok_or("W1_REVISION_OVERFLOW")?,
+      pointer,event_id,saved_index,old_utc,new_utc,
+      old_decoded_bytes:self.decoded.len(),
+      proposed_decoded_bytes:patched.bytes.len(),
+      proposed_decoded_sha256:patched.edited_sha256,
+      exact_changed_pointers:patched.changed.into_iter().map(|x|x.pointer).collect(),
+      source_and_reference_cas_matched:true,
+      full_operation_reference_closure_verified:false,
+      original_first_backup_written:false,
+      atomic_changeset_committed:false,
+      encode_copy_authorized:false,persistent_replace_authorized:false
+   })
  }
  pub fn stage_w1_transaction(&mut self,_receipt:&W1PreflightReceipt)->EngineResult<()>{
    Err("W1_OPERATION_REFERENCE_AND_NATIVE_CAPABILITY_NOT_ACCEPTED")
