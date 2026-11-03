@@ -12,6 +12,7 @@ aes = "=0.8.4"
 flate2 = { version = "=1.0.35", default-features = false, features = ["rust_backend"] }
 crc32fast = "=1.4.2"
 serde_json = "=1.0.145" # only small, strict-validated selected subtrees; never entire profile
+getrandom = { version = "=0.2.16", features = ["js"] } # Core CSPRNG: native OS or wasm Worker Web Crypto; never UI entropy
 
 [lib]
 path = "src/lib.rs"

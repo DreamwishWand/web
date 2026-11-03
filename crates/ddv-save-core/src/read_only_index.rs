@@ -64,7 +64,8 @@ pub struct ReadRequest<'a> {
 /// This type is NOT a product-bound constructor or a stable WASM/Worker ABI.
 pub struct W1ReadIndex {
  session_id:u64,
- original:Arc<[u8]>,
+ w1_snapshot:Arc<[u8]>,
+ validated_source_bytes:usize,
  decoded_sha:[u8;32],
  encrypted_sha:Option<[u8;32]>,
  revision:u64,
@@ -94,7 +95,7 @@ fn event_id(v:&serde_json::Value)->EngineResult<u64>{
  if id==0||id>9_007_199_254_740_991{return Err("READ_W1_ID_INVALID");}
  Ok(id)
 }
-fn parse_rows(source:&[u8])->EngineResult<Vec<RowMeta>>{
+fn parse_rows(source:&[u8])->EngineResult<(Vec<RowMeta>,Vec<u8>)>{
  let paths=vec!["/GameInfo/Version".to_string(),"/World/RecurringEvents".to_string()];
  // index_selected_tokens scans ALL source, rejecting unrelated malformed JSON,
  // duplicate keys, unsafe numbers and invalid UTF8 before any row is exposed.
@@ -136,7 +137,7 @@ fn parse_rows(source:&[u8])->EngineResult<Vec<RowMeta>>{
    saved_index:idx,event_id:id,variant,expected_utc:utc.to_owned()
   });
  }
- Ok(result)
+ Ok((result,subtree.value.as_bytes().to_vec()))
 }
 impl W1ReadIndex {
  fn open_decoded_inner(session_id:u64,source:Vec<u8>,
@@ -150,9 +151,12 @@ impl W1ReadIndex {
    return Err("READ_SOURCE_SIZE_UNSUPPORTED");
   }
   if sha256(&source)!=expected_sha{return Err("READ_DECODED_SOURCE_SHA_CAS_FAILED");}
-  let rows=parse_rows(&source)?;
+  let validated_source_bytes=source.len();
+  let (rows,w1_source)=parse_rows(&source)?;
+  // Retain only a bounded source-derived subtree; the 100–200 MiB
+  // decoded input is dropped once FULL strict validation/indexing succeeds.
   Ok(Self {
-   session_id,original:Arc::from(source),decoded_sha:expected_sha,
+   session_id,w1_snapshot:Arc::from(w1_source),validated_source_bytes,decoded_sha:expected_sha,
    encrypted_sha,revision:0,index_generation:0,cursor_key,rows,
    started:false,next_index:0,pending_cursor:None,finished:false,closed:false
   })
@@ -180,13 +184,24 @@ impl W1ReadIndex {
   Self::open_decoded_inner(session_id,decoded.json,expected_json_sha,
    private_cursor_key,Some(expected_p1g_sha),external_bid)
  }
+ /// Internal-only epoch binding; no public UI or caller can choose it.
+ /// READ research has no mutations, so revision remains zero.
+ pub(crate) fn bind_trusted_epoch(&mut self,epoch:u64)->EngineResult<()>{
+  if self.closed||self.started||epoch==0{return Err("READ_INVALID_EPOCH_BIND");}
+  self.index_generation=epoch;
+  Ok(())
+ }
  pub fn row_count(&self)->usize{self.rows.len()}
+ /// Core-retained bytes exclude the decoded full document after OPEN.
+ pub fn retained_w1_bytes(&self)->usize{self.w1_snapshot.len()}
+ pub fn validated_source_bytes(&self)->usize{self.validated_source_bytes}
  pub fn decoded_source_sha256(&self)->[u8;32]{self.decoded_sha}
  pub fn close(&mut self){
   self.closed=true;
   self.cursor_key=[0;32];
   self.pending_cursor=None;
   self.rows.clear();
+  self.w1_snapshot=Arc::from(Vec::<u8>::new());
  }
  /// HMAC-SHA256 over a fixed read scope; the key never appears in a page.
  /// Cursor uniqueness also depends on a new privately generated per-session key.
@@ -232,17 +247,19 @@ impl W1ReadIndex {
   let selected=&self.rows[self.next_index..end];
   let mut paths=Vec::with_capacity(selected.len()*2);
   for row in selected {
-   let root=format!("/World/RecurringEvents/{}/{}",row.saved_index,row.variant.as_str());
+   let root=format!("/{}/{}",row.saved_index,row.variant.as_str());
    paths.push(format!("{root}/RecurringEventItemID"));
    paths.push(format!("{root}/NextOccurrence"));
   }
-  let hits=index_selected_tokens(&self.original,&paths)?;
+  // Parse at most the bounded <=2 MiB W1 subtree, not the full document
+  // on every lazy page. This subtree was validated during OPEN.
+  let hits=index_selected_tokens(&self.w1_snapshot,&paths)?;
   if hits.len()!=paths.len(){return Err("READ_INDEX_SOURCE_DRIFT");}
   let map:BTreeMap<String,String>=hits.into_iter()
    .map(|hit|(hit.pointer,hit.value)).collect();
   let mut rows=Vec::with_capacity(selected.len());
   for row in selected {
-   let root=format!("/World/RecurringEvents/{}/{}",row.saved_index,row.variant.as_str());
+   let root=format!("/{}/{}",row.saved_index,row.variant.as_str());
    let id_path=format!("{root}/RecurringEventItemID");
    let ts_path=format!("{root}/NextOccurrence");
    let id=map.get(&id_path).ok_or("READ_ID_SOURCE_MISSING")?;
@@ -254,7 +271,7 @@ impl W1ReadIndex {
    if decoded!=row.expected_utc{return Err("READ_TIMESTAMP_SOURCE_DRIFT");}
    rows.push(W1ReadRow {
     saved_index:row.saved_index,event_id:row.event_id,
-    variant:row.variant,next_occurrence_pointer:ts_path,
+    variant:row.variant,next_occurrence_pointer:format!("/World/RecurringEvents{ts_path}"),
     raw_timestamp_json:raw.clone(),decoded_timestamp_utc:decoded
    });
   }
