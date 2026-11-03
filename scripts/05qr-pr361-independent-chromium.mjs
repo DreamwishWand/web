@@ -79,8 +79,11 @@ try{
  ok('WORKER_FIXED_REGISTRY_508_ITEMID_SEARCH');
  await page.locator('#timing-search').fill('2010500008');
  await page.locator('#timing-search').dispatchEvent('input');
- await waitRows(1);
- assert.match(await page.locator('[data-timing-loaded="true"]').innerText(),/2010500008/);
+ await page.waitForFunction(() => {
+  const rows=document.querySelectorAll('[data-timing-loaded="true"] .event');
+  return rows.length===1 && rows[0].textContent.includes('EventID: 2010500008');
+ },null,{timeout:20000});
+ assert.match(await page.locator('[data-timing-loaded="true"]').innerText(),/EventID: 2010500008/);
  ok('EVENTID_SEARCH');
  // Probe Worker message boundary itself, not just input controls.
  // The Worker object is captured via browser init script; this is a REAL
