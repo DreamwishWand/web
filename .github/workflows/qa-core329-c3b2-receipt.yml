@@ -1,0 +1,33 @@
+name: 05 QR PR329 c3b2 Current Receipt New-Only Synthetic QA
+on:
+  pull_request:
+    paths:
+      - 'qa/05qr-core329-c3b2-receipt-delta.test.mjs'
+      - '.github/workflows/qa-core329-c3b2-receipt.yml'
+  push:
+    branches:
+      - 'qa/05qr-core329-c3b2-receipt-20261103'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  receipt-new-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Source c3b2 exact pin and no product source changes
+        run: |
+          git diff --quiet c3b2e43c76b7c47e6251b93a807ebe45b6d1e347 HEAD -- crates/ddv-save-core/src crates/ddv-save-core/examples crates/ddv-save-core/scripts src/lib/ddv/core/save .github/workflows/01a-offline-v2-research.yml
+          echo 'SOURCE_PR329=c3b2e43c76b7c47e6251b93a807ebe45b6d1e347'
+      - name: Independent synthetic receipt and 8 negative refusals
+        run: node --test qa/05qr-core329-c3b2-receipt-delta.test.mjs
+      - name: Evidence scope OFF
+        run: |
+          echo 'PRIVATE_SAVE_IN_CI=NO'
+          echo 'REAL_SAVE_QR=SEPARATE_PRIVATE_LOCAL_ONLY'
+          echo 'NATIVE_V3=NOT_ACCEPTED'
+          echo 'PRODUCT_WRITER=OFF'
