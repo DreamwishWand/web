@@ -1,0 +1,18 @@
+[package]
+name = "ddv-save-core"
+version = "0.1.0"
+edition = "2021"
+license = "UNLICENSED"
+publish = false
+description = "Wand-owned shared DDV strict decoded JSON token span and copy-only prototype"
+
+[dependencies]
+sha2 = "=0.10.8"
+aes = "=0.8.4"
+flate2 = { version = "=1.0.35", default-features = false, features = ["rust_backend"] }
+crc32fast = "=1.4.2"
+serde_json = "=1.0.145" # only small, strict-validated selected subtrees; never entire profile
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["rlib", "cdylib"]

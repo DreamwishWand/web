@@ -1,0 +1,110 @@
+name: 01A Shared Rust Save Core (research-only)
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/**'
+      - '.github/workflows/ddv-shared-rust-core.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-and-portable-wasm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust toolchain
+        run: |
+          rustc --version
+          cargo --version
+          rustup target add wasm32-unknown-unknown
+      - name: Cargo native synthetic span/CAS test
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --all-targets --verbose
+      - name: Independent JS oracle (test-only decoded JSON)
+        run: node crates/ddv-save-core/scripts/js-oracle.mjs
+      - name: Independent Node AES-ECB/ZIP/Deflate/CRC oracle (synthetic ONLY)
+        run: node crates/ddv-save-core/scripts/js-p1g-cross-codec-oracle.mjs
+      - name: Bidirectional actual Wand JS Codec and Rust synthetic P1G interop
+        run: node crates/ddv-save-core/scripts/wand-js-p1g-interop.mjs
+      - name: Checkout exact Timekeeper JS Codec oracle (read-only)
+        uses: actions/checkout@v4
+        with:
+          repository: 0xmorarin/Dreamlight-Timekeeper
+          ref: 393222e7832461ef5fea847b6fff475fedc45017
+          path: .timekeeper-codec-fixed
+          persist-credentials: false
+      - name: Bidirectional exact Timekeeper JS Codec and Rust synthetic P1G interop
+        run: node crates/ddv-save-core/scripts/wand-js-p1g-interop.mjs --timekeeper
+      - name: WASM target compile (NOT browser runtime)
+        run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --lib
+      - name: Research-only boundary
+        run: |
+          grep -Fq "encode_copy: false, persistent_replace: false" crates/ddv-save-core/src/lib.rs
+          echo "EVIDENCE=SYNTHETIC_NATIVE_AND_WASM_COMPILE_ONLY"
+          echo "NOT_ACCEPTED=P1G_AES_ZIP_BROWSER_WASM_100_TO_200_MB_RELEASE"
+
+  native-large-synthetic-probe:
+    name: "Rust native synthetic JSON size ${{ matrix.mb }} MB (NOT WASM/browser)"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { mb: 16, grid: 1000, entropy: low }
+          - { mb: 64, grid: 10000, entropy: mixed }
+          - { mb: 100, grid: 25000, entropy: high }
+          - { mb: 200, grid: 50000, entropy: mixed }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile native research-only example
+        run: cargo build --manifest-path crates/ddv-save-core/Cargo.toml --release --example patch_json
+      - name: Generate exact decimal MB fixture, patch and sample child RSS
+        run: |
+          node crates/ddv-save-core/scripts/benchmark-native.mjs \
+            ${{ matrix.mb }} mb ${{ matrix.grid }} ${{ matrix.entropy }}
+      - name: Explicit measurement scope
+        run: |
+          echo "NATIVE_ONLY=YES; 200MB=200000000 bytes; not 200MiB"
+          echo "BROWSER_WASM_PEAK=UNVERIFIED; P1G_EDITED_EXPORT=UNVERIFIED"
+
+  browser-wasm-synthetic-probe:
+    name: "Actual Chromium synthetic WASM ${{ matrix.mb }} MB (NOT P1G)"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { mb: 16, grid: 1000, entropy: low }
+          - { mb: 64, grid: 10000, entropy: mixed }
+          - { mb: 100, grid: 25000, entropy: high }
+          - { mb: 200, grid: 50000, entropy: mixed }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build research-only WASM cdylib
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo build --manifest-path crates/ddv-save-core/Cargo.toml \
+            --target wasm32-unknown-unknown --release --lib
+          test -s crates/ddv-save-core/target/wasm32-unknown-unknown/release/ddv_save_core.wasm
+          cp crates/ddv-save-core/target/wasm32-unknown-unknown/release/ddv_save_core.wasm \
+            crates/ddv-save-core/tests/browser/ddv_save_core.wasm
+      - name: Generate a bounded exact-size purely synthetic JSON source
+        run: |
+          node crates/ddv-save-core/scripts/generate-synthetic.mjs \
+            crates/ddv-save-core/tests/browser/fixture.json \
+            ${{ matrix.mb }} mb ${{ matrix.grid }} ${{ matrix.entropy }}
+      - name: Install Chromium and process RSS observer
+        run: |
+          python3 -m pip install --user playwright==1.56.0 psutil==7.0.0
+          python3 -m playwright install --with-deps chromium
+      - name: Actual Chromium module Worker WASM slice and responsiveness sample
+        run: python3 crates/ddv-save-core/scripts/browser-benchmark.py ${{ matrix.mb }}
+      - name: Benchmark does not authorize game save writing
+        run: |
+          echo "SCOPE=DECODED_SYNTHETIC_JSON_ONLY; no AES/ZIP, no edited P1G"
+          echo "WASM browser benchmark; native size/memory results are separate"

@@ -1,0 +1,26 @@
+# Synthetic large-JSON Rust/WASM benchmark evidence — 2026-11-02
+
+**Provenance:** Wand-owned shared research-only Rust decoded-JSON Span Slice in [Draft PR #312](https://github.com/DreamwishWand/web/pull/312), base `71e568c9b576c54f8d100fae2ae883c835de7602`. Exact successful earlier benchmark source HEAD `2adae1c9bc10b99b1690f1c40b7cb456ac4a8b88`: [research CI #41440258947](https://github.com/DreamwishWand/web/actions/runs/41440258947), 9/9 jobs SUCCESS; [Wand CI #41440259158](https://github.com/DreamwishWand/web/actions/runs/41440259158) SUCCESS. Subsequent browser negative hardening is a separate HEAD, so its CI must be separately pinned. All inputs and outputs synthetic. One observation per cell, not p50/p95.
+
+## Measured actual sizes and conditions
+
+Size is **decimal MB**, not MiB. Input is unencrypted, already decoded schema626 JSON with small W1 event map and unknown `Padding` string. Object sizes and entropy are synthetic; not an accepted representative fully decorated save. Host: GitHub Actions Ubuntu 24.04, native Rust release, Node 22 full-tree reference, **Chromium 141.0.7390.37** with a dedicated module Worker loading raw WASM cdylib release. All times reported by respective process/thread; compare with care because algorithms do different work (the full Node path does NOT preserve raw lexical text or perform P1G Codec roundtrip).
+
+| Size (bytes) | Size (MiB) | GridObjects | Entropy | Raw DEFLATE ratio | Rust release native wall (s) | Rust native OS max RSS (KiB) | Node full-tree wall (s) | Node OS max RSS (KiB) | Actual Chromium WASM Worker total (s) | WASM linear memory after patch (bytes) | Sampled Chrome summed process RSS (KiB) |
+| ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 16,000,000 | 15.259 | 1,000 | low | 0.001510 | 0.11 | 33,252 | 0.26 | 159,468 | 0.711 | 33,226,752 | 500,420 |
+| 64,000,000 | 61.035 | 10,000 | mixed | 0.254888 | 0.44 | 127,060 | 0.77 | 426,752 | 3.116 | 129,171,456 | 621,176 |
+| 100,000,000 | 95.367 | 25,000 | high | 0.741004 | 0.62 | 197,336 | 0.93 | 641,940 | 7.479 | 201,129,984 | 729,404 |
+| 200,000,000 | 190.735 | 50,000 | mixed | 0.254313 | 1.38 | 392,552 | 2.37 | 1,236,676 | 15.071 | 401,145,856 | 1,021,252 |
+
+**RSS scope:** Native Rust/Node uses GNU `/usr/bin/time -v` process resident high-water RSS. Chrome's benchmark script samples a **sum** of Chrome-named process RSS approximately every 50ms; shared pages are potentially double counted and short spikes missed. It is **not** true per-Worker peak, and a nonempty sample list alone does not establish OOM safety. WASM linear memory is the final buffer size observed after patch, **not** a complete browser peak heap measurement. JS `performance.memory` was unavailable inside the Worker and does not establish Worker heap metrics. Main-thread heartbeat sampled a maximum ~3.4ms observed lag at 200 MB in this isolated test, not a full UI responsiveness acceptance. Resource-constrained devices, Firefox, WebKit, mobile and large-save P1G were NOT tested.
+
+## Implementation and parity boundary
+
+- Rust's native 11/11 tests cover exact source SHA and old-value CAS, duplicate/invalid pointer, strict duplicate-key/unsafe-number/UTF-8/surrogate rejection, one/two String-token substitutions, unchanged JSON byte prefix/suffix, original immutable bytes, no-op and explicit external build mismatch. Independent Node semantic and lexical splice oracle 1/1 PASS. WASM `wasm32-unknown-unknown` compile PASS.
+- Browser probe executes one real Worker/WASM token edit and returns only summarized metrics; the original benchmark confirms changed bytes near the expected timestamp, with source bytes and unknown payload kept in Worker. An **additional scoped regression** compares all changed bytes strictly inside the selected token, hashes WASM source after patch and, at 16 MB, tries a same-length source mutation to require SHA CAS denial. This later enhancement requires its own exact-head CI and is not retroactively claimed as present in the older fixed run.
+- Performance not normalized for semantic validation, compression encryption, ZIP metadata, independent P1G reopen, request cancellation, Undo/Redo or product UI. Do **not** advertise 200MB save support. The existing JS `MAX_PROFILE_BYTES=128 MiB` remains unchanged.
+- Production `READ / ENCODE_COPY / PERSISTENT_REPLACE` capabilities are not granted by this prototype; `RESEARCH_CAPABILITIES` are read-only, `encode_copy=false` and `persistent_replace=false`. Browser source file never uploaded or overwritten, no edited original save.
+- Optional future direction is bounded streaming AES/ZIP/Deflate/CRC + ZIP metadata parity/unknown fail-closed, streaming strict JSON Span projection, independent cross-codec P1G Encode/Reopen and 05 QR exact-head independent performance and negative acceptance. 02 TIME owns W1 EventID/oneof semantics; 03 WEB owns paged projections and Worker Session/plan revision; 00 CTRL owns integration.
+
+Reproduce native: `cargo build --manifest-path crates/ddv-save-core/Cargo.toml --release --example patch_json`, then `node crates/ddv-save-core/scripts/benchmark-native.mjs 200 mb 50000 mixed`. Browser jobs are in `.github/workflows/ddv-shared-rust-core.yml`. Workloads generate the fixture in the runner's isolated workspace, never commit 200MB test data.
