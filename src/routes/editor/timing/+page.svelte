@@ -228,7 +228,11 @@
  .error{color:var(--ink)}
  .results{display:grid;gap:12px}
  .result-list{display:grid;gap:12px}
- .w1-preview,.w1-backup{border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--surface)}\n .w1-preview{display:grid;gap:9px;overflow-wrap:anywhere}\n .w1-preview button,.w1-backup button,.event button{padding:9px 12px;border-radius:9px;border:1px solid var(--border);background:var(--surface-raised);color:var(--ink);cursor:pointer}\n button:disabled{opacity:.55;cursor:not-allowed}\n .event{overflow-wrap:anywhere}
+ .w1-preview,.w1-backup{border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--surface)}
+ .w1-preview{display:grid;gap:9px;overflow-wrap:anywhere}
+ .w1-preview button,.w1-backup button,.event button{padding:9px 12px;border-radius:9px;border:1px solid var(--border);background:var(--surface-raised);color:var(--ink);cursor:pointer}
+ button:disabled{opacity:.55;cursor:not-allowed}
+ .event{overflow-wrap:anywhere}
  .event h3{font-size:18px;margin:0 0 6px}
  .event p{margin:6px 0;font-size:13px}
  .event ul{margin:9px 0 0;padding-left:22px;font-size:13px;line-height:1.8}
