@@ -208,6 +208,41 @@ fn zip_rebuild_research(json:&[u8],meta:&P1gZipMetadata)
  }
  Ok(archive)
 }
+/// Offline V2 research: rebuild a ZERO-EDIT copy of an explicitly supported
+/// P1G envelope, retaining every decoded JSON byte. This intentionally
+/// exercises Encode/Reopen instead of taking the immutable original shortcut.
+/// The source ciphertext is never overwritten and no product capability is granted.
+pub fn create_p1g_noop_rebuild_research(
+ original_ciphertext:&[u8],expected_cipher_sha:[u8;32],
+ key:&[u8;32],max_json:usize
+)->Result<ResearchVerifiedCopy,&'static str>{
+ if sha256(original_ciphertext)!=expected_cipher_sha{
+  return Err("ENCRYPTED_SOURCE_SHA_CAS_FAILED");
+ }
+ let decoded=decode_p1g_research(original_ciphertext,key,max_json)?;
+ let rebuilt=zip_rebuild_research(&decoded.json,&decoded.metadata)?;
+ let encrypted=pad_ecb(&rebuilt,key)?;
+ let reopened=decode_p1g_research(&encrypted,key,max_json)?;
+ if reopened.json!=decoded.json ||
+    reopened.decoded_json_sha256!=decoded.decoded_json_sha256 ||
+    reopened.metadata.method!=decoded.metadata.method ||
+    reopened.metadata.local_header[4..14]!=decoded.metadata.local_header[4..14] ||
+    reopened.metadata.central_header[4..16]!=decoded.metadata.central_header[4..16] ||
+    reopened.metadata.central_header[34..42]!=decoded.metadata.central_header[34..42] ||
+    sha256(original_ciphertext)!=expected_cipher_sha{
+   return Err("P1G_NOOP_REBUILD_METADATA_OR_REOPEN_MISMATCH");
+ }
+ Ok(ResearchVerifiedCopy {
+  source_cipher_sha256:expected_cipher_sha,
+  edited_cipher_sha256:sha256(&encrypted),
+  decoded_before_sha256:decoded.decoded_json_sha256,
+  decoded_after_sha256:reopened.decoded_json_sha256,
+  edited_ciphertext:encrypted,
+  verified_changed_pointers:Vec::new(),
+  product_encode_copy_authorized:false,persistent_replace_authorized:false
+ })
+}
+
 /// Synthetic encrypted P1G copy with exact JSON token splice and self-Reopen.
 /// The source stays immutable. Consumer must NEVER treat this as product authority.
 pub fn create_p1g_copy_research(

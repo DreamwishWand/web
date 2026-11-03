@@ -1,0 +1,85 @@
+name: 01A Offline P1G V2 Research Slice (no real save in CI)
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/src/p1g.rs'
+      - 'crates/ddv-save-core/tests/p1g_noop_offline_research.rs'
+      - 'crates/ddv-save-core/examples/p1g_offline_private_probe.rs'
+      - 'crates/ddv-save-core/scripts/offline-real-save-v2.mjs'
+      - 'crates/ddv-save-core/docs/01A_REAL_SAVE_V2_INDEPENDENT_QR_HANDOFF_20261103.md'
+      - '.github/workflows/01a-offline-v2-research.yml'
+  push:
+    branches:
+      - 'research/01a-real-save-offline-v2-20261103'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  scoped-research:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Record exact source commit
+        run: git rev-parse HEAD
+      - name: Bounded synthetic Rust no-op tests
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test p1g_noop_offline_research
+      - name: Compile private-input research harness without private data
+        run: cargo build --manifest-path crates/ddv-save-core/Cargo.toml --example p1g_offline_private_probe
+      - name: Node local verification harness syntax check
+        run: node --check crates/ddv-save-core/scripts/offline-real-save-v2.mjs
+      - name: Safety flag still denies product writes
+        run: |
+          grep -Fq 'product_encode_copy_authorized:false,persistent_replace_authorized:false' crates/ddv-save-core/src/p1g.rs
+          echo 'TEST_ONLY=synthetic_noop_and_local_harness_build'
+          echo 'PRIVATE_SAVE_IN_CI=NO'
+          echo 'PRODUCT_WRITER=OFF'
+          echo 'REAL_SAVE_RUST_REOPEN=REQUIRES_SEPARATE_PRIVATE_LOCAL_EXECUTION'
+      - name: Checkout immutable Timekeeper JS Codec source (no private saves)
+        uses: actions/checkout@v4
+        with:
+          repository: 0xmorarin/Dreamlight-Timekeeper
+          ref: 393222e7832461ef5fea847b6fff475fedc45017
+          path: .timekeeper-codec-fixed
+          persist-credentials: false
+      - name: Build immutable private-offline Rust probe (NO real save in Actions)
+        run: cargo build --release --manifest-path crates/ddv-save-core/Cargo.toml --example p1g_offline_private_probe
+      - name: Reuse pinned independent QR332 synthetic oracle on changed ZIP verifier
+        uses: actions/checkout@v4
+        with:
+          repository: DreamwishWand/web
+          ref: 6467065e98ace6e5972bfd7096208b632dd076f0
+          path: .qa332-synthetic-fixed
+          persist-credentials: false
+      - name: Test changed private-local verifier with independent QA fixture only
+        run: |
+          mkdir -p qa
+          cp .qa332-synthetic-fixed/qa/05qr-core329-private-v2-harness-synthetic.test.mjs qa/05qr-core329-private-v2-harness-synthetic.test.mjs
+          node --test qa/05qr-core329-private-v2-harness-synthetic.test.mjs
+          echo 'INDEPENDENT_SYNTHETIC_ORACLE_REUSED=YES PRIVATE_SAVE_IN_CI=NO'
+
+      - name: Assemble SOURCE-ONLY private executor package
+        run: |
+          test -x crates/ddv-save-core/target/release/examples/p1g_offline_private_probe
+          test -f src/lib/ddv/core/save/p1g-packaged-profile-codec.js
+          test -f .timekeeper-codec-fixed/src/core/p1g-packaged-profile-codec.mjs
+          tar -czf offline-codecs-329-source-only.tar.gz \
+            src/lib/ddv/core/save/p1g-packaged-profile-codec.js \
+            src/lib/ddv/core/save/safe-edit-session.js \
+            src/lib/ddv/core/save/versioning.js \
+            .timekeeper-codec-fixed/src/core/p1g-packaged-profile-codec.mjs \
+            .timekeeper-codec-fixed/src/core/p1g-envelope-audit.mjs \
+            .timekeeper-codec-fixed/src/core/safe-edit-session.mjs \
+            .timekeeper-codec-fixed/src/core/versioning.mjs \
+            crates/ddv-save-core/scripts/offline-real-save-v2.mjs \
+            crates/ddv-save-core/target/release/examples/p1g_offline_private_probe \
+            package.json
+          sha256sum offline-codecs-329-source-only.tar.gz
+          echo "SOURCE_ONLY_ARTIFACT=YES PRIVATE_SAVE_IN_CI=NO"
+      - name: Upload short-retention canonical source and compiled research probe
+        uses: actions/upload-artifact@v4
+        with:
+          name: 01a-pr329-private-offline-executor-source-only
+          path: offline-codecs-329-source-only.tar.gz
+          retention-days: 1
+          if-no-files-found: error
