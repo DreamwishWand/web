@@ -9,6 +9,7 @@ use std::ops::Range;
 pub const MAX_DECODED_JSON_BYTES: usize = 256 * 1024 * 1024;
 const MAX_DEPTH: usize = 128;
 const MAX_TOKENS: usize = 12_000_000;
+const MAX_DIRECT_INDEX_ROWS: usize = 1_000_000;
 const MAX_JS_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 pub type EngineResult<T> = Result<T, &'static str>;
 
@@ -167,10 +168,13 @@ struct Field {span:Range<usize>,kind:TokenKind,decoded:Option<String>,raw:String
 struct Parser<'a> {
  source:&'a str, cursor:usize, tokens:usize, watch:&'a HashSet<String>,
  fields:HashMap<String,Field>,
+ direct_target:Option<String>, direct_seen:bool,
+ direct_kind:Option<DirectIndexKind>, direct_items:Vec<DirectChildSpan>,
 }
 impl<'a> Parser<'a> {
  fn new(source:&'a str,watch:&'a HashSet<String>)->Self {
-   Self{source,cursor:0,tokens:0,watch,fields:HashMap::new()}
+   Self{source,cursor:0,tokens:0,watch,fields:HashMap::new(),
+      direct_target:None,direct_seen:false,direct_kind:None,direct_items:Vec::new()}
  }
  fn peek(&self)->Option<u8>{self.source.as_bytes().get(self.cursor).copied()}
  fn whitespace(&mut self) {
@@ -193,6 +197,10 @@ impl<'a> Parser<'a> {
   let mut kind=TokenKind::Other;
   match self.peek(){
    Some(b'{')=>{
+    let indexed=self.direct_target.as_deref()==Some(path);
+    if indexed {
+      self.direct_seen=true;self.direct_kind=Some(DirectIndexKind::Object);
+    }
     self.cursor+=1;self.whitespace();let mut keys=HashSet::new();
     if self.peek()!=Some(b'}'){
      loop {
@@ -202,7 +210,14 @@ impl<'a> Parser<'a> {
       if !keys.insert(key.clone()){return Err("JSON_DUPLICATE_KEY");}
       self.whitespace();self.token(b':')?;
       let child=pointer_child(path,&key);
+      self.whitespace();
+      let begin=self.cursor;
       self.value(&child,depth+1)?;
+      if indexed {
+        if self.direct_items.len()>=MAX_DIRECT_INDEX_ROWS{return Err("DIRECT_INDEX_TOO_LARGE");}
+        if key.len()>128{return Err("DIRECT_INDEX_KEY_TOO_LARGE");}
+        self.direct_items.push(DirectChildSpan{key,span:begin..self.cursor});
+      }
       self.whitespace();
       if self.peek()!=Some(b','){break;}
       self.cursor+=1;
@@ -211,11 +226,22 @@ impl<'a> Parser<'a> {
     self.token(b'}')?;
    }
    Some(b'[')=>{
+    let indexed=self.direct_target.as_deref()==Some(path);
+    if indexed {
+      self.direct_seen=true;self.direct_kind=Some(DirectIndexKind::Array);
+    }
     self.cursor+=1;self.whitespace();let mut i=0usize;
     if self.peek()!=Some(b']'){
      loop {
-      let child=pointer_child(path,&i.to_string());
+      let key=i.to_string();
+      let child=pointer_child(path,&key);
+      self.whitespace();
+      let begin=self.cursor;
       self.value(&child,depth+1)?;
+      if indexed {
+        if self.direct_items.len()>=MAX_DIRECT_INDEX_ROWS{return Err("DIRECT_INDEX_TOO_LARGE");}
+        self.direct_items.push(DirectChildSpan{key,span:begin..self.cursor});
+      }
       i=i.checked_add(1).ok_or("ARRAY_INDEX_OVERFLOW")?;
       self.whitespace();
       if self.peek()!=Some(b','){break;}
@@ -436,3 +462,42 @@ pub fn strict_decode_json_string_token(raw:&str)->EngineResult<String>{
  decode_string(&raw[1..raw.len()-1])
 }
 pub mod w1_evidence;
+
+/// An exhaustive direct-child byte-span index built by the EXISTING strict
+/// Wand parser during its one full-document validation traversal. It does NOT
+/// construct a full serde_json graph, nor prove cross-domain references.
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub enum DirectIndexKind {Array,Object}
+#[derive(Clone,Debug,PartialEq,Eq)]
+pub struct DirectChildSpan {pub key:String,pub span:Range<usize>}
+#[derive(Clone,Debug,PartialEq,Eq)]
+pub struct DirectChildIndex {
+ pub parent_pointer:String,
+ pub kind:DirectIndexKind,
+ pub items:Vec<DirectChildSpan>,
+ pub complete_from_strict_full_scan:bool,
+}
+pub fn index_direct_children(source:&[u8],parent_pointer:&str)->EngineResult<DirectChildIndex>{
+ if !parent_pointer.starts_with('/')||parent_pointer.len()>1024||
+    parent_pointer.contains("//"){return Err("DIRECT_INDEX_POINTER_INVALID");}
+ let source=std::str::from_utf8(source).map_err(|_|"JSON_INVALID_UTF8")?;
+ let watch=HashSet::new();
+ let mut parser=Parser::new(source,&watch);
+ parser.direct_target=Some(parent_pointer.to_owned());
+ parser.parse()?;
+ if !parser.direct_seen{return Err("DIRECT_INDEX_PARENT_MISSING_OR_WRONG_TYPE");}
+ let kind=parser.direct_kind.ok_or("DIRECT_INDEX_PARENT_WRONG_TYPE")?;
+ if kind==DirectIndexKind::Object {
+   // Save-local numeric keys are not array positions; preserve their exact
+   // identity. Any ambiguous alias ("01" vs "1") fails closed in the consumer.
+   let mut seen=HashSet::new();
+   for item in &parser.direct_items {
+      if item.key.parse::<usize>().is_err()||
+         !seen.insert(item.key.parse::<usize>().unwrap()){
+        return Err("DIRECT_INDEX_OBJECT_KEY_AMBIGUOUS");
+      }
+   }
+ }
+ Ok(DirectChildIndex{parent_pointer:parent_pointer.to_owned(),
+   kind,items:parser.direct_items,complete_from_strict_full_scan:true})
+}
