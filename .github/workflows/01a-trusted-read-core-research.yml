@@ -1,0 +1,50 @@
+name: 01A Trusted Rust READ Research (no private save or product Writer)
+on:
+  push:
+    branches: [research/01a-trusted-read-core-wcore004-20261103]
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/src/lib.rs'
+      - 'crates/ddv-save-core/src/trusted_read.rs'
+      - 'crates/ddv-save-core/tests/trusted_read_research.rs'
+      - 'crates/ddv-save-core/examples/trusted_read_capacity.rs'
+      - 'crates/ddv-save-core/Cargo.toml'
+      - '.github/workflows/01a-trusted-read-core-research.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  core-read-negatives:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Exact source head
+        run: git rev-parse HEAD
+      - name: Core-minted one-time cursor, source CAS and W1 scoped preflight
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test trusted_read_research -- --nocapture
+      - name: Unchanged research tests (full existing crate)
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --lib --tests
+      - name: Actual WASM compile only (NOT browser Worker integration)
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo check --target wasm32-unknown-unknown --manifest-path crates/ddv-save-core/Cargo.toml --lib
+      - name: Unaccepted capabilities remain disabled
+        run: |
+          grep -Fq 'encode_copy:false,apply:false,persistent_replace:false' crates/ddv-save-core/src/trusted_read.rs
+          echo 'PRIVATE_SAVE_IN_CI=NO; WRITER=OFF; READ_WASM_PRODUCT=NOT_IMPLEMENTED; REAL_P1G_BENCH=NOT_RUN'
+  native-synthetic-budget:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        mib: [16,64,100,200]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build native source-only capacity probe
+        run: cargo build --release --manifest-path crates/ddv-save-core/Cargo.toml --example trusted_read_capacity
+      - name: Strict whole-document+Indexed/Lazy native profile only
+        run: |
+          /usr/bin/time -v crates/ddv-save-core/target/release/examples/trusted_read_capacity ${{ matrix.mib }}
+          echo 'SYNTHETIC_NATIVE_ONLY=YES; NOT_REAL_SAVE; NOT_BROWSER_WASM; NOT_PUBLIC_RELEASE'
