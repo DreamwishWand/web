@@ -3,7 +3,7 @@ on:
   push:
     branches: [qa/pr422-current-main-collection-preset-20261104]
   pull_request:
-    branches: [main]
+    branches: [int/w-int-012-collection-pc-local-preset-qa409-20261104]
 permissions:
   contents: read
 jobs:
