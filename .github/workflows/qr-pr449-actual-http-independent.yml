@@ -3,7 +3,7 @@ on:
   push:
     branches: [qa/pr449-loopback-http-independent-20261104]
   pull_request:
-    branches: [web/entity-host-http-transport-fixture-20261104]
+    branches: [web/entity-http-host-fixture-20261104]
 permissions:
   contents: read
 jobs:
