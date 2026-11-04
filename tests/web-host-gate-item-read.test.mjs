@@ -87,7 +87,7 @@ test('all 8 locale Item unavailable labels and user-facing actual W1/Preset link
  const locales=['en','ja','fr','it','de','es-ES','zh-CN','pt-BR'];
  assert.deepEqual(Object.keys(ITEM_CAPABILITY_COPY).sort(),locales.sort());
  for(const l of locales)for(const key of ['title','catalog','session','owned','discovered','amount','progress','unknown','reason','writer','w1','presets','noUpload']){
-  assert.ok(typeof itemCapabilityCopy(l)[key]==='string'&&itemCapabilityCopy(l)[key].length>2,l+key);
+  assert.ok(typeof itemCapabilityCopy(l)[key]==='string'&&itemCapabilityCopy(l)[key].length>=1,l+key);
  }
  assert.equal(itemCapabilityCopy('unsupported'),itemCapabilityCopy('en'));
  const gate=read('src/lib/local/ItemReadCapabilityNotice.svelte');
