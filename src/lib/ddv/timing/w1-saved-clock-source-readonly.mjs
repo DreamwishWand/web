@@ -60,11 +60,12 @@ export function inspectW1SavedClockSource(profile, context) {
     return fail('SAVED_EVENT_MAP_KEY_MISSING');
   const container=events[W1_SAVED_CLOCK_IDENTITY.mapKey];
   if(!rec(container))return fail('SAVED_EVENT_CONTAINER_INVALID');
-  // The read-only Timekeeper projection treats 2 NextOccurrence-bearing
-  // variants as ambiguous; a Native W1 witness must not silently pick one.
-  const variants=Object.entries(container).filter(([,value])=>
-    rec(value) && Object.hasOwn(value,'NextOccurrence'));
-  if(variants.length!==1 || variants[0][0]!==W1_SAVED_CLOCK_IDENTITY.oneof)
+  // Native oneof identity must be unique across *all* serialized keys.
+  // An alternate variant without NextOccurrence is still ambiguous; do not
+  // inherit the looser read-only UI projection's Next-bearing filter.
+  const variants=Object.entries(container);
+  if(variants.length!==1 || variants[0][0]!==W1_SAVED_CLOCK_IDENTITY.oneof ||
+     !rec(variants[0][1]) || !Object.hasOwn(variants[0][1],'NextOccurrence'))
     return fail('SAVED_EVENT_ONEOF_AMBIGUOUS_OR_UNSUPPORTED');
   const event=variants[0][1];
   if(event.RecurringEventItemID!==W1_SAVED_CLOCK_IDENTITY.eventId)

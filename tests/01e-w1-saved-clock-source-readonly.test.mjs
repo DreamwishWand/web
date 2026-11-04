@@ -58,6 +58,24 @@ test('map key 155 / exact oneof / EventID must match, no item reverse lookup',()
   ];
   for(const edit of edits){const p=fixture();edit(p);denied(inspect(p));}
 });
+test('a second oneof without NextOccurrence still makes Native source identity ambiguous',()=>{
+  for(const extra of [
+    {RecurringEventItemID:2010000022},
+    {RecurringEventItemID:2010000022,LastOccurrence:'2026-01-01T00:00:00Z'},
+    null,
+    [],
+    0
+  ]){
+    const p=fixture(), container=p.World.RecurringEvents['155'];
+    container.UnknownSpawning=extra;
+    const r=inspect(p);
+    denied(r);
+    assert.equal(r.reason,'SAVED_EVENT_ONEOF_AMBIGUOUS_OR_UNSUPPORTED');
+  }
+  const p=fixture();
+  p.World.RecurringEvents['155'].ItemSpawning.NextOccurrence='2126-08-20T00:00:00Z';
+  assert.equal(inspect(p).status,'SAVED_W1_CLOCK_SOURCE_FIELDS_ONLY');
+});
 test('invalid UTC calendars and absent or non-nullable raw fields fail closed',()=>{
   const invalid=['2026-02-29T00:00:00Z','2126-13-01T00:00:00Z',
     '2126-01-01T24:00:00Z','2126-01-01T00:60:00Z',
