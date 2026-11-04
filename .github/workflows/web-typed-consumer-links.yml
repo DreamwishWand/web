@@ -38,6 +38,8 @@ jobs:
           echo WEB_TYPED_CONSUMER_SINGLE_IDENTITY_SCOPE_PASS
       - name: 06 PRODUCT sole typed helper & Item directory/local-only regressions
         run: node --test tests/shared-entity-identity.test.mjs tests/shared-catalog-directory-foundation.test.mjs tests/shared-typed-entity-boundary.test.mjs tests/web-typed-entity-consumers.test.mjs
+      - name: Full existing Node regression (all product streams)
+        run: npm test
       - name: Svelte Check and compiled Pages artifact
         env:
           BASE_PATH: /web
