@@ -105,61 +105,56 @@ try:
                   and command_name='publish_preset_envelope')
             """,(account,)*8).fetchone()
 
-        def publish(tag):
-            with writer.transaction():
-                writer.execute("set local role service_role")
-                result=scalar(writer,"""select public.community_publish_preset_envelope(
-                    %s,%s,'public','scene','Synthetic disposable preset','No physical Provider bytes',
-                    %s,1,'application/json',100,%s,'{}'::jsonb,%s)""",
-                    (actor,creator,"local/no-provider/preset-probe/"+tag,"a"*64,tag))
-            assert isinstance(result,dict) and result.get("workId"),"POSITIVE_PRESET_NOT_COMMITTED"
-            return result
-
-        baseline=snapshot()
+        assert "R18_PRESET_PUBLICATION_RESERVATION_AND_BYTES_NOT_ACCEPTED" in function_body
+        mark("PRESET_ENVELOPE_EFFECTIVE_R18_GUARD",
+             historicalServiceRoleExecuteTrue=roles["service_role"],
+             effectiveFunctionUnconditionallyFailsClosed=True)
+        def direct(tag,role):
+            try:
+                with writer.transaction():
+                    writer.execute("set local role "+role)
+                    scalar(writer,"""select public.community_publish_preset_envelope(
+                        %s,%s,'public','scene','Synthetic disposable preset','No physical Provider bytes',
+                        %s,1,'application/json',100,%s,'{}'::jsonb,%s)""",
+                        (actor,creator,"local/no-provider/preset-probe/"+tag,"a"*64,tag))
+                return "UNEXPECTED_COMMIT",""
+            except psycopg.Error as exc:
+                return str(exc.sqlstate or "UNKNOWN"),str(exc.diag.message_primary or "")
+        before=snapshot()
         scalar(pre,"select public.community_authorize_signed_session_v2(%s,%s,%s)",c2)
-        first=publish("probe-pos-"+secrets.token_hex(8))
-        after_positive=snapshot()
-        assert after_positive[0]==baseline[0]+1 and after_positive[1]==baseline[1]+1
-        assert after_positive[2]==baseline[2]+1 and after_positive[3]==baseline[3]+1
-        assert after_positive[4]==baseline[4]+1 and after_positive[5]==baseline[5]+1
-        assert after_positive[6]==baseline[6]+1 and after_positive[7]==baseline[7]+1
-        mark("PRESET_ENVELOPE_A2_ELIGIBLE_DIRECT_SQL_POSITIVE",
-             genuineSignedES256=True,realPostgresqlTwoBackends=True,
-             syntheticStorageMetadataOnly=True,publicPresetGraphCommitted=True)
-
+        status,_=req("/functions/v1/community-query",{"query":"me","payload":{}},token=a2)
+        assert status==200
+        for role in ("anon","authenticated"):
+            code,_=direct("before-"+secrets.token_hex(6),role)
+            assert code=="42501",(role,code)
+        code,msg=direct("valid-a2-"+secrets.token_hex(6),"service_role")
+        assert code=="P0001" and "R18_PRESET_PUBLICATION_RESERVATION_AND_BYTES_NOT_ACCEPTED" in msg,(code,msg)
+        assert snapshot()==before
+        mark("PRESET_ENVELOPE_VALID_A2_DIRECT_SQL_FAILCLOSED_NO_DIFF",
+             realGoTrueES256=True,externalAnonAuthenticatedDenied=True,
+             serviceRoleLegacyFunctionInert=True,workGraphUnchanged=True)
         scalar(pre,"select public.community_authorize_signed_session_v2(%s,%s,%s)",c1)
         scalar(pre,"select public.community_revoke_signed_session_v1(%s,%s,%s,'local')",c1)
         status,_=req("/functions/v1/community-query",{"query":"me","payload":{}},token=a1)
-        assert status==401,("REVOKED_ORIGINAL_A1_NOT_401",status)
-        status,body=req("/auth/v1/token?grant_type=refresh_token",
-            {"refresh_token":refresh1})
-        assert status==200 and body.get("access_token"),"REAL_A1_REFRESH_FAILED"
-        refreshed=body["access_token"]
+        assert status==401,("ORIGINAL_A1_NOT_REVOKED",status)
+        status,refresh=req("/auth/v1/token?grant_type=refresh_token",{"refresh_token":refresh1})
+        assert status==200 and refresh.get("access_token")
+        refreshed=refresh["access_token"]
         assert claims(refreshed)["session_id"]==str(c1[2])
         status,_=req("/functions/v1/community-query",{"query":"me","payload":{}},token=refreshed)
-        assert status==401,("REVOKED_REFRESHED_A1_NOT_401",status)
+        assert status==401,("REFRESHED_A1_NOT_REVOKED",status)
         status,_=req("/functions/v1/community-query",{"query":"me","payload":{}},token=a2)
-        assert status==200,("HEALTHY_A2_NOT_200",status)
-
-        # The independent SQL caller retains only p_auth_subject, not A1 session/iat.
-        # A different active A2 remains valid: this does NOT claim leaked service_role,
-        # in-flight public HTTP execution, or a provider-side write.
-        second=publish("probe-postrev-"+secrets.token_hex(8))
-        after_revoke=snapshot()
-        assert after_revoke[0]==after_positive[0]+1
-        assert after_revoke[1]==after_positive[1]+1
-        assert after_revoke[2]==after_positive[2]+1
-        assert after_revoke[3]==after_positive[3]+1
-        assert after_revoke[4]==after_positive[4]+1
-        assert after_revoke[5]==after_positive[5]+1
-        assert after_revoke[6]==after_positive[6]+1
-        assert after_revoke[7]==after_positive[7]+1
-        assert first["workId"]!=second["workId"]
-        mark("PRESET_ENVELOPE_POST_REVOKE_SERVICE_SQL_COMMIT_TRUE_RED",
-             revokedA1Original401=True,revokedA1RealRefresh401=True,
-             healthyA2Sibling200=True,secondPgServiceSqlCommitted=True,
-             presetWorkBlobRevisionSearchOutboxIdempotencyDiff=True,
+        assert status==200,("SIBLING_A2_NOT_HEALTHY",status)
+        for _ in range(2):
+            code,msg=direct("revoked-"+secrets.token_hex(6),"service_role")
+            assert code=="P0001" and "R18_PRESET_PUBLICATION_RESERVATION_AND_BYTES_NOT_ACCEPTED" in msg,(code,msg)
+        assert snapshot()==before,"POST_REVOKE_PRESET_GRAPH_CHANGED"
+        mark("PRESET_ENVELOPE_POSTREVOKE_R18_FAILCLOSED_TWO_PG_NO_DIFF",
+             realGoTrueSignedA1Original401=True,realRefreshSameSession401=True,
+             healthySiblingA2Http200=True,distinctPgBackends=True,
+             serviceRoleStillDeniedByFunction=True,workBlobSearchOutboxIdemNoDiff=True,
              actualPublicHttpExploitProven=False,providerBytesUsed=False)
+
 finally:
     if actor is not None:
         try: req("/auth/v1/admin/users/"+str(actor),method="DELETE",service=True)
