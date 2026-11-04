@@ -468,8 +468,18 @@ impl TrustedReadCore {
        "/World/Villages"=>"array",
        _=>"string"
      };
-     if let Some(hit)=selected.iter().find(|h|h.pointer==*path &&
-                                            h.lexical_kind==required_kind){
+     // Schema626 permits a present EndDate:null token. The generic strict
+     // lexer classifies null/true/false as Other. Accept ONLY the exact
+     // 4-byte lexical null SHA for this one field, never any other Other,
+     // absent field, malformed string, bool, number, object or array.
+     let nullable_end=*path==
+       "/World/RecurringEvents/155/ItemSpawning/EndDate";
+     let null_sha=sha256(b"null");
+     if let Some(hit)=selected.iter().find(|h|h.pointer==*path && (
+         h.lexical_kind==required_kind ||
+         (nullable_end && h.lexical_kind=="other" &&
+          h.raw_bytes==4 && h.raw_sha256==null_sha)
+     )){
        observed.push(SourceReadCondition{
          pointer:(*path).to_owned(),expected_raw_token_sha256:hit.raw_sha256
        });

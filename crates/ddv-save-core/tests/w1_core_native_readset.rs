@@ -80,3 +80,41 @@ fn schema626_villages_must_be_array_and_not_synthetic_object(){
  assert!(diag.missing_or_unbounded_refs.contains(&"/World/Villages".to_owned()));
  assert!(!diag.product_writer_authorized);
 }
+
+#[test]
+fn enddate_present_null_is_not_missing_or_false_native_authority(){
+ let src=FULL.replace(r#""EndDate":"2030-12-31T00:00:00Z""#,r#""EndDate":null"#);
+ let core=open(&src);let owner=core.receipt().unwrap();
+ let result=core.diagnose_w1_core_native_read_set(intent(&owner)).unwrap();
+ assert!(result.all_known_source_refs_observed);
+ assert_eq!(result.observed_core_refs.len(),8);
+ assert!(result.missing_or_unbounded_refs.is_empty());
+ let end=result.observed_core_refs.iter()
+   .find(|w|w.pointer.ends_with("/EndDate")).unwrap();
+ assert_eq!(end.expected_raw_token_sha256,sha256(b"null"));
+ assert!(!result.same_build_native_registry_manifest_accepted);
+ assert!(!result.effective_area_grid_diffgrid_quota_verified);
+ assert!(!result.clock_actualize_last_to_next_verified);
+ assert!(!result.complete_native_dependency_closure_verified);
+ assert!(!result.product_writer_authorized);
+ assert_eq!(core.export_p1g_copy().err(),Some("PRODUCT_ENCODE_COPY_NOT_AUTHORIZED"));
+}
+#[test]
+fn enddate_missing_true_false_number_array_object_are_denied_not_silently_null(){
+ let valid=r#""EndDate":"2030-12-31T00:00:00Z""#;
+ let substitutions=[
+   "",r#""EndDate":true"#,r#""EndDate":false"#,r#""EndDate":42"#,
+   r#""EndDate":[] "#,r#""EndDate":{}"#
+ ];
+ for (i,replacement) in substitutions.iter().enumerate(){
+   let doc=if i==0{FULL.replace(&format!(",{valid}"),"")}
+      else{FULL.replace(valid,replacement)};
+   let core=open(&doc);let owner=core.receipt().unwrap();
+   let actual=core.diagnose_w1_core_native_read_set(intent(&owner)).unwrap();
+   assert!(!actual.all_known_source_refs_observed,"invalid type case {i}");
+   assert!(actual.missing_or_unbounded_refs.contains(
+     &"/World/RecurringEvents/155/ItemSpawning/EndDate".to_owned()),
+     "invalid type case {i}");
+   assert!(!actual.product_writer_authorized);
+ }
+}
