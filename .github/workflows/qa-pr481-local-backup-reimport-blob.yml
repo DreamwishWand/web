@@ -1,0 +1,44 @@
+name: 05 QR PR481 independent backup candidate untrusted Blob
+on:
+  push:
+    branches: [qa/05qr-pr481-backup-candidate-untrusted-blob-20261104]
+  pull_request:
+    paths:
+      - '.github/workflows/qa-pr481-local-backup-reimport-blob.yml'
+      - 'tests/qa-05qr-pr481-backup-candidate-native-blob-newonly.test.mjs'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  scope-locked:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Verify Source481 exactly four paths from accepted main, no QA product writes
+        run: |
+          set -eu
+          SOURCE=4dec2d18258baf9cd141849289223671e2040ff7
+          BASE=a9f6793546bf372a5153dba8c838d3332ae75d7b
+          test "$(git merge-base "$SOURCE" HEAD)" = "$SOURCE"
+          test "$(git merge-base "$BASE" "$SOURCE")" = "$BASE"
+          test "$(git diff --name-only "$BASE" "$SOURCE" | wc -l | tr -d ' ')" = 4
+          git diff --quiet "$SOURCE" HEAD -- src/ crates/ docs/ static/ supabase/ tests/local-single-save-session-bridge.test.mjs
+          for path in src/lib/ddv/core/save/local-save-session-bridge.mjs src/lib/ddv/core/save/local-save-session-bridge.d.mts tests/local-single-save-session-bridge.test.mjs docs/core/01a-local-backup-reimport-candidate-20261104.md; do
+            test "$(git rev-parse "$SOURCE:$path")" = "$(git rev-parse "HEAD:$path")"
+          done
+          echo PR481_NEW_ONLY_SOURCE_GUARD_PASS
+          echo PRIVATE_GENUINE_P1G_NOT_IN_CI=TRUE
+          echo OS_BACKUP_PERSISTENCE_NOT_VERIFIED=TRUE
+          echo RUST_W1_PRODUCT_V2=NOT_RUN
+          echo NATIVE_V3=NOT_ACCEPTED
+          echo WRITER_EDITEDCOPY_OVERWRITE_APPLY=OFF
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Independent bounded Blob and caller-tampering tests
+        run: node --test tests/qa-05qr-pr481-backup-candidate-native-blob-newonly.test.mjs
+      - name: Type check for unchanged Worker and Svelte UI
+        run: npm run check
