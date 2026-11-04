@@ -44,8 +44,8 @@ jobs:
         run: |
           set -euo pipefail
           python3 tests/comm-source162-preset-envelope-postrevoke-probe-disposable.py | tee /tmp/preset-probe.log
-          grep -q '"case": "PRESET_ENVELOPE_A2_ELIGIBLE_DIRECT_SQL_POSITIVE"' /tmp/preset-probe.log
-          grep -q '"case": "PRESET_ENVELOPE_POST_REVOKE_SERVICE_SQL_COMMIT_TRUE_RED"' /tmp/preset-probe.log
+          grep -q '"case": "PRESET_ENVELOPE_VALID_A2_DIRECT_SQL_FAILCLOSED_NO_DIFF"' /tmp/preset-probe.log
+          grep -q '"case": "PRESET_ENVELOPE_POSTREVOKE_R18_FAILCLOSED_TWO_PG_NO_DIFF"' /tmp/preset-probe.log
       - name: Destroy local DB and signer
         if: always()
         run: |
