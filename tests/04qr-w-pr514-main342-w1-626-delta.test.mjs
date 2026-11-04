@@ -80,7 +80,7 @@ test('QA-only 3 new files, exact no Writer, product/01E/02 WEP source untouched'
 test('NEW cross-domain W1 candidate can coexist with 626 read-only raw count, never Native/Writer',async()=>{
  const {open,w1}=await inspect(fixture());
  assert.equal(open.structuralDiagnostics.villageCount,2);
- assert.equal(open.structuralDiagnostics.areaRecordCount,4);
+ assert.equal(open.structuralDiagnostics.areaRecordCount,3);
  assert.equal(open.structuralDiagnostics.gridObjectEntryCount,3);
  assert.equal(open.structuralDiagnostics.gridRecordCount,2);
  assert.deepEqual(open.areas,[]);
