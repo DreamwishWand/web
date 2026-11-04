@@ -1,0 +1,34 @@
+name: 05 QR PR410 independent Worker Mandatory W1 Readset
+on:
+  push:
+    branches: [qa/05qr-410-w1-worker-20261104]
+  pull_request:
+    paths:
+      - tests/qa-05qr-pr410-new-only.test.mjs
+      - .github/workflows/qa-pr410-mandatory-worker.yml
+  workflow_dispatch:
+permissions: { contents: read }
+jobs:
+  independent-worker:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Exact PR410 source and public CI synthetic-only
+        run: |
+          test "$(git merge-base 7e6f6270a5ae836abd7d7c0bd99a0544becaecfc HEAD)" = 7e6f6270a5ae836abd7d7c0bd99a0544becaecfc
+          git diff --quiet 7e6f6270a5ae836abd7d7c0bd99a0544becaecfc HEAD -- src/ crates/ tests/01a-w1-worker-mandatory-readset.test.mjs
+          echo REAL_SAVE=NOT_RUN
+          echo GAME_WRITER=OFF
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Independent empty/partial eight, forged scope, A-B, Writer denied
+        run: node --test tests/qa-05qr-pr410-new-only.test.mjs
+      - name: Strict Svelte Type/Generated build after read-only ABI addition
+        run: |
+          npm run check
+          npm run build
