@@ -1,0 +1,45 @@
+name: 05 QR-C PR481 native Blob repair changed-RED differential QA
+on:
+  push:
+    branches: [qa/05qr-c-pr481-intrinsic-blob-repair-20261104]
+  pull_request:
+    paths:
+      - '.github/workflows/qa-05qr-c-pr481-intrinsic-blob-repair.yml'
+      - 'tests/qa-05qr-c-pr481-blob-intrinsic-fix-newonly.test.mjs'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  source-fixed-blob:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Freeze repaired Source and exactly three changed RED paths
+        run: |
+          set -eu
+          OLD=4dec2d18258baf9cd141849289223671e2040ff7
+          SOURCE=5575dc9bd76122dcc634239626613b7f04f18f17
+          test "$(git merge-base "$SOURCE" HEAD)" = "$SOURCE"
+          test "$(git merge-base "$OLD" "$SOURCE")" = "$OLD"
+          test "$(git diff --name-only "$OLD" "$SOURCE" | wc -l | tr -d ' ')" = 3
+          test "$(git diff --name-only "$OLD" "$SOURCE" | sort)" = "$(printf '%s\n' docs/core/01a-local-backup-reimport-candidate-20261104.md src/lib/ddv/core/save/local-save-session-bridge.mjs tests/local-single-save-session-bridge.test.mjs | sort)"
+          git diff --quiet "$SOURCE" HEAD -- src/ crates/ docs/ static/ supabase/ tests/local-single-save-session-bridge.test.mjs
+          for p in docs/core/01a-local-backup-reimport-candidate-20261104.md src/lib/ddv/core/save/local-save-session-bridge.mjs tests/local-single-save-session-bridge.test.mjs; do
+            test "$(git rev-parse "$SOURCE:$p")" = "$(git rev-parse "HEAD:$p")"
+          done
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-save-session-bridge.mjs)" = 4015808fc6ce15b20be4ad68e61384f2f1a298a4
+          echo QA_SOURCE5575_FIXED_REPAIR_DELTA_ONLY_PASS
+          echo PREVIOUS_QA487_RED_RETAINED=TRUE
+          echo PRIVATE_REAL_P1G=NOT_RUN
+          echo OS_BACKUP_PERSISTENCE=NOT_VERIFIED
+          echo PRODUCT_WRITER_EDITEDCOPY_APPLY_OVERWRITE=OFF
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: New-only independent Blob intrinsic repair negative tests
+        run: node --test tests/qa-05qr-c-pr481-blob-intrinsic-fix-newonly.test.mjs
+      - name: New Source bridge stays compatible with UI and Worker READ
+        run: npm run check
