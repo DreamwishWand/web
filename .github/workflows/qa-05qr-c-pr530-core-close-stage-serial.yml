@@ -30,7 +30,7 @@ jobs:
           test "$(git rev-parse HEAD:crates/ddv-save-core/src/offline_w1_v2.rs)" = db0446c4d0471c9bc05e01709f32173f70064682
           test "$(git rev-parse HEAD:crates/ddv-save-core/src/session.rs)" = 372db22e0efe8923119cfccad6fbc7457a2a99ed
           test "$(git rev-parse HEAD:crates/ddv-save-core/src/trusted_read.rs)" = 9f6edf71fe7bebe1739b1d4d8f30a5ed4dd49c2a
-          test "$(git rev-parse HEAD:docs/core/01a-core-stage-close-serialized-mutex-20261105.md)" = 5dcc9ff3fbd5d145d4f4eac8aeb50d8a02012028
+          test "$(git rev-parse HEAD:docs/core/01a-core-stage-close-serialized-mutex-20261105.md)" = 5dcc9ff3f582779a824c3f4b59c4008f2b572df9
           echo PREVIOUS_PR512_QA516_SOURCE_ONLY_SYNTHETIC_PASS_REUSED_NO_RERUN
           echo PR530_FIXED_SOURCE_FOUR_BLOBS_EXACT_CI_SCOPE
           echo OWNER_PRIVATE_GENUINE_P1G_AND_NATIVE_W1_V3=NOT_RUN
