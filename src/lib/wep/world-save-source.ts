@@ -65,7 +65,7 @@ export interface OpenWorldSaveResult {
   areas: WorldAreaRoute[];
   floatingIslands: WorldFloatingIslandRoute[];
   floatingIslandDiagnostics: WorldFloatingIslandDiagnostic[];
-  structuralDiagnostics: { villageCount: number | null; areaRecordCount: number | null; gridRecordCount: number | null; notes: string[] } | null;
+  structuralDiagnostics: { villageCount: number | null; areaRecordCount: number | null; gridRecordCount: number | null; gridObjectEntryCount: number | null; notes: string[] } | null;
   compatibility: {
     readContract: string;
     gameVersion: string;
@@ -329,10 +329,30 @@ function inspect626WorldStructure(profile: Record<string, any>) {
         return sum + (areas ? Object.keys(areas).length : 0);
       }, 0)
     : null;
+  // Raw serialized entries ONLY. This count does not validate native IDs,
+  // map overlaps, Grid defaults, DiffGrids, footprints or world coordinates.
+  // A missing/malformed Objects map means UNKNOWN, never zero.
+  let gridObjectEntryCount: number | null = grids ? 0 : null;
+  if (grids) {
+    for (const grid of Object.values(grids)) {
+      const objects = asRecord(asRecord(grid)?.Objects);
+      if (!objects || gridObjectEntryCount === null) {
+        gridObjectEntryCount = null;
+        break;
+      }
+      const next = gridObjectEntryCount + Object.keys(objects).length;
+      if (!Number.isSafeInteger(next)) {
+        gridObjectEntryCount = null;
+        break;
+      }
+      gridObjectEntryCount = next;
+    }
+  }
   return {
     villageCount: Array.isArray(villages) ? villages.length : null,
     areaRecordCount,
     gridRecordCount: grids ? Object.keys(grids).length : null,
+    gridObjectEntryCount,
     notes: [
       'WEP_SCHEMA626_WORLD_STRUCTURE_ONLY',
       'WEP_SCHEMA626_AREA_GRID_NATIVE_SEMANTICS_UNVERIFIED',
