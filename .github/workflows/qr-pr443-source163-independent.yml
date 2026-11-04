@@ -1,0 +1,87 @@
+name: 04 QR Source163 independent genuine ES256 two PG Help Answer direct writer OFF
+on:
+  push:
+    branches: [qa/pr443-source163-help-answer-independent-20261104]
+  pull_request:
+    branches: [comm/source163-help-answer-scoped-repair-20261104]
+permissions:
+  contents: read
+jobs:
+  independent-source163:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0,persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Verify only 2 QA paths on exact SOURCE163 with unchanged Source155 through162
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=182a2e8e8b7757a83c572c59f669b1719812ca36
+          git merge-base --is-ancestor "$SRC" HEAD
+          git diff --name-only "$SRC" HEAD | sort >/tmp/qr163-actual
+          printf '%s\n' .github/workflows/qr-pr443-source163-independent.yml tests/qr-pr443-source163-help-answer-independent.py | sort >/tmp/qr163-only
+          diff -u /tmp/qr163-only /tmp/qr163-actual
+          test -z "$(git diff --name-only "$SRC" HEAD -- supabase src docs static)"
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 163
+          test "$(git hash-object supabase/migrations/20261102010000_community_source155_verified_first_account_bootstrap.sql)" = 115f2c0f7224984acd8830cfc606af8c6a1bf3af
+          test "$(git hash-object supabase/migrations/20261103010000_community_source156_signed_gallery_r16_atomic_writer.sql)" = 3000d66c193b996e4ece785deaf5180955ec3bc6
+          test "$(git hash-object supabase/migrations/20261103020000_community_source157_legacy_comments_v2_service_execute_off.sql)" = b9c44a501189857dff9fc6446dea21717d58b785
+          test "$(git hash-object supabase/migrations/20261103030000_community_source158_r15_gallery_pinned_service_execute_off.sql)" = 033920ee79a3dd07b32854f0bbfb3b225167f3e2
+          test "$(git hash-object supabase/migrations/20261104010000_community_source159_workspace_identity_legacy_service_execute_off.sql)" = 6bf78322e70406272125f245fcd525feb9347652
+          test "$(git hash-object supabase/migrations/20261104020000_community_source160_help_qa_question_tip_service_execute_off.sql)" = 0e5593b2a946727b4bd5d6ec5050b9c58a1dde0e
+          test "$(git hash-object supabase/migrations/20261104030000_community_source161_gallery_two_legacy_draft_create_service_execute_off.sql)" = f25e47af6adf7de8e7b1d3cf4c154769d8bf28a5
+          test "$(git hash-object supabase/migrations/20261104040000_community_source162_gallery_photo_parent_service_execute_off.sql)" = 6d8ec394b1773c65db88e9b459afc59d6427b5b9
+          test "$(git hash-object supabase/migrations/20261104050000_community_source163_help_answer_service_execute_off.sql)" = c02bf514abf51951c19e05f8ca7ef7383f071c70
+          test "$(git hash-object supabase/functions/community-command/index.ts)" = f785a5503f4e4532c9e9359587fcd6948bda76de
+          python3 -m py_compile tests/qr-pr443-source163-help-answer-independent.py
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID"
+          echo QR163_SOURCE155_163_FROZEN_QA_ONLY_TWO_PATHS_PASS
+      - uses: supabase/setup-cli@v1
+        with: {version: 2.109.0}
+      - name: Make fresh isolated genuine local-only ES256 GoTrue signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\n[auth]\nsigning_keys_path = "./signing_keys.json"\n' >>supabase/config.toml
+          printf '[]\n' >supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes >/tmp/qr163-sign.log 2>&1
+      - name: Launch disposable FULL163 from zero and fully reset migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_qr163_help_answer_independent_20261104"\n' | cat - supabase/config.toml > /tmp/qr163-config
+          mv /tmp/qr163-config supabase/config.toml
+          printf 'COMMUNITY_MEDIA_BUCKET=qr163-only-local\nWEP_PRESET_ARTIFACT_BUCKET=qr163-only-local\n' >supabase/functions/.env
+          timeout 1800s supabase start >/tmp/qr163-start.log 2>&1 || { echo QR163_DISPOSABLE_RUNTIME_NOT_RUN; tail -n 15 /tmp/qr163-start.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'; exit 1; }
+          timeout 900s supabase db reset --no-seed >/tmp/qr163-reset.log 2>&1 || { echo QR163_LOCAL_FRESH_RESET_NOT_RUN; tail -n 15 /tmp/qr163-reset.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'; exit 1; }
+          echo QR163_INDEPENDENT_DISPOSABLE_FULL163_FRESH_ES256_RESET_PASS
+      - run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Independent A2 signed 409 A1 old real-refresh 401 five replay SQL42501 2PG temp grant rollback
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/qr-pr443-source163-help-answer-independent.py | tee /tmp/qr163-run.log
+          for m in \
+            QR163_FRESH_FULL163_PRIOR157_162_ACL_AND_R16_SIGNED_GRANTS_PASS \
+            QR163_ACTIVE_A2_409_THREEROLE_SQL42501_ANSWER_GRAPH_UNCHANGED_PASS \
+            QR163_REVOKED_OLD_AND_REAL_REFRESH_A1_401_SIBLING_A2_200_FIVEREPLAY_NODIFF_PASS \
+            QR163_TWO_POSTGRES_BACKENDS_TEMP_GRANT_ROLLBACK_STILL_42501_PASS \
+            QR163_INDEPENDENT_REAL_ES256_LOCAL_SOURCE163_DIRECT_ANSWER_ONLY_NOT_PUBLIC_PASS; do
+            grep -q "$m" /tmp/qr163-run.log
+          done
+      - name: Terminate actual local signer and ephemeral database
+        if: always()
+        shell: bash
+        run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f supabase/signing_keys.json supabase/functions/.env /tmp/qr163-*
+          echo QR163_LOCAL_EPHEMERAL_CLEANUP_ATTEMPTED
