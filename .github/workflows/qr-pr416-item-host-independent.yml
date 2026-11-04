@@ -3,7 +3,7 @@ on:
   push:
     branches: [qa/pr416-item-http-capability-20261104]
   pull_request:
-    branches: [main]
+    branches: [web/hosting-capability-failclosed-20261104]
 permissions:
   contents: read
 jobs:
