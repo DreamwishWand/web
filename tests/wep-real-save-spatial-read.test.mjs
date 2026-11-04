@@ -177,3 +177,49 @@ test('main 626 structural source cannot borrow 624 Spatial Scene geometry',()=>{
   f.opened.compatibility.routesAuthorized=false;
   assert.throws(()=>bind(f),/SPATIAL_READ_VERSION_OR_PLATFORM_UNSUPPORTED/);
 });
+
+test('runtime immutable Native source map denies post-bind foreign GridObjectID',()=>{
+  const f=fixture(), b=bind(f);
+  assert.equal(Object.isFrozen(b),true);
+  assert.equal(b.identities.has('g42:o7'),true);
+  assert.equal(typeof b.identities.set,'undefined');
+  assert.throws(()=>b.identities.set('g42:o999',{
+    editorId:'g42:o999',gridId:42,objectId:999,itemId:40000048,
+    sourceGridDataPath:path,worldClass:'FurnitureItemData'
+  }),TypeError);
+  assert.throws(()=>b.identities.delete('g42:o7'),TypeError);
+  f.document.objects.push(obj(999,22,4));
+  const result=inspectRealSaveSpatialRead(b,f.document,f.session,FP,1);
+  assert.equal(result.allowed.has('g42:o999'),false);
+  assert.equal(result.allowed.has('g42:o7'),true);
+  assert.equal(result.unresolved.some(i=>i.editorId==='g42:o999'),true);
+});
+
+test('post-inspection runtime immutable allowed ID set cannot forge Scene authority',()=>{
+  const f=fixture(), b=bind(f);
+  const result=inspectRealSaveSpatialRead(b,f.document,f.session,FP,1);
+  assert.equal(Object.isFrozen(result),true);
+  assert.equal(typeof result.allowed.add,'undefined');
+  assert.throws(()=>result.allowed.add('g42:o999'),TypeError);
+  assert.equal(result.allowed.has('g42:o999'),false);
+  assert.equal(applyRealSaveReadToScene({
+    objects:[{editorId:'g42:o999'}],unresolved:[],persistentWriteAuthorized:false
+  },result).objects.length,0);
+  assert.equal(applyRealSaveReadToScene({
+    objects:[{editorId:'g42:o7'}],unresolved:[],persistentWriteAuthorized:false
+  },result).objects.length,1);
+});
+
+test('spoofed caller binding/verdict or stale fallback never mint Native Scene grants',()=>{
+  const f=fixture(), b=bind(f);
+  const fakeBinding={...b,identities:new Map([['g42:o999',{
+    editorId:'g42:o999',gridId:42,objectId:999,itemId:40000048,
+    sourceGridDataPath:path,worldClass:'FurnitureItemData'
+  }]])};
+  const forged=inspectRealSaveSpatialRead(fakeBinding,f.document,f.session,FP,1);
+  assert.equal(forged.status,'STALE');
+  assert.equal(forged.allowed.size,0);
+  const forgedScene={objects:[{editorId:'g42:o999'}],unresolved:[],persistentWriteAuthorized:false};
+  assert.equal(applyRealSaveReadToScene(forgedScene,{status:'READY',allowed:new Set(['g42:o999']),unresolved:[],persistentWriteAuthorized:false}).objects.length,0);
+  assert.equal(applyRealSaveReadToScene(forgedScene,{status:'STALE',allowed:new Set(['g42:o999']),unresolved:[],persistentWriteAuthorized:false}).objects.length,0);
+});
