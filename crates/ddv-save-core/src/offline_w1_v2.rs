@@ -3,7 +3,8 @@
 #![cfg(not(target_arch="wasm32"))]
 use crate::{sha256,index_selected_tokens,TokenChange};
 use crate::p1g::{decode_p1g_research,create_p1g_copy_research};
-use crate::trusted_read::{TrustedReadCore,W1CommandIntent,ReadRoots};
+use crate::trusted_read::{TrustedReadCore,W1CommandIntent,ReadRoots,W1CoreNativeReadSet};
+use std::collections::HashSet;
 use crate::w1_evidence::W1Kind;
 use crate::session::{SaveSession,Domain,CommandKind,LogicalIdentity,
   ReferenceIndex,SemanticCommand,TransactionPlan,ReadWitness};
@@ -85,6 +86,64 @@ fn intent<'a>(sid:&'a str,r:&'a ReadRoots,old_raw:&'a str,
   source_read_set:vec![]
  }
 }
+/// Native-only research bridge from a fixed Core-derived W1 snapshot readset
+/// into one atomic SaveSession ChangeSet. No UI can select a smaller readset.
+/// This verifies *source* token CAS, not Native Wetland/Clock semantics.
+pub fn private_core_bound_w1_atomic_readset(
+ decoded:&[u8],expected_decoded_sha:[u8;32],required:&W1CoreNativeReadSet
+)->Result<Vec<ReadWitness>,&'static str>{
+ const PATHS:[&str;8]=[
+  "/GameInfo/Version",
+  "/World/RecurringEvents/155/ItemSpawning/RecurringEventItemID",
+  "/World/RecurringEvents/155/ItemSpawning/NextOccurrence",
+  "/World/RecurringEvents/155/ItemSpawning/LastOccurrence",
+  "/World/RecurringEvents/155/ItemSpawning/EndDate",
+  "/World/GridCollection/Grids",
+  "/World/GridCollection/DiffGrids",
+  "/World/Villages"
+ ];
+ if sha256(decoded)!=expected_decoded_sha {
+   return Err("OFFLINE_STAGE_SOURCE_SHA_CAS_FAILED");
+ }
+ if required.event_id!=2010000021||required.saved_index!=155||
+    required.required_source_paths_count!=8||
+    !required.core_derived_not_caller_selected||
+    !required.all_known_source_refs_observed||
+    !required.missing_or_unbounded_refs.is_empty()||
+    required.observed_core_refs.len()!=8||
+    required.product_writer_authorized||
+    required.complete_native_dependency_closure_verified{
+   return Err("OFFLINE_STAGE_CORE_READSET_INCOMPLETE");
+ }
+ let mut unique=HashSet::new();
+ for ref_ in &required.observed_core_refs {
+   if !PATHS.contains(&ref_.pointer.as_str())||
+      !unique.insert(ref_.pointer.as_str()) {
+     return Err("OFFLINE_STAGE_CORE_READSET_INCOMPLETE");
+   }
+ }
+ if unique.len()!=PATHS.len(){return Err("OFFLINE_STAGE_CORE_READSET_INCOMPLETE");}
+ // Same immutable source, exact byte tokens, not a UI-supplied summary.
+ let paths=PATHS.iter().map(|s|s.to_string()).collect::<Vec<_>>();
+ let hits=index_selected_tokens(decoded,&paths)?;
+ if hits.len()!=8{return Err("OFFLINE_STAGE_CORE_SOURCE_REF_MISSING");}
+ let mut read_set=Vec::with_capacity(8);
+ for path in PATHS {
+   let ref_=required.observed_core_refs.iter()
+     .find(|x|x.pointer==path).ok_or("OFFLINE_STAGE_CORE_READSET_INCOMPLETE")?;
+   let hit=hits.iter().find(|x|x.pointer==path)
+     .ok_or("OFFLINE_STAGE_CORE_SOURCE_REF_MISSING")?;
+   if hit.value.len()>2*1024*1024||
+      sha256(hit.value.as_bytes())!=ref_.expected_raw_token_sha256 {
+      return Err("OFFLINE_STAGE_CORE_SOURCE_REF_CAS_FAILED");
+   }
+   read_set.push(ReadWitness{
+     pointer:path.to_owned(),expected_raw_json:hit.value.clone()
+   });
+ }
+ Ok(read_set)
+}
+
 pub fn execute_private_w1_v2_research(
  input:PrivateW1V2Input<'_>
 )->Result<PrivateW1V2Receipt,&'static str>{
@@ -136,8 +195,8 @@ pub fn execute_private_w1_v2_research(
     !diff.source_and_reference_cas_matched||diff.encode_copy_authorized{
     return Err("OFFLINE_EXACT_DIFF_UNEXPECTED");
  }
- let hits=index_selected_tokens(&decoded.json,&[ID_PATH.into()])?;
- let id_raw=hits.first().ok_or("OFFLINE_EVENT_ID_MISSING")?.value.clone();
+ let atomic_reads=private_core_bound_w1_atomic_readset(
+   &decoded.json,input.decoded_sha,&required)?;
  let identity=LogicalIdentity{domain:Domain::RecurringEvent,key:"W1:155:2010000021".into()};
  let mut references=ReferenceIndex::default();
  references.nodes.insert(identity.clone());
@@ -153,7 +212,7 @@ pub fn execute_private_w1_v2_research(
    domain:Domain::RecurringEvent,identity,kind:CommandKind::ReplaceStringToken,
    pointer:PATH.into(),expected_old_json:old_raw,
    new_json:next_raw.clone(),
-   read_set:vec![ReadWitness{pointer:ID_PATH.into(),expected_raw_json:id_raw}]
+   read_set:atomic_reads
   }],
   postconditions:vec![ReadWitness{pointer:PATH.into(),expected_raw_json:next_raw}],
   post_references:references
