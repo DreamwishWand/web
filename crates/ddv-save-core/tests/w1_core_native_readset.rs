@@ -5,7 +5,7 @@ use ddv_save_core::p1g::encode_synthetic_fixture;
 use ddv_save_core::trusted_read::{TrustedReadCore,W1CommandIntent};
 use ddv_save_core::w1_evidence::W1Kind;
 const BID:&str="9A239D3DB569756D";
-const FULL:&str=r#"{"GameInfo":{"Version":626},"Player":{"Unknown":"keep"},"World":{"RecurringEvents":{"155":{"ItemSpawning":{"RecurringEventItemID":2010000021,"NextOccurrence":"2126-08-20T00:00:00Z","LastOccurrence":"2026-10-01T00:00:00Z","EndDate":"2030-12-31T00:00:00Z"}}},"GridCollection":{"Grids":{"1540000000":{"Objects":[]}},"DiffGrids":{"1540000000":{"Modified":[]}}},"Villages":{"Village04":{"Area":"Wetland1"}}}}"#;
+const FULL:&str=r#"{"GameInfo":{"Version":626},"Player":{"Unknown":"keep"},"World":{"RecurringEvents":{"155":{"ItemSpawning":{"RecurringEventItemID":2010000021,"NextOccurrence":"2126-08-20T00:00:00Z","LastOccurrence":"2026-10-01T00:00:00Z","EndDate":"2030-12-31T00:00:00Z"}}},"GridCollection":{"Grids":{"1540000000":{"Objects":[]}},"DiffGrids":{"1540000000":{"Modified":[]}}},"Villages":[{"Areas":{"1":{"GridIDs":[1540000000]}}}]}}"#;
 const MISSING:&str=r#"{"GameInfo":{"Version":626},"World":{"RecurringEvents":{"155":{"ItemSpawning":{"RecurringEventItemID":2010000021,"NextOccurrence":"2126-08-20T00:00:00Z","LastOccurrence":"2026-10-01T00:00:00Z"}}}}}"#;
 fn open(doc:&str)->TrustedReadCore{
  let cipher=encode_synthetic_fixture(doc.as_bytes(),&[0x49;32],8).unwrap();
@@ -116,4 +116,41 @@ fn operation_source_gate_does_not_trust_optional_selected_ref_or_stale_source(){
  });
  assert_eq!(core.require_w1_core_operation_source_read_set(wrong).unwrap_err(),
    "W1_READ_SET_CAS_FAILED");
+}
+
+#[test]
+fn operation_source_gate_rejects_wrong_village_container_and_gridid_shape(){
+ let mut raw:serde_json::Value=serde_json::from_str(FULL).unwrap();
+ raw["World"]["Villages"]=serde_json::json!({"Village04":{"Area":"Wetland1"}});
+ let doc=raw.to_string();
+ let core=open(&doc);let owner=core.receipt().unwrap();
+ assert_eq!(core.require_w1_core_operation_source_read_set(intent(&owner)).unwrap_err(),
+   "W1_CORE_VILLAGES_ARRAY_REQUIRED");
+ let mut raw:serde_json::Value=serde_json::from_str(FULL).unwrap();
+ raw["World"]["Villages"][0]["Areas"]["1"]["GridIDs"]=
+   serde_json::json!("not-an-array");
+ let doc=raw.to_string();let core=open(&doc);let owner=core.receipt().unwrap();
+ assert_eq!(core.require_w1_core_operation_source_read_set(intent(&owner)).unwrap_err(),
+   "W1_CORE_AREA_GRIDIDS_INVALID");
+}
+#[test]
+fn operation_source_gate_typed_null_enddate_and_wrong_grid_types(){
+ let mut raw:serde_json::Value=serde_json::from_str(FULL).unwrap();
+ raw["World"]["RecurringEvents"]["155"]["ItemSpawning"]["EndDate"]=
+   serde_json::Value::Null;
+ let doc=raw.to_string();let core=open(&doc);let owner=core.receipt().unwrap();
+ let ok=core.require_w1_core_operation_source_read_set(intent(&owner)).unwrap();
+ assert_eq!(ok.required_source_paths_count,8);
+ assert!(!ok.clock_actualize_last_to_next_verified);
+ let mut raw:serde_json::Value=serde_json::from_str(FULL).unwrap();
+ raw["World"]["GridCollection"]["Grids"]=serde_json::json!([]);
+ let doc=raw.to_string();let core=open(&doc);let owner=core.receipt().unwrap();
+ assert_eq!(core.require_w1_core_operation_source_read_set(intent(&owner)).unwrap_err(),
+   "W1_CORE_GRID_MAP_TYPE_INVALID");
+ let mut raw:serde_json::Value=serde_json::from_str(FULL).unwrap();
+ raw["World"]["RecurringEvents"]["155"]["ItemSpawning"]["EndDate"]=
+   serde_json::json!(42);
+ let doc=raw.to_string();let core=open(&doc);let owner=core.receipt().unwrap();
+ assert_eq!(core.require_w1_core_operation_source_read_set(intent(&owner)).unwrap_err(),
+   "W1_CORE_ENDDATE_TYPE_INVALID");
 }
