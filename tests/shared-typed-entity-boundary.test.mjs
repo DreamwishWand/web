@@ -5,8 +5,8 @@ import {
   ENTITY_KINDS, RELATION_TYPES, SHARED_TYPED_ENTITY_CONTRACT, SHARED_TYPED_PUBLIC_URL_AUTHORIZED,
   SWITCH_1250_CATALOG_SCOPE, parseTypedEntityRef, exactSourceScope, resolveTypedEntityFromCatalog,
   inspectNativeComposite, resolveUnverifiedAlias, safeTypedEntityReference
-} from '../src/lib/entity/shared-typed-entity-contract.mjs';
-import { SHARED_TYPED_COPY, sharedTypedCopy } from '../src/lib/entity/shared-typed-entity-copy.mjs';
+} from '../src/lib/foundation/shared-typed-entity-contract.mjs';
+import { SHARED_TYPED_COPY, sharedTypedCopy } from '../src/lib/foundation/shared-typed-entity-copy.mjs';
 
 const index={s:'wand.collection.runtime@1',n:1,
  t:{platform:'Nintendo Switch',gameVersion:'1.25.0',buildID:'52BD625D9B4E0053'},
@@ -98,7 +98,7 @@ test('eight-locale shared gate, noindex routes and distinct public SEO/Writer bo
   for(const kind of ENTITY_KINDS)assert.ok(c.kinds[kind]);
  }
  assert.equal(sharedTypedCopy('xx'),SHARED_TYPED_COPY.en);
- const gate=read('src/lib/entity/SharedTypedEntityGate.svelte');
+ const gate=read('src/lib/foundation/SharedTypedEntityGate.svelte');
  for(const token of ['data-typed-entity-gate="closed"','data-public-indexable="false"','data-writer="off"','data-provider="off"','data-relations-verified="false"','data-alias-resolved="false"','data-personal-state="unknown"','noindex,nofollow']){
    assert.ok(gate.includes(token),token);
  }
