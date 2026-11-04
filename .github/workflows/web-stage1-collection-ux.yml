@@ -1,0 +1,91 @@
+name: WEB Stage1 Collection 29-category visible UX (safe local Catalog only)
+on:
+  push:
+    branches:
+      - 'web/stage1-collection-root-*'
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Strict latest-main first source scope and no auth/worker/publish mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=342823eb03eff6bb7c5d80f4a804249bb174df10
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          git diff --name-only "$BASE" HEAD >/tmp/collection-stage1-diff
+          test "$(wc -l </tmp/collection-stage1-diff)" -eq 6
+          while IFS= read -r f; do
+            case "$f" in
+              src/routes/collection/+page.svelte|src/lib/collection/stage1-root.mjs|tests/web-stage1-collection-root.test.mjs|tests/product-surface-routes.test.mjs|scripts/web-stage1-collection-chrome.mjs|.github/workflows/web-stage1-collection-ux.yml) ;;
+              *) echo "OUTSIDE_STAGE1_SCOPE:$f"; exit 1 ;;
+            esac
+          done </tmp/collection-stage1-diff
+          git diff --exit-code "$BASE" HEAD -- src/lib/ddv/ src/lib/community/ src/lib/timing/ src/lib/wep/ src/lib/entity/ src/lib/collection/runtime.js src/lib/collection/copy.js supabase/ static/ .github/workflows/pages.yml
+          echo WEB_STAGE1_COLLECTION_SCOPE_ONLY_PASS
+      - name: Canonical 29 category and fail-closed scoped source negative tests
+        run: node --test tests/web-stage1-collection-root.test.mjs tests/shared-ui-stage1.test.mjs
+      - name: All Node regressions and Svelte compiled static Pages
+        env:
+          BASE_PATH: /web
+        run: |
+          npm test
+          npm run check
+          npm run build
+      - name: No unapproved entity page prerender or Save writer
+        shell: bash
+        run: |
+          test -f build/collection/index.html
+          test -f build/404.html
+          test ! -f build/ja/40000047/index.html
+          test ! -f build/ja/entity/quest/12345/index.html
+          echo WEB_STAGE1_COLLECTION_PUBLIC_ENTITY_OFF_PASS
+  chrome:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Build static and start disposable localhost source
+        shell: bash
+        env:
+          BASE_PATH: /web
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          npm run build
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4285 >/tmp/web-stage1-collection.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4285/collection/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/web-stage1-collection.log
+          exit 1
+      - name: Actual Chrome 8 languages, 29-category UX, keyboard, 320 and 200 percent
+        env:
+          STAGE1_COLLECTION_URL: http://127.0.0.1:4285
+        run: node scripts/web-stage1-collection-chrome.mjs
