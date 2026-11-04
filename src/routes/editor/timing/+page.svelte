@@ -3,7 +3,7 @@
   import { base } from '$app/paths';
   import { locale } from '$lib/i18n/runtime.js';
   import { WAND_TIMING_SWITCH_BID } from '$lib/timing/recurring-readonly.mjs';
-  import { createTimingLocalReadWorker } from '$lib/timing/local-timing-worker-client';
+  import { getLocalSaveSessionBridge } from '$lib/timing/local-timing-worker-client';
 
   let sourceBuild = '';
   let userSourceConfirmed = false;
@@ -19,53 +19,48 @@
   let openToken = 0;
   let searchToken = 0;
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
-  let reader: Worker | null = null;
   let workerReady = false;
-  let messageId = 0;
-  let pending = new Map<number, { resolve: (value: any) => void; reject: (reason: Error) => void }>();
   $: japanese = $locale === 'ja';
 
   onMount(() => {
-    reader = createTimingLocalReadWorker();
-    const current = reader;
-    current.addEventListener('message', (event: MessageEvent) => {
-      const payload = event.data;
-      if (!payload || !Number.isSafeInteger(payload.id)) return;
-      if (payload.id === 0 && payload.ready === true && payload.writerAuthorized === false) {
-        workerReady = true;
-        return;
-      }
-      const callback = pending.get(payload.id);
-      if (!callback) return;
-      pending.delete(payload.id);
-      if (payload.ok === true) callback.resolve(payload.result);
-      else callback.reject(Error(typeof payload.error === 'string' ? payload.error : 'READ_WORKER_REJECTED'));
+    // One Worker-owned source survives route changes in this browser tab.
+    // Do not terminate it when navigating to Collection, Decorate, or WEP.
+    const bridge = getLocalSaveSessionBridge();
+    const unsubscribe = bridge.subscribe(({ ready, receipt }) => {
+      workerReady = ready;
+      if (!receipt) { summary = null; rows = []; nextCursor = null; }
     });
-    current.addEventListener('error', () => {
-      workerReady = false;
-      error = 'READ_WORKER_UNAVAILABLE';
-      for (const callback of pending.values()) callback.reject(Error('READ_WORKER_UNAVAILABLE'));
-      pending.clear();
-    });
+    void bridge.ensureReady().then(() => {
+      if (!getLocalSaveSessionBridge().getSession()) return;
+      const previous = bridge.getSession();
+      if (!previous) return;
+      summary = previous;
+      fileName = previous.sourceFileName;
+      void searchSavedEvents(true);
+    }).catch(() => { error = 'READ_WORKER_UNAVAILABLE'; });
     return () => {
       if (searchTimer) clearTimeout(searchTimer);
-      openToken += 1;
-      searchToken += 1;
-      for (const callback of pending.values()) callback.reject(Error('READ_WORKER_CLOSED'));
-      pending.clear();
-      current.terminate();
-      reader = null;
-      workerReady = false;
+      ++openToken; ++searchToken;
+      unsubscribe(); // unsubscribes UI only, not the authoritative Worker.
     };
   });
 
   function request(type: string, params: Record<string, unknown> = {}): Promise<any> {
-    if (!reader || !workerReady) return Promise.reject(Error('READ_WORKER_UNAVAILABLE'));
-    const id = ++messageId;
-    return new Promise((resolve, reject) => {
-      pending.set(id, { resolve, reject });
-      reader?.postMessage({ id, type, ...params });
+    const bridge = getLocalSaveSessionBridge();
+    if (type === 'CLOSE') return bridge.close();
+    if (type === 'QUERY') return bridge.queryW1Page({
+      search: String(params.search ?? ''),
+      cursor: params.cursor == null ? null : String(params.cursor),
+      limit: Number(params.limit ?? 64)
     });
+    if (type === 'OPEN_FILE') {
+      return bridge.openLocalFile(params.file as File, {
+        platform: 'switch', fullVersion: '1.25.3', buildKind: 'switch-bid',
+        buildId: WAND_TIMING_SWITCH_BID, schema: 626,
+        externallyConfirmed: params.sourceConfirmed === true
+      } as const);
+    }
+    return Promise.reject(Error('LOCAL_OPERATION_WRITER_NOT_ACCEPTED'));
   }
 
   async function searchSavedEvents(reset: boolean) {
@@ -121,7 +116,8 @@
         sourceConfirmed: true
       });
       if (token !== openToken) return;
-      if (result?.sourceSchema !== 626 ||
+      if (result?.schema !== 626 || result?.fullVersion !== '1.25.3' ||
+          result?.buildId !== WAND_TIMING_SWITCH_BID ||
           result?.writerAuthorized !== false ||
           result?.productRustWorkerAccepted !== false)
         throw Error('READ_WORKER_CAPABILITY_INVALID');
@@ -154,6 +150,9 @@
 
   <div class="import-panel">
     <p>{japanese ? '対象: Nintendo Switch DDV v1.25.3 / schema626' : 'Target: Nintendo Switch DDV v1.25.3 / schema626'}</p>
+    <p data-single-savesession="true">{japanese
+      ? '1つのローカルSaveSessionをタブ内で共有します。別ページに移動しても原本はサーバーへ送信されません。'
+      : 'One local SaveSession is shared across routes in this tab. No original is uploaded to servers.'}</p>
     <label for="timing-bid">{japanese ? '外部で確認したBuild ID' : 'Externally verified Build ID'}</label>
     <input id="timing-bid" type="text" bind:value={sourceBuild} placeholder={WAND_TIMING_SWITCH_BID} spellcheck="false" autocomplete="off"/>
     <label class="attest"><input type="checkbox" bind:checked={userSourceConfirmed}/><span>{japanese
