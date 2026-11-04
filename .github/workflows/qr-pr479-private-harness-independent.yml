@@ -1,0 +1,53 @@
+name: 04 QR PR479 private P1G harness independent synthetic policy
+on:
+  push:
+    branches: [qa/pr479-private-harness-independent-policy-20261104]
+  pull_request:
+    branches: [wep/private-genuine-p1g-e2e-harness-source-only-20261104]
+permissions:
+  contents: read
+jobs:
+  policy-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Freeze accepted source and exactly five harness and two QA files
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=19f0db3b07651ec5734c2918e550413af3c160aa
+          SRC=a0a18a2f898668cac8d958f1925791e08372bdb0
+          git merge-base --is-ancestor "$BASE" "$SRC"
+          git merge-base --is-ancestor "$SRC" HEAD
+          git diff --name-only "$BASE" "$SRC" | sort >/tmp/479-source
+          printf '%s\n' \
+            .github/workflows/wep-private-genuine-p1g-harness-policy-20261104.yml \
+            docs/wep/private-real-save-spatial-e2e-local-only-20261104.md \
+            scripts/wep-private-real-save-2d-local-only-20261104.mjs \
+            scripts/wep-private-real-save-e2e-safety-20261104.mjs \
+            tests/wep-private-real-save-e2e-safety.test.mjs | sort >/tmp/479-expected-source
+          diff -u /tmp/479-expected-source /tmp/479-source
+          git diff --name-only "$SRC" HEAD | sort >/tmp/479-qa
+          printf '%s\n' .github/workflows/qr-pr479-private-harness-independent.yml tests/qr-pr479-private-harness-independent.test.mjs | sort >/tmp/479-expected-qa
+          diff -u /tmp/479-expected-qa /tmp/479-qa
+          test "$(git hash-object scripts/wep-private-real-save-e2e-safety-20261104.mjs)" = f77d995e2c4e49dcfef4c2208cb7d62d906850fc
+          test "$(git hash-object scripts/wep-private-real-save-2d-local-only-20261104.mjs)" = 3aa36cea064cef10ae27abc5d0c4094a62cf2f42
+          test "$(git hash-object src/lib/wep/real-save-spatial-read.ts)" = 48b32c3bd3132c6e48a47d7b8f017a35642d2623
+          test -z "$(git diff --name-only "$BASE" HEAD -- src supabase static)"
+          echo QR479_EXACT_HARNESS_NO_PRODUCT_SOURCE_CHANGE_PASS
+      - name: Independent synthetic policy negatives only
+        run: node --test tests/qr-pr479-private-harness-independent.test.mjs
+      - name: Syntax-only private executor (NEVER execute owner P1G in CI)
+        run: node --check scripts/wep-private-real-save-2d-local-only-20261104.mjs
+      - name: Never allow an actual private P1G path in the runner
+        run: |
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
