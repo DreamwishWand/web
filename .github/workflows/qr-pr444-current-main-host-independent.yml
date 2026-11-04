@@ -1,0 +1,81 @@
+name: 04 QR PR444 current a9f main hosted Item UNKNOWN independent
+on:
+  push:
+    branches: [qa/pr444-host-8caa-main-independent-20261104]
+  pull_request:
+    branches: ['int/w-int-012-item-unknown-host-qr434-20261104']
+permissions:
+  contents: read
+jobs:
+  exact-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Freeze exact eight source paths and three QA paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAIN=8caa7643db5a154a6d6a27ed84f5601a14cddf56
+          SRC=b44d41e09805f0b25b9c0f75b60163b237b05370
+          git merge-base --is-ancestor "$MAIN" "$SRC"
+          git merge-base --is-ancestor "$SRC" HEAD
+          git diff --name-only "$MAIN" "$SRC" | sort >/tmp/qr444-source
+          printf '%s\n' .github/workflows/web-host-item-read-gate.yml \
+            scripts/web-host-item-read-chrome.mjs \
+            src/lib/foundation/public-entity-host-contract.mjs \
+            src/lib/local/ItemReadCapabilityNotice.svelte \
+            src/lib/local/item-capability-copy.mjs \
+            src/lib/local/item-personal-read-gate.mjs \
+            src/routes/editor/items/+layout.svelte \
+            tests/web-host-gate-item-read.test.mjs | sort >/tmp/qr444-expected-src
+          diff -u /tmp/qr444-expected-src /tmp/qr444-source
+          git diff --name-only "$SRC" HEAD | sort >/tmp/qr444-qa
+          printf '%s\n' .github/workflows/qr-pr444-current-main-host-independent.yml tests/qr-pr444-current-main-host-independent.test.mjs scripts/qr-pr444-current-main-host-chromium.mjs | sort >/tmp/qr444-expected-qa
+          diff -u /tmp/qr444-expected-qa /tmp/qr444-qa
+          test "$(git hash-object src/lib/foundation/public-entity-host-contract.mjs)" = 698834037fee8043e6325354cdcbb007ff4d11de
+          test "$(git hash-object src/lib/local/item-personal-read-gate.mjs)" = f9c68f70d71a23fbefd61bab029bf5c7c34bad97
+          test -z "$(git diff --name-only "$SRC" HEAD -- src docs supabase static)"
+          echo QR444_SOURCE_A9F_TYPED_SINGLE_CONTRACT_UNCHANGED_PASS
+      - run: npm ci --no-audit --no-fund
+      - run: node --test tests/qr-pr444-current-main-host-independent.test.mjs
+      - run: npm run check && npm run build
+      - name: Assert no new unapproved static routes
+        run: |
+          test -f build/404.html
+          test ! -f build/ja/40000047/index.html
+  actual-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 23
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Locate browser
+        shell: bash
+        run: |
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Start current-main Item read-only UI
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4202 >/tmp/qr444-item.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4202/editor/items/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr444-item.log
+          exit 1
+      - run: npm run build
+      - run: node scripts/qr-pr444-current-main-host-chromium.mjs
