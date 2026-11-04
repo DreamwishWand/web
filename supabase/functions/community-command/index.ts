@@ -263,6 +263,12 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       return reply({ok:false,error:'SOURCE162_GALLERY_PHOTO_WRITER_NOT_ENROLLED'},409);
     }
 
+    // Source163: signed A1 revocation did not prevent legacy addAnswer service-role SQL COMMIT.
+    // Only this operation is disabled; revoked session returns 401 above.
+    if (new Set<string>(['addAnswer']).has(command)) {
+      return reply({ok:false,error:'SOURCE163_HELP_ANSWER_WRITER_NOT_ENROLLED'},409);
+    }
+
     const authorizationParams: JsonObject = {
       p_auth_subject: subject, p_issued_at_epoch: issuedAt,
       p_max_age_seconds: null
