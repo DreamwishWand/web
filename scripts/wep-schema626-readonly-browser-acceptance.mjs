@@ -54,6 +54,9 @@ try {
   assert.match(rendered,/Village records[\s\S]*1/);
   assert.match(rendered,/Area records[\s\S]*1/);
   assert.match(rendered,/Grid records[\s\S]*1/);
+  // Raw source cardinality: not native layout/footprint/Writer semantics.
+  assert.equal((await page.locator('[data-wep-626-gridobject-entries] dd').innerText()).trim(),'1');
+  pass('SWITCH626_RAW_GRIDOBJECT_ENTRY_COUNT_VISIBLE');
   pass('SWITCH626_STRUCTURAL_DIAGNOSTIC_VISIBLE');
   assert.equal(await page.locator('.editor-shell').count(),0);
   assert.equal(await page.locator('.toolbar-actions').count(),0);
