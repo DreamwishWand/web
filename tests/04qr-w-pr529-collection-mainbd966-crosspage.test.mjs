@@ -28,7 +28,7 @@ const QA=[
 test('MAIN bd966 selected SIX original accepted PR519 source blobs only, QA-only exactly three paths',()=>{
  assert.equal(git('merge-base',MAIN,SOURCE),MAIN);
  assert.deepEqual(git('diff','--name-only',MAIN,SOURCE).split('\n').sort(),Object.keys(original).sort());
- for(const [p,sha] of Object.entries(original))assert.equal(git('hash-object',p),sha,p);
+ for(const [p,sha] of Object.entries(original))assert.equal(git('rev-parse',SOURCE+':'+p),sha,p+' immutable Source Git blob');
  assert.deepEqual(git('diff','--name-only',SOURCE,'HEAD').split('\n').sort(),QA);
 });
 test('new main accepted WEP626 and single Session original-backup Bridge are wholly unchanged by Stage1 Source',()=>{
