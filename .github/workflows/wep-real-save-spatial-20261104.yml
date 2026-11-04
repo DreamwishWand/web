@@ -8,6 +8,8 @@ on:
       - 'src/routes/editor/world/+page.svelte'
       - 'tests/wep-real-save-spatial-read.test.mjs'
       - 'scripts/wep-real-save-spatial-browser-20261104.mjs'
+      - 'scripts/wep-private-real-save-2d-local-only-20261104.mjs'
+      - 'docs/wep/private-real-save-spatial-e2e-local-only-20261104.md'
       - '.github/workflows/wep-real-save-spatial-20261104.yml'
   workflow_dispatch:
 permissions:
@@ -28,6 +30,8 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Real P1G-shaped source identity and stale revision negatives
         run: node --experimental-strip-types --test tests/wep-real-save-spatial-read.test.mjs
+      - name: Syntax-only owner-private genuine Save E2E script (never run with data in CI)
+        run: node --check scripts/wep-private-real-save-2d-local-only-20261104.mjs
       - name: Svelte and TypeScript check
         run: npm run check
       - name: Static site build
