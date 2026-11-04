@@ -550,3 +550,60 @@ pub fn index_direct_children(source:&[u8],parent_pointer:&str)->EngineResult<Dir
  Ok(DirectChildIndex{parent_pointer:parent_pointer.to_owned(),
    kind,items:parser.direct_items,complete_from_strict_full_scan:true})
 }
+
+/// Strict one-pass combined direct-child index and source-token witnesses.
+///
+/// Retains byte spans, bounded hashes and object keys only: never clones large
+/// selected Grid/source objects or silently invents missing reference tokens.
+/// Research/READ only; it is NOT a native-validated SaveSession/Writer gate.
+pub fn index_direct_children_with_sparse_witness(
+ source:&[u8],parent_pointer:&str,watched:&[String],max_token_bytes:usize
+)->EngineResult<(DirectChildIndex,Vec<SparseTokenSha256>)>{
+ if !parent_pointer.starts_with('/')||parent_pointer.len()>1024||
+    parent_pointer.contains("//"){return Err("DIRECT_INDEX_POINTER_INVALID");}
+ if watched.len()>32{return Err("DIRECT_INDEX_WITNESS_LIMIT");}
+ if max_token_bytes==0||max_token_bytes>2*1024*1024{
+   return Err("DIRECT_INDEX_WITNESS_BUDGET_INVALID");
+ }
+ let watch:HashSet<String>=watched.iter().cloned().collect();
+ if watch.len()!=watched.len()||watched.iter().any(|s|
+   !s.starts_with('/')||s.len()>1024||s.contains("//")){
+   return Err("DIRECT_INDEX_WITNESS_POINTER_INVALID");
+ }
+ let text=std::str::from_utf8(source).map_err(|_|"JSON_INVALID_UTF8")?;
+ let mut parser=Parser::new(text,&watch);
+ parser.direct_target=Some(parent_pointer.to_owned());
+ parser.selected_hash_only=true;
+ let fields=parser.parse()?; // exactly ONE complete strict JSON grammar walk
+ if !parser.direct_seen{return Err("DIRECT_INDEX_PARENT_MISSING_OR_WRONG_TYPE");}
+ let kind=parser.direct_kind.ok_or("DIRECT_INDEX_PARENT_WRONG_TYPE")?;
+ if kind==DirectIndexKind::Object {
+   let mut seen=HashSet::new();
+   for item in &parser.direct_items {
+     let parsed=item.key.parse::<usize>()
+       .map_err(|_|"DIRECT_INDEX_OBJECT_KEY_AMBIGUOUS")?;
+     if !seen.insert(parsed){return Err("DIRECT_INDEX_OBJECT_KEY_AMBIGUOUS");}
+   }
+ }
+ let mut sparse=Vec::with_capacity(watched.len());
+ for p in watched {
+   let field=fields.get(p).ok_or("DIRECT_INDEX_MANDATORY_WITNESS_MISSING")?;
+   let len=field.span.end-field.span.start;
+   if len>max_token_bytes{return Err("DIRECT_INDEX_MANDATORY_WITNESS_UNBOUNDED");}
+   sparse.push(SparseTokenSha256{
+     pointer:p.clone(),raw_sha256:sha256(&source[field.span.clone()]),
+     raw_bytes:len,
+     lexical_kind:match field.kind {
+       TokenKind::String=>"string",TokenKind::Number=>"number",
+       TokenKind::Object=>"object",TokenKind::Array=>"array",
+       TokenKind::Other=>"other"
+     }
+   });
+ }
+ Ok((DirectChildIndex {
+   parent_pointer:parent_pointer.to_owned(),
+   kind,items:parser.direct_items,complete_from_strict_full_scan:true
+ },sparse))
+}
+#[cfg(not(target_arch="wasm32"))]
+pub mod indexed_w1_read;
