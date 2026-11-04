@@ -1,0 +1,96 @@
+name: 04 QR PR421 Source161 independent ES256 Gallery two old direct Writers OFF
+on:
+  push:
+    branches: [qa/source161-independent-gallery-two-writers-20261104]
+  pull_request:
+    branches: [comm/w-comm-006-source161-gallery-two-draft-rpcs-off-20261104]
+permissions:
+  contents: read
+jobs:
+  full161:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Exact Source161 and immutable Source155 through Source160; QA only delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=6608ca1579091fef98715a31a7e8b9ad3fdcda29
+          git merge-base --is-ancestor "$SRC" HEAD
+          git diff --name-only "$SRC" HEAD | sort > /tmp/qr161-current
+          printf '%s\n' .github/workflows/qr-pr421-source161-independent.yml tests/qr-pr421-source161-independent.py | sort >/tmp/qr161-only
+          diff -u /tmp/qr161-only /tmp/qr161-current
+          test -z "$(git diff --name-only "$SRC" HEAD -- supabase src static docs)"
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 161
+          test "$(git hash-object supabase/migrations/20261102010000_community_source155_verified_first_account_bootstrap.sql)" = 115f2c0f7224984acd8830cfc606af8c6a1bf3af
+          test "$(git hash-object supabase/migrations/20261103010000_community_source156_signed_gallery_r16_atomic_writer.sql)" = 3000d66c193b996e4ece785deaf5180955ec3bc6
+          test "$(git hash-object supabase/migrations/20261103020000_community_source157_legacy_comments_v2_service_execute_off.sql)" = b9c44a501189857dff9fc6446dea21717d58b785
+          test "$(git hash-object supabase/migrations/20261103030000_community_source158_r15_gallery_pinned_service_execute_off.sql)" = 033920ee79a3dd07b32854f0bbfb3b225167f3e2
+          test "$(git hash-object supabase/migrations/20261104010000_community_source159_workspace_identity_legacy_service_execute_off.sql)" = 6bf78322e70406272125f245fcd525feb9347652
+          test "$(git hash-object supabase/migrations/20261104020000_community_source160_help_qa_question_tip_service_execute_off.sql)" = 0e5593b2a946727b4bd5d6ec5050b9c58a1dde0e
+          test "$(git hash-object supabase/migrations/20261104030000_community_source161_gallery_two_legacy_draft_create_service_execute_off.sql)" = f25e47af6adf7de8e7b1d3cf4c154769d8bf28a5
+          test "$(git hash-object supabase/functions/community-command/index.ts)" = d4f637dbcf5412bd276a0abc7259e0b0cfe2f1db
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID"
+          python3 -m py_compile tests/qr-pr421-source161-independent.py
+          echo QR_161_FROZEN_SOURCE155_161_QA_ONLY_TWO_PATHS_PASS
+      - uses: supabase/setup-cli@v1
+        with: {version: 2.109.0}
+      - name: Ephemeral local-only genuine ES256 GoTrue signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\n[auth]\nsigning_keys_path = "./signing_keys.json"\n' >>supabase/config.toml
+          printf '[]\n' >supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes >/tmp/qr161-sign.log 2>&1
+      - name: Start isolated FULL161 from zero without Provider or Production database
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_qr161_independent_gallery_local_20261104"\n' | cat - supabase/config.toml > /tmp/qr161-cfg
+          mv /tmp/qr161-cfg supabase/config.toml
+          printf 'COMMUNITY_MEDIA_BUCKET=qr161-isolated\nWEP_PRESET_ARTIFACT_BUCKET=qr161-private\n' >supabase/functions/.env
+          timeout 1800s supabase start >/tmp/qr161-start.log 2>&1 || {
+            echo QR161_DISPOSABLE_LOCAL_START_NOT_RUN
+            tail -n 20 /tmp/qr161-start.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'
+            exit 1
+          }
+          timeout 900s supabase db reset --no-seed >/tmp/qr161-reset.log 2>&1 || {
+            echo QR161_DISPOSABLE_LOCAL_RESET_FAILED
+            tail -n 20 /tmp/qr161-reset.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'
+            exit 1
+          }
+          echo QR_161_LOCAL_FRESH_FULL161_RESET_PASS
+      - run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Independent actual ES256 A1/A2+SQL 2PG replay rollback denied and DB diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/qr-pr421-source161-independent.py | tee /tmp/qr161-results.log
+          for tag in \
+            QR_161_EXACT_GALLERY_TWO_RPC_THREE_ROLE_ACL_PRIOR160_INVARIANT_PASS \
+            QR_161_VALID_A2_BOTH_EDGE409_SIX_DIRECT_SQL42501_GALLERY_DB_NO_DIFF_PASS \
+            QR_161_REVOKED_OLD_AND_REFRESH_A1_401_LIVE_A2_200_REPLAY_SQL_DENY_PASS \
+            QR_161_INDEPENDENT_TWO_PG_GRANT_ROLLBACK_UNCHANGED_GALLERY_PASS \
+            QR_161_SIGNED_ES256_FULL161_DIRECT_RPC_OFF_SCOPED_NOT_PHOTO_PARENT_PASS; do
+            grep -q "$tag" /tmp/qr161-results.log
+          done
+      - name: Destroy genuine signer and local-only ephemeral postgres
+        if: always()
+        shell: bash
+        run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f supabase/signing_keys.json supabase/functions/.env /tmp/qr161-*
+          echo QR_161_EPHEMERAL_CLEANUP_ATTEMPTED
