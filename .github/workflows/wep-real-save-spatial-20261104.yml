@@ -1,7 +1,7 @@
 name: WEP real P1G-shaped Spatial Read boundary and Chromium
 on:
   push:
-    branches: ['wep/real-source-spatial-read-20261104']
+    branches: ['wep/real-source-spatial-read-20261104', 'wep/local-spatial-source-main-20261104']
   pull_request:
     paths:
       - 'src/lib/wep/real-save-spatial-read.ts'
