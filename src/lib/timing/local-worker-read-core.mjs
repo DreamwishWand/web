@@ -51,6 +51,12 @@ export function createTimingWorkerReadCore({
     const registry = await loadRegistry();
     if (generation !== epoch) fail('READ_OPEN_REVOKED');
     if (!record(registry)) fail('READ_REGISTRY_MISSING');
+    // Worker-owned witness for UI Preview only; Rust Core must re-verify
+    // registry identity independently before any eventual write capability.
+    const registrySha256 = hexadecimal(new Uint8Array(
+      await cryptoRef.subtle.digest('SHA-256', encoder.encode(JSON.stringify(registry)))
+    ));
+    if (generation !== epoch) fail('READ_OPEN_REVOKED');
     // Only the Worker can mint a new Session/HMAC key, never a UI-supplied ID.
     const nonce = new Uint8Array(16);
     const secret = new Uint8Array(32);
@@ -90,7 +96,7 @@ export function createTimingWorkerReadCore({
         !Array.isArray(projected?.rows) || projected.rows.length > MAX_ROWS)
       fail('READ_W1_PROJECTION_DENIED');
     state = {
-      sessionId, epoch: generation, sourceSha256, hmacKey,
+      sessionId, epoch: generation, sourceSha256, registrySha256, hmacKey,
       rows: projected.rows, savedContainerCount: projected.savedContainerCount,
       unsupportedContainerCount: projected.unsupportedContainerCount,
       searchScope: null, pendingCursor: null, nextOffset: 0, finished: false,
@@ -98,7 +104,7 @@ export function createTimingWorkerReadCore({
     };
     return {
       sessionId, revision: 0, indexGeneration: generation,
-      sourceSha256, sourceSchema: 626,
+      sourceSha256, registrySha256, sourceSchema: 626,
       savedContainerCount: projected.savedContainerCount,
       unsupportedContainerCount: projected.unsupportedContainerCount,
       productRustWorkerAccepted: false, writerAuthorized: false,
