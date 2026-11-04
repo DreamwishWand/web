@@ -47,7 +47,7 @@
       <h2>{copy.identity}</h2>
       <p>{kindTitle}</p>
       {#if valid}
-        <p><small>{copy.requested} (not verified)</small></p>
+        <p><small>{copy.requested} · {copy.notVerifiedLabel}</small></p>
         <code>{primaryId}{#if mode === 'COMPOSITE'}/{secondaryId}{/if}</code>
       {/if}
     </section>
