@@ -13,7 +13,7 @@ fn open(doc:&str)->TrustedReadCore{
   sha256(&cipher),sha256(doc.as_bytes()),b"synthetic-registry-not-native",
   sha256(b"synthetic-registry-not-native"),BID,626,128*1024*1024).unwrap()
 }
-fn intent<'a>(core:&'a TrustedReadCore,owner:&'a ddv_save_core::trusted_read::TrustedReadReceipt)->W1CommandIntent<'a>{
+fn intent<'a>(owner:&'a ddv_save_core::trusted_read::OpenReadReceipt)->W1CommandIntent<'a>{
  W1CommandIntent{
   session_id:&owner.session_id,expected_revision:0,expected_generation:0,
   expected_encrypted_sha256:owner.roots.encrypted_source_sha256,
@@ -30,7 +30,7 @@ fn intent<'a>(core:&'a TrustedReadCore,owner:&'a ddv_save_core::trusted_read::Tr
 #[test]
 fn derived_mandatory_w1_refs_are_never_selected_by_caller(){
  let core=open(FULL);let owner=core.receipt().unwrap();
- let read=core.diagnose_w1_core_native_read_set(intent(&core,&owner)).unwrap();
+ let read=core.diagnose_w1_core_native_read_set(intent(&owner)).unwrap();
  assert!(read.core_derived_not_caller_selected);
  assert_eq!(read.event_id,2010000021);assert_eq!(read.saved_index,155);
  assert_eq!(read.required_source_paths_count,8);
@@ -50,7 +50,7 @@ fn derived_mandatory_w1_refs_are_never_selected_by_caller(){
 #[test]
 fn missing_grid_diffgrid_enddate_and_village_are_reported_not_invented(){
  let core=open(MISSING);let owner=core.receipt().unwrap();
- let read=core.diagnose_w1_core_native_read_set(intent(&core,&owner)).unwrap();
+ let read=core.diagnose_w1_core_native_read_set(intent(&owner)).unwrap();
  assert!(!read.all_known_source_refs_observed);
  assert!(read.missing_or_unbounded_refs.iter().any(|x|x.ends_with("/EndDate")));
  assert!(read.missing_or_unbounded_refs.iter().any(|x|x.ends_with("/Grids")));
@@ -62,9 +62,9 @@ fn missing_grid_diffgrid_enddate_and_village_are_reported_not_invented(){
 #[test]
 fn wrong_source_and_other_event_fail_before_native_reference_diagnostic(){
  let core=open(FULL);let owner=core.receipt().unwrap();
- let mut wrong=intent(&core,&owner);
+ let mut wrong=intent(&owner);
  wrong.expected_encrypted_sha256=[0;32];
  assert_eq!(core.diagnose_w1_core_native_read_set(wrong).unwrap_err(),"W1_SOURCE_CAS_FAILED");
- let mut wrong=intent(&core,&owner);wrong.event_id=2010500008;
+ let mut wrong=intent(&owner);wrong.event_id=2010500008;
  assert_eq!(core.diagnose_w1_core_native_read_set(wrong).unwrap_err(),"W1_NATIVE_OPERATION_NOT_MODELLED");
 }
