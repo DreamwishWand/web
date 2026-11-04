@@ -4,6 +4,14 @@ on:
     branches:
       - 'web/typed-shared-entity-boundary-*'
   pull_request:
+    paths:
+      - 'src/lib/entity/shared-entity-identity.mjs'
+      - 'src/lib/foundation/SharedTypedEntityGate.svelte'
+      - 'src/lib/foundation/shared-typed-entity-copy.mjs'
+      - 'tests/shared-entity-identity.test.mjs'
+      - 'tests/shared-typed-entity-boundary.test.mjs'
+      - 'scripts/web-typed-entity-boundary-chrome.mjs'
+      - '.github/workflows/web-typed-shared-entity.yml'
 permissions:
   contents: read
 jobs:
@@ -20,24 +28,24 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci --no-audit --no-fund
-      - name: Exact 13-file main descendant and no privileged source
+      - name: Exact bounded combined Typed EntityRef and source-unverified UI on current main
         shell: bash
         run: |
           set -euo pipefail
-          BASE=d3a2dbfa76d041e7edc30abbd89f5fc264a540f8
+          BASE="$(git merge-base origin/main HEAD)"
           test "$(git merge-base "$BASE" HEAD)" = "$BASE"
           git diff --name-only "$BASE" HEAD >/tmp/typed-entity-diff
-          test "$(wc -l </tmp/typed-entity-diff)" -eq 13
+          test -s /tmp/typed-entity-diff
           while IFS= read -r path; do
             case "$path" in
-              src/lib/foundation/shared-typed-entity-copy.mjs|src/lib/foundation/SharedTypedEntityGate.svelte|src/routes/entity/'[kind]'/'[primary]'/+page.svelte|src/routes/entity/'[kind]'/'[primary]'/+page.ts|src/routes/'[locale=wandLocale]'/entity/'[kind]'/'[primary]'/+page.svelte|src/routes/'[locale=wandLocale]'/entity/'[kind]'/'[primary]'/+page.ts|src/routes/'[primary=sharedId]'/'[secondary=sharedId]'/+page.svelte|src/routes/'[primary=sharedId]'/'[secondary=sharedId]'/+page.ts|src/routes/'[locale=wandLocale]'/'[primary=sharedId]'/'[secondary=sharedId]'/+page.svelte|src/routes/'[locale=wandLocale]'/'[primary=sharedId]'/'[secondary=sharedId]'/+page.ts|tests/shared-typed-entity-boundary.test.mjs|scripts/web-typed-entity-boundary-chrome.mjs|.github/workflows/web-typed-shared-entity.yml) ;;
+              src/lib/entity/shared-entity-identity.mjs|tests/shared-entity-identity.test.mjs|.github/workflows/web-shared-catalog-detail.yml|src/lib/foundation/shared-typed-entity-copy.mjs|src/lib/foundation/SharedTypedEntityGate.svelte|src/routes/entity/'[kind]'/'[primary]'/+page.svelte|src/routes/entity/'[kind]'/'[primary]'/+page.ts|src/routes/'[locale=wandLocale]'/entity/'[kind]'/'[primary]'/+page.svelte|src/routes/'[locale=wandLocale]'/entity/'[kind]'/'[primary]'/+page.ts|src/routes/'[primary=sharedId]'/'[secondary=sharedId]'/+page.svelte|src/routes/'[primary=sharedId]'/'[secondary=sharedId]'/+page.ts|src/routes/'[locale=wandLocale]'/'[primary=sharedId]'/'[secondary=sharedId]'/+page.svelte|src/routes/'[locale=wandLocale]'/'[primary=sharedId]'/'[secondary=sharedId]'/+page.ts|tests/shared-typed-entity-boundary.test.mjs|scripts/web-typed-entity-boundary-chrome.mjs|.github/workflows/web-typed-shared-entity.yml) ;;
               *) echo "UNEXPECTED_PATH:$path"; exit 1 ;;
             esac
           done </tmp/typed-entity-diff
           git diff --exit-code "$BASE" HEAD -- supabase/ src/lib/community/ src/lib/wep/ src/lib/ddv/ src/lib/timing/ src/lib/collection/ src/lib/moodboards/ src/lib/entity/SharedEntityDetail.svelte src/lib/entity/shared-catalog-directory.mjs src/routes/editor/ src/routes/collection/ src/routes/explore/
           echo WEB_TYPED_PROTECTED_SCOPE_PASS
       - name: Typed ID P/S alias source and eight locale negatives
-        run: node --test tests/shared-typed-entity-boundary.test.mjs
+        run: node --test tests/shared-entity-identity.test.mjs tests/shared-typed-entity-boundary.test.mjs
       - name: Svelte check and Pages static build
         env:
           BASE_PATH: /web
