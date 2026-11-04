@@ -1,6 +1,9 @@
 //! Opt-in private local operator. Never run with actual saves in GitHub CI.
 use ddv_save_core::offline_w1_v2::{PrivateW1V2Input,execute_private_w1_v2_research};
-use std::{env,fs,path::Path};
+use std::{env,fs,path::{Path,PathBuf},process::{Command,Stdio}};
+fn as_hex32(value:[u8;32])->String{
+ value.iter().map(|x|format!("{x:02x}")).collect::<Vec<_>>().join("")
+}
 fn required(k:&str)->Result<String,&'static str>{env::var(k).map_err(|_|"PRIVATE_ENV_MISSING")}
 fn hash(k:&str)->Result<[u8;32],&'static str>{
  let s=required(k)?;
@@ -34,9 +37,20 @@ fn run()->Result<(),&'static str>{
     x.native_v3_verified||x.product_writer_authorized{
     return Err("PRIVATE_V2_RESEARCH_FLAGS_INVALID");
  }
- // No hashes, keys, profile, paths, or timestamps printed.
+ // Require a fresh independent Node process using its own crypto/ZIP/CRC.
+ // Reusing Rust's self-reopen result is not enough for a V2 evidence chain.
+ let script=PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+   .join("scripts/w1-independent-fresh-reopen.mjs");
+ let status=Command::new("node").arg(script)
+   .arg(&a[1]).arg(&a[2]).arg(&a[3])
+   .env("DDV_EXPECTED_EDITED_P1G_SHA256",as_hex32(x.edited_sha))
+   .env("DDV_EXPECTED_EDITED_JSON_SHA256",as_hex32(x.edited_decoded_sha))
+   .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null())
+   .status().map_err(|_|"PRIVATE_NODE_PROCESS_UNAVAILABLE")?;
+ if !status.success(){return Err("PRIVATE_INDEPENDENT_NODE_REOPEN_DENIED");}
+ // Redacted status only; no hashes, keys, raw JSON, paths or UTC.
  println!("PRIVATE_W1_RUST_LOCAL_DISK_REOPEN=PASS");
- println!("INDEPENDENT_PROCESS_REOPEN=NOT_RUN");
+ println!("INDEPENDENT_NODE_FRESH_PROCESS_REOPEN=PASS");
  println!("NATIVE_V3=NOT_ACCEPTED");
  println!("PRODUCT_WRITER=OFF");
  Ok(())
