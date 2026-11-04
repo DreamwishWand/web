@@ -142,7 +142,9 @@ test('source evidence cannot be promoted using caller fake Native/Writer/Clock f
 
 
 test('a changing SceneItemId getter may not impersonate Village04',()=>{
-  const p=fixture(),v=p.World.Villages[1];
+  // Change the ORIGINAL target Village04, so the old parent getter path
+  // falsely accepts this same Village without a duplicate-target guard.
+  const p=fixture(),v=p.World.Villages[0];
   let hits=0;
   Object.defineProperty(v,'SceneItemId',{enumerable:true,configurable:true,
     get(){return ++hits===1?1540000001:1540000000;}});
