@@ -27,6 +27,7 @@
   import { marqueeHitIds, marqueeModifierMode, marqueeRect, mergeMarqueeSelection, type MarqueeMode } from '$lib/wep/marquee-selection';
   import { worldEditorMarqueeCopy } from '$lib/wep/world-editor-marquee-copy.js';
   import { buildSpatialScene, spatialHitTest, spatialSelectedDetails } from '$lib/wep/spatial-scene';
+  import { bindRealSaveSpatialRead, inspectRealSaveSpatialRead, applyRealSaveReadToScene } from '$lib/wep/real-save-spatial-read';
   import { spatialSceneCopy } from '$lib/wep/spatial-scene-copy.js';
   import { openWorldSaveBytes, WEP_WORLD_READONLY_626_PROVENANCE } from '$lib/wep/world-save-source';
   import { worldReadonlyCopy } from '$lib/wep/world-readonly-copy.js';
@@ -161,6 +162,7 @@
   let worldSource: any = null;
   let projected: any[] = [];
   let spatialScene: ReturnType<typeof buildSpatialScene> | null = null;
+  let realSpatialRead: ReturnType<typeof bindRealSaveSpatialRead> | null = null;
   let spatialChanges: any[] = [];
   let spatialView = { x: 0, y: 0, w: 24, h: 16 };
   let spatialViewSession: any = null;
@@ -841,6 +843,7 @@
       throw new Error('WEP_RECOVERY_ACTIVE_ROUTE_MISSING');
     }
 
+    worldSourceEpoch += 1;
     worldSource = memory.worldSource;
     worldSourceBytes = memory.sourceBytes.slice();
     originalSaveBackup = memory.originalSaveBackup;
@@ -859,6 +862,16 @@
       route.session
     );
     editorDocument = session.getDocument();
+    realSpatialRead =
+      editorDocument.target?.rootGridId != null &&
+      editorDocument.target?.kind !== 'PLAYER_HOUSE_ROOM'
+        ? bindRealSaveSpatialRead({
+            opened: worldSource,
+            document: verifiedExportBaselineDocument,
+            session, sourceFingerprint, sourceEpoch: worldSourceEpoch,
+            externalBid: sourceBuildId
+          })
+        : null;
     draftAuthoringBound = true;
     layerState = createLayerState({
       capabilities: editorDocument.capabilities
@@ -2250,12 +2263,38 @@
 
     editorDocument = session.getDocument();
     selection = session.getSelection();
-    const nextScene = buildSpatialScene(editorDocument, {
+    let nextScene = buildSpatialScene(editorDocument, {
       layerState, query,
       // Only an authoritative root bound can reject real native coordinates.
       // Object-derived fallback viewport bounds are NOT evidence of a Grid.
       bounds: editorDocument.metadata?.rootGridBounds ?? null
     });
+    if (worldSource?.profileSchemaVersion === 624 &&
+        editorDocument.target?.rootGridId != null &&
+        editorDocument.target?.kind !== 'PLAYER_HOUSE_ROOM') {
+      // Verify the exact opened local GridObject provenance every time the
+      // SAME EditorSession is reprojected. Epoch/hash are UI guards only;
+      // they are NOT Core Revision CAS or native placement authorization.
+      const verdict = realSpatialRead
+        ? inspectRealSaveSpatialRead(
+            realSpatialRead, editorDocument, session,
+            sourceFingerprint, worldSourceEpoch
+          )
+        : {
+            status: 'STALE' as const,
+            persistentWriteAuthorized: false as const,
+            allowed: new Set<string>(),
+            unresolved: editorDocument.objects.map((object: any) => ({
+              editorId: object.editorId, itemId: object.itemId,
+              code: 'SPATIAL_READ_SOURCE_BINDING_MISSING'
+            }))
+          };
+      nextScene = applyRealSaveReadToScene(nextScene, verdict);
+      const validIds = new Set(nextScene.objects.map(object => object.editorId));
+      if (selection.some(id => !validIds.has(id))) {
+        selection = session.setSelection(selection.filter(id => validIds.has(id)));
+      }
+    }
     spatialScene = nextScene;
     const nextProjection = nextScene.objects;
     spatialChanges = session.reviewChanges().changes;
@@ -2363,7 +2402,19 @@
     // A dedicated Core object ID, never array index, is the UI authority.
     // Where two furniture objects overlap, topmost painted object gets click.
     const hit = point ? spatialHitTest(spatialScene, point.x, point.y) : null;
-    return hit?.editorId === editorId;
+    if (hit?.editorId === editorId) return true;
+    // A large real Grid's fit-to-area viewport can make an individual source
+    // cell sub-2px. SVG hit-testing identifies the *actually painted* topmost
+    // rect even where CSS-pixel rounding disagrees with the grid inverse.
+    // This is permitted only for the exact validated Scene node, never a raw
+    // guessed Native ID or an off-scene/unverified object.
+    const node = event.target instanceof Element
+      ? event.target.closest('g[data-editor-object-id]')
+      : null;
+    const bounds = node?.getBoundingClientRect();
+    return Boolean(node && node.getAttribute('data-editor-object-id') === editorId &&
+      bounds && (bounds.width < 3 || bounds.height < 3) &&
+      spatialScene.objects.some(object => object.editorId === editorId));
   }
   function moveCanvasFocus(currentId: string, delta: number) {
     if (!projected.length) return;
@@ -2394,6 +2445,7 @@
 
     loading = true;
     worldSourceEpoch += 1;
+    realSpatialRead = null;
     worldSourceBytes = null;
     sourceFingerprint = '';
     verifiedExportBaselineDocument = null;
@@ -2803,7 +2855,15 @@
         }
       }
 
-      session = createSwitchDraftSession(normalized);
+      const sourceSession = createSwitchDraftSession(normalized);
+      const nextRead = bindRealSaveSpatialRead({
+        opened: worldSource, document: normalized,
+        session: sourceSession,
+        sourceFingerprint, sourceEpoch: worldSourceEpoch,
+        externalBid: sourceBuildId
+      });
+      session = sourceSession;
+      realSpatialRead = nextRead;
       draftAuthoringBound = true;
       editorDocument = session.getDocument();
       rememberActiveDraftInMemory();
@@ -2973,7 +3033,15 @@
 
       // v1.16 is a read/model/preflight projector. It grants no local
       // mutation capability merely because projection succeeded.
-      session = createEditorSession(normalized);
+      const sourceSession = createEditorSession(normalized);
+      const nextRead = bindRealSaveSpatialRead({
+        opened: worldSource, document: normalized,
+        session: sourceSession,
+        sourceFingerprint, sourceEpoch: worldSourceEpoch,
+        externalBid: sourceBuildId
+      });
+      session = sourceSession;
+      realSpatialRead = nextRead;
       draftAuthoringBound = false;
       editorDocument = session.getDocument();
       layerState = createLayerState({
@@ -4595,6 +4663,11 @@
             {/if}
           {/if}
 
+          {#if realSpatialRead}
+            <p data-wep-real-source-read-status class="inspector-note">
+              {realSpatialRead.proof} · {realSpatialRead.identities.size}
+            </p>
+          {/if}
           {#if spatialScene?.unresolved.length}
             <details data-wep-spatial-unresolved-details>
               <summary>{spatialSceneCopy($locale).unresolved}: {spatialScene.unresolved.length}</summary>
