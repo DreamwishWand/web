@@ -1,0 +1,73 @@
+name: "04QR-W PR532 DreamSnaps 1-3-1 independent actual visual/privacy"
+on:
+  pull_request:
+    branches: ['web/stage1-dreamsnaps-root-20261105']
+    paths:
+      - '.github/workflows/04qr-w-pr532-dreamsnaps-visual-independent.yml'
+      - 'scripts/04qr-w-pr532-dreamsnaps-visual-chromium.mjs'
+      - 'tests/04qr-w-pr532-dreamsnaps-visual-independent.test.mjs'
+permissions:
+  contents: read
+jobs:
+  dreamsnaps-source-privacy-independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: No actual personal Save/Provider credentials
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+      - name: Exact six Source paths and 1-3-1 no Public or private publication
+        run: node --test tests/04qr-w-pr532-dreamsnaps-visual-independent.test.mjs
+      - name: Chrome script syntax
+        run: node --check scripts/04qr-w-pr532-dreamsnaps-visual-chromium.mjs
+  dreamsnaps-system-chromium:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual system Chrome
+        id: chrome
+        run: |
+          set -euo pipefail
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$BIN"
+          echo "path=$BIN" >> "$GITHUB_OUTPUT"
+      - name: Serve disposable exact localhost DreamSnaps only
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4293 >/tmp/qr532-dreamsnaps.log 2>&1 &
+          for i in $(seq 1 65); do
+            if curl --fail --silent http://127.0.0.1:4293/dreamsnaps/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr532-dreamsnaps.log
+          exit 1
+      - name: Eight locale actual 1-3-1 geometry, Community gated/noindex/mobile and no offhost
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          QR532_URL: http://127.0.0.1:4293/dreamsnaps/
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          node scripts/04qr-w-pr532-dreamsnaps-visual-chromium.mjs
