@@ -28,7 +28,7 @@ export function requireOwnerPrivateScope({
   catch { throw Error('PRIVATE_BROWSER_MUST_BE_LOCALHOST_ONLY'); }
   if (url.protocol !== 'http:' ||
       !['127.0.0.1','localhost','[::1]'].includes(url.hostname) ||
-      !url.pathname.endsWith('/editor/world/') ||
+      url.pathname !== '/editor/world/' ||
       url.username || url.password || url.hash || url.search)
     throw Error('PRIVATE_BROWSER_MUST_BE_LOCALHOST_ONLY');
   return Object.freeze({status:'READY',url,bid});
