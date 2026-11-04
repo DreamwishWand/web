@@ -1,6 +1,6 @@
-import type { EditorDocument, EditorObject, Rect } from './editor-runtime';
+import type { EditorDocument, EditorObject, Rect } from './editor-runtime.ts';
 import { occupiedCells } from './editor-runtime';
-import { projectObjects, type LayerState } from './canvas-runtime';
+import { projectObjects, type LayerState } from './canvas-runtime.ts';
 
 // Local, non-authorizing scene projection. A single EditorSession document
 // supplies both 2D geometry and the inspector identity; the scene never edits
