@@ -1,0 +1,51 @@
+name: 05 QR PR488 independent main-a043 W1 Native Source plus 626 Spatial
+on:
+  push:
+    branches: [qa/05qr-pr488-main-a043-w1-spatial-source-20261104]
+  pull_request:
+    paths:
+      - '.github/workflows/qa-pr488-current-main-w1-spatial.yml'
+      - 'tests/qa-05qr-pr488-main-w1-spatial-composed.test.mjs'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  frozen-source-cumulative:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Pin PR488 Source, current protected main and only three previously accepted source blobs
+        run: |
+          set -eu
+          MAIN=a0439bf01251a6c20280e219731fc4334fe9e4df
+          SOURCE=1c4428b5e661265a540b2096078881a552aef6e0
+          test "$(git merge-base "$MAIN" "$SOURCE")" = "$MAIN"
+          test "$(git merge-base "$SOURCE" HEAD)" = "$SOURCE"
+          test "$(git diff --name-only "$MAIN" "$SOURCE" | wc -l | tr -d ' ')" = 3
+          test "$(git diff --name-only "$MAIN" "$SOURCE" | sort)" = "$(printf '%s\n' docs/core/01e-w1-wetland-area-grid-candidate-probe-20261104.md src/lib/ddv/timing/w1-wetland-area-grid-candidate-probe.mjs tests/01e-w1-wetland-area-grid-candidate-probe.test.mjs | sort)"
+          git diff --quiet "$SOURCE" HEAD -- src/ crates/ docs/ static/ supabase/ tests/01e-w1-wetland-area-grid-candidate-probe.test.mjs
+          for p in \
+            docs/core/01e-w1-wetland-area-grid-candidate-probe-20261104.md \
+            src/lib/ddv/timing/w1-wetland-area-grid-candidate-probe.mjs \
+            tests/01e-w1-wetland-area-grid-candidate-probe.test.mjs; do
+            test "$(git rev-parse "$SOURCE:$p")" = "$(git rev-parse "HEAD:$p")"
+          done
+          test "$(git rev-parse HEAD:src/lib/ddv/timing/w1-wetland-area-grid-candidate-probe.mjs)" = 10a63f9233085a876cac4a8fe28e8db509566e41
+          test "$(git rev-parse HEAD:src/lib/wep/real-save-spatial-source.ts)" = "$(git rev-parse "$MAIN:src/lib/wep/real-save-spatial-source.ts")"
+          test "$(git rev-parse HEAD:src/lib/ddv/timing/w1-native-v3-source-evidence.mjs)" = "$(git rev-parse "$MAIN:src/lib/ddv/timing/w1-native-v3-source-evidence.mjs")"
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-save-session-bridge.mjs)" = "$(git rev-parse "$MAIN:src/lib/ddv/core/save/local-save-session-bridge.mjs")"
+          echo PR488_EXACT_MAIN_A043_SOURCE_BLOB_PROVENANCE_PASS
+          echo INDEPENDENT_PRIVATE_P1G=NOT_RUN
+          echo NATIVE_W1_V3=UNKNOWN
+          echo CORE_EDITED_COPY_V2=NOT_RUN
+          echo PRODUCT_WRITER_EDITEDCOPY_APPLY_ORIGINAL_OVERWRITE=OFF
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Independent 626 projector to Wetland source candidates plus Worker source fences
+        run: node --experimental-strip-types --test tests/qa-05qr-pr488-main-w1-spatial-composed.test.mjs
+      - name: Svelte and TypeScript main contracts remain compatible
+        run: npm run check
