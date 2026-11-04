@@ -1,0 +1,99 @@
+name: 05 QR PR374 independent W1 Preview original backup Chromium
+on:
+  push:
+    branches: [qa/05qr-pr374-w1-browser-20261104]
+  pull_request:
+    paths:
+      - '.github/workflows/qa-pr374-w1-preview.yml'
+      - 'tests/qa-05qr-pr374-newonly.test.mjs'
+      - 'scripts/05qr-pr374-browser.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  new-only-node:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: PR374 fixed Source with QA-only delta
+        run: |
+          test "$(git merge-base 711c6bec2650f8cd864d14b63ec1fccbb061167f HEAD)" = 711c6bec2650f8cd864d14b63ec1fccbb061167f
+          git diff --quiet 711c6bec2650f8cd864d14b63ec1fccbb061167f HEAD -- src/
+          echo SOURCE_PR374=711c6bec2650f8cd864d14b63ec1fccbb061167f
+          echo PRIVATE_SAVE_IN_CI=NO
+          echo PRODUCT_WRITER=OFF
+          echo REAL_SAVE_EDITED_COPY=NOT_RUN
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - name: Independent UI Preview source/revision/UTC/authority negatives
+        run: node --test tests/qa-05qr-pr374-newonly.test.mjs
+  dev-and-pages-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 19
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - run: npm ci --no-audit --no-fund
+      - name: Svelte compiled /web route
+        env: { BASE_PATH: '/web' }
+        run: |
+          npm run check
+          npm run build
+          test -f build/editor/timing/index.html
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Resolve exact Chromium binary
+        id: chrome
+        run: |
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "path=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+      - name: Start dedicated Vite dev
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4217 > /tmp/qr374-dev.log 2>&1 &
+          for i in $(seq 1 65); do
+            if curl --fail --silent http://127.0.0.1:4217/editor/timing/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr374-dev.log
+          exit 1
+      - name: Independent real Chromium dev original-backup hash A-B
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          QR374_URL: http://127.0.0.1:4217
+          QR374_MODE: dev
+        run: node scripts/05qr-pr374-browser.mjs
+      - name: Serve compiled Github Pages /web
+        run: |
+          node scripts/01a-pages-base-static-server.mjs > /tmp/qr374-pages.log 2>&1 &
+          for i in $(seq 1 65); do
+            if curl --fail --silent http://127.0.0.1:4181/web/editor/timing/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr374-pages.log
+          exit 1
+      - name: Independent actual Pages /web Chromium original-backup hash
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          QR374_URL: http://127.0.0.1:4181/web
+          QR374_MODE: pages-web
+        run: node scripts/05qr-pr374-browser.mjs
+      - name: No product Writer
+        if: always()
+        run: |
+          echo PRODUCT_WRITER=OFF
+          echo PRIVATE_SAVE_IN_CI=NO
+          echo AUTHORIZED_REAL_SAVE_V2=NOT_RUN
+          echo NATIVE_V3=NOT_RUN
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-pr374-browser-synthetic-only
+          path: .artifacts/05qr-pr374
+          if-no-files-found: ignore
