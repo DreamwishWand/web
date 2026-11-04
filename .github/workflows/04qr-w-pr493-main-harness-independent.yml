@@ -1,0 +1,38 @@
+name: "04 QR-W PR493 exact-main private harness cumulative independent QA"
+on:
+  pull_request:
+    branches: ['integration/wep-private-p1g-policy-main-a043-20261104']
+    paths:
+      - 'tests/04qr-w-pr493-main-harness-independent.test.mjs'
+      - '.github/workflows/04qr-w-pr493-main-harness-independent.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  main-harness-new-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require no private P1G or owner credentials in CI
+        env:
+          ACTIONS_EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          test "$ACTIONS_EVENT" = pull_request
+      - name: 04QR-W newly composed source identity, World UI selector and no-runner negatives
+        run: node --test tests/04qr-w-pr493-main-harness-independent.test.mjs
+      - name: Syntax only (never execute owner-private genuine P1G)
+        run: node --check scripts/wep-private-real-save-2d-local-only-20261104.mjs
