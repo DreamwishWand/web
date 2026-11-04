@@ -1,0 +1,35 @@
+name: 04 QR PR396 independent typed Entity identity contract
+on:
+  push:
+    branches: [qa/pr396-entity-identity-20261104]
+  pull_request:
+    branches: [product/shared-entity-identity-20261104]
+permissions:
+  contents: read
+jobs:
+  typed-entity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Frozen Source PR396 and QA-only 2 paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=e41f724f6d502f18b67f8b78afd142144c6bb776
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git diff --name-only "$SOURCE" HEAD | sort >/tmp/qr396-actual
+          printf '%s\n' .github/workflows/qr-pr396-entity-independent.yml tests/qr-pr396-entity-identity-independent.test.mjs | sort >/tmp/qr396-expected
+          diff -u /tmp/qr396-expected /tmp/qr396-actual
+          test -z "$(git diff --name-only "$SOURCE" HEAD -- src supabase docs static)"
+          test "$(git hash-object src/lib/entity/shared-entity-identity.mjs)" = 2867da63ba4f380d7761cd7d56ea36aa7f1a1f7a
+          echo QR_396_FROZEN_SOURCE_AND_TWO_QA_FILES_ONLY_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Only independent Source identity/privacy/aliases/locale negative tests
+        run: node --test tests/qr-pr396-entity-identity-independent.test.mjs
