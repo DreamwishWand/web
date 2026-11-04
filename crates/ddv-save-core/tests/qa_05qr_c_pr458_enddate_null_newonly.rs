@@ -58,7 +58,7 @@ fn present_enddate_null_is_exact_four_byte_source_witness_not_native_writer_or_a
  assert_eq!(r.roots.schema,626);
 }
 #[test]
-fn four_byte_true_must_not_be mistaken_for_null_and_string_null_is_distinct_witness(){
+fn four_byte_true_must_not_be_mistaken_for_null_and_string_null_is_distinct_witness(){
  let bad=NULL_SOURCE.replace(r#""EndDate":null"#,r#""EndDate":true"#);
  let result=observe(&bad);
  assert!(!result.all_known_source_refs_observed);
