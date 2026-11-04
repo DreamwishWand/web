@@ -1,0 +1,253 @@
+// X05 Source150: nonpublic owner service only. Not a media/public issuer.
+import { withSupabase } from 'npm:@supabase/server';
+import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+
+type Obj = Record<string,unknown>;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const DIGEST = /^[0-9a-f]{64}$/;
+const VERSION = /^v[1-9][0-9]{0,6}$/;
+const ACTIONS = new Set(['grant','preflight','concept','withdraw','delete']);
+function reply(body:unknown,status=200):Response {
+  return Response.json(body,{status,headers:{
+    ...corsHeaders,
+    'Cache-Control':'private, no-store, max-age=0',
+    'CDN-Cache-Control':'no-store',
+    'Surrogate-Control':'no-store',
+    'Pragma':'no-cache',
+    'Vary':'Authorization, Origin',
+    'X-Content-Type-Options':'nosniff'
+  }});
+}
+function object(v:unknown):v is Obj {return v!==null && typeof v==='object' && !Array.isArray(v);}
+function exact(v:Obj,allow:string[]):boolean{return Object.keys(v).every(k=>allow.includes(k));}
+function uuid(v:unknown):v is string {return typeof v==='string'&&UUID.test(v)&&v!=='00000000-0000-0000-0000-000000000000';}
+function safeVersion(v:unknown,min=1):v is number{return Number.isSafeInteger(v)&&Number(v)>=min;}
+export function parseOwnerRequest(v:unknown):{rpc:string;payload:Obj}|null {
+  if(!object(v))return null;
+  if(v.operation==='authority'){
+    if(!exact(v,['operation','workId','expectedRowVersion','expectedAuthorizationEpoch'])||
+      !uuid(v.workId) ||
+      (v.expectedRowVersion!==undefined&&!safeVersion(v.expectedRowVersion,1))||
+      (v.expectedAuthorizationEpoch!==undefined&&!safeVersion(v.expectedAuthorizationEpoch,1)))
+      return null;
+    return {rpc:'community_dreamsnap_x05_owner_authority_v2',payload:{
+      p_work_id:v.workId,
+      p_expected_row_version:v.expectedRowVersion??null,
+      p_expected_authorization_epoch:v.expectedAuthorizationEpoch??null
+    }};
+  }
+  if(v.operation==='register'){
+    if(!exact(v,['operation','kind','challengeId','photoMediaId','caption','idempotencyKey',
+      'explicitWandCompetitionEntry'])||
+      !['OriginalCompetition','PostEventCreation'].includes(String(v.kind))||
+      !uuid(v.challengeId)||!uuid(v.photoMediaId)||
+      typeof v.idempotencyKey!=='string'||
+      !/^[a-zA-Z0-9:_-]{16,120}$/.test(v.idempotencyKey)||
+      (v.caption!==undefined&&(typeof v.caption!=='string'||v.caption.length>2000))||
+      (v.kind==='OriginalCompetition'&&v.explicitWandCompetitionEntry!==true)||
+      (v.kind==='PostEventCreation'&&v.explicitWandCompetitionEntry!==false)
+    )return null;
+    return {rpc:'community_dreamsnap_x05_register_initial_work_v1',payload:{
+      p_kind:v.kind,p_challenge_id:v.challengeId,p_media_id:v.photoMediaId,
+      p_caption:v.caption??null,p_idempotency_key:v.idempotencyKey,
+      p_explicit_wand_entry:v.explicitWandCompetitionEntry
+    }};
+  }
+  if(!exact(v,['operation','workId','expectedRowVersion','expectedAuthorizationEpoch','action',
+    'photoRevisionId','photoMediaId','policyVersionText','policyDigest',
+    'selfCaptureDeclared','explicitGrantAccepted','conceptRevisionId']))return null;
+  if(!uuid(v.workId))return null;
+  if(v.operation==='read'||v.operation==='pregrant'){
+    return exact(v,['operation','workId'])
+      ? {rpc:v.operation==='pregrant'
+          ? 'community_dreamsnap_x05_pregrant_read_v1'
+          : 'community_dreamsnap_x05_owner_read_v1',
+         payload:{p_work_id:v.workId}}
+      : null;
+  }
+  if(v.operation!=='action'||typeof v.action!=='string'||!ACTIONS.has(v.action))return null;
+  if(!safeVersion(v.expectedAuthorizationEpoch,0)||!safeVersion(v.expectedRowVersion,0))return null;
+  const payload:Obj={
+    p_work_id:v.workId,
+    p_expected_row_version:v.expectedRowVersion,
+    p_expected_authorization_epoch:v.expectedAuthorizationEpoch,
+    p_action:v.action
+  };
+  if(v.action==='grant'){
+    if(!exact(v,['operation','workId','expectedRowVersion','expectedAuthorizationEpoch','action',
+       'photoRevisionId','photoMediaId','policyVersionText','policyDigest',
+       'selfCaptureDeclared','explicitGrantAccepted'])||
+       !uuid(v.photoRevisionId)||!uuid(v.photoMediaId)||
+       typeof v.policyVersionText!=='string'||!VERSION.test(v.policyVersionText)||
+       typeof v.policyDigest!=='string'||!DIGEST.test(v.policyDigest)||
+       v.selfCaptureDeclared!==true||v.explicitGrantAccepted!==true)return null;
+    payload.p_photo_revision_id=v.photoRevisionId;
+    payload.p_photo_media_id=v.photoMediaId;
+    payload.p_policy_version=v.policyVersionText;
+    payload.p_policy_digest=v.policyDigest;
+    payload.p_self_capture_declared=true;
+    payload.p_grant_accepted=true;
+  }else if(v.action==='concept'){
+    if(!exact(v,['operation','workId','expectedRowVersion','expectedAuthorizationEpoch','action','conceptRevisionId'])||
+       !uuid(v.conceptRevisionId))return null;
+    payload.p_concept_revision_id=v.conceptRevisionId;
+  }else if(!exact(v,['operation','workId','expectedRowVersion','expectedAuthorizationEpoch','action']))return null;
+  return {rpc:'community_dreamsnap_x05_owner_action_v1',payload};
+}
+
+const handler=withSupabase({auth:'user'},async (req,ctx)=>{
+  if(req.method!=='POST')return reply({ok:false,error:'METHOD_NOT_ALLOWED'},405);
+  const subject=ctx.userClaims?.id;
+  const iat=Number(ctx.jwtClaims?.iat??0);
+  const session=String(ctx.jwtClaims?.session_id??'');
+  if(!uuid(subject)||!Number.isInteger(iat)||iat<=0||!uuid(session))
+    return reply({ok:false,error:'AUTH_REQUIRED'},401);
+  const bearer=req.headers.get('authorization')??'';
+  if(!/^Bearer [A-Za-z0-9._-]+$/i.test(bearer))return reply({ok:false,error:'AUTH_REQUIRED'},401);
+  // The JWT's signed subject + session_id are supplied by withSupabase's
+  // trusted verifier. A caller-supplied session_id is never accepted.
+  const body=await req.json().catch(()=>null);
+  if(object(body)&&body.operation==='session-revoke'){
+    if(!exact(body,['operation','scope'])||
+      (body.scope!=='local'&&body.scope!=='global'))
+      return reply({ok:false,error:'INVALID_REVOKE_REQUEST'},400);
+    const {data,error}=await ctx.supabaseAdmin.rpc('community_revoke_signed_session_v1',{
+      p_auth_subject:subject,p_issued_at_epoch:iat,p_session_id:session,p_scope:body.scope
+    });
+    if(error||!object(data)||!['revoked','already-revoked'].includes(String(data.state))||
+      data.scope!==body.scope)
+      return reply({ok:false,error:'SESSION_REVOKE_UNCONFIRMED'},401);
+    // DB commit is the authority. GoTrue signOut is a SEPARATE call.
+    return reply({ok:true,operation:'session-revoke',state:data.state,scope:body.scope});
+  }
+  const assertLiveSession=()=>ctx.supabaseAdmin.rpc('community_authorize_signed_session_v2',{
+    p_auth_subject:subject,p_issued_at_epoch:iat,p_session_id:session
+  });
+  const {error:sessionError}=await assertLiveSession();
+  if(sessionError)return reply({ok:false,error:'SESSION_REVOKED_OR_INVALID'},401);
+
+  const request=parseOwnerRequest(body);
+  if(!request)return reply({ok:false,error:'INVALID_OWNER_REQUEST'},400);
+  const url=Deno.env.get('SUPABASE_URL')??'';
+  // Use only the unprivileged publishable/anon API key. This *cannot* call
+  // Source149 private RPCs: public wrapper verifies user JWT again.
+  const apiKey=Deno.env.get('SUPABASE_ANON_KEY')??'';
+  if(!/^https?:\/\//.test(url)||!apiKey)
+    return reply({ok:false,error:'TRUSTED_ISSUER_NOT_CONFIGURED'},503);
+  let response:Response;
+  try {
+    response=await fetch(url.replace(/\/$/,'')+'/rest/v1/rpc/'+request.rpc,{
+      method:'POST',headers:{
+        'Content-Type':'application/json','apikey':apiKey,
+        'Authorization':bearer,'Cache-Control':'no-store'
+      },body:JSON.stringify(request.payload)
+    });
+  }catch{return reply({ok:false,error:'OWNER_BACKEND_UNAVAILABLE'},503);}
+  if(!response.ok){
+    // PostgREST maps PL/pgSQL RAISE EXCEPTION (P0001) to HTTP 400. Only
+    // explicitly allowlisted CAS tags become HTTP 409, with no SQL details.
+    const failure=await response.json().catch(()=>null);
+    const tag=object(failure)&&typeof failure.message==='string'?failure.message:'';
+    const conflict=response.status===409 ||
+      tag.includes('X05_STALE_EPOCH_OR_REVISION') ||
+      tag.includes('X05_ROW_VERSION_CONFLICT') ||
+      tag.includes('X05_GRANT_CAS_OR_IMMUTABLE_MISMATCH') ||
+      tag.includes('X05_TERMINAL_WITHDRAWN');
+    return reply({ok:false,error:conflict?'VERSION_CONFLICT':'OWNER_REQUEST_DENIED'},
+      conflict?409:response.status===401?401:403);
+  }
+  const result=await response.json().catch(()=>null);
+  if(!object(result))return reply({ok:false,error:'OWNER_RESPONSE_UNAVAILABLE'},503);
+  // Reject late revocation before releasing a PRIVATE read projection.
+  // Writer check-then-commit linearizability is NOT claimed; product writers
+  // remain OFF until DB-atomic per-action session authorization is proven.
+  if(['authority','read','pregrant'].includes(String(body.operation))){
+    const {error:lateRevoked}=await assertLiveSession();
+    if(lateRevoked)return reply({ok:false,error:'SESSION_REVOKED_OR_INVALID'},401);
+  }
+  if(request.rpc.endsWith('_action_v1')&&result.publicActivationAllowed!==false)
+    return reply({ok:false,error:'PUBLIC_ACTIVATION_GUARD'},503);
+  if(request.rpc.endsWith('_owner_authority_v2')){
+    const work=object(result.work)?result.work:null;
+    const a=object(result.authority)?result.authority:null;
+    const g=object(result.grant)?result.grant:null;
+    const d=object(result.deletion)?result.deletion:null;
+    const x=object(result.externalEvidence)?result.externalEvidence:null;
+    const cap=object(result.capabilities)?result.capabilities:null;
+    if(result.contractVersion!=='wand.dreamsnaps.owner-authority-projection@1'||
+      result.consumerTarget!=='wand.dreamsnaps.private-owner-consumer@2'||
+      !work||!a||!g||!d||!x||!cap||
+      work.workId!==body.workId||!uuid(work.photoRevisionId)||
+      !uuid(work.photoMediaId)||!uuid(g.mediaId)||
+      g.mediaId!==work.photoMediaId||g.photoRevisionId!==work.photoRevisionId||
+      a.authenticatedAccountBound!==true||a.ownerAuthorized!==true||
+      a.workPhotoBindingVerified!==true||a.mediaOwnershipVerified!==true||
+      !safeVersion(a.rowVersion)||!safeVersion(a.authorizationEpoch)||
+      (body.expectedRowVersion!==undefined&&body.expectedRowVersion!==a.rowVersion)||
+      (body.expectedAuthorizationEpoch!==undefined&&body.expectedAuthorizationEpoch!==a.authorizationEpoch)||
+      !['OriginalCompetition','PostEventCreation'].includes(String(work.kind))||
+      (work.kind==='PostEventCreation'&&('entryId' in work||'frozenEntryRevisionId' in work))||
+      (work.kind==='OriginalCompetition'&&(!uuid(work.entryId)||work.frozenEntryRevisionId!==work.photoRevisionId))||
+      g.explicitGrantAccepted!==true||g.creatorSelfCaptureDeclared!==true||
+      g.consentRecorded!==true||!safeVersion(g.lastGrantConsentRevision)||
+      typeof g.policyVersionText!=='string'||typeof g.policyDigest!=='string'||!DIGEST.test(g.policyDigest)||
+      !['UNVERIFIED','APPROVED_CANONICAL_RECEIPT'].includes(String(g.scopeStatus))||
+      (g.scopeStatus==='UNVERIFIED'&&(g.policyReceiptVerified!==false||
+        'scopeId' in g||'approvedPurposeIds' in g))||
+      g.publicUsageAuthorized!==false||
+      d.globalPurgeScopeComplete!==false||
+      d.cloudCdnIssuedBearerStatus!=='UNKNOWN'||
+      x.signedRuntimeSessionVerified!==false||
+      x.storageProviderObjectVerified!==false||
+      x.cloudCdnPhysicalPurgeVerified!==false||
+      x.officialChallengePhaseVerified!==false||
+      x.publicActivationAllowed!==false||
+      Object.values(cap).some(value=>value!==false))
+       return reply({ok:false,error:'AUTHORITY_PROJECTION_UNSUPPORTED'},503);
+    return reply({ok:true,operation:'authority',
+      contractVersion:'wand.dreamsnaps.owner-authority-projection@1',data:result});
+  }
+  if(request.rpc.endsWith('_register_initial_work_v1')){
+    if(result.publicActivationAllowed!==false ||
+       result.requiresPolicyGrant!==true||
+       result.officialChallengePhaseVerified!==false||
+       result.storageValidatedBySource152!==false||
+       !uuid(result.workId)||!uuid(result.photoRevisionId)||!uuid(result.photoMediaId)||
+       !['OriginalCompetition','PostEventCreation'].includes(String(result.kind))||
+       (result.kind==='OriginalCompetition')!==uuid(result.entryId)||
+       (result.kind==='PostEventCreation'&&result.entryId!==undefined)
+    )return reply({ok:false,error:'REGISTER_RESPONSE_UNAVAILABLE'},503);
+  } else if(request.rpc.endsWith('_pregrant_read_v1')){
+    if(result.contractVersion!=='wand.dreamsnaps.pregrant-service@1'||
+       result.grantRecorded!==false||result.publicActivationAllowed!==false||
+       !['NEED_POLICY_ARTIFACT','PREGRANT_READY'].includes(String(result.state))||
+       (result.state==='PREGRANT_READY')!== (result.grantAvailable===true))
+       return reply({ok:false,error:'PREGRANT_VERSION_UNSUPPORTED'},503);
+  } else if(request.rpc.endsWith('_read_v1')&&result.contractVersion!=='wand.dreamsnaps.owner-management-service@1')
+    return reply({ok:false,error:'OWNER_VERSION_UNSUPPORTED'},503);
+  return reply({ok:true,operation:body.operation,
+    contractVersion:'wand.dreamsnaps.owner-management-service@1',
+    data:result});
+});
+export default {
+  async fetch(req:Request) {
+    if(req.method==='OPTIONS')return new Response('ok',{headers:{...corsHeaders,'Cache-Control':'private, no-store'}});
+    const response=await handler(req);
+    // withSupabase rejects missing credentials before the Owner handler runs.
+    // Preserve its status, body, CORS, and auth decision; harden only its 401.
+    if(response.status!==401||!response.headers.has('x-supabase-server-error'))
+      return response;
+    const headers=new Headers(response.headers);
+    headers.set('Cache-Control','private, no-store, max-age=0');
+    headers.set('CDN-Cache-Control','no-store');
+    headers.set('Surrogate-Control','no-store');
+    headers.set('Pragma','no-cache');
+    const vary=new Set((headers.get('Vary')??'').split(',').map(x=>x.trim()).filter(Boolean));
+    vary.add('Authorization');
+    vary.add('Origin');
+    headers.set('Vary',[...vary].join(', '));
+    return new Response(response.body,{
+      status:response.status,statusText:response.statusText,headers
+    });
+  }
+};
