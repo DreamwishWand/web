@@ -1,0 +1,34 @@
+name: "04QR-W PR494 owner-local schema626 read-only boundary independent"
+on:
+  pull_request:
+    branches: ['wep/private-626-readonly-browser-receipt-20261104']
+    paths:
+      - 'tests/04qr-w-pr494-626-sourceonly-independent.test.mjs'
+      - '.github/workflows/04qr-w-pr494-626-sourceonly-independent.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  independent-source-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require no owner P1G or external-build acknowledgement in runner
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+      - name: New-only independent synthetic source boundary and UI contracts
+        run: node --test tests/04qr-w-pr494-626-sourceonly-independent.test.mjs
+      - name: Syntax ONLY; genuine private script never executed
+        run: node --experimental-strip-types --check scripts/wep-private-626-readonly-browser-receipt-20261104.mjs
