@@ -1,0 +1,57 @@
+name: 01A Main W1 Preview + Original Backup Chromium (Writer OFF)
+on:
+  pull_request:
+    paths:
+      - 'src/lib/timing/w1-nextoccurrence-preview.mjs'
+      - 'src/routes/editor/timing/+page.svelte'
+      - 'tests/timing-w1-preview.test.mjs'
+      - 'scripts/01a-main-w1-preview-browser.mjs'
+      - '.github/workflows/01a-main-w1-preview.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - name: Exact HEAD
+        run: |
+          git rev-parse HEAD
+          echo PRIVATE_SAVE_IN_CI=NO
+          echo W1_WRITER=OFF
+          echo NATIVE_V3=NOT_ACCEPTED
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: node --test tests/timing-w1-preview.test.mjs
+      - run: npm run check
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Locate Chrome
+        id: chrome
+        run: |
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          test -n "$CHROME_BIN"
+          echo "path=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+      - name: Start isolated dev Vite
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4179 > /tmp/01a-preview-vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4179/editor/timing/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/01a-preview-vite.log
+          exit 1
+      - name: Chrome source-only W1 preview and original file backup
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+        run: node scripts/01a-main-w1-preview-browser.mjs
+      - name: Preserve synthetic only report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 01a-w1-preview-synthetic
+          path: .artifacts/01a-w1-preview/
+          if-no-files-found: ignore
