@@ -94,7 +94,7 @@ try {
   assert.equal(x.ok,false);
   assert.equal(x.error,'READ_WRITER_OPERATION_DISABLED');
  }
- assert.equal(await page.locator('[data-w1-export-off]').isDisabled(),true);
+ assert.equal(await page.locator('[data-writer="off"]').count(),1,'W1 Editor must retain writer OFF even without any active Preview');
  pass('UNACCEPTED_COLLECTION_WORLD_AND_WRITER_WORKER_TYPES_FAILCLOSED');
  await upload(b);await loaded('2026-11-04T00:00:00Z');
  assert.equal(page.workers()[0],worker);
