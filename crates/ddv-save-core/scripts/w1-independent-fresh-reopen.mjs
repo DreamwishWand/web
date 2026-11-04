@@ -176,7 +176,7 @@ export function verifyPrivateFiles(args) {
     required('DDV_EXTERNAL_FULL_VERSION')==='1.25.3' &&
     required('DDV_EXTERNAL_SWITCH_BID')==='9A239D3DB569756D',
     'PRIVATE_EXTERNAL_SOURCE_IDENTITY_DENIED');
-  const canonical=args.map(realpathSync);
+  const canonical=args.map(path=>realpathSync(path));
   assert(new Set(canonical).size===3,'PRIVATE_PATH_ALIAS_DENIED');
   if(process.platform!=='win32') {
     for(const path of args.slice(1)) {
@@ -186,7 +186,7 @@ export function verifyPrivateFiles(args) {
   const oldUtc=required('DDV_W1_EXPECTED_OLD_UTC');
   const newUtc=required('DDV_W1_PROPOSED_UTC');
   assert(UTC.test(oldUtc)&&UTC.test(newUtc),'W1_UTC_SHAPE_INVALID');
-  return verifyPrivateReopen({
+  const proof=verifyPrivateReopen({
     source:file(args[0]),backup:file(args[1]),edited:file(args[2]),
     key:expectedKey(),expectedSourceSha:hash('DDV_EXPECTED_P1G_SHA256'),
     expectedDecodedSha:hash('DDV_EXPECTED_JSON_SHA256'),
@@ -194,8 +194,11 @@ export function verifyPrivateFiles(args) {
     expectedEditedDecodedSha:hash('DDV_EXPECTED_EDITED_JSON_SHA256'),
     oldUtc,newUtc
   });
+  assert(SHA(file(args[0]))===hash('DDV_EXPECTED_P1G_SHA256'),
+    'SOURCE_CHANGED_DURING_INDEPENDENT_REOPEN');
+  return proof;
 }
-if(process.argv[1] && fileURLToPath(import.meta.url)===process.argv[1]) {
+if(process.argv[1] && fileURLToPath(import.meta.url)===realpathSync(process.argv[1])) {
   try {
     const result=verifyPrivateFiles(process.argv.slice(2));
     assert(result.independentProcess && result.strictOneEntryZipAndCrc &&
