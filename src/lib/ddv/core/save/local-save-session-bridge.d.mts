@@ -109,6 +109,28 @@ export type LocalDomainReadRequest = Readonly<{
  cursor?:string|null;
  limit?:number;
 }>;
+/** Worker-derived eight-reference presence diagnostic. No decoded tokens leave Worker.
+ * Even complete references DO NOT establish same-build Native V3 or Writer.
+ */ 
+export interface LocalW1DependencyDiagnostic {
+ readonly contract:'wand.local.w1-core-source-readset@1';
+ readonly operation:'W1_ITEMSPAWNING_NEXT_OCCURRENCE_DIAGNOSTIC';
+ readonly referenceCount:8;
+ readonly presentCount:number;
+ readonly missingReferences:readonly string[];
+ readonly allSourceReferencesPresent:boolean;
+ readonly sameBuildNativeRegistryAccepted:false;
+ readonly effectiveWorldDependenciesVerified:false;
+ readonly clockActualizeVerified:false;
+ readonly completeNativeDependencyClosureVerified:false;
+ readonly operationWriterAuthorized:false;
+ readonly sessionId:string;
+ readonly revision:0;
+ readonly indexGeneration:number;
+ readonly sourceSha256:string;
+ readonly writerAuthorized:false;
+ readonly productRustWorkerAccepted:false;
+}
 /** Command contracts for 01D/08 WEB/02 WEP. All writers fail closed. */
 export type LocalSaveOperationCommand =
  | Readonly<{kind:'W1_NEXT_OCCURRENCE_CHANGE';
@@ -132,6 +154,7 @@ export interface LocalSaveSessionBridge {
  openLocalFile(file:File,attestation:LocalBuildAttestation):Promise<LocalSaveSessionReceipt>;
  queryW1Page(query?:LocalW1PageQuery):Promise<LocalW1ReadPage>;
  readDomainPage(query:LocalDomainReadRequest):Promise<LocalW1ReadPage>;
+ diagnoseW1Dependencies(scope:Pick<LocalSaveSessionReceipt,'sessionId'|'sourceSha256'|'revision'|'indexGeneration'>):Promise<LocalW1DependencyDiagnostic>;
  close():Promise<Readonly<{closed:true;writerAuthorized:false}>>;
  /** Local original user-file handle is available only by explicit action.
   * A download request never proves the OS actually persisted the backup. */
