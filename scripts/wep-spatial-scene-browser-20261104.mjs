@@ -120,6 +120,7 @@ try {
  await load(page,'unknown');
  assert.equal(await page.locator('g[data-editor-object-id]').count(),1);
  assert.match(await page.locator('[data-wep-spatial-unresolved]').innerText(),/2/);
+ await page.locator('[data-wep-spatial-unresolved-details] summary').click();
  assert.match(await page.locator('[data-wep-spatial-unresolved-details]').innerText(),/SPATIAL_GRID_CONFLICT/);
  assert.match(await page.locator('[data-wep-spatial-unresolved-details]').innerText(),/SPATIAL_SUBGRID_TRANSFORM_UNPROVEN/);
  pass('ROOT_MISMATCH_SUBGRID_UNVERIFIED_NOT_PAINTED');
