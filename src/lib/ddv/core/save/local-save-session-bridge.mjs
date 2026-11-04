@@ -8,6 +8,15 @@ export const LOCAL_SWITCH_BID = '9A239D3DB569756D';
 export const LOCAL_SWITCH_FULL_VERSION = '1.25.3';
 export const LOCAL_SWITCH_SCHEMA = 626;
 const freeze = value => Object.freeze(value);
+// Bound platform intrinsics: a caller can shadow Blob#slice, Blob#arrayBuffer
+// and even the size getter on its instance or a subclass. Never invoke those
+// untrusted methods while asserting an original-backup byte equivalence.
+const nativeBlobSlice = Blob.prototype.slice;
+const nativeBlobArrayBuffer = Blob.prototype.arrayBuffer;
+const nativeBlobSize = Object.getOwnPropertyDescriptor(Blob.prototype,'size').get;
+const trueBlobSize = blob => nativeBlobSize.call(blob);
+const trueBlobChunk = (blob,start,end) =>
+  nativeBlobArrayBuffer.call(nativeBlobSlice.call(blob,start,end));
 const READ_CAPABILITIES = freeze({
   contract:SINGLE_SAVESESSION_CONTRACT,
   sessionOwner:'worker-singleton',
@@ -238,6 +247,65 @@ export function createLocalSaveSessionBridge(workerFactory){
     return freeze({downloadRequested:true,persistedVerified:false,
       sourceSha256:receipt.sourceSha256,writerAuthorized:false});
   };
+  // Explicit user-reimported backup CANDIDATE comparison. Reads two
+  // small independent chunks at a time: never posts P1G or decoded Save,
+  // never hashes/loads another 128MiB full-buffer copy in the UI.
+  // This proves the chosen Blob's BYTES equal the trusted Worker-opened
+  // original; it CANNOT prove the OS persisted a distinct backup path.
+  const verifyUserSelectedOriginalBackupCandidate=async (candidate,scope)=>{
+    const active=receipt,original=originalSelectedFile,activeEpoch=epoch;
+    const keys=['sessionId','sourceSha256','revision','indexGeneration'];
+    if(!active||!(original instanceof Blob)||!scope||
+       typeof scope!=='object'||Object.keys(scope).some(k=>!keys.includes(k))||
+       scope.sessionId!==active.sessionId||
+       scope.sourceSha256!==active.sourceSha256||
+       scope.revision!==active.revision||
+       scope.indexGeneration!==active.indexGeneration)
+      throw Error('LOCAL_BACKUP_CANDIDATE_STALE_SOURCE_SCOPE');
+    let originalBytes,candidateBytes;
+    try{
+      if(!(candidate instanceof Blob)||candidate===original)
+        throw Error('NOT_DISTINCT');
+      originalBytes=trueBlobSize(original);
+      candidateBytes=trueBlobSize(candidate);
+    }catch{
+      throw Error('LOCAL_BACKUP_CANDIDATE_NOT_DISTINCT_BOUNDED');
+    }
+    if(candidateBytes!==originalBytes||candidateBytes===0||
+       !Number.isSafeInteger(candidateBytes)||
+       candidateBytes>LOCAL_MAX_P1G_BYTES)
+      throw Error('LOCAL_BACKUP_CANDIDATE_NOT_DISTINCT_BOUNDED');
+    const current=()=>receipt===active&&originalSelectedFile===original&&epoch===activeEpoch;
+    const step=1024*1024;
+    for(let start=0;start<originalBytes;start+=step){
+      if(!current())throw Error('LOCAL_BACKUP_CANDIDATE_SESSION_REVOKED');
+      const end=Math.min(start+step,originalBytes);
+      let left,right;
+      try{
+        [left,right]=await Promise.all([
+          trueBlobChunk(original,start,end),
+          trueBlobChunk(candidate,start,end)
+        ]);
+      }catch{
+        throw Error('LOCAL_BACKUP_CANDIDATE_LOCAL_READ_FAILED');
+      }
+      if(!current())throw Error('LOCAL_BACKUP_CANDIDATE_SESSION_REVOKED');
+      if(left.byteLength!==end-start||right.byteLength!==end-start)
+        throw Error('LOCAL_BACKUP_CANDIDATE_CHUNK_LENGTH_MISMATCH');
+      const a=new Uint8Array(left),b=new Uint8Array(right);
+      for(let i=0;i<a.length;i++){
+        if(a[i]!==b[i])throw Error('LOCAL_BACKUP_CANDIDATE_BYTES_DIFFER');
+      }
+    }
+    if(!current())throw Error('LOCAL_BACKUP_CANDIDATE_SESSION_REVOKED');
+    return freeze({
+      candidateBytesMatchOriginal:true,
+      sourceSha256:active.sourceSha256,comparedByteCount:originalBytes,
+      sourceRevision:active.revision,indexGeneration:active.indexGeneration,
+      persistedVerified:false,distinctDiskPathVerified:false,
+      originalOverwriteProtectionVerified:false,writerAuthorized:false
+    });
+  };
   const getSession=()=>receipt;
   const getCapabilities=()=>READ_CAPABILITIES;
   const subscribe=listener=>{
@@ -263,7 +331,8 @@ export function createLocalSaveSessionBridge(workerFactory){
   };
   return freeze({ensureReady,openLocalFile,queryW1Page,readDomainPage,
     diagnoseW1Dependencies,
-    hasUntouchedOriginalBackupSource,requestUntouchedOriginalBackup,close,getSession,
+    hasUntouchedOriginalBackupSource,requestUntouchedOriginalBackup,
+    verifyUserSelectedOriginalBackupCandidate,close,getSession,
     getCapabilities,subscribe,submitOperation,destroy});
 }
 // One shared owner per JS module instance/tab; deliberately no localStorage or
