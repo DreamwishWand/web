@@ -1,0 +1,56 @@
+name: 04 QR November merged main Item detail to Moodboard real Chromium
+on:
+  push:
+    branches: [qa/main375-collection-explore-moodboard-20261104]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  item-board:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Freeze merged main and QA two paths only
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=d3ec2f5b66da9bbef42943fc9abaea067df9aac4
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git diff --name-only "$SOURCE" HEAD | sort >/tmp/qr375-actual
+          printf '%s\n' .github/workflows/qr-main375-moodboard-browser.yml scripts/qr-main375-collection-moodboard-browser.mjs | sort >/tmp/qr375-expected
+          diff -u /tmp/qr375-expected /tmp/qr375-actual
+          test -z "$(git diff --name-only "$SOURCE" HEAD -- src supabase static)"
+          test "$(git hash-object src/lib/entity/SharedEntityDetail.svelte)" = a904fafd32f607928a745e740a6cb90bf5ac225d
+          test "$(git hash-object src/lib/entity/entity-moodboard-action.mjs)" = 30e3f6952b2eb14242d9d80b6fd85e9ff223abd1
+          echo QR_MAIN375_FROZEN_MERGED_SOURCE_QA_ONLY_PASS
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Use real installed Chromium/Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Start self-hosted dev server without personal Save/Provider
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4199 > /tmp/qr375-vite.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4199/collection/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          tail -n 80 /tmp/qr375-vite.log
+          exit 1
+      - name: Chromium Collection/Explore detail save/reload and fail-closed
+        run: node scripts/qr-main375-collection-moodboard-browser.mjs
