@@ -17,7 +17,7 @@ permissions:
 jobs:
   scoped-read-contract:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 22
     steps:
       - uses: actions/checkout@v4
       - name: Fixed source and flags
@@ -41,6 +41,49 @@ jobs:
         run: |
           npm run build
           test -f build/editor/timing/index.html
+      - name: W1 Preview regression on the same shared Worker Session
+        run: node --test tests/timing-w1-preview.test.mjs
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Locate Chrome
+        id: chrome
+        run: |
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)"
+          test -n "$CHROME_BIN"
+          echo "path=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+      - name: Start local Vite for W1 Preview
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4179 > /tmp/01a-w1-compose.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4179/editor/timing/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/01a-w1-compose.log
+          exit 1
+      - name: Chromium W1 Preview+untouched source backup after Session composition
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+        run: node scripts/01a-main-w1-preview-browser.mjs
+      - name: Start static Pages-style /web test server
+        run: |
+          node scripts/01a-pages-base-static-server.mjs > /tmp/01a-compose-pages.log 2>&1 &
+          for i in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:4181/web/editor/timing/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/01a-compose-pages.log
+          exit 1
+      - name: Chromium W1 Preview+backup on built Pages /web
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          WAND_W1_PREVIEW_URL: http://127.0.0.1:4181/web
+        run: node scripts/01a-main-w1-preview-browser.mjs
+      - name: Preserve synthetic W1 operation proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 01a-composed-w1-preview-synthetic
+          path: .artifacts/01a-w1-preview/
+          if-no-files-found: ignore
       - name: Assert no product Write command ever sent to Worker
         run: |
           grep -Fq 'LOCAL_OPERATION_WRITER_NOT_ACCEPTED' src/lib/ddv/core/save/local-save-session-bridge.mjs
