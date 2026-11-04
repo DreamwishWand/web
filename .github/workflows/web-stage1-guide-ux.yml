@@ -27,14 +27,14 @@ jobs:
           BASE=342823eb03eff6bb7c5d80f4a804249bb174df10
           test "$(git merge-base "$BASE" HEAD)" = "$BASE"
           git diff --name-only "$BASE" HEAD >/tmp/stage1-guide-diff
-          test "$(wc -l </tmp/stage1-guide-diff)" -eq 4
+          test "$(wc -l </tmp/stage1-guide-diff)" -eq 5
           while IFS= read -r f; do
             case "$f" in
-              src/routes/guide/+page.svelte|tests/web-stage1-guide-root.test.mjs|scripts/web-stage1-guide-chrome.mjs|.github/workflows/web-stage1-guide-ux.yml) ;;
+              src/routes/guide/+page.svelte|src/lib/guide/copy.js|tests/web-stage1-guide-root.test.mjs|scripts/web-stage1-guide-chrome.mjs|.github/workflows/web-stage1-guide-ux.yml) ;;
               *) echo "OUTSIDE_GUIDE_STAGE1_SCOPE:$f"; exit 1 ;;
             esac
           done </tmp/stage1-guide-diff
-          git diff --exit-code "$BASE" HEAD -- src/lib/guide/ src/lib/community/ src/lib/ddv/ src/lib/wep/ src/lib/timing/ src/lib/collection/ supabase/ static/ .github/workflows/pages.yml
+          git diff --exit-code "$BASE" HEAD -- src/lib/guide/runtime.js src/lib/community/ src/lib/ddv/ src/lib/wep/ src/lib/timing/ src/lib/collection/ supabase/ static/ .github/workflows/pages.yml
           echo WEB_STAGE1_GUIDE_SCOPE_ONLY_PASS
       - name: Four-card root, no fifth Issues child, no Writer
         run: node --test tests/web-stage1-guide-root.test.mjs
