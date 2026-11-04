@@ -90,7 +90,7 @@ try{
  assert.equal(await detail.count(),0,'previous A selection must clear before B');
  await page.locator('[data-wep-626-native-object-id="g42:o7"]').click();
  assert.match(await detail.innerText(),/12, 3/);
- assert.doesNotMatch(await detail.innerText(),/2, 3/);
+ assert.doesNotMatch(await detail.innerText(),/\n2, 3\n/);
  pass('A_TO_B_RELOAD_IDENTICAL_NATIVE_ID_NEW_RAW_COORDS_NO_STALE_SELECTION');
  await page.setViewportSize({width:320,height:740});
  await page.waitForTimeout(180);
