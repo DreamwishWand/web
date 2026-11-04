@@ -3,7 +3,7 @@ on:
   push:
     branches: [qa/pr396-entity-identity-20261104]
   pull_request:
-    branches: [product/shared-entity-identity-20261104]
+    branches: [main]
 permissions:
   contents: read
 jobs:
