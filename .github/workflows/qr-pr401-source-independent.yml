@@ -1,0 +1,35 @@
+name: 04 QR PR401 independent native Save spatial source bridge
+on:
+  push:
+    branches: [qa/pr401-spatial-save-source-20261104]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Exact PR401 source and two QA paths only
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=ef7e930390189c33dd67c7f62c0dee7de9379126
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git diff --name-only "$SOURCE" HEAD | sort >/tmp/qr401-actual
+          printf '%s\n' .github/workflows/qr-pr401-source-independent.yml tests/qr-pr401-spatial-source-independent.test.mjs | sort >/tmp/qr401-expected
+          diff -u /tmp/qr401-expected /tmp/qr401-actual
+          test -z "$(git diff --name-only "$SOURCE" HEAD -- src supabase docs static)"
+          test "$(git hash-object src/lib/wep/real-save-spatial-source.ts)" = 96e9dba73f3c197c29bd89d2b068456fe2644ce8
+          echo QR_401_FIXED_SOURCE_QA_ONLY_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Independent new-only 626 raw references and 624 true source match tests
+        run: node --experimental-strip-types --test tests/qr-pr401-spatial-source-independent.test.mjs
