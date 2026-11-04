@@ -1,0 +1,115 @@
+name: 09 INT exact82 immutable Source163 local Bootstrap (never deploy)
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/functions/**'
+      - 'supabase/config.toml'
+      - '.github/workflows/int-source163-82-immutable-bootstrap.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-immutable-bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Pin 82 existing blob SHAs, 81 new names and lexical application order
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess, re
+          def blobs(ref):
+              output=subprocess.check_output(['git','ls-tree','-r',ref,'supabase/migrations'],text=True)
+              return {line.split('\t',1)[1]:line.split()[2] for line in output.splitlines()}
+          base=subprocess.check_output(['git','merge-base','origin/main','HEAD'],text=True).strip()
+          old=blobs(base)
+          current=blobs('HEAD')
+          assert len(old)==82, f'EXPECTED_82_MAIN_MIGRATIONS:{len(old)}'
+          assert len(current)==163, f'EXPECTED_163_CUMULATIVE_MIGRATIONS:{len(current)}'
+          assert all(current.get(name)==sha for name,sha in old.items()), 'HISTORICAL_MIGRATION_BLOB_CHANGED'
+          assert len(set(current)-set(old))==81, 'MIGRATION_SUCCESSOR_COUNT_INVALID'
+          versions=[Path(name).name.split('_',1)[0] for name in current]
+          assert all(re.fullmatch(r'\d{14}',v) for v in versions), 'INVALID_MIGRATION_VERSION'
+          assert len(versions)==len(set(versions)), 'DUPLICATE_MIGRATION_TIMESTAMP'
+          legacy='supabase/migrations/20260930025132_community_core_v0_server_rpc.sql'
+          assert old[legacy]=='bbf9bc830440d964c5da8b3c3cac7e926d281881', 'ORIGINAL_RPC_SQL_BLOB_CHANGED'
+          source163='supabase/migrations/20261104050000_community_source163_help_answer_service_execute_off.sql'
+          assert source163 in current and source163 not in old, 'SOURCE163_SUCCESSOR_NOT_PRESENT'
+          print('SOURCE163_MAIN_82_IMMUTABLE_AND_81_UNIQUE_SUCCESSORS_PASS')
+          PY
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+      - name: Pin disposable local-only Supabase project; no link or remote token
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${SUPABASE_ACCESS_TOKEN}"
+          docker version
+          supabase --version
+          printf 'project_id = "ddvre_int_source163_82_immutable_local"\n' | cat - supabase/config.toml > /tmp/wand-local-config.toml
+          mv /tmp/wand-local-config.toml supabase/config.toml
+          echo 'NO LINK / NO STAGE116 / NO REMOTE PROVIDER / NO LIVE CREDENTIALS'
+      - name: Replay EXACT immutable 82 plus 81 new migrations to empty local DB
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 1500s supabase start --debug > /tmp/int-source163-start.log 2>&1 || {
+            echo 'SOURCE163_CUMULATIVE_IMMUTABLE_82_BOOTSTRAP_RED'
+            tail -n 130 /tmp/int-source163-start.log
+            exit 1
+          }
+          echo 'SOURCE163_CUMULATIVE_IMMUTABLE_82_FIRST_REPLAY_PASS'
+      - name: Independently reset same disposable local DB from exact original files
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 900s supabase db reset --no-seed > /tmp/int-source163-reset.log 2>&1 || {
+            echo 'SOURCE163_CUMULATIVE_IMMUTABLE_82_RESET_RED'
+            tail -n 130 /tmp/int-source163-reset.log
+            exit 1
+          }
+          echo 'SOURCE163_CUMULATIVE_IMMUTABLE_82_SECOND_REPLAY_PASS'
+      - name: Verify migration ledger and effective three-role SQL privileges locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          db_container="$(docker ps --format '{{.Names}}' | grep '^supabase_db_' | head -1)"
+          test -n "$db_container"
+          docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL'
+          DO $verify$
+          DECLARE n integer; proc text; r text;
+          BEGIN
+            SELECT count(*) INTO n FROM supabase_migrations.schema_migrations;
+            IF n<>163 THEN RAISE EXCEPTION 'SOURCE163_MIGRATION_LEDGER_NOT_163: %', n; END IF;
+            FOREACH proc IN ARRAY ARRAY[
+              'public.community_add_answer_v1(uuid,uuid,uuid,text,text)',
+              'public.community_publish_gallery_photo_v1(uuid,uuid,uuid,bigint,text,uuid,text,text,uuid[],uuid,boolean,text)',
+              'public.community_ask_question_v1(uuid,uuid,text,text,text[],text,text,text)',
+              'public.community_create_tip_v1(uuid,uuid,text,text,text[],text,text,uuid,uuid,text)'
+            ] LOOP
+              IF to_regprocedure(proc) IS NULL THEN RAISE EXCEPTION 'EXPECTED_LEGACY_RPC_MISSING: %',proc; END IF;
+              FOREACH r IN ARRAY ARRAY['anon','authenticated','service_role'] LOOP
+                IF has_function_privilege(r,proc,'EXECUTE') THEN
+                  RAISE EXCEPTION 'UNACCEPTED_LEGACY_SQL_EXECUTE_ENABLED:%:%',r,proc;
+                END IF;
+              END LOOP;
+            END LOOP;
+            IF NOT has_function_privilege('service_role',
+                'public.community_set_gallery_comments_enabled_atomic_signed_v1(uuid,bigint,uuid,uuid,bigint,uuid,boolean,text)','EXECUTE')
+               OR NOT has_function_privilege('service_role',
+                'public.community_get_ddv_profile_workspaces_v1(uuid)','EXECUTE')
+            THEN RAISE EXCEPTION 'ACCEPTED_SIGNED_POSITIVE_GRANTS_LOST'; END IF;
+          END
+          $verify$;
+          SQL
+          echo 'SOURCE163_82_HISTORICAL_REPLAY_AND_EFFECTIVE_ACL_LOCAL_PASS'
