@@ -13,6 +13,7 @@ on:
       - 'crates/ddv-save-core/src/lib.rs'
       - 'crates/ddv-save-core/tests/w1_private_operation_v2.rs'
       - 'crates/ddv-save-core/examples/w1_private_v2_local.rs'
+      - 'crates/ddv-save-core/scripts/w1-independent-fresh-reopen.mjs'
       - '.github/workflows/01a-private-w1-v2-research.yml'
   workflow_dispatch:
 permissions:
@@ -30,6 +31,8 @@ jobs:
           echo PRIVATE_CODEC_KEY_IN_CI=NO
           echo NATIVE_V3=NOT_ACCEPTED
           echo PRODUCT_WRITER=OFF
+      - name: Independent Node verifier syntax (synthetic only)
+        run: node --check crates/ddv-save-core/scripts/w1-independent-fresh-reopen.mjs
       - name: Synthetic W1 original-first atomic V2 and negative tests
         run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test w1_private_operation_v2 -- --nocapture
       - name: Compile private operator without executing it
