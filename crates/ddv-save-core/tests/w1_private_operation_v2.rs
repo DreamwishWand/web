@@ -47,6 +47,7 @@ fn rust_private_operation_proof_synthetic_atomic_stage_undo_redo_backup_copy(){
  assert!(evidence.original_first_backup_reopened);
  assert!(evidence.edited_file_reopened);
  assert!(evidence.core_and_stage_share_immutable_decoded_source);
+ assert!(evidence.original_ciphertext_borrowed_from_trusted_core);
  assert_eq!(evidence.revision_after_stage,1);
  assert_eq!(evidence.revision_after_undo_redo,3);
  assert!(!evidence.independent_process_reopen);
@@ -130,6 +131,7 @@ fn independent_second_process_node_reopens_rust_output_exact_crc_diff_and_no_ove
  assert!(!evidence.independent_process_reopen,
    "the Rust receipt must not self-attest another process");
  assert!(evidence.core_and_stage_share_immutable_decoded_source);
+ assert!(evidence.original_ciphertext_borrowed_from_trusted_core);
  let ok=run_independent_node(&fixture,&evidence);
  assert!(ok.status.success(),"fresh Node must independently verify Rust output");
  assert!(String::from_utf8_lossy(&ok.stdout).contains(
@@ -156,6 +158,7 @@ fn native_research_one_decoded_arc_preserves_multi_megabyte_unknown_source(){
  let fixture=Fixture::new(&json);
  let report=execute_private_w1_v2_research(fixture.request()).unwrap();
  assert!(report.core_and_stage_share_immutable_decoded_source);
+ assert!(report.original_ciphertext_borrowed_from_trusted_core);
  assert!(report.original_first_backup_reopened);
  assert!(report.edited_file_reopened);
  assert!(!report.native_v3_verified);
