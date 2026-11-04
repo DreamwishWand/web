@@ -259,7 +259,7 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
     // committed local revoke, parent still COMMITTED a public Gallery Work
     // using only synthetic READY Media/verified Subject metadata.
     // Deny until a same-transaction signed atomic Photo Writer passes QA.
-    if (command === 'publishGalleryPhoto') {
+    if (new Set<string>(['publishGalleryPhoto']).has(command)) {
       return reply({ok:false,error:'SOURCE162_GALLERY_PHOTO_WRITER_NOT_ENROLLED'},409);
     }
 

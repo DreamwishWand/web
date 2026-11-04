@@ -24,7 +24,7 @@ const notes=load('docs/community/post327-remaining-writer-route-audit-20261103.m
 test('fix Source155 and Source156 at independently accepted PR327 SQL/Edge blobs',()=>{
  assert.equal(gitBlob(source155),'115f2c0f7224984acd8830cfc606af8c6a1bf3af');
  assert.equal(gitBlob(source156),'3000d66c193b996e4ece785deaf5180955ec3bc6');
- assert.equal(gitBlob(edge),'895b9645b36d5b67797306b4d14a9a6f3f507468');
+ assert.equal(gitBlob(edge),'196f8d221224789049f8573cfe17bd54645971f9');
  assert.match(source156,/for share;/);
  assert.match(source156,/community_authorize_signed_session_v2/);
  assert.match(source156,/revoke all on function public\.community_set_gallery_comments_enabled_atomic_r16/);
@@ -158,7 +158,7 @@ test('Source161 direct Gallery Draft/Create old RPCs OFF, nested Gallery Photo N
 const source162=load('supabase/migrations/20261104040000_community_source162_gallery_photo_parent_service_execute_off.sql');
 test('Source162 Gallery Photo SECURITY DEFINER parent externally failclosed after signed v2',()=>{
  const signed=edge.indexOf("'community_authorize_signed_session_v2'",edge.indexOf("if (command !== 'ensureAccountCreator')"));
- const guard=edge.indexOf("if (command === 'publishGalleryPhoto') {");
+ const guard=edge.indexOf("if (new Set<string>(['publishGalleryPhoto']).has(command)) {");
  const rate=edge.indexOf('const rateBucket = commandToRateBucket[command]');
  assert.ok(signed>=0 && guard>signed && rate>guard,'Photo OFF must follow genuine signed401 and precede service SQL');
  assert.match(edge,/SOURCE162_GALLERY_PHOTO_WRITER_NOT_ENROLLED/);
