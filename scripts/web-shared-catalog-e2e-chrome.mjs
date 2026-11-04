@@ -27,10 +27,11 @@ try {
    if(request.method()!=='GET'||url.origin!==root)network.push({method:request.method(),path:url.pathname});
  });
  page.on('pageerror',e=>errors.push(String(e)));
- await page.goto(root+'/moodboards/',{waitUntil:'domcontentloaded'});
+ await page.goto(root+'/moodboards/',{waitUntil:'networkidle'});
+ // Svelte handlers are installed after hydration; selecting the SSR form too early loses submit.
  await page.locator('form.create-board input').first().fill('Offline E2E Board');
  await page.locator('form.create-board button[type="submit"]').click();
- await page.getByText('Offline E2E Board').first().waitFor({timeout:20000});
+ await page.locator('.board-list>button').filter({hasText:'Offline E2E Board'}).waitFor({timeout:20000});
  pass('LOCAL_MOODBOARD_CREATED_WITHOUT_ACCOUNT');
 
  await page.goto(root+'/collection/',{waitUntil:'domcontentloaded'});
