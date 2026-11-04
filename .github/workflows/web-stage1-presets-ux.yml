@@ -1,0 +1,89 @@
+name: WEB Stage1 Presets four-card UX no Native writer
+on:
+  push:
+    branches:
+      - 'web/stage1-presets-four-card-root-*'
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Exact five UI/test files from single main and no Native/Core writes
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=bd966f9e94be48fafce25cfbdc298439ee47aca3
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          git diff --name-only "$BASE" HEAD >/tmp/stage1-presets
+          test "$(wc -l </tmp/stage1-presets)" -eq 5
+          while IFS= read -r path; do
+            case "$path" in
+              src/routes/presets/+page.svelte|src/lib/presets/stage1-root.mjs|tests/web-stage1-presets-root.test.mjs|scripts/web-stage1-presets-chrome.mjs|.github/workflows/web-stage1-presets-ux.yml) ;;
+              *) echo "OUTSIDE_P0_SCOPE:$path"; exit 1 ;;
+            esac
+          done </tmp/stage1-presets
+          git diff --exit-code "$BASE" HEAD -- src/lib/presets/NativePresetManager.svelte src/lib/wep/ src/lib/ddv/ src/lib/community/ src/routes/gallery/ src/routes/dreamsnaps/ supabase/ static/ .github/workflows/pages.yml
+          echo WEB_STAGE1_PRESETS_UI_ONLY_SCOPE_PASS
+      - name: Four root two InGame, eight locale and Native/Provider OFF assertions
+        run: node --test tests/web-stage1-presets-root.test.mjs
+      - name: Full Node, typecheck and static Pages
+        env:
+          BASE_PATH: /web
+        run: |
+          npm test
+          npm run check
+          npm run build
+      - name: No unintended generated positive entity or premium publication
+        shell: bash
+        run: |
+          test -f build/presets/index.html
+          test -f build/404.html
+          test ! -f build/ja/entity/quest/12345/index.html
+          echo WEB_STAGE1_PRESETS_PUBLIC_AUTHORITY_OFF_PASS
+  chrome:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Build and localhost gated Presets
+        shell: bash
+        env:
+          BASE_PATH: /web
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          npm run build
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4289 >/tmp/stage1-presets.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4289/presets/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/stage1-presets.log
+          exit 1
+      - name: Actual Chrome 8 locale root/InGame, 320px/200% keyboard + no provider
+        env:
+          STAGE1_PRESETS_URL: http://127.0.0.1:4289
+        run: node scripts/web-stage1-presets-chrome.mjs
