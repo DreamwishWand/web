@@ -1,0 +1,74 @@
+name: "04QR-W PR522 Stage1 Guide eight locale actual visual independent"
+on:
+  pull_request:
+    branches: ['web/stage1-guide-four-card-root-20261105']
+    paths:
+      - '.github/workflows/04qr-w-pr522-guide-visual-independent.yml'
+      - 'scripts/04qr-w-pr522-guide-visual-chromium.mjs'
+      - 'tests/04qr-w-pr522-guide-visual-independent.test.mjs'
+permissions:
+  contents: read
+jobs:
+  guide-independent-new-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Protect real owner P1G and no hidden publishing
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+      - name: New-only exact main three paths and Help Guide source boundaries
+        run: node --test tests/04qr-w-pr522-guide-visual-independent.test.mjs
+      - name: Actual browser QA syntax
+        run: node --check scripts/04qr-w-pr522-guide-visual-chromium.mjs
+
+  guide-actual-chrome-visual-independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Resolve actual Chromium
+        id: chrome
+        run: |
+          set -euo pipefail
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$BIN"
+          echo "path=$BIN" >> "$GITHUB_OUTPUT"
+      - name: Disposable local UI source only
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4286 >/tmp/04qr-w-pr522-vite.log 2>&1 &
+          for i in $(seq 1 65); do
+            if curl --fail --silent http://127.0.0.1:4286/guide/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/04qr-w-pr522-vite.log
+          exit 1
+      - name: Actual system Chrome all 8 locale labels, Guide / Help ownership, 320/200 keyboard in-memory visual screenshots
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          QR522_URL: http://127.0.0.1:4286/guide/
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          node scripts/04qr-w-pr522-guide-visual-chromium.mjs
