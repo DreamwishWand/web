@@ -34,7 +34,10 @@ test('only Timing allowed; forged Collection/World full capabilities still denie
  const d=describeThreeDomainReadCapabilities(b);
  assert.equal(d.domains.Collection.workerReadAvailable,false);
  assert.equal(d.domains.World.workerReadAvailable,false);
- assert.equal(d.domains.Timing.workerReadAvailable,false,'forged completeAllDomains cannot mint typed read');
+ assert.equal(d.domains.Timing.workerReadAvailable,true,'false ownership claims must not disable valid W1 Timing');
+ const forgedAll=describeThreeDomainReadCapabilities({...b,getCapabilities:()=>({...c,readCompleteAllDomains:true})});
+ assert.equal(forgedAll.sessionBound,false,'forged completeAllDomains cannot mint trusted Session');
+ assert.equal(forgedAll.domains.Timing.workerReadAvailable,false);
  assert.equal(d.read200MiBSupported,false);
  assert.equal(LOCAL_THREE_DOMAIN_200MIB_JS_READ_ENABLED,false);
  assert.equal(LOCAL_THREE_DOMAIN_PRODUCT_WRITER_ENABLED,false);
