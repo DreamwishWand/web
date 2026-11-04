@@ -1,0 +1,35 @@
+name: 04 QR current PR401 independent 624 repaired hierarchy and 626 provenance regression
+on:
+  push:
+    branches: [qa/pr401-latest-spatial-provenance-20261104]
+  pull_request:
+    branches: [01b/real-save-spatial-source-read-20261104]
+permissions:
+  contents: read
+jobs:
+  current:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Fixed current Source HEAD and two QA paths only
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=5bebc1fe0758f41b54ce894ab8ad88cf0a5f37df
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git diff --name-only "$SOURCE" HEAD | sort >/tmp/qr401-now
+          printf '%s\n' .github/workflows/qr-pr401-current-source-independent.yml tests/qr-pr401-current-spatial-independent.test.mjs | sort >/tmp/qr401-exp
+          diff -u /tmp/qr401-exp /tmp/qr401-now
+          test -z "$(git diff --name-only "$SOURCE" HEAD -- src supabase docs static)"
+          test "$(git hash-object src/lib/wep/real-save-spatial-source.ts)" = 3e6072d7cb20a5e3f6727dbb330d9bde1f755410
+          echo QR_401_CURRENT_FIXED_SOURCE_QA_ONLY_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Independent current 624 nested parent failclosed and 626 forged source ID negative
+        run: node --experimental-strip-types --test tests/qr-pr401-current-spatial-independent.test.mjs
