@@ -5,6 +5,7 @@ on:
       - research/01a-w1-v2-private-operation-atomic-proof-20261104
     paths:
       - 'crates/ddv-save-core/tests/w1_private_operation_v2.rs'
+      - 'crates/ddv-save-core/tests/w1_atomic_full_source_cas.rs'
       - 'crates/ddv-save-core/src/offline_w1_v2.rs'
       - '.github/workflows/01a-private-w1-v2-research.yml'
   pull_request:
@@ -12,6 +13,7 @@ on:
       - 'crates/ddv-save-core/src/offline_w1_v2.rs'
       - 'crates/ddv-save-core/src/lib.rs'
       - 'crates/ddv-save-core/tests/w1_private_operation_v2.rs'
+      - 'crates/ddv-save-core/tests/w1_atomic_full_source_cas.rs'
       - 'crates/ddv-save-core/examples/w1_private_v2_local.rs'
       - 'crates/ddv-save-core/scripts/w1-independent-fresh-reopen.mjs'
       - '.github/workflows/01a-private-w1-v2-research.yml'
@@ -35,6 +37,8 @@ jobs:
         run: node --check crates/ddv-save-core/scripts/w1-independent-fresh-reopen.mjs
       - name: Synthetic W1 original-first atomic V2 and negative tests
         run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test w1_private_operation_v2 -- --nocapture
+      - name: Core 8-root same-revision atomic CAS and forged/modified reference negatives
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test w1_atomic_full_source_cas -- --nocapture
       - name: Compile private operator without executing it
         run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --example w1_private_v2_local
       - name: Product exports remain unconditionally disabled
