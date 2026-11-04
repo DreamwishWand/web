@@ -20,17 +20,17 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci --no-audit --no-fund
-      - name: Exact 14-file main descendant and no privileged source
+      - name: Exact 13-file main descendant and no privileged source
         shell: bash
         run: |
           set -euo pipefail
           BASE=d3a2dbfa76d041e7edc30abbd89f5fc264a540f8
           test "$(git merge-base "$BASE" HEAD)" = "$BASE"
           git diff --name-only "$BASE" HEAD >/tmp/typed-entity-diff
-          test "$(wc -l </tmp/typed-entity-diff)" -eq 14
+          test "$(wc -l </tmp/typed-entity-diff)" -eq 13
           while IFS= read -r path; do
             case "$path" in
-              src/lib/foundation/shared-typed-entity-contract.mjs|src/lib/foundation/shared-typed-entity-copy.mjs|src/lib/foundation/SharedTypedEntityGate.svelte|src/routes/entity/'[kind]'/'[primary]'/+page.svelte|src/routes/entity/'[kind]'/'[primary]'/+page.ts|src/routes/'[locale=wandLocale]'/entity/'[kind]'/'[primary]'/+page.svelte|src/routes/'[locale=wandLocale]'/entity/'[kind]'/'[primary]'/+page.ts|src/routes/'[primary=sharedId]'/'[secondary=sharedId]'/+page.svelte|src/routes/'[primary=sharedId]'/'[secondary=sharedId]'/+page.ts|src/routes/'[locale=wandLocale]'/'[primary=sharedId]'/'[secondary=sharedId]'/+page.svelte|src/routes/'[locale=wandLocale]'/'[primary=sharedId]'/'[secondary=sharedId]'/+page.ts|tests/shared-typed-entity-boundary.test.mjs|scripts/web-typed-entity-boundary-chrome.mjs|.github/workflows/web-typed-shared-entity.yml) ;;
+              src/lib/foundation/shared-typed-entity-copy.mjs|src/lib/foundation/SharedTypedEntityGate.svelte|src/routes/entity/'[kind]'/'[primary]'/+page.svelte|src/routes/entity/'[kind]'/'[primary]'/+page.ts|src/routes/'[locale=wandLocale]'/entity/'[kind]'/'[primary]'/+page.svelte|src/routes/'[locale=wandLocale]'/entity/'[kind]'/'[primary]'/+page.ts|src/routes/'[primary=sharedId]'/'[secondary=sharedId]'/+page.svelte|src/routes/'[primary=sharedId]'/'[secondary=sharedId]'/+page.ts|src/routes/'[locale=wandLocale]'/'[primary=sharedId]'/'[secondary=sharedId]'/+page.svelte|src/routes/'[locale=wandLocale]'/'[primary=sharedId]'/'[secondary=sharedId]'/+page.ts|tests/shared-typed-entity-boundary.test.mjs|scripts/web-typed-entity-boundary-chrome.mjs|.github/workflows/web-typed-shared-entity.yml) ;;
               *) echo "UNEXPECTED_PATH:$path"; exit 1 ;;
             esac
           done </tmp/typed-entity-diff
