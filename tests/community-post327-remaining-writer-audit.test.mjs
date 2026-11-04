@@ -24,7 +24,7 @@ const notes=load('docs/community/post327-remaining-writer-route-audit-20261103.m
 test('fix Source155 and Source156 at independently accepted PR327 SQL/Edge blobs',()=>{
  assert.equal(gitBlob(source155),'115f2c0f7224984acd8830cfc606af8c6a1bf3af');
  assert.equal(gitBlob(source156),'3000d66c193b996e4ece785deaf5180955ec3bc6');
- assert.equal(gitBlob(edge),'688c3f694091a22ad2b7e246d4975bcd06acbfae');
+ assert.equal(gitBlob(edge),'ad8b0bb6e74d7d8ae0ee1a148b6749feadbcf974');
  assert.match(source156,/for share;/);
  assert.match(source156,/community_authorize_signed_session_v2/);
  assert.match(source156,/revoke all on function public\.community_set_gallery_comments_enabled_atomic_r16/);
@@ -101,4 +101,23 @@ test('Source158 R15 Gallery publication OFF after signed preflight without widen
   assert.match(source158,/SOURCE158_UNVERIFIED_R15_PINNED_WRITER_EXECUTE_STILL_ON/);
   assert.doesNotMatch(source158,/grant execute on function public\.community_publish_gallery_pinned_r15/i);
   assert.match(edge,/setGalleryCommentsAtomicR16: 'community_set_gallery_comments_enabled_atomic_signed_v1'/);
+});
+
+const source159=load('supabase/migrations/20261104010000_community_source159_workspace_identity_legacy_service_execute_off.sql');
+test('Source159 only four unaccepted Workspace legacy RPCs remain disabled after signed-v2 preflight',()=>{
+ const signed=edge.indexOf("'community_authorize_signed_session_v2'",edge.indexOf("if (command !== 'ensureAccountCreator')"));
+ const guard=edge.indexOf("'createDdvProfileWorkspace', 'updateDdvProfileWorkspace'");
+ const rate=edge.indexOf('const rateBucket = commandToRateBucket[command]');
+ assert.ok(signed>=0 && guard>signed && rate>guard,'Workspace OFF after valid signed401 and before rate/SQL');
+ assert.match(edge,/SOURCE159_WORKSPACE_WRITER_NOT_ENROLLED/);
+ assert.match(source159,/SOURCE159_LEGACY_WORKSPACE_RPC_STILL_EXECUTABLE/);
+ for(const rpc of ['community_create_ddv_profile_workspace_v1','community_update_ddv_profile_workspace_v1',
+                    'community_associate_ddv_identity_v1','community_unlink_ddv_identity_v1']){
+  assert.match(source159,new RegExp('revoke all on function public\\.'+rpc));
+ }
+ assert.doesNotMatch(source159,/grant execute on function public\.community_(?:create|update|associate|unlink)_ddv/i);
+ assert.match(source159,/community_delete_ddv_profile_workspace_v1/);
+ assert.match(source159,/community_get_ddv_profile_workspaces_v1/);
+ assert.match(source159,/community_set_gallery_comments_enabled_atomic_signed_v1/);
+ assert.match(edge,/deleteDdvProfileWorkspace: 'community_delete_ddv_profile_workspace_v1'/);
 });

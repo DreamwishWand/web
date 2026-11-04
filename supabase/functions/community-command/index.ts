@@ -223,6 +223,18 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       return reply({ok:false,error:'R15_GALLERY_PUBLISH_WRITER_NOT_ENROLLED'},409);
     }
 
+    // Source159: signed v2 preflight and legacy service-role Workspace/Identity
+    // mutation are separate transactions. Four old subject-only RPCs genuinely
+    // COMMITTED after local Session revocation in disposable FULL158.
+    // All four remain OFF until same-transaction verified signed commands
+    // independently pass; retain the separate signed DELETE/read-only paths.
+    if (new Set<string>([
+      'createDdvProfileWorkspace', 'updateDdvProfileWorkspace',
+      'associateDdvIdentity', 'unlinkDdvIdentity'
+    ]).has(command)) {
+      return reply({ok:false,error:'SOURCE159_WORKSPACE_WRITER_NOT_ENROLLED'},409);
+    }
+
     const authorizationParams: JsonObject = {
       p_auth_subject: subject, p_issued_at_epoch: issuedAt,
       p_max_age_seconds: null
