@@ -70,6 +70,10 @@ self.addEventListener('message', (event: MessageEvent) => {
           search: message.search, cursor: message.cursor, limit: message.limit
         });
         self.postMessage({ id, ok: true, result });
+      } else if (message.type === 'DIAGNOSE_W1') {
+        if (!allowed(message, ['id', 'type']))
+          throw Error('READ_FORGED_DIAGNOSTIC_REQUEST');
+        self.postMessage({ id, ok: true, result: core.diagnose() });
       } else if (message.type === 'CLOSE') {
         if (!allowed(message, ['id', 'type']))
           throw Error('READ_FORGED_CLOSE_REQUEST');
