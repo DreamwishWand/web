@@ -1,0 +1,75 @@
+name: 04 QR PR472 cumulative WEP 2D independent source and Chromium
+on:
+  push:
+    branches: [qa/pr472-world2d-main-rebased-independent-20261104]
+  pull_request:
+    branches: [int/w-int-012-world2d-source-cumulative-qa468-20261104]
+permissions:
+  contents: read
+jobs:
+  new-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Exact source 8 paths and QA-only 3 paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=0193de2aa57101983b5a070d52105866d06dbd9a
+          MAIN=a9f6793546bf372a5153dba8c838d3332ae75d7b
+          git merge-base --is-ancestor "$MAIN" "$SRC"
+          git merge-base --is-ancestor "$SRC" HEAD
+          git diff --name-only "$MAIN" "$SRC" | sort >/tmp/source472
+          printf '%s\n' \
+           .github/workflows/wep-real-save-spatial-20261104.yml \
+           docs/wep/private-real-save-spatial-e2e-local-only-20261104.md \
+           docs/wep/world-editor-localization-inventory-20261002.json \
+           scripts/wep-private-real-save-2d-local-only-20261104.mjs \
+           scripts/wep-real-save-spatial-browser-20261104.mjs \
+           src/lib/wep/real-save-spatial-read.ts \
+           src/routes/editor/world/+page.svelte \
+           tests/wep-real-save-spatial-read.test.mjs | sort >/tmp/expected-source472
+          diff -u /tmp/expected-source472 /tmp/source472
+          git diff --name-only "$SRC" HEAD | sort >/tmp/qa472
+          printf '%s\n' \
+           .github/workflows/qr-pr472-world2d-composite-independent.yml \
+           scripts/qr-pr472-world2d-composite-chromium.mjs \
+           tests/qr-pr472-world2d-composite-independent.test.mjs | sort >/tmp/expected-qa472
+          diff -u /tmp/expected-qa472 /tmp/qa472
+          test "$(git hash-object src/lib/wep/real-save-spatial-read.ts)" = 48b32c3bd3132c6e48a47d7b8f017a35642d2623
+          test "$(git hash-object src/lib/ddv/core/save/three-domain-read-facade.mjs)" = 67f0b31f891ba20dbe32649e1cb3bcb6f9ea1337
+          test "$(git hash-object src/lib/timing/w1-worker-mandatory-readset.mjs)" = 6b5f17bd2e3c4a30d3d1ef0770c1a15e02176b64
+          test -z "$(git diff --name-only "$SRC" HEAD -- src supabase docs static)"
+          echo QR472_EXACT_SOURCE_AND_MAIN_W1_ABI_PRESERVED_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Independent changed-risk source-Scene-CAS OFF negatives
+        run: node --experimental-strip-types --test tests/qr-pr472-world2d-composite-independent.test.mjs
+      - name: Svelte TypeScript check and static Pages build
+        run: npm run check && npm run build
+  actual-chromium:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright@1.55.0
+      - run: npx playwright install chromium
+      - name: Start local UI, no private P1G
+        shell: bash
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4197 >/tmp/wep-472-ui.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4197/editor/world/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/wep-472-ui.log
+          exit 1
+      - name: Independent Chromium source-to-inspector, A/B, Move/Undo, privacy
+        run: node scripts/qr-pr472-world2d-composite-chromium.mjs
