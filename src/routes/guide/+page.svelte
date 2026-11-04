@@ -20,11 +20,11 @@
 
   onMount(async()=>{try{runtime=await loadGuideRuntime(base);}catch(cause){error=cause instanceof Error?cause.message:String(cause);}finally{loading=false;}});
   function chooseSection(next:Section){section=next;query='';selectedKey=null;}
-  function sectionLabel(value:Section){return value==='quests'?copy.quests:value==='starPaths'?copy.starPaths:value==='events'?copy.events:copy.systems;}
+  function sectionLabel(value:Section, strings:typeof copy){return value==='quests'?strings.quests:value==='starPaths'?strings.starPaths:value==='events'?strings.events:strings.systems;}
   function safeDate(value:any){if(!value)return '';try{return formatDate(value,{year:'numeric',month:'short',day:'numeric'},$locale);}catch{return '';}}
   function dutyLabel(duty:any){const label=cleanGuideText(duty?.label);return label && !/^Liveops\./.test(label) ? label : '';}
 </script>
-<svelte:head><title>Guide | Dreamwish Wand</title><meta name="description" content="Curated Disney Dreamlight Valley quests, Star Paths, events, systems and issues." /></svelte:head>
+<svelte:head><title>Guide | Dreamwish Wand</title><meta name="description" content="Browse verified Disney Dreamlight Valley quests, Star Paths, events and systems." /></svelte:head>
 
 <section class="guide-page container">
   <header class="guide-heading">
@@ -41,8 +41,8 @@
         {#each ['quests','starPaths','events','systems'] as key}
           <button type="button" class="guide-hub-card" data-guide-child={key}
             on:click={()=>chooseSection(key as Section)}>
-            <span class="guide-hub-art" aria-hidden="true">{sectionLabel(key as Section).slice(0,1)}</span>
-            <strong>{sectionLabel(key as Section)}</strong>
+            <span class="guide-hub-art" aria-hidden="true">{sectionLabel(key as Section,copy).slice(0,1)}</span>
+            <strong>{sectionLabel(key as Section,copy)}</strong>
           </button>
         {/each}
       </nav>
@@ -50,11 +50,11 @@
       <button class="guide-back" type="button" on:click={()=>{section=null;selectedKey=null;query='';}}>{copy.title} ←</button>
     <nav class="guide-tabs" aria-label="Guide sections">
       {#each ['quests','starPaths','events','systems'] as key}
-        <button type="button" class:active={section===key} on:click={()=>chooseSection(key as Section)}>{sectionLabel(key as Section)}</button>
+        <button type="button" class:active={section===key} on:click={()=>chooseSection(key as Section)}>{sectionLabel(key as Section,copy)}</button>
       {/each}
     </nav>
     <label class="search"><span>{copy.search}</span><input type="search" bind:value={query} /></label>
-    <div class="summary"><strong>{formatNumber(filtered.length,{},$locale)} {copy.results}</strong><span>{sectionLabel(section)}</span></div>
+    <div class="summary"><strong>{formatNumber(filtered.length,{},$locale)} {copy.results}</strong><span>{sectionLabel(section,copy)}</span></div>
 
     <div class="guide-workspace">
       <div class="result-list">
@@ -76,7 +76,7 @@
 
       <article class="detail">
         {#if selected}
-          <header><p class="eyebrow">{sectionLabel(section)}</p><h2>{selected.title}</h2>
+          <header><p class="eyebrow">{sectionLabel(section,copy)}</p><h2>{selected.title}</h2>
             {#if selected.localeFallback}<div class="fallback" role="note">{copy.fallback}</div>{/if}
           </header>
           {#if section==='quests'}
