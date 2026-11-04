@@ -1,0 +1,29 @@
+name: 05 QR PR412 independent Rust new-only synthetic QA
+on:
+  push:
+    branches: [qa/05qr-412-rust-source-gate-20261104]
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/tests/qa_05qr_pr412_newonly.rs'
+      - '.github/workflows/qa-pr412-rust-newonly.yml'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  independent-rust:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Frozen Source and QA-only difference
+        run: |
+          test "$(git merge-base 3d88191857cb733b9385e7e7fea85c25851bc88c HEAD)" = 3d88191857cb733b9385e7e7fea85c25851bc88c
+          git diff --quiet 3d88191857cb733b9385e7e7fea85c25851bc88c HEAD -- crates/ddv-save-core/src/ src/ crates/ddv-save-core/Cargo.toml
+          echo PRIVATE_ORIGINAL_SAVE=NOT_RUN
+          echo NATIVE_V3=NOT_RUN
+          echo GAME_SAVE_WRITER=OFF
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Independent operation source negative suite
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test qa_05qr_pr412_newonly -- --nocapture
