@@ -244,6 +244,19 @@ export function inspectRealSaveSpatialRead(
   for (const obj of document.objects) {
     if (alreadyRejected.has(obj.editorId)) continue;
     const original = binding.identities.get(obj.editorId);
+    // A newly authored local EditorSession object is NOT a native GridObject.
+    // Retain its existing draft-only schematic UX but never attach a Native ID.
+    if (!original && obj.source == null &&
+        /^draft-[1-9][0-9]*$/.test(obj.editorId) &&
+        (obj.metadata?.draftInserted === true || obj.metadata?.draftDuplicate === true) &&
+        obj.editability === 'editable' && obj.layer === 'furniture' &&
+        Number.isSafeInteger(obj.x) && Number.isSafeInteger(obj.y) &&
+        Array.isArray(obj.footprint) && obj.footprint.length > 0 &&
+        obj.footprint.length <= 4096 &&
+        obj.footprint.every(cell => Number.isSafeInteger(cell.x) && Number.isSafeInteger(cell.y))) {
+      allowed.add(obj.editorId);
+      continue;
+    }
     const address = sourceAddress(obj.source);
     if (!original || !address ||
         address.gridId !== original.gridId ||
