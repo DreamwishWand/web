@@ -137,7 +137,7 @@ test('rotated footprint and overlapping same-cell hit use unchanged painter orde
   f.document.objects[1].x=2;f.document.objects[1].y=3;
   const v=view(f,bind(f)), hit=spatialHitTest(v.scene,2.5,3.5);
   assert.equal(v.scene.objects.length,2);
-  assert.equal(hit?.editorId, v.scene.objects.at(-1)?.editorId);
+  assert.equal(hit?.editorId,'g42:o7'); // Current WEP layer/painter ordering, not source map key order
 });
 test('locally authored draft remains schematic without a forged native GridObject ID',()=>{
   const f=fixture(),b=bind(f);
