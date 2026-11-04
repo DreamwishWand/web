@@ -1,0 +1,40 @@
+name: 04 QR PR449 independent real loopback HTTP synthetic entity transport no public
+on:
+  push:
+    branches: [qa/pr449-loopback-http-independent-20261104]
+  pull_request:
+    branches: [web/entity-http-host-fixture-20261104]
+permissions:
+  contents: read
+jobs:
+  http-fixture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 23
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false,fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Pin original PR449 head 3 fixture files and 2 QA-only changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=5dd0708a2f7757f8e4ab99d278010fc0c525d0be
+          PARENT=e253e4d806f6e73acaf1ca7e7245b1dcb59ca4a6
+          git merge-base --is-ancestor "$SRC" HEAD
+          git merge-base --is-ancestor "$PARENT" "$SRC"
+          git diff --name-only "$SRC" HEAD | sort >/tmp/qr449-new
+          printf '%s\n' .github/workflows/qr-pr449-actual-http-independent.yml tests/qr-pr449-actual-http-independent.test.mjs | sort >/tmp/qr449-only
+          diff -u /tmp/qr449-only /tmp/qr449-new
+          git diff --name-only "$PARENT" "$SRC" | sort >/tmp/qr449-source
+          printf '%s\n' .github/workflows/web-entity-host-transport-fixture.yml scripts/web-entity-http-loopback-fixture.mjs tests/web-entity-http-real-status-fixture.test.mjs | sort >/tmp/qr449-source3
+          diff -u /tmp/qr449-source3 /tmp/qr449-source
+          test "$(git hash-object scripts/web-entity-http-loopback-fixture.mjs)" = 5f40a98613222f09ffe8ba32d37e548cc16226b3
+          test "$(git hash-object tests/web-entity-http-real-status-fixture.test.mjs)" = 60770c5901ee5501f6721478385d3b68bd225610
+          test -z "$(git diff --name-only "$SRC" HEAD -- supabase src static docs)"
+          echo QR449_THREE_SYNTHETIC_FIXTURE_SOURCES_QA_ONLY_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Truly issue local HTTP GET200 alias301 invalid404 and POST405 with Rights negatives
+        run: node --test tests/qr-pr449-actual-http-independent.test.mjs
+      - name: Check stable Svelte/TypeScript unrelated product ABI
+        run: npm run check
