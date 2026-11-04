@@ -8,6 +8,15 @@ export const LOCAL_SWITCH_BID = '9A239D3DB569756D';
 export const LOCAL_SWITCH_FULL_VERSION = '1.25.3';
 export const LOCAL_SWITCH_SCHEMA = 626;
 const freeze = value => Object.freeze(value);
+// Bound platform intrinsics: a caller can shadow Blob#slice, Blob#arrayBuffer
+// and even the size getter on its instance or a subclass. Never invoke those
+// untrusted methods while asserting an original-backup byte equivalence.
+const nativeBlobSlice = Blob.prototype.slice;
+const nativeBlobArrayBuffer = Blob.prototype.arrayBuffer;
+const nativeBlobSize = Object.getOwnPropertyDescriptor(Blob.prototype,'size').get;
+const trueBlobSize = blob => nativeBlobSize.call(blob);
+const trueBlobChunk = (blob,start,end) =>
+  nativeBlobArrayBuffer.call(nativeBlobSlice.call(blob,start,end));
 const READ_CAPABILITIES = freeze({
   contract:SINGLE_SAVESESSION_CONTRACT,
   sessionOwner:'worker-singleton',
@@ -253,20 +262,29 @@ export function createLocalSaveSessionBridge(workerFactory){
        scope.revision!==active.revision||
        scope.indexGeneration!==active.indexGeneration)
       throw Error('LOCAL_BACKUP_CANDIDATE_STALE_SOURCE_SCOPE');
-    if(!(candidate instanceof Blob)||candidate===original||
-       candidate.size!==original.size||candidate.size===0||
-       candidate.size>LOCAL_MAX_P1G_BYTES)
+    let originalBytes,candidateBytes;
+    try{
+      if(!(candidate instanceof Blob)||candidate===original)
+        throw Error('NOT_DISTINCT');
+      originalBytes=trueBlobSize(original);
+      candidateBytes=trueBlobSize(candidate);
+    }catch{
+      throw Error('LOCAL_BACKUP_CANDIDATE_NOT_DISTINCT_BOUNDED');
+    }
+    if(candidateBytes!==originalBytes||candidateBytes===0||
+       !Number.isSafeInteger(candidateBytes)||
+       candidateBytes>LOCAL_MAX_P1G_BYTES)
       throw Error('LOCAL_BACKUP_CANDIDATE_NOT_DISTINCT_BOUNDED');
     const current=()=>receipt===active&&originalSelectedFile===original&&epoch===activeEpoch;
     const step=1024*1024;
-    for(let start=0;start<original.size;start+=step){
+    for(let start=0;start<originalBytes;start+=step){
       if(!current())throw Error('LOCAL_BACKUP_CANDIDATE_SESSION_REVOKED');
-      const end=Math.min(start+step,original.size);
+      const end=Math.min(start+step,originalBytes);
       let left,right;
       try{
         [left,right]=await Promise.all([
-          original.slice(start,end).arrayBuffer(),
-          candidate.slice(start,end).arrayBuffer()
+          trueBlobChunk(original,start,end),
+          trueBlobChunk(candidate,start,end)
         ]);
       }catch{
         throw Error('LOCAL_BACKUP_CANDIDATE_LOCAL_READ_FAILED');
@@ -282,7 +300,7 @@ export function createLocalSaveSessionBridge(workerFactory){
     if(!current())throw Error('LOCAL_BACKUP_CANDIDATE_SESSION_REVOKED');
     return freeze({
       candidateBytesMatchOriginal:true,
-      sourceSha256:active.sourceSha256,comparedByteCount:original.size,
+      sourceSha256:active.sourceSha256,comparedByteCount:originalBytes,
       sourceRevision:active.revision,indexGeneration:active.indexGeneration,
       persistedVerified:false,distinctDiskPathVerified:false,
       originalOverwriteProtectionVerified:false,writerAuthorized:false
