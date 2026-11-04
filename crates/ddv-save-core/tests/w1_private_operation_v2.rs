@@ -46,6 +46,7 @@ fn rust_private_operation_proof_synthetic_atomic_stage_undo_redo_backup_copy(){
  assert!(evidence.atomic_diff_pass);
  assert!(evidence.original_first_backup_reopened);
  assert!(evidence.edited_file_reopened);
+ assert!(evidence.core_and_stage_share_immutable_decoded_source);
  assert_eq!(evidence.revision_after_stage,1);
  assert_eq!(evidence.revision_after_undo_redo,3);
  assert!(!evidence.independent_process_reopen);
@@ -128,6 +129,7 @@ fn independent_second_process_node_reopens_rust_output_exact_crc_diff_and_no_ove
  let evidence=execute_private_w1_v2_research(fixture.request()).unwrap();
  assert!(!evidence.independent_process_reopen,
    "the Rust receipt must not self-attest another process");
+ assert!(evidence.core_and_stage_share_immutable_decoded_source);
  let ok=run_independent_node(&fixture,&evidence);
  assert!(ok.status.success(),"fresh Node must independently verify Rust output");
  assert!(String::from_utf8_lossy(&ok.stdout).contains(
@@ -142,4 +144,29 @@ fn independent_second_process_node_reopens_rust_output_exact_crc_diff_and_no_ove
  assert!(!bad.status.success(),"tampered edited copy must be denied");
  assert_eq!(fs::read(&fixture.original).unwrap(),fixture.ciphertext);
  assert_eq!(fs::read(&fixture.backup).unwrap(),fixture.ciphertext);
+}
+
+#[test]
+fn native_research_one_decoded_arc_preserves_multi_megabyte_unknown_source(){
+ // Only synthetic fixture material: one ZIP/JSON decode, one immutable Arc for
+ // strict TrustedReadCore plus atomic research staging; never product Writer.
+ let huge="k".repeat(6*1024*1024);
+ let json=JSON.replace(r#""survives":true"#,
+   &format!(r#""survives":"{huge}""#));
+ let fixture=Fixture::new(&json);
+ let report=execute_private_w1_v2_research(fixture.request()).unwrap();
+ assert!(report.core_and_stage_share_immutable_decoded_source);
+ assert!(report.original_first_backup_reopened);
+ assert!(report.edited_file_reopened);
+ assert!(!report.native_v3_verified);
+ assert!(!report.product_writer_authorized);
+ assert_eq!(fs::read(&fixture.original).unwrap(),fixture.ciphertext);
+ assert_eq!(fs::read(&fixture.backup).unwrap(),fixture.ciphertext);
+ let reopened=decode_p1g_research(&fs::read(&fixture.edited).unwrap(),
+    &KEY,128*1024*1024).unwrap();
+ let actual=String::from_utf8(reopened.json).unwrap();
+ assert!(actual.contains(&huge));
+ assert!(actual.contains(r#""float":1.00"#));
+ assert_eq!(actual,json.replacen(ORIGINAL_UTC,NEW_UTC,1));
+ assert_eq!(sha256(actual.as_bytes()),report.edited_decoded_sha);
 }
