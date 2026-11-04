@@ -1,0 +1,35 @@
+name: 04 QR PR401 latest source immutable index 624/626 independent reaccept
+on:
+  push:
+    branches: [qa/pr401-source-index-immutable-final-20261104]
+  pull_request:
+    branches: [01b/real-save-spatial-source-read-20261104]
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Freeze new 626 fix source and QA-only two paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=42fe6193151a7f12ed0051e6825eea55acfef602
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git diff --name-only "$SOURCE" HEAD | sort >/tmp/qr401-actual
+          printf '%s\n' .github/workflows/qr-pr401-626-immutable-independent.yml tests/qr-pr401-626-readonly-repair-independent.test.mjs | sort >/tmp/qr401-expected
+          diff -u /tmp/qr401-expected /tmp/qr401-actual
+          test -z "$(git diff --name-only "$SOURCE" HEAD -- src supabase docs static)"
+          test "$(git hash-object src/lib/wep/real-save-spatial-source.ts)" = c0e696c1dc808ae2e9ad4ef7d0c99331eb96ef70
+          echo QR_401_IMMUTABLE_SOURCE_FIXED_QA_ONLY_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: No change to negative two cases — new source 624 + 626 independent
+        run: node --experimental-strip-types --test tests/qr-pr401-626-readonly-repair-independent.test.mjs
