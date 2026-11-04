@@ -66,7 +66,7 @@ const validateBuild=att => {
 export function createLocalSaveSessionBridge(workerFactory){
   if(typeof workerFactory!=='function')throw Error('LOCAL_WORKER_FACTORY_MISSING');
   let worker=null,readyPromise=null,readyResolve,readyReject,ready=false;
-  let id=0,epoch=0,receipt=null;
+  let id=0,epoch=0,receipt=null,originalSelectedFile=null;
   const pending=new Map(),subscribers=new Set();
   const notify=()=>{for(const listener of subscribers){
     try{listener(freeze({ready,receipt,capabilities:READ_CAPABILITIES}));}catch{}
@@ -91,7 +91,7 @@ export function createLocalSaveSessionBridge(workerFactory){
       ?m.error:'LOCAL_WORKER_REJECTED'));
   };
   const workerError=()=>{
-    ready=false;receipt=null;++epoch;
+    ready=false;receipt=null;originalSelectedFile=null;++epoch;
     cancelPending('LOCAL_WORKER_RUNTIME_ERROR');
     readyReject?.(Error('LOCAL_WORKER_RUNTIME_ERROR'));
     notify();
@@ -120,7 +120,7 @@ export function createLocalSaveSessionBridge(workerFactory){
   };
   const close=async()=>{
     const token=++epoch;
-    receipt=null;notify();
+    receipt=null;originalSelectedFile=null;notify();
     const response=await request('CLOSE');
     if(token!==epoch)throw Error('LOCAL_SESSION_STALE_CLOSE');
     if(response?.writerAuthorized!==false||response?.closed!==true)
@@ -130,7 +130,7 @@ export function createLocalSaveSessionBridge(workerFactory){
   const openLocalFile=async(file,attestation)=>{
     // IMPORTANT: release A before any validation, await, or B decode.
     const token=++epoch;
-    receipt=null;notify();
+    receipt=null;originalSelectedFile=null;notify();
     await request('CLOSE');
     if(token!==epoch)throw Error('LOCAL_SESSION_STALE_OPEN');
     validateBuild(attestation);
@@ -143,7 +143,7 @@ export function createLocalSaveSessionBridge(workerFactory){
     });
     if(token!==epoch)throw Error('LOCAL_SESSION_STALE_OPEN');
     const safe=safeResult(workerResult,{...attestation,fileName:file.name||'profile'});
-    receipt=safe;notify();
+    originalSelectedFile=file;receipt=safe;notify();
     return safe;
   };
   const queryW1Page=async({search='',cursor=null,limit=64}={})=>{
@@ -183,6 +183,30 @@ export function createLocalSaveSessionBridge(workerFactory){
     return queryW1Page({search:query.search??'',cursor:query.cursor??null,
       limit:query.limit??64});
   };
+  // Retain only the original user-selected File handle, not a decoded JSON
+  // copy or a transferable raw P1G. Explicit user click may request a local
+  // download even after a SPA route change. This is NOT persistence proof.
+  const hasUntouchedOriginalBackupSource=scope=>
+    Boolean(originalSelectedFile&&receipt&&scope?.sessionId===receipt.sessionId
+      &&scope?.sourceSha256===receipt.sourceSha256);
+  const requestUntouchedOriginalBackup=scope=>{
+    if(!hasUntouchedOriginalBackupSource(scope))
+      throw Error('LOCAL_ORIGINAL_BACKUP_STALE_OR_UNAVAILABLE');
+    if(typeof document==='undefined'||typeof URL?.createObjectURL!=='function')
+      throw Error('LOCAL_ORIGINAL_BACKUP_BROWSER_ONLY');
+    const url=URL.createObjectURL(originalSelectedFile);
+    try{
+      const a=document.createElement('a');
+      a.href=url;
+      a.download=String(originalSelectedFile.name||'profile.p1g')
+        .replace(/[^\\w.\\-]/g,'_')+'.original-backup.p1g';
+      a.click();
+    }finally{
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+    }
+    return freeze({downloadRequested:true,persistedVerified:false,
+      sourceSha256:receipt.sourceSha256,writerAuthorized:false});
+  };
   const getSession=()=>receipt;
   const getCapabilities=()=>READ_CAPABILITIES;
   const subscribe=listener=>{
@@ -199,14 +223,15 @@ export function createLocalSaveSessionBridge(workerFactory){
     throw Error('LOCAL_OPERATION_WRITER_NOT_ACCEPTED');
   };
   const destroy=()=>{
-    ++epoch;receipt=null;ready=false;
+    ++epoch;receipt=null;originalSelectedFile=null;ready=false;
     cancelPending('LOCAL_SESSION_DESTROYED');
     readyReject?.(Error('LOCAL_SESSION_DESTROYED'));
     worker?.terminate();
     worker=null;readyPromise=null;readyResolve=null;readyReject=null;
     notify();
   };
-  return freeze({ensureReady,openLocalFile,queryW1Page,readDomainPage,close,getSession,
+  return freeze({ensureReady,openLocalFile,queryW1Page,readDomainPage,
+    hasUntouchedOriginalBackupSource,requestUntouchedOriginalBackup,close,getSession,
     getCapabilities,subscribe,submitOperation,destroy});
 }
 // One shared owner per JS module instance/tab; deliberately no localStorage or
