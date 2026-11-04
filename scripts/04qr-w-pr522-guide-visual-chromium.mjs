@@ -35,10 +35,21 @@ try{
  const expectedKeys=types;
  for(const lang of locales){
   await page.locator('#site-locale').selectOption(lang);
-  await page.waitForFunction(({q,e})=>{
+  try {
+   await page.waitForFunction(({q,e})=>{
     const got=document.querySelector('[data-guide-child="quests"] strong')?.textContent?.trim();
     return got===e&&document.querySelector('#site-locale')?.value===q;
-  },{q:lang,e:guideCopy(lang).quests},{timeout:20000});
+   },{q:lang,e:guideCopy(lang).quests},{timeout:12000});
+  } catch(err) {
+   const live=await page.evaluate(()=>({
+    selected:document.querySelector('#site-locale')?.value,
+    htmlLang:document.documentElement.lang,
+    localeDataset:document.documentElement.dataset.locale,
+    guideText:document.querySelector('[data-guide-child="quests"] strong')?.textContent?.trim(),
+    rootVisible:!!document.querySelector('[data-stage1-guide-hub]')
+   }));
+   throw Error('QR522_REAL_CHROME_GUIDE_LOCALE_MISMATCH '+JSON.stringify({lang,expected:guideCopy(lang).quests,...live}));
+  }
   assert.equal(await cards.count(),4,lang+' count');
   const got=await cards.evaluateAll(a=>a.map(x=>x.getAttribute('data-guide-child')));
   assert.deepEqual(got,expectedKeys,lang+' order');
