@@ -1,0 +1,84 @@
+name: 03 COMM Source158 Help Question Tip Genuine Signed SQL Gap Probe (Disposable)
+on:
+  push:
+    branches: [comm/w-comm-006-help-question-tip-signed-gap-probe-20261104]
+  pull_request:
+    branches: [comm/w-comm-006-source158-r15-pinned-off-20261103]
+permissions:
+  contents: read
+jobs:
+  help-qa-signed-probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Immutable accepted Source155/156/157 and isolated Help positive/revoker negative source probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 158
+          test "$(git hash-object supabase/migrations/20261102010000_community_source155_verified_first_account_bootstrap.sql)" = 115f2c0f7224984acd8830cfc606af8c6a1bf3af
+          test "$(git hash-object supabase/migrations/20261103010000_community_source156_signed_gallery_r16_atomic_writer.sql)" = 3000d66c193b996e4ece785deaf5180955ec3bc6
+          test "$(git hash-object supabase/migrations/20261103020000_community_source157_legacy_comments_v2_service_execute_off.sql)" = b9c44a501189857dff9fc6446dea21717d58b785
+          test "$(git hash-object supabase/migrations/20261103030000_community_source158_r15_gallery_pinned_service_execute_off.sql)" = 033920ee79a3dd07b32854f0bbfb3b225167f3e2
+          test "$(git hash-object supabase/functions/community-command/index.ts)" = 688c3f694091a22ad2b7e246d4975bcd06acbfae
+          python3 -m py_compile tests/comm-source158-help-qa-question-tip-signed-gap-disposable.py
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID"
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+      - name: Create genuine local-only ES256 GoTrue signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\n[auth]\nsigning_keys_path = "./signing_keys.json"\n' >> supabase/config.toml
+          printf '[]\n' > supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes >/tmp/comm-helpqa-signer.log 2>&1
+      - name: Reset exact FULL158 disposable local database
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_helpqa_gap_disposable_20261104"\n' | cat - supabase/config.toml > /tmp/comm-helpqa-config
+          mv /tmp/comm-helpqa-config supabase/config.toml
+          printf 'COMMUNITY_MEDIA_BUCKET=ddvre-helpqa-local-media\nWEP_PRESET_ARTIFACT_BUCKET=ddvre-helpqa-local-preset\n' > supabase/functions/.env
+          timeout 1800s supabase start >/tmp/comm-helpqa-start.log 2>&1 || {
+            echo HELP_QA_LOCAL_START_FAIL
+            tail -n 25 /tmp/comm-helpqa-start.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'
+            exit 1
+          }
+          timeout 900s supabase db reset --no-seed >/tmp/comm-helpqa-reset.log 2>&1 || {
+            echo HELP_QA_LOCAL_RESET_FAIL
+            tail -n 25 /tmp/comm-helpqa-reset.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'
+            exit 1
+          }
+          echo HELP_QA_DISPOSABLE_FULL158_RESET_PASS
+      - run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Run real signed local HELP_QA eligible positive then revoked-before-RPC SQL test
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/comm-source158-help-qa-question-tip-signed-gap-disposable.py | tee /tmp/comm-helpqa-probe.log
+          grep -q '"case": "HELP_QA_GENUINE_A2_ELIGIBLE_BOTH_WRITERS_COMMIT"' /tmp/comm-helpqa-probe.log
+          grep -q '"case": "HELP_QA_REAL_A1_OLD_AND_REFRESHED_REVOKED401"' /tmp/comm-helpqa-probe.log
+          grep -q '"case": "HELP_QA_TWO_LEGACY_WRITERS_POSTREVOKE_DISPOSABLE_SQL_RED"' /tmp/comm-helpqa-probe.log
+          grep -q '"case": "HELP_QA_POST_REVOKE_ASKQUESTION"' /tmp/comm-helpqa-probe.log
+          echo SOURCE158_HELP_QA_LOCAL_SIGNED_DIRECT_SQL_PROBE_NOT_INDEPENDENT_QA
+      - name: Dispose local signer, SQL DB, and ephemeral logs
+        if: always()
+        shell: bash
+        run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f supabase/functions/.env supabase/signing_keys.json /tmp/comm-helpqa-config /tmp/comm-helpqa-start.log /tmp/comm-helpqa-reset.log /tmp/comm-helpqa-probe.log /tmp/comm-helpqa-signer.log
+          echo HELP_QA_LOCAL_PROBE_CLEANUP_ATTEMPTED
