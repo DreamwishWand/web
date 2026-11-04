@@ -1,0 +1,54 @@
+name: 04 QR PR382 independent spatial scene Chromium new-only
+on:
+  push:
+    branches: [qa/pr382-spatial-hit-undo-20261104]
+  pull_request:
+    branches: [wep/spatial-scene-main-20261104]
+permissions:
+  contents: read
+jobs:
+  spatial:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Freeze source HEAD and exact two QA-only paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=3ce1b7f5f32d03296a7c871d86766e0c91e514e4
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git diff --name-only "$SOURCE" HEAD | sort > /tmp/qr382-actual
+          printf '%s\n' .github/workflows/qr-pr382-spatial-independent.yml scripts/qr-pr382-spatial-independent-browser.mjs | sort > /tmp/qr382-expected
+          diff -u /tmp/qr382-expected /tmp/qr382-actual
+          test -z "$(git diff --name-only "$SOURCE" HEAD -- src supabase docs static tests)"
+          test "$(git hash-object src/lib/wep/spatial-scene.ts)" = c5fc05a14398f35e149c641d816b7c9698fbe3a0
+          echo QR382_SOURCE_FIXED_QA_FILES_ONLY_PASS
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Real Chrome binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Start local spatial runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4202 >/tmp/qr382-vite.log 2>&1 &
+          for i in $(seq 1 70); do
+            curl -fsS http://127.0.0.1:4202/editor/world/ >/dev/null && exit 0
+            sleep 1
+          done
+          tail -n 75 /tmp/qr382-vite.log; exit 1
+      - name: Independent actual Chromium Grid hit and exact-diff Move Undo/Redo
+        run: node scripts/qr-pr382-spatial-independent-browser.mjs
