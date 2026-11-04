@@ -29,8 +29,14 @@ try{
  page.on('pageerror',e=>report.errors.push(String(e)));
  page.on('console',m=>{if(m.type()==='error')report.errors.push(m.text());});
  await page.goto(root+'/presets/',{waitUntil:'domcontentloaded',timeout:45000});
- await page.locator('nav.preset-tabs button').nth(2).click();
- await page.locator('.native-manager .local-library').waitFor({timeout:20000});
+ // Adapter-static SvelteKit may not have hydrated by DOMContentLoaded.
+ await page.waitForTimeout(500);
+ for(let attempt=0;attempt<4;attempt++){
+   await page.locator('nav.preset-tabs button').nth(2).click();
+   if(await page.locator('.native-manager .local-library').isVisible())break;
+   await page.waitForTimeout(650);
+ }
+ await page.locator('.native-manager .local-library').waitFor({timeout:12000});
  // Record only network while performing user-initiated local import/export.
  ctx.on('request',r=>{
   if(r.method()!=='GET' || new URL(r.url()).origin!==new URL(root).origin)
