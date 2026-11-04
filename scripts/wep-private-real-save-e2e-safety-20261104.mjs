@@ -1,3 +1,5 @@
+import { isAbsolute, relative, sep } from 'node:path';
+
 /**
  * Owner-local World E2E harness policy. Pure functions only.
  * CI may test this policy with synthetic data, but MUST NEVER invoke the
@@ -96,4 +98,22 @@ export function checkPrivateCandidateSource(profile, editorId) {
   return Object.freeze({
     editorId,gridId,objectId,itemId:raw.ItemID,x:raw.X,y:raw.Y
   });
+}
+
+/**
+ * Called only AFTER fs.realpath on both paths. A private real Save belongs
+ * outside the checked-out repo, CI artifacts, build and future commits.
+ * An owner source supplied through a symlink into the repo is also blocked.
+ */
+export function ensurePrivateSourceOutsideCheckout(sourceRealPath, projectRealPath) {
+  if (typeof sourceRealPath !== 'string' || !isAbsolute(sourceRealPath) ||
+      typeof projectRealPath !== 'string' || !isAbsolute(projectRealPath))
+    throw Error('PRIVATE_SOURCE_ABSOLUTE_PATH_REQUIRED');
+  const pathWithinRepo=relative(projectRealPath, sourceRealPath);
+  if (!pathWithinRepo ||
+      (pathWithinRepo !== '..' &&
+       !pathWithinRepo.startsWith('..'+sep) &&
+       !isAbsolute(pathWithinRepo)))
+    throw Error('PRIVATE_SOURCE_PATH_INSIDE_REPOSITORY_FORBIDDEN');
+  return true;
 }
