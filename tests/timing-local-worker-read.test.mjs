@@ -23,7 +23,7 @@ const fake = (overrides={}) => createTimingWorkerReadCore({
   filter:filterRecurringEventsReadonly,
   loadRegistry:async()=>({source:'synthetic'}),...overrides
 });
-const bid={buildId:SWITCH_1253_BID,sourceConfirmed:true};
+const bid={buildId:SWITCH_1253_BID,sourceConfirmed:true,platform:'switch',fullVersion:'1.25.3',buildKind:'switch-bid',sourceSchema:626};
 const open=(core,file=sample())=>core.open({...bid,file});
 
 test('Worker mints source-bound read lease and only returns projected rows',async()=>{
@@ -131,4 +131,20 @@ test('registry is Worker-owned; failed loading revokes prior Session before deco
  await assert.rejects(core.query({limit:1}),/READ_SESSION_NOT_OPEN/);
  const second=fake({loadRegistry:async()=>{throw Error('READ_REGISTRY_UNAVAILABLE')}});
  await assert.rejects(open(second),/READ_REGISTRY_UNAVAILABLE/);
+});
+
+test('Worker does not infer platform or FullVersion from BID/schema',async()=>{
+ for(const bad of [
+   {platform:'steam-windows'},{fullVersion:'1.25.0'},
+   {sourceSchema:624},{buildKind:'steam-full-version'},
+   {platform:undefined},{fullVersion:undefined}
+ ]){
+  const w=fake();
+  await assert.rejects(w.open({...bid,...bad,file:sample()}),/READ_EXTERNAL_BUILD_REQUIRED/);
+  assert.equal(w.status().active,false);
+ }
+ const w=fake();const got=await open(w);
+ assert.equal(got.externalFullVersion,'1.25.3');
+ assert.equal(got.externalBID,SWITCH_1253_BID);
+ assert.equal(got.sourcePlatform,'switch');
 });
