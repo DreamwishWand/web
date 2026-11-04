@@ -94,8 +94,7 @@ try {
    await page.goto(root+'/'+locale+'/'+ITEM+'/',{waitUntil:'domcontentloaded'});
    await page.locator('[data-shared-discovery="READY"]').waitFor({timeout:35000});
    assert.equal(await page.locator('[data-shared-entity-detail]').getAttribute('lang'),locale);
-   assert.match(await page.locator('.shared-discovery').innerText(),
-     new RegExp(sharedDirectoryCopy(locale).search.replace(/[.*+?^${}()|[\\]\\]/g,'\\ await page.setViewportSize({width:320,height:850});')));
+   assert.ok((await page.locator('.shared-discovery').innerText()).includes(sharedDirectoryCopy(locale).search),locale);
    assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'),'noindex,follow');
  }
  pass('ALL_EIGHT_ACTUAL_BROWSER_DETAIL_LOCALES_NOINDEX');
