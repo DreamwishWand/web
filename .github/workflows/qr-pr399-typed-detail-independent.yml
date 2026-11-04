@@ -1,0 +1,54 @@
+name: 04 QR PR399 independent real Chromium eight locale typed detail fail-closed
+on:
+  push:
+    branches: [qa/pr399-typed-detail-chrome-20261104]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Frozen new-only PR399 and no product modifications
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=4470b50e83a9b0f098106c767041f69d98e78412
+          git merge-base --is-ancestor "$SRC" HEAD
+          git diff --name-only "$SRC" HEAD | sort >/tmp/qr399-actual
+          printf '%s\n' .github/workflows/qr-pr399-typed-detail-independent.yml scripts/qr-pr399-typed-detail-independent-chrome.mjs | sort >/tmp/qr399-expected
+          diff -u /tmp/qr399-expected /tmp/qr399-actual
+          test -z "$(git diff --name-only "$SRC" HEAD -- src supabase docs static)"
+          test "$(git hash-object src/lib/foundation/SharedTypedEntityGate.svelte)" = f4748fd7bfa547849cbf9ca571922ffe5cd6cf69
+          echo QR_399_FIXED_SOURCE_QA_ONLY_PASS
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Resolve installed actual Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Start local site, no external Managed/Provider
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4204 >/tmp/qr399-vite.log 2>&1 &
+          for i in $(seq 1 65); do
+            curl -fsS http://127.0.0.1:4204/en/entity/quest/12345/ >/dev/null && exit 0
+            sleep 1
+          done
+          tail -n 60 /tmp/qr399-vite.log; exit 1
+      - name: New-only actual Chrome 8 locale and source-only privacy positives and negatives
+        run: node scripts/qr-pr399-typed-detail-independent-chrome.mjs
