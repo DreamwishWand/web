@@ -138,6 +138,24 @@ pub struct W1ExactDiffPreview {
  pub encode_copy_authorized:bool,
  pub persistent_replace_authorized:bool,
 }
+/// Core-derived *source* reference diagnostic for the single known W1
+/// ItemSpawning operation. This is NOT Native V3 or Writer acceptance.
+/// The caller's source_read_set is never used to define mandatory native refs.
+#[derive(Clone,Debug,PartialEq,Eq)]
+pub struct W1CoreNativeReadSet {
+ pub event_id:u64,pub saved_index:usize,
+ pub source_cipher_sha256:[u8;32],pub registry_sha256:[u8;32],
+ pub observed_core_refs:Vec<SourceReadCondition>,
+ pub missing_or_unbounded_refs:Vec<String>,
+ pub required_source_paths_count:usize,
+ pub core_derived_not_caller_selected:bool,
+ pub all_known_source_refs_observed:bool,
+ pub same_build_native_registry_manifest_accepted:bool,
+ pub effective_area_grid_diffgrid_quota_verified:bool,
+ pub clock_actualize_last_to_next_verified:bool,
+ pub complete_native_dependency_closure_verified:bool,
+ pub product_writer_authorized:bool,
+}
 /// Owns immutable backing; no user-provided cursor or capability can grant
 /// access without matching Core-internal state and one random token.
 pub struct TrustedReadCore {
@@ -399,6 +417,71 @@ impl TrustedReadCore {
     native_consumer_semantics_verified:false,
     transaction_stage_authorized:false,encode_copy_authorized:false
   })
+ }
+ /// Derive a bounded SAME-SOURCE required reference set from Core,
+ /// rather than accepting an empty or attacker-chosen caller read-set.
+ /// Version-specific Native/Area/Clock semantics require separate 01B/01E
+ /// proof and remain OFF even when every referenced source token exists.
+ pub fn diagnose_w1_core_native_read_set(
+   &self,q:W1CommandIntent<'_>
+ )->EngineResult<W1CoreNativeReadSet>{
+   let event=q.event_id;
+   let saved=q.saved_index;
+   let oneof=q.oneof.as_str();
+   // Only the specifically observed Switch1253 ItemSpawning row is modelled.
+   if event!=2010000021||saved!=155||oneof!="ItemSpawning"{
+      return Err("W1_NATIVE_OPERATION_NOT_MODELLED");
+   }
+   // Existing strict source, revision, registry, old value and oneof CAS
+   // still apply; the caller's read-set does NOT define what is mandatory.
+   let _=self.preflight_w1(q)?;
+   // EndDate may genuinely be absent; record missing/unknown explicitly.
+   // A raw Game Registry proof is not stored in this Save, and proving the
+   // existence of a Grid token cannot prove the effective Native Grid.
+   const REQUIRED:&[&str]=&[
+    "/GameInfo/Version",
+    "/World/RecurringEvents/155/ItemSpawning/RecurringEventItemID",
+    "/World/RecurringEvents/155/ItemSpawning/NextOccurrence",
+    "/World/RecurringEvents/155/ItemSpawning/LastOccurrence",
+    "/World/RecurringEvents/155/ItemSpawning/EndDate",
+    "/World/GridCollection/Grids",
+    "/World/GridCollection/DiffGrids",
+    "/World/Villages"
+   ];
+   if self.decoded.len()>128*1024*1024{
+      return Err("W1_NATIVE_READSET_RESEARCH_MEMORY_LIMIT");
+   }
+   let mut observed=Vec::new();
+   let mut missing=Vec::new();
+   for path in REQUIRED {
+      let selected=index_selected_tokens(&self.decoded,&[(*path).to_owned()]);
+      match selected {
+        Ok(hits) if hits.len()==1 && hits[0].pointer==*path
+          && hits[0].value.len()<=2*1024*1024 =>{
+           observed.push(SourceReadCondition{
+             pointer:(*path).to_owned(),
+             expected_raw_token_sha256:sha256(hits[0].value.as_bytes())
+           });
+        }
+        _=>missing.push((*path).to_owned())
+      }
+   }
+   self.original_unchanged()?;
+   Ok(W1CoreNativeReadSet{
+      event_id:event,saved_index:saved,
+      source_cipher_sha256:self.roots.encrypted_source_sha256,
+      registry_sha256:self.roots.registry_sha256,
+      all_known_source_refs_observed:missing.is_empty(),
+      observed_core_refs:observed,missing_or_unbounded_refs:missing,
+      required_source_paths_count:REQUIRED.len(),
+      core_derived_not_caller_selected:true,
+      // These are independent Native/Registry/Context evidence gates.
+      same_build_native_registry_manifest_accepted:false,
+      effective_area_grid_diffgrid_quota_verified:false,
+      clock_actualize_last_to_next_verified:false,
+      complete_native_dependency_closure_verified:false,
+      product_writer_authorized:false
+   })
  }
  /// Strict preflight and full-document token-only exact-diff proof
  /// without mutating a SaveSession or issuing any product Writer capability.
