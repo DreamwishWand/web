@@ -66,6 +66,7 @@ export function typedDirectoryItemHref(base,locale,item,directory) {
 }
 // Generic typed detail source is intentionally absent. Real Creator/Work/Preset
 // ownership/public eligibility belongs to Community Core, not a client-side UUID.
+/** @param {string} kind @param {string} primaryId @param {string|null} [secondaryId] */
 export function nonItemPublicDetailStatus(kind,primaryId,secondaryId=null) {
  try {
   const ref=makeEntityRef({kind,primaryId:String(primaryId),secondaryId});
