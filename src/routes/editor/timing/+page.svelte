@@ -17,7 +17,7 @@
   let query = '';
   let matched = 0;
   let nextCursor: string | null = null;
-  let originalFile: File | null = null;
+  let backupAvailable = false;
   let backupRequested = false;
   let selectedRow: any = null;
   let proposedUtc = '';
@@ -37,7 +37,7 @@
       workerReady = ready;
       if (!receipt) {
         summary = null; fileName = ''; rows = []; matched = 0; nextCursor = null;
-        originalFile = null; backupRequested = false; selectedRow = null;
+        backupAvailable = false; backupRequested = false; selectedRow = null;
         proposedUtc = ''; preview = null; previewError = '';
         ++searchToken;
       }
@@ -47,6 +47,7 @@
       const saved = bridge.getSession();
       if (!saved) return;
       summary = saved; fileName = saved.sourceFileName;
+      backupAvailable = bridge.hasUntouchedOriginalBackupSource(saved);
       // Recovered READ is still scoped to the already externally attested A.
       // Reopening B requires a fresh explicit external BID confirmation.
       void searchSavedEvents(true);
@@ -116,7 +117,7 @@
     query = '';
     matched = 0;
     nextCursor = null;
-    originalFile = null;
+    backupAvailable = false;
     backupRequested = false;
     selectedRow = null;
     proposedUtc = '';
@@ -149,7 +150,7 @@
          !/^[a-f0-9]{64}$/.test(result.registrySha256)) throw Error('READ_WORKER_SHA_IDENTITY_INVALID');
       summary = result;
       fileName = file.name;
-      originalFile = file;
+      backupAvailable = getLocalSaveSessionBridge().hasUntouchedOriginalBackupSource(result);
       await searchSavedEvents(true);
     } catch (exception) {
       if (token !== openToken) return;
@@ -180,16 +181,17 @@
     }
   }
   function downloadOriginalBackup() {
-    if (!originalFile || !summary?.sourceSha256) return;
-    // Download only the untouched File selected by the user. The browser
-    // cannot attest that the user actually saved the backup to disk.
-    const url=URL.createObjectURL(originalFile);
-    const a=document.createElement('a');
-    a.href=url;
-    a.download=originalFile.name.replace(/[^\\w.\\-]/g,'_')+'.original-backup.p1g';
-    a.click();
-    backupRequested=true;
-    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    if (!summary || !backupAvailable) return;
+    try {
+      const outcome = getLocalSaveSessionBridge().requestUntouchedOriginalBackup({
+        sessionId:summary.sessionId,sourceSha256:summary.sourceSha256
+      });
+      // Browser download dispatch is only a request; do not claim persistence.
+      backupRequested = outcome.downloadRequested && outcome.persistedVerified === false;
+    } catch (exception) {
+      error = exception instanceof Error ? exception.message : 'LOCAL_ORIGINAL_BACKUP_REJECTED';
+    }
+
   }
 </script>
 
@@ -228,7 +230,7 @@
       <p>{japanese ? '保存済みイベント' : 'Saved event containers'}: {summary.savedContainerCount} · {japanese ? '検索結果' : 'Matches'}: {matched} · {japanese ? '未対応の構造' : 'Unsupported containers'}: {summary.unsupportedContainerCount}</p>
       <p data-w1-source-sha="true">{japanese ? '暗号化原本 SHA-256' : 'Encrypted original SHA-256'}: <code>{summary.sourceSha256}</code></p>
       <div class="w1-backup">
-        <button type="button" data-w1-original-backup="true" disabled={!originalFile} on:click={downloadOriginalBackup}>
+        <button type="button" data-w1-original-backup="true" disabled={!backupAvailable} on:click={downloadOriginalBackup}>
           {japanese ? '原本をそのままバックアップ' : 'Download untouched original backup'}
         </button>
         <p role="status">{backupRequested
