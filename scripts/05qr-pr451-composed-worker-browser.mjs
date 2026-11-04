@@ -74,7 +74,7 @@ try {
  assert.equal(d.allSourceReferencesPresent,true);
  assert.deepEqual(d.missingReferences,[]);
  assert.equal(d.sourceSha256,sha(a));
- assert.match(d.registrySha256,/^[a-f0-9]{64}$/);
+ assert.equal(d.registrySha256,undefined,'DIAGNOSE exposes only bounded source references; Worker-issued RegistrySHA belongs to OPEN receipt');
  assert.equal(d.revision,0);assert.ok(d.indexGeneration>=1);
  assert.equal(d.writerAuthorized,false);
  assert.equal(d.productRustWorkerAccepted,false);
