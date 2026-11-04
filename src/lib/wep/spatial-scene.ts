@@ -1,5 +1,5 @@
 import type { EditorDocument, EditorObject, Rect } from './editor-runtime.ts';
-import { occupiedCells } from './editor-runtime';
+import { occupiedCells } from './editor-runtime.ts';
 import { projectObjects, type LayerState } from './canvas-runtime.ts';
 
 // Local, non-authorizing scene projection. A single EditorSession document
