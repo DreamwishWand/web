@@ -323,12 +323,24 @@ function inspect626WorldStructure(profile: Record<string, any>) {
   const world = asRecord(profile.World);
   const villages = world?.Villages;
   const grids = asRecord(asRecord(world?.GridCollection)?.Grids);
-  const areaRecordCount = Array.isArray(villages)
-    ? villages.reduce((sum: number, village: unknown) => {
-        const areas = asRecord(asRecord(village)?.Areas);
-        return sum + (areas ? Object.keys(areas).length : 0);
-      }, 0)
-    : null;
+  // Absence of any Village Areas map is UNKNOWN, not a proven zero.
+  // This is raw record cardinality, never a verified Native Area/World route.
+  let areaRecordCount: number | null = Array.isArray(villages) ? 0 : null;
+  if (Array.isArray(villages)) {
+    for (const village of villages) {
+      const areas = asRecord(asRecord(village)?.Areas);
+      if (!areas || areaRecordCount === null) {
+        areaRecordCount = null;
+        break;
+      }
+      const count = areaRecordCount + Object.keys(areas).length;
+      if (!Number.isSafeInteger(count)) {
+        areaRecordCount = null;
+        break;
+      }
+      areaRecordCount = count;
+    }
+  }
   // Raw serialized entries ONLY. This count does not validate native IDs,
   // map overlaps, Grid defaults, DiffGrids, footprints or world coordinates.
   // A missing/malformed Objects map means UNKNOWN, never zero.
