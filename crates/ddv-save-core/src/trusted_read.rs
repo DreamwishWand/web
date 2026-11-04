@@ -483,6 +483,44 @@ impl TrustedReadCore {
       product_writer_authorized:false
    })
  }
+ /// Stronger W1 *source* preflight for a future operation-owned
+ /// transaction: the Core requires every modelled dependency irrespective of
+ /// the caller's (possibly empty) `source_read_set`. An incomplete snapshot
+ /// is a hard error, not a false "reference CAS passed" authority bit.
+ ///
+ /// This remains a SOURCE-only witness. It does not grant Native V3, edited
+ /// P1G copy export, stage, Apply, or original overwrite.
+ pub fn require_w1_core_operation_source_read_set(
+   &self,q:W1CommandIntent<'_>
+ )->EngineResult<W1CoreNativeReadSet>{
+   let witness=self.diagnose_w1_core_native_read_set(q)?;
+   // Entirely Core-derived: caller cannot make missing dependencies look
+   // present by submitting [] or a hand-picked subset with valid hashes.
+   if !witness.core_derived_not_caller_selected||
+      witness.required_source_paths_count!=8||
+      !witness.all_known_source_refs_observed||
+      !witness.missing_or_unbounded_refs.is_empty()||
+      witness.observed_core_refs.len()!=witness.required_source_paths_count{
+      return Err("W1_CORE_MANDATORY_SOURCE_READSET_INCOMPLETE");
+   }
+   // Validate the eight Core-found raw token hashes against the same session
+   // snapshot, rather than trusting the returned witness or caller metadata.
+   let requested:Vec<String>=witness.observed_core_refs.iter()
+      .map(|x|x.pointer.clone()).collect();
+   let actual=index_selected_tokens(&self.decoded,&requested)?;
+   if actual.len()!=requested.len(){
+     return Err("W1_CORE_SOURCE_READSET_RECHECK_FAILED");
+   }
+   for required in &witness.observed_core_refs {
+     let hit=actual.iter().find(|x|x.pointer==required.pointer)
+       .ok_or("W1_CORE_SOURCE_READSET_RECHECK_FAILED")?;
+     if sha256(hit.value.as_bytes())!=required.expected_raw_token_sha256{
+       return Err("W1_CORE_SOURCE_READSET_RECHECK_FAILED");
+     }
+   }
+   self.original_unchanged()?;
+   Ok(witness) // Native/Writer booleans are still universally false.
+ }
  /// Strict preflight and full-document token-only exact-diff proof
  /// without mutating a SaveSession or issuing any product Writer capability.
  /// A bounded full-document copy is necessary in this research implementation.
