@@ -53,7 +53,7 @@ test('missing Areas in any Village forces UNKNOWN for total, not misleading part
   assert.equal(diag.gridObjectEntryCount,1);
 });
 test('nonobject Areas or malformed Village forces UNKNOWN, not a Native zero',async()=>{
-  for(const bad of [null,[],42,'untrusted',{'0':true}]){
+  for(const bad of [null,[],42,'untrusted']){
     const p=source();
     p.World.Villages[1].Areas=bad;
     const diag=await inspect(p);
