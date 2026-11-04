@@ -1,0 +1,67 @@
+name: "04QR-W PR522 fixed Guide localization actual independent"
+on:
+  pull_request:
+    branches: ['web/stage1-guide-four-card-root-20261105']
+    paths:
+      - '.github/workflows/04qr-w-pr522-locale-repair-independent.yml'
+      - 'scripts/04qr-w-pr522-locale-repair-chromium.mjs'
+      - 'tests/04qr-w-pr522-locale-repair-independent.test.mjs'
+permissions:
+  contents: read
+jobs:
+  guide-fixed-source-boundary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: New-only source repair for prior FR/JA RED, unchanged Guide public rights
+        run: node --test tests/04qr-w-pr522-locale-repair-independent.test.mjs
+      - name: Chrome syntax
+        run: node --check scripts/04qr-w-pr522-locale-repair-chromium.mjs
+  guide-fixed-real-chromium:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual browser path
+        id: chrome
+        run: |
+          set -euo pipefail
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$BIN"
+          echo "path=$BIN" >> "$GITHUB_OUTPUT"
+      - name: Disposable Guide on exact loopback only
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4292 >/tmp/qr522-guide.log 2>&1 &
+          for i in $(seq 1 65); do
+            if curl --fail --silent http://127.0.0.1:4292/guide/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr522-guide.log
+          exit 1
+      - name: Actual 8-locale 4-root displayed Guide text + Help keyboard, screenshots RAM only
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          QR522_REPAIRED_URL: http://127.0.0.1:4292/guide/
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          node scripts/04qr-w-pr522-locale-repair-chromium.mjs
