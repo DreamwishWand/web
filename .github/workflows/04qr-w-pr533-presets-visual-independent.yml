@@ -1,0 +1,67 @@
+name: "04QR-W PR533 Presets four root two In-Game independent visual"
+on:
+  pull_request:
+    branches: ['web/stage1-presets-four-card-root-20261105']
+    paths:
+      - '.github/workflows/04qr-w-pr533-presets-visual-independent.yml'
+      - 'scripts/04qr-w-pr533-presets-visual-chromium.mjs'
+      - 'tests/04qr-w-pr533-presets-visual-independent.test.mjs'
+permissions:
+  contents: read
+jobs:
+  presets-source-privacy-independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Exact six Source paths, no automatic Provider or Native rights
+        run: node --test tests/04qr-w-pr533-presets-visual-independent.test.mjs
+      - name: Real browser QA syntax
+        run: node --check scripts/04qr-w-pr533-presets-visual-chromium.mjs
+  presets-real-chromium-independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Determine actual Chrome
+        id: chrome
+        run: |
+          set -euo pipefail
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$BIN"
+          echo "path=$BIN" >> "$GITHUB_OUTPUT"
+      - name: Serve disposable Presets on exact localhost
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4294 >/tmp/qr533-presets.log 2>&1 &
+          for i in $(seq 1 65); do
+            if curl --fail --silent http://127.0.0.1:4294/presets/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr533-presets.log
+          exit 1
+      - name: Actual eight-locale Presets four-root to In-Game two and Shop/ToM OFF
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          QR533_URL: http://127.0.0.1:4294/presets/
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          node scripts/04qr-w-pr533-presets-visual-chromium.mjs
