@@ -458,7 +458,18 @@ impl TrustedReadCore {
    let mut observed=Vec::with_capacity(selected.len());
    let mut missing=Vec::new();
    for path in REQUIRED {
-     if let Some(hit)=selected.iter().find(|h|h.pointer==*path){
+     // Same-version schema626 source shape is NOT caller-selectable.
+     // 01E/PR401 observed Villages as ARRAY, not an invented object map.
+     let required_kind=match *path {
+       "/GameInfo/Version" |
+       "/World/RecurringEvents/155/ItemSpawning/RecurringEventItemID"=>"number",
+       "/World/GridCollection/Grids" |
+       "/World/GridCollection/DiffGrids"=>"object",
+       "/World/Villages"=>"array",
+       _=>"string"
+     };
+     if let Some(hit)=selected.iter().find(|h|h.pointer==*path &&
+                                            h.lexical_kind==required_kind){
        observed.push(SourceReadCondition{
          pointer:(*path).to_owned(),expected_raw_token_sha256:hit.raw_sha256
        });
