@@ -25,7 +25,6 @@ try{
   await page.locator('[data-shared-discovery="READY"]').waitFor({timeout:30000});
   const related=page.locator('[data-shared-related] a');
   assert.ok(await related.count()>0);
-  assert.match(await related.first().getAttribute('href'),new RegExp('^/web?'.replace('web?','')+'?')); // further exact route check follows
   const href=await related.first().getAttribute('href');
   assert.match(href,new RegExp('^/'+locale+'/[1-9][0-9]*/$'));
   await page.locator('[data-shared-query]').fill('40000047');
