@@ -244,6 +244,15 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       return reply({ok:false,error:'SOURCE160_HELP_QA_WRITER_NOT_ENROLLED'},409);
     }
 
+    // Source161: the two original Gallery Draft/create server-role SQL RPCs
+    // accept only an Auth subject, not a transaction-bound signed Session.
+    // Genuine local ES256 preflight → committed Local revoke → separate
+    // service-role SQL still inserted draft Work/Outbox/Idempotency. Deny
+    // both before rate/DB; this does NOT authorize Photo publication.
+    if (new Set<string>(['createGalleryDraft','createGalleryWork']).has(command)) {
+      return reply({ok:false,error:'SOURCE161_GALLERY_DRAFT_WRITER_NOT_ENROLLED'},409);
+    }
+
     const authorizationParams: JsonObject = {
       p_auth_subject: subject, p_issued_at_epoch: issuedAt,
       p_max_age_seconds: null

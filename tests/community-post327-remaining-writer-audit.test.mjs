@@ -24,7 +24,7 @@ const notes=load('docs/community/post327-remaining-writer-route-audit-20261103.m
 test('fix Source155 and Source156 at independently accepted PR327 SQL/Edge blobs',()=>{
  assert.equal(gitBlob(source155),'115f2c0f7224984acd8830cfc606af8c6a1bf3af');
  assert.equal(gitBlob(source156),'3000d66c193b996e4ece785deaf5180955ec3bc6');
- assert.equal(gitBlob(edge),'7d1bec902a3c9d332ac3c074c4f1ee9f7f9cd67f');
+ assert.equal(gitBlob(edge),'d4f637dbcf5412bd276a0abc7259e0b0cfe2f1db');
  assert.match(source156,/for share;/);
  assert.match(source156,/community_authorize_signed_session_v2/);
  assert.match(source156,/revoke all on function public\.community_set_gallery_comments_enabled_atomic_r16/);
@@ -136,4 +136,21 @@ test('Source160 only two unaccepted Help Question/Tip RPCs OFF after signed revo
  assert.match(source160,/community_set_gallery_comments_enabled_atomic_signed_v1/);
  assert.match(source160,/community_delete_ddv_profile_workspace_v1/);
  assert.match(source160,/community_get_ddv_profile_workspaces_v1/);
+});
+
+const source161=load('supabase/migrations/20261104030000_community_source161_gallery_two_legacy_draft_create_service_execute_off.sql');
+test('Source161 direct Gallery Draft/Create old RPCs OFF, nested Gallery Photo NOT accepted',()=>{
+ const signed=edge.indexOf("'community_authorize_signed_session_v2'",edge.indexOf("if (command !== 'ensureAccountCreator')"));
+ const guard=edge.indexOf("new Set<string>(['createGalleryDraft','createGalleryWork']).has(command)");
+ const rate=edge.indexOf('const rateBucket = commandToRateBucket[command]');
+ assert.ok(signed>=0 && guard>signed && rate>guard,'Gallery Draft guard must follow signed401 before rate/SQL');
+ assert.match(edge,/SOURCE161_GALLERY_DRAFT_WRITER_NOT_ENROLLED/);
+ assert.match(source161,/revoke all on function public\.community_create_gallery_draft/);
+ assert.match(source161,/revoke all on function public\.community_create_gallery_work_v1/);
+ assert.match(source161,/from public,anon,authenticated,service_role/);
+ assert.doesNotMatch(source161,/grant execute on function public\.community_create_gallery_/i);
+ assert.match(source161,/community_publish_gallery_photo_v1/);
+ assert.match(source161,/transitive closure/);
+ assert.match(source161,/community_set_gallery_comments_enabled_atomic_signed_v1/);
+ assert.match(source161,/community_delete_ddv_profile_workspace_v1/);
 });

@@ -10,7 +10,7 @@ const policy=read(canonicalFile);
 const manifest=JSON.parse(read('docs/community/policy/dreamsnap-image-grant-v1.candidate.json'));
 test('Source152 additive 152nd migration, never rewrite accepted Source151 and public routes',()=>{
  const names=readdirSync(new URL('../supabase/migrations/',import.meta.url)).filter(n=>n.endsWith('.sql')).sort();
- assert.equal(names.length,160);
+ assert.equal(names.length,161);
  assert.ok(names.includes('20261102000000_community_source153_signed_session_lineage_v2.sql'));
   assert.ok(names.includes('20261102010000_community_source155_verified_first_account_bootstrap.sql'));
   assert.ok(names.includes('20261103010000_community_source156_signed_gallery_r16_atomic_writer.sql'));
@@ -18,6 +18,7 @@ test('Source152 additive 152nd migration, never rewrite accepted Source151 and p
  assert.ok(names.includes('20261103030000_community_source158_r15_gallery_pinned_service_execute_off.sql'));
  assert.ok(names.includes('20261104010000_community_source159_workspace_identity_legacy_service_execute_off.sql'));
  assert.ok(names.includes('20261104020000_community_source160_help_qa_question_tip_service_execute_off.sql'));
+ assert.ok(names.includes('20261104030000_community_source161_gallery_two_legacy_draft_create_service_execute_off.sql'));
  assert.ok(names.includes('20261028000050_x05_first_work_media_bootstrap_v1.sql'));
  assert.doesNotMatch(sql,/create or replace function public\.community_dreamsnap_x05_(?:pregrant_read|owner_read|owner_action)_v1/);
  assert.doesNotMatch(sql,/create or replace function public\.community_register_validated_media/);
