@@ -33,13 +33,13 @@ test('one true EntityRef model stays with PRODUCT; web shell is nonpositive and 
   'data-typed-entity-gate="closed"','data-public-indexable="false"','data-writer="off"',
   'data-provider="off"','data-relations-verified="false"','data-alias-resolved="false"',
   'data-personal-state="unknown"','noindex,nofollow',
-  'permittedRequestShape','parseSharedPrimaryId(primaryId)'
+  'nonItemPublicDetailStatus','data-entity-id-contract="wand.shared-entity.identity@1"'
  ]) assert.ok(g.includes(token),token);
  for(const forbidden of ['shared-typed-entity-contract.mjs','src/lib/foundation/shared-typed-entity-contract.mjs',
   'getLocalSaveSessionBridge','localStorage','fetch(','publishWork(','ownedCount','createObjectURL']){
    assert.ok(!g.includes(forbidden),forbidden);
  }
- assert.match(g,/PR396/);
+ assert.match(read('src/lib/foundation/typed-entity-page-consumer.mjs'),/makeEntityRef/);
  for(const path of [
   'src/routes/entity/[kind]/[primary]/+page.ts',
   'src/routes/[locale=wandLocale]/entity/[kind]/[primary]/+page.ts',

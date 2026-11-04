@@ -2,7 +2,8 @@
 // Source is the already SHA-validated Switch v1.25.0 Catalog only.
 // Never infer personal Save ownership, entitlement, rights, cross-version aliases or publication.
 import { decodeCollectionRecord, filterCollectionRecords } from '../collection/runtime.js';
-import { parseSharedPrimaryId, sharedEntityHref, SUPPORTED_DETAIL_LOCALES } from './shared-catalog-detail.mjs';
+import { typedItemPreviewHref, typedDirectoryItemHref } from '../foundation/typed-entity-page-consumer.mjs';
+import { parseSharedPrimaryId, SUPPORTED_DETAIL_LOCALES } from './shared-catalog-detail.mjs';
 
 export const SHARED_DIRECTORY_CONTRACT = 'wand.shared-catalog.directory@1';
 export const SHARED_DIRECTORY_WRITER_ENABLED = false;
@@ -67,7 +68,12 @@ export function relatedSharedCatalogItems(directory, current, limit=6) {
 
 export function sharedCatalogDirectoryHref(base,locale,item) {
   if (item?.itemId===undefined || item?.itemId===null) return null;
-  try {return sharedEntityHref(base,locale,item.itemId);} catch{return null;}
+  return typedItemPreviewHref(base,locale,item.itemId);
+}
+// Stronger directory-bound link used by all on-screen search/related results.
+// Rejects arbitrary ItemID objects or a foreign source version, not merely malformed URLs.
+export function typedSharedCatalogDirectoryHref(base,locale,item,directory) {
+  return typedDirectoryItemHref(base,locale,item,directory);
 }
 
 const copy={
