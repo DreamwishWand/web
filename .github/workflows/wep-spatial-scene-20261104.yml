@@ -1,7 +1,15 @@
 name: WEP P0 source-bound Spatial Scene and native Chrome zoom
 on:
   push:
-    branches: ['wep/spatial-scene-main-20261104']
+    branches: ['wep/spatial-scene-main-20261104', 'int/main-spatial-qa387-20261104']
+  pull_request:
+    paths:
+      - 'src/lib/wep/spatial-scene*'
+      - 'src/routes/editor/world/+page.svelte'
+      - 'tests/wep-spatial-scene.test.mjs'
+      - 'docs/wep/world-editor-localization-inventory-20261002.json'
+      - 'scripts/wep-spatial-scene-browser-20261104.mjs'
+      - '.github/workflows/wep-spatial-scene-20261104.yml'
   workflow_dispatch:
 permissions:
   contents: read
