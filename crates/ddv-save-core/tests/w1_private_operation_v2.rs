@@ -2,12 +2,12 @@
 use ddv_save_core::offline_w1_v2::{execute_private_w1_v2_research,PrivateW1V2Input};
 use ddv_save_core::p1g::{encode_synthetic_fixture,decode_p1g_research};
 use ddv_save_core::sha256;
-use std::{path::{Path,PathBuf},fs,io::Write};
+use std::{path::PathBuf,fs,io::Write};
 const KEY:[u8;32]=[0x42;32];
 const ORIGINAL_UTC:&str="2126-08-20T00:00:00Z";
 const NEW_UTC:&str="2026-11-04T12:00:00Z";
 const REGISTRY:&[u8]=b"synthetic-registry-not-native";
-const JSON:&str=r#"{"GameInfo":{"Version":626},"Player":{},"World":{"RecurringEvents":{"155":{"ItemSpawning":{"RecurringEventItemID":2010000021,"NextOccurrence":"2126-08-20T00:00:00Z","LastOccurrence":"2026-08-20T00:00:00Z","EndDate":"2030-12-31T00:00:00Z"}}},"GridCollection":{"Grids":{"10":{"Objects":[]}},"DiffGrids":{}},"Villages":[{"Areas":{"0":{"GridIDs":[10]}}}]},"Unknown":{"opaque":{"survives":true,"float":1.00}}}"#;
+const JSON:&str=r#"{"GameInfo":{"Version":626},"Player":{},"World":{"RecurringEvents":{"155":{"ItemSpawning":{"RecurringEventItemID":2010000021,"NextOccurrence":"2126-08-20T00:00:00Z","LastOccurrence":"2026-08-20T00:00:00Z","EndDate":"2030-12-31T00:00:00Z"}}},"GridCollection":{"Grids":{"10":{"Objects":{}}},"DiffGrids":{}},"Villages":[{"Areas":{"0":{"GridIDs":[10]}}}]},"Unknown":{"opaque":{"survives":true,"float":1.00}}}"#;
 struct Fixture{
  base:PathBuf,original:PathBuf,backup:PathBuf,edited:PathBuf,
  ciphertext:Vec<u8>,json:String
