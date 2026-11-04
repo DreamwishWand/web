@@ -162,7 +162,7 @@ fn encode_string(value: &str) -> String {
     result
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum TokenKind { String, Number, Other }
+enum TokenKind { String, Number, Object, Array, Other }
 #[derive(Debug)]
 struct Field {span:Range<usize>,kind:TokenKind,decoded:Option<String>,raw:String}
 struct Parser<'a> {
@@ -197,6 +197,7 @@ impl<'a> Parser<'a> {
   let mut kind=TokenKind::Other;
   match self.peek(){
    Some(b'{')=>{
+    kind=TokenKind::Object;
     let indexed=self.direct_target.as_deref()==Some(path);
     if indexed {
       self.direct_seen=true;self.direct_kind=Some(DirectIndexKind::Object);
@@ -226,6 +227,7 @@ impl<'a> Parser<'a> {
     self.token(b'}')?;
    }
    Some(b'[')=>{
+    kind=TokenKind::Array;
     let indexed=self.direct_target.as_deref()==Some(path);
     if indexed {
       self.direct_seen=true;self.direct_kind=Some(DirectIndexKind::Array);
@@ -456,6 +458,7 @@ pub fn index_selected_tokens(source: &[u8], pointers: &[String]) -> EngineResult
 #[derive(Clone,Debug,PartialEq,Eq)]
 pub struct SparseTokenSha256 {
  pub pointer:String,pub raw_sha256:[u8;32],pub raw_bytes:usize,
+ pub lexical_kind:&'static str,
 }
 pub fn index_selected_token_sha256(
  source:&[u8],pointers:&[String],max_span_bytes:usize
@@ -478,7 +481,12 @@ pub fn index_selected_token_sha256(
        result.push(SparseTokenSha256 {
          pointer:pointer.clone(),
          raw_sha256:sha256(&source[field.span.clone()]),
-         raw_bytes:length
+         raw_bytes:length,
+         lexical_kind:match field.kind {
+           TokenKind::String=>"string",TokenKind::Number=>"number",
+           TokenKind::Object=>"object",TokenKind::Array=>"array",
+           TokenKind::Other=>"other"
+         }
        });
      }
    }
