@@ -29,6 +29,8 @@ try{
   assert.equal(await page.locator('.category-card').count(),29,locale);
   const order=await page.locator('.category-card').evaluateAll(cards=>cards.map(x=>x.getAttribute('data-category')));
   assert.deepEqual(order,STAGE1_COLLECTION_ORDER,locale+' category order');
+  const diagnostic=await page.evaluate(()=>({lang:document.documentElement.lang,language:document.documentElement.dataset.locale,desktop:document.querySelector('#site-locale')?.value,mobile:document.querySelector('#site-locale-mobile')?.value,stored:localStorage.getItem('dreamwishwand-locale-manual-v1')}));
+  console.log('WEB_STAGE1_COLLECTION_LOCALE_DIAGNOSTIC',locale,JSON.stringify(diagnostic));
   const expected=stage1CategoryLabel(locale,'Furniture');
   await page.locator('[data-category="Furniture"] .category-name').getByText(expected,{exact:true}).waitFor({timeout:20000});
   assert.equal(await page.locator('[data-category="Furniture"] .category-name').innerText(),expected);
