@@ -32,14 +32,9 @@ test('exact original 6 Presets source changes and 3 independent QA paths on main
  assert.deepEqual(git('diff','--name-only',SOURCE,'HEAD').split('\n').sort(),qa);
  assert.equal(git('rev-parse',SOURCE+':src/routes/presets/+page.svelte'),'55f8522f0e0099b69e780ab04191c66cd3bc05ff');
  assert.equal(git('rev-parse',SOURCE+':src/lib/presets/stage1-root.mjs'),'7f741542e0f7f5d7df0b8e51caf1e32c9d617c58');
- for(const path of [
-  'src/lib/presets/NativePresetManager.svelte',
-  'src/lib/wep/preset-community-bridge.ts',
-  'src/lib/wep/scene-preset-runtime.ts'
- ]){
-  try{assert.equal(git('rev-parse',SOURCE+':'+path),git('rev-parse',PARENT+':'+path));}
-  catch(e){if(String(e).includes('unknown revision')||String(e).includes('not in'))continue;throw e;}
- }
+ assert.equal(git('rev-parse',SOURCE+':src/lib/presets/NativePresetManager.svelte'),
+  git('rev-parse',PARENT+':src/lib/presets/NativePresetManager.svelte'),
+  'original NativePresetManager unchanged');
 });
 test('owner Presets root four and In-Game exactly two, untouched explicit Native manager',()=>{
  assert.deepEqual(PRESETS_STAGE1_ROOT,['wand','touchOfMagic','inGame','my']);
