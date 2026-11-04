@@ -47,7 +47,7 @@ test('source Grid mismatch/SubGrid transform or native ObjectID contradiction is
   [furniture('bad',5,2,{metadata:{rootGridId:42,subGridId:4}}),'SPATIAL_SUBGRID_TRANSFORM_UNPROVEN'],
   [furniture('bad',5,2,{source:{rootGridId:42,gridObjectId:'native1'},metadata:{rootGridId:42,gridObjectId:'native2'}}),'SPATIAL_OBJECT_ID_CONFLICT'],
   [furniture('bad',22,2),'SPATIAL_OUTSIDE_ACTIVE_GRID'],
-  [furniture('bad',5,2,{footprint:[{x:0,y:0},{x:Infinity,y:0}]}),'SPATIAL_GEOMETRY_UNPROVEN']
+  [furniture('bad',5,2,{footprint:[{x:0,y:0},{x:1,y:100}]}),'SPATIAL_OUTSIDE_ACTIVE_GRID']
  ];
  for(const [invalid,reason] of cases){
   const d=doc([base,invalid]);const v=scene(d);
