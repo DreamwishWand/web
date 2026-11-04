@@ -1,0 +1,30 @@
+name: 05 QR PR397 independent Core-derived W1 native required readset
+on:
+  push:
+    branches: [qa/05qr-pr397-readset-20261104]
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/tests/qa_05qr_pr397_derived_set.rs'
+      - '.github/workflows/qa-pr397-derived-readset.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  new-only-required-readset:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: PR397 exact frozen Source, no product Source change
+        run: |
+          test "$(git merge-base 72492cb3c758e40e198a8acb9cacd206063b3b8d HEAD)" = 72492cb3c758e40e198a8acb9cacd206063b3b8d
+          git diff --quiet 72492cb3c758e40e198a8acb9cacd206063b3b8d HEAD -- src/ crates/ddv-save-core/src/ crates/ddv-save-core/Cargo.toml
+          echo TRUE_PRIVATE_P1G_IN_CI=NO
+          echo W1_NATIVE_V3=NOT_RUN
+          echo PRODUCT_WRITER=OFF
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Independent eight-source refs and fail-closed Stage/Writer
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test qa_05qr_pr397_derived_set -- --nocapture
