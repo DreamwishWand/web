@@ -1,0 +1,30 @@
+name: 01A Native W1 Lazy Read - One Strict Source Snapshot (SYNTHETIC ONLY)
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/src/lib.rs'
+      - 'crates/ddv-save-core/src/indexed_w1_read.rs'
+      - 'crates/ddv-save-core/tests/w1_lazy_source_index.rs'
+      - '.github/workflows/01a-native-w1-lazy-read.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-bound-one-pass-lazy-w1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify source scope is synthetic and no product Writer
+        run: |
+          git rev-parse HEAD
+          echo PRIVATE_REAL_P1G_IN_CI=NO
+          echo NATIVE_V3_ACCEPTED=NO
+          echo PRODUCT_WRITER=OFF
+      - name: Rust source-bound W1 lazy index positive and negative tests
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test w1_lazy_source_index -- --nocapture
+      - name: Native cargo check and unchanged product writer DENY
+        run: |
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml
+          grep -Fq PRODUCT_W1_LAZY_EDITED_COPY_NOT_AUTHORIZED crates/ddv-save-core/src/indexed_w1_read.rs
+          grep -Fq PRODUCT_ENCODE_COPY_NOT_AUTHORIZED crates/ddv-save-core/src/trusted_read.rs
