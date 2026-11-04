@@ -171,3 +171,34 @@ test('shared instance provides one route-owned Worker and same receipt across co
  assert.equal(a.getSession(),null);
  a.destroy();
 });
+
+test('01D Item/Ownership and 01B Spatial consumers share one Source scope yet fail closed',async()=>{
+ const core=createLocalSaveSessionBridge(()=>syntheticWorkerFactory());
+ await core.ensureReady();
+ const s=await core.openLocalFile(sample(),att);
+ const read={domain:'RecurringEvents',sessionId:s.sessionId,
+  sourceSha256:s.sourceSha256,revision:s.revision,
+  indexGeneration:s.indexGeneration,limit:1};
+ const page=await core.readDomainPage(read);
+ assert.equal(page.rows[0].eventId,2010000021);
+ for(const domain of ['Inventory','Ownership','Spatial','ItemDetail']){
+  await assert.rejects(core.readDomainPage({...read,domain}),
+   /LOCAL_READ_CAPABILITY_NOT_ACCEPTED/);
+ }
+ for(const forged of [
+  {sessionId:'forged'},{sourceSha256:'0'.repeat(64)},
+  {revision:1},{indexGeneration:s.indexGeneration+1}
+ ]){
+  await assert.rejects(core.readDomainPage({...read,...forged}),
+   /LOCAL_READ_STALE_SOURCE_SCOPE/);
+ }
+ const other=await core.openLocalFile(sample(),att);
+ assert.notEqual(other.sessionId,s.sessionId);
+ await assert.rejects(core.readDomainPage(read),/LOCAL_READ_STALE_SOURCE_SCOPE/);
+ const fresh=await core.readDomainPage({...read,sessionId:other.sessionId,
+  sourceSha256:other.sourceSha256,indexGeneration:other.indexGeneration});
+ assert.equal(fresh.rows.length,1);
+ assert.equal(core.getCapabilities().readInventory,false);
+ assert.equal(core.getCapabilities().readGrid,false);
+ core.destroy();
+});
