@@ -3,13 +3,15 @@ on:
   pull_request:
     paths:
       - 'src/lib/ddv/core/save/local-save-session-bridge.mjs'
-      - 'src/lib/ddv/core/save/local-save-session-bridge.d.ts'
+      - 'src/lib/ddv/core/save/local-save-session-bridge.d.mts'
       - 'src/lib/timing/local-timing-worker-client.ts'
       - 'src/lib/timing/local-timing-read.worker.ts'
       - 'src/lib/timing/local-worker-read-core.mjs'
+      - 'src/lib/timing/w1-worker-mandatory-readset.mjs'
       - 'src/routes/editor/timing/+page.svelte'
       - 'tests/local-single-save-session-bridge.test.mjs'
       - 'tests/timing-local-worker-read.test.mjs'
+      - 'tests/01a-w1-worker-mandatory-readset.test.mjs'
       - '.github/workflows/01a-single-local-session.yml'
   workflow_dispatch:
 permissions:
@@ -32,7 +34,7 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Source worker Session/Version/Cursor and typed command negatives
         run: |
-          node --test tests/local-single-save-session-bridge.test.mjs tests/timing-local-worker-read.test.mjs
+          node --test tests/local-single-save-session-bridge.test.mjs tests/timing-local-worker-read.test.mjs tests/01a-w1-worker-mandatory-readset.test.mjs
       - name: Svelte and strict TS contract integration
         run: npm run check
       - name: Static Vite module Worker build
