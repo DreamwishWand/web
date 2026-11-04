@@ -1,0 +1,34 @@
+name: 04 QR PR448 independent one canonical Typed EntityRef gate no positive P-S
+on:
+  push:
+    branches: [qa/pr448-typed-gate-independent-20261104]
+  pull_request:
+    branches: [product/typed-entity-single-consumer-20261104]
+permissions:
+  contents: read
+jobs:
+  typed-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 19
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false,fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Exact two original Source files and two independent QA-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=5387e942031bc504651da33ceeafcd46bb6bec80
+          git merge-base --is-ancestor "$SRC" HEAD
+          git diff --name-only "$SRC" HEAD | sort >/tmp/qr448-actual
+          printf '%s\n' .github/workflows/qr-pr448-typed-independent.yml tests/qr-pr448-one-typed-gate-independent.test.mjs | sort >/tmp/qr448-only
+          diff -u /tmp/qr448-only /tmp/qr448-actual
+          test "$(git hash-object src/lib/foundation/SharedTypedEntityGate.svelte)" = 9bace143739190594f666b0b3fc1ac7073abe44d
+          test "$(git hash-object tests/shared-typed-entity-boundary.test.mjs)" = f92d25f9a08d156a32fa812911e48c8947d18ca8
+          test -z "$(git diff --name-only "$SRC" HEAD -- src supabase docs static)"
+          echo QR448_TWO_SOURCE_BLOBS_QA_ONLY_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Independent Typed Entity kind / equal P-S as shape only
+        run: node --test tests/qr-pr448-one-typed-gate-independent.test.mjs
+      - run: npm run check
