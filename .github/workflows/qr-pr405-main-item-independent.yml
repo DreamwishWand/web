@@ -1,0 +1,41 @@
+name: 04 QR PR405 independent main-based Item raw semantic composition
+on:
+  push:
+    branches: [qa/pr405-current-main-item-20261104]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  item:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 19
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Main-based exactly three accepted source paths and QA-only two
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=c661751fb84e4ba9f8033d42f0060de002104354
+          MAIN=05e58dff3e2c9c0eefc0f1b10a48879c9256d227
+          git merge-base --is-ancestor "$SRC" HEAD
+          git merge-base --is-ancestor "$MAIN" HEAD
+          git diff --name-only "$SRC" HEAD | sort > /tmp/qr405-diff
+          printf '%s\n' .github/workflows/qr-pr405-main-item-independent.yml tests/qr-pr405-main-composed-item-independent.test.mjs | sort >/tmp/qr405-expected
+          diff -u /tmp/qr405-expected /tmp/qr405-diff
+          git diff --name-only "$MAIN" "$SRC" | sort >/tmp/qr405-source
+          printf '%s\n' docs/core/01d-native-item-semantics-save-overlay-20261104.md src/lib/ddv/core/items/item-semantics-contract.mjs tests/ddv-core-item-semantics-overlay-contract.test.mjs | sort >/tmp/qr405-source-expected
+          diff -u /tmp/qr405-source-expected /tmp/qr405-source
+          test "$(git hash-object src/lib/ddv/core/items/item-semantics-contract.mjs)" = daab1e1e3b6318aa69cdf79b8cda5fc0a3c0daf5
+          test -z "$(git diff --name-only "$MAIN" HEAD -- supabase src/lib/wep src/lib/timing src/lib/local src/lib/foundation)"
+          echo QR_405_SELECTED_3_BLOBS_MAIN_OTHER_DOMAINS_UNCHANGED_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Independently test main-composed item raw structures and Writer OFF
+        run: node --test tests/qr-pr405-main-composed-item-independent.test.mjs
+      - name: Ensure compiles alongside current W1 singleton
+        run: npm run check
