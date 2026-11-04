@@ -3,7 +3,7 @@ on:
   push:
     branches: [qa/pr445-source-grid-provenance-20261104]
   pull_request:
-    branches: [wep/real-source-spatial-read-20261104]
+    branches: [wep/local-spatial-source-main-20261104]
 permissions:
   contents: read
 jobs:
