@@ -5,6 +5,7 @@ export const TIMING_WORKER_READ_CONTRACT = 'wand.timing.local-worker-read@1';
 export const TIMING_WORKER_WRITER_ENABLED = false;
 export const TIMING_WORKER_PRODUCT_RUST_ACCEPTED = false;
 export const SWITCH_1253_BID = '9A239D3DB569756D';
+export const SWITCH_1253_FULL_VERSION = '1.25.3';
 const MAX_CIPHERTEXT = 128 * 1024 * 1024; // existing accepted JS Codec hard cap
 const MAX_PAGE = 64;
 const MAX_ROWS = 20000;
@@ -37,14 +38,16 @@ export function createTimingWorkerReadCore({
   let state = null;
 
   const revoke = () => { epoch += 1; state = null; };
-  async function open({ file, buildId, sourceConfirmed }) {
+  async function open({ file, buildId, sourceConfirmed, platform, fullVersion, buildKind, sourceSchema }) {
     // Revocation precedes all await points, including a malformed B source.
     revoke();
     const generation = epoch;
     if (!(file instanceof Blob) || !file.size || file.size > MAX_CIPHERTEXT)
       fail('READ_FILE_BOUNDS');
     // Explicit external attestation, not a cryptographic BID recovered from P1G.
-    if (sourceConfirmed !== true || buildId !== SWITCH_1253_BID)
+    if (sourceConfirmed !== true || buildId !== SWITCH_1253_BID ||
+        platform !== 'switch' || fullVersion !== SWITCH_1253_FULL_VERSION ||
+        buildKind !== 'switch-bid' || sourceSchema !== 626)
       fail('READ_EXTERNAL_BUILD_REQUIRED');
     // Registry comes from the fixed Worker-owned same-origin asset loader,
     // never from caller-provided metadata or a user-supplied Registry object.
@@ -98,7 +101,9 @@ export function createTimingWorkerReadCore({
     };
     return {
       sessionId, revision: 0, indexGeneration: generation,
-      sourceSha256, sourceSchema: 626,
+      sourceSha256, sourceSchema: 626,sourcePlatform:'switch',
+      externalFullVersion:SWITCH_1253_FULL_VERSION,
+      externalBID:SWITCH_1253_BID,
       savedContainerCount: projected.savedContainerCount,
       unsupportedContainerCount: projected.unsupportedContainerCount,
       productRustWorkerAccepted: false, writerAuthorized: false,
