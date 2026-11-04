@@ -133,6 +133,15 @@ export interface LocalSaveSessionBridge {
  queryW1Page(query?:LocalW1PageQuery):Promise<LocalW1ReadPage>;
  readDomainPage(query:LocalDomainReadRequest):Promise<LocalW1ReadPage>;
  close():Promise<Readonly<{closed:true;writerAuthorized:false}>>;
+ /** Local original user-file handle is available only by explicit action.
+  * A download request never proves the OS actually persisted the backup. */
+ hasUntouchedOriginalBackupSource(scope:Pick<LocalSaveSessionReceipt,'sessionId'|'sourceSha256'>):boolean;
+ requestUntouchedOriginalBackup(scope:Pick<LocalSaveSessionReceipt,'sessionId'|'sourceSha256'>):Readonly<{
+  downloadRequested:true;
+  persistedVerified:false;
+  sourceSha256:string;
+  writerAuthorized:false;
+ }>;
  getSession():LocalSaveSessionReceipt|null;
  getCapabilities():LocalOperationCapabilities;
  subscribe(listener:SessionSubscriber):()=>void;
