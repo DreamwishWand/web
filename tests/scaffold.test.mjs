@@ -30,11 +30,16 @@ test('Pages action builds, verifies, and deploys static output', () => {
   assert.match(workflow, /deploy-pages@v4/);
 });
 
-test('starter contains no save-reading UI or misleading edit action', () => {
+test('editor items uses verified Catalog as read-only reference, not fake inventory or Save Writer', () => {
   const preview = read('src/routes/editor/items/+page.svelte');
-  assert.match(preview, /UIサンプル/);
-  assert.match(preview, /ファイルの読み込み、変更、保存はできません/);
+  assert.match(preview, /loadCollectionRuntime\(base\)/);
+  assert.match(preview, /SharedCatalogDiscovery/);
+  assert.match(preview, /data-owned="unknown"/);
+  assert.match(preview, /data-writer="off"/);
+  assert.match(preview, /noindex,follow/);
+  assert.doesNotMatch(preview, /const samples = \[/);
   assert.doesNotMatch(preview, /type="file"/);
+  assert.doesNotMatch(preview, />Apply</);
 });
 
 

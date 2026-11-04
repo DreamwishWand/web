@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { base } from '$app/paths';
   import ResponsiveFrame from '$lib/ui/ResponsiveFrame.svelte';
+  import SharedCatalogDiscovery from '$lib/entity/SharedCatalogDiscovery.svelte';
   import { collectionFamilyLabel } from '$lib/collection/copy.js';
   import { collectionFacetLabel, loadCollectionRuntime } from '$lib/collection/runtime.js';
   import { resolveSharedCatalogEntity, sharedEntityLabels } from '$lib/entity/shared-catalog-detail.mjs';
@@ -83,7 +84,9 @@
         <h1>{item.label}</h1>
         <p>{copy.notPersonal}</p>
       </header>
-      <div class="entity-grid">
+      <div class="entity-grid" data-entity-identity="source-bound">
+        <section><h2>ItemID</h2><p><code>{item.itemId}</code></p></section>
+        <section><h2>Build ID / Version</h2><p>Nintendo Switch · DDV v1.25.0 · <code>52BD625D9B4E0053</code></p></section>
         <section>
           <h2>{copy.category}</h2>
           <p>{family}</p>
@@ -97,6 +100,7 @@
         <section><h2>{copy.source}</h2><p>Nintendo Switch · DDV v1.25.0</p></section>
       </div>
       <p class="media-note">{copy.rights}</p>
+      <SharedCatalogDiscovery {index} {rows} {localeCode} currentId={String(item.itemId)} maxResults={6} />
       {#if outcome && 'canExplore' in outcome && outcome.canExplore}
         <section class="moodboard-action" data-shared-detail-moodboard-action="local-only">
           <h2>{moodCopy.boards}</h2>
@@ -132,6 +136,7 @@
  .entity-grid section{border:1px solid var(--border);background:var(--surface);border-radius:14px;padding:18px}
  h2{font-size:13px;color:var(--ink-soft)}
  .entity-grid p{font-size:16px;overflow-wrap:anywhere}
+ .entity-grid code{font-size:12px;overflow-wrap:anywhere}
  .media-note{margin:20px 0;color:var(--ink-muted);font-size:13px}
  .moodboard-action{border:1px solid var(--border);background:var(--surface);border-radius:14px;padding:18px;margin:20px 0;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
  .moodboard-action h2{width:100%;margin:0;font-size:17px}
