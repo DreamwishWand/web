@@ -54,6 +54,52 @@ type SourceIdentity = Readonly<{
   editorId: string; gridId: number; objectId: number; itemId: number;
   sourceGridDataPath: string; worldClass: string;
 }>;
+// TypeScript ReadonlyMap/ReadonlySet is NOT runtime immutability. Never expose
+// the mutable native-ID authority or the mutable post-inspection allowlist.
+// These facades intentionally omit set/add/delete/clear and close over copies.
+const issuedBindings = new WeakSet<object>();
+const issuedVerdicts = new WeakSet<object>();
+function sourceMapView<K, V>(source: Map<K, V>): ReadonlyMap<K, V> {
+  const closed = new Map(source);
+  const view: ReadonlyMap<K, V> = Object.freeze({
+    get size() { return closed.size; },
+    has(key: K) { return closed.has(key); },
+    get(key: K) { return closed.get(key); },
+    keys() { return closed.keys(); },
+    values() { return closed.values(); },
+    entries() { return closed.entries(); },
+    [Symbol.iterator]() { return closed[Symbol.iterator](); },
+    forEach(callbackfn: (value: V, key: K, map: ReadonlyMap<K, V>) => void, thisArg?: any) {
+      closed.forEach((value, key) => callbackfn.call(thisArg, value, key, view));
+    }
+  });
+  return view;
+}
+function allowedIdView(source: Iterable<string>): ReadonlySet<string> {
+  const closed = new Set(source);
+  const view: ReadonlySet<string> = Object.freeze({
+    get size() { return closed.size; },
+    has(value: string) { return closed.has(value); },
+    keys() { return closed.keys(); },
+    values() { return closed.values(); },
+    entries() { return closed.entries(); },
+    [Symbol.iterator]() { return closed[Symbol.iterator](); },
+    forEach(callbackfn: (value: string, key: string, set: ReadonlySet<string>) => void, thisArg?: any) {
+      closed.forEach((value, key) => callbackfn.call(thisArg, value, key, view));
+    }
+  });
+  return view;
+}
+function issuedVerdict(status: 'READY' | 'STALE', allowed: Iterable<string>, unresolved: RealSaveSpatialIssue[]): RealSaveSpatialVerdict {
+  const result: RealSaveSpatialVerdict = Object.freeze({
+    status, allowed: allowedIdView(allowed),
+    unresolved: Object.freeze(unresolved.map(issue => Object.freeze({ ...issue }))),
+    persistentWriteAuthorized: false as const
+  });
+  issuedVerdicts.add(result);
+  return result;
+}
+
 export interface RealSaveSpatialBinding {
   contract: typeof WEP_REAL_SOURCE_READ_CONTRACT;
   sourceFingerprint: string;
@@ -72,7 +118,7 @@ export interface RealSaveSpatialBinding {
 export interface RealSaveSpatialVerdict {
   status: 'READY' | 'STALE';
   allowed: ReadonlySet<string>;
-  unresolved: RealSaveSpatialIssue[];
+  unresolved: ReadonlyArray<RealSaveSpatialIssue>;
   persistentWriteAuthorized: false;
 }
 /**
@@ -214,16 +260,20 @@ export function bindRealSaveSpatialRead({
       worldClass: String(obj.metadata?.worldClass ?? '')
     }));
   }
-  return Object.freeze({
+  const bound: RealSaveSpatialBinding = Object.freeze({
     contract: WEP_REAL_SOURCE_READ_CONTRACT, sourceFingerprint, sourceEpoch,
     sourceSession: session, rootGridId: rootId,
-    identities, rejected, sourceVersion: '1.25.0' as const,
+    identities: sourceMapView(identities),
+    rejected: Object.freeze(rejected.map(issue => Object.freeze({ ...issue }))),
+    sourceVersion: '1.25.0' as const,
     sourceSchema: 624 as const,
     proof: 'LOCAL_SOURCE_SHAPED_READ_ONLY_NOT_NATIVE_V3' as const,
     trustedCoreRevision: false as const,
     persistentWriteAuthorized: false as const,
     productApplyAuthorized: false as const
   });
+  issuedBindings.add(bound);
+  return bound;
 }
 
 /** Validate against the active source/Session on EVERY re-projection. */
@@ -234,7 +284,8 @@ export function inspectRealSaveSpatialRead(
   sourceFingerprint: string,
   sourceEpoch: number
 ): RealSaveSpatialVerdict {
-  const stale = !binding || binding.contract !== WEP_REAL_SOURCE_READ_CONTRACT ||
+  const stale = !binding || !issuedBindings.has(binding) ||
+    binding.contract !== WEP_REAL_SOURCE_READ_CONTRACT ||
     binding.sourceSession !== session ||
     binding.sourceFingerprint !== sourceFingerprint ||
     binding.sourceEpoch !== sourceEpoch ||
@@ -242,13 +293,10 @@ export function inspectRealSaveSpatialRead(
     document?.target?.profileSchemaVersion !== binding.sourceSchema ||
     document?.target?.gameVersion !== binding.sourceVersion;
   if (stale) {
-    return {
-      status: 'STALE', allowed: new Set<string>(),
-      unresolved: (document?.objects ?? []).map(obj => ({
-        editorId: obj.editorId, itemId: obj.itemId,
-        code: 'SPATIAL_READ_SOURCE_REVISION_MISMATCH'
-      })), persistentWriteAuthorized: false
-    };
+    return issuedVerdict('STALE', [], (document?.objects ?? []).map(obj => ({
+      editorId: obj.editorId, itemId: obj.itemId,
+      code: 'SPATIAL_READ_SOURCE_REVISION_MISMATCH'
+    })));
   }
   const allowed = new Set<string>();
   const unresolved = [...binding.rejected];
@@ -287,10 +335,7 @@ export function inspectRealSaveSpatialRead(
     }
     allowed.add(obj.editorId);
   }
-  return {
-    status: 'READY', allowed, unresolved,
-    persistentWriteAuthorized: false
-  };
+  return issuedVerdict('READY', allowed, unresolved);
 }
 
 /** Keep the existing painter order, hit-test and inspector identity intact. */
@@ -298,13 +343,20 @@ export function applyRealSaveReadToScene(
   scene: SpatialScene,
   verdict: RealSaveSpatialVerdict
 ): SpatialScene {
+  // Never accept caller-constructed "READY" objects or a swapped allowlist.
+  // The existing World route also supplies an unminted STALE fallback; it
+  // must render zero native nodes, not throw or mint a new capability.
+  const authorized = Boolean(verdict && issuedVerdicts.has(verdict) &&
+    verdict.status === 'READY');
   const unresolvedIds = new Set(scene.unresolved.map(issue => issue.editorId));
   return {
     ...scene,
-    objects: scene.objects.filter(object => verdict.allowed.has(object.editorId)),
+    objects: authorized
+      ? scene.objects.filter(object => verdict.allowed.has(object.editorId))
+      : [],
     unresolved: [
       ...scene.unresolved,
-      ...verdict.unresolved.filter(issue => !unresolvedIds.has(issue.editorId))
+      ...(authorized ? verdict.unresolved.filter(issue => !unresolvedIds.has(issue.editorId)) : [])
     ],
     persistentWriteAuthorized: false
   };
