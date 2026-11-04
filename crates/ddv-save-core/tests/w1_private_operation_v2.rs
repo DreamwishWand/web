@@ -99,3 +99,47 @@ fn missing_core_native_ref_or_old_value_cas_does_not_create_backup(){
   "W1_RAW_OLD_VALUE_CAS_FAILED");
  assert!(!fixture.backup.exists());
 }
+
+fn hex32(value:[u8;32])->String {
+ value.iter().map(|x|format!("{x:02x}")).collect::<Vec<_>>().join("")
+}
+fn run_independent_node(fixture:&Fixture,receipt:&ddv_save_core::offline_w1_v2::PrivateW1V2Receipt)
+ ->std::process::Output {
+ use std::process::Command;
+ let script=std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+   .join("scripts/w1-independent-fresh-reopen.mjs");
+ Command::new("node").arg(script)
+   .arg(&fixture.original).arg(&fixture.backup).arg(&fixture.edited)
+   .env("DDV_PRIVATE_CODEC_KEY_HEX",hex32(KEY))
+   .env("DDV_EXPECTED_P1G_SHA256",hex32(receipt.original_sha))
+   .env("DDV_EXPECTED_JSON_SHA256",hex32(sha256(fixture.json.as_bytes())))
+   .env("DDV_EXPECTED_EDITED_P1G_SHA256",hex32(receipt.edited_sha))
+   .env("DDV_EXPECTED_EDITED_JSON_SHA256",hex32(receipt.edited_decoded_sha))
+   .env("DDV_W1_EXPECTED_OLD_UTC",ORIGINAL_UTC)
+   .env("DDV_W1_PROPOSED_UTC",NEW_UTC)
+   .env("DDV_EXTERNAL_PLATFORM","switch")
+   .env("DDV_EXTERNAL_FULL_VERSION","1.25.3")
+   .env("DDV_EXTERNAL_SWITCH_BID","9A239D3DB569756D")
+   .output().expect("NODE_FRESH_PROCESS_REQUIRED")
+}
+#[test]
+fn independent_second_process_node_reopens_rust_output_exact_crc_diff_and_no_overwrite(){
+ let fixture=Fixture::new(JSON);
+ let evidence=execute_private_w1_v2_research(fixture.request()).unwrap();
+ assert!(!evidence.independent_process_reopen,
+   "the Rust receipt must not self-attest another process");
+ let ok=run_independent_node(&fixture,&evidence);
+ assert!(ok.status.success(),"fresh Node must independently verify Rust output");
+ assert!(String::from_utf8_lossy(&ok.stdout).contains(
+   "PRIVATE_W1_FRESH_PROCESS_NODE_REOPEN=PASS"));
+ assert!(!String::from_utf8_lossy(&ok.stdout).contains(ORIGINAL_UTC));
+ assert!(!String::from_utf8_lossy(&ok.stderr).contains(ORIGINAL_UTC));
+ // Independent crypto/ZIP must reject a single-byte tampered encrypted copy.
+ let mut tampered=fs::read(&fixture.edited).unwrap();
+ tampered[0]^=1;
+ fs::write(&fixture.edited,&tampered).unwrap();
+ let bad=run_independent_node(&fixture,&evidence);
+ assert!(!bad.status.success(),"tampered edited copy must be denied");
+ assert_eq!(fs::read(&fixture.original).unwrap(),fixture.ciphertext);
+ assert_eq!(fs::read(&fixture.backup).unwrap(),fixture.ciphertext);
+}
