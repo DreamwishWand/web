@@ -238,6 +238,56 @@ export function createLocalSaveSessionBridge(workerFactory){
     return freeze({downloadRequested:true,persistedVerified:false,
       sourceSha256:receipt.sourceSha256,writerAuthorized:false});
   };
+  // Explicit user-reimported backup CANDIDATE comparison. Reads two
+  // small independent chunks at a time: never posts P1G or decoded Save,
+  // never hashes/loads another 128MiB full-buffer copy in the UI.
+  // This proves the chosen Blob's BYTES equal the trusted Worker-opened
+  // original; it CANNOT prove the OS persisted a distinct backup path.
+  const verifyUserSelectedOriginalBackupCandidate=async (candidate,scope)=>{
+    const active=receipt,original=originalSelectedFile,activeEpoch=epoch;
+    const keys=['sessionId','sourceSha256','revision','indexGeneration'];
+    if(!active||!(original instanceof Blob)||!scope||
+       typeof scope!=='object'||Object.keys(scope).some(k=>!keys.includes(k))||
+       scope.sessionId!==active.sessionId||
+       scope.sourceSha256!==active.sourceSha256||
+       scope.revision!==active.revision||
+       scope.indexGeneration!==active.indexGeneration)
+      throw Error('LOCAL_BACKUP_CANDIDATE_STALE_SOURCE_SCOPE');
+    if(!(candidate instanceof Blob)||candidate===original||
+       candidate.size!==original.size||candidate.size===0||
+       candidate.size>LOCAL_MAX_P1G_BYTES)
+      throw Error('LOCAL_BACKUP_CANDIDATE_NOT_DISTINCT_BOUNDED');
+    const current=()=>receipt===active&&originalSelectedFile===original&&epoch===activeEpoch;
+    const step=1024*1024;
+    for(let start=0;start<original.size;start+=step){
+      if(!current())throw Error('LOCAL_BACKUP_CANDIDATE_SESSION_REVOKED');
+      const end=Math.min(start+step,original.size);
+      let left,right;
+      try{
+        [left,right]=await Promise.all([
+          original.slice(start,end).arrayBuffer(),
+          candidate.slice(start,end).arrayBuffer()
+        ]);
+      }catch{
+        throw Error('LOCAL_BACKUP_CANDIDATE_LOCAL_READ_FAILED');
+      }
+      if(!current())throw Error('LOCAL_BACKUP_CANDIDATE_SESSION_REVOKED');
+      if(left.byteLength!==end-start||right.byteLength!==end-start)
+        throw Error('LOCAL_BACKUP_CANDIDATE_CHUNK_LENGTH_MISMATCH');
+      const a=new Uint8Array(left),b=new Uint8Array(right);
+      for(let i=0;i<a.length;i++){
+        if(a[i]!==b[i])throw Error('LOCAL_BACKUP_CANDIDATE_BYTES_DIFFER');
+      }
+    }
+    if(!current())throw Error('LOCAL_BACKUP_CANDIDATE_SESSION_REVOKED');
+    return freeze({
+      candidateBytesMatchOriginal:true,
+      sourceSha256:active.sourceSha256,comparedByteCount:original.size,
+      sourceRevision:active.revision,indexGeneration:active.indexGeneration,
+      persistedVerified:false,distinctDiskPathVerified:false,
+      originalOverwriteProtectionVerified:false,writerAuthorized:false
+    });
+  };
   const getSession=()=>receipt;
   const getCapabilities=()=>READ_CAPABILITIES;
   const subscribe=listener=>{
@@ -263,7 +313,8 @@ export function createLocalSaveSessionBridge(workerFactory){
   };
   return freeze({ensureReady,openLocalFile,queryW1Page,readDomainPage,
     diagnoseW1Dependencies,
-    hasUntouchedOriginalBackupSource,requestUntouchedOriginalBackup,close,getSession,
+    hasUntouchedOriginalBackupSource,requestUntouchedOriginalBackup,
+    verifyUserSelectedOriginalBackupCandidate,close,getSession,
     getCapabilities,subscribe,submitOperation,destroy});
 }
 // One shared owner per JS module instance/tab; deliberately no localStorage or
