@@ -2,7 +2,7 @@
 //! Production meaning stays in Wand transaction-foundation / storage / ownership
 //! adapters. This module grants neither P1G export nor persistent replacement.
 use crate::{sha256,validate_json,index_selected_tokens,EngineResult,SpanHit,MAX_DECODED_JSON_BYTES};
-use std::{collections::{BTreeMap,BTreeSet},sync::Arc};
+use std::{collections::{BTreeMap,BTreeSet},sync::{Arc,atomic::{AtomicBool,Ordering}}};
 
 pub const SESSION_CONTRACT:&str="dreamwish.ddv.unified-save-session.research@1";
 const MAX_COMMANDS:usize=64;
@@ -134,6 +134,8 @@ pub struct SaveSession {
     session_id:u64,
     source:Arc<[u8]>,
     source_sha:[u8;32],
+    /// Only core-bound W1 private research receives this revocation token.
+    source_liveness:Option<Arc<AtomicBool>>,
     schema:u64,
     backing:BackingKind,
     revision:u64,
@@ -170,7 +172,7 @@ impl SaveSession {
         crate::semantic_safety::verify_observed_chest_edges(&decoded_json,&refs)?;
         let hash=sha256(&decoded_json);
         Ok(Self {
-            session_id,source:decoded_json,source_sha:hash,schema,
+            session_id,source:decoded_json,source_sha:hash,source_liveness:None,schema,
             backing:BackingKind::OwnedMemory,revision:0,index_generation:0,
             history:Vec::new(),redo:Vec::new(),references:refs,
             lazy_index:BTreeMap::new(),cached_generation:0
@@ -180,6 +182,32 @@ impl SaveSession {
     pub(crate) fn shares_immutable_source_research(&self,source:&Arc<[u8]>)->bool{
         Arc::ptr_eq(&self.source,source)
     }
+    /// Bind only the native research staging view to its actual Core owner.
+    /// It must be the exact same decoded Arc, at revision/generation zero,
+    /// and the Core must still pass both encrypted/decoded SHA checks.
+    pub(crate) fn bind_trusted_core_research(
+        &mut self,core:&crate::trusted_read::TrustedReadCore
+    )->EngineResult<()>{
+        if self.source_liveness.is_some()||self.revision!=0||
+           self.index_generation!=0||!self.history.is_empty()||
+           !self.redo.is_empty(){return Err("CORE_STAGE_BINDING_STATE_INVALID");}
+        let token=core.borrow_source_liveness_research(&self.source)?;
+        let receipt=core.receipt()?;
+        if receipt.revision!=0||receipt.generation!=0||
+           receipt.roots.decoded_json_sha256!=self.source_sha ||
+           sha256(&self.source)!=receipt.roots.decoded_json_sha256 {
+            return Err("CORE_STAGE_SOURCE_CAS_FAILED");
+        }
+        self.source_liveness=Some(token);
+        Ok(())
+    }
+    fn require_core_alive_research(&self)->EngineResult<()>{
+        if self.source_liveness.as_ref().is_some_and(|v|
+           !v.load(Ordering::SeqCst)){
+            return Err("CORE_STAGE_SOURCE_REVOKED");
+        }
+        Ok(())
+    }
     pub fn session_id(&self)->u64{self.session_id}
     pub fn revision(&self)->u64{self.revision}
     pub fn source_sha256(&self)->[u8;32]{self.source_sha}
@@ -187,6 +215,7 @@ impl SaveSession {
     pub fn backing_kind(&self)->BackingKind{self.backing}
     pub fn index_generation(&self)->u64{self.index_generation}
     pub fn inspect_references(&self,identity:&LogicalIdentity)->EngineResult<Vec<ReferenceEdge>>{
+        self.require_core_alive_research()?;
         if !self.references.nodes.contains(identity){return Err("UNKNOWN_REFERENCE_IDENTITY");}
         self.references.check()?;
         Ok(self.references.outbound(identity))
@@ -231,6 +260,7 @@ impl SaveSession {
     /// Read-focused index is rebuilt after each edit, not cached against an old revision.
     pub fn query_paged(&mut self,pointers:&[String],cursor:usize,limit:usize)
         ->EngineResult<Vec<Projection>>{
+        self.require_core_alive_research()?;
         if limit==0||limit>MAX_PAGE{return Err("QUERY_PAGE_LIMIT");}
         if pointers.len()>512{return Err("QUERY_WATCH_TOO_LARGE");}
         if self.cached_generation!=self.index_generation {
@@ -257,6 +287,7 @@ impl SaveSession {
             })).collect())
     }
     pub fn stage_command(&mut self,plan:TransactionPlan)->EngineResult<ChangeSet>{
+        self.require_core_alive_research()?;
         if plan.session_id!=self.session_id{return Err("STALE_SESSION");}
         if plan.expected_revision!=self.revision{return Err("STALE_REVISION");}
         if plan.expected_source_sha256!=self.source_sha{return Err("SOURCE_SHA_CAS_FAILED");}
@@ -322,6 +353,7 @@ impl SaveSession {
         Ok(change)
     }
     pub fn undo(&mut self,expected_revision:u64)->EngineResult<ChangeSet>{
+        self.require_core_alive_research()?;
         if expected_revision!=self.revision{return Err("STALE_REVISION");}
         let next=self.revision.checked_add(1).ok_or("REVISION_OVERFLOW")?;
         let next_generation=self.index_generation.checked_add(1).ok_or("INDEX_GENERATION_OVERFLOW")?;
@@ -334,6 +366,7 @@ impl SaveSession {
             affected:entry.change.affected,changed_paths:entry.change.changed_paths})
     }
     pub fn redo(&mut self,expected_revision:u64)->EngineResult<ChangeSet>{
+        self.require_core_alive_research()?;
         if expected_revision!=self.revision{return Err("STALE_REVISION");}
         let entry=self.redo.last().ok_or("REDO_EMPTY")?.clone();
         let before=self.materialize()?;
@@ -372,6 +405,7 @@ impl SaveSession {
     /// Rebuilds a temporary decoded JSON only for a validation or projection;
     /// the production streaming/OPFS backing store is intentionally NOT implemented.
     fn materialize(&self)->EngineResult<Vec<u8>>{
+        self.require_core_alive_research()?;
         if sha256(&self.source)!=self.source_sha{return Err("SOURCE_MUTATED");}
         let mut bytes=self.source.to_vec();
         for entry in &self.history {

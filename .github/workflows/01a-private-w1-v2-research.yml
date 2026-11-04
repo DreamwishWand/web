@@ -7,10 +7,14 @@ on:
       - 'crates/ddv-save-core/tests/w1_private_operation_v2.rs'
       - 'crates/ddv-save-core/tests/w1_atomic_full_source_cas.rs'
       - 'crates/ddv-save-core/src/offline_w1_v2.rs'
+      - 'crates/ddv-save-core/src/trusted_read.rs'
+      - 'crates/ddv-save-core/src/session.rs'
       - '.github/workflows/01a-private-w1-v2-research.yml'
   pull_request:
     paths:
       - 'crates/ddv-save-core/src/offline_w1_v2.rs'
+      - 'crates/ddv-save-core/src/trusted_read.rs'
+      - 'crates/ddv-save-core/src/session.rs'
       - 'crates/ddv-save-core/src/lib.rs'
       - 'crates/ddv-save-core/tests/w1_private_operation_v2.rs'
       - 'crates/ddv-save-core/tests/w1_atomic_full_source_cas.rs'
@@ -37,6 +41,8 @@ jobs:
         run: node --check crates/ddv-save-core/scripts/w1-independent-fresh-reopen.mjs
       - name: Synthetic W1 original-first atomic V2 and negative tests
         run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test w1_private_operation_v2 -- --nocapture
+      - name: Native Core close/drop invalidates bound private stage and denies source rebind
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --lib core_owner_lifetime_tests -- --nocapture
       - name: Core 8-root same-revision atomic CAS and forged/modified reference negatives
         run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test w1_atomic_full_source_cas -- --nocapture
       - name: Compile private operator without executing it
