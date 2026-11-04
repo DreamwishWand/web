@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
  requireOwnerPrivateScope, inspectExternallyAttestedSaveProfile,
  classify626ReferenceIndex, checkPrivateCandidateSource,
+ ensurePrivateSourceOutsideCheckout,
  WEP_PRIVATE_624_BID, WEP_PRIVATE_626_BID
 } from '../scripts/wep-private-real-save-e2e-safety-20261104.mjs';
 
@@ -118,4 +119,24 @@ test('raw map key/ID mismatch and unsafe XY are never a verified native candidat
  p.World.GridCollection.Grids['42'].Objects['7'].ID=7;
  p.World.GridCollection.Grids['42'].Objects['7'].X=1.5;
  assert.equal(checkPrivateCandidateSource(p,'g42:o7'),null);
+});
+
+test('owner genuine source must be outside checkout, including resolved symlink targets',()=>{
+ assert.equal(ensurePrivateSourceOutsideCheckout('/home/owner/private/profile','/home/owner/wand-web'),true);
+ assert.equal(ensurePrivateSourceOutsideCheckout('/home/owner/wand-webs/private','/home/owner/wand-web'),true);
+ for(const target of ['/home/owner/wand-web','/home/owner/wand-web/profile',
+   '/home/owner/wand-web/.artifacts/copied-profile']){
+  assert.throws(()=>ensurePrivateSourceOutsideCheckout(target,'/home/owner/wand-web'),/INSIDE_REPOSITORY_FORBIDDEN/);
+ }
+ assert.throws(()=>ensurePrivateSourceOutsideCheckout('relative/profile','/home/owner/wand-web'),/ABSOLUTE_PATH_REQUIRED/);
+});
+test('local genuine browser forbids HTTP POST/PUT/DELETE and offhost requests by explicit code guard',async()=>{
+ // This is a source-level safety assertion, not a real P1G browser invocation.
+ const {readFileSync}=await import('node:fs');
+ const script=readFileSync(new URL('../scripts/wep-private-real-save-2d-local-only-20261104.mjs',import.meta.url),'utf8');
+ assert.match(script,/\['GET','HEAD'\]\.includes\(route\.request\(\)\.method\(\)\)/);
+ assert.match(script,/ensurePrivateSourceOutsideCheckout\(await realpath\(sourcePath\),await realpath\(process\.cwd\(\)\)\)/);
+ assert.match(script,/serviceWorkers:'block'/);
+ assert.match(script,/routeWebSocket\('\*\*\/\*'/);
+ assert.match(script,/PRIVATE_SAVE_CI_FORBIDDEN/);
 });
