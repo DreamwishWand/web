@@ -41,7 +41,7 @@ try{
   }
   assert.equal(await root.locator('a.help-child-card').count(),4);
   assert.equal(await root.locator('[data-help-cross-type-search="gated"] input:disabled').count(),1);
-  assert.equal(await root.locator('[data-public-writer="off"]').count(),1);
+  assert.equal(await page.locator('[data-help-root="four-children"][data-public-writer="off"]').count(),1);
  }
  console.log('WEB_STAGE1_HELP_8LANG_3PLUS1_CARD_LINKS_SEARCH_GATED_PASS');
  await page.locator('#site-locale').selectOption('ja');
