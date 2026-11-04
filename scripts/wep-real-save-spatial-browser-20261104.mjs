@@ -70,7 +70,7 @@ try {
   const setZoom=async value=>{
     const actual=await sw.evaluate(async ({base,value})=>{
       const tab=(await chrome.tabs.query({})).find(t=>t.url?.startsWith(base));
-      assert(tab?.id);
+      if(!tab?.id)throw Error('NATIVE_ZOOM_TAB_MISSING');
       await chrome.tabs.setZoom(tab.id,value);
       return chrome.tabs.getZoom(tab.id);
     },{base,value});
@@ -92,6 +92,7 @@ try {
   assert.equal(await page.locator('g[data-editor-object-id="g10:o44"]').count(),0);
   const status=await page.locator('[data-wep-real-source-read-status]').innerText();
   assert.match(status,/LOCAL_SOURCE_SHAPED_READ_ONLY_NOT_NATIVE_V3/);
+  await page.locator('[data-wep-spatial-unresolved-details] summary').click();
   assert.match(await page.locator('[data-wep-spatial-unresolved-details]').innerText(),/SPATIAL_READ_GEOMETRY_OR_STATE_UNVERIFIED/);
   pass('SYNTHETIC_PACKAGED_P1G_GRID_TO_SOURCE_PROOF_UNKNOWN_NOT_PAINTED');
   await node.click();
