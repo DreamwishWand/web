@@ -1,0 +1,31 @@
+name: 05 QR PR417 independent Rust new-only synthetic QA
+on:
+  push:
+    branches: [qa/05qr-417-rust-sparse-20261104]
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/tests/qa_05qr_pr417_sparse_newonly.rs'
+      - '.github/workflows/qa-pr417-rust-newonly.yml'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  independent-rust:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Frozen Source and QA-only difference
+        run: |
+          test "$(git merge-base a6ad9d32cb18a97e225a3e155a1fd3e67ecb7664 HEAD)" = a6ad9d32cb18a97e225a3e155a1fd3e67ecb7664
+          git diff --quiet a6ad9d32cb18a97e225a3e155a1fd3e67ecb7664 HEAD -- crates/ddv-save-core/src/ src/ crates/ddv-save-core/Cargo.toml
+          echo PRIVATE_ORIGINAL_SAVE=NOT_RUN
+          echo NATIVE_V3=NOT_RUN
+          echo GAME_SAVE_WRITER=OFF
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Independent operation source negative suite
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test qa_05qr_pr417_sparse_newonly -- --nocapture
+      - name: Clearly bounded decoded-only 200MiB result
+        run: echo BROWSER_200_MIB_READER_NOT_SUPPORTED
