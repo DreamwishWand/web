@@ -47,6 +47,7 @@ function syntheticWorkerFactory({stalledOpen=null}={}){
        buildKind:m.buildKind,sourceSchema:m.sourceSchema
      });
      else if(m.type==='QUERY')result=await core.query({search:m.search,cursor:m.cursor,limit:m.limit});
+     else if(m.type==='DIAGNOSE_W1')result=core.diagnose();
      else throw Error('READ_WRITER_OPERATION_DISABLED');
      if(!worker.destroyed)emit('message',{id:m.id,ok:true,result});
     }catch(e){if(!worker.destroyed)emit('message',{id:m.id,ok:false,error:e.message});}
@@ -218,4 +219,37 @@ test('original File handle remains scoped for backup across routes, never author
  await core.close();
  assert.equal(core.hasUntouchedOriginalBackupSource(second),false);
  core.destroy();
+});
+
+test('Worker-owned diagnostic API is source scoped, caller cannot forge read-set and B revokes A',async()=>{
+ const bridge=createLocalSaveSessionBridge(()=>syntheticWorkerFactory());
+ await bridge.ensureReady();
+ const a=await bridge.openLocalFile(sample(),att);
+ const scope={sessionId:a.sessionId,sourceSha256:a.sourceSha256,
+   revision:a.revision,indexGeneration:a.indexGeneration};
+ const diag=await bridge.diagnoseW1Dependencies(scope);
+ assert.equal(diag.contract,'wand.local.w1-core-source-readset@1');
+ assert.equal(diag.referenceCount,8);
+ assert.equal(diag.presentCount,1); // synthetic has only GameInfo.Version
+ assert.ok(diag.missingReferences.includes('World.Villages'));
+ assert.equal(diag.allSourceReferencesPresent,false);
+ assert.equal(diag.completeNativeDependencyClosureVerified,false);
+ assert.equal(diag.operationWriterAuthorized,false);
+ assert.equal(JSON.stringify(diag).includes('2126-08-20'),false);
+ for(const forged of [{sourceSha256:'0'.repeat(64)},{revision:1},
+   {indexGeneration:a.indexGeneration+1},{sessionId:'forged'},
+   {sourceReadSet:[]},{nativeAccepted:true}]){
+   await assert.rejects(bridge.diagnoseW1Dependencies({...scope,...forged}),
+     /LOCAL_W1_DIAGNOSTIC_STALE_OR_FORGED_SCOPE/);
+ }
+ const b=await bridge.openLocalFile(sample(),att);
+ await assert.rejects(bridge.diagnoseW1Dependencies(scope),
+   /LOCAL_W1_DIAGNOSTIC_STALE_OR_FORGED_SCOPE/);
+ const fresh=await bridge.diagnoseW1Dependencies({...scope,
+   sessionId:b.sessionId,sourceSha256:b.sourceSha256,indexGeneration:b.indexGeneration});
+ assert.equal(fresh.sessionId,b.sessionId);
+ await bridge.close();
+ await assert.rejects(bridge.diagnoseW1Dependencies({...scope,
+   sessionId:b.sessionId,indexGeneration:b.indexGeneration}),/LOCAL_SESSION_NOT_OPEN/);
+ bridge.destroy();
 });
