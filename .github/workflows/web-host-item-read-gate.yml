@@ -30,7 +30,7 @@ jobs:
           test "$(wc -l </tmp/web-host-item-diff)" -eq 8
           while IFS= read -r f; do
             case "$f" in
-              src/lib/foundation/public-entity-host-contract.mjs|src/lib/local/item-personal-read-gate.mjs|src/lib/local/item-capability-copy.mjs|src/lib/local/ItemReadCapabilityNotice.svelte|src/routes/editor/items/+page.svelte|tests/web-host-gate-item-read.test.mjs|scripts/web-host-item-read-chrome.mjs|.github/workflows/web-host-item-read-gate.yml) ;;
+              src/lib/foundation/public-entity-host-contract.mjs|src/lib/local/item-personal-read-gate.mjs|src/lib/local/item-capability-copy.mjs|src/lib/local/ItemReadCapabilityNotice.svelte|src/routes/editor/items/+layout.svelte|tests/web-host-gate-item-read.test.mjs|scripts/web-host-item-read-chrome.mjs|.github/workflows/web-host-item-read-gate.yml) ;;
               *) echo "OUT_OF_SCOPE:$f"; exit 1 ;;
             esac
           done </tmp/web-host-item-diff
