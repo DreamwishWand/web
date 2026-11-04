@@ -1,3 +1,4 @@
+import { deriveW1RequiredSourceReadSet } from './w1-worker-mandatory-readset.mjs';
 // Wand 01A — local read-only timing Session/Cursor boundary (no editor engine).
 // Worker owns the save, crypto state, search, and all pagination. Never serialize
 // the profile, P1G bytes, key or the decoded document back to a UI thread.
@@ -92,6 +93,10 @@ export function createTimingWorkerReadCore({
         opened?.compatibility?.persistentWriteAuthorized !== false)
       fail('READ_SCHEMA626_CONTRACT_DENIED');
 
+    // Required operation references are Core/Worker-derived from the actual
+    // validated profile. Caller-supplied lists cannot reduce this read-set.
+    // Missing references are diagnostic; W1 READ stays available, Writer OFF.
+    const w1ReadSet = deriveW1RequiredSourceReadSet(opened.profile);
     const projected = project(opened.profile, registry);
     if (generation !== epoch) fail('READ_OPEN_REVOKED');
     if (projected?.writerAuthorized !== false ||
@@ -100,6 +105,7 @@ export function createTimingWorkerReadCore({
       fail('READ_W1_PROJECTION_DENIED');
     state = {
       sessionId, epoch: generation, sourceSha256, registrySha256, hmacKey,
+      w1ReadSet,
       rows: projected.rows, savedContainerCount: projected.savedContainerCount,
       unsupportedContainerCount: projected.unsupportedContainerCount,
       searchScope: null, pendingCursor: null, nextOffset: 0, finished: false,
@@ -175,8 +181,19 @@ export function createTimingWorkerReadCore({
     }
   }
 
+  function diagnose() {
+    const s = state;
+    if (!s) fail('READ_SESSION_NOT_OPEN');
+    // Only bounded names/presence, never raw private tokens, serialized Save,
+    // original P1G bytes, keys or Event UTC values cross the Worker boundary.
+    return Object.freeze({ ...s.w1ReadSet,
+      sessionId: s.sessionId, revision: 0, indexGeneration: s.epoch,
+      sourceSha256: s.sourceSha256,
+      writerAuthorized: false, productRustWorkerAccepted: false
+    });
+  }
   function close() { revoke(); return { closed: true, writerAuthorized: false }; }
   function status() { return Object.freeze({ active: Boolean(state), epoch,
     writerAuthorized: false, productRustWorkerAccepted: false }); }
-  return Object.freeze({ open, query, close, status });
+  return Object.freeze({ open, query, diagnose, close, status });
 }
