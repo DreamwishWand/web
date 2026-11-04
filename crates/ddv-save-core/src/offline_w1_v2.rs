@@ -34,6 +34,8 @@ pub struct PrivateW1V2Receipt {
  /// Exact Arc::ptr_eq between TrustedReadCore source and atomic stage source.
  /// Reuses immutable backing only; NOT a unified Product SaveSession authority.
  pub core_and_stage_share_immutable_decoded_source:bool,
+ /// Ciphertext is also the Core-owned immutable Arc; not OS backup proof.
+ pub original_ciphertext_borrowed_from_trusted_core:bool,
  pub product_writer_authorized:bool,
 }
 fn output_canonical(path:&Path)->Result<PathBuf,&'static str>{
@@ -176,15 +178,20 @@ pub fn execute_private_w1_v2_research(
  if original.len() as u64>MAX_P1G||sha256(&original)!=input.source_sha{
     return Err("OFFLINE_SOURCE_SHA_CAS_FAILED");
  }
- // Decode the encrypted P1G EXACTLY ONCE through the TrustedReadCore.
- // Prior path decoded here, decoded again inside Core, then cloned entire JSON
- // into a separate research SaveSession. Never reintroduce those full copies.
+ // Transfer the bounded encrypted original to the TrustedReadCore ONCE.
+ // Borrow the same immutable Arc for backup and research encode; never create
+ // a second original ciphertext or decoded JSON clone during preflight.
  let core=TrustedReadCore::open_p1g_readonly(
-   original.clone(),input.key,input.source_sha,input.decoded_sha,
+   original,input.key,input.source_sha,input.decoded_sha,
    input.registry,input.registry_sha,BID,626,MAX_JSON)
    .map_err(|e|if e=="READ_DECODED_SHA_CAS_FAILED"{
      "OFFLINE_DECODED_SHA_CAS_FAILED"
    }else{e})?;
+ let original=core.borrow_original_snapshot_research()?;
+ let shared_original=core.shares_original_ciphertext_research(&original);
+ if !shared_original||sha256(&original)!=input.source_sha{
+   return Err("OFFLINE_RESEARCH_ORIGINAL_BACKING_MISMATCH");
+ }
  let decoded=core.borrow_decoded_snapshot_research()?;
  let owner=core.receipt()?;
  let old_raw=format!("\"{}\"",input.old_utc);
@@ -277,6 +284,7 @@ pub fn execute_private_w1_v2_research(
   original_first_backup_reopened:true,edited_file_reopened:true,
   independent_process_reopen:false,native_v3_verified:false,
   core_and_stage_share_immutable_decoded_source:shared_backing,
+  original_ciphertext_borrowed_from_trusted_core:shared_original,
   product_writer_authorized:false
  })
 }
