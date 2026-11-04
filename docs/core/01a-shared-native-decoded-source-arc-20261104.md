@@ -1,0 +1,16 @@
+# 01A CORE — Shared immutable decoded Rust source, private W1 research (2026-11-04)
+
+**Operation:** W1 ItemSpawning NextOccurrence Map155/Event2010000021, Switch 1.25.3, externally confirmed BID 9A239D3DB569756D, schema626.
+
+**Source provenance:** frozen parent PR475 Source `9fd8c8a87c8a64cf8065c52f56d011d27a1d7a64`, independent 05QR PR490 targeted SOURCE/SYNTHETIC PASS (not Product Rust V2 or Native V3). Current protected main `5b1b1d359a7be27455556f708b5959ffed9e13f3` (subject to Live recheck). Existing accepted JS product Worker read/backup untouched. This is a *native offline research* branch, not an extra browser Worker/SaveSession.
+
+## Before / after
+- Before: the private Rust operator called `decode_p1g_research` once, then opened `TrustedReadCore::open_p1g_readonly` which independently decoded/validated a second complete JSON, then `decoded.json.clone()` copied the entire profile again into a research `SaveSession`. It could hold three complete decoded buffers during preflight.
+- After: `TrustedReadCore::open_p1g_readonly` validates/decrypts the encrypted source **once**; its immutable `Arc<[u8]>` decoded source is internally loaned via `pub(crate)` after SHA and closure checks. `SaveSession::open_decoded_shared_research` consumes `Arc::clone` and revalidates JSON/schema/structural reference constraints without byte cloning. `Arc::ptr_eq` and decoded Source SHA are checked before the eight-root atomic W1 CAS stage. The existing `open_decoded_research(Vec<u8>)` public API delegates to this implementation; no external API/Worker contract break.
+- Research TrustedReadCore and research SaveSession STILL HAVE DISTINCT session identities and staged histories; source backing identity alone does **NOT** establish the required *single Product SaveSession*. The Native semantic Owner must independently verify Wetland effective Grid(default+DiffGrid)/Tree/Softwood quota/Clock Last→Next. Product Writer remains OFF. The source is never transferred to UI, console or Cloud.
+- No general streaming 200MiB encrypted P1G validation is claimed. Rust synthetic decoded200MiB and JS Worker128MiB bound remain independent. Compression/encode/edit copy still performs its own temporary buffers; **only initial duplicate decoded source eliminated**.
+
+## Test and failure conditions
+Existing synthetic W1 private Rust→separate-process Node independent ZIP/CRC copy/reopen tests run unchanged. They assert the Arc backing receipt. New 6MiB unrelated unknown field with unchanged float lexical `1.00` must survive edited-copy exactly, original P1G and backup byte-identical. Existing mandatory eight-source raw CAS negatives, source/decoded SHA mismatch, revision+SID, no over-write and Product export DENY remain in the parent; no inferred native/game acceptance. Fixed-HEAD Owner CI and NEW-only 05QR required. Genuine owner-private new Product Rust/WASM edited-copy/reopen V2 and Device runtime NOT_RUN.
+
+**Flag/Gate:** `NATIVE_SEMANTICS_VERIFIED=false`; `PRODUCT_OPERATION_ENABLED=false`; all EditedCopy Product Export/Apply/OriginalOverwrite OFF, no automatic upload, no production merge or Pages mutation. 09 INT only selectively integrates accepted paths after cumulative main ABI/CI/QA; do not merge this stacked research branch wholesale.
