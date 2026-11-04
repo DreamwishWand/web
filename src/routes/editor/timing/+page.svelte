@@ -4,6 +4,7 @@
   import { locale } from '$lib/i18n/runtime.js';
   import { WAND_TIMING_SWITCH_BID } from '$lib/timing/recurring-readonly.mjs';
   import { createTimingLocalReadWorker } from '$lib/timing/local-timing-worker-client';
+  import { previewNextOccurrenceUiOnly } from '$lib/timing/w1-nextoccurrence-preview.mjs';
 
   let sourceBuild = '';
   let userSourceConfirmed = false;
@@ -16,6 +17,12 @@
   let query = '';
   let matched = 0;
   let nextCursor: string | null = null;
+  let originalFile: File | null = null;
+  let backupRequested = false;
+  let selectedRow: any = null;
+  let proposedUtc = '';
+  let preview: any = null;
+  let previewError = '';
   let openToken = 0;
   let searchToken = 0;
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -88,6 +95,9 @@
     }
   }
   function onSearchInput() {
+    selectedRow = null;
+    preview = null;
+    previewError = '';
     if (searchTimer) clearTimeout(searchTimer);
     searchTimer = setTimeout(() => { void searchSavedEvents(true); }, 160);
   }
@@ -103,6 +113,12 @@
     query = '';
     matched = 0;
     nextCursor = null;
+    originalFile = null;
+    backupRequested = false;
+    selectedRow = null;
+    proposedUtc = '';
+    preview = null;
+    previewError = '';
     // Explicitly release A before opening B, including invalid B.
     try { await request('CLOSE'); } catch { /* no previous live session */ }
     if (!file) return;
@@ -125,8 +141,11 @@
           result?.writerAuthorized !== false ||
           result?.productRustWorkerAccepted !== false)
         throw Error('READ_WORKER_CAPABILITY_INVALID');
+      if(!/^[a-f0-9]{64}$/.test(result.sourceSha256) ||
+         !/^[a-f0-9]{64}$/.test(result.registrySha256)) throw Error('READ_WORKER_SHA_IDENTITY_INVALID');
       summary = result;
       fileName = file.name;
+      originalFile = file;
       await searchSavedEvents(true);
     } catch (exception) {
       if (token !== openToken) return;
@@ -137,6 +156,37 @@
       if (token === openToken) busy = false;
     }
   }
+  function chooseRow(row: any) {
+    selectedRow = row;
+    proposedUtc = '';
+    preview = null;
+    previewError = '';
+  }
+  function buildPreview() {
+    preview = null;
+    previewError = '';
+    try {
+      preview = previewNextOccurrenceUiOnly(selectedRow,proposedUtc,{
+        sourceSha256:summary?.sourceSha256,registrySha256:summary?.registrySha256,
+        externalBid:sourceBuild.trim().toUpperCase(),
+        sourceSchema:summary?.sourceSchema,sourceRevision:summary?.revision
+      });
+    } catch (err) {
+      previewError = err instanceof Error ? err.message : 'W1_PREVIEW_REJECTED';
+    }
+  }
+  function downloadOriginalBackup() {
+    if (!originalFile || !summary?.sourceSha256) return;
+    // Download only the untouched File selected by the user. The browser
+    // cannot attest that the user actually saved the backup to disk.
+    const url=URL.createObjectURL(originalFile);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download=originalFile.name.replace(/[^\\w.\\-]/g,'_')+'.original-backup.p1g';
+    a.click();
+    backupRequested=true;
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }
 </script>
 
 <svelte:head>
@@ -144,7 +194,7 @@
   <meta name="description" content="Local-only DDV Switch v1.25.3 recurring event and ItemID search. No save editing, upload or writer." />
 </svelte:head>
 
-<section class="container timing-page" data-timing-readonly="true" data-worker-readonly="true" data-worker-ready={workerReady} data-writer="off">
+<section class="container timing-page" data-timing-readonly="true" data-worker-readonly="true" data-worker-ready={workerReady} data-w1-ui-ready={workerReady} data-writer="off">
   <a href={base + '/editor/'}>{japanese ? '← Editorに戻る' : '← Back to Editor'}</a>
   <h1>{japanese ? '日時・スポーンの検索' : 'Timing & Spawn Inspector'}</h1>
   <p>{japanese ? 'Dreamlight Timekeeperのイベント定義をWandで再利用した、ローカル読取り専用画面です。' : 'Local read-only preview using the frozen Dreamlight Timekeeper event registry.'}</p>
@@ -169,6 +219,16 @@
     <div class="results" data-timing-loaded="true">
       <h2>{fileName}</h2>
       <p>{japanese ? '保存済みイベント' : 'Saved event containers'}: {summary.savedContainerCount} · {japanese ? '検索結果' : 'Matches'}: {matched} · {japanese ? '未対応の構造' : 'Unsupported containers'}: {summary.unsupportedContainerCount}</p>
+      <p data-w1-source-sha="true">{japanese ? '暗号化原本 SHA-256' : 'Encrypted original SHA-256'}: <code>{summary.sourceSha256}</code></p>
+      <div class="w1-backup">
+        <button type="button" data-w1-original-backup="true" disabled={!originalFile} on:click={downloadOriginalBackup}>
+          {japanese ? '原本をそのままバックアップ' : 'Download untouched original backup'}
+        </button>
+        <p role="status">{backupRequested
+         ? (japanese ? 'バックアップのダウンロードを要求しました。実際の保存を確認してください。' : 'Backup download requested. Verify the file was saved.')
+         : (japanese ? '編集コピーの前に原本バックアップが必要です。現在、編集コピーの出力は無効です。' : 'An original backup is required before edited-copy export; edited-copy output is currently disabled.')}
+        </p>
+      </div>
       <label for="timing-search">{japanese ? 'EventID・ItemID・名前・日時で検索' : 'Search EventID, ItemID, name or timestamp'}</label>
       <input id="timing-search" type="search" bind:value={query} on:input={onSearchInput}/>
       <p role="status">{matched} {japanese ? '件（表示済み' : 'matches (loaded'} {rows.length}{japanese ? '件）' : ')'} · {japanese ? 'Worker内で検索・ページ処理' : 'Search and paging inside local Worker'}</p>
@@ -180,6 +240,11 @@
             <p>{japanese ? '次回' : 'Next'}: <code>{row.nextOccurrence ?? 'unknown'}</code></p>
             <p>{japanese ? '前回' : 'Last'}: <code>{row.lastOccurrence ?? 'unknown'}</code> · {japanese ? '静的分類' : 'Static policy'}: {row.policy}</p>
             {#if row.ambiguous || !row.registryKnown}<p class="warning">{japanese ? '定義またはoneof構造は未確認。書込み不可。' : 'Unverified registry or oneof shape. Write disabled.'}</p>{/if}
+            {#if row.mapKey === '155' && row.eventId === 2010000021 && row.oneof === 'ItemSpawning' && row.policy === 'W1' && row.registryKnown && !row.ambiguous}
+              <button type="button" data-w1-preview-select="true" on:click={() => chooseRow(row)}>
+                {japanese ? 'NextOccurrenceの差分Preview' : 'Preview proposed NextOccurrence'}
+              </button>
+            {/if}
             {#if row.items.length}
               <ul aria-label={japanese ? '関連アイテム' : 'Linked items'}>
                 {#each row.items as item (item.linkIndex)}
@@ -196,6 +261,30 @@
         </button>
       {/if}
       {#if searchBusy}<p role="status">{japanese ? 'Workerで検索中…' : 'Searching in Worker…'}</p>{/if}
+      {#if selectedRow}
+        <div class="w1-preview" data-w1-preview="true">
+          <h3>{japanese ? 'W1 NextOccurrence — 編集前差分' : 'W1 NextOccurrence — before-edit difference'}</h3>
+          <p>{japanese ? 'UI意図のプレビューです。Rust Core旧値CAS・参照依存・Native意味論は未受入です。' :
+            'UI intent only: Rust Core old-value CAS, reference dependencies and Native semantics are not yet accepted.'}</p>
+          <p>EventID {selectedRow.eventId} · Map Key {selectedRow.mapKey} · {selectedRow.oneof}</p>
+          <p>{japanese ? '現在値' : 'Current'}: <code>{selectedRow.nextOccurrence}</code></p>
+          <label for="w1-new-utc">{japanese ? '新しいUTC日時（手入力）' : 'Proposed new UTC (manual input)'}</label>
+          <input id="w1-new-utc" type="text" bind:value={proposedUtc} placeholder="YYYY-MM-DDTHH:mm:ssZ" autocomplete="off" spellcheck="false"/>
+          <button type="button" data-w1-preview-build="true" on:click={buildPreview}>{japanese ? '1フィールド差分を確認' : 'Preview one-field difference'}</button>
+          {#if previewError}<p role="alert"><code>{previewError}</code></p>{/if}
+          {#if preview}
+            <div data-w1-diff="true">
+              <p><code>{preview.exactDiff[0].pointer}</code></p>
+              <p>{japanese ? '変更前' : 'Before'}: <code>{preview.exactDiff[0].oldUtc}</code></p>
+              <p>{japanese ? '提案値' : 'Proposed'}: <code>{preview.exactDiff[0].newUtc}</code></p>
+              <p>Source SHA: <code>{preview.sourceSha256}</code></p>
+              <p>{japanese ? 'Native依存・Rust Coreの製品Writer受入前のため、確定・Edited-copy Exportは使用できません。' :
+                'Native dependencies and Rust Core Writer remain unaccepted; commit and edited-copy export are unavailable.'}</p>
+              <button type="button" disabled data-w1-export-off="true">{japanese ? '編集コピー出力（未受入）' : 'Edited-copy export (not accepted)'}</button>
+            </div>
+          {/if}
+        </div>
+      {/if}
     </div>
   {/if}
 </section>
@@ -215,6 +304,10 @@
  .results{display:grid;gap:12px}
  .result-list{display:grid;gap:12px}
  .event{overflow-wrap:anywhere}\n button[data-timing-more]{padding:12px 18px;border:1px solid var(--border);border-radius:10px;background:var(--surface-raised);color:var(--ink);cursor:pointer}\n button:disabled{opacity:.5;cursor:not-allowed}
+ .w1-preview,.w1-backup{border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--surface)}
+ .w1-preview{display:grid;gap:9px;overflow-wrap:anywhere}
+ .w1-preview button,.w1-backup button,.event button{padding:9px 12px;border-radius:9px;border:1px solid var(--border);background:var(--surface-raised);color:var(--ink);cursor:pointer}
+ button:disabled{opacity:.5;cursor:not-allowed}
  .event h3{font-size:18px;margin:0 0 6px}
  .event p{margin:6px 0;font-size:13px}
  .event ul{margin:9px 0 0;padding-left:22px;font-size:13px;line-height:1.8}
