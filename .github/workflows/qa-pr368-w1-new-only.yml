@@ -1,0 +1,32 @@
+name: 05 QR PR368 independent Rust W1 CAS exact-diff synthetic-only
+on:
+  push:
+    branches: [qa/05qr-pr368-w1-synthetic-20261104]
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/tests/qa_05qr_pr368_new_only.rs'
+      - '.github/workflows/qa-pr368-w1-new-only.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-new-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Freeze exact source and product OFF
+        run: |
+          test "$(git merge-base 17edb811ef3417537b7ccff948cef75eab868e1c HEAD)" = 17edb811ef3417537b7ccff948cef75eab868e1c
+          git diff --quiet 17edb811ef3417537b7ccff948cef75eab868e1c HEAD -- crates/ddv-save-core/src crates/ddv-save-core/Cargo.toml src/
+          echo SOURCE=17edb811ef3417537b7ccff948cef75eab868e1c
+          echo PRIVATE_SAVE_IN_CI=NO
+          echo V2_REAL_SAVE=NOT_RUN
+          echo NATIVE_V3=NOT_RUN
+          echo PRODUCT_WRITER=OFF
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Independent PR368 diff,CAS,full source and research copy reopen
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test qa_05qr_pr368_new_only -- --nocapture
