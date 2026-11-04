@@ -1,0 +1,67 @@
+name: "04QR-W PR529 mainbd966 WEP626 Collection cross-page independent"
+on:
+  pull_request:
+    branches: ['integration/stage1-collection-root-mainbd966-20261105']
+    paths:
+      - '.github/workflows/04qr-w-pr529-collection-mainbd966-crosspage.yml'
+      - 'scripts/04qr-w-pr529-collection-mainbd966-crosspage-chromium.mjs'
+      - 'tests/04qr-w-pr529-collection-mainbd966-crosspage.test.mjs'
+permissions:
+  contents: read
+jobs:
+  new-mainbd966-diff:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Exact mainbd966 selected six Source paths and SaveSession regression isolation
+        run: node --test tests/04qr-w-pr529-collection-mainbd966-crosspage.test.mjs
+      - name: QA Chrome syntax
+        run: node --check scripts/04qr-w-pr529-collection-mainbd966-crosspage-chromium.mjs
+  new-mainbd966-synthetic-cross-page-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Resolve actual system Chrome
+        id: chrome
+        run: |
+          set -euo pipefail
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$BIN"
+          echo "path=$BIN" >> "$GITHUB_OUTPUT"
+      - name: Disposable exact local source only
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4288 >/tmp/04qr-w-pr529-vite.log 2>&1 &
+          for i in $(seq 1 65); do
+            if curl --fail --silent http://127.0.0.1:4288/collection/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/04qr-w-pr529-vite.log
+          exit 1
+      - name: Actual synthetic encrypted626 World Read→Collection UNKNOWN after navigation
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          QR529_ORIGIN: http://127.0.0.1:4288
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          node scripts/04qr-w-pr529-collection-mainbd966-crosspage-chromium.mjs
