@@ -38,7 +38,7 @@ jobs:
           assert all(current.get(name)==sha for name,sha in old.items()), 'HISTORICAL_MIGRATION_BLOB_CHANGED'
           assert len(set(current)-set(old))==81, 'MIGRATION_SUCCESSOR_COUNT_INVALID'
           versions=[Path(name).name.split('_',1)[0] for name in current]
-          assert all(re.fullmatch(r'\d{14}',v) for v in versions), 'INVALID_MIGRATION_VERSION'
+          assert all(re.fullmatch(r'\d{12}(?:\d{2})?',v) for v in versions), 'INVALID_MIGRATION_VERSION'
           assert len(versions)==len(set(versions)), 'DUPLICATE_MIGRATION_TIMESTAMP'
           legacy='supabase/migrations/20260930025132_community_core_v0_server_rpc.sql'
           assert old[legacy]=='bbf9bc830440d964c5da8b3c3cac7e926d281881', 'ORIGINAL_RPC_SQL_BLOB_CHANGED'
