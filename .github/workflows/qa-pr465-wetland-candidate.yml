@@ -1,0 +1,38 @@
+name: 05 QR PR465 independent Wetland Area/Grid source candidates
+on:
+  push:
+    branches: [qa/05qr-pr465-area-grid-newonly-20261104]
+  pull_request:
+    paths:
+      - 'tests/qa-05qr-pr465-wetland-grid-candidate-newonly.test.mjs'
+      - '.github/workflows/qa-pr465-wetland-candidate.yml'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  source-only-independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Freeze PR465 exact 3 new source paths on current main, QA-only diff
+        run: |
+          set -eu
+          test "$(git merge-base f49839f6438d8dd369538493ac02d57d799375cd HEAD)" = f49839f6438d8dd369538493ac02d57d799375cd
+          git diff --quiet f49839f6438d8dd369538493ac02d57d799375cd HEAD -- src/ crates/ docs/ supabase/ tests/01e-w1-wetland-area-grid-candidate-probe.test.mjs
+          test "$(git diff --name-only 4371616c029cb692cd56e35a171870ceeea758e5 f49839f6438d8dd369538493ac02d57d799375cd | wc -l | tr -d ' ')" = 3
+          test "$(git cat-file -p f49839f6438d8dd369538493ac02d57d799375cd:src/lib/ddv/timing/w1-wetland-area-grid-candidate-probe.mjs | wc -c | tr -d ' ')" = 7201
+          echo SOURCE_PROVENANCE_CANDIDATE_ONLY=TRUE
+          echo GENUINE_USER_PRIVATE_P1G=NOT_RUN
+          echo ORIGINAL_NATIVE_ROMFS_SOURCE=NOT_RUN
+          echo NATIVE_V3=NOT_ACCEPTED
+          echo PRODUCT_WRITER_EDITED_COPY_APPLY_ORIGINAL_OVERWRITE=OFF
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Independent six candidate checks and all native authority negatives
+        run: node --test tests/qa-05qr-pr465-wetland-grid-candidate-newonly.test.mjs
+      - name: Type and main Svelte Consumer interface guard
+        run: npm run check
