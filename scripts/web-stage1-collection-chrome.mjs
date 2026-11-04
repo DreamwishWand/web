@@ -29,7 +29,9 @@ try{
   assert.equal(await page.locator('.category-card').count(),29,locale);
   const order=await page.locator('.category-card').evaluateAll(cards=>cards.map(x=>x.getAttribute('data-category')));
   assert.deepEqual(order,STAGE1_COLLECTION_ORDER,locale+' category order');
-  assert.equal(await page.locator('[data-category="Furniture"] .category-name').innerText(),stage1CategoryLabel(locale,'Furniture'));
+  const expected=stage1CategoryLabel(locale,'Furniture');
+  await page.locator('[data-category="Furniture"] .category-name').getByText(expected,{exact:true}).waitFor({timeout:20000});
+  assert.equal(await page.locator('[data-category="Furniture"] .category-name').innerText(),expected);
   assert.equal(await page.locator('.category-measure').count(),29);
   assert.equal(await page.locator('[data-personal-progress="unknown"][data-writer="off"][data-media-rights="unverified"]').count(),1);
   assert.equal(await page.locator('.view-switch').count(),0);
