@@ -82,6 +82,43 @@ try {
  assert.match(await page.locator('[data-timing-loaded="true"] .event').innerText(),/ItemID 31700014/);
  pass('ITEMID_SEARCH_IN_WORKER');
 
+ // Navigate through SvelteKit SPA router, then return: this Session is
+ // owned by a module-singleton Worker, not the route component instance.
+ const workerBeforeNavigation=page.workers()[0];
+ await page.locator('.timing-page > a[href$="/editor/"]').click();
+ await page.waitForURL('**/editor/',{timeout:15000});
+ await page.goBack({waitUntil:'domcontentloaded'});
+ await page.locator('[data-timing-loaded="true"] .event').first().waitFor({timeout:15000});
+ assert.strictEqual(page.workers()[0],workerBeforeNavigation,
+   'SPA route change must preserve the original Worker identity');
+ assert.equal(await page.locator('[data-timing-loaded="true"] .event').count(),2);
+ assert.match(await page.locator('[data-timing-loaded="true"]').innerText(),/EventID: 2010000021/);
+ pass('SAME_WORKER_SESSION_RESTORED_AFTER_SPA_ROUTE_NAVIGATION');
+
+ // Preview and original-only Backup are both preserved by the composed
+ // PR389 UI after route navigation; do not re-import the source File.
+ assert.equal(await page.locator('[data-w1-original-backup]').isDisabled(),false);
+ const backupEvent=page.waitForEvent('download',{timeout:12000});
+ await page.locator('[data-w1-original-backup]').click();
+ const untouchedDownload=await backupEvent;
+ assert.match(untouchedDownload.suggestedFilename(),/original-backup\.p1g$/);
+ assert.equal(createHash('sha256').update(await readFile(await untouchedDownload.path())).digest('hex'),hash);
+ pass('ORIGINAL_BACKUP_AFTER_SPA_RESTORES_SOURCE_EXACT_SHA');
+ await page.locator('[data-w1-preview-select]').first().click();
+ await page.locator('#w1-new-utc').fill('2028-02-29T23:59:59Z');
+ await page.locator('[data-w1-preview-build]').click();
+ const preview=await page.locator('[data-w1-diff]').innerText();
+ assert.match(preview,/2126-08-20T00:00:00Z/);
+ assert.match(preview,/2028-02-29T23:59:59Z/);
+ assert.equal(await page.locator('[data-w1-export-off]').isDisabled(),true);
+ pass('W1_PREVIEW_AND_EDIT_EXPORT_OFF_AFTER_SPA');
+ // A second local file is a NEW source identity, therefore the external BID
+ // attestation must be provided again after remounting the page. Existing
+ // Worker Session read-only access alone never authorizes importing B.
+ await page.locator('#timing-bid').fill(bid);
+ await page.locator('.attest input').check();
+ pass('NEW_FILE_REQUIRES_REATTESTATION_AFTER_ROUTE_NAVIGATION');
+
  // A -> B on the very same Worker must replace both the source-bound lease
  // and every visible A row. Reopening is read-only and does not mutate A.
  const changed = profile(2010500008);

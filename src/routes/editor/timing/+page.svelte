@@ -3,7 +3,7 @@
   import { base } from '$app/paths';
   import { locale } from '$lib/i18n/runtime.js';
   import { WAND_TIMING_SWITCH_BID } from '$lib/timing/recurring-readonly.mjs';
-  import { createTimingLocalReadWorker } from '$lib/timing/local-timing-worker-client';
+  import { getLocalSaveSessionBridge } from '$lib/timing/local-timing-worker-client';
   import { previewNextOccurrenceUiOnly } from '$lib/timing/w1-nextoccurrence-preview.mjs';
 
   let sourceBuild = '';
@@ -17,7 +17,7 @@
   let query = '';
   let matched = 0;
   let nextCursor: string | null = null;
-  let originalFile: File | null = null;
+  let backupAvailable = false;
   let backupRequested = false;
   let selectedRow: any = null;
   let proposedUtc = '';
@@ -26,53 +26,57 @@
   let openToken = 0;
   let searchToken = 0;
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
-  let reader: Worker | null = null;
   let workerReady = false;
-  let messageId = 0;
-  let pending = new Map<number, { resolve: (value: any) => void; reject: (reason: Error) => void }>();
   $: japanese = $locale === 'ja';
 
   onMount(() => {
-    reader = createTimingLocalReadWorker();
-    const current = reader;
-    current.addEventListener('message', (event: MessageEvent) => {
-      const payload = event.data;
-      if (!payload || !Number.isSafeInteger(payload.id)) return;
-      if (payload.id === 0 && payload.ready === true && payload.writerAuthorized === false) {
-        workerReady = true;
-        return;
+    const bridge = getLocalSaveSessionBridge();
+    let mounted = true;
+    const unsubscribe = bridge.subscribe(({ ready, receipt }) => {
+      if (!mounted) return;
+      workerReady = ready;
+      if (!receipt) {
+        summary = null; fileName = ''; rows = []; matched = 0; nextCursor = null;
+        backupAvailable = false; backupRequested = false; selectedRow = null;
+        proposedUtc = ''; preview = null; previewError = '';
+        ++searchToken;
       }
-      const callback = pending.get(payload.id);
-      if (!callback) return;
-      pending.delete(payload.id);
-      if (payload.ok === true) callback.resolve(payload.result);
-      else callback.reject(Error(typeof payload.error === 'string' ? payload.error : 'READ_WORKER_REJECTED'));
     });
-    current.addEventListener('error', () => {
-      workerReady = false;
-      error = 'READ_WORKER_UNAVAILABLE';
-      for (const callback of pending.values()) callback.reject(Error('READ_WORKER_UNAVAILABLE'));
-      pending.clear();
-    });
+    void bridge.ensureReady().then(() => {
+      if (!mounted) return;
+      const saved = bridge.getSession();
+      if (!saved) return;
+      summary = saved; fileName = saved.sourceFileName;
+      backupAvailable = bridge.hasUntouchedOriginalBackupSource(saved);
+      // Recovered READ is still scoped to the already externally attested A.
+      // Reopening B requires a fresh explicit external BID confirmation.
+      void searchSavedEvents(true);
+    }).catch(() => { if(mounted) error = 'READ_WORKER_UNAVAILABLE'; });
     return () => {
+      mounted = false;
       if (searchTimer) clearTimeout(searchTimer);
-      openToken += 1;
-      searchToken += 1;
-      for (const callback of pending.values()) callback.reject(Error('READ_WORKER_CLOSED'));
-      pending.clear();
-      current.terminate();
-      reader = null;
-      workerReady = false;
+      ++openToken; ++searchToken;
+      unsubscribe(); // Keeps one Core-owned Worker alive across SPA routes.
     };
   });
 
   function request(type: string, params: Record<string, unknown> = {}): Promise<any> {
-    if (!reader || !workerReady) return Promise.reject(Error('READ_WORKER_UNAVAILABLE'));
-    const id = ++messageId;
-    return new Promise((resolve, reject) => {
-      pending.set(id, { resolve, reject });
-      reader?.postMessage({ id, type, ...params });
+    const bridge = getLocalSaveSessionBridge();
+    if (type === 'CLOSE') return bridge.close();
+    if (type === 'QUERY') return bridge.queryW1Page({
+      search: String(params.search ?? ''),
+      cursor: params.cursor == null ? null : String(params.cursor),
+      limit: Number(params.limit ?? 64)
     });
+    if (type === 'OPEN_FILE') {
+      if (params.sourceConfirmed !== true)
+        return Promise.reject(Error('LOCAL_BUILD_VERSION_BID_SCHEMA_DENIED'));
+      return bridge.openLocalFile(params.file as File, {
+        platform: 'switch', fullVersion: '1.25.3', buildKind: 'switch-bid',
+        buildId: WAND_TIMING_SWITCH_BID, schema: 626, externallyConfirmed: true
+      } as const);
+    }
+    return Promise.reject(Error('LOCAL_OPERATION_WRITER_NOT_ACCEPTED'));
   }
 
   async function searchSavedEvents(reset: boolean) {
@@ -113,7 +117,7 @@
     query = '';
     matched = 0;
     nextCursor = null;
-    originalFile = null;
+    backupAvailable = false;
     backupRequested = false;
     selectedRow = null;
     proposedUtc = '';
@@ -137,7 +141,8 @@
         sourceConfirmed: true
       });
       if (token !== openToken) return;
-      if (result?.sourceSchema !== 626 ||
+      if (result?.schema !== 626 || result?.fullVersion !== '1.25.3' ||
+          result?.buildId !== WAND_TIMING_SWITCH_BID ||
           result?.writerAuthorized !== false ||
           result?.productRustWorkerAccepted !== false)
         throw Error('READ_WORKER_CAPABILITY_INVALID');
@@ -145,7 +150,7 @@
          !/^[a-f0-9]{64}$/.test(result.registrySha256)) throw Error('READ_WORKER_SHA_IDENTITY_INVALID');
       summary = result;
       fileName = file.name;
-      originalFile = file;
+      backupAvailable = getLocalSaveSessionBridge().hasUntouchedOriginalBackupSource(result);
       await searchSavedEvents(true);
     } catch (exception) {
       if (token !== openToken) return;
@@ -168,24 +173,25 @@
     try {
       preview = previewNextOccurrenceUiOnly(selectedRow,proposedUtc,{
         sourceSha256:summary?.sourceSha256,registrySha256:summary?.registrySha256,
-        externalBid:sourceBuild.trim().toUpperCase(),
-        sourceSchema:summary?.sourceSchema,sourceRevision:summary?.revision
+        externalBid:summary?.buildId,
+        sourceSchema:summary?.schema,sourceRevision:summary?.revision
       });
     } catch (err) {
       previewError = err instanceof Error ? err.message : 'W1_PREVIEW_REJECTED';
     }
   }
   function downloadOriginalBackup() {
-    if (!originalFile || !summary?.sourceSha256) return;
-    // Download only the untouched File selected by the user. The browser
-    // cannot attest that the user actually saved the backup to disk.
-    const url=URL.createObjectURL(originalFile);
-    const a=document.createElement('a');
-    a.href=url;
-    a.download=originalFile.name.replace(/[^\\w.\\-]/g,'_')+'.original-backup.p1g';
-    a.click();
-    backupRequested=true;
-    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    if (!summary || !backupAvailable) return;
+    try {
+      const outcome = getLocalSaveSessionBridge().requestUntouchedOriginalBackup({
+        sessionId:summary.sessionId,sourceSha256:summary.sourceSha256
+      });
+      // Browser download dispatch is only a request; do not claim persistence.
+      backupRequested = outcome.downloadRequested && outcome.persistedVerified === false;
+    } catch (exception) {
+      error = exception instanceof Error ? exception.message : 'LOCAL_ORIGINAL_BACKUP_REJECTED';
+    }
+
   }
 </script>
 
@@ -203,6 +209,9 @@
     : 'Editing, time changes and edited-copy export are disabled. The selected save is not uploaded to Wand servers.'}</p>
 
   <div class="import-panel">
+    <p data-single-savesession="true">{japanese
+      ? '読取り中のSaveSessionはタブ内で共有されます。ページ移動で原本はアップロードされません。'
+      : 'One local SaveSession is shared across routes in this tab; no original upload.'}</p>
     <p>{japanese ? '対象: Nintendo Switch DDV v1.25.3 / schema626' : 'Target: Nintendo Switch DDV v1.25.3 / schema626'}</p>
     <label for="timing-bid">{japanese ? '外部で確認したBuild ID' : 'Externally verified Build ID'}</label>
     <input id="timing-bid" type="text" bind:value={sourceBuild} placeholder={WAND_TIMING_SWITCH_BID} spellcheck="false" autocomplete="off"/>
@@ -221,7 +230,7 @@
       <p>{japanese ? '保存済みイベント' : 'Saved event containers'}: {summary.savedContainerCount} · {japanese ? '検索結果' : 'Matches'}: {matched} · {japanese ? '未対応の構造' : 'Unsupported containers'}: {summary.unsupportedContainerCount}</p>
       <p data-w1-source-sha="true">{japanese ? '暗号化原本 SHA-256' : 'Encrypted original SHA-256'}: <code>{summary.sourceSha256}</code></p>
       <div class="w1-backup">
-        <button type="button" data-w1-original-backup="true" disabled={!originalFile} on:click={downloadOriginalBackup}>
+        <button type="button" data-w1-original-backup="true" disabled={!backupAvailable} on:click={downloadOriginalBackup}>
           {japanese ? '原本をそのままバックアップ' : 'Download untouched original backup'}
         </button>
         <p role="status">{backupRequested
