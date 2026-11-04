@@ -96,7 +96,20 @@ try {
   assert.match(await page.locator('[data-wep-spatial-unresolved-details]').innerText(),/SPATIAL_READ_GEOMETRY_OR_STATE_UNVERIFIED/);
   pass('SYNTHETIC_PACKAGED_P1G_GRID_TO_SOURCE_PROOF_UNKNOWN_NOT_PAINTED');
   await node.click();
-  assert.match(await page.locator('[data-wep-spatial-details-id]').innerText(),/g10:o42/);
+  report.pointerClickState=await page.evaluate(()=>{
+    const node=document.querySelector('g[data-editor-object-id="g10:o42"]');
+    const rect=node?.getBoundingClientRect();
+    const point=rect?{x:rect.x+rect.width/2,y:rect.y+rect.height/2}:null;
+    const hit=point?document.elementFromPoint(point.x,point.y):null;
+    return {
+      selected:[...document.querySelectorAll('g.selected[data-editor-object]')].map(n=>n.getAttribute('data-editor-object-id')),
+      nodeBox:rect?{x:rect.x,y:rect.y,w:rect.width,h:rect.height}:null,
+      point,hitElement:hit?.tagName,
+      hitObjectId:hit?.closest('[data-editor-object-id]')?.getAttribute('data-editor-object-id')??null,
+      inspector:(document.querySelector('.object-inspector')?.textContent??'').slice(0,600)
+    };
+  });
+  assert.match(await page.locator('[data-wep-spatial-details-id]').innerText({timeout:1500}),/g10:o42/);
   assert.match(await page.locator('[data-wep-spatial-native-id]').innerText(),/42/);
   pass('P1G_SOURCE_GRIDOBJECT_CLICK_TO_SAME_INSPECTOR_ID');
   const svg=page.locator('svg[data-wep-marquee-canvas]');
