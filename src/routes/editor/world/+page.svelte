@@ -26,6 +26,8 @@
   } from '$lib/wep/canvas-runtime';
   import { marqueeHitIds, marqueeModifierMode, marqueeRect, mergeMarqueeSelection, type MarqueeMode } from '$lib/wep/marquee-selection';
   import { worldEditorMarqueeCopy } from '$lib/wep/world-editor-marquee-copy.js';
+  import { buildSpatialScene, spatialHitTest, spatialSelectedDetails } from '$lib/wep/spatial-scene';
+  import { spatialSceneCopy } from '$lib/wep/spatial-scene-copy.js';
   import { openWorldSaveBytes, WEP_WORLD_READONLY_626_PROVENANCE } from '$lib/wep/world-save-source';
   import { worldReadonlyCopy } from '$lib/wep/world-readonly-copy.js';
   import {
@@ -158,6 +160,22 @@
   let editorDocument: any = null;
   let worldSource: any = null;
   let projected: any[] = [];
+  let spatialScene: ReturnType<typeof buildSpatialScene> | null = null;
+  let spatialChanges: any[] = [];
+  let spatialView = { x: 0, y: 0, w: 24, h: 16 };
+  let spatialViewSession: any = null;
+  let spatialViewSource = '';
+  let spatialPan: {
+    pointerId: number;
+    sourceSession: any;
+    sourceArea: string;
+    startClient: { x: number; y: number };
+    startView: { x: number; y: number; w: number; h: number };
+    worldPerPixel: number;
+  } | null = null;
+  $: spatialObjectDetails = spatialScene && selection.length === 1
+    ? spatialSelectedDetails(spatialScene, selection[0])
+    : null;
   let selection: string[] = [];
   let layerState: any = null;
   let areaBounds = { x: 0, y: 0, w: 24, h: 16 };
@@ -2223,15 +2241,31 @@
     if (moveDrag) cancelMoveDrag(false);
     if (!session) {
       projected = [];
+      spatialScene = null;
+      spatialChanges = [];
+      spatialViewSession = null;
+      spatialPan = null;
       return;
     }
 
     editorDocument = session.getDocument();
     selection = session.getSelection();
-    const nextProjection = projectObjects(editorDocument, {
-      layerState,
-      query
+    const nextScene = buildSpatialScene(editorDocument, {
+      layerState, query,
+      // Only an authoritative root bound can reject real native coordinates.
+      // Object-derived fallback viewport bounds are NOT evidence of a Grid.
+      bounds: editorDocument.metadata?.rootGridBounds ?? null
     });
+    spatialScene = nextScene;
+    const nextProjection = nextScene.objects;
+    spatialChanges = session.reviewChanges().changes;
+    const viewSource = JSON.stringify([areaBounds, editorDocument.target]);
+    if (spatialViewSession !== session || spatialViewSource !== viewSource) {
+      spatialView = { ...areaBounds };
+      spatialViewSession = session;
+      spatialViewSource = viewSource;
+      spatialPan = null;
+    }
 
     if (reconcileHiddenSelection && selection.length) {
       const visibleSelection = reconcileSelectionToProjection(
@@ -2267,6 +2301,70 @@
     }
   }
 
+  function zoomSpatialView(factor: number, point: { x: number; y: number } | null = null) {
+    if (spatialPan || marqueeDrag || moveDrag || !session) return;
+    const old = spatialView;
+    const nextW = Math.max(2, Math.min(areaBounds.w * 4, old.w * factor));
+    const nextH = old.h * (nextW / old.w);
+    const center = point ?? { x: old.x + old.w / 2, y: old.y + old.h / 2 };
+    spatialView = {
+      x: center.x - (center.x - old.x) * (nextW / old.w),
+      y: center.y - (center.y - old.y) * (nextH / old.h),
+      w: nextW, h: nextH
+    };
+  }
+  function wheelSpatialView(event: WheelEvent) {
+    if (!session || !marqueeSvg) return;
+    event.preventDefault();
+    const point = marqueeWorldPoint(event, marqueeSvg);
+    zoomSpatialView(event.deltaY < 0 ? 0.8 : 1.25, point);
+  }
+  function startSpatialPan(event: PointerEvent) {
+    if (spatialPan || marqueeDrag || moveDrag || !session ||
+        !((event.button === 1) || (event.button === 0 && event.altKey)) ||
+        !marqueeSvg) return false;
+    const matrix = marqueeSvg.getScreenCTM();
+    if (!matrix || !Number.isFinite(matrix.a) || !Number.isFinite(matrix.b)) return false;
+    const scale = Math.hypot(matrix.a, matrix.b);
+    if (!scale) return false;
+    spatialPan = {
+      pointerId: event.pointerId, sourceSession: session,
+      sourceArea: JSON.stringify(areaBounds),
+      startClient: { x: event.clientX, y: event.clientY },
+      startView: { ...spatialView }, worldPerPixel: 1 / scale
+    };
+    marqueeSvg.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    return true;
+  }
+  function moveSpatialPan(event: PointerEvent) {
+    if (!spatialPan || event.pointerId !== spatialPan.pointerId) return;
+    if (spatialPan.sourceSession !== session ||
+        spatialPan.sourceArea !== JSON.stringify(areaBounds)) {
+      cancelSpatialPan(); return;
+    }
+    const drag = spatialPan;
+    spatialView = {
+      ...drag.startView,
+      x: drag.startView.x - (event.clientX - drag.startClient.x) * drag.worldPerPixel,
+      y: drag.startView.y - (event.clientY - drag.startClient.y) * drag.worldPerPixel
+    };
+    event.preventDefault();
+  }
+  function cancelSpatialPan() {
+    if (!spatialPan) return;
+    const id = spatialPan.pointerId;
+    spatialPan = null;
+    if (marqueeSvg?.hasPointerCapture(id)) marqueeSvg.releasePointerCapture(id);
+  }
+  function verifySpatialHit(event: MouseEvent, editorId: string) {
+    if (!spatialScene || !marqueeSvg) return false;
+    const point = marqueeWorldPoint(event, marqueeSvg);
+    // A dedicated Core object ID, never array index, is the UI authority.
+    // Where two furniture objects overlap, topmost painted object gets click.
+    const hit = point ? spatialHitTest(spatialScene, point.x, point.y) : null;
+    return hit?.editorId === editorId;
+  }
   function moveCanvasFocus(currentId: string, delta: number) {
     if (!projected.length) return;
     const currentIndex = projected.findIndex(
@@ -3079,7 +3177,7 @@
     marqueeFeedback = '';
   }
 
-  function marqueeWorldPoint(event: PointerEvent, svg: SVGSVGElement) {
+  function marqueeWorldPoint(event: MouseEvent, svg: SVGSVGElement) {
     const matrix = svg.getScreenCTM();
     if (!matrix) return null;
     const pt = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
@@ -3100,6 +3198,7 @@
   }
 
   function startMarquee(event: PointerEvent) {
+    if (startSpatialPan(event)) return;
     if (!marqueeArmed || !session || !editorDocument || marqueeDrag ||
         event.button !== 0 || event.isPrimary === false) return;
     // In this opt-in tool, existing object clicks (and modifier-clicks) are
@@ -3172,6 +3271,7 @@
 
   function selectObject(id: string, toggle = false) {
     if (moveDrag) cancelMoveDrag();
+    if (spatialPan) cancelSpatialPan();
     if (!session) return;
     canvasFocusEditorId = id;
     selection = toggle
@@ -4424,6 +4524,14 @@
           {:else if selectedInspectorObject}
             <dl class="inspector-details">
               <div><dt>{t('worldEditor.inspector.itemId', {}, $locale)}</dt><dd>{selectedInspectorObject.itemId}</dd></div>
+              <div data-wep-spatial-details-id><dt>{spatialSceneCopy($locale).objectId}</dt>
+                <dd>{spatialObjectDetails?.editorId ?? selectedInspectorObject.editorId}</dd></div>
+              <div data-wep-spatial-native-id><dt>{spatialSceneCopy($locale).nativeId}</dt>
+                <dd>{spatialObjectDetails?.nativeGridObjectId ?? 'UNVERIFIED'}</dd></div>
+              <div><dt>{spatialSceneCopy($locale).rootGrid}</dt>
+                <dd>{spatialObjectDetails?.rootGridId ?? 'UNVERIFIED'}</dd></div>
+              <div><dt>{spatialSceneCopy($locale).footprint}</dt>
+                <dd>{spatialObjectDetails?.footprintCells ?? 'UNVERIFIED'}</dd></div>
               <div><dt>{t('worldEditor.inspector.layer', {}, $locale)}</dt><dd>{selectedInspectorObject.layer}</dd></div>
               <div><dt>{t('worldEditor.inspector.editability', {}, $locale)}</dt><dd>{selectedInspectorObject.editability}</dd></div>
               <div><dt>{t('worldEditor.inspector.position', {}, $locale)}</dt><dd>{selectedInspectorObject.x}, {selectedInspectorObject.y}</dd></div>
@@ -4487,6 +4595,26 @@
             {/if}
           {/if}
 
+          {#if spatialScene?.unresolved.length}
+            <details data-wep-spatial-unresolved-details>
+              <summary>{spatialSceneCopy($locale).unresolved}: {spatialScene.unresolved.length}</summary>
+              {#each spatialScene.unresolved.slice(0, 12) as issue}
+                <p><code>{issue.editorId}</code> · <code>{issue.code}</code></p>
+              {/each}
+            </details>
+          {/if}
+          {#if spatialChanges.length}
+            <section data-wep-spatial-changes aria-label={spatialSceneCopy($locale).changes}>
+              <h4>{spatialSceneCopy($locale).changes}</h4>
+              {#each spatialChanges.slice(0, 12) as change}
+                <p data-wep-spatial-delta={change.editorId}>
+                  <code>{change.editorId}</code> · {change.kind}
+                  <span>{change.before ? `${change.before.x},${change.before.y}/${change.before.orientation}` : '∅'}
+                    → {change.after ? `${change.after.x},${change.after.y}/${change.after.orientation}` : '∅'}</span>
+                </p>
+              {/each}
+            </section>
+          {/if}
           <h4>{t('worldEditor.inspector.commonActions', {}, $locale)}</h4>
           <div class="inspector-common-actions">
             <button aria-disabled={!primaryJobAvailability.commands.move.enabled} aria-describedby={!primaryJobAvailability.commands.move.enabled ? 'wep-reason-move' : undefined} on:click={() => runPrimaryMutation('move', 'right')}>{t('worldEditor.command.moveRight', {}, $locale)}</button>
@@ -4979,17 +5107,29 @@
         {/if}
 
         <div class="canvas-wrap">
+          <div class="spatial-viewport-controls" data-wep-spatial-controls>
+            <button type="button" aria-label={spatialSceneCopy($locale).zoomIn}
+              on:click={() => zoomSpatialView(0.8)}>+</button>
+            <button type="button" aria-label={spatialSceneCopy($locale).zoomOut}
+              on:click={() => zoomSpatialView(1.25)}>−</button>
+            <button type="button" aria-label={spatialSceneCopy($locale).fit}
+              on:click={() => { spatialView = { ...areaBounds }; }}>{spatialSceneCopy($locale).fit}</button>
+            <span>{spatialSceneCopy($locale).panHint}</span>
+            <span data-wep-spatial-scale>{(areaBounds.w / spatialView.w).toFixed(2)}×</span>
+          </div>
           <svg
             class="world-canvas"
             class:marquee-enabled={marqueeArmed}
             data-wep-marquee-canvas
+            role="group"
             bind:this={marqueeSvg}
             on:pointerdown={startMarquee}
-            on:pointermove={moveMarquee}
-            on:pointerup={finishMarquee}
-            on:pointercancel={() => cancelMarquee()}
-            on:lostpointercapture={() => cancelMarquee(false)}
-            viewBox={`${areaBounds.x} ${areaBounds.y} ${areaBounds.w} ${areaBounds.h}`}
+            on:pointermove={(event) => { moveSpatialPan(event); moveMarquee(event); }}
+            on:pointerup={(event) => { if (spatialPan) cancelSpatialPan(); else finishMarquee(event); }}
+            on:pointercancel={() => { cancelSpatialPan(); cancelMarquee(); }}
+            on:lostpointercapture={() => { cancelSpatialPan(); cancelMarquee(false); }}
+            on:wheel|nonpassive={wheelSpatialView}
+            viewBox={`${spatialView.x} ${spatialView.y} ${spatialView.w} ${spatialView.h}`}
             preserveAspectRatio="xMidYMid meet"
             aria-label={t('worldEditor.canvas.ariaLabel', {}, $locale)}
           >
@@ -5042,6 +5182,9 @@
                 )}
                 data-editor-object="true"
                 data-editor-object-id={object.editorId}
+                data-wep-spatial-editor-id={object.spatial.editorId}
+                data-wep-spatial-native-grid-object-id={object.spatial.nativeGridObjectId ?? 'UNVERIFIED'}
+                data-wep-spatial-orientation={object.orientation}
                 on:focus={() => {
                   canvasFocusEditorId = object.editorId;
                 }}
@@ -5050,6 +5193,7 @@
                     suppressMoveClickId = '';
                     return;
                   }
+                  if (!verifySpatialHit(event, object.editorId)) return;
                   selectObject(
                     object.editorId,
                     event.ctrlKey || event.metaKey || event.shiftKey
@@ -5107,6 +5251,11 @@
 
         <div class="canvas-footer">
           <span>{t('worldEditor.canvas.visibleCount', { count: projected.length }, $locale)}</span>
+          {#if spatialScene?.unresolved.length}
+            <span data-wep-spatial-unresolved role="status">
+              {spatialSceneCopy($locale).unresolved}: {spatialScene.unresolved.length}
+            </span>
+          {/if}
           <span>{t('worldEditor.canvas.mouseHelp', {}, $locale)}</span>
           <span>{t('worldEditor.canvas.keyboardHelp', {}, $locale)}</span>
           <span data-wep-surface="road-fence-labels">{t('worldEditor.canvas.roadFenceLocked', {}, $locale)}</span>
@@ -6520,6 +6669,15 @@
     padding:16px;
   }
 
+  .spatial-viewport-controls { display:flex; gap:7px; align-items:center; flex-wrap:wrap;
+    padding:7px 10px; border:1px solid var(--border); border-radius:9px; margin-bottom:7px;
+    background:var(--surface); font-size:10px; }
+  .spatial-viewport-controls button { padding:5px 9px; background:var(--surface-raised);
+    color:var(--ink); border:1px solid var(--border); border-radius:7px; }
+  .spatial-viewport-controls button:focus-visible { outline:2px solid var(--gold); }
+  .spatial-viewport-controls span { color:var(--ink-muted); overflow-wrap:anywhere; }
+  [data-wep-spatial-changes] p, [data-wep-spatial-unresolved-details] p {
+    display:flex; gap:6px; flex-wrap:wrap; overflow-wrap:anywhere; margin:5px 0; }
   .inspector-precise{display:grid;gap:7px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)}
   .inspector-precise h4{margin:0}
   .inspector-precise>div{display:grid;grid-template-columns:1fr 1fr;gap:6px}
