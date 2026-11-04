@@ -73,7 +73,7 @@ test('cumulative test execution remains synthetic: no P1G runner in any GitHub w
  assert.match(flow,/node --check scripts\/wep-private-real-save-2d-local-only-20261104\.mjs/);
  assert.doesNotMatch(flow,/node (?!\-\-check)(?:--experimental-strip-types )?scripts\/wep-private-real-save-2d-local-only-20261104\.mjs/);
  assert.match(qaFlow,/node --test tests\/04qr-w-pr493-main-harness-independent\.test\.mjs/);
- assert.doesNotMatch(qaFlow,/WEP_PRIVATE_P1G_PATH\s*:/);
+ assert.match(qaFlow,/test -z "\\$\\{WEP_PRIVATE_P1G_PATH:-\\}"/);
  assert.match(runner,/if \(process\.env\.CI\|\|process\.env\.GITHUB_ACTIONS\)/);
  assert.match(runner,/serviceWorkers:'block'/);
  assert.match(runner,/routeWebSocket\('\*\*\/\*'/);
