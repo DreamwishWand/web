@@ -1,0 +1,38 @@
+name: WEP 626 owner-private readonly browser receipt (synthetic policy only)
+on:
+  push:
+    branches: ['wep/private-626-readonly-browser-receipt-20261104']
+  pull_request:
+    branches: ['wep/private-genuine-p1g-e2e-harness-source-only-20261104']
+    paths:
+      - 'scripts/wep-private-626-readonly-browser-receipt-20261104.mjs'
+      - 'scripts/wep-private-626-readonly-boundary-20261104.mjs'
+      - 'tests/wep-private-626-readonly-browser-boundary.test.mjs'
+      - '.github/workflows/wep-private-626-readonly-browser-20261104.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  synthetic-source-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - name: Pin accepted parent 624 source + new owner branch
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git hash-object src/lib/wep/real-save-spatial-read.ts)" = "48b32c3bd3132c6e48a47d7b8f017a35642d2623"
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Only synthetic 626 readonly source-count/partial negatives
+        run: node --test tests/wep-private-626-readonly-browser-boundary.test.mjs
+      - name: Owner-only real P1G executor syntax — NEVER RUN
+        run: node --experimental-strip-types --check scripts/wep-private-626-readonly-browser-receipt-20261104.mjs
+      - name: Enforce no private P1G/receipt mounted in CI
+        run: |
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
