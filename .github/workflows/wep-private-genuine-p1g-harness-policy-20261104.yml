@@ -1,0 +1,41 @@
+name: WEP owner-private genuine P1G harness policy — synthetic CI only
+on:
+  push:
+    branches: ['wep/private-genuine-p1g-e2e-harness-source-only-20261104']
+  pull_request:
+    branches: ['wep/local-spatial-source-main-20261104']
+    paths:
+      - 'scripts/wep-private-real-save-2d-local-only-20261104.mjs'
+      - 'scripts/wep-private-real-save-e2e-safety-20261104.mjs'
+      - 'tests/wep-private-real-save-e2e-safety.test.mjs'
+      - '.github/workflows/wep-private-genuine-p1g-harness-policy-20261104.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-policy-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - name: Confirm fixed Source and pinned harness parent
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git hash-object src/lib/wep/real-save-spatial-read.ts)" = 48b32c3bd3132c6e48a47d7b8f017a35642d2623
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Only synthetic pure policy tests
+        run: node --test tests/wep-private-real-save-e2e-safety.test.mjs
+      - name: Syntax only — owner genuine P1G executor is NEVER run in CI
+        run: node --check scripts/wep-private-real-save-2d-local-only-20261104.mjs
+      - name: No runner invocation, private file, Save content or receipt in CI
+        run: |
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
