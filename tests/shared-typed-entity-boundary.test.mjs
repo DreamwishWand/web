@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import { SHARED_TYPED_COPY, sharedTypedCopy } from '../src/lib/foundation/shared-typed-entity-copy.mjs';
-import { parseSharedPrimaryId, resolveSharedCatalogEntity } from '../src/lib/entity/shared-catalog-detail.mjs';
+import { parseSharedPrimaryId } from '../src/lib/entity/shared-catalog-detail.mjs';
 const read=path=>readFileSync(path,'utf8');
 
 test('accepted Item source untouched and numeric P/S shapes do not infer a positive specialization',()=>{
@@ -33,8 +33,8 @@ test('one true EntityRef model stays with PRODUCT; web shell is nonpositive and 
   'data-typed-entity-gate="closed"','data-public-indexable="false"','data-writer="off"',
   'data-provider="off"','data-relations-verified="false"','data-alias-resolved="false"',
   'data-personal-state="unknown"','noindex,nofollow',
-  'permittedRequestShape','parseSharedPrimaryId(primaryId)','source-unavailable'
- ]) assert.ok(g.includes(token)||token==='source-unavailable',token);
+  'permittedRequestShape','parseSharedPrimaryId(primaryId)'
+ ]) assert.ok(g.includes(token),token);
  for(const forbidden of ['shared-typed-entity-contract.mjs','src/lib/foundation/shared-typed-entity-contract.mjs',
   'getLocalSaveSessionBridge','localStorage','fetch(','publishWork(','ownedCount','createObjectURL']){
    assert.ok(!g.includes(forbidden),forbidden);
