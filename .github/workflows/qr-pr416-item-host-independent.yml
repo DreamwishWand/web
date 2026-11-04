@@ -21,7 +21,9 @@ jobs:
           set -euo pipefail
           set -x
           SRC=123ffe88ff8ffcf5a760bf7425a374e9264fad36
-          MAIN=f3ed8e1ba103b109e1e685c258f1498bee7e99a1
+          MAIN=d3a2dbfa76d041e7edc30abbd89f5fc264a540f8
+          # 08 WEB PR416 was prepared on pre-f3ed source; accepting current main would be false.
+          if git merge-base --is-ancestor f3ed8e1ba103b109e1e685c258f1498bee7e99a1 HEAD; then echo QR416_MAIN_LINEAGE_ACTUALLY_UPDATED; else echo QR416_SOURCE_ONLY_NOT_MAIN_BASED; fi
           git merge-base --is-ancestor "$SRC" HEAD
           git merge-base --is-ancestor "$MAIN" HEAD
           git diff --name-only "$SRC" HEAD | sort >/tmp/qr416-actual
