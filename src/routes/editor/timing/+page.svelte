@@ -54,10 +54,11 @@
       limit: Number(params.limit ?? 64)
     });
     if (type === 'OPEN_FILE') {
+      if (params.sourceConfirmed !== true) return Promise.reject(Error('LOCAL_BUILD_VERSION_BID_SCHEMA_DENIED'));
       return bridge.openLocalFile(params.file as File, {
         platform: 'switch', fullVersion: '1.25.3', buildKind: 'switch-bid',
         buildId: WAND_TIMING_SWITCH_BID, schema: 626,
-        externallyConfirmed: params.sourceConfirmed === true
+        externallyConfirmed: true
       } as const);
     }
     return Promise.reject(Error('LOCAL_OPERATION_WRITER_NOT_ACCEPTED'));
