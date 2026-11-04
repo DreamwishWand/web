@@ -1,0 +1,92 @@
+name: 05 QR PR394 independent single SaveSession actual Chromium
+on:
+  push:
+    branches: [qa/05qr-pr394-composite-20261104]
+  pull_request:
+    paths:
+      - 'scripts/05qr-pr394-composite-browser.mjs'
+      - 'tests/qa-05qr-pr394-composite-new-only.test.mjs'
+      - '.github/workflows/qa-pr394-composite.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-session:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Fixed PR394 unchanged source and real Save prohibition
+        run: |
+          test "$(git merge-base c592aeb22544152c1b260297136f0f1eaa3a0592 HEAD)" = c592aeb22544152c1b260297136f0f1eaa3a0592
+          git diff --quiet c592aeb22544152c1b260297136f0f1eaa3a0592 HEAD -- src/ crates/ tests/local-single-save-session-bridge.test.mjs
+          echo PRODUCT_WRITER=OFF
+          echo PRIVATE_REAL_P1G_IN_CI=NO
+          echo GENUINE_SAVE_E2E=NOT_RUN
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Independent Session lease/Version/Cursor/Writers Node negatives
+        run: node --test tests/qa-05qr-pr394-composite-new-only.test.mjs
+      - name: Build true /web Pages parity
+        env:
+          BASE_PATH: /web
+        run: |
+          npm run check
+          npm run build
+          test -f build/editor/timing/index.html
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Find actual Chrome binary
+        id: chrome
+        run: |
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "path=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+      - name: Vite development test server
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4237 > /tmp/qa383-dev.log 2>&1 &
+          for i in $(seq 1 65); do
+            if curl --fail --silent http://127.0.0.1:4237/editor/timing/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qa383-dev.log
+          exit 1
+      - name: INDEPENDENT true Chromium session and 100/200MiB synthetic
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          QR394_URL: http://127.0.0.1:4237
+          QR394_MODE: dev
+          QR394_HEAVY: '1'
+        run: node scripts/05qr-pr394-composite-browser.mjs
+      - name: Static /web preview server (never deploy)
+        run: |
+          node scripts/01a-pages-base-static-server.mjs > /tmp/qa383-pages.log 2>&1 &
+          for i in $(seq 1 65); do
+            if curl --fail --silent http://127.0.0.1:4181/web/editor/timing/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qa383-pages.log
+          exit 1
+      - name: INDEPENDENT true Chromium built /web Session and Registry
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          QR394_URL: http://127.0.0.1:4181/web
+          QR394_MODE: pages-web
+          QR394_HEAVY: '0'
+        run: node scripts/05qr-pr394-composite-browser.mjs
+      - name: Explicitly keep all Writer capabilities OFF
+        if: always()
+        run: |
+          echo NATIVE_V3=NOT_RUN
+          echo ACTUAL_RUST_WASM_WORKER=NOT_ACCEPTED
+          echo WRITER=OFF
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-pr394-synthetic-actual-chromium
+          path: .artifacts/05qr-pr394/
+          if-no-files-found: ignore
