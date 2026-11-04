@@ -34,7 +34,11 @@ context.on('request',req=>{
 });
 function mark(name){console.log('QR_402_'+name+'_PASS');}
 async function load(bytes){
- await page.goto(ROOT,{waitUntil:'domcontentloaded'});
+ await page.goto(ROOT,{waitUntil:'networkidle'});
+ // Ensure client hydration before dispatching file input change; domcontentloaded alone
+ // can race Svelte's on:change handler and never expose 'Open in Canvas'.
+ await page.locator('.load-panel input[type=file]').waitFor();
+ await page.waitForTimeout(450);
  await page.locator('.platform-select select').selectOption('switch');
  await page.locator('.load-panel input[type=file]').setInputFiles({name:'profile',
   mimeType:'application/octet-stream',buffer:bytes});
