@@ -24,7 +24,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          BASE=fabfd17c8dd192707d55a6cc12cccf65797d564e
+          BASE="${{ github.event.pull_request.base.sha || 'fabfd17c8dd192707d55a6cc12cccf65797d564e' }}"
           test "$(git merge-base "$BASE" HEAD)" = "$BASE"
           git diff --name-only "$BASE" HEAD > /tmp/08web-gallery-stage1
           test "$(wc -l </tmp/08web-gallery-stage1)" -eq 5
