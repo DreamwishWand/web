@@ -24,7 +24,7 @@ const notes=load('docs/community/post327-remaining-writer-route-audit-20261103.m
 test('fix Source155 and Source156 at independently accepted PR327 SQL/Edge blobs',()=>{
  assert.equal(gitBlob(source155),'115f2c0f7224984acd8830cfc606af8c6a1bf3af');
  assert.equal(gitBlob(source156),'3000d66c193b996e4ece785deaf5180955ec3bc6');
- assert.equal(gitBlob(edge),'196f8d221224789049f8573cfe17bd54645971f9');
+ assert.equal(gitBlob(edge),'f785a5503f4e4532c9e9359587fcd6948bda76de');
  assert.match(source156,/for share;/);
  assert.match(source156,/community_authorize_signed_session_v2/);
  assert.match(source156,/revoke all on function public\.community_set_gallery_comments_enabled_atomic_r16/);
@@ -168,4 +168,18 @@ test('Source162 Gallery Photo SECURITY DEFINER parent externally failclosed afte
  assert.match(source162,/community_set_gallery_comments_enabled_atomic_signed_v1/);
  assert.match(source162,/community_delete_ddv_profile_workspace_v1/);
  assert.match(source162,/community_create_gallery_work_v1/);
+});
+
+const source163=load('supabase/migrations/20261104050000_community_source163_help_answer_service_execute_off.sql');
+test('Source163 blocks only legacy Help Answer direct SQL and leaves signed R16 preserved',()=>{
+ const signed=edge.indexOf("'community_authorize_signed_session_v2'",edge.indexOf("if (command !== 'ensureAccountCreator')"));
+ const guard=edge.indexOf("new Set<string>(['addAnswer']).has(command)");
+ const rate=edge.indexOf('const rateBucket = commandToRateBucket[command]');
+ assert.ok(signed>=0 && guard>signed && rate>guard);
+ assert.match(edge,/SOURCE163_HELP_ANSWER_WRITER_NOT_ENROLLED/);
+ assert.match(source163,/revoke all on function public\.community_add_answer_v1/);
+ assert.match(source163,/from public,anon,authenticated,service_role/);
+ assert.doesNotMatch(source163,/grant execute on function public\.community_add_answer_v1/i);
+ assert.match(source163,/community_set_gallery_comments_enabled_atomic_signed_v1/);
+ assert.match(source163,/community_delete_ddv_profile_workspace_v1/);
 });
