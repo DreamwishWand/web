@@ -1,0 +1,42 @@
+name: 05 QR integrated main PR405 + PR422 local cumulative new-only
+on:
+  push:
+    branches: [qa/05qr-main405-422-cumulative-20261104]
+  pull_request:
+    paths:
+      - 'tests/qa-05qr-current-main-405-422-cumulative.test.mjs'
+      - '.github/workflows/qa-main405-422-cumulative.yml'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  independent-cumulative:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Freeze accepted source blobs and W1 untouched on latest 405+422 merged main
+        run: |
+          git merge-base --is-ancestor a6c69b441463431baa5333b07b952bddc62b843b HEAD
+          git diff --quiet a6c69b441463431baa5333b07b952bddc62b843b HEAD -- src/ docs/
+          test "$(git rev-parse 4dc12d1f482fcf08b6a795eefa8caebabb3caab6:src/lib/ddv/core/items/item-semantics-contract.mjs)" = "$(git rev-parse HEAD:src/lib/ddv/core/items/item-semantics-contract.mjs)"
+          test "$(git rev-parse 8f0682999b559e125e0b8aed6ead8a7411cb321d:src/lib/presets/native-local-file-import-contract.mjs)" = "$(git rev-parse HEAD:src/lib/presets/native-local-file-import-contract.mjs)"
+          git diff --quiet f3ed8e1ba103b109e1e685c258f1498bee7e99a1 a6c69b441463431baa5333b07b952bddc62b843b -- src/lib/ddv/core/save/ src/lib/timing/ src/routes/editor/timing/
+          echo SRC_405_422_ORIGINAL_BLOBS_AND_W1_PREVIEW_BACKUP_UNCHANGED=YES
+          echo PERSONAL_OWNED=UNKNOWN
+          echo GAME_SAVE_WRITER=OFF
+          echo REAL_PRIVATE_P1G=NOT_RUN
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Main-only three new cross-consumer negatives
+        run: node --test tests/qa-05qr-current-main-405-422-cumulative.test.mjs
+      - name: Svelte/Type/Pages unaffected
+        env: {BASE_PATH: /web}
+        run: |
+          npm run check
+          npm run build
+          test -f build/editor/timing/index.html
+          test -f build/presets/index.html
