@@ -139,3 +139,54 @@ test('source evidence cannot be promoted using caller fake Native/Writer/Clock f
   assert.equal(r.automatic2126RepairAuthorized,false);
   assert.equal(W1_SCENE_AREA_SOURCE.sourceEventId,2010000021);
 });
+
+
+test('a changing SceneItemId getter may not impersonate Village04',()=>{
+  const p=fixture(),v=p.World.Villages[1];
+  let hits=0;
+  Object.defineProperty(v,'SceneItemId',{enumerable:true,configurable:true,
+    get(){return ++hits===1?1540000001:1540000000;}});
+  const result=inspect(p);
+  denies(result);
+  assert.equal(hits,0,'never execute untrusted SceneItemId getter');
+});
+test('serialized references reject inherited fields, mutable GridIDs and hidden area',()=>{
+  const cases=[
+    p=>{const v=p.World.Villages[0];
+      v.SceneItemId=undefined;Object.setPrototypeOf(v,{SceneItemId:1540000000});delete v.SceneItemId;},
+    p=>{const a=p.World.Villages[0].Areas['1'];let hits=0;
+      Object.defineProperty(a,'GridIDs',{enumerable:true,
+        get(){return ++hits===1?[100]:[999];}});},
+    p=>{const grid=p.World.GridCollection.Grids['100'];
+      delete grid.ID;Object.setPrototypeOf(grid,{ID:100});},
+    p=>{Object.defineProperty(p.World.Villages[0].Areas,'8',{
+      enumerable:false,value:{Unlocked:true,GridIDs:[100]}});}
+  ];
+  for(const edit of cases){const p=fixture();edit(p);denies(inspect(p));}
+});
+test('own map/grid ID getters and alternate hidden keys never mint a reference',()=>{
+  const p=fixture(),g=p.World.GridCollection.Grids['100'];
+  let reads=0;
+  Object.defineProperty(g,'ID',{enumerable:true,
+    get(){return ++reads===1?100:999;}});
+  const result=inspect(p);denies(result);
+  assert.equal(reads,0);
+  const q=fixture();
+  Object.defineProperty(q.World.Villages[0].Areas,Symbol('hidden'),{
+    value:{Unlocked:true,GridIDs:[100]},enumerable:false
+  });
+  denies(inspect(q));
+});
+test('plain own JSON data remains read-only and preserves paired map distinction',()=>{
+  const p=fixture();
+  p.World.GridCollection.DiffGrids['100']={ID:100,ModifiedObjects:{},RemovedObjects:{}};
+  const before=JSON.stringify(p);
+  const r=inspect(p);
+  assert.equal(r.status,'SAVED_SCENE_AREA_REFERENCES_SOURCE_ONLY');
+  assert.equal(r.sourceCandidates.find(a=>a.saveAreaKey==='1').sourceGridRefs[0].sourceKind,
+    'GRIDS_AND_DIFF_UNRESOLVED');
+  assert.equal(r.nativeWetlandAreaEnum,1);
+  assert.equal(r.selectedNativeWetlandAreaKey,null);
+  assert.equal(r.productWriterAuthorized,false);
+  assert.equal(JSON.stringify(p),before);
+});
