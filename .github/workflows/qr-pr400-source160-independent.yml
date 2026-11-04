@@ -1,0 +1,93 @@
+name: 04 QR PR400 Source160 independent genuinely signed Help Question/Tip OFF
+on:
+  push:
+    branches: [qa/pr400-source160-help-two-off-20261104]
+  pull_request:
+    branches: [comm/w-comm-006-source160-help-qa-two-writers-off-20261104]
+permissions:
+  contents: read
+jobs:
+  full160:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Fix exactly Source160 and independent two QA paths; enforce frozen prior migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=238be9826c7d276abb863990fdee7943346dfb70
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git diff --name-only "$SOURCE" HEAD | sort > /tmp/qr160-actual
+          printf '%s\n' .github/workflows/qr-pr400-source160-independent.yml tests/qr-pr400-source160-independent.py | sort > /tmp/qr160-expected
+          diff -u /tmp/qr160-expected /tmp/qr160-actual
+          test -z "$(git diff --name-only "$SOURCE" HEAD -- src supabase docs static)"
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 160
+          test "$(git hash-object supabase/migrations/20261102010000_community_source155_verified_first_account_bootstrap.sql)" = 115f2c0f7224984acd8830cfc606af8c6a1bf3af
+          test "$(git hash-object supabase/migrations/20261103010000_community_source156_signed_gallery_r16_atomic_writer.sql)" = 3000d66c193b996e4ece785deaf5180955ec3bc6
+          test "$(git hash-object supabase/migrations/20261103020000_community_source157_legacy_comments_v2_service_execute_off.sql)" = b9c44a501189857dff9fc6446dea21717d58b785
+          test "$(git hash-object supabase/migrations/20261103030000_community_source158_r15_gallery_pinned_service_execute_off.sql)" = 033920ee79a3dd07b32854f0bbfb3b225167f3e2
+          test "$(git hash-object supabase/migrations/20261104010000_community_source159_workspace_identity_legacy_service_execute_off.sql)" = 6bf78322e70406272125f245fcd525feb9347652
+          test "$(git hash-object supabase/migrations/20261104020000_community_source160_help_qa_question_tip_service_execute_off.sql)" = 0e5593b2a946727b4bd5d6ec5050b9c58a1dde0e
+          test "$(git hash-object supabase/functions/community-command/index.ts)" = 7d1bec902a3c9d332ac3c074c4f1ee9f7f9cd67f
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID"
+          python3 -m py_compile tests/qr-pr400-source160-independent.py
+          echo QR_160_FROZEN_PRIOR_MIGRATIONS_AND_TWO_QA_PATHS_PASS
+      - uses: supabase/setup-cli@v1
+        with: {version: 2.109.0}
+      - name: Generate ephemeral genuine local-only ES256 GoTrue signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\n[auth]\nsigning_keys_path = "./signing_keys.json"\n' >> supabase/config.toml
+          printf '[]\n' > supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes >/tmp/qr160-signer.log 2>&1
+      - name: Start completely isolated and reset full 160-migration local database
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_qr160_independent_local_20261104"\n' | cat - supabase/config.toml >/tmp/qr160-config
+          mv /tmp/qr160-config supabase/config.toml
+          printf 'COMMUNITY_MEDIA_BUCKET=qr160-local-only\nWEP_PRESET_ARTIFACT_BUCKET=qr160-private-local-only\n' > supabase/functions/.env
+          timeout 1800s supabase start >/tmp/qr160-start.log 2>&1 || {
+            echo QR160_LOCAL_START_FAILED
+            tail -n 25 /tmp/qr160-start.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'; exit 1;
+          }
+          timeout 900s supabase db reset --no-seed >/tmp/qr160-reset.log 2>&1 || {
+            echo QR160_LOCAL_RESET_FAILED
+            tail -n 25 /tmp/qr160-reset.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'; exit 1;
+          }
+          echo QR_160_GENUINE_LOCAL_FULL160_CLEAN_RESET_PASS
+      - run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Independent GoTrue ES256 active/revoked + real 2PG execution/rollback and no DB diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/qr-pr400-source160-independent.py | tee /tmp/qr160-independent.log
+          for marker in \
+            QR_160_TWO_RPC_THREE_ROLE_REVOKE_SIGNED_R16_SOURCE159_UNCHANGED_PASS \
+            QR_160_A2_SIGNED_TWO_EDGE409_SIX_SQL42501_DB_NO_DIFF_PASS \
+            QR_160_REVOKED_A1_OLD_REFRESHED_401_A2_200_TWO_PG_REPLAY_NO_DIFF_PASS \
+            QR_160_TWO_PG_TEMP_GRANT_ROLLBACK_REMAINS_DENIED_PASS \
+            QR_160_INDEPENDENT_GENUINE_ES256_FULL160_SOURCE_ONLY_PASS; do
+            grep -q "$marker" /tmp/qr160-independent.log
+          done
+      - name: Terminate disposable local DB and destroy signer/env/logs
+        if: always()
+        shell: bash
+        run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f supabase/signing_keys.json supabase/functions/.env /tmp/qr160-*
+          echo QR_160_DISPOSABLE_CLEANUP_ATTEMPTED
