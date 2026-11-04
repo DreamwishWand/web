@@ -82,9 +82,10 @@ test('full Version/BID/schema/Platform exact matching, old Catalog never gets cu
  for(const id of [{...a,gameVersion:'1.25.3'}, {...a,buildId:b.buildId},
    {...a,profileSchema:626},{...a,platform:'steam-windows'},
    {...a,sourcePlatform:'windows'}, {...a,gameVersion:'1.25.2'},
-   {...b,profileSchema:624},{...b,buildId:a.buildId},undefined]){
+   {...b,profileSchema:624},{...b,buildId:a.buildId}]){
   assert.equal(col(mk(),id).code,'EXACT_ORIGINAL_BUILD_AND_SCHEMA_REQUIRED');
  }
+ assert.equal(inspectCollectionSaveFlag({profile:mk(),identity:undefined,definitionId:2120000121,itemId:40700050}).code,'EXACT_ORIGINAL_BUILD_AND_SCHEMA_REQUIRED');
  assert.equal(col(mk(626),a).code,'EXACT_ORIGINAL_BUILD_AND_SCHEMA_REQUIRED');
  assert.equal(col(mk(624),b).code,'EXACT_ORIGINAL_BUILD_AND_SCHEMA_REQUIRED');
  assert.equal(ITEM_SOURCE_TARGETS.switch1250.profileSchema,624);
@@ -111,7 +112,7 @@ test('Inventory amount rejects string/negative/fraction/overflow/bad compatible 
  assert.equal(inv(mk(),a,40700050,0,5).code,'INVENTORY_COMPATIBLE_ITEM_TYPE_MISMATCH');
  assert.equal(inv(mk(),a,0).code,'CANONICAL_INVENTORY_ROUTE_NOT_SPECIFIED');
  assert.equal(inv(mk(),a,40700050,-1).code,'CANONICAL_INVENTORY_ROUTE_NOT_SPECIFIED');
- assert.equal(inv(mk(),a,40700050,0,undefined).code,'CANONICAL_INVENTORY_ROUTE_NOT_SPECIFIED');
+ assert.equal(inspectInventoryAmount({profile:mk(),identity:a,inventoryId:0,canonicalItemId:40700050,compatibleItemType:undefined}).code,'CANONICAL_INVENTORY_ROUTE_NOT_SPECIFIED');
  const p=mk();p.Player.ListInventories=null;
  assert.equal(inv(p).code,'LIST_INVENTORIES_MISSING');
 });
