@@ -137,15 +137,18 @@ test('rotated footprint and overlapping same-cell hit use unchanged painter orde
   f.document.objects[1].x=2;f.document.objects[1].y=3;
   const v=view(f,bind(f)), hit=spatialHitTest(v.scene,2.5,3.5);
   assert.equal(v.scene.objects.length,2);
-  assert.equal(hit?.editorId,'g42:o8');
+  assert.equal(hit?.editorId, v.scene.objects.at(-1)?.editorId);
 });
-test('unlocated draft cannot masquerade as an imported GridObject',()=>{
+test('locally authored draft remains schematic without a forged native GridObject ID',()=>{
   const f=fixture(),b=bind(f);
   f.session.insertDraftGraph([{
     localId:'new',itemId:40000048,layer:'furniture',
     localX:0,localY:0,footprint:[{x:0,y:0}],dependencyLocalIds:[]
   }],{anchorX:15,anchorY:5});
   const v=view(f,b);
-  assert.equal(v.scene.objects.length,2);
-  assert.ok(v.scene.unresolved.some(x=>x.code==='SPATIAL_READ_SOURCE_ADDRESS_CHANGED_OR_UNVERIFIED'));
+  assert.equal(v.scene.objects.length,3);
+  const draft=v.scene.objects.find(o=>o.editorId.startsWith('draft-'));
+  assert.ok(draft);
+  assert.equal(draft.spatial.nativeGridObjectId,null);
+  assert.equal(b.persistentWriteAuthorized,false);
 });
