@@ -53,6 +53,11 @@ fn rust_private_operation_proof_synthetic_atomic_stage_undo_redo_backup_copy(){
  assert!(!evidence.product_writer_authorized);
  assert_eq!(fs::read(&fixture.original).unwrap(),fixture.ciphertext);
  assert_eq!(fs::read(&fixture.backup).unwrap(),fixture.ciphertext);
+ #[cfg(unix)] {
+  use std::os::unix::fs::PermissionsExt;
+  assert_eq!(fs::metadata(&fixture.backup).unwrap().permissions().mode() & 0o077,0);
+  assert_eq!(fs::metadata(&fixture.edited).unwrap().permissions().mode() & 0o077,0);
+ }
  let reopened=decode_p1g_research(&fs::read(&fixture.edited).unwrap(),&KEY,128*1024*1024).unwrap();
  let edited_json=String::from_utf8(reopened.json).unwrap();
  assert_eq!(edited_json,JSON.replacen(ORIGINAL_UTC,NEW_UTC,1));
