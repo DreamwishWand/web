@@ -94,6 +94,24 @@ try {
  assert.equal(await page.locator('[data-timing-loaded="true"] .event').count(),2);
  assert.match(await page.locator('[data-timing-loaded="true"]').innerText(),/EventID: 2010000021/);
  pass('SAME_WORKER_SESSION_RESTORED_AFTER_SPA_ROUTE_NAVIGATION');
+
+ // Preview and original-only Backup are both preserved by the composed
+ // PR389 UI after route navigation; do not re-import the source File.
+ assert.equal(await page.locator('[data-w1-original-backup]').isDisabled(),false);
+ const backupEvent=page.waitForEvent('download',{timeout:12000});
+ await page.locator('[data-w1-original-backup]').click();
+ const untouchedDownload=await backupEvent;
+ assert.match(untouchedDownload.suggestedFilename(),/original-backup\.p1g$/);
+ assert.equal(createHash('sha256').update(await readFile(await untouchedDownload.path())).digest('hex'),hash);
+ pass('ORIGINAL_BACKUP_AFTER_SPA_RESTORES_SOURCE_EXACT_SHA');
+ await page.locator('[data-w1-preview-select]').first().click();
+ await page.locator('#w1-new-utc').fill('2028-02-29T23:59:59Z');
+ await page.locator('[data-w1-preview-build]').click();
+ const preview=await page.locator('[data-w1-diff]').innerText();
+ assert.match(preview,/2126-08-20T00:00:00Z/);
+ assert.match(preview,/2028-02-29T23:59:59Z/);
+ assert.equal(await page.locator('[data-w1-export-off]').isDisabled(),true);
+ pass('W1_PREVIEW_AND_EDIT_EXPORT_OFF_AFTER_SPA');
  // A second local file is a NEW source identity, therefore the external BID
  // attestation must be provided again after remounting the page. Existing
  // Worker Session read-only access alone never authorizes importing B.
