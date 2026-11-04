@@ -1,0 +1,105 @@
+name: WEB verified-only host HTTP200-301 loopback transport fixture
+on:
+  push:
+    branches:
+      - 'web/entity-http-host-fixture-*'
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Exactly three fixture-only paths on separate PR444 parent
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=e253e4d806f6e73acaf1ca7e7245b1dcb59ca4a6
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          git diff --name-only "$BASE" HEAD >/tmp/web-entity-transport-diff
+          test "$(wc -l </tmp/web-entity-transport-diff)" -eq 3
+          while IFS= read -r f; do
+            case "$f" in
+              scripts/web-entity-http-loopback-fixture.mjs|tests/web-entity-http-real-status-fixture.test.mjs|.github/workflows/web-entity-host-transport-fixture.yml) ;;
+              *) echo "NON_FIXTURE_SOURCE_CHANGE:$f"; exit 1 ;;
+            esac
+          done </tmp/web-entity-transport-diff
+          git diff --exit-code "$BASE" HEAD -- src/ static/ supabase/ .github/workflows/pages.yml svelte.config.js
+          echo WEB_REAL_TRANSPORT_FIXTURE_ONLY_PASS
+      - name: Source rights/version and actual local HTTP 404/200/301 tests
+        run: node --test tests/web-host-gate-item-read.test.mjs tests/web-entity-http-real-status-fixture.test.mjs
+      - name: Svelte component check, existing Node regression, Pages build
+        env:
+          BASE_PATH: /web
+        run: |
+          npm test
+          npm run check
+          npm run build
+      - name: Prove NO public Item static HTML generated
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f build/index.html
+          test -f build/editor/items/index.html
+          test -f build/404.html
+          test ! -f build/ja/40000047/index.html
+          test ! -f build/ja/entity/quest/12345/index.html
+          echo WEB_REAL_PAGES_ALL_UNAPPROVED_ENTITY_HTML_ABSENT_PASS
+      - name: Actual deployed Pages HTTP, informational
+        shell: bash
+        run: |
+          for path in '/web/' '/web/editor/items/' '/web/ja/40000047/' '/web/ja/40000047/old-title/'; do
+            code=$(curl --connect-timeout 7 --max-time 14 -sS -L -o /dev/null -w '%{http_code}' "https://dreamwishwand.github.io${path}" || true)
+            echo "WEB_REAL_DEPLOYED_PAGES_HTTP path=${path} status=${code:-UNOBSERVED}"
+          done
+          echo "Loopback fixture 200/301 is NOT hosted Pages, privacy/rights/public acceptance or SEO success."
+  chromium:
+    needs: proof
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual Chrome source readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Build and serve existing local Item privacy UI
+        env:
+          BASE_PATH: /web
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4202 >/tmp/host-fixture-vite.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4202/editor/items/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/host-fixture-vite.log
+          exit 1
+      - name: Existing accepted privacy capability eight locale 320px zoom200 No Upload real Chrome
+        env:
+          ITEM_GATE_E2E_URL: http://127.0.0.1:4202
+        run: node scripts/web-host-item-read-chrome.mjs
