@@ -96,6 +96,19 @@ export interface LocalW1PageQuery {
  readonly cursor?:string|null;
  readonly limit?:number; // 1...64
 }
+/** Typed source-scoped Read request for 01D, 01B/02 WEP and 08 WEB.
+ * The source receipt is a scope fence, never a Writer capability.
+ */
+export type LocalDomainReadRequest = Readonly<{
+ domain:'RecurringEvents'|'Inventory'|'Ownership'|'Spatial'|'ItemDetail';
+ sessionId:string;
+ sourceSha256:string;
+ revision:number;
+ indexGeneration:number;
+ search?:string;
+ cursor?:string|null;
+ limit?:number;
+}>;
 /** Command contracts for 01D/08 WEB/02 WEP. All writers fail closed. */
 export type LocalSaveOperationCommand =
  | Readonly<{kind:'W1_NEXT_OCCURRENCE_CHANGE';
@@ -118,6 +131,7 @@ export interface LocalSaveSessionBridge {
  ensureReady():Promise<void>;
  openLocalFile(file:File,attestation:LocalBuildAttestation):Promise<LocalSaveSessionReceipt>;
  queryW1Page(query?:LocalW1PageQuery):Promise<LocalW1ReadPage>;
+ readDomainPage(query:LocalDomainReadRequest):Promise<LocalW1ReadPage>;
  close():Promise<Readonly<{closed:true;writerAuthorized:false}>>;
  getSession():LocalSaveSessionReceipt|null;
  getCapabilities():LocalOperationCapabilities;
