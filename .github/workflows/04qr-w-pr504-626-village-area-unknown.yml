@@ -1,7 +1,7 @@
 name: "04QR-W PR504 schema626 Village Areas UNKNOWN exact-HEAD independent"
 on:
   pull_request:
-    branches: ['wep/schema626-area-record-unknown-20261105']
+    branches: ['wep/schema626-area-unknown-diagnostic-20261105']
     paths:
       - 'tests/04qr-w-pr504-626-area-unknown-independent.test.mjs'
       - 'scripts/04qr-w-pr504-626-area-unknown-chromium.mjs'
