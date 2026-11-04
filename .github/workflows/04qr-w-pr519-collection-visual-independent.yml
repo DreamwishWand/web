@@ -1,0 +1,73 @@
+name: "04QR-W PR519 repaired Stage1 Collection all29 actual visual independent"
+on:
+  pull_request:
+    branches: ['web/stage1-collection-root-20261105']
+    paths:
+      - '.github/workflows/04qr-w-pr519-collection-visual-independent.yml'
+      - 'scripts/04qr-w-pr519-collection-visual-chromium.mjs'
+      - 'tests/04qr-w-pr519-collection-visual-independent.test.mjs'
+permissions:
+  contents: read
+jobs:
+  collection-new-only-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: No genuine owner-private P1G in CI
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+      - name: Independent repaired Source blob/8 locale reactivity/UNKNOWN and multi facets
+        run: node --test tests/04qr-w-pr519-collection-visual-independent.test.mjs
+      - name: Browser QA script syntax
+        run: node --check scripts/04qr-w-pr519-collection-visual-chromium.mjs
+  collection-real-chrome-visual:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Determine real system Chrome
+        id: chrome
+        run: |
+          set -euo pipefail
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$BIN"
+          echo "path=$BIN" >> "$GITHUB_OUTPUT"
+      - name: Serve exact localhost disposable Collection
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4285 > /tmp/04qr-w-pr519-vite.log 2>&1 &
+          for i in $(seq 1 65); do
+            if curl --fail --silent http://127.0.0.1:4285/collection/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/04qr-w-pr519-vite.log
+          exit 1
+      - name: Actual Chromium all 29 cards in 8 locales, real UI path, 320/200 keyboard and fail closed
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          QR519_URL: http://127.0.0.1:4285/collection/
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          node scripts/04qr-w-pr519-collection-visual-chromium.mjs
