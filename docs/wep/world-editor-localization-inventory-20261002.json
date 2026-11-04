@@ -1,7 +1,7 @@
 {
   "schema": "dreamwish-wand-world-editor-localization-inventory@1",
   "status": "COMPLETE_FOR_PINNED_SOURCES",
-  "generatedAt": "2026-10-24",
+  "generatedAt": "2026-11-04",
   "target": {
     "product": "Decorate / World Editor",
     "platform": "Nintendo Switch",
@@ -19,7 +19,7 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "f44f906e1419abb73ab41fafa2ccc38f4661231a",
+    "src/routes/editor/world/+page.svelte": "99c802ec53739198930a3e8d8fabbed898e6ec19",
     "src/lib/wep/world-editor-primary-job.ts": "25aba45c6004c020400a249c848c3bc2281fd4a0",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "711609eb100a0809a5e9a5b274f83dd9319e3645",
@@ -1543,7 +1543,13 @@
       "CSS class names and style tokens",
       "test-only text",
       "QR private fixture paths"
-    ]
+    ],
+    "spatialSceneP020261104": {
+      "scope": "Source-checked spatial model; localized 2D fit/zoom/pan and object identity/unknown Grid notices; one EditorSession; no writer",
+      "launchLocales": 8,
+      "copy": "src/lib/wep/spatial-scene-copy.js",
+      "writerAuthorization": false
+    }
   },
   "presentationBinding": {
     "status": "BOUND",
