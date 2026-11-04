@@ -4,7 +4,8 @@
  * CAS, or a persistent Grid/Road/Fence writer. Only the originating Session
  * may consume this snapshot, and no private profile is retained here.
  */
-import type { EditorDocument, EditorObject } from './editor-runtime.ts';
+import type { EditorDocument } from './editor-runtime.ts';
+import type { SpatialScene } from './spatial-scene.ts';
 import type { OpenWorldSaveResult } from './world-save-source.ts';
 
 export const WEP_REAL_SOURCE_READ_CONTRACT = 'wep.real-save-spatial-read@1';
@@ -73,10 +74,6 @@ export interface RealSaveSpatialVerdict {
   unresolved: RealSaveSpatialIssue[];
   persistentWriteAuthorized: false;
 }
-const requireValid = (value: unknown, code: string): asserts value => {
-  if (!value) throw new Error(code);
-};
-
 /**
  * Bind exactly one local opened schema624 source and one existing EditorSession.
  * Missing/unknown per-object provenance is diagnostic rather than fabricated
@@ -168,9 +165,13 @@ export function bindRealSaveSpatialRead({
     });
     const address = sourceAddress(obj.source);
     if (!address || address.gridId !== rootId ||
-        obj.editorId !== 'g' + rootId + ':o' + address.gridObjectId ||
-        seenNative.has(address.objectMapKey)) {
+        obj.editorId !== 'g' + rootId + ':o' + address.gridObjectId) {
       reject('SPATIAL_READ_SOURCE_ID_OR_PARENT_UNPROVEN');
+      continue;
+    }
+    if (seenNative.has(address.objectMapKey)) {
+      identities.delete(obj.editorId);
+      reject('SPATIAL_READ_DUPLICATE_NATIVE_ID');
       continue;
     }
     seenNative.add(address.objectMapKey);
@@ -263,6 +264,23 @@ export function inspectRealSaveSpatialRead(
   }
   return {
     status: 'READY', allowed, unresolved,
+    persistentWriteAuthorized: false
+  };
+}
+
+/** Keep the existing painter order, hit-test and inspector identity intact. */
+export function applyRealSaveReadToScene(
+  scene: SpatialScene,
+  verdict: RealSaveSpatialVerdict
+): SpatialScene {
+  const unresolvedIds = new Set(scene.unresolved.map(issue => issue.editorId));
+  return {
+    ...scene,
+    objects: scene.objects.filter(object => verdict.allowed.has(object.editorId)),
+    unresolved: [
+      ...scene.unresolved,
+      ...verdict.unresolved.filter(issue => !unresolvedIds.has(issue.editorId))
+    ],
     persistentWriteAuthorized: false
   };
 }
