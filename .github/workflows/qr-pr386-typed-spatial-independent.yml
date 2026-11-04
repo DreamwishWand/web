@@ -1,0 +1,39 @@
+name: 04 QR PR386 independent typed Spatial Contract identity hierarchy fail-closed
+on:
+  push:
+    branches: [qa/pr386-typed-spatial-invariants-20261104]
+  pull_request:
+    branches: [01b/w-dec-018-spatial-source-model-20261104]
+permissions:
+  contents: read
+jobs:
+  spatial-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Exact frozen PR386 and independent two QA paths only
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=5dfc7d45f6dae658b1bd3d6d424b5a02c1f695c5
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git diff --name-only "$SOURCE" HEAD | sort >/tmp/qr386-actual
+          printf '%s\n' .github/workflows/qr-pr386-typed-spatial-independent.yml tests/qr-pr386-typed-spatial-independent.test.mjs | sort >/tmp/qr386-expected
+          diff -u /tmp/qr386-expected /tmp/qr386-actual
+          test -z "$(git diff --name-only "$SOURCE" HEAD -- src supabase docs static)"
+          test "$(git hash-object src/lib/wep/source-spatial-model.ts)" = 8bd4e0d16eb81e67c46f03a9e2b8611d44643b1f
+          test "$(git hash-object tests/01b-source-spatial-model.test.mjs)" = a00c8cdddcb1a28a60862ec945b8118e5ae50bfb
+          echo QR_386_FIXED_SOURCE_NEW_ONLY_QA_PATHS_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: New-only independent typed source/hit/subgrid/move/undo identity invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --experimental-strip-types --test tests/qr-pr386-typed-spatial-independent.test.mjs
