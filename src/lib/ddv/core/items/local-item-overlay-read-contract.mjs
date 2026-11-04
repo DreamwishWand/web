@@ -6,7 +6,7 @@
  * Owned/Discovered/Missing. It does not call a Worker, read a profile or
  * accept caller-supplied "nativeVerified" flags. The Core owns future reads.
  */
-import {validateCollectionRuntimeIndex} from '../../collection/runtime.js';
+import {validateCollectionRuntimeIndex} from '../../../collection/runtime.js';
 
 export const ITEM_OVERLAY_READ_CONTRACT='wand.item.local-overlay-read@1';
 export const ITEM_OVERLAY_PRODUCT_ENABLED=false;
