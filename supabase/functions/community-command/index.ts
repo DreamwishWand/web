@@ -235,6 +235,15 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       return reply({ok:false,error:'SOURCE159_WORKSPACE_WRITER_NOT_ENROLLED'},409);
     }
 
+    // Source160: old Help askQuestion/createTip SQL takes subject only.
+    // Real signed A1 local revoke committed before a separate service-role
+    // SQL transaction yet both old RPCs persisted public Help Work and
+    // Search/Outbox/Idempotency on disposable FULL158. Keep them OFF until
+    // independently accepted same-transaction signed v2 Help Writers exist.
+    if (new Set<string>(['askQuestion','createTip']).has(command)) {
+      return reply({ok:false,error:'SOURCE160_HELP_QA_WRITER_NOT_ENROLLED'},409);
+    }
+
     const authorizationParams: JsonObject = {
       p_auth_subject: subject, p_issued_at_epoch: issuedAt,
       p_max_age_seconds: null
