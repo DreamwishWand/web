@@ -28,6 +28,8 @@ export interface LocalSaveSessionReceipt {
  readonly revision:0;
  readonly indexGeneration:number;
  readonly sourceSha256:string;
+ /** Worker-owned fixed same-origin registry witness for UI Preview only. */
+ readonly registrySha256:string;
  readonly savedContainerCount:number;
  readonly unsupportedContainerCount:number;
  readonly indexedRoots:readonly ['World.RecurringEvents'];
