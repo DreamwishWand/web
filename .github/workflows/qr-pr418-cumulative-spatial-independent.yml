@@ -1,0 +1,47 @@
+name: 04 QR PR418 latest main-based Spatial source composed changed-risk independent
+on:
+  push:
+    branches: [qa/pr418-current-main-spatial-composed-20261104]
+  pull_request:
+    branches: [int/main-source-spatial-reference-20261104]
+permissions:
+  contents: read
+jobs:
+  composition:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Exact cumulative source HEAD, only five safe new files and two QA paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=8196a98fa712fb5a2a958369cabe0978ca120258
+          MAIN=f3ed8e1ba103b109e1e685c258f1498bee7e99a1
+          git merge-base --is-ancestor "$MAIN" HEAD
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git diff --name-only "$SOURCE" HEAD | sort >/tmp/qr418-diff
+          printf '%s\n' .github/workflows/qr-pr418-cumulative-spatial-independent.yml tests/qr-pr418-integrated-spatial-source-independent.test.mjs | sort >/tmp/qr418-qa
+          diff -u /tmp/qr418-qa /tmp/qr418-diff
+          git diff --name-only "$MAIN" "$SOURCE" | sort >/tmp/qr418-src
+          printf '%s\n' docs/wep/01b-real-save-spatial-source-contract-20261104.md src/lib/wep/real-save-spatial-source.ts tests/01b-real-save-spatial-624-scoped-negatives.test.mjs tests/01b-real-save-spatial-626-provenance-negatives.test.mjs tests/01b-real-save-spatial-source.test.mjs | sort >/tmp/qr418-allowlist
+          diff -u /tmp/qr418-allowlist /tmp/qr418-src
+          test "$(git hash-object src/lib/wep/real-save-spatial-source.ts)" = c0e696c1dc808ae2e9ad4ef7d0c99331eb96ef70
+          test -z "$(git diff --name-only "$MAIN" HEAD -- supabase static src/lib/timing src/lib/community src/lib/moodboards src/lib/ddv/core)"
+          echo QR_418_SOURCE_BLOB_626_FIXED_AND_MAIN_CORE_UNTOUCHED_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Independent main-composed source addresses and forged index negatives
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --experimental-strip-types --test tests/qr-pr418-integrated-spatial-source-independent.test.mjs | tee /tmp/qr418.log
+          grep -q 'QR_418_INTEGRATED_MINTED_626_INDEX_NO_FAKE_ID_OR_NATIVE_WRITER_PASS' /tmp/qr418.log
+          grep -q 'QR_418_INTEGRATED_624_RAW_ADDRESS_MATCH_626_VERSION_SEPARATION_PASS' /tmp/qr418.log
+      - name: Compilation check current cumulative frontend source ABI
+        run: npm run check
