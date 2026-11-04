@@ -1,0 +1,12 @@
+# 01A CORE — W1 single-validated-source Lazy Index research (2026-11-04)
+
+SCOPE: native Rust read-only research, synthetic CI. NOT a second product Worker and NOT a new model for Item/Work/Quest/Creator.
+
+- Existing single JS Worker product session on main 4371616c remains the accepted W1 Timing READ and Backup owner. No UI or P1G connection to this research branch. No duplicate browser Session, cloud upload, public Save or key material.
+- New source index (parent PR417 independently QA437 scoped) validates the ENTIRE decoded JSON with ONE strict native Parser pass and captures only direct-child byte spans of World.RecurringEvents and SHA of GameInfo.Version (schema626). No full serde_json profile materialization or root Grid clone. Keeps the immutable buffer in one Arc; lazily parses only ONE capped 2MiB event.
+- Version identity is supplied externally: Switch DDV v1.25.3 BID 9A239D3DB569756D schema626. Schema626 never proves BID independently; index open requires source SHA CAS from a trusted P1G-opening caller.
+- A native research lease contains opaque random sessionID, source SHA, Revision0 and IndexGeneration1; stale/forged lease denies, but this is NOT the accepted Worker SessionID and NOT a Writer authorization. Only known mapKey155/EventID2010000021 ItemSpawning may be read; unknown event and unsupported domains deny.
+- EndDate present null OR string is valid structural reading; absent or other scalar/container types deny. Intended 2126 UTC remains unmodified and no clock auto-fix is attempted.
+- The indexed core returns a bounded W1 DTO with exact event token SHA and no unrelated Save or raw JSON. Never provides automatic Writer; Rust product export refuses. Tests include 5MiB unrelated opaque string, source SHA mismatch, wrong external BID, stale generation/revision/session, corrupt schema, noncanonical map keys, null/missing/wrong EndDate and duplicate JSON keys.
+- This index does NOT establish World.Villages effective Wetland Area/Grid/default+DiffGrid Tree/Softwood quota or Clock/Actualize/Execute Native V3, genuinely private Rust Product V2 or 200MiB encrypted P1G Browser Worker. Existing Rust decoded-only 200MiB synthetic research and JS 128MiB cap are distinct.
+- Request 05 QR independent new-only QA after fixed HEAD owner CI. 09 INT must selectively compare the source Core ABI with PR412/447/456/458 before any cumulative main changes, never wholesale merge sibling PRs. Writer/EditedCopy Export/Apply/Overwrite OFF.
