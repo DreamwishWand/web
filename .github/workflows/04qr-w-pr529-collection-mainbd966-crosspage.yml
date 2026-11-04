@@ -1,7 +1,7 @@
 name: "04QR-W PR529 mainbd966 WEP626 Collection cross-page independent"
 on:
   pull_request:
-    branches: ['integration/stage1-collection-mainbd966-20261105']
+    branches: ['integration/stage1-collection-root-mainbd966-20261105']
     paths:
       - '.github/workflows/04qr-w-pr529-collection-mainbd966-crosspage.yml'
       - 'scripts/04qr-w-pr529-collection-mainbd966-crosspage-chromium.mjs'
