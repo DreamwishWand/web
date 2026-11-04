@@ -165,6 +165,22 @@ export interface LocalSaveSessionBridge {
   sourceSha256:string;
   writerAuthorized:false;
  }>;
+ /** Explicit reimport of an already selected candidate Blob. Proves local
+  * chunk-by-chunk byte equality only, not an independent persisted OS path. */
+ verifyUserSelectedOriginalBackupCandidate(
+   candidate:Blob,
+   scope:Pick<LocalSaveSessionReceipt,'sessionId'|'sourceSha256'|'revision'|'indexGeneration'>
+ ):Promise<Readonly<{
+   candidateBytesMatchOriginal:true;
+   sourceSha256:string;
+   comparedByteCount:number;
+   sourceRevision:0;
+   indexGeneration:number;
+   persistedVerified:false;
+   distinctDiskPathVerified:false;
+   originalOverwriteProtectionVerified:false;
+   writerAuthorized:false;
+ }>>;
  getSession():LocalSaveSessionReceipt|null;
  getCapabilities():LocalOperationCapabilities;
  subscribe(listener:SessionSubscriber):()=>void;
