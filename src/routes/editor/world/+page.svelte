@@ -2402,7 +2402,19 @@
     // A dedicated Core object ID, never array index, is the UI authority.
     // Where two furniture objects overlap, topmost painted object gets click.
     const hit = point ? spatialHitTest(spatialScene, point.x, point.y) : null;
-    return hit?.editorId === editorId;
+    if (hit?.editorId === editorId) return true;
+    // A large real Grid's fit-to-area viewport can make an individual source
+    // cell sub-2px. SVG hit-testing identifies the *actually painted* topmost
+    // rect even where CSS-pixel rounding disagrees with the grid inverse.
+    // This is permitted only for the exact validated Scene node, never a raw
+    // guessed Native ID or an off-scene/unverified object.
+    const node = event.target instanceof Element
+      ? event.target.closest('g[data-editor-object-id]')
+      : null;
+    const bounds = node?.getBoundingClientRect();
+    return Boolean(node && node.getAttribute('data-editor-object-id') === editorId &&
+      bounds && (bounds.width < 3 || bounds.height < 3) &&
+      spatialScene.objects.some(object => object.editorId === editorId));
   }
   function moveCanvasFocus(currentId: string, delta: number) {
     if (!projected.length) return;
