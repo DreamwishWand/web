@@ -1,0 +1,33 @@
+name: 04 QR PR457 source 626 Native ID independent bounded acceptance
+on:
+  push:
+    branches: ['qa/pr457-schema626-readonly-independent-20261104']
+  pull_request:
+    branches: ['wep/schema626-source-reference-inspector-20261104']
+permissions:
+  contents: read
+jobs:
+  independent-626:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false,fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Pin exact PR457 source and QA-only two paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=a809f8d353168c3093716719b7d2275d0d1d70a7
+          git merge-base --is-ancestor "$SRC" HEAD
+          git diff --name-only "$SRC" HEAD | sort >/tmp/qa457-delta
+          printf '%s\n' .github/workflows/qr-pr457-schema626-source-independent.yml tests/qr-pr457-schema626-source-independent.test.mjs | sort >/tmp/qa457-only
+          diff -u /tmp/qa457-only /tmp/qa457-delta
+          test "$(git hash-object src/lib/wep/schema626-source-inspector.ts)" = "b33fa04574b05d1fca010198f97290dde30f89b5"
+          test -z "$(git diff --name-only "$SRC" HEAD -- src docs supabase static scripts)"
+          echo QR457_EXACT_SOURCE_NEWONLY_GUARD_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Independent bounded native source forgery and read-only negatives
+        run: node --experimental-strip-types --test tests/qr-pr457-schema626-source-independent.test.mjs
+      - run: npm run check
