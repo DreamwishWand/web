@@ -3,7 +3,7 @@ on:
   push:
     branches: [qa/pr444-entity-host-current-main-independent-20261104]
   pull_request:
-    branches: ['int/w-int-012-host-capability-main-20261104']
+    branches: ['int/w-int-012-item-unknown-host-qr434-20261104']
 permissions:
   contents: read
 jobs:
@@ -12,7 +12,9 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-        with: {fetch-depth: 0,persist-credentials: false}
+        with:
+          fetch-depth: 0
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with: {node-version: '22'}
       - name: Freeze exact eight source paths and three QA paths
@@ -52,7 +54,8 @@ jobs:
     timeout-minutes: 23
     steps:
       - uses: actions/checkout@v4
-        with: {persist-credentials:false}
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with: {node-version: '22'}
       - run: npm ci --no-audit --no-fund
