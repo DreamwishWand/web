@@ -137,6 +137,25 @@ fn independent_cas_negatives_are_rejected_before_any_output(){
  core.original_unchanged().unwrap();
 }
 #[test]
+fn empty_caller_readset_is_not_a_native_reference_closure_certificate(){
+ // 01E Native audit: this PREVIEW intentionally permits an empty caller
+ // witness set. "source_and_reference_cas_matched" only means the PROVIDED
+ // witnesses were checked. It does not mean the operation-required Area,
+ // Conditions, Grid/DiffGrid or quota references were enumerated.
+ let (orig,core)=fixture(DOC);let m=core.receipt().unwrap();
+ let mut req=q(&m.session_id,sha256(&orig),sha256(DOC.as_bytes()),
+  sha256(REG),"\"2126-08-20T00:00:00Z\"",OLD,NEW);
+ req.source_read_set.clear();
+ let p=core.preview_w1_exact_diff(req).unwrap();
+ assert!(p.source_and_reference_cas_matched);
+ assert!(!p.full_operation_reference_closure_verified);
+ assert!(!p.atomic_changeset_committed);
+ assert!(!p.encode_copy_authorized);
+ assert!(!p.original_first_backup_written);
+ core.original_unchanged().unwrap();
+ assert_eq!(core.export_p1g_copy().unwrap_err(),"PRODUCT_ENCODE_COPY_NOT_AUTHORIZED");
+}
+#[test]
 fn independent_calendar_noop_and_source_version_fences(){
  let (orig,core)=fixture(DOC);let m=core.receipt().unwrap();
  for next in [OLD,"2026-02-29T00:00:00Z","2026-13-01T00:00:00Z",
