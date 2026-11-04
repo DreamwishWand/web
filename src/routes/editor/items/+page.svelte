@@ -4,6 +4,7 @@
   import { locale } from '$lib/i18n/runtime.js';
   import { loadCollectionRuntime } from '$lib/collection/runtime.js';
   import SharedCatalogDiscovery from '$lib/entity/SharedCatalogDiscovery.svelte';
+  import ItemReadCapabilityNotice from '$lib/local/ItemReadCapabilityNotice.svelte';
   import { sharedDirectoryCopy } from '$lib/entity/shared-catalog-directory.mjs';
 
   let index: any = null;
@@ -36,6 +37,7 @@
   <h1>{copy.search}</h1>
   <p class="intro">{copy.source}</p>
   <p class="warning" role="status">{copy.private}. Save v1.25.3 / schema626 ownership is not joined to this v1.25.0 Catalog; Writer OFF.</p>
+  <ItemReadCapabilityNotice localeCode={$locale} />
   {#if loading}
     <p role="status">{copy.search}…</p>
   {:else if failure}
