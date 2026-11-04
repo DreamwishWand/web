@@ -55,7 +55,7 @@ test('eight locale Guide card labels are native copy, not fixed English',()=>{
    assert.ok(typeof c[field]==='string'&&c[field].length>0,locale+'/'+field);
  }
  assert.notEqual(guideCopy('fr').quests,guideCopy('en').quests);
- assert.notEqual(guideCopy('ja').events,guideCopy('en').events);
+ assert.notEqual(guideCopy('ja').systems,guideCopy('en').systems);
 });
 test('unverified or wrong Guide source cannot become positive route/article simply because Guide hub renders',()=>{
  assert.equal(GUIDE_RUNTIME_SCHEMA,'wand.guide.runtime@1');
