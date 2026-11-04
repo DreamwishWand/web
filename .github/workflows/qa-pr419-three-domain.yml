@@ -1,0 +1,35 @@
+name: 05 QR PR419 independent three domain facade
+on:
+  push:
+    branches: [qa/05qr-419-three-domain-20261104]
+  pull_request:
+    paths:
+      - 'tests/qa-05qr-pr419-newonly.test.mjs'
+      - '.github/workflows/qa-pr419-three-domain.yml'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  independent-facade:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Exact PR419 fixed source and failclosed 200MiB scope
+        run: |
+          test "$(git merge-base da75a039f7d24a8812b755bd71d1eec8919b3ee1 HEAD)" = da75a039f7d24a8812b755bd71d1eec8919b3ee1
+          git diff --quiet da75a039f7d24a8812b755bd71d1eec8919b3ee1 HEAD -- src/ docs/ tests/01a-three-domain-read-facade.test.mjs
+          echo REAL_P1G=NOT_RUN
+          echo COLLECTION_WORLD_TYPED_READ=OFF
+          echo ALL_SAVE_WRITERS=OFF
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Independent stale source, forged Worker, Collection/World before postMessage
+        run: node --test tests/qa-05qr-pr419-newonly.test.mjs
+      - name: Types and adapter-static
+        run: |
+          npm run check
+          npm run build
