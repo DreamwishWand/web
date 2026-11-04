@@ -27,10 +27,10 @@ jobs:
           BASE=bd966f9e94be48fafce25cfbdc298439ee47aca3
           test "$(git merge-base "$BASE" HEAD)" = "$BASE"
           git diff --name-only "$BASE" HEAD >/tmp/stage1-presets
-          test "$(wc -l </tmp/stage1-presets)" -eq 5
+          test "$(wc -l </tmp/stage1-presets)" -eq 6
           while IFS= read -r path; do
             case "$path" in
-              src/routes/presets/+page.svelte|src/lib/presets/stage1-root.mjs|tests/web-stage1-presets-root.test.mjs|scripts/web-stage1-presets-chrome.mjs|.github/workflows/web-stage1-presets-ux.yml) ;;
+              src/routes/presets/+page.svelte|src/lib/presets/stage1-root.mjs|tests/web-stage1-presets-root.test.mjs|tests/scaffold.test.mjs|scripts/web-stage1-presets-chrome.mjs|.github/workflows/web-stage1-presets-ux.yml) ;;
               *) echo "OUTSIDE_P0_SCOPE:$path"; exit 1 ;;
             esac
           done </tmp/stage1-presets
