@@ -77,7 +77,9 @@ function sourceMapView<K, V>(source: Map<K, V>): ReadonlyMap<K, V> {
 }
 function allowedIdView(source: Iterable<string>): ReadonlySet<string> {
   const closed = new Set(source);
-  const view: ReadonlySet<string> = Object.freeze({
+  // Only the read surface is exposed. The wider ES2025 ReadonlySet type
+  // includes algebra methods, but no mutable Set is accessible at runtime.
+  const view = Object.freeze({
     get size() { return closed.size; },
     has(value: string) { return closed.has(value); },
     keys() { return closed.keys(); },
@@ -87,7 +89,7 @@ function allowedIdView(source: Iterable<string>): ReadonlySet<string> {
     forEach(callbackfn: (value: string, key: string, set: ReadonlySet<string>) => void, thisArg?: any) {
       closed.forEach((value, key) => callbackfn.call(thisArg, value, key, view));
     }
-  });
+  }) as unknown as ReadonlySet<string>;
   return view;
 }
 function issuedVerdict(status: 'READY' | 'STALE', allowed: Iterable<string>, unresolved: RealSaveSpatialIssue[]): RealSaveSpatialVerdict {
