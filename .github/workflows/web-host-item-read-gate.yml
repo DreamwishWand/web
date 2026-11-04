@@ -1,0 +1,113 @@
+name: WEB verified entity HTTP preflight and Item read capability
+on:
+  push:
+    branches:
+      - 'web/hosting-capability-failclosed-*'
+  pull_request:
+    paths:
+      - 'src/lib/foundation/public-entity-host-contract.mjs'
+      - 'src/lib/local/item-personal-read-gate.mjs'
+      - 'src/lib/local/item-capability-copy.mjs'
+      - 'src/lib/local/ItemReadCapabilityNotice.svelte'
+      - 'src/routes/editor/items/+layout.svelte'
+      - 'tests/web-host-gate-item-read.test.mjs'
+      - 'scripts/web-host-item-read-chrome.mjs'
+      - '.github/workflows/web-host-item-read-gate.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Exactly eight source-only host/Item paths on current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="$(git merge-base origin/main HEAD)"
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          git diff --name-only "$BASE" HEAD >/tmp/web-host-item-diff
+          test "$(wc -l </tmp/web-host-item-diff)" -eq 8
+          while IFS= read -r f; do
+            case "$f" in
+              src/lib/foundation/public-entity-host-contract.mjs|src/lib/local/item-personal-read-gate.mjs|src/lib/local/item-capability-copy.mjs|src/lib/local/ItemReadCapabilityNotice.svelte|src/routes/editor/items/+layout.svelte|tests/web-host-gate-item-read.test.mjs|scripts/web-host-item-read-chrome.mjs|.github/workflows/web-host-item-read-gate.yml) ;;
+              *) echo "OUT_OF_SCOPE:$f"; exit 1 ;;
+            esac
+          done </tmp/web-host-item-diff
+          git diff --exit-code "$BASE" HEAD -- src/lib/ddv/ src/lib/timing/ src/lib/community/ src/lib/entity/ src/lib/wep/ src/lib/moodboards/ src/routes/editor/timing/ src/routes/collection/ src/routes/explore/ src/routes/creator/ src/routes/presets/ supabase/ static/ svelte.config.js .github/workflows/pages.yml
+          echo WEB_HOST_ITEM_EIGHT_PATH_NO_ACCEPTED_SOURCE_CHANGE_PASS
+      - name: Node source version/rights/privacy/alias/Owned negatives
+        run: node --test tests/web-host-gate-item-read.test.mjs
+      - name: Svelte type-check and Pages artifact
+        env:
+          BASE_PATH: /web
+        run: npm run check && npm run build
+      - name: Current public eligibility empty, existing public Pages unaffected
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f build/index.html
+          test -f build/collection/index.html
+          test -f build/editor/items/index.html
+          test -f build/editor/timing/index.html
+          test -f build/404.html
+          test ! -f build/ja/40000047/index.html
+          echo WEB_PUBLIC_ROOT_PRESERVED_ENTITY_HTTP200_NOT_ACCEPTED_PASS
+  chromium:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Resolve actual installed Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Compile real static Pages artifact and serve local client
+        env:
+          BASE_PATH: /web
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4202 >/tmp/item-gate-vite.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4202/editor/items/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/item-gate-vite.log
+          exit 1
+      - name: Actual Chromium 8locale Inventory unknown, W1 routes, No Upload, 320px zoom200
+        env:
+          ITEM_GATE_E2E_URL: http://127.0.0.1:4202
+        run: node scripts/web-host-item-read-chrome.mjs
+      - name: Actual hosted Pages direct HTTP observation only
+        if: always()
+        shell: bash
+        run: |
+          for path in '/web/' '/web/editor/items/' '/web/ja/40000047/' '/web/ja/entity/quest/12345/'; do
+            code=$(curl --connect-timeout 7 --max-time 14 -sS -L -o /dev/null -w '%{http_code}' "https://dreamwishwand.github.io${path}" || true)
+            echo "HOST_REAL_HTTP path=${path} status=${code:-UNOBSERVED}"
+          done
+          echo "Do not infer positive public canonical/alias SEO from a 404 fallback or local Vite HTTP200."
