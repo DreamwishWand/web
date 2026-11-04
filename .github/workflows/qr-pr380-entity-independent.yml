@@ -1,0 +1,55 @@
+name: 04 QR PR380 independent shared Entity Chromium new-only
+on:
+  push:
+    branches: [qa/pr380-entity-facets-browser-20261104]
+  pull_request:
+    branches: [web/shared-detail-catalog-consumer-20261104]
+permissions:
+  contents: read
+jobs:
+  entity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: New-only exact frozen PR380, no source, SQL or product changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=0d001c533deb782293c916a77112b1fd4a6668b4
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git diff --name-only "$SOURCE" HEAD | sort > /tmp/qr380-actual
+          printf '%s\n' .github/workflows/qr-pr380-entity-independent.yml scripts/qr-pr380-entity-independent-browser.mjs | sort > /tmp/qr380-expected
+          diff -u /tmp/qr380-expected /tmp/qr380-actual
+          test -z "$(git diff --name-only "$SOURCE" HEAD -- src supabase docs static)"
+          test "$(git hash-object src/lib/entity/shared-catalog-directory.mjs)" = f6a63ba85a61dc57342d9d2d027e4541c4ea4ff9
+          test "$(git hash-object src/lib/entity/SharedCatalogDiscovery.svelte)" = b73e3c2bcaa46a35e813ec66094ed9dc0e2da49a
+          echo QR_ENTITY380_FROZEN_SOURCE_AND_QA_ONLY_PASS
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Real Chrome binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Start safe local test-host
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4201 >/tmp/qr380-vite.log 2>&1 &
+          for i in $(seq 1 70); do
+            curl -fsS http://127.0.0.1:4201/editor/items/ >/dev/null && exit 0
+            sleep 1
+          done
+          tail -n 70 /tmp/qr380-vite.log; exit 1
+      - name: Independent actual Chrome eight languages/URL/facets/privacy/BID negatives
+        run: node scripts/qr-pr380-entity-independent-browser.mjs
