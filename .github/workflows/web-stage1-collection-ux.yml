@@ -27,10 +27,10 @@ jobs:
           BASE=342823eb03eff6bb7c5d80f4a804249bb174df10
           test "$(git merge-base "$BASE" HEAD)" = "$BASE"
           git diff --name-only "$BASE" HEAD >/tmp/collection-stage1-diff
-          test "$(wc -l </tmp/collection-stage1-diff)" -eq 5
+          test "$(wc -l </tmp/collection-stage1-diff)" -eq 6
           while IFS= read -r f; do
             case "$f" in
-              src/routes/collection/+page.svelte|src/lib/collection/stage1-root.mjs|tests/web-stage1-collection-root.test.mjs|scripts/web-stage1-collection-chrome.mjs|.github/workflows/web-stage1-collection-ux.yml) ;;
+              src/routes/collection/+page.svelte|src/lib/collection/stage1-root.mjs|tests/web-stage1-collection-root.test.mjs|tests/product-surface-routes.test.mjs|scripts/web-stage1-collection-chrome.mjs|.github/workflows/web-stage1-collection-ux.yml) ;;
               *) echo "OUTSIDE_STAGE1_SCOPE:$f"; exit 1 ;;
             esac
           done </tmp/collection-stage1-diff
