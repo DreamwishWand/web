@@ -166,6 +166,23 @@ export function createLocalSaveSessionBridge(workerFactory){
       throw Error('LOCAL_WORKER_PAGE_SCOPE_INVALID');
     return freeze({...result,rows:freeze(result.rows.map(x=>freeze({...x})))});
   };
+  // Domain-scoped read facade for Collection/Item Detail/Spatial consumers.
+  // W1 is the ONLY accepted domain; every other source-backed domain fails
+  // closed without asking the Worker for raw Save or a speculative projection.
+  // Caller metadata is a stale-response scope fence, never authorization.
+  const readDomainPage=async query=>{
+    const s=receipt;
+    if(!s)throw Error('LOCAL_SESSION_NOT_OPEN');
+    if(!query||typeof query!=='object'||query.sessionId!==s.sessionId||
+       query.sourceSha256!==s.sourceSha256||
+       query.revision!==s.revision||
+       query.indexGeneration!==s.indexGeneration)
+      throw Error('LOCAL_READ_STALE_SOURCE_SCOPE');
+    if(query.domain!=='RecurringEvents')
+      throw Error('LOCAL_READ_CAPABILITY_NOT_ACCEPTED');
+    return queryW1Page({search:query.search??'',cursor:query.cursor??null,
+      limit:query.limit??64});
+  };
   const getSession=()=>receipt;
   const getCapabilities=()=>READ_CAPABILITIES;
   const subscribe=listener=>{
@@ -189,7 +206,7 @@ export function createLocalSaveSessionBridge(workerFactory){
     worker=null;readyPromise=null;readyResolve=null;readyReject=null;
     notify();
   };
-  return freeze({ensureReady,openLocalFile,queryW1Page,close,getSession,
+  return freeze({ensureReady,openLocalFile,queryW1Page,readDomainPage,close,getSession,
     getCapabilities,subscribe,submitOperation,destroy});
 }
 // One shared owner per JS module instance/tab; deliberately no localStorage or
