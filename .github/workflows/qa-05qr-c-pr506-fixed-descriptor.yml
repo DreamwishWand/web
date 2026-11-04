@@ -1,0 +1,45 @@
+name: 05 QR-C PR506 exact current Source clock failclosed untrusted source QA
+on:
+  push:
+    branches: [qa/05qr-c-pr506-fixed-own-descriptors-20261105]
+  pull_request:
+    paths:
+      - '.github/workflows/qa-05qr-c-pr506-fixed-descriptor.yml'
+      - 'tests/qa-05qr-c-pr506-fixed-own-descriptor-newonly.test.mjs'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  fixed-source-current-clock:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Freeze repair 897bd HEAD after RED source b4a2, exact three source paths
+        run: |
+          set -eu
+          PARENT=24a6c9515ae2a80c8ea39cc4d0ec7c17f455e8ba
+          OLD=b4a2ae96d842d4a101fe855991fdf8912a88ff77
+          SOURCE=897bd7de227e54bd955d950296c7fcc29c30979a
+          test "$(git merge-base "$PARENT" "$SOURCE")" = "$PARENT"
+          test "$(git merge-base "$OLD" "$SOURCE")" = "$OLD"
+          test "$(git merge-base "$SOURCE" HEAD)" = "$SOURCE"
+          test "$(git diff --name-only "$PARENT" "$SOURCE" | wc -l | tr -d ' ')" = 3
+          test "$(git diff --name-only "$PARENT" "$SOURCE" | sort)" = "$(printf '%s\n' docs/core/01e-w1-saved-clock-source-readonly-20261105.md src/lib/ddv/timing/w1-saved-clock-source-readonly.mjs tests/01e-w1-saved-clock-source-readonly.test.mjs | sort)"
+          git diff --quiet "$SOURCE" HEAD -- src/ crates/ docs/ static/ supabase/ tests/01e-w1-saved-clock-source-readonly.test.mjs
+          test "$(git rev-parse HEAD:src/lib/ddv/timing/w1-saved-clock-source-readonly.mjs)" = 3c9c50956deb9198904d07365bda0ddea0af0cc6
+          echo FIXED_PR506_SOURCE_897BD_THREE_PATH_PROVENANCE_PASS
+          echo PR480_QA497_PR465_QA471_ANCESTOR_ACCEPTED_NO_RERUN
+          echo PRIVATE_P1G_GAME_CLOCK=NOT_RUN
+          echo NATIVE_W1_V3=UNKNOWN
+          echo WRITER_EDITEDCOPY_APPLY_OVERWRITE=OFF
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Eight fixed-HEAD independent previous RED reproductions plus new hostile descriptor cases
+        run: node --test tests/qa-05qr-c-pr506-fixed-own-descriptor-newonly.test.mjs
+      - name: Current Svelte and TS contracts remain valid
+        run: npm run check
