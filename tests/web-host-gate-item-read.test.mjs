@@ -95,7 +95,8 @@ test('all 8 locale Item unavailable labels and user-facing actual W1/Preset link
  assert.match(gate,/data-writer="off"/);
  assert.match(gate,/editor\/timing/);
  assert.match(gate,/presets/);
- assert.match(read('src/routes/editor/items/+page.svelte'),/ItemReadCapabilityNotice/);
+ assert.match(read('src/routes/editor/items/+layout.svelte'),/ItemReadCapabilityNotice/);
+ assert.match(read('src/routes/editor/items/+page.svelte'),/SharedCatalogDiscovery/);
  assert.match(read('src/routes/editor/items/+page.svelte'),/SharedCatalogDiscovery/);
  assert.doesNotMatch(read('src/routes/editor/items/+page.svelte'),/type="file"/);
 });
