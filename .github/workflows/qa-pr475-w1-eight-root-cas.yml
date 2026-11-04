@@ -1,0 +1,41 @@
+name: 05 QR PR475 independent Rust W1 full eight-root CAS
+on:
+  push:
+    branches: [qa/05qr-pr475-eightroot-cas-newonly-20261104]
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/tests/qa_05qr_pr475_native_atomic_readset.rs'
+      - '.github/workflows/qa-pr475-w1-eight-root-cas.yml'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  native-research-new-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Freeze PR475 new-only 4 files, avoid inherited QA/source mutation
+        run: |
+          set -eu
+          SOURCE=9fd8c8a87c8a64cf8065c52f56d011d27a1d7a64
+          PARENT=72a2d68e5fc228012899996f40d62d7030ef0067
+          test "$(git merge-base "$SOURCE" HEAD)" = "$SOURCE"
+          test "$(git merge-base "$PARENT" "$SOURCE")" = "$PARENT"
+          test "$(git diff --name-only "$PARENT" "$SOURCE" | wc -l | tr -d ' ')" = 4
+          git diff --quiet "$SOURCE" HEAD -- src/ crates/ddv-save-core/src/ docs/ static/ supabase/ crates/ddv-save-core/tests/w1_atomic_full_source_cas.rs .github/workflows/01a-private-w1-v2-research.yml
+          for path in crates/ddv-save-core/src/offline_w1_v2.rs crates/ddv-save-core/tests/w1_atomic_full_source_cas.rs docs/core/01a-w1-atomic-eight-root-readset-cas-20261104.md .github/workflows/01a-private-w1-v2-research.yml; do
+            test "$(git rev-parse "$SOURCE:$path")" = "$(git rev-parse "HEAD:$path")"
+          done
+          echo PR475_FIXED_NEWONLY_SOURCE_FOUR_PATHS_PASS
+          echo PRIVATE_USER_P1G_AND_NATIVE_RUNTIME=NOT_RUN
+          echo RUST_PRODUCT_W1_V2=NOT_ACCEPTED
+          echo EDITED_COPY_APPLY_ORIGINAL_OVERWRITE=OFF
+      - name: Install Rust stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Independent four synthetic Rust CAS and stale source negatives
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test qa_05qr_pr475_native_atomic_readset -- --nocapture
+      - name: Product research-only lint and type boundaries
+        run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml
