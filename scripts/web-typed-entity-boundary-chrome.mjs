@@ -5,7 +5,7 @@ import { chromium } from 'playwright-core';
 import { readFile, access } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
-import { sharedTypedCopy } from '../src/lib/entity/shared-typed-entity-copy.mjs';
+import { sharedTypedCopy } from '../src/lib/foundation/shared-typed-entity-copy.mjs';
 
 const BIN=process.env.CHROME_BIN;
 if (!BIN) throw Error('CHROME_BIN_REQUIRED');
