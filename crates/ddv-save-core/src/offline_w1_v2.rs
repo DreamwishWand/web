@@ -290,3 +290,92 @@ pub fn execute_private_w1_v2_research(
   product_writer_authorized:false
  })
 }
+
+
+#[cfg(test)]
+mod core_owner_lifetime_tests {
+ use super::*;
+ use crate::p1g::encode_synthetic_fixture;
+
+ const JSON:&str=r#"{"GameInfo":{"Version":626},"World":{"RecurringEvents":{"155":{"ItemSpawning":{"RecurringEventItemID":2010000021,"NextOccurrence":"2126-08-20T00:00:00Z","LastOccurrence":"2026-10-01T00:00:00Z","EndDate":null}}},"GridCollection":{"Grids":{},"DiffGrids":{}},"Villages":[]}}"#;
+ const KEY:[u8;32]=[7u8;32];
+ const REGISTRY:&[u8]=b"synthetic-private-core-lifecycle";
+
+ fn owner()->TrustedReadCore {
+   let cipher=encode_synthetic_fixture(JSON.as_bytes(),&KEY,8).unwrap();
+   TrustedReadCore::open_p1g_readonly(
+     cipher.clone(),&KEY,sha256(&cipher),sha256(JSON.as_bytes()),
+     REGISTRY,sha256(REGISTRY),BID,626,1024*1024
+   ).unwrap()
+ }
+ fn stage(core:&TrustedReadCore)->SaveSession {
+   let decoded=core.borrow_decoded_snapshot_research().unwrap();
+   let mut tx=SaveSession::open_decoded_shared_research(
+     97,decoded,626,ReferenceIndex::default()
+   ).unwrap();
+   tx.bind_trusted_core_research(core).unwrap();
+   tx
+ }
+ fn empty_plan()->TransactionPlan {
+   TransactionPlan{
+     session_id:97,expected_revision:0,
+     expected_source_sha256:sha256(JSON.as_bytes()),
+     commands:vec![],postconditions:vec![],
+     post_references:ReferenceIndex::default()
+   }
+ }
+ #[test]
+ fn stage_undo_redo_and_read_fail_after_explicit_core_close(){
+   let mut core=owner();
+   let mut tx=stage(&core);
+   assert_eq!(tx.revision(),0);
+   assert!(tx.validate_transaction().is_ok());
+   core.close();
+   assert_eq!(tx.validate_transaction().err(),Some("CORE_STAGE_SOURCE_REVOKED"));
+   assert_eq!(tx.stage_command(empty_plan()).err(),Some("CORE_STAGE_SOURCE_REVOKED"));
+   assert_eq!(tx.undo(0).err(),Some("CORE_STAGE_SOURCE_REVOKED"));
+   assert_eq!(tx.redo(0).err(),Some("CORE_STAGE_SOURCE_REVOKED"));
+   assert_eq!(tx.query_paged(&[],0,1).err(),Some("CORE_STAGE_SOURCE_REVOKED"));
+   assert_eq!(tx.revision(),0);
+   assert_eq!(tx.index_generation(),0);
+   assert_eq!(tx.source_sha256(),sha256(JSON.as_bytes()));
+   assert_eq!(core.borrow_decoded_snapshot_research().err(),
+     Some("READ_SESSION_CLOSED"));
+   assert_eq!(tx.export_verified_copy().err(),
+     Some("PRODUCT_P1G_ENCODE_COPY_NOT_AUTHORIZED"));
+ }
+ #[test]
+ fn core_drop_invalidates_retained_decoded_arc_and_research_stage(){
+   let mut tx={
+      let core=owner();
+      let tx=stage(&core);
+      assert!(tx.validate_transaction().is_ok());
+      tx
+   };
+   assert_eq!(tx.validate_transaction().err(),Some("CORE_STAGE_SOURCE_REVOKED"));
+   assert_eq!(tx.stage_command(empty_plan()).err(),Some("CORE_STAGE_SOURCE_REVOKED"));
+   assert_eq!(tx.undo(0).err(),Some("CORE_STAGE_SOURCE_REVOKED"));
+ }
+ #[test]
+ fn another_core_same_json_cannot_rebind_or_authorize_stage(){
+   let core_a=owner();
+   let core_b=owner();
+   let mut tx=stage(&core_a);
+   assert_eq!(tx.bind_trusted_core_research(&core_b).err(),
+       Some("CORE_STAGE_BINDING_STATE_INVALID"));
+   // Same JSON/SHA is not the same immutable owning Arc and session.
+   let decoded_a=core_a.borrow_decoded_snapshot_research().unwrap();
+   let mut foreign=SaveSession::open_decoded_shared_research(
+      98,decoded_a,626,ReferenceIndex::default()
+   ).unwrap();
+   assert_eq!(foreign.bind_trusted_core_research(&core_b).err(),
+       Some("CORE_STAGE_SOURCE_IDENTITY_MISMATCH"));
+   assert!(tx.validate_transaction().is_ok());
+   // The legacy unbound research Vec API remains usable for SOURCE-only reads.
+   let unbound=SaveSession::open_decoded_research(
+     99,JSON.as_bytes().to_vec(),626,ReferenceIndex::default()).unwrap();
+   assert!(unbound.validate_transaction().is_ok());
+   assert_eq!(unbound.export_verified_copy().err(),
+      Some("PRODUCT_P1G_ENCODE_COPY_NOT_AUTHORIZED"));
+ }
+}
