@@ -1,0 +1,74 @@
+name: "04QR-W PR514 new-main342 W1×626 delta independent"
+on:
+  pull_request:
+    branches: ['integration/schema626-gridobject-count-main24a-20261105']
+    paths:
+      - '.github/workflows/04qr-w-pr514-main342-w1-626-delta.yml'
+      - 'scripts/04qr-w-pr514-main342-w1-626-chromium.mjs'
+      - 'tests/04qr-w-pr514-main342-w1-626-delta.test.mjs'
+permissions:
+  contents: read
+jobs:
+  new-main342-crossdomain:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Never read private owner P1G in CI
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+      - name: Independent new main342 W1 candidate versus schema626 structural count negatives
+        run: node --experimental-strip-types --test tests/04qr-w-pr514-main342-w1-626-delta.test.mjs
+      - name: Chromium QA syntax
+        run: node --check scripts/04qr-w-pr514-main342-w1-626-chromium.mjs
+
+  new-main342-synthetic-chromium:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Find actual browser
+        id: chrome
+        run: |
+          set -euo pipefail
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$BIN"
+          echo "path=$BIN" >> "$GITHUB_OUTPUT"
+      - name: Localhost-only application
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4179 > /tmp/04qr514-main342.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl --silent --fail http://127.0.0.1:4179/editor/world/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/04qr514-main342.log
+          exit 1
+      - name: Real Chromium UI using encrypted synthetic W1 and malformed W1 sources only
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          QR514_MAIN342_URL: http://127.0.0.1:4179/editor/world/
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          node scripts/04qr-w-pr514-main342-w1-626-chromium.mjs
