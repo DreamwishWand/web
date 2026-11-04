@@ -127,7 +127,7 @@ export async function readThreeDomainPage(bridge,{domain,search='',cursor=null,l
     throw Error('LOCAL_DOMAIN_WORKER_RESULT_UNTRUSTED');
   // No arbitrary Worker output properties are spread into UI data.
   const rows=response.rows.map(row=>{
-    if(!rec(row)||!Number.isSafeInteger(row.eventId)||
+    if(!rec(row)||!(row.eventId===null||Number.isSafeInteger(row.eventId))||
        typeof row.mapKey!=='string'||!/^[0-9]{1,12}$/.test(row.mapKey)||
        typeof row.oneof!=='string'||row.oneof.length>64||
        (row.nextOccurrence!==null&&typeof row.nextOccurrence!=='string'))
