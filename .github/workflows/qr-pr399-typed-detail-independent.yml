@@ -3,7 +3,7 @@ on:
   push:
     branches: [qa/pr399-typed-detail-chrome-20261104]
   pull_request:
-    branches: [web/typed-entity-detail-20261104]
+    branches: [main]
 permissions:
   contents: read
 jobs:
