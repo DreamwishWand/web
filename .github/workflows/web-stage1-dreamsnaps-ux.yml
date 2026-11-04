@@ -1,0 +1,99 @@
+name: WEB Stage1 DreamSnaps 1-3-1 gated public shell
+on:
+  push:
+    branches:
+      - 'web/stage1-dreamsnaps-root-*'
+  pull_request:
+    paths:
+      - '.github/workflows/web-stage1-dreamsnaps-ux.yml'
+      - 'scripts/web-stage1-dreamsnaps-chrome.mjs'
+      - 'src/lib/community/dreamsnaps-stage1-root.mjs'
+      - 'src/routes/dreamsnaps/+page.svelte'
+      - 'src/routes/dreamsnaps/community/+page.svelte'
+      - 'tests/web-stage1-dreamsnaps-root.test.mjs'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Exact six-file owner-closed UX scope; no legacy community changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.pull_request.base.sha || 'bd966f9e94be48fafce25cfbdc298439ee47aca3' }}"
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          git diff --name-only "$BASE" HEAD >/tmp/stage1-dreamsnaps
+          test "$(wc -l </tmp/stage1-dreamsnaps)" -eq 6
+          while IFS= read -r file; do
+            case "$file" in
+              src/routes/dreamsnaps/+page.svelte|src/routes/dreamsnaps/community/+page.svelte|src/lib/community/dreamsnaps-stage1-root.mjs|tests/web-stage1-dreamsnaps-root.test.mjs|scripts/web-stage1-dreamsnaps-chrome.mjs|.github/workflows/web-stage1-dreamsnaps-ux.yml) ;;
+              *) echo "OUTSIDE_STAGE1_SCOPE:$file"; exit 1 ;;
+            esac
+          done </tmp/stage1-dreamsnaps
+          git diff --exit-code "$BASE" HEAD -- src/routes/gallery/ src/lib/community/browser-client.ts src/lib/community/browser-client.js src/lib/community/DreamsnapsTabs.svelte src/routes/dreamsnaps/submit/ src/routes/dreamsnaps/judge/ src/routes/dreamsnaps/results/ src/routes/dreamsnaps/my/ src/lib/ddv/ src/lib/wep/ supabase/ static/ .github/workflows/pages.yml
+          echo WEB_STAGE1_DREAMSNAPS_SIX_PATH_SOURCE_ONLY_PASS
+      - name: 1-3-1 root/route/disabled Provider and eight-locale negative tests
+        run: node --test tests/web-stage1-dreamsnaps-root.test.mjs
+      - name: Whole Node regression plus Svelte and static Pages
+        env:
+          BASE_PATH: /web
+        run: |
+          npm test
+          npm run check
+          npm run build
+      - name: No unapproved creator/entity article or media public route
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f build/dreamsnaps/index.html
+          test -f build/dreamsnaps/community/index.html
+          test -f build/404.html
+          test ! -f build/ja/entity/quest/12345/index.html
+          grep -q 'noindex,nofollow' build/dreamsnaps/community/index.html
+          echo WEB_STAGE1_DREAMSNAPS_UNAPPROVED_PUBLIC_OFF_PASS
+  chrome:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Build and start disposable localhost DreamSnaps
+        env:
+          BASE_PATH: /web
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          npm run build
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4288 >/tmp/web-stage1-dreamsnaps.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4288/dreamsnaps/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/web-stage1-dreamsnaps.log
+          exit 1
+      - name: Real Chrome 8 languages, 1-3-1 route, keyboard, zoom, no media/provider
+        env:
+          STAGE1_DREAMSNAPS_URL: http://127.0.0.1:4288
+        run: node scripts/web-stage1-dreamsnaps-chrome.mjs
