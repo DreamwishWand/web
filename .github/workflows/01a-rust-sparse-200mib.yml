@@ -1,0 +1,33 @@
+name: 01A Rust 200MiB Sparse Scan Research (Writer OFF)
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/src/lib.rs'
+      - 'crates/ddv-save-core/src/trusted_read.rs'
+      - 'crates/ddv-save-core/tests/w1_sparse_200mib.rs'
+      - '.github/workflows/01a-rust-sparse-200mib.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  one-pass-sparse-synthetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: No genuine Save and all Writer flags OFF
+        run: |
+          git rev-parse HEAD
+          echo PRIVATE_SAVE_IN_CI=NO
+          echo SYNTHETIC_DECODED_JSON_200MiB_ONLY=YES
+          echo FULL_P1G_PRODUCT_WORKER_200MiB=NOT_ACCEPTED
+          echo W1_PRODUCT_WRITER=OFF
+      - name: Rust sparse scan, including synthetic 200MiB
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test w1_sparse_200mib -- --nocapture
+      - name: Regression prior W1 Core-derived source references
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test w1_core_native_readset
+      - name: Preserve Writer rejection and Rust raw-WASM ABI
+        run: |
+          grep -Fq 'W1_OPERATION_REFERENCE_AND_NATIVE_CAPABILITY_NOT_ACCEPTED' crates/ddv-save-core/src/trusted_read.rs
+          grep -Fq 'PRODUCT_ENCODE_COPY_NOT_AUTHORIZED' crates/ddv-save-core/src/trusted_read.rs
+          ! grep -Fq 'getrandom = { version = "=0.2.16", features = ["js"]' crates/ddv-save-core/Cargo.toml
