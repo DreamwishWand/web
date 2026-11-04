@@ -29,7 +29,12 @@ test('MAIN bd966 selected SIX original accepted PR519 source blobs only, QA-only
  assert.equal(git('merge-base',MAIN,SOURCE),MAIN);
  assert.deepEqual(git('diff','--name-only',MAIN,SOURCE).split('\n').sort(),Object.keys(original).sort());
  for(const [p,sha] of Object.entries(original))assert.equal(git('rev-parse',SOURCE+':'+p),sha,p+' immutable Source Git blob');
- assert.deepEqual(git('diff','--name-only',SOURCE,'HEAD').split('\n').sort(),QA);
+ // Normal CI uses GitHub's PR merge ref; the Source parent advanced only its workflow.
+ // Require exactly three QA paths and allow the independently verified single owner workflow blob.
+ const delta=git('diff','--name-only',SOURCE,'HEAD').split('\n').sort();
+ assert.deepEqual(delta.filter(p=>p!=='.github/workflows/web-stage1-collection-ux.yml'),QA);
+ if(delta.includes('.github/workflows/web-stage1-collection-ux.yml'))
+  assert.equal(git('rev-parse','HEAD:.github/workflows/web-stage1-collection-ux.yml'),'83a7e5496e86715c03244ef28563fc79d81a632c');
 });
 test('new main accepted WEP626 and single Session original-backup Bridge are wholly unchanged by Stage1 Source',()=>{
  for(const path of [
