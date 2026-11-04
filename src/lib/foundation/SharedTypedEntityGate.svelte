@@ -1,6 +1,6 @@
 <script lang="ts">
   import { base } from '$app/paths';
-  import { safeTypedEntityReference, inspectNativeComposite } from './shared-typed-entity-contract.mjs';
+  import { parseSharedPrimaryId } from '$lib/entity/shared-catalog-detail.mjs';
   import { sharedTypedCopy } from './shared-typed-entity-copy.mjs';
 
   export let kind: string = '';
@@ -11,12 +11,19 @@
 
   $: copy = sharedTypedCopy(localeCode);
   $: cleanKind = kind.toUpperCase();
-  $: requested = mode === 'COMPOSITE'
-    ? inspectNativeComposite(primaryId,secondaryId ?? '')
-    : safeTypedEntityReference(cleanKind,primaryId);
+  // UI shape guard ONLY. The one authoritative typed EntityRef/P-S/Alias model
+  // is owned by 06 PRODUCT PR396, pending independent QA and main integration.
+  // This view never resolves positive data or issues canonical URLs.
+  function permittedRequestShape(type: string, id: string): boolean {
+    if (!['ITEM','QUEST','CREATOR','WORK','PRESET'].includes(type)) return false;
+    if (type === 'ITEM' || type === 'QUEST') return parseSharedPrimaryId(id) !== null;
+    return /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(id);
+  }
   $: valid = mode === 'COMPOSITE'
-    ? requested?.status === 'UNVERIFIED_RELATION'
-    : requested !== null;
+    ? parseSharedPrimaryId(primaryId) !== null &&
+      parseSharedPrimaryId(secondaryId ?? '') !== null &&
+      primaryId !== secondaryId
+    : permittedRequestShape(cleanKind,primaryId);
   $: kindTitle = mode === 'COMPOSITE' ? copy.composite : (copy.kinds[cleanKind] ?? copy.unknown);
   $: returnRoute = cleanKind === 'QUEST' ? '/guide/'
     : cleanKind === 'CREATOR' ? '/creator/'
