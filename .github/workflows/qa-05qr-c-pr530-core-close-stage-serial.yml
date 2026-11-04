@@ -1,0 +1,57 @@
+name: 05 QR-C PR530 independent Rust owner Core lease and Close race negatives
+on:
+  push:
+    branches: [qa/05qr-c-pr530-native-close-stage-serial-newonly-20261105]
+  pull_request:
+    paths:
+      - '.github/workflows/qa-05qr-c-pr530-core-close-stage-serial.yml'
+      - 'crates/ddv-save-core/qa_05qr_c_pr530_close_stage_serial.rs'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  frozen-new-native-owner-mutex:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Pin PR530 four original Source delta blobs exactly to accepted PR512 parent and unmodified research tests
+        run: |
+          set -eu
+          PARENT=0b08ed4f3ee18cd696f78d23796202733b9dfe59
+          SOURCE=a7235a76a79948fea1116be4e4f6c84a9c635c1c
+          test "$(git merge-base "$PARENT" "$SOURCE")" = "$PARENT"
+          test "$(git merge-base "$SOURCE" HEAD)" = "$SOURCE"
+          test "$(git diff --name-only "$PARENT" "$SOURCE" | wc -l | tr -d ' ')" = 4
+          test "$(git diff --name-only "$PARENT" "$SOURCE" | sort)" = "$(printf '%s\n' crates/ddv-save-core/src/offline_w1_v2.rs crates/ddv-save-core/src/session.rs crates/ddv-save-core/src/trusted_read.rs docs/core/01a-core-stage-close-serialized-mutex-20261105.md | sort)"
+          git diff --quiet "$SOURCE" HEAD -- src/ crates/ddv-save-core/src/ crates/ddv-save-core/tests/ docs/ static/ supabase/
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/offline_w1_v2.rs)" = db0446c4d0471c9bc05e01709f32173f70064682
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/session.rs)" = 372db22e0efe8923119cfccad6fbc7457a2a99ed
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/trusted_read.rs)" = 9f6edf71fe7bebe1739b1d4d8f30a5ed4dd49c2a
+          test "$(git rev-parse HEAD:docs/core/01a-core-stage-close-serialized-mutex-20261105.md)" = 5dcc9ff3fbd5d145d4f4eac8aeb50d8a02012028
+          echo PREVIOUS_PR512_QA516_SOURCE_ONLY_SYNTHETIC_PASS_REUSED_NO_RERUN
+          echo PR530_FIXED_SOURCE_FOUR_BLOBS_EXACT_CI_SCOPE
+          echo OWNER_PRIVATE_GENUINE_P1G_AND_NATIVE_W1_V3=NOT_RUN
+          echo PRODUCT_ONE_SAVESESSION_CROSSPROCESS_STORAGE=NOT_PROVEN
+          echo WRITER_EDITEDCOPY_APPLY_OVERWRITE_CLOUD_PUBLIC=OFF
+      - name: Inject independent QA-only crate-private Rust module into temporary runner lib.rs
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          lib=Path('crates/ddv-save-core/src/lib.rs')
+          txt=lib.read_text()
+          txt+='\n#[cfg(test)]\n#[path="../qa_05qr_c_pr530_close_stage_serial.rs"]\nmod qa_05qr_c_pr530_close_stage_serial;\n'
+          lib.write_text(txt)
+          PY
+      - name: Four NEW independent bounded real-thread Stage/Close/Drop/poison Rust negatives
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --lib qa_05qr_c_pr530_close_stage_serial -- --nocapture
+      - name: Restore committed Source and compile clean research Core
+        run: |
+          git checkout -- crates/ddv-save-core/src/lib.rs
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml
+      - name: Ensure edit/export product capabilities remain denied
+        run: |
+          grep -Fq PRODUCT_P1G_ENCODE_COPY_NOT_AUTHORIZED crates/ddv-save-core/src/session.rs
+          grep -Fq PRODUCT_ENCODE_COPY_NOT_AUTHORIZED crates/ddv-save-core/src/trusted_read.rs
