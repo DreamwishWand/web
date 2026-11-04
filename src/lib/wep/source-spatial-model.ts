@@ -81,7 +81,7 @@ function address(v: unknown, code: string): GridObjectAddress {
   const gridId = integer(v.gridId, code);
   const gridObjectId = integer(v.gridObjectId, code);
   check(gridId >= 0 && gridObjectId >= 0 && v.objectMapKey === String(gridObjectId), code);
-  return { gridId, gridObjectId, objectMapKey: String(gridObjectId) };
+  return Object.freeze({ gridId, gridObjectId, objectMapKey: String(gridObjectId) });
 }
 function sameAddress(a: GridObjectAddress | null, b: GridObjectAddress | null): boolean {
   return a === b || Boolean(a && b && a.gridId === b.gridId && a.gridObjectId === b.gridObjectId && a.objectMapKey === b.objectMapKey);
@@ -131,9 +131,9 @@ function nodeOf(o: EditorObject, grid: SpatialGrid, relation: SpatialRelation, p
   return Object.freeze({
     editorId: o.editorId, address: a, relation, parentAddress: parent,
     itemId, layer: o.layer, x, y, orientation,
-    footprint, editability: o.editability,
+    footprint: Object.freeze(footprint.map(c => Object.freeze({...c}))), editability: o.editability,
     stateKind: String(o.metadata?.stateKind ?? 'UNKNOWN'),
-    dependencyIds: o.dependencyIds.map(String),
+    dependencyIds: Object.freeze(o.dependencyIds.map(String)),
     footprintMode: typeof o.metadata?.footprintMode === 'string' ? o.metadata.footprintMode : null
   });
 }
@@ -174,11 +174,12 @@ export function projectSourceSpatialScene(doc: EditorDocument, sourceRevision: s
   for (const object of doc.objects) appendNode(object, rootGrid, 'ROOT', null);
   const hierarchy = doc.metadata?.subGridHierarchy ?? [];
   check(Array.isArray(hierarchy), 'SPATIAL_SUBGRID_HIERARCHY_INVALID');
-  function visit(raw: any, ancestor: Set<number>) {
+  function visit(raw: any, ancestor: Set<number>, immediateParentGridId: number) {
     check(plain(raw), 'SPATIAL_SUBGRID_NODE_INVALID');
     const id = integer(raw.gridId, 'SPATIAL_SUBGRID_ID_INVALID');
     check(!ancestor.has(id) && !gridIds.has(id), 'SPATIAL_SUBGRID_CYCLE_OR_DUPLICATE');
     const parent = address(raw.parentAddress, 'SPATIAL_SUBGRID_PARENT_REQUIRED');
+    check(parent.gridId === immediateParentGridId, 'SPATIAL_SUBGRID_PARENT_GRID_MISMATCH');
     const grid: SpatialGrid = {
       gridId: id, parentAddress: parent,
       gridDataPath: String(raw.gridDataPath ?? ''),
@@ -191,9 +192,9 @@ export function projectSourceSpatialScene(doc: EditorDocument, sourceRevision: s
     check(Array.isArray(raw.objects) && Array.isArray(raw.children), 'SPATIAL_SUBGRID_MEMBERS_INVALID');
     for (const object of raw.objects) appendNode(object, grid, 'SUBGRID_CHILD', parent);
     const next = new Set(ancestor); next.add(id);
-    for (const child of raw.children) visit(child, next);
+    for (const child of raw.children) visit(child, next, id);
   }
-  for (const child of hierarchy) visit(child, new Set([rootId]));
+  for (const child of hierarchy) visit(child, new Set([rootId]), rootId);
   const byAddress = new Map(nodes.map(n => [n.editorId, n]));
   for (const grid of grids) {
     if (!grid.parentAddress) continue;
@@ -209,7 +210,7 @@ export function projectSourceSpatialScene(doc: EditorDocument, sourceRevision: s
     schema: SPATIAL_MODEL_SCHEMA, sourceRevision, sourceVersion: SPATIAL_SOURCE,
     nativeAxis: 'GRID_LOCAL_XY' as const,
     displayAxis: 'SCREEN_X_RIGHT_Y_DOWN' as const,
-    nodes, grids, persistentWriteAuthorized: false as const,
+    nodes: Object.freeze(nodes), grids: Object.freeze(grids.map(g => Object.freeze({...g, bounds: Object.freeze({...g.bounds})}))), persistentWriteAuthorized: false as const,
     productApplyAuthorized: false as const,
     directSourceReplacementAuthorized: false as const
   });
@@ -241,8 +242,8 @@ export function hitTestSource(scene: SpatialScene, screen: { x: number; y: numbe
   const p = screenToSource(screen, c), cellX = Math.floor(p.x), cellY = Math.floor(p.y);
   const candidates = scene.nodes.filter(n => n.address.gridId === c.gridId &&
     n.footprint.some(fp => n.x + fp.x === cellX && n.y + fp.y === cellY));
-  const hit = { gridId: c.gridId, cellX, cellY, candidates,
-    ambiguous: candidates.length > 1, selected: null as SpatialNode | null };
+  const hit = Object.freeze({ gridId: c.gridId, cellX, cellY, candidates: Object.freeze(candidates),
+    ambiguous: candidates.length > 1, selected: null as SpatialNode | null });
   hitScene.set(hit, scene);
   return hit;
 }
