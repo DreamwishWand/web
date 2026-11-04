@@ -518,6 +518,56 @@ impl TrustedReadCore {
        return Err("W1_CORE_SOURCE_READSET_RECHECK_FAILED");
      }
    }
+   // The eight raw tokens alone are not even a typed Save structural
+   // authority. PR401 independently shows v1.25.3 Villages is ARRAY with
+   // per-Village Areas map and GridIDs array; old synthetic OBJECT village
+   // layouts MUST NOT be accepted as current target structure.
+   let raw_at=|pointer:&str|->EngineResult<Value>{
+     let token=actual.iter().find(|x|x.pointer==pointer)
+       .ok_or("W1_CORE_REQUIRED_TYPED_SOURCE_MISSING")?;
+     serde_json::from_str::<Value>(&token.value)
+       .map_err(|_|"W1_CORE_REQUIRED_TYPED_SOURCE_INVALID")
+   };
+   let version=raw_at("/GameInfo/Version")?;
+   if version.as_u64()!=Some(626){return Err("W1_CORE_SCHEMA_SOURCE_MISMATCH");}
+   let id=raw_at("/World/RecurringEvents/155/ItemSpawning/RecurringEventItemID")?;
+   if id.as_u64()!=Some(2010000021){return Err("W1_CORE_EVENT_SOURCE_MISMATCH");}
+   let next=raw_at("/World/RecurringEvents/155/ItemSpawning/NextOccurrence")?;
+   let last=raw_at("/World/RecurringEvents/155/ItemSpawning/LastOccurrence")?;
+   if !next.as_str().is_some_and(valid_utc_exact)||
+      !last.as_str().is_some_and(valid_utc_exact){
+     return Err("W1_CORE_DATE_FIELD_SOURCE_INVALID");
+   }
+   let end=raw_at("/World/RecurringEvents/155/ItemSpawning/EndDate")?;
+   if !end.is_null() && !end.as_str().is_some_and(valid_utc_exact){
+     return Err("W1_CORE_ENDDATE_TYPE_INVALID");
+   }
+   let grids=raw_at("/World/GridCollection/Grids")?;
+   let diff=raw_at("/World/GridCollection/DiffGrids")?;
+   if !grids.is_object()||!diff.is_object(){
+     return Err("W1_CORE_GRID_MAP_TYPE_INVALID");
+   }
+   let villages=raw_at("/World/Villages")?;
+   let array=villages.as_array().ok_or("W1_CORE_VILLAGES_ARRAY_REQUIRED")?;
+   let mut found_area_grids=false;
+   for village in array {
+     let Some(areas)=village.get("Areas") else {continue;};
+     let map=areas.as_object().ok_or("W1_CORE_AREAS_MAP_INVALID")?;
+     for area in map.values() {
+       let ids=area.get("GridIDs").and_then(Value::as_array)
+         .ok_or("W1_CORE_AREA_GRIDIDS_INVALID")?;
+       if ids.iter().any(|id|id.as_u64().is_none()){
+         return Err("W1_CORE_AREA_GRIDIDS_INVALID");
+       }
+       found_area_grids=true;
+     }
+   }
+   if !found_area_grids{
+     return Err("W1_CORE_VILLAGE_AREA_GRIDS_MISSING");
+   }
+   // Valid shapes cannot prove exact Wetland ownership, real Tree anchors,
+   // default+DiffGrid overlay, quota, or Clock/Actualize Native behavior.
+   // The returned witness keeps ALL Native and Writer flags false.
    self.original_unchanged()?;
    Ok(witness) // Native/Writer booleans are still universally false.
  }
