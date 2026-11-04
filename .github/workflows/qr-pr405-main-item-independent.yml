@@ -3,7 +3,7 @@ on:
   push:
     branches: [qa/pr405-current-main-item-20261104]
   pull_request:
-    branches: [main]
+    branches: [int/w-int-012-item-raw-contract-qa392-20261104]
 permissions:
   contents: read
 jobs:
