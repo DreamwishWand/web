@@ -40,12 +40,22 @@ fn output_canonical(path:&Path)->Result<PathBuf,&'static str>{
 }
 fn write_new_verified(path:&Path,bytes:&[u8],sha:[u8;32])
  ->Result<(),&'static str>{
- let mut file=OpenOptions::new().write(true).create_new(true).open(path)
-   .map_err(|_|"OFFLINE_OUTPUT_NOT_NEW")?;
+ let mut opts=OpenOptions::new();
+ opts.write(true).create_new(true);
+ #[cfg(unix)] {
+   use std::os::unix::fs::OpenOptionsExt;
+   opts.mode(0o600);
+ }
+ let mut file=opts.open(path).map_err(|_|"OFFLINE_OUTPUT_NOT_NEW")?;
  let result=(||{
    file.write_all(bytes).map_err(|_|"OFFLINE_WRITE_FAILED")?;
    file.sync_all().map_err(|_|"OFFLINE_FSYNC_FAILED")?;
    drop(file);
+   #[cfg(unix)] {
+     let parent=path.parent().unwrap_or(Path::new("."));
+     File::open(parent).and_then(|dir|dir.sync_all())
+       .map_err(|_|"OFFLINE_PARENT_DIR_FSYNC_FAILED")?;
+   }
    let observed=fs::read(path).map_err(|_|"OFFLINE_REOPEN_FAILED")?;
    if observed!=bytes||sha256(&observed)!=sha{
      return Err("OFFLINE_WRITTEN_SHA_MISMATCH");
