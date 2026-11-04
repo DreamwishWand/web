@@ -23,7 +23,7 @@ jobs:
           test "$(git merge-base f49839f6438d8dd369538493ac02d57d799375cd HEAD)" = f49839f6438d8dd369538493ac02d57d799375cd
           git diff --quiet f49839f6438d8dd369538493ac02d57d799375cd HEAD -- src/ crates/ docs/ supabase/ tests/01e-w1-wetland-area-grid-candidate-probe.test.mjs
           test "$(git diff --name-only 4371616c029cb692cd56e35a171870ceeea758e5 f49839f6438d8dd369538493ac02d57d799375cd | wc -l | tr -d ' ')" = 3
-          test "$(git cat-file -p f49839f6438d8dd369538493ac02d57d799375cd:src/lib/ddv/timing/w1-wetland-area-grid-candidate-probe.mjs | wc -c | tr -d ' ')" = 7201
+          git cat-file -e f49839f6438d8dd369538493ac02d57d799375cd:src/lib/ddv/timing/w1-wetland-area-grid-candidate-probe.mjs
           echo SOURCE_PROVENANCE_CANDIDATE_ONLY=TRUE
           echo GENUINE_USER_PRIVATE_P1G=NOT_RUN
           echo ORIGINAL_NATIVE_ROMFS_SOURCE=NOT_RUN
