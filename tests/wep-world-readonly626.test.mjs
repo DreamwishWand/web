@@ -47,6 +47,7 @@ test('synthetic exact Switch schema626 packaged source: structural read only, no
     villageCount: 1,
     areaRecordCount: 1,
     gridRecordCount: 1,
+    gridObjectEntryCount: 1,
     notes: [
       'WEP_SCHEMA626_WORLD_STRUCTURE_ONLY',
       'WEP_SCHEMA626_AREA_GRID_NATIVE_SEMANTICS_UNVERIFIED',
