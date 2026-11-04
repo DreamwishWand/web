@@ -320,23 +320,62 @@ test('reimport candidate must match every byte and session scope; no silent fals
   );
   bridge.destroy();
 });
-test('A to B while candidate Blob read pending revokes candidate verification before any success',async()=>{
+test('A to B during intrinsic candidate Blob read revokes result before any success',async()=>{
   const bridge=createLocalSaveSessionBridge(()=>syntheticWorkerFactory());
   await bridge.ensureReady();
   const a=await bridge.openLocalFile(sample(),att);
-  let started,release;
-  const entered=new Promise(resolve=>{started=resolve;});
-  const delayed=new Promise(resolve=>{release=resolve;});
   const candidate=new Blob([Uint8Array.of(1,2,3,4)]);
-  const actualSlice=candidate.slice.bind(candidate);
-  candidate.slice=(start,end)=>({
-    arrayBuffer:async()=>{started();await delayed;return actualSlice(start,end).arrayBuffer();}
-  });
   const pending=bridge.verifyUserSelectedOriginalBackupCandidate(candidate,candidateScope(a));
-  await entered;
-  await bridge.openLocalFile(sample(),att);
-  release();
+  // openLocalFile increments epoch synchronously before its first async Worker CLOSE.
+  // Intrinsic Blob.arrayBuffer resolves asynchronously; no forged slice necessary.
+  const next=bridge.openLocalFile(sample(),att);
   await assert.rejects(pending,/LOCAL_BACKUP_CANDIDATE_SESSION_REVOKED/);
+  await next;
   assert.equal(bridge.getCapabilities().canCommit,false);
+  bridge.destroy();
+});
+test('QA487 RED: overridden Blob slice and arrayBuffer cannot forge equal original bytes',async()=>{
+  const bridge=createLocalSaveSessionBridge(()=>syntheticWorkerFactory());
+  await bridge.ensureReady();
+  const source=sample();
+  const receipt=await bridge.openLocalFile(source,att);
+  const candidate=new Blob([Uint8Array.of(1,2,3,9)]);
+  // An adversary controls methods on the candidate and can return any Blob.
+  candidate.slice=()=>new Blob([Uint8Array.of(1,2,3,4)]);
+  candidate.arrayBuffer=async()=>new Uint8Array([1,2,3,4]).buffer;
+  await assert.rejects(
+    bridge.verifyUserSelectedOriginalBackupCandidate(candidate,candidateScope(receipt)),
+    /LOCAL_BACKUP_CANDIDATE_BYTES_DIFFER/
+  );
+  const alteredSource=Object.assign(new Blob([Uint8Array.of(1,2,3,4)]),{name:'spoofed-original.p1g'});
+  alteredSource.slice=()=>new Blob([Uint8Array.of(0,0,0,0)]);
+  // The source's own spoofed method must also be ignored.
+  const bridge2=createLocalSaveSessionBridge(()=>syntheticWorkerFactory());
+  await bridge2.ensureReady();
+  const r2=await bridge2.openLocalFile(alteredSource,att);
+  const candidate2=new Blob([Uint8Array.of(1,2,3,4)]);
+  const verified=await bridge2.verifyUserSelectedOriginalBackupCandidate(candidate2,candidateScope(r2));
+  assert.equal(verified.candidateBytesMatchOriginal,true);
+  assert.equal(verified.persistedVerified,false);
+  bridge.destroy();bridge2.destroy();
+});
+test('QA487: a shadowed size and subclass cannot truncate byte comparison',async()=>{
+  const bridge=createLocalSaveSessionBridge(()=>syntheticWorkerFactory());
+  await bridge.ensureReady();
+  const receipt=await bridge.openLocalFile(sample(),att);
+  class ForgedBlob extends Blob{
+    get size(){return 4;}
+    slice(){return new Blob([Uint8Array.of(1,2,3,4)]);}
+  }
+  const altered=new ForgedBlob([Uint8Array.of(1,2,3,9,7)]);
+  await assert.rejects(
+    bridge.verifyUserSelectedOriginalBackupCandidate(altered,candidateScope(receipt)),
+    /LOCAL_BACKUP_CANDIDATE_NOT_DISTINCT_BOUNDED/
+  );
+  const sameSize=new ForgedBlob([Uint8Array.of(1,2,3,9)]);
+  await assert.rejects(
+    bridge.verifyUserSelectedOriginalBackupCandidate(sameSize,candidateScope(receipt)),
+    /LOCAL_BACKUP_CANDIDATE_BYTES_DIFFER/
+  );
   bridge.destroy();
 });
