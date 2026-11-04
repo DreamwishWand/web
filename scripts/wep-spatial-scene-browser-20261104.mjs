@@ -135,6 +135,7 @@ try {
  assert.match(await page.locator('[data-wep-spatial-details-id]').innerText(),/B-object/);
  assert.equal(await page.locator('[data-wep-spatial-changes]').count(),0);
  pass('A_TO_B_SESSION_REPLACED_DETAILS_AND_DIFF');
+ report.zoomResetForMobile=await setZoom(1);
  await page.setViewportSize({width:320,height:740});
  await page.locator('[data-wep-spatial-controls]').waitFor();
  report.mobile320=await page.evaluate(()=>({
