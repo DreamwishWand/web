@@ -94,7 +94,7 @@ try:
               (select count(*) from public.community_works where owner_account_id=%s and work_type='preset'),
               (select count(*) from public.artifact_blobs where owner_account_id=%s),
               (select count(*) from public.preset_artifacts where owner_account_id=%s),
-              (select count(*) from public.preset_revisions where owner_account_id=%s),
+              (select count(*) from public.preset_revisions r join public.preset_artifacts p on p.preset_artifact_id=r.preset_artifact_id where p.owner_account_id=%s),
               (select count(*) from public.community_work_revisions r join public.community_works w
                   on r.work_id=w.work_id where w.owner_account_id=%s and w.work_type='preset'),
               (select count(*) from public.search_documents d join public.community_works w
