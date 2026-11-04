@@ -8,7 +8,7 @@ const BID:&str="9A239D3DB569756D";
 const OLD:&str="2126-08-20T00:00:00Z";
 const BASE:&str=r#"{"GameInfo":{"Version":626},"World":{"RecurringEvents":{"155":{"ItemSpawning":{"RecurringEventItemID":2010000021,"NextOccurrence":"2126-08-20T00:00:00Z","LastOccurrence":"2026-10-01T00:00:00Z","EndDate":"2030-12-31T00:00:00Z"}}},"GridCollection":{"Grids":{"1540000000":{"Objects":[]}},"DiffGrids":{"1540000000":{"Modified":[]}}},"Villages":[{"Areas":{"1":{"GridIDs":[1540000000]}}}]}}"#;
 fn open(raw:&str)->TrustedReadCore{
- let key=[0x62u8;32],reg=b"QA412-READ-ONLY-SYNTHETIC";
+ let key=[0x62u8;32];let reg=b"QA412-READ-ONLY-SYNTHETIC";
  let p=encode_synthetic_fixture(raw.as_bytes(),&key,8).unwrap();
  TrustedReadCore::open_p1g_readonly(p.clone(),&key,sha256(&p),
   sha256(raw.as_bytes()),reg,sha256(reg),BID,626,128*1024*1024).unwrap()
@@ -53,7 +53,7 @@ fn missing_each_of_four_non_event_native_context_roots_fails_complete_operation_
   else if pointer=="Grids"||pointer=="DiffGrids"{
    v["World"]["GridCollection"].as_object_mut().unwrap().remove(pointer);
   }else{v["World"].as_object_mut().unwrap().remove("Villages");}
-  let raw=v.to_string(),c=open(&raw),r=c.receipt().unwrap();
+  let raw=v.to_string();let c=open(&raw);let r=c.receipt().unwrap();
   assert_eq!(c.require_w1_core_operation_source_read_set(intent(&r)).unwrap_err(),
    "W1_CORE_MANDATORY_SOURCE_READSET_INCOMPLETE", "{pointer}");
   assert_eq!(c.export_p1g_copy().unwrap_err(),"PRODUCT_ENCODE_COPY_NOT_AUTHORIZED");
@@ -85,7 +85,7 @@ fn incomplete_valid_raw_shape_world_native_arrays_and_bad_dates_fail_closed(){
    "last-bad"=>v["World"]["RecurringEvents"]["155"]["ItemSpawning"]["LastOccurrence"]=serde_json::json!("2026-02-31T00:00:00Z"),
    _=>unreachable!()
   }
-  let raw=v.to_string(),c=open(&raw),r=c.receipt().unwrap();
+  let raw=v.to_string();let c=open(&raw);let r=c.receipt().unwrap();
   assert!(c.require_w1_core_operation_source_read_set(intent(&r)).is_err(),"{mutate}");
  }
 }
