@@ -1,0 +1,74 @@
+name: "04QR-W PR525 Gallery 3-card 8-locale independent visual"
+on:
+  pull_request:
+    branches: ['web/stage1-gallery-three-card-root-20261105']
+    paths:
+      - '.github/workflows/04qr-w-pr525-gallery-visual-independent.yml'
+      - 'scripts/04qr-w-pr525-gallery-visual-chromium.mjs'
+      - 'tests/04qr-w-pr525-gallery-visual-independent.test.mjs'
+permissions:
+  contents: read
+jobs:
+  gallery-source-privacy-independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Deny real private P1G/owner operation
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+      - name: Exact five source blobs, public subtype/no DreamSnaps/Writer negative cases
+        run: node --test tests/04qr-w-pr525-gallery-visual-independent.test.mjs
+      - name: Actual browser QA syntax
+        run: node --check scripts/04qr-w-pr525-gallery-visual-chromium.mjs
+
+  gallery-real-chrome-visual-independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Resolve actual system Chrome
+        id: chrome
+        run: |
+          set -euo pipefail
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$BIN"
+          echo "path=$BIN" >> "$GITHUB_OUTPUT"
+      - name: Loopback-only Gallery view
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4287 > /tmp/04qr-w-pr525-vite.log 2>&1 &
+          for i in $(seq 1 65); do
+            if curl --fail --silent http://127.0.0.1:4287/gallery/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/04qr-w-pr525-vite.log
+          exit 1
+      - name: Real Chrome 3 products x8 locales and privacy-safe keyboard/mobile screenshot
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          QR525_URL: http://127.0.0.1:4287/gallery/
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          node scripts/04qr-w-pr525-gallery-visual-chromium.mjs
