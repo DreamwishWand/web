@@ -33,6 +33,7 @@ const safeResult=(result,expected) => {
      result.externalBID!==LOCAL_SWITCH_BID||
      !/^[a-f0-9]{32}$/.test(result.sessionId) ||
      !/^[a-f0-9]{64}$/.test(result.sourceSha256) ||
+     !/^[a-f0-9]{64}$/.test(result.registrySha256) ||
      !Number.isSafeInteger(result.revision)||result.revision!==0||
      !Number.isSafeInteger(result.indexGeneration)||result.indexGeneration<1)
     throw Error('LOCAL_SESSION_WORKER_RECEIPT_INVALID');
@@ -46,6 +47,7 @@ const safeResult=(result,expected) => {
     sessionId:result.sessionId,revision:result.revision,
     indexGeneration:result.indexGeneration,
     sourceSha256:result.sourceSha256,
+    registrySha256:result.registrySha256,
     savedContainerCount:result.savedContainerCount,
     unsupportedContainerCount:result.unsupportedContainerCount,
     indexedRoots:freeze(['World.RecurringEvents']),
