@@ -1,0 +1,41 @@
+name: 04 QR PR386 repaired typed spatial three exact REDs independent
+on:
+  push:
+    branches: [qa/pr386-typed-spatial-repair-20261104]
+  pull_request:
+    branches: [01b/w-dec-018-spatial-source-model-20261104]
+permissions:
+  contents: read
+jobs:
+  repair-delta:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Exact repaired source and QA-only 2-path commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=620eb421bd76cf717878bf1208368a8ce7dfd28d
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git diff --name-only "$SOURCE" HEAD | sort >/tmp/qr386-delta
+          printf '%s\n' .github/workflows/qr-pr386-repair-three-red-independent.yml tests/qr-pr386-repair-three-red-independent.test.mjs | sort >/tmp/qr386-expected
+          diff -u /tmp/qr386-expected /tmp/qr386-delta
+          test -z "$(git diff --name-only "$SOURCE" HEAD -- src supabase docs static)"
+          test "$(git hash-object src/lib/wep/source-spatial-model.ts)" = 52db12aece0bfa3c7412de3da43c67755535f450
+          echo QR_386_REPAIR_EXACT_SOURCE_AND_QA_ONLY_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Changed 3 RED cases only in independently authored Node
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --experimental-strip-types --test tests/qr-pr386-repair-three-red-independent.test.mjs | tee /tmp/qr386-red-retest.log
+          for marker in QR_386_REPAIR_1_NONHIT_CANDIDATE_FORGERY_DENIED_PASS QR_386_REPAIR_2_SCENE_NODE_INJECTION_DENIED_PASS QR_386_REPAIR_3_IMMEDIATE_SUBGRID_PARENT_CLOSURE_DENIED_PASS; do
+            grep -q "$marker" /tmp/qr386-red-retest.log
+          done
