@@ -202,3 +202,20 @@ test('01D Item/Ownership and 01B Spatial consumers share one Source scope yet fa
  assert.equal(core.getCapabilities().readGrid,false);
  core.destroy();
 });
+
+test('original File handle remains scoped for backup across routes, never authorizes Writer',async()=>{
+ const core=createLocalSaveSessionBridge(()=>syntheticWorkerFactory());
+ await core.ensureReady();
+ const first=await core.openLocalFile(sample(),att);
+ assert.equal(core.hasUntouchedOriginalBackupSource(first),true);
+ assert.throws(()=>core.requestUntouchedOriginalBackup(first),/LOCAL_ORIGINAL_BACKUP_BROWSER_ONLY/);
+ assert.equal(core.getCapabilities().canEncodeEditedCopy,false);
+ const second=await core.openLocalFile(sample(),att);
+ assert.notEqual(first.sessionId,second.sessionId);
+ assert.equal(core.hasUntouchedOriginalBackupSource(first),false);
+ assert.throws(()=>core.requestUntouchedOriginalBackup(first),/LOCAL_ORIGINAL_BACKUP_STALE_OR_UNAVAILABLE/);
+ assert.equal(core.hasUntouchedOriginalBackupSource(second),true);
+ await core.close();
+ assert.equal(core.hasUntouchedOriginalBackupSource(second),false);
+ core.destroy();
+});
