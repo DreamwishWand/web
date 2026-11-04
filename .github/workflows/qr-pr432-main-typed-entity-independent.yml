@@ -1,0 +1,45 @@
+name: 04 QR PR432 exact current-main typed Entity composite independent
+on:
+  push:
+    branches: ['qa/pr432-current-main-typed-entity-independent-20261104']
+  pull_request:
+    branches: ['int/w-int-012-typed-entity-ui-composed-20261104']
+permissions:
+  contents: read
+jobs:
+  independent-composite:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false,fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Exact current main ancestor and exactly two QA-only files
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=5c643eb5a168dd5dc881b680fdb5aac936792f2e
+          MAIN=4371616c029cb692cd56e35a171870ceeea758e5
+          git merge-base --is-ancestor "$MAIN" "$SRC"
+          git merge-base --is-ancestor "$SRC" HEAD
+          git diff --name-only "$SRC" HEAD | sort >/tmp/qr432-delta
+          printf '%s\n' .github/workflows/qr-pr432-main-typed-entity-independent.yml tests/qr-pr432-main-typed-entity-independent.test.mjs | sort >/tmp/qr432-only
+          diff -u /tmp/qr432-only /tmp/qr432-delta
+          test "$(git hash-object src/lib/entity/shared-entity-identity.mjs)" = "2867da63ba4f380d7761cd7d56ea36aa7f1a1f7a"
+          test "$(git hash-object src/lib/foundation/SharedTypedEntityGate.svelte)" = "f4748fd7bfa547849cbf9ca571922ffe5cd6cf69"
+          test "$(git diff --name-only "$MAIN" "$SRC" | wc -l)" -eq 16
+          test -z "$(git diff --name-only "$SRC" HEAD -- src static scripts docs supabase)"
+          echo QR432_PINNED_CURRENT_MAIN_16_SOURCE_FILES_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Independently authored composite privacy/typed/alias/schema negatives
+        run: node --test tests/qr-pr432-main-typed-entity-independent.test.mjs
+      - name: Full TypeScript/Svelte checks and Pages static build
+        env: {BASE_PATH: /web}
+        run: npm run check && npm run build
+      - name: No unverified published canonical Entity detail
+        run: |
+          test -f build/404.html
+          test ! -f build/ja/entity/quest/12345/index.html
+          test ! -f build/ja/40000047/900001/index.html
+          echo QR432_NO_FALSE_PUBLIC_ENTITY_PRERENDER_PASS
