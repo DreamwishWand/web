@@ -1,6 +1,7 @@
 // 08 WEB / W-FOUND-020 main-first real Chromium E2E. Static source Catalog only, no private Save.
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright-core';
+import { sharedDirectoryCopy } from '../src/lib/entity/shared-catalog-directory.mjs';
 import { readFile, access } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { extname, join, normalize } from 'node:path';
@@ -87,6 +88,34 @@ try {
  await page.locator('[data-shared-results] a').first().waitFor();
  assert.match(await page.locator('[data-shared-results]').innerText(),new RegExp(ITEM));
  pass('EDITOR_ITEMS_VERIFIED_CATALOG_NOT_TWELVE_FAKE_OWNED');
+
+ // Eight real browser locale deep views are DEV-only; production Pages still returns HTTP404.
+ for(const locale of ['en','fr','it','de','es-ES','ja','zh-CN','pt-BR']){
+   await page.goto(root+'/'+locale+'/'+ITEM+'/',{waitUntil:'domcontentloaded'});
+   await page.locator('[data-shared-discovery="READY"]').waitFor({timeout:35000});
+   assert.equal(await page.locator('[data-shared-entity-detail]').getAttribute('lang'),locale);
+   assert.match(await page.locator('.shared-discovery').innerText(),
+     new RegExp(sharedDirectoryCopy(locale).search.replace(/[.*+?^${}()|[\\]\\]/g,'\\ await page.setViewportSize({width:320,height:850});')));
+   assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'),'noindex,follow');
+ }
+ pass('ALL_EIGHT_ACTUAL_BROWSER_DETAIL_LOCALES_NOINDEX');
+
+ // Negative browser path: a forged catalog Version cannot create a positive detail or moodboard.
+ const deniedContext=await browser.newContext({viewport:{width:1280,height:900},serviceWorkers:'block'});
+ const deniedPage=await deniedContext.newPage();
+ await deniedPage.route('**/ddv/collection/v1.25/index.json',async route=>{
+   const response=await route.fetch();
+   const index=await response.json();
+   index.t.gameVersion='1.25.3';
+   await route.fulfill({json:index});
+ });
+ await deniedPage.goto(root+'/en/'+ITEM+'/',{waitUntil:'domcontentloaded'});
+ await deniedPage.getByRole('heading',{name:'Verified detail unavailable'}).waitFor({timeout:35000});
+ assert.equal(await deniedPage.locator('[data-shared-detail-moodboard-action]').count(),0);
+ assert.equal(await deniedPage.locator('[data-shared-discovery="READY"]').count(),0);
+ assert.equal(await deniedPage.locator('meta[name="robots"]').getAttribute('content'),'noindex,follow');
+ await deniedContext.close();
+ pass('FORGED_SOURCE_VERSION_DENIED_IN_REAL_BROWSER');
 
  await page.setViewportSize({width:320,height:850});
  await fit(page,'editor/items320');
