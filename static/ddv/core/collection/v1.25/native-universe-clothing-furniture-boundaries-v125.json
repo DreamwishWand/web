@@ -1,0 +1,213 @@
+{
+  "schema": "ddv.collection-universe-crossfamily-original-boundary-v125@1",
+  "scope": {
+    "platform": "Nintendo Switch",
+    "version": "1.25.0",
+    "bid": "52BD625D9B4E0053",
+    "saveSchema": 624
+  },
+  "originalSha256": {
+    "nso": "3258d5e05aded708c06017b8763fa37bfb696385a2ab29dd8a182d3938cbc0e0",
+    "metadataV31": "07e919f07f7be2df883b7292bd3c699f670b4c1e8ff496ef7747447f5baa9f7c",
+    "dump": "a94ae73d522f160d21255b195b4d834bf5c79db59ddbd8cdfc32e54c6e0671f0",
+    "lossless": "df78c309a8023667c92426e3b929ed3e51aadf10d943835a3673cefa585f8048",
+    "support": "537cfcf14beca1e76496d4f9c5b60bd7e31d385a16fd69e63083df6978fdf4b9",
+    "historicalD548": "NEED_SOURCE_NOT_EQUATED"
+  },
+  "originalCollectionDefinitions": {
+    "rehashedRows": 293,
+    "uniqueDefinitionIDs": 293,
+    "clothing": {
+      "universeSelectorOccurrences": 61,
+      "distinctUniverseValues": 61,
+      "outerCase": 4,
+      "innerCase": 2,
+      "byTypeIgnoreExplicit": 0,
+      "sourceCanonicalDigest": "bfc191307648ff63f9b6841feae1862d18326b495c4c197c05b85eef1c7f65a8",
+      "sample": {
+        "id": 2120000025,
+        "universe": 2000500001,
+        "fullBytes": 134,
+        "fullSha256": "207106cb5632b51354dc2a337cf85a059e38e782187ef4759b9bac85dfe95a0c",
+        "universeWire": "10a1eaf4b907"
+      }
+    },
+    "furniture": {
+      "universeSelectorOccurrences": 63,
+      "distinctUniverseValues": 63,
+      "outerCase": 3,
+      "innerCase": 2,
+      "byTypeIgnoreExplicit": 0,
+      "sourceCanonicalDigest": "adf544b77684386cc785045d745a8abbbe8b1103b825e4ab953517000777b710",
+      "sample": {
+        "id": 2120000024,
+        "universe": 2000500001,
+        "fullBytes": 182,
+        "fullSha256": "6beac25675cfd57e875a48a0b4a7a308c9b5b8d22193b1999056d943f86c36dc",
+        "universeWire": "10a1eaf4b907",
+        "separateByItemIgnore": true,
+        "separateByTypeCraftingRecipeIgnore": true
+      }
+    },
+    "noSourceUniverseRowAloneProvesNativeMembership": true
+  },
+  "nativeClothing": {
+    "universeBranch": "0x4BFB884",
+    "universeCase2Compare": "0x4BFB8B0",
+    "oneTypedClothingFetch": "0x4BFBF28",
+    "clothingTypedMethodSpec": 98706,
+    "clothingTypeDef": 9204,
+    "clothingItemType": 5,
+    "differentGetAllCallAt0x4BFB978": {
+      "typeDef": 9068,
+      "typeName": "MemoryShardItemData",
+      "methodSpec": 98735
+    },
+    "wrongPredicate": "b__2 RVA0x4BFFE20 filters Sets case1, not Universe case2",
+    "unresolved": "Entire case2 native Set/Universe resolver graph remains unproven; cannot equate SetItemID to Universe value."
+  },
+  "nativeFurniture": {
+    "universeBranch": "0x4BFBD7C",
+    "universeCase2Compare": "0x4BFBDAC",
+    "oneTypedFurnitureFetch": "0x4BFC150",
+    "itemType": 4,
+    "wrongPredicate": "b__26 RVA0x4BFFF80 filters Sets case1, not Universe case2",
+    "unresolved": "Need native Universe predicate and Set/Universe lookup relation, including helper branch."
+  },
+  "originalConcrete": [
+    {
+      "type": "ClothingItemData",
+      "typeDef": 9204,
+      "typeDefRecordSha256": "8e2ff90d83dfe26fdaa340e0658249252e8b5c809e173dca212f211e8309c346",
+      "interfaceStart": 18897,
+      "interfaceCount": 26,
+      "interfaceSha256": "a79c4eb3ad6d276ac74609b7ff9b569e7bcfe3ab8e2b9d48f02b66a30aaf7bbd",
+      "icollectionInterfaceOffset": 48,
+      "icollectionVtableSlot": 49,
+      "encodedGetterMethod": "0x60029E55",
+      "getterMethodDef": 85802,
+      "variationImplemented": false,
+      "getterRva": "0x4604120",
+      "getterOpcode16": "08e042391f010071e0179f1ac0035fd6",
+      "getterSha256": "bdd47ccebb77457dca402f77bfaf2ef443cf7d8efd0f3b27ad51fbbe0dfa15eb",
+      "getterExpression": "!IsHidden",
+      "protobufIsHiddenField": 28,
+      "getterHiddenBackingOffset": "0xB8",
+      "originalSourceRowsShaVerified": 1900,
+      "hiddenTrue": 95,
+      "hiddenAbsentDefaultFalse": 1805,
+      "representative": {
+        "id": 50700002,
+        "rawSha256": "74cfdbe15072b218cf9254a354a7f8d042903b3430225f224cec856f9ef53e53",
+        "staticGetter": true
+      },
+      "hiddenNegative": {
+        "id": 50000329,
+        "rawSha256": "073c2b1aab0cb35d54ad34f3497ebece30f343eddd1de740112a8c3f948e0742",
+        "staticGetter": false
+      }
+    },
+    {
+      "type": "FurnitureItemData",
+      "typeDef": 9078,
+      "typeDefRecordSha256": "4a02b5eba6775ea1a026f0dd06fb3eaeb955168f9e58d49c0099b7f17f64e4eb",
+      "interfaceStart": 18419,
+      "interfaceCount": 29,
+      "interfaceSha256": "afcf06d5cdaf34117f7eb0a9ead7cc3789eefec440db228841d4f4dd39b469cf",
+      "icollectionInterfaceOffset": 52,
+      "icollectionVtableSlot": 53,
+      "encodedGetterMethod": "0x60028ED1",
+      "getterMethodDef": 83816,
+      "variationImplemented": false,
+      "getterRva": "0x45435D0",
+      "getterSliceBytes": 208,
+      "getterSliceSha256": "01aab89f1f4d58ec91067a3f65324145d24c10acb590aa4398874b68d92d2b3f",
+      "hiddenBackingOffset": "0x82",
+      "protobufIsHiddenField": 24,
+      "missionField": 60,
+      "hiddenShortCircuitRva": "0x4543620",
+      "namePointerReadRva": "0x454363C",
+      "secondaryNativeStringCompareHelperRva": "0x6253A20",
+      "nativeHelperCalls": [
+        "0x4543658",
+        "0x4543684"
+      ],
+      "getterExpression": "IsHidden->false; else string comparisons remain UNKNOWN; not simply !IsHidden",
+      "sourceRowsShaVerified": 4949,
+      "sourceHiddenTrue": 1299,
+      "sourceHiddenAbsentDefaultFalse": 3650,
+      "positiveGetter": "UNKNOWN",
+      "example": {
+        "id": 40000047,
+        "rawSha256": "b11d383c1ab18a6ebf1d9ea754d7ce0008dde3b6cfc2133324e61e3e24a98820"
+      },
+      "hiddenNegative": {
+        "id": 40300001,
+        "rawSha256": "6cdb9ffb57710b2adc7e57fff87855bd0962465c49b61b3b8fef248f2a4738f3",
+        "staticGetter": false
+      },
+      "getterIndexOfTrace": {
+        "originalNativeCallerGetterRva": "0x45435D0",
+        "stringHelperRva": "0x6253A20",
+        "originalDumpCsSignature": "System.String.IndexOf(string value,int startIndex,int count,StringComparison comparisonType)",
+        "stringComparisonEnum": "System.StringComparison.Ordinal",
+        "enumNumericValue": 4,
+        "firstCall": "0x4543658",
+        "secondCall": "0x4543684",
+        "argumentStartIndex": 0,
+        "argumentCount": "Name.Length",
+        "firstStringReferenceRva": "0xB2676A8",
+        "secondStringReferenceRva": "0xB25DE48",
+        "firstLiteralContents": "UNKNOWN_ORIGINAL_STRING_LITERAL_PROVENANCE",
+        "secondLiteralContents": "UNKNOWN_ORIGINAL_STRING_LITERAL_PROVENANCE",
+        "originalArmSemantics": "Name.IndexOf(firstLiteral,0,Name.Length,Ordinal)<0 && Name.IndexOf(secondLiteral,0,Name.Length,Ordinal)<0",
+        "fullGetterConditional": "For non-null Name and successful ordinary string-reference initialization: !IsHidden && first IndexOf < 0 && second IndexOf < 0; Name null follows a separate exception-helper branch, not a verified false return",
+        "runtimeInitializationOfLiteralReferences": "UNKNOWN",
+        "safePositiveEligibility": false
+      }
+    }
+  ],
+  "identityAudit": {
+    "originalItems": 17413,
+    "uniqueItemIDs": 17413,
+    "duplicateItemIDs": 0,
+    "originalDefinitions": 293,
+    "uniqueDefinitionIDs": 293,
+    "duplicateDefinitionIDs": 0,
+    "selectorOccurrences": 256
+  },
+  "coverage": {
+    "ownerStaticBefore": 132,
+    "closedNow": 0,
+    "ownerStaticAfter": 132,
+    "independentAccepted": 103,
+    "remaining125MinusFish": 124,
+    "remaining": {
+      "Clothing": 61,
+      "Furniture": 63
+    },
+    "independentCrafting28Pending": true,
+    "independentFishPending": true
+  },
+  "needs": {
+    "source": "PRESENT_AND_REHASHED",
+    "nativeUniverseChain": "NEED_SOURCE_NATIVE_CALL_CHAIN",
+    "runtimeDatabase": "NEED_RUNTIME_FOR_FINAL_MEMBERSHIP",
+    "unmodifiedPersonalSave": "NEED_RUNTIME_FOR_PLAYER_COUNTS"
+  },
+  "safety": {
+    "universePredicateClosed": false,
+    "universeSelectorsAdded": 0,
+    "finalMembershipKnown": false,
+    "denominator": null,
+    "owned": "UNKNOWN",
+    "collected": "UNKNOWN",
+    "missing": "UNKNOWN",
+    "personalMetrics": false,
+    "nativeWriter": false,
+    "presetApply": false,
+    "communityPublishing": false,
+    "entitlementEditing": false,
+    "switch1253OrSteamTransferred": false
+  }
+}

@@ -1,0 +1,90 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const evidence=JSON.parse(readFileSync('static/ddv/core/collection/v1.25/native-activity-mineral-original-predicate-v125.json','utf8'));
+const compact=JSON.parse(readFileSync('static/ddv/core/collection/v1.25/collection-definition-source-compact-v125.json','utf8')).records;
+function vint(b,at){let n=0,shift=0,p=at;for(;;){assert.ok(p<b.length);const z=b[p++];n+=(z&127)*2**shift;if(!(z&128))return [n,p];shift+=7;assert.ok(shift<56);}}
+function pb(b){let p=0,rows=[];while(p<b.length){let k;[k,p]=vint(b,p);let n=k>>>3,w=k&7,value;if(w===0)[value,p]=vint(b,p);else if(w===2){let l;[l,p]=vint(b,p);assert.ok(p+l<=b.length);value=b.subarray(p,p+l);p+=l;}else throw Error('unexpected wire '+w);rows.push({n,w,value});}return rows;}
+const at=(b,n)=>{let found=pb(b).filter(x=>x.n===n);assert.equal(found.length,1);return found[0];};
+test('New mineral original source identity cannot transfer historical d548/Steam/schema626',()=>{
+ const s=evidence.sources;
+ assert.deepEqual(evidence.scope,{platform:'Nintendo Switch',gameVersion:'1.25.0',bid:'52BD625D9B4E0053',saveSchema:624});
+ assert.equal(s.exeFsMain.sha256,'3258d5e05aded708c06017b8763fa37bfb696385a2ab29dd8a182d3938cbc0e0');
+ assert.equal(s.originalMetadata.sha256,'07e919f07f7be2df883b7292bd3c699f670b4c1e8ff496ef7747447f5baa9f7c');
+ assert.equal(s.dumpCs.sha256,'a94ae73d522f160d21255b195b4d834bf5c79db59ddbd8cdfc32e54c6e0671f0');
+ assert.equal(s.losslessItemDbGzip.sha256,'df78c309a8023667c92426e3b929ed3e51aadf10d943835a3673cefa585f8048');
+ assert.equal(s.supportTablesGzip.sha256,'537cfcf14beca1e76496d4f9c5b60bd7e31d385a16fd69e63083df6978fdf4b9');
+ assert.equal(s.historicalD548.rawOriginalSource,'NEED_SOURCE');assert.equal(s.historicalD548.equatedToOriginal,false);
+});
+test('Exact definition 2120000084 original bounded protobuf differentiates ByType Mineral case7 and ByItem Ignore true',()=>{
+ const x=evidence.definition;
+ assert.equal(x.originalRawPayloadBytes,114);
+ assert.equal(x.originalRawPayloadSha256,'55be403d62d4b9ac75ed7a0a339b085b55c6b6c3fe23b188908851efba814e19');
+ const gr=at(Buffer.from(x.groupField9WireHex,'hex'),9).value;
+ const byType=at(gr,2).value,activity=at(byType,6).value,mineral=at(activity,7);
+ assert.equal(mineral.w,2);assert.equal(mineral.value.length,0);
+ assert.equal(pb(byType).filter(x=>x.n===1).length,0);
+ assert.equal(x.byTypeIgnore.protobufDefault,false);
+ const byItem=at(gr,1).value;assert.equal(at(byItem,1).value,1);
+ const packed=at(byItem,2).value;
+ const [itemId,end]=vint(packed,0);assert.equal(itemId,31600040);assert.equal(end,packed.length);
+ assert.deepEqual(x.distinctByItem.itemIDs,[31600040]);
+ const c=compact.find(r=>r[0]===2120000084);
+ assert.ok(c);assert.deepEqual(c[5].filter(z=>z[0]==='ActivityItem'),[['ActivityItem',{Mineral:{}},0]]);
+});
+test('Mineral original encoded MethodSpec98775 is a TWO-type generic, not Flower GetAllByType singleton',()=>{
+ const n=evidence.native,g=n.generic,a=n.mineralArm;
+ assert.equal(a.startRva,'0x4BFDE68');assert.equal(a.endExclusiveRva,'0x4BFDF64');
+ assert.equal(a.bytes,252);assert.equal(a.sha256,'4703f8dcee3487eb05203cab1182fe8be1f3e844c32596897a56d1357b462eee');
+ assert.equal(a.innerCaseCmpRva,'0x4BFDE68');
+ assert.equal(a.itemTypeArgument.value,3);assert.equal(a.subtypeArgument.value,16);
+ assert.equal(a.call.rva,'0x4BFDEA8');assert.equal(a.call.nativeTarget,'0x37816F0');
+ assert.equal(g.encodedUsage,'0xC00303AF');
+ assert.equal((Number.parseInt(g.encodedUsage,16)&0x3ffff)>>>1,g.methodSpecIndex);
+ const record=Buffer.from(g.methodSpecHex,'hex');assert.equal(record.length,12);
+ assert.equal(record.readUInt32LE(0),103722);assert.equal(record.readInt32LE(4),-1);
+ assert.equal(record.readUInt32LE(8),34633);
+ assert.equal(g.methodSpecIndex,98775);assert.equal(g.methodSpecRva,'0x96E60B0');
+ assert.deepEqual(g.genericArgTypes.map(x=>x.typeDefIndex),[9063,10400]);
+ assert.equal(g.notFlowerGeneric,true);
+});
+test('Original Mineral ID projector has no Mineral-specific Where, shared downstream IsValid remains separate',()=>{
+ const n=evidence.native,p=n.projector;
+ assert.equal(p.rva,'0x4BFF7C0');assert.equal(p.bytes,160);
+ assert.equal(p.sha256,'091f6df3a1790b1a787ced9caa5cf709cd21ae08b3f9f57155398d0736408b8e');
+ assert.equal(p.idReadRva,'0x4BFF7E8');assert.equal(p.idFieldOffset,'0x18');
+ assert.equal(p.selectCallRva,'0x4BFD874');assert.equal(p.selectTarget,'0x3752680');
+ assert.equal(p.hasMineralWhere,false);assert.equal(n.separateCommonIsValidGate,true);
+ assert.match(n.selectorStageExpression,/MineralItemData,ActivityItemType/);
+});
+test('Original concrete TypeDef9063 interface offset gives ICollectionItem vtable34 and native mission getter, no variation',()=>{
+ const c=evidence.concrete;
+ assert.equal(c.typeDefIndex,9063);assert.equal(c.typeDefRecordSha256,'1bc0bba3688460e826bd497c173771f27df38eee141c323444a449cde16a5d40');
+ assert.equal(c.interfaceOffsetsStart,18342);assert.equal(c.interfaceOffsetsCount,18);
+ assert.equal(c.interfaceOffsetRecordSha256,'5cf1e5dd3ffd6a275fc1ccea7b2c77a88b453500e3421234e71b4e4b586ec992');
+ assert.equal(c.icollectionInterfaceTypeIndex,64932);assert.equal(c.icollectionOffset+c.icollectionGetterVirtualSlot,c.icollectionConcreteVtableSlot);
+ assert.equal(c.icollectionConcreteVtableSlot,34);assert.equal(c.originalVtableEncodedMethod,'0x60028BB9');
+ assert.equal(c.methodDefIndex,83420);assert.equal(c.methodDefName,'get_CanBeCollected');
+ assert.equal(c.variationInterfaceTypeIndex,65831);assert.equal(c.variationImplemented,false);
+ assert.equal(c.getCanBeCollected.rva,'0x451B400');
+ assert.equal(c.getCanBeCollected.instructionHex,'088041391f010071e0179f1ac0035fd6');
+ assert.equal(c.getCanBeCollected.sha256,'9173b888b01aea203e357cfeda024f06898a1824ae272ffcf5c2389d294bbd4c');
+ assert.equal(c.getCanBeCollected.expression,'!IsMissionItem');
+ assert.deepEqual(c.protobuf,{itemIdField:1,missionFlagField:11,missionDefault:false});
+});
+test('Only one Mineral selector counted; typed source positive, other subtype negative, independent ByItem and runtime unknown',()=>{
+ const x=evidence.originalTypedMineralSource;
+ assert.equal(x.recordsChecked,53);assert.equal(x.missionField11Absent,53);assert.equal(x.missionField11ExplicitTrue,0);
+ assert.equal(x.typedGetterStaticTrue,53);
+ assert.equal(x.examples.find(z=>z.itemId===31600002).rawPayloadSha256,'0ca66672c579aa627fba3778df8e117248e406a4b7ea0d66259158e73fb15dc1');
+ assert.equal(x.examples.find(z=>z.itemId===31600040).byItemIgnoreSeparately,true);
+ assert.equal(x.examples.find(z=>z.itemId===31600040).finalGroupMembership,'UNKNOWN');
+ assert.equal(x.negativeOtherSubtype.itemId,31700000);
+ assert.equal(x.negativeOtherSubtype.subtype,17);
+ assert.equal(x.negativeOtherSubtype.staticMineralTypedSelector,'NEGATIVE_DISTINCT_SOURCE_SUBTYPE');
+ assert.equal(x.notRuntimeEnumeratorOutput,true);
+ assert.deepEqual(evidence.coverage,{previous:101,newStaticSelectorClosed:1,now:102,total:256,remainingUnknown:154,byFamily:{ActivityItem:2,Crafting:28,Clothing:61,Furniture:63}});
+ const safe=evidence.safety;assert.equal(safe.denominator,null);assert.equal(safe.finalMembershipKnown,false);
+ for(const k of ['realDeviceRuntimeEvidence','independentQrAccepted','personalCollectionMetricsEnabled','nativeSaveWriterEnabled','presetApplyEnabled','communityPublishingEnabled','entitlementEditEnabled','switch1253OrSteamTransferred'])assert.equal(safe[k],false,k);
+ for(const k of ['owned','collected','missing'])assert.equal(safe[k],'UNKNOWN');
+});
