@@ -137,7 +137,14 @@ try {
  pass('A_TO_B_SESSION_REPLACED_DETAILS_AND_DIFF');
  await page.setViewportSize({width:320,height:740});
  await page.locator('[data-wep-spatial-controls]').waitFor();
- assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+ report.mobile320=await page.evaluate(()=>({
+  innerWidth, documentWidth:document.documentElement.scrollWidth,
+  bodyWidth:document.body.scrollWidth,
+  offenders:[...document.querySelectorAll('*')]
+    .filter(e=>e.getBoundingClientRect().right>innerWidth+1)
+    .slice(0,12).map(e=>({tag:e.tagName,cls:String(e.className?.baseVal??e.className).slice(0,60),right:Math.round(e.getBoundingClientRect().right)}))
+ }));
+ assert.equal(report.mobile320.documentWidth<=report.mobile320.innerWidth,true);
  pass('VIEWPORT_320_NO_HORIZONTAL_OVERFLOW');
  assert.deepEqual(report.pageErrors,[]);
  assert.deepEqual(report.consoleErrors,[]);
