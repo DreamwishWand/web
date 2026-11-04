@@ -42,55 +42,87 @@ const strictUtc = value => {
   return day>=1 && day<=days[month-1];
 };
 
+// Never read untrusted fields through property access: own enumerable data
+// descriptors are the only source values representable by JSON.parse.
+const ownJsonData = (obj,key) => {
+  if(!rec(obj))return null;
+  const descriptor=Object.getOwnPropertyDescriptor(obj,key);
+  return descriptor && descriptor.enumerable &&
+    Object.hasOwn(descriptor,'value') ? descriptor : null;
+};
+
 /**
  * Caller must supply already decoded (locally kept) JSON plus matching
  * *external* platform/version/BID/schema hints. No hash authentication,
  * native execution or durable edits occur here.
+ *
+ * Untrusted JS objects may contain inherited fields, accessors, hidden keys
+ * and mutable getters. Snapshot only own enumerable *data descriptors* once.
+ * This is still SOURCE_ONLY, not an authenticated immutable Rust SaveSession.
  */
 export function inspectW1SavedClockSource(profile, context) {
-  if(!rec(profile)||!rec(profile.GameInfo)||!rec(profile.World)||!rec(context))
-    return fail('SOURCE_PROFILE_OR_CONTEXT_MISSING');
-  if(profile.GameInfo.Version!==626 || Object.entries(W1_SAVED_CLOCK_BUILD)
-    .some(([key,value])=>context[key]!==value))
-    return fail('EXACT_EXTERNAL_BUILD_AND_SCHEMA_REQUIRED');
-  if(!sha(context.sourceSha256) || typeof context.sourceRevision!=='string' ||
-     !context.sourceRevision)return fail('UNTRUSTED_SOURCE_HINTS_REQUIRED');
-  const events=profile.World.RecurringEvents;
-  if(!rec(events) || !Object.hasOwn(events,W1_SAVED_CLOCK_IDENTITY.mapKey))
-    return fail('SAVED_EVENT_MAP_KEY_MISSING');
-  const container=events[W1_SAVED_CLOCK_IDENTITY.mapKey];
-  if(!rec(container))return fail('SAVED_EVENT_CONTAINER_INVALID');
-  // Native oneof identity must be unique across *all* serialized keys.
-  // An alternate variant without NextOccurrence is still ambiguous; do not
-  // inherit the looser read-only UI projection's Next-bearing filter.
-  const variants=Object.entries(container);
-  if(variants.length!==1 || variants[0][0]!==W1_SAVED_CLOCK_IDENTITY.oneof ||
-     !rec(variants[0][1]) || !Object.hasOwn(variants[0][1],'NextOccurrence'))
-    return fail('SAVED_EVENT_ONEOF_AMBIGUOUS_OR_UNSUPPORTED');
-  const event=variants[0][1];
-  if(event.RecurringEventItemID!==W1_SAVED_CLOCK_IDENTITY.eventId)
-    return fail('SAVED_EVENT_ID_MISMATCH');
-  if(!Object.hasOwn(event,'NextOccurrence') || !Object.hasOwn(event,'LastOccurrence') ||
-     !Object.hasOwn(event,'EndDate') || !strictUtc(event.NextOccurrence) ||
-     !strictUtc(event.LastOccurrence) ||
-     !(event.EndDate===null || strictUtc(event.EndDate)))
-    return fail('SAVED_CLOCK_FIELDS_MISSING_OR_INVALID');
-  return freeze({
-    contract:W1_SAVED_CLOCK_SOURCE_CONTRACT,
-    status:'SAVED_W1_CLOCK_SOURCE_FIELDS_ONLY',
-    mapKey:W1_SAVED_CLOCK_IDENTITY.mapKey,
-    eventId:W1_SAVED_CLOCK_IDENTITY.eventId,
-    oneof:W1_SAVED_CLOCK_IDENTITY.oneof,
-    nextPointer:W1_SAVED_CLOCK_IDENTITY.nextPointer,
-    // Exact original JSON strings; do not normalize, reschedule or repair.
-    rawNextUtc:event.NextOccurrence,rawLastUtc:event.LastOccurrence,
-    rawEndDateUtc:event.EndDate,rawEndDateIsNull:event.EndDate===null,
-    savedClockFieldsObserved:true,
-    sourceIdentityAuthenticated:false,coreRevisionCasVerified:false,
-    temporalOrderVerifiedByNative:false,nativeClockActualizeVerified:false,
-    nativeExecuteAcceptedVerified:false,nativeLastToNextVerified:false,
-    nativeColdLoadVerified:false,nativeV3Accepted:false,
-    productWriterAuthorized:false,productEditedCopyAuthorized:false,
-    originalOverwriteAuthorized:false,automatic2126RepairAuthorized:false
-  });
+  try {
+    const gameInfo=ownJsonData(profile,'GameInfo')?.value;
+    const world=ownJsonData(profile,'World')?.value;
+    if(!rec(gameInfo)||!rec(world)||!rec(context))
+      return fail('SOURCE_PROFILE_OR_CONTEXT_MISSING');
+    if(ownJsonData(gameInfo,'Version')?.value!==626 ||
+       Object.entries(W1_SAVED_CLOCK_BUILD).some(([key,value])=>
+         ownJsonData(context,key)?.value!==value))
+      return fail('EXACT_EXTERNAL_BUILD_AND_SCHEMA_REQUIRED');
+    const sourceSha256=ownJsonData(context,'sourceSha256')?.value;
+    const sourceRevision=ownJsonData(context,'sourceRevision')?.value;
+    if(!sha(sourceSha256)||typeof sourceRevision!=='string'||!sourceRevision)
+      return fail('UNTRUSTED_SOURCE_HINTS_REQUIRED');
+
+    const events=ownJsonData(world,'RecurringEvents')?.value;
+    if(!rec(events)||!ownJsonData(events,W1_SAVED_CLOCK_IDENTITY.mapKey))
+      return fail('SAVED_EVENT_MAP_KEY_MISSING');
+    const container=ownJsonData(events,W1_SAVED_CLOCK_IDENTITY.mapKey).value;
+    if(!rec(container))return fail('SAVED_EVENT_CONTAINER_INVALID');
+
+    // Reflect.ownKeys also sees non-enumerable and Symbol variants; such keys
+    // are impossible in a JSON.parse container and may not be silently hidden.
+    const variantKeys=Reflect.ownKeys(container);
+    if(variantKeys.length!==1||variantKeys[0]!==W1_SAVED_CLOCK_IDENTITY.oneof)
+      return fail('SAVED_EVENT_ONEOF_AMBIGUOUS_OR_UNSUPPORTED');
+    const variant=ownJsonData(container,W1_SAVED_CLOCK_IDENTITY.oneof);
+    if(!variant||!rec(variant.value))
+      return fail('SAVED_EVENT_ONEOF_AMBIGUOUS_OR_UNSUPPORTED');
+    const event=variant.value;
+
+    // Read each mandatory field exactly ONCE from an own serializable data
+    // descriptor. A getter cannot validate one value and publish another.
+    const eventId=ownJsonData(event,'RecurringEventItemID');
+    const next=ownJsonData(event,'NextOccurrence');
+    const last=ownJsonData(event,'LastOccurrence');
+    const end=ownJsonData(event,'EndDate');
+    if(!eventId||eventId.value!==W1_SAVED_CLOCK_IDENTITY.eventId)
+      return fail('SAVED_EVENT_ID_MISMATCH');
+    if(!next||!last||!end||!strictUtc(next.value)||!strictUtc(last.value)||
+       !(end.value===null||strictUtc(end.value)))
+      return fail('SAVED_CLOCK_FIELDS_MISSING_OR_INVALID');
+
+    const rawNextUtc=next.value,rawLastUtc=last.value,rawEndDateUtc=end.value;
+    return freeze({
+      contract:W1_SAVED_CLOCK_SOURCE_CONTRACT,
+      status:'SAVED_W1_CLOCK_SOURCE_FIELDS_ONLY',
+      mapKey:W1_SAVED_CLOCK_IDENTITY.mapKey,
+      eventId:W1_SAVED_CLOCK_IDENTITY.eventId,
+      oneof:W1_SAVED_CLOCK_IDENTITY.oneof,
+      nextPointer:W1_SAVED_CLOCK_IDENTITY.nextPointer,
+      // Exact validated primitive snapshot; never normalize or auto-repair.
+      rawNextUtc,rawLastUtc,rawEndDateUtc,rawEndDateIsNull:rawEndDateUtc===null,
+      savedClockFieldsObserved:true,
+      sourceIdentityAuthenticated:false,coreRevisionCasVerified:false,
+      temporalOrderVerifiedByNative:false,nativeClockActualizeVerified:false,
+      nativeExecuteAcceptedVerified:false,nativeLastToNextVerified:false,
+      nativeColdLoadVerified:false,nativeV3Accepted:false,
+      productWriterAuthorized:false,productEditedCopyAuthorized:false,
+      originalOverwriteAuthorized:false,automatic2126RepairAuthorized:false
+    });
+  } catch {
+    // Revoked proxies/hostile descriptor traps are not serialized Save data.
+    return fail('SOURCE_OBJECT_DESCRIPTOR_UNSAFE');
+  }
 }

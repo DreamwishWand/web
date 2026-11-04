@@ -116,3 +116,56 @@ test('untrusted caller Native/Writer/clock assertions never produce permission',
   assert.equal(r.nativeExecuteAcceptedVerified,false);
   assert.equal(r.productWriterAuthorized,false);
 });
+
+
+// W-05QR-C-005 original TRUE RED #513: hostile JS objects cannot impersonate
+// a JSON.parse Source witness or change data between validation and emission.
+test('inherited W1 EventID cannot satisfy an own serialized mandatory field',()=>{
+  const p=fixture();
+  p.World.RecurringEvents['155'].ItemSpawning=
+    Object.assign(Object.create({RecurringEventItemID:2010000021}),{
+      NextOccurrence:'2126-08-20T00:00:00Z',
+      LastOccurrence:'2026-08-20T00:00:00Z',EndDate:null
+    });
+  denied(inspect(p));
+  assert.equal(inspect(p).reason,'SAVED_EVENT_ID_MISMATCH');
+});
+test('getter NextOccurrence cannot validate then publish a different value',()=>{
+  const p=fixture(),e=p.World.RecurringEvents['155'].ItemSpawning;
+  let hits=0;
+  Object.defineProperty(e,'NextOccurrence',{enumerable:true,
+    get(){return ++hits===1?'2126-08-20T00:00:00Z':'NOT_A_VALID_UTC';}});
+  denied(inspect(p));
+  assert.equal(hits,0,'data-descriptor inspection never invokes the getter');
+});
+test('getter EndDate cannot emit inconsistent value and null flag',()=>{
+  const p=fixture(),e=p.World.RecurringEvents['155'].ItemSpawning;
+  let hits=0;
+  Object.defineProperty(e,'EndDate',{enumerable:true,
+    get(){return ++hits===1?null:'NOT_A_VALID_UTC';}});
+  denied(inspect(p));
+  assert.equal(hits,0,'accessor never evaluated');
+});
+test('hidden non-enumerable and symbol oneof keys are rejected',()=>{
+  for(const extraKey of ['AnotherSpawning',Symbol('AnotherSpawning')]){
+    const p=fixture(),c=p.World.RecurringEvents['155'];
+    Object.defineProperty(c,extraKey,{value:{RecurringEventItemID:2010000022},
+      enumerable:false,configurable:true});
+    const r=inspect(p);
+    denied(r);
+    assert.equal(r.reason,'SAVED_EVENT_ONEOF_AMBIGUOUS_OR_UNSUPPORTED');
+  }
+});
+test('serializable plain data descriptors preserve intentional 2126 verbatim',()=>{
+  const p=fixture(),e=p.World.RecurringEvents['155'].ItemSpawning;
+  e.NextOccurrence='2126-08-20T00:00:00.123456789Z';
+  const original=JSON.stringify(p);
+  const r=inspect(p);
+  assert.equal(r.status,'SAVED_W1_CLOCK_SOURCE_FIELDS_ONLY');
+  assert.equal(r.rawNextUtc,e.NextOccurrence);
+  assert.equal(r.rawEndDateUtc,null);
+  assert.equal(r.rawEndDateIsNull,true);
+  assert.equal(r.nativeV3Accepted,false);
+  assert.equal(r.productWriterAuthorized,false);
+  assert.equal(JSON.stringify(p),original);
+});
