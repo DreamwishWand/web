@@ -155,6 +155,7 @@ test('locally authored draft remains schematic without a forged native GridObjec
 
 test('main PR418 01B direct-root cross-check rejects native extra GridObject and forged provenance',()=>{
   const f=fixture();
+  f.opened.profile.GameInfo={Version:624};
   f.document.target.contractBuildIdentity=BID;
   f.document.target.persistentWriteAuthorized=false;
   f.document.metadata.directRootProjection={evidenceStatus:'CONFIRMED'};
