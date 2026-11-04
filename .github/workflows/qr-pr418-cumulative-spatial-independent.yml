@@ -3,7 +3,7 @@ on:
   push:
     branches: [qa/pr418-current-main-spatial-composed-20261104]
   pull_request:
-    branches: [int/main-source-spatial-reference-20261104]
+    branches: [int/w-int-012-spatial-source-qa414-20261104]
 permissions:
   contents: read
 jobs:
