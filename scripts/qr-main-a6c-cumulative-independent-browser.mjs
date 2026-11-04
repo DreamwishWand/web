@@ -20,7 +20,10 @@ try{
  await page.locator('[data-timing-readonly="true"]').waitFor({timeout:28000});
  assert.equal(await page.locator('[data-w1-original-backup]').count(),0,'no loaded original');
  mark('SINGLE_W1_READER_HAS_NO_AUTOMATIC_ORIGINAL_BACKUP');
- await page.goto(base+'/presets/',{waitUntil:'domcontentloaded'});
+ await page.goto(base+'/presets/',{waitUntil:'networkidle'});
+ await page.locator('.preset-tabs button').last().waitFor();
+ // Wait for Svelte event hydration; the first click before hydration is inert.
+ await page.waitForTimeout(450);
  await page.locator('.preset-tabs button').last().click();
  const panel=page.locator('.native-manager');await panel.waitFor({timeout:28000});
  assert.equal(await panel.locator('.local-library .backup-grid article').count(),0);
