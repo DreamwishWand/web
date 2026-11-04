@@ -1,0 +1,77 @@
+name: WEP 626 Source Object Read-only Inspector + actual Chromium
+on:
+  push:
+    branches: ['wep/schema626-source-reference-inspector-20261104']
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/lib/wep/schema626-source-inspector.ts'
+      - 'src/lib/wep/world-readonly-copy.js'
+      - 'src/routes/editor/world/+page.svelte'
+      - 'tests/wep-schema626-source-inspector.test.mjs'
+      - 'scripts/wep-schema626-source-inspector-browser-20261104.mjs'
+      - '.github/workflows/wep-schema626-source-inspector-20261104.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify fixed source HEAD
+        run: |
+          git rev-parse HEAD
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: 626 exact Native ID/parent/Session/Source negative tests
+        run: node --experimental-strip-types --test tests/wep-schema626-source-inspector.test.mjs
+      - name: Svelte TypeScript check
+        run: npm run check
+      - name: Production static build
+        run: npm run build
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify fixed Chromium source HEAD
+        run: |
+          git rev-parse HEAD
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: System Chromium/Chrome
+        id: chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "path=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+      - name: Start local World Editor
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4179 > /tmp/wep-626-ref.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl --silent --fail http://127.0.0.1:4179/editor/world/ > /dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/wep-626-ref.log
+          exit 1
+      - name: Real Chrome synthetic encrypted P1G Native ID/Inspector, A/B and no 2D/writes
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          WEP_626_INSPECTOR_URL: http://127.0.0.1:4179
+        run: node scripts/wep-schema626-source-inspector-browser-20261104.mjs
+      - name: Retain scoped synthetic/browser-only evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wep-626-source-inspector-browser
+          path: .artifacts/wep-schema626-source-inspector/
+          if-no-files-found: error
