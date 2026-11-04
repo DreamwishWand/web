@@ -47,6 +47,9 @@ export function stage1RootCategories(index){
   imageRightsAccepted:false
  }));
 }
+/** @param {Array<any>} records
+ * @param {{query?:string,category?:string,worlds?:string[],universes?:string[]}} [options]
+ */
 export function stage1ScopeRecords(records,{query='',category='',worlds=[],universes=[]}={}){
  const filtered=filterCollectionRecords(records,{query,family:category});
  const w=Array.isArray(worlds)?worlds:[];
