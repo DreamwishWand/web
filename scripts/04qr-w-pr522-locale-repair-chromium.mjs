@@ -46,7 +46,7 @@ try{
   }
   assert.deepEqual(await cards.evaluateAll(els=>els.map(x=>x.getAttribute('data-guide-child'))),roots,lang+' 4 root order');
   for(const root of roots){
-   assert.equal((await cards.locator('[data-guide-child="'+root+'"] strong').innerText()).trim(),guideCopy(lang)[root],lang+' '+root);
+   assert.equal((await hub.locator('[data-guide-child="'+root+'"] strong').innerText()).trim(),guideCopy(lang)[root],lang+' '+root);
   }
   assert.equal(await page.locator('[data-guide-child="issues"]').count(),0);
   assert.equal(await page.locator('.guide-tabs').count(),0,'landing must not flatten to a workbench');
@@ -62,7 +62,7 @@ try{
  assert.ok(desktop.length>7000);
  console.log('QR522 REPAIRED ROOT DESKTOP SCREENSHOT RAM SHA '+createHash('sha256').update(desktop).digest('hex').slice(0,16));
  for(const section of roots){
-  const link=cards.locator('[data-guide-child="'+section+'"]');
+  const link=hub.locator('[data-guide-child="'+section+'"]');
   await link.focus();
   assert.equal(await page.evaluate(()=>document.activeElement?.getAttribute('data-guide-child')),section);
   await page.keyboard.press('Enter');
