@@ -29,6 +29,8 @@ const READ_CAPABILITIES = freeze({
 const safeResult=(result,expected) => {
   if(!result||typeof result!=='object'||result.writerAuthorized!==false||
      result.productRustWorkerAccepted!==false||result.sourceSchema!==626||
+     result.sourcePlatform!=='switch'||result.externalFullVersion!==LOCAL_SWITCH_FULL_VERSION||
+     result.externalBID!==LOCAL_SWITCH_BID||
      !/^[a-f0-9]{32}$/.test(result.sessionId) ||
      !/^[a-f0-9]{64}$/.test(result.sourceSha256) ||
      !Number.isSafeInteger(result.revision)||result.revision!==0||
@@ -62,7 +64,7 @@ const validateBuild=att => {
 export function createLocalSaveSessionBridge(workerFactory){
   if(typeof workerFactory!=='function')throw Error('LOCAL_WORKER_FACTORY_MISSING');
   let worker=null,readyPromise=null,readyResolve,readyReject,ready=false;
-  let id=0,epoch=0,receipt=null,closing=false;
+  let id=0,epoch=0,receipt=null;
   const pending=new Map(),subscribers=new Set();
   const notify=()=>{for(const listener of subscribers){
     try{listener(freeze({ready,receipt,capabilities:READ_CAPABILITIES}));}catch{}
@@ -133,7 +135,9 @@ export function createLocalSaveSessionBridge(workerFactory){
     if(!(file instanceof Blob)||file.size===0||file.size>LOCAL_MAX_P1G_BYTES)
       throw Error('LOCAL_FILE_BOUNDS');
     const workerResult=await request('OPEN_FILE',{
-      file,buildId:attestation.buildId,sourceConfirmed:true
+      file,buildId:attestation.buildId,sourceConfirmed:true,
+      platform:attestation.platform,fullVersion:attestation.fullVersion,
+      buildKind:attestation.buildKind,sourceSchema:attestation.schema
     });
     if(token!==epoch)throw Error('LOCAL_SESSION_STALE_OPEN');
     const safe=safeResult(workerResult,{...attestation,fileName:file.name||'profile'});
