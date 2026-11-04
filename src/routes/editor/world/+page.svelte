@@ -31,6 +31,9 @@
   import { openWorldSaveBytes, WEP_WORLD_READONLY_626_PROVENANCE } from '$lib/wep/world-save-source';
   import { worldReadonlyCopy } from '$lib/wep/world-readonly-copy.js';
   import {
+    bind626SourceInspector, inspect626BoundObject, page626BoundObjects
+  } from '$lib/wep/schema626-source-inspector';
+  import {
     createOriginalSaveBackup
   } from '$lib/wep/local-save-backup';
   import {
@@ -260,6 +263,12 @@
   let worldSourceBytes: Uint8Array | null = null;
   let worldSourceEpoch = 0;
   let sourceFingerprint = '';
+  let readonly626Inspector: ReturnType<typeof bind626SourceInspector> | null = null;
+  let readonly626GridId = '';
+  let readonly626ObjectId = '';
+  let readonly626Page: ReturnType<typeof page626BoundObjects> | null = null;
+  let readonly626Selected: ReturnType<typeof inspect626BoundObject> | null = null;
+  let readonly626Error = '';
   let recoveryRecords: any[] = [];
   let recoveryRequest: any = null;
   let recoveryStatus = '';
@@ -2387,6 +2396,66 @@
     });
   }
 
+  function clear626Inspector() {
+    readonly626Inspector = null;
+    readonly626GridId = '';
+    readonly626ObjectId = '';
+    readonly626Page = null;
+    readonly626Selected = null;
+    readonly626Error = '';
+  }
+
+  function refresh626SourcePage(offset = 0) {
+    readonly626Page = null;
+    readonly626Selected = null;
+    readonly626Error = '';
+    if (!readonly626Inspector || !worldSource) return;
+    try {
+      readonly626Page = page626BoundObjects(
+        readonly626Inspector, worldSource, sourceFingerprint, worldSourceEpoch,
+        readonly626GridId, offset, 20
+      );
+    } catch (error) {
+      readonly626Error = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  function inspect626SourceObject(gridId = readonly626GridId, objectId = readonly626ObjectId) {
+    readonly626Selected = null;
+    readonly626Error = '';
+    if (!readonly626Inspector || !worldSource) return;
+    try {
+      readonly626Selected = inspect626BoundObject(
+        readonly626Inspector, worldSource, sourceFingerprint, worldSourceEpoch,
+        gridId, objectId
+      );
+      readonly626GridId = String(readonly626Selected.gridId);
+      readonly626ObjectId = String(readonly626Selected.gridObjectId);
+    } catch (error) {
+      readonly626Error = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  function bindCurrent626Source(opened: any) {
+    clear626Inspector();
+    if (opened?.profileSchemaVersion !== 626 ||
+        opened?.compatibility?.readOnly !== true) return;
+    try {
+      readonly626Inspector = bind626SourceInspector(
+        opened, sourceFingerprint, worldSourceEpoch,
+        sourceBuildId.trim().toUpperCase()
+      );
+      readonly626GridId = String(
+        readonly626Inspector.acceptedRootGridIds[0] ??
+        readonly626Inspector.index.grids.find(grid => grid.kind === 'GRIDS')?.gridId ?? ''
+      );
+      if (readonly626GridId) refresh626SourcePage();
+    } catch (error) {
+      readonly626Inspector = null;
+      readonly626Error = error instanceof Error ? error.message : String(error);
+    }
+  }
+
   async function openEditorDocument(event: Event) {
     const input = event.currentTarget as HTMLInputElement;
     const file = input.files?.[0];
@@ -2394,6 +2463,7 @@
 
     loading = true;
     worldSourceEpoch += 1;
+    clear626Inspector();
     worldSourceBytes = null;
     sourceFingerprint = '';
     verifiedExportBaselineDocument = null;
@@ -2504,6 +2574,7 @@
         worldSource = opened;
         worldSourceBytes = bytes.slice();
         sourceFingerprint = fingerprint;
+        bindCurrent626Source(opened);
         fileName = file.name;
         query = '';
         selectedOnly = false;
@@ -6400,6 +6471,66 @@
             <div><dt>{readonly626Copy.grids}</dt><dd>{worldSource.structuralDiagnostics?.gridRecordCount ?? '—'}</dd></div>
             <div data-wep-626-gridobject-entries><dt>{readonly626Copy.gridObjects}</dt><dd>{worldSource.structuralDiagnostics?.gridObjectEntryCount ?? '—'}</dd></div>
           </dl>
+          {#if readonly626Inspector}
+            <section data-wep-626-source-inspector aria-label={readonly626Copy.sourceInspectorTitle} style="min-width:0;max-width:100%">
+              <h4>{readonly626Copy.sourceInspectorTitle}</h4>
+              <p>{readonly626Copy.sourceInspectorHint}</p>
+              <p data-wep-626-geometry-unverified><strong>{readonly626Copy.sourceGeometryWarning}</strong></p>
+              <form on:submit|preventDefault={() => inspect626SourceObject()} style="display:flex;flex-wrap:wrap;gap:.75rem;align-items:end">
+                <label style="display:grid;gap:.25rem;min-width:0">
+                  <span>{readonly626Copy.sourceGridId}</span>
+                  <input data-wep-626-grid-input type="text" inputmode="numeric" bind:value={readonly626GridId} maxlength="16" style="max-width:12rem;width:100%;box-sizing:border-box" on:change={() => refresh626SourcePage()} />
+                </label>
+                <label style="display:grid;gap:.25rem;min-width:0">
+                  <span>{readonly626Copy.sourceObjectId}</span>
+                  <input data-wep-626-object-input type="text" inputmode="numeric" bind:value={readonly626ObjectId} maxlength="16" style="max-width:12rem;width:100%;box-sizing:border-box" />
+                </label>
+                <button type="submit" disabled={loading}>{readonly626Copy.sourceInspect}</button>
+              </form>
+              {#if readonly626Error}
+                <p data-wep-626-source-error><code>{readonly626Error}</code></p>
+              {/if}
+              {#if readonly626Page}
+                <h4>{readonly626Copy.sourceList} · {readonly626Page.gridId} ({readonly626Page.totalCandidates})</h4>
+                <div data-wep-626-source-page style="display:flex;flex-wrap:wrap;gap:.4rem;max-width:100%">
+                  {#each readonly626Page.items as item (item.editorId)}
+                    <button type="button" disabled={loading} data-wep-626-native-object-id={item.editorId}
+                      on:click={() => inspect626SourceObject(String(item.gridId), String(item.gridObjectId))}>
+                      {readonly626Copy.sourceObjectId} {item.gridObjectId} · {readonly626Copy.sourceItemId} {item.itemId}
+                    </button>
+                  {/each}
+                </div>
+                {#if !readonly626Page.items.length}<p>{readonly626Copy.sourceNoResults}</p>{/if}
+                {#if readonly626Page.blockedCount}
+                  <p data-wep-626-source-unresolved>UNVERIFIED: {readonly626Page.blockedCount}</p>
+                {/if}
+                <div style="display:flex;flex-wrap:wrap;gap:.5rem">
+                  <button type="button" disabled={loading || readonly626Page.offset === 0}
+                    on:click={() => refresh626SourcePage(Math.max(0,(readonly626Page?.offset ?? 0)-20))}>
+                    {readonly626Copy.sourcePrevious}
+                  </button>
+                  <button type="button" disabled={loading || readonly626Page.nextOffset === null}
+                    on:click={() => refresh626SourcePage(readonly626Page?.nextOffset ?? 0)}>
+                    {readonly626Copy.sourceNext}
+                  </button>
+                </div>
+              {/if}
+              {#if readonly626Selected}
+                <dl data-wep-626-source-details style="min-width:0;overflow-wrap:anywhere">
+                  <div><dt>Source ObjectID</dt><dd>{readonly626Selected.editorId}</dd></div>
+                  <div><dt>{readonly626Copy.sourceItemId}</dt><dd>{readonly626Selected.itemId}</dd></div>
+                  <div><dt>{readonly626Copy.sourceGridLocal}</dt><dd>{readonly626Selected.serializedGridLocalX}, {readonly626Selected.serializedGridLocalY}</dd></div>
+                  <div><dt>{readonly626Copy.sourceOrientation}</dt><dd>{readonly626Selected.serializedOrientation}</dd></div>
+                  <div><dt>{readonly626Copy.sourceRelation}</dt><dd>{readonly626Selected.relation}</dd></div>
+                  <div><dt>{readonly626Copy.sourceParent}</dt><dd>{readonly626Selected.parentEditorId ?? '—'}</dd></div>
+                  <div><dt>geometryFor2d</dt><dd>{readonly626Selected.geometryFor2d}</dd></div>
+                  <div><dt>persistentWriteAuthorized</dt><dd>false</dd></div>
+                </dl>
+              {/if}
+            </section>
+          {:else if readonly626Error}
+            <p data-wep-626-source-error><code>{readonly626Error}</code></p>
+          {/if}
           <p data-wep-626-subgrid-unknown>{readonly626Copy.subgrid}</p>
           {#each worldSource.structuralDiagnostics?.notes ?? [] as note}
             <p><code>{note}</code></p>
