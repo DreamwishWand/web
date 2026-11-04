@@ -1,0 +1,86 @@
+name: 03 COMM Source160 Gallery Draft Two RPC Signed Post-Revoke Probe (Disposable)
+on:
+  push:
+    branches: [comm/w-comm-006-source160-gallery-two-draft-create-signed-probe-20261104]
+  pull_request:
+    branches: [comm/w-comm-006-source160-help-qa-two-writers-off-20261104]
+permissions:
+  contents: read
+jobs:
+  gallery-draft-probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Immutable accepted Source155/156/157 and isolated source probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 160
+          test "$(git hash-object supabase/migrations/20261102010000_community_source155_verified_first_account_bootstrap.sql)" = 115f2c0f7224984acd8830cfc606af8c6a1bf3af
+          test "$(git hash-object supabase/migrations/20261103010000_community_source156_signed_gallery_r16_atomic_writer.sql)" = 3000d66c193b996e4ece785deaf5180955ec3bc6
+          test "$(git hash-object supabase/migrations/20261103020000_community_source157_legacy_comments_v2_service_execute_off.sql)" = b9c44a501189857dff9fc6446dea21717d58b785
+          test "$(git hash-object supabase/migrations/20261103030000_community_source158_r15_gallery_pinned_service_execute_off.sql)" = 033920ee79a3dd07b32854f0bbfb3b225167f3e2
+          test "$(git hash-object supabase/migrations/20261104010000_community_source159_workspace_identity_legacy_service_execute_off.sql)" = 6bf78322e70406272125f245fcd525feb9347652
+          test "$(git hash-object supabase/migrations/20261104020000_community_source160_help_qa_question_tip_service_execute_off.sql)" = 0e5593b2a946727b4bd5d6ec5050b9c58a1dde0e
+          test "$(git hash-object supabase/functions/community-command/index.ts)" = 7d1bec902a3c9d332ac3c074c4f1ee9f7f9cd67f
+          python3 -m py_compile tests/comm-source160-gallery-draft-two-rpc-genuine-signed-postrevoke.py
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID"
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+      - name: Create genuine local-only ES256 GoTrue signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\n[auth]\nsigning_keys_path = "./signing_keys.json"\n' >> supabase/config.toml
+          printf '[]\n' > supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes >/tmp/comm-gallery-draft-signer.log 2>&1
+      - name: Reset exact FULL160 disposable local database
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_gallery_draft_two_rpcs_disposable_20261104"\n' | cat - supabase/config.toml > /tmp/comm-gallery-draft-config
+          mv /tmp/comm-gallery-draft-config supabase/config.toml
+          printf 'COMMUNITY_MEDIA_BUCKET=ddvre-gallery-draft-local-media\nWEP_PRESET_ARTIFACT_BUCKET=ddvre-gallery-draft-local-preset\n' > supabase/functions/.env
+          timeout 1800s supabase start >/tmp/comm-gallery-draft-start.log 2>&1 || {
+            echo WORKSPACE_LOCAL_START_FAIL
+            tail -n 25 /tmp/comm-gallery-draft-start.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'
+            exit 1
+          }
+          timeout 900s supabase db reset --no-seed >/tmp/comm-gallery-draft-reset.log 2>&1 || {
+            echo WORKSPACE_LOCAL_RESET_FAIL
+            tail -n 25 /tmp/comm-gallery-draft-reset.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'
+            exit 1
+          }
+          echo GALLERY_DRAFT_DISPOSABLE_FULL160_RESET_PASS
+      - run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Run real signed local HELP_QA Edge 409/revoked401/SQL42501 rollback negative
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/comm-source160-gallery-draft-two-rpc-genuine-signed-postrevoke.py | tee /tmp/comm-gallery-draft-probe.log
+          grep -q '"case": "GALLERY_DRAFT_GENUINE_SIGNED_A2_BOTH_ELIGIBLE_POSITIVE_IDEM_REPLAY_PASS"' /tmp/comm-gallery-draft-probe.log
+          grep -q '"case": "GALLERY_DRAFT_A1_LOCAL_REVOKED_OLD_REFRESH401_A2_200"' /tmp/comm-gallery-draft-probe.log
+          grep -q '"case": "GALLERY_DRAFT_POST_REVOKE_CREATEGALLERYDRAFT"' /tmp/comm-gallery-draft-probe.log
+          grep -q '"case": "GALLERY_DRAFT_TWO_LEGACY_SQL_POST_REVOKE_COMMIT_LOCAL_RED"' /tmp/comm-gallery-draft-probe.log
+          echo GALLERY_DRAFT_SIGNED_LOCAL_DIRECT_SQL_PROBE_NOT_INDEPENDENT_QA
+      - name: Dispose local signer, SQL DB, and ephemeral logs
+        if: always()
+        shell: bash
+        run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f supabase/functions/.env supabase/signing_keys.json /tmp/comm-gallery-draft-config /tmp/comm-gallery-draft-start.log /tmp/comm-gallery-draft-reset.log /tmp/comm-gallery-draft-probe.log /tmp/comm-gallery-draft-signer.log
+          echo WORKSPACE_LOCAL_PROBE_CLEANUP_ATTEMPTED
