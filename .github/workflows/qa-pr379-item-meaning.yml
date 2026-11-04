@@ -1,0 +1,32 @@
+name: 05 QR PR379 independent item semantic tri-state new-only
+on:
+  push:
+    branches: [qa/05qr-pr379-item-semantics-20261104]
+  pull_request:
+    paths:
+      - '.github/workflows/qa-pr379-item-meaning.yml'
+      - 'tests/qa-05qr-pr379-meaning-new-only.test.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-meaning:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Fixed 01D PR379 exact source; QA-only
+        run: |
+          test "$(git merge-base 4dc12d1f482fcf08b6a795eefa8caebabb3caab6 HEAD)" = 4dc12d1f482fcf08b6a795eefa8caebabb3caab6
+          git diff --quiet 4dc12d1f482fcf08b6a795eefa8caebabb3caab6 HEAD -- src/ docs/core/01d-native-item-semantics-save-overlay-20261104.md tests/ddv-core-item-semantics-overlay-contract.test.mjs
+          echo SAVE_SOURCE_OR_NATIVE_RUNTIME=NOT_RUN
+          echo PERSONAL_OWNED_AND_DENOMINATOR=UNKNOWN
+          echo WRITER=OFF
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Independent bool/amount/absence/Version/unknown/CAS negatives
+        run: node --test tests/qa-05qr-pr379-meaning-new-only.test.mjs
