@@ -1,6 +1,7 @@
 // Real Chromium Stage1 Guide four-card root visual/navigation safety. No P1G or writer.
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright-core';
+import {guideCopy} from '../src/lib/guide/copy.js';
 const bin=process.env.CHROME_BIN;if(!bin)throw Error('CHROME_BIN_REQUIRED');
 const root=(process.env.STAGE1_GUIDE_URL||'http://127.0.0.1:4286').replace(/\/$/,'');
 const browser=await chromium.launch({executablePath:bin,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
@@ -20,6 +21,14 @@ try{
   assert.equal(await cards.count(),4,locale);
   const keys=await cards.evaluateAll(els=>els.map(el=>el.getAttribute('data-guide-child')));
   assert.deepEqual(keys,destinations,locale+' root IA');
+  await page.waitForFunction(({code,expected})=>{
+    const live=document.querySelector('[data-guide-child="quests"] strong')?.textContent?.trim();
+    return document.documentElement.dataset.locale===code && live===expected;
+  },{code:locale,expected:guideCopy(locale).quests},{timeout:20000});
+  for(const key of destinations){
+    assert.equal((await page.locator('[data-guide-child="'+key+'"] strong').innerText()).trim(),
+      guideCopy(locale)[key],locale+':'+key);
+  }
   assert.equal(await page.locator('[data-guide-child="issues"]').count(),0);
  }
  console.log('WEB_STAGE1_GUIDE_FOUR_CHILD_8LOCALE_PASS');
@@ -28,6 +37,8 @@ try{
   await page.locator('[data-guide-child="'+section+'"]').click();
   await page.locator('.guide-tabs').waitFor();
   assert.equal(await page.locator('.guide-tabs button').count(),4);
+  assert.equal((await page.locator('.guide-tabs button.active').innerText()).trim(),
+    guideCopy('ja')[section]);
   assert.equal(await page.locator('[data-stage1-guide-hub]').count(),0);
   await page.locator('.guide-back').click();
   await page.locator('[data-stage1-guide-hub]').waitFor();
