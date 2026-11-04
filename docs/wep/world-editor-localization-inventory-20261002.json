@@ -19,7 +19,7 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "5672cef819ed234520b0b619506910404de9d6c0",
+    "src/routes/editor/world/+page.svelte": "d716a1859b8b4d2fd0f990e9961c805df88caa6f",
     "src/lib/wep/world-editor-primary-job.ts": "25aba45c6004c020400a249c848c3bc2281fd4a0",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "711609eb100a0809a5e9a5b274f83dd9319e3645",
@@ -27,7 +27,7 @@
     "src/lib/wep/WorldEditorStage1DecoratePanel.svelte": "7bfb2981870f803c9e3adfc9e99192211325124a",
     "src/lib/wep/world-editor-stage1-copy.js": "9dace4b7538c04a8c650f691739d0bda22f38329",
     "src/lib/wep/room-finish-copy.js": "f75c54053bafa416842ca17938895b20d7f47f9b",
-    "src/lib/wep/world-readonly-copy.js": "2e2ac0522836e06b2d53f9465ffe4ba6d2a93d14"
+    "src/lib/wep/world-readonly-copy.js": "128254c005ab0693765e97509305c0d9474c94a6"
   },
   "ownership": {
     "wepOwned": [
