@@ -167,13 +167,13 @@ enum TokenKind { String, Number, Other }
 struct Field {span:Range<usize>,kind:TokenKind,decoded:Option<String>,raw:String}
 struct Parser<'a> {
  source:&'a str, cursor:usize, tokens:usize, watch:&'a HashSet<String>,
- fields:HashMap<String,Field>,
+ fields:HashMap<String,Field>,selected_hash_only:bool,
  direct_target:Option<String>, direct_seen:bool,
  direct_kind:Option<DirectIndexKind>, direct_items:Vec<DirectChildSpan>,
 }
 impl<'a> Parser<'a> {
  fn new(source:&'a str,watch:&'a HashSet<String>)->Self {
-   Self{source,cursor:0,tokens:0,watch,fields:HashMap::new(),
+   Self{source,cursor:0,tokens:0,watch,fields:HashMap::new(),selected_hash_only:false,
       direct_target:None,direct_seen:false,direct_kind:None,direct_items:Vec::new()}
  }
  fn peek(&self)->Option<u8>{self.source.as_bytes().get(self.cursor).copied()}
@@ -252,7 +252,7 @@ impl<'a> Parser<'a> {
    }
    Some(b'"')=>{
     kind=TokenKind::String;
-    if self.watch.contains(path) {
+    if self.watch.contains(path) && !self.selected_hash_only {
       decoded=Some(self.string()?);
     } else {
       // Validate all escape grammar WITHOUT allocating full unrelated strings.
@@ -271,8 +271,12 @@ impl<'a> Parser<'a> {
   }
   if self.watch.contains(path) {
    if self.fields.contains_key(path) {return Err("DUPLICATE_SELECTED_POINTER");}
-   self.fields.insert(path.to_owned(),Field{span:start..self.cursor,kind,decoded,
-     raw:self.source[start..self.cursor].to_owned()});
+   // Hash-only selection stores spans and NEVER clones even a 200MiB
+   // selected subtree or quoted string. Legacy exact-CAS token API unchanged.
+   let raw=if self.selected_hash_only {String::new()} else {
+     self.source[start..self.cursor].to_owned()
+   };
+   self.fields.insert(path.to_owned(),Field{span:start..self.cursor,kind,decoded,raw});
   }
   Ok(())
  }
@@ -444,6 +448,42 @@ pub fn index_selected_tokens(source: &[u8], pointers: &[String]) -> EngineResult
         }
     }
     Ok(result)
+}
+/// Bounded SHA-256 witness for a selected lexical token in a fully validated
+/// source. No full serde_json::Value, no copied selected token, one full scan.
+/// An oversized or absent pointer is omitted, NEVER treated as an empty hash.
+/// This is source evidence only, not a proof of Native graph dependencies.
+#[derive(Clone,Debug,PartialEq,Eq)]
+pub struct SparseTokenSha256 {
+ pub pointer:String,pub raw_sha256:[u8;32],pub raw_bytes:usize,
+}
+pub fn index_selected_token_sha256(
+ source:&[u8],pointers:&[String],max_span_bytes:usize
+)->EngineResult<Vec<SparseTokenSha256>> {
+ if pointers.len()>512{return Err("INDEX_WATCH_SET_TOO_LARGE");}
+ if max_span_bytes==0||max_span_bytes>2*1024*1024{
+   return Err("INDEX_HASH_SPAN_BUDGET_INVALID");
+ }
+ let watch:HashSet<String>=pointers.iter().cloned().collect();
+ if watch.len()!=pointers.len(){return Err("INDEX_DUPLICATE_WATCH");}
+ let text=std::str::from_utf8(source).map_err(|_|"JSON_INVALID_UTF8")?;
+ let mut parser=Parser::new(text,&watch);
+ parser.selected_hash_only=true;
+ let fields=parser.parse()?; // complete strict source validation
+ let mut result=Vec::with_capacity(fields.len());
+ for pointer in pointers {
+   if let Some(field)=fields.get(pointer) {
+     let length=field.span.end-field.span.start;
+     if length<=max_span_bytes {
+       result.push(SparseTokenSha256 {
+         pointer:pointer.clone(),
+         raw_sha256:sha256(&source[field.span.clone()]),
+         raw_bytes:length
+       });
+     }
+   }
+ }
+ Ok(result)
 }
 pub mod session;
 pub mod semantic_safety;
