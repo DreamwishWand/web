@@ -52,13 +52,15 @@ self.addEventListener('message', (event: MessageEvent) => {
     try {
       if (message.type === 'OPEN_FILE') {
         // New open invalidates A before any async B operation or validation.
-        if (!allowed(message, ['id', 'type', 'file', 'buildId', 'sourceConfirmed'])) {
+        if (!allowed(message, ['id', 'type', 'file', 'buildId', 'sourceConfirmed', 'platform', 'fullVersion', 'buildKind', 'sourceSchema'])) {
           core.close();
           throw Error('READ_FORGED_OPEN_REQUEST');
         }
         const result = await core.open({
           file: message.file, buildId: message.buildId,
-          sourceConfirmed: message.sourceConfirmed
+          sourceConfirmed: message.sourceConfirmed,
+          platform: message.platform, fullVersion: message.fullVersion,
+          buildKind: message.buildKind, sourceSchema: message.sourceSchema
         });
         self.postMessage({ id, ok: true, result });
       } else if (message.type === 'QUERY') {
