@@ -152,3 +152,27 @@ test('locally authored draft remains schematic without a forged native GridObjec
   assert.equal(draft.spatial.nativeGridObjectId,null);
   assert.equal(b.persistentWriteAuthorized,false);
 });
+
+test('main PR418 01B direct-root cross-check rejects native extra GridObject and forged provenance',()=>{
+  const f=fixture();
+  f.document.target.contractBuildIdentity=BID;
+  f.document.target.persistentWriteAuthorized=false;
+  f.document.metadata.directRootProjection={evidenceStatus:'CONFIRMED'};
+  f.document.metadata.subGridHierarchy=[];
+  const proof=bind(f);
+  assert.equal(proof.identities.size,2);
+  // A source object not emitted by a projector is never a complete direct root.
+  f.opened.profile.World.GridCollection.Grids['42'].Objects['9']=raw(9,20,3);
+  assert.throws(()=>bind(f),/SPATIAL_624_ROOT_SOURCE_OBJECT_SET_INCOMPLETE/);
+  delete f.opened.profile.World.GridCollection.Grids['42'].Objects['9'];
+  f.document.metadata.directRootProjection.evidenceStatus='UNVERIFIED';
+  assert.throws(()=>bind(f),/SPATIAL_624_PROJECTION_AUTHORITY_MISSING/);
+});
+
+test('main 626 structural source cannot borrow 624 Spatial Scene geometry',()=>{
+  const f=fixture();
+  f.opened.profileSchemaVersion=626;
+  f.opened.compatibility.gameVersion='1.25.3';
+  f.opened.compatibility.routesAuthorized=false;
+  assert.throws(()=>bind(f),/SPATIAL_READ_VERSION_OR_PLATFORM_UNSUPPORTED/);
+});
