@@ -1,0 +1,74 @@
+name: "04QR-W PR514 main24a6 626 cumulative independent"
+on:
+  pull_request:
+    branches: ['integration/schema626-gridobject-count-main24a-20261105']
+    paths:
+      - '.github/workflows/04qr-w-pr514-main24a6-626-cumulative.yml'
+      - 'scripts/04qr-w-pr514-main24a6-cumulative-chromium.mjs'
+      - 'tests/04qr-w-pr514-main24a6-cumulative.test.mjs'
+permissions:
+  contents: read
+jobs:
+  independent-main-cumulative-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Reject all owner-private P1G CI inputs
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+      - name: Actual fixed-head exact four selected Source and five merged private harness blobs
+        run: node --experimental-strip-types --test tests/04qr-w-pr514-main24a6-cumulative.test.mjs
+      - name: QA Chromium syntax only
+        run: node --check scripts/04qr-w-pr514-main24a6-cumulative-chromium.mjs
+
+  independent-main-cumulative-chromium:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Select runner Chrome
+        id: chrome
+        run: |
+          set -euo pipefail
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$BIN"
+          echo "path=$BIN" >> "$GITHUB_OUTPUT"
+      - name: Start on local loopback only
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4179 > /tmp/qr514-vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:4179/editor/world/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr514-vite.log
+          exit 1
+      - name: Actual Chrome 626 and 624 isolated synthetic cross-main scenario
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          QR514_LOOPBACK_URL: http://127.0.0.1:4179/editor/world/
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          node scripts/04qr-w-pr514-main24a6-cumulative-chromium.mjs
