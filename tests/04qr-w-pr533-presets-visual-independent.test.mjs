@@ -53,7 +53,7 @@ test('no root automatic Provider/Cloud connect or Writer right elevation and Sho
  assert.match(page,/data-native-writer="off" data-provider-gate="off" data-tom-writer="off"/);
  assert.match(page,/if\(next==='wand'\)/);
  assert.match(page,/else if\(next==='my'\)/);
- assert.match(page,/if\(surface==='root'\)/);
+ assert.match(page,/\{#if surface==='root'\}/);
  assert.match(page,/data-preset-unavailable/);
  assert.match(page,/inGameChild==='shop'/);
  assert.doesNotMatch(page,/onMount\(/);
