@@ -65,3 +65,17 @@ test('624 existing projected IDs checked against identical serialized source; 62
  assert.throws(()=>assert624ProjectedObjectsMatchSave(profile(626),doc,ctx624),/PROFILE_SCHEMA/);
  console.log('QR_401_624_SOURCE_ID_COORD_MATCH_AND_WRITER_DENY_PASS');
 });
+
+test('SOURCE_PROVENANCE_NEGATIVE: caller cannot forge a new native GridObject into a read-only 626 index',()=>{
+ const index=read626SpatialReferences(profile(),ctx626);
+ const fake={...index.objects[0],address:{
+  gridId:42,gridObjectId:999,objectMapKey:'999',editorId:'g42:o999'
+ },serializedX:10000,serializedY:10000};
+ try {index.objects.push(fake);} catch(error) {
+  assert.ok(error instanceof TypeError,String(error));
+ }
+ assert.throws(()=>inspect626SourceObjectAtRevision(index,'g42:o999','epoch:101',digest),
+  /SPATIAL_SOURCE_OBJECT_NOT_FOUND/,
+  'Caller-modified read-only index must not be accepted as native ObjectID provenance');
+ console.log('QR_401_626_INDEX_FORGED_OBJECT_INSPECTOR_FAILCLOSED_PASS');
+});
