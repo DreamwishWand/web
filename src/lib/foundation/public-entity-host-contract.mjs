@@ -25,7 +25,7 @@ export function entityPathIdentity(path,base='/web') {
   if(parts.length===3&&!id(secondary)&&!safeSlug(secondary))return null;
   if(parts.length===4&&(!id(secondary)||!safeSlug(slug)))return null;
   return Object.freeze({locale,primary,secondary:parts.length===4?secondary:(id(secondary)?secondary:null),
-    slug:parts.length===4?slug:(parts.length===3?secondary:null)});
+    slug:parts.length===4?slug:(parts.length===3&&!id(secondary)?secondary:null)});
 }
 function sameScope(a,b){
  if(!a||!b||typeof a!=='object'||typeof b!=='object')return false;
