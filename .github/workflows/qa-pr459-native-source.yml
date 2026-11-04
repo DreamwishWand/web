@@ -1,0 +1,38 @@
+name: 05 QR PR459 Independent Native W1 Static Registry Evidence (source only)
+on:
+  push:
+    branches: [qa/05qr-pr459-native-source-newonly-20261104]
+  pull_request:
+    paths:
+      - 'tests/qa-05qr-pr459-native-source-newonly.test.mjs'
+      - '.github/workflows/qa-pr459-native-source.yml'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  new-only-native-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Freeze exact PR459 source 3-file addition and original immutable 508-source Git blob
+        run: |
+          SOURCE=2ebeefcbb2f3b03ebd2bfb409beec061a2eb6229
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git diff --quiet "$SOURCE" HEAD -- src/ docs/ static/ tests/01e-w1-native-v3-source-evidence.test.mjs
+          test "$(git rev-parse "$SOURCE":static/ddv/timing/v1.25.3/recurring-events.json)" = d8a4031a20369e2ba70cb143dec178b73254eff8
+          test "$(git rev-parse HEAD:static/ddv/timing/v1.25.3/recurring-events.json)" = d8a4031a20369e2ba70cb143dec178b73254eff8
+          test "$(git diff --name-only a6c69b441463431baa5333b07b952bddc62b843b "$SOURCE" | wc -l)" -eq 3
+          test -z "$(git diff --name-only a6c69b441463431baa5333b07b952bddc62b843b "$SOURCE" -- src/lib/ddv/core/save src/lib/timing crates/ddv-save-core src/lib/wep)"
+          echo PRIVATE_P1G_DATA=NOT_PRESENT
+          echo NATIVE_V3_RUNTIME=NOT_RUN
+          echo PRODUCT_WRITER_EDITED_COPY_APPLY=OFF
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Independent exact Git corpus + adversarial source/producer and Native permissions
+        run: node --test tests/qa-05qr-pr459-native-source-newonly.test.mjs
+      - name: Svelte/Type guard for new module consumer import with no product Writer
+        run: npm run check
