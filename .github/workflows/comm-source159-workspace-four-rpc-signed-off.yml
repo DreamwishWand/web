@@ -1,0 +1,85 @@
+name: 03 COMM Source159 Workspace Four Legacy RPC Genuine Signed OFF Gate
+on:
+  push:
+    branches: [comm/w-comm-006-source159-workspace-four-rpc-off-20261104]
+  pull_request:
+    branches: [comm/w-comm-006-post158-workspace-signed-gap-probe-20261104]
+permissions:
+  contents: read
+jobs:
+  workspace-signed-probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Immutable accepted Source155/156/157 and isolated source probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 159
+          test "$(git hash-object supabase/migrations/20261102010000_community_source155_verified_first_account_bootstrap.sql)" = 115f2c0f7224984acd8830cfc606af8c6a1bf3af
+          test "$(git hash-object supabase/migrations/20261103010000_community_source156_signed_gallery_r16_atomic_writer.sql)" = 3000d66c193b996e4ece785deaf5180955ec3bc6
+          test "$(git hash-object supabase/migrations/20261103020000_community_source157_legacy_comments_v2_service_execute_off.sql)" = b9c44a501189857dff9fc6446dea21717d58b785
+          test "$(git hash-object supabase/migrations/20261103030000_community_source158_r15_gallery_pinned_service_execute_off.sql)" = 033920ee79a3dd07b32854f0bbfb3b225167f3e2
+          test "$(git hash-object supabase/migrations/20261104010000_community_source159_workspace_identity_legacy_service_execute_off.sql)" = 6bf78322e70406272125f245fcd525feb9347652
+          test "$(git hash-object supabase/functions/community-command/index.ts)" = ad8b0bb6e74d7d8ae0ee1a148b6749feadbcf974
+          python3 -m py_compile tests/comm-source159-workspace-four-rpc-signed-off-disposable.py
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID"
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+      - name: Create genuine local-only ES256 GoTrue signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\n[auth]\nsigning_keys_path = "./signing_keys.json"\n' >> supabase/config.toml
+          printf '[]\n' > supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes >/tmp/comm-workspace-signer.log 2>&1
+      - name: Reset exact FULL159 disposable local database
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_workspace_source159_disposable_20261104"\n' | cat - supabase/config.toml > /tmp/comm-workspace-config
+          mv /tmp/comm-workspace-config supabase/config.toml
+          printf 'COMMUNITY_MEDIA_BUCKET=ddvre-workspace-local-media\nWEP_PRESET_ARTIFACT_BUCKET=ddvre-workspace-local-preset\n' > supabase/functions/.env
+          timeout 1800s supabase start >/tmp/comm-workspace-start.log 2>&1 || {
+            echo WORKSPACE_LOCAL_START_FAIL
+            tail -n 25 /tmp/comm-workspace-start.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'
+            exit 1
+          }
+          timeout 900s supabase db reset --no-seed >/tmp/comm-workspace-reset.log 2>&1 || {
+            echo WORKSPACE_LOCAL_RESET_FAIL
+            tail -n 25 /tmp/comm-workspace-reset.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'
+            exit 1
+          }
+          echo WORKSPACE_DISPOSABLE_FULL159_RESET_PASS
+      - run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Run real signed local WORKSPACE eligible positive then revoked-before-RPC SQL test
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/comm-source159-workspace-four-rpc-signed-off-disposable.py | tee /tmp/comm-workspace-probe.log
+          grep -q '"case": "SOURCE159_WORKSPACE_LIVE_A2_ALL_EDGE409_ALL_THREE_ROLE_SQL42501_NO_DIFF"' /tmp/comm-workspace-probe.log
+          grep -q '"case": "SOURCE159_WORKSPACE_REVOKED_A1_OLD_REFRESHED_401_TWO_PG_REPLAY_SQL42501_NO_DIFF"' /tmp/comm-workspace-probe.log
+          grep -q '"case": "SOURCE159_WORKSPACE_ALL_FOUR_TEMP_GRANT_ROLLBACK_REMAIN_OFF"' /tmp/comm-workspace-probe.log
+          grep -q '"case": "SOURCE159_WORKSPACE_SIGNED_LOCAL_OFF_COMPLETE"' /tmp/comm-workspace-probe.log
+          echo SOURCE159_WORKSPACE_SIGNED_OFF_OWNER_ONLY_NOT_INDEPENDENT_QA
+      - name: Dispose local signer, SQL DB, and ephemeral logs
+        if: always()
+        shell: bash
+        run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f supabase/functions/.env supabase/signing_keys.json /tmp/comm-workspace-config /tmp/comm-workspace-start.log /tmp/comm-workspace-reset.log /tmp/comm-workspace-probe.log /tmp/comm-workspace-signer.log
+          echo WORKSPACE_LOCAL_PROBE_CLEANUP_ATTEMPTED
