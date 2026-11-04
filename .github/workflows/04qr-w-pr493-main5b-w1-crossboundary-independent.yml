@@ -1,0 +1,34 @@
+name: "04QR-W PR493 main5b W1/World private harness changed-scope QA"
+on:
+  pull_request:
+    branches: ['integration/wep-private-p1g-policy-main-a043-20261104']
+    paths:
+      - 'tests/04qr-w-pr493-main5b-w1-crossboundary-independent.test.mjs'
+      - '.github/workflows/04qr-w-pr493-main5b-w1-crossboundary-independent.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  independent-new-main-delta:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require zero owner-private P1G or credentials in runner
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+      - name: Fixed main5b independent new-delta and W1/World/626 no-authority tests
+        run: node --test tests/04qr-w-pr493-main5b-w1-crossboundary-independent.test.mjs
+      - name: Parse owner-local script without executing private P1G
+        run: node --check scripts/wep-private-real-save-2d-local-only-20261104.mjs
