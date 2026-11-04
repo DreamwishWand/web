@@ -80,10 +80,10 @@ test('top-level World and context source revision getters cannot execute to mint
 
 test('sparse, inherited, and accessor GridIDs array elements fail closed without invoking getters',()=>{
   const inherited=profile();
-  inherited.World.Villages[1].Areas['1'].GridIDs=new Array(1);
-  Array.prototype[0]=100; // transient deliberately hostile only within test
-  try {denied(inspect(inherited,ctx()));}
-  finally{delete Array.prototype[0];}
+  const inheritedIds=new Array(1);
+  Object.setPrototypeOf(inheritedIds,Object.assign(Object.create(Array.prototype),{'0':100}));
+  inherited.World.Villages[1].Areas['1'].GridIDs=inheritedIds;
+  denied(inspect(inherited,ctx()));
   const sparse=profile();
   sparse.World.Villages[1].Areas['1'].GridIDs=Array(1);
   denied(inspect(sparse,ctx()));
