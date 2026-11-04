@@ -46,7 +46,7 @@ try{
  assert.equal(await status.getAttribute('data-media-rights'),'unverified');
  assert.equal(await page.locator('.personal-state button').nth(1).isDisabled(),true);
  assert.equal(await page.locator('.personal-state button').nth(2).isDisabled(),true);
- await page.goto(world,{waitUntil:'domcontentloaded'});
+ await page.goto(world,{waitUntil:'networkidle'});
  await page.locator('.platform-select select').selectOption('switch');
  try {
   await page.locator('[data-wep-626-bid] input').waitFor({state:'visible',timeout:9000});
