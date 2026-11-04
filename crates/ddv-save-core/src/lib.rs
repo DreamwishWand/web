@@ -463,6 +463,8 @@ pub fn strict_decode_json_string_token(raw:&str)->EngineResult<String>{
 }
 pub mod w1_evidence;
 pub mod trusted_read;
+#[cfg(not(target_arch="wasm32"))]
+pub mod offline_w1_v2;
 
 /// An exhaustive direct-child byte-span index built by the EXISTING strict
 /// Wand parser during its one full-document validation traversal. It does NOT
