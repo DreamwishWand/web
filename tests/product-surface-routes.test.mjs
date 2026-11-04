@@ -8,6 +8,8 @@ test('Product completion routes are present and keep Collection media fail-close
   assert.match(moodboards, /MOODBOARD_STORAGE_KEY/);
   assert.match(moodboards, /exportBackup/);
   assert.match(collection, /loadCollectionRuntime/);
-  assert.match(collection, /copy\.media/);
+  assert.match(collection, /data-media-rights="unverified"/);
+  assert.match(collection, /data-personal-progress="unknown" data-writer="off"/);
+  assert.match(collection, /data-stage1-category-grid/);
   assert.doesNotMatch(collection, /<img\b/i);
 });
