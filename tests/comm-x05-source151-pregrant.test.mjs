@@ -6,7 +6,7 @@ const sql=read('supabase/migrations/20261028000040_x05_private_pregrant_policy_r
 const edge=read('supabase/functions/community-dreamsnap-owner/index.ts');
 test('additive Source151 only; prior Source150 immutable',()=>{
  const files=readdirSync(new URL('../supabase/migrations/',import.meta.url)).filter(x=>x.endsWith('.sql')).sort();
- assert.equal(files.length,162);
+ assert.equal(files.length,163);
  assert.ok(files.includes('20261102000000_community_source153_signed_session_lineage_v2.sql'));
  assert.ok(files.includes('20261102010000_community_source155_verified_first_account_bootstrap.sql'));
   assert.ok(files.includes('20261103010000_community_source156_signed_gallery_r16_atomic_writer.sql'));
@@ -16,6 +16,7 @@ test('additive Source151 only; prior Source150 immutable',()=>{
  assert.ok(files.includes('20261104020000_community_source160_help_qa_question_tip_service_execute_off.sql'));
  assert.ok(files.includes('20261104030000_community_source161_gallery_two_legacy_draft_create_service_execute_off.sql'));
  assert.ok(files.includes('20261104040000_community_source162_gallery_photo_parent_service_execute_off.sql'));
+ assert.ok(files.includes('20261104050000_community_source163_help_answer_service_execute_off.sql'));
  assert.ok(files.includes('20261028000040_x05_private_pregrant_policy_receipt_v1.sql'));
  assert.doesNotMatch(sql,/create or replace function public\.community_dreamsnap_x05_owner_(?:read|action)_v1/);
  assert.doesNotMatch(sql,/create (?:or replace )?function private\.dreamsnap_x05_record_creator_grant_v1/);

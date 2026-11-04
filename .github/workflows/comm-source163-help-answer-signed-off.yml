@@ -1,0 +1,64 @@
+name: 03 COMM Source163 Help Answer Genuine Signed OFF (Disposable)
+on:
+  push:
+    branches: [comm/source163-help-answer-scoped-repair-20261104]
+  pull_request:
+    branches: [comm/w-comm-006-source162-photo-parent-direct-writer-off-20261104]
+permissions:
+  contents: read
+jobs:
+  help-answer-off:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+      - name: Frozen Source162 preserved, Source163 single additive SQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 163
+          test "$(git hash-object supabase/migrations/20261104040000_community_source162_gallery_photo_parent_service_execute_off.sql)" = 6d8ec394b1773c65db88e9b459afc59d6427b5b9
+          test "$(git hash-object supabase/migrations/20261104030000_community_source161_gallery_two_legacy_draft_create_service_execute_off.sql)" = f25e47af6adf7de8e7b1d3cf4c154769d8bf28a5
+          python3 -m py_compile tests/comm-source163-help-answer-signed-off-disposable.py
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID"
+      - name: Start genuine locally signed ES256 FULL163
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\n[auth]\nsigning_keys_path = "./signing_keys.json"\n' >> supabase/config.toml
+          printf '[]\n' > supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes >/tmp/comm-answer163-signer.log 2>&1
+          printf 'project_id = "ddvre_help_answer_source163_20261104"\n' | cat - supabase/config.toml > /tmp/comm-answer163-config
+          mv /tmp/comm-answer163-config supabase/config.toml
+          printf 'COMMUNITY_MEDIA_BUCKET=ddvre-local-answer-media\nWEP_PRESET_ARTIFACT_BUCKET=ddvre-local-answer-preset\n' > supabase/functions/.env
+          timeout 1800s supabase start >/tmp/comm-answer163-start.log 2>&1 || { echo SOURCE163_LOCAL_START_NOT_RUN; tail -n 12 /tmp/comm-answer163-start.log; exit 1; }
+          timeout 900s supabase db reset --no-seed >/tmp/comm-answer163-reset.log 2>&1 || { echo SOURCE163_LOCAL_RESET_NOT_RUN; tail -n 12 /tmp/comm-answer163-reset.log; exit 1; }
+          echo SOURCE163_FULL163_LOCAL_BOOTSTRAP_PASS
+      - run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Genuine A2 Edge409, revoked A1 401, 2PG SQL42501, rollback, no diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/comm-source163-help-answer-signed-off-disposable.py | tee /tmp/comm-answer163-test.log
+          grep -q '"case": "SOURCE163_HELP_ANSWER_EFFECTIVE_ACL_THREE_ROLE_OFF"' /tmp/comm-answer163-test.log
+          grep -q '"case": "SOURCE163_HELP_ANSWER_ACTIVE_A2_409_THREE_ROLE_42501_NO_DIFF"' /tmp/comm-answer163-test.log
+          grep -q '"case": "SOURCE163_HELP_ANSWER_POSTREVOKE_401_TWO_PG_REPLAY_NO_DIFF"' /tmp/comm-answer163-test.log
+          grep -q '"case": "SOURCE163_HELP_ANSWER_TEMP_GRANT_ROLLBACK_OFF"' /tmp/comm-answer163-test.log
+          echo SOURCE163_OWNER_GENUINE_SIGNED_LOCAL_ONLY_NOT_INDEPENDENT_QA
+      - name: Dispose local DB and signer
+        if: always()
+        shell: bash
+        run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f supabase/signing_keys.json supabase/functions/.env /tmp/comm-answer163-*.log /tmp/comm-answer163-config
