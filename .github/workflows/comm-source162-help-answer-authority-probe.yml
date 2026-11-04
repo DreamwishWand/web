@@ -1,0 +1,53 @@
+name: 03 COMM Help Answer Legacy SQL Postrevoke FULL162 Probe
+on:
+  push:
+    branches: [comm/w-comm-006-post162-help-answer-authority-probe-20261104]
+permissions:
+  contents: read
+jobs:
+  local-two-pg:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+      - name: Verify pinned Source162 and no remote account
+        run: |
+          set -euo pipefail
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 162
+          test "$(git hash-object supabase/migrations/20261104040000_community_source162_gallery_photo_parent_service_execute_off.sql)" = 6d8ec394b1773c65db88e9b459afc59d6427b5b9
+          python3 -m py_compile tests/comm-source162-help-answer-postrevoke-probe-disposable.py
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID"
+      - name: Run disposable real ES256 GoTrue FULL162 Supabase
+        run: |
+          set -euo pipefail
+          printf '\n[auth]\nsigning_keys_path = "./signing_keys.json"\n' >> supabase/config.toml
+          printf '[]\n' > supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes >/tmp/help-answer-key.log 2>&1
+          printf 'project_id = "ddvre_help_answer_local_probe_20261104"\n' | cat - supabase/config.toml > /tmp/help-answer-config
+          mv /tmp/help-answer-config supabase/config.toml
+          printf 'COMMUNITY_MEDIA_BUCKET=ddvre-help-local-media\nWEP_PRESET_ARTIFACT_BUCKET=ddvre-help-local-artifact\n' > supabase/functions/.env
+          timeout 1800s supabase start >/tmp/help-answer-start.log 2>&1 || { echo HELP_ANSWER_ENV_START_NOT_RUN; tail -n 10 /tmp/help-answer-start.log; exit 1; }
+          timeout 900s supabase db reset --no-seed >/tmp/help-answer-reset.log 2>&1 || { echo HELP_ANSWER_DB_RESET_NOT_RUN; tail -n 10 /tmp/help-answer-reset.log; exit 1; }
+      - run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Check true eligible Answer then postrevoke privileged SQL commit
+        run: |
+          set -euo pipefail
+          python3 tests/comm-source162-help-answer-postrevoke-probe-disposable.py | tee /tmp/help-answer-probe.log
+          grep -q '"case": "HELP_ANSWER_A2_GENUINE_SIGNED_ELIGIBLE_SQL_COMMIT"' /tmp/help-answer-probe.log
+          grep -q '"case": "HELP_ANSWER_POSTREVOKE_SERVICE_SQL_COMMIT_TRUE_RED"' /tmp/help-answer-probe.log
+      - name: Destroy synthetic local signer and DB
+        if: always()
+        run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f supabase/signing_keys.json supabase/functions/.env /tmp/help-answer-*.log /tmp/help-answer-config
