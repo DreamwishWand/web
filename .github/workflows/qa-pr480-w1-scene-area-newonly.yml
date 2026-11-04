@@ -1,0 +1,42 @@
+name: 05 QR PR480 independent W1 Scene/Area/Grid ID witnesses
+on:
+  push:
+    branches: [qa/05qr-pr480-scene-grid-newonly-20261104]
+  pull_request:
+    paths:
+      - '.github/workflows/qa-pr480-w1-scene-area-newonly.yml'
+      - 'tests/qa-05qr-pr480-scene-area-references-newonly.test.mjs'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  exact-source-and-negative:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Freeze immutable PR480 exact source and unchanged 01A/01B/01E ancestors
+        run: |
+          set -eu
+          SOURCE=4711bac576ccea6d8a1b576db20c5fe31547f14b
+          BASE=a9f6793546bf372a5153dba8c838d3332ae75d7b
+          test "$(git merge-base "$SOURCE" HEAD)" = "$SOURCE"
+          test "$(git merge-base "$BASE" "$SOURCE")" = "$BASE"
+          test "$(git diff --name-only "$BASE" "$SOURCE" | wc -l | tr -d ' ')" = 3
+          git diff --quiet "$SOURCE" HEAD -- src/ crates/ docs/ static/ supabase/ tests/01e-w1-scene-area-reference-readonly.test.mjs
+          for path in src/lib/ddv/timing/w1-scene-area-reference-readonly.mjs tests/01e-w1-scene-area-reference-readonly.test.mjs docs/core/01e-w1-scene-area-reference-readonly-20261104.md; do
+            test "$(git rev-parse "$SOURCE:$path")" = "$(git rev-parse "HEAD:$path")"
+          done
+          echo PR480_EXACT_SOURCE_NEWONLY_GUARD_PASS
+          echo PRIVATE_GENUINE_P1G_INDEPENDENT_QA=NOT_RUN
+          echo NATIVE_V3=UNKNOWN
+          echo WRITER_EDITED_COPY_APPLY_OVERWRITE=OFF
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Independent structural positives and forged alternate GridMap ID negatives
+        run: node --test tests/qa-05qr-pr480-scene-area-references-newonly.test.mjs
+      - name: Type and Svelte consumers remain read-only
+        run: npm run check
