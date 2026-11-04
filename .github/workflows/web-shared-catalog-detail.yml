@@ -7,6 +7,7 @@ on:
       - 'src/lib/entity/**'
       - 'src/routes/editor/items/+page.svelte'
       - 'tests/shared-catalog-directory-foundation.test.mjs'
+      - 'tests/scaffold.test.mjs'
       - 'scripts/web-shared-catalog-e2e-chrome.mjs'
       - '.github/workflows/web-shared-catalog-detail.yml'
 permissions:
@@ -25,7 +26,7 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci --no-audit --no-fund
-      - name: Fixed main and six-file product-only allowlist
+      - name: Fixed main and eight-file product-only allowlist
         shell: bash
         run: |
           set -euo pipefail
@@ -33,10 +34,10 @@ jobs:
           git merge-base --is-ancestor "$BASE" HEAD
           test "$(git merge-base "$BASE" HEAD)" = "$BASE"
           git diff --name-only "$BASE" HEAD > /tmp/entity-diff
-          test "$(wc -l </tmp/entity-diff)" -eq 7
+          test "$(wc -l </tmp/entity-diff)" -eq 8
           while IFS= read -r file; do
             case "$file" in
-              src/lib/entity/shared-catalog-directory.mjs|src/lib/entity/SharedCatalogDiscovery.svelte|src/lib/entity/SharedEntityDetail.svelte|src/routes/editor/items/+page.svelte|tests/shared-catalog-directory-foundation.test.mjs|scripts/web-shared-catalog-e2e-chrome.mjs|.github/workflows/web-shared-catalog-detail.yml) ;;
+              src/lib/entity/shared-catalog-directory.mjs|src/lib/entity/SharedCatalogDiscovery.svelte|src/lib/entity/SharedEntityDetail.svelte|src/routes/editor/items/+page.svelte|tests/shared-catalog-directory-foundation.test.mjs|tests/scaffold.test.mjs|scripts/web-shared-catalog-e2e-chrome.mjs|.github/workflows/web-shared-catalog-detail.yml) ;;
               *) echo "OUT_OF_SCOPE:$file"; exit 1 ;;
             esac
           done </tmp/entity-diff
