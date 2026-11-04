@@ -2281,6 +2281,8 @@
             sourceFingerprint, worldSourceEpoch
           )
         : {
+            status: 'STALE' as const,
+            persistentWriteAuthorized: false as const,
             allowed: new Set<string>(),
             unresolved: editorDocument.objects.map((object: any) => ({
               editorId: object.editorId, itemId: object.itemId,
