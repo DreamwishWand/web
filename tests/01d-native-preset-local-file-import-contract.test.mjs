@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {
   NATIVE_PRESET_BACKUP_SCHEMA,NATIVE_PRESET_LIBRARY_SCHEMA,
   createNativePresetBackup,extractNativePresetSnapshots
@@ -115,4 +116,16 @@ test('Touch of Magic remains separate until independently source-bound; NEVER im
   assert.equal(r.status,'BLOCKED');
   assert.equal(r.code,'NATIVE_TOM_FORMAT_AND_OWNER_PROVENANCE_NOT_YET_VERIFIED');
   assert.equal(r.gameSaveApplyAuthorized,false);
+});
+
+test('Native manager imports both single/local-library backups ONLY after validation and retains disabled DDV restore',()=>{
+  const ui=readFileSync('src/lib/presets/NativePresetManager.svelte','utf8');
+  assert.match(ui,/inspectNativePresetLocalFileBytes\(new Uint8Array\(await file\.arrayBuffer\(\)\)\)/);
+  assert.match(ui,/!reviewed\.localFileReady\|\|!reviewed\.backups/);
+  assert.match(ui,/byId\.size>100/);
+  assert.match(ui,/file\.size>NATIVE_LOCAL_PRESET_FILE_MAX_BYTES/);
+  assert.match(ui,/reviewed\.backups\.map\(\(x:any\)=>x\.backup\)/);
+  assert.match(ui,/disabled title=\{copy\.blocked\}>\{copy\.restore\}/);
+  assert.match(ui,/disabled title=\{copy\.blocked\}>\{copy\.push\}/);
+  assert.doesNotMatch(ui,/const imported=parseNativePresetLibrary\(await file\.text\(\)\)/);
 });
