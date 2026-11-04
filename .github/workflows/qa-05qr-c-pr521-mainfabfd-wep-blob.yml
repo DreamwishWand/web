@@ -1,0 +1,52 @@
+name: 05 QR-C PR521 latest-mainfabfd Worker and WEP 626 Blob cross-risk
+on:
+  push:
+    branches: [qa/05qr-c-pr521-mainfabfd-wep-worker-blob-crossrisk-20261105]
+  pull_request:
+    paths:
+      - '.github/workflows/qa-05qr-c-pr521-mainfabfd-wep-blob.yml'
+      - 'tests/qa-05qr-c-pr521-mainfabfd-wep-blob-newdelta.test.mjs'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  mainfabfd-new-w1-wep-blob:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Freeze newest mainfabfd/PR521 Source four blobs, added PR514 WEP parent and inherited W1 without ancestor retest
+        run: |
+          set -eu
+          MAIN=fabfd17c8dd192707d55a6cc12cccf65797d564e
+          SOURCE=92b1d693cb496f63e9283556bf942b0422509046
+          test "$(git merge-base "$MAIN" "$SOURCE")" = "$MAIN"
+          test "$(git merge-base "$SOURCE" HEAD)" = "$SOURCE"
+          test "$(git diff --name-only "$MAIN" "$SOURCE" | wc -l | tr -d ' ')" = 4
+          test "$(git diff --name-only "$MAIN" "$SOURCE" | sort)" = "$(printf '%s\n' docs/core/01a-local-backup-reimport-candidate-20261104.md src/lib/ddv/core/save/local-save-session-bridge.d.mts src/lib/ddv/core/save/local-save-session-bridge.mjs tests/local-single-save-session-bridge.test.mjs | sort)"
+          git diff --quiet "$SOURCE" HEAD -- src/ crates/ docs/ scripts/ static/ supabase/ tests/local-single-save-session-bridge.test.mjs tests/wep-schema626-gridobject-structural-count.test.mjs
+          test "$(git rev-parse HEAD:docs/core/01a-local-backup-reimport-candidate-20261104.md)" = 79ece2f04bfe11cb29b9136fa02f08f89945540f
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-save-session-bridge.d.mts)" = 832e3a747fab4af526137a1ba2a0b470cffe515f
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-save-session-bridge.mjs)" = 4015808fc6ce15b20be4ad68e61384f2f1a298a4
+          test "$(git rev-parse HEAD:tests/local-single-save-session-bridge.test.mjs)" = f0516fe742b4635d7a3f94fa115a063cb28fd899
+          test "$(git rev-parse "$MAIN:src/lib/wep/world-save-source.ts")" = 9888b91c92953cf0f9fd828d2ba0cb763e35dac5
+          test "$(git rev-parse "$MAIN:tests/wep-schema626-gridobject-structural-count.test.mjs")" = ab48f8e251511c017d81b130ceef04a040c8a8d4
+          for p in src/lib/wep/world-save-source.ts tests/wep-schema626-gridobject-structural-count.test.mjs src/lib/ddv/timing/w1-scene-area-reference-readonly.mjs scripts/wep-private-real-save-e2e-safety-20261104.mjs; do
+            test "$(git rev-parse "$MAIN:$p")" = "$(git rev-parse "HEAD:$p")"
+          done
+          echo REUSED_05QRC523_MAIN342_04QRW520_PR514_NO_ANCESTOR_RETEST
+          echo PR521_MAINFABFD_4_SOURCE_BLOBS_AND_WEP626_IMMUTABLE
+          echo OWNER_PRIVATE_REAL_P1G=NOT_RUN
+          echo OS_DURABLE_BACKUP_DISTINCT_PATH=NOT_VERIFIED
+          echo PRODUCT_RUST_WASM_SINGLE_SAVESESSION_V2=NOT_ACCEPTED
+          echo NATIVE_W1_V3=UNKNOWN
+          echo PRODUCT_WRITER_EDITEDCOPY_APPLY_OVERWRITE=OFF
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Four NEW mainfabfd PR514 raw-626 count plus PR521 native Blob / W1 Worker composition tests
+        run: node --experimental-strip-types --test tests/qa-05qr-c-pr521-mainfabfd-wep-blob-newdelta.test.mjs
+      - name: TS and Svelte cumulative ABI check
+        run: npm run check
