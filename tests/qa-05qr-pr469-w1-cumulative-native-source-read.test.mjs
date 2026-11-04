@@ -38,7 +38,7 @@ function w1Profile(endDate='2126-01-01T00:00:00Z') {
 }
 
 test('new cumulative main inherits exact immutable 508-event registry, not an item-to-event inverse',()=>{
-  const blob=createHash('sha1').update('blob '+sourceBytes.byteLength+'\\0').update(sourceBytes).digest('hex');
+  const blob=createHash('sha1').update('blob '+sourceBytes.byteLength+String.fromCharCode(0)).update(sourceBytes).digest('hex');
   assert.equal(blob,W1_SOURCE_TARGET.staticRegistryGitBlob);
   assert.equal(registry.events.length,508);
   const out=inspectW1StaticRegistry(registry,{nativeV3Accepted:true,productWriterAuthorized:true});
