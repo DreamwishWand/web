@@ -1,6 +1,6 @@
 <script lang="ts">
   import { base } from '$app/paths';
-  import { parseSharedPrimaryId } from '$lib/entity/shared-catalog-detail.mjs';
+  import { nonItemPublicDetailStatus } from './typed-entity-page-consumer.mjs';
   import { sharedTypedCopy } from './shared-typed-entity-copy.mjs';
 
   export let kind: string = '';
@@ -11,19 +11,13 @@
 
   $: copy = sharedTypedCopy(localeCode);
   $: cleanKind = kind.toUpperCase();
-  // UI shape guard ONLY. The one authoritative typed EntityRef/P-S/Alias model
-  // is owned by 06 PRODUCT PR396, pending independent QA and main integration.
-  // This view never resolves positive data or issues canonical URLs.
-  function permittedRequestShape(type: string, id: string): boolean {
-    if (!['ITEM','QUEST','CREATOR','WORK','PRESET'].includes(type)) return false;
-    if (type === 'ITEM' || type === 'QUEST') return parseSharedPrimaryId(id) !== null;
-    return /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(id);
-  }
-  $: valid = mode === 'COMPOSITE'
-    ? parseSharedPrimaryId(primaryId) !== null &&
-      parseSharedPrimaryId(secondaryId ?? '') !== null &&
-      primaryId !== secondaryId
-    : permittedRequestShape(cleanKind,primaryId);
+  // The sole PR396 Typed EntityRef contract verifies syntax/namespace.
+  // Even a valid typed ref is not a source-authorized, indexable public record.
+  $: inspected = mode === 'COMPOSITE'
+    ? nonItemPublicDetailStatus('ITEM',primaryId,secondaryId)
+    : nonItemPublicDetailStatus(cleanKind,primaryId);
+  $: valid = inspected.status === 'SOURCE_UNVERIFIED' &&
+    !(mode === 'COMPOSITE' && primaryId === secondaryId);
   $: kindTitle = mode === 'COMPOSITE' ? copy.composite : (copy.kinds[cleanKind] ?? copy.unknown);
   $: returnRoute = cleanKind === 'QUEST' ? '/guide/'
     : cleanKind === 'CREATOR' ? '/creator/'
@@ -40,7 +34,7 @@
 <section class="container typed-detail" lang={localeCode}
   data-typed-entity-gate="closed" data-public-indexable="false" data-writer="off"
   data-provider="off" data-relations-verified="false" data-alias-resolved="false"
-  data-personal-state="unknown">
+  data-personal-state="unknown" data-entity-id-contract="wand.shared-entity.identity@1">
   <nav aria-label={copy.back}>
     <a href={base + returnRoute}>{copy.back}</a>
   </nav>
