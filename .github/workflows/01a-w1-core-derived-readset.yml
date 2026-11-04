@@ -1,0 +1,31 @@
+name: 01A Rust Core-Derived W1 Native Read-Set (Writer OFF)
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/src/trusted_read.rs'
+      - 'crates/ddv-save-core/tests/w1_core_native_readset.rs'
+      - '.github/workflows/01a-w1-core-derived-readset.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  core-derived-native-readset:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fixed source/zero genuine save
+        run: |
+          git rev-parse HEAD
+          echo PRIVATE_SAVE_IN_CI=NO
+          echo W1_NATIVE_V3=UNACCEPTED
+          echo W1_PRODUCT_WRITER=OFF
+      - name: Core-derived independent of caller/empty read-set
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test w1_core_native_readset -- --nocapture
+      - name: Prior accepted Rust preview and synthetic P1G copy regression
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test w1_preview_copy_reopen
+      - name: Preserve stage/export fail closed
+        run: |
+          grep -Fq 'W1_OPERATION_REFERENCE_AND_NATIVE_CAPABILITY_NOT_ACCEPTED' crates/ddv-save-core/src/trusted_read.rs
+          grep -Fq 'PRODUCT_ENCODE_COPY_NOT_AUTHORIZED' crates/ddv-save-core/src/trusted_read.rs
+          ! grep -Fq 'getrandom = { version = "=0.2.16", features = ["js"]' crates/ddv-save-core/Cargo.toml
