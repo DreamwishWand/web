@@ -65,13 +65,13 @@
     pageLimit=72; infoId=null;
   }
   function clearFilters():void{selectedWorlds=[];selectedUniverses=[];pageLimit=72;infoId=null;}
-  function worldLabel(id:string):string{
-    return runtimeIndex?collectionFacetLabel(runtimeIndex,'world',id,$locale):'';
+  function worldLabel(id:string,code:string):string{
+    return runtimeIndex?collectionFacetLabel(runtimeIndex,'world',id,code):'';
   }
-  function universeLabel(id:string):string{
-    return runtimeIndex?collectionFacetLabel(runtimeIndex,'universe',id,$locale):'';
+  function universeLabel(id:string,code:string):string{
+    return runtimeIndex?collectionFacetLabel(runtimeIndex,'universe',id,code):'';
   }
-  function label(id:string):string{return stage1CategoryLabel($locale,id);}
+  function label(id:string,code:string):string{return stage1CategoryLabel(code,id);}
   function selectInfo(id:number):void{infoId=id;}
   const inertProgress='— / —';
 </script>
@@ -112,7 +112,7 @@
             <div class="filter-options">
               {#each worlds as id}
                 <button type="button" aria-pressed={selectedWorlds.includes(id)}
-                  class:active={selectedWorlds.includes(id)} on:click={()=>toggleFacet('world',id)}>{worldLabel(id)}</button>
+                  class:active={selectedWorlds.includes(id)} on:click={()=>toggleFacet('world',id)}>{worldLabel(id,$locale)}</button>
               {/each}
             </div>
           </fieldset>
@@ -121,7 +121,7 @@
             <div class="filter-options">
               {#each universes as id}
                 <button type="button" aria-pressed={selectedUniverses.includes(id)}
-                  class:active={selectedUniverses.includes(id)} on:click={()=>toggleFacet('universe',id)}>{universeLabel(id)}</button>
+                  class:active={selectedUniverses.includes(id)} on:click={()=>toggleFacet('universe',id)}>{universeLabel(id,$locale)}</button>
               {/each}
             </div>
           </fieldset>
@@ -130,10 +130,10 @@
       {#if filterCount}
         <div class="active-filters" aria-label={ui.filter}>
           {#each selectedWorlds as id}
-            <button type="button" on:click={()=>toggleFacet('world',id)}>{worldLabel(id)} ×</button>
+            <button type="button" on:click={()=>toggleFacet('world',id)}>{worldLabel(id,$locale)} ×</button>
           {/each}
           {#each selectedUniverses as id}
-            <button type="button" on:click={()=>toggleFacet('universe',id)}>{universeLabel(id)} ×</button>
+            <button type="button" on:click={()=>toggleFacet('universe',id)}>{universeLabel(id,$locale)} ×</button>
           {/each}
           <button type="button" class="clear" on:click={clearFilters}>{ui.clear}</button>
         </div>
@@ -145,9 +145,9 @@
             <button type="button" class="category-card" disabled={!item.sourceAvailable}
               on:click={()=>chooseCategory(item.id)} data-category={item.id}
               data-source-verified={item.sourceAvailable ? 'true' : 'false'}
-              aria-label={label(item.id) + ': ' + ui.unknown}>
-              <span class="category-art" aria-hidden="true"><span class="category-glyph">{label(item.id).slice(0,1)}</span></span>
-              <span class="category-name">{label(item.id)}</span>
+              aria-label={label(item.id,$locale) + ': ' + ui.unknown}>
+              <span class="category-art" aria-hidden="true"><span class="category-glyph">{label(item.id,$locale).slice(0,1)}</span></span>
+              <span class="category-name">{label(item.id,$locale)}</span>
               <span class="category-measure" aria-label={ui.unknown}>
                 {inertProgress}<span class="category-percent">—%</span>
               </span>
@@ -158,14 +158,14 @@
       {:else}
         <div class="browse-heading">
           <button type="button" on:click={backToCategories} class="back-category">{ui.back}</button>
-          <h2>{category ? label(category) : ui.results}</h2>
+          <h2>{category ? label(category,$locale) : ui.results}</h2>
           {#if category && !categoryIsSupported}<p>{ui.unavailable}</p>{/if}
         </div>
         {#if query.trim()}
           <div data-stage1-search-groups>
             {#each searchGroups as group (group.id)}
               <section class="item-section" data-result-category={group.id}>
-                <h3>{label(group.id)}</h3>
+                <h3>{label(group.id,$locale)}</h3>
                 <div class="item-grid">
                   {#each group.items.slice(0,pageLimit) as item (item.itemId)}
                     <button type="button" class="item-card" on:click={()=>selectInfo(item.itemId)}>
@@ -184,7 +184,7 @@
           <div data-stage1-category-browse>
             {#each browseGroups as group (group.id)}
               <section class="item-section" data-universe-group={group.id || 'unscoped'}>
-                {#if group.id}<h3>{universeLabel(group.id)}</h3>{/if}
+                {#if group.id}<h3>{universeLabel(group.id,$locale)}</h3>{/if}
                 <div class="item-grid">
                   {#each group.items.slice(0,pageLimit) as item (item.itemId)}
                     <button type="button" class="item-card" on:click={()=>selectInfo(item.itemId)}>
@@ -202,7 +202,7 @@
         {/if}
         {#if info}
           <aside class="collection-info" data-stage1-item-info aria-label={info.label}>
-            <div><p class="eyebrow">{ui.categories} · {label(info.family)}</p><h3>{info.label}</h3><p>{copy.itemId} {info.itemId}</p>
+            <div><p class="eyebrow">{ui.categories} · {label(info.family,$locale)}</p><h3>{info.label}</h3><p>{copy.itemId} {info.itemId}</p>
               <p>{ui.unknown}</p></div>
             <div class="info-actions">
               <a href={sharedEntityHref(base,$locale,info.itemId)}>{ui.details}</a>
