@@ -16,7 +16,9 @@ impl Fx {
   let root=std::env::temp_dir().join(format!("qr447-private-SYNTHETIC-{}-{:016x}",
    std::process::id(),u64::from_le_bytes(entropy)));
   fs::create_dir(&root).unwrap();
-  let original=root.join("original.p1g"),backup=root.join("backup-first.p1g"),edited=root.join("edited-copy.p1g");
+  let original=root.join("original.p1g");
+  let backup=root.join("backup-first.p1g");
+  let edited=root.join("edited-copy.p1g");
   let cipher=encode_synthetic_fixture(raw.as_bytes(),&KEY,8).unwrap();
   let mut f=fs::OpenOptions::new().write(true).create_new(true).open(&original).unwrap();
   f.write_all(&cipher).unwrap();f.sync_all().unwrap();
@@ -33,7 +35,8 @@ impl Fx {
 impl Drop for Fx {fn drop(&mut self){let _=fs::remove_dir_all(&self.dir);}}
 #[test]
 fn independently_assert_output_is_distinct_new_file_original_first_exact_sha_and_one_pointer(){
- let fx=Fx::new(DOC),receipt=execute_private_w1_v2_research(fx.request()).unwrap();
+ let fx=Fx::new(DOC);
+ let receipt=execute_private_w1_v2_research(fx.request()).unwrap();
  assert_eq!(receipt.original_sha,sha256(&fx.cipher));
  assert_eq!(receipt.backup_sha,receipt.original_sha);
  assert_ne!(receipt.edited_sha,receipt.original_sha);
