@@ -186,6 +186,37 @@ export function createLocalSaveSessionBridge(workerFactory){
   // Retain only the original user-selected File handle, not a decoded JSON
   // copy or a transferable raw P1G. Explicit user click may request a local
   // download even after a SPA route change. This is NOT persistence proof.
+  const diagnoseW1Dependencies=async scope=>{
+    const s=receipt;
+    if(!s)throw Error('LOCAL_SESSION_NOT_OPEN');
+    // No caller-supplied read-set, flags, registry, or native assertion may
+    // enter the Worker. Only the currently active immutable scope is accepted.
+    const keys=['sessionId','sourceSha256','revision','indexGeneration'];
+    if(!scope||typeof scope!=='object'||Object.keys(scope).some(k=>!keys.includes(k))||
+       scope.sessionId!==s.sessionId||scope.sourceSha256!==s.sourceSha256||
+       scope.revision!==s.revision||scope.indexGeneration!==s.indexGeneration)
+      throw Error('LOCAL_W1_DIAGNOSTIC_STALE_OR_FORGED_SCOPE');
+    const result=await request('DIAGNOSE_W1');
+    if(receipt!==s||result?.sessionId!==s.sessionId||
+       result?.sourceSha256!==s.sourceSha256||result?.revision!==s.revision||
+       result?.indexGeneration!==s.indexGeneration||
+       result?.contract!=='wand.local.w1-core-source-readset@1'||
+       result?.operation!=='W1_ITEMSPAWNING_NEXT_OCCURRENCE_DIAGNOSTIC'||
+       result?.referenceCount!==8||!Number.isInteger(result?.presentCount)||
+       result.presentCount<0||result.presentCount>8||
+       !Array.isArray(result?.missingReferences)||
+       result.missingReferences.length+result.presentCount!==8||
+       result.allSourceReferencesPresent!==(result.missingReferences.length===0)||
+       result.missingReferences.some(x=>typeof x!=='string'||x.length>120)||
+       result.sameBuildNativeRegistryAccepted!==false||
+       result.effectiveWorldDependenciesVerified!==false||
+       result.clockActualizeVerified!==false||
+       result.completeNativeDependencyClosureVerified!==false||
+       result.operationWriterAuthorized!==false||
+       result.writerAuthorized!==false||result.productRustWorkerAccepted!==false)
+      throw Error('LOCAL_W1_DIAGNOSTIC_INVALID_OR_STALE');
+    return freeze({...result,missingReferences:freeze([...result.missingReferences])});
+  };
   const hasUntouchedOriginalBackupSource=scope=>
     Boolean(originalSelectedFile&&receipt&&scope?.sessionId===receipt.sessionId
       &&scope?.sourceSha256===receipt.sourceSha256);
@@ -231,6 +262,7 @@ export function createLocalSaveSessionBridge(workerFactory){
     notify();
   };
   return freeze({ensureReady,openLocalFile,queryW1Page,readDomainPage,
+    diagnoseW1Dependencies,
     hasUntouchedOriginalBackupSource,requestUntouchedOriginalBackup,close,getSession,
     getCapabilities,subscribe,submitOperation,destroy});
 }
