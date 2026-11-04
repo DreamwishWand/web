@@ -1,5 +1,12 @@
 name: 01A Private W1 V2 Research Synthetic Only
 on:
+  push:
+    branches:
+      - research/01a-w1-v2-private-operation-atomic-proof-20261104
+    paths:
+      - 'crates/ddv-save-core/tests/w1_private_operation_v2.rs'
+      - 'crates/ddv-save-core/src/offline_w1_v2.rs'
+      - '.github/workflows/01a-private-w1-v2-research.yml'
   pull_request:
     paths:
       - 'crates/ddv-save-core/src/offline_w1_v2.rs'
