@@ -3,7 +3,7 @@ on:
   push:
     branches: [qa/pr446-typed-entity-consumer-independent-20261104]
   pull_request:
-    branches: [web/typed-item-links-one-entity-contract-20261104]
+    branches: [web/typed-catalog-consumers-20261104]
 permissions:
   contents: read
 jobs:
