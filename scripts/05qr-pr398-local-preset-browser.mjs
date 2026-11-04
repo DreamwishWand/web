@@ -11,7 +11,7 @@ const payload={GridCollection:{Grids:{'0':{ID:0,NextGridObjectID:1,
  Objects:{'0':{ID:0,ItemID:40000001,X:0,Y:0,State:null,Unknown:{retain:[1,2,3]}}}}},
  DiffGrids:{},NextGridID:1},
  PresetName:'QA LOCAL ONLY',ThumbnailItems:[40000001],ShareInfo:null,StateFlags:0,
- UnknownRoot:{don'tUpload:'TRUE'}};
+ UnknownRoot:{'dontUpload':'TRUE'}};
 const backup=createNativePresetBackup(extractNativePresetSnapshots({
  World:{DecorationPresets:[payload]}})[0],{
  sourceName:'SYNTHETIC_PC_JSON_ONLY',now:'2026-11-04T08:00:00Z',
@@ -59,7 +59,7 @@ try{
  const exported=JSON.parse(await readFile(await download.path(),'utf8'));
  assert.equal(exported.backups.length,1);
  assert.equal(exported.backups[0].payload.PresetName,'QA LOCAL ONLY');
- assert.deepEqual(exported.backups[0].payload.UnknownRoot,{don'tUpload:'TRUE'});
+ assert.deepEqual(exported.backups[0].payload.UnknownRoot,{dontUpload:'TRUE'});
  assert.equal(exported.backups[0].persistentWriteAuthorized,false);
  pass('MANUAL_PC_LIBRARY_BACKUP_EXPORT_RETURNS_SAME_UNKNOWN_FIELDS');
 
