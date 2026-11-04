@@ -260,6 +260,15 @@ impl TrustedReadCore {
     capabilities:READ_ONLY
   })
  }
+ /// Native PRIVATE operation research: lend the already strict-decoded
+ /// immutable Core source by Arc, never return its bytes to UI/Worker messages.
+ /// This is a source snapshot, NOT a product Writer capability or independent
+ /// semantic/native acceptance. Refuse closed or mutated source snapshots.
+ pub(crate) fn borrow_decoded_snapshot_research(&self)->EngineResult<Arc<[u8]>>{
+   if self.closed{return Err("READ_SESSION_CLOSED");}
+   self.original_unchanged()?;
+   Ok(Arc::clone(&self.decoded))
+ }
  pub fn original_unchanged(&self)->EngineResult<()>{
   if sha256(&self.original)!=self.roots.encrypted_source_sha256 {
     return Err("READ_ORIGINAL_CHANGED");
