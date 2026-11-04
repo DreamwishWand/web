@@ -82,7 +82,7 @@ try:
     creator=uuid.UUID(data["creatorProfileId"])
     with closing(psycopg.connect(DSN,autocommit=True)) as pre,\
          closing(psycopg.connect(DSN,autocommit=True)) as writer:
-        assert scalar(pre,"select count(*) from supabase_migrations.schema_migrations")==161
+        assert scalar(pre,"select count(*) from supabase_migrations.schema_migrations")==162
         assert scalar(pre,"select pg_backend_pid()")!=scalar(writer,"select pg_backend_pid()")
         assert not scalar(pre,"select has_function_privilege('service_role',"
             "'public.community_publish_gallery_pinned_r15(uuid,uuid,bigint,text,text,uuid[],uuid[],bigint[],bigint[],text,text,text)',"

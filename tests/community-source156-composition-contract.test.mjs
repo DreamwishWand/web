@@ -9,6 +9,7 @@ const s158=read('supabase/migrations/20261103030000_community_source158_r15_gall
 const s159=read('supabase/migrations/20261104010000_community_source159_workspace_identity_legacy_service_execute_off.sql');
 const s160=read('supabase/migrations/20261104020000_community_source160_help_qa_question_tip_service_execute_off.sql');
 const s161=read('supabase/migrations/20261104030000_community_source161_gallery_two_legacy_draft_create_service_execute_off.sql');
+const s162=read('supabase/migrations/20261104040000_community_source162_gallery_photo_parent_service_execute_off.sql');
 const edge=read('supabase/functions/community-command/index.ts');
 const media=read('supabase/functions/community-media/index.ts');
 const preset=read('supabase/functions/wep-preset-artifact/index.ts');
@@ -18,14 +19,15 @@ const legacy=read('.github/workflows/comm-clean-bootstrap-acceptance.yml');
 
 test('source155 remains actual first signed Account bootstrap, source156 only adds atomic R16',()=>{
  const fs=readdirSync(new URL('../supabase/migrations/',import.meta.url)).filter(p=>p.endsWith('.sql')).sort();
- assert.equal(fs.length,161);
- assert.equal(fs.at(-7),'20261102010000_community_source155_verified_first_account_bootstrap.sql');
- assert.equal(fs.at(-6),'20261103010000_community_source156_signed_gallery_r16_atomic_writer.sql');
- assert.equal(fs.at(-5),'20261103020000_community_source157_legacy_comments_v2_service_execute_off.sql');
- assert.equal(fs.at(-4),'20261103030000_community_source158_r15_gallery_pinned_service_execute_off.sql');
- assert.equal(fs.at(-3),'20261104010000_community_source159_workspace_identity_legacy_service_execute_off.sql');
- assert.equal(fs.at(-2),'20261104020000_community_source160_help_qa_question_tip_service_execute_off.sql');
- assert.equal(fs.at(-1),'20261104030000_community_source161_gallery_two_legacy_draft_create_service_execute_off.sql');
+ assert.equal(fs.length,162);
+ assert.equal(fs.at(-8),'20261102010000_community_source155_verified_first_account_bootstrap.sql');
+ assert.equal(fs.at(-7),'20261103010000_community_source156_signed_gallery_r16_atomic_writer.sql');
+ assert.equal(fs.at(-6),'20261103020000_community_source157_legacy_comments_v2_service_execute_off.sql');
+ assert.equal(fs.at(-5),'20261103030000_community_source158_r15_gallery_pinned_service_execute_off.sql');
+ assert.equal(fs.at(-4),'20261104010000_community_source159_workspace_identity_legacy_service_execute_off.sql');
+ assert.equal(fs.at(-3),'20261104020000_community_source160_help_qa_question_tip_service_execute_off.sql');
+ assert.equal(fs.at(-2),'20261104030000_community_source161_gallery_two_legacy_draft_create_service_execute_off.sql');
+ assert.equal(fs.at(-1),'20261104040000_community_source162_gallery_photo_parent_service_execute_off.sql');
  assert.match(s158,/revoke all on function public\.community_publish_gallery_pinned_r15/);
  assert.match(s159,/revoke all on function public\.community_create_ddv_profile_workspace_v1/);
  assert.match(s159,/revoke all on function public\.community_update_ddv_profile_workspace_v1/);
@@ -35,6 +37,8 @@ test('source155 remains actual first signed Account bootstrap, source156 only ad
  assert.match(s160,/revoke all on function public\.community_create_tip_v1/);
  assert.match(s161,/revoke all on function public\.community_create_gallery_draft/);
  assert.match(s161,/revoke all on function public\.community_create_gallery_work_v1/);
+ assert.match(s162,/revoke all on function public\.community_publish_gallery_photo_v1/);
+ assert.doesNotMatch(s162,/grant execute on function public\.community_publish_gallery_photo_v1/i);
  assert.doesNotMatch(s161,/grant execute on function public\.community_create_gallery_/i);
  assert.doesNotMatch(s160,/grant execute on function public\.community_(?:ask_question|create_tip)_v1/i);
  assert.doesNotMatch(s159,/grant execute on function public\.community_(?:create|update|associate|unlink)_ddv/i);
@@ -86,6 +90,6 @@ test('composite CI proves clean install, no-seed reset and genuine signed both w
  assert.match(workflow,/COMPOSED_SOURCE156_TWO_POSTGRES_LOCK_ORDER_GLOBAL_PASS/);
  assert.match(legacy,/assert len\(fs\)==148/);
  assert.match(legacy,/MIGRATION_LEDGER_NOT_148/);
- assert.match(legacy,/MIGRATION_LEDGER_NOT_161/);
+ assert.match(legacy,/MIGRATION_LEDGER_NOT_162/);
  assert.match(legacy,/SOURCE156_POST_LEGACY_REPLAY_UNBOUND_R16_CLOSED/);
 });

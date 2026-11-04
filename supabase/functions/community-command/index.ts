@@ -253,6 +253,16 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       return reply({ok:false,error:'SOURCE161_GALLERY_DRAFT_WRITER_NOT_ENROLLED'},409);
     }
 
+    // Source162: the Photo parent is SECURITY DEFINER and can invoke
+    // Source161-retired Gallery Work create internally with definer rights.
+    // Genuine signed v2 preflight and SQL transaction were separate: after
+    // committed local revoke, parent still COMMITTED a public Gallery Work
+    // using only synthetic READY Media/verified Subject metadata.
+    // Deny until a same-transaction signed atomic Photo Writer passes QA.
+    if (new Set<string>(['publishGalleryPhoto']).has(command)) {
+      return reply({ok:false,error:'SOURCE162_GALLERY_PHOTO_WRITER_NOT_ENROLLED'},409);
+    }
+
     const authorizationParams: JsonObject = {
       p_auth_subject: subject, p_issued_at_epoch: issuedAt,
       p_max_age_seconds: null
