@@ -1,0 +1,36 @@
+name: 04 QR PR445 independent synthetic Native Grid ID provenance negative
+on:
+  push:
+    branches: [qa/pr445-source-grid-provenance-20261104]
+  pull_request:
+    branches: [wep/real-source-spatial-read-20261104]
+permissions:
+  contents: read
+jobs:
+  source-native-id:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false,fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Freeze exact Source and two QA-only paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=559ad157b7a92ff680f13332325e536e2c7545bb
+          MAIN=a6c69b441463431baa5333b07b952bddc62b843b
+          git merge-base --is-ancestor "$SRC" HEAD
+          git merge-base --is-ancestor "$MAIN" HEAD
+          git diff --name-only "$SRC" HEAD | sort >/tmp/qr445-delta
+          printf '%s\n' .github/workflows/qr-pr445-native-id-independent.yml tests/qr-pr445-source-native-id-independent.test.mjs | sort >/tmp/qr445-qaonly
+          diff -u /tmp/qr445-qaonly /tmp/qr445-delta
+          test "$(git hash-object src/lib/wep/real-save-spatial-read.ts)" = 087fbf22cb2a88f37801a1838180afb8de9d8862
+          test "$(git hash-object tests/wep-real-save-spatial-read.test.mjs)" = cd89a4a1178246d9feed820cfc2bf1799b3f8924
+          test -z "$(git diff --name-only "$SRC" HEAD -- src supabase docs static)"
+          echo QR445_PINNED_SOURCE_P1G_SHAPED_QA_ONLY_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: New independent Native source forged immutable ID negatives
+        run: node --experimental-strip-types --test tests/qr-pr445-source-native-id-independent.test.mjs
+      - run: npm run check
