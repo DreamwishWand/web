@@ -1,0 +1,64 @@
+name: WEP P0 source-bound Spatial Scene and native Chrome zoom
+on:
+  push:
+    branches: ['wep/spatial-scene-main-20261104']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert fixed source HEAD
+        run: |
+          echo "SPATIAL_SOURCE_HEAD=$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: New-only spatial source contracts and locale inventory
+        run: node --test tests/wep-spatial-scene.test.mjs tests/wep-world-editor-localization-inventory.test.mjs
+      - name: Svelte TypeScript
+        run: npm run check
+      - name: Static build
+        run: npm run build
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert exact browser checkout
+        run: |
+          echo "SPATIAL_BROWSER_HEAD=$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Install actual Chromium tab zoom
+        run: |
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install chromium
+      - name: Start isolated 2D Canvas
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4196 >/tmp/wep-spatial-2d.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:4196/editor/world/ >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/wep-spatial-2d.log
+          exit 1
+      - name: New-only ID to detail and Undo browser integration
+        env:
+          WEP_SPATIAL_URL: http://127.0.0.1:4196/editor/world/
+        run: node scripts/wep-spatial-scene-browser-20261104.mjs
+      - name: Upload scoped spatial report and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wep-source-spatial-2d-zoom100-200
+          path: .artifacts/wep-spatial-p0/
+          if-no-files-found: error
