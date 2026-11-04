@@ -68,3 +68,52 @@ fn wrong_source_and_other_event_fail_before_native_reference_diagnostic(){
  let mut wrong=intent(&owner);wrong.event_id=2010500008;
  assert_eq!(core.diagnose_w1_core_native_read_set(wrong).unwrap_err(),"W1_NATIVE_OPERATION_NOT_MODELLED");
 }
+
+
+#[test]
+fn operation_source_gate_requires_all_eight_core_paths_even_with_empty_caller_set(){
+ let core=open(FULL);
+ let owner=core.receipt().unwrap();
+ let witness=core.require_w1_core_operation_source_read_set(intent(&owner)).unwrap();
+ assert_eq!(witness.required_source_paths_count,8);
+ assert_eq!(witness.observed_core_refs.len(),8);
+ assert!(witness.missing_or_unbounded_refs.is_empty());
+ assert!(witness.core_derived_not_caller_selected);
+ // A full known SOURCE read-set still cannot grant Native V3 or Writer.
+ assert!(!witness.same_build_native_registry_manifest_accepted);
+ assert!(!witness.effective_area_grid_diffgrid_quota_verified);
+ assert!(!witness.clock_actualize_last_to_next_verified);
+ assert!(!witness.complete_native_dependency_closure_verified);
+ assert!(!witness.product_writer_authorized);
+ assert_eq!(core.export_p1g_copy().err(),Some("PRODUCT_ENCODE_COPY_NOT_AUTHORIZED"));
+}
+#[test]
+fn operation_source_gate_fails_closed_if_any_mandatory_ref_is_missing(){
+ let core=open(MISSING);
+ let owner=core.receipt().unwrap();
+ let diagnosis=core.diagnose_w1_core_native_read_set(intent(&owner)).unwrap();
+ assert!(!diagnosis.all_known_source_refs_observed);
+ assert_eq!(core.require_w1_core_operation_source_read_set(intent(&owner)).unwrap_err(),
+   "W1_CORE_MANDATORY_SOURCE_READSET_INCOMPLETE");
+ assert_eq!(core.export_p1g_copy().err(),Some("PRODUCT_ENCODE_COPY_NOT_AUTHORIZED"));
+}
+#[test]
+fn operation_source_gate_does_not_trust_optional_selected_ref_or_stale_source(){
+ let core=open(FULL);
+ let owner=core.receipt().unwrap();
+ let mut wrong=intent(&owner);
+ wrong.expected_decoded_sha256=[0;32];
+ assert_eq!(core.require_w1_core_operation_source_read_set(wrong).unwrap_err(),
+   "W1_SOURCE_CAS_FAILED");
+ let mut wrong=intent(&owner);
+ wrong.event_id=2010500008;
+ assert_eq!(core.require_w1_core_operation_source_read_set(wrong).unwrap_err(),
+   "W1_NATIVE_OPERATION_NOT_MODELLED");
+ let mut wrong=intent(&owner);
+ wrong.source_read_set.push(ddv_save_core::trusted_read::SourceReadCondition{
+   pointer:"/GameInfo/Version".to_string(),
+   expected_raw_token_sha256:[0;32]
+ });
+ assert_eq!(core.require_w1_core_operation_source_read_set(wrong).unwrap_err(),
+   "W1_READ_SET_CAS_FAILED");
+}
