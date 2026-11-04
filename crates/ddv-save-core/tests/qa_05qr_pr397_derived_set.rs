@@ -23,7 +23,7 @@ const PATHS:[&str;8]=[
  "/World/Villages"
 ];
 fn open(doc:&str)->TrustedReadCore{
- let key=[0x32;32],registry=b"qa397-synthetic-registry-source-only";
+ let key=[0x32;32];let registry=b"qa397-synthetic-registry-source-only";
  let ciphertext=encode_synthetic_fixture(doc.as_bytes(),&key,8).unwrap();
  TrustedReadCore::open_p1g_readonly(ciphertext.clone(),&key,
   sha256(&ciphertext),sha256(doc.as_bytes()),registry,sha256(registry),
