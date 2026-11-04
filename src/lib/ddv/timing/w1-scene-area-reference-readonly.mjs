@@ -104,8 +104,10 @@ export function inspectW1SceneAreaReferences(profile, sourceContext) {
       const regular=Object.hasOwn(collection.Grids,key);
       const diff=Object.hasOwn(collection.DiffGrids,key);
       if(!regular&&!diff)return sourceRefusal('SOURCE_GRID_REFERENCE_MISSING');
-      const g=regular?collection.Grids[key]:collection.DiffGrids[key];
-      if(!record(g)||g.ID!==gridId)
+      // A paired Grids/DiffGrids entry has two independent source ID
+      // witnesses. Do not hide a corrupt DiffGrid behind a valid Grid.
+      if((regular && (!record(collection.Grids[key]) || collection.Grids[key].ID!==gridId)) ||
+         (diff && (!record(collection.DiffGrids[key]) || collection.DiffGrids[key].ID!==gridId)))
         return sourceRefusal('SOURCE_GRID_MAP_ID_MISMATCH');
       refs.push(freeze({gridId,sourceKind:regular&&diff?'GRIDS_AND_DIFF_UNRESOLVED':
         regular?'GRIDS_ONLY':'DIFF_ONLY_DEFAULT_UNRESOLVED',

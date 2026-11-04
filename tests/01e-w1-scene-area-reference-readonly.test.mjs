@@ -107,6 +107,25 @@ test('overlapping GRIDS+DiffGrids or diff-only remain source-only, no effective 
   assert.equal(r.nativeSoftwoodQuotaVerified,false);
   assert.equal(r.productEditedCopyAuthorized,false);
 });
+test('overlapping Grid and DiffGrid IDs must each match the referenced map key',()=>{
+  for(const change of [
+    p=>p.World.GridCollection.DiffGrids['100']={ID:999,ModifiedObjects:{},RemovedObjects:{}},
+    p=>{p.World.GridCollection.Grids['100'].ID=999;
+        p.World.GridCollection.DiffGrids['100']={ID:100,ModifiedObjects:{},RemovedObjects:{}};},
+    p=>p.World.GridCollection.DiffGrids['100']=null
+  ]){
+    const p=fixture();change(p);
+    const r=inspect(p);denies(r);
+    assert.equal(r.reason,'SOURCE_GRID_MAP_ID_MISMATCH');
+  }
+  const p=fixture();
+  p.World.GridCollection.DiffGrids['100']={ID:100,ModifiedObjects:{},RemovedObjects:{}};
+  const r=inspect(p);
+  assert.equal(r.status,'SAVED_SCENE_AREA_REFERENCES_SOURCE_ONLY');
+  assert.equal(r.sourceCandidates.find(a=>a.saveAreaKey==='1').sourceGridRefs[0].sourceKind,'GRIDS_AND_DIFF_UNRESOLVED');
+  assert.equal(r.nativeEffectiveGridVerified,false);
+  assert.equal(r.productWriterAuthorized,false);
+});
 test('source evidence cannot be promoted using caller fake Native/Writer/Clock flags',()=>{
   const p=fixture();p.NativeV3Accepted=true;p.productWriterAuthorized=true;
   const r=inspectW1SceneAreaReferences(p,{...context,fullDocumentVerified:true,nativeClockLastNextVerified:true,productWriterAuthorized:true});
