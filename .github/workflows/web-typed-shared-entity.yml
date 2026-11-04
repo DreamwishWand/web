@@ -1,0 +1,112 @@
+name: WEB typed shared Entity source-only and real browser
+on:
+  push:
+    branches:
+      - 'web/typed-shared-entity-boundary-*'
+  pull_request:
+    paths:
+      - 'src/lib/entity/shared-typed-entity-contract.mjs'
+      - 'src/lib/entity/shared-typed-entity-copy.mjs'
+      - 'src/lib/entity/SharedTypedEntityGate.svelte'
+      - 'src/routes/entity/**'
+      - 'src/routes/[locale=wandLocale]/entity/**'
+      - 'src/routes/[primary=sharedId]/[secondary=sharedId]/**'
+      - 'src/routes/[locale=wandLocale]/[primary=sharedId]/[secondary=sharedId]/**'
+      - 'tests/shared-typed-entity-boundary.test.mjs'
+      - 'scripts/web-typed-entity-boundary-chrome.mjs'
+      - '.github/workflows/web-typed-shared-entity.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Exact 14-file main descendant and no privileged source
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=d3a2dbfa76d041e7edc30abbd89f5fc264a540f8
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          git diff --name-only "$BASE" HEAD >/tmp/typed-entity-diff
+          test "$(wc -l </tmp/typed-entity-diff)" -eq 14
+          while IFS= read -r path; do
+            case "$path" in
+              src/lib/entity/shared-typed-entity-contract.mjs|src/lib/entity/shared-typed-entity-copy.mjs|src/lib/entity/SharedTypedEntityGate.svelte|src/routes/entity/'[kind]'/'[primary]'/+page.svelte|src/routes/entity/'[kind]'/'[primary]'/+page.ts|src/routes/'[locale=wandLocale]'/entity/'[kind]'/'[primary]'/+page.svelte|src/routes/'[locale=wandLocale]'/entity/'[kind]'/'[primary]'/+page.ts|src/routes/'[primary=sharedId]'/'[secondary=sharedId]'/+page.svelte|src/routes/'[primary=sharedId]'/'[secondary=sharedId]'/+page.ts|src/routes/'[locale=wandLocale]'/'[primary=sharedId]'/'[secondary=sharedId]'/+page.svelte|src/routes/'[locale=wandLocale]'/'[primary=sharedId]'/'[secondary=sharedId]'/+page.ts|tests/shared-typed-entity-boundary.test.mjs|scripts/web-typed-entity-boundary-chrome.mjs|.github/workflows/web-typed-shared-entity.yml) ;;
+              *) echo "UNEXPECTED_PATH:$path"; exit 1 ;;
+            esac
+          done </tmp/typed-entity-diff
+          git diff --exit-code "$BASE" HEAD -- supabase/ src/lib/community/ src/lib/wep/ src/lib/ddv/ src/lib/timing/ src/lib/collection/ src/lib/moodboards/ src/lib/entity/SharedEntityDetail.svelte src/lib/entity/shared-catalog-directory.mjs src/routes/editor/ src/routes/collection/ src/routes/explore/
+          echo WEB_TYPED_PROTECTED_SCOPE_PASS
+      - name: Typed ID P/S alias source and eight locale negatives
+        run: node --test tests/shared-typed-entity-boundary.test.mjs
+      - name: Svelte check and Pages static build
+        env:
+          BASE_PATH: /web
+        run: npm run check && npm run build
+      - name: No positive unaccepted SEO static route
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f build/404.html
+          test ! -f build/ja/entity/quest/12345/index.html
+          test ! -f build/ja/40000047/12345/index.html
+          echo WEB_TYPED_NOINDEX_NO_FALSE_HTTP200_PASS
+  browser:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Resolve installed actual Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Static build and local dev setup
+        env:
+          BASE_PATH: /web
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4198 >/tmp/typed-entity-vite.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4198/collection/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/typed-entity-vite.log
+          exit 1
+      - name: Real Chromium typed Quest/Creator/Work/Preset and P/S negative E2E
+        env:
+          SHARED_TYPED_E2E_URL: http://127.0.0.1:4198
+        run: node scripts/web-typed-entity-boundary-chrome.mjs
+      - name: Probe real current public Pages host; informational, not an eligibility grant
+        if: always()
+        shell: bash
+        run: |
+          for path in '/web/' '/web/ja/40000047/' '/web/ja/entity/quest/12345/'; do
+            code=$(curl --connect-timeout 7 --max-time 14 -sS -L -o /dev/null -w '%{http_code}' "https://dreamwishwand.github.io${path}" || true)
+            echo "CURRENT_PUBLIC_PAGES_HTTP_STATUS path=${path} code=${code:-UNOBSERVED}"
+          done
+          echo "Actual Pages host status is observation only; public eligibility requires source/rights and direct HTTP200/301 QA."
