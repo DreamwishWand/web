@@ -1,0 +1,61 @@
+name: 04 QR PR422 current-main independent Collection UNKNOWN and PC native import Chrome
+on:
+  push:
+    branches: [qa/pr422-current-main-collection-preset-20261104]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  collection:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 32
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false,fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Current main source six paths and QA-only three paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=8071f4c0af789e876cdb40f6251ce978da85984e
+          MAIN=05e58dff3e2c9c0eefc0f1b10a48879c9256d227
+          git merge-base --is-ancestor "$SRC" HEAD
+          git merge-base --is-ancestor "$MAIN" HEAD
+          git diff --name-only "$SRC" HEAD | sort >/tmp/qr422-actual
+          printf '%s\n' .github/workflows/qr-pr422-main-collection-independent.yml scripts/qr-pr422-main-collection-independent-chrome.mjs tests/qr-pr422-main-collection-native-independent.test.mjs | sort >/tmp/qr422-only
+          diff -u /tmp/qr422-only /tmp/qr422-actual
+          git diff --name-only "$MAIN" "$SRC" | sort >/tmp/qr422-source
+          printf '%s\n' docs/core/01d-collection-overlay-native-preset-local-file-20261104.md src/lib/ddv/core/items/local-item-overlay-read-contract.mjs src/lib/presets/NativePresetManager.svelte src/lib/presets/native-local-file-import-contract.mjs tests/01d-local-item-overlay-read-contract.test.mjs tests/01d-native-preset-local-file-import-contract.test.mjs | sort >/tmp/qr422-source-exact
+          diff -u /tmp/qr422-source-exact /tmp/qr422-source
+          test "$(git hash-object src/lib/ddv/core/items/local-item-overlay-read-contract.mjs)" = 63051d1a5b1fd8aecf90cb51d6b6a71eb5702302
+          test "$(git hash-object src/lib/presets/native-local-file-import-contract.mjs)" = 0dcdec622e8deb45b53d8138f597cf9068a2d04e
+          test "$(git hash-object src/lib/presets/NativePresetManager.svelte)" = a89b55786469c1954b9ddec5d9bc52384481bb9d
+          test -z "$(git diff --name-only "$MAIN" HEAD -- supabase src/lib/ddv/core/save src/lib/wep src/lib/timing)"
+          echo QR_422_MAIN_EXACT_SIX_SOURCE_PATHS_ABI_SCOPE_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Independent new-only source overlay and PC file negative
+        run: node --test tests/qr-pr422-main-collection-native-independent.test.mjs
+      - run: npm run check
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Locate actual installed Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Start local site for actual UI
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4207 >/tmp/qr422-vite.log 2>&1 &
+          for i in $(seq 1 75); do
+            curl -fsS http://127.0.0.1:4207/presets/ >/dev/null && exit 0
+            sleep 1
+          done
+          tail -n 50 /tmp/qr422-vite.log; exit 1
+      - name: Actual Chromium PC-import denial without upload or save mutation
+        run: node scripts/qr-pr422-main-collection-independent-chrome.mjs
