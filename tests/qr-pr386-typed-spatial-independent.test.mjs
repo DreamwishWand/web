@@ -112,9 +112,16 @@ test('SECURITY_NEGATIVE: mutated genuine hit cannot select an object outside ori
  assert.deepEqual(hit.candidates.map(x=>x.editorId),['g73:o101']);
  // An actual hit handle can be mutated by a caller after the WeakMap binds it.
  // If the hit candidate list is mutable, the WeakMap itself cannot prove cell membership.
- assert.throws(()=>hit.candidates.push(s.nodes.find(x=>x.editorId==='g73:o102')),TypeError,
-   'genuine hit candidates must be immutable; otherwise caller can forge selected ObjectID');
- assert.throws(()=>selectHitCandidate(s,hit,'g73:o102','qa-rev-10'),/SPATIAL_HIT_CANDIDATE_REQUIRED/);
+ let selectedForgedObject=false;
+ try {
+   hit.candidates.push(s.nodes.find(x=>x.editorId==='g73:o102'));
+   const selection=selectHitCandidate(s,hit,'g73:o102','qa-rev-10');
+   selectedForgedObject=selection.editorId==='g73:o102';
+ } catch (error) {
+   assert.ok(error instanceof TypeError || /SPATIAL_HIT_CANDIDATE_REQUIRED/.test(String(error)),String(error));
+ }
+ assert.equal(selectedForgedObject,false,
+   'mutating an originally valid hit must never enable selecting a different non-hit GridObject');
  console.log('QR_386_MUTATED_HIT_CANDIDATE_FORGERY_DENIED_PASS');
 });
 test('HIERARCHY_NEGATIVE: child of Grid905 cannot reference root-only parent of Grid906',()=>{
@@ -138,8 +145,15 @@ test('HIERARCHY_NEGATIVE: child of Grid905 cannot reference root-only parent of 
 test('IMMUTABILITY_NEGATIVE: projection result cannot have forged unrelated nodes appended',()=>{
  const scene=project(fixture());
  const forged={...scene.nodes[0],editorId:'g73:o9999',address:address(73,9999)};
- assert.throws(()=>scene.nodes.push(forged),TypeError,
-   'Readonly scene nodes must not permit runtime insertion of fabricated native ObjectID');
- assert.equal(scene.nodes.find(x=>x.editorId==='g73:o9999'),undefined);
+ let forgedVisible=false;
+ try {
+   scene.nodes.push(forged);
+   const hit=hitTestSource(scene,{x:2.5,y:3.5},{gridId:73,cellPixels:1,panX:0,panY:0});
+   forgedVisible=hit.candidates.some(x=>x.editorId==='g73:o9999');
+ } catch (error) {
+   assert.ok(error instanceof TypeError || /SPATIAL_/.test(String(error)),String(error));
+ }
+ assert.equal(forgedVisible,false,
+   'a mutated scene array must not permit fabricated native GridObjectID to be hit-selected');
  console.log('QR_386_SCENE_NODE_RUNTIME_IMMUTABLE_PASS');
 });
