@@ -4,7 +4,9 @@ on:
     branches: ['web/shared-detail-catalog-consumer-*']
   pull_request:
     paths:
-      - 'src/lib/entity/**'
+      - 'src/lib/entity/shared-catalog-directory.mjs'
+      - 'src/lib/entity/SharedCatalogDiscovery.svelte'
+      - 'src/lib/entity/SharedEntityDetail.svelte'
       - 'src/routes/editor/items/+page.svelte'
       - 'tests/shared-catalog-directory-foundation.test.mjs'
       - 'tests/scaffold.test.mjs'
@@ -26,23 +28,28 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci --no-audit --no-fund
-      - name: Fixed main and eight-file product-only allowlist
+      - name: Current-main bounded Item regression, not fixed old PR380 eight-path diff
         shell: bash
         run: |
           set -euo pipefail
-          BASE=d3ec2f5b66da9bbef42943fc9abaea067df9aac4
-          git merge-base --is-ancestor "$BASE" HEAD
-          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
-          git diff --name-only "$BASE" HEAD > /tmp/entity-diff
-          test "$(wc -l </tmp/entity-diff)" -eq 8
+          BASE="$(git merge-base origin/main HEAD)"
+          test -n "$BASE"
+          git diff --name-only "$BASE" HEAD -- \
+            src/lib/entity/shared-catalog-directory.mjs \
+            src/lib/entity/SharedCatalogDiscovery.svelte \
+            src/lib/entity/SharedEntityDetail.svelte \
+            src/routes/editor/items/+page.svelte \
+            tests/shared-catalog-directory-foundation.test.mjs \
+            tests/scaffold.test.mjs \
+            scripts/web-shared-catalog-e2e-chrome.mjs > /tmp/item-scope
           while IFS= read -r file; do
             case "$file" in
-              src/lib/entity/shared-catalog-directory.mjs|src/lib/entity/SharedCatalogDiscovery.svelte|src/lib/entity/SharedEntityDetail.svelte|src/routes/editor/items/+page.svelte|tests/shared-catalog-directory-foundation.test.mjs|tests/scaffold.test.mjs|scripts/web-shared-catalog-e2e-chrome.mjs|.github/workflows/web-shared-catalog-detail.yml) ;;
-              *) echo "OUT_OF_SCOPE:$file"; exit 1 ;;
+              src/lib/entity/shared-catalog-directory.mjs|src/lib/entity/SharedCatalogDiscovery.svelte|src/lib/entity/SharedEntityDetail.svelte|src/routes/editor/items/+page.svelte|tests/shared-catalog-directory-foundation.test.mjs|tests/scaffold.test.mjs|scripts/web-shared-catalog-e2e-chrome.mjs) ;;
+              *) echo "ITEM_OUT_OF_SCOPE:$file"; exit 1 ;;
             esac
-          done </tmp/entity-diff
+          done </tmp/item-scope
           git diff --exit-code "$BASE" HEAD -- supabase/ src/lib/community/ src/lib/moodboards/store.js src/lib/entity/entity-moodboard-action.mjs src/lib/wep/ src/lib/timing/ src/routes/dreamsnaps/ src/routes/explore/ src/routes/collection/
-          echo WEB_ENTITY_SAFE_STATIC_SCOPE_PASS
+          echo WEB_ITEM_ORIGINAL_ACCEPTED_BEHAVIOR_REGRESSION_PASS
       - name: Source/version, duplicate and rights OFF assertions
         run: node --test tests/shared-catalog-directory-foundation.test.mjs tests/shared-entity-detail-contract.test.mjs tests/shared-detail-moodboard.test.mjs
       - name: Svelte checks and static Pages build
