@@ -33,7 +33,9 @@ fn run()->Result<(),&'static str>{
   schema:626,expected_revision:0,old_utc:&old,proposed_utc:&proposed
  })?;
  if !x.atomic_diff_pass||!x.original_first_backup_reopened||
-    !x.edited_file_reopened||x.independent_process_reopen||
+    !x.edited_file_reopened||!x.core_and_stage_share_immutable_decoded_source||
+    !x.original_ciphertext_borrowed_from_trusted_core||
+    x.independent_process_reopen||
     x.native_v3_verified||x.product_writer_authorized{
     return Err("PRIVATE_V2_RESEARCH_FLAGS_INVALID");
  }

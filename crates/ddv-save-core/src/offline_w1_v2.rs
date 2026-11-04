@@ -31,6 +31,11 @@ pub struct PrivateW1V2Receipt {
  pub mandatory_readset_pass:bool,pub atomic_diff_pass:bool,
  pub original_first_backup_reopened:bool,pub edited_file_reopened:bool,
  pub independent_process_reopen:bool,pub native_v3_verified:bool,
+ /// Exact Arc::ptr_eq between TrustedReadCore source and atomic stage source.
+ /// Reuses immutable backing only; NOT a unified Product SaveSession authority.
+ pub core_and_stage_share_immutable_decoded_source:bool,
+ /// Ciphertext is also the Core-owned immutable Arc; not OS backup proof.
+ pub original_ciphertext_borrowed_from_trusted_core:bool,
  pub product_writer_authorized:bool,
 }
 fn output_canonical(path:&Path)->Result<PathBuf,&'static str>{
@@ -173,14 +178,21 @@ pub fn execute_private_w1_v2_research(
  if original.len() as u64>MAX_P1G||sha256(&original)!=input.source_sha{
     return Err("OFFLINE_SOURCE_SHA_CAS_FAILED");
  }
- let decoded=decode_p1g_research(&original,input.key,MAX_JSON)?;
- if decoded.decoded_json_sha256!=input.decoded_sha{
-    return Err("OFFLINE_DECODED_SHA_CAS_FAILED");
- }
- // One immutable Rust Core source; no UI-provided readset or Native flag.
+ // Transfer the bounded encrypted original to the TrustedReadCore ONCE.
+ // Borrow the same immutable Arc for backup and research encode; never create
+ // a second original ciphertext or decoded JSON clone during preflight.
  let core=TrustedReadCore::open_p1g_readonly(
-   original.clone(),input.key,input.source_sha,input.decoded_sha,
-   input.registry,input.registry_sha,BID,626,MAX_JSON)?;
+   original,input.key,input.source_sha,input.decoded_sha,
+   input.registry,input.registry_sha,BID,626,MAX_JSON)
+   .map_err(|e|if e=="READ_DECODED_SHA_CAS_FAILED"{
+     "OFFLINE_DECODED_SHA_CAS_FAILED"
+   }else{e})?;
+ let original=core.borrow_original_snapshot_research()?;
+ let shared_original=core.shares_original_ciphertext_research(&original);
+ if !shared_original||sha256(&original)!=input.source_sha{
+   return Err("OFFLINE_RESEARCH_ORIGINAL_BACKING_MISMATCH");
+ }
+ let decoded=core.borrow_decoded_snapshot_research()?;
  let owner=core.receipt()?;
  let old_raw=format!("\"{}\"",input.old_utc);
  let required=core.require_w1_core_operation_source_read_set(
@@ -196,14 +208,19 @@ pub fn execute_private_w1_v2_research(
     return Err("OFFLINE_EXACT_DIFF_UNEXPECTED");
  }
  let atomic_reads=private_core_bound_w1_atomic_readset(
-   &decoded.json,input.decoded_sha,&required)?;
+   &decoded,input.decoded_sha,&required)?;
  let identity=LogicalIdentity{domain:Domain::RecurringEvent,key:"W1:155:2010000021".into()};
  let mut references=ReferenceIndex::default();
  references.nodes.insert(identity.clone());
  // Separate research SaveSession: this reference graph does NOT prove native
  // event/World/Clock semantics, and cannot be used as product authorization.
  let sid=session_id()?;
- let mut tx=SaveSession::open_decoded_research(sid,decoded.json.clone(),626,references.clone())?;
+ let mut tx=SaveSession::open_decoded_shared_research(
+    sid,decoded.clone(),626,references.clone())?;
+ let shared_backing=tx.shares_immutable_source_research(&decoded);
+ if !shared_backing||tx.source_sha256()!=input.decoded_sha{
+   return Err("OFFLINE_RESEARCH_CORE_BACKING_MISMATCH");
+ }
  let next_raw=format!("\"{}\"",input.proposed_utc);
  let staged=tx.stage_command(TransactionPlan{
   session_id:sid,expected_revision:0,
@@ -266,6 +283,8 @@ pub fn execute_private_w1_v2_research(
   mandatory_readset_pass:true,atomic_diff_pass:true,
   original_first_backup_reopened:true,edited_file_reopened:true,
   independent_process_reopen:false,native_v3_verified:false,
+  core_and_stage_share_immutable_decoded_source:shared_backing,
+  original_ciphertext_borrowed_from_trusted_core:shared_original,
   product_writer_authorized:false
  })
 }

@@ -148,6 +148,16 @@ impl SaveSession {
     pub fn open_decoded_research(
         session_id:u64,decoded_json:Vec<u8>,schema:u64,refs:ReferenceIndex
     )->EngineResult<Self>{
+        Self::open_decoded_shared_research(
+            session_id,Arc::from(decoded_json),schema,refs
+        )
+    }
+    /// Core-private native research path: validate an already immutable
+    /// strict-decoded source owned by TrustedReadCore WITHOUT a full JSON clone.
+    /// This remains a separate staging engine; it grants no product Writer.
+    pub(crate) fn open_decoded_shared_research(
+        session_id:u64,decoded_json:Arc<[u8]>,schema:u64,refs:ReferenceIndex
+    )->EngineResult<Self>{
         if session_id==0{return Err("SESSION_ID_REQUIRED");}
         if decoded_json.len()>MAX_DECODED_JSON_BYTES{return Err("JSON_TOO_LARGE");}
         validate_json(&decoded_json)?;
@@ -160,11 +170,15 @@ impl SaveSession {
         crate::semantic_safety::verify_observed_chest_edges(&decoded_json,&refs)?;
         let hash=sha256(&decoded_json);
         Ok(Self {
-            session_id,source:Arc::from(decoded_json),source_sha:hash,schema,
+            session_id,source:decoded_json,source_sha:hash,schema,
             backing:BackingKind::OwnedMemory,revision:0,index_generation:0,
             history:Vec::new(),redo:Vec::new(),references:refs,
             lazy_index:BTreeMap::new(),cached_generation:0
         })
+    }
+    /// Evidence-only pointer identity check, never raw source disclosure.
+    pub(crate) fn shares_immutable_source_research(&self,source:&Arc<[u8]>)->bool{
+        Arc::ptr_eq(&self.source,source)
     }
     pub fn session_id(&self)->u64{self.session_id}
     pub fn revision(&self)->u64{self.revision}
