@@ -135,7 +135,7 @@ test('local genuine browser forbids HTTP POST/PUT/DELETE and offhost requests by
  const {readFileSync}=await import('node:fs');
  const script=readFileSync(new URL('../scripts/wep-private-real-save-2d-local-only-20261104.mjs',import.meta.url),'utf8');
  assert.match(script,/\['GET','HEAD'\]\.includes\(route\.request\(\)\.method\(\)\)/);
- assert.match(script,/ensurePrivateSourceOutsideCheckout\(await realpath\(sourcePath\),await realpath\(process\.cwd\(\)\)\)/);
+ assert.match(script,/ensurePrivateSourceOutsideCheckout\(approvedSourcePath,await realpath\(process\.cwd\(\)\)\)/);
  assert.match(script,/serviceWorkers:'block'/);
  assert.match(script,/routeWebSocket\('\*\*\/\*'/);
  assert.match(script,/PRIVATE_SAVE_CI_FORBIDDEN/);
