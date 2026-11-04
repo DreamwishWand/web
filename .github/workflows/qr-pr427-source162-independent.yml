@@ -1,0 +1,93 @@
+name: 04 QR PR427 independent genuine ES256 FULL162 Gallery Photo parent revoked OFF
+on:
+  push:
+    branches: [qa/pr427-source162-photo-parent-20261104]
+  pull_request:
+    branches: [comm/w-comm-006-source162-photo-parent-direct-writer-off-20261104]
+permissions:
+  contents: read
+jobs:
+  local-signed-photo:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Freeze source162 and all accepted earlier source SQL, QA-only 2 paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=0c634284929ca3c570ceabd9bec65af9c4c6e17e
+          git merge-base --is-ancestor "$SRC" HEAD
+          git diff --name-only "$SRC" HEAD | sort >/tmp/qr162-actual
+          printf '%s\n' .github/workflows/qr-pr427-source162-independent.yml tests/qr-pr427-source162-independent.py | sort >/tmp/qr162-expected
+          diff -u /tmp/qr162-expected /tmp/qr162-actual
+          test -z "$(git diff --name-only "$SRC" HEAD -- supabase src docs static)"
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 162
+          test "$(git hash-object supabase/migrations/20261102010000_community_source155_verified_first_account_bootstrap.sql)" = 115f2c0f7224984acd8830cfc606af8c6a1bf3af
+          test "$(git hash-object supabase/migrations/20261103010000_community_source156_signed_gallery_r16_atomic_writer.sql)" = 3000d66c193b996e4ece785deaf5180955ec3bc6
+          test "$(git hash-object supabase/migrations/20261103020000_community_source157_legacy_comments_v2_service_execute_off.sql)" = b9c44a501189857dff9fc6446dea21717d58b785
+          test "$(git hash-object supabase/migrations/20261103030000_community_source158_r15_gallery_pinned_service_execute_off.sql)" = 033920ee79a3dd07b32854f0bbfb3b225167f3e2
+          test "$(git hash-object supabase/migrations/20261104010000_community_source159_workspace_identity_legacy_service_execute_off.sql)" = 6bf78322e70406272125f245fcd525feb9347652
+          test "$(git hash-object supabase/migrations/20261104020000_community_source160_help_qa_question_tip_service_execute_off.sql)" = 0e5593b2a946727b4bd5d6ec5050b9c58a1dde0e
+          test "$(git hash-object supabase/migrations/20261104030000_community_source161_gallery_two_legacy_draft_create_service_execute_off.sql)" = f25e47af6adf7de8e7b1d3cf4c154769d8bf28a5
+          test "$(git hash-object supabase/migrations/20261104040000_community_source162_gallery_photo_parent_service_execute_off.sql)" = 6d8ec394b1773c65db88e9b459afc59d6427b5b9
+          test "$(git hash-object supabase/functions/community-command/index.ts)" = 196f8d221224789049f8573cfe17bd54645971f9
+          python3 -m py_compile tests/qr-pr427-source162-independent.py
+          echo QR162_FROZEN_SOURCE155_162_QA_ONLY_PASS
+      - uses: supabase/setup-cli@v1
+        with: {version: 2.109.0}
+      - name: Make ephemeral genuine ES256 local GoTrue signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\n[auth]\nsigning_keys_path = "./signing_keys.json"\n' >>supabase/config.toml
+          printf '[]\n' >supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes >/tmp/qr162-signer.log 2>&1
+      - name: Independent disposable fresh FULL162 local DB and JWT identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_qr162_photo_parent_independent_20261104"\n' | cat - supabase/config.toml >/tmp/qr162-cfg
+          mv /tmp/qr162-cfg supabase/config.toml
+          printf 'COMMUNITY_MEDIA_BUCKET=qr162-local-only\nWEP_PRESET_ARTIFACT_BUCKET=qr162-local-only\n' >supabase/functions/.env
+          timeout 1800s supabase start >/tmp/qr162-start.log 2>&1 || {
+            echo QR162_LOCAL_RUNTIME_NOT_RUN
+            tail -n 20 /tmp/qr162-start.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'; exit 1;
+          }
+          timeout 900s supabase db reset --no-seed >/tmp/qr162-reset.log 2>&1 || {
+            echo QR162_FRESH_MIGRATION_RESET_FAILED
+            tail -n 20 /tmp/qr162-reset.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'; exit 1;
+          }
+          echo QR162_TRUE_GOTRUE_ES256_FRESH_LOCAL_FULL162_RESET_PASS
+      - run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Independently prove old Photo parent OFF in true signed local two PG DB
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/qr-pr427-source162-independent.py | tee /tmp/qr162-evidence.log
+          for marker in \
+            QR162_SOURCE162_PARENT_3ROLE_DENY_PRIOR157_161_SIGNED_GRANTS_PRESERVED_PASS \
+            QR162_SIGNED_LIVE_A2_409_PHOTO_3ROLE_SQL42501_GRAPH_DB_NO_DIFF_PASS \
+            QR162_REVOKED_ORIGINAL_REFRESHED_A1_401_SIBLING_A2_200_5REPLAY_NO_DIFF_PASS \
+            QR162_TWO_PG_TEMP_GRANT_ROLLBACK_PHOTO_R16_UNCHANGED_PASS \
+            QR162_INDEPENDENT_TRUE_ES256_FULL162_PARENT_ONLY_NOT_MANAGED_PASS; do
+            grep -q "$marker" /tmp/qr162-evidence.log
+          done
+      - name: Destroy disposable signer, isolated DB and logs
+        if: always()
+        shell: bash
+        run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f supabase/signing_keys.json supabase/functions/.env /tmp/qr162-*
+          echo QR162_DISPOSABLE_RESET_CLEANUP_ATTEMPTED
