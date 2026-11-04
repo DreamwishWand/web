@@ -3,7 +3,7 @@ on:
   push:
     branches: ['qa/pr432-current-main-typed-entity-independent-20261104']
   pull_request:
-    branches: ['int/typed-entity-main-cumulative-20261104']
+    branches: ['int/w-int-012-typed-entity-ui-composed-20261104']
 permissions:
   contents: read
 jobs:
