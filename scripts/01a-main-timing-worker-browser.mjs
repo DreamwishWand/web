@@ -82,6 +82,19 @@ try {
  assert.match(await page.locator('[data-timing-loaded="true"] .event').innerText(),/ItemID 31700014/);
  pass('ITEMID_SEARCH_IN_WORKER');
 
+ // Navigate through SvelteKit SPA router, then return: this Session is
+ // owned by a module-singleton Worker, not the route component instance.
+ const workerBeforeNavigation=page.workers()[0];
+ await page.locator('.timing-page > a[href$="/editor/"]').click();
+ await page.waitForURL('**/editor/',{timeout:15000});
+ await page.goBack({waitUntil:'domcontentloaded'});
+ await page.locator('[data-timing-loaded="true"] .event').first().waitFor({timeout:15000});
+ assert.strictEqual(page.workers()[0],workerBeforeNavigation,
+   'SPA route change must preserve the original Worker identity');
+ assert.equal(await page.locator('[data-timing-loaded="true"] .event').count(),2);
+ assert.match(await page.locator('[data-timing-loaded="true"]').innerText(),/EventID: 2010000021/);
+ pass('SAME_WORKER_SESSION_RESTORED_AFTER_SPA_ROUTE_NAVIGATION');
+
  // A -> B on the very same Worker must replace both the source-bound lease
  // and every visible A row. Reopening is read-only and does not mutate A.
  const changed = profile(2010500008);
