@@ -51,10 +51,12 @@ function printOnlySafeStatus(){
     status:report.status,
     evidence:report.evidence,
     checkStatuses:report.checks.map(c=>({name:c.name,status:c.status})),
-    persistentGridWriterAuthorized:false
+    persistentGridWriterAuthorized:false,
+    privateLocalReceiptPath:localReceiptPath
   },null,2));
 }
 let browser=null;
+let localReceiptPath=null;
 try {
   // No genuine byte may leave the current machine or enter a CI fixture.
   if (process.env.CI||process.env.GITHUB_ACTIONS)
@@ -187,6 +189,7 @@ try {
   if(sourcePath){
     const receipt=join(tmpdir(),'wand-private-world-'+randomUUID()+'.json');
     await writeFile(receipt,JSON.stringify(report,null,2)+'\n',{mode:0o600});
+    localReceiptPath=receipt;
   }
   printOnlySafeStatus();
 }
