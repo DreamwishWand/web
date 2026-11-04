@@ -1,0 +1,74 @@
+name: "04 QR-W PR499 schema626 original-to-browser count independent"
+on:
+  pull_request:
+    branches: ['wep/schema626-gridobject-structural-count-contract-20261104']
+    paths:
+      - 'tests/04qr-w-pr499-626-count-independent.test.mjs'
+      - 'scripts/04qr-w-pr499-626-count-actual-chromium.mjs'
+      - '.github/workflows/04qr-w-pr499-626-count-independent.yml'
+permissions:
+  contents: read
+jobs:
+  independent-synthetic-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Verify no owner private P1G and original SHA in this CI job
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+      - name: New independent exact Source and malformed/DIFF count negatives
+        run: node --experimental-strip-types --test tests/04qr-w-pr499-626-count-independent.test.mjs
+      - name: Browser script syntax only
+        run: node --check scripts/04qr-w-pr499-626-count-actual-chromium.mjs
+
+  independent-actual-chromium-synthetic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Resolve native Chromium
+        id: chrome
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "path=$CHROME_BIN" >> "$GITHUB_OUTPUT"
+      - name: Start Vite on exact loopback only
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4179 > /tmp/04qr-w-pr499-vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:4179/editor/world/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/04qr-w-pr499-vite.log
+          exit 1
+      - name: Independent real Chromium, encrypted synthetic 626 (3/0/negative BID)
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          QR499_LOOPBACK_URL: http://127.0.0.1:4179/editor/world/
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          node scripts/04qr-w-pr499-626-count-actual-chromium.mjs
