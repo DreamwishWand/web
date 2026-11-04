@@ -1,0 +1,98 @@
+name: WEB shared Item detail and catalog local E2E
+on:
+  push:
+    branches: ['web/shared-detail-catalog-consumer-*']
+  pull_request:
+    paths:
+      - 'src/lib/entity/**'
+      - 'src/routes/editor/items/+page.svelte'
+      - 'tests/shared-catalog-directory-foundation.test.mjs'
+      - 'scripts/web-shared-catalog-e2e-chrome.mjs'
+      - '.github/workflows/web-shared-catalog-detail.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Fixed main and six-file product-only allowlist
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=d3ec2f5b66da9bbef42943fc9abaea067df9aac4
+          git merge-base --is-ancestor "$BASE" HEAD
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          git diff --name-only "$BASE" HEAD > /tmp/entity-diff
+          test "$(wc -l </tmp/entity-diff)" -eq 7
+          while IFS= read -r file; do
+            case "$file" in
+              src/lib/entity/shared-catalog-directory.mjs|src/lib/entity/SharedCatalogDiscovery.svelte|src/lib/entity/SharedEntityDetail.svelte|src/routes/editor/items/+page.svelte|tests/shared-catalog-directory-foundation.test.mjs|scripts/web-shared-catalog-e2e-chrome.mjs|.github/workflows/web-shared-catalog-detail.yml) ;;
+              *) echo "OUT_OF_SCOPE:$file"; exit 1 ;;
+            esac
+          done </tmp/entity-diff
+          git diff --exit-code "$BASE" HEAD -- supabase/ src/lib/community/ src/lib/moodboards/store.js src/lib/entity/entity-moodboard-action.mjs src/lib/wep/ src/lib/timing/ src/routes/dreamsnaps/ src/routes/explore/ src/routes/collection/
+          echo WEB_ENTITY_SAFE_STATIC_SCOPE_PASS
+      - name: Source/version, duplicate and rights OFF assertions
+        run: node --test tests/shared-catalog-directory-foundation.test.mjs tests/shared-entity-detail-contract.test.mjs tests/shared-detail-moodboard.test.mjs
+      - name: Svelte checks and static Pages build
+        env:
+          BASE_PATH: /web
+        run: npm run check && npm run build
+      - name: no dynamic detail path falsely shipped as HTTP 200
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f build/404.html
+          test ! -f build/en/40000047/index.html
+          test -f build/editor/items/index.html
+          echo WEB_ENTITY_NO_SEO_FALLBACK_PROMOTION_PASS
+  browser:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Resolve real Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Build static fallback and start local Vite
+        env:
+          BASE_PATH: /web
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4194 > /tmp/entity-local-vite.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4194/collection/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/entity-local-vite.log
+          exit 1
+      - name: Real Chrome Collection and Explore → Shared detail → Moodboard reload
+        env:
+          SHARED_DETAIL_E2E_URL: http://127.0.0.1:4194
+        run: node scripts/web-shared-catalog-e2e-chrome.mjs
