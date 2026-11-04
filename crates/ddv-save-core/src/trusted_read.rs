@@ -3,7 +3,7 @@
 //! witnesses. A row index is complete only for /World/RecurringEvents;
 //! no claim of 11-domain Native reference or gameplay semantic completeness.
 //! The module is not yet compiled into a browser Worker/WASM product ABI.
-use crate::{sha256,index_direct_children,index_selected_tokens,strict_decode_json_string_token,
+use crate::{sha256,index_direct_children,index_selected_tokens,index_selected_token_sha256,strict_decode_json_string_token,
    DirectChildSpan,DirectIndexKind,EngineResult};
 use crate::p1g::decode_p1g_research;
 use crate::w1_evidence::W1Kind;
@@ -451,20 +451,31 @@ impl TrustedReadCore {
    if self.decoded.len()>128*1024*1024{
       return Err("W1_NATIVE_READSET_RESEARCH_MEMORY_LIMIT");
    }
-   let mut observed=Vec::new();
+   // One strict full-document validation and eight sparse token hashes.
+   // Large Grids/DiffGrids values are NOT cloned before enforcing 2MiB cap.
+   let required:Vec<String>=REQUIRED.iter().map(|v|(*v).to_owned()).collect();
+   let selected=index_selected_token_sha256(&self.decoded,&required,2*1024*1024)?;
+   let mut observed=Vec::with_capacity(selected.len());
    let mut missing=Vec::new();
    for path in REQUIRED {
-      let selected=index_selected_tokens(&self.decoded,&[(*path).to_owned()]);
-      match selected {
-        Ok(hits) if hits.len()==1 && hits[0].pointer==*path
-          && hits[0].value.len()<=2*1024*1024 =>{
-           observed.push(SourceReadCondition{
-             pointer:(*path).to_owned(),
-             expected_raw_token_sha256:sha256(hits[0].value.as_bytes())
-           });
-        }
-        _=>missing.push((*path).to_owned())
-      }
+     // Same-version schema626 source shape is NOT caller-selectable.
+     // 01E/PR401 observed Villages as ARRAY, not an invented object map.
+     let required_kind=match *path {
+       "/GameInfo/Version" |
+       "/World/RecurringEvents/155/ItemSpawning/RecurringEventItemID"=>"number",
+       "/World/GridCollection/Grids" |
+       "/World/GridCollection/DiffGrids"=>"object",
+       "/World/Villages"=>"array",
+       _=>"string"
+     };
+     if let Some(hit)=selected.iter().find(|h|h.pointer==*path &&
+                                            h.lexical_kind==required_kind){
+       observed.push(SourceReadCondition{
+         pointer:(*path).to_owned(),expected_raw_token_sha256:hit.raw_sha256
+       });
+     }else{
+       missing.push((*path).to_owned());
+     }
    }
    self.original_unchanged()?;
    Ok(W1CoreNativeReadSet{
