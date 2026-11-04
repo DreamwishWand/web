@@ -1,0 +1,102 @@
+name: WEB single Typed EntityRef Item and unavailable-detail consumers
+on:
+  push:
+    branches:
+      - 'web/typed-catalog-consumers-*'
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Exact eight changed files atop PR432 source, no second EntityRef
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=db8522cc97fae5ae6aadb9b08b79d815ab224107
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          git diff --name-only "$BASE" HEAD >/tmp/web-typed-consumer-diff
+          test "$(wc -l </tmp/web-typed-consumer-diff)" -eq 8
+          while IFS= read -r file; do
+            case "$file" in
+              src/lib/foundation/typed-entity-page-consumer.mjs|src/lib/foundation/SharedTypedEntityGate.svelte|src/lib/entity/shared-catalog-directory.mjs|src/lib/entity/SharedCatalogDiscovery.svelte|tests/shared-typed-entity-boundary.test.mjs|tests/web-typed-entity-consumers.test.mjs|scripts/web-typed-consumer-chrome.mjs|.github/workflows/web-typed-consumer-links.yml) ;;
+              *) echo "OUTSIDE_CHANGED_SCOPE:$file"; exit 1 ;;
+            esac
+          done </tmp/web-typed-consumer-diff
+          git diff --exit-code "$BASE" HEAD -- src/lib/entity/shared-entity-identity.mjs src/lib/entity/SharedEntityDetail.svelte src/lib/collection/ src/lib/ddv/ src/lib/timing/ src/lib/wep/ src/lib/community/ src/routes/ supabase/ static/ .github/workflows/pages.yml
+          echo WEB_TYPED_CONSUMER_SINGLE_IDENTITY_SCOPE_PASS
+      - name: 06 PRODUCT sole typed helper & Item directory/local-only regressions
+        run: node --test tests/shared-entity-identity.test.mjs tests/shared-catalog-directory-foundation.test.mjs tests/shared-typed-entity-boundary.test.mjs tests/web-typed-entity-consumers.test.mjs
+      - name: Svelte Check and compiled Pages artifact
+        env:
+          BASE_PATH: /web
+        run: npm run check && npm run build
+      - name: No guessed public canonical output
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f build/index.html
+          test -f build/404.html
+          test ! -f build/ja/40000047/index.html
+          test ! -f build/ja/entity/quest/12345/index.html
+          echo WEB_TYPED_NO_UNVERIFIED_PUBLIC_PRERENDER_PASS
+  chrome:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Install-independent actual Chrome and build
+        shell: bash
+        env:
+          BASE_PATH: /web
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          npm run build
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4216 >/tmp/web-typed-consumer-vite.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4216/collection/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/web-typed-consumer-vite.log
+          exit 1
+      - name: Real Chrome eight locale typed Item links and private Entity gates
+        env:
+          TYPED_CONSUMER_URL: http://127.0.0.1:4216
+        run: node scripts/web-typed-consumer-chrome.mjs
+      - name: Existing accepted Item/Moodboard cross-product Chrome regression
+        env:
+          SHARED_DETAIL_E2E_URL: http://127.0.0.1:4216
+        run: node scripts/web-shared-catalog-e2e-chrome.mjs
+      - name: Real hosted Pages direct GET, informational only
+        if: always()
+        shell: bash
+        run: |
+          for path in '/web/' '/web/editor/items/' '/web/ja/40000047/' '/web/ja/entity/quest/12345/'; do
+            code=$(curl --connect-timeout 7 --max-time 14 -sS -L -o /dev/null -w '%{http_code}' "https://dreamwishwand.github.io${path}" || true)
+            echo "TYPED_CONSUMER_LIVE_HTTP path=${path} status=${code:-UNOBSERVED}"
+          done
+          echo "Existing public Pages kept; no positive indexed entity HTTP200/301 from this source-only PR."
