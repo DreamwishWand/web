@@ -24,7 +24,7 @@ const notes=load('docs/community/post327-remaining-writer-route-audit-20261103.m
 test('fix Source155 and Source156 at independently accepted PR327 SQL/Edge blobs',()=>{
  assert.equal(gitBlob(source155),'115f2c0f7224984acd8830cfc606af8c6a1bf3af');
  assert.equal(gitBlob(source156),'3000d66c193b996e4ece785deaf5180955ec3bc6');
- assert.equal(gitBlob(edge),'ad8b0bb6e74d7d8ae0ee1a148b6749feadbcf974');
+ assert.equal(gitBlob(edge),'7d1bec902a3c9d332ac3c074c4f1ee9f7f9cd67f');
  assert.match(source156,/for share;/);
  assert.match(source156,/community_authorize_signed_session_v2/);
  assert.match(source156,/revoke all on function public\.community_set_gallery_comments_enabled_atomic_r16/);
@@ -120,4 +120,20 @@ test('Source159 only four unaccepted Workspace legacy RPCs remain disabled after
  assert.match(source159,/community_get_ddv_profile_workspaces_v1/);
  assert.match(source159,/community_set_gallery_comments_enabled_atomic_signed_v1/);
  assert.match(edge,/deleteDdvProfileWorkspace: 'community_delete_ddv_profile_workspace_v1'/);
+});
+
+const source160=load('supabase/migrations/20261104020000_community_source160_help_qa_question_tip_service_execute_off.sql');
+test('Source160 only two unaccepted Help Question/Tip RPCs OFF after signed revocation',()=>{
+ const signed=edge.indexOf("'community_authorize_signed_session_v2'",edge.indexOf("if (command !== 'ensureAccountCreator')"));
+ const guard=edge.indexOf("new Set<string>(['askQuestion','createTip']).has(command)");
+ const rate=edge.indexOf('const rateBucket = commandToRateBucket[command]');
+ assert.ok(signed>=0 && guard>signed && rate>guard, 'Help Q/A guard must follow signed401 before any DB/Rate call');
+ assert.match(edge,/SOURCE160_HELP_QA_WRITER_NOT_ENROLLED/);
+ assert.match(source160,/revoke all on function public\.community_ask_question_v1/);
+ assert.match(source160,/revoke all on function public\.community_create_tip_v1/);
+ assert.match(source160,/from public,anon,authenticated,service_role/);
+ assert.doesNotMatch(source160,/grant execute on function public\.community_(?:ask_question|create_tip)_v1/i);
+ assert.match(source160,/community_set_gallery_comments_enabled_atomic_signed_v1/);
+ assert.match(source160,/community_delete_ddv_profile_workspace_v1/);
+ assert.match(source160,/community_get_ddv_profile_workspaces_v1/);
 });
