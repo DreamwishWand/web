@@ -3177,7 +3177,7 @@
     marqueeFeedback = '';
   }
 
-  function marqueeWorldPoint(event: PointerEvent, svg: SVGSVGElement) {
+  function marqueeWorldPoint(event: MouseEvent, svg: SVGSVGElement) {
     const matrix = svg.getScreenCTM();
     if (!matrix) return null;
     const pt = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
