@@ -3,7 +3,7 @@ on:
   push:
     branches: [comm/w-comm-006-post158-workspace-signed-gap-probe-20261104]
   pull_request:
-    branches: [comm/w-comm-006-source158-workspace-pinned-off-20261103]
+    branches: [comm/w-comm-006-source158-r15-pinned-off-20261103]
 permissions:
   contents: read
 jobs:
@@ -74,7 +74,7 @@ jobs:
           grep -q '"case": "WORKSPACE_REAL_GO_TRUE_REVOKED_SIGNED_A1_HTTP401"' /tmp/comm-workspace-probe.log
           grep -q '"case": "WORKSPACE_SIGNED_LOCAL_FOUR_OLD_SERVICE_ROLE_WRITERS_POSTREVOKE_COMMIT"' /tmp/comm-workspace-probe.log
           grep -q '"case": "WORKSPACE_AFTER_A1_REVOKE_CREATE"' /tmp/comm-workspace-probe.log
-          echo SOURCE158_WORKSPACE_LOCAL_SIGNED_EDGE_SQL_OFF_OWNER_ONLY
+          echo SOURCE158_WORKSPACE_LOCAL_SIGNED_DIRECT_SQL_PROBE_NOT_INDEPENDENT_QA
       - name: Dispose local signer, SQL DB, and ephemeral logs
         if: always()
         shell: bash
