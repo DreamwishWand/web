@@ -1,0 +1,43 @@
+name: 05 QR-C PR480 repaired dual GridID source witnesses
+on:
+  push:
+    branches: [qa/05qr-c-pr480-dual-grid-id-repair-20261104]
+  pull_request:
+    paths:
+      - '.github/workflows/qa-05qr-c-pr480-grid-id-repair.yml'
+      - 'tests/qa-05qr-c-pr480-dual-grid-id-repair-newonly.test.mjs'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  source-repaired-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Freeze exact fixed Source480 two changed-RED paths and old QA486 history
+        run: |
+          set -eu
+          OLD=4711bac576ccea6d8a1b576db20c5fe31547f14b
+          SOURCE=0fb14a8a2df0e18962840cb1fe1e87b19c5d29ca
+          test "$(git merge-base "$SOURCE" HEAD)" = "$SOURCE"
+          test "$(git merge-base "$OLD" "$SOURCE")" = "$OLD"
+          test "$(git diff --name-only "$OLD" "$SOURCE" | wc -l | tr -d ' ')" = 2
+          test "$(git diff --name-only "$OLD" "$SOURCE" | sort)" = "$(printf '%s\n' src/lib/ddv/timing/w1-scene-area-reference-readonly.mjs tests/01e-w1-scene-area-reference-readonly.test.mjs | sort)"
+          git diff --quiet "$SOURCE" HEAD -- src/ crates/ docs/ static/ supabase/ tests/01e-w1-scene-area-reference-readonly.test.mjs
+          test "$(git rev-parse HEAD:src/lib/ddv/timing/w1-scene-area-reference-readonly.mjs)" = f8b6d87d17690a283088feaa38df8064dc0bc4b3
+          test "$(git rev-parse "$SOURCE:tests/01e-w1-scene-area-reference-readonly.test.mjs")" = "$(git rev-parse HEAD:tests/01e-w1-scene-area-reference-readonly.test.mjs)"
+          echo FIXED_PR480_SOURCE_TWO_PATHS_SHA_PASS
+          echo PRIOR_QA486_TRUE_RED_PRESERVED=TRUE
+          echo GENUINE_PRIVATE_P1G_V1_V2=NOT_RUN
+          echo NATIVE_W1_V3=UNKNOWN
+          echo PRODUCT_WRITER_EDITEDCOPY_APPLY_OVERWRITE=OFF
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Four NEW independent dual-map ID mismatch and Native Writer denial tests
+        run: node --test tests/qa-05qr-c-pr480-dual-grid-id-repair-newonly.test.mjs
+      - name: Readonly Source bridge remains compatible
+        run: npm run check
