@@ -1,0 +1,87 @@
+name: 03 COMM Source161 Gallery Photo Nested Signed SQL Probe (Disposable)
+on:
+  push:
+    branches: [comm/w-comm-006-post161-photo-nested-signed-sql-probe-20261104]
+  pull_request:
+    branches: [comm/w-comm-006-source161-gallery-two-draft-rpcs-off-20261104]
+permissions:
+  contents: read
+jobs:
+  gallery-photo-nested-probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Immutable accepted Source155/156/157 and isolated source probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 161
+          test "$(git hash-object supabase/migrations/20261102010000_community_source155_verified_first_account_bootstrap.sql)" = 115f2c0f7224984acd8830cfc606af8c6a1bf3af
+          test "$(git hash-object supabase/migrations/20261103010000_community_source156_signed_gallery_r16_atomic_writer.sql)" = 3000d66c193b996e4ece785deaf5180955ec3bc6
+          test "$(git hash-object supabase/migrations/20261103020000_community_source157_legacy_comments_v2_service_execute_off.sql)" = b9c44a501189857dff9fc6446dea21717d58b785
+          test "$(git hash-object supabase/migrations/20261103030000_community_source158_r15_gallery_pinned_service_execute_off.sql)" = 033920ee79a3dd07b32854f0bbfb3b225167f3e2
+          test "$(git hash-object supabase/migrations/20261104010000_community_source159_workspace_identity_legacy_service_execute_off.sql)" = 6bf78322e70406272125f245fcd525feb9347652
+          test "$(git hash-object supabase/migrations/20261104020000_community_source160_help_qa_question_tip_service_execute_off.sql)" = 0e5593b2a946727b4bd5d6ec5050b9c58a1dde0e
+          test "$(git hash-object supabase/migrations/20261104030000_community_source161_gallery_two_legacy_draft_create_service_execute_off.sql)" = f25e47af6adf7de8e7b1d3cf4c154769d8bf28a5
+          test "$(git hash-object supabase/functions/community-command/index.ts)" = d4f637dbcf5412bd276a0abc7259e0b0cfe2f1db
+          python3 -m py_compile tests/comm-source161-photo-parent-postrevoke-genuine-signed-local.py
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID"
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+      - name: Create genuine local-only ES256 GoTrue signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\n[auth]\nsigning_keys_path = "./signing_keys.json"\n' >> supabase/config.toml
+          printf '[]\n' > supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes >/tmp/comm-photo-nested-signer.log 2>&1
+      - name: Reset exact FULL161 disposable local database
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'project_id = "ddvre_gallery_photo_nested_source161_20261104"\n' | cat - supabase/config.toml > /tmp/comm-photo-nested-config
+          mv /tmp/comm-photo-nested-config supabase/config.toml
+          printf 'COMMUNITY_MEDIA_BUCKET=ddvre-gallery-photo-nested-local-media\nWEP_PRESET_ARTIFACT_BUCKET=ddvre-gallery-photo-nested-local-preset\n' > supabase/functions/.env
+          timeout 1800s supabase start >/tmp/comm-photo-nested-start.log 2>&1 || {
+            echo PHOTO_NESTED_LOCAL_START_FAIL
+            tail -n 25 /tmp/comm-photo-nested-start.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'
+            exit 1
+          }
+          timeout 900s supabase db reset --no-seed >/tmp/comm-photo-nested-reset.log 2>&1 || {
+            echo PHOTO_NESTED_LOCAL_RESET_FAIL
+            tail -n 25 /tmp/comm-photo-nested-reset.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'
+            exit 1
+          }
+          echo GALLERY_PHOTO_NESTED_DISPOSABLE_FULL161_RESET_PASS
+      - run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Run real signed local Gallery Photo nested SQL eligible control and post-revoke test-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/comm-source161-photo-parent-postrevoke-genuine-signed-local.py | tee /tmp/comm-photo-nested-probe.log
+          grep -q '"case": "SOURCE161_PHOTO_ELIGIBLE_A2_SQL_CONTROL"' /tmp/comm-photo-nested-probe.log
+          grep -q '"case": "SOURCE161_PHOTO_SIGNED_A1_OLD_REFRESHED_REVOKED"' /tmp/comm-photo-nested-probe.log
+          grep -q '"case": "SOURCE161_PHOTO_PARENT_POSTREVOKE_DIRECT_SQL"' /tmp/comm-photo-nested-probe.log
+          grep -q '"case": "SOURCE161_PHOTO_TRANSITIVE_PARENT_SIGNED_LOCAL_SQL_RED"' /tmp/comm-photo-nested-probe.log
+          echo GALLERY_PHOTO_NESTED_SIGNED_DIRECT_SQL_TEST_ONLY_NOT_INDEPENDENT_QA
+      - name: Dispose local signer, SQL DB, and ephemeral logs
+        if: always()
+        shell: bash
+        run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f supabase/functions/.env supabase/signing_keys.json /tmp/comm-photo-nested-config /tmp/comm-photo-nested-start.log /tmp/comm-photo-nested-reset.log /tmp/comm-photo-nested-probe.log /tmp/comm-photo-nested-signer.log
+          echo PHOTO_NESTED_LOCAL_PROBE_CLEANUP_ATTEMPTED
