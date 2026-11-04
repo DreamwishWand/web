@@ -48,6 +48,19 @@ try{
  assert.equal(await page.locator('.personal-state button').nth(2).isDisabled(),true);
  await page.goto(world,{waitUntil:'domcontentloaded'});
  await page.locator('.platform-select select').selectOption('switch');
+ try {
+  await page.locator('[data-wep-626-bid] input').waitFor({state:'visible',timeout:9000});
+ } catch(err) {
+  const live=await page.evaluate(()=>({
+   url:location.href,platform:document.querySelector('.platform-select select')?.value,
+   bidCount:document.querySelectorAll('[data-wep-626-bid] input').length,
+   platformCount:document.querySelectorAll('.platform-select select').length,
+   worldOpenPanel:document.querySelectorAll('.load-panel').length,
+   loadingState:document.querySelector('.load-panel')?.textContent?.slice(0,200),
+   locale:document.documentElement.dataset.locale
+  }));
+  throw Error('QR529_CROSSPAGE_WORLD_BUILD_SELECT_DIAG '+JSON.stringify(live));
+ }
  await page.locator('[data-wep-626-bid] input').fill('9A239D3DB569756D');
  await page.locator('[data-wep-626-provenance] input').check();
  await page.locator('.load-panel input[type=file]').setInputFiles({name:'synthetic-only-626.save',mimeType:'application/octet-stream',buffer:bytes});
