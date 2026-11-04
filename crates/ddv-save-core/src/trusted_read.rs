@@ -8,7 +8,7 @@ use crate::{sha256,index_direct_children,index_selected_tokens,strict_decode_jso
 use crate::p1g::decode_p1g_research;
 use crate::w1_evidence::W1Kind;
 use std::collections::{HashMap,HashSet};
-use std::sync::{Arc,atomic::{AtomicBool,Ordering}};
+use std::sync::{Arc,Mutex,MutexGuard,atomic::{AtomicBool,Ordering}};
 use std::time::{Duration,Instant};
 use serde_json::Value;
 
@@ -156,6 +156,28 @@ pub struct W1CoreNativeReadSet {
  pub complete_native_dependency_closure_verified:bool,
  pub product_writer_authorized:bool,
 }
+/// Native W1 RESEARCH ONLY: one owner lease serializes a Stage operation
+/// against the owner's Close/Drop. The atomic bit alone is insufficient:
+/// Close could otherwise race after Stage's initial liveness check.
+/// No UI/Worker/product Writer may mint this gate.
+pub(crate) struct CoreStageLifetime {
+ alive:AtomicBool,
+ barrier:Mutex<()>,
+}
+impl CoreStageLifetime {
+ fn new()->Self{Self{alive:AtomicBool::new(true),barrier:Mutex::new(())}}
+ pub(crate) fn is_alive(&self)->bool{self.alive.load(Ordering::SeqCst)}
+ pub(crate) fn hold(&self)->EngineResult<MutexGuard<'_,()>>{
+   let guard=self.barrier.lock().map_err(|_|"CORE_STAGE_SOURCE_REVOKED")?;
+   if !self.is_alive(){return Err("CORE_STAGE_SOURCE_REVOKED");}
+   Ok(guard)
+ }
+ fn revoke(&self){
+   // Poisoned prior Stage must NEVER prevent fail-closed revocation.
+   let _guard=self.barrier.lock().unwrap_or_else(|e|e.into_inner());
+   self.alive.store(false,Ordering::SeqCst);
+ }
+}
 /// Owns immutable backing; no user-provided cursor or capability can grant
 /// access without matching Core-internal state and one random token.
 pub struct TrustedReadCore {
@@ -164,7 +186,7 @@ pub struct TrustedReadCore {
  revision:u64,generation:u64,
  rows:Vec<DirectChildSpan>,cursors:HashMap<String,CursorGrant>,
  /// Internal one-way research-session revocation shared with staging Arc.
- source_liveness:Arc<AtomicBool>,closed:bool,
+ source_liveness:Arc<CoreStageLifetime>,closed:bool,
 }
 #[cfg(not(target_arch="wasm32"))]
 fn random_hex(bytes:usize)->EngineResult<String>{
@@ -248,7 +270,7 @@ impl TrustedReadCore {
   Ok(Self{
     session_id:random_hex(16)?,roots,original:Arc::from(original),
     decoded:Arc::from(decoded.json),revision:0,generation:0,
-    rows,cursors:HashMap::new(),source_liveness:Arc::new(AtomicBool::new(true)),closed:false
+    rows,cursors:HashMap::new(),source_liveness:Arc::new(CoreStageLifetime::new()),closed:false
   })
  }
  pub fn receipt(&self)->EngineResult<OpenReadReceipt>{
@@ -284,8 +306,8 @@ impl TrustedReadCore {
  /// closing or dropping the owning Core invalidates all later stage operations.
  pub(crate) fn borrow_source_liveness_research(
    &self,source:&Arc<[u8]>
- )->EngineResult<Arc<AtomicBool>>{
-   if self.closed||!self.source_liveness.load(Ordering::SeqCst){
+ )->EngineResult<Arc<CoreStageLifetime>>{
+   if self.closed||!self.source_liveness.is_alive(){
      return Err("READ_SESSION_CLOSED");
    }
    if !Arc::ptr_eq(source,&self.decoded){
@@ -667,13 +689,13 @@ impl TrustedReadCore {
    Err("PRODUCT_ENCODE_COPY_NOT_AUTHORIZED")
  }
  pub fn close(&mut self){
-   self.source_liveness.store(false,Ordering::SeqCst);
+   self.source_liveness.revoke();
    self.closed=true;self.cursors.clear();
  }
 }
 impl Drop for TrustedReadCore {
  fn drop(&mut self){
-   self.source_liveness.store(false,Ordering::SeqCst);
+   self.source_liveness.revoke();
  }
 }
 fn valid_utc_exact(s:&str)->bool{

@@ -2,7 +2,8 @@
 //! Production meaning stays in Wand transaction-foundation / storage / ownership
 //! adapters. This module grants neither P1G export nor persistent replacement.
 use crate::{sha256,validate_json,index_selected_tokens,EngineResult,SpanHit,MAX_DECODED_JSON_BYTES};
-use std::{collections::{BTreeMap,BTreeSet},sync::{Arc,atomic::{AtomicBool,Ordering}}};
+use std::{collections::{BTreeMap,BTreeSet},sync::Arc};
+use crate::trusted_read::CoreStageLifetime;
 
 pub const SESSION_CONTRACT:&str="dreamwish.ddv.unified-save-session.research@1";
 const MAX_COMMANDS:usize=64;
@@ -135,7 +136,7 @@ pub struct SaveSession {
     source:Arc<[u8]>,
     source_sha:[u8;32],
     /// Only core-bound W1 private research receives this revocation token.
-    source_liveness:Option<Arc<AtomicBool>>,
+    source_liveness:Option<Arc<CoreStageLifetime>>,
     schema:u64,
     backing:BackingKind,
     revision:u64,
@@ -203,7 +204,7 @@ impl SaveSession {
     }
     fn require_core_alive_research(&self)->EngineResult<()>{
         if self.source_liveness.as_ref().is_some_and(|v|
-           !v.load(Ordering::SeqCst)){
+           !v.is_alive()){
             return Err("CORE_STAGE_SOURCE_REVOKED");
         }
         Ok(())
@@ -215,6 +216,15 @@ impl SaveSession {
     pub fn backing_kind(&self)->BackingKind{self.backing}
     pub fn index_generation(&self)->u64{self.index_generation}
     pub fn inspect_references(&self,identity:&LogicalIdentity)->EngineResult<Vec<ReferenceEdge>>{
+        // Keep the complete operation inside the same owner lifetime gate.
+        // A concurrent Core Close/Drop waits until this lease is released;
+        // operations begun after revocation fail before any state mutation.
+        let source_owner=self.source_liveness.clone();
+        let _owner_lease=match source_owner.as_ref(){
+            Some(owner)=>Some(owner.hold()?),
+            None=>None
+        };
+        self.require_core_alive_research()?;
         self.require_core_alive_research()?;
         if !self.references.nodes.contains(identity){return Err("UNKNOWN_REFERENCE_IDENTITY");}
         self.references.check()?;
@@ -227,6 +237,15 @@ impl SaveSession {
     pub fn inspect_source_reference_paths(
         &self,required:&[(LogicalIdentity,String)]
     )->EngineResult<SourceDerivedReferenceAudit>{
+        // Keep the complete operation inside the same owner lifetime gate.
+        // A concurrent Core Close/Drop waits until this lease is released;
+        // operations begun after revocation fail before any state mutation.
+        let source_owner=self.source_liveness.clone();
+        let _owner_lease=match source_owner.as_ref(){
+            Some(owner)=>Some(owner.hold()?),
+            None=>None
+        };
+        self.require_core_alive_research()?;
         if required.is_empty()||required.len()>256{return Err("SOURCE_REFERENCE_SCOPE_INVALID");}
         let mut seen=BTreeSet::new();
         let mut ptrs=Vec::with_capacity(required.len());
@@ -260,6 +279,15 @@ impl SaveSession {
     /// Read-focused index is rebuilt after each edit, not cached against an old revision.
     pub fn query_paged(&mut self,pointers:&[String],cursor:usize,limit:usize)
         ->EngineResult<Vec<Projection>>{
+        // Keep the complete operation inside the same owner lifetime gate.
+        // A concurrent Core Close/Drop waits until this lease is released;
+        // operations begun after revocation fail before any state mutation.
+        let source_owner=self.source_liveness.clone();
+        let _owner_lease=match source_owner.as_ref(){
+            Some(owner)=>Some(owner.hold()?),
+            None=>None
+        };
+        self.require_core_alive_research()?;
         self.require_core_alive_research()?;
         if limit==0||limit>MAX_PAGE{return Err("QUERY_PAGE_LIMIT");}
         if pointers.len()>512{return Err("QUERY_WATCH_TOO_LARGE");}
@@ -287,6 +315,15 @@ impl SaveSession {
             })).collect())
     }
     pub fn stage_command(&mut self,plan:TransactionPlan)->EngineResult<ChangeSet>{
+        // Keep the complete operation inside the same owner lifetime gate.
+        // A concurrent Core Close/Drop waits until this lease is released;
+        // operations begun after revocation fail before any state mutation.
+        let source_owner=self.source_liveness.clone();
+        let _owner_lease=match source_owner.as_ref(){
+            Some(owner)=>Some(owner.hold()?),
+            None=>None
+        };
+        self.require_core_alive_research()?;
         self.require_core_alive_research()?;
         if plan.session_id!=self.session_id{return Err("STALE_SESSION");}
         if plan.expected_revision!=self.revision{return Err("STALE_REVISION");}
@@ -353,6 +390,15 @@ impl SaveSession {
         Ok(change)
     }
     pub fn undo(&mut self,expected_revision:u64)->EngineResult<ChangeSet>{
+        // Keep the complete operation inside the same owner lifetime gate.
+        // A concurrent Core Close/Drop waits until this lease is released;
+        // operations begun after revocation fail before any state mutation.
+        let source_owner=self.source_liveness.clone();
+        let _owner_lease=match source_owner.as_ref(){
+            Some(owner)=>Some(owner.hold()?),
+            None=>None
+        };
+        self.require_core_alive_research()?;
         self.require_core_alive_research()?;
         if expected_revision!=self.revision{return Err("STALE_REVISION");}
         let next=self.revision.checked_add(1).ok_or("REVISION_OVERFLOW")?;
@@ -366,6 +412,15 @@ impl SaveSession {
             affected:entry.change.affected,changed_paths:entry.change.changed_paths})
     }
     pub fn redo(&mut self,expected_revision:u64)->EngineResult<ChangeSet>{
+        // Keep the complete operation inside the same owner lifetime gate.
+        // A concurrent Core Close/Drop waits until this lease is released;
+        // operations begun after revocation fail before any state mutation.
+        let source_owner=self.source_liveness.clone();
+        let _owner_lease=match source_owner.as_ref(){
+            Some(owner)=>Some(owner.hold()?),
+            None=>None
+        };
+        self.require_core_alive_research()?;
         self.require_core_alive_research()?;
         if expected_revision!=self.revision{return Err("STALE_REVISION");}
         let entry=self.redo.last().ok_or("REDO_EMPTY")?.clone();
@@ -385,6 +440,15 @@ impl SaveSession {
             affected:entry.change.affected,changed_paths:entry.change.changed_paths})
     }
     pub fn validate_transaction(&self)->EngineResult<ValidationReceipt>{
+        // Keep the complete operation inside the same owner lifetime gate.
+        // A concurrent Core Close/Drop waits until this lease is released;
+        // operations begun after revocation fail before any state mutation.
+        let source_owner=self.source_liveness.clone();
+        let _owner_lease=match source_owner.as_ref(){
+            Some(owner)=>Some(owner.hold()?),
+            None=>None
+        };
+        self.require_core_alive_research()?;
         let current=self.materialize()?;
         validate_json(&current)?;
         self.references.check()?;

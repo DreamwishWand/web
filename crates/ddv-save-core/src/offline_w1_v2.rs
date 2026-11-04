@@ -378,4 +378,55 @@ mod core_owner_lifetime_tests {
    assert_eq!(unbound.export_verified_copy().err(),
       Some("PRODUCT_P1G_ENCODE_COPY_NOT_AUTHORIZED"));
  }
+ #[test]
+ fn bound_stage_validation_waits_for_owner_barrier_not_just_atomic_check(){
+   use std::{sync::mpsc,thread,time::Duration};
+   let core=owner();
+   let decoded=core.borrow_decoded_snapshot_research().unwrap();
+   let token=core.borrow_source_liveness_research(&decoded).unwrap();
+   let owner_guard=token.hold().unwrap();
+   let tx=stage(&core);
+   let (started_tx,started_rx)=mpsc::channel();
+   let (done_tx,done_rx)=mpsc::channel();
+   let worker=thread::spawn(move||{
+      started_tx.send(()).unwrap();
+      done_tx.send(tx.validate_transaction().map(|r|r.revision)).unwrap();
+   });
+   started_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+   // The stage cannot validate while an owner gate is held elsewhere.
+   assert!(done_rx.recv_timeout(Duration::from_millis(40)).is_err());
+   drop(owner_guard);
+   assert_eq!(done_rx.recv_timeout(Duration::from_secs(4)).unwrap(),Ok(0));
+   worker.join().unwrap();
+   assert!(token.is_alive());
+ }
+ #[test]
+ fn concurrent_owner_close_waits_for_stage_lease_then_revokes_permanently(){
+   use std::{sync::mpsc,thread,time::Duration};
+   let core=owner();
+   let tx=stage(&core);
+   let decoded=core.borrow_decoded_snapshot_research().unwrap();
+   let token=core.borrow_source_liveness_research(&decoded).unwrap();
+   let held_stage_lease=token.hold().unwrap();
+   let (started_tx,started_rx)=mpsc::channel();
+   let (closed_tx,closed_rx)=mpsc::channel();
+   let worker=thread::spawn(move||{
+      started_tx.send(()).unwrap();
+      let mut core=core;
+      core.close();
+      closed_tx.send(()).unwrap();
+   });
+   started_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+   assert!(closed_rx.recv_timeout(Duration::from_millis(40)).is_err());
+   assert!(token.is_alive());
+   drop(held_stage_lease);
+   closed_rx.recv_timeout(Duration::from_secs(4)).unwrap();
+   worker.join().unwrap();
+   assert!(!token.is_alive());
+   assert!(token.hold().is_err());
+   assert_eq!(tx.validate_transaction().err(),Some("CORE_STAGE_SOURCE_REVOKED"));
+   assert_eq!(tx.revision(),0);
+   assert_eq!(tx.index_generation(),0);
+ }
+
 }
