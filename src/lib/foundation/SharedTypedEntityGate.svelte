@@ -1,6 +1,6 @@
 <script lang="ts">
   import { base } from '$app/paths';
-  import { parseSharedPrimaryId } from '$lib/entity/shared-catalog-detail.mjs';
+  import { makeEntityRef } from '$lib/entity/shared-entity-identity.mjs';
   import { sharedTypedCopy } from './shared-typed-entity-copy.mjs';
 
   export let kind: string = '';
@@ -11,18 +11,26 @@
 
   $: copy = sharedTypedCopy(localeCode);
   $: cleanKind = kind.toUpperCase();
-  // UI shape guard ONLY. The one authoritative typed EntityRef/P-S/Alias model
-  // is owned by 06 PRODUCT PR396, pending independent QA and main integration.
-  // This view never resolves positive data or issues canonical URLs.
+  // UI shape guard ONLY. Reuse 06 PRODUCT's single Typed EntityRef parser;
+  // neither valid syntax nor an equal P/S number proves source SPECIALIZATION.
+  // No source registry, rights/public eligibility, alias or canonical redirect here.
   function permittedRequestShape(type: string, id: string): boolean {
-    if (!['ITEM','QUEST','CREATOR','WORK','PRESET'].includes(type)) return false;
-    if (type === 'ITEM' || type === 'QUEST') return parseSharedPrimaryId(id) !== null;
-    return /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(id);
+    try {
+      makeEntityRef({kind:type,primaryId:id});
+      return true;
+    } catch { return false; }
+  }
+  function permittedCompositeShape(primary: string, secondary: string | null): boolean {
+    if (secondary === null) return false;
+    try {
+      // ITEM is a numeric shape probe only: /P/S has no kind namespace.
+      // Authoritative source resolution must use resolveNative with exact scope.
+      makeEntityRef({kind:'ITEM',primaryId:primary,secondaryId:secondary});
+      return true;
+    } catch { return false; }
   }
   $: valid = mode === 'COMPOSITE'
-    ? parseSharedPrimaryId(primaryId) !== null &&
-      parseSharedPrimaryId(secondaryId ?? '') !== null &&
-      primaryId !== secondaryId
+    ? permittedCompositeShape(primaryId,secondaryId)
     : permittedRequestShape(cleanKind,primaryId);
   $: kindTitle = mode === 'COMPOSITE' ? copy.composite : (copy.kinds[cleanKind] ?? copy.unknown);
   $: returnRoute = cleanKind === 'QUEST' ? '/guide/'
