@@ -13,6 +13,7 @@
     removeNativePresetBackup,
     serializeNativePresetLibrary
   } from '$lib/presets/native-preset-runtime.js';
+  import {inspectNativePresetLocalFileBytes,NATIVE_LOCAL_PRESET_FILE_MAX_BYTES} from '$lib/presets/native-local-file-import-contract.mjs';
 
   let opened:any=null, snapshots:any[]=[], selectedIndex=0, sourceName='', status='', loading=false;
   let library:any=createEmptyNativePresetLibrary(), importInput:HTMLInputElement;
@@ -61,11 +62,18 @@
   async function importLibrary(event:Event){
     const input=event.currentTarget as HTMLInputElement,file=input.files?.[0];if(!file)return;
     try{
-      const imported=parseNativePresetLibrary(await file.text());
+      // A user-selected PC JSON file only; this path NEVER restores into a
+      // DDV P1G and NEVER uploads a local backup to Community/Provider.
+      if(!file.size||file.size>NATIVE_LOCAL_PRESET_FILE_MAX_BYTES)throw Error('NATIVE_PRESET_IMPORT_FILE_BOUNDS');
+      const reviewed=await inspectNativePresetLocalFileBytes(new Uint8Array(await file.arrayBuffer()));
+      if(!reviewed.localFileReady||!reviewed.backups)throw Error('NATIVE_PRESET_IMPORT_INVALID');
       const byId=new Map<string,any>();
-      for(const backup of [...imported.backups,...library.backups])if(!byId.has(backup.id))byId.set(backup.id,backup);
-      const merged=normalizeNativePresetLibrary({...library,updatedAt:new Date().toISOString(),backups:[...byId.values()].slice(0,100)});
-      persist(merged,copy.imported);
+      for(const entry of [...reviewed.backups.map((x:any)=>x.backup),...library.backups])
+        if(!byId.has(entry.id))byId.set(entry.id,entry);
+      // Do not silently discard entries beyond the explicit local quota.
+      if(byId.size>100)throw Error('NATIVE_PRESET_IMPORT_LIBRARY_LIMIT');
+      const merged=normalizeNativePresetLibrary({...library,updatedAt:new Date().toISOString(),backups:[...byId.values()]});
+      persist(merged,reviewed.status==='LOCAL_FILE_VALIDATED_WITH_QUARANTINED_BACKUPS'?copy.backupWarning:copy.imported);
     }catch{status=copy.unsupported;}finally{input.value='';}
   }
 
