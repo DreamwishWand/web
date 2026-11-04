@@ -177,21 +177,45 @@ export function assert624ProjectedObjectsMatchSave(profile:R,doc:R,context:R) {
   for(const o of doc.objects)verify(o,root,'ROOT',null);
   if(Object.keys(grids.get(root)?.Objects??{}).length!==doc.objects.length)
     throw Error('SPATIAL_624_ROOT_SOURCE_OBJECT_SET_INCOMPLETE');
-  function walk(h:R,ancestor:Set<number>){
-    if(!isRec(h)||!uint(h.gridId)||!grids.has(h.gridId)||ancestor.has(h.gridId))throw Error('SPATIAL_624_SUBGRID_BOUNDARY_INVALID');
+  // The hierarchy must represent every native SubGrid edge within its exact containing Grid.
+  // A link to an arbitrary ancestor is not an authoritative child transform.
+  function checkChildLinks(parentGridId:number,children:R[]){
+    const current=grids.get(parentGridId)?.Objects;
+    if(!isRec(current))throw Error('SPATIAL_624_PARENT_OBJECT_MAP_MISSING');
+    const expected=new Set<number>();
+    for(const raw of Object.values(current)){
+      const id=raw?.State?.SubGrid?.GridID;
+      if(id===undefined||id===null)continue;
+      if(!uint(id)||expected.has(id))throw Error('SPATIAL_624_SUBGRID_SOURCE_LINK_INVALID');
+      expected.add(id);
+    }
+    if(children.length!==expected.size||children.some(h=>!isRec(h)||!expected.has(h.gridId)))
+      throw Error('SPATIAL_624_SUBGRID_HIERARCHY_INCOMPLETE');
+  }
+  const seenGrids=new Set<number>([root]);
+  function walk(h:R,ancestor:Set<number>,immediateParentGridId:number){
+    if(!isRec(h)||!uint(h.gridId)||!grids.has(h.gridId)||ancestor.has(h.gridId)||seenGrids.has(h.gridId))
+      throw Error('SPATIAL_624_SUBGRID_BOUNDARY_INVALID');
     const p=h.parentAddress;
     if(!isRec(p)||!uint(p.gridId)||!uint(p.gridObjectId)||p.objectMapKey!==String(p.gridObjectId))throw Error('SPATIAL_624_PARENT_ID_INVALID');
+    if(p.gridId!==immediateParentGridId)throw Error('SPATIAL_624_SUBGRID_IMMEDIATE_PARENT_GRID_MISMATCH');
     const parentObj=grids.get(p.gridId)?.Objects?.[p.objectMapKey];
     if(!isRec(parentObj)||parentObj.ID!==p.gridObjectId||parentObj.State?.SubGrid?.GridID!==h.gridId)throw Error('SPATIAL_624_PARENT_NATIVE_LINK_INVALID');
     if(!Array.isArray(h.objects)||!Array.isArray(h.children))throw Error('SPATIAL_624_SUBGRID_MEMBERS_MISSING');
     if(grids.get(h.gridId)?.GridDataPath!==h.gridDataPath)throw Error('SPATIAL_624_CHILD_GRID_PATH_MISMATCH');
+    const nativeObjects=grids.get(h.gridId)?.Objects;
+    if(!isRec(nativeObjects)||Object.keys(nativeObjects).length!==h.objects.length)
+      throw Error('SPATIAL_624_CHILD_SOURCE_OBJECT_SET_INCOMPLETE');
+    seenGrids.add(h.gridId);
     for(const o of h.objects)verify(o,h.gridId,'SUBGRID_CHILD',p as GridObjectAddress);
     const next=new Set(ancestor);next.add(h.gridId);
-    for(const ch of h.children)walk(ch,next);
+    for(const ch of h.children)walk(ch,next,h.gridId);
+    checkChildLinks(h.gridId,h.children);
   }
   const hi=doc.metadata?.subGridHierarchy;
   if(!Array.isArray(hi))throw Error('SPATIAL_624_HIERARCHY_REQUIRED');
-  for(const h of hi)walk(h,new Set([root]));
+  for(const h of hi)walk(h,new Set([root]),root);
+  checkChildLinks(root,hi);
   if(!isRec(doc.metadata?.directRootProjection)||doc.metadata.directRootProjection.evidenceStatus!=='CONFIRMED')throw Error('SPATIAL_624_PROJECTION_AUTHORITY_MISSING');
   return Object.freeze({contract:REAL_SAVE_SPATIAL_SOURCE_CONTRACT,sourceRevision:context.sourceRevision,
     sourceSha256:context.sourceSha256,matchingSourceObjects:count,identityMatches:true,
