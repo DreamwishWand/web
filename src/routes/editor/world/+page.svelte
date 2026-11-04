@@ -27,7 +27,7 @@
   import { marqueeHitIds, marqueeModifierMode, marqueeRect, mergeMarqueeSelection, type MarqueeMode } from '$lib/wep/marquee-selection';
   import { worldEditorMarqueeCopy } from '$lib/wep/world-editor-marquee-copy.js';
   import { buildSpatialScene, spatialHitTest, spatialSelectedDetails } from '$lib/wep/spatial-scene';
-  import { bindRealSaveSpatialRead, inspectRealSaveSpatialRead } from '$lib/wep/real-save-spatial-read';
+  import { bindRealSaveSpatialRead, inspectRealSaveSpatialRead, applyRealSaveReadToScene } from '$lib/wep/real-save-spatial-read';
   import { spatialSceneCopy } from '$lib/wep/spatial-scene-copy.js';
   import { openWorldSaveBytes, WEP_WORLD_READONLY_626_PROVENANCE } from '$lib/wep/world-save-source';
   import { worldReadonlyCopy } from '$lib/wep/world-readonly-copy.js';
@@ -843,6 +843,7 @@
       throw new Error('WEP_RECOVERY_ACTIVE_ROUTE_MISSING');
     }
 
+    worldSourceEpoch += 1;
     worldSource = memory.worldSource;
     worldSourceBytes = memory.sourceBytes.slice();
     originalSaveBackup = memory.originalSaveBackup;
@@ -2286,15 +2287,7 @@
               code: 'SPATIAL_READ_SOURCE_BINDING_MISSING'
             }))
           };
-      const unresolvedIds = new Set(nextScene.unresolved.map(issue => issue.editorId));
-      nextScene = {
-        ...nextScene,
-        objects: nextScene.objects.filter(object => verdict.allowed.has(object.editorId)),
-        unresolved: [
-          ...nextScene.unresolved,
-          ...verdict.unresolved.filter(issue => !unresolvedIds.has(issue.editorId))
-        ]
-      };
+      nextScene = applyRealSaveReadToScene(nextScene, verdict);
       const validIds = new Set(nextScene.objects.map(object => object.editorId));
       if (selection.some(id => !validIds.has(id))) {
         selection = session.setSelection(selection.filter(id => validIds.has(id)));
