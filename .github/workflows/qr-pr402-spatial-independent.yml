@@ -1,0 +1,54 @@
+name: 04 QR PR402 independent actual Chrome local P1G-shaped Grid 2D source consumer
+on:
+  push:
+    branches: [qa/pr402-spatial-reader-chrome-20261104]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 34
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Frozen exact PR402 and QA-only new paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=67595a34f24398d182b41f2e61166f0ff8b578e4
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git diff --name-only "$SOURCE" HEAD | sort >/tmp/qr402-actual
+          printf '%s\n' .github/workflows/qr-pr402-spatial-independent.yml scripts/qr-pr402-spatial-source-independent-browser.mjs | sort >/tmp/qr402-expected
+          diff -u /tmp/qr402-expected /tmp/qr402-actual
+          test -z "$(git diff --name-only "$SOURCE" HEAD -- src supabase docs static)"
+          test "$(git hash-object src/lib/wep/real-save-spatial-read.ts)" = 28e94c2f6d3384e7f4b016a88317abd09e9bb0a3
+          echo QR_402_FIXED_SOURCE_QA_ONLY_PASS
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: System Chrome binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Start local UI Consumer on ephemeral DEV port
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4206 >/tmp/qr402-vite.log 2>&1 &
+          for i in $(seq 1 75); do
+            curl -fsS http://127.0.0.1:4206/editor/world/ >/dev/null && exit 0
+            sleep 1
+          done
+          tail -n 80 /tmp/qr402-vite.log; exit 1
+      - name: Independent actual Chrome local synthetic encrypted P1G source identity and Move/Undo
+        run: node scripts/qr-pr402-spatial-source-independent-browser.mjs

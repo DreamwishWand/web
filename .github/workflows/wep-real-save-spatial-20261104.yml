@@ -1,0 +1,71 @@
+name: WEP real P1G-shaped Spatial Read boundary and Chromium
+on:
+  push:
+    branches: ['wep/real-source-spatial-read-20261104']
+  pull_request:
+    paths:
+      - 'src/lib/wep/real-save-spatial-read.ts'
+      - 'src/routes/editor/world/+page.svelte'
+      - 'tests/wep-real-save-spatial-read.test.mjs'
+      - 'scripts/wep-real-save-spatial-browser-20261104.mjs'
+      - '.github/workflows/wep-real-save-spatial-20261104.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pin exact source
+        run: |
+          echo "WEP_REAL_READ_SOURCE_HEAD=$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Real P1G-shaped source identity and stale revision negatives
+        run: node --experimental-strip-types --test tests/wep-real-save-spatial-read.test.mjs
+      - name: Svelte and TypeScript check
+        run: npm run check
+      - name: Static site build
+        run: npm run build
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pin exact Chromium checkout
+        run: |
+          echo "WEP_REAL_READ_BROWSER_HEAD=$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Install actual Chromium native tab zoom
+        run: |
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install chromium
+      - name: Start isolated local World Editor
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4197 >/tmp/wep-real-spatial.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:4197/editor/world/ >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/wep-real-spatial.log
+          exit 1
+      - name: Synthetic encrypted P1G Area/Grid to 2D inspector in real Chromium
+        env:
+          WEP_REAL_SPATIAL_URL: http://127.0.0.1:4197/editor/world/
+        run: node scripts/wep-real-save-spatial-browser-20261104.mjs
+      - name: Keep browser report and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wep-real-source-shaped-spatial-read
+          path: .artifacts/wep-real-spatial-read/
+          if-no-files-found: error
