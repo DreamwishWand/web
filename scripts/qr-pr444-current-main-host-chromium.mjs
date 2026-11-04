@@ -34,6 +34,7 @@ try{
   await page.evaluate(code=>localStorage.setItem('dreamwishwand-locale-manual-v1',code),lang);
   await page.reload({waitUntil:'domcontentloaded'});
   await cap.waitFor({timeout:20000});
+  await page.waitForFunction(({text})=>document.querySelector('.local-capability h2')?.textContent===text,{text:itemCapabilityCopy(lang).title},{timeout:20000});
   assert.equal(await cap.getAttribute('data-owned'),'unknown');
   assert.ok((await cap.innerText()).includes(itemCapabilityCopy(lang).unknown),lang);
  }
