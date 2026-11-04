@@ -1,0 +1,50 @@
+name: 05 QR-C PR521 main342 original backup Blob Worker W1 composition
+on:
+  push:
+    branches: [qa/05qr-c-pr521-main342-blob-worker-composed-20261105]
+  pull_request:
+    paths:
+      - '.github/workflows/qa-05qr-c-pr521-main342-blob-composed.yml'
+      - 'tests/qa-05qr-c-pr521-main342-blob-worker-composed-newonly.test.mjs'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  source-main342-fixed-blob:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Freeze exact protected main, four immutable PR481 repair blobs and old W1 / private harness ancestors
+        run: |
+          set -eu
+          MAIN=342823eb03eff6bb7c5d80f4a804249bb174df10
+          SOURCE=4c9562a1f348362e44315a41af58cc31d3c30457
+          test "$(git merge-base "$MAIN" "$SOURCE")" = "$MAIN"
+          test "$(git merge-base "$SOURCE" HEAD)" = "$SOURCE"
+          test "$(git diff --name-only "$MAIN" "$SOURCE" | wc -l | tr -d ' ')" = 4
+          test "$(git diff --name-only "$MAIN" "$SOURCE" | sort)" = "$(printf '%s\n' docs/core/01a-local-backup-reimport-candidate-20261104.md src/lib/ddv/core/save/local-save-session-bridge.d.mts src/lib/ddv/core/save/local-save-session-bridge.mjs tests/local-single-save-session-bridge.test.mjs | sort)"
+          git diff --quiet "$SOURCE" HEAD -- src/ crates/ docs/ scripts/ static/ supabase/ tests/local-single-save-session-bridge.test.mjs
+          test "$(git rev-parse HEAD:docs/core/01a-local-backup-reimport-candidate-20261104.md)" = 79ece2f04bfe11cb29b9136fa02f08f89945540f
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-save-session-bridge.d.mts)" = 832e3a747fab4af526137a1ba2a0b470cffe515f
+          test "$(git rev-parse HEAD:src/lib/ddv/core/save/local-save-session-bridge.mjs)" = 4015808fc6ce15b20be4ad68e61384f2f1a298a4
+          test "$(git rev-parse HEAD:tests/local-single-save-session-bridge.test.mjs)" = f0516fe742b4635d7a3f94fa115a063cb28fd899
+          for p in src/lib/ddv/timing/w1-scene-area-reference-readonly.mjs src/lib/ddv/timing/w1-wetland-area-grid-candidate-probe.mjs src/lib/wep/real-save-spatial-source.ts scripts/wep-private-real-save-e2e-safety-20261104.mjs; do
+            test "$(git rev-parse "$MAIN:$p")" = "$(git rev-parse "HEAD:$p")"
+          done
+          echo MAIN342_SOURCE4_BLOBS_AND_INHERITED_W1_PR493_LOCK_PASS
+          echo PRIOR_PR481_QA496_AND_MAIN_PR509_QA515_REUSED_NO_DUPLICATE_RETEST
+          echo PRIVATE_OWNER_ENCRYPTED_P1G=NOT_RUN
+          echo OS_DURABLE_BACKUP_DISTINCT_PATH=NOT_VERIFIED
+          echo PRODUCT_RUST_SINGLE_SAVESESSION_V2=NOT_ACCEPTED
+          echo NATIVE_WETLAND_V3=UNKNOWN
+          echo PRODUCT_WRITER_EDITEDCOPY_APPLY_OVERWRITE=OFF
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Five NEW independent current-main Worker W1 Scene and native Blob comparison composition tests
+        run: node --test tests/qa-05qr-c-pr521-main342-blob-worker-composed-newonly.test.mjs
+      - name: Source main Svelte/TypeScript compatibility
+        run: npm run check
