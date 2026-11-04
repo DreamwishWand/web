@@ -8,7 +8,7 @@ use crate::{sha256,index_direct_children,index_selected_tokens,strict_decode_jso
 use crate::p1g::decode_p1g_research;
 use crate::w1_evidence::W1Kind;
 use std::collections::{HashMap,HashSet};
-use std::sync::Arc;
+use std::sync::{Arc,atomic::{AtomicBool,Ordering}};
 use std::time::{Duration,Instant};
 use serde_json::Value;
 
@@ -163,7 +163,8 @@ pub struct TrustedReadCore {
  original:Arc<[u8]>,decoded:Arc<[u8]>,
  revision:u64,generation:u64,
  rows:Vec<DirectChildSpan>,cursors:HashMap<String,CursorGrant>,
- closed:bool,
+ /// Internal one-way research-session revocation shared with staging Arc.
+ source_liveness:Arc<AtomicBool>,closed:bool,
 }
 #[cfg(not(target_arch="wasm32"))]
 fn random_hex(bytes:usize)->EngineResult<String>{
@@ -247,7 +248,7 @@ impl TrustedReadCore {
   Ok(Self{
     session_id:random_hex(16)?,roots,original:Arc::from(original),
     decoded:Arc::from(decoded.json),revision:0,generation:0,
-    rows,cursors:HashMap::new(),closed:false
+    rows,cursors:HashMap::new(),source_liveness:Arc::new(AtomicBool::new(true)),closed:false
   })
  }
  pub fn receipt(&self)->EngineResult<OpenReadReceipt>{
@@ -278,6 +279,21 @@ impl TrustedReadCore {
  /// immutable Core source by Arc, never return its bytes to UI/Worker messages.
  /// This is a source snapshot, NOT a product Writer capability or independent
  /// semantic/native acceptance. Refuse closed or mutated source snapshots.
+ /// Only a native staged research session backed by the exact immutable
+ /// decoded Arc may borrow this revocation token. This is not a Writer lease:
+ /// closing or dropping the owning Core invalidates all later stage operations.
+ pub(crate) fn borrow_source_liveness_research(
+   &self,source:&Arc<[u8]>
+ )->EngineResult<Arc<AtomicBool>>{
+   if self.closed||!self.source_liveness.load(Ordering::SeqCst){
+     return Err("READ_SESSION_CLOSED");
+   }
+   if !Arc::ptr_eq(source,&self.decoded){
+     return Err("CORE_STAGE_SOURCE_IDENTITY_MISMATCH");
+   }
+   self.original_unchanged()?;
+   Ok(Arc::clone(&self.source_liveness))
+ }
  pub(crate) fn borrow_decoded_snapshot_research(&self)->EngineResult<Arc<[u8]>>{
    if self.closed{return Err("READ_SESSION_CLOSED");}
    self.original_unchanged()?;
@@ -651,7 +667,13 @@ impl TrustedReadCore {
    Err("PRODUCT_ENCODE_COPY_NOT_AUTHORIZED")
  }
  pub fn close(&mut self){
+   self.source_liveness.store(false,Ordering::SeqCst);
    self.closed=true;self.cursors.clear();
+ }
+}
+impl Drop for TrustedReadCore {
+ fn drop(&mut self){
+   self.source_liveness.store(false,Ordering::SeqCst);
  }
 }
 fn valid_utc_exact(s:&str)->bool{
