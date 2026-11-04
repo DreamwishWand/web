@@ -4,7 +4,7 @@
   import { collectionFacetLabel } from '$lib/collection/runtime.js';
   import {
     buildSharedCatalogDirectory, relatedSharedCatalogItems, searchSharedCatalogDirectory,
-    sharedCatalogDirectoryHref, sharedDirectoryCopy
+    typedSharedCatalogDirectoryHref, sharedDirectoryCopy
   } from './shared-catalog-directory.mjs';
 
   export let index: any = null;
@@ -44,7 +44,7 @@
         <ul class="entity-links" data-shared-related="true">
           {#each related as item (item.itemId)}
             <li>
-              <a href={sharedCatalogDirectoryHref(base, localeCode, item)}
+              <a href={typedSharedCatalogDirectoryHref(base, localeCode, item, directory)}
                 aria-label={copy.detail + ': ' + item.label}>
                 <span>{item.label}</span><small>{copy.id} {item.itemId}</small>
               </a>
@@ -79,7 +79,7 @@
         <ul class="entity-links" data-shared-results="true">
           {#each result.items as item (item.itemId)}
             <li>
-              <a href={sharedCatalogDirectoryHref(base, localeCode, item)}
+              <a href={typedSharedCatalogDirectoryHref(base, localeCode, item, directory)}
                 aria-label={copy.detail + ': ' + item.label}>
                 <span>{item.label}</span><small>{copy.id} {item.itemId}</small>
               </a>
