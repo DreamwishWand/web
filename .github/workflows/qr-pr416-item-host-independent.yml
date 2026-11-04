@@ -1,0 +1,64 @@
+name: 04 QR PR416 independent direct Item HTTP contract and Chrome UNKNOWN
+on:
+  push:
+    branches: [qa/pr416-item-http-capability-20261104]
+  pull_request:
+    branches: [web/hosting-capability-failclosed-20261104]
+permissions:
+  contents: read
+jobs:
+  item-host:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false,fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Fixed source eight paths, QA-only three paths and no Community/Worker changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -x
+          SRC=123ffe88ff8ffcf5a760bf7425a374e9264fad36
+          MAIN=d3a2dbfa76d041e7edc30abbd89f5fc264a540f8
+          # 08 WEB PR416 was prepared on pre-f3ed source; accepting current main would be false.
+          if git merge-base --is-ancestor f3ed8e1ba103b109e1e685c258f1498bee7e99a1 HEAD; then echo QR416_MAIN_LINEAGE_ACTUALLY_UPDATED; else echo QR416_SOURCE_ONLY_NOT_MAIN_BASED; fi
+          git merge-base --is-ancestor "$SRC" HEAD
+          git merge-base --is-ancestor "$MAIN" HEAD
+          git diff --name-only "$SRC" HEAD | sort >/tmp/qr416-actual
+          printf '%s\n' .github/workflows/qr-pr416-item-host-independent.yml scripts/qr-pr416-item-host-independent-chrome.mjs tests/qr-pr416-entity-host-item-independent.test.mjs | sort >/tmp/qr416-expected
+          diff -u /tmp/qr416-expected /tmp/qr416-actual
+          git diff --name-only "$MAIN" "$SRC" | sort >/tmp/qr416-source
+          printf '%s\n' .github/workflows/web-host-item-read-gate.yml scripts/web-host-item-read-chrome.mjs src/lib/foundation/public-entity-host-contract.mjs src/lib/local/ItemReadCapabilityNotice.svelte src/lib/local/item-capability-copy.mjs src/lib/local/item-personal-read-gate.mjs src/routes/editor/items/+layout.svelte tests/web-host-gate-item-read.test.mjs | sort >/tmp/qr416-source-exact
+          diff -u /tmp/qr416-source-exact /tmp/qr416-source
+          test "$(git hash-object src/lib/foundation/public-entity-host-contract.mjs)" = 698834037fee8043e6325354cdcbb007ff4d11de
+          test "$(git hash-object src/lib/local/item-personal-read-gate.mjs)" = f9c68f70d71a23fbefd61bab029bf5c7c34bad97
+          test -z "$(git diff --name-only "$MAIN" HEAD -- supabase src/lib/ddv/core/save src/lib/wep src/lib/community)"
+          echo QR416_HOST_ITEM_FIXED_EIGHT_SRC_QA_ONLY_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Independently test unaccepted host and forged user Item capability
+        run: node --test tests/qr-pr416-entity-host-item-independent.test.mjs
+      - run: npm run check
+      - run: npm run build
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Locate installed system Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Start isolated local Vite no managed URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4208 >/tmp/qr416-vite.log 2>&1 &
+          for i in $(seq 1 65); do
+            curl -fsS http://127.0.0.1:4208/editor/items/ >/dev/null && exit 0
+            sleep 1
+          done
+          tail -n 35 /tmp/qr416-vite.log; exit 1
+      - name: Real Chrome source-only eight locale Item UNKNOWN / no published static item
+        run: node scripts/qr-pr416-item-host-independent-chrome.mjs
