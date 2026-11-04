@@ -18,7 +18,7 @@
  */
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { p1gPackagedProfileCodec } from '../src/lib/ddv/core/save/p1g-packaged-profile-codec.js';
@@ -27,6 +27,7 @@ import {
   inspectExternallyAttestedSaveProfile,
   classify626ReferenceIndex,
   checkPrivateCandidateSource,
+  ensurePrivateSourceOutsideCheckout,
   WEP_PRIVATE_624_BID,
   WEP_PRIVATE_626_BID
 } from './wep-private-real-save-e2e-safety-20261104.mjs';
@@ -80,6 +81,8 @@ try {
     const accepted=requireOwnerPrivateScope();
     if(accepted.status!=='READY')throw Error('PRIVATE_OWNER_SOURCE_SCOPE_CHANGED');
     const url=accepted.url;
+    // Never read a genuine P1G from inside the Git checkout, even via symlink.
+    ensurePrivateSourceOutsideCheckout(await realpath(sourcePath),await realpath(process.cwd()));
     const data=await readFile(sourcePath);
     report.privateOriginalSha256=sha(data); // private local file, never stdout
     const decoded=await p1gPackagedProfileCodec.loadProfile(new Uint8Array(data));
@@ -142,7 +145,8 @@ try {
         page.on('pageerror',e=>pageErrors.push(String(e)));
         await page.route('**/*',route=>{
           const dest=new URL(route.request().url());
-          if(dest.origin===url.origin)route.continue();
+          if(dest.origin===url.origin &&
+            ['GET','HEAD'].includes(route.request().method()))route.continue();
           else { report.httpRequestsOffLocalhost+=1;route.abort('blockedbyclient'); }
         });
         await page.goto(url.href,{waitUntil:'networkidle'});
