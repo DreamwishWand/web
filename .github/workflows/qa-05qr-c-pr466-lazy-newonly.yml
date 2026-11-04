@@ -1,0 +1,45 @@
+name: 05 QR-C PR466 independent native single-pass lazy W1 read
+on:
+  push:
+    branches: [qa/05qr-c-pr466-single-validation-lazy-newonly-20261105]
+  pull_request:
+    paths:
+      - '.github/workflows/qa-05qr-c-pr466-lazy-newonly.yml'
+      - 'crates/ddv-save-core/tests/qa_05qr_c_pr466_lazy_index_newonly.rs'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  pinned-five-source-lazy-delta:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Freeze accepted parent, fixed PR466 exact five-source delta and no source edits
+        run: |
+          set -eu
+          PARENT=a6ad9d32cb18a97e225a3e155a1fd3e67ecb7664
+          SOURCE=7717801c7ff0defef3283474138fdda0f15b78dc
+          test "$(git merge-base "$PARENT" "$SOURCE")" = "$PARENT"
+          test "$(git merge-base "$SOURCE" HEAD)" = "$SOURCE"
+          test "$(git diff --name-only "$PARENT" "$SOURCE" | wc -l | tr -d ' ')" = 5
+          test "$(git diff --name-only "$PARENT" "$SOURCE" | sort)" = "$(printf '%s\n' .github/workflows/01a-native-w1-lazy-read.yml crates/ddv-save-core/src/indexed_w1_read.rs crates/ddv-save-core/src/lib.rs crates/ddv-save-core/tests/w1_lazy_source_index.rs docs/core/01a-w1-lazy-source-index-20261104.md | sort)"
+          git diff --quiet "$SOURCE" HEAD -- src/ static/ supabase/ docs/ crates/ddv-save-core/src/ crates/ddv-save-core/tests/w1_lazy_source_index.rs
+          for p in .github/workflows/01a-native-w1-lazy-read.yml crates/ddv-save-core/src/indexed_w1_read.rs crates/ddv-save-core/src/lib.rs crates/ddv-save-core/tests/w1_lazy_source_index.rs docs/core/01a-w1-lazy-source-index-20261104.md; do
+            test "$(git rev-parse "$SOURCE:$p")" = "$(git rev-parse "HEAD:$p")"
+          done
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/indexed_w1_read.rs)" = 8ebe317242c3eedb2a1110ddf008aeef37abab32
+          echo PR466_PARENT_QA437_INHERITED_NO_RERUN
+          echo PR466_FIVE_SOURCE_BLOBS_IMMUTABLE
+          echo ACTUAL_PRIVATE_P1G=NOT_RUN
+          echo BROWSER_SINGLE_PRODUCT_SAVESESSION=NOT_ACCEPTED
+          echo NATIVE_W1_V3=UNKNOWN
+          echo PRODUCT_WRITER_EDITEDCOPY_APPLY_OVERWRITE=OFF
+      - name: Independent six NEW native Rust source-bound lazy index negatives
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test qa_05qr_c_pr466_lazy_index_newonly -- --nocapture
+      - name: Rust native source and library check
+        run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml
+      - name: Product Rust W1 lazy export refuses
+        run: grep -Fq PRODUCT_W1_LAZY_EDITED_COPY_NOT_AUTHORIZED crates/ddv-save-core/src/indexed_w1_read.rs
