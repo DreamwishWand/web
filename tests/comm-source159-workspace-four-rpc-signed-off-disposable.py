@@ -83,7 +83,7 @@ try:
     with closing(psycopg.connect(DSN,autocommit=True)) as pre, \
          closing(psycopg.connect(DSN,autocommit=True)) as writer:
         assert scalar(pre,"select count(*) from supabase_migrations.schema_migrations")==159
-        assert scalar(pre,"select pg_backend_pid()")!=scalar(writer,"NOT_TWO_PG_BACKENDS")
+        assert scalar(pre,"select pg_backend_pid()")!=scalar(writer,"select pg_backend_pid()"),"NOT_TWO_PG_BACKENDS"
         signatures={
             "create":"public.community_create_ddv_profile_workspace_v1(uuid,text)",
             "update":"public.community_update_ddv_profile_workspace_v1(uuid,uuid,text,text)",
