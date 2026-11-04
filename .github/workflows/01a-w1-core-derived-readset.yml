@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'crates/ddv-save-core/src/trusted_read.rs'
+      - 'crates/ddv-save-core/src/lib.rs'
+      - 'crates/ddv-save-core/tests/w1_sparse_200mib.rs'
       - 'crates/ddv-save-core/tests/w1_core_native_readset.rs'
       - '.github/workflows/01a-w1-core-derived-readset.yml'
   workflow_dispatch:
@@ -24,6 +26,8 @@ jobs:
         run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test w1_core_native_readset -- --nocapture
       - name: Prior accepted Rust preview and synthetic P1G copy regression
         run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test w1_preview_copy_reopen
+      - name: NEW-only synthetic 200MiB decoded sparse SHA (not P1G/WASM)
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test w1_sparse_200mib -- --nocapture
       - name: Preserve stage/export fail closed
         run: |
           grep -Fq 'W1_OPERATION_REFERENCE_AND_NATIVE_CAPABILITY_NOT_ACCEPTED' crates/ddv-save-core/src/trusted_read.rs
