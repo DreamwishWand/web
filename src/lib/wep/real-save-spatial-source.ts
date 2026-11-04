@@ -31,6 +31,9 @@ const isRec=(v:unknown):v is R=>v!==null && typeof v==='object' && !Array.isArra
 const uint=(v:unknown):v is number=>typeof v==='number' && Number.isSafeInteger(v)&&v>=0;
 const canonicalId=(k:string):number|null=>/^(0|[1-9]\d*)$/.test(k) && Number.isSafeInteger(Number(k)) ? Number(k):null;
 const addr=(gridId:number,id:number):GridObjectAddress=>Object.freeze({gridId,gridObjectId:id,objectMapKey:String(id),editorId:`g${gridId}:o${id}`});
+// Inspector accepts only in-process source-minted indexes. Clones must be re-read
+// from verified source; a caller-provided SHA/UI epoch alone is not an attestation.
+const issued626Indices = new WeakSet<object>();
 function sourceContext(ctx:R,expected:SpatialSourceVersion, profile:R){
   if(!isRec(ctx)||ctx.platform!==expected.platform||ctx.gameVersion!==expected.gameVersion||ctx.schema!==expected.schema||ctx.bid!==expected.bid)
     throw Error('SPATIAL_EXACT_VERSION_BID_SCHEMA_REQUIRED');
@@ -132,12 +135,16 @@ export function read626SpatialReferences(profile:R, context:R):SpatialSourceRead
     const relation=grid?.parentAddress?'SUBGRID_CHILD':grid?.areaRefs.length===1?'AREA_ROOT':'UNRESOLVED';
     return Object.freeze({...o,relation,parentAddress:grid?.parentAddress??null});
   });
-  return Object.freeze({contract:REAL_SAVE_SPATIAL_SOURCE_CONTRACT,version:SWITCH_626,
+  const index:SpatialSourceRead=Object.freeze({contract:REAL_SAVE_SPATIAL_SOURCE_CONTRACT,version:SWITCH_626,
     sourceRevision:context.sourceRevision,sourceSha256:context.sourceSha256,
     status:issues.length?'REFERENCE_ERRORS_FAIL_CLOSED':'READ_ONLY_REFERENCE_INDEX',
-    grids:outGrids,objects:objOut,issues,diffOnlyGridCount:diffs.filter(([id])=>!grids.has(id)).length,
+    grids:Object.freeze(outGrids.map(g=>Object.freeze({...g,areaRefs:Object.freeze([...g.areaRefs])}))),
+    objects:Object.freeze(objOut),issues:Object.freeze(issues.map(i=>Object.freeze({...i}))),
+    diffOnlyGridCount:diffs.filter(([id])=>!grids.has(id)).length,
     geometryFor2d:'NOT_VERIFIED',nativePlacementVerified:false,persistentWriteAuthorized:false,
     productApplyAuthorized:false,directSourceReplacementAuthorized:false});
+  issued626Indices.add(index);
+  return index;
 }
 /** Bind existing 624 2D EditorDocument to original Save values; never converts a 626 Save. */
 export function assert624ProjectedObjectsMatchSave(profile:R,doc:R,context:R) {
@@ -223,6 +230,7 @@ export function assert624ProjectedObjectsMatchSave(profile:R,doc:R,context:R) {
 }
 /** Inspector-only lookup: exact index epoch and source hash, no authority to paint/apply. */
 export function inspect626SourceObjectAtRevision(index:SpatialSourceRead,editorId:string,expectedRevision:string,expectedSha256:string){
+  if(!issued626Indices.has(index))throw Error('SPATIAL_SOURCE_INDEX_NOT_MINTED');
   if(index.contract!==REAL_SAVE_SPATIAL_SOURCE_CONTRACT||index.version!==SWITCH_626||
      index.sourceRevision!==expectedRevision||index.sourceSha256!==expectedSha256)
     throw Error('SPATIAL_SOURCE_REVISION_OR_HASH_STALE');
