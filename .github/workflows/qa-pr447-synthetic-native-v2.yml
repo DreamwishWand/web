@@ -1,0 +1,38 @@
+name: 05 QR PR447 independent native-only synthetic Offline W1 V2 research
+on:
+  push:
+    branches: [qa/05qr-pr447-v2-research-20261104]
+  pull_request:
+    paths:
+      - crates/ddv-save-core/tests/qa_05qr_pr447_native_reopen_newonly.rs
+      - .github/workflows/qa-pr447-synthetic-native-v2.yml
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  synthetic-no-user-data:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Exact frozen PR447 native research, never product writer
+        run: |
+          test "$(git merge-base 82e3db4b5b55ce1a200a5c4058c41ac2471e113f HEAD)" = 82e3db4b5b55ce1a200a5c4058c41ac2471e113f
+          git diff --quiet 82e3db4b5b55ce1a200a5c4058c41ac2471e113f HEAD -- crates/ddv-save-core/src/ src/ crates/ddv-save-core/examples/ docs/
+          echo RESEARCH_SOURCE_ONLY=TRUE
+          echo GENUINE_PRIVATE_P1G_IN_CI=NO
+          echo PRODUCT_RUST_WASM_SESSION_NOT_ACCEPTED=TRUE
+          echo PRODUCT_WRITER_ORIGINAL_OVERWRITE=OFF
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Independent synthetic research original-first backup, atomic CAS, separate process reopen
+        run: |
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test qa_05qr_pr447_native_reopen_newonly -- --nocapture
+      - name: Explicit operation boundary
+        run: |
+          echo RUST_NATIVE_LOCAL_RESEARCH_ONLY_PASS_IF_ABOVE_GREEN
+          echo USER_PRIVATE_GENUINE_P1G_V2=NOT_RUN
+          echo NATIVE_V3_NOT_ACCEPTED=TRUE
+          echo V4_DEVICE=NOT_RUN
+          echo WRITER_APPLY_OVERWRITE=OFF
