@@ -4524,13 +4524,13 @@
           {:else if selectedInspectorObject}
             <dl class="inspector-details">
               <div><dt>{t('worldEditor.inspector.itemId', {}, $locale)}</dt><dd>{selectedInspectorObject.itemId}</dd></div>
-              <div data-wep-spatial-details-id><dt>EditorSession ObjectID</dt>
+              <div data-wep-spatial-details-id><dt>{spatialSceneCopy($locale).objectId}</dt>
                 <dd>{spatialObjectDetails?.editorId ?? selectedInspectorObject.editorId}</dd></div>
-              <div data-wep-spatial-native-id><dt>Native GridObject ID</dt>
+              <div data-wep-spatial-native-id><dt>{spatialSceneCopy($locale).nativeId}</dt>
                 <dd>{spatialObjectDetails?.nativeGridObjectId ?? 'UNVERIFIED'}</dd></div>
-              <div><dt>Root GridID</dt>
+              <div><dt>{spatialSceneCopy($locale).rootGrid}</dt>
                 <dd>{spatialObjectDetails?.rootGridId ?? 'UNVERIFIED'}</dd></div>
-              <div><dt>Footprint</dt>
+              <div><dt>{spatialSceneCopy($locale).footprint}</dt>
                 <dd>{spatialObjectDetails?.footprintCells ?? 'UNVERIFIED'}</dd></div>
               <div><dt>{t('worldEditor.inspector.layer', {}, $locale)}</dt><dd>{selectedInspectorObject.layer}</dd></div>
               <div><dt>{t('worldEditor.inspector.editability', {}, $locale)}</dt><dd>{selectedInspectorObject.editability}</dd></div>
@@ -5121,6 +5121,7 @@
             class="world-canvas"
             class:marquee-enabled={marqueeArmed}
             data-wep-marquee-canvas
+            role="group"
             bind:this={marqueeSvg}
             on:pointerdown={startMarquee}
             on:pointermove={(event) => { moveSpatialPan(event); moveMarquee(event); }}
