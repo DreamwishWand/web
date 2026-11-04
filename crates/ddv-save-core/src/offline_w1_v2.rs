@@ -11,7 +11,6 @@ use crate::session::{SaveSession,Domain,CommandKind,LogicalIdentity,
 use std::{fs::{self,File,OpenOptions},io::{Read,Write},path::{Path,PathBuf}};
 const BID:&str="9A239D3DB569756D";
 const PATH:&str="/World/RecurringEvents/155/ItemSpawning/NextOccurrence";
-const ID_PATH:&str="/World/RecurringEvents/155/ItemSpawning/RecurringEventItemID";
 const MAX_JSON:usize=128*1024*1024;
 const MAX_P1G:u64=128*1024*1024;
 
@@ -221,6 +220,9 @@ pub fn execute_private_w1_v2_research(
  if !shared_backing||tx.source_sha256()!=input.decoded_sha{
    return Err("OFFLINE_RESEARCH_CORE_BACKING_MISMATCH");
  }
+ // Native research-only: staging lifetime is subordinate to this Core owner.
+ // No independent retained Arc may become an editable session after Close/Drop.
+ tx.bind_trusted_core_research(&core)?;
  let next_raw=format!("\"{}\"",input.proposed_utc);
  let staged=tx.stage_command(TransactionPlan{
   session_id:sid,expected_revision:0,
