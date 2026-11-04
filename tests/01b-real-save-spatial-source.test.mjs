@@ -1,0 +1,42 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {read626SpatialReferences,assert624ProjectedObjectsMatchSave,inspect626SourceObjectAtRevision} from '../src/lib/wep/real-save-spatial-source.ts';
+const h='a'.repeat(64),src626={sourceSha256:h,sourceRevision:'epoch:1',platform:'Nintendo Switch',gameVersion:'1.25.3',schema:626,bid:'9A239D3DB569756D'};
+const src624={...src626,gameVersion:'1.25.0',schema:624,bid:'52BD625D9B4E0053'};
+const obj=(id,sub=null)=>({ID:id,ItemID:40000001,X:2,Y:3,Orientation:'GridOrientation_Up',State:sub?{SubGrid:{GridID:sub,DesignID:null}}:null});
+const grid=(id,objects={})=>({ID:id,GridDataPath:'World/A',TessellationFactor:2,Objects:objects});
+const p626=()=>({GameInfo:{Version:626},World:{Villages:[{Areas:{'1':{GridIDs:[42],Unlocked:true}}}],GridCollection:{Grids:{'42':grid(42,{'7':obj(7)})},DiffGrids:{}}}});
+const p624=()=>({...p626(),GameInfo:{Version:624}});
+const d624=()=>({schema:'dreamwish-wand-wep-editor-document',version:1,target:{platform:'Nintendo Switch',gameVersion:'1.25.0',profileSchemaVersion:624,contractBuildIdentity:src624.bid,persistentWriteAuthorized:false,rootGridId:42,gridDataPath:'World/A'},metadata:{directRootProjection:{evidenceStatus:'CONFIRMED'},subGridHierarchy:[]},objects:[{editorId:'g42:o7',itemId:40000001,x:2,y:3,orientation:0,source:{gridId:42,gridObjectId:7,objectMapKey:'7',relation:'ROOT',parentAddress:null}}]});
+const rejects=(fn,code)=>assert.throws(fn,new RegExp(code));
+test('626 maps exact Area->root Grid and object ID without inventing native footprint',()=>{const s=read626SpatialReferences(p626(),src626);assert.equal(s.status,'READ_ONLY_REFERENCE_INDEX');assert.equal(s.objects[0].address.editorId,'g42:o7');assert.equal(s.objects[0].relation,'AREA_ROOT');assert.equal(s.geometryFor2d,'NOT_VERIFIED');assert.equal(s.persistentWriteAuthorized,false);});
+test('626 exact version/bid/schema and epoch gate 624-to-626 type confusion',()=>{rejects(()=>read626SpatialReferences(p626(),src624),'EXACT_VERSION');rejects(()=>read626SpatialReferences(p624(),src626),'PROFILE_SCHEMA');rejects(()=>read626SpatialReferences(p626(),{...src626,sourceRevision:''}),'SOURCE_EPOCH');});
+test('626 original map Grid.ID mismatch rejects before any node',()=>{const p=p626();p.World.GridCollection.Grids['42'].ID=43;rejects(()=>read626SpatialReferences(p,src626),'GRID_ID_MISMATCH')});
+test('626 original Object map-key/ID mismatch produces blocked references',()=>{const p=p626();p.World.GridCollection.Grids['42'].Objects['7'].ID=8;const s=read626SpatialReferences(p,src626);assert.equal(s.status,'REFERENCE_ERRORS_FAIL_CLOSED');assert.equal(s.objects.length,0);assert.match(s.issues[0].code,/GRIDOBJECT_ID_MISMATCH/);});
+test('626 2 same item IDs keep distinct source addresses',()=>{const p=p626();p.World.GridCollection.Grids['42'].Objects['8']=obj(8);const s=read626SpatialReferences(p,src626);assert.deepEqual(s.objects.map(x=>x.address.editorId),['g42:o7','g42:o8']);});
+test('626 missing Area Grid fails closed',()=>{const p=p626();p.World.Villages[0].Areas['1'].GridIDs.push(99);assert.equal(read626SpatialReferences(p,src626).issues.at(-1).code,'SPATIAL_AREA_GRID_REFERENCE_MISSING');});
+test('626 serialized SubGrid links parent to child preserving child-local XY',()=>{const p=p626();p.World.GridCollection.Grids['42'].Objects['7']=obj(7,43);p.World.GridCollection.Grids['43']=grid(43,{'7':obj(7)});const s=read626SpatialReferences(p,src626);const ch=s.objects.find(x=>x.gridId===43);assert.equal(ch.relation,'SUBGRID_CHILD');assert.deepEqual(ch.parentAddress,{gridId:42,gridObjectId:7,objectMapKey:'7',editorId:'g42:o7'});assert.equal(ch.serializedX,2);assert.equal(ch.geometryAuthority,'NOT_ACCEPTED_FOR_626');});
+test('626 unknown/missing child Grid denies source hierarchy',()=>{const p=p626();p.World.GridCollection.Grids['42'].Objects['7']=obj(7,99);assert.equal(read626SpatialReferences(p,src626).status,'REFERENCE_ERRORS_FAIL_CLOSED');});
+test('626 duplicate SubGrid parents and cycles reject',()=>{const p=p626();p.World.GridCollection.Grids['42'].Objects['7']=obj(7,43);p.World.GridCollection.Grids['42'].Objects['8']=obj(8,43);p.World.GridCollection.Grids['43']=grid(43,{'3':obj(3,42)});const s=read626SpatialReferences(p,src626);assert.equal(s.status,'REFERENCE_ERRORS_FAIL_CLOSED');assert.ok(s.issues.some(x=>x.code==='SPATIAL_SUBGRID_MULTIPLE_PARENTS'));assert.ok(s.issues.some(x=>x.code==='SPATIAL_ROOT_SUBGRID_OWNERSHIP_CONFLICT'));assert.ok(s.issues.some(x=>x.code==='SPATIAL_SUBGRID_PARENT_CYCLE'));});
+test('626 DiffGrid-only is not read as empty default layout',()=>{const p=p626();p.World.GridCollection.DiffGrids['50']={ID:50,GridDefaultLayoutPath:'World/D'};const s=read626SpatialReferences(p,src626);assert.equal(s.diffOnlyGridCount,1);assert.equal(s.grids.find(x=>x.gridId===50).effectiveObjects,'DEFAULT_LAYOUT_UNRESOLVED');assert.equal(s.status,'REFERENCE_ERRORS_FAIL_CLOSED');});
+test('626 overlapping Grids/DiffGrids is ambiguous',()=>{const p=p626();p.World.GridCollection.DiffGrids['42']={ID:42};assert.ok(read626SpatialReferences(p,src626).issues.some(x=>x.code==='SPATIAL_GRID_DIFF_OVERLAP_UNRESOLVED'));});
+test('624 existing projected source identity/positions compare against actual Save',()=>{const r=assert624ProjectedObjectsMatchSave(p624(),d624(),src624);assert.equal(r.matchingSourceObjects,1);assert.equal(r.identityMatches,true);assert.equal(r.persistentWriteAuthorized,false);});
+test('624 stale ObjectID, source x or scene pointer rejected',()=>{const p=p624(),d=d624();d.objects[0].x=5;rejects(()=>assert624ProjectedObjectsMatchSave(p,d,src624),'PROJECTED_SOURCE_CHANGED');d.objects[0].x=2;d.objects[0].editorId='g42:o99';rejects(()=>assert624ProjectedObjectsMatchSave(p,d,src624),'PROJECTED_ID_MISMATCH');});
+test('624 duplicate source object IDs and mismatched path rejected',()=>{const p=p624(),d=d624();d.objects.push(structuredClone(d.objects[0]));rejects(()=>assert624ProjectedObjectsMatchSave(p,d,src624),'PROJECTED_DUPLICATE_ID');d.objects.pop();d.target.gridDataPath='wrong';rejects(()=>assert624ProjectedObjectsMatchSave(p,d,src624),'GRID_PATH_MISMATCH');});
+test('624 SubGrid parent raw state mismatch rejected',()=>{const p=p624(),d=d624();p.World.GridCollection.Grids['43']=grid(43,{'9':obj(9)});d.metadata.subGridHierarchy=[{gridId:43,parentAddress:{gridId:42,gridObjectId:7,objectMapKey:'7'},gridDataPath:'World/A',objects:[],children:[]}];rejects(()=>assert624ProjectedObjectsMatchSave(p,d,src624),'PARENT_NATIVE_LINK_INVALID');});
+test('624 exact registered schema and external BID; 626 reader never invoked as 624',()=>{rejects(()=>assert624ProjectedObjectsMatchSave(p624(),d624(),src626),'EXACT_VERSION');rejects(()=>assert624ProjectedObjectsMatchSave(p626(),d624(),src624),'PROFILE_SCHEMA');});
+
+test('624 incomplete root source object set and forged sourceBID fail closed',()=>{const p=p624(),d=d624();p.World.GridCollection.Grids['42'].Objects['8']=obj(8);rejects(()=>assert624ProjectedObjectsMatchSave(p,d,src624),'SOURCE_OBJECT_SET_INCOMPLETE');delete p.World.GridCollection.Grids['42'].Objects['8'];d.target.sourceBuildIdentity='9A239D3DB569756D';rejects(()=>assert624ProjectedObjectsMatchSave(p,d,src624),'EDITOR_BUILD_MISMATCH');});
+test('626 Inspector retains same source address and rejects stale source revision/hash',()=>{
+ const index=read626SpatialReferences(p626(),src626);
+ const item=inspect626SourceObjectAtRevision(index,'g42:o7','epoch:1',h);
+ assert.equal(item.address.editorId,'g42:o7');assert.equal(item.gridLocalSerialized.x,2);
+ assert.equal(item.geometryFor2d,'NOT_VERIFIED');
+ rejects(()=>inspect626SourceObjectAtRevision(index,'g42:o7','epoch:2',h),'REVISION_OR_HASH_STALE');
+ rejects(()=>inspect626SourceObjectAtRevision(index,'g42:o7','epoch:1','b'.repeat(64)),'REVISION_OR_HASH_STALE');
+});
+test('626 Inspector cannot select a source Grid with unresolved DiffGrid/default collision',()=>{
+ const p=p626();p.World.GridCollection.DiffGrids['42']={ID:42};
+ const index=read626SpatialReferences(p,src626);
+ rejects(()=>inspect626SourceObjectAtRevision(index,'g42:o7','epoch:1',h),'GRID_REFERENCE_UNRESOLVED');
+});
