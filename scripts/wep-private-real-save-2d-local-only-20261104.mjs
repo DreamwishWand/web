@@ -82,8 +82,9 @@ try {
     if(accepted.status!=='READY')throw Error('PRIVATE_OWNER_SOURCE_SCOPE_CHANGED');
     const url=accepted.url;
     // Never read a genuine P1G from inside the Git checkout, even via symlink.
-    ensurePrivateSourceOutsideCheckout(await realpath(sourcePath),await realpath(process.cwd()));
-    const data=await readFile(sourcePath);
+    const approvedSourcePath=await realpath(sourcePath);
+    ensurePrivateSourceOutsideCheckout(approvedSourcePath,await realpath(process.cwd()));
+    const data=await readFile(approvedSourcePath);
     report.privateOriginalSha256=sha(data); // private local file, never stdout
     const decoded=await p1gPackagedProfileCodec.loadProfile(new Uint8Array(data));
     if(decoded.inputType!=='packaged')throw Error('PRIVATE_ENCRYPTED_P1G_REQUIRED');
@@ -213,7 +214,7 @@ try {
         await context.close();
       }
     }
-    if(sha(await readFile(sourcePath))!==report.privateOriginalSha256)
+    if(sha(await readFile(approvedSourcePath))!==report.privateOriginalSha256)
       throw Error('PRIVATE_ORIGINAL_SOURCE_SHA_CHANGED');
     add('V1_ORIGINAL_P1G_SHA_UNCHANGED','PASS');
   }
