@@ -19,6 +19,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          set -x
           SRC=123ffe88ff8ffcf5a760bf7425a374e9264fad36
           MAIN=f3ed8e1ba103b109e1e685c258f1498bee7e99a1
           git merge-base --is-ancestor "$SRC" HEAD
