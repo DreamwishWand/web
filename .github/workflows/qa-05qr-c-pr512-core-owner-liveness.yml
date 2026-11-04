@@ -1,0 +1,57 @@
+name: 05 QR-C PR512 independent Rust owner-close staged-Arc source liveness
+on:
+  push:
+    branches: [qa/05qr-c-pr512-core-close-drop-lifetime-newonly-20261105]
+  pull_request:
+    paths:
+      - '.github/workflows/qa-05qr-c-pr512-core-owner-liveness.yml'
+      - 'crates/ddv-save-core/qa_05qr_c_pr512_owner_liveness.rs'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  frozen-native-source-owner:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Pin PR512 exact fixed child of accepted PR500 with 5 source delta files only
+        run: |
+          set -eu
+          PARENT=8586fd8b79426e7574f39a998a55a4c3e82e341f
+          SOURCE=0b08ed4f3ee18cd696f78d23796202733b9dfe59
+          test "$(git merge-base "$PARENT" "$SOURCE")" = "$PARENT"
+          test "$(git merge-base "$SOURCE" HEAD)" = "$SOURCE"
+          test "$(git diff --name-only "$PARENT" "$SOURCE" | wc -l | tr -d ' ')" = 5
+          test "$(git diff --name-only "$PARENT" "$SOURCE" | sort)" = "$(printf '%s\n' .github/workflows/01a-private-w1-v2-research.yml crates/ddv-save-core/src/offline_w1_v2.rs crates/ddv-save-core/src/session.rs crates/ddv-save-core/src/trusted_read.rs docs/core/01a-core-owner-stage-revocation-20261105.md | sort)"
+          git diff --quiet "$SOURCE" HEAD -- src/ crates/ddv-save-core/src/ crates/ddv-save-core/tests/ docs/ static/ supabase/
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/session.rs)" = e807c6a69c8cdfe967edcf49c461cd99fe002055
+          test "$(git rev-parse HEAD:crates/ddv-save-core/src/trusted_read.rs)" = 037c41fc8ec93564a7c75a8d047b788e02d85681
+          echo PREVIOUS_PR500_QA505_SHARED_ARC_ACCEPTED_NOT_RERUN
+          echo PR512_FIVE_SOURCE_FILES_IDENTITY_FIXED_PASS
+          echo PRIVATE_GENUINE_OWNER_SAVE_V2=NOT_RUN
+          echo PRODUCT_ONE_SAVESESSION_AND_CONCURRENT_CLOSE_STAGE=NOT_VERIFIED
+          echo NATIVE_W1_V3=UNKNOWN
+          echo WRITER_EDITEDCOPY_APPLY_ORIGINAL_OVERWRITE=OFF
+      - name: Temporarily include QA-only module in Rust crate test harness (working tree only)
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          lib = Path('crates/ddv-save-core/src/lib.rs')
+          txt = lib.read_text()
+          txt += '\n#[cfg(test)]\n#[path = "../qa_05qr_c_pr512_owner_liveness.rs"]\nmod qa_05qr_c_pr512_owner_liveness;\n'
+          lib.write_text(txt)
+          PY
+          echo 'CI-only test module injection; Git committed Source blobs remain unchanged'
+      - name: NEW independent four crate-private source lifetime and cached-index negatives
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --lib qa_05qr_c_pr512_owner_liveness -- --nocapture
+      - name: Native Rust check clean original source
+        run: |
+          git checkout -- crates/ddv-save-core/src/lib.rs
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml
+      - name: No Product Writer/edited-copy and no actual P1G exposure
+        run: |
+          grep -Fq PRODUCT_P1G_ENCODE_COPY_NOT_AUTHORIZED crates/ddv-save-core/src/session.rs
+          grep -Fq PRODUCT_ENCODE_COPY_NOT_AUTHORIZED crates/ddv-save-core/src/trusted_read.rs
