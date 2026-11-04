@@ -94,6 +94,12 @@ try {
  assert.equal(await page.locator('[data-timing-loaded="true"] .event').count(),2);
  assert.match(await page.locator('[data-timing-loaded="true"]').innerText(),/EventID: 2010000021/);
  pass('SAME_WORKER_SESSION_RESTORED_AFTER_SPA_ROUTE_NAVIGATION');
+ // A second local file is a NEW source identity, therefore the external BID
+ // attestation must be provided again after remounting the page. Existing
+ // Worker Session read-only access alone never authorizes importing B.
+ await page.locator('#timing-bid').fill(bid);
+ await page.locator('.attest input').check();
+ pass('NEW_FILE_REQUIRES_REATTESTATION_AFTER_ROUTE_NAVIGATION');
 
  // A -> B on the very same Worker must replace both the source-bound lease
  // and every visible A row. Reopening is read-only and does not mutate A.
