@@ -54,10 +54,10 @@ try{
  console.log('QR522 FIXED ACTUAL EIGHT LOCALES × FOUR ROOT LABELS/NO ISSUES PASS');
  await page.locator('#site-locale').selectOption('fr');
  await page.waitForFunction(v=>document.querySelector('[data-guide-child="quests"] strong')?.textContent?.trim()===v,'Quêtes');
- assert.equal((await cards.locator('[data-guide-child="quests"] strong').innerText()).trim(),'Quêtes');
+ assert.equal((await hub.locator('[data-guide-child="quests"] strong').innerText()).trim(),'Quêtes');
  await page.locator('#site-locale').selectOption('ja');
  await page.waitForFunction(v=>document.querySelector('[data-guide-child="quests"] strong')?.textContent?.trim()===v,'クエスト');
- assert.equal((await cards.locator('[data-guide-child="systems"] strong').innerText()).trim(),'ゲームシステム');
+ assert.equal((await hub.locator('[data-guide-child="systems"] strong').innerText()).trim(),'ゲームシステム');
  const desktop=await page.screenshot({type:'png',animations:'disabled'});
  assert.ok(desktop.length>7000);
  console.log('QR522 REPAIRED ROOT DESKTOP SCREENSHOT RAM SHA '+createHash('sha256').update(desktop).digest('hex').slice(0,16));
