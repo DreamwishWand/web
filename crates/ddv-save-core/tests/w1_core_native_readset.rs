@@ -5,7 +5,7 @@ use ddv_save_core::p1g::encode_synthetic_fixture;
 use ddv_save_core::trusted_read::{TrustedReadCore,W1CommandIntent};
 use ddv_save_core::w1_evidence::W1Kind;
 const BID:&str="9A239D3DB569756D";
-const FULL:&str=r#"{"GameInfo":{"Version":626},"Player":{"Unknown":"keep"},"World":{"RecurringEvents":{"155":{"ItemSpawning":{"RecurringEventItemID":2010000021,"NextOccurrence":"2126-08-20T00:00:00Z","LastOccurrence":"2026-10-01T00:00:00Z","EndDate":"2030-12-31T00:00:00Z"}}},"GridCollection":{"Grids":{"1540000000":{"Objects":[]}},"DiffGrids":{"1540000000":{"Modified":[]}}},"Villages":{"Village04":{"Area":"Wetland1"}}}}"#;
+const FULL:&str=r#"{"GameInfo":{"Version":626},"Player":{"Unknown":"keep"},"World":{"RecurringEvents":{"155":{"ItemSpawning":{"RecurringEventItemID":2010000021,"NextOccurrence":"2126-08-20T00:00:00Z","LastOccurrence":"2026-10-01T00:00:00Z","EndDate":"2030-12-31T00:00:00Z"}}},"GridCollection":{"Grids":{"1540000000":{"Objects":[]}},"DiffGrids":{"1540000000":{"Modified":[]}}},"Villages":[{"Areas":{"0":{"GridIDs":[1540000000]}}}]}}"#;
 const MISSING:&str=r#"{"GameInfo":{"Version":626},"World":{"RecurringEvents":{"155":{"ItemSpawning":{"RecurringEventItemID":2010000021,"NextOccurrence":"2126-08-20T00:00:00Z","LastOccurrence":"2026-10-01T00:00:00Z"}}}}}"#;
 fn open(doc:&str)->TrustedReadCore{
  let cipher=encode_synthetic_fixture(doc.as_bytes(),&[0x49;32],8).unwrap();
@@ -67,4 +67,16 @@ fn wrong_source_and_other_event_fail_before_native_reference_diagnostic(){
  assert_eq!(core.diagnose_w1_core_native_read_set(wrong).unwrap_err(),"W1_SOURCE_CAS_FAILED");
  let mut wrong=intent(&owner);wrong.event_id=2010500008;
  assert_eq!(core.diagnose_w1_core_native_read_set(wrong).unwrap_err(),"W1_NATIVE_OPERATION_NOT_MODELLED");
+}
+
+#[test]
+fn schema626_villages_must_be_array_and_not_synthetic_object(){
+ let mut bad=FULL.to_owned();
+ bad=bad.replace(r#""Villages":[{"Areas":{"0":{"GridIDs":[1540000000]}}}]"#,
+                 r#""Villages":{"Village04":{"Area":"Wetland1"}}"#);
+ let core=open(&bad);let owner=core.receipt().unwrap();
+ let diag=core.diagnose_w1_core_native_read_set(intent(&owner)).unwrap();
+ assert!(!diag.all_known_source_refs_observed);
+ assert!(diag.missing_or_unbounded_refs.contains(&"/World/Villages".to_owned()));
+ assert!(!diag.product_writer_authorized);
 }
