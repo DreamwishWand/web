@@ -1,0 +1,47 @@
+name: "04 QR-W PR610 immutable immersive Settings new-only"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/04qr-w-pr610-immersive-settings-new-only.yml'
+      - 'scripts/04qr-w-pr610-immersive-settings-new-only.mjs'
+permissions:
+  contents: read
+jobs:
+  independent-immersive-8locale-keyboard-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Find real system Chrome and deny Owner private Save
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || true)"
+          test -n "$BIN" || { echo "NOT_RUN: system Chrome missing"; exit 1; }
+          "$BIN" --version
+          echo "CHROME_BIN=$BIN" >> "$GITHUB_ENV"
+      - name: Start local read-only UI and exercise new Settings change only
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4179 >/tmp/qr610-vite.log 2>&1 &
+          for i in $(seq 1 50); do
+            if curl -fsS http://127.0.0.1:4179/editor/world/ >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl --fail --silent --show-error http://127.0.0.1:4179/editor/world/ >/dev/null
+          node --check scripts/04qr-w-pr610-immersive-settings-new-only.mjs
+          node scripts/04qr-w-pr610-immersive-settings-new-only.mjs
