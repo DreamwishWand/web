@@ -1,0 +1,31 @@
+name: "04QR-W PR535 Collection CI event scope independent negative QA"
+on:
+  pull_request:
+    branches: ['integration/stage1-collection-workflow-pr-scope-main87-20261105']
+    paths:
+      - '.github/workflows/04qr-w-pr535-collection-ci-scope-independent.yml'
+      - 'tests/04qr-w-pr535-collection-ci-scope-independent.test.mjs'
+permissions:
+  contents: read
+jobs:
+  collection-event-scope-new-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Independent exact main87 one-file workflow and negative six unrelated PR path scenarios
+        run: node --test tests/04qr-w-pr535-collection-ci-scope-independent.test.mjs
+      - name: Confirm no real Save/Writer or external provider staging
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          echo QR535_NO_REAL_SAVE_OR_WRITER_PASS
