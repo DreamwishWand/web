@@ -1,0 +1,96 @@
+name: WEB Stage1 Home canonical Guide and Help copy, eight-locale reactivity
+on:
+  push:
+    branches:
+      - 'web/stage1-home-copy-locale-*'
+  pull_request:
+    paths:
+      - 'src/routes/+page.svelte'
+      - 'src/lib/product-home/copy.js'
+      - 'tests/web-stage1-home-canonical-copy-locale.test.mjs'
+      - 'scripts/web-stage1-home-copy-locale-chrome.mjs'
+      - '.github/workflows/web-stage1-home-copy-locale.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Exactly five Home copy and test files, no Guide/Help/Writer/Auth changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.pull_request.base.sha || '058ac652b06fdc62ff85559186375c5b7a1e62a4' }}"
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          git diff --name-only "$BASE" HEAD > /tmp/stage1-home-copy
+          test "$(wc -l </tmp/stage1-home-copy)" -eq 5
+          while IFS= read -r f; do
+            case "$f" in
+              src/routes/+page.svelte|src/lib/product-home/copy.js|tests/web-stage1-home-canonical-copy-locale.test.mjs|scripts/web-stage1-home-copy-locale-chrome.mjs|.github/workflows/web-stage1-home-copy-locale.yml) ;;
+              *) echo "OUTSIDE_HOME_COPY_SCOPE:$f"; exit 1 ;;
+            esac
+          done </tmp/stage1-home-copy
+          git diff --exit-code "$BASE" HEAD -- src/routes/guide/ src/routes/help/ src/routes/discover/ src/lib/community/ src/lib/ddv/ src/lib/wep/ src/lib/ui/ supabase/ static/ .github/workflows/pages.yml
+          echo WEB_STAGE1_HOME_FIVE_PATH_SAFE_COPY_SCOPE_PASS
+      - name: Canonical 6+Help, Guide Issues owned by Help, eight locale reactive code tests
+        run: node --test tests/web-stage1-home-canonical-copy-locale.test.mjs
+      - name: Existing Node regressions, Svelte check and static Pages
+        env:
+          BASE_PATH: /web
+        run: |
+          npm test
+          npm run check
+          npm run build
+      - name: Static home and Help content without unauthorized entity publication
+        shell: bash
+        run: |
+          test -f build/index.html
+          test -f build/help/index.html
+          test -f build/404.html
+          test ! -f build/ja/entity/quest/12345/index.html
+          echo WEB_STAGE1_HOME_PUBLIC_BOUNDARY_UNCHANGED_PASS
+  chrome:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Build and serve ephemeral localhost Home
+        shell: bash
+        env:
+          BASE_PATH: /web
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          npm run build
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4297 >/tmp/stage1-home.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4297/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/stage1-home.log
+          exit 1
+      - name: Actual Chrome eight locale Home card copy, keyboard Help, 320 and zoom200
+        env:
+          STAGE1_HOME_URL: http://127.0.0.1:4297
+        run: node scripts/web-stage1-home-copy-locale-chrome.mjs
