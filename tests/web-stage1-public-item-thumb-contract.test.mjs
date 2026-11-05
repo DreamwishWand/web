@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  ITEM_IMAGE_SCHEMA, ITEM_IMAGE_TARGET, ITEM_IMAGE_SOURCE, R39_DERIVATIVE_MANIFEST_SHA256,
+  ITEM_IMAGE_SCHEMA, ITEM_IMAGE_TARGET, ITEM_IMAGE_SOURCE, R39_DERIVATIVE_MANIFEST_SHA256, ITEM_IMAGE_OWNER_DECISION_ID,
   validateItemImageCatalog, itemImageAssetPath, scopedItemImageHref,
   validateItemImagePreferences, saveItemImagePreferences,
   restoreItemImagePreferences, ITEM_IMAGE_DEFAULT_PREFERENCES, ITEM_IMAGE_PREFS_KEY,
@@ -14,7 +14,7 @@ const manifest=()=>({
   schema:ITEM_IMAGE_SCHEMA,
   source:{...ITEM_IMAGE_SOURCE,derivativeManifestSha256:R39_DERIVATIVE_MANIFEST_SHA256},
   target:{...ITEM_IMAGE_TARGET},
-  publication:{gate:'OWNER_SCOPED_ALLOWLIST',decisionId:'OWNER_20261105_R39_SUBSET',scope:'RELEASED_PLAYER_FACING_ITEM_THUMBNAILS'},
+  publication:{gate:'OWNER_GO_FOR_DDV_GAME_IMAGES',decisionId:ITEM_IMAGE_OWNER_DECISION_ID,scope:'RELEASED_PLAYER_FACING_ITEM_THUMBNAILS'},
   items:{'31700014':{sourcePngSha256:sha,identityStatus:'VERSION_VERIFIED',visibility:'RELEASED_PLAYER_FACING',assetStatus:'WEBP_VERIFIED_160'}}
 });
 
@@ -107,7 +107,7 @@ test('Collection, Explore and shared Item Detail all consume same production Ite
   assert.match(component,/data-media-status/);
   assert.match(loader,/ITEM_IMAGE_MANIFEST_PATH/);
   assert.match(loader,/VERSION_VERIFIED/);
-  assert.match(loader,/OWNER_SCOPED_ALLOWLIST/);
+  assert.match(loader,/OWNER_GO_FOR_DDV_GAME_IMAGES/);
   assert.match(preferences,/contain/);
   assert.match(preferences,/cover/);
   assert.match(preferences,/density/);
