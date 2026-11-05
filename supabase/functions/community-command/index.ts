@@ -269,6 +269,14 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       return reply({ok:false,error:'SOURCE163_HELP_ANSWER_WRITER_NOT_ENROLLED'},409);
     }
 
+    // Source164: legacy addReaction SECURITY DEFINER service-role SQL still
+    // committed Reaction/Outbox after signed A1 local revoke on another PG.
+    // Do not enroll this Writer until same-transaction signed v2 is accepted.
+    // Keep unrelated removeReaction and moderation/privacy paths unchanged.
+    if (new Set<string>(['addReaction']).has(command)) {
+      return reply({ok:false,error:'SOURCE164_REACTION_ADD_WRITER_NOT_ENROLLED'},409);
+    }
+
     const authorizationParams: JsonObject = {
       p_auth_subject: subject, p_issued_at_epoch: issuedAt,
       p_max_age_seconds: null
