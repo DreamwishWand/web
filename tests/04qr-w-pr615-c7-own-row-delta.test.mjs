@@ -88,9 +88,10 @@ test('inherited items container rejected; own row remains historical SOURCE_ONLY
  delete inherited.items;
  Object.setPrototypeOf(inherited,{items:{'10000002':row()}});
  assert.equal(check(inherited).reason,'R39_SOURCE_ITEM_ICON_NOT_PRESENT');
+ // The genuine manifest is JSON-equivalent with OWN keys, not a synthetic
+ // object carrying a mutated prototype (which the Source may deny safely).
  const own=attested();
- own.items=Object.create({toString:row()});
- own.items['10000002']=row();
+ assert.equal(Object.hasOwn(own.items,'10000002'),true);
  assert.equal(R39_IMAGE_CURRENT_TARGET_READY,false);
  for(const target of R39_IMAGE_TARGETS){
   const r=check(own,'10000002',target);
