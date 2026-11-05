@@ -49,7 +49,9 @@ test('Presets product surface preserves canonical WEP safety boundary through lo
   assert.match(page, /presetPageCopy/);
   assert.match(page, /\{copy\.discover\}/);
   assert.match(page, /\{copy\.library\}/);
-  assert.match(page, /\{copy\.ingame\}/);
+  assert.match(page, /rootCopy\.inGame/);
+  assert.match(page, /data-stage1-presets-four-cards/);
+  assert.match(page, /data-native-writer="off"/);
   assert.match(page, /NativePresetManager/);
   assert.match(page, /createPresetCommunityBridge/);
   assert.match(page, /preflightPreset/);
