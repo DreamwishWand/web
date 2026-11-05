@@ -1,0 +1,75 @@
+name: 04 QR-S Source164 independent genuine ES256 two PG Reaction add OFF
+on:
+  push:
+    branches: [qa/pr614-source164-reaction-independent-20261106]
+  pull_request:
+    branches: [comm/w-comm-006-source164-reaction-add-only-off-20261105]
+permissions:
+  contents: read
+jobs:
+  qr-source164:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, persist-credentials: false}
+      - name: Exact two independent QA files and frozen Source164 identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=daa87a050c18d646cb1291520f88fb3eca0d5207
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git diff --name-only "$SOURCE" HEAD | sort > /tmp/qr164-actual
+          printf '%s\n' .github/workflows/qr-pr614-source164-reaction-independent.yml tests/qr-pr614-source164-reaction-independent.py | sort > /tmp/qr164-expected
+          diff -u /tmp/qr164-expected /tmp/qr164-actual
+          test -z "$(git diff --name-only "$SOURCE" HEAD -- supabase src docs static)"
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 164
+          test "$(git hash-object supabase/migrations/20261104050000_community_source163_help_answer_service_execute_off.sql)" = c02bf514abf51951c19e05f8ca7ef7383f071c70
+          test "$(git hash-object supabase/migrations/20261105010000_community_source164_reaction_add_service_execute_off.sql)" = 8a272688b3f85e999e43cb772736dba6bc305606
+          test "$(git hash-object supabase/functions/community-command/index.ts)" = f86a4f3c12bf80d7df8cda0effcb575182bafc7a
+          python3 -m py_compile tests/qr-pr614-source164-reaction-independent.py
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID"
+          echo QR164_FIXED_SOURCE_SHA_QA_TWO_FILES_PASS
+      - uses: supabase/setup-cli@v1
+        with: {version: 2.109.0}
+      - name: Create isolated genuine local ES256 signer and all 164 migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\n[auth]\nsigning_keys_path = "./signing_keys.json"\n' >>supabase/config.toml
+          printf '[]\n' >supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes >/tmp/qr164-signer.log 2>&1
+          printf 'project_id = "ddvre_qr164_reaction_independent_20261106"\n' | cat - supabase/config.toml >/tmp/qr164-config
+          mv /tmp/qr164-config supabase/config.toml
+          printf 'COMMUNITY_MEDIA_BUCKET=qr164-local-only\nWEP_PRESET_ARTIFACT_BUCKET=qr164-local-only\n' >supabase/functions/.env
+          timeout 1800s supabase start >/tmp/qr164-start.log 2>&1 || { echo QR164_START_NOT_RUN; tail -n 10 /tmp/qr164-start.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'; exit 1; }
+          timeout 900s supabase db reset --no-seed >/tmp/qr164-reset.log 2>&1 || { echo QR164_DB_RESET_NOT_RUN; tail -n 10 /tmp/qr164-reset.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'; exit 1; }
+          echo QR164_GENUINE_ES256_FULL164_LOCAL_RESET_PASS
+      - run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Independently verify old addReaction SQL denial after real A1 revoke and rollback
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/qr-pr614-source164-reaction-independent.py | tee /tmp/qr164-run.log
+          for marker in \
+            QR164_164_MIGRATION_THREE_ROLE_AND_PUBLIC_ACL_OFF_R16_UNCHANGED_PASS \
+            QR164_A2_ELIGIBLE_409_AND_DIRECT_SQL42501_NO_REACTION_OUTBOX_DIFF_PASS \
+            QR164_A1_ORIGINAL_REFRESHED_401_SIBLING_200_FIVE_SQL_REPLAYS_NO_DIFF_PASS \
+            QR164_TWO_POSTGRES_BACKENDS_TEMP_GRANT_ROLLBACK_42501_PASS \
+            QR164_INDEPENDENT_LOCAL_ES256_SOURCE164_ADD_ONLY_SCOPED_PASS; do
+            grep -q "$marker" /tmp/qr164-run.log
+          done
+          echo QR164_INDEPENDENT_GENUINE_SIGNED_LOCAL_NOT_CUMULATIVE_MANAGED_PASS
+      - name: Dispose local database and ephemeral signer
+        if: always()
+        shell: bash
+        run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f supabase/signing_keys.json supabase/functions/.env /tmp/qr164-*
+          echo QR164_LOCAL_CLEANUP_ATTEMPTED
