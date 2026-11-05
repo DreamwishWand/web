@@ -1,0 +1,75 @@
+name: "04QR-W PR577 current mainc778 Discover7 privacy composition"
+on:
+  pull_request:
+    branches: ['web/stage1-discover-orientation-main058-20261105']
+    paths:
+      - '.github/workflows/04qr-w-pr577-mainc778-privacy-composite.yml'
+      - 'scripts/04qr-w-pr577-mainc778-privacy-composite-chrome.mjs'
+      - 'tests/04qr-w-pr577-mainc778-privacy-composite.test.mjs'
+permissions:
+  contents: read
+jobs:
+  fixed-head-exact-scope-and-main-privacy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Discover only 5 original files on mainc778 and all five private noindex retained
+        run: node --test tests/04qr-w-pr577-mainc778-privacy-composite.test.mjs
+      - run: node --check scripts/04qr-w-pr577-mainc778-privacy-composite-chrome.mjs
+  actual-system-chrome-composed-discover-to-privacy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Typecheck and static Pages build of latest accepted mainc778 plus Discover7
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run check
+          BASE_PATH=/web npm run build
+          test -f build/discover/index.html
+          test -f build/gallery/my/index.html
+          test -f build/dreamsnaps/results/index.html
+          grep -Fq 'noindex,nofollow' build/gallery/my/index.html
+          grep -Fq 'noindex,nofollow' build/dreamsnaps/results/index.html
+      - name: Require installed real Chrome and no private Owner P1G
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || true)"
+          test -n "$BIN" || { echo "NOT_RUN: actual Chrome required"; exit 1; }
+          "$BIN" --version
+          echo "CHROME_BIN=$BIN" >> "$GITHUB_ENV"
+      - name: Start bounded loopback Source; no real Provider or deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4332 >/tmp/qr-w-discover-mainc778.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4332/discover/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr-w-discover-mainc778.log
+          exit 1
+      - name: Real Chrome Home-Discover-GalleryMy/Results noindex, Help, 320 and 200
+        run: node scripts/04qr-w-pr577-mainc778-privacy-composite-chrome.mjs
