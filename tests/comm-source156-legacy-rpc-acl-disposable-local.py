@@ -48,7 +48,7 @@ with psycopg.connect(DSN, autocommit=True) as db:
     count = db.execute(
         "select count(*) from supabase_migrations.schema_migrations"
     ).fetchone()[0]
-    assert count == 163, "NOT_DISPOSABLE_EXACT_FULL163"
+    assert count == 164, "NOT_DISPOSABLE_EXACT_FULL164"
 
     for name in names:
         functions = db.execute("""
