@@ -739,12 +739,18 @@ try{
   await context.close();
 
   const mobile=await browser.newContext({
-    viewport:{width:390,height:844},
+    viewport:{width:320,height:844},
     userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1'
   });
   const mobilePage=await mobile.newPage();
   await mobilePage.goto(root+'/explore/',{waitUntil:'networkidle'});
-  assert.equal(await mobilePage.locator('a[href$="/editor/world/"]').count(),0);
+  // Product-local Shell links to Editor are navigation, not an actionable
+  // mobile handoff. Keep the fail-closed check scoped to Explore's own actions.
+  assert.equal(await mobilePage.locator('.explore-page .actions a[href$="/editor/world/"]').count(),0);
+  const mobileExploreMetrics=await mobilePage.locator('.explore-page').evaluate(node=>({
+    scrollWidth:node.scrollWidth,clientWidth:node.clientWidth
+  }));
+  assertNoOverflow(mobileExploreMetrics,'mobile Explore 320px');
   await mobilePage.locator('.controls input[type="search"]').fill('40000048');
   await eventually(async()=>await mobilePage.locator('.card-review').count()===1);
   await mobilePage.locator('.card-review').click();
