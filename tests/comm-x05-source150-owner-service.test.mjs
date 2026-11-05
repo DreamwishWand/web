@@ -7,7 +7,7 @@ const edge=read('supabase/functions/community-dreamsnap-owner/index.ts');
 const config=read('supabase/config.toml');
 test('Source150 additive after immutable Source149; no historic writer or public media mutation',()=>{
  const names=readdirSync(new URL('../supabase/migrations/',import.meta.url)).filter(n=>n.endsWith('.sql')).sort();
- assert.equal(names.length,164);
+ assert.equal(names.length,165);
  assert.ok(names.includes('20261102000000_community_source153_signed_session_lineage_v2.sql'));
   assert.ok(names.includes('20261102010000_community_source155_verified_first_account_bootstrap.sql'));
   assert.ok(names.includes('20261103010000_community_source156_signed_gallery_r16_atomic_writer.sql'));
@@ -19,6 +19,7 @@ test('Source150 additive after immutable Source149; no historic writer or public
  assert.ok(names.includes('20261104040000_community_source162_gallery_photo_parent_service_execute_off.sql'));
  assert.ok(names.includes('20261104050000_community_source163_help_answer_service_execute_off.sql'));
  assert.ok(names.includes('20261105010000_community_source164_reaction_add_service_execute_off.sql'));
+ assert.ok(names.includes('20261105020000_community_source165_save_entity_service_execute_off.sql'));
  assert.ok(names.includes('20261028000030_x05_authenticated_owner_service_v1.sql'));
  assert.match(sql,/'publicActivationAllowed',false/);
  assert.doesNotMatch(sql,/create (?:or replace )?function public\.community_get_public_media_storage/);

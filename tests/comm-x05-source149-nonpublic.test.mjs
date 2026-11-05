@@ -5,7 +5,7 @@ const read = p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const code=read('supabase/migrations/20261028000020_x05_nonpublic_consent_phase_revoke_controls.sql');
 test('Source149 is exactly additive after frozen Source147/148',()=>{
   const names=readdirSync(new URL('../supabase/migrations/',import.meta.url)).filter(x=>x.endsWith('.sql')).sort();
-  assert.equal(names.length,164);
+  assert.equal(names.length,165);
   assert.ok(names.includes('20261102000000_community_source153_signed_session_lineage_v2.sql'));
   assert.ok(names.includes('20261102010000_community_source155_verified_first_account_bootstrap.sql'));
   assert.ok(names.includes('20261103010000_community_source156_signed_gallery_r16_atomic_writer.sql'));
@@ -17,6 +17,7 @@ test('Source149 is exactly additive after frozen Source147/148',()=>{
  assert.ok(names.includes('20261104040000_community_source162_gallery_photo_parent_service_execute_off.sql'));
  assert.ok(names.includes('20261104050000_community_source163_help_answer_service_execute_off.sql'));
  assert.ok(names.includes('20261105010000_community_source164_reaction_add_service_execute_off.sql'));
+ assert.ok(names.includes('20261105020000_community_source165_save_entity_service_execute_off.sql'));
   assert.ok(names.includes('20261028000020_x05_nonpublic_consent_phase_revoke_controls.sql'));
 });
 test('private only - no new positive/public/Edge grants or signers',()=>{

@@ -24,7 +24,7 @@ const notes=load('docs/community/post327-remaining-writer-route-audit-20261103.m
 test('fix Source155 and Source156 at independently accepted PR327 SQL/Edge blobs',()=>{
  assert.equal(gitBlob(source155),'115f2c0f7224984acd8830cfc606af8c6a1bf3af');
  assert.equal(gitBlob(source156),'3000d66c193b996e4ece785deaf5180955ec3bc6');
- assert.equal(gitBlob(edge),'f86a4f3c12bf80d7df8cda0effcb575182bafc7a');
+ assert.equal(gitBlob(edge),'e1600d057d7d401b57819ffadb4a2d515e3ec8b5');
  assert.match(source156,/for share;/);
  assert.match(source156,/community_authorize_signed_session_v2/);
  assert.match(source156,/revoke all on function public\.community_set_gallery_comments_enabled_atomic_r16/);
@@ -197,4 +197,15 @@ test('Source164 legacy addReaction only direct SQL OFF with signed 401 first',()
  assert.match(source164,/community_set_gallery_comments_enabled_atomic_signed_v1/);
  assert.match(source164,/community_get_ddv_profile_workspaces_v1/);
  assert.match(edge,/removeReaction: 'community_remove_reaction'/);
+});
+
+const source165=load('supabase/migrations/20261105020000_community_source165_save_entity_service_execute_off.sql');
+test('Source165 only saveEntity effective three-role SQL deny, signed 401 before 409',()=>{
+ assert.match(edge,/SOURCE165_SAVE_ENTITY_WRITER_NOT_ENROLLED/);
+ assert.match(source165,/revoke all on function public\.community_save_entity/);
+ assert.match(source165,/from public,anon,authenticated,service_role/);
+ assert.doesNotMatch(source165,/grant execute on function public\.community_save_entity/i);
+ assert.match(source165,/community_set_gallery_comments_enabled_atomic_signed_v1/);
+ assert.match(source165,/community_get_ddv_profile_workspaces_v1/);
+ assert.doesNotMatch(source165,/community_unsave_entity/);
 });
