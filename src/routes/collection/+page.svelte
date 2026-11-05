@@ -10,6 +10,9 @@
     stage1ScopeRecords, groupStage1CategoryResults, groupStage1UniverseResults
   } from '$lib/collection/stage1-root.mjs';
   import ResponsiveFrame from '$lib/ui/ResponsiveFrame.svelte';
+  import LocalItemThumb from '$lib/ui/LocalItemThumb.svelte';
+  import LocalR39PreviewControls from '$lib/ui/LocalR39PreviewControls.svelte';
+  import { localImageState } from '$lib/ui/local-r39-item-image.mjs';
   import { sharedEntityHref } from '$lib/entity/shared-catalog-detail.mjs';
 
   let runtimeIndex: any = null;
@@ -86,6 +89,7 @@
     <header class="collection-heading">
       <h1>{copy.title}</h1>
     </header>
+    <LocalR39PreviewControls />
     {#if loading}
       <p class="state-panel" role="status" aria-live="polite">{copy.loading}</p>
     {:else if error}
@@ -166,10 +170,10 @@
             {#each searchGroups as group (group.id)}
               <section class="item-section" data-result-category={group.id}>
                 <h3>{label(group.id,$locale)}</h3>
-                <div class="item-grid">
+                <div class="item-grid" class:local-compact={$localImageState.preferences.density==='compact'}>
                   {#each group.items.slice(0,pageLimit) as item (item.itemId)}
                     <button type="button" class="item-card" on:click={()=>selectInfo(item.itemId)}>
-                      <span class="item-icon" aria-hidden="true">◇</span><span>{item.label}</span>
+                      <LocalItemThumb itemId={item.itemId} label={item.label} /><span>{item.label}</span>
                     </button>
                   {/each}
                 </div>
@@ -185,10 +189,10 @@
             {#each browseGroups as group (group.id)}
               <section class="item-section" data-universe-group={group.id || 'unscoped'}>
                 {#if group.id}<h3>{universeLabel(group.id,$locale)}</h3>{/if}
-                <div class="item-grid">
+                <div class="item-grid" class:local-compact={$localImageState.preferences.density==='compact'}>
                   {#each group.items.slice(0,pageLimit) as item (item.itemId)}
                     <button type="button" class="item-card" on:click={()=>selectInfo(item.itemId)}>
-                      <span class="item-icon" aria-hidden="true">◇</span><span>{item.label}</span>
+                      <LocalItemThumb itemId={item.itemId} label={item.label} /><span>{item.label}</span>
                     </button>
                   {/each}
                 </div>
@@ -202,6 +206,7 @@
         {/if}
         {#if info}
           <aside class="collection-info" data-stage1-item-info aria-label={info.label}>
+            <LocalItemThumb itemId={info.itemId} label={info.label} />
             <div><p class="eyebrow">{ui.categories} · {label(info.family,$locale)}</p><h3>{info.label}</h3><p>{copy.itemId} {info.itemId}</p>
               <p>{ui.unknown}</p></div>
             <div class="info-actions">
@@ -224,4 +229,6 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(-
 @media(max-width:820px){.collection-toolbar{grid-template-columns:1fr auto}.search-field{grid-column:1/-1}.category-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.filter-panel{grid-template-columns:1fr}.item-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:540px){.collection-stage1{padding:24px 0 65px}.collection-toolbar{grid-template-columns:1fr}.category-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.category-card{padding:10px;min-height:178px}.category-art{height:70px}.item-grid{grid-template-columns:1fr}.collection-info{flex-direction:column}}
 @media(max-width:360px){.category-card{min-height:165px}.category-art{height:60px}.category-name{font-size:12px}}
+
+.item-grid.local-compact{gap:5px}.item-grid.local-compact .item-card{min-height:56px;padding:7px}
 </style>
