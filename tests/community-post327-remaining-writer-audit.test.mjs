@@ -24,7 +24,7 @@ const notes=load('docs/community/post327-remaining-writer-route-audit-20261103.m
 test('fix Source155 and Source156 at independently accepted PR327 SQL/Edge blobs',()=>{
  assert.equal(gitBlob(source155),'115f2c0f7224984acd8830cfc606af8c6a1bf3af');
  assert.equal(gitBlob(source156),'3000d66c193b996e4ece785deaf5180955ec3bc6');
- assert.equal(gitBlob(edge),'98c766be61a13a07e11388488355641b6142f052');
+ assert.equal(gitBlob(edge),'9ca987a78e4513d59bbe898e902bd63cd7c114b8');
  assert.match(source156,/for share;/);
  assert.match(source156,/community_authorize_signed_session_v2/);
  assert.match(source156,/revoke all on function public\.community_set_gallery_comments_enabled_atomic_r16/);
@@ -233,4 +233,19 @@ test('Source167 removeReaction only: deny external service SQL, preserve earlier
  assert.match(source167,/community_add_reaction/);
  assert.match(source167,/community_set_gallery_comments_enabled_atomic_signed_v1/);
  assert.match(source167,/community_get_ddv_profile_workspaces_v1/);
+});
+
+const source168=load('supabase/migrations/20261106010000_community_source168_unfollow_creator_service_execute_off.sql');
+test('Source168 unfollowCreator only: old SQL EXECUTE off and prior grants preserved',()=>{
+ assert.match(edge,/SOURCE168_UNFOLLOW_CREATOR_WRITER_NOT_ENROLLED/);
+ assert.match(source168,/revoke all on function public\.community_unfollow_creator/);
+ assert.match(source168,/from public,anon,authenticated,service_role/);
+ assert.doesNotMatch(source168,/grant execute on function public\.community_unfollow_creator/i);
+ assert.match(source168,/community_follow_creator/);
+ assert.match(source168,/community_add_reaction/);
+ assert.match(source168,/community_save_entity/);
+ assert.match(source168,/community_unsave_entity/);
+ assert.match(source168,/community_remove_reaction/);
+ assert.match(source168,/community_set_gallery_comments_enabled_atomic_signed_v1/);
+ assert.match(source168,/community_get_ddv_profile_workspaces_v1/);
 });
