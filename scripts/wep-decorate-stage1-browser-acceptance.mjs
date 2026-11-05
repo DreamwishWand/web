@@ -387,8 +387,19 @@ try{
     runtimeAcceptance:'CLOSED_PASS'
   });
 
+  // The accepted Product-local shell deliberately hides the desktop locale
+  // control in immersive World Editor. Use the visible Settings entry point,
+  // rather than force-clicking or directly mutating the locale store.
   const locales=['en','fr','it','de','es-ES','ja','zh-CN','pt-BR'];
-  const localeSelect=page.locator('#site-locale');
+  const shell=page.locator('[data-shared-app-shell][data-shell-presentation="immersive"]');
+  await shell.waitFor();
+  assert.equal(await page.locator('#site-locale').isVisible(),false);
+  const openSettings=shell.locator('button.immersive-settings');
+  assert.equal(await openSettings.isVisible(),true);
+  await openSettings.focus();
+  await page.keyboard.press('Enter');
+  const localeSelect=page.locator('#site-locale-mobile');
+  await localeSelect.waitFor({state:'visible'});
   const changeCount=await review.locator('[data-wep-stage1-change]').count();
   for(const locale of locales){
     await localeSelect.selectOption(locale);
@@ -398,7 +409,9 @@ try{
     assertNoOverflow(metrics,'stage1 '+locale);
   }
   await localeSelect.selectOption('en');
-  pass('LAUNCH_LOCALE_STATE_AND_LAYOUT_INVARIANCE',{locales:locales.length});
+  await page.keyboard.press('Escape');
+  await localeSelect.waitFor({state:'hidden'});
+  pass('LAUNCH_LOCALE_STATE_AND_LAYOUT_INVARIANCE',{locales:locales.length,via:'immersive-settings-keyboard'});
 
   // Exact ordinary Furniture ADD remains bound to its accepted verified-export path.
   await page.goto(root+'/explore/',{waitUntil:'networkidle'});
