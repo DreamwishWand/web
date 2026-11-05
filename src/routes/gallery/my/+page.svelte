@@ -38,7 +38,7 @@
   }
 </script>
 
-<svelte:head><title>{t('gallery.my.title', {}, $locale)} | Dreamwish Wand</title></svelte:head>
+<svelte:head><title>{t('gallery.my.title', {}, $locale)} | Dreamwish Wand</title><meta name="robots" content="noindex,nofollow" /></svelte:head>
 <section class="inside-page container">
   <a class="inline-link" href={`${base}/gallery/`}>← {t('gallery.title', {}, $locale)}</a>
   <h1>{t('gallery.my.title', {}, $locale)}</h1>
