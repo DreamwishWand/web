@@ -75,7 +75,9 @@ const plainAreaSubtree = root => {
       if(array && (!canonical(key)||Number(key)>=current.length))
         return false;
       const value=desc.value;
-      if(value!==null && typeof value==='object'){
+      if(value===null){
+        continue;
+      } else if(typeof value==='object'){
         queue.push(value);
       } else if(typeof value==='number'){
         if(!Number.isFinite(value))return false;
