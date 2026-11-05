@@ -24,6 +24,17 @@ const record = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const intId = v => Number.isSafeInteger(v) && v >= 0;
 const canonical = k => /^(0|[1-9]\d*)$/.test(k) && Number.isSafeInteger(Number(k));
 const sha = v => typeof v === 'string' && /^[a-f0-9]{64}$/i.test(v);
+// Reading array.length is not inert for a Proxy-to-array. The native own
+// descriptor read is bounded, and does not invoke a user-supplied get('length')
+// trap. This is still only a synthetic Source reader, never a P1G authenticator.
+const arrayLength = (value,limit) => {
+  if(!Array.isArray(value))return null;
+  const descriptor=Object.getOwnPropertyDescriptor(value,'length');
+  return descriptor && Object.hasOwn(descriptor,'value') &&
+    descriptor.enumerable===false && descriptor.configurable===false &&
+    Number.isSafeInteger(descriptor.value) &&
+    descriptor.value>=0 && descriptor.value<=limit ? descriptor.value : null;
+};
 const sourceRefusal = reason => freeze({
   contract: W1_SCENE_AREA_REFERENCE_CONTRACT,
   status: 'SOURCE_STRUCTURE_REJECTED',
@@ -41,112 +52,203 @@ const sourceRefusal = reason => freeze({
   automatic2126RepairAuthorized: false
 });
 
+// A clone alone is unsafe: structuredClone invokes enumerable getters on
+// ordinary nested objects before deciding whether a value is cloneable.
+// Traverse *all* own descriptors of the selected Areas subtree without reading
+// their properties, and reject accessors, unsupported JSON shapes and cycles.
+// The bounded walk is NOT an authentication oracle for original P1G bytes.
+// Exotic Proxy ownKeys may lie here but structuredClone later rejects Proxy.
+const plainAreaSubtree = root => {
+  const queue=[root],seen=new WeakSet();
+  let nodes=0,fields=0;
+  while(queue.length){
+    const current=queue.pop();
+    if(!record(current) && !Array.isArray(current))return false;
+    if(seen.has(current)||++nodes>16000)return false;
+    seen.add(current);
+    const array=Array.isArray(current);
+    const safeLength=array?arrayLength(current,10000):null;
+    if(array && safeLength===null)return false;
+    const prototype=Object.getPrototypeOf(current);
+    if(prototype!==(array?Array.prototype:Object.prototype) && prototype!==null)
+      return false;
+    const keys=Reflect.ownKeys(current);
+    if(fields+keys.length>40000)return false;
+    fields+=keys.length;
+    for(const key of keys){
+      if(typeof key!=='string')return false;
+      const desc=Object.getOwnPropertyDescriptor(current,key);
+      if(!desc||!Object.hasOwn(desc,'value'))return false;
+      if(array && key==='length'){
+        if(desc.enumerable || !Number.isSafeInteger(desc.value) ||
+           desc.value<0||desc.value>10000)return false;
+        continue;
+      }
+      if(!desc.enumerable)return false;
+      if(array && (!canonical(key)||Number(key)>=safeLength))
+        return false;
+      const value=desc.value;
+      if(value===null){
+        continue;
+      } else if(typeof value==='object'){
+        queue.push(value);
+      } else if(typeof value==='number'){
+        if(!Number.isFinite(value))return false;
+      } else if(typeof value!=='string' && typeof value!=='boolean'){
+        return false;
+      }
+    }
+  }
+  return true;
+};
+
+// A Source inspector can receive untrusted JS caller objects, not only JSON.parse.
+// One own, enumerable data descriptor per field prevents inherited metadata,
+// getter-side time-of-check/time-of-use and hidden variant promotion.
+const ownData = (obj,key) => {
+  if(!record(obj) && !Array.isArray(obj))return null;
+  const descriptor=Object.getOwnPropertyDescriptor(obj,key);
+  return descriptor && descriptor.enumerable &&
+    Object.hasOwn(descriptor,'value') ? descriptor : null;
+};
+
 /**
  * Requires already-opened original-source JSON, not UI cursors.
- * SourceContext {platform, gameVersion, bid, schema, sourceSha256,
- * sourceRevision} is checked for consistency only. No signature,
- * original P1G hash or Core-minted revision is verified here.
- *
- * Exact save source container refs are checked, but no game Native geometry,
- * default GridData, occupied Tree anchors or item quota are calculated.
+ * External BID/SHA/Revision strings are UNTRUSTED hints, not a Rust-issued
+ * source identity or CAS. Snapshot all source values once from own JSON-style
+ * data descriptors; rejection on unsupported proxy/accessor/hidden shapes.
  */
 export function inspectW1SceneAreaReferences(profile, sourceContext) {
-  if(!record(profile)||!record(profile.GameInfo)||!record(profile.World)||
-     !record(sourceContext))return sourceRefusal('PROFILE_OR_CONTEXT_MISSING');
-  if(profile.GameInfo.Version !== W1_SCENE_AREA_SOURCE.schema ||
-     Object.entries(W1_SCENE_AREA_SOURCE).some(([k, v]) =>
-       ['platform','gameVersion','bid','schema'].includes(k) && sourceContext[k] !== v))
-    return sourceRefusal('EXACT_EXTERNAL_VERSION_BID_SCHEMA_REQUIRED');
-  if(!sha(sourceContext.sourceSha256) ||
-     typeof sourceContext.sourceRevision !== 'string' ||
-     !sourceContext.sourceRevision)
-    return sourceRefusal('SOURCE_PROVENANCE_REFERENCE_REQUIRED');
+  try {
+    const gameInfo=ownData(profile,'GameInfo')?.value;
+    const world=ownData(profile,'World')?.value;
+    if(!record(gameInfo)||!record(world)||!record(sourceContext))
+      return sourceRefusal('PROFILE_OR_CONTEXT_MISSING');
+    if(ownData(gameInfo,'Version')?.value!==W1_SCENE_AREA_SOURCE.schema ||
+       Object.entries(W1_SCENE_AREA_SOURCE).some(([k,v])=>
+         ['platform','gameVersion','bid','schema'].includes(k) &&
+         ownData(sourceContext,k)?.value!==v))
+      return sourceRefusal('EXACT_EXTERNAL_VERSION_BID_SCHEMA_REQUIRED');
+    const sourceSha=ownData(sourceContext,'sourceSha256')?.value;
+    const sourceRevision=ownData(sourceContext,'sourceRevision')?.value;
+    if(!sha(sourceSha)||typeof sourceRevision!=='string'||!sourceRevision)
+      return sourceRefusal('SOURCE_PROVENANCE_REFERENCE_REQUIRED');
 
-  const villages = profile.World.Villages;
-  const collection = profile.World.GridCollection;
-  if(!Array.isArray(villages) || villages.length === 0 || villages.length > 64 ||
-     !record(collection) || !record(collection.Grids) || !record(collection.DiffGrids))
-    return sourceRefusal('VILLAGE_ARRAY_OR_GRID_COLLECTION_INVALID');
+    const villages=ownData(world,'Villages')?.value;
+    const collection=ownData(world,'GridCollection')?.value;
+    const grids=ownData(collection,'Grids')?.value;
+    const diffGrids=ownData(collection,'DiffGrids')?.value;
+    const villageCount=arrayLength(villages,64);
+    if(villageCount===null||villageCount===0||
+       !record(grids)||!record(diffGrids))
+      return sourceRefusal('VILLAGE_ARRAY_OR_GRID_COLLECTION_INVALID');
 
-  // The Native Scene ID is from independently accepted original RomFS/Scene,
-  // not a user-selected village or the array position.
-  const matches = [];
-  for(let i=0; i<villages.length; i++){
-    const village=villages[i];
-    if(!record(village) || !intId(village.SceneItemId))
-      return sourceRefusal('SCENE_ITEM_ID_INVALID');
-    if(village.SceneItemId===W1_SCENE_AREA_SOURCE.originalNativeVillageSceneId)
-      matches.push([i,village]);
-  }
-  if(matches.length!==1)
-    return sourceRefusal(matches.length?'SCENE_ID_NOT_UNIQUE':'SCENE_ID_NOT_FOUND');
-
-  const [villageIndex, village] = matches[0];
-  if(!record(village.Areas) || Object.keys(village.Areas).length===0 ||
-     Object.keys(village.Areas).length>512)
-    return sourceRefusal('SCENE_AREAS_INVALID_OR_EXCESSIVE');
-
-  let totalGridRefs=0;
-  const candidates=[];
-  for(const [areaKey, area] of Object.entries(village.Areas)){
-    if(!canonical(areaKey)||!record(area)||
-       typeof area.Unlocked !== 'boolean'||
-       !Array.isArray(area.GridIDs)||area.GridIDs.length>2048)
-      return sourceRefusal('AREA_KEY_UNLOCK_OR_GRIDIDS_INVALID');
-    const seen=new Set();
-    const refs=[];
-    for(const gridId of area.GridIDs){
-      if(!intId(gridId)||seen.has(gridId))
-        return sourceRefusal('GRID_ID_INVALID_OR_DUPLICATED_WITHIN_AREA');
-      seen.add(gridId);
-      if(++totalGridRefs>10000)return sourceRefusal('SOURCE_GRID_REFERENCE_BUDGET_EXCEEDED');
-      const key=String(gridId);
-      const regular=Object.hasOwn(collection.Grids,key);
-      const diff=Object.hasOwn(collection.DiffGrids,key);
-      if(!regular&&!diff)return sourceRefusal('SOURCE_GRID_REFERENCE_MISSING');
-      // A paired Grids/DiffGrids entry has two independent source ID
-      // witnesses. Do not hide a corrupt DiffGrid behind a valid Grid.
-      if((regular && (!record(collection.Grids[key]) || collection.Grids[key].ID!==gridId)) ||
-         (diff && (!record(collection.DiffGrids[key]) || collection.DiffGrids[key].ID!==gridId)))
-        return sourceRefusal('SOURCE_GRID_MAP_ID_MISMATCH');
-      refs.push(freeze({gridId,sourceKind:regular&&diff?'GRIDS_AND_DIFF_UNRESOLVED':
-        regular?'GRIDS_ONLY':'DIFF_ONLY_DEFAULT_UNRESOLVED',
-        effectiveGridVerified:false}));
+    // A scene may be matched only by its own serialized SceneItemId, never a
+    // getter read twice or an inherited ID. The index isn't a Native Area ID.
+    const matches=[];
+    for(let i=0;i<villageCount;i++){
+      const village=ownData(villages,String(i))?.value;
+      const sceneId=ownData(village,'SceneItemId')?.value;
+      if(!record(village)||!intId(sceneId))
+        return sourceRefusal('SCENE_ITEM_ID_INVALID');
+      if(sceneId===W1_SCENE_AREA_SOURCE.originalNativeVillageSceneId)
+        matches.push([i,village]);
     }
-    candidates.push(freeze({
-      saveAreaKey:areaKey,
-      // Unlocked is a *saved boolean*, not proof that Native progression,
-      // Quest, scene restriction and GetGridsFromScene will accept this area.
-      savedUnlockedRaw:area.Unlocked,
-      sourceGridRefs:freeze(refs),
-      nativeWetlandMembershipVerified:false,
+    if(matches.length!==1)
+      return sourceRefusal(matches.length?'SCENE_ID_NOT_UNIQUE':'SCENE_ID_NOT_FOUND');
+
+    const [villageIndex,village]=matches[0];
+    const areas=ownData(village,'Areas')?.value;
+    if(!record(areas))return sourceRefusal('SCENE_AREAS_INVALID_OR_EXCESSIVE');
+    const areaKeys=Reflect.ownKeys(areas);
+    if(areaKeys.length===0||areaKeys.length>512||
+       areaKeys.some(key=>typeof key!=='string'))
+      return sourceRefusal('SCENE_AREAS_INVALID_OR_EXCESSIVE');
+
+    const candidates=[];
+    let totalGridRefs=0;
+    for(const areaKey of areaKeys){
+      const area=ownData(areas,areaKey)?.value;
+      const savedUnlocked=ownData(area,'Unlocked')?.value;
+      const gridIDs=ownData(area,'GridIDs')?.value;
+      const gridCount=arrayLength(gridIDs,2048);
+      if(!canonical(areaKey)||!record(area)||typeof savedUnlocked!=='boolean'||
+         gridCount===null)
+        return sourceRefusal('AREA_KEY_UNLOCK_OR_GRIDIDS_INVALID');
+      const seen=new Set(),refs=[];
+      for(let i=0;i<gridCount;i++){
+        const gridId=ownData(gridIDs,String(i))?.value;
+        if(!intId(gridId)||seen.has(gridId))
+          return sourceRefusal('GRID_ID_INVALID_OR_DUPLICATED_WITHIN_AREA');
+        seen.add(gridId);
+        if(++totalGridRefs>10000)
+          return sourceRefusal('SOURCE_GRID_REFERENCE_BUDGET_EXCEEDED');
+
+        const key=String(gridId);
+        const regularDesc=Object.getOwnPropertyDescriptor(grids,key);
+        const diffDesc=Object.getOwnPropertyDescriptor(diffGrids,key);
+        const regular=regularDesc!==undefined;
+        const diff=diffDesc!==undefined;
+        if(!regular&&!diff)return sourceRefusal('SOURCE_GRID_REFERENCE_MISSING');
+        // Validate each map's own *data* ID independently. A good Grids entry
+        // cannot mask a stale DiffGrids entry with the same map key.
+        const regularRow=regular?ownData(grids,key)?.value:null;
+        const diffRow=diff?ownData(diffGrids,key)?.value:null;
+        if((regular&&(!record(regularRow)||ownData(regularRow,'ID')?.value!==gridId))||
+           (diff&&(!record(diffRow)||ownData(diffRow,'ID')?.value!==gridId)))
+          return sourceRefusal('SOURCE_GRID_MAP_ID_MISMATCH');
+        refs.push(freeze({
+          gridId,sourceKind:regular&&diff?'GRIDS_AND_DIFF_UNRESOLVED':
+            regular?'GRIDS_ONLY':'DIFF_ONLY_DEFAULT_UNRESOLVED',
+          effectiveGridVerified:false
+        }));
+      }
+      candidates.push(freeze({
+        saveAreaKey:areaKey,savedUnlockedRaw:savedUnlocked,
+        sourceGridRefs:freeze(refs),
+        nativeWetlandMembershipVerified:false,
+        nativeTreeEligibilityVerified:false,
+        nativeSoftwoodQuotaVerified:false
+      }));
+    }
+    // Own-key/descriptor checks alone cannot distinguish a plain parsed
+    // Areas map from a standards-conforming Proxy that conceals or invents
+    // configurable keys. structuredClone rejects Proxy exotic objects.
+    // Clone ONLY the selected Village's Areas subtree, never the whole Save,
+    // and fail closed if this local check is unsupported or uncloneable.
+    // This does not authenticate the original encrypted P1G or Rust CAS.
+    if(typeof structuredClone!=='function' || !plainAreaSubtree(areas))
+      return sourceRefusal('SOURCE_AREA_PLAIN_SNAPSHOT_REQUIRED');
+    try {
+      structuredClone(areas);
+    } catch {
+      return sourceRefusal('SOURCE_AREA_PLAIN_SNAPSHOT_REQUIRED');
+    }
+    candidates.sort((a,b)=>Number(a.saveAreaKey)-Number(b.saveAreaKey));
+    return freeze({
+      contract:W1_SCENE_AREA_REFERENCE_CONTRACT,
+      status:'SAVED_SCENE_AREA_REFERENCES_SOURCE_ONLY',
+      sceneId:W1_SCENE_AREA_SOURCE.originalNativeVillageSceneId,
+      villageIndex,sceneMatchCount:1,
+      sourceCandidates:freeze(candidates),
+      nativeWetlandAreaEnum:W1_SCENE_AREA_SOURCE.nativeWetlandAreaEnum,
+      selectedNativeWetlandAreaKey:null,
+      actualWetlandAreaVerified:false,
+      nativeEffectiveGridVerified:false,
       nativeTreeEligibilityVerified:false,
-      nativeSoftwoodQuotaVerified:false
-    }));
+      nativeSoftwoodQuotaVerified:false,
+      nativeClockLastNextVerified:false,
+      nativeProducerConsumerVerified:false,
+      sourceSceneReferenceMatched:true,
+      inputAuthenticatedByThisReader:false,
+      sourceRevisionCasVerified:false,
+      productWriterAuthorized:false,
+      productEditedCopyAuthorized:false,
+      originalOverwriteAuthorized:false,
+      automatic2126RepairAuthorized:false
+    });
+  } catch {
+    // Revoked Proxy/descriptor traps cannot supply a trusted Source witness.
+    return sourceRefusal('SOURCE_OBJECT_DESCRIPTOR_UNSAFE');
   }
-  candidates.sort((a,b)=>Number(a.saveAreaKey)-Number(b.saveAreaKey));
-  return freeze({
-    contract:W1_SCENE_AREA_REFERENCE_CONTRACT,
-    status:'SAVED_SCENE_AREA_REFERENCES_SOURCE_ONLY',
-    sceneId:W1_SCENE_AREA_SOURCE.originalNativeVillageSceneId,
-    villageIndex,sceneMatchCount:1,
-    sourceCandidates:freeze(candidates),
-    // The source Native VillageAreaType.Wetland=1 is NOT proved equal to
-    // any saved Areas key, even if the string "1" happens to be present.
-    nativeWetlandAreaEnum:W1_SCENE_AREA_SOURCE.nativeWetlandAreaEnum,
-    selectedNativeWetlandAreaKey:null,
-    actualWetlandAreaVerified:false,
-    nativeEffectiveGridVerified:false,
-    nativeTreeEligibilityVerified:false,
-    nativeSoftwoodQuotaVerified:false,
-    nativeClockLastNextVerified:false,
-    nativeProducerConsumerVerified:false,
-    sourceSceneReferenceMatched:true,
-    inputAuthenticatedByThisReader:false,
-    sourceRevisionCasVerified:false,
-    productWriterAuthorized:false,
-    productEditedCopyAuthorized:false,
-    originalOverwriteAuthorized:false,
-    automatic2126RepairAuthorized:false
-  });
 }
