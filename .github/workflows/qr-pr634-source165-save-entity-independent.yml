@@ -1,0 +1,76 @@
+name: 04 QR-S Source165 independent genuine ES256 two PG Save Entity OFF
+on:
+  push:
+    branches: [qa/pr634-source165-save-entity-independent-20261106]
+  pull_request:
+    branches: [comm/w-comm-006-source165-save-entity-only-off-20261106]
+permissions:
+  contents: read
+jobs:
+  qr-source165:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, persist-credentials: false}
+      - name: Pin exact Source165 ancestor and QA-only two-file delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=a567ada4411ea2e974a8dc14f30ec22164b9c435
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git diff --name-only "$SOURCE" HEAD | sort > /tmp/qr165-actual
+          printf '%s\n' .github/workflows/qr-pr634-source165-save-entity-independent.yml tests/qr-pr634-source165-save-entity-independent.py | sort > /tmp/qr165-expected
+          diff -u /tmp/qr165-expected /tmp/qr165-actual
+          test -z "$(git diff --name-only "$SOURCE" HEAD -- supabase src docs static)"
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 165
+          test "$(git hash-object supabase/migrations/20261104050000_community_source163_help_answer_service_execute_off.sql)" = c02bf514abf51951c19e05f8ca7ef7383f071c70
+          test "$(git hash-object supabase/migrations/20261105010000_community_source164_reaction_add_service_execute_off.sql)" = 8a272688b3f85e999e43cb772736dba6bc305606
+          test "$(git hash-object supabase/migrations/20261105020000_community_source165_save_entity_service_execute_off.sql)" = 7412435be16b73e97da46a8c387a2a116b7f5a6c
+          test "$(git hash-object supabase/functions/community-command/index.ts)" = e1600d057d7d401b57819ffadb4a2d515e3ec8b5
+          python3 -m py_compile tests/qr-pr634-source165-save-entity-independent.py
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID"
+          echo QR165_SOURCE_SHA_AND_QA_ONLY_TWO_FILE_PASS
+      - uses: supabase/setup-cli@v1
+        with: {version: 2.109.0}
+      - name: Genuine disposable GoTrue ES256 full165 migration reset
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\n[auth]\nsigning_keys_path = "./signing_keys.json"\n' >> supabase/config.toml
+          printf '[]\n' > supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes >/tmp/qr165-signer.log 2>&1
+          printf 'project_id = "ddvre_qr165_save_independent_20261106"\n' | cat - supabase/config.toml >/tmp/qr165-config
+          mv /tmp/qr165-config supabase/config.toml
+          printf 'COMMUNITY_MEDIA_BUCKET=qr165-only-local\nWEP_PRESET_ARTIFACT_BUCKET=qr165-only-local\n' > supabase/functions/.env
+          timeout 1800s supabase start >/tmp/qr165-start.log 2>&1 || { echo QR165_LOCAL_START_NOT_RUN; tail -n 10 /tmp/qr165-start.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'; exit 1; }
+          timeout 900s supabase db reset --no-seed >/tmp/qr165-reset.log 2>&1 || { echo QR165_LOCAL_RESET_NOT_RUN; tail -n 10 /tmp/qr165-reset.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'; exit 1; }
+          echo QR165_GENUINE_ES256_FULL165_LOCAL_RESET_PASS
+      - run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Independent real A1 revoke SQL ACL and two PG rollback
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/qr-pr634-source165-save-entity-independent.py | tee /tmp/qr165-run.log
+          for m in \
+            QR165_THREE_ROLE_PUBLIC_ACL_DENIED_ANCESTOR_SIGNED_INTACT_PASS \
+            QR165_VALID_A2_409_THREE_ROLE_SQL42501_SAVED_OUTBOX_NO_DIFF_PASS \
+            QR165_REVOKED_A1_ORIGINAL_REFRESH401_A2_200_FIVE_REPLAY_NO_DIFF_PASS \
+            QR165_TWO_POSTGRES_BACKENDS_TEMP_GRANT_INVISIBLE_ROLLBACK_DENIED_PASS \
+            QR165_INDEPENDENT_SIGNED_LOCAL_SOURCE165_SAVE_ONLY_SCOPED_PASS; do
+            grep -q "$m" /tmp/qr165-run.log
+          done
+          echo QR165_INDEPENDENT_SIGNED_LOCAL_SCOPE_ONLY_NOT_MANAGED_CUMULATIVE_PASS
+      - name: Dispose local PG databases and generated signer
+        if: always()
+        shell: bash
+        run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f supabase/signing_keys.json supabase/functions/.env /tmp/qr165-*
+          echo QR165_DISPOSABLE_CLEANUP_ATTEMPTED
