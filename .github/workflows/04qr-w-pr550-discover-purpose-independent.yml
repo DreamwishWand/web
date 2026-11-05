@@ -1,0 +1,67 @@
+name: "04QR-W PR550 seven-product Discover purposes actual 8-locale independent"
+on:
+  pull_request:
+    branches: ['web/stage1-discover-orientation-20261105']
+    paths:
+      - '.github/workflows/04qr-w-pr550-discover-purpose-independent.yml'
+      - 'scripts/04qr-w-pr550-discover-purpose-chromium.mjs'
+      - 'tests/04qr-w-pr550-discover-purpose-independent.test.mjs'
+permissions:
+  contents: read
+jobs:
+  discover-purpose-source-independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Fixed Source only, seven purpose/first step and optional no Save/Account/Writer
+        run: node --test tests/04qr-w-pr550-discover-purpose-independent.test.mjs
+      - name: Chrome QA script syntax
+        run: node --check scripts/04qr-w-pr550-discover-purpose-chromium.mjs
+  discover-purpose-actual-chromium:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Real system browser binary
+        id: chrome
+        run: |
+          set -euo pipefail
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$BIN"
+          echo "path=$BIN" >> "$GITHUB_OUTPUT"
+      - name: Disposable exact localhost Discover
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4299 >/tmp/04qr-w-pr550-discover.log 2>&1 &
+          for i in $(seq 1 65); do
+            if curl --fail --silent http://127.0.0.1:4299/discover/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/04qr-w-pr550-discover.log
+          exit 1
+      - name: Actual 8-language seven purposes, first steps, two optional gates and real Help navigation
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          QR550_URL: http://127.0.0.1:4299/discover/
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          node scripts/04qr-w-pr550-discover-purpose-chromium.mjs
