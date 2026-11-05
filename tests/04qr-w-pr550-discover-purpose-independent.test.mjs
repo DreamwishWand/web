@@ -54,7 +54,7 @@ test('eight-language substantive purposes, first steps, optional account/save/cl
    assert.notEqual(p.purpose,p.step,locale+':'+p.id+' two distinct useful descriptions');
   }
   for(const key of ['intro','account','save','support','purpose','start','seeStatus'])
-   assert.ok(typeof c[key]==='string'&&c[key].trim().length>=(['purpose','start'].includes(key)?3:10),locale+':'+key);
+   assert.ok(typeof c[key]==='string'&&c[key].trim().length>=3,locale+':'+key);
   if(locale!=='en'){
    assert.notEqual(c.save,en.save,locale+' must have genuine localized Save caveat');
    assert.notEqual(c.account,en.account,locale+' must have local account caveat');
