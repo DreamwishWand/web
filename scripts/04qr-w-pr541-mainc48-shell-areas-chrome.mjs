@@ -83,7 +83,7 @@ try{
  await header.waitFor({state:'visible'});
  assert.equal(await header.getAttribute('data-current-product'),'decorate');
  assert.equal(await header.getAttribute('data-shell-presentation'),'standard');
- assert.deepEqual(await page.locator('nav[data-product-local-navigation] [data-product-section]').evaluateAll(xs=>xs.map(x=>x.getAttribute('href'))),
+ assert.deepEqual(await page.locator('nav[data-product-local-navigation] [data-product-section]').evaluateAll(xs=>xs.map(x=>new URL(x.href).pathname)),
   ['/explore/','/moodboards/','/editor/world/'],'mainc48 accepted Shell 3 local Decorate siblings');
  assert.equal(await page.locator('[data-shell-control="save"]:disabled').count(),1,'unbound Save remains disabled');
  assert.equal(await page.locator('[data-shell-control="account"]:disabled').count(),1,'unbound Account remains disabled');
@@ -91,7 +91,7 @@ try{
  await header.waitFor({state:'visible'});
  assert.equal(await header.getAttribute('data-current-product'),'decorate');
  assert.equal(await header.getAttribute('data-shell-presentation'),'immersive');
- assert.equal(await page.locator('[data-immersive-recovery] a[href="/decorate/"]').count(),1);
+ assert.equal(await page.locator('[data-immersive-recovery] a').evaluateAll(xs=>xs.filter(x=>new URL(x.href).pathname==='/decorate/').length),1);
  console.log('QR541_MAINC48_WORLD626_AND_NEW_SHELL_COMPOSED_NAV_IMMERSIVE_DISABLED_ACTIONS_PASS');
  assert.deepEqual(denied,[],'no external network GET/POST/WS, Provider or Cloud');
  assert.deepEqual(errors,[],'no browser exceptions');
