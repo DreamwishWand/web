@@ -139,3 +139,198 @@ test('source evidence cannot be promoted using caller fake Native/Writer/Clock f
   assert.equal(r.automatic2126RepairAuthorized,false);
   assert.equal(W1_SCENE_AREA_SOURCE.sourceEventId,2010000021);
 });
+
+
+test('a changing SceneItemId getter may not impersonate Village04',()=>{
+  // Change the ORIGINAL target Village04, so the old parent getter path
+  // falsely accepts this same Village without a duplicate-target guard.
+  const p=fixture(),v=p.World.Villages[0];
+  let hits=0;
+  Object.defineProperty(v,'SceneItemId',{enumerable:true,configurable:true,
+    get(){return ++hits===1?1540000001:1540000000;}});
+  const result=inspect(p);
+  denies(result);
+  assert.equal(hits,0,'never execute untrusted SceneItemId getter');
+});
+test('serialized references reject inherited fields, mutable GridIDs and hidden area',()=>{
+  const cases=[
+    p=>{const v=p.World.Villages[0];
+      v.SceneItemId=undefined;Object.setPrototypeOf(v,{SceneItemId:1540000000});delete v.SceneItemId;},
+    p=>{const a=p.World.Villages[0].Areas['1'];let hits=0;
+      Object.defineProperty(a,'GridIDs',{enumerable:true,
+        get(){return ++hits===1?[100]:[999];}});},
+    p=>{const grid=p.World.GridCollection.Grids['100'];
+      delete grid.ID;Object.setPrototypeOf(grid,{ID:100});},
+    p=>{Object.defineProperty(p.World.Villages[0].Areas,'8',{
+      enumerable:false,value:{Unlocked:true,GridIDs:[100]}});}
+  ];
+  for(const edit of cases){const p=fixture();edit(p);denies(inspect(p));}
+});
+test('own map/grid ID getters and alternate hidden keys never mint a reference',()=>{
+  const p=fixture(),g=p.World.GridCollection.Grids['100'];
+  let reads=0;
+  Object.defineProperty(g,'ID',{enumerable:true,
+    get(){return ++reads===1?100:999;}});
+  const result=inspect(p);denies(result);
+  assert.equal(reads,0);
+  const q=fixture();
+  Object.defineProperty(q.World.Villages[0].Areas,Symbol('hidden'),{
+    value:{Unlocked:true,GridIDs:[100]},enumerable:false
+  });
+  denies(inspect(q));
+});
+test('plain own JSON data remains read-only and preserves paired map distinction',()=>{
+  const p=fixture();
+  p.World.GridCollection.DiffGrids['100']={ID:100,ModifiedObjects:{},RemovedObjects:{}};
+  const before=JSON.stringify(p);
+  const r=inspect(p);
+  assert.equal(r.status,'SAVED_SCENE_AREA_REFERENCES_SOURCE_ONLY');
+  assert.equal(r.sourceCandidates.find(a=>a.saveAreaKey==='1').sourceGridRefs[0].sourceKind,
+    'GRIDS_AND_DIFF_UNRESOLVED');
+  assert.equal(r.nativeWetlandAreaEnum,1);
+  assert.equal(r.selectedNativeWetlandAreaKey,null);
+  assert.equal(r.productWriterAuthorized,false);
+  assert.equal(JSON.stringify(p),before);
+});
+
+
+test('Proxy ownKeys hiding real serialized Area must not yield partial positive reference',()=>{
+  const p=fixture(),actual=p.World.Villages[0].Areas;
+  actual['8']={Unlocked:true,GridIDs:[100]};
+  p.World.Villages[0].Areas=new Proxy(actual,{
+    ownKeys(){return ['0','1','7'];}
+  });
+  const result=inspect(p);
+  denies(result);
+  assert.equal(result.reason,'SOURCE_AREA_PLAIN_SNAPSHOT_REQUIRED');
+});
+test('Proxy ownKeys/descriptor cannot fabricate absent serialized Area record',()=>{
+  const p=fixture();
+  p.World.Villages[0].Areas=new Proxy({},{
+    ownKeys(){return ['1'];},
+    getOwnPropertyDescriptor(_target,key){
+      if(key==='1')return {configurable:true,enumerable:true,writable:true,
+        value:{Unlocked:true,GridIDs:[100]}};
+    }
+  });
+  const result=inspect(p);
+  denies(result);
+  assert.equal(result.reason,'SOURCE_AREA_PLAIN_SNAPSHOT_REQUIRED');
+});
+test('plain JSON Areas snapshots retain complete canonical read-only candidates',()=>{
+  const p=fixture(),before=JSON.stringify(p);
+  const result=inspect(p);
+  assert.equal(result.status,'SAVED_SCENE_AREA_REFERENCES_SOURCE_ONLY');
+  assert.deepEqual(result.sourceCandidates.map(a=>a.saveAreaKey),['0','1','7']);
+  assert.equal(result.selectedNativeWetlandAreaKey,null);
+  assert.equal(result.nativeEffectiveGridVerified,false);
+  assert.equal(result.productWriterAuthorized,false);
+  assert.equal(JSON.stringify(p),before);
+});
+
+
+test('unused enumerable Area metadata getter must not execute during clone attestation',()=>{
+  const p=fixture(),area=p.World.Villages[0].Areas['1'];
+  let calls=0;
+  Object.defineProperty(area,'unusedGet',{enumerable:true,configurable:true,
+    get(){calls++;area.GridIDs[0]=999;return 42;}});
+  const r=inspect(p);
+  denies(r);
+  assert.equal(r.reason,'SOURCE_AREA_PLAIN_SNAPSHOT_REQUIRED');
+  assert.equal(calls,0);
+  assert.equal(area.GridIDs[0],100);
+});
+test('nested unused metadata accessor is rejected without mutation or getter execution',()=>{
+  const p=fixture(),area=p.World.Villages[0].Areas['1'];
+  area.opaque={metadata:{}};
+  let calls=0;
+  Object.defineProperty(area.opaque.metadata,'unstable',{enumerable:true,
+    get(){calls++;area.Unlocked=false;return 'changed';}});
+  const r=inspect(p);
+  denies(r);
+  assert.equal(r.reason,'SOURCE_AREA_PLAIN_SNAPSHOT_REQUIRED');
+  assert.equal(calls,0);
+  assert.equal(area.Unlocked,true);
+});
+test('selected Areas subtree with cycle, non-JSON symbol or excessive metadata fails closed',()=>{
+  const p=fixture();
+  p.World.Villages[0].Areas['1'].unknown={};
+  p.World.Villages[0].Areas['1'].unknown.self=
+    p.World.Villages[0].Areas['1'].unknown;
+  denies(inspect(p));
+  const q=fixture();
+  q.World.Villages[0].Areas['1'].unknown=Symbol('synthetic');
+  denies(inspect(q));
+  const large=fixture();
+  large.World.Villages[0].Areas['1'].unknown=Array(10001).fill(0);
+  denies(inspect(large));
+});
+test('additional plain JSON area metadata is accepted without native/writer promotion',()=>{
+  const p=fixture(),area=p.World.Villages[0].Areas['1'];
+  area.unknown={nested:['original',null,7,false]};
+  const before=JSON.stringify(p),r=inspect(p);
+  assert.equal(r.status,'SAVED_SCENE_AREA_REFERENCES_SOURCE_ONLY');
+  assert.equal(r.nativeEffectiveGridVerified,false);
+  assert.equal(r.productWriterAuthorized,false);
+  assert.equal(r.selectedNativeWetlandAreaKey,null);
+  assert.equal(JSON.stringify(p),before);
+});
+
+
+test('GridIDs array Proxy length getter cannot run or mutate saved Unlocked',()=>{
+  const p=fixture(),area=p.World.Villages[0].Areas['1'];
+  let lengthReads=0;
+  area.GridIDs=new Proxy([100],{
+    get(target,key,receiver){
+      if(key==='length'){lengthReads++;area.Unlocked=false;}
+      return Reflect.get(target,key,receiver);
+    }
+  });
+  const r=inspect(p);
+  denies(r);
+  assert.equal(lengthReads,0,'never call untrusted array get(length)');
+  assert.equal(area.Unlocked,true,'caller-owned saved flag stays unchanged');
+  assert.equal(r.productWriterAuthorized,false);
+});
+
+test('Villages array Proxy length getter cannot run during Source inspection',()=>{
+  const p=fixture();
+  let lengthReads=0;
+  p.World.Villages=new Proxy(p.World.Villages,{
+    get(target,key,receiver){
+      if(key==='length'){lengthReads++;p.World.GridCollection.Grids['100'].ID=999;}
+      return Reflect.get(target,key,receiver);
+    }
+  });
+  const r=inspect(p);
+  assert.equal(lengthReads,0,'never call Village-array get(length)');
+  assert.equal(p.World.GridCollection.Grids['100'].ID,100);
+  assert.equal(r.productWriterAuthorized,false);
+  assert.equal(r.inputAuthenticatedByThisReader,false);
+});
+
+test('nested selected Areas array Proxy length getter cannot execute',()=>{
+  const p=fixture(),area=p.World.Villages[0].Areas['1'];
+  let lengthReads=0;
+  area.unknown=new Proxy(['safe',null],{
+    get(target,key,receiver){
+      if(key==='length'){lengthReads++;area.GridIDs[0]=999;}
+      return Reflect.get(target,key,receiver);
+    }
+  });
+  const r=inspect(p);
+  denies(r);
+  assert.equal(lengthReads,0,'descriptor traversal must not read Proxy length');
+  assert.equal(area.GridIDs[0],100);
+});
+
+test('plain JSON arrays with null remain source-only and do not alter caller',()=>{
+  const p=fixture(),area=p.World.Villages[0].Areas['1'];
+  area.unknown={nested:[0,null,'safe',false,{further:[1,2,3]}]};
+  const before=JSON.stringify(p),r=inspect(p);
+  assert.equal(r.status,'SAVED_SCENE_AREA_REFERENCES_SOURCE_ONLY');
+  assert.equal(r.selectedNativeWetlandAreaKey,null);
+  assert.equal(r.nativeEffectiveGridVerified,false);
+  assert.equal(r.productWriterAuthorized,false);
+  assert.equal(JSON.stringify(p),before);
+});
