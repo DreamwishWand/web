@@ -1,0 +1,39 @@
+name: "04QR-W main14f deployed Pages Presets / Collection independent"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/04qr-w-main14f-live-pages-presets.mjs'
+      - '.github/workflows/04qr-w-main14f-live-pages-presets.yml'
+permissions:
+  contents: read
+jobs:
+  actual-deployed-pages-chromium:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: \${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Require system-installed real Chrome, not mock or synthetic HTML
+        shell: bash
+        run: |
+          set -euo pipefail
+          BIN="$(command -v google-chrome || command -v chromium || command -v google-chrome-stable || true)"
+          test -n "$BIN" || { echo "NOT_RUN: real Chrome not installed"; exit 1; }
+          echo "CHROME_BIN=$BIN" >> "$GITHUB_ENV"
+          "$BIN" --version
+      - name: Independent deployed Pages HTTP200, actual Chrome 4-to-2, 29 Collection, OFF gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "\${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "\${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "\${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          node scripts/04qr-w-main14f-live-pages-presets.mjs
