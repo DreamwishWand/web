@@ -190,6 +190,10 @@ def main():
     p.add_argument("--source-root",required=True,type=pathlib.Path)
     p.add_argument("--report",required=True,type=pathlib.Path)
     args=p.parse_args()
+    # Read-only original assets and manifests: reject any existing target
+    # before parsing, and use exclusive mode on final output to close races.
+    if args.report.is_symlink() or args.report.exists():
+        raise ValueError("REPORT_OUTPUT_EXISTS_NO_CLOBBER")
     root=args.source_root.resolve()
     with args.manifest.open(encoding="utf-8") as f:
         manifest=json.load(f)
@@ -224,7 +228,10 @@ def main():
     if args.report.resolve()==args.manifest.resolve():
         raise ValueError("NEVER_OVERWRITE_ORIGINAL_MANIFEST")
     args.report.parent.mkdir(parents=True,exist_ok=True)
-    args.report.write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+    # 'x' is exclusive no-clobber creation; never mutate a native input PNG
+    # or another existing report even if a concurrent process races us.
+    with args.report.open('x',encoding='utf-8') as report_file:
+        report_file.write(json.dumps(result,ensure_ascii=False,indent=2)+"\\n")
     print(json.dumps({"status":result["status"],"measuredPairs":complete,"report":str(args.report)}))
     return 0 if complete==10 else 2
 
