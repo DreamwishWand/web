@@ -1,0 +1,63 @@
+name: 04 QR PR446 independent one Typed EntityRef Item consumer 8 locale Chrome
+on:
+  push:
+    branches: [qa/pr446-typed-entity-consumer-independent-20261104]
+  pull_request:
+    branches: [web/typed-catalog-consumers-20261104]
+permissions:
+  contents: read
+jobs:
+  typed-item:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 33
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false,fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Verify exact stacked PR446 source eight files and three QA-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=ef2c0c0ef75a34099a8dd3e284396d98aabe654b
+          PARENT=db8522cc97fae5ae6aadb9b08b79d815ab224107
+          git merge-base --is-ancestor "$SRC" HEAD
+          git merge-base --is-ancestor "$PARENT" "$SRC"
+          git diff --name-only "$SRC" HEAD | sort >/tmp/qr446-qa
+          printf '%s\n' .github/workflows/qr-pr446-typed-independent.yml scripts/qr-pr446-typed-independent-chrome.mjs tests/qr-pr446-typed-reference-independent.test.mjs | sort >/tmp/qr446-expected
+          diff -u /tmp/qr446-expected /tmp/qr446-qa
+          git diff --name-only "$PARENT" "$SRC" | sort >/tmp/qr446-source
+          printf '%s\n' .github/workflows/web-typed-consumer-links.yml scripts/web-typed-consumer-chrome.mjs src/lib/entity/SharedCatalogDiscovery.svelte src/lib/entity/shared-catalog-directory.mjs src/lib/foundation/SharedTypedEntityGate.svelte src/lib/foundation/typed-entity-page-consumer.mjs tests/shared-typed-entity-boundary.test.mjs tests/web-typed-entity-consumers.test.mjs | sort >/tmp/qr446-eight
+          diff -u /tmp/qr446-eight /tmp/qr446-source
+          test "$(git hash-object src/lib/foundation/typed-entity-page-consumer.mjs)" = 14af727c3c113e0a438bd732564fc9a733c6dbaa
+          test -z "$(git diff --name-only "$SRC" HEAD -- src supabase static docs)"
+          echo QR446_EXACT_EIGHT_SOURCE_PATHS_THREE_QA_ONLY_PASS
+      - run: npm ci --no-audit --no-fund
+      - name: Independent typed Item reference and privacy strict no-source negative
+        run: node --test tests/qr-pr446-typed-reference-independent.test.mjs
+      - if: always()
+        run: npm run check
+      - if: always()
+        run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Find actual system Chromium
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Start isolated local Vite, no public host
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4218 >/tmp/qr446-vite.log 2>&1 &
+          for i in $(seq 1 70); do
+            curl -fsS http://127.0.0.1:4218/ja/40000047/ >/dev/null && exit 0
+            sleep 1
+          done
+          tail -n 30 /tmp/qr446-vite.log; exit 1
+      - name: Independent true Chromium eight locales, no positive public host or save upload
+        if: always()
+        run: node scripts/qr-pr446-typed-independent-chrome.mjs
