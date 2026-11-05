@@ -1,0 +1,39 @@
+name: "04QR-W PR562 canonical 106-to-21 independent source acceptance"
+on:
+  pull_request:
+    branches: ['web/guide-systems-canonical-106-key-bridge-20261105']
+    paths:
+      - '.github/workflows/04qr-w-pr562-guide-bridge-independent.yml'
+      - 'tests/04qr-w-pr562-guide-bridge-independent.test.mjs'
+permissions:
+  contents: read
+jobs:
+  independent-canonical-identity-and-privacy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Independent exact Source Git blobs, all 106 keys, 21 PR133 IDs and negatives
+        run: node --test tests/04qr-w-pr562-guide-bridge-independent.test.mjs
+      - name: Existing Svelte+static Pages build and no unapproved Guide detail publication
+        env:
+          BASE_PATH: /web
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          npm run check
+          npm run build
+          test -f build/index.html
+          test ! -f build/guide/systems/category/anything/index.html
+          test ! -f build/ja/entity/quest/12345/index.html
+          echo QR562_NO_UNAPPROVED_ARTICLE_OR_NEW_ROUTE_PASS
