@@ -1,0 +1,64 @@
+name: "04QR-W PR541 main14f schema626 Village Areas UNKNOWN composition"
+on:
+  pull_request:
+    branches: ['integration/schema626-village-areas-unknown-main87-20261105']
+    paths:
+      - '.github/workflows/04qr-w-pr541-main14f-626-world-collection-crossgate.yml'
+      - 'scripts/04qr-w-pr541-main14f-626-world-collection-crossgate-chrome.mjs'
+      - 'tests/04qr-w-pr541-main14f-626-world-collection-crossgate.test.mjs'
+permissions:
+  contents: read
+jobs:
+  scoped-source-provenance-and-negatives:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Frozen Source and new main disjoint, no new Writer/public rights
+        run: node --test tests/04qr-w-pr541-main14f-626-world-collection-crossgate.test.mjs
+      - run: node --check scripts/04qr-w-pr541-main14f-626-world-collection-crossgate-chrome.mjs
+  composed-actual-chromium-synthetic-626:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Require real installed Google Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || true)"
+          test -n "$BIN" || { echo "NOT_RUN: Chrome unavailable"; exit 1; }
+          "$BIN" --version
+          echo "CHROME_BIN=$BIN" >> "$GITHUB_ENV"
+      - name: Start local app with fixed Source HEAD, no private owner P1G
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4316 >/tmp/qr541-main14f.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4316/editor/world/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr541-main14f.log
+          exit 1
+      - name: Actual later-missing 626 Areas UNKNOWN vs zero and Collection/Presets Writer OFF
+        run: node scripts/04qr-w-pr541-main14f-626-world-collection-crossgate-chrome.mjs
