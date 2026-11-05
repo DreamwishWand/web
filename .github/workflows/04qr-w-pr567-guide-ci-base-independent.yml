@@ -1,0 +1,32 @@
+name: "04QR-W PR567 Guide trusted current-main CI base-only"
+on:
+  pull_request:
+    branches: ['09p/code-guide-bridge-main14f-base-fix-20261105']
+    paths:
+      - 'tests/04qr-w-pr567-guide-ci-base-independent.test.mjs'
+      - '.github/workflows/04qr-w-pr567-guide-ci-base-independent.yml'
+permissions:
+  contents: read
+jobs:
+  independent-new-only-workflow-policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact Source git identity and changed-one-line CI event policy/negative scopes
+        run: node --test tests/04qr-w-pr567-guide-ci-base-independent.test.mjs
+      - name: Ensure no private P1G env or unrelated Guide publication route
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          git diff --exit-code 5339e43b755d44fde938602c9a91574d3b245e44 HEAD -- src/routes/ static/ supabase/ src/lib/wep/
+          echo QR567_NO_PRIVATE_OR_WRITER_OR_GUIDE_PUBLISH_SCOPE_PASS
