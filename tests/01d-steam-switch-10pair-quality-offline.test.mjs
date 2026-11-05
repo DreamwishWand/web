@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const script=fileURLToPath(new URL('../scripts/asset-research/steam-switch-10pair-offline.py',import.meta.url));
@@ -89,6 +90,37 @@ test('01D requires exact versioned original ItemID/GUID on each side before comp
   const itemMismatch=run(seed);
   assert.equal(itemMismatch.status,2,itemMismatch.stderr);
   assert.match(itemMismatch.stdout,/"measuredPairs": 0/);
+});
+
+test('01D TRUE RED QA629: existing Switch/Steam original, unrelated file, and symlink report targets are never overwritten',t=>{
+  if(!ready){t.skip('python3 unavailable, private file guard NOT_RUN');return;}
+  const dir=mkdtempSync(join(tmpdir(),'01d-original-immutability-'));
+  const original=Buffer.from('synthetic private-original input - MUST NEVER be clobbered');
+  const sha=x=>createHash('sha256').update(x).digest('hex');
+  try {
+    const manifest=join(dir,'manifest.json');
+    writeFileSync(manifest,JSON.stringify(ledger));
+    const targets=[manifest,join(dir,'switch-original.png'),join(dir,'steam-original.png'),join(dir,'unrelated.txt')];
+    for(const target of targets.slice(1))writeFileSync(target,original);
+    const alias=join(dir,'original-symlink.png');
+    symlinkSync(targets[1],alias);
+    const realTargets=[...targets,alias];
+    const before=realTargets.map(x=>sha(readFileSync(x)));
+    for(let i=0;i<realTargets.length;i++){
+      const p=spawnSync('python3',[script,'--manifest',manifest,'--source-root',dir,'--report',realTargets[i]],{encoding:'utf8'});
+      assert.notEqual(p.status,0,'existing/symlink report destination must fail closed');
+      assert.match(p.stderr,/REPORT_OUTPUT_EXISTS_NO_CLOBBER/);
+      assert.equal(sha(readFileSync(realTargets[i])),before[i],'private original or manifest modified');
+    }
+    for(let i=0;i<realTargets.length;i++)assert.equal(sha(readFileSync(realTargets[i])),before[i]);
+  }finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+test('01D report output uses exclusive creation, not write_text overwrite',()=>{
+ const source=readFileSync(script,'utf8');
+ assert.match(source,/args\.report\.is_symlink\(\) or args\.report\.exists\(\)/);
+ assert.match(source,/args\.report\.open\('x',encoding='utf-8'\)/);
+ assert.doesNotMatch(source,/args\.report\.write_text/);
 });
 
 test('01D separate public shipping flags and R39 source-only provenance from quality research',()=>{
