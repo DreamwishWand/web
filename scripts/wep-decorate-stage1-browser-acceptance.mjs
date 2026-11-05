@@ -522,6 +522,16 @@ try{
   assert.ok((await roomSurface.innerText()).includes('Wall'));
   assert.ok((await roomSurface.innerText()).includes('Ceiling'));
 
+  // This is a fresh World Editor navigation: reopen the visible Settings
+  // Sheet before checking Room Finish locales (the previous Sheet is closed).
+  const roomShell=page.locator('[data-shared-app-shell][data-shell-presentation="immersive"]');
+  await roomShell.waitFor();
+  assert.equal(await page.locator('#site-locale').isVisible(),false);
+  const roomSettings=roomShell.locator('button.immersive-settings');
+  assert.equal(await roomSettings.isVisible(),true);
+  await roomSettings.focus();
+  await page.keyboard.press('Enter');
+  await localeSelect.waitFor({state:'visible'});
   const roomFloorOptionsBefore=
     await roomPanel.locator('.room-finish-edit-grid section').nth(0).locator('select option').count();
   const roomWallpaperOptionsBefore=
@@ -544,6 +554,8 @@ try{
     assertNoOverflow(roomMetrics,'room finish '+locale);
   }
   await localeSelect.selectOption('en');
+  await page.keyboard.press('Escape');
+  await localeSelect.waitFor({state:'hidden'});
   pass('ROOM_FINISH_LAUNCH_LOCALE_STATE_AND_LAYOUT_INVARIANCE',{
     locales:locales.length,
     ownedFlooring:roomFloorOptionsBefore,
