@@ -86,7 +86,14 @@ async function createPage(withManifest){
  const page=await ctx.newPage();
  page.on('pageerror',e=>errors.push(String(e)));
  if(typeof page.routeWebSocket!=='function')throw Error('NOT_RUN WebSocket interception required');
- await page.routeWebSocket('**/*',r=>{const u=new URL(r.url());if(u.origin!==origin)denied.push('WS '+r.url());r.close();});
+ await page.routeWebSocket('**/*',r=>{
+  const u=new URL(r.url());
+  // Local Vite HMR attempts ws://127.0.0.1:4178; close it deliberately,
+  // but don't misclassify dev-server HMR as a remote Provider/Cloud exfil.
+  const localHmr=u.protocol==='ws:'&&u.hostname==='127.0.0.1'&&u.port==='4178';
+  if(!localHmr)denied.push('WS '+r.url());
+  r.close();
+ });
  await page.route('**/*',r=>{
   const req=r.request(),u=new URL(req.url());
   if(u.origin===origin&&['GET','HEAD'].includes(req.method()))r.continue();
