@@ -29,7 +29,18 @@ test('exact corrected Source4 and only Source2 delta; QA-only two paths, no medi
  assert.equal(git('merge-base',FIX,'HEAD'),FIX);
  assert.deepEqual(git('diff','--name-only',MAIN,FIX).split('\n').sort(),owner);
  assert.deepEqual(git('diff','--name-only',OLD,FIX).split('\n').sort(),changed);
- assert.deepEqual(git('diff','--name-only',FIX,'HEAD').split('\n').sort(),qa);
+ const cumulative=git('diff','--name-only',FIX,'HEAD').split('\n').sort();
+ // Default generic verify checks out the GitHub PR merge with the already accepted
+ // protected-main WEP one-file change; dedicated QA checks out the exact QA head.
+ // Only that immutable ACCEPTED blob may be an additional cumulative file.
+ const wep='scripts/wep-decorate-stage1-browser-acceptance.mjs';
+ if(cumulative.includes(wep)){
+   assert.equal(git('rev-parse','HEAD:'+wep),'405e5d236038efa0004e5be870c334db09fd896d',
+     'accepted original WEP QA script blob must be unchanged');
+ }
+ assert.deepEqual(cumulative.filter(x=>x!==wep),qa,
+   'no unknown cumulative Source/QA differences beyond accepted WEP blob');
+
  for(const [path,sha] of Object.entries({
   'ops/ddv-item-image-operator-gate.mjs':'16f48dd5bb9c9a17a86bc9cd7f915961eb5aecb7',
   'tests/ddv-item-image-operator-gate.test.mjs':'0e124ea9b55f7fec4e2f2bf5d4b251c1279eefc2',
