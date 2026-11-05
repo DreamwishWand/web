@@ -60,6 +60,37 @@ test('01D rejects duplicate ItemID and falsified slot ordering before imaging',t
   assert.match(b.stderr,/TEN_DISTINCT_ORDERED_SLOTS_REQUIRED/);
 });
 
+test('01D requires exact versioned original ItemID/GUID on each side before comparing pictures',t=>{
+  const source=readFileSync(script,'utf8');
+  assert.match(source,/SOURCE_ITEM_IDENTITY_MISMATCH/);
+  assert.match(source,/CROSS_PLATFORM_ICON_GUID_MISMATCH/);
+  assert.match(source,/SAME_ORIGINAL_FILE_NOT_TWO_INDEPENDENT_SOURCES/);
+  assert.match(source,/MISSING_CANONICAL_ITEM_ID/);
+  assert.match(source,/manifest\.get\("steamFullVersion"\)!=STEAM_FULL_VERSION/);
+  if(!ready){t.diagnostic('python3 NOT_RUN, source text checks only');return;}
+  const pil=spawnSync('python3',['-c',"from PIL import Image,features;assert features.check('webp')"],{encoding:'utf8'});
+  if(pil.status!==0){t.diagnostic('Pillow/libwebp NOT_RUN; no original image comparison accepted');return;}
+  const dummy='0'.repeat(64);
+  const def=(itemId,guid,platform)=>({itemId,iconReference:guid,
+    itemDefinitionSourceSha256:dummy,pngSha256:dummy,path:platform+'.png',
+    platform:platform==='switch'?'Nintendo Switch':'Steam/Windows',gameVersion:'1.24.13',
+    ...(platform==='steam'?{fullVersion:'releases_1.24-v1.24.13-2-ga6fe50c4da68-incremental-33'}:{})});
+  const seed=structuredClone(ledger);
+  seed.pairs[0]={slot:1,itemId:'30800076',category:'Flower',gameVersion:'1.24.13',
+    matchStatus:'SOURCE_PROVENANCE_CONFIRMED',
+    switch:def('30800076','guid:'+'1'.repeat(32),'switch'),
+    steam:def('30800076','guid:'+'2'.repeat(32),'steam')};
+  const guidMismatch=run(seed);
+  assert.equal(guidMismatch.status,2,guidMismatch.stderr);
+  // Real original images are absent: all 10 must remain unmeasured despite forged row status.
+  assert.match(guidMismatch.stdout,/"measuredPairs": 0/);
+  seed.pairs[0].steam.iconReference=seed.pairs[0].switch.iconReference;
+  seed.pairs[0].steam.itemId='30800077';
+  const itemMismatch=run(seed);
+  assert.equal(itemMismatch.status,2,itemMismatch.stderr);
+  assert.match(itemMismatch.stdout,/"measuredPairs": 0/);
+});
+
 test('01D separate public shipping flags and R39 source-only provenance from quality research',()=>{
   const source=readFileSync(script,'utf8');
   assert.match(source,/lossless=True, exact=True/);
