@@ -1,0 +1,45 @@
+name: 05 QR-C PR539 133898 independent array length get-trap changed-risk QA
+on:
+  push:
+    branches: [qa/05qr-c-pr539-133898-array-length-newonly-20261105]
+  pull_request:
+    paths:
+      - '.github/workflows/qa-05qr-c-pr539-133898-length.yml'
+      - 'tests/qa-05qr-c-pr539-133898-array-length-newonly.test.mjs'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  exact-source-133898-length-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 17
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Pin new Source 133898 array-length fix and immutable 2-file ancestor
+        run: |
+          set -eu
+          MAIN=87f656833491b87712eee031f51ca135bda26b30
+          PREVIOUS=8977705feabbc64d10eb607a1218b773d5bfff2f
+          SOURCE=13389899ff37d73df4266984464b5ffeee6724c2
+          test "$(git merge-base "$MAIN" "$SOURCE")" = "$MAIN"
+          test "$(git merge-base "$PREVIOUS" "$SOURCE")" = "$PREVIOUS"
+          test "$(git merge-base "$SOURCE" HEAD)" = "$SOURCE"
+          test "$(git diff --name-only "$PREVIOUS" "$SOURCE" | sort)" = "$(printf '%s\n' src/lib/ddv/timing/w1-scene-area-reference-readonly.mjs tests/01e-w1-scene-area-reference-readonly.test.mjs | sort)"
+          test "$(git diff --name-only "$MAIN" "$SOURCE" | sort)" = "$(printf '%s\n' src/lib/ddv/timing/w1-scene-area-reference-readonly.mjs tests/01e-w1-scene-area-reference-readonly.test.mjs | sort)"
+          git diff --quiet "$SOURCE" HEAD -- src/ crates/ static/ docs/ supabase/ tests/01e-w1-scene-area-reference-readonly.test.mjs
+          test "$(git rev-parse HEAD:src/lib/ddv/timing/w1-scene-area-reference-readonly.mjs)" = 433d743a9e9ac577ffbbb9a933c9c9e0e5c4e8ff
+          test "$(git rev-parse HEAD:tests/01e-w1-scene-area-reference-readonly.test.mjs)" = b3542754737d5103cacc86ad9deb1d5f07bc6e3b
+          test "$(git rev-parse "$PREVIOUS:src/lib/ddv/timing/w1-scene-area-reference-readonly.mjs")" = 1a86ec9e9172d4779aa457349b3ddbdd322d10ea
+          echo PRIOR_QA561_EXACT_8977705_GETTER_NULL_SIX_PASS_REUSED_NOT_RERUN
+          echo NEW_09P_PROXY_LENGTH_SIDE_EFFECT_TESTS_ONLY
+          echo GENUINE_OWNER_PRIVATE_ENCRYPTED_P1G_V2_NOT_RUN
+          echo NATIVE_WETLAND_GRID_DIFF_TREE_QUOTA_CLOCK_V3_UNKNOWN
+          echo WRITER_EDITEDCOPY_APPLY_ORIGINALOVERWRITE_CLOUD_PUBLIC_OFF
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Six NEW independent array get(length) negative and normal JSON positive tests
+        run: node --test tests/qa-05qr-c-pr539-133898-array-length-newonly.test.mjs
+      - name: Source/TypeScript/Svelte contract check
+        run: npm ci --no-audit --no-fund && npm run check
