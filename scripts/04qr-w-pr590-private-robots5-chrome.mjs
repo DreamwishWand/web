@@ -1,6 +1,7 @@
 // 04 QR-W PR590 new-only: local SSR static HTML + real Chromium 5 private/gated routes.
 // Remote deployed Pages still has independently confirmed TRUE RED until 09 INT merge and re-QA.
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {chromium} from 'playwright-core';
 const ORIGIN='http://127.0.0.1:4325';
 if(!process.env.CHROME_BIN)throw Error('QR590_REAL_CHROME_REQUIRED');
@@ -12,6 +13,11 @@ const children=[
 const META=/<meta\b(?=[^>]*\bname\s*=\s*["']robots["'])(?=[^>]*\bcontent\s*=\s*["']noindex,nofollow["'])[^>]*>/gi;
 const fingerprints=[];
 for(const path of children){
+ const generated=readFileSync('build'+path+'index.html','utf8');
+ const buildMetas=[...generated.matchAll(META)];
+ assert.equal(buildMetas.length,1,'production-equivalent static prerendered build HTML must contain exactly one robots noindex,nofollow '+path);
+ assert.ok(buildMetas[0].index<generated.indexOf('</head>'),'robots meta in prerendered head '+path);
+ console.log('QR590_PRODUCTION_SHAPE_BUILD_PRERENDERED_NOINDEX '+path+' PASS');
  const response=await fetch(ORIGIN+path,{redirect:'manual'});
  const html=await response.text();
  assert.equal(response.status,200,'Source local SSR HTTP200 '+path);
