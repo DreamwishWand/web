@@ -1,0 +1,32 @@
+name: "04QR-W PR570 Gallery five-path event policy independent"
+on:
+  pull_request:
+    branches: ['09p/code-gallery-5path-trigger-main14f-20261105']
+    paths:
+      - 'tests/04qr-w-pr570-gallery-trigger-independent.test.mjs'
+      - '.github/workflows/04qr-w-pr570-gallery-trigger-independent.yml'
+permissions:
+  contents: read
+jobs:
+  independent-gallery-ci-policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Independent exact two workflow edits and Git source SHA, negative path events
+        run: node --test tests/04qr-w-pr570-gallery-trigger-independent.test.mjs
+      - name: No private Save or publication path modified by independent QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          git diff --exit-code 1e1bae1db21a3910c38e97fbf7e90d7328538132 HEAD -- src/routes/ src/lib/community/ src/lib/ddv/ src/lib/wep/ static/ supabase/ .github/workflows/pages.yml
+          echo QR570_GALLERY_CI_ONLY_NO_PUBLIC_WRITER_OR_PRIVATE_SAVE_PASS
