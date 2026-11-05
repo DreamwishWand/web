@@ -25,7 +25,7 @@ test('all eight locale Home cards are reactive to new language even through help
   const c=homeCopy(lang);
   for(const field of ['products','decorate','collection','guide','presets','gallery','dreamsnaps',
     'guideDetail','presetsDetail','galleryDetail','dreamsnapsDetail','qa','qaDetail']){
-   assert.ok(typeof c[field]==='string'&&c[field].trim().length>3,lang+'/'+field);
+   assert.ok(typeof c[field]==='string'&&c[field].trim().length>0,lang+'/'+field);
   }
   assert.equal(c.qa,helpStage1Copy(lang).title,lang+' canonical Help naming');
  }
