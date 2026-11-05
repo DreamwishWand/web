@@ -13,6 +13,7 @@ export const ITEM_IMAGE_TARGET = Object.freeze({
 });
 export const ITEM_IMAGE_DEFAULT_PREFERENCES = Object.freeze({size:56,fit:'contain',density:'comfortable'});
 export const ITEM_IMAGE_PREFS_KEY = 'wand.item-image.visual-preferences@1';
+/** @type {import('svelte/store').Writable<{size:number,fit:'contain'|'cover',density:'compact'|'comfortable'}>} */
 export const itemImagePreferences = writable({...ITEM_IMAGE_DEFAULT_PREFERENCES});
 export const publicItemImageSource = writable({status:'NOT_CONFIGURED',catalog:null,reason:'NO_VERIFIED_PUBLIC_ASSET_MANIFEST'});
 
