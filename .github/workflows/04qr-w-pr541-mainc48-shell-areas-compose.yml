@@ -39,7 +39,7 @@ jobs:
           test -z "${WEP_PRIVATE_P1G_PATH:-}"
           test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
           test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
-          node --test tests/04qr-w-pr541-mainc48-shell-areas-compose.test.mjs
+          QR541_COMPOSED_OVERLAY=1 node --test tests/04qr-w-pr541-mainc48-shell-areas-compose.test.mjs
           node --check scripts/04qr-w-pr541-mainc48-shell-areas-chrome.mjs
       - run: npm ci --no-audit --no-fund
       - run: npm install --no-save --package-lock=false playwright-core@1.55.0
