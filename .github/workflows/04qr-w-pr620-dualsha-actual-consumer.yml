@@ -1,0 +1,43 @@
+name: "04 QR-W PR620 dualSHA producer actual WEB consumer"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/04qr-w-pr620-dualsha-actual-consumer.yml'
+      - 'scripts/04qr-w-pr620-dualsha-synthetic-producer.py'
+      - 'scripts/04qr-w-pr620-dualsha-actual-consumer.mjs'
+permissions:
+  contents: read
+jobs:
+  independent-real-codec-encoded-abi:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci --no-audit --no-fund
+      - name: Install real Pillow/libwebp and prevent private Save/original art
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input Pillow==11.3.0
+          python -c "from PIL import features;assert features.check('webp')"
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+      - name: New-only Python actual VP8L ZIP + pinned actual 08 WEB JS consumer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile scripts/04qr-w-pr620-dualsha-synthetic-producer.py
+          node --check scripts/04qr-w-pr620-dualsha-actual-consumer.mjs
+          node scripts/04qr-w-pr620-dualsha-actual-consumer.mjs
