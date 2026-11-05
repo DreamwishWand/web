@@ -2,6 +2,8 @@
   import { onMount } from 'svelte';
   import { base } from '$app/paths';
   import ResponsiveFrame from '$lib/ui/ResponsiveFrame.svelte';
+  import ItemThumb from '$lib/ui/ItemThumb.svelte';
+  import ItemImagePreferences from '$lib/ui/ItemImagePreferences.svelte';
   import SharedCatalogDiscovery from '$lib/entity/SharedCatalogDiscovery.svelte';
   import { collectionFamilyLabel } from '$lib/collection/copy.js';
   import { collectionFacetLabel, loadCollectionRuntime } from '$lib/collection/runtime.js';
@@ -79,11 +81,13 @@
       <h1>{copy.unavailable}</h1>
       <p role="status">{copy.unavailable}</p>
     {:else}
-      <header>
-        <p class="eyebrow">{copy.detail}</p>
-        <h1>{item.label}</h1>
-        <p>{copy.notPersonal}</p>
+      <header class="item-detail-header">
+        <ItemThumb itemId={item.itemId} label={item.label} />
+        <div><p class="eyebrow">{copy.detail}</p>
+          <h1>{item.label}</h1>
+          <p>{copy.notPersonal}</p></div>
       </header>
+      <ItemImagePreferences />
       <div class="entity-grid" data-entity-identity="source-bound">
         <section><h2>ItemID</h2><p><code>{item.itemId}</code></p></section>
         <section><h2>Build ID / Version</h2><p>Nintendo Switch · DDV v1.25.0 · <code>52BD625D9B4E0053</code></p></section>
@@ -126,7 +130,10 @@
   </section>
 </ResponsiveFrame>
 <style>
- .shared-entity{max-width:1000px;padding-block:42px 100px;min-height:60vh}
+.shared-entity{max-width:1000px;padding-block:42px 100px;min-height:60vh}
+ .item-detail-header{display:flex;gap:18px;align-items:flex-start;min-width:0}
+ .item-detail-header>div{min-width:0}
+ @media(max-width:420px){.item-detail-header{gap:10px}}
  nav a{color:var(--gold);font-weight:650}
  header{margin:32px 0}
  h1{font-family:Georgia,serif;font-weight:500;font-size:clamp(30px,5vw,60px);overflow-wrap:anywhere}
