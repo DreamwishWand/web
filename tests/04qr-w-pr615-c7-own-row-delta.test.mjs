@@ -95,7 +95,7 @@ test('inherited items container rejected; own row remains historical SOURCE_ONLY
  assert.equal(R39_IMAGE_CURRENT_TARGET_READY,false);
  for(const target of R39_IMAGE_TARGETS){
   const r=check(own,'10000002',target);
-  assert.equal(r.status,'R39_SOURCE_ONLY');
+  assert.equal(r.status,'R39_SOURCE_ONLY','unexpected block reason='+r.reason);
   assert.equal(r.source.sourcePngSha256,png);
   alwaysOff(r);
  }
