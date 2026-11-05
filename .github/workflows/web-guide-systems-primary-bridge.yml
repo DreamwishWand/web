@@ -1,0 +1,58 @@
+name: WEB Guide Systems canonical 106 primary topic bridge (no public or UI)
+on:
+  push:
+    branches:
+      - 'web/guide-systems-canonical-106-key-bridge-*'
+  pull_request:
+    paths:
+      - 'src/lib/guide/systems-primary-mechanic-bridge.mjs'
+      - 'tests/web-guide-systems-primary-mechanic-bridge.test.mjs'
+      - '.github/workflows/web-guide-systems-primary-bridge.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Owner canonical 106 bridge exact three new paths on protected main
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=bd2edd00d029f866986aff96435615218398f991
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          git diff --name-only "$BASE" HEAD >/tmp/web-systems-canonical-bridge
+          test "$(wc -l </tmp/web-systems-canonical-bridge)" -eq 3
+          while IFS= read -r f; do
+            case "$f" in
+              src/lib/guide/systems-primary-mechanic-bridge.mjs|tests/web-guide-systems-primary-mechanic-bridge.test.mjs|.github/workflows/web-guide-systems-primary-bridge.yml) ;;
+              *) echo "OUTSIDE_CANONICAL_106_METADATA_SCOPE:$f"; exit 1 ;;
+            esac
+          done </tmp/web-systems-canonical-bridge
+          git diff --exit-code "$BASE" HEAD -- src/routes/ src/lib/guide/runtime.js src/lib/guide/copy.js src/lib/community/ src/lib/ddv/ src/lib/wep/ src/lib/ui/ supabase/ static/ .github/workflows/pages.yml
+          echo WEB_GUIDE_CANONICAL_ONLY_NO_SECOND_ROUTE_OR_PUBLISHER_PASS
+      - name: 106 topic candidates match 21 original canonical IDs and no public Writer or rights claim
+        run: node --test tests/web-guide-systems-primary-mechanic-bridge.test.mjs
+      - name: Whole existing source regression Svelte and Pages build
+        env:
+          BASE_PATH: /web
+        run: |
+          npm test
+          npm run check
+          npm run build
+      - name: No previously unapproved positive Guide Systems/public pages
+        shell: bash
+        run: |
+          test -f build/index.html
+          test ! -f build/ja/entity/quest/12345/index.html
+          test ! -f build/guide/systems/category/anything/index.html
+          echo WEB_GUIDE_SYSTEMS_ZERO_PUBLIC_ARTICLE_INFERENCE_PASS
