@@ -86,7 +86,7 @@ test('adversarial input: unknown/prototype/HTML/Unicode/alias/native and nonstri
    'https://example.org','<script>alert(1)</script>','%2e%2e','道路・フェンス',
    'premium-dlc-entitlements','624','626','NativeObjectID','000000047',''];
  for(const key of [...badKeys,null,undefined,0,624,626,{},Object.create(null),[],new String('roads_fences'),Symbol('dreamsnaps')]){
-  assert.equal(canonicalGuideGroupForPrimaryMechanic(key),null,String(key));
+  assert.equal(canonicalGuideGroupForPrimaryMechanic(key),null,typeof key);
  }
  for(const id of ['__proto__','constructor','toString','WORLD','native-presets-reuse/../','',null,[],{}]){
   assert.deepEqual(primaryMechanicCandidatesForCanonicalGuideGroup(id),[]);
