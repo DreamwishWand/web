@@ -1,0 +1,94 @@
+name: "04QR-W main0ec Discover7 composited with accepted Home/Gallery/DreamSnaps"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/04qr-w-main0ec-discover7-composed.yml'
+      - 'scripts/04qr-w-main0ec-discover7-composed-chrome.mjs'
+      - 'tests/04qr-w-main0ec-discover7-composed.test.mjs'
+permissions:
+  contents: read
+jobs:
+  frozen-main-and-source-composite-preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fetch exact approved 08 WEB Discover Source by named branch and pin SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=faef18373bd8e84312eedeff39cecd13007bff30
+          git fetch --no-tags origin refs/heads/web/stage1-discover-orientation-main058-20261105
+          test "$(git rev-parse FETCH_HEAD)" = "$SOURCE" || { echo "WAIT_HEAD: Owner Source moved"; exit 1; }
+          git cat-file -e "$SOURCE^{commit}"
+      - name: Verify exact main + accepted Source5 + QA3, no other product/rights changes
+        run: node --test tests/04qr-w-main0ec-discover7-composed.test.mjs
+      - run: node --check scripts/04qr-w-main0ec-discover7-composed-chrome.mjs
+  combined-main-actual-system-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Fetch and verify approved Source branch, overlay only five files in ephemeral CI worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=faef18373bd8e84312eedeff39cecd13007bff30
+          git fetch --no-tags origin refs/heads/web/stage1-discover-orientation-main058-20261105
+          test "$(git rev-parse FETCH_HEAD)" = "$SOURCE" || { echo "WAIT_HEAD: Owner Source moved"; exit 1; }
+          git restore --source="$SOURCE" --worktree -- \
+            .github/workflows/web-stage1-discover-orientation.yml \
+            scripts/web-stage1-discover-orientation-chrome.mjs \
+            src/lib/product-home/orientation-stage1-copy.mjs \
+            src/routes/discover/+page.svelte \
+            tests/web-stage1-discover-orientation.test.mjs
+          test "$(git diff --name-only | wc -l)" -eq 5
+          test "$(git diff --name-only -- src/routes/+page.svelte src/routes/gallery/ src/routes/dreamsnaps/ src/lib/community/ supabase/ static/ .github/workflows/pages.yml | wc -l)" -eq 0
+          echo "QR_COMPOSED_TEMPORARY_DISCOVER5_ONLY_NO_PRODUCTION_SOURCE_COMMIT"
+      - name: New main0ec with Discover5 type and build (not formal deploy)
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run check
+          npm run build
+      - name: Require real system Chrome and no owner-private Save
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || true)"
+          test -n "$BIN" || { echo "NOT_RUN: no installed Chrome"; exit 1; }
+          "$BIN" --version
+          echo "CHROME_BIN=$BIN" >> "$GITHUB_ENV"
+      - name: Bounded loopback Source composition for integration-risk only
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4321 >/tmp/qr-w-discover-main0ec.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4321/discover/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr-w-discover-main0ec.log
+          exit 1
+      - name: Discover new Home keyboard, Gallery3 and DreamSnaps1-3-1 link, local Save/Account OFF
+        run: node scripts/04qr-w-main0ec-discover7-composed-chrome.mjs
