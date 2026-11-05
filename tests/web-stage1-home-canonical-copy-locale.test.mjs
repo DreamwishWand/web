@@ -46,6 +46,8 @@ test('Guide issues belong to Help; no implied accepted Gallery, Presets or Dream
 test('Home is still a visible UX shell not a Writer/Account entitlement promotion',()=>{
  assert.match(route,/HOME_STAGE1_CONSUMER\.coreProducts/);
  assert.match(route,/helpStage1Copy\(\$locale\)/);
+ assert.match(route,/description=\{copy\.qaDetail\}/);
+ assert.doesNotMatch(route,/description=\{\$locale === 'ja'/);
  assert.match(route,/data-test-site-availability/);
  assert.match(route,/base \+ '\/rc-status\/'/);
  assert.doesNotMatch(route,/<img\b|<video\b|<canvas\b/);
