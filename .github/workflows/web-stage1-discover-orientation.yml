@@ -30,7 +30,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          BASE="${{ github.event.pull_request.base.sha || '058ac652b06fdc62ff85559186375c5b7a1e62a4' }}"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            git fetch --no-tags origin '+refs/heads/main:refs/remotes/origin/main'
+            BASE="$(git merge-base HEAD refs/remotes/origin/main)"
+          else
+            echo "UNEXPECTED_EVENT_TYPE"; exit 1
+          fi
+          test -n "$BASE"
           test "$(git merge-base "$BASE" HEAD)" = "$BASE"
           git diff --name-only "$BASE" HEAD >/tmp/stage1-discover
           test "$(wc -l </tmp/stage1-discover)" -eq 5
