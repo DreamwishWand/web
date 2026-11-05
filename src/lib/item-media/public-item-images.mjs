@@ -6,6 +6,7 @@ import { writable } from 'svelte/store';
 
 export const ITEM_IMAGE_MANIFEST_PATH = 'ddv/item-images/v1/manifest.json';
 export const ITEM_IMAGE_SCHEMA = 'wand.item-images.public-catalog@1';
+export const ITEM_IMAGE_OWNER_DECISION_ID = 'OWNER_GO_FOR_DDV_GAME_IMAGES_20261105';
 export const R39_DERIVATIVE_MANIFEST_SHA256 = 'c619541497732e76441c52f6505b2ca2dbe1fd2baffdfda4fa4584b9819a7733';
 export const ITEM_IMAGE_SOURCE = Object.freeze({platform:'Nintendo Switch',gameVersion:'1.24.13',generation:'R39'});
 export const ITEM_IMAGE_TARGET = Object.freeze({
@@ -62,9 +63,8 @@ export function validateItemImageCatalog(raw, expectedTarget=ITEM_IMAGE_TARGET) 
     raw.target?.schema!==expectedTarget.schema)
     throw new TypeError('ITEM_IMAGE_SOURCE_OR_VERSION_UNVERIFIED');
   // This is a release-operation authorization marker, not evidence of a copyright licence.
-  if (raw.publication?.gate!=='OWNER_SCOPED_ALLOWLIST' ||
-      typeof raw.publication?.decisionId!=='string' ||
-      !/^[A-Za-z0-9_-]{8,100}$/.test(raw.publication.decisionId) ||
+  if (raw.publication?.gate!=='OWNER_GO_FOR_DDV_GAME_IMAGES' ||
+      raw.publication?.decisionId!==ITEM_IMAGE_OWNER_DECISION_ID ||
       raw.publication?.scope!=='RELEASED_PLAYER_FACING_ITEM_THUMBNAILS')
     throw new TypeError('ITEM_IMAGE_PUBLICATION_GATE_OFF');
   if (!raw.items || typeof raw.items!=='object' || Array.isArray(raw.items))
