@@ -6,7 +6,9 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 
 const producer = readFileSync(fileURLToPath(new URL('../scripts/01d-r39-lossless-webp160.py',import.meta.url)),'utf8');
-const consumer = readFileSync(fileURLToPath(new URL('../src/lib/item-media/public-item-images.mjs',import.meta.url)),'utf8');
+// 08WEB PR609 is not merged into this 01D Source branch: the two-hash
+// published URI format is a pinned ABI fixture. 09INT must test its actual
+// consumer against this producer after selective integration.
 const digest=x=>createHash('sha256').update(x).digest('hex');
 const assetPath=(sourcePngBytes,encodedBytes)=>{
   const source=digest(sourcePngBytes);
@@ -25,9 +27,6 @@ test('01D dual-hash path contract pins actual WebP digest, not only PNG origin S
 });
 
 test('01D generated derivative URI exactly follows 08WEB same SHA/shard/variant ABI',()=>{
-  assert.match(consumer,/ITEM_IMAGE_VARIANT\s*=\s*'webp-lossless-160-v1'/);
-  assert.match(consumer,/\$\{sha\}-\$\{item\.webpSha256\}\.webp/);
-  assert.match(consumer,/webpSha256:entry\.webpSha256/);
   const source=Buffer.from('genuine source png fixture bytes (synthetic)');
   const first=assetPath(source,Buffer.from('synthetic-encoded-a'));
   const second=assetPath(source,Buffer.from('synthetic-encoded-b'));
