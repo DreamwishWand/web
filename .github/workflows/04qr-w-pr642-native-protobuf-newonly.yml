@@ -1,0 +1,36 @@
+name: "04 QR-W PR642 Steam-native v1.25 GUID source hostile protobuf"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/04qr-w-pr642-native-protobuf-newonly.yml'
+      - 'scripts/04qr-w-pr642-native-protobuf-newonly.py'
+permissions:
+  contents: read
+jobs:
+  fixed-source-independent-proto-safety:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Require NO raw DDV art, source Steam binaries or private P1G
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          test -z "${STEAM_ORIGINAL_ITEMLIST_PATH:-}"
+      - name: Pin original source SHA and reject forged native binary metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile scripts/04qr-w-pr642-native-protobuf-newonly.py
+          python scripts/04qr-w-pr642-native-protobuf-newonly.py
