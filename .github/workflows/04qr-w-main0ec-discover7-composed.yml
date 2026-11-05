@@ -25,7 +25,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          SOURCE=faef18373bd8e84312eedeff39cecd13007bff30
+          SOURCE=322702a0522c44aebea78f993ee1099f1b957bdf
           git fetch --no-tags origin refs/heads/web/stage1-discover-orientation-main058-20261105
           test "$(git rev-parse FETCH_HEAD)" = "$SOURCE" || { echo "WAIT_HEAD: Owner Source moved"; exit 1; }
           git cat-file -e "$SOURCE^{commit}"
@@ -50,7 +50,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          SOURCE=faef18373bd8e84312eedeff39cecd13007bff30
+          SOURCE=322702a0522c44aebea78f993ee1099f1b957bdf
           git fetch --no-tags origin refs/heads/web/stage1-discover-orientation-main058-20261105
           test "$(git rev-parse FETCH_HEAD)" = "$SOURCE" || { echo "WAIT_HEAD: Owner Source moved"; exit 1; }
           git restore --source="$SOURCE" --worktree -- \
