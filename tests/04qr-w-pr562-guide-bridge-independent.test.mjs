@@ -122,6 +122,8 @@ test('QA GitHub Actions is QA-only; no secrets, private P1G, runtime media or un
  assert.match(y,/branches: \['web\/guide-systems-canonical-106-key-bridge-20261105'\]/);
  assert.match(y,/persist-credentials: false/);
  assert.match(y,/node --test tests\/04qr-w-pr562-guide-bridge-independent.test.mjs/);
- assert.doesNotMatch(y,/secrets\.|workflow_dispatch|continue-on-error|WEP_PRIVATE_P1G_PATH\s*:/);
+ assert.doesNotMatch(y,/secrets\.|workflow_dispatch|continue-on-error/);
+ assert.doesNotMatch(y,/^\s*WEP_PRIVATE_P1G_PATH\s*:/m,'must never set private P1G path');
+ assert.match(y,/test -z "\$\{WEP_PRIVATE_P1G_PATH:-\}"/,'must actively deny private P1G execution');
  assert.doesNotMatch(y,/deploy-pages|publish-pages|write-all/);
 });
