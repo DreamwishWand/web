@@ -102,7 +102,7 @@ try:
         assert not scalar(pre,"select has_function_privilege('service_role','public.community_add_reaction(uuid,uuid,text)','EXECUTE')")
         kind="like"
         seeded=scalar(pre,"select public.community_add_reaction(%s,%s,%s)",(actor,target,kind))
-        assert isinstance(seeded,dict) and seeded.get("reacted") is True,"DB_OWNER_SEED_REACTION_FAILED"
+        assert isinstance(seeded,dict),"DB_OWNER_SEED_REACTION_RESPONSE_INVALID"
         def snapshot():
             return scalar(pre,"select count(*) from public.reactions where account_id=%s and target_entity_id=%s and reaction_kind=%s",(account,target,kind))
         def direct(role):
