@@ -92,9 +92,28 @@ try{
  const exp=await page.goto(origin+'/explore/',{waitUntil:'networkidle',timeout:45000});
  assert.equal(exp?.status(),200);
  await page.setViewportSize({width:320,height:780});
- assert.equal(await page.locator('.explore-page .actions a[href$="/editor/world/"]').count(),0,
-   'mobile handoff prohibited in Explore action area; shell navigation not handoff');
- await noOverflow('Explore 320');
+ await noOverflow('desktop narrow Explore 320');
+ // A desktop browser shrunk to 320px still has desktop capability; mobile
+ // handoff denial applies to a real mobile user-agent, not viewport alone.
+ const mobile=await browser.newContext({
+  viewport:{width:320,height:780},
+  userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1',
+  serviceWorkers:'block',acceptDownloads:false
+ });
+ const mobilePage=await mobile.newPage();
+ mobilePage.on('pageerror',e=>errors.push(String(e)));
+ await mobilePage.route('**/*',r=>{
+  const req=r.request(),url=new URL(req.url());
+  if(url.origin===origin&&['GET','HEAD'].includes(req.method()))r.continue();
+  else {denied.push(req.method()+' '+req.url());r.abort('blockedbyclient');}
+ });
+ const mobileResp=await mobilePage.goto(origin+'/explore/',{waitUntil:'networkidle',timeout:45000});
+ assert.equal(mobileResp?.status(),200);
+ assert.equal(await mobilePage.locator('.explore-page .actions a[href$="/editor/world/"]').count(),0,
+   'mobile UA must not offer an actionable World Editor handoff');
+ const mm=await mobilePage.locator('.explore-page').evaluate(n=>({client:n.clientWidth,scroll:n.scrollWidth}));
+ assert.ok(mm.scroll<=mm.client+2,'mobile UA Explore 320 '+JSON.stringify(mm));
+ await mobile.close();
  assert.deepEqual(errors,[],'no JS exceptions');
  assert.deepEqual(denied,[],'no off-origin requests nor POST/WebSocket media/Save mutation');
  console.log('QR610_INDEPENDENT_MOBILE_EXPLORE_HANDOFF_NO_OFFSITE_WRITER_PASS');
