@@ -1,12 +1,15 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import { collectionFamilyLabel } from '$lib/collection/copy.js';
+  import { PUBLIC_DETAIL_ACCEPTED } from './shared-catalog-detail.mjs';
   import { collectionFacetLabel } from '$lib/collection/runtime.js';
   import {
     buildSharedCatalogDirectory, relatedSharedCatalogItems, searchSharedCatalogDirectory,
     sharedCatalogDirectoryHref, sharedDirectoryCopy
   } from './shared-catalog-directory.mjs';
 
+  // The unprerendered detail route has no public HTTP200; dev-only links remain.
+  const detailNavigationAvailable = import.meta.env.DEV || PUBLIC_DETAIL_ACCEPTED;
   export let index: any = null;
   export let rows: any[] = [];
   export let localeCode: string = 'en';
@@ -44,10 +47,16 @@
         <ul class="entity-links" data-shared-related="true">
           {#each related as item (item.itemId)}
             <li>
-              <a href={sharedCatalogDirectoryHref(base, localeCode, item)}
-                aria-label={copy.detail + ': ' + item.label}>
-                <span>{item.label}</span><small>{copy.id} {item.itemId}</small>
-              </a>
+              {#if detailNavigationAvailable}
+                <a href={sharedCatalogDirectoryHref(base, localeCode, item)}
+                  aria-label={copy.detail + ': ' + item.label}>
+                  <span>{item.label}</span><small>{copy.id} {item.itemId}</small>
+                </a>
+              {:else}
+                <span class="unavailable-detail" data-detail-unavailable="true">
+                  <span>{item.label}</span><small>{copy.id} {item.itemId}</small>
+                </span>
+              {/if}
             </li>
           {/each}
         </ul>
@@ -79,10 +88,16 @@
         <ul class="entity-links" data-shared-results="true">
           {#each result.items as item (item.itemId)}
             <li>
-              <a href={sharedCatalogDirectoryHref(base, localeCode, item)}
-                aria-label={copy.detail + ': ' + item.label}>
-                <span>{item.label}</span><small>{copy.id} {item.itemId}</small>
-              </a>
+              {#if detailNavigationAvailable}
+                <a href={sharedCatalogDirectoryHref(base, localeCode, item)}
+                  aria-label={copy.detail + ': ' + item.label}>
+                  <span>{item.label}</span><small>{copy.id} {item.itemId}</small>
+                </a>
+              {:else}
+                <span class="unavailable-detail" data-detail-unavailable="true">
+                  <span>{item.label}</span><small>{copy.id} {item.itemId}</small>
+                </span>
+              {/if}
             </li>
           {/each}
         </ul>
@@ -103,7 +118,8 @@
   .provenance,.count{font-size:12px;color:var(--ink-soft);line-height:1.6}
   .entity-links{list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0;padding:0}
   .entity-links li{min-width:0}
-  .entity-links a{box-sizing:border-box;min-height:64px;height:100%;display:flex;flex-direction:column;justify-content:center;gap:5px;text-decoration:none;color:var(--ink);border:1px solid var(--border);border-radius:10px;padding:11px;overflow-wrap:anywhere}
+  .entity-links :is(a,.unavailable-detail){box-sizing:border-box;min-height:64px;height:100%;display:flex;flex-direction:column;justify-content:center;gap:5px;text-decoration:none;color:var(--ink);border:1px solid var(--border);border-radius:10px;padding:11px;overflow-wrap:anywhere}
+  .entity-links .unavailable-detail{color:var(--ink-soft);border-style:dashed}
   .entity-links small{font-size:11px;color:var(--ink-muted)}
   a:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
   @media(max-width:760px){.entity-links{grid-template-columns:repeat(2,minmax(0,1fr))}}
