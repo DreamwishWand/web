@@ -141,16 +141,21 @@ try{
 
  // Visit the actual ItemID detail linked from loaded Explore records, never fake IDs.
  const direct=await page.goto(ORIGIN+itemHref,{waitUntil:'domcontentloaded',timeout:55000});
- assert.equal(direct?.status(),200,'actual hosted direct Item detail route must be HTTP200, not SPA fallback 404');
- await page.locator('[data-shared-entity-detail="preview"]').waitFor({state:'visible',timeout:25000});
- assert.equal(await page.locator('[data-shared-entity-detail]').getAttribute('data-writer'),'off');
- assert.equal(await page.locator('[data-shared-entity-detail]').getAttribute('data-public-indexable'),'false');
- assert.equal(await page.locator('meta[name="robots"][content="noindex,follow"]').count(),1);
- await page.locator('[data-item-thumb-id]').first().waitFor({state:'visible',timeout:30000});
- await noVerifiedArt('hosted Item Detail');
- details=await openPrefs();
- assert.equal(await details.locator('select').nth(0).inputValue(),'80');
- console.log('QR_MAIN227_REMOTE_ITEM_DETAIL_DYNAMIC_ROUTE_NOINDEX_FAILCLOSED_PASS');
+ const red=[];
+ if(direct?.status()!==200){
+  red.push('PUBLIC_ITEM_DETAIL_DIRECT_HTTP_'+direct?.status()+' href='+itemHref);
+  console.log('QR_MAIN227_TRUE_RED_PUBLIC_ITEM_DETAIL_DIRECT_HTTP '+JSON.stringify({status:direct?.status(),href:itemHref}));
+ } else {
+  await page.locator('[data-shared-entity-detail="preview"]').waitFor({state:'visible',timeout:25000});
+  assert.equal(await page.locator('[data-shared-entity-detail]').getAttribute('data-writer'),'off');
+  assert.equal(await page.locator('[data-shared-entity-detail]').getAttribute('data-public-indexable'),'false');
+  assert.equal(await page.locator('meta[name="robots"][content="noindex,follow"]').count(),1);
+  await page.locator('[data-item-thumb-id]').first().waitFor({state:'visible',timeout:30000});
+  await noVerifiedArt('hosted Item Detail');
+  details=await openPrefs();
+  assert.equal(await details.locator('select').nth(0).inputValue(),'80');
+  console.log('QR_MAIN227_REMOTE_ITEM_DETAIL_DYNAMIC_ROUTE_NOINDEX_FAILCLOSED_PASS');
+ }
 
  // Same publicly-hosted document, eight locale changes, no published art or fake owned.
  await page.goto(BASE+'/explore/',{waitUntil:'domcontentloaded',timeout:55000});
@@ -183,6 +188,7 @@ try{
  assert.deepEqual(badUploads,[],'no state-changing request');
  assert.deepEqual(errors,[],'no JS uncaught errors');
  console.log('QR_MAIN227_DEPLOYED_HTTPS_CHROME_NO_OFFSITE_NO_WRITER_PASS');
+ assert.deepEqual(red,[],'independent actual hosted public Item Detail must not return HTTP404');
 }finally{
  await ctx.close();
  await browser.close();
