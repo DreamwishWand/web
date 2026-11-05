@@ -404,6 +404,15 @@ const translated=Object.freeze({
   ]
 });
 const labelKey=Object.freeze(['basics','exploration','villagers','gathering','inventory','decorating','activities']);
+const canonicalAliases=Object.freeze({
+  basics:Object.freeze(['DLC ownership','DLC entitlement','DLC sync','cross-save','セーブ','利用権']),
+  exploration:Object.freeze(['DLC world entry','DLC expansion world unlock','拡張世界','バイオーム']),
+  villagers:Object.freeze(['friendship','companions','友情','マウント']),
+  gathering:Object.freeze(['crafting','farming','timebending','料理','採集']),
+  inventory:Object.freeze(['storage','collection','shops','収納','図鑑']),
+  decorating:Object.freeze(['road','fence','touch of magic','家具','レイアウト']),
+  activities:Object.freeze(['camera','DreamSnaps','social','写真','投票'])
+});
 export function guideSystemsCategoryLabel(id,locale='en'){
   const index=labelKey.indexOf(id);
   if(index<0)return null;
@@ -414,6 +423,7 @@ export function filterGuideSystemsCategories(query='',locale='en'){
   if(!term)return GUIDE_SYSTEMS_CATEGORIES;
   return GUIDE_SYSTEMS_CATEGORIES.filter(c=>
     [guideSystemsCategoryLabel(c.id,locale),c.ja,c.en,c.descriptionJa,
+      ...canonicalAliases[c.id],
       ...c.subgroups.flatMap(g=>[g.en,g.ja,...g.mechanicKeys])]
       .join(' ').toLocaleLowerCase().includes(term));
 }
