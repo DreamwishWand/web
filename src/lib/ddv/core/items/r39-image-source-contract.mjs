@@ -60,8 +60,12 @@ export function inspectR39ItemImageCandidate({provenance,itemId,target}={}) {
   const id=String(itemId);
   if(!item.test(id)||!Number.isSafeInteger(Number(id)))
     return blocked('NONCANONICAL_ITEM_ID');
-  const row=provenance.items?.[id];
-  if(row===undefined)return blocked('R39_SOURCE_ITEM_ICON_NOT_PRESENT');
+  // A JSON-authored source mapping must contain its own ItemID row: inherited
+  // Object.prototype properties (or an inherited items map) are not GameDB data.
+  if(!Object.hasOwn(provenance,'items')||!record(provenance.items)||
+     !Object.hasOwn(provenance.items,id))
+    return blocked('R39_SOURCE_ITEM_ICON_NOT_PRESENT');
+  const row=provenance.items[id];
   if(!record(row)||row.sourceVersion!=='1.24.13'||
       row.identityStatus!=='SOURCE_VERIFIED_R39_ONLY'||
       row.currentVersionEquivalent!==null||row.releasedPlayerFacingInTarget!==null||
