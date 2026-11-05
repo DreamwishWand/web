@@ -44,6 +44,7 @@ try{
   const help=page.locator('.home-qa-entry a[href="/help/"]');
   assert.equal(await help.count(),1);
   assert.equal((await help.locator('strong').innerText()).trim(),helpStage1Copy(locale).title);
+  assert.equal((await help.locator('.visual-card-copy >span').innerText()).trim(),copy.qaDetail,locale+' Help visible BODY locale, QR553 true red');
   assert.equal(await page.locator('[data-test-site-availability]').count(),1);
   assert.equal(await page.locator('img,video').count(),0);
  }
