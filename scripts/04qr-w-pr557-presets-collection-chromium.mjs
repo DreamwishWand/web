@@ -85,6 +85,7 @@ try{
  await page.goto(root+'/moodboards/',{waitUntil:'domcontentloaded'});
  await page.locator('.reference-card').filter({hasText:'40000047'}).first().waitFor({timeout:20000});
  await page.reload({waitUntil:'domcontentloaded'});
+ await page.locator('.reference-card').filter({hasText:'40000047'}).first().waitFor({state:'visible',timeout:25000});
  assert.equal(await page.locator('.reference-card').filter({hasText:'40000047'}).count(),1);
  console.log('QR557 COMPOSED_COLLECTION_ITEM40000047_TYPED_SOURCE_MOODBOARD_LOCAL_RELOAD_PASS');
 
