@@ -1,0 +1,40 @@
+name: "04QR-W main96b deployed DreamSnaps root and public Community noindex"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/04qr-w-main96b-pages-dreamsnaps-noindex.mjs'
+      - '.github/workflows/04qr-w-main96b-pages-dreamsnaps-noindex.yml'
+permissions:
+  contents: read
+jobs:
+  actual-protected-main-github-pages-chromium:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Require installed real Chrome, not a simulated renderer
+        shell: bash
+        run: |
+          set -euo pipefail
+          BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || true)"
+          test -n "$BIN" || { echo "NOT_RUN: real Chrome absent"; exit 1; }
+          "$BIN" --version
+          echo "CHROME_BIN=$BIN" >> "$GITHUB_ENV"
+      - name: Public remote CDN HTTP200 static meta noindex, real Home to DreamSnaps keyboard, 320 and 200
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          node scripts/04qr-w-main96b-pages-dreamsnaps-noindex.mjs
