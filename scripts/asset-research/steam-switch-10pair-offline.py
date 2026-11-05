@@ -231,7 +231,7 @@ def main():
     # 'x' is exclusive no-clobber creation; never mutate a native input PNG
     # or another existing report even if a concurrent process races us.
     with args.report.open('x',encoding='utf-8') as report_file:
-        report_file.write(json.dumps(result,ensure_ascii=False,indent=2)+"\\n")
+        report_file.write(json.dumps(result,ensure_ascii=False,indent=2)+"\n")
     print(json.dumps({"status":result["status"],"measuredPairs":complete,"report":str(args.report)}))
     return 0 if complete==10 else 2
 
