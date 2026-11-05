@@ -3,7 +3,7 @@ on:
   push:
     branches: [qa/pr634-source165-save-entity-independent-20261106]
   pull_request:
-    branches: [comm/w-comm-006-source165-save-entity-only-off-20261106]
+    branches: [comm/w-comm-006-source165-save-entity-off-20261105]
 permissions:
   contents: read
 jobs:
