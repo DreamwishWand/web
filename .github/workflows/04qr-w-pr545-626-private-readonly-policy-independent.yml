@@ -1,0 +1,33 @@
+name: "04QR-W PR545 owner-local schema626 read-only MAIN workflow policy independent"
+on:
+  pull_request:
+    branches: ['wep/private-626-world-readonly-main-policy-20261105']
+    paths:
+      - '.github/workflows/04qr-w-pr545-626-private-readonly-policy-independent.yml'
+      - 'tests/04qr-w-pr545-626-private-readonly-policy-independent.test.mjs'
+permissions:
+  contents: read
+jobs:
+  readonly-owner-local-workflow-new-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Independent exact five Source, four QA501 accepted blobs and no private-P1G runner in CI
+        run: node --test tests/04qr-w-pr545-626-private-readonly-policy-independent.test.mjs
+      - name: Syntax only for Owner-private real P1G runner, NEVER execute
+        run: node --experimental-strip-types --check scripts/wep-private-626-readonly-browser-receipt-20261104.mjs
+      - name: Confirm zero private P1G/Ack/External build secrets in CI
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          echo QR545_SYNTHETIC_SCOPE_ONLY_NO_REAL_OWNER_SAVE_PASS
