@@ -24,7 +24,7 @@ const notes=load('docs/community/post327-remaining-writer-route-audit-20261103.m
 test('fix Source155 and Source156 at independently accepted PR327 SQL/Edge blobs',()=>{
  assert.equal(gitBlob(source155),'115f2c0f7224984acd8830cfc606af8c6a1bf3af');
  assert.equal(gitBlob(source156),'3000d66c193b996e4ece785deaf5180955ec3bc6');
- assert.equal(gitBlob(edge),'f9976c9cd2d7faf9417db62ac2bead7abe5aa2fd');
+ assert.equal(gitBlob(edge),'98c766be61a13a07e11388488355641b6142f052');
  assert.match(source156,/for share;/);
  assert.match(source156,/community_authorize_signed_session_v2/);
  assert.match(source156,/revoke all on function public\.community_set_gallery_comments_enabled_atomic_r16/);
@@ -220,4 +220,17 @@ test('Source166 unsaveEntity only: deny direct external SQL but preserve signed 
  assert.match(source166,/community_add_reaction/);
  assert.match(source166,/community_set_gallery_comments_enabled_atomic_signed_v1/);
  assert.match(source166,/community_get_ddv_profile_workspaces_v1/);
+});
+
+const source167=load('supabase/migrations/20261105040000_community_source167_remove_reaction_service_execute_off.sql');
+test('Source167 removeReaction only: deny external service SQL, preserve earlier safety',()=>{
+ assert.match(edge,/SOURCE167_REMOVE_REACTION_WRITER_NOT_ENROLLED/);
+ assert.match(source167,/revoke all on function public\.community_remove_reaction/);
+ assert.match(source167,/from public,anon,authenticated,service_role/);
+ assert.doesNotMatch(source167,/grant execute on function public\.community_remove_reaction/i);
+ assert.match(source167,/community_unsave_entity/);
+ assert.match(source167,/community_save_entity/);
+ assert.match(source167,/community_add_reaction/);
+ assert.match(source167,/community_set_gallery_comments_enabled_atomic_signed_v1/);
+ assert.match(source167,/community_get_ddv_profile_workspaces_v1/);
 });

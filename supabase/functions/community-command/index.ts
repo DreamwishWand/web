@@ -289,6 +289,12 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       return reply({ok:false,error:'SOURCE166_UNSAVE_ENTITY_WRITER_NOT_ENROLLED'},409);
     }
 
+    // Source167: old removeReaction SECURITY DEFINER SQL committed after
+    // revoked session on separate PG; signed verification above returns 401.
+    if (new Set<string>(['removeReaction']).has(command)) {
+      return reply({ok:false,error:'SOURCE167_REMOVE_REACTION_WRITER_NOT_ENROLLED'},409);
+    }
+
     const authorizationParams: JsonObject = {
       p_auth_subject: subject, p_issued_at_epoch: issuedAt,
       p_max_age_seconds: null
