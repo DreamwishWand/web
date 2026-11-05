@@ -23,7 +23,7 @@
       width="160" height="160"
       on:error={() => { failedUrl = renderHref || ''; }} />
   {:else}
-    <span class="image-unavailable" aria-hidden="true">◇</span>
+    <span class="image-unavailable" aria-hidden="true">—</span>
   {/if}
 </span>
 
