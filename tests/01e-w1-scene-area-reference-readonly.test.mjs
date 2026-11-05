@@ -275,3 +275,62 @@ test('additional plain JSON area metadata is accepted without native/writer prom
   assert.equal(r.selectedNativeWetlandAreaKey,null);
   assert.equal(JSON.stringify(p),before);
 });
+
+
+test('GridIDs array Proxy length getter cannot run or mutate saved Unlocked',()=>{
+  const p=fixture(),area=p.World.Villages[0].Areas['1'];
+  let lengthReads=0;
+  area.GridIDs=new Proxy([100],{
+    get(target,key,receiver){
+      if(key==='length'){lengthReads++;area.Unlocked=false;}
+      return Reflect.get(target,key,receiver);
+    }
+  });
+  const r=inspect(p);
+  denies(r);
+  assert.equal(lengthReads,0,'never call untrusted array get(length)');
+  assert.equal(area.Unlocked,true,'caller-owned saved flag stays unchanged');
+  assert.equal(r.productWriterAuthorized,false);
+});
+
+test('Villages array Proxy length getter cannot run during Source inspection',()=>{
+  const p=fixture();
+  let lengthReads=0;
+  p.World.Villages=new Proxy(p.World.Villages,{
+    get(target,key,receiver){
+      if(key==='length'){lengthReads++;p.World.GridCollection.Grids['100'].ID=999;}
+      return Reflect.get(target,key,receiver);
+    }
+  });
+  const r=inspect(p);
+  assert.equal(lengthReads,0,'never call Village-array get(length)');
+  assert.equal(p.World.GridCollection.Grids['100'].ID,100);
+  assert.equal(r.productWriterAuthorized,false);
+  assert.equal(r.inputAuthenticatedByThisReader,false);
+});
+
+test('nested selected Areas array Proxy length getter cannot execute',()=>{
+  const p=fixture(),area=p.World.Villages[0].Areas['1'];
+  let lengthReads=0;
+  area.unknown=new Proxy(['safe',null],{
+    get(target,key,receiver){
+      if(key==='length'){lengthReads++;area.GridIDs[0]=999;}
+      return Reflect.get(target,key,receiver);
+    }
+  });
+  const r=inspect(p);
+  denies(r);
+  assert.equal(lengthReads,0,'descriptor traversal must not read Proxy length');
+  assert.equal(area.GridIDs[0],100);
+});
+
+test('plain JSON arrays with null remain source-only and do not alter caller',()=>{
+  const p=fixture(),area=p.World.Villages[0].Areas['1'];
+  area.unknown={nested:[0,null,'safe',false,{further:[1,2,3]}]};
+  const before=JSON.stringify(p),r=inspect(p);
+  assert.equal(r.status,'SAVED_SCENE_AREA_REFERENCES_SOURCE_ONLY');
+  assert.equal(r.selectedNativeWetlandAreaKey,null);
+  assert.equal(r.nativeEffectiveGridVerified,false);
+  assert.equal(r.productWriterAuthorized,false);
+  assert.equal(JSON.stringify(p),before);
+});

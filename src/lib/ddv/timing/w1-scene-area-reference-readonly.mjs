@@ -24,6 +24,17 @@ const record = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const intId = v => Number.isSafeInteger(v) && v >= 0;
 const canonical = k => /^(0|[1-9]\d*)$/.test(k) && Number.isSafeInteger(Number(k));
 const sha = v => typeof v === 'string' && /^[a-f0-9]{64}$/i.test(v);
+// Reading array.length is not inert for a Proxy-to-array. The native own
+// descriptor read is bounded, and does not invoke a user-supplied get('length')
+// trap. This is still only a synthetic Source reader, never a P1G authenticator.
+const arrayLength = (value,limit) => {
+  if(!Array.isArray(value))return null;
+  const descriptor=Object.getOwnPropertyDescriptor(value,'length');
+  return descriptor && Object.hasOwn(descriptor,'value') &&
+    descriptor.enumerable===false && descriptor.configurable===false &&
+    Number.isSafeInteger(descriptor.value) &&
+    descriptor.value>=0 && descriptor.value<=limit ? descriptor.value : null;
+};
 const sourceRefusal = reason => freeze({
   contract: W1_SCENE_AREA_REFERENCE_CONTRACT,
   status: 'SOURCE_STRUCTURE_REJECTED',
@@ -56,6 +67,8 @@ const plainAreaSubtree = root => {
     if(seen.has(current)||++nodes>16000)return false;
     seen.add(current);
     const array=Array.isArray(current);
+    const safeLength=array?arrayLength(current,10000):null;
+    if(array && safeLength===null)return false;
     const prototype=Object.getPrototypeOf(current);
     if(prototype!==(array?Array.prototype:Object.prototype) && prototype!==null)
       return false;
@@ -72,7 +85,7 @@ const plainAreaSubtree = root => {
         continue;
       }
       if(!desc.enumerable)return false;
-      if(array && (!canonical(key)||Number(key)>=current.length))
+      if(array && (!canonical(key)||Number(key)>=safeLength))
         return false;
       const value=desc.value;
       if(value===null){
@@ -125,14 +138,15 @@ export function inspectW1SceneAreaReferences(profile, sourceContext) {
     const collection=ownData(world,'GridCollection')?.value;
     const grids=ownData(collection,'Grids')?.value;
     const diffGrids=ownData(collection,'DiffGrids')?.value;
-    if(!Array.isArray(villages)||villages.length<1||villages.length>64||
+    const villageCount=arrayLength(villages,64);
+    if(villageCount===null||villageCount===0||
        !record(grids)||!record(diffGrids))
       return sourceRefusal('VILLAGE_ARRAY_OR_GRID_COLLECTION_INVALID');
 
     // A scene may be matched only by its own serialized SceneItemId, never a
     // getter read twice or an inherited ID. The index isn't a Native Area ID.
     const matches=[];
-    for(let i=0;i<villages.length;i++){
+    for(let i=0;i<villageCount;i++){
       const village=ownData(villages,String(i))?.value;
       const sceneId=ownData(village,'SceneItemId')?.value;
       if(!record(village)||!intId(sceneId))
@@ -157,11 +171,12 @@ export function inspectW1SceneAreaReferences(profile, sourceContext) {
       const area=ownData(areas,areaKey)?.value;
       const savedUnlocked=ownData(area,'Unlocked')?.value;
       const gridIDs=ownData(area,'GridIDs')?.value;
+      const gridCount=arrayLength(gridIDs,2048);
       if(!canonical(areaKey)||!record(area)||typeof savedUnlocked!=='boolean'||
-         !Array.isArray(gridIDs)||gridIDs.length>2048)
+         gridCount===null)
         return sourceRefusal('AREA_KEY_UNLOCK_OR_GRIDIDS_INVALID');
       const seen=new Set(),refs=[];
-      for(let i=0;i<gridIDs.length;i++){
+      for(let i=0;i<gridCount;i++){
         const gridId=ownData(gridIDs,String(i))?.value;
         if(!intId(gridId)||seen.has(gridId))
           return sourceRefusal('GRID_ID_INVALID_OR_DUPLICATED_WITHIN_AREA');
