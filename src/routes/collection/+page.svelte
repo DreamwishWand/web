@@ -13,8 +13,10 @@
   import ItemThumb from '$lib/ui/ItemThumb.svelte';
   import ItemImagePreferences from '$lib/ui/ItemImagePreferences.svelte';
   import { itemImagePreferences } from '$lib/item-media/public-item-images.mjs';
-  import { sharedEntityHref } from '$lib/entity/shared-catalog-detail.mjs';
+  import { sharedEntityHref, sharedEntityLabels, PUBLIC_DETAIL_ACCEPTED } from '$lib/entity/shared-catalog-detail.mjs';
 
+  // Static Pages does not have an HTTP200 direct ItemID route; dev inspection remains.
+  const detailNavigationAvailable = import.meta.env.DEV || PUBLIC_DETAIL_ACCEPTED;
   let runtimeIndex: any = null;
   let rawRows: any[] = [];
   let loading = true;
@@ -210,7 +212,7 @@
             <div><p class="eyebrow">{ui.categories} · {label(info.family,$locale)}</p><h3>{info.label}</h3><p>{copy.itemId} {info.itemId}</p>
               <p>{ui.unknown}</p></div>
             <div class="info-actions">
-              <a href={sharedEntityHref(base,$locale,info.itemId)}>{ui.details}</a>
+              {#if detailNavigationAvailable}<a href={sharedEntityHref(base,$locale,info.itemId)}>{ui.details}</a>{:else}<span data-detail-unavailable="true">{sharedEntityLabels($locale).unavailable}</span>{/if}
               <button type="button" on:click={()=>infoId=null}>{ui.close}</button>
             </div>
           </aside>

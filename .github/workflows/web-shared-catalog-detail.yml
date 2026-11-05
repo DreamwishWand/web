@@ -6,6 +6,7 @@ on:
     paths:
       - 'src/lib/entity/shared-catalog-directory.mjs'
       - 'src/lib/entity/SharedCatalogDiscovery.svelte'
+      - 'tests/web-item-detail-static-link-gate.test.mjs'
       - 'src/lib/entity/SharedEntityDetail.svelte'
       - 'src/routes/editor/items/+page.svelte'
       - 'tests/shared-catalog-directory-foundation.test.mjs'
@@ -65,14 +66,32 @@ jobs:
           ITEM_IMAGE_APPROVED_PATHS
             git diff --name-only "$BASE" HEAD | LC_ALL=C sort > /tmp/item-image-actual-paths
             LC_ALL=C sort /tmp/item-image-approved-paths > /tmp/item-image-approved-sorted
-            diff -u /tmp/item-image-approved-sorted /tmp/item-image-actual-paths
-            node --test tests/web-stage1-public-item-thumb-contract.test.mjs
-            echo WEB_ITEM_IMAGE_EXACT9_SCOPED_REGRESSION_PASS
+            # Only the original exact9 ItemThumb Source OR this exact5-route fix is accepted.
+            # No broad glob, no bypass of inherited Catalog or Chrome tests.
+            cat > /tmp/item-detail-static-approved-paths <<'DETAIL_ROUTE_APPROVED_PATHS'
+          .github/workflows/web-shared-catalog-detail.yml
+          src/lib/entity/SharedCatalogDiscovery.svelte
+          src/routes/collection/+page.svelte
+          src/routes/explore/+page.svelte
+          tests/web-item-detail-static-link-gate.test.mjs
+          DETAIL_ROUTE_APPROVED_PATHS
+            LC_ALL=C sort /tmp/item-detail-static-approved-paths > /tmp/item-detail-static-approved-sorted
+            if diff -q /tmp/item-image-approved-sorted /tmp/item-image-actual-paths > /dev/null; then
+              node --test tests/web-stage1-public-item-thumb-contract.test.mjs
+              echo WEB_ITEM_IMAGE_EXACT9_SCOPED_REGRESSION_PASS
+            elif diff -q /tmp/item-detail-static-approved-sorted /tmp/item-image-actual-paths > /dev/null; then
+              node --test tests/web-item-detail-static-link-gate.test.mjs tests/web-stage1-collection-root.test.mjs
+              echo WEB_ITEM_DETAIL_STATIC_HTTP404_LINK_EXACT5_SCOPED_PASS
+            else
+              echo WEB_ITEM_ROUTE_UNAUTHORIZED_SCOPE
+              diff -u /tmp/item-detail-static-approved-sorted /tmp/item-image-actual-paths || true
+              exit 1
+            fi
           fi
           git diff --exit-code "$BASE" HEAD -- supabase/ src/lib/community/ src/lib/moodboards/store.js src/lib/entity/entity-moodboard-action.mjs src/lib/wep/ src/lib/timing/ src/routes/dreamsnaps/
           echo WEB_ITEM_ORIGINAL_ACCEPTED_BEHAVIOR_REGRESSION_PASS
       - name: Source/version, duplicate and rights OFF assertions
-        run: node --test tests/shared-catalog-directory-foundation.test.mjs tests/shared-entity-detail-contract.test.mjs tests/shared-detail-moodboard.test.mjs
+        run: node --test tests/shared-catalog-directory-foundation.test.mjs tests/shared-entity-detail-contract.test.mjs tests/shared-detail-moodboard.test.mjs tests/web-item-detail-static-link-gate.test.mjs
       - name: Svelte checks and static Pages build
         env:
           BASE_PATH: /web
