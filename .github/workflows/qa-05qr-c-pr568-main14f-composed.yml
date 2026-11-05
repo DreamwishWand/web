@@ -1,0 +1,46 @@
+name: 05 QR-C PR568 main14f composed independent changed-risk QA
+on:
+  push:
+    branches: [qa/05qr-c-pr568-main14f-composed-newonly-20261105]
+  pull_request:
+    paths:
+      - '.github/workflows/qa-05qr-c-pr568-main14f-composed.yml'
+      - 'tests/qa-05qr-c-pr568-main14f-composed-newonly.test.mjs'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  exact-main14f-pr568-composition:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 17
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Lock exact protected main and original two Source Git blobs
+        run: |
+          set -eu
+          MAIN=14f85625c06f277f580581f73897748367bcfe7a
+          SOURCE=48378f9bc3e8c5f6e17009a2db9bb1eeb11cfe76
+          test "$(git merge-base "$MAIN" "$SOURCE")" = "$MAIN"
+          test "$(git rev-list --count "$MAIN..$SOURCE")" = 1
+          test "$(git rev-list --parents -n 1 "$SOURCE")" = "$SOURCE $MAIN"
+          test "$(git merge-base "$SOURCE" HEAD)" = "$SOURCE"
+          test "$(git diff --name-only "$MAIN" "$SOURCE" | LC_ALL=C sort)" = "$(printf '%s\n' src/lib/ddv/timing/w1-scene-area-reference-readonly.mjs tests/01e-w1-scene-area-reference-readonly.test.mjs | LC_ALL=C sort)"
+          test "$(git rev-parse HEAD:src/lib/ddv/timing/w1-scene-area-reference-readonly.mjs)" = 433d743a9e9ac577ffbbb9a933c9c9e0e5c4e8ff
+          test "$(git rev-parse HEAD:tests/01e-w1-scene-area-reference-readonly.test.mjs)" = b3542754737d5103cacc86ad9deb1d5f07bc6e3b
+          test "$(git rev-parse "$MAIN:src/lib/ddv/timing/w1-scene-area-reference-readonly.mjs")" = f8b6d87d17690a283088feaa38df8064dc0bc4b3
+          test "$(git rev-parse "$MAIN:tests/01e-w1-scene-area-reference-readonly.test.mjs")" = c9845f19b1724e1e2c52c20c8de1bb8eb9b033ee
+          git diff --quiet "$SOURCE" HEAD -- src/ crates/ static/ docs/ supabase/ tests/01e-w1-scene-area-reference-readonly.test.mjs
+          test "$(git diff --name-only "$SOURCE" HEAD | LC_ALL=C sort)" = "$(printf '%s\n' .github/workflows/qa-05qr-c-pr568-main14f-composed.yml tests/qa-05qr-c-pr568-main14f-composed-newonly.test.mjs | LC_ALL=C sort)"
+          echo PR539_QA564_SIX_SAME_SOURCE_CASES_ACCEPTED_REUSED_NOT_RERUN
+          echo PR568_MAIN14F_EXACT_TWO_COMPOSED_SOURCE_BLOBS_ONLY
+          echo ORIGINAL_ENCRYPTED_OWNER_P1G_V0V1_AND_RUST_V2_NOT_RUN
+          echo NATIVE_WETLAND_GRID_DIFF_TREE_QUOTA_CLOCK_V3_UNKNOWN
+          echo WRITER_EDITEDCOPY_APPLY_OVERWRITE_CLOUD_PROVIDER_PUBLIC_OFF
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Six independently authored current-main composition tests
+        run: node --test tests/qa-05qr-c-pr568-main14f-composed-newonly.test.mjs
+      - name: Current source TypeScript and Svelte ABI check
+        run: npm ci --no-audit --no-fund && npm run check
