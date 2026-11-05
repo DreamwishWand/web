@@ -59,7 +59,15 @@ jobs:
             src/lib/product-home/orientation-stage1-copy.mjs \
             src/routes/discover/+page.svelte \
             tests/web-stage1-discover-orientation.test.mjs
-          test "$(git diff --name-only | wc -l)" -eq 5
+          # Added Source files are untracked in this ephemeral QA-only checkout; git diff alone cannot count them.
+          ACTUAL="$(git status --porcelain=v1 --untracked-files=all | awk '{print $2}' | sort)"
+          EXPECTED="$(printf '%s\n' \
+            .github/workflows/web-stage1-discover-orientation.yml \
+            scripts/web-stage1-discover-orientation-chrome.mjs \
+            src/lib/product-home/orientation-stage1-copy.mjs \
+            src/routes/discover/+page.svelte \
+            tests/web-stage1-discover-orientation.test.mjs | sort)"
+          test "$ACTUAL" = "$EXPECTED" || { echo "Scoped five-file overlay mismatch"; printf 'ACTUAL:\n%s\nEXPECTED:\n%s\n' "$ACTUAL" "$EXPECTED"; exit 1; }
           test "$(git diff --name-only -- src/routes/+page.svelte src/routes/gallery/ src/routes/dreamsnaps/ src/lib/community/ supabase/ static/ .github/workflows/pages.yml | wc -l)" -eq 0
           echo "QR_COMPOSED_TEMPORARY_DISCOVER5_ONLY_NO_PRODUCTION_SOURCE_COMMIT"
       - name: New main0ec with Discover5 type and build (not formal deploy)
