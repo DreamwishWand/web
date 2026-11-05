@@ -1,0 +1,46 @@
+name: 05 QR-C PR539 repaired e514 Proxy clone independent new-only QA
+on:
+  push:
+    branches: [qa/05qr-c-pr539-e514-proxy-structuredclone-delta-20261105]
+  pull_request:
+    paths:
+      - 'tests/qa-05qr-c-pr539-e514-proxy-structuredclone-delta.test.mjs'
+      - '.github/workflows/qa-05qr-c-pr539-e514-proxy-delta.yml'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  fixed-source-e514-repaired-proxy-clone:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Pin exactly repaired source E514 and old Source db061 with 2 original 01E files
+        run: |
+          set -eu
+          MAIN=87f656833491b87712eee031f51ca135bda26b30
+          OLD=db061f80f56da9fd41b9d782a1bde3b9233782c8
+          SOURCE=e51470c212e8eca5a5770d8efd6eb06b2ca9f48a
+          test "$(git merge-base "$MAIN" "$SOURCE")" = "$MAIN"
+          test "$(git merge-base "$OLD" "$SOURCE")" = "$OLD"
+          test "$(git merge-base "$SOURCE" HEAD)" = "$SOURCE"
+          test "$(git diff --name-only "$OLD" "$SOURCE" | wc -l | tr -d ' ')" = 2
+          test "$(git diff --name-only "$MAIN" "$SOURCE" | sort)" = "$(printf '%s\n' src/lib/ddv/timing/w1-scene-area-reference-readonly.mjs tests/01e-w1-scene-area-reference-readonly.test.mjs | sort)"
+          test "$(git rev-parse HEAD:src/lib/ddv/timing/w1-scene-area-reference-readonly.mjs)" = 58ce154be7119d27632165144a9ee13e4622f7d3
+          test "$(git rev-parse HEAD:tests/01e-w1-scene-area-reference-readonly.test.mjs)" = f66d6d8ebb67fe269dfd1932b5e736b584e93b83
+          test "$(git rev-parse "$OLD:src/lib/ddv/timing/w1-scene-area-reference-readonly.mjs")" = c269079fa676fa088bb585f188373c69de697403
+          git diff --quiet "$SOURCE" HEAD -- src/ crates/ docs/ static/ supabase/ tests/01e-w1-scene-area-reference-readonly.test.mjs
+          echo PREVIOUS_QA546_FIVE_PASS_TWO_PROXY_TRUE_RED_HISTORIC_REUSED
+          echo NEW_HEAD_ONLY_PROXY_RED2_CLONE_AFFECTED_NEGATIVES
+          echo PRIVATE_ENCRYPTED_P1G_V2=NOT_RUN
+          echo NATIVE_WETLAND_V3=UNKNOWN
+          echo WRITER_EDITEDCOPY_APPLY_OVERWRITE=OFF
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact-head independent new-only six Node tests
+        run: node --test tests/qa-05qr-c-pr539-e514-proxy-structuredclone-delta.test.mjs
+      - name: TypeScript and Svelte source ABI check
+        run: npm ci --no-audit --no-fund && npm run check
