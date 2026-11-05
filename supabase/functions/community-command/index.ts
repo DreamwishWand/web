@@ -295,6 +295,12 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       return reply({ok:false,error:'SOURCE167_REMOVE_REACTION_WRITER_NOT_ENROLLED'},409);
     }
 
+    // Source168: old unfollowCreator SECURITY DEFINER can delete Follow
+    // after A1 signed local revoke via another PG. 401 before 409 here.
+    if (new Set<string>(['unfollowCreator']).has(command)) {
+      return reply({ok:false,error:'SOURCE168_UNFOLLOW_CREATOR_WRITER_NOT_ENROLLED'},409);
+    }
+
     const authorizationParams: JsonObject = {
       p_auth_subject: subject, p_issued_at_epoch: issuedAt,
       p_max_age_seconds: null
