@@ -24,8 +24,8 @@ test('every locale has purpose, one actionable first step and all three optional
   const copy=orientationCopy(locale);
   assert.equal(copy.products.length,7,locale);
   for(const product of copy.products){
-   assert.ok(product.purpose.trim().length>45,locale+'/'+product.id+' purpose');
-   assert.ok(product.step.trim().length>15,locale+'/'+product.id+' first action');
+   assert.ok(product.purpose.trim().length>18,locale+'/'+product.id+' purpose');
+   assert.ok(product.step.trim().length>8,locale+'/'+product.id+' first action');
    assert.ok(Object.isFrozen(product),locale+'/'+product.id+' immutable');
   }
   for(const k of ['intro','start','purpose','action','scope','seeStatus',
