@@ -1,0 +1,31 @@
+name: 05 QR-C PR568 current main-d8 Home-only independent applicability QA
+on:
+  push:
+    branches: [qa/05qr-c-pr568-2b-main-d8-home-20261105]
+  pull_request:
+    paths:
+      - '.github/workflows/qa-05qr-c-pr568-2b-main-d8-home.yml'
+      - 'tests/qa-05qr-c-pr568-main-d8-home-applicability.test.mjs'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  fixed-head-main-d8-home-qa:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 17
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Five new only immutable Home/01E provenance and dependency tests
+        run: |
+          node --test tests/qa-05qr-c-pr568-main-d8-home-applicability.test.mjs
+          echo ACCEPTED_05QRC_QA572_PROXY_RUNTIME_NEGATIVES_REUSED_NOT_RERUN
+          echo ACCEPTED_05QRC_QA579_GUIDE_DELTA_STATIC_REUSED_NOT_RERUN
+          echo NEW_MAIN_D8_HOME_FIVE_PATHS_DISJOINT_NO_01E_ABI_CHANGE
+          echo ENCRYPTED_OWNER_P1G_PRODUCT_RUST_V2_NOT_RUN_NATIVE_V3_UNKNOWN
+          echo WRITER_EDITEDCOPY_APPLY_ORIGINALOVERWRITE_CLOUD_PUBLIC_OFF
+      - name: Current main composition TS Svelte no compile regression
+        run: npm ci --no-audit --no-fund && npm run check
