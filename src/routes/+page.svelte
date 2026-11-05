@@ -10,21 +10,21 @@
 
   $: copy = homeCopy($locale);
   $: helpCopy = helpStage1Copy($locale);
-  function titleFor(id: string): string {
-    if (id === 'decorate') return copy.decorate;
-    if (id === 'collection') return copy.collection;
-    if (id === 'guide') return copy.guide;
-    if (id === 'presets') return copy.presets;
-    if (id === 'gallery') return copy.gallery;
-    return copy.dreamsnaps;
+  function titleFor(id: string, labels: typeof copy): string {
+    if (id === 'decorate') return labels.decorate;
+    if (id === 'collection') return labels.collection;
+    if (id === 'guide') return labels.guide;
+    if (id === 'presets') return labels.presets;
+    if (id === 'gallery') return labels.gallery;
+    return labels.dreamsnaps;
   }
-  function detailFor(id: string): string {
-    if (id === 'decorate') return copy.decorateDetail;
-    if (id === 'collection') return copy.collectionDetail;
-    if (id === 'guide') return copy.guideDetail;
-    if (id === 'presets') return copy.presetsDetail;
-    if (id === 'gallery') return copy.galleryDetail;
-    return copy.dreamsnapsDetail;
+  function detailFor(id: string, labels: typeof copy): string {
+    if (id === 'decorate') return labels.decorateDetail;
+    if (id === 'collection') return labels.collectionDetail;
+    if (id === 'guide') return labels.guideDetail;
+    if (id === 'presets') return labels.presetsDetail;
+    if (id === 'gallery') return labels.galleryDetail;
+    return labels.dreamsnapsDetail;
   }
 </script>
 
@@ -40,7 +40,7 @@
 
   <GroupedCardGrid label={copy.products} minCardWidth="16rem" className="home-product-grid">
     {#each HOME_STAGE1_CONSUMER.coreProducts as card}
-      <VisualCard href={base + card.href} title={titleFor(card.id)} description={detailFor(card.id)} icon={card.icon} />
+      <VisualCard href={base + card.href} title={titleFor(card.id,copy)} description={detailFor(card.id,copy)} icon={card.icon} />
     {/each}
   </GroupedCardGrid>
 
@@ -48,7 +48,7 @@
     <VisualCard
       href={base + '/help/'}
       title={helpCopy.title}
-      description={$locale === 'ja' ? '質問・ヒント・問題・自分のアクティビティ。未受入の公開・Owner操作はOFF。' : 'Questions, Tips, Issues and My Activity. Unaccepted publishing and Owner operations remain OFF.'}
+      description={copy.qaDetail}
       icon={HOME_STAGE1_CONSUMER.qa.icon}
       variant="horizontal"
     />
