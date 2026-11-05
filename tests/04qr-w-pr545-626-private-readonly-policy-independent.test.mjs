@@ -78,7 +78,7 @@ test('owner-private actual executor separately gated and fail closed, NEVER CLAI
  const manual=readFileSync(docs,'utf8');
  for(const phrase of [
   'NOT_RUN','Owner','9A239D3DB569756D','schema626',
-  'outside','no automatic','0600'
+  'outside','No server-side storage','0600'
  ])assert.ok(manual.toLowerCase().includes(phrase.toLowerCase()),'doc explicitly preserves caveat '+phrase);
 });
 test('the only new Source change is workflow branch trigger/step label, NO weakening original synthetic job',()=>{
@@ -87,7 +87,7 @@ test('the only new Source change is workflow branch trigger/step label, NO weake
   .replace("branches: ['wep/private-626-readonly-browser-receipt-20261104']", "branches: ['wep/private-626-world-readonly-main-policy-20261105']")
   .replace("branches: ['wep/private-genuine-p1g-e2e-harness-source-only-20261104']", "branches: ['main']")
   .replace('Pin accepted parent 624 source + new owner branch','Pin accepted main WEP spatial source and isolated synthetic runner');
- assert.equal(work,renamed,'Source WEP new workflow must ONLY update triggers and label');
+ assert.equal(work.trimEnd(),renamed.trimEnd(),'Source WEP new workflow must ONLY update triggers and label, trailing newline not semantic');
  assert.match(execSource,/PRIVATE_BROWSER_WEBSOCKET_GUARD_REQUIRED/);
  assert.match(execSource,/626_WRONG_BID_CLEARS_PRIOR_SOURCE_READ/);
  assert.match(execSource,/626_LOCAL_READONLY_NO_CANVAS_DRAFT_EDIT_EXPORT/);
