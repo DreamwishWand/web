@@ -86,7 +86,7 @@ export function searchGuideSystemCategories(query = '', locale = 'en') {
       [g.ja,g.en,...g.keys].join(' ').toLocaleLowerCase().includes(q)
     );
     return groups.length ? { ...c, groups } : null;
-  }).filter(Boolean);
+  }).filter(x => x !== null);
 }
 export function guideTaxonomyLabel(entry, locale) {
   return locale === 'ja' ? entry.ja : entry.en;
