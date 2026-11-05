@@ -158,7 +158,7 @@ test('localization inventory does not relax the World Editor persistent-write sa
 });
 
 
-test('closed Home shared shell inventory has explicit Home/global controls and no Product navigation dependency', () => {
+test('owner-closed product-local shell stays bound to WEP shared locale authority without writer', () => {
   const shell = inventory.categories.navigation.find(
     (entry) => entry.surface === 'Shared site shell rendered on World Editor'
   );
@@ -171,4 +171,12 @@ test('closed Home shared shell inventory has explicit Home/global controls and n
     assert.equal(shell.strings.includes(label), true, label);
   }
   assert.equal(shell.source.includes('src/lib/community/CommunityNav.svelte'), false);
+  assert.equal(shell.owner, 'shared-web');
+  const header = readFileSync(new URL('../src/lib/SiteHeader.svelte', import.meta.url), 'utf8');
+  const routeRegistry = readFileSync(new URL('../src/lib/ui/product-shell-navigation.mjs', import.meta.url), 'utf8');
+  assert.match(header, /data-product-local-navigation/);
+  assert.match(header, /data-immersive-recovery/);
+  assert.match(routeRegistry, /resolveProductShell/);
+  assert.doesNotMatch(header, /activate\('open-ddv-save'/);
+  assert.equal(inventory.safetyBoundary.persistentWriteAuthorized, false);
 });
