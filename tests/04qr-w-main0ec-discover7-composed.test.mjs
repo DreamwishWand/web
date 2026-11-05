@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import {readFileSync} from 'node:fs';
 const MAIN='0ec67476e6c358f810c310ed257bc4986128bc79';
-const SOURCE='256cc585fd282fec5529c04e7a63f698be430343';
+const SOURCE='322702a0522c44aebea78f993ee1099f1b957bdf';
 const SOURCE_BASE=MAIN;
 const PREVIOUS_MAIN='058ac652b06fdc62ff85559186375c5b7a1e62a4';
 const sourcePaths=[
@@ -30,7 +30,7 @@ test('protected main0ec and Source PR577 frozen; QA branch exact three-only',()=
   'src/lib/product-home/orientation-stage1-copy.mjs':'c2ec4e6ce2c80e97aa7e117bda5234155b72649f',
   'tests/web-stage1-discover-orientation.test.mjs':'cc5f0584f981cfc8a9b46124d756a54c18118091',
   'scripts/web-stage1-discover-orientation-chrome.mjs':'cde9a44be11f05257bad377080634a9d16cae408',
-  '.github/workflows/web-stage1-discover-orientation.yml':'c7649071109ead8d8191d9282672f177d8e11e6e'
+  '.github/workflows/web-stage1-discover-orientation.yml':'bfee04a028718d2c014d068ddb654f8cc21e1446'
  }))assert.equal(git('rev-parse',SOURCE+':'+path),sha,path);
 });
 test('latest main0ec added Home/DreamSnaps/Gallery only after 058; exact 3 merges and no Discover source',()=>{
