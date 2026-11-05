@@ -1,0 +1,67 @@
+name: "04QR-W PR547 Guide Systems seven categories source and actual Chromium independent"
+on:
+  pull_request:
+    branches: ['web/stage1-guide-systems-seven-taxonomy-20261105']
+    paths:
+      - '.github/workflows/04qr-w-pr547-guide-systems-independent.yml'
+      - 'scripts/04qr-w-pr547-guide-systems-chromium.mjs'
+      - 'tests/04qr-w-pr547-guide-systems-independent.test.mjs'
+permissions:
+  contents: read
+jobs:
+  systems-7x106-source-adversarial:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Fixed five Source Git blobs, exact 7 21 106, ambiguous DLC/road aliases and no article public
+        run: node --test tests/04qr-w-pr547-guide-systems-independent.test.mjs
+      - name: Chrome QA syntax
+        run: node --check scripts/04qr-w-pr547-guide-systems-chromium.mjs
+  systems-actual-chromium-private-safe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Resolve genuine system Chrome
+        id: chrome
+        run: |
+          set -euo pipefail
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$BIN"
+          echo "path=$BIN" >> "$GITHUB_OUTPUT"
+      - name: Dispose local Guide Systems HTTP after Chrome test
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4297 >/tmp/04qr-w-pr547-systems.log 2>&1 &
+          for i in $(seq 1 65); do
+            if curl --fail --silent http://127.0.0.1:4297/guide/systems/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/04qr-w-pr547-systems.log
+          exit 1
+      - name: Genuine Chrome 7x8 visible/JA-EN honest fallback/unknown search/320/zoom200
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          QR547_URL: http://127.0.0.1:4297/guide/systems/
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          node scripts/04qr-w-pr547-guide-systems-chromium.mjs
