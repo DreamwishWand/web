@@ -1,0 +1,94 @@
+name: WEB Stage1 Gallery three-card root privacy-safe
+on:
+  push:
+    branches:
+      - 'web/stage1-gallery-three-card-root-*'
+  pull_request:
+    paths:
+      - 'src/routes/gallery/+page.svelte'
+      - 'src/lib/community/gallery-stage1-root.mjs'
+      - 'tests/web-stage1-gallery-root.test.mjs'
+      - 'scripts/web-stage1-gallery-chrome.mjs'
+      - '.github/workflows/web-stage1-gallery-ux.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Exact main and five source/test-only paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.pull_request.base.sha || '14f85625c06f277f580581f73897748367bcfe7a' }}"
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          git diff --name-only "$BASE" HEAD > /tmp/08web-gallery-stage1
+          test "$(wc -l </tmp/08web-gallery-stage1)" -eq 5
+          while IFS= read -r f; do
+            case "$f" in
+              src/routes/gallery/+page.svelte|src/lib/community/gallery-stage1-root.mjs|tests/web-stage1-gallery-root.test.mjs|scripts/web-stage1-gallery-chrome.mjs|.github/workflows/web-stage1-gallery-ux.yml) ;;
+              *) echo "OUTSIDE_GALLERY_STAGE1_SCOPE:$f"; exit 1 ;;
+            esac
+          done </tmp/08web-gallery-stage1
+          git diff --exit-code "$BASE" HEAD -- src/lib/community/browser-client.ts src/lib/community/browser-client.js src/lib/ddv/ src/lib/wep/ src/lib/timing/ supabase/ static/ .github/workflows/pages.yml
+          echo WEB_STAGE1_GALLERY_EXACT_SCOPE_PASS
+      - name: Three-card root, exact verified subtypes and privacy negatives
+        run: node --test tests/web-stage1-gallery-root.test.mjs
+      - name: Whole product Node, Svelte and Pages regression
+        env:
+          BASE_PATH: /web
+        run: |
+          npm test
+          npm run check
+          npm run build
+      - name: No positive unverified item prerender
+        run: |
+          test -f build/gallery/index.html
+          test -f build/404.html
+          test ! -f build/ja/entity/quest/12345/index.html
+          echo WEB_STAGE1_GALLERY_PUBLIC_AUTHORITIES_OFF_PASS
+  chrome:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Build and start localhost Gallery
+        env:
+          BASE_PATH: /web
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          npm run build
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4287 >/tmp/08web-gallery-stage1.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4287/gallery/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/08web-gallery-stage1.log
+          exit 1
+      - name: Eight-locale actual Chrome root, 320px/200%, keyboard/no-Provider
+        env:
+          STAGE1_GALLERY_URL: http://127.0.0.1:4287
+        run: node scripts/web-stage1-gallery-chrome.mjs
