@@ -21,6 +21,7 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
       - name: Require system-installed real Chrome, not mock or synthetic HTML
         shell: bash
         run: |
