@@ -1,7 +1,7 @@
 name: "04QR-W PR541 main14f schema626 Village Areas UNKNOWN composition"
 on:
   pull_request:
-    branches: ['integration/wep-schema626-malformed-areas-unknown-main87-20261105']
+    branches: ['integration/schema626-village-areas-unknown-main87-20261105']
     paths:
       - '.github/workflows/04qr-w-pr541-main14f-626-world-collection-crossgate.yml'
       - 'scripts/04qr-w-pr541-main14f-626-world-collection-crossgate-chrome.mjs'
