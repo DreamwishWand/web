@@ -79,7 +79,7 @@ test('quality-88 lossy manifest, missing lossless codec, or namespace cannot mas
   const valid=validateItemImageCatalog(m);
   assert.equal(itemImageAssetPath(31700014,{...valid,assetVariant:'v1.24.13'}),null);
   assert.equal(itemImageAssetPath(31700014,{...valid,codec:'WEBP_QUALITY88'}),null);
-  assert.doesNotMatch(itemImageAssetPath(31700014,valid),/ddv\\/item-images\\/v1\\.24\\.13\\//);
+  assert.equal(itemImageAssetPath(31700014,valid).includes('ddv/item-images/v1.24.13/'),false);
 });
 
 test('visual fit/size/density preferences only store layout strings, no game bytes',()=>{
