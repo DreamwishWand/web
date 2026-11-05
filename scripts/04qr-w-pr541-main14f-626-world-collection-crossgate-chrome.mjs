@@ -44,7 +44,7 @@ async function upload(bytes){
  });
 }
 try{
- await page.goto(root+'/editor/world/',{waitUntil:'domcontentloaded',timeout:45000});
+ await page.goto(root+'/editor/world/',{waitUntil:'networkidle',timeout:60000});
  await page.locator('.platform-select select').waitFor({state:'visible',timeout:35000});
  await page.locator('.platform-select select').selectOption('switch');
  await page.locator('[data-wep-626-bid] input').fill('9A239D3DB569756D');
