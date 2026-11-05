@@ -48,7 +48,28 @@ jobs:
               *) echo "ITEM_OUT_OF_SCOPE:$file"; exit 1 ;;
             esac
           done </tmp/item-scope
-          git diff --exit-code "$BASE" HEAD -- supabase/ src/lib/community/ src/lib/moodboards/store.js src/lib/entity/entity-moodboard-action.mjs src/lib/wep/ src/lib/timing/ src/routes/dreamsnaps/ src/routes/explore/ src/routes/collection/
+          # The original Item gate protected Collection/Explore against unrelated edits.
+          # The only exception is the exact nine-path Stage1 public ItemThumb change,
+          # including this workflow. Never suppress the inherited functional tests.
+          if ! git diff --quiet "$BASE" HEAD -- src/routes/explore/ src/routes/collection/; then
+            cat > /tmp/item-image-approved-paths <<'ITEM_IMAGE_APPROVED_PATHS'
+.github/workflows/web-shared-catalog-detail.yml
+src/lib/entity/SharedEntityDetail.svelte
+src/lib/entity/shared-catalog-detail.mjs
+src/lib/item-media/public-item-images.mjs
+src/lib/ui/ItemImagePreferences.svelte
+src/lib/ui/ItemThumb.svelte
+src/routes/collection/+page.svelte
+src/routes/explore/+page.svelte
+tests/web-stage1-public-item-thumb-contract.test.mjs
+ITEM_IMAGE_APPROVED_PATHS
+            git diff --name-only "$BASE" HEAD | LC_ALL=C sort > /tmp/item-image-actual-paths
+            LC_ALL=C sort /tmp/item-image-approved-paths > /tmp/item-image-approved-sorted
+            diff -u /tmp/item-image-approved-sorted /tmp/item-image-actual-paths
+            node --test tests/web-stage1-public-item-thumb-contract.test.mjs
+            echo WEB_ITEM_IMAGE_EXACT9_SCOPED_REGRESSION_PASS
+          fi
+          git diff --exit-code "$BASE" HEAD -- supabase/ src/lib/community/ src/lib/moodboards/store.js src/lib/entity/entity-moodboard-action.mjs src/lib/wep/ src/lib/timing/ src/routes/dreamsnaps/
           echo WEB_ITEM_ORIGINAL_ACCEPTED_BEHAVIOR_REGRESSION_PASS
       - name: Source/version, duplicate and rights OFF assertions
         run: node --test tests/shared-catalog-directory-foundation.test.mjs tests/shared-entity-detail-contract.test.mjs tests/shared-detail-moodboard.test.mjs
