@@ -1,0 +1,95 @@
+name: WEB Stage1 Guide Systems owner canonical seven taxonomy (no public articles)
+on:
+  push:
+    branches:
+      - 'web/stage1-guide-systems-seven-taxonomy-*'
+  pull_request:
+    paths:
+      - 'src/lib/guide/systems-stage1-taxonomy.mjs'
+      - 'src/routes/guide/systems/+page.svelte'
+      - 'tests/web-stage1-guide-systems-seven-root.test.mjs'
+      - 'scripts/web-stage1-guide-systems-chrome.mjs'
+      - '.github/workflows/web-stage1-guide-systems.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Scope five owner Systems files on accepted current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=87f656833491b87712eee031f51ca135bda26b30
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          git diff --name-only "$BASE" HEAD >/tmp/stage1-guide-systems
+          test "$(wc -l </tmp/stage1-guide-systems)" -eq 5
+          while IFS= read -r f; do
+            case "$f" in
+              src/lib/guide/systems-stage1-taxonomy.mjs|src/routes/guide/systems/+page.svelte|tests/web-stage1-guide-systems-seven-root.test.mjs|scripts/web-stage1-guide-systems-chrome.mjs|.github/workflows/web-stage1-guide-systems.yml) ;;
+              *) echo "OUTSIDE_GUIDE_SYSTEMS_SCOPE:$f"; exit 1 ;;
+            esac
+          done </tmp/stage1-guide-systems
+          git diff --exit-code "$BASE" HEAD -- src/lib/guide/copy.js src/lib/guide/runtime.js src/routes/guide/+page.svelte src/routes/help/ src/lib/community/ src/lib/ddv/ src/lib/wep/ supabase/ static/ .github/workflows/pages.yml
+          echo WEB_STAGE1_GUIDE_SYSTEMS_OWNER_TAXONOMY_ONLY_PASS
+      - name: Owner 7 categories, 106 unique source keys, no publication and 8 locales
+        run: node --test tests/web-stage1-guide-systems-seven-root.test.mjs
+      - name: Full existing Node regression, Svelte and static Pages
+        env:
+          BASE_PATH: /web
+        run: |
+          npm test
+          npm run check
+          npm run build
+      - name: Systems is a navigable OFF source with no positive Rights page
+        shell: bash
+        run: |
+          test -f build/guide/systems/index.html
+          grep -q 'noindex,nofollow' build/guide/systems/index.html
+          test ! -f build/ja/entity/quest/12345/index.html
+          echo WEB_STAGE1_GUIDE_SYSTEMS_NOT_PUBLIC_ARTICLE_PASS
+  chrome:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Start local 7-canonical-category Guide shell
+        shell: bash
+        env:
+          BASE_PATH: /web
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          npm run build
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4294 >/tmp/stage1-guide-systems.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4294/guide/systems/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/stage1-guide-systems.log
+          exit 1
+      - name: Actual Chrome seven categories×eight locales, keyboard, 320px/200 and no request
+        env:
+          GUIDE_SYSTEMS_URL: http://127.0.0.1:4294
+        run: node scripts/web-stage1-guide-systems-chrome.mjs
