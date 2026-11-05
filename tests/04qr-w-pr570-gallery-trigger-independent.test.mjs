@@ -14,7 +14,8 @@ const original=git('show',OLD+':'+FILE);
 const modified=readFileSync(FILE,'utf8').trim();
 const trusted='$'+"{{ github.event.pull_request.base.sha || '"+MAIN+"' }}";
 const oldBase='$'+"{{ github.event.pull_request.base.sha || 'fabfd17c8dd192707d55a6cc12cccf65797d564e' }}";
-const addition=sourcePaths.map(x=>'      - '+JSON.stringify(x).replaceAll('"',"'")).join('\n')+'\n';
+const eventPaths=['src/routes/gallery/+page.svelte','src/lib/community/gallery-stage1-root.mjs','tests/web-stage1-gallery-root.test.mjs','scripts/web-stage1-gallery-chrome.mjs',FILE];
+const addition=eventPaths.map(x=>'      - '+JSON.stringify(x).replaceAll('"',"'")).join('\n')+'\n';
 
 test('PR570 current protected main exactly five and old Gallery product/source blob identity reused, QA-only exactly two',()=>{
  assert.equal(git('merge-base',MAIN,SOURCE),MAIN);
