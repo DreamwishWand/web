@@ -20,11 +20,19 @@ const qaPaths=[
  'tests/04qr-w-main0ec-discover7-composed.test.mjs'
 ].sort();
 const git=(...a)=>execFileSync('git',a,{encoding:'utf8'}).trim();
+const parents=git('rev-list','--parents','-n','1','HEAD').split(/\s+/).slice(1);
+const qaDiffBase=parents.length>1?parents[0]:MAIN; // GitHub ordinary CI synthetic merge vs fixed QA Source checkout.
+
 test('protected main0ec and Source PR577 frozen; QA branch exact three-only',()=>{
  assert.equal(git('merge-base',MAIN,'HEAD'),MAIN);
  assert.equal(git('merge-base',SOURCE_BASE,SOURCE),SOURCE_BASE);
  assert.deepEqual(git('diff','--name-only',SOURCE_BASE,SOURCE).trim().split('\n').sort(),sourcePaths);
- assert.deepEqual(git('diff','--name-only',MAIN,'HEAD').trim().split('\n').sort(),qaPaths);
+ if(qaDiffBase!==MAIN)assert.deepEqual(
+  git('diff','--name-only',MAIN,qaDiffBase).trim().split('\n').sort(),
+  ['src/lib/ddv/timing/w1-scene-area-reference-readonly.mjs',
+   'tests/01e-w1-scene-area-reference-readonly.test.mjs'].sort(),
+  'only independently merged main79e W1 read-only Source may appear in synthetic CI merge');
+ assert.deepEqual(git('diff','--name-only',qaDiffBase,'HEAD').trim().split('\n').sort(),qaPaths);
  for(const [path,sha] of Object.entries({
   'src/routes/discover/+page.svelte':'c909b5d957bda1b5fba5727877417baf03362a6d',
   'src/lib/product-home/orientation-stage1-copy.mjs':'c2ec4e6ce2c80e97aa7e117bda5234155b72649f',
@@ -52,7 +60,7 @@ test('compose only five accepted Source files in disposable workflow; no rights/
  assert.match(w,/playwright-core@1\.55\.0/);
  assert.doesNotMatch(w,/secrets\.|workflow_dispatch|deploy-pages|write-all|git push|pull_request_target/);
  for(const file of sourcePaths)assert.ok(w.includes(file),'only source selection '+file);
- assert.equal(git('diff','--name-only',MAIN,'HEAD','--','src/','static/','supabase/','.github/workflows/pages.yml'),'');
+ assert.equal(git('diff','--name-only',qaDiffBase,'HEAD','--','src/','static/','supabase/','.github/workflows/pages.yml'),'');
 });
 test('existing sibling protected Source remains OFF after composed Discover; no P1G or claim of formal Preview',()=>{
  const home=git('show',MAIN+':src/routes/+page.svelte');
