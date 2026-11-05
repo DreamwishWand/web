@@ -1,0 +1,32 @@
+name: "04QR-W PR577 Discover main058 trusted CI base-only"
+on:
+  pull_request:
+    branches: ['web/stage1-discover-orientation-main058-20261105']
+    paths:
+      - 'tests/04qr-w-pr577-discover-main058-independent.test.mjs'
+      - '.github/workflows/04qr-w-pr577-discover-main058-independent.yml'
+permissions:
+  contents: read
+jobs:
+  independent-discover-ci-policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: One-line trusted main058 base and exact five scoped Source Git SHA with negative paths
+        run: node --test tests/04qr-w-pr577-discover-main058-independent.test.mjs
+      - name: No owner private P1G, Native/Community Writer or Pages deployment mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          git diff --exit-code faef18373bd8e84312eedeff39cecd13007bff30 HEAD -- src/ static/ supabase/ .github/workflows/pages.yml
+          echo QR577_SOURCE_ONLY_NO_PRIVATE_OR_PUBLIC_WRITER_EXPANSION_PASS
