@@ -112,3 +112,42 @@ test("no release: existing Guide/CHC Rights/Seed state unaffected by this dedica
   assert.equal(preflightGameImageOperatorReceipt(template).readyForOperatorReview,false);
   assert.equal(preflightGameItemImage({...image,targetMappingVerified:false},ctx,[]).candidate,false);
 });
+
+test("transitive closure from PNG to WebP to PNG includes every linked Item and both content hashes", () => {
+  const A={...image,itemId:"40000101",sourcePngSha256:digest("a"),webpSha256:digest("b")};
+  const B={...image,itemId:"40000102",sourcePngSha256:digest("a"),webpSha256:digest("c")};
+  const C={...image,itemId:"40000103",sourcePngSha256:digest("d"),webpSha256:digest("c")};
+  const D={...image,itemId:"40000104",sourcePngSha256:digest("d"),webpSha256:digest("e")};
+  const U={...image,itemId:"40000105",sourcePngSha256:digest("f"),webpSha256:digest("1")};
+  const expectedIds=["40000101","40000102","40000103","40000104"];
+  const expectedHashes=["a","b","c","d","e"].map(digest);
+  for (const manifest of [[A,B,C,D,U],[U,D,C,B,A],[C,U,A,D,B]]) {
+    const result=planGameImageTakedown(manifest,{kind:"ITEM_ID",value:A.itemId});
+    assert.equal(result.resolvable,true);
+    assert.deepEqual(result.itemIds,expectedIds);
+    assert.deepEqual(result.hashes,expectedHashes);
+    assert.equal(result.itemIds.includes(U.itemId),false);
+    const byWebp=planGameImageTakedown(manifest,{kind:"WEBP_SHA256",value:digest("c")});
+    assert.deepEqual(byWebp.itemIds,expectedIds);
+    assert.deepEqual(byWebp.hashes,expectedHashes);
+  }
+});
+test("damaged linked derivative or alias cannot be silently omitted from takedown closure", () => {
+  const A={...image,itemId:"40000111",sourcePngSha256:digest("a"),webpSha256:digest("b")};
+  const B={...image,itemId:"40000112",sourcePngSha256:digest("a"),webpSha256:"UNVERIFIED"};
+  const C={...image,itemId:"40000113",sourcePngSha256:digest("d"),webpSha256:digest("b")};
+  for(const rows of [[A,B],[B,A],[C,A,B]]) {
+    const result=planGameImageTakedown(rows,{kind:"ITEM_ID",value:A.itemId});
+    assert.equal(result.resolvable,false);
+    assert.deepEqual(result.reasons,["LINKED_IMAGE_MAPPING_INCOMPLETE"]);
+    assert.deepEqual(result.itemIds,[]);
+    assert.deepEqual(result.hashes,[]);
+  }
+  const invalidItem={...A,itemId:null,webpSha256:digest("e")};
+  assert.equal(planGameImageTakedown([A,invalidItem],{kind:"SOURCE_SHA256",value:digest("a")}).resolvable,false);
+  // Same ItemID cannot be used to conceal a different damaged derivative.
+  const duplicate={...A,webpSha256:null};
+  assert.equal(planGameImageTakedown([A,duplicate],{kind:"ITEM_ID",value:A.itemId}).resolvable,false);
+  // A corrupted UNLINKED row cannot force a false global takedown of unrelated source.
+  assert.deepEqual(planGameImageTakedown([A,{...B,sourcePngSha256:digest("f")}],{kind:"ITEM_ID",value:A.itemId}).itemIds,[A.itemId]);
+});
