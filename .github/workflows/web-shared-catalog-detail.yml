@@ -53,16 +53,16 @@ jobs:
           # including this workflow. Never suppress the inherited functional tests.
           if ! git diff --quiet "$BASE" HEAD -- src/routes/explore/ src/routes/collection/; then
             cat > /tmp/item-image-approved-paths <<'ITEM_IMAGE_APPROVED_PATHS'
-.github/workflows/web-shared-catalog-detail.yml
-src/lib/entity/SharedEntityDetail.svelte
-src/lib/entity/shared-catalog-detail.mjs
-src/lib/item-media/public-item-images.mjs
-src/lib/ui/ItemImagePreferences.svelte
-src/lib/ui/ItemThumb.svelte
-src/routes/collection/+page.svelte
-src/routes/explore/+page.svelte
-tests/web-stage1-public-item-thumb-contract.test.mjs
-ITEM_IMAGE_APPROVED_PATHS
+          .github/workflows/web-shared-catalog-detail.yml
+          src/lib/entity/SharedEntityDetail.svelte
+          src/lib/entity/shared-catalog-detail.mjs
+          src/lib/item-media/public-item-images.mjs
+          src/lib/ui/ItemImagePreferences.svelte
+          src/lib/ui/ItemThumb.svelte
+          src/routes/collection/+page.svelte
+          src/routes/explore/+page.svelte
+          tests/web-stage1-public-item-thumb-contract.test.mjs
+          ITEM_IMAGE_APPROVED_PATHS
             git diff --name-only "$BASE" HEAD | LC_ALL=C sort > /tmp/item-image-actual-paths
             LC_ALL=C sort /tmp/item-image-approved-paths > /tmp/item-image-approved-sorted
             diff -u /tmp/item-image-approved-sorted /tmp/item-image-actual-paths
