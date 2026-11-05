@@ -4,8 +4,9 @@ import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import {readFileSync} from 'node:fs';
 const MAIN='0ec67476e6c358f810c310ed257bc4986128bc79';
-const SOURCE='faef18373bd8e84312eedeff39cecd13007bff30';
-const SOURCE_BASE='058ac652b06fdc62ff85559186375c5b7a1e62a4';
+const SOURCE='256cc585fd282fec5529c04e7a63f698be430343';
+const SOURCE_BASE=MAIN;
+const PREVIOUS_MAIN='058ac652b06fdc62ff85559186375c5b7a1e62a4';
 const sourcePaths=[
  '.github/workflows/web-stage1-discover-orientation.yml',
  'scripts/web-stage1-discover-orientation-chrome.mjs',
@@ -33,8 +34,8 @@ test('protected main0ec and Source PR577 frozen; QA branch exact three-only',()=
  }))assert.equal(git('rev-parse',SOURCE+':'+path),sha,path);
 });
 test('latest main0ec added Home/DreamSnaps/Gallery only after 058; exact 3 merges and no Discover source',()=>{
- assert.equal(git('merge-base',SOURCE_BASE,MAIN),SOURCE_BASE);
- const delta=git('diff','--name-only',SOURCE_BASE,MAIN).trim().split('\n').sort();
+ assert.equal(git('merge-base',PREVIOUS_MAIN,MAIN),PREVIOUS_MAIN);
+ const delta=git('diff','--name-only',PREVIOUS_MAIN,MAIN).trim().split('\n').sort();
  assert.equal(delta.length,16,'5 Home + 6 DreamSnaps + 5 Gallery paths');
  for(const prefix of ['src/routes/+page.svelte','src/routes/gallery/+page.svelte','src/routes/dreamsnaps/+page.svelte']){
   assert.ok(delta.includes(prefix),prefix);
