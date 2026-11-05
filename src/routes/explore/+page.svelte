@@ -4,7 +4,7 @@
   import { base } from '$app/paths';
   import { locale, formatNumber } from '$lib/i18n/runtime.js';
   import { exploreCopy } from '$lib/explore/copy.js';
-  import { sharedEntityHref, sharedEntityLabels } from '$lib/entity/shared-catalog-detail.mjs';
+  import { sharedEntityHref, sharedEntityLabels, PUBLIC_DETAIL_ACCEPTED } from '$lib/entity/shared-catalog-detail.mjs';
   import ItemThumb from '$lib/ui/ItemThumb.svelte';
   import ItemImagePreferences from '$lib/ui/ItemImagePreferences.svelte';
   import { itemImagePreferences } from '$lib/item-media/public-item-images.mjs';
@@ -32,6 +32,9 @@
   let moodboards:any=createEmptyMoodboardDocument();
   let placementBinding:any=null;
   let worldEditorSupported=false;
+  // GitHub Pages cannot serve direct HTTP 200 for unprerendered /<locale>/<ItemID>/.
+  // Keep local dev detail inspection, but never publish a broken HTTP404 link.
+  const detailNavigationAvailable = import.meta.env.DEV || PUBLIC_DETAIL_ACCEPTED;
   let selectedItem:any=null;
   let selectedPlacement:any=null;
   let quickReviewCloseButton:HTMLButtonElement;
@@ -151,7 +154,7 @@
           <ItemThumb itemId={item.itemId} label={item.label} />
           <div class="body"><span>{familyLabel(item.family)}</span><h2>{item.label}</h2><div class="facets">{#each item.universes.slice(0,2) as value}<small>{universeLabel(value)}</small>{/each}</div><code>{copy.itemId} {item.itemId}</code></div>
         </button>
-        <footer><a href={sharedEntityHref(base,$locale,item.itemId)}>{sharedEntityLabels($locale).label}</a><button type="button" aria-pressed={isInMoodboard(item)} on:click={()=>toggleMoodboard(item)} disabled={!boards.length}>{isInMoodboard(item)?copy.remove:copy.add}</button></footer>
+        <footer>{#if detailNavigationAvailable}<a href={sharedEntityHref(base,$locale,item.itemId)}>{sharedEntityLabels($locale).label}</a>{:else}<span data-detail-unavailable="true">{sharedEntityLabels($locale).unavailable}</span>{/if}<button type="button" aria-pressed={isInMoodboard(item)} on:click={()=>toggleMoodboard(item)} disabled={!boards.length}>{isInMoodboard(item)?copy.remove:copy.add}</button></footer>
       </article>
     {/each}</div>{#if filtered.length>LIMIT}<p class="more">{copy.more}</p>{/if}
     {:else}<div class="empty"><strong>{copy.empty}</strong></div>{/if}
