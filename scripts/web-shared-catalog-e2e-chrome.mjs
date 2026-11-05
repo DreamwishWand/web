@@ -36,11 +36,16 @@ try {
  pass('LOCAL_MOODBOARD_CREATED_WITHOUT_ACCOUNT');
 
  await page.goto(root+'/collection/',{waitUntil:'domcontentloaded'});
- await page.locator('.collection-grid .collection-card').first().waitFor({timeout:35000});
- await page.locator('.collection-controls input[type="search"]').fill(ITEM);
- await page.waitForFunction(()=>document.querySelectorAll('.collection-card').length===1,{timeout:20000});
- assert.match(await page.locator('.collection-card').first().innerText(),new RegExp(ITEM));
- await page.locator('.collection-card h2 a').click();
+ await page.locator('[data-stage1-category-grid] .category-card').first().waitFor({timeout:35000});
+ assert.equal(await page.locator('[data-stage1-collection-root]').getAttribute('data-personal-progress'),'unknown');
+ assert.equal(await page.locator('[data-stage1-collection-root]').getAttribute('data-writer'),'off');
+ await page.locator('[data-stage1-search]').fill(ITEM);
+ await page.locator('[data-stage1-search-groups] .item-card').first().waitFor({timeout:20000});
+ assert.equal(await page.locator('[data-stage1-search-groups] .item-card').count(),1);
+ await page.locator('[data-stage1-search-groups] .item-card').first().click();
+ await page.locator('[data-stage1-item-info]').waitFor({timeout:20000});
+ assert.match(await page.locator('[data-stage1-item-info]').innerText(),new RegExp(ITEM));
+ await page.locator('[data-stage1-item-info] .info-actions a').click();
  await page.locator('[data-shared-entity-detail="preview"] h1').waitFor({timeout:30000});
  assert.match(page.url(),new RegExp('/[a-zA-Z-]+/'+ITEM+'/$'));
  assert.match(await page.locator('[data-entity-identity]').innerText(),/40000047/);
@@ -119,9 +124,11 @@ try {
  await page.setViewportSize({width:320,height:850});
  await fit(page,'editor/items320');
  await page.goto(root+'/collection/',{waitUntil:'domcontentloaded'});
- await page.locator('.collection-grid .collection-card').first().waitFor({timeout:35000});
- await page.locator('.collection-controls input[type="search"]').fill(ITEM);
- await page.locator('.collection-card h2 a').first().click();
+ await page.locator('[data-stage1-category-grid] .category-card').first().waitFor({timeout:35000});
+ await page.locator('[data-stage1-search]').fill(ITEM);
+ await page.locator('[data-stage1-search-groups] .item-card').first().waitFor({timeout:20000});
+ await page.locator('[data-stage1-search-groups] .item-card').first().click();
+ await page.locator('[data-stage1-item-info] .info-actions a').click();
  await page.locator('[data-shared-discovery="READY"]').waitFor({timeout:30000});
  await fit(page,'shared-item320');
  await page.keyboard.press('Tab');
