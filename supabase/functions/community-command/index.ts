@@ -283,6 +283,12 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       return reply({ok:false,error:'SOURCE165_SAVE_ENTITY_WRITER_NOT_ENROLLED'},409);
     }
 
+    // Source166: legacy unsaveEntity SQL committed after signed A1 revoke.
+    // Revoked sessions are rejected with 401 above; valid clients 409.
+    if (new Set<string>(['unsaveEntity']).has(command)) {
+      return reply({ok:false,error:'SOURCE166_UNSAVE_ENTITY_WRITER_NOT_ENROLLED'},409);
+    }
+
     const authorizationParams: JsonObject = {
       p_auth_subject: subject, p_issued_at_epoch: issuedAt,
       p_max_age_seconds: null
