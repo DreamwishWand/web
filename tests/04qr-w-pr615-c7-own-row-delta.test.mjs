@@ -48,7 +48,7 @@ const row=()=>({
  currentVersionEquivalent:null,releasedPlayerFacingInTarget:null,
  sourceIconAddressGuid:'guid:01c3f7e50ed8c4a4ca3809dcc2687d93',
  sourcePngSha256:png,sourceRawPayloadSha256:'f5d754f8af640493d738b3583912cde37e72c257867bfd09fb22364f159180b6',
- webpPath:'ddv/item-images/v1.24.13/08/'+png
+ webpPath:'ddv/item-images/v1.24.13/08/'+png+'.webp'
 });
 const attested=()=>({
  schema:R39_IMAGE_SOURCE_CONTRACT,status:'SOURCE_ONLY_R39_NO_CURRENT_VERSION_DEPLOY_PERMISSION',
