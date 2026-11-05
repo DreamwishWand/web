@@ -74,7 +74,7 @@ test('seven product orientation and optional Save/Account are not permissions or
  for(const locale of ['en','fr','it','de','es-ES','ja','zh-CN','pt-BR']){
   const c=orientationCopy(locale);
   assert.equal(c.products.length,7);
-  assert.match(c.save,/save|セーブ|sauvegarde|salvataggio|Spielstand|guardad|存档|salvament/i);
+  assert.match(c.save,/save|セーブ|sauvegarde|salvataggio|Spielstand|guardad|存档|salvament|partida/i);
   assert.ok(c.account.trim().length>20);
   assert.ok(c.products.every(p=>p.purpose&&p.step),'each product has safe first step');
  }
