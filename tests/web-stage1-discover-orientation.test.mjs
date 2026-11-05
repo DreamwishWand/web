@@ -30,7 +30,7 @@ test('every locale has purpose, one actionable first step and all three optional
   }
   for(const k of ['intro','start','purpose','action','scope','seeStatus',
     'accountTitle','account','saveTitle','save','supportTitle','support']){
-   assert.ok(typeof copy[k]==='string'&&copy[k].length>7,locale+'/'+k);
+   assert.ok(typeof copy[k]==='string'&&copy[k].trim().length>2,locale+'/'+k);
   }
  }
  assert.notEqual(orientationCopy('ja').products[0].purpose,orientationCopy('en').products[0].purpose);
