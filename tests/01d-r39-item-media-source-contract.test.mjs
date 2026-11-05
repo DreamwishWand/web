@@ -87,6 +87,28 @@ test('Unknown old item and damaged source manifest refuse image selection',()=>{
   ]) {const x=proof();f(x);const r=inspect(x);assert.equal(r.status,'BLOCKED');neverEnabled(r);}
 });
 
+test('Inherited ItemID map entries cannot impersonate original R39 source data',()=>{
+  const x=proof();
+  const original=x.items['10000002'];
+  x.items=Object.create({'10000002':original});
+  let result=inspect(x);
+  assert.equal(result.status,'BLOCKED');
+  assert.equal(result.reason,'R39_SOURCE_ITEM_ICON_NOT_PRESENT');
+  neverEnabled(result);
+  delete x.items;
+  const inherited=Object.create({items:{'10000002':original}});
+  Object.assign(inherited,x);
+  result=inspect(inherited);
+  assert.equal(result.status,'BLOCKED');
+  assert.equal(result.reason,'R39_SOURCE_ITEM_ICON_NOT_PRESENT');
+  neverEnabled(result);
+  const allowed=proof();
+  allowed.items=Object.create({toString:original});
+  allowed.items['10000002']={...original};
+  assert.equal(inspect(allowed).status,'R39_SOURCE_ONLY');
+  neverEnabled(inspect(allowed));
+});
+
 test('Source row conflicts, forged positive target or unsafe WebP paths fail closed',()=>{
   for(const patch of [
     {sourceVersion:'1.25.0'},
