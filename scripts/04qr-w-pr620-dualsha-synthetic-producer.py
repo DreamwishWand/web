@@ -39,18 +39,19 @@ with tempfile.TemporaryDirectory(prefix="qr620-dualsha-synthetic-") as d:
  root=Path(d);indir=root/"original";indir.mkdir()
  (indir/fname).write_bytes(zbytes)
  manifestpath=root/"manifest.json.gz";manifestpath.write_bytes(rawmanifest)
+ # Real immutable production R39 manifest SHA must reject the toy fixture.
+ try:mod.main(args(manifestpath,indir,root/"wrongsource"))
+ except ValueError as e:assert "R39_SOURCE_MANIFEST_SHA_MISMATCH" in str(e)
+ else:raise AssertionError("original production manifest SHA must reject toy fixture")
+ # ONLY after validating this denial, override mutable test-process memory
+ # to exercise unchanged Source code with synthetic PNGs.
+ mod.MANIFEST_SHA=H(rawmanifest)
  strict=root/"no-partial"
  try:mod.main(args(manifestpath,indir,strict,True))
  except ValueError as e: assert "ALL_32_ORIGINAL_PNG_SHARDS_REQUIRED" in str(e)
  else:raise AssertionError("missing 31 original shards must fail before any output")
  assert not strict.exists()
  print("QR620_DUALSHA_STRICT_MISSING31_FAILCLOSED_PASS",flush=True)
- try:mod.main(args(manifestpath,indir,root/"wrongsource"))
- except ValueError as e:assert "R39_SOURCE_MANIFEST_SHA_MISMATCH" in str(e)
- else:raise AssertionError("original production manifest SHA must reject toy fixture")
- # Override only a mutable in-memory variable in independent QA's imported module.
- # No Source code, real original manifest or release asset is modified.
- mod.MANIFEST_SHA=H(rawmanifest)
  out=root/"partial";mod.main(args(manifestpath,indir,out))
  report=json.loads((out/"R39_lossless_SOURCE_ONLY_report.json").read_text())
  assert report["status"]=="HOLD_NOT_DEPLOY" and report["deployAllowed"] is False
