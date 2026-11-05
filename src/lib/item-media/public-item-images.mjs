@@ -6,6 +6,7 @@ import { writable } from 'svelte/store';
 
 export const ITEM_IMAGE_MANIFEST_PATH = 'ddv/item-images/v1/manifest.json';
 export const ITEM_IMAGE_SCHEMA = 'wand.item-images.public-catalog@1';
+export const R39_DERIVATIVE_MANIFEST_SHA256 = 'c619541497732e76441c52f6505b2ca2dbe1fd2baffdfda4fa4584b9819a7733';
 export const ITEM_IMAGE_SOURCE = Object.freeze({platform:'Nintendo Switch',gameVersion:'1.24.13',generation:'R39'});
 export const ITEM_IMAGE_TARGET = Object.freeze({
   platform:'Nintendo Switch',gameVersion:'1.25.0',buildID:'52BD625D9B4E0053',schema:624
@@ -53,7 +54,7 @@ export function validateItemImageCatalog(raw, expectedTarget=ITEM_IMAGE_TARGET) 
     raw.source?.platform!==ITEM_IMAGE_SOURCE.platform ||
     raw.source?.gameVersion!==ITEM_IMAGE_SOURCE.gameVersion ||
     raw.source?.generation!==ITEM_IMAGE_SOURCE.generation ||
-    !hex64.test(raw.source?.derivativeManifestSha256 || '') ||
+    raw.source?.derivativeManifestSha256!==R39_DERIVATIVE_MANIFEST_SHA256 ||
     !expectedTarget || raw.target?.platform!==expectedTarget.platform ||
     raw.target?.gameVersion!==expectedTarget.gameVersion ||
     raw.target?.buildID!==expectedTarget.buildID ||
