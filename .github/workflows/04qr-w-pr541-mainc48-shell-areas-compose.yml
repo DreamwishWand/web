@@ -1,0 +1,67 @@
+name: "04QR-W fixed mainc48 plus PR541 schema626 Areas Shell changed-risk"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/04qr-w-pr541-mainc48-shell-areas-compose.yml'
+      - 'scripts/04qr-w-pr541-mainc48-shell-areas-chrome.mjs'
+      - 'tests/04qr-w-pr541-mainc48-shell-areas-compose.test.mjs'
+permissions:
+  contents: read
+jobs:
+  latest-main626-synthetic-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Read-only exact original PR541 SHA into ephemeral mainc48 worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin refs/pull/541/head
+          SOURCE=dfee4f0e2b11f49f53e8ffd15a11899eee2b5626
+          git cat-file -e "$SOURCE^{commit}"
+          git show "$SOURCE:src/lib/wep/world-save-source.ts" > src/lib/wep/world-save-source.ts
+          git show "$SOURCE:tests/wep-schema626-area-record-unknown.test.mjs" > tests/wep-schema626-area-record-unknown.test.mjs
+          test "$(git hash-object src/lib/wep/world-save-source.ts)" = 2287fc98306bffe8c28f52ac48509ea2e63f54ac
+          test "$(git hash-object tests/wep-schema626-area-record-unknown.test.mjs)" = 791f8216c0e98876a1b48b81e0c2506c3bd7219c
+      - name: New changed-risk Node and private Save negative policies
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          QR541_COMPOSED_OVERLAY=1 node --test tests/04qr-w-pr541-mainc48-shell-areas-compose.test.mjs
+          node --check scripts/04qr-w-pr541-mainc48-shell-areas-chrome.mjs
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Require real Chrome and validate combined mainc48 Svelte Source
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run check
+          BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || true)"
+          test -n "$BIN" || { echo "NOT_RUN: Chrome unavailable"; exit 1; }
+          "$BIN" --version
+          echo "CHROME_BIN=$BIN" >> "$GITHUB_ENV"
+      - name: Isolated localhost real Browser with synthetic 626 only
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4316 >/tmp/04qrw-626-mainc48.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4316/editor/world/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/04qrw-626-mainc48.log
+          exit 1
+      - name: Changed-risk 626 Areas UNKNOWN + real immersive Product Shell with no Writer
+        run: node scripts/04qr-w-pr541-mainc48-shell-areas-chrome.mjs
