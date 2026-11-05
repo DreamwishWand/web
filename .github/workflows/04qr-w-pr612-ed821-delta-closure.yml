@@ -1,0 +1,31 @@
+name: "04 QR-W PR612 ed821 fixed-head takedown delta"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/04qr-w-pr612-ed821-delta-closure.yml'
+      - 'tests/04qr-w-pr612-ed821-delta-closure.test.mjs'
+permissions:
+  contents: read
+jobs:
+  differential-fixed-head-synthetic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Source-only independent negative no private P1G or art
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          node --check tests/04qr-w-pr612-ed821-delta-closure.test.mjs
+          node --test tests/04qr-w-pr612-ed821-delta-closure.test.mjs
