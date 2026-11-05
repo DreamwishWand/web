@@ -277,6 +277,12 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       return reply({ok:false,error:'SOURCE164_REACTION_ADD_WRITER_NOT_ENROLLED'},409);
     }
 
+    // Source165: preflight and old definer SQL were different transactions;
+    // deny only saveEntity; revoked sessions return 401 above, valid 409.
+    if (new Set<string>(['saveEntity']).has(command)) {
+      return reply({ok:false,error:'SOURCE165_SAVE_ENTITY_WRITER_NOT_ENROLLED'},409);
+    }
+
     const authorizationParams: JsonObject = {
       p_auth_subject: subject, p_issued_at_epoch: issuedAt,
       p_max_age_seconds: null
