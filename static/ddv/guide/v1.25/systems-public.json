@@ -1,0 +1,10 @@
+{
+  "schema": "ddv.guide.systems-public@1",
+  "target": {
+    "platform": "Nintendo Switch",
+    "gameVersion": "1.25.0",
+    "buildID": "52BD625D9B4E0053",
+    "saveSchema": 624
+  },
+  "articles": []
+}
