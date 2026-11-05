@@ -73,6 +73,12 @@ export function planGameImageTakedown(manifestRows, selector) {
   const hashes = new Set(matches.flatMap(row => [row.sourcePngSha256.toLowerCase(), row.webpSha256.toLowerCase()]));
   const affected = manifestRows.filter(row => row && sha(row.sourcePngSha256) && sha(row.webpSha256) &&
     (hashes.has(row.sourcePngSha256.toLowerCase()) || hashes.has(row.webpSha256.toLowerCase())));
+  if (affected.some(row => !itemId(row.itemId)))
+    return { resolvable: false, reasons: ["LINKED_ITEM_MAPPING_INVALID"], itemIds: [], hashes: [] };
+  for (const row of affected) {
+    hashes.add(row.sourcePngSha256.toLowerCase());
+    hashes.add(row.webpSha256.toLowerCase());
+  }
   return { resolvable: true, reasons: [],
     itemIds: [...new Set(affected.map(row => normalizeId(row.itemId)))].sort(),
     hashes: [...hashes].sort(),
@@ -89,11 +95,13 @@ export function preflightGameImageOperatorReceipt(receipt) {
   if (receipt.ownerDecision !== OWNER_IMAGE_DECISION) reasons.push("OWNER_SCOPE_DECISION_MISSING");
   if (receipt.copyrightLicenceStatus !== "UNKNOWN" && receipt.copyrightLicenceStatus !== "DOCUMENTED")
     reasons.push("COPYRIGHT_LICENCE_STATUS_NOT_DISCLOSED");
+  if (receipt.copyrightLicenceStatus === "DOCUMENTED" && !evidence(receipt.copyrightLicenceEvidenceRef))
+    reasons.push("CLAIMED_LICENCE_HAS_NO_EVIDENCE");
   const contact = receipt.rightsContact;
   const validContact = contact && typeof contact.url === "string" &&
     (/^mailto:[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(contact.url) ||
      /^https:\/\/[^\s/]+\.[^\s/]+(?:\/[^\s]*)?$/i.test(contact.url));
-  if (!validContact || !evidence(contact.verificationEvidenceRef) || contact.tested === false)
+  if (!validContact || !evidence(contact.verificationEvidenceRef) || contact.tested !== true)
     reasons.push("WORKING_RIGHTS_CONTACT_NOT_PROVED");
   for (const locale of IMAGE_NOTICE_LOCALES) {
     const notice = receipt.locales?.[locale];
