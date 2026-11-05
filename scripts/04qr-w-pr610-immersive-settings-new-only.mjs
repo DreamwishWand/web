@@ -75,7 +75,11 @@ try{
 
  await page.setViewportSize({width:320,height:780});
  await noOverflow('immersive Editor at 320');
- await settings.focus();
+ // At mobile breakpoint the accepted Shell uses a separate visible mobile
+ // settings control. The desktop immersive-nav button is intentionally hidden.
+ const mobileSettings=page.locator('.mobile-app-toolbar .mobile-global-actions button').last();
+ assert.equal(await mobileSettings.isVisible(),true,'mobile Settings must remain reachable');
+ await mobileSettings.focus();
  await page.keyboard.press('Enter');
  await language.waitFor({state:'visible'});
  await page.setViewportSize({width:640,height:830});
