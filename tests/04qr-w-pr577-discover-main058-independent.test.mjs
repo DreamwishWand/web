@@ -76,7 +76,7 @@ test('seven product orientation and optional Save/Account are not permissions or
   assert.equal(c.products.length,7);
   assert.match(c.save,/save|セーブ|sauvegarde|salvataggio|Spielstand|guardad|存档|salvament/i);
   assert.ok(c.account.trim().length>20);
-  assert.ok(c.products.every(p=>p.purpose&&p.firstStep),'each product has safe first step');
+  assert.ok(c.products.every(p=>p.purpose&&p.step),'each product has safe first step');
  }
  const source=readFileSync('src/routes/discover/+page.svelte','utf8');
  assert.match(source,/data-discover-stage1="orientation-not-dashboard"/);
