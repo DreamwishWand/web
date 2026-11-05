@@ -24,7 +24,7 @@ const notes=load('docs/community/post327-remaining-writer-route-audit-20261103.m
 test('fix Source155 and Source156 at independently accepted PR327 SQL/Edge blobs',()=>{
  assert.equal(gitBlob(source155),'115f2c0f7224984acd8830cfc606af8c6a1bf3af');
  assert.equal(gitBlob(source156),'3000d66c193b996e4ece785deaf5180955ec3bc6');
- assert.equal(gitBlob(edge),'f785a5503f4e4532c9e9359587fcd6948bda76de');
+ assert.equal(gitBlob(edge),'f86a4f3c12bf80d7df8cda0effcb575182bafc7a');
  assert.match(source156,/for share;/);
  assert.match(source156,/community_authorize_signed_session_v2/);
  assert.match(source156,/revoke all on function public\.community_set_gallery_comments_enabled_atomic_r16/);
@@ -182,4 +182,19 @@ test('Source163 blocks only legacy Help Answer direct SQL and leaves signed R16 
  assert.doesNotMatch(source163,/grant execute on function public\.community_add_answer_v1/i);
  assert.match(source163,/community_set_gallery_comments_enabled_atomic_signed_v1/);
  assert.match(source163,/community_delete_ddv_profile_workspace_v1/);
+});
+
+const source164=load('supabase/migrations/20261105010000_community_source164_reaction_add_service_execute_off.sql');
+test('Source164 legacy addReaction only direct SQL OFF with signed 401 first',()=>{
+ const signed=edge.indexOf("'community_authorize_signed_session_v2'",edge.indexOf("if (command !== 'ensureAccountCreator')"));
+ const guard=edge.indexOf("new Set<string>(['addReaction']).has(command)");
+ const rate=edge.indexOf('const rateBucket = commandToRateBucket[command]');
+ assert.ok(signed>=0 && guard>signed && rate>guard);
+ assert.match(edge,/SOURCE164_REACTION_ADD_WRITER_NOT_ENROLLED/);
+ assert.match(source164,/revoke all on function public\.community_add_reaction/);
+ assert.match(source164,/from public,anon,authenticated,service_role/);
+ assert.doesNotMatch(source164,/grant execute on function public\.community_add_reaction/i);
+ assert.match(source164,/community_set_gallery_comments_enabled_atomic_signed_v1/);
+ assert.match(source164,/community_get_ddv_profile_workspaces_v1/);
+ assert.match(edge,/removeReaction: 'community_remove_reaction'/);
 });
