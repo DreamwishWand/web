@@ -33,10 +33,22 @@ assert.equal(git('merge-base',SRC,'HEAD'),SRC);
 assert.deepEqual(git('diff','--name-only',MAIN,SRC).split('\n').sort(),old9);
 assert.deepEqual(git('diff','--name-only',ACCEPTED,SRC).split('\n').sort(),change2);
 const diff=git('diff','--name-only',SRC,'HEAD').split('\n').sort();
-const wep='scripts/wep-decorate-stage1-browser-acceptance.mjs';
-if(diff.includes(wep))assert.equal(git('rev-parse','HEAD:'+wep),
- '405e5d236038efa0004e5be870c334db09fd896d','cumulative accepted WEP blob must remain immutable');
-assert.deepEqual(diff.filter(p=>p!==wep),qa2,'only QA2 and one already accepted WEP ancestor may differ');
+// Dedicated QA checkout contains only QA2. Generic PR synthetic merge may
+// also contain independently accepted protected-main ancestors. Accept exact
+// immutable Git blobs ONLY; no arbitrary additional Source or auth changes.
+const acceptedMain=Object.freeze({
+ 'scripts/wep-decorate-stage1-browser-acceptance.mjs':'405e5d236038efa0004e5be870c334db09fd896d',
+ 'docs/core/01d-r39-real-asset-source-20261105.md':'f2c58039dea630722ca6a17513f2103060fe0745',
+ 'src/lib/ddv/core/items/r39-image-source-contract.mjs':'6ba8e08899e90ec674ecd4f9902bb214a51076c5',
+ 'tests/01d-r39-item-media-source-contract.test.mjs':'afdd044909d2eb6da076850ff73335f1a66ee555'
+});
+for(const p of diff){
+ if(Object.hasOwn(acceptedMain,p))
+  assert.equal(git('rev-parse','HEAD:'+p),acceptedMain[p],
+   'only independently accepted cumulative WEP/01D blobs are excluded');
+}
+assert.deepEqual(diff.filter(p=>!Object.hasOwn(acceptedMain,p)),qa2,
+ 'no unknown Source or CI paths beyond QA2 and pinned protected-main ancestors');
 for(const [path,sha] of Object.entries({
  'src/lib/item-media/public-item-images.mjs':'05bb81a0608785aab739a29c78bd2d7f842322aa',
  'tests/web-stage1-public-item-thumb-contract.test.mjs':'f09978df9c75b182cec4f8f1c44a886ac25cd705'
