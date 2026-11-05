@@ -4,6 +4,13 @@ on:
     branches:
       - 'web/stage1-collection-root-*'
   pull_request:
+    paths:
+      - 'src/routes/collection/+page.svelte'
+      - 'src/lib/collection/stage1-root.mjs'
+      - 'tests/web-stage1-collection-root.test.mjs'
+      - 'tests/product-surface-routes.test.mjs'
+      - 'scripts/web-stage1-collection-chrome.mjs'
+      - '.github/workflows/web-stage1-collection-ux.yml'
 permissions:
   contents: read
 jobs:
@@ -27,7 +34,12 @@ jobs:
           BASE="${{ github.event.pull_request.base.sha || '342823eb03eff6bb7c5d80f4a804249bb174df10' }}"
           test "$(git merge-base "$BASE" HEAD)" = "$BASE"
           git diff --name-only "$BASE" HEAD >/tmp/collection-stage1-diff
-          test "$(wc -l </tmp/collection-stage1-diff)" -eq 6
+          COUNT="$(wc -l </tmp/collection-stage1-diff)"
+          if test "$COUNT" -eq 1 && grep -qxF ".github/workflows/web-stage1-collection-ux.yml" /tmp/collection-stage1-diff; then
+            echo WEB_STAGE1_COLLECTION_CI_POLICY_ONLY_SCOPE
+          else
+            test "$COUNT" -eq 6
+          fi
           while IFS= read -r f; do
             case "$f" in
               src/routes/collection/+page.svelte|src/lib/collection/stage1-root.mjs|tests/web-stage1-collection-root.test.mjs|tests/product-surface-routes.test.mjs|scripts/web-stage1-collection-chrome.mjs|.github/workflows/web-stage1-collection-ux.yml) ;;
