@@ -14,7 +14,7 @@ const sha='a'.repeat(64);
 const webpSha='b'.repeat(64);
 const manifest=()=>({
   schema:ITEM_IMAGE_SCHEMA,
-  assetVariant:ITEM_IMAGE_VARIANT,codec:ITEM_IMAGE_CODEC,
+  assetVariant:ITEM_IMAGE_VARIANT,codec:ITEM_IMAGE_CODEC,format:'webp',lossless:true,
   source:{...ITEM_IMAGE_SOURCE,originalPngManifestSha256:R39_ORIGINAL_PNG_MANIFEST_SHA256},
   target:{...ITEM_IMAGE_TARGET},
   publication:{gate:'OWNER_GO_FOR_DDV_GAME_IMAGES',decisionId:ITEM_IMAGE_OWNER_DECISION_ID,scope:'RELEASED_PLAYER_FACING_ITEM_THUMBNAILS'},
@@ -25,9 +25,9 @@ test('versioned R39 image catalog accepts only explicitly approved player-facing
   const valid=validateItemImageCatalog(manifest());
   assert.equal(valid.count,1);
   assert.deepEqual(valid.items['31700014'],{sourcePngSha256:sha,webpSha256:webpSha});
-  assert.equal(itemImageAssetPath(31700014,valid),'ddv/item-images/webp-lossless-160-v1/v1.24.13/15/'+sha+'.webp');
-  assert.equal(scopedItemImageHref('/web',31700014,valid),'/web/ddv/item-images/webp-lossless-160-v1/v1.24.13/15/'+sha+'.webp');
-  assert.equal(scopedItemImageHref('',31700014,valid),'/ddv/item-images/webp-lossless-160-v1/v1.24.13/15/'+sha+'.webp');
+  assert.equal(itemImageAssetPath(31700014,valid),'ddv/item-images/webp-lossless-160-v1/v1.24.13/15/'+sha+'-'+webpSha+'.webp');
+  assert.equal(scopedItemImageHref('/web',31700014,valid),'/web/ddv/item-images/webp-lossless-160-v1/v1.24.13/15/'+sha+'-'+webpSha+'.webp');
+  assert.equal(scopedItemImageHref('',31700014,valid),'/ddv/item-images/webp-lossless-160-v1/v1.24.13/15/'+sha+'-'+webpSha+'.webp');
   assert.equal(scopedItemImageHref('/web',0,valid),null);
   assert.equal(scopedItemImageHref('/web',1234,valid),null);
   assert.equal(scopedItemImageHref('https://other.example',31700014,valid),null);
@@ -74,12 +74,34 @@ test('quality-88 lossy manifest, missing lossless codec, or namespace cannot mas
     {...m,assetVariant:'r39-lossy-q88'},
     {...m,assetVariant:undefined},
     {...m,codec:'WEBP_QUALITY88'},
-    {...m,codec:undefined}
+    {...m,codec:undefined},
+    {...m,format:undefined},
+    {...m,format:'png'},
+    {...m,lossless:undefined},
+    {...m,lossless:false}
   ])assert.throws(()=>validateItemImageCatalog(candidate),/ITEM_IMAGE_LOSSLESS_VARIANT_UNVERIFIED/);
   const valid=validateItemImageCatalog(m);
   assert.equal(itemImageAssetPath(31700014,{...valid,assetVariant:'v1.24.13'}),null);
   assert.equal(itemImageAssetPath(31700014,{...valid,codec:'WEBP_QUALITY88'}),null);
+  assert.equal(itemImageAssetPath(31700014,{...valid,lossless:false}),null);
+  assert.equal(itemImageAssetPath(31700014,{...valid,format:'png'}),null);
   assert.equal(itemImageAssetPath(31700014,valid).includes('ddv/item-images/v1.24.13/'),false);
+});
+
+test('immutable WebP URL differs for changed encoded bytes even with identical original PNG SHA',()=>{
+  const first=validateItemImageCatalog(manifest());
+  const second=manifest();
+  second.items['31700014']={...second.items['31700014'],webpSha256:'c'.repeat(64)};
+  const next=validateItemImageCatalog(second);
+  const firstPath=itemImageAssetPath(31700014,first);
+  const nextPath=itemImageAssetPath(31700014,next);
+  assert.notEqual(firstPath,nextPath);
+  assert.ok(firstPath.endsWith(sha+'-'+webpSha+'.webp'));
+  assert.ok(nextPath.endsWith(sha+'-'+'c'.repeat(64)+'.webp'));
+  assert.equal(itemImageAssetPath(31700014,{...first,lossless:false}),null);
+  const unsafe=manifest();
+  unsafe.items['31700014']={...unsafe.items['31700014'],webpSha256:''};
+  assert.throws(()=>validateItemImageCatalog(unsafe),/ITEM_IMAGE_IDENTITY_OR_ASSET_UNVERIFIED/);
 });
 
 test('visual fit/size/density preferences only store layout strings, no game bytes',()=>{

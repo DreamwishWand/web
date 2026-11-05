@@ -68,7 +68,8 @@ export function validateItemImageCatalog(raw, expectedTarget=ITEM_IMAGE_TARGET) 
     throw new TypeError('ITEM_IMAGE_SOURCE_OR_VERSION_UNVERIFIED');
   // Require a distinct namespace and verified pixel-exact lossless codec; older
   // quality-88 R39 WebP cannot be silently reused or relabelled as lossless.
-  if (raw.assetVariant!==ITEM_IMAGE_VARIANT || raw.codec!==ITEM_IMAGE_CODEC)
+  if (raw.assetVariant!==ITEM_IMAGE_VARIANT || raw.codec!==ITEM_IMAGE_CODEC ||
+      raw.format!=='webp' || raw.lossless!==true)
     throw new TypeError('ITEM_IMAGE_LOSSLESS_VARIANT_UNVERIFIED');
   // This is a release-operation authorization marker, not evidence of a copyright licence.
   if (raw.publication?.gate!=='OWNER_GO_FOR_DDV_GAME_IMAGES' ||
@@ -95,11 +96,13 @@ export function validateItemImageCatalog(raw, expectedTarget=ITEM_IMAGE_TARGET) 
   }
   return Object.freeze({source:Object.freeze({...raw.source}),
     target:Object.freeze({...raw.target}), assetVariant:raw.assetVariant, codec:raw.codec,
+    format:raw.format, lossless:raw.lossless,
     publication:Object.freeze({...raw.publication}),
     items:Object.freeze(validItems),count:keys.length});
 }
 export function itemImageAssetPath(itemId,catalog,expectedTarget=ITEM_IMAGE_TARGET) {
   if (!catalog || catalog.assetVariant!==ITEM_IMAGE_VARIANT || catalog.codec!==ITEM_IMAGE_CODEC ||
+      catalog.format!=='webp' || catalog.lossless!==true ||
       !catalog.target || catalog.target.platform!==expectedTarget.platform ||
       catalog.target.gameVersion!==expectedTarget.gameVersion ||
       catalog.target.buildID!==expectedTarget.buildID || catalog.target.schema!==expectedTarget.schema)
@@ -110,7 +113,9 @@ export function itemImageAssetPath(itemId,catalog,expectedTarget=ITEM_IMAGE_TARG
   const sha=item?.sourcePngSha256;
   if(typeof sha!=='string'||!hex64.test(sha)||!hex64.test(item?.webpSha256||''))return null;
   const shard=(Number.parseInt(sha.slice(0,2),16)>>3).toString(16).padStart(2,'0');
-  return `ddv/item-images/${ITEM_IMAGE_VARIANT}/v1.24.13/${shard}/${sha}.webp`;
+  // Original PNG SHA chooses the stable shard; BOTH hashes bind immutable bytes.
+  // Different lossless encoder output for the same original may never alias in a CDN.
+  return `ddv/item-images/${ITEM_IMAGE_VARIANT}/v1.24.13/${shard}/${sha}-${item.webpSha256}.webp`;
 }
 export function scopedItemImageHref(base,itemId,catalog,expectedTarget=ITEM_IMAGE_TARGET) {
   if(typeof base!=='string'||!/^\/?(?:[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*)?$/.test(base))
