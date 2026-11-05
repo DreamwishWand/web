@@ -2,12 +2,16 @@
 // Public image payload and verified cross-version mapping are deployed only by 01D/09 INT
 // after a separate, explicit Owner-scoped media publication decision.
 // Default GitHub Pages has no image manifest or game-art bytes.
+// Lossless WebP must originate from SHA-verified original PNG (01D PR620),
+// never the historical R39 quality-88 lossy derivatives.
 import { writable } from 'svelte/store';
 
-export const ITEM_IMAGE_MANIFEST_PATH = 'ddv/item-images/v1/manifest.json';
-export const ITEM_IMAGE_SCHEMA = 'wand.item-images.public-catalog@1';
+export const ITEM_IMAGE_VARIANT = 'webp-lossless-160-v1';
+export const ITEM_IMAGE_CODEC = 'WEBP_LOSSLESS_RGBA_EXACT';
+export const ITEM_IMAGE_MANIFEST_PATH = `ddv/item-images/${ITEM_IMAGE_VARIANT}/manifest.json`;
+export const ITEM_IMAGE_SCHEMA = 'wand.item-images.public-catalog-lossless@1';
 export const ITEM_IMAGE_OWNER_DECISION_ID = 'OWNER_GO_FOR_DDV_GAME_IMAGES_20261105';
-export const R39_DERIVATIVE_MANIFEST_SHA256 = 'c619541497732e76441c52f6505b2ca2dbe1fd2baffdfda4fa4584b9819a7733';
+export const R39_ORIGINAL_PNG_MANIFEST_SHA256 = 'f0ea2248bc7a91d9a8afb655bf142150798aa96fbde1fd91ae028927b4ef3aba';
 export const ITEM_IMAGE_SOURCE = Object.freeze({platform:'Nintendo Switch',gameVersion:'1.24.13',generation:'R39'});
 export const ITEM_IMAGE_TARGET = Object.freeze({
   platform:'Nintendo Switch',gameVersion:'1.25.0',buildID:'52BD625D9B4E0053',schema:624
@@ -56,12 +60,16 @@ export function validateItemImageCatalog(raw, expectedTarget=ITEM_IMAGE_TARGET) 
     raw.source?.platform!==ITEM_IMAGE_SOURCE.platform ||
     raw.source?.gameVersion!==ITEM_IMAGE_SOURCE.gameVersion ||
     raw.source?.generation!==ITEM_IMAGE_SOURCE.generation ||
-    raw.source?.derivativeManifestSha256!==R39_DERIVATIVE_MANIFEST_SHA256 ||
+    raw.source?.originalPngManifestSha256!==R39_ORIGINAL_PNG_MANIFEST_SHA256 ||
     !expectedTarget || raw.target?.platform!==expectedTarget.platform ||
     raw.target?.gameVersion!==expectedTarget.gameVersion ||
     raw.target?.buildID!==expectedTarget.buildID ||
     raw.target?.schema!==expectedTarget.schema)
     throw new TypeError('ITEM_IMAGE_SOURCE_OR_VERSION_UNVERIFIED');
+  // Require a distinct namespace and verified pixel-exact lossless codec; older
+  // quality-88 R39 WebP cannot be silently reused or relabelled as lossless.
+  if (raw.assetVariant!==ITEM_IMAGE_VARIANT || raw.codec!==ITEM_IMAGE_CODEC)
+    throw new TypeError('ITEM_IMAGE_LOSSLESS_VARIANT_UNVERIFIED');
   // This is a release-operation authorization marker, not evidence of a copyright licence.
   if (raw.publication?.gate!=='OWNER_GO_FOR_DDV_GAME_IMAGES' ||
       raw.publication?.decisionId!==ITEM_IMAGE_OWNER_DECISION_ID ||
@@ -77,27 +85,32 @@ export function validateItemImageCatalog(raw, expectedTarget=ITEM_IMAGE_TARGET) 
     if (!integerId.test(key) || !Number.isSafeInteger(Number(key)) ||
         !entry || typeof entry!=='object' || Array.isArray(entry) ||
         !hex64.test(entry.sourcePngSha256 || '') ||
+        !hex64.test(entry.webpSha256 || '') ||
+        entry.pixelStatus!=='RGBA_EXACT_VERIFIED' ||
         entry.identityStatus!=='VERSION_VERIFIED' ||
         entry.visibility!=='RELEASED_PLAYER_FACING' ||
-        entry.assetStatus!=='WEBP_VERIFIED_160')
+        entry.assetStatus!=='WEBP_LOSSLESS_VERIFIED_160')
       throw new TypeError('ITEM_IMAGE_IDENTITY_OR_ASSET_UNVERIFIED');
-    validItems[key]=entry.sourcePngSha256;
+    validItems[key]=Object.freeze({sourcePngSha256:entry.sourcePngSha256, webpSha256:entry.webpSha256});
   }
   return Object.freeze({source:Object.freeze({...raw.source}),
-    target:Object.freeze({...raw.target}),publication:Object.freeze({...raw.publication}),
+    target:Object.freeze({...raw.target}), assetVariant:raw.assetVariant, codec:raw.codec,
+    publication:Object.freeze({...raw.publication}),
     items:Object.freeze(validItems),count:keys.length});
 }
 export function itemImageAssetPath(itemId,catalog,expectedTarget=ITEM_IMAGE_TARGET) {
-  if (!catalog || !catalog.target || catalog.target.platform!==expectedTarget.platform ||
+  if (!catalog || catalog.assetVariant!==ITEM_IMAGE_VARIANT || catalog.codec!==ITEM_IMAGE_CODEC ||
+      !catalog.target || catalog.target.platform!==expectedTarget.platform ||
       catalog.target.gameVersion!==expectedTarget.gameVersion ||
       catalog.target.buildID!==expectedTarget.buildID || catalog.target.schema!==expectedTarget.schema)
     return null;
   const key=String(itemId);
   if(!integerId.test(key)||!Number.isSafeInteger(Number(key)))return null;
-  const sha=catalog.items?.[key];
-  if(typeof sha!=='string'||!hex64.test(sha))return null;
+  const item=catalog.items?.[key];
+  const sha=item?.sourcePngSha256;
+  if(typeof sha!=='string'||!hex64.test(sha)||!hex64.test(item?.webpSha256||''))return null;
   const shard=(Number.parseInt(sha.slice(0,2),16)>>3).toString(16).padStart(2,'0');
-  return 'ddv/item-images/v1.24.13/'+shard+'/'+sha+'.webp';
+  return `ddv/item-images/${ITEM_IMAGE_VARIANT}/v1.24.13/${shard}/${sha}.webp`;
 }
 export function scopedItemImageHref(base,itemId,catalog,expectedTarget=ITEM_IMAGE_TARGET) {
   if(typeof base!=='string'||!/^\/?(?:[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*)?$/.test(base))
