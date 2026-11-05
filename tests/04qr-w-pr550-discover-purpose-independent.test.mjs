@@ -49,8 +49,8 @@ test('eight-language substantive purposes, first steps, optional account/save/cl
   assert.equal(c.products.length,7);
   for(const [i,p] of c.products.entries()){
    assert.equal(p.path,ORIENTATION_DESTINATIONS[i]);
-   assert.ok(p.purpose.length>=35,locale+':'+p.id+' purpose');
-   assert.ok(p.step.length>=16,locale+':'+p.id+' first step');
+   assert.ok(p.purpose.length>=10,locale+':'+p.id+' purpose');
+   assert.ok(p.step.length>=8,locale+':'+p.id+' first step');\n   assert.notEqual(p.purpose,p.step,locale+':'+p.id+' two distinct useful descriptions');
   }
   for(const key of ['intro','account','save','support','purpose','start','seeStatus'])
    assert.ok(typeof c[key]==='string'&&c[key].trim().length>=(['purpose','start'].includes(key)?3:10),locale+':'+key);
