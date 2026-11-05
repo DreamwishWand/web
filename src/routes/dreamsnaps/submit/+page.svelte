@@ -91,7 +91,7 @@
   }
 </script>
 
-<svelte:head><title>{t('dreamsnaps.tab.submit', {}, $locale)} | Dreamwish Wand</title></svelte:head>
+<svelte:head><title>{t('dreamsnaps.tab.submit', {}, $locale)} | Dreamwish Wand</title><meta name="robots" content="noindex,nofollow" /></svelte:head>
 
 <section class="inside-page container">
   <p class="eyebrow">{t('dreamsnaps.eyebrow', {}, $locale)}</p>
