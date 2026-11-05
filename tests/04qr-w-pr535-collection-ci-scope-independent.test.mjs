@@ -39,7 +39,7 @@ test('frozen main87→PR535 exactly ONE modified workflow; QA branch has EXACT t
  assert.equal(git('merge-base',MAIN,SOURCE),MAIN);
  assert.equal(git('diff','--name-only',MAIN,SOURCE),WF);
  assert.deepEqual(git('diff','--name-only',SOURCE,'HEAD').split('\n').sort(),QA);
- assert.equal(git('hash-object',WF),'feab528376083ba009f452af825c641a9f89aa00');
+ assert.equal(git('rev-parse',SOURCE+':'+WF),'feab528376083ba009f452af825c641a9f89aa00');
  assert.equal(git('rev-parse',MAIN+':'+WF),'83a7e5496e86715c03244ef28563fc79d81a632c');
  // Strictly the event trigger and COUNT exception may change, not the Chromium source/test/workflow body or permission model.
  for(const file of ALLOW.filter(p=>p!==WF))
