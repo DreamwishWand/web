@@ -1,4 +1,4 @@
-// 04 QR-W fixed Guide Source a3db on main d7, changed-risk only; no private assets.
+// 04 QR-W exact Guide Source 952 on main35; original a3db/main d7 ancestry is independently pinned.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
@@ -7,7 +7,8 @@ import {GUIDE_ROOT_SECTIONS,GUIDE_SYSTEM_CATEGORIES,GUIDE_SYSTEM_EVIDENCE_KEYS,G
 import {guideStage1Ui} from '../src/lib/guide/stage1-guide-ui.mjs';
 const BASE='d7d9a76e1b4d2d17135d92c7a4a1e0ff35b59b22';
 const LATEST='35d98696c7e989737621654c7b8031914dadfa6d';
-const SRC='a3db13846b84b200cb8eb93743d882b727c6b339';
+const ORIGINAL='a3db13846b84b200cb8eb93743d882b727c6b339';
+const SRC='95238781039b51b2604cbb7da8235cd0f10096c4';
 const source=[
  'src/lib/guide/stage1-guide-ui.mjs',
  'src/lib/guide/stage1-systems-taxonomy.mjs',
@@ -34,13 +35,19 @@ const pins={
 };
 const git=(...args)=>execFileSync('git',args,{encoding:'utf8'}).trim();
 test('only four fixed Guide Source paths, independent three QA paths; 09 INT new main35 has disjoint owner-private5',()=>{
- assert.equal(git('merge-base',BASE,SRC),BASE);
+ assert.equal(git('merge-base',BASE,ORIGINAL),BASE);
  assert.equal(git('merge-base',BASE,LATEST),BASE);
- assert.deepEqual(git('diff','--name-only',BASE,SRC).split('\n').sort(),source);
- assert.deepEqual(git('diff','--name-only',BASE,LATEST).split('\n').sort(),latest);
- assert.deepEqual(git('diff','--name-only',SRC,'HEAD').split('\n').sort(),qa);
- for(const [path,sha] of Object.entries(pins))assert.equal(git('rev-parse',SRC+':'+path),sha,path);
- assert.equal(git('diff','--name-only',BASE,SRC,'--','supabase/','static/','src/lib/ddv/','.github/workflows/pages.yml'),'');
+ assert.equal(git('merge-base',LATEST,SRC),LATEST,'recomposed source must descend from protected main35');
+ assert.deepEqual(git('diff','--name-only',BASE,ORIGINAL).split('\n').sort(),source,'original Guide four paths');
+ assert.deepEqual(git('diff','--name-only',BASE,LATEST).split('\n').sort(),latest,'inherited WEP five paths');
+ assert.deepEqual(git('diff','--name-only',LATEST,SRC).split('\n').sort(),source,'latest-main Guide four paths only');
+ assert.deepEqual(git('diff','--name-only',SRC,'HEAD').split('\n').sort(),qa,'QA-only three paths');
+ for(const [path,sha] of Object.entries(pins)){
+  assert.equal(git('rev-parse',ORIGINAL+':'+path),sha,'original '+path);
+  assert.equal(git('rev-parse',SRC+':'+path),sha,'recomposed '+path);
+ }
+ for(const path of latest)assert.equal(git('rev-parse',LATEST+':'+path),git('rev-parse',SRC+':'+path),'WEP unchanged '+path);
+ assert.equal(git('diff','--name-only',LATEST,SRC,'--','supabase/','static/','src/lib/ddv/','.github/workflows/pages.yml'),'');
 });
 test('final approved Guide root 4, ordered Systems7/21/106 taxonomy only and no fake public article',()=>{
  assert.deepEqual(GUIDE_ROOT_SECTIONS,['systems','quests','starPaths','events']);
