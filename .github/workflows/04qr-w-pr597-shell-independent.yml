@@ -1,0 +1,66 @@
+name: 04QR-W PR597 product-local shell independent
+on:
+  pull_request:
+    branches: [web/stage1-product-local-shell-20261105]
+    paths:
+      - .github/workflows/04qr-w-pr597-shell-independent.yml
+      - scripts/04qr-w-pr597-shell-live-chrome.mjs
+      - tests/04qr-w-pr597-shell-independent.test.mjs
+permissions:
+  contents: read
+jobs:
+  fixed-source-negative:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/04qr-w-pr597-shell-independent.test.mjs
+      - run: node --check scripts/04qr-w-pr597-shell-live-chrome.mjs
+  actual-shell-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Typecheck and Pages-shaped static build
+        run: |
+          set -euo pipefail
+          npm run check
+          BASE_PATH=/web npm run build
+      - name: Require real Chrome, never private user Save
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || true)"
+          test -n "$BIN" || { echo "NOT_RUN: actual Chrome absent"; exit 1; }
+          "$BIN" --version
+          echo "CHROME_BIN=$BIN" >> "$GITHUB_ENV"
+      - name: Local-only loopback shell UI
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4337 >/tmp/04qrw-shell-597.log 2>&1 &
+          for i in $(seq 1 70); do
+            if curl -fsS http://127.0.0.1:4337/decorate/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/04qrw-shell-597.log
+          exit 1
+      - name: Actual Chrome desktop mobile shell and privacy
+        run: node scripts/04qr-w-pr597-shell-live-chrome.mjs
