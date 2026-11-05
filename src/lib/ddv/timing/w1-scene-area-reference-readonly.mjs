@@ -148,6 +148,19 @@ export function inspectW1SceneAreaReferences(profile, sourceContext) {
         nativeSoftwoodQuotaVerified:false
       }));
     }
+    // Own-key/descriptor checks alone cannot distinguish a plain parsed
+    // Areas map from a standards-conforming Proxy that conceals or invents
+    // configurable keys. structuredClone rejects Proxy exotic objects.
+    // Clone ONLY the selected Village's Areas subtree, never the whole Save,
+    // and fail closed if this local check is unsupported or uncloneable.
+    // This does not authenticate the original encrypted P1G or Rust CAS.
+    if(typeof structuredClone!=='function')
+      return sourceRefusal('SOURCE_AREA_PLAIN_SNAPSHOT_REQUIRED');
+    try {
+      structuredClone(areas);
+    } catch {
+      return sourceRefusal('SOURCE_AREA_PLAIN_SNAPSHOT_REQUIRED');
+    }
     candidates.sort((a,b)=>Number(a.saveAreaKey)-Number(b.saveAreaKey));
     return freeze({
       contract:W1_SCENE_AREA_REFERENCE_CONTRACT,

@@ -192,3 +192,38 @@ test('plain own JSON data remains read-only and preserves paired map distinction
   assert.equal(r.productWriterAuthorized,false);
   assert.equal(JSON.stringify(p),before);
 });
+
+
+test('Proxy ownKeys hiding real serialized Area must not yield partial positive reference',()=>{
+  const p=fixture(),actual=p.World.Villages[0].Areas;
+  actual['8']={Unlocked:true,GridIDs:[100]};
+  p.World.Villages[0].Areas=new Proxy(actual,{
+    ownKeys(){return ['0','1','7'];}
+  });
+  const result=inspect(p);
+  denies(result);
+  assert.equal(result.reason,'SOURCE_AREA_PLAIN_SNAPSHOT_REQUIRED');
+});
+test('Proxy ownKeys/descriptor cannot fabricate absent serialized Area record',()=>{
+  const p=fixture();
+  p.World.Villages[0].Areas=new Proxy({},{
+    ownKeys(){return ['1'];},
+    getOwnPropertyDescriptor(_target,key){
+      if(key==='1')return {configurable:true,enumerable:true,writable:true,
+        value:{Unlocked:true,GridIDs:[100]}};
+    }
+  });
+  const result=inspect(p);
+  denies(result);
+  assert.equal(result.reason,'SOURCE_AREA_PLAIN_SNAPSHOT_REQUIRED');
+});
+test('plain JSON Areas snapshots retain complete canonical read-only candidates',()=>{
+  const p=fixture(),before=JSON.stringify(p);
+  const result=inspect(p);
+  assert.equal(result.status,'SAVED_SCENE_AREA_REFERENCES_SOURCE_ONLY');
+  assert.deepEqual(result.sourceCandidates.map(a=>a.saveAreaKey),['0','1','7']);
+  assert.equal(result.selectedNativeWetlandAreaKey,null);
+  assert.equal(result.nativeEffectiveGridVerified,false);
+  assert.equal(result.productWriterAuthorized,false);
+  assert.equal(JSON.stringify(p),before);
+});
