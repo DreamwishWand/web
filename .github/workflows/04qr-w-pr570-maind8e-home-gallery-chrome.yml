@@ -1,0 +1,64 @@
+name: "04QR-W PR570 main d8e Home→Gallery integration changed-risk"
+on:
+  pull_request:
+    branches: ['09p/code-gallery-5path-trigger-main14f-20261105']
+    paths:
+      - 'tests/04qr-w-pr570-maind8e-home-gallery.test.mjs'
+      - 'scripts/04qr-w-pr570-maind8e-home-gallery-chrome.mjs'
+      - '.github/workflows/04qr-w-pr570-maind8e-home-gallery-chrome.yml'
+permissions:
+  contents: read
+jobs:
+  new-head-git-scope-and-negative-gates:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fixed exact five Source on d8e and three QA paths, Owner source SHA, unsafe public kind deny
+        run: node --test tests/04qr-w-pr570-maind8e-home-gallery.test.mjs
+      - run: node --check scripts/04qr-w-pr570-maind8e-home-gallery-chrome.mjs
+  new-current-main-composed-system-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Real system Chrome and public CI no private owner Save
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || true)"
+          test -n "$BIN" || { echo "NOT_RUN: real Chrome required"; exit 1; }
+          "$BIN" --version
+          echo "CHROME_BIN=$BIN" >> "$GITHUB_ENV"
+      - name: Start Source on bounded loopback for new main d8e Home to Gallery
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4318 >/tmp/04qrw-main-d8e-gallery.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4318/gallery/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/04qrw-main-d8e-gallery.log
+          exit 1
+      - name: Actual Chrome current-main Home keyboard to Gallery privacy safe 3cards / 320px / zoom200
+        run: node scripts/04qr-w-pr570-maind8e-home-gallery-chrome.mjs
