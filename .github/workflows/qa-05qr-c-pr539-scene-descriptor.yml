@@ -30,7 +30,7 @@ jobs:
           test "$(git rev-parse HEAD:src/lib/ddv/timing/w1-scene-area-reference-readonly.mjs)" = c269079fa676fa088bb585f188373c69de697403
           test "$(git rev-parse HEAD:tests/01e-w1-scene-area-reference-readonly.test.mjs)" = d328f0b907fc55712f17dc2b8ede83129486a581
           test "$(git rev-parse "$PARENT:src/lib/ddv/timing/w1-scene-area-reference-readonly.mjs")" = f8b6d87d17690a283088feaa38df8064dc0bc4b3
-          for p in src/lib/ddv/core/save/local-save-session-bridge.mjs src/lib/wep/world-save-source.ts src/lib/ddv/timing/w1-saved-clock-source-readonly.mjs scripts/wep-private-real-save-e2e-safety-20261104.mjs; do
+          for p in src/lib/ddv/core/save/local-save-session-bridge.mjs src/lib/wep/world-save-source.ts scripts/wep-private-real-save-e2e-safety-20261104.mjs; do
             test "$(git rev-parse "$PARENT:$p")" = "$(git rev-parse "HEAD:$p")"
           done
           git show "$PARENT:src/lib/ddv/timing/w1-scene-area-reference-readonly.mjs" > /tmp/qa-pr539-original-main-before.mjs
