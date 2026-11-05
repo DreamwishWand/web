@@ -1,0 +1,48 @@
+name: 05 QR-C PR539 89777 repaired Area accessor and null new-only independent
+on:
+  push:
+    branches: [qa/05qr-c-pr539-89777-area-getter-null-newonly-20261105]
+  pull_request:
+    paths:
+      - '.github/workflows/qa-05qr-c-pr539-89777-getter-null.yml'
+      - 'tests/qa-05qr-c-pr539-89777-getter-null-newonly.test.mjs'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  fixed-89777-area-source-safety:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Freeze only repaired PR539 exact Source HEAD and two 01E immutable Git blobs
+        run: |
+          set -eu
+          MAIN=87f656833491b87712eee031f51ca135bda26b30
+          LAST_RED=e51470c212e8eca5a5770d8efd6eb06b2ca9f48a
+          BAD_NULL=e42dba230bcd32991c03250170d2738fc4a98b80
+          SOURCE=8977705feabbc64d10eb607a1218b773d5bfff2f
+          test "$(git merge-base "$MAIN" "$SOURCE")" = "$MAIN"
+          test "$(git merge-base "$LAST_RED" "$SOURCE")" = "$LAST_RED"
+          test "$(git merge-base "$BAD_NULL" "$SOURCE")" = "$BAD_NULL"
+          test "$(git merge-base "$SOURCE" HEAD)" = "$SOURCE"
+          test "$(git diff --name-only "$MAIN" "$SOURCE" | sort)" = "$(printf '%s\n' src/lib/ddv/timing/w1-scene-area-reference-readonly.mjs tests/01e-w1-scene-area-reference-readonly.test.mjs | sort)"
+          test "$(git diff --name-only "$BAD_NULL" "$SOURCE")" = src/lib/ddv/timing/w1-scene-area-reference-readonly.mjs
+          test "$(git rev-parse HEAD:src/lib/ddv/timing/w1-scene-area-reference-readonly.mjs)" = 1a86ec9e9172d4779aa457349b3ddbdd322d10ea
+          test "$(git rev-parse HEAD:tests/01e-w1-scene-area-reference-readonly.test.mjs)" = db93bbf6d9660db7b2e976e0fe9ab6471f2f4681
+          git diff --quiet "$SOURCE" HEAD -- src/ crates/ static/ supabase/ docs/ tests/01e-w1-scene-area-reference-readonly.test.mjs
+          echo PREVIOUS_QA555_GETTER_SIDE_EFFECT_TRUE_RED_REUSED_NOT_ERASED
+          echo PREVIOUS_QA555_PROXY_FIX_TWO_PASS_AND_QA546_FIVE_PASS_REUSED
+          echo OWNER_BAD_NULL_HEAD_CI41945611932_FAILURE_RETAINED
+          echo OWNER_FIXED_SOURCE_CI41945925844_SUCCESS_NEW_INDEPENDENT_NOT_YET_PROVEN
+          echo OWNER_PRIVATE_ENCRYPTED_P1G_AND_NATIVE_V3=NOT_RUN
+          echo WRITER_EDITEDCOPY_APPLY_OVERWRITE_CLOUD_PUBLIC=OFF
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Independent six NEW changed-RED and bounded read-only positive source tests
+        run: node --test tests/qa-05qr-c-pr539-89777-getter-null-newonly.test.mjs
+      - name: Verify ABI and typecheck without modifying committed Source
+        run: npm ci --no-audit --no-fund && npm run check
