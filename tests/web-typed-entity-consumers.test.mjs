@@ -66,6 +66,22 @@ test('duplicate/unknown/foreign Version + schema refuse typed item detail and se
  }
  assert.equal(resolveTypedCatalogItem(index,rows,'000047','ja').status,'INVALID_REF_OR_LOCALE');
 });
+test('QR462 strict optional schema: absent and numeric624 accepted, explicit626/foreign fail closed at directory boundary',()=>{
+ const clean=buildSharedCatalogDirectory(index,rows,'ja');
+ assert.equal(clean.status,'READY','older v1.25.0 catalog indexes may omit schema');
+ assert.equal(buildSharedCatalogDirectory({...index,t:{...index.t,schema:624}},rows,'ja').status,'READY');
+ for(const schema of [626,625,0,'624',null]){
+  const foreign={...index,t:{...index.t,schema}};
+  const directory=buildSharedCatalogDirectory(foreign,rows,'ja');
+  assert.equal(directory.status,'UNAVAILABLE',String(schema));
+  assert.equal(directory.source,null);
+  assert.equal(directory.entries.length,0);
+  assert.equal(searchSharedCatalogDirectory(directory,{query:'40000047'}).status,'UNAVAILABLE');
+  assert.equal(typedSharedCatalogDirectoryHref('/web','ja',clean.entries[0],directory),null);
+  assert.equal(resolveTypedCatalogItem(foreign,rows,'40000047','ja','/web').status,'SOURCE_MISMATCH');
+ }
+});
+
 test('unverified Quest/Creator/Work/Preset use canonical type grammar but have NO public details',()=>{
  for(const [kind,id] of [['QUEST','12345'],['CREATOR','creator-id_1'],['WORK','work-id_2'],['PRESET','preset-id_3']]){
   const x=nonItemPublicDetailStatus(kind,id);

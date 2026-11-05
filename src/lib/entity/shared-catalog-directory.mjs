@@ -2,7 +2,7 @@
 // Source is the already SHA-validated Switch v1.25.0 Catalog only.
 // Never infer personal Save ownership, entitlement, rights, cross-version aliases or publication.
 import { decodeCollectionRecord, filterCollectionRecords } from '../collection/runtime.js';
-import { typedItemPreviewHref, typedDirectoryItemHref } from '../foundation/typed-entity-page-consumer.mjs';
+import { CATALOG_SOURCE_SCOPE, typedItemPreviewHref, typedDirectoryItemHref } from '../foundation/typed-entity-page-consumer.mjs';
 import { parseSharedPrimaryId, SUPPORTED_DETAIL_LOCALES } from './shared-catalog-detail.mjs';
 
 export const SHARED_DIRECTORY_CONTRACT = 'wand.shared-catalog.directory@1';
@@ -15,6 +15,7 @@ export function buildSharedCatalogDirectory(index, rows, locale='en') {
       index?.t?.platform !== TARGET.platform ||
       index?.t?.gameVersion !== TARGET.gameVersion ||
       index?.t?.buildID !== TARGET.buildID ||
+      (index?.t?.schema !== undefined && index.t.schema !== CATALOG_SOURCE_SCOPE.schema) ||
       !Array.isArray(rows) || rows.length !== index.n ||
       !Number.isInteger(index.n) || index.n < 1 || index.n > 20000)
     return Object.freeze({status:'UNAVAILABLE',entries:Object.freeze([]),source:null});
