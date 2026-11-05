@@ -42,7 +42,7 @@ jobs:
         run: |
           set -euo pipefail
           npm run check
-          npm run build
+          BASE_PATH=/web npm run build
       - run: npm install --no-save --package-lock=false playwright-core@1.55.0
       - name: Require actual installed system Chrome with NO private owner Save
         shell: bash
