@@ -65,7 +65,7 @@ for data,error in [
  (b"\x80","TRUNCATED_VARINT"),
  (b"\x80\x00","NON_CANONICAL_VARINT"),
  (b"\xff"*10,"OVERFLOW_VARINT"),
- (b"\x00","NON_CANONICAL_VARINT") if False else (b"\x80","TRUNCATED_VARINT")
+ (b"\x81\x00","NON_CANONICAL_VARINT")
 ]:
  expect(error,lambda data=data:mod.read_varint(data,0))
 cat="ActivityItem";base=mod.CATEGORIES[cat]
@@ -77,7 +77,7 @@ expect("ITEM_ID_FRAME_MISMATCH",lambda:mod.read_category(frame(cat,base+1,frame_
 expect("INVALID_NAME_OR_ICON_GUID",lambda:mod.read_category(frame(cat,base+1,guid="guid:"+"Z"*32),cat))
 expect("INVALID_NAME_OR_ICON_GUID",lambda:mod.read_category(frame(cat,base+1,name=""),cat))
 expect("DUPLICATE_REQUIRED_FIELD",lambda:mod.read_category(frame(cat,base+1,extra=fld(4,GA.encode())),cat))
-expect("INVALID_FIELD_WIRE",lambda:mod.read_category(mod.varint(1)+mod.varint(1)+b"\x08",cat))
+expect("INVALID_FIELD_WIRE",lambda:mod.read_category(mod.varint(1)+mod.varint(3)+b"\x0a\x01\x00",cat))
 badfield=mod.varint(0)+fld(2,b"foo")+fld(4,GA.encode())
 expect("PROTO_FIELD_ZERO",lambda:mod.parse_item(badfield,cat,1))
 expect("UNSUPPORTED_WIRE",lambda:mod.parse_item(mod.varint((7<<3)|3),cat,1))
@@ -120,7 +120,7 @@ with tempfile.TemporaryDirectory(prefix="qr642-synthetic-proto-") as temp:
  assert out["v1250_to_v1253"]["addedCount"]==1
  assert out["v12413_to_v1253"]["addedCount"]==2
  assert len(out["v12413_to_v1250"]["changedGuidCandidates"])==1
- assert out["v12413_to_v1250"]["changedGuidCandidates"][0]["itemId"]==str(base) if False else True
+ assert out["v12413_to_v1250"]["changedGuidCandidates"][0]["itemId"]=="30000002"
  assert all(out["v12413_to_v1250"][x] is False for x in ("sourceIconPixelShaCompared","deployAllowed"))
  assert all(r["fullVersion"]==mod.GAME_VERSIONS[ver] for ver,r in out["source"].items())
  assert all(hashlib.sha256(p.read_bytes()).hexdigest()==h for path,h in snapshots.items() for p in [pathlib.Path(path)])
@@ -141,7 +141,7 @@ with tempfile.TemporaryDirectory(prefix="qr642-synthetic-proto-") as temp:
  original=file.read_bytes()
  file.write_bytes(original+b"\xff")
  expect("PINNED_NATIVE_SOURCE_SHA_OR_BYTES_MISMATCH",lambda:mod.analyze(root,synthetic=False))
- expect("INVALID_RECORD_LENGTH",lambda:mod.analyze(root,synthetic=True))
+ expect("TRUNCATED_VARINT",lambda:mod.analyze(root,synthetic=True))
  file.write_bytes(original)
  # Bad cross-category native ItemID collision even when frame keys otherwise legal.
  first=root/"v12413"/"ActivityItem.json"
