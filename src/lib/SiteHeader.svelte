@@ -159,7 +159,7 @@
     <div class="mobile-global-actions">
       {#if productNav.sections.length}
         <button class="ui-icon-button" type="button" data-mobile-product-sections aria-label={productNav.rootLabel} aria-expanded={mobileSectionsOpen} on:click={() => mobileSectionsOpen = true}>
-          <Icon name="menu" decorative={true} />
+          <Icon name="more" decorative={true} />
         </button>
       {/if}
       {#if shell.account.signedIn && shell.notifications.available}
