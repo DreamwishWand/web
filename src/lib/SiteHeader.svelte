@@ -190,6 +190,14 @@
       <Icon name="sparkle" decorative={true} size={17} />
       <span>{t('shared.shell.discoverWand', {}, $locale)}</span>
     </a>
+    {#if shell.account.href}
+      <a class="toolbar-context-link" href={shell.account.href} data-shell-settings-account>{accountLabel()}</a>
+    {:else}
+      <span class="disabled-reason" data-shell-settings-account-unavailable aria-disabled="true">{accountLabel()}</span>
+    {/if}
+    {#if shell.account.signedIn && shell.notifications.available && shell.notifications.href}
+      <a class="toolbar-context-link" href={shell.notifications.href} data-shell-settings-notifications>{t('shared.shell.notifications', {}, $locale)}</a>
+    {/if}
     <label for="site-locale-mobile">{t('shared.locale.label', {}, $locale)}</label>
     <select id="site-locale-mobile" class="locale-select" value={$locale} on:change={changeLocale}>
       {#each SUPPORTED_LOCALES as option}<option value={option.code}>{option.nativeName}</option>{/each}
@@ -203,7 +211,7 @@
 </Sheet>
 
 {#if productNav.rootHref && productNav.sections.length}
-  <Sheet bind:open={mobileSectionsOpen} title={productNav.rootLabel} closeLabel={t('shared.dialog.close', {}, $locale)} position="bottom">
+  <Sheet bind:open={mobileSectionsOpen} title={productNav.rootLabel} labelledBy="shell-section-sheet-title" closeLabel={t('shared.dialog.close', {}, $locale)} position="bottom">
     <nav class="product-section-sheet" aria-label={productNav.rootLabel} data-product-local-mobile>
       <a href={base + productNav.rootHref} aria-current={productNav.atRoot ? 'page' : undefined}>{productNav.rootLabel}</a>
       {#each productNav.sections as section (section.id)}
