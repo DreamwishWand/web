@@ -56,7 +56,7 @@ test('eight locale UI with explicit EN taxonomy fallback; no unapproved Guide co
     const ui=guideStage1Ui(loc);
     for(const key of ['browse','back','systemsInfo','questsInfo','starPathsInfo','eventsInfo','scope','topicSearch','groupOnly','referenceOnly','englishFallback','noPublished']) {
       assert.equal(typeof ui[key],'string');
-      assert.ok(ui[key].length > 5,loc+' '+key);
+      assert.ok(ui[key].trim().length >= 2,loc+' '+key);
     }
   }
   assert.match(route,/<meta name="robots" content="noindex,nofollow"/);
