@@ -24,7 +24,7 @@ const notes=load('docs/community/post327-remaining-writer-route-audit-20261103.m
 test('fix Source155 and Source156 at independently accepted PR327 SQL/Edge blobs',()=>{
  assert.equal(gitBlob(source155),'115f2c0f7224984acd8830cfc606af8c6a1bf3af');
  assert.equal(gitBlob(source156),'3000d66c193b996e4ece785deaf5180955ec3bc6');
- assert.equal(gitBlob(edge),'e1600d057d7d401b57819ffadb4a2d515e3ec8b5');
+ assert.equal(gitBlob(edge),'f9976c9cd2d7faf9417db62ac2bead7abe5aa2fd');
  assert.match(source156,/for share;/);
  assert.match(source156,/community_authorize_signed_session_v2/);
  assert.match(source156,/revoke all on function public\.community_set_gallery_comments_enabled_atomic_r16/);
@@ -208,4 +208,16 @@ test('Source165 only saveEntity effective three-role SQL deny, signed 401 before
  assert.match(source165,/community_set_gallery_comments_enabled_atomic_signed_v1/);
  assert.match(source165,/community_get_ddv_profile_workspaces_v1/);
  assert.doesNotMatch(source165,/community_unsave_entity/);
+});
+
+const source166=load('supabase/migrations/20261105030000_community_source166_unsave_entity_service_execute_off.sql');
+test('Source166 unsaveEntity only: deny direct external SQL but preserve signed R16',()=>{
+ assert.match(edge,/SOURCE166_UNSAVE_ENTITY_WRITER_NOT_ENROLLED/);
+ assert.match(source166,/revoke all on function public\.community_unsave_entity/);
+ assert.match(source166,/from public,anon,authenticated,service_role/);
+ assert.doesNotMatch(source166,/grant execute on function public\.community_unsave_entity/i);
+ assert.match(source166,/community_save_entity/);
+ assert.match(source166,/community_add_reaction/);
+ assert.match(source166,/community_set_gallery_comments_enabled_atomic_signed_v1/);
+ assert.match(source166,/community_get_ddv_profile_workspaces_v1/);
 });
