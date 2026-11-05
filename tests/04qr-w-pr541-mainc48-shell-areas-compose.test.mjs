@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
-import {readFileSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 const MAIN='c48e392e3bc9dc7e5844a6912b8ff2c4daf997fd';
 const PREV='90d21b1b45c8743b2c4359c29d37115fd0bc355c';
 const SRC='dfee4f0e2b11f49f53e8ffd15a11899eee2b5626';
@@ -36,11 +36,14 @@ test('Mainc48 accepted shell five, PR541 exact two WEP Source, QA three and no S
 });
 test('ephemeral runtime overlay must equal the exact frozen PR541 blobs, not a new source commit',()=>{
  const overlay=process.env.QR541_COMPOSED_OVERLAY==='1';
- const expected=overlay?SRC:MAIN;
- for(const path of owner)assert.equal(git('hash-object',path),git('rev-parse',expected+':'+path),path);
- // Generic CI tests the untouched protected main; focused synthetic QA is
- // explicitly pinned to the ephemeral Source overlay by its own workflow.
- if(!overlay)return;
+ // Generic verify checks untouched main: the new PR541 Source test must
+ // NOT exist at all. Focused QA's explicit overlay introduces both paths.
+ if(!overlay){
+  assert.equal(git('hash-object',owner[0]),git('rev-parse',MAIN+':'+owner[0]));
+  assert.equal(existsSync(owner[1]),false,'main must not contain unmerged Source test');
+  return;
+ }
+ for(const path of owner)assert.equal(git('hash-object',path),git('rev-parse',SRC+':'+path),path);
  const s=readFileSync(owner[0],'utf8');
  assert.match(s,/Absence of any Village Areas map is UNKNOWN, not a proven zero/);
  assert.match(s,/if \(!areas \|\| areaRecordCount === null\)/);
