@@ -21,11 +21,14 @@ from PIL import Image, features
 
 ROOT=Path(__file__).resolve().parents[1]
 MOD=ROOT/"scripts"/"01d-r39-lossless-webp160.py"
-MAIN="decd251df76c094da1fabdc691ccfbd90c4ea2ea"
+MAIN="6428d080786bf3b2035be86b945b1460dbf1452a"
 SRC="218cf1977447476777647a863265bae4be5c18bf"
 SRCFILES=sorted(["scripts/01d-r39-lossless-webp160.py","docs/core/01d-r39-lossless-webp160-source-20261105.md"])
 QAFILES=sorted(["scripts/04qr-w-pr620-lossless-source-synthetic.py",".github/workflows/04qr-w-pr620-lossless-source-synthetic.yml"])
 CUMULATIVE={
+    # GitHub PR620 is still based on pre-WEP protected main6428. Synthetic
+    # PR merge can include only independently accepted WEP1 and 01D3 blobs.
+    "scripts/wep-decorate-stage1-browser-acceptance.mjs":"405e5d236038efa0004e5be870c334db09fd896d",
     "docs/core/01d-r39-real-asset-source-20261105.md":"f2c58039dea630722ca6a17513f2103060fe0745",
     "src/lib/ddv/core/items/r39-image-source-contract.mjs":"6ba8e08899e90ec674ecd4f9902bb214a51076c5",
     "tests/01d-r39-item-media-source-contract.test.mjs":"afdd044909d2eb6da076850ff73335f1a66ee555",
