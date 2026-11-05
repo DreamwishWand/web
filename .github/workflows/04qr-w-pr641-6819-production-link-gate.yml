@@ -1,0 +1,45 @@
+name: "04 QR-W PR641 production static ItemDetail link suppression"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/04qr-w-pr641-6819-production-link-gate.yml'
+      - 'scripts/04qr-w-pr641-6819-production-link-gate.mjs'
+permissions:
+  contents: read
+jobs:
+  independent-production-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Require installed actual Chrome, no private Save or media
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          CHROME_BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || true)"
+          test -n "$CHROME_BIN" || { echo 'NOT_RUN: system Chrome unavailable'; exit 1; }
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+      - name: Build actual static Pages release (not dev/HMR)
+        env:
+          BASE_PATH: /web
+        run: npm run build
+      - name: New-only negative route browser against built HTML
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/04qr-w-pr641-6819-production-link-gate.mjs
+          node scripts/04qr-w-pr641-6819-production-link-gate.mjs
