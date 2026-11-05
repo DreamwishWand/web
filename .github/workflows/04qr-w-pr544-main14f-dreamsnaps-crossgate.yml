@@ -1,0 +1,67 @@
+name: "04QR-W PR544 main14f DreamSnaps composed Community OFF"
+on:
+  pull_request:
+    branches: ['integration/stage1-dreamsnaps-gated-root-main87-20261105']
+    paths:
+      - '.github/workflows/04qr-w-pr544-main14f-dreamsnaps-crossgate.yml'
+      - 'scripts/04qr-w-pr544-main14f-dreamsnaps-crossgate-chrome.mjs'
+      - 'tests/04qr-w-pr544-main14f-dreamsnaps-crossgate.test.mjs'
+permissions:
+  contents: read
+jobs:
+  scoped-source-and-crossdomain-denials:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Frozen current-main source six Git blobs, 3 QA paths, rights/Native negatives
+        run: node --test tests/04qr-w-pr544-main14f-dreamsnaps-crossgate.test.mjs
+      - name: QA script syntax without real private Save
+        run: node --check scripts/04qr-w-pr544-main14f-dreamsnaps-crossgate-chrome.mjs
+  composed-actual-chromium-gated-community:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Require installed actual Google Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || true)"
+          test -n "$BIN" || { echo "NOT_RUN: Chrome absent"; exit 1; }
+          "$BIN" --version
+          echo "CHROME_BIN=$BIN" >> "$GITHUB_ENV"
+      - name: Start bounded current-main Source Vite on loopback only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4312 >/tmp/qr544-main14f.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4312/dreamsnaps/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr544-main14f.log
+          exit 1
+      - name: Actual Presets and Collection with DreamSnaps Community OFF noindex & blocked network
+        shell: bash
+        run: node scripts/04qr-w-pr544-main14f-dreamsnaps-crossgate-chrome.mjs
