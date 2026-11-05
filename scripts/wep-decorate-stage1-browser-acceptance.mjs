@@ -387,8 +387,19 @@ try{
     runtimeAcceptance:'CLOSED_PASS'
   });
 
+  // The accepted Product-local shell deliberately hides the desktop locale
+  // control in immersive World Editor. Use the visible Settings entry point,
+  // rather than force-clicking or directly mutating the locale store.
   const locales=['en','fr','it','de','es-ES','ja','zh-CN','pt-BR'];
-  const localeSelect=page.locator('#site-locale');
+  const shell=page.locator('[data-shared-app-shell][data-shell-presentation="immersive"]');
+  await shell.waitFor();
+  assert.equal(await page.locator('#site-locale').isVisible(),false);
+  const openSettings=shell.locator('button.immersive-settings');
+  assert.equal(await openSettings.isVisible(),true);
+  await openSettings.focus();
+  await page.keyboard.press('Enter');
+  const localeSelect=page.locator('#site-locale-mobile');
+  await localeSelect.waitFor({state:'visible'});
   const changeCount=await review.locator('[data-wep-stage1-change]').count();
   for(const locale of locales){
     await localeSelect.selectOption(locale);
@@ -398,7 +409,9 @@ try{
     assertNoOverflow(metrics,'stage1 '+locale);
   }
   await localeSelect.selectOption('en');
-  pass('LAUNCH_LOCALE_STATE_AND_LAYOUT_INVARIANCE',{locales:locales.length});
+  await page.keyboard.press('Escape');
+  await localeSelect.waitFor({state:'hidden'});
+  pass('LAUNCH_LOCALE_STATE_AND_LAYOUT_INVARIANCE',{locales:locales.length,via:'immersive-settings-keyboard'});
 
   // Exact ordinary Furniture ADD remains bound to its accepted verified-export path.
   await page.goto(root+'/explore/',{waitUntil:'networkidle'});
@@ -509,6 +522,16 @@ try{
   assert.ok((await roomSurface.innerText()).includes('Wall'));
   assert.ok((await roomSurface.innerText()).includes('Ceiling'));
 
+  // This is a fresh World Editor navigation: reopen the visible Settings
+  // Sheet before checking Room Finish locales (the previous Sheet is closed).
+  const roomShell=page.locator('[data-shared-app-shell][data-shell-presentation="immersive"]');
+  await roomShell.waitFor();
+  assert.equal(await page.locator('#site-locale').isVisible(),false);
+  const roomSettings=roomShell.locator('button.immersive-settings');
+  assert.equal(await roomSettings.isVisible(),true);
+  await roomSettings.focus();
+  await page.keyboard.press('Enter');
+  await localeSelect.waitFor({state:'visible'});
   const roomFloorOptionsBefore=
     await roomPanel.locator('.room-finish-edit-grid section').nth(0).locator('select option').count();
   const roomWallpaperOptionsBefore=
@@ -531,6 +554,8 @@ try{
     assertNoOverflow(roomMetrics,'room finish '+locale);
   }
   await localeSelect.selectOption('en');
+  await page.keyboard.press('Escape');
+  await localeSelect.waitFor({state:'hidden'});
   pass('ROOM_FINISH_LAUNCH_LOCALE_STATE_AND_LAYOUT_INVARIANCE',{
     locales:locales.length,
     ownedFlooring:roomFloorOptionsBefore,
@@ -714,12 +739,18 @@ try{
   await context.close();
 
   const mobile=await browser.newContext({
-    viewport:{width:390,height:844},
+    viewport:{width:320,height:844},
     userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1'
   });
   const mobilePage=await mobile.newPage();
   await mobilePage.goto(root+'/explore/',{waitUntil:'networkidle'});
-  assert.equal(await mobilePage.locator('a[href$="/editor/world/"]').count(),0);
+  // Product-local Shell links to Editor are navigation, not an actionable
+  // mobile handoff. Keep the fail-closed check scoped to Explore's own actions.
+  assert.equal(await mobilePage.locator('.explore-page .actions a[href$="/editor/world/"]').count(),0);
+  const mobileExploreMetrics=await mobilePage.locator('.explore-page').evaluate(node=>({
+    scrollWidth:node.scrollWidth,clientWidth:node.clientWidth
+  }));
+  assertNoOverflow(mobileExploreMetrics,'mobile Explore 320px');
   await mobilePage.locator('.controls input[type="search"]').fill('40000048');
   await eventually(async()=>await mobilePage.locator('.card-review').count()===1);
   await mobilePage.locator('.card-review').click();
