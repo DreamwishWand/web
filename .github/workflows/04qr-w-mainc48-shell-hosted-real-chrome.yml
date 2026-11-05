@@ -1,0 +1,40 @@
+name: "04QR-W protected mainc48 actual hosted Stage1 Shell Chrome"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/04qr-w-mainc48-shell-hosted-real-chrome.yml'
+      - 'scripts/04qr-w-mainc48-shell-hosted-real-chrome.mjs'
+permissions:
+  contents: read
+jobs:
+  actual-hosted-shell-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 32
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Require actual system Chrome and deny owner-private P1G
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || true)"
+          test -n "$BIN" || { echo "NOT_RUN: actual Chrome absent"; exit 1; }
+          "$BIN" --version
+          echo "CHROME_BIN=$BIN" >> "$GITHUB_ENV"
+      - name: Static syntax and public Pages deployed Chrome QA
+        run: |
+          set -euo pipefail
+          node --check scripts/04qr-w-mainc48-shell-hosted-real-chrome.mjs
+          node scripts/04qr-w-mainc48-shell-hosted-real-chrome.mjs
