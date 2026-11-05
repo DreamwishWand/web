@@ -56,31 +56,64 @@ export function preflightGameItemImage(row, context, suppressionLedger) {
 // A complaint on one ItemID also identifies other Items referencing the same image bytes.
 // This returns a PLAN, not a deletion/invalidation receipt. Unknown targets must not be guessed.
 export function planGameImageTakedown(manifestRows, selector) {
+  const failed = reason => ({ resolvable: false, reasons: [reason], itemIds: [], hashes: [] });
   if (!Array.isArray(manifestRows) || !selector || !["ITEM_ID", "SOURCE_SHA256", "WEBP_SHA256"].includes(selector.kind))
-    return { resolvable: false, reasons: ["INVALID_MANIFEST_OR_SELECTOR"], itemIds: [], hashes: [] };
+    return failed("INVALID_MANIFEST_OR_SELECTOR");
   if ((selector.kind === "ITEM_ID" && !itemId(selector.value)) ||
       (selector.kind !== "ITEM_ID" && !sha(selector.value)))
-    return { resolvable: false, reasons: ["INVALID_SELECTOR_VALUE"], itemIds: [], hashes: [] };
-  const matches = manifestRows.filter(row => row && (
-    (selector.kind === "ITEM_ID" && itemId(row.itemId) && normalizeId(row.itemId) === normalizeId(selector.value)) ||
-    (selector.kind === "SOURCE_SHA256" && sha(row.sourcePngSha256) &&
-      row.sourcePngSha256.toLowerCase() === selector.value.toLowerCase()) ||
-    (selector.kind === "WEBP_SHA256" && sha(row.webpSha256) &&
-      row.webpSha256.toLowerCase() === selector.value.toLowerCase())
-  ));
-  if (!matches.length || matches.some(row => !itemId(row.itemId) || !sha(row.sourcePngSha256) || !sha(row.webpSha256)))
-    return { resolvable: false, reasons: ["MAPPING_MISSING_OR_UNVERIFIED"], itemIds: [], hashes: [] };
-  const hashes = new Set(matches.flatMap(row => [row.sourcePngSha256.toLowerCase(), row.webpSha256.toLowerCase()]));
-  const affected = manifestRows.filter(row => row && sha(row.sourcePngSha256) && sha(row.webpSha256) &&
-    (hashes.has(row.sourcePngSha256.toLowerCase()) || hashes.has(row.webpSha256.toLowerCase())));
-  if (affected.some(row => !itemId(row.itemId)))
-    return { resolvable: false, reasons: ["LINKED_ITEM_MAPPING_INVALID"], itemIds: [], hashes: [] };
-  for (const row of affected) {
-    hashes.add(row.sourcePngSha256.toLowerCase());
-    hashes.add(row.webpSha256.toLowerCase());
+    return failed("INVALID_SELECTOR_VALUE");
+
+  // Index only verifiable join keys. A partially damaged linked row MUST remain
+  // discoverable by its intact ItemID or SHA and make the whole plan fail closed.
+  const byId = new Map(), byPng = new Map(), byWebp = new Map(), byAnySha = new Map();
+  const link = (index, key, rowIndex) => {
+    if (!index.has(key)) index.set(key, []);
+    index.get(key).push(rowIndex);
+  };
+  for (let i = 0; i < manifestRows.length; i++) {
+    const row = manifestRows[i];
+    if (!row || typeof row !== "object") continue;
+    if (itemId(row.itemId)) link(byId, normalizeId(row.itemId), i);
+    if (sha(row.sourcePngSha256)) {
+      const hash = row.sourcePngSha256.toLowerCase();
+      link(byPng, hash, i);
+      link(byAnySha, hash, i);
+    }
+    if (sha(row.webpSha256)) {
+      const hash = row.webpSha256.toLowerCase();
+      link(byWebp, hash, i);
+      link(byAnySha, hash, i);
+    }
+  }
+  const seed = selector.kind === "ITEM_ID"
+    ? byId.get(normalizeId(selector.value))
+    : (selector.kind === "SOURCE_SHA256" ? byPng : byWebp).get(selector.value.toLowerCase());
+  if (!seed?.length) return failed("MAPPING_MISSING_OR_UNVERIFIED");
+
+  // Traverse the connected component of both image hashes AND ItemID aliases.
+  // One pass would miss A(PNG a) -> B(WebP c) -> C(PNG d) -> D.
+  const queue = [...seed], queued = new Set(queue), itemIds = new Set(), hashes = new Set();
+  const enqueue = values => {
+    for (const i of values ?? []) if (!queued.has(i)) {
+      queued.add(i);
+      queue.push(i);
+    }
+  };
+  for (let pos = 0; pos < queue.length; pos++) {
+    const row = manifestRows[queue[pos]];
+    if (!row || !itemId(row.itemId) || !sha(row.sourcePngSha256) || !sha(row.webpSha256))
+      return failed("LINKED_IMAGE_MAPPING_INCOMPLETE");
+    const id = normalizeId(row.itemId);
+    const png = row.sourcePngSha256.toLowerCase(), webp = row.webpSha256.toLowerCase();
+    itemIds.add(id);
+    hashes.add(png);
+    hashes.add(webp);
+    enqueue(byId.get(id));
+    enqueue(byAnySha.get(png));
+    enqueue(byAnySha.get(webp));
   }
   return { resolvable: true, reasons: [],
-    itemIds: [...new Set(affected.map(row => normalizeId(row.itemId)))].sort(),
+    itemIds: [...itemIds].sort(),
     hashes: [...hashes].sort(),
     actionsRequired: ["HIDE_ITEM_AND_SHARED_HASH", "REMOVE_ORIGIN_DELIVERY", "INVALIDATE_CDN_AND_OLD_URLS",
       "VERIFY_PUBLIC_GET_AND_CACHE_DENIAL", "CHECK_RESTORE_BACKUPS_AND_ROLLBACK"] };
