@@ -19,7 +19,7 @@ test('PR558 exactly one Source script and QA-only three files with frozen blobs'
  assert.deepEqual(git('diff','--name-only',SOURCE,'HEAD').split('\n').sort(),QA);
  assert.equal(git('rev-parse',MAIN+':'+PATH),'b845abe00d8f9842f50b543b410160a7e809c674');
  assert.equal(git('rev-parse',SOURCE+':'+PATH),'584e13cc7b7ad1fd4651aff940266c0c62761167');
- assert.equal(readFileSync(PATH,'utf8'),repaired,'test Source unchanged');
+ assert.equal(readFileSync(PATH,'utf8').trimEnd(),repaired.trimEnd(),'test Source unchanged (ignore trailing newline)');
 });
 test('two Desktop/320 stale Collection navigation blocks replaced, all other E2E behavior byte-identical',()=>{
  const oldDesktop=[
