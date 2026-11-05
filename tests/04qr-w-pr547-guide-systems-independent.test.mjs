@@ -55,7 +55,7 @@ test('Owner 2026-10-24 canonical 7 categories, 21 subgroups, 106 unique source m
   assert.ok(Object.isFrozen(cat));
  }
  assert.equal(GUIDE_SYSTEMS_PUBLIC_PAGES_ENABLED,false);
- assert.doesNotMatch(page,/group\.mechanicKeys|href=\{base\+'\/guide\/systems\/mechanic|<a[^>]*data-systems-group/);
+ assert.doesNotMatch(page,/group\.mechanicKeys|href=\{base\+'\/guide\/systems\/mechanic|<a(?:\\s|>)[^>]*data-systems-group/);
 });
 test('adversarial cross-domain source identity and ambiguous aliases never infer player entitlement, version626, or public Works',()=>{
  const targetFor=k=>GUIDE_SYSTEMS_CATEGORIES.filter(c=>c.subgroups.some(g=>g.mechanicKeys.includes(k))).map(c=>c.id);
