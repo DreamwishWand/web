@@ -1,0 +1,67 @@
+name: "04QR-W PR537 Help Center 3-plus-1 actual 8-locale visual independent"
+on:
+  pull_request:
+    branches: ['web/stage1-help-visual-20261105']
+    paths:
+      - '.github/workflows/04qr-w-pr537-help-3plus1-visual-independent.yml'
+      - 'scripts/04qr-w-pr537-help-3plus1-visual-chromium.mjs'
+      - 'tests/04qr-w-pr537-help-3plus1-visual-independent.test.mjs'
+permissions:
+  contents: read
+jobs:
+  help-stage1-source-independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Exact four Source paths, 3+1 product, disabled cross type Search and no Writer
+        run: node --test tests/04qr-w-pr537-help-3plus1-visual-independent.test.mjs
+      - name: Browser QA syntax
+        run: node --check scripts/04qr-w-pr537-help-3plus1-visual-chromium.mjs
+  help-stage1-real-chromium:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual system browser
+        id: chrome
+        run: |
+          set -euo pipefail
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$BIN"
+          echo "path=$BIN" >> "$GITHUB_OUTPUT"
+      - name: Disposable exact loopback Help shell
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4295 >/tmp/qr537-help.log 2>&1 &
+          for i in $(seq 1 65); do
+            if curl --fail --silent http://127.0.0.1:4295/help/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr537-help.log
+          exit 1
+      - name: Actual 8-locale 3-plus-1 geometry, disabled search and mobile keyboard
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          QR537_URL: http://127.0.0.1:4295/help/
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          node scripts/04qr-w-pr537-help-3plus1-visual-chromium.mjs
