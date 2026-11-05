@@ -1,0 +1,37 @@
+name: "04 QR-W PR620 lossless original PNG source synthetic QA"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/04qr-w-pr620-lossless-source-synthetic.yml'
+      - 'scripts/04qr-w-pr620-lossless-source-synthetic.py'
+permissions:
+  contents: read
+jobs:
+  independent-lossless-png-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install actual Pillow and verify real libwebp codec
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input pillow==11.3.0
+          python -c "from PIL import Image,features; assert features.check('webp'); print('Pillow',Image.__version__,'libwebp yes')"
+      - name: Source SHA pin + actual synthetic RGBA/VP8L + all negative tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          python -m py_compile scripts/04qr-w-pr620-lossless-source-synthetic.py
+          python scripts/04qr-w-pr620-lossless-source-synthetic.py
