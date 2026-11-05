@@ -43,6 +43,14 @@ def main(args):
     manifest = json.loads(gzip.decompress(manifest_bytes))
     if manifest.get("gameVersion") != "1.24.13" or len(manifest.get("shards", [])) != 32:
         raise ValueError("WRONG_R39_SOURCE_VERSION")
+    # Fail before writing ANY derivative if a complete release-like source set
+    # was requested. Historical partial runs must not leave misleading output.
+    if args.require_complete:
+        missing = [s['shard'] for s in manifest['shards'] if not (args.png_dir / s['file']).is_file()]
+        if missing:
+            raise ValueError('ALL_32_ORIGINAL_PNG_SHARDS_REQUIRED: ' + ','.join(missing))
+    if args.out.exists() and any(args.out.iterdir()):
+        raise ValueError('OUTPUT_DIRECTORY_NOT_EMPTY_RUN_IN_FRESH_DIR')
     args.out.mkdir(parents=True, exist_ok=True)
     report = {
         "schema":"wand.01d.r39.lossless160-source-only@1",
