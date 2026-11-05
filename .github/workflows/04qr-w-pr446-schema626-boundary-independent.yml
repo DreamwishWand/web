@@ -1,0 +1,33 @@
+name: "04QR-W PR446 explicit schema626 directory failclosed independent"
+on:
+  pull_request:
+    branches: ['web/typed-catalog-consumers-20261104']
+    paths:
+      - '.github/workflows/04qr-w-pr446-schema626-boundary-independent.yml'
+      - 'tests/04qr-w-pr446-schema626-boundary-independent.test.mjs'
+permissions:
+  contents: read
+jobs:
+  independent-fixed-head-schema624-626-negative:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Source only repaired directory+Node files, accepted previous 8locale UI untouched
+        run: node --test tests/04qr-w-pr446-schema626-boundary-independent.test.mjs
+      - name: Synthetic input cannot authorize real Save, provider, Writer or external media
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          node --check src/lib/entity/shared-catalog-directory.mjs
+          node --check tests/04qr-w-pr446-schema626-boundary-independent.test.mjs
