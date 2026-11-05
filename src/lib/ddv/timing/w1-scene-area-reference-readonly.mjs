@@ -41,6 +41,52 @@ const sourceRefusal = reason => freeze({
   automatic2126RepairAuthorized: false
 });
 
+// A clone alone is unsafe: structuredClone invokes enumerable getters on
+// ordinary nested objects before deciding whether a value is cloneable.
+// Traverse *all* own descriptors of the selected Areas subtree without reading
+// their properties, and reject accessors, unsupported JSON shapes and cycles.
+// The bounded walk is NOT an authentication oracle for original P1G bytes.
+// Exotic Proxy ownKeys may lie here but structuredClone later rejects Proxy.
+const plainAreaSubtree = root => {
+  const queue=[root],seen=new WeakSet();
+  let nodes=0,fields=0;
+  while(queue.length){
+    const current=queue.pop();
+    if(!record(current) && !Array.isArray(current))return false;
+    if(seen.has(current)||++nodes>16000)return false;
+    seen.add(current);
+    const array=Array.isArray(current);
+    const prototype=Object.getPrototypeOf(current);
+    if(prototype!==(array?Array.prototype:Object.prototype) && prototype!==null)
+      return false;
+    const keys=Reflect.ownKeys(current);
+    if(fields+keys.length>40000)return false;
+    fields+=keys.length;
+    for(const key of keys){
+      if(typeof key!=='string')return false;
+      const desc=Object.getOwnPropertyDescriptor(current,key);
+      if(!desc||!Object.hasOwn(desc,'value'))return false;
+      if(array && key==='length'){
+        if(desc.enumerable || !Number.isSafeInteger(desc.value) ||
+           desc.value<0||desc.value>10000)return false;
+        continue;
+      }
+      if(!desc.enumerable)return false;
+      if(array && (!canonical(key)||Number(key)>=current.length))
+        return false;
+      const value=desc.value;
+      if(value!==null && typeof value==='object'){
+        queue.push(value);
+      } else if(typeof value==='number'){
+        if(!Number.isFinite(value))return false;
+      } else if(typeof value!=='string' && typeof value!=='boolean'){
+        return false;
+      }
+    }
+  }
+  return true;
+};
+
 // A Source inspector can receive untrusted JS caller objects, not only JSON.parse.
 // One own, enumerable data descriptor per field prevents inherited metadata,
 // getter-side time-of-check/time-of-use and hidden variant promotion.
@@ -154,7 +200,7 @@ export function inspectW1SceneAreaReferences(profile, sourceContext) {
     // Clone ONLY the selected Village's Areas subtree, never the whole Save,
     // and fail closed if this local check is unsupported or uncloneable.
     // This does not authenticate the original encrypted P1G or Rust CAS.
-    if(typeof structuredClone!=='function')
+    if(typeof structuredClone!=='function' || !plainAreaSubtree(areas))
       return sourceRefusal('SOURCE_AREA_PLAIN_SNAPSHOT_REQUIRED');
     try {
       structuredClone(areas);

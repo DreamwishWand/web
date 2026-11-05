@@ -227,3 +227,51 @@ test('plain JSON Areas snapshots retain complete canonical read-only candidates'
   assert.equal(result.productWriterAuthorized,false);
   assert.equal(JSON.stringify(p),before);
 });
+
+
+test('unused enumerable Area metadata getter must not execute during clone attestation',()=>{
+  const p=fixture(),area=p.World.Villages[0].Areas['1'];
+  let calls=0;
+  Object.defineProperty(area,'unusedGet',{enumerable:true,configurable:true,
+    get(){calls++;area.GridIDs[0]=999;return 42;}});
+  const r=inspect(p);
+  denies(r);
+  assert.equal(r.reason,'SOURCE_AREA_PLAIN_SNAPSHOT_REQUIRED');
+  assert.equal(calls,0);
+  assert.equal(area.GridIDs[0],100);
+});
+test('nested unused metadata accessor is rejected without mutation or getter execution',()=>{
+  const p=fixture(),area=p.World.Villages[0].Areas['1'];
+  area.opaque={metadata:{}};
+  let calls=0;
+  Object.defineProperty(area.opaque.metadata,'unstable',{enumerable:true,
+    get(){calls++;area.Unlocked=false;return 'changed';}});
+  const r=inspect(p);
+  denies(r);
+  assert.equal(r.reason,'SOURCE_AREA_PLAIN_SNAPSHOT_REQUIRED');
+  assert.equal(calls,0);
+  assert.equal(area.Unlocked,true);
+});
+test('selected Areas subtree with cycle, non-JSON symbol or excessive metadata fails closed',()=>{
+  const p=fixture();
+  p.World.Villages[0].Areas['1'].unknown={};
+  p.World.Villages[0].Areas['1'].unknown.self=
+    p.World.Villages[0].Areas['1'].unknown;
+  denies(inspect(p));
+  const q=fixture();
+  q.World.Villages[0].Areas['1'].unknown=Symbol('synthetic');
+  denies(inspect(q));
+  const large=fixture();
+  large.World.Villages[0].Areas['1'].unknown=Array(10001).fill(0);
+  denies(inspect(large));
+});
+test('additional plain JSON area metadata is accepted without native/writer promotion',()=>{
+  const p=fixture(),area=p.World.Villages[0].Areas['1'];
+  area.unknown={nested:['original',null,7,false]};
+  const before=JSON.stringify(p),r=inspect(p);
+  assert.equal(r.status,'SAVED_SCENE_AREA_REFERENCES_SOURCE_ONLY');
+  assert.equal(r.nativeEffectiveGridVerified,false);
+  assert.equal(r.productWriterAuthorized,false);
+  assert.equal(r.selectedNativeWetlandAreaKey,null);
+  assert.equal(JSON.stringify(p),before);
+});
