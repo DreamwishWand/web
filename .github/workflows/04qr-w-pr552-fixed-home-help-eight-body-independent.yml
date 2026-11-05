@@ -1,0 +1,66 @@
+name: "04QR-W PR552 repaired six-locale Home Help BODY actual Chrome independent"
+on:
+  pull_request:
+    branches: ['web/stage1-home-copy-locale-20261105']
+    paths:
+      - '.github/workflows/04qr-w-pr552-fixed-home-help-eight-body-independent.yml'
+      - 'scripts/04qr-w-pr552-fixed-home-help-eight-body-chromium.mjs'
+      - 'tests/04qr-w-pr552-fixed-home-help-eight-body-independent.test.mjs'
+permissions:
+  contents: read
+jobs:
+  home-help-fixed-head-source-adversarial:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Exact repaired Source delta, immutable historical TRUE RED, eight body translations
+        run: node --test tests/04qr-w-pr552-fixed-home-help-eight-body-independent.test.mjs
+      - run: node --check scripts/04qr-w-pr552-fixed-home-help-eight-body-chromium.mjs
+  actual-home-help-eight-language-chromium:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual installed Chrome
+        id: chrome
+        run: |
+          set -euo pipefail
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$BIN"
+          echo "bin=$BIN" >> "$GITHUB_OUTPUT"
+      - name: Disposable local Home no Cloud
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4307 >/tmp/04qr-w-pr552-fixed-home.log 2>&1 &
+          for i in $(seq 1 70); do
+            if curl --fail --silent http://127.0.0.1:4307/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/04qr-w-pr552-fixed-home.log
+          exit 1
+      - name: Real Chrome Help BODY eight language incl FR IT DE ES ZH PT, 320/zoom200 and no external
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.bin }}
+          QR552_FIXED_URL: http://127.0.0.1:4307
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          node scripts/04qr-w-pr552-fixed-home-help-eight-body-chromium.mjs
