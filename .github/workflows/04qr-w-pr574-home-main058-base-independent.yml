@@ -1,0 +1,32 @@
+name: "04QR-W PR574 Home current-main trusted CI base-only"
+on:
+  pull_request:
+    branches: ['09p/code-home-stage1-copy-main058-base-fix-20261105']
+    paths:
+      - 'tests/04qr-w-pr574-home-main058-base-independent.test.mjs'
+      - '.github/workflows/04qr-w-pr574-home-main058-base-independent.yml'
+permissions:
+  contents: read
+jobs:
+  independent-one-line-ci-policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact source Git blobs and one-line trusted current-main base, deny extra source paths
+        run: node --test tests/04qr-w-pr574-home-main058-base-independent.test.mjs
+      - name: Independent QA cannot carry private user P1G or public Writer changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          git diff --exit-code 08c3a56520cb4c7db595d7d82b06b2b8cf049700 HEAD -- src/ static/ supabase/ .github/workflows/pages.yml
+          echo QR574_HOME_SIX_CORE_HELP_BODY_NO_PUBLIC_SOURCE_EXPANSION_PASS
