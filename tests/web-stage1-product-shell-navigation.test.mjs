@@ -52,6 +52,8 @@ test('HOME-UX-47/48/50/51 shell role separation and fail-closed unsupported acti
   assert.match(header,/data-product-local-navigation/);
   assert.match(header,/data-immersive-recovery/);
   assert.match(header,/data-mobile-product-sections/);
+  assert.match(header,/shell-section-sheet-title/);
+  assert.match(header,/data-shell-settings-account/);
   assert.match(header,/data-product-local-mobile/);
   assert.match(header,/afterNavigate\(/);
   assert.match(header,/setShellContextActions\(\[\]\)/);
