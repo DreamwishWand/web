@@ -89,9 +89,10 @@ try{
  assert.equal(await page.locator('.reference-card').filter({hasText:'40000047'}).count(),1);
  console.log('QR557 COMPOSED_COLLECTION_ITEM40000047_TYPED_SOURCE_MOODBOARD_LOCAL_RELOAD_PASS');
 
- await page.goto(root+'/presets/',{waitUntil:'domcontentloaded'});
+ await page.goto(root+'/presets/',{waitUntil:'networkidle'});
  await page.locator('[data-stage1-presets-four-cards] button').first().waitFor({timeout:25000});
  await page.locator('#site-locale').selectOption('ja');
+ await page.waitForFunction(()=>document.querySelector('[data-preset-child="inGame"] strong')?.textContent?.trim()==='ゲーム内プリセット',null,{timeout:15000});
  await page.setViewportSize({width:320,height:780});
  await fit('Presets mobile320');
  assert.equal(await cards.count(),4);
