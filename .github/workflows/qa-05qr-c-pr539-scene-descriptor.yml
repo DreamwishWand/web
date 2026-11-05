@@ -1,0 +1,50 @@
+name: 05 QR-C PR539 independent W1 own-descriptor and adversarial Proxy source QA
+on:
+  push:
+    branches: [qa/05qr-c-pr539-fixed-db061-own-descriptor-20261105]
+  pull_request:
+    paths:
+      - 'tests/qa-05qr-c-pr539-w1-descriptor-newonly.test.mjs'
+      - '.github/workflows/qa-05qr-c-pr539-scene-descriptor.yml'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  frozen-pr539-scene-own-descriptor:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Freeze exact Source PR539 2 paths from accepted main87f and prove old getter false-positive without ancestor test rerun
+        run: |
+          set -eu
+          PARENT=87f656833491b87712eee031f51ca135bda26b30
+          SOURCE=db061f80f56da9fd41b9d782a1bde3b9233782c8
+          test "$(git merge-base "$PARENT" "$SOURCE")" = "$PARENT"
+          test "$(git merge-base "$SOURCE" HEAD)" = "$SOURCE"
+          test "$(git diff --name-only "$PARENT" "$SOURCE" | wc -l | tr -d ' ')" = 2
+          test "$(git diff --name-only "$PARENT" "$SOURCE" | sort)" = "$(printf '%s\n' src/lib/ddv/timing/w1-scene-area-reference-readonly.mjs tests/01e-w1-scene-area-reference-readonly.test.mjs | sort)"
+          git diff --quiet "$SOURCE" HEAD -- src/ crates/ docs/ static/ supabase/ tests/01e-w1-scene-area-reference-readonly.test.mjs
+          test "$(git rev-parse HEAD:src/lib/ddv/timing/w1-scene-area-reference-readonly.mjs)" = c269079fa676fa088bb585f188373c69de697403
+          test "$(git rev-parse HEAD:tests/01e-w1-scene-area-reference-readonly.test.mjs)" = d328f0b907fc55712f17dc2b8ede83129486a581
+          test "$(git rev-parse "$PARENT:src/lib/ddv/timing/w1-scene-area-reference-readonly.mjs")" = f8b6d87d17690a283088feaa38df8064dc0bc4b3
+          for p in src/lib/ddv/core/save/local-save-session-bridge.mjs src/lib/wep/world-save-source.ts src/lib/ddv/timing/w1-saved-clock-source-readonly.mjs scripts/wep-private-real-save-e2e-safety-20261104.mjs; do
+            test "$(git rev-parse "$PARENT:$p")" = "$(git rev-parse "HEAD:$p")"
+          done
+          git show "$PARENT:src/lib/ddv/timing/w1-scene-area-reference-readonly.mjs" > /tmp/qa-pr539-original-main-before.mjs
+          echo PR480_QA497_MAIN509_QA515_ACCEPTED_REUSED_NO_ANCESTOR_RETEST
+          echo REAL_OWNER_ENCRYPTED_P1G=NOT_RUN
+          echo NATIVE_WETLAND_V3=UNKNOWN
+          echo PRODUCT_WRITER_EDITEDCOPY_APPLY_OVERWRITE=OFF
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Seven NEW independently adversarial Source getter descriptor Proxy counterexample tests
+        env:
+          QA_PR539_PARENT_MODULE: /tmp/qa-pr539-original-main-before.mjs
+        run: node --test tests/qa-05qr-c-pr539-w1-descriptor-newonly.test.mjs
+      - name: Source TypeScript and Svelte ABI compatibility
+        if: always()
+        run: npm run check
