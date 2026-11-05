@@ -1,0 +1,66 @@
+name: "04QR-W PR558 Stage1 Collection to typed Item actual Chrome E2E repair independent"
+on:
+  pull_request:
+    branches: ['integration/shared-catalog-e2e-collection-stage1-maine400-20261105']
+    paths:
+      - '.github/workflows/04qr-w-pr558-collection-item-moodboard-independent.yml'
+      - 'scripts/04qr-w-pr558-item-collection-moodboard-chromium.mjs'
+      - 'tests/04qr-w-pr558-collection-item-moodboard-independent.test.mjs'
+permissions:
+  contents: read
+jobs:
+  new-source-negative-diff:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Exact 1 changed E2E script, only 2 navigators updated, existing security tests intact
+        run: node --test tests/04qr-w-pr558-collection-item-moodboard-independent.test.mjs
+      - run: node --check scripts/04qr-w-pr558-item-collection-moodboard-chromium.mjs
+  real-chromium-stage1-to-typed-item:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Real installed Chrome
+        id: chrome
+        run: |
+          set -euo pipefail
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$BIN"
+          echo "bin=$BIN" >> "$GITHUB_OUTPUT"
+      - name: Local readonly static Source catalog Vite only
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4303 >/tmp/04qr-w-pr558.log 2>&1 &
+          for i in $(seq 1 70); do
+            if curl --fail --silent http://127.0.0.1:4303/collection/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/04qr-w-pr558.log
+          exit 1
+      - name: Actual Chrome desktop and mobile, UNKNOWN progress, Item40000047 typed detail, no offhost
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.bin }}
+          QR558_URL: http://127.0.0.1:4303
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          node scripts/04qr-w-pr558-item-collection-moodboard-chromium.mjs
