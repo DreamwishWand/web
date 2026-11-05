@@ -1,0 +1,70 @@
+name: "04QR-W PR590 five private DreamSnaps/Gallery robots independent"
+on:
+  pull_request:
+    branches: ['09p/code-p0-private-robots-five-main0ec-20261105']
+    paths:
+      - '.github/workflows/04qr-w-pr590-private-robots5-independent.yml'
+      - 'scripts/04qr-w-pr590-private-robots5-chrome.mjs'
+      - 'tests/04qr-w-pr590-private-robots5-independent.test.mjs'
+permissions:
+  contents: read
+jobs:
+  scoped-exact-five-robots-static-and-negative:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fixed Source exact five single-head static robots and no public permission change
+        run: node --test tests/04qr-w-pr590-private-robots5-independent.test.mjs
+      - run: node --check scripts/04qr-w-pr590-private-robots5-chrome.mjs
+  source-ssr-actual-chrome-five-private-robots:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Svelte Source validation and static build before browser
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run check
+          npm run build
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Require actual installed system Chrome with NO private owner Save
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || true)"
+          test -n "$BIN" || { echo "NOT_RUN: no real Chrome"; exit 1; }
+          "$BIN" --version
+          echo "CHROME_BIN=$BIN" >> "$GITHUB_ENV"
+      - name: Start bounded local read-only SSR no Provider/Writer/Media
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4325 >/tmp/04qrw-private-robots5.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4325/dreamsnaps/submit/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/04qrw-private-robots5.log
+          exit 1
+      - name: Real SSR HTML static robots and Chrome all five routes anonymous OFF
+        run: node scripts/04qr-w-pr590-private-robots5-chrome.mjs
