@@ -48,7 +48,7 @@
     <VisualCard
       href={base + '/help/'}
       title={helpCopy.title}
-      description={$locale === 'ja' ? '質問・ヒント・問題・自分のアクティビティ。未受入の公開・Owner操作はOFF。' : 'Questions, Tips, Issues and My Activity. Unaccepted publishing and Owner operations remain OFF.'}
+      description={copy.qaDetail}
       icon={HOME_STAGE1_CONSUMER.qa.icon}
       variant="horizontal"
     />
