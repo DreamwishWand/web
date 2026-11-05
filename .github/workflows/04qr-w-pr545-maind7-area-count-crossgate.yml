@@ -1,0 +1,32 @@
+name: "04QR-W PR545 current main d7 schema626 Areas × Owner-private count boundary"
+on:
+  pull_request:
+    branches: ['wep/private-626-world-readonly-main-policy-20261105']
+    paths:
+      - '.github/workflows/04qr-w-pr545-maind7-area-count-crossgate.yml'
+      - 'tests/04qr-w-pr545-maind7-area-count-crossgate.test.mjs'
+permissions:
+  contents: read
+jobs:
+  fixed-main-source-negative:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prohibit owner-private original P1G in shared CI
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+      - run: npm ci --no-audit --no-fund
+      - name: Independent ONLY-new main d7 Areas UNKNOWN and PR545 boundary negative
+        run: node --test tests/04qr-w-pr545-maind7-area-count-crossgate.test.mjs
