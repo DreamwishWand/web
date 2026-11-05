@@ -177,7 +177,7 @@ with tempfile.TemporaryDirectory(prefix="04qrw-synthetic-lossless-") as d:
 
     wrong=root/"wrong"
     wrong.mkdir()
-    (wrong/name).write_bytes(zdata[:-1]+b"\0")
+    (wrong/name).write_bytes(zdata+b"CORRUPTED_SYNTHETIC_TRAILER")
     raises("R39_PNG_ZIP_BYTES_OR_SHA_MISMATCH",
            lambda:mod.main(args(man,wrong,root/"wrong-sha-output")))
     assert not (root/"wrong-sha-output"/"R39_lossless_SOURCE_ONLY_report.json").exists()
