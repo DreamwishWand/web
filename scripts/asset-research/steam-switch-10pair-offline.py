@@ -6,13 +6,13 @@ generates public asset manifest, licenses art, changes product flags or infers
 Native Save ABI. PASS requires ten actual version/semantic-matched image pairs.
 """
 from __future__ import annotations
-import argparse, hashlib, io, json, math, pathlib, statistics, sys
-from collections import Counter
+import argparse, hashlib, io, json, math, pathlib, re, sys
 
 SCHEMA = "wand.01d.steam-switch-10pair-original-quality@1"
 VERSION = "1.24.13"
 STEAM_FULL_VERSION = "releases_1.24-v1.24.13-2-ga6fe50c4da68-incremental-33"
 HEX = set("0123456789abcdef")
+CANONICAL_ITEM = re.compile(r"[1-9][0-9]{0,15}\Z")
 
 
 def sha256(b):
@@ -129,6 +129,10 @@ def compare_pair(row, root, Image):
     if row.get("matchStatus") != "SOURCE_PROVENANCE_CONFIRMED" or row.get("gameVersion") != VERSION:
         out.update(status="INSUFFICIENT_EVIDENCE",reason="CROSS_PLATFORM_ITEM_IDENTITY_OR_VERSION_NOT_CONFIRMED")
         return out
+    item_id=row.get("itemId")
+    if not isinstance(item_id,str) or not CANONICAL_ITEM.fullmatch(item_id):
+        out.update(status="INSUFFICIENT_EVIDENCE",reason="MISSING_CANONICAL_ITEM_ID")
+        return out
     s=row.get("switch"); t=row.get("steam")
     if not isinstance(s,dict) or not isinstance(t,dict):
         out.update(status="INSUFFICIENT_EVIDENCE",reason="ONE_OR_BOTH_PLATFORM_SOURCE_ENTRIES_MISSING")
@@ -136,10 +140,19 @@ def compare_pair(row, root, Image):
     if (s.get("platform"),t.get("platform")) != ("Nintendo Switch","Steam/Windows") or s.get("gameVersion")!=VERSION or t.get("gameVersion")!=VERSION or t.get("fullVersion")!=STEAM_FULL_VERSION:
         out.update(status="INSUFFICIENT_EVIDENCE",reason="PLATFORM_OR_STEAM_FULL_VERSION_CONFLICT")
         return out
+    if s.get("itemId")!=item_id or t.get("itemId")!=item_id:
+        out.update(status="INSUFFICIENT_EVIDENCE",reason="SOURCE_ITEM_IDENTITY_MISMATCH")
+        return out
     if not all(isinstance(x.get("itemDefinitionSourceSha256"),str) and valid_sha(x["itemDefinitionSourceSha256"]) and
                isinstance(x.get("iconReference"),str) and x["iconReference"].startswith("guid:") and
                len(x["iconReference"])==37 and set(x["iconReference"][5:])<=HEX for x in (s,t)):
         out.update(status="INSUFFICIENT_EVIDENCE",reason="MISSING_SEMANTIC_OR_GUID_SOURCE_PROVENANCE")
+        return out
+    if s["iconReference"] != t["iconReference"]:
+        out.update(status="INSUFFICIENT_EVIDENCE",reason="CROSS_PLATFORM_ICON_GUID_MISMATCH")
+        return out
+    if s.get("path") == t.get("path"):
+        out.update(status="INSUFFICIENT_EVIDENCE",reason="SAME_ORIGINAL_FILE_NOT_TWO_INDEPENDENT_SOURCES")
         return out
     switch,swerr=safe_original_png(root,s,Image)
     steam,sterr=safe_original_png(root,t,Image)
@@ -180,12 +193,13 @@ def main():
     root=args.source_root.resolve()
     with args.manifest.open(encoding="utf-8") as f:
         manifest=json.load(f)
-    if manifest.get("schema")!=SCHEMA or manifest.get("gameVersion")!=VERSION or not isinstance(manifest.get("pairs"),list) or len(manifest["pairs"])!=10:
+    if (manifest.get("schema")!=SCHEMA or manifest.get("gameVersion")!=VERSION or
+        manifest.get("steamFullVersion")!=STEAM_FULL_VERSION or not isinstance(manifest.get("pairs"),list) or len(manifest["pairs"])!=10):
         raise ValueError("TEN_EXACT_SAME_VERSION_SOURCE_SLOTS_REQUIRED")
     if [x.get("slot") for x in manifest["pairs"]] != list(range(1,11)):
         raise ValueError("TEN_DISTINCT_ORDERED_SLOTS_REQUIRED")
     seen=[x.get("itemId") for x in manifest["pairs"] if x.get("itemId") is not None]
-    if len(set(seen)) != len(seen) or any(not isinstance(x,str) or not x.isdecimal() for x in seen):
+    if len(set(seen)) != len(seen) or any(not isinstance(x,str) or not CANONICAL_ITEM.fullmatch(x) for x in seen):
         raise ValueError("DUPLICATE_OR_NONCANONICAL_ITEM_ID")
     try:
         from PIL import Image, features
