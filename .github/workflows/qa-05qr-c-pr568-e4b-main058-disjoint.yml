@@ -1,0 +1,31 @@
+name: 05 QR-C PR568 e4b latest-main Guide disjoint applicability independent QA
+on:
+  push:
+    branches: [qa/05qr-c-pr568-e4b-main058-bridge-proof-20261105]
+  pull_request:
+    paths:
+      - '.github/workflows/qa-05qr-c-pr568-e4b-main058-disjoint.yml'
+      - 'tests/qa-05qr-c-pr568-e4b-main058-disjoint-proof.test.mjs'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  fixed-head-disjoint-qa:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 17
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Independent exact-source/current-main ancestry and disjoint-only provenance QA
+        run: |
+          node --test tests/qa-05qr-c-pr568-e4b-main058-disjoint-proof.test.mjs
+          echo OLD_SOURCE_RUNTIME_NEGATIVE_QA572_REUSED_NOT_RERUN
+          echo NEW_HEAD_ONLY_GUIDE_DISJOINT_STATIC_PROOF
+          echo REAL_ENCRYPTED_OWNER_P1G_AND_RUST_PRODUCT_V2_NOT_RUN
+          echo NATIVE_WETLAND_DEFAULT_DIFF_TREE_QUOTA_CLOCK_V3_UNKNOWN
+          echo WRITER_EDITEDCOPY_APPLY_OVERWRITE_PROVIDER_CLOUD_PUBLIC_OFF
+      - name: Check current composite Svelte/TypeScript integration without duplicating old Node negatives
+        run: npm ci --no-audit --no-fund && npm run check
