@@ -89,7 +89,12 @@ def main(args):
                 if n != shard["shard"]:
                     raise ValueError("WRONG_SHA_SHARD")
                 encoded, original_size, dimensions = transcode(png)
-                asset_path = "ddv/item-images/" + VARIANT + "/v1.24.13/" + n + "/" + source_sha + ".webp"
+                # Both original PNG and output encoded WebP hashes are immutable
+                # provenance. The encoded digest prevents same-source re-encode
+                # cache aliasing in the 08WEB consumer and CDN.
+                encoded_sha = sha(encoded)
+                asset_path = ("ddv/item-images/" + VARIANT + "/v1.24.13/" + n +
+                              "/" + source_sha + "-" + encoded_sha + ".webp")
                 entry = ZipInfo(asset_path, date_time=(1980,1,1,0,0,0))
                 entry.compress_type = ZIP_STORED
                 dest.writestr(entry, encoded)
@@ -98,9 +103,10 @@ def main(args):
                     "sourceSize":original_size,
                     "outputSize":dimensions,
                     "sourcePngBytes":len(png),
-                    "losslessWebpSha256":sha(encoded),
+                    "losslessWebpSha256":encoded_sha,
                     "losslessWebpBytes":len(encoded),
                     "rgbaPixelExact":True,
+                    "consumerPathAbi":"sourcePngSha256-encodedWebpSha256.webp",
                     "path":asset_path,
                     "sameVersionTargetEquivalent":None
                 })
