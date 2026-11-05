@@ -1,0 +1,186 @@
+{
+  "schema": "wand.01d.steam-switch-10pair-original-quality@1",
+  "gameVersion": "1.24.13",
+  "steamFullVersion": "releases_1.24-v1.24.13-2-ga6fe50c4da68-incremental-33",
+  "switchSource": "DDVRE R39 original Nintendo Switch portable PNG pack v1.24.13",
+  "steamSource": "DDVRE Drive Steam/Windows v1.24.13 GameRoot/StreamingAssets/aa/win, FullVersion.txt original",
+  "sourceOnly": true,
+  "ownerVisualABRequired": false,
+  "status": "INSUFFICIENT_EVIDENCE",
+  "note": "No Steam quality superiority claimed. SHA, actual 20 originals and 10 semantic+GUID proofs must be supplied offline; Do not upload original images to repo/CI. One extracted Steam example existed in earlier runtime but current binary analysis workspace unavailable.",
+  "pairs": [
+    {
+      "slot": 1,
+      "itemId": "30800076",
+      "label": "DaisyRed",
+      "category": "Flower / ActivityItem candidate",
+      "gameVersion": "1.24.13",
+      "matchStatus": "PENDING_ORIGINALS",
+      "switch": {
+        "platform": "Nintendo Switch",
+        "gameVersion": "1.24.13",
+        "measuredOriginalDimensions": [
+          256,
+          256
+        ],
+        "iconReference": "UNKNOWN",
+        "pngSha256": null,
+        "path": null,
+        "itemDefinitionSourceSha256": null
+      },
+      "steam": {
+        "platform": "Steam/Windows",
+        "gameVersion": "1.24.13",
+        "fullVersion": "releases_1.24-v1.24.13-2-ga6fe50c4da68-incremental-33",
+        "measuredOriginalDimensions": [
+          512,
+          512
+        ],
+        "iconReference": "UNKNOWN",
+        "pngSha256": null,
+        "path": null,
+        "itemDefinitionSourceSha256": null
+      },
+      "missing": [
+        "recovered original PNG bytes in active analysis runtime",
+        "both original PNG SHA and verified icon GUID/source definition SHA",
+        "pixel/alpha/160 WebP measured comparison"
+      ]
+    },
+    {
+      "slot": 2,
+      "itemId": null,
+      "label": "UNSELECTED",
+      "category": null,
+      "gameVersion": "1.24.13",
+      "matchStatus": "PENDING_ORIGINALS",
+      "switch": null,
+      "steam": null,
+      "missing": [
+        "ItemID anchored to same-game-version Switch+Steam native icon address",
+        "both original PNG SHA and native texture extraction",
+        "pixel/alpha/160 WebP comparison"
+      ]
+    },
+    {
+      "slot": 3,
+      "itemId": null,
+      "label": "UNSELECTED",
+      "category": null,
+      "gameVersion": "1.24.13",
+      "matchStatus": "PENDING_ORIGINALS",
+      "switch": null,
+      "steam": null,
+      "missing": [
+        "ItemID anchored to same-game-version Switch+Steam native icon address",
+        "both original PNG SHA and native texture extraction",
+        "pixel/alpha/160 WebP comparison"
+      ]
+    },
+    {
+      "slot": 4,
+      "itemId": null,
+      "label": "UNSELECTED",
+      "category": null,
+      "gameVersion": "1.24.13",
+      "matchStatus": "PENDING_ORIGINALS",
+      "switch": null,
+      "steam": null,
+      "missing": [
+        "ItemID anchored to same-game-version Switch+Steam native icon address",
+        "both original PNG SHA and native texture extraction",
+        "pixel/alpha/160 WebP comparison"
+      ]
+    },
+    {
+      "slot": 5,
+      "itemId": null,
+      "label": "UNSELECTED",
+      "category": null,
+      "gameVersion": "1.24.13",
+      "matchStatus": "PENDING_ORIGINALS",
+      "switch": null,
+      "steam": null,
+      "missing": [
+        "ItemID anchored to same-game-version Switch+Steam native icon address",
+        "both original PNG SHA and native texture extraction",
+        "pixel/alpha/160 WebP comparison"
+      ]
+    },
+    {
+      "slot": 6,
+      "itemId": null,
+      "label": "UNSELECTED",
+      "category": null,
+      "gameVersion": "1.24.13",
+      "matchStatus": "PENDING_ORIGINALS",
+      "switch": null,
+      "steam": null,
+      "missing": [
+        "ItemID anchored to same-game-version Switch+Steam native icon address",
+        "both original PNG SHA and native texture extraction",
+        "pixel/alpha/160 WebP comparison"
+      ]
+    },
+    {
+      "slot": 7,
+      "itemId": null,
+      "label": "UNSELECTED",
+      "category": null,
+      "gameVersion": "1.24.13",
+      "matchStatus": "PENDING_ORIGINALS",
+      "switch": null,
+      "steam": null,
+      "missing": [
+        "ItemID anchored to same-game-version Switch+Steam native icon address",
+        "both original PNG SHA and native texture extraction",
+        "pixel/alpha/160 WebP comparison"
+      ]
+    },
+    {
+      "slot": 8,
+      "itemId": null,
+      "label": "UNSELECTED",
+      "category": null,
+      "gameVersion": "1.24.13",
+      "matchStatus": "PENDING_ORIGINALS",
+      "switch": null,
+      "steam": null,
+      "missing": [
+        "ItemID anchored to same-game-version Switch+Steam native icon address",
+        "both original PNG SHA and native texture extraction",
+        "pixel/alpha/160 WebP comparison"
+      ]
+    },
+    {
+      "slot": 9,
+      "itemId": null,
+      "label": "UNSELECTED",
+      "category": null,
+      "gameVersion": "1.24.13",
+      "matchStatus": "PENDING_ORIGINALS",
+      "switch": null,
+      "steam": null,
+      "missing": [
+        "ItemID anchored to same-game-version Switch+Steam native icon address",
+        "both original PNG SHA and native texture extraction",
+        "pixel/alpha/160 WebP comparison"
+      ]
+    },
+    {
+      "slot": 10,
+      "itemId": null,
+      "label": "UNSELECTED",
+      "category": null,
+      "gameVersion": "1.24.13",
+      "matchStatus": "PENDING_ORIGINALS",
+      "switch": null,
+      "steam": null,
+      "missing": [
+        "ItemID anchored to same-game-version Switch+Steam native icon address",
+        "both original PNG SHA and native texture extraction",
+        "pixel/alpha/160 WebP comparison"
+      ]
+    }
+  ]
+}
