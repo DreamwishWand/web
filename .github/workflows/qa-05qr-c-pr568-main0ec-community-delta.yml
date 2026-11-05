@@ -1,0 +1,31 @@
+name: 05 QR-C PR568 latest main0ec Community-only source applicability
+on:
+  push:
+    branches: [qa/05qr-c-pr568-fd194-main0ec-community-disjoint-20261105]
+  pull_request:
+    paths:
+      - '.github/workflows/qa-05qr-c-pr568-main0ec-community-delta.yml'
+      - 'tests/qa-05qr-c-pr568-main0ec-community-delta.test.mjs'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  fixed-head-community-delta-only-qa:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 17
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Independent exact-source/current-main ancestry and Community new-only QA
+        run: |
+          node --test tests/qa-05qr-c-pr568-main0ec-community-delta.test.mjs
+          echo ACCEPTED_QA572_HOSTILE_ARRAY_PROXY_NEGATIVES_REUSED_NOT_RERUN
+          echo ACCEPTED_QA579_GUIDE_AND_QA581_HOME_REUSED_NOT_RERUN
+          echo MAIN0EC_DREAMSNAPS6_GALLERY5_DISJOINT_SOURCE01E_UNCHANGED
+          echo REAL_ENCRYPTED_OWNER_P1G_RUST_PRODUCT_V2_NOT_RUN_NATIVE_V3_UNKNOWN
+          echo PRODUCT_WRITER_EDITEDCOPY_APPLY_OVERWRITE_CLOUD_PUBLIC_OFF
+      - name: Type-check latest composed source without repeating ancestor negatives
+        run: npm ci --no-audit --no-fund && npm run check
