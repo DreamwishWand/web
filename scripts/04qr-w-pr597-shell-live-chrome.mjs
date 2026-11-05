@@ -56,7 +56,7 @@ async function goDesktop(selector,path){
 }
 try{
  await open('/');
- assert.equal(await assertCurrent('home'),undefined); // allow only Home/Discover, no seven-Product global switcher
+ assert.deepEqual(await assertCurrent('home'),[]); // allow only Home/Discover, no seven-Product global switcher
  const homeNav=page.locator('nav[data-product-local-navigation]');
  assert.equal(await homeNav.locator('a[data-product-section]').count(),0);
  assert.equal(await homeNav.locator('a[href="/discover/"]').count(),1);
