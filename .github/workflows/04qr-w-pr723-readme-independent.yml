@@ -1,0 +1,49 @@
+name: "04 QR-W PR723 independent root README deletion and Pages build"
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/04qr-w-pr723-readme-independent.yml"
+      - "tests/04qr-w-pr723-readme-independent.test.mjs"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-delete-and-prerender:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Independent exact root README-only diff, nested doc invariants and runtime dependency negatives
+        run: node --test tests/04qr-w-pr723-readme-independent.test.mjs
+      - name: Install supported dependencies without private credential or provider
+        run: npm ci --no-audit --no-fund
+      - name: Type and Svelte checks after root README deletion
+        run: npm run check
+      - name: Build local public static Pages tree (NO deployment)
+        env:
+          BASE_PATH: /web
+        run: npm run build
+      - name: Exact critical local HTML route artifacts remain after removal
+        shell: bash
+        run: |
+          set -euo pipefail
+          for p in index.html help/index.html collection/index.html gallery/index.html editor/world/index.html community-lab/index.html 404.html; do
+            test -s "build/$p" || { echo "MISSING_LOCAL_STATIC_ROUTE $p"; exit 1; }
+          done
+          test ! -f build/README.md
+          test ! -f README.md
+          test -f static/ddv/integrity/promoted-baselines.json
+          echo "QR723_LOCAL_BUILD_PAGES_ROUTE_INVARIANTS_PASS"
+      - name: Confirm no new tracked/changed production files from focused QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=no)"
+          echo "QR723_QA_SOURCE_TREE_UNCHANGED_PASS"
