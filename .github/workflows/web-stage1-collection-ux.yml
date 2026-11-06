@@ -32,7 +32,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          BASE="${{ github.event.pull_request.base.sha || '342823eb03eff6bb7c5d80f4a804249bb174df10' }}"
+          BASE="${{ github.event.pull_request.base.sha || '' }}"
+          if test -z "$BASE"; then BASE="$(git rev-parse HEAD^)"; fi
           test "$(git merge-base "$BASE" HEAD)" = "$BASE"
           git diff --name-only "$BASE" HEAD >/tmp/collection-stage1-diff
           COUNT="$(wc -l </tmp/collection-stage1-diff)"
