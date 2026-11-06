@@ -110,6 +110,68 @@ impl WorkerWasmSource {
             "writerAuthorized":false
         }).to_string())
     }
+    /// StageD opt-in metadata only. JS may choose exactly two fixed domains,
+    /// never a dynamic path, position or cursor seed. Same ProductSession.
+    #[cfg(feature="indexed-read")]
+    pub fn issue_typed_cursor(&self,domain:&str,session_id:&str,
+          revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let domain=match domain {
+            "player"=>crate::IndexedDomain::Player,
+            "world"=>crate::IndexedDomain::World,
+            _=>return Err(err("WORKER_DOMAIN_NOT_ALLOWLISTED")),
+        };
+        let scope=WorkerEnvelope{
+            contract:PRODUCT_WORKER_CONTRACT,session_id:from_hex(session_id)?,
+            expected_revision:revision,expected_index_generation:index_generation,
+            expected_decoded_sha256:from_hex(decoded_sha256)?,
+            action:WorkerAction::ReadDomain,
+        };
+        let receipt=guard.issue_indexed_cursor(scope,domain).map_err(|e|err(e.0))?;
+        Ok(serde_json::json!({
+            "cursor":hex(&receipt.cursor),
+            "sessionId":hex(&receipt.session_id),
+            "revision":receipt.revision,"indexGeneration":receipt.index_generation,
+            "decodedSha256":hex(&receipt.decoded_sha256),
+            "domain":domain.path(),"maxEntriesPerPage":receipt.max_entries_per_page,
+            "completeAllDomains":false,"productReadAccepted":false,
+            "writerAuthorized":false
+        }).to_string())
+    }
+    /// Single-use Rust-issued cursor. Never return JSON field values.
+    #[cfg(feature="indexed-read")]
+    pub fn read_typed_page(&self,cursor:&str,session_id:&str,
+          revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let scope=WorkerEnvelope{
+            contract:PRODUCT_WORKER_CONTRACT,session_id:from_hex(session_id)?,
+            expected_revision:revision,expected_index_generation:index_generation,
+            expected_decoded_sha256:from_hex(decoded_sha256)?,
+            action:WorkerAction::ReadDomain,
+        };
+        let page=guard.read_indexed_page(scope,from_hex(cursor)?)
+            .map_err(|e|err(e.0))?;
+        let fields:Vec<_>=page.fields.iter().map(|field|{
+            let kind=match field.kind{
+                crate::IndexedKind::Object=>"object",
+                crate::IndexedKind::Array=>"array",
+                crate::IndexedKind::String=>"string",
+                crate::IndexedKind::Number=>"number",
+                crate::IndexedKind::Boolean=>"boolean",
+                crate::IndexedKind::Null=>"null",
+            };
+            serde_json::json!({"key":field.key,"kind":kind,"valueBytes":field.value_bytes})
+        }).collect();
+        Ok(serde_json::json!({
+            "sessionId":hex(&page.session_id),
+            "revision":page.revision,"indexGeneration":page.index_generation,
+            "decodedSha256":hex(&page.decoded_sha256),
+            "domain":page.domain.path(),"fields":fields,
+            "nextCursor":page.next_cursor.map(|token|hex(&token)),
+            "completeAllDomains":false,"productReadAccepted":false,
+            "writerAuthorized":false
+        }).to_string())
+    }
     pub fn close(&mut self)->Result<(),JsValue>{
         self.closed=true;self.buffer.clear();self.entropy.fill(0);
         if let Some(mut session)=self.session.take(){
