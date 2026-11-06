@@ -30,6 +30,24 @@ test('thumbnail invalid ID/number coercion cannot silently become a safe summary
     assert.ok(nativeLocalPresetQuarantineWarnings(x).includes('THUMBNAIL_ITEM_ID_MALFORMED'));
   }
 });
+test('diffgrid entries must be records, unknown fields still preserved',()=>{
+  for(const invalid of [null,undefined,42,[],false,'bad']){
+    const x=valid();x.GridCollection.DiffGrids={'9':invalid};
+    assert.ok(nativeLocalPresetQuarantineWarnings(x).includes('DIFF_GRIDS_MALFORMED'));
+  }
+  const x=valid();x.GridCollection.DiffGrids={'9':{OpaqueFuture:{flag:7}}};
+  assert.deepEqual(nativeLocalPresetQuarantineWarnings(x),[]);
+});
+test('subgrid link needs a nonnegative exact integer GridID, not numeric coercion',()=>{
+  for(const invalid of [{},{GridID:null},{GridID:'2'},{GridID:-1},{GridID:1.5},{GridID:NaN},{GridID:true}]){
+    const x=valid();x.GridCollection.Grids['0'].Objects['0'].State={SubGrid:invalid};
+    assert.ok(nativeLocalPresetQuarantineWarnings(x).includes('SUBGRID_REFERENCE_MALFORMED'));
+  }
+  for(const goodId of [0,2]){
+    const x=valid();x.GridCollection.Grids['0'].Objects['0'].State={SubGrid:{GridID:goodId,OpaqueFuture:{a:1}}};
+    assert.deepEqual(nativeLocalPresetQuarantineWarnings(x),[]);
+  }
+});
 test('unknown fields are kept untouched, no Source/Writer/ToM inference',()=>{
   const x=valid();x.OpaqueFuture={newField:[1,2]};
   const frozenBefore=JSON.stringify(x);
