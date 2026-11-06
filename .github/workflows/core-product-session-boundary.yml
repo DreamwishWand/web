@@ -11,6 +11,7 @@ on:
       - 'core/product-single-session-abi-*'
       - 'core/product-worker-wasm-read-boundary-*'
       - 'core/product-stageb-synthetic-cas-*'
+      - 'core/product-indexed-lazy-typed-stagec-*'
   workflow_dispatch:
 permissions:
   contents: read
@@ -30,6 +31,12 @@ jobs:
         run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --all-targets --verbose
       - name: Synthetic-only CAS/Atomic/Undo/Backup/EditedCopy/fresh-process Reopen negatives
         run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features synthetic-stage-b --all-targets --verbose
+      - name: Stage C bounded lazy indexed typed ReadSet native regression
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features indexed-read --all-targets --verbose
+      - name: Stage C new-readset versus Stage B old-value CAS stale cursor
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features indexed-read,synthetic-stage-b --test indexed_read_stagec --verbose
+      - name: Compile WASM Worker plus opt-in indexed-read types without binding to UI
+        run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --features worker-wasm,indexed-read
       - name: Rust wasm32 ABI compilation (no UI/bundle assumption)
         run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --features worker-wasm
       - name: Worker-side mock WASM read-only negative tests

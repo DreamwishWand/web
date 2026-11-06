@@ -11,6 +11,8 @@ default = []
 worker-wasm = ["dep:wasm-bindgen"]
 # Explicit native-only fixture lab. NEVER compiled in production Worker.
 synthetic-stage-b = []
+# Opt-in typed metadata ReadSet; never product/UI enabled by default.
+indexed-read = []
 
 [dependencies]
 wasm-bindgen = { version = "=0.2.105", optional = true }

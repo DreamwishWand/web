@@ -9,6 +9,8 @@ mod strict_document;
 compile_error!("synthetic-stage-b must not be linked into WASM/Worker release");
 #[cfg(feature = "synthetic-stage-b")]
 pub use product_session::{SyntheticChangeSet, SyntheticStageReceipt, SyntheticExportReceipt};
+#[cfg(feature = "indexed-read")]
+pub use product_session::{IndexedCursorReceipt, IndexedDomain, IndexedFieldWitness, IndexedKind, IndexedPage, INDEX_PAGE_ENTRIES_MAX};
 mod worker_session;
 #[cfg(all(feature = "worker-wasm", target_arch = "wasm32"))]
 mod wasm_worker;
