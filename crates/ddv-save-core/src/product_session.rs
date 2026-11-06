@@ -70,7 +70,7 @@ pub struct ReadReceipt {
     pub complete_all_domains: bool,
     pub writer_authorized: bool,
 }
-struct State { id: [u8;16], revision: u64, generation: u64, closed: bool }
+struct State { id: [u8;16], revision: u64, generation: u64, closed: bool,\n    #[cfg(feature = "synthetic-stage-b")] lab: Option<synthetic_stage_b::SyntheticLedger>,\n}\n#[cfg(feature = "synthetic-stage-b")]\n#[path = "synthetic_stage_b.rs"]\nmod synthetic_stage_b;\n#[cfg(feature = "synthetic-stage-b")]\npub use synthetic_stage_b::{SyntheticChangeSet, SyntheticStageReceipt, SyntheticExportReceipt};
 /// Same synchronized State for all dispatch/close paths; research Stage session
 /// cannot mint or rebind another product ID. No product Writer entrypoint.
 pub struct ProductSession {
@@ -97,7 +97,7 @@ impl ProductSession {
         if id.iter().all(|b| *b == 0) { return Err(CoreError("SESSION_ID_INVALID")); }
         let sha = Sha256::digest(&decoded).into();
         Ok(Self {
-            state: Mutex::new(State { id, revision:0, generation:1, closed:false }),
+            state: Mutex::new(State { id, revision:0, generation:1, closed:false,\n                #[cfg(feature = "synthetic-stage-b")] lab:None }),
             decoded:Arc::from(decoded), sha, schema:build.schema, worker_bound:false,
         })
     }
@@ -124,7 +124,7 @@ impl ProductSession {
         let digest = hash.finalize();
         let mut id=[0u8;16];
         id.copy_from_slice(&digest[..16]);
-        let state=State {id,revision:0,generation:1,closed:false};
+        let state=State {id,revision:0,generation:1,closed:false,\n            #[cfg(feature = "synthetic-stage-b")] lab:None};
         Ok(Self {
             state:Mutex::new(state),decoded:Arc::from(decoded),
             sha,schema:build.schema,worker_bound:true,
