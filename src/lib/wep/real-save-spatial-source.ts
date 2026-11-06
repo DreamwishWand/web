@@ -66,7 +66,12 @@ export function read626SpatialReferences(profile:R, context:R):SpatialSourceRead
   const villages=profile.World.Villages;
   if(!Array.isArray(villages))throw Error('SPATIAL_VILLAGE_ARRAY_REQUIRED');
   villages.forEach((v,vi)=>{
-    if(!isRec(v)||!isRec(v.Areas))return;
+    // A malformed Village must not disappear from an otherwise valid source index.
+    // This is a global source-integrity issue, never an empty Saved Area.
+    if(!isRec(v)||!isRec(v.Areas)){
+      issues.push({code:'SPATIAL_VILLAGE_AREAS_REQUIRED',detail:`v${vi}`});
+      return;
+    }
     for(const [areaKey,ar] of Object.entries(v.Areas)){
       if(canonicalId(areaKey)===null||!isRec(ar)||!Array.isArray(ar.GridIDs)){
         issues.push({code:'SPATIAL_AREA_RECORD_INVALID',detail:`v${vi}:a${areaKey}`});continue;
@@ -236,7 +241,8 @@ export function inspect626SourceObjectAtRevision(index:SpatialSourceRead,editorI
     throw Error('SPATIAL_SOURCE_REVISION_OR_HASH_STALE');
   const object=index.objects.find(o=>o.address.editorId===editorId);
   if(!object)throw Error('SPATIAL_SOURCE_OBJECT_NOT_FOUND');
-  if(object.relation==='UNRESOLVED'||index.issues.some(i=>i.gridId===object.gridId))
+  if(object.relation==='UNRESOLVED'||
+     index.issues.some(i=>i.code==='SPATIAL_VILLAGE_AREAS_REQUIRED'||i.gridId===object.gridId))
     throw Error('SPATIAL_SOURCE_GRID_REFERENCE_UNRESOLVED');
   return Object.freeze({address:object.address,itemId:object.itemId,
     gridLocalSerialized:{x:object.serializedX,y:object.serializedY,orientation:object.serializedOrientation},
