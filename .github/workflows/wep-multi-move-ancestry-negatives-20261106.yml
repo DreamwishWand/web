@@ -1,0 +1,54 @@
+name: WEP ancestry-only group MOVE new negatives with real tab zoom
+on:
+  push:
+    branches: ['wep/multi-move-ancestry-negatives-20261106']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ancestry-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Only three provenance-negative atomic MOVE cases (no prior PR307 replay)
+        run: node --test tests/wep-multi-move-ancestry-negatives.test.mjs
+      - name: Type and Svelte checks
+        run: npm run check
+  ancestry-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Install actual Chromium with native tab zoom
+        run: |
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install chromium
+      - name: Start isolated synthetic World Editor
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4194 > /tmp/wep-ancestry-negative.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4194/editor/world/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/wep-ancestry-negative.log
+          exit 1
+      - name: Three malformed origin fields x native 100/200 tab zoom
+        env:
+          WEP_ANCESTRY_BASE_URL: http://127.0.0.1:4194/editor/world/
+        run: node scripts/wep-multi-move-ancestry-negatives-browser.mjs
+      - name: Upload new-only Chrome receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wep-multi-move-ancestry-new-negative-receipt
+          path: .artifacts/wep-multi-move-ancestry-negatives/
+          if-no-files-found: error
