@@ -96,7 +96,11 @@ async function invalidGroupAncestry(page,field,zoom){
     assert.equal(observed[property],true,field+':'+property);
   assert.deepEqual(observed.history,{undoDepth:0,redoDepth:0,lastKind:null});
   assert.deepEqual(observed.objects,[['Chair',2,2],['Lamp',6,2]]);
-  assert.equal(await page.locator('[data-wep-verified-export]').count(),0);
+  // The existing verified-export information panel is intentionally visible;
+  // the synthetic editor has no source bytes/baseline and its action stays OFF.
+  assert.equal(await page.locator('[data-wep-verified-export]').count(),1);
+  assert.equal(await page.locator('[data-wep-verified-export] button').first().isDisabled(),true,
+    'synthetic group negative cannot enable Verified Export');
   note('ZOOM'+zoom+'_'+field+'_UI_EXCLUDED_AND_IN_BROWSER_GROUP_ATOMIC_REJECT');
 }
 async function setZoom(sw,value){
