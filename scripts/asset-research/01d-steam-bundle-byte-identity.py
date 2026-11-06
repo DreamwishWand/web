@@ -5,13 +5,14 @@ import argparse
 import hashlib
 import json
 import pathlib
+from types import MappingProxyType
 
 SCHEMA='wand.01d.steam-bundle-identity-source-only@1'
-BUNDLE_PINS={
+BUNDLE_PINS=MappingProxyType({
   'flower_584a9f69.bundle':('e7cbd3f2c08f13bcca84e58ec96cf519ef566cb2061c5ae6fe3d65a612b97770',3784859),
   'seed_8c733f88.bundle':('3650906d8318350dd35944ddbcf67f4616e11c37e544ab379a48faa059514e3f',6372358),
   'meal_7a31d699.bundle':('9770b0d4980da18332bf1870f7fdb0969cc88046d769e25316b0663cdf47ccf5',24835033),
-}
+})
 VERSIONS=('v1250','v1253')
 
 def hash_original(path):
@@ -28,6 +29,10 @@ def hash_original(path):
     return digest.hexdigest(),path.stat().st_size
 
 def analyze(root,pins=BUNDLE_PINS,synthetic=False):
+    # Do not allow a caller to supply self-signed original-source provenance.
+    # Fixture pin overrides are valid ONLY for explicitly synthetic evidence.
+    if not synthetic and pins is not BUNDLE_PINS:
+        raise ValueError('ORIGINAL_PIN_OVERRIDE_FORBIDDEN')
     root=root.resolve()
     result=[]
     if not pins or len(pins)>40:raise ValueError('INVALID_PIN_COUNT')
