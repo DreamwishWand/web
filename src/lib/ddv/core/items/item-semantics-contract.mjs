@@ -131,12 +131,13 @@ export function inspectCollectionSaveFlag({profile, identity, definitionId, grou
   });
   if (!Array.isArray(match.GroupData) || match.GroupData.length>257)
     return denied('COLLECTION_GROUP_DATA_UNVERIFIED');
-  const group=match.GroupData[groupIndex];
-  // Missing group is distinct from a present, malformed native group record.
-  // A malformed record must not masquerade as game-side ABSENT.
-  if (group===undefined && !Object.hasOwn(match.GroupData,groupIndex))
+  // Own-index presence must be checked BEFORE reading: a sparse array can
+  // inherit a prototype group and otherwise counterfeit raw Collection data.
+  if (!Object.hasOwn(match.GroupData,groupIndex))
     return Object.freeze({...base(target,false),collectionDefinitionId:definitionId,
       groupIndex,itemId,rawFlag:'ABSENT_GROUP'});
+  const group=match.GroupData[groupIndex];
+  // A present but malformed group is not a missing group.
   if (!object(group) || !object(group.GroupsCollectionItems))
     return denied('COLLECTION_GROUP_RECORD_OR_ITEMS_MALFORMED');
   if (group.GroupIndex !== undefined && group.GroupIndex !== groupIndex)
