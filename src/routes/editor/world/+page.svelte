@@ -2445,6 +2445,15 @@
 
     loading = true;
     worldSourceEpoch += 1;
+    // Revoke the previous source receipt and its actions before the first
+    // asynchronous file read. A new file must never inherit stale counts or
+    // an old Editor session while its own source is still unverified.
+    worldSource = null;
+    session = null;
+    editorDocument = null;
+    projected = [];
+    selection = [];
+    layerState = null;
     realSpatialRead = null;
     worldSourceBytes = null;
     sourceFingerprint = '';
@@ -6438,7 +6447,7 @@
       {/if}
     </section>
   {:else if worldSource}
-    <section class="save-source-browser">
+    <section class="save-source-browser" data-wep-source-epoch={worldSourceEpoch}>
       <div class="save-source-heading">
         <div>
           <p class="eyebrow">{t('worldEditor.routes.eyebrow', {}, $locale)}</p>
