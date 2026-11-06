@@ -178,6 +178,21 @@ test('UI never opens a schema626 v125 session or displays editing actions', () =
   assert.match(page, /sourceBuildId/);
   assert.match(page, /\{:else\}\s*\{#if roomFinishRoutes/);
 });
+test('new DDV source revokes old World receipt before any async file read', () => {
+  const page = readFileSync(new URL('../src/routes/editor/world/+page.svelte', import.meta.url), 'utf8');
+  const start=page.indexOf('async function openEditorDocument(event: Event)');
+  const end=page.indexOf('async function openRoomFinishRoomInCanvas(',start);
+  assert.ok(start>=0&&end>start);
+  const open=page.slice(start,end);
+  const epoch=open.indexOf('worldSourceEpoch += 1;');
+  const revoke=open.indexOf('worldSource = null;',epoch);
+  const revokeSession=open.indexOf('session = null;',epoch);
+  const read=open.indexOf('await file.arrayBuffer()',epoch);
+  assert.ok(epoch>=0 && revoke>epoch && revokeSession>epoch,'old source/session revoked on import start');
+  assert.ok(revoke<read && revokeSession<read,'old World receipt is invalidated before any await');
+  assert.match(page, /class="save-source-browser" data-wep-source-epoch=\{worldSourceEpoch\}/);
+});
+
 test('eight language copies present and no source save is embedded in test', async () => {
   const { WORLD_READONLY_COPY_LOCALES, worldReadonlyCopy } = await import('../src/lib/wep/world-readonly-copy.js');
   assert.deepEqual([...WORLD_READONLY_COPY_LOCALES].sort(), ['de', 'en', 'es-ES', 'fr', 'it', 'ja', 'pt-BR', 'zh-CN'].sort());
