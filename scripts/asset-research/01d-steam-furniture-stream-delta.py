@@ -130,6 +130,10 @@ def main():
     parser.add_argument('--root', type=Path, required=True)
     parser.add_argument('--report', type=Path, required=True)
     args = parser.parse_args()
+    # Validate the literal caller-provided path BEFORE canonicalizing it.
+    # Resolving here first would hide a symlinked CLI root from analyze().
+    if args.root.is_symlink():
+        raise ValueError('ORIGINAL_ROOT_INVALID')
     root = args.root.resolve()
     report = args.report
     if (report.is_symlink() or report.exists() or report.resolve() == root or
