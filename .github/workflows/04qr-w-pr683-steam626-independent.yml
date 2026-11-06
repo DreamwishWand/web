@@ -1,0 +1,52 @@
+name: "04 QR-W PR683 independent Steam626 V1 structural UI"
+on:
+  pull_request:
+    paths:
+      - "tests/04qr-w-pr683-steam626-independent.test.mjs"
+      - "scripts/04qr-w-pr683-steam626-chrome.mjs"
+      - ".github/workflows/04qr-w-pr683-steam626-independent.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  steam626-independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Fixed six original blobs and independent second-entry negatives
+        run: node --test tests/04qr-w-pr683-steam626-independent.test.mjs
+      - name: Build static site, no private P1G
+        env:
+          BASE_PATH: /web
+        run: npm run build
+      - name: Install actual Chromium driver
+        run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Start local isolated Vite
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          BASE_PATH="" npm run dev -- --host 127.0.0.1 --port 4208 > /tmp/qr683-vite.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4208/editor/world/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr683-vite.log
+          exit 1
+      - name: Independent actual Chrome eight locales 320 200 provenance no-network
+        env:
+          QR683_E2E_URL: http://127.0.0.1:4208
+        run: node scripts/04qr-w-pr683-steam626-chrome.mjs
