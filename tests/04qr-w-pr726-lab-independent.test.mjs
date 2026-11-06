@@ -47,7 +47,7 @@ test('QR726-01 original four fixed Source blobs, one Source commit, and exactly 
 
 test('QR726-02 source original root is literally unchanged except one noindex,nofollow head tag',()=>{
   assert.equal((root.split(meta).length-1),1,'exactly one root robots meta');
-  assert.equal(root.replace(meta,''),older,'only one addition, no accidental form/RPC rewrite');
+  assert.equal(root.replace(meta,'').trimEnd(),older,'only one addition, no accidental form/RPC rewrite; git show helper trims EOL');
   assert.match(root,/<svelte:head>/);
   assert.match(root,/<title>Community Lab — Dreamwish Wand<\/title>/);
   assert.match(root,/<meta name="robots" content="noindex,nofollow" \/>/);
