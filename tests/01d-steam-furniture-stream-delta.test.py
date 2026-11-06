@@ -101,6 +101,32 @@ class FurnitureStreamDelta(unittest.TestCase):
                 self.assertNotEqual(done.returncode, 0)
                 self.assertEqual(preexisting.read_text(), 'keep')
 
+    def test_cli_rejects_symlinked_original_root_before_resolve(self):
+        with tempfile.TemporaryDirectory() as d:
+            home = pathlib.Path(d)
+            source = home / 'original'
+            fixture(source)
+            link = home / 'linked-original'
+            link.symlink_to(source, target_is_directory=True)
+            report = home / 'fresh-report.json'
+            run = subprocess.run(
+                [sys.executable, str(SOURCE), '--root', str(link),
+                 '--report', str(report)],
+                capture_output=True, text=True
+            )
+            self.assertNotEqual(run.returncode, 0)
+            self.assertIn('ORIGINAL_ROOT_INVALID', run.stderr)
+            self.assertFalse(report.exists())
+            # Ordinary non-symlink paths still reach pinned original checks.
+            control = subprocess.run(
+                [sys.executable, str(SOURCE), '--root', str(source),
+                 '--report', str(report)],
+                capture_output=True, text=True
+            )
+            self.assertNotEqual(control.returncode, 0)
+            self.assertIn('ORIGINAL_SIZE_MISMATCH', control.stderr)
+            self.assertFalse(report.exists())
+
     def test_unknown_version_set_denied(self):
         with tempfile.TemporaryDirectory() as d:
             root = pathlib.Path(d)
