@@ -1,0 +1,59 @@
+name: 05 QR-C R04 PR702 wasm-bindgen BigInt Worker ABI independent
+on:
+  push:
+    branches:
+      - qa/05qrc-r04-pr702-u64-bigint-glue-20261106
+  pull_request:
+    paths:
+      - crates/ddv-save-core/src/wasm_worker.rs
+      - src/lib/ddv/core/save/product-wasm-read-owner.mjs
+      - src/lib/ddv/core/save/product-wasm-read-owner.d.mts
+      - tests/05qr-c-r04-pr702-wasm64-abi-newonly.test.mjs
+      - .github/workflows/05qr-c-r04-pr702-wasm64-abi.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  independent-r04-glue:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Assert immutable PR702 original 9 changed Source blobs and only QA2 delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            qa_tip="$(git rev-parse HEAD^2)"
+          else
+            qa_tip="$(git rev-parse HEAD)"
+          fi
+          git merge-base --is-ancestor ab0ff20dd8533aedd5a134377b02ff7546203f62 "$qa_tip"
+          test "$(git rev-parse "$qa_tip":.github/workflows/core-product-session-boundary.yml)" = 50c9258a7c96cb3138afca5adba260f228e4d499
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/Cargo.toml)" = 68053271e56af56ce328c303c377fc3c38c49857
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/lib.rs)" = 73e636340bc97590e168446aecad37d2ca1d6cf2
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/product_session.rs)" = 39380e77350a2928047aee6e4b73eee2a99c0d34
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/wasm_worker.rs)" = 5b469b80f4107acbaf7ca79e26112cf891d4dbab
+          test "$(git rev-parse "$qa_tip":docs/core/01a-product-wasm-worker-r04-20261106.md)" = 35ffd4d73ab7f4b0cbd24a6a3dd9b534dcce6a0f
+          test "$(git rev-parse "$qa_tip":src/lib/ddv/core/save/product-wasm-read-owner.d.mts)" = d6d403e155674369ebdf3b79dbadcb1ab78c7d5f
+          test "$(git rev-parse "$qa_tip":src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = 9d4372ef16d2254ac1709ac6763d3f5e52cbb22b
+          test "$(git rev-parse "$qa_tip":tests/product-wasm-read-owner.test.mjs)" = 76130b4a1ce96aac8310a893a34b6b329ebd72e1
+          test "$(git diff --name-only ab0ff20dd8533aedd5a134377b02ff7546203f62 "$qa_tip" | sort)" = "$(printf '%s\n' .github/workflows/05qr-c-r04-pr702-wasm64-abi.yml tests/05qr-c-r04-pr702-wasm64-abi-newonly.test.mjs | sort)"
+      - name: NEW_ONLY exported Rust u64 / JS glue BigInt adversarial assertions
+        run: node --test tests/05qr-c-r04-pr702-wasm64-abi-newonly.test.mjs
+      - name: No raw personal Save fixture or Writer promotion
+        shell: bash
+        run: |
+          set -euo pipefail
+          if find . -type f -iname 'steam_*.zip' -print -quit | grep -q .; then
+            echo 'Private Save source may not enter public CI'
+            exit 1
+          fi
+          ! grep -R -E 'include_(bytes|str)!|writer_authorized: *true|apply_authorized: *true' crates/ddv-save-core/src
