@@ -66,6 +66,7 @@ test('Steam schema626 packaged V1 local receipt is structurally inspectable but 
   assert.equal(opened.profileSchemaVersion, 626);
   assert.equal(opened.saveIdentity.sourcePlatform, 'steam-windows');
   assert.equal(opened.compatibility.readContract, 'wep-steam626-local-structural-inspection-only@1');
+  assert.equal(opened.compatibility.gameVersion, 'UNKNOWN', 'schema alone cannot establish Steam game version');
   assert.equal(opened.compatibility.exactBuildKnown, false);
   assert.equal(opened.compatibility.productionReadAccepted, false);
   assert.equal(opened.compatibility.readOnly, true);
