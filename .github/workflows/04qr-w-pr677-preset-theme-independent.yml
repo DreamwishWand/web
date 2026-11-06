@@ -1,0 +1,24 @@
+name: "04 QR-W PR677 Preset Theme8 Facet4 independent"
+on:
+  pull_request:
+    paths:
+      - "tests/04qr-w-pr677-preset-theme-independent.test.mjs"
+      - ".github/workflows/04qr-w-pr677-preset-theme-independent.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preset-theme-independent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Independent frozen source blob, semantic positives and prototype-poisoned negatives
+        run: node --test tests/04qr-w-pr677-preset-theme-independent.test.mjs
