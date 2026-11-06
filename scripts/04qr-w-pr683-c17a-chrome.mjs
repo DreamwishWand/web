@@ -190,7 +190,7 @@ try{
  assert.equal(await shell.count(),0);
  assert.equal(createHash('sha256').update(valid).digest('hex'),validHash,'source bytes unchanged');
  assert.deepEqual(offsiteOrWrite,[],'no POST, network API or cross-origin fetch');
- assert.deepEqual(websockets,[],'no WS');
+ assert.deepEqual(websockets.filter(u=>!/^ws:\/\/127\.0\.0\.1:4299\/\?token=[A-Za-z0-9_-]+$/.test(u)),[],'no external Provider/Cloud WebSocket; only known local Vite HMR allowed');
  assert.deepEqual(errors,[],'no browser JS errors');
  console.log('QR683_C17A_CHROME_FORGED_PLATFORM_NO_POST_WS_OR_ERRORS_PASS');
 }finally{await ctx.close();await browser.close();}
