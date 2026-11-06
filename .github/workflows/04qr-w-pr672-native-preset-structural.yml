@@ -1,0 +1,25 @@
+name: "04 QR-W PR672 schema624 PC import independent"
+on:
+  pull_request:
+    paths:
+      - "tests/04qr-w-pr672-native-preset-structural.test.mjs"
+      - ".github/workflows/04qr-w-pr672-native-preset-structural.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-native-import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Independent source3 and imported-file changed-risk negatives
+        run: node --test tests/04qr-w-pr672-native-preset-structural.test.mjs
+      - name: Owner's six synthetic direct helper cases (source baseline)
+        run: node --test tests/01d-native-local-preset-quarantine.test.mjs
