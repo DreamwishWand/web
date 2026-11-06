@@ -447,7 +447,8 @@ export async function openWorldSaveBytes(
         },
         compatibility: {
           readContract: 'wep-steam626-local-structural-inspection-only@1',
-          gameVersion: '1.25.3',
+          // Schema 626 by itself cannot establish this Steam save's version.
+          gameVersion: 'UNKNOWN',
           schemaMatched: true,
           exactBuildKnown: false,
           productionReadAccepted: false,
