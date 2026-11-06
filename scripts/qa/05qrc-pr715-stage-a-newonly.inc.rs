@@ -74,7 +74,7 @@ mod qr_stage_a_independent {
         borrowed.close().unwrap();
         assert_eq!(guard.receipt().unwrap_err().0,"SESSION_CLOSED");
         assert_eq!(guard.dispatch(token).unwrap_err().0,"SESSION_CLOSED");
-        assert_eq!(guard.close().unwrap_err().0,"SESSION_CLOSED");
+        assert_eq!(guard.close().unwrap_err().0,"SESSION_ALREADY_CLOSED");
         assert_eq!(guard.close().unwrap_err().0,"WORKER_SESSION_ALREADY_CLOSED");
         drop(guard);
         assert_eq!(borrowed.dispatch(token).unwrap_err().0,"SESSION_CLOSED");
