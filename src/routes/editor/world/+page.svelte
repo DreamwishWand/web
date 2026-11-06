@@ -811,7 +811,8 @@
 
   async function restoreRecoveryRecord(
     record: any,
-    memory = getActiveWorldEditorMemory()
+    memory = getActiveWorldEditorMemory(),
+    expectedSourceEpoch: number | null = null
   ) {
     if (!record || !memory) {
       recoveryRequest = record;
@@ -837,13 +838,19 @@
     }
 
     await ensureSwitchDraftBindings();
+    // A pending import must not restore an older draft after a newer
+    // source has been selected while the bindings were being loaded.
+    if (expectedSourceEpoch !== null && worldSourceEpoch !== expectedSourceEpoch) {
+      return false;
+    }
     const route =
       record.routes?.[record.activeRouteKey] ?? null;
     if (!route?.session?.document) {
       throw new Error('WEP_RECOVERY_ACTIVE_ROUTE_MISSING');
     }
 
-    worldSourceEpoch += 1;
+    // File intake already advanced the generation; direct recovery advances it here.
+    if (expectedSourceEpoch === null) worldSourceEpoch += 1;
     worldSource = memory.worldSource;
     worldSourceBytes = memory.sourceBytes.slice();
     originalSaveBackup = memory.originalSaveBackup;
@@ -2445,6 +2452,22 @@
 
     loading = true;
     worldSourceEpoch += 1;
+    const importEpoch = worldSourceEpoch;
+    const isCurrentImport = () => importEpoch === worldSourceEpoch;
+    // Freeze user-selected storage provenance at the initiating file event.
+    // It cannot be changed to assert a build during an asynchronous read.
+    const importPlatform = sourcePlatform;
+    const importBid = sourceBuildId.trim().toUpperCase();
+    const importProvenance = sourceProvenanceConfirmed;
+    // Revoke the previous source receipt and its actions before the first
+    // asynchronous file read. A new file must never inherit stale counts or
+    // an old Editor session while its own source is still unverified.
+    worldSource = null;
+    session = null;
+    editorDocument = null;
+    projected = [];
+    selection = [];
+    layerState = null;
     realSpatialRead = null;
     worldSourceBytes = null;
     sourceFingerprint = '';
@@ -2475,7 +2498,9 @@
 
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
+      if (!isCurrentImport()) return;
       const fingerprint = await sha256Fingerprint(bytes);
+      if (!isCurrentImport()) return;
       let parsed: any = null;
 
       try {
@@ -2522,30 +2547,36 @@
             : t('worldEditor.open.editorDocumentRealLoaded', {}, $locale);
       } else {
         const opened = await openWorldSaveBytes(bytes, {
-          sourcePlatform,
-          targetBuild: sourcePlatform === 'switch' ? {
-            platform: 'switch', kind: 'switch-bid', value: sourceBuildId.trim().toUpperCase()
+          sourcePlatform: importPlatform,
+          targetBuild: importPlatform === 'switch' ? {
+            platform: 'switch', kind: 'switch-bid', value: importBid
           } : null,
-          sourceEvidence: sourceProvenanceConfirmed ? WEP_WORLD_READONLY_626_PROVENANCE : null
+          sourceEvidence: importPlatform === 'switch' && importProvenance ? WEP_WORLD_READONLY_626_PROVENANCE : null
         });
+        if (!isCurrentImport()) return;
+        if (opened.compatibility.routesAuthorized && opened.saveIdentity.sourcePlatform === 'switch') {
+          // Build static bindings off-state. Late completions must not commit
+          // previous file state, even when they finish after a newer import.
+          const nextBuildingBinding = buildingV110Binding ??
+            await createSwitchV125BuildingBinding({ basePath: base });
+          if (!isCurrentImport()) return;
+          const nextStoreBinding = scroogeStoreV112Binding ??
+            await createSwitchV125ScroogeStoreBinding({ basePath: base });
+          if (!isCurrentImport()) return;
+          const nextProgressionBinding = progressionV114Binding ??
+            await createSwitchV125ProgressionIntegrationBinding({ basePath: base });
+          if (!isCurrentImport()) return;
+          buildingV110Binding = nextBuildingBinding;
+          scroogeStoreV112Binding = nextStoreBinding;
+          progressionV114Binding = nextProgressionBinding;
+        }
+        if (!isCurrentImport()) return;
+        // One verified source backup is created only for the newest committed
+        // import, never for an obsolete asynchronous completion.
         originalSaveBackup = createOriginalSaveBackup({
           bytes,
           sourceName: file.name
         });
-        if (opened.compatibility.routesAuthorized && opened.saveIdentity.sourcePlatform === 'switch') {
-          buildingV110Binding ??=
-            await createSwitchV125BuildingBinding({
-              basePath: base
-            });
-          scroogeStoreV112Binding ??=
-            await createSwitchV125ScroogeStoreBinding({
-              basePath: base
-            });
-          progressionV114Binding ??=
-            await createSwitchV125ProgressionIntegrationBinding({
-              basePath: base
-            });
-        }
 
         session = null;
         editorDocument = null;
@@ -2602,9 +2633,11 @@
             worldSource: opened,
             originalSaveBackup,
             activeDraftRecord: null
-          });
+          }, importEpoch);
+          if (!isCurrentImport()) return;
         } else if (opened.compatibility.readOnly) {
-          message = readonly626Copy.viewing;
+          message = opened.saveIdentity.sourcePlatform === 'steam-windows'
+            ? readonly626Copy.steamViewing : readonly626Copy.viewing;
         } else {
           message = t(
             'worldEditor.open.saveLoaded',
@@ -2617,6 +2650,8 @@
         }
       }
     } catch (error) {
+      // An older failing decode must not clear the latest successful source.
+      if (!isCurrentImport()) return;
       session = null;
       editorDocument = null;
       worldSource = null;
@@ -2646,8 +2681,12 @@
         : errorCode.startsWith('WEP_WORLD_626_READ_CONTRACT') || errorCode === 'WEP_WORLD_PROFILE_SCHEMA_UNSUPPORTED' || errorCode === 'WEP_WORLD_626_PACKAGED_SOURCE_REQUIRED'
           ? readonly626Copy.unsupported + ' — ' + errorCode : errorCode;
     } finally {
-      loading = false;
-      input.value = '';
+      // An older completion must not hide the newest file's loading state or
+      // clear its input while that request is still pending.
+      if (isCurrentImport()) {
+        loading = false;
+        input.value = '';
+      }
     }
   }
 
@@ -4318,6 +4357,9 @@
           <span>{readonly626Copy.proof}</span>
         </label>
         <small class="wep-626-hint">{readonly626Copy.proofHint}</small>
+      {/if}
+      {#if sourcePlatform === 'steam-windows'}
+        <small data-wep-steam626-input class="wep-626-hint">{readonly626Copy.steamProof}</small>
       {/if}
       <label class="file-button">
         <input
@@ -6434,7 +6476,7 @@
       {/if}
     </section>
   {:else if worldSource}
-    <section class="save-source-browser">
+    <section class="save-source-browser" data-wep-source-epoch={worldSourceEpoch}>
       <div class="save-source-heading">
         <div>
           <p class="eyebrow">{t('worldEditor.routes.eyebrow', {}, $locale)}</p>
@@ -6447,8 +6489,8 @@
           <div><dt>{t('worldEditor.routes.schema', {}, $locale)}</dt><dd>{worldSource.profileSchemaVersion}</dd></div>
           <div><dt>{t('worldEditor.routes.source', {}, $locale)}</dt><dd>{worldSource.saveIdentity.sourcePlatform}</dd></div>
           <div><dt>{t('worldEditor.routes.lastSave', {}, $locale)}</dt><dd>{worldSource.saveIdentity.lastSavePlatform}</dd></div>
-          <div><dt>{t('worldEditor.routes.areas', {}, $locale)}</dt><dd>{worldSource.areas.length}</dd></div>
-          <div><dt>{t('worldEditor.routes.floating', {}, $locale)}</dt><dd>{worldSource.floatingIslands?.length ?? 0}</dd></div>
+          <div><dt>{t('worldEditor.routes.areas', {}, $locale)}</dt><dd>{worldSource.compatibility.readOnly ? readonly626Copy.unknown : worldSource.areas.length}</dd></div>
+          <div><dt>{t('worldEditor.routes.floating', {}, $locale)}</dt><dd>{worldSource.compatibility.readOnly ? readonly626Copy.unknown : (worldSource.floatingIslands?.length ?? 0)}</dd></div>
         </dl>
       </div>
 
@@ -6463,15 +6505,24 @@
 
       {#if worldSource.compatibility.readOnly}
         <section class="room-finish-route-section" data-wep-626-readonly role="status" aria-live="polite" style="min-width:0;overflow-wrap:anywhere">
-          <h3>{readonly626Copy.viewing} · v{worldSource.compatibility.gameVersion} / schema {worldSource.profileSchemaVersion}</h3>
+          {#if worldSource.saveIdentity.sourcePlatform === 'steam-windows'}
+            <div data-wep-steam626-limited>
+              <h3>{readonly626Copy.steamViewing} · schema {worldSource.profileSchemaVersion}</h3>
+              <p>{readonly626Copy.steamProof}</p>
+              <p data-wep-steam626-undo-preview>{readonly626Copy.steamPreview}</p>
+              <p><code>exactBuildKnown=false · productionReadAccepted=false · routesAuthorized=false</code></p>
+            </div>
+          {:else}
+            <h3>{readonly626Copy.viewing} · v{worldSource.compatibility.gameVersion} / schema {worldSource.profileSchemaVersion}</h3>
+          {/if}
           <p><strong>{readonly626Copy.editing}</strong></p>
-          <p>{readonly626Copy.boundary}</p>
+          <p>{worldSource.saveIdentity.sourcePlatform === 'steam-windows' ? readonly626Copy.steamBoundary : readonly626Copy.boundary}</p>
           <h4>{readonly626Copy.diagnostic}</h4>
           <dl>
-            <div><dt>{readonly626Copy.village}</dt><dd>{worldSource.structuralDiagnostics?.villageCount ?? '—'}</dd></div>
-            <div><dt>{readonly626Copy.area}</dt><dd>{worldSource.structuralDiagnostics?.areaRecordCount ?? '—'}</dd></div>
-            <div><dt>{readonly626Copy.grids}</dt><dd>{worldSource.structuralDiagnostics?.gridRecordCount ?? '—'}</dd></div>
-            <div data-wep-626-gridobject-entries><dt>{readonly626Copy.gridObjects}</dt><dd>{worldSource.structuralDiagnostics?.gridObjectEntryCount ?? '—'}</dd></div>
+            <div><dt>{readonly626Copy.village}</dt><dd>{worldSource.structuralDiagnostics?.villageCount ?? readonly626Copy.unknown}</dd></div>
+            <div><dt>{readonly626Copy.area}</dt><dd>{worldSource.structuralDiagnostics?.areaRecordCount ?? readonly626Copy.unknown}</dd></div>
+            <div><dt>{readonly626Copy.grids}</dt><dd>{worldSource.structuralDiagnostics?.gridRecordCount ?? readonly626Copy.unknown}</dd></div>
+            <div data-wep-626-gridobject-entries><dt>{readonly626Copy.gridObjects}</dt><dd>{worldSource.structuralDiagnostics?.gridObjectEntryCount ?? readonly626Copy.unknown}</dd></div>
           </dl>
           <p data-wep-626-subgrid-unknown>{readonly626Copy.subgrid}</p>
           {#each worldSource.structuralDiagnostics?.notes ?? [] as note}

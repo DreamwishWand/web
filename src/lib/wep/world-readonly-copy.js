@@ -13,6 +13,13 @@ const COPY = Object.freeze({
     area: 'Area records',
     grids: 'Grid records',
     boundary: 'Native Area/Grid placement semantics are not verified for v1.25.3. Canvas, drafting, candidates, exporting edited saves and Apply are disabled.',
+    gridObjects: 'Raw GridObject entries',
+    subgrid: 'SubGrid / DiffGrids native geometry: UNKNOWN',
+    unknown: 'UNKNOWN',
+    steamViewing: 'Steam schema 626 — local structural inspection only (not product read acceptance)',
+    steamProof: 'Steam source is user-declared; last-save device may be Switch via cross-save. Exact Steam FullVersion and game build are UNKNOWN; schema 626 does not prove either.',
+    steamBoundary: 'Native placement, Canvas, edits, verified export and Apply remain unavailable.',
+    steamPreview: 'Undo/Redo and placement preview unavailable: no authenticated SaveSession or Native V3 binding.',
     retry: 'Verify the Switch extraction source and exact ExeFS BID, then choose the file again.'
   },
   ja: {
@@ -28,6 +35,13 @@ const COPY = Object.freeze({
     area: 'Areaレコード',
     grids: 'Gridレコード',
     boundary: 'v1.25.3の配置意味論は未検証です。Canvas、ドラフト、変更候補、編集済みセーブの出力、Applyは無効です。',
+    gridObjects: 'GridObjectの生エントリ数',
+    subgrid: 'SubGrid／DiffGridsのNative座標：UNKNOWN',
+    unknown: 'UNKNOWN',
+    steamViewing: 'Steam schema626 — 端末内の構造診断のみ（製品読取受入ではありません）',
+    steamProof: 'Steamの抽出元は利用者の選択情報です。最終保存機種がSwitchでもクロスセーブの可能性があります。Steam FullVersionと正確なビルドはUNKNOWNです。schema626だけでは確定できません。',
+    steamBoundary: 'Native配置・Canvas・編集・編集済み出力・Applyは使用できません。',
+    steamPreview: 'Undo/Redoと配置プレビューは使用できません。SaveSessionとNative V3が未受入です。',
     retry: 'Switchの抽出元とExeFSのBIDを確認してから、再度ファイルを選択してください。'
   },
   de: {
@@ -43,6 +57,13 @@ const COPY = Object.freeze({
     area: 'Gebietsdatensätze',
     grids: 'Rasterdatensätze',
     boundary: 'Platzierungssemantik in v1.25.3 nicht verifiziert. Canvas, Bearbeitung, Export und Anwenden sind deaktiviert.',
+    gridObjects: 'Rohe GridObject-Einträge',
+    subgrid: 'Native-Geometrie für SubGrid/DiffGrids: UNKNOWN',
+    unknown: 'UNKNOWN',
+    steamViewing: 'Steam-Schema 626 – nur lokale Strukturdiagnose (keine Produkt-Lesefreigabe)',
+    steamProof: 'Steam als Quelle ist nur eine Nutzerauswahl. Letztes Gerät Switch kann Cross-Save bedeuten. Exakte Steam-FullVersion und Build sind UNKNOWN; Schema 626 beweist sie nicht.',
+    steamBoundary: 'Native-Platzierung, Canvas, Bearbeitung, Export und Apply sind gesperrt.',
+    steamPreview: 'Undo/Redo und Platzierungsvorschau sind ohne validierte SaveSession und Native V3 gesperrt.',
     retry: 'Switch-Herkunft und ExeFS-BID prüfen und Datei erneut wählen.'
   },
   fr: {
@@ -58,6 +79,13 @@ const COPY = Object.freeze({
     area: 'Enregistrements de zones',
     grids: 'Enregistrements de grilles',
     boundary: 'Placement v1.25.3 non validé. Canvas, brouillons, export modifié et application désactivés.',
+    gridObjects: 'Entrées GridObject brutes',
+    subgrid: 'Géométrie native SubGrid/DiffGrids : UNKNOWN',
+    unknown: 'UNKNOWN',
+    steamViewing: 'Schéma Steam 626 — diagnostic structurel local uniquement (lecture produit non validée)',
+    steamProof: 'La source Steam est déclarée par l’utilisateur. Le dernier appareil Switch peut venir du cross-save. La FullVersion Steam et le build exact sont UNKNOWN ; le schéma 626 ne les prouve pas.',
+    steamBoundary: 'Placement natif, Canvas, modification, export et Apply indisponibles.',
+    steamPreview: 'Undo/Redo et aperçu de placement indisponibles sans SaveSession et Native V3 validés.',
     retry: 'Vérifiez la source Switch et le BID ExeFS, puis sélectionnez à nouveau le fichier.'
   },
   it: {
@@ -73,6 +101,13 @@ const COPY = Object.freeze({
     area: 'Record aree',
     grids: 'Record griglie',
     boundary: 'Semantica del posizionamento v1.25.3 non verificata. Canvas, bozze, export modificato e Apply disabilitati.',
+    gridObjects: 'Voci GridObject grezze',
+    subgrid: 'Geometria Native SubGrid/DiffGrids: UNKNOWN',
+    unknown: 'UNKNOWN',
+    steamViewing: 'Steam schema 626 — sola diagnosi strutturale locale (lettura prodotto non approvata)',
+    steamProof: 'La sorgente Steam è dichiarata dall’utente. L’ultimo dispositivo Switch può derivare dal cross-save. Steam FullVersion e build esatto sono UNKNOWN; schema 626 non li dimostra.',
+    steamBoundary: 'Posizionamento Native, Canvas, modifica, esportazione e Apply non disponibili.',
+    steamPreview: 'Undo/Redo e anteprima di posizionamento non disponibili senza SaveSession e Native V3 approvati.',
     retry: 'Verifica origine Switch e BID ExeFS, poi seleziona di nuovo il file.'
   },
   'es-ES': {
@@ -88,6 +123,13 @@ const COPY = Object.freeze({
     area: 'Registros de áreas',
     grids: 'Registros de cuadrículas',
     boundary: 'Colocación de v1.25.3 sin verificar. Canvas, borradores, exportación editada y Apply desactivados.',
+    gridObjects: 'Entradas GridObject sin procesar',
+    subgrid: 'Geometría Native SubGrid/DiffGrids: UNKNOWN',
+    unknown: 'UNKNOWN',
+    steamViewing: 'Steam schema 626 — solo diagnóstico estructural local (lectura del producto no aceptada)',
+    steamProof: 'Steam es el origen declarado por el usuario. El último dispositivo Switch puede indicar guardado cruzado. FullVersion de Steam y build exacto UNKNOWN; schema 626 no los confirma.',
+    steamBoundary: 'Colocación Native, Canvas, edición, exportación y Apply desactivados.',
+    steamPreview: 'Undo/Redo y vista previa de colocación desactivados sin SaveSession y Native V3 aceptados.',
     retry: 'Verifica el origen Switch y el BID de ExeFS y vuelve a elegir el archivo.'
   },
   'pt-BR': {
@@ -103,6 +145,13 @@ const COPY = Object.freeze({
     area: 'Registros de áreas',
     grids: 'Registros de grades',
     boundary: 'Posicionamento v1.25.3 não verificado. Canvas, rascunhos, exportação editada e Apply desativados.',
+    gridObjects: 'Entradas GridObject brutas',
+    subgrid: 'Geometria Native de SubGrid/DiffGrids: UNKNOWN',
+    unknown: 'UNKNOWN',
+    steamViewing: 'Steam schema 626 — apenas diagnóstico estrutural local (leitura do produto não aprovada)',
+    steamProof: 'Steam é a origem declarada. Último dispositivo Switch pode resultar de cross-save. Steam FullVersion e build exato são UNKNOWN; schema 626 não os comprova.',
+    steamBoundary: 'Posicionamento Native, Canvas, edição, exportação e Apply desativados.',
+    steamPreview: 'Undo/Redo e prévia de posicionamento indisponíveis sem SaveSession e Native V3 aceitos.',
     retry: 'Verifique a origem Switch e o BID ExeFS e selecione o arquivo novamente.'
   },
   'zh-CN': {
@@ -118,6 +167,13 @@ const COPY = Object.freeze({
     area: '区域记录',
     grids: '网格记录',
     boundary: 'v1.25.3 的放置语义未经验证。画布、草稿、修改导出和应用均已禁用。',
+    gridObjects: '原始 GridObject 条目',
+    subgrid: 'SubGrid / DiffGrids 原生几何：UNKNOWN',
+    unknown: 'UNKNOWN',
+    steamViewing: 'Steam schema 626 — 仅本地结构诊断（不代表产品读取验收）',
+    steamProof: 'Steam 来源由用户声明。上次保存设备显示 Switch 可能是跨平台存档。Steam FullVersion 与准确构建均为 UNKNOWN，schema626 不能证明。',
+    steamBoundary: '原生放置、Canvas、编辑、导出与 Apply 均不可用。',
+    steamPreview: '未验收 SaveSession 和 Native V3 前，Undo/Redo 与放置预览不可用。',
     retry: '核实 Switch 来源与 ExeFS BID 后重新选择文件。'
   }
 });

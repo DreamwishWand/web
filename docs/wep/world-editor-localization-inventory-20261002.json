@@ -1,7 +1,7 @@
 {
   "schema": "dreamwish-wand-world-editor-localization-inventory@1",
   "status": "COMPLETE_FOR_PINNED_SOURCES",
-  "generatedAt": "2026-11-04",
+  "generatedAt": "2026-11-06",
   "target": {
     "product": "Decorate / World Editor",
     "platform": "Nintendo Switch",
@@ -19,7 +19,7 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "5ae7f7640a99b05083b20b784fb0cbf3693fee84",
+    "src/routes/editor/world/+page.svelte": "f91db92b44fb4dd35dd0ac6ef26c380eedf44c9e",
     "src/lib/wep/world-editor-primary-job.ts": "25aba45c6004c020400a249c848c3bc2281fd4a0",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "6cede86476ca6dbd3427115671367c9a1f4a433f",
@@ -27,7 +27,7 @@
     "src/lib/wep/WorldEditorStage1DecoratePanel.svelte": "7bfb2981870f803c9e3adfc9e99192211325124a",
     "src/lib/wep/world-editor-stage1-copy.js": "9dace4b7538c04a8c650f691739d0bda22f38329",
     "src/lib/wep/room-finish-copy.js": "f75c54053bafa416842ca17938895b20d7f47f9b",
-    "src/lib/wep/world-readonly-copy.js": "2e2ac0522836e06b2d53f9465ffe4ba6d2a93d14"
+    "src/lib/wep/world-readonly-copy.js": "0db2b06c03502f0559b2dd86984ff54aa728d832"
   },
   "ownership": {
     "wepOwned": [
@@ -81,7 +81,8 @@
       "progression-protection explanatory copy",
       "errors/status/live-region presentation wrappers",
       "Decorate Stage 1 Moodboard handoff, pending placement, recovery, alignment/distribution, and precise-coordinate presentation",
-      "Room Finish surface, scope, owned-picker, preview, review, verified-export and recovery presentation"
+      "Room Finish surface, scope, owned-picker, preview, review, verified-export and recovery presentation",
+      "Steam schema626 V1 local structural diagnostic, source/Build UNKNOWN, no Undo/Redo or Writer copy in eight launch locales"
     ],
     "neverTranslate": [
       "Core/WEP machine reason code",
@@ -1083,6 +1084,23 @@
           "Grid records",
           "Native Area/Grid placement semantics are not verified for v1.25.3. Canvas, drafting, candidates, exporting edited saves and Apply are disabled.",
           "Verify the Switch extraction source and exact ExeFS BID, then choose the file again."
+        ]
+      },
+      {
+        "surface": "Steam schema626 offline V1 structural inspection only, not product read acceptance",
+        "source": [
+          "src/routes/editor/world/+page.svelte",
+          "src/lib/wep/world-readonly-copy.js"
+        ],
+        "strings": [
+          "Raw GridObject entries",
+          "SubGrid / DiffGrids native geometry: UNKNOWN",
+          "UNKNOWN",
+          "Steam schema 626 — local structural inspection only (not product read acceptance)",
+          "Steam source is user-declared; last-save device may be Switch via cross-save. Exact Steam FullVersion and game build are UNKNOWN; schema 626 does not prove either.",
+          "Native placement, Canvas, edits, verified export and Apply remain unavailable.",
+          "Undo/Redo and placement preview unavailable: no authenticated SaveSession or Native V3 binding.",
+          "exactBuildKnown=false · productionReadAccepted=false · routesAuthorized=false"
         ]
       }
     ],
