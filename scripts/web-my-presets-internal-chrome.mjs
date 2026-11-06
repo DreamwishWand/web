@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright-core';
 import {MY_DOMAINS,MY_WAND_VIEWS,myPresetsCopy} from '../src/lib/presets/my-presets-router.mjs';
+import {presetsStage1Copy} from '../src/lib/presets/stage1-root.mjs';
 const bin=process.env.CHROME_BIN;if(!bin)throw Error('CHROME_BIN_REQUIRED');
 const origin=(process.env.MY_PRESETS_E2E_URL||'http://127.0.0.1:4291').replace(/\/$/,'');
 const browser=await chromium.launch({executablePath:bin,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
@@ -15,8 +16,11 @@ try{
  await page.locator('[data-stage1-presets-four-cards]').waitFor();
  assert.equal(await page.locator('[data-preset-child]').count(),4);
  const locales=['en','fr','it','de','es-ES','ja','zh-CN','pt-BR'];
+ await page.locator('#site-locale').selectOption('ja');
+ await page.waitForFunction(({code,label})=>document.documentElement.dataset.locale===code && document.querySelector('[data-preset-child="wand"] strong')?.textContent?.trim()===label,{code:'ja',label:presetsStage1Copy('ja').wand},{timeout:15000});
  for(const l of locales){
   await page.locator('#site-locale').selectOption(l);
+  await page.waitForFunction(({code,label})=>document.documentElement.dataset.locale===code && document.querySelector('[data-preset-child="wand"] strong')?.textContent?.trim()===label,{code:l,label:presetsStage1Copy(l).wand},{timeout:15000});
   await page.locator('[data-preset-child="my"]').click();
   await page.locator('[data-my-domains]').waitFor();
   assert.deepEqual(await page.locator('[data-my-domain]').evaluateAll(x=>x.map(e=>e.getAttribute('data-my-domain'))),MY_DOMAINS);
