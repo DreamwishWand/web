@@ -80,3 +80,16 @@ test('search is category-grouped; normal category browse is universe-grouped, em
  assert.match(page,/aria-pressed=\{selectedUniverses\.includes\(id\)\}/);
  assert.match(page,/@media\(max-width:540px\)/);
 });
+
+test('COL-UX-29 focus and scroll restoration has a live-card, context and source guard',()=>{
+ assert.match(page,/await tick\(\)/);
+ assert.match(page,/origin\.context!==infoContext\(\)/);
+ assert.match(page,/!origin\.trigger\.isConnected/);
+ assert.match(page,/!scoped\.some\(item=>item\.itemId===origin\.itemId\)/);
+ assert.match(page,/infoId!==null\|\|infoReturn!==null/);
+ assert.match(page,/focus\(\{preventScroll:true\}\)/);
+ assert.match(page,/window\.scrollTo\(origin\.x,origin\.y\)/);
+ assert.equal((page.match(/data-stage1-item-id=\{item\.itemId\}/g)||[]).length,2);
+ assert.match(page,/data-stage1-info-close on:click=\{closeInfo\}/);
+ assert.doesNotMatch(page,/localStorage\.setItem|saveEditedCopy|fetch\([^)]*POST/);
+});

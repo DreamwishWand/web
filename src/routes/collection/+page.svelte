@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { base } from '$app/paths';
   import { locale } from '$lib/i18n/runtime.js';
   import { collectionCopy } from '$lib/collection/copy.js';
@@ -28,6 +28,8 @@
   let filterOpen = false;
   let infoId: number | null = null;
   let pageLimit = 72;
+  type InfoReturn = { trigger: HTMLElement; itemId: number; context: string; x: number; y: number };
+  let infoReturn: InfoReturn | null = null;
 
   $: copy = collectionCopy($locale);
   $: ui = stage1CollectionCopy($locale);
@@ -59,17 +61,18 @@
     category=id;
     query='';
     infoId=null;
+    infoReturn=null;
     pageLimit=72;
   }
   function backToCategories():void{
-    category='';query='';infoId=null;pageLimit=72;
+    category='';query='';infoId=null;infoReturn=null;pageLimit=72;
   }
   function toggleFacet(which:'world'|'universe',id:string):void{
     if(which==='world') selectedWorlds=selectedWorlds.includes(id)?selectedWorlds.filter(x=>x!==id):[...selectedWorlds,id];
     else selectedUniverses=selectedUniverses.includes(id)?selectedUniverses.filter(x=>x!==id):[...selectedUniverses,id];
-    pageLimit=72; infoId=null;
+    pageLimit=72; infoId=null; infoReturn=null;
   }
-  function clearFilters():void{selectedWorlds=[];selectedUniverses=[];pageLimit=72;infoId=null;}
+  function clearFilters():void{selectedWorlds=[];selectedUniverses=[];pageLimit=72;infoId=null;infoReturn=null;}
   function worldLabel(id:string,code:string):string{
     return runtimeIndex?collectionFacetLabel(runtimeIndex,'world',id,code):'';
   }
@@ -77,7 +80,30 @@
     return runtimeIndex?collectionFacetLabel(runtimeIndex,'universe',id,code):'';
   }
   function label(id:string,code:string):string{return stage1CategoryLabel(code,id);}
-  function selectInfo(id:number):void{infoId=id;}
+  function infoContext():string{
+    return JSON.stringify([query,category,selectedWorlds,selectedUniverses,pageLimit]);
+  }
+  function selectInfo(id:number,event:MouseEvent):void{
+    const trigger=event.currentTarget;
+    if(!(trigger instanceof HTMLElement)||trigger.dataset.stage1ItemId!==String(id)||
+       !scoped.some(item=>item.itemId===id))return;
+    infoReturn={trigger,itemId:id,context:infoContext(),x:window.scrollX,y:window.scrollY};
+    infoId=id;
+  }
+  async function closeInfo():Promise<void>{
+    const origin=infoReturn;
+    const selected=infoId;
+    infoId=null;
+    infoReturn=null;
+    await tick();
+    // A new selection, changed scope, or unmounted card must not receive stale focus.
+    if(!origin||selected!==origin.itemId||infoId!==null||infoReturn!==null||
+       origin.context!==infoContext()||!origin.trigger.isConnected||
+       origin.trigger.dataset.stage1ItemId!==String(origin.itemId)||
+       !scoped.some(item=>item.itemId===origin.itemId))return;
+    origin.trigger.focus({preventScroll:true});
+    window.scrollTo(origin.x,origin.y);
+  }
   const inertProgress='— / —';
 </script>
 
@@ -99,7 +125,7 @@
     {:else}
       <div class="collection-toolbar">
         <label class="search-field"><span>{copy.search}</span>
-          <input data-stage1-search type="search" bind:value={query} on:input={()=>{infoId=null;pageLimit=72;}}
+          <input data-stage1-search type="search" bind:value={query} on:input={()=>{infoId=null;infoReturn=null;pageLimit=72;}}
             placeholder={copy.search} />
         </label>
         <div class="personal-state" role="group" aria-label="Collection personal state">
@@ -174,7 +200,7 @@
                 <h3>{label(group.id,$locale)}</h3>
                 <div class="item-grid" class:compact-media={$itemImagePreferences.density==='compact'}>
                   {#each group.items.slice(0,pageLimit) as item (item.itemId)}
-                    <button type="button" class="item-card" on:click={()=>selectInfo(item.itemId)}>
+                    <button type="button" class="item-card" data-stage1-item-id={item.itemId} on:click={(event)=>selectInfo(item.itemId,event)}>
                       <ItemThumb itemId={item.itemId} label={item.label} /><span>{item.label}</span>
                     </button>
                   {/each}
@@ -193,7 +219,7 @@
                 {#if group.id}<h3>{universeLabel(group.id,$locale)}</h3>{/if}
                 <div class="item-grid" class:compact-media={$itemImagePreferences.density==='compact'}>
                   {#each group.items.slice(0,pageLimit) as item (item.itemId)}
-                    <button type="button" class="item-card" on:click={()=>selectInfo(item.itemId)}>
+                    <button type="button" class="item-card" data-stage1-item-id={item.itemId} on:click={(event)=>selectInfo(item.itemId,event)}>
                       <ItemThumb itemId={item.itemId} label={item.label} /><span>{item.label}</span>
                     </button>
                   {/each}
@@ -213,7 +239,7 @@
               <p>{ui.unknown}</p></div>
             <div class="info-actions">
               {#if detailNavigationAvailable}<a href={sharedEntityHref(base,$locale,info.itemId)}>{ui.details}</a>{:else}<span data-detail-unavailable="true">{sharedEntityLabels($locale).unavailable}</span>{/if}
-              <button type="button" on:click={()=>infoId=null}>{ui.close}</button>
+              <button type="button" data-stage1-info-close on:click={closeInfo}>{ui.close}</button>
             </div>
           </aside>
         {/if}

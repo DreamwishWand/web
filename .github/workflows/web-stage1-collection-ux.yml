@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - 'web/stage1-collection-root-*'
+      - 'web/collection-info-return-*'
   pull_request:
     paths:
       - 'src/routes/collection/+page.svelte'
@@ -38,7 +39,10 @@ jobs:
           if test "$COUNT" -eq 1 && grep -qxF ".github/workflows/web-stage1-collection-ux.yml" /tmp/collection-stage1-diff; then
             echo WEB_STAGE1_COLLECTION_CI_POLICY_ONLY_SCOPE
           else
-            test "$COUNT" -eq 6
+            test "$COUNT" -eq 4
+            for required in 'src/routes/collection/+page.svelte' 'tests/web-stage1-collection-root.test.mjs' 'scripts/web-stage1-collection-chrome.mjs' '.github/workflows/web-stage1-collection-ux.yml'; do
+              grep -qxF "$required" /tmp/collection-stage1-diff
+            done
           fi
           while IFS= read -r f; do
             case "$f" in
