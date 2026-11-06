@@ -59,4 +59,13 @@ jobs:
           if find . -type f -iname 'steam_*.zip' -print -quit | grep -q .; then
             echo 'Private Save forbidden in CI'; exit 1
           fi
-          ! grep -R -E 'writer_authorized: *true|apply_authorized: *true|include_(bytes|str)!' crates/ddv-save-core/src
+          # Examine immutable tracked Source blobs, never the ephemeral
+          # test module appended after source verification.
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            qa_tip="$(git rev-parse HEAD^2)"
+          else
+            qa_tip="$(git rev-parse HEAD)"
+          fi
+          if git grep -n -E 'writer_authorized: *true|apply_authorized: *true|include_(bytes|str)!' "$qa_tip" -- crates/ddv-save-core/src; then
+            echo 'Unapproved writer or embedded private source detected'; exit 1
+          fi
