@@ -78,10 +78,11 @@ try{
   assert.ok(w.scroll<=w.inner+2,name+": "+JSON.stringify(w));
  };
  await overflow("320");
- await page.setViewportSize({width:640,height:900});
- await page.evaluate(()=>{document.documentElement.style.zoom="2";});
- await overflow("200_percent");
+ // Open visible immersive Settings at desktop width first; at 200% zoom the
+ // responsive shell can intentionally hide this menu. Do not focus hidden UI.
+ await page.setViewportSize({width:1280,height:900});
  const settings=page.locator('[data-shared-app-shell][data-shell-presentation="immersive"] button.immersive-settings');
+ assert.equal(await settings.isVisible(),true);
  await settings.focus();
  await page.keyboard.press("Enter");
  const locale=page.locator("#site-locale-mobile");
@@ -94,6 +95,10 @@ try{
  // Unknown origin cannot inherit previous Steam structural-read certificate.
  await locale.selectOption("en");
  await page.keyboard.press("Escape");
+ // Check changed Steam panel at 200% separately from the Settings control.
+ await page.setViewportSize({width:640,height:900});
+ await page.evaluate(()=>{document.documentElement.style.zoom="2";});
+ await overflow("200_percent");
  await page.evaluate(()=>{document.documentElement.style.zoom="1";});
  await page.locator('.platform-select select').selectOption("unknown");
  await upload(page,serialized);
