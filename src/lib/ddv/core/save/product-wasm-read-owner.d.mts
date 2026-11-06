@@ -33,7 +33,7 @@ export type CoreVersionWitness=Readonly<ProductWasmScope &{
 export interface WorkerWasmSource {
   append_chunk(chunk:Uint8Array):void;
   finish():string;
-  read_core_version_witness(sessionId:string,revision:number,indexGeneration:number,decodedSha256:string):string;
+  read_core_version_witness(sessionId:string,revision:bigint,indexGeneration:bigint,decodedSha256:string):string;
   close():void;
 }
 export type ProductWorkerWasmFactory=()=>Promise<{
