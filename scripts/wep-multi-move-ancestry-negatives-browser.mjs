@@ -43,37 +43,61 @@ const coords=(page,x,y)=>page.locator('.world-canvas').evaluate((svg,pt)=>{
   const next=new DOMPoint(pt.x,pt.y).matrixTransform(matrix);
   return {x:next.x,y:next.y};
 },{x,y});
-async function load(page,field){
+async function invalidGroupAncestry(page,field,zoom){
   await page.goto(base,{waitUntil:'networkidle'});
+  const raw=fixture(field);
   await page.locator('.load-panel input[type=file]').setInputFiles({
     name:'new-only-'+field+'.json',mimeType:'application/json',
-    buffer:Buffer.from(JSON.stringify(fixture(field)))
+    buffer:Buffer.from(JSON.stringify(raw))
   });
   await page.getByText('Synthetic draft authoring',{exact:true}).waitFor();
-  await obj(page,'Chair',2,2).click();
-  await obj(page,'Lamp',6,2).click({modifiers:['Control']});
-  assert.deepEqual(await selected(page),['Chair','Lamp']);
-}
-async function invalidPointerMove(page,field,zoom){
-  await load(page,field);
-  await page.locator('.world-canvas').scrollIntoViewIfNeeded();
-  const from=await coords(page,2.5,2.5);
-  const to=await coords(page,3.5,2.5);
-  await page.mouse.move(from.x,from.y);
-  await page.mouse.down();
-  await page.mouse.move(to.x,to.y,{steps:6});
-  assert.equal(await page.locator('[data-wep-multi-move-preview]').count(),0,
-    field+' must not have an authorized ghost');
-  await page.mouse.up();
-  assert.deepEqual(await position(page,'Chair'),{x:2,y:2},'Chair remains in original root');
-  assert.deepEqual(await position(page,'Lamp'),{x:6,y:2},'Lamp remains in original root');
-  assert.deepEqual(await selected(page),['Chair','Lamp'],'both selected after failed group move');
-  assert.equal(await page.locator('.toolbar-actions')
-    .getByRole('button',{name:'Undo',exact:true}).isDisabled(),true,
-    'rejected move must not create even one Undo command');
-  assert.equal(await page.locator('.multi-move-ghost').count(),0);
+  // Existing spatial-scene contract fail-closes unknown ancestry *before*
+  // interaction: the invalid Chair is not rendered/selectable. The legitimate
+  // Lamp remains visible, but there is no authorized multi-object gesture.
+  await page.locator('.world-canvas').waitFor();
+  assert.equal(await obj(page,'Chair').count(),0,'untrusted ancestry excluded from UI');
+  assert.equal(await obj(page,'Lamp').count(),1,'legitimate sibling stays visible');
+  assert.match(await page.locator('[data-wep-spatial-unresolved]').innerText(),/1/);
+
+  // Challenge the same existing EditorSession in actual Chrome despite the
+  // UI's early exclusion, so a programmatic group Move cannot bypass it.
+  const observed=await page.evaluate(async(documentFixture)=>{
+    const {createEditorSession}=await import('/src/lib/wep/editor-runtime.ts');
+    const session=createEditorSession(documentFixture,{allowInvalidDraft:true});
+    const selected=session.setSelection(['Chair','Lamp']);
+    const snapshot=JSON.stringify(session.exportRecoverySnapshot());
+    const documentBefore=JSON.stringify(session.getDocument());
+    const historyBefore=JSON.stringify(session.getHistoryState());
+    const bounds={x:0,y:0,w:16,h:12};
+    const preview=session.previewStrictMove(selected,1,0,bounds);
+    const afterPreview=JSON.stringify(session.exportRecoverySnapshot());
+    const result=session.move(selected,1,0,{strict:true,areaBounds:bounds});
+    return {
+      selected,previewOk:preview.ok,previewCode:preview.code,
+      applied:result.applied,draftBlocked:result.draftBlocked,
+      resultCode:result.validation?.issues?.[0]?.code,
+      snapshotUnchanged:JSON.stringify(session.exportRecoverySnapshot())===snapshot,
+      previewUnchanged:afterPreview===snapshot,
+      documentUnchanged:JSON.stringify(session.getDocument())===documentBefore,
+      historyUnchanged:JSON.stringify(session.getHistoryState())===historyBefore,
+      history:session.getHistoryState(),
+      objects:session.getDocument().objects.map(o=>[o.editorId,o.x,o.y])
+    };
+  },raw);
+  const expected=field==='rootGridId'?
+    'WEP_MULTI_DRAG_CROSS_GRID_OR_SUBGRID':'WEP_MULTI_DRAG_SUBGRID_UNPROVEN';
+  assert.deepEqual(observed.selected,['Chair','Lamp']);
+  assert.equal(observed.previewOk,false);
+  assert.equal(observed.previewCode,expected);
+  assert.equal(observed.applied,false);
+  assert.equal(observed.draftBlocked,true);
+  assert.equal(observed.resultCode,expected);
+  for(const property of ['snapshotUnchanged','previewUnchanged','documentUnchanged','historyUnchanged'])
+    assert.equal(observed[property],true,field+':'+property);
+  assert.deepEqual(observed.history,{undoDepth:0,redoDepth:0,lastKind:null});
+  assert.deepEqual(observed.objects,[['Chair',2,2],['Lamp',6,2]]);
   assert.equal(await page.locator('[data-wep-verified-export]').count(),0);
-  note('ZOOM'+zoom+'_'+field+'_ATOMIC_GROUP_REJECT_NO_UNDO_OR_PARTIAL_MOVE');
+  note('ZOOM'+zoom+'_'+field+'_UI_EXCLUDED_AND_IN_BROWSER_GROUP_ATOMIC_REJECT');
 }
 async function setZoom(sw,value){
   const got=await sw.evaluate(async({base,value})=>{
@@ -105,7 +129,7 @@ try{
   for(const [value,label] of [[1,100],[2,200]]){
     await setZoom(sw,value);
     for(const field of ['rootGridId','parentGridId','subGridDataPath'])
-      await invalidPointerMove(page,field,label);
+      await invalidGroupAncestry(page,field,label);
   }
   assert.deepEqual(pageErrors,[]);
   assert.deepEqual(consoleErrors,[]);
