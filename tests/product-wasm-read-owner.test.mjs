@@ -8,7 +8,7 @@ class FakeRustWasm {
  constructor(p,k,b,s,verified,entropy){this.chunks=0;this.closed=false;this.seedValid=entropy instanceof Uint8Array&&entropy.length===32&&entropy.some(x=>x!==0);assert.equal(verified,true);}
  append_chunk(c){this.chunks++;assert.ok(c.length<=PRODUCT_WASM_CHUNK_MAX_BYTES);}
  finish(){assert.ok(this.seedValid);return JSON.stringify(receipt());}
- read_core_version_witness(id,rev,gen,sha){assert.equal(id,'a'.repeat(32));assert.equal(rev,0);assert.equal(gen,1);assert.equal(sha,'b'.repeat(64));return JSON.stringify({sessionId:id,decodedSha256:sha,revision:rev,indexGeneration:gen,coreOwnedReadset:'/GameInfo/Version',completeAllDomains:false,writerAuthorized:false});}
+ read_core_version_witness(id,rev,gen,sha){assert.equal(id,'a'.repeat(32));assert.equal(typeof rev,'bigint');assert.equal(typeof gen,'bigint');assert.equal(BigInt.asUintN(64,rev),0n);assert.equal(BigInt.asUintN(64,gen),1n);assert.equal(sha,'b'.repeat(64));return JSON.stringify({sessionId:id,decodedSha256:sha,revision:Number(rev),indexGeneration:Number(gen),coreOwnedReadset:'/GameInfo/Version',completeAllDomains:false,writerAuthorized:false});}
  close(){this.closed=true}
 }
 const make=()=>createProductWasmReadOwner(async()=>({WorkerWasmSource:FakeRustWasm}));
