@@ -84,11 +84,11 @@ try {
    assert.equal(await page.locator('[data-relations-verified="false"][data-alias-resolved="false"][data-writer="off"]').count(),1);
  }
  pass('EQUAL_PS_EIGHT_LOCALE_SYNTAX_ONLY_UNVERIFIED_NO_PUBLIC_GRANT');
- await page.goto(root+'/en/0001/0001/',{waitUntil:'domcontentloaded'});
- await page.locator('[data-typed-unavailable]').waitFor();
- assert.ok((await page.locator('[data-typed-unavailable]').innerText()).includes(sharedTypedCopy('en').invalid));
- assert.equal(await page.locator('[data-shared-card="identity"] code').count(),0);
- pass('FORGED_EQUAL_PS_LEADING_ZERO_DENIED');
+ const forged=await page.goto(root+'/en/0001/0001/',{waitUntil:'domcontentloaded'});
+ // sharedId route matcher rejects leading zero *before* the gate can render.
+ assert.equal(forged?.status(),404);
+ assert.equal(await page.locator('[data-typed-entity-gate]').count(),0);
+ pass('FORGED_EQUAL_PS_LEADING_ZERO_ROUTE_404_DENIED');
 
  await page.setViewportSize({width:320,height:800});
  await page.goto(root+'/ja/entity/quest/12345/',{waitUntil:'domcontentloaded'});
