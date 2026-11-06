@@ -4,7 +4,7 @@
 export const SOURCE164_PREREQUISITE =
   'public.community_set_gallery_comments_enabled_atomic_signed_v1(uuid,bigint,uuid,uuid,bigint,uuid,boolean,text)';
 export const ORIGINAL82_RPC_GIT_SHA = 'bbf9bc830440d964c5da8b3c3cac7e926d281881';
-export const SOURCE169_QA_ACCEPTED_HEAD = 'afeaf2955eb5515624d9ab27b8743e59e5a0145c';
+export const DERIVED169_PR676_SOURCE_HEAD = 'afeaf2955eb5515624d9ab27b8743e59e5a0145c';
 export const STAGE116_RECORDED = Object.freeze({
   evidenceId: 'E-09P-SQL-R17-STAGING116-LEDGER-SHA256-20261106',
   appliedCount: 116, distinctVersions: 116, distinctNames: 112,
@@ -84,7 +84,7 @@ export function assessRecordedStage116(observation, options = {}) {
     status,
     operation:'STAGE116_EXISTING_APPLIED_LEGACY_WRITER_CONTAINMENT',
     evidenceLevel:'MANAGED_READ_ONLY_METADATA_REUSE_E669_NOT_CLONE_OR_SIGNED',
-    sourceHead:SOURCE169_QA_ACCEPTED_HEAD,
+    sourceHead:DERIVED169_PR676_SOURCE_HEAD,
     evidenceId:STAGE116_RECORDED.evidenceId,
     mismatchedFields:Object.freeze([...mismatchedFields,...unexpectedFields.map(s=>'unexpected:'+s)]),
     blockers:Object.freeze(blockerCodes),
