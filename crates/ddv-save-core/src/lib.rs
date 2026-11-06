@@ -4,6 +4,7 @@
 //! No browser Worker/WASM, P1G codec, export, replacement, apply or cloud grant.
 mod product_session;
 mod strict_document;
+mod worker_session;
 #[cfg(all(feature = "worker-wasm", target_arch = "wasm32"))]
 mod wasm_worker;
 
