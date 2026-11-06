@@ -1,0 +1,113 @@
+name: 03 COMM derived immutable82 scratch-only Source163 Bootstrap (NO DEPLOY)
+on:
+  push:
+    branches: [comm/w-comm-006-immutable82-derived-disposable-baseline-20261106]
+permissions:
+  contents: read
+jobs:
+  derived-source163-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      SUPABASE_DB_PASSWORD: ''
+      DATABASE_URL: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+      - name: Check exact original82 plus81 Source153-163 and pure derived negative cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/comm-immutable82-derived-disposable.test.mjs
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+          def blobs(ref):
+              return {line.split('\t',1)[1]:line.split()[2] for line in
+                  subprocess.check_output(['git','ls-tree','-r',ref,'supabase/migrations'],text=True).splitlines()}
+          old=blobs('origin/main'); current=blobs('HEAD')
+          assert len(old)==82, 'BASELINE_NOT_ORIGINAL82'
+          assert len(current)==163, 'CUMULATIVE_SOURCE_NOT_163'
+          assert all(current.get(p)==sha for p,sha in old.items()),'CANONICAL_82_CHANGED'
+          assert len(set(current)-set(old))==81,'CUMULATIVE_SOURCE_81_COUNT_INVALID'
+          assert current['supabase/migrations/20260930025132_community_core_v0_server_rpc.sql']=='bbf9bc830440d964c5da8b3c3cac7e926d281881'
+          print('IMMUTABLE82_CANONICAL_SOURCE_AND_81_SUCCESSORS_BYTES_PASS')
+          PY
+          test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID" && test -z "$DATABASE_URL"
+      - name: Prepare strict known-ten-terminator DERIVED SQL only inside throwaway /tmp clone
+        id: overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/comm-immutable82-derived-disposable.mjs --prepare-disposable > /tmp/ddvre-immutable82-derived-result.json
+          scratch=$(node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('/tmp/ddvre-immutable82-derived-result.json','utf8'));if(x.originalGitBlob!=='bbf9bc830440d964c5da8b3c3cac7e926d281881'||x.derivedScratchGitBlob!=='d7991c2c20b7ace6613d6a9cd6493b8c3af0f6ba'||x.mergeReady!==false||!x.workdir.startsWith('/tmp/ddvre-immutable82-derived-local-'))process.exit(1);process.stdout.write(x.workdir)")
+          echo "scratch=$scratch" >> "$GITHUB_OUTPUT"
+          test "$(git hash-object supabase/migrations/20260930025132_community_core_v0_server_rpc.sql)" = bbf9bc830440d964c5da8b3c3cac7e926d281881
+          printf 'project_id = "ddvre_derived_source163_local_only"\n' | cat - "$scratch/supabase/config.toml" > "$scratch/supabase/new-config.toml"
+          mv "$scratch/supabase/new-config.toml" "$scratch/supabase/config.toml"
+          echo DERIVED_ONLY_SCRATCH_SHA_ATTESTED_NO_REPO_HISTORY_CHANGE
+      - name: Actual disposable Postgres SOURCE163 derived baseline initial bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ steps.overlay.outputs.scratch }}"
+          timeout 1800s supabase start --debug >/tmp/comm-derived-source163-start.log 2>&1 || {
+            echo DERIVED_LOCAL_POSTGRES_BOOTSTRAP_NOT_RUN
+            tail -n 55 /tmp/comm-derived-source163-start.log
+            exit 1
+          }
+          echo DERIVED_LOCAL_SOURCE163_FIRST_BOOTSTRAP_PASS_NOT_CANONICAL82
+      - name: Fresh local DB reset from same derived scratch baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ steps.overlay.outputs.scratch }}"
+          timeout 1000s supabase db reset --no-seed >/tmp/comm-derived-source163-reset.log 2>&1 || {
+            echo DERIVED_LOCAL_POSTGRES_RESET_NOT_RUN
+            tail -n 55 /tmp/comm-derived-source163-reset.log
+            exit 1
+          }
+          echo DERIVED_LOCAL_SOURCE163_SECOND_REPLAY_PASS_NOT_CANONICAL82
+      - name: Distinguish derived ledger from original82 and test SQL ACL
+        shell: bash
+        run: |
+          set -euo pipefail
+          db=$(docker ps --format '{{.Names}}' | grep '^supabase_db_ddvre_derived_source163_local_only' | head -1)
+          test -n "$db"
+          docker exec -i "$db" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL'
+          DO $attest$
+          DECLARE n integer;
+          BEGIN
+            SELECT count(*) INTO n FROM supabase_migrations.schema_migrations;
+            IF n<>163 THEN RAISE EXCEPTION 'DERIVED_SOURCE163_LEDGER_NOT_163: %',n; END IF;
+            IF NOT EXISTS(SELECT 1 FROM supabase_migrations.schema_migrations WHERE version='20260930025132')
+              THEN RAISE EXCEPTION 'DERIVED_BASELINE_RPC_VERSION_MISSING'; END IF;
+            IF has_function_privilege('service_role','public.community_add_answer_v1(uuid,uuid,uuid,text,text)','EXECUTE')
+                OR has_function_privilege('anon','public.community_add_answer_v1(uuid,uuid,uuid,text,text)','EXECUTE')
+                OR has_function_privilege('authenticated','public.community_add_answer_v1(uuid,uuid,uuid,text,text)','EXECUTE')
+              THEN RAISE EXCEPTION 'SOURCE163_HELP_ANSWER_SHOULD_BE_OFF'; END IF;
+            IF NOT has_function_privilege('service_role',
+                  'public.community_set_gallery_comments_enabled_atomic_signed_v1(uuid,bigint,uuid,uuid,bigint,uuid,boolean,text)','EXECUTE')
+              THEN RAISE EXCEPTION 'SOURCE163_SIGNED_R16_POSITIVE_GRANT_MISSING'; END IF;
+          END $attest$;
+          SQL
+          test "$(git hash-object supabase/migrations/20260930025132_community_core_v0_server_rpc.sql)" = bbf9bc830440d964c5da8b3c3cac7e926d281881
+          echo DERIVED_SOURCE163_DISPOSABLE_REAL_POSTGRES_ACL_PASS_NO_APPLIED_LEDGER_EQUIVALENCE
+      - name: Destroy disposable local stack and scratch
+        if: always()
+        shell: bash
+        run: |
+          scratch="${{ steps.overlay.outputs.scratch }}"
+          if [ -n "$scratch" ] && [ -d "$scratch/supabase" ]; then
+            (cd "$scratch" && supabase stop --no-backup >/dev/null 2>&1) || true
+            rm -rf -- "$scratch"
+          fi
+          rm -f /tmp/ddvre-immutable82-derived-result.json /tmp/comm-derived-source163-*.log
