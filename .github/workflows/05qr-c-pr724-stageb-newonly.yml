@@ -1,0 +1,66 @@
+name: 05 QR-C PR724 StageB Synthetic CAS EditedCopy independent new-only
+on:
+  push:
+    branches:
+      - qa/05qrc-pr724-stageb-cas-export-20261106
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/**'
+      - '.github/workflows/05qr-c-pr724-stageb-newonly.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-r05:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Freeze original PR724 eight Source blobs and only two QA files
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            qa_tip="$(git rev-parse HEAD^2)"
+          else
+            qa_tip="$(git rev-parse HEAD)"
+          fi
+          git merge-base --is-ancestor 2365d1014a1befff66c277ccfecf9355b59e7445 "$qa_tip"
+          test "$(git rev-parse "$qa_tip":.github/workflows/core-product-session-boundary.yml)" = c0e6dc0642d841bbe944986ca0a7fd94153ec28e
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/Cargo.toml)" = add24484d353d17ca3fc499379993ba27e86020d
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/bin/wand-stageb-synthetic-reopen.rs)" = 2c6d543fb3b0db49a3e2592776ef888d62474a91
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/lib.rs)" = b3e9e98557d0a8cdb280bd210c71cb652de7df9c
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/product_session.rs)" = 2f5a510e4b4ec7c080b9a742fb2d6c6dd5e331f6
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/synthetic_stage_b.rs)" = 381d858aa0aa08119822d1a36382ad479e5529db
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/tests/synthetic_stage_b.rs)" = c25f4be9c3370e9544afd1ccb8197ded8a84f39a
+          test "$(git rev-parse "$qa_tip":docs/core/01a-rust-product-stageb-synthetic-cas-078-20261106.md)" = 90c1fd3d23e53d8144a6b4c687283ff4b8b2cc1a
+          test "$(git diff --name-only 2365d1014a1befff66c277ccfecf9355b59e7445 "$qa_tip" | sort)" = "$(printf '%s\n' .github/workflows/05qr-c-pr724-stageb-newonly.yml crates/ddv-save-core/tests/05qr_c_stage_b_newonly.rs | sort)"
+      - name: Run independent seven bounded synthetic Rust CAS/export negatives
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features synthetic-stage-b --test 05qr_c_stage_b_newonly -- --nocapture
+      - name: Ensure synthetic-stage-b cannot compile into wasm Worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          if cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --features synthetic-stage-b,worker-wasm > /tmp/qr-stageb-negative-wasm.log 2>&1; then
+            echo 'FAIL: synthetic StageB feature entered wasm32 release'; exit 1
+          fi
+          if ! grep -Fq 'synthetic-stage-b must not be linked into WASM/Worker release' /tmp/qr-stageb-negative-wasm.log; then
+            echo 'FAIL: expected product feature compile_error missing'; exit 1
+          fi
+      - name: Production Worker feature-off wasm ABI unchanged
+        run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --features worker-wasm
+      - name: Reject private files and unsafe production Writer promotion
+        shell: bash
+        run: |
+          set -euo pipefail
+          if find . -type f -iname 'steam_*.zip' -print -quit | grep -q .; then
+            echo 'No personal Steam save in public CI'; exit 1
+          fi
+          if git grep -n -E 'writer_authorized: *true|apply_authorized: *true|include_(bytes|str)!' HEAD -- crates/ddv-save-core/src; then
+            echo 'Unsafe unreviewed Writer or embedded content'; exit 1
+          fi
