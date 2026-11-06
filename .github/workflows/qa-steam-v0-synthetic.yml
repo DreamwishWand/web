@@ -1,0 +1,33 @@
+name: 05 QR-C Steam ZIP V0 synthetic-only independent QA
+on:
+  push:
+    branches:
+      - qa/05qrc-steam-v0-owner-local-synthetic-20261106
+  pull_request:
+    paths:
+      - scripts/qa/offline_steam_v0.py
+      - tests/test_05qr_c_steam_v0_synthetic.py
+      - .github/workflows/qa-steam-v0-synthetic.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-synthetic-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run eight rights-clean synthetic ZIP V0 adversarial tests
+        run: python3 -m unittest discover -s tests -p 'test_05qr_c_steam_v0_synthetic.py' -v
+      - name: Reject private Save fixtures and product V1+ promotion
+        run: |
+          ! grep -E '(REAL_SAVE_VERIFIED|NATIVE_SEMANTICS_VERIFIED|PRODUCT_OPERATION_ENABLED)' scripts/qa/offline_steam_v0.py
+          if find . -type f -iname 'steam_*.zip' -print -quit | grep -q .; then
+            echo 'Private Steam save fixture detected: refusing CI'
+            exit 1
+          fi
