@@ -193,6 +193,30 @@ test('new DDV source revokes old World receipt before any async file read', () =
   assert.match(page, /class="save-source-browser" data-wep-source-epoch=\{worldSourceEpoch\}/);
 });
 
+test('latest initiated file import wins across async decode and stale cleanup', () => {
+  const source = readFileSync(new URL('../src/routes/editor/world/+page.svelte', import.meta.url), 'utf8');
+  const start = source.indexOf('async function openEditorDocument(event: Event)');
+  const end = source.indexOf('async function openRoomFinishRoomInCanvas(', start);
+  assert.ok(start >= 0 && end > start);
+  const open = source.slice(start, end);
+  assert.match(open, /const importEpoch = worldSourceEpoch;/);
+  assert.match(open, /const isCurrentImport = \(\) => importEpoch === worldSourceEpoch;/);
+  assert.match(open, /const importPlatform = sourcePlatform;/);
+  assert.match(open, /const importBid = sourceBuildId\.trim\(\)\.toUpperCase\(\);/);
+  assert.match(open, /const importProvenance = sourceProvenanceConfirmed;/);
+  assert.match(open, /await file\.arrayBuffer\(\)\);\s*if \(!isCurrentImport\(\)\) return;/);
+  assert.match(open, /await sha256Fingerprint\(bytes\);\s*if \(!isCurrentImport\(\)\) return;/);
+  assert.match(open, /const opened = await openWorldSaveBytes\(bytes,[\s\S]*?\);\s*if \(!isCurrentImport\(\)\) return;/);
+  assert.match(open, /await createSwitchV125BuildingBinding[\s\S]*?if \(!isCurrentImport\(\)\) return;/);
+  assert.match(open, /await createSwitchV125ScroogeStoreBinding[\s\S]*?if \(!isCurrentImport\(\)\) return;/);
+  assert.match(open, /await createSwitchV125ProgressionIntegrationBinding[\s\S]*?if \(!isCurrentImport\(\)\) return;/);
+  assert.match(open, /await restoreRecoveryRecord[\s\S]*?importEpoch\);\s*if \(!isCurrentImport\(\)\) return;/);
+  assert.match(open, /catch \(error\) \{\s*\/\/ An older failing decode[\s\S]*?if \(!isCurrentImport\(\)\) return;/);
+  assert.match(open, /finally \{[\s\S]*?if \(isCurrentImport\(\)\) \{\s*loading = false;\s*input\.value = '';/);
+  assert.match(source, /expectedSourceEpoch !== null && worldSourceEpoch !== expectedSourceEpoch/);
+  assert.match(source, /if \(expectedSourceEpoch === null\) worldSourceEpoch \+= 1;/);
+});
+
 test('eight language copies present and no source save is embedded in test', async () => {
   const { WORLD_READONLY_COPY_LOCALES, worldReadonlyCopy } = await import('../src/lib/wep/world-readonly-copy.js');
   assert.deepEqual([...WORLD_READONLY_COPY_LOCALES].sort(), ['de', 'en', 'es-ES', 'fr', 'it', 'ja', 'pt-BR', 'zh-CN'].sort());
