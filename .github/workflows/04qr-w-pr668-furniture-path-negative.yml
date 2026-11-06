@@ -1,0 +1,25 @@
+name: "04 QR-W PR668 furniture provenance and path negatives"
+on:
+  pull_request:
+    paths:
+      - "tests/04qr-w-pr668-furniture-path-negative.test.py"
+      - ".github/workflows/04qr-w-pr668-furniture-path-negative.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  furniture-source-independent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: New independent 04 QR-W source SHA and adversarial path tests
+        run: python3 tests/04qr-w-pr668-furniture-path-negative.test.py
+      - name: New Source Owner Python8 tests via Node bridge
+        run: node --test tests/01d-steam-furniture-stream-delta.test.mjs
