@@ -33,7 +33,7 @@ jobs:
         run: |
           set -euo pipefail
           BASE="${{ github.event.pull_request.base.sha || '' }}"
-          if test -z "$BASE"; then BASE="$(git rev-parse HEAD^)"; fi
+          if test -z "$BASE"; then BASE="$(git merge-base origin/main HEAD)"; fi
           test "$(git merge-base "$BASE" HEAD)" = "$BASE"
           git diff --name-only "$BASE" HEAD >/tmp/collection-stage1-diff
           COUNT="$(wc -l </tmp/collection-stage1-diff)"
