@@ -50,6 +50,28 @@ try{
  assert.match(full,/\/[1-9][0-9]*\/$/);
  await page.locator('[data-stage1-item-info] button').click();
  assert.equal(await page.locator('[data-stage1-item-info]').count(),0);
+ // COL-UX-29 keyboard: deep scroll + focus return, then newer card supersedes old.
+ const furnitureCards=page.locator('[data-stage1-category-browse] .item-card');
+ const furnitureCount=await furnitureCards.count();
+ assert.ok(furnitureCount>=3,'deep-card return fixture');
+ const deepIndex=Math.min(18,furnitureCount-2),deep=furnitureCards.nth(deepIndex),another=furnitureCards.nth(deepIndex+1);
+ await deep.scrollIntoViewIfNeeded();
+ const beforeScroll=await page.evaluate(()=>window.scrollY);
+ const deepId=await deep.getAttribute('data-stage1-item-id');
+ await deep.focus(); await page.keyboard.press('Enter');
+ await page.locator('[data-stage1-item-info]').waitFor();
+ await page.locator('[data-stage1-info-close]').focus(); await page.keyboard.press('Enter');
+ await page.waitForFunction(id=>document.activeElement?.getAttribute('data-stage1-item-id')===id,deepId);
+ const returnedScroll=await page.evaluate(()=>window.scrollY);
+ assert.ok(Math.abs(returnedScroll-beforeScroll)<=4,'scroll restored '+beforeScroll+' -> '+returnedScroll);
+ assert.equal(await furnitureCards.count(),furnitureCount,'filter and page context retained');
+ await deep.click(); await page.locator('[data-stage1-item-info]').waitFor();
+ await another.click();
+ const newId=await another.getAttribute('data-stage1-item-id');
+ await page.locator('[data-stage1-info-close]').click();
+ await page.waitForFunction(id=>document.activeElement?.getAttribute('data-stage1-item-id')===id,newId);
+ assert.notEqual(newId,deepId);
+ console.log('WEB_STAGE1_COLLECTION_COL_UX29_DEEP_SCROLL_FOCUS_STALE_SELECTION_PASS');
  await page.locator('.back-category').click();
  await page.locator('[data-stage1-category-grid]').waitFor();
  console.log('WEB_STAGE1_COLLECTION_CATEGORY_TO_UNIVERSE_TO_INFO_RETURN_PASS');
@@ -68,6 +90,16 @@ try{
  assert.equal(await page.locator('[data-stage1-search-groups] .item-section').count()>0,true);
  assert.equal(await page.locator('[data-stage1-category-grid]').count(),0);
  console.log('WEB_STAGE1_COLLECTION_SOURCE_SEARCH_GROUPS_PASS');
+ // Query persists through close; edited query revokes old Info origin.
+ const searchCard=page.locator('[data-stage1-search-groups] .item-card').first();
+ await searchCard.click(); await page.locator('[data-stage1-item-info]').waitFor();
+ await page.locator('[data-stage1-info-close]').click();
+ assert.equal(await page.locator('[data-stage1-search]').inputValue(),'40000047');
+ await searchCard.click(); await page.locator('[data-stage1-item-info]').waitFor();
+ await page.locator('[data-stage1-search]').fill('no-such-item-COL-UX-29');
+ assert.equal(await page.locator('[data-stage1-item-info]').count(),0);
+ assert.equal(await page.evaluate(()=>document.activeElement?.hasAttribute('data-stage1-search')),true);
+ console.log('WEB_STAGE1_COLLECTION_COL_UX29_CHANGED_SOURCE_DENY_PASS');
  await page.locator('[data-stage1-search]').fill('');
  await page.setViewportSize({width:320,height:800});
  await page.locator('[data-stage1-category-grid]').waitFor();
