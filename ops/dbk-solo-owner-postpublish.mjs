@@ -35,6 +35,10 @@ export function planSoloOwnerEditorialReview(row) {
     reasons.push("MODERATION_OR_WITHDRAWAL_NOT_CLEARED");
   if (row.sourceVersionScoped === true && !sameIdentity(row.sourceIdentity,row.targetIdentity))
     reasons.push("EXACT_PLATFORM_VERSION_BID_SCHEMA_UNVERIFIED");
+  // A Creator Work with UNKNOWN media provenance must never be treated as
+  // owner-only content by default. Explicit false documents no third-party media.
+  if (row.kind === "CREATOR_WORK" && typeof row.thirdPartyCreatorMedia !== "boolean")
+    reasons.push("CREATOR_MEDIA_PROVENANCE_UNCLASSIFIED");
   if (row.thirdPartyCreatorMedia === true && row.creatorConsentVerified !== true)
     reasons.push("THIRD_PARTY_CREATOR_CONSENT_MISSING");
   if (row.publicHostGateVerified !== true || row.publicAllowlistEvidence !== true)
@@ -94,8 +98,16 @@ export function verifySoloOwnerCaseClosure(plan,receipt) {
       (!plan?.imageScope?.resolvable || receipt?.cdnInvalidationVerified !== true ||
         !ref(receipt?.cdnEvidenceRef)))
     reasons.push("IMAGE_CDN_AND_LINKED_SCOPE_NOT_VERIFIED");
-  if (receipt?.sourceRevisionAfter && receipt.sourceRevisionAfter === receipt.observedRevision)
-    reasons.push("CORRECTION_REVISION_NOT_ADVANCED");
+  // Editorial correction is not closed until the old-value CAS has resulted
+  // in a syntactically valid, distinct new revision. A missing/object/empty
+  // receipt used to slip through because truthiness alone did not validate it.
+  if (plan?.decision === "OWNER_EDITORIAL_CORRECTION_QUEUE" ||
+      receipt?.sourceRevisionAfter !== undefined && receipt?.sourceRevisionAfter !== null) {
+    if (!ref(receipt?.sourceRevisionAfter))
+      reasons.push("CORRECTION_REVISION_INVALID_OR_MISSING");
+    else if (receipt.sourceRevisionAfter === plan?.observedRevision)
+      reasons.push("CORRECTION_REVISION_NOT_ADVANCED");
+  }
   return {readyForHumanRecordReview:reasons.length===0,reasons,
     publicReleaseAuthorized:false,operatorActionPerformed:false};
 }
