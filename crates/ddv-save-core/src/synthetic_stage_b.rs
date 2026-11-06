@@ -37,7 +37,7 @@ pub struct SyntheticExportReceipt {
     pub writer_authorized:bool,
 }
 #[derive(Clone,Debug)]
-struct Patch { start:usize,end:usize,old:i64,new:i64 }
+struct Patch { key:&'static str,start:usize,end:usize,old:i64,new:i64 }
 #[derive(Clone,Debug)]
 pub(super) struct SyntheticLedger {
     patches:[Patch;2], applied:bool, consumed:bool,
@@ -77,7 +77,7 @@ fn fixture_values(bytes:&[u8])->CoreResult<(i64,i64)> {
     bounded_counter(player)?;bounded_counter(world)?;
     Ok((player,world))
 }
-fn locate(bytes:&[u8],key:&str,old:i64,new:i64)->CoreResult<Patch>{
+fn locate(bytes:&[u8],key:&'static str,old:i64,new:i64)->CoreResult<Patch>{
     bounded_counter(new)?;
     let prefix=format!("\"{}\":",key);
     let needle=prefix.as_bytes();
@@ -88,10 +88,10 @@ fn locate(bytes:&[u8],key:&str,old:i64,new:i64)->CoreResult<Patch>{
     let old_str=old.to_string();
     let end=start.checked_add(old_str.len()).ok_or(err("SYNTHETIC_OFFSET_OVERFLOW"))?;
     if bytes.get(start..end)!=Some(old_str.as_bytes()) ||
-      !matches!(bytes.get(end),Some(b','|b'}')) {
+      !matches!(bytes.get(end).copied(),Some(b','|b'}')) {
         return Err(err("SYNTHETIC_OLD_VALUE_MISMATCH"));
     }
-    Ok(Patch{start,end,old,new})
+    Ok(Patch{key,start,end,old,new})
 }
 fn verified_patches(bytes:&[u8],change:&SyntheticChangeSet)->CoreResult<[Patch;2]> {
     let (player,world)=fixture_values(bytes)?;
@@ -125,10 +125,11 @@ fn render(bytes:&[u8],patches:&[Patch;2])->CoreResult<Vec<u8>> {
     out.extend_from_slice(&bytes[cursor..]);
     validate_entire_document(&out,626)?;
     let (p,w)=fixture_values(&out)?;
-    let want_p=patches.iter().find(|x|x.start==patches[0].start && x.old!=x.new)
-        .map(|_|{}); // bounded source diff verified independently below
-    let _=want_p;
-    if !patches.iter().any(|x|x.new==p) || !patches.iter().any(|x|x.new==w) {
+    let expected_player=patches.iter().find(|x|x.key=="__wandPlayerCounter")
+        .ok_or(err("SYNTHETIC_PLAYER_REF_MISSING"))?.new;
+    let expected_world=patches.iter().find(|x|x.key=="__wandWorldCounter")
+        .ok_or(err("SYNTHETIC_WORLD_REF_MISSING"))?.new;
+    if p!=expected_player || w!=expected_world {
         return Err(err("SYNTHETIC_POST_CHANGESET_REF_MISMATCH"));
     }
     Ok(out)
