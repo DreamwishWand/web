@@ -2554,10 +2554,6 @@
           sourceEvidence: importPlatform === 'switch' && importProvenance ? WEP_WORLD_READONLY_626_PROVENANCE : null
         });
         if (!isCurrentImport()) return;
-        const nextOriginalSaveBackup = createOriginalSaveBackup({
-          bytes,
-          sourceName: file.name
-        });
         if (opened.compatibility.routesAuthorized && opened.saveIdentity.sourcePlatform === 'switch') {
           // Build static bindings off-state. Late completions must not commit
           // previous file state, even when they finish after a newer import.
@@ -2575,7 +2571,12 @@
           progressionV114Binding = nextProgressionBinding;
         }
         if (!isCurrentImport()) return;
-        originalSaveBackup = nextOriginalSaveBackup;
+        // One verified source backup is created only for the newest committed
+        // import, never for an obsolete asynchronous completion.
+        originalSaveBackup = createOriginalSaveBackup({
+          bytes,
+          sourceName: file.name
+        });
 
         session = null;
         editorDocument = null;
