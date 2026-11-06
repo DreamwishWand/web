@@ -1,0 +1,62 @@
+name: 05 QR-C PR715 Stage A Drop/Arc new-only independent Rust QA
+on:
+  push:
+    branches:
+      - qa/05qrc-pr715-stage-a-drop-arc-newonly-20261106
+  pull_request:
+    paths:
+      - crates/ddv-save-core/src/worker_session.rs
+      - crates/ddv-save-core/src/wasm_worker.rs
+      - scripts/qa/05qrc-pr715-stage-a-newonly.inc.rs
+      - .github/workflows/05qrc-pr715-stage-a-newonly.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-stage-a:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Pin immutable original PR715 Source four Git blobs and only two QA additions
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            qa_tip="$(git rev-parse HEAD^2)"
+          else
+            qa_tip="$(git rev-parse HEAD)"
+          fi
+          git merge-base --is-ancestor a73c00905f964565df83bea7e9f539bb5ee2135a "$qa_tip"
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/lib.rs)" = 687ee71a911f8c94d141bcb8347f399d14ff9668
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/wasm_worker.rs)" = 7c54424fb2b931e9a182fd03d32733c887df931c
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/worker_session.rs)" = 838154d089e26e9c409ed6d588ef20d45db461d2
+          test "$(git rev-parse "$qa_tip":docs/core/01a-rust-product-session-068-stage-a-20261106.md)" = c3e1a6beeaf087f9f1d7493ac8ee51ffc2200afd
+          test "$(git diff --name-only a73c00905f964565df83bea7e9f539bb5ee2135a "$qa_tip" | sort)" = "$(printf '%s\n' .github/workflows/05qrc-pr715-stage-a-newonly.yml scripts/qa/05qrc-pr715-stage-a-newonly.inc.rs | sort)"
+      - name: Inject QA-only test module into ephemeral workspace (never commit source edit)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat scripts/qa/05qrc-pr715-stage-a-newonly.inc.rs >> crates/ddv-save-core/src/worker_session.rs
+      - name: Run ONLY five new independent Rust guard tests, not owner ancestors
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --lib qr_stage_a_ -- --nocapture
+      - name: Independently compile changed WASM Worker Drop path
+        shell: bash
+        run: |
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --features worker-wasm
+      - name: Verify no original private Save in QA or authorized Writer
+        shell: bash
+        run: |
+          set -euo pipefail
+          if find . -type f -iname 'steam_*.zip' -print -quit | grep -q .; then
+            echo 'Private Save forbidden in CI'; exit 1
+          fi
+          ! grep -R -E 'writer_authorized: *true|apply_authorized: *true|include_(bytes|str)!' crates/ddv-save-core/src
