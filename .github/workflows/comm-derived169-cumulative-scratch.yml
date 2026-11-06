@@ -1,0 +1,120 @@
+name: 03 COMM Source169 derived82 cumulative scratch (NO DEPLOY)
+on:
+  push:
+    branches: [comm/w-comm-006-derived169-cumulative-scratch-20261106]
+permissions:
+  contents: read
+jobs:
+  cumulative-derived169-local-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      SUPABASE_DB_PASSWORD: ''
+      DATABASE_URL: ''
+    steps:
+      - name: Checkout immutable82 PR670 child source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Checkout exact Source169 QA accepted peer (not candidate source merge)
+        uses: actions/checkout@v4
+        with:
+          ref: a76e1b9faf4e5eae4b5290fd339688226ee9feca
+          path: source169-peer
+          persist-credentials: false
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+      - name: Pure neg tests, original82 Git SHA, immutable peer HEAD
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/comm-immutable82-derived-disposable.test.mjs tests/comm-derived169-cumulative-scratch.test.mjs
+          test "$(git -C source169-peer rev-parse HEAD)" = a76e1b9faf4e5eae4b5290fd339688226ee9feca
+          test "$(git hash-object supabase/migrations/20260930025132_community_core_v0_server_rpc.sql)" = bbf9bc830440d964c5da8b3c3cac7e926d281881
+          echo DERIVED169_NEGATIVES_AND_PEER_PIN_PASS
+      - name: Generate throwaway derived82 plus six pinned SQL164-169 only
+        id: overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/comm-immutable82-derived-disposable.mjs --prepare-disposable > /tmp/comm-derived169-base-result.json
+          scratch=$(node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('/tmp/comm-derived169-base-result.json','utf8'));if(x.mergeReady!==false||!x.workdir.startsWith('/tmp/ddvre-immutable82-derived-local-'))process.exit(1);process.stdout.write(x.workdir)")
+          echo "scratch=$scratch" >> "$GITHUB_OUTPUT"
+          node scripts/comm-derived169-cumulative-scratch.mjs --prepare-cumulative "$scratch" source169-peer > /tmp/comm-derived169-result.json
+          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('/tmp/comm-derived169-result.json','utf8'));if(x.migrationsAdded.length!==6||x.mergeReady!==false||x.deployReady!==false||x.source169SignedCumulativeTwoPgPass!==false)process.exit(1)"
+          printf 'project_id = "ddvre_derived_source169_local_only"\n' | cat - "$scratch/supabase/config.toml" > "$scratch/supabase/new-config.toml"
+          mv "$scratch/supabase/new-config.toml" "$scratch/supabase/config.toml"
+          echo DERIVED169_SIX_QA_SCOPED_SQL_SHA_SCRATCH_ONLY
+      - name: Actual disposable PostgreSQL first SOURCE169 Bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ steps.overlay.outputs.scratch }}"
+          timeout 1800s supabase start --debug >/tmp/comm-derived169-start.log 2>&1 || {
+            echo DERIVED169_LOCAL_FIRST_BOOTSTRAP_FAILED
+            tail -n 45 /tmp/comm-derived169-start.log
+            exit 1
+          }
+          echo DERIVED169_LOCAL_FIRST_BOOTSTRAP_PASS_NOT_ORIGINAL82
+      - name: Actual disposable PostgreSQL SOURCE169 reset and replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ steps.overlay.outputs.scratch }}"
+          timeout 1000s supabase db reset --no-seed >/tmp/comm-derived169-reset.log 2>&1 || {
+            echo DERIVED169_LOCAL_SECOND_REPLAY_FAILED
+            tail -n 45 /tmp/comm-derived169-reset.log
+            exit 1
+          }
+          echo DERIVED169_LOCAL_SECOND_REPLAY_PASS_NOT_MANAGED
+      - name: Real PG ledger169, six denied RPC and signed R16 grants
+        shell: bash
+        run: |
+          set -euo pipefail
+          db=$(docker ps --format '{{.Names}}' | grep '^supabase_db_ddvre_derived_source169_local_only' | head -1)
+          test -n "$db"
+          docker exec -i "$db" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL'
+          DO $attest$
+          DECLARE n integer; r text; sig text;
+          BEGIN
+            SELECT count(*) INTO n FROM supabase_migrations.schema_migrations;
+            IF n<>169 THEN RAISE EXCEPTION 'DERIVED169_LEDGER_COUNT_WRONG: %',n; END IF;
+            FOR sig IN SELECT unnest(ARRAY[
+              'public.community_add_reaction(uuid,uuid,text)',
+              'public.community_save_entity(uuid,uuid)',
+              'public.community_unsave_entity(uuid,uuid)',
+              'public.community_remove_reaction(uuid,uuid,text)',
+              'public.community_unfollow_creator(uuid,uuid)',
+              'public.community_follow_creator(uuid,uuid)']) LOOP
+              IF to_regprocedure(sig) IS NULL THEN RAISE EXCEPTION 'DERIVED169_RPC_MISSING: %',sig; END IF;
+              FOREACH r IN ARRAY ARRAY['anon','authenticated','service_role'] LOOP
+                IF has_function_privilege(r,sig,'EXECUTE') THEN
+                  RAISE EXCEPTION 'DERIVED169_RETIRED_RPC_STILL_GRANTED: % %',r,sig;
+                END IF;
+              END LOOP;
+            END LOOP;
+            IF NOT has_function_privilege('service_role',
+              'public.community_set_gallery_comments_enabled_atomic_signed_v1(uuid,bigint,uuid,uuid,bigint,uuid,boolean,text)','EXECUTE')
+              OR NOT has_function_privilege('service_role',
+              'public.community_delete_ddv_profile_workspace_v1(uuid,uuid,bigint,uuid,text)','EXECUTE') THEN
+              RAISE EXCEPTION 'DERIVED169_SIGNED_R16_POSITIVE_GRANT_MISSING';
+            END IF;
+          END $attest$;
+          SQL
+          test "$(git hash-object supabase/migrations/20260930025132_community_core_v0_server_rpc.sql)" = bbf9bc830440d964c5da8b3c3cac7e926d281881
+          echo DERIVED169_LEDGER169_SIX_RPC_THREE_ROLE_DENIED_R16_POSITIVE_NOT_SIGNED_TWO_PG
+      - name: Destroy disposable database and scratch
+        if: always()
+        shell: bash
+        run: |
+          scratch="${{ steps.overlay.outputs.scratch }}"
+          if [ -n "$scratch" ] && [ -d "$scratch/supabase" ] && [[ "$scratch" == /tmp/ddvre-immutable82-derived-local-* ]]; then
+            (cd "$scratch" && supabase stop --no-backup >/dev/null 2>&1) || true
+            rm -rf -- "$scratch"
+          fi
+          rm -f /tmp/comm-derived169-*.log /tmp/comm-derived169-base-result.json /tmp/comm-derived169-result.json
