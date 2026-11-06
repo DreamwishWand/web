@@ -1,0 +1,23 @@
+name: "04 QR-W PR659 repaired3fef differential"
+on:
+  pull_request:
+    paths:
+      - "scripts/04qr-w-pr659-fixed3fef-differential.mjs"
+      - ".github/workflows/04qr-w-pr659-fixed3fef-differential.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  repaired-head-differential:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Independent old-red fixed-head differential only
+        run: node scripts/04qr-w-pr659-fixed3fef-differential.mjs
