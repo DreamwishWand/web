@@ -120,6 +120,44 @@ test('R08: present corrupted Collection group must not be reported as ABSENT_GRO
     'COLLECTION_GROUP_RECORD_OR_ITEMS_MALFORMED');
 });
 
+test('R08 QA686: sparse group own-index check denies inherited or getter-phantom Collection',()=>{
+  for(const version of [624,626]){
+    const profile=makeProfile(version);
+    const phantom=new Array(1);
+    const inherited=Object.create(Array.prototype);
+    let reads=0;
+    Object.defineProperty(inherited,'0',{configurable:true,get(){
+      reads++;
+      return {GroupIndex:0,GroupsCollectionItems:{'40700050':true}};
+    }});
+    Object.setPrototypeOf(phantom,inherited);
+    assert.equal(Object.hasOwn(phantom,0),false);
+    profile.Player.CollectionSets[0].GroupData=phantom;
+    const absent=col({profile,identity:version===624?id1250:id1253});
+    assert.equal(absent.status,'RAW_SAVE_STRUCTURE_ONLY');
+    assert.equal(absent.rawFlag,'ABSENT_GROUP');
+    assert.equal(absent.saveObserved,false);
+    assert.equal(absent.owned,'UNKNOWN');
+    assert.equal(absent.denominator,null);
+    assert.equal(absent.writerAuthorized,false);
+    assert.equal(reads,0, 'inherited getter must never be read');
+    assert.equal(Object.hasOwn(phantom,0),false, 'inspector is read only');
+
+    const ownUndefined=new Array(1);
+    ownUndefined[0]=undefined;
+    profile.Player.CollectionSets[0].GroupData=ownUndefined;
+    const corrupt=col({profile,identity:version===624?id1250:id1253});
+    assert.equal(corrupt.status,'BLOCKED');
+    assert.equal(corrupt.code,'COLLECTION_GROUP_RECORD_OR_ITEMS_MALFORMED');
+
+    const ownValid=[{GroupIndex:0,GroupsCollectionItems:{'40700050':false}}];
+    profile.Player.CollectionSets[0].GroupData=ownValid;
+    const valid=col({profile,identity:version===624?id1250:id1253});
+    assert.equal(valid.rawFlag,'SAVE_BOOL_FALSE');
+    assert.equal(valid.owned,'UNKNOWN');
+  }
+});
+
 test('R08: present corrupted Inventory map is not ABSENT_INVENTORY or zero stock',()=>{
   const noInventory=makeProfile();delete noInventory.Player.ListInventories['0'];
   const absent=inv({profile:noInventory});
