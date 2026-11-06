@@ -2526,7 +2526,7 @@
           targetBuild: sourcePlatform === 'switch' ? {
             platform: 'switch', kind: 'switch-bid', value: sourceBuildId.trim().toUpperCase()
           } : null,
-          sourceEvidence: sourceProvenanceConfirmed ? WEP_WORLD_READONLY_626_PROVENANCE : null
+          sourceEvidence: sourcePlatform === 'switch' && sourceProvenanceConfirmed ? WEP_WORLD_READONLY_626_PROVENANCE : null
         });
         originalSaveBackup = createOriginalSaveBackup({
           bytes,
@@ -2604,7 +2604,8 @@
             activeDraftRecord: null
           });
         } else if (opened.compatibility.readOnly) {
-          message = readonly626Copy.viewing;
+          message = opened.saveIdentity.sourcePlatform === 'steam-windows'
+            ? readonly626Copy.steamViewing : readonly626Copy.viewing;
         } else {
           message = t(
             'worldEditor.open.saveLoaded',
@@ -4318,6 +4319,9 @@
           <span>{readonly626Copy.proof}</span>
         </label>
         <small class="wep-626-hint">{readonly626Copy.proofHint}</small>
+      {/if}
+      {#if sourcePlatform === 'steam-windows'}
+        <small data-wep-steam626-input class="wep-626-hint">{readonly626Copy.steamProof}</small>
       {/if}
       <label class="file-button">
         <input
@@ -6447,8 +6451,8 @@
           <div><dt>{t('worldEditor.routes.schema', {}, $locale)}</dt><dd>{worldSource.profileSchemaVersion}</dd></div>
           <div><dt>{t('worldEditor.routes.source', {}, $locale)}</dt><dd>{worldSource.saveIdentity.sourcePlatform}</dd></div>
           <div><dt>{t('worldEditor.routes.lastSave', {}, $locale)}</dt><dd>{worldSource.saveIdentity.lastSavePlatform}</dd></div>
-          <div><dt>{t('worldEditor.routes.areas', {}, $locale)}</dt><dd>{worldSource.areas.length}</dd></div>
-          <div><dt>{t('worldEditor.routes.floating', {}, $locale)}</dt><dd>{worldSource.floatingIslands?.length ?? 0}</dd></div>
+          <div><dt>{t('worldEditor.routes.areas', {}, $locale)}</dt><dd>{worldSource.compatibility.readOnly ? readonly626Copy.unknown : worldSource.areas.length}</dd></div>
+          <div><dt>{t('worldEditor.routes.floating', {}, $locale)}</dt><dd>{worldSource.compatibility.readOnly ? readonly626Copy.unknown : (worldSource.floatingIslands?.length ?? 0)}</dd></div>
         </dl>
       </div>
 
@@ -6463,15 +6467,24 @@
 
       {#if worldSource.compatibility.readOnly}
         <section class="room-finish-route-section" data-wep-626-readonly role="status" aria-live="polite" style="min-width:0;overflow-wrap:anywhere">
-          <h3>{readonly626Copy.viewing} · v{worldSource.compatibility.gameVersion} / schema {worldSource.profileSchemaVersion}</h3>
+          {#if worldSource.saveIdentity.sourcePlatform === 'steam-windows'}
+            <div data-wep-steam626-limited>
+              <h3>{readonly626Copy.steamViewing} · schema {worldSource.profileSchemaVersion}</h3>
+              <p>{readonly626Copy.steamProof}</p>
+              <p data-wep-steam626-undo-preview>{readonly626Copy.steamPreview}</p>
+              <p><code>exactBuildKnown=false · productionReadAccepted=false · routesAuthorized=false</code></p>
+            </div>
+          {:else}
+            <h3>{readonly626Copy.viewing} · v{worldSource.compatibility.gameVersion} / schema {worldSource.profileSchemaVersion}</h3>
+          {/if}
           <p><strong>{readonly626Copy.editing}</strong></p>
-          <p>{readonly626Copy.boundary}</p>
+          <p>{worldSource.saveIdentity.sourcePlatform === 'steam-windows' ? readonly626Copy.steamBoundary : readonly626Copy.boundary}</p>
           <h4>{readonly626Copy.diagnostic}</h4>
           <dl>
-            <div><dt>{readonly626Copy.village}</dt><dd>{worldSource.structuralDiagnostics?.villageCount ?? '—'}</dd></div>
-            <div><dt>{readonly626Copy.area}</dt><dd>{worldSource.structuralDiagnostics?.areaRecordCount ?? '—'}</dd></div>
-            <div><dt>{readonly626Copy.grids}</dt><dd>{worldSource.structuralDiagnostics?.gridRecordCount ?? '—'}</dd></div>
-            <div data-wep-626-gridobject-entries><dt>{readonly626Copy.gridObjects}</dt><dd>{worldSource.structuralDiagnostics?.gridObjectEntryCount ?? '—'}</dd></div>
+            <div><dt>{readonly626Copy.village}</dt><dd>{worldSource.structuralDiagnostics?.villageCount ?? readonly626Copy.unknown}</dd></div>
+            <div><dt>{readonly626Copy.area}</dt><dd>{worldSource.structuralDiagnostics?.areaRecordCount ?? readonly626Copy.unknown}</dd></div>
+            <div><dt>{readonly626Copy.grids}</dt><dd>{worldSource.structuralDiagnostics?.gridRecordCount ?? readonly626Copy.unknown}</dd></div>
+            <div data-wep-626-gridobject-entries><dt>{readonly626Copy.gridObjects}</dt><dd>{worldSource.structuralDiagnostics?.gridObjectEntryCount ?? readonly626Copy.unknown}</dd></div>
           </dl>
           <p data-wep-626-subgrid-unknown>{readonly626Copy.subgrid}</p>
           {#each worldSource.structuralDiagnostics?.notes ?? [] as note}
