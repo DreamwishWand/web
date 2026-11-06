@@ -1,0 +1,56 @@
+name: 05 QR-C R02 PR689 Product Rust ABI independent QA
+on:
+  push:
+    branches:
+      - qa/05qrc-r02-pr689-product-abi-20261106
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/**'
+      - '.github/workflows/05qr-c-r02-pr689-product-abi.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-native-rust-abi:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Assert exact frozen PR689 Source seven Git blobs and QA-only new files
+        shell: bash
+        run: |
+          set -euo pipefail
+          # GitHub PR checks out a synthetic merge commit. Its first parent
+          # includes unrelated protected-main advances. Compare only QA tip.
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            qa_tip="$(git rev-parse HEAD^2)"
+          else
+            qa_tip="$(git rev-parse HEAD)"
+          fi
+          git merge-base --is-ancestor b5ad89dc64baaec849fb0284546898b058ed0513 "$qa_tip"
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/Cargo.toml)" = e243c0446021348aa39f769f825b6f88ddcb8e48
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/lib.rs)" = b506e4881e51e442adc75eae036df9e83959d847
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/product_session.rs)" = 658bf7303552a7964fc40f31d2ccc7f37c739f0f
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/strict_document.rs)" = e49ea87eb18227c68e049e3de7278af02550fdbd
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/tests/product_session_abi.rs)" = 30ee19dcd70a5ff2393d6a2217c553a24e7fe589
+          test "$(git rev-parse "$qa_tip":.github/workflows/core-product-session-boundary.yml)" = 5247e1efae4b26d0c7d10533c8be8571308caae7
+          test "$(git rev-parse "$qa_tip":docs/core/01a-product-single-session-abi-r02-20261106.md)" = b7efd4ec308d518db0ed2199c26218be558b379f
+          test "$(git diff --name-only b5ad89dc64baaec849fb0284546898b058ed0513 "$qa_tip" | sort)" = "$(printf '%s\n' .github/workflows/05qr-c-r02-pr689-product-abi.yml crates/ddv-save-core/tests/05qr_c_product_abi_newonly.rs | sort)"
+      - name: Format ephemeral CI working tree then run nine independent Rust adversarial tests
+        shell: bash
+        run: |
+          cargo fmt --manifest-path crates/ddv-save-core/Cargo.toml --all
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --test 05qr_c_product_abi_newonly --verbose
+      - name: Prove no embedded Save/Writer and no JS Worker path modification in QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -R -E 'include_(bytes|str)!|STEAM_SAVE_OWNER_PRIVATE|writer_authorized: *true|apply_authorized: *true' crates/ddv-save-core/src
+          if find . -type f -iname 'steam_*.zip' -print -quit | grep -q .; then
+            echo "Private save fixture forbidden in CI"; exit 1
+          fi
