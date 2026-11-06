@@ -71,6 +71,25 @@ try {
  assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'),'noindex,nofollow');
  pass('UNVERIFIED_PRIMARY_SECONDARY_NO_ALIAS_REDIRECT_OR_CANONICAL');
 
+ // P=S must no longer be displayed as an invalid syntax, but is never a
+ // verified Native specialization or a public/indexable/owned record.
+ for(const lang of localeCodes) {
+   await page.goto(root+'/'+lang+'/40000047/40000047/',{waitUntil:'domcontentloaded'});
+   await page.locator('[data-typed-entity-gate="closed"]').waitFor();
+   assert.ok((await page.locator('[data-typed-unavailable]').innerText())
+     .includes(sharedTypedCopy(lang).notVerified),lang+' equal P/S syntax-only');
+   assert.equal(await page.locator('[data-shared-card="identity"] code').innerText(),'40000047/40000047');
+   assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'),'noindex,nofollow');
+   assert.equal(await page.locator('link[rel="canonical"]').count(),0);
+   assert.equal(await page.locator('[data-relations-verified="false"][data-alias-resolved="false"][data-writer="off"]').count(),1);
+ }
+ pass('EQUAL_PS_EIGHT_LOCALE_SYNTAX_ONLY_UNVERIFIED_NO_PUBLIC_GRANT');
+ const forged=await page.goto(root+'/en/0001/0001/',{waitUntil:'domcontentloaded'});
+ // sharedId route matcher rejects leading zero *before* the gate can render.
+ assert.equal(forged?.status(),404);
+ assert.equal(await page.locator('[data-typed-entity-gate]').count(),0);
+ pass('FORGED_EQUAL_PS_LEADING_ZERO_ROUTE_404_DENIED');
+
  await page.setViewportSize({width:320,height:800});
  await page.goto(root+'/ja/entity/quest/12345/',{waitUntil:'domcontentloaded'});
  await page.locator('[data-typed-entity-gate="closed"]').waitFor();
