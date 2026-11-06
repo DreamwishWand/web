@@ -1,0 +1,36 @@
+name: "04 QR-W PR650 Steam native Bundle Source trust-root negatives"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/04qr-w-pr650-original-steam-bundle-negative.yml'
+      - 'scripts/04qr-w-pr650-original-steam-bundle-negative.py'
+permissions:
+  contents: read
+jobs:
+  fixed-source-original-bundle-identity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Deny Private game media, raw Steam binary and Save upload
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${WEP_PRIVATE_LOCAL_ONLY_ACK:-}"
+          test -z "${WEP_PRIVATE_EXTERNAL_BUILD_CONFIRMED:-}"
+          test -z "${STEAM_ORIGINAL_BUNDLE_PATH:-}"
+      - name: Exact source pin and fake real-source evidence negative
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile scripts/04qr-w-pr650-original-steam-bundle-negative.py
+          python scripts/04qr-w-pr650-original-steam-bundle-negative.py
