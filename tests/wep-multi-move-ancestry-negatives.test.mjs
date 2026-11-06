@@ -49,7 +49,7 @@ for (const {field,mutated,code} of cases) {
     const before=JSON.stringify(session.exportRecoverySnapshot());
     const beforeDocument=JSON.stringify(session.getDocument());
     const beforeHistory=session.getHistoryState();
-    assert.deepEqual(session.getSelection(),['Chair','Lamp']);
+    assert.deepEqual(session.exportRecoverySnapshot().selection,['Chair','Lamp']);
     const preview=session.previewStrictMove(['Chair','Lamp'],1,0,bounds);
     assert.equal(preview.ok,false,field);
     assert.equal(preview.code,code,field);
@@ -61,7 +61,7 @@ for (const {field,mutated,code} of cases) {
     assert.equal(result.validation.issues[0].code,code);
     assert.equal(JSON.stringify(session.getDocument()),beforeDocument,'no selected or unrelated mutation');
     assert.deepEqual(session.getHistoryState(),beforeHistory,'no Undo or Redo entry');
-    assert.deepEqual(session.getSelection(),['Chair','Lamp'],'selection retained');
+    assert.deepEqual(session.exportRecoverySnapshot().selection,['Chair','Lamp'],'selection retained');
     assert.equal(JSON.stringify(session.exportRecoverySnapshot()),before,'no recovery/history drift');
     assert.deepEqual(session.getDocument().objects.map(o=>[o.editorId,o.x,o.y]),[
       ['Chair',2,2],['Lamp',6,2],['Unselected',11,3]
