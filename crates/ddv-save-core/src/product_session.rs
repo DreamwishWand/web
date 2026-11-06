@@ -78,6 +78,7 @@ pub struct ProductSession {
     decoded: Arc<[u8]>,
     sha: [u8;32],
     schema: u64,
+    worker_bound: bool,
 }
 impl ProductSession {
     /// R02 native-only decoded JSON prototype. NOT a P1G decrypt, Worker
@@ -97,7 +98,36 @@ impl ProductSession {
         let sha = Sha256::digest(&decoded).into();
         Ok(Self {
             state: Mutex::new(State { id, revision:0, generation:1, closed:false }),
-            decoded:Arc::from(decoded), sha, schema:build.schema,
+            decoded:Arc::from(decoded), sha, schema:build.schema, worker_bound:false,
+        })
+    }
+    /// Worker WASM-only source entry. A trusted Worker supplies CSPRNG entropy,
+    /// never UI-provided SessionID. Rust derives one immutable product identity.
+    /// Caller still owes external build proof and reference-closure validation.
+    #[cfg(all(feature = "worker-wasm", target_arch = "wasm32"))]
+    pub(crate) fn open_decoded_in_worker(
+        decoded: Vec<u8>, build: BuildIdentity, entropy: [u8;32]
+    ) -> CoreResult<Self> {
+        build.validate_registry_candidate()?;
+        if decoded.is_empty() || decoded.len() > MAX_DECODED_BYTES {
+            return Err(CoreError("DECODED_SOURCE_BOUNDS"));
+        }
+        if entropy.iter().all(|byte| *byte == 0) {
+            return Err(CoreError("WORKER_ENTROPY_INVALID"));
+        }
+        validate_entire_document(&decoded,build.schema)?;
+        let sha: [u8;32] = Sha256::digest(&decoded).into();
+        let mut hash = Sha256::new();
+        hash.update(b"wand.product.worker.session.v1");
+        hash.update(entropy);
+        hash.update(sha);
+        let digest = hash.finalize();
+        let mut id=[0u8;16];
+        id.copy_from_slice(&digest[..16]);
+        let state=State {id,revision:0,generation:1,closed:false};
+        Ok(Self {
+            state:Mutex::new(state),decoded:Arc::from(decoded),
+            sha,schema:build.schema,worker_bound:true,
         })
     }
     fn lock(&self) -> CoreResult<MutexGuard<'_, State>> {
@@ -113,7 +143,7 @@ impl ProductSession {
             revision:state.revision,index_generation:state.generation,
             decoded_sha256:self.sha,schema:self.schema,
             full_document_json_validated:true,all_domain_references_verified:false,
-            product_worker_bound:false,product_read_accepted:false,
+            product_worker_bound:self.worker_bound,product_read_accepted:false,
             writer_authorized:false,edited_copy_authorized:false,apply_authorized:false,
         })
     }
