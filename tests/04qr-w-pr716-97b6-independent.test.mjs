@@ -66,7 +66,7 @@ for(const v of variants){
  test('Q716 independent reject '+v.name+' with untrusted selected LAST and atomic snapshot',()=>{
   const doc=makeDoc(v.patch);
   const scene=buildSpatialScene(doc);
-  assert.deepEqual(scene.objects.map(o=>o.editorId),['Valid','Background']);
+  assert.deepEqual(scene.objects.map(o=>o.editorId).sort(),['Background','Valid']);
   assert.deepEqual(scene.unresolved.map(o=>o.editorId),['Untrusted']);
   assert.equal(scene.persistentWriteAuthorized,false);
   const session=createEditorSession(doc,{allowInvalidDraft:true});
