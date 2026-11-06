@@ -105,6 +105,7 @@ class FurnitureStreamDelta(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             home = pathlib.Path(d)
             source = home / 'original'
+            source.mkdir()
             fixture(source)
             link = home / 'linked-original'
             link.symlink_to(source, target_is_directory=True)
