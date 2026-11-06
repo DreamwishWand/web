@@ -66,7 +66,23 @@ test("QR672 fixed Source4 SHA and only 3 repair changes + QA2",()=>{
   "tests/01d-native-local-preset-quarantine.test.mjs",
   "tests/01d-native-preset-local-file-import-contract.test.mjs"]);
  for(const [file,sha] of SOURCE_BLOBS)assert.equal(git("hash-object",file),sha,file);
- assert.deepEqual(diff(SOURCE,"HEAD"),QA_FILES);
+ const actual=diff(SOURCE,"HEAD");
+ const acceptedMain01B=[
+  "src/lib/wep/real-save-spatial-source.ts",
+  "tests/01b-real-save-spatial-source.test.mjs"
+ ];
+ const expected=actual.some(p=>acceptedMain01B.includes(p))
+  ? [...QA_FILES,...acceptedMain01B].sort() : QA_FILES;
+ assert.deepEqual(actual,expected,
+   "Only QA2, or QA2 plus the independently accepted PR671 main-only 01B two paths");
+ if(expected.length>QA_FILES.length){
+  // CI tests the synthetic GitHub PR merge commit; that carries old main's
+  // already-accepted 01B source only. Verify precise SHA, exclude from this QA.
+  assert.equal(git("hash-object",acceptedMain01B[0]),
+   "bf0d027e811da59f009c963b49f2d9aa80032ac6");
+  assert.equal(git("hash-object",acceptedMain01B[1]),
+   "65322830c8c3cc3fe5bb88a9df0c8bc432b6ef9b");
+ }
 });
 test("QR672 old RED SubGrid record with missing/wrong GridID quarantines actual file import",async()=>{
  for(const idShape of [{},{GridID:null},{GridID:"2"},{GridID:-1},{GridID:1.5},{GridID:true}]){
