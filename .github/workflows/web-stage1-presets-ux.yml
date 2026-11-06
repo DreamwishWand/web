@@ -9,6 +9,9 @@ on:
       - 'scripts/web-stage1-presets-chrome.mjs'
       - 'src/lib/presets/stage1-root.mjs'
       - 'src/routes/presets/+page.svelte'
+      - 'src/lib/presets/my-presets-router.mjs'
+      - 'tests/web-my-presets-internal-router.test.mjs'
+      - 'scripts/web-my-presets-internal-chrome.mjs'
       - 'tests/scaffold.test.mjs'
       - 'tests/web-stage1-presets-root.test.mjs'
 permissions:
@@ -31,20 +34,42 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          BASE="${{ github.event.pull_request.base.sha || 'bd966f9e94be48fafce25cfbdc298439ee47aca3' }}"
-          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
-          git diff --name-only "$BASE" HEAD >/tmp/stage1-presets
-          test "$(wc -l </tmp/stage1-presets)" -eq 6
-          while IFS= read -r path; do
-            case "$path" in
-              src/routes/presets/+page.svelte|src/lib/presets/stage1-root.mjs|tests/web-stage1-presets-root.test.mjs|tests/scaffold.test.mjs|scripts/web-stage1-presets-chrome.mjs|.github/workflows/web-stage1-presets-ux.yml) ;;
-              *) echo "OUTSIDE_P0_SCOPE:$path"; exit 1 ;;
-            esac
-          done </tmp/stage1-presets
+          BASE="$(git merge-base origin/main HEAD)"
+          git diff --name-only "$BASE" HEAD | LC_ALL=C sort >/tmp/stage1-presets
+          cat >/tmp/old-presets <<'OLD_PATHS'
+          .github/workflows/web-stage1-presets-ux.yml
+          scripts/web-stage1-presets-chrome.mjs
+          src/lib/presets/stage1-root.mjs
+          src/routes/presets/+page.svelte
+          tests/scaffold.test.mjs
+          tests/web-stage1-presets-root.test.mjs
+          OLD_PATHS
+          cat >/tmp/my-presets <<'MY_PATHS'
+          .github/workflows/web-stage1-presets-ux.yml
+          scripts/web-my-presets-internal-chrome.mjs
+          src/lib/presets/my-presets-router.mjs
+          src/routes/presets/+page.svelte
+          tests/web-my-presets-internal-router.test.mjs
+          MY_PATHS
+          LC_ALL=C sort /tmp/old-presets >/tmp/old-presets-sorted
+          LC_ALL=C sort /tmp/my-presets >/tmp/my-presets-sorted
+          if diff -q /tmp/stage1-presets /tmp/old-presets-sorted >/dev/null; then
+            echo WEB_STAGE1_PRESETS_ORIGINAL_EXACT6_SCOPE_PASS
+          elif diff -q /tmp/stage1-presets /tmp/my-presets-sorted >/dev/null; then
+            echo WEB_MY_PRESETS_EXACT5_SCOPE_PASS
+          else
+            echo OUTSIDE_P0_SCOPE
+            diff -u /tmp/my-presets-sorted /tmp/stage1-presets || true
+            exit 1
+          fi
           git diff --exit-code "$BASE" HEAD -- src/lib/presets/NativePresetManager.svelte src/lib/wep/ src/lib/ddv/ src/lib/community/ src/routes/gallery/ src/routes/dreamsnaps/ supabase/ static/ .github/workflows/pages.yml
           echo WEB_STAGE1_PRESETS_UI_ONLY_SCOPE_PASS
       - name: Four root two InGame, eight locale and Native/Provider OFF assertions
-        run: node --test tests/web-stage1-presets-root.test.mjs
+        run: |
+          node --test tests/web-stage1-presets-root.test.mjs
+          if test -f tests/web-my-presets-internal-router.test.mjs; then
+            node --test tests/web-my-presets-internal-router.test.mjs
+          fi
       - name: Full Node, typecheck and static Pages
         env:
           BASE_PATH: /web
@@ -93,4 +118,9 @@ jobs:
       - name: Actual Chrome 8 locale root/InGame, 320px/200% keyboard + no provider
         env:
           STAGE1_PRESETS_URL: http://127.0.0.1:4289
-        run: node scripts/web-stage1-presets-chrome.mjs
+          MY_PRESETS_E2E_URL: http://127.0.0.1:4289
+        run: |
+          node scripts/web-stage1-presets-chrome.mjs
+          if test -f scripts/web-my-presets-internal-chrome.mjs; then
+            node scripts/web-my-presets-internal-chrome.mjs
+          fi
