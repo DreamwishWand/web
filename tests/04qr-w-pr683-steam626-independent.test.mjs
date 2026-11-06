@@ -60,7 +60,18 @@ test("QR683 fixed source six Git SHA + QA-only three tree",()=>{
  assert.equal(git("rev-parse",SRC),SRC);
  assert.deepEqual(delta(MAIN,SRC),[...pins.keys()].sort());
  for(const [path,sha] of pins)assert.equal(git("hash-object",path),sha,path);
- assert.deepEqual(delta(SRC,"HEAD"),qaPaths);
+ const sourceToTest=delta(SRC,"HEAD");
+ const inherited=new Map([
+  ["src/lib/presets/native-local-file-import-contract.mjs","9ee79fb05b495950add726aeb38f68971aea43bb"],
+  ["src/lib/presets/native-local-preset-quarantine.mjs","427fc1c3ba50e8a42a0c58ef6202d18e243eb9ba"],
+  ["tests/01d-native-local-preset-quarantine.test.mjs","4da6c307b4160084036a014b2109856ae93b0993"],
+  ["tests/01d-native-preset-local-file-import-contract.test.mjs","15d6ae29f351f63ee663b170d7bc184f2cfc95dc"]
+ ]);
+ const extras=sourceToTest.filter(x=>!qaPaths.includes(x));
+ assert.deepEqual(extras.length?[...inherited.keys()].sort():[],extras,
+   "Only QA3, or QA3 plus exact accepted PR672 main-only Source4");
+ for(const path of extras)assert.equal(git("hash-object",path),inherited.get(path),path);
+ assert.deepEqual(sourceToTest,[...qaPaths,...extras].sort());
 });
 test("QR683 later absent Village Areas globally UNKNOWN, valid earlier village not false total",async()=>{
  const p=base();p.World.Villages.push({FutureUnknown:{"hold":true}});
