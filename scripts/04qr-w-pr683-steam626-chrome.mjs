@@ -32,8 +32,9 @@ try{
   const u=new URL(r.url());
   if(u.origin!==new URL(target).origin||r.method()!=="GET")requests.push(r.method()+" "+u.origin+u.pathname);
  });
- await page.goto(target,{waitUntil:"domcontentloaded"});
+ await page.goto(target,{waitUntil:"networkidle"});
  await page.locator('.platform-select select').selectOption("steam-windows");
+ assert.equal(await page.locator('.platform-select select').inputValue(),"steam-windows", "Svelte hydration must settle before selecting storage");
  await upload(page,serialized);
  const panel=page.locator("[data-wep-626-readonly]");
  try { await panel.waitFor({state:"visible",timeout:20000}); }
