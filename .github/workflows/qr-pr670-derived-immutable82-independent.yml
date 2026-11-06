@@ -1,0 +1,137 @@
+name: 04 QR-S PR670 independent derived immutable82 disposable Postgres only
+on:
+  push:
+    branches: [qa/pr670-derived-immutable82-independent-20261106]
+permissions:
+  contents: read
+jobs:
+  qr-derived82:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      SUPABASE_DB_PASSWORD: ''
+      DATABASE_URL: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, persist-credentials: false}
+      - name: Pin Source PR670 and exact QA-only two files
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=d2a0b970f666cf86b667d04c8cacb44434d3a6b2
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git diff --name-only "$SOURCE" HEAD | sort >/tmp/qr670-actual
+          printf '%s\n' .github/workflows/qr-pr670-derived-immutable82-independent.yml tests/qr-pr670-derived-immutable82-independent.test.mjs | sort >/tmp/qr670-expected
+          diff -u /tmp/qr670-expected /tmp/qr670-actual
+          test -z "$(git diff --name-only "$SOURCE" HEAD -- supabase src docs scripts)"
+          test "$(git hash-object scripts/comm-immutable82-derived-disposable.mjs)" = f26808547330b69d063c683d835823842c7143b4
+          test "$(git hash-object tests/comm-immutable82-derived-disposable.test.mjs)" = 84f7802647ffdef5f19de36bb10c6f0f153829b3
+          test "$(git hash-object .github/workflows/comm-immutable82-derived-disposable.yml)" = 69e6c242e9681aa7a53d9f37b45c7922f920eb2b
+          test "$(git hash-object docs/community/immutable82-derived-disposable-baseline-20261106.md)" = f000fd9c0f0200bea7dde3c26607ef32919a2c44
+          test "$(git hash-object supabase/migrations/20260930025132_community_core_v0_server_rpc.sql)" = bbf9bc830440d964c5da8b3c3cac7e926d281881
+          test "$(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l)" -eq 163
+          test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID" && test -z "$SUPABASE_DB_PASSWORD" && test -z "$DATABASE_URL"
+          echo QR670_FIXED_PR670_QA_ONLY_TWO_FILES_SOURCE_PIN_PASS
+      - name: Independent exact82 SHA, 81 descendants, tamper and disposal negatives
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/qr-pr670-derived-immutable82-independent.test.mjs | tee /tmp/qr670-test.log
+          for m in \
+            QR670_CANONICAL82_ALL_FILES_AND_81_SUCCESSORS_UNCHANGED_PASS \
+            QR670_INDEPENDENT_BYTE_AND_TEN_LINE_SHA_ORACLE_PASS \
+            QR670_TAMPER_MISSING_DUPLICATE_CORRECTED_AND_ENV_FAIL_CLOSED_PASS \
+            QR670_SCRATCH_INSIDE_TMP_MANIFEST_AND_DELETION_PASS; do
+            grep -q "$m" /tmp/qr670-test.log
+          done
+          echo QR670_INDEPENDENT_FOUR_HOSTILE_CASES_PASS
+      - uses: supabase/setup-cli@v1
+        with: {version: 2.109.0}
+      - name: Prepare original82-derived scratch ONLY outside source checkout
+        id: scratch
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/comm-immutable82-derived-disposable.mjs --prepare-disposable >/tmp/qr670-overlay.json
+          scratch=$(node -e "const x=JSON.parse(require('fs').readFileSync('/tmp/qr670-overlay.json','utf8')); if (!x.workdir.startsWith('/tmp/ddvre-immutable82-derived-local-')||x.originalGitBlob!=='bbf9bc830440d964c5da8b3c3cac7e926d281881'||x.derivedScratchGitBlob!=='d7991c2c20b7ace6613d6a9cd6493b8c3af0f6ba'||x.original82RawSqlBootstrapPass!==false||x.staging116LedgerEquivalent!==false||x.managedRuntimePass!==false||x.mergeReady!==false||x.deployReady!==false||x.productWriterEnabled!==false)process.exit(2);process.stdout.write(x.workdir)")
+          test -d "$scratch/supabase/migrations"
+          test "$(git hash-object "$scratch/supabase/migrations/20260930025132_community_core_v0_server_rpc.sql")" = d7991c2c20b7ace6613d6a9cd6493b8c3af0f6ba
+          test "$(git hash-object supabase/migrations/20260930025132_community_core_v0_server_rpc.sql)" = bbf9bc830440d964c5da8b3c3cac7e926d281881
+          echo "workdir=$scratch" >> "$GITHUB_OUTPUT"
+          printf 'project_id = "ddvre_qr670_derived_disposable_20261106"\n' | cat - "$scratch/supabase/config.toml" > "$scratch/supabase/qr670-config.toml"
+          mv "$scratch/supabase/qr670-config.toml" "$scratch/supabase/config.toml"
+          echo QR670_SOURCE_IMMUTABLE_TEMP_DERIVED_ONLY_PASS
+      - name: Independently start full local derived163 PG from scratch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ steps.scratch.outputs.workdir }}"
+          timeout 1800s supabase start >/tmp/qr670-start.log 2>&1 || {
+            echo QR670_FRESH_DERIVED_PG_NOT_RUN
+            tail -n 6 /tmp/qr670-start.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'
+            exit 1
+          }
+          echo QR670_INDEPENDENT_DERIVED_FIRST163_PASS_NOT_CANONICAL82
+      - name: Independently reset derived163 in disposable local Postgres
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ steps.scratch.outputs.workdir }}"
+          timeout 900s supabase db reset --no-seed >/tmp/qr670-reset.log 2>&1 || {
+            echo QR670_DERIVED_RESET_NOT_RUN
+            tail -n 6 /tmp/qr670-reset.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'
+            exit 1
+          }
+          echo QR670_INDEPENDENT_DERIVED_RESET163_PASS_NOT_CANONICAL82
+      - name: Real local PG derived-only ledger163 and Source163 effective ACL
+        shell: bash
+        run: |
+          set -euo pipefail
+          db=$(docker ps --format '{{.Names}}' | grep '^supabase_db_ddvre_qr670_derived_disposable_20261106' | head -1)
+          test -n "$db"
+          docker exec -i "$db" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL'
+          DO $qa$
+          DECLARE
+            n integer;
+            sig text := 'public.community_add_answer_v1(uuid,uuid,uuid,text,text)';
+            public_open boolean;
+          BEGIN
+            SELECT count(*) INTO n FROM supabase_migrations.schema_migrations;
+            IF n<>163 THEN RAISE EXCEPTION 'QR670_DERIVED_LEDGER_INVALID %',n; END IF;
+            IF NOT EXISTS (SELECT 1 FROM supabase_migrations.schema_migrations
+                WHERE version='20260930025132') THEN RAISE EXCEPTION 'QR670_DERIVED_VERSION_MISSING'; END IF;
+            IF to_regprocedure(sig) IS NULL THEN RAISE EXCEPTION 'QR670_SOURCE163_RPC_MISSING'; END IF;
+            SELECT EXISTS(
+              SELECT 1 FROM pg_proc p
+              CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+              WHERE p.oid=sig::regprocedure AND a.grantee=0 AND a.privilege_type='EXECUTE'
+            ) INTO public_open;
+            IF public_open OR has_function_privilege('anon',sig,'EXECUTE')
+                OR has_function_privilege('authenticated',sig,'EXECUTE')
+                OR has_function_privilege('service_role',sig,'EXECUTE')
+                THEN RAISE EXCEPTION 'QR670_SOURCE163_LEGACY_EXECUTE_OPEN'; END IF;
+            IF NOT has_function_privilege('service_role',
+                'public.community_set_gallery_comments_enabled_atomic_signed_v1(uuid,bigint,uuid,uuid,bigint,uuid,boolean,text)','EXECUTE')
+                THEN RAISE EXCEPTION 'QR670_ACCEPTED_SIGNED_R16_GRANT_MISSING'; END IF;
+          END $qa$;
+          SQL
+          test "$(git hash-object supabase/migrations/20260930025132_community_core_v0_server_rpc.sql)" = bbf9bc830440d964c5da8b3c3cac7e926d281881
+          test "$(git hash-object "${{ steps.scratch.outputs.workdir }}/supabase/migrations/20260930025132_community_core_v0_server_rpc.sql")" = d7991c2c20b7ace6613d6a9cd6493b8c3af0f6ba
+          echo QR670_INDEPENDENT_DERIVED_LOCAL163_LEDGER_AND_EFFECTIVE_ACL_PASS_NOT_MANAGED
+      - name: Dispose ephemeral local project, PostgreSQL and scratch
+        if: always()
+        shell: bash
+        run: |
+          scratch="${{ steps.scratch.outputs.workdir }}"
+          if [ -n "$scratch" ] && [ -d "$scratch/supabase" ]; then
+            (cd "$scratch" && supabase stop --no-backup >/dev/null 2>&1) || true
+            rm -rf -- "$scratch"
+          fi
+          rm -f /tmp/qr670-overlay.json /tmp/qr670-test.log /tmp/qr670-start.log /tmp/qr670-reset.log
+          if [ -n "$scratch" ]; then
+            test ! -e "$scratch" && echo QR670_DISPOSABLE_TEMP_SCRATCH_REMOVED_PASS
+          fi
