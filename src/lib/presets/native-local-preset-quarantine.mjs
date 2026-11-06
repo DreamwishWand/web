@@ -9,7 +9,9 @@ const positiveId=x=>Number.isSafeInteger(x)&&x>0;
 export function nativeLocalPresetQuarantineWarnings(payload){
   const warnings=[];
   const gridCollection=record(payload?.GridCollection)?payload.GridCollection:null;
-  if(!record(gridCollection?.DiffGrids))warnings.push('DIFF_GRIDS_MALFORMED');
+  if(!record(gridCollection?.DiffGrids) ||
+     Object.values(gridCollection.DiffGrids).some(x=>!record(x)))
+    warnings.push('DIFF_GRIDS_MALFORMED');
   const grids=gridCollection?.Grids;
   if(record(grids)){
     for(const grid of Object.values(grids)){
@@ -24,9 +26,11 @@ export function nativeLocalPresetQuarantineWarnings(payload){
         }
         if(item.State!==null&&item.State!==undefined&&!record(item.State))
           warnings.push('GRID_OBJECT_STATE_MALFORMED');
-        if(record(item.State)&&item.State.SubGrid!==null&&item.State.SubGrid!==undefined&&
-           !record(item.State.SubGrid))
-          warnings.push('SUBGRID_REFERENCE_MALFORMED');
+        if(record(item.State)&&item.State.SubGrid!==null&&item.State.SubGrid!==undefined){
+          const subGrid=item.State.SubGrid;
+          if(!record(subGrid)||!Number.isSafeInteger(subGrid.GridID)||subGrid.GridID<0)
+            warnings.push('SUBGRID_REFERENCE_MALFORMED');
+        }
       }
     }
   }
