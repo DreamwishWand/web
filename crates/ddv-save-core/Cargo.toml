@@ -6,7 +6,12 @@ license = "UNLICENSED"
 publish = false
 description = "Dreamwish Wand single-owner product SaveSession ABI boundary; no Writer"
 
+[features]
+default = []
+worker-wasm = ["dep:wasm-bindgen"]
+
 [dependencies]
+wasm-bindgen = { version = "=0.2.105", optional = true }
 sha2 = "=0.10.8"
 serde = { version = "=1.0.228", default-features = false, features = ["std"] }
 serde_json = "=1.0.145"
