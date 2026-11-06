@@ -1,0 +1,58 @@
+name: 03 COMM Source169 Follow Creator Genuine Signed OFF (Disposable)
+on:
+  push:
+    branches: [comm/w-comm-006-source169-follow-creator-off-20261106]
+permissions:
+  contents: read
+jobs:
+  follow-off:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+      - name: Pin Source163-167 immutable lineage and new Source169 only
+        run: |
+          set -euo pipefail
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 169
+          test "$(git hash-object supabase/migrations/20261104050000_community_source163_help_answer_service_execute_off.sql)" = c02bf514abf51951c19e05f8ca7ef7383f071c70
+          test "$(git hash-object supabase/migrations/20261105010000_community_source164_reaction_add_service_execute_off.sql)" = 8a272688b3f85e999e43cb772736dba6bc305606
+          python3 -m py_compile tests/comm-source169-follow-creator-signed-off-disposable.py
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID"
+      - name: Disposable GoTrue ES256 FULL169 with two PG
+        run: |
+          set -euo pipefail
+          printf '\n[auth]\nsigning_keys_path = "./signing_keys.json"\n' >> supabase/config.toml
+          printf '[]\n' > supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes >/tmp/source169-key.log 2>&1
+          printf 'project_id = "ddvre_follow_creator_source169_local"\n' | cat - supabase/config.toml > /tmp/source169-config
+          mv /tmp/source169-config supabase/config.toml
+          printf 'COMMUNITY_MEDIA_BUCKET=ddvre-follow169-media\nWEP_PRESET_ARTIFACT_BUCKET=ddvre-follow169-preset\n' > supabase/functions/.env
+          timeout 1800s supabase start >/tmp/source169-start.log 2>&1 || { echo SOURCE169_START_NOT_RUN; tail -n 12 /tmp/source169-start.log; exit 1; }
+          timeout 900s supabase db reset --no-seed >/tmp/source169-reset.log 2>&1 || { echo SOURCE169_RESET_NOT_RUN; tail -n 12 /tmp/source169-reset.log; exit 1; }
+          echo SOURCE169_LOCAL_BOOTSTRAP_PASS
+      - run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Signed A2 409 revoked A1 401 SQL42501 no Follow diff 2PG rollback
+        run: |
+          set -euo pipefail
+          python3 tests/comm-source169-follow-creator-signed-off-disposable.py | tee /tmp/source169-results.log
+          grep -q '"case": "SOURCE169_FOLLOW_CREATOR_THREE_ROLE_SQL_EXECUTE_OFF"' /tmp/source169-results.log
+          grep -q '"case": "SOURCE169_ELIGIBLE_SIGNED_A2_EDGE409_SQL42501_NO_DIFF"' /tmp/source169-results.log
+          grep -q '"case": "SOURCE169_REVOKED_A1_ORIGINAL_REFRESH401_TWO_PG_REPLAY_NO_DIFF"' /tmp/source169-results.log
+          grep -q '"case": "SOURCE169_TEMP_GRANT_TWO_PG_ROLLBACK_DENIED"' /tmp/source169-results.log
+          echo SOURCE169_OWNER_GENUINE_LOCAL_ONLY_NOT_INDEPENDENT_QA
+      - name: Dispose signer and local-only DB
+        if: always()
+        run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f supabase/signing_keys.json supabase/functions/.env /tmp/source169-*

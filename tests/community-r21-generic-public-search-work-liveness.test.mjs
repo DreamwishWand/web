@@ -13,7 +13,7 @@ const original=[
 const migration='supabase/migrations/20261027000030_generic_public_search_work_liveness_source146.sql';
 const sql=readFileSync(migration,'utf8');
 test('Source146 adds exactly one forward-only migration; protected predecessor bytes unchanged',()=>{
- assert.equal(readdirSync('supabase/migrations').filter(n=>n.endsWith('.sql')).length,168);
+ assert.equal(readdirSync('supabase/migrations').filter(n=>n.endsWith('.sql')).length,169);
  assert.ok(readdirSync('supabase/migrations').includes('20261102000000_community_source153_signed_session_lineage_v2.sql'));
  assert.ok(readdirSync('supabase/migrations').includes('20261102010000_community_source155_verified_first_account_bootstrap.sql'));
   assert.ok(readdirSync('supabase/migrations').includes('20261103010000_community_source156_signed_gallery_r16_atomic_writer.sql'));
@@ -29,6 +29,7 @@ test('Source146 adds exactly one forward-only migration; protected predecessor b
  assert.ok(readdirSync('supabase/migrations').includes('20261105030000_community_source166_unsave_entity_service_execute_off.sql'));
  assert.ok(readdirSync('supabase/migrations').includes('20261105040000_community_source167_remove_reaction_service_execute_off.sql'));
  assert.ok(readdirSync('supabase/migrations').includes('20261106010000_community_source168_unfollow_creator_service_execute_off.sql'));
+ assert.ok(readdirSync('supabase/migrations').includes('20261106020000_community_source169_follow_creator_service_execute_off.sql'));
   assert.ok(readdirSync('supabase/migrations').includes('20261028000000_x05_shared_dreamsnap_metadata_staged_v1.sql'));
   assert.ok(readdirSync('supabase/migrations').includes('20261028000020_x05_nonpublic_consent_phase_revoke_controls.sql'));
  for(const [p,sha] of original)assert.equal(execFileSync('git',['hash-object',p],{encoding:'utf8'}).trim(),sha,p);

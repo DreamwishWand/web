@@ -301,6 +301,12 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
       return reply({ok:false,error:'SOURCE168_UNFOLLOW_CREATOR_WRITER_NOT_ENROLLED'},409);
     }
 
+    // Source169: old followCreator service SQL committed after revoked A1.
+    // Signed session 401 is determined before this valid-actor OFF/409.
+    if (new Set<string>(['followCreator']).has(command)) {
+      return reply({ok:false,error:'SOURCE169_FOLLOW_CREATOR_WRITER_NOT_ENROLLED'},409);
+    }
+
     const authorizationParams: JsonObject = {
       p_auth_subject: subject, p_issued_at_epoch: issuedAt,
       p_max_age_seconds: null
