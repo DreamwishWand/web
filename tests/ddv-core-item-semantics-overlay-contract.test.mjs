@@ -98,6 +98,56 @@ test('Inventory canonical route, compatible item type and amount bounds fail clo
   assert.equal(inv({profile:missing}).rawEntry,'ABSENT_ITEM_ENTRY');
 });
 
+test('R08: present corrupted Collection group must not be reported as ABSENT_GROUP',()=>{
+  assert.equal(col({groupIndex:1}).rawFlag,'ABSENT_GROUP');
+  const malformed=[null,0,'bad',[],{}, {GroupIndex:0,GroupsCollectionItems:[]},
+    {GroupIndex:0,GroupsCollectionItems:null}];
+  for(const raw of malformed){
+    const p=makeProfile();p.Player.CollectionSets[0].GroupData[0]=raw;
+    const original=structuredClone(p);
+    const r=col({profile:p});
+    assert.equal(r.status,'BLOCKED');
+    assert.equal(r.code,'COLLECTION_GROUP_RECORD_OR_ITEMS_MALFORMED');
+    assert.equal(r.discovered,'UNKNOWN');
+    assert.equal(r.denominator,null);
+    assert.equal(r.writerAuthorized,false);
+    assert.deepEqual(p,original);
+  }
+  const nullGroup=makeProfile();nullGroup.Player.CollectionSets[0].GroupData[0]=null;
+  assert.equal(col({profile:nullGroup,identity:id1253}).status,'BLOCKED');
+  const target626=makeProfile(626);target626.Player.CollectionSets[0].GroupData[0]=null;
+  assert.equal(col({profile:target626,identity:id1253}).code,
+    'COLLECTION_GROUP_RECORD_OR_ITEMS_MALFORMED');
+});
+
+test('R08: present corrupted Inventory map is not ABSENT_INVENTORY or zero stock',()=>{
+  const noInventory=makeProfile();delete noInventory.Player.ListInventories['0'];
+  const absent=inv({profile:noInventory});
+  assert.equal(absent.rawEntry,'ABSENT_INVENTORY');
+  assert.equal(absent.rawAmount,null);
+  for(const malformed of [null,[],42,'bad',{}, {CompatibleItemType:4},
+    {CompatibleItemType:4,Inventory:null},{CompatibleItemType:4,Inventory:[]}]){
+    const p=makeProfile();p.Player.ListInventories['0']=malformed;
+    const before=structuredClone(p);
+    const r=inv({profile:p});
+    assert.equal(r.status,'BLOCKED');
+    assert.equal(r.code,'INVENTORY_RECORD_OR_ITEMS_MALFORMED');
+    assert.equal(r.owned,'UNKNOWN');
+    assert.equal(r.denominator,null);
+    assert.equal(r.writerAuthorized,false);
+    assert.deepEqual(p,before);
+  }
+  const empty=makeProfile();empty.Player.ListInventories['0'].Inventory={};
+  assert.equal(inv({profile:empty}).rawEntry,'ABSENT_ITEM_ENTRY');
+  const zero=inv(),positive=inv({canonicalItemId:40700051});
+  assert.equal(zero.rawAmount,0);assert.equal(positive.rawAmount,8);
+  assert.equal(zero.owned,'UNKNOWN');assert.equal(positive.owned,'UNKNOWN');
+  const schema626=makeProfile(626);
+  schema626.Player.ListInventories['0'].Inventory=null;
+  assert.equal(inv({profile:schema626,identity:id1253}).code,
+    'INVENTORY_RECORD_OR_ITEMS_MALFORMED');
+});
+
 test('Both Switch builds can inspect matching save SHAPE but cannot share semantic acceptance',()=>{
   const r1253=inspectCollectionSaveFlag({
     profile:makeProfile(626),identity:id1253,
