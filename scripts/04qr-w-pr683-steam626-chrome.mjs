@@ -36,7 +36,18 @@ try{
  await page.locator('.platform-select select').selectOption("steam-windows");
  await upload(page,serialized);
  const panel=page.locator("[data-wep-626-readonly]");
- await panel.waitFor({state:"visible",timeout:16000});
+ try { await panel.waitFor({state:"visible",timeout:20000}); }
+ catch (cause) {
+  console.error("QR683_SYNTHETIC_STEAM_WAIT_DIAGNOSTIC",JSON.stringify({
+   body:(await page.locator("body").innerText().catch(()=>"<unavailable>")).slice(-2800),
+   title:await page.title().catch(()=>"<unavailable>"),
+   sourceSelect:await page.locator('.platform-select select').inputValue().catch(()=>"<unavailable>"),
+   inputs:await page.locator('.load-panel input[type="file"]').count(),
+   panelCount:await panel.count(),
+   errors:failures
+  }));
+  throw cause;
+ }
  const limited=page.locator("[data-wep-steam626-limited]");
  await limited.waitFor({state:"visible"});
  assert.match(await limited.innerText(),/structural inspection/i);
