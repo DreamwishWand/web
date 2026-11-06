@@ -1,0 +1,31 @@
+name: CORE Product Single SaveSession ABI Boundary (Writer OFF)
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/**'
+      - '.github/workflows/core-product-session-boundary.yml'
+  push:
+    branches:
+      - 'core/product-single-session-abi-*'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  rust-product-abi:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Parse and format temporary CI workspace only
+        run: cargo fmt --manifest-path crates/ddv-save-core/Cargo.toml --all
+      - name: Rust native negative and lifecycle tests
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --all-targets --verbose
+      - name: Reject embedded private files or Writer promotion
+        shell: bash
+        run: |
+          test -f crates/ddv-save-core/src/product_session.rs
+          test -f crates/ddv-save-core/src/strict_document.rs
+          ! grep -R -E 'include_(bytes|str)!|STEAM_SAVE_OWNER_PRIVATE|writer_authorized: *true|apply_authorized: *true' crates/ddv-save-core/src
