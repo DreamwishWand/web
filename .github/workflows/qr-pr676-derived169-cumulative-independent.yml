@@ -1,0 +1,132 @@
+name: 04 QR-S PR676 independent derived169 scratch SQL six legacy RPC deny
+on:
+  push:
+    branches: [qa/pr676-derived169-cumulative-independent-20261106]
+permissions:
+  contents: read
+jobs:
+  qr-derived169:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      SUPABASE_DB_PASSWORD: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/checkout@v4
+        with:
+          ref: a76e1b9faf4e5eae4b5290fd339688226ee9feca
+          path: source169-peer
+          persist-credentials: false
+      - name: Fixed PR676 HEAD, QA-only delta and SHA-pinned source proofs
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=afeaf2955eb5515624d9ab27b8743e59e5a0145c
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git diff --name-only "$SOURCE" HEAD | sort >/tmp/qr676-diff
+          printf '%s\n' \
+            .github/workflows/qr-pr676-derived169-cumulative-independent.yml \
+            tests/qr-pr676-derived169-independent-pg.py \
+            tests/qr-pr676-derived169-independent.test.mjs | sort >/tmp/qr676-expected
+          diff -u /tmp/qr676-expected /tmp/qr676-diff
+          test -z "$(git diff --name-only "$SOURCE" HEAD -- supabase src scripts docs)"
+          test "$(git hash-object scripts/comm-derived169-cumulative-scratch.mjs)" = 0946238cc2cf2ce9f8280816dbdaa0d9b1df2437
+          test "$(git hash-object tests/comm-derived169-cumulative-scratch.test.mjs)" = c66d5a9ed02a7e200fcd511c6b3687550f88bca9
+          test "$(git hash-object .github/workflows/comm-derived169-cumulative-scratch.yml)" = c92f1882f0aa7b7e3753330a4ebb330f6ce3ccf0
+          test "$(git hash-object supabase/migrations/20260930025132_community_core_v0_server_rpc.sql)" = bbf9bc830440d964c5da8b3c3cac7e926d281881
+          test "$(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l)" -eq 163
+          test "$(git -C source169-peer rev-parse HEAD)" = a76e1b9faf4e5eae4b5290fd339688226ee9feca
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID" && test -z "$SUPABASE_DB_PASSWORD"
+          python3 -m py_compile tests/qr-pr676-derived169-independent-pg.py
+          echo QR676_FIXED_PR676_SOURCE_SHA_PEER_AND_THREE_QA_FILES_PASS
+      - name: Independent altered peer, wrong HEAD, remote, six SQL and temp negative tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/qr-pr676-derived169-independent.test.mjs | tee /tmp/qr676-node.log
+          for marker in \
+            QR676_EXACT_SOURCE_THREE_ADD_ONLY_ORIGINAL82_IMMUTABLE_PASS \
+            QR676_FIXED_PEER_SIX_SQL_SHA_AND_WRONG_HEAD_DENIED_PASS \
+            QR676_MISSING_TAMPERED_PEER_FILES_FAIL_CLOSED_PASS \
+            QR676_DISPOSABLE_BOUNDARY_REMOTE_ENV_NEGATIVES_PASS \
+            QR676_DERIVED_ONLY_163_TO_169_MANIFEST_NO_CLOBBER_AND_DELETE_PASS; do
+            grep -q "$marker" /tmp/qr676-node.log
+          done
+          echo QR676_FIVE_INDEPENDENT_ADVERSARIAL_CASES_PASS
+      - uses: supabase/setup-cli@v1
+        with: {version: 2.109.0}
+      - name: Create NEW private scratch derived82 plus exactly 6 peer SQL
+        id: scratch
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/comm-immutable82-derived-disposable.mjs --prepare-disposable >/tmp/qr676-base.json
+          scratch=$(node -e "const x=JSON.parse(require('fs').readFileSync('/tmp/qr676-base.json','utf8'));if(!x.workdir.startsWith('/tmp/ddvre-immutable82-derived-local-')||x.originalGitBlob!=='bbf9bc830440d964c5da8b3c3cac7e926d281881'||x.derivedScratchGitBlob!=='d7991c2c20b7ace6613d6a9cd6493b8c3af0f6ba'||x.mergeReady!==false||x.staging116LedgerEquivalent!==false)process.exit(1);process.stdout.write(x.workdir)")
+          test -d "$scratch/supabase/migrations"
+          echo "path=$scratch" >> "$GITHUB_OUTPUT"
+          node scripts/comm-derived169-cumulative-scratch.mjs --prepare-cumulative "$scratch" source169-peer >/tmp/qr676-receipt.json
+          node -e "const x=JSON.parse(require('fs').readFileSync('/tmp/qr676-receipt.json','utf8'));if(x.migrationsAdded.length!==6||x.source169SignedCumulativeTwoPgPass!==false||x.managedLedgerCompatible!==false||x.original82RawSqlBootstrapPass!==false||x.mergeReady!==false||x.deployReady!==false||x.communityPublicEnabled!==false||x.productWriterEnabled!==false)process.exit(1)"
+          test "$(find "$scratch/supabase/migrations" -maxdepth 1 -name '*.sql' | wc -l)" -eq 169
+          test "$(git hash-object "$scratch/supabase/migrations/20260930025132_community_core_v0_server_rpc.sql")" = d7991c2c20b7ace6613d6a9cd6493b8c3af0f6ba
+          test "$(git hash-object supabase/migrations/20260930025132_community_core_v0_server_rpc.sql)" = bbf9bc830440d964c5da8b3c3cac7e926d281881
+          printf 'project_id = "ddvre_qr676_derived169_disposable_20261106"\n' | cat - "$scratch/supabase/config.toml" >"$scratch/supabase/qr676-config.toml"
+          mv "$scratch/supabase/qr676-config.toml" "$scratch/supabase/config.toml"
+          echo QR676_DERIVED_TMP_169_SQL_MANIFEST_ONLY_NO_CANONICAL_CHANGE_PASS
+      - name: Actual new disposable derived PostgreSQL first 169 bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ steps.scratch.outputs.path }}"
+          timeout 1800s supabase start >/tmp/qr676-start.log 2>&1 || {
+            echo QR676_INDEPENDENT_LOCAL_FIRST_NOT_RUN
+            tail -n 8 /tmp/qr676-start.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'
+            exit 1
+          }
+          echo QR676_INDEPENDENT_DERIVED169_FIRST_LOCAL_PASS_NOT_ORIGINAL82
+      - name: Actual independent derived169 local reset and replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ steps.scratch.outputs.path }}"
+          timeout 900s supabase db reset --no-seed >/tmp/qr676-reset.log 2>&1 || {
+            echo QR676_INDEPENDENT_LOCAL_RESET_NOT_RUN
+            tail -n 8 /tmp/qr676-reset.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'
+            exit 1
+          }
+          echo QR676_INDEPENDENT_DERIVED169_RESET_LOCAL_PASS_NOT_STAGING116
+      - run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Independent TWO real PG sessions six legacy RPC role ACL SQL42501 and rollback
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/qr-pr676-derived169-independent-pg.py | tee /tmp/qr676-pg.log
+          for m in \
+            QR676_REAL_DERIVED169_LOCAL_LEDGER_SIX_ORDERED_SQL_VERSIONS_PASS \
+            QR676_PUBLIC_THREE_ROLE_SIX_EXECUTE_DENIED_R16_WORKSPACE_POSITIVE_PASS \
+            QR676_EIGHTEEN_ROLE_RPC_SQL42501_NO_MUTATION_PASS \
+            QR676_THIRTY_SERVICE_REPLAYS_SQL42501_NO_MUTATION_PASS \
+            QR676_TWO_POSTGRES_BACKENDS_TEMP_GRANT_INVISIBLE_ROLLBACK_DENIED_PASS \
+            QR676_INDEPENDENT_DERIVED_LOCAL169_NEW_SIX_SQL_ONLY_NOT_SIGNED_NOT_MANAGED_PASS; do
+            grep -q "$m" /tmp/qr676-pg.log
+          done
+          test "$(git hash-object supabase/migrations/20260930025132_community_core_v0_server_rpc.sql)" = bbf9bc830440d964c5da8b3c3cac7e926d281881
+          echo QR676_INDEPENDENT_SIX_SQL_LOCAL_ACL_ONLY_NOT_SIGNED_CUMULATIVE_PASS
+      - name: Destroy throwaway PostgreSQL and derived temp source
+        if: always()
+        shell: bash
+        run: |
+          scratch="${{ steps.scratch.outputs.path }}"
+          if [ -n "$scratch" ] && [[ "$scratch" == /tmp/ddvre-immutable82-derived-local-* ]] && [ -d "$scratch/supabase" ]; then
+            (cd "$scratch" && supabase stop --no-backup >/dev/null 2>&1) || true
+            rm -rf -- "$scratch"
+          fi
+          rm -f /tmp/qr676-node.log /tmp/qr676-pg.log /tmp/qr676-start.log /tmp/qr676-reset.log /tmp/qr676-base.json /tmp/qr676-receipt.json /tmp/qr676-diff /tmp/qr676-expected
+          if [ -n "$scratch" ]; then
+            test ! -e "$scratch" && echo QR676_DISPOSABLE_SCRATCH_AND_DB_REMOVED_PASS
+          fi
