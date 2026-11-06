@@ -1,8 +1,9 @@
-name: WEB Stage1 Gallery three-card root privacy-safe
+name: WEB Stage1 Gallery four-card root DreamSnaps navigation-only privacy-safe
 on:
   push:
     branches:
       - 'web/stage1-gallery-three-card-root-*'
+      - 'web/stage1-gallery-four-card-root-*'
   pull_request:
     paths:
       - 'src/routes/gallery/+page.svelte'
@@ -42,7 +43,7 @@ jobs:
           done </tmp/08web-gallery-stage1
           git diff --exit-code "$BASE" HEAD -- src/lib/community/browser-client.ts src/lib/community/browser-client.js src/lib/ddv/ src/lib/wep/ src/lib/timing/ supabase/ static/ .github/workflows/pages.yml
           echo WEB_STAGE1_GALLERY_EXACT_SCOPE_PASS
-      - name: Three-card root, exact verified subtypes and privacy negatives
+      - name: Four-card root, independent DreamSnaps navigation, exact verified subtypes and privacy negatives
         run: node --test tests/web-stage1-gallery-root.test.mjs
       - name: Whole product Node, Svelte and Pages regression
         env:
@@ -88,7 +89,7 @@ jobs:
           done
           cat /tmp/08web-gallery-stage1.log
           exit 1
-      - name: Eight-locale actual Chrome root, 320px/200%, keyboard/no-Provider
+      - name: Eight-locale four-card actual Chrome root, DreamSnaps independent route, 320px/200%, keyboard/no-Provider
         env:
           STAGE1_GALLERY_URL: http://127.0.0.1:4287
         run: node scripts/web-stage1-gallery-chrome.mjs

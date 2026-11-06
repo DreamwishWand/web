@@ -17,12 +17,14 @@ try{
   await page.selectOption('#site-locale',locale);
   await page.locator('html[data-locale="'+locale+'"]').waitFor({timeout:15000});
   const labels=await page.locator('[data-stage1-gallery-hub] [data-gallery-child]').evaluateAll(els=>els.map(el=>el.getAttribute('data-gallery-child')));
-  assert.deepEqual(labels,['decorations','touchOfMagic','myGallery']);
+  assert.deepEqual(labels,['decorations','touchOfMagic','myGallery','dreamsnaps']);
   assert.equal(await page.locator('[data-stage1-gallery-root][data-writer="off"][data-media-rights="unverified"]').count(),1);
   assert.equal(await page.locator('a[href*="/gallery/dreamsnaps/"]').count(),0);
+  assert.equal(await page.locator('[data-gallery-child="dreamsnaps"][data-dreamsnaps-routing="independent"][data-dreamsnaps-media="off"]').count(),1);
+  assert.equal(await page.locator('[data-gallery-child="dreamsnaps"]').getAttribute('href'),'/dreamsnaps/');
   assert.equal(await page.locator('[data-stage1-gallery-hub] .prominent').count(),1);
  }
- console.log('WEB_STAGE1_GALLERY_3CARDS_EIGHTLOCALE_PASS');
+ console.log('WEB_STAGE1_GALLERY_4CARDS_EIGHTLOCALE_PRESERVED_OFF_PASS');
  await page.selectOption('#site-locale','ja');
  await page.locator('[data-gallery-child="decorations"]').click();
  await page.locator('[data-stage1-gallery-facets] button').first().waitFor();
@@ -35,6 +37,16 @@ try{
  await page.locator('.gallery-back').click();
  assert.match(await page.locator('[data-gallery-child="myGallery"]').getAttribute('href'),/\/gallery\/my\/$/);
  console.log('WEB_STAGE1_GALLERY_CATEGORY_FACETS_BACK_MYGALLERY_PASS');
+ // DreamSnaps is an independent product root, never an alias for legacy
+ // Gallery DreamSnaps public media or voting-period submissions.
+ await page.locator('[data-gallery-child="dreamsnaps"]').click();
+ await page.locator('[data-stage1-dreamsnaps-root="1-3-1"]').waitFor();
+ assert.equal(await page.locator('[data-public-provider="off"][data-writer="off"][data-private-results="off"][data-media-rights="unverified"]').count(),1);
+ assert.equal(await page.locator('img').count(),0);
+ assert.equal(await page.locator('[data-stage1-gallery-hub]').count(),0);
+ await page.goto(root+'/gallery/',{waitUntil:'domcontentloaded'});
+ await page.locator('[data-stage1-gallery-hub]').waitFor();
+ console.log('WEB_STAGE1_GALLERY_DREAMSNAPS_INDEPENDENT_1_3_1_NO_MEDIA_PASS');
  await page.setViewportSize({width:320,height:800});
  await fit('320');
  await page.locator('[data-gallery-child="decorations"]').focus();
