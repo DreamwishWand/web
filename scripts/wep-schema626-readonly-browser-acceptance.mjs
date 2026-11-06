@@ -87,11 +87,70 @@ try {
   assert.equal(await panel.count(),0);
   pass('UNKNOWN_PROVENANCE_DENIED');
 
+  // Steam schema626 is intentionally NOT a product read/Canvas acceptance.
   await page.locator('.platform-select select').selectOption('steam-windows');
   await upload(page,source626);
-  await page.getByText(/WEP_WORLD_626_EXTERNAL_SOURCE_VERIFICATION_REQUIRED|Source verification required/).waitFor({timeout:15000});
+  await panel.waitFor({state:'visible',timeout:15000});
+  const steamLimited=page.locator('[data-wep-steam626-limited]');
+  await steamLimited.waitFor({state:'visible'});
+  assert.match(await steamLimited.innerText(),/Steam schema 626.*structural inspection/i);
+  assert.match(await steamLimited.innerText(),/productionReadAccepted=false/);
+  assert.match(await steamLimited.innerText(),/exactBuildKnown=false/);
+  assert.match(await page.locator('[data-wep-steam626-undo-preview]').innerText(),/Undo\/Redo/);
+  assert.equal(await page.locator('.editor-shell').count(),0);
+  assert.equal(await page.locator('[data-wep-verified-export]').count(),0);
+  assert.equal(await page.locator('.area-route-list').count(),0);
+  assert.equal(await page.locator('.save-source-heading dd').nth(5).innerText(),'UNKNOWN');
+  pass('STEAM626_LIMITED_V1_STRUCTURE_NOT_PRODUCT_READ');
+
+  // Visible user-facing Settings; never force a hidden immersive locale select.
+  const shell=page.locator('[data-shared-app-shell][data-shell-presentation="immersive"]');
+  const settings=shell.locator('button.immersive-settings');
+  assert.equal(await page.locator('#site-locale').isVisible(),false);
+  await settings.focus();
+  await page.keyboard.press('Enter');
+  const localeSelect=page.locator('#site-locale-mobile');
+  await localeSelect.waitFor({state:'visible'});
+  for(const locale of ['en','fr','it','de','es-ES','ja','zh-CN','pt-BR']){
+    await localeSelect.selectOption(locale);
+    await page.waitForFunction(expected=>document.documentElement.lang===expected,locale);
+    assert.equal(await steamLimited.isVisible(),true);
+    assert.equal(await page.locator('.editor-shell').count(),0);
+  }
+  await localeSelect.selectOption('en');
+  await page.keyboard.press('Escape');
+  await localeSelect.waitFor({state:'hidden'});
+  pass('STEAM626_EIGHT_LOCALES_VISIBLE_SETTINGS_KEYBOARD');
+
+  const missing=structuredClone(profile626);
+  delete missing.World.Villages[0].Areas;
+  delete missing.World.GridCollection.Grids['10'].Objects;
+  await upload(page,Buffer.from(makeSyntheticP1gProfile(missing)));
+  await steamLimited.waitFor({state:'visible'});
+  assert.equal((await page.locator('[data-wep-626-gridobject-entries] dd').innerText()).trim(),'UNKNOWN');
+  const empty=structuredClone(profile626);
+  empty.World.Villages[0].Areas={};
+  empty.World.GridCollection.Grids['10'].Objects={};
+  await upload(page,Buffer.from(makeSyntheticP1gProfile(empty)));
+  await steamLimited.waitFor({state:'visible'});
+  assert.equal((await page.locator('[data-wep-626-gridobject-entries] dd').innerText()).trim(),'0');
+  pass('STEAM626_MISSING_UNKNOWN_VS_EXPLICIT_EMPTY_ZERO');
+
+  await page.setViewportSize({width:320,height:740});
+  await page.waitForTimeout(150);
+  const steamWidth=await page.evaluate(()=>({viewport:window.innerWidth,width:document.documentElement.scrollWidth}));
+  assert.ok(steamWidth.width<=steamWidth.viewport+2,JSON.stringify(steamWidth));
+  await page.setViewportSize({width:1280,height:960});
+  pass('STEAM626_320PX_NO_OVERFLOW');
+
+  await page.locator('.platform-select select').selectOption('unknown');
+  await upload(page,source626);
+  await page.getByText(/Source verification required/).waitFor({timeout:15000});
   assert.equal(await panel.count(),0);
-  pass('STEAM626_DENIED');
+  pass('UNKNOWN_SOURCE_SCHEMA626_DENIED');
+
+  assert.equal(createHash('sha256').update(source626).digest('hex'),sourceHash);
+  pass('STEAM626_ORIGINAL_SOURCE_IMMUTABLE');
   await page.locator('.platform-select select').selectOption('switch');
   await page.locator('[data-wep-626-provenance] input').check();
   await upload(page,source624);

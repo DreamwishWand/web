@@ -6,7 +6,7 @@ import {
   ProfileReadCompatibilityStatus,
   detectSaveIdentity
 } from '../ddv/core/save/versioning.js';
-import { evaluateProfile626ReadOnlyCompatibility } from '../ddv/core/save/profile626-compatibility-v1253.js';
+import { evaluateProfile626ReadOnlyCompatibility, inspectProfile626Structure } from '../ddv/core/save/profile626-compatibility-v1253.js';
 import {
   currentV125FloatingIslandIdentityAdapter,
   resolveV125OutdoorLocation
@@ -416,6 +416,50 @@ export async function openWorldSaveBytes(
   if (profileSchemaVersion === 626) {
     if (inputFormat !== 'packaged') {
       throw new Error('WEP_WORLD_626_PACKAGED_SOURCE_REQUIRED');
+    }
+    // Steam/Windows 626: local V1 *structural* inspection only. The selected
+    // source is declarative, not an independently established Steam FullVersion.
+    // Crucially, never borrow Switch BID acceptance or a known static Steam
+    // build string to manufacture product read or Writer authorization.
+    if (sourcePlatform === PlatformFamily.SteamWindows &&
+        targetBuild === null && sourceEvidence === null) {
+      const inspected = inspectProfile626Structure(profile);
+      if (inspected.valid !== true) {
+        throw new Error('WEP_WORLD_STEAM626_STRUCTURE_' + inspected.code);
+      }
+      const rawStructure = inspect626WorldStructure(profile);
+      return {
+        inputFormat,
+        profile,
+        profileSchemaVersion,
+        saveIdentity,
+        areas: [],
+        floatingIslands: [],
+        floatingIslandDiagnostics: [],
+        structuralDiagnostics: {
+          ...rawStructure,
+          notes: [
+            ...rawStructure.notes,
+            'WEP_STEAM626_DECLARED_SOURCE_NOT_BUILD_PROOF',
+            'WEP_STEAM626_FULLVERSION_UNKNOWN',
+            'WEP_STEAM626_PRODUCT_READ_AND_UNDO_PREVIEW_DISABLED'
+          ]
+        },
+        compatibility: {
+          readContract: 'wep-steam626-local-structural-inspection-only@1',
+          // Schema 626 by itself cannot establish this Steam save's version.
+          gameVersion: 'UNKNOWN',
+          schemaMatched: true,
+          exactBuildKnown: false,
+          productionReadAccepted: false,
+          readOnly: true,
+          routesAuthorized: false,
+          editingAuthorized: false,
+          verifiedReplacementCandidateAuthorized: false,
+          productApplyAuthorized: false,
+          persistentWriteAuthorized: false
+        }
+      };
     }
     if (sourceEvidence !== WEP_WORLD_READONLY_626_PROVENANCE ||
         sourcePlatform !== PlatformFamily.Switch ||
