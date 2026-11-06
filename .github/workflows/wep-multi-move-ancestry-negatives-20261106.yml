@@ -1,5 +1,10 @@
 name: WEP ancestry-only group MOVE new negatives with real tab zoom
 on:
+  pull_request:
+    paths:
+      - 'tests/wep-multi-move-ancestry-negatives.test.mjs'
+      - 'scripts/wep-multi-move-ancestry-negatives-browser.mjs'
+      - '.github/workflows/wep-multi-move-ancestry-negatives-20261106.yml'
   push:
     branches: ['wep/multi-move-ancestry-negatives-20261106']
   workflow_dispatch:
