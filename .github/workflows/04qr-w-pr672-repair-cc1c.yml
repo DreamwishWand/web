@@ -1,0 +1,23 @@
+name: "04 QR-W PR672 repaired cc1c SubGrid DiffGrids differential"
+on:
+  pull_request:
+    paths:
+      - "tests/04qr-w-pr672-repair-cc1c.test.mjs"
+      - ".github/workflows/04qr-w-pr672-repair-cc1c.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  repaired-preset-import-negative:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Independent repaired structural quarantine new-only
+        run: node --test tests/04qr-w-pr672-repair-cc1c.test.mjs
