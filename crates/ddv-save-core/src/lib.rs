@@ -4,6 +4,11 @@
 //! No browser Worker/WASM, P1G codec, export, replacement, apply or cloud grant.
 mod product_session;
 mod strict_document;
+// Source-only synthetic transaction lab is compiled out of the product Worker.
+#[cfg(all(feature = "synthetic-stage-b", target_arch = "wasm32"))]
+compile_error!("synthetic-stage-b must not be linked into WASM/Worker release");
+#[cfg(feature = "synthetic-stage-b")]
+pub use product_session::{SyntheticChangeSet, SyntheticStageReceipt, SyntheticExportReceipt};
 mod worker_session;
 #[cfg(all(feature = "worker-wasm", target_arch = "wasm32"))]
 mod wasm_worker;

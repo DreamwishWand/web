@@ -9,6 +9,8 @@ description = "Dreamwish Wand single-owner product SaveSession ABI boundary; no 
 [features]
 default = []
 worker-wasm = ["dep:wasm-bindgen"]
+# Explicit native-only fixture lab. NEVER compiled in production Worker.
+synthetic-stage-b = []
 
 [dependencies]
 wasm-bindgen = { version = "=0.2.105", optional = true }
@@ -22,3 +24,8 @@ getrandom = "=0.2.16"
 [lib]
 path = "src/lib.rs"
 crate-type = ["rlib", "cdylib"]
+
+[[bin]]
+name = "wand-stageb-synthetic-reopen"
+path = "src/bin/wand-stageb-synthetic-reopen.rs"
+required-features = ["synthetic-stage-b"]
