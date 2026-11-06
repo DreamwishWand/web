@@ -51,6 +51,8 @@ test('changed function catalogue, legacy privileges and source applications all 
 
 test('partial, missing, extra and malformed asserted evidence fails closed',()=>{
   assert.equal(assessRecordedStage116(null).status,'HOLD_INVALID_INPUT');
+  assert.equal(assessRecordedStage116(null).mayApplyMigration,false);
+  assert.equal(assessRecordedStage116(null).communityPublicEnabled,false);
   assert.equal(assessRecordedStage116([]).status,'HOLD_INVALID_INPUT');
   assert.equal(assessRecordedStage116({}).status,'HOLD_REATTEST_STAGE116');
   const noEvidence=observed();delete noEvidence.evidenceId;
