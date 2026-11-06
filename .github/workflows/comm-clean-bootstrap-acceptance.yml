@@ -329,9 +329,16 @@ jobs:
           echo SOURCE166_POST_LEGACY_REPLAY_UNSAVE_ENTITY_SERVICE_EXECUTE_OFF
           docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/migrations/20261105040000_community_source167_remove_reaction_service_execute_off.sql
           echo SOURCE167_POST_LEGACY_REPLAY_REMOVE_REACTION_SERVICE_EXECUTE_OFF
-          docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/migrations/20261106010000_community_source168_unfollow_creator_service_execute_off.sql
-          echo SOURCE168_POST_LEGACY_REPLAY_UNFOLLOW_CREATOR_SERVICE_EXECUTE_OFF
+          # Source168 was applied and verified in chronological fresh FULL169
+          # bootstrap before Source169 retired Follow. Replaying Source168 AFTER
+          # Source169 would violate its immutable precondition (follow EXECUTE
+          # must be present) and must NEVER trigger a temporary unsafe reGRANT.
+          # Independent Source168 clean/replay CI42132165491 accepted that
+          # exact ancestor state; on this final state test both denials instead.
+          docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres -Atc "SELECT NOT has_function_privilege('service_role','public.community_unfollow_creator(uuid,uuid)','EXECUTE') AND NOT has_function_privilege('service_role','public.community_follow_creator(uuid,uuid)','EXECUTE') AND has_function_privilege('service_role','public.community_set_gallery_comments_enabled_atomic_signed_v1(uuid,bigint,uuid,uuid,bigint,uuid,boolean,text)','EXECUTE')" | grep -qx 't'
+          echo SOURCE168_POST169_DENIAL_PRESERVED_NO_UNSAFE_REGRANT
           docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/migrations/20261106020000_community_source169_follow_creator_service_execute_off.sql
+          docker exec -i "$db_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres -Atc "SELECT NOT has_function_privilege('service_role','public.community_unfollow_creator(uuid,uuid)','EXECUTE') AND NOT has_function_privilege('service_role','public.community_follow_creator(uuid,uuid)','EXECUTE')" | grep -qx 't'
           echo SOURCE169_POST_LEGACY_REPLAY_FOLLOW_CREATOR_SERVICE_EXECUTE_OFF
       - name: Seed LOCAL disposable actors and run existing negative Gallery SQL fixtures
         shell: bash

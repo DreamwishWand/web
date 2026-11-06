@@ -7,9 +7,8 @@ begin
   if to_regprocedure('public.community_follow_creator(uuid,uuid)') is null then
     raise exception 'SOURCE169_FOLLOW_CREATOR_RPC_MISSING';
   end if;
-  if not has_function_privilege('service_role','public.community_follow_creator(uuid,uuid)','EXECUTE') then
-    raise exception 'SOURCE169_LEGACY_FOLLOW_EXPECTED_EXECUTE_MISSING';
-  end if;
+  -- Forward-only first apply and safe same-schema reapply both fail closed.
+  -- Already-retired Follow EXECUTE is an acceptable input; no unsafe reGRANT.
   if has_function_privilege('service_role','public.community_add_reaction(uuid,uuid,text)','EXECUTE')
      or has_function_privilege('service_role','public.community_save_entity(uuid,uuid)','EXECUTE')
      or has_function_privilege('service_role','public.community_unsave_entity(uuid,uuid)','EXECUTE')
