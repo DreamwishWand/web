@@ -1,0 +1,27 @@
+name: "04 QR-W PR659 frozen source owner-editorial negatives"
+on:
+  pull_request:
+    paths:
+      - "ops/dbk-solo-owner-postpublish.mjs"
+      - "tests/dbk-solo-owner-postpublish.test.mjs"
+      - "scripts/04qr-w-pr659-owner-editorial-negatives.mjs"
+      - ".github/workflows/04qr-w-pr659-owner-editorial-negative.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-source-negatives:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Original owner 9 tests (baseline source; not independent acceptance)
+        run: node --test tests/dbk-solo-owner-postpublish.test.mjs
+      - name: Independent frozen-source trust and CAS/consent negatives
+        run: node scripts/04qr-w-pr659-owner-editorial-negatives.mjs
