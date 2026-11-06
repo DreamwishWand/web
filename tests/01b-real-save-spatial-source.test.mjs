@@ -40,3 +40,29 @@ test('626 Inspector cannot select a source Grid with unresolved DiffGrid/default
  const index=read626SpatialReferences(p,src626);
  rejects(()=>inspect626SourceObjectAtRevision(index,'g42:o7','epoch:1',h),'GRID_REFERENCE_UNRESOLVED');
 });
+
+test('626 malformed second Village Areas is a global integrity veto, not an empty Area',()=>{
+ for(const malformedVillage of [null,{}, {Areas:null}, {Areas:[]}, {Areas:5}]){
+   const p=p626();
+   p.World.Villages.push(malformedVillage);
+   const index=read626SpatialReferences(p,src626);
+   assert.equal(index.status,'REFERENCE_ERRORS_FAIL_CLOSED');
+   assert.ok(index.issues.some(issue=>
+     issue.code==='SPATIAL_VILLAGE_AREAS_REQUIRED'&&issue.detail==='v1'));
+   assert.equal(index.objects[0].relation,'AREA_ROOT');
+   rejects(()=>inspect626SourceObjectAtRevision(index,'g42:o7','epoch:1',h),
+     'SPATIAL_SOURCE_GRID_REFERENCE_UNRESOLVED');
+   assert.equal(index.persistentWriteAuthorized,false);
+ }
+});
+
+test('626 a present empty second Village Areas map is distinct from malformed or absent',()=>{
+ const p=p626();p.World.Villages.push({Areas:{}});
+ const index=read626SpatialReferences(p,src626);
+ assert.equal(index.status,'READ_ONLY_REFERENCE_INDEX');
+ assert.equal(index.issues.length,0);
+ assert.equal(inspect626SourceObjectAtRevision(index,'g42:o7','epoch:1',h)
+   .address.editorId,'g42:o7');
+ assert.equal(index.geometryFor2d,'NOT_VERIFIED');
+ assert.equal(index.productApplyAuthorized,false);
+});
