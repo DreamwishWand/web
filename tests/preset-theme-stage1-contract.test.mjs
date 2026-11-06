@@ -62,3 +62,30 @@ test('malformed, unproven or foreign facet payloads fail closed rather than matc
   assert.equal(matchesPresetThemeFacets({}, {season:['autumn']}), false);
   assert.equal(matchesPresetThemeFacets(null, {}), false);
 });
+
+test('QR677 Q07: inherited record facet cannot satisfy a canonical selected facet', () => {
+  const record = Object.create({season: ['winter']});
+  record.decorationTheme = ['cozy'];
+  assert.equal(Object.hasOwn(record, 'season'), false);
+  assert.equal(matchesPresetThemeFacets(record, {season: ['winter'], decorationTheme: ['cozy']}), false);
+});
+
+test('QR677 Q08: inherited array index is not an owned canonical facet value', () => {
+  const inherited = Array(1);
+  const proto = Object.create(Array.prototype);
+  Object.defineProperty(proto, '0', {value: 'winter', configurable: true});
+  Object.setPrototypeOf(inherited, proto);
+  assert.equal(inherited[0], 'winter');
+  assert.equal(Object.hasOwn(inherited, 0), false);
+  assert.equal(matchesPresetThemeFacets({season: inherited}, {season: ['winter']}), false);
+  assert.equal(matchesPresetThemeFacets({season: ['winter']}, {season: inherited}), false);
+});
+
+test('inherited selected facets and sparse arrays without own indexes deny', () => {
+  const selected = Object.create({season: ['winter']});
+  assert.equal(Object.hasOwn(selected, 'season'), false);
+  assert.equal(matchesPresetThemeFacets({season: ['winter']}, selected), false);
+  assert.equal(matchesPresetThemeFacets({season: Array(1)}, {season: ['winter']}), false);
+  assert.equal(matchesPresetThemeFacets({season: ['winter']}, {season: Array(1)}), false);
+  assert.equal(matchesPresetThemeFacets({season: ['winter']}, {season: []}), true);
+});
