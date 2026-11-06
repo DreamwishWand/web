@@ -44,9 +44,12 @@ export function createProductWasmReadOwner(wasmFactory){
    if(prev){try{prev.wasm.close()}catch{}}
  };
  const close=()=>{revoke();return Object.freeze({closed:true,writerAuthorized:false})};
- const openDecoded=async ({build,decodedChunks}={})=>{
+ const openDecoded=async (args={})=>{
    // Revoke A synchronously BEFORE await, validation, or decoding B.
    revoke();const token=epoch;
+   if(!isPlain(args)||Object.keys(args).sort().join(',')!=='build,decodedChunks')
+       fail('PRODUCT_WORKER_UNTRUSTED_OPEN_ARGS');
+   const {build,decodedChunks}=args;
    const identity=exactBuild(build);
    if(!decodedChunks||typeof decodedChunks[Symbol.asyncIterator]!=='function')
      fail('PRODUCT_WORKER_CHUNK_SOURCE_REQUIRED');
