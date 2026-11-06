@@ -31,7 +31,7 @@ jobs:
           from pathlib import Path
           import subprocess
           def blobs(ref):
-              return {line.split('\t',1)[1]:line.split()[2] for line in
+              return {line.split(chr(9),1)[1]:line.split()[2] for line in
                   subprocess.check_output(['git','ls-tree','-r',ref,'supabase/migrations'],text=True).splitlines()}
           old=blobs('origin/main'); current=blobs('HEAD')
           assert len(old)==82, 'BASELINE_NOT_ORIGINAL82'

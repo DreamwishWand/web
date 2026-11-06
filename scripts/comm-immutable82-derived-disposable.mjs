@@ -14,7 +14,7 @@ export const BASELINE_SCOPE = 'DISPOSABLE_DERIVED_SQL_ONLY_NOT_82_OR_MANAGED_ACC
 
 export function gitBlobSha(bytes) {
   const buf = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
-  return createHash('sha1').update(Buffer.from(`blob ${buf.length}\\0`)).update(buf).digest('hex');
+  return createHash('sha1').update(Buffer.from(`blob ${buf.length}${String.fromCharCode(0)}`)).update(buf).digest('hex');
 }
 
 export function deriveExactHistoricalRpc(bytes) {
@@ -22,14 +22,14 @@ export function deriveExactHistoricalRpc(bytes) {
   if (canonical.length !== 23112 || gitBlobSha(canonical) !== CANONICAL_BLOB) {
     throw new Error('IMMUTABLE_ORIGINAL82_RPC_SHA_MISMATCH');
   }
-  const lines = canonical.toString('utf8').split('\\n');
+  const lines = canonical.toString('utf8').split(String.fromCharCode(10));
   if (lines.length !== 572) throw new Error('IMMUTABLE_ORIGINAL82_RPC_LINE_COUNT_MISMATCH');
   const observed = lines.flatMap((line,i) => line.trim()==='$function$' ? [i+1] : []);
   if (JSON.stringify(observed) !== JSON.stringify(BARE_TERMINATOR_LINES)) {
     throw new Error('IMMUTABLE_ORIGINAL82_RPC_TERMINATORS_MISMATCH');
   }
   const derived = Buffer.from(lines.map((line,i) =>
-    BARE_TERMINATOR_LINES.includes(i+1) ? `${line};` : line).join('\\n'), 'utf8');
+    BARE_TERMINATOR_LINES.includes(i+1) ? `${line};` : line).join(String.fromCharCode(10)), 'utf8');
   if (derived.length !== canonical.length + BARE_TERMINATOR_LINES.length ||
       gitBlobSha(derived) !== DERIVED_BLOB) {
     throw new Error('IMMUTABLE_ORIGINAL82_DERIVED_BLOB_MISMATCH');
@@ -82,7 +82,7 @@ export function prepareDisposableOverlay({ repoRoot, env = process.env }) {
     productWriterEnabled:false,
     source163MigrationCountExpected:163
   };
-  writeFileSync(join(workdir,'derived-baseline-manifest.json'),JSON.stringify(manifest,null,2)+'\\n',{flag:'wx'});
+  writeFileSync(join(workdir,'derived-baseline-manifest.json'),JSON.stringify(manifest,null,2)+String.fromCharCode(10),{flag:'wx'});
   return { workdir, ...manifest };
 }
 
@@ -91,5 +91,5 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     throw new Error('DERIVED_BASELINE_UNSUPPORTED_INVOCATION');
   }
   const repoRoot = fileURLToPath(new URL('../', import.meta.url));
-  process.stdout.write(JSON.stringify(prepareDisposableOverlay({repoRoot}))+'\\n');
+  process.stdout.write(JSON.stringify(prepareDisposableOverlay({repoRoot}))+String.fromCharCode(10));
 }
