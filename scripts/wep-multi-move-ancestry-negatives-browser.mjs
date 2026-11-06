@@ -30,7 +30,10 @@ const fixture=(field)=>{
     objects:[chair,lamp]
   };
 };
-const obj=(page,id,x,y)=>page.locator('g[data-editor-object][aria-label^="'+id+' at '+x+', '+y+'"]').first();
+const obj=(page,id)=>page.locator('g[data-editor-object][data-editor-object-id="'+id+'"]').first();
+const position=(page,id)=>obj(page,id).locator('rect.object-cell').first().evaluate(cell=>({
+  x:Number(cell.getAttribute('x')),y:Number(cell.getAttribute('y'))
+}));
 const selected=async(page)=>(await page.locator('g.selected[data-editor-object]').evaluateAll(
   ns=>ns.map(n=>n.getAttribute('data-editor-object-id')).sort()
 ));
@@ -62,10 +65,8 @@ async function invalidPointerMove(page,field,zoom){
   assert.equal(await page.locator('[data-wep-multi-move-preview]').count(),0,
     field+' must not have an authorized ghost');
   await page.mouse.up();
-  assert.equal(await obj(page,'Chair',2,2).count(),1,'Chair remains at initial position');
-  assert.equal(await obj(page,'Lamp',6,2).count(),1,'Lamp remains at initial position');
-  assert.equal(await obj(page,'Chair',3,2).count(),0,'Chair not partly moved');
-  assert.equal(await obj(page,'Lamp',7,2).count(),0,'Lamp not partly moved');
+  assert.deepEqual(await position(page,'Chair'),{x:2,y:2},'Chair remains in original root');
+  assert.deepEqual(await position(page,'Lamp'),{x:6,y:2},'Lamp remains in original root');
   assert.deepEqual(await selected(page),['Chair','Lamp'],'both selected after failed group move');
   assert.equal(await page.locator('.toolbar-actions')
     .getByRole('button',{name:'Undo',exact:true}).isDisabled(),true,
