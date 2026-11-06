@@ -126,8 +126,9 @@ try {
   // asynchronous import finished. An opaque epoch is assigned to the newly
   // committed source receipt, without exposing original Save bytes or hashes.
   const activeSourceEpoch=async()=> {
-    const value=Number(await panel.getAttribute('data-wep-source-epoch'));
-    assert.ok(Number.isSafeInteger(value)&&value>0,'active source receipt epoch required');
+    const rawEpoch=await page.locator('.save-source-browser').getAttribute('data-wep-source-epoch');
+    const value=Number(rawEpoch);
+    assert.ok(rawEpoch!==null&&Number.isSafeInteger(value)&&value>0,'active source receipt epoch required');
     return value;
   };
   const awaitFreshReceipt=async(previousEpoch)=> {
