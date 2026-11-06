@@ -811,7 +811,8 @@
 
   async function restoreRecoveryRecord(
     record: any,
-    memory = getActiveWorldEditorMemory()
+    memory = getActiveWorldEditorMemory(),
+    expectedSourceEpoch: number | null = null
   ) {
     if (!record || !memory) {
       recoveryRequest = record;
@@ -837,13 +838,19 @@
     }
 
     await ensureSwitchDraftBindings();
+    // A pending import must not restore an older draft after a newer
+    // source has been selected while the bindings were being loaded.
+    if (expectedSourceEpoch !== null && worldSourceEpoch !== expectedSourceEpoch) {
+      return false;
+    }
     const route =
       record.routes?.[record.activeRouteKey] ?? null;
     if (!route?.session?.document) {
       throw new Error('WEP_RECOVERY_ACTIVE_ROUTE_MISSING');
     }
 
-    worldSourceEpoch += 1;
+    // File intake already advanced the generation; direct recovery advances it here.
+    if (expectedSourceEpoch === null) worldSourceEpoch += 1;
     worldSource = memory.worldSource;
     worldSourceBytes = memory.sourceBytes.slice();
     originalSaveBackup = memory.originalSaveBackup;
@@ -2445,6 +2452,13 @@
 
     loading = true;
     worldSourceEpoch += 1;
+    const importEpoch = worldSourceEpoch;
+    const isCurrentImport = () => importEpoch === worldSourceEpoch;
+    // Freeze user-selected storage provenance at the initiating file event.
+    // It cannot be changed to assert a build during an asynchronous read.
+    const importPlatform = sourcePlatform;
+    const importBid = sourceBuildId.trim().toUpperCase();
+    const importProvenance = sourceProvenanceConfirmed;
     // Revoke the previous source receipt and its actions before the first
     // asynchronous file read. A new file must never inherit stale counts or
     // an old Editor session while its own source is still unverified.
@@ -2484,7 +2498,9 @@
 
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
+      if (!isCurrentImport()) return;
       const fingerprint = await sha256Fingerprint(bytes);
+      if (!isCurrentImport()) return;
       let parsed: any = null;
 
       try {
@@ -2531,30 +2547,35 @@
             : t('worldEditor.open.editorDocumentRealLoaded', {}, $locale);
       } else {
         const opened = await openWorldSaveBytes(bytes, {
-          sourcePlatform,
-          targetBuild: sourcePlatform === 'switch' ? {
-            platform: 'switch', kind: 'switch-bid', value: sourceBuildId.trim().toUpperCase()
+          sourcePlatform: importPlatform,
+          targetBuild: importPlatform === 'switch' ? {
+            platform: 'switch', kind: 'switch-bid', value: importBid
           } : null,
-          sourceEvidence: sourcePlatform === 'switch' && sourceProvenanceConfirmed ? WEP_WORLD_READONLY_626_PROVENANCE : null
+          sourceEvidence: importPlatform === 'switch' && importProvenance ? WEP_WORLD_READONLY_626_PROVENANCE : null
         });
-        originalSaveBackup = createOriginalSaveBackup({
+        if (!isCurrentImport()) return;
+        const nextOriginalSaveBackup = createOriginalSaveBackup({
           bytes,
           sourceName: file.name
         });
         if (opened.compatibility.routesAuthorized && opened.saveIdentity.sourcePlatform === 'switch') {
-          buildingV110Binding ??=
-            await createSwitchV125BuildingBinding({
-              basePath: base
-            });
-          scroogeStoreV112Binding ??=
-            await createSwitchV125ScroogeStoreBinding({
-              basePath: base
-            });
-          progressionV114Binding ??=
-            await createSwitchV125ProgressionIntegrationBinding({
-              basePath: base
-            });
+          // Build static bindings off-state. Late completions must not commit
+          // previous file state, even when they finish after a newer import.
+          const nextBuildingBinding = buildingV110Binding ??
+            await createSwitchV125BuildingBinding({ basePath: base });
+          if (!isCurrentImport()) return;
+          const nextStoreBinding = scroogeStoreV112Binding ??
+            await createSwitchV125ScroogeStoreBinding({ basePath: base });
+          if (!isCurrentImport()) return;
+          const nextProgressionBinding = progressionV114Binding ??
+            await createSwitchV125ProgressionIntegrationBinding({ basePath: base });
+          if (!isCurrentImport()) return;
+          buildingV110Binding = nextBuildingBinding;
+          scroogeStoreV112Binding = nextStoreBinding;
+          progressionV114Binding = nextProgressionBinding;
         }
+        if (!isCurrentImport()) return;
+        originalSaveBackup = nextOriginalSaveBackup;
 
         session = null;
         editorDocument = null;
@@ -2611,7 +2632,8 @@
             worldSource: opened,
             originalSaveBackup,
             activeDraftRecord: null
-          });
+          }, importEpoch);
+          if (!isCurrentImport()) return;
         } else if (opened.compatibility.readOnly) {
           message = opened.saveIdentity.sourcePlatform === 'steam-windows'
             ? readonly626Copy.steamViewing : readonly626Copy.viewing;
@@ -2627,6 +2649,8 @@
         }
       }
     } catch (error) {
+      // An older failing decode must not clear the latest successful source.
+      if (!isCurrentImport()) return;
       session = null;
       editorDocument = null;
       worldSource = null;
@@ -2656,8 +2680,12 @@
         : errorCode.startsWith('WEP_WORLD_626_READ_CONTRACT') || errorCode === 'WEP_WORLD_PROFILE_SCHEMA_UNSUPPORTED' || errorCode === 'WEP_WORLD_626_PACKAGED_SOURCE_REQUIRED'
           ? readonly626Copy.unsupported + ' — ' + errorCode : errorCode;
     } finally {
-      loading = false;
-      input.value = '';
+      // An older completion must not hide the newest file's loading state or
+      // clear its input while that request is still pending.
+      if (isCurrentImport()) {
+        loading = false;
+        input.value = '';
+      }
     }
   }
 
