@@ -1,7 +1,7 @@
 //! R04 opt-in wasm-bindgen adapter. Only callable inside trusted Worker glue.
 //! Max 1 MiB chunks: NEVER transport 100-200 MiB decoded JSON through UI.
-use crate::{BuildIdentity,BuildKind,Platform,ProductSession,WorkerAction,WorkerEnvelope,
-            PRODUCT_WORKER_CONTRACT};
+use crate::{worker_session::WorkerSessionGuard,BuildIdentity,BuildKind,Platform,
+            ProductSession,WorkerAction,WorkerEnvelope,PRODUCT_WORKER_CONTRACT};
 use wasm_bindgen::prelude::*;
 const MAX_CHUNK:usize=1024*1024;
 const MAX_WORKER_DOCUMENT:usize=128*1024*1024;
@@ -26,7 +26,7 @@ pub struct WorkerWasmSource {
     buffer:Vec<u8>,
     build:BuildIdentity,
     entropy:[u8;32],
-    session:Option<ProductSession>,
+    session:Option<WorkerSessionGuard>,
     closed:bool,
 }
 #[wasm_bindgen]
@@ -72,8 +72,9 @@ impl WorkerWasmSource {
         self.closed=true;
         let session=ProductSession::open_decoded_in_worker(bytes,self.build.clone(),seed)
             .map_err(|e|err(e.0))?;
-        let receipt=session.receipt().map_err(|e|err(e.0))?;
-        self.session=Some(session);
+        let guard=WorkerSessionGuard::attach(session);
+        let receipt=guard.receipt().map_err(|e|err(e.0))?;
+        self.session=Some(guard);
         Ok(serde_json::json!({
             "contract":receipt.contract,
             "sessionId":hex(&receipt.session_id),
@@ -111,9 +112,23 @@ impl WorkerWasmSource {
     }
     pub fn close(&mut self)->Result<(),JsValue>{
         self.closed=true;self.buffer.clear();self.entropy.fill(0);
-        if let Some(session)=self.session.take(){
+        if let Some(mut session)=self.session.take(){
             session.close().map_err(|e|err(e.0))?;
         }
         Ok(())
+    }
+}
+
+// wasm-bindgen's JS .free()/GC owner drop must revoke outstanding Rust
+// session handles even when the Worker omits an explicit CLOSE message.
+impl Drop for WorkerWasmSource {
+    fn drop(&mut self) {
+        self.closed=true;
+        self.buffer.fill(0);
+        self.buffer.clear();
+        self.entropy.fill(0);
+        if let Some(mut guard)=self.session.take() {
+            let _=guard.close();
+        }
     }
 }
