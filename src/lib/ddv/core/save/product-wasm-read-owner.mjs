@@ -99,7 +99,7 @@ export function createProductWasmReadOwner(wasmFactory){
      fail('PRODUCT_WORKER_SCOPE_CAS');
    let result;
    try{result=JSON.parse(a.wasm.read_core_version_witness(scope.sessionId,
-          scope.revision,scope.indexGeneration,scope.decodedSha256))}
+          BigInt(scope.revision),BigInt(scope.indexGeneration),scope.decodedSha256))}
    catch{fail('PRODUCT_WORKER_RUST_READ_REJECTED')}
    if(!isPlain(result)||result.sessionId!==a.receipt.sessionId||
        result.revision!==0||result.indexGeneration!==1||
