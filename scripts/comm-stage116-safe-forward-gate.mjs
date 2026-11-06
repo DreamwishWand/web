@@ -58,7 +58,10 @@ function isPlainRecord(x) {
 export function assessRecordedStage116(observation, options = {}) {
   if (!isPlainRecord(observation) || !isPlainRecord(options)) {
     return Object.freeze({ status:'HOLD_INVALID_INPUT', mismatchedFields:['observation'],
-      mayGenerateSql:false, mayDeploy:false, mayMerge:false, writerEnabled:false });
+      mayGenerateSql:false, mayApplyMigration:false, mayDeploy:false, mayMerge:false,
+      writerEnabled:false, communityPublicEnabled:false, providerEnabled:false,
+      original82RawBootstrapPass:false, stageEquivalentClonePass:false,
+      fullSignedGoTrueTwoPgPass:false, rollbackProven:false });
   }
   const mismatchedFields = IDENTITY_FIELDS.filter(key =>
     !Object.hasOwn(observation,key) || observation[key] !== STAGE116_RECORDED[key]);
