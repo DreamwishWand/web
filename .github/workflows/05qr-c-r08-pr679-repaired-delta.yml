@@ -1,0 +1,47 @@
+name: 05 QR-C R08 PR679 repaired own-index Q08 independent delta
+on:
+  push:
+    branches:
+      - qa/05qrc-r08-pr679-own-index-repair-20261106
+  pull_request:
+    paths:
+      - 'src/lib/ddv/core/items/item-semantics-contract.mjs'
+      - 'tests/05qr-c-r08-pr679-own-index-repair-newonly.test.mjs'
+      - '.github/workflows/05qr-c-r08-pr679-repaired-delta.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-q08-repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Freeze repaired Source and only new QA change, not unrelated main merge files
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            qa_tip="$(git rev-parse HEAD^2)"
+          else
+            qa_tip="$(git rev-parse HEAD)"
+          fi
+          git merge-base --is-ancestor 18c14b1f723023a0f20cb55ad3c4c3dc01b78b0c "$qa_tip"
+          test "$(git rev-parse "$qa_tip":src/lib/ddv/core/items/item-semantics-contract.mjs)" = 4943280ba85c244f20f212aa85a8711b1ca49a75
+          test "$(git rev-parse "$qa_tip":tests/ddv-core-item-semantics-overlay-contract.test.mjs)" = b5e4994b616c26485e786da31c4a5eecd91517e3
+          test "$(git diff --name-only 18c14b1f723023a0f20cb55ad3c4c3dc01b78b0c "$qa_tip" | sort)" = "$(printf '%s\n' .github/workflows/05qr-c-r08-pr679-repaired-delta.yml tests/05qr-c-r08-pr679-own-index-repair-newonly.test.mjs | sort)"
+      - name: Q08 repaired inherited getter phantom and own/malformed boundary
+        run: node --test tests/05qr-c-r08-pr679-own-index-repair-newonly.test.mjs
+      - name: Private Save and Writer promotion prohibited
+        shell: bash
+        run: |
+          set -euo pipefail
+          if find . -type f -iname 'steam_*.zip' -print -quit | grep -q .; then
+            echo "Private Save fixture prohibited"; exit 1
+          fi
+          ! grep -E 'ITEM_WRITER_ENABLED = true|ITEM_PERSONAL_OVERLAY_ENABLED = true' src/lib/ddv/core/items/item-semantics-contract.mjs
