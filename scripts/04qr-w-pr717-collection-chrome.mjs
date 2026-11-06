@@ -36,16 +36,17 @@ try{
  const idTwo=await two.getAttribute('data-stage1-item-id');
  assert.notEqual(idOne,idTwo);
  await one.scrollIntoViewIfNeeded();
+ await one.focus();
  const scrollBefore=await page.evaluate(()=>scrollY);
  assert.ok(scrollBefore>0,'deep-card fixture must scroll below first fold');
- await one.focus();
  await page.keyboard.press('Enter');
  await waitInfo();
  await close().focus();
  await page.keyboard.press('Enter');
  await noInfo();
  await page.waitForFunction(id=>document.activeElement?.getAttribute('data-stage1-item-id')===id,idOne);
- assert.ok(Math.abs((await page.evaluate(()=>scrollY))-scrollBefore)<=4,'scroll returned to deep origin');
+ await page.waitForFunction(y=>Math.abs(window.scrollY-y)<=4,scrollBefore,{timeout:7000});
+ assert.ok(Math.abs((await page.evaluate(()=>scrollY))-scrollBefore)<=4,'scroll returned to keyboard-selected deep origin');
  assert.equal(await cards().count(),total,'item category/page survives Info close');
  console.log('QR717_CHROME_DEEP_KEYBOARD_ORIGIN_SCROLL_AND_FOCUS_PASS');
 
