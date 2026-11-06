@@ -1,0 +1,76 @@
+name: "04 QR-W PR726 independent internal Community Lab noindex source/Chrome"
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/04qr-w-pr726-lab-independent.yml"
+      - "tests/04qr-w-pr726-lab-independent.test.mjs"
+      - "scripts/04qr-w-pr726-lab-chrome.mjs"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-source-and-local-pages:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Independent exact Source4 immutable + only one meta, inherited child and Provider Gate negatives
+        run: node --test tests/04qr-w-pr726-lab-independent.test.mjs
+      - run: npm ci --no-audit --no-fund
+      - run: npm run check
+      - name: Local static /web prerender only, NO deploy or hosted HTTP claim
+        env:
+          BASE_PATH: /web
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+          for p in community-lab/index.html community-lab/account/index.html community-lab/profiles/index.html community-lab/recovery/index.html community-ops/index.html index.html 404.html; do
+            test -s "build/$p" || { echo "QR726_MISSING_LOCAL_ROUTE $p"; exit 1; }
+          done
+          grep -Eq 'name="robots" content="noindex,nofollow"' build/community-lab/index.html
+          echo "QR726_LOCAL_STATIC_ROOT_CHILDREN_OPS_RETAINED_PASS"
+      - name: No tracked product file modification by independent QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=no)"
+  independent-installed-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Start disposable localhost app, no credentials and no private Save
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          BASE_PATH="" npm run dev -- --host 127.0.0.1 --port 4296 >/tmp/04qr-lab726.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4296/community-lab/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/04qr-lab726.log
+          exit 1
+      - name: Installed Chrome new-only anonymous/noindex, forged query, eight locales, 320/200 keyboard and children
+        env:
+          QR726_URL: http://127.0.0.1:4296
+        run: node scripts/04qr-w-pr726-lab-chrome.mjs
