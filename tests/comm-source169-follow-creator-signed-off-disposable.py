@@ -99,8 +99,8 @@ try:
         ):
             assert scalar(pre,"select has_function_privilege('service_role',%s,'EXECUTE')",(sig,)),sig
         mark("SOURCE169_FOLLOW_CREATOR_THREE_ROLE_SQL_EXECUTE_OFF",
-             signedR16WorkspaceAndFollowPositiveGrantsIntact=True,
-             earlierRetiredSource164_167RemainOff=True)
+             signedR16WorkspaceGrantsIntact=True,
+             earlierRetiredSource164_168RemainOff=True)
         # DB owner seeds one pre-existing Follow/Outbox. Source169 denies
         # external followCreator; do not enable retired Writer for fixture.
         result=scalar(pre,"select public.community_follow_creator(%s,%s)",(actor,targets[0]))
@@ -146,7 +146,7 @@ try:
         assert status==200,("A2_SIBLING_NOT_200",status)
         for token in (a1,jwt):
             status,_=edge(token,targets[1])
-            assert status==401,("REVOKED_UNFOLLOW_EDGE_NOT_401",status)
+            assert status==401,("REVOKED_FOLLOW_EDGE_NOT_401",status)
         for _ in range(5):
             assert direct("service_role",targets[1])=="42501"
         assert (snapshot(),outbox())==baseline,"POSTREVOKE_FOLLOW_ROWS_CHANGED"
@@ -164,7 +164,7 @@ try:
         assert not scalar(writer,"select has_function_privilege('service_role',%s,'EXECUTE')",(signature,))
         assert (snapshot(),outbox())==baseline
         mark("SOURCE169_TEMP_GRANT_TWO_PG_ROLLBACK_DENIED",
-             uncommittedGrantInvisible=True,followRowsUnchanged=True,SQLRoleStillOff=True)
+             uncommittedGrantInvisible=True,followOutboxUnchanged=True,SQLRoleStillOff=True)
 finally:
     for sub in others:
         try:req("/auth/v1/admin/users/"+str(sub),method="DELETE",service=True)
