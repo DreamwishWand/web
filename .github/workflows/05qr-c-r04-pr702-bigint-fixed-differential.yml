@@ -1,0 +1,56 @@
+name: 05 QR-C R04 PR702 repaired JS WASM BigInt new-only
+on:
+  push:
+    branches:
+      - qa/05qrc-r04-pr702-bigint-repair-20261106
+  pull_request:
+    paths:
+      - 'src/lib/ddv/core/save/product-wasm-read-owner.mjs'
+      - 'src/lib/ddv/core/save/product-wasm-read-owner.d.mts'
+      - 'crates/ddv-save-core/src/wasm_worker.rs'
+      - 'tests/05qr-c-r04-pr702-bigint-fixed-differential.test.mjs'
+      - '.github/workflows/05qr-c-r04-pr702-bigint-fixed-differential.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-r04-fixed-glue:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin corrected PR702 exact9 blobs and QA-only two-file delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            qa_tip="$(git rev-parse HEAD^2)"
+          else
+            qa_tip="$(git rev-parse HEAD)"
+          fi
+          git merge-base --is-ancestor 2a4531f8e66abc036633ef256d2353a8190495cd "$qa_tip"
+          test "$(git rev-parse "$qa_tip":.github/workflows/core-product-session-boundary.yml)" = 50c9258a7c96cb3138afca5adba260f228e4d499
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/Cargo.toml)" = 68053271e56af56ce328c303c377fc3c38c49857
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/lib.rs)" = 73e636340bc97590e168446aecad37d2ca1d6cf2
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/product_session.rs)" = 39380e77350a2928047aee6e4b73eee2a99c0d34
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/wasm_worker.rs)" = 5b469b80f4107acbaf7ca79e26112cf891d4dbab
+          test "$(git rev-parse "$qa_tip":docs/core/01a-product-wasm-worker-r04-20261106.md)" = 35ffd4d73ab7f4b0cbd24a6a3dd9b534dcce6a0f
+          test "$(git rev-parse "$qa_tip":src/lib/ddv/core/save/product-wasm-read-owner.d.mts)" = 295ad8f3cc6e7f0cd7b60cbe1be431a4f1d80218
+          test "$(git rev-parse "$qa_tip":src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = adf80e26ac417b3d40f8dc93527bd152200823e4
+          test "$(git rev-parse "$qa_tip":tests/product-wasm-read-owner.test.mjs)" = bd6b0f912f4852783e93fa3ceffc1a4b63e25f59
+          test "$(git diff --name-only 2a4531f8e66abc036633ef256d2353a8190495cd "$qa_tip" | sort)" = "$(printf '%s\n' .github/workflows/05qr-c-r04-pr702-bigint-fixed-differential.yml tests/05qr-c-r04-pr702-bigint-fixed-differential.test.mjs | sort)"
+      - name: Independent Q01 BigInt repair and adjacent strict CAS changed-risk
+        run: node --test tests/05qr-c-r04-pr702-bigint-fixed-differential.test.mjs
+      - name: No private Save or Writer promotion in public QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          if find . -type f -iname 'steam_*.zip' -print -quit | grep -q .; then
+            echo 'Private Save forbidden in public CI'; exit 1
+          fi
+          ! grep -E 'PRODUCT_WORKER_WRITER_ENABLED = true|canOriginalOverwrite:true' src/lib/ddv/core/save/product-wasm-read-owner.mjs
