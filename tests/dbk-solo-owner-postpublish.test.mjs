@@ -143,3 +143,44 @@ test("existing 8-language game-art packet stays OFF, unreviewed and without inve
  assert.equal(Object.keys(existing.locales).length,8);
  assert.ok(Object.values(existing.locales).every(x=>x.humanReviewed===false));
 });
+
+test("source QA661 regression: editorial correction requires valid changed revision in closure receipt",()=>{
+ const plan=planSoloOwnerIssue(issue);
+ const base={
+  issueRef:plan.issueRef,entityRef:plan.entityRef,observedRevision:plan.observedRevision,
+  ownerDispositionVerified:true,privateEvidenceRef:"SYNTHETIC-DISPOSITION",
+  publicGetAndCacheChecked:true,hostEvidenceRef:"SYNTHETIC-HTTP",
+  rollbackReconciled:true,rollbackEvidenceRef:"SYNTHETIC-ROLLBACK"
+ };
+ for (const invalid of [undefined,null,"",{},[],42,"bad/unsafe",plan.observedRevision]) {
+   const result=verifySoloOwnerCaseClosure(plan,{...base,sourceRevisionAfter:invalid});
+   assert.equal(result.readyForHumanRecordReview,false,"invalid new revision accepted: "+JSON.stringify(invalid));
+   assert.equal(result.publicReleaseAuthorized,false);
+   assert.ok(result.reasons.includes(
+      invalid===plan.observedRevision?"CORRECTION_REVISION_NOT_ADVANCED":"CORRECTION_REVISION_INVALID_OR_MISSING"));
+ }
+ const safe=verifySoloOwnerCaseClosure(plan,{...base,sourceRevisionAfter:"REV-SYNTHETIC-NEW"});
+ assert.equal(safe.readyForHumanRecordReview,true);
+ assert.equal(safe.publicReleaseAuthorized,false);
+ assert.equal(safe.operatorActionPerformed,false);
+ // The unchanged, previously accepted sensitive-quarantine case may close
+ // without a new content revision once removal is separately evidenced.
+ const rights=planSoloOwnerIssue({...issue,type:"RIGHTS_NOTICE"});
+ assert.equal(verifySoloOwnerCaseClosure(rights,{
+  ...base,quarantineVerified:true,quarantineEvidenceRef:"SYNTHETIC-QUARANTINE"
+ }).readyForHumanRecordReview,true);
+});
+
+test("source QA661 regression: Creator Work requires explicit media provenance classification",()=>{
+ for(const missing of [undefined,null,"",0,"false",{},[]]){
+  const candidate={...owner,kind:"CREATOR_WORK",thirdPartyCreatorMedia:missing};
+  const result=planSoloOwnerEditorialReview(candidate);
+  assert.equal(result.eligible,false,"unknown classification accepted: "+JSON.stringify(missing));
+  assert.ok(result.reasons.includes("CREATOR_MEDIA_PROVENANCE_UNCLASSIFIED"));
+  assert.equal(result.publicationAuthorization,"NOT_GRANTED");
+ }
+ const self={...owner,kind:"CREATOR_WORK",thirdPartyCreatorMedia:false};
+ assert.equal(planSoloOwnerEditorialReview(self).eligible,true);
+ assert.equal(planSoloOwnerEditorialReview({...self,thirdPartyCreatorMedia:true,creatorConsentVerified:false}).eligible,false);
+ assert.equal(planSoloOwnerEditorialReview({...self,thirdPartyCreatorMedia:true,creatorConsentVerified:true}).eligible,true);
+});
