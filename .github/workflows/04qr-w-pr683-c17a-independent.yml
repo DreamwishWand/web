@@ -1,0 +1,57 @@
+name: "04 QR-W PR683 c17a independent latest-import wins"
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/04qr-w-pr683-c17a-independent.yml"
+      - "scripts/04qr-w-pr683-c17a-chrome.mjs"
+      - "tests/04qr-w-pr683-c17a-independent.test.mjs"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Frozen original six Source blobs / C17A post-await epoch and backup negatives
+        run: node --test tests/04qr-w-pr683-c17a-independent.test.mjs
+  independent-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Start localhost WEP no private Save/no credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          BASE_PATH="" npm run dev -- --host 127.0.0.1 --port 4299 >/tmp/qr683-c17a.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4299/editor/world/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr683-c17a.log
+          exit 1
+      - name: Real installed Chrome NEW_ONLY Q03 both race orders, stale error and 8locale mobile zoom no offsite
+        env:
+          QR683_C17A_URL: http://127.0.0.1:4299
+        run: node scripts/04qr-w-pr683-c17a-chrome.mjs
