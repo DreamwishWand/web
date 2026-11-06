@@ -58,6 +58,79 @@ test('synthetic exact Switch schema626 packaged source: structural read only, no
   assert.equal(opened.saveIdentity.sourceLastSaveRelationship, 'DIFFERENT_CROSS_SAVE_POSSIBLE');
 });
 
+test('Steam schema626 packaged V1 local receipt is structurally inspectable but NEVER product read accepted', async () => {
+  const source = raw.slice();
+  const opened = await openWorldSaveBytes(source, { sourcePlatform: 'steam-windows' });
+  assert.deepEqual(source, raw, 'original synthetic P1G bytes remain unchanged');
+  assert.equal(opened.inputFormat, 'packaged');
+  assert.equal(opened.profileSchemaVersion, 626);
+  assert.equal(opened.saveIdentity.sourcePlatform, 'steam-windows');
+  assert.equal(opened.compatibility.readContract, 'wep-steam626-local-structural-inspection-only@1');
+  assert.equal(opened.compatibility.exactBuildKnown, false);
+  assert.equal(opened.compatibility.productionReadAccepted, false);
+  assert.equal(opened.compatibility.readOnly, true);
+  for (const capability of [
+    'routesAuthorized','editingAuthorized','verifiedReplacementCandidateAuthorized',
+    'productApplyAuthorized','persistentWriteAuthorized'
+  ]) assert.equal(opened.compatibility[capability], false, capability);
+  assert.deepEqual(opened.areas, []);
+  assert.deepEqual(opened.floatingIslands, []);
+  assert.equal(opened.structuralDiagnostics.villageCount, 1);
+  assert.equal(opened.structuralDiagnostics.areaRecordCount, 1);
+  assert.equal(opened.structuralDiagnostics.gridRecordCount, 1);
+  assert.equal(opened.structuralDiagnostics.gridObjectEntryCount, 1);
+  assert.ok(opened.structuralDiagnostics.notes.includes('WEP_STEAM626_FULLVERSION_UNKNOWN'));
+  assert.deepEqual(opened.profile.FutureRoot, profile626.FutureRoot);
+});
+
+test('Steam schema626 cross-save last device Switch is NOT Steam build proof', async () => {
+  const crossSave = structuredClone(profile626);
+  crossSave.GameInfo.LastSaveDeviceInfo.deviceType = 'DeviceType_Switch';
+  const opened = await openWorldSaveBytes(makeSyntheticP1gProfile(crossSave), { sourcePlatform: 'steam-windows' });
+  assert.equal(opened.saveIdentity.sourceLastSaveRelationship, 'DIFFERENT_CROSS_SAVE_POSSIBLE');
+  assert.equal(opened.compatibility.exactBuildKnown, false);
+  assert.equal(opened.compatibility.productionReadAccepted, false);
+});
+
+test('Steam raw structural missing/malformed Areas or Objects is UNKNOWN rather than zero', async () => {
+  const missing = structuredClone(profile626);
+  delete missing.World.Villages[0].Areas;
+  delete missing.World.GridCollection.Grids['7'].Objects;
+  const unknown = await openWorldSaveBytes(makeSyntheticP1gProfile(missing), { sourcePlatform: 'steam-windows' });
+  assert.equal(unknown.structuralDiagnostics.areaRecordCount, null);
+  assert.equal(unknown.structuralDiagnostics.gridObjectEntryCount, null);
+  assert.equal(unknown.compatibility.routesAuthorized, false);
+  const empty = structuredClone(profile626);
+  empty.World.Villages[0].Areas = {};
+  empty.World.GridCollection.Grids['7'].Objects = {};
+  const explicitZero = await openWorldSaveBytes(makeSyntheticP1gProfile(empty), { sourcePlatform: 'steam-windows' });
+  assert.equal(explicitZero.structuralDiagnostics.areaRecordCount, 0);
+  assert.equal(explicitZero.structuralDiagnostics.gridObjectEntryCount, 0);
+});
+
+test('Steam schema626 rejects plain JSON, fabricated target build and external Switch evidence', async () => {
+  await assert.rejects(
+    () => openWorldSaveBytes(new TextEncoder().encode(JSON.stringify(profile626)), { sourcePlatform: 'steam-windows' }),
+    /WEP_WORLD_626_PACKAGED_SOURCE_REQUIRED/
+  );
+  const forgedSteam = {
+    sourcePlatform: 'steam-windows',
+    targetBuild: { platform:'steam-windows', kind:'steam-full-version',
+      value:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22' }
+  };
+  await assert.rejects(() => openWorldSaveBytes(raw, forgedSteam), /EXTERNAL_SOURCE_VERIFICATION_REQUIRED/);
+  await assert.rejects(
+    () => openWorldSaveBytes(raw, { sourcePlatform:'steam-windows', sourceEvidence:WEP_WORLD_READONLY_626_PROVENANCE }),
+    /EXTERNAL_SOURCE_VERIFICATION_REQUIRED/
+  );
+  const broken = structuredClone(profile626);
+  delete broken.World;
+  await assert.rejects(
+    () => openWorldSaveBytes(makeSyntheticP1gProfile(broken), { sourcePlatform:'steam-windows' }),
+    /REQUIRED_SECTIONS_MISSING/
+  );
+});
+
 const negative = [
   ['missing provenance', { ...accepted, sourceEvidence: null }, /EXTERNAL_SOURCE_VERIFICATION_REQUIRED/],
   ['unknown source', { ...accepted, sourcePlatform: 'unknown' }, /EXTERNAL_SOURCE_VERIFICATION_REQUIRED/],
@@ -108,7 +181,7 @@ test('eight language copies present and no source save is embedded in test', asy
   const { WORLD_READONLY_COPY_LOCALES, worldReadonlyCopy } = await import('../src/lib/wep/world-readonly-copy.js');
   assert.deepEqual([...WORLD_READONLY_COPY_LOCALES].sort(), ['de', 'en', 'es-ES', 'fr', 'it', 'ja', 'pt-BR', 'zh-CN'].sort());
   for (const id of WORLD_READONLY_COPY_LOCALES) {
-    for (const key of ['build','proof','proofHint','viewing','editing','source','unsupported','diagnostic','village','area','grids','boundary','retry']) {
+    for (const key of ['build','proof','proofHint','viewing','editing','source','unsupported','diagnostic','village','area','grids','gridObjects','subgrid','unknown','steamViewing','steamProof','steamBoundary','steamPreview','boundary','retry']) {
       assert.ok(worldReadonlyCopy(id)[key]?.length > 2, id + ':' + key);
     }
   }
