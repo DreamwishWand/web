@@ -10,6 +10,7 @@ on:
     branches:
       - 'core/product-single-session-abi-*'
       - 'core/product-worker-wasm-read-boundary-*'
+      - 'core/product-stageb-synthetic-cas-*'
   workflow_dispatch:
 permissions:
   contents: read
@@ -27,6 +28,8 @@ jobs:
         run: cargo fmt --manifest-path crates/ddv-save-core/Cargo.toml --all
       - name: Rust native negative and lifecycle tests
         run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --all-targets --verbose
+      - name: Synthetic-only CAS/Atomic/Undo/Backup/EditedCopy/fresh-process Reopen negatives
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features synthetic-stage-b --all-targets --verbose
       - name: Rust wasm32 ABI compilation (no UI/bundle assumption)
         run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --features worker-wasm
       - name: Worker-side mock WASM read-only negative tests
