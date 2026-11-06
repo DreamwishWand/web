@@ -1,0 +1,42 @@
+name: 05 QR-C R08 PR679 independent present malformed vs absent QA
+on:
+  push:
+    branches:
+      - qa/05qrc-r08-pr679-presence-boundary-20261106
+  pull_request:
+    paths:
+      - src/lib/ddv/core/items/item-semantics-contract.mjs
+      - tests/ddv-core-item-semantics-overlay-contract.test.mjs
+      - tests/05qr-c-r08-pr679-presence-boundary.test.mjs
+      - .github/workflows/qa-r08-pr679-presence-boundary.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-r08-source-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Freeze original PR679 Source ancestry and Git blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 63969b7169dd9d713dcc189e52e2c3b0e0c5b97d HEAD
+          test "$(git rev-parse HEAD:src/lib/ddv/core/items/item-semantics-contract.mjs)" = "27d50015056f55cb60f3e01ad712e0a63e408f63"
+          test "$(git rev-parse HEAD:tests/ddv-core-item-semantics-overlay-contract.test.mjs)" = "291553ed574fa5bb42faa2f180c8103ab5fae24d"
+          test "$(git diff --name-only 63969b7169dd9d713dcc189e52e2c3b0e0c5b97d HEAD | sort)" = "$(printf '%s\n' .github/workflows/qa-r08-pr679-presence-boundary.yml tests/05qr-c-r08-pr679-presence-boundary.test.mjs | sort)"
+      - name: New-only synthetic eight adversarial cases
+        run: node --test tests/05qr-c-r08-pr679-presence-boundary.test.mjs
+      - name: Ensure Writer / private Steam fixture never enters QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          if find . -type f -iname 'steam_*.zip' -print -quit | grep -q .; then
+            echo "Private save fixture forbidden in public QA"; exit 1
+          fi

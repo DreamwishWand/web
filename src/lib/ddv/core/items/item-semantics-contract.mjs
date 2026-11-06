@@ -132,9 +132,13 @@ export function inspectCollectionSaveFlag({profile, identity, definitionId, grou
   if (!Array.isArray(match.GroupData) || match.GroupData.length>257)
     return denied('COLLECTION_GROUP_DATA_UNVERIFIED');
   const group=match.GroupData[groupIndex];
-  if (!object(group) || !object(group.GroupsCollectionItems))
+  // Missing group is distinct from a present, malformed native group record.
+  // A malformed record must not masquerade as game-side ABSENT.
+  if (group===undefined && !Object.hasOwn(match.GroupData,groupIndex))
     return Object.freeze({...base(target,false),collectionDefinitionId:definitionId,
       groupIndex,itemId,rawFlag:'ABSENT_GROUP'});
+  if (!object(group) || !object(group.GroupsCollectionItems))
+    return denied('COLLECTION_GROUP_RECORD_OR_ITEMS_MALFORMED');
   if (group.GroupIndex !== undefined && group.GroupIndex !== groupIndex)
     return denied('COLLECTION_GROUP_INDEX_CONFLICT');
   const items=group.GroupsCollectionItems;
@@ -156,10 +160,14 @@ export function inspectInventoryAmount({profile, identity, inventoryId, canonica
     return denied('CANONICAL_INVENTORY_ROUTE_NOT_SPECIFIED');
   const all=profile.Player.ListInventories;
   if (!object(all)) return denied('LIST_INVENTORIES_MISSING');
-  const inv=all[key(inventoryId)];
-  if (!object(inv) || !object(inv.Inventory))
+  // Absent inventory is not a corrupted PRESENT inventory with missing
+  // Inventory map. No coercion of malformed source shape into empty stock.
+  if (!Object.hasOwn(all,key(inventoryId)))
     return Object.freeze({...base(target,false),inventoryId,canonicalItemId,
       rawAmount:null, rawEntry:'ABSENT_INVENTORY'});
+  const inv=all[key(inventoryId)];
+  if (!object(inv) || !object(inv.Inventory))
+    return denied('INVENTORY_RECORD_OR_ITEMS_MALFORMED');
   if (inv.CompatibleItemType!==compatibleItemType)
     return denied('INVENTORY_COMPATIBLE_ITEM_TYPE_MISMATCH');
   if (!Object.hasOwn(inv.Inventory,key(canonicalItemId)))
