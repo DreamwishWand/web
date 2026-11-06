@@ -122,18 +122,41 @@ try {
   await localeSelect.waitFor({state:'hidden'});
   pass('STEAM626_EIGHT_LOCALES_VISIBLE_SETTINGS_KEYBOARD');
 
+  // A visible panel from an earlier fixture is NOT evidence that the new
+  // asynchronous import finished. An opaque epoch is assigned to the newly
+  // committed source receipt, without exposing original Save bytes or hashes.
+  const activeSourceEpoch=async()=> {
+    const value=Number(await panel.getAttribute('data-wep-source-epoch'));
+    assert.ok(Number.isSafeInteger(value)&&value>0,'active source receipt epoch required');
+    return value;
+  };
+  const awaitFreshReceipt=async(previousEpoch)=> {
+    await page.waitForFunction(previous=>{
+      const current=document.querySelector('.save-source-browser[data-wep-source-epoch]');
+      if(!current) return false;
+      const epoch=Number(current.getAttribute('data-wep-source-epoch'));
+      return Number.isSafeInteger(epoch)&&epoch>previous;
+    },previousEpoch,{timeout:15000});
+    await steamLimited.waitFor({state:'visible'});
+  };
+  const firstEpoch=await activeSourceEpoch();
   const missing=structuredClone(profile626);
   delete missing.World.Villages[0].Areas;
   delete missing.World.GridCollection.Grids['10'].Objects;
   await upload(page,Buffer.from(makeSyntheticP1gProfile(missing)));
-  await steamLimited.waitFor({state:'visible'});
+  await awaitFreshReceipt(firstEpoch);
   assert.equal((await page.locator('[data-wep-626-gridobject-entries] dd').innerText()).trim(),'UNKNOWN');
+  assert.equal((await page.locator('[data-wep-626-readonly] dd').nth(1).innerText()).trim(),'UNKNOWN');
+  const secondEpoch=await activeSourceEpoch();
+  assert.ok(secondEpoch>firstEpoch,'missing fixture must replace prior receipt');
   const empty=structuredClone(profile626);
   empty.World.Villages[0].Areas={};
   empty.World.GridCollection.Grids['10'].Objects={};
   await upload(page,Buffer.from(makeSyntheticP1gProfile(empty)));
-  await steamLimited.waitFor({state:'visible'});
+  await awaitFreshReceipt(secondEpoch);
   assert.equal((await page.locator('[data-wep-626-gridobject-entries] dd').innerText()).trim(),'0');
+  assert.equal((await page.locator('[data-wep-626-readonly] dd').nth(1).innerText()).trim(),'0');
+  pass('STEAM626_NEW_RECEIPT_EPOCH_REVOKES_PRIOR_VALUE');
   pass('STEAM626_MISSING_UNKNOWN_VS_EXPLICIT_EMPTY_ZERO');
 
   await page.setViewportSize({width:320,height:740});
