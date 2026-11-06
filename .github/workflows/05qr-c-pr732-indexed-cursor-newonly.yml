@@ -1,0 +1,57 @@
+name: 05 QR-C PR732 Stage C indexed cursor independent new-only
+on:
+  push:
+    branches:
+      - qa/05qrc-pr732-indexed-cursor-newonly-20261107
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/**'
+      - '.github/workflows/05qr-c-pr732-indexed-cursor-newonly.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-stage-c:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Freeze seven original Source blobs and two QA-only paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            qa_tip="$(git rev-parse HEAD^2)"
+          else
+            qa_tip="$(git rev-parse HEAD)"
+          fi
+          git merge-base --is-ancestor b7b8847c8f55ed7efe5e01eaf27cee7067874ea1 "$qa_tip"
+          test "$(git rev-parse "$qa_tip":.github/workflows/core-product-session-boundary.yml)" = 039e01d3e85f87873614040842a02b4010606e96
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/Cargo.toml)" = 67b3c3b47f07a7b49fabaa0dc76395134c994977
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/indexed_read.rs)" = 763ebcbcfc94876471092bef240d572d8a334625
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/lib.rs)" = e985c2dfa3d9c09970b8046e462751d30eb1a09e
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/product_session.rs)" = 0780ce536de486b0d94765c45c369a550af369c0
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/tests/indexed_read_stagec.rs)" = b3e5732dac3f6772e1dd366e259f9c0da015f545
+          test "$(git rev-parse "$qa_tip":docs/core/01a-product-indexed-lazy-stagec-089-20261107.md)" = a397d2e3b23772aaa0e443fa009b73c051e7e42d
+          test "$(git diff --name-only b7b8847c8f55ed7efe5e01eaf27cee7067874ea1 "$qa_tip" | sort)" = "$(printf '%s\n' .github/workflows/05qr-c-pr732-indexed-cursor-newonly.yml crates/ddv-save-core/tests/05qr_c_stage_c_cursor_newonly.rs | sort)"
+      - name: Run ONLY new independent cursor/CAS/large-metadata tests
+        run: cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features indexed-read,synthetic-stage-b --test 05qr_c_stage_c_cursor_newonly -- --nocapture
+      - name: Opt-in metadata compiled but not exported by product Worker on wasm32
+        run: |
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --features worker-wasm,indexed-read
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --features worker-wasm
+      - name: No raw Steam user Save in public CI and no Writer promotion
+        shell: bash
+        run: |
+          set -euo pipefail
+          if find . -type f -iname 'steam_*.zip' -print -quit | grep -q .; then
+            echo 'Private Save prohibited in CI'; exit 1
+          fi
+          if git grep -n -E 'writer_authorized: *true|apply_authorized: *true|include_(bytes|str)!' HEAD -- crates/ddv-save-core/src; then
+            echo 'Unreviewed Writer or embedded private source'; exit 1
+          fi
