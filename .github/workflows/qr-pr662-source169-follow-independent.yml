@@ -1,0 +1,81 @@
+name: 04 QR-S Source169 independent genuine ES256 two PG Follow OFF
+on:
+  push:
+    branches: [qa/pr662-source169-follow-independent-20261106]
+  pull_request:
+    branches: [comm/w-comm-006-source169-follow-creator-off-20261106]
+permissions:
+  contents: read
+jobs:
+  qr-source169:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      DDVRE_E2_LOCAL_DISPOSABLE: APPROVED
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_PROJECT_ID: ''
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, persist-credentials: false}
+      - name: Exact Source169 SHA and only two independent QA paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=a76e1b9faf4e5eae4b5290fd339688226ee9feca
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git diff --name-only "$SOURCE" HEAD | sort > /tmp/qr169-actual
+          printf '%s\n' .github/workflows/qr-pr662-source169-follow-independent.yml tests/qr-pr662-source169-follow-independent.py | sort > /tmp/qr169-expected
+          diff -u /tmp/qr169-expected /tmp/qr169-actual
+          test -z "$(git diff --name-only "$SOURCE" HEAD -- supabase src docs static)"
+          test "$(find supabase/migrations -name '*.sql' | wc -l)" -eq 169
+          test "$(git hash-object supabase/migrations/20261104050000_community_source163_help_answer_service_execute_off.sql)" = c02bf514abf51951c19e05f8ca7ef7383f071c70
+          test "$(git hash-object supabase/migrations/20261105010000_community_source164_reaction_add_service_execute_off.sql)" = 8a272688b3f85e999e43cb772736dba6bc305606
+          test "$(git hash-object supabase/migrations/20261105020000_community_source165_save_entity_service_execute_off.sql)" = 7412435be16b73e97da46a8c387a2a116b7f5a6c
+          test "$(git hash-object supabase/migrations/20261105030000_community_source166_unsave_entity_service_execute_off.sql)" = 18a8a7b822840075bc7e9602ed2341ac9be325e0
+          test "$(git hash-object supabase/migrations/20261105040000_community_source167_remove_reaction_service_execute_off.sql)" = e14010ede368e0203faa7739acfe2837e2c025f8
+          test "$(git hash-object supabase/migrations/20261106010000_community_source168_unfollow_creator_service_execute_off.sql)" = 76a9a11e29f27cb171628e2ebc830180a8af3cc6
+          test "$(git hash-object supabase/migrations/20261106020000_community_source169_follow_creator_service_execute_off.sql)" = 49d22e0dd3e214b14c56c0c175e88f8e7718597e
+          test "$(git hash-object supabase/functions/community-command/index.ts)" = 3665a3908bb545362dec13f60e4d429c38a5a126
+          python3 -m py_compile tests/qr-pr662-source169-follow-independent.py
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" && test -z "$SUPABASE_PROJECT_ID"
+          echo QR169_FROZEN_SOURCE_SHA_ONLY_TWO_INDEPENDENT_QA_FILES_PASS
+      - uses: supabase/setup-cli@v1
+        with: {version: 2.109.0}
+      - name: Disposable genuine GoTrue ES256 FULL169 local start and reset
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\n[auth]\nsigning_keys_path = "./signing_keys.json"\n' >>supabase/config.toml
+          printf '[]\n' >supabase/signing_keys.json
+          supabase gen signing-key --algorithm ES256 --yes >/tmp/qr169-signer.log 2>&1
+          printf 'project_id = "ddvre_qr169_follow_independent_20261106"\n' | cat - supabase/config.toml >/tmp/qr169-config
+          mv /tmp/qr169-config supabase/config.toml
+          printf 'COMMUNITY_MEDIA_BUCKET=qr169-local-only\nWEP_PRESET_ARTIFACT_BUCKET=qr169-local-only\n' >supabase/functions/.env
+          timeout 1800s supabase start >/tmp/qr169-start.log 2>&1 || { echo QR169_DISPOSABLE_START_NOT_RUN; tail -n 10 /tmp/qr169-start.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'; exit 1; }
+          timeout 900s supabase db reset --no-seed >/tmp/qr169-reset.log 2>&1 || { echo QR169_DISPOSABLE_RESET_NOT_RUN; tail -n 10 /tmp/qr169-reset.log | sed -E 's/(token|secret|key)[=:][^ ]+/\1=[REDACTED]/Ig'; exit 1; }
+          echo QR169_GENUINE_ES256_FULL169_LOCAL_RESET_PASS
+      - run: python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
+      - name: Independent A1 revoke and refresh SQL42501 and safe Source169 self-replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/qr-pr662-source169-follow-independent.py | tee /tmp/qr169-run.log
+          for m in \
+            QR169_PUBLIC_AND_THREE_ROLE_FOLLOW_UNFOLLOW_OFF_SIGNED_R16_ON_PASS \
+            QR169_ACTIVE_A2_409_THREE_SQL42501_FOLLOW_OUTBOX_IDEM_NO_DIFF_PASS \
+            QR169_REVOKED_ORIGINAL_AND_REAL_REFRESHED_A1_401_A2_200_FIVE_SQL_REPLAYS_NO_DIFF_PASS \
+            QR169_TWO_PG_UNCOMMITTED_GRANT_INVISIBLE_ROLLBACK_DENIED_PASS \
+            QR169_ONLY_SOURCE169_SAME_SCHEMA_REAPPLY_DENIALS_NO_REGRANT_PASS \
+            QR169_INDEPENDENT_SIGNED_LOCAL_SOURCE169_FOLLOW_ONLY_SCOPED_PASS; do
+            grep -q "$m" /tmp/qr169-run.log
+          done
+          echo QR169_INDEPENDENT_GENUINE_SIGNED_LOCAL_ONLY_NOT_MANAGED_CUMULATIVE_PASS
+      - name: Dispose ephemeral signer and local PostgreSQL
+        if: always()
+        shell: bash
+        run: |
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f supabase/signing_keys.json supabase/functions/.env /tmp/qr169-*
+          echo QR169_DISPOSABLE_LOCAL_CLEANUP_ATTEMPTED
