@@ -1,0 +1,57 @@
+name: "04 QR-W PR717 Collection Info independent changed-only"
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/04qr-w-pr717-collection-independent.yml"
+      - "scripts/04qr-w-pr717-collection-chrome.mjs"
+      - "tests/04qr-w-pr717-collection-independent.test.mjs"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Exact four Collection Source blobs and independent stale Info guards
+        run: node --test tests/04qr-w-pr717-collection-independent.test.mjs
+  independent-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Start isolated Collection localhost with no Provider credentials or private P1G
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          BASE_PATH="" npm run dev -- --host 127.0.0.1 --port 4294 >/tmp/qr717-collection.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4294/collection/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr717-collection.log
+          exit 1
+      - name: Installed Chrome deep scroll focus, stale DOM, query/facet, locale mobile zoom, no offhost
+        env:
+          QR717_URL: http://127.0.0.1:4294
+        run: node scripts/04qr-w-pr717-collection-chrome.mjs
