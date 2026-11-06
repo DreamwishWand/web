@@ -40,8 +40,26 @@ class OriginalByteIdentity(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             root=pathlib.Path(d);pins=fixture(root)
             false_pins={k:('0'*64,v[1]) for k,v in pins.items()}
-            with self.assertRaisesRegex(ValueError,'ORIGINAL_BUNDLE_PIN_MISMATCH'):
+            with self.assertRaisesRegex(ValueError,'ORIGINAL_PIN_OVERRIDE_FORBIDDEN'):
                 mod.analyze(root,false_pins)
+
+    def test_qa653_forged_exact_sha_pins_cannot_claim_original_evidence(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=pathlib.Path(d);self_signed_pins=fixture(root)
+            # This is the exact independent QA653 TRUE RED: attacker-created
+            # bytes and matching forged SHA/size were previously marked REAL.
+            with self.assertRaisesRegex(ValueError,'ORIGINAL_PIN_OVERRIDE_FORBIDDEN'):
+                mod.analyze(root,self_signed_pins,synthetic=False)
+            fixture_result=mod.analyze(root,self_signed_pins,synthetic=True)
+            self.assertEqual(fixture_result['tier'],'SYNTHETIC_ONLY')
+            self.assertFalse(fixture_result['publishAllowed'])
+            self.assertEqual(fixture_result['switchSameBuildOriginalPngShaVerified'],0)
+
+    def test_default_original_pins_immutable_and_unpatchable_by_assignment(self):
+        expected=mod.BUNDLE_PINS['flower_584a9f69.bundle']
+        with self.assertRaises(TypeError):
+            mod.BUNDLE_PINS['flower_584a9f69.bundle']=('0'*64,expected[1])
+        self.assertEqual(mod.BUNDLE_PINS['flower_584a9f69.bundle'],expected)
 
     def test_missing_and_symlink_original_denied(self):
         with tempfile.TemporaryDirectory() as d:
