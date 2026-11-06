@@ -13,6 +13,7 @@ import {
   nativePresetPayloadWarnings,
   validateNativePresetBackup
 } from './native-preset-runtime.js';
+import {nativeLocalPresetQuarantineWarnings} from './native-local-preset-quarantine.mjs';
 
 export const NATIVE_LOCAL_PRESET_FILE_CONTRACT='wand.native-preset.local-file-import@1';
 export const NATIVE_LOCAL_PRESET_FILE_MAX_BYTES=32*1024*1024;
@@ -45,7 +46,8 @@ function inspectBackup(backup){
   if(Boolean(backup.deleted)!==deleted||
      (deleted!== (backup.source.activeSlotOrdinalZeroBased===null)))
     throw Error('LOCAL_PRESET_BACKUP_TOMBSTONE_CONFLICT');
-  const warnings=nativePresetPayloadWarnings(backup.payload);
+  const warnings=[...new Set([...nativePresetPayloadWarnings(backup.payload),
+    ...nativeLocalPresetQuarantineWarnings(backup.payload)])];
   const copy=validateNativePresetBackup(backup);
   const quarantined=warnings.length>0 || backup.payload.ShareInfo!==null ||
       deleted;
