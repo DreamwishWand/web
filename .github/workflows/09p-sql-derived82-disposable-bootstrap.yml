@@ -1,4 +1,4 @@
-name: 09P-SQL derived82 disposable local Bootstrap (NEVER DEPLOY)
+name: 09P-SQL derived82+one-gap disposable local Bootstrap (NEVER DEPLOY)
 on:
   pull_request:
     paths:
@@ -49,27 +49,37 @@ jobs:
               content='project_id = "wand_09p_derived82_disposable"\n'+content
           p.write_text(content)
           PY
-          echo 'DERIVED82_DISPOSABLE_TEMP_ONLY__NO_MIGRATION_HISTORY_REWRITE__NO_REMOTE_CREDENTIALS'
-      - name: Replay DERIVED82 only into a disposable local PostgreSQL (not original82)
+          # Source gap already exists as a 03 COMM-authored, unmerged, SHA-pinned
+          # additive migration in PR442. Copy it into temp scratch ONLY.
+          # This is NOT a new migration authored by 09P-SQL, not an approved
+          # production migration, and not raw 82-file bootstrap equivalence.
+          gap='20260930115500_provider_identity_cleanup_parent_bootstrap_v1.sql'
+          git cat-file -e '56c537c51a9be3d764986d66cf4b459a7a624b8d^{commit}'
+          git show "56c537c51a9be3d764986d66cf4b459a7a624b8d:supabase/migrations/$gap" > "$scratch/supabase/migrations/$gap"
+          test "$(git hash-object "$scratch/supabase/migrations/$gap")" = '81d253c81f6c956ce7ec8d99c0bdb16ecdba5471'
+          test "$(find "$scratch/supabase/migrations" -maxdepth 1 -type f -name '*.sql' | wc -l)" -eq 83
+          printf '%s\n' 'DERIVED82_PLUS_ONE_DRAFT_GAP__NOT_RAW82_REPLAY' > "$scratch/DERIVED83_CANDIDATE_ONLY"
+          echo 'DERIVED82_PLUS_ONE_ADDON_SHA_PINNED__TEMP_ONLY__NO_MIGRATION_HISTORY_REWRITE__NO_REMOTE_CREDENTIALS'
+      - name: Replay DERIVED82+PR442 gap into a disposable local PostgreSQL (not original82)
         shell: bash
         run: |
           set -euo pipefail
           scratch="$(cat "$RUNNER_TEMP/09p-derived82-path")"
           cd "$scratch"
           timeout 1500s supabase start --debug > "$RUNNER_TEMP/09p-derived82-start.log" 2>&1 || {
-            echo 'DERIVED82_LOCAL_BOOTSTRAP_RED__NOT_ORIGINAL82_PASS'
+            echo 'DERIVED83_LOCAL_BOOTSTRAP_RED__NOT_ORIGINAL82_PASS'
             grep -E 'ERROR|SQLSTATE|Error|Failed|error|applying migration' "$RUNNER_TEMP/09p-derived82-start.log" | grep -viE 'key|token|secret' | tail -n 35 || true
             exit 1
           }
-          echo 'DERIVED82_DISPOSABLE_FIRST_BOOTSTRAP_PASS__ORIGINAL82_REMAINS_TRUE_RED'
-      - name: Reset DERIVED82 same disposable local PostgreSQL and verify ledger count
+          echo 'DERIVED83_DISPOSABLE_FIRST_BOOTSTRAP_PASS__ORIGINAL82_REMAINS_TRUE_RED'
+      - name: Reset DERIVED82+gap local PostgreSQL and verify separate ledger count
         shell: bash
         run: |
           set -euo pipefail
           scratch="$(cat "$RUNNER_TEMP/09p-derived82-path")"
           cd "$scratch"
           timeout 900s supabase db reset --no-seed > "$RUNNER_TEMP/09p-derived82-reset.log" 2>&1 || {
-            echo 'DERIVED82_LOCAL_RESET_RED__NOT_ORIGINAL82_PASS'
+            echo 'DERIVED83_LOCAL_RESET_RED__NOT_ORIGINAL82_PASS'
             grep -E 'ERROR|SQLSTATE|Error|Failed|error|applying migration' "$RUNNER_TEMP/09p-derived82-reset.log" | grep -viE 'key|token|secret' | tail -n 35 || true
             exit 1
           }
@@ -80,14 +90,14 @@ jobs:
           declare n integer;
           begin
             select count(*) into n from supabase_migrations.schema_migrations;
-            if n <> 82 then raise exception 'DERIVED82_EXPECTED_82_MIGRATIONS: %', n; end if;
+            if n <> 83 then raise exception 'DERIVED83_EXPECTED_83_MIGRATIONS: %', n; end if;
             if to_regprocedure('public.community_add_reaction(uuid,uuid,text)') is null then
               raise exception 'DERIVED82_EXPECTED_HISTORIC_RPC_ABSENT';
             end if;
           end;
           $check$;
           SQL
-          echo 'DERIVED82_TEMP_ONLY_TWO_REPLAYS_AND_82_LEDGER_PASS__LEGACY_WRITERS_NOT_ACCEPTED'
+          echo 'DERIVED83_TEMP_ONLY_TWO_REPLAYS_AND_83_LEDGER_PASS__LEGACY_WRITERS_NOT_ACCEPTED'
       - name: Stop only disposable local containers
         if: always()
         shell: bash
