@@ -86,7 +86,7 @@
   function selectInfo(id:number,event:MouseEvent):void{
     const trigger=event.currentTarget;
     if(!(trigger instanceof HTMLElement)||trigger.dataset.stage1ItemId!==String(id)||
-       !scoped.some(item=>item.itemId===id))return;
+       !scoped.some((item:any)=>item.itemId===id))return;
     infoReturn={trigger,itemId:id,context:infoContext(),x:window.scrollX,y:window.scrollY};
     infoId=id;
   }
@@ -100,7 +100,7 @@
     if(!origin||selected!==origin.itemId||infoId!==null||infoReturn!==null||
        origin.context!==infoContext()||!origin.trigger.isConnected||
        origin.trigger.dataset.stage1ItemId!==String(origin.itemId)||
-       !scoped.some(item=>item.itemId===origin.itemId))return;
+       !scoped.some((item:any)=>item.itemId===origin.itemId))return;
     origin.trigger.focus({preventScroll:true});
     window.scrollTo(origin.x,origin.y);
   }

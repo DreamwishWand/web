@@ -85,7 +85,7 @@ test('COL-UX-29 focus and scroll restoration has a live-card, context and source
  assert.match(page,/await tick\(\)/);
  assert.match(page,/origin\.context!==infoContext\(\)/);
  assert.match(page,/!origin\.trigger\.isConnected/);
- assert.match(page,/!scoped\.some\(item=>item\.itemId===origin\.itemId\)/);
+ assert.match(page,/!scoped\.some\(\(item:any\)=>item\.itemId===origin\.itemId\)/);
  assert.match(page,/infoId!==null\|\|infoReturn!==null/);
  assert.match(page,/focus\(\{preventScroll:true\}\)/);
  assert.match(page,/window\.scrollTo\(origin\.x,origin\.y\)/);
