@@ -24,7 +24,7 @@ const notes=load('docs/community/post327-remaining-writer-route-audit-20261103.m
 test('fix Source155 and Source156 at independently accepted PR327 SQL/Edge blobs',()=>{
  assert.equal(gitBlob(source155),'115f2c0f7224984acd8830cfc606af8c6a1bf3af');
  assert.equal(gitBlob(source156),'3000d66c193b996e4ece785deaf5180955ec3bc6');
- assert.equal(gitBlob(edge),'9ca987a78e4513d59bbe898e902bd63cd7c114b8');
+ assert.equal(gitBlob(edge),'3665a3908bb545362dec13f60e4d429c38a5a126');
  assert.match(source156,/for share;/);
  assert.match(source156,/community_authorize_signed_session_v2/);
  assert.match(source156,/revoke all on function public\.community_set_gallery_comments_enabled_atomic_r16/);
@@ -248,4 +248,19 @@ test('Source168 unfollowCreator only: old SQL EXECUTE off and prior grants prese
  assert.match(source168,/community_remove_reaction/);
  assert.match(source168,/community_set_gallery_comments_enabled_atomic_signed_v1/);
  assert.match(source168,/community_get_ddv_profile_workspaces_v1/);
+});
+
+const source169=load('supabase/migrations/20261106020000_community_source169_follow_creator_service_execute_off.sql');
+test('Source169 followCreator only: old SQL EXECUTE off, prior Signed and Source168 immutable',()=>{
+ assert.match(edge,/SOURCE169_FOLLOW_CREATOR_WRITER_NOT_ENROLLED/);
+ assert.match(source169,/revoke all on function public\.community_follow_creator/);
+ assert.match(source169,/from public,anon,authenticated,service_role/);
+ assert.doesNotMatch(source169,/grant execute on function public\.community_follow_creator/i);
+ assert.match(source169,/community_unfollow_creator/);
+ assert.match(source169,/community_add_reaction/);
+ assert.match(source169,/community_save_entity/);
+ assert.match(source169,/community_unsave_entity/);
+ assert.match(source169,/community_remove_reaction/);
+ assert.match(source169,/community_set_gallery_comments_enabled_atomic_signed_v1/);
+ assert.match(source169,/community_get_ddv_profile_workspaces_v1/);
 });
