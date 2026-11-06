@@ -12,7 +12,7 @@ import {nativeLocalPresetQuarantineWarnings}
   from "../src/lib/presets/native-local-preset-quarantine.mjs";
 
 const SOURCE="90f8cfaf79a4dada266a59e76f4841f1a1fe2295";
-const MAIN="5bc658f119aec1d08138e10bf8294700c74bd700";
+const MAIN="d953f2e064b41ade8fa630bb5b50c37d8417a79c"; // PR672 actual source ancestor; 5bc main also contains disjoint accepted 01B change.
 const files=new Map([
   ["src/lib/presets/native-local-file-import-contract.mjs","9ee79fb05b495950add726aeb38f68971aea43bb"],
   ["src/lib/presets/native-local-preset-quarantine.mjs","cb084732bdf15f69e41cc6cf41ec082e719bcba4"],
