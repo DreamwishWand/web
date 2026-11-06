@@ -35,14 +35,14 @@ try{
  await page.getByRole('heading',{level:1,name:'Community Lab'}).waitFor({timeout:15000});
  assert.equal(await page.getByRole('link',{name:'Profile Workspace acceptance'}).count(),1);
  assert.equal(await page.getByRole('link',{name:'Account deletion acceptance'}).count(),1);
- assert.equal(await page.getByRole('button',{name:'Sign in',exact:true}).isDisabled(),true,'no auto sign-in');
+ assert.equal(await page.locator('#main-content').getByRole('button',{name:'Sign in',exact:true}).isDisabled(),true,'no auto sign-in');
  assert.equal(await page.locator('img.lab-preview').count(),0,'no unauthorized staging media');
  console.log('QR726_CHROME_ROOT_ANON_NOINDEX_NO_AUTOSIGNIN_OR_MEDIA_PASS');
 
  // A URL query must not remove robots, create a privileged session or disclose a result.
  await visit('/community-lab/?work=guessed-private-work&account=guessed-private-account');
  await page.getByRole('heading',{level:1,name:'Community Lab'}).waitFor();
- assert.equal(await page.getByRole('button',{name:'Sign in',exact:true}).isDisabled(),true);
+ assert.equal(await page.locator('#main-content').getByRole('button',{name:'Sign in',exact:true}).isDisabled(),true);
  assert.equal(await page.locator('img.lab-preview').count(),0);
  console.log('QR726_CHROME_GUESSED_PRIVATE_QUERY_REMAINS_NOINDEX_AND_ANON_PASS');
 
