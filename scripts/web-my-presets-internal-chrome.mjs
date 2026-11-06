@@ -12,7 +12,7 @@ page.on('pageerror',e=>errors.push(String(e)));
 ctx.on('request',r=>{if(r.method()!=='GET'||new URL(r.url()).origin!==origin)requests.push(r.method()+' '+r.url());});
 const fit=async name=>{const m=await page.evaluate(()=>({w:document.documentElement.clientWidth,s:document.documentElement.scrollWidth}));assert.ok(m.s<=m.w+2,name+JSON.stringify(m));};
 try{
- await page.goto(origin+'/presets/',{waitUntil:'domcontentloaded'});
+ await page.goto(origin+'/presets/',{waitUntil:'networkidle',timeout:30000});
  await page.locator('[data-stage1-presets-four-cards]').waitFor();
  assert.equal(await page.locator('[data-preset-child]').count(),4);
  const locales=['en','fr','it','de','es-ES','ja','zh-CN','pt-BR'];
