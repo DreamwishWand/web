@@ -129,3 +129,32 @@ test('Native manager imports both single/local-library backups ONLY after valida
   assert.match(ui,/disabled title=\{copy\.blocked\}>\{copy\.push\}/);
   assert.doesNotMatch(ui,/const imported=parseNativePresetLibrary\(await file\.text\(\)\)/);
 });
+
+test('QA674 exact import hook: incomplete schema624 SubGrid and DiffGrid entries are quarantined without payload loss',async()=>{
+  for(const badRef of [{},{GridID:null},{GridID:'2'},{GridID:-1},{GridID:1.5}]){
+    const b=backup();
+    b.payload.GridCollection.Grids['0'].Objects['0'].State={SubGrid:badRef};
+    const before=structuredClone(b.payload);
+    const r=await inspectNativePresetLocalFileBytes(bytes(b));
+    assert.equal(r.status,'LOCAL_FILE_VALIDATED_WITH_QUARANTINED_BACKUPS');
+    assert.equal(r.backups[0].quarantine,true);
+    assert.ok(r.backups[0].structuralWarnings.includes('SUBGRID_REFERENCE_MALFORMED'));
+    assert.deepEqual(r.backups[0].backup.payload,before);
+    assert.equal(r.gameSaveApplyAuthorized,false);
+    assert.equal(r.sourceBuildAttested,false);
+  }
+  const invalidDiff=backup();
+  invalidDiff.payload.GridCollection.DiffGrids={'9':null};
+  const before=structuredClone(invalidDiff.payload);
+  const result=await inspectNativePresetLocalFileBytes(bytes(invalidDiff));
+  assert.equal(result.status,'LOCAL_FILE_VALIDATED_WITH_QUARANTINED_BACKUPS');
+  assert.ok(result.backups[0].structuralWarnings.includes('DIFF_GRIDS_MALFORMED'));
+  assert.deepEqual(result.backups[0].backup.payload,before);
+  assert.equal(result.publicSharingAuthorized,false);
+  const clean=backup();
+  clean.payload.GridCollection.DiffGrids={'9':{UnknownOpaque:'retain'}};
+  clean.payload.GridCollection.Grids['0'].Objects['0'].State={SubGrid:{GridID:0,UnknownOpaque:'retain'}};
+  const ok=await inspectNativePresetLocalFileBytes(bytes(clean));
+  assert.equal(ok.status,'LOCAL_FILE_VALIDATED_PRESERVE_ONLY');
+  assert.equal(ok.gameSaveApplyAuthorized,false);
+});
