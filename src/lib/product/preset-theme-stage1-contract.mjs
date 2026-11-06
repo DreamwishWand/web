@@ -49,6 +49,16 @@ export function isPresetThemePickerGroup(value) {
   return typeof value === 'string' && PRESET_THEME_PICKER_GROUPS.includes(value);
 }
 
+// The array must contain explicitly serialized own IDs, not prototype values or holes.
+function hasOwnDenseFacetIds(values) {
+  if (!Array.isArray(values)) return false;
+  for (let i = 0; i < values.length; i++) {
+    if (!Object.hasOwn(values, i) ||
+        typeof values[i] !== 'string' || values[i].length === 0) return false;
+  }
+  return true;
+}
+
 // A fail-closed PURE query predicate only; NEVER a public visibility/rights gate.
 // Each facet is OR within itself and AND against other selected facet families.
 // The caller must supply authoritative, source-verified canonical facet IDs.
@@ -58,12 +68,17 @@ export function matchesPresetThemeFacets(record, selected) {
   if (Object.keys(selected).some(key => !PRESET_THEME_FACETS.includes(key))) return false;
 
   for (const facet of PRESET_THEME_FACETS) {
+    // Inherited facet properties cannot stand in for source-owned canonical values.
+    if (!Object.hasOwn(selected, facet)) {
+      if (facet in selected) return false;
+      continue;
+    }
     const chosen = selected[facet];
-    if (chosen === undefined) continue;
-    if (!Array.isArray(chosen) || chosen.some(id => typeof id !== 'string' || id.length === 0)) return false;
+    if (!hasOwnDenseFacetIds(chosen)) return false;
     if (chosen.length === 0) continue;
+    if (!Object.hasOwn(record, facet)) return false;
     const values = record[facet];
-    if (!Array.isArray(values) || values.some(id => typeof id !== 'string' || id.length === 0)) return false;
+    if (!hasOwnDenseFacetIds(values)) return false;
     if (!chosen.some(id => values.includes(id))) return false;
   }
   return true;
