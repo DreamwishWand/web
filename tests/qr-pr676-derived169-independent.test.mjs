@@ -17,6 +17,8 @@ import {
 
 const root=resolve(fileURLToPath(new URL('../',import.meta.url)));
 const peer=join(root,'source169-peer');
+const peerAvailable=existsSync(join(peer,'.git'));
+const peerRequirement={skip:peerAvailable?false:'No source169-peer checkout in generic CI; MUST run in dedicated fixed-head CI'};
 const history='20260930025132_community_core_v0_server_rpc.sql';
 const original='bbf9bc830440d964c5da8b3c3cac7e926d281881';
 const derived='d7991c2c20b7ace6613d6a9cd6493b8c3af0f6ba';
@@ -49,7 +51,7 @@ test('pin exact PR676 source, all 3 add-only paths and immutable original82 byte
   assert.equal(git(root,'ls-tree','-r','--name-only',sourceParent,'supabase/migrations').split('\n').length,163);
   marker('EXACT_SOURCE_THREE_ADD_ONLY_ORIGINAL82_IMMUTABLE');
 });
-test('pin peer HEAD and six independently SHA-attested Source164–169 SQL files',()=>{
+test('pin peer HEAD and six independently SHA-attested Source164–169 SQL files',peerRequirement,()=>{
   assert.equal(git(peer,'rev-parse','HEAD'),peerHead);
   assert.equal(PEER_HEAD,peerHead);
   assert.equal(PINNED_MIGRATIONS.length,6);
@@ -65,7 +67,7 @@ test('pin peer HEAD and six independently SHA-attested Source164–169 SQL files
   assert.throws(()=>requireExactPeerHead(peerHead.slice(0,39)+'0'),/PEER_HEAD_MISMATCH/);
   marker('FIXED_PEER_SIX_SQL_SHA_AND_WRONG_HEAD_DENIED');
 });
-test('tampered or absent peer SQL is denied independent of Source owner test',()=>{
+test('tampered or absent peer SQL is denied independent of Source owner test',peerRequirement,()=>{
   const dir=mkdtempSync(join(tmpdir(),'qr676-peer-neg-'));
   try {
     const files=PINNED_MIGRATIONS.map(([path])=>path);
@@ -96,7 +98,7 @@ test('remote target or invalid scratch location is blocked',()=>{
     /APPROVAL_REQUIRED/);
   marker('DISPOSABLE_BOUNDARY_REMOTE_ENV_NEGATIVES');
 });
-test('add 6 SQL only in derived scratch; deny parent overwrite, preserve original and destroy',()=>{
+test('add 6 SQL only in derived scratch; deny parent overwrite, preserve original and destroy',peerRequirement,()=>{
   let dir;const originalFile=join(root,'supabase/migrations',history);
   try{
     const scratch=prepareDisposableOverlay({repoRoot:root,env:approve});
