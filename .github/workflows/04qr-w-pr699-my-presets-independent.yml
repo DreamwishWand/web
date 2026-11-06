@@ -1,0 +1,57 @@
+name: "04 QR-W PR699 My Presets independent NEW_ONLY"
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/04qr-w-pr699-my-presets-independent.yml"
+      - "scripts/04qr-w-pr699-my-presets-chrome.mjs"
+      - "tests/04qr-w-pr699-my-presets-independent.test.mjs"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Independent original Source5 immutable Git blob / 7 negative cases
+        run: node --test tests/04qr-w-pr699-my-presets-independent.test.mjs
+  independent-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Start isolated localhost Presets with no private Save or credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          BASE_PATH="" npm run dev -- --host 127.0.0.1 --port 4297 >/tmp/qr699-my-presets-dev.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4297/presets/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr699-my-presets-dev.log
+          exit 1
+      - name: Independent Chrome 8locale, PC synthetic selected file retention, 320px/200%, no POST
+        env:
+          QR699_CHROME_URL: http://127.0.0.1:4297
+        run: node scripts/04qr-w-pr699-my-presets-chrome.mjs
