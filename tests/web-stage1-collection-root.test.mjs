@@ -93,3 +93,25 @@ test('COL-UX-29 focus and scroll restoration has a live-card, context and source
  assert.match(page,/data-stage1-info-close on:click=\{closeInfo\}/);
  assert.doesNotMatch(page,/localStorage\.setItem|saveEditedCopy|fetch\([^)]*POST/);
 });
+
+test('COL-UX-44 mobile drawer preserves desktop inline facets, UNKNOWN personal state and source scoping',()=>{
+ assert.match(page,/window\.matchMedia\('\(max-width: 820px\)'\)/);
+ assert.match(page,/aria-haspopup=\{mobileFilter \? 'dialog' : undefined\}/);
+ assert.match(page,/role=\{mobileFilter \? 'dialog' : undefined\}/);
+ assert.match(page,/aria-modal=\{mobileFilter \? 'true' : undefined\}/);
+ assert.match(page,/data-stage1-filter-close/);
+ assert.match(page,/data-stage1-filter-backdrop/);
+ assert.match(page,/event\.key==='Escape'/);
+ assert.match(page,/event\.key!=='Tab'/);
+ assert.match(page,/filterToggleButton\?\.focus\(\{preventScroll:true\}\)/);
+ assert.match(page,/previousBodyOverflow=document\.body\.style\.overflow/);
+ assert.match(page,/document\.body\.style\.overflow=previousBodyOverflow/);
+ assert.match(page,/media\.removeEventListener\('change',onMediaChange\)/);
+ assert.match(page,/@media\(max-width:820px\)/);
+ assert.match(page,/max-height:85dvh/);
+ assert.match(page,/overscroll-behavior:contain/);
+ assert.match(page,/aria-pressed=\{selectedWorlds\.includes\(id\)\}/);
+ assert.match(page,/aria-pressed=\{selectedUniverses\.includes\(id\)\}/);
+ assert.match(page,/disabled title=\{ui\.unknown\}/);
+ assert.doesNotMatch(page,/saveEditedCopy|setDreamsnapOfficialResultPublication|createPublicWork/);
+});
