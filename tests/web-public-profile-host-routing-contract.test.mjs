@@ -68,7 +68,27 @@ test('08WEB host positives, negatives and live gates stay NOT_RUN',()=>{
  assert.equal(rows.safe_existing_old_handle_alias.required_status,302);
  assert.equal(rows.anonymous_private_library.required_status,401);
  assert.equal(rows.authenticated_own_library.required_status,200);
- assert.equal(rows.other_account_or_revoked_private_library.required_status,403);
+ assert.equal(rows.other_account_private_library.required_status,403);
+ assert.equal(rows.revoked_private_library.required_status,401);
+ assert.equal(rows.expired_private_library.required_status,401);
+ assert.equal(rows.logged_out_private_library.required_status,401);
+ assert.equal(rows.other_account_or_revoked_private_library,undefined,'old combined Other/Revoked row forbidden');
+ const privateRows=Object.values(rows).filter(r=>r.path==='/library/');
+ const other=privateRows.filter(r=>r.subject.includes('OTHER')&&!/REVOKED|EXPIRED/.test(r.subject));
+ const revoked=privateRows.filter(r=>r.subject.includes('REVOKED')&&!r.subject.includes('OTHER'));
+ const expired=privateRows.filter(r=>r.subject.includes('EXPIRED')&&!r.subject.includes('OTHER'));
+ const logout=privateRows.filter(r=>r.subject.includes('LOGGED_OUT'));
+ assert.equal(other.length,1,'valid other Account must have its own denial case');
+ assert.equal(revoked.length,1,'revoked token must have its own denial case');
+ assert.equal(expired.length,1,'expired token must have its own denial case');
+ assert.equal(logout.length,1,'logout must have its own denial case');
+ for(const row of [...other,...revoked,...expired,...logout]){
+  assert.equal(row.current,'NOT_RUN','future target only');
+  assert.ok([401,403,404].includes(row.required_status));
+  assert.ok(row.must_have.includes('no_private_data'));
+  assert.ok(row.must_have.some(v=>/cache|no_store/.test(v)));
+ }
+ assert.notEqual(other[0].case,revoked[0].case);
  assert.equal(rows.work_public_approved_version.required_status,200);
  assert.equal(rows.work_private_or_moderated.required_status,404);
  assert.ok(rows.safe_existing_old_handle_alias.must_have.includes('not_reassigned_alias'));
@@ -80,6 +100,9 @@ test('08WEB host positives, negatives and live gates stay NOT_RUN',()=>{
  assert.ok(c.hosting_decision.rejected.includes('CLIENT_SIDE_REDIRECT_AS_HTTP301'));
  assert.ok(c.required_negative_tests.includes('NO_DREAMSNAPS_VOTE_SUBMISSION_LEAK'));
  assert.ok(c.required_negative_tests.includes('NO_FOREIGN_OR_REVOKED_LIBRARY_DATA'));
+ assert.ok(c.required_negative_tests.includes('NO_OTHER_ACCOUNT_LIBRARY_ACCESS'));
+ assert.ok(c.required_negative_tests.includes('NO_REVOKED_EXPIRED_LOGGED_OUT_LIBRARY_ACCESS'));
+
  assert.ok(c.required_negative_tests.includes('NO_UNVERIFIED_LEGACY_ALIAS_REDIRECT'));
  assert.ok(c.required_negative_tests.includes('NO_FAKE_SPA_404_AS_HTTP200'));
  assert.ok(c.required_negative_tests.includes('NO_PRIVATE_CACHE_SHARED_CDN'));

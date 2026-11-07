@@ -198,15 +198,59 @@
       ]
     },
     {
-      "case": "other_account_or_revoked_private_library",
-      "subject": "AUTH_OTHER_OR_REVOKED",
+      "case": "other_account_private_library",
+      "subject": "AUTH_VALID_OTHER_ACCOUNT",
       "path": "/library/",
       "required_status": 403,
       "current": "NOT_RUN",
       "must_have": [
         "no_private_data",
         "no_shared_cache",
-        "revoked_session_failclosed"
+        "no_store",
+        "valid_actor_not_resource_owner",
+        "independent_current_actor_acl_rls_denial"
+      ]
+    },
+    {
+      "case": "revoked_private_library",
+      "subject": "AUTH_REVOKED_JWT",
+      "path": "/library/",
+      "required_status": 401,
+      "current": "NOT_RUN",
+      "must_have": [
+        "no_private_data",
+        "no_shared_cache",
+        "no_store",
+        "token_revocation_checked_server_side",
+        "no_reuse_revoked_session"
+      ]
+    },
+    {
+      "case": "expired_private_library",
+      "subject": "AUTH_EXPIRED_JWT",
+      "path": "/library/",
+      "required_status": 401,
+      "current": "NOT_RUN",
+      "must_have": [
+        "no_private_data",
+        "no_shared_cache",
+        "no_store",
+        "server_expires_at_checked",
+        "no_silent_refresh_authorization"
+      ]
+    },
+    {
+      "case": "logged_out_private_library",
+      "subject": "AUTH_LOGGED_OUT_SESSION",
+      "path": "/library/",
+      "required_status": 401,
+      "current": "NOT_RUN",
+      "must_have": [
+        "no_private_data",
+        "no_shared_cache",
+        "no_store",
+        "logout_session_invalidated",
+        "no_stale_private_response"
       ]
     },
     {
@@ -246,7 +290,9 @@
     "NO_UNCONFIRMED_NATIVE_ITEM_ID_PUBLICATION",
     "NO_AUTO_FLAG_ON",
     "NO_SEPARATE_DUPLICATE_WORK_ID_MODEL",
-    "NO_MUTABLE_HANDLE_AS_WORK_STABLE_ID"
+    "NO_MUTABLE_HANDLE_AS_WORK_STABLE_ID",
+    "NO_OTHER_ACCOUNT_LIBRARY_ACCESS",
+    "NO_REVOKED_EXPIRED_LOGGED_OUT_LIBRARY_ACCESS"
   ],
   "accessibility_acceptance": [
     "8_LOCALES",
