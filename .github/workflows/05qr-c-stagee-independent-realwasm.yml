@@ -1,0 +1,83 @@
+name: 05 QR-C Stage E genuine generated Rust WASM Chrome independent NEW_ONLY
+on:
+  pull_request:
+    paths:
+      - 'tests/stage-e/qa-independent-worker.mjs'
+      - '.github/workflows/05qr-c-stagee-independent-realwasm.yml'
+  push:
+    branches:
+      - 'qa/05qrc-stagee-realwasm-pr741-a77b81dc-20261107'
+permissions:
+  contents: read
+jobs:
+  independent-genuine-wasm-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-qa-stagee-cargo-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Independent fixed Source pin / original StageE five files / QA only two additions
+        shell: bash
+        run: |
+          set -euo pipefail
+          source=a77b81dc41c7f092ae614b5e7b2b8df536e33298
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            qa_tip="$(git rev-parse HEAD^2)"
+          else
+            qa_tip="$(git rev-parse HEAD)"
+          fi
+          git merge-base --is-ancestor "$source" "$qa_tip"
+          test "$(git rev-parse "$qa_tip":.github/workflows/01a-stagee-generated-wasm-chrome.yml)" = cb664bebb0901aa02b508da32769c40e697c3a16
+          test "$(git rev-parse "$qa_tip":docs/core/01a-generated-real-wasm-browser-stage-e-099-20261107.md)" = d8dacd520518c560f38da80fd931e2a77d9a2ad2
+          test "$(git rev-parse "$qa_tip":tests/stage-e/chrome-smoke.mjs)" = c9a220a5dcc9e2f8531ef91445fd6c601bac56a5
+          test "$(git rev-parse "$qa_tip":tests/stage-e/index.html)" = e2ec034fb11abe6260beb478903ab7fab1cdfc5f
+          test "$(git rev-parse "$qa_tip":tests/stage-e/worker.mjs)" = 11b1419352619b73f295bc127a394a0655841daf
+          actual="$(git diff --name-only "$source" "$qa_tip" | sort)"
+          expected="$(printf '%s\n' .github/workflows/05qr-c-stagee-independent-realwasm.yml tests/stage-e/qa-independent-worker.mjs | sort)"
+          test "$actual" = "$expected"
+          test -z "$(git ls-files tests/stage-e/pkg)"
+          grep -Fx 'wasm-bindgen = { version = "=0.2.105", optional = true }' crates/ddv-save-core/Cargo.toml
+          grep -Fx 'worker-wasm = ["dep:wasm-bindgen"]' crates/ddv-save-core/Cargo.toml
+          grep -Fx 'indexed-read = []' crates/ddv-save-core/Cargo.toml
+          (command -v google-chrome || command -v chromium)
+          node --check tests/stage-e/qa-independent-worker.mjs
+      - name: Compile original 01A Rust Core into REAL Worker WASM, opt-in only
+        run: |
+          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --features worker-wasm,indexed-read
+          test -s "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
+      - name: Pin matching wasm-bindgen CLI to real Rust WASM crate version
+        run: |
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-qa-stagee-tools
+          /tmp/wand-qa-stagee-tools/bin/wasm-bindgen --version | grep -F '0.2.105'
+      - name: Generate actual ESM and .wasm only in ephemeral CI workspace
+        run: |
+          mkdir -p tests/stage-e/pkg
+          /tmp/wand-qa-stagee-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          test -s tests/stage-e/pkg/ddv_save_core.js
+          test -s tests/stage-e/pkg/ddv_save_core_bg.wasm
+          ! git ls-files tests/stage-e/pkg | grep -q .
+      - name: Run INDEPENDENT Chrome module Worker against generated Core and QA-only negatives
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F "new Worker('./worker.mjs'" tests/stage-e/index.html
+          sed -i "s|'./worker.mjs'|'./qa-independent-worker.mjs'|" tests/stage-e/index.html
+          grep -F "new Worker('./qa-independent-worker.mjs'" tests/stage-e/index.html
+          node tests/stage-e/chrome-smoke.mjs
+          git restore -- tests/stage-e/index.html
+          test -z "$(git diff --name-only -- tests/stage-e/index.html)"
+      - name: No private Save or production/Writer enablement in QA-only source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git ls-files tests/stage-e/pkg)"
+          if git grep -n -E 'include_bytes!|STEAM_SAVE_OWNER_PRIVATE|writerAuthorized: *true|applyAuthorized: *true' HEAD -- tests/stage-e/qa-independent-worker.mjs; then
+            echo 'Forbidden private/P1G/Writer marker in independent QA'; exit 1
+          fi
+          test "$(git diff --name-only a77b81dc41c7f092ae614b5e7b2b8df536e33298 HEAD | wc -l)" -eq 2
