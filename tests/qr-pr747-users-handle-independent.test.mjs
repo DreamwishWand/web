@@ -104,7 +104,8 @@ test('independent character-state oracle: deterministic ASCII fuzz and casefold'
       candidates++;
     }
   }
-  assert.ok(candidates>=6 && invalid>6000,'insufficient positive/negative oracle coverage');
+  assert.ok(candidates>900 && invalid>5000 && candidates+invalid===samples.length,
+    'insufficient deterministic positive/negative oracle coverage');
   mark('ASCII_FUZZ_6500_RAW_CASEFOLD_GRAMMAR_ALL_AUTH_DENIED');
 });
 
