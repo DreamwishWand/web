@@ -60,7 +60,7 @@ const fixture = await import('data:text/javascript;base64,' + Buffer.from(loadab
 const {
   syntheticToken, syntheticState, syntheticReadOnlyActorBoundHandle: run,
   verifyLocalSyntheticJwt: verifyJwt, A_SUB, B_SUB, A_ACCOUNT, B_ACCOUNT, A_PROFILE,
-  A_SESSION, B_SESSION, CLOCK, ISSUER, AUDIENCE, TEST_KID
+  B_PROFILE, A_SESSION, B_SESSION, CLOCK, ISSUER, AUDIENCE, TEST_KID
 } = fixture;
 
 test('pin exact original one-file source and unchanged production edge, legacy and grammar',()=>{
