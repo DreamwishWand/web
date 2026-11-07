@@ -199,3 +199,59 @@ test('D08 absent or zero WebCrypto entropy cannot open; no token minted or leake
    else delete globalThis.crypto;
  }
 });
+
+test('Q94-02 source regression: all-zero initial Rust cursor revokes Worker',async()=>{
+ class ZeroCursor extends MockRust {
+   issue_typed_cursor(...args){
+     return JSON.stringify({...JSON.parse(super.issue_typed_cursor(...args)),
+       cursor:'0'.repeat(32)});
+   }
+ }
+ const w=make(ZeroCursor),r=await open(w);
+ assert.throws(()=>w.issueTypedCursor(scope(r),'player'),
+   /PRODUCT_WORKER_RUST_TYPED_RECEIPT_INVALID/);
+ assert.equal(w.getReceipt(),null);
+});
+test('Q94-03 source regression: duplicate top-level cursor JSON key revoked before parse',async()=>{
+ class DuplicateCursor extends MockRust {
+   issue_typed_cursor(...args){
+     const raw=super.issue_typed_cursor(...args);
+     const m=raw.match(/"cursor":"[a-f0-9]{32}"/);
+     assert.ok(m);
+     return raw.replace(m[0],m[0]+','+m[0]);
+   }
+ }
+ const w=make(DuplicateCursor),r=await open(w);
+ assert.throws(()=>w.issueTypedCursor(scope(r),'player'),
+   /PRODUCT_WORKER_RUST_TYPED_RECEIPT_INVALID/);
+ assert.equal(w.getReceipt(),null);
+});
+test('Q94-03 nested escaped-equivalent duplicate typed JSON keys also revoke',async()=>{
+ class NestedDuplicate extends MockRust {
+   read_typed_page(...args){
+     const raw=super.read_typed_page(...args);
+     const key='"valueBytes":16777216';
+     assert.ok(raw.includes(key));
+     // JSON.parse alone would silently overwrite the escaped equivalent.
+     return raw.replace(key,key+',"value\\u0042ytes":16777216');
+   }
+ }
+ const w=make(NestedDuplicate),r=await open(w);
+ const c=w.issueTypedCursor(scope(r),'player');
+ assert.throws(()=>w.readTypedPage(scope(r),c.cursor),
+   /PRODUCT_WORKER_RUST_TYPED_RECEIPT_INVALID/);
+ assert.equal(w.getReceipt(),null);
+});
+test('Q94-04 source regression: all-zero nextCursor revokes Worker',async()=>{
+ class ZeroNext extends MockRust {
+   read_typed_page(...args){
+     return JSON.stringify({...JSON.parse(super.read_typed_page(...args)),
+       nextCursor:'0'.repeat(32)});
+   }
+ }
+ const w=make(ZeroNext),r=await open(w);
+ const c=w.issueTypedCursor(scope(r),'player');
+ assert.throws(()=>w.readTypedPage(scope(r),c.cursor),
+   /PRODUCT_WORKER_RUST_TYPED_RECEIPT_INVALID/);
+ assert.equal(w.getReceipt(),null);
+});
