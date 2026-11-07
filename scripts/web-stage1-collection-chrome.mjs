@@ -93,6 +93,38 @@ try{
  await page.waitForFunction(id=>document.activeElement?.getAttribute('data-stage1-item-id')===id,newId);
  assert.notEqual(newId,deepId);
  console.log('WEB_STAGE1_COLLECTION_COL_UX29_DEEP_SCROLL_FOCUS_STALE_SELECTION_PASS');
+ // COL-UX-42 actual result-set change must not strand the keyboard user at old item depth.
+ const scopeTop=async()=>page.evaluate(()=>{
+   const root=document.querySelector('[data-stage1-collection-root]');
+   if(!root)throw new Error('COL_UX42_ROOT_MISSING');
+   const top=Math.max(0,window.scrollY+root.getBoundingClientRect().top);
+   return Math.min(top,Math.max(0,document.documentElement.scrollHeight-innerHeight));
+ });
+ await page.locator('[data-stage1-search]').focus();
+ const beforeScopeTop=await scopeTop();
+ const beforeSearchDeep=await page.evaluate(top=>{
+   const max=Math.max(0,document.documentElement.scrollHeight-innerHeight);
+   window.scrollTo({top:Math.min(max,top+350),behavior:'instant'});
+   return window.scrollY;
+ },beforeScopeTop);
+ assert.ok(beforeSearchDeep>beforeScopeTop+50,'deep-result scroll test fixture must be genuinely deep');
+ await page.locator('[data-stage1-search]').evaluate(input=>{
+   input.value='40000047';
+   input.dispatchEvent(new Event('input',{bubbles:true}));
+ });
+ await page.locator('[data-stage1-search-groups] .item-section').first().waitFor();
+ await page.waitForFunction(()=>{
+   const root=document.querySelector('[data-stage1-collection-root]');
+   const top=Math.max(0,window.scrollY+root.getBoundingClientRect().top);
+   const expected=Math.min(top,Math.max(0,document.documentElement.scrollHeight-innerHeight));
+   return Math.abs(window.scrollY-expected)<=4;
+ });
+ assert.equal(await page.locator('[data-stage1-search]').inputValue(),'40000047');
+ assert.equal(await page.evaluate(()=>document.activeElement?.hasAttribute('data-stage1-search')),true,'search retains focus');
+ assert.equal(await page.locator('[data-stage1-item-info]').count(),0,'old item Info must not persist');
+ console.log('WEB_STAGE1_COLLECTION_COL_UX42_SEARCH_SCOPE_SCROLL_RESET_PASS');
+ await page.locator('[data-stage1-search]').fill('');
+ await page.locator('[data-stage1-category-browse]').waitFor();
  await page.locator('.back-category').click();
  await page.locator('[data-stage1-category-grid]').waitFor();
  console.log('WEB_STAGE1_COLLECTION_CATEGORY_TO_UNIVERSE_TO_INFO_RETURN_PASS');
@@ -135,7 +167,14 @@ try{
  assert.equal(await page.locator('[data-stage1-search]').isVisible(),true,'Search remains available');
  assert.equal(await page.locator('.personal-state').isVisible(),true,'All/Owned/Missing remain visible');
  assert.equal(await page.locator('.personal-state button[disabled]').count(),2,'Owned and Missing remain UNKNOWN');
- await filterButton.click();
+ // Independent QR-W #749 exposed +95px background drift as active-filter chips
+ // grow above a deep viewport while the modal is open (even with overflow:hidden).
+ const deepMobileY=await page.evaluate(()=>{
+   window.scrollTo({top:620,behavior:'instant'});
+   return scrollY;
+ });
+ assert.ok(deepMobileY>300,'mobile background scroll fixture must be deep');
+ await filterButton.evaluate(el=>el.click());
  const mobileDialog=page.locator('#collection-filters[role="dialog"][aria-modal="true"]');
  await mobileDialog.waitFor();
  assert.equal(await filterButton.getAttribute('aria-expanded'),'true');
@@ -143,9 +182,28 @@ try{
  await page.waitForFunction(()=>document.activeElement?.hasAttribute('data-stage1-filter-close'));
  const mobileWorld=mobileDialog.locator('fieldset').first().locator('button');
  const mobileUniverse=mobileDialog.locator('fieldset').nth(1).locator('button');
- await mobileWorld.first().click();
- await mobileWorld.nth(1).click();
- await mobileUniverse.first().click();
+ const snapBackground=()=>page.evaluate(()=>({
+   y:scrollY,overflowAnchor:document.documentElement.style.overflowAnchor,
+   bodyOverflow:document.body.style.overflow,
+   rootTop:document.querySelector('[data-stage1-collection-root]')?.getBoundingClientRect().top,
+   chipCount:document.querySelectorAll('.active-filters button').length
+ }));
+ const beforeMobileFacet=await snapBackground();
+ assert.equal(beforeMobileFacet.overflowAnchor,'none','mobile sheet disables scroll anchoring while locked');
+ const framePair=()=>page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+ await mobileWorld.first().evaluate(el=>el.click());
+ await framePair();
+ const afterMobileWorld1=await snapBackground();
+ assert.equal(afterMobileWorld1.y,beforeMobileFacet.y,'first World facet cannot scroll background');
+ await mobileWorld.nth(1).evaluate(el=>el.click());
+ await framePair();
+ const afterMobileWorld2=await snapBackground();
+ assert.equal(afterMobileWorld2.y,beforeMobileFacet.y,'second World facet cannot scroll background');
+ await mobileUniverse.first().evaluate(el=>el.click());
+ await framePair();
+ const afterMobileUniverse=await snapBackground();
+ console.log('WEB_STAGE1_COLLECTION_COL_UX42_MOBILE_NO_ANCHOR_DRIFT',JSON.stringify({beforeMobileFacet,afterMobileWorld1,afterMobileWorld2,afterMobileUniverse}));
+ assert.equal(afterMobileUniverse.y,beforeMobileFacet.y,'Universe facet cannot scroll background');
  assert.equal(await mobileWorld.first().getAttribute('aria-pressed'),'true');
  assert.equal(await mobileWorld.nth(1).getAttribute('aria-pressed'),'true');
  assert.equal(await mobileUniverse.first().getAttribute('aria-pressed'),'true');
@@ -158,6 +216,13 @@ try{
  assert.equal(await page.locator('#collection-filters').count(),0);
  await page.waitForFunction(()=>document.activeElement?.classList.contains('filter-toggle'));
  assert.equal(await page.evaluate(()=>document.body.style.overflow),savedBodyOverflow,'body scroll restored');
+ assert.equal(await page.evaluate(()=>document.documentElement.style.overflowAnchor),'','scroll anchoring restored after Escape');
+ await page.waitForFunction(()=>{
+   const root=document.querySelector('[data-stage1-collection-root]');
+   const top=Math.max(0,window.scrollY+root.getBoundingClientRect().top);
+   return Math.abs(window.scrollY-Math.min(top,Math.max(0,document.documentElement.scrollHeight-innerHeight)))<=4;
+ });
+ console.log('WEB_STAGE1_COLLECTION_COL_UX42_MOBILE_SCOPE_DEFER_UNTIL_CLOSE_PASS');
  assert.equal(await page.locator('.active-filters button').count(),4,'two World, one Universe and clear remain');
  await filterButton.click();
  await page.locator('[data-stage1-filter-backdrop]').click({position:{x:10,y:10}});
