@@ -144,7 +144,9 @@ try{
  console.log('QR748_MOBILE_DEFER_SCROLL_DIAGNOSTIC '+JSON.stringify({beforeFacet,afterWorld1,afterWorld2,afterUniverse1}));
  const initialBackgroundY=beforeFacet.y;
  const duringBackgroundY=afterUniverse1.y;
- assert.equal(duringBackgroundY,initialBackgroundY,'mobile modal MUST defer background scroll during three facet updates');
+ const backgroundDrift=duringBackgroundY-initialBackgroundY;
+ if(backgroundDrift!==0)console.log('QR748_TRUE_RED_MOBILE_BACKGROUND_SCROLL_DURING_OPEN_SHEET '+JSON.stringify({initialBackgroundY,duringBackgroundY,backgroundDrift}));
+ // Continue positive checks to isolate failures; final assertion still fails closed on this red.
  assert.equal(await mw.first().getAttribute('aria-pressed'),'true');
  assert.equal(await mw.nth(1).getAttribute('aria-pressed'),'true');
  assert.equal(await mu.first().getAttribute('aria-pressed'),'true');
@@ -188,5 +190,6 @@ try{
  assert.deepEqual(sockets.filter(u=>!/^ws:\/\/127\.0\.0\.1:4299\/\?token=[A-Za-z0-9_-]+$/.test(u)),[],'only localhost Vite HMR websocket allowed');
  assert.deepEqual(errors,[],'no unhandled page errors');
  console.log('QR748_CHROME_ZOOM200_FOCUS_NO_WRITER_PROVIDER_OR_EXTERNAL_NETWORK_PASS');
+ assert.equal(backgroundDrift,0,'mobile modal MUST defer background scroll during three facet updates; changed root layout must not auto-anchor');
 }finally{await ctx.close();await browser.close();}
 console.log('QR748_INDEPENDENT_LOCAL_CHROME_ALL_PASS');
