@@ -24,25 +24,10 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
     return reply({ ok: false, error: 'JWT session-id claim missing' }, 401);
   }
 
-  const { error: sessionError } = await ctx.supabaseAdmin.rpc(
-    'community_authorize_session',
-    {
-      p_auth_subject: subject,
-      p_issued_at_epoch: issuedAt,
-      p_max_age_seconds: null
-    }
-  );
-
-  if (sessionError) {
-    return reply(
-      {
-        ok: false,
-        error: 'SESSION_REVOKED_OR_INVALID',
-        message: sessionError.message
-      },
-      401
-    );
-  }
+  // Privacy suppression must remain retryable after the normal account
+  // session authorization is intentionally denied. The signed JWT is already
+  // verified by withSupabase(auth:user); the SQL RPC independently verifies
+  // its Supabase subject, actual session row, freshness and DELETE intent.
 
   let body: { action?: string; confirmation?: string };
   try {
@@ -63,7 +48,7 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
   }
 
   const { data, error } = await ctx.supabaseAdmin.rpc(
-    'community_tombstone_account',
+    'community_request_privacy_suppression_v1',
     {
       p_auth_subject: subject,
       p_session_id: sessionId,
@@ -100,6 +85,8 @@ const authenticatedFetch = withSupabase({ auth: 'user' }, async (req, ctx) => {
   return reply({
     ok: true,
     action: 'deleteAccount',
+    stage: 'privacy_suppressed_cleanup_pending',
+    fullDeletionComplete: false,
     data
   });
 });
