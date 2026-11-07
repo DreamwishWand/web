@@ -128,9 +128,56 @@ export function createProductWasmReadOwner(wasmFactory){
       fail('PRODUCT_WORKER_SCOPE_CAS');
    return a;
  };
+ const nonzeroCursor=v=>typeof v==='string'&&sessionHex.test(v)&&
+   !/^0{32}$/.test(v);
+ // Inspect bounded raw JSON before JSON.parse collapses duplicate object keys.
+ // Decode keys through JSON.parse so escaped-equivalent property names collide.
+ const rejectDuplicateJsonKeys=raw=>{
+   const stack=[];
+   for(let i=0;i<raw.length;){
+     const ch=raw[i];
+     if(ch==='"'){
+       const start=i++;
+       let ended=false;
+       while(i<raw.length){
+         if(raw[i]==='\\'){i+=2;continue}
+         if(raw[i]==='"'){i++;ended=true;break}
+         i++;
+       }
+       if(!ended)throw Error('UNTERMINATED_JSON_STRING');
+       const top=stack[stack.length-1];
+       if(top?.kind==='object'&&top.expectKey){
+         let j=i;
+         while(j<raw.length&&[' ','\t','\r','\n'].includes(raw[j]))j++;
+         if(raw[j]===':'){
+           const key=JSON.parse(raw.slice(start,i));
+           if(top.keys.has(key))throw Error('DUPLICATE_JSON_KEY');
+           top.keys.add(key);
+           top.expectKey=false;
+         }
+       }
+       continue;
+     }
+     if(ch==='{'||ch==='['){
+       if(stack.length>=32)throw Error('TYPED_JSON_DEPTH_BOUNDS');
+       stack.push(ch==='{'?{kind:'object',keys:new Set(),expectKey:true}:{kind:'array'});
+     }else if(ch==='}'||ch===']'){
+       if(!stack.length||stack[stack.length-1].kind!==(ch==='}'?'object':'array'))
+         throw Error('TYPED_JSON_BRACKETS');
+       stack.pop();
+     }else if(ch===','&&stack[stack.length-1]?.kind==='object'){
+       stack[stack.length-1].expectKey=true;
+     }
+     i++;
+   }
+   if(stack.length)throw Error('TYPED_JSON_UNCLOSED');
+ };
  const strictTypedJson=(raw,maxBytes)=>{
    if(typeof raw!=='string'||raw.length>maxBytes)fail('PRODUCT_WORKER_TYPED_RESPONSE_BOUNDS');
-   try{return JSON.parse(raw)}catch{fail('PRODUCT_WORKER_TYPED_RESPONSE_JSON')}
+   try{
+     rejectDuplicateJsonKeys(raw);
+     return JSON.parse(raw);
+   }catch{fail('PRODUCT_WORKER_TYPED_RESPONSE_JSON')}
  };
  const exactKeys=(obj,names)=>isPlain(obj)&&
    Object.keys(obj).sort().join(',')===names.split(',').sort().join(',');
@@ -149,7 +196,7 @@ export function createProductWasmReadOwner(wasmFactory){
        BigInt(scope.revision),BigInt(scope.indexGeneration),scope.decodedSha256),4096)}
    catch{typedReadFailure()}
    if(!exactKeys(r,'cursor,sessionId,revision,indexGeneration,decodedSha256,domain,maxEntriesPerPage,completeAllDomains,productReadAccepted,writerAuthorized')||
-      !sessionHex.test(r.cursor)||a.cursors.has(r.cursor)||
+      !nonzeroCursor(r.cursor)||a.cursors.has(r.cursor)||
       r.sessionId!==scope.sessionId||r.decodedSha256!==scope.decodedSha256||
       r.revision!==0||r.indexGeneration!==1||
       r.domain!==('/'+(domain==='player'?'Player':'World'))||
@@ -180,7 +227,7 @@ export function createProductWasmReadOwner(wasmFactory){
       r.productReadAccepted!==false||r.writerAuthorized!==false||
       !Array.isArray(r.fields)||r.fields.length>16||
       !(r.nextCursor===null||(typeof r.nextCursor==='string'&&
-         sessionHex.test(r.nextCursor)&&r.nextCursor!==cursor&&
+         nonzeroCursor(r.nextCursor)&&r.nextCursor!==cursor&&
          !a.cursors.has(r.nextCursor))))typedReadFailure();
    let descriptors;
    try{
