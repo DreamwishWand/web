@@ -47,7 +47,7 @@ try{
  assert.ok(await page.locator('[data-stage1-category-browse] .item-section').count()>0);
  await page.locator('[data-stage1-category-browse] .item-card').first().click();
  await page.locator('[data-stage1-item-info]').waitFor();
- const full=await page.locator('[data-stage1-item-info] a').getAttribute('href');
+ const full=await page.locator('[data-stage1-item-info] .info-actions > a').getAttribute('href');
  assert.match(full,/\/[1-9][0-9]*\/$/);
  await page.locator('[data-stage1-info-close]').click();
  assert.equal(await page.locator('[data-stage1-item-info]').count(),0);
