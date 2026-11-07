@@ -101,6 +101,9 @@ try{
  assert.equal(await page.evaluate(()=>document.activeElement?.hasAttribute('data-stage1-search')),true);
  console.log('WEB_STAGE1_COLLECTION_COL_UX29_CHANGED_SOURCE_DENY_PASS');
  await page.locator('[data-stage1-search]').fill('');
+ // Existing desktop regression deliberately leaves Filter open; close before isolated mobile sheet test.
+ if(await page.locator('#collection-filters').count())await page.locator('.filter-toggle').click();
+ assert.equal(await page.locator('#collection-filters').count(),0,'pre-mobile filter state is closed');
  await page.setViewportSize({width:320,height:800});
  await page.locator('[data-stage1-category-grid]').waitFor();
  await fit('320px');
