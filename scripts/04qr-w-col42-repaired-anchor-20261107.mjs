@@ -165,6 +165,6 @@ try{
  console.log('QRW_COL42_ROUTE_UNMOUNT_SCROLL_LOCK_CLEANUP_PASS');
  assert.deepEqual(errors,[],'JS page errors');
  assert.deepEqual(unsafeRequests,[],'only localhost GET; no offsite or POST');
- assert.deepEqual(websockets,[],'no external sockets');
+ assert.deepEqual(websockets.filter(raw=>{const u=new URL(raw);return u.hostname!=='127.0.0.1'||u.port!=='4299';}),[],'no off-origin websocket; localhost Vite HMR is allowed');
  console.log('QRW_COL42_NEWHEAD_SCOPED_CHROME_PASS');
 }finally{await browser.close();}
