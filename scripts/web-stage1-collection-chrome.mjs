@@ -60,6 +60,11 @@ try{
  // The product captures scrollY during the card's click handler, NOT at pre-Enter focus.
  // A keyboard default-action can scroll between the focused snapshot and synthetic click.
  const focusedScroll=await page.evaluate(()=>window.scrollY);
+ // Negative example: a genuine 14px position change occurs between initial focus and Enter.
+ // The product must restore click-time rather than incorrectly comparing to pre-Enter focus.
+ await page.evaluate(y=>window.scrollTo(window.scrollX,y+14),focusedScroll);
+ const beforeEnterScroll=await page.evaluate(()=>window.scrollY);
+ assert.ok(beforeEnterScroll-focusedScroll>=10,'synthetic 14px keyboard pre-click delta not exercised');
  const deepId=await deep.getAttribute('data-stage1-item-id');
  await deep.evaluate(el=>{
    el.addEventListener('click',()=>{
@@ -72,12 +77,13 @@ try{
  const clickTime=await page.evaluate(()=>window.__collectionClickTimeScroll);
  assert.ok(clickTime&&Number.isFinite(clickTime.y),'keyboard click-time scroll capture missing');
  assert.equal(clickTime.id,deepId,'source click-time ID must match origin card');
+ assert.ok(clickTime.y-focusedScroll>=10,'click-time must record intentional scroll delta, not earlier focus');
  const beforeClose=await page.evaluate(()=>window.scrollY);
  await page.locator('[data-stage1-info-close]').focus();
  await page.keyboard.press('Enter');
  await page.waitForFunction(id=>document.activeElement?.getAttribute('data-stage1-item-id')===id,deepId);
  const returnedScroll=await page.evaluate(()=>window.scrollY);
- console.log('WEB_STAGE1_COLLECTION_COL_UX29_SCROLL_EVENT_TRACE',JSON.stringify({focusedScroll,clickTime,beforeClose,returnedScroll}));
+ console.log('WEB_STAGE1_COLLECTION_COL_UX29_SCROLL_EVENT_TRACE',JSON.stringify({focusedScroll,beforeEnterScroll,clickTime,beforeClose,returnedScroll}));
  assert.ok(Math.abs(returnedScroll-clickTime.y)<=4,'scroll restored to actual click-time '+clickTime.y+' -> '+returnedScroll);
  assert.equal(await furnitureCards.count(),furnitureCount,'filter and page context retained');
  await deep.click(); await page.locator('[data-stage1-item-info]').waitFor();
