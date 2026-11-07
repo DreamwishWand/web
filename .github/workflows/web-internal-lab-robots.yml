@@ -1,0 +1,91 @@
+name: WEB Community Lab root noindex (local safe route smoke)
+on:
+  push:
+    branches:
+      - 'web/internal-lab-robots-*'
+  pull_request:
+    paths:
+      - 'src/routes/community-lab/+page.svelte'
+      - 'tests/web-internal-lab-robots.test.mjs'
+      - 'scripts/web-internal-lab-robots-chrome.mjs'
+      - '.github/workflows/web-internal-lab-robots.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Exact root robots-only Source scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="$(git merge-base origin/main HEAD)"
+          git diff --name-only "$BASE" HEAD >/tmp/internal-lab-files
+          test "$(wc -l </tmp/internal-lab-files)" -eq 4
+          for required in 'src/routes/community-lab/+page.svelte' 'tests/web-internal-lab-robots.test.mjs' 'scripts/web-internal-lab-robots-chrome.mjs' '.github/workflows/web-internal-lab-robots.yml'; do
+            grep -qxF "$required" /tmp/internal-lab-files
+          done
+          git diff --exit-code "$BASE" HEAD -- src/lib/community/ src/lib/ddv/ src/routes/community-lab/account/ src/routes/community-lab/profiles/ src/routes/community-lab/recovery/ src/routes/community-ops/ supabase/ static/ .github/workflows/pages.yml
+          echo WEB_INTERNAL_LAB_EXACT_FOUR_SCOPE_PASS
+      - name: Node robots negative and ancestor invariants
+        run: node --test tests/web-internal-lab-robots.test.mjs
+      - name: All Node and Svelte static build
+        env:
+          BASE_PATH: /web
+        run: |
+          npm test
+          npm run check
+          npm run build
+          test -f build/community-lab/index.html
+          test -f build/community-lab/account/index.html
+          test -f build/community-lab/profiles/index.html
+          test -f build/community-lab/recovery/index.html
+          test -f build/community-ops/index.html
+          grep -Eq 'name="robots" content="noindex,nofollow"' build/community-lab/index.html
+          test -f build/404.html
+          echo WEB_INTERNAL_LAB_PRERENDER_ROOT_AND_CHILDREN_EXIST_PASS
+  chrome:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Start disposable local Svelte app
+        env:
+          BASE_PATH: /web
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          npm run build
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4292 >/tmp/08web-internal-lab.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4292/community-lab/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/08web-internal-lab.log
+          exit 1
+      - name: Local installed Chrome root noindex, 8 locales, child routes, keyboard, 320px/200pct, no outside HTTP
+        env:
+          INTERNAL_LAB_URL: http://127.0.0.1:4292
+        run: node scripts/web-internal-lab-robots-chrome.mjs
