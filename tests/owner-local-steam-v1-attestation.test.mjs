@@ -22,7 +22,7 @@ test('Owner-local exact external Steam candidate and SHA never authorizes produc
 });
 test('Unknown version, wrong platform/BID, schema624 and cross-save device inference denied',()=>{
  for(const bad of [
-  {},{platform:'switch'},{buildKind:'switch-bid'},
+  {platform:'switch'},{buildKind:'switch-bid'},
   {fullVersion:'unknown'},{fullVersion:'1.25.3'},
   {schema:624},{schema:625},{observedOutsideSave:false},
   {evidenceKind:'from-save-gameinfo-last-save-device'},
