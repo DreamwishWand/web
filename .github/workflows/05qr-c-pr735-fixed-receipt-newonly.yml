@@ -1,0 +1,58 @@
+name: 05 QR-C PR735 fixed StageD typed receipt changed-only independent
+on:
+  push:
+    branches:
+      - qa/05qrc-pr735-stage-d-repair-87d634-20261107
+  pull_request:
+    paths:
+      - tests/05qr-c-pr735-fixed-receipt-newonly.test.mjs
+      - .github/workflows/05qr-c-pr735-fixed-receipt-newonly.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-typed-receipt-repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pin repaired Source PR735 exact original nine blobs and only new QA files
+        shell: bash
+        run: |
+          set -euo pipefail
+          source=87d634b6da5462046f5ca0a60383efd93b1938f3
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            qa_tip="$(git rev-parse HEAD^2)"
+          else
+            qa_tip="$(git rev-parse HEAD)"
+          fi
+          git merge-base --is-ancestor "$source" "$qa_tip"
+          test "$(git rev-parse "$qa_tip":.github/workflows/core-product-session-boundary.yml)" = 1d6a4cac112c8b6c06343e77fa16ed917a51cf7f
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/indexed_read.rs)" = 65d9eb111bed5da43a3dcaa334ee1912b58ed388
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/product_session.rs)" = b8a45c5dae79d342d3a948e2479d10a4c200c373
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/wasm_worker.rs)" = 11ded7be85293155d0d856e3be15e68d5580538b
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/worker_session.rs)" = 79dc4ee73928b90021d4ee656a9de2c4f769f8ea
+          test "$(git rev-parse "$qa_tip":docs/core/01a-worker-read-metadata-stage-d-093-20261107.md)" = 645b70cbda7bf72de1b93649f68d58901076f5c3
+          test "$(git rev-parse "$qa_tip":src/lib/ddv/core/save/product-wasm-read-owner.d.mts)" = e96cb31e6bab77b6f01a700cd74ef4f8b012f9f9
+          test "$(git rev-parse "$qa_tip":src/lib/ddv/core/save/product-wasm-read-owner.mjs)" = 03caad68559234e6216ff729cef06eacb0e56267
+          test "$(git rev-parse "$qa_tip":tests/product-wasm-typed-read-owner.test.mjs)" = a7db1e660c1bb2c5204b62684266ff98936df322
+          actual="$(git diff --name-only "$source" "$qa_tip" | sort)"
+          expected="$(printf '%s\n' .github/workflows/05qr-c-pr735-fixed-receipt-newonly.yml tests/05qr-c-pr735-fixed-receipt-newonly.test.mjs | sort)"
+          test "$actual" = "$expected"
+      - name: Independently reject zero cursors and duplicate typed JSON without breaking valid metadata
+        run: node --test tests/05qr-c-pr735-fixed-receipt-newonly.test.mjs
+      - name: Prevent private Save and product Writer promotion in QA-only branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          if find . -type f -iname 'steam_*.zip' -print -quit | grep -q .; then
+            echo 'Private Save forbidden'; exit 1
+          fi
+          if git grep -n -E 'writer_authorized: *true|apply_authorized: *true|include_(bytes|str)!' HEAD -- crates/ddv-save-core/src; then
+            echo 'Product Writer/private data forbidden'; exit 1
+          fi
