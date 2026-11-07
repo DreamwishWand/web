@@ -1,0 +1,313 @@
+{
+  "contract_id": "W_WEB_P0_USERS_HANDLE_HOST_ROUTING_SPEC_20261107",
+  "operation": "WEB_READ_ONLY_SPEC_ONLY",
+  "authority": "OWNER_PUBLIC_PROFILE_USERS_HANDLE_20261107",
+  "baseline_main": "01f45bd20ab98da2b6dc7c807738c20592621f47",
+  "evidence_tier": "SOURCE_ONLY",
+  "release_state": "NO_GO",
+  "public_flags": {
+    "community": false,
+    "provider": false,
+    "cloud": false,
+    "writer": false,
+    "production": false
+  },
+  "existing_host": {
+    "product": "github_pages_project_site",
+    "base_path": "/web",
+    "svelte_adapter": "@sveltejs/adapter-static",
+    "fallback": "404.html",
+    "layout_prerender": true,
+    "trailing_slash": "always",
+    "arbitrary_dynamic_200_confirmed": false,
+    "managed_https_proof": "NOT_RUN",
+    "production_source_change": "NONE"
+  },
+  "routes": [
+    {
+      "route": "/users/{handle}/",
+      "domain": "public_profile",
+      "canonical": true,
+      "key_kind": "MUTABLE_HANDLE",
+      "stable_principal": "IMMUTABLE_ACCOUNT_ID",
+      "state": "HOLD_HOST_AND_AUTH",
+      "http": "NOT_RUN",
+      "indexable": false,
+      "may_serve_without_verified_consent": false,
+      "source": "NOT_IMPLEMENTED"
+    },
+    {
+      "route": "/library/",
+      "domain": "private_library",
+      "canonical": true,
+      "key_kind": "SESSION_ACCOUNT",
+      "stable_principal": "IMMUTABLE_ACCOUNT_ID",
+      "state": "HOLD_AUTH_PRIVATE",
+      "http": "NOT_RUN",
+      "indexable": false,
+      "may_serve_without_verified_consent": false,
+      "source": "NOT_IMPLEMENTED"
+    },
+    {
+      "route": "/library/gallery/",
+      "domain": "private_library_gallery",
+      "canonical": true,
+      "key_kind": "SESSION_ACCOUNT",
+      "stable_principal": "IMMUTABLE_ACCOUNT_ID",
+      "state": "HOLD_AUTH_PRIVATE",
+      "http": "NOT_RUN",
+      "indexable": false,
+      "may_serve_without_verified_consent": false,
+      "source": "NOT_IMPLEMENTED"
+    },
+    {
+      "route": "/library/presets/",
+      "domain": "private_library_presets",
+      "canonical": true,
+      "key_kind": "SESSION_ACCOUNT",
+      "stable_principal": "IMMUTABLE_ACCOUNT_ID",
+      "state": "HOLD_AUTH_PRIVATE",
+      "http": "NOT_RUN",
+      "indexable": false,
+      "may_serve_without_verified_consent": false,
+      "source": "NOT_IMPLEMENTED"
+    },
+    {
+      "route": "/{primary-id}/{secondary-id}/{slug?}",
+      "domain": "public_work_or_entity",
+      "canonical": true,
+      "key_kind": "IMMUTABLE_TYPED_ENTITY_REF",
+      "stable_principal": "IMMUTABLE_WORK_ID",
+      "state": "HOLD_ID_RIGHTS_HOST",
+      "http": "NOT_RUN",
+      "indexable": false,
+      "may_serve_without_verified_consent": false,
+      "source": "EXISTING_GENERIC_CLIENT_INSPECT_ONLY"
+    },
+    {
+      "route": "/creator/?id={profile-id}",
+      "domain": "legacy_creator",
+      "canonical": false,
+      "key_kind": "LEGACY_QUERY",
+      "stable_principal": "IMMUTABLE_CREATOR_PROFILE_ID",
+      "state": "PRESERVE_EXISTING_NO_REDIRECT",
+      "http": "NOT_RUN",
+      "indexable": false,
+      "may_serve_without_verified_consent": false,
+      "source": "EXISTING_STATIC_SHELL"
+    }
+  ],
+  "hosting_decision": {
+    "chosen_for_now": "KEEP_EXISTING_PAGES_404_FAILCLOSED_NO_NEW_PUBLIC_ROUTES",
+    "rejected": [
+      "DYNAMIC_SVELTE_PAGE_ALONE_AS_HTTP200",
+      "SPA_404_FALLBACK_AS_SEO200",
+      "CLIENT_SIDE_REDIRECT_AS_HTTP301",
+      "NOINDEX_AS_AUTHORIZATION",
+      "HANDLE_SYNTAX_AS_IDENTITY_OR_CONSENT",
+      "AUTOMATIC_MAIN_OR_PAGES_DEPLOY",
+      "BLIND_INDEXING_OR_SITEMAP"
+    ],
+    "future_paths": [
+      {
+        "id": "APPROVED_HOST_SIDE_SSR_GATEWAY",
+        "preconditions": [
+          "OWNER_HOST_PROVIDER_OPERATOR_APPROVAL",
+          "AUTH_SESSION_RLS_ACTOR_REVOCATION",
+          "HANDLES_ALIAS_TRANSACTIONAL_CAS",
+          "PUBLIC_PROJECTION_CONSENT_RIGHTS_VERSION_MODERATION",
+          "ROUTE_STATUS_DIRECT_HTTPS_200_404_302_TEST",
+          "CDN_CACHE_INVALIDATE_ROLLBACK_BACKUP",
+          "INDEPENDENT_QR_W_AND_QR_S"
+        ]
+      },
+      {
+        "id": "EXPLICIT_FINITE_STATIC_SNAPSHOT",
+        "preconditions": [
+          "OWNER_OPT_IN_FINITE_ALLOWLIST",
+          "RIGHTS_CONSENT_PER_EXACT_PROFILE_AND_WORK",
+          "REVOKE_WITH_CDN_INVALIDATION",
+          "NO_PRIVATE_DATA_IN_ARTIFACT",
+          "EXACT_HTTP_200_404_DEPLOYED_TEST",
+          "INDEPENDENT_QR_W_AND_QR_S"
+        ]
+      }
+    ]
+  },
+  "host_acceptance": [
+    {
+      "case": "published_consented_active_profile",
+      "subject": "PUBLIC",
+      "path": "/users/{verified-handle}/",
+      "required_status": 200,
+      "current": "NOT_RUN",
+      "must_have": [
+        "canonical_absolute_url",
+        "stable_account_binding",
+        "rights_consent_proven",
+        "no_private_projection"
+      ]
+    },
+    {
+      "case": "unknown_or_unconsented_profile",
+      "subject": "ANONYMOUS",
+      "path": "/users/{unknown-handle}/",
+      "required_status": 404,
+      "current": "NOT_RUN",
+      "must_have": [
+        "no_user_data",
+        "no_index",
+        "no_cdn_private_caching"
+      ]
+    },
+    {
+      "case": "safe_existing_old_handle_alias",
+      "subject": "PUBLIC",
+      "path": "/users/{historical-handle}/",
+      "required_status": 302,
+      "current": "NOT_RUN",
+      "must_have": [
+        "verified_immutable_principal",
+        "not_reassigned_alias",
+        "consent_still_valid",
+        "redirect_to_current_verified_handle"
+      ]
+    },
+    {
+      "case": "anonymous_private_library",
+      "subject": "ANONYMOUS",
+      "path": "/library/",
+      "required_status": 401,
+      "current": "NOT_RUN",
+      "must_have": [
+        "no_private_data",
+        "no_shared_cache",
+        "not_indexed"
+      ]
+    },
+    {
+      "case": "authenticated_own_library",
+      "subject": "AUTH_VALID_OWNER",
+      "path": "/library/",
+      "required_status": 200,
+      "current": "NOT_RUN",
+      "must_have": [
+        "server_authorized_current_actor",
+        "no_store",
+        "own_data_only"
+      ]
+    },
+    {
+      "case": "other_account_private_library",
+      "subject": "AUTH_VALID_OTHER_ACCOUNT",
+      "path": "/library/",
+      "required_status": 403,
+      "current": "NOT_RUN",
+      "must_have": [
+        "no_private_data",
+        "no_shared_cache",
+        "no_store",
+        "valid_actor_not_resource_owner",
+        "independent_current_actor_acl_rls_denial"
+      ]
+    },
+    {
+      "case": "revoked_private_library",
+      "subject": "AUTH_REVOKED_JWT",
+      "path": "/library/",
+      "required_status": 401,
+      "current": "NOT_RUN",
+      "must_have": [
+        "no_private_data",
+        "no_shared_cache",
+        "no_store",
+        "token_revocation_checked_server_side",
+        "no_reuse_revoked_session"
+      ]
+    },
+    {
+      "case": "expired_private_library",
+      "subject": "AUTH_EXPIRED_JWT",
+      "path": "/library/",
+      "required_status": 401,
+      "current": "NOT_RUN",
+      "must_have": [
+        "no_private_data",
+        "no_shared_cache",
+        "no_store",
+        "server_expires_at_checked",
+        "no_silent_refresh_authorization"
+      ]
+    },
+    {
+      "case": "logged_out_private_library",
+      "subject": "AUTH_LOGGED_OUT_SESSION",
+      "path": "/library/",
+      "required_status": 401,
+      "current": "NOT_RUN",
+      "must_have": [
+        "no_private_data",
+        "no_shared_cache",
+        "no_store",
+        "logout_session_invalidated",
+        "no_stale_private_response"
+      ]
+    },
+    {
+      "case": "work_public_approved_version",
+      "subject": "PUBLIC",
+      "path": "/{immutable-primary}/{immutable-secondary}/{slug?}/",
+      "required_status": 200,
+      "current": "NOT_RUN",
+      "must_have": [
+        "typed_identity_resolver",
+        "canonical_one_url",
+        "rights_version_consent",
+        "no_creator_handle_as_work_id"
+      ]
+    },
+    {
+      "case": "work_private_or_moderated",
+      "subject": "ANONYMOUS",
+      "path": "/{immutable-primary}/{immutable-secondary}/{slug?}/",
+      "required_status": 404,
+      "current": "NOT_RUN",
+      "must_have": [
+        "no_index",
+        "no_private_work_media",
+        "no_dreamsnaps_vote_embargo_leak"
+      ]
+    }
+  ],
+  "required_negative_tests": [
+    "NO_FAKE_SPA_404_AS_HTTP200",
+    "NO_CLIENT_ONLY_301_CLAIM",
+    "NO_UNVERIFIED_LEGACY_ALIAS_REDIRECT",
+    "NO_FOREIGN_OR_REVOKED_LIBRARY_DATA",
+    "NO_RIGHTS_UNKNOWN_INDEX_OR_SITEMAP",
+    "NO_PRIVATE_CACHE_SHARED_CDN",
+    "NO_DREAMSNAPS_VOTE_SUBMISSION_LEAK",
+    "NO_UNCONFIRMED_NATIVE_ITEM_ID_PUBLICATION",
+    "NO_AUTO_FLAG_ON",
+    "NO_SEPARATE_DUPLICATE_WORK_ID_MODEL",
+    "NO_MUTABLE_HANDLE_AS_WORK_STABLE_ID",
+    "NO_OTHER_ACCOUNT_LIBRARY_ACCESS",
+    "NO_REVOKED_EXPIRED_LOGGED_OUT_LIBRARY_ACCESS"
+  ],
+  "accessibility_acceptance": [
+    "8_LOCALES",
+    "320PX",
+    "200_PERCENT_ZOOM",
+    "KEYBOARD",
+    "FOCUS_VISIBLE",
+    "FOCUS_RETURN",
+    "NO_HIDDEN_FOCUS"
+  ],
+  "known_release_gates": [
+    "G-RC",
+    "G-PREVIEW",
+    "G-WRITER",
+    "G-COMMUNITY_PUBLIC",
+    "G-FORMAL"
+  ]
+}
