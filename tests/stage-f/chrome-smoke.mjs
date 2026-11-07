@@ -112,20 +112,27 @@ try{
     await delay(50);
   }
   if(!navigated)throw Error('ENV_STAGEF_CHROME_NAVIGATION_NOT_READY');
-  const result=await Promise.race([
-    rpc('Runtime.evaluate',{expression:`
-      new Promise((resolve,reject)=>{
-        let count=0;
-        const tick=()=>{
-          if(window.__stageF){
-            window.__stageF.then(resolve,reject);
-          }else if(++count>3000){reject(Error('BROWSER_WORKER_BOOT_TIMEOUT'))}
-          else setTimeout(tick,30);
-        };
-        tick();
-      })`,awaitPromise:true,returnByValue:true}),
-    delay(150000).then(()=>{throw Error('ENV_STAGEF_CHROME_TIMEOUT_150S')})
-  ]);
+  // Abort the 150s watchdog on success/failure, otherwise Node's timer
+  // unnecessarily holds the GitHub runner open even after a verdict.
+  const watchdog=new AbortController();
+  let result;
+  try{
+    result=await Promise.race([
+      rpc('Runtime.evaluate',{expression:`
+        new Promise((resolve,reject)=>{
+          let count=0;
+          const tick=()=>{
+            if(window.__stageF){
+              window.__stageF.then(resolve,reject);
+            }else if(++count>3000){reject(Error('BROWSER_WORKER_BOOT_TIMEOUT'))}
+            else setTimeout(tick,30);
+          };
+          tick();
+        })`,awaitPromise:true,returnByValue:true}),
+      delay(150000,undefined,{signal:watchdog.signal})
+        .then(()=>{throw Error('ENV_STAGEF_CHROME_TIMEOUT_150S')})
+    ]);
+  }finally{watchdog.abort()}
   if(result.exceptionDetails)throw Error('CHROME_WORKER_EXCEPTION:'+
     (result.exceptionDetails.exception?.description||
       result.exceptionDetails.text||'unknown').slice(0,900));
