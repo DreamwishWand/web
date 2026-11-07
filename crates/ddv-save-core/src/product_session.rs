@@ -92,6 +92,8 @@ pub struct ProductSession {
     sha: [u8;32],
     schema: u64,
     worker_bound: bool,
+    #[cfg(all(feature="worker-wasm",feature="indexed-read",target_arch="wasm32"))]
+    worker_cursor_key:[u8;32],
 }
 impl ProductSession {
     /// R02 native-only decoded JSON prototype. NOT a P1G decrypt, Worker
@@ -114,6 +116,8 @@ impl ProductSession {
                 #[cfg(feature = "synthetic-stage-b")] lab:None,
                 #[cfg(feature = "indexed-read")] indexed:None }),
             decoded:Arc::from(decoded), sha, schema:build.schema, worker_bound:false,
+            #[cfg(all(feature="worker-wasm",feature="indexed-read",target_arch="wasm32"))]
+            worker_cursor_key:[0;32],
         })
     }
     /// Worker WASM-only source entry. A trusted Worker supplies CSPRNG entropy,
@@ -132,6 +136,16 @@ impl ProductSession {
         }
         validate_entire_document(&decoded,build.schema)?;
         let sha: [u8;32] = Sha256::digest(&decoded).into();
+        // This key never crosses the Rust/Worker boundary. The Worker must
+        // use its own WebCrypto CSPRNG on open and may not accept UI seed.
+        #[cfg(all(feature="worker-wasm",feature="indexed-read",target_arch="wasm32"))]
+        let worker_cursor_key:[u8;32]={
+            let mut h=Sha256::new();
+            h.update(b"wand.product.worker.indexed.secret.v1");
+            h.update(entropy);
+            h.update(sha);
+            h.finalize().into()
+        };
         let mut hash = Sha256::new();
         hash.update(b"wand.product.worker.session.v1");
         hash.update(entropy);
@@ -145,6 +159,8 @@ impl ProductSession {
         Ok(Self {
             state:Mutex::new(state),decoded:Arc::from(decoded),
             sha,schema:build.schema,worker_bound:true,
+            #[cfg(all(feature="worker-wasm",feature="indexed-read",target_arch="wasm32"))]
+            worker_cursor_key,
         })
     }
     fn lock(&self) -> CoreResult<MutexGuard<'_, State>> {
