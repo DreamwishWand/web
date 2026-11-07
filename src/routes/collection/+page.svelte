@@ -182,7 +182,8 @@
        origin.trigger.dataset.stage1ItemId!==String(origin.itemId)||
        !scoped.some((item:any)=>item.itemId===origin.itemId))return;
     origin.trigger.focus({preventScroll:true});
-    window.scrollTo(origin.x,origin.y);
+    // Global html uses smooth scrolling; this restoration must be synchronous.
+    window.scrollTo({left:origin.x,top:origin.y,behavior:'instant'});
   }
   const inertProgress='— / —';
 </script>
