@@ -1,0 +1,60 @@
+name: 01A Owner Local Steam Rust V1 Read-only Attestation Synthetic Chrome (OFF)
+on:
+  pull_request:
+    paths:
+      - 'tools/owner-local-steam-v1/**'
+      - 'tests/stage-g/**'
+      - 'tests/owner-local-steam-v1-attestation.test.mjs'
+      - '.github/workflows/01a-owner-local-steam-v1.yml'
+      - 'crates/ddv-save-core/**'
+      - 'src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs'
+  push:
+    branches:
+      - 'core/owner-local-steam-v1-*'
+permissions:
+  contents: read
+jobs:
+  owner-local-synthetic-real-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-owner-local-v1-rust-target
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Attestation input validation and explicit negative cases (synthetic)
+        run: node --test tests/owner-local-steam-v1-attestation.test.mjs
+      - name: Strict owner-local HTML and Worker scripts syntax
+        run: |
+          node --check tools/owner-local-steam-v1/attestation.mjs
+          node --check tools/owner-local-steam-v1/worker-core.mjs
+          node --check tools/owner-local-steam-v1/server.mjs
+          node --check tests/stage-g/page.mjs
+      - name: Build accepted single Rust Worker for synthetic local test only
+        run: |
+          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --features worker-wasm,indexed-read
+          test -s "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
+      - name: Install exact wasm-bindgen CLI, use no mock
+        run: |
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-local-v1-bindgen
+          /tmp/wand-local-v1-bindgen/bin/wasm-bindgen --version | grep -F '0.2.105'
+      - name: Generate real ESM JS and Rust WASM in local uncommitted workspace
+        run: |
+          mkdir -p tests/stage-e/pkg
+          /tmp/wand-local-v1-bindgen/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          test -s tests/stage-e/pkg/ddv_save_core.js
+          test -s tests/stage-e/pkg/ddv_save_core_bg.wasm
+      - name: Generate synthetic encrypted P1G fixture, never private Owner original
+        run: |
+          node tests/stage-f/generate-fixture.mjs
+          test -s tests/stage-f/fixtures/synthetic626.p1g
+          test -z "$(git ls-files tests/stage-e/pkg tests/stage-f/fixtures)"
+      - name: Real Chrome local File selection, Build+SHA gate and negative checks
+        run: node tests/stage-g/chrome-smoke.mjs
+      - name: Reject new production Worker changes and private artifact commits
+        run: |
+          test -z "$(git ls-files tests/stage-e/pkg tests/stage-f/fixtures)"
+          ! git ls-files | grep -E 'OWNER_PRIVATE|STEAM_SAVE_OWNER|\.p1g$'
+          test -f src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs
