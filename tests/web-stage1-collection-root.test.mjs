@@ -88,7 +88,8 @@ test('COL-UX-29 focus and scroll restoration has a live-card, context and source
  assert.match(page,/!scoped\.some\(\(item:any\)=>item\.itemId===origin\.itemId\)/);
  assert.match(page,/infoId!==null\|\|infoReturn!==null/);
  assert.match(page,/focus\(\{preventScroll:true\}\)/);
- assert.match(page,/window\.scrollTo\(origin\.x,origin\.y\)/);
+ assert.match(page,/window\.scrollTo\(\{left:origin\.x,top:origin\.y,behavior:'instant'\}\)/);
+ assert.doesNotMatch(page,/window\.scrollTo\(origin\.x,origin\.y\)/,'CSS html smooth scroll cannot delay focus restoration');
  assert.equal((page.match(/data-stage1-item-id=\{item\.itemId\}/g)||[]).length,2);
  assert.match(page,/data-stage1-info-close on:click=\{closeInfo\}/);
  assert.doesNotMatch(page,/localStorage\.setItem|saveEditedCopy|fetch\([^)]*POST/);
