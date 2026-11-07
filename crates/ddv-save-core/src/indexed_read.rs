@@ -5,6 +5,8 @@
 //! No Native reference closure or Product Worker binding acceptance.
 use super::{ProductSession, State, WorkerAction, WorkerEnvelope, PRODUCT_WORKER_CONTRACT};
 use crate::{CoreError, CoreResult};
+#[cfg(any(test,target_arch="wasm32"))]
+use sha2::{Digest,Sha256};
 
 pub const INDEX_PAGE_ENTRIES_MAX:usize=16;
 const INDEX_KEY_BYTES_MAX:usize=128;
@@ -64,6 +66,7 @@ struct CursorGrant{
 pub(super) struct IndexedCache {
     roots:RootIndex,
     grants:Vec<CursorGrant>,
+    next_nonce:u64,
 }
 fn denied(error:&'static str)->CoreError{CoreError(error)}
 fn skip_ws(bytes:&[u8],mut i:usize)->usize {
@@ -232,15 +235,61 @@ fn validate_scope(s:&ProductSession,st:&State,e:&WorkerEnvelope)->CoreResult<()>
     if st.lab.is_some(){return Err(denied("STAGED_SOURCE_READ_DISABLED"));}
     Ok(())
 }
-fn mint_cursor()->CoreResult<[u8;16]>{
-    let mut token=[0_u8;16];
+// Deterministic only relative to a secret Rust-owned key derived from Worker
+// WebCrypto CSPRNG at open. SessionID and SourceSHA alone cannot mint tokens.
+#[cfg(any(test,target_arch="wasm32"))]
+fn derive_worker_cursor(key:&[u8;32],source_sha:&[u8;32],nonce:u64)->[u8;16]{
+    let mut hash=Sha256::new();
+    hash.update(b"wand.product.indexed.worker.cursor.v1");
+    hash.update(key);
+    hash.update(source_sha);
+    hash.update(nonce.to_be_bytes());
+    let digest=hash.finalize();
+    let mut out=[0_u8;16];out.copy_from_slice(&digest[..16]);out
+}
+fn mint_cursor(source:&ProductSession,cache:&mut IndexedCache)->CoreResult<[u8;16]>{
+    let next=cache.next_nonce.checked_add(1).ok_or(denied("INDEX_NONCE_OVERFLOW"))?;
     #[cfg(not(target_arch="wasm32"))]
-    getrandom::getrandom(&mut token)
-        .map_err(|_|denied("INDEX_CSPRNG_UNAVAILABLE"))?;
+    let mut token=[0_u8;16];
     #[cfg(target_arch="wasm32")]
-    return Err(denied("INDEX_WORKER_ENTROPY_NOT_BOUND"));
+    let token;
+    #[cfg(not(target_arch="wasm32"))]
+    {
+        let _=source;
+        getrandom::getrandom(&mut token)
+            .map_err(|_|denied("INDEX_CSPRNG_UNAVAILABLE"))?;
+    }
+    #[cfg(target_arch="wasm32")]
+    {
+        #[cfg(feature="worker-wasm")]
+        {
+            if source.worker_cursor_key.iter().all(|b|*b==0) {
+                return Err(denied("INDEX_WORKER_ENTROPY_NOT_BOUND"));
+            }
+            token=derive_worker_cursor(&source.worker_cursor_key,&source.sha,next);
+        }
+        #[cfg(not(feature="worker-wasm"))]
+        {
+            let _=source;let _=next;
+            return Err(denied("INDEX_WORKER_ENTROPY_NOT_BOUND"));
+        }
+    }
     if token.iter().all(|b|*b==0){return Err(denied("INDEX_CURSOR_ZERO_DENIED"));}
+    cache.next_nonce=next;
     Ok(token)
+}
+#[cfg(test)]
+mod cursor_secret_tests {
+    use super::*;
+    #[test]
+    fn cursor_kdf_separates_nonce_and_source_without_exposing_key() {
+        let key=[0x53;32];let source=[0xa2;32];
+        let a=derive_worker_cursor(&key,&source,1);
+        assert_ne!(a,[0;16]);
+        assert_ne!(a,derive_worker_cursor(&key,&source,2));
+        assert_ne!(a,derive_worker_cursor(&key,&[0xa3;32],1));
+        assert_ne!(a,derive_worker_cursor(&[0x54;32],&source,1));
+    }
 }
 impl ProductSession {
     /// R04/R05 StageC: CORE whitelisted root only, not arbitrary paths/values.
@@ -255,14 +304,14 @@ impl ProductSession {
         if st.indexed.is_none(){
             // Read only borrowed bytes from one immutable ProductSession.
             let index=roots(&self.decoded)?;
-            st.indexed=Some(IndexedCache{roots:index,grants:Vec::new()});
+            st.indexed=Some(IndexedCache{roots:index,grants:Vec::new(),next_nonce:0});
         }
         let cache=st.indexed.as_mut().ok_or(denied("INDEX_NOT_INITIALIZED"))?;
         if cache.grants.len()>=INDEX_MAX_ACTIVE_CURSORS{
             return Err(denied("INDEX_ACTIVE_CURSOR_LIMIT"));
         }
         let span=domain_span(cache.roots,domain)?;
-        let token=mint_cursor()?;
+        let token=mint_cursor(self,cache)?;
         if cache.grants.iter().any(|g|g.token==token){
             return Err(denied("INDEX_TOKEN_COLLISION"));
         }
@@ -294,7 +343,7 @@ impl ProductSession {
         }
         let span=domain_span(cache.roots,grant.domain)?;
         let (fields,new_pos,done)=page_fields(&self.decoded,span,grant.pos)?;
-        let next_cursor=if done{None}else{Some(mint_cursor()?)};
+        let next_cursor=if done{None}else{Some(mint_cursor(self,cache)?)};
         if let Some(next)=next_cursor{
             if cache.grants.iter().any(|g|g.token==next){
                 return Err(denied("INDEX_TOKEN_COLLISION"));

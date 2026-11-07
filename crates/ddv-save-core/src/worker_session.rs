@@ -23,6 +23,20 @@ impl WorkerSessionGuard {
         // checks while holding the same mutex used by its close() transition.
         self.session.dispatch(envelope)
     }
+    #[cfg(feature="indexed-read")]
+    pub(crate) fn issue_indexed_cursor(
+        &self,scope:WorkerEnvelope,domain:crate::IndexedDomain
+    )->CoreResult<crate::IndexedCursorReceipt>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.issue_indexed_cursor(scope,domain)
+    }
+    #[cfg(feature="indexed-read")]
+    pub(crate) fn read_indexed_page(
+        &self,scope:WorkerEnvelope,cursor:[u8;16]
+    )->CoreResult<crate::IndexedPage>{
+        if self.closed{return Err(CoreError("WORKER_SESSION_CLOSED"));}
+        self.session.read_indexed_page(scope,cursor)
+    }
     pub(crate) fn close(&mut self) -> CoreResult<()> {
         if self.closed { return Err(CoreError("WORKER_SESSION_ALREADY_CLOSED")); }
         self.closed = true;

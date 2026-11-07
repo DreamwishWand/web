@@ -34,6 +34,9 @@ export interface WorkerWasmSource {
   append_chunk(chunk:Uint8Array):void;
   finish():string;
   read_core_version_witness(sessionId:string,revision:bigint,indexGeneration:bigint,decodedSha256:string):string;
+  /** Optional indexed-read WASM feature only; not the production Reader. */
+  issue_typed_cursor(domain:'player'|'world',sessionId:string,revision:bigint,indexGeneration:bigint,decodedSha256:string):string;
+  read_typed_page(cursor:string,sessionId:string,revision:bigint,indexGeneration:bigint,decodedSha256:string):string;
   close():void;
 }
 export type ProductWorkerWasmFactory=()=>Promise<{
@@ -45,11 +48,23 @@ export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFact
   openDecoded(args:{build:WorkerBuildEvidence;decodedChunks:AsyncIterable<Uint8Array>}):
     Promise<ProductWasmReceipt>;
   readCoreVersion(scope:ProductWasmScope):CoreVersionWitness;
+  /** Source-only Worker internal; no product/consumer permission. */
+  issueTypedCursor(scope:ProductWasmScope,domain:'player'|'world'):Readonly<ProductWasmScope &{
+    cursor:string;domain:'/Player'|'/World';maxEntriesPerPage:16;
+    completeAllDomains:false;productReadAccepted:false;writerAuthorized:false;
+  }>;
+  readTypedPage(scope:ProductWasmScope,cursor:string):Readonly<ProductWasmScope &{
+    domain:'/Player'|'/World';fields:ReadonlyArray<Readonly<{
+      key:string;kind:'object'|'array'|'string'|'number'|'boolean'|'null';valueBytes:number;
+    }>>;nextCursor:string|null;
+    completeAllDomains:false;productReadAccepted:false;writerAuthorized:false;
+  }>;
   close():Readonly<{closed:true;writerAuthorized:false}>;
   submitOperation(command:unknown):never;
   getReceipt():ProductWasmReceipt|null;
   getCapabilities():Readonly<{
     productWorkerBoundary:true;productReadAccepted:false;oneRustSession:true;
+    typedMetadataSourceOnly:true;canReadTypedMetadataInProduct:false;
     readCoreVersionOnly:true;completeAllDomains:false;
     canStage:false;canExportEditedCopy:false;canApply:false;
     canOriginalOverwrite:false;maxChunkBytes:number;maxDecodedBytes:number;
