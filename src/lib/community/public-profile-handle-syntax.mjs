@@ -7,11 +7,11 @@ export const USER_PROFILE_HANDLE_CONTRACT = 'wand.public-profile-handle.syntax-o
 // is server-owned and unverified. Passing this syntax check NEVER authorizes a URL.
 export const PROTECTED_USER_HANDLE_TOKENS = Object.freeze([
   'about', 'account', 'accounts', 'admin', 'administrator', 'api', 'auth',
-  'blog', 'collection', 'collections', 'creator', 'creators', 'dashboard',
+  'blog', 'collection', 'collections', 'constructor', 'creator', 'creators', 'dashboard',
   'delete', 'deleted', 'dreamsnaps', 'editor', 'explore', 'gallery', 'guide',
   'help', 'home', 'index', 'library', 'login', 'logout', 'moderation',
   'moodboards', 'notifications', 'operator', 'owner', 'preset', 'presets',
-  'privacy', 'profile', 'profiles', 'register', 'root', 'search', 'settings',
+  'privacy', 'profile', 'profiles', 'prototype', 'register', 'root', 'search', 'settings',
   'signin', 'signup', 'staff', 'support', 'system', 'terms', 'user', 'users',
   'work', 'works', 'world'
 ]);
