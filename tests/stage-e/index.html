@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="robots" content="noindex,nofollow">
+<title>01A synthetic generated WASM Chrome Worker smoke — LOCAL CI ONLY</title>
+<body><output id="result">RUNNING</output>
+<script type="module">
+  // The only main-page interaction is a non-sensitive test command and a
+  // small pass/fail summary. Decoded fixture bytes remain entirely in Worker.
+  window.__stageEPromise = new Promise((resolve,reject)=>{
+    const worker = new Worker('./worker.mjs',{type:'module'});
+    let done=false;
+    worker.onerror=e=>{if(!done){done=true;worker.terminate();reject(Error('WORKER_JS_ERROR:'+e.message))}};
+    worker.onmessage=e=>{
+      if(done)return;
+      done=true;worker.terminate();
+      const v=e.data;
+      if(v?.status==='PASS'&&v?.summary?.browserWorker===true){
+        document.getElementById('result').textContent='PASS';
+        resolve(v.summary);
+      }else{
+        document.getElementById('result').textContent='FAIL';
+        reject(Error('STAGE_E_WORKER_FAILURE:'+String(v?.error||'unknown')));
+      }
+    };
+    worker.postMessage({kind:'RUN_STAGE_E'});
+  });
+</script>
+</body>
+</html>
