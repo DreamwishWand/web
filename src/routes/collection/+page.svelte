@@ -30,6 +30,7 @@
   let filterToggleButton: HTMLButtonElement | undefined;
   let filterCloseButton: HTMLButtonElement | undefined;
   let filterPanelElement: HTMLElement | undefined;
+  let sheetMaxHeight = '85dvh';
   let previousBodyOverflow: string | null = null;
   let infoId: number | null = null;
   let pageLimit = 72;
@@ -72,10 +73,17 @@
     document.body.style.overflow=previousBodyOverflow;
     previousBodyOverflow=null;
   }
+  function updateSheetMaxHeight():void{
+    // CSS zoom on the page root scales fixed descendants; cap to the *visible* viewport.
+    const declaredZoom=Number.parseFloat(getComputedStyle(document.documentElement).zoom);
+    const rootZoom=Number.isFinite(declaredZoom)&&declaredZoom>0?declaredZoom:1;
+    sheetMaxHeight=Math.max(1,Math.floor(window.innerHeight*0.85/rootZoom))+'px';
+  }
   async function openFilters():Promise<void>{
     if(filterOpen)return;
     filterOpen=true;
     if(mobileFilter){
+      updateSheetMaxHeight();
       lockFilterScroll();
       await tick();
       if(filterOpen&&mobileFilter)filterCloseButton?.focus();
@@ -116,6 +124,7 @@
       if(!filterOpen)return;
       if(!mobileFilter)unlockFilterScroll();
       else if(!wasMobile){
+        updateSheetMaxHeight();
         lockFilterScroll();
         void tick().then(()=>{if(filterOpen&&mobileFilter)filterCloseButton?.focus();});
       }
@@ -178,6 +187,8 @@
   const inertProgress='— / —';
 </script>
 
+<svelte:window on:resize={()=>{if(filterOpen&&mobileFilter)updateSheetMaxHeight();}} />
+
 <svelte:head>
   <title>Collection | Dreamwish Wand</title>
   <meta name="description" content="Browse Disney Dreamlight Valley Collection categories with verified local reference data." />
@@ -212,7 +223,8 @@
         <div class="filter-shell" data-stage1-filter-shell>
           <button type="button" class="filter-backdrop" data-stage1-filter-backdrop tabindex="-1" aria-label={ui.close} on:click={closeFilters}></button>
           <div id="collection-filters" class="filter-panel" data-stage1-facets
-            bind:this={filterPanelElement} role={mobileFilter ? 'dialog' : undefined}
+            bind:this={filterPanelElement} style:max-height={mobileFilter ? sheetMaxHeight : undefined}
+            role={mobileFilter ? 'dialog' : undefined}
             aria-modal={mobileFilter ? 'true' : undefined} aria-label={mobileFilter ? ui.filter : undefined}
             on:keydown={onFilterKeydown}>
             <div class="filter-sheet-heading"><strong>{ui.filter}</strong>
