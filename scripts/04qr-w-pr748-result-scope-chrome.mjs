@@ -119,7 +119,7 @@ try{
 
  // 320px modal must not change the background scroll when choices modify results.
  await page.setViewportSize({width:320,height:800});
- await page.locator('#site-locale-mobile').selectOption('en').catch(()=>{});
+ // Inherited locale switching accepted by prior QR745; avoid hidden mobile selector auto-wait.
  await page.locator('[data-stage1-category-grid]').waitFor();
  await scrollDeep(620);
  const savedOverflow=await page.evaluate(()=>document.body.style.overflow);
@@ -128,14 +128,22 @@ try{
  await dialog.waitFor();
  await page.waitForFunction(()=>document.activeElement?.hasAttribute('data-stage1-filter-close'));
  assert.equal(await page.evaluate(()=>document.body.style.overflow),'hidden');
- const initialBackgroundY=await page.evaluate(()=>scrollY);
+ const snapBackground=()=>page.evaluate(()=>({y:scrollY,h:document.documentElement.scrollHeight,overflow:document.body.style.overflow,active:document.activeElement?.getAttribute('data-stage1-filter-close')!==null,rootTop:document.querySelector('[data-stage1-collection-root]')?.getBoundingClientRect().top,chipCount:document.querySelectorAll('.active-filters button').length}));
+ const beforeFacet=await snapBackground();
  const mw=dialog.locator('fieldset').first().locator('button');
  const mu=dialog.locator('fieldset').nth(1).locator('button');
  await mw.first().evaluate(el=>el.click());
+ await afterFrames();
+ const afterWorld1=await snapBackground();
  await mw.nth(1).evaluate(el=>el.click());
+ await afterFrames();
+ const afterWorld2=await snapBackground();
  await mu.first().evaluate(el=>el.click());
  await afterFrames();
- const duringBackgroundY=await page.evaluate(()=>scrollY);
+ const afterUniverse1=await snapBackground();
+ console.log('QR748_MOBILE_DEFER_SCROLL_DIAGNOSTIC '+JSON.stringify({beforeFacet,afterWorld1,afterWorld2,afterUniverse1}));
+ const initialBackgroundY=beforeFacet.y;
+ const duringBackgroundY=afterUniverse1.y;
  assert.equal(duringBackgroundY,initialBackgroundY,'mobile modal MUST defer background scroll during three facet updates');
  assert.equal(await mw.first().getAttribute('aria-pressed'),'true');
  assert.equal(await mw.nth(1).getAttribute('aria-pressed'),'true');
