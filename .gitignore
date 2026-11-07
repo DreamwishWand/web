@@ -6,3 +6,8 @@ build/
 !.env.example
 .DS_Store
 *.log
+
+# Local-only generated WASM and synthetic fixtures; never commit private Save
+.owner-local-rust-target/
+tests/stage-e/pkg/
+tests/stage-f/fixtures/
