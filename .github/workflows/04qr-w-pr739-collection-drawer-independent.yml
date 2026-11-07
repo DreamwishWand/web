@@ -1,0 +1,57 @@
+name: "04 QR-W PR739 Collection mobile sheet independent negative Chrome"
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/04qr-w-pr739-collection-drawer-independent.yml"
+      - "scripts/04qr-w-pr739-collection-drawer-chrome.mjs"
+      - "tests/04qr-w-pr739-collection-drawer-independent.test.mjs"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Fixed Source4 immutable + focused changed-only drawer and 29-category scope negatives
+        run: node --test tests/04qr-w-pr739-collection-drawer-independent.test.mjs
+  independent-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Run isolated localhost Collection only; no private Save or Provider credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          BASE_PATH="" npm run dev -- --host 127.0.0.1 --port 4297 >/tmp/qr739-collection.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4297/collection/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr739-collection.log
+          exit 1
+      - name: Independent real Chrome 8locale/320px/200/ESC/backdrop/trap/breakpoint/semantic/no upload
+        env:
+          QR739_URL: http://127.0.0.1:4297
+        run: node scripts/04qr-w-pr739-collection-drawer-chrome.mjs
