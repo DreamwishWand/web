@@ -56,9 +56,11 @@ try{
  assert.ok(furnitureCount>=3,'deep-card return fixture');
  const deepIndex=Math.min(18,furnitureCount-2),deep=furnitureCards.nth(deepIndex),another=furnitureCards.nth(deepIndex+1);
  await deep.scrollIntoViewIfNeeded();
+ await deep.focus();
+ // Snapshot only after keyboard focus has finished scrolling: the Core return source is focus time.
  const beforeScroll=await page.evaluate(()=>window.scrollY);
  const deepId=await deep.getAttribute('data-stage1-item-id');
- await deep.focus(); await page.keyboard.press('Enter');
+ await page.keyboard.press('Enter');
  await page.locator('[data-stage1-item-info]').waitFor();
  await page.locator('[data-stage1-info-close]').focus(); await page.keyboard.press('Enter');
  await page.waitForFunction(id=>document.activeElement?.getAttribute('data-stage1-item-id')===id,deepId);
@@ -160,6 +162,8 @@ try{
      panelScrollTop:document.querySelector('#collection-filters')?.scrollTop,bodyOverflow:document.body.style.overflow};
  });
  console.log('WEB_STAGE1_COLLECTION_COL_UX44_ZOOM200_DIAGNOSTIC',JSON.stringify(geometry));
+ assert.ok(geometry.panel.y>=-4,'sheet top remains in viewport at 200%');
+ assert.ok(geometry.close.y>=0&&geometry.close.bottom<=geometry.viewport.h+4,'close control remains reachable at 200%');
  await page.locator('[data-stage1-filter-close]').click();
  await page.waitForFunction(()=>document.activeElement?.classList.contains('filter-toggle'));
  assert.equal(await page.evaluate(()=>document.body.style.overflow),savedBodyOverflow);
