@@ -119,3 +119,26 @@ test('COL-UX-44 mobile drawer preserves desktop inline facets, UNKNOWN personal 
  assert.match(page,/disabled title=\{ui\.unknown\}/);
  assert.doesNotMatch(page,/saveEditedCopy|setDreamsnapOfficialResultPublication|createPublicWork/);
 });
+
+
+test('COL-UX-42 actual result scope changes reset viewport without breaking mobile modal or Info restore',()=>{
+ assert.match(page,/bind:this=\{collectionRoot\} data-stage1-collection-root/);
+ assert.match(page,/async function resetResultScroll\(\):Promise<void>/);
+ assert.match(page,/generation!==scopeScrollGeneration\|\|!collectionRoot\?\.isConnected/);
+ assert.match(page,/mobileFilter&&filterOpen\)\{scopeScrollPending=true;return;\}/);
+ assert.match(page,/scopeScrollPending=false;/);
+ assert.match(page,/collectionRoot\.getBoundingClientRect\(\)\.top/);
+ assert.match(page,/window\.scrollTo\(\{left:window\.scrollX,top:target,behavior:'instant'\}\)/);
+ assert.match(page,/if\(scopeScrollPending\)await resetResultScroll\(\)/);
+ assert.match(page,/if\(scopeScrollPending\)void resetResultScroll\(\)/);
+ assert.match(page,/on:input=\{\(\)=>\{infoId=null;infoReturn=null;pageLimit=72;void resetResultScroll\(\);\}\}/);
+ assert.match(page,/function chooseCategory\(id:string\):void\{[\s\S]*?void resetResultScroll\(\)/);
+ assert.match(page,/function backToCategories\(\):void\{[\s\S]*?void resetResultScroll\(\)/);
+ assert.match(page,/function toggleFacet\(which:'world'\|'universe',id:string\):void\{[\s\S]*?void resetResultScroll\(\)/);
+ assert.match(page,/function clearFilters\(\):void\{[\s\S]*?void resetResultScroll\(\)/);
+ assert.match(page,/if\(!selectedWorlds\.length&&!selectedUniverses\.length\)return/);
+ // Already accepted COL-UX-29 exact click-time restoration remains intact and separate.
+ assert.match(page,/window\.scrollTo\(\{left:origin\.x,top:origin\.y,behavior:'instant'\}\)/);
+ assert.match(page,/origin\.context!==infoContext\(\)/);
+ assert.doesNotMatch(page,/localStorage\.setItem|saveEditedCopy|createPublicWork|setDreamsnapOfficialResultPublication/);
+});

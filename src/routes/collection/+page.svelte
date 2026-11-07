@@ -30,6 +30,9 @@
   let filterToggleButton: HTMLButtonElement | undefined;
   let filterCloseButton: HTMLButtonElement | undefined;
   let filterPanelElement: HTMLElement | undefined;
+  let collectionRoot: HTMLElement | undefined;
+  let scopeScrollPending = false;
+  let scopeScrollGeneration = 0;
   let sheetMaxHeight = '85dvh';
   let previousBodyOverflow: string | null = null;
   let infoId: number | null = null;
@@ -79,6 +82,18 @@
     const rootZoom=Number.isFinite(declaredZoom)&&declaredZoom>0?declaredZoom:1;
     sheetMaxHeight=Math.max(1,Math.floor(window.innerHeight*0.85/rootZoom))+'px';
   }
+  // COL-UX-42: do not strand a user at the old page depth after results change.
+  // DOM/layout must settle before taking the new root top; never animate this reset.
+  async function resetResultScroll():Promise<void>{
+    const generation=++scopeScrollGeneration;
+    await tick();
+    if(generation!==scopeScrollGeneration||!collectionRoot?.isConnected)return;
+    // Keep the background stationary while the mobile sheet owns keyboard focus.
+    if(mobileFilter&&filterOpen){scopeScrollPending=true;return;}
+    scopeScrollPending=false;
+    const target=Math.max(0,window.scrollY+collectionRoot.getBoundingClientRect().top);
+    window.scrollTo({left:window.scrollX,top:target,behavior:'instant'});
+  }
   async function openFilters():Promise<void>{
     if(filterOpen)return;
     filterOpen=true;
@@ -94,6 +109,7 @@
     filterOpen=false;
     unlockFilterScroll();
     await tick();
+    if(scopeScrollPending)await resetResultScroll();
     if(!filterOpen)filterToggleButton?.focus({preventScroll:true});
   }
   function onFilterKeydown(event:KeyboardEvent):void{
@@ -122,7 +138,10 @@
       const wasMobile=mobileFilter;
       mobileFilter=event.matches;
       if(!filterOpen)return;
-      if(!mobileFilter)unlockFilterScroll();
+      if(!mobileFilter){
+        unlockFilterScroll();
+        if(scopeScrollPending)void resetResultScroll();
+      }
       else if(!wasMobile){
         updateSheetMaxHeight();
         lockFilterScroll();
@@ -143,16 +162,23 @@
     infoId=null;
     infoReturn=null;
     pageLimit=72;
+    void resetResultScroll();
   }
   function backToCategories():void{
     category='';query='';infoId=null;infoReturn=null;pageLimit=72;
+    void resetResultScroll();
   }
   function toggleFacet(which:'world'|'universe',id:string):void{
     if(which==='world') selectedWorlds=selectedWorlds.includes(id)?selectedWorlds.filter(x=>x!==id):[...selectedWorlds,id];
     else selectedUniverses=selectedUniverses.includes(id)?selectedUniverses.filter(x=>x!==id):[...selectedUniverses,id];
     pageLimit=72; infoId=null; infoReturn=null;
+    void resetResultScroll();
   }
-  function clearFilters():void{selectedWorlds=[];selectedUniverses=[];pageLimit=72;infoId=null;infoReturn=null;}
+  function clearFilters():void{
+    if(!selectedWorlds.length&&!selectedUniverses.length)return;
+    selectedWorlds=[];selectedUniverses=[];pageLimit=72;infoId=null;infoReturn=null;
+    void resetResultScroll();
+  }
   function worldLabel(id:string,code:string):string{
     return runtimeIndex?collectionFacetLabel(runtimeIndex,'world',id,code):'';
   }
@@ -196,7 +222,7 @@
 </svelte:head>
 
 <ResponsiveFrame width="wide">
-  <section class="collection-stage1" data-stage1-collection-root data-personal-progress="unknown" data-writer="off" data-media-rights="unverified">
+  <section class="collection-stage1" bind:this={collectionRoot} data-stage1-collection-root data-personal-progress="unknown" data-writer="off" data-media-rights="unverified">
     <header class="collection-heading">
       <h1>{copy.title}</h1>
     </header>
@@ -208,7 +234,7 @@
     {:else}
       <div class="collection-toolbar">
         <label class="search-field"><span>{copy.search}</span>
-          <input data-stage1-search type="search" bind:value={query} on:input={()=>{infoId=null;infoReturn=null;pageLimit=72;}}
+          <input data-stage1-search type="search" bind:value={query} on:input={()=>{infoId=null;infoReturn=null;pageLimit=72;void resetResultScroll();}}
             placeholder={copy.search} />
         </label>
         <div class="personal-state" role="group" aria-label="Collection personal state">

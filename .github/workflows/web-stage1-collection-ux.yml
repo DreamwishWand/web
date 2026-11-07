@@ -5,6 +5,7 @@ on:
       - 'web/stage1-collection-root-*'
       - 'web/collection-info-return-*'
       - 'web/collection-filter-sheet-*'
+      - 'web/collection-result-scope-*'
   pull_request:
     paths:
       - 'src/routes/collection/+page.svelte'
