@@ -109,6 +109,9 @@ test('COL-UX-44 mobile drawer preserves desktop inline facets, UNKNOWN personal 
  assert.match(page,/media\.removeEventListener\('change',onMediaChange\)/);
  assert.match(page,/@media\(max-width:820px\)/);
  assert.match(page,/max-height:85dvh/);
+ assert.match(page,/sheetMaxHeight=Math\.max\(1,Math\.floor\(window\.innerHeight\*0\.85\/rootZoom\)\)\+'px'/);
+ assert.match(page,/style:max-height=\{mobileFilter \? sheetMaxHeight : undefined\}/);
+ assert.match(page,/on:resize=\{\(\)=>\{if\(filterOpen&&mobileFilter\)updateSheetMaxHeight\(\);\}\}/);
  assert.match(page,/overscroll-behavior:contain/);
  assert.match(page,/aria-pressed=\{selectedWorlds\.includes\(id\)\}/);
  assert.match(page,/aria-pressed=\{selectedUniverses\.includes\(id\)\}/);
