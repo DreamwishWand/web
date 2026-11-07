@@ -5,6 +5,8 @@ on:
       - 'crates/ddv-save-core/**'
       - 'src/lib/ddv/core/save/product-wasm-read-owner.mjs'
       - 'tests/product-wasm-read-owner.test.mjs'
+      - 'tests/product-wasm-typed-read-owner.test.mjs'
+      - 'src/lib/ddv/core/save/product-wasm-read-owner.d.mts'
       - '.github/workflows/core-product-session-boundary.yml'
   push:
     branches:
@@ -12,6 +14,7 @@ on:
       - 'core/product-worker-wasm-read-boundary-*'
       - 'core/product-stageb-synthetic-cas-*'
       - 'core/product-indexed-lazy-typed-stagec-*'
+      - 'core/product-worker-indexed-read-staged-*'
   workflow_dispatch:
 permissions:
   contents: read
@@ -41,6 +44,8 @@ jobs:
         run: cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --features worker-wasm
       - name: Worker-side mock WASM read-only negative tests
         run: node --test tests/product-wasm-read-owner.test.mjs
+      - name: Stage D trusted Worker typed metadata and entropy negative tests
+        run: node --test tests/product-wasm-typed-read-owner.test.mjs
       - name: Reject embedded private files or Writer promotion
         shell: bash
         run: |
