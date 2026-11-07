@@ -1,0 +1,94 @@
+name: 05 QR-C Stage F P1G-to-Rust genuine Chrome independent NEW_ONLY
+on:
+  pull_request:
+    paths:
+      - tests/stage-f/qa-independent-worker.mjs
+      - .github/workflows/05qr-c-stagef-independent-p1g-rust.yml
+  push:
+    branches:
+      - qa/05qrc-stagef-p1g-rust-pr761-08614c79-20261107
+permissions:
+  contents: read
+jobs:
+  independent-stage-f-p1g-rust-worker:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-05qrc-stagef-core-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Pin exact original 01A PR761 eight Source blobs and QA-only two added paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          source=08614c79b3930c0652881950971003efa9585e58
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            qa_tip="$(git rev-parse HEAD^2)"
+          else
+            qa_tip="$(git rev-parse HEAD)"
+          fi
+          git merge-base --is-ancestor "$source" "$qa_tip"
+          test "$(git rev-parse "$qa_tip":.github/workflows/01a-stagef-p1g-to-rust-worker.yml)" = 672e46bc4c9e0c23e4b2d1645f93d1bb312f3c77
+          test "$(git rev-parse "$qa_tip":docs/core/01a-p1g-rust-worker-readonly-bridge-004-019-20261107.md)" = 75db3bdb1ed3ccdd141b42fc220ab492a87147ef
+          test "$(git rev-parse "$qa_tip":src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs)" = 5d75b42ad74625a45a5218354957adc90d3dfd53
+          test "$(git rev-parse "$qa_tip":tests/p1g-rust-worker-readonly-bridge.test.mjs)" = 03b08a227d2a5dc81b690e5f326d84248bd95406
+          test "$(git rev-parse "$qa_tip":tests/stage-f/chrome-smoke.mjs)" = 3ec0397d98ff58a604ca8437b87e75ff3f7a5127
+          test "$(git rev-parse "$qa_tip":tests/stage-f/generate-fixture.mjs)" = b1c1a48564346823558a5ee0a15ee26fa5d9dfff
+          test "$(git rev-parse "$qa_tip":tests/stage-f/index.html)" = cf11fd83b63775b2e22d79bb350c07546283855e
+          test "$(git rev-parse "$qa_tip":tests/stage-f/worker.mjs)" = 56327f4a7625f7d74ced10e6739337ef29c63b0b
+          actual="$(git diff --name-only "$source" "$qa_tip" | sort)"
+          expected="$(printf '%s\n' .github/workflows/05qr-c-stagef-independent-p1g-rust.yml tests/stage-f/qa-independent-worker.mjs | sort)"
+          test "$actual" = "$expected"
+          test -z "$(git ls-files tests/stage-f/fixtures tests/stage-e/pkg)"
+          node --check tests/stage-f/qa-independent-worker.mjs
+          grep -Fx 'wasm-bindgen = { version = "=0.2.105", optional = true }' crates/ddv-save-core/Cargo.toml
+          grep -Fx 'worker-wasm = ["dep:wasm-bindgen"]' crates/ddv-save-core/Cargo.toml
+          grep -Fx 'indexed-read = []' crates/ddv-save-core/Cargo.toml
+          command -v google-chrome
+      - name: Compile existing real Rust Worker WASM without product Writer feature
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --features worker-wasm,indexed-read
+          test -s "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
+      - name: Generate matching actual wasm-bindgen 0.2.105 JS and binary in ephemeral CI
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-05qrc-stagef-cli
+          /tmp/wand-05qrc-stagef-cli/bin/wasm-bindgen --version | grep -F '0.2.105'
+          mkdir -p tests/stage-e/pkg
+          /tmp/wand-05qrc-stagef-cli/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          test -s tests/stage-e/pkg/ddv_save_core.js
+          test -s tests/stage-e/pkg/ddv_save_core_bg.wasm
+          test -z "$(git ls-files tests/stage-e/pkg)"
+      - name: Generate PUBLIC SYNTHETIC encrypted P1G only, no owner original
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/stage-f/generate-fixture.mjs
+          test -s tests/stage-f/fixtures/synthetic626.p1g
+          test -s tests/stage-f/fixtures/expected.json
+          test -z "$(git ls-files tests/stage-f/fixtures)"
+      - name: Independent Chrome module Worker, existing P1G Codec and true generated Rust WASM
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F "new Worker('./worker.mjs'" tests/stage-f/index.html
+          sed -i "s|'./worker.mjs'|'./qa-independent-worker.mjs'|" tests/stage-f/index.html
+          grep -F "new Worker('./qa-independent-worker.mjs'" tests/stage-f/index.html
+          node tests/stage-f/chrome-smoke.mjs
+          git restore -- tests/stage-f/index.html
+          test -z "$(git diff --name-only -- tests/stage-f/index.html)"
+      - name: Confirm two QA-only additions, no uploaded Save or new product routes or Writer
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git ls-files tests/stage-f/fixtures tests/stage-e/pkg)"
+          test "$(git diff --name-only 08614c79b3930c0652881950971003efa9585e58 HEAD | wc -l)" -eq 2
+          ! git grep -n -E 'STEAM_SAVE_OWNER_PRIVATE|include_bytes!|writerAuthorized: *true|applyAuthorized: *true' HEAD -- tests/stage-f/qa-independent-worker.mjs
