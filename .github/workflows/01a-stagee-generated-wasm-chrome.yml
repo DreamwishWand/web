@@ -31,7 +31,7 @@ jobs:
           grep -Fx 'indexed-read = []' crates/ddv-save-core/Cargo.toml
       - name: Compile REAL cdylib with opt-in Worker and indexed metadata
         run: |
-          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --features worker-wasm,indexed-read --locked
+          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --features worker-wasm,indexed-read
           test -s "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
       - name: Install exactly matching wasm-bindgen CLI 0.2.105 (not generated or mocked JS)
         run: |
