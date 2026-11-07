@@ -142,3 +142,16 @@ test('COL-UX-42 actual result scope changes reset viewport without breaking mobi
  assert.match(page,/origin\.context!==infoContext\(\)/);
  assert.doesNotMatch(page,/localStorage\.setItem|saveEditedCopy|createPublicWork|setDreamsnapOfficialResultPublication/);
 });
+
+
+test('COL-UX-42 04QR-W mobile background scroll-anchoring RED is explicitly prevented and restored',()=>{
+ assert.match(page,/previousDocumentOverflowAnchor: string \| null = null/);
+ assert.match(page,/previousDocumentOverflowAnchor=document\.documentElement\.style\.overflowAnchor/);
+ assert.match(page,/document\.documentElement\.style\.overflowAnchor='none'/);
+ assert.match(page,/document\.documentElement\.style\.overflowAnchor=previousDocumentOverflowAnchor \?\? ''/);
+ assert.match(page,/function lockFilterScroll\(\):void\{[\s\S]*?document\.body\.style\.overflow='hidden'/);
+ assert.match(page,/function unlockFilterScroll\(\):void\{[\s\S]*?previousDocumentOverflowAnchor=null/);
+ assert.match(page,/if\(scopeScrollPending\)await resetResultScroll\(\)/);
+ assert.match(page,/window\.scrollTo\(\{left:window\.scrollX,top:target,behavior:'instant'\}\)/);
+ assert.doesNotMatch(page,/document\.documentElement\.style\.overflow='hidden'/);
+});

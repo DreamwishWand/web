@@ -35,6 +35,7 @@
   let scopeScrollGeneration = 0;
   let sheetMaxHeight = '85dvh';
   let previousBodyOverflow: string | null = null;
+  let previousDocumentOverflowAnchor: string | null = null;
   let infoId: number | null = null;
   let pageLimit = 72;
   type InfoReturn = { trigger: HTMLElement; itemId: number; context: string; x: number; y: number };
@@ -69,12 +70,19 @@
   function lockFilterScroll():void{
     if(previousBodyOverflow!==null)return;
     previousBodyOverflow=document.body.style.overflow;
+    // Chrome can adjust window.scrollY when active-filter chips reflow above the
+    // current scroll anchor even while body overflow is hidden. Disable anchoring
+    // only for the lifetime of the mobile modal; never freeze the whole page.
+    previousDocumentOverflowAnchor=document.documentElement.style.overflowAnchor;
+    document.documentElement.style.overflowAnchor='none';
     document.body.style.overflow='hidden';
   }
   function unlockFilterScroll():void{
     if(previousBodyOverflow===null)return;
     document.body.style.overflow=previousBodyOverflow;
     previousBodyOverflow=null;
+    document.documentElement.style.overflowAnchor=previousDocumentOverflowAnchor ?? '';
+    previousDocumentOverflowAnchor=null;
   }
   function updateSheetMaxHeight():void{
     // CSS zoom on the page root scales fixed descendants; cap to the *visible* viewport.
