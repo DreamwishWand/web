@@ -11,7 +11,7 @@ for(let i=0;i<33;i++){
     i%2?{future:[true,null,{"🌿":"opaque"}]}:[1,2,{literal:"🍃"}];
 }
 root.World={WorldRoot:{Unknown:{preserve:true}},Clock:0};
-root.Opaque.big='🌿'.repeat(140000);
+root.Opaque.big='🌿'.repeat(300000);
 const source=makeSyntheticP1gProfile(root);
 const utf8=Buffer.from(JSON.stringify(root),'utf8');
 await mkdir(new URL('./fixtures/',import.meta.url),{recursive:true});
