@@ -44,9 +44,12 @@ export function createProductWasmReadOwner(wasmFactory){
    if(prev){try{prev.wasm.close()}catch{}}
  };
  const close=()=>{revoke();return Object.freeze({closed:true,writerAuthorized:false})};
- const openDecoded=async ({build,decodedChunks}={})=>{
+ const openDecoded=async (args={})=>{
    // Revoke A synchronously BEFORE await, validation, or decoding B.
    revoke();const token=epoch;
+   if(!isPlain(args)||Object.keys(args).sort().join(',')!=='build,decodedChunks')
+       fail('PRODUCT_WORKER_UNTRUSTED_OPEN_ARGS');
+   const {build,decodedChunks}=args;
    const identity=exactBuild(build);
    if(!decodedChunks||typeof decodedChunks[Symbol.asyncIterator]!=='function')
      fail('PRODUCT_WORKER_CHUNK_SOURCE_REQUIRED');
@@ -77,7 +80,7 @@ export function createProductWasmReadOwner(wasmFactory){
      if(bytes===0)fail('PRODUCT_WORKER_EMPTY_DOCUMENT');
      const receipt=strictReceipt(JSON.parse(wasm.finish()));
      if(token!==epoch)fail('PRODUCT_WORKER_OPEN_REVOKED');
-     active={wasm,receipt,identity};wasm=null;
+     active={wasm,receipt,identity,cursors:new Map()};wasm=null;
      return receipt;
    }catch(error){
      // Already fail closed: no stale A is retained if B fails.
@@ -111,14 +114,150 @@ export function createProductWasmReadOwner(wasmFactory){
       decodedSha256:result.decodedSha256,coreOwnedReadset:'/GameInfo/Version',
       completeAllDomains:false,writerAuthorized:false});
  };
+ // Source-only Stage D inside the trusted Worker. These methods are NOT
+ // connected to the public Worker message router or UI/Save consumer.
+ const typedScope=scope=>{
+   const a=active;
+   if(!a)fail('PRODUCT_WORKER_SESSION_CLOSED');
+   if(!isPlain(scope)||Object.keys(scope).sort().join(',')!==
+      'decodedSha256,indexGeneration,revision,sessionId'||
+      scope.sessionId!==a.receipt.sessionId||
+      scope.revision!==a.receipt.revision||
+      scope.indexGeneration!==a.receipt.indexGeneration||
+      scope.decodedSha256!==a.receipt.decodedSha256)
+      fail('PRODUCT_WORKER_SCOPE_CAS');
+   return a;
+ };
+ const nonzeroCursor=v=>typeof v==='string'&&sessionHex.test(v)&&
+   !/^0{32}$/.test(v);
+ // Inspect bounded raw JSON before JSON.parse collapses duplicate object keys.
+ // Decode keys through JSON.parse so escaped-equivalent property names collide.
+ const rejectDuplicateJsonKeys=raw=>{
+   const stack=[];
+   for(let i=0;i<raw.length;){
+     const ch=raw[i];
+     if(ch==='"'){
+       const start=i++;
+       let ended=false;
+       while(i<raw.length){
+         if(raw[i]==='\\'){i+=2;continue}
+         if(raw[i]==='"'){i++;ended=true;break}
+         i++;
+       }
+       if(!ended)throw Error('UNTERMINATED_JSON_STRING');
+       const top=stack[stack.length-1];
+       if(top?.kind==='object'&&top.expectKey){
+         let j=i;
+         while(j<raw.length&&[' ','\t','\r','\n'].includes(raw[j]))j++;
+         if(raw[j]===':'){
+           const key=JSON.parse(raw.slice(start,i));
+           if(top.keys.has(key))throw Error('DUPLICATE_JSON_KEY');
+           top.keys.add(key);
+           top.expectKey=false;
+         }
+       }
+       continue;
+     }
+     if(ch==='{'||ch==='['){
+       if(stack.length>=32)throw Error('TYPED_JSON_DEPTH_BOUNDS');
+       stack.push(ch==='{'?{kind:'object',keys:new Set(),expectKey:true}:{kind:'array'});
+     }else if(ch==='}'||ch===']'){
+       if(!stack.length||stack[stack.length-1].kind!==(ch==='}'?'object':'array'))
+         throw Error('TYPED_JSON_BRACKETS');
+       stack.pop();
+     }else if(ch===','&&stack[stack.length-1]?.kind==='object'){
+       stack[stack.length-1].expectKey=true;
+     }
+     i++;
+   }
+   if(stack.length)throw Error('TYPED_JSON_UNCLOSED');
+ };
+ const strictTypedJson=(raw,maxBytes)=>{
+   if(typeof raw!=='string'||raw.length>maxBytes)fail('PRODUCT_WORKER_TYPED_RESPONSE_BOUNDS');
+   try{
+     rejectDuplicateJsonKeys(raw);
+     return JSON.parse(raw);
+   }catch{fail('PRODUCT_WORKER_TYPED_RESPONSE_JSON')}
+ };
+ const exactKeys=(obj,names)=>isPlain(obj)&&
+   Object.keys(obj).sort().join(',')===names.split(',').sort().join(',');
+ const typedReadFailure=()=>{
+   revoke();
+   fail('PRODUCT_WORKER_RUST_TYPED_RECEIPT_INVALID');
+ };
+ const issueTypedCursor=(scope,domain)=>{
+   const a=typedScope(scope);
+   if(domain!=='player'&&domain!=='world')fail('PRODUCT_WORKER_DOMAIN_DENIED');
+   if(a.cursors.size>=2)fail('PRODUCT_WORKER_CURSOR_LIMIT');
+   if(typeof a.wasm.issue_typed_cursor!=='function')
+      fail('PRODUCT_WORKER_TYPED_FEATURE_DISABLED');
+   let r;
+   try{r=strictTypedJson(a.wasm.issue_typed_cursor(domain,scope.sessionId,
+       BigInt(scope.revision),BigInt(scope.indexGeneration),scope.decodedSha256),4096)}
+   catch{typedReadFailure()}
+   if(!exactKeys(r,'cursor,sessionId,revision,indexGeneration,decodedSha256,domain,maxEntriesPerPage,completeAllDomains,productReadAccepted,writerAuthorized')||
+      !nonzeroCursor(r.cursor)||a.cursors.has(r.cursor)||
+      r.sessionId!==scope.sessionId||r.decodedSha256!==scope.decodedSha256||
+      r.revision!==0||r.indexGeneration!==1||
+      r.domain!==('/'+(domain==='player'?'Player':'World'))||
+      r.maxEntriesPerPage!==16||r.completeAllDomains!==false||
+      r.productReadAccepted!==false||r.writerAuthorized!==false)
+       typedReadFailure();
+   a.cursors.set(r.cursor,r.domain);
+   return Object.freeze({cursor:r.cursor,sessionId:r.sessionId,
+     revision:0,indexGeneration:1,decodedSha256:r.decodedSha256,
+     domain:r.domain,maxEntriesPerPage:16,
+     completeAllDomains:false,productReadAccepted:false,writerAuthorized:false});
+ };
+ const readTypedPage=(scope,cursor)=>{
+   const a=typedScope(scope);
+   if(typeof cursor!=='string'||!sessionHex.test(cursor)||
+      !a.cursors.has(cursor))fail('PRODUCT_WORKER_CURSOR_UNKNOWN_OR_CONSUMED');
+   if(typeof a.wasm.read_typed_page!=='function')
+      fail('PRODUCT_WORKER_TYPED_FEATURE_DISABLED');
+   const expectedDomain=a.cursors.get(cursor);
+   let r;
+   try{r=strictTypedJson(a.wasm.read_typed_page(cursor,scope.sessionId,
+       BigInt(scope.revision),BigInt(scope.indexGeneration),scope.decodedSha256),8192)}
+   catch{typedReadFailure()}
+   if(!exactKeys(r,'sessionId,revision,indexGeneration,decodedSha256,domain,fields,nextCursor,completeAllDomains,productReadAccepted,writerAuthorized')||
+      r.sessionId!==scope.sessionId||r.decodedSha256!==scope.decodedSha256||
+      r.revision!==0||r.indexGeneration!==1||
+      r.domain!==expectedDomain||r.completeAllDomains!==false||
+      r.productReadAccepted!==false||r.writerAuthorized!==false||
+      !Array.isArray(r.fields)||r.fields.length>16||
+      !(r.nextCursor===null||(typeof r.nextCursor==='string'&&
+         nonzeroCursor(r.nextCursor)&&r.nextCursor!==cursor&&
+         !a.cursors.has(r.nextCursor))))typedReadFailure();
+   let descriptors;
+   try{
+      descriptors=r.fields.map(f=>{
+         if(!exactKeys(f,'key,kind,valueBytes')||
+           typeof f.key!=='string'||new TextEncoder().encode(f.key).length>128||
+           !['object','array','string','number','boolean','null'].includes(f.kind)||
+           !Number.isSafeInteger(f.valueBytes)||f.valueBytes<1||
+           f.valueBytes>PRODUCT_WASM_WORKER_MAX_BYTES)throw Error('BAD_DESCRIPTOR');
+         return Object.freeze({key:f.key,kind:f.kind,valueBytes:f.valueBytes});
+      });
+   }catch{typedReadFailure()}
+   // Only commit local cursor rotation after successful Rust receipt validation.
+   a.cursors.delete(cursor);
+   if(r.nextCursor)a.cursors.set(r.nextCursor,expectedDomain);
+   return Object.freeze({sessionId:r.sessionId,revision:0,indexGeneration:1,
+     decodedSha256:r.decodedSha256,domain:expectedDomain,
+     fields:Object.freeze(descriptors),nextCursor:r.nextCursor,
+     completeAllDomains:false,productReadAccepted:false,writerAuthorized:false});
+ };
  const submitOperation=()=>fail('PRODUCT_WORKER_WRITER_DISABLED');
  const getCapabilities=()=>Object.freeze({
    productWorkerBoundary:true,productReadAccepted:false,
+   typedMetadataSourceOnly:true,canReadTypedMetadataInProduct:false,
    oneRustSession:true,readCoreVersionOnly:true,completeAllDomains:false,
    canStage:false,canExportEditedCopy:false,canApply:false,
    canOriginalOverwrite:false,maxChunkBytes:PRODUCT_WASM_CHUNK_MAX_BYTES,
    maxDecodedBytes:PRODUCT_WASM_WORKER_MAX_BYTES
  });
- return Object.freeze({openDecoded,readCoreVersion,close,submitOperation,getCapabilities,
+ return Object.freeze({openDecoded,readCoreVersion,issueTypedCursor,readTypedPage,
+   close,submitOperation,getCapabilities,
    getReceipt:()=>active?.receipt??null});
 }
