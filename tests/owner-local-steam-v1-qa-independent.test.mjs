@@ -1,6 +1,8 @@
 // 05 QR-C independent Stage G new-only local attestation + HTTP deny audit.
 // No private P1G, keys, raw decoded JSON, upload endpoint, or product Writer.
 import test from 'node:test';
+import {request as rawHttpRequest} from 'node:http';
+import {existsSync} from 'node:fs';
 import assert from 'node:assert/strict';
 import {
   OWNER_LOCAL_STEAM_FULL_VERSION,OWNER_LOCAL_V1_ATTESTATION_CONTRACT,
@@ -98,9 +100,20 @@ test('QG04 production localhost GET/HEAD static allowlist, deny client POST, rog
       assert.equal(r.status,403,path);
       assert.equal(await r.text(),'');
     }
-    const rogue=await fetch(origin+'/tools/owner-local-steam-v1/index.html',
-      {headers:{Host:'attacker.example'}});
-    assert.equal(rogue.status,403,'DNS rebinding Host refused');
+    // A high-level fetch client can normalize/override Host; test on raw socket.
+    const rogueStatus=await new Promise((resolve,reject)=>{
+      const request=rawHttpRequest({
+        hostname:'127.0.0.1',port,
+        path:'/tools/owner-local-steam-v1/index.html',method:'GET',
+        headers:{Host:'attacker.example'}
+      },response=>{
+        response.resume();
+        response.on('end',()=>resolve(response.statusCode));
+      });
+      request.on('error',reject);
+      request.end();
+    });
+    assert.equal(rogueStatus,403,'DNS rebinding actual HTTP Host refused');
     const originReq=await fetch(origin+'/tools/owner-local-steam-v1/index.html',
       {headers:{Origin:'https://attacker.example'}});
     assert.equal(originReq.headers.get('access-control-allow-origin'),null);
@@ -115,7 +128,10 @@ test('QG05 CI-only allowlist enables synthetic fixture only in isolated test ser
   try{
     const origin='http://127.0.0.1:'+port;
     assert.equal((await fetch(origin+'/tests/stage-g/index.html')).status,200);
-    assert.equal((await fetch(origin+'/tests/stage-f/fixtures/synthetic626.p1g')).status,200);
+    // Normal monolithic CI does NOT generate the synthetic fixture; focused QA does.
+    const syntheticPresent=existsSync(new URL('./stage-f/fixtures/synthetic626.p1g',import.meta.url));
+    assert.equal((await fetch(origin+'/tests/stage-f/fixtures/synthetic626.p1g')).status,
+      syntheticPresent?200:404);
     assert.equal((await fetch(origin+'/package.json')).status,403);
     assert.equal((await fetch(origin+'/tests/stage-g/index.html',{method:'POST'})).status,405);
   }finally{
