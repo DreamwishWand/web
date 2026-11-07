@@ -57,15 +57,28 @@ try{
  const deepIndex=Math.min(18,furnitureCount-2),deep=furnitureCards.nth(deepIndex),another=furnitureCards.nth(deepIndex+1);
  await deep.scrollIntoViewIfNeeded();
  await deep.focus();
- // Snapshot only after keyboard focus has finished scrolling: the Core return source is focus time.
- const beforeScroll=await page.evaluate(()=>window.scrollY);
+ // The product captures scrollY during the card's click handler, NOT at pre-Enter focus.
+ // A keyboard default-action can scroll between the focused snapshot and synthetic click.
+ const focusedScroll=await page.evaluate(()=>window.scrollY);
  const deepId=await deep.getAttribute('data-stage1-item-id');
+ await deep.evaluate(el=>{
+   el.addEventListener('click',()=>{
+     const rect=el.getBoundingClientRect();
+     window.__collectionClickTimeScroll={y:window.scrollY,x:window.scrollX,id:el.getAttribute('data-stage1-item-id'),cardTop:rect.top,cardBottom:rect.bottom};
+   },{capture:true,once:true});
+ });
  await page.keyboard.press('Enter');
  await page.locator('[data-stage1-item-info]').waitFor();
- await page.locator('[data-stage1-info-close]').focus(); await page.keyboard.press('Enter');
+ const clickTime=await page.evaluate(()=>window.__collectionClickTimeScroll);
+ assert.ok(clickTime&&Number.isFinite(clickTime.y),'keyboard click-time scroll capture missing');
+ assert.equal(clickTime.id,deepId,'source click-time ID must match origin card');
+ const beforeClose=await page.evaluate(()=>window.scrollY);
+ await page.locator('[data-stage1-info-close]').focus();
+ await page.keyboard.press('Enter');
  await page.waitForFunction(id=>document.activeElement?.getAttribute('data-stage1-item-id')===id,deepId);
  const returnedScroll=await page.evaluate(()=>window.scrollY);
- assert.ok(Math.abs(returnedScroll-beforeScroll)<=4,'scroll restored '+beforeScroll+' -> '+returnedScroll);
+ console.log('WEB_STAGE1_COLLECTION_COL_UX29_SCROLL_EVENT_TRACE',JSON.stringify({focusedScroll,clickTime,beforeClose,returnedScroll}));
+ assert.ok(Math.abs(returnedScroll-clickTime.y)<=4,'scroll restored to actual click-time '+clickTime.y+' -> '+returnedScroll);
  assert.equal(await furnitureCards.count(),furnitureCount,'filter and page context retained');
  await deep.click(); await page.locator('[data-stage1-item-info]').waitFor();
  await another.click();
