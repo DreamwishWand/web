@@ -92,6 +92,20 @@ try{
   await rpc('Page.enable');
   await rpc('Runtime.enable');
   await rpc('Page.navigate',{url:'http://127.0.0.1:'+port+'/tests/stage-e/index.html'});
+  // Navigation may destroy the old about:blank execution context. Wait until
+  // the *new* document exists before creating an awaitPromise CDP task.
+  let navigated=false;
+  for(let i=0;i<200;i++){
+    try{
+      const state=await rpc('Runtime.evaluate',{expression:'location.pathname',
+        returnByValue:true});
+      if(state.result?.value==='/tests/stage-e/index.html'){
+        navigated=true;break;
+      }
+    }catch{} // context swap is expected during Page.navigate
+    await delay(50);
+  }
+  if(!navigated)throw Error('ENV_STAGEE_CHROME_NAVIGATION_NOT_READY');
   const result=await Promise.race([
     rpc('Runtime.evaluate',{expression:`
       new Promise((resolve,reject)=>{
