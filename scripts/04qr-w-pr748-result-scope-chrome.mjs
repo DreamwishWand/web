@@ -184,7 +184,7 @@ try{
  assert.ok(geo&&geo.y>=0&&geo.y+geo.height<=904,'close reachable at CSS zoom200');
  await page.locator('[data-stage1-filter-close]').evaluate(el=>el.click());
  await dialog.waitFor({state:'detached'});
- await atRoot('CSS zoom200 close');
+ assert.equal(await page.evaluate(()=>document.body.style.overflow),savedOverflow,'zoom-only close should unlock body; no fake result-change reset expected');
  assert.equal(await page.locator('.personal-state button:disabled').count(),2);
  assert.deepEqual(writes,[],'no off-origin or nonGET/Writer/Save calls');
  assert.deepEqual(sockets.filter(u=>!/^ws:\/\/127\.0\.0\.1:4299\/\?token=[A-Za-z0-9_-]+$/.test(u)),[],'only localhost Vite HMR websocket allowed');
