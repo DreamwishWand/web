@@ -36,7 +36,29 @@ test('QRW751-R1 freeze new Source3 from old Source3 RED, exact 2 QA-only paths a
   assert.equal(git('hash-object',p),sha,p+' QA never rewrites Source');
  }
  assert.equal(git('merge-base',SOURCE,'HEAD'),SOURCE);
- assert.deepEqual(files(SOURCE,'HEAD'),qaOnly,'QA branch adds exactly two QA files');
+ const qaDiff=files(SOURCE,'HEAD');
+ if(qaDiff.length===qaOnly.length){
+  assert.deepEqual(qaDiff,qaOnly,'direct Source-head checkout has exactly two QA files');
+ }else{
+  // Normal PR Verify checks out a temporary merge with the accepted protected main;
+  // focused QA checks out the immutable QA branch HEAD. Distinguish both explicitly.
+  const MAIN='069b47d4fc32fe947ca652328de8cbba72421504';
+  const acceptedMainPaths=[
+   '.github/workflows/web-stage1-collection-ux.yml',
+   'docs/community/public-users-handle-security-20261107.md',
+   'scripts/web-stage1-collection-chrome.mjs',
+   'src/lib/community/public-profile-handle-syntax.mjs',
+   'src/routes/collection/+page.svelte',
+   'tests/comm-public-profile-handle-syntax.test.mjs',
+   'tests/web-stage1-collection-root.test.mjs'
+  ].sort();
+  assert.equal(git('merge-base',MAIN,'HEAD'),MAIN,'synthetic HEAD must descend from accepted main');
+  assert.deepEqual(qaDiff,[...qaOnly,...acceptedMainPaths].sort(),'synthetic merge only adds exact main ancestors and two QA files');
+  assert.deepEqual(files(MAIN,'HEAD'),[...sourceBlobs.keys(),...qaOnly].sort(),'merge introduces only original Source3 plus QA2 versus protected main');
+  for(const p of acceptedMainPaths){
+   assert.equal(git('rev-parse',MAIN+':'+p),git('rev-parse','HEAD:'+p),p+' must match accepted protected main blob exactly');
+  }
+ }
  const former=readGitJSON(OLD,'docs/web/profile-host-routing-contract-20261107.json');
  assert.ok(former.host_acceptance.some(x=>x.case==='other_account_or_revoked_private_library'&&x.subject==='AUTH_OTHER_OR_REVOKED'),'older independent QR752 TRUE_RED preserved');
  assert.ok(!spec.host_acceptance.some(x=>x.case==='other_account_or_revoked_private_library'),'Source removed prior conflated contract');
