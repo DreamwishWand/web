@@ -153,6 +153,13 @@ try{
  await filterButton.click();
  await page.locator('#collection-filters[role="dialog"][aria-modal="true"]').waitFor();
  await fit('zoom200-sheet');
+ const geometry=await page.evaluate(()=>{
+   const r=(el)=>{const b=el?.getBoundingClientRect();return b?{x:b.x,y:b.y,bottom:b.bottom,right:b.right,width:b.width,height:b.height}:null};
+   return {viewport:{w:innerWidth,h:innerHeight,visual:{w:visualViewport?.width,h:visualViewport?.height},scrollX,scrollY},htmlZoom:getComputedStyle(document.documentElement).zoom,
+     shell:r(document.querySelector('.filter-shell')),panel:r(document.querySelector('#collection-filters')),close:r(document.querySelector('[data-stage1-filter-close]')),
+     panelScrollTop:document.querySelector('#collection-filters')?.scrollTop,bodyOverflow:document.body.style.overflow};
+ });
+ console.log('WEB_STAGE1_COLLECTION_COL_UX44_ZOOM200_DIAGNOSTIC',JSON.stringify(geometry));
  await page.locator('[data-stage1-filter-close]').click();
  await page.waitForFunction(()=>document.activeElement?.classList.contains('filter-toggle'));
  assert.equal(await page.evaluate(()=>document.body.style.overflow),savedBodyOverflow);
