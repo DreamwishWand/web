@@ -1,0 +1,37 @@
+name: "04 QR-W postPR755 actual TEST Pages Collection hosted browser"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/04qr-w-hosted-collection-post755-20261107.yml"
+      - "scripts/04qr-w-hosted-collection-post755-20261107.mjs"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  hosted-test-pages-collection:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Require installed Chromium without private Owner Save
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${DDV_PRIVATE_SAVE_PATH:-}"
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          test -n "$BIN"
+          "$BIN" --version
+          echo "CHROME_BIN=$BIN" >> "$GITHUB_ENV"
+      - name: Actual hosted HTTPS direct GET status and real browser changed-only QA
+        run: node scripts/04qr-w-hosted-collection-post755-20261107.mjs
