@@ -143,15 +143,16 @@ test('QR751-05 Owner approval, current actor, CAS, consent and cache purge are p
 test('QR751-06 revoked JWT and other authenticated Account are separately specified fail-closed, not conflated',()=>{
  // Project security contract distinguishes revoked/expired session from valid wrong-actor.
  // A single "other_account_or_revoked" 403 row is not enough to direct server HTTP/Auth tests.
- const a=rows.get('other_account_private_library');
- const b=rows.get('revoked_private_library');
- assert.ok(a,'explicit OTHER valid Account denied projection must have independent acceptance row');
- assert.ok(b,'explicit REVOKED JWT/session denied projection must have independent acceptance row');
+ const privateRows=c.host_acceptance.filter(x=>x.path==='/library/');
+ const a=privateRows.find(x=>/OTHER/i.test(x.subject)&&!/REVOKED|EXPIRED/i.test(x.subject));
+ const b=privateRows.find(x=>/REVOKED|EXPIRED/i.test(x.subject)&&!/OTHER/i.test(x.subject));
+ assert.ok(a,'valid OTHER Account needs an independent target row, not AUTH_OTHER_OR_REVOKED');
+ assert.ok(b,'REVOKED/EXPIRED JWT needs an independent target row, not AUTH_OTHER_OR_REVOKED');
  for(const [name,row] of [['OTHER',a],['REVOKED',b]]){
   assert.equal(row.current,'NOT_RUN',name+' managed evidence not fabricated');
   assert.ok([401,403,404].includes(row.required_status),name+' cannot serve private content');
   assert.ok(row.must_have.includes('no_private_data'),name);
   assert.ok(row.must_have.some(x=>/cache|no_store/.test(x)),name+' private cache denial');
  }
- assert.notEqual(a.subject,b.subject,'must distinguish valid wrong Account from revoked token');
+ assert.notEqual(a.case,b.case,'must distinguish valid wrong Account from revoked token');
 });
