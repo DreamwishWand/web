@@ -189,8 +189,8 @@ try {
  await page.evaluate(()=>document.documentElement.style.zoom='1');
  console.log('QRW_PR765_REAL_CHROME_320_ZOOM200_PASS');
  // New UI must refuse a stale selection that another tab deleted, never restore it.
- await page.evaluate(k=>localStorage.setItem(k,JSON.stringify({
-  schema:MOODBOARD_SCHEMA,version:MOODBOARD_VERSION,updatedAt:now,boards:[] })),MOODBOARD_STORAGE_KEY);
+ await page.evaluate(([k,s,v,stamp])=>localStorage.setItem(k,JSON.stringify({
+  schema:s,version:v,updatedAt:stamp,boards:[] })),[MOODBOARD_STORAGE_KEY,MOODBOARD_SCHEMA,MOODBOARD_VERSION,now]);
  await button.evaluate(el=>el.click());
  const afterDeleted=await page.evaluate(k=>JSON.parse(localStorage.getItem(k)),MOODBOARD_STORAGE_KEY);
  assert.equal(afterDeleted.boards.length,0,'deleted Board cannot reappear due to stale Info component');
