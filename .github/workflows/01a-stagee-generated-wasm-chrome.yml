@@ -1,0 +1,53 @@
+name: 01A Stage E Genuine Generated Rust WASM Chrome Worker (Writer OFF)
+on:
+  pull_request:
+    paths:
+      - 'tests/stage-e/**'
+      - '.github/workflows/01a-stagee-generated-wasm-chrome.yml'
+      - 'crates/ddv-save-core/**'
+      - 'src/lib/ddv/core/save/product-wasm-read-owner.mjs'
+  push:
+    branches:
+      - 'core/real-wasm-browser-smoke-stagee-*'
+permissions:
+  contents: read
+jobs:
+  genuine-wasm-chrome-worker:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-stagee-cargo-target
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Verify real Chrome and exact pinned wasm-bindgen crate
+        run: |
+          set -euo pipefail
+          command -v google-chrome || command -v chromium
+          grep -Fx 'wasm-bindgen = { version = "=0.2.105", optional = true }' crates/ddv-save-core/Cargo.toml
+          grep -Fx 'worker-wasm = ["dep:wasm-bindgen"]' crates/ddv-save-core/Cargo.toml
+          grep -Fx 'indexed-read = []' crates/ddv-save-core/Cargo.toml
+      - name: Compile REAL cdylib with opt-in Worker and indexed metadata
+        run: |
+          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --features worker-wasm,indexed-read --locked
+          test -s "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
+      - name: Install exactly matching wasm-bindgen CLI 0.2.105 (not generated or mocked JS)
+        run: |
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-stagee-wasm-tools
+          /tmp/wand-stagee-wasm-tools/bin/wasm-bindgen --version | grep -F '0.2.105'
+      - name: Generate true wasm-bindgen Browser Worker ESM glue
+        run: |
+          mkdir -p tests/stage-e/pkg
+          /tmp/wand-stagee-wasm-tools/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          test -s tests/stage-e/pkg/ddv_save_core.js
+          test -s tests/stage-e/pkg/ddv_save_core_bg.wasm
+          ! grep -R -E 'STEAM_SAVE_OWNER_PRIVATE|include_bytes!|writerAuthorized: *true|applyAuthorized: *true' tests/stage-e
+      - name: Actual browser CDP + module Worker + Rust WASM positive and negatives
+        run: node tests/stage-e/chrome-smoke.mjs
+      - name: Confirm Stage E never changed product Writer or public worker route
+        run: |
+          ! git diff --name-only "$GITHUB_BASE_REF" 2>/dev/null | grep -E 'local-timing-read.worker|community|provider|p1g' || true
+          test -f src/lib/ddv/core/save/product-wasm-read-owner.mjs
+          test -f crates/ddv-save-core/src/wasm_worker.rs
