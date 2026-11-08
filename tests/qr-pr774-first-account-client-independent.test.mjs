@@ -129,7 +129,8 @@ test('locally signed forged subject, separate P256 signer, expired and replay to
   const expired=signedAccess(A_ID,c.session_id,-100);
   const unknownSession=signedAccess(A_ID,'synthetic-session-nonexistent');
   for(const jwt of [tampered,untrusted,expired,unknownSession,'','a.b.c']){
-    assert.equal(verifySyntheticAccess(jwt),null===jwt?null:verifySyntheticAccess(jwt));
+    if(jwt===unknownSession)assert.ok(verifySyntheticAccess(jwt), 'valid synthetic signature but unknown session must still deny');
+    else assert.equal(verifySyntheticAccess(jwt),null,'tampered/expired/mismatched signature must be invalid');
     const response=await fixture.handle(cmdUrl,req(cmdUrl,jwt,
       {command:'ensureAccountCreator',payload:{actorAccountId:B_ACCOUNT}}));
     assert.equal(response.status,401);
