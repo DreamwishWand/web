@@ -34,7 +34,7 @@
   async function saveToMoodboard() {
     if (!outcome || outcome.status !== 'FOUND' || !('canExplore' in outcome) || !outcome.canExplore || !selectedBoardId) return;
     try {
-      const result = await withExclusiveMoodboardCommit(localStorage, latest => {
+      const result = await withExclusiveMoodboardCommit(localStorage, (latest:any) => {
         const saved = addCatalogEntityToMoodboard(latest, selectedBoardId, outcome);
         return {document:saved.document};
       });

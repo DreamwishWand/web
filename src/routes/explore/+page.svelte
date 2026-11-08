@@ -72,7 +72,7 @@
 
   async function persistMoodboards(next:any){
     const saved=await withExclusiveMoodboardCommit(localStorage,
-      ()=>({document:next}),{expectedRaw:readRaw});
+      ()=>({document:next}),{expectedRaw:readRaw as any});
     readRaw=saved.committedRaw;
     moodboards=saved.document;
   }

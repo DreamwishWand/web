@@ -50,14 +50,14 @@ jobs:
           if test "$COUNT" -eq 1 && grep -qxF ".github/workflows/web-stage1-collection-ux.yml" /tmp/collection-stage1-diff; then
             echo WEB_STAGE1_COLLECTION_CI_POLICY_ONLY_SCOPE
           else
-            test "$COUNT" -eq 9
-            for required in 'src/routes/collection/+page.svelte' 'src/lib/collection/moodboard-inspire.mjs' 'tests/web-collection-moodboard-inspire.test.mjs' 'scripts/web-stage1-collection-chrome.mjs' '.github/workflows/web-stage1-collection-ux.yml' 'src/lib/moodboards/write-coordinator.mjs' 'src/routes/moodboards/+page.svelte' 'src/routes/explore/+page.svelte' 'src/lib/entity/SharedEntityDetail.svelte'; do
+            test "$COUNT" -eq 10
+            for required in 'src/routes/collection/+page.svelte' 'src/lib/collection/moodboard-inspire.mjs' 'tests/web-collection-moodboard-inspire.test.mjs' 'scripts/web-stage1-collection-chrome.mjs' '.github/workflows/web-stage1-collection-ux.yml' 'src/lib/moodboards/write-coordinator.mjs' 'src/routes/moodboards/+page.svelte' 'src/routes/explore/+page.svelte' 'src/lib/entity/SharedEntityDetail.svelte' '.github/workflows/web-shared-catalog-detail.yml'; do
               grep -qxF "$required" /tmp/collection-stage1-diff
             done
           fi
           while IFS= read -r f; do
             case "$f" in
-              src/routes/collection/+page.svelte|src/routes/moodboards/+page.svelte|src/routes/explore/+page.svelte|src/lib/moodboards/write-coordinator.mjs|src/lib/entity/SharedEntityDetail.svelte|src/lib/collection/stage1-root.mjs|src/lib/collection/moodboard-inspire.mjs|tests/web-collection-moodboard-inspire.test.mjs|tests/web-stage1-collection-root.test.mjs|tests/product-surface-routes.test.mjs|scripts/web-stage1-collection-chrome.mjs|.github/workflows/web-stage1-collection-ux.yml) ;;
+              src/routes/collection/+page.svelte|src/routes/moodboards/+page.svelte|src/routes/explore/+page.svelte|src/lib/moodboards/write-coordinator.mjs|src/lib/entity/SharedEntityDetail.svelte|src/lib/collection/stage1-root.mjs|src/lib/collection/moodboard-inspire.mjs|tests/web-collection-moodboard-inspire.test.mjs|tests/web-stage1-collection-root.test.mjs|tests/product-surface-routes.test.mjs|scripts/web-stage1-collection-chrome.mjs|.github/workflows/web-stage1-collection-ux.yml|.github/workflows/web-shared-catalog-detail.yml) ;;
               *) echo "OUTSIDE_STAGE1_SCOPE:$f"; exit 1 ;;
             esac
           done </tmp/collection-stage1-diff

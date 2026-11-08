@@ -51,7 +51,7 @@
   async function persist(next:any):Promise<boolean>{
     try{
       const saved=await withExclusiveMoodboardCommit(
-        localStorage,()=>({document:next}),{expectedRaw:readRaw}
+        localStorage,()=>({document:next}),{expectedRaw:readRaw as any}
       );
       readRaw=saved.committedRaw;
       document=saved.document;
