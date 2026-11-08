@@ -80,6 +80,11 @@ struct State { id: [u8;16], revision: u64, generation: u64, closed: bool,
 mod synthetic_stage_b;
 #[cfg(feature = "synthetic-stage-b")]
 pub use synthetic_stage_b::{SyntheticChangeSet, SyntheticStageReceipt, SyntheticExportReceipt};
+#[cfg(feature = "private-native-v1")]
+#[path = "native_reference_slice.rs"]
+mod native_reference_slice;
+#[cfg(feature = "private-native-v1")]
+pub use native_reference_slice::NativeAreaGridSliceReceipt;
 #[cfg(feature = "private-native-v2")]
 #[path = "private_native_v2.rs"]
 mod private_native_v2;

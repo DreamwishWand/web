@@ -55,9 +55,9 @@ pub struct IndexedPage {
     pub writer_authorized:bool,
 }
 #[derive(Clone,Copy,Debug)]
-pub(super) struct Span {begin:usize,end:usize}
+pub(super) struct Span {pub(super) begin:usize,pub(super) end:usize}
 #[derive(Clone,Copy,Debug)]
-struct RootIndex {player:Span,world:Span}
+pub(super) struct RootIndex {pub(super) player:Span,pub(super) world:Span}
 #[derive(Clone,Debug)]
 struct CursorGrant{
     token:[u8;16],domain:IndexedDomain,pos:usize,
@@ -69,11 +69,11 @@ pub(super) struct IndexedCache {
     next_nonce:u64,
 }
 fn denied(error:&'static str)->CoreError{CoreError(error)}
-fn skip_ws(bytes:&[u8],mut i:usize)->usize {
+pub(super) fn skip_ws(bytes:&[u8],mut i:usize)->usize {
     while i<bytes.len()&&matches!(bytes[i],b' '|b'\n'|b'\r'|b'\t'){i+=1;}
     i
 }
-fn string_end(bytes:&[u8],at:usize)->CoreResult<usize>{
+pub(super) fn string_end(bytes:&[u8],at:usize)->CoreResult<usize>{
     if bytes.get(at)!=Some(&b'"'){return Err(denied("INDEX_JSON_STRING_REQUIRED"));}
     let mut i=at.checked_add(1).ok_or(denied("INDEX_OFFSET_OVERFLOW"))?;
     while i<bytes.len(){
@@ -85,7 +85,7 @@ fn string_end(bytes:&[u8],at:usize)->CoreResult<usize>{
     }
     Err(denied("INDEX_STRING_UNTERMINATED"))
 }
-fn value_end(bytes:&[u8],start:usize)->CoreResult<usize>{
+pub(super) fn value_end(bytes:&[u8],start:usize)->CoreResult<usize>{
     let first=*bytes.get(start).ok_or(denied("INDEX_VALUE_MISSING"))?;
     if first==b'"'{return string_end(bytes,start);}
     if first==b'{'||first==b'['{
@@ -132,7 +132,7 @@ fn kind(bytes:&[u8],begin:usize)->CoreResult<IndexedKind>{
         _=>Err(denied("INDEX_VALUE_KIND_DENIED")),
     }
 }
-fn roots(bytes:&[u8])->CoreResult<RootIndex>{
+pub(super) fn roots(bytes:&[u8])->CoreResult<RootIndex>{
     let mut i=skip_ws(bytes,0);
     if bytes.get(i)!=Some(&b'{'){return Err(denied("INDEX_ROOT_OBJECT_REQUIRED"));}
     i+=1;
@@ -219,7 +219,7 @@ fn page_fields(bytes:&[u8],span:Span,start:usize)
         }
     }
 }
-fn validate_scope(s:&ProductSession,st:&State,e:&WorkerEnvelope)->CoreResult<()>{
+pub(super) fn validate_scope(s:&ProductSession,st:&State,e:&WorkerEnvelope)->CoreResult<()>{
     if st.closed{return Err(denied("SESSION_CLOSED"));}
     if e.contract!=PRODUCT_WORKER_CONTRACT||e.session_id!=st.id||
        e.expected_decoded_sha256!=s.sha{
