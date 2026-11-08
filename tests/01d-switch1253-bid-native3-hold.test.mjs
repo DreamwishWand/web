@@ -78,4 +78,11 @@ test('01D R14 immutable source-only metadata has no game asset bytes, private pa
   assert.equal(r.webConsumer.missing.length,5);
   assert.equal(/(?:https?:\/\/|file:\/\/|\.resS|quality-88|data:image)/i.test(s),false);
   assert.equal(r.candidates.some(x=>x.releaseVisibility!=='UNKNOWN'),false);
+  // Focused QA #802 five top-level public-media spoofing cases; root unknown must reject.
+  for(const [k,value] of Object.entries({
+    assetUrl:'https://assets.invalid/native/40006096.webp',
+    mediaPublic:true,publicImagesEnabled:true,
+    publicItemEligibility:'PUBLIC',
+    images:{'40006096':{url:'https://assets.invalid/other.png'}}
+  })) bad(x=>{x[k]=value},'UNKNOWN_ROOT_MEDIA_FIELD');
 });
