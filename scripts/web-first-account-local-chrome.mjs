@@ -30,7 +30,7 @@ try{
  assert.equal(await page.locator('[data-first-account-register]').isDisabled(),true);
  assert.equal(await page.locator('[data-first-account-login]').isDisabled(),true);
  assert.equal(await page.locator('[data-first-account-logout]').count(),0);
- assert.equal(await page.locator('form[data-first-account-form] fieldset').isDisabled(),true);
+ assert.equal(await page.locator('form[data-first-account-form] fieldset').getAttribute('disabled')!==null,true,'fieldset DOM disabled attribute');
  for(const locale of locales){
   await page.selectOption('#site-locale',locale);
   await page.waitForFunction(code=>document.documentElement.dataset.locale===code,locale);
