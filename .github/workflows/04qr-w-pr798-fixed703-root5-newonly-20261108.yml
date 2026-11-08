@@ -1,0 +1,29 @@
+name: "04 QR-W PR798 fixed703 Switch Native3 root5 independent"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/04qr-w-pr798-fixed703-root5-newonly-20261108.yml"
+      - "scripts/04qr-w-pr798-fixed703-root5-newonly-20261108.mjs"
+permissions:
+  contents: read
+jobs:
+  changed-only-switch-native3-hold:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Freeze exact Source2 and QA2, synthetic negative native metadata and publicity gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${DDV_PRIVATE_SAVE_PATH:-}"
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          node scripts/04qr-w-pr798-fixed703-root5-newonly-20261108.mjs
