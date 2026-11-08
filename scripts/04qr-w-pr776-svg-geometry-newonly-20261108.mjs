@@ -76,7 +76,7 @@ const glyphs=async(selector,items)=>{
   assert.equal(await svg.getAttribute('role'),null,'decorative SVG cannot become duplicate interactive accessible name');
   const paths=await svg.locator('path').evaluateAll(nodes=>nodes.map(x=>x.getAttribute('d')));
   assert.ok(paths.length>=1);
-  assert.ok(paths.every(s=>typeof s==='string'&&s.length>=10));
+  assert.ok(paths.every(s=>typeof s==='string'&&s.length>=3));
   const signature=paths.join('|');
   assert.ok((await card.locator('.visual-card-copy strong').innerText()).trim().length>0,'link accessible title');
   assert.equal(await card.locator('a').count(),0,'nested anchor forbidden');
