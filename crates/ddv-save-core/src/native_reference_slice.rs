@@ -96,7 +96,8 @@ fn field(b:&[u8],s:Span,name:&str)->CoreResult<Option<Span>>{
 fn required(b:&[u8],s:Span,name:&str)->CoreResult<Span>{
     field(b,s,name)?.ok_or(fail("NATIVE_REF_REQUIRED_FIELD_MISSING"))
 }
-/// Only direct village Area/Grid links and per-Grid ObjectID identity.
+/// Only direct village Area/Grid + optional FloatingIsland/Grid structural links,
+/// and per-Grid ObjectID identity. Map absence remains UNKNOWN, never 0 verified.
 /// Other World refs (Group, SubGrid, Footprint, Quest, Clock etc.) are UNKNOWN.
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub struct NativeAreaGridSliceReceipt {
@@ -109,6 +110,10 @@ pub struct NativeAreaGridSliceReceipt {
     pub grid_records:usize,
     pub direct_area_grid_links:usize,
     pub grid_object_identity_records:usize,
+    pub floating_island_map_present:bool,
+    pub floating_island_records:usize,
+    pub floating_island_direct_grid_links:usize,
+    pub direct_root_ownership_unique:bool,
     pub full_native_reference_closure_verified:bool,
     pub area_group_footprint_verified:bool,
     pub native_v3_verified:bool,
@@ -161,6 +166,9 @@ impl ProductSession {
         let mut village_count=0;
         let mut area_count=0;
         let mut links=0;
+        // This is a conservative direct-root key uniqueness check only.
+        // It does not infer Native Area/Island/Group layout semantics.
+        let mut owned_direct_root_ids=BTreeSet::<u64>::new();
         array(b,villages,|village|{
             count(&mut village_count)?;
             if let Some(areas)=field(b,village,"Areas")?{
@@ -178,6 +186,9 @@ impl ProductSession {
                         if !within_area.insert(id){
                             return Err(fail("NATIVE_REF_DUPLICATE_AREA_GRID_LINK"));
                         }
+                        if !owned_direct_root_ids.insert(id){
+                            return Err(fail("NATIVE_REF_CROSS_LOCATION_ROOT_ALIAS"));
+                        }
                         Ok(())
                     })?;
                     Ok(())
@@ -185,12 +196,50 @@ impl ProductSession {
             }
             Ok(())
         })?;
+        // FloatingIslands is optional in a strict document. Its absence is
+        // explicitly UNKNOWN rather than a zero-record complete-domain proof.
+        // Present records MUST have exact SceneItemId/key and typed GridIDs.
+        // No assumption is made that an empty/locked Island is a usable route.
+        let floating_map=field(b,world,"FloatingIslands")?;
+        let mut floating_records=0usize;
+        let mut floating_links=0usize;
+        if let Some(floating)=floating_map {
+            object(b,floating,|key,island|{
+                count(&mut floating_records)?;
+                let scene_id=canonical_key(&key)?;
+                if scene_id==0 {return Err(fail("NATIVE_REF_ISLAND_SCENE_ID_ZERO"));}
+                if number(b,required(b,island,"SceneItemId")?)?!=scene_id{
+                    return Err(fail("NATIVE_REF_ISLAND_SCENE_KEY_ID_MISMATCH"));
+                }
+                let direct=required(b,island,"GridIDs")?;
+                let mut local=BTreeSet::new();
+                array(b,direct,|raw|{
+                    count(&mut floating_links)?;
+                    let grid_id=number(b,raw)?;
+                    if !grid_ids.contains_key(&grid_id){
+                        return Err(fail("NATIVE_REF_ORPHAN_FLOATING_GRID"));
+                    }
+                    if !local.insert(grid_id){
+                        return Err(fail("NATIVE_REF_DUPLICATE_FLOATING_GRID_LINK"));
+                    }
+                    if !owned_direct_root_ids.insert(grid_id){
+                        return Err(fail("NATIVE_REF_CROSS_LOCATION_ROOT_ALIAS"));
+                    }
+                    Ok(())
+                })?;
+                Ok(())
+            })?;
+        }
         Ok(NativeAreaGridSliceReceipt{
             session_id:state.id,revision:state.revision,
             index_generation:state.generation,decoded_sha256:self.sha,
             village_records:village_count,area_records:area_count,
             grid_records:grid_count,direct_area_grid_links:links,
             grid_object_identity_records:object_count,
+            floating_island_map_present:floating_map.is_some(),
+            floating_island_records:floating_records,
+            floating_island_direct_grid_links:floating_links,
+            direct_root_ownership_unique:floating_map.is_some(),
             full_native_reference_closure_verified:false,
             area_group_footprint_verified:false,native_v3_verified:false,
             product_read_accepted:false,writer_authorized:false,
@@ -241,6 +290,59 @@ mod tests{
             let s=session(&input);
             assert!(s.verify_native_area_grid_slice(scope(&s)).is_err(),"bad scoped record must deny");
         }
+    }
+    #[test]
+    fn floating_island_direct_grid_links_are_typed_and_scoped_only(){
+        let with_other_grid=VALID.replace(
+            "\"7\":{\"ID\":7,\"Objects\":{\"4\":{\"ID\":4,\"ItemID\":100}}}",
+            "\"7\":{\"ID\":7,\"Objects\":{\"4\":{\"ID\":4,\"ItemID\":100}}},\"8\":{\"ID\":8,\"Objects\":{}}"
+        );
+        let valid=with_other_grid.replace(
+            "\"GridCollection\":",
+            "\"FloatingIslands\":{\"1540000147\":{\"SceneItemId\":1540000147,\"GridIDs\":[8]}},\"GridCollection\":"
+        );
+        let s=session(&valid);
+        let got=s.verify_native_area_grid_slice(scope(&s)).unwrap();
+        assert!(got.floating_island_map_present&&got.direct_root_ownership_unique);
+        assert_eq!((got.floating_island_records,got.floating_island_direct_grid_links),(1,1));
+        assert!(!got.full_native_reference_closure_verified);
+        assert!(!got.area_group_footprint_verified&&!got.native_v3_verified);
+        assert!(!got.product_read_accepted&&!got.writer_authorized);
+        let bad=[
+            valid.replace("\"GridIDs\":[8]","\"GridIDs\":[9]"), // orphan
+            valid.replace("\"GridIDs\":[8]","\"GridIDs\":[8,8]"), // duplicate
+            valid.replace("\"GridIDs\":[8]","\"GridIDs\":[7]"), // cross Area
+            valid.replace("\"GridIDs\":[8]","\"GridIDs\":[\"8\"]"), // type
+            valid.replace("\"GridIDs\":[8]","\"GridIDs\":null"), // unknown
+            valid.replace("\"SceneItemId\":1540000147","\"SceneItemId\":1540000148"),
+            valid.replace("\"1540000147\":{\"SceneItemId\"","\"01540000147\":{\"SceneItemId\""),
+            valid.replace("\"FloatingIslands\":{","\"FloatingIslands\":["), // wrong map
+        ];
+        for input in bad {
+            // Invalid entire-document syntax is a valid strict-open denial.
+            if let Ok(rejected)=ProductSession::open_decoded_readonly(
+                input.into_bytes(),BuildIdentity{
+                    platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+                    build_id:"releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22".into(),
+                    schema:626,externally_attested:true
+                }
+            ){
+                assert!(rejected.verify_native_area_grid_slice(scope(&rejected)).is_err());
+            }
+        }
+        let missing=session(VALID);
+        let m=missing.verify_native_area_grid_slice(scope(&missing)).unwrap();
+        assert!(!m.floating_island_map_present&&!m.direct_root_ownership_unique);
+        assert_eq!(m.floating_island_records,0);
+    }
+    #[test]
+    fn shared_root_between_two_village_areas_is_conservatively_denied(){
+        let two=VALID.replace(
+            "\"1\":{\"GridIDs\":[7]}",
+            "\"1\":{\"GridIDs\":[7]},\"2\":{\"GridIDs\":[7]}"
+        );
+        let s=session(&two);
+        assert!(s.verify_native_area_grid_slice(scope(&s)).is_err());
     }
     #[test]
     fn foreign_stale_action_and_closed_session_fail_closed(){
