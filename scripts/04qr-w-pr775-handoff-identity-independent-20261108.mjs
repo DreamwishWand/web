@@ -118,6 +118,34 @@ try {
  assert.equal(await p.locator('[data-wep-stage1-review] [data-wep-stage1-change]').count(),1);
  assert.equal(await page.evaluate(k=>localStorage.getItem(k),boardKey),unchanged);
  console.log('QRW775_VALID_SAME_BOARD_REF_GROUP_ITEM_SESSION_DRAFT_ONLY_ONE_MUTATION_PASS');
+ const immersive=page.locator('[data-shared-app-shell][data-shell-presentation="immersive"]');
+ const settings=immersive.locator('button.immersive-settings');
+ assert.equal(await settings.isVisible(),true,'real WEP immersive settings access');
+ await settings.focus();await page.keyboard.press('Enter');
+ const localeSelect=page.locator('#site-locale-mobile');
+ await localeSelect.waitFor({state:'visible',timeout:12000});
+ const beforeLocale=await p.locator('[data-wep-stage1-review] [data-wep-stage1-change]').count();
+ for(const lang of WORLD_EDITOR_STAGE1_LOCALES){
+   await localeSelect.selectOption(lang);
+   await page.waitForFunction(expected=>document.documentElement.lang===expected,lang);
+   assert.equal(await p.locator('[data-wep-stage1-review] [data-wep-stage1-change]').count(),beforeLocale,
+     lang+' locale must not mutate Draft');
+ }
+ await localeSelect.selectOption('en');
+ await page.keyboard.press('Escape');
+ await localeSelect.waitFor({state:'hidden'});
+ console.log('QRW775_REAL_CHROME_8_LOCALE_IMMERSIVE_KEYBOARD_AND_DRAFT_IMMUTABLE_PASS');
+ await page.setViewportSize({width:640,height:900});
+ await page.evaluate(()=>document.documentElement.style.zoom='2');
+ const zoom=await p.evaluate(node=>({client:node.clientWidth,scroll:node.scrollWidth}));
+ assert.ok(zoom.scroll<=zoom.client+2,'200percent WEP panel horizontal overflow '+JSON.stringify(zoom));
+ await page.evaluate(()=>document.documentElement.style.zoom='1');
+ await page.setViewportSize({width:320,height:844});
+ const mobile=await p.evaluate(node=>({client:node.clientWidth,scroll:node.scrollWidth}));
+ assert.ok(mobile.scroll<=mobile.client+2,'320px WEP panel horizontal overflow '+JSON.stringify(mobile));
+ assert.equal(await page.evaluate(k=>localStorage.getItem(k),boardKey),unchanged);
+ console.log('QRW775_REAL_CHROME_CSS_ZOOM200_AND_320PX_PANEL_NO_OVERFLOW_PASS');
+ await page.setViewportSize({width:1440,height:1000});
 
  p=await load();
  const oldPending=await page.evaluate(k=>JSON.parse(localStorage.getItem(k)),handoffKey);
