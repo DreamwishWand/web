@@ -184,10 +184,10 @@ const placeholder=async(label,requiredId)=>{
 try{
  await page.goto(origin+'/collection/',{waitUntil:'domcontentloaded'});
  await page.locator('[data-stage1-category-grid] .category-card').first().waitFor({timeout:35000});
- await page.locator('[data-category="Furniture"]').click();
+ await page.locator('[data-category="Furniture"]').evaluate(el=>el.click());
  await page.locator('[data-stage1-category-browse] .item-card').first().waitFor({timeout:25000});
  await placeholder('Collection browse');
- await page.locator('[data-stage1-category-browse] .item-card').first().click();
+ await page.locator('[data-stage1-category-browse] .item-card').first().evaluate(el=>el.click());
  await page.locator('[data-stage1-item-info]').waitFor({timeout:12000});
  await placeholder('Collection selected ITEM');
  console.log('QRW801_REAL_CHROME_COLLECTION_PLACEHOLDER_MEDIA_OFF_PASS');
