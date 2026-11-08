@@ -1,0 +1,40 @@
+name: "07 DBK Owner focused rights contact strict-private repair"
+on:
+  push:
+    branches:
+      - "07dbk/focused-rights-contact-repair-20261109"
+permissions:
+  contents: read
+jobs:
+  focused-rights-contact:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: "Original Source3 and repair delta exactly2; never QA-only"
+        shell: bash
+        run: |
+          set -euo pipefail
+          original=ad8d60868d188d4f94a98256c6c5a4c698f58cbd
+          fixed=69220b7105608a42318cf1d296a80997675bc6f3
+          test "$(git rev-parse HEAD^)" = "$fixed"
+          test "$(git merge-base "$original" "$fixed")" = "$original"
+          actual=$(git diff --name-only "$original" "$fixed" | sort)
+          expected=$(printf '%s\n' ops/dbk-rights-contact-receiving-gate.mjs tests/dbk-rights-contact-receiving-gate.test.mjs | sort)
+          test "$actual" = "$expected"
+          test "$(git diff --name-only "$fixed" HEAD)" = ".github/workflows/07dbk-owner-pr786-focused-20261109.yml"
+          test "$(git diff --name-only b7d86d47125f1764919b67898c39badaf35976d8 "$fixed" | wc -l)" -eq 3
+          echo "OWNER_FOCUSED_SOURCE_ORIGINAL3_REPAIR_DELTA2_QA_ONLY_EXCLUDED_PASS"
+      - name: "Focused original tests: strict false, fake host, receipt negatives"
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/dbk-rights-contact-receiving-gate.test.mjs
+      - name: "No live mailbox or public operation"
+        run: echo "OWNER_FOCUSED_SOURCE_ONLY__REAL_INBOX_QRW_INDEPENDENT_QA_NOT_RUN__PUBLIC_CONTACT_OFF"
