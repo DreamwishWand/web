@@ -1,0 +1,88 @@
+name: WEB first-party Home Decorate SVG icon distinctions
+on:
+  push:
+    branches:
+      - 'web/product-svg-icons-*'
+  pull_request:
+    paths:
+      - 'src/lib/ui/Icon.svelte'
+      - 'src/lib/ui/VisualCard.svelte'
+      - 'src/lib/ui/consumer-fixtures.js'
+      - 'tests/web-ui-product-icons.test.mjs'
+      - 'scripts/web-ui-product-icons-chrome.mjs'
+      - '.github/workflows/web-ui-product-icons.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Six original SVG UI/test paths only, no game-media assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.pull_request.base.sha || '' }}"
+          if test -z "$BASE"; then BASE="$(git merge-base origin/main HEAD)"; fi
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          git diff --name-only "$BASE" HEAD >/tmp/ui-svg-diff
+          test "$(wc -l </tmp/ui-svg-diff)" -eq 6
+          for required in src/lib/ui/Icon.svelte src/lib/ui/VisualCard.svelte src/lib/ui/consumer-fixtures.js tests/web-ui-product-icons.test.mjs scripts/web-ui-product-icons-chrome.mjs .github/workflows/web-ui-product-icons.yml; do
+            grep -qxF "$required" /tmp/ui-svg-diff
+          done
+          git diff --exit-code "$BASE" HEAD -- src/lib/collection/ src/routes/collection/ src/routes/explore/ src/lib/community/ src/lib/ddv/ src/lib/wep/ src/lib/item-media/ static/ supabase/ .github/workflows/pages.yml
+          echo WEB_FIRST_PARTY_SVG_SOURCE_ONLY_PASS
+      - name: Home Core6, Decorate3 original SVG icon and eight locale semantics
+        run: node --test tests/web-ui-product-icons.test.mjs tests/shared-ui-stage1.test.mjs
+      - name: Normal Node regression, Svelte and static Pages
+        env:
+          BASE_PATH: /web
+        run: |
+          npm test
+          npm run check
+          npm run build
+  chrome:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Build and serve original SVG static UI on local test host
+        shell: bash
+        env:
+          BASE_PATH: /web
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          npm run build
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4298 >/tmp/first-party-svg.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4298/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/first-party-svg.log
+          exit 1
+      - name: Installed Chrome Home Decorate SVG eight locale 320 zoom200 keyboard GET-only
+        env:
+          WEB_VISUAL_ICONS_URL: http://127.0.0.1:4298
+        run: node scripts/web-ui-product-icons-chrome.mjs
