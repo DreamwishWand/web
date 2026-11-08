@@ -75,9 +75,11 @@ test('existing GitHub Pages remains exactly /web and static 404 fallback; no DNS
  assert.match(routeConfig,/trailingSlash = 'always'/);
  assert.match(file('src/routes/[primary=sharedId]/+page.ts'),/prerender = false/);
  assert.match(file('src/routes/[locale=wandLocale]/[primary=sharedId]/+page.ts'),/prerender = false/);
- assert.match(layout,/\$page\.url\.pathname/);
- assert.match(layout,/import\.meta\.env\.VITE_WAND_CANONICAL_ORIGIN/);
- assert.match(layout,/<link rel="canonical" href=\{canonicalPreview\}/);
+ const serverLoad=file('src/routes/+layout.server.js');
+ assert.match(layout,/data\.canonicalPreview/);
+ assert.match(serverLoad,/canonicalForApprovedStaticPath\(url\.pathname/);
+ assert.match(serverLoad,/process\.env\.WAND_CANONICAL_BUILD_ORIGIN/);
+ assert.match(layout,/<link rel="canonical" href=\{data\.canonicalPreview\}/);
  assert.doesNotMatch(layout,/<meta[^>]+http-equiv=["']refresh|window\.location/);
  assert.deepEqual(SUPPORTED_DETAIL_LOCALES,['en','fr','it','de','es-ES','ja','zh-CN','pt-BR']);
 });

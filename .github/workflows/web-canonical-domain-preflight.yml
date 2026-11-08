@@ -6,6 +6,7 @@ on:
   pull_request:
     paths:
       - 'src/routes/+layout.svelte'
+      - 'src/routes/+layout.server.js'
       - 'src/lib/foundation/canonical-domain-preview.mjs'
       - 'tests/web-canonical-domain-preflight.test.mjs'
       - 'scripts/web-canonical-domain-preflight-chrome.mjs'
@@ -34,8 +35,8 @@ jobs:
           if test -z "$BASE"; then BASE="$(git merge-base origin/main HEAD)"; fi
           test "$(git merge-base "$BASE" HEAD)" = "$BASE"
           git diff --name-only "$BASE" HEAD >/tmp/wand-canonical-paths
-          test "$(wc -l </tmp/wand-canonical-paths)" -eq 5
-          for required in src/routes/+layout.svelte src/lib/foundation/canonical-domain-preview.mjs tests/web-canonical-domain-preflight.test.mjs scripts/web-canonical-domain-preflight-chrome.mjs .github/workflows/web-canonical-domain-preflight.yml; do
+          test "$(wc -l </tmp/wand-canonical-paths)" -eq 6
+          for required in src/routes/+layout.svelte src/routes/+layout.server.js src/lib/foundation/canonical-domain-preview.mjs tests/web-canonical-domain-preflight.test.mjs scripts/web-canonical-domain-preflight-chrome.mjs .github/workflows/web-canonical-domain-preflight.yml; do
             grep -qxF "$required" /tmp/wand-canonical-paths
           done
           git diff --exit-code "$BASE" HEAD -- svelte.config.js .github/workflows/pages.yml static/ src/routes/collection/ src/routes/community-lab/ src/routes/users/ src/lib/community/ src/lib/ddv/ src/lib/wep/ src/lib/collection/ supabase/
@@ -83,7 +84,7 @@ jobs:
       - name: Static custom-root domain opt-in only and actual local HTTP 200 404 no fabricated 301
         env:
           BASE_PATH: ''
-          VITE_WAND_CANONICAL_ORIGIN: https://dreamwishwand.com
+          WAND_CANONICAL_BUILD_ORIGIN: https://dreamwishwand.com
           WAND_HOST_TEST_BASE_PATH: ''
         run: |
           npm run build
@@ -91,7 +92,7 @@ jobs:
       - name: Static current /web Pages retained even if custom-origin env accidentally supplied
         env:
           BASE_PATH: /web
-          VITE_WAND_CANONICAL_ORIGIN: https://dreamwishwand.com
+          WAND_CANONICAL_BUILD_ORIGIN: https://dreamwishwand.com
           WAND_HOST_TEST_BASE_PATH: /web
         run: |
           npm run build

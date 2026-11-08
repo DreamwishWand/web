@@ -83,6 +83,14 @@ try{
 
  const locales=['en','fr','it','de','es-ES','ja','zh-CN','pt-BR'];
  for(const route of ['', 'collection/']){
+  const prerendered=await (await fetch(origin+prefix+route,{redirect:'manual'})).text();
+  if(expectedCanonical){
+   assert.match(prerendered,/<link[^>]*rel="canonical"[^>]*href="https:\/\/dreamwishwand\.com\//,
+    'SEO canonical must be in PRERENDERED HTTP HTML, not injected later by SPA');
+  }else{
+   assert.doesNotMatch(prerendered,/<link[^>]+rel="canonical"/,
+    'Existing /web Pages must not advertise an unverified custom host');
+  }
   const result=await page.goto(origin+prefix+route,{waitUntil:'domcontentloaded'});
   assert.equal(result.status(),200);
   const canonical=page.locator('link[rel="canonical"]');
