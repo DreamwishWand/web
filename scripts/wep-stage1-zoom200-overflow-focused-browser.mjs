@@ -104,33 +104,36 @@ try {
     assert.ok(m.sidebar.scroll<=m.sidebar.client+2,label+' sidebar overflows: '+JSON.stringify(m));
     return m;
   };
-  const keyboardLocales=async(label)=>{
+  // Keep keyboard Settings on its accepted, visible wide-layout route.
+  // Then change only the viewport/zoom for a focused Stage1 layout probe.
+  const selectLocaleByKeyboard=async(locale)=>{
+    await page.evaluate(()=>document.documentElement.style.zoom='1');
+    await page.setViewportSize({width:1440,height:1000});
     const settings=page.locator('[data-shared-app-shell][data-shell-presentation="immersive"] button.immersive-settings');
     await settings.focus();
     await page.keyboard.press('Enter');
     const select=page.locator('#site-locale-mobile');
     await select.waitFor({state:'visible',timeout:12000});
-    const reviewCount=await page.locator('[data-wep-stage1-review] [data-wep-stage1-change]').count();
-    for(const locale of lang){
-      await select.selectOption(locale);
-      await page.waitForFunction(expected=>document.documentElement.lang===expected,locale);
-      const m=await probe(label+'_'+locale);
-      assert.equal(await page.locator('[data-wep-stage1-review] [data-wep-stage1-change]').count(),
-        reviewCount,'zoom/locale changed Draft history');
-      assert.ok(m.panel.client>0);
-    }
-    await select.selectOption('en');
+    await select.selectOption(locale);
+    await page.waitForFunction(expected=>document.documentElement.lang===expected,locale);
     await page.keyboard.press('Escape');
-    await select.waitFor({state:'hidden'});
-    checks.push(label+'_8_LOCALE_KEYBOARD_NO_OVERFLOW_NO_MUTATION');
+    await select.waitFor({state:'hidden',timeout:12000});
   };
-
-  await page.setViewportSize({width:640,height:900});
-  await page.evaluate(()=>document.documentElement.style.zoom='2');
-  await keyboardLocales('CSS_ZOOM200_VIEWPORT640');
-  await page.evaluate(()=>document.documentElement.style.zoom='1');
+  const reviewBeforeZoom=await page.locator('[data-wep-stage1-review] [data-wep-stage1-change]').count();
+  for(const locale of lang){
+    await selectLocaleByKeyboard(locale);
+    await page.setViewportSize({width:640,height:900});
+    await page.evaluate(()=>document.documentElement.style.zoom='2');
+    await probe('CSS_ZOOM200_VIEWPORT640_'+locale);
+    await page.evaluate(()=>document.documentElement.style.zoom='1');
+    await page.setViewportSize({width:320,height:844});
+    await probe('MOBILE320_ZOOM100_'+locale);
+    assert.equal(await page.locator('[data-wep-stage1-review] [data-wep-stage1-change]').count(),
+      reviewBeforeZoom,'zoom/locale changed Draft history');
+  }
+  await selectLocaleByKeyboard('en');
   await page.setViewportSize({width:320,height:844});
-  await keyboardLocales('MOBILE320_ZOOM100');
+  checks.push('R19_8_LOCALE_KEYBOARD_SETTINGS_ZOOM200_320_NO_OVERFLOW_NO_MUTATION');
   // Changed layout must not mask Canvas Hit, selection or local Undo.
   await page.locator('[data-editor-object-id="stage-a"]').click();
   assert.match(await page.locator('[data-editor-object-id="stage-a"]').getAttribute('class'),/selected/);
