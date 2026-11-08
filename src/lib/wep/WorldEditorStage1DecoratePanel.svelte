@@ -13,7 +13,9 @@
   } from '$lib/collection/runtime.js';
   import {
     clearWorldEditorHandoff,
-    readWorldEditorHandoff
+    createMoodboardHandoff,
+    readWorldEditorHandoff,
+    writeWorldEditorHandoff
   } from './world-editor-handoff';
   import { worldEditorStage1Copy } from './world-editor-stage1-copy.js';
   import {
@@ -148,8 +150,26 @@
     }
   }
 
-  function activateReference(reference: any, groupId: string | null = null) {
+  function activateReference(
+    reference: any,
+    groupId: string | null = null,
+    persistSelection = false
+  ) {
     if (!reference) return;
+    if (persistSelection && handoff?.sourceSurface === 'moodboard') {
+      try {
+        const current = createMoodboardHandoff(handoff.boardId, {
+          referenceId: String(reference.id),
+          groupId
+        });
+        writeWorldEditorHandoff(localStorage, current);
+        handoff = current;
+      } catch {
+        clearPending();
+        panelError = copy.staleReference;
+        return;
+      }
+    }
     pendingReferenceId = reference.id;
     pendingGroupId = groupId;
     pendingSelectedSession = session && editorDocument ? session : null;
@@ -467,7 +487,7 @@
                       <button
                         type="button"
                         class="reference-main"
-                        on:click={() => activateReference(reference, section.id)}
+                        on:click={() => activateReference(reference, section.id, true)}
                       >
                         <span>{referenceLabel(reference)}</span>
                         <strong>{reference.label}</strong>
