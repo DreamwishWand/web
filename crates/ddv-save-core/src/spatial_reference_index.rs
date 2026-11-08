@@ -7,6 +7,8 @@
 //! footprint/rotation, actual collision legality, or any Writer permission.
 use crate::{BuildIdentity, BuildKind, CoreError, CoreResult, Platform};
 use std::collections::{HashMap, HashSet};
+#[cfg(feature="private-native-v1")]
+use crate::{ProductSession, WorkerAction, WorkerEnvelope, PRODUCT_WORKER_CONTRACT};
 
 pub const SPATIAL_GRAPH_CONTRACT: &str = "wand.core.01b.typed-spatial-subgraph@1";
 pub const MAX_SPATIAL_GRIDS: usize = 8192;
@@ -62,8 +64,31 @@ pub struct SpatialReadWitness {
     pub source_session_authenticated: bool,
     pub product_writer_authorized: bool,
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct SpatialCandidateCounts {
+    areas: usize, grids: usize, direct_area_grid_links: usize,
+    objects: usize, highest_village_index: usize,
+}
+/// Private native-only correlation to the ONE Rust ProductSession scanner.
+/// Count agreement does NOT prove candidate IDs, geometry, build or Writer.
+#[cfg(feature="private-native-v1")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SpatialNativeCensusReceipt {
+    pub same_session_census_counts_match: bool,
+    pub candidate_native_ids_authenticated: bool,
+    pub source_platform_provenance_verified: bool,
+    pub native_footprint_bounds_verified: bool,
+    pub full_native_reference_closure_verified: bool,
+    pub product_read_accepted: bool,
+    pub writer_authorized: bool,
+}
 pub struct SpatialCandidateIndex {
     scope: SpatialScope,
+    // Exactly the declaration validated at candidate construction. Preserve
+    // it only in the native-only build where source equality is checked.
+    #[cfg(feature="private-native-v1")]
+    candidate_build: BuildIdentity,
+    counts: SpatialCandidateCounts,
     by_object: HashMap<SpatialObjectKey, SpatialReadWitness>,
     pub graph_references_checked: bool,
     pub asserted_footprint_bounds_checked: bool,
@@ -139,12 +164,18 @@ impl SpatialCandidateIndex {
         }
         let mut root_owner = HashMap::<u64,(u32,u64)>::new();
         let mut seen_areas = HashSet::new();
+        let mut root_link_count = 0usize;
         for area in areas {
             if !seen_areas.insert((area.village_index, area.area_key)) {
                 return Err(denied("SPATIAL_DUPLICATE_AREA_KEY"));
             }
             let mut local = HashSet::new();
             for grid_id in &area.root_grid_ids {
+                root_link_count = root_link_count.checked_add(1)
+                    .ok_or(denied("SPATIAL_AREA_LINK_BUDGET"))?;
+                if root_link_count > MAX_SPATIAL_GRIDS {
+                    return Err(denied("SPATIAL_AREA_LINK_BUDGET"));
+                }
                 if !grid_by_id.contains_key(grid_id) {
                     return Err(denied("SPATIAL_AREA_GRID_ORPHAN"));
                 }
@@ -208,11 +239,67 @@ impl SpatialCandidateIndex {
             });
         }
         Ok(Self {
-            scope,by_object,graph_references_checked:true,
+            scope,
+            #[cfg(feature="private-native-v1")]
+            candidate_build:build.clone(),
+            counts: SpatialCandidateCounts {
+                areas: areas.len(), grids: grids.len(),
+                direct_area_grid_links: root_link_count,
+                objects: objects.len(),
+                highest_village_index: areas.iter().map(|a|a.village_index as usize)
+                    .max().unwrap_or(0),
+            },
+            by_object,graph_references_checked:true,
             asserted_footprint_bounds_checked:true,
             full_native_reference_closure_verified:false,
             source_session_authenticated:false,native_layout_verified:false,
             product_read_accepted:false,product_writer_authorized:false,
+        })
+    }
+    /// Only a PRIVATE NATIVE count cross-check against the existing 01A scanner.
+    /// No second Save reader. Neither this typed candidate graph nor a caller's
+    /// declared Switch BID is authenticated by comparing cardinalities.
+    #[cfg(feature="private-native-v1")]
+    pub fn compare_core_native_area_grid_census(
+        &self, session: &ProductSession, scope: SpatialScope
+    ) -> CoreResult<SpatialNativeCensusReceipt> {
+        if self.scope != scope {
+            return Err(denied("SPATIAL_NATIVE_SCOPE_STALE"));
+        }
+        // 01A validates the live Rust-owned SessionID/revision/generation/SHA
+        // while scanning borrowed original bytes under its own lock.
+        let envelope = WorkerEnvelope {
+            contract: PRODUCT_WORKER_CONTRACT,
+            session_id: scope.session_id,
+            expected_revision: scope.revision,
+            expected_index_generation: scope.index_generation,
+            expected_decoded_sha256: scope.decoded_sha256,
+            action: WorkerAction::ReadDomain,
+        };
+        // 01A owns the immutable open-time Build declaration and source CAS.
+        // A same-schema Steam Session must NEVER validate a Switch candidate.
+        session.verify_native_source_build_matches(envelope,&self.candidate_build)?;
+        let native = session.verify_native_area_grid_slice(envelope)?;
+        if native.village_records <= self.counts.highest_village_index ||
+            native.area_records != self.counts.areas ||
+            native.grid_records != self.counts.grids ||
+            native.direct_area_grid_links != self.counts.direct_area_grid_links ||
+            native.grid_object_identity_records != self.counts.objects {
+            return Err(denied("SPATIAL_NATIVE_CENSUS_MISMATCH"));
+        }
+        if native.full_native_reference_closure_verified ||
+            native.area_group_footprint_verified || native.native_v3_verified ||
+            native.product_read_accepted || native.writer_authorized {
+            return Err(denied("SPATIAL_NATIVE_CENSUS_AUTHORITY_FORBIDDEN"));
+        }
+        Ok(SpatialNativeCensusReceipt {
+            same_session_census_counts_match: true,
+            candidate_native_ids_authenticated: false,
+            source_platform_provenance_verified: false,
+            native_footprint_bounds_verified: false,
+            full_native_reference_closure_verified: false,
+            product_read_accepted: false,
+            writer_authorized: false,
         })
     }
     /// Rejects stale caller scope, but never treats caller tokens as Core CAS.
