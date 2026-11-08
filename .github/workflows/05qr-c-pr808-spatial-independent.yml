@@ -1,0 +1,77 @@
+name: 05 QR-C PR808 independent typed Spatial candidate and ABI new-only
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/tests/qa_05qrc_pr808_spatial_candidate.rs'
+      - '.github/workflows/05qr-c-pr808-spatial-independent.yml'
+  push:
+    branches:
+      - 'qa/05qrc-pr808-spatial-candidate-e219f505-20261108'
+permissions:
+  contents: read
+jobs:
+  independent-spatial-graph:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-05qrc-pr808-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Fixed Source PR808 original four Git blobs and QA-only exact two
+        shell: bash
+        run: |
+          set -euo pipefail
+          source=e219f505d819fa87a7916cef221496ae5db1ebfd
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            qa_tip="$(git rev-parse HEAD^2)"
+          else
+            qa_tip="$(git rev-parse HEAD)"
+          fi
+          git merge-base --is-ancestor "$source" "$qa_tip"
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/lib.rs)" = e590e1fc03b38df8c4214743f2e87b8df266d823
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/spatial_reference_index.rs)" = eac1ba3f6986a7630a1977227aa899c5d785e180
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/tests/spatial_reference_index.rs)" = 5e084c4ef30874519cacfae20f5f351d487653a2
+          test "$(git rev-parse "$qa_tip":docs/core/01b-r06-typed-spatial-index-20261108.md)" = a34347757fc661c83c9348c3e088ac3a4ec73ebb
+          actual="$(git diff --name-only "$source" "$qa_tip" | sort)"
+          expected="$(printf '%s\n' .github/workflows/05qr-c-pr808-spatial-independent.yml crates/ddv-save-core/tests/qa_05qrc_pr808_spatial_candidate.rs | sort)"
+          test "$actual" = "$expected"
+          test -z "$(git diff --name-only "$source" "$qa_tip" -- crates/ddv-save-core/src crates/ddv-save-core/Cargo.toml src tools)"
+          test -z "$(git ls-files | grep -E 'STEAM_SAVE_OWNER_PRIVATE|OWNER_PRIVATE|\.p1g$' || true)"
+      - name: Independent changed-only typed Spatial graph and new adversarial Rust tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features indexed-read --test qa_05qrc_pr808_spatial_candidate -- --nocapture
+      - name: Rust opt-in indexed-read ABI exports compile without second core
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --features indexed-read --lib
+      - name: Default product core ABI compiles independently of opt-in Spatial index
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --lib
+      - name: Real Rust wasm32 indexed-read Worker ABI compile
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --features worker-wasm,indexed-read --lib
+      - name: Final QA source-freeze and product safety negative guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            qa_tip="$(git rev-parse HEAD^2)"
+          else
+            qa_tip="$(git rev-parse HEAD)"
+          fi
+          test "$(git diff --name-only e219f505d819fa87a7916cef221496ae5db1ebfd "$qa_tip" | wc -l)" -eq 2
+          test -z "$(git diff --name-only e219f505d819fa87a7916cef221496ae5db1ebfd "$qa_tip" -- crates/ddv-save-core/src src tools)"
+          test -z "$(git ls-files | grep -E 'STEAM_SAVE_OWNER_PRIVATE|OWNER_PRIVATE|\.p1g$' || true)"
+          echo "QRC808_SOURCE4_QA2_TYPED_SPATIAL_GRAPH_I64_BOUNDS_SCOPE_WASM_FOCUSED_PASS"
