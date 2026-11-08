@@ -21,8 +21,8 @@ export const COLLECTION_STAGE1_CONSUMER = Object.freeze({
 export const DECORATE_STAGE1_CONSUMER = Object.freeze({
   entryCards: Object.freeze([
     { id: 'explore', href: '/explore/', icon: 'search', descriptionKey: 'exploreDescription' },
-    { id: 'moodboards', href: '/moodboards/', icon: 'gallery', descriptionKey: 'moodboardsDescription' },
-    { id: 'worldEditor', href: '/editor/world/', icon: 'sparkle', descriptionKey: 'worldEditorDescription' }
+    { id: 'moodboards', href: '/moodboards/', icon: 'moodboard', descriptionKey: 'moodboardsDescription' },
+    { id: 'worldEditor', href: '/editor/world/', icon: 'worldEditor', descriptionKey: 'worldEditorDescription' }
   ]),
   moodboardOrganization: Object.freeze({
     pointerAndTouchDrag: true,

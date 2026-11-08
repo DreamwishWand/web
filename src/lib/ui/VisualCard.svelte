@@ -9,7 +9,7 @@
 </script>
 
 <a class="visual-card" class:visual-card-horizontal={variant === 'horizontal'} {href}>
-  {#if icon}<span class="visual-card-icon" aria-hidden="true"><Icon name={icon} decorative={true} size={28} /></span>{/if}
+  {#if icon}<span class="visual-card-icon" data-visual-card-icon={icon} aria-hidden="true"><Icon name={icon} decorative={true} size={32} /></span>{/if}
   <span class="visual-card-copy">
     {#if eyebrow}<span class="visual-card-eyebrow">{eyebrow}</span>{/if}
     <strong>{title}</strong>
