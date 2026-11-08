@@ -54,8 +54,9 @@ export function preflightRightsContactReceiving(packet) {
   if (inbound?.messageId && outbound?.messageId &&
       inbound.messageId===outbound.messageId)
     reasons.push('INBOUND_AND_REPLY_RECEIPTS_NOT_DISTINCT');
-  if (packet.noticeCopy?.publicAddressRendered===true &&
-      (reasons.length>0 || packet.noticeCopy?.publicHostVerified!==true))
+  // Only an explicitly non-public draft may be considered for Owner review.
+  // Caller-controlled publicHostVerified must never waive an already rendered contact.
+  if (packet.noticeCopy?.publicAddressRendered!==false)
     reasons.push('PUBLIC_CONTACT_DISPLAY_BEFORE_ACCEPTANCE');
   const locales=packet.noticeCopy?.locales;
   for(const locale of IMAGE_NOTICE_LOCALES){
