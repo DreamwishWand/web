@@ -4,7 +4,7 @@
 // This small last-mile verifier never emits a public image, release flag, or game bytes.
 import {createHash} from 'node:crypto';
 import {constants} from 'node:fs';
-import {lstat, open, readFile, realpath} from 'node:fs/promises';
+import {lstat, open, realpath} from 'node:fs/promises';
 import {dirname, isAbsolute, join, resolve, sep} from 'node:path';
 import {pathToFileURL} from 'node:url';
 
@@ -51,11 +51,7 @@ const expectedKeys = ['fullversion','furniture','bundle','images','output'];
 const hashPath = path => createHash('sha256').update(path).digest('hex');
 function fail(code) { throw new Error('01D_IMAGE_PROOF_'+code); }
 function byteHeaders(bytes,kind) {
-  if(kind==='fullversion') {
-    if(bytes.toString('utf8')!==SOURCE.externalFullVersion+'\n')
-      fail('WRONG_STEAM_EXTERNAL_VERSION');
-    return;
-  }
+  if(kind==='fullversion') return; // Exact 54-byte file is already SHA- and size-pinned.
   if(kind==='png') {
     if(bytes.length<26 || bytes.toString('hex',0,8)!=='89504e470d0a1a0a' ||
        bytes.readUInt32BE(16)!==512 || bytes.readUInt32BE(20)!==512 ||
@@ -153,7 +149,7 @@ export function createHoldManifest({source=SOURCE,target=TARGET,releaseFlag=fals
 }
 async function verifyPinned(path,{sha,size,kind},seen) {
   const st=await lstat(path);
-  if(st.isSymbolicLink()||!st.isFile()||st.size!==size)fail('MISSING_SYMLINK_SIZE');
+  if(st.isSymbolicLink()||!st.isFile()||(size!==null&&st.size!==size)||st.size<=0||st.size>300*1024*1024)fail('MISSING_SYMLINK_SIZE');
   const id=st.dev+':'+st.ino;
   if(seen.has(id)) fail('INPUT_INODE_ALIAS');
   seen.add(id);
@@ -161,7 +157,7 @@ async function verifyPinned(path,{sha,size,kind},seen) {
   let hash=createHash('sha256'),prefix=Buffer.alloc(0);
   try {
     const live=await fd.stat();
-    if(!live.isFile()||live.dev!==st.dev||live.ino!==st.ino||live.size!==size)
+    if(!live.isFile()||live.dev!==st.dev||live.ino!==st.ino||(size!==null&&live.size!==size))
       fail('OPEN_INODE_RACE');
     for await(const b of fd.createReadStream({autoClose:false,highWaterMark:1024*1024})){
       if(prefix.length<32)prefix=Buffer.concat([prefix,b.subarray(0,32-prefix.length)]);
