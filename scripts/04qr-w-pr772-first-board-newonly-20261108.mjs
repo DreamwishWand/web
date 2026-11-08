@@ -180,7 +180,7 @@ try{
  assert.equal(await page.locator('[data-collection-moodboard-toggle]').getAttribute('aria-pressed'),'true','fresh page reopen state');
  assert.deepEqual(bad,[],'no offhost POST / Save media egress');
  assert.deepEqual(errors,[],'no page JS errors');
- assert.deepEqual(sockets,[],'no websocket');
+ assert.deepEqual(sockets.filter(u=>new URL(u).host!==new URL(host).host),[], 'no external WebSocket; localhost Vite dev HMR is allowed');
  console.log('QRW772_ACTUAL_CHROME_FIRST_BOARD_8LOCALE_KEYBOARD_320_200_REOPEN_NETWORK_SAFE_PASS');
 }finally{await browser.close();}
 
