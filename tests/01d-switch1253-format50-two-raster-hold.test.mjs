@@ -70,4 +70,11 @@ test('R14 no R39 lossy fallback, public image URL/media/Writer/Cloud/CDN flags r
   expectInvalid(x=>{x.safety.oldR39Quality88NotLossless=false},'PUBLIC_RIGHTS');
   expectInvalid(x=>{x.safety.writer=true},'PUBLIC_RIGHTS');
   expectInvalid(x=>{x.rights.cdnRevocation='PASSED'},'PUBLIC_RIGHTS');
+  // Independent QR-W QA802 found that undefined root media fields previously passed.
+  for(const [k,value] of Object.entries({
+    assetUrl:'https://assets.invalid/native/40000047.webp',
+    mediaPublic:true, publicImagesEnabled:true,
+    publicItemEligibility:'PUBLIC',
+    images:{'40000047':{url:'https://assets.invalid/other.png'}}
+  })) expectInvalid(x=>{x[k]=value},'UNKNOWN_ROOT_KEYS');
 });
