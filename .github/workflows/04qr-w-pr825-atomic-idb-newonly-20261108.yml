@@ -1,11 +1,13 @@
 name: 04 QR-W PR825 independent atomic IDB and legacy noncooperation
 on:
   pull_request:
+    branches: [main]
     paths:
       - '.github/workflows/04qr-w-pr825-atomic-idb-newonly-20261108.yml'
       - 'scripts/04qr-w-pr825-atomic-idb-newonly-20261108.mjs'
-      - 'src/lib/moodboards/atomic-first-board.mjs'
-      - 'src/routes/moodboards/atomic/+page.svelte'
+  push:
+    branches:
+      - 'qa/04qr-w-pr825-atomic-idb-newonly-bcb494-20261108'
 permissions:
   contents: read
 jobs:
@@ -15,6 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v4
