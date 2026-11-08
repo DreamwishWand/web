@@ -100,7 +100,11 @@ export function createAtomicFirstBoard(db,title,{idFactory=()=>globalThis.crypto
   return {row:next,value:{boardId:next.boardId,revision:1}};
  });
 }
-export function toggleAtomicFirstBoardItem(db,{boardId,expectedRevision,itemId,verifiedRecords,familyLabel=''}={}){
+/**
+ * @param {IDBDatabase} db
+ * @param {{boardId:string,expectedRevision:number,itemId:number,verifiedRecords:Array<{itemId:number,label:string}>,familyLabel?:string}} request
+ */
+export function toggleAtomicFirstBoardItem(db,{boardId,expectedRevision,itemId,verifiedRecords,familyLabel=''}){
  if(!Number.isSafeInteger(itemId)||itemId<=0||!Array.isArray(verifiedRecords))
   return Promise.reject(new TypeError('Verified numeric ItemID and rows required'));
  const record=verifiedRecords.find(row=>row?.itemId===itemId&&
