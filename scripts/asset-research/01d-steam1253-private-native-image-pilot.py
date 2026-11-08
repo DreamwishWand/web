@@ -328,18 +328,46 @@ def save_exclusive(path, data):
         out.write(data)
 
 
-def run(args):
-    root = args.source_root.absolute()
-    catalog = args.catalog_root.absolute()
-    bundle = args.bundle.absolute()
-    target = args.private_output.absolute()
-    for path in (root, catalog, target):
-        if path.is_symlink() or not path.is_dir():
+def private_path_preflight(source_root: Path, catalog_root: Path, bundle_path: Path, private_output: Path):
+    """Fail closed on real-path overlap before opening any original or writing outputs.
+
+    Explicit symlink/alias denial also covers symlinked *ancestor* directories.
+    The three input directory fences are SourceRoot, CatalogRoot and Bundle.parent.
+    """
+    raw = tuple(p.absolute() for p in (source_root, catalog_root, bundle_path, private_output))
+    resolved = []
+    for index, candidate in enumerate(raw):
+        is_file = index == 2
+        if any(part.is_symlink() for part in (candidate, *candidate.parents)):
+            raise ValueError("PRIVATE_PATH_SYMLINK_OR_ALIAS")
+        try:
+            real = candidate.resolve(strict=True)
+        except (OSError, RuntimeError):
+            raise ValueError("PRIVATE_PATH_MISSING_OR_ALIAS") from None
+        # Reject directory aliasing, including symlink-mediated '..' traversal.
+        if real != Path(os.path.normpath(str(candidate))):
+            raise ValueError("PRIVATE_PATH_SYMLINK_OR_ALIAS")
+        if is_file:
+            if not real.is_file():
+                raise ValueError("PRIVATE_BUNDLE_SYMLINK_OR_MISSING")
+        elif not real.is_dir():
             raise ValueError("PRIVATE_DIRECTORY_MISSING_OR_SYMLINK")
-    if bundle.is_symlink() or not bundle.is_file():
-        raise ValueError("PRIVATE_BUNDLE_SYMLINK_OR_MISSING")
-    if target in (root, catalog) or root in target.parents or catalog in target.parents:
-        raise ValueError("PRIVATE_OUTPUT_MUST_BE_SEPARATE")
+        resolved.append(real)
+    root, catalog, bundle, target = resolved
+    if root == catalog:
+        raise ValueError("PRIVATE_INPUT_ROOT_DUPLICATE_OR_ALIAS")
+    for input_dir in (root, catalog, bundle.parent):
+        if (target == input_dir or input_dir in target.parents
+                or target in input_dir.parents):
+            raise ValueError("PRIVATE_OUTPUT_MUST_BE_SEPARATE")
+    return root, catalog, bundle, target
+
+
+def run(args):
+    # No provenance file read, texture load or private output before this fence.
+    root, catalog, bundle, target = private_path_preflight(
+        args.source_root, args.catalog_root, args.bundle, args.private_output
+    )
     for name in ("Furniture.json",):
         exact_sha(root / name, PINS[name])
     if (root / "FullVersion.txt").read_bytes() != VERSION.encode("ascii"):
