@@ -125,6 +125,11 @@ export function makeSwitchAstc2Hold() {
 }
 export function validateSwitchAstc2Hold(receipt) {
  const known=makeSwitchAstc2Hold();
+ // Deny unknown root media/URL flags even when all known nested fields match.
+ // This covers the separate 04QR-W PR798 QA802 unknown-root TRUE_RED class.
+ if(receipt && typeof receipt==='object' && !Array.isArray(receipt) &&
+    JSON.stringify(Object.keys(receipt).sort())!==JSON.stringify(Object.keys(known).sort()))
+    fail('UNKNOWN_ROOT_KEYS');
  if(!receipt ||typeof receipt!=='object'||Array.isArray(receipt)||receipt.schema!==SWITCH_ASTC2_SCHEMA)
     fail('WRONG_SCHEMA');
  if(!receipt.platform||receipt.platform.buildID!==PLATFORM.buildID||
