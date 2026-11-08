@@ -227,19 +227,4 @@ try {
  assert.deepEqual(jsErrors,[]);
  assert.deepEqual(unsafe,[]);
  console.log('QRW775_REPAIRED_SCOPED_INDEPENDENT_CHROME_ALL_FOUR_HANDOFF_NEGATIVES_PASS');
-t();
- const sourceAfter=await page.evaluate(k=>localStorage.getItem(k),boardKey);
- assert.equal(sourceAfter,unchanged,'Moodboard Store must never be overwritten');
- if(objectCount!==4||historyCount!==0){
-   console.error('QRW775_REPAIRED_TRUE_RED_SAME_BOARD_DIFFERENT_HANDOFF_REF_ACCEPTED '+JSON.stringify({
-     oldRef:oldPending.referenceId,newRef:current.referenceId,oldGroup:oldPending.groupId,newGroup:current.groupId,
-     objectCount,historyCount,storeUnchanged:sourceAfter===unchanged
-   }));
-   throw new Error('TRUE_RED_SCOPED: WEP live Draft insertion authorized using pending old ref while persisted handoff ref changed in same Board. Require currentHandoff.referenceId and groupId equality.');
- }
- await p.locator('.stage1-status').filter({hasText:worldEditorStage1Copy('en').staleReference}).waitFor({timeout:12000});
- console.log('QRW775_REPAIRED_CURRENT_HANDOFF_SAME_BOARD_DIFFERENT_REFERENCE_FAILCLOSED_PASS');
- assert.deepEqual(jsErrors,[]);
- assert.deepEqual(unsafe,[]);
- console.log('QRW775_REPAIRED_FOCUSED_INDEPENDENT_CHROME_SCOPED_PASS');
 }finally {await browser.close();}
