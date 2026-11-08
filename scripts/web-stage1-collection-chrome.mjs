@@ -341,6 +341,9 @@ try{
   await page.locator('[data-stage1-item-info]').waitFor();
   assert.equal(await moodboardButton.isDisabled(),true,'without a board no storage mutation allowed');
   assert.match(await page.locator('[data-collection-moodboard-inspire] a').getAttribute('href'),/\/moodboards\/$/);
+  assert.equal(await page.locator('[data-collection-first-moodboard]').count(),0,
+    'QA789 legacy-writer race: unsafe Collection first-board form must stay OFF');
+  console.log('WEB_COLLECTION_FIRST_BOARD_QA777_QA789_LEGACY_WRITER_OFF_PASS');
   console.log('WEB_COLLECTION_LOCAL_MOODBOARD_NO_BOARD_DENY_PASS');
 
   assert.deepEqual(writes,[],'no external origin, POST or save upload');

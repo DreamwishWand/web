@@ -7,7 +7,8 @@ import {
  MOODBOARD_MAX_REFERENCES
 } from '../src/lib/moodboards/store.js';
 import {
- readCollectionMoodboards, toggleCollectionMoodboardInspiration
+ readCollectionMoodboards, toggleCollectionMoodboardInspiration,
+ createFirstCollectionMoodboardWithItem, COLLECTION_FIRST_MOODBOARD_GATE
 } from '../src/lib/collection/moodboard-inspire.mjs';
 import {exploreCopy} from '../src/lib/explore/copy.js';
 const page=readFileSync(new URL('../src/routes/collection/+page.svelte',import.meta.url),'utf8');
@@ -119,4 +120,54 @@ test('Collection Info reuses Explore 8-locale copy and preserves read-only/catal
   for(const key of ['moodboard','chooseBoard','noBoards','add','remove','added','removed','openMoodboards'])
    assert.ok(typeof copy[key]==='string'&&copy[key].length>0,locale+' '+key);
  }
+});
+
+
+test('QA777 backup seam and QA789 last-read/primary seam are unreachable while first-board operation is OFF',()=>{
+ assert.equal(COLLECTION_FIRST_MOODBOARD_GATE,'OFF_LEGACY_WRITER_NO_ATOMIC_CAS');
+ const inputs=[
+  null,
+  serializeMoodboardDocument(createEmptyMoodboardDocument('2026-11-08T00:00:00.000Z')),
+  fixture().text,
+  '{broken',
+  '{"schema":"not-a-real-schema","boards":[]}'
+ ];
+ for(const original of inputs){
+  const cells=new Map(original===null?[]:[[MOODBOARD_STORAGE_KEY,original]]);
+  let reads=0,writes=0,postReadCollision=false,backupCollision=false;
+  // If first-board code ever reaches the legacy storage surface, the
+  // hostile adapter would trigger both historical independent QA seams.
+  const storage={
+   getItem(key){reads++;postReadCollision=true;return cells.get(key)??null;},
+   setItem(key,value){
+    writes++;
+    if(key===MOODBOARD_BACKUP_KEY){backupCollision=true;}
+    if(key===MOODBOARD_STORAGE_KEY)cells.set(key,String(value));
+   }
+  };
+  assert.throws(
+   ()=>createFirstCollectionMoodboardWithItem(storage,'First Board',40000047,catalog,'Furniture'),
+   /COLLECTION_FIRST_MOODBOARD_DISABLED_LEGACY_WRITER/
+  );
+  assert.equal(reads,0,'QA789 old-writer race seam never entered');
+  assert.equal(writes,0,'QA777 backup and QA789 primary write never reached');
+  assert.equal(postReadCollision,false);
+  assert.equal(backupCollision,false);
+  assert.equal(cells.get(MOODBOARD_STORAGE_KEY)??null,original,'original local primary byte-exact');
+  assert.equal(cells.has(MOODBOARD_BACKUP_KEY),false,'existing backup never modified');
+ }
+});
+
+test('first-board Collection UI is absent, old Moodboards route and existing-board typed Item remain',()=>{
+ assert.doesNotMatch(page,/data-collection-first-moodboard|on:submit\|preventDefault/);
+ assert.doesNotMatch(page,/createFirstCollectionMoodboardWithItem/);
+ assert.match(page,/data-collection-moodboard-toggle/);
+ assert.match(page,/data-collection-moodboard-select/);
+ assert.ok(page.includes("href={base+'/moodboards/'}"));
+ const {text}=fixture();
+ const storage=makeStorage(text);
+ const result=toggle(storage,40000047);
+ assert.equal(result.action,'added');
+ assert.equal(parseMoodboardDocument(storage.getItem(MOODBOARD_STORAGE_KEY)).boards[0].references[0].entityId,'40000047');
+ assert.equal(storage.getItem(MOODBOARD_BACKUP_KEY),text);
 });
