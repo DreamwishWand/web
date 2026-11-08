@@ -59,6 +59,7 @@ test('R17: changed SQL body hash, signature, absent search_path or legacy role i
     x=>{x.staging[0].explicit_search_path=false;},
     x=>{x.staging[0].security_definer=false;},
     x=>{x.staging[9].service_exec=false;},
+    x=>{x.staging[9].explicit_search_path=false;},
     x=>{x.staging[9].function_md5='1'.repeat(32);}
   ]){
     const s=snapshot();mutate(s);
@@ -80,6 +81,24 @@ test('R17: anon/authenticated grants on SECURITY DEFINER or a legacy Writer are 
     blocked(r);
   }
 });
+test('R17: same-signature sandbox nine definer hash, search_path or EXECUTE drift classified',()=>{
+  for(const index of [0,3,8]) {
+    for(const change of [
+      x=>{x.function_md5='0'.repeat(32);},
+      x=>{x.explicit_search_path=false;},
+      x=>{x.service_exec=!x.service_exec;}
+    ]) {
+      const s=snapshot();
+      s.sandbox=s.staging.map(x=>({...x}));
+      change(s.sandbox[index]);
+      const r=assessStage116PrivilegeLineage(s);
+      assert.equal(r.status,'HOLD_STAGED_FUNCTION_OR_ROLE_DRIFT',
+        'same signature sandbox metadata drift: index '+index);
+      assert.ok(r.drift.some(x=>x.startsWith('SANDBOX_ROLE:')));
+      blocked(r);
+    }
+  }
+});
 test('R17: missing, malformed, duplicate and hostile catalog rows fail closed',()=>{
   for(const bad of [
     null,{}, {staging:[],sandbox:null},
@@ -94,7 +113,7 @@ test('R17: missing, malformed, duplicate and hostile catalog rows fail closed',(
 });
 test('R17: even imaginary complete sandbox cannot authorize migration, grant, Writer or Provider',()=>{
   const s=snapshot();
-  s.sandbox=[...s.staging.map(x=>({...x,service_exec:false}))];
+  s.sandbox=[...s.staging.map(x=>({...x}))];
   const r=assessStage116PrivilegeLineage(s);
   assert.equal(r.status,'HOLD_MISSING_DEFINERS_AND_LEGACY_WRITERS');
   assert.equal(r.missingSandboxDefiners,0);
