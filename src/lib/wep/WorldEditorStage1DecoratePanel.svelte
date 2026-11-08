@@ -20,6 +20,7 @@
   import { worldEditorStage1Copy } from './world-editor-stage1-copy.js';
   import {
     verifyCurrentMoodboardItemPlacement,
+    verifyCurrentMoodboardHandoffIdentity,
     verifyCurrentMoodboardEditorSession
   } from './world-editor-moodboard-placement-guard.mjs';
   import { roomFinishCopy } from './room-finish-copy.js';
@@ -223,10 +224,10 @@
     if (handoff?.sourceSurface === 'moodboard') {
       try {
         const currentHandoff = readWorldEditorHandoff(localStorage);
-        if (currentHandoff?.sourceSurface !== 'moodboard' ||
-            currentHandoff.boardId !== handoff.boardId) {
-          throw new Error('WEP_MOODBOARD_STALE_HANDOFF');
-        }
+        verifyCurrentMoodboardHandoffIdentity(currentHandoff, handoff, {
+          referenceId: pendingReferenceId,
+          groupId: pendingGroupId
+        });
         const verified = verifyCurrentMoodboardItemPlacement(
           localStorage,
           {
