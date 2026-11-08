@@ -97,7 +97,7 @@ jobs:
             qa_tip="$(git rev-parse HEAD)"
           fi
           test "$(git diff --name-only c40a305ba835de366726d6d3288184c0c109a49c "$qa_tip" | wc -l)" -eq 3
-          test -z "$(git ls-files | grep -E 'STEAM_SAVE_OWNER_PRIVATE|OWNER_PRIVATE|\.p1g
- || true)"
+          test -z "$(git ls-files | grep -E 'STEAM_SAVE_OWNER_PRIVATE|OWNER_PRIVATE|\.p1g$' || true)"
           test -f tools/owner-local-steam-v1/worker-core.mjs
           test -z "$(git diff --name-only c40a305ba835de366726d6d3288184c0c109a49c "$qa_tip" -- src tools crates/ddv-save-core/src)"
+          echo "QRC782_SOURCE10_QAONLY3_NATIVE_RUST_NEGATIVE_FOCUSED_PASS"
