@@ -10,6 +10,7 @@ on:
       - 'src/lib/entity/SharedEntityDetail.svelte'
       - '.github/workflows/web-stage1-collection-ux.yml'
       - 'src/lib/moodboards/write-coordinator.mjs'
+      - 'scripts/web-shared-catalog-e2e-chrome.mjs'
       - 'src/routes/editor/items/+page.svelte'
       - 'tests/shared-catalog-directory-foundation.test.mjs'
       - 'tests/scaffold.test.mjs'
@@ -80,12 +81,13 @@ jobs:
             LC_ALL=C sort /tmp/item-detail-static-approved-paths > /tmp/item-detail-static-approved-sorted
             # This cross-product change is intentional: the same Moodboard key
             # is written by Collection, Explore, Moodboards and Item Detail.
-            # Accept only the exact ten-path lock coordination repair and
+            # Accept only the exact eleven-path lock coordination repair and
             # STILL run inherited Item source/browser tests (not a QA waiver).
             cat > /tmp/moodboard-lock-approved-paths <<'MOODBOARD_LOCK_PATHS'
           .github/workflows/web-shared-catalog-detail.yml
           .github/workflows/web-stage1-collection-ux.yml
           scripts/web-stage1-collection-chrome.mjs
+          scripts/web-shared-catalog-e2e-chrome.mjs
           src/lib/collection/moodboard-inspire.mjs
           src/lib/entity/SharedEntityDetail.svelte
           src/lib/moodboards/write-coordinator.mjs
@@ -103,7 +105,7 @@ jobs:
               echo WEB_ITEM_DETAIL_STATIC_HTTP404_LINK_EXACT5_SCOPED_PASS
             elif diff -q /tmp/moodboard-lock-approved-sorted /tmp/item-image-actual-paths > /dev/null; then
               node --test tests/web-collection-moodboard-inspire.test.mjs tests/shared-detail-moodboard.test.mjs
-              echo WEB_ITEM_MOODBOARD_ALL4_WRITER_LOCK_EXACT10_SCOPED_REGRESSION_PASS
+              echo WEB_ITEM_MOODBOARD_ALL4_WRITER_LOCK_EXACT11_SCOPED_REGRESSION_PASS
             else
               echo WEB_ITEM_ROUTE_UNAUTHORIZED_SCOPE
               diff -u /tmp/item-detail-static-approved-sorted /tmp/item-image-actual-paths || true
