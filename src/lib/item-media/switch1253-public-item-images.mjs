@@ -104,6 +104,7 @@ export function validateSwitch1253ItemImageCatalog(raw,reviewedRelease=SWITCH125
         'webpSha256','rasterStatus','pixelStatus','visibility','rightsStatus',
         'assetStatus'])||
       !pin||pin.rasterStatus!=='SWITCH_DXT5_RGBA_EXACT_PRIVATE'||
+      e.rasterStatus!==pin.rasterStatus||
       e.originalNativeStreamSha256!==pin.originalNativeStreamSha256||
       e.sourcePngSha256!==pin.sourcePngSha256||
       e.webpSha256!==pin.webpSha256||

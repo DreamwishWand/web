@@ -93,7 +93,7 @@ test('format50 two unknown sprites, unreviewed DLC, SHA or pixel mismatch and Ri
   assert.throws(()=>validateSwitch1253ItemImageCatalog(m,approvedRelease()),/ITEM_ID_NATIVE_SHA/);
  }
  for(const property of ['originalNativeStreamSha256','sourcePngSha256','webpSha256',
-  'pixelStatus','visibility','rightsStatus','assetStatus']){
+  'pixelStatus','rasterStatus','visibility','rightsStatus','assetStatus']){
   const m=manifest();
   m.items[item]={...m.items[item],[property]:property.endsWith('Sha256')?'a'.repeat(64):'UNKNOWN'};
   assert.throws(()=>validateSwitch1253ItemImageCatalog(m,approvedRelease()),/ITEM_ID_NATIVE_SHA/);
@@ -114,6 +114,28 @@ test('format50 two unknown sprites, unreviewed DLC, SHA or pixel mismatch and Ri
  const empty=manifest();empty.items={};
  assert.throws(()=>validateSwitch1253ItemImageCatalog(empty,approvedRelease()),/MAPPING_EMPTY/);
 });
+test('QA806 fixed: every manifested rasterStatus must exactly match the pinned Native raster proof',()=>{
+ const positive=manifest();
+ assert.equal(positive.items[item].rasterStatus,pin.rasterStatus);
+ assert.equal(validateSwitch1253ItemImageCatalog(positive,approvedRelease()).count,1);
+ for(const status of [
+   'UNVERIFIED','UNKNOWN','NOT_RUN_FORMAT50_DECODE','SWITCH_DXT5_RGBA_EXACT_PUBLIC',
+   pin.rasterStatus+' ',null,undefined,false,0
+ ]){
+   const candidate=manifest();
+   candidate.items[item]={...candidate.items[item],rasterStatus:status};
+   assert.throws(
+     ()=>validateSwitch1253ItemImageCatalog(candidate,approvedRelease()),
+     /SWITCH1253_ITEM_IMAGE_ITEM_ID_NATIVE_SHA_RGBA_RELEASE_OR_RIGHTS_UNVERIFIED/,
+     'rasterStatus must not be inferred from pinned SHA, value='+String(status)
+   );
+ }
+ const missing=manifest();
+ delete missing.items[item].rasterStatus;
+ assert.throws(()=>validateSwitch1253ItemImageCatalog(missing,approvedRelease()),
+   /SWITCH1253_ITEM_IMAGE_ITEM_ID_NATIVE_SHA_RGBA_RELEASE_OR_RIGHTS_UNVERIFIED/);
+});
+
 test('existing shared ItemThumb is the only Collection/Explore/Detail renderer; 8locale/preferences stay',()=>{
  const read=p=>readFileSync(new URL(p,import.meta.url),'utf8');
  for(const route of ['../src/routes/collection/+page.svelte',
