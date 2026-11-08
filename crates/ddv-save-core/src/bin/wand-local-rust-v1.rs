@@ -59,7 +59,14 @@ fn page_count(session:&ProductSession,scope:WorkerEnvelope,domain:IndexedDomain)
     denied("NATIVE_INDEX_PAGE_BOUND");
 }
 fn run(){
-    if env::args().len()!=1{denied("UNTRUSTED_CLI_ARGS");}
+    // The accepted no-argument V1 path remains byte-for-byte behaviorally
+    // unchanged. Explicit private read-only slice cannot activate Writer.
+    let argv:Vec<String>=env::args().skip(1).collect();
+    let native_slice=match argv.as_slice(){
+      []=>false,
+      [flag] if flag=="--native-area-grid-slice-only"=>true,
+      _=>denied("UNTRUSTED_CLI_ARGS"),
+    };
     if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=EXACT_STEAM_VERSION{
       denied("EXACT_EXTERNAL_STEAM_BUILD_REQUIRED");
     }
@@ -107,9 +114,13 @@ fn run(){
     };
     let player=page_count(&session,scope,IndexedDomain::Player);
     let world=page_count(&session,scope,IndexedDomain::World);
+    let slice=if native_slice {
+      Some(session.verify_native_area_grid_slice(scope)
+          .unwrap_or_else(|_|denied("NATIVE_AREA_GRID_SLICE_DENIED")))
+    } else {None};
     // Revoke while preserving the immutable original. No plaintext on disk.
     session.close().unwrap_or_else(|_|denied("RUST_CLOSE_FAILED"));
-    let out=serde_json::json!({
+    let mut out=serde_json::json!({
       "contract":"wand.native.private.real-steam-v1@1",
       "operation":"REAL_SAVE_STRUCTURAL_VERIFIED_CANDIDATE",
       "source":"PRIVATE_LOCAL_ONLY",
@@ -130,6 +141,20 @@ fn run(){
       "cloudUploadPerformed":false,
       "originalModified":false
     });
+    if let Some(r)=slice {
+      out["nativeAreaGridSlice"]=serde_json::json!({
+        "villageRecords":r.village_records,
+        "areaRecords":r.area_records,
+        "gridRecords":r.grid_records,
+        "directAreaGridLinks":r.direct_area_grid_links,
+        "gridObjectIdentityRecords":r.grid_object_identity_records,
+        "fullNativeReferenceClosureVerified":false,
+        "areaGroupFootprintVerified":false,
+        "nativeV3Verified":false,
+        "productReadAccepted":false,
+        "writerAuthorized":false
+      });
+    }
     println!("{}",out);
 }
 fn main(){run()}
