@@ -10,6 +10,7 @@ const rust=process.env.WAND_TEST_NATIVE_RUST_V1;
 if(!rust)throw Error('NATIVE_RUST_EXECUTABLE_REQUIRED');
 const exe=resolve(rust);
 const root=syntheticProfile('DeviceType_Windows');
+root.GameInfo.Version=626;
 root.Player={};
 for(let i=0;i<33;i++)root.Player['synthetic_'+String(i).padStart(3,'0')]=i;
 root.World={Root:{nested:'synthetic'},Clock:0};
