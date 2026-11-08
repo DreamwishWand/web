@@ -1,0 +1,47 @@
+name: WEP R19 Stage1 zoom200 layout new-only Chrome
+on:
+  pull_request:
+    paths:
+      - 'src/routes/editor/world/+page.svelte'
+      - 'docs/wep/world-editor-localization-inventory-20261002.json'
+      - 'scripts/wep-stage1-zoom200-overflow-focused-browser.mjs'
+      - '.github/workflows/wep-r19-stage1-zoom200-layout-20261108.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  focused-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Install browser driver only, no private Save
+        run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Install actual Chrome and serve local WEP
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${DDV_PRIVATE_SAVE_PATH:-}"
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          test -n "$BIN" || { echo "NOT_RUN: system Chromium required"; exit 1; }
+          "$BIN" --version
+          echo "CHROME_BIN=$BIN" >> "$GITHUB_ENV"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4312 >/tmp/wep-r19-zoom.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4312/moodboards/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/wep-r19-zoom.log
+          exit 1
+      - name: R19 new-only Stage1 CSS200 and 320 actual Chrome, 8locale keyboard + Hit/Undo
+        env:
+          WEP_STAGE1_ZOOM_LOCAL_ORIGIN: http://127.0.0.1:4312
+        run: node scripts/wep-stage1-zoom200-overflow-focused-browser.mjs

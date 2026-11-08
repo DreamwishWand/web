@@ -1,0 +1,45 @@
+name: "04 QR-W PR809 independent zoom200 WEP changed-only Chrome"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/04qr-w-pr809-r19-zoom-newonly-20261108.yml"
+      - "scripts/04qr-w-pr809-r19-zoom-newonly-20261108.mjs"
+permissions:
+  contents: read
+jobs:
+  independent-r19-zoom:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Installed Chrome and localhost test server, no personal Save
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${DDV_PRIVATE_SAVE_PATH:-}"
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          test -n "$BIN" || { echo "NOT_RUN: Chrome required"; exit 1; }
+          "$BIN" --version
+          echo "CHROME_BIN=$BIN" >> "$GITHUB_ENV"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4313 >/tmp/qrw809-wep.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4313/moodboards/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qrw809-wep.log
+          exit 1
+      - name: Exact4 original Git blobs, real Chrome zoom200 and stale handoff denial
+        env:
+          WEP_STAGE1_ZOOM_LOCAL_ORIGIN: http://127.0.0.1:4313
+        run: node scripts/04qr-w-pr809-r19-zoom-newonly-20261108.mjs
