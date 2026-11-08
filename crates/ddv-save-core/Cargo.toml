@@ -15,6 +15,8 @@ synthetic-stage-b = []
 indexed-read = []
 # Native-only Owner-private genuine P1G Rust V1 structural/index proof.
 private-native-v1 = ["indexed-read"]
+# Native-only exact 1-byte semantic-NOOP private edit proof; Writer remains OFF.
+private-native-v2 = ["private-native-v1"]
 
 [dependencies]
 wasm-bindgen = { version = "=0.2.105", optional = true }
@@ -38,3 +40,8 @@ required-features = ["synthetic-stage-b"]
 name = "wand-local-rust-v1"
 path = "src/bin/wand-local-rust-v1.rs"
 required-features = ["private-native-v1"]
+
+[[bin]]
+name = "wand-local-rust-v2-noop"
+path = "src/bin/wand-local-rust-v2-noop.rs"
+required-features = ["private-native-v2"]
