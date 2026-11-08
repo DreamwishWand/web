@@ -37,17 +37,12 @@ try{
   await page.waitForFunction(code=>document.documentElement.dataset.locale===code,locale);
   assert.equal(await page.locator('h1').first().innerText(),firstAccountCopy(locale).title);
   assert.equal(await page.locator('[data-account-off]').innerText(),firstAccountCopy(locale).off);
+  assert.ok((await page.locator('[data-library-unavailable="true"]').innerText()).includes(firstAccountCopy(locale).libraryOff));
  }
  console.log('WEB_FIRST_ACCOUNT_EIGHT_LOCALE_OFF_AND_EMAIL_CONFIRM_UI_PASS');
 
- await page.goto(origin+'/account/',{waitUntil:'domcontentloaded'});
  assert.equal(await page.locator('[data-library-unavailable="true"]').count(),1);
  assert.equal(await page.locator('a[href$="/library/"]').count(),0);
- for(const locale of locales){
-  await page.selectOption('#site-locale',locale);
-  await page.waitForFunction(code=>document.documentElement.dataset.locale===code,locale);
-  assert.ok((await page.locator('[data-library-unavailable="true"]').innerText()).includes(firstAccountCopy(locale).libraryOff));
- }
  console.log('WEB_FIRST_ACCOUNT_PRIVATE_LIBRARY_UNROUTED_NOINDEX_EIGHT_LOCALE_PASS');
  for(const width of [320,640]){await page.setViewportSize({width,height:800});await fit('account-'+width);}
  await page.setViewportSize({width:640,height:900});
