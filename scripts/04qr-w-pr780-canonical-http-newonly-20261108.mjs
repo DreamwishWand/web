@@ -145,7 +145,7 @@ try{
   'collection','users/admin/','users/example_123/','ja/users/example_123/',
   '40000047/','40000047/40000048/','ja/40000047/',
   'en/40000047/','library/','library/presets/',
-  'gallery/my/','community-lab/fake/','__not_static__/','robots-private-file/',
+  'community-lab/fake/','__not_static__/','robots-private-file/',
  ];
  for(const path of negative){
   const response=await fetch(loc(path),{redirect:'manual'});
@@ -154,6 +154,19 @@ try{
   const html=await response.text();
   assert.match(html,/<html/i,'must retain fallback body while preserving real HTTP404');
  }
+ // Existing /gallery/my/ is a prerendered *private login shell*, not a published Work.
+ // The genuine HTTP status is 200, but its original HTML must explicitly noindex,
+ // omit a canonical and not expose account-specific Work payloads. Never fake 404.
+ const privateShell=await fetch(loc('gallery/my/'),{redirect:'manual'});
+ assert.equal(privateShell.status,200,'already-existing static shell true HTTP status');
+ const privateHtml=await privateShell.text();
+ assert.match(privateHtml,/<meta[^>]*name=["']robots["'][^>]*content=["']noindex,nofollow["']/i,
+  'private shell cannot become SEO-indexable just because its HTML is static');
+ assert.equal(canonicalTags(privateHtml).length,0,'private shell may not be canonicalized to public root');
+ const privateContract=inspectCustomDomainPath('/gallery/my/');
+ assert.equal(privateContract.authoritativeStatus,null,'HTTP200 existing shell not authority for live private work');
+ assert.equal(privateContract.eligibleForPublicIndex,false,'private shell not Work public Index PASS');
+ console.log('QRW780_EXISTING_GALLERY_MY_STATIC_200_NO_INDEX_NO_CANONICAL_NONPUBLIC_WORK_PASS base='+JSON.stringify(base));
  const noRedirect=await fetch(loc('collection'),{redirect:'manual'});
  assert.equal(noRedirect.status,404,'missing slash no implicit 301 or invented 200');
  assert.equal(noRedirect.headers.get('location'),null);
