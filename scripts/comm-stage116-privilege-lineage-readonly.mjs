@@ -61,13 +61,16 @@ export function assessStage116PrivilegeLineage(input){
       !s.explicit_search_path || s.anon_exec || s.authenticated_exec ||
       s.service_exec!==(schema==='public'))drift.push(k);
     if(!c)missingSandbox.push(k);
-    else if(!c.security_definer || c.anon_exec || c.authenticated_exec)drift.push('SANDBOX_ROLE:'+k);
+    else if(!c.security_definer || c.function_md5!==md5 ||
+      !c.explicit_search_path || c.service_exec!==(schema==='public') ||
+      c.anon_exec || c.authenticated_exec)drift.push('SANDBOX_ROLE:'+k);
   }
   let sandboxLegacyExec=0;
   for(const [name,args,md5] of SIX_LEGACY_SERVICE_WRITERS){
     const k=['public',name,args].join(':'),s=staging.get(k),c=sandbox.get(k);
     if(!s || s.function_md5!==md5 || !s.security_definer ||
-       s.anon_exec || s.authenticated_exec || !s.service_exec)drift.push(k);
+       !s.explicit_search_path || s.anon_exec || s.authenticated_exec ||
+       !s.service_exec)drift.push(k);
     if(c?.service_exec)sandboxLegacyExec++;
   }
   if(drift.length)return deny('HOLD_STAGED_FUNCTION_OR_ROLE_DRIFT',{drift:Object.freeze(drift)});
