@@ -2,6 +2,9 @@
 //! Single ProductSession identity for read and future staged commands.
 //! Historical research TrustedReadCore and Stage IDs are not product authority.
 //! No browser Worker/WASM, P1G codec, export, replacement, apply or cloud grant.
+// Native private proof code must NEVER be linked in the browser WASM Worker.
+#[cfg(all(feature="private-native-v1",target_arch="wasm32"))]
+compile_error!("private-native-v1 is native-only and cannot enter WASM");
 mod product_session;
 mod strict_document;
 // Source-only synthetic transaction lab is compiled out of the product Worker.
