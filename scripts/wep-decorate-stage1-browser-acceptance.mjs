@@ -733,6 +733,66 @@ try{
   assert.ok(chooser);
   pass('RESUME_DRAFT_EXACT_SOURCE_REOPEN_PATH');
 
+  // NEW-ONLY R10/R13 stale Moodboard placement tests. Reuse existing
+  // Stage1 valid synthetic EditorDocument and ItemID; no private Save payload.
+  async function moodboardPendingPlacementCase(mode) {
+    await page.goto(root+'/moodboards/',{waitUntil:'networkidle'});
+    const seeded=await seedMoodboard(page);
+    await page.reload({waitUntil:'networkidle'});
+    await page.getByRole('button',{name:'Open in World Editor'}).click();
+    await page.waitForURL(/\/editor\/world\/?$/);
+    const panel=page.locator('[data-wep-decorate-stage1]');
+    await panel.locator('.reference-main').filter({hasText:'Stage 1 Furniture'}).click();
+    await page.locator('.load-panel input[type="file"]').setInputFiles({
+      name:'new-only-moodboard-stale.json',
+      mimeType:'application/json',
+      buffer:Buffer.from(JSON.stringify(synthetic))
+    });
+    await page.getByText('Synthetic draft authoring',{exact:true}).waitFor();
+    const pending=panel.locator('.pending-card').first();
+    await pending.locator('input[type="number"]').nth(0).fill('7');
+    await pending.locator('input[type="number"]').nth(1).fill('7');
+    const beforeCount=await page.locator('g[data-editor-object]').count();
+    assert.equal(beforeCount,4,'fixed local synthetic draft baseline');
+
+    let authoritative=seeded;
+    if(mode!=='valid') {
+      authoritative=await page.evaluate(({moodboardKey,mode})=>{
+        const data=JSON.parse(localStorage.getItem(moodboardKey));
+        if(mode==='removed-reference')
+          data.boards[0].references=data.boards[0].references.filter(r=>r.id!=='stage1-item');
+        if(mode==='retargeted-item')
+          data.boards[0].references.find(r=>r.id==='stage1-item').entityId='40000049';
+        if(mode==='wrong-group')
+          data.boards[0].references.find(r=>r.id==='stage1-item').groupIds=[];
+        if(mode==='deleted-board') data.boards=[];
+        const raw=mode==='malformed-store'?'{malformed':JSON.stringify(data);
+        localStorage.setItem(moodboardKey,raw);
+        return raw;
+      },{moodboardKey,mode});
+    }
+
+    await pending.getByRole('button',{name:'Place'}).click();
+    if(mode==='valid') {
+      await eventually(async()=>await page.locator('g[data-editor-object]').count()===5);
+      assert.equal(await panel.locator('[data-wep-stage1-review] [data-wep-stage1-change]').count(),1);
+    } else {
+      await panel.locator('.stage1-status').filter({hasText:'Moodboard Item changed'}).waitFor();
+      assert.equal(await page.locator('g[data-editor-object]').count(),4,
+        mode+' must not mutate local World draft');
+      assert.equal(await panel.locator('[data-wep-stage1-review] [data-wep-stage1-change]').count(),0);
+      assert.equal(await panel.locator('.pending-card').count(),0,
+        mode+' stale pending intent must be cleared');
+      assert.equal(await page.evaluate(key=>localStorage.getItem(key),handoffKey),null,
+        mode+' navigation handoff must be revoked');
+    }
+    assert.equal(await page.evaluate(key=>localStorage.getItem(key),moodboardKey),authoritative,
+      'World Editor must not overwrite source Moodboard');
+    pass('MOODBOARD_LIVE_PLACEMENT_'+mode.toUpperCase().replaceAll('-','_'));
+  }
+  for(const mode of ['valid','removed-reference','retargeted-item','wrong-group','deleted-board','malformed-store'])
+    await moodboardPendingPlacementCase(mode);
+
   assert.equal(evidence.pageErrors.length,0,evidence.pageErrors.join(' | '));
   evidence.consoleErrors=evidence.consoleErrors.filter(message=>!message.includes('Failed to load resource'));
   assert.equal(evidence.consoleErrors.length,0,evidence.consoleErrors.join(' | '));
