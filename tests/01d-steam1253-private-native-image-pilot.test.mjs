@@ -42,7 +42,7 @@ test('R14 fabricated root and fake original cannot emit release media',()=>{
     const link=join(x,'link');symlinkSync(source,link,'dir');
     const b=run(['--source-root',link,'--catalog-root',catalog,'--bundle',bundle,'--private-output',out]);
     assert.notEqual(b.status,0);
-    assert.match(b.stderr,/PRIVATE_DIRECTORY_MISSING_OR_SYMLINK/);
+    assert.match(b.stderr,/PRIVATE_DIRECTORY_MISSING_OR_SYMLINK|PRIVATE_PATH_SYMLINK_OR_ALIAS/);
   }finally{rmSync(x,{force:true,recursive:true});}
 });
 test('R14 preflight denies both ancestor and descendant output overlaps for every original input',()=>{
