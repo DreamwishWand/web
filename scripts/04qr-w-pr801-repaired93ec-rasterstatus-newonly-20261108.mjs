@@ -12,7 +12,8 @@ import {
 } from '../src/lib/item-media/switch1253-public-item-images.mjs';
 const REPAIRED='93ec2bb288982b7521721d855b329da80700bdeb';
 const OLD='e48bedecc0947df9f87a0fd91805a5de48bffcac';
-const SOURCE_BASE='3921e33de23ce042db48d2a50a9495d3b8a79881';
+const SOURCE_BASE='7167f153a24adb9e7f5e7e05658aed86ca90d7d5';
+const SOURCE_TARGET_MAIN='3921e33de23ce042db48d2a50a9495d3b8a79881';
 const CURRENT_ACCEPTED_MAIN='b7ffb283df62e234ce0871d9a8f0791faa290864';
 const original6=new Map([
  ['.github/workflows/web-shared-catalog-detail.yml','fda9684b8e90f262d9ac47d56839c2c029126a61'],
@@ -33,6 +34,7 @@ const qa2=[
 const git=(...args)=>execFileSync('git',args,{encoding:'utf8'}).trim();
 const diff=(a,b)=>git('diff','--name-only',a,b).split('\n').filter(Boolean).sort();
 assert.equal(git('merge-base',SOURCE_BASE,REPAIRED),SOURCE_BASE);
+assert.equal(git('merge-base',SOURCE_TARGET_MAIN,REPAIRED),SOURCE_BASE,'source branch diverged from accepted main without modifying it');
 assert.equal(git('merge-base',CURRENT_ACCEPTED_MAIN,REPAIRED),SOURCE_BASE,
  'reused accepted unrelated Native2, no ancestor reQA');
 assert.deepEqual(diff(SOURCE_BASE,REPAIRED),[...original6.keys()].sort());
