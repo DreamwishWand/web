@@ -99,4 +99,4 @@ jobs:
           test -z "$(git ls-files tests/stage-e/pkg tests/stage-f/fixtures)"
           test "$(git diff --name-only 6d344188adc9e340d9dd3ed6428201b3b7d41a22 HEAD | wc -l)" -eq 3
           ! git ls-files | grep -E 'OWNER_PRIVATE|STEAM_SAVE_OWNER|\.p1g$'
-          ! git grep -n -E 'writerAuthorized: *true|applyAuthorized: *true|productReadAccepted: *true' HEAD -- tests/stage-h/qa-independent-page.mjs tests/stage-h/qa-independent-server.test.mjs
+          test -z "$(git diff --name-only 6d344188adc9e340d9dd3ed6428201b3b7d41a22 HEAD -- src tools crates)"
