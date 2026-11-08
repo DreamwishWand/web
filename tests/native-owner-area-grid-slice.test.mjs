@@ -34,6 +34,41 @@ for(const k of ['allNativeReferencesVerified','productReadAccepted','writerAutho
   assert.equal(receipt[k],false,k);
 for(const k of ['fullNativeReferenceClosureVerified','areaGroupFootprintVerified','nativeV3Verified',
  'productReadAccepted','writerAuthorized'])assert.equal(receipt.nativeAreaGridSlice[k],false,k);
+// Synthetic native Island direct-root path: 7 is a Village Area root, 8 is
+// an Island root. Neither route is a Native-verified game placement operation.
+const withGrid8=valid.replace(
+ '"7":{"ID":7,"Objects":{"4":{"ID":4,"ItemID":100}}}',
+ '"7":{"ID":7,"Objects":{"4":{"ID":4,"ItemID":100}}},"8":{"ID":8,"Objects":{}}'
+);
+const floating=withGrid8.replace(
+ '"GridCollection":',
+ '"FloatingIslands":{"1540000147":{"SceneItemId":1540000147,"GridIDs":[8]}},"GridCollection":'
+);
+const islandPositive=run(floating);
+assert.equal(islandPositive.status,0,'typed FloatingIsland direct root');
+const islandReceipt=JSON.parse(islandPositive.stdout).nativeAreaGridSlice;
+assert.equal(islandReceipt.floatingIslandMapPresent,true);
+assert.equal(islandReceipt.floatingIslandRecords,1);
+assert.equal(islandReceipt.floatingIslandDirectGridLinks,1);
+assert.equal(islandReceipt.directRootOwnershipUnique,true);
+assert.equal(islandReceipt.fullNativeReferenceClosureVerified,false);
+const absentIsland=JSON.parse(okay.stdout).nativeAreaGridSlice;
+assert.equal(absentIsland.floatingIslandMapPresent,false);
+assert.equal(absentIsland.directRootOwnershipUnique,false);
+for(const [name,json] of [
+ ['islandOrphan',floating.replace('"GridIDs":[8]','"GridIDs":[9]')],
+ ['islandDuplicate',floating.replace('"GridIDs":[8]','"GridIDs":[8,8]')],
+ ['islandAreaCrossOwner',floating.replace('"GridIDs":[8]','"GridIDs":[7]')],
+ ['islandSceneMismatch',floating.replace('"SceneItemId":1540000147','"SceneItemId":1540000148')],
+ ['islandNonCanonicalMapKey',floating.replace('"1540000147":{"SceneItemId"','"01540000147":{"SceneItemId"')],
+ ['islandUnsupportedType',floating.replace('"GridIDs":[8]','"GridIDs":null')],
+ ['twoAreasSameRoot',valid.replace('"1":{"GridIDs":[7]}','"1":{"GridIDs":[7]},"2":{"GridIDs":[7]}')],
+]){
+ const denied=run(json);
+ assert.notEqual(denied.status,0,name);
+ assert.equal(denied.stdout.trim(),'','no partial receipt '+name);
+ assert.match(denied.stderr,/^LOCAL_RUST_V1_DENIED:/,name);
+}
 const unchangedDefault=run(valid,[]);
 assert.equal(unchangedDefault.status,0,'default V1 must remain usable');
 assert.equal('nativeAreaGridSlice' in JSON.parse(unchangedDefault.stdout),false,
