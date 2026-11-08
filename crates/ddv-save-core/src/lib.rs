@@ -18,6 +18,14 @@ pub use product_session::{SyntheticChangeSet, SyntheticStageReceipt, SyntheticEx
 pub use product_session::PrivateOfflineReceipt;
 #[cfg(feature = "indexed-read")]
 pub use product_session::{IndexedCursorReceipt, IndexedDomain, IndexedFieldWitness, IndexedKind, IndexedPage, INDEX_PAGE_ENTRIES_MAX};
+#[cfg(feature = "indexed-read")]
+mod spatial_reference_index;
+#[cfg(feature = "indexed-read")]
+pub use spatial_reference_index::{
+    SpatialAreaRef, SpatialCandidateIndex, SpatialExtent, SpatialGridRef,
+    SpatialObjectKey, SpatialObjectRef, SpatialReadWitness, SpatialScope,
+    MAX_SPATIAL_GRIDS, MAX_SPATIAL_OBJECTS, SPATIAL_GRAPH_CONTRACT,
+};
 mod worker_session;
 #[cfg(all(feature = "worker-wasm", target_arch = "wasm32"))]
 mod wasm_worker;
