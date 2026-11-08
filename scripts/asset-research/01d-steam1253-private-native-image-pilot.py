@@ -291,7 +291,7 @@ def parse_texture(cab, objects, entries, unity):
     if at < 16 or U32(raw, at - 4) != 87 or at + 87 > len(raw):
         raise ValueError("TEXTURE_STREAMING_PATH_INVALID")
     ref = raw[at:at + 87].decode("ascii")
-    if not ref.endswith(unity.nodes[1][3] + ".resS"):
+    if not ref.endswith(unity.nodes[1][3]):
         raise ValueError("TEXTURE_RES_SOURCE_NOT_OWN_BUNDLE")
     offset = struct.unpack_from("<Q", raw, at - 16)[0]
     length = U32(raw, at - 8)
@@ -431,13 +431,14 @@ def main():
     p.add_argument("--catalog-root", type=Path)
     p.add_argument("--bundle", type=Path)
     p.add_argument("--private-output", type=Path)
-    p.add_argument("--item-id", action="append", default=list(ITEMS))
+    p.add_argument("--item-id", action="append", default=[])
     a = p.parse_args()
     if a.self_test:
         print(json.dumps(self_test(), sort_keys=True))
         return
     if any(x is None for x in (a.source_root, a.catalog_root, a.bundle, a.private_output)):
         raise ValueError("PRIVATE_SOURCE_ROOT_CATALOG_BUNDLE_OUTPUT_REQUIRED")
+    a.item_id = a.item_id or list(ITEMS)
     print(json.dumps(run(a), sort_keys=True))
 
 
