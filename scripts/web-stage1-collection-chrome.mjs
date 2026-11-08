@@ -287,6 +287,8 @@ try{
   assert.equal(await moodboardButton.isEnabled(),true);
   assert.equal(await moodboardButton.getAttribute('aria-pressed'),'false');
   await moodboardButton.click();
+  await page.waitForFunction(()=>document.querySelector('[data-collection-moodboard-toggle]')?.getAttribute('aria-pressed')==='true',
+    null,{timeout:10000});
   assert.equal(await moodboardButton.getAttribute('aria-pressed'),'true');
   const savedInspiration=await page.evaluate(k=>JSON.parse(localStorage.getItem(k)),MOODBOARD_STORAGE_KEY);
   assert.equal(savedInspiration.boards[0].references.length,1);
@@ -306,6 +308,8 @@ try{
   await page.locator('[data-stage1-item-info]').waitFor();
   assert.equal(await moodboardButton.getAttribute('aria-pressed'),'true','same ITEM ref after reload');
   await moodboardButton.click();
+  await page.waitForFunction(()=>document.querySelector('[data-collection-moodboard-toggle]')?.getAttribute('aria-pressed')==='false',
+    null,{timeout:10000});
   assert.equal(await moodboardButton.getAttribute('aria-pressed'),'false','remove typed reference');
   assert.equal(await page.evaluate(k=>JSON.parse(localStorage.getItem(k)).boards[0].references.length,MOODBOARD_STORAGE_KEY),0);
   console.log('WEB_COLLECTION_LOCAL_MOODBOARD_ADD_REMOVE_BACKUP_REOPEN_PASS');
