@@ -86,11 +86,19 @@ for(const id of ['40000047','40002422','0','00040006096','NaN','../../40006096',
 for(const p of ['https://outside.invalid','//outside.invalid','/web/../','/web?x=1','/web#fragment'])
  assert.equal(scopedSwitch1253ItemImageHref(p,item,positive),null,'unsafe base '+p);
 console.log('QRW801_RUNTIME_MEDIA_PUBLIC_OFF_ZERO_MANIFEST_REQUEST_POSITIVE_PLACEHOLDER_CONTRACT_PASS');
+const unexpectedAccepted=[];
 const reject=(label,mFn,rFn,match)=>{
  const m=fakeManifest(),r=fakeRelease();
  mFn?.(m);rFn?.(r);
- assert.throws(()=>validateSwitch1253ItemImageCatalog(m,r),
-  match??/^TypeError: SWITCH1253_ITEM_IMAGE_/,label);
+ let got,err=null;
+ try{got=validateSwitch1253ItemImageCatalog(m,r);}
+ catch(e){err=e;}
+ if(!err){
+  unexpectedAccepted.push(label);
+  console.error('QRW801_TRUE_RED_MANIFEST_FORGED_FIELD_ACCEPTED '+label+' resultCount='+String(got?.count));
+ }else{
+  assert.match(String(err),match??/^TypeError: SWITCH1253_ITEM_IMAGE_/,label);
+ }
 };
 for(const [name,k,val] of [
  ['wrong BID','buildID','52BD625D9B4E0053'],
@@ -225,5 +233,9 @@ try{
  assert.deepEqual(media,[],'no media URL or manifest/image request');
  assert.deepEqual(errors,[],'no browser JS error');
  console.log('QRW801_REAL_CHROME_NO_PUBLIC_IMAGE_MANIFEST_OR_EXTERNAL_NETWORK_REQUEST_PASS');
- console.log('QRW801_INDEPENDENT_SCOPED_CONSUMER_MEDIA_OFF_PASS');
+ if(unexpectedAccepted.length){
+ console.error('QRW801_TRUE_RED_SCOPED_UNVERIFIED_MANIFEST_FIELDS '+JSON.stringify(unexpectedAccepted));
+ throw new Error('TRUE_RED_SCOPED: accepted malformed fields in current Switch1253 synthetic pre-publication manifest, while runtime MediaPublic remains OFF');
+}
+console.log('QRW801_INDEPENDENT_SCOPED_CONSUMER_MEDIA_OFF_PASS');
 }finally{await context.close();await browser.close();}
