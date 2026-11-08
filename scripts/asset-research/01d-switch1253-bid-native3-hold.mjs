@@ -113,6 +113,10 @@ export function validatePrivateSwitchNative3Hold(receipt) {
       receipt.evidenceTier!=='OWNER_PRIVATE_REAL_ROMFS_EXEFS_UNITYFS')
     reject('UNKNOWN_RECEIPT_SCHEMA_OR_EVIDENCE_TIER');
   const expected=createPrivateSwitchNative3Hold();
+  // Independent 04 QR-W #802 proved five unrecognized public-media root keys
+  // were silently accepted. Reject all unexpected/missing own root keys.
+  if(JSON.stringify(Object.keys(receipt).sort())!==JSON.stringify(Object.keys(expected).sort()))
+    reject('UNKNOWN_ROOT_MEDIA_FIELD');
   const allEqual=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
   if(!allEqual(receipt.original,expected.original)||receipt.original?.buildID!=='9A239D3DB569756D'||
      receipt.original?.schema!==626||
