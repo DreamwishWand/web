@@ -9,7 +9,7 @@ use ddv_save_core::{
 use sha2::{Digest,Sha256};
 
 fn input()->Vec<u8>{
-  br#"{"GameInfo":{"Version": 626},"Player":{"Synthetic":1,"Emoji":"🌱"},"World":{"Synthetic":true},"Unknown":{"future":[42,null,{"nested":"preserved"}]}}"#.to_vec()
+  br#"{"GameInfo":{"Version": 626},"Player":{"Synthetic":1,"Emoji":"\uD83C\uDF31"},"World":{"Synthetic":true},"Unknown":{"future":[42,null,{"nested":"preserved"}]}}"#.to_vec()
 }
 fn open(bytes:Vec<u8>)->ProductSession{
   ProductSession::open_decoded_readonly(bytes,BuildIdentity{
