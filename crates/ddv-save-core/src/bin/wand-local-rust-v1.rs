@@ -24,7 +24,7 @@ fn required(name:&str)->String{
 }
 fn hex32(input:&str)->[u8;32]{
     if input.len()!=64||!input.as_bytes().iter().all(|c|
-       matches!(c,b'0'..=b'9'|b'a'..=b'f')){
+       matches!(*c,b'0'..=b'9'|b'a'..=b'f')){
        denied("EXPECTED_SHA_FORMAT");
     }
     let mut h=[0;32];
