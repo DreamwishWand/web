@@ -65,9 +65,36 @@ test('all eight notice locales are draft only until reviewed; absent locale bloc
   const y=ready();delete y.noticeCopy.locales['zh-CN'];
   assert.ok(preflightRightsContactReceiving(y).reasons.includes('LOCALE_NOTICE_NOT_OWNER_REVIEWED:zh-CN'));
 });
-test('public display cannot be assumed from synthetic receipts or lack of hosted verification',()=>{
-  const p=ready();p.noticeCopy.publicAddressRendered=true;
-  assert.ok(preflightRightsContactReceiving(p).reasons.includes('PUBLIC_CONTACT_DISPLAY_BEFORE_ACCEPTANCE'));
+test('public contact accepts only strict boolean false for Owner review despite forged Host claim',()=>{
+  const draft=preflightRightsContactReceiving(ready());
+  assert.equal(draft.readyForOwnerReceiptReview,true);
+  assert.equal(draft.realMailboxProofByCode,false);
+  assert.equal(draft.publicContactEnabled,false);
+  assert.equal(draft.publicationAuthorization,'NOT_GRANTED');
+  for (const value of [true,'true',1,'false',0,null,undefined]) {
+    const p=ready();
+    p.noticeCopy.publicAddressRendered=value;
+    p.noticeCopy.publicHostVerified=true;
+    const out=preflightRightsContactReceiving(p);
+    assert.equal(out.readyForOwnerReceiptReview,false,'must deny contact rendered='+String(value));
+    assert.ok(out.reasons.includes('PUBLIC_CONTACT_DISPLAY_BEFORE_ACCEPTANCE'));
+    assert.equal(out.realMailboxProofByCode,false);
+    assert.equal(out.publicContactEnabled,false);
+    assert.equal(out.publicationAuthorization,'NOT_GRANTED');
+  }
+  for(const receiptMutation of [
+    p=>{p.mailbox.provisioned='true';},
+    p=>{p.mailbox.routingReceiptRef='SYNTHETIC';},
+    p=>{p.inboundTest.privateReceiptRef='SYNTHETIC';},
+    p=>{p.replyTest.privateReceiptRef='NOT_RUN';}
+  ]) {
+    const p=ready();receiptMutation(p);
+    const out=preflightRightsContactReceiving(p);
+    assert.equal(out.readyForOwnerReceiptReview,false);
+    assert.equal(out.realMailboxProofByCode,false);
+    assert.equal(out.publicContactEnabled,false);
+    assert.equal(out.publicationAuthorization,'NOT_GRANTED');
+  }
   assert.equal(preflightRightsContactReceiving({}).publicContactEnabled,false);
   assert.equal(preflightRightsContactReceiving(null).readyForOwnerReceiptReview,false);
 });
