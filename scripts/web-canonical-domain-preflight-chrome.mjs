@@ -70,7 +70,7 @@ const paths=[
 ];
 try{
  for(const [path,status] of paths){
-  const u=origin+prefix+path;
+  const u=origin+prefix+(path==='/'?'':path);
   const response=await fetch(u,{redirect:'manual'});
   assert.equal(response.status,status,base+' '+path);
   assert.equal(response.headers.get('location'),null,base+' no unapproved redirect '+path);
