@@ -7,9 +7,14 @@ import {
 
 // Local draft placement only. Never creates a Save writer, copies item media,
 // accepts a user-supplied ItemID as provenance, or updates the Moodboard store.
+/**
+ * @param {any} storage
+ * @param {{boardId:string,referenceId:string|null,groupId:string|null,itemId:number|null}} pending
+ * @param {Map<number,any>} verifiedItemById
+ */
 export function verifyCurrentMoodboardItemPlacement(
   storage,
-  { boardId, referenceId, groupId = null, itemId } = {},
+  { boardId, referenceId, groupId = null, itemId },
   verifiedItemById
 ) {
   const stale = (reason) => {
@@ -70,6 +75,11 @@ export function verifyCurrentMoodboardItemPlacement(
   return { board, reference, verifiedItem, persistentWriteAuthorized: false };
 }
 
+/**
+ * @param {any} session
+ * @param {any} editorDocument
+ * @param {{selectedSession?:any,selectedTarget?:string|null}} options
+ */
 export function verifyCurrentMoodboardEditorSession(
   session,
   editorDocument,
