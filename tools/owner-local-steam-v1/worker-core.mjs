@@ -16,8 +16,13 @@ let generation=0;
 let bridge=null;
 let initPromise=null;
 let lastSessionId=null;
+// Worker-only DEV metadata state. Never accept a UI cursor or read-set.
+let activeDevReceipt=null;
+const devPages=new Map();
 const close=()=>{
   generation++;
+  activeDevReceipt=null;
+  devPages.clear();
   if(bridge)bridge.close();
 };
 async function ensureBridge(){
@@ -32,7 +37,9 @@ async function ensureBridge(){
   }
   return initPromise;
 }
-export function installOwnerLocalSteamV1Worker({allowSyntheticFixture=false}={}){
+export function installOwnerLocalSteamV1Worker({
+  allowSyntheticFixture=false,allowDevTypedMetadata=false
+}={}){
   if(typeof document!=='undefined')
     throw safeError('OWNER_LOCAL_WORKER_ISOLATION_REQUIRED');
   self.addEventListener('message',async ({data})=>{
@@ -44,9 +51,74 @@ export function installOwnerLocalSteamV1Worker({allowSyntheticFixture=false}={})
       self.postMessage({requestId,ok:true,summary:{closed:true,writerAuthorized:false}});
       return;
     }
+    if(data.kind==='DEV_READ_METADATA'){
+      const mine=generation;
+      const rejected=code=>self.postMessage({requestId,ok:false,error:code});
+      // Not enabled in the accepted owner-local runner, only an explicitly
+      // separate DEV worker entrypoint. No arbitrary Core paths/ID/cursors.
+      if(!allowDevTypedMetadata)return rejected('OWNER_LOCAL_DEV_READ_DISABLED');
+      if(Object.keys(data).sort().join(',')!=='domain,kind,pageIndex,requestId'||
+         (data.domain!=='player'&&data.domain!=='world')||
+         !Number.isSafeInteger(data.pageIndex)||data.pageIndex<0||
+         data.pageIndex>=128)
+         return rejected('OWNER_LOCAL_DEV_READ_ARGS_DENIED');
+      if(!bridge||!activeDevReceipt)
+        return rejected('OWNER_LOCAL_DEV_SESSION_NOT_OPEN');
+      const scope={
+        sessionId:activeDevReceipt.sessionId,
+        revision:activeDevReceipt.revision,
+        indexGeneration:activeDevReceipt.indexGeneration,
+        decodedSha256:activeDevReceipt.decodedSha256
+      };
+      const state=devPages.get(data.domain);
+      if((!state&&data.pageIndex!==0)||
+         (state&&data.pageIndex!==state.nextPageIndex)||
+         (state&&state.nextCursor===null))
+        return rejected('OWNER_LOCAL_DEV_STALE_PAGE');
+      try{
+        const cursor=state?.nextCursor||
+          bridge.issueTypedCursor(scope,data.domain).cursor;
+        const result=bridge.readTypedPage(scope,cursor);
+        if(mine!==generation)
+          throw safeError('OWNER_LOCAL_DEV_SESSION_REVOKED');
+        if(result.domain!==(data.domain==='player'?'/Player':'/World')||
+           !Array.isArray(result.fields)||result.fields.length>16||
+           result.productReadAccepted!==false||result.writerAuthorized!==false)
+          throw safeError('OWNER_LOCAL_DEV_RUST_TYPED_DENIED');
+        if(result.nextCursor!==null&&data.pageIndex===127)
+          throw safeError('OWNER_LOCAL_DEV_PAGE_LIMIT');
+        devPages.set(data.domain,{
+          nextCursor:result.nextCursor,
+          nextPageIndex:data.pageIndex+1
+        });
+        // Metadata only, with original Rust per-field kind and byte length;
+        // no value, unknown original JSON, cursor, full Save, or raw pointer.
+        self.postMessage({requestId,ok:true,summary:{
+          contract:'wand.owner.local.dev-read-metadata@1',
+          domain:result.domain,
+          pageIndex:data.pageIndex,
+          fields:result.fields.map(f=>({
+            key:f.key,kind:f.kind,valueBytes:f.valueBytes
+          })),
+          nextPageIndex:result.nextCursor===null?null:data.pageIndex+1,
+          coreOwnedSession:true,fullDocumentJsonValidated:true,
+          physicalBuildCryptographicallyVerified:false,
+          productReadAccepted:false,writerAuthorized:false,
+          editedCopyAuthorized:false,applyAuthorized:false
+        }});
+      }catch{
+        // A Core receipt failure may revoke Rust; do not retain dangling
+        // Worker-local metadata grants or pretend the session survived.
+        close();
+        rejected('OWNER_LOCAL_DEV_READ_FAILED_CLOSED');
+      }
+      return;
+    }
     if(data.kind!=='OPEN_LOCAL_V1')return;
     // Invalidate A synchronously BEFORE any awaits, even if B is invalid.
     const mine=++generation;
+    activeDevReceipt=null;
+    devPages.clear();
     if(bridge)bridge.close();
     let bytes;
     try{
@@ -86,6 +158,8 @@ export function installOwnerLocalSteamV1Worker({allowSyntheticFixture=false}={})
         throw safeError('OWNER_LOCAL_RUST_RECEIPT_DENIED');
       const rotated=lastSessionId!==null&&lastSessionId!==receipt.sessionId;
       lastSessionId=receipt.sessionId;
+      // Source authority remains strictly Worker-held, never supplied by UI.
+      activeDevReceipt=receipt;
       // This bounded provenance receipt is displayed *locally only* and is
       // NEVER logged, persisted, POSTed, or sent to GitHub Actions.
       self.postMessage({
@@ -110,7 +184,11 @@ export function installOwnerLocalSteamV1Worker({allowSyntheticFixture=false}={})
       });
     }catch(e){
       // Never allow an older failed A to close successful B.
-      if(mine===generation&&bridge)bridge.close();
+      if(mine===generation){
+        activeDevReceipt=null;
+        devPages.clear();
+        if(bridge)bridge.close();
+      }
       const msg=e instanceof Error?e.message:'';
       self.postMessage({requestId,ok:false,
         error:/^OWNER_LOCAL_[A-Z0-9_]+$/.test(msg)?msg:

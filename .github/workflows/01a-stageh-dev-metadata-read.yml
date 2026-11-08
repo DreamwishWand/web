@@ -1,0 +1,60 @@
+name: 01A Stage H DEV-only P1G Rust Typed Metadata Chrome (Writer OFF)
+on:
+  pull_request:
+    paths:
+      - 'tools/owner-local-steam-v1/worker-core.mjs'
+      - 'tools/owner-local-steam-v1/dev-read*'
+      - 'tools/owner-local-steam-v1/server.mjs'
+      - 'tests/stage-h/**'
+      - '.github/workflows/01a-stageh-dev-metadata-read.yml'
+      - 'crates/ddv-save-core/**'
+  push:
+    branches:
+      - 'core/local-p1g-dev-read-dispatch-*'
+permissions:
+  contents: read
+jobs:
+  real-rust-dev-read-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-stageh-core-target
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Check all new Worker and UI syntax, no product import
+        run: |
+          node --check tools/owner-local-steam-v1/worker-core.mjs
+          node --check tools/owner-local-steam-v1/dev-read.worker.mjs
+          node --check tools/owner-local-steam-v1/dev-read-page.mjs
+          node --check tests/stage-h/page.mjs
+          node --check tests/stage-h/worker.mjs
+          node --check tests/stage-h/chrome-smoke.mjs
+      - name: Compile existing trusted Rust Core, no second Reader
+        run: |
+          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --features worker-wasm,indexed-read
+          test -s "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
+      - name: Install pinned wasm-bindgen for real Worker
+        run: |
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-stageh-bindgen
+          /tmp/wand-stageh-bindgen/bin/wasm-bindgen --version | grep -F '0.2.105'
+      - name: Generate real Rust Worker ESM JS and WASM in ignored workspace
+        run: |
+          mkdir -p tests/stage-e/pkg
+          /tmp/wand-stageh-bindgen/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          test -s tests/stage-e/pkg/ddv_save_core.js
+          test -s tests/stage-e/pkg/ddv_save_core_bg.wasm
+      - name: Create publicly synthetic encrypted test P1G (never Owner original)
+        run: |
+          node tests/stage-f/generate-fixture.mjs
+          test -s tests/stage-f/fixtures/synthetic626.p1g
+          test -z "$(git ls-files tests/stage-e/pkg tests/stage-f/fixtures)"
+      - name: Real Chrome DEV-only file-picker path and 16-entry metadata CAS negatives
+        run: node tests/stage-h/chrome-smoke.mjs
+      - name: Do not promote product Reader/Writer or commit generated WASM
+        run: |
+          test -z "$(git ls-files tests/stage-e/pkg tests/stage-f/fixtures)"
+          ! git ls-files | grep -E 'STEAM_SAVE_OWNER_PRIVATE|OWNER_PRIVATE|\.p1g$'
+          test -f tools/owner-local-steam-v1/worker.mjs

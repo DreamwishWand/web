@@ -1,0 +1,102 @@
+name: 05 QR-C Stage H independent DEV-only Rust typed metadata Chrome NEW_ONLY
+on:
+  pull_request:
+    paths:
+      - 'tests/stage-h/qa-independent-page.mjs'
+      - 'tests/stage-h/qa-independent-server.test.mjs'
+      - '.github/workflows/05qr-c-stageh-independent-typed-metadata.yml'
+  push:
+    branches:
+      - 'qa/05qrc-stageh-typed-metadata-pr773-6d344188-20261108'
+permissions:
+  contents: read
+jobs:
+  independent-stageh-generated-rust-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-05qrc-stageh-rust-core
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Freeze exact 11 original Source773 Git blobs + only 3 QA-only additions
+        shell: bash
+        run: |
+          set -euo pipefail
+          source=6d344188adc9e340d9dd3ed6428201b3b7d41a22
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            qa_tip="$(git rev-parse HEAD^2)"
+          else
+            qa_tip="$(git rev-parse HEAD)"
+          fi
+          git merge-base --is-ancestor "$source" "$qa_tip"
+          test "$(git rev-parse "$qa_tip":.github/workflows/01a-stageh-dev-metadata-read.yml)" = 2524d7c11df6c9b7f85c0ca76f81aa01db9e69b0
+          test "$(git rev-parse "$qa_tip":docs/core/01a-stageh-local-dev-rust-typed-metadata-20261108.md)" = 17ebd7422726585fbdf5036f968c79d1d783daff
+          test "$(git rev-parse "$qa_tip":tests/stage-h/chrome-smoke.mjs)" = 4522022ce42bbde0e70364bfec17604f83a761e2
+          test "$(git rev-parse "$qa_tip":tests/stage-h/index.html)" = 36bc92f5a5f16bf2bc0d1cf552c99c5238a20c9d
+          test "$(git rev-parse "$qa_tip":tests/stage-h/page.mjs)" = 3995ff1dae8041aeec6dfa70ff2143e588062cef
+          test "$(git rev-parse "$qa_tip":tests/stage-h/worker.mjs)" = c25c2742a2993d446036e5e8bda5168323dd2875
+          test "$(git rev-parse "$qa_tip":tools/owner-local-steam-v1/dev-read-page.mjs)" = db5cb84d327e5702e861820a02ce7312d4d062a3
+          test "$(git rev-parse "$qa_tip":tools/owner-local-steam-v1/dev-read.html)" = e0de6b76cfdae45b797f955ea41abeb30948783a
+          test "$(git rev-parse "$qa_tip":tools/owner-local-steam-v1/dev-read.worker.mjs)" = f4d23402a362057efe8a4af0a3ae0a4950afa573
+          test "$(git rev-parse "$qa_tip":tools/owner-local-steam-v1/server.mjs)" = e29a9e677d9cbaaeafd8e937b126223da83ed545
+          test "$(git rev-parse "$qa_tip":tools/owner-local-steam-v1/worker-core.mjs)" = 42b717455473cf69c98213dec867571c4a70ede7
+          actual="$(git diff --name-only "$source" "$qa_tip" | sort)"
+          expected="$(printf '%s\n' .github/workflows/05qr-c-stageh-independent-typed-metadata.yml tests/stage-h/qa-independent-page.mjs tests/stage-h/qa-independent-server.test.mjs | sort)"
+          test "$actual" = "$expected"
+          node --check tests/stage-h/qa-independent-page.mjs
+          node --check tests/stage-h/qa-independent-server.test.mjs
+          grep -Fx 'wasm-bindgen = { version = "=0.2.105", optional = true }' crates/ddv-save-core/Cargo.toml
+          grep -Fx 'worker-wasm = ["dep:wasm-bindgen"]' crates/ddv-save-core/Cargo.toml
+          command -v google-chrome
+      - name: Independent local HTTP GET HEAD Host CSP no-upload negatives, no private P1G
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/stage-h/qa-independent-server.test.mjs
+      - name: Compile only accepted single real Rust Session WASM feature-on / Writer OFF
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --release --target wasm32-unknown-unknown --features worker-wasm,indexed-read
+          test -s "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
+      - name: Generate wasm-bindgen CLI 0.2.105 actual JS and binary in ephemeral CI
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/wand-05qrc-stageh-bindgen
+          /tmp/wand-05qrc-stageh-bindgen/bin/wasm-bindgen --version | grep -F '0.2.105'
+          mkdir -p tests/stage-e/pkg
+          /tmp/wand-05qrc-stageh-bindgen/bin/wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" --out-dir tests/stage-e/pkg --target web --no-typescript
+          test -s tests/stage-e/pkg/ddv_save_core.js
+          test -s tests/stage-e/pkg/ddv_save_core_bg.wasm
+          test -z "$(git ls-files tests/stage-e/pkg)"
+      - name: Generate only PUBLIC SYNTHETIC P1G fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/stage-f/generate-fixture.mjs
+          test -s tests/stage-f/fixtures/synthetic626.p1g
+          test -s tests/stage-f/fixtures/expected.json
+          test -z "$(git ls-files tests/stage-f/fixtures)"
+      - name: Independent real Chrome DEV-only Rust typed metadata & privilege negatives
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp tests/stage-h/qa-independent-page.mjs tests/stage-h/page.mjs
+          trap 'git restore -- tests/stage-h/page.mjs' EXIT
+          node tests/stage-h/chrome-smoke.mjs
+          git restore -- tests/stage-h/page.mjs
+          test -z "$(git diff --name-only -- tests/stage-h/page.mjs)"
+      - name: Assert QA-only paths and no private Save or Writer route changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git ls-files tests/stage-e/pkg tests/stage-f/fixtures)"
+          test "$(git diff --name-only 6d344188adc9e340d9dd3ed6428201b3b7d41a22 HEAD | wc -l)" -eq 3
+          ! git ls-files | grep -E 'OWNER_PRIVATE|STEAM_SAVE_OWNER|\.p1g$'
+          test -z "$(git diff --name-only 6d344188adc9e340d9dd3ed6428201b3b7d41a22 HEAD -- src tools crates)"
