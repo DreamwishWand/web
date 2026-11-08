@@ -87,7 +87,7 @@ fn footprint_negative_offset_unknown_and_outside_proposed_bounds_reject(){
     let mut a=fixture();a.2[0].serialized_x=9;
     deny(a,"SPATIAL_FOOTPRINT_OUT_OF_BOUNDS");
     let mut a=fixture();a.2[1].serialized_y=i64::MAX;
-    deny(a,"SPATIAL_FOOTPRINT_OUT_OF_BOUNDS");
+    deny(a,"SPATIAL_FOOTPRINT_OVERFLOW");
     let mut a=fixture();a.2[0].proposed_footprint=None;
     deny(a,"SPATIAL_FOOTPRINT_UNKNOWN");
     let mut a=fixture();a.1[0].proposed_bounds=None;
@@ -102,8 +102,15 @@ fn cycles_root_subgrid_conflict_and_stale_revision_are_denied(){
     let mut a=fixture();
     a.1[0].parent_object=Some(key(43,7));
     a.2[1].child_grid_id=Some(42);
-    // Cycle is an invalid root/parent conflict regardless of which veto wins.
+    // A cycle touching an Area root must fail even before reachability.
     assert!(SpatialCandidateIndex::validate(&build(),scope(),&a.0,&a.1,&a.2).is_err());
+    // An isolated two-Grid cycle must produce the explicit cycle veto.
+    let mut a=fixture();
+    a.1.push(SpatialGridRef{grid_id:44,proposed_bounds:Some(SpatialExtent{width:4,height:4}),parent_object:Some(key(45,9))});
+    a.1.push(SpatialGridRef{grid_id:45,proposed_bounds:Some(SpatialExtent{width:4,height:4}),parent_object:Some(key(44,9))});
+    a.2.push(obj(44,9,0,0,Some(45)));
+    a.2.push(obj(45,9,0,0,Some(44)));
+    deny(a,"SPATIAL_SUBGRID_PARENT_CYCLE");
     let (areas,grids,objects)=fixture();
     let index=SpatialCandidateIndex::validate(&build(),scope(),&areas,&grids,&objects).unwrap();
     let mut old=scope();old.revision+=1;
