@@ -3,6 +3,8 @@
 //! Historical research TrustedReadCore and Stage IDs are not product authority.
 //! No browser Worker/WASM, P1G codec, export, replacement, apply or cloud grant.
 // Native private proof code must NEVER be linked in the browser WASM Worker.
+#[cfg(all(feature="private-native-v2",target_arch="wasm32"))]
+compile_error!("private-native-v2 is native-only and cannot enter WASM");
 #[cfg(all(feature="private-native-v1",target_arch="wasm32"))]
 compile_error!("private-native-v1 is native-only and cannot enter WASM");
 mod product_session;
@@ -12,6 +14,8 @@ mod strict_document;
 compile_error!("synthetic-stage-b must not be linked into WASM/Worker release");
 #[cfg(feature = "synthetic-stage-b")]
 pub use product_session::{SyntheticChangeSet, SyntheticStageReceipt, SyntheticExportReceipt};
+#[cfg(feature = "private-native-v2")]
+pub use product_session::PrivateOfflineReceipt;
 #[cfg(feature = "indexed-read")]
 pub use product_session::{IndexedCursorReceipt, IndexedDomain, IndexedFieldWitness, IndexedKind, IndexedPage, INDEX_PAGE_ENTRIES_MAX};
 mod worker_session;
