@@ -13,9 +13,15 @@
   } from '$lib/collection/runtime.js';
   import {
     clearWorldEditorHandoff,
-    readWorldEditorHandoff
+    createMoodboardHandoff,
+    readWorldEditorHandoff,
+    writeWorldEditorHandoff
   } from './world-editor-handoff';
   import { worldEditorStage1Copy } from './world-editor-stage1-copy.js';
+  import {
+    verifyCurrentMoodboardItemPlacement,
+    verifyCurrentMoodboardEditorSession
+  } from './world-editor-moodboard-placement-guard.mjs';
   import { roomFinishCopy } from './room-finish-copy.js';
 
   export let session: any = null;
@@ -34,6 +40,8 @@
   let pendingPresetArtifactId: string | null = null;
   let pendingReferenceId: string | null = null;
   let pendingGroupId: string | null = null;
+  let pendingSelectedSession: any = null;
+  let pendingSelectedTarget: string | null = null;
   let expandedNotes = new Set<string>();
   let placementX = 0;
   let placementY = 0;
@@ -142,10 +150,32 @@
     }
   }
 
-  function activateReference(reference: any, groupId: string | null = null) {
+  function activateReference(
+    reference: any,
+    groupId: string | null = null,
+    persistSelection = false
+  ) {
     if (!reference) return;
+    if (persistSelection && handoff?.sourceSurface === 'moodboard') {
+      try {
+        const current = createMoodboardHandoff(handoff.boardId, {
+          referenceId: String(reference.id),
+          groupId
+        });
+        writeWorldEditorHandoff(localStorage, current);
+        handoff = current;
+      } catch {
+        clearPending();
+        panelError = copy.staleReference;
+        return;
+      }
+    }
     pendingReferenceId = reference.id;
     pendingGroupId = groupId;
+    pendingSelectedSession = session && editorDocument ? session : null;
+    pendingSelectedTarget = session && editorDocument
+      ? JSON.stringify(editorDocument.target)
+      : null;
     presetStatus = '';
     if (reference.type === 'ITEM') {
       const itemId = Number(reference.entityId);
@@ -171,6 +201,8 @@
     pendingPresetArtifactId = null;
     pendingReferenceId = null;
     pendingGroupId = null;
+    pendingSelectedSession = null;
+    pendingSelectedTarget = null;
     presetStatus = '';
     try {
       clearWorldEditorHandoff(localStorage);
@@ -184,6 +216,38 @@
     if (!session || !editorDocument || !mutationBound) {
       panelError = copy.sourceNeeded;
       return;
+    }
+    // A handoff is a navigation hint, never an authorization to insert a
+    // potentially retargeted/deleted Moodboard Item into the live Draft.
+    // Re-read the canonical local document immediately before the mutation.
+    if (handoff?.sourceSurface === 'moodboard') {
+      try {
+        const currentHandoff = readWorldEditorHandoff(localStorage);
+        if (currentHandoff?.sourceSurface !== 'moodboard' ||
+            currentHandoff.boardId !== handoff.boardId) {
+          throw new Error('WEP_MOODBOARD_STALE_HANDOFF');
+        }
+        const verified = verifyCurrentMoodboardItemPlacement(
+          localStorage,
+          {
+            boardId: handoff.boardId,
+            referenceId: pendingReferenceId,
+            groupId: pendingGroupId,
+            itemId: pendingItemId
+          },
+          itemById
+        );
+        verifyCurrentMoodboardEditorSession(session, editorDocument, {
+          selectedSession: pendingSelectedSession,
+          selectedTarget: pendingSelectedTarget
+        });
+        board = verified.board;
+      } catch {
+        clearPending();
+        board = null;
+        panelError = copy.staleReference;
+        return;
+      }
     }
     if (!pendingItemId || !placementCapability?.draftPlacementSupported) {
       panelError =
@@ -423,7 +487,7 @@
                       <button
                         type="button"
                         class="reference-main"
-                        on:click={() => activateReference(reference, section.id)}
+                        on:click={() => activateReference(reference, section.id, true)}
                       >
                         <span>{referenceLabel(reference)}</span>
                         <strong>{reference.label}</strong>
