@@ -756,7 +756,28 @@ try{
     assert.equal(beforeCount,4,'fixed local synthetic draft baseline');
 
     let authoritative=seeded;
-    if(mode!=='valid') {
+    if(mode.startsWith('handoff-')) {
+      authoritative=await page.evaluate(({moodboardKey,handoffKey,mode})=>{
+        const handoff=JSON.parse(localStorage.getItem(handoffKey));
+        if(handoff?.sourceSurface!=='moodboard'||handoff.referenceId!=='stage1-item')
+          throw Error('HANDOFF_TEST_SOURCE_NOT_SELECTED');
+        if(mode==='handoff-note') handoff.referenceId='stage1-note';
+        if(mode==='handoff-other-item'){
+          const data=JSON.parse(localStorage.getItem(moodboardKey));
+          data.boards[0].references.push({
+            id:'stage1-other-item',type:'ITEM',label:'Other Item',
+            entityId:'40000049',url:null,note:null,groupIds:['stage1-group'],
+            createdAt:'2026-10-05T00:00:00.000Z'
+          });
+          localStorage.setItem(moodboardKey,JSON.stringify(data));
+          handoff.referenceId='stage1-other-item';
+        }
+        if(mode==='handoff-wrong-group') handoff.groupId=null;
+        if(mode==='handoff-new-intent') handoff.createdAt='2026-11-08T04:00:00.000Z';
+        localStorage.setItem(handoffKey,JSON.stringify(handoff));
+        return localStorage.getItem(moodboardKey);
+      },{moodboardKey,handoffKey,mode});
+    } else if(mode!=='valid') {
       authoritative=await page.evaluate(({moodboardKey,mode})=>{
         const data=JSON.parse(localStorage.getItem(moodboardKey));
         if(mode==='removed-reference')
@@ -790,8 +811,12 @@ try{
       'World Editor must not overwrite source Moodboard');
     pass('MOODBOARD_LIVE_PLACEMENT_'+mode.toUpperCase().replaceAll('-','_'));
   }
-  for(const mode of ['valid','removed-reference','retargeted-item','wrong-group','deleted-board','malformed-store'])
-    await moodboardPendingPlacementCase(mode);
+  for(const mode of [
+    'valid','removed-reference','retargeted-item','wrong-group',
+    'deleted-board','malformed-store',
+    // New-only QA785 repair: same Board but different live user selection.
+    'handoff-note','handoff-other-item','handoff-wrong-group','handoff-new-intent'
+  ]) await moodboardPendingPlacementCase(mode);
 
   assert.equal(evidence.pageErrors.length,0,evidence.pageErrors.join(' | '));
   evidence.consoleErrors=evidence.consoleErrors.filter(message=>!message.includes('Failed to load resource'));
