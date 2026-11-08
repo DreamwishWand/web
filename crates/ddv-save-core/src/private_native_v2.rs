@@ -30,7 +30,7 @@ fn render_noop(bytes:&[u8])->CoreResult<Vec<u8>> {
    }
  }
  let at=found.ok_or(fail("V2_EXPECTED_OLD_VALUE_CAS"))?+OLD.len();
- if !matches!(bytes.get(at),Some(b','|b'}'|b' '|b'\n'|b'\r'|b'\t')){
+ if !matches!(bytes.get(at).copied(),Some(b','|b'}'|b' '|b'\n'|b'\r'|b'\t')){
    return Err(fail("V2_NUMERIC_TOKEN_BOUNDS"));
  }
  let mut out=Vec::with_capacity(bytes.len()+1);
