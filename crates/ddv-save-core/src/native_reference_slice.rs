@@ -235,7 +235,7 @@ mod tests{
             VALID.replace("\"4\":{\"ID\":4","\"4\":{\"ID\":5"),
             VALID.replace("\"4\":{\"ID\":4,\"ItemID\":100}","\"4\":{\"ID\":4},\"04\":{\"ID\":4}"),
             VALID.replace("\"1\":{\"GridIDs\"","\"01\":{\"GridIDs\""),
-            VALID.replace("\"Villages\":[","\"Villages\":{"),
+            VALID.replace("\"Villages\":[{\"Areas\":{\"1\":{\"GridIDs\":[7]}}}]","\"Villages\":{}"),
         ];
         for input in cases {
             let s=session(&input);
