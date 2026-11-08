@@ -329,7 +329,6 @@ def save_exclusive(path, data):
 
 
 def run(args):
-    from PIL import Image
     root = args.source_root.absolute()
     catalog = args.catalog_root.absolute()
     bundle = args.bundle.absolute()
@@ -350,6 +349,7 @@ def run(args):
     exact_sha(bundle, PINS["furniture_a1c425a5.bundle"])
     accepted_furniture_rows(root / "Furniture.json")
     catalog_items = resolve_catalog(catalog)
+    from PIL import Image  # PRIVATE ONLY; imported after PINNED provenance; CI negatives need no Pillow
     unity = UnityFS(bundle)
     cab = unity.read(0, unity.nodes[0][1])
     objects = cab_objects(cab)
