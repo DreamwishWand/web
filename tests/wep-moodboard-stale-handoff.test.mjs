@@ -6,6 +6,7 @@ import {
 } from '../src/lib/moodboards/store.js';
 import {
   verifyCurrentMoodboardItemPlacement,
+  verifyCurrentMoodboardHandoffIdentity,
   verifyCurrentMoodboardEditorSession
 } from '../src/lib/wep/world-editor-moodboard-placement-guard.mjs';
 import {
@@ -106,6 +107,34 @@ test('live EditorSession and Area identity required; stale Session and target de
   assert.equal(verifyCurrentMoodboardEditorSession(session,displayed),true,
     'handoff selected before a source was opened may use a subsequently verified live Session');
 });
+test('selection identity: changing only live handoff Ref/Group/timestamp while Board and old verified Item survive always denies',()=>{
+  const selected={
+    schema:'dreamwish-wand-world-editor-handoff@1',version:1,
+    sourceSurface:'moodboard',intent:'MOODBOARD',boardId:'board_a',
+    referenceId:'ref_a',groupId:'group_a',createdAt:stamp,
+    persistentWriteAuthorized:false,productApplyAuthorized:false,
+    directSourceReplacementAuthorized:false
+  };
+  const pending={referenceId:'ref_a',groupId:'group_a'};
+  assert.equal(verifyCurrentMoodboardHandoffIdentity({...selected},selected,pending),true);
+  for(const [label,change] of [
+    ['NOTE ref same board',{referenceId:'ref_note'}],
+    ['another ITEM ref same board',{referenceId:'ref_other_item'}],
+    ['same ref different group',{groupId:null}],
+    ['same ref original group but new selection timestamp',{createdAt:'2026-11-08T02:00:00.000Z'}],
+    ['different board',{boardId:'board_b'}],
+    ['different source',{sourceSurface:'explore',intent:'ITEM'}],
+    ['tampered writer authorization',{productApplyAuthorized:true}]
+  ]){
+    assert.throws(
+      ()=>verifyCurrentMoodboardHandoffIdentity({...selected,...change},selected,pending),
+      /WEP_MOODBOARD_STALE_HANDOFF_IDENTITY/,label
+    );
+  }
+  assert.throws(()=>verifyCurrentMoodboardHandoffIdentity(selected,selected,{referenceId:'ref_other_item',groupId:'group_a'}),/WEP_MOODBOARD_STALE_HANDOFF_IDENTITY/);
+  assert.throws(()=>verifyCurrentMoodboardHandoffIdentity(selected,selected,{referenceId:'ref_a',groupId:null}),/WEP_MOODBOARD_STALE_HANDOFF_IDENTITY/);
+  assert.throws(()=>verifyCurrentMoodboardHandoffIdentity(null,selected,pending),/WEP_MOODBOARD_STALE_HANDOFF_IDENTITY/);
+});
 test('World Editor checks the new store immediately before insert and Explore direct path is preserved',()=>{
   const panel=readFileSync(new URL('../src/lib/wep/WorldEditorStage1DecoratePanel.svelte',import.meta.url),'utf8');
   const start=panel.indexOf('function placePendingItem()');
@@ -113,6 +142,8 @@ test('World Editor checks the new store immediately before insert and Explore di
   const body=panel.slice(start,end);
   assert.ok(start>0 && end>start);
   assert.ok(body.indexOf("handoff?.sourceSurface === 'moodboard'")>=0);
+  assert.ok(body.indexOf('verifyCurrentMoodboardHandoffIdentity(')<
+    body.indexOf('verifyCurrentMoodboardItemPlacement('),'live selection identity must be checked before cached ITEM read');
   assert.ok(body.indexOf('verifyCurrentMoodboardItemPlacement(')<
     body.indexOf('session.insertDraftGraph('),'store check must precede mutation');
   assert.ok(body.indexOf('verifyCurrentMoodboardEditorSession(')<
