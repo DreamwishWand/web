@@ -45,7 +45,7 @@ try {
  await page.locator('[data-stage1-search-groups] .item-card').first().click();
  await page.locator('[data-stage1-item-info]').waitFor({timeout:20000});
  assert.match(await page.locator('[data-stage1-item-info]').innerText(),new RegExp(ITEM));
- await page.locator('[data-stage1-item-info] .info-actions a').click();
+ await page.locator('[data-stage1-item-info] .info-actions > a').click();
  await page.locator('[data-shared-entity-detail="preview"] h1').waitFor({timeout:30000});
  assert.match(page.url(),new RegExp('/[a-zA-Z-]+/'+ITEM+'/$'));
  assert.match(await page.locator('[data-entity-identity]').innerText(),/40000047/);
@@ -53,6 +53,12 @@ try {
  assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'),'noindex,follow');
  await page.locator('[data-shared-discovery="READY"]').waitFor({timeout:30000});
  assert.ok(await page.locator('[data-shared-related] a').count()>0);
+ // Current Switch 1.25.3/schema626 media gate is OFF: no R39/schema624
+ // image may be mistaken for a published current-version thumbnail.
+ assert.ok(await page.locator('[data-shared-entity-detail] [data-item-thumb-id="'+ITEM+'"]').count()>0);
+ assert.equal(await page.locator('[data-shared-entity-detail] [data-item-thumb-id="'+ITEM+'"]').first().getAttribute('data-media-status'),'unavailable');
+ assert.equal(await page.locator('[data-shared-entity-detail] [data-item-thumb-id="'+ITEM+'"] img').count(),0);
+ pass('SWITCH1253_ITEMTHUMB_PUBLIC_MEDIA_OFF_PLACEHOLDER');
  pass('COLLECTION_ITEM_VERIFIED_ID_VERSION_RELATED_LINKS');
 
  await page.locator('[data-shared-query]').fill(ITEM);
@@ -102,6 +108,8 @@ try {
    assert.ok((await page.locator('.shared-discovery').innerText()).includes(sharedDirectoryCopy(locale).search),locale);
    assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'),'noindex,follow');
  }
+ assert.equal(await page.locator('[data-shared-entity-detail] [data-item-thumb-id="'+ITEM+'"] img').count(),0);
+ pass('SWITCH1253_ALL_EIGHT_DETAIL_LOCALES_IMAGE_PLACEHOLDER');
  pass('ALL_EIGHT_ACTUAL_BROWSER_DETAIL_LOCALES_NOINDEX');
 
  // Negative browser path: a forged catalog Version cannot create a positive detail or moodboard.
@@ -128,7 +136,7 @@ try {
  await page.locator('[data-stage1-search]').fill(ITEM);
  await page.locator('[data-stage1-search-groups] .item-card').first().waitFor({timeout:20000});
  await page.locator('[data-stage1-search-groups] .item-card').first().click();
- await page.locator('[data-stage1-item-info] .info-actions a').click();
+ await page.locator('[data-stage1-item-info] .info-actions > a').click();
  await page.locator('[data-shared-discovery="READY"]').waitFor({timeout:30000});
  await fit(page,'shared-item320');
  await page.keyboard.press('Tab');
@@ -160,6 +168,10 @@ try {
  assert.equal(response.status,404);
  assert.match(await response.text(),/html/i);
  pass('DIRECT_STATIC_FALLBACK_HTTP404_NOT_SEO_HTTP200');
+ // No image bytes or manifest should be contacted until approved MediaPublic.
+ const mediaRequests=await page.evaluate(()=>performance.getEntriesByType('resource')
+   .filter(x=>x.name.includes('switch-1.25.3-schema626-lossless160-v1')));
+ assert.equal(mediaRequests.length,0,'media OFF cannot fetch current-version manifest or asset');
  assert.deepEqual(network,[],'no private save/Community/Provider network writes');
  assert.deepEqual(errors,[],'browser JS exceptions');
  pass('NO_PRIVATE_NETWORK_AND_NO_PAGE_EXCEPTIONS');
