@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { locale } from '$lib/i18n/runtime.js';
-  import { itemImagePreferences, publicItemImageSource,
+  import { itemImagePreferences,
     restoreItemImagePreferences, saveItemImagePreferences } from '$lib/item-media/public-item-images.mjs';
+  import { switch1253PublicItemImageSource } from '$lib/item-media/switch1253-public-item-images.mjs';
 
   const L: Record<string,any> = {
     en:{title:'Item image layout',unavailable:'Verified public item images are not yet available.',scope:'Images appear only after a verified versioned manifest and an explicit scoped publication decision.',size:'Thumbnail size',fit:'Image fit',density:'Card density',contain:'Contain',cover:'Cover',compact:'Compact',comfortable:'Comfortable'},
@@ -27,7 +28,7 @@
 <details class="item-image-controls" data-item-image-layout-controls>
   <summary>{labels.title}</summary>
   <div class="controls">
-    {#if $publicItemImageSource.status !== 'VERIFIED'}
+    {#if $switch1253PublicItemImageSource.status !== 'VERIFIED'}
       <p role="status" class="media-unavailable">{labels.unavailable}</p>
     {/if}
     <p class="source-note">{labels.scope}</p>
