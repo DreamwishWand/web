@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {request as rawRequest} from 'node:http';
-import {startOwnerLocalV1Server} from '../tools/owner-local-steam-v1/server.mjs';
+import {startOwnerLocalV1Server} from '../../tools/owner-local-steam-v1/server.mjs';
 
 test('H-QA01 owner-local DEV UI is opt-in GET/HEAD and no upload/write method',async()=>{
   const {server,port}=await startOwnerLocalV1Server();
