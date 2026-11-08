@@ -1,7 +1,7 @@
 {
   "schema": "dreamwish-wand-world-editor-localization-inventory@1",
   "status": "COMPLETE_FOR_PINNED_SOURCES",
-  "generatedAt": "2026-11-06",
+  "generatedAt": "2026-11-08",
   "target": {
     "product": "Decorate / World Editor",
     "platform": "Nintendo Switch",
@@ -24,8 +24,8 @@
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "6cede86476ca6dbd3427115671367c9a1f4a433f",
     "src/lib/SiteFooter.svelte": "4b20121a1295e42aeaeb25e39cb3853bd80da0e8",
-    "src/lib/wep/WorldEditorStage1DecoratePanel.svelte": "7bfb2981870f803c9e3adfc9e99192211325124a",
-    "src/lib/wep/world-editor-stage1-copy.js": "9dace4b7538c04a8c650f691739d0bda22f38329",
+    "src/lib/wep/WorldEditorStage1DecoratePanel.svelte": "d18a798976a2704b5cb7eb8eebd39951c328f46a",
+    "src/lib/wep/world-editor-stage1-copy.js": "a6e5efd66bcd3dac6cd9608da5592cfac646e0ab",
     "src/lib/wep/room-finish-copy.js": "f75c54053bafa416842ca17938895b20d7f47f9b",
     "src/lib/wep/world-readonly-copy.js": "0db2b06c03502f0559b2dd86984ff54aa728d832"
   },
@@ -82,7 +82,9 @@
       "errors/status/live-region presentation wrappers",
       "Decorate Stage 1 Moodboard handoff, pending placement, recovery, alignment/distribution, and precise-coordinate presentation",
       "Room Finish surface, scope, owned-picker, preview, review, verified-export and recovery presentation",
-      "Steam schema626 V1 local structural diagnostic, source/Build UNKNOWN, no Undo/Redo or Writer copy in eight launch locales"
+      "Steam schema626 V1 local structural diagnostic, source/Build UNKNOWN, no Undo/Redo or Writer copy in eight launch locales",
+      "Moodboard stale source: local item reference, group, verified Item and EditorSession/Area denial message in eight launch locales",
+      "Ephemeral Moodboard Reference/Group selection handoff survives World Editor local Draft upload and is checked against live Store at click"
     ],
     "neverTranslate": [
       "Core/WEP machine reason code",
@@ -1517,6 +1519,18 @@
           "Current Wall requires an exact active wall.",
           "Room Finish change added to the local draft.",
           "Native preservation: remove displaced stale wallpaper offset"
+        ]
+      },
+      {
+        "surface": "Stage1 Moodboard stale placement denial and live-region",
+        "source": [
+          "src/lib/wep/WorldEditorStage1DecoratePanel.svelte",
+          "src/lib/wep/world-editor-stage1-copy.js"
+        ],
+        "strings": [
+          "Stale Moodboard Item selection blocked before Draft mutation",
+          "Select verified current reference again",
+          "No persistent Save Writer / no original overwrite"
         ]
       }
     ]
