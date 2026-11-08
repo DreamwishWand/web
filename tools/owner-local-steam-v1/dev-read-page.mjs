@@ -61,7 +61,7 @@ for(const domain of ['player','world']){
     if(!opened||pageState[domain]===null)return;
     latest=++nextRequestId;
     const pageIndex=pageState[domain];
-    setEnabled(false);
+    by('player').disabled=true;by('world').disabled=true;
     show('Reading Rust-validated typed metadata (maximum 16 entries)...');
     worker.postMessage({kind:'DEV_READ_METADATA',requestId:latest,domain,pageIndex});
   });
