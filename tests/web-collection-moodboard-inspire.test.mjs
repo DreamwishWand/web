@@ -173,7 +173,7 @@ test('first-board rejects forged or invisible catalog ItemID, blank title, malfo
  }
  for(const original of ['{bad','{"schema":"WRONG","boards":[]}',fixture().text]){
   const storage=makeStorage(original);
-  assert.throws(()=>first(storage,'First'),/invalid|Unsupported|now exists/i);
+  assert.throws(()=>first(storage,'First'),/not valid JSON|Unsupported|now exists/i);
   assert.equal(storage.getItem(MOODBOARD_STORAGE_KEY),original);
   assert.equal(storage.getItem(MOODBOARD_BACKUP_KEY),null);
  }
