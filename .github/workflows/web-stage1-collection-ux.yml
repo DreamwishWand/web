@@ -44,6 +44,14 @@ jobs:
           COUNT="$(wc -l </tmp/collection-stage1-diff)"
           if test "$COUNT" -eq 1 && grep -qxF ".github/workflows/web-stage1-collection-ux.yml" /tmp/collection-stage1-diff; then
             echo WEB_STAGE1_COLLECTION_CI_POLICY_ONLY_SCOPE
+          elif test "$COUNT" -eq 4; then
+            # QA789 legacy-tab TRUE_RED containment: only the fail-closed
+            # first-board helper, its negative tests, focused Chrome and policy.
+            # No World Editor, Moodboard store, existing-board UI or auth edit.
+            for required in 'src/lib/collection/moodboard-inspire.mjs' 'tests/web-collection-moodboard-inspire.test.mjs' 'scripts/web-stage1-collection-chrome.mjs' '.github/workflows/web-stage1-collection-ux.yml'; do
+              grep -qxF "$required" /tmp/collection-stage1-diff
+            done
+            echo WEB_STAGE1_COLLECTION_FIRST_BOARD_FAILCLOSED_SCOPE4_PASS
           else
             test "$COUNT" -eq 5
             for required in 'src/routes/collection/+page.svelte' 'src/lib/collection/moodboard-inspire.mjs' 'tests/web-collection-moodboard-inspire.test.mjs' 'scripts/web-stage1-collection-chrome.mjs' '.github/workflows/web-stage1-collection-ux.yml'; do

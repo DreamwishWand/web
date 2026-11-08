@@ -42,3 +42,17 @@ export function toggleCollectionMoodboardInspiration(storage, boardId, itemId, v
   storage.setItem(MOODBOARD_STORAGE_KEY, serialized);
   return {document: next, action: existing ? 'removed' : 'added', entityId};
 }
+
+/*
+ * QAW777/QAW789 fail-closed rollout gate: an old tab can write the legacy
+ * localStorage primary between any last-read check and setItem. Web Locks
+ * only coordinate new cooperating tabs, not old/noncooperating writers.
+ * Do not enable first-board create until a versioned transactional store
+ * and safe mixed-version migration are independently accepted.
+ * Existing-board Save/Inspire above is the pre-accepted PR769 path.
+ */
+export const COLLECTION_FIRST_MOODBOARD_GATE = 'OFF_LEGACY_WRITER_NO_ATOMIC_CAS';
+export function createFirstCollectionMoodboardWithItem() {
+  // Strictly before storage access: no backup, primary write, or success.
+  throw new Error('COLLECTION_FIRST_MOODBOARD_DISABLED_LEGACY_WRITER');
+}
