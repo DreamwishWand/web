@@ -93,12 +93,12 @@
     }
   });
 
-  function toggleInfoInMoodboard(item:any):void{
+  async function toggleInfoInMoodboard(item:any):Promise<void>{
     if (!info || info.itemId!==item?.itemId || !scoped.some((row:any)=>row.itemId===item.itemId)) return;
     if (moodboardUnavailable) return;
     if (!selectedMoodboardId){moodboardStatus=inspirationCopy.noBoards;return;}
     try {
-      const outcome = toggleCollectionMoodboardInspiration(
+      const outcome = await toggleCollectionMoodboardInspiration(
         localStorage, selectedMoodboardId, item.itemId, scoped, label(item.family,$locale)
       );
       localMoodboards = outcome.document;
@@ -118,13 +118,13 @@
     }
   }
 
-  function createFirstMoodboardWithItem(item:any):void{
+  async function createFirstMoodboardWithItem(item:any):Promise<void>{
     // A visible, decoded Catalog ItemID — not a forged DOM field or personal ownership.
     if (!info || info.itemId!==item?.itemId ||
         !scoped.some((row:any)=>row.itemId===item.itemId) ||
         moodboardUnavailable || localBoards.length || !firstMoodboardTitle.trim()) return;
     try {
-      const result = createFirstCollectionMoodboardWithItem(
+      const result = await createFirstCollectionMoodboardWithItem(
         localStorage, firstMoodboardTitle, item.itemId, scoped, label(item.family,$locale)
       );
       localMoodboards = result.document;

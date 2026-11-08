@@ -19,6 +19,7 @@
     removeMoodboardReference,
     serializeMoodboardDocument
   } from '$lib/moodboards/store.js';
+  import { withExclusiveMoodboardCommit } from '$lib/moodboards/write-coordinator.mjs';
   import { createSwitchWorldReadAdapter } from '$lib/wep/world-browser-adapter';
   import { currentWorldEditorEnvironmentSupported } from '$lib/wep/world-editor-environment';
   import {
@@ -30,6 +31,7 @@
   const LIMIT=120;
   let runtimeIndex:any=null, rawRows:any[]=[], loading=true, error='', query='', family='', universe='', selectedBoardId='', status='';
   let moodboards:any=createEmptyMoodboardDocument();
+  let readRaw:string|null=null;
   let placementBinding:any=null;
   let worldEditorSupported=false;
   // GitHub Pages cannot serve direct HTTP 200 for unprerendered /<locale>/<ItemID>/.
@@ -57,7 +59,7 @@
         createSwitchWorldReadAdapter({basePath:base}).catch(()=>null)
       ]);
       runtimeIndex=loaded.index; rawRows=loaded.rows; placementBinding=binding;
-      try{const stored=localStorage.getItem(MOODBOARD_STORAGE_KEY);if(stored)moodboards=parseMoodboardDocument(stored);}catch{/* keep empty valid document */}
+      try{const stored=localStorage.getItem(MOODBOARD_STORAGE_KEY);if(stored)moodboards=parseMoodboardDocument(stored);readRaw=stored;}catch{/* keep empty valid document */}
       selectedBoardId=moodboards.boards[0]?.id ?? '';
     }catch(cause){error=cause instanceof Error?cause.message:String(cause);}finally{loading=false;}
   });
@@ -68,22 +70,22 @@
   function itemReference(item:any){return activeBoard()?.references.find((reference:any)=>reference.type==='ITEM'&&reference.entityId===String(item.itemId))??null;}
   function isInMoodboard(item:any){return Boolean(itemReference(item));}
 
-  function persistMoodboards(next:any){
-    const current=localStorage.getItem(MOODBOARD_STORAGE_KEY);
-    if(current)localStorage.setItem(MOODBOARD_BACKUP_KEY,current);
-    localStorage.setItem(MOODBOARD_STORAGE_KEY,serializeMoodboardDocument(next));
-    moodboards=next;
+  async function persistMoodboards(next:any){
+    const saved=await withExclusiveMoodboardCommit(localStorage,
+      ()=>({document:next}),{expectedRaw:readRaw});
+    readRaw=saved.committedRaw;
+    moodboards=saved.document;
   }
 
-  function toggleMoodboard(item:any){
+  async function toggleMoodboard(item:any){
     if(!selectedBoardId){status=copy.noBoards;return;}
     try{
       const existing=itemReference(item);
       if(existing){
-        persistMoodboards(removeMoodboardReference(moodboards,selectedBoardId,existing.id));
+        await persistMoodboards(removeMoodboardReference(moodboards,selectedBoardId,existing.id));
         status=copy.removed;
       }else{
-        persistMoodboards(addMoodboardReference(moodboards,selectedBoardId,{
+        await persistMoodboards(addMoodboardReference(moodboards,selectedBoardId,{
           type:'ITEM',
           label:item.label,
           entityId:String(item.itemId),

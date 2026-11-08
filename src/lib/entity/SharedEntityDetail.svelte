@@ -8,6 +8,7 @@
   import { collectionFamilyLabel } from '$lib/collection/copy.js';
   import { collectionFacetLabel, loadCollectionRuntime } from '$lib/collection/runtime.js';
   import { resolveSharedCatalogEntity, sharedEntityLabels } from '$lib/entity/shared-catalog-detail.mjs';
+  import { withExclusiveMoodboardCommit } from '$lib/moodboards/write-coordinator.mjs';
   import { addCatalogEntityToMoodboard } from '$lib/entity/entity-moodboard-action.mjs';
   import { moodboardCopy } from '$lib/moodboards/copy.js';
   import { MOODBOARD_STORAGE_KEY, MOODBOARD_BACKUP_KEY, createEmptyMoodboardDocument, parseMoodboardDocument, serializeMoodboardDocument } from '$lib/moodboards/store.js';
@@ -30,15 +31,13 @@
   $: worldNames = item && index ? item.worlds.map((x: string) => collectionFacetLabel(index,'world',x,localeCode)).filter(Boolean) : [];
   $: universeNames = item && index ? item.universes.map((x: string) => collectionFacetLabel(index,'universe',x,localeCode)).filter(Boolean) : [];
 
-  function saveToMoodboard() {
+  async function saveToMoodboard() {
     if (!outcome || outcome.status !== 'FOUND' || !('canExplore' in outcome) || !outcome.canExplore || !selectedBoardId) return;
     try {
-      // Always reload the latest local state before writing, including changes made on another Wand tab.
-      const current = localStorage.getItem(MOODBOARD_STORAGE_KEY);
-      const document = current ? parseMoodboardDocument(current) : createEmptyMoodboardDocument();
-      const result = addCatalogEntityToMoodboard(document, selectedBoardId, outcome);
-      if (current) localStorage.setItem(MOODBOARD_BACKUP_KEY, current);
-      localStorage.setItem(MOODBOARD_STORAGE_KEY, serializeMoodboardDocument(result.document));
+      const result = await withExclusiveMoodboardCommit(localStorage, latest => {
+        const saved = addCatalogEntityToMoodboard(latest, selectedBoardId, outcome);
+        return {document:saved.document};
+      });
       moodboardDocument = result.document;
       moodboardStatus = moodCopy.saved;
     } catch {

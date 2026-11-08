@@ -20,6 +20,7 @@
     serializeMoodboardDocument,
     updateMoodboardGroup
   } from '$lib/moodboards/store.js';
+  import { withExclusiveMoodboardCommit } from '$lib/moodboards/write-coordinator.mjs';
   import { currentWorldEditorEnvironmentSupported } from '$lib/wep/world-editor-environment';
   import {
     createMoodboardHandoff,
@@ -27,6 +28,7 @@
   } from '$lib/wep/world-editor-handoff';
 
   let document:any=createEmptyMoodboardDocument();
+  let readRaw:string|null=null;
   let selectedId='', filter='', status='', worldEditorSupported=false;
   let newTitle='', newDescription='', groupTitle='';
   let referenceType='ITEM', referenceLabel='', referenceEntity='', referenceNote='';
@@ -42,40 +44,50 @@
 
   onMount(()=>{
     worldEditorSupported=currentWorldEditorEnvironmentSupported();
-    try{const stored=localStorage.getItem(MOODBOARD_STORAGE_KEY);if(stored)document=parseMoodboardDocument(stored);}catch{status=copy.invalid;}
+    try{const stored=localStorage.getItem(MOODBOARD_STORAGE_KEY);if(stored)document=parseMoodboardDocument(stored);readRaw=stored;}catch{status=copy.invalid;}
     selectedId=document.boards[0]?.id??'';
   });
 
-  function persist(next:any){
-    const current=localStorage.getItem(MOODBOARD_STORAGE_KEY);
-    if(current)localStorage.setItem(MOODBOARD_BACKUP_KEY,current);
-    localStorage.setItem(MOODBOARD_STORAGE_KEY,serializeMoodboardDocument(next));
-    document=next;
-    status=copy.saved;
+  async function persist(next:any):Promise<boolean>{
+    try{
+      const saved=await withExclusiveMoodboardCommit(
+        localStorage,()=>({document:next}),{expectedRaw:readRaw}
+      );
+      readRaw=saved.committedRaw;
+      document=saved.document;
+      status=copy.saved;
+      return true;
+    }catch{
+      // Another tab changed the document or lock support is unavailable.
+      // Never acknowledge a stale write; leave the current storage untouched.
+      status=copy.invalid;
+      return false;
+    }
   }
 
-  function createBoard(){
+  async function createBoard(){
     const result=createMoodboard(document,{title:newTitle,description:newDescription});
-    persist(result.document);selectedId=result.board.id;newTitle='';newDescription='';status=copy.created;
+    if(await persist(result.document)){selectedId=result.board.id;newTitle='';newDescription='';status=copy.created;}
   }
 
-  function removeBoard(){
+  async function removeBoard(){
     if(!selected)return;
-    const next=deleteMoodboard(document,selected.id);persist(next);selectedId=next.boards[0]?.id??'';status=copy.deleted;
+    const next=deleteMoodboard(document,selected.id);
+    if(await persist(next)){selectedId=next.boards[0]?.id??'';status=copy.deleted;}
   }
 
-  function addGroup(){
+  async function addGroup(){
     if(!selected||!groupTitle.trim())return;
     const result=createMoodboardGroup(document,selected.id,groupTitle);
-    persist(result.document);groupTitle='';
+    if(await persist(result.document))groupTitle='';
   }
 
-  function toggleGroup(group:any){
+  async function toggleGroup(group:any){
     if(!selected)return;
-    persist(updateMoodboardGroup(document,selected.id,group.id,{collapsed:!group.collapsed}));
+    await persist(updateMoodboardGroup(document,selected.id,group.id,{collapsed:!group.collapsed}));
   }
 
-  function addReference(){
+  async function addReference(){
     if(!selected||!referenceLabel.trim())return;
     if((referenceType==='ITEM'||referenceType==='WAND_PRESET')&&!referenceEntity.trim()){
       status=copy.invalid;return;
@@ -83,19 +95,19 @@
     const result=addMoodboardReference(document,selected.id,{
       type:referenceType,label:referenceLabel,entityId:referenceEntity||null,note:referenceNote||null
     });
-    persist(result.document);referenceLabel='';referenceEntity='';referenceNote='';status=copy.added;
+    if(await persist(result.document)){referenceLabel='';referenceEntity='';referenceNote='';status=copy.added;}
   }
 
-  function removeReference(referenceId:string){
+  async function removeReference(referenceId:string){
     if(!selected)return;
-    persist(removeMoodboardReference(document,selected.id,referenceId));status=copy.removed;
+    if(await persist(removeMoodboardReference(document,selected.id,referenceId)))status=copy.removed;
   }
 
-  function assignGroups(reference:any,event:Event){
+  async function assignGroups(reference:any,event:Event){
     if(!selected)return;
     const select=event.currentTarget as HTMLSelectElement;
     const ids=Array.from(select.selectedOptions).map((option)=>option.value).filter(Boolean);
-    persist(assignMoodboardReferenceGroups(document,selected.id,reference.id,ids));
+    await persist(assignMoodboardReferenceGroups(document,selected.id,reference.id,ids));
   }
 
   function exportBackup(){
@@ -106,12 +118,15 @@
 
   async function importBackup(event:Event){
     const input=event.currentTarget as HTMLInputElement;const file=input.files?.[0];if(!file)return;
-    try{persist(parseMoodboardDocument(await file.text()));selectedId=document.boards[0]?.id??'';status=copy.imported;}catch{status=copy.invalid;}finally{input.value='';}
+    try{if(await persist(parseMoodboardDocument(await file.text()))){selectedId=document.boards[0]?.id??'';status=copy.imported;}}catch{status=copy.invalid;}finally{input.value='';}
   }
 
-  function restoreBackup(){
+  async function restoreBackup(){
     const previous=localStorage.getItem(MOODBOARD_BACKUP_KEY);if(!previous){status=copy.noBackup;return;}
-    try{const next=parseMoodboardDocument(previous);localStorage.setItem(MOODBOARD_STORAGE_KEY,serializeMoodboardDocument(next));document=next;selectedId=next.boards[0]?.id??'';status=copy.restored;}catch{status=copy.invalid;}
+    try{
+      const next=parseMoodboardDocument(previous);
+      if(await persist(next)){selectedId=next.boards[0]?.id??'';status=copy.restored;}
+    }catch{status=copy.invalid;}
   }
 
   async function openInWorldEditor(){
