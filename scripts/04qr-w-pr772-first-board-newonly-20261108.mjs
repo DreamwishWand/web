@@ -146,6 +146,7 @@ try{
  const choose=page.locator('[data-collection-moodboard-select]');
  assert.equal(await submit.isDisabled(),true,'no implicit first board when title empty');
  assert.equal(await page.locator('[data-collection-moodboard-toggle]').isDisabled(),true,'existing Add unavailable without board');
+ await page.setViewportSize({width:1366,height:900}); // desktop language selector is hidden on 320px
  for(const lang of ['en','fr','it','de','es-ES','ja','zh-CN','pt-BR']){
   await page.selectOption('#site-locale',lang);
   const label=moodboardCopy(lang);
@@ -153,6 +154,7 @@ try{
   assert.ok((await page.locator('[data-collection-first-moodboard]').innerText()).includes(label.titleLabel),lang);
  }
  await page.selectOption('#site-locale','ja');
+ await page.setViewportSize({width:320,height:800});
  await fit('mobile320 first board');
  await page.setViewportSize({width:640,height:900});
  await page.evaluate(()=>document.documentElement.style.zoom='2');
