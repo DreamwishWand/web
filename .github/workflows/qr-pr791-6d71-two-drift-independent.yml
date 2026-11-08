@@ -1,0 +1,70 @@
+name: 04 QR-S PR791 6d71 two-drift changed-only independent QA
+on:
+  push:
+    branches: [qa/pr791-fixed6d71-drift-newonly-20261108]
+permissions:
+  contents: read
+jobs:
+  focused-two-drift:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      DATABASE_URL: ''
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_DB_PASSWORD: ''
+      SUPABASE_PROJECT_ID: ''
+      PGHOST: ''
+      PGPASSWORD: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Freeze updated PR791 Source exactly 2 MOD, QA 2 ADD, original82 invariant
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=6d71caf0f8013a32a3fae6952e1123bf818d8576
+          OLD=c803854604fa1ec1174b7508413dafeeb2ec98ee
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git diff --name-only "$SOURCE" HEAD | sort >/tmp/qr791qa
+          printf '%s\n' \
+            .github/workflows/qr-pr791-6d71-two-drift-independent.yml \
+            tests/qr-pr791-6d71-two-drift-fixes-independent.test.mjs | sort >/tmp/qr791qa-expected
+          diff -u /tmp/qr791qa-expected /tmp/qr791qa
+          git diff --name-only "$OLD" "$SOURCE" | sort >/tmp/qr791-source2
+          printf '%s\n' \
+            scripts/comm-stage116-privilege-lineage-readonly.mjs \
+            tests/comm-stage116-privilege-lineage-readonly.test.mjs | sort >/tmp/qr791-source2-expected
+          diff -u /tmp/qr791-source2-expected /tmp/qr791-source2
+          test "$(git hash-object scripts/comm-stage116-privilege-lineage-readonly.mjs)" = 355a9baaa2e3bc5333ad0d331dd63e8d8f3ca9a9
+          test "$(git hash-object tests/comm-stage116-privilege-lineage-readonly.test.mjs)" = 11fcb36ed6ff5f3de4511bc59930c364be3dbaec
+          test "$(git hash-object docs/community/stage116-nine-definer-six-legacy-grants-hold-20261108.md)" = 4e9574793c74d85cb24ebee5f276889041354d2c
+          test "$(git hash-object supabase/migrations/20260930025132_community_core_v0_server_rpc.sql)" = bbf9bc830440d964c5da8b3c3cac7e926d281881
+          test -z "$(git diff --name-only "$SOURCE" HEAD -- src supabase scripts docs)"
+          test -z "$DATABASE_URL" && test -z "$SUPABASE_ACCESS_TOKEN" &&
+            test -z "$SUPABASE_DB_PASSWORD" && test -z "$SUPABASE_PROJECT_ID" &&
+            test -z "$PGHOST" && test -z "$PGPASSWORD"
+          echo QR791FIX_FIXED_SOURCE_TWO_MOD_QA_TWO_ADD_NO_DB_PASS
+      - name: Independent repaired regression cases only - not prior accepted six tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/qr-pr791-6d71-two-drift-fixes-independent.test.mjs | tee /tmp/qr791fixed.log
+          for marker in \
+            QR791FIX_FIXED_TWO_MOD_BLOBS_NO_SECRET_DB_OR_MIGRATION_PASS \
+            QR791FIX_SIX_STAGED_LEGACY_SEARCHPATH_MUTATIONS_NAMED_DRIFT_PASS \
+            QR791FIX_NINE_SANDBOX_DEFINERS_27_FINGERPRINT_PATH_GRANT_DRIFTS_NAMED_PASS \
+            QR791FIX_AUTHENTIC_AND_FABRICATED_COMPLETE_STAGE116_ALWAYS_HOLD_ALL14_OFF_PASS; do
+            grep -q "$marker" /tmp/qr791fixed.log
+          done
+          echo QR791FIX_NEW_ONLY_FOUR_FOCUSED_CASES_SCOPED_PASS
+      - name: Remove synthetic local evidence, never contact managed Postgres
+        if: always()
+        shell: bash
+        run: |
+          rm -f /tmp/qr791qa /tmp/qr791qa-expected /tmp/qr791-source2 /tmp/qr791-source2-expected /tmp/qr791fixed.log
+          echo QR791FIX_SYNTHETIC_TEMP_REMOVED
