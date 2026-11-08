@@ -1,3 +1,33 @@
+/**
+ * The ephemeral handoff is a selection identity, not just a Board locator.
+ * A different tab can replace the pending Reference while retaining the same
+ * Board; never let the old verified Item be placed for that new user intent.
+ *
+ * @param {any} live
+ * @param {any} selected
+ * @param {{referenceId:string|null, groupId:string|null}} pending
+ */
+export function verifyCurrentMoodboardHandoffIdentity(
+  live, selected, { referenceId, groupId }
+) {
+  if (selected?.sourceSurface !== 'moodboard' ||
+      selected.intent !== 'MOODBOARD' ||
+      live?.sourceSurface !== 'moodboard' ||
+      live.intent !== 'MOODBOARD' ||
+      live.boardId !== selected.boardId ||
+      live.referenceId !== referenceId ||
+      selected.referenceId !== referenceId ||
+      live.groupId !== groupId ||
+      selected.groupId !== groupId ||
+      live.createdAt !== selected.createdAt ||
+      live.persistentWriteAuthorized !== false ||
+      live.productApplyAuthorized !== false ||
+      live.directSourceReplacementAuthorized !== false) {
+    throw new Error('WEP_MOODBOARD_STALE_HANDOFF_IDENTITY');
+  }
+  return true;
+}
+
 import {
   MOODBOARD_SCHEMA,
   MOODBOARD_VERSION,
