@@ -24,7 +24,7 @@
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "6cede86476ca6dbd3427115671367c9a1f4a433f",
     "src/lib/SiteFooter.svelte": "4b20121a1295e42aeaeb25e39cb3853bd80da0e8",
-    "src/lib/wep/WorldEditorStage1DecoratePanel.svelte": "3e1488ddfce79b1ca4c6694d7d0bf57a5ff72773",
+    "src/lib/wep/WorldEditorStage1DecoratePanel.svelte": "0fd1395ae3b67fe6142042bfb041c6e1cd8f85c9",
     "src/lib/wep/world-editor-stage1-copy.js": "a6e5efd66bcd3dac6cd9608da5592cfac646e0ab",
     "src/lib/wep/room-finish-copy.js": "f75c54053bafa416842ca17938895b20d7f47f9b",
     "src/lib/wep/world-readonly-copy.js": "0db2b06c03502f0559b2dd86984ff54aa728d832"
@@ -83,7 +83,8 @@
       "Decorate Stage 1 Moodboard handoff, pending placement, recovery, alignment/distribution, and precise-coordinate presentation",
       "Room Finish surface, scope, owned-picker, preview, review, verified-export and recovery presentation",
       "Steam schema626 V1 local structural diagnostic, source/Build UNKNOWN, no Undo/Redo or Writer copy in eight launch locales",
-      "Moodboard stale source: local item reference, group, verified Item and EditorSession/Area denial message in eight launch locales"
+      "Moodboard stale source: local item reference, group, verified Item and EditorSession/Area denial message in eight launch locales",
+      "Ephemeral Moodboard Reference/Group selection handoff survives World Editor local Draft upload and is checked against live Store at click"
     ],
     "neverTranslate": [
       "Core/WEP machine reason code",
