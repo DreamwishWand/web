@@ -120,15 +120,17 @@ impl SpatialCandidateIndex {
                 return Err(denied("SPATIAL_FOOTPRINT_INVALID"));
             }
             let bounds = grid.proposed_bounds.ok_or(denied("SPATIAL_BOUNDS_UNKNOWN"))?;
-            let x = u64::try_from(object.serialized_x)
-                .map_err(|_| denied("SPATIAL_COORDINATE_NEGATIVE"))?;
-            let y = u64::try_from(object.serialized_y)
-                .map_err(|_| denied("SPATIAL_COORDINATE_NEGATIVE"))?;
-            let x_end = x.checked_add(u64::from(foot.width))
+            if object.serialized_x < 0 || object.serialized_y < 0 {
+                return Err(denied("SPATIAL_COORDINATE_NEGATIVE"));
+            }
+            // Coords are i64 in the native-shaped record. Check addition in
+            // that SAME domain before comparing against asserted grid bounds.
+            let x_end = object.serialized_x.checked_add(i64::from(foot.width))
                 .ok_or(denied("SPATIAL_FOOTPRINT_OVERFLOW"))?;
-            let y_end = y.checked_add(u64::from(foot.height))
+            let y_end = object.serialized_y.checked_add(i64::from(foot.height))
                 .ok_or(denied("SPATIAL_FOOTPRINT_OVERFLOW"))?;
-            if x_end > u64::from(bounds.width) || y_end > u64::from(bounds.height) {
+            if u64::try_from(x_end).map_err(|_| denied("SPATIAL_FOOTPRINT_OVERFLOW"))? > u64::from(bounds.width)
+                || u64::try_from(y_end).map_err(|_| denied("SPATIAL_FOOTPRINT_OVERFLOW"))? > u64::from(bounds.height) {
                 return Err(denied("SPATIAL_FOOTPRINT_OUT_OF_BOUNDS"));
             }
             if object_by_key.insert(object.key, *object).is_some() {
