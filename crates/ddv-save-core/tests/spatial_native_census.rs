@@ -134,3 +134,52 @@ fn candidate_cannot_prove_native_build_or_checked_ids_and_rejects_wrong_build(){
     let r=index.compare_core_native_area_grid_census(&s,scope(&s)).unwrap();
     assert!(!r.source_platform_provenance_verified);
 }
+
+#[test]
+fn qrc822_red_cross_platform_same_schema_same_document_must_reject() {
+    // QA #822 TRUE_RED: the exact same JSON and count must NOT fuse builds.
+    let steam_build=BuildIdentity{
+        platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+        build_id:"releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22".into(),
+        schema:626,externally_attested:true
+    };
+    let steam=ProductSession::open_decoded_readonly(
+        VALID.as_bytes().to_vec(),steam_build
+    ).unwrap();
+    let (index,..)=candidate(&steam); // candidate declares Switch v1.25.3.
+    assert_eq!(
+        index.compare_core_native_area_grid_census(&steam,scope(&steam))
+            .unwrap_err().0,
+        "SPATIAL_NATIVE_BUILD_IDENTITY_MISMATCH"
+    );
+    // A same Build + same Session + revision/gen/hash still yields only a
+    // cardinality diagnostic, never source ID or product authorization.
+    let switch=session(VALID);
+    let (index,..)=candidate(&switch);
+    let receipt=index.compare_core_native_area_grid_census(
+        &switch,scope(&switch)
+    ).unwrap();
+    assert!(receipt.same_session_census_counts_match);
+    assert!(!receipt.candidate_native_ids_authenticated);
+    assert!(!receipt.source_platform_provenance_verified);
+    assert!(!receipt.native_footprint_bounds_verified);
+    assert!(!receipt.full_native_reference_closure_verified);
+    assert!(!receipt.product_read_accepted);
+    assert!(!receipt.writer_authorized);
+}
+#[test]
+fn qrc822_same_schema_wrong_bid_fullversion_at_open_denied_not_assumed_equal() {
+    let mut wrong=build();
+    wrong.build_id="52BD625D9B4E0053".into();
+    assert!(ProductSession::open_decoded_readonly(
+        VALID.as_bytes().to_vec(),wrong
+    ).is_err());
+    let wrong=BuildIdentity{
+        platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+        build_id:"releases_1.25-v1.25.3-OTHER".into(),
+        schema:626,externally_attested:true
+    };
+    assert!(ProductSession::open_decoded_readonly(
+        VALID.as_bytes().to_vec(),wrong
+    ).is_err());
+}
