@@ -84,6 +84,10 @@ pub struct SpatialNativeCensusReceipt {
 }
 pub struct SpatialCandidateIndex {
     scope: SpatialScope,
+    // Exactly the declaration validated at candidate construction. Preserve
+    // it only in the native-only build where source equality is checked.
+    #[cfg(feature="private-native-v1")]
+    candidate_build: BuildIdentity,
     counts: SpatialCandidateCounts,
     by_object: HashMap<SpatialObjectKey, SpatialReadWitness>,
     pub graph_references_checked: bool,
@@ -236,6 +240,8 @@ impl SpatialCandidateIndex {
         }
         Ok(Self {
             scope,
+            #[cfg(feature="private-native-v1")]
+            candidate_build:build.clone(),
             counts: SpatialCandidateCounts {
                 areas: areas.len(), grids: grids.len(),
                 direct_area_grid_links: root_link_count,
@@ -262,14 +268,18 @@ impl SpatialCandidateIndex {
         }
         // 01A validates the live Rust-owned SessionID/revision/generation/SHA
         // while scanning borrowed original bytes under its own lock.
-        let native = session.verify_native_area_grid_slice(WorkerEnvelope {
+        let envelope = WorkerEnvelope {
             contract: PRODUCT_WORKER_CONTRACT,
             session_id: scope.session_id,
             expected_revision: scope.revision,
             expected_index_generation: scope.index_generation,
             expected_decoded_sha256: scope.decoded_sha256,
             action: WorkerAction::ReadDomain,
-        })?;
+        };
+        // 01A owns the immutable open-time Build declaration and source CAS.
+        // A same-schema Steam Session must NEVER validate a Switch candidate.
+        session.verify_native_source_build_matches(envelope,&self.candidate_build)?;
+        let native = session.verify_native_area_grid_slice(envelope)?;
         if native.village_records <= self.counts.highest_village_index ||
             native.area_records != self.counts.areas ||
             native.grid_records != self.counts.grids ||
