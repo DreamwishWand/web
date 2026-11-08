@@ -1,0 +1,71 @@
+// 08 WEB first Account UI in actual installed Chrome. Unconfigured staging must
+// remain visibly OFF; no live signup, no public profile, no private bytes.
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright-core';
+import {firstAccountCopy} from '../src/lib/account-ui/copy.mjs';
+const bin=process.env.CHROME_BIN;
+if(!bin)throw Error('CHROME_BIN_REQUIRED');
+const origin=(process.env.WAND_ACCOUNT_URL||'http://127.0.0.1:4292').replace(/\/$/,'');
+const browser=await chromium.launch({executablePath:bin,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+const context=await browser.newContext({viewport:{width:1366,height:900},serviceWorkers:'block'});
+const page=await context.newPage();
+const errors=[],writes=[];
+page.on('pageerror',e=>errors.push(String(e)));
+context.on('request',r=>{
+ if(r.method()!=='GET'||new URL(r.url()).origin!==origin)writes.push(r.method()+' '+r.url());
+});
+const locales=['en','fr','it','de','es-ES','ja','zh-CN','pt-BR'];
+const fit=async label=>{
+ const info=await page.evaluate(()=>({w:document.documentElement.clientWidth,scroll:document.documentElement.scrollWidth}));
+ assert.ok(info.scroll<=info.w+2,label+' '+JSON.stringify(info));
+};
+try{
+ await page.goto(origin+'/account/',{waitUntil:'domcontentloaded'});
+ const root=page.locator('[data-account-entry]');
+ await root.waitFor();
+ assert.equal(await root.getAttribute('data-account-test-runtime'),'off');
+ assert.equal(await root.getAttribute('data-account-public'),'off');
+ assert.equal(await root.getAttribute('data-private-library'),'off');
+ assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'),'noindex,nofollow');
+ assert.equal(await page.locator('[data-first-account-register]').isDisabled(),true);
+ assert.equal(await page.locator('[data-first-account-login]').isDisabled(),true);
+ assert.equal(await page.locator('[data-first-account-logout]').count(),0);
+ assert.equal(await page.locator('form[data-first-account-form] fieldset').isDisabled(),true);
+ for(const locale of locales){
+  await page.selectOption('#site-locale',locale);
+  await page.waitForFunction(code=>document.documentElement.dataset.locale===code,locale);
+  assert.equal(await page.locator('h1').first().innerText(),firstAccountCopy(locale).title);
+  assert.equal(await page.locator('[data-account-off]').innerText(),firstAccountCopy(locale).off);
+ }
+ console.log('WEB_FIRST_ACCOUNT_EIGHT_LOCALE_OFF_AND_EMAIL_CONFIRM_UI_PASS');
+
+ await page.goto(origin+'/library/',{waitUntil:'domcontentloaded'});
+ const library=page.locator('[data-library-private-authorized="false"]');
+ await library.waitFor();
+ assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'),'noindex,nofollow');
+ assert.equal(await library.getAttribute('data-library-content'),'off');
+ assert.equal(await library.getAttribute('data-private-account-id'),'');
+ assert.equal(await page.locator('[data-first-account-email]').count(),0);
+ assert.equal(await library.locator('a[href$="/account/"]').count(),1);
+ for(const locale of locales){
+  await page.selectOption('#site-locale',locale);
+  await page.waitForFunction(code=>document.documentElement.dataset.locale===code,locale);
+  assert.ok((await library.innerText()).includes(firstAccountCopy(locale).libraryOff));
+ }
+ console.log('WEB_FIRST_ACCOUNT_PRIVATE_LIBRARY_NO_DATA_NOINDEX_EIGHT_LOCALE_PASS');
+
+ for(const width of [320,640]){await page.setViewportSize({width,height:800});await fit('library-'+width);}
+ await page.setViewportSize({width:640,height:900});
+ await page.evaluate(()=>document.documentElement.style.zoom='2');
+ await fit('library-200percent');
+ const link=page.locator('[data-library-private-authorized="false"] a[href$="/account/"]');
+ await link.focus();
+ assert.equal(await page.evaluate(()=>document.activeElement?.tagName),'A');
+ await page.keyboard.press('Enter');
+ await page.waitForURL(/\/account\/$/);
+ assert.equal(await page.locator('[data-account-entry]').getAttribute('data-account-test-runtime'),'off');
+ console.log('WEB_FIRST_ACCOUNT_320_ZOOM200_KEYBOARD_FOCUS_PASS');
+ assert.deepEqual(writes,[],'unconfigured Account never posts/Auth/Uploads');
+ assert.deepEqual(errors,[],'no JS errors');
+ console.log('WEB_FIRST_ACCOUNT_UNCONFIGURED_ZERO_POST_ZERO_PRIVATE_LEAK_PASS');
+}finally{await context.close();await browser.close();}
