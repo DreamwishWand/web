@@ -8,6 +8,9 @@ const root=resolve(fileURLToPath(new URL('../../',import.meta.url)));
 const staticOwner=new Set([
   '/tools/owner-local-steam-v1/index.html',
   '/tools/owner-local-steam-v1/page.mjs',
+  '/tools/owner-local-steam-v1/dev-read.html',
+  '/tools/owner-local-steam-v1/dev-read-page.mjs',
+  '/tools/owner-local-steam-v1/dev-read.worker.mjs',
   '/tools/owner-local-steam-v1/worker.mjs',
   '/tools/owner-local-steam-v1/worker-core.mjs',
   '/tools/owner-local-steam-v1/attestation.mjs',
@@ -23,6 +26,9 @@ const staticCi=new Set([
   '/tests/stage-g/index.html',
   '/tests/stage-g/page.mjs',
   '/tests/stage-g/worker.mjs',
+  '/tests/stage-h/index.html',
+  '/tests/stage-h/page.mjs',
+  '/tests/stage-h/worker.mjs',
   '/tests/stage-f/fixtures/synthetic626.p1g',
   '/tests/stage-f/fixtures/expected.json'
 ]);
