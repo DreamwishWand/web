@@ -35,6 +35,11 @@ const HEX=/^[0-9a-f]{64}$/;
 const ITEM=/^[1-9][0-9]{0,15}$/;
 const baseOk=base=>typeof base==='string'&&/^\/?(?:[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*)?$/.test(base);
 const owns=(object,key)=>Object.prototype.hasOwnProperty.call(object,key);
+function exactKeys(value,keys){
+ if(!value||typeof value!=='object'||Array.isArray(value))return false;
+ const actual=Object.keys(value);
+ return actual.length===keys.length&&keys.every(key=>owns(value,key));
+}
 const fail=(name)=>{throw new TypeError('SWITCH1253_ITEM_IMAGE_'+name);};
 function exactTarget(value){
  return value?.platform===SWITCH1253_TARGET.platform &&
@@ -43,7 +48,10 @@ function exactTarget(value){
    value?.schema===SWITCH1253_TARGET.schema;
 }
 function reviewedReleaseOn(release){
- return release?.mediaPublic===true &&
+ return exactKeys(release,[
+   'mediaPublic','rightsHolderLicense','rightsReview','receivingContact',
+   'takedown','managedHttps','items'
+ ]) && release?.mediaPublic===true &&
    release.rightsHolderLicense==='DOCUMENTED_SCOPE_LICENSE' &&
    release.rightsReview==='OPERATOR_ACCEPTED' &&
    release.receivingContact==='MANAGED_VERIFIED' &&
@@ -71,6 +79,14 @@ export function validateSwitch1253ItemImageCatalog(raw,reviewedRelease=SWITCH125
     raw.publication?.takedown!=='MANAGED_TESTED'||
     raw.publication?.receivingContact!=='MANAGED_VERIFIED')
    fail('MANIFEST_PUBLICATION_UNVERIFIED');
+ if(!exactKeys(raw,[
+     'schema','assetVariant','codec','format','lossless','source','target',
+     'publication','items'
+   ]) || !exactKeys(raw.target,['platform','gameVersion','buildID','schema']) ||
+   !exactKeys(raw.source,['platform','gameVersion','buildID','schema','originalBundleSha256']) ||
+   !exactKeys(raw.publication,[
+     'gate','rightsReview','managedHttps','takedown','receivingContact'
+   ]))fail('UNKNOWN_ROOT_SOURCE_TARGET_OR_PUBLICATION_FIELDS');
  if(!raw.items||typeof raw.items!=='object'||Array.isArray(raw.items))
    fail('MAPPING_INVALID');
  const keys=Object.keys(raw.items);
@@ -82,6 +98,11 @@ export function validateSwitch1253ItemImageCatalog(raw,reviewedRelease=SWITCH125
       !owns(reviewedRelease.items,id)||!owns(SWITCH1253_NATIVE_PINS,id)||
       !e||typeof e!=='object'||Array.isArray(e)||
       !trusted||typeof trusted!=='object'||Array.isArray(trusted)||
+      !exactKeys(trusted,['originalNativeStreamSha256','sourcePngSha256',
+        'webpSha256','rightsStatus'])||
+      !exactKeys(e,['originalNativeStreamSha256','sourcePngSha256',
+        'webpSha256','rasterStatus','pixelStatus','visibility','rightsStatus',
+        'assetStatus'])||
       !pin||pin.rasterStatus!=='SWITCH_DXT5_RGBA_EXACT_PRIVATE'||
       e.originalNativeStreamSha256!==pin.originalNativeStreamSha256||
       e.sourcePngSha256!==pin.sourcePngSha256||

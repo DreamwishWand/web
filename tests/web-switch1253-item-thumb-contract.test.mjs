@@ -138,3 +138,34 @@ test('existing shared ItemThumb is the only Collection/Explore/Detail renderer; 
  assert.match(script,/SWITCH1253_ITEMTHUMB_PUBLIC_MEDIA_OFF_PLACEHOLDER/);
  assert.doesNotMatch(thumb+prefs,/FileReader|indexedDB|autoUpload|readAsDataURL/);
 });
+
+
+test('QA802 regression: undeclared root/publication/source/item/release media fields fail closed',()=>{
+ const injected=[
+  {section:'root',key:'assetUrl',value:'https://assets.invalid/40006096.webp'},
+  {section:'root',key:'mediaPublic',value:true},
+  {section:'root',key:'publicImagesEnabled',value:true},
+  {section:'root',key:'publicItemEligibility',value:'PUBLIC'},
+  {section:'root',key:'images',value:{'40006096':{url:'https://assets.invalid/img.png'}}},
+  {section:'source',key:'generation',value:'R39'},
+  {section:'target',key:'unknownBidAlias',value:'9A239D3DB569756D'},
+  {section:'publication',key:'imageUrl',value:'https://assets.invalid/img.webp'},
+  {section:'item',key:'mediaPublic',value:true},
+  {section:'item',key:'url',value:'https://assets.invalid/img.webp'},
+  {section:'release',key:'assetUrl',value:'https://assets.invalid/img.webp'}
+ ];
+ for(const {section,key,value} of injected){
+   const m=manifest(),review=approvedRelease();
+   if(section==='root')m[key]=value;
+   if(section==='source')m.source[key]=value;
+   if(section==='target')m.target[key]=value;
+   if(section==='publication')m.publication[key]=value;
+   if(section==='item')m.items[item][key]=value;
+   if(section==='release')review[key]=value;
+   assert.throws(
+     ()=>validateSwitch1253ItemImageCatalog(m,review),
+     /SWITCH1253_ITEM_IMAGE_(UNKNOWN_ROOT|ITEM_ID|MEDIA_RIGHTS)/,
+     section+' '+key+' must never be accepted'
+   );
+ }
+});
