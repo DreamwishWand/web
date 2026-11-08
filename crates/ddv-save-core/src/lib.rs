@@ -14,6 +14,8 @@ mod strict_document;
 compile_error!("synthetic-stage-b must not be linked into WASM/Worker release");
 #[cfg(feature = "synthetic-stage-b")]
 pub use product_session::{SyntheticChangeSet, SyntheticStageReceipt, SyntheticExportReceipt};
+#[cfg(feature = "private-native-v1")]
+pub use product_session::NativeAreaGridSliceReceipt;
 #[cfg(feature = "private-native-v2")]
 pub use product_session::PrivateOfflineReceipt;
 #[cfg(feature = "indexed-read")]
