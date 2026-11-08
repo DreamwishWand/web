@@ -1,0 +1,47 @@
+name: "04 QR-W PR801 Switch1253 ItemThumb independent Web Chrome"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/04qr-w-pr801-switch1253-itemthumb-newonly-20261108.yml"
+      - "scripts/04qr-w-pr801-switch1253-itemthumb-newonly-20261108.mjs"
+permissions:
+  contents: read
+jobs:
+  independent-switch1253-itemthumb:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies for isolated Chrome
+        run: |
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Install Chrome and start localhost Vite, no Save input
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${DDV_PRIVATE_SAVE_PATH:-}"
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          test -n "$BIN" || { echo 'NOT_RUN: actual installed Chrome unavailable'; exit 1; }
+          "$BIN" --version
+          echo "CHROME_BIN=$BIN" >> "$GITHUB_ENV"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4305 >/tmp/04qrw801-vite.log 2>&1 &
+          for i in $(seq 1 80); do
+            if curl -fsS http://127.0.0.1:4305/collection/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/04qrw801-vite.log
+          exit 1
+      - name: Frozen Source6 QA2 and synthetic denied manifest plus independent actual Chrome
+        env:
+          QRW801_ORIGIN: http://127.0.0.1:4305
+        run: node scripts/04qr-w-pr801-switch1253-itemthumb-newonly-20261108.mjs
