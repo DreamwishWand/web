@@ -199,7 +199,7 @@ try {
   // Only one new layout-sensitive smoke: selection timestamp tampered at 200% viewport640.
   await page.goto(origin+'/moodboards/',{waitUntil:'domcontentloaded'});
   await page.getByRole('button',{name:'Open in World Editor'}).click();
-  await page.waitForURL(/\\/editor\\/world\\/?$/,{timeout:20000});
+  await page.waitForURL(/\/editor\/world\/?$/,{timeout:20000});
   const stalePanel=page.locator('[data-wep-decorate-stage1]');
   await stalePanel.locator('.reference-main').filter({hasText:'Stage 1 Furniture'}).click();
   await page.locator('.load-panel input[type=file]').setInputFiles({
