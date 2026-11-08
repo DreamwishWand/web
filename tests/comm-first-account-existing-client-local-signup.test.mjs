@@ -63,8 +63,7 @@ function verifySyntheticAccess(token) {
 }
 function makeFixture() {
   const users=new Map([
-    ['owner@example.invalid',{id:A_ID,accountId:A_ACCOUNT,profileId:A_PROFILE,
-       email:'owner@example.invalid',confirmed:false,revoked:false,password:PASSWORD}],
+    // No owner account exists at fixture creation: the first one must sign up.
     ['other@example.invalid',{id:B_ID,accountId:B_ACCOUNT,profileId:B_PROFILE,
        email:'other@example.invalid',confirmed:true,revoked:false,password:PASSWORD}]
   ]);
@@ -199,8 +198,11 @@ test('Q01 actual accepted client sends registration without login; email confirm
 
 test('Q02 confirmed owner current session receives only own fixture record, not public /users authorization',async t=>{
   const {fixture,client}=installFixture(t);
-  fixture.confirm('owner@example.invalid');
   const a=client();
+  const signup=await a.signUpWithPassword('owner@example.invalid',PASSWORD);
+  assert.equal(signup.requiresEmailConfirmation,true);
+  assert.equal(a.session,null);
+  fixture.confirm('owner@example.invalid');
   const s=await a.signInWithPassword('owner@example.invalid',PASSWORD);
   assert.equal(s.userId,A_ID);
   assert.equal(s.email,'owner@example.invalid');
@@ -235,8 +237,9 @@ test('Q03 B verified signed session cannot force A ownership via client-supplied
 
 test('Q04 logout locally clears client and synthetic fixture revokes access and refresh',async t=>{
   const {fixture,client,store}=installFixture(t);
-  fixture.confirm('owner@example.invalid');
   const a=client();
+  await a.signUpWithPassword('owner@example.invalid',PASSWORD);
+  fixture.confirm('owner@example.invalid');
   const signed=await a.signInWithPassword('owner@example.invalid',PASSWORD);
   const token=signed.accessToken;
   await a.signOut();
@@ -254,8 +257,9 @@ test('Q04 logout locally clears client and synthetic fixture revokes access and 
 
 test('Q05 revoked/refreshed identity never yields profile data or fixture write',async t=>{
   const {fixture,client}=installFixture(t);
-  fixture.confirm('owner@example.invalid');
   const a=client();
+  await a.signUpWithPassword('owner@example.invalid',PASSWORD);
+  fixture.confirm('owner@example.invalid');
   await a.signInWithPassword('owner@example.invalid',PASSWORD);
   const before=fixture.writes;
   fixture.revoke('owner@example.invalid');
@@ -283,7 +287,8 @@ test('Q06 malformed or incomplete credentials and unapproved URLs fail before an
 });
 
 test('Q07 expired and altered signatures do not prove ownership even if client carries prior token',async t=>{
-  const {fixture}=installFixture(t);
+  const {fixture,client}=installFixture(t);
+  await client().signUpWithPassword('owner@example.invalid',PASSWORD);
   fixture.confirm('owner@example.invalid');
   const fake=fixture.makeSession(fixture.users.get('owner@example.invalid'));
   const [header,payload,sig]=fake.access_token.split('.');
