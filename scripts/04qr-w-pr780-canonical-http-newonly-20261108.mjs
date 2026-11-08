@@ -19,7 +19,7 @@ const sourceBlobs=new Map([
  ['scripts/web-canonical-domain-preflight-chrome.mjs','492c33186477f218a19f0d1ef0202c53484ef6f8'],
  ['src/lib/foundation/canonical-domain-preview.mjs','bb6b7354a19f896bde3c92bcc6d8cb905b983cf7'],
  ['src/routes/+layout.server.js','445554fd27f3ab7425301fb7d457c366d3810377'],
- ['src/routes/+layout.svelte','c851f4aee9beb40e823d101550e316612f456b4'],
+ ['src/routes/+layout.svelte','c851f4aee9beb40e823d101550e316612f456b4b'],
  ['tests/web-canonical-domain-preflight.test.mjs','31fa1cd29b6e7ddc2a6960c5b3c9df0a4d83cce5']
 ]);
 const qaOnly=[
