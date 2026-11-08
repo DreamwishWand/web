@@ -39,30 +39,24 @@ try{
  }
  console.log('WEB_FIRST_ACCOUNT_EIGHT_LOCALE_OFF_AND_EMAIL_CONFIRM_UI_PASS');
 
- await page.goto(origin+'/library/',{waitUntil:'domcontentloaded'});
- const library=page.locator('[data-library-private-authorized="false"]');
- await library.waitFor();
- assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'),'noindex,nofollow');
- assert.equal(await library.getAttribute('data-library-content'),'off');
- assert.equal(await library.getAttribute('data-private-account-id'),'');
- assert.equal(await page.locator('[data-first-account-email]').count(),0);
- assert.equal(await library.locator('a[href$="/account/"]').count(),1);
+ // The private Library has NO static route (host contract keeps direct 404).
+ // Assert visible denial on the Account page without inventing Library HTTP200.
  for(const locale of locales){
   await page.selectOption('#site-locale',locale);
   await page.waitForFunction(code=>document.documentElement.dataset.locale===code,locale);
-  assert.ok((await library.innerText()).includes(firstAccountCopy(locale).libraryOff));
+  assert.ok((await page.locator('[data-account-private-warning]').innerText()).includes(firstAccountCopy(locale).libraryOff));
+  assert.ok((await page.locator('[data-private-library-route-off]').innerText()).includes(firstAccountCopy(locale).library));
  }
- console.log('WEB_FIRST_ACCOUNT_PRIVATE_LIBRARY_NO_DATA_NOINDEX_EIGHT_LOCALE_PASS');
+ assert.equal(await page.locator('a[href="/library/"]').count(),0);
+ console.log('WEB_FIRST_ACCOUNT_LIBRARY_STATIC_ROUTE_OFF_EIGHT_LOCALE_PASS');
 
- for(const width of [320,640]){await page.setViewportSize({width,height:800});await fit('library-'+width);}
+ for(const width of [320,640]){await page.setViewportSize({width,height:800});await fit('account-'+width);}
  await page.setViewportSize({width:640,height:900});
  await page.evaluate(()=>document.documentElement.style.zoom='2');
- await fit('library-200percent');
- const link=page.locator('[data-library-private-authorized="false"] a[href$="/account/"]');
+ await fit('account-200percent');
+ const link=page.locator('a:visible').first();
  await link.focus();
  assert.equal(await page.evaluate(()=>document.activeElement?.tagName),'A');
- await page.keyboard.press('Enter');
- await page.waitForURL(/\/account\/$/);
  assert.equal(await page.locator('[data-account-entry]').getAttribute('data-account-test-runtime'),'off');
  console.log('WEB_FIRST_ACCOUNT_320_ZOOM200_KEYBOARD_FOCUS_PASS');
  assert.deepEqual(writes,[],'unconfigured Account never posts/Auth/Uploads');

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 import {firstAccountCopy,FIRST_ACCOUNT_COPY} from '../src/lib/account-ui/copy.mjs';
 import {
  FIRST_ACCOUNT_UI_OPERATION,FIRST_ACCOUNT_PUBLIC_ENABLED,PUBLIC_PROFILE_RUNTIME_ACCEPTED,
@@ -10,7 +10,7 @@ import {
 } from '../src/lib/account-ui/test-contract.mjs';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const account=read('src/routes/account/+page.svelte');
-const library=read('src/routes/library/+page.svelte');
+
 const key='sb_publishable_12345678';
 const gate=(args={})=>resolveFirstAccountTestGate({flag:'OWNER_DISPOSABLE_STAGING_TEST',
  hostname:'localhost',supabaseUrl:OWNER_DISPOSABLE_STAGING_AUTH_ORIGIN,publishableKey:key,...args});
@@ -84,7 +84,7 @@ test('other Account, stale session, missing profile and revoked token cannot sho
  assert.equal(client.session,null);
 });
 
-test('Account and Library 8-locale public OFF/noindex and no private data in static shell',()=>{
+test('Account 8-locale public OFF/noindex and private /library route remains absent until signed host RLS',()=>{
  const locales=['en','fr','it','de','es-ES','ja','zh-CN','pt-BR'];
  assert.equal(Object.keys(FIRST_ACCOUNT_COPY).length,8);
  for(const locale of locales){
@@ -95,17 +95,18 @@ test('Account and Library 8-locale public OFF/noindex and no private data in sta
   }
  }
  assert.match(account,/<meta name="robots" content="noindex,nofollow"/);
- assert.match(library,/<meta name="robots" content="noindex,nofollow"/);
  for(const marker of ['data-account-public="off"','data-private-library="off"',
   'data-first-account-form','data-first-account-register','data-first-account-login',
   'data-first-account-logout','data-account-off','data-first-account-state']){
   assert.ok(account.includes(marker),marker);
  }
- for(const marker of ['data-library-private-authorized="false"','data-library-content="off"',
-  'data-private-account-id=""','href={base+\'/account/\'}']){
-  assert.ok(library.includes(marker),marker);
- }
- assert.doesNotMatch(library,/sessionStorage|localStorage|fetch\(|Authorization|query\(|JWT|accessToken/);
+ assert.match(account,/data-private-library-route-off/);
+ assert.match(account,/data-account-private-warning/);
+ assert.ok(!existsSync(new URL('../src/routes/library/+page.svelte',import.meta.url)),
+  'no static private 200 shell before managed signed Auth/RLS');
+ assert.ok(!existsSync(new URL('../src/routes/users/[handle]/+page.svelte',import.meta.url)));
+ assert.doesNotMatch(account,/href=\{base\+'\/library\/'\}/);
+
  assert.doesNotMatch(account,/JSON\.stringify\(session|accessToken\}|refreshToken\}|console\.log/);
  assert.doesNotMatch(account,/srcset|<img|cloudUpload|publishGallery|createGalleryDraft/);
 });

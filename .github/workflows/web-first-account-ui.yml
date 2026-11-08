@@ -8,7 +8,6 @@ on:
       - 'src/lib/account-ui/test-contract.mjs'
       - 'src/lib/account-ui/copy.mjs'
       - 'src/routes/account/+page.svelte'
-      - 'src/routes/library/+page.svelte'
       - 'tests/web-first-account-local-ui.test.mjs'
       - 'scripts/web-first-account-local-chrome.mjs'
       - '.github/workflows/web-first-account-ui.yml'
@@ -28,7 +27,7 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci --no-audit --no-fund
-      - name: Exactly seven new 08 WEB first Account route/test paths and no existing Auth mutation
+      - name: Exactly six new 08 WEB first Account route/test paths and no existing Auth mutation
         shell: bash
         run: |
           set -euo pipefail
@@ -36,8 +35,8 @@ jobs:
           if test -z "$BASE"; then BASE="$(git merge-base origin/main HEAD)"; fi
           test "$(git merge-base "$BASE" HEAD)" = "$BASE"
           git diff --name-only "$BASE" HEAD >/tmp/wand-account-paths
-          test "$(wc -l </tmp/wand-account-paths)" -eq 7
-          for required in src/lib/account-ui/test-contract.mjs src/lib/account-ui/copy.mjs src/routes/account/+page.svelte src/routes/library/+page.svelte tests/web-first-account-local-ui.test.mjs scripts/web-first-account-local-chrome.mjs .github/workflows/web-first-account-ui.yml; do
+          test "$(wc -l </tmp/wand-account-paths)" -eq 6
+          for required in src/lib/account-ui/test-contract.mjs src/lib/account-ui/copy.mjs src/routes/account/+page.svelte tests/web-first-account-local-ui.test.mjs scripts/web-first-account-local-chrome.mjs .github/workflows/web-first-account-ui.yml; do
             grep -qxF "$required" /tmp/wand-account-paths
           done
           git diff --exit-code "$BASE" HEAD -- src/lib/community/ src/routes/community-lab/ src/routes/collection/ src/lib/ddv/ src/lib/wep/ src/lib/collection/ src/routes/+layout.svelte src/routes/+layout.server.js svelte.config.js .github/workflows/pages.yml static/ supabase/
@@ -53,7 +52,7 @@ jobs:
           npm run check
           npm run build
           test -f build/account/index.html
-          test -f build/library/index.html
+          test ! -f build/library/index.html
           test ! -f build/users/example_123/index.html
           test ! -f build/ja/40000047/index.html
           echo WEB_ACCOUNT_OFF_PAGES_STATIC_NO_DYNAMIC_PROFILE_HTTP200_PASS
@@ -90,7 +89,7 @@ jobs:
           done
           cat /tmp/wand-first-account.log
           exit 1
-      - name: Actual Chrome 8 locale Account OFF, Library noindex, 320 and keyboard
+      - name: Actual Chrome 8 locale Account OFF, absent private Library, 320 and keyboard
         env:
           WAND_ACCOUNT_URL: http://127.0.0.1:4292
         run: node scripts/web-first-account-local-chrome.mjs

@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { base } from '$app/paths';
   import { locale } from '$lib/i18n/runtime.js';
   import ResponsiveFrame from '$lib/ui/ResponsiveFrame.svelte';
   import { CommunityLabClient } from '$lib/community/staging-http-client';
@@ -141,9 +140,7 @@
       <button type="button" on:click={logout} disabled={busy}
         data-first-account-logout>{copy.signOut}</button>
     {/if}
-    <nav class="first-account-links" aria-label={copy.title}>
-      <a href={base+'/library/'}>{copy.library}</a>
-    </nav>
+    <p class="first-account-links" aria-disabled="true" data-private-library-route-off>{copy.library}</p>
     <p data-account-private-warning>{copy.libraryOff}</p>
     <p data-account-public-profile-warning>{copy.profileOff}</p>
   </section>
