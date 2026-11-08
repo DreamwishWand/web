@@ -339,9 +339,45 @@ try{
   await page.locator('[data-category="Furniture"]').click();
   await page.locator('[data-stage1-category-browse] .item-card').first().click();
   await page.locator('[data-stage1-item-info]').waitFor();
-  assert.equal(await moodboardButton.isDisabled(),true,'without a board no storage mutation allowed');
+  assert.equal(await moodboardButton.isDisabled(),true,'without a board no implicit storage mutation allowed');
   assert.match(await page.locator('[data-collection-moodboard-inspire] a').getAttribute('href'),/\/moodboards\/$/);
   console.log('WEB_COLLECTION_LOCAL_MOODBOARD_NO_BOARD_DENY_PASS');
+
+  const firstForm=page.locator('[data-collection-first-moodboard]');
+  const firstTitle=page.locator('[data-collection-first-moodboard-title]');
+  const firstCreate=page.locator('[data-collection-first-moodboard-create]');
+  assert.equal(await firstForm.isVisible(),true,'first board must require explicit user action');
+  assert.equal(await firstCreate.isDisabled(),true,'cannot silently create untitled board');
+  await page.setViewportSize({width:320,height:800});
+  await fit('first-moodboard-320');
+  await page.setViewportSize({width:640,height:900});
+  await page.evaluate(()=>document.documentElement.style.zoom='2');
+  await fit('first-moodboard-200');
+  await page.evaluate(()=>document.documentElement.style.zoom='1');
+  await page.setViewportSize({width:1366,height:900});
+  await firstTitle.fill('First Collection Scene');
+  await firstTitle.press('Enter');
+  await page.waitForFunction(k=>{
+    try{return JSON.parse(localStorage.getItem(k))?.boards?.[0]?.references?.length===1;}catch{return false;}
+  },MOODBOARD_STORAGE_KEY);
+  const createdLocal=await page.evaluate(k=>JSON.parse(localStorage.getItem(k)),MOODBOARD_STORAGE_KEY);
+  assert.equal(createdLocal.boards.length,1);
+  assert.equal(createdLocal.boards[0].title,'First Collection Scene');
+  assert.equal(createdLocal.boards[0].references[0].type,'ITEM');
+  const createdId=await page.locator('[data-stage1-category-browse] .item-card').first().getAttribute('data-stage1-item-id');
+  assert.equal(createdLocal.boards[0].references[0].entityId,createdId);
+  assert.equal(await page.evaluate(k=>localStorage.getItem(k),MOODBOARD_BACKUP_KEY),
+    JSON.stringify({schema:MOODBOARD_SCHEMA,version:MOODBOARD_VERSION,updatedAt:fixtureTime,boards:[]}),
+    'single write backed up previous exact empty document');
+  assert.equal(await page.locator('[data-collection-first-moodboard]').count(),0);
+  assert.equal(await boardSelect.inputValue(),createdLocal.boards[0].id);
+  assert.equal(await moodboardButton.getAttribute('aria-pressed'),'true');
+  await page.reload({waitUntil:'domcontentloaded'});
+  await page.locator('[data-category="Furniture"]').waitFor();
+  await page.locator('[data-category="Furniture"]').click();
+  await page.locator('[data-stage1-category-browse] .item-card').first().click();
+  assert.equal(await moodboardButton.getAttribute('aria-pressed'),'true','new board persists and reopens');
+  console.log('WEB_COLLECTION_FIRST_MOODBOARD_ONE_ACTION_REOPEN_BACKUP_320_200_PASS');
 
   assert.deepEqual(writes,[],'no external origin, POST or save upload');
  assert.deepEqual(errors,[],'no browser exception');

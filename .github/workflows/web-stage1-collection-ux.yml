@@ -7,6 +7,7 @@ on:
       - 'web/collection-filter-sheet-*'
       - 'web/collection-result-scope-*'
       - 'web/collection-moodboard-local-*'
+      - 'web/collection-first-moodboard-*'
   pull_request:
     paths:
       - 'src/routes/collection/+page.svelte'
@@ -58,7 +59,7 @@ jobs:
           done </tmp/collection-stage1-diff
           git diff --exit-code "$BASE" HEAD -- src/lib/ddv/ src/lib/community/ src/lib/timing/ src/lib/wep/ src/lib/entity/ src/lib/collection/runtime.js src/lib/collection/copy.js supabase/ static/ .github/workflows/pages.yml
           echo WEB_STAGE1_COLLECTION_SCOPE_ONLY_PASS
-      - name: Canonical 29 category and fail-closed scoped source negative tests
+      - name: Canonical 29 categories, safe existing and first Moodboard create negatives
         run: node --test tests/web-collection-moodboard-inspire.test.mjs tests/web-stage1-collection-root.test.mjs tests/shared-ui-stage1.test.mjs
       - name: All Node regressions and Svelte compiled static Pages
         env:
