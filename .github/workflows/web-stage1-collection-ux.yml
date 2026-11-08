@@ -7,12 +7,17 @@ on:
       - 'web/collection-filter-sheet-*'
       - 'web/collection-result-scope-*'
       - 'web/collection-moodboard-local-*'
+      - 'web/collection-first-moodboard-*'
   pull_request:
     paths:
       - 'src/routes/collection/+page.svelte'
       - 'src/lib/collection/stage1-root.mjs'
       - 'tests/web-stage1-collection-root.test.mjs'
       - 'src/lib/collection/moodboard-inspire.mjs'
+      - 'src/lib/moodboards/write-coordinator.mjs'
+      - 'src/routes/moodboards/+page.svelte'
+      - 'src/routes/explore/+page.svelte'
+      - 'src/lib/entity/SharedEntityDetail.svelte'
       - 'tests/web-collection-moodboard-inspire.test.mjs'
       - 'tests/product-surface-routes.test.mjs'
       - 'scripts/web-stage1-collection-chrome.mjs'
@@ -45,20 +50,20 @@ jobs:
           if test "$COUNT" -eq 1 && grep -qxF ".github/workflows/web-stage1-collection-ux.yml" /tmp/collection-stage1-diff; then
             echo WEB_STAGE1_COLLECTION_CI_POLICY_ONLY_SCOPE
           else
-            test "$COUNT" -eq 5
-            for required in 'src/routes/collection/+page.svelte' 'src/lib/collection/moodboard-inspire.mjs' 'tests/web-collection-moodboard-inspire.test.mjs' 'scripts/web-stage1-collection-chrome.mjs' '.github/workflows/web-stage1-collection-ux.yml'; do
+            test "$COUNT" -eq 11
+            for required in 'src/routes/collection/+page.svelte' 'src/lib/collection/moodboard-inspire.mjs' 'tests/web-collection-moodboard-inspire.test.mjs' 'scripts/web-stage1-collection-chrome.mjs' '.github/workflows/web-stage1-collection-ux.yml' 'src/lib/moodboards/write-coordinator.mjs' 'src/routes/moodboards/+page.svelte' 'src/routes/explore/+page.svelte' 'src/lib/entity/SharedEntityDetail.svelte' '.github/workflows/web-shared-catalog-detail.yml' 'scripts/web-shared-catalog-e2e-chrome.mjs'; do
               grep -qxF "$required" /tmp/collection-stage1-diff
             done
           fi
           while IFS= read -r f; do
             case "$f" in
-              src/routes/collection/+page.svelte|src/lib/collection/stage1-root.mjs|src/lib/collection/moodboard-inspire.mjs|tests/web-collection-moodboard-inspire.test.mjs|tests/web-stage1-collection-root.test.mjs|tests/product-surface-routes.test.mjs|scripts/web-stage1-collection-chrome.mjs|.github/workflows/web-stage1-collection-ux.yml) ;;
+              src/routes/collection/+page.svelte|src/routes/moodboards/+page.svelte|src/routes/explore/+page.svelte|src/lib/moodboards/write-coordinator.mjs|src/lib/entity/SharedEntityDetail.svelte|src/lib/collection/stage1-root.mjs|src/lib/collection/moodboard-inspire.mjs|tests/web-collection-moodboard-inspire.test.mjs|tests/web-stage1-collection-root.test.mjs|tests/product-surface-routes.test.mjs|scripts/web-stage1-collection-chrome.mjs|.github/workflows/web-stage1-collection-ux.yml|.github/workflows/web-shared-catalog-detail.yml|scripts/web-shared-catalog-e2e-chrome.mjs) ;;
               *) echo "OUTSIDE_STAGE1_SCOPE:$f"; exit 1 ;;
             esac
           done </tmp/collection-stage1-diff
-          git diff --exit-code "$BASE" HEAD -- src/lib/ddv/ src/lib/community/ src/lib/timing/ src/lib/wep/ src/lib/entity/ src/lib/collection/runtime.js src/lib/collection/copy.js supabase/ static/ .github/workflows/pages.yml
+          git diff --exit-code "$BASE" HEAD -- src/lib/ddv/ src/lib/community/ src/lib/timing/ src/lib/wep/ src/lib/collection/runtime.js src/lib/collection/copy.js supabase/ static/ .github/workflows/pages.yml
           echo WEB_STAGE1_COLLECTION_SCOPE_ONLY_PASS
-      - name: Canonical 29 category and fail-closed scoped source negative tests
+      - name: Same-origin exclusive Moodboard writer coordinator and first Board QR777 changed-risk negatives
         run: node --test tests/web-collection-moodboard-inspire.test.mjs tests/web-stage1-collection-root.test.mjs tests/shared-ui-stage1.test.mjs
       - name: All Node regressions and Svelte compiled static Pages
         env:

@@ -6,7 +6,7 @@
   import { exploreCopy } from '$lib/explore/copy.js';
   import { moodboardCopy } from '$lib/moodboards/copy.js';
   import { createEmptyMoodboardDocument } from '$lib/moodboards/store.js';
-  import { readCollectionMoodboards, toggleCollectionMoodboardInspiration } from '$lib/collection/moodboard-inspire.mjs';
+  import { createFirstCollectionMoodboardWithItem, readCollectionMoodboards, toggleCollectionMoodboardInspiration } from '$lib/collection/moodboard-inspire.mjs';
   import { collectionFacetLabel, decodeCollectionRecord, filterCollectionRecords, loadCollectionRuntime } from '$lib/collection/runtime.js';
   import {
     STAGE1_COLLECTION_ORDER, STAGE1_COLLECTION_WRITER_ENABLED, STAGE1_COLLECTION_PERSONAL_PROGRESS_ENABLED,
@@ -45,6 +45,7 @@
   let selectedMoodboardId = '';
   let moodboardUnavailable = false;
   let moodboardStatus = '';
+  let firstMoodboardTitle = '';
   let pageLimit = 72;
   type InfoReturn = { trigger: HTMLElement; itemId: number; context: string; x: number; y: number };
   let infoReturn: InfoReturn | null = null;
@@ -92,12 +93,12 @@
     }
   });
 
-  function toggleInfoInMoodboard(item:any):void{
+  async function toggleInfoInMoodboard(item:any):Promise<void>{
     if (!info || info.itemId!==item?.itemId || !scoped.some((row:any)=>row.itemId===item.itemId)) return;
     if (moodboardUnavailable) return;
     if (!selectedMoodboardId){moodboardStatus=inspirationCopy.noBoards;return;}
     try {
-      const outcome = toggleCollectionMoodboardInspiration(
+      const outcome = await toggleCollectionMoodboardInspiration(
         localStorage, selectedMoodboardId, item.itemId, scoped, label(item.family,$locale)
       );
       localMoodboards = outcome.document;
@@ -109,6 +110,34 @@
         const latest = readCollectionMoodboards(localStorage);
         localMoodboards = latest;
         if (!latest.boards.some((board:any)=>board.id===selectedMoodboardId)) selectedMoodboardId='';
+      } catch {
+        moodboardUnavailable = true;
+        selectedMoodboardId = '';
+      }
+      moodboardStatus = moodboardCopyText.invalid;
+    }
+  }
+
+  async function createFirstMoodboardWithItem(item:any):Promise<void>{
+    // A visible, decoded Catalog ItemID — not a forged DOM field or personal ownership.
+    if (!info || info.itemId!==item?.itemId ||
+        !scoped.some((row:any)=>row.itemId===item.itemId) ||
+        moodboardUnavailable || localBoards.length || !firstMoodboardTitle.trim()) return;
+    try {
+      const result = await createFirstCollectionMoodboardWithItem(
+        localStorage, firstMoodboardTitle, item.itemId, scoped, label(item.family,$locale)
+      );
+      localMoodboards = result.document;
+      selectedMoodboardId = result.boardId;
+      firstMoodboardTitle = '';
+      moodboardStatus = moodboardCopyText.created+' '+inspirationCopy.added;
+    } catch {
+      // No optimistic board creation, never replace corrupt state or a concurrent
+      // board created by another tab. The user can use the existing board chooser.
+      try {
+        const latest = readCollectionMoodboards(localStorage);
+        localMoodboards = latest;
+        selectedMoodboardId = '';
       } catch {
         moodboardUnavailable = true;
         selectedMoodboardId = '';
@@ -435,6 +464,20 @@
                   on:click={()=>toggleInfoInMoodboard(info)}>
                   {selectedItemInMoodboard ? inspirationCopy.remove : inspirationCopy.add}
                 </button>
+                {#if !moodboardUnavailable && localBoards.length===0}
+                  <form data-collection-first-moodboard on:submit|preventDefault={()=>createFirstMoodboardWithItem(info)}>
+                    <strong>{moodboardCopyText.newBoard}</strong>
+                    <label>{moodboardCopyText.titleLabel}
+                      <input type="text" data-collection-first-moodboard-title
+                        bind:value={firstMoodboardTitle} maxlength="120" required
+                        on:input={()=>moodboardStatus=''} />
+                    </label>
+                    <button type="submit" data-collection-first-moodboard-create
+                      disabled={!firstMoodboardTitle.trim()}>
+                      {moodboardCopyText.create} · {inspirationCopy.add}
+                    </button>
+                  </form>
+                {/if}
                 <a href={base+'/moodboards/'}>{inspirationCopy.openMoodboards}</a>
                 {#if moodboardStatus}<span role={moodboardUnavailable ? 'alert' : 'status'}
                   data-collection-moodboard-status aria-live="polite">{moodboardStatus}</span>{/if}
@@ -451,7 +494,7 @@
 <style>
 .collection-stage1{padding:36px 0 90px;min-height:70vh}.collection-heading{margin:0 0 18px}.collection-heading h1{font-family:Georgia,serif;font-weight:500;letter-spacing:-.035em;font-size:clamp(34px,4vw,54px);margin:0}
 .collection-toolbar{display:grid;grid-template-columns:minmax(220px,1fr) auto auto;gap:12px;align-items:end;margin:0 0 20px}.search-field{display:grid;gap:6px;font-size:11px;color:var(--ink-muted)}.search-field input{width:100%;box-sizing:border-box;min-height:44px;border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:10px 14px;color:var(--ink)}.personal-state{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:4px}.personal-state button,.filter-toggle{border:0;border-radius:9px;background:transparent;color:var(--ink-soft);padding:10px 13px;min-height:44px;white-space:nowrap}.personal-state button.selected{background:var(--surface-raised);color:var(--ink);font-weight:700}.personal-state button:disabled{opacity:.4;cursor:not-allowed}.filter-toggle{border:1px solid var(--border);background:var(--surface);font-weight:700}.filter-panel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;padding:18px;margin:0 0 14px;border:1px solid var(--border);border-radius:16px;background:var(--surface)}.filter-shell{display:contents}.filter-backdrop,.filter-sheet-heading{display:none}.filter-panel fieldset{min-width:0;border:0;padding:0;margin:0}.filter-panel legend{font-weight:700;color:var(--ink);padding:0 0 9px}.filter-options{display:flex;flex-wrap:wrap;gap:6px}.filter-options button,.active-filters button{border:1px solid var(--border);border-radius:99px;padding:8px 12px;background:var(--surface-raised);color:var(--ink-soft)}.filter-options button.active{border-color:var(--gold);color:var(--gold)}.active-filters{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 16px}.active-filters .clear{color:var(--ink)}
-.category-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.category-card{text-align:left;display:flex;flex-direction:column;align-items:stretch;gap:9px;min-width:0;min-height:200px;padding:14px;border:1px solid var(--border);border-radius:18px;color:var(--ink);background:var(--surface);transition:border-color .15s,transform .15s;cursor:pointer}.category-card:not(:disabled):hover{border-color:var(--gold);transform:translateY(-2px)}.category-card:disabled{cursor:default;opacity:.66}.category-art{height:84px;display:grid;place-items:center;background:var(--surface-raised);border-radius:13px;color:var(--gold)}.category-glyph{font-family:Georgia,serif;font-size:36px;line-height:1}.category-name{font-weight:750;font-size:13px;line-height:1.35;overflow-wrap:anywhere;min-height:32px}.category-measure{display:flex;align-items:center;justify-content:space-between;color:var(--ink-muted);font-size:12px;font-variant-numeric:tabular-nums}.category-percent{font-size:11px}.category-card small{font-size:9px;color:var(--ink-muted)}.browse-heading{margin:14px 0 18px}.browse-heading h2{font-family:Georgia,serif;font-size:clamp(26px,3vw,42px);font-weight:500}.back-category{border:1px solid var(--border);border-radius:12px;padding:10px 12px;background:var(--surface);color:var(--ink);margin-bottom:8px}.item-section{margin:0 0 24px}.item-section h3{font-size:16px;font-weight:700;margin:0 0 12px}.item-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.item-card{display:flex;gap:10px;align-items:center;text-align:left;min-width:0;min-height:74px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--surface);color:var(--ink)}.item-card span:last-child{min-width:0;overflow-wrap:anywhere}.item-icon{display:grid;place-items:center;min-width:38px;height:38px;border-radius:9px;background:var(--surface-raised);color:var(--gold)}.more{padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--ink);margin:10px 0}.collection-info{display:flex;justify-content:space-between;gap:20px;align-items:start;border:1px solid var(--border);border-radius:18px;background:var(--surface);padding:20px}.collection-info h3{font-size:22px;margin:7px 0}.collection-info p{color:var(--ink-muted)}.info-actions{display:flex;gap:10px;flex-wrap:wrap}.collection-inspire{display:grid;gap:8px;min-width:min(100%,220px);flex:1}.collection-inspire label{display:grid;gap:5px;font-size:12px;color:var(--ink-muted)}.collection-inspire select{box-sizing:border-box;min-width:0;max-width:100%;width:100%;min-height:44px;border:1px solid var(--border);border-radius:10px;padding:8px;background:var(--surface);color:var(--ink)}.collection-inspire [data-collection-moodboard-status]{font-size:12px;overflow-wrap:anywhere}.collection-inspire button:disabled{opacity:.5;cursor:not-allowed}.info-actions a,.info-actions button{border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--surface-raised);color:var(--ink);text-decoration:none}.state-panel{padding:24px;background:var(--surface);border:1px solid var(--border);border-radius:14px;color:var(--ink-muted)}
+.category-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.category-card{text-align:left;display:flex;flex-direction:column;align-items:stretch;gap:9px;min-width:0;min-height:200px;padding:14px;border:1px solid var(--border);border-radius:18px;color:var(--ink);background:var(--surface);transition:border-color .15s,transform .15s;cursor:pointer}.category-card:not(:disabled):hover{border-color:var(--gold);transform:translateY(-2px)}.category-card:disabled{cursor:default;opacity:.66}.category-art{height:84px;display:grid;place-items:center;background:var(--surface-raised);border-radius:13px;color:var(--gold)}.category-glyph{font-family:Georgia,serif;font-size:36px;line-height:1}.category-name{font-weight:750;font-size:13px;line-height:1.35;overflow-wrap:anywhere;min-height:32px}.category-measure{display:flex;align-items:center;justify-content:space-between;color:var(--ink-muted);font-size:12px;font-variant-numeric:tabular-nums}.category-percent{font-size:11px}.category-card small{font-size:9px;color:var(--ink-muted)}.browse-heading{margin:14px 0 18px}.browse-heading h2{font-family:Georgia,serif;font-size:clamp(26px,3vw,42px);font-weight:500}.back-category{border:1px solid var(--border);border-radius:12px;padding:10px 12px;background:var(--surface);color:var(--ink);margin-bottom:8px}.item-section{margin:0 0 24px}.item-section h3{font-size:16px;font-weight:700;margin:0 0 12px}.item-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.item-card{display:flex;gap:10px;align-items:center;text-align:left;min-width:0;min-height:74px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--surface);color:var(--ink)}.item-card span:last-child{min-width:0;overflow-wrap:anywhere}.item-icon{display:grid;place-items:center;min-width:38px;height:38px;border-radius:9px;background:var(--surface-raised);color:var(--gold)}.more{padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--ink);margin:10px 0}.collection-info{display:flex;justify-content:space-between;gap:20px;align-items:start;border:1px solid var(--border);border-radius:18px;background:var(--surface);padding:20px}.collection-info h3{font-size:22px;margin:7px 0}.collection-info p{color:var(--ink-muted)}.info-actions{display:flex;gap:10px;flex-wrap:wrap}.collection-inspire{display:grid;gap:8px;min-width:min(100%,220px);flex:1}.collection-inspire label{display:grid;gap:5px;font-size:12px;color:var(--ink-muted)}.collection-inspire select{box-sizing:border-box;min-width:0;max-width:100%;width:100%;min-height:44px;border:1px solid var(--border);border-radius:10px;padding:8px;background:var(--surface);color:var(--ink)}.collection-inspire [data-collection-moodboard-status]{font-size:12px;overflow-wrap:anywhere}.collection-inspire form{display:grid;gap:8px;padding:10px;border:1px solid var(--border);border-radius:10px}.collection-inspire form strong{font-size:13px}.collection-inspire form input{box-sizing:border-box;min-width:0;width:100%;min-height:44px;border:1px solid var(--border);border-radius:10px;padding:8px;background:var(--surface);color:var(--ink)}.collection-inspire button:disabled{opacity:.5;cursor:not-allowed}.info-actions a,.info-actions button{border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--surface-raised);color:var(--ink);text-decoration:none}.state-panel{padding:24px;background:var(--surface);border:1px solid var(--border);border-radius:14px;color:var(--ink-muted)}
 button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 @media(max-width:1180px){.category-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.item-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:820px){.collection-toolbar{grid-template-columns:1fr auto}.search-field{grid-column:1/-1}.category-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.item-grid{grid-template-columns:repeat(2,minmax(0,1fr))}

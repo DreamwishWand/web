@@ -1,0 +1,45 @@
+name: "04 QR-W PR772 repaired Web Locks independent two-tab and legacy race"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/04qr-w-pr772-weblocks-legacy-newonly-20261108.yml"
+      - "scripts/04qr-w-pr772-weblocks-legacy-newonly-20261108.mjs"
+permissions:
+  contents: read
+jobs:
+  independent-weblocks-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: No private Save and use actual installed Chrome and localhost
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${DDV_PRIVATE_SAVE_PATH:-}"
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          test -n "$BIN" || { echo "NOT_RUN Chrome unavailable"; exit 1; }
+          "$BIN" --version
+          echo "CHROME_BIN=$BIN" >> "$GITHUB_ENV"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4302 >/tmp/qrw772-weblocks.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4302/collection/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qrw772-weblocks.log
+          exit 1
+      - name: Exact Source11 QA2, first-board lock changed risk and real two-tab Chrome
+        env:
+          QRW772_ORIGIN: http://127.0.0.1:4302
+        run: node scripts/04qr-w-pr772-weblocks-legacy-newonly-20261108.mjs
