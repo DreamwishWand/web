@@ -42,6 +42,76 @@ test('R14 fabricated root and fake original cannot emit release media',()=>{
     assert.match(b.stderr,/PRIVATE_DIRECTORY_MISSING_OR_SYMLINK/);
   }finally{rmSync(x,{force:true,recursive:true});}
 });
+test('R14 preflight denies both ancestor and descendant output overlaps for every original input',()=>{
+  const d=mkdtempSync(join(tmpdir(),'wand-01d-r14-private-guard-'));
+  try{
+    const source=join(d,'source'),catalog=join(d,'catalog');
+    const bundleParent=join(d,'bundle-input'),bundle=join(bundleParent,'original.bundle');
+    const privateOut=join(d,'private-output');
+    for(const p of [source,catalog,bundleParent,privateOut]) mkdirSync(p);
+    writeFileSync(bundle,Buffer.from('synthetic bundle; never owner media'));
+    writeFileSync(join(source,'Furniture.json'),Buffer.from([1,2,3]));
+    const args=(out,{src=source,cat=catalog,bun=bundle}={})=>[
+      '--source-root',src,'--catalog-root',cat,'--bundle',bun,
+      '--private-output',out,'--item-id','40000047'];
+    const accept=run(args(privateOut));
+    assert.notEqual(accept.status,0,'fake synthetic inputs must fail pinned original SHA');
+    assert.match(accept.stderr,/ORIGINAL_TYPE_OR_SIZE_OR_ALIAS|ORIGINAL_SHA_OR_MUTATION_MISMATCH/);
+    assert.doesNotMatch(accept.stderr,/PRIVATE_OUTPUT_MUST_BE_SEPARATE/);
+    const sourceNested=join(source,'nested'),catalogNested=join(catalog,'nested');
+    const bundleNested=join(bundleParent,'nested');
+    for(const p of [sourceNested,catalogNested,bundleNested]) mkdirSync(p);
+    const inputParent=join(d,'source-parent');
+    const inputChild=join(inputParent,'actual');
+    mkdirSync(inputParent);mkdirSync(inputChild);
+    const bundleParentParent=join(d,'bundle-ancestor');
+    const actualBundleDir=join(bundleParentParent,'bundle-real');
+    mkdirSync(bundleParentParent);mkdirSync(actualBundleDir);
+    const nestedBundle=join(actualBundleDir,'original.bundle');
+    writeFileSync(nestedBundle,Buffer.from('another synthetic bundle'));
+    const rejected=[
+      [d,{},'output ancestor of all inputs'],
+      [source,{},'source input equals output'],
+      [sourceNested,{},'output inside original root'],
+      [catalog,{},'catalog input equals output'],
+      [catalogNested,{},'output inside original catalog'],
+      [bundleParent,{},'bundle.parent equals output'],
+      [bundleNested,{},'output inside bundle.parent'],
+      [inputParent,{src:inputChild},'output parent of original root only'],
+      [bundleParentParent,{bun:nestedBundle},'output parent of bundle.parent only'],
+      [actualBundleDir,{bun:nestedBundle},'output equals changed bundle.parent'],
+    ];
+    for(const [out,other,label] of rejected){
+      const r=run(args(out,other));
+      assert.notEqual(r.status,0,label);
+      assert.match(r.stderr,/PRIVATE_OUTPUT_MUST_BE_SEPARATE/,label+' '+r.stderr);
+    }
+    // Symlinks at leaf and at intermediate path must not alias a private output/input.
+    const targetLink=join(d,'target-symlink'),sourceLink=join(d,'source-symlink');
+    symlinkSync(privateOut,targetLink,'dir');
+    symlinkSync(source,sourceLink,'dir');
+    const leaf=run(args(targetLink));
+    assert.notEqual(leaf.status,0);
+    assert.match(leaf.stderr,/PRIVATE_PATH_SYMLINK_OR_ALIAS/);
+    const orig=run(args(privateOut,{src:sourceLink}));
+    assert.notEqual(orig.status,0);
+    assert.match(orig.stderr,/PRIVATE_PATH_SYMLINK_OR_ALIAS/);
+    const linkParent=join(d,'link-parent');
+    const realParent=join(d,'real-parent');
+    mkdirSync(realParent);mkdirSync(join(realParent,'inner'));
+    symlinkSync(realParent,linkParent,'dir');
+    const intermediate=run(args(join(linkParent,'inner')));
+    assert.notEqual(intermediate.status,0);
+    assert.match(intermediate.stderr,/PRIVATE_PATH_SYMLINK_OR_ALIAS/);
+    const duplicate=run(args(privateOut,{cat:source}));
+    assert.notEqual(duplicate.status,0);
+    assert.match(duplicate.stderr,/PRIVATE_INPUT_ROOT_DUPLICATE_OR_ALIAS/);
+    for(const out of [source,sourceNested,catalog,catalogNested,bundleParent,bundleNested]){
+      assert.equal(existsSync(join(out,'40000047-steam1253-reconstructed.png')),false);
+      assert.equal(existsSync(join(out,'01d-r14-steam1253-private-native-hold.json')),false);
+    }
+  }finally{rmSync(d,{recursive:true,force:true});}
+});
 test('R14 protocol contains no static public output path or Owner GO as technical Native proof',()=>{
   // CI can inspect the Source contract, never original game media.
   const src=readFileSync(file,'utf8');
