@@ -1,0 +1,85 @@
+name: WEB atomic first local Moodboard isolated IDB
+on:
+  pull_request:
+    paths:
+      - 'src/lib/moodboards/atomic-first-board.mjs'
+      - 'src/routes/moodboards/atomic/+page.svelte'
+      - 'tests/web-moodboard-atomic-first.test.mjs'
+      - 'scripts/web-moodboard-atomic-first-chrome.mjs'
+      - '.github/workflows/web-moodboard-atomic-first.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Strict five add-only scope and old Store unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.pull_request.base.sha }}"
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          cat >/tmp/atomic-expected <<'ATOMIC_FILES'
+          .github/workflows/web-moodboard-atomic-first.yml
+          scripts/web-moodboard-atomic-first-chrome.mjs
+          src/lib/moodboards/atomic-first-board.mjs
+          src/routes/moodboards/atomic/+page.svelte
+          tests/web-moodboard-atomic-first.test.mjs
+          ATOMIC_FILES
+          git diff --name-only "$BASE" HEAD | LC_ALL=C sort >/tmp/atomic-actual
+          LC_ALL=C sort /tmp/atomic-expected >/tmp/atomic-expected-sorted
+          diff -u /tmp/atomic-expected-sorted /tmp/atomic-actual
+          while read -r path; do test "$(git diff --name-status "$BASE" HEAD -- "$path" | cut -f1)" = A; done </tmp/atomic-expected
+          git diff --exit-code "$BASE" HEAD -- src/lib/collection/ src/lib/moodboards/store.js src/routes/moodboards/+page.svelte src/routes/collection/+page.svelte src/routes/explore/+page.svelte src/lib/community/ src/lib/wep/ supabase/ static/ .github/workflows/pages.yml
+          echo WEB_ATOMIC_FIRST_NEW5_DISJOINT_LEGACY_SCOPE_PASS
+      - name: Node fail-close, prior accepted legacy and static Svelte checks
+        env:
+          BASE_PATH: /web
+        run: |
+          node --test tests/web-moodboard-atomic-first.test.mjs tests/web-collection-moodboard-inspire.test.mjs
+          npm run check
+          npm run build
+          test -f build/moodboards/atomic/index.html
+          test -f build/moodboards/index.html
+          test -f build/404.html
+          echo WEB_ATOMIC_FIRST_STATIC_NOINDEX_LEGACY_PRESERVED_PASS
+  chrome:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Start localhost Vite and configure installed Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4293 >/tmp/web-atomic-first.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4293/moodboards/atomic/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/web-atomic-first.log
+          exit 1
+      - name: Actual two-tab create, old writer, CAS, backup/reopen, corrupt storage
+        env:
+          ATOMIC_MOODBOARD_ORIGIN: http://127.0.0.1:4293
+        run: node scripts/web-moodboard-atomic-first-chrome.mjs
