@@ -113,6 +113,12 @@ try{
  console.log('QRW776_HOME6_ACTUAL_SVG_GEOMETRIES_DISTINCT_EIGHT_LOCALE_320_CSS200_KEYBOARD_PASS');
  res=await page.goto(host+'/decorate/',{waitUntil:'domcontentloaded'});
  assert.equal(res.status(),200);
+ // Svelte hydration may restore the *previous page* locale asynchronously after navigation.
+ // Wait for the existing shell select+document language to settle before mutating it.
+ await page.waitForFunction(()=>{
+  const selected=document.querySelector('#site-locale')?.value;
+  return !!selected && document.documentElement.dataset.locale===selected;
+ },null,{timeout:15000});
  let decorGeom=null;
  for(const locale of locales){
   await page.selectOption('#site-locale',locale);
