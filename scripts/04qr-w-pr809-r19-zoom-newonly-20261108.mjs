@@ -5,7 +5,8 @@ import {worldEditorStage1Copy} from '../src/lib/wep/world-editor-stage1-copy.js'
 
 // New-only independent QA, original source Git SHA pinned; do not reQA prior accepted PR775/792.
 const SOURCE='30ec82ae8ff268582fb98b70446f8241c3a3df30';
-const MAIN='b7ffb283df62e234ce0871d9a8f0791faa290864';
+const MAIN='3921e33de23ce042db48d2a50a9495d3b8a79881';
+const ACCEPTED_PROTECTED_MAIN='b7ffb283df62e234ce0871d9a8f0791faa290864';
 const orig=new Map([
  ['.github/workflows/wep-r19-stage1-zoom200-layout-20261108.yml','ddd72481ad566179f2d0e8baa4904697021969a9'],
  ['docs/wep/world-editor-localization-inventory-20261002.json','daa09ef27b36cc26a9b52b7b31375cdc7b807a24'],
@@ -17,6 +18,7 @@ const qa=['.github/workflows/04qr-w-pr809-r19-zoom-newonly-20261108.yml',
 const git=(...args)=>execFileSync('git',args,{encoding:'utf8'}).trim();
 const changed=(a,b)=>git('diff','--name-only',a,b).split('\n').filter(Boolean).sort();
 assert.equal(git('merge-base',MAIN,SOURCE),MAIN);
+assert.equal(git('merge-base',ACCEPTED_PROTECTED_MAIN,SOURCE),MAIN,'accepted PR805 Native2 must not be retested');
 assert.deepEqual(changed(MAIN,SOURCE),[...orig.keys()].sort(),'original Source4 exactly');
 assert.equal(git('merge-base',SOURCE,'HEAD'),SOURCE);
 assert.deepEqual(changed(SOURCE,'HEAD'),qa,'QA-only changed paths exactly2');
