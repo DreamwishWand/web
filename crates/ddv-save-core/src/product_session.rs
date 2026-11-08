@@ -72,6 +72,7 @@ pub struct ReadReceipt {
 }
 struct State { id: [u8;16], revision: u64, generation: u64, closed: bool,
     #[cfg(feature = "synthetic-stage-b")] lab: Option<synthetic_stage_b::SyntheticLedger>,
+    #[cfg(feature = "private-native-v2")] private_offline: Option<private_native_v2::PrivateOfflineLedger>,
     #[cfg(feature = "indexed-read")] indexed: Option<indexed_read::IndexedCache>,
 }
 #[cfg(feature = "synthetic-stage-b")]
@@ -79,6 +80,11 @@ struct State { id: [u8;16], revision: u64, generation: u64, closed: bool,
 mod synthetic_stage_b;
 #[cfg(feature = "synthetic-stage-b")]
 pub use synthetic_stage_b::{SyntheticChangeSet, SyntheticStageReceipt, SyntheticExportReceipt};
+#[cfg(feature = "private-native-v2")]
+#[path = "private_native_v2.rs"]
+mod private_native_v2;
+#[cfg(feature = "private-native-v2")]
+pub use private_native_v2::PrivateOfflineReceipt;
 #[cfg(feature = "indexed-read")]
 #[path = "indexed_read.rs"]
 mod indexed_read;
@@ -114,6 +120,7 @@ impl ProductSession {
         Ok(Self {
             state: Mutex::new(State { id, revision:0, generation:1, closed:false,
                 #[cfg(feature = "synthetic-stage-b")] lab:None,
+                #[cfg(feature = "private-native-v2")] private_offline:None,
                 #[cfg(feature = "indexed-read")] indexed:None }),
             decoded:Arc::from(decoded), sha, schema:build.schema, worker_bound:false,
             #[cfg(all(feature="worker-wasm",feature="indexed-read",target_arch="wasm32"))]
@@ -155,6 +162,7 @@ impl ProductSession {
         id.copy_from_slice(&digest[..16]);
         let state=State {id,revision:0,generation:1,closed:false,
             #[cfg(feature = "synthetic-stage-b")] lab:None,
+                #[cfg(feature = "private-native-v2")] private_offline:None,
             #[cfg(feature = "indexed-read")] indexed:None};
         Ok(Self {
             state:Mutex::new(state),decoded:Arc::from(decoded),
