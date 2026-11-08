@@ -1,0 +1,75 @@
+name: 04 QR-W PR825 independent atomic IDB and legacy noncooperation
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/04qr-w-pr825-atomic-idb-newonly-20261108.yml'
+      - 'scripts/04qr-w-pr825-atomic-idb-newonly-20261108.mjs'
+  push:
+    branches:
+      - 'qa/04qr-w-pr825-atomic-idb-newonly-bcb494-20261108'
+permissions:
+  contents: read
+jobs:
+  independent-atomic-idb:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Run installed Chrome and strictly local privacy guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          "$CHROME_BIN" --version
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          if env | grep -Eq '^(DDV_PRIVATE_SAVE_PATH|WEP_PRIVATE_P1G_PATH|WEP_PRIVATE_LOCAL_ONLY_ACK)='; then
+            echo "PRIVATE_INPUT_FORBIDDEN"
+            exit 1
+          fi
+          echo QRW825_PRIVATE_SAVE_NONE_INSTALLED_CHROME_PASS
+      - name: Build STATIC Pages baseline and assert isolated robots noindex
+        shell: bash
+        env:
+          BASE_PATH: /web
+        run: |
+          set -euo pipefail
+          npm run build
+          test -f build/moodboards/atomic/index.html
+          test -f build/moodboards/index.html
+          test -f build/404.html
+          grep -q 'noindex,nofollow' build/moodboards/atomic/index.html
+          test ! -e build/CNAME
+          echo QRW825_STATIC_NOINDEX_AND_EXISTING_WEB_PAGES_PRESERVED_PASS
+      - name: Start isolated localhost dev server
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4297 > /tmp/qrw825-atomic.log 2>&1 &
+          for i in $(seq 1 70); do
+            if curl -fsS http://127.0.0.1:4297/moodboards/atomic/ > /dev/null; then
+              echo QRW825_LOOPBACK_ONLY_DEV_READY
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/qrw825-atomic.log
+          exit 1
+      - name: 'Independent real Chrome - simultaneous CAS, abort rollback, legacy writes, tombstone, corrupt JSON'
+        env:
+          QRW825_ORIGIN: http://127.0.0.1:4297
+        run: node scripts/04qr-w-pr825-atomic-idb-newonly-20261108.mjs
+      - name: QA scope only - NOT product-first-board enabled
+        run: |
+          echo "QRW825_SCOPE_ISOLATED_IDB_ONLY_GLOBAL_LEGACY_AUTHORITY_MIGRATION_NOT_ACCEPTED"
+          echo "QRW825_WRITER_CLOUD_PROVIDER_COMMUNITY_PUBLIC_MEDIA_PUBLIC_PROD_OFF"
