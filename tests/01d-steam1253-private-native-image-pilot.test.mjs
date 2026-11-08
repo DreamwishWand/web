@@ -30,14 +30,17 @@ test('R14 fabricated root and fake original cannot emit release media',()=>{
     mkdirSync(source);mkdirSync(catalog);mkdirSync(out);
     writeFileSync(join(source,'FullVersion.txt'),'releases_1.24-v1.24.13-INVALID\n');
     writeFileSync(join(source,'Furniture.json'),Buffer.from([1,2,3]));
-    writeFileSync(join(x,'bundle'),Buffer.from([4,5,6]));
-    const a=run(['--source-root',source,'--catalog-root',catalog,'--bundle',join(x,'bundle'),'--private-output',out]);
+    // Keep this fake bundle in an independent input directory: the bundle's
+    // parent must not contain the private output even for synthetic tests.
+    const bundleDir=join(x,'bundle-input');mkdirSync(bundleDir);
+    const bundle=join(bundleDir,'bundle');writeFileSync(bundle,Buffer.from([4,5,6]));
+    const a=run(['--source-root',source,'--catalog-root',catalog,'--bundle',bundle,'--private-output',out]);
     assert.notEqual(a.status,0);
     assert.match(a.stderr,/ORIGINAL_TYPE_OR_SIZE_OR_ALIAS|ORIGINAL_SHA_OR_MUTATION_MISMATCH/);
     assert.equal(existsSync(join(out,'40000047-steam1253-reconstructed.png')),false);
     assert.equal(existsSync(join(out,'01d-r14-steam1253-private-native-hold.json')),false);
     const link=join(x,'link');symlinkSync(source,link,'dir');
-    const b=run(['--source-root',link,'--catalog-root',catalog,'--bundle',join(x,'bundle'),'--private-output',out]);
+    const b=run(['--source-root',link,'--catalog-root',catalog,'--bundle',bundle,'--private-output',out]);
     assert.notEqual(b.status,0);
     assert.match(b.stderr,/PRIVATE_DIRECTORY_MISSING_OR_SYMLINK/);
   }finally{rmSync(x,{force:true,recursive:true});}
