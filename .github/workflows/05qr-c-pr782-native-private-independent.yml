@@ -91,7 +91,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git diff --name-only c40a305ba835de366726d6d3288184c0c109a49c HEAD | wc -l)" -eq 3
-          test -z "$(git ls-files | grep -E 'STEAM_SAVE_OWNER_PRIVATE|OWNER_PRIVATE|\.p1g$' || true)"
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            qa_tip="$(git rev-parse HEAD^2)"
+          else
+            qa_tip="$(git rev-parse HEAD)"
+          fi
+          test "$(git diff --name-only c40a305ba835de366726d6d3288184c0c109a49c "$qa_tip" | wc -l)" -eq 3
+          test -z "$(git ls-files | grep -E 'STEAM_SAVE_OWNER_PRIVATE|OWNER_PRIVATE|\.p1g
+ || true)"
           test -f tools/owner-local-steam-v1/worker-core.mjs
-          test -z "$(git diff --name-only c40a305ba835de366726d6d3288184c0c109a49c HEAD -- src tools crates/ddv-save-core/src)"
+          test -z "$(git diff --name-only c40a305ba835de366726d6d3288184c0c109a49c "$qa_tip" -- src tools crates/ddv-save-core/src)"
