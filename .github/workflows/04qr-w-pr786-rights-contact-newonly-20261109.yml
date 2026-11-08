@@ -1,0 +1,39 @@
+name: "04 QR-W PR786 independent rights contact preflight"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/04qr-w-pr786-rights-contact-newonly-20261109.yml"
+      - "scripts/04qr-w-pr786-rights-contact-newonly-20261109.mjs"
+  push:
+    branches:
+      - "qa/04qr-w-pr786-rights-contact-newonly-ad8d60-20261109"
+permissions:
+  contents: read
+jobs:
+  independent-rights-contact:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: "No real mailbox, credentials, provider, private claimant content"
+        shell: bash
+        run: |
+          set -euo pipefail
+          if env | grep -Eq '^(RESEND_API_KEY|SMTP_PASSWORD|GMAIL_TOKEN|DDV_PRIVATE_SAVE_PATH|WEP_PRIVATE_P1G_PATH)='; then
+            echo "PRIVATE_PROVIDER_INPUT_FORBIDDEN"
+            exit 1
+          fi
+      - name: "Independent synthetic negative receipts and premature contact exposure"
+        run: node scripts/04qr-w-pr786-rights-contact-newonly-20261109.mjs
+      - name: "Current source test limited to new three files"
+        run: node --test tests/dbk-rights-contact-receiving-gate.test.mjs
+      - name: "Managed inbound and reply, legal Rights, CDN, public host remain independent gates"
+        run: echo "QRW786_REAL_RECEIVING_REPLY_OWNER_OPERATOR_TAKEDOWN_CDN_PRODUCTION_NOT_RUN"
