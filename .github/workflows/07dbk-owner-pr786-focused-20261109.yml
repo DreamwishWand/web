@@ -1,5 +1,10 @@
 name: "07 DBK Owner focused rights contact strict-private repair"
 on:
+  pull_request:
+    branches:
+      - "07dbk/rights-contact-receiving-gate-20261108"
+    paths:
+      - ".github/workflows/07dbk-owner-pr786-focused-20261109.yml"
   push:
     branches:
       - "07dbk/focused-rights-contact-repair-20261109"
@@ -12,6 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v4
@@ -23,7 +29,7 @@ jobs:
           set -euo pipefail
           original=ad8d60868d188d4f94a98256c6c5a4c698f58cbd
           fixed=69220b7105608a42318cf1d296a80997675bc6f3
-          test "$(git rev-parse HEAD^)" = "$fixed"
+          test "$(git merge-base "$fixed" HEAD)" = "$fixed"
           test "$(git merge-base "$original" "$fixed")" = "$original"
           actual=$(git diff --name-only "$original" "$fixed" | sort)
           expected=$(printf '%s\n' ops/dbk-rights-contact-receiving-gate.mjs tests/dbk-rights-contact-receiving-gate.test.mjs | sort)
