@@ -141,10 +141,7 @@
       <button type="button" on:click={logout} disabled={busy}
         data-first-account-logout>{copy.signOut}</button>
     {/if}
-    <nav class="first-account-links" aria-label={copy.title}>
-      <a href={base+'/library/'}>{copy.library}</a>
-    </nav>
-    <p data-account-private-warning>{copy.libraryOff}</p>
+    <p data-account-private-warning data-library-unavailable="true">{copy.library}: {copy.libraryOff}</p>
     <p data-account-public-profile-warning>{copy.profileOff}</p>
   </section>
 </ResponsiveFrame>

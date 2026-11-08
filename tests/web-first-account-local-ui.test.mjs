@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 import {firstAccountCopy,FIRST_ACCOUNT_COPY} from '../src/lib/account-ui/copy.mjs';
 import {
  FIRST_ACCOUNT_UI_OPERATION,FIRST_ACCOUNT_PUBLIC_ENABLED,PUBLIC_PROFILE_RUNTIME_ACCEPTED,
@@ -10,7 +10,7 @@ import {
 } from '../src/lib/account-ui/test-contract.mjs';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const account=read('src/routes/account/+page.svelte');
-const library=read('src/routes/library/+page.svelte');
+const libraryRoute='src/routes/library/+page.svelte';
 const key='sb_publishable_12345678';
 const gate=(args={})=>resolveFirstAccountTestGate({flag:'OWNER_DISPOSABLE_STAGING_TEST',
  hostname:'localhost',supabaseUrl:OWNER_DISPOSABLE_STAGING_AUTH_ORIGIN,publishableKey:key,...args});
@@ -95,17 +95,15 @@ test('Account and Library 8-locale public OFF/noindex and no private data in sta
   }
  }
  assert.match(account,/<meta name="robots" content="noindex,nofollow"/);
- assert.match(library,/<meta name="robots" content="noindex,nofollow"/);
+ assert.equal(existsSync(new URL('../'+libraryRoute,import.meta.url)),false,
+  'No unauthenticated static private Library HTML200 route');
  for(const marker of ['data-account-public="off"','data-private-library="off"',
   'data-first-account-form','data-first-account-register','data-first-account-login',
   'data-first-account-logout','data-account-off','data-first-account-state']){
   assert.ok(account.includes(marker),marker);
  }
- for(const marker of ['data-library-private-authorized="false"','data-library-content="off"',
-  'data-private-account-id=""','href={base+\'/account/\'}']){
-  assert.ok(library.includes(marker),marker);
- }
- assert.doesNotMatch(library,/sessionStorage|localStorage|fetch\(|Authorization|query\(|JWT|accessToken/);
+ assert.ok(account.includes('data-library-unavailable="true"'));
+ assert.doesNotMatch(account,/href=\{base\+'\/library\/\'\}/);
  assert.doesNotMatch(account,/JSON\.stringify\(session|accessToken\}|refreshToken\}|console\.log/);
  assert.doesNotMatch(account,/srcset|<img|cloudUpload|publishGallery|createGalleryDraft/);
 });
