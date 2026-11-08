@@ -65,7 +65,7 @@ jobs:
           done
           cat /tmp/qrw825-atomic.log
           exit 1
-      - name: Independent real Chrome: simultaneous CAS, abort rollback, legacy writes, tombstone, corrupt JSON
+      - name: 'Independent real Chrome - simultaneous CAS, abort rollback, legacy writes, tombstone, corrupt JSON'
         env:
           QRW825_ORIGIN: http://127.0.0.1:4297
         run: node scripts/04qr-w-pr825-atomic-idb-newonly-20261108.mjs
