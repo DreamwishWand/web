@@ -55,7 +55,7 @@ pub struct IndexedPage {
     pub writer_authorized:bool,
 }
 #[derive(Clone,Copy,Debug)]
-pub(super) pub(super) struct Span {pub(super) begin:usize,pub(super) end:usize}
+pub(super) struct Span {pub(super) begin:usize,pub(super) end:usize}
 #[derive(Clone,Copy,Debug)]
 pub(super) struct RootIndex {pub(super) player:Span,pub(super) world:Span}
 #[derive(Clone,Debug)]
