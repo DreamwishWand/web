@@ -103,6 +103,10 @@ pub struct ProductSession {
     sha: [u8;32],
     schema: u64,
     worker_bound: bool,
+    // 01A-owned immutable, open-time validated external Build declaration.
+    // Private/native only; not a Product read or proof of cryptographic Build origin.
+    #[cfg(feature = "private-native-v1")]
+    native_source_build: BuildIdentity,
     #[cfg(all(feature="worker-wasm",feature="indexed-read",target_arch="wasm32"))]
     worker_cursor_key:[u8;32],
 }
@@ -128,6 +132,8 @@ impl ProductSession {
                 #[cfg(feature = "private-native-v2")] private_offline:None,
                 #[cfg(feature = "indexed-read")] indexed:None }),
             decoded:Arc::from(decoded), sha, schema:build.schema, worker_bound:false,
+            #[cfg(feature = "private-native-v1")]
+            native_source_build:build,
             #[cfg(all(feature="worker-wasm",feature="indexed-read",target_arch="wasm32"))]
             worker_cursor_key:[0;32],
         })
@@ -172,6 +178,8 @@ impl ProductSession {
         Ok(Self {
             state:Mutex::new(state),decoded:Arc::from(decoded),
             sha,schema:build.schema,worker_bound:true,
+            #[cfg(feature = "private-native-v1")]
+            native_source_build:build,
             #[cfg(all(feature="worker-wasm",feature="indexed-read",target_arch="wasm32"))]
             worker_cursor_key,
         })
@@ -226,6 +234,26 @@ impl ProductSession {
             .ok_or(CoreError("GENERATION_OVERFLOW"))?;
         state.closed=true;
         state.generation=generation;
+        Ok(())
+    }
+    /// 01A-owned same-ProductSession Build equality gate for an 01B candidate.
+    /// The declaration was registry-checked at open, but is NOT a proof that
+    /// original P1G bytes cryptographically attest this platform or Build.
+    /// No Build string, Save data, capability or writer authority is exported.
+    #[cfg(feature = "private-native-v1")]
+    pub(crate) fn verify_native_source_build_matches(
+        &self, scope: WorkerEnvelope, candidate: &BuildIdentity
+    ) -> CoreResult<()> {
+        let state=self.lock()?;
+        indexed_read::validate_scope(self,&state,&scope)?;
+        let native=&self.native_source_build;
+        if native.platform!=candidate.platform ||
+            native.build_kind!=candidate.build_kind ||
+            native.build_id!=candidate.build_id ||
+            native.schema!=candidate.schema ||
+            !native.externally_attested || !candidate.externally_attested {
+            return Err(CoreError("SPATIAL_NATIVE_BUILD_IDENTITY_MISMATCH"));
+        }
         Ok(())
     }
     /// Only a local benchmark receipt, not decoded contents or UI ownership.
