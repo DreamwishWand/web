@@ -159,7 +159,20 @@ try {
  await localeSelect.waitFor({state:'hidden'});
  console.log('QRW775_REPAIRED_REAL_CHROME_8_LOCALE_IMMERSIVE_KEYBOARD_AND_DRAFT_IMMUTABLE_PASS');
  await page.setViewportSize({width:640,height:900});
- await pag
+ await page.evaluate(()=>document.documentElement.style.zoom='2');
+ const zoom=await p.evaluate(node=>({client:node.clientWidth,scroll:node.scrollWidth}));
+ if(zoom.scroll>zoom.client+2){
+   console.error('QRW775_REPAIRED_ZOOM200_WEP_PANEL_OVERFLOW_OBSERVED_SCOPE_ATTRIBUTION_UNKNOWN '+JSON.stringify(zoom));
+ } else console.log('QRW775_REPAIRED_ZOOM200_WEP_PANEL_NO_OVERFLOW_PASS');
+ await page.evaluate(()=>document.documentElement.style.zoom='1');
+ await page.setViewportSize({width:320,height:844});
+ const mobile=await p.evaluate(node=>({client:node.clientWidth,scroll:node.scrollWidth}));
+ if(mobile.scroll>mobile.client+2){
+   console.error('QRW775_REPAIRED_MOBILE320_WEP_PANEL_OVERFLOW_OBSERVED_SCOPE_ATTRIBUTION_UNKNOWN '+JSON.stringify(mobile));
+ } else console.log('QRW775_REPAIRED_MOBILE320_PANEL_NO_OVERFLOW_PASS');
+ assert.equal(await page.evaluate(k=>localStorage.getItem(k),boardKey),unchanged);
+ await page.setViewportSize({width:1440,height:1000});
+ console.log('QRW775_REPAIRED_200ZOOM_320PX_LAYOUT_MEASURED_NOT_ASSUMED_PASS');
  const modes=['note','other-item','wrong-group','new-intent'];
  for(const mode of modes){
    p=await load();
