@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
-import {mkdtempSync,mkdirSync,writeFileSync,rmSync,symlinkSync,existsSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,rmSync,symlinkSync,existsSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 const file = resolve('scripts/asset-research/01d-steam1253-private-native-image-pilot.py');
@@ -44,7 +44,6 @@ test('R14 fabricated root and fake original cannot emit release media',()=>{
 });
 test('R14 protocol contains no static public output path or Owner GO as technical Native proof',()=>{
   // CI can inspect the Source contract, never original game media.
-  const {readFileSync}=requireShim();
   const src=readFileSync(file,'utf8');
   assert.match(src,/publicImagesEnabled.*False/);
   assert.match(src,/license.*UNKNOWN/);
@@ -53,8 +52,3 @@ test('R14 protocol contains no static public output path or Owner GO as technica
   assert.match(src,/historicalR39LossyWebpNotReused/);
   assert.doesNotMatch(src,/static\/ddv\/item-images\/webp-lossless-160-v1\/manifest.json/);
 });
-function requireShim(){ return {readFileSync:(...args)=> {
-  // Intentional local module import without CommonJS require under ESM.
-  return importUnneeded(...args);
-}};}
-function importUnneeded(){throw new Error('REPLACED_BY_SOURCE_IMPORT');}
