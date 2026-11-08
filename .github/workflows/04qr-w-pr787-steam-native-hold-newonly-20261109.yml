@@ -1,0 +1,40 @@
+name: "04 QR-W PR787 independent Steam native private HOLD"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/04qr-w-pr787-steam-native-hold-newonly-20261109.yml"
+      - "scripts/04qr-w-pr787-steam-native-hold-newonly-20261109.py"
+  push:
+    branches:
+      - "qa/04qr-w-pr787-steam-native-hold-newonly-e67d0b-20261109"
+permissions:
+  contents: read
+jobs:
+  independent-steam-native-hold:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: "No owner original Steam files, private Save or image assets"
+        shell: bash
+        run: |
+          set -euo pipefail
+          if env | grep -Eq '^(DDV_PRIVATE_SAVE_PATH|WEP_PRIVATE_P1G_PATH|WAND_PRIVATE_MEDIA_PATH|NATIVE_STEAM_ASSET_PATH|STEAM_GAME_ROOT)='; then
+            echo "PRIVATE_INPUT_FORBIDDEN"
+            exit 1
+          fi
+          python3 --version
+      - name: "Independent synthetic SHA, symlink, output isolation and no-clobber"
+        run: python3 scripts/04qr-w-pr787-steam-native-hold-newonly-20261109.py
+      - name: "Changed Source own Node contract tests synthetic only"
+        run: node --test tests/01d-steam1253-private-native-image-pilot.test.mjs
+      - name: "Native texture pixels and production Rights remain unverified"
+        run: echo "QRW787_PRIVATE_ORIGINAL_NATIVE_PIXELS_STEAM_SWITCH_FIDELITY_DEVICE_RIGHTS_PUBLIC_OFF_NOT_RUN"
