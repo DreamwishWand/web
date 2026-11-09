@@ -207,7 +207,7 @@
       <li data-atomic-item={reference.entityId} class="atomic-reference">
        <span>{reference.label} ({reference.entityId})</span>
        <button type="button" data-atomic-wep-send data-reference-id={reference.id}
-        disabled={busy||wepSending||!verifiedWepReference(reference)}
+        disabled={busy||wepSending||!catalogReady||!catalogById.has(Number(reference.entityId))||!verifiedWepReference(reference)}
         on:click={()=>sendAtomicReferenceToWorldEditor(reference.id)}>
         {copy.openWorldEditor}: {reference.label}
        </button>
