@@ -19,7 +19,7 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "577aa886e3ff89066b4b38e38193aa27e4dc3028",
+    "src/routes/editor/world/+page.svelte": "20e007ed9f0504a0743645f5eeb4983ad36859a6",
     "src/lib/wep/world-editor-primary-job.ts": "25aba45c6004c020400a249c848c3bc2281fd4a0",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "6cede86476ca6dbd3427115671367c9a1f4a433f",
@@ -86,7 +86,8 @@
       "Moodboard stale source: local item reference, group, verified Item and EditorSession/Area denial message in eight launch locales",
       "Ephemeral Moodboard Reference/Group selection handoff survives World Editor local Draft upload and is checked against live Store at click",
       "Isolated IDB Board receiver: BoardID, Revision, verified Item read-only selection and eight-locale denial.",
-      "Explicit local Scene Preset capture, IndexedDB CAS/Backup, independent reopen, read-only use, eight-locale UI and failure feedback."
+      "Explicit local Scene Preset capture, IndexedDB CAS/Backup, independent reopen, read-only use, eight-locale UI and failure feedback.",
+      "F-P04 detached read-only local Scene reuse Draft: explicit opt-in, fresh revision match, local coordinates, eight-locale status and refusal; never Native Apply or Editor mutation."
     ],
     "neverTranslate": [
       "Core/WEP machine reason code",

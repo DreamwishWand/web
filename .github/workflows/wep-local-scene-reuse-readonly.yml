@@ -1,0 +1,50 @@
+name: WEP F-P04 detached local Scene readonly Draft
+on:
+  pull_request:
+    paths:
+      - 'src/lib/wep/local-scene-reuse-readonly.ts'
+      - 'src/lib/wep/local-scene-preset-copy.js'
+      - 'src/routes/editor/world/+page.svelte'
+      - 'tests/wep-local-scene-reuse-readonly.test.mjs'
+      - 'scripts/wep-local-scene-reuse-readonly-chrome.mjs'
+      - '.github/workflows/wep-local-scene-reuse-readonly.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  readonly-draft:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: New F-P04 bounded readonly Draft negative tests
+        run: node --test tests/wep-local-scene-reuse-readonly.test.mjs
+      - name: Svelte check and /web build
+        env:
+          BASE_PATH: /web
+        run: |
+          npm run check
+          npm run build
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual installed Chrome, disposable synthetic local Scene only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${DDV_PRIVATE_SAVE_PATH:-}"
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          test -n "$BIN"
+          "$BIN" --version
+          export CHROME_BIN="$BIN"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4352 >/tmp/wep-scene-reuse.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4352/editor/world/ >/dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/wep-local-scene-reuse-readonly-chrome.mjs
