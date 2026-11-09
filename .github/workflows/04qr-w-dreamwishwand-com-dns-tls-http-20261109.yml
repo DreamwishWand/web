@@ -1,0 +1,46 @@
+name: "04 QR-W R12 custom domain authoritative DNS TLS HTTP readonly"
+on:
+  push:
+    branches: [qa/04qr-w-dreamwishwand-com-dns-tls-http-r12-20261109]
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/04qr-w-dreamwishwand-com-dns-tls-http-20261109.mjs"
+      - ".github/workflows/04qr-w-dreamwishwand-com-dns-tls-http-20261109.yml"
+permissions:
+  contents: read
+jobs:
+  passive-network-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: "Only two audit files atop protected main; no production or DNS changes"
+        shell: bash
+        run: |
+          set -euo pipefail
+          FIXED=340461f4a2960f8033fc13be9d5eaef8554d252d
+          test "$(git merge-base "$FIXED" HEAD)" = "$FIXED"
+          cat >/tmp/qrw-root-expected <<'SCOPE'
+          .github/workflows/04qr-w-dreamwishwand-com-dns-tls-http-20261109.yml
+          scripts/04qr-w-dreamwishwand-com-dns-tls-http-20261109.mjs
+          SCOPE
+          git diff --name-only "$FIXED" HEAD | LC_ALL=C sort >/tmp/qrw-root-actual
+          diff -u /tmp/qrw-root-expected /tmp/qrw-root-actual
+          echo "QRW_ROOT_QA_ONLY_TWO_ADDS_NO_PRODUCT_DNS_OR_PAGES_CHANGE"
+      - name: "Public authoritative DNS TLS SNI GET HEAD Location actual only"
+        env:
+          QRW_ROOT_EXPECTED_MAIN: 340461f4a2960f8033fc13be9d5eaef8554d252d
+        run: |
+          set -euo pipefail
+          command -v dig
+          node scripts/04qr-w-dreamwishwand-com-dns-tls-http-20261109.mjs
+      - name: "No deployment action"
+        run: echo "QRW_ROOT_READ_ONLY_NO_DNS_HOSTING_WRITER_PROVIDER_COMMUNITY_CHANGE"
