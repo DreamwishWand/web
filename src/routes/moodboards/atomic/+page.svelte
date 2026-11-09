@@ -3,15 +3,34 @@
  import { base } from '$app/paths';
  import { locale } from '$lib/i18n/runtime.js';
  import { moodboardCopy } from '$lib/moodboards/copy.js';
+ import { exploreCopy } from '$lib/explore/copy.js';
  import { decodeCollectionRecord,loadCollectionRuntime } from '$lib/collection/runtime.js';
  import { ATOMIC_FIRST_BOARD_GATE,openAtomicFirstBoardDatabase,verifiedAtomicFirstBoardReopen,
   createAtomicFirstBoard,toggleAtomicFirstBoardItem,deleteAtomicFirstBoard
  } from '$lib/moodboards/atomic-first-board.mjs';
  let db:IDBDatabase|null=null, snapshot:any=null, ready=false, catalogReady=false;
  let records:any[]=[],title='',itemIdInput='',message='',outcome='NOT_STARTED',busy=false;
+ let handoffItemId:number|null=null,handoffRequested=false,handoffInvalid=false;
+ $: inspire=exploreCopy($locale);
+ $: handoffRecord=catalogReady&&handoffItemId!==null
+  ?records.find((row:any)=>row.itemId===handoffItemId&&typeof row.label==='string'&&row.label.trim())??null:null;
+ $: handoffAlreadyStored=Boolean(board&&handoffRecord&&board.references.some(
+  (ref:any)=>ref.type==='ITEM'&&ref.entityId===String(handoffItemId)
+ ));
  $: copy=moodboardCopy($locale);
  $: board=snapshot&&!snapshot.deleted?snapshot.document.boards[0]:null;
  onMount(async()=>{
+  // Query parameters are untrusted; a single canonical decimal ItemID is the
+  // entire Handoff. No label, BoardID, Revision or authority comes from URL.
+  const params=new URLSearchParams(window.location.search);
+  handoffRequested=params.has('item');
+  if(handoffRequested){
+   const values=params.getAll('item'),raw=values[0]??'';
+   if(values.length===1&&Array.from(params.keys()).length===1&&
+      /^[1-9][0-9]{0,15}$/.test(raw)&&Number.isSafeInteger(Number(raw))&&
+      String(Number(raw))===raw) handoffItemId=Number(raw);
+   else handoffInvalid=true;
+  }
   try{db=await openAtomicFirstBoardDatabase();snapshot=await verifiedAtomicFirstBoardReopen(db);ready=true;}
   catch(e){message=String(e);outcome='UNAVAILABLE';}
   try{const data=await loadCollectionRuntime(base);
@@ -45,6 +64,29 @@
    message=copy.saved;outcome='ITEM_SAVED';
   }catch(e){message=String(e);outcome='REJECTED';}finally{busy=false;}
  }
+ async function addHandoffItem(){
+  // Deliberately no auto-save: the user confirms a catalog-verified ItemID.
+  // The existing IDB transaction CAS rejects a stale tab rather than retrying.
+  if(!db||!board||!snapshot||!handoffRecord||handoffAlreadyStored||
+     handoffInvalid||busy)return;
+  busy=true;outcome='PENDING';message='';
+  try{
+   const result=await toggleAtomicFirstBoardItem(db,{
+    boardId:snapshot.boardId,expectedRevision:snapshot.revision,
+    itemId:handoffRecord.itemId,verifiedRecords:records
+   });
+   if(result.action!=='added')throw Error('ATOMIC_HANDOFF_UNEXPECTED_REMOVE');
+   const reopened=await verifiedAtomicFirstBoardReopen(db);
+   if(!reopened||reopened.boardId!==result.boardId||reopened.revision!==result.revision||
+      !reopened.document.boards[0].references.some(
+        (ref:any)=>ref.type==='ITEM'&&ref.entityId===String(handoffRecord.itemId)))
+      throw Error('ATOMIC_HANDOFF_REOPEN_UNVERIFIED');
+   snapshot=reopened;outcome='HANDOFF_ADDED';message=inspire.added;
+  }catch(e){
+   outcome='REJECTED';message=String(e);
+   // Never auto-retry a stale write. A separate explicit Reopen is required.
+  }finally{busy=false;}
+ }
  async function reopen(){
   if(!db||busy)return;
   try{snapshot=await verifiedAtomicFirstBoardReopen(db);message='';outcome='REOPENED';}
@@ -74,6 +116,29 @@
  <header><h1>{copy.title}</h1>
   <p>Isolated local-only IndexedDB preview. Legacy Moodboards and their Backup remain unchanged. Not migrated or publicly enabled.</p>
   <a href={base+'/moodboards/'}>{copy.boards}</a></header>
+ {#if handoffRequested}
+  <aside class="atomic-handoff" data-atomic-item-handoff data-atomic-handoff-item={handoffItemId??''}
+    data-atomic-handoff-verified={handoffRecord?'true':'false'} data-atomic-handoff-invalid={handoffInvalid?'true':'false'}>
+   <p data-atomic-handoff-separation>{copy.atomicNote}</p>
+   {#if handoffInvalid||catalogReady&&!handoffRecord}
+    <p data-atomic-handoff-denied role="alert">{inspire.failed}</p>
+   {:else if !catalogReady}
+    <p data-atomic-handoff-pending role="status">{inspire.loading}</p>
+   {:else if handoffRecord}
+    <p data-atomic-handoff-label>{handoffRecord.label} · {inspire.itemId} {handoffRecord.itemId}</p>
+    {#if handoffAlreadyStored}
+     <p data-atomic-handoff-already>{inspire.added}</p>
+    {:else if !snapshot}
+     <p data-atomic-handoff-create-first>{inspire.noBoards}</p>
+    {:else if snapshot.deleted}
+     <p data-atomic-handoff-deleted>{copy.deleted}</p>
+    {:else}
+     <button type="button" data-atomic-handoff-add on:click={addHandoffItem}
+       disabled={busy||!ready}>{inspire.add}: {handoffRecord.label}</button>
+    {/if}
+   {/if}
+  </aside>
+ {/if}
  {#if message}<p data-atomic-status role="status">{message}</p>{/if}
  {#if !ready}<p>Local transactional storage unavailable.</p>
  {:else if !snapshot}
@@ -102,6 +167,10 @@
 <style>
 .atomic-first{padding-block:55px 95px;max-width:900px}.atomic-first h1{font-family:Georgia,serif;font-size:clamp(32px,5vw,58px);font-weight:500}
 .atomic-first p{color:var(--ink-muted);line-height:1.65}
+.atomic-handoff{display:grid;gap:10px;min-width:0;margin:16px 0;padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+.atomic-handoff p{margin:0;overflow-wrap:anywhere;font-size:12px}
+.atomic-handoff button{min-height:44px;max-width:100%;width:max-content;overflow-wrap:anywhere}
+@media(max-width:480px){.atomic-handoff button{width:100%}}
 .atomic-first form,.atomic-first article{display:grid;gap:12px;border:1px solid var(--border);border-radius:15px;background:var(--surface);padding:18px;margin:18px 0}
 .atomic-first label{display:grid;gap:8px}.atomic-first input{width:100%;box-sizing:border-box;padding:10px;background:var(--surface-raised);color:var(--ink);border:1px solid var(--border);border-radius:10px}
 .atomic-first button{padding:10px 14px;margin:8px 6px 8px 0;border:1px solid var(--border);border-radius:9px;background:var(--surface-raised);color:var(--ink);cursor:pointer}
