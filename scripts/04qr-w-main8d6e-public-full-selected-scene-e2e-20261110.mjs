@@ -324,11 +324,15 @@ try{
  // The second tab was opened before Rev1 existed. User must explicitly
  // Reopen the current library to acquire CAS Revision1 before saving Rev2.
  // Otherwise the Core correctly rejects a stale Revision0 write.
+ await loadSyntheticEditor(other);
+ await other.locator('[data-editor-object-id="qa8d-object-b"]').click();
+ await other.locator('.capture-panel input').first().fill('Host E2E Scene Beta');
+ await other.getByRole('button',{name:'Capture Preview'}).click();
  await enterButton(other,'[data-wep-local-scene-reopen]');
  await other.locator('[data-wep-local-scene-entries] [data-wep-local-scene-read]')
   .first().waitFor({timeout:24000});
- await loadSyntheticEditor(other);
- await captureSave(other,'qa8d-object-b','Host E2E Scene Beta');
+ await enterButton(other,'[data-wep-local-scene-save]');
+ await other.locator('[data-wep-local-scene-status]').filter({hasText:'saved and independently reopened'}).waitFor({timeout:30000});
  const newRow=await getScene(other);
  assert.equal(newRow.revision,2);
  assert.equal(newRow.backupRevision,1);
