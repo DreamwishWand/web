@@ -25,6 +25,9 @@ test('Sender only in existing isolated Atomic Board UI, not new Reader/Store',()
  assert.match(page,/copy\.atomicNote/);
  assert.match(page,/copy\.openWorldEditor/);
  assert.match(page,/!verifiedWepReference\(reference\)/);
+ // A fresh tab may render the IDB Board before SHA catalog hydration. The
+ // direct template dependencies MUST re-enable the button after catalogReady.
+ assert.match(page,/!catalogReady\|\|!catalogById\.has\(Number\(reference\.entityId\)\)/);
  assert.match(page,/data-atomic-wep-separate="true"/);
  assert.match(page,/<meta name="robots" content="noindex,nofollow"/);
  assert.doesNotMatch(page,/localStorage\.setItem|localStorage\.removeItem|indexedDB\.deleteDatabase|fetch\(['"]https:|post\(|autoPlace|guessFootprint/);
