@@ -52,6 +52,13 @@ try{
  const ref=saved.document.boards[0].references.find(x=>x.entityId==='40000047');
  assert.ok(ref?.id&&ref.type==='ITEM'&&ref.groupIds?.length===0);
  assert.equal(await p.locator('[data-atomic-wep-send]').getAttribute('data-reference-id'),ref.id);
+ // Open the competing tab while the authoritative row is still at Revision 2;
+ // the WEP receiver navigation must not upgrade this tab's stale snapshot.
+ const stale=await open(atomic);
+ await stale.locator('[data-atomic-ready="true"]').waitFor({timeout:30000});
+ await stale.locator('[data-atomic-catalog="ready"]').waitFor({timeout:30000});
+ await stale.locator('[data-atomic-wep-send]:not(:disabled)').waitFor({timeout:30000});
+ assert.equal((await dbRow(stale)).revision,saved.revision);
  assert.equal(await p.locator('[data-atomic-wep-separation]').count(),1);
  assert.match(await p.locator('[data-atomic-wep-separation]').innerText(),/IndexedDB/);
  assert.equal(await p.locator('meta[name=robots]').getAttribute('content'),'noindex,nofollow');
@@ -102,8 +109,6 @@ try{
  assert.equal((await dbRow(reopened)).primary,saved.primary);
  assert.deepEqual(await getLegacy(reopened),legacy);
  console.log('WEB_ATOMIC_WEP_FRESH_TAB_REOPEN_VERIFIED_REFDRAFT_NO_WRITER_PASS');
- const stale=await open(atomic);
- await stale.locator('[data-atomic-wep-send]:not(:disabled)').waitFor({timeout:25000});
  const updater=await open(atomic);
  await updater.locator('[data-atomic-item-id]').fill('40000047');
  await updater.locator('[data-atomic-save-item]').click(); // explicit user removes Item in a second tab
