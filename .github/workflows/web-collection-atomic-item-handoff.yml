@@ -1,0 +1,93 @@
+name: WEB Collection verified Item to isolated atomic Board handoff
+on:
+  pull_request:
+    paths:
+      - 'src/routes/collection/+page.svelte'
+      - 'src/routes/moodboards/atomic/+page.svelte'
+      - 'tests/web-collection-atomic-item-handoff.test.mjs'
+      - 'scripts/web-collection-atomic-item-handoff-chrome.mjs'
+      - '.github/workflows/web-collection-atomic-item-handoff.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Exact 2 modified plus 3 added on current main, accepted Rust/store untouched
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.pull_request.base.sha }}"
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          cat >/tmp/item-handoff-scope <<'SCOPE'
+          .github/workflows/web-collection-atomic-item-handoff.yml
+          scripts/web-collection-atomic-item-handoff-chrome.mjs
+          src/routes/collection/+page.svelte
+          src/routes/moodboards/atomic/+page.svelte
+          tests/web-collection-atomic-item-handoff.test.mjs
+          SCOPE
+          git diff --name-only "$BASE" HEAD | LC_ALL=C sort >/tmp/item-handoff-actual
+          LC_ALL=C sort /tmp/item-handoff-scope >/tmp/item-handoff-expected
+          diff -u /tmp/item-handoff-expected /tmp/item-handoff-actual
+          for p in src/routes/collection/+page.svelte src/routes/moodboards/atomic/+page.svelte; do
+            test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = M
+          done
+          for p in scripts/web-collection-atomic-item-handoff-chrome.mjs tests/web-collection-atomic-item-handoff.test.mjs .github/workflows/web-collection-atomic-item-handoff.yml; do
+            test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = A
+          done
+          git diff --exit-code "$BASE" HEAD -- \
+            src/lib/moodboards/ src/lib/collection/ src/lib/explore/ src/lib/wep/ \
+            crates/ src/routes/+layout.svelte src/routes/account/ src/routes/library/ \
+            .github/workflows/pages.yml supabase/ static/
+          echo WEB_COLLECTION_ATOMIC_HANDOFF_EXACT5_NO_CORE_STORE_CHANGE_PASS
+      - name: Contract negative tests, Svelte and project /web static build
+        env:
+          BASE_PATH: /web
+        run: |
+          node --test tests/web-collection-atomic-item-handoff.test.mjs
+          npm run check
+          npm run build
+          test -f build/moodboards/atomic/index.html
+          test -f build/collection/index.html
+          test -f build/404.html
+          echo WEB_COLLECTION_ATOMIC_HANDOFF_STATIC_NOINDEX_BUILD_PASS
+  chrome:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Start disposable localhost and installed Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4317 >/tmp/web-collection-atomic-handoff.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4317/collection/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/web-collection-atomic-handoff.log
+          exit 1
+      - name: Actual Collection Item click, 8 locale, CAS, real Backup/Reopen, fraud and late old writer
+        env:
+          WEB_COLLECTION_ATOMIC_ORIGIN: http://127.0.0.1:4317
+        run: node scripts/web-collection-atomic-item-handoff-chrome.mjs
