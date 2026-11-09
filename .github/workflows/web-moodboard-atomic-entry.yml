@@ -1,0 +1,94 @@
+name: WEB optional isolated Moodboard entry eight-locale Chrome
+on:
+  pull_request:
+    paths:
+      - 'src/lib/moodboards/copy.js'
+      - 'src/routes/moodboards/+page.svelte'
+      - 'tests/web-moodboard-atomic-entry.test.mjs'
+      - 'scripts/web-moodboard-atomic-entry-chrome.mjs'
+      - '.github/workflows/web-moodboard-atomic-entry.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Exact two modified and three added new-link files, no Store or protected layout changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.pull_request.base.sha }}"
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          cat >/tmp/atomic-entry-scope <<'SCOPE'
+          .github/workflows/web-moodboard-atomic-entry.yml
+          scripts/web-moodboard-atomic-entry-chrome.mjs
+          src/lib/moodboards/copy.js
+          src/routes/moodboards/+page.svelte
+          tests/web-moodboard-atomic-entry.test.mjs
+          SCOPE
+          git diff --name-only "$BASE" HEAD | LC_ALL=C sort >/tmp/atomic-entry-actual
+          LC_ALL=C sort /tmp/atomic-entry-scope >/tmp/atomic-entry-expected
+          diff -u /tmp/atomic-entry-expected /tmp/atomic-entry-actual
+          for p in src/lib/moodboards/copy.js src/routes/moodboards/+page.svelte; do
+            test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = M
+          done
+          for p in scripts/web-moodboard-atomic-entry-chrome.mjs tests/web-moodboard-atomic-entry.test.mjs .github/workflows/web-moodboard-atomic-entry.yml; do
+            test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = A
+          done
+          git diff --exit-code "$BASE" HEAD -- \
+            src/lib/moodboards/store.js src/lib/moodboards/atomic-first-board.mjs \
+            src/routes/moodboards/atomic/+page.svelte src/lib/collection/ src/routes/collection/ \
+            src/lib/community/ src/routes/+layout.svelte src/routes/+layout.ts \
+            src/routes/+layout.server.js .github/workflows/pages.yml supabase/ static/
+          echo WEB_ATOMIC_ENTRY_EXACT5_NO_LEGACY_OR_CORE_MUTATION_PASS
+      - name: New link contract, Svelte type and static base-path bundle
+        env:
+          BASE_PATH: /web
+        run: |
+          node --test tests/web-moodboard-atomic-entry.test.mjs
+          npm run check
+          npm run build
+          test -f build/moodboards/index.html
+          test -f build/moodboards/atomic/index.html
+          test -f build/404.html
+          echo WEB_ATOMIC_ENTRY_STATIC_PAGES_WITH_PRIVATE_PREVIEW_NOINDEX_PASS
+  chrome:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Start disposable local browser and installed Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4299 >/tmp/web-moodboard-atomic-entry.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4299/moodboards/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/web-moodboard-atomic-entry.log
+          exit 1
+      - name: Actual eight locales 320 CSS zoom 200 keyboard and opt-in backup/reopen
+        env:
+          MOODBOARD_ATOMIC_ENTRY_ORIGIN: http://127.0.0.1:4299
+        run: node scripts/web-moodboard-atomic-entry-chrome.mjs

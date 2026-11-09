@@ -12,7 +12,7 @@ export const MOODBOARD_COPY = Object.freeze({
     cloud:'Wand Cloud', cloudDetail:'Cloud sync is not bound here. Local Moodboards remain fully usable without it.',
     item:'Item', gallery:'Gallery Work', preset:'Wand Preset', link:'Link', noteType:'Note', count:'references',
     groups:"Groups", newGroup:"New Group", createGroup:"Create Group", unsorted:"Unsorted",
-    openWorldEditor:"Open in World Editor", assignGroups:"Groups", collapse:"Collapse", expand:"Expand", noRefs:"No references in this section."
+    openWorldEditor:"Open in World Editor", assignGroups:"Groups", collapse:"Collapse", expand:"Expand", noRefs:"No references in this section.", atomicLink:"Open isolated local Board preview", atomicNote:"Optional: this preview saves to separate IndexedDB storage. Existing Moodboards and their localStorage backups are not migrated, merged, replaced or deleted. Changes here do not appear in the original Moodboards. The usual Collection first-board creation remains off."
   },
   fr: {
     eyebrow:'PRÉPAREZ VOTRE PROCHAINE CRÉATION', title:'Moodboards', intro:'Rassemblez objets, Presets Wand, œuvres Gallery et notes avant de modifier votre vallée.',
@@ -27,7 +27,7 @@ export const MOODBOARD_COPY = Object.freeze({
     cloud:'Wand Cloud', cloudDetail:'La synchronisation Cloud n’est pas liée ici. Les Moodboards locaux restent pleinement utilisables.',
     item:'Objet', gallery:'Œuvre Gallery', preset:'Preset Wand', link:'Lien', noteType:'Note', count:'références',
     groups:"Groupes", newGroup:"Nouveau groupe", createGroup:"Créer le groupe", unsorted:"Non classé",
-    openWorldEditor:"Ouvrir dans World Editor", assignGroups:"Groupes", collapse:"Réduire", expand:"Développer", noRefs:"Aucune référence dans cette section."
+    openWorldEditor:"Ouvrir dans World Editor", assignGroups:"Groupes", collapse:"Réduire", expand:"Développer", noRefs:"Aucune référence dans cette section.", atomicLink:"Ouvrir l’aperçu du tableau local isolé", atomicNote:"Facultatif : cet aperçu utilise un stockage IndexedDB distinct. Les Moodboards existants et leurs sauvegardes localStorage ne sont ni migrés, ni fusionnés, ni remplacés, ni supprimés. Les modifications ne se retrouvent pas dans les Moodboards d’origine. La première création dans Collection reste désactivée."
   },
   it: {
     eyebrow:'PIANIFICA LA PROSSIMA CREAZIONE', title:'Moodboards', intro:'Raccogli oggetti, Preset Wand, opere Gallery e note prima di modificare la tua Valley.',
@@ -42,7 +42,7 @@ export const MOODBOARD_COPY = Object.freeze({
     cloud:'Wand Cloud', cloudDetail:'La sincronizzazione Cloud non è collegata qui. I Moodboard locali restano pienamente utilizzabili.',
     item:'Oggetto', gallery:'Opera Gallery', preset:'Preset Wand', link:'Link', noteType:'Nota', count:'riferimenti',
     groups:"Gruppi", newGroup:"Nuovo gruppo", createGroup:"Crea gruppo", unsorted:"Non ordinati",
-    openWorldEditor:"Apri in World Editor", assignGroups:"Gruppi", collapse:"Comprimi", expand:"Espandi", noRefs:"Nessun riferimento in questa sezione."
+    openWorldEditor:"Apri in World Editor", assignGroups:"Gruppi", collapse:"Comprimi", expand:"Espandi", noRefs:"Nessun riferimento in questa sezione.", atomicLink:"Apri l’anteprima del Board locale isolato", atomicNote:"Facoltativo: questa anteprima usa uno spazio IndexedDB separato. I Moodboard esistenti e i relativi backup localStorage non vengono migrati, uniti, sostituiti o eliminati. Le modifiche non appaiono nei Moodboard originali. La creazione iniziale da Collection rimane disattivata."
   },
   de: {
     eyebrow:'PLANE DEINE NÄCHSTE KREATION', title:'Moodboards', intro:'Sammle Gegenstände, Wand Presets, Gallery-Werke und Notizen vor der Bearbeitung deines Valley.',
@@ -57,7 +57,7 @@ export const MOODBOARD_COPY = Object.freeze({
     cloud:'Wand Cloud', cloudDetail:'Cloud-Synchronisierung ist hier nicht angebunden. Lokale Moodboards bleiben vollständig nutzbar.',
     item:'Gegenstand', gallery:'Gallery-Werk', preset:'Wand Preset', link:'Link', noteType:'Notiz', count:'Referenzen',
     groups:"Gruppen", newGroup:"Neue Gruppe", createGroup:"Gruppe erstellen", unsorted:"Unsortiert",
-    openWorldEditor:"In World Editor öffnen", assignGroups:"Gruppen", collapse:"Einklappen", expand:"Ausklappen", noRefs:"Keine Referenzen in diesem Abschnitt."
+    openWorldEditor:"In World Editor öffnen", assignGroups:"Gruppen", collapse:"Einklappen", expand:"Ausklappen", noRefs:"Keine Referenzen in diesem Abschnitt.", atomicLink:"Isolierte lokale Board-Vorschau öffnen", atomicNote:"Optional: Diese Vorschau nutzt einen eigenen IndexedDB-Speicher. Bestehende Moodboards und ihre localStorage-Backups werden weder migriert noch zusammengeführt, ersetzt oder gelöscht. Änderungen erscheinen nicht in den ursprünglichen Moodboards. Die erste Erstellung in Collection bleibt deaktiviert."
   },
   'es-ES': {
     eyebrow:'PLANIFICA TU PRÓXIMA CREACIÓN', title:'Moodboards', intro:'Reúne objetos, Presets de Wand, obras de Gallery y notas antes de editar tu Valle.',
@@ -72,7 +72,7 @@ export const MOODBOARD_COPY = Object.freeze({
     cloud:'Wand Cloud', cloudDetail:'La sincronización Cloud no está conectada aquí. Los Moodboards locales siguen siendo plenamente utilizables.',
     item:'Objeto', gallery:'Obra de Gallery', preset:'Preset de Wand', link:'Enlace', noteType:'Nota', count:'referencias',
     groups:"Grupos", newGroup:"Nuevo grupo", createGroup:"Crear grupo", unsorted:"Sin clasificar",
-    openWorldEditor:"Abrir en World Editor", assignGroups:"Grupos", collapse:"Contraer", expand:"Expandir", noRefs:"No hay referencias en esta sección."
+    openWorldEditor:"Abrir en World Editor", assignGroups:"Grupos", collapse:"Contraer", expand:"Expandir", noRefs:"No hay referencias en esta sección.", atomicLink:"Abrir vista previa del tablero local aislado", atomicNote:"Opcional: esta vista previa usa un almacenamiento IndexedDB separado. Los Moodboards existentes y sus copias en localStorage no se migran, combinan, reemplazan ni eliminan. Los cambios no aparecen en los Moodboards originales. La creación inicial en Collection sigue desactivada."
   },
   ja: {
     eyebrow:'次の飾り付けを計画する', title:'Moodboards', intro:'Valleyを編集する前に、アイテム、Wand Preset、Gallery作品、メモを集めて構想を整理します。',
@@ -87,7 +87,7 @@ export const MOODBOARD_COPY = Object.freeze({
     cloud:'Wand Cloud', cloudDetail:'この画面にはCloud同期を接続していません。ローカルMoodboardはCloudなしで完全に利用できます。',
     item:'アイテム', gallery:'Gallery作品', preset:'Wand Preset', link:'リンク', noteType:'メモ', count:'件',
     groups:"Groups", newGroup:"新しいGroup", createGroup:"Groupを作成", unsorted:"Unsorted",
-    openWorldEditor:"World Editorで開く", assignGroups:"Groups", collapse:"折りたたむ", expand:"展開", noRefs:"このセクションに参照はありません。"
+    openWorldEditor:"World Editorで開く", assignGroups:"Groups", collapse:"折りたたむ", expand:"展開", noRefs:"このセクションに参照はありません。", atomicLink:"隔離されたローカルBoardを試す", atomicNote:"任意のプレビューです。新しいIndexedDBと従来のMoodboard用localStorageは別の保存領域です。既存Boardやバックアップを自動移行・統合・上書き・削除せず、ここでの変更は従来のMoodboardには反映されません。Collectionの通常の初回作成は引き続きOFFです。"
   },
   'zh-CN': {
     eyebrow:'规划下一次创作', title:'Moodboards', intro:'在编辑山谷前收集物品、Wand Preset、Gallery 作品和笔记。',
@@ -102,7 +102,7 @@ export const MOODBOARD_COPY = Object.freeze({
     cloud:'Wand Cloud', cloudDetail:'此界面尚未连接 Cloud 同步。本地 Moodboard 无需 Cloud 也可完整使用。',
     item:'物品', gallery:'Gallery 作品', preset:'Wand Preset', link:'链接', noteType:'笔记', count:'项',
     groups:"分组", newGroup:"新建分组", createGroup:"创建分组", unsorted:"未分类",
-    openWorldEditor:"在 World Editor 中打开", assignGroups:"分组", collapse:"折叠", expand:"展开", noRefs:"此分区没有引用。"
+    openWorldEditor:"在 World Editor 中打开", assignGroups:"分组", collapse:"折叠", expand:"展开", noRefs:"此分区没有引用。", atomicLink:"打开隔离的本地 Board 预览", atomicNote:"此功能为可选预览，使用独立的 IndexedDB 存储。现有 Moodboard 及其 localStorage 备份不会自动迁移、合并、覆盖或删除。此处的更改不会出现在原有 Moodboard 中。Collection 中的首次创建仍处于关闭状态。"
   },
   'pt-BR': {
     eyebrow:'PLANEJE SUA PRÓXIMA CRIAÇÃO', title:'Moodboards', intro:'Reúna itens, Presets do Wand, obras da Gallery e notas antes de editar o seu Vale.',
@@ -117,7 +117,7 @@ export const MOODBOARD_COPY = Object.freeze({
     cloud:'Wand Cloud', cloudDetail:'A sincronização Cloud não está conectada aqui. Moodboards locais continuam totalmente utilizáveis.',
     item:'Item', gallery:'Obra da Gallery', preset:'Preset do Wand', link:'Link', noteType:'Nota', count:'referências',
     groups:"Grupos", newGroup:"Novo grupo", createGroup:"Criar grupo", unsorted:"Não classificados",
-    openWorldEditor:"Abrir no World Editor", assignGroups:"Grupos", collapse:"Recolher", expand:"Expandir", noRefs:"Nenhuma referência nesta seção."
+    openWorldEditor:"Abrir no World Editor", assignGroups:"Grupos", collapse:"Recolher", expand:"Expandir", noRefs:"Nenhuma referência nesta seção.", atomicLink:"Abrir prévia do Board local isolado", atomicNote:"Opcional: esta prévia utiliza um armazenamento IndexedDB separado. Os Moodboards existentes e seus backups no localStorage não são migrados, mesclados, substituídos nem excluídos. As alterações não aparecem nos Moodboards originais. A criação inicial no Collection permanece desativada."
   }
 });
 
