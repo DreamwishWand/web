@@ -102,7 +102,7 @@ const oldKey='dreamwishwand:moodboards:v1',oldBackup='dreamwishwand:moodboards:v
 const now='2026-11-09T00:00:00.000Z';
 const oldPrimary=JSON.stringify({schema:'wand.moodboards.local@1',version:2,updatedAt:now,
  boards:[{id:'qa-preserved-board',title:'No automatic migration',description:null,createdAt:now,updatedAt:now,
-  groups:[{id:'g',title:'old group',order:0,collapsed:false}],references:[]}]});
+  groups:[{id:'g',title:'old group',order:0,collapsed:false}],references:[{id:'r',type:'ITEM',label:'Stage1 Furniture',entityId:'40000048',groupIds:['g'],createdAt:now,note:null,url:null}]}]});
 const oldBackupRaw='{"old":"moodboard-backup-sentinel"}';
 const fixture={schema:'dreamwish-wand-wep-editor-document',version:1,
  target:{gameVersion:'1.25.0',platform:'synthetic',areaKey:'local-qa-only'},
