@@ -1,0 +1,55 @@
+name: "04 QR-W PR780 independent actual static root and preserved Pages HTTP"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/04qr-w-pr780-canonical-http-newonly-20261108.yml"
+      - "scripts/04qr-w-pr780-canonical-http-newonly-20261108.mjs"
+permissions:
+  contents: read
+jobs:
+  independent-canonical-static-http:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Installed Chrome and no user-private data
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${DDV_PRIVATE_SAVE_PATH:-}"
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          test -n "$BIN" || { echo 'NOT_RUN: installed Chrome absent'; exit 1; }
+          "$BIN" --version
+          echo "CHROME_BIN=$BIN" >> "$GITHUB_ENV"
+      - name: Opted-in root static generated HTML + real HTTP and hostile URLs
+        env:
+          BASE_PATH: ""
+          WAND_CANONICAL_BUILD_ORIGIN: https://dreamwishwand.com
+          QRW780_BASE_PATH: ""
+        run: |
+          npm run build
+          node scripts/04qr-w-pr780-canonical-http-newonly-20261108.mjs
+      - name: Existing Pages /web stays public, no unapproved root canonical
+        env:
+          BASE_PATH: /web
+          WAND_CANONICAL_BUILD_ORIGIN: https://dreamwishwand.com
+          QRW780_BASE_PATH: /web
+        run: |
+          npm run build
+          node scripts/04qr-w-pr780-canonical-http-newonly-20261108.mjs
+          test -f build/index.html
+          test -f build/404.html
+          test ! -f build/CNAME
+      - name: No fake DNS TLS HTTP301 or provider/rights attestation
+        run: echo "QRW780_ROOT_DOMAIN_MANAGED_DNS_TLS_301_RIGHTS_OPERATOR_NOT_RUN"
