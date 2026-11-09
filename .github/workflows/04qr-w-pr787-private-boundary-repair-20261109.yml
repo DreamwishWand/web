@@ -1,0 +1,36 @@
+name: "04 QR-W PR787 repaired output boundary independent synthetic"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/04qr-w-pr787-private-boundary-repair-20261109.yml"
+      - "scripts/04qr-w-pr787-private-boundary-repair-20261109.py"
+  push:
+    branches: [qa/04qr-w-pr787-private-boundary-repair-2744cc-20261109]
+permissions:
+  contents: read
+jobs:
+  independent-private-fence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: "Ensure no private owner Save, keys or media supplied to QA"
+        shell: bash
+        run: |
+          set -euo pipefail
+          if env | grep -Eq '^(DDV_PRIVATE_SAVE_PATH|STEAM_OWNER_MEDIA_ROOT|OWNER_PRIVATE_ROMFS|DDV_DECRYPTION_KEY)='; then
+            echo "PRIVATE_ORIGINAL_FORBIDDEN"
+            exit 1
+          fi
+      - name: "Repaired Source fixed SHA + independent negative private boundary preflight"
+        run: python3 scripts/04qr-w-pr787-private-boundary-repair-20261109.py
+      - name: "Media release and image pixel parity not certified"
+        run: echo "QRW787_PRIVATE_SOURCE_SYNTHETIC_ONLY_REAL_IMAGE_PIXELS_RIGHTS_HTTPS_DEVICE_NOT_RUN"
