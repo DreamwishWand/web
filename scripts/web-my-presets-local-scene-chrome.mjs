@@ -15,8 +15,10 @@ context.on('request',req=>{
 const attach=p=>p.on('pageerror',e=>errors.push(String(e)));
 async function openMy(){
  const page=await context.newPage();attach(page);
- const response=await page.goto(origin+'/presets/',{waitUntil:'domcontentloaded'});
+ const response=await page.goto(origin+'/presets/',{waitUntil:'networkidle',timeout:30000});
  assert.equal(response.status(),200);
+ await page.locator('[data-stage1-presets-four-cards]').waitFor();
+ await page.waitForFunction(()=>Boolean(document.documentElement.dataset.locale),null,{timeout:15000});
  await page.locator('[data-preset-child="my"]').click();
  await page.locator('[data-my-domain-view="wand"]').waitFor();
  await page.locator('[data-my-local-scenes]').waitFor();
