@@ -4,6 +4,15 @@ const origin=(process.env.WEP_SCENE_REUSE_ORIGIN||'http://127.0.0.1:4352').repla
 assert.match(origin,/^http:\/\/127\.0\.0\.1:/);
 assert.ok(process.env.CHROME_BIN,'Actual installed Chrome is required');
 const errors=[],unsafe=[];
+const boardKey='dreamwishwand:moodboards:v1';
+const handoffKey='dreamwishwand:world-editor:handoff:v1';
+const now='2026-11-09T00:00:00.000Z';
+const legacyRaw=JSON.stringify({schema:'wand.moodboards.local@1',version:2,updatedAt:now,boards:[{
+ id:'scene-reuse-fixture',title:'Unchanged Moodboard',description:null,createdAt:now,updatedAt:now,
+ groups:[{id:'g',title:'group',order:0,collapsed:false}],
+ references:[{id:'r',type:'ITEM',label:'Stage1 Furniture',entityId:'40000048',
+  groupIds:['g'],createdAt:now,note:null,url:null}]
+}]});
 const fixture={schema:'dreamwish-wand-wep-editor-document',version:1,
  target:{gameVersion:'1.25.0',platform:'synthetic',areaKey:'local-only-draft'},
  capabilities:{},metadata:{},networks:{roads:null,fences:null},
@@ -24,7 +33,15 @@ try{
  };
  async function editor(){
   const page=await context.newPage();attach(page);
-  await page.goto(origin+'/editor/world/',{waitUntil:'domcontentloaded'});
+  await page.goto(origin+'/moodboards/',{waitUntil:'domcontentloaded'});
+  await page.evaluate(([key,handoff,raw])=>{
+   localStorage.setItem(key,raw);localStorage.removeItem(handoff);
+  },[boardKey,handoffKey,legacyRaw]);
+  await page.reload({waitUntil:'domcontentloaded'});
+  await page.getByRole('button',{name:'Open in World Editor'}).click();
+  await page.waitForURL(/\/editor\/world\/?$/);
+  await page.locator('[data-wep-decorate-stage1] .reference-main')
+   .filter({hasText:'Stage1 Furniture'}).click();
   await page.locator('.load-panel input[type=file]').setInputFiles({
    name:'synthetic-draft-only.json',mimeType:'application/json',
    buffer:Buffer.from(JSON.stringify(fixture))});
@@ -61,6 +78,8 @@ try{
  assert.match(await draft.innerText(),/40000049/);
  assert.ok(await page.locator('[data-editor-object-id="stage-a"]').count(),'original Editor remains present');
  assert.deepEqual(await snapshot(page),before,'read-only reuse never mutates local Scene primary/Backup');
+ assert.equal(await page.evaluate(key=>localStorage.getItem(key),boardKey),legacyRaw,
+  'old Moodboard must remain byte identical');
  for(const [width,zoom] of [[320,'1'],[640,'2']]){
   await page.setViewportSize({width,height:900});
   await page.evaluate(z=>document.documentElement.style.zoom=z,zoom);
