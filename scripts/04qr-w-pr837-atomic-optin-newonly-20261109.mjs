@@ -102,7 +102,10 @@ try{
  await page.waitForURL(origin+'/moodboards/atomic/');
  await page.locator('[data-atomic-ready="true"]').waitFor({timeout:30000});
  assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'),'noindex,nofollow');
- assert.equal(await page.locator('[data-atomic-first-board]').count(),0,'legacy BoardID never auto imported into IDB');
+ assert.equal(await page.locator('[data-atomic-first-board]').getAttribute('data-atomic-board-id'),'','legacy BoardID never auto imported into IDB');
+ assert.equal(await page.locator('[data-atomic-first-board]').getAttribute('data-atomic-revision'),'0','empty isolated slot before user opt-in create');
+ assert.equal(await page.locator('[data-atomic-board]').count(),0,'no legacy board object imported');
+ assert.equal(await page.locator('[data-atomic-create-form]').count(),1,'independent empty first-board create form');
  assert.equal(await page.locator('[data-atomic-gate]').getAttribute('data-atomic-gate'),'ISOLATED_LOCAL_ONLY__NOT_LEGACY_MIGRATED');
  assert.deepEqual(await page.evaluate(([a,b])=>({primary:localStorage.getItem(a),backup:localStorage.getItem(b)}),[primaryKey,backupKey]),legacy);
  await page.locator('[data-atomic-title]').fill('Explicit independent Board');
