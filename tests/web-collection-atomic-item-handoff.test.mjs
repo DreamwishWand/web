@@ -38,7 +38,11 @@ test('receiver fail-closed numeric canonical query + independent verified Collec
  assert.match(a,/data-atomic-handoff-separation/);
  assert.match(a,/copy\.atomicNote/);
  assert.match(a,/<meta name="robots" content="noindex,nofollow"/);
- assert.doesNotMatch(a,/localStorage|setItem\(|fetch\(['"]https:|CloudUpload|service_role|POST/);
+ // The new user-approved World Editor hint uses its already accepted distinct
+ // localStorage key, NOT the legacy Moodboard primary or Backup. Forbid any
+ // direct old-Store operations and all unapproved transport/storage writes.
+ assert.match(a,/writeWorldEditorHandoff\(localStorage,hint\)/);
+ assert.doesNotMatch(a,/(?:localStorage|sessionStorage)\s*\.\s*(?:getItem|setItem|removeItem)|MOODBOARD_STORAGE_KEY|MOODBOARD_BACKUP_KEY|fetch\(['"]https:|CloudUpload|service_role|POST/);
  assert.equal(ATOMIC_FIRST_BOARD_GATE,'ISOLATED_LOCAL_ONLY__NOT_LEGACY_MIGRATED');
  assert.equal(canonicalForApprovedStaticPath('/moodboards/atomic/',{origin:OWNER_CUSTOM_DOMAIN,basePath:''}),null);
  assert.equal(inspectCustomDomainPath('/moodboards/atomic/').eligibleForPublicIndex,false);
