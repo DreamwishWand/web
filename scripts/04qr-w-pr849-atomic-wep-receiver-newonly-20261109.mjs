@@ -1,7 +1,6 @@
 // 04 QR-W independent changed-only World Editor receiver QA: synthetic browser data only.
 import assert from 'node:assert/strict';
-import {execFileSync,readFileSync} from 'node:child_process';
-import {readFile as readLocal} from 'node:fs/promises';
+import {execFileSync} from 'node:child_process';
 import {chromium} from 'playwright-core';
 import {verifyAtomicBoardReference,verifyAtomicHandoffIdentity,readExistingAtomicBoard} from '../src/lib/wep/world-editor-atomic-board-guard.mjs';
 import {worldEditorStage1Copy,WORLD_EDITOR_STAGE1_LOCALES} from '../src/lib/wep/world-editor-stage1-copy.js';
