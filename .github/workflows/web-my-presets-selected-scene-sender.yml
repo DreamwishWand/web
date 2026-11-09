@@ -1,0 +1,89 @@
+name: WEB My Local selected Scene explicit one-shot readonly sender
+on:
+  pull_request:
+    paths:
+      - 'src/routes/presets/+page.svelte'
+      - 'src/lib/presets/my-local-scene-route-sender.mjs'
+      - 'tests/web-my-presets-selected-scene-sender.test.mjs'
+      - 'scripts/web-my-presets-selected-scene-sender-chrome.mjs'
+      - '.github/workflows/web-my-presets-selected-scene-sender.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Scope 1 MOD + 4 ADD, accepted WEP Source871 six files unmodified
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='475b6768031e34d91baed456446af91f376839db'
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          printf '%s\n' \
+            .github/workflows/web-my-presets-selected-scene-sender.yml \
+            scripts/web-my-presets-selected-scene-sender-chrome.mjs \
+            src/lib/presets/my-local-scene-route-sender.mjs \
+            src/routes/presets/+page.svelte \
+            tests/web-my-presets-selected-scene-sender.test.mjs | LC_ALL=C sort > /tmp/expected
+          git diff --name-only "$BASE" HEAD | LC_ALL=C sort > /tmp/actual
+          diff -u /tmp/expected /tmp/actual
+          test "$(git diff --name-status "$BASE" HEAD -- src/routes/presets/+page.svelte | cut -f1)" = M
+          for p in .github/workflows/web-my-presets-selected-scene-sender.yml \
+            scripts/web-my-presets-selected-scene-sender-chrome.mjs \
+            src/lib/presets/my-local-scene-route-sender.mjs \
+            tests/web-my-presets-selected-scene-sender.test.mjs; do
+            test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = A
+          done
+          git diff --exit-code "$BASE" HEAD -- src/lib/wep/ src/routes/editor/ src/lib/community/ src/lib/presets/my-presets-router.mjs src/routes/moodboards/ src/routes/collection/ crates/ supabase/ static/ .github/workflows/pages.yml
+          echo WEB_MYLOCAL_EXACT5_NEW_SOURCE_WEP_RECEIVER_SIX_UNTOUCHED_PASS
+      - name: New sender contracts plus accepted WEP/Presets ancestry, types, /web build
+        env:
+          BASE_PATH: /web
+        run: |
+          node --test tests/web-my-presets-selected-scene-sender.test.mjs tests/wep-local-scene-route-handoff.test.mjs tests/web-my-presets-local-scene-consumer.test.mjs tests/web-my-presets-internal-router.test.mjs
+          npm run check
+          npm run build
+          test -f build/presets/index.html
+          test -f build/editor/world/index.html
+          test -f build/404.html
+          echo WEB_MYLOCAL_SELECTED_SCENE_SENDER_NODE_SVELTE_WEB_BUILD_PASS
+  chrome:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Installed Chrome localhost sender/receiver E2E 8 locales, 320/200, stale/corrupt, no POST
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4355 >/tmp/web-my-selected-scene.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4355/presets/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/web-my-selected-scene.log
+          exit 1
+      - name: Actual installed Chrome verify click-only one-shot selected Scene into WEP readonly detached draft
+        env:
+          WEB_SCENE_SENDER_ORIGIN: http://127.0.0.1:4355
+        run: node scripts/web-my-presets-selected-scene-sender-chrome.mjs

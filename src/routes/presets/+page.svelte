@@ -11,6 +11,8 @@
   import NativePresetManager from '$lib/presets/NativePresetManager.svelte';
   import { reopenLocalScenes, readLocalSceneById } from '$lib/wep/local-scene-preset-store.mjs';
   import { localScenePresetCopy } from '$lib/wep/local-scene-preset-copy.js';
+  import { localSceneRouteCopy } from '$lib/wep/local-scene-route-handoff.mjs';
+  import { stageVerifiedMyLocalSceneRoute } from '$lib/presets/my-local-scene-route-sender.mjs';
   import {
     buildPublishEnvelope,
     preflightScene,
@@ -63,6 +65,7 @@
   $: rootCopy=presetsStage1Copy($locale);
   $: myCopy=myPresetsCopy($locale);
   $: deviceSceneCopy=localScenePresetCopy($locale);
+  $: deviceSceneRouteCopy=localSceneRouteCopy($locale);
 
   function preflightBlockCodes(value: any): string[] {
     return Array.from(
@@ -165,6 +168,24 @@
       deviceScenesMessage=deviceSceneCopy.opened;
     }catch{
       deviceScenesMessage=deviceSceneCopy.blocked;
+    }finally{deviceScenesBusy=false;}
+  }
+  async function openSelectedDeviceSceneInWorldEditor():Promise<void>{
+    // The existing verification is a preview, not perpetual IDB authority.
+    // Only this explicit click may stage a new same-tab selection hint.
+    if(deviceScenesBusy || !deviceScenesOpened || !deviceSceneSelected)return;
+    deviceScenesBusy=true;
+    deviceScenesMessage='';
+    try{
+      await stageVerifiedMyLocalSceneRoute({
+        selected:{...deviceSceneSelected},
+        expectedRevision:deviceScenesRevision,
+        storage:sessionStorage
+      });
+      window.location.assign(`${base}/editor/world/`);
+    }catch{
+      deviceScenesMessage=deviceSceneRouteCopy.blocked;
+      deviceSceneSelected=null;
     }finally{deviceScenesBusy=false;}
   }
   function chooseInGame(next:'decorations'|'shop'):void{
@@ -335,6 +356,12 @@
               <h3>{deviceSceneCopy.preview}: {deviceSceneSelected.title}</h3>
               <p>{copy.objects}: {deviceSceneSelected.objectCount}</p>
               <code>writeReady=false</code>
+              <button type="button" data-device-scene-world-editor-selected
+                on:click={openSelectedDeviceSceneInWorldEditor}
+                disabled={deviceScenesBusy} aria-label={deviceSceneRouteCopy.action}>
+                {deviceSceneRouteCopy.action}
+              </button>
+              <p data-device-scene-route-notice>{deviceSceneRouteCopy.notice}</p>
             </div>
           {/if}
 
