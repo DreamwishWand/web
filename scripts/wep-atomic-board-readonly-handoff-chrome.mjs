@@ -1,0 +1,86 @@
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright-core';
+const origin=(process.env.WEP_ATOMIC_HANDOFF_ORIGIN||'http://127.0.0.1:4312').replace(/\/$/,'');
+assert.match(origin,/^http:\/\/127\.0\.0\.1:/);
+assert.ok(process.env.CHROME_BIN,'NOT_RUN: actual system Chrome required');
+for(const key of ['WEP_PRIVATE_P1G_PATH','DDV_PRIVATE_SAVE_PATH'])
+ assert.ok(!process.env[key],'Private Save forbidden in browser CI');
+const fixture={
+ schema:'dreamwish-wand-wep-editor-document',version:1,
+ target:{gameVersion:'1.25.0',platform:'synthetic',areaKey:'atomic-board-readonly'},
+ capabilities:{},metadata:{},networks:{roads:null,fences:null},
+ objects:[
+  {editorId:'a',itemId:40000049,layer:'furniture',x:0,y:0,orientation:0,footprint:[{x:0,y:0}],source:null,portableState:null,dependencyIds:[],editability:'editable',metadata:{worldClass:'FurnitureItemData'}},
+  {editorId:'b',itemId:40000050,layer:'furniture',x:3,y:3,orientation:0,footprint:[{x:0,y:0}],source:null,portableState:null,dependencyIds:[],editability:'editable',metadata:{worldClass:'FurnitureItemData'}}
+ ]
+};
+const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN,args:['--no-sandbox']});
+try{
+ const context=await browser.newContext({viewport:{width:640,height:900}});
+ const page=await context.newPage(),errors=[],unsafe=[];
+ page.on('pageerror',e=>errors.push(String(e)));
+ page.on('request',r=>{
+  if((r.url().startsWith('http')&&!r.url().startsWith(origin))||r.method()==='POST')
+    unsafe.push(r.method()+' '+r.url());
+ });
+ await page.goto(origin+'/moodboards/atomic/',{waitUntil:'domcontentloaded'});
+ await page.locator('[data-atomic-ready="true"]').waitFor();
+ await page.locator('[data-atomic-catalog="ready"]').waitFor();
+ // Deliberately corrupt old Store. Atomic IDB receiver MUST NOT parse/migrate it.
+ await page.evaluate(()=>localStorage.setItem('dreamwishwand:moodboards:v1','{legacy-corrupt'));
+ await page.locator('[data-atomic-title]').fill('WEP read-only local IDB');
+ await page.locator('[data-atomic-create]').click();
+ await page.locator('[data-atomic-board]').waitFor();
+ await page.locator('[data-atomic-item-id]').fill('40000048');
+ await page.locator('[data-atomic-save-item]').click();
+ await page.locator('[data-atomic-item="40000048"]').waitFor();
+ const revision=Number(await page.locator('[data-atomic-first-board]').getAttribute('data-atomic-revision'));
+ assert.equal(revision,2);
+ const oldBefore=await page.evaluate(()=>({
+  main:localStorage.getItem('dreamwishwand:moodboards:v1'),
+  backup:localStorage.getItem('dreamwishwand:moodboards:v1:backup')
+ }));
+ await page.goto(origin+'/editor/world/',{waitUntil:'domcontentloaded'});
+ await page.locator('.load-panel input[type=file]').setInputFiles({
+  name:'wep-atomic-synthetic.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(fixture))
+ });
+ await page.getByText('Synthetic draft authoring',{exact:true}).waitFor({timeout:30000});
+ const panel=page.locator('[data-wep-decorate-stage1]');
+ await panel.locator('[data-wep-atomic-open]:not([disabled])').click();
+ await panel.locator('[data-wep-atomic-revision]').waitFor();
+ await panel.locator('[data-wep-atomic-select]').filter({hasText:'40000048'}).click();
+ const pending=panel.locator('.pending-card');
+ await pending.locator('input[type=number]').nth(0).fill('7');
+ await pending.locator('input[type=number]').nth(1).fill('7');
+ await pending.locator('button').last().click();
+ await page.locator('[data-wep-stage1-review] [data-wep-stage1-change]').first().waitFor();
+ assert.equal(await page.locator('[data-wep-stage1-review] [data-wep-stage1-change]').count(),1);
+ const observer=await context.newPage();
+ await observer.goto(origin+'/moodboards/atomic/',{waitUntil:'domcontentloaded'});
+ await observer.locator('[data-atomic-ready="true"]').waitFor();
+ assert.equal(Number(await observer.locator('[data-atomic-first-board]').getAttribute('data-atomic-revision')),revision,
+  'WEP local Draft selection must NOT commit IDB');
+ // New user selection on WEP, but another tab then changes IDB Revision.
+ await panel.locator('[data-wep-atomic-open]').click();
+ await panel.locator('[data-wep-atomic-select]').filter({hasText:'40000048'}).click();
+ await observer.locator('[data-atomic-item-id]').fill('40000048');
+ await observer.locator('[data-atomic-save-item]').click();
+ await observer.locator('[data-atomic-items] [data-atomic-item="40000048"]').waitFor({state:'detached'});
+ await pending.locator('button').last().click();
+ await panel.locator('.stage1-status').filter({hasText:/Board|Revision|Item|ボード|修订/i}).first().waitFor();
+ assert.equal(await page.locator('[data-wep-stage1-review] [data-wep-stage1-change]').count(),1,
+  'newer IDB revision must not add a second Draft command');
+ const oldAfter=await page.evaluate(()=>({
+  main:localStorage.getItem('dreamwishwand:moodboards:v1'),
+  backup:localStorage.getItem('dreamwishwand:moodboards:v1:backup')
+ }));
+ assert.deepEqual(oldAfter,oldBefore,'legacy old Store and Backup byte invariant');
+ await page.setViewportSize({width:320,height:900});
+ const metrics=await panel.evaluate(el=>({scroll:el.scrollWidth,client:el.clientWidth}));
+ assert.ok(metrics.scroll<=metrics.client+2,'320px stage1 receiver overflow');
+ assert.deepEqual(unsafe,[]);assert.deepEqual(errors,[]);
+ console.log(JSON.stringify({operation:'WEP_ATOMIC_IDB_BOARD_TO_WORLD_EDITOR_READONLY_DRAFT_HANDOFF',
+  cases:['positive verified IDB Item','stale Revision denied','legacy malformed raw unchanged','320px no overflow'],
+  source:'SYNTHETIC_ONLY',chrome:'ACTUAL_INSTALLED',unsafe,errors,metrics}));
+ await context.close();
+}finally{await browser.close();}
