@@ -9,7 +9,7 @@ import {ATOMIC_FIRST_BOARD_GATE} from '../src/lib/moodboards/atomic-first-board.
 const source=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 test('collection receives no new storage authority: only a verified visible ItemID link',()=>{
  const c=source('src/routes/collection/+page.svelte');
- assert.equal(c.split('data-collection-atomic-item-handoff').length-1,1);
+ assert.equal(c.split('<a data-collection-atomic-item-handoff').length-1,1);
  assert.match(c,/href=\{base\+'\/moodboards\/atomic\/\?item='\+encodeURIComponent\(String\(info\.itemId\)\)\}/);
  assert.match(c,/data-collection-atomic-separation/);
  assert.match(c,/moodboardCopyText\.atomicNote/);
