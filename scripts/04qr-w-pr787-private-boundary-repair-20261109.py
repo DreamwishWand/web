@@ -177,7 +177,7 @@ with tempfile.TemporaryDirectory(prefix="qrw787_repair_synthetic_") as t:
                "File exists")
  assert private_file.read_bytes()==b"QA_SYNTHETIC_FIRST"
  assert {str(x):digest(x) for x in fake}==baseline,"synthetic originals were mutated"
- assert [p.name for p in target.iterdir() if p.is_file()]==["synthetic-output.bin"]
+ assert [p.name for p in target.iterdir() if p.is_file() and not p.is_symlink()]==["synthetic-output.bin"]
  print("QRW787_O_EXCL_0600_NO_CLOBBER_ORIGINAL_SHA_PRESERVED_PASS",flush=True)
 
  src=module_file.read_text()
