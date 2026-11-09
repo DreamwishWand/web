@@ -1,0 +1,92 @@
+name: WEB isolated Atomic Board explicit readonly World Editor sender
+on:
+  pull_request:
+    paths:
+      - 'src/routes/moodboards/atomic/+page.svelte'
+      - 'tests/web-atomic-wep-sender.test.mjs'
+      - 'scripts/web-atomic-wep-sender-chrome.mjs'
+      - '.github/workflows/web-atomic-wep-sender.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Exact 2 MOD+3 ADD; WEP and IDB Store accepted ancestors immutable
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.pull_request.base.sha }}"
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          cat >/tmp/source-allowed <<'SCOPE'
+          .github/workflows/web-atomic-wep-sender.yml
+          scripts/web-atomic-wep-sender-chrome.mjs
+          src/routes/moodboards/atomic/+page.svelte
+          tests/web-atomic-wep-sender.test.mjs
+          tests/web-collection-atomic-item-handoff.test.mjs
+          SCOPE
+          git diff --name-only "$BASE" HEAD | LC_ALL=C sort >/tmp/source-changed
+          LC_ALL=C sort /tmp/source-allowed >/tmp/source-expected
+          diff -u /tmp/source-expected /tmp/source-changed
+          for p in src/routes/moodboards/atomic/+page.svelte tests/web-collection-atomic-item-handoff.test.mjs; do
+            test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = M
+          done
+          for p in scripts/web-atomic-wep-sender-chrome.mjs tests/web-atomic-wep-sender.test.mjs .github/workflows/web-atomic-wep-sender.yml; do
+            test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = A
+          done
+          git diff --exit-code "$BASE" HEAD -- \
+            src/lib/moodboards/ src/lib/wep/ src/lib/collection/ src/routes/collection/ \
+            src/routes/editor/ src/routes/moodboards/+page.svelte crates/ \
+            supabase/ static/ .github/workflows/pages.yml
+          echo WEB_ATOMIC_WEP_SENDER_EXACT5_NO_WEP_OR_STORE_FORK_PASS
+      - name: Node contracts, Svelte check, /web build and noindex static
+        env:
+          BASE_PATH: /web
+        run: |
+          node --test tests/web-atomic-wep-sender.test.mjs tests/web-collection-atomic-item-handoff.test.mjs
+          npm run check
+          npm run build
+          test -f build/moodboards/atomic/index.html
+          test -f build/editor/world/index.html
+          test -f build/404.html
+          echo WEB_ATOMIC_WEP_SENDER_STATIC_BUILD_NO_INDEX_ROUTE_PASS
+  chrome:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Start localhost Vite with installed Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4333 >/tmp/web-atomic-wep-sender.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4333/moodboards/atomic/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/web-atomic-wep-sender.log
+          exit 1
+      - name: Real Chrome explicit Item→WEP readonly, locales, two-tab stale, deleted and legacy invariant
+        env:
+          WEB_ATOMIC_WEP_SENDER_ORIGIN: http://127.0.0.1:4333
+        run: node scripts/web-atomic-wep-sender-chrome.mjs
