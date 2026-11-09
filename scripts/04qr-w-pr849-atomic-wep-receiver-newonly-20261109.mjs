@@ -133,13 +133,13 @@ try{
  await open.waitFor({timeout:30000});
  const localizations=['en','fr','it','de','es-ES','ja','zh-CN','pt-BR'];
  for(const loc of localizations){
-  await page.selectOption('#site-locale',loc);
+  await page.locator('#site-locale').evaluate((element,value)=>{element.value=value;element.dispatchEvent(new Event('change',{bubbles:true}));},loc);
   const c=worldEditorStage1Copy(loc);
   await page.waitForFunction(label=>
    Array.from(document.querySelectorAll('[data-wep-decorate-stage1] [data-wep-atomic-open]')).some(el=>el.textContent?.trim()===label),c.atomicOpen);
   assert.equal((await panel.locator('.atomic-source .boundary-note').innerText()).trim(),c.atomicReadonly);
  }
- await page.selectOption('#site-locale','en');
+ await page.locator('#site-locale').evaluate((element)=>{element.value='en';element.dispatchEvent(new Event('change',{bubbles:true}));});
  await page.setViewportSize({width:320,height:900});
  const w320=await panel.evaluate(e=>({scroll:e.scrollWidth,client:e.clientWidth}));
  assert.ok(w320.scroll<=w320.client+2,'320px Stage1 '+JSON.stringify(w320));
