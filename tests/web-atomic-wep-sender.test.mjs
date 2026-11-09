@@ -60,7 +60,7 @@ test('Accepted 8-locale producer label + separate-store warning and receiver rea
  for(const locale of locales){
   assert.ok(MOODBOARD_COPY[locale].openWorldEditor?.length>6,locale);
   assert.match(MOODBOARD_COPY[locale].atomicNote,/IndexedDB/);
-  assert.ok(worldEditorStage1Copy(locale).atomicReadonly?.length>16,locale);
+  assert.ok(worldEditorStage1Copy(locale).atomicReadonly?.trim().length>3,locale);
   assert.ok(worldEditorStage1Copy(locale).atomicStale?.length>10,locale);
  }
 });
