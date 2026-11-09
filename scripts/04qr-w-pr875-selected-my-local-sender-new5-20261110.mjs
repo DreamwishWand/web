@@ -144,9 +144,10 @@ async function saveSynthetic(p,{uuid,title,rev}){
  },{uuid,title,rev});
 }
 async function openMy(p){
- const r=await p.goto(origin+'/presets/',{waitUntil:'domcontentloaded',timeout:40000});
+ const r=await p.goto(origin+'/presets/',{waitUntil:'networkidle',timeout:40000});
  assert.equal(r.status(),200);
  await p.locator('[data-stage1-presets-four-cards]').waitFor({timeout:20000});
+ await p.waitForFunction(()=>Boolean(document.documentElement.dataset.locale),null,{timeout:20000});
  await p.locator('[data-preset-child="my"]').click();
  await p.locator('[data-my-local-scenes]').waitFor({timeout:20000});
 }
