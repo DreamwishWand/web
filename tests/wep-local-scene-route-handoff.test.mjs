@@ -38,7 +38,7 @@ test('expired, future, malformed, oversized, native-shaped, extra keys deny with
   {sceneId:id,expectedRevision:'1'}
  ]) assert.throws(()=>stageLocalSceneRouteIntent(s,bad,now),/INTENT_INVALID/);
  stageLocalSceneRouteIntent(s,{sceneId:id,expectedRevision:1},now);
- assert.equal(peekLocalSceneRouteIntent(s,now+MAX_AGE),null===false?null:peekLocalSceneRouteIntent(s,now+MAX_AGE)); // boundary remains valid
+ assert.ok(peekLocalSceneRouteIntent(s,now+MAX_AGE),'TTL exact boundary remains valid');
  assert.equal(peekLocalSceneRouteIntent(s,now+MAX_AGE+1),null);
  assert.equal(peekLocalSceneRouteIntent(s,now-1),null);
  s.setItem(KEY,'x'.repeat(257));assert.equal(peekLocalSceneRouteIntent(s,now),null);
