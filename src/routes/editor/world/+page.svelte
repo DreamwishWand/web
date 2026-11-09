@@ -18,6 +18,9 @@
   import { localScenePresetCopy } from '$lib/wep/local-scene-preset-copy.js';
   import { buildReadonlyLocalSceneReuseDraft } from '$lib/wep/local-scene-reuse-readonly';
   import {
+    peekLocalSceneRouteIntent, takeLocalSceneRouteIntent, localSceneRouteCopy
+  } from '$lib/wep/local-scene-route-handoff.mjs';
+  import {
     WEP_EDITOR_SCHEMA,
     WEP_LAYERS,
     boundsFor,
@@ -232,6 +235,12 @@
   let localScenePreflight: any = null;
   let localSceneReuseDraft: any = null;
   let localSceneReuseStatus = '';
+  // Same-tab Presets navigation HINT, not a Scene/Editor authorization.
+  let routeSceneIntent: any = null;
+  let routeSceneDraft: any = null;
+  let routeSceneStatus = '';
+  let routeSceneBusy = false;
+  $: routeCopy = localSceneRouteCopy($locale);
   let localSceneStatus = '';
   let localSceneBusy = false;
   $: localSceneCopy = localScenePresetCopy($locale);
@@ -2165,6 +2174,10 @@
   }
 
   onMount(async () => {
+    // Page load only reads a bounded sessionStorage hint; no IndexedDB open,
+    // Scene content loading, Draft, or Editor mutation until user clicks.
+    try { routeSceneIntent = peekLocalSceneRouteIntent(sessionStorage); }
+    catch { routeSceneIntent = null; }
     refreshRecoveryRecords();
     try {
       const pendingHandoff = readWorldEditorHandoff(localStorage);
@@ -4364,6 +4377,43 @@
     }
   }
 
+  async function reopenSelectedRoutedScene() {
+    // User-initiated one-shot: re-check the same tab's untrusted hint, consume
+    // it, then independently verify the canonical local Scene at its CURRENT
+    // CAS library Revision. URL/query/Storage has no Editor/Native authority.
+    if (!routeSceneIntent || routeSceneBusy || localSceneBusy) return;
+    routeSceneBusy = true;
+    routeSceneStatus = '';
+    routeSceneDraft = null;
+    const shown = routeSceneIntent;
+    routeSceneIntent = null;
+    try {
+      const chosen = takeLocalSceneRouteIntent(sessionStorage, shown);
+      if (!chosen) throw Error('WEP_SCENE_ROUTE_STALE_HINT');
+      const fresh = await readLocalSceneById(chosen.sceneId);
+      if (fresh.revision !== chosen.expectedRevision ||
+          fresh.entry.id !== chosen.sceneId)
+        throw Error('WEP_SCENE_ROUTE_STALE_REVISION');
+      const draft = buildReadonlyLocalSceneReuseDraft({
+        sceneId: fresh.entry.id,
+        sourceRevision: fresh.revision,
+        artifact: fresh.entry.artifact
+      });
+      if (draft.writeReady !== false || draft.applyReady !== false ||
+          draft.nativePlacementAuthorized !== false ||
+          draft.editorMutationAuthorized !== false ||
+          draft.detachedFromEditorSession !== true)
+        throw Error('WEP_SCENE_ROUTE_WRITER_UNSAFE');
+      // This is not session.execute, an EditorDocument import, or a Save write.
+      routeSceneDraft = draft;
+      routeSceneStatus = routeCopy.ready;
+    } catch {
+      routeSceneStatus = routeCopy.blocked;
+    } finally {
+      routeSceneBusy = false;
+    }
+  }
+
   async function prepareLocalSceneReuseDraft() {
     // A stored Scene is not authority to mutate EditorSession or Native state.
     // Reopen a fresh readonly CAS snapshot ON the user's explicit click.
@@ -4517,6 +4567,40 @@
       </label>
     </div>
   </section>
+
+  {#if routeSceneIntent || routeSceneStatus || routeSceneDraft}
+    <section class="local-scene-panel" data-wep-selected-scene-route
+      data-save-writer="off" data-native-apply="off"
+      aria-label={routeCopy.title}>
+      <h2>{routeCopy.title}</h2>
+      <p>{routeCopy.notice}</p>
+      {#if routeSceneIntent}
+        <button type="button" data-wep-selected-scene-route-confirm
+          on:click={reopenSelectedRoutedScene}
+          disabled={routeSceneBusy || localSceneBusy}>
+          {routeCopy.action}
+        </button>
+      {/if}
+      {#if routeSceneStatus}
+        <p role="status" aria-live="polite"
+          data-wep-selected-scene-route-status>{routeSceneStatus}</p>
+      {/if}
+      {#if routeSceneDraft}
+        <div data-wep-selected-scene-route-draft data-apply="off"
+          data-editor-mutation="off" aria-label={routeCopy.ready}>
+          <strong>{routeCopy.ready}</strong>
+          <span>{routeSceneDraft.objects.length} objects /
+            {routeSceneDraft.bounds.w} × {routeSceneDraft.bounds.h}</span>
+          <code>writeReady=false / applyReady=false</code>
+          <ul>
+            {#each routeSceneDraft.objects.slice(0, 12) as item}
+              <li>{item.layer} · {item.itemId} · ({item.x}, {item.y})</li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
+    </section>
+  {/if}
 
   {#if recoveryRecords.length || recoveryStatus}
     <section class="recovery-panel" data-wep-recovery aria-labelledby="wep-recovery-title">

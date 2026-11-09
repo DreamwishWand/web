@@ -19,7 +19,7 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "20e007ed9f0504a0743645f5eeb4983ad36859a6",
+    "src/routes/editor/world/+page.svelte": "7c2a0d25aa97588b7753a1231e7627b0489aede7",
     "src/lib/wep/world-editor-primary-job.ts": "25aba45c6004c020400a249c848c3bc2281fd4a0",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "6cede86476ca6dbd3427115671367c9a1f4a433f",
@@ -27,7 +27,8 @@
     "src/lib/wep/WorldEditorStage1DecoratePanel.svelte": "32c1834fbb5c5ca42307d81ad0cc5314c616c2ea",
     "src/lib/wep/world-editor-stage1-copy.js": "b5241358967cc0daa7f1cba6870f551810af717d",
     "src/lib/wep/room-finish-copy.js": "f75c54053bafa416842ca17938895b20d7f47f9b",
-    "src/lib/wep/world-readonly-copy.js": "0db2b06c03502f0559b2dd86984ff54aa728d832"
+    "src/lib/wep/world-readonly-copy.js": "0db2b06c03502f0559b2dd86984ff54aa728d832",
+    "src/lib/wep/local-scene-route-handoff.mjs": "9114d537d5afee718db5240d538b4203546a591f"
   },
   "ownership": {
     "wepOwned": [
@@ -37,7 +38,8 @@
       "src/lib/wep/WorldEditorStage1DecoratePanel.svelte",
       "src/lib/wep/world-editor-stage1-copy.js",
       "src/lib/wep/room-finish-copy.js",
-      "src/lib/wep/world-readonly-copy.js"
+      "src/lib/wep/world-readonly-copy.js",
+      "src/lib/wep/local-scene-route-handoff.mjs"
     ],
     "sharedWebRenderedOnWorldEditor": [
       "src/lib/SiteHeader.svelte",
@@ -87,7 +89,8 @@
       "Ephemeral Moodboard Reference/Group selection handoff survives World Editor local Draft upload and is checked against live Store at click",
       "Isolated IDB Board receiver: BoardID, Revision, verified Item read-only selection and eight-locale denial.",
       "Explicit local Scene Preset capture, IndexedDB CAS/Backup, independent reopen, read-only use, eight-locale UI and failure feedback.",
-      "F-P04 detached read-only local Scene reuse Draft: explicit opt-in, fresh revision match, local coordinates, eight-locale status and refusal; never Native Apply or Editor mutation."
+      "F-P04 detached read-only local Scene reuse Draft: explicit opt-in, fresh revision match, local coordinates, eight-locale status and refusal; never Native Apply or Editor mutation.",
+      "My Presets selected local Scene same-tab navigation: passive one-shot hint, explicit reread button, eight-locale confirmation/ready/denial. No auto Apply or native identity."
     ],
     "neverTranslate": [
       "Core/WEP machine reason code",
@@ -1389,6 +1392,20 @@
           "The selection contains content that is not portable under the current Core/WEP contract.",
           "publishには認証済みWand Account、Creator Profile、Preset titleが必要です。",
           "Scene Presetを公開しました。DDVセーブへの書き込みは行っていません。"
+        ]
+      },
+      {
+        "surface": "My Presets selected Scene route hint / World Editor detached read-only receiver",
+        "source": [
+          "src/routes/editor/world/+page.svelte",
+          "src/lib/wep/local-scene-route-handoff.mjs"
+        ],
+        "strings": [
+          "Selected local Scene",
+          "From My Presets: only a temporary selection hint. Confirm to re-open the current on-device Scene; nothing is placed or applied.",
+          "Reopen selected Scene as read-only draft",
+          "Detached read-only Scene ready. Editor and DDV Save were not changed.",
+          "Selection expired, changed or invalid. Reopen My Presets and select again."
         ]
       }
     ],
