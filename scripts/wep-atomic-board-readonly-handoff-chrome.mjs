@@ -10,8 +10,10 @@ const fixture={
  target:{gameVersion:'1.25.0',platform:'synthetic',areaKey:'atomic-board-readonly'},
  capabilities:{},metadata:{},networks:{roads:null,fences:null},
  objects:[
-  {editorId:'a',itemId:40000049,layer:'furniture',x:0,y:0,orientation:0,footprint:[{x:0,y:0}],source:null,portableState:null,dependencyIds:[],editability:'editable',metadata:{worldClass:'FurnitureItemData'}},
-  {editorId:'b',itemId:40000050,layer:'furniture',x:3,y:3,orientation:0,footprint:[{x:0,y:0}],source:null,portableState:null,dependencyIds:[],editability:'editable',metadata:{worldClass:'FurnitureItemData'}}
+  {editorId:'stage-a',itemId:40000049,layer:'furniture',x:0,y:0,orientation:0,footprint:[{x:0,y:0}],source:null,portableState:null,dependencyIds:[],editability:'editable',metadata:{displayName:'Stage A',worldClass:'FurnitureItemData'}},
+  {editorId:'stage-b',itemId:40000050,layer:'furniture',x:4,y:2,orientation:0,footprint:[{x:0,y:0}],source:null,portableState:null,dependencyIds:[],editability:'editable',metadata:{displayName:'Stage B',worldClass:'FurnitureItemData'}},
+  {editorId:'stage-c',itemId:40000052,layer:'furniture',x:10,y:4,orientation:0,footprint:[{x:0,y:0}],source:null,portableState:null,dependencyIds:[],editability:'editable',metadata:{displayName:'Stage C',worldClass:'FurnitureItemData'}},
+  {editorId:'stage-road',itemId:30000001,layer:'road',x:14,y:0,orientation:0,footprint:[{x:0,y:0}],source:null,portableState:null,dependencyIds:[],editability:'editable',metadata:{displayName:'Road',worldClass:'FenceAndRoadItemData'}}
  ]
 };
 const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN,args:['--no-sandbox']});
@@ -44,7 +46,13 @@ try{
  await page.locator('.load-panel input[type=file]').setInputFiles({
   name:'wep-atomic-synthetic.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(fixture))
  });
- await page.getByText('Synthetic draft authoring',{exact:true}).waitFor({timeout:30000});
+ try {
+  await page.getByText('Synthetic draft authoring',{exact:true}).waitFor({timeout:30000});
+ } catch (error) {
+  console.error('SYNTHETIC_IMPORT_STATUS',JSON.stringify(await page.locator('.status').allTextContents()));
+  console.error('SYNTHETIC_IMPORT_BODY',String(await page.locator('body').innerText()).slice(-3500));
+  throw error;
+ }
  const panel=page.locator('[data-wep-decorate-stage1]');
  await panel.locator('[data-wep-atomic-open]:not([disabled])').click();
  await panel.locator('[data-wep-atomic-revision]').waitFor();
