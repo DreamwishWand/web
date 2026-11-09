@@ -1,0 +1,55 @@
+name: "04 QR-W main574f30 deployed Scene Preset local-only hosted E2E"
+on:
+  push:
+    branches: [qa/04qr-w-main574f30-hosted-scene-e2e-r20-20261109]
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/04qr-w-main574f30-hosted-scene-e2e-r20-20261109.mjs"
+      - ".github/workflows/04qr-w-main574f30-hosted-scene-e2e-r20-20261109.yml"
+permissions:
+  contents: read
+  deployments: read
+  pages: read
+jobs:
+  deployed-host-scene-e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: "Only two new hosted audit files; fixed integrated protected main"
+        run: |
+          set -euo pipefail
+          MAIN=574f30d554939bf674ad90a16f45b86e775118a1
+          test "$(git merge-base "$MAIN" HEAD)" = "$MAIN"
+          cat >/tmp/qa-scope <<'SCOPE'
+          .github/workflows/04qr-w-main574f30-hosted-scene-e2e-r20-20261109.yml
+          scripts/04qr-w-main574f30-hosted-scene-e2e-r20-20261109.mjs
+          SCOPE
+          git diff --name-only "$MAIN" HEAD | LC_ALL=C sort >/tmp/qa-actual
+          diff -u /tmp/qa-scope /tmp/qa-actual
+          echo "QRW861_FIXED_MAIN574F30_QA_ONLY_TWO_ADDS_NO_SOURCE_REQA"
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: "Actual HTTPS deployed Pages and installed Chrome; isolated profile"
+        env:
+          QRW_GITHUB_TOKEN: ${{ github.token }}
+          QRW_HOSTED_SCENE_MAIN: 574f30d554939bf674ad90a16f45b86e775118a1
+          QRW_HOSTED_SCENE_DEPLOY_URL: https://dreamwishwand.github.io/web/
+        run: |
+          set -euo pipefail
+          test -z "${DDV_PRIVATE_SAVE_PATH:-}"
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          test -n "$BIN"
+          "$BIN" --version
+          CHROME_BIN="$BIN" node scripts/04qr-w-main574f30-hosted-scene-e2e-r20-20261109.mjs
+      - name: "Bounded local-only hosted receipt"
+        run: echo "QRW861_HOSTED_SCENE_ONLY_NO_NATIVE_SAVE_WRITER_APPLY_CLOUD_PROVIDER_COMMUNITY"
