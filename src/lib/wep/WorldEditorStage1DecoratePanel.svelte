@@ -13,6 +13,7 @@
   } from '$lib/collection/runtime.js';
   import {
     clearWorldEditorHandoff,
+    createAtomicMoodboardHandoff,
     createMoodboardHandoff,
     readWorldEditorHandoff,
     writeWorldEditorHandoff
@@ -23,6 +24,7 @@
     verifyCurrentMoodboardHandoffIdentity,
     verifyCurrentMoodboardEditorSession
   } from './world-editor-moodboard-placement-guard.mjs';
+  import { readExistingAtomicBoard, verifyAtomicBoardReference, verifyAtomicHandoffIdentity } from './world-editor-atomic-board-guard.mjs';
   import { roomFinishCopy } from './room-finish-copy.js';
 
   export let session: any = null;
@@ -35,6 +37,9 @@
 
   let board: any = null;
   let handoff: any = null;
+  let atomicSnapshot: any = null;
+  let pendingAtomic: any = null;
+  let atomicBusy = false;
   let itemById = new Map<number, any>();
   let panelError = '';
   let pendingItemId: number | null = null;
@@ -129,6 +134,20 @@
           (entry: any) => entry.id === handoff.referenceId
         );
         activateReference(reference ?? null, handoff.groupId ?? null);
+      } else if (handoff?.sourceSurface === 'atomic-moodboard') {
+        try {
+          const snapshot = await readExistingAtomicBoard();
+          const ref = snapshot?.document?.boards?.[0]?.references?.find((r: any) => r.id === handoff.referenceId);
+          const itemId = Number(ref?.entityId);
+          verifyAtomicBoardReference(snapshot,{boardId:handoff.boardId,revision:handoff.revision,
+            referenceId:handoff.referenceId,itemId},itemById);
+          atomicSnapshot = snapshot; pendingAtomic = handoff;pendingItemId = itemId;
+          pendingReferenceId = handoff.referenceId;
+          pendingSelectedSession = session && editorDocument ? session : null;
+          pendingSelectedTarget = session && editorDocument ? JSON.stringify(editorDocument.target) : null;
+        } catch {
+          clearPending(); handoff = null; panelError = copy.atomicStale;
+        }
       }
     } catch (error) {
       panelError = error instanceof Error ? error.message : String(error);
@@ -198,6 +217,7 @@
   }
 
   function clearPending() {
+    pendingAtomic = null;
     pendingItemId = null;
     pendingPresetArtifactId = null;
     pendingReferenceId = null;
@@ -212,11 +232,54 @@
     }
   }
 
-  function placePendingItem() {
+  async function openAtomicBoard() {
+    if (atomicBusy || itemById.size===0) return;
+    atomicBusy=true;panelError='';
+    try {
+      const current=await readExistingAtomicBoard();
+      if(!current||current.deleted)throw Error('WEP_ATOMIC_BOARD_UNAVAILABLE');
+      atomicSnapshot=current;
+    } catch {atomicSnapshot=null;panelError=copy.atomicStale;}
+    finally{atomicBusy=false;}
+  }
+  function chooseAtomicItem(ref: any) {
+    try {
+      if(!atomicSnapshot||atomicBusy)throw Error('WEP_ATOMIC_NO_BOARD');
+      const itemId=Number(ref.entityId);
+      verifyAtomicBoardReference(atomicSnapshot,{boardId:atomicSnapshot.boardId,
+        revision:atomicSnapshot.revision,referenceId:ref.id,itemId},itemById);
+      const hint=createAtomicMoodboardHandoff(atomicSnapshot.boardId,atomicSnapshot.revision,ref.id);
+      clearPending();
+      writeWorldEditorHandoff(localStorage,hint);
+      handoff=hint;pendingAtomic=hint;pendingItemId=itemId;pendingReferenceId=ref.id;pendingGroupId=null;
+      pendingSelectedSession=session&&editorDocument?session:null;
+      pendingSelectedTarget=session&&editorDocument?JSON.stringify(editorDocument.target):null;
+      panelError='';
+    } catch {clearPending();panelError=copy.atomicStale;}
+  }
+  async function placePendingItem() {
     panelError = '';
     if (!session || !editorDocument || !mutationBound) {
       panelError = copy.sourceNeeded;
       return;
+    }
+    if (pendingAtomic) {
+      if (atomicBusy)return;
+      const pin=pendingAtomic;atomicBusy=true;
+      try {
+        verifyAtomicHandoffIdentity(readWorldEditorHandoff(localStorage),pin);
+        const snapshot=await readExistingAtomicBoard();
+        if(pendingAtomic!==pin)throw Error('WEP_ATOMIC_SELECTION_CHANGED');
+        verifyAtomicHandoffIdentity(readWorldEditorHandoff(localStorage),pin);
+        verifyAtomicBoardReference(snapshot,{boardId:pin.boardId,revision:pin.revision,
+          referenceId:pin.referenceId,itemId:pendingItemId},itemById);
+        verifyCurrentMoodboardEditorSession(session,editorDocument,{
+          selectedSession:pendingSelectedSession,selectedTarget:pendingSelectedTarget
+        });
+        if(!session||!editorDocument||!mutationBound)throw Error('WEP_ATOMIC_SESSION_UNBOUND');
+        atomicSnapshot=snapshot;
+      }catch{clearPending();panelError=copy.atomicStale;return;}
+      finally{atomicBusy=false;}
     }
     // A handoff is a navigation hint, never an authorization to insert a
     // potentially retargeted/deleted Moodboard Item into the live Draft.
@@ -250,9 +313,10 @@
         return;
       }
     }
-    if (!pendingItemId || !placementCapability?.draftPlacementSupported) {
+    const currentCapability=pendingAtomic?resolvePlacementCapability(Number(pendingItemId)):placementCapability;
+    if (!pendingItemId || !currentCapability?.draftPlacementSupported) {
       panelError =
-        placementCapability?.reasons?.join(', ') ?? copy.blocked;
+        currentCapability?.reasons?.join(', ') ?? copy.blocked;
       return;
     }
     try {
@@ -261,11 +325,11 @@
           {
             localId: 'pending-item',
             itemId: pendingItemId,
-            layer: placementCapability.layer,
+            layer: currentCapability.layer,
             localX: 0,
             localY: 0,
-            orientation: placementCapability.orientation ?? 0,
-            footprint: structuredClone(placementCapability.footprint),
+            orientation: currentCapability.orientation ?? 0,
+            footprint: structuredClone(currentCapability.footprint),
             portableState: null,
             dependencyLocalIds: [],
             metadata: {
@@ -427,7 +491,7 @@
         <button
           type="button"
           on:click={placePendingItem}
-          disabled={!mutationBound || !session}
+          disabled={!mutationBound || !session || atomicBusy}
         >
           {copy.place}
         </button>
@@ -518,6 +582,24 @@
     </section>
   {/if}
 
+  <section class="atomic-source" data-wep-atomic-source aria-labelledby="wep-atomic-title" data-writer="off">
+    <h4 id="wep-atomic-title">{copy.atomicBoard}</h4>
+    <p class="boundary-note">{copy.atomicReadonly}</p>
+    <button type="button" data-wep-atomic-open on:click={openAtomicBoard}
+      disabled={atomicBusy || itemById.size===0}>{copy.atomicOpen}</button>
+    {#if atomicSnapshot && !atomicSnapshot.deleted}
+      <p class="boundary-note" data-wep-atomic-revision>BoardID <code>{atomicSnapshot.boardId}</code> · Revision {atomicSnapshot.revision}</p>
+      <div class="reference-list">
+        {#each atomicSnapshot.document.boards[0].references.filter((ref: any)=>ref.type==='ITEM') as reference}
+          <button type="button" data-wep-atomic-select class="reference-main"
+            disabled={atomicBusy} on:click={()=>chooseAtomicItem(reference)}>
+            <strong>{itemById.get(Number(reference.entityId))?.label??copy.item}</strong>
+            <code>{reference.entityId}</code>
+          </button>
+        {/each}
+      </div>
+    {/if}
+  </section>
   <section class="transform-tools" aria-labelledby="wep-align-title">
     <h4 id="wep-align-title">{copy.align}</h4>
     <div class="button-grid">
@@ -625,5 +707,5 @@
 </section>
 
 <style>
-  .stage1-panel{display:grid;gap:12px}.stage1-heading{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.stage1-heading h3,.pending-card h4,.moodboard-source h4,.transform-tools h4,.precise-tools h4,.review-tools h4{font-family:Georgia,serif;font-weight:500;margin:4px 0 8px}.stage1-heading h3{font-size:22px}.quiet,.pending-card button,.transform-tools button,.precise-tools button{border:1px solid var(--border);background:var(--surface-raised);color:var(--ink);border-radius:9px;padding:8px 10px;font-size:8px;font-weight:800}.pending-card,.moodboard-source,.transform-tools,.precise-tools,.review-tools{border-top:1px solid var(--border);padding-top:12px}.review-summary{display:flex;gap:10px;flex-wrap:wrap;font-size:8px;color:var(--ink-muted)}.review-list{display:grid;gap:5px;margin-top:8px}.review-list article{display:grid;gap:3px;border:1px solid var(--border);border-radius:8px;background:var(--page-2);padding:7px}.review-list strong{font-size:8px;color:var(--gold)}.review-list code,.review-list span{font-size:8px;color:var(--ink-muted);overflow-wrap:anywhere}.pending-card code,.source-reference code{display:block;color:var(--ink-muted);font-size:8px;overflow-wrap:anywhere}.coordinate-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}.coordinate-pair label{display:grid;gap:4px;font-size:8px;color:var(--ink-muted)}.coordinate-pair input{width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;background:var(--surface-raised);color:var(--ink);padding:8px}.stage1-status,.boundary-note,.blocked{font-size:9px;line-height:1.55;color:var(--ink-muted)}.blocked{color:var(--decor-accent)}.moodboard-sections{display:grid;gap:9px}.moodboard-group{border:1px solid var(--border);border-radius:10px;padding:9px;background:var(--page-2)}.moodboard-group.active-group{box-shadow:inset 0 0 0 1px var(--gold)}.moodboard-group h5{margin:0 0 7px;font-size:10px}.reference-list{display:grid;gap:5px}.source-reference{border:1px solid var(--border);border-radius:8px;background:var(--surface);padding:6px}.source-reference.active{border-color:var(--gold)}.reference-main{display:grid;width:100%;gap:3px;border:0;background:transparent;color:var(--ink);text-align:left;padding:3px;border-radius:6px}.reference-main span{font-size:7px;color:var(--gold);font-weight:900}.reference-main strong{font-size:9px}.source-reference p{font-size:9px;color:var(--ink-muted)}.button-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-bottom:10px}button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}button:disabled{opacity:.45;cursor:not-allowed}@media(max-width:560px){.button-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.coordinate-pair{grid-template-columns:1fr}}
+  .stage1-panel{display:grid;gap:12px}.stage1-heading{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.stage1-heading h3,.pending-card h4,.moodboard-source h4,.transform-tools h4,.precise-tools h4,.review-tools h4{font-family:Georgia,serif;font-weight:500;margin:4px 0 8px}.stage1-heading h3{font-size:22px}.quiet,.pending-card button,.atomic-source button,.transform-tools button,.precise-tools button{border:1px solid var(--border);background:var(--surface-raised);color:var(--ink);border-radius:9px;padding:8px 10px;font-size:8px;font-weight:800}.pending-card,.moodboard-source,.atomic-source,.transform-tools,.precise-tools,.review-tools{border-top:1px solid var(--border);padding-top:12px}.review-summary{display:flex;gap:10px;flex-wrap:wrap;font-size:8px;color:var(--ink-muted)}.review-list{display:grid;gap:5px;margin-top:8px}.review-list article{display:grid;gap:3px;border:1px solid var(--border);border-radius:8px;background:var(--page-2);padding:7px}.review-list strong{font-size:8px;color:var(--gold)}.review-list code,.review-list span{font-size:8px;color:var(--ink-muted);overflow-wrap:anywhere}.pending-card code,.source-reference code{display:block;color:var(--ink-muted);font-size:8px;overflow-wrap:anywhere}.coordinate-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}.coordinate-pair label{display:grid;gap:4px;font-size:8px;color:var(--ink-muted)}.coordinate-pair input{width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;background:var(--surface-raised);color:var(--ink);padding:8px}.stage1-status,.boundary-note,.blocked{font-size:9px;line-height:1.55;color:var(--ink-muted)}.blocked{color:var(--decor-accent)}.moodboard-sections{display:grid;gap:9px}.moodboard-group{border:1px solid var(--border);border-radius:10px;padding:9px;background:var(--page-2)}.moodboard-group.active-group{box-shadow:inset 0 0 0 1px var(--gold)}.moodboard-group h5{margin:0 0 7px;font-size:10px}.reference-list{display:grid;gap:5px}.source-reference{border:1px solid var(--border);border-radius:8px;background:var(--surface);padding:6px}.source-reference.active{border-color:var(--gold)}.reference-main{display:grid;width:100%;gap:3px;border:0;background:transparent;color:var(--ink);text-align:left;padding:3px;border-radius:6px}.reference-main span{font-size:7px;color:var(--gold);font-weight:900}.reference-main strong{font-size:9px}.source-reference p{font-size:9px;color:var(--ink-muted)}.button-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-bottom:10px}button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}button:disabled{opacity:.45;cursor:not-allowed}@media(max-width:560px){.button-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.coordinate-pair{grid-template-columns:1fr}}
 </style>
