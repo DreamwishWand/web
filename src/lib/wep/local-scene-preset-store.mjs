@@ -111,7 +111,7 @@ export async function saveLocalScene({
  if(!/^scene_[0-9a-f-]{36}$/.test(id))fail('ID_INVALID');
  // Canonical JSON preserves the exact portable artifact, no document mutation.
  let canonical;
- try{canonical=JSON.parse(JSON.stringify(checkArtifact(artifact)));}catch(e){fail('PRESET_INVALID');}
+ try{canonical=JSON.parse(JSON.stringify(artifact));}catch{fail('PRESET_INVALID');}
  checkArtifact(canonical);
  const db=await openLocalSceneDb({factory,create:true});
  try{
