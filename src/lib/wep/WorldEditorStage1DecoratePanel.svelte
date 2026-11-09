@@ -20,7 +20,7 @@
   import { worldEditorStage1Copy } from './world-editor-stage1-copy.js';
   import { moodboardCopy } from '$lib/moodboards/copy.js';
   import {
-    parseAtomicWorldEditorDraftQuery,
+    parseAtomicWorldEditorDraftFragment,
     readCurrentAtomicWorldEditorDraft,
     WEP_ATOMIC_IDB_DRAFT_GATE
   } from './world-editor-atomic-readonly-draft.mjs';
@@ -113,11 +113,11 @@
   onMount(async () => {
     // Intent parameters are navigation hints only. No IndexedDB read is made
     // until the user explicitly requests a local read-only preview.
-    const currentParams = new URLSearchParams(window.location.search);
+    const currentParams = new URLSearchParams(window.location.hash.slice(1));
     atomicRequested = ['atomicBoard','atomicRevision','atomicReference','atomicItem']
       .some(key => currentParams.has(key));
     if (atomicRequested) {
-      try { atomicIntent = parseAtomicWorldEditorDraftQuery(window.location.search); }
+      try { atomicIntent = parseAtomicWorldEditorDraftFragment(window.location.hash); }
       catch { atomicError = 'WEP_ATOMIC_DRAFT_QUERY_INVALID'; }
     }
     try {

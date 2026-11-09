@@ -19,12 +19,12 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "ae499388de2a3a52a81aa86b1b01640d4087b01e",
+    "src/routes/editor/world/+page.svelte": "019b74722373d09a89fc27f3fa1ddb58d57f0e64",
     "src/lib/wep/world-editor-primary-job.ts": "25aba45c6004c020400a249c848c3bc2281fd4a0",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "6cede86476ca6dbd3427115671367c9a1f4a433f",
     "src/lib/SiteFooter.svelte": "4b20121a1295e42aeaeb25e39cb3853bd80da0e8",
-    "src/lib/wep/WorldEditorStage1DecoratePanel.svelte": "8af2d00ed0b1cd6fbae6c00dd53cff3ec2abc7ff",
+    "src/lib/wep/WorldEditorStage1DecoratePanel.svelte": "d66add80c059841990ffcfb117aa49a1ca9666c2",
     "src/lib/wep/world-editor-stage1-copy.js": "5ee4df81bff7adda8dbf6bf1a6c59c80e3b8b7c1",
     "src/lib/wep/room-finish-copy.js": "f75c54053bafa416842ca17938895b20d7f47f9b",
     "src/lib/wep/world-readonly-copy.js": "0db2b06c03502f0559b2dd86984ff54aa728d832"
@@ -85,7 +85,7 @@
       "Steam schema626 V1 local structural diagnostic, source/Build UNKNOWN, no Undo/Redo or Writer copy in eight launch locales",
       "Moodboard stale source: local item reference, group, verified Item and EditorSession/Area denial message in eight launch locales",
       "Ephemeral Moodboard Reference/Group selection handoff survives World Editor local Draft upload and is checked against live Store at click",
-      "Isolated IDB Board receiver: readonly current-revision preview, no Native placement or Writer; four new buttons/status keys across eight launch locales"
+      "Isolated IDB Board receiver: local-only URL fragment intent, readonly current-revision preview, no Native placement or Writer; four new buttons/status keys across eight launch locales"
     ],
     "neverTranslate": [
       "Core/WEP machine reason code",

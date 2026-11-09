@@ -2153,7 +2153,7 @@
   }
 
   onMount(async () => {
-    const queryKeys = new URLSearchParams(window.location.search);
+    const queryKeys = new URLSearchParams(window.location.hash.slice(1));
     atomicReadonlyDraftRequested =
       ['atomicBoard','atomicRevision','atomicReference','atomicItem'].some(
         key => queryKeys.has(key)

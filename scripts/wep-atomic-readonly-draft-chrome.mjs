@@ -21,7 +21,7 @@ const compare=async(p)=>p.evaluate(async()=>{
  const db=await m.openAtomicFirstBoardDatabase();
  try{return await m.verifiedAtomicFirstBoardReopen(db);}finally{db.close();}
 });
-const makeUrl=(row,ref)=>'/editor/world/?atomicBoard='+encodeURIComponent(row.boardId)+
+const makeUrl=(row,ref)=>'/editor/world/#atomicBoard='+encodeURIComponent(row.boardId)+
  '&atomicRevision='+row.revision+'&atomicReference='+encodeURIComponent(ref.id)+
  '&atomicItem='+encodeURIComponent(ref.entityId);
 try{
@@ -136,15 +136,19 @@ try{
   uri.replace('atomicReference='+encodeURIComponent(ref.id),'atomicReference=ref_wrong'),
   uri.replace('atomicItem=40000047','atomicItem=9007199254740992')
  ]){
+  console.log('WEP_ATOMIC_DRAFT_BAD_INTENT_CASE',bad);
   const p=await newPage();
   await p.goto(origin+bad,{waitUntil:'domcontentloaded'});
   const target=p.locator('[data-wep-atomic-draft-receiver]');
   await target.waitFor({timeout:30000});
   const button=target.locator('[data-wep-atomic-inspect]');
-  if(await button.isEnabled()){
-   await button.click();
-   await target.locator('[data-wep-atomic-error]').waitFor({timeout:20000});
-  }else await target.locator('[data-wep-atomic-error]').waitFor({timeout:20000});
+  await p.waitForFunction(()=>{
+   const r=document.querySelector('[data-wep-atomic-draft-receiver]');
+   const b=r?.querySelector('[data-wep-atomic-inspect]');
+   return Boolean(r?.querySelector('[data-wep-atomic-error]')||(b&&!b.disabled));
+  },null,{timeout:30000});
+  if(await button.isEnabled())await button.click();
+  await target.locator('[data-wep-atomic-error]').waitFor({timeout:20000});
   assert.equal(await target.locator('[data-wep-atomic-held]').count(),0,bad);
   assert.equal(await target.getAttribute('data-wep-atomic-status'),'REJECTED',bad);
   await p.close();

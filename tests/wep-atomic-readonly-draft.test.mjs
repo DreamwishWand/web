@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {
- parseAtomicWorldEditorDraftQuery,
+ parseAtomicWorldEditorDraftFragment,
  WEP_ATOMIC_IDB_DRAFT_GATE,WEP_ATOMIC_IDB_DRAFT_OPERATION,
  verifyCurrentAtomicWorldEditorDraft
 } from '../src/lib/wep/world-editor-atomic-readonly-draft.mjs';
@@ -10,11 +10,12 @@ import {WORLD_EDITOR_STAGE1_LOCALES,worldEditorStage1Copy} from '../src/lib/wep/
 import {MOODBOARD_COPY} from '../src/lib/moodboards/copy.js';
 const text=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const boardId='board_atomic_1234567890ab',referenceId='ref_12345',url=
- '?atomicBoard='+boardId+'&atomicRevision=2&atomicReference='+referenceId+'&atomicItem=40000047';
-const valid=()=>parseAtomicWorldEditorDraftQuery(url);
+ '#atomicBoard='+boardId+'&atomicRevision=2&atomicReference='+referenceId+'&atomicItem=40000047';
+const valid=()=>parseAtomicWorldEditorDraftFragment(url);
 test('strict source-specific URL contract, no inherited legacy Board authority',()=>{
- assert.equal(parseAtomicWorldEditorDraftQuery(''),null);
- assert.equal(parseAtomicWorldEditorDraftQuery('?mode=read'),null);
+ assert.equal(parseAtomicWorldEditorDraftFragment(''),null);
+ assert.equal(parseAtomicWorldEditorDraftFragment('#mode=read'),null);
+ assert.throws(()=>parseAtomicWorldEditorDraftFragment('?atomicBoard=forged'),/WEP_ATOMIC_DRAFT_/);
  assert.equal(WEP_ATOMIC_IDB_DRAFT_OPERATION,'WEP_ATOMIC_IDB_BOARD_TO_WORLD_EDITOR_READONLY_DRAFT_HANDOFF');
  assert.equal(WEP_ATOMIC_IDB_DRAFT_GATE,'READONLY_PENDING_SELECTION__NO_NATIVE_PLACEMENT');
  const receipt=valid();
@@ -38,8 +39,8 @@ test('strict source-specific URL contract, no inherited legacy Board authority',
  url.replace('atomicItem=40000047','atomicItem=00040000047'),
  url.replace('atomicItem=40000047','atomicItem=9007199254740992'),
  url.replace('atomicReference='+referenceId,'atomicReference=../fake'),
- '?atomicRevision=2'
- ])assert.throws(()=>parseAtomicWorldEditorDraftQuery(bad),/WEP_ATOMIC_DRAFT_/);
+ '#atomicRevision=2'
+ ])assert.throws(()=>parseAtomicWorldEditorDraftFragment(bad),/WEP_ATOMIC_DRAFT_/);
 });
 test('independent verified Collection Catalog required BEFORE any IDB read',async()=>{
  const notOpened={};
@@ -57,10 +58,10 @@ test('independent verified Collection Catalog required BEFORE any IDB read',asyn
 test('WEP receiver is a separate read-only preview; NEVER native pending placement',()=>{
  const panel=text('src/lib/wep/WorldEditorStage1DecoratePanel.svelte');
  const helper=text('src/lib/wep/world-editor-atomic-readonly-draft.mjs');
- assert.match(panel,/parseAtomicWorldEditorDraftQuery\(window\.location\.search\)/);
+ assert.match(panel,/parseAtomicWorldEditorDraftFragment\(window\.location\.hash\)/);
  const route=text('src/routes/editor/world/+page.svelte');
  assert.match(route,/pendingWorldEditorHandoff \|\| atomicReadonlyDraftRequested/);
- assert.match(route,/new URLSearchParams\(window\.location\.search\)/);
+ assert.match(route,/new URLSearchParams\(window\.location\.hash\.slice\(1\)\)/);
  assert.match(panel,/data-wep-atomic-draft-receiver/);
  assert.match(panel,/data-wep-atomic-inspect/);
  assert.match(panel,/data-wep-atomic-hold/);

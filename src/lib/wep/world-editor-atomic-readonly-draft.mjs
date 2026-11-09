@@ -18,9 +18,9 @@ const decimal=x=>typeof x==='string'&&/^[1-9][0-9]{0,15}$/.test(x)&&
  positive(Number(x))&&String(Number(x))===x;
 
 /** Parse just one explicit optional URL intent. A forged URL is never authorization. */
-export function parseAtomicWorldEditorDraftQuery(search){
- if(typeof search!=='string')deny('QUERY_TYPE');
- const params=new URLSearchParams(search);
+export function parseAtomicWorldEditorDraftFragment(fragment){
+ if(typeof fragment!=='string'||(fragment!==''&&!fragment.startsWith('#')))deny('FRAGMENT_TYPE');
+ const params=new URLSearchParams(fragment.slice(1));
  if(!keys.some(k=>params.has(k)))return null;
  if(Array.from(params.keys()).length!==keys.length||
     !keys.every(k=>params.getAll(k).length===1))deny('QUERY_SHAPE');
