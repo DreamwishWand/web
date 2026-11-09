@@ -260,7 +260,7 @@ try{
  await stale.locator('[data-wep-local-scene-reopen]').click();
  await stale.locator('[data-wep-local-scene-read]').first().waitFor({timeout:26000});
  await stale.locator('[data-wep-local-scene-read]').first().click();
- assert.equal(await stale.locator('[data-wep-local-scene-reuse]').count(),1);
+ await stale.locator('[data-wep-local-scene-reuse]').waitFor({timeout:26000});
  await captureSave(p,'ui-b','Detached QA Second');
  const after=await rawScene(p);
  assert.equal(after.revision,2);
