@@ -16,6 +16,7 @@
     reopenLocalScenes,saveLocalScene,verifiedReopenLocalScene,readLocalSceneById
   } from '$lib/wep/local-scene-preset-store.mjs';
   import { localScenePresetCopy } from '$lib/wep/local-scene-preset-copy.js';
+  import { buildReadonlyLocalSceneReuseDraft } from '$lib/wep/local-scene-reuse-readonly';
   import {
     WEP_EDITOR_SCHEMA,
     WEP_LAYERS,
@@ -229,6 +230,8 @@
   let localSceneEntries: any[] = [];
   let localSceneSelected: any = null;
   let localScenePreflight: any = null;
+  let localSceneReuseDraft: any = null;
+  let localSceneReuseStatus = '';
   let localSceneStatus = '';
   let localSceneBusy = false;
   $: localSceneCopy = localScenePresetCopy($locale);
@@ -4276,6 +4279,8 @@
         !capturePreview?.publicationReady || localSceneBusy) return;
     localSceneBusy = true;
     localSceneStatus = '';
+    localSceneReuseDraft = null;
+    localSceneReuseStatus = '';
     try {
       // Re-capture on explicit click: old preview/selection is not a write receipt.
       const captured = captureScenePreset(
@@ -4316,6 +4321,8 @@
     localSceneBusy = true;
     localSceneSelected = null;
     localScenePreflight = null;
+    localSceneReuseDraft = null;
+    localSceneReuseStatus = '';
     try {
       const row = await reopenLocalScenes();
       localSceneRevision = row.revision;
@@ -4342,6 +4349,8 @@
     localSceneBusy = true;
     localSceneSelected = null;
     localScenePreflight = null;
+    localSceneReuseDraft = null;
+    localSceneReuseStatus = '';
     try {
       const result = await readLocalSceneById(id);
       localSceneRevision = result.revision;
@@ -4350,6 +4359,44 @@
       localSceneStatus = localSceneCopy.opened;
     } catch {
       localSceneStatus = localSceneCopy.blocked;
+    } finally {
+      localSceneBusy = false;
+    }
+  }
+
+  async function prepareLocalSceneReuseDraft() {
+    // A stored Scene is not authority to mutate EditorSession or Native state.
+    // Reopen a fresh readonly CAS snapshot ON the user's explicit click.
+    if (localSceneBusy || !localSceneSelected) return;
+    localSceneBusy = true;
+    localSceneReuseDraft = null;
+    localSceneReuseStatus = '';
+    try {
+      const selected = localSceneSelected;
+      const fresh = await readLocalSceneById(String(selected.id));
+      if (fresh.revision !== localSceneRevision ||
+          fresh.entry.id !== selected.id ||
+          fresh.entry.title !== selected.title ||
+          fresh.entry.createdAt !== selected.createdAt ||
+          JSON.stringify(fresh.entry.artifact) !== JSON.stringify(selected.artifact)) {
+        throw new Error('WEP_SCENE_REUSE_STALE_REVISION');
+      }
+      const draft = buildReadonlyLocalSceneReuseDraft({
+        sceneId: fresh.entry.id,
+        sourceRevision: fresh.revision,
+        artifact: fresh.entry.artifact
+      });
+      if (draft.writeReady !== false || draft.applyReady !== false ||
+          draft.editorMutationAuthorized !== false ||
+          draft.nativePlacementAuthorized !== false) {
+        throw new Error('WEP_SCENE_REUSE_WRITER_NOT_OFF');
+      }
+      // Detached coordinate preview only. Never call session.execute/commit,
+      // attach source IDs, create a Native Grid or write to IndexedDB.
+      localSceneReuseDraft = draft;
+      localSceneReuseStatus = localSceneCopy.reuseReady;
+    } catch {
+      localSceneReuseStatus = localSceneCopy.reuseBlocked;
     } finally {
       localSceneBusy = false;
     }
@@ -6595,6 +6642,27 @@
             <strong>{localSceneCopy.preview}: {localSceneSelected.title}</strong>
             <span>{localSceneSelected.artifact.objects.length} objects</span>
             <code>writeReady={String(localScenePreflight?.writeReady === true)}</code>
+            <button type="button" data-wep-local-scene-reuse
+              on:click={prepareLocalSceneReuseDraft}
+              disabled={localSceneBusy}>{localSceneCopy.reuse}</button>
+          </section>
+        {/if}
+        {#if localSceneReuseStatus}
+          <p data-wep-local-scene-reuse-status role="status" aria-live="polite">
+            {localSceneReuseStatus}
+          </p>
+        {/if}
+        {#if localSceneReuseDraft}
+          <section data-wep-local-scene-draft data-apply="off" data-editor-mutation="off"
+            aria-label={localSceneCopy.reuseReady}>
+            <strong>{localSceneCopy.reuseReady}</strong>
+            <span>{localSceneReuseDraft.objects.length} objects / {localSceneReuseDraft.bounds.w} × {localSceneReuseDraft.bounds.h}</span>
+            <code>writeReady=false / applyReady=false</code>
+            <ul>
+              {#each localSceneReuseDraft.objects.slice(0, 12) as localObject}
+                <li>{localObject.layer} · {localObject.itemId} · ({localObject.x}, {localObject.y})</li>
+              {/each}
+            </ul>
           </section>
         {/if}
       </div>
