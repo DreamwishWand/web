@@ -1,0 +1,48 @@
+name: "04 QR-W PR862 My Local Scene independent changed4"
+on:
+  push:
+    branches: [qa/04qr-w-pr862-mylocal-scenes-readonly-new4-20261109]
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/04qr-w-pr862-my-local-scenes-readonly-new4-20261109.mjs"
+      - ".github/workflows/04qr-w-pr862-my-local-scenes-readonly-new4-20261109.yml"
+permissions:
+  contents: read
+jobs:
+  independent-new4:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: "Real Chrome and no Private Save: new My Presets Consumer only"
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${DDV_PRIVATE_SAVE_PATH:-}"
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          test -n "$BIN"
+          "$BIN" --version
+          echo "CHROME_BIN=$BIN" >> "$GITHUB_ENV"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4350 >/tmp/qrw862.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4350/presets/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qrw862.log
+          exit 1
+      - name: "Frozen original Source4 and actual Chrome separate local Scene ownership negatives"
+        env:
+          QRW862_ORIGIN: http://127.0.0.1:4350
+        run: node scripts/04qr-w-pr862-my-local-scenes-readonly-new4-20261109.mjs
+      - name: "Local-only bounded Gate"
+        run: echo "QRW862_QA_ONLY_NO_NATIVE_WRITER_APPLY_CLOUD_PROVIDER_PUBLIC"
