@@ -53,7 +53,7 @@ const ctx=await browser.newContext({viewport:{width:1280,height:860},serviceWork
 const errors=[],otherRequests=[];
 ctx.on('request',r=>{
  const method=r.method(),url=r.url();
- if(!['GET','HEAD'].includes(method)||new URL(url).origin!==SITE)otherRequests.push({method,url});
+ if(!['GET','HEAD'].includes(method)||new globalThis.URL(url).origin!==SITE)otherRequests.push({method,url});
 });
 const tab=async(path)=>{
  const p=await ctx.newPage();
@@ -227,7 +227,7 @@ try{
  const oldHint=await getHint(staleSender);
  await staleSender.locator('[data-atomic-wep-send]').click();
  await staleSender.locator('[data-atomic-wep-status]').waitFor({timeout:25000});
- assert.equal(new URL(staleSender.url()).pathname,BASE+PATHS.atomic);
+ assert.equal(new globalThis.URL(staleSender.url()).pathname,BASE+PATHS.atomic);
  assert.equal(await getHint(staleSender),oldHint);
  assert.equal((await readRow(staleSender)).primary,changed.primary);
  assert.deepEqual(await getLegacy(staleSender),legacy);
