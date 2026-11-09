@@ -42,7 +42,32 @@ try{
   main:localStorage.getItem('dreamwishwand:moodboards:v1'),
   backup:localStorage.getItem('dreamwishwand:moodboards:v1:backup')
  }));
+ const hint=await page.evaluate(async()=>{
+  const open=indexedDB.open('dreamwishwand:moodboards:atomic-first:v1',1);
+  const db=await new Promise((resolve,reject)=>{
+   open.onsuccess=()=>resolve(open.result);
+   open.onerror=()=>reject(open.error);
+  });
+  const row=await new Promise((resolve,reject)=>{
+   const tx=db.transaction('snapshots','readonly');
+   const request=tx.objectStore('snapshots').get('first');
+   tx.oncomplete=()=>resolve(request.result);
+   tx.onerror=()=>reject(tx.error);
+  });
+  db.close();
+  const board=JSON.parse(row.primary).boards[0];
+  return {schema:'dreamwish-wand-world-editor-handoff@1',version:1,
+   sourceSurface:'atomic-moodboard',intent:'ATOMIC_MOODBOARD',
+   boardId:row.boardId,revision:row.revision,referenceId:board.references[0].id,
+   createdAt:'2026-11-09T00:00:00.000Z',
+   persistentWriteAuthorized:false,productApplyAuthorized:false,
+   directSourceReplacementAuthorized:false};
+ });
+ await page.evaluate(hint=>localStorage.setItem('dreamwishwand:world-editor:handoff:v1',JSON.stringify(hint)),hint);
  await page.goto(origin+'/editor/world/',{waitUntil:'domcontentloaded'});
+ // The explicit IDB Handoff causes a hydrated pre-source panel; unlike SSR
+ // file input visibility alone, this proves the Svelte handler is bound.
+ await page.locator('[data-wep-pre-source-stage1] [data-wep-atomic-revision]').waitFor({timeout:30000});
  await page.locator('.load-panel input[type=file]').setInputFiles({
   name:'wep-atomic-synthetic.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(fixture))
  });
