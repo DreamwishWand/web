@@ -14,7 +14,7 @@ const now=new Date().toISOString();
 function info(kind,data){console.log('QRW_ROOT '+kind+' '+JSON.stringify(data));}
 info('START',{timestamp:now,scope:'READ_ONLY_EXTERNAL_OBSERVATION',main,queryHosts:hosts,authoritativeAudit:true});
 async function dig(host,type,server=null,timeout=6500){
- const args=['+time=3','+tries=1','+comments','+noall','+answer','+authority','+nocmd'];
+ const args=['+time=3','+tries=1','+noall','+comments','+answer','+authority','+nocmd'];
  if(server){args.push('+norecurse','@'+server);}
  args.push(host,type);
  try{
