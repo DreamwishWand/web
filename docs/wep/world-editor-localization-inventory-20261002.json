@@ -19,7 +19,7 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "35d7bfc9aa1078853618e25736de90bd1bcecbb6",
+    "src/routes/editor/world/+page.svelte": "577aa886e3ff89066b4b38e38193aa27e4dc3028",
     "src/lib/wep/world-editor-primary-job.ts": "25aba45c6004c020400a249c848c3bc2281fd4a0",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "6cede86476ca6dbd3427115671367c9a1f4a433f",
@@ -85,7 +85,8 @@
       "Steam schema626 V1 local structural diagnostic, source/Build UNKNOWN, no Undo/Redo or Writer copy in eight launch locales",
       "Moodboard stale source: local item reference, group, verified Item and EditorSession/Area denial message in eight launch locales",
       "Ephemeral Moodboard Reference/Group selection handoff survives World Editor local Draft upload and is checked against live Store at click",
-      "Isolated IDB Board receiver: BoardID, Revision, verified Item read-only selection and eight-locale denial."
+      "Isolated IDB Board receiver: BoardID, Revision, verified Item read-only selection and eight-locale denial.",
+      "Explicit local Scene Preset capture, IndexedDB CAS/Backup, independent reopen, read-only use, eight-locale UI and failure feedback."
     ],
     "neverTranslate": [
       "Core/WEP machine reason code",
