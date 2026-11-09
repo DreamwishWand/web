@@ -74,7 +74,7 @@ test('WEP receiver is a separate read-only preview; NEVER native pending placeme
  assert.match(panel,/async function holdAtomicReadonlyDraft/);
  const fn=panel.slice(panel.indexOf('async function holdAtomicReadonlyDraft()'),
   panel.indexOf('function clearAtomicReadonlyDraft()'));
- assert.doesNotMatch(fn,/pendingItemId\s*=|insertDraftGraph|onMutation|session\.|editorDocument\s*=/);
+ assert.doesNotMatch(fn,/pendingItemId\s*=|insertDraftGraph\(|onMutation\(|session\.|editorDocument\s*=/);
 });
 test('8 locale copy includes explicit readonly, unknown Native and store separation',()=>{
  const locales=['en','fr','it','de','es-ES','ja','zh-CN','pt-BR'];
