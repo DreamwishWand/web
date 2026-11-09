@@ -103,7 +103,7 @@
     try {
       handoff = readWorldEditorHandoff(localStorage);
       const stored = localStorage.getItem(MOODBOARD_STORAGE_KEY);
-      if (stored) {
+      if (stored && handoff?.sourceSurface === 'moodboard') {
         const document = parseMoodboardDocument(stored);
         if (handoff?.sourceSurface === 'moodboard') {
           board =
