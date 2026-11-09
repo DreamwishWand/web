@@ -1,0 +1,45 @@
+name: WEP isolated IDB Board read-only receiver Chrome
+on:
+  pull_request:
+    paths:
+      - 'src/lib/wep/world-editor-atomic-board-guard.mjs'
+      - 'src/lib/wep/world-editor-handoff.ts'
+      - 'src/lib/wep/WorldEditorStage1DecoratePanel.svelte'
+      - 'src/lib/wep/world-editor-stage1-copy.js'
+      - 'tests/wep-atomic-board-readonly-handoff.test.mjs'
+      - 'scripts/wep-atomic-board-readonly-handoff-chrome.mjs'
+      - '.github/workflows/wep-atomic-board-readonly-handoff.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  readonly-receiver:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Changed-risk contract negatives
+        run: node --test tests/wep-atomic-board-readonly-handoff.test.mjs
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Actual installed Chrome with synthetic local Draft, no private Save
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${DDV_PRIVATE_SAVE_PATH:-}"
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          test -n "$BIN"
+          "$BIN" --version
+          export CHROME_BIN="$BIN"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4312 >/tmp/wep-atomic-receiver.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4312/moodboards/atomic/ >/dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/wep-atomic-board-readonly-handoff-chrome.mjs
