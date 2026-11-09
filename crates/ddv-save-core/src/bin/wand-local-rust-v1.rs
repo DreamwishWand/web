@@ -62,9 +62,10 @@ fn run(){
     // The accepted no-argument V1 path remains byte-for-byte behaviorally
     // unchanged. Explicit private read-only slice cannot activate Writer.
     let argv:Vec<String>=env::args().skip(1).collect();
-    let native_slice=match argv.as_slice(){
-      []=>false,
-      [flag] if flag=="--native-area-grid-slice-only"=>true,
+    let (native_slice,native_diffgrids)=match argv.as_slice(){
+      []=>(false,false),
+      [flag] if flag=="--native-area-grid-slice-only"=>(true,false),
+      [flag] if flag=="--native-diffgrids-nonproduct-witness-only"=>(false,true),
       _=>denied("UNTRUSTED_CLI_ARGS"),
     };
     if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=EXACT_STEAM_VERSION{
@@ -118,6 +119,10 @@ fn run(){
       Some(session.verify_native_area_grid_slice(scope)
           .unwrap_or_else(|_|denied("NATIVE_AREA_GRID_SLICE_DENIED")))
     } else {None};
+    let diff_witness=if native_diffgrids {
+      Some(session.inspect_native_diffgrids_nonproduct(scope)
+          .unwrap_or_else(|_|denied("NONPRODUCT_DIFFGRIDS_WITNESS_DENIED")))
+    } else {None};
     // Revoke while preserving the immutable original. No plaintext on disk.
     session.close().unwrap_or_else(|_|denied("RUST_CLOSE_FAILED"));
     let mut out=serde_json::json!({
@@ -155,6 +160,42 @@ fn run(){
         "fullNativeReferenceClosureVerified":false,
         "areaGroupFootprintVerified":false,
         "nativeV3Verified":false,
+        "productReadAccepted":false,
+        "writerAuthorized":false
+      });
+    }
+    if let Some(r)=diff_witness {
+      if r.session_id!=receipt.session_id || r.revision!=receipt.revision ||
+         r.index_generation!=receipt.index_generation ||
+         r.decoded_sha256!=receipt.decoded_sha256 ||
+         r.full_native_reference_closure_verified||r.product_read_accepted||
+         r.native_v3_verified||r.writer_authorized {
+          denied("NONPRODUCT_DIFFGRIDS_SCOPE_OR_AUTHORITY_INVALID");
+      }
+      // Anonymized counters and CAS equality only. Never expose real Native
+      // Grid/Object IDs, plaintext spans, private SessionID or SHA in stdout.
+      out["nonproductDiffGridsWitness"]=serde_json::json!({
+        "contract":"wand.native.nonproduct.diffgrids-samesession-witness@1",
+        "sourceBuildExactlySteam1253":true,
+        "singleRustProductSessionScopeValidated":true,
+        "sessionIdMatchedCore":true,
+        "revision":r.revision,
+        "indexGeneration":r.index_generation,
+        "decodedShaMatchedCore":true,
+        "diffGridsMapPresent":r.diff_grids_map_present,
+        "diffGridRecords":r.diff_grid_records,
+        "modifiedObjectRecords":r.modified_object_records,
+        "removedObjectRecords":r.removed_object_records,
+        "modifiedRemovedIdIntersections":r.modified_removed_id_intersections,
+        "removedArrayMaps":r.removed_array_maps,
+        "removedObjectMaps":r.removed_object_maps,
+        "defaultLayoutGridIDRecords":r.default_layout_grid_id_records,
+        "defaultLayoutZeroIDRecords":r.default_layout_zero_id_records,
+        "gridDefaultLayoutPathRecords":r.grid_default_layout_path_records,
+        "defaultLayoutNativeSemanticsVerified":false,
+        "overlapLegalityVerified":false,
+        "nativeV3Verified":false,
+        "fullNativeReferenceClosureVerified":false,
         "productReadAccepted":false,
         "writerAuthorized":false
       });
