@@ -158,6 +158,8 @@
   } from '$lib/wep/roadfence-authoring-contract';
 
   let session: any = null;
+  // URL intent only renders a readonly consumer; never creates Native placement.
+  let atomicReadonlyDraftRequested = false;
   let editorDocument: any = null;
   let worldSource: any = null;
   let projected: any[] = [];
@@ -2151,6 +2153,11 @@
   }
 
   onMount(async () => {
+    const queryKeys = new URLSearchParams(window.location.search);
+    atomicReadonlyDraftRequested =
+      ['atomicBoard','atomicRevision','atomicReference','atomicItem'].some(
+        key => queryKeys.has(key)
+      );
     refreshRecoveryRecords();
     try {
       const pendingHandoff = readWorldEditorHandoff(localStorage);
@@ -4403,7 +4410,7 @@
     <div class="status" aria-live="polite">{message}</div>
   {/if}
 
-  {#if pendingWorldEditorHandoff && !editorDocument && !worldSource}
+  {#if (pendingWorldEditorHandoff || atomicReadonlyDraftRequested) && !editorDocument && !worldSource}
     <section class="pre-source-stage1" data-wep-pre-source-stage1>
       <WorldEditorStage1DecoratePanel
         {session}

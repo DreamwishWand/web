@@ -58,6 +58,9 @@ test('WEP receiver is a separate read-only preview; NEVER native pending placeme
  const panel=text('src/lib/wep/WorldEditorStage1DecoratePanel.svelte');
  const helper=text('src/lib/wep/world-editor-atomic-readonly-draft.mjs');
  assert.match(panel,/parseAtomicWorldEditorDraftQuery\(window\.location\.search\)/);
+ const route=text('src/routes/editor/world/+page.svelte');
+ assert.match(route,/pendingWorldEditorHandoff \|\| atomicReadonlyDraftRequested/);
+ assert.match(route,/new URLSearchParams\(window\.location\.search\)/);
  assert.match(panel,/data-wep-atomic-draft-receiver/);
  assert.match(panel,/data-wep-atomic-inspect/);
  assert.match(panel,/data-wep-atomic-hold/);

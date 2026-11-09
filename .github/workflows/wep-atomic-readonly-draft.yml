@@ -2,6 +2,8 @@ name: WEP isolated IDB to World Editor readonly Draft receiver
 on:
   pull_request:
     paths:
+      - 'src/routes/editor/world/+page.svelte'
+      - 'docs/wep/world-editor-localization-inventory-20261002.json'
       - 'src/lib/wep/WorldEditorStage1DecoratePanel.svelte'
       - 'src/lib/wep/world-editor-stage1-copy.js'
       - 'src/lib/wep/world-editor-atomic-readonly-draft.mjs'
@@ -23,7 +25,7 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci --no-audit --no-fund
-      - name: Exact 2 MOD and 4 ADD WEP-only, no Atomic Sender or Store edits
+      - name: Exact 4 MOD and 4 ADD WEP-only, no Atomic Sender or Store edits
         shell: bash
         run: |
           set -euo pipefail
@@ -32,6 +34,8 @@ jobs:
           cat >/tmp/wep-atomic-expected <<'SCOPE'
           .github/workflows/wep-atomic-readonly-draft.yml
           scripts/wep-atomic-readonly-draft-chrome.mjs
+          docs/wep/world-editor-localization-inventory-20261002.json
+          src/routes/editor/world/+page.svelte
           src/lib/wep/WorldEditorStage1DecoratePanel.svelte
           src/lib/wep/world-editor-atomic-readonly-draft.mjs
           src/lib/wep/world-editor-stage1-copy.js
@@ -40,13 +44,13 @@ jobs:
           git diff --name-only "$BASE" HEAD | LC_ALL=C sort >/tmp/wep-atomic-actual
           LC_ALL=C sort /tmp/wep-atomic-expected >/tmp/wep-atomic-expected-sorted
           diff -u /tmp/wep-atomic-expected-sorted /tmp/wep-atomic-actual
-          for p in src/lib/wep/WorldEditorStage1DecoratePanel.svelte src/lib/wep/world-editor-stage1-copy.js; do
+          for p in docs/wep/world-editor-localization-inventory-20261002.json src/routes/editor/world/+page.svelte src/lib/wep/WorldEditorStage1DecoratePanel.svelte src/lib/wep/world-editor-stage1-copy.js; do
             test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = M
           done
           for p in src/lib/wep/world-editor-atomic-readonly-draft.mjs tests/wep-atomic-readonly-draft.test.mjs scripts/wep-atomic-readonly-draft-chrome.mjs .github/workflows/wep-atomic-readonly-draft.yml; do
             test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = A
           done
-          git diff --exit-code "$BASE" HEAD -- src/routes/moodboards/ src/routes/collection/ src/routes/editor/world/ \
+          git diff --exit-code "$BASE" HEAD -- src/routes/moodboards/ src/routes/collection/ \
             src/lib/moodboards/ src/lib/collection/ src/lib/wep/world-editor-handoff.ts \
             src/lib/wep/world-editor-moodboard-placement-guard.mjs src/lib/wep/editor-runtime.ts \
             src/lib/wep/canvas-runtime.ts src/lib/ddv/ crates/ src/lib/community/ \
