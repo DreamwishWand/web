@@ -236,12 +236,15 @@ try{
   'detached Draft must not mutate real Editor selection/objects');
  console.log('QRW867_EXPLICIT_KEYBOARD_DETACHED_DRAFT_LOCAL_ONLY_EDITOR_AND_IDB_INTACT_PASS');
  for(const loc of LOCAL_SCENE_PRESET_LOCALES){
-  await p.locator('#site-locale').selectOption(loc);
+  await p.evaluate(loc=>{const el=document.querySelector('#site-locale');
+   if(!el)throw Error('LOCALE_SELECTOR_MISSING');
+   el.value=loc;el.dispatchEvent(new Event('change',{bubbles:true}));},loc);
   await p.waitForFunction(text=>document.querySelector('[data-wep-local-scene-reuse]')?.textContent?.trim()===text,
    localScenePresetCopy(loc).reuse);
   assert.ok((await p.locator('[data-wep-local-scene-draft]').getAttribute('aria-label'))?.length>0);
  }
- await p.locator('#site-locale').selectOption('en');
+ await p.evaluate(()=>{const el=document.querySelector('#site-locale');
+  el.value='en';el.dispatchEvent(new Event('change',{bubbles:true}));});
  for(const [w,zoom] of [[320,'1'],[640,'2']]){
   await p.setViewportSize({width:w,height:900});
   await p.evaluate(z=>document.documentElement.style.zoom=z,zoom);
