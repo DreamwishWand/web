@@ -1,0 +1,85 @@
+name: WEB My Presets local-only Scene list read-only consumer
+on:
+  pull_request:
+    paths:
+      - 'src/routes/presets/+page.svelte'
+      - 'tests/web-my-presets-local-scene-consumer.test.mjs'
+      - 'scripts/web-my-presets-local-scene-chrome.mjs'
+      - '.github/workflows/web-my-presets-local-scene-consumer.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Original 1 MOD + 3 ADD, accepted WEP reader and Community ownership unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="574f30d554939bf674ad90a16f45b86e775118a1"
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          printf '%s\n' \
+            .github/workflows/web-my-presets-local-scene-consumer.yml \
+            scripts/web-my-presets-local-scene-chrome.mjs \
+            src/routes/presets/+page.svelte \
+            tests/web-my-presets-local-scene-consumer.test.mjs > /tmp/allowed
+          git diff --name-only "$BASE" HEAD | LC_ALL=C sort > /tmp/changed
+          LC_ALL=C sort /tmp/allowed > /tmp/expected
+          diff -u /tmp/expected /tmp/changed
+          test "$(git diff --name-status "$BASE" HEAD -- src/routes/presets/+page.svelte | cut -f1)" = M
+          for p in .github/workflows/web-my-presets-local-scene-consumer.yml scripts/web-my-presets-local-scene-chrome.mjs tests/web-my-presets-local-scene-consumer.test.mjs; do
+            test "$(git diff --name-status "$BASE" HEAD -- "$p" | cut -f1)" = A
+          done
+          git diff --exit-code "$BASE" HEAD -- src/lib/wep/ src/lib/presets/ src/routes/editor/ src/routes/moodboards/ src/routes/collection/ src/lib/community/ crates/ supabase/ static/ .github/workflows/pages.yml
+          echo WEB_LOCAL_SCENE_FOUR_FILE_SCOPE_ACCEPTED_WEP_STORE_UNMODIFIED_PASS
+      - name: Local-only Node contract, Svelte typecheck, static /web build
+        env:
+          BASE_PATH: /web
+        run: |
+          node --test tests/web-my-presets-local-scene-consumer.test.mjs tests/web-my-presets-internal-router.test.mjs
+          npm run check
+          npm run build
+          test -f build/presets/index.html
+          test -f build/editor/world/index.html
+          test -f build/404.html
+          echo WEB_LOCAL_SCENE_MY_PRESETS_NODE_SVELTE_WEB_BUILD_PASS
+  chrome:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: Start localhost Vite with installed Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          echo "CHROME_BIN=$CHROME_BIN" >> "$GITHUB_ENV"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4349 >/tmp/web-my-local-scene.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4349/presets/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/web-my-local-scene.log
+          exit 1
+      - name: Real Chrome local Scene explicit read, 8 locale, stale tab and corrupt row, keyboard/zoom, no POST
+        env:
+          WEB_LOCAL_SCENE_ORIGIN: http://127.0.0.1:4349
+        run: node scripts/web-my-presets-local-scene-chrome.mjs
