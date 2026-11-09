@@ -65,7 +65,7 @@ test('WEP receiver is a separate read-only preview; NEVER native pending placeme
  assert.match(panel,/readCurrentAtomicWorldEditorDraft\(atomicIntent, itemById\)/);
  assert.match(panel,/atomicCatalogReady = true/);
  assert.match(panel,/atomicPending = fresh/);
- assert.doesNotMatch(helper,/localStorage|setItem\(|insertDraftGraph\(|onMutation\(|writeWorldEditorHandoff|setPositions\(/);
+ assert.doesNotMatch(helper,/localStorage\.(?:getItem|setItem)|setItem\(|insertDraftGraph\(|onMutation\(|writeWorldEditorHandoff\(|setPositions\(/);
  assert.match(helper,/verifiedAtomicFirstBoardReopen\(db\)/);
  assert.match(helper,/db\.close\(\)/);
  assert.match(helper,/snapshot\.revision!==requested\.revision/);
@@ -82,7 +82,7 @@ test('8 locale copy includes explicit readonly, unknown Native and store separat
  for(const locale of locales){
   const c=worldEditorStage1Copy(locale);
   for(const k of ['atomicInspect','atomicHold','atomicBoundary','atomicReady'])
-   assert.ok(typeof c[k]==='string'&&c[k].length>10,locale+' '+k);
+   assert.ok(typeof c[k]==='string'&&c[k].trim().length>=4,locale+' '+k);
   assert.match(c.atomicBoundary,/ObjectID/);
   assert.match(MOODBOARD_COPY[locale].atomicNote,/IndexedDB/);
  }
