@@ -246,6 +246,146 @@ impl ProductSession {
         })
     }
 }
+
+/// 00 CTRL-authorized, native-only NONPRODUCT diagnostic. Numbers describe
+/// structurally observed fields, not an effective Grid, overlay, V3 or Save
+/// mutation authorization. Actual identifiers and private bytes stay in Rust.
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub struct NativeDiffGridsStructuralReceipt {
+    pub session_id:[u8;16],
+    pub revision:u64,
+    pub index_generation:u64,
+    pub decoded_sha256:[u8;32],
+    pub diff_grids_map_present:bool,
+    pub diff_grid_records:usize,
+    pub modified_object_records:usize,
+    pub removed_object_records:usize,
+    pub modified_removed_id_intersections:usize,
+    pub removed_array_maps:usize,
+    pub removed_object_maps:usize,
+    pub default_layout_grid_id_records:usize,
+    pub default_layout_zero_id_records:usize,
+    pub grid_default_layout_path_records:usize,
+    pub full_native_reference_closure_verified:bool,
+    pub product_read_accepted:bool,
+    pub native_v3_verified:bool,
+    pub writer_authorized:bool,
+}
+impl ProductSession {
+    /// One existing ProductSession, one validated immutable decoded buffer,
+    /// one lock and the SAME lexical span scanner as the accepted Area slice.
+    /// No candidate Grid IDs from UI, no duplicate Reader, no Native overlay
+    /// interpretation, no authority beyond a masked structural witness.
+    pub fn inspect_native_diffgrids_nonproduct(
+        &self,scope:WorkerEnvelope
+    )->CoreResult<NativeDiffGridsStructuralReceipt>{
+        let state=self.lock()?;
+        validate_scope(self,&state,&scope)?;
+        let build=&self.native_source_build;
+        if build.platform!=super::Platform::SteamWindows ||
+            build.build_kind!=super::BuildKind::SteamFullVersion ||
+            build.build_id!="releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22" ||
+            build.schema!=626 || !build.externally_attested {
+            return Err(fail("DIFFGRIDS_EXACT_STEAM_FULLVERSION_REQUIRED"));
+        }
+        let b:&[u8]=&self.decoded;
+        let world=roots(b)?.world;
+        let collection=required(b,world,"GridCollection")?;
+        let diffs=field(b,collection,"DiffGrids")?;
+        let mut grid_count=0usize;
+        let mut modified_count=0usize;
+        let mut removed_count=0usize;
+        let mut intersections=0usize;
+        let mut removed_array_maps=0usize;
+        let mut removed_object_maps=0usize;
+        let mut default_id_count=0usize;
+        let mut zero_default_count=0usize;
+        let mut default_path_count=0usize;
+        if let Some(span)=diffs {
+            object(b,span,|key,grid|{
+                count(&mut grid_count)?;
+                let id=canonical_key(&key)?;
+                if number(b,required(b,grid,"ID")?)?!=id {
+                    return Err(fail("DIFFGRIDS_KEY_ID_MISMATCH"));
+                }
+                if let Some(default_id)=field(b,grid,"DefaultLayoutGridID")? {
+                    count(&mut default_id_count)?;
+                    if number(b,default_id)?==0 {
+                        count(&mut zero_default_count)?;
+                    }
+                    // No Grid0 sentinel, Base lookup or overlay authority.
+                }
+                if let Some(default_path)=field(b,grid,"GridDefaultLayoutPath")?{
+                    if default_path.end-default_path.begin>4096{
+                        return Err(fail("DIFFGRIDS_DEFAULT_PATH_BOUNDS"));
+                    }
+                    let _:String=serde_json::from_slice(&b[default_path.begin..default_path.end])
+                        .map_err(|_|fail("DIFFGRIDS_DEFAULT_PATH_STRING_REQUIRED"))?;
+                    count(&mut default_path_count)?;
+                    // No access to external DefaultLayout JSON bytes/assets.
+                }
+                let mut modified_ids=BTreeSet::new();
+                if let Some(modified)=field(b,grid,"ModifiedObjects")?{
+                    object(b,modified,|key,item|{
+                        count(&mut modified_count)?;
+                        let item_id=canonical_key(&key)?;
+                        if number(b,required(b,item,"ID")?)?!=item_id{
+                            return Err(fail("DIFFGRIDS_MODIFIED_KEY_ID_MISMATCH"));
+                        }
+                        if !modified_ids.insert(item_id){
+                            return Err(fail("DIFFGRIDS_MODIFIED_ID_ALIAS"));
+                        }
+                        Ok(())
+                    })?;
+                }
+                let mut removed_ids=BTreeSet::new();
+                if let Some(removed)=field(b,grid,"RemovedObjects")?{
+                    // The private snapshot reports numeric removed values;
+                    // both array and JSON object collections are read without
+                    // inferring whether their keys are GridObject identities.
+                    let mut add_removed=|v:Span|->CoreResult<()>{
+                        count(&mut removed_count)?;
+                        let item_id=number(b,v)?;
+                        removed_ids.insert(item_id);
+                        Ok(())
+                    };
+                    match b.get(removed.begin) {
+                        Some(b'[')=>{
+                            count(&mut removed_array_maps)?;
+                            array(b,removed,&mut add_removed)?;
+                        },
+                        Some(b'{')=>{
+                            count(&mut removed_object_maps)?;
+                            object(b,removed,|_key,v|add_removed(v))?;
+                        },
+                        _=>return Err(fail("DIFFGRIDS_REMOVED_COLLECTION_REQUIRED")),
+                    }
+                }
+                for id in &modified_ids {
+                    if removed_ids.contains(id) {
+                        count(&mut intersections)?;
+                    }
+                }
+                Ok(())
+            })?;
+        }
+        Ok(NativeDiffGridsStructuralReceipt{
+            session_id:state.id,revision:state.revision,
+            index_generation:state.generation,decoded_sha256:self.sha,
+            diff_grids_map_present:diffs.is_some(),
+            diff_grid_records:grid_count,modified_object_records:modified_count,
+            removed_object_records:removed_count,
+            modified_removed_id_intersections:intersections,
+            removed_array_maps,removed_object_maps,
+            default_layout_grid_id_records:default_id_count,
+            default_layout_zero_id_records:zero_default_count,
+            grid_default_layout_path_records:default_path_count,
+            full_native_reference_closure_verified:false,
+            product_read_accepted:false,native_v3_verified:false,
+            writer_authorized:false,
+        })
+    }
+}
 #[cfg(test)]
 mod tests{
     use super::*;
@@ -343,6 +483,76 @@ mod tests{
         );
         let s=session(&two);
         assert!(s.verify_native_area_grid_slice(scope(&s)).is_err());
+    }
+
+    #[test]
+    fn nonproduct_diffgrids_real_scanner_synthetic_only(){
+        let src=VALID.replace("\"Grids\":{",
+            "\"DiffGrids\":{\"8\":{\"ID\":8,\"DefaultLayoutGridID\":0,\"GridDefaultLayoutPath\":\"private/path.json\",\"ModifiedObjects\":{\"3\":{\"ID\":3},\"4\":{\"ID\":4}},\"RemovedObjects\":[3,5]},\"9\":{\"ID\":9,\"ModifiedObjects\":{\"6\":{\"ID\":6}},\"RemovedObjects\":{\"a\":6}}},\"Grids\":{");
+        let s=session(&src);
+        let r=s.inspect_native_diffgrids_nonproduct(scope(&s)).unwrap();
+        assert_eq!((r.diff_grid_records,r.modified_object_records,r.removed_object_records,
+                    r.modified_removed_id_intersections),(2,3,3,2));
+        assert_eq!((r.removed_array_maps,r.removed_object_maps),(1,1));
+        assert_eq!((r.default_layout_grid_id_records,r.default_layout_zero_id_records,
+                    r.grid_default_layout_path_records),(1,1,1));
+        let live=s.receipt().unwrap();
+        assert_eq!((r.session_id,r.revision,r.index_generation,r.decoded_sha256),
+                   (live.session_id,live.revision,live.index_generation,live.decoded_sha256));
+        assert!(r.diff_grids_map_present);
+        assert!(!r.full_native_reference_closure_verified&&!r.product_read_accepted);
+        assert!(!r.native_v3_verified&&!r.writer_authorized);
+        // The identical number may be valid Overlay or unknown, never judged here.
+        let without= s.receipt().unwrap();
+        assert!(!without.all_domain_references_verified&&!without.product_read_accepted);
+        let absent=session(VALID);
+        let a=absent.inspect_native_diffgrids_nonproduct(scope(&absent)).unwrap();
+        assert!(!a.diff_grids_map_present);
+        assert_eq!(a.diff_grid_records,0);
+        assert!(!a.product_read_accepted);
+    }
+    #[test]
+    fn nonproduct_diffgrids_bad_types_forged_scope_and_wrong_build_fail_closed(){
+        let valid=VALID.replace("\"Grids\":{",
+            "\"DiffGrids\":{\"8\":{\"ID\":8,\"ModifiedObjects\":{\"3\":{\"ID\":3}},\"RemovedObjects\":[3]}},\"Grids\":{");
+        let malformed=[
+            valid.replace("\"8\":{\"ID\":8,\"ModifiedObjects\"",
+                          "\"8\":{\"ID\":7,\"ModifiedObjects\""),
+            valid.replace("\"3\":{\"ID\":3}","\"3\":{\"ID\":4}"),
+            valid.replace("\"RemovedObjects\":[3]","\"RemovedObjects\":[\"3\"]"),
+            valid.replace("\"RemovedObjects\":[3]","\"RemovedObjects\":null"),
+            valid.replace("\"ModifiedObjects\":{\"3\":{\"ID\":3}}","\"ModifiedObjects\":[]"),
+            valid.replace("\"DiffGrids\":{\"8\"","\"DiffGrids\":{\"08\""),
+            valid.replace("\"DiffGrids\":{\"8\":{\"ID\":8","\"DiffGrids\":null,\"Other\":{\"8\":{\"ID\":8"),
+        ];
+        for input in malformed {
+            if let Ok(s)=ProductSession::open_decoded_readonly(input.into_bytes(),BuildIdentity{
+                platform:Platform::SteamWindows,build_kind:BuildKind::SteamFullVersion,
+                build_id:"releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22".into(),
+                schema:626,externally_attested:true
+            }){
+                assert!(s.inspect_native_diffgrids_nonproduct(scope(&s)).is_err());
+            }
+        }
+        let s=session(&valid);
+        let scoped=scope(&s);
+        let mut stale=scoped; stale.expected_revision+=1;
+        assert!(s.inspect_native_diffgrids_nonproduct(stale).is_err());
+        let mut stale_gen=scoped;stale_gen.expected_index_generation+=1;
+        assert!(s.inspect_native_diffgrids_nonproduct(stale_gen).is_err());
+        let mut stale_sha=scoped;stale_sha.expected_decoded_sha256=[3;32];
+        assert!(s.inspect_native_diffgrids_nonproduct(stale_sha).is_err());
+        let mut wrong_action=scoped;wrong_action.action=WorkerAction::Stage;
+        assert!(s.inspect_native_diffgrids_nonproduct(wrong_action).is_err());
+        let other=session(&valid);
+        assert!(s.inspect_native_diffgrids_nonproduct(scope(&other)).is_err());
+        s.close().unwrap();
+        assert!(s.inspect_native_diffgrids_nonproduct(scoped).is_err());
+        let switch=ProductSession::open_decoded_readonly(valid.into_bytes(),BuildIdentity{
+            platform:Platform::Switch,build_kind:BuildKind::SwitchBid,
+            build_id:"9A239D3DB569756D".into(),schema:626,externally_attested:true
+        }).unwrap();
+        assert!(switch.inspect_native_diffgrids_nonproduct(scope(&switch)).is_err());
     }
     #[test]
     fn foreign_stale_action_and_closed_session_fail_closed(){
