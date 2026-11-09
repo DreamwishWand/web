@@ -1,0 +1,56 @@
+name: "04 QR-W mainf4ae hosted WEP Scene to Presets cross-route E2E"
+on:
+  push:
+    branches: [qa/04qr-w-mainf4ae-crossroute-scene-presets-hosted-20261109]
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/04qr-w-mainf4ae-scene-presets-crossroute-hosted-20261109.yml"
+      - "scripts/04qr-w-mainf4ae-scene-presets-crossroute-hosted-20261109.mjs"
+permissions:
+  contents: read
+  deployments: read
+  pages: read
+jobs:
+  actual-hosted-crossroute:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 32
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: "Exactly 2 QA-only ADD on mainf4ae; do not retest accepted ancestors"
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAIN=f4ae5c8e84ccf37dcf0e89d6c45a2d8e61479922
+          test "$(git merge-base "$MAIN" HEAD)" = "$MAIN"
+          cat >/tmp/allowed-crossroute <<'SCOPE'
+          .github/workflows/04qr-w-mainf4ae-scene-presets-crossroute-hosted-20261109.yml
+          scripts/04qr-w-mainf4ae-scene-presets-crossroute-hosted-20261109.mjs
+          SCOPE
+          git diff --name-only "$MAIN" HEAD | LC_ALL=C sort > /tmp/actual-crossroute
+          diff -u /tmp/allowed-crossroute /tmp/actual-crossroute
+          echo QRW865_FIXED_MAIN_F4AE_QA_ONLY2_NO_PRODUCT_REQA_PASS
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: "Actual installed Chrome on deployed HTTPS GitHub Pages, isolated profile"
+        shell: bash
+        env:
+          QRW_GITHUB_TOKEN: ${{ github.token }}
+          QRW_CROSS_MAIN: f4ae5c8e84ccf37dcf0e89d6c45a2d8e61479922
+          QRW_CROSS_URL: https://dreamwishwand.github.io/web/
+        run: |
+          set -euo pipefail
+          test -z "${DDV_PRIVATE_SAVE_PATH:-}"
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          test -n "$BIN"
+          "$BIN" --version
+          CHROME_BIN="$BIN" node scripts/04qr-w-mainf4ae-scene-presets-crossroute-hosted-20261109.mjs
+      - name: "No product, Writer, Cloud or community changes"
+        run: echo QRW865_QA_ONLY_NO_NATIVE_APPLY_WRITER_CLOUD_PROVIDER_PUBLIC_PAGES_CHANGE
