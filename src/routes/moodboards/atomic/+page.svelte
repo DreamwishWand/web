@@ -4,14 +4,20 @@
  import { locale } from '$lib/i18n/runtime.js';
  import { moodboardCopy } from '$lib/moodboards/copy.js';
  import { exploreCopy } from '$lib/explore/copy.js';
+ import { worldEditorStage1Copy } from '$lib/wep/world-editor-stage1-copy.js';
+ import { createAtomicMoodboardHandoff, writeWorldEditorHandoff } from '$lib/wep/world-editor-handoff';
+ import { verifyAtomicBoardReference } from '$lib/wep/world-editor-atomic-board-guard.mjs';
  import { decodeCollectionRecord,loadCollectionRuntime } from '$lib/collection/runtime.js';
  import { ATOMIC_FIRST_BOARD_GATE,openAtomicFirstBoardDatabase,verifiedAtomicFirstBoardReopen,
-  createAtomicFirstBoard,toggleAtomicFirstBoardItem,deleteAtomicFirstBoard
+  createAtomicFirstBoard,toggleAtomicFirstBoardItem,deleteAtomicFirstBoard,readAtomicFirstBoard
  } from '$lib/moodboards/atomic-first-board.mjs';
  let db:IDBDatabase|null=null, snapshot:any=null, ready=false, catalogReady=false;
  let records:any[]=[],title='',itemIdInput='',message='',outcome='NOT_STARTED',busy=false;
  let handoffItemId:number|null=null,handoffRequested=false,handoffInvalid=false;
+ let wepSending=false,wepSendStatus='',wepSendOutcome='NOT_STARTED';
  $: inspire=exploreCopy($locale);
+ $: wepCopy=worldEditorStage1Copy($locale);
+ $: catalogById=new Map(records.map((record:any)=>[record.itemId,record]));
  $: handoffRecord=catalogReady&&handoffItemId!==null
   ?records.find((row:any)=>row.itemId===handoffItemId&&typeof row.label==='string'&&row.label.trim())??null:null;
  $: handoffAlreadyStored=Boolean(board&&handoffRecord&&board.references.some(
@@ -87,6 +93,44 @@
    // Never auto-retry a stale write. A separate explicit Reopen is required.
   }finally{busy=false;}
  }
+ // The sender never trusts URL ItemIDs, labels, or in-memory board snapshots.
+ // Only a direct user click may write the existing WEP selection hint, which
+ // the accepted receiver independently revalidates against IDB and Catalog.
+ function verifiedWepReference(reference:any):boolean{
+  if(!snapshot||!board||!catalogReady||snapshot.deleted||!reference||
+     reference.type!=='ITEM'||!Array.isArray(reference.groupIds)||
+     reference.groupIds.length!==0)return false;
+  const raw=reference.entityId;
+  if(typeof raw!=='string'||!/^[1-9][0-9]{0,15}$/.test(raw)||
+     !Number.isSafeInteger(Number(raw))||String(Number(raw))!==raw)return false;
+  const record=catalogById.get(Number(raw));
+  return Boolean(record&&record.itemId===Number(raw)&&
+    typeof record.label==='string'&&record.label.trim());
+ }
+ async function sendAtomicReferenceToWorldEditor(referenceId:string){
+  if(!db||!snapshot||!board||!catalogReady||busy||wepSending)return;
+  wepSending=true;wepSendStatus='';wepSendOutcome='PENDING';
+  const observed=snapshot;
+  try{
+   const ref=observed.document.boards[0].references.find((r:any)=>r.id===referenceId);
+   if(!verifiedWepReference(ref))throw Error('ATOMIC_WEP_UNVERIFIED_ITEM');
+   // Separate readonly IDB transaction: do not send stale/deleted Board or
+   // changed reference. A later racing write is rejected by WEP receiver.
+   const current=await readAtomicFirstBoard(db);
+   if(!current||current.deleted||current.boardId!==observed.boardId||
+       current.revision!==observed.revision)throw Error('ATOMIC_WEP_STALE_BOARD');
+   verifyAtomicBoardReference(current,{
+    boardId:current.boardId,revision:current.revision,
+    referenceId,itemId:Number(ref.entityId)
+   },catalogById);
+   const hint=createAtomicMoodboardHandoff(current.boardId,current.revision,referenceId);
+   writeWorldEditorHandoff(localStorage,hint);
+   wepSendOutcome='INTENT_WRITTEN';
+   window.location.assign(base+'/editor/world/');
+  }catch{
+   wepSendOutcome='REJECTED';wepSendStatus=wepCopy.atomicStale;
+  }finally{wepSending=false;}
+ }
  async function reopen(){
   if(!db||busy)return;
   try{snapshot=await verifiedAtomicFirstBoardReopen(db);message='';outcome='REOPENED';}
@@ -154,9 +198,26 @@
     <label>{copy.item} ItemID<input data-atomic-item-id bind:value={itemIdInput} inputmode="numeric" required/></label>
     <button data-atomic-save-item type="submit" disabled={busy||!catalogReady}>{copy.add}</button>
    </form>
-   <ul data-atomic-items>{#each board.references as reference}
-    <li data-atomic-item={reference.entityId}>{reference.label} ({reference.entityId})</li>
-   {/each}</ul>
+   <div class="atomic-wep-sender" data-atomic-wep-sender data-writer="off"
+    data-atomic-wep-separate="true">
+    <p data-atomic-wep-separation>{copy.atomicNote}</p>
+    <p data-atomic-wep-readonly>{wepCopy.atomicReadonly}</p>
+    <ul data-atomic-items>
+     {#each board.references as reference (reference.id)}
+      <li data-atomic-item={reference.entityId} class="atomic-reference">
+       <span>{reference.label} ({reference.entityId})</span>
+       <button type="button" data-atomic-wep-send data-reference-id={reference.id}
+        disabled={busy||wepSending||!verifiedWepReference(reference)}
+        on:click={()=>sendAtomicReferenceToWorldEditor(reference.id)}>
+        {copy.openWorldEditor}: {reference.label}
+       </button>
+      </li>
+     {/each}
+    </ul>
+    {#if wepSendStatus}
+     <p data-atomic-wep-status role="alert" aria-live="polite">{wepSendStatus}</p>
+    {/if}
+   </div>
    <p data-atomic-backup-count>Backup: {snapshot.backupDocument.boards[0]?.references.length??0} items</p>
    <button data-atomic-export type="button" on:click={backup}>{copy.export}</button>
    <button data-atomic-delete type="button" on:click={remove} disabled={busy}>{copy.delete}</button>
@@ -170,6 +231,13 @@
 .atomic-handoff{display:grid;gap:10px;min-width:0;margin:16px 0;padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
 .atomic-handoff p{margin:0;overflow-wrap:anywhere;font-size:12px}
 .atomic-handoff button{min-height:44px;max-width:100%;width:max-content;overflow-wrap:anywhere}
+.atomic-wep-sender{display:grid;gap:10px;min-width:0}
+.atomic-wep-sender p{font-size:12px;overflow-wrap:anywhere;margin:0}
+.atomic-wep-sender ul{padding-left:20px;min-width:0;margin:0}
+.atomic-reference{padding:8px 0;overflow-wrap:anywhere}
+.atomic-reference span{display:block;overflow-wrap:anywhere}
+.atomic-wep-sender button{min-height:44px;max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:start}
+.atomic-wep-sender button:disabled{opacity:.45;cursor:not-allowed}
 @media(max-width:480px){.atomic-handoff button{width:100%}}
 .atomic-first form,.atomic-first article{display:grid;gap:12px;border:1px solid var(--border);border-radius:15px;background:var(--surface);padding:18px;margin:18px 0}
 .atomic-first label{display:grid;gap:8px}.atomic-first input{width:100%;box-sizing:border-box;padding:10px;background:var(--surface-raised);color:var(--ink);border:1px solid var(--border);border-radius:10px}
