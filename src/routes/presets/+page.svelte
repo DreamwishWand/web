@@ -9,6 +9,8 @@
   import { createPresetCommunityBridge } from '$lib/wep/preset-community-bridge';
   import { explainWepBlocker } from '$lib/wep/blocker-messages';
   import NativePresetManager from '$lib/presets/NativePresetManager.svelte';
+  import { reopenLocalScenes, readLocalSceneById } from '$lib/wep/local-scene-preset-store.mjs';
+  import { localScenePresetCopy } from '$lib/wep/local-scene-preset-copy.js';
   import {
     buildPublishEnvelope,
     preflightScene,
@@ -40,6 +42,14 @@
   let myDomain:MyDomain='wand';
   let myView:MyView='created';
   let myPcOpened=false;
+  // Device-local Scene entries are neither Community Created nor Saved.
+  type LocalSceneSummary={id:string;title:string;createdAt:string;objectCount:number};
+  let deviceScenesOpened=false;
+  let deviceScenesBusy=false;
+  let deviceScenesRevision=0;
+  let deviceScenes:LocalSceneSummary[]=[];
+  let deviceSceneSelected:LocalSceneSummary|null=null;
+  let deviceScenesMessage='';
   let inGameChild: 'decorations'|'shop'|null=null;
   let connected = false;
   let loading = false;
@@ -52,6 +62,7 @@
   $: copy = presetPageCopy($locale);
   $: rootCopy=presetsStage1Copy($locale);
   $: myCopy=myPresetsCopy($locale);
+  $: deviceSceneCopy=localScenePresetCopy($locale);
 
   function preflightBlockCodes(value: any): string[] {
     return Array.from(
@@ -104,6 +115,58 @@
   function chooseMyDomain(next:MyDomain):void{myDomain=next;preflight=null;message='';}
   function chooseMyView(next:MyView):void{myView=next;preflight=null;message='';}
   function openMyPcLocal():void{myPcOpened=true;preflight=null;message='';}
+
+  // No storage is opened by rendering My Presets. The user explicitly
+  // requests a readonly snapshot from the accepted 02 WEP single Scene store.
+  async function reopenDeviceSceneLibrary():Promise<void>{
+    if(deviceScenesBusy)return;
+    deviceScenesBusy=true;
+    deviceScenesOpened=true;
+    deviceSceneSelected=null;
+    deviceScenes=[];
+    deviceScenesRevision=0;
+    deviceScenesMessage='';
+    try{
+      const current=await reopenLocalScenes();
+      deviceScenesRevision=current.revision;
+      deviceScenes=current.document.entries.map((entry:any)=>({
+        id:entry.id,title:entry.title,createdAt:entry.createdAt,
+        objectCount:entry.artifact.objects.length
+      }));
+      if(!deviceScenes.length)deviceScenesMessage=deviceSceneCopy.empty;
+    }catch(error){
+      // Missing local Scene DB is an empty local library, not an invitation to
+      // create it. Corruption or missing permissions remain blocked.
+      deviceScenesMessage=error instanceof Error &&
+        /DB_UNAVAILABLE_OR_ABSENT/.test(error.message)
+        ?deviceSceneCopy.empty:deviceSceneCopy.blocked;
+    }finally{deviceScenesBusy=false;}
+  }
+
+  async function previewDeviceScene(id:string):Promise<void>{
+    if(deviceScenesBusy||!deviceScenesOpened||
+       !deviceScenes.some((entry)=>entry.id===id))return;
+    deviceScenesBusy=true;
+    deviceSceneSelected=null;
+    deviceScenesMessage='';
+    try{
+      const current=await readLocalSceneById(id);
+      const expected=deviceScenes.find((entry)=>entry.id===id);
+      if(current.revision!==deviceScenesRevision||!expected||
+         current.entry.id!==expected.id||
+         current.entry.title!==expected.title||
+         current.entry.createdAt!==expected.createdAt||
+         current.entry.artifact.objects.length!==expected.objectCount){
+        throw Error('DEVICE_SCENE_STALE');
+      }
+      const readiness=preflightScene(current.entry.artifact);
+      if(readiness.writeReady!==false)throw Error('DEVICE_SCENE_WRITE_READY_FORBIDDEN');
+      deviceSceneSelected={...expected};
+      deviceScenesMessage=deviceSceneCopy.opened;
+    }catch{
+      deviceScenesMessage=deviceSceneCopy.blocked;
+    }finally{deviceScenesBusy=false;}
+  }
   function chooseInGame(next:'decorations'|'shop'):void{
     inGameChild=next;tab='ingame';preflight=null;message='';
   }
@@ -236,6 +299,48 @@
             <p>{myView==='created'?myCopy.createdUnknown:myCopy.savedUnknown}</p>
           </div>
           <p>{myCopy.wandBoundary}</p>
+        </section>
+
+        <section class="panel device-local-scenes" data-my-local-scenes
+          data-device-scene-authority="local-only" data-account-created="unverified"
+          data-account-saved="unverified" data-local-scene-writer="off"
+          data-auto-cloud="off" aria-labelledby="my-device-scenes-title">
+          <h2 id="my-device-scenes-title">{deviceSceneCopy.title}</h2>
+          <p>{deviceSceneCopy.notice}</p>
+          <button type="button" data-device-scenes-reopen
+            on:click={reopenDeviceSceneLibrary} disabled={deviceScenesBusy}>
+            {deviceSceneCopy.reopen}
+          </button>
+
+          {#if deviceScenesMessage}
+            <p data-device-scenes-status role="status" aria-live="polite">{deviceScenesMessage}</p>
+          {/if}
+          {#if deviceScenesOpened && deviceScenes.length}
+            <ul data-device-scenes-list>
+              {#each deviceScenes as entry (entry.id)}
+                <li class="device-scene-row">
+                  <button type="button" data-device-scene-select={entry.id}
+                    on:click={()=>previewDeviceScene(entry.id)} disabled={deviceScenesBusy}>
+                    {entry.title}
+                  </button>
+                  <time datetime={entry.createdAt}>{entry.createdAt}</time>
+                </li>
+              {/each}
+            </ul>
+          {/if}
+
+          {#if deviceSceneSelected}
+            <div class="device-scene-preview" data-device-scene-preview
+              data-scene-write-ready="false">
+              <h3>{deviceSceneCopy.preview}: {deviceSceneSelected.title}</h3>
+              <p>{copy.objects}: {deviceSceneSelected.objectCount}</p>
+              <code>writeReady=false</code>
+            </div>
+          {/if}
+
+          <a data-device-scene-world-editor href={`${base}/editor/world/`}>
+            {copy.create}
+          </a>
         </section>
       {:else if myDomain==='touchOfMagic'}
         <section class="panel my-panel" data-my-domain-view="touchOfMagic"
@@ -399,4 +504,21 @@
 
 .my-domains,.my-views{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 22px}.my-domains button,.my-views button,.my-ingame-statuses button{min-height:44px;padding:10px 14px;border:1px solid var(--border);border-radius:11px;background:var(--surface);color:var(--ink)}.my-domains button[aria-pressed=true],.my-views button[aria-pressed=true]{border-color:var(--gold);color:var(--gold)}.my-domains button:focus-visible,.my-views button:focus-visible,.my-ingame-statuses button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}.my-panel{display:grid;gap:12px}.my-panel h2{font-size:24px;margin:0}.my-panel p{font-size:12px;line-height:1.7;color:var(--ink-soft);margin:0}.my-ingame-statuses{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.my-ingame-statuses>div{min-width:0;padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--page-2)}.my-ingame-statuses h3{font-size:14px;margin:0 0 10px}.my-ingame-statuses button{margin-top:12px}.my-panel[hidden],section[data-my-pc-local][hidden]{display:none!important}@media(max-width:760px){.my-ingame-statuses{grid-template-columns:1fr}}
 .root-title{font-family:Georgia,serif;font-weight:500;font-size:clamp(40px,6vw,65px);letter-spacing:-.045em;margin:0 0 22px}.preset-stage1-root-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.preset-ingame-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}.preset-root-card{display:flex;flex-direction:column;align-items:stretch;gap:14px;text-align:left;min-width:0;min-height:265px;padding:17px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--ink);cursor:pointer}.preset-root-card strong{font-family:Georgia,serif;font-weight:500;font-size:clamp(18px,2vw,24px);line-height:1.25;overflow-wrap:anywhere}.preset-root-card:hover{border-color:var(--gold)}.preset-root-art{height:155px;display:grid;place-items:center;background:var(--surface-raised);color:var(--gold);border-radius:15px;font:44px Georgia,serif}.preset-root-card:focus-visible,.preset-back:focus-visible{outline:3px solid var(--gold);outline-offset:3px}.preset-back{border:1px solid var(--border);border-radius:12px;padding:12px 15px;min-height:44px;background:var(--surface);color:var(--ink)}@media(max-width:950px){.preset-stage1-root-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:530px){.preset-stage1-root-grid,.preset-ingame-grid{grid-template-columns:1fr}.preset-root-card{min-height:160px;flex-direction:row;align-items:center}.preset-root-art{width:76px;height:76px;flex:none;font-size:31px}.preset-root-card strong{font-size:21px}}
+  .device-local-scenes{margin-top:16px;display:grid;gap:12px;min-width:0}
+  .device-local-scenes h2{font-size:24px;overflow-wrap:anywhere}
+  .device-local-scenes p,.device-local-scenes time{font-size:12px;line-height:1.65;color:var(--ink-soft);overflow-wrap:anywhere}
+  .device-local-scenes button,.device-local-scenes a{min-height:44px;padding:10px 14px;
+    border:1px solid var(--border);border-radius:11px;background:var(--surface-raised);
+    color:var(--ink);max-width:100%;overflow-wrap:anywhere;text-align:start;width:fit-content}
+  .device-local-scenes button:focus-visible,.device-local-scenes a:focus-visible{
+    outline:3px solid var(--gold);outline-offset:3px}
+  .device-local-scenes button:disabled{opacity:.45}
+  .device-local-scenes ul{list-style:none;padding:0;display:grid;gap:9px;min-width:0}
+  .device-scene-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;min-width:0}
+  .device-scene-preview{min-width:0;padding:12px;border:1px solid var(--border);
+    border-radius:12px;background:var(--page-2);overflow-wrap:anywhere}
+  .device-scene-preview h3{font-size:16px;margin:0 0 8px}
+  .device-scene-preview code{overflow-wrap:anywhere}
+  @media(max-width:570px){.device-scene-row{align-items:stretch;flex-direction:column}
+    .device-local-scenes button,.device-local-scenes a{width:100%}}
 </style>
