@@ -131,6 +131,7 @@ try{
  assert.equal(await stale.locator('[data-device-scene-preview]').count(),0);
  assert.deepEqual(await snapshot(stale),afterWrite,'stale preview must not mutate either snapshot');
  await stale.locator('[data-device-scenes-reopen]').click();
+ await stale.locator('[data-device-scene-select]').nth(1).waitFor({timeout:30000});
  assert.equal(await stale.locator('[data-device-scene-select]').count(),2);
  await stale.locator('[data-device-scene-select]').nth(1).click();
  await stale.locator('[data-device-scene-preview]').waitFor();
