@@ -1,0 +1,49 @@
+name: "04 QR-W PR859 independent local Scene Preset new-only"
+on:
+  push:
+    branches: [qa/04qr-w-pr859-local-scene-preset-new7-fccfe620-20261109]
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/04qr-w-pr859-local-scene-newonly-20261109.yml"
+      - "scripts/04qr-w-pr859-local-scene-newonly-20261109.mjs"
+permissions:
+  contents: read
+jobs:
+  qrw859-changed7-node-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: "Installed Chrome and isolated Vite with no P1G or account"
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${DDV_PRIVATE_SAVE_PATH:-}"
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          test -n "$BIN"
+          echo "CHROME_BIN=$BIN" >> "$GITHUB_ENV"
+          "$BIN" --version
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4348 >/tmp/qrw859.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:4348/moodboards/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qrw859.log
+          exit 1
+      - name: "Fixed Source seven + independent Node negatives + actual Chrome IDB CAS"
+        env:
+          QRW859_ORIGIN: http://127.0.0.1:4348
+        run: node scripts/04qr-w-pr859-local-scene-newonly-20261109.mjs
+      - name: "Audit scope only no Writer"
+        run: echo "QRW859_QA_ONLY_NODE_CHROME_LOCAL_SCENE_WRITER_APPLY_CLOUD_PROVIDER_PUBLIC_OFF"
