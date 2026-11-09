@@ -25,6 +25,19 @@ export type WorldEditorHandoff =
       persistentWriteAuthorized: false;
       productApplyAuthorized: false;
       directSourceReplacementAuthorized: false;
+    }
+  | {
+      schema: typeof WORLD_EDITOR_HANDOFF_SCHEMA;
+      version: 1;
+      sourceSurface: 'atomic-moodboard';
+      intent: 'ATOMIC_MOODBOARD';
+      boardId: string;
+      revision: number;
+      referenceId: string;
+      createdAt: string;
+      persistentWriteAuthorized: false;
+      productApplyAuthorized: false;
+      directSourceReplacementAuthorized: false;
     };
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
@@ -90,6 +103,18 @@ export function createMoodboardHandoff(
   });
 }
 
+export function createAtomicMoodboardHandoff(
+  boardId: string, revision: number, referenceId: string, createdAt?: string
+): WorldEditorHandoff {
+  assert(typeof boardId === 'string' && /^board_atomic_[a-zA-Z0-9_-]{10,80}$/.test(boardId), 'WEP_ATOMIC_BOARD_INVALID');
+  assert(Number.isSafeInteger(revision) && revision > 0, 'WEP_ATOMIC_REVISION_INVALID');
+  assert(typeof referenceId === 'string' && referenceId.length > 0, 'WEP_ATOMIC_REF_INVALID');
+  return Object.freeze({
+    schema: WORLD_EDITOR_HANDOFF_SCHEMA,version: 1 as const,
+    sourceSurface: 'atomic-moodboard' as const,intent: 'ATOMIC_MOODBOARD' as const,
+    boardId,revision,referenceId,createdAt: stamp(createdAt),...safety()
+  });
+}
 export function normalizeWorldEditorHandoff(value: unknown): WorldEditorHandoff {
   assert(value && typeof value === 'object' && !Array.isArray(value), 'WEP_HANDOFF_INVALID');
   const input = value as Record<string, unknown>;
@@ -108,6 +133,11 @@ export function normalizeWorldEditorHandoff(value: unknown): WorldEditorHandoff 
       groupId: input.groupId == null ? null : String(input.groupId),
       createdAt: String(input.createdAt ?? '')
     });
+  }
+  if (input.sourceSurface === 'atomic-moodboard' && input.intent === 'ATOMIC_MOODBOARD') {
+    assert(typeof input.boardId === 'string' && typeof input.referenceId === 'string' &&
+      typeof input.revision === 'number', 'WEP_ATOMIC_INVALID_FIELDS');
+    return createAtomicMoodboardHandoff(input.boardId,input.revision,input.referenceId,String(input.createdAt ?? ''));
   }
   throw new Error('WEP_HANDOFF_KIND_UNSUPPORTED');
 }
