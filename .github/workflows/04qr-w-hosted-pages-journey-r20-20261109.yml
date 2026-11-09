@@ -1,0 +1,56 @@
+name: "04 QR-W R20 actual deployed Pages local-only journey independent"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/04qr-w-hosted-pages-journey-r20-20261109.yml"
+      - "scripts/04qr-w-hosted-pages-journey-r20-20261109.mjs"
+  push:
+    branches: [qa/04qr-w-hosted-pages-journey-r20-main340461-20261109]
+permissions:
+  contents: read
+  deployments: read
+  pages: read
+jobs:
+  deployed-host-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: "Fixed protected main ancestor; QA-only exact two ADD; no product feature changes"
+        shell: bash
+        run: |
+          set -euo pipefail
+          FIXED=340461f4a2960f8033fc13be9d5eaef8554d252d
+          test "$(git merge-base "$FIXED" HEAD)" = "$FIXED"
+          cat >/tmp/qrw-r20-qa-only-expected <<'FILES'
+          .github/workflows/04qr-w-hosted-pages-journey-r20-20261109.yml
+          scripts/04qr-w-hosted-pages-journey-r20-20261109.mjs
+          FILES
+          git diff --name-only "$FIXED" HEAD | LC_ALL=C sort >/tmp/qrw-r20-qa-only-actual
+          diff -u /tmp/qrw-r20-qa-only-expected /tmp/qrw-r20-qa-only-actual
+          echo "QRW_R20_PROTECTED_MAIN340461_QA_ONLY2_NO_PRODUCT_CHANGE_PASS"
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: "Actual hosted HTTPS Pages direct HTTP and installed Chrome local-only flow"
+        env:
+          CI_GITHUB_TOKEN: ${{ github.token }}
+          QRW_HOSTED_EXPECTED_MAIN: 340461f4a2960f8033fc13be9d5eaef8554d252d
+          QRW_HOSTED_DEPLOYMENT_URL: https://dreamwishwand.github.io/web/
+        run: |
+          set -euo pipefail
+          test -z "${DDV_PRIVATE_SAVE_PATH:-}"
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          test -n "$BIN"
+          "$BIN" --version
+          CHROME_BIN="$BIN" node scripts/04qr-w-hosted-pages-journey-r20-20261109.mjs
+      - name: "Bounded gate"
+        run: echo "QRW_R20_DEPLOYED_HOST_ONLY_NO_P1G_NATIVE_WRITER_APPLY_CLOUD_PROVIDER_MEDIA_COMMUNITY"
