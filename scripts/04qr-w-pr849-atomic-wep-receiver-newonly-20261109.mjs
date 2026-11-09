@@ -137,7 +137,7 @@ try{
   const c=worldEditorStage1Copy(loc);
   await page.waitForFunction(label=>
    Array.from(document.querySelectorAll('[data-wep-decorate-stage1] [data-wep-atomic-open]')).some(el=>el.textContent?.trim()===label),c.atomicOpen);
-  assert.equal((await panel.locator('.atomic-source .boundary-note').innerText()).trim(),c.atomicReadonly);
+  assert.equal((await panel.locator('.atomic-source .boundary-note').first().innerText()).trim(),c.atomicReadonly);
  }
  await page.locator('#site-locale').evaluate((element)=>{element.value='en';element.dispatchEvent(new Event('change',{bubbles:true}));});
  await page.setViewportSize({width:320,height:900});
