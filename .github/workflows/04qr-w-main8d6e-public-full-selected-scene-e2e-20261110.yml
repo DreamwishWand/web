@@ -1,0 +1,44 @@
+name: "04 QR-W main8d6e actual deployed MyLocal→Editor complete selected Scene E2E"
+on:
+  push:
+    branches: [qa/04qr-w-main8d6e-public-full-selected-scene-e2e-20261110]
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/04qr-w-main8d6e-public-full-selected-scene-e2e-20261110.yml"
+      - "scripts/04qr-w-main8d6e-public-full-selected-scene-e2e-20261110.mjs"
+permissions:
+  contents: read
+  pages: read
+  deployments: read
+jobs:
+  actual-distributed-full-flow:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 37
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: "New deployed E2E only, no real P1G, no Owner local data"
+        shell: bash
+        env:
+          QRW_GITHUB_TOKEN: ${{ github.token }}
+          QRW8D_MAIN: 8d6e35adbdedc3b44e1a9a498d65da7af9c3273f
+          QRW8D_HOSTED_URL: https://dreamwishwand.github.io/web/
+        run: |
+          set -euo pipefail
+          test -z "${DDV_PRIVATE_SAVE_PATH:-}"
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${P1G_PATH:-}"
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          test -n "$BIN"
+          "$BIN" --version
+          CHROME_BIN="$BIN" node scripts/04qr-w-main8d6e-public-full-selected-scene-e2e-20261110.mjs
+      - name: "Safety gate"
+        run: echo "QRW877_QA_ONLY_NATIVE_V3_WRITER_APPLY_CLOUD_PROVIDER_MEDIAPUBLIC_COMMUNITYPUBLIC_OFF"
