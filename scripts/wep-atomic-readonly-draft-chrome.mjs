@@ -65,7 +65,7 @@ try{
  console.log('WEP_ATOMIC_DRAFT_NO_AUTOREAD_NO_NATIVE_PLACEMENT_LEGACY_INTACT_PASS');
 
  for(const locale of ['en','fr','it','de','es-ES','ja','zh-CN','pt-BR']){
-  await page.selectOption('#site-locale',locale);
+  await page.locator('#site-locale').selectOption(locale,{force:true});
   const c=worldEditorStage1Copy(locale);
   await page.waitForFunction(s=>
    document.querySelector('[data-wep-atomic-inspect]')?.textContent?.trim()===s,c.atomicInspect);
@@ -74,7 +74,7 @@ try{
   assert.equal((await receiver.locator('[data-wep-atomic-boundary]').innerText()).trim(),
    c.atomicBoundary);
  }
- await page.selectOption('#site-locale','ja');
+ await page.locator('#site-locale').selectOption('ja',{force:true});
  await page.setViewportSize({width:320,height:850});
  await page.waitForFunction(s=>document.querySelector('[data-wep-atomic-inspect]')?.textContent?.trim()===s,
   worldEditorStage1Copy('ja').atomicInspect);
