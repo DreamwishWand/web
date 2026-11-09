@@ -53,7 +53,8 @@ jobs:
         run: |
           set -euo pipefail
           cargo build --manifest-path crates/ddv-save-core/Cargo.toml --features private-native-v1 --bin wand-local-rust-v1
-          WAND_TEST_NATIVE_RUST_V1="$CARGO_TARGET_DIR/debug/wand-local-rust-v1" node tests/qa-05qrc-pr852-diffgrids-nonproduct.test.mjs
+          test -x "$CARGO_TARGET_DIR/debug/wand-local-rust-v1"
+          QA05QRC852_REQUIRE_NATIVE=1 WAND_TEST_NATIVE_RUST_V1="$CARGO_TARGET_DIR/debug/wand-local-rust-v1" node tests/qa-05qrc-pr852-diffgrids-nonproduct.test.mjs
       - name: Default/indexed/native ABI and Rust native CLI compile
         shell: bash
         run: |
