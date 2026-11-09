@@ -144,6 +144,10 @@ async function enterButton(p,selector){
  await p.keyboard.press('Enter');
 }
 async function loadSyntheticEditor(p){
+ // Public Pages SSR markup can precede interactive hydration: wait for the
+ // real page's JS and locale state before uploading an EditorDocument.
+ await p.waitForLoadState('networkidle',{timeout:35000});
+ await p.waitForFunction(()=>Boolean(document.documentElement.dataset.locale),null,{timeout:25000});
  await p.locator('.load-panel input[type=file]').setInputFiles({
   name:'qaw8d6e-synthetic-authoring-only.json',
   mimeType:'application/json',buffer:Buffer.from(JSON.stringify(synthetic))
