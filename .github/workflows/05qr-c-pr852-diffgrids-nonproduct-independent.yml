@@ -1,0 +1,86 @@
+name: 05 QR-C PR852 Nonproduct Rust DiffGrids independent QA
+on:
+  push:
+    branches:
+      - 'qa/05qrc-pr852-diffgrids-nonproduct-db02d178-20261109'
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/tests/qa_05qrc_pr852_diffgrids_nonproduct.rs'
+      - 'tests/qa-05qrc-pr852-diffgrids-nonproduct.test.mjs'
+      - '.github/workflows/05qr-c-pr852-diffgrids-nonproduct-independent.yml'
+permissions:
+  contents: read
+jobs:
+  independent-native-readonly-qa:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TARGET_DIR: /tmp/qrc-pr852-diffgrids
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Verify fixed PR852 Source FOUR immutable blobs and QA-only THREE new paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          source=db02d178d6af28bb4c812302b8b3e27669e31a38
+          if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
+            qa_tip="$(git rev-parse HEAD^2)"
+          else
+            qa_tip="$(git rev-parse HEAD)"
+          fi
+          git merge-base --is-ancestor "$source" "$qa_tip"
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/native_reference_slice.rs)" = 2fa6abc88958c3fef0710f54fd8902c117bd6b82
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/bin/wand-local-rust-v1.rs)" = 3b2c5cdef006719bfdfa9a829c0df2d6272f941e
+          test "$(git rev-parse "$qa_tip":tests/native-owner-area-grid-slice.test.mjs)" = ffd8c0c05ec50359d16bac17cba8c320188798da
+          test "$(git rev-parse "$qa_tip":docs/core/01a-r22-nonproduct-diffgrids-samesession-witness-20261109.md)" = 2f7929b886d6c41498a5375d0c963e10bc30664e
+          actual="$(git diff --name-only "$source" "$qa_tip" | sort)"
+          expected="$(printf '%s\n' .github/workflows/05qr-c-pr852-diffgrids-nonproduct-independent.yml crates/ddv-save-core/tests/qa_05qrc_pr852_diffgrids_nonproduct.rs tests/qa-05qrc-pr852-diffgrids-nonproduct.test.mjs | sort)"
+          test "$actual" = "$expected"
+          test -z "$(git diff --name-only "$source" "$qa_tip" -- crates/ddv-save-core/src crates/ddv-save-core/Cargo.toml src tools)"
+          test -z "$(git ls-files | grep -E 'OWNER_PRIVATE|STEAM_SAVE_OWNER_PRIVATE|\.p1g$' || true)"
+      - name: Independent Rust only new PR852 native DiffGrids nonproduct scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features private-native-v1 --test qa_05qrc_pr852_diffgrids_nonproduct -- --nocapture
+      - name: Real native Rust CLI masked output and no private ID/path leak negatives
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --features private-native-v1 --bin wand-local-rust-v1
+          WAND_TEST_NATIVE_RUST_V1="$CARGO_TARGET_DIR/debug/wand-local-rust-v1" node tests/qa-05qrc-pr852-diffgrids-nonproduct.test.mjs
+      - name: Default/indexed/native ABI and Rust native CLI compile
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --lib
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --features indexed-read --lib
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --features private-native-v1 --lib --bin wand-local-rust-v1
+      - name: Worker WASM positive ABI and native-only exclusion
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --features worker-wasm,indexed-read --lib
+          if cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --features worker-wasm,private-native-v1 --lib > /tmp/qrc852-forbidden.log 2>&1; then
+            echo "ERROR: native-only PR852 diagnostic linked to WASM"
+            exit 1
+          fi
+          grep -F "private-native-v1 is native-only and cannot enter WASM" /tmp/qrc852-forbidden.log >/dev/null
+          rm -f /tmp/qrc852-forbidden.log
+      - name: Final exact original Source4 preservation, QA-only3 and no unauthorized files
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
+            qa_tip="$(git rev-parse HEAD^2)"
+          else
+            qa_tip="$(git rev-parse HEAD)"
+          fi
+          test "$(git diff --name-only db02d178d6af28bb4c812302b8b3e27669e31a38 "$qa_tip" | wc -l)" -eq 3
+          test -z "$(git diff --name-only db02d178d6af28bb4c812302b8b3e27669e31a38 "$qa_tip" -- crates/ddv-save-core/src src tools)"
+          echo QA05QRC852_NONPRODUCT_SOURCE4_QA3_RUST_NODE_ABI_WASM_PASS
