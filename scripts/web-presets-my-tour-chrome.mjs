@@ -138,6 +138,7 @@ try{
  await tap('[data-tour-next]');
  await tap('[data-tour-finish]');
  await until("return !document.querySelector('[data-typed-tour-open]')");
+ await until("return document.activeElement?.getAttribute('data-tour-launch')==='desktop'");
  assert.equal(await q("return document.activeElement?.getAttribute('data-tour-launch')"),'desktop');
  assert.equal(await evalJs("indexedDB.databases().then(a=>a.length)"),0,'tour cannot open Scene IDB');
  assert.equal(await q("return sessionStorage.length"),0,'no session persistence');
