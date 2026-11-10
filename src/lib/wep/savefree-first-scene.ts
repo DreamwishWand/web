@@ -80,7 +80,7 @@ export function buildSaveFreeFirstNonemptyScene({
     networks:{roads:null,fences:null},capabilities:{},metadata:{},
     objects:[{editorId:'savefree-local-item-selection',itemId:item.itemId,
       layer:'furniture',x:0,y:0,orientation:0,
-      footprint:item.footprint.map(cell=>({...cell})),
+      footprint:item.footprint.map((cell:{x:number;y:number})=>({...cell})),
       portableState:null,dependencyIds:[],editability:'editable',source:null}]
   };
   // Reuse original WEP capture and publication validation; never construct an
