@@ -2,6 +2,7 @@
 // Only summary leaves Worker; no decoded Save/P1G bytes cross to parent.
 import init,{WorkerWasmSource} from '../stage-e/pkg/ddv_save_core.js';
 import {createP1gRustWorkerReadOnlyBridge} from '../../src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs';
+import {testRealEncryptedSavedDiffGridsFacade} from './saved-diffgrids-facade-real-worker.mjs';
 const BUILD={platform:'steam-windows',buildKind:'steam-full-version',
   buildId:'releases_1.25-v1.25.3-44-g0b41250d9ac0-incremental-22',
   schema:626,externallyConfirmed:true};
@@ -81,6 +82,12 @@ async function run(){
   await expectReject(()=>deny.openEncrypted({build:BUILD,encryptedBytes:encrypted,entropy:'ui'}),
     'UI_ENTROPY');
   ensure(deny.getReceipt()===null,'NEGATIVE_SESSION_RESURRECTED');
+  const savedDiffGrids=await testRealEncryptedSavedDiffGridsFacade(WorkerWasmSource);
+  ensure(savedDiffGrids.records===17&&savedDiffGrids.pages.join(',')==='8,8,1'&&
+     savedDiffGrids.existingP1gCodec&&savedDiffGrids.sameProductSession&&
+     savedDiffGrids.sourceShaAndSizeChecked&&savedDiffGrids.metadataOnlyToUI&&
+     savedDiffGrids.replayAndClosedDenied&&!savedDiffGrids.productReadAccepted,
+     'SAVED_DIFFGRIDS_P1G_FACADE_REAL_WASM');
   return {
     result:'SYNTHETIC_P1G_TO_REAL_RUST_WORKER_PASS',chromeModuleWorker:true,
     realGeneratedWasm:true,existingP1gCodec:true,singleRustSession:true,
@@ -88,6 +95,9 @@ async function run(){
     playerFields:fields.length,worldFields:wp.fields.length,
     decodedSHACompared:true,staleScopeDenied:true,ABRevocation:true,
     malformedCiphertextDenied:true,badBuildDenied:true,extraEntropyDenied:true,
+    savedDiffGridsSameWorkerFacade:true,savedDiffGridsRecords:savedDiffGrids.records,
+    savedDiffGridsTypedPages:savedDiffGrids.pages.join(','),
+    savedDiffGridsABAndReplayDenied:true,
     noDecodedJsonPostedToParent:true,writerAuthorized:false,productReadAccepted:false,
     realOwnerPrivateSave:false,nativeV3:false,deviceV4:false
   };
