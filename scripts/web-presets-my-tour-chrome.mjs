@@ -121,13 +121,17 @@ try{
  assert.equal(initial.focused,true);
  assert.equal(initial.step,presetsMyTourCopy('en').steps[0].title);
  console.log('WEB_TOUR_REAL_CHROME_MANUAL_ONLY_4_ANCHORS_FOCUS_PASS');
+ console.log('WEB_TOUR_DIAG_BEFORE_THEME '+JSON.stringify(await q("const d=document.querySelector('[data-typed-tour-dialog]');return {title:d?.querySelector('h2')?.textContent,visible:!!d}")));
  const night=await q("return getComputedStyle(document.querySelector('[data-typed-tour-dialog]')).backgroundColor");
  await q("document.documentElement.dataset.theme='day';return true");
  const day=await q("return getComputedStyle(document.querySelector('[data-typed-tour-dialog]')).backgroundColor");
  assert.notEqual(night,day,'live semantic day/night contrast');
  await q("document.documentElement.dataset.theme='night';return true");
  for(let i=1;i<4;i++){
+  console.log('WEB_TOUR_DIAG_STEP_BEFORE '+i+' '+JSON.stringify(await q("const d=document.querySelector('[data-typed-tour-dialog]');return {title:d?.querySelector('h2')?.textContent,hasNext:!!document.querySelector('[data-tour-next]'),notice:document.querySelector('[data-tour-status]')?.textContent?.trim()}")));
   await tap('[data-tour-next]');
+  await sleep(140);
+  console.log('WEB_TOUR_DIAG_STEP_AFTER '+i+' '+JSON.stringify(await q("const d=document.querySelector('[data-typed-tour-dialog]');return {title:d?.querySelector('h2')?.textContent,hasNext:!!document.querySelector('[data-tour-next]'),notice:document.querySelector('[data-tour-status]')?.textContent?.trim()}")));
   await until("return document.querySelector('[data-typed-tour-dialog]')?.querySelector('h2')?.textContent==="+JSON.stringify(presetsMyTourCopy('en').steps[i].title));
   const n=await q("return document.querySelector('[data-typed-tour-dialog]')?.querySelector('h2')?.textContent");
   assert.equal(n,presetsMyTourCopy('en').steps[i].title);
