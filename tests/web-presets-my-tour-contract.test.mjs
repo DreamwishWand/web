@@ -98,7 +98,9 @@ test('global header SVG ? visible in desktop/mobile/immersive; overlay never act
   assert.match(header,new RegExp('data-tour-launch="'+position+'"'));
  }
  assert.match(header,/import SpotlightTour/);
- assert.match(header,/on:click=\{startTour\}/);
+ for(const origin of ['desktop','mobile','immersive']){
+  assert.ok(header.includes("on:click={()=>startTour('"+origin+"')}"),origin);
+ }
  assert.match(header,/allPresetPilotTargetsVisible/);
  assert.match(header,/if\(!isPresetPilotPath/);
  assert.match(header,/aria-live="polite"/);
@@ -116,7 +118,7 @@ test('global header SVG ? visible in desktop/mobile/immersive; overlay never act
  assert.match(overlay,/@media\(prefers-reduced-motion:reduce\)/);
  assert.match(overlay,/background:var\(--surface-raised\)/);
  assert.match(overlay,/color:var\(--ink\)/);
- const tourMethods=header.split('function startTour(event:MouseEvent):void{')[1].split('  afterNavigate(')[0];
+ const tourMethods=header.split('function startTour(origin:TourEntry):void{')[1].split('  afterNavigate(')[0];
  assert.doesNotMatch(tourMethods+overlay,/saveLocalScene\(|stageLocalSceneRouteIntent\(|indexedDB\.|fetch\(|localStorage\.(?:setItem|removeItem)|sessionStorage\.(?:setItem|removeItem)/);
 });
 test('real installed Chrome: new-only pilot 4 anchors, no passive launch or persistence', {timeout:120000},()=>{
