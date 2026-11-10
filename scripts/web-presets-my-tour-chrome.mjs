@@ -97,7 +97,14 @@ try{
  await send('Runtime.enable');
  await send('Page.enable');
  await send('Network.enable');
+ // Headless Chrome defaults to an ~800px mobile breakpoint viewport. Explicitly
+ // exercise a REAL desktop-sized viewport before expecting desktop focus.
+ await send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,
+  deviceScaleFactor:1,mobile:false});
  await until("return document.querySelector('[data-stage1-presets-four-cards]')&&document.querySelector('[data-tour-launch=desktop]')",25000);
+ const launchLayout=await q("const a=document.querySelector('[data-tour-launch=desktop]'),b=document.querySelector('[data-tour-launch=mobile]');return {desktop:a.getClientRects().length>0,mobile:b.getClientRects().length>0,vw:innerWidth}");
+ assert.equal(launchLayout.desktop,true,'desktop help must be visible for desktop phase');
+ assert.equal(launchLayout.mobile,false,'mobile button must not be the desktop focus target');
  await sleep(1400);
  assert.equal(await q("return Boolean(document.querySelector('[data-typed-tour-open]'))"),false,'no first visit auto');
  assert.equal(await evalJs("indexedDB.databases().then(a=>a.length)"),0,'render does not open IDB');
