@@ -187,8 +187,13 @@ try{
  await until("return !document.querySelector('[data-typed-tour-open]')");
  await send('Emulation.setDeviceMetricsOverride',{width:640,height:800,deviceScaleFactor:1,mobile:false});
  await q("document.documentElement.style.zoom='2';return true");
+ await until("return getComputedStyle(document.documentElement).zoom==='2'");
  await tap('[data-tour-launch="mobile"]');
  await until("return Boolean(document.querySelector('[data-typed-tour-dialog]'))");
+ // The responsive page may re-render while opening the Tour; guarantee that
+ // each of the four measured steps actually ran with root CSS zoom200.
+ await q("document.documentElement.style.zoom='2';return true");
+ await until("return getComputedStyle(document.documentElement).zoom==='2'");
  // The independent QR-W run caught a real 660px rendered dialog in a
  // 640px root-zoom2 viewport. Measure actual rendered DOMRects, not CSS width.
  const assertZoomBounds=async(step,phase)=>{
@@ -197,6 +202,8 @@ try{
   if(!m)console.log('WEB_TOUR_ZOOM_MISSING '+phase+' '+JSON.stringify(await q("const t=document.querySelector("+JSON.stringify(selector)+");const d=document.querySelector('[data-typed-tour-dialog]');return {target:t?.getBoundingClientRect().toJSON(),dialog:d?.getBoundingClientRect().toJSON(),scrollY,rootZoom:getComputedStyle(document.documentElement).zoom};")));
   else console.log('WEB_TOUR_ZOOM_PHYSICAL '+phase+' '+JSON.stringify(m));
   assert.ok(m,'CSS200 '+phase+' missing dialog, spotlight or anchor');
+  assert.equal(String(m.zoom),phase==='320-after-css200-scroll-resize'?'1':'2',
+   'CSS zoom state changed during '+phase);
   for(const name of ['dialog','spot']){
    const r=m[name];
    assert.ok(r.left>=-1&&r.right<=m.vw+1&&r.top>=-1&&r.bottom<=m.vh+1,
