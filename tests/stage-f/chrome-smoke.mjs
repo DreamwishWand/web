@@ -29,6 +29,8 @@ function replyFile(req,res){
     p.startsWith('/tests/stage-e/pkg/')||
     ['/src/lib/ddv/core/save/product-wasm-read-owner.mjs',
      '/src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs',
+     '/src/lib/ddv/core/save/local-steam-p1g-saved-diffgrids-facade.mjs',
+     '/tools/owner-local-steam-v1/attestation.mjs',
      '/src/lib/ddv/core/save/p1g-packaged-profile-codec.js',
      '/src/lib/ddv/core/save/safe-edit-session.js',
      '/src/lib/ddv/core/save/versioning.js'].includes(p);
@@ -148,6 +150,10 @@ try{
     'nativeV3','deviceV4'])assert.equal(report[k],false,k);
   assert.equal(report.playerFields,33);
   assert.equal(report.worldFields,2);
+  assert.equal(report.savedDiffGridsSameWorkerFacade,true);
+  assert.equal(report.savedDiffGridsRecords,17);
+  assert.equal(report.savedDiffGridsTypedPages,'8,8,1');
+  assert.equal(report.savedDiffGridsABAndReplayDenied,true);
   assert.ok(report.decodedBytes>1024*1024&&report.decodedBytes<2*1024*1024);
   assert.ok(report.encryptedBytes>0&&report.encryptedBytes<1024*1024);
   console.log('STAGE_F_SYNTHETIC_P1G_TO_REAL_RUST_CHROME_WORKER_PASS');
