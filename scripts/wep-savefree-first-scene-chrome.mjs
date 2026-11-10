@@ -124,7 +124,7 @@ try{
  await page.evaluate(()=>{document.documentElement.style.zoom='1';});
  // Reuse the accepted Presets -> explicit selected same-tab sender -> WEP
  // receiver. This is a NEW first-time-created source path, not old QA re-run.
- await page.goto(origin+'/presets/',{waitUntil:'domcontentloaded'});
+ await page.goto(origin+'/presets/',{waitUntil:'networkidle',timeout:60000});
  await page.locator('[data-preset-child="my"]').click();
  await page.locator('[data-device-scenes-reopen]').click();
  await page.locator('[data-device-scene-select]').first().waitFor();
