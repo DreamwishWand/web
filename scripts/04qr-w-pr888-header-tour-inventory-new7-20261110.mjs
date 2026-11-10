@@ -84,7 +84,7 @@ assert.ok(shell&&status,'new WEP Header label and live status both required');
 assert.equal(status.role,'status');
 assert.equal(status.ariaLive,'polite');
 assert.equal(status.selector,'p[data-tour-status]');
-assert.deepEqual([...PRESETS_MY_TOUR_LOCALES],[...n.launchLocales]);
+assert.deepEqual(PRESETS_MY_TOUR_LOCALES.map(x=>x.toUpperCase()),n.launchLocales.map(x=>x.toUpperCase()),'same eight locales; WEP inventory uses historical uppercased locale tokens');
 for(const loc of PRESETS_MY_TOUR_LOCALES){
  const c=presetsMyTourCopy(loc);
  assert.equal(shell.helpLabelsByLocale[loc],c.help);
