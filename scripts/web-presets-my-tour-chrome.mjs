@@ -136,18 +136,24 @@ try{
   const n=await q("return document.querySelector('[data-typed-tour-dialog]')?.querySelector('h2')?.textContent");
   assert.equal(n,presetsMyTourCopy('en').steps[i].title);
  }
+ console.log('WEB_TOUR_DIAG_AFTER_ALL_FOUR '+JSON.stringify(await q("return {title:document.querySelector('[data-typed-tour-dialog] h2')?.textContent,hasBack:!!document.querySelector('[data-tour-back]')}")));
  await tap('[data-tour-back]');
+ console.log('WEB_TOUR_DIAG_AFTER_BACK '+JSON.stringify(await q("return {title:document.querySelector('[data-typed-tour-dialog] h2')?.textContent,hasNext:!!document.querySelector('[data-tour-next]')}")));
  await until("return document.querySelector('[data-tour-next]')?.textContent?.trim()==="+JSON.stringify(presetsMyTourCopy('en').next));
  assert.equal(await q("return Boolean(document.querySelector('[data-typed-tour-open]'))"),true);
  await tap('[data-tour-next]');
+ console.log('WEB_TOUR_DIAG_BEFORE_FINISH '+JSON.stringify(await q("return {title:document.querySelector('[data-typed-tour-dialog] h2')?.textContent,hasFinish:!!document.querySelector('[data-tour-finish]')}")));
  await tap('[data-tour-finish]');
+ console.log('WEB_TOUR_DIAG_AFTER_FINISH '+JSON.stringify(await q("return {open:!!document.querySelector('[data-typed-tour-open]'),focused:document.activeElement?.getAttribute('data-tour-launch')}")));
  await until("return !document.querySelector('[data-typed-tour-open]')");
  await until("return document.activeElement?.getAttribute('data-tour-launch')==='desktop'");
  assert.equal(await q("return document.activeElement?.getAttribute('data-tour-launch')"),'desktop');
  assert.equal(await evalJs("indexedDB.databases().then(a=>a.length)"),0,'tour cannot open Scene IDB');
  assert.equal(await q("return sessionStorage.length"),0,'no session persistence');
  console.log('WEB_TOUR_REAL_CHROME_NEXT_BACK_FINISH_THEME_READONLY_NO_IDB_PASS');
+ console.log('WEB_TOUR_DIAG_BEFORE_LOCALES');
  for(const locale of PRESETS_MY_TOUR_LOCALES){
+  console.log('WEB_TOUR_DIAG_LOCALE_BEGIN '+locale);
   const sel=await q("const e=document.querySelector('#site-locale');if(!e)return false;e.value="+JSON.stringify(locale)+";e.dispatchEvent(new Event('change',{bubbles:true}));return true;");
   assert.equal(sel,true);
   await until("return document.documentElement.dataset.locale==="+JSON.stringify(locale));
@@ -157,6 +163,7 @@ try{
   await until("return !document.querySelector('[data-typed-tour-open]')");
  }
  console.log('WEB_TOUR_REAL_CHROME_EIGHT_LOCALE_SKIP_REPLAY_PASS');
+ console.log('WEB_TOUR_DIAG_AFTER_LOCALES');
  // Responsive narrow CSS viewport then CSS equivalent 200% zoom.
  await send('Emulation.setDeviceMetricsOverride',{width:320,height:780,
   deviceScaleFactor:1,mobile:true});
