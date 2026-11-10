@@ -80,8 +80,9 @@
     if(!el){closed=true;onClose('blocked');return;}
     const b=el.getBoundingClientRect();
     if(!overlapsViewport(el)){
-      // Fail closed rather than highlighting a detached or offscreen target.
-      closed=true;onClose('blocked');return;
+      // Scrolling and zoom reflow may not have painted yet. The bounded
+      // visibility check in settleLayout will close if correction fails.
+      return;
     }
     const zoom=visualZoom(),vw=window.innerWidth,vh=window.innerHeight;
     const card=dialog.getBoundingClientRect();
@@ -115,6 +116,17 @@
     // the previous step/zoom. A second pass applies physical DOMRect offsets.
     await new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));
     if(!open||closed)return;
+    const el=target();
+    if(!el){closed=true;onClose('blocked');return;}
+    if(!overlapsViewport(el)){
+      el.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});
+      await new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));
+      if(!open||closed)return;
+    }
+    if(!overlapsViewport(el)){
+      // The real anchor cannot be made visible: never paint a fake highlight.
+      closed=true;onClose('blocked');return;
+    }
     measure();
     await tick();
     correctRenderedRects();
