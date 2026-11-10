@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { afterNavigate } from '$app/navigation';
   import { page } from '$app/stores';
   import { base } from '$app/paths';
@@ -10,6 +10,9 @@
   import Sheet from '$lib/ui/Sheet.svelte';
   import { shellState, setShellContextActions } from '$lib/ui/shell-state.js';
   import { resolveProductShell } from '$lib/ui/product-shell-navigation.mjs';
+  import SpotlightTour from '$lib/tour/SpotlightTour.svelte';
+  import {presetsMyTourCopy} from '$lib/tour/presets-my-tour-copy.mjs';
+  import {isPresetPilotPath,allPresetPilotTargetsVisible} from '$lib/tour/typed-tour-contract.mjs';
 
   type ShellAction = { id: string; label: string; href?: string | null; icon?: string; current?: boolean; disabled?: boolean; pressed?: boolean; expanded?: boolean; intent?: string };
   type ShellSnapshot = {
@@ -21,11 +24,48 @@
   let theme: 'night' | 'day' = 'night';
   let mobileSettingsOpen = false;
   let mobileSectionsOpen = false;
+  let tourOpen=false;
+  let tourNotice='';
+  let tourTrigger:HTMLButtonElement|null=null;
+  $: tourLabels=presetsMyTourCopy($locale);
+  type TourEntry = 'desktop'|'mobile'|'immersive';
+  function startTour(origin:TourEntry):void{
+    // Event delegation can make event.currentTarget ambiguous. The exact
+    // initiating header control is passed explicitly so focus restoration
+    // never jumps to the mobile/immersive help control after Finish.
+    tourTrigger=document.querySelector<HTMLButtonElement>(
+      'button[data-tour-launch="' + origin + '"]');
+    tourNotice='';
+    if(!isPresetPilotPath($page.url.pathname) ||
+       !allPresetPilotTargetsVisible(document)){
+      tourNotice=tourLabels.unavailable;
+      return;
+    }
+    tourOpen=true;
+  }
+  function closeTour(reason:'finish'|'skip'|'blocked'):void{
+    tourOpen=false;
+    if(reason==='blocked')tourNotice=tourLabels.blocked;
+    void tick().then(()=>{
+      const button=tourTrigger?.isConnected && tourTrigger.getClientRects().length>0
+        ?tourTrigger
+        :Array.from(document.querySelectorAll<HTMLButtonElement>('button[data-tour-launch]'))
+          .find(candidate=>candidate.getClientRects().length>0&&!candidate.disabled);
+      // Restore the initiating help control after Svelte has removed the modal.
+      // Do not focus the highlighted action or execute it.
+      button?.focus({preventScroll:true});
+      if(button&&document.activeElement!==button){
+        requestAnimationFrame(()=>button.focus({preventScroll:true}));
+      }
+    });
+  }
   $: shell = $shellState as ShellSnapshot;
   $: productNav = resolveProductShell($page.url.pathname, $locale);
   afterNavigate(() => {
     mobileSettingsOpen = false;
     mobileSectionsOpen = false;
+    tourOpen=false;
+    tourNotice='';
     setShellContextActions([]);
   });
 
@@ -89,11 +129,19 @@
       <div class="immersive-nav" data-immersive-recovery>
         <a class="toolbar-context-link product-root-link" href={base + productNav.rootHref}>{productNav.rootLabel}</a>
         <button type="button" class="toolbar-context-link" aria-expanded={mobileSectionsOpen} on:click={() => mobileSectionsOpen = true}>{productNav.rootLabel} · {t('shared.shell.contextActions', {}, $locale)}</button>
+        <button type="button" class="toolbar-context-link" data-tour-launch="immersive"
+          aria-label={tourLabels.help} title={tourLabels.help} on:click={()=>startTour('immersive')}>
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2.2-2.5 4.5"/><path d="M12 17.5h.01"/></svg>
+        </button>
         <button type="button" class="toolbar-context-link immersive-settings" on:click={() => mobileSettingsOpen = true}>{t('shared.shell.settings', {}, $locale)}</button>
       </div>
     {/if}
 
     <div class="toolbar-globals" aria-label={t('shared.shell.globalControls', {}, $locale)}>
+      <button type="button" class="ui-icon-button" data-tour-launch="desktop"
+        aria-label={tourLabels.help} title={tourLabels.help} on:click={()=>startTour('desktop')}>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2.2-2.5 4.5"/><path d="M12 17.5h.01"/></svg>
+      </button>
       {#if shell.save.href}
         <a class="shell-control save-control" data-shell-control="save" href={shell.save.href}>
           <Icon name="save" decorative={true} /><span>{saveLabel()}</span>
@@ -179,10 +227,16 @@
           <Icon name="account" decorative={true} />
         </button>
       {/if}
+      <button type="button" class="ui-icon-button" data-tour-launch="mobile"
+        aria-label={tourLabels.help} title={tourLabels.help} on:click={()=>startTour('mobile')}>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2.2-2.5 4.5"/><path d="M12 17.5h.01"/></svg>
+      </button>
       <IconButton icon="settings" label={t('shared.shell.settings', {}, $locale)} on:activate={() => mobileSettingsOpen = true} />
     </div>
   </div>
 </header>
+<p class="visually-hidden" data-tour-status role="status" aria-live="polite">{tourNotice}</p>
+<SpotlightTour open={tourOpen} copy={tourLabels} onClose={closeTour}/>
 
 <Sheet bind:open={mobileSettingsOpen} title={t('shared.shell.settings', {}, $locale)} closeLabel={t('shared.dialog.close', {}, $locale)} position="bottom">
   <div class="mobile-settings">
