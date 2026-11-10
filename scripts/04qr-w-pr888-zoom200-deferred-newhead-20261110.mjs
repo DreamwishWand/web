@@ -53,7 +53,7 @@ const browser=await chromium.launch({executablePath:process.env.CHROME_BIN,
  headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
 const ctx=await browser.newContext({viewport:{width:1280,height:900},
  serviceWorkers:'block',ignoreHTTPSErrors:false,acceptDownloads:false});
-const events=[],outside=[],errors=[];
+const events=[],outside=[],errors=[],layoutErrors=[];
 ctx.on('request',req=>{
  const u=new URL(req.url());
  if(u.origin!==origin||!['GET','HEAD'].includes(req.method()))outside.push(req.method()+' '+req.url());
@@ -122,16 +122,16 @@ async function metrics(step,phase){
  assert.ok(o,'missing dialog or anchor '+phase);
  for(const name of ['dialog','mark']){
   const x=o[name];
-  assert.ok(x.left>=-1&&x.right<=o.vw+1&&x.top>=-1&&x.bottom<=o.vh+1,
-   'visible '+name+' clipped '+phase+' '+JSON.stringify(o));
+  if(!(x.left>=-1&&x.right<=o.vw+1&&x.top>=-1&&x.bottom<=o.vh+1))
+   layoutErrors.push('visible '+name+' clipped '+phase+' '+JSON.stringify(o));
  }
  // For on-screen original target, highlighted visual rect must intersect it.
  const t=o.target,s=o.mark;
  const overlapX=Math.min(t.right,s.right)-Math.max(t.left,s.left);
  const overlapY=Math.min(t.bottom,s.bottom)-Math.max(t.top,s.top);
  if(t.right>0&&t.left<o.vw&&t.bottom>0&&t.top<o.vh)
-  assert.ok(overlapX>0&&overlapY>0,
-   'spotlight missed real DOM anchor '+phase+' '+JSON.stringify(o));
+  if(!(overlapX>0&&overlapY>0))
+   layoutErrors.push('spotlight missed real DOM anchor '+phase+' '+JSON.stringify(o));
  assert.equal(await dialog.getAttribute('role'),'dialog','semantic dialog absent');
  assert.equal(await dialog.getAttribute('aria-modal'),'true','aria-modal missing');
  assert.equal(await dialog.locator('[aria-live="polite"]').count(),1,'screenreader step status missing');
@@ -173,7 +173,7 @@ try{
  await p.setViewportSize({width:640,height:800});
  all.push(await metrics(3,'zoom200-resize-restore'));
  const maxRight=Math.max(...all.map(v=>v.dialog.right));
- console.log('QRW888_REAL_CHROME_ZOOM200_FOUR_STEPS_SCROLL_RESIZE_MODAL_AND_HIGHLIGHT_ALL_VIEWPORT_BOUNDS_PASS',
+ console.log('QRW888_REAL_CHROME_ZOOM200_FOUR_STEPS_SCROLL_RESIZE_MODAL_AND_HIGHLIGHT_MEASURED',
   JSON.stringify({count:all.length,maxRight,viewport:640,stepRects:all.slice(0,4).map(x=>x.dialog)}));
  // Combined responsive/accessibility/theme/focus unaffected by new zoom geometry.
  const before=await dialog.evaluate(x=>getComputedStyle(x).backgroundColor);
@@ -256,6 +256,8 @@ try{
  }
  await guard();
  console.log('QRW888_REAL_WEP_IMMERSIVE_HELP_ALL_8_UNAVAILABLE_STATUS_NOT_PRESETS_TOUR_PASS');
+ console.log('QRW888_FINAL_GEOMETRY_VIOLATIONS',JSON.stringify(layoutErrors));
+ assert.deepEqual(layoutErrors,[],'independent CSS zoom200 source actual Chrome layout TRUE_RED');
  console.log('QRW888_INDEPENDENT_FIXED_SOURCE_026952D1_GEOMETRY_AND_DEFERRED_SCOPE_SCOPED_PASS',
   JSON.stringify({oldRedHead:OLD_RED_QA,oldRedUnchanged:true,
     newSource:SOURCE,sourceChangePaths:REPAIR,qaOnly:true,
