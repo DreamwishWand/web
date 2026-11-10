@@ -33,7 +33,9 @@
     // Restore focus to the actual initiating desktop/mobile/immersive button.
     const hit=event.currentTarget instanceof HTMLButtonElement ? event.currentTarget :
       event.target instanceof Element ? event.target.closest('button[data-tour-launch]') : null;
-    tourTrigger=hit instanceof HTMLButtonElement ? hit : null;
+    tourTrigger=hit instanceof HTMLButtonElement ? hit :
+      Array.from(document.querySelectorAll<HTMLButtonElement>('button[data-tour-launch]'))
+        .find(button=>button.getClientRects().length>0&&!button.disabled)??null;
     tourNotice='';
     if(!isPresetPilotPath($page.url.pathname) ||
        !allPresetPilotTargetsVisible(document)){
@@ -45,7 +47,18 @@
   function closeTour(reason:'finish'|'skip'|'blocked'):void{
     tourOpen=false;
     if(reason==='blocked')tourNotice=tourLabels.blocked;
-    void tick().then(()=>tourTrigger?.focus());
+    void tick().then(()=>{
+      const button=tourTrigger?.isConnected && tourTrigger.getClientRects().length>0
+        ?tourTrigger
+        :Array.from(document.querySelectorAll<HTMLButtonElement>('button[data-tour-launch]'))
+          .find(candidate=>candidate.getClientRects().length>0&&!candidate.disabled);
+      // Restore the initiating help control after Svelte has removed the modal.
+      // Do not focus the highlighted action or execute it.
+      button?.focus({preventScroll:true});
+      if(button&&document.activeElement!==button){
+        requestAnimationFrame(()=>button.focus({preventScroll:true}));
+      }
+    });
   }
   $: shell = $shellState as ShellSnapshot;
   $: productNav = resolveProductShell($page.url.pathname, $locale);
