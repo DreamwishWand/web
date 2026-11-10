@@ -40,11 +40,12 @@ export function createLocalSteamP1gSavedDiffGridsFacade({
      typeof allowSyntheticFixture!=='boolean')
     denied('LOCAL_DIFFGRIDS_TRUSTED_DEPENDENCY_REQUIRED');
   const bridge=createP1gRustWorkerReadOnlyBridge(wasmFactory);
-  let epoch=0,active=null;
+  let epoch=0,active=null,pendingOpenRequestId=null;
   const revoke=()=>{
     if(epoch===Number.MAX_SAFE_INTEGER)denied('LOCAL_DIFFGRIDS_EPOCH_BOUNDS');
     epoch++;
     active=null;
+    pendingOpenRequestId=null;
     bridge.close();
   };
   const respond=(post,requestId,ok,body)=>{
@@ -57,8 +58,16 @@ export function createLocalSteamP1gSavedDiffGridsFacade({
       denied('LOCAL_DIFFGRIDS_MESSAGE_BOUNDS');
     const id=data.requestId;
     if(data.kind==='CLOSE_LOCAL_STORED_DIFFGRIDS'){
-      if(!exact(data,'kind,requestId,selection')||
-         !active||data.selection!==active.selection){
+      // CLOSE during an in-flight OPEN has no issued selection yet. Require
+      // the exact requestId of that pending OPEN so A's delayed CLOSE cannot
+      // revoke a distinct newer B. No file/SessionID/Cursor enters the UI.
+      const abortPending=exact(data,'kind,openRequestId,requestId,selection')&&
+        data.selection===null&&!active&&
+        pendingOpenRequestId!==null&&
+        data.openRequestId===pendingOpenRequestId;
+      const closeSelected=exact(data,'kind,requestId,selection')&&
+        !!active&&data.selection===active.selection;
+      if(!abortPending&&!closeSelected){
         respond(post,id,false,'LOCAL_DIFFGRIDS_STALE_SELECTION');
       }else{
         revoke();
@@ -124,6 +133,7 @@ export function createLocalSteamP1gSavedDiffGridsFacade({
     // A is invalidated SYNCHRONOUSLY before awaiting File/SHA/Codec/Rust B.
     revoke();
     const mine=epoch;
+    pendingOpenRequestId=id;
     let bytes;
     try{
       if(!exact(data,'attestation,expectedEncryptedSizeBytes,file,kind,requestId'))
@@ -171,6 +181,7 @@ export function createLocalSteamP1gSavedDiffGridsFacade({
         denied('LOCAL_DIFFGRIDS_INDEX_RECEIPT_DENIED');
       active={selection:mine,scope,nextCursor:issued.cursor,
         pageIndex:0,indexedRecords:issued.indexedRecords,recordsRead:0};
+      pendingOpenRequestId=null;
       // This opaque local selection is only a UI response epoch fence, NOT
       // Rust SessionID, Reader Cursor, CAS token, SHA or permission grant.
       respond(post,id,true,Object.freeze({
