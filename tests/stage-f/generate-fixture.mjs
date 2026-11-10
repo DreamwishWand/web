@@ -21,3 +21,35 @@ await writeFile(new URL('./fixtures/expected.json',import.meta.url),
     decodedBytes:utf8.length,sourceBytes:source.length,playerFields:33,
     worldFields:2,syntheticOnly:true})+'\n');
 console.log('STAGE_F_SYNTHETIC_FIXTURE_GENERATED_ONLY',{sourceBytes:source.length,decodedBytes:utf8.length});
+ // Separate synthetic fixture for NEW P1G→single Rust Worker stored DiffGrids
+ // facade. Never mutate or reinterpret the accepted Player/World StageF test.
+const diff=syntheticProfile('DeviceType_Windows');
+diff.GameInfo.Version=626;
+diff.Player={};
+diff.World={GridCollection:{DiffGrids:{}}};
+diff.Opaque.secret='OPAQUE_SYNTHETIC_NEVER_TO_UI';
+for(let n=0;n<17;n++){
+  diff.World.GridCollection.DiffGrids[n]={
+    ID:n,DefaultLayoutGridID:n===0?0:n+100,
+    GridDefaultLayoutPath:'PRIVATE_SYNTHETIC_PATH_NEVER_TO_UI/'+n+'.json',
+    GridDefaultLayoutType:'Synth.NativeType, SynthAssembly',
+    DefaultGridHashCode:-37,DefaultGridDataHashCode:624,
+    ModifiedObjects:{7:{ID:7},8:{ID:8}},
+    RemovedObjects:n===1?{a:7,b:9}:[7,9],
+    OpaqueUnknown:{secret:'PRIVATE_SYNTHETIC_OBJECT_NEVER_TO_UI'}
+  };
+}
+const diffEncoded=makeSyntheticP1gProfile(diff);
+const diffPlain=Buffer.from(JSON.stringify(diff),'utf8');
+await writeFile(new URL('./fixtures/synthetic626-diffgrids.p1g',import.meta.url),
+  diffEncoded);
+await writeFile(new URL('./fixtures/expected-diffgrids.json',import.meta.url),
+  JSON.stringify({
+    syntheticOnly:true,sourceBytes:diffEncoded.byteLength,
+    decodedBytes:diffPlain.byteLength,recordCount:17,
+    originalSha256:createHash('sha256').update(diffEncoded).digest('hex'),
+    decodedSha256:createHash('sha256').update(diffPlain).digest('hex')
+  })+'\n');
+console.log('STAGE_F_SYNTHETIC_DIFFGRIDS_FIXTURE_GENERATED_ONLY',{
+  recordCount:17,sourceBytes:diffEncoded.length});
+

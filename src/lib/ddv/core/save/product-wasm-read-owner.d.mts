@@ -37,6 +37,9 @@ export interface WorkerWasmSource {
   /** Optional indexed-read WASM feature only; not the production Reader. */
   issue_typed_cursor(domain:'player'|'world',sessionId:string,revision:bigint,indexGeneration:bigint,decodedSha256:string):string;
   read_typed_page(cursor:string,sessionId:string,revision:bigint,indexGeneration:bigint,decodedSha256:string):string;
+  /** R22 stored DiffGrids ONLY; native effective Layout and Writer remain OFF. */
+  issue_saved_diffgrids_typed_cursor(sessionId:string,revision:bigint,indexGeneration:bigint,decodedSha256:string):string;
+  read_saved_diffgrids_typed_page(cursor:string,sessionId:string,revision:bigint,indexGeneration:bigint,decodedSha256:string):string;
   close():void;
 }
 export type ProductWorkerWasmFactory=()=>Promise<{
@@ -58,6 +61,26 @@ export declare function createProductWasmReadOwner(factory:ProductWorkerWasmFact
       key:string;kind:'object'|'array'|'string'|'number'|'boolean'|'null';valueBytes:number;
     }>>;nextCursor:string|null;
     completeAllDomains:false;productReadAccepted:false;writerAuthorized:false;
+  }>;
+  /** Trusted Worker-private token: NEVER post cursor to UI. */
+  issueSavedDiffGridsCursor(scope:ProductWasmScope):Readonly<{
+    cursor:string;indexedRecords:number;maxRecordsPerPage:8;
+    productReadAccepted:false;writerAuthorized:false;
+  }>;
+  /** UI-safe projection, no full ObjectID arrays, path, read-set or secret. */
+  readSavedDiffGridsPage(scope:ProductWasmScope,cursor:string):Readonly<{
+    records:ReadonlyArray<Readonly<{
+      gridId:number;defaultLayoutGridId:number|null;
+      defaultGridHashCode:number|null;defaultGridDataHashCode:number|null;
+      modifiedObjectCount:number;removedObjectCount:number;
+      modifiedRemovedSameIdPairs:number;
+      externalLayoutStatus:'UNRESOLVED_EXTERNAL_LAYOUT';
+      nativeEffectiveGridVerified:false;
+    }>>;
+    nextCursor:string|null;
+    externalLayoutStatus:'UNRESOLVED_EXTERNAL_LAYOUT';
+    allNativeReferencesVerified:false;productReadAccepted:false;
+    writerAuthorized:false;
   }>;
   close():Readonly<{closed:true;writerAuthorized:false}>;
   submitOperation(command:unknown):never;

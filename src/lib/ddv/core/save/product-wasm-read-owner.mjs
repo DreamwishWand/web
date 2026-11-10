@@ -248,6 +248,107 @@ export function createProductWasmReadOwner(wasmFactory){
      fields:Object.freeze(descriptors),nextCursor:r.nextCursor,
      completeAllDomains:false,productReadAccepted:false,writerAuthorized:false});
  };
+ // Saved DiffGrids R22: this is the SAME Rust ProductSession's existing
+ // typed cursor grant namespace, not a second reader or product authority.
+ // The untrusted Rust JSON receipt is strictly validated before projection.
+ const savedDiffGridsContract='wand.worker.stored-diffgrids-typed-metadata-readonly@1';
+ const savedDiffGridsDomain='/World/GridCollection/DiffGrids';
+ const safeUInt=n=>Number.isSafeInteger(n)&&n>=0;
+ const optionalSafeUInt=n=>n===null||safeUInt(n);
+ const signedI32=n=>n===null||(Number.isInteger(n)&&n>=-2147483648&&n<=2147483647);
+ const boundedText=(s,bytes)=>s===null||
+   (typeof s==='string'&&new TextEncoder().encode(s).length<=bytes);
+ const issueSavedDiffGridsCursor=scope=>{
+   const a=typedScope(scope);
+   if(a.cursors.size>=2)fail('PRODUCT_WORKER_CURSOR_LIMIT');
+   if(typeof a.wasm.issue_saved_diffgrids_typed_cursor!=='function')
+     fail('PRODUCT_WORKER_SAVED_DIFFGRIDS_FEATURE_DISABLED');
+   let r;
+   try{r=strictTypedJson(a.wasm.issue_saved_diffgrids_typed_cursor(
+       scope.sessionId,BigInt(scope.revision),
+       BigInt(scope.indexGeneration),scope.decodedSha256),4096)}
+   catch{typedReadFailure()}
+   if(!exactKeys(r,'contract,cursor,sessionId,revision,indexGeneration,decodedSha256,indexedRecords,maxRecordsPerPage,externalLayoutStatus,allNativeReferencesVerified,productReadAccepted,writerAuthorized')||
+      r.contract!==savedDiffGridsContract||!nonzeroCursor(r.cursor)||
+      a.cursors.has(r.cursor)||r.sessionId!==scope.sessionId||
+      r.decodedSha256!==scope.decodedSha256||
+      r.revision!==0||r.indexGeneration!==1||
+      !safeUInt(r.indexedRecords)||r.indexedRecords>50000||
+      r.maxRecordsPerPage!==8||
+      r.externalLayoutStatus!=='UNRESOLVED_EXTERNAL_LAYOUT'||
+      r.allNativeReferencesVerified!==false||
+      r.productReadAccepted!==false||r.writerAuthorized!==false)typedReadFailure();
+   a.cursors.set(r.cursor,savedDiffGridsDomain);
+   // Only trusted Worker-local caller gets this Rust token; the new message
+   // facade NEVER posts it to the page, UI, or cloud.
+   return Object.freeze({cursor:r.cursor,indexedRecords:r.indexedRecords,
+     maxRecordsPerPage:8,productReadAccepted:false,writerAuthorized:false});
+ };
+ const readSavedDiffGridsPage=(scope,cursor)=>{
+   const a=typedScope(scope);
+   if(!nonzeroCursor(cursor)||a.cursors.get(cursor)!==savedDiffGridsDomain)
+     fail('PRODUCT_WORKER_CURSOR_UNKNOWN_OR_CONSUMED');
+   if(typeof a.wasm.read_saved_diffgrids_typed_page!=='function')
+     fail('PRODUCT_WORKER_SAVED_DIFFGRIDS_FEATURE_DISABLED');
+   let r;
+   try{r=strictTypedJson(a.wasm.read_saved_diffgrids_typed_page(
+       cursor,scope.sessionId,BigInt(scope.revision),
+       BigInt(scope.indexGeneration),scope.decodedSha256),512*1024+4096)}
+   catch{typedReadFailure()}
+   if(!exactKeys(r,'contract,sessionId,revision,indexGeneration,decodedSha256,records,nextCursor,maxRecordsPerPage,externalLayoutStatus,nativeEffectiveGridVerified,allNativeReferencesVerified,productReadAccepted,writerAuthorized')||
+      r.contract!==savedDiffGridsContract||
+      r.sessionId!==scope.sessionId||r.decodedSha256!==scope.decodedSha256||
+      r.revision!==0||r.indexGeneration!==1||r.maxRecordsPerPage!==8||
+      r.externalLayoutStatus!=='UNRESOLVED_EXTERNAL_LAYOUT'||
+      r.nativeEffectiveGridVerified!==false||
+      r.allNativeReferencesVerified!==false||r.productReadAccepted!==false||
+      r.writerAuthorized!==false||!Array.isArray(r.records)||
+      r.records.length>8||
+      !(r.nextCursor===null||(nonzeroCursor(r.nextCursor)&&
+        r.nextCursor!==cursor&&!a.cursors.has(r.nextCursor))))typedReadFailure();
+   let records;
+   try{
+     records=r.records.map(g=>{
+       if(!exactKeys(g,'gridId,defaultLayoutGridId,gridDefaultLayoutPath,gridDefaultLayoutType,defaultGridHashCode,defaultGridDataHashCode,modifiedObjectIds,removedObjectIds,modifiedObjectCount,removedObjectCount,removedShape,modifiedRemovedSameIdPairs,externalLayoutStatus,nativeEffectiveGridVerified')||
+          !safeUInt(g.gridId)||!optionalSafeUInt(g.defaultLayoutGridId)||
+          !boundedText(g.gridDefaultLayoutPath,4096)||
+          !boundedText(g.gridDefaultLayoutType,4096)||
+          !signedI32(g.defaultGridHashCode)||
+          !signedI32(g.defaultGridDataHashCode)||
+          !Array.isArray(g.modifiedObjectIds)||
+          !Array.isArray(g.removedObjectIds)||
+          g.modifiedObjectIds.length>2048||g.removedObjectIds.length>2048||
+          !g.modifiedObjectIds.every(safeUInt)||!g.removedObjectIds.every(safeUInt)||
+          !safeUInt(g.modifiedObjectCount)||!safeUInt(g.removedObjectCount)||
+          g.modifiedObjectCount!==g.modifiedObjectIds.length||
+          g.removedObjectCount!==g.removedObjectIds.length||
+          !['absent','array','object-map'].includes(g.removedShape)||
+          !safeUInt(g.modifiedRemovedSameIdPairs)||
+          g.modifiedRemovedSameIdPairs>Math.min(g.modifiedObjectCount,g.removedObjectCount)||
+          g.externalLayoutStatus!=='UNRESOLVED_EXTERNAL_LAYOUT'||
+          g.nativeEffectiveGridVerified!==false)throw Error('BAD_SAVED_DIFFGRIDS_ROW');
+       // Explicit projection: no external paths/type strings, full ObjectID
+       // arrays, Rust-owned cursor, inner JSON, or internal Read-set may leave.
+       return Object.freeze({gridId:g.gridId,
+         defaultLayoutGridId:g.defaultLayoutGridId,
+         defaultGridHashCode:g.defaultGridHashCode,
+         defaultGridDataHashCode:g.defaultGridDataHashCode,
+         modifiedObjectCount:g.modifiedObjectCount,
+         removedObjectCount:g.removedObjectCount,
+         modifiedRemovedSameIdPairs:g.modifiedRemovedSameIdPairs,
+         externalLayoutStatus:'UNRESOLVED_EXTERNAL_LAYOUT',
+         nativeEffectiveGridVerified:false});
+     });
+   }catch{typedReadFailure()}
+   a.cursors.delete(cursor);
+   if(r.nextCursor)a.cursors.set(r.nextCursor,savedDiffGridsDomain);
+   return Object.freeze({
+      records:Object.freeze(records),nextCursor:r.nextCursor,
+      externalLayoutStatus:'UNRESOLVED_EXTERNAL_LAYOUT',
+      allNativeReferencesVerified:false,productReadAccepted:false,
+      writerAuthorized:false
+   });
+ };
  const submitOperation=()=>fail('PRODUCT_WORKER_WRITER_DISABLED');
  const getCapabilities=()=>Object.freeze({
    productWorkerBoundary:true,productReadAccepted:false,
@@ -258,6 +359,7 @@ export function createProductWasmReadOwner(wasmFactory){
    maxDecodedBytes:PRODUCT_WASM_WORKER_MAX_BYTES
  });
  return Object.freeze({openDecoded,readCoreVersion,issueTypedCursor,readTypedPage,
+   issueSavedDiffGridsCursor,readSavedDiffGridsPage,
    close,submitOperation,getCapabilities,
    getReceipt:()=>active?.receipt??null});
 }
