@@ -199,3 +199,36 @@ export function createLocalSteamP1gSavedDiffGridsFacade({
   return Object.freeze({handleMessage,
     close:()=>{revoke();return Object.freeze({closed:true,writerAuthorized:false})}});
 }
+
+
+/** Explicit Worker-side opt-in registration. No production route/UI imports
+ * this automatically. A future read-only consumer can install it in the
+ * EXISTING isolated Worker, rather than creating a second executor.
+ * The only public wire messages are OPEN/READ_NEXT/CLOSE, with bounded replies.
+ */
+export function installLocalSteamP1gSavedDiffGridsWorker(options){
+  if(typeof document!=='undefined'||typeof self?.addEventListener!=='function'||
+     typeof self?.postMessage!=='function')
+    denied('LOCAL_DIFFGRIDS_WORKER_ISOLATION_REQUIRED');
+  const facade=createLocalSteamP1gSavedDiffGridsFacade(options);
+  const kinds=new Set(['OPEN_LOCAL_STORED_DIFFGRIDS',
+    'READ_LOCAL_STORED_DIFFGRIDS_NEXT','CLOSE_LOCAL_STORED_DIFFGRIDS']);
+  const listener=event=>{
+    const data=event?.data;
+    if(!data||!kinds.has(data.kind))return;
+    void facade.handleMessage(data,reply=>self.postMessage(reply)).catch(()=>{
+      // Generic code only; never leak file path, crypto/ZIP error, Save bytes,
+      // Rust SessionID/Cursor/readset or JavaScript exception stack.
+      if(requestIdOk(data?.requestId))self.postMessage({
+        requestId:data.requestId,ok:false,
+        error:'LOCAL_DIFFGRIDS_MESSAGE_DENIED'
+      });
+    });
+  };
+  self.addEventListener('message',listener);
+  return Object.freeze({close:()=>{
+    self.removeEventListener('message',listener);
+    facade.close();
+    return Object.freeze({closed:true,writerAuthorized:false});
+  }});
+}
