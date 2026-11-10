@@ -132,6 +132,10 @@
     await tick();
     reveal(element);
     measure();
+    // Accessibility focus must be present as soon as the dialog renders;
+    // later frame-by-frame geometry calibration must not delay it.
+    await tick();
+    if(!closed)dialog?.focus();
     await settleLayout();
     if(!closed)dialog?.focus();
   }
