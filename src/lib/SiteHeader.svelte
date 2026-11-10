@@ -115,7 +115,7 @@
         <button type="button" class="toolbar-context-link" aria-expanded={mobileSectionsOpen} on:click={() => mobileSectionsOpen = true}>{productNav.rootLabel} · {t('shared.shell.contextActions', {}, $locale)}</button>
         <button type="button" class="toolbar-context-link" data-tour-launch="immersive"
           aria-label={tourLabels.help} title={tourLabels.help} on:click={startTour}>
-          <Icon name="help" decorative={true} size={19}/>
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2.2-2.5 4.5"/><path d="M12 17.5h.01"/></svg>
         </button>
         <button type="button" class="toolbar-context-link immersive-settings" on:click={() => mobileSettingsOpen = true}>{t('shared.shell.settings', {}, $locale)}</button>
       </div>
@@ -124,7 +124,7 @@
     <div class="toolbar-globals" aria-label={t('shared.shell.globalControls', {}, $locale)}>
       <button type="button" class="ui-icon-button" data-tour-launch="desktop"
         aria-label={tourLabels.help} title={tourLabels.help} on:click={startTour}>
-        <Icon name="help" decorative={true}/>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2.2-2.5 4.5"/><path d="M12 17.5h.01"/></svg>
       </button>
       {#if shell.save.href}
         <a class="shell-control save-control" data-shell-control="save" href={shell.save.href}>
@@ -213,7 +213,7 @@
       {/if}
       <button type="button" class="ui-icon-button" data-tour-launch="mobile"
         aria-label={tourLabels.help} title={tourLabels.help} on:click={startTour}>
-        <Icon name="help" decorative={true}/>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2.2-2.5 4.5"/><path d="M12 17.5h.01"/></svg>
       </button>
       <IconButton icon="settings" label={t('shared.shell.settings', {}, $locale)} on:activate={() => mobileSettingsOpen = true} />
     </div>

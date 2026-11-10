@@ -102,6 +102,7 @@ try{
  assert.equal(await q("return Boolean(document.querySelector('[data-typed-tour-open]'))"),false,'no first visit auto');
  assert.equal(await evalJs("indexedDB.databases().then(a=>a.length)"),0,'render does not open IDB');
  await tap('[data-tour-launch="desktop"]');
+ await until("return (document.querySelector('[data-tour-status]')?.textContent?.trim()?.length||0)>5");
  const unavailable=await q("return document.querySelector('[data-tour-status]')?.textContent?.trim()");
  assert.ok(unavailable.length>5);
  assert.equal(await q("return Boolean(document.querySelector('[data-typed-tour-open]'))"),false,'wrong view fails closed');
