@@ -241,8 +241,9 @@ try{
  await activate('mobile');
  await stage(0);
  box=await dlg.boundingBox();
- const vw=await p.evaluate(()=>innerWidth);
- assert.ok(box&&box.x>=-1&&box.x+box.width<=vw+1,'CSS200 tour clipped');
+ const zoomDetails=await p.evaluate(()=>{const el=document.querySelector('[data-typed-tour-dialog]');const r=el?.getBoundingClientRect();return {inner:innerWidth,client:document.documentElement.clientWidth,visual:visualViewport?.width,rootZoom:getComputedStyle(document.documentElement).zoom,modalWidth:getComputedStyle(el).width,modalRect:r?{left:r.left,right:r.right,width:r.width}:null,scrollWidth:document.documentElement.scrollWidth};});
+ const vw=zoomDetails.inner;
+ assert.ok(box&&box.x>=-1&&box.x+box.width<=vw+1,'CSS200 tour clipped '+JSON.stringify({box,zoomDetails}));
  await p.keyboard.press('Escape');
  await dlg.waitFor({state:'detached',timeout:12000});
  await p.evaluate(()=>{document.documentElement.style.zoom='1';});
