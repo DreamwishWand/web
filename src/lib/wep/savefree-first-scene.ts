@@ -5,7 +5,7 @@
 import { captureScenePreset } from './scene-capture-runtime.ts';
 import { validatePublishablePreset, preflightScene } from './scene-preset-runtime.ts';
 import {
-  WORLD_READ_SWITCH_V125_SHA256, WORLD_READ_SWITCH_V125_BUILD_ID,
+  WORLD_READ_SWITCH_V125_SHA256,
   WORLD_GRIDDATA_DIMENSIONS_V125_SHA256
 } from './world-browser-adapter.ts';
 export const WEP_SAVEFREE_FIRST_SCENE_OPERATION =
@@ -13,10 +13,10 @@ export const WEP_SAVEFREE_FIRST_SCENE_OPERATION =
 const SOURCE = Object.freeze({
   platform:'Nintendo Switch',gameVersion:'1.25.0',buildID:'52BD625D9B4E0053'
 });
-const fail=code=>{throw Error('WEP_SAVEFREE_SCENE_'+code);};
-const safeInt=x=>typeof x==='number'&&Number.isSafeInteger(x);
+const fail=(code:string):never=>{throw Error('WEP_SAVEFREE_SCENE_'+code);};
+const safeInt=(x:unknown):x is number=>typeof x==='number'&&Number.isSafeInteger(x);
 
-export function resolveVerifiedSaveFreeSceneItem(directory, binding, itemId) {
+export function resolveVerifiedSaveFreeSceneItem(directory:any, binding:any, itemId:number) {
   if(!safeInt(itemId)||itemId<=0 ||
      directory?.status!=='READY' || !Array.isArray(directory.entries) ||
      directory.source?.platform!==SOURCE.platform ||
@@ -29,7 +29,7 @@ export function resolveVerifiedSaveFreeSceneItem(directory, binding, itemId) {
      binding.provenance.readDataSha256!==WORLD_READ_SWITCH_V125_SHA256 ||
      binding.provenance.gridDataDimensionsSha256!==WORLD_GRIDDATA_DIMENSIONS_V125_SHA256 ||
      typeof binding.resolveDraftPlacementSource!=='function') fail('SOURCE_UNVERIFIED');
-  const matching=directory.entries.filter(row=>row?.itemId===itemId);
+  const matching=directory.entries.filter((row:any)=>row?.itemId===itemId);
   if(matching.length!==1 || matching[0].family!=='Furniture')
     fail('CATALOG_ITEM_NOT_ELIGIBLE');
   // Re-evaluate the authoritative geometry/scope at each user action, NOT a
@@ -50,8 +50,8 @@ export function resolveVerifiedSaveFreeSceneItem(directory, binding, itemId) {
   if(!safeInt(w)||!safeInt(h)||w<1||h<1||w>64||h>64||w*h>4096 ||
      !Array.isArray(cap.footprint)||cap.footprint.length!==w*h)
     fail('FOOTPRINT_UNVERIFIED');
-  const seen=new Set();
-  const footprint=cap.footprint.map(cell=>{
+  const seen=new Set<string>();
+  const footprint=cap.footprint.map((cell:any)=>{
     if(!safeInt(cell?.x)||!safeInt(cell?.y)||cell.x<0||cell.y<0||
        cell.x>=w||cell.y>=h) fail('FOOTPRINT_UNVERIFIED');
     const key=cell.x+','+cell.y;
@@ -61,18 +61,18 @@ export function resolveVerifiedSaveFreeSceneItem(directory, binding, itemId) {
   });
   if(!seen.has('0,0')||seen.size!==w*h) fail('FOOTPRINT_UNVERIFIED');
   return Object.freeze({itemId,label:matching[0].label,layer:'furniture',
-    footprint:Object.freeze(footprint.map(cell=>Object.freeze(cell))),
+    footprint:Object.freeze(footprint.map((cell:any)=>Object.freeze(cell))),
     bounds:Object.freeze({w,h}), source:'VERIFIED_SWITCH1250_CATALOG_GEOMETRY_SCOPE',
     inventoryVerified:false,applyReady:false,writeReady:false});
 }
 
 export function buildSaveFreeFirstNonemptyScene({
   directory,binding,itemId,title
-}) {
+}:{directory:any;binding:any;itemId:number;title:string}) {
   if(typeof title!=='string'||title.trim().length<1||title.trim().length>120)
     fail('TITLE_INVALID');
   const item=resolveVerifiedSaveFreeSceneItem(directory,binding,itemId);
-  const document={
+  const document:Parameters<typeof captureScenePreset>[0]={
     schema:'dreamwish-wand-wep-editor-document',version:1,
     // This is a local design, not a native Save, a trusted Grid identity or
     // evidence that the user owns/has discovered this catalog Item.
@@ -114,4 +114,4 @@ const COPY={
  'pt-BR':{title:'Criar primeira Scene local sem Save do jogo',notice:'Escolha um móvel verificado e sua área validada. Apenas design local, sem posse nem Apply DDV.',load:'Carregar catálogo verificado',search:'Buscar nome ou ID',choose:'Selecionar Item verificado',unavailable:'Área ou regras não verificadas',name:'Título da Scene',save:'Salvar Scene não vazia neste dispositivo',waiting:'Carregando fontes verificadas…',empty:'Nenhum móvel encontrado',ready:'Prévia validada, confirme para salvar',saved:'Salva e reaberta independentemente. Writer e Apply DDV desligados.',blocked:'Scene negada, biblioteca anterior preservada.',footprint:'Área verificada',off:'Writer / Apply / Cloud OFF',next:'Ver Scenes locais em Meus Presets'}
 };
 export const SAVEFREE_SCENE_LOCALES=Object.freeze(Object.keys(COPY));
-export function saveFreeSceneCopy(locale='en') {return COPY[locale]??COPY.en;}
+export function saveFreeSceneCopy(locale='en') {return COPY[locale as keyof typeof COPY]??COPY.en;}
