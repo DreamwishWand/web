@@ -6,7 +6,7 @@
   export let onClose:(reason:'finish'|'skip'|'blocked')=>void=()=>{};
   let stepIndex=0;
   let spot:{x:number;y:number;w:number;h:number}|null=null;
-  let tooltip:{x:number;y:number;w:number}|null=null;
+  let tooltip:{x:number;y:number;w:number;h:number}|null=null;
   let dialog:HTMLElement|null=null;
   let started=false;
   let closed=false;
@@ -23,17 +23,36 @@
     if(!Number.isFinite(b.x)||b.width<=0||b.height<=0){
       closed=true;onClose('blocked');return;
     }
+    // DOMRects and innerWidth/innerHeight are visual viewport pixels. Fixed
+    // descendants are positioned in CSS pixels, which root/ancestor zoom scales.
+    // Include any zoom on the overlay ancestors, not only the document root.
+    let zoom=1;
+    for(let node:Element|null=dialog?.parentElement??document.documentElement;
+      node;node=node.parentElement){
+      const value=Number.parseFloat(getComputedStyle(node).zoom);
+      if(Number.isFinite(value)&&value>0)zoom*=value;
+    }
+    const viewportWidth=window.innerWidth,viewportHeight=window.innerHeight;
     const margin=10;
-    const x=Math.max(4,b.left-4),y=Math.max(4,b.top-4);
-    spot={x,y,w:Math.max(12,Math.min(window.innerWidth-x-4,b.width+8)),
-      h:Math.max(12,Math.min(window.innerHeight-y-4,b.height+8))};
-    const width=Math.max(190,Math.min(MAX_CARD,window.innerWidth-24));
-    const left=Math.max(12,Math.min(window.innerWidth-width-12,b.left));
-    // A fixed envelope keeps the dialog reachable under small viewport zoom.
-    const roomBelow=window.innerHeight-b.bottom;
-    const top=roomBelow>=246?b.bottom+margin:
-      b.top>=246?Math.max(12,b.top-238):Math.max(12,window.innerHeight-252);
-    tooltip={x:left,y:top,w:width};
+    const x=Math.max(4,Math.min(viewportWidth-16,b.left-4));
+    const y=Math.max(4,Math.min(viewportHeight-16,b.top-4));
+    const spotWidth=Math.max(12,Math.min(viewportWidth-x-4,b.width+8));
+    const spotHeight=Math.max(12,Math.min(viewportHeight-y-4,b.height+8));
+    spot={x:x/zoom,y:y/zoom,w:spotWidth/zoom,h:spotHeight/zoom};
+    // Enforce viewport margins in *rendered* pixels before converting to
+    // CSS width; MAX_CARD is the intended unzoomed CSS width.
+    const visibleWidth=Math.min(MAX_CARD*zoom,Math.max(1,viewportWidth-24));
+    const left=Math.max(12,Math.min(viewportWidth-visibleWidth-12,b.left));
+    const maxVisibleHeight=Math.max(1,viewportHeight-24);
+    const measuredHeight=dialog?.getBoundingClientRect().height;
+    const visibleHeight=Math.min(maxVisibleHeight,
+      measuredHeight&&Number.isFinite(measuredHeight)?measuredHeight:246*zoom);
+    const below=b.bottom+margin;
+    const above=b.top-visibleHeight-margin;
+    const top=below+visibleHeight<=viewportHeight-12?below:
+      above>=12?above:
+      Math.max(12,Math.min(viewportHeight-visibleHeight-12,b.top));
+    tooltip={x:left/zoom,y:top/zoom,w:visibleWidth/zoom,h:maxVisibleHeight/zoom};
   }
   async function positionStep(index:number):Promise<void>{
     if(!open||closed)return;
@@ -44,6 +63,9 @@
     // Scroll only. Never activate a target, Save, Send, Apply or open IDB.
     element.scrollIntoView({block:'nearest',inline:'nearest',behavior:'auto'});
     await tick();
+    measure();
+    await tick();
+    // First render supplies the actual zoomed dialog height for vertical fit.
     measure();
     await tick();
     dialog?.focus();
@@ -106,7 +128,8 @@
       style:width={spot.w+'px'} style:height={spot.h+'px'} aria-hidden="true"></div>
     <section class="tour-dialog" data-typed-tour-dialog role="dialog" aria-modal="true"
       aria-label={copy.title} tabindex="-1" bind:this={dialog}
-      style:left={tooltip.x+'px'} style:top={tooltip.y+'px'} style:width={tooltip.w+'px'}>
+      style:left={tooltip.x+'px'} style:top={tooltip.y+'px'}
+      style:width={tooltip.w+'px'} style:max-height={tooltip.h+'px'}>
       <p class="tour-counter" aria-live="polite">{copy.progress} {stepIndex+1} / {PRESETS_MY_WAND_TOUR.steps.length}</p>
       <h2>{copy.steps[stepIndex].title}</h2>
       <p class="tour-body">{copy.steps[stepIndex].body}</p>
@@ -126,7 +149,7 @@
 
 <style>
   .tour-overlay{position:fixed;inset:0;z-index:3000;pointer-events:auto;isolation:isolate}
-  .tour-spotlight{position:fixed;pointer-events:none;z-index:1;
+  .tour-spotlight{position:fixed;pointer-events:none;z-index:1;box-sizing:border-box;
     border:3px solid var(--focus-ring);border-radius:12px;
     box-shadow:0 0 0 9999px rgba(5,9,20,.75),0 0 0 6px var(--surface-raised)}
   .tour-dialog{position:fixed;z-index:2;max-width:calc(100vw - 24px);
