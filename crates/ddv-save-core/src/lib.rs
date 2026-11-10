@@ -21,6 +21,8 @@ pub use product_session::PrivateOfflineReceipt;
 #[cfg(feature = "indexed-read")]
 pub use product_session::{IndexedCursorReceipt, IndexedDomain, IndexedFieldWitness, IndexedKind, IndexedPage, INDEX_PAGE_ENTRIES_MAX};
 #[cfg(feature = "indexed-read")]
+pub use product_session::{ExternalLayoutStatus,SavedDiffGridMetadata,SavedDiffGridsCursorReceipt,SavedDiffGridsPage,StoredRemovedShape};
+#[cfg(feature = "indexed-read")]
 mod spatial_reference_index;
 #[cfg(feature = "indexed-read")]
 pub use spatial_reference_index::{
