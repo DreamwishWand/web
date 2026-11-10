@@ -229,8 +229,9 @@ try{
  });
  await start('desktop');
  await stepReady(0);
- // Anchor disappears while Tour open: observer must close and refuse future steps.
- await reopen.evaluate(x=>x.remove());
+ // The ACTIVE highlighted anchor disappears while Tour open: observer must
+ // fail closed immediately. A future-step target is evaluated when reached.
+ await p.locator('button[data-my-domain="wand"]').evaluate(x=>x.remove());
  await dialog.waitFor({state:'detached',timeout:13000});
  assert.equal(await tourOn(),0,'disconnected anchor left live Spotlight');
  await p.waitForFunction(()=>document.querySelector('[data-tour-status]')?.textContent?.trim()?.length>0);
