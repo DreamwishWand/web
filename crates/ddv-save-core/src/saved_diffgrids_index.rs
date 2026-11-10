@@ -292,7 +292,7 @@ impl ProductSession{
         }
         cache.grants.push(CursorGrant{
             token,domain:IndexedDomain::SavedDiffGrids,pos:0,
-            revision:st.revision,generation:st.generation
+            revision:scope.expected_revision,generation:scope.expected_index_generation
         });
         Ok(SavedDiffGridsCursorReceipt{
             cursor:token,session_id:scope.session_id,
