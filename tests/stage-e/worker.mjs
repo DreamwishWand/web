@@ -1,6 +1,7 @@
 // W-CORE-REAL-WASM-BROWSER-099: synthetic-only REAL generated Rust wasm-bindgen
 // executed inside a Chrome MODULE WORKER. No P1G, cloud or UI JSON transport.
 import init,{WorkerWasmSource} from './pkg/ddv_save_core.js';
+import {runSavedDiffGridsBridge} from './saved-diffgrids-typed-bridge.mjs';
 import {
   createProductWasmReadOwner,
   PRODUCT_WASM_WORKER_MAX_BYTES,
@@ -143,6 +144,12 @@ async function run(){
     else delete globalThis.crypto;
   }
   assert(missingCryptoDenied,'MISSING_WEBCRYPTO_NOT_DENIED');
+  // New R22 DEV-only Rust Worker ABI: different synthetic fixture, SAME
+  // generated WASM module and isolated Chrome module Worker. No UI bridge ON.
+  const savedDiffGrids=await runSavedDiffGridsBridge(WorkerWasmSource);
+  assert(savedDiffGrids.records===17&&savedDiffGrids.pages===3&&
+    savedDiffGrids.externalLayoutUnresolved&&!savedDiffGrids.productReadAccepted,
+    'SAVED_DIFFGRIDS_REAL_WASM_BRIDGE_INVARIANT');
   return Object.freeze({
     scenario:'synthetic-real-wasm-worker-stage-e',
     browserWorker:true,generatedWasm:true,wasmBindgen:true,
@@ -152,6 +159,9 @@ async function run(){
     wasmEntropyZeroDenied:true,workerMissingCryptoDenied:true,
     rustDuplicateJsonDenied:true,rustSchemaMismatchDenied:true,
     staleCASDenied:true,cursorReplayDenied:true,oversize129MiBDenied:true,
+    storedDiffGridsWorkerAbi:true,storedDiffGridsRecords:savedDiffGrids.records,
+    storedDiffGridsTypedPages:savedDiffGrids.pages,
+    storedDiffGridsExternalLayoutUnresolved:savedDiffGrids.externalLayoutUnresolved,
     rawSavePostedToUI:false,productReadAccepted:false,writerAuthorized:false,
     realEncryptedSteamP1G:false,nativeV3:false,deviceV4:false
   });
