@@ -1,0 +1,81 @@
+name: 05 QR-C PR820 repaired BuildIdentity binding independent Rust QA
+on:
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/tests/qa_05qrc_pr820_build_identity_fix.rs'
+      - '.github/workflows/05qr-c-pr820-repaired-build-independent.yml'
+  push:
+    branches:
+      - 'qa/05qrc-pr820-repaired-build-756a64db-20261109'
+permissions:
+  contents: read
+jobs:
+  qa-native-build-identity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-05qrc-pr820-buildfix-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Source PR820 immutable FIVE original Git Blobs and QA-only exact TWO
+        shell: bash
+        run: |
+          set -euo pipefail
+          source=756a64db7082a88c01ace45a5520afb11bb1d696
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            qa_tip="$(git rev-parse HEAD^2)"
+          else
+            qa_tip="$(git rev-parse HEAD)"
+          fi
+          git merge-base --is-ancestor "$source" "$qa_tip"
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/product_session.rs)" = 1c6af991a0409f9b130d9488f1ff07ade913a299
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/spatial_reference_index.rs)" = 490e1fd1951b1b333efd7eab9291be03e121801a
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/tests/spatial_native_census.rs)" = 52d01b73a71b8236da5473492cf6739cae1cddcd
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/lib.rs)" = 96ad9334a3d91a71541c1507db8dc23ce69734be
+          test "$(git rev-parse "$qa_tip":docs/core/01b-r06-native-census-concordance-20261108.md)" = b54926f3d583e52be8f3f0c4128ba0cdb0cdab75
+          actual="$(git diff --name-only "$source" "$qa_tip" | sort)"
+          expected="$(printf '%s\n' .github/workflows/05qr-c-pr820-repaired-build-independent.yml crates/ddv-save-core/tests/qa_05qrc_pr820_build_identity_fix.rs | sort)"
+          test "$actual" = "$expected"
+          test -z "$(git diff --name-only "$source" "$qa_tip" -- crates/ddv-save-core/src crates/ddv-save-core/Cargo.toml src tools)"
+          test -z "$(git ls-files | grep -E 'STEAM_SAVE_OWNER_PRIVATE|OWNER_PRIVATE|\.p1g$' || true)"
+      - name: Independent Rust prior TRUE_RED Build mix and accepted authority negatives
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features private-native-v1 --test qa_05qrc_pr820_build_identity_fix -- --nocapture
+      - name: Native V1 receipt ABI, default product ABI and indexed-read compile
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --features private-native-v1 --lib
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --features indexed-read --lib
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --lib
+      - name: Real Worker WASM ABI and private-native feature exclusion
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --features worker-wasm,indexed-read --lib
+          if cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --features worker-wasm,private-native-v1 --lib > /tmp/qrc820-fix-forbidden-native-wasm.log 2>&1; then
+            echo "FATAL: private-native Build and native census entered product WASM"
+            exit 1
+          fi
+          grep -F "private-native-v1 is native-only and cannot enter WASM" /tmp/qrc820-fix-forbidden-native-wasm.log >/dev/null
+          rm -f /tmp/qrc820-fix-forbidden-native-wasm.log
+      - name: Final QA-only diff and no unapproved original Save transfer
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            qa_tip="$(git rev-parse HEAD^2)"
+          else
+            qa_tip="$(git rev-parse HEAD)"
+          fi
+          test "$(git diff --name-only 756a64db7082a88c01ace45a5520afb11bb1d696 "$qa_tip" | wc -l)" -eq 2
+          test -z "$(git diff --name-only 756a64db7082a88c01ace45a5520afb11bb1d696 "$qa_tip" -- crates/ddv-save-core/src src tools)"
+          test -z "$(git ls-files | grep -E 'STEAM_SAVE_OWNER_PRIVATE|OWNER_PRIVATE|\.p1g$' || true)"
+          echo "QRC820_REPAIRED_SOURCE5_QA2_SAME_SESSION_BUILD_CAS_FORGED_ID_WASM_FOCUSED_PASS"
