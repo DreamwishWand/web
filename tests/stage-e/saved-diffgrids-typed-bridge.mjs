@@ -80,7 +80,7 @@ export async function runSavedDiffGridsBridge(WorkerWasmSource) {
    assert(!JSON.stringify(p).includes('SECRET_SYNTHETIC_OPAQUE_NEVER_EXPORT'),'NO_UNKNOWN_FULLJSON_LEAK');
    count+=p.records.length;
    pages+=1;max=Math.max(max,p.records.length);
-   refused(()=>wasm.read_saved_diffgrids_typed_page(token,...s),'INDEX_CURSOR_UNKNOWN_OR_CONSUMED');
+   refused(()=>wasm.read_saved_diffgrids_typed_page(token,...s),'SAVED_DIFFGRIDS_CURSOR_UNKNOWN_OR_CONSUMED');
    refused(()=>wasm.read_typed_page(token,...s),'INDEX_CURSOR_UNKNOWN_OR_CONSUMED');
    if(n<2)assert(p.nextCursor&&p.nextCursor!==token,'ROTATED_CURSOR');
    else assert(p.nextCursor===null,'FINISHED_CURSOR');
@@ -126,7 +126,7 @@ export async function runSavedDiffGridsBridge(WorkerWasmSource) {
  malformed.close();
  const duplicate=new TextEncoder().encode('{"GameInfo":{"Version":626},"Player":{},"World":{"GridCollection":{"DiffGrids":{"7":{"ID":7},"7":{"ID":7}}}}}');
  const repeated=create(build,duplicate);
- refused(()=>repeated.finish(),'JSON_DUPLICATE_KEY');
+ refused(()=>repeated.finish(),'FULL_DOCUMENT_VALIDATION_DENIED');
  return Object.freeze({pages,records:count,maxRecordsPerPage:max,overlapPairs,
    wasmWorker:true,actualRustWasm:true,realOwnerSaveUsed:false,
    cursorReplayDenied:true,workerCloseDenied:true,
