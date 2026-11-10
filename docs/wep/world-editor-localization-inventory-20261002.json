@@ -1,7 +1,7 @@
 {
   "schema": "dreamwish-wand-world-editor-localization-inventory@1",
   "status": "COMPLETE_FOR_PINNED_SOURCES",
-  "generatedAt": "2026-11-09",
+  "generatedAt": "2026-11-10",
   "target": {
     "product": "Decorate / World Editor",
     "platform": "Nintendo Switch",
@@ -19,7 +19,7 @@
     "PT-BR"
   ],
   "sourcePins": {
-    "src/routes/editor/world/+page.svelte": "7c2a0d25aa97588b7753a1231e7627b0489aede7",
+    "src/routes/editor/world/+page.svelte": "fa06ea35ca12973b056887acc28930f3952f3810",
     "src/lib/wep/world-editor-primary-job.ts": "25aba45c6004c020400a249c848c3bc2281fd4a0",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
     "src/lib/SiteHeader.svelte": "6cede86476ca6dbd3427115671367c9a1f4a433f",
@@ -28,7 +28,9 @@
     "src/lib/wep/world-editor-stage1-copy.js": "b5241358967cc0daa7f1cba6870f551810af717d",
     "src/lib/wep/room-finish-copy.js": "f75c54053bafa416842ca17938895b20d7f47f9b",
     "src/lib/wep/world-readonly-copy.js": "0db2b06c03502f0559b2dd86984ff54aa728d832",
-    "src/lib/wep/local-scene-route-handoff.mjs": "9114d537d5afee718db5240d538b4203546a591f"
+    "src/lib/wep/local-scene-route-handoff.mjs": "9114d537d5afee718db5240d538b4203546a591f",
+    "src/lib/wep/SaveFreeFirstScene.svelte": "b5a3610a1e9950bd5dd5be30960ef8820ff0f66b",
+    "src/lib/wep/savefree-first-scene.ts": "57fd5c6131e1aa7b7ec69f1168b1a8d2d2c51f57"
   },
   "ownership": {
     "wepOwned": [
@@ -39,7 +41,9 @@
       "src/lib/wep/world-editor-stage1-copy.js",
       "src/lib/wep/room-finish-copy.js",
       "src/lib/wep/world-readonly-copy.js",
-      "src/lib/wep/local-scene-route-handoff.mjs"
+      "src/lib/wep/local-scene-route-handoff.mjs",
+      "src/lib/wep/SaveFreeFirstScene.svelte",
+      "src/lib/wep/savefree-first-scene.ts"
     ],
     "sharedWebRenderedOnWorldEditor": [
       "src/lib/SiteHeader.svelte",
@@ -90,7 +94,8 @@
       "Isolated IDB Board receiver: BoardID, Revision, verified Item read-only selection and eight-locale denial.",
       "Explicit local Scene Preset capture, IndexedDB CAS/Backup, independent reopen, read-only use, eight-locale UI and failure feedback.",
       "F-P04 detached read-only local Scene reuse Draft: explicit opt-in, fresh revision match, local coordinates, eight-locale status and refusal; never Native Apply or Editor mutation.",
-      "My Presets selected local Scene same-tab navigation: passive one-shot hint, explicit reread button, eight-locale confirmation/ready/denial. No auto Apply or native identity."
+      "My Presets selected local Scene same-tab navigation: passive one-shot hint, explicit reread button, eight-locale confirmation/ready/denial. No auto Apply or native identity.",
+      "Save-independent first NONEMPTY local Scene: explicit SHA-verified Switch v1.25.0 Catalog Item choose, SHA-pinned Geometry/Scope Footprint, one-object canonical WEP Capture, same existing IDB CAS+Backup/independent Reopen, eight-locale UI and fail-closed consent; no initial empty Preset or inferred personal inventory."
     ],
     "neverTranslate": [
       "Core/WEP machine reason code",
@@ -1406,6 +1411,28 @@
           "Reopen selected Scene as read-only draft",
           "Detached read-only Scene ready. Editor and DDV Save were not changed.",
           "Selection expired, changed or invalid. Reopen My Presets and select again."
+        ]
+      },
+      {
+        "surface": "Save-free first NONEMPTY verified Catalog Scene / World Editor",
+        "source": [
+          "src/routes/editor/world/+page.svelte",
+          "src/lib/wep/SaveFreeFirstScene.svelte",
+          "src/lib/wep/savefree-first-scene.ts"
+        ],
+        "strings": [
+          "Create a first local Scene without a game Save",
+          "Choose a verified furniture Item and its source-pinned footprint. Local design only: no ownership, Editor placement or DDV Apply.",
+          "Load verified furniture Catalog",
+          "Search Item name or ID",
+          "Select this verified Item",
+          "Unsupported footprint or policy",
+          "Scene title",
+          "Preview verified nonempty Scene",
+          "Save nonempty Scene on this device",
+          "Saved and independently reopened. Local readonly Scene; DDV writer and Apply remain OFF.",
+          "Scene could not be verified or saved. Existing library was not overwritten.",
+          "Writer / Apply / Cloud OFF"
         ]
       }
     ],
