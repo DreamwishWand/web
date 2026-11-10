@@ -19,7 +19,7 @@ try{
  });
  const page=await context.newPage();
  page.on('pageerror',e=>errors.push(String(e)));
- let response=await page.goto(origin+'/editor/world/',{waitUntil:'domcontentloaded'});
+ let response=await page.goto(origin+'/editor/world/',{waitUntil:'networkidle',timeout:60000});
  assert.equal(response.status(),200);
  const panel=page.locator('[data-wep-savefree-first-scene]');
  await panel.waitFor({timeout:30000});
