@@ -94,34 +94,34 @@ fn pr881_cursor_8_8_1_same_cache_replay_cross_domain_foreign_bounds_cas(){
     let mut m=serde_json::Map::new();
     for id in 1..=17u64 {m.insert(id.to_string(),json!({"ID":id}));}
     v["World"]["GridCollection"]["DiffGrids"]=Value::Object(m);
-    let a=open(&v,steam());let scope=scope(&a);
-    let root=a.issue_indexed_cursor(scope,IndexedDomain::World).unwrap();
-    assert!(a.issue_indexed_cursor(scope,IndexedDomain::SavedDiffGrids).is_err(),
+    let a=open(&v,steam());let active=scope(&a);
+    let root=a.issue_indexed_cursor(active,IndexedDomain::World).unwrap();
+    assert!(a.issue_indexed_cursor(active,IndexedDomain::SavedDiffGrids).is_err(),
         "regular root cursor API must not mint typed DiffGrids");
-    let first=a.issue_saved_diffgrids_cursor(scope).unwrap();
+    let first=a.issue_saved_diffgrids_cursor(active).unwrap();
     assert_ne!(first.cursor,root.cursor);
     assert_eq!(first.indexed_records,17);
-    assert!(a.issue_saved_diffgrids_cursor(scope).is_err(),"same existing two active cursor limit");
-    assert!(a.read_indexed_page(scope,first.cursor).is_err(),"different API cannot consume typed grant");
-    assert!(a.read_saved_diffgrids_page(scope,root.cursor).is_err(),"world cursor cannot become DiffGrids");
-    assert!(a.read_saved_diffgrids_page(scope,[0;16]).is_err(),"forged zero token");
-    assert!(a.read_saved_diffgrids_page(scope,[0x53;16]).is_err(),"guessable UI token rejected");
+    assert!(a.issue_saved_diffgrids_cursor(active).is_err(),"same existing two active cursor limit");
+    assert!(a.read_indexed_page(active,first.cursor).is_err(),"different API cannot consume typed grant");
+    assert!(a.read_saved_diffgrids_page(active,root.cursor).is_err(),"world cursor cannot become DiffGrids");
+    assert!(a.read_saved_diffgrids_page(active,[0;16]).is_err(),"forged zero token");
+    assert!(a.read_saved_diffgrids_page(active,[0x53;16]).is_err(),"guessable UI token rejected");
     let b=open(&v,steam());assert_ne!(a.receipt().unwrap().session_id,b.receipt().unwrap().session_id);
     assert!(a.read_saved_diffgrids_page(scope(&b),first.cursor).is_err(),"cross-session cursor rejected");
-    let p1=a.read_saved_diffgrids_page(scope,first.cursor).unwrap();
+    let p1=a.read_saved_diffgrids_page(active,first.cursor).unwrap();
     assert_eq!(p1.records.len(),8);assert_eq!(p1.records[0].grid_id,1);
-    assert!(a.read_saved_diffgrids_page(scope,first.cursor).is_err(),"replay token1");
+    assert!(a.read_saved_diffgrids_page(active,first.cursor).is_err(),"replay token1");
     let c2=p1.next_cursor.unwrap();
-    let p2=a.read_saved_diffgrids_page(scope,c2).unwrap();
+    let p2=a.read_saved_diffgrids_page(active,c2).unwrap();
     assert_eq!(p2.records.len(),8);
-    assert!(a.read_saved_diffgrids_page(scope,c2).is_err(),"replay token2");
-    let p3=a.read_saved_diffgrids_page(scope,p2.next_cursor.unwrap()).unwrap();
+    assert!(a.read_saved_diffgrids_page(active,c2).is_err(),"replay token2");
+    let p3=a.read_saved_diffgrids_page(active,p2.next_cursor.unwrap()).unwrap();
     assert_eq!(p3.records.len(),1);assert_eq!(p3.records[0].grid_id,17);
     assert!(p3.next_cursor.is_none());
-    let still_root=a.read_indexed_page(scope,root.cursor).unwrap();
+    let still_root=a.read_indexed_page(active,root.cursor).unwrap();
     assert_eq!(still_root.domain,IndexedDomain::World);
     assert!(!still_root.product_read_accepted&&!still_root.writer_authorized);
-    assert!(a.read_saved_diffgrids_page(scope,first.cursor).is_err());
+    assert!(a.read_saved_diffgrids_page(active,first.cursor).is_err());
 }
 #[test]
 fn pr881_exact_external_build_and_full_document_schema_not_steam_switch_alias(){
