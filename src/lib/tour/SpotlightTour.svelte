@@ -129,8 +129,9 @@
     stepIndex=index;
     // Explicit navigation only: scroll the selected real anchor into view.
     element.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});
-    await tick();
     reveal(element);
+    // Assign the new step's geometry synchronously with its text. Otherwise
+    // Chrome can paint the new heading with the previous step's 330px box.
     measure();
     // Accessibility focus must be present as soon as the dialog renders;
     // later frame-by-frame geometry calibration must not delay it.
