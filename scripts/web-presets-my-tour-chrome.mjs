@@ -6,6 +6,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {setTimeout as sleep} from 'node:timers/promises';
 import {presetsMyTourCopy,PRESETS_MY_TOUR_LOCALES} from '../src/lib/tour/presets-my-tour-copy.mjs';
+import {PRESETS_MY_WAND_TOUR} from '../src/lib/tour/typed-tour-contract.mjs';
 const HOST='http://127.0.0.1:4398';
 const chrome=process.env.CHROME_BIN ||
  ['google-chrome-stable','google-chrome','chromium','chromium-browser'].map(x=>
@@ -188,8 +189,40 @@ try{
  await q("document.documentElement.style.zoom='2';return true");
  await tap('[data-tour-launch="mobile"]');
  await until("return Boolean(document.querySelector('[data-typed-tour-dialog]'))");
- const z=await q("const e=document.querySelector('[data-typed-tour-dialog]').getBoundingClientRect();return {right:e.right,vw:innerWidth}");
- assert.ok(z.right<=z.vw+1,'CSS zoom dialog width');
+ // The independent QR-W run caught a real 660px rendered dialog in a
+ // 640px root-zoom2 viewport. Measure actual rendered DOMRects, not CSS width.
+ const assertZoomBounds=async(step,phase)=>{
+  const selector=PRESETS_MY_WAND_TOUR.steps[step].target;
+  const m=await q("const d=document.querySelector('[data-typed-tour-dialog]'),s=document.querySelector('[data-typed-tour-highlight]'),t=document.querySelector("+JSON.stringify(selector)+");if(!d||!s||!t)return null;const a=d.getBoundingClientRect(),b=s.getBoundingClientRect(),c=t.getBoundingClientRect();return {vw:innerWidth,vh:innerHeight,dialog:{left:a.left,right:a.right,top:a.top,bottom:a.bottom},spot:{left:b.left,right:b.right,top:b.top,bottom:b.bottom},target:{left:c.left,right:c.right,top:c.top,bottom:c.bottom},zoom:getComputedStyle(document.documentElement).zoom};");
+  assert.ok(m,'CSS200 '+phase+' missing dialog, spotlight or anchor');
+  for(const name of ['dialog','spot']){
+   const r=m[name];
+   assert.ok(r.left>=-1&&r.right<=m.vw+1&&r.top>=-1&&r.bottom<=m.vh+1,
+    'CSS200 '+phase+' '+name+' out of viewport '+JSON.stringify(m));
+  }
+  const intersectionWidth=Math.min(m.spot.right,m.target.right)-Math.max(m.spot.left,m.target.left);
+  const intersectionHeight=Math.min(m.spot.bottom,m.target.bottom)-Math.max(m.spot.top,m.target.top);
+  assert.ok(intersectionWidth>0&&intersectionHeight>0,
+   'CSS200 '+phase+' spotlight missed target '+JSON.stringify(m));
+ };
+ await assertZoomBounds(0,'first');
+ for(let step=1;step<PRESETS_MY_WAND_TOUR.steps.length;step++){
+  await tap('[data-tour-next]');
+  await until("return document.querySelector('[data-typed-tour-dialog] h2')?.textContent==="+JSON.stringify(presetsMyTourCopy(PRESETS_MY_TOUR_LOCALES.at(-1)).steps[step].title));
+  await sleep(130);
+  await assertZoomBounds(step,'step-'+step);
+ }
+ await q("window.scrollBy(0,80);return true");
+ await sleep(130);
+ await assertZoomBounds(3,'scroll');
+ await send('Emulation.setDeviceMetricsOverride',{width:620,height:780,
+  deviceScaleFactor:1,mobile:false});
+ await sleep(180);
+ await assertZoomBounds(3,'resize');
+ await send('Emulation.setDeviceMetricsOverride',{width:640,height:800,
+  deviceScaleFactor:1,mobile:false});
+ await sleep(130);
+ await assertZoomBounds(3,'resize-restore');
  await tap('[data-tour-skip]');
  await until("return !document.querySelector('[data-typed-tour-open]')");
  console.log('WEB_TOUR_REAL_CHROME_320_ZOOM200_REDUCED_MOTION_ESCAPE_PASS');
