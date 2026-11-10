@@ -11,13 +11,13 @@ use sha2::{Digest,Sha256};
 pub const INDEX_PAGE_ENTRIES_MAX:usize=16;
 const INDEX_KEY_BYTES_MAX:usize=128;
 const INDEX_ROOT_KEY_BYTES_MAX:usize=128;
-const INDEX_MAX_ACTIVE_CURSORS:usize=2;
+pub(super) const INDEX_MAX_ACTIVE_CURSORS:usize=2;
 const INDEX_MAX_DEPTH:usize=128;
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
-pub enum IndexedDomain {Player,World,Unsupported}
+pub enum IndexedDomain {Player,World,SavedDiffGrids,Unsupported}
 impl IndexedDomain{
     pub const fn path(self)->&'static str {
-        match self {Self::Player=>"/Player",Self::World=>"/World",Self::Unsupported=>"<unsupported>"}
+        match self {Self::Player=>"/Player",Self::World=>"/World",Self::SavedDiffGrids=>"/World/GridCollection/DiffGrids",Self::Unsupported=>"<unsupported>"}
     }
 }
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
@@ -59,14 +59,16 @@ pub(super) struct Span {pub(super) begin:usize,pub(super) end:usize}
 #[derive(Clone,Copy,Debug)]
 pub(super) struct RootIndex {pub(super) player:Span,pub(super) world:Span}
 #[derive(Clone,Debug)]
-struct CursorGrant{
-    token:[u8;16],domain:IndexedDomain,pos:usize,
-    revision:u64,generation:u64,
+pub(super) struct CursorGrant{
+    pub(super) token:[u8;16],pub(super) domain:IndexedDomain,pub(super) pos:usize,
+    pub(super) revision:u64,pub(super) generation:u64,
 }
 pub(super) struct IndexedCache {
-    roots:RootIndex,
-    grants:Vec<CursorGrant>,
-    next_nonce:u64,
+    pub(super) roots:RootIndex,
+    pub(super) grants:Vec<CursorGrant>,
+    pub(super) next_nonce:u64,
+    // Indexed saved-field spans belong to this SAME Rust ProductSession/Mutex.
+    pub(super) saved_diffgrids:Option<Vec<super::saved_diffgrids_index::SavedDiffGridIndexEntry>>,
 }
 fn denied(error:&'static str)->CoreError{CoreError(error)}
 pub(super) fn skip_ws(bytes:&[u8],mut i:usize)->usize {
@@ -180,7 +182,7 @@ fn domain_span(roots:RootIndex,domain:IndexedDomain)->CoreResult<Span>{
     match domain {
         IndexedDomain::Player=>Ok(roots.player),
         IndexedDomain::World=>Ok(roots.world),
-        IndexedDomain::Unsupported=>Err(denied("INDEX_DOMAIN_NOT_ALLOWLISTED")),
+        IndexedDomain::SavedDiffGrids|IndexedDomain::Unsupported=>Err(denied("INDEX_DOMAIN_NOT_ALLOWLISTED")),
     }
 }
 fn page_fields(bytes:&[u8],span:Span,start:usize)
@@ -247,7 +249,7 @@ fn derive_worker_cursor(key:&[u8;32],source_sha:&[u8;32],nonce:u64)->[u8;16]{
     let digest=hash.finalize();
     let mut out=[0_u8;16];out.copy_from_slice(&digest[..16]);out
 }
-fn mint_cursor(source:&ProductSession,cache:&mut IndexedCache)->CoreResult<[u8;16]>{
+pub(super) fn mint_cursor(source:&ProductSession,cache:&mut IndexedCache)->CoreResult<[u8;16]>{
     let next=cache.next_nonce.checked_add(1).ok_or(denied("INDEX_NONCE_OVERFLOW"))?;
     #[cfg(not(target_arch="wasm32"))]
     let mut token=[0_u8;16];
@@ -296,7 +298,7 @@ impl ProductSession {
     /// Feature is OFF by default and not bound to the browser Worker.
     pub fn issue_indexed_cursor(&self,scope:WorkerEnvelope,domain:IndexedDomain)
         ->CoreResult<IndexedCursorReceipt>{
-        if domain==IndexedDomain::Unsupported{
+        if matches!(domain,IndexedDomain::Unsupported|IndexedDomain::SavedDiffGrids){
             return Err(denied("INDEX_DOMAIN_NOT_ALLOWLISTED"));
         }
         let mut st=self.lock()?;
@@ -304,7 +306,7 @@ impl ProductSession {
         if st.indexed.is_none(){
             // Read only borrowed bytes from one immutable ProductSession.
             let index=roots(&self.decoded)?;
-            st.indexed=Some(IndexedCache{roots:index,grants:Vec::new(),next_nonce:0});
+            st.indexed=Some(IndexedCache{roots:index,grants:Vec::new(),next_nonce:0,saved_diffgrids:None});
         }
         let cache=st.indexed.as_mut().ok_or(denied("INDEX_NOT_INITIALIZED"))?;
         if cache.grants.len()>=INDEX_MAX_ACTIVE_CURSORS{
@@ -337,6 +339,9 @@ impl ProductSession {
         let slot=cache.grants.iter().position(|g|g.token==cursor)
             .ok_or(denied("INDEX_CURSOR_UNKNOWN_OR_CONSUMED"))?;
         let grant=cache.grants[slot].clone();
+        if grant.domain==IndexedDomain::SavedDiffGrids{
+            return Err(denied("INDEX_TYPED_DIFFGRIDS_CURSOR_REQUIRED"));
+        }
         if grant.revision!=scope.expected_revision||
            grant.generation!=scope.expected_index_generation{
             return Err(denied("INDEX_CURSOR_STALE"));

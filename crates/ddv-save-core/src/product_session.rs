@@ -94,6 +94,11 @@ pub use private_native_v2::PrivateOfflineReceipt;
 #[path = "indexed_read.rs"]
 mod indexed_read;
 #[cfg(feature = "indexed-read")]
+#[path = "saved_diffgrids_index.rs"]
+mod saved_diffgrids_index;
+#[cfg(feature = "indexed-read")]
+pub use saved_diffgrids_index::{ExternalLayoutStatus,SavedDiffGridMetadata,SavedDiffGridsCursorReceipt,SavedDiffGridsPage,StoredRemovedShape};
+#[cfg(feature = "indexed-read")]
 pub use indexed_read::{IndexedCursorReceipt,IndexedDomain,IndexedFieldWitness,IndexedKind,IndexedPage,INDEX_PAGE_ENTRIES_MAX};
 /// Same synchronized State for all dispatch/close paths; research Stage session
 /// cannot mint or rebind another product ID. No product Writer entrypoint.
@@ -105,7 +110,7 @@ pub struct ProductSession {
     worker_bound: bool,
     // 01A-owned immutable, open-time validated external Build declaration.
     // Private/native only; not a Product read or proof of cryptographic Build origin.
-    #[cfg(feature = "private-native-v1")]
+    #[cfg(feature = "indexed-read")]
     native_source_build: BuildIdentity,
     #[cfg(all(feature="worker-wasm",feature="indexed-read",target_arch="wasm32"))]
     worker_cursor_key:[u8;32],
@@ -132,7 +137,7 @@ impl ProductSession {
                 #[cfg(feature = "private-native-v2")] private_offline:None,
                 #[cfg(feature = "indexed-read")] indexed:None }),
             decoded:Arc::from(decoded), sha, schema:build.schema, worker_bound:false,
-            #[cfg(feature = "private-native-v1")]
+            #[cfg(feature = "indexed-read")]
             native_source_build:build,
             #[cfg(all(feature="worker-wasm",feature="indexed-read",target_arch="wasm32"))]
             worker_cursor_key:[0;32],
@@ -178,7 +183,7 @@ impl ProductSession {
         Ok(Self {
             state:Mutex::new(state),decoded:Arc::from(decoded),
             sha,schema:build.schema,worker_bound:true,
-            #[cfg(feature = "private-native-v1")]
+            #[cfg(feature = "indexed-read")]
             native_source_build:build,
             #[cfg(all(feature="worker-wasm",feature="indexed-read",target_arch="wasm32"))]
             worker_cursor_key,
