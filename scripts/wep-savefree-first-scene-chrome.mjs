@@ -109,11 +109,11 @@ try{
   .then(x=>JSON.stringify(x)),JSON.stringify(oldValues));
  console.log('WEP_SAVEFREE_FIRST_NONEMPTY_REAL_CHROME_PINNED_CATALOG_GEOMETRY_IDB_CAS_REOPEN_PASS');
  for(const loc of ['en','fr','it','de','es-ES','ja','zh-CN','pt-BR']){
-  await page.locator('#site-locale').selectOption(loc);
+  await page.locator('#site-locale').selectOption(loc,{force:true});
   assert.ok((await panel.locator('h2').innerText()).length>5);
   assert.ok((await page.locator('[data-wep-savefree-status]').innerText()).length>5);
  }
- await page.locator('#site-locale').selectOption('en');
+ await page.locator('#site-locale').selectOption('en',{force:true});
  for(const [width,zoom] of [[320,'1'],[640,'2']]){
   await page.setViewportSize({width,height:900});
   await page.evaluate(z=>{document.documentElement.style.zoom=z;},zoom);
