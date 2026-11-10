@@ -202,6 +202,9 @@ try{
   }
   const intersectionWidth=Math.min(m.spot.right,m.target.right)-Math.max(m.spot.left,m.target.left);
   const intersectionHeight=Math.min(m.spot.bottom,m.target.bottom)-Math.max(m.spot.top,m.target.top);
+  assert.ok(m.target.right>0&&m.target.left<m.vw&&
+   m.target.bottom>0&&m.target.top<m.vh,
+   'CSS200 '+phase+' real anchor offscreen '+JSON.stringify(m));
   assert.ok(intersectionWidth>0&&intersectionHeight>0,
    'CSS200 '+phase+' spotlight missed target '+JSON.stringify(m));
  };
@@ -217,12 +220,23 @@ try{
  await assertZoomBounds(3,'scroll');
  await send('Emulation.setDeviceMetricsOverride',{width:620,height:780,
   deviceScaleFactor:1,mobile:false});
- await sleep(180);
- await assertZoomBounds(3,'resize');
+ await sleep(240);
+ await assertZoomBounds(3,'resize-620');
+ await send('Emulation.setDeviceMetricsOverride',{width:700,height:840,
+  deviceScaleFactor:1,mobile:false});
+ await sleep(240);
+ await assertZoomBounds(3,'resize-700');
  await send('Emulation.setDeviceMetricsOverride',{width:640,height:800,
   deviceScaleFactor:1,mobile:false});
- await sleep(130);
+ await sleep(240);
  await assertZoomBounds(3,'resize-restore');
+ // Regression from independent QA #890: preserve scroll history and change
+ // from zoom200/640px to zoom100/320px without ending the current Tour.
+ await q("document.documentElement.style.zoom='1';return true");
+ await send('Emulation.setDeviceMetricsOverride',{width:320,height:800,
+  deviceScaleFactor:1,mobile:true});
+ await sleep(270);
+ await assertZoomBounds(3,'320-after-css200-scroll-resize');
  await tap('[data-tour-skip]');
  await until("return !document.querySelector('[data-typed-tour-open]')");
  console.log('WEB_TOUR_REAL_CHROME_320_ZOOM200_REDUCED_MOTION_ESCAPE_PASS');
