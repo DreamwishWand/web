@@ -1,0 +1,91 @@
+name: 05 QR-C PR881 Stored DiffGrids ProductSession changed-only independent QA
+on:
+  push:
+    branches:
+      - 'qa/05qrc-pr881-stored-diffgrids-9855cdd3-20261110'
+  pull_request:
+    paths:
+      - 'crates/ddv-save-core/tests/qa_05qrc_pr881_stored_diffgrids.rs'
+      - '.github/workflows/05qr-c-pr881-stored-diffgrids-independent.yml'
+permissions:
+  contents: read
+jobs:
+  pr881-stored-diffgrids-changed-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TARGET_DIR: /tmp/qrc-pr881-stored-diffgrids
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Verify immutable PR881 Source five Git blobs and exactly two QA-only added paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          source=9855cdd30c15013956c5fecb27959362de42261d
+          if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
+            qa_tip="$(git rev-parse HEAD^2)"
+          else
+            qa_tip="$(git rev-parse HEAD)"
+          fi
+          git merge-base --is-ancestor "$source" "$qa_tip"
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/indexed_read.rs)" = "b6d9b1d21dc66037b61a3f4a527c131ef45979fe"
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/lib.rs)" = "ce8e237830a8eeef15a69e36acdf7ef23a8ba108"
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/product_session.rs)" = "32a58b849caf36e2dd8abc85773668a1ee22c102"
+          test "$(git rev-parse "$qa_tip":crates/ddv-save-core/src/saved_diffgrids_index.rs)" = "99934041d6211a53fe0d4c316654067376555ebb"
+          test "$(git rev-parse "$qa_tip":docs/core/01a-r22-saved-diffgrids-typed-indexed-read-20261110.md)" = "e91964af0ec0df9cc2b8d6847ac19599ae4fdcd9"
+          actual="$(git diff --name-only "$source" "$qa_tip" | sort)"
+          expected="$(printf '%s\n' \
+            .github/workflows/05qr-c-pr881-stored-diffgrids-independent.yml \
+            crates/ddv-save-core/tests/qa_05qrc_pr881_stored_diffgrids.rs | sort)"
+          test "$actual" = "$expected"
+          test -z "$(git diff --name-only "$source" "$qa_tip" -- crates/ddv-save-core/src crates/ddv-save-core/Cargo.toml src tests/native-owner-area-grid-slice.test.mjs)"
+          test -z "$(git ls-files | grep -E 'OWNER_PRIVATE|STEAM_SAVE_OWNER_PRIVATE|\.p1g$' || true)"
+      - name: Independent new PR881 Rust typed saved-fields tests only
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml \
+            --features indexed-read --test qa_05qrc_pr881_stored_diffgrids -- --nocapture
+      - name: Default and indexed ProductSession ABI/Native compile
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --lib
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --features indexed-read --lib
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --features private-native-v1 --lib --bin wand-local-rust-v1
+      - name: Worker WASM ABI positive and stored metadata dispatch OFF
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --features worker-wasm --lib
+          cargo check --manifest-path crates/ddv-save-core/Cargo.toml --target wasm32-unknown-unknown --features worker-wasm,indexed-read --lib
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          const worker=readFileSync('crates/ddv-save-core/src/wasm_worker.rs','utf8');
+          const typed=readFileSync('crates/ddv-save-core/src/saved_diffgrids_index.rs','utf8');
+          assert.match(typed,/pub fn issue_saved_diffgrids_cursor/);
+          assert.match(typed,/pub fn read_saved_diffgrids_page/);
+          assert.doesNotMatch(worker,/issue_saved_diffgrids_cursor|read_saved_diffgrids_page|NativeEffectiveGrid/);
+          assert.doesNotMatch(worker,/writerAuthorized\s*:\s*true|productReadAccepted\s*:\s*true/);
+          assert.match(typed,/UnresolvedExternalLayout/);
+          assert.match(typed,/native_effective_grid_verified:false/);
+          console.log('QA05QRC881_STORED_ONLY_WASM_WORKER_PUBLIC_DISPATCH_NOT_ENABLED');
+          NODE
+      - name: Confirm QA-only no changes to original five Source paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
+            qa_tip="$(git rev-parse HEAD^2)"
+          else
+            qa_tip="$(git rev-parse HEAD)"
+          fi
+          test "$(git diff --name-only 9855cdd30c15013956c5fecb27959362de42261d "$qa_tip" | wc -l)" -eq 2
+          test -z "$(git diff --name-only 9855cdd30c15013956c5fecb27959362de42261d "$qa_tip" -- crates/ddv-save-core/src src)"
+          echo QA05QRC881_NEW_SOURCE5_QA2_RUST_ABI_WASM_STORED_ONLY_PASS
