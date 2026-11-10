@@ -29,7 +29,11 @@
   let tourTrigger:HTMLButtonElement|null=null;
   $: tourLabels=presetsMyTourCopy($locale);
   function startTour(event:MouseEvent):void{
-    tourTrigger=event.currentTarget as HTMLButtonElement;
+    // Svelte delegated click handlers may expose document as currentTarget.
+    // Restore focus to the actual initiating desktop/mobile/immersive button.
+    const hit=event.currentTarget instanceof HTMLButtonElement ? event.currentTarget :
+      event.target instanceof Element ? event.target.closest('button[data-tour-launch]') : null;
+    tourTrigger=hit instanceof HTMLButtonElement ? hit : null;
     tourNotice='';
     if(!isPresetPilotPath($page.url.pathname) ||
        !allPresetPilotTargetsVisible(document)){
