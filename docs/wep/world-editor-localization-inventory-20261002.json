@@ -22,7 +22,8 @@
     "src/routes/editor/world/+page.svelte": "fa06ea35ca12973b056887acc28930f3952f3810",
     "src/lib/wep/world-editor-primary-job.ts": "25aba45c6004c020400a249c848c3bc2281fd4a0",
     "src/lib/wep/blocker-messages.ts": "7fe61bf1949d19b4573d2dd0bcef6483ff97ed5c",
-    "src/lib/SiteHeader.svelte": "6cede86476ca6dbd3427115671367c9a1f4a433f",
+    "src/lib/SiteHeader.svelte": "7898fe66999d01fff70c2b19ca104dbf438f3013",
+    "src/lib/tour/presets-my-tour-copy.mjs": "2d7370ff990e840fe9a211726070f44713c48c1c",
     "src/lib/SiteFooter.svelte": "4b20121a1295e42aeaeb25e39cb3853bd80da0e8",
     "src/lib/wep/WorldEditorStage1DecoratePanel.svelte": "32c1834fbb5c5ca42307d81ad0cc5314c616c2ea",
     "src/lib/wep/world-editor-stage1-copy.js": "b5241358967cc0daa7f1cba6870f551810af717d",
@@ -49,7 +50,8 @@
       "src/lib/SiteHeader.svelte",
       "src/lib/SiteFooter.svelte",
       "src/lib/community/CommunityNav.svelte",
-      "src/lib/product-home/copy.js"
+      "src/lib/product-home/copy.js",
+      "src/lib/tour/presets-my-tour-copy.mjs"
     ]
   },
   "sharedLocaleBinding": {
@@ -95,7 +97,8 @@
       "Explicit local Scene Preset capture, IndexedDB CAS/Backup, independent reopen, read-only use, eight-locale UI and failure feedback.",
       "F-P04 detached read-only local Scene reuse Draft: explicit opt-in, fresh revision match, local coordinates, eight-locale status and refusal; never Native Apply or Editor mutation.",
       "My Presets selected local Scene same-tab navigation: passive one-shot hint, explicit reread button, eight-locale confirmation/ready/denial. No auto Apply or native identity.",
-      "Save-independent first NONEMPTY local Scene: explicit SHA-verified Switch v1.25.0 Catalog Item choose, SHA-pinned Geometry/Scope Footprint, one-object canonical WEP Capture, same existing IDB CAS+Backup/independent Reopen, eight-locale UI and fail-closed consent; no initial empty Preset or inferred personal inventory."
+      "Save-independent first NONEMPTY local Scene: explicit SHA-verified Switch v1.25.0 Catalog Item choose, SHA-pinned Geometry/Scope Footprint, one-object canonical WEP Capture, same existing IDB CAS+Backup/independent Reopen, eight-locale UI and fail-closed consent; no initial empty Preset or inferred personal inventory.",
+      "Shared SiteHeader '?' accessible help label and unavailable role=status live message use 08 WEB presets-my-tour-copy.mjs in eight launch locales; the four-step Presets Tour is not a World Editor Tour."
     ],
     "neverTranslate": [
       "Core/WEP machine reason code",
@@ -156,8 +159,19 @@
           "ダークモードに切り替え",
           "設定",
           "非公式ファン制作プロジェクト。Disney／Gameloftとは無関係です。",
-          "Help & Bugs"
-        ]
+          "Help & Bugs",
+          "このページの使い方"
+        ],
+        "helpLabelsByLocale": {
+          "en": "Page tutorial",
+          "fr": "Tutoriel de la page",
+          "it": "Tutorial pagina",
+          "de": "Seitentour",
+          "es-ES": "Tutorial de la página",
+          "ja": "このページの使い方",
+          "zh-CN": "页面教程",
+          "pt-BR": "Tutorial da página"
+        }
       }
     ],
     "buttons": [
@@ -1579,6 +1593,32 @@
           "Select verified current reference again",
           "No persistent Save Writer / no original overwrite"
         ]
+      },
+      {
+        "surface": "Shared Header Presets-only Tour unavailable notice on World Editor",
+        "owner": "shared-web",
+        "source": [
+          "src/lib/SiteHeader.svelte",
+          "src/lib/tour/presets-my-tour-copy.mjs"
+        ],
+        "selector": "p[data-tour-status]",
+        "role": "status",
+        "ariaLive": "polite",
+        "trigger": "Only explicit user click on shared Header '?' outside Presets / My Presets / Wand",
+        "scope": "Presets-only four-step Tour; World Editor does not launch this Tour",
+        "strings": [
+          "Presets → My Presets → Wand を開くと、チュートリアルを開始できます。"
+        ],
+        "unavailableByLocale": {
+          "en": "Open Presets → My Presets → Wand to start this tutorial.",
+          "fr": "Ouvrez Presets → My Presets → Wand pour lancer ce tutoriel.",
+          "it": "Apri Presets → My Presets → Wand per avviare il tutorial.",
+          "de": "Öffne Presets → My Presets → Wand für die Tour.",
+          "es-ES": "Abre Presets → My Presets → Wand para iniciar el tutorial.",
+          "ja": "Presets → My Presets → Wand を開くと、チュートリアルを開始できます。",
+          "zh-CN": "打开 Presets → My Presets → Wand 开始教程。",
+          "pt-BR": "Abra Presets → My Presets → Wand para iniciar o tutorial."
+        }
       }
     ]
   },
@@ -1611,7 +1651,8 @@
       "exhaustive enumeration of all 24 Core object-reason machine keys with presentation messages",
       "owner-separated shared SiteHeader/SiteFooter strings rendered on the World Editor surface",
       "source Git blob pins invalidate this inventory when any inventoried source changes",
-      "Switch v1.25.3 read-only intake and structural diagnostics inventoried across all eight launch locales, with no editable 626 route"
+      "Switch v1.25.3 read-only intake and structural diagnostics inventoried across all eight launch locales, with no editable 626 route",
+      "Reviewed PR888 new Header Git Blob and its imported eight-locale tour copy for WEP-visible question-mark aria/title and localized unavailable role=status; 13 existing inventory categories and all prior strings remain unchanged."
     ],
     "knownNonPresentationExclusions": [
       "imports and module paths",
