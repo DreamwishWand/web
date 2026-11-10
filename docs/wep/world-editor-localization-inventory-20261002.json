@@ -30,7 +30,7 @@
     "src/lib/wep/world-readonly-copy.js": "0db2b06c03502f0559b2dd86984ff54aa728d832",
     "src/lib/wep/local-scene-route-handoff.mjs": "9114d537d5afee718db5240d538b4203546a591f",
     "src/lib/wep/SaveFreeFirstScene.svelte": "b5a3610a1e9950bd5dd5be30960ef8820ff0f66b",
-    "src/lib/wep/savefree-first-scene.ts": "57fd5c6131e1aa7b7ec69f1168b1a8d2d2c51f57"
+    "src/lib/wep/savefree-first-scene.ts": "d81f39dd9cfc50bf4360b058f8f605d9056c3845"
   },
   "ownership": {
     "wepOwned": [
