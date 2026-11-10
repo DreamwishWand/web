@@ -5,7 +5,7 @@
 //! metadata; Rust does NOT claim to cryptographically prove the game install.
 //! ALL execution involving real Owner data is local/off-GitHub/off-Cloud.
 use ddv_save_core::{
-    BuildIdentity,BuildKind,IndexedDomain,Platform,ProductSession,WorkerAction,
+    BuildIdentity,BuildKind,ExternalLayoutStatus,IndexedDomain,Platform,ProductSession,WorkerAction,
     WorkerEnvelope,PRODUCT_WORKER_CONTRACT,
 };
 use sha2::{Digest,Sha256};
@@ -58,13 +58,117 @@ fn page_count(session:&ProductSession,scope:WorkerEnvelope,domain:IndexedDomain)
     }
     denied("NATIVE_INDEX_PAGE_BOUND");
 }
+/// Counts only, never Rust-owned individual Grid/Object IDs, paths, saved
+/// game hash values, decoded bytes, original SHA, or private SessionID.
+#[derive(Default)]
+struct StoredDiffGridsCounts {
+    total_grids:usize,
+    pages:usize,
+    max_page_records:usize,
+    modified_objects:usize,
+    removed_objects:usize,
+    modified_removed_same_id_pairs:usize,
+    unresolved_external_layouts:usize,
+    saved_grid_id_zero:usize,
+    saved_default_layout_id_zero:usize,
+    stored_layout_paths:usize,
+    stored_layout_types:usize,
+    stored_grid_hash_values:usize,
+    stored_grid_data_hash_values:usize,
+    consumed_cursor_denials:usize,
+}
+fn checked_plus(a:&mut usize,n:usize){
+    *a=a.checked_add(n).unwrap_or_else(||denied("TYPED_COUNTS_OVERFLOW"));
+}
+fn saved_diffgrids_counts(
+    session:&ProductSession,scope:WorkerEnvelope
+)->StoredDiffGridsCounts{
+    let issued=session.issue_saved_diffgrids_cursor(scope)
+        .unwrap_or_else(|_|denied("TYPED_DIFFGRIDS_CURSOR_ISSUE_DENIED"));
+    if issued.max_records_per_page!=8 || issued.session_id!=scope.session_id ||
+       issued.revision!=scope.expected_revision ||
+       issued.index_generation!=scope.expected_index_generation ||
+       issued.decoded_sha256!=scope.expected_decoded_sha256 ||
+       issued.product_read_accepted||issued.all_native_references_verified||
+       issued.writer_authorized {
+        denied("TYPED_DIFFGRIDS_CURSOR_SCOPE_INVALID");
+    }
+    let mut result=StoredDiffGridsCounts::default();
+    let mut cursor=issued.cursor;
+    for _ in 0..MAX_PAGES {
+        let page=session.read_saved_diffgrids_page(scope,cursor)
+            .unwrap_or_else(|_|denied("TYPED_DIFFGRIDS_PAGE_DENIED"));
+        if page.session_id!=scope.session_id ||
+           page.revision!=scope.expected_revision ||
+           page.index_generation!=scope.expected_index_generation ||
+           page.decoded_sha256!=scope.expected_decoded_sha256 ||
+           page.records.len()>8 ||
+           page.product_read_accepted||page.all_native_references_verified||
+           page.writer_authorized {
+            denied("TYPED_DIFFGRIDS_PAGE_SCOPE_INVALID");
+        }
+        checked_plus(&mut result.pages,1);
+        checked_plus(&mut result.total_grids,page.records.len());
+        result.max_page_records=result.max_page_records.max(page.records.len());
+        for grid in page.records {
+            if grid.external_layout!=ExternalLayoutStatus::UnresolvedExternalLayout ||
+               grid.native_effective_grid_verified {
+                denied("TYPED_DIFFGRIDS_UNVERIFIED_LAYOUT_AUTHORITY");
+            }
+            checked_plus(&mut result.unresolved_external_layouts,1);
+            checked_plus(&mut result.modified_objects,grid.modified_object_ids.len());
+            checked_plus(&mut result.removed_objects,grid.removed_object_ids.len());
+            checked_plus(&mut result.modified_removed_same_id_pairs,
+                         grid.modified_removed_id_pairs);
+            if grid.grid_id==0 {checked_plus(&mut result.saved_grid_id_zero,1);}
+            if grid.default_layout_grid_id==Some(0){
+                checked_plus(&mut result.saved_default_layout_id_zero,1);
+            }
+            if grid.grid_default_layout_path.is_some(){
+                checked_plus(&mut result.stored_layout_paths,1);
+            }
+            if grid.grid_default_layout_type.is_some(){
+                checked_plus(&mut result.stored_layout_types,1);
+            }
+            if grid.default_grid_hash_code.is_some(){
+                checked_plus(&mut result.stored_grid_hash_values,1);
+            }
+            if grid.default_grid_data_hash_code.is_some(){
+                checked_plus(&mut result.stored_grid_data_hash_values,1);
+            }
+        }
+        // The Rust cursor must be *consumed* by this read. Demonstrate the
+        // same-session replay negative on EVERY page, without logging tokens.
+        if session.read_saved_diffgrids_page(scope,cursor).is_ok(){
+            denied("TYPED_DIFFGRIDS_CURSOR_REPLAY_ACCEPTED");
+        }
+        checked_plus(&mut result.consumed_cursor_denials,1);
+        match page.next_cursor {
+            Some(next)=>{
+                if next==cursor || next==[0;16] || result.total_grids>=issued.indexed_records {
+                    denied("TYPED_DIFFGRIDS_INVALID_NEXT_CURSOR");
+                }
+                cursor=next;
+            }
+            None=>{
+                if result.total_grids!=issued.indexed_records ||
+                   result.unresolved_external_layouts!=result.total_grids {
+                    denied("TYPED_DIFFGRIDS_TOTAL_OR_UNKNOWN_MISMATCH");
+                }
+                return result;
+            }
+        }
+    }
+    denied("TYPED_DIFFGRIDS_PAGE_LIMIT");
+}
 fn run(){
     // The accepted no-argument V1 path remains byte-for-byte behaviorally
     // unchanged. Explicit private read-only slice cannot activate Writer.
     let argv:Vec<String>=env::args().skip(1).collect();
-    let native_slice=match argv.as_slice(){
-      []=>false,
-      [flag] if flag=="--native-area-grid-slice-only"=>true,
+    let (native_slice,stored_diffgrids)=match argv.as_slice(){
+      []=>(false,false),
+      [flag] if flag=="--native-area-grid-slice-only"=>(true,false),
+      [flag] if flag=="--dev-stored-diffgrids-typed-read-only"=>(false,true),
       _=>denied("UNTRUSTED_CLI_ARGS"),
     };
     if required("WAND_LOCAL_INSTALLED_STEAM_FULLVERSION")!=EXACT_STEAM_VERSION{
@@ -118,6 +222,9 @@ fn run(){
       Some(session.verify_native_area_grid_slice(scope)
           .unwrap_or_else(|_|denied("NATIVE_AREA_GRID_SLICE_DENIED")))
     } else {None};
+    let typed_counts=if stored_diffgrids {
+      Some(saved_diffgrids_counts(&session,scope))
+    } else {None};
     // Revoke while preserving the immutable original. No plaintext on disk.
     session.close().unwrap_or_else(|_|denied("RUST_CLOSE_FAILED"));
     let mut out=serde_json::json!({
@@ -157,6 +264,46 @@ fn run(){
         "nativeV3Verified":false,
         "productReadAccepted":false,
         "writerAuthorized":false
+      });
+    }
+    if let Some(r)=typed_counts {
+      // Original Size and any raw Save/Session/IDs are not part of the
+      // new DEV-only aggregate receipt, even though default V1 retains its
+      // legacy metadata fields.
+      out.as_object_mut().unwrap().remove("originalBytesSuppliedSeparately");
+      out["savedDiffGridsTypedRead"]=serde_json::json!({
+        "contract":"wand.dev.stored-diffgrids-typed-read-only@1",
+        "enabledOnlyByExplicitDevCliArg":true,
+        "exactExternalSteamFullVersion":true,
+        "singleProductSessionScopeValidated":true,
+        "sessionIdMatchedCore":true,
+        "revision":receipt.revision,
+        "indexGeneration":receipt.index_generation,
+        "decodedShaMatchedCore":true,
+        "fullDocumentValidated":true,
+        "indexedGridRecords":r.total_grids,
+        "typedPages":r.pages,
+        "maximumGridRecordsInPage":r.max_page_records,
+        "modifiedObjectRecords":r.modified_objects,
+        "removedObjectRecords":r.removed_objects,
+        "modifiedRemovedSameIdPairs":r.modified_removed_same_id_pairs,
+        "savedGridIdZeroRecords":r.saved_grid_id_zero,
+        "savedDefaultLayoutIdZeroRecords":r.saved_default_layout_id_zero,
+        "storedLayoutPathValues":r.stored_layout_paths,
+        "storedLayoutTypeValues":r.stored_layout_types,
+        "storedGridHashValues":r.stored_grid_hash_values,
+        "storedGridDataHashValues":r.stored_grid_data_hash_values,
+        "externalLayoutStatus":"UNRESOLVED_EXTERNAL_LAYOUT",
+        "unresolvedExternalLayoutRecords":r.unresolved_external_layouts,
+        "consumedCursorReplayDenials":r.consumed_cursor_denials,
+        "nativeEffectiveGridVerified":false,
+        "allNativeReferencesVerified":false,
+        "productReadAccepted":false,
+        "nativeV3Verified":false,
+        "writerAuthorized":false,
+        "editedCopyAuthorized":false,
+        "applyAuthorized":false,
+        "originalModified":false
       });
     }
     println!("{}",out);
