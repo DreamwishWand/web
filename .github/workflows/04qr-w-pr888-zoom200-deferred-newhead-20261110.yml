@@ -1,0 +1,49 @@
+name: "04 QR-W PR888 fixed zoom200 and deferred negatives changed-only"
+on:
+  push:
+    branches: [qa/04qr-w-pr888-zoom200-deferred-newhead-20261110]
+  pull_request:
+    paths:
+      - ".github/workflows/04qr-w-pr888-zoom200-deferred-newhead-20261110.yml"
+      - "scripts/04qr-w-pr888-zoom200-deferred-newhead-20261110.mjs"
+permissions:
+  contents: read
+jobs:
+  independent-repaired-geometry-real-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: "Start temporary local Source with no private Save"
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${DDV_PRIVATE_SAVE_PATH:-}"
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${P1G_PATH:-}"
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          test -n "$BIN"
+          "$BIN" --version
+          echo "CHROME_BIN=$BIN" >> "$GITHUB_ENV"
+          BASE_PATH='' npm run dev -- --host 127.0.0.1 --port 4397 >/tmp/qrw888-repaired.log 2>&1 &
+          for i in $(seq 1 85); do
+            if curl -fsS http://127.0.0.1:4397/presets/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          tail -n 100 /tmp/qrw888-repaired.log
+          exit 1
+      - name: "Independent real Chrome new fixed Source geometry and deferred negatives"
+        env:
+          QRW888_ORIGIN: http://127.0.0.1:4397
+          QRW_OLD_RED_EXPECTED: TRUE_RED_50PX_OVERFLOW
+        run: node scripts/04qr-w-pr888-zoom200-deferred-newhead-20261110.mjs
+      - name: "QA-only no merge or product release Flag"
+        run: echo "QRW888_QA_ONLY_NOT_MERGE_WRITER_NATIVEV3_APPLY_CLOUD_PROVIDER_MEDIA_COMMUNITY_PUBLIC_OFF"
