@@ -202,7 +202,8 @@ try{
   if(!m)console.log('WEB_TOUR_ZOOM_MISSING '+phase+' '+JSON.stringify(await q("const t=document.querySelector("+JSON.stringify(selector)+");const d=document.querySelector('[data-typed-tour-dialog]');return {target:t?.getBoundingClientRect().toJSON(),dialog:d?.getBoundingClientRect().toJSON(),scrollY,rootZoom:getComputedStyle(document.documentElement).zoom};")));
   else console.log('WEB_TOUR_ZOOM_PHYSICAL '+phase+' '+JSON.stringify(m));
   assert.ok(m,'CSS200 '+phase+' missing dialog, spotlight or anchor');
-  assert.equal(String(m.zoom),phase==='320-after-css200-scroll-resize'?'1':'2',
+  assert.equal(String(m.zoom),
+   phase==='320-after-css200-scroll-resize'||phase==='320-root-only-zoom1'?'1':'2',
    'CSS zoom state changed during '+phase);
   for(const name of ['dialog','spot']){
    const r=m[name];
@@ -246,6 +247,20 @@ try{
   deviceScaleFactor:1,mobile:true});
  await sleep(270);
  await assertZoomBounds(3,'320-after-css200-scroll-resize');
+ // QR-W #891 regression: root CSS zoom alone must recalculate an OPEN Tour.
+ // Do not synthesize any resize or scroll event. Root style mutation is the
+ // only external trigger; the Tour may scroll its own real active anchor.
+ const waitRootOnlyZoom=async(expected)=>{
+  const active=JSON.stringify(PRESETS_MY_WAND_TOUR.steps[3].target);
+  await until("const d=document.querySelector('[data-typed-tour-dialog]'),s=document.querySelector('[data-typed-tour-highlight]'),t=document.querySelector("+active+");if(!d||!s||!t||getComputedStyle(document.documentElement).zoom!=="+JSON.stringify(expected)+")return false;const a=d.getBoundingClientRect(),b=s.getBoundingClientRect(),c=t.getBoundingClientRect(),vw=innerWidth,vh=innerHeight;return a.left>=-1&&a.right<=vw+1&&a.top>=-1&&a.bottom<=vh+1&&b.left>=-1&&b.right<=vw+1&&b.top>=-1&&b.bottom<=vh+1&&c.right>0&&c.left<vw&&c.bottom>0&&c.top<vh&&Math.min(b.right,c.right)>Math.max(b.left,c.left)&&Math.min(b.bottom,c.bottom)>Math.max(b.top,c.top);");
+ };
+ await q("document.documentElement.style.zoom='2';return true");
+ await waitRootOnlyZoom('2');
+ await assertZoomBounds(3,'320-root-only-zoom2');
+ await q("document.documentElement.style.zoom='1';return true");
+ await waitRootOnlyZoom('1');
+ await assertZoomBounds(3,'320-root-only-zoom1');
+ console.log('WEB_TOUR_ROOT_ONLY_CSS_ZOOM_OPEN_DIALOG_RELAYOUT_PASS');
  await tap('[data-tour-skip]');
  await until("return !document.querySelector('[data-typed-tour-open]')");
  console.log('WEB_TOUR_REAL_CHROME_320_ZOOM200_REDUCED_MOTION_ESCAPE_PASS');

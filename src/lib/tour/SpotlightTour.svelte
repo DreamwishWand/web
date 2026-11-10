@@ -203,6 +203,9 @@
     const observer=typeof MutationObserver==='function'?new MutationObserver(recalc):null;
     if(main&&observer)observer.observe(main,{childList:true,subtree:true,attributes:true,
       attributeFilter:['style','class','hidden','disabled','aria-hidden']});
+    // CSS zoom may change on <html> without scroll/resize. Observe only root
+    // attributes, never overlay descendants, to avoid a remeasurement loop.
+    observer?.observe(document.documentElement,{attributes:true,attributeFilter:['style']});
     window.addEventListener('scroll',recalc,true);
     window.addEventListener('resize',recalc);
     return ()=>{
