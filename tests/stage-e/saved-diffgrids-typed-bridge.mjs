@@ -5,7 +5,8 @@ export async function runSavedDiffGridsBridge(WorkerWasmSource) {
  const assert=(yes,reason)=>{if(!yes)throw Error('R22_TYPED_WORKER_'+reason)};
  const refused=(run,contains)=>{
    try{run()}catch(e){
-     assert(String(e.message||e).includes(contains),'WRONG_NEGATIVE_'+contains);
+     const actual=String(e.message||e);
+     assert(actual.includes(contains),'WRONG_NEGATIVE_'+contains+'_ACTUAL_'+actual.slice(0,120));
      return;
    }
    throw Error('R22_TYPED_WORKER_UNEXPECTED_ACCEPT_'+contains);
@@ -101,6 +102,10 @@ export async function runSavedDiffGridsBridge(WorkerWasmSource) {
  refused(()=>wasm.read_saved_diffgrids_typed_page('0'.repeat(32),...s),'SAVED_DIFFGRIDS_CURSOR_UNKNOWN_OR_CONSUMED');
  // A cursor from a different, valid Steam session is never portable.
  const other=create();const or=JSON.parse(other.finish());
+ // Initialize the other Session's OWN index. A foreign cursor must still
+ // be rejected from the populated, independent Rust grant table.
+ const otherGrant=JSON.parse(other.issue_saved_diffgrids_typed_cursor(or.sessionId,0n,1n,or.decodedSha256));
+ assert(otherGrant.cursor!==issue.cursor,'RUST_CURSOR_CROSS_SESSION_SEPARATION');
  refused(()=>other.read_saved_diffgrids_typed_page(issue.cursor,or.sessionId,0n,1n,or.decodedSha256),
     'SAVED_DIFFGRIDS_CURSOR_UNKNOWN_OR_CONSUMED');
  other.close();
