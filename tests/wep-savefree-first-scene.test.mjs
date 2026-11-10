@@ -71,8 +71,10 @@ test('canonical capture creates exactly one nonempty 3x2 portable Scene with no 
  assert.equal(p.ok,true);
  assert.equal(p.writeReady,false);
  const j=JSON.stringify(result.artifact);
+ const forbids=(node,key)=>node!==null&&typeof node==='object'&&
+   Object.keys(node).some(k=>k.toLowerCase()===key.toLowerCase()||forbids(node[k],key));
  for(const field of ['gridId','gridObjectId','editorId','saveBytes','ownership','nativeGrid','sourceGridId'])
-  assert.doesNotMatch(j,new RegExp('"'+field+'"\\\\s*:'),field);
+  assert.equal(forbids(result.artifact,field),false,field);
  const detached=buildReadonlyLocalSceneReuseDraft({
   sceneId:'scene_11111111-1111-4111-8111-111111111111',
   sourceRevision:1,artifact:result.artifact
