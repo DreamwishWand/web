@@ -103,6 +103,9 @@ export function createP1gRustWorkerReadOnlyBridge(wasmFactory){
     readCoreVersion:scope=>rust.readCoreVersion(scope),
     issueTypedCursor:(scope,domain)=>rust.issueTypedCursor(scope,domain),
     readTypedPage:(scope,cursor)=>rust.readTypedPage(scope,cursor),
+    // Internal Worker-only, sanitized Rust-sourced stored metadata; no raw body.
+    issueSavedDiffGridsCursor:scope=>rust.issueSavedDiffGridsCursor(scope),
+    readSavedDiffGridsPage:(scope,cursor)=>rust.readSavedDiffGridsPage(scope,cursor),
     getReceipt:()=>rust.getReceipt(),
     getCapabilities:()=>Object.freeze({
       ...rust.getCapabilities(),
