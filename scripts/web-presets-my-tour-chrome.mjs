@@ -193,7 +193,9 @@ try{
  // 640px root-zoom2 viewport. Measure actual rendered DOMRects, not CSS width.
  const assertZoomBounds=async(step,phase)=>{
   const selector=PRESETS_MY_WAND_TOUR.steps[step].target;
-  const m=await q("const d=document.querySelector('[data-typed-tour-dialog]'),s=document.querySelector('[data-typed-tour-highlight]'),t=document.querySelector("+JSON.stringify(selector)+");if(!d||!s||!t)return null;const a=d.getBoundingClientRect(),b=s.getBoundingClientRect(),c=t.getBoundingClientRect();return {vw:innerWidth,vh:innerHeight,dialog:{left:a.left,right:a.right,top:a.top,bottom:a.bottom},spot:{left:b.left,right:b.right,top:b.top,bottom:b.bottom},target:{left:c.left,right:c.right,top:c.top,bottom:c.bottom},zoom:getComputedStyle(document.documentElement).zoom};");
+  const m=await q("const d=document.querySelector('[data-typed-tour-dialog]'),s=document.querySelector('[data-typed-tour-highlight]'),t=document.querySelector("+JSON.stringify(selector)+");if(!d||!s||!t)return null;const a=d.getBoundingClientRect(),b=s.getBoundingClientRect(),c=t.getBoundingClientRect();return {vw:innerWidth,vh:innerHeight,scrollY,rootScrollHeight:document.documentElement.scrollHeight,dialog:{left:a.left,right:a.right,top:a.top,bottom:a.bottom,css:d.getAttribute('style')},spot:{left:b.left,right:b.right,top:b.top,bottom:b.bottom,css:s.getAttribute('style')},target:{left:c.left,right:c.right,top:c.top,bottom:c.bottom},zoom:getComputedStyle(document.documentElement).zoom};");
+  if(!m)console.log('WEB_TOUR_ZOOM_MISSING '+phase+' '+JSON.stringify(await q("const t=document.querySelector("+JSON.stringify(selector)+");const d=document.querySelector('[data-typed-tour-dialog]');return {target:t?.getBoundingClientRect().toJSON(),dialog:d?.getBoundingClientRect().toJSON(),scrollY,rootZoom:getComputedStyle(document.documentElement).zoom};")));
+  else console.log('WEB_TOUR_ZOOM_PHYSICAL '+phase+' '+JSON.stringify(m));
   assert.ok(m,'CSS200 '+phase+' missing dialog, spotlight or anchor');
   for(const name of ['dialog','spot']){
    const r=m[name];
