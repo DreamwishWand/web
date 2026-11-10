@@ -28,14 +28,13 @@
   let tourNotice='';
   let tourTrigger:HTMLButtonElement|null=null;
   $: tourLabels=presetsMyTourCopy($locale);
-  function startTour(event:MouseEvent):void{
-    // Svelte delegated click handlers may expose document as currentTarget.
-    // Restore focus to the actual initiating desktop/mobile/immersive button.
-    const hit=event.currentTarget instanceof HTMLButtonElement ? event.currentTarget :
-      event.target instanceof Element ? event.target.closest('button[data-tour-launch]') : null;
-    tourTrigger=hit instanceof HTMLButtonElement ? hit :
-      Array.from(document.querySelectorAll<HTMLButtonElement>('button[data-tour-launch]'))
-        .find(button=>button.getClientRects().length>0&&!button.disabled)??null;
+  type TourEntry = 'desktop'|'mobile'|'immersive';
+  function startTour(origin:TourEntry):void{
+    // Event delegation can make event.currentTarget ambiguous. The exact
+    // initiating header control is passed explicitly so focus restoration
+    // never jumps to the mobile/immersive help control after Finish.
+    tourTrigger=document.querySelector<HTMLButtonElement>(
+      'button[data-tour-launch="' + origin + '"]');
     tourNotice='';
     if(!isPresetPilotPath($page.url.pathname) ||
        !allPresetPilotTargetsVisible(document)){
@@ -131,7 +130,7 @@
         <a class="toolbar-context-link product-root-link" href={base + productNav.rootHref}>{productNav.rootLabel}</a>
         <button type="button" class="toolbar-context-link" aria-expanded={mobileSectionsOpen} on:click={() => mobileSectionsOpen = true}>{productNav.rootLabel} · {t('shared.shell.contextActions', {}, $locale)}</button>
         <button type="button" class="toolbar-context-link" data-tour-launch="immersive"
-          aria-label={tourLabels.help} title={tourLabels.help} on:click={startTour}>
+          aria-label={tourLabels.help} title={tourLabels.help} on:click={()=>startTour('immersive')}>
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2.2-2.5 4.5"/><path d="M12 17.5h.01"/></svg>
         </button>
         <button type="button" class="toolbar-context-link immersive-settings" on:click={() => mobileSettingsOpen = true}>{t('shared.shell.settings', {}, $locale)}</button>
@@ -140,7 +139,7 @@
 
     <div class="toolbar-globals" aria-label={t('shared.shell.globalControls', {}, $locale)}>
       <button type="button" class="ui-icon-button" data-tour-launch="desktop"
-        aria-label={tourLabels.help} title={tourLabels.help} on:click={startTour}>
+        aria-label={tourLabels.help} title={tourLabels.help} on:click={()=>startTour('desktop')}>
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2.2-2.5 4.5"/><path d="M12 17.5h.01"/></svg>
       </button>
       {#if shell.save.href}
@@ -229,7 +228,7 @@
         </button>
       {/if}
       <button type="button" class="ui-icon-button" data-tour-launch="mobile"
-        aria-label={tourLabels.help} title={tourLabels.help} on:click={startTour}>
+        aria-label={tourLabels.help} title={tourLabels.help} on:click={()=>startTour('mobile')}>
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2.2-2.5 4.5"/><path d="M12 17.5h.01"/></svg>
       </button>
       <IconButton icon="settings" label={t('shared.shell.settings', {}, $locale)} on:activate={() => mobileSettingsOpen = true} />
