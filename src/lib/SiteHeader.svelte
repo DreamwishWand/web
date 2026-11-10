@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { afterNavigate } from '$app/navigation';
   import { page } from '$app/stores';
   import { base } from '$app/paths';
@@ -10,6 +10,9 @@
   import Sheet from '$lib/ui/Sheet.svelte';
   import { shellState, setShellContextActions } from '$lib/ui/shell-state.js';
   import { resolveProductShell } from '$lib/ui/product-shell-navigation.mjs';
+  import SpotlightTour from '$lib/tour/SpotlightTour.svelte';
+  import {presetsMyTourCopy} from '$lib/tour/presets-my-tour-copy.mjs';
+  import {isPresetPilotPath,allPresetPilotTargetsVisible} from '$lib/tour/typed-tour-contract.mjs';
 
   type ShellAction = { id: string; label: string; href?: string | null; icon?: string; current?: boolean; disabled?: boolean; pressed?: boolean; expanded?: boolean; intent?: string };
   type ShellSnapshot = {
@@ -21,11 +24,32 @@
   let theme: 'night' | 'day' = 'night';
   let mobileSettingsOpen = false;
   let mobileSectionsOpen = false;
+  let tourOpen=false;
+  let tourNotice='';
+  let tourTrigger:HTMLButtonElement|null=null;
+  $: tourLabels=presetsMyTourCopy($locale);
+  function startTour(event:MouseEvent):void{
+    tourTrigger=event.currentTarget as HTMLButtonElement;
+    tourNotice='';
+    if(!isPresetPilotPath($page.url.pathname) ||
+       !allPresetPilotTargetsVisible(document)){
+      tourNotice=tourLabels.unavailable;
+      return;
+    }
+    tourOpen=true;
+  }
+  function closeTour(reason:'finish'|'skip'|'blocked'):void{
+    tourOpen=false;
+    if(reason==='blocked')tourNotice=tourLabels.blocked;
+    void tick().then(()=>tourTrigger?.focus());
+  }
   $: shell = $shellState as ShellSnapshot;
   $: productNav = resolveProductShell($page.url.pathname, $locale);
   afterNavigate(() => {
     mobileSettingsOpen = false;
     mobileSectionsOpen = false;
+    tourOpen=false;
+    tourNotice='';
     setShellContextActions([]);
   });
 
@@ -89,11 +113,19 @@
       <div class="immersive-nav" data-immersive-recovery>
         <a class="toolbar-context-link product-root-link" href={base + productNav.rootHref}>{productNav.rootLabel}</a>
         <button type="button" class="toolbar-context-link" aria-expanded={mobileSectionsOpen} on:click={() => mobileSectionsOpen = true}>{productNav.rootLabel} · {t('shared.shell.contextActions', {}, $locale)}</button>
+        <button type="button" class="toolbar-context-link" data-tour-launch="immersive"
+          aria-label={tourLabels.help} title={tourLabels.help} on:click={startTour}>
+          <Icon name="help" decorative={true} size={19}/>
+        </button>
         <button type="button" class="toolbar-context-link immersive-settings" on:click={() => mobileSettingsOpen = true}>{t('shared.shell.settings', {}, $locale)}</button>
       </div>
     {/if}
 
     <div class="toolbar-globals" aria-label={t('shared.shell.globalControls', {}, $locale)}>
+      <button type="button" class="ui-icon-button" data-tour-launch="desktop"
+        aria-label={tourLabels.help} title={tourLabels.help} on:click={startTour}>
+        <Icon name="help" decorative={true}/>
+      </button>
       {#if shell.save.href}
         <a class="shell-control save-control" data-shell-control="save" href={shell.save.href}>
           <Icon name="save" decorative={true} /><span>{saveLabel()}</span>
@@ -179,10 +211,16 @@
           <Icon name="account" decorative={true} />
         </button>
       {/if}
+      <button type="button" class="ui-icon-button" data-tour-launch="mobile"
+        aria-label={tourLabels.help} title={tourLabels.help} on:click={startTour}>
+        <Icon name="help" decorative={true}/>
+      </button>
       <IconButton icon="settings" label={t('shared.shell.settings', {}, $locale)} on:activate={() => mobileSettingsOpen = true} />
     </div>
   </div>
 </header>
+<p class="visually-hidden" data-tour-status role="status" aria-live="polite">{tourNotice}</p>
+<SpotlightTour open={tourOpen} copy={tourLabels} onClose={closeTour}/>
 
 <Sheet bind:open={mobileSettingsOpen} title={t('shared.shell.settings', {}, $locale)} closeLabel={t('shared.dialog.close', {}, $locale)} position="bottom">
   <div class="mobile-settings">
