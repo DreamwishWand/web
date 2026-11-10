@@ -204,7 +204,7 @@ try{
  await dlg.waitFor({state:'detached',timeout:18000});
  await p.waitForFunction(()=>document.activeElement?.getAttribute('data-tour-launch')==='desktop');
  await qaGuard();
- assert.equal(await p.evaluate(()=>Object.keys(localStorage).some(x=>/spotlight|typed.tour/i.test(x)),false);
+ assert.equal(await p.evaluate(()=>Object.keys(localStorage).some(x=>/spotlight|typed.tour/i.test(x))),false);
  console.log('QRW888_REAL_CHROME_THEME_LIVE_TAB_TRAP_FINISH_FOCUS_RESTORE_NO_PERSIST_PASS');
 
  for(const loc of PRESETS_MY_TOUR_LOCALES){
