@@ -172,6 +172,115 @@ impl WorkerWasmSource {
             "writerAuthorized":false
         }).to_string())
     }
+    /// R22 opt-in DEV Worker ABI only: read stored DiffGrids *metadata*, not
+    /// effective Native Grid or UI/Writer permission. The existing Worker
+    /// guard delegates to its ONE Rust ProductSession and shared Core grants.
+    /// Never add this to the public product Worker route without independent
+    /// Product operation acceptance.
+    #[cfg(feature="indexed-read")]
+    pub fn issue_saved_diffgrids_typed_cursor(&self,session_id:&str,
+          revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let scope=WorkerEnvelope{
+            contract:PRODUCT_WORKER_CONTRACT,session_id:from_hex(session_id)?,
+            expected_revision:revision,expected_index_generation:index_generation,
+            expected_decoded_sha256:from_hex(decoded_sha256)?,
+            action:WorkerAction::ReadDomain,
+        };
+        let receipt=guard.issue_saved_diffgrids_cursor(scope).map_err(|e|err(e.0))?;
+        if receipt.max_records_per_page!=8 || receipt.all_native_references_verified ||
+           receipt.product_read_accepted || receipt.writer_authorized {
+            return Err(err("WORKER_SAVED_DIFFGRIDS_AUTHORITY_DENIED"));
+        }
+        Ok(serde_json::json!({
+            "contract":"wand.worker.stored-diffgrids-typed-metadata-readonly@1",
+            "cursor":hex(&receipt.cursor),
+            "sessionId":hex(&receipt.session_id),
+            "revision":receipt.revision,
+            "indexGeneration":receipt.index_generation,
+            "decodedSha256":hex(&receipt.decoded_sha256),
+            "indexedRecords":receipt.indexed_records,
+            "maxRecordsPerPage":receipt.max_records_per_page,
+            "externalLayoutStatus":"UNRESOLVED_EXTERNAL_LAYOUT",
+            "allNativeReferencesVerified":false,
+            "productReadAccepted":false,
+            "writerAuthorized":false
+        }).to_string())
+    }
+    /// One-use Rust-issued cursor; 8 stored DiffGrids/page maximum.
+    /// Type/count/ID/hash are saved values ONLY, not a native legal reference.
+    /// Bounds are capped BEFORE serialized metadata crosses the Worker ABI.
+    #[cfg(feature="indexed-read")]
+    pub fn read_saved_diffgrids_typed_page(&self,cursor:&str,session_id:&str,
+          revision:u64,index_generation:u64,decoded_sha256:&str)->Result<String,JsValue>{
+        const MAX_OBJECT_IDS_PER_GRID:usize=2048;
+        const MAX_TYPED_PAGE_JSON_BYTES:usize=512*1024;
+        let guard=self.session.as_ref().ok_or(err("WORKER_SESSION_NOT_READY"))?;
+        let scope=WorkerEnvelope{
+            contract:PRODUCT_WORKER_CONTRACT,session_id:from_hex(session_id)?,
+            expected_revision:revision,expected_index_generation:index_generation,
+            expected_decoded_sha256:from_hex(decoded_sha256)?,
+            action:WorkerAction::ReadDomain,
+        };
+        let page=guard.read_saved_diffgrids_page(scope,from_hex(cursor)?)
+            .map_err(|e|err(e.0))?;
+        if page.records.len()>8 || page.all_native_references_verified ||
+           page.product_read_accepted || page.writer_authorized {
+            return Err(err("WORKER_SAVED_DIFFGRIDS_AUTHORITY_DENIED"));
+        }
+        let mut records=Vec::with_capacity(page.records.len());
+        for grid in &page.records {
+            if grid.external_layout!=crate::ExternalLayoutStatus::UnresolvedExternalLayout ||
+               grid.native_effective_grid_verified {
+                return Err(err("WORKER_NATIVE_EXTERNAL_LAYOUT_UNVERIFIED"));
+            }
+            if grid.modified_object_ids.len()>MAX_OBJECT_IDS_PER_GRID ||
+               grid.removed_object_ids.len()>MAX_OBJECT_IDS_PER_GRID {
+                return Err(err("WORKER_TYPED_OBJECT_ID_COUNT_BOUNDS"));
+            }
+            let removed_shape=match grid.removed_shape {
+                crate::StoredRemovedShape::Absent=>"absent",
+                crate::StoredRemovedShape::Array=>"array",
+                crate::StoredRemovedShape::ObjectMap=>"object-map"
+            };
+            records.push(serde_json::json!({
+                "gridId":grid.grid_id,
+                "defaultLayoutGridId":grid.default_layout_grid_id,
+                "gridDefaultLayoutPath":grid.grid_default_layout_path,
+                "gridDefaultLayoutType":grid.grid_default_layout_type,
+                "defaultGridHashCode":grid.default_grid_hash_code,
+                "defaultGridDataHashCode":grid.default_grid_data_hash_code,
+                "modifiedObjectIds":grid.modified_object_ids,
+                "removedObjectIds":grid.removed_object_ids,
+                "modifiedObjectCount":grid.modified_object_ids.len(),
+                "removedObjectCount":grid.removed_object_ids.len(),
+                "removedShape":removed_shape,
+                "modifiedRemovedSameIdPairs":grid.modified_removed_id_pairs,
+                "externalLayoutStatus":"UNRESOLVED_EXTERNAL_LAYOUT",
+                "nativeEffectiveGridVerified":false
+            }));
+        }
+        let value=serde_json::json!({
+            "contract":"wand.worker.stored-diffgrids-typed-metadata-readonly@1",
+            "sessionId":hex(&page.session_id),
+            "revision":page.revision,
+            "indexGeneration":page.index_generation,
+            "decodedSha256":hex(&page.decoded_sha256),
+            "records":records,
+            "nextCursor":page.next_cursor.map(|token|hex(&token)),
+            "maxRecordsPerPage":8,
+            "externalLayoutStatus":"UNRESOLVED_EXTERNAL_LAYOUT",
+            "nativeEffectiveGridVerified":false,
+            "allNativeReferencesVerified":false,
+            "productReadAccepted":false,
+            "writerAuthorized":false
+        });
+        let out=value.to_string();
+        if out.len()>MAX_TYPED_PAGE_JSON_BYTES {
+            return Err(err("WORKER_TYPED_PAGE_BYTE_BOUNDS"));
+        }
+        Ok(out)
+    }
     pub fn close(&mut self)->Result<(),JsValue>{
         self.closed=true;self.buffer.clear();self.entropy.fill(0);
         if let Some(mut session)=self.session.take(){
