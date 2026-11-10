@@ -158,6 +158,31 @@ export async function testRealEncryptedSavedDiffGridsFacade(WorkerWasmSource){
  const finalClose=await call({kind:'CLOSE_LOCAL_STORED_DIFFGRIDS',
    requestId:++id,selection:raceB.summary.selection});
  check(finalClose.ok,'CONCURRENT_SESSION_CLOSED');
+ // CLOSE while the selected File is still hashing/decoding must revoke
+ // that pending Rust OPEN; it cannot become an accepted session afterwards.
+ const pendingRequest=open();
+ const pendingResult=call(pendingRequest);
+ const aborted=await call({kind:'CLOSE_LOCAL_STORED_DIFFGRIDS',
+   requestId:++id,selection:null,openRequestId:pendingRequest.requestId});
+ check(aborted.ok===true&&aborted.summary.closed===true,
+   'CLOSE_REVOKED_PENDING_OPEN');
+ const late=await pendingResult;
+ check(late.ok===false&&late.error==='LOCAL_DIFFGRIDS_OPEN_SUPERSEDED',
+   'PENDING_OPEN_NEVER_RESURRECTS');
+ // A stale pending CLOSE for A cannot revoke a newer concurrent B.
+ const oldRequest=open(),oldPending=call(oldRequest);
+ const newRequest=open(),newPending=call(newRequest);
+ const stalePendingClose=await call({kind:'CLOSE_LOCAL_STORED_DIFFGRIDS',
+   requestId:++id,selection:null,openRequestId:oldRequest.requestId});
+ check(stalePendingClose.ok===false&&
+   stalePendingClose.error==='LOCAL_DIFFGRIDS_STALE_SELECTION',
+   'STALE_PENDING_CLOSE_CANNOT_REVOKE_B');
+ const [oldRevoked,newAccepted]=await Promise.all([oldPending,newPending]);
+ check(oldRevoked.ok===false&&newAccepted.ok===true,
+   'AB_PENDING_SWITCH_VALID');
+ const lastClosed=await call({kind:'CLOSE_LOCAL_STORED_DIFFGRIDS',
+   requestId:++id,selection:newAccepted.summary.selection});
+ check(lastClosed.ok===true,'AFTER_STALE_CLOSE_B_STILL_LIVE');
  facade.close();
  return Object.freeze({
    source:'public-synthetic-generated-p1g',
