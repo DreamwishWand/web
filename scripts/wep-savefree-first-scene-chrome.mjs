@@ -32,7 +32,26 @@ try{
  assert.equal(await page.locator('[data-wep-savefree-save]').count(),0);
  await page.locator('[data-wep-savefree-load]').focus();
  await page.keyboard.press('Enter');
- await page.locator('[data-wep-savefree-search]').waitFor({timeout:60000});
+ try {
+  await page.locator('[data-wep-savefree-search]').waitFor({timeout:20000});
+ } catch (error) {
+  const status=await page.locator('[data-wep-savefree-status]').allTextContents();
+  const probe=await page.evaluate(async()=>{
+   const result={};
+   try{
+    const {loadCollectionRuntime}=await import('/src/lib/collection/runtime.js');
+    const catalog=await loadCollectionRuntime('');
+    result.catalog={n:catalog.rows.length,target:catalog.index.t};
+   }catch(e){result.catalogError=String(e);}
+   try{
+    const {createSwitchWorldReadAdapter}=await import('/src/lib/wep/world-browser-adapter.ts');
+    const binding=await createSwitchWorldReadAdapter({basePath:''});
+    result.world={version:binding.source.gameVersion,sha:binding.provenance.readDataSha256};
+   }catch(e){result.worldError=String(e);}
+   return result;
+  });
+  throw Error('WEP_SAVEFREE_BROWSER_CATALOG_LOAD_DENIED '+JSON.stringify({status,probe,errors,unsafe})+' '+String(error));
+ }
  assert.equal((await dbs()).some(x=>x.name===DB),false,'Catalog load must not touch IndexedDB');
  await page.locator('[data-wep-savefree-search]').fill('40000047');
  const choose=page.locator('[data-wep-savefree-choose="40000047"]');
