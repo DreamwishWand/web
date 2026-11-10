@@ -192,7 +192,7 @@
       <div class="actions">
         <button type="button" data-wep-savefree-preview
           on:click={previewVerifiedNonemptyScene}
-          disabled={saving || !title.trim()}>{copy.ready}</button>
+          disabled={saving || !title.trim()}>{copy.prepare}</button>
         <button type="button" data-wep-savefree-save
           on:click={saveVerifiedNonemptyScene} disabled={!canSave}>
           {copy.save}
