@@ -1,0 +1,139 @@
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright-core';
+const origin=(process.env.WEP_SAVEFREE_ORIGIN||'http://127.0.0.1:4358').replace(/\/$/,'');
+assert.match(origin,/^http:\/\/127\.0\.0\.1:[0-9]+$/);
+assert.ok(process.env.CHROME_BIN,'Installed real Chrome required');
+const DB='dreamwishwand:wep:scene-presets:local:v1';
+const oldKeys=['dreamwishwand:moodboards:v1','dreamwishwand:moodboards:v1:backup'];
+const oldValues=['savefree-never-touch-moodboard','savefree-never-touch-backup'];
+const unsafe=[],errors=[];
+const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN,
+ args:['--no-sandbox','--disable-dev-shm-usage']});
+try{
+ const context=await browser.newContext({viewport:{width:1440,height:900},serviceWorkers:'block'});
+ context.on('request',req=>{
+  if(req.url().startsWith('http')&&
+     (new URL(req.url()).origin!==origin ||
+      !['GET','HEAD'].includes(req.method())))
+    unsafe.push(req.method()+' '+req.url());
+ });
+ const page=await context.newPage();
+ page.on('pageerror',e=>errors.push(String(e)));
+ let response=await page.goto(origin+'/editor/world/',{waitUntil:'domcontentloaded'});
+ assert.equal(response.status(),200);
+ const panel=page.locator('[data-wep-savefree-first-scene]');
+ await panel.waitFor({timeout:30000});
+ const dbs=()=>page.evaluate(()=>indexedDB.databases());
+ assert.equal((await dbs()).some(x=>x.name===DB),false,'passive Editor must not create Scene Store');
+ assert.equal(await page.locator('[data-editor-object-id]').count(),0,
+  'no Save/file/EditorSession was loaded');
+ await page.evaluate(([keys,vals])=>keys.forEach((k,i)=>localStorage.setItem(k,vals[i])),
+   [oldKeys,oldValues]);
+ assert.equal(await page.locator('[data-wep-savefree-save]').count(),0);
+ await page.locator('[data-wep-savefree-load]').focus();
+ await page.keyboard.press('Enter');
+ await page.locator('[data-wep-savefree-search]').waitFor({timeout:60000});
+ assert.equal((await dbs()).some(x=>x.name===DB),false,'Catalog load must not touch IndexedDB');
+ await page.locator('[data-wep-savefree-search]').fill('40000047');
+ const choose=page.locator('[data-wep-savefree-choose="40000047"]');
+ await choose.waitFor({timeout:30000});
+ await choose.focus();
+ await page.keyboard.press('Enter');
+ const selection=page.locator('[data-wep-savefree-selection]');
+ await selection.waitFor();
+ assert.match(await selection.innerText(),/3 × 2/);
+ assert.match(await selection.innerText(),/VERIFIED_SWITCH1250_CATALOG_GEOMETRY_SCOPE/);
+ assert.equal(await page.locator('[data-wep-savefree-save]:not([disabled])').count(),0,
+  'Save requires title and explicit valid preview');
+ await page.locator('[data-wep-savefree-title]').fill('First Save-free verified furniture Scene');
+ await page.locator('[data-wep-savefree-preview]').focus();
+ await page.keyboard.press('Enter');
+ await page.locator('[data-wep-savefree-artifact]').waitFor();
+ const artifact=await page.locator('[data-wep-savefree-artifact]').innerText();
+ assert.match(artifact,/1 objects/);assert.match(artifact,/3 × 2/);
+ assert.match(artifact,/writeReady=false \/ applyReady=false/);
+ assert.equal((await dbs()).some(x=>x.name===DB),false,
+  'preview is in-memory only; store created on explicit Save');
+ await page.locator('[data-wep-savefree-save]').focus();await page.keyboard.press('Enter');
+ const saved=page.locator('[data-wep-savefree-saved]');
+ await saved.waitFor({timeout:15000});
+ const current=await page.evaluate(async name=>{
+  const {reopenLocalScenes}=await import('/src/lib/wep/local-scene-preset-store.mjs');
+  const row=await reopenLocalScenes();
+  return {revision:row.revision,primary:row.primary,backup:row.backup,
+   backupRevision:row.backupRevision,entries:row.document.entries};
+ },DB);
+ assert.equal(current.revision,1);
+ assert.equal(current.backupRevision,0);
+ assert.deepEqual(JSON.parse(current.backup).entries,[]);
+ assert.equal(current.entries.length,1);
+ const entry=current.entries[0];
+ assert.equal(entry.artifact.objects.length,1);
+ assert.equal(entry.artifact.objects[0].itemId,40000047);
+ assert.equal(entry.artifact.objects[0].layer,'furniture');
+ assert.equal(entry.artifact.objects[0].footprint.length,6);
+ assert.deepEqual(entry.artifact.bounds,{w:3,h:2});
+ assert.equal(entry.artifact.source.platform,'synthetic');
+ assert.equal(entry.artifact.networks.roads,null);
+ assert.equal(entry.artifact.networks.fences,null);
+ assert.equal(await page.locator('[data-editor-object-id]').count(),0,
+  'Save-free Save must never create EditorSession');
+ assert.equal(await page.evaluate(keys=>keys.map(k=>localStorage.getItem(k)),oldKeys)
+  .then(x=>JSON.stringify(x)),JSON.stringify(oldValues));
+ console.log('WEP_SAVEFREE_FIRST_NONEMPTY_REAL_CHROME_PINNED_CATALOG_GEOMETRY_IDB_CAS_REOPEN_PASS');
+ for(const loc of ['en','fr','it','de','es-ES','ja','zh-CN','pt-BR']){
+  await page.locator('#site-locale').selectOption(loc);
+  assert.ok((await panel.locator('h2').innerText()).length>5);
+  assert.ok((await page.locator('[data-wep-savefree-status]').innerText()).length>5);
+ }
+ await page.locator('#site-locale').selectOption('en');
+ for(const [width,zoom] of [[320,'1'],[640,'2']]){
+  await page.setViewportSize({width,height:900});
+  await page.evaluate(z=>{document.documentElement.style.zoom=z;},zoom);
+  const m=await panel.evaluate(el=>({client:el.clientWidth,scroll:el.scrollWidth}));
+  assert.ok(m.scroll<=m.client+2,'Savefree 320/CSS200 panel overflow '+JSON.stringify(m));
+ }
+ await page.setViewportSize({width:1440,height:900});
+ await page.evaluate(()=>{document.documentElement.style.zoom='1';});
+ // Reuse the accepted Presets -> explicit selected same-tab sender -> WEP
+ // receiver. This is a NEW first-time-created source path, not old QA re-run.
+ await page.goto(origin+'/presets/',{waitUntil:'domcontentloaded'});
+ await page.locator('[data-preset-child="my"]').click();
+ await page.locator('[data-device-scenes-reopen]').click();
+ await page.locator('[data-device-scene-select]').first().waitFor();
+ await page.locator('[data-device-scene-select]').first().click();
+ await page.locator('[data-device-scene-world-editor-selected]').focus();
+ await page.keyboard.press('Enter');
+ await page.waitForURL(/\/editor\/world\/?$/);
+ await page.locator('[data-wep-selected-scene-route-confirm]').waitFor();
+ assert.equal(await page.locator('[data-wep-selected-scene-route-draft]').count(),0,
+  'no auto Draft after one-shot sender');
+ await page.locator('[data-wep-selected-scene-route-confirm]').focus();
+ await page.keyboard.press('Enter');
+ const detached=page.locator('[data-wep-selected-scene-route-draft]');
+ await detached.waitFor();
+ assert.match(await detached.innerText(),/40000047/);
+ assert.match(await detached.innerText(),/3 × 2/);
+ assert.match(await detached.innerText(),/writeReady=false \/ applyReady=false/);
+ assert.equal(await page.locator('[data-editor-object-id]').count(),0);
+ const afterward=await page.evaluate(async()=>{
+  const {reopenLocalScenes}=await import('/src/lib/wep/local-scene-preset-store.mjs');
+  const row=await reopenLocalScenes();
+  return {revision:row.revision,primary:row.primary,backup:row.backup};
+ });
+ assert.deepEqual(afterward,{revision:current.revision,primary:current.primary,
+  backup:current.backup},'selected read-only sender/receiver cannot mutate stored first Scene');
+ assert.deepEqual(await page.evaluate(keys=>keys.map(k=>localStorage.getItem(k)),oldKeys),
+  oldValues,'legacy Moodboard primary/backup unchanged');
+ assert.deepEqual(unsafe,[],'unexpected external request or mutating HTTP');
+ assert.deepEqual(errors,[],'browser JS exception');
+ console.log(JSON.stringify({operation:'WEP_SAVEFREE_FIRST_NONEMPTY_VERIFIED_CATALOG_SCENE@1',
+  evidence:'INSTALLED_REAL_CHROME_STATIC_VERIFIED_SWITCH1250_CATALOG_SYNTHETIC_SCENE_ONLY',
+  itemId:40000047,footprint:{w:3,h:2},revision:1,backupRevision:0,
+  checks:['fresh browser no Save or EditorSession','Catalog and geometry SHA verified',
+   'user explicit Item/Title/Preview/Save','nonempty one-object valid Scene',
+   'same single IDB CAS+Backup+independent Reopen','8 locales','320/CSS200',
+   'existing Presets one-shot sender/receiver and detached readonly','no POST/Cloud/Native',
+   'no legacy/Moodboard mutation'],unsafe,errors}));
+ await context.close();
+}finally{await browser.close();}
