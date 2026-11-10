@@ -1,0 +1,44 @@
+name: "04 QR-W Public Hosted HTTPS Manual Presets Tour @1"
+on:
+  push:
+    branches: [qa/04qr-w-hosted-tour-https-main4d294-20261111]
+  pull_request:
+    paths:
+      - ".github/workflows/04qr-w-hosted-presets-tour-https-e2e-20261111.yml"
+      - "scripts/04qr-w-hosted-presets-tour-https-e2e-20261111.mjs"
+permissions:
+  contents: read
+jobs:
+  public-hosted-real-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: "Install pinned tools only; NO private Save"
+        run: |
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: "Confirm installed real Chrome and no private fixtures"
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "${DDV_PRIVATE_SAVE_PATH:-}"
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${P1G_PATH:-}"
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          test -n "$BIN"
+          "$BIN" --version
+          echo "CHROME_BIN=$BIN" >> "$GITHUB_ENV"
+      - name: "Read-only published HTTPS direct Presets Tour real Chrome E2E"
+        env:
+          QRW_PUBLIC_ORIGIN: https://dreamwishwand.github.io
+        run: node scripts/04qr-w-hosted-presets-tour-https-e2e-20261111.mjs
+      - name: "QA-only NEVER MERGE; no source/deploy/Writer/Provider changes"
+        run: echo "QA_ONLY_NEVER_MERGE_PUBLIC_DEPLOY_READ_ONLY_TOUR_WRITER_CLOUD_PROVIDER_COMMUNITY_OFF"
