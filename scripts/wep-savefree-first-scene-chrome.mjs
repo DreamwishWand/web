@@ -36,12 +36,20 @@ try{
   await page.locator('[data-wep-savefree-search]').waitFor({timeout:20000});
  } catch (error) {
   const status=await page.locator('[data-wep-savefree-status]').allTextContents();
+  const state=await page.locator('[data-wep-savefree-load]').evaluate(el=>({
+    text:el.textContent,disabled:el.disabled,outer:el.outerHTML.slice(0,600)
+  }));
+  const pageSnapshot=await page.locator('[data-wep-savefree-first-scene]').innerText();
   const probe=await page.evaluate(async()=>{
    const result={};
    try{
     const {loadCollectionRuntime}=await import('/src/lib/collection/runtime.js');
     const catalog=await loadCollectionRuntime('');
     result.catalog={n:catalog.rows.length,target:catalog.index.t};
+    const {buildSharedCatalogDirectory}=await import('/src/lib/entity/shared-catalog-directory.mjs');
+    const started=performance.now();
+    const dir=buildSharedCatalogDirectory(catalog.index,catalog.rows,'en');
+    result.directory={status:dir.status,length:dir.entries?.length,elapsedMs:performance.now()-started};
    }catch(e){result.catalogError=String(e);}
    try{
     const {createSwitchWorldReadAdapter}=await import('/src/lib/wep/world-browser-adapter.ts');
@@ -50,7 +58,7 @@ try{
    }catch(e){result.worldError=String(e);}
    return result;
   });
-  throw Error('WEP_SAVEFREE_BROWSER_CATALOG_LOAD_DENIED '+JSON.stringify({status,probe,errors,unsafe})+' '+String(error));
+  throw Error('WEP_SAVEFREE_BROWSER_CATALOG_LOAD_DENIED '+JSON.stringify({status,state,pageSnapshot:pageSnapshot.slice(0,700),probe,errors,unsafe})+' '+String(error));
  }
  assert.equal((await dbs()).some(x=>x.name===DB),false,'Catalog load must not touch IndexedDB');
  await page.locator('[data-wep-savefree-search]').fill('40000047');
