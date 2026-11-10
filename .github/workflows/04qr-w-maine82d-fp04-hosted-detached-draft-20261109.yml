@@ -1,0 +1,57 @@
+name: "04 QR-W main e82d deployed F-P04 detached readonly Draft E2E"
+on:
+  push:
+    branches: [qa/04qr-w-maine82d-fp04-deployed-detached-draft-20261109]
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/04qr-w-maine82d-fp04-hosted-detached-draft-20261109.mjs"
+      - ".github/workflows/04qr-w-maine82d-fp04-hosted-detached-draft-20261109.yml"
+permissions:
+  contents: read
+  deployments: read
+  pages: read
+jobs:
+  actual-deployed-fp04:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 32
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: "Pinned protected main and exactly two audit-only additions"
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAIN=e82d55981c371979cfdad2262ede1949d50f5e9d
+          test "$(git merge-base "$MAIN" HEAD)" = "$MAIN"
+          cat >/tmp/qa-expected <<'QA_SCOPE'
+          .github/workflows/04qr-w-maine82d-fp04-hosted-detached-draft-20261109.yml
+          scripts/04qr-w-maine82d-fp04-hosted-detached-draft-20261109.mjs
+          QA_SCOPE
+          git diff --name-only "$MAIN" HEAD | LC_ALL=C sort > /tmp/qa-actual
+          diff -u /tmp/qa-expected /tmp/qa-actual
+          echo QRW869_FROZEN_E82D_MAIN_ONLY_TWO_QA_FILES_NO_ACCEPTED_REQA_PASS
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright-core@1.55.0
+      - name: "Real deployed HTTPS and actual installed Chrome disposable context"
+        shell: bash
+        env:
+          QRW_GITHUB_TOKEN: ${{ github.token }}
+          QRW_FP04_MAIN: e82d55981c371979cfdad2262ede1949d50f5e9d
+          QRW_FP04_HOSTED_URL: https://dreamwishwand.github.io/web/
+        run: |
+          set -euo pipefail
+          test -z "${DDV_PRIVATE_SAVE_PATH:-}"
+          test -z "${WEP_PRIVATE_P1G_PATH:-}"
+          test -z "${P1G_PATH:-}"
+          BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)"
+          test -n "$BIN"
+          "$BIN" --version
+          CHROME_BIN="$BIN" node scripts/04qr-w-maine82d-fp04-hosted-detached-draft-20261109.mjs
+      - name: "QA-only bounded result"
+        run: echo "QRW869_QA_ONLY_NO_NATIVE_APPLY_SAVE_WRITER_CLOUD_PROVIDER_PUBLIC_PAGES_MUTATION"
