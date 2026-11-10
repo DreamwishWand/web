@@ -98,10 +98,15 @@ try{
  await send('Page.enable');
  await send('Network.enable');
  await until("return document.querySelector('[data-stage1-presets-four-cards]')&&document.querySelector('[data-tour-launch=desktop]')",25000);
- await sleep(350);
+ await sleep(1400);
  assert.equal(await q("return Boolean(document.querySelector('[data-typed-tour-open]'))"),false,'no first visit auto');
  assert.equal(await evalJs("indexedDB.databases().then(a=>a.length)"),0,'render does not open IDB');
- await tap('[data-tour-launch="desktop"]');
+ for(let attempt=0;attempt<8;attempt++){
+  await tap('[data-tour-launch="desktop"]');
+  await sleep(250);
+  if(await q("return (document.querySelector('[data-tour-status]')?.textContent?.trim()?.length||0)>5"))break;
+ }
+ console.log('WEB_TOUR_ROOT_DIAGNOSTIC '+JSON.stringify(await q("return {path:location.pathname,locale:document.documentElement.dataset.locale,header:!!document.querySelector('[data-tour-launch=desktop]'),notice:document.querySelector('[data-tour-status]')?.textContent?.trim(),root:!!document.querySelector('[data-preset-child=my]')}")));
  await until("return (document.querySelector('[data-tour-status]')?.textContent?.trim()?.length||0)>5");
  const unavailable=await q("return document.querySelector('[data-tour-status]')?.textContent?.trim()");
  assert.ok(unavailable.length>5);
@@ -183,5 +188,7 @@ try{
  try{socket?.close();}catch{}
  browser.kill('SIGKILL');
  vite.kill('SIGKILL');
- rmSync(workspace,{recursive:true,force:true});
+ await sleep(450);
+ try{rmSync(workspace,{recursive:true,force:true,maxRetries:12,retryDelay:125});}
+ catch(error){console.error('WEB_TOUR_CHROME_CLEANUP_RETAINED_TEMP_NO_USER_DATA',String(error));}
 }
