@@ -130,17 +130,22 @@
 </details>
 
 <style>
-  .diffgrids-readonly{box-sizing:border-box;max-width:100%;margin:16px 0;
+  /* app.css gives html/body min-width:320px. Under root zoom:2 that
+     becomes 640 physical px, even in a 320px viewport. Remove only on
+     the Timing route containing this optional panel; never clip a page. */
+  :global(html:has([data-steam-diffgrids-readonly])),
+  :global(body:has([data-steam-diffgrids-readonly])){min-width:0}
+  .diffgrids-readonly{box-sizing:border-box;width:100%;min-width:0;max-width:100%;margin:16px 0;
     border:1px solid var(--border);border-radius:14px;
     background:var(--surface);color:var(--ink);overflow:hidden}
-  summary{cursor:pointer;padding:14px 18px;font-weight:750;line-height:1.55;
+  summary{box-sizing:border-box;min-width:0;max-width:100%;cursor:pointer;padding:14px 18px;font-weight:750;line-height:1.55;
     color:var(--ink);overflow-wrap:anywhere}
   summary:focus-visible,button:focus-visible,input:focus-visible,
   .table-scroller:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-  .content{display:grid;gap:12px;padding:0 18px 18px;min-width:0;
+  .content{box-sizing:border-box;display:grid;gap:12px;padding:0 18px 18px;min-width:0;max-width:100%;
     overflow-wrap:anywhere;font-size:clamp(12px,1rem,16px);line-height:1.55}
   p{margin:0;overflow-wrap:anywhere}
-  .controls{display:grid;gap:9px;min-width:0}
+  .controls{display:grid;gap:9px;min-width:0;max-width:100%}
   input[type="text"],input[type="file"]{box-sizing:border-box;min-width:0;
     max-width:100%;width:100%;padding:10px;border:1px solid var(--border);
     background:var(--surface-raised);color:var(--ink);border-radius:8px}
@@ -151,8 +156,8 @@
     background:var(--surface-raised);color:var(--ink);border:1px solid var(--border);
     border-radius:9px;font:inherit}
   button:disabled{opacity:.48;cursor:not-allowed}
-  .results{display:grid;gap:12px;min-width:0}
-  .table-scroller{max-width:100%;overflow-x:auto}
+  .results{box-sizing:border-box;display:grid;gap:12px;min-width:0;max-width:100%}
+  .table-scroller{box-sizing:border-box;width:100%;min-width:0;max-width:100%;overflow-x:auto}
   table{width:100%;border-collapse:collapse;min-width:370px;text-align:start}
   th,td{padding:8px;border-bottom:1px solid var(--border);text-align:start}
   th{font-weight:650}
