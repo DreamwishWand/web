@@ -1,7 +1,7 @@
 {
   "contract": "wand.r22.protected-main-signed-wasm-release-inputs@1",
-  "acceptedAncestorProtectedMain": "8e0bf62a09f43f3e193e684f2f92f3a09fc405b5",
-  "cargoTomlGitBlob": "f61af649e46cb69db5419563f280219021b354f3",
+  "acceptedAncestorProtectedMain": "8659486f63565167a76e2d3482705a55364a1857",
+  "cargoTomlGitBlob": "27cc74609bc818741ff068bdd00c0b7d430aa257",
   "approvedCargoLockSha256": "e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c",
   "rustcVersion": "1.99.1",
   "wasmBindgenCliVersion": "0.2.105",
