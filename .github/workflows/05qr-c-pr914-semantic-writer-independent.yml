@@ -61,6 +61,8 @@ jobs:
           set -euo pipefail
           grep -Fx 'semantic-writer-dev = ["indexed-read"]' crates/ddv-save-core/Cargo.toml
           grep -Fq -- '--features worker-wasm,indexed-read' .github/workflows/pages.yml
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          test "$(sha256sum crates/ddv-save-core/Cargo.lock | cut -d' ' -f1)" = e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c
           test "$(git rev-parse HEAD:.github/workflows/pages.yml)" = 5926ecf20412dc1b015f5f85304588a85c568f8c
           cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml \
             --target wasm32-unknown-unknown --no-default-features \
