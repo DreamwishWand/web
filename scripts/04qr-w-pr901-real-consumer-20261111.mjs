@@ -16,7 +16,7 @@ const QA=['.github/workflows/04qr-w-pr901-real-consumer-20261111.yml',
  'scripts/04qr-w-pr901-real-consumer-20261111.mjs'];
 const sha=x=>createHash('sha256').update(x).digest('hex');
 const git=(...x)=>execFileSync('git',x,{encoding:'utf8'}).trim();
-assert.equal(git('rev-parse','HEAD~2'),SOURCE);
+assert.equal(git('merge-base',SOURCE,'HEAD'),SOURCE,'QA HEAD must be frozen Source descendant');
 assert.equal(git('merge-base',BASE,SOURCE),BASE);
 assert.deepEqual(git('diff','--name-status',SOURCE,'HEAD').split('\n').filter(Boolean).sort(),
  QA.map(x=>'A\t'+x).sort(),'audit-only 2 ADD');
