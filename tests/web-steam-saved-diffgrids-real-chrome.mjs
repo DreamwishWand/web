@@ -92,9 +92,20 @@ const script=String.raw`
  const panel=await wait(()=>document.querySelector('[data-steam-diffgrids-readonly]'),'PANEL',18000);
  panel.open=true;
  need(window.innerWidth===320,'VIEWPORT_320');
+ const inspect=(element,stage)=>{
+  const r=element.getBoundingClientRect();
+  const data={stage,left:r.left,right:r.right,width:r.width,
+    viewport:innerWidth,scrollX,scrollY,rootMin:getComputedStyle(document.documentElement).minWidth,
+    bodyMin:getComputedStyle(document.body).minWidth};
+  need(r.left>=-1&&r.right<=innerWidth+1,'REFLOW_'+JSON.stringify(data));
+  need(Math.abs(scrollX)<=1,'PAGE_SCROLL_X_'+JSON.stringify(data));
+  return data;
+ };
+ const summary=panel.querySelector('[data-diffgrids-summary]');
+ const baseline=inspect(summary,'320_ROOT_ZOOM100');
  document.documentElement.style.zoom='2';
- need(panel.getBoundingClientRect().width>0,'CSS200_PANEL_VISIBLE');
  const input=await wait(()=>document.querySelector('#steam-diffgrids-file'),'FILE');
+ inspect(summary,'320_ROOT_ZOOM200_CLOSED_MANUAL_PANEL');
  // Initial state: no implicit local Save read / no session.
  need(!document.querySelector('[data-diffgrids-count]'),'NO_AUTO_SAVE');
  await wait(()=>input.disabled===false,'RUST_SIGNED_PINNED_WORKER_READY');
@@ -137,6 +148,17 @@ const script=String.raw`
   }
  }
  need(pages.join(',')==='8,8,1','THREE_PAGES');
+ summary.scrollIntoView({block:'center',inline:'nearest'});
+ await new Promise(r=>setTimeout(r,100));
+ const afterScroll=inspect(summary,'320_ROOT_ZOOM200_AFTER_VERTICAL_SCROLL');
+ inspect(panel.querySelector('.controls'),'320_ROOT_ZOOM200_MANUAL_CONTROLS');
+ inspect(input,'320_ROOT_ZOOM200_FILE_PICKER');
+ inspect(panel.querySelector('#steam-diffgrids-sha'),'320_ROOT_ZOOM200_SHA_INPUT');
+ const gridScroller=panel.querySelector('.table-scroller');
+ inspect(gridScroller,'320_ROOT_ZOOM200_TABLE_CONTAINER');
+ gridScroller.scrollLeft=80;
+ need(gridScroller.scrollLeft>0,'FIVE_COLUMN_TABLE_INNER_SCROLL');
+ need(Math.abs(scrollX)<=1,'TABLE_SCROLL_DID_NOT_MOVE_PAGE');
  const whole=document.querySelector('[data-steam-diffgrids-readonly]').textContent;
  for(const prohibited of ['OPAQUE_SYNTHETIC_NEVER_TO_UI','PRIVATE_SYNTHETIC_PATH_NEVER_TO_UI',
   'PRIVATE_SYNTHETIC_OBJECT_NEVER_TO_UI','decodedSha256','sessionId','nextCursor']){
@@ -164,7 +186,8 @@ const script=String.raw`
  document.querySelector('[data-diffgrids-close]').click();
  await wait(()=>!document.querySelector('[data-diffgrids-count]'),'REOPEN_CLOSE');
  return {result:'08WEB_REAL_SIGNED_PUBLIC_RUST_WASM_CHROME_TYPED_CONSUMER_PASS',
-  pages:pages.join(','),viewport320:true,zoom200:true,badShaDenied:true,reopenFresh:true,keyboard:true,gridIdZeroLiteral:true,manualClickOnly:true,
+  pages:pages.join(','),viewport320:true,zoom200:true,geometry100:baseline,
+  geometry200:afterScroll,innerTableScroll:true,badShaDenied:true,reopenFresh:true,keyboard:true,gridIdZeroLiteral:true,manualClickOnly:true,
   sameRustWorker:true,strictUiMetadata:true,closed:true,focusRestored:true,
   realPrivateSave:false,writerAuthorized:false,productEnabled:false};
 })()
@@ -197,6 +220,25 @@ try{
  for(const k of ['manualClickOnly','sameRustWorker','strictUiMetadata',
    'closed','focusRestored','gridIdZeroLiteral','viewport320','zoom200','badShaDenied','reopenFresh','keyboard'])assert.equal(result[k],true,k);
  assert.equal(result.pages,'8,8,1');
+ assert.equal(result.innerTableScroll,true,'5_COLUMN_TABLE_SCROLL_INTERNAL');
+ const zoomRects=[result.geometry100,result.geometry200];
+ for(const box of zoomRects){
+  assert.equal(box.viewport,320,'PHYSICAL_320_VIEWPORT');
+  assert.ok(box.left>=-1&&box.right<=321,'PHYSICAL_REFLOW_NO_CLIP');
+  assert.ok(Math.abs(box.scrollX)<=1,'PAGE_NO_HORIZONTAL_SCROLL');
+ }
+ await rpc('Runtime.evaluate',{expression:"document.documentElement.style.zoom='1'",
+   returnByValue:true});
+ await rpc('Emulation.setDeviceMetricsOverride',
+   {width:1280,height:800,deviceScaleFactor:1,mobile:false});
+ const desktop=await rpc('Runtime.evaluate',{expression:`(()=>{
+  const e=document.querySelector('[data-diffgrids-summary]');
+  const r=e.getBoundingClientRect();
+  return {left:r.left,right:r.right,viewport:innerWidth,scrollX};
+ })()`,returnByValue:true});
+ const d=desktop.result?.value;
+ assert.ok(d&&d.viewport===1280&&d.left>=-1&&d.right<=1281&&Math.abs(d.scrollX)<=1,
+   'DESKTOP_NO_PAGE_HORIZONTAL_OVERFLOW');
  for(const k of ['realPrivateSave','writerAuthorized','productEnabled'])
   assert.equal(result[k],false,k);
  console.log('08WEB_REAL_SIGNED_PUBLIC_RUST_WASM_CHROME_TYPED_CONSUMER_PASS',
