@@ -26,6 +26,10 @@ jobs:
         with:
           # Compile the exact submitted Source HEAD, not GitHub's synthetic PR merge.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
