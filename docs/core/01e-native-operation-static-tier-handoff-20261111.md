@@ -2,6 +2,10 @@
 
 **Operation / release:** `W-NATIVE-005`, `R09`; `DEV_READY / SOURCE_ONLY` only. None of the 21 operations is enabled. The new source file is a bounded, pure static-contract handoff to 01A/01D, **not** another P1G Reader, Rust executor, Native V3 proof, or an invented game callgraph. Original owner-provided game binaries, private save, keys and derived user data are never placed in repo/CI/Pages.
 
+## 2026-11-12 P0 typed field repair (new fixed HEAD)
+- 06 PRODUCT EVIDENCE1166 exposed the incompatible numeric `CompatibleItemType` preview on old PR917 HEAD `c96edab`. 01D PR916 fixed `d10b0df` supplies the Native enum **String** `ItemType_Ingredient`; 01A PR914 fixed `4f7f189` Rust `expected_compatible_item_type:String` compares the actual serialized `Player.ListInventories[InventoryID].CompatibleItemType` token. Both sources are separate PRs, not imported implementations or automatic authority.
+- This 01E fix accepts bounded `ItemType_[A-Za-z0-9_]` string tokens only; numeric ItemType 7, malformed/unknown text, protected Currency/Entitlement/DLC/Premium/Quest categories are denied. The typed declaration and synthetic focused tests enforce both input/output `string`. This does **not** authenticate the save, prove exact same-Build enumerator membership, validate canonical ItemID variants, commit a semantic edit, assert no derived writes, or certify Native V3. Inventory 50→49 remains inert preview / Writer OFF.
+
 ## Provenance and exact reusable ancestors
 
 - **Protected main:** `ef0372a58b9619a442c65b31cecbb88c3cca0029`. 01D `src/lib/ddv/core/items/item-semantics-contract.mjs` Git blob `4943280ba85c244f20f212aa85a8711b1ca49a75` establishes **saved structural path** `Player.ListInventories[InventoryID].Inventory[CanonicalItemID].Amount` and `CompatibleItemType`; it expressly does **not** bind the canonical variant route, Native owned status, maximum stack or Native mutation semantics. Older Switch v1.25.0 schema624 `storage-container-v125.js` and `storage-transition-binding-v125.js` are not reusable as Steam/Switch schema626 exact write authority.

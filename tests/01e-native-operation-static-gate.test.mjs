@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {
   OPERATION_NATIVE_STATIC_GATE,NATIVE_OPERATION_ROWS,NATIVE_SOURCE_TARGETS,
   NATIVE_PRODUCT_WRITER_ENABLED,NATIVE_STATIC_V3_ACCEPTED,
@@ -9,7 +10,7 @@ const sw=NATIVE_SOURCE_TARGETS.switch1253,steam=NATIVE_SOURCE_TARGETS.steam1253;
 const hash='a'.repeat(64);
 const path='/Player/ListInventories/12/Inventory/1234/Amount';
 const amount=()=>({declaredBuild:sw,inventoryId:12,canonicalItemId:1234,
-  compatibleItemType:7,existingRow:true,oldAmount:50,nextAmount:49,
+  compatibleItemType:'ItemType_Ingredient',existingRow:true,oldAmount:50,nextAmount:49,
   sourceHash:hash,changedPaths:[path]});
 
 test('21 canonical operations are unique, immutable and none authorizes export',()=>{
@@ -60,6 +61,7 @@ test('Existing inventory amount 50→49 is a read-only CAS preview; NOT a verifi
   const x=previewNativeInventoryAmount(amount());
   assert.equal(x.status,'TIER_A_01D_TO_01A_CAS_PREVIEW_ONLY');
   assert.equal(x.sourcePointer,path);
+  assert.equal(x.compatibleItemType,'ItemType_Ingredient');
   assert.equal(x.hypotheticalNextAmount,49);
   assert.equal(x.nativeV3Accepted,false);
   assert.equal(x.productWriterAuthorized,false);
@@ -71,7 +73,15 @@ test('Amount rejects absent row, zero/depletion, bad amount/ID, fake path and un
   const cases=[
     {existingRow:false},{nextAmount:0},{oldAmount:0},{nextAmount:-1},
     {nextAmount:2147483648},{nextAmount:50},{canonicalItemId:0},
-    {inventoryId:-1},{compatibleItemType:-1},{sourceHash:'bad'},
+    {inventoryId:-1},{compatibleItemType:-1},{compatibleItemType:7},
+    {compatibleItemType:0},{compatibleItemType:null},
+    {compatibleItemType:'untrusted'},{compatibleItemType:'ItemType_'},
+    {compatibleItemType:'ItemType_Premium'},{compatibleItemType:'ItemType_DLC'},
+    {compatibleItemType:'ItemType_Currency'},{compatibleItemType:'ItemType_Quest'},
+    {compatibleItemType:'ItemType_Ingredient '},
+    {compatibleItemType:'ItemType_Ingredient\\n'},
+    {compatibleItemType:'ItemType_Ingredient'.repeat(6)},
+    {sourceHash:'bad'},
     {changedPaths:[]},{changedPaths:[path,path]},
     {changedPaths:[path,'/Player/Entitlement/Premium']},
     {changedPaths:['/Player/ListInventories/12/Inventory/5678/Amount']}
@@ -121,4 +131,13 @@ test('W1 event producer cannot be chosen by inverse Softwood ItemID; intentional
   assert.equal(x.nativeV3Accepted,false);
   assert.equal(x.productWriterAuthorized,false);
   assert.equal(x.noDerivedWritesProven,false);
+});
+
+test('01E d.mts both CompatibleItemType positions match 01A/01D String Native enum contract',()=>{
+  const d=readFileSync(new URL('../src/lib/ddv/native/operation-native-static-gate.d.mts',import.meta.url),'utf8');
+  assert.match(d,/compatibleItemType\\?:string;/);
+  assert.match(d,/compatibleItemType:string;/);
+  assert.doesNotMatch(d,/compatibleItemType\\??:number;/);
+  assert.equal(previewNativeInventoryAmount({...amount(),declaredBuild:steam}).compatibleItemType,
+    'ItemType_Ingredient');
 });

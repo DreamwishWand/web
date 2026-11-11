@@ -57,7 +57,7 @@ export interface InventoryAmountStaticInput {
   declaredBuild?:DeclaredNativeBuild;
   inventoryId?:number;
   canonicalItemId?:number;
-  compatibleItemType?:number;
+  compatibleItemType?:string;
   existingRow?:boolean;
   oldAmount?:number;
   nextAmount?:number;
@@ -101,7 +101,7 @@ export declare function previewNativeInventoryAmount(
   sourcePointer:string;
   inventoryId:number;
   canonicalItemId:number;
-  compatibleItemType:number;
+  compatibleItemType:string;
   expectedOldAmount:number;
   hypotheticalNextAmount:number;
   recomputationRequirement:'UNKNOWN_UNTIL_SAME_BUILD_NATIVE_STATIC_TRACE';

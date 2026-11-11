@@ -84,6 +84,13 @@ const rec=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
 const hex64=v=>typeof v==='string'&&/^[0-9a-f]{64}$/.test(v);
 const safeId=v=>Number.isSafeInteger(v)&&v>=0;
 const safePositive=v=>safeId(v)&&v>0;
+// Exactly the non-authoritative Native enum token shape handed off by 01D
+// PR916 and required as String by 01A PR914. Caller input is NOT a trusted
+// save readset; Rust still checks the actual stored CompatibleItemType.
+const nativeCompatibleItemType=v=>typeof v==='string'&&
+  /^ItemType_[A-Za-z0-9_]{1,48}$/.test(v)&&
+  !['Premium','DLC','Entitlement','Receipt','Auth','Currency','Moonstone','Quest']
+    .some(x=>v.includes(x));
 const forbidden=/\/(?:Entitlements?|DLC|Premium|Receipt|Auth|Purchases?|Moonstones?|Currencies?)(?:\/|$)/i;
 const seen=(x)=>Array.isArray(x)&&x.every(s=>typeof s==='string'&&s.startsWith('/')&&s.length<=300)&&new Set(x).size===x.length;
 const reject=(code,op=null)=>freeze({contract:OPERATION_NATIVE_STATIC_GATE,status:'REJECTED',reason:code,
@@ -125,7 +132,7 @@ export function previewNativeInventoryAmount({declaredBuild,inventoryId,canonica
     compatibleItemType,existingRow,oldAmount,nextAmount,sourceHash,changedPaths=[]}={}) {
   const p=describeNativeOperation('INV_AMOUNT',declaredBuild);
   if(p.status!=='TIER_A_STATIC_INDEPENDENT_CANDIDATE')return p;
-  if(!safeId(inventoryId)||!safePositive(canonicalItemId)||!safeId(compatibleItemType)||
+  if(!safeId(inventoryId)||!safePositive(canonicalItemId)||!nativeCompatibleItemType(compatibleItemType)||
      existingRow!==true||!safePositive(oldAmount)||!safePositive(nextAmount)||
      nextAmount>2147483647||oldAmount>2147483647||nextAmount===oldAmount)
     return reject('EXISTING_CANONICAL_ROW_AND_NONZERO_AMOUNT_REQUIRED','INV_AMOUNT');
