@@ -4,6 +4,7 @@
   import { locale } from '$lib/i18n/runtime.js';
   import { WAND_TIMING_SWITCH_BID } from '$lib/timing/recurring-readonly.mjs';
   import { getLocalSaveSessionBridge } from '$lib/timing/local-timing-worker-client';
+  import SteamSavedDiffGridsReadonly from '$lib/wep/SteamSavedDiffGridsReadonly.svelte';
   import { previewNextOccurrenceUiOnly } from '$lib/timing/w1-nextoccurrence-preview.mjs';
 
   let sourceBuild = '';
@@ -207,6 +208,9 @@
   <p class="warning" role="status">{japanese
     ? 'セーブの書込み、日時の変更、編集コピーの出力は無効です。ファイルはWandのサーバーへ送信されません。'
     : 'Editing, time changes and edited-copy export are disabled. The selected save is not uploaded to Wand servers.'}</p>
+
+  <!-- Separate Steam schema626 Rust metadata Consumer; existing Switch W1 Session remains untouched. -->
+  <SteamSavedDiffGridsReadonly />
 
   <div class="import-panel">
     <p data-single-savesession="true">{japanese
