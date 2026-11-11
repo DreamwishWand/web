@@ -127,10 +127,12 @@ jobs:
         run: |
           set -euo pipefail
           test -s "$WAND_SIGSTORE_BUNDLE"
-          for file in ddv_save_core.js ddv_save_core_bg.wasm manifest.json; do
-            gh attestation verify "static/worker-wasm/$file" \
-              --repo "$GITHUB_REPOSITORY" --bundle "$WAND_SIGSTORE_BUNDLE"
-          done
+          gh attestation verify static/worker-wasm/ddv_save_core.js \
+            --repo "$GITHUB_REPOSITORY" --bundle "$WAND_SIGSTORE_BUNDLE"
+          gh attestation verify static/worker-wasm/ddv_save_core_bg.wasm \
+            --repo "$GITHUB_REPOSITORY" --bundle "$WAND_SIGSTORE_BUNDLE"
+          gh attestation verify static/worker-wasm/manifest.json \
+            --repo "$GITHUB_REPOSITORY" --bundle "$WAND_SIGSTORE_BUNDLE"
           # Final byte comparison takes place AFTER successful authentic signatures.
           node scripts/wasm-distribution/verify-protected-release.mjs built
           echo 'R22_OWNER_APPROVED_PUBLIC_READONLY_THREE_SIGNED_BYTES_MATCH_PAGES'
