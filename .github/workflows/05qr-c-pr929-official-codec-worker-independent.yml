@@ -1,0 +1,133 @@
+name: 05 QR-C PR929 Independent Rust WASM Official Codec DEV-only Chrome
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/05qr-c-pr929-official-codec-worker-independent.yml'
+      - 'tests/qa05qrc-pr929/**'
+permissions:
+  contents: read
+jobs:
+  qac929-independent-real-rust-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      CARGO_TARGET_DIR: /tmp/qac929-real-rust-target
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Source original10 immutable Git blobs, QA-only four ADD and no Private P1G
+        shell: bash
+        run: |
+          set -euo pipefail
+          source=2ec76d8e278ebac96add77ec40d3e5fe0ad959e5
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          test "$(git rev-parse 'HEAD:.github/workflows/01a-dev-semantic-p1g-real-chrome.yml')" = '4c7dc9a9b5d01444238c5ca691f4c0f8b1484bec'
+          test "$(git rev-parse "$source:.github/workflows/01a-dev-semantic-p1g-real-chrome.yml")" = '4c7dc9a9b5d01444238c5ca691f4c0f8b1484bec'
+          test "$(git rev-parse 'HEAD:crates/ddv-save-core/src/wasm_worker.rs')" = '2c919d7b49b898920bd802d189456fc8aec7fb27'
+          test "$(git rev-parse "$source:crates/ddv-save-core/src/wasm_worker.rs")" = '2c919d7b49b898920bd802d189456fc8aec7fb27'
+          test "$(git rev-parse 'HEAD:crates/ddv-save-core/src/worker_session.rs')" = '885b89357db73fac5185f5eb1ec5558798e448f9'
+          test "$(git rev-parse "$source:crates/ddv-save-core/src/worker_session.rs")" = '885b89357db73fac5185f5eb1ec5558798e448f9'
+          test "$(git rev-parse 'HEAD:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs')" = '07329b38c72a88d803a4a9a0d5b196a133a4b2ef'
+          test "$(git rev-parse "$source:src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs")" = '07329b38c72a88d803a4a9a0d5b196a133a4b2ef'
+          test "$(git rev-parse 'HEAD:src/lib/ddv/core/save/product-wasm-read-owner.mjs')" = '0fe7350705118750d4ef1dfa9eab1e00b0a1279b'
+          test "$(git rev-parse "$source:src/lib/ddv/core/save/product-wasm-read-owner.mjs")" = '0fe7350705118750d4ef1dfa9eab1e00b0a1279b'
+          test "$(git rev-parse 'HEAD:tests/stage-i/chrome-smoke.mjs')" = '30b88a2fa9585cb48e59c59a300211431f903a2f'
+          test "$(git rev-parse "$source:tests/stage-i/chrome-smoke.mjs")" = '30b88a2fa9585cb48e59c59a300211431f903a2f'
+          test "$(git rev-parse 'HEAD:tests/stage-i/generate-fixture.mjs')" = 'cee47ba943dcdc405afaeb5b7d87e3fa15b17308'
+          test "$(git rev-parse "$source:tests/stage-i/generate-fixture.mjs")" = 'cee47ba943dcdc405afaeb5b7d87e3fa15b17308'
+          test "$(git rev-parse 'HEAD:tests/stage-i/index.html')" = '52e35b2baeefa281f2d88c206b3a2a07133fe779'
+          test "$(git rev-parse "$source:tests/stage-i/index.html")" = '52e35b2baeefa281f2d88c206b3a2a07133fe779'
+          test "$(git rev-parse 'HEAD:tests/stage-i/reopen-worker.mjs')" = '1893b208387e845a22ac81f6f429fd4415fe9680'
+          test "$(git rev-parse "$source:tests/stage-i/reopen-worker.mjs")" = '1893b208387e845a22ac81f6f429fd4415fe9680'
+          test "$(git rev-parse 'HEAD:tests/stage-i/worker.mjs')" = '8fcf277636e2256d95882d4cf8b6e3735316899f'
+          test "$(git rev-parse "$source:tests/stage-i/worker.mjs")" = '8fcf277636e2256d95882d4cf8b6e3735316899f'
+          got="$(git diff --name-only "$source" HEAD | sort)"
+          want="$(printf '%s\n' \
+            .github/workflows/05qr-c-pr929-official-codec-worker-independent.yml \
+            tests/qa05qrc-pr929/chrome-smoke.mjs \
+            tests/qa05qrc-pr929/index.html \
+            tests/qa05qrc-pr929/worker.mjs | sort)"
+          test "$got" = "$want"
+          test -z "$(git diff --name-only "$source" HEAD -- crates src tests/stage-i .github/workflows/pages.yml)"
+          test -z "$(git ls-files | grep -Ei '\.p1g$|STEAM_SAVE_OWNER_PRIVATE|OWNER_PRIVATE|OWNER_KEY|PRIVATE_DECODED' || true)"
+          echo QAC929_SOURCE10_BLOBS_QA_ONLY4_NO_PRIVATE_SAVE_PASS
+      - name: New JS bridge/Chrome syntax, product route still OFF
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tests/qa05qrc-pr929/worker.mjs
+          node --check tests/qa05qrc-pr929/chrome-smoke.mjs
+          node --check src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs
+          node --check src/lib/ddv/core/save/product-wasm-read-owner.mjs
+          grep -Fq 'allowDevSemanticWriter=false' src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs
+          grep -Fq 'independentProcessReopenVerified:false' src/lib/ddv/core/save/p1g-rust-worker-readonly-bridge.mjs
+          grep -Fq -- '--features worker-wasm,indexed-read' .github/workflows/pages.yml
+          test "$(git rev-parse HEAD:.github/workflows/pages.yml)" = 5926ecf20412dc1b015f5f85304588a85c568f8c
+          echo QAC929_DEV_DEFAULT_OFF_PUBLIC_PAGES_RUST_WASM_READ_ONLY_PASS
+      - name: Pin accepted Cargo.lock and check actual Rust WASM DEV+PUBLIC ABI
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          test "$(sha256sum crates/ddv-save-core/Cargo.lock | cut -d' ' -f1)" = e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --target wasm32-unknown-unknown --no-default-features \
+            --features worker-wasm,indexed-read,semantic-writer-dev
+          cargo check --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --target wasm32-unknown-unknown --no-default-features \
+            --features worker-wasm,indexed-read
+          echo QAC929_DEV_AND_PUBLIC_RUST_WASM_ABI_CHECK_PASS
+      - name: Genuine DEV-only Rust WASM and pinned wasm-bindgen JS generator
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --release --target wasm32-unknown-unknown --no-default-features \
+            --features worker-wasm,indexed-read,semantic-writer-dev
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked --root /tmp/qac929-bindgen
+          mkdir -p tests/stage-e/pkg
+          /tmp/qac929-bindgen/bin/wasm-bindgen \
+            "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" \
+            --out-dir tests/stage-e/pkg --target web --no-typescript
+          grep -q 'dev_stage_typed_amounts' tests/stage-e/pkg/ddv_save_core.js
+          test -s tests/stage-e/pkg/ddv_save_core_bg.wasm
+          echo QAC929_REAL_DEV_RUST_WASM_BINDGEN_ABI_PASS
+      - name: Synthetic Steam626 fixture ONLY, no uploaded real Owner P1G
+        run: node tests/stage-i/generate-fixture.mjs
+      - name: Independent real Chrome Rust WASM official Codec negative security and durable OPFS
+        run: node tests/qa05qrc-pr929/chrome-smoke.mjs
+      - name: Physical PUBLIC Rust WASM and JS are missing every DEV writer export
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --release --target wasm32-unknown-unknown --no-default-features \
+            --features worker-wasm,indexed-read
+          mkdir -p tests/qa05qrc-pr929/public-pkg
+          /tmp/qac929-bindgen/bin/wasm-bindgen \
+            "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" \
+            --out-dir tests/qa05qrc-pr929/public-pkg --target web --no-typescript
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          import assert from 'node:assert/strict';
+          const path='tests/qa05qrc-pr929/public-pkg/ddv_save_core';
+          const js=readFileSync(path+'.js','utf8');
+          const wasm=readFileSync(path+'_bg.wasm');
+          const exports=WebAssembly.Module.exports(new WebAssembly.Module(wasm)).map(x=>x.name);
+          const pattern=/dev_(?:stage_typed_amounts|undo_typed_amounts|redo_typed_amounts|begin_edited_copy|take_edited_chunk)/;
+          assert.doesNotMatch(js,pattern,'PUBLIC_JS_DEV_WRITER_SYMBOL');
+          assert.equal(exports.some(x=>pattern.test(x)),false,'PUBLIC_WASM_DEV_WRITER_SYMBOL');
+          console.log('QAC929_PUBLIC_GENERATED_JS_AND_WASM_ALL_DEV_WRITER_SYMBOLS_ABSENT_PASS');
+          NODE
+          test -z "$(git ls-files tests/qa05qrc-pr929/public-pkg tests/stage-e/pkg tests/stage-i/fixtures)"
+          echo QAC929_PUBLIC_PRODUCT_WORKER_OFF_NO_PRIVATE_ARTIFACTS_PASS

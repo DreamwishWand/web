@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="robots" content="noindex,nofollow">
+<title>05 QR-C independent PR929 DEV-only synthetic P1G Rust Codec Chrome</title>
+<output id="test">RUNNING</output>
+<script type="module">
+window.__qa929=new Promise((resolve,reject)=>{
+ const worker=new Worker('./worker.mjs',{type:'module'});
+ let done=false;
+ worker.onerror=e=>{if(!done){done=true;worker.terminate();reject(Error('QA929_WORKER_ERROR:'+e.message))}};
+ worker.onmessage=e=>{
+   if(done)return;done=true;worker.terminate();
+   if(e.data?.status==='PASS'){document.getElementById('test').textContent='PASS';resolve(e.data.summary)}
+   else{document.getElementById('test').textContent='FAIL';reject(Error(String(e.data?.error||'unknown')))}
+ };
+ worker.postMessage({kind:'RUN_QA929'});
+});
+</script></html>
