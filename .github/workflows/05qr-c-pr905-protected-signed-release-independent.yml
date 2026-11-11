@@ -185,7 +185,8 @@ jobs:
           assert.equal(inputs.writerEnabled,false);
           assert.doesNotMatch(workflow,/^\s*(?:pages|deployments):\s*write\s*$/m);
           assert.doesNotMatch(workflow,/^\s*uses:\s*actions\/(?:upload-pages-artifact|deploy-pages)@/m);
-          assert.doesNotMatch(workflow,/\.p1g\b|STEAM_SAVE_OWNER_PRIVATE/);
+          assert.match(workflow,/path: tests\/wasm-distribution\/attestation-evidence\//);
+          assert.doesNotMatch(workflow,/^\s*path:\s*(?:static\/worker-wasm|tests\/stage-f\/fixtures)/m);
           assert.match(loader,/UNSIGNED_PRODUCT_DISTRIBUTION_OFF/);
           assert.match(loader,/cache:'no-store'/);
           assert.match(loader,/redirect:'error'/);
