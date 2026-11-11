@@ -138,9 +138,9 @@ export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false}
     if(!state.backupVerified||!state.preview)fail('BACKUP_OR_DIFF_MISSING');
     return execute(async()=>{
       const r=await adapter.exportEditedCopy();
-      if(!only(r,'kind,ok,editedCopyName,backupName,editedCiphertextVerified,independentReopenVerified,originalUnchanged,writerAuthorized,nativeV3Verified,originalOverwriteAuthorized')||
+      if(!only(r,'kind,ok,editedCopyName,backupName,editedCiphertextVerified,freshWorkerReopenVerified,independentProcessReopenVerified,originalUnchanged,writerAuthorized,nativeV3Verified,originalOverwriteAuthorized')||
         r.kind!=='EXPORTED'||r.ok!==true||r.editedCiphertextVerified!==true||
-        r.independentReopenVerified!==true||r.originalUnchanged!==true||
+        r.freshWorkerReopenVerified!==true||r.independentProcessReopenVerified!==false||r.originalUnchanged!==true||
         r.writerAuthorized!==false||r.nativeV3Verified!==false||
         r.originalOverwriteAuthorized!==false||
         typeof r.backupName!=='string'||typeof r.editedCopyName!=='string'||
@@ -149,7 +149,7 @@ export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false}
         same(r.backupName,r.editedCopyName)||same(r.editedCopyName,state.fileName))
         fail('EDITED_COPY_REOPEN_AND_NAME_DENIED');
       return set({phase:'exported',editedCopy:{name:r.editedCopyName,
-        backupName:r.backupName,independentReopenVerified:true}});
+        backupName:r.backupName,freshWorkerReopenVerified:true,independentProcessReopenVerified:false}});
     });
   };
   return Object.freeze({snapshot,open,backupAndRead,stage,undo,redo,
