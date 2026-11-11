@@ -12,6 +12,7 @@ import {
 
 const SOURCE='d10b0df838716beae0119a0982ce319f4a4f6615';
 const MAIN='13751f265296d06616900e1f087aff6dce1426d1';
+const SOURCE_FORK='ef0372a58b9619a442c65b31cecbb88c3cca0029';
 const CORE='4f7f18990ea470d49e1d5fe9b9aceae649072516';
 const checks=[
  ['.github/workflows/01d-tier-a-scalar-requests.yml','e734b8f0a38068f3c2cc9d64e0e82566dde3cc2f'],
@@ -81,10 +82,12 @@ const notAuthorized=o=>{
 };
 test('PR916 immutable 4 ADD + exact QA-only diff, no private Sources or merged Rust dependency',()=>{
  assert.equal(git('merge-base',SOURCE,'HEAD'),SOURCE);
- assert.equal(git('merge-base',MAIN,SOURCE),MAIN);
+ // Source branched before latest protected main gained unrelated PR901.
+ // Do not misclassify branch divergence as a PR916 regression.
+ assert.equal(git('merge-base',MAIN,SOURCE),SOURCE_FORK);
  assert.deepEqual(git('diff','--name-status',SOURCE,'HEAD').trim().split('\n').sort(),
   qaOnly.map(p=>'A\t'+p).sort(),'QA-only 2 ADD, no source changes');
- const original=git('diff','--name-status',MAIN,SOURCE).trim().split('\n').sort();
+ const original=git('diff','--name-status',SOURCE_FORK,SOURCE).trim().split('\n').sort();
  assert.deepEqual(original,checks.map(([path])=>'A\t'+path).sort(),'Original Source 4 ADD only');
  for(const [path,blob] of checks){
   assert.match(git('rev-parse',SOURCE+':'+path),/^[a-f0-9]{40}$/);
