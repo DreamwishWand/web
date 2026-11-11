@@ -75,8 +75,13 @@ export function createLocalAmountDevWorkflow(adapter,{trustedLocalHarness=false}
     return snapshot();
   };
   const open=async({file,fullVersion,originalSha256,buildConfirmed})=>{
-    // Invalidate old Rust worker BEFORE any new File or version can be trusted.
-    await close();
+    // Increment the selection epoch synchronously BEFORE the first await.
+    // A concurrent Close/B selection must not let A start a new Rust Session
+    // after its stale Worker close resolves (A→B / Close during OPEN).
+    const openingEpoch=++epoch;
+    state=cleanState();
+    try{await adapter.close()}catch{}
+    if(openingEpoch!==epoch)fail('STALE_FILE_OR_CLOSE');
     if(!file||typeof file.name!=='string'||!file.name.toLowerCase().endsWith('.p1g')||
        !Number.isSafeInteger(file.size)||file.size<1||
        file.size>128*1024*1024||fullVersion!==STEAM626_FULL_VERSION||
