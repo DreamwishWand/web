@@ -243,7 +243,9 @@ try{
   assert.equal(result[k],false,k);
  console.log('08WEB_REAL_SIGNED_PUBLIC_RUST_WASM_CHROME_TYPED_CONSUMER_PASS',
   {pages:result.pages,signedPublicAssetBytes:true,privateSave:false,
-    consumerProductOwnerFlag:false});
+    consumerProductOwnerFlag:false,physical320Css100:result.geometry100,
+    physical320Css200AfterVerticalScroll:result.geometry200,
+    physicalDesktopCss100:d,innerTableScroll:result.innerTableScroll});
 }catch(e){console.error('08WEB_REAL_CHROME_FAIL',String(e?.stack||e).slice(0,1800));process.exitCode=1}
 finally{
  for(const p of pending.values())p.reject(Error('CDP_CLOSED'));pending.clear();
