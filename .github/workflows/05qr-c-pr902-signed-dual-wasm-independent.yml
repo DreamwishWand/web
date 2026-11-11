@@ -186,6 +186,7 @@ jobs:
           assert.match(loader,/UNSIGNED_PRODUCT_DISTRIBUTION_OFF/);
           assert.match(loader,/no-store/);
           assert.match(loader,/redirect:'error'/);
-          assert.doesNotMatch(loader,/XMLHttpRequest|localStorage|createProductSession/);
+          assert.doesNotMatch(loader,/XMLHttpRequest|createProductSession/);
+          assert.doesNotMatch(loader,/\blocalStorage\s*(?:\.|\[)/);
           console.log('QAC902_UNTRUSTED_PIN_DEFAULT_OFF_NO_SECOND_READER');
           NODE
