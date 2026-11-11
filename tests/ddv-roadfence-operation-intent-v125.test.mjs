@@ -208,3 +208,55 @@ test('Fence ADD never hides a removed edge behind delimiter-colliding node IDs',
   accepted(assess('fence', RoadFenceEditIntent.ADD,
     old, fence(withExtraNode, [{ a: 'a', b: 'b|c' }])));
 });
+
+
+test('Fence RECOMPILE compares collision-free endpoint tuples, not legacy :: fingerprint', () => {
+  const nodes = [
+    node('a', 0, 0), node('b::c', 1, 0),
+    node('a::b', 10, 0), node('c', 11, 0)
+  ];
+  const before = fence(nodes, [{ a: 'a', b: 'b::c' }]);
+  const rewired = fence(nodes, [{ a: 'a::b', b: 'c' }]);
+  const denied = assess('fence', RoadFenceEditIntent.RECOMPILE, before, rewired);
+  assert.equal(denied.status, 'FAIL_CLOSED');
+  assert.equal(denied.errorCode, 'ROADFENCE_OPERATION_RECOMPILE_CHANGED_TOPOLOGY');
+  assert.equal(denied.writerAuthorized, false);
+  assert.equal(denied.productApplyAuthorized, false);
+
+  // The connection changes, but both components and logical quantity remain
+  // 3 and 4 respectively: neither count is sufficient for topology equality.
+  const beforeConnected = assess('fence', RoadFenceEditIntent.RECOMPILE, before, before);
+  accepted(beforeConnected);
+  assert.equal(beforeConnected.sourceComponents, 3);
+  assert.equal(beforeConnected.desiredComponents, 3);
+  assert.equal(beforeConnected.logicalQuantityBefore, 4);
+  assert.equal(beforeConnected.logicalQuantityDelta, 0);
+
+  // Node/edge order and undirected endpoint order must not change identity.
+  const reordered = fence([...nodes].reverse(), [{ a: 'b::c', b: 'a' }]);
+  const valid = assess('fence', RoadFenceEditIntent.RECOMPILE, before, reordered);
+  accepted(valid);
+  assert.equal(valid.sourceComponents, 3);
+  assert.equal(valid.desiredComponents, 3);
+  assert.equal(valid.logicalQuantityDelta, 0);
+  assert.equal(valid.addedExplicitConnections, 0);
+  assert.equal(valid.removedExplicitConnections, 0);
+  assert.equal(valid.nativeProducerConsumerRecompileV3, 'UNKNOWN');
+
+  // This existing 01C case must not regress: '|' endpoint collisions are
+  // rejected for RECOMPILE and for the previously fixed monotonic ADD.
+  const pipes = [
+    node('a', 0, 0), node('b|c', 1, 0),
+    node('a|b', 10, 0), node('c', 11, 0)
+  ];
+  const oldPipe = fence(pipes, [{ a: 'a', b: 'b|c' }]);
+  const changedPipe = fence(pipes, [{ a: 'a|b', b: 'c' }]);
+  assert.equal(
+    assess('fence', RoadFenceEditIntent.RECOMPILE, oldPipe, changedPipe).errorCode,
+    'ROADFENCE_OPERATION_RECOMPILE_CHANGED_TOPOLOGY'
+  );
+  assert.equal(
+    assess('fence', RoadFenceEditIntent.ADD, oldPipe, changedPipe).errorCode,
+    'ROADFENCE_OPERATION_ADD_NOT_MONOTONIC'
+  );
+});

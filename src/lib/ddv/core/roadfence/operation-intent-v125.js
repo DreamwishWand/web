@@ -8,10 +8,7 @@ import {
   transformFenceLogicalGraph,
   transformRoadCells
 } from './logical.js';
-import {
-  normalizeBuildIdentity,
-  topologyFingerprintIgnoringFamily
-} from './persistent-v125/common.js';
+import { normalizeBuildIdentity } from './persistent-v125/common.js';
 import { RoadFencePersistentOperation } from './persistent-v125/constants.js';
 
 export const ROADFENCE_OPERATION_INTENT_CONTRACT = 'ddv.roadfence-operation-intent@1';
@@ -101,8 +98,17 @@ function componentCount(kind, network) {
 }
 
 function sameTopology(a, b) {
-  return topologyFingerprintIgnoringFamily(a) ===
-    topologyFingerprintIgnoringFamily(b);
+  // Do not reuse the legacy compiler fingerprint: joined '::' IDs collide.
+  // The already-normalized intent features use collision-free JSON tuples.
+  if (a.kind !== b.kind || (a.kind !== 'road' && a.kind !== 'fence')) {
+    return false;
+  }
+  const left = features(a.kind, a);
+  const right = features(b.kind, b);
+  return left.vertices.size === right.vertices.size &&
+    left.edges.size === right.edges.size &&
+    [...left.vertices].every((key) => right.vertices.has(key)) &&
+    [...left.edges].every((key) => right.edges.has(key));
 }
 
 function requireMoveOrRotate(kind, intent, source, desired, motion) {
