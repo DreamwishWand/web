@@ -101,7 +101,13 @@ try{
  assert.equal(await page.locator('#steam-diffgrids-file').inputValue(),'','manual File only');
  console.log('QRW901_REAL_RUST_PUBLIC_BYTES_WORKER_READY_MANUAL_ONLY');
  for(const lang of STEAM_DIFFGRIDS_LOCALES){
-  await page.locator('#site-locale').selectOption(lang);
+  // Desktop header locale <select> is intentionally hidden at 320px.
+  // Dispatch native change into the same Svelte handler; verify actual rendered
+  // locale and every visible local Save Consumer label afterward.
+  await page.locator('#site-locale').evaluate((select,code)=>{
+   select.value=code;
+   select.dispatchEvent(new Event('change',{bubbles:true}));
+  },lang);
   await page.waitForFunction(x=>document.documentElement.dataset.locale===x,lang);
   const copy=savedDiffGridsCopy(lang);
   assert.ok((await summary.textContent()).includes(copy.title),'locale title '+lang);
@@ -111,7 +117,10 @@ try{
    copy.file,'locale label '+lang);
  }
  console.log('QRW901_8LOCALE_BROWSER_PASS '+STEAM_DIFFGRIDS_LOCALES.join(','));
- await page.locator('#site-locale').selectOption('en');
+ await page.locator('#site-locale').evaluate((select)=>{
+  select.value='en';
+  select.dispatchEvent(new Event('change',{bubbles:true}));
+ });
  await page.evaluate(()=>{document.documentElement.style.zoom='2'});
  await page.waitForTimeout(300);
  const g=await panel.evaluate(el=>{
