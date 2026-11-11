@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: \${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
@@ -34,7 +34,7 @@ jobs:
           node --check tests/stage-i/worker.mjs
           node --check tests/stage-i/reopen-worker.mjs
           node --check tests/stage-i/chrome-smoke.mjs
-          ! git ls-files | grep -E '\\.p1g$|STEAM_SAVE_OWNER_PRIVATE'
+          ! git ls-files | grep -E '\.p1g$|STEAM_SAVE_OWNER_PRIVATE'
       - name: Existing Rust DEV-only semantic core positive and negative tests
         run: |
           cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
