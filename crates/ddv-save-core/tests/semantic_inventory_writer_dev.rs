@@ -58,6 +58,12 @@ fn inventory_50_to_49_true_semantic_change_exact_only_one_number(){
  assert_eq!(r.revision,1);
  assert_eq!(r.index_generation,2);
  assert_eq!(r.exact_field_changed_count,1);
+ // An immutable original indexed Reader MUST NOT silently show stale values
+ // during a staged semantic transaction: both old and new Cursor invalid.
+ let typed_read=WorkerEnvelope{action:WorkerAction::ReadDomain,
+    ..envelope(&s,1,2,WorkerAction::ReadDomain)};
+ assert_eq!(s.issue_indexed_cursor(typed_read,ddv_save_core::IndexedDomain::Player)
+   .unwrap_err().0,"SEMANTIC_STAGED_READ_SET_INVALIDATED");
  assert!(r.semantic_changed&&r.applied);
  assert!(!r.native_v3_verified&&!r.product_writer_authorized&&!r.original_overwrite_authorized);
  assert_ne!(r.staged_decoded_sha256,r.original_decoded_sha256);
