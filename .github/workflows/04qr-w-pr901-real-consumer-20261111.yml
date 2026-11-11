@@ -1,7 +1,9 @@
 name: 04 QR-W PR901 public Rust WASM Consumer independent Chrome QA-only
 on:
-  push:
-    branches: [qa/04qr-w-pr901-live-rust-consumer-20261111]
+  pull_request:
+    paths:
+      - '.github/workflows/04qr-w-pr901-real-consumer-20261111.yml'
+      - 'scripts/04qr-w-pr901-real-consumer-20261111.mjs'
 permissions:
   contents: read
 jobs:
@@ -11,6 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v4
