@@ -34,7 +34,9 @@ async function checkedFetch(url,length,digest,contentType,fetcher){
     reply.url!==url.href||reply.type!=='basic')
    fail('ASSET_ORIGIN_STATUS_REDIRECT');
  const mime=reply.headers?.get?.('content-type')?.split(';')[0]?.trim();
- if(mime!==contentType)fail('ASSET_CONTENT_TYPE');
+ const safeJsMime=contentType==='text/javascript'&&
+   (mime==='text/javascript'||mime==='application/javascript');
+ if(!safeJsMime&&mime!==contentType)fail('ASSET_CONTENT_TYPE');
  let bytes;
  try{bytes=new Uint8Array(await reply.arrayBuffer())}
  catch{fail('ASSET_READ_FAILED')}
@@ -100,7 +102,9 @@ export async function loadSourcePinnedRustWasmCandidate({
    !hex64.test(manifest.source?.cargoLockSha256??'')||
    !hex64.test(manifest.source?.cargoTomlSha256??'')||
    manifest.signature?.status!=='UNKNOWN'||manifest.signature?.verified!==false||
-   manifest.release?.publishedPages!==false||
+   (manifest.release?.publishedPages!==false &&
+    manifest.release?.publishedPages!==true)||
+   manifest.release?.autoUpload!==false||
    manifest.release?.productConsumerEnabled!==false||
    manifest.release?.writerAuthorized!==false||
    manifest.abi?.exportClass!=='WorkerWasmSource'||
