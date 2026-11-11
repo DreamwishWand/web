@@ -9,6 +9,9 @@ on:
       - 'src/lib/ddv/core/save/local-steam-p1g-saved-diffgrids-facade.mjs'
       - 'tests/native-owner-rust-v1.test.mjs'
       - 'tests/native-owner-rust-v2-noop.test.mjs'
+      - 'tests/native-owner-semantic-writer.test.mjs'
+      - 'tests/native-owner-semantic-writer-p1g.test.mjs'
+      - 'tests/helpers/native-semantic-p1g-independent-reopen.mjs'
       - 'tests/native-owner-area-grid-slice.test.mjs'
       - '.github/workflows/01a-private-native-rust-v1.yml'
   push:
@@ -35,18 +38,22 @@ jobs:
         run: |
           cargo build --manifest-path crates/ddv-save-core/Cargo.toml --features private-native-v1 --bin wand-local-rust-v1 --release
           test -x "$CARGO_TARGET_DIR/release/wand-local-rust-v1"
-          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --features private-native-v2 --bin wand-local-rust-v2-noop --release
+          cargo build --manifest-path crates/ddv-save-core/Cargo.toml --features private-native-v2,semantic-writer-dev --bin wand-local-rust-v2-noop --release
           test -x "$CARGO_TARGET_DIR/release/wand-local-rust-v2-noop"
       - name: Rust full document, indexed read, CAS negative tests
         run: |
           cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features private-native-v2
+          # New DEV-only semantic changes, same ProductSession native runner.
+          cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features private-native-v2,semantic-writer-dev
           WAND_TEST_NATIVE_RUST_V1="$CARGO_TARGET_DIR/release/wand-local-rust-v1" node tests/native-owner-rust-v1.test.mjs
           WAND_TEST_NATIVE_RUST_V1="$CARGO_TARGET_DIR/release/wand-local-rust-v1" node tests/native-owner-area-grid-slice.test.mjs
           WAND_TEST_NATIVE_RUST_V1="$CARGO_TARGET_DIR/release/wand-local-rust-v1" WAND_TEST_NATIVE_RUST_V2="$CARGO_TARGET_DIR/release/wand-local-rust-v2-noop" node tests/native-owner-rust-v2-noop.test.mjs
+          WAND_TEST_SEMANTIC_RUST="$CARGO_TARGET_DIR/release/wand-local-rust-v2-noop" node --test tests/native-owner-semantic-writer.test.mjs
+          WAND_TEST_SEMANTIC_RUST="$CARGO_TARGET_DIR/release/wand-local-rust-v2-noop" node --test tests/native-owner-semantic-writer-p1g.test.mjs
       - name: Export COMPILED BINARY ONLY for authorized local private proof
         uses: actions/upload-artifact@v4
         with:
-          name: wand-native-rust-v1-v2-noop-linux-x86_64-synthetic-tested
+          name: wand-native-rust-v1-v2-noop-dev-semantic-linux-x86_64-synthetic-tested
           path: |
             /tmp/wand-native-private-v1-target/release/wand-local-rust-v1
             /tmp/wand-native-private-v1-target/release/wand-local-rust-v2-noop
