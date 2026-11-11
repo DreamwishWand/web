@@ -235,6 +235,8 @@ pub(super) fn validate_scope(s:&ProductSession,st:&State,e:&WorkerEnvelope)->Cor
     }
     #[cfg(feature="synthetic-stage-b")]
     if st.lab.is_some(){return Err(denied("STAGED_SOURCE_READ_DISABLED"));}
+    #[cfg(feature="semantic-writer-dev")]
+    if st.semantic.is_some(){return Err(denied("SEMANTIC_STAGED_READ_SET_INVALIDATED"));}
     Ok(())
 }
 // Deterministic only relative to a secret Rust-owned key derived from Worker
