@@ -15,6 +15,9 @@ on:
       - 'core/p1g-rust-worker-readonly-bridge-*'
 permissions:
   contents: read
+  # OIDC/Sigstore signing of the *candidate artifact*, not public Pages release.
+  id-token: write
+  attestations: write
 jobs:
   synthetic-p1g-to-real-rust-chrome:
     runs-on: ubuntu-24.04
@@ -105,11 +108,41 @@ jobs:
           WAND_SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
           WAND_CANDIDATE_BASE_PATH: ''
         run: node tests/wasm-distribution/chrome-smoke.mjs
+      - name: Sign candidate artifact provenance with GitHub Sigstore OIDC
+        id: attest
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            static/worker-wasm/ddv_save_core.js
+            static/worker-wasm/ddv_save_core_bg.wasm
+            static/worker-wasm/manifest.json
+      - name: Verify signed provenance for BOTH JS and WASM against this repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          R22_BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          test -s "$R22_BUNDLE"
+          gh attestation verify static/worker-wasm/ddv_save_core.js \
+            --repo "$GITHUB_REPOSITORY" --bundle "$R22_BUNDLE"
+          gh attestation verify static/worker-wasm/ddv_save_core_bg.wasm \
+            --repo "$GITHUB_REPOSITORY" --bundle "$R22_BUNDLE"
+          gh attestation verify static/worker-wasm/manifest.json \
+            --repo "$GITHUB_REPOSITORY" --bundle "$R22_BUNDLE"
+          # The attested bundle is recorded separately. Manifest status
+          # remains UNKNOWN until separate QA/Owner product gate and
+          # authenticated runtime pin/verification; do NOT edit it after
+          # signing (that would change its hash and invalidate the signature).
+          mkdir -p tests/wasm-distribution/attestation-evidence
+          cp "$R22_BUNDLE" tests/wasm-distribution/attestation-evidence/r22-sigstore.bundle.json
+          echo 'R22_GITHUB_SIGSTORE_CANDIDATE_JS_WASM_MANIFEST_SIGNATURE_VERIFIED_NOT_PUBLICLY_DEPLOYED'
       - name: Publish auditable candidate ONLY as isolated short-lived CI artifact
         uses: actions/upload-artifact@v4
         with:
           name: r22-source-pinned-rust-wasm-js-and-binary-candidate-unsigned
-          path: static/worker-wasm/
+          path: |
+            static/worker-wasm/
+            tests/wasm-distribution/attestation-evidence/r22-sigstore.bundle.json
           retention-days: 3
           if-no-files-found: error
       - name: Verify distribution still OFF for product and private assets absent
