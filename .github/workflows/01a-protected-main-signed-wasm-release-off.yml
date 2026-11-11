@@ -1,0 +1,152 @@
+name: 01A R22 Protected-main signed Rust WASM release candidate (OFF; no Pages upload)
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/01a-protected-main-signed-wasm-release-off.yml'
+      - 'scripts/wasm-distribution/**'
+      - 'tests/wasm-distribution/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/01a-protected-main-signed-wasm-release-off.yml'
+      - 'scripts/wasm-distribution/**'
+      - 'tests/wasm-distribution/**'
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+  # Deliberately NO pages:write or deployments:write
+
+jobs:
+  offline-signed-rust-worker-pair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CARGO_TARGET_DIR: /tmp/wand-r22-protected-main-target
+      WAND_SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+      WAND_PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+      WAND_PRODUCT_RELEASE_OWNER_APPROVED: 'false'
+    steps:
+      - name: Checkout exact source, not synthetic PR merge
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Fixed Rust compiler
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Preflight exact protected main, fixed lock/dependencies/Pages policy
+        run: |
+          set -euo pipefail
+          test "$WAND_PRODUCT_RELEASE_OWNER_APPROVED" = false
+          test -z "$(git ls-files static/worker-wasm)"
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          node scripts/wasm-distribution/verify-protected-release.mjs inputs
+      - name: Compile single genuine Rust Worker with READ features ONLY
+        run: |
+          set -euo pipefail
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --release --target wasm32-unknown-unknown --no-default-features \
+            --features worker-wasm,indexed-read
+          test -s "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
+      - name: Install matching wasm-bindgen-cli 0.2.105
+        run: |
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked \
+            --root /tmp/wand-r22-protected-bindgen
+          /tmp/wand-r22-protected-bindgen/bin/wasm-bindgen --version \
+            | grep -Fx 'wasm-bindgen 0.2.105'
+      - name: Genuine wasm-bindgen JS plus binary from same cdylib
+        run: |
+          mkdir -p tests/stage-e/pkg
+          /tmp/wand-r22-protected-bindgen/bin/wasm-bindgen \
+            "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" \
+            --out-dir tests/stage-e/pkg --target web --no-typescript
+          test -s tests/stage-e/pkg/ddv_save_core.js
+          test -s tests/stage-e/pkg/ddv_save_core_bg.wasm
+      - name: Public synthetic encrypted P1G only
+        run: |
+          node tests/stage-f/generate-fixture.mjs
+          test -s tests/stage-f/fixtures/synthetic626-diffgrids.p1g
+          test -z "$(git ls-files tests/stage-f/fixtures)"
+      - name: Generate signed-subject candidates and three independently pinned digests
+        env:
+          WAND_BINDGEN_CLI: /tmp/wand-r22-protected-bindgen/bin/wasm-bindgen
+        run: node scripts/wasm-distribution/build-candidate.mjs
+      - name: Physically build static Pages candidate at /web, WITHOUT deploying
+        env:
+          BASE_PATH: /web
+          WAND_RELEASE_BASE_PATH: /web
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          node scripts/wasm-distribution/verify-protected-release.mjs built
+      - name: Actual Chrome Worker with strict CSP, /web and adversarial negatives
+        env:
+          WAND_CANDIDATE_BASE_PATH: /web
+          WAND_PROTECTED_RELEASE_CSP: '1'
+        run: node tests/wasm-distribution/chrome-smoke.mjs
+      - name: Physically build static Pages candidate at custom-domain root, without deploying
+        env:
+          BASE_PATH: ''
+          WAND_RELEASE_BASE_PATH: ''
+        run: |
+          npm run build
+          node scripts/wasm-distribution/verify-protected-release.mjs built
+      - name: Actual Chrome Worker with strict CSP, custom root and negatives
+        env:
+          WAND_CANDIDATE_BASE_PATH: ''
+          WAND_PROTECTED_RELEASE_CSP: '1'
+        run: node tests/wasm-distribution/chrome-smoke.mjs
+      - name: OIDC Sigstore attestation of the exact genuine JS + WASM + Manifest
+        id: attest
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            static/worker-wasm/ddv_save_core.js
+            static/worker-wasm/ddv_save_core_bg.wasm
+            static/worker-wasm/manifest.json
+      - name: Verify each signed subject and match to physically built Pages bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          R22_BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+          WAND_RELEASE_BASE_PATH: ''
+        run: |
+          set -euo pipefail
+          test -s "$R22_BUNDLE"
+          gh attestation verify static/worker-wasm/ddv_save_core.js \
+            --repo "$GITHUB_REPOSITORY" --bundle "$R22_BUNDLE"
+          gh attestation verify static/worker-wasm/ddv_save_core_bg.wasm \
+            --repo "$GITHUB_REPOSITORY" --bundle "$R22_BUNDLE"
+          gh attestation verify static/worker-wasm/manifest.json \
+            --repo "$GITHUB_REPOSITORY" --bundle "$R22_BUNDLE"
+          node scripts/wasm-distribution/verify-protected-release.mjs built
+          echo 'R22_PROTECTED_SOURCE_THREE_SIGNED_SUBJECTS_VERIFIED_PUBLIC_DEPLOY_OFF'
+      - name: Save ONLY proof of verification, not executable bytes
+        env:
+          R22_BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          mkdir -p tests/wasm-distribution/attestation-evidence
+          cp "$R22_BUNDLE" tests/wasm-distribution/attestation-evidence/protected-release.bundle.json
+          cp tests/wasm-distribution/fixtures/ci-pins.json \
+            tests/wasm-distribution/attestation-evidence/protected-release-pins.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r22-protected-source-signed-proof-NO-EXECUTABLES
+          path: tests/wasm-distribution/attestation-evidence/
+          retention-days: 3
+          if-no-files-found: error
+      - name: End with Writer and public-distribution gates OFF
+        run: |
+          test "$WAND_PRODUCT_RELEASE_OWNER_APPROVED" = false
+          test -z "$(git ls-files static/worker-wasm tests/stage-e/pkg tests/stage-f/fixtures)"
+          test ! -f src/lib/ddv/core/save/product-wasm-distribution-flag-on.js
+          ! grep -R -E 'STEAM_SAVE_OWNER_PRIVATE|writerAuthorized: *true|applyAuthorized: *true|include_bytes!' scripts/wasm-distribution tests/wasm-distribution
+          echo 'R22_HUMAN_GATE_NOT_GRANTED_NO_PUBLIC_WASM_DEPLOYMENT'
