@@ -1,0 +1,195 @@
+name: 05 QR-C PR905 protected-main release gate independent signed three-asset Chrome
+on:
+  pull_request:
+    paths:
+      - 'tests/wasm-distribution/qa-05qrc-pr905-independent.mjs'
+      - '.github/workflows/05qr-c-pr905-protected-signed-release-independent.yml'
+permissions:
+  contents: read
+  actions: read
+  attestations: read
+jobs:
+  qa-pr905-exact-source-proof-real-chrome-off:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Pin new Source six original Git Blobs and exact two QA-only files
+        shell: bash
+        run: |
+          set -euo pipefail
+          source=f20cf85211ede97b3837e7abb1e8bc75cd1bc73b
+          test "$(git merge-base "$source" HEAD)" = "$source"
+          declare -A blobs=(
+            [".github/workflows/01a-protected-main-signed-wasm-release-off.yml"]="8d2dca9db3bf13fefe87e0aca3ab99b67819386f"
+            ["scripts/wasm-distribution/protected-release-inputs.json"]="65c57fe00bbf30927165c3a645ae6c8d89cd0e73"
+            ["scripts/wasm-distribution/verify-protected-release.mjs"]="2378e0254846a0cf4214f8422b4e8fa4e53f8e18"
+            ["tests/wasm-distribution/chrome-smoke.mjs"]="3f2446df6073d3e492bbfc3fcb8cbafb2e3c7f9e"
+            ["tests/wasm-distribution/index.html"]="fceb446e4a923c80fb7c026d0168f2dbb07263a0"
+            ["tests/wasm-distribution/launcher.mjs"]="677b42cd6b16f7a96c32d8785c7a9df6c34aecde"
+          )
+          for p in "${!blobs[@]}"; do
+            test "$(git rev-parse "$source:$p")" = "${blobs[$p]}"
+            test "$(git rev-parse "HEAD:$p")" = "${blobs[$p]}"
+          done
+          got="$(git diff --name-only "$source" HEAD | sort)"
+          want="$(printf '%s\n' .github/workflows/05qr-c-pr905-protected-signed-release-independent.yml tests/wasm-distribution/qa-05qrc-pr905-independent.mjs | sort)"
+          test "$got" = "$want"
+          node --check tests/wasm-distribution/qa-05qrc-pr905-independent.mjs
+          test "$(git rev-parse HEAD:crates/ddv-save-core/Cargo.toml)" = f61af649e46cb69db5419563f280219021b354f3
+          test "$(git rev-parse HEAD:.github/workflows/pages.yml)" = 27a1cdf7e5ff1d3cdda36a7e18e75bef3e68c98a
+          test -z "$(git ls-files static/worker-wasm tests/stage-f/fixtures)"
+          echo QAC905_SOURCE6_QA_ONLY2_BLOBS_PAGES_POLICY_PASS
+      - name: Original PR Source event identity, signed build run and NO executable artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for run in 42954784565 42954784394; do
+            test "$(gh api repos/DreamwishWand/web/actions/runs/$run --jq .head_sha)" = 'f20cf85211ede97b3837e7abb1e8bc75cd1bc73b'
+            test "$(gh api repos/DreamwishWand/web/actions/runs/$run --jq .conclusion)" = success
+            test "$(gh api repos/DreamwishWand/web/actions/runs/$run --jq .event)" = pull_request
+          done
+          test "$(gh api repos/DreamwishWand/web/actions/runs/42954784565 --jq .path)" = '.github/workflows/01a-protected-main-signed-wasm-release-off.yml'
+          test "$(gh api repos/DreamwishWand/web/actions/artifacts/13826213140 --jq .workflow_run.head_sha)" = 'f20cf85211ede97b3837e7abb1e8bc75cd1bc73b'
+          test "$(gh api repos/DreamwishWand/web/actions/artifacts/13827045607 --jq .workflow_run.head_sha)" = 'f20cf85211ede97b3837e7abb1e8bc75cd1bc73b'
+          mkdir -p /tmp/qac905-release /tmp/qac905-stagef
+          gh run download 42954784565 -R DreamwishWand/web -n r22-protected-source-signed-proof-NO-EXECUTABLES -D /tmp/qac905-release
+          gh run download 42954784394 -R DreamwishWand/web -n r22-source-pinned-rust-wasm-js-and-binary-candidate-unsigned -D /tmp/qac905-stagef
+      - name: Independent actual byte SHA/Size, release signer bundle and Source-vs-old-head identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          source='f20cf85211ede97b3837e7abb1e8bc75cd1bc73b'
+          release=Path('/tmp/qac905-release')
+          stagef=Path('/tmp/qac905-stagef')
+          def unique(root,name):
+              files=list(root.rglob(name))
+              assert len(files)==1,(str(root),name,[str(p) for p in files])
+              return files[0]
+          evidence=[f for f in release.rglob('*') if f.is_file()]
+          assert len(evidence)==2,[str(f) for f in evidence]
+          assert {x.name for x in evidence}=={'protected-release.bundle.json','protected-release-pins.json'}
+          assert not any(x.suffix in {'.js','.wasm','.p1g'} for x in evidence)
+          signed_pins=json.loads(unique(release,'protected-release-pins.json').read_text())
+          assert signed_pins['sourceHead']==source
+          assert signed_pins['manifestSha256']=='60f711aa84877ce87a9806341cff1ff436f9f5e2b984204ff089f6881faef4af'
+          assert signed_pins['jsSha256']=='4704a19c6e2962583d03a0bf8e7d5bf5ad2a802fd664259117eff4b2bbcbac0d'
+          assert signed_pins['wasmSha256']=='5383f76a7228493d720e1e2734a26738d1165f92cbcfae48f3e1df5c38b10207'
+          assert signed_pins['jsSizeBytes']==16904 and signed_pins['wasmSizeBytes']==258719
+          assert signed_pins['manifestSizeBytes']==1921 and not signed_pins['verifiedSignature']
+          paths={
+            'ddv_save_core.js':(16904,signed_pins['jsSha256']),
+            'ddv_save_core_bg.wasm':(258719,signed_pins['wasmSha256']),
+            'manifest.json':(1921,signed_pins['manifestSha256'])
+          }
+          target=Path('static/worker-wasm')
+          target.mkdir(parents=True,exist_ok=True)
+          for name,(size,digest) in paths.items():
+              source_bytes=unique(stagef,name).read_bytes()
+              assert len(source_bytes)==size,name
+              assert hashlib.sha256(source_bytes).hexdigest()==digest,name
+              (target/name).write_bytes(source_bytes)
+          lock=unique(stagef,'Cargo.lock').read_bytes()
+          assert hashlib.sha256(lock).hexdigest()=='e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c'
+          (target/'Cargo.lock').write_bytes(lock)
+          m=json.loads((target/'manifest.json').read_text())
+          assert m['source']['commit']==source
+          assert m['source']['cargoLockSha256']=='e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c'
+          assert m['source']['wasmBindgen']=='0.2.105'
+          assert m['source']['toolchain'].startswith('rustc 1.99.1 ')
+          assert m['source']['defaultFeatures'] is False
+          assert m['source']['features']==['indexed-read','worker-wasm']
+          assert m['abi']['writerAuthorized'] is False and m['abi']['nativeV3'] is False
+          assert m['signature']['status']=='UNKNOWN' and m['signature']['verified'] is False
+          assert m['release']['publishedPages'] is False and m['release']['productConsumerEnabled'] is False
+          assert (target/'ddv_save_core_bg.wasm').read_bytes()[:4]==bytes([0,97,115,109])
+          assert b'private-native-v2' not in (target/'ddv_save_core_bg.wasm').read_bytes()
+          assert b'private-native-v1' not in (target/'ddv_save_core_bg.wasm').read_bytes()
+          fixture=Path('tests/wasm-distribution/fixtures')
+          fixture.mkdir(parents=True,exist_ok=True)
+          (fixture/'ci-pins.json').write_text(json.dumps(signed_pins))
+          print('QAC905_VERIFIED_RELEASE_PROOF_HAS_NO_EXE_SOURCE6_MANIFEST_TRIPLE_SHA_SIZES_PASS')
+          PY
+          bundle="$(find /tmp/qac905-release -type f -name protected-release.bundle.json -print -quit)"
+          test -s "$bundle"
+          for name in ddv_save_core.js ddv_save_core_bg.wasm manifest.json; do
+            gh attestation verify "static/worker-wasm/$name" --repo DreamwishWand/web --bundle "$bundle"
+          done
+          echo QAC905_GITHUB_OIDC_SIGSTORE_RELEASE_WORKFLOW_ALL_THREE_SUBJECTS_VERIFIED
+      - name: Independent Pages candidate physical bytes /web; real isolated Chrome CSP
+        env:
+          BASE_PATH: /web
+          WAND_CANDIDATE_BASE_PATH: /web
+          WAND_SOURCE_HEAD: f20cf85211ede97b3837e7abb1e8bc75cd1bc73b
+          WAND_PROTECTED_RELEASE_CSP: '1'
+        shell: bash
+        run: |
+          node tests/stage-f/generate-fixture.mjs
+          test -s tests/stage-f/fixtures/synthetic626-diffgrids.p1g
+          test -z "$(git ls-files tests/stage-f/fixtures)"
+          npm ci --no-audit --no-fund
+          npm run build
+          for f in ddv_save_core.js ddv_save_core_bg.wasm manifest.json; do cmp "static/worker-wasm/$f" "build/worker-wasm/$f"; done
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tests/wasm-distribution/worker.mjs')
+          s=p.read_text()
+          anchor=" const typed=await testRealEncryptedSavedDiffGridsFacade(loaded.WorkerWasmSource);"
+          assert s.count(anchor)==1
+          s="import {independentQac905} from './qa-05qrc-pr905-independent.mjs';\n"+s
+          s=s.replace(anchor,
+             " const qa=await independentQac905();\n"
+             " check(qa.realRustWasm && qa.threeImmutablePins && !qa.productEnabled,\n"
+             "  'QA905_NEW_RELEASE_SCOPE_REQUIRED');\n"+anchor)
+          p.write_text(s)
+          PY
+          node tests/wasm-distribution/chrome-smoke.mjs
+          echo QAC905_TRUE_RUST_CHROME_STRICT_CSP_WEB_SOURCE_SIGNED_BINARY_PASS
+      - name: Independent Pages custom-root exact same Source SHA bytes and Chrome
+        env:
+          BASE_PATH: ''
+          WAND_CANDIDATE_BASE_PATH: ''
+          WAND_SOURCE_HEAD: f20cf85211ede97b3837e7abb1e8bc75cd1bc73b
+          WAND_PROTECTED_RELEASE_CSP: '1'
+        shell: bash
+        run: |
+          npm run build
+          for f in ddv_save_core.js ddv_save_core_bg.wasm manifest.json; do cmp "static/worker-wasm/$f" "build/worker-wasm/$f"; done
+          node tests/wasm-distribution/chrome-smoke.mjs
+          echo QAC905_TRUE_RUST_CHROME_STRICT_CSP_CUSTOM_ROOT_SIGNED_BINARY_PASS
+      - name: Release public Owner HUMAN_GATE and full Writer OFF independent static negative
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          import assert from 'node:assert/strict';
+          const workflow=readFileSync('.github/workflows/01a-protected-main-signed-wasm-release-off.yml','utf8');
+          const inputs=JSON.parse(readFileSync('scripts/wasm-distribution/protected-release-inputs.json','utf8'));
+          const loader=readFileSync('src/lib/ddv/core/save/product-rust-wasm-candidate-loader.mjs','utf8');
+          assert.equal(inputs.releasePermission,'HUMAN_GATE_NOT_GRANTED');
+          assert.equal(inputs.productConsumerEnabled,false);
+          assert.equal(inputs.writerEnabled,false);
+          assert.doesNotMatch(workflow,/^\s*(?:pages|deployments):\s*write\s*$/m);
+          assert.doesNotMatch(workflow,/^\s*uses:\s*actions\/(?:upload-pages-artifact|deploy-pages)@/m);
+          assert.doesNotMatch(workflow,/\.p1g\b|STEAM_SAVE_OWNER_PRIVATE/);
+          assert.match(loader,/UNSIGNED_PRODUCT_DISTRIBUTION_OFF/);
+          assert.match(loader,/cache:'no-store'/);
+          assert.match(loader,/redirect:'error'/);
+          console.log('QAC905_OWNER_PUBLIC_PERMISSION_HUMAN_GATE_NO_EXECUTABLE_UPLOAD_NO_WRITER');
+          NODE
+          test -z "$(git ls-files static/worker-wasm tests/stage-e/pkg tests/stage-f/fixtures)"
+          test -z "$(git diff --name-only 'f20cf85211ede97b3837e7abb1e8bc75cd1bc73b' HEAD -- crates/ddv-save-core src/lib/ddv/core/save)"
