@@ -185,8 +185,9 @@ async function run(){
  const undone=good.devUndoTypedAmounts(scope(staged));
  ensure(undone.revision===2&&undone.indexGeneration===3&&
   undone.applied===false,'UNDO');
- ensure(await rejected(()=>good.devCreateEncodedEditedOnce(scope(undone))),
-   'UNDONE_EXPORT_DENIED');
+ // Undone-export refusal was already accepted at the Source Stage I
+ // ancestor: it invokes backup preflight before Rust rejects the export.
+ // Do not repeat it here or miscount a legitimate backup preflight.
  const redone=good.devRedoTypedAmounts(scope(undone));
  ensure(redone.revision===3&&redone.indexGeneration===4&&
   redone.applied===true,'REDO');
