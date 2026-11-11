@@ -65,11 +65,12 @@ export async function loadSourcePinnedRustWasmCandidate({
    fail('WORKER_ONLY');
  if(qaCandidate!==true)fail('UNSIGNED_PRODUCT_DISTRIBUTION_OFF');
  if(!exact(trustedPins,
-  'contract,sourceHead,manifestSha256,jsSha256,wasmSha256,jsSizeBytes,wasmSizeBytes,sourceProvenanceOnly,verifiedSignature')||
+  'contract,sourceHead,manifestSha256,manifestSizeBytes,jsSha256,wasmSha256,jsSizeBytes,wasmSizeBytes,sourceProvenanceOnly,verifiedSignature')||
   trustedPins.contract!=='wand.r22.candidate-pinned-digests@1'||
   !hex40.test(trustedPins.sourceHead)||
   ![trustedPins.manifestSha256,trustedPins.jsSha256,trustedPins.wasmSha256]
     .every(x=>hex64.test(x))||
+  !strictSize(trustedPins.manifestSizeBytes,64*1024)||
   !strictSize(trustedPins.jsSizeBytes,2*1024*1024)||
   !strictSize(trustedPins.wasmSizeBytes,20*1024*1024)||
   trustedPins.sourceProvenanceOnly!==true||
@@ -82,8 +83,7 @@ export async function loadSourcePinnedRustWasmCandidate({
    fail('ASSET_URL_OUTSIDE_ORIGIN');
  // Manifest is an attestation CANDIDATE, not a signature. The external pin
  // protects it against tampering, but is trusted only as much as its caller.
- const mf=await checkedFetch(urls[0],
-   await getPinnedManifestSize(urls[0],trustedPins,fetcher),
+ const mf=await checkedFetch(urls[0],trustedPins.manifestSizeBytes,
    trustedPins.manifestSha256,'application/json',fetcher);
  let manifest;
  try{manifest=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(mf))}
@@ -150,33 +150,3 @@ export async function loadSourcePinnedRustWasmCandidate({
  });
 }
 
-// Content length cannot be learned from a remote untrusted manifest before
-// authenticating that manifest. The independent QA pins must include it.
-async function getPinnedManifestSize(url,pins,fetcher){
- // Download exactly once, and validate SHA within the caller's verified
- // fetch result. No untrusted declared size or second import is used.
- // A WeakMap holds *this* just-fetched Response to avoid GET/GET TOCTOU.
- const reply=await fetcher(url.href,{cache:'no-store',redirect:'error',
-   credentials:'same-origin',mode:'same-origin'}).catch(()=>fail('MANIFEST_FETCH_DENIED'));
- if(!reply||!reply.ok||reply.status!==200||reply.url!==url.href||
-   reply.redirected||reply.type!=='basic'||
-   reply.headers?.get?.('content-type')?.split(';')[0]?.trim()!=='application/json')
-   fail('MANIFEST_FETCH_STATUS');
- const bytes=new Uint8Array(await reply.arrayBuffer());
- if(!strictSize(bytes.length,64*1024)||await sha256(bytes)!==pins.manifestSha256)
-   fail('MANIFEST_SHA256_MISMATCH');
- // Store locally only for this call, then checkedFetch uses this same bytes,
- // never a second network fetch. Instead of storing globally, use the caller-
- // local slot returned by the fetcher wrapper.
- const slot={value:bytes};
- const prior=fetcher;
- // validated bytes are owned by this invocation only.
- const response={ok:true,status:200,redirected:false,url:url.href,type:'basic',
-  headers:{get:()=> 'application/json'},
-  arrayBuffer:async()=>slot.value.slice().buffer};
- const intercept=(candidate,options)=>
-   candidate===url.href?Promise.resolve(response):prior(candidate,options);
- // Return pinned length plus intercept to avoid any refetch of manifest.
- // (The main loader replaces fetcher once below via explicit assignment.)
- return bytes.length;
-}
