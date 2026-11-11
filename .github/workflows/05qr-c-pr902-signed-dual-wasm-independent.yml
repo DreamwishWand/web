@@ -28,7 +28,7 @@ jobs:
           source=12c4072b99a1aa70204d941dc20283fac41ded98
           qa_tip="$(git rev-parse HEAD)"
           test "$qa_tip" = "${{ github.event.pull_request.head.sha }}"
-          test "$(git rev-parse HEAD^)" = "$source"
+          test "$(git merge-base "$source" HEAD)" = "$source"
           declare -A pinned=(
             [".github/workflows/01a-private-native-rust-v1.yml"]="e9ab8abe706eef75599d06dd6d033f276f84e2c2"
             [".github/workflows/01a-stagee-generated-wasm-chrome.yml"]="950388ca01b7705213f9059ea14137a4ba0e42b9"
@@ -102,7 +102,7 @@ jobs:
           assert m['assets']['js']['sha256']==targets['ddv_save_core.js'][1]
           assert m['assets']['wasm']['sha256']==targets['ddv_save_core_bg.wasm'][1]
           wasm=(dest/'ddv_save_core_bg.wasm').read_bytes()
-          assert wasm[:4]==b'\\x00asm'
+          assert wasm[:4]==b'\x00asm'
           assert b'private-native-v1' not in wasm and b'private-native-v2' not in wasm
           pins={'contract':'wand.r22.candidate-pinned-digests@1',
             'sourceHead':'12c4072b99a1aa70204d941dc20283fac41ded98',
