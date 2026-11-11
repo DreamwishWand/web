@@ -7,6 +7,9 @@ on:
 
 permissions:
   contents: read
+  # Only the build job attests the three Owner-approved read-only binaries.
+  id-token: write
+  attestations: write
 
 concurrency:
   group: github-pages
@@ -15,6 +18,15 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # Owner 2026-11-11 explicitly authorized only these 3 inert assets.
+      WAND_PUBLIC_READONLY_ASSET_GATE: OWNER_APPROVED_THREE_FILES_20261111
+      WAND_SOURCE_HEAD: ${{ github.sha }}
+      CARGO_TARGET_DIR: /tmp/wand-pages-r22-rust
+    outputs:
+      js_sha: ${{ steps.asset_pins.outputs.js_sha }}
+      wasm_sha: ${{ steps.asset_pins.outputs.wasm_sha }}
+      manifest_sha: ${{ steps.asset_pins.outputs.manifest_sha }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -43,12 +55,92 @@ jobs:
         run: npm run verify:community-integrated-tree -- --require-ready
       - name: Starter tests
         run: npm test
+      - name: Fixed attested Rust compiler and WebAssembly target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99.1'
+          targets: wasm32-unknown-unknown
+      - name: Verify exact protected-main release inputs and dependency lock
+        env:
+          WAND_RELEASE_BASE_PATH: /web
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          test "$(git rev-parse HEAD)" = "$WAND_SOURCE_HEAD"
+          cargo generate-lockfile --manifest-path crates/ddv-save-core/Cargo.toml
+          node scripts/wasm-distribution/verify-protected-release.mjs inputs
+      - name: Generate genuine read-only Rust wasm32 from this protected main
+        run: |
+          set -euo pipefail
+          cargo build --locked --manifest-path crates/ddv-save-core/Cargo.toml \
+            --release --target wasm32-unknown-unknown --no-default-features \
+            --features worker-wasm,indexed-read
+          test -s "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm"
+      - name: Bind exact generated WASM to JavaScript with wasm-bindgen 0.2.105
+        run: |
+          set -euo pipefail
+          cargo install wasm-bindgen-cli --version 0.2.105 --locked \
+            --root /tmp/wand-pages-bindgen
+          /tmp/wand-pages-bindgen/bin/wasm-bindgen --version | grep -Fx 'wasm-bindgen 0.2.105'
+          mkdir -p tests/stage-e/pkg
+          /tmp/wand-pages-bindgen/bin/wasm-bindgen \
+            "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/ddv_save_core.wasm" \
+            --out-dir tests/stage-e/pkg --target web --no-typescript
+      - name: Stage exactly three Owner-approved public read-only files
+        env:
+          WAND_BINDGEN_CLI: /tmp/wand-pages-bindgen/bin/wasm-bindgen
+        run: |
+          set -euo pipefail
+          node scripts/wasm-distribution/build-candidate.mjs
+          test -s static/worker-wasm/ddv_save_core.js
+          test -s static/worker-wasm/ddv_save_core_bg.wasm
+          test -s static/worker-wasm/manifest.json
+          test ! -e static/worker-wasm/Cargo.lock
+          test "$(find static/worker-wasm -maxdepth 1 -type f | wc -l)" -eq 3
+          test -z "$(git ls-files static/worker-wasm)"
       - name: Build static site
         env:
           BASE_PATH: /web
           VITE_SUPABASE_URL: ${{ vars.DREAMWISH_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.DREAMWISH_SUPABASE_PUBLISHABLE_KEY }}
         run: npm run build
+      - name: Verify Pages physical JS, WASM and Manifest equal protected-main source
+        env:
+          WAND_RELEASE_BASE_PATH: /web
+        run: |
+          set -euo pipefail
+          node scripts/wasm-distribution/verify-protected-release.mjs built
+          test "$(find build/worker-wasm -maxdepth 1 -type f | wc -l)" -eq 3
+      - name: GitHub OIDC Sigstore attests the ACTUAL three Pages input bytes
+        id: asset_sigstore
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            static/worker-wasm/ddv_save_core.js
+            static/worker-wasm/ddv_save_core_bg.wasm
+            static/worker-wasm/manifest.json
+      - name: Verify all three signatures before Pages artifact upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WAND_RELEASE_BASE_PATH: /web
+          WAND_SIGSTORE_BUNDLE: ${{ steps.asset_sigstore.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          test -s "$WAND_SIGSTORE_BUNDLE"
+          for file in ddv_save_core.js ddv_save_core_bg.wasm manifest.json; do
+            gh attestation verify "static/worker-wasm/$file" \
+              --repo "$GITHUB_REPOSITORY" --bundle "$WAND_SIGSTORE_BUNDLE"
+          done
+          # Final byte comparison takes place AFTER successful authentic signatures.
+          node scripts/wasm-distribution/verify-protected-release.mjs built
+          echo 'R22_OWNER_APPROVED_PUBLIC_READONLY_THREE_SIGNED_BYTES_MATCH_PAGES'
+      - name: Pin all three real signed asset digests for post-deploy HTTPS check
+        id: asset_pins
+        run: |
+          set -euo pipefail
+          echo "js_sha=$(sha256sum build/worker-wasm/ddv_save_core.js | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "wasm_sha=$(sha256sum build/worker-wasm/ddv_save_core_bg.wasm | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "manifest_sha=$(sha256sum build/worker-wasm/manifest.json | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
       - name: Verify static routes
         run: |
           test -f build/index.html
@@ -99,6 +191,43 @@ jobs:
       pages: write
       id-token: write
     steps:
-      - name: Deploy GitHub Pages
+      - name: Deploy existing Pages including only verified three read-only assets
         id: deployment
         uses: actions/deploy-pages@v4
+      - name: Verify actual same-origin HTTPS bytes, status, MIME and no redirect
+        env:
+          WAND_DEPLOYED_BASE_URL: ${{ steps.deployment.outputs.page_url }}
+          WAND_JS_SHA256: ${{ needs.build.outputs.js_sha }}
+          WAND_WASM_SHA256: ${{ needs.build.outputs.wasm_sha }}
+          WAND_MANIFEST_SHA256: ${{ needs.build.outputs.manifest_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="${WAND_DEPLOYED_BASE_URL%/}"
+          [[ "$root" == https://* ]] || { echo 'LIVE_TLS_REQUIRED'; exit 1; }
+          for spec in "ddv_save_core.js:$WAND_JS_SHA256:js" \
+                      "ddv_save_core_bg.wasm:$WAND_WASM_SHA256:wasm" \
+                      "manifest.json:$WAND_MANIFEST_SHA256:json"; do
+            IFS=: read -r file sha typ <<< "$spec"
+            ok=0
+            for attempt in 1 2 3 4 5 6 7 8; do
+              response="$(mktemp)"
+              headers="$(mktemp)"
+              code="$(curl --silent --show-error --max-time 25 --max-redirs 0 \
+                -H 'Cache-Control: no-cache' -D "$headers" -o "$response" \
+                -w '%{http_code}' "$root/worker-wasm/$file" || true)"
+              if [[ "$code" == 200 && "$(sha256sum "$response" | cut -d' ' -f1)" == "$sha" ]]; then
+                mime="$(awk 'tolower($1)=="content-type:" {print tolower($2)}' "$headers" | tr -d '\r' | tail -1)"
+                case "$typ:$mime" in
+                  js:text/javascript*|js:application/javascript*|wasm:application/wasm*|json:application/json*) ok=1 ;;
+                  *) echo "LIVE_BAD_MIME $file $mime";;
+                esac
+              fi
+              rm -f "$response" "$headers"
+              [[ "$ok" == 1 ]] && break
+              sleep 6
+            done
+            [[ "$ok" == 1 ]] || { echo "LIVE_TRIPLE_ASSET_PROVENANCE_FAIL $file"; exit 1; }
+            echo "R22_PUBLIC_HTTPS_SIGNED_ASSET_VERIFIED $file"
+          done
+          echo 'R22_PUBLIC_READONLY_THREE_ASSETS_REAL_HTTPS_DEPLOY_PASS_PRODUCT_UI_OFF'
