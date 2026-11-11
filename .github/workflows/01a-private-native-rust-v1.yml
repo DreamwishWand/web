@@ -10,6 +10,7 @@ on:
       - 'tests/native-owner-rust-v1.test.mjs'
       - 'tests/native-owner-rust-v2-noop.test.mjs'
       - 'tests/native-owner-area-grid-slice.test.mjs'
+      - 'tests/native-owner-saved-diffgrids-typed-cli.test.mjs'
       - '.github/workflows/01a-private-native-rust-v1.yml'
   push:
     branches:
@@ -42,7 +43,13 @@ jobs:
           cargo test --manifest-path crates/ddv-save-core/Cargo.toml --features private-native-v2
           WAND_TEST_NATIVE_RUST_V1="$CARGO_TARGET_DIR/release/wand-local-rust-v1" node tests/native-owner-rust-v1.test.mjs
           WAND_TEST_NATIVE_RUST_V1="$CARGO_TARGET_DIR/release/wand-local-rust-v1" node tests/native-owner-area-grid-slice.test.mjs
+          WAND_TEST_NATIVE_RUST_V1="$CARGO_TARGET_DIR/release/wand-local-rust-v1" node tests/native-owner-saved-diffgrids-typed-cli.test.mjs
           WAND_TEST_NATIVE_RUST_V1="$CARGO_TARGET_DIR/release/wand-local-rust-v1" WAND_TEST_NATIVE_RUST_V2="$CARGO_TARGET_DIR/release/wand-local-rust-v2-noop" node tests/native-owner-rust-v2-noop.test.mjs
+      - name: Pin DEV-only binary build provenance (no owner Save)
+        run: |
+          set -euo pipefail
+          echo "DEV typed DiffGrids synthetic-only binary from Source HEAD $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          sha256sum "$CARGO_TARGET_DIR/release/wand-local-rust-v1" >> "$GITHUB_STEP_SUMMARY"
       - name: Export COMPILED BINARY ONLY for authorized local private proof
         uses: actions/upload-artifact@v4
         with:
