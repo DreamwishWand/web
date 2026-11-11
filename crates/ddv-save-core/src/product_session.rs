@@ -73,6 +73,7 @@ pub struct ReadReceipt {
 struct State { id: [u8;16], revision: u64, generation: u64, closed: bool,
     #[cfg(feature = "synthetic-stage-b")] lab: Option<synthetic_stage_b::SyntheticLedger>,
     #[cfg(feature = "private-native-v2")] private_offline: Option<private_native_v2::PrivateOfflineLedger>,
+    #[cfg(feature = "semantic-writer-dev")] semantic: Option<semantic_writer::SemanticLedger>,
     #[cfg(feature = "indexed-read")] indexed: Option<indexed_read::IndexedCache>,
 }
 #[cfg(feature = "synthetic-stage-b")]
@@ -90,6 +91,14 @@ pub use native_reference_slice::NativeAreaGridSliceReceipt;
 mod private_native_v2;
 #[cfg(feature = "private-native-v2")]
 pub use private_native_v2::PrivateOfflineReceipt;
+#[cfg(feature = "semantic-writer-dev")]
+#[path = "semantic_writer.rs"]
+mod semantic_writer;
+#[cfg(feature = "semantic-writer-dev")]
+pub use semantic_writer::{
+    TypedOperationKind,TypedOperationRegistryEntry,TypedSemanticCommand,
+    SemanticStageReceipt,TYPED_OPERATION_REGISTRY,
+};
 #[cfg(feature = "indexed-read")]
 #[path = "indexed_read.rs"]
 mod indexed_read;
@@ -135,6 +144,7 @@ impl ProductSession {
             state: Mutex::new(State { id, revision:0, generation:1, closed:false,
                 #[cfg(feature = "synthetic-stage-b")] lab:None,
                 #[cfg(feature = "private-native-v2")] private_offline:None,
+                #[cfg(feature = "semantic-writer-dev")] semantic:None,
                 #[cfg(feature = "indexed-read")] indexed:None }),
             decoded:Arc::from(decoded), sha, schema:build.schema, worker_bound:false,
             #[cfg(feature = "indexed-read")]
@@ -179,6 +189,7 @@ impl ProductSession {
         let state=State {id,revision:0,generation:1,closed:false,
             #[cfg(feature = "synthetic-stage-b")] lab:None,
                 #[cfg(feature = "private-native-v2")] private_offline:None,
+                #[cfg(feature = "semantic-writer-dev")] semantic:None,
             #[cfg(feature = "indexed-read")] indexed:None};
         Ok(Self {
             state:Mutex::new(state),decoded:Arc::from(decoded),
