@@ -55,7 +55,7 @@ function nodeKey(node) {
 }
 
 function edgeKey(edge) {
-  return [String(edge.a), String(edge.b)].sort().join('|');
+  return JSON.stringify([String(edge.a), String(edge.b)].sort());
 }
 
 function features(kind, network) {

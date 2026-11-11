@@ -189,3 +189,22 @@ test('unproven build, invalid diagonal, changed family and unknown intent fail c
     'ROADFENCE_OPERATION_TOPOLOGY_INVALID'
   );
 });
+
+test('Fence ADD never hides a removed edge behind delimiter-colliding node IDs', () => {
+  const oldNodes = [
+    node('a', 0, 0), node('b|c', 1, 0),
+    node('a|b', 10, 0), node('c', 11, 0)
+  ];
+  const old = fence(oldNodes, [{ a: 'a', b: 'b|c' }]);
+  const withExtraNode = [...oldNodes, node('spare', 20, 0)];
+  const substituted = fence(withExtraNode, [{ a: 'a|b', b: 'c' }]);
+
+  assert.equal(
+    assess('fence', RoadFenceEditIntent.ADD, old, substituted).errorCode,
+    'ROADFENCE_OPERATION_ADD_NOT_MONOTONIC'
+  );
+
+  // A true monotonic addition must remain accepted.
+  accepted(assess('fence', RoadFenceEditIntent.ADD,
+    old, fence(withExtraNode, [{ a: 'a', b: 'b|c' }])));
+});
