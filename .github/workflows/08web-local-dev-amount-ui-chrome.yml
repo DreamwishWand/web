@@ -1,0 +1,54 @@
+name: 08 WEB local DEV/OFF typed amount editor UI focused Chrome (mock Worker)
+on:
+  pull_request:
+    paths:
+      - 'src/lib/dev/local-amount-*'
+      - 'src/lib/dev/LocalAmountEditorDev.svelte'
+      - 'tests/web-local-dev-amount-*'
+      - 'tests/dev-amount-ui-chrome/**'
+      - '.github/workflows/08web-local-dev-amount-ui-chrome.yml'
+permissions:
+  contents: read
+jobs:
+  local-dev-ui-synthetic-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Require no product / hosted UI / real Save in Source
+        run: |
+          set -euo pipefail
+          test ! -e src/routes/test-dev-amount-ui/+page.svelte
+          test -z "$(git ls-files src/routes/test-dev-amount-ui)"
+          ! git grep -n 'semantic-writer-dev' -- src/routes
+          ! git grep -n 'PRODUCT_READONLY_CONSUMER_OWNER_ENABLED=true' -- src/lib/dev
+          test -f src/lib/dev/LocalAmountEditorDev.svelte
+          test ! -e tests/dev-amount-ui-chrome/fixture-private.p1g
+      - run: npm ci --no-audit --no-fund
+      - name: Focused bounded PR929 typed UI contract and one Worker RPC negatives
+        run: |
+          node --test tests/web-local-dev-amount-workflow.test.mjs tests/web-local-dev-amount-worker-port.test.mjs
+      - name: Create a temporary LOCAL DEV-only Svelte route, never commit or host
+        run: |
+          mkdir -p src/routes/test-dev-amount-ui
+          cp tests/dev-amount-ui-chrome/ci-only-route.svelte src/routes/test-dev-amount-ui/+page.svelte
+          test -s src/routes/test-dev-amount-ui/+page.svelte
+          npm run check
+          command -v google-chrome
+      - name: Real headless Chrome physical 320/CSS200 keyboard and manual typed flow
+        run: node tests/dev-amount-ui-chrome/chrome-smoke.mjs
+      - name: Verify route and QA-only file never tracked and product Writer OFF
+        run: |
+          test -z "$(git ls-files src/routes/test-dev-amount-ui)"
+          rm -f src/routes/test-dev-amount-ui/+page.svelte
+          rmdir src/routes/test-dev-amount-ui
+          test ! -e src/routes/test-dev-amount-ui/+page.svelte
+          test -z "$(git ls-files tests/dev-amount-ui-chrome/*.p1g)"
+          ! grep -R -E 'autoUpload|fetch\(.+POST|writerAuthorized: *true' src/lib/dev
+          echo '08WEB_DEV_UI_FAKE_WORKER_REAL_CHROME_ONLY__NOT_REAL_P1G_RUST_WRITER_E2E__PRODUCT_OFF'
