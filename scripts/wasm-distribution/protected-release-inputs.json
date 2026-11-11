@@ -1,0 +1,19 @@
+{
+  "contract": "wand.r22.protected-main-signed-wasm-release-inputs@1",
+  "acceptedAncestorProtectedMain": "305d0afd6125d9d8a2c3a262a8891e64bac4cfe7",
+  "cargoTomlGitBlob": "f61af649e46cb69db5419563f280219021b354f3",
+  "approvedCargoLockSha256": "e58486d673df79bfe7e72b80449e39389e57010fe4051edcdcff9b53c2da898c",
+  "rustcVersion": "1.99.1",
+  "wasmBindgenCliVersion": "0.2.105",
+  "wasmTarget": "wasm32-unknown-unknown",
+  "releaseProfile": "release",
+  "features": [
+    "indexed-read",
+    "worker-wasm"
+  ],
+  "defaultFeatures": false,
+  "originalPagesWorkflowGitBlob": "27a1cdf7e5ff1d3cdda36a7e18e75bef3e68c98a",
+  "releasePermission": "HUMAN_GATE_NOT_GRANTED",
+  "productConsumerEnabled": false,
+  "writerEnabled": false
+}
