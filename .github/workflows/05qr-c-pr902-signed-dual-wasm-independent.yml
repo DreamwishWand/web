@@ -130,6 +130,10 @@ jobs:
         env:
           BASE_PATH: /web
         run: |
+          node tests/stage-f/generate-fixture.mjs
+          test -s tests/stage-f/fixtures/synthetic626-diffgrids.p1g
+          test -s tests/stage-f/fixtures/expected-diffgrids.json
+          test -z "$(git ls-files tests/stage-f/fixtures)"
           npm ci --no-audit --no-fund
           npm run build
           test -s build/worker-wasm/ddv_save_core.js
